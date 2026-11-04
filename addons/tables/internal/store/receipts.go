@@ -62,8 +62,8 @@ func (s *Store) LookupReceipt(ctx context.Context, operationID string) (contract
 	if !found {
 		return contract.Receipt{OperationID: operationID, State: contract.ReceiptUnknown}, nil
 	}
-	if op.Kind != "schema" && op.Kind != "rows" {
-		return op.receipt(), nil
+	if op.Kind != "schema" && op.Kind != "rows" && op.Kind != "undo" {
+		return s.decorate(ctx, op), nil
 	}
 	db, err := s.openDatabase(op.Resource)
 	if err != nil {

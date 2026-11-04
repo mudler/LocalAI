@@ -289,6 +289,42 @@ concurrency:
 - **PR events** group by PR number → newer pushes to the same PR cancel old runs (intended).
 - **Push events** group by `github.sha` → each master commit gets its own run; rapid-fire merges don't cancel each other (this was a real issue prior — two master pushes 11 seconds apart would cancel the first's CI).
 
+### Test, lint and E2E workflows cancel superseded master runs
+
+`test.yml`, `lint.yml`, `build-test.yaml`, `test-extra.yml`, `tests-e2e.yml`, `tests-ui-e2e.yml`, `tests-aio.yml`, `tests-pii-ner-e2e.yml`, `realtime-conformance.yml` and `ci-tools-tests.yaml` use this instead:
+
+```yaml
+concurrency:
+  group: ci-<workflow>-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
+```
+
+- A newer push to master cancels the older in-flight run of the same workflow. Tests are cumulative, so the newest commit is the one worth testing. This stops a burst of merges from leaving hundreds of queued runs.
+- Tag pushes group by their own tag ref, and schedule and `workflow_dispatch` runs group by SHA, so a master push never cancels them.
+- The cost: the run of an older commit shows as cancelled, so a failure that the newer commit also contains is reported by the newer run, not the older one.
+
+### Add-on workflows
+
+`addons-tests.yml` uses the test-workflow group above, so a newer push to master cancels the older run.
+
+`addons-package.yml` builds and publishes every add-on from the whole tree on each run (no diff base), and the development alias moves only in its promote job. Only the newest master commit matters, but a running publish must not be cancelled half-way. It uses:
+
+```yaml
+concurrency:
+  group: ci-addons-package-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref == 'refs/heads/master' && 'master') || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+```
+
+- Every push to master shares one group and never cancels a running one. GitHub keeps one pending run per group, so a newer queued run replaces an older queued one. The queue is at most one running and one pending run.
+- Tag pushes and `release` events group by SHA, and PRs by number, so they never join the master group.
+- The publish and promote jobs have their own job-level groups with `cancel-in-progress: false`, which stay as they are.
+
+### Image workflows are deliberately not cancelled
+
+`image.yml` and `backend.yml` keep the per-SHA group. Both decide what to build from the diff of one push (`event.before` to `sha`): the `changes` job in `image.yml`, `scripts/changed-backends.js` in `backend.yml`. If a queued run were replaced by a newer one, the newer run would only see its own diff. A code commit followed by a gallery-only commit would then build nothing. Do not add a pending-replacement group to them until the diff base is the last commit that was actually built.
+
+`generate_intel_image.yaml` pushes one fixed tag, so its group is `intel-cache-<event>-<repo>` with `cancel-in-progress: false`: a running build finishes, and a newer pending run replaces an older pending one.
+
 ## Self-warming, no separate populator
 
 There is no cron job that pre-warms the BuildKit cache for individual backends. The production builds *are* the populators. The first master build of a given matrix entry pays the cold cost; subsequent same-entry master builds reuse everything that hasn't changed (apt installs, gRPC compile in the variant `builder-fromsource` stage or skipped entirely when consuming `base-grpc-*`, Python wheel installs, etc.). The base-images workflow's weekly cron is the closest thing to a populator and only refreshes the prebuilt builder bases.
@@ -390,3 +426,58 @@ When changing `image_build.yml`, `backend_build.yml`, any of the `backend/Docker
 5. **Keep `provenance: false` on push-by-digest steps** — multi-registry digest divergence is the Bug We Already Fixed; reintroducing provenance attestation re-breaks the merge.
 6. **`install-base-deps.sh` is the single source of truth for base contents.** Both `Dockerfile.base-grpc-builder` (CI) and the variant Dockerfiles' `builder-fromsource` (local) bind-mount and execute it. If you add a package to one path, add it to the script — don't fork the logic into a Dockerfile RUN.
 7. **After adding a `base-images.yml` matrix variant, run the workflow on your branch before merging consumer changes** that depend on the new tag — otherwise the consumer's CI fails "image not found."
+
+## Native validation paths
+
+The core, build, backend E2E, distributed, UI E2E, add-on test and add-on
+package workflows use native workflow-level `paths` on PRs and master pushes.
+Their YAML lists the consuming areas and shared inputs (`go.mod`, `go.sum`,
+`Makefile`, scripts, local actions and each workflow). Integration workflows
+include broad `core/**` and `pkg/**` areas because their fixture binaries import
+them. Matching changes run the original complete suites and matrices; there is
+no classifier job, dependency graph or focused documentation runner. The
+existing backend image selector and matrices are unchanged.
+
+Ordinary docs and website edits skip these workflows. Executable documentation
+contracts remain explicit inputs:
+
+- `features/addons.md`: packaging, Sandbox tools, add-on endpoints, recovery
+  and Tables administration (core tests, add-on tests and packaging).
+- `features/tables.md`: Tables tools and administration (core and add-on tests).
+- `features/image-generation.md`: gallery entries (core tests).
+- `features/diagnostics.md`, `reference/cli-reference.md` and
+  `getting-started/troubleshooting.md`: diagnostics (core tests).
+
+These paths are under `docs/content/`. Gallery edits still run core gallery
+invariants. Host CSS does not trigger package publishing; the package workflow
+retains its original add-on inputs plus shared build and documentation inputs.
+Package pushes run on master, not every feature branch. Tags remain exempt
+from GitHub path filtering, and release events retain the original publishing
+jobs and failure dependencies. PR cancellation does not cancel master runs or
+replace the per-channel publishing locks.
+
+**Maintenance rule:** when adding or moving source, generated inputs, fixtures,
+build configuration or documentation readers, update both event path lists of
+each consuming workflow in the same change. These are closed allowlists:
+unknown future directories do not automatically trigger validation. Do not add
+a catchall to hide that maintenance requirement. The core workflow has a
+manual full-test entry; distributed tests retain their existing manual and
+nightly entries. No new scheduled runs are added.
+
+GitHub considers at most 300 changed files for path filtering; a relevant file
+outside that list can be missed. Diffs over 1,000 commits, or diff timeouts,
+run workflows regardless of paths. PR and push diff semantics also differ.
+The small static path tests cover representative patterns, not GitHub's diff
+service or expression engine.
+
+**Required checks:** a path-skipped workflow can leave its required check
+pending. Before merging, maintainers must review branch protection/rulesets
+for these workflow checks and the removed classifier/result checks. Preserve
+the original suite check names and do not require a path-filtered workflow on
+every PR. Repository settings are not verified by these tests.
+
+Add-on tests build production fixtures once for the original five groups.
+Same-run artifacts verify SHA, configuration, tool versions, paths, checksums
+and executable modes before rebasing generated timestamps to the consumer
+checkout. Subsequent source edits still fail freshness guards. This does not
+share or replace the instrumented UI coverage build or alter case inventories.

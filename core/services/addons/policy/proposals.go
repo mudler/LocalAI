@@ -117,6 +117,17 @@ type proposalRecord struct {
 	// Resolution is set once the resource owner stopped waiting.
 	Resolution  *gateway.ProposalResolution `json:"resolution,omitempty"`
 	Reconciling bool                        `json:"-"`
+	// Credentialed marks a write of an add-on that declares a credential: the
+	// resource is an entry of the person's binding, not a host resource, and
+	// the host adds the credential to the preview and the apply. It is never
+	// stored. Await marks a proposal that only a person at a host surface may
+	// confirm.
+	Credentialed bool `json:"credentialed,omitempty"`
+	Await        bool `json:"await,omitempty"`
+	// ConnectionID and ConnectionName are the connection the preview used. The
+	// apply uses the same one and is refused when it is gone.
+	ConnectionID   string `json:"connectionId,omitempty"`
+	ConnectionName string `json:"connectionName,omitempty"`
 }
 
 func (r *proposalRecord) copy() *proposalRecord {
@@ -367,6 +378,14 @@ type BrokerOptions struct {
 	// only when it answers "does not exist". Without it a reservation is
 	// never dropped by resolution.
 	BackingExists func(context.Context, ResourceKey) (bool, error)
+	// Credentials gives the preview and the apply of a write tool of an add-on
+	// that declares a credential the secret and the resource of the actor's
+	// binding, with its write mode. Without it such a write is unavailable.
+	Credentials gateway.CredentialSource
+	// ConfirmPerson says which credentials stand for a person at a host
+	// surface, as opposed to a chat turn. A proposal that awaits a person is
+	// confirmed only by such a credential. The default is ConfirmCredential.
+	ConfirmPerson func(contract.Actor) bool
 }
 
 // Broker is the owner-held proposal state machine. A data or schema mutation
@@ -594,7 +613,8 @@ func digestOf(r *proposalRecord) string {
 		Action     string            `json:"action"`
 		Arguments  json.RawMessage   `json:"arguments"`
 		Revision   contract.Revision `json:"revision"`
-	}{r.ID, r.Actor.UserID, r.Actor.Mode, r.AddonID, r.ResourceID, r.Generation, r.Action, r.Arguments, r.Revision})
+		Connection string            `json:"connection,omitempty"`
+	}{r.ID, r.Actor.UserID, r.Actor.Mode, r.AddonID, r.ResourceID, r.Generation, r.Action, r.Arguments, r.Revision, r.ConnectionID})
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
 }
@@ -624,7 +644,8 @@ func effects(summary json.RawMessage) (gateway.ProposalEffects, error) {
 func (b *Broker) view(r proposalRecord) Proposal {
 	p := Proposal{ID: r.ID, OperationID: r.ID, AddonID: r.AddonID, ResourceID: r.ResourceID, Generation: r.Generation, Action: r.Action,
 		Arguments: r.Arguments, Revision: r.Revision, Digest: r.Digest, Effects: r.Effects, State: r.State, ExpiresAt: r.ExpiresAt,
-		CreatedAt: r.CreatedAt, Receipt: r.Receipt, Reason: r.Reason, Resolution: r.Resolution}
+		CreatedAt: r.CreatedAt, Receipt: r.Receipt, Reason: r.Reason, Resolution: r.Resolution, AwaitsPerson: r.Await,
+		ConnectionID: r.ConnectionID, ConnectionName: r.ConnectionName}
 	if r.State == gateway.ProposalPending {
 		p.Blocked = b.blockedBy(r.ResourceID, r.ID) != ""
 	}
@@ -727,6 +748,84 @@ func (b *Broker) proposalAction(ctx context.Context, addonID string, generation 
 	return derived, nil
 }
 
+// credentialTool describes the credential a write tool needs.
+type credentialTool struct {
+	slot contract.CredentialSlot
+	def  contract.ToolDefinition
+}
+
+// credentialOf returns the credential slot and the tool definition when the
+// add-on declares credentials and the arguments name one of its tools.
+func (b *Broker) credentialOf(ctx context.Context, addonID string, generation uint64, args json.RawMessage) (credentialTool, bool, error) {
+	tool, named := gateway.NamedTool(args)
+	if !named {
+		return credentialTool{}, false, nil
+	}
+	var src gateway.CapabilitySource
+	if s, ok := b.opts.Tools.(gateway.CapabilitySource); ok {
+		src = s
+	} else if s, ok := b.opts.Runtime.(gateway.CapabilitySource); ok && b.opts.Tools == nil {
+		src = s
+	}
+	if src == nil {
+		return credentialTool{}, false, ErrForbidden
+	}
+	caps, err := src.DeclaredCapabilities(ctx, addonID, generation)
+	if err != nil {
+		if errors.Is(err, gateway.ErrUnavailable) || gateway.StatusFor(err) != 403 {
+			return credentialTool{}, false, fmt.Errorf("%w: %w", ErrUnavailable, err)
+		}
+		return credentialTool{}, false, ErrForbidden
+	}
+	if len(caps.Credentials) == 0 {
+		return credentialTool{}, false, nil
+	}
+	for _, d := range caps.ToolDefinitions {
+		if d.Name == tool {
+			return credentialTool{slot: caps.Credentials[0], def: d}, true, nil
+		}
+	}
+	return credentialTool{}, false, ErrForbidden
+}
+
+// credentialFor asks the owner of the credential for the secret, the resource
+// and the write mode of the actor's binding. The resource named by the tool
+// must be on that binding's list; the refusal says so before the add-on runs.
+// A write mode of off is a refusal as well.
+func (b *Broker) credentialFor(ctx context.Context, actor contract.Actor, addonID string, ct credentialTool, args json.RawMessage) (gateway.CredentialGrant, error) {
+	if b.opts.Credentials == nil {
+		return gateway.CredentialGrant{}, ErrUnavailable
+	}
+	key, _, err := ct.slot.CredentialResource(ct.def, args)
+	if err != nil {
+		return gateway.CredentialGrant{}, fmt.Errorf("%w: %w", gateway.ErrInvalidRequest, contract.ErrRefused)
+	}
+	grant, err := b.opts.Credentials.Credential(ctx, actor, addonID, key)
+	if err != nil {
+		var refusal *gateway.CredentialRefusal
+		if errors.As(err, &refusal) {
+			return gateway.CredentialGrant{}, refusal
+		}
+		return gateway.CredentialGrant{}, gateway.ClassifyCheck(err)
+	}
+	if grant.ResourceID == "" || grant.ResourceKey == "" || grant.Credential == "" {
+		return gateway.CredentialGrant{}, ErrForbidden
+	}
+	if grant.WriteMode != gateway.WritePropose && grant.WriteMode != gateway.WriteAuto {
+		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeWriteNotAllowed}
+	}
+	return grant, nil
+}
+
+// confirmPerson says whether the credential stands for a person at a host
+// surface and not for a chat turn.
+func (b *Broker) confirmPerson(p *Policy, a contract.Actor) bool {
+	if b.opts.ConfirmPerson != nil {
+		return b.opts.ConfirmPerson(a)
+	}
+	return b.confirmCredential(p, a)
+}
+
 // runtime resolves the addon's current instance, which must have a client.
 func (b *Broker) runtime(ctx context.Context, addonID string) (addonruntime.Instance, error) {
 	instance, err := b.opts.Runtime.Runtime(ctx, addonID)
@@ -773,18 +872,41 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 	if err != nil {
 		return Proposal{}, err
 	}
+	// A write tool of an add-on with a credential works on an entry of the
+	// person's own binding. The host picks the entry from the tool's argument,
+	// holds it to the list and to the write mode, and adds the secret to the
+	// preview and the apply. It is never stored.
+	ct, credentialed, err := b.credentialOf(ctx, request.AddonID, request.Generation, args)
+	if err != nil {
+		return Proposal{}, err
+	}
+	var grant gateway.CredentialGrant
+	if credentialed {
+		if request.ResourceID != "" || ct.def.Kind != contract.ToolKindWrite {
+			return Proposal{}, ErrForbidden
+		}
+		if grant, err = b.credentialFor(ctx, actor, request.AddonID, ct, args); err != nil {
+			return Proposal{}, err
+		}
+		request.ResourceID = grant.ResourceID
+	}
 	now := b.opts.Now()
 	probe := contract.Envelope{Request: request, Authority: contract.Authority{Actor: actor, Scope: "preview", ExpiresAt: now.Add(b.opts.Limits.PreviewTimeout)}}
 	if probe.Validate(now, b.opts.Limits) != nil || request.ResourceID == "" {
 		return Proposal{}, ErrForbidden
 	}
-	key, err := p.Resolve(ctx, actor, request)
-	if err != nil {
-		return Proposal{}, err
+	key := ResourceKey{AddonID: request.AddonID, ResourceID: request.ResourceID}
+	admit := func(run func(context.Context) error) error { return p.Admit(ctx, actor, key, action, run) }
+	if credentialed {
+		admit = func(run func(context.Context) error) error { return p.AdmitAddon(ctx, actor, request.AddonID, run) }
+	} else {
+		if key, err = p.Resolve(ctx, actor, request); err != nil {
+			return Proposal{}, err
+		}
+		request.ResourceID = key.ResourceID
 	}
-	request.ResourceID = key.ResourceID
 	var out Proposal
-	err = p.Admit(ctx, actor, key, action, func(rctx context.Context) error {
+	err = admit(func(rctx context.Context) error {
 		inv := b.store.invalidationCount(key.ResourceID, actor.UserID)
 		if existing, ok := b.store.get(request.OperationID); ok {
 			// The same operation again returns the stored proposal, so a lost
@@ -805,16 +927,20 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 		if instance.Generation != request.Generation {
 			return ErrProposalStale
 		}
-		env := contract.Envelope{Request: request, Authority: contract.Authority{Actor: actor, Scope: "preview", ExpiresAt: b.opts.Now().Add(b.opts.Limits.PreviewTimeout)}}
+		wire := request
+		if credentialed {
+			wire.Credential, wire.ResourceKey = grant.Credential, grant.ResourceKey
+		}
+		env := contract.Envelope{Request: wire, Authority: contract.Authority{Actor: actor, Scope: "preview", ExpiresAt: b.opts.Now().Add(b.opts.Limits.PreviewTimeout)}}
 		preview, e := instance.Client.Preview(rctx, env)
 		if e != nil {
 			if rctx.Err() != nil {
 				return rctx.Err()
 			}
-			if errors.Is(e, contract.ErrRefused) {
+			if refusal := previewRefusal(e); refusal != nil {
 				// The add-on judged the request invalid. A preview changes
 				// nothing, so nothing is stored and the ID stays free.
-				return gateway.Refused(e)
+				return refusal
 			}
 			return ErrUnavailable
 		}
@@ -832,6 +958,11 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 		}
 		rec := &proposalRecord{ID: request.OperationID, Actor: actor, AddonID: key.AddonID, ResourceID: key.ResourceID, Generation: request.Generation,
 			Action: string(action), Arguments: args, Revision: preview.Revision, Effects: eff, State: gateway.ProposalPending, CreatedAt: created, ExpiresAt: expires}
+		if credentialed {
+			rec.Credentialed = true
+			rec.ConnectionID, rec.ConnectionName = grant.BindingID, grant.BindingName
+			rec.Await = grant.WriteMode != gateway.WriteAuto || ct.def.Approval == contract.ApprovalAlways
+		}
 		rec.Digest = digestOf(rec)
 		if rctx.Err() != nil {
 			return ErrForbidden
@@ -843,6 +974,23 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 		return e
 	})
 	return out, err
+}
+
+// previewRefusal types a failed preview that is the add-on's definite answer
+// as a refusal: an invalid request, or a conflict with what it holds (a table
+// that exists), or as a denial of the person. A preview changes nothing, so neither is an outage and a
+// repeat of the same call is refused again. Any other failure returns nil.
+func previewRefusal(err error) error {
+	switch {
+	case errors.Is(err, contract.ErrRefused), errors.Is(err, contract.ErrDenied):
+		return gateway.Refused(err)
+	case errors.Is(err, addonruntime.ErrConflict):
+		// The conflict error itself stays out of the chain: it is an ErrRuntime
+		// for callers that do not tell it apart, and the gateway would then
+		// read the refusal as an outage again.
+		return gateway.Refused(fmt.Errorf("%w: the add-on found a conflict with what it holds", contract.ErrRefused))
+	}
+	return nil
 }
 
 // proposeCreate stores a request to create a resource. The resource does not
@@ -922,8 +1070,8 @@ func (b *Broker) proposeCreate(ctx context.Context, p *Policy, actor contract.Ac
 		if ctx.Err() != nil {
 			return Proposal{}, ctx.Err()
 		}
-		if errors.Is(err, contract.ErrRefused) {
-			return Proposal{}, gateway.Refused(err)
+		if refusal := previewRefusal(err); refusal != nil {
+			return Proposal{}, refusal
 		}
 		return Proposal{}, ErrUnavailable
 	}
@@ -1296,6 +1444,11 @@ func (b *Broker) ConfirmBound(ctx context.Context, actor contract.Actor, proposa
 	if err = b.authorizeTool(ctx, r.AddonID, r.Generation, r.Arguments); err != nil {
 		return contract.Receipt{}, err
 	}
+	if r.Await && !b.confirmPerson(p, actor) {
+		// Only a person at a host surface applies it: a chat turn or an agent
+		// that proposed it cannot.
+		return contract.Receipt{}, ErrForbidden
+	}
 	key := ResourceKey{AddonID: r.AddonID, ResourceID: r.ResourceID}
 	var receipt contract.Receipt
 	var outcome error
@@ -1303,7 +1456,9 @@ func (b *Broker) ConfirmBound(ctx context.Context, actor contract.Actor, proposa
 		receipt, outcome = b.execute(rctx, actor, r.ID)
 		return outcome
 	}
-	if r.Action == createAction {
+	if r.Credentialed {
+		err = p.AdmitAddon(ctx, actor, r.AddonID, run)
+	} else if r.Action == createAction {
 		// No resource exists to hold a role on: the actor needs creation
 		// authority now and must own the pending reservation.
 		err = p.admitCreate(ctx, actor, key, run)
@@ -1362,6 +1517,36 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 	if ctx.Err() != nil {
 		return contract.Receipt{}, ErrForbidden
 	}
+	// The credential is fetched again for the apply: the person may have
+	// lowered the write mode, removed the repository from the list or replaced
+	// the token since the proposal. A refusal leaves the proposal pending.
+	var grant gateway.CredentialGrant
+	if r.Credentialed {
+		ct, credentialed, cerr := b.credentialOf(ctx, r.AddonID, r.Generation, r.Arguments)
+		if cerr != nil {
+			return contract.Receipt{}, cerr
+		}
+		if !credentialed || r.Actor.UserID != actor.UserID {
+			return contract.Receipt{}, ErrForbidden
+		}
+		// The apply uses the connection the person saw at the preview, not
+		// the one the chat would pick now.
+		if r.ConnectionID != "" {
+			ctx = gateway.WithConnection(ctx, r.ConnectionID)
+		}
+		if grant, err = b.credentialFor(ctx, actor, r.AddonID, ct, r.Arguments); err != nil {
+			return contract.Receipt{}, err
+		}
+		if grant.ResourceID != r.ResourceID || (r.ConnectionID != "" && grant.BindingID != r.ConnectionID) {
+			return contract.Receipt{}, ErrForbidden
+		}
+		// A proposal that waits for a person is confirmed at a host surface,
+		// never from a chat turn: in local-owner mode the credential of a
+		// chat turn is the browser's, so the mark of the call decides.
+		if (r.Await || grant.WriteMode != gateway.WriteAuto) && (gateway.IsChatTurn(ctx) || !b.confirmPerson(b.policy, actor)) {
+			return contract.Receipt{}, ErrForbidden
+		}
+	}
 	if _, err = b.store.transition(id, []ProposalState{gateway.ProposalPending}, func(x *proposalRecord) {
 		x.State = gateway.ProposalExecuting
 		x.Reason = ""
@@ -1384,8 +1569,12 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		})
 		return contract.Receipt{}, ErrForbidden
 	}
+	wire := contract.Request{AddonID: r.AddonID, ResourceID: r.ResourceID, OperationID: r.wireOperation(), Generation: r.Generation, Action: r.wireAction(), Arguments: r.Arguments}
+	if r.Credentialed {
+		wire.Credential, wire.ResourceKey = grant.Credential, grant.ResourceKey
+	}
 	env := contract.Envelope{
-		Request:   contract.Request{AddonID: r.AddonID, ResourceID: r.ResourceID, OperationID: r.wireOperation(), Generation: r.Generation, Action: r.wireAction(), Arguments: r.Arguments},
+		Request:   wire,
 		Authority: contract.Authority{Actor: actor, Scope: "apply", ExpiresAt: b.opts.Now().Add(b.opts.Limits.ApplyTimeout)},
 	}
 	receipt, err := instance.Client.Apply(ctx, env, r.Revision)
@@ -1393,8 +1582,8 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		b.hooks.afterApply(id)
 	}
 	unknown := &gateway.OutcomeUnknown{OperationID: id}
-	if errors.Is(err, contract.ErrRefused) {
-		// The add-on refused the apply before it began: it is deterministic
+	if errors.Is(err, contract.ErrRefused) || errors.Is(err, contract.ErrDenied) {
+		// The add-on refused or denied the apply before it began: it is deterministic
 		// and nothing was applied, so the proposal ends as rejected and the
 		// resource is not blocked by an unresolved outcome.
 		b.settle(id, gateway.ProposalRejected, nil, "refused by the addon as invalid")

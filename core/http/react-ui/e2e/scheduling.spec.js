@@ -158,8 +158,8 @@ test.describe('Placement rules page', () => {
     await expect(page.getByRole('button', { name: 'Edit llama-3.3' })).toBeFocused()
     await page.getByRole('button', { name: 'New rule' }).click()
     await expect(page.getByTestId('rule-sheet')).toHaveCount(1)
-    await expect(page.getByRole('combobox', { name: 'Model' })).toHaveValue('')
-    await expect(page.getByRole('combobox', { name: 'Model' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Model' })).toContainText('Type to search')
+    await expect(page.getByRole('button', { name: 'Model' })).toBeEnabled()
   })
 
   // The roster feeds suggestions and nothing else now, so failing to load it
@@ -202,7 +202,7 @@ test.describe('Placement rules page', () => {
       await page.route('**/api/models/capabilities', route => route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ object: 'list', data: [{ id: 'llama-3.3' }, { id: 'production' }] }),
+        body: JSON.stringify({ object: 'list', data: [{ id: 'llama-3.3' }, { id: 'production', alias_of: 'llama-3.3' }] }),
       }))
     }
 
@@ -240,9 +240,9 @@ test.describe('Placement rules page', () => {
       await page.goto('/app/scheduling')
       await page.getByRole('button', { name: 'New rule' }).click()
 
-      const picker = page.getByRole('combobox', { name: 'Model' })
+      const picker = page.getByRole('button', { name: 'Model' })
       await picker.click()
-      await expect(page.locator('.dk-cmd-desc')).toHaveText('alias of llama-3.3')
+      await expect(page.getByRole('option', { name: /production/ }).locator('.home-menu__tag')).toHaveText('alias of llama-3.3')
 
       await page.getByRole('option', { name: /production/ }).click()
       await expect(page.getByText(/production is an alias for llama-3\.3/)).toBeVisible()

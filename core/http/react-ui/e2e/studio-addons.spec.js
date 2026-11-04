@@ -5,7 +5,7 @@ import { mockStudio } from './studio-fixtures.js'
 import { fakeRealtime } from './chat-fixtures.js'
 
 // Studio and Talk are packaged add-ons. These specs run the real built bundles
-// inside the add-on shell: the pages draw, the old addresses open them, the
+// inside the add-on shell: the pages draw, canonical addresses open them, the
 // links they hold reach the core pages, and nothing is left when they are not
 // installed.
 
@@ -61,14 +61,14 @@ test.describe('Studio add-on', () => {
 
   test('a model id with a slash and a colon travels as ?model= and reaches the page', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio/images/sd-1.5-lcm?size=768x768')
+    await page.goto('/app/addons/studio/studio/images?size=768x768&model=sd-1.5-lcm')
     await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/images\?size=768x768&model=sd-1\.5-lcm$/)
     await expect(page.locator('.studio-tab-active[data-tab="images"]')).toBeVisible({ timeout: 15_000 })
   })
 
-  test('the old Studio addresses say so plainly when the add-on is not installed', async ({ page }) => {
+  test('the canonical Studio addresses say so plainly when the add-on is not installed', async ({ page }) => {
     await stubAddonRoutes(page)
-    for (const address of ['/app/studio', '/app/studio/tts', '/app/image', '/app/talk']) {
+    for (const address of ['/app/addons/studio/studio', '/app/addons/studio/studio/tts', '/app/addons/studio/studio/images', '/app/addons/talk/talk']) {
       await page.goto(address)
       await expect(page.getByTestId('addon-unavailable')).toBeVisible({ timeout: 15_000 })
       await expect(page).toHaveURL(/\/app\/addons\/(studio|talk)\//)
@@ -119,7 +119,7 @@ test.describe('Without the add-ons', () => {
   test('the Add-ons drawer does not list Studio or Talk, and the sidebar has no Create group', async ({ page }) => {
     await page.goto('/app/addons')
     await expect(page.getByTestId('addon-tile').filter({ hasText: /Studio|Talk/ })).toHaveCount(0)
-    await expect(page.locator('.sidebar-nav a[href="/app/studio"], .sidebar-nav a[href="/app/talk"]')).toHaveCount(0)
+    await expect(page.locator('.sidebar-nav a[href="/app/addons/studio/studio"], .sidebar-nav a[href="/app/addons/talk/talk"]')).toHaveCount(0)
     await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
   })
 

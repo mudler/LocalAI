@@ -3,7 +3,7 @@ title = "Cloud passthrough proxy"
 weight = 28
 toc = true
 url = "/features/cloud-proxy/"
-description = "Forward requests to OpenAI, Anthropic, or any compatible provider"
+description = "Forward requests to OpenAI, Anthropic, OrcaRouter, or any compatible provider"
 tags = ["Proxy", "Cloud", "Routing", "Advanced"]
 categories = ["Features"]
 +++
@@ -63,9 +63,28 @@ against - and two modes:
 `proxy.provider` selects the auth scheme and (in translate mode) the wire
 format. Supported values: `openai`, `anthropic`.
 
-If the upstream requires an API key, configure either an environment variable
-(`api_key_env`) or a file (`api_key_file`). The key never appears in the config
-file or the admin UI. If the upstream requires no API key, omit both fields.
+If the upstream requires an API key, configure one of `api_key`, `api_key_env`
+(an environment variable name), or `api_key_file` (a file path). If the upstream
+requires no API key, omit all three fields.
+
+`api_key` is a plaintext administrator-managed credential, supported by both
+`cloud-proxy` and `localai-proxy`:
+
+```yaml
+proxy:
+  api_key: your-upstream-key
+```
+
+The model editor masks this input but preserves its actual value on unrelated
+saves. Masking is not encryption or vault storage: model YAML/JSON, admin
+configuration responses, exports, and backups can contain the plaintext key,
+just as they can contain model `env` values. Restrict access and protect files
+and backups. Use `api_key_env` or `api_key_file` for external secret management.
+
+Direct keys require updated core and proxy backend binaries. In distributed
+installations, update workers and their proxy backends before frontends; older
+binaries can ignore this additive field and send unauthenticated requests.
+This does not add distributed model-environment propagation.
 
 ### OpenAI passthrough
 
@@ -125,6 +144,44 @@ pii:
 Anthropic clients hit `http://localhost:8080/v1/messages` with
 `"model": "claude-sonnet-proxy"`.
 
+### OrcaRouter passthrough
+
+[OrcaRouter](https://www.orcarouter.ai) is a hosted OpenAI-compatible gateway
+that routes to many upstream models under a single key. It speaks the OpenAI
+chat-completions wire format, so point a cloud-proxy model at it with
+`provider: openai`:
+
+```yaml
+name: orcarouter-auto
+backend: cloud-proxy
+
+proxy:
+  mode: passthrough
+  provider: openai
+  upstream_url: https://api.orcarouter.ai/v1/chat/completions
+  api_key_env: ORCAROUTER_API_KEY
+  upstream_model: orcarouter/auto
+  request_timeout_seconds: 300
+
+pii:
+  enabled: true
+```
+
+Then start LocalAI with the key in the environment:
+
+```bash
+export ORCAROUTER_API_KEY=sk-orca-...
+local-ai run
+```
+
+Clients hit `http://localhost:8080/v1/chat/completions` with `"model":
+"orcarouter-auto"` and LocalAI forwards the request to OrcaRouter.
+
+`orcarouter/auto` lets OrcaRouter pick the best model for each prompt. To pin
+a specific model, set `upstream_model` to its id from the OrcaRouter catalog
+(in `provider/model-name` form). Leave
+`upstream_model` empty to pass the client's `model` field through unchanged.
+
 ### Other OpenAI-compatible providers
 
 Most third-party providers (Together, Groq, DeepInfra, OpenRouter, …) speak
@@ -143,10 +200,46 @@ proxy:
   upstream_model: meta-llama/Llama-3-70b-chat-hf
 ```
 
+### Images
+
+LocalAI cannot ask an upstream which inputs its model accepts. A cloud-proxy
+model is text only until its configuration says that it can look at images:
+
+```yaml
+name: gpt-4o-proxy
+backend: cloud-proxy
+known_usecases: [chat, vision]
+proxy:
+  mode: passthrough
+  provider: openai
+  upstream_url: https://api.openai.com/v1/chat/completions
+  api_key_env: OPENAI_API_KEY
+  upstream_model: gpt-4o
+```
+
+In the model editor, the Cloud Proxy section has the switch **This model can
+look at images**, which adds `vision` to `known_usecases` or removes it.
+Declare it only when the upstream model accepts images: LocalAI does not
+check.
+
+With the declaration, `/v1/models/capabilities` lists the model with the
+`vision` capability and `image` input, and the [chats]({{% relref "features/chats#images-and-vision" %}})
+send an attached image to the model inside the message, as an `image_url`
+part with a `data:` URL. Passthrough mode forwards the part as it is. Without
+it, the chats give the model the file path and the `describe_image` tool.
+When no other model can look at images, `describe_image` tries the cloud model
+anyway, since the upstream may accept them. If the upstream refuses, the tool
+tells the user to turn on the switch above, choose another model, or ask an
+administrator to set a Chat image model.
+
+Translate mode sends the upstream the text of the messages only, so a
+translate-mode model never takes images, whatever it declares, and the editor
+does not show the switch for it.
+
 ### Upstreams without an API key
 
 For an OpenAI-compatible upstream that accepts requests without authentication,
-omit both `api_key_env` and `api_key_file`:
+omit `api_key`, `api_key_env`, and `api_key_file`:
 
 ```yaml
 name: internal-chat-proxy
@@ -239,7 +332,7 @@ proxy:
 ```
 
 The file is read at backend load time and trimmed of surrounding whitespace.
-`api_key_env` and `api_key_file` are mutually exclusive.
+`api_key`, `api_key_env`, and `api_key_file` are mutually exclusive.
 
 ## Combining with the intelligent router
 
@@ -394,6 +487,9 @@ Known limits:
   as `502 Bad Gateway`.
 - **No request shape validation.** If the upstream rejects the body, its
   error envelope is forwarded to the client unchanged.
+- **No capability detection.** LocalAI cannot tell whether the upstream model
+  accepts images. Declare `vision` in `known_usecases` when it does (see
+  [Images](#images)).
 
 ## Operational notes
 

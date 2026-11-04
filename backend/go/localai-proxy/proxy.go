@@ -92,7 +92,7 @@ func (p *LocalAIProxy) Load(opts *pb.ModelOptions) error {
 			"mode", po.GetMode(), "provider", po.GetProvider())
 	}
 
-	key, err := resolveAPIKey(po.GetApiKeyEnv(), po.GetApiKeyFile())
+	key, err := resolveAPIKey(po.GetApiKey(), po.GetApiKeyEnv(), po.GetApiKeyFile())
 	if err != nil {
 		return err
 	}
@@ -151,7 +151,19 @@ func (p *LocalAIProxy) model(req string) string {
 
 // resolveAPIKey mirrors config.ProxyConfig.ResolveAPIKey (and cloud-proxy's
 // copy). Duplicated so the backend binary does not depend on core's layout.
-func resolveAPIKey(envName, filePath string) (string, error) {
+func resolveAPIKey(directKey, envName, filePath string) (string, error) {
+	sources := 0
+	for _, value := range []string{directKey, envName, filePath} {
+		if value != "" {
+			sources++
+		}
+	}
+	if sources > 1 {
+		return "", fmt.Errorf("localai-proxy: api_key, api_key_env and api_key_file are mutually exclusive")
+	}
+	if directKey != "" {
+		return directKey, nil
+	}
 	if envName != "" {
 		v := os.Getenv(envName)
 		if v == "" {

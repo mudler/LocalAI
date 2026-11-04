@@ -1,3 +1,0 @@
-grpcio==1.78.1
-protobuf
-certifi

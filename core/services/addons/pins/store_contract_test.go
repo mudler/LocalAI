@@ -46,35 +46,20 @@ func registerStoreContract(open func() Store) {
 		Expect(got).To(BeEmpty(), "leak: %v", idsOf(got))
 	})
 
-	It("the upgrade seed pins existing accounts once and skips later ones", func() {
-		ran, err := s.SeedExisting(ctx, []string{"u1", "u2"}, SeedIDs)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(ran).To(BeTrue())
-		for _, u := range []string{"u1", "u2"} {
-			got, _ := s.List(ctx, u)
-			Expect(idsOf(got)).To(Equal([]string{"studio", "talk"}), "account %s that existed at the upgrade must have both pins", u)
-		}
-		// An account created after the upgrade has no pins.
-		got, _ := s.List(ctx, "u3")
-		Expect(got).To(BeEmpty(), "a later account must start empty")
-		_ = s.Replace(ctx, "u1", []string{"talk"}) // u1 unpins studio
-		again, err := s.SeedExisting(ctx, []string{"u1", "u2", "u3"}, SeedIDs)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(again).To(BeFalse(), "the seed ran twice")
-		got, _ = s.List(ctx, "u1")
-		Expect(idsOf(got)).To(Equal([]string{"talk"}), "an unpin must stick")
-		got, _ = s.List(ctx, "u3")
-		Expect(got).To(BeEmpty(), "a second run must not seed a later account")
+	It("starts all accounts empty until explicit replacement", func() {
+		Expect(s.List(ctx, "u1")).To(BeEmpty())
+		Expect(s.Replace(ctx, "u1", []string{"studio", "talk"})).To(Succeed())
+		Expect(s.List(ctx, "u2")).To(BeEmpty())
+		Expect(s.Replace(ctx, "u1", []string{"talk"})).To(Succeed())
+		got, err := s.List(ctx, "u1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(idsOf(got)).To(Equal([]string{"talk"}))
 	})
 
-	It("a deployment with no account still records the seed, so a later account starts empty", func() {
-		ran, err := s.SeedExisting(ctx, nil, SeedIDs)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(ran).To(BeTrue(), "an empty first run must count")
-		again, _ := s.SeedExisting(ctx, []string{"late"}, SeedIDs)
-		Expect(again).To(BeFalse(), "the seed must not run after the first call")
-		got, _ := s.List(ctx, "late")
-		Expect(got).To(BeEmpty(), "a new account must start with no pins")
+	It("keeps an explicit empty selection empty", func() {
+		Expect(s.Replace(ctx, "u1", []string{"studio"})).To(Succeed())
+		Expect(s.Replace(ctx, "u1", []string{})).To(Succeed())
+		Expect(s.List(ctx, "u1")).To(BeEmpty())
 	})
 
 	It("missing pins are marked, cleared and deleted after the window", func() {
@@ -116,5 +101,18 @@ func registerStoreContract(open func() Store) {
 		d, _ := s.Distinct(ctx)
 		slices.Sort(d)
 		Expect(d).To(Equal([]string{"a", "b", "c"}))
+	})
+
+	It("applies equal retention to never-installed IDs in every store", func() {
+		Expect(s.Replace(ctx, "u1", []string{"studio", "talk", "arbitrary"})).To(Succeed())
+		now := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+		Expect(Sweep(ctx, s, []string{}, now)).To(BeZero())
+		got, err := s.List(ctx, "u1")
+		Expect(err).NotTo(HaveOccurred())
+		for _, pin := range got {
+			Expect(pin.MissingSince).To(Equal(&now))
+		}
+		Expect(Sweep(ctx, s, []string{}, now.Add(Retention))).To(BeZero())
+		Expect(Sweep(ctx, s, []string{}, now.Add(Retention+time.Second))).To(BeEquivalentTo(3))
 	})
 }

@@ -11,7 +11,7 @@ async function open(page, work, { types } = {}) {
   await mockStudio(page, { types })
   await stubMedia(page)
   await seedHistory(page, sampleHistory())
-  await page.goto(`/app/studio?work=${work}`)
+  await page.goto(`/app/addons/studio/studio?work=${work}`)
   await expect(page.locator('[data-testid="studio-lineage"]')).toBeVisible()
 }
 
@@ -29,7 +29,7 @@ test.describe('Lineage view', () => {
     await mockStudio(page)
     await stubMedia(page)
     await seedHistory(page, sampleHistory())
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await page.locator('[data-testid="work-project"] button').first().click()
     await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\?work=vid-push/)
     await expect(node(page, 'vid-push')).toHaveAttribute('data-selected', 'true')
@@ -204,10 +204,10 @@ test.describe('Lineage view: what a page cannot take yet', () => {
 
   test('a 3D object cannot be repeated or branched, and the dock says so', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     const { seedThreeD } = await import('./studio-fixtures.js')
     await seedThreeD(page, [{ id: 'm1', createdAt: Date.now() - 5000, name: 'vase.glb', label: 'Ribbed vase', model: 'trellis-image-to-3d' }])
-    await page.goto('/app/studio?work=m1')
+    await page.goto('/app/addons/studio/studio?work=m1')
     await expect(page.locator('[data-testid="studio-take"]')).toBeDisabled()
     await expect(page.locator('[data-testid="studio-branch"]')).toBeDisabled()
     await expect(page.locator('[data-testid="studio-dock-hint"]')).toContainText('original input was not kept')
@@ -276,7 +276,7 @@ test.describe('Inline upscale', () => {
         : { data: [{ url: '/generated-images/upscaled.png', width: 99999, height: 99999 }] } })
     })
     if (failure === 'result-decode') await page.route('**/generated-images/upscaled.png', route => route.fulfill({ contentType: 'image/png', body: 'broken' }))
-    await page.goto('/app/studio?work=img-bowls')
+    await page.goto('/app/addons/studio/studio?work=img-bowls')
     await page.getByTestId('studio-dock-toggle').click()
     return () => requests
   }

@@ -12,7 +12,12 @@ inventory = json.loads((root / 'scripts/addons/suites.json').read_text())
 if suite not in inventory:
     sys.exit('unknown or unavailable suite: ' + suite)
 entry = inventory[suite]
-if not entry.get('commands') or not entry.get('cases'):
+# A suite with per-report inventories takes its required cases from them, so
+# a case is listed once. A second list drifts and breaks the gate.
+if 'reports' in entry and 'cases' in entry:
+    sys.exit('suite lists its cases twice: drop the top-level cases, the reports carry them')
+expected = [c for r in entry['reports'] for c in r['cases']] if 'reports' in entry else entry.get('cases')
+if not entry.get('commands') or not expected:
     sys.exit('empty command/test inventory')
 cache = root / '.cache/addons'
 (cache / 'logs').mkdir(parents=True, exist_ok=True)
@@ -60,26 +65,12 @@ def failure_summary(command, output, status):
     if tail: lines.append('last output: ' + ' | '.join(l[:200] for l in tail))
     lines.append('child status %d; failed: %s; log: %s' % (status, ', '.join(names[:10]) or 'unknown', log))
     return '\n'.join(lines)
-def ginkgo_report(path, expected):
-    try:
-        reports = json.loads(path.read_text())
-        assert isinstance(reports, list) and reports
-        cases = []
-        for report in reports:
-            assert report['SuiteSucceeded'] is True
-            specs = report['SpecReports']
-            assert specs
-            for spec in specs:
-                assert spec['State'] == 'passed'
-                if spec['LeafNodeType'] == 'It': cases.append(spec['LeafNodeText'])
-        assert cases and sorted(cases) == sorted(expected)
-    except (OSError, ValueError, KeyError, TypeError, AssertionError):
-        sys.exit('Ginkgo report missing, empty, skipped, failed or inventory mismatch: '+str(path))
-    return cases
+sys.path.insert(0, str(root / 'scripts/addons'))
+from ginkgo_report import ginkgo_report
 
 seen = []
 if entry['kind'] == 'ginkgo':
-    reports = entry.get('reports', [dict(path=entry['report'], cases=entry['cases'])])
+    reports = entry['reports'] if 'reports' in entry else [dict(path=entry['report'], cases=entry['cases'])]
     if not reports: sys.exit('empty report inventory')
     for report in reports: (root/report['path']).unlink(missing_ok=True)
 for command in entry['commands']:
@@ -93,8 +84,8 @@ for command in entry['commands']:
             seen.append(item['case'])
 if entry['kind'] == 'ginkgo':
     seen = []
-    for report in reports: seen.extend(ginkgo_report(root/report['path'], report['cases']))
-if sorted(seen) != sorted(entry['cases']):
+    for report in reports: seen.extend(ginkgo_report(root/report['path'], report['cases'], report.get('focus')))
+if sorted(seen) != sorted(expected):
     sys.exit('required case inventory mismatch: '+repr(seen))
 # Run real readiness only after the shell test inventory has passed.
 run(['sh', 'scripts/addons/prepare.sh', '--check'])

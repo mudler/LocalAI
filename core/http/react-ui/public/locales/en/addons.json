@@ -3,13 +3,14 @@
     "blocked": "An earlier action on this add-on is not confirmed yet. Check its status or dismiss it first.",
     "checkStatus": "Check status",
     "dismiss": "Dismiss",
-    "failed": "The owner did not complete the action. Nothing was changed. Try again to start a new attempt.",
-    "notApplied": "The owner reported the action as done, but the add-on did not change. Try again to start a new attempt.",
-    "unknown": "The owner did not confirm the action yet. It may still be applied. Check its status, or dismiss it before you start another action."
+    "failed": "The action did not finish. Nothing was changed. Try again to start a new attempt.",
+    "notApplied": "The action was reported as done, but the add-on did not change. Try again to start a new attempt.",
+    "unknown": "The action is not confirmed yet. It may still be applied. Check its status, or dismiss it before you start another action."
   },
   "approval": {
     "title": "Approval needed",
     "from": "From {{addon}}",
+    "connection": "Connection: {{name}}",
     "loading": "Loading the request",
     "failed": "This request is not available.",
     "rejected": "The request could not be completed. Check its state and try again.",
@@ -37,14 +38,16 @@
     "emptyTitle": "No add-ons yet",
     "firstRun": {
       "browse": "Find add-ons",
-      "title": "Add your first add-on",
-      "lead": "Add-ons give LocalAI pages and chat tools. Start with one of these, or find more.",
-      "featuredLabel": "Featured add-ons",
+      "title": "No add-ons yet",
+      "lead": "Add-ons give LocalAI new pages and chat tools. They run on their own and ask only for what they list.",
+      "featuredLabel": "Start with one of these",
       "featuredFailed": "The list of add-ons could not be read.",
-      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons."
+      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons.",
+      "factChecked": "Checked against your sources before they run",
+      "factRemove": "Turn off or remove any time"
     },
     "headless": "Runs in the background and has no page of its own.",
-    "listLabel": "My add-ons",
+    "listLabel": "Installed add-ons",
     "loading": "Loading add-ons",
     "manage": "Manage",
     "open": "Open",
@@ -56,10 +59,14 @@
     "tools_one": "{{count}} tool",
     "tools_other": "{{count}} tools",
     "version": "Version {{version}}",
-    "working": "Waiting for the owner to confirm.",
+    "working": "Waiting for confirmation.",
     "noMatchTitle": "No add-on matches",
-    "noMatchBody": "Nothing in My add-ons matches \"{{query}}\". Try other words.",
-    "clearSearch": "Clear search"
+    "noMatchBody": "Nothing installed matches \"{{query}}\". Try other words.",
+    "clearSearch": "Clear search",
+    "loadError": {
+      "title": "Add-ons are not available right now.",
+      "paused": "Add-on pages and tools are paused until it is back."
+    }
   },
   "browse": {
     "confirmTitle": "Install {{name}}?",
@@ -69,7 +76,7 @@
     "fromLibrary": "from {{library}}",
     "install": "Install",
     "installedDetail": "Version {{version}}, generation {{generation}}",
-    "installedOther": "Installed {{version}} (another version)",
+    "installedOther": "You have {{version}}",
     "installedSame": "Installed {{version}}",
     "installedState": "Installed",
     "installing": "Installing",
@@ -85,7 +92,8 @@
     "backendFailed": "The backend was not installed.",
     "alias": "Alias",
     "kindLabel": "Kind",
-    "installedOn": "{{name}} is installed and on."
+    "installedOn": "{{name}} is installed and on.",
+    "installedChip": "Installed"
   },
   "catalog": {
     "allLibraries": "All libraries",
@@ -115,8 +123,8 @@
     "pin": "Pin {{name}}",
     "pinLabel": "Pin",
     "pinned": "Pinned",
-    "running": "On",
-    "search": "Search add-ons",
+    "running": "Running",
+    "search": "Search installed add-ons",
     "status": {
       "failed": "failed",
       "starting": "starting"
@@ -129,7 +137,7 @@
     "denied": "The server refused this. You may not have permission, or the add-on changed. The list was refreshed.",
     "invalid": "The server could not accept this request.",
     "network": "The server could not be reached. Check your connection.",
-    "unavailable": "The add-on owner is not available right now. Try again in a moment.",
+    "unavailable": "Add-ons are not available right now. Try again in a moment.",
     "unknownOutcome": "The result could not be confirmed. Check the status before you try again."
   },
   "installed": {
@@ -182,7 +190,7 @@
     "gallery": "Gallery index",
     "hints": {
       "id": "Lowercase letters, digits and hyphens. It cannot change later.",
-      "reference": "The name of a credential the owner configured. Never paste a token or password here.",
+      "reference": "The name of a credential an administrator configured on this server. Never paste a token or password here.",
       "url": "An https address without credentials or a query string.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
@@ -201,7 +209,7 @@
       "model": "Models"
     },
     "lastRefresh": "Refreshed {{when}}, {{count}} entries",
-    "lead": "A library is an index that lists add-ons, backends or models. Credentials are never typed here: a private add-on library names a credential the owner configured.",
+    "lead": "A library is an index that lists add-ons, backends or models. Credentials are never typed here: a private add-on library names a credential an administrator configured on this server.",
     "listLabel": "Libraries",
     "loading": "Loading libraries",
     "notRefreshed": "Not refreshed yet",
@@ -251,10 +259,11 @@
     "hasUI": "Has pages",
     "headless": "Headless, no pages",
     "health": "Health",
+    "installedAt": "Installed",
     "host": "Host API",
     "interface": "Interface",
     "logs": "Logs",
-    "logsNone": "The output of add-on processes is not collected in this release. Health and restart attempts above are what the owner can report.",
+    "logsNone": "The output of add-on processes is not collected in this release. Health and restart attempts above are all that LocalAI can report.",
     "observed": "Observed state",
     "protocol": "Protocol",
     "restarts": "Restart attempts",
@@ -338,17 +347,19 @@
   "state": {
     "failed": "Failed",
     "label": "State: {{state}}",
-    "running": "On",
+    "running": "Running",
     "starting": "Starting",
     "stopped": "Off",
-    "update-pending": "Update pending"
+    "update-pending": "Update pending",
+    "updateTo": "Update {{version}}"
   },
-  "supporting": "Add-ons extend LocalAI with pages and chat tools. Find one, turn it on, and use it.",
+  "supporting": "Software you install to give LocalAI new pages and chat tools. Each one runs on its own and asks only for what it lists.",
   "tabs": {
-    "apps": "My add-ons",
+    "apps": "Installed",
     "browse": "Find add-ons",
     "label": "Add-ons sections",
-    "libraries": "Sources"
+    "libraries": "Sources",
+    "access": "Host access"
   },
   "title": "Add-ons",
   "trust": {
@@ -516,8 +527,8 @@
       "unknownOutcome": "The outcome is not known. Read the state again: the same action is not sent twice.",
       "auth": "Sign in again.",
       "denied": "Only administrators can do this, from their own browser session.",
-      "network": "The owner could not be reached.",
-      "unavailable": "The owner is not available."
+      "network": "The add-on service could not be reached.",
+      "unavailable": "The add-on service is not available."
     }
   },
   "updates": {
@@ -591,8 +602,30 @@
       "auth": "Sign in again to continue.",
       "denied": "Only an administrator can do this from their own browser session.",
       "network": "The network is not reachable.",
-      "unavailable": "The add-on owner is not available. Try again."
-    }
+      "unavailable": "The add-on service is not available. Try again."
+    },
+    "upgradeNamed": "Upgrade {{name}}",
+    "why": {
+      "role": "An update is available. Only an administrator can upgrade it.",
+      "needs-check": "An update is reported, but its details are not confirmed yet. Check again to confirm it.",
+      "check-failed": "The last check failed, so the update cannot be confirmed. Check again.",
+      "incompatible": "An update exists but cannot run here:",
+      "integrity": "The library lists this version with different contents. It is not offered as an update.",
+      "recovery": "The data of this add-on needs recovery first. Restore a backup in Details, then upgrade.",
+      "current": "The latest check found no update. The notice may be out of date. Check again.",
+      "unpinned": "The library reports an update but names no build to install, so it cannot be upgraded from here. Check again later."
+    },
+    "checkAll": "Check for updates",
+    "checkingAll": "Checking...",
+    "checkAllDone": "Checked {{count}} add-ons.",
+    "checkAllFailed": "{{count}} could not be checked.",
+    "checkResult": {
+      "done": "Checked.",
+      "failed": "The check did not complete.",
+      "justNow": "Checked just now."
+    },
+    "waitingService": "The add-on service is starting. LocalAI asks about the upgrade again in {{seconds}} s.",
+    "checkAgain": "Check now"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -629,17 +662,19 @@
     "addsTools_other": "Adds {{count}} tools",
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
-    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted."
+    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
+    "removeNamed": "Remove {{name}}…"
   },
   "preview": {
     "screenshots": "Screenshots",
-    "adds": "What it adds",
+    "adds": "What it can do",
     "page": "A page of its own in LocalAI",
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
     "sourceUnknown": "Not known",
-    "moreDetails": "Health, trust and updates"
+    "moreDetails": "Health, trust and updates",
+    "updateTitle": "Update to {{version}}"
   },
   "flow": {
     "installAndTurnOn": "Install and turn on",
@@ -653,6 +688,247 @@
       "install": "Download, verify and install",
       "turn-on": "Turn on"
     },
-    "seeInList": "See it in My add-ons"
+    "seeInList": "See it in Installed",
+    "install": "Install",
+    "installNamed": "Install {{name}}",
+    "shadowWarning": "This add-on replaces the built-in {{tool}}. Another add-on ({{name}}) already does. Only one can be active; you choose which in Settings > Tools. Until you choose, the one installed first serves.",
+    "skillShadow": "This add-on replaces the built-in skill {{skill}}.",
+    "skillShadowWarning": "This add-on replaces the built-in skill {{skill}}. Another add-on ({{name}}) already does. Only one can be active; you choose which in Settings > Tools. Until you choose, the one installed first serves.",
+    "skillProvides": "This add-on provides the {{skill}} skill.",
+    "skillProvidesWarning": "This add-on provides the {{skill}} skill. Another add-on ({{name}}) also provides it. Only one can be active; choose in Settings > Tools. Without a choice, the one installed first serves."
+  },
+  "family": {
+    "pages": "Looking for pages you or an agent made? They are in <go>Pages</go>."
+  },
+  "filter": {
+    "label": "Show",
+    "all": "All",
+    "running": "Running",
+    "off": "Off",
+    "showAll": "Show all",
+    "none": {
+      "all": "No add-ons to show.",
+      "running": "No add-on is running.",
+      "off": "Every add-on is running."
+    }
+  },
+  "attention": {
+    "label": "Needs attention",
+    "failedTitle": "{{name}} stopped.",
+    "failedRestarts_one": "It failed to start {{count}} time in a row.",
+    "failedRestarts_other": "It failed to start {{count}} times in a row.",
+    "failedOnce": "It did not start.",
+    "toolsOff_one": "Its {{count}} chat tool is off until it runs again.",
+    "toolsOff_other": "Its {{count}} chat tools are off until it runs again.",
+    "pageOff": "Its page is not available until it runs again.",
+    "updateTitle": "{{name}} {{version}} is available.",
+    "updateBody": "You have {{current}}. You see what changes and confirm before anything is replaced."
+  },
+  "meta": {
+    "builtin": "Built in",
+    "builtinLong": "Ships with LocalAI",
+    "signed": "Signed · {{library}}",
+    "checked": "Checked · {{library}}",
+    "devBuild": "Development build",
+    "library": "{{library}} library"
+  },
+  "skills": {
+    "title_one": "{{count}} chat skill",
+    "title_other": "{{count}} chat skills",
+    "provides": "provides the {{skill}} skill",
+    "replaces": "replaces the built-in skill",
+    "serves": "serves in the chats",
+    "notServing": "not serving now",
+    "serveIn": "Use for {{skill}} in the chats",
+    "saveFailed": "Could not save the choice."
+  },
+  "settingsTab": {
+    "overview": "Overview",
+    "settings": "Settings",
+    "tabsLabel": "Details of {{name}}",
+    "off": "Turn on {{name}} to change its settings.",
+    "pageLink": "Settings",
+    "controls": {
+      "loadFailed": "The settings could not be read",
+      "saveFailed": "The settings could not be saved: {{message}}"
+    }
+  },
+  "hostAccess": {
+    "addonsTitle": "Add-ons",
+    "approve": {
+      "action": "Approve and upgrade",
+      "body": "Version {{current}} of {{name}} keeps running. If you approve, the new version can run these actions. New ones are marked.",
+      "done": "{{name}} was upgraded.",
+      "title": "Approve host access for {{name}} {{version}}"
+    },
+    "asksNothing": "This add-on asks for no host access.",
+    "blanket": {
+      "alsoRevoke": "Also revoke the grants it made",
+      "alsoRevokeHint": "Add-ons that would lose access: {{names}}. An add-on that loses access it requires stops.",
+      "applyInstalled": "Also apply to add-ons already installed",
+      "applyInstalledHint": "Off: only new installs and upgrades.",
+      "change": "Change",
+      "fixed": "Set by the deployment. You cannot change it here.",
+      "held": "Add-ons that hold grants made by the blanket switch: {{count}}",
+      "includeOptional": "Include optional operations",
+      "includeOptionalHint": "Off: only required operations are granted.",
+      "intro": "Off by default. When on, an add-on you install or upgrade gets the host operations its manifest says it needs, without the step in the install dialog. Operations in Never allow stay blocked.",
+      "modeAny": "Any library",
+      "modeLabel": "Scope",
+      "modeOfficial": "Official library",
+      "nowOff": "Blanket approval is off. The grants it made are kept.",
+      "nowOn": "Blanket approval is on.",
+      "offBody": "New installs need your approval again. The grants the switch already made stay, marked as blanket, so nothing stops by surprise.",
+      "offText": "Off. You approve each add-on when you install it.",
+      "offTitle": "Turn off blanket approval",
+      "onTitle": "Turn on blanket approval",
+      "revokeAll": "Revoke all blanket grants",
+      "revoked": "Blanket grants revoked.",
+      "risk": {
+        "any": "With this on, every add-on you install from any library you configured gets the host operations its manifest says it needs, without you reviewing them. Any entry of any library receives what it declares, so a malicious or compromised entry gets those operations at once. Operations you block in Never allow stay blocked.",
+        "official": "With this on, every add-on you install from the official library gets the host operations its manifest says it needs, without you reviewing them. A compromised entry then gets exactly the operations it declares. Operations you block in Never allow stay blocked."
+      },
+      "scope": {
+        "any": "On for add-ons from any library.",
+        "official": "On for add-ons from the official library."
+      },
+      "switch": "Blanket approval",
+      "title": "Approve everything an add-on asks for",
+      "turnOff": "Turn off",
+      "turnOn": "Turn on",
+      "typeLabel": "To confirm, type: {{phrase}}",
+      "withOptional": "Optional operations are included."
+    },
+    "cannotInstallBlocked": "This add-on needs {{ops}}, which your administrator policy blocks. It cannot be installed.",
+    "cannotInstallUnsupported": "This add-on needs {{ops}}, which this LocalAI does not support. It cannot be installed.",
+    "chip": "Waiting for approval",
+    "confirm": {
+      "revokeBody": "{{name}} loses everything you or the blanket switch allowed. Grants of the deployment stay. If it loses access it requires, it stops.",
+      "revokeTitle": "Revoke all host access of {{name}}?",
+      "stopAction": "Turn off and stop",
+      "stopBody": "{{name}} cannot run without {{op}}. It stops, and it stays stopped until you allow this again.",
+      "stopTitle": "Turn off access that {{name}} needs?"
+    },
+    "deny": {
+      "add": "Add rule",
+      "added": "Rule added.",
+      "affectsNone": "No installed add-on loses access.",
+      "allAddons": "All add-ons",
+      "checkFailed": "Could not check what this rule changes. Nothing was saved.",
+      "confirmAction": "Add rule",
+      "confirmBody": "Applies to: {{target}}. It takes effect at once. Calls already running finish.",
+      "confirmTitle": "Never allow {{entry}}?",
+      "entry": "Operation, family or *",
+      "everything": "Everything",
+      "fromFile": "Set in the deployment",
+      "hint": "A family ends with a dot, for example egress. An exact name looks like egress.check. A star blocks everything.",
+      "intro": "Operations that no add-on may use, whatever else allows them. A rule here always wins.",
+      "invalid": "Write an operation such as egress.check, a family such as egress., or *.",
+      "none": "No rule yet.",
+      "remove": "Remove",
+      "removeNamed": "Remove the rule {{entry}} for {{target}}",
+      "removed": "Rule removed.",
+      "target": "Applies to",
+      "title": "Never allow",
+      "willStop": "will stop, it needs this"
+    },
+    "emptyBody": "Add-ons that ask for host access appear here after you install them.",
+    "emptyTitle": "No add-on is installed",
+    "errors": {
+      "approval_required": "This add-on needs host access. Approve it in the install dialog in the browser.",
+      "approval_stale": "The package changed since you looked at it. Review the new list and approve again.",
+      "blocked_by_policy": "The administrator policy blocks an operation this add-on needs. Nothing was changed.",
+      "locked_by_deployment": "The deployment locked host access. You cannot change it here.",
+      "not_human_surface": "An administrator must make this change in this browser. An API key or a tool cannot.",
+      "revision_conflict": "Host access changed elsewhere. The page was read again. Check it and try again."
+    },
+    "family": {
+      "connector": "Connectors",
+      "egress": "Network checks",
+      "finetune": "Fine-tuning",
+      "quantize": "Quantization",
+      "workspace": "Workspace files"
+    },
+    "fileEntry": "Set in the deployment's policy file or flags.",
+    "identityMismatch": "These grants were made for a different package under the same name. They have no effect. Remove them.",
+    "intro": "The actions add-ons may run on this server, who allowed each one, and how to take it back. An add-on holds only what you approve.",
+    "keepOwn": "Keep as my own",
+    "keepOwnNamed": "Keep the blanket grants of {{name}} as my own",
+    "loadError": "Host access did not load",
+    "loading": "Reading what this add-on asks for...",
+    "loadingPage": "Loading host access",
+    "locked": "The deployment turned off changes to host access. You can read this page but not change it.",
+    "lockedNoAuth": "Sign-in is off, so anyone who can reach this server could change these; they are set by the administrator in the policy file.",
+    "newOptional": "The new version also asks for {{ops}}. These are optional and not allowed.",
+    "noLongerRequested": "This version no longer asks for it. You can turn it off.",
+    "notOfficial": "This add-on comes from {{library}}, not the official library.",
+    "op": {
+      "alreadyAllowed": "Already allowed",
+      "blocked": "Blocked by the administrator policy",
+      "byDeployment": "Already allowed by the deployment",
+      "new": "New in this version",
+      "optional": "Optional. The add-on runs without it, with fewer features.",
+      "required": "Required. The add-on cannot run without it.",
+      "unsupported": "Not supported by this LocalAI"
+    },
+    "previewFailed": "Could not read the host access this add-on asks for. Try again. If it needs access you have not approved, the install is refused and nothing changes.",
+    "removeStale": "Remove",
+    "revokeAll": "Revoke all",
+    "revokeAllNamed": "Revoke all host access of {{name}}",
+    "risk": {
+      "changes_data": "Changes data",
+      "network": "Network",
+      "read": "Reads",
+      "runs_jobs": "Runs jobs"
+    },
+    "source": {
+      "blanket": "Blanket",
+      "deployment": "Deployment",
+      "you": "You"
+    },
+    "stepFooter": "Granting lets this add-on run these actions on this server for the people who use it. You can review or revoke it on the Host access page.",
+    "stepIntro": "{{name}} asks to run these actions on this server. Required ones are needed for it to work. Optional ones stay off until you turn them on.",
+    "stepTitle": "Host access",
+    "stopped": "Stopped: it needs {{ops}}, which is no longer allowed.",
+    "tabWaiting": "Approvals waiting: {{count}}",
+    "waiting": {
+      "body": "The new version asks for host access that the current one does not have. Version {{current}} keeps running until you approve. Operations it adds: {{count}}.",
+      "review": "Review and approve",
+      "reviewNamed": "Review and approve the host access of {{name}}",
+      "title": "{{name}} {{version}} waits for your approval"
+    }
+  },
+  "file": {
+    "button": "Install from file",
+    "checking": "Checking the file…",
+    "pick": "Choose an add-on zip file",
+    "rejected": "The file was not accepted.",
+    "gone": "The file is gone. A file waits for one hour after the upload. Upload it again.",
+    "installTitle": "Install {{name}} from a file?",
+    "upgradeTitle": "Update {{name}} from a file?",
+    "confirmBody": "Version {{version}} from the file {{name}} is installed, then turned on.",
+    "confirmBodyUpgrade": "Version {{version}} from the file {{name}} is installed. The add-on stays on or off as it is now.",
+    "upgradeAction": "Update to {{version}}",
+    "upgraded": "{{name}} now runs version {{version}}.",
+    "unsignedTitle": "Local file, unsigned",
+    "unsignedNotice": "Nothing signs this file, so LocalAI cannot tell who made it. Install it only if you trust where it came from.",
+    "unsignedShort": "Local file, unsigned",
+    "badge": "Local file, unsigned",
+    "sourceValue": "Local file, unsigned",
+    "hostNotice": "This add-on came from a local file that nothing signs. Give it only the host access you are sure it needs.",
+    "facts": {
+      "file": "File",
+      "sha256": "File sha256",
+      "addon": "Add-on",
+      "platform": "Platform",
+      "api": "Host API"
+    },
+    "relation": {
+      "upgrade": "This replaces version {{installed}} with version {{version}}. The data of the add-on is kept.",
+      "same": "Version {{version}} is installed already. Choose a file with another version.",
+      "downgradeTitle": "Older version",
+      "downgrade": "This installs version {{version}}, which is older than the installed version {{installed}}. An older version may not read data that a newer one wrote.",
+      "downgradeConfirm": "I want to install the older version"
+    }
   }
 }

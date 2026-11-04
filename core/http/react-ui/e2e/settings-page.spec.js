@@ -1,6 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockSettings } from './settings-fixtures.js'
 import { FIELDS } from '../src/utils/settingsSchema.js'
+import { ownedByControl } from '../src/addons/hostControls.js'
 
 const row = (page, key) => page.locator(`[data-field="${key}"]`)
 const group = (page, name) => page.getByRole('button', { name: new RegExp(`^${name}`) })
@@ -14,11 +15,11 @@ test.describe('Settings: groups and search', () => {
     await expect(page.getByTestId('settings-page')).toBeVisible()
   })
 
-  test('shows eight groups by intent and opens on memory and models', async ({ page }) => {
+  test('shows nine groups by intent and opens on memory and models', async ({ page }) => {
     const names = await page.locator('.st-group .st-group__label').allTextContents()
     expect(names).toEqual([
       'Memory and models', 'Speed and defaults', 'Backends and galleries', 'Access and security',
-      'Debugging and traces', 'Agents and responses', 'Swarm and sharing', 'Look and feel',
+      'Debugging and traces', 'Chats and collections', 'Tools', 'Swarm and sharing', 'Look and feel',
     ])
     await expect(page.locator('.st-group[aria-current="true"]')).toHaveText(/Memory and models/)
     await expect(page.getByRole('heading', { level: 2, name: /Memory and models/ })).toBeVisible()
@@ -30,6 +31,8 @@ test.describe('Settings: groups and search', () => {
     const seen = new Set()
     for (const name of await page.locator('.st-group .st-group__label').allTextContents()) {
       await group(page, name).click()
+      // A group's fields can wait for a style sheet, so wait for the first one.
+      await expect(page.locator('[data-field]').first()).toBeVisible()
       for (const key of await page.locator('[data-field]').evaluateAll(els => els.map(e => e.getAttribute('data-field')))) {
         expect(seen.has(key), `${key} is listed twice`).toBe(false)
         seen.add(key)
@@ -38,11 +41,15 @@ test.describe('Settings: groups and search', () => {
     // The schema is the list of settings the page owns (the three branding
     // images included). Compare by name so a failure says which one is
     // missing from every group or shown twice, not just a count.
-    const expected = FIELDS.map(f => f.key)
+    // A field a tab draws with its own controls (Settings > Tools) is found by
+    // search, not as a row of its group. A field a host control draws is on
+    // the page of the add-on that has it, not here.
+    const page_ = FIELDS.filter(f => !ownedByControl(f.key))
+    const expected = page_.filter(f => !f.custom).map(f => f.key)
     expect([...seen].filter(k => !expected.includes(k)), 'shown but not in the schema').toEqual([])
     expect(expected.filter(k => !seen.has(k)), 'in the schema but in no group').toEqual([])
     expect(seen.size).toBe(expected.length)
-    await expect(page.getByLabel(new RegExp(`Search all ${expected.length} settings`))).toBeVisible()
+    await expect(page.getByLabel(new RegExp(`Search all ${page_.length} settings`))).toBeVisible()
   })
 
   test('a group lists its settings, and the memory group shows memory use now', async ({ page }) => {
@@ -120,20 +127,20 @@ test.describe('Settings: defaults and hints', () => {
   })
 
   test('counts the settings that differ from their default', async ({ page }) => {
-    const count = Number(await page.getByTestId('settings-changed-count').locator('.dk-mono').textContent())
+    const count = Number(await page.getByTestId('settings-changed-count').locator('.st-bar__n').textContent())
     expect(count).toBeGreaterThan(0)
     await row(page, 'lru_eviction_max_retries').getByRole('button', { name: 'Reset' }).click()
     await expect(row(page, 'lru_eviction_max_retries').getByRole('spinbutton')).toHaveValue('30')
-    await expect(page.getByTestId('settings-changed-count').locator('.dk-mono')).toHaveText(String(count - 1))
+    await expect(page.getByTestId('settings-changed-count').locator('.st-bar__n')).toHaveText(String(count - 1))
     await expect(page.getByTestId('settings-pending')).toContainText('1 pending')
   })
 
   test('says when a setting applies only where the server says so', async ({ page }) => {
     await expect(row(page, 'watchdog_idle_timeout')).toContainText('Applies now')
     await expect(row(page, 'max_active_backends')).toContainText('Applies now')
-    await group(page, 'Agents and responses').click()
-    await expect(row(page, 'agent_pool_enable_logs')).toContainText('Needs restart')
-    await expect(row(page, 'agent_job_retention_days')).toContainText('Applies now')
+    await group(page, 'Chats and collections').click()
+    await expect(row(page, 'collections_enabled')).toContainText('Needs restart')
+    await expect(row(page, 'chats_vision_model')).toContainText('Applies now')
     await group(page, 'Speed and defaults').click()
     await expect(row(page, 'threads')).not.toContainText('Applies now')
     await expect(row(page, 'threads')).not.toContainText('Needs restart')
@@ -197,12 +204,12 @@ test.describe('Settings: pending, diff, apply, discard and undo', () => {
   })
 
   test('a restart-only change is counted and warned about', async ({ page }) => {
-    await group(page, 'Agents and responses').click()
-    await sw(page, 'agent_pool_enable_logs').click()
+    await group(page, 'Chats and collections').click()
+    await sw(page, 'collections_enabled').click()
     await expect(page.getByTestId('settings-pending')).toContainText('1 pending')
     await expect(page.getByTestId('settings-pending')).toContainText('1 needs a restart')
     await page.getByRole('button', { name: 'Show diff' }).click()
-    await expect(page.getByLabel('Checks')).toContainText('Restart LocalAI for Agent logs')
+    await expect(page.getByLabel('Checks')).toContainText('Restart LocalAI for Collections')
   })
 
   test('apply sends only the changed keys, then offers undo', async ({ page }) => {

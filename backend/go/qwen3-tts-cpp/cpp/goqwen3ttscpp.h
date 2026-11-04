@@ -8,11 +8,13 @@ extern "C" {
 typedef int (*qt3_chunk_cb)(const float *samples, int n_samples,
                             void *user_data);
 
-// Load the talker + codec/tokenizer GGUFs. use_fa / clamp_fp16 map to
-// qt_init_params (the qt ABI exposes no thread count; ggml uses its own
-// default). Returns 0 on success, non-zero on failure.
+// Load the talker + codec/tokenizer GGUFs. use_fa / clamp_fp16 / max_batch
+// map to qt_init_params (the qt ABI exposes no thread count; ggml uses its
+// own default). max_batch > 1 lets concurrent qt3_tts / qt3_tts_stream calls
+// share batched decode steps; 0 or 1 keeps single-sequence synthesis.
+// Returns 0 on success, non-zero on failure.
 int qt3_load(const char *talker_path, const char *codec_path, int use_fa,
-             int clamp_fp16);
+             int clamp_fp16, int max_batch);
 
 // Synthesize to a malloc'd float PCM buffer (caller frees via qt3_pcm_free).
 // The synthesis mode (base / custom_voice / voice_design) is auto-detected by

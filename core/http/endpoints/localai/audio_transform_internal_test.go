@@ -129,7 +129,7 @@ var _ = Describe("audio transform stream model validation", func() {
 
 	It("rejects realtime any-to-any models", func() {
 		usecases := config.FLAG_REALTIME_AUDIO
-		cfg := &config.ModelConfig{KnownUsecases: &usecases, Backend: "liquid-audio"}
+		cfg := &config.ModelConfig{KnownUsecases: &usecases, Backend: "llama-cpp"}
 		err := validateAudioTransformStreamModel(cfg)
 		Expect(err).To(MatchError(ContainSubstring("OpenAI Realtime API")))
 	})

@@ -11,6 +11,8 @@ import { useAuth } from './context/AuthContext'
 import RouteFallback from './components/RouteFallback'
 import { hubs, hubOwnsPath } from './components/hub/hubConfig'
 import Icon from './components/Icon'
+// eslint-disable-next-line no-unused-vars
+import AppearanceSync from './components/wellknown/AppearanceSync'
 import { displayVersion } from './utils/version'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
@@ -23,7 +25,14 @@ const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 // A model's own page (/app/models/<id>) is a child of the Models list, which
 // stays mounted behind it so Back finds the list as it was. It shares the
 // list's key for the same reason.
+// The chat page fills the window and scrolls its own thread. Its sibling
+// pages under /app/chats/ (connectors, conversion) are ordinary pages.
+const CHAT_PAGE = /\/chats(\/(?!(skills|agents|triggers|connectors|conversion)\/?$)[^/]+)?\/?$/
+
 function pageTransitionKey(pathname) {
+  // A new chat and an open one are one page: starting or leaving a chat must
+  // not mount it again.
+  if (CHAT_PAGE.test(pathname)) return '/app/chats'
   for (const h of hubs) {
     if (hubOwnsPath(h, pathname)) return `hub:${h.id}`
   }
@@ -36,7 +45,7 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === 'true' } catch (_) { return false }
   })
-  const { toasts, addToast, removeToast } = useToast()
+  const { toasts, addToast, removeToast, dropToast } = useToast()
   const [version, setVersion] = useState('')
   const location = useLocation()
   const navigate = useNavigate()
@@ -45,7 +54,7 @@ export default function App() {
   const branding = useBranding()
   const { t } = useTranslation('nav')
   const hamburgerRef = useRef(null)
-  const isChatRoute = location.pathname.match(/\/chat(\/|$)/) || location.pathname.match(/\/agents\/[^/]+\/(chat|runs\/[^/]+)\/?$/)
+  const isChatRoute = CHAT_PAGE.test(location.pathname)
 
   useEffect(() => {
     systemApi.version()
@@ -102,6 +111,7 @@ export default function App() {
 
   return (
     <div className={layoutClasses}>
+      <AppearanceSync />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="main-content" {...(sidebarOpen ? { 'aria-hidden': 'true', inert: '' } : {})}>
         <OperationsBar />
@@ -187,7 +197,8 @@ export default function App() {
           </footer>
         )}
       </main>
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      {/* On a chat page the stack rises above the composer. */}
+      <ToastContainer toasts={toasts} removeToast={removeToast} dropToast={dropToast} lift={isChatRoute} />
     </div>
   )
 }

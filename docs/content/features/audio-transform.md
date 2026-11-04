@@ -174,7 +174,7 @@ PCM frames; server emits binary PCM frames at the same cadence.
 
 This endpoint accepts models with the `audio_transform` use case. It does not
 accept any-to-any models with the `realtime_audio` use case. For example,
-`liquid-audio` uses the [OpenAI Realtime API]({{% relref "features/openai-realtime" %}})
+a realtime any-to-any model uses the [OpenAI Realtime API]({{% relref "features/openai-realtime" %}})
 instead.
 
 ### Wire format

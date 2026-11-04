@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"os"
 	"os/exec"
 	"regexp"
@@ -281,81 +282,7 @@ func readAlias(ctx context.Context, repo name.Repository, addon, alias string) (
 	return st, nil
 }
 
-func compareSemver(a, b string) int {
-	pa, pb := splitSemver(a), splitSemver(b)
-	for i := 0; i < 3; i++ {
-		if pa.num[i] != pb.num[i] {
-			if pa.num[i] < pb.num[i] {
-				return -1
-			}
-			return 1
-		}
-	}
-	switch {
-	case pa.pre == "" && pb.pre == "":
-		return 0
-	case pa.pre == "":
-		return 1
-	case pb.pre == "":
-		return -1
-	}
-	as, bs := strings.Split(pa.pre, "."), strings.Split(pb.pre, ".")
-	for i := 0; i < len(as) && i < len(bs); i++ {
-		if as[i] == bs[i] {
-			continue
-		}
-		an, aok := atoi(as[i])
-		bn, bok := atoi(bs[i])
-		switch {
-		case aok && bok:
-			if an < bn {
-				return -1
-			}
-			return 1
-		case aok:
-			return -1
-		case bok:
-			return 1
-		case as[i] < bs[i]:
-			return -1
-		default:
-			return 1
-		}
-	}
-	return len(as) - len(bs)
-}
-
-type semver struct {
-	num [3]int
-	pre string
-}
-
-func splitSemver(v string) semver {
-	core, pre, _ := strings.Cut(v, "-")
-	var s semver
-	for i, p := range strings.SplitN(core, ".", 3) {
-		n, _ := atoi(p)
-		if i < 3 {
-			s.num[i] = n
-		}
-	}
-	s.pre = pre
-	return s
-}
-
-func atoi(s string) (int, bool) {
-	if s == "" {
-		return 0, false
-	}
-	n := 0
-	for _, r := range s {
-		if r < '0' || r > '9' || n > 1<<40 {
-			return 0, false
-		}
-		n = n*10 + int(r-'0')
-	}
-	return n, true
-}
+func compareSemver(a, b string) int { return contract.CompareVersions(a, b) }
 
 // errCommitUnreachable reports that git does not have one of the commits.
 // It is not the same as "not an ancestor": the history that would answer the

@@ -31,7 +31,7 @@ done
 # The server embeds the UI build: a build made before the last change would
 # test the old host code.
 [ "$root/tests/e2e-ui/ui-test-server" -nt "$ui/dist/index.html" ] || { echo 'ui-test-server is older than the UI build; run scripts/addons/prepare.sh --integration' >&2; exit 1; }
-for src in "$ui/src/components/addons/InstalledView.jsx" "$ui/src/components/addons/updateState.js" "$ui/src/components/addons/AppsView.jsx" "$ui/src/utils/addonsApi.js"; do
+for src in "$ui/src/components/addons/UpgradeControls.jsx" "$ui/src/components/addons/AddonRow.jsx" "$ui/src/components/addons/updateState.js" "$ui/src/components/addons/AppsView.jsx" "$ui/src/utils/addonsApi.js"; do
     [ "$ui/dist/index.html" -nt "$src" ] || { echo "the UI build is older than $src; run scripts/addons/prepare.sh --integration" >&2; exit 1; }
 done
 for src in core/services/addons/updates/checker.go core/services/addons/updates.go core/http/endpoints/addons/updates.go tests/e2e-ui/addons_fixture.go; do
@@ -88,6 +88,7 @@ m['version'] = '0.1.0-dev'
 json.dump(m, open(sys.argv[2], 'w'))
 PY
     cp -R "$pkg/dist/ui" "$d/ui"
+    cp -R "$root/addons/tables/skills" "$d/skills"
     printf 'build %s\n' "$n" >"$d/build.txt"
     printf 'development\n' >"$d/.fixture-channel"
     printf '%s\n' "$n" >"$d/.fixture-generation"

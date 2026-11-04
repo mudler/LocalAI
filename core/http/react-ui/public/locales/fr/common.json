@@ -111,5 +111,23 @@
     "megabytes": "Mo",
     "gigabytes": "Go",
     "terabytes": "To"
+  },
+  "ui": {
+    "tryAgain": "Réessayer",
+    "undo": "Annuler",
+    "loadError": {
+      "title": "Le chargement a échoué.",
+      "serverSaid": "Le serveur a répondu « {{message}} ».",
+      "nothingChanged": "Rien n’a été modifié."
+    }
+  },
+  "chip": {
+    "running": "En cours",
+    "starting": "Démarrage",
+    "stopped": "Arrêté",
+    "failed": "Échec",
+    "updateAvailable": "Mise à jour disponible",
+    "ready": "Prêt",
+    "noRunsYet": "Aucune exécution"
   }
 }

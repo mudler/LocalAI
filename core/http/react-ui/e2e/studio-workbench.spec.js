@@ -8,7 +8,7 @@ test.describe('Studio workbench', () => {
   test.beforeEach(async ({ page }) => { await installStudioAddons(page, { ids: ['studio'] }) })
 
   test('the compose card is a flat hairline card, not a shadowed one', async ({ page }) => {
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     const card = page.locator('[data-testid="ws-compose"]')
     await expect(card).toBeVisible()
     const shadow = await card.evaluate(el => getComputedStyle(el).boxShadow)
@@ -18,7 +18,7 @@ test.describe('Studio workbench', () => {
   })
 
   test('fields are labelled in caps', async ({ page }) => {
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await page.getByRole('button', { name: /Advanced Settings/ }).click()
     const label = page.locator('[data-testid="ws-compose"] .ws-label').first()
     await expect(label).toBeVisible()
@@ -28,7 +28,7 @@ test.describe('Studio workbench', () => {
 
   test('no request is shown before one has been made', async ({ page }) => {
     // A panel describing a request nobody sent is a tutorial, not a record.
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await expect(page.locator('.request-panel')).toHaveCount(0)
   })
 
@@ -38,7 +38,7 @@ test.describe('Studio workbench', () => {
     await page.route('**/v1/images/generations', route =>
       route.fulfill({ json: { data: [{ url: 'https://example.invalid/a.png' }] } }))
 
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await page.locator('[data-testid="ws-compose"] textarea').first().fill('a brass orrery')
     await page.getByRole('button', { name: /generate/i }).click()
 

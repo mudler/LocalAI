@@ -49,6 +49,19 @@ If installation fails with `SHA mismatch`, compare the reported metadata checksu
 with the current gallery entry. An outdated gallery checksum can reject a complete
 download. Report a persistent mismatch with both checksum values and the model name.
 
+### Stable Audio SFX installation
+
+Install the Stable Audio 3 Small SFX model for text-to-sound generation:
+
+```bash
+local-ai models install audio-cpp-stable-audio-sfx
+```
+
+The gallery pins the Q8_0 file to an immutable upstream revision that matches
+its SHA256 checksum. Changes to the upstream `main` branch do not change this
+download. Use this model with `/v1/sound-generation` and set `duration_seconds`
+to control the sound length.
+
 ## What it serves
 
 One model serves one family, and a family advertises the tasks it can perform. The
@@ -241,7 +254,7 @@ voice conversion from the same weights.
 ## Family notes
 
 - **Fish Audio voice cloning**: save a reference clip with its transcript in the
-  Voice Library (**Build → Voices → Speech voices**), then select **Use in Text to Speech**. The backend accepts
+  Voice Library (the Voice add-on, **Speech voices**), then select **Use in Text to Speech**. The backend accepts
   `params.ref_text` as an alias for `params.reference_text` in both ordinary and
   streaming speech requests. If you supply both parameters, `reference_text`
   takes precedence. For direct requests with a reference file in `voice`, supply

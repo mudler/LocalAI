@@ -87,6 +87,13 @@ Examples:
 - Sticky: the failover prober (`core/application/failover_distributed.go`),
   via `HeldLock`.
 
+A single runner may hand its work to another process and stay the runner. The
+chat hosts (triggers, connectors, jobs) keep their `HeldLock` on a frontend
+and, with chat workers on, send each turn to a worker (`studio.SendBackground`,
+`.agents/distributed-seams.md`). The turn claim in the database, not the lock,
+keeps one turn per chat, so the frontend and the worker use the same claim,
+heartbeat and reaper.
+
 ### 3. Stateless per request
 
 Nothing to share: the feature re-derives everything it needs from the
@@ -140,3 +147,13 @@ When your PR adds or changes state that lives longer than a single request:
       feature's docs page under `docs/content/`
 - [ ] Standalone mode (no NATS/DB) still behaves correctly — most
       shared/single-runner code paths must degrade gracefully alone
+
+### Add-on settings acceptance
+
+- [ ] Declare the authority, persistence location, scope, startup migration, and failure contract for every setting. Separate host authorization policy from add-on-owned configuration.
+- [ ] Route reads, writes, background consumers, tool/skill routing, and enforcement to the same authority. Host-rendered add-on controls must not save owner-wide policy through frontend-local runtime settings.
+- [ ] Preserve standalone combined-owner operation without requiring an external database or messaging service.
+- [ ] Test save through frontend A, read and enforce through frontend B, repeated tightening, concurrent partial updates, owner restart, and owner outage. Never silently fall back to local policy or built-in providers.
+- [ ] Require revision conflicts and idempotent uncertain-write retries. Preserve unrelated provider keys, dirty edits, and unavailable state until reconciliation succeeds.
+- [ ] Verify the actual rendered control uses the intended API, and test an actual turn or proxy connection rather than only a configuration helper.
+- [ ] Keep private migration provenance off caller-facing responses. Extend the existing addon acceptance inventory with required cases; missing or skipped cases do not count as evidence.

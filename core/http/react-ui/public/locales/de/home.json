@@ -25,7 +25,10 @@
     "title": "LocalAI per Chat verwalten",
     "description": "Modelle installieren, Backends wechseln, Konfigurationen bearbeiten und Status prüfen — durch Gespräche mit LocalAI.",
     "open": "Assistent öffnen",
-    "tooltip": "LocalAI per Chat verwalten"
+    "tooltip": "LocalAI per Chat verwalten",
+    "noModel": "Wähle zuerst ein Chat-Modell.",
+    "startFailed": "Der Assistenten-Chat konnte nicht gestartet werden: {{message}}",
+    "chatTitle": "LocalAI-Assistent"
   },
   "input": {
     "placeholder": "Nachricht...",
@@ -105,7 +108,48 @@
     "modelsSummary": "Explore, install, and manage models",
     "create": "Create",
     "createSummary": "Open a chat, image or voice session",
-    "operate": "Operate",
-    "operateSummary": "{{models}} models configured · nodes, activity and traces"
+    "operate": "Verwaltung",
+    "operateSummary": "{{models}} models configured · nodes, activity and traces",
+    "allChats": "Alle Chats"
+  },
+  "slash": {
+    "commandDiagnostics": "Diagnose der App-Befehle",
+    "apps": {
+      "label": "Apps",
+      "desc": "Installierte Apps durchsuchen"
+    },
+    "group": {
+      "addons": "Apps"
+    },
+    "agents": {
+      "label": "Agenten",
+      "desc": "Deine gespeicherten Agenten, Auslöser und Skills"
+    },
+    "mcp": {
+      "label": "MCP-Connectors",
+      "desc": "MCP-Server, die deine Chats nutzen können"
+    },
+    "memory": {
+      "label": "Gedächtnis",
+      "desc": "Sammlungen, in denen deine Chats suchen können"
+    },
+    "complete": "ergänzen"
+  },
+  "notice": {
+    "appUnavailable": "Die App ist nicht mehr verfügbar.",
+    "addonsDownTitle": "Add-ons antworten gerade nicht",
+    "addonsDownBody": "{{name}} ist ein Add-on. Versuche es gleich noch einmal.",
+    "addonsRetry": "Erneut versuchen"
+  },
+  "picker": {
+    "aliasOf": "Alias von {{target}}",
+    "aliasBroken": "defekter Alias",
+    "disabled": "deaktiviert",
+    "pinned": "angeheftet",
+    "useTyped": "\"{{name}}\" verwenden",
+    "empty": "Keine Modelle verfügbar",
+    "add": "Modell hinzufügen",
+    "remove": "{{name}} entfernen",
+    "clear": "Leeren"
   }
 }

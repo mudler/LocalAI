@@ -12,6 +12,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -163,24 +165,35 @@ func (c *Client) GallerySearch(ctx context.Context, q localaitools.GallerySearch
 }
 
 func (c *Client) ListInstalledModels(ctx context.Context, capability localaitools.Capability) ([]localaitools.InstalledModel, error) {
-	_ = capability // Capability filtering is unavailable over the welcome HTTP shape today; see TODO below.
-	// /v1/models is the OpenAI-compat shape; we use the LocalAI welcome JSON
-	// for richer info.
-	var welcome struct {
-		ModelsConfig []struct {
-			Name    string `json:"name"`
-			Backend string `json:"backend"`
-		} `json:"ModelsConfig"`
+	// /api/models/capabilities lists every installed model (config-backed and
+	// loose) with its backend and capability flags — the same data the old
+	// GET / welcome JSON used to carry, on a route that does not redirect.
+	// (The welcome endpoint was unregistered when the React UI moved to /app,
+	// so GET / now 301s to the SPA and the no-redirect httpclient rejects it.)
+	var resp struct {
+		Data []struct {
+			ID           string   `json:"id"`
+			Backend      string   `json:"backend"`
+			Capabilities []string `json:"capabilities"`
+			Disabled     bool     `json:"disabled"`
+			Pinned       bool     `json:"pinned"`
+		} `json:"data"`
 	}
-	if err := c.do(ctx, http.MethodGet, routeWelcome, nil, &welcome); err != nil {
+	if err := c.do(ctx, http.MethodGet, routeModelsCapabilities, nil, &resp); err != nil {
 		return nil, err
 	}
-	// Capability filtering is unavailable over HTTP without a dedicated endpoint
-	// — for now we return everything and let the LLM filter from the names. A
-	// follow-up should add a /api/models?capability=chat endpoint.
-	out := make([]localaitools.InstalledModel, 0, len(welcome.ModelsConfig))
-	for _, m := range welcome.ModelsConfig {
-		out = append(out, localaitools.InstalledModel{Name: m.Name, Backend: m.Backend})
+	out := make([]localaitools.InstalledModel, 0, len(resp.Data))
+	for _, m := range resp.Data {
+		if capability != localaitools.CapabilityAny && !hasCapability(m.Capabilities, capability) {
+			continue
+		}
+		out = append(out, localaitools.InstalledModel{
+			Name:         m.ID,
+			Backend:      m.Backend,
+			Capabilities: capabilityLabels(m.Capabilities),
+			Disabled:     m.Disabled,
+			Pinned:       m.Pinned,
+		})
 	}
 	return out, nil
 }
@@ -467,20 +480,59 @@ func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error
 // ---- System ----
 
 func (c *Client) SystemInfo(ctx context.Context) (*localaitools.SystemInfo, error) {
-	var welcome struct {
-		Version           string          `json:"Version"`
-		LoadedModels      []any           `json:"LoadedModels"`
-		InstalledBackends map[string]bool `json:"InstalledBackends"`
+	// Composed from live, non-redirecting routes — the old GET / welcome JSON
+	// is gone (the React UI owns / now), so pull the pieces separately.
+	var ver struct {
+		Version string `json:"version"`
 	}
-	if err := c.do(ctx, http.MethodGet, routeWelcome, nil, &welcome); err != nil {
+	if err := c.do(ctx, http.MethodGet, routeVersion, nil, &ver); err != nil {
 		return nil, err
 	}
-	info := &localaitools.SystemInfo{Version: welcome.Version}
-	for name := range welcome.InstalledBackends {
-		info.InstalledBackends = append(info.InstalledBackends, name)
+	info := &localaitools.SystemInfo{Version: ver.Version}
+
+	var backends []struct {
+		Name string `json:"name"`
 	}
-	// LoadedModels shape varies; we don't attempt to decode it client-side.
+	if err := c.do(ctx, http.MethodGet, routeBackends, nil, &backends); err == nil {
+		for _, b := range backends {
+			info.InstalledBackends = append(info.InstalledBackends, b.Name)
+		}
+	}
+	slices.Sort(info.InstalledBackends)
+
+	var sys struct {
+		LoadedModels []struct {
+			ID string `json:"id"`
+		} `json:"loaded_models"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeSystem, nil, &sys); err == nil {
+		for _, m := range sys.LoadedModels {
+			info.LoadedModels = append(info.LoadedModels, m.ID)
+		}
+	}
 	return info, nil
+}
+
+// hasCapability reports whether any of the model's FLAG_* capability labels
+// equals the requested capability (case-insensitive, whole-word).
+func hasCapability(flags []string, want localaitools.Capability) bool {
+	wantStr := strings.TrimPrefix(strings.ToUpper(string(want)), "FLAG_")
+	for _, f := range flags {
+		if strings.TrimPrefix(strings.ToUpper(f), "FLAG_") == wantStr {
+			return true
+		}
+	}
+	return false
+}
+
+// capabilityLabels trims the "FLAG_" prefix so the LLM sees "CHAT", "TTS", …
+// matching the in-process client's output.
+func capabilityLabels(flags []string) []string {
+	out := make([]string, 0, len(flags))
+	for _, f := range flags {
+		out = append(out, strings.TrimPrefix(f, "FLAG_"))
+	}
+	return out
 }
 
 func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
@@ -880,4 +932,124 @@ func (c *Client) CancelModelLoad(ctx context.Context, model, jobID string) (loca
 
 func (c *Client) UnpinFailoverTarget(ctx context.Context, chain string) error {
 	return c.do(ctx, http.MethodDelete, routeFailover+"/"+url.PathEscape(chain)+"/pin", nil, nil)
+}
+
+// ---- Shared folders ----
+
+func (c *Client) ListSharedFolders(ctx context.Context) ([]localaitools.SharedFolder, error) {
+	var out struct {
+		Folders []localaitools.SharedFolder `json:"folders"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeSharedFolders, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Folders, nil
+}
+
+func (c *Client) CreateSharedFolder(ctx context.Context, name string) (*localaitools.SharedFolder, error) {
+	var out localaitools.SharedFolder
+	if err := c.do(ctx, http.MethodPost, routeSharedFolders, map[string]string{"name": name}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) RenameSharedFolder(ctx context.Context, id int64, name string) (*localaitools.SharedFolder, error) {
+	var out localaitools.SharedFolder
+	if err := c.do(ctx, http.MethodPatch, routeSharedFolder(id), map[string]string{"name": name}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) DeleteSharedFolder(ctx context.Context, id int64) (*localaitools.SharedFolderRemoved, error) {
+	var out localaitools.SharedFolderRemoved
+	if err := c.do(ctx, http.MethodDelete, routeSharedFolder(id), nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) RestoreSharedFolder(ctx context.Context, rev int64) (*localaitools.SharedFolder, error) {
+	var out localaitools.SharedFolder
+	if err := c.do(ctx, http.MethodPost, routeSharedFolderRestore, map[string]int64{"rev": rev}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) SetSharedFolderMember(ctx context.Context, id int64, member, mode string) (*localaitools.SharedFolder, error) {
+	var out localaitools.SharedFolder
+	if err := c.do(ctx, http.MethodPut, routeSharedFolderMember(id, member), map[string]string{"mode": mode}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) RemoveSharedFolderMember(ctx context.Context, id int64, member string) (*localaitools.SharedFolder, error) {
+	var out localaitools.SharedFolder
+	if err := c.do(ctx, http.MethodDelete, routeSharedFolderMember(id, member), nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) ListSharedFolderEvents(ctx context.Context, limit int) ([]localaitools.SharedFolderEvent, error) {
+	var out struct {
+		Events []localaitools.SharedFolderEvent `json:"events"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeSharedFolderEvents+"?limit="+strconv.Itoa(limit), nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Events, nil
+}
+
+func (c *Client) ListChatTools(ctx context.Context) (localaitools.ChatBuiltinToolList, error) {
+	var out localaitools.ChatBuiltinToolList
+	if err := c.do(ctx, http.MethodGet, routeChatTools, nil, &out); err != nil {
+		return localaitools.ChatBuiltinToolList{}, err
+	}
+	return out, nil
+}
+
+func (c *Client) ListHostExecEvents(ctx context.Context, limit int) ([]localaitools.HostExecEvent, error) {
+	var out struct {
+		Events []localaitools.HostExecEvent `json:"events"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeHostExecEvents+"?limit="+strconv.Itoa(limit), nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Events, nil
+}
+
+func (c *Client) GetChatEgress(ctx context.Context) (*localaitools.ChatEgress, error) {
+	var out localaitools.ChatEgress
+	if err := c.do(ctx, http.MethodGet, routeChatEgress, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) ListEgressEvents(ctx context.Context, q localaitools.EgressEventsQuery) ([]localaitools.EgressEvent, error) {
+	v := url.Values{}
+	v.Set("limit", strconv.Itoa(q.Limit))
+	for k, x := range map[string]string{"user": q.User, "chat": q.Chat, "verdict": q.Verdict, "host": q.Host} {
+		if x != "" {
+			v.Set(k, x)
+		}
+	}
+	var out struct {
+		Events []localaitools.EgressEvent `json:"events"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeEgressEvents+"?"+v.Encode(), nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Events, nil
+}
+
+func (c *Client) SetChatEgressCeiling(ctx context.Context, ceiling string) (*localaitools.ChatEgress, error) {
+	if err := c.do(ctx, http.MethodPost, routeSettings, map[string]any{"chats_egress_ceiling": ceiling}, nil); err != nil {
+		return nil, err
+	}
+	return c.GetChatEgress(ctx)
 }

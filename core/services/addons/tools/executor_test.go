@@ -212,6 +212,19 @@ var _ = Describe("Add-on tools in the chat executors", func() {
 			Expect(names(exec)).To(HaveLen(16))
 		})
 
+		It("hides the tools of the named add-ons and refuses a call to them as unknown, whatever the list says", func() {
+			hidden := exec.Without(map[string]bool{"sample": true})
+			Expect(names(hidden)).NotTo(ContainElement("addon__sample__echo"))
+			Expect(names(hidden)).To(ContainElement("addon__tables__rows-query"))
+			_, e := hidden.ExecuteTool(context.Background(), "addon__sample__echo", `{"content":"hi"}`)
+			Expect(e).To(MatchError(tools.ErrUnknownTool))
+			Expect(f.dispatched).To(BeEmpty())
+			// The provider applies the rule to the actor of the request.
+			p := mcpTools.NewAddonToolProvider(tools.NewToolAdapter(f), auth.AddonModeLocalOwner).WithHidden(func(contract.Actor) map[string]bool { return map[string]bool{"sample": true} })
+			Expect(p).NotTo(BeNil())
+			Expect(exec.Without(nil)).To(BeIdenticalTo(exec))
+		})
+
 		It("offers nothing for an empty list and for ids that match no add-on", func() {
 			Expect(exec.Only([]string{}).HasTools()).To(BeFalse())
 			Expect(exec.Only([]string{"missing"}).HasTools()).To(BeFalse())

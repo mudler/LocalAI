@@ -1,0 +1,138 @@
+{
+  "subtitle": "Pequenas ferramentas que o assistente fez para você. Elas abrem aqui, em um sandbox, e guardam os dados nos seus arquivos.",
+  "card": {
+    "pin": "Fixar na barra lateral",
+    "unpin": "Desafixar da barra lateral",
+    "changedBy": {
+      "you": "Alterada {{when}} por você",
+      "assistant": "Alterada {{when}} pelo assistente"
+    },
+    "menu": "Mais para {{title}}",
+    "files": "Mostrar os arquivos",
+    "rename": "Renomear",
+    "renameLabel": "Novo nome da pasta",
+    "renameHint": "Letras minúsculas, dígitos e hifens.",
+    "renameSave": "Salvar",
+    "renameCancel": "Cancelar",
+    "renameFailed": "A página não foi renomeada: {{message}}",
+    "delete": "Excluir página",
+    "deleteTitle": "Excluir «{{title}}»?",
+    "deleteMessage": "A pasta {{folder}} vai para a Lixeira. Você pode restaurá-la em Arquivos.",
+    "deleted": "{{title}} está na Lixeira.",
+    "deleteFailed": "A página não foi excluída: {{message}}"
+  },
+  "empty": {
+    "text": "Uma página é uma pequena ferramenta, como um quadro de tarefas ou uma lista de leitura. Peça uma ao assistente em um chat ou comece com uma página pronta.",
+    "starting": "Copiando a página",
+    "starterFailed": "A página não foi copiada: {{message}}",
+    "ask": "Pedir uma página",
+    "askPrompt": "Crie uma página que ",
+    "starterReading": "Começar com uma lista de leitura",
+    "note": "Esta entrada sai da barra lateral quando você não tem páginas. Ela volta com a próxima.",
+    "learn": "Como as páginas funcionam"
+  },
+  "askNew": "Pedir uma nova página",
+  "yours": "Suas",
+  "filter": "Filtrar páginas",
+  "shared": {
+    "yours": "Suas",
+    "group": "Compartilhadas com você",
+    "note": "Uma página compartilhada só roda depois que você a permite. Se o autor a mudar, você será perguntado de novo.",
+    "offNotice": "As páginas compartilhadas estão desligadas neste servidor. Um administrador as desligou.",
+    "off": "As páginas compartilhadas estão desligadas neste servidor. Um administrador as desligou.",
+    "gone": "Esta página não está mais na pasta compartilhada, ou você não tem mais acesso a ela.",
+    "review": "Revisar",
+    "from": "De {{author}}",
+    "menu": "Menu da página",
+    "badge": {
+      "notAllowed": "Ainda não permitida",
+      "changed": "Mudou desde que você a permitiu",
+      "allowed": "Permitida"
+    }
+  },
+  "viewer": {
+    "stopAllowing": "Deixar de permitir esta página",
+    "authorChanged": "{{author}} mudou esta página. A versão que você permitiu continua rodando até você revisar a mudança.",
+    "sandboxShared": "Isolada. Roda como você, apenas em {{folder}}, e não acessa a rede."
+  },
+  "trust": {
+    "title": "Abrir \"{{title}}\"?",
+    "desc": "Esta página vem de uma pasta compartilhada. As páginas rodam como você, então confira antes de rodar.",
+    "who": "Escrita por {{author}}",
+    "whereLabel": "Pasta compartilhada",
+    "whereWhen": ", alterada {{when}}",
+    "someone": "alguém",
+    "close": "Fechar",
+    "canTitle": "Ela pode",
+    "canStillTitle": "Ela ainda pode",
+    "cannotTitle": "Ela não pode",
+    "items": {
+      "files": "Ler e gravar arquivos na própria pasta",
+      "readOnly": "Você só pode ler esta pasta compartilhada, então a página não consegue salvar as mudanças.",
+      "chat": "Escrever uma mensagem em um chat",
+      "chatNote": "Você vê a mensagem no chat antes de o assistente responder.",
+      "noFiles": "Ler seus outros arquivos ou chats",
+      "noNet": "Acessar a rede ou outros sites",
+      "noNetNote": "Um limite: ela pode carregar outro endereço no próprio quadro. Isso envia uma requisição para fora, e então a página para.",
+      "noTools": "Usar ferramentas ou mudar suas configurações"
+    },
+    "warn": "Ela age como você dentro da própria pasta. Se {{author}} a mudar, você será perguntado de novo.",
+    "viewSource": "Ver o código",
+    "cancel": "Cancelar",
+    "allowOnce": "Permitir uma vez",
+    "allow": "Permitir",
+    "changed": {
+      "title": "\"{{title}}\" mudou",
+      "desc": "Você permitiu uma versão anterior. Confira o que mudou antes de rodar de novo.",
+      "who": "Alterada por {{author}} {{when}}",
+      "allowed": "Você permitiu a versão de {{date}}",
+      "what": "O que mudou",
+      "same": "O que ela pode fazer continua igual.",
+      "warn": "Se você permitir, esta versão roda sempre que você a abrir, até {{author}} mudá-la de novo.",
+      "view": "Ver as mudanças",
+      "lines": "{{before}} → {{after}} linhas",
+      "code": "Um script, folha de estilo ou módulo da página mudou: {{files}}"
+    },
+    "pill": {
+      "notYet": "Ainda não permitida",
+      "not": "Não permitida",
+      "once": "Permitida nesta visita",
+      "allowed": "Permitida",
+      "changed": "Mudou desde que você a permitiu"
+    },
+    "from": "De {{author}}",
+    "frame": {
+      "chrome": "Página compartilhada de {{folder}}. Ela não rodou."
+    },
+    "blocked": {
+      "title": "Esta página não rodou",
+      "body": "Você escolheu não rodá-la. Ela vem da pasta compartilhada {{folder}} de {{author}}. Nada nela rodou e nada foi salvo.",
+      "review": "Revisar e permitir"
+    },
+    "waiting": {
+      "title": "Aguardando você",
+      "body": "Nada nesta página roda até você permitir."
+    },
+    "stopped": {
+      "revoked": "Você deixou de permitir esta página. Ela parou e nada nela roda até você permitir de novo.",
+      "refused": "Esta página não é mais permitida, então foi parada. Revise para permitir de novo.",
+      "off": "As páginas compartilhadas foram desligadas neste servidor, então esta página foi parada."
+    },
+    "changedMeanwhile": "A página mudou enquanto você a revisava. Esta é a nova versão.",
+    "sourceTitle": "Código de \"{{title}}\"",
+    "sourceLines_one": "{{count}} linha",
+    "sourceLines_other": "{{count}} linhas",
+    "sourceNote": "O código é mostrado como texto. Nada dele roda aqui."
+  },
+  "frame": {
+    "filesFailed": "Arquivos ao lado desta página não carregaram: {{files}}. O console do navegador mostra o motivo.",
+    "tooLarge": "Esta página inclui mais de {{limit}} de arquivos da pasta, então alguns ficaram de fora. Carregue os dados com fetch().",
+    "dismiss": "Fechar"
+  },
+  "link": {
+    "label": "A página quer abrir um link",
+    "open": "Abrir {{site}}",
+    "cancel": "Cancelar",
+    "lookalike": "Este endereço usa letras de outros alfabetos e é lido como {{display}}. Ele pode imitar outro site: confira antes de abrir."
+  }
+}

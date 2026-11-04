@@ -110,5 +110,23 @@
     "megabytes": "MB",
     "gigabytes": "GB",
     "terabytes": "TB"
+  },
+  "ui": {
+    "tryAgain": "다시 시도",
+    "undo": "실행 취소",
+    "loadError": {
+      "title": "불러오지 못했습니다.",
+      "serverSaid": "서버 응답: “{{message}}”.",
+      "nothingChanged": "변경된 내용이 없습니다."
+    }
+  },
+  "chip": {
+    "running": "실행 중",
+    "starting": "시작 중",
+    "stopped": "중지됨",
+    "failed": "실패",
+    "updateAvailable": "업데이트 있음",
+    "ready": "준비됨",
+    "noRunsYet": "실행 기록 없음"
   }
 }

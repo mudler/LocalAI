@@ -39,14 +39,13 @@ var streamingPathPrefixes = []string{
 	"/audio/transcriptions",
 	"/api/chat",
 	"/api/generate",
-	"/api/agent/jobs",
 	"/api/backend-logs",
 	"/api/node-backend-logs",
 	"/ws/",
 }
 
 // streamingPathSubstrings catches SSE bridges that carry a variable
-// segment before the streaming suffix, e.g. /api/agents/:name/sse.
+// segment before the streaming suffix, e.g. /api/chats/:id/events.
 var streamingPathSubstrings = []string{
 	"/sse",
 	"/progress",

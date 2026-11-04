@@ -1,0 +1,46 @@
+{
+  "badge": {
+    "available": "Atualização disponível",
+    "availableVersion": "Atualização disponível: {{version}}"
+  },
+  "trigger": {
+    "all": "Atualizar tudo ({{count}})",
+    "running": "Atualizando {{current}} de {{total}}",
+    "summary": "{{done}} atualizados, {{failed}} com falha, {{skipped}} ignorados",
+    "summaryOk": "{{done}} atualizados",
+    "review": "Revisar"
+  },
+  "dialog": {
+    "title": "Atualizar tudo",
+    "intro": "Escolha o que atualizar. Cada item é atualizado separadamente, um após o outro. Uma falha não interrompe os demais.",
+    "selection": "Seleção",
+    "selectAll": "Selecionar tudo",
+    "selectNone": "Limpar seleção",
+    "selectedCount_one": "{{count}} selecionado",
+    "selectedCount_other": "{{count}} selecionados",
+    "item": "Atualizar {{name}}",
+    "versions": "{{from}} para {{to}}",
+    "blocked": "Não pode iniciar",
+    "start": "Atualizar selecionados",
+    "starting": "Atualizando...",
+    "retry": "Tentar de novo os que falharam ({{count}})",
+    "again": "Nova seleção",
+    "close": "Fechar",
+    "closeRunning": "Fechar (continua em execução)",
+    "runningNote": "Fechar esta janela não interrompe as atualizações.",
+    "progress": "Atualizando {{current}} de {{total}}",
+    "summary": "{{done}} atualizados, {{failed}} com falha, {{skipped}} ignorados",
+    "empty": "Nada para atualizar."
+  },
+  "item": {
+    "queued": "Na fila",
+    "upgrading": "Atualizando",
+    "done": "Concluído",
+    "failed": "Falhou",
+    "skipped": "Ignorado"
+  },
+  "reason": {
+    "checkAgain": "Verificar novamente",
+    "checking": "Verificando..."
+  }
+}

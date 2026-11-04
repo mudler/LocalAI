@@ -4,6 +4,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default [
+  { files: ['src/components/chat/ChatComposer.jsx'], rules: { 'no-undef': 'error' } },
   { ignores: ['dist'] },
   {
     files: ['**/*.{js,jsx}'],
@@ -28,5 +29,10 @@ export default [
       // exempt rather than adding one warning per import.
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^(Icon|FaIcon)$' }],
     },
+  },
+  {
+    // Playwright fixtures call their `use` callback; it is not a React hook.
+    files: ['e2e/**/*.js'],
+    rules: { 'react-hooks/rules-of-hooks': 'off' },
   },
 ]

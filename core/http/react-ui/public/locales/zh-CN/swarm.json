@@ -1,26 +1,26 @@
 {
   "state": {
     "healthy": "健康",
-    "offline": "离线",
-    "unknown": "未知",
     "draining": "正在排空",
+    "pending": "等待批准",
     "down": "未响应",
+    "offline": "离线",
     "registering": "正在注册",
-    "pending": "等待批准"
+    "unknown": "未知"
   },
   "modelState": {
     "loaded": "已加载",
     "loading": "正在加载",
-    "idle": "空闲",
     "staging": "正在暂存",
-    "unloading": "正在卸载"
+    "unloading": "正在卸载",
+    "idle": "空闲"
   },
   "actions": {
-    "resume": "恢复",
-    "cancel": "取消",
     "approve": "批准",
     "drain": "排空…",
-    "remove": "移除…"
+    "resume": "恢复",
+    "remove": "移除…",
+    "cancel": "取消"
   },
   "preview": {
     "label": "预览"
@@ -29,25 +29,37 @@
     "close": "关闭"
   },
   "pager": {
+    "page": "第 {{page}} / {{total}} 页",
     "previous": "上一步",
     "next": "下一步",
     "previousAria": "上一页",
-    "nextAria": "下一页",
-    "page": "第 {{page}} / {{total}} 页"
+    "nextAria": "下一页"
+  },
+  "attention": {
+    "pending": "等待批准",
+    "down": "未响应",
+    "lowVram": "GPU 显存不足",
+    "lowRam": "系统内存不足",
+    "lowDisk": "模型磁盘空间不足",
+    "pendingFilter": "等待批准",
+    "downFilter": "未响应",
+    "lowVramFilter": "GPU 显存不足",
+    "lowRamFilter": "系统内存不足",
+    "lowDiskFilter": "模型磁盘空间不足"
   },
   "nodes": {
     "title": "节点",
     "filter": "显示",
     "all": "全部",
-    "view": "视图",
     "needs": "需要关注",
-    "running": "运行中的模型",
-    "compact": "紧凑",
-    "density": "行密度",
     "reasons": "原因",
+    "density": "行密度",
     "comfortable": "宽松",
+    "compact": "紧凑",
+    "view": "视图",
     "list": "列表",
     "map": "拓扑图",
+    "running": "运行中的模型",
     "add": "添加节点",
     "search": "搜索节点",
     "searchPlaceholder": "搜索名称、地址、标签…",
@@ -59,17 +71,22 @@
     "noGroup": "不分组",
     "groupType": "按类型分组",
     "groupLabel": "标签：{{key}}",
-    "stale": "无法刷新节点列表，当前显示最近一次读数。"
+    "stale": "无法刷新节点列表，当前显示最近一次读数。",
+    "retry": "重试"
+  },
+  "first": {
+    "title": "尚未注册工作节点",
+    "sub": "在机器上运行一条命令即可添加算力。它会向此实例注册，并自动显示在此处。"
   },
   "table": {
-    "state": "状态",
-    "models": "模型",
-    "version": "版本",
-    "node": "节点",
     "caption": "节点及其状态、内存和模型",
+    "node": "节点",
     "role": "角色",
+    "state": "状态",
     "memory": "GPU 与内存",
+    "models": "模型",
     "lastSeen": "最近在线",
+    "version": "版本",
     "open": "打开节点",
     "selectPage": "选择本页",
     "selectPageTitle": "选择此页节点",
@@ -87,13 +104,8 @@
     "groupCount_other": "{{count}} 个节点 · 已选 {{selected}} 个"
   },
   "bulk": {
-    "selected": "已选 {{count}} 项",
-    "done": {
-      "resume": "恢复",
-      "delete": "移除",
-      "drain": "排空"
-    },
     "label": "已选节点",
+    "selected": "已选 {{count}} 项",
     "drain": "排空所选节点",
     "resume": "恢复所选节点",
     "remove": "移除所选节点",
@@ -103,39 +115,57 @@
     "removeConfirm": "移除节点",
     "removing": "正在移除…",
     "result": "{{label}}完成：成功 {{succeeded}}，失败 {{failed}}，跳过 {{skipped}}",
+    "done": {
+      "drain": "排空",
+      "resume": "恢复",
+      "delete": "移除"
+    },
     "inView_one": "视图中有 {{count}} 个节点",
     "inView_other": "视图中有 {{count}} 个节点"
   },
+  "update": {
+    "named_one": "在 {{count}} 个节点上更新 {{backend}}",
+    "named_other": "在 {{count}} 个节点上更新 {{backend}}",
+    "many_one": "在 {{count}} 个节点上更新后端",
+    "many_other": "在 {{count}} 个节点上更新后端",
+    "started_one": "正在 {{count}} 个节点上更新后端，可在「活动」中查看进度。",
+    "started_other": "正在 {{count}} 个节点上更新后端，可在「活动」中查看进度。",
+    "partial": "{{total}} 个更新中有 {{failed}} 个无法启动。"
+  },
+  "map": {
+    "instance": "此实例",
+    "instanceSub": "前端 · 接收请求",
+    "bus": "消息总线与数据库",
+    "cpuOnly": "仅 CPU",
+    "agent": "运行智能体任务",
+    "noModels": "未加载模型",
+    "more": "另有 {{count}} 个节点，请使用列表查看全部。",
+    "note": "连线表示已注册工作节点。虚线表示不向该节点路由流量。选择节点以打开详情。"
+  },
   "models": {
+    "loading": "正在加载运行中的模型…",
+    "loadingSub": "正在读取控制节点的当前副本。",
+    "error": "无法加载运行中的模型",
     "retry": "重试",
+    "retryAria": "重新加载运行中的模型",
+    "none": "没有运行中的模型",
+    "noneSub": "健康节点上已加载的副本会显示在此处。",
+    "search": "搜索模型或后端…",
+    "caption": "集群中运行的模型",
     "model": "模型",
+    "replicas": "副本",
     "nodes": "节点",
+    "inFlight": "处理中",
     "backends": "后端",
     "lastUsed": "最近使用",
     "actions": "操作",
     "unknown": "未知",
     "never": "从未",
-    "logs": "日志",
-    "stopConfirm": "停止模型",
-    "nNodes_one": "{{count}} 个节点",
-    "nNodes_other": "{{count}} 个节点",
-    "loading": "正在加载运行中的模型…",
-    "error": "无法加载运行中的模型",
-    "search": "搜索模型或后端…",
+    "menu": "{{name}}的操作",
     "menuTrigger": "{{name}}的操作",
+    "viewLogs": "查看日志…",
     "stop": "停止模型…",
     "stopping": "正在停止…",
-    "stopTitle": "停止 {{name}}？",
-    "stopTitleFallback": "停止模型？",
-    "loadingSub": "正在读取控制节点的当前副本。",
-    "retryAria": "重新加载运行中的模型",
-    "none": "没有运行中的模型",
-    "noneSub": "健康节点上已加载的副本会显示在此处。",
-    "caption": "集群中运行的模型",
-    "replicas": "副本",
-    "inFlight": "处理中",
-    "menu": "{{name}}的操作",
-    "viewLogs": "查看日志…",
     "show": "显示 {{name}} 的副本",
     "hide": "隐藏 {{name}} 的副本",
     "unknownNode": "未知节点",
@@ -143,16 +173,38 @@
     "replicaCount_other": "{{count}} 个副本",
     "replica": "副本 {{n}}",
     "noAddress": "无地址",
+    "logs": "日志",
     "logsFor": "查看 {{node}} 上 {{name}} 副本 {{n}} 的日志",
     "prevPage": "上一页模型",
     "nextPage": "下一页模型",
+    "stopTitle": "停止 {{name}}？",
+    "stopTitleFallback": "停止模型？",
     "stopMessage": "{{name}}有 {{replicas}} 分布在 {{nodes}} 上。这将停止这些节点上所有已加载的部署。",
+    "stopConfirm": "停止模型",
     "stopped": "已停止 {{name}}：{{nodes}} 上的 {{replicas}}。",
     "stopFailed": "无法停止 {{name}}：{{message}}。部分副本可能已停止。",
     "nReplicas_one": "{{count}} 个副本",
     "nReplicas_other": "{{count}} 个副本",
+    "nNodes_one": "{{count}} 个节点",
+    "nNodes_other": "{{count}} 个节点",
     "inView_one": "视图中有 {{count}} 个模型",
     "inView_other": "视图中有 {{count}} 个模型"
+  },
+  "toast": {
+    "approved": "{{name}}已获批准",
+    "approvedOne": "节点已获批准",
+    "resumed": "节点已恢复",
+    "draining": "节点已设为排空",
+    "removed": "节点已移除",
+    "unloaded": "模型「{{name}}」已卸载",
+    "upgrading": "正在此节点上升级「{{name}}」…",
+    "backendDeleted": "后端「{{name}}」已删除",
+    "loadFailed": "加载节点失败：{{message}}"
+  },
+  "scale": {
+    "title": "未启用分布式模式",
+    "sub": "分布式模式将模型分布到工作机器上并路由请求。启用该模式启动 LocalAI，然后注册工作节点。",
+    "next": "设置工作节点"
   },
   "command": {
     "copy": "复制",
@@ -161,30 +213,28 @@
     "copyFailed": "无法复制。请选择文本并手动复制。",
     "copyAria": "复制命令"
   },
+  "leave": {
+    "title": "排空此节点会发生什么",
+    "titleDraining": "排空期间受影响的内容",
+    "titleLost": "失去此节点的影响",
+    "empty": "此处未加载模型且无运行中的请求，因此排空不会产生影响。",
+    "emptyLost": "此节点未加载模型，因此没有服务会停止。",
+    "inflight": "{{count}} 个处理中的请求会先完成，不再向此节点发送新请求。",
+    "inflightLost": "此节点有 {{count}} 个处理中的请求，无法完成。",
+    "staysOn": "在 {{nodes}} 上仍可用。",
+    "blocked": "在此节点恢复前不可用：其规则仅允许 {{selector}}，没有其他健康节点具备这些标签。",
+    "reload": "下次请求时会在其他适配的健康节点上重新加载。此处未比较可用内存。",
+    "reloadNone": "没有可迁移的其他健康节点，因此在此节点恢复前停止服务。",
+    "unavailable": "集群未返回已加载副本或规则，暂时无法计算。",
+    "how": "由此浏览器根据节点列表、已加载副本和部署规则计算。服务器不执行此计算，调度器加载模型时还会考虑可用内存和磁盘。"
+  },
   "detail": {
-    "retry": "重试",
-    "tab": {
-      "models": "模型",
-      "backends": "后端",
-      "logs": "日志",
-      "config": "容量与标签"
-    },
-    "model": "模型",
-    "state": "状态",
-    "actions": "操作",
-    "name": "名称",
-    "source": "来源",
-    "installed": "已安装",
-    "noData": "无数据",
-    "runningModels": "运行中的模型",
-    "viewLogs": "查看日志",
-    "installedBackends": "已安装的后端",
     "back": "所有节点",
-    "labels": "标签",
     "notFound": "未找到节点",
     "notFoundSub": "节点可能已从集群移除。",
     "loadFailed": "无法加载此节点",
     "loadFailedSub": "集群可能暂时不可用。",
+    "retry": "重试",
     "kind": "{{type}}节点",
     "seen": "最近在线 {{when}}",
     "never": "从未",
@@ -197,19 +247,35 @@
     "drainingSub": "不接收新请求，正在完成已有请求。恢复后可重新提供服务。",
     "resources": "节点资源",
     "disk": "模型磁盘可用空间",
+    "noData": "无数据",
     "load": "{{load}} 负载（1 分钟）",
     "inFlight": "处理中",
     "tabs": "节点分区",
+    "tab": {
+      "models": "模型",
+      "backends": "后端",
+      "logs": "日志",
+      "config": "容量与标签"
+    },
+    "runningModels": "运行中的模型",
     "noModels": "尚未加载模型。副本调度到此节点后会显示在此处。",
+    "model": "模型",
+    "state": "状态",
+    "actions": "操作",
     "replicaTitle": "此节点上的副本 {{n}}",
+    "viewLogs": "查看日志",
     "unload": "卸载模型…",
     "placementNote": "模型的部署位置由调度器及以下规则决定：",
     "placementLink": "部署规则",
+    "installedBackends": "已安装的后端",
     "backendsSub": "此节点上可用的运行引擎。",
     "addBackend": "添加后端",
     "backendsFailed": "无法读取此节点的后端。",
     "noBackends": "尚未安装。",
     "installOne": "从模型库安装",
+    "name": "名称",
+    "source": "来源",
+    "installed": "已安装",
     "system": "系统",
     "gallery": "模型库",
     "upgradeBackend": "升级后端",
@@ -220,7 +286,15 @@
     "config": "节点配置",
     "replicaCap": "副本容量",
     "replicaCapSub": "限制单个模型在此节点上运行的副本数。",
+    "labels": "标签",
     "labelsSub": "标签描述此工作节点，并决定哪些部署规则可以使用它。"
+  },
+  "drain": {
+    "title": "排空 {{name}}？",
+    "desc": "排空中的节点不接收新请求，已有请求会继续完成。",
+    "confirm": "排空节点",
+    "pending": "正在排空…",
+    "undo": "你随时可以恢复节点。"
   },
   "remove": {
     "title": "移除 {{name}}?",
@@ -230,28 +304,37 @@
     "confirm": "移除节点",
     "pending": "正在移除…"
   },
+  "unload": {
+    "title": "卸载模型",
+    "message": "从 {{node}} 卸载「{{name}}」？",
+    "busy": "「{{name}}」有 {{count}} 个处理中的请求。卸载会中断这些请求，继续？",
+    "confirm": "卸载"
+  },
   "backendDelete": {
-    "confirm": "删除",
     "title": "删除后端",
-    "message": "从 {{node}} 删除「{{backend}}」？仅移除此节点上的后端文件。"
+    "message": "从 {{node}} 删除「{{backend}}」？仅移除此节点上的后端文件。",
+    "confirm": "删除"
+  },
+  "shrink": {
+    "title": "降低副本容量",
+    "message": "{{name}}至少有一个模型加载了 {{loaded}} 个副本。将上限降至 {{value}} 不会立即驱逐：运行中的副本会继续，下次空闲时由协调器缩减。继续？",
+    "confirm": "降低"
   },
   "rules": {
     "title": "调度",
-    "undo": "撤销",
-    "undoDismiss": "关闭",
+    "lede": "规则决定模型可以在哪些节点运行。没有规则的模型由调度器安排到有空间的节点。",
+    "new": "新建规则",
     "heading": "规则",
+    "emptyTitle": "尚无部署规则",
+    "empty": "添加规则以将模型限制在特定节点、保持副本运行，或在每个节点上运行。",
+    "byPrefix": "使用前缀缓存路由。",
+    "byRound": "使用轮询路由。",
     "kind": {
       "placement": "部署位置",
       "autoscale": "自动扩缩容",
       "spread": "分散部署",
       "inactive": "仅路由"
     },
-    "lede": "规则决定模型可以在哪些节点运行。没有规则的模型由调度器安排到有空间的节点。",
-    "new": "新建规则",
-    "emptyTitle": "尚无部署规则",
-    "empty": "添加规则以将模型限制在特定节点、保持副本运行，或在每个节点上运行。",
-    "byPrefix": "使用前缀缓存路由。",
-    "byRound": "使用轮询路由。",
     "route": {
       "default": "默认路由",
       "prefix_cache": "前缀缓存路由",
@@ -273,6 +356,8 @@
     "removed": "部署规则已移除",
     "removeFailed": "移除规则失败：{{message}}",
     "undoMessage": "{{name}}的规则已删除。",
+    "undo": "撤销",
+    "undoDismiss": "关闭",
     "sentence": {
       "placement": "{{model}}在带有 {{labels}} 标签的节点上运行一个副本。",
       "inactive": "{{model}}没有自己的部署限制，由调度器决定。",
@@ -291,9 +376,9 @@
     }
   },
   "matrix": {
-    "model": "模型",
     "title": "部署预览",
     "caption": "各规则按节点分配模型的位置",
+    "model": "模型",
     "cell": {
       "loaded": "当前已加载",
       "planned": "已规划",
@@ -303,20 +388,20 @@
     "more": "显示 {{shown}} / {{total}} 个节点。"
   },
   "sheet": {
+    "newTitle": "新建规则",
+    "editTitle": "编辑规则",
+    "desc": "选择模型、副本数及部署位置。",
     "close": "关闭",
     "model": "模型",
+    "modelPlaceholder": "输入以搜索模型或别名，或粘贴名称…",
+    "aliasOf": "{{target}}的别名",
+    "aliasNote": "{{name}}是 {{target}} 的别名。此规则应用于别名指向的模型，更改指向后会随之调整。",
+    "how": "副本数量",
     "mode": {
       "placement": "部署位置",
       "autoscaling": "自动扩缩容",
       "spread": "分散部署"
     },
-    "newTitle": "新建规则",
-    "editTitle": "编辑规则",
-    "desc": "选择模型、副本数及部署位置。",
-    "modelPlaceholder": "输入以搜索模型或别名，或粘贴名称…",
-    "aliasOf": "{{target}}的别名",
-    "aliasNote": "{{name}}是 {{target}} 的别名。此规则应用于别名指向的模型，更改指向后会随之调整。",
-    "how": "副本数量",
     "help": {
       "placement": "将此模型限制在指定节点。按需加载，空闲时可被驱逐。",
       "spread": "在每个匹配节点上运行一个副本。没有标签则在所有健康节点上运行，并随节点加入或离开调整。",
@@ -363,80 +448,7 @@
     },
     "pickerEmpty": "没有匹配模型，将按输入使用「{{name}}」。"
   },
-  "p2p": {
-    "online": "在线",
-    "offline": "离线",
-    "title": "P2P",
-    "lede": "对等节点通过共享网络令牌加入此实例，无需消息总线或数据库。",
-    "peer": "对等节点",
-    "unnamed": "对等节点 {{n}}",
-    "offTitle": "未启用 P2P",
-    "offSub": "启用点对点网络，无需消息总线或数据库即可使用其他机器：共享完整实例，或跨机器拆分单个模型。",
-    "features": {
-      "federation": {
-        "title": "实例联合",
-        "text": "在多个 LocalAI 实例间均衡请求。"
-      },
-      "sharding": {
-        "title": "模型分片",
-        "text": "将大型模型拆分到工作节点上，以便容纳。"
-      },
-      "sharing": {
-        "title": "资源共享",
-        "text": "汇集现有设备的内存和算力。"
-      }
-    },
-    "enableTitle": "如何启用 P2P",
-    "enableStart": "启用 P2P 启动 LocalAI，它会生成网络令牌。",
-    "enableToken": "也可使用其他实例提供的现有令牌启动。",
-    "enableThen": "启动后刷新此页面，查看令牌并连接机器。",
-    "docs": "P2P 文档",
-    "token": "网络令牌",
-    "copyToken": "复制令牌",
-    "tokenCopied": "令牌已复制到剪贴板",
-    "tokenNote": "网络中的每台机器使用相同令牌，通过 TOKEN 环境变量传入。",
-    "sections": "P2P 分区",
-    "federation": "联合",
-    "sharding": "模型分片",
-    "count": "{{online}}/{{total}} 在线",
-    "federationSub": "联合服务器作为入口，接收 API 请求，并将其均衡分配到后方的联合实例。",
-    "instances": "已连接的实例",
-    "noInstances": "尚无联合实例连接。",
-    "serverTitle": "启动联合服务器",
-    "serverSub": "在客户端将调用的机器上运行。默认监听端口为 8080。",
-    "port": "添加 -e ADDRESS=:9090 可更改端口。",
-    "addPeer": "添加对等实例",
-    "addShard": "添加内存分片",
-    "shardingSub": "联合分散完整请求；模型分片将一个模型拆分到多台机器，每台持有部分层。",
-    "llama": "llama.cpp RPC 工作节点",
-    "llamaSub": "每个工作节点借出 GPU 显存或 CPU 内存，以容纳模型的一部分。",
-    "noLlama": "尚无 llama.cpp 工作节点连接。",
-    "mlx": "MLX 分布式工作节点",
-    "mlxSub": "Apple Silicon Mac 通过原生连接共同运行模型。",
-    "mlxDocs": "MLX 分布式文档",
-    "noMlx": "尚无 MLX 工作节点连接。",
-    "shardCommands": "启动工作节点的命令位于"
-  },
-  "unload": {
-    "confirm": "卸载",
-    "title": "卸载模型",
-    "message": "从 {{node}} 卸载「{{name}}」？",
-    "busy": "「{{name}}」有 {{count}} 个处理中的请求。卸载会中断这些请求，继续？"
-  },
-  "attention": {
-    "down": "未响应",
-    "downFilter": "未响应",
-    "pending": "等待批准",
-    "lowVram": "GPU 显存不足",
-    "lowRam": "系统内存不足",
-    "lowDisk": "模型磁盘空间不足",
-    "pendingFilter": "等待批准",
-    "lowVramFilter": "GPU 显存不足",
-    "lowRamFilter": "系统内存不足",
-    "lowDiskFilter": "模型磁盘空间不足"
-  },
   "failover": {
-    "tryPick": "节点",
     "lede": "故障转移链通过有序目标列表提供一个模型名称，并将请求转移到下一个健康目标。工作节点停止响应时，路由器和健康监控已会绕过该节点重新路由。",
     "lost_one": "{{names}}未响应。",
     "lost_other": "{{names}}未响应。",
@@ -463,6 +475,7 @@
     },
     "policyNote": "以上描述路由器和健康监控的行为。时间参数由服务器设置，此页面不会读取。",
     "tryTitle": "如果此节点失联",
+    "tryPick": "节点",
     "tryLoading": "正在读取已加载副本…",
     "single_one": "{{count}} 个模型仅运行单个副本。",
     "single_other": "{{count}} 个模型仅运行单个副本。",
@@ -525,11 +538,65 @@
       "p2pStuck": "没有节点加入？请检查机器能否访问此网络，以及是否使用相同令牌。"
     }
   },
+  "p2p": {
+    "title": "P2P",
+    "lede": "对等节点通过共享网络令牌加入此实例，无需消息总线或数据库。",
+    "peer": "对等节点",
+    "unnamed": "对等节点 {{n}}",
+    "online": "在线",
+    "offline": "离线",
+    "offTitle": "未启用 P2P",
+    "offSub": "启用点对点网络，无需消息总线或数据库即可使用其他机器：共享完整实例，或跨机器拆分单个模型。",
+    "features": {
+      "federation": {
+        "title": "实例联合",
+        "text": "在多个 LocalAI 实例间均衡请求。"
+      },
+      "sharding": {
+        "title": "模型分片",
+        "text": "将大型模型拆分到工作节点上，以便容纳。"
+      },
+      "sharing": {
+        "title": "资源共享",
+        "text": "汇集现有设备的内存和算力。"
+      }
+    },
+    "enableTitle": "如何启用 P2P",
+    "enableStart": "启用 P2P 启动 LocalAI，它会生成网络令牌。",
+    "enableToken": "也可使用其他实例提供的现有令牌启动。",
+    "enableThen": "启动后刷新此页面，查看令牌并连接机器。",
+    "docs": "P2P 文档",
+    "token": "网络令牌",
+    "copyToken": "复制令牌",
+    "tokenCopied": "令牌已复制到剪贴板",
+    "tokenNote": "网络中的每台机器使用相同令牌，通过 TOKEN 环境变量传入。",
+    "sections": "P2P 分区",
+    "federation": "联合",
+    "sharding": "模型分片",
+    "count": "{{online}}/{{total}} 在线",
+    "federationSub": "联合服务器作为入口，接收 API 请求，并将其均衡分配到后方的联合实例。",
+    "instances": "已连接的实例",
+    "noInstances": "尚无联合实例连接。",
+    "serverTitle": "启动联合服务器",
+    "serverSub": "在客户端将调用的机器上运行。默认监听端口为 8080。",
+    "port": "添加 -e ADDRESS=:9090 可更改端口。",
+    "addPeer": "添加对等实例",
+    "addShard": "添加内存分片",
+    "shardingSub": "联合分散完整请求；模型分片将一个模型拆分到多台机器，每台持有部分层。",
+    "llama": "llama.cpp RPC 工作节点",
+    "llamaSub": "每个工作节点借出 GPU 显存或 CPU 内存，以容纳模型的一部分。",
+    "noLlama": "尚无 llama.cpp 工作节点连接。",
+    "mlx": "MLX 分布式工作节点",
+    "mlxSub": "Apple Silicon Mac 通过原生连接共同运行模型。",
+    "mlxDocs": "MLX 分布式文档",
+    "noMlx": "尚无 MLX 工作节点连接。",
+    "shardCommands": "启动工作节点的命令位于"
+  },
   "nodeLogs": {
-    "backNode": "节点",
     "noneTitle": "未选择节点或模型",
     "noneBefore": "从以下页面打开副本日志：",
     "noneLink": "节点页面",
+    "backNode": "节点",
     "replica": "副本 {{n}}",
     "merged": "合并 · {{count}} 个副本",
     "supporting": "来自节点 {{node}} 的后端日志",
@@ -537,71 +604,5 @@
     "replicaN": "副本 {{n}}",
     "allMerged": "全部合并",
     "mergedTitle": "所有副本的交错时间线，便于并排比较"
-  },
-  "map": {
-    "cpuOnly": "仅 CPU",
-    "instance": "此实例",
-    "instanceSub": "前端 · 接收请求",
-    "bus": "消息总线与数据库",
-    "agent": "运行智能体任务",
-    "noModels": "未加载模型",
-    "more": "另有 {{count}} 个节点，请使用列表查看全部。",
-    "note": "连线表示已注册工作节点。虚线表示不向该节点路由流量。选择节点以打开详情。"
-  },
-  "first": {
-    "title": "尚未注册工作节点",
-    "sub": "在机器上运行一条命令即可添加算力。它会向此实例注册，并自动显示在此处。"
-  },
-  "update": {
-    "named_one": "在 {{count}} 个节点上更新 {{backend}}",
-    "named_other": "在 {{count}} 个节点上更新 {{backend}}",
-    "many_one": "在 {{count}} 个节点上更新后端",
-    "many_other": "在 {{count}} 个节点上更新后端",
-    "started_one": "正在 {{count}} 个节点上更新后端，可在「活动」中查看进度。",
-    "started_other": "正在 {{count}} 个节点上更新后端，可在「活动」中查看进度。",
-    "partial": "{{total}} 个更新中有 {{failed}} 个无法启动。"
-  },
-  "toast": {
-    "approved": "{{name}}已获批准",
-    "approvedOne": "节点已获批准",
-    "resumed": "节点已恢复",
-    "draining": "节点已设为排空",
-    "removed": "节点已移除",
-    "unloaded": "模型「{{name}}」已卸载",
-    "upgrading": "正在此节点上升级「{{name}}」…",
-    "backendDeleted": "后端「{{name}}」已删除",
-    "loadFailed": "加载节点失败：{{message}}"
-  },
-  "scale": {
-    "title": "未启用分布式模式",
-    "sub": "分布式模式将模型分布到工作机器上并路由请求。启用该模式启动 LocalAI，然后注册工作节点。",
-    "next": "设置工作节点"
-  },
-  "leave": {
-    "title": "排空此节点会发生什么",
-    "titleDraining": "排空期间受影响的内容",
-    "titleLost": "失去此节点的影响",
-    "empty": "此处未加载模型且无运行中的请求，因此排空不会产生影响。",
-    "emptyLost": "此节点未加载模型，因此没有服务会停止。",
-    "inflight": "{{count}} 个处理中的请求会先完成，不再向此节点发送新请求。",
-    "inflightLost": "此节点有 {{count}} 个处理中的请求，无法完成。",
-    "staysOn": "在 {{nodes}} 上仍可用。",
-    "blocked": "在此节点恢复前不可用：其规则仅允许 {{selector}}，没有其他健康节点具备这些标签。",
-    "reload": "下次请求时会在其他适配的健康节点上重新加载。此处未比较可用内存。",
-    "reloadNone": "没有可迁移的其他健康节点，因此在此节点恢复前停止服务。",
-    "unavailable": "集群未返回已加载副本或规则，暂时无法计算。",
-    "how": "由此浏览器根据节点列表、已加载副本和部署规则计算。服务器不执行此计算，调度器加载模型时还会考虑可用内存和磁盘。"
-  },
-  "drain": {
-    "title": "排空 {{name}}？",
-    "desc": "排空中的节点不接收新请求，已有请求会继续完成。",
-    "confirm": "排空节点",
-    "pending": "正在排空…",
-    "undo": "你随时可以恢复节点。"
-  },
-  "shrink": {
-    "title": "降低副本容量",
-    "message": "{{name}}至少有一个模型加载了 {{loaded}} 个副本。将上限降至 {{value}} 不会立即驱逐：运行中的副本会继续，下次空闲时由协调器缩减。继续？",
-    "confirm": "降低"
   }
 }

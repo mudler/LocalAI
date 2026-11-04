@@ -16,13 +16,13 @@ import (
 )
 
 func host() contract.HostCompatibility {
-	return contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}
+	return contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}
 }
 
 // manifest builds a manifest with the given ui object. Tools are ping and list.
 func manifest(ui string) []byte {
 	return []byte(`{"schemaVersion":1,"id":"notes","version":"1.0.0","executable":"bin/x","os":"linux","arch":"amd64",` +
-		`"host":{"min":1,"max":2},"api":{"min":1,"max":1},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},` +
+		`"host":{"min":1,"max":2},"api":{"min": 2, "max": 2},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},` +
 		`"capabilities":{"tools":["ping","list"],"ui":` + ui + `}}`)
 }
 
@@ -54,6 +54,34 @@ var _ = Describe("Host UI contributions in the manifest", func() {
 		again, e := contract.ParseManifest(out)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(again).To(Equal(m))
+	})
+
+	It("accepts a file preview slot that names the extensions it handles", func() {
+		ui := `{` + base + `,"slots":[{"id":"prev","slot":"files.preview","component":"Preview","extensions":["docx","xlsx"]}]}`
+		Expect(validate(ui)).To(Succeed())
+		m, _ := contract.ParseManifest(manifest(ui))
+		Expect(m.Capabilities.UI.Slots[0].Extensions).To(Equal([]string{"docx", "xlsx"}))
+	})
+
+	It("rejects a file preview slot or extension list that is not safe", func() {
+		slot := func(extra string) string {
+			return `{` + base + `,"slots":[{"id":"prev","slot":"files.preview","component":"Preview"` + extra + `}]}`
+		}
+		bad := map[string]string{
+			"no extensions":     slot(``),
+			"empty list":        slot(`,"extensions":[]`),
+			"dot in extension":  slot(`,"extensions":[".docx"]`),
+			"upper case":        slot(`,"extensions":["DOCX"]`),
+			"path in extension": slot(`,"extensions":["a/b"]`),
+			"long extension":    slot(`,"extensions":["abcdefghi"]`),
+			"duplicate":         slot(`,"extensions":["docx","docx"]`),
+			"too many":          slot(`,"extensions":["a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q"]`),
+			"on another slot":   `{` + base + `,"slots":[{"id":"a","slot":"app.nav","component":"Bit","extensions":["docx"]}]}`,
+			"not a string":      slot(`,"extensions":[1]`),
+		}
+		for name, ui := range bad {
+			Expect(validate(ui)).NotTo(Succeed(), name)
+		}
 	})
 
 	It("keeps bare chat action identifiers and every earlier fixture valid", func() {
@@ -118,7 +146,7 @@ var _ = Describe("Host UI contributions in the manifest", func() {
 	})
 
 	It("keeps the closed slot list and the icon allowlist equal to the host", func() {
-		Expect(contract.HostSlots).To(Equal([]string{"chat.composer.actions", "chat.message.actions", "app.nav", "settings.sections"}))
+		Expect(contract.HostSlots).To(Equal([]string{"chat.composer.actions", "chat.message.actions", "app.nav", "settings.sections", "files.preview"}))
 		src, e := os.ReadFile("../../../core/http/react-ui/src/addons/sdk.js")
 		Expect(e).NotTo(HaveOccurred())
 		block := regexp.MustCompile(`(?s)ICON_NAMES = Object\.freeze\(\[(.*?)\]\)`).FindSubmatch(src)

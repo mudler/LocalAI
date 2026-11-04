@@ -58,6 +58,15 @@ func (r VersionRange) accepts(v uint64) bool {
 	return r.Min > 0 && r.Max >= r.Min && v >= r.Min && v <= r.Max
 }
 
+// HostAPIVersion is the manifest API version of this host. It is the only
+// one: a manifest declares the range {"min": 2, "max": 2}.
+const HostAPIVersion uint64 = 2
+
+// isHostAPI reports whether the range is exactly the manifest API of the host.
+func (r VersionRange) isHostAPI() bool {
+	return r.Min == HostAPIVersion && r.Max == HostAPIVersion
+}
+
 type HostCompatibility struct {
 	Host       uint64 `json:"host"`
 	API        uint64 `json:"api"`
@@ -90,6 +99,10 @@ type Capabilities struct {
 	// arguments and the host authority of each. A declared tool without a
 	// definition is not offered to models.
 	ToolDefinitions []ToolDefinition `json:"toolDefinitions,omitempty"`
+	// Actions says that a tool of the kind action is declared. The host starts
+	// no manifest that declares one without it, so reading the capabilities is
+	// enough to know that an add-on can change things without a confirmation.
+	Actions bool `json:"actions,omitempty"`
 	// AdminTools are tools that only the host's own UI-only resource
 	// management endpoints may run. They are never in Tools, never have a
 	// tool definition and never reach a model, a proposal, a typed dispatch
@@ -98,7 +111,33 @@ type Capabilities struct {
 	// Resources says which tools the UI-only resource management endpoints
 	// use for this add-on's resources (create, rename, inspect, delete).
 	Resources *ResourceTools `json:"resources,omitempty"`
-	UI        *UI            `json:"ui,omitempty"`
+	// Undo says that the add-on keeps a change set for the writes a chat
+	// makes at once and answers the host's undo calls (see undo.go). It is a
+	// promise about storage only: the add-on's tools stay as declared.
+	Undo bool `json:"undo,omitempty"`
+	// Connector says that the add-on carries the messages of a messaging
+	// platform (see connector.go). It needs no tool.
+	Connector *ConnectorCapability `json:"connector,omitempty"`
+	// SkillDefinitions are the skills the package ships under skills/ (see
+	// skills.go). The chat's skill index offers them while the add-on runs.
+	SkillDefinitions  []SkillDefinition  `json:"skillDefinitions,omitempty"`
+	UI                *UI                `json:"ui,omitempty"`
+	ExecutionProvider *ExecutionProvider `json:"executionProvider,omitempty"`
+	HostOperations    *HostOperations    `json:"hostOperations,omitempty"`
+	// Network declares the network policy of the commands the add-on runs
+	// (see network.go). It attaches the network-policy host control.
+	Network *NetworkCapability `json:"network,omitempty"`
+	// ContextFiles name small index files of the user's home that the host
+	// loads into the prompt of a chat (see contextfiles.go).
+	ContextFiles []ContextFile `json:"contextFiles,omitempty"`
+	// UserSettings declare the choices that each person makes for the add-on
+	// (see usersettings.go). The host keeps the answers and validates them.
+	UserSettings []UserSetting `json:"userSettings,omitempty"`
+
+	// Credentials declare the secret that the host keeps for the person and
+	// hands to each call (see credentials.go). It needs a connector
+	// kind that holds the binding.
+	Credentials []CredentialSlot `json:"credentials,omitempty"`
 }
 
 // ResourceTools maps the host's UI-only resource management operations to
@@ -119,6 +158,9 @@ type ResourceTools struct {
 	// Delete is a tool of AdminTools that removes the resource and its
 	// backing data. It is reachable only from the UI-only delete endpoint.
 	Delete string `json:"delete,omitempty"`
+	// List asks the host for a read tool that lists the resources the caller
+	// may use (see ResourceList).
+	List *ResourceList `json:"list,omitempty"`
 }
 
 // MaxAdminTools bounds capabilities.adminTools.
@@ -154,7 +196,7 @@ func validateResourceTools(c Capabilities) error {
 		}
 		return nil
 	}
-	if r.Create == "" && r.Rename == "" && r.Inspect == "" && r.Delete == "" {
+	if r.Create == "" && r.Rename == "" && r.Inspect == "" && r.Delete == "" && r.List == nil {
 		return fmt.Errorf("empty resources mapping")
 	}
 	if r.Noun != "" && !plainText(r.Noun, 40) {
@@ -189,11 +231,13 @@ func validateResourceTools(c Capabilities) error {
 }
 
 type UI struct {
-	Entry      string       `json:"entry"`
-	CSS        []string     `json:"css,omitempty"`
-	SDK        VersionRange `json:"sdk"`
-	Pages      []string     `json:"pages,omitempty"`
-	Navigation []string     `json:"navigation,omitempty"`
+	HomeCommands []HomeCommand `json:"homeCommands,omitempty"`
+	ModelActions []ModelAction `json:"modelActions,omitempty"`
+	Entry        string        `json:"entry"`
+	CSS          []string      `json:"css,omitempty"`
+	SDK          VersionRange  `json:"sdk"`
+	Pages        []string      `json:"pages,omitempty"`
+	Navigation   []string      `json:"navigation,omitempty"`
 	// ChatActions are the chat actions: a bare identifier (inert) or a full
 	// declaration with label, icon, placement and target.
 	ChatActions []ChatAction `json:"chatActions,omitempty"`
@@ -201,6 +245,10 @@ type UI struct {
 	// the approval card or the result of one of the addon's own tools.
 	Slots     []SlotContribution `json:"slots,omitempty"`
 	Renderers []Renderer         `json:"renderers,omitempty"`
+	// Controls are host controls the add-on asks the host to draw for it, by
+	// ID from HostControls (see hostcontrols.go). The host draws them with its
+	// own components and settings, and only those EntitledControls admits.
+	Controls []string `json:"controls,omitempty"`
 	// MainPage is the route the Apps surface opens. It must be one of Pages;
 	// without it the addon has no Open action.
 	MainPage string `json:"mainPage,omitempty"`
@@ -254,7 +302,7 @@ var assetPath = regexp.MustCompile(`^[a-zA-Z0-9_./-]+$`)
 // so an add-on with one of these IDs would have its asset URLs captured by the
 // host route of the same name. A test derives the registered segments from the
 // real routes and requires each to be listed here.
-var reservedAddonIDs = []string{"apps", "proposals", "artifacts", "resources", "conversations", "dispatch", "relay", "catalog", "icon", "assets", "installed", "sources", "builtin", "pins"}
+var reservedAddonIDs = []string{"apps", "proposals", "artifacts", "resources", "conversations", "dispatch", "relay", "catalog", "icon", "assets", "installed", "sources", "builtin", "pins", "host-grants", "files"}
 
 // ReservedAddonIDs returns a copy of the reserved add-on IDs.
 func ReservedAddonIDs() []string { return append([]string(nil), reservedAddonIDs...) }
@@ -325,17 +373,49 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	if !namespace.MatchString(m.OS) || !namespace.MatchString(m.Arch) || m.OS != h.OS || m.Arch != h.Arch {
 		return fmt.Errorf("incompatible platform")
 	}
+	if !m.API.isHostAPI() {
+		return fmt.Errorf("the manifest must declare api {\"min\": %d, \"max\": %d}", HostAPIVersion, HostAPIVersion)
+	}
 	if !m.Host.accepts(h.Host) || !m.API.accepts(h.API) || !m.Protocol.accepts(h.Protocol) || !m.DataFormat.accepts(h.DataFormat) {
 		return fmt.Errorf("incompatible host, API, protocol or data format")
 	}
 	c := m.Capabilities
-	if (!c.Service && len(c.Tools) == 0 && c.UI == nil) || !uniqueIDs(c.Tools) {
+	if (!c.Service && len(c.Tools) == 0 && c.UI == nil && c.Connector == nil) || !uniqueIDs(c.Tools) {
 		return fmt.Errorf("invalid capabilities")
 	}
-	if e := validateToolDefinitions(c.ToolDefinitions, c.Tools); e != nil {
+	for _, d := range c.ToolDefinitions {
+		if d.Kind == ToolKindAction && !c.Actions {
+			return fmt.Errorf("tool %s is an action tool but the add-on does not declare actions", d.Name)
+		}
+	}
+	if e := validateToolDefinitionsFor(c.ToolDefinitions, c.Tools, len(c.Credentials) > 0); e != nil {
+		return e
+	}
+	if e := validateExtensions(c); e != nil {
+		return e
+	}
+	if e := c.Network.validate(m); e != nil {
+		return e
+	}
+	if e := validateContextFiles(m); e != nil {
+		return e
+	}
+	if e := validateUserSettings(c.UserSettings); e != nil {
 		return e
 	}
 	if e := validateResourceTools(c); e != nil {
+		return e
+	}
+	if e := validateCredentials(c); e != nil {
+		return e
+	}
+	if e := validateResourceList(c); e != nil {
+		return e
+	}
+	if e := validateConnector(c.Connector, c.UI); e != nil {
+		return e
+	}
+	if e := validateSkillDefinitions(m.ID, c.SkillDefinitions); e != nil {
 		return e
 	}
 	if u := c.UI; u != nil {
@@ -373,6 +453,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 			}
 		}
 		if e := validateContributions(u, c.Tools); e != nil {
+			return e
+		}
+		if e := validateControls(u.Controls); e != nil {
 			return e
 		}
 	}

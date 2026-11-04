@@ -4,14 +4,76 @@ import (
 	"net/http/httptest"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/pkg/clientip"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
+// httptest requests come from 192.0.2.1.
+func echoTrusting(list string) *echo.Echo {
+	r, err := clientip.Parse(list)
+	Expect(err).ToNot(HaveOccurred())
+	e := echo.New()
+	e.Pre(TrustedProxies(r))
+	return e
+}
+
+func trustedEcho() *echo.Echo { return echoTrusting("192.0.2.0/24") }
+
 var _ = Describe("BaseURL", func() {
+	Context("forwarded headers and the trusted peer", func() {
+		forge := func(app *echo.Echo, peer string) string {
+			got := ""
+			app.GET("/x", func(c echo.Context) error {
+				got = BaseURL(c)
+				return nil
+			})
+			req := httptest.NewRequest("GET", "/x", nil)
+			if peer != "" {
+				req.RemoteAddr = peer
+			}
+			req.Header.Set("X-Forwarded-Proto", "https")
+			req.Header.Set("X-Forwarded-Host", "forged.example")
+			req.Header.Set("Forwarded", "proto=https;host=forged2.example")
+			req.Header.Set("X-Forwarded-Prefix", "/forged")
+			app.ServeHTTP(httptest.NewRecorder(), req)
+			return got
+		}
+
+		It("honors the headers from a trusted peer", func() {
+			Expect(forge(trustedEcho(), "")).To(Equal("https://forged.example/forged/"))
+		})
+
+		It("ignores forged headers from an untrusted peer", func() {
+			Expect(forge(trustedEcho(), "203.0.113.9:4000")).To(Equal("http://example.com/"))
+		})
+
+		It("trusts nobody when the list is empty", func() {
+			Expect(forge(echoTrusting(""), "")).To(Equal("http://example.com/"))
+		})
+
+		It("trusts nobody when no resolver is registered", func() {
+			Expect(forge(echo.New(), "")).To(Equal("http://example.com/"))
+		})
+
+		It("still lets LOCALAI_BASE_URL win for a trusted peer", func() {
+			app := trustedEcho()
+			got := ""
+			app.GET("/x", func(c echo.Context) error {
+				c.Set("_external_base_url", "https://ext.example")
+				got = BaseURL(c)
+				return nil
+			})
+			req := httptest.NewRequest("GET", "/x", nil)
+			req.Header.Set("X-Forwarded-Host", "forged.example")
+			app.ServeHTTP(httptest.NewRecorder(), req)
+			Expect(got).To(Equal("https://ext.example/"))
+		})
+	})
+
 	Context("without prefix", func() {
 		It("should return base URL without prefix", func() {
-			app := echo.New()
+			app := trustedEcho()
 			actualURL := ""
 
 			// Register route - use the actual request path so routing works
@@ -32,7 +94,7 @@ var _ = Describe("BaseURL", func() {
 
 	Context("with prefix", func() {
 		It("should return base URL with prefix", func() {
-			app := echo.New()
+			app := trustedEcho()
 			actualURL := ""
 
 			// Register route with the stripped path (after middleware removes prefix)
@@ -63,7 +125,7 @@ var _ = Describe("BaseURL", func() {
 	// honor the header so that <base href> and asset URLs include the prefix.
 	Context("with X-Forwarded-Prefix header but pre-stripped path", func() {
 		It("should return base URL with prefix from header", func() {
-			app := echo.New()
+			app := trustedEcho()
 			actualURL := ""
 
 			routePath := "/app"
@@ -82,7 +144,7 @@ var _ = Describe("BaseURL", func() {
 		})
 
 		It("should normalize a prefix that already ends with a slash", func() {
-			app := echo.New()
+			app := trustedEcho()
 			actualURL := ""
 
 			routePath := "/app"
@@ -110,7 +172,7 @@ var _ = Describe("BaseURL", func() {
 	Context("with unsafe X-Forwarded-Prefix header", func() {
 		DescribeTable("falls back to / when the header is unsafe",
 			func(header string) {
-				app := echo.New()
+				app := trustedEcho()
 				actualURL := ""
 
 				app.GET("/app", func(c echo.Context) error {
@@ -138,7 +200,7 @@ var _ = Describe("BaseURL", func() {
 
 	Context("scheme detection hardening", func() {
 		It("treats comma-separated X-Forwarded-Proto as https when first token is https", func() {
-			app := echo.New()
+			app := trustedEcho()
 			actualURL := ""
 			app.GET("/x", func(c echo.Context) error {
 				actualURL = BaseURL(c)
@@ -152,7 +214,7 @@ var _ = Describe("BaseURL", func() {
 		})
 
 		It("derives https from the RFC 7239 Forwarded proto directive", func() {
-			app := echo.New()
+			app := trustedEcho()
 			actualURL := ""
 			app.GET("/x", func(c echo.Context) error {
 				actualURL = BaseURL(c)
@@ -166,7 +228,7 @@ var _ = Describe("BaseURL", func() {
 		})
 
 		It("prefers X-Forwarded-Host over the Forwarded host directive", func() {
-			app := echo.New()
+			app := trustedEcho()
 			actualURL := ""
 			app.GET("/x", func(c echo.Context) error {
 				actualURL = BaseURL(c)
@@ -183,7 +245,7 @@ var _ = Describe("BaseURL", func() {
 
 	Context("explicit external base URL override", func() {
 		It("uses the configured origin over conflicting forwarded headers", func() {
-			app := echo.New()
+			app := trustedEcho()
 			actualURL := ""
 			app.GET("/x", func(c echo.Context) error {
 				c.Set("_external_base_url", "https://192.168.0.13:34567")
@@ -199,7 +261,7 @@ var _ = Describe("BaseURL", func() {
 		})
 
 		It("combines the configured origin with a detected path prefix", func() {
-			app := echo.New()
+			app := trustedEcho()
 			actualURL := ""
 			app.GET("/hello", func(c echo.Context) error {
 				c.Set("_original_path", "/localai/hello")
@@ -214,7 +276,7 @@ var _ = Describe("BaseURL", func() {
 		})
 
 		It("ignores an empty override", func() {
-			app := echo.New()
+			app := trustedEcho()
 			actualURL := ""
 			app.GET("/x", func(c echo.Context) error {
 				c.Set("_external_base_url", "")

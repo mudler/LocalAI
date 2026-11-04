@@ -1,12 +1,27 @@
 # Add-ons navigation design
 
+
+> Routing update: historical addon-specific redirect requirements below are
+> superseded by the approved model-actions amendment (2026-11-02). Use declared
+> canonical add-on pages; native chat handoff and addon-local adapters remain.
+
 ## Status
 
-- Status: approved for implementation planning. One question stays open (see "Open questions and decisions"). Questions (a) and (b) and the rulings (d) to (j) were decided on 2026-10-16. The changelog at the end lists every change of that day.
+- Status: implemented, with the amendments of 2026-10-31 below, which win over the text that follows. One question stays open (see "Open questions and decisions"). Questions (a) and (b) and the rulings (d) to (j) were decided on 2026-10-16. The changelog at the end lists every change of that day.
 - Date: 2026-10-16.
 - Owners: Ettore Di Giacinto (maintainer) and the AI agent that drafted this spec.
 - Branch: `feat/addons-tables` (PR 12702).
 - Scope: documents only. This change adds no source code.
+
+### Amendments (2026-10-31)
+
+What shipped differs from this spec in these points. The owner decided each one; the user docs (`docs/content/features/addons.md`) describe the shipped behaviour.
+
+- **Studio and Talk are packaged add-ons, not built in** (replaces decisions 4 and 10 and "Built-in add-ons and packaged add-ons"). They are add-on packages like Voice and Face, listed in the official library and installed by an administrator. The built-in catalog is empty. Nothing is preinstalled, also not at upgrade.
+- **The core pages are removed** (replaces the redirect rule "Otherwise the old route opens the core page"). An old route always opens the add-on page; while the add-on is not installed, that page says it is not available.
+- **Users need the `addons` feature** (replaces "no user loses access" and the Studio and Talk rows of the gate table). Every add-on page is behind `addons`, which is off by default for a user and is not granted at upgrade. An administrator grants it in Settings → Users and keys. The upgrade notes say so.
+- **Sidebar.** Studio and Talk appear only once installed and explicitly pinned, like any other add-on. All absent IDs follow the same retention rule.
+- **Browse add-ons is for administrators only**; a user with `addons` sees the installed add-ons.
 
 ### Approved decisions
 
@@ -161,11 +176,13 @@ Browser storage (`localStorage`) is not enough. The sidebar already uses it for 
 
 The pin state must work with several frontends. The table lives in the shared database, so every frontend reads the same list. This follows the distributed-state guide (`.agents/distributed-state.md`). No per-process cache may hold the only copy.
 
-### The one-time seed
+### Explicit pins
 
-In plain words. When LocalAI is upgraded to the version that has pins, every account that already exists gets Studio and Talk pinned, once. They keep the sidebar entries they had before the upgrade. After that nothing is pinned for them again, so if one of them unpins Studio, it stays unpinned. An account created after the upgrade starts with no pins at all; it finds Studio and Talk in the drawer and pins what it uses.
-
-How it works. The seed runs once, when LocalAI starts the first version that has pins, not when a user reads the pin list. A marker in the shared database records that it ran, so a restart, a second frontend and a later release do not run it again; with several frontends that start together, exactly one runs it. It pins only for the accounts that exist at that moment. The pin routes never add a pin of their own. With authentication off there is one local owner, and that owner counts as an existing account: it gets the seed on the first start of that version, and the marker is kept in the pins file next to the pins.
+New and existing accounts start without implicit pins. Startup never scans accounts to add pins.
+Only an explicit user selection changes the saved list. Existing saved pins are preserved.
+Pins and unpins survive a reopen and a second frontend. With authentication off, the local owner
+uses the same rule. Every absent ID follows the same retention window, including never-installed IDs.
+The store no longer creates or reads seed metadata and does not drop existing tables.
 
 ### API
 
@@ -368,7 +385,7 @@ Rules for redirects:
 
 - The Create group is removed. Chat moves to the top level. Studio and Talk leave the sidebar unless the user pins them. Home and the Build and Operate hub entries stay where they are today.
 - The Build and Operate hubs keep their tabs, except for the tabs that moved to add-ons. The fine-tuning, quantization, Face, Voices and Add-ons tabs leave the Build hub. Voice and Face get no hub entry of any kind (question (d)): the add-ons are not shipped with LocalAI, so a user finds them in Browse add-ons and, once installed, in the drawer. The Build overview page keeps its cards for fine-tuning and quantization; they link to the old routes, which open the add-on while it is usable and the core page otherwise. The hub's `addonNavigation` second row (`hubConfig.js:74`) goes away: its job moves to the drawer and to the pinned group.
-- Users who had Studio or Talk in the sidebar see them in the drawer. At upgrade, the server pins Studio and Talk once for the accounts that exist then, so the layout does not change under them. The seed runs once for the deployment and never again, so a later unpin sticks, and an account created after the upgrade starts with no pins (see "The one-time seed").
+- Studio and Talk are available in the drawer once installed. Users explicitly choose their pins; existing saved pins remain unchanged.
 
 ### Documentation
 
@@ -402,9 +419,9 @@ Decided on 2026-10-16. They are add-on packages and do not ship with LocalAI. Se
 
 Decided on 2026-10-16. They move in this change, as two add-ons. The API and the job managers stay in core; the add-ons get the UI and a tool surface; the host operations they need are new contract surface, each with its own tests. See "Host operations for the engine".
 
-### (g) The pin seed
+### (g) Explicit pin selection
 
-Decided on 2026-10-16. Existing accounts get Studio and Talk pinned once, at upgrade; new accounts start with no pins. See "The one-time seed".
+The unreleased implementation uses explicit pin selection for every account. See "Explicit pins".
 
 ### (h) SDK additions
 
@@ -436,7 +453,7 @@ Pin storage:
 - With authentication off, the local owner's pins persist across a reload.
 - Two frontends on one database return the same list (use the existing fake-bus pattern from the distributed-state guide).
 - The cap of eight is enforced in the UI. The server rejects a list over a hard limit.
-- The upgrade seed pins Studio and Talk once, for the accounts that exist at the upgrade, and never again. An account created after the upgrade has no pins. A read or a save never adds a pin. With authentication off, the local owner is seeded once and an unpin sticks across a restart. Two frontends that start together seed once between them.
+- New and existing accounts have no implicit pins. Explicit pins and unpins survive reopen and a second frontend. Every absent ID has equal retention; reads and startup add nothing.
 - The start of the 30-day window of a removed add-on survives a restart in both stores.
 
 Permission filtering:
@@ -501,7 +518,7 @@ Quality gates:
 | A user who has not installed Voice, Face, fine-tuning or quantization no longer has a hub tab for it | The user does not know the tool exists | The old URLs keep opening the core page; the Build overview keeps its cards for fine-tuning and quantization; each package is listed in Browse add-ons. |
 | A platform is enabled before its native check passes | A broken package ships for that platform | A test fails when a platform is enabled without a recorded native check; the release workflow builds only enabled platforms. |
 | An add-on process calls a host operation | The add-on reaches the job engine | A call needs a live request of that add-on, runs as that request's actor, passes the feature check, and is allowed only for add-ons the host setting names. |
-| The pin seed pins for the wrong accounts | An account created after the upgrade gets pins it did not ask for | The seed runs once at upgrade, for the accounts that exist then, and the pin routes never seed. Tested for both cases. |
+| Startup adds unwanted pins | Accounts get pins they did not ask for | Startup never changes saved selections. Tested for existing accounts and the local owner. |
 
 ### Rollback
 
@@ -518,7 +535,7 @@ Changes of 2026-10-16, after the pre-flight review of the plan. One line each, w
 - New section "Host operations for the engine": the four host operations, their rules, marked as new contract surface (scan C22, maintainer ruling).
 - New decisions 10 to 12 and the section "Distribution": Voice, Face, fine-tuning and quantization are not shipped; platform list `linux/amd64`, `linux/arm64`, `darwin/arm64`, `darwin/amd64`, each with its runner; a platform is enabled only after its native check (scan C19, maintainer ruling).
 - Question (d) and the Migration section: no hub tab for Voice or Face; discovery through Browse and the drawer; old routes open the core page until the add-on is installed (scan C18, maintainer ruling).
-- New subsection "The one-time seed" and the Sidebar bullet: seed once at upgrade for existing accounts, new accounts start with no pins (scan C23, maintainer ruling).
+- The earlier one-time seed proposal is superseded by explicit pin selection in this unreleased refactor.
 - New subsection "Additions accepted on 2026-10-16" and the `HomeUndoToast` row: the viewer, the WAV helper, 26 icon names and the undo bar are accepted (scan C20, maintainer ruling).
 - Section "API": the three routes are registered by `RegisterAddonNavigationRoutes`, so the existing route tests pass without edits (scan C1).
 - Section "Disabled or removed while pinned": the start of the retention window is stored with the pin and survives a restart (scan C2).
@@ -526,7 +543,7 @@ Changes of 2026-10-16, after the pre-flight review of the plan. One line each, w
 - Section "Redirects": the model of a moved route travels as `?model=`, and a moved page opens in its add-on only while the add-on is usable (scan C17).
 - Section "Shared UI in the SDK": add-ons that use SDK 2 declare `min: 2, max: 2`; the tests that pin SDK 1 are updated with the SDK change (scan C14).
 - Section "Rollback": the legacy switch restores the old sidebar and hub tab; the generator redirects do not depend on it (scan C13).
-- Test plan and gate table: the tile of a packaged add-on shows for anyone with the `addons` feature and its page shows the off notice; tests added for the seed, the host operations, the platforms and the inventory (scan C19, C22, C15).
+- Test plan and gate table: the tile of a packaged add-on shows for anyone with the `addons` feature and its page shows the off notice; tests cover explicit pins, the host operations, the platforms and the inventory (scan C19, C22, C15).
 - Plan only: pin store keeps the owner and the missing mark in the file (scan C2); the two-frontends test moves to the service task (scan C3); `ClipInput` is built in the Voice library task (scan C8); the suite inventory is updated by Tasks 1, 4 and 9 (scan C15).
 - Section "Extension points": the `app.nav` slot is drawn on the Add-ons drawer page below the tile grid, and in the Build hub row only under the legacy switch (Task 6 review, maintainer ruling).
 - Section "Redirects" (Task 7 review, maintainer ruling): the redirect into Studio keeps the model as a path segment (`/app/studio/<tab>/<model>`), not `?model=`, because Studio is a core route. Revisit if Studio moves under the add-on host; cost if wrong: a redirect with a model needs a rewrite then.

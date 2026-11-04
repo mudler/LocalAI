@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -225,6 +226,35 @@ var _ = Describe("streamLLMResponse", func() {
 })
 
 var _ = Describe("triggerResponse", func() {
+	// A barge-in cancels the response context while the LLM is still generating.
+	// The call then fails with the context error. That is a cancel, not a
+	// failure: the client must get response.done{cancelled} and no error, or it
+	// waits for a terminal that never comes.
+	It("ends as cancelled when the context is cancelled during the LLM call", func() {
+		m := &fakeModel{cfg: &config.ModelConfig{}, predictUntilCancel: true}
+		session := &Session{OutputSampleRate: 24000, ModelInterface: m, ModelConfig: &config.ModelConfig{}}
+		t := &fakeTransport{}
+		ctx, cancel := context.WithCancel(context.Background())
+
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			triggerResponse(ctx, session, &Conversation{}, t, nil)
+		}()
+		cancel()
+		Eventually(done, 2*time.Second).Should(BeClosed())
+
+		Expect(t.countEvents(types.ServerEventTypeResponseDone)).To(Equal(1))
+		Expect(t.countEvents(types.ServerEventTypeError)).To(BeZero())
+		var status types.ResponseStatus
+		for _, e := range t.events() {
+			if d, ok := e.(types.ResponseDoneEvent); ok {
+				status = d.Response.Status
+			}
+		}
+		Expect(status).To(Equal(types.ResponseStatusCancelled))
+	})
+
 	It("emits exactly one response.created and one response.done with output and usage", func() {
 		m := &fakeModel{
 			cfg: &config.ModelConfig{},

@@ -10,6 +10,7 @@ import (
 )
 
 type journalOperation struct {
+	Async   bool
 	Command LifecycleCommand
 	Actor   contract.Actor
 	Status  OperationStatus
@@ -50,6 +51,11 @@ func durableWrite(path string, b []byte) error {
 	return d.Sync()
 }
 func (m *Manager) persist(phase string) error {
+	err := m.persistJournal(phase)
+	m.refreshUpgradeViews()
+	return err
+}
+func (m *Manager) persistJournal(phase string) error {
 	b, e := json.Marshal(m.journal)
 	if e == nil {
 		e = durableWrite(filepath.Join(m.config.Root, "journal.json"), b)
@@ -83,6 +89,7 @@ func (m *Manager) load() error {
 		return ErrConfiguration
 	}
 	m.journal = j
+	m.rebuildCompleted()
 	return nil
 }
 func copyStatus(s Status) Status {

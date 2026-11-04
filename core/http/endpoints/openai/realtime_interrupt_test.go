@@ -95,7 +95,7 @@ var _ = Describe("realtime interrupt_response", func() {
 	})
 
 	It("applies session updates to interruption and echoes false", func() {
-		s := &Session{TurnDetection: defaultTurnDetection(nil), ModelConfig: &config.ModelConfig{}}
+		s := &Session{TurnDetection: defaultTurnDetection(nil), ModelConfig: &config.ModelConfig{Pipeline: config.Pipeline{VAD: "vad"}}}
 		var update types.SessionUpdateEvent
 		Expect(json.Unmarshal([]byte(`{"type":"session.update","session":{"type":"realtime","audio":{"input":{"turn_detection":{"type":"semantic_vad","interrupt_response":false}}}}}`), &update)).To(Succeed())
 		Expect(updateSession(s, &update.Session, nil, nil, nil, nil, nil, nil)).To(Succeed())

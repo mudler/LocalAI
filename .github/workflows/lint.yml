@@ -1,4 +1,10 @@
 ---
+# Concurrency policy: a newer push to master cancels the in-flight run of this
+# workflow on master, because the newer commit contains the older one and the
+# result that matters is the newest. PR runs group by PR number (as before),
+# tag pushes group by their own tag ref, and schedule/dispatch runs group by
+# commit SHA, so none of those is ever cancelled by a master push.
+# See .agents/ci-caching.md, section "Concurrency".
 name: 'lint'
 
 on:
@@ -16,8 +22,8 @@ on:
       - master
 
 concurrency:
-  group: ci-lint-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-lint-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
 
 jobs:
   golangci-lint:
@@ -124,6 +130,10 @@ jobs:
           node-version: '20'
       - name: run CI script tests
         run: make test-ci-scripts
+
+      # Exercise the actual publication gate without building any images.
+      - name: test image publication gate
+        run: python3 .github/ci/test-image-publication-gate.py
 
       # The shared python backend helpers (Options[] parsing, engine-arg
       # mapping, model reference resolution) are stdlib-only, so their tests

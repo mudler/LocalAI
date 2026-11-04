@@ -32,24 +32,43 @@ import (
 // When renaming flags, add the old name as an alias for backward compatibility
 // and document the deprecation in the help text.
 
+// workerJoinCommand is the command a user runs on another node to join the
+// P2P network with a llama.cpp worker. It is printed after `run --p2p`
+// generates a token, and a test parses it against the CLI so it cannot drift
+// from the command tree again (it named the pre-v4 `worker` command for a
+// release cycle).
+const workerJoinCommand = "local-ai p2p-worker p2p-llama-cpp-rpc"
+
 type RunCMD struct {
-	AddonHostOps              string `name:"addon-host-ops" env:"LOCALAI_ADDON_HOST_OPS" default:"fine-tuning=finetune.,quantization=quantize." help:"Add-ons that may call host operations, as a comma list of addon-id=operation-prefix. An add-on that is not listed gets no host operation channel. Empty gives none" group:"addons"`
-	AddonsEnabled             bool   `name:"addons-enabled" env:"LOCALAI_ADDONS_ENABLED" default:"true" help:"Run the add-on owner, which installs and supervises add-ons. Turn it off with --addons-enabled=false" group:"addons"`
-	AddonsOwnershipMode       string `name:"addons-ownership-mode" env:"LOCALAI_ADDONS_OWNERSHIP_MODE" help:"Who may use add-ons: named-user (each account has its own access; needs authentication) or local-owner (every caller shares one owner). Default: local-owner when authentication is off, named-user when it is on" group:"addons"`
-	AddonsRole                string `name:"addons-role" env:"LOCALAI_ADDONS_ROLE" default:"combined" help:"How this process takes part in the add-on owner: combined (this node is its own owner, the default), owner (only the owner, serves the carrier on the network) or frontend (no owner here; every add-on request goes to the owner). owner and frontend need --addons-owner-address and --addons-carrier-dir" group:"addons"`
-	AddonsOwnerAddress        string `name:"addons-owner-address" env:"LOCALAI_ADDONS_OWNER_ADDRESS" help:"Address of the add-on owner carrier, as https://host:port with no path. Use a stable service name, never a pod address. Required for the owner and frontend roles" group:"addons"`
-	AddonsOwnerListen         string `name:"addons-owner-listen" env:"LOCALAI_ADDONS_OWNER_LISTEN" help:"Owner role only: the address the carrier listens on. Empty listens on all interfaces, on the port of --addons-owner-address" group:"addons"`
-	AddonsCarrierDir          string `name:"addons-carrier-dir" env:"LOCALAI_ADDONS_CARRIER_DIR" type:"path" help:"Directory with the carrier key set made by 'local-ai util addons-carrier-keys'. Required for the owner and frontend roles" group:"addons"`
-	AutoUpgradeAddons         bool   `name:"auto-upgrade-addons" env:"LOCALAI_AUTO_UPGRADE_ADDONS" default:"false" help:"Upgrade installed add-ons on their own when a newer version appears in their library. Off by default; upgrades then stay manual" group:"addons"`
-	AddonsOfficialLibrary     bool   `name:"addons-official-library" env:"LOCALAI_ADDONS_OFFICIAL_LIBRARY" default:"true" help:"Register the official add-on library on the first start, when the add-on owner has no sources.json yet. A library the admin removes later stays removed. Turn it off with --addons-official-library=false" group:"addons"`
-	AddonsBackendLibrary      bool   `name:"addons-backend-library" env:"LOCALAI_ADDONS_BACKEND_LIBRARY" default:"true" help:"Register the backend library on the first start, when the add-on owner has no sources.json yet. A build from master reads it as the backend source; a tagged build reads the backend gallery until the release cutover. Turn it off to read the backend gallery only" group:"addons"`
-	OfficialLibraries         bool   `name:"official-libraries" env:"LOCALAI_OFFICIAL_LIBRARIES" default:"true" help:"Use the official (shipped default) library sources of add-ons, backends and models. Off: they stay in the list, shown as off, and are not read. Sources you added are not affected. Also a runtime setting (official_libraries)" group:"addons"`
-	AddonsBackendMaxBytes     int64  `name:"addons-backend-max-bytes" env:"LOCALAI_ADDONS_BACKEND_MAX_BYTES" default:"8589934592" help:"Largest compressed size, in bytes, of a backend image installed from a library. Add-ons keep their own limit of 512 MiB" group:"addons"`
-	Pprof                     bool   `name:"pprof" env:"LOCALAI_PPROF" default:"false" help:"Enable the private loopback profiling listener" group:"diagnostics"`
-	PprofAddress              string `name:"pprof-address" env:"LOCALAI_PPROF_ADDRESS" default:"127.0.0.1:6060" help:"Numeric loopback address and port for profiling" group:"diagnostics"`
-	PprofMutexProfileFraction int    `name:"pprof-mutex-profile-fraction" env:"LOCALAI_PPROF_MUTEX_PROFILE_FRACTION" default:"0" help:"Mutex sampling fraction (0 disables sampling); requires pprof" group:"diagnostics"`
-	PprofBlockProfileRate     int    `name:"pprof-block-profile-rate" env:"LOCALAI_PPROF_BLOCK_PROFILE_RATE" default:"0" help:"Block sampling rate in nanoseconds (0 disables sampling); requires pprof" group:"diagnostics"`
-	RequestPhaseTiming        bool   `name:"request-phase-timing" env:"LOCALAI_REQUEST_PHASE_TIMING" default:"false" help:"Log sanitized request and config-reload phase timings at Info" group:"diagnostics"`
+	P2PEnableLimits              string `name:"p2p-enable-limits" env:"LOCALAI_P2P_ENABLE_LIMITS" help:"Set to true to enable P2P resource limits" group:"p2p"`
+	AddonHostPolicy              string `name:"addon-host-policy" env:"LOCALAI_ADDON_HOST_POLICY" help:"Absolute path to administrator host operation policy JSON, read once at startup. Empty disables environment policy" group:"addons"`
+	AddonHostOps                 string `name:"addon-host-ops" env:"LOCALAI_ADDON_HOST_OPS" help:"Add-ons that may call host operations, as a comma list of addon-id=operation-prefix. An add-on that is not listed gets no host operation channel. Empty gives none" group:"addons"`
+	AddonHostDeny                string `name:"addon-host-deny" env:"LOCALAI_ADDON_HOST_DENY" help:"Host operations no grant may enable, as a comma list of addon-id=operation (a prefix such as egress., an exact name or *). Use *=prefix for every add-on. Deny always wins over grants and is unioned with the deny rules of the policy file" group:"addons"`
+	AddonHostBlanket             string `name:"addon-host-blanket" env:"LOCALAI_ADDON_HOST_BLANKET" help:"Blanket approval of declared host operations at install and upgrade: off, official or any. When set, the UI shows it read-only. Unset leaves the choice to the administrator in the UI" group:"addons"`
+	AddonHostUIGrantsWithoutAuth bool   `name:"addon-host-ui-grants-without-auth" env:"LOCALAI_ADDON_HOST_UI_GRANTS_WITHOUT_AUTH" default:"false" help:"Let the UI change host grants although authentication is off. By default they are locked then, because anyone who can reach this server could change them" group:"addons"`
+	AddonHostUIGrants            bool   `name:"addon-host-ui-grants" env:"LOCALAI_ADDON_HOST_UI_GRANTS" default:"true" help:"Let an administrator grant host operations to add-ons in the UI. Turn it off with --addon-host-ui-grants=false to make the policy file and flags the only source of grants" group:"addons"`
+	AddonsEnabled                bool   `name:"addons-enabled" env:"LOCALAI_ADDONS_ENABLED" default:"true" help:"Run the add-on owner, which installs and supervises add-ons. Turn it off with --addons-enabled=false" group:"addons"`
+	AddonsOwnershipMode          string `name:"addons-ownership-mode" env:"LOCALAI_ADDONS_OWNERSHIP_MODE" help:"Who may use add-ons: named-user (each account has its own access; needs authentication) or local-owner (every caller shares one owner). Default: local-owner when authentication is off, named-user when it is on" group:"addons"`
+	AddonsRole                   string `name:"addons-role" env:"LOCALAI_ADDONS_ROLE" default:"combined" help:"How this process takes part in the add-on owner: combined (this node is its own owner, the default), owner (only the owner, serves the carrier on the network) or frontend (no owner here; every add-on request goes to the owner). owner and frontend need --addons-owner-address and --addons-carrier-dir" group:"addons"`
+	AddonsMigrateHostSettings    bool   `name:"addons-migrate-host-settings" env:"LOCALAI_ADDONS_MIGRATE_HOST_SETTINGS" default:"false" help:"Owner role only: explicitly select this process's effective legacy host policy for first-start migration. Never imports frontend settings; ignored once the owner store exists" group:"addons"`
+	AddonsOwnerAddress           string `name:"addons-owner-address" env:"LOCALAI_ADDONS_OWNER_ADDRESS" help:"Address of the add-on owner carrier, as https://host:port with no path. Use a stable service name, never a pod address. Required for the owner and frontend roles" group:"addons"`
+	AddonsOwnerListen            string `name:"addons-owner-listen" env:"LOCALAI_ADDONS_OWNER_LISTEN" help:"Owner role only: the address the carrier listens on. Empty listens on all interfaces, on the port of --addons-owner-address" group:"addons"`
+	AddonsCarrierDir             string `name:"addons-carrier-dir" env:"LOCALAI_ADDONS_CARRIER_DIR" type:"path" help:"Directory with the carrier key set made by 'local-ai util addons-carrier-keys'. Required for the owner and frontend roles" group:"addons"`
+	TrustedProxies               string `name:"trusted-proxies" env:"LOCALAI_TRUSTED_PROXIES" default:"" help:"Comma-separated IPs and CIDRs of reverse proxies in front of LocalAI. Only when the TCP peer is in this list is the client address taken from X-Forwarded-For (right-most untrusted entry). Used by the access log, login rate limits and traces. Empty trusts nobody" group:"api"`
+	LogClient                    bool   `name:"log-client" env:"LOCALAI_LOG_CLIENT" default:"false" help:"Add the duration, client address, user agent and request id to the HTTP access log. Off by default. The address is the TCP peer unless it is a trusted proxy (see --trusted-proxies). Turn it on with --log-client" group:"logging"`
+	AutoUpgradeAddons            bool   `name:"auto-upgrade-addons" env:"LOCALAI_AUTO_UPGRADE_ADDONS" default:"false" help:"Upgrade installed add-ons on their own when a newer version appears in their library. Off by default; upgrades then stay manual" group:"addons"`
+	AddonsOfficialLibrary        bool   `name:"addons-official-library" env:"LOCALAI_ADDONS_OFFICIAL_LIBRARY" default:"true" help:"Register the official add-on library on the first start, when the add-on owner has no sources.json yet. A library the admin removes later stays removed. Turn it off with --addons-official-library=false" group:"addons"`
+	AddonsBackendLibrary         bool   `name:"addons-backend-library" env:"LOCALAI_ADDONS_BACKEND_LIBRARY" default:"true" help:"Register the backend library on the first start, when the add-on owner has no sources.json yet. A build from master reads it as the backend source; a tagged build reads the backend gallery until the release cutover. Turn it off to read the backend gallery only" group:"addons"`
+	OfficialLibraries            bool   `name:"official-libraries" env:"LOCALAI_OFFICIAL_LIBRARIES" default:"true" help:"Use the official (shipped default) library sources of add-ons, backends and models. Off: they stay in the list, shown as off, and are not read. Sources you added are not affected. Also a runtime setting (official_libraries)" group:"addons"`
+	AddonsBackendMaxBytes        int64  `name:"addons-backend-max-bytes" env:"LOCALAI_ADDONS_BACKEND_MAX_BYTES" default:"8589934592" help:"Largest compressed size, in bytes, of a backend image installed from a library. Add-ons keep their own limit of 512 MiB" group:"addons"`
+	Pprof                        bool   `name:"pprof" env:"LOCALAI_PPROF" default:"false" help:"Enable the private loopback profiling listener" group:"diagnostics"`
+	PprofAddress                 string `name:"pprof-address" env:"LOCALAI_PPROF_ADDRESS" default:"127.0.0.1:6060" help:"Numeric loopback address and port for profiling" group:"diagnostics"`
+	PprofMutexProfileFraction    int    `name:"pprof-mutex-profile-fraction" env:"LOCALAI_PPROF_MUTEX_PROFILE_FRACTION" default:"0" help:"Mutex sampling fraction (0 disables sampling); requires pprof" group:"diagnostics"`
+	PprofBlockProfileRate        int    `name:"pprof-block-profile-rate" env:"LOCALAI_PPROF_BLOCK_PROFILE_RATE" default:"0" help:"Block sampling rate in nanoseconds (0 disables sampling); requires pprof" group:"diagnostics"`
+	RequestPhaseTiming           bool   `name:"request-phase-timing" env:"LOCALAI_REQUEST_PHASE_TIMING" default:"false" help:"Log sanitized request and config-reload phase timings at Info" group:"diagnostics"`
+
+	addonHostOpsFlagPresent    bool
+	addonHostPolicyFlagPresent bool
 
 	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
 	Color     string   `env:"COLOR" hidden:""`
@@ -70,7 +89,7 @@ type RunCMD struct {
 
 	GeneratedContentPath         string        `env:"LOCALAI_GENERATED_CONTENT_PATH,GENERATED_CONTENT_PATH" type:"path" default:"${generatedcontentpath}" help:"Location for generated content (e.g. images, audio, videos)" group:"storage"`
 	UploadPath                   string        `env:"LOCALAI_UPLOAD_PATH,UPLOAD_PATH" type:"path" default:"${uploadpath}" help:"Path to store uploads from files api" group:"storage"`
-	DataPath                     string        `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data (collectiondb, agent state, tasks, jobs). Separates mutable data from configuration" group:"storage"`
+	DataPath                     string        `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data (chats, files, collections, jobs and the JSON stores when there is no database). Separates mutable data from configuration. Use - to keep nothing on disk: chats then live in memory and files are off" group:"storage"`
 	LocalaiConfigDir             string        `env:"LOCALAI_CONFIG_DIR" type:"path" default:"${basepath}/configuration" help:"Directory for dynamic loading of certain configuration files (currently api_keys.json and external_backends.json)" group:"storage"`
 	LocalaiConfigDirPollInterval time.Duration `env:"LOCALAI_CONFIG_DIR_POLL_INTERVAL" help:"Typically the config path picks up changes automatically, but if your system has broken fsnotify events, set this to an interval to poll the LocalAI Config Dir (example: 1m)" group:"storage"`
 	// The alias on this option is there to preserve functionality with the old `--config-file` parameter
@@ -99,7 +118,7 @@ type RunCMD struct {
 	DisableCSRF                        bool     `env:"LOCALAI_DISABLE_CSRF" help:"Disable CSRF middleware (enabled by default)" group:"api"`
 	DisableHTTPCompression             bool     `env:"LOCALAI_DISABLE_HTTP_COMPRESSION" default:"false" help:"Disable gzip compression of HTTP responses (enabled by default). Streaming endpoints are never compressed" group:"api"`
 	HTTPCompressionMinLength           int      `env:"LOCALAI_HTTP_COMPRESSION_MIN_LENGTH" default:"1024" help:"Minimum response size in bytes before gzip compression is applied" group:"api"`
-	UploadLimit                        int      `env:"LOCALAI_UPLOAD_LIMIT,UPLOAD_LIMIT" default:"15" help:"Default upload-limit in MB" group:"api"`
+	UploadLimit                        int      `env:"LOCALAI_UPLOAD_LIMIT,UPLOAD_LIMIT" default:"0" help:"Upload limit in MB for request bodies (15 when not set). When set, it also applies to uploads of the Files page and to chat messages with attachments, which are otherwise limited only by the 256 MiB workspace file size and 1 GiB per message" group:"api"`
 	APIKeys                            []string `env:"LOCALAI_API_KEY,API_KEY" help:"List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys" group:"api"`
 	DisableWebUI                       bool     `env:"LOCALAI_DISABLE_WEBUI,DISABLE_WEBUI" default:"false" help:"Disables the web user interface. When set to true, the server will only expose API endpoints without serving the web interface" group:"api"`
 	OllamaAPIRootEndpoint              bool     `env:"LOCALAI_OLLAMA_API_ROOT_ENDPOINT" default:"false" help:"Register Ollama-compatible health check on / (replaces web UI on root path). The /api/* Ollama endpoints are always available regardless of this flag" group:"api"`
@@ -144,35 +163,44 @@ type RunCMD struct {
 	MaxConcurrentBackendRequests       int      `env:"LOCALAI_MAX_CONCURRENT_BACKEND_REQUESTS,MAX_CONCURRENT_BACKEND_REQUESTS" default:"1024" help:"Maximum number of concurrent backend inference operations. Excess inference requests receive HTTP 503; UI and administrative endpoints remain available." group:"backends"`
 	TracingMaxItems                    int      `env:"LOCALAI_TRACING_MAX_ITEMS" default:"1024" help:"Maximum number of traces to keep" group:"api"`
 	TracingMaxBodyBytes                int      `env:"LOCALAI_TRACING_MAX_BODY_BYTES" default:"65536" help:"Maximum bytes captured per request/response body in the trace buffer (0 = uncapped). Caps memory growth from chatty endpoints like /embeddings." group:"api"`
-	AgentJobRetentionDays              int      `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" default:"30" help:"Number of days to keep agent job history (default: 30)" group:"api"`
 	OpenResponsesStoreTTL              string   `env:"LOCALAI_OPEN_RESPONSES_STORE_TTL,OPEN_RESPONSES_STORE_TTL" default:"0" help:"TTL for Open Responses store (e.g., 1h, 30m, 0 = no expiration)" group:"api"`
 
 	LegacyNavigation bool `env:"LOCALAI_LEGACY_NAVIGATION" default:"false" help:"Show the previous sidebar instead of Chat, Models, Add-ons and Settings with pinned add-ons" group:"ui"`
 
 	// LocalAI Assistant chat modality (in-process admin MCP server)
-	DisableLocalAIAssistant bool `env:"LOCALAI_DISABLE_ASSISTANT" default:"false" help:"Disable the LocalAI Assistant chat modality (in-process admin MCP server)" group:"assistant"`
+	DisableLocalAIAssistant bool   `env:"LOCALAI_DISABLE_ASSISTANT" default:"false" help:"Disable the LocalAI Assistant chat modality (in-process admin MCP server)" group:"assistant"`
+	DisableSharedPages      bool   `env:"LOCALAI_DISABLE_SHARED_PAGES" default:"false" help:"Turn off the pages of shared folders (they can be switched on again in the runtime settings)" group:"assistant"`
+	ChatsHostExec           string `env:"LOCALAI_CHATS_HOST_EXEC" default:"" enum:",off,ask,on" help:"Who gets the chats' built-in bash, which runs commands on this machine with no isolation and with its network: off, ask (administrators, who allow each command) or on. Empty: off with accounts, ask without. An add-on that runs commands in isolation replaces it" group:"assistant"`
 
-	// Agent Pool (LocalAGI)
-	DisableAgents                  bool   `env:"LOCALAI_DISABLE_AGENTS" default:"false" help:"Disable the agent pool feature" group:"agents"`
-	AgentPoolAPIURL                string `env:"LOCALAI_AGENT_POOL_API_URL" help:"Default API URL for agents (defaults to self-referencing LocalAI)" group:"agents"`
-	AgentPoolAPIKey                string `env:"LOCALAI_AGENT_POOL_API_KEY" help:"Default API key for agents (defaults to first LocalAI API key)" group:"agents"`
-	AgentPoolDefaultModel          string `env:"LOCALAI_AGENT_POOL_DEFAULT_MODEL" help:"Default model for agents" group:"agents"`
-	AgentPoolMultimodalModel       string `env:"LOCALAI_AGENT_POOL_MULTIMODAL_MODEL" help:"Default multimodal model for agents" group:"agents"`
-	AgentPoolTranscriptionModel    string `env:"LOCALAI_AGENT_POOL_TRANSCRIPTION_MODEL" help:"Default transcription model for agents" group:"agents"`
-	AgentPoolTranscriptionLanguage string `env:"LOCALAI_AGENT_POOL_TRANSCRIPTION_LANGUAGE" help:"Default transcription language for agents" group:"agents"`
-	AgentPoolTTSModel              string `env:"LOCALAI_AGENT_POOL_TTS_MODEL" help:"Default TTS model for agents" group:"agents"`
-	AgentPoolStateDir              string `env:"LOCALAI_AGENT_POOL_STATE_DIR" help:"State directory for agent pool" group:"agents"`
-	AgentPoolTimeout               string `env:"LOCALAI_AGENT_POOL_TIMEOUT" default:"5m" help:"Default agent timeout" group:"agents"`
-	AgentPoolEnableSkills          bool   `env:"LOCALAI_AGENT_POOL_ENABLE_SKILLS" default:"false" help:"Enable skills service for agents" group:"agents"`
-	AgentPoolVectorEngine          string `env:"LOCALAI_AGENT_POOL_VECTOR_ENGINE" default:"chromem" help:"Vector engine type for agent knowledge base" group:"agents"`
-	AgentPoolEmbeddingModel        string `env:"LOCALAI_AGENT_POOL_EMBEDDING_MODEL" default:"granite-embedding-107m-multilingual" help:"Embedding model for agent knowledge base" group:"agents"`
-	AgentPoolCustomActionsDir      string `env:"LOCALAI_AGENT_POOL_CUSTOM_ACTIONS_DIR" help:"Custom actions directory for agents" group:"agents"`
-	AgentPoolDatabaseURL           string `env:"LOCALAI_AGENT_POOL_DATABASE_URL" help:"Database URL for agent collections" group:"agents"`
-	AgentPoolMaxChunkingSize       int    `env:"LOCALAI_AGENT_POOL_MAX_CHUNKING_SIZE" default:"400" help:"Maximum chunking size for knowledge base documents" group:"agents"`
-	AgentPoolChunkOverlap          int    `env:"LOCALAI_AGENT_POOL_CHUNK_OVERLAP" default:"0" help:"Chunk overlap size for knowledge base documents" group:"agents"`
-	AgentPoolEnableLogs            bool   `env:"LOCALAI_AGENT_POOL_ENABLE_LOGS" default:"false" help:"Enable agent logging" group:"agents"`
-	AgentPoolCollectionDBPath      string `env:"LOCALAI_AGENT_POOL_COLLECTION_DB_PATH" help:"Database path for agent collections" group:"agents"`
-	AgentHubURL                    string `env:"LOCALAI_AGENT_HUB_URL" default:"https://agenthub.localai.io" help:"URL for the agent hub where users can browse and download agent configurations" group:"agents"`
+	// Removed agent, job and skill options: accepted and ignored.
+	RemovedAgentOptions `embed:""`
+
+	// Chats: the chats API, saved agents, triggers, connectors and agent jobs
+	DisableChats             bool          `env:"LOCALAI_DISABLE_CHATS" default:"false" help:"Turn off the chats: the /api/chats API, saved agents, triggers, connectors and the agent tasks and jobs. Nothing of them starts" group:"chats"`
+	DisableTriggers          bool          `env:"LOCALAI_DISABLE_TRIGGERS" default:"false" help:"Turn off the trigger runner and the triggers API (the rest of the chats stays on)" group:"chats"`
+	DisableConnectors        bool          `env:"LOCALAI_DISABLE_CONNECTORS" default:"false" help:"Turn off the connector bots (Telegram, Slack) and the connectors API (the rest of the chats stays on)" group:"chats"`
+	SkipBindingCapsMigration bool          `env:"LOCALAI_SKIP_BINDING_CAPS_MIGRATION" default:"false" help:"Do not give the usual permissions, once, to connector bindings saved before permissions were enforced (they stay with none until the owner chooses)" group:"chats"`
+	DisableConnectorTalkback bool          `env:"LOCALAI_DISABLE_CONNECTOR_TALKBACK" default:"false" help:"Turn off the tool with which an agent writes to a chat of its connection, and the reports of triggers to a channel (the rest of the connectors stays on)" group:"chats"`
+	AgentJobRetentionDays    int           `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" default:"30" help:"Days to keep finished agent jobs" group:"chats"`
+	TriggerRunKeep           int           `env:"LOCALAI_TRIGGER_RUN_KEEP" default:"200" help:"Finished runs kept for each trigger, beyond those of the last two days (-1 keeps all)" group:"chats"`
+	TriggerRunRetention      int           `name:"trigger-run-retention-days" env:"LOCALAI_TRIGGER_RUN_RETENTION_DAYS" default:"30" help:"Days to keep finished trigger runs (-1 keeps them forever)" group:"chats"`
+	MCPCIJobTimeout          time.Duration `name:"mcp-ci-job-timeout" env:"LOCALAI_MCP_CI_JOB_TIMEOUT" default:"10m" help:"Longest an agent job may run" group:"chats"`
+
+	// Collections (the knowledge base)
+	DisableCollections         bool   `env:"LOCALAI_DISABLE_COLLECTIONS" default:"false" help:"Disable the collections service (the knowledge base API under /api/collections)" group:"collections"`
+	CollectionsAPIURL          string `env:"LOCALAI_COLLECTIONS_API_URL" help:"API URL the collections service uses for embeddings (defaults to self-referencing LocalAI)" group:"collections"`
+	CollectionsAPIKey          string `env:"LOCALAI_COLLECTIONS_API_KEY" help:"API key the collections service uses for embeddings (defaults to first LocalAI API key)" group:"collections"`
+	CollectionsDefaultModel    string `env:"LOCALAI_COLLECTIONS_DEFAULT_MODEL" help:"Default model of the collections service" group:"collections"`
+	CollectionsStateDir        string `env:"LOCALAI_COLLECTIONS_STATE_DIR" help:"State directory of the collections" group:"collections"`
+	CollectionsVectorEngine    string `env:"LOCALAI_COLLECTIONS_VECTOR_ENGINE" help:"Vector engine of the collections: chromem or postgres (default chromem)" group:"collections"`
+	CollectionsEmbeddingModel  string `env:"LOCALAI_COLLECTIONS_EMBEDDING_MODEL" help:"Embedding model of the collections (default granite-embedding-107m-multilingual)" group:"collections"`
+	CollectionsDatabaseURL     string `env:"LOCALAI_COLLECTIONS_DATABASE_URL" help:"Database URL of the collections, for the postgres vector engine" group:"collections"`
+	CollectionsMaxChunkingSize int    `env:"LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE" help:"Maximum chunking size for collection documents (default 400)" group:"collections"`
+	CollectionsChunkOverlap    int    `env:"LOCALAI_COLLECTIONS_CHUNK_OVERLAP" help:"Chunk overlap size for collection documents (default 0)" group:"collections"`
+	CollectionsDBPath          string `env:"LOCALAI_COLLECTIONS_DB_PATH" help:"Where the vector engine of the collections keeps its data" group:"collections"`
+
+	// Old names of the collections options: accepted, used when the new name is not set.
+	LegacyCollectionsOptions `embed:""`
 
 	// Authentication
 	AuthEnabled          bool   `env:"LOCALAI_AUTH" default:"false" help:"Enable user authentication and authorization" group:"auth"`
@@ -221,6 +249,10 @@ type RunCMD struct {
 	NatsTLSCA                    string `env:"LOCALAI_NATS_TLS_CA" type:"existingfile" help:"PEM file for NATS server CA (private PKI); use with tls:// in --nats-url" group:"distributed"`
 	NatsTLSCert                  string `env:"LOCALAI_NATS_TLS_CERT" type:"existingfile" help:"Client certificate for NATS mTLS" group:"distributed"`
 	NatsTLSKey                   string `env:"LOCALAI_NATS_TLS_KEY" type:"existingfile" help:"Client private key for NATS mTLS" group:"distributed"`
+	DistributedChatWorkers       bool   `env:"LOCALAI_DISTRIBUTED_CHAT_WORKERS" default:"false" help:"Send the turns of triggers, agent jobs and connector messages to chat workers (instances started with --chat-worker). When no chat worker listens, the turn runs on this frontend. Chats that a person starts stay on the frontend. Distributed mode only." group:"distributed"`
+	ChatStartTimeout             string `env:"LOCALAI_CHAT_START_TIMEOUT" help:"How long a frontend waits for a chat worker to start a turn, and how long a chat worker gives the start (default 30s). A start that times out fails its trigger run, job or connector message and is not run on the frontend, because the worker may have started it. Set the same value on frontends and chat workers. Distributed mode only." group:"distributed"`
+	ChatWorkerMaxTurns           int    `env:"LOCALAI_CHAT_WORKER_MAX_TURNS" default:"32" help:"On a chat worker, the most turns it runs at once. A start beyond it is refused, and its trigger run, job or connector message fails with an error that says the worker is full. 0 means no limit. Distributed mode only." group:"distributed"`
+	ChatWorker                   bool   `env:"LOCALAI_CHAT_WORKER" default:"false" help:"Run this instance as a chat worker: it runs the chat turns that frontends send it over NATS and starts no triggers, connectors or agent jobs. Distributed mode only." group:"distributed"`
 	ExposeNodeHeader             bool   `env:"LOCALAI_EXPOSE_NODE_HEADER" default:"false" help:"Set the X-LocalAI-Node response header on inference responses (OpenAI chat/completions/embeddings, Anthropic /v1/messages, Ollama /api/chat,/api/generate,/api/embed) with the ID of the worker that served the request. Disabled by default: the node ID reveals internal topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency the header may reflect a recent routing decision rather than this exact request's." group:"distributed"`
 	ModelScheduling              string `env:"LOCALAI_MODEL_SCHEDULING" help:"Declarative per-model scheduling config applied at startup (inline JSON list of {model_name,node_selector,min_replicas,max_replicas,replicas:\"all\"}). Authoritative: overwrites matching models on every boot. Distributed mode only." group:"distributed"`
 	ModelSchedulingConfig        string `env:"LOCALAI_MODEL_SCHEDULING_CONFIG" help:"Path to a YAML file with the same per-model scheduling list as LOCALAI_MODEL_SCHEDULING. Distributed mode only." group:"distributed"`
@@ -271,12 +303,39 @@ func parseDistributedDuration(envVar, raw string) (time.Duration, error) {
 	return d, nil
 }
 
+// NoDataPath is the value of --data-path that keeps nothing on disk: the chats
+// then live in memory and files are off. An empty value cannot say this, because
+// the option has a default and the command line parser reads an empty path as
+// "keep the default".
+const NoDataPath = "-"
+
+// normalizeDataPath turns NoDataPath into the empty path the rest of the server
+// reads as "no data path".
+func (r *RunCMD) normalizeDataPath() {
+	if r.DataPath == NoDataPath {
+		r.DataPath = ""
+	}
+}
+
 func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	warnDeprecatedFlags()
+	r.RemovedAgentOptions.warn()
+	r.resolveLegacyCollections()
+	r.normalizeDataPath()
 
 	if r.Version {
 		fmt.Println(internal.Version)
 		return nil
+	}
+
+	hostOps, err := r.resolveAddonHostOps()
+	if err != nil {
+		return err
+	}
+	logAddonHostOpsResolution(hostOps)
+	blanket, err := config.ParseAddonHostBlanket(r.AddonHostBlanket)
+	if err != nil {
+		return err
 	}
 
 	diagnosticOpts := r.diagnosticsOptions()
@@ -331,13 +390,13 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	if !r.PreloadBackendOnly {
 		defer cancelRun(nil)
 	}
-	hostOps, err := config.ParseAddonHostOps(r.AddonHostOps)
-	if err != nil {
-		cancelRun(nil)
-		return fmt.Errorf("--addon-host-ops: %w", err)
-	}
 	opts := []config.AppOption{
-		config.WithAddonHostOps(hostOps),
+		config.WithAddonHostOps(hostOps.Grants),
+		config.WithAddonHostOpsSource(hostOps.Source),
+		config.WithAddonHostDeny(hostOps.Deny),
+		config.WithAddonHostBlanket(blanket),
+		config.WithAddonHostUIGrantsLocked(!r.AddonHostUIGrants),
+		config.WithAddonHostUIGrantsWithoutAuth(r.AddonHostUIGrantsWithoutAuth),
 		config.WithProxyAPIKeyEnvLookup(os.Getenv),
 		config.WithContext(runCtx),
 		config.WithArtifactDownloadConcurrency(r.ArtifactDownloadConcurrency),
@@ -352,6 +411,8 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithYAMLConfigPreload(r.PreloadModelsConfig),
 		config.WithSystemState(systemState),
 		config.WithContextSize(r.ContextSize),
+		config.WithLogClient(r.LogClient),
+		config.WithTrustedProxies(r.TrustedProxies),
 		config.WithDebug(ctx.Debug || (ctx.LogLevel != nil && *ctx.LogLevel == "debug")),
 		config.WithGeneratedContentDir(r.GeneratedContentPath),
 		config.WithUploadDir(r.UploadPath),
@@ -391,7 +452,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithMITMListen(r.MITMListen),
 		config.WithMITMCADir(r.MITMCADir),
 		config.WithPIIDefaultDetectors(r.PIIDefaultDetectors),
-		config.WithAgentJobRetentionDays(r.AgentJobRetentionDays),
 		config.WithLlamaCPPTunnelCallback(func(tunnels []string) {
 			tunnelEnvVar := strings.Join(tunnels, ",")
 			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
@@ -469,6 +529,13 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		}
 		opts = append(opts, config.WithStaleNodeThreshold(d))
 	}
+	if r.ChatStartTimeout != "" {
+		d, err := parseDistributedDuration("LOCALAI_CHAT_START_TIMEOUT", r.ChatStartTimeout)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithChatStartTimeout(d))
+	}
 	if r.NodeHeartbeatCheckpoint != "" {
 		d, err := parseDistributedDuration("LOCALAI_NODE_HEARTBEAT_CHECKPOINT", r.NodeHeartbeatCheckpoint)
 		if err != nil {
@@ -494,6 +561,19 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	if r.DistributedSharedModels {
 		opts = append(opts, config.EnableDistributedSharedModels)
+	}
+	if r.ChatWorker {
+		if !r.Distributed {
+			return fmt.Errorf("LOCALAI_CHAT_WORKER needs distributed mode (LOCALAI_DISTRIBUTED=true)")
+		}
+		opts = append(opts, config.EnableChatWorker, config.WithChatWorkerMaxTurns(r.ChatWorkerMaxTurns))
+	}
+	if r.DistributedChatWorkers {
+		if r.Distributed {
+			opts = append(opts, config.EnableDistributedChatWorkers)
+		} else {
+			xlog.Warn("LOCALAI_DISTRIBUTED_CHAT_WORKERS is set but distributed mode is disabled (LOCALAI_DISTRIBUTED=false) - ignoring")
+		}
 	}
 	if r.NatsAccountSeed != "" {
 		opts = append(opts, config.WithNatsAccountSeed(r.NatsAccountSeed))
@@ -580,9 +660,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 			fmt.Println(token)
 
 			xlog.Info("To use the token, you can run the following command in another node or terminal:")
-			fmt.Printf("export TOKEN=\"%s\"\nlocal-ai worker p2p-llama-cpp-rpc\n", token)
+			fmt.Printf("export TOKEN=\"%s\"\n%s\n", token, workerJoinCommand)
 		}
-		opts = append(opts, config.WithP2PToken(token))
+		opts = append(opts, config.WithP2PToken(token), config.WithP2PEnableLimits(r.P2PEnableLimits == "true"))
 	}
 
 	if r.Federated {
@@ -608,18 +688,37 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		opts = append(opts, config.DisableMCP)
 	}
 
-	// Agent Pool
-	if r.DisableAgents {
-		opts = append(opts, config.DisableAgentPool)
+	// Chats
+	if r.DisableChats {
+		opts = append(opts, config.DisableChats)
 	}
-	if r.AgentPoolAPIURL != "" {
-		opts = append(opts, config.WithAgentPoolAPIURL(r.AgentPoolAPIURL))
+	if r.DisableTriggers {
+		opts = append(opts, config.DisableTriggers)
 	}
-	if r.AgentPoolAPIKey != "" {
-		opts = append(opts, config.WithAgentPoolAPIKey(r.AgentPoolAPIKey))
+	if r.DisableConnectors {
+		opts = append(opts, config.DisableConnectors)
 	}
-	if r.AgentPoolDefaultModel != "" {
-		opts = append(opts, config.WithAgentPoolDefaultModel(r.AgentPoolDefaultModel))
+	if r.DisableConnectorTalkback {
+		opts = append(opts, config.DisableConnectorTalkback)
+	}
+	if r.SkipBindingCapsMigration {
+		opts = append(opts, config.SkipBindingCapsMigration)
+	}
+	opts = append(opts, config.WithAgentJobRetentionDays(r.AgentJobRetentionDays), config.WithMCPCIJobTimeout(r.MCPCIJobTimeout))
+	opts = append(opts, config.WithTriggerRunRetention(r.TriggerRunKeep, r.TriggerRunRetention))
+
+	// Collections
+	if r.DisableCollections {
+		opts = append(opts, config.DisableCollections)
+	}
+	if r.CollectionsAPIURL != "" {
+		opts = append(opts, config.WithCollectionsAPIURL(r.CollectionsAPIURL))
+	}
+	if r.CollectionsAPIKey != "" {
+		opts = append(opts, config.WithCollectionsAPIKey(r.CollectionsAPIKey))
+	}
+	if r.CollectionsDefaultModel != "" {
+		opts = append(opts, config.WithCollectionsDefaultModel(r.CollectionsDefaultModel))
 	}
 	if r.LegacyNavigation {
 		opts = append(opts, config.WithLegacyNavigation(true))
@@ -627,53 +726,32 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	if r.DisableLocalAIAssistant {
 		opts = append(opts, config.WithDisableLocalAIAssistant(true))
 	}
-	if r.AgentPoolMultimodalModel != "" {
-		opts = append(opts, config.WithAgentPoolMultimodalModel(r.AgentPoolMultimodalModel))
+	if r.DisableSharedPages {
+		opts = append(opts, config.WithDisableSharedPages(true))
 	}
-	if r.AgentPoolTranscriptionModel != "" {
-		opts = append(opts, config.WithAgentPoolTranscriptionModel(r.AgentPoolTranscriptionModel))
+	if r.ChatsHostExec != "" {
+		opts = append(opts, config.WithChatsHostExec(r.ChatsHostExec))
 	}
-	if r.AgentPoolTranscriptionLanguage != "" {
-		opts = append(opts, config.WithAgentPoolTranscriptionLanguage(r.AgentPoolTranscriptionLanguage))
+	if r.CollectionsStateDir != "" {
+		opts = append(opts, config.WithCollectionsStateDir(r.CollectionsStateDir))
 	}
-	if r.AgentPoolTTSModel != "" {
-		opts = append(opts, config.WithAgentPoolTTSModel(r.AgentPoolTTSModel))
+	if r.CollectionsVectorEngine != "" {
+		opts = append(opts, config.WithCollectionsVectorEngine(r.CollectionsVectorEngine))
 	}
-	if r.AgentPoolStateDir != "" {
-		opts = append(opts, config.WithAgentPoolStateDir(r.AgentPoolStateDir))
+	if r.CollectionsEmbeddingModel != "" {
+		opts = append(opts, config.WithCollectionsEmbeddingModel(r.CollectionsEmbeddingModel))
 	}
-	if r.AgentPoolTimeout != "" {
-		opts = append(opts, config.WithAgentPoolTimeout(r.AgentPoolTimeout))
+	if r.CollectionsDatabaseURL != "" {
+		opts = append(opts, config.WithCollectionsDatabaseURL(r.CollectionsDatabaseURL))
 	}
-	if r.AgentPoolEnableSkills {
-		opts = append(opts, config.EnableAgentPoolSkills)
+	if r.CollectionsMaxChunkingSize > 0 {
+		opts = append(opts, config.WithCollectionsMaxChunkingSize(r.CollectionsMaxChunkingSize))
 	}
-	if r.AgentPoolVectorEngine != "" {
-		opts = append(opts, config.WithAgentPoolVectorEngine(r.AgentPoolVectorEngine))
+	if r.CollectionsChunkOverlap > 0 {
+		opts = append(opts, config.WithCollectionsChunkOverlap(r.CollectionsChunkOverlap))
 	}
-	if r.AgentPoolEmbeddingModel != "" {
-		opts = append(opts, config.WithAgentPoolEmbeddingModel(r.AgentPoolEmbeddingModel))
-	}
-	if r.AgentPoolCustomActionsDir != "" {
-		opts = append(opts, config.WithAgentPoolCustomActionsDir(r.AgentPoolCustomActionsDir))
-	}
-	if r.AgentPoolDatabaseURL != "" {
-		opts = append(opts, config.WithAgentPoolDatabaseURL(r.AgentPoolDatabaseURL))
-	}
-	if r.AgentPoolMaxChunkingSize > 0 {
-		opts = append(opts, config.WithAgentPoolMaxChunkingSize(r.AgentPoolMaxChunkingSize))
-	}
-	if r.AgentPoolChunkOverlap > 0 {
-		opts = append(opts, config.WithAgentPoolChunkOverlap(r.AgentPoolChunkOverlap))
-	}
-	if r.AgentPoolEnableLogs {
-		opts = append(opts, config.EnableAgentPoolLogs)
-	}
-	if r.AgentPoolCollectionDBPath != "" {
-		opts = append(opts, config.WithAgentPoolCollectionDBPath(r.AgentPoolCollectionDBPath))
-	}
-	if r.AgentHubURL != "" {
-		opts = append(opts, config.WithAgentHubURL(r.AgentHubURL))
+	if r.CollectionsDBPath != "" {
+		opts = append(opts, config.WithCollectionsCollectionDBPath(r.CollectionsDBPath))
 	}
 
 	// Authentication
@@ -683,6 +761,11 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		cancelRun(nil)
 		return err
 	}
+	if r.AddonsMigrateHostSettings && r.AddonsRole != addonRoleOwner {
+		cancelRun(nil)
+		return fmt.Errorf("--addons-migrate-host-settings requires --addons-role=owner")
+	}
+	addonCfg.MigrateHostSettings = r.AddonsMigrateHostSettings
 	addonCfg.Frontend = r.AddonsRole == addonRoleFrontend
 	if addonCfg.Enabled && r.AddonsRole == addonRoleFrontend && !authEnabled {
 		xlog.Warn("This add-on frontend has no account database, so its add-on pins are kept in this process only and differ between frontends")
@@ -943,9 +1026,17 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		return err
 	}
 
+	// /readyz waits for the collections, which start once the server listens.
+	app.AwaitCollections()
+
 	appHTTP, err := http.API(app)
 	if err != nil {
 		xlog.Error("error during HTTP App construction", "error", err)
+		return err
+	}
+	// A chat worker serves starts only now: its turns reach the models through
+	// the router that http.API has just built.
+	if err := app.StartChatWorker(); err != nil {
 		return err
 	}
 
@@ -969,13 +1060,19 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		}
 	})
 
-	// Start the agent pool after the HTTP server is listening, because
+	// Start the collections after the HTTP server is listening, because
 	// backends like PostgreSQL need to call the embeddings API during
 	// collection initialization.
 	go func() {
 		waitForServerReady(listenAddress, app.ApplicationConfig().Context)
 		if runCtx.Err() == nil {
-			app.StartAgentPool()
+			app.StartCollections()
+			// The conversion of the old data needs the collections to grant them
+			// to the agents it converts, so it runs here and not at the start.
+			// Without the collections it has run already.
+			if app.ApplicationConfig().Collections.Enabled {
+				app.ConvertStudioData()
+			}
 		}
 	}()
 

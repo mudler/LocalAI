@@ -25,7 +25,10 @@
     "title": "채팅으로 LocalAI 관리",
     "description": "LocalAI와 대화하여 모델을 설치하고, 백엔드를 전환하고, 구성을 편집하고, 상태를 확인하세요.",
     "open": "어시스턴트 열기",
-    "tooltip": "채팅으로 LocalAI 관리"
+    "tooltip": "채팅으로 LocalAI 관리",
+    "noModel": "먼저 채팅 모델을 선택하세요.",
+    "startFailed": "어시스턴트 채팅을 시작할 수 없습니다: {{message}}",
+    "chatTitle": "LocalAI 어시스턴트"
   },
   "input": {
     "placeholder": "메시지...",
@@ -105,7 +108,48 @@
     "modelsSummary": "Explore, install, and manage models",
     "create": "Create",
     "createSummary": "Open a chat, image or voice session",
-    "operate": "Operate",
-    "operateSummary": "{{models}} models configured · nodes, activity and traces"
+    "operate": "관리",
+    "operateSummary": "{{models}} models configured · nodes, activity and traces",
+    "allChats": "모든 채팅"
+  },
+  "slash": {
+    "commandDiagnostics": "앱 명령 진단",
+    "apps": {
+      "label": "앱",
+      "desc": "설치된 앱 찾아보기"
+    },
+    "group": {
+      "addons": "앱"
+    },
+    "agents": {
+      "label": "에이전트",
+      "desc": "저장된 에이전트, 트리거, 스킬"
+    },
+    "mcp": {
+      "label": "MCP 커넥터",
+      "desc": "채팅이 쓸 수 있는 MCP 서버"
+    },
+    "memory": {
+      "label": "메모리",
+      "desc": "채팅이 검색할 수 있는 컬렉션"
+    },
+    "complete": "완성"
+  },
+  "notice": {
+    "appUnavailable": "앱을 더 이상 사용할 수 없습니다.",
+    "addonsDownTitle": "지금 애드온이 응답하지 않습니다",
+    "addonsDownBody": "{{name}}은(는) 애드온입니다. 잠시 후 다시 시도하세요.",
+    "addonsRetry": "다시 시도"
+  },
+  "picker": {
+    "aliasOf": "{{target}}의 별칭",
+    "aliasBroken": "깨진 별칭",
+    "disabled": "비활성",
+    "pinned": "고정됨",
+    "useTyped": "\"{{name}}\" 사용",
+    "empty": "사용 가능한 모델 없음",
+    "add": "모델 추가",
+    "remove": "{{name}} 제거",
+    "clear": "지우기"
   }
 }

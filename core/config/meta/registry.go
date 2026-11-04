@@ -471,6 +471,41 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "input",
 			Order:       7,
 		},
+		"profile.evidence_check.sources": {
+			Section:     "alias",
+			Label:       "Profile: append tool sources",
+			Description: "Alias only. When the answer names no http(s) URL but the request's MCP tool results do, append one line with up to five of those URLs. URLs are only taken from tool results, never invented.",
+			Component:   "toggle",
+			Order:       8,
+		},
+		"profile.evidence_check.sources_label": {
+			Section:     "alias",
+			Label:       "Profile: source line label",
+			Description: "Alias only. Label of the line appended by profile.evidence_check.sources. Empty uses \"Sources\".",
+			Component:   "input",
+			Order:       9,
+		},
+		"profile.evidence_check.urls": {
+			Section:     "alias",
+			Label:       "Profile: mark links not retrieved",
+			Description: "Alias only. When the answer names an http(s) link found neither in the request (system prompt, system, user and tool messages) nor in a successful MCP tool result of the request, append a note listing up to five such links.",
+			Component:   "toggle",
+			Order:       10,
+		},
+		"profile.evidence_check.urls_note": {
+			Section:     "alias",
+			Label:       "Profile: links-not-retrieved note",
+			Description: "Alias only. Text appended by profile.evidence_check.urls; {urls} is replaced by the links. Empty uses the built-in English note.",
+			Component:   "input",
+			Order:       11,
+		},
+		"profile.require_tool": {
+			Section:     "alias",
+			Label:       "Profile: require a tool call first",
+			Description: "Alias only. The first model call of a request with server-side MCP tools is made with tool_choice \"required\"; the follow-up calls of the tool loop use the client's tool_choice again.",
+			Component:   "toggle",
+			Order:       12,
+		},
 
 		// --- Failover ---
 		"failover.targets": {
@@ -568,6 +603,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Description: "Label speakers on each committed utterance and emit every labelled segment as a conversation.item.input_audio_transcription.segment event. Needs a transcription model that diarizes (e.g. parakeet-cpp with a diarization_model companion). Speaker labels are per turn.",
 			Component:   "toggle",
 			Order:       67,
+		},
+		"pipeline.any_to_any": {
+			Section:     "pipeline",
+			Label:       "Speech-to-Speech Model",
+			Description: "The model serves the whole speech loop itself (AudioToAudioStream), for example LFM3-Audio on llama.cpp. The Realtime session then uses this one model with no separate VAD, transcription, LLM or TTS slots. Leave off to keep the chained pipeline.",
+			Component:   "toggle",
+			Order:       69,
 		},
 		"pipeline.reasoning_effort": {
 			Section:     "pipeline",
@@ -946,15 +988,6 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		},
 
 		// --- MCP ---
-		"agent.max_generation_tokens": {
-			Section:     "agent",
-			Label:       "Max Generation Tokens",
-			Description: "Output-token cap for each completion of an agent job (/api/agent/jobs). Bounds a single completion that keeps generating, which max_iterations and loop_detection do not. Raise it for reasoning models that think at length. 0 or empty keeps the client default (16384).",
-			Component:   "number",
-			Min:         f64(0),
-			Order:       120,
-			Advanced:    true,
-		},
 		"mcp.remote": {
 			Section:     "mcp",
 			Label:       "Remote MCP Servers",
@@ -1203,6 +1236,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Description: "Full POST endpoint of the upstream provider (e.g. https://api.openai.com/v1/chat/completions). Only used when Backend is cloud-proxy.",
 			Component:   "input",
 			Order:       210,
+		},
+		"proxy.api_key": {
+			Section:     "proxy",
+			Label:       "Proxy API Key",
+			Description: "Plaintext administrator credential stored in model YAML/JSON. Use only one of api_key, api_key_env or api_key_file. Masking is not encryption.",
+			Component:   "password",
+			Order:       211,
 		},
 		"proxy.api_key_env": {
 			Section:     "proxy",

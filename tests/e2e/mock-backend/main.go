@@ -83,13 +83,18 @@ func checkModelIdentity(in interface{ GetModelIdentity() string }) error {
 // the tool would. The arguments are exactly what the spec encoded, so a spec
 // can send valid, forged or malformed ones. The second turn, after the host
 // put the tool result into the prompt, is plain text.
+//
+// The last marker of the prompt is the one of the user message: the system
+// prompt comes first and can hold a cut copy of it, for example in the name of
+// the chat's work folder, which is made from the chat title.
 var addonToolMarker = regexp.MustCompile(`ADDON_TOOL_CALL:([A-Za-z0-9_-]+):([A-Za-z0-9_=-]+)`)
 
 func addonToolCall(prompt string) (name, arguments string, ok bool) {
-	m := addonToolMarker.FindStringSubmatch(prompt)
-	if m == nil {
+	all := addonToolMarker.FindAllStringSubmatch(prompt, -1)
+	if len(all) == 0 {
 		return "", "", false
 	}
+	m := all[len(all)-1]
 	raw, err := base64.URLEncoding.DecodeString(m[2])
 	if err != nil {
 		raw, err = base64.RawURLEncoding.DecodeString(m[2])
@@ -118,14 +123,23 @@ func addonAnswer(prompt string) string {
 	if promptHasAddonFile(prompt) {
 		return "The file is ready to download."
 	}
+	// A chat applies a change at once: the host answers with an applied document.
+	if strings.Contains(prompt, `"kind":"applied"`) || strings.Contains(prompt, `"kind": "applied"`) {
+		return "The change was made and you can undo it."
+	}
 	return "The change is waiting for your confirmation."
 }
 
 // promptHasAddonResult reports whether the host already answered the scripted
 // call: the broker's result documents carry a kind (a proposal, a result or an
-// error such as select_resource), and a refusal is prefixed.
+// error such as select_resource), and a refusal is prefixed. The chat's own
+// propose_trigger and background spawn_agent answers are plain sentences.
 func promptHasAddonResult(prompt string) bool {
-	return strings.Contains(prompt, `"kind":"proposal"`) || strings.Contains(prompt, `"kind":"result"`) || strings.Contains(prompt, `"kind":"error"`) ||
+	if strings.Contains(prompt, "It is not active: the user must confirm") || strings.Contains(prompt, "Started sub-agent ") {
+		return true
+	}
+	return strings.Contains(prompt, `"kind":"proposal"`) || strings.Contains(prompt, `"kind":"result"`) || strings.Contains(prompt, `"kind":"error"`) || strings.Contains(prompt, `"kind":"applied"`) ||
+		strings.Contains(prompt, `"kind": "applied"`) ||
 		strings.Contains(prompt, `"kind": "proposal"`) || strings.Contains(prompt, `"kind": "result"`) || strings.Contains(prompt, `"kind": "error"`) || strings.Contains(prompt, "Error: ") ||
 		promptHasAddonFile(prompt)
 }
@@ -215,6 +229,16 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 		return &pb.Reply{
 			Message:      payload,
 			Tokens:       int32(len(in.Metadata)),
+			PromptTokens: 1,
+		}, nil
+	}
+
+	// ECHO_TOOL_CHOICE returns the tool_choice the REST layer forwarded to
+	// the backend, so tests can pin the API -> gRPC translation.
+	if strings.Contains(in.Prompt, "ECHO_TOOL_CHOICE") {
+		return &pb.Reply{
+			Message:      []byte("TOOL_CHOICE=" + in.ToolChoice),
+			Tokens:       1,
 			PromptTokens: 1,
 		}, nil
 	}
@@ -359,6 +383,33 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 		case <-stream.Context().Done():
 			return stream.Context().Err()
 		}
+	}
+
+	// MOCK_LONG_STREAM keeps a turn open for a UI spec that stops it, reloads
+	// the page or types while it runs: a word every 200 ms for at most 30
+	// seconds, and the end of the request ends it at once. A prompt that also
+	// holds MOCK_LONG_STREAM_SHORT lasts about 3 seconds, one with
+	// MOCK_LONG_STREAM_MEDIUM about 10: long enough to outlast a page load on
+	// a busy machine, short enough for a spec to wait for its end.
+	if strings.Contains(in.Prompt, "MOCK_LONG_STREAM") {
+		words := 150
+		switch {
+		case strings.Contains(in.Prompt, "MOCK_LONG_STREAM_SHORT"):
+			words = 15
+		case strings.Contains(in.Prompt, "MOCK_LONG_STREAM_MEDIUM"):
+			words = 50
+		}
+		for i := 0; i < words; i++ {
+			select {
+			case <-time.After(200 * time.Millisecond):
+			case <-stream.Context().Done():
+				return stream.Context().Err()
+			}
+			if err := stream.Send(&pb.Reply{Message: []byte("tick "), Tokens: int32(i + 1)}); err != nil { // #nosec G115 -- a small loop counter
+				return err
+			}
+		}
+		return nil
 	}
 
 	// Simulate C++ autoparser behavior: tool calls delivered via ChatDeltas
@@ -1016,16 +1067,57 @@ func (m *MockBackend) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADRespon
 		return &pb.VADResponse{}, nil
 	}
 
-	// Audio has signal — return a single segment covering the duration.
-	duration := float64(len(in.Audio)) / 16000.0
-	return &pb.VADResponse{
-		Segments: []*pb.VADSegment{
-			{
-				Start: 0.0,
-				End:   float32(duration),
-			},
-		},
-	}, nil
+	// Audio has signal. Report the loud stretches as segments, so audio with
+	// silence after the speech lets the realtime turn detector see the end of
+	// the turn. Audio that is loud throughout is one segment over its whole
+	// duration, as before.
+	return &pb.VADResponse{Segments: mockVADSegments(in.Audio)}, nil
+}
+
+// mockVADSegments finds the loud stretches of 16 kHz float32 audio: 10 ms
+// windows above a small RMS floor, with gaps under 200 ms merged.
+func mockVADSegments(audio []float32) []*pb.VADSegment {
+	const (
+		rate     = 16000
+		window   = rate / 100
+		floor    = 0.01
+		mergeGap = 20 // windows
+	)
+	var segs []*pb.VADSegment
+	start, last := -1, -1 // window indexes of the open segment
+	flush := func() {
+		if start < 0 {
+			return
+		}
+		segs = append(segs, &pb.VADSegment{
+			Start: float32(start*window) / rate,
+			End:   float32(min((last+1)*window, len(audio))) / rate,
+		})
+		start = -1
+	}
+	for w := 0; w*window < len(audio); w++ {
+		chunk := audio[w*window : min((w+1)*window, len(audio))]
+		var sumSq float64
+		for _, v := range chunk {
+			sumSq += float64(v) * float64(v)
+		}
+		if math.Sqrt(sumSq/float64(len(chunk))) < floor {
+			continue
+		}
+		if start >= 0 && w-last > mergeGap {
+			flush()
+		}
+		if start < 0 {
+			start = w
+		}
+		last = w
+	}
+	flush()
+	if len(segs) == 0 {
+		// Faint audio above the overall floor but under the window floor.
+		segs = append(segs, &pb.VADSegment{Start: 0, End: float32(len(audio)) / rate})
+	}
+	return segs
 }
 
 // Diarize returns a deterministic two-speaker layout that exercises the

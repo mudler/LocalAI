@@ -25,7 +25,10 @@
     "title": "Gerencie o LocalAI conversando",
     "description": "Instale modelos, alterne backends, edite configurações e verifique o status conversando com o LocalAI.",
     "open": "Abrir assistente",
-    "tooltip": "Gerencie o LocalAI conversando"
+    "tooltip": "Gerencie o LocalAI conversando",
+    "noModel": "Escolha primeiro um modelo de chat.",
+    "startFailed": "Não foi possível iniciar o chat do assistente: {{message}}",
+    "chatTitle": "Assistente do LocalAI"
   },
   "input": {
     "placeholder": "Mensagem...",
@@ -120,7 +123,48 @@
     "modelsSummary": "Explore, instale e gerencie modelos",
     "create": "Criar",
     "createSummary": "Abra uma sessão de chat, imagem ou voz",
-    "operate": "Operar",
-    "operateSummary": "{{models}} modelos configurados · nós, atividade e rastreamentos"
+    "operate": "Administração",
+    "operateSummary": "{{models}} modelos configurados · nós, atividade e rastreamentos",
+    "allChats": "Todos os chats"
+  },
+  "slash": {
+    "commandDiagnostics": "Diagnóstico de comandos de aplicativos",
+    "apps": {
+      "label": "Aplicativos",
+      "desc": "Explorar aplicativos instalados"
+    },
+    "group": {
+      "addons": "Aplicativos"
+    },
+    "agents": {
+      "label": "Agentes",
+      "desc": "Seus agentes salvos, gatilhos e habilidades"
+    },
+    "mcp": {
+      "label": "Conectores MCP",
+      "desc": "Servidores MCP que seus chats podem usar"
+    },
+    "memory": {
+      "label": "Memória",
+      "desc": "Coleções em que seus chats podem pesquisar"
+    },
+    "complete": "completar"
+  },
+  "notice": {
+    "appUnavailable": "O aplicativo não está mais disponível.",
+    "addonsDownTitle": "Os complementos não estão respondendo agora",
+    "addonsDownBody": "{{name}} é um complemento. Tente novamente em instantes.",
+    "addonsRetry": "Tentar novamente"
+  },
+  "picker": {
+    "aliasOf": "alias de {{target}}",
+    "aliasBroken": "alias quebrado",
+    "disabled": "desativado",
+    "pinned": "fixado",
+    "useTyped": "Usar \"{{name}}\"",
+    "empty": "Nenhum modelo disponível",
+    "add": "Adicionar um modelo",
+    "remove": "Remover {{name}}",
+    "clear": "Limpar"
   }
 }

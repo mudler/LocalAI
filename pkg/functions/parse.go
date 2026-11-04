@@ -104,7 +104,7 @@ type FunctionsConfig struct {
 	FunctionNameKey      string `yaml:"function_name_key,omitempty" json:"function_name_key,omitempty"`
 	FunctionArgumentsKey string `yaml:"function_arguments_key,omitempty" json:"function_arguments_key,omitempty"`
 
-	// XMLFormatPreset is an optional preset format name to force (e.g., "qwen3-coder", "glm-4.5", "minimax-m2")
+	// XMLFormatPreset is an optional preset format name to force (e.g., "qwen3-coder", "glm-4.5", "minimax-m2", "lfm3")
 	// If empty, auto-detection will try all formats
 	XMLFormatPreset string `yaml:"xml_format_preset,omitempty" json:"xml_format_preset,omitempty"`
 	// XMLFormat is an optional custom XML format configuration
@@ -466,6 +466,23 @@ func getAllXMLFormats() []xmlFormatPreset {
 		},
 		{
 			name: "qwen3.5",
+			format: &XMLToolCallFormat{
+				ScopeStart:    "<tool_call>",
+				ToolStart:     "<function=",
+				ToolSep:       ">",
+				KeyStart:      "<parameter=",
+				KeyValSep:     ">",
+				ValEnd:        "</parameter>",
+				ToolEnd:       "</function>",
+				ScopeEnd:      "</tool_call>",
+				TrimRawArgVal: true,
+			},
+		},
+		{
+			// LFM3: <tool_call><function=NAME><parameter=KEY>value</parameter></function></tool_call>,
+			// the format its chat template writes. Strings are raw text, other
+			// values are JSON, which is what the raw-or-JSON argument parser reads.
+			name: "lfm3",
 			format: &XMLToolCallFormat{
 				ScopeStart:    "<tool_call>",
 				ToolStart:     "<function=",

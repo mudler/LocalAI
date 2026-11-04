@@ -4,6 +4,7 @@ package addons
 import (
 	"context"
 	"errors"
+	"github.com/mudler/LocalAI/pkg/addons/zipformat"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
@@ -21,6 +22,11 @@ func (m *Manager) EnableUpdates(cfg updates.Config) {
 	defer m.mu.Unlock()
 	if m.installer != nil && cfg.Host == (contract.HostCompatibility{}) {
 		cfg.Host = m.installer.Host
+	}
+	// The check resolves the tag of a development build the way the install
+	// does, so both name the same digest.
+	if m.installer != nil && cfg.Lookup == nil {
+		cfg.Lookup = m.installer.Lookup
 	}
 	m.updates = updates.New(cfg, updates.FromCatalog(m.catalog), &updateReader{m: m})
 }
@@ -50,7 +56,9 @@ func (r *updateReader) Installation(ctx context.Context, id string) (updates.Ins
 		return updates.Installation{}, false, nil
 	}
 	receipt, ok := currentReceipt(st)
-	if !ok {
+	if !ok || receipt.SourceID == zipformat.SourceID {
+		// A package from a local file has no library to ask, so no check can
+		// answer for it. The page reads that as unknown, never as current.
 		return updates.Installation{}, false, nil
 	}
 	return updates.Installation{AddonID: id, Generation: st.Generation, Receipt: receipt}, true, nil
@@ -78,7 +86,10 @@ func (m *Manager) checkPins(ctx context.Context, cmd LifecycleCommand, st Status
 	case updates.Incompatible:
 		return catalog.Release{}, ErrIncompatible
 	case updates.UpdateAvailable:
-		if res.Status.CandidateDigest != cmd.CandidateDigest || res.Release.Digest != cmd.CandidateDigest {
+		// A mutable entry (a development build) has no digest in the
+		// library: the candidate is the digest its tag named at this
+		// evaluation, and the install must resolve the tag to it again.
+		if res.Status.CandidateDigest != cmd.CandidateDigest || (!res.Release.Mutable && res.Release.Digest != cmd.CandidateDigest) {
 			return catalog.Release{}, ErrCandidateChanged
 		}
 		// Compatibility is judged on the release as resolved now.

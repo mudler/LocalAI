@@ -126,7 +126,7 @@ func (t *Tables) exportRows(ctx context.Context, env contract.Envelope, a rowArg
 	// cannot pass the bound together.
 	if len(x.byID)+x.tickets >= MaxStagedExports || perUser >= MaxStagedPerUser {
 		x.mu.Unlock()
-		return contract.Result{Payload: payload(map[string]any{"exported": false, "error": "busy",
+		return contract.Result{Payload: protocol.Payload(map[string]any{"exported": false, "error": "busy",
 			"message": "Too many exports are waiting; try again in a moment."})}, nil
 	}
 	x.tickets++
@@ -154,7 +154,7 @@ func (t *Tables) exportRows(ctx context.Context, env contract.Envelope, a rowArg
 	}
 	if err != nil {
 		if errors.Is(err, store.ErrExportTooLarge) {
-			return contract.Result{Payload: payload(map[string]any{"exported": false, "error": "too-large", "message": err.Error()})}, nil
+			return contract.Result{Payload: protocol.Payload(map[string]any{"exported": false, "error": "too-large", "message": err.Error()})}, nil
 		}
 		return contract.Result{}, mapErr(err)
 	}
@@ -172,7 +172,7 @@ func (t *Tables) exportRows(ctx context.Context, env contract.Envelope, a rowArg
 	x.mu.Unlock()
 	keep = true
 	return contract.Result{
-		Payload: payload(map[string]any{"exported": true, "table": a.Table, "rows": stats.Rows, "bytes": stats.Bytes, "columns": stats.Columns, "revision": stats.Revision}),
+		Payload: protocol.Payload(map[string]any{"exported": true, "table": a.Table, "rows": stats.Rows, "bytes": stats.Bytes, "columns": stats.Columns, "revision": stats.Revision}),
 		Outputs: []contract.OutputDescription{{Handle: handle, Name: exportName(a.Table), MediaType: "text/csv", Size: stats.Bytes}},
 	}, nil
 }

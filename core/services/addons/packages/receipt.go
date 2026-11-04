@@ -21,18 +21,25 @@ type PackageIcon struct {
 }
 
 type PackageReceipt struct {
-	Digest       string            `json:"digest"`
-	SourceID     string            `json:"sourceId"`
-	SourceURL    string            `json:"sourceUrl"`
-	Channel      string            `json:"channel,omitempty"`
-	Selection    string            `json:"selection"`
-	Reference    string            `json:"reference"`
-	Verification string            `json:"verification"`
-	Manifest     contract.Manifest `json:"manifest"`
-	Directory    string            `json:"directory"`
+	Digest       string `json:"digest"`
+	SourceID     string `json:"sourceId"`
+	SourceURL    string `json:"sourceUrl"`
+	Channel      string `json:"channel,omitempty"`
+	Selection    string `json:"selection"`
+	Reference    string `json:"reference"`
+	Verification string `json:"verification"`
+	// Origin says in words where an unlisted package came from. It is set
+	// for a package installed from a local file ("local file, unsigned") and
+	// empty for a library package, whose source and verification say it all.
+	Origin    string            `json:"origin,omitempty"`
+	Manifest  contract.Manifest `json:"manifest"`
+	Directory string            `json:"directory"`
 	// Icon is set only when the manifest declares one and the package holds a
 	// valid immutable file of the declared type.
 	Icon *PackageIcon `json:"icon,omitempty"`
+	// Skills lists the files of each skill the manifest declares, with their
+	// digests, so the copy into the chats' skill layer checks them again.
+	Skills []PackageSkill `json:"skills,omitempty"`
 }
 
 // StagedPackage is an opaque, single-use capability bound to the creating installer.
@@ -107,4 +114,23 @@ func (i *Installer) Commit(ctx context.Context, s StagedPackage) (PackageReceipt
 	}
 	st.used = true
 	return receipt, nil
+}
+
+// Discard consumes an unpublished stage without publishing an installed receipt.
+// Only its creating installer can remove it; installed packages are untouched.
+func (i *Installer) Discard(s StagedPackage) error {
+	if s.state == nil {
+		return ErrPackage
+	}
+	st := s.state
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	if st.owner != i || st.used {
+		return ErrPackage
+	}
+	if e := os.RemoveAll(st.dir); e != nil {
+		return e
+	}
+	st.used = true
+	return nil
 }

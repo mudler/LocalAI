@@ -8,7 +8,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 // GormStore keeps the pins in the account database, which every frontend of a
@@ -19,7 +18,7 @@ func NewGormStore(db *gorm.DB) (*GormStore, error) {
 	// Several frontends migrate the shared database at startup: take the
 	// schema-migrate lock like every other shared table does.
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&Pin{}, &SeedRun{})
+		return db.AutoMigrate(&Pin{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating addon pin tables: %w", err)
 	}
@@ -47,44 +46,6 @@ func (s *GormStore) Replace(ctx context.Context, userID string, ids []string) er
 		}
 		return tx.Create(&rows).Error
 	})
-}
-
-// SeedExisting inserts the marker row first. Only the call that inserts it
-// seeds, so several frontends that start together seed once between them.
-func (s *GormStore) SeedExisting(ctx context.Context, userIDs []string, ids []string) (bool, error) {
-	ran := false
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		res := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&SeedRun{Name: UpgradeSeedName, At: time.Now().UTC()})
-		if res.Error != nil {
-			return res.Error
-		}
-		if res.RowsAffected == 0 {
-			return nil
-		}
-		ran = true
-		for _, userID := range userIDs {
-			var have []Pin
-			if err := tx.Where("user_id = ?", userID).Find(&have).Error; err != nil {
-				return err
-			}
-			held := map[string]bool{}
-			for _, p := range have {
-				held[p.AddonID] = true
-			}
-			next := len(have)
-			for _, id := range ids {
-				if held[id] {
-					continue
-				}
-				if err := tx.Create(&Pin{UserID: userID, AddonID: id, Position: next}).Error; err != nil {
-					return err
-				}
-				next++
-			}
-		}
-		return nil
-	})
-	return ran, err
 }
 
 func (s *GormStore) Distinct(ctx context.Context) ([]string, error) {

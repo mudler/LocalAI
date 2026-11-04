@@ -14,14 +14,15 @@ import (
 // capSet adds the manifest definitions to a tool source.
 type capSet struct {
 	toolSet
-	defs []contract.ToolDefinition
+	defs    []contract.ToolDefinition
+	actions bool
 }
 
 func (c capSet) DeclaredCapabilities(_ context.Context, id string, gen uint64) (contract.Capabilities, error) {
 	if _, err := c.DeclaredTools(context.Background(), id, gen); err != nil {
 		return contract.Capabilities{}, err
 	}
-	return contract.Capabilities{ToolDefinitions: c.defs}, nil
+	return contract.Capabilities{ToolDefinitions: c.defs, Actions: c.actions}, nil
 }
 
 // strictResolver is the real rule: no resource, no key.

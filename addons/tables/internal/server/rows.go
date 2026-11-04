@@ -120,7 +120,7 @@ func (t *Tables) previewRows(ctx context.Context, env contract.Envelope, out con
 	// receipt is the answer and apply replays it.
 	if r, e := t.Store.LookupReceipt(ctx, env.Request.OperationID); e == nil && r.State == contract.ReceiptCommitted {
 		out.Revision = r.Revision
-		out.Summary = payload(map[string]any{"count": 0, "sample": []string{}, "dataLoss": map[string]int{"rows": 0, "columns": 0, "tables": 0}, "replay": true})
+		out.Summary = protocol.Payload(map[string]any{"count": 0, "sample": []string{}, "dataLoss": map[string]int{"rows": 0, "columns": 0, "tables": 0}, "replay": true})
 		return out, nil
 	}
 	p, err := t.Store.PreviewRows(ctx, a.change(rowKinds[a.Tool], env.Request.ResourceID))

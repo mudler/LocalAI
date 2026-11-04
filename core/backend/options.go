@@ -547,6 +547,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 			UpstreamUrl:           c.Proxy.UpstreamURL,
 			Mode:                  c.Proxy.Mode,
 			Provider:              c.Proxy.Provider,
+			ApiKey:                c.Proxy.APIKey,
 			ApiKeyEnv:             c.Proxy.APIKeyEnv,
 			ApiKeyFile:            c.Proxy.APIKeyFile,
 			UpstreamModel:         c.Proxy.UpstreamModel,

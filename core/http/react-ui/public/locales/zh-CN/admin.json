@@ -1,7 +1,5 @@
 {
   "activity": {
-    "title": "Activity",
-    "supporting": "Installs, downloads and removals on this instance.",
     "hide": "隐藏",
     "moveToHistory": "移至历史记录",
     "moreCount": "另有 {{count}} 项",
@@ -9,23 +7,6 @@
     "progressLabel": "{{name}}的进度",
     "toNode": "至 {{node}}",
     "nodesDone": "已完成 {{done}} / {{total}} 个节点",
-    "timeLeft": "{{value}} left",
-    "cancel": "Cancel",
-    "cancelLabel": "Cancel {{name}}",
-    "pause": "Pause",
-    "pauseLabel": "Pause {{name}} and keep downloaded data",
-    "retry": "Retry",
-    "retryLabel": "Retry {{name}}",
-    "nodeCount": "{{count}} nodes",
-    "showNodes": "Show {{count}} nodes",
-    "hideNodes": "Hide per-node detail",
-    "node": {
-      "done": "Done",
-      "failed": "Failed",
-      "queued": "Queued",
-      "workerBusy": "Worker busy",
-      "downloading": "Downloading"
-    },
     "kind": {
       "model": "模型",
       "backend": "后端"
@@ -48,38 +29,7 @@
       "verifying": "正在校验",
       "committing": "正在完成",
       "persisting": "正在保存配置"
-    },
-    "clearHistory": "Clear history",
-    "inProgress": "In progress",
-    "needsAttention": "Needs attention",
-    "record": "Record",
-    "historyNote": "Keeps the last 50 operations. History is in memory and resets when LocalAI restarts.",
-    "emptyTitle": "No operations since startup",
-    "emptyBody": "Model and backend installs appear here while they run and stay as a record afterwards. History is kept in memory, so it resets when LocalAI restarts.",
-    "browseModels": "Browse models",
-    "viewInModels": "View in Models",
-    "viewInBackends": "View in Backends",
-    "rowInstalled": "installed in {{duration}}",
-    "rowFailed": "failed: {{error}}",
-    "rowCancelled": "cancelled",
-    "rowRemoved": "removed",
-    "retryFailed": "Retry failed: {{message}}",
-    "filter": {
-      "all": "All",
-      "models": "Models",
-      "backends": "Backends",
-      "cluster": "Cluster"
-    },
-    "summaryRunning_one": "{{count}} operation running.",
-    "summaryRunning_other": "{{count}} operations running.",
-    "summaryFailed_one": "{{count}} operation needs attention.",
-    "summaryFailed_other": "{{count}} operations need attention.",
-    "summaryQuiet_one": "Nothing running. {{count}} operation since startup.",
-    "summaryQuiet_other": "Nothing running. {{count}} operations since startup.",
-    "summaryIdle": "Nothing running.",
-    "emptyFiltered": "No operations match this filter.",
-    "showAll": "Show all",
-    "rowInstalledPlain": "installed"
+    }
   },
   "manage": {
     "title": "系统",
@@ -91,6 +41,7 @@
     "saved": "设置保存成功",
     "saveFailed": "保存失败：{{message}}",
     "loadFailed": "加载设置失败：{{message}}",
+    "autoUpgradeAddons": "自动升级附加组件",
     "sections": {
       "branding": "品牌",
       "watchdog": "看门狗",
@@ -108,80 +59,72 @@
       "distributed": "分布式",
       "responses": "响应"
     },
-    "autoUpgradeAddons": "自动升级附加组件"
-  },
-  "backends": {
-    "lifecycle": {
-      "navigation": "Backend lifecycle",
-      "catalog": "Catalog",
-      "installed": "Installed",
-      "installedAria": "Installed backends",
-      "searchPlaceholder": "Search installed backends by name or alias...",
-      "filterAll": "All",
-      "filterUser": "User",
-      "filterSystem": "System",
-      "filterUpdates": "Updates",
-      "filterOffline": "Offline nodes",
-      "variants": "Variants",
-      "variantsCount": "Variants ({{count}})",
-      "development": "Development",
-      "developmentCount": "Development ({{count}})",
-      "countLabel": "{{visible}} of {{total}}",
-      "emptyTitle": "No backends installed yet",
-      "emptyBody": "Install a backend from the Catalog to give this host a runtime for models.",
-      "noMatches": "No installed backends match the current search and filters.",
-      "clearFilters": "Clear filters",
-      "updatesAvailable_one": "{{count}} backend has an update available",
-      "updatesAvailable_other": "{{count}} backends have updates available",
-      "upgradeAll": "Upgrade all",
-      "upgrading": "Upgrading...",
-      "upgradeAllFailed": "Upgrade failed for {{name}}: {{message}}",
-      "upgradeAllStarted_one": "Upgrade started for {{count}} backend",
-      "upgradeAllStarted_other": "Upgrade started for {{count}} backends",
-      "loadFailed": "Failed to load installed backends: {{message}}",
-      "reinstall": "Reinstall backend",
-      "reinstallStarted": "Reinstalling {{name}}...",
-      "reinstallFailed": "Failed to reinstall: {{message}}",
-      "upgrade": "Upgrade",
-      "upgradeTo": "Upgrade to v{{version}}",
-      "upgradeStarted": "Upgrading {{name}}...",
-      "upgradeFailed": "Failed to upgrade: {{message}}",
-      "delete": "Delete",
-      "deleteBackend": "Delete backend",
-      "deleteTitle": "Delete Backend",
-      "deleteMessage": "Delete backend {{name}}?",
-      "deleteSucceeded": "Deleted backend {{name}}",
-      "deleteFailed": "Failed to delete backend: {{message}}",
-      "actionsFor": "Actions for {{name}}",
-      "protected": "Protected",
-      "protectedTitle": "System backends are managed outside the gallery",
-      "allBackends": "All backends",
-      "version": "Version",
-      "available": "Available",
-      "managed": "Managed",
-      "system": "System",
-      "gallery": "Gallery",
-      "installedOn": "Installed on",
-      "description": "Description",
-      "source": "Source",
-      "digest": "Digest",
-      "installedAt": "Installed",
-      "working": "Working...",
-      "updateAvailable": "Update available",
-      "updateGroup": "Update available",
-      "installedGroup": "Installed",
-      "inventoryEyebrow": "Installed runtimes",
-      "inventoryTitle_one": "{{count}} backend is installed.",
-      "inventoryTitle_other": "{{count}} backends are installed.",
-      "inventoryBody": "Select a backend to inspect its source, version, placement, and lifecycle actions."
+    "loadFailedTitle": "无法加载设置。",
+    "egress": {
+      "title": "命令的网络",
+      "intro": "隔离运行的命令只能通过一个代理访问网络，代理对每个连接都会询问 LocalAI。在下方设置限制、新聊天的预设、端口、额外仓库和审计保留时间；每个人在聊天的工具菜单中于限制内选择预设，并在卡片上允许被阻止的主机。",
+      "serves": "命令在 {{name}} 插件中隔离运行",
+      "servesHost": "命令通过 {{name}} 在这台机器上运行",
+      "servesNone": "尚无插件运行命令",
+      "hostNote": "主机后端使用这台机器的网络运行命令：这些设置对其不适用。",
+      "counts": "最近 24 小时：允许 {{allowed}}，阻止 {{blocked}}。",
+      "private": "允许管理员的规则访问私有网络",
+      "privateWarning": "管理员允许的主机将可以访问你内部网络中的地址。仅靠预设永远不会；云元数据和服务器地址仍被拒绝。",
+      "typePhrase": "要开启，请输入：{{phrase}}",
+      "registries": "软件包仓库（{{count}}）",
+      "showAudit": "显示审计",
+      "hideAudit": "隐藏审计",
+      "loadFailed": "无法读取命令的网络设置",
+      "audit": {
+        "verdict": "结果",
+        "host": "主机",
+        "user": "用户",
+        "at": "时间",
+        "reason": "原因",
+        "bytes": "上传 / 下载字节",
+        "refresh": "刷新",
+        "empty": "没有匹配的请求。",
+        "loadFailed": "无法读取审计",
+        "verdicts": {
+          "any": "所有结果",
+          "allow": "已允许",
+          "block": "已阻止",
+          "done": "已结束"
+        }
+      }
     },
-    "title": "后端管理",
-    "subtitle": "发现并安装为模型提供支持的 AI 后端"
-  },
-  "backendLogs": {
-    "title": "后端日志",
-    "subtitle": "查看运行中后端的日志",
-    "empty": "暂无日志"
+    "addons": {
+      "title": "附加组件",
+      "hint": "附加组件带来的设置",
+      "intro": "每个附加组件都把设置放在自己的页面上，即详情中的“设置”选项卡。打开一个即可更改。",
+      "off": "已关闭。启用后才能更改它的设置。",
+      "open": "打开设置",
+      "openNamed": "打开 {{name}} 的设置",
+      "count_one": "{{count}} 个有设置的附加组件",
+      "count_other": "{{count}} 个有设置的附加组件"
+    },
+    "hosts": {
+      "add": "添加",
+      "listLabel": "始终允许的主机",
+      "remove": "移除 {{host}}",
+      "empty": "还没有主机。输入主机名，或输入 主机:端口 来固定端口。",
+      "hint": "只接受确切的名称。加上 :端口 只允许一个端口；否则适用命令的网络端口设置。",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "请输入主机名。",
+        "wildcard": "“{{value}}”：请输入确切的主机名，不要使用通配模式。",
+        "shape": "“{{value}}”不是主机名。只写主机，不要带协议或路径。",
+        "port": "“{{value}}”：端口必须在 1 到 65535 之间，22 和 25 始终被拒绝。",
+        "private": "“{{value}}”是私有或本地地址。请先打开私有网络开关。",
+        "numeric": "“{{value}}”：IP 地址请写成四个十进制数。",
+        "duplicate": "“{{value}}”已在列表中。",
+        "full": "列表最多包含 {{max}} 个主机。"
+      }
+    },
+    "network": {
+      "title": "命令的网络",
+      "where": "{{name}} 在自己的页面上保存其所运行命令的网络设置。"
+    }
   },
   "traces": {
     "title": "追踪",
@@ -222,65 +165,78 @@
     "title": "资源浏览器",
     "subtitle": "浏览文件和配置"
   },
-  "operate": {
-    "overview": {
-      "title": "Overview",
-      "subtitle": "Everything running on this installation, and anything that wants a decision.",
-      "attention": {
-        "heading": "Needs attention",
-        "clear": "Nothing needs attention. Backends are current, no operation has failed, and every node is healthy.",
-        "backendUpdate": "Update available: {{from}} → {{to}}"
-      },
-      "capacity": {
-        "title": "主机容量",
-        "loading": "正在加载主机容量...",
-        "unavailable": "主机容量不可用",
-        "empty": "未报告容量数据",
-        "gpus": "{{count}} GPUs",
-        "reclaimer": "Reclaimer active",
-        "used": "Used",
-        "total": "Total",
-        "systemRam": "System RAM",
-        "memory": "Memory",
-        "totalVram": "Total VRAM",
-        "storage": "Models storage"
-      },
-      "sections": {
-        "heading": "Sections",
-        "runtime": "Runtime",
-        "runtimeSummary": "{{backends}} backends · {{models}} models · {{updates}} updates · {{running}} running",
-        "cluster": "Cluster",
-        "clusterSummary": "{{nodes}} nodes",
-        "observability": "Observability",
-        "observabilitySummary": "Usage and traces",
-        "administration": "Administration",
-        "administrationSummary": "Users, middleware and settings · {{memory}} memory in use",
-        "clusterSingle": "Single node",
-        "observabilityCounted": "{{requests}} requests · {{errors}} failed · p95 {{p95}} ms"
-      },
-      "headline": {
-        "requests": "Requests · {{hours}}h",
-        "errors": "Failed requests",
-        "p95": "p95 latency",
-        "quiet": "No requests served in this window yet.",
-        "host": "Host memory"
-      },
-      "running": {
-        "heading": "正在运行",
-        "cluster": "运行中的模型",
-        "clusterSummary": "集群中已加载的副本，见节点页面"
-      }
-    }
-  },
-  "localMachine": {
-    "title": "本机",
-    "subtitle": "此 LocalAI 实例上已加载的模型及其占用的主机容量。",
-    "scaleOut": "添加机器",
-    "hideScaleOut": "隐藏设置"
-  },
   "tabs": {
     "users": "用户",
     "invites": "邀请",
     "keys": "API 密钥"
+  },
+  "settingsTools": {
+    "intro": "聊天有一些内置工具，可以由插件替换。插件已安装、正在运行并在某个聊天中开启时，该聊天会以相同的名称使用插件的工具。",
+    "empty": "此服务器上没有可管理的内置工具。",
+    "loadFailed": "无法读取内置工具",
+    "switch": "开启",
+    "byBuiltin": "内置",
+    "byAddon": "插件：{{name}}",
+    "byNone": "关闭",
+    "unavailable": "此服务器无法运行它：{{reason}}。",
+    "replaceExplain": "这些插件会替换 {{tool}}：所选插件在其开启并运行的每个聊天中提供该工具，内置工具会被隐藏。只能有一个生效。 在你选择之前，由最先安装的插件提供。",
+    "defaultInstalledFirst": "默认：最先安装",
+    "installedOn": "安装于 {{when}}",
+    "choose_one": "{{count}} 个插件替换了 {{tool}}：请选择要使用的插件。",
+    "choose_other": "{{count}} 个插件替换了 {{tool}}：请选择要使用的插件。",
+    "labels": {
+      "bash": "命令（bash）",
+      "web_search": "网页搜索",
+      "web_fetch": "读取网页",
+      "list_agents": "已保存的智能体"
+    },
+    "descriptions": {
+      "bash": "当没有插件提供 bash 时，直接在这台机器上为聊天运行命令和代码。可隔离运行命令的插件会将其替换。",
+      "web_search": "无需密钥为聊天搜索网页（依次使用 DuckDuckGo、Brave Search、Bing），设置了 SearXNG 实例时则使用该实例。",
+      "web_fetch": "按地址为聊天读取公开的网页或文件。除非您允许，否则内部网络地址会被拒绝。",
+      "list_agents": "允许聊天列出用户已保存的智能体，并将其中一个作为子智能体启动。每个聊天需在其工具菜单中开启。"
+    },
+    "bash": {
+      "switch": "允许聊天在这台机器上运行命令",
+      "modeLegend": "谁可以运行命令",
+      "ask": "每次询问。",
+      "askHint": "只有管理员的聊天可以使用，并且每条命令都要等待其在聊天中确认。",
+      "on": "允许所有人。",
+      "onHint": "所有用户的聊天都可以无需询问在此运行命令，包括计划运行和子代理。",
+      "default": "未设置：使用默认值（{{mode}}）。",
+      "warning": "命令以运行 LocalAI 的用户身份执行，没有隔离，并使用这台机器的网络：它们可以读取 LocalAI 能读取的内容，并访问互联网、你的网络和 LocalAI API。每条命令都会被记录。请安装可隔离命令的插件。"
+    },
+    "modes": {
+      "off": "关闭",
+      "ask": "每次询问",
+      "on": "允许所有人"
+    },
+    "skillsTitle": "被插件替换的技能",
+    "skillsIntro": "插件可以用为其工具编写的技能替换内置技能。如果多个插件替换同一个技能，请选择使用哪一个。",
+    "skillLabel": "技能 {{skill}}",
+    "skillNotRunning": "所选插件未运行：使用内置技能。",
+    "toolNotRunning": "替代此工具的插件未运行：使用内置工具。",
+    "stopped": "已停止",
+    "webTest": {
+      "intro": "用已保存设置中的每个搜索提供方运行一次搜索，并显示每个提供方的结果。请先应用你的更改。",
+      "queryLabel": "查询",
+      "run": "测试搜索",
+      "running": "正在测试…",
+      "answered": "聊天将获得 {{host}} 的结果。",
+      "noneAnswered": "没有提供方作出回应。",
+      "failed": "无法运行测试：{{error}}",
+      "results_one": "{{count}} 条结果",
+      "results_other": "{{count}} 条结果",
+      "outcomes": {
+        "ok": "正常",
+        "no_results": "无结果",
+        "challenged": "机器人验证",
+        "blocked": "已拦截",
+        "timeout": "太慢",
+        "error": "错误",
+        "skipped": "已跳过"
+      }
+    },
+    "addonSettings": "{{name}} 的设置"
   }
 }

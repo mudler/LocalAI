@@ -36,7 +36,7 @@ func (c *Config) AppOptions(role string) ([]config.AppOption, error) {
 	addon := config.AddonConfig{
 		Enabled: true, InstanceID: role, OwnerID: Owner, OwnerAddress: c.OwnerAddress(), StorageID: "disk",
 		Root: node.Root, Transport: transport,
-		Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH},
+		Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH},
 	}
 	if role == Owner {
 		addon.ListenAddress = node.CarrierAddr

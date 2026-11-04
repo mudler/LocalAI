@@ -24,4 +24,4 @@ See the [Installation guide]({{% relref "getting-started/install" %}}) first. **
 5. **[Customize models]({{% relref "getting-started/customize-model" %}})** - edit model configuration and prompt templates to tune behavior.
 6. **[Troubleshooting]({{% relref "getting-started/troubleshooting" %}})** - fixes for the most common install and startup problems.
 
-Once you have a model answering, the [Build your first agent]({{% relref "getting-started/first-agent" %}}) walkthrough shows how to turn that model into an autonomous agent that can use tools.
+Once you have a model answering, the [Build your first agent]({{% relref "getting-started/first-agent" %}}) walkthrough shows how to turn that model into a saved agent that a chat, a schedule or a Telegram bot can use.

@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -48,6 +47,11 @@ var ErrNotSent = fmt.Errorf("addon request was not sent: %w", ErrRuntime)
 // It is not an ErrRuntime.
 var ErrRefused = fmt.Errorf("addon refused the request: %w", contract.ErrRefused)
 
+// ErrDenied is the add-on's own 403 "forbidden": the person lacks a permission
+// the request needs. Nothing was changed and it is deterministic, so it is
+// neither an outage nor an unknown outcome. It is not an ErrRuntime.
+var ErrDenied = fmt.Errorf("addon denied the request: %w", contract.ErrDenied)
+
 // Refusal is the typed form of ErrRefused. Reason is a short printable class
 // taken from the add-on's answer and bounded, so it is safe to log.
 type Refusal struct {
@@ -68,26 +72,38 @@ type Config struct {
 	DataRoot                   string
 	Limits                     contract.Limits
 	ReadyTimeout, StableHealth time.Duration
-	// HostOps, when set, gives each add-on that its Allowed map names a
-	// host operation endpoint. Nil means no add-on gets one.
+	// HostOps, when set, gives each add-on that holds a host operation, or
+	// declares one in its manifest, a host operation endpoint. Nil means no
+	// add-on gets one.
 	HostOps *HostOps
+	// Output receives each line an add-on writes to its standard output
+	// (stream "stdout") or error ("stderr"). Nil sends the lines to the LocalAI
+	// log with the add-on ID as a prefix.
+	Output func(addonID, stream, line string)
 }
 
-// HostOps wires the host operation channel into the supervisor. Allowed maps
-// an add-on ID to the operation prefixes it may call; an add-on that is not a
-// key gets no endpoint and no credential. InFlight records the envelope of
-// each request while the add-on serves it.
+// HostOps wires the host operation channel into the supervisor. Authority
+// decides, on every call, what an add-on may run; it is not copied at start, so
+// a grant or a revoke applies without a restart. An add-on gets an endpoint and
+// a credential when it holds an operation or its manifest declares one: a
+// declared operation that is not granted yet is refused by the endpoint, and a
+// later grant works at once. An add-on with neither gets none. InFlight records
+// the envelope of each request while the add-on serves it.
 type HostOps struct {
-	Broker   *hostops.Broker
-	InFlight *hostops.InFlight
-	Allowed  map[string][]string
+	Broker    *hostops.Broker
+	InFlight  *hostops.InFlight
+	Authority hostops.Authority
 }
 
-func (h *HostOps) prefixes(id string) []string {
-	if h == nil || h.Broker == nil || h.InFlight == nil {
-		return nil
+// wants reports whether the add-on gets a host operation endpoint.
+func (h *HostOps) wants(id string, declared *contract.HostOperations) bool {
+	if h == nil || h.Broker == nil || h.InFlight == nil || h.Authority == nil {
+		return false
 	}
-	return h.Allowed[id]
+	if declared != nil && len(declared.Required)+len(declared.Optional) > 0 {
+		return true
+	}
+	return h.Authority.Entitled(id)
 }
 
 type Registration struct {
@@ -276,7 +292,7 @@ func (s *Supervisor) start(ctx context.Context, pkg packages.PackageReceipt, gen
 func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, generation uint64) (*process, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.config.ReadyTimeout)
 	defer cancel()
-	host := contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH}
+	host := contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH}
 	if contract.ValidateManifest(pkg.Manifest, host) != nil || !filepath.IsAbs(pkg.Directory) {
 		return nil, ErrRuntime
 	}
@@ -313,9 +329,8 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	// failed launch, and by serveHostOps when the process ends.
 	var hostListener net.Listener
 	var hostCredential string
-	hostPrefixes := s.config.HostOps.prefixes(pkg.Manifest.ID)
 	hostReady := false
-	if len(hostPrefixes) > 0 {
+	if s.config.HostOps.wants(pkg.Manifest.ID, pkg.Manifest.Capabilities.HostOperations) {
 		hostListener, e = net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
 		if e != nil {
 			return nil, ErrRuntime
@@ -366,17 +381,49 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	cmd.Dir = pkg.Directory
 	cmd.Env = []string{"LANG=C", "TZ=UTC"}
 	cmd.ExtraFiles = []*os.File{socket, child}
-	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
+	// The streams are pipes the supervisor owns, not an io.Writer on the
+	// command: with a writer, Wait would block while a child of the add-on
+	// still holds the pipe open.
+	sink := s.config.Output
+	if sink == nil {
+		sink = defaultOutput
+	}
+	outR, outW, e := os.Pipe()
+	if e != nil {
+		_ = parent.Close()
+		return nil, ErrRuntime
+	}
+	errR, errW, e := os.Pipe()
+	if e != nil {
+		_ = outR.Close()
+		_ = outW.Close()
+		_ = parent.Close()
+		return nil, ErrRuntime
+	}
+	cmd.Stdout, cmd.Stderr = outW, errW
+	closeOutput := func() {
+		_ = outW.Close()
+		_ = errW.Close()
+		_ = outR.Close()
+		_ = errR.Close()
+	}
 	if e = s.ledger.put(pkg.Manifest.ID, processIdentity{Incarnation: r.Incarnation, Pending: true}); e != nil {
+		closeOutput()
 		_ = parent.Close()
 		return nil, ErrRuntime
 	}
 	if e = cmd.Start(); e != nil {
+		closeOutput()
 		_ = s.ledger.remove(pkg.Manifest.ID, r.Incarnation)
 		_ = parent.Close()
 		return nil, ErrRuntime
 	}
+	// The child has its own ends; the readers stop when it and its children
+	// close theirs.
+	_ = outW.Close()
+	_ = errW.Close()
+	go func() { logOutput(outR, pkg.Manifest.ID, "stdout", sink); _ = outR.Close() }()
+	go func() { logOutput(errR, pkg.Manifest.ID, "stderr", sink); _ = errR.Close() }()
 	p := &process{cmd: cmd, parent: parent, done: make(chan struct{}), registration: r}
 	c, e := newClient(r, hex.EncodeToString(credential), s.config.Limits)
 	if e != nil {
@@ -392,7 +439,7 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 			return nil, ErrRuntime
 		}
 		c.inflight = s.config.HostOps.InFlight
-		s.serveHostOps(p, hostListener, pkg.Manifest.ID, hostCredential, hostPrefixes)
+		s.serveHostOps(p, hostListener, pkg.Manifest.ID, hostCredential)
 	}
 	ident, identityErr := identity(cmd.Process.Pid)
 	ident.Incarnation = r.Incarnation
@@ -452,17 +499,34 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 }
 
 // serveHostOps serves the host operation channel of one incarnation and
-// closes it when the process ends. terminate waits for the process, so the
-// endpoint never outlives it.
-func (s *Supervisor) serveHostOps(p *process, l net.Listener, id, credential string, prefixes []string) {
-	srv := &http.Server{Handler: s.config.HostOps.Broker.Handler(id, credential, prefixes), ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 16 << 10}
+// stops admission when the process ends. Cleanup drains active requests before
+// releasing correlations; a handler ignoring cancellation cannot block terminate.
+func (s *Supervisor) serveHostOps(p *process, l net.Listener, id, credential string) {
+	endpoint := s.config.HostOps.Broker.EndpointForRuntime(id, credential, s.config.HostOps.Authority, p.registration.Generation, p.registration.Incarnation)
+	srv := &http.Server{Handler: endpoint, ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 16 << 10}
 	go func() { _ = srv.Serve(l) }()
-	go func() { <-p.done; _ = srv.Close() }()
+	go func() {
+		<-p.done
+		endpoint.Stop()
+		_ = srv.Close()
+		endpoint.Drain()
+		s.config.HostOps.InFlight.ForgetRuntime(id, p.registration.Incarnation)
+	}()
 }
 
 func (s *Supervisor) terminate(p *process) {
 	p.client.withdraw()
+	// Closing the startup channel is the add-on's signal to release what it
+	// owns outside its process (a sandbox add-on stops its sandboxes) and
+	// exit. Give it the shutdown period; SIGKILL cannot be caught, so a kill
+	// first would leak those resources.
 	_ = p.parent.Close()
+	grace := time.NewTimer(s.config.Limits.ShutdownTimeout)
+	select {
+	case <-p.done:
+	case <-grace.C:
+	}
+	grace.Stop()
 	// os.Process owns the OS process handle (pidfd on supported Linux). Never
 	// reconstruct a Process from a recorded numeric PID, which may be reused.
 	_ = p.cmd.Process.Kill()

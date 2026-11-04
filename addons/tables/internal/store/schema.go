@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS tables_schema_receipts(
  data_revision INTEGER NOT NULL,
  payload TEXT NOT NULL,
  applied_at TEXT NOT NULL
-) WITHOUT ROWID;`
+) WITHOUT ROWID;` + changesSchema
 
 func invalid(format string, a ...any) error {
 	return fmt.Errorf("%w: %s", ErrInvalidSchema, fmt.Sprintf(format, a...))
@@ -473,7 +473,7 @@ func countValues(ctx context.Context, tx *sql.Tx, table, column string) (int64, 
 }
 
 // apply runs one change inside tx. Identifiers in SQL are always internal.
-func (s *Store) apply(ctx context.Context, tx *sql.Tx, c SchemaChange) (outcome, error) {
+func (s *Store) apply(ctx context.Context, tx *sql.Tx, c SchemaChange, rec *recorder) (outcome, error) {
 	if _, err := tx.ExecContext(ctx, catalogSchema); err != nil {
 		return outcome{}, err
 	}
@@ -514,6 +514,7 @@ func (s *Store) apply(ctx context.Context, tx *sql.Tx, c SchemaChange) (outcome,
 		if _, err = tx.ExecContext(ctx, "INSERT INTO tables_catalog_tables(table_id,name,name_key,position) VALUES(?,?,?,(SELECT COALESCE(MAX(position),0)+1 FROM tables_catalog_tables))", id, c.Table, key); err != nil {
 			return outcome{}, capacityError(err)
 		}
+		rec.set(inverse{Op: invDropTable, Table: id}, fmt.Sprintf("Remove the new table %s", c.Table))
 		return outcome{effects: []effect{{Action: "create table", Table: c.Table}}, tableID: id}, nil
 	}
 	if tbl == nil {
@@ -528,6 +529,7 @@ func (s *Store) apply(ctx context.Context, tx *sql.Tx, c SchemaChange) (outcome,
 		if _, err = tx.ExecContext(ctx, "UPDATE tables_catalog_tables SET name=?, name_key=? WHERE table_id=?", c.NewName, labelKey(c.NewName), tbl.ID); err != nil {
 			return out, capacityError(err)
 		}
+		rec.set(inverse{Op: invRenameTable, Table: tbl.ID, Name: tbl.Name}, fmt.Sprintf("Rename the table %s back to %s", c.NewName, tbl.Name))
 		out.effects = []effect{{Action: "rename table", Table: tbl.Name, To: c.NewName}}
 	case KindTableDrop:
 		rows, err := countRows(ctx, tx, tbl.ID)
@@ -535,6 +537,9 @@ func (s *Store) apply(ctx context.Context, tx *sql.Tx, c SchemaChange) (outcome,
 			return out, err
 		}
 		cols := len(tbl.cols)
+		if err = s.captureTable(ctx, tx, tbl, rec); err != nil {
+			return out, err
+		}
 		for _, q := range []string{"DROP TABLE " + tbl.ID} {
 			if _, err = tx.ExecContext(ctx, q); err != nil {
 				return out, err
@@ -559,6 +564,7 @@ func (s *Store) apply(ctx context.Context, tx *sql.Tx, c SchemaChange) (outcome,
 			return out, capacityError(err)
 		}
 		out.column = col.ID
+		rec.set(inverse{Op: invRenameColumn, Table: tbl.ID, Column: col.ID, Name: col.Name}, fmt.Sprintf("Rename the column %s of %s back to %s", c.NewName, tbl.Name, col.Name))
 		out.effects = []effect{{Action: "rename column", Table: tbl.Name, Column: col.Name, To: c.NewName}}
 	case KindColumnDrop:
 		col := tbl.column(c.Column)
@@ -575,6 +581,9 @@ func (s *Store) apply(ctx context.Context, tx *sql.Tx, c SchemaChange) (outcome,
 				keep = append(keep, k)
 			}
 		}
+		if err = s.captureColumn(ctx, tx, tbl, col, lost, rec); err != nil {
+			return out, err
+		}
 		if err = s.rebuild(ctx, tx, tbl.ID, keep); err != nil {
 			return out, err
 		}
@@ -584,14 +593,14 @@ func (s *Store) apply(ctx context.Context, tx *sql.Tx, c SchemaChange) (outcome,
 		out.column = col.ID
 		out.effects = []effect{{Action: "drop column", Table: tbl.Name, Column: col.Name, Rows: &lost}}
 	case KindColumnAdd:
-		return s.addColumn(ctx, tx, tbl, c)
+		return s.addColumn(ctx, tx, tbl, c, rec)
 	default:
 		return out, invalid("unknown schema operation")
 	}
 	return out, nil
 }
 
-func (s *Store) addColumn(ctx context.Context, tx *sql.Tx, tbl *catalogTable, c SchemaChange) (outcome, error) {
+func (s *Store) addColumn(ctx context.Context, tx *sql.Tx, tbl *catalogTable, c SchemaChange, rec *recorder) (outcome, error) {
 	out := outcome{tableID: tbl.ID}
 	if tbl.column(c.Column) != nil {
 		return out, fmt.Errorf("%w: column %q", ErrSchemaExists, c.Column)
@@ -660,6 +669,7 @@ func (s *Store) addColumn(ctx context.Context, tx *sql.Tx, tbl *catalogTable, c 
 		return out, capacityError(err)
 	}
 	out.column = id
+	rec.set(inverse{Op: invDropColumn, Table: tbl.ID, Column: id}, fmt.Sprintf("Remove the new column %s from %s", c.Column, tbl.Name))
 	out.effects = []effect{{Action: "add column", Table: tbl.Name, Column: c.Column, Type: c.Type}}
 	return out, nil
 }
@@ -826,7 +836,7 @@ func (s *Store) applyNoFail(ctx context.Context, tx *sql.Tx, c SchemaChange) (ou
 	keep := s.failpoint
 	s.failpoint = nil
 	defer func() { s.failpoint = keep }()
-	return s.apply(ctx, tx, c)
+	return s.apply(ctx, tx, c, nil)
 }
 
 // ApplySchema applies one change when the database is still at the expected
@@ -905,7 +915,8 @@ func (s *Store) ApplySchema(ctx context.Context, request SchemaChange, expected 
 		forget()
 		return contract.Receipt{}, &StaleError{Current: m.Revision}
 	}
-	o, err := s.apply(ctx, tx, request)
+	rec := s.newRecorder(contract.ChangeClassSchema, request.Kind)
+	o, err := s.apply(ctx, tx, request, rec)
 	if err != nil {
 		if errors.Is(err, ErrInvalidSchema) || errors.Is(err, ErrSchemaLimit) || errors.Is(err, ErrSchemaExists) || errors.Is(err, ErrTableNotFound) || errors.Is(err, ErrColumnNotFound) || errors.Is(err, ErrCapacity) {
 			forget()
@@ -916,7 +927,11 @@ func (s *Store) ApplySchema(ctx context.Context, request SchemaChange, expected 
 	if err != nil {
 		return contract.Receipt{}, capacityError(err)
 	}
-	payload := schemaPayload(request, o)
+	note, err := s.record(ctx, tx, rec, operationID, m.Revision, next)
+	if err != nil {
+		return contract.Receipt{}, err
+	}
+	payload := withUndo(schemaPayload(request, o), note)
 	if err = writeReceipt(ctx, tx, operationID, hash, next, payload); err != nil {
 		return contract.Receipt{}, capacityError(err)
 	}

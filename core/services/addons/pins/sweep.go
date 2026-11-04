@@ -21,9 +21,10 @@ func Sweep(ctx context.Context, store Store, present []string, now time.Time) (i
 	}
 	var gone, back []string
 	for _, id := range pinned {
-		if slices.Contains(present, id) {
+		switch {
+		case slices.Contains(present, id):
 			back = append(back, id)
-		} else {
+		default:
 			gone = append(gone, id)
 		}
 	}

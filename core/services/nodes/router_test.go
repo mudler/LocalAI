@@ -573,6 +573,7 @@ type fakeUnloader struct {
 // every call so tests can verify both presence and shape (e.g. that backend
 // is non-empty).
 type installCall struct {
+	env     map[string]string
 	nodeID  string
 	backend string
 	modelID string
@@ -585,7 +586,7 @@ type upgradeCall struct {
 	replica int
 }
 
-func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ string, replica int, _ string, _ func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ string, replica int, _ string, _ func(workerctl.BackendInstallProgressEvent), env ...map[string]string) (*workerctl.BackendInstallReply, error) {
 	// installHook intentionally runs OUTSIDE the mutex: the hook may block
 	// on a channel and we don't want to serialize concurrent callers,
 	// which would defeat the singleflight-overlap test.
@@ -593,15 +594,15 @@ func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ strin
 		f.installHook()
 	}
 	f.mu.Lock()
-	f.installCalls = append(f.installCalls, installCall{nodeID, backend, modelID, replica})
+	f.installCalls = append(f.installCalls, installCall{nodeID: nodeID, backend: backend, modelID: modelID, replica: replica, env: installEnvSnapshot(env)})
 	f.mu.Unlock()
 	return f.installReply, f.installErr
 }
 
 // The load operation verbs of the carrier seam. The default fake is a worker
 // that names operations and acknowledges every stop.
-func (f *fakeUnloader) InstallBackendOp(nodeID, backend, modelID, galleries string, replica int, opID, _ string, _ time.Duration, progress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
-	reply, err := f.InstallBackend(nodeID, backend, modelID, galleries, "", "", "", replica, opID, progress)
+func (f *fakeUnloader) InstallBackendOp(nodeID, backend, modelID, galleries string, replica int, opID, _ string, _ time.Duration, progress func(workerctl.BackendInstallProgressEvent), env ...map[string]string) (*workerctl.BackendInstallReply, error) {
+	reply, err := f.InstallBackend(nodeID, backend, modelID, galleries, "", "", "", replica, opID, progress, env...)
 	if reply != nil {
 		withOps := *reply
 		withOps.ReportsOperations = true
@@ -1406,7 +1407,7 @@ var _ = Describe("SmartRouter", func() {
 			done := make(chan error, 5)
 			for i := 0; i < 5; i++ {
 				go func() {
-					_, err := router.installBackendOnNode(context.Background(), node, "llama-cpp", "my-model", 0)
+					_, err := router.installBackendOnNode(context.Background(), node, "llama-cpp", "my-model", 0, map[string]string{"TOKEN": "same-snapshot"})
 					done <- err
 				}()
 			}

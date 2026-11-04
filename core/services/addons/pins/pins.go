@@ -19,15 +19,6 @@ const HardLimit = 32
 // shorter than the time an administrator needs to reinstall after a mistake.
 const Retention = 30 * 24 * time.Hour
 
-// SeedIDs are pinned once, at upgrade, for every account that already exists,
-// so the layout does not change under users who had Studio and Talk in the
-// sidebar. An account created after the upgrade is never seeded.
-var SeedIDs = []string{"studio", "talk"}
-
-// UpgradeSeedName names the one seed run of this release. A later release that
-// seeds something else uses another name.
-const UpgradeSeedName = "studio-talk-v1"
-
 // Pin is one row: one user, one add-on, one position. Every field is
 // serialised: the file store writes whole Pin values, and a pin without its
 // owner or its missing mark would restart the retention window at each reopen.
@@ -40,19 +31,10 @@ type Pin struct {
 
 func (Pin) TableName() string { return "addon_pins" }
 
-// SeedRun records that a seed ran for the whole deployment.
-type SeedRun struct {
-	Name string `gorm:"primaryKey;size:64"`
-	At   time.Time
-}
-
-func (SeedRun) TableName() string { return "addon_pin_seed_runs" }
-
 // Store keeps the pins. Every method is safe for concurrent use.
 type Store interface {
 	List(ctx context.Context, userID string) ([]Pin, error)
 	Replace(ctx context.Context, userID string, ids []string) error
-	SeedExisting(ctx context.Context, userIDs []string, ids []string) (bool, error)
 	Distinct(ctx context.Context) ([]string, error)
 	MarkMissing(ctx context.Context, ids []string, now time.Time) error
 	ClearMissing(ctx context.Context, ids []string) error

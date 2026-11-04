@@ -69,7 +69,7 @@ test.describe('Canonical resource navigation', () => {
     await expect(sidebar.getByRole('link', { name: 'Models', exact: true })).toBeVisible()
     await expect(sidebar.getByRole('link', { name: 'Discover', exact: true })).toHaveCount(0)
 
-    await sidebar.getByRole('link', { name: 'Operate', exact: true }).click()
+    await sidebar.getByRole('link', { name: 'Administration', exact: true }).click()
     const operateBar = page.locator('.dk-hubtabs')
     await expect(operateBar.getByRole('link', { name: /Runtime/ })).toBeVisible()
     await expect(operateBar.getByRole('link', { name: /Host/ })).toHaveCount(0)

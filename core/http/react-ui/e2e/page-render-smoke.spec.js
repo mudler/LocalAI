@@ -39,8 +39,9 @@ test.describe('Page render smoke', () => {
     test(`renders ${label} (${path})`, async ({ page }) => {
       await page.goto(path)
       // .page-title for the normal header; .empty-state-title for pages that
-      // render a gated/empty state (e.g. Account when auth is disabled).
-      await expect(page.locator('.page-title, .view-bar__title, .empty-state-title, .dk-empty-title, .op-status__title, .op-runtime h1, .sw-page h1, .tf-title, .st-title').first()).toBeVisible({ timeout: 15_000 })
+      // render a gated/empty state; .ac-title for Account, which shows its
+      // settings tabs with or without accounts.
+      await expect(page.locator('.page-title, .view-bar__title, .empty-state-title, .dk-empty-title, .op-status__title, .op-runtime h1, .sw-page h1, .tf-title, .st-title, .ac-title').first()).toBeVisible({ timeout: 15_000 })
       await expect(page).toHaveURL(new RegExp(path.replace(/\//g, '\\/') + '$'))
     })
   }
@@ -52,8 +53,8 @@ const ADDON_PAGES = [
   ['/app/addons/talk/talk', 'Talk', '.talk-page'],
   ['/app/addons/studio/studio', 'Studio', '[data-testid="studio-overview"]'],
   ['/app/addons/studio/studio/threed', 'Studio 3D', '.ws-title'],
-  ['/app/talk', 'Talk (old address)', '.talk-page'],
-  ['/app/studio/threed', 'Studio 3D (old address)', '.ws-title'],
+  ['/app/addons/talk/talk', 'Talk (old address)', '.talk-page'],
+  ['/app/addons/studio/studio/threed', 'Studio 3D (old address)', '.ws-title'],
 ]
 
 test.describe('Add-on page render smoke', () => {
@@ -65,4 +66,20 @@ test.describe('Add-on page render smoke', () => {
       await expect(page).toHaveURL(/\/app\/addons\/(studio|talk)\//)
     })
   }
+})
+
+// The folder picker of the agent editor, on the real server's files: it opens
+// on the home and finishes loading.
+test.describe('Folder picker render smoke', () => {
+  test('renders the folder picker of the agent editor', async ({ page }) => {
+    await page.goto('/app/agents/new')
+    await page.locator('[data-section="Files"] .ag-fold__button').click()
+    await page.getByTestId('agent-folder-scope-one').click()
+    await page.getByTestId('agent-folder-choose').click()
+    const picker = page.getByTestId('folder-picker')
+    await expect(picker).toBeVisible({ timeout: 15_000 })
+    await expect(picker.locator('.ws-move__list')).toHaveAttribute('aria-busy', 'false')
+    await page.getByTestId('agent-folder-dialog').getByRole('button', { name: 'Cancel' }).first().click()
+    await expect(picker).toHaveCount(0)
+  })
 })

@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { modelsApi } from '../utils/api'
 
 // `enabled: false` skips the request, for a caller that already holds the list.
-export function useModels(capability, { enabled = true } = {}) {
+// `keepBroken: true` keeps an alias that cannot be resolved (it has no
+// capabilities) in a filtered list, for a picker that shows it as broken.
+export function useModels(capability, { enabled = true, keepBroken = false } = {}) {
   const [models, setModels] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -14,6 +16,7 @@ export function useModels(capability, { enabled = true } = {}) {
       let items = (data?.data || []).filter(m => !capability || !m.disabled)
       if (capability) {
         items = items.filter(m =>
+          (keepBroken && m.alias_error) ||
           m.capabilities?.includes(capability) || m.capabilities?.includes(capability.replace(/^FLAG_/, '').toLowerCase()) ||
           // Models without config (loose files) have no capabilities — show them only when no filter
           false
@@ -33,7 +36,7 @@ export function useModels(capability, { enabled = true } = {}) {
     } finally {
       if (!silent) setLoading(false)
     }
-  }, [capability])
+  }, [capability, keepBroken])
 
   // Subsequent refetches stay silent so consumers don't blank their tables
   // (e.g. the Manage page auto-refreshes every 10s in distributed mode).

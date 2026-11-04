@@ -1,6 +1,10 @@
+import { useAuth } from '../context/AuthContext'
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { backendsApi, modelsApi, nodesApi } from '../utils/api'
+import { addonsApi } from '../utils/addonsClient'
+import { addonUpgrades } from '../utils/addonUpgrades'
+import { upgradeFailureWords } from '../components/addons/updateReview'
 import { useOperations } from './useOperations'
 
 // Retry only ever means "install this again". A failed deletion would need the
@@ -14,10 +18,22 @@ export function isRetryable(op) {
 // Activity page and the Status page's "Needs you" row, so both do the same
 // thing with the same calls.
 export function useOperationActions(addToast) {
+  const { captureSessionAuthority } = useAuth()
   const { t } = useTranslation('operate')
+  const { t: ta } = useTranslation('addons')
   const { dismissFailedOp } = useOperations()
 
   const retry = useCallback(async (op) => {
+    // An add-on upgrade is followed by the browser, not by the operations
+    // service. The store reads the add-on again, so a changed candidate is
+    // honoured, and an unknown outcome is only read, never submitted twice.
+    if (op.isAddon) {
+      const current = captureSessionAuthority()
+      const out = await addonUpgrades.retry(addonsApi, op.jobID, { current })
+      if (!current() || !out) return
+      if (!out.ok && out.outcome !== 'cancelled') addToast?.(t('activity.retryFailed', { message: upgradeFailureWords(out.message, ta) }), 'error')
+      return
+    }
     // Dismiss before reinstalling, never after: the reinstall reuses the same
     // opcache key, and overwriting a failed entry in place skips recordTerminal
     // so the failure would never reach the record. Dismissing first is what
@@ -49,7 +65,15 @@ export function useOperationActions(addToast) {
     } catch (err) {
       addToast?.(t('activity.retryFailed', { message: err.message }), 'error')
     }
-  }, [dismissFailedOp, addToast, t])
+  }, [dismissFailedOp, addToast, t, ta, captureSessionAuthority])
 
-  return { retry, dismiss: dismissFailedOp }
+  const dismiss = useCallback((jobID) => {
+    if (String(jobID).startsWith('addon:')) {
+      addonUpgrades.dismiss(jobID)
+      return undefined
+    }
+    return dismissFailedOp(jobID)
+  }, [dismissFailedOp])
+
+  return { retry, dismiss }
 }

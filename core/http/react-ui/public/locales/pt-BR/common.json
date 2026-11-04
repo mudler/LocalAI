@@ -111,5 +111,23 @@
     "megabytes": "MB",
     "gigabytes": "GB",
     "terabytes": "TB"
+  },
+  "ui": {
+    "tryAgain": "Tentar novamente",
+    "undo": "Desfazer",
+    "loadError": {
+      "title": "Não foi possível carregar.",
+      "serverSaid": "O servidor respondeu “{{message}}”.",
+      "nothingChanged": "Nada foi alterado."
+    }
+  },
+  "chip": {
+    "running": "Em execução",
+    "starting": "Iniciando",
+    "stopped": "Parado",
+    "failed": "Falhou",
+    "updateAvailable": "Atualização disponível",
+    "ready": "Pronto",
+    "noRunsYet": "Nenhuma execução"
   }
 }

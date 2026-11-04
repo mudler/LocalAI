@@ -1,19 +1,58 @@
 ---
+# Concurrency policy: a newer push to master cancels the in-flight run of this
+# workflow on master, because the newer commit contains the older one and the
+# result that matters is the newest. PR runs group by PR number (as before),
+# tag pushes group by their own tag ref, and schedule/dispatch runs group by
+# commit SHA, so none of those is ever cancelled by a master push.
+# See .agents/ci-caching.md, section "Concurrency".
 name: 'UI E2E Tests'
 
 on:
   pull_request:
     paths:
-      - 'core/http/**'
-      - 'tests/e2e-ui/**'
-      - 'tests/e2e/mock-backend/**'
+      - 'addons/**'
+      - '.github/workflows/tests-ui-e2e.yml'
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'tests/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
   push:
-    branches:
-      - master
+    branches: [master]
+    paths:
+      - 'addons/**'
+      - '.github/workflows/tests-ui-e2e.yml'
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'tests/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
 
 concurrency:
-  group: ci-tests-ui-e2e-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-tests-ui-e2e-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
 
 jobs:
   tests-ui-e2e:
@@ -52,7 +91,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libopus-dev
-      - name: Run stale chunk recovery tests
+      # Runs the specs tagged @production-chunks on the production bundle the
+      # binary embeds (code-split, CSS per chunk): the stale chunk recovery
+      # specs and the production bundle walk of the main pages. The coverage
+      # run below uses a different bundle and skips them.
+      - name: Run production bundle tests
         run: PATH="$PATH:$HOME/go/bin" make test-ui-stale-chunk
       # Builds an instrumented UI bundle, runs the Playwright specs, and fails
       # if line coverage regressed beyond the jitter tolerance (the gate is

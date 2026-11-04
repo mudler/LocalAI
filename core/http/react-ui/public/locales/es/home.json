@@ -25,7 +25,10 @@
     "title": "Administra LocalAI chateando",
     "description": "Instala modelos, cambia backends, edita configuraciones y consulta el estado hablando con LocalAI.",
     "open": "Abrir asistente",
-    "tooltip": "Administra LocalAI chateando"
+    "tooltip": "Administra LocalAI chateando",
+    "noModel": "Elige primero un modelo de chat.",
+    "startFailed": "No se pudo iniciar el chat del asistente: {{message}}",
+    "chatTitle": "Asistente de LocalAI"
   },
   "input": {
     "placeholder": "Mensaje...",
@@ -105,7 +108,48 @@
     "modelsSummary": "Explore, install, and manage models",
     "create": "Create",
     "createSummary": "Open a chat, image or voice session",
-    "operate": "Operate",
-    "operateSummary": "{{models}} models configured · nodes, activity and traces"
+    "operate": "Administración",
+    "operateSummary": "{{models}} models configured · nodes, activity and traces",
+    "allChats": "Todos los chats"
+  },
+  "slash": {
+    "commandDiagnostics": "Diagnóstico de comandos de aplicaciones",
+    "apps": {
+      "label": "Aplicaciones",
+      "desc": "Explorar aplicaciones instaladas"
+    },
+    "group": {
+      "addons": "Aplicaciones"
+    },
+    "agents": {
+      "label": "Agentes",
+      "desc": "Tus agentes guardados, disparadores y habilidades"
+    },
+    "mcp": {
+      "label": "Conectores MCP",
+      "desc": "Servidores MCP que pueden usar tus chats"
+    },
+    "memory": {
+      "label": "Memoria",
+      "desc": "Colecciones en las que pueden buscar tus chats"
+    },
+    "complete": "completar"
+  },
+  "notice": {
+    "appUnavailable": "La aplicación ya no está disponible.",
+    "addonsDownTitle": "Los complementos no responden ahora",
+    "addonsDownBody": "{{name}} es un complemento. Inténtalo de nuevo en un momento.",
+    "addonsRetry": "Reintentar"
+  },
+  "picker": {
+    "aliasOf": "alias de {{target}}",
+    "aliasBroken": "alias roto",
+    "disabled": "desactivado",
+    "pinned": "fijado",
+    "useTyped": "Usar \"{{name}}\"",
+    "empty": "No hay modelos disponibles",
+    "add": "Añadir un modelo",
+    "remove": "Quitar {{name}}",
+    "clear": "Borrar"
   }
 }

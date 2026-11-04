@@ -9,15 +9,15 @@ import { installStudioAddons } from './studio-addon.js'
 //   4. a narrow, tall child pinned to the left edge of its parent.
 // Selection and status use a surface step, a check or a dot instead.
 const ROUTES = [
-  '/app', '/app/chat', '/app/models', '/app/models?view=installed', '/app/studio',
-  '/app/talk', '/app/agents', '/app/skills', '/app/collections', '/app/agent-jobs',
-  '/app/backends', '/app/activity', '/app/operate', '/app/build', '/app/settings',
+  '/app', '/app/chats/all', '/app/models', '/app/models?view=installed', '/app/addons/studio/studio',
+  '/app/addons/talk/talk', '/app/agents', '/app/skills', '/app/collections', '/app/triggers',
+  '/app/backends', '/app/activity', '/app/operate', '/app/mcp-connectors', '/app/settings',
   '/app/traces', '/app/usage', '/app/nodes', '/app/p2p',
   '/app/account',
 ]
 
 test('no element on the main routes carries a left accent rail', async ({ page }) => {
-  // Studio and Talk are add-ons; /app/studio and /app/talk open them.
+  // Studio and Talk are add-ons; /app/addons/studio/studio and /app/addons/talk/talk open them.
   await installStudioAddons(page)
   test.setTimeout(ROUTES.length * 8_000)
   const findings = []

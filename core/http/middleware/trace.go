@@ -54,8 +54,8 @@ type APIExchange struct {
 	Error     string              `json:"error,omitempty"`
 	UserID    string              `json:"user_id,omitempty"`
 	UserName  string              `json:"user_name,omitempty"`
-	// ClientIP is the caller's address as resolved by echo (honours
-	// X-Forwarded-For / X-Real-IP behind a trusted proxy), and UserAgent
+	// ClientIP is the caller's address as resolved by echo's IPExtractor (forwarding
+	// headers count only from a trusted proxy), and UserAgent
 	// is the raw User-Agent header. Both are surfaced in the admin Traces
 	// UI so an operator can tell who/what issued each request.
 	ClientIP  string `json:"client_ip,omitempty"`

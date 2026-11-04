@@ -1,0 +1,8 @@
+{
+  "columns": ["To do", "Doing", "Done"],
+  "tasks": [
+    { "id": "t1", "title": "Ask the assistant to add a due date to each task", "column": 0 },
+    { "id": "t2", "title": "Drag nothing: use the arrows to move a task", "column": 1 },
+    { "id": "t3", "title": "Copy the task board starter", "column": 2 }
+  ]
+}

@@ -3,13 +3,14 @@
     "blocked": "Aksi sebelumnya pada add-on ini belum dikonfirmasi. Periksa statusnya atau abaikan terlebih dahulu.",
     "checkStatus": "Periksa status",
     "dismiss": "Abaikan",
-    "failed": "Pemilik tidak menyelesaikan tindakan. Tidak ada yang diubah. Coba lagi untuk memulai percobaan baru.",
-    "notApplied": "Pemilik melaporkan aksi selesai, tetapi add-on tidak berubah. Coba lagi.",
-    "unknown": "Pemilik belum mengonfirmasi aksi ini. Aksi mungkin masih diterapkan. Periksa statusnya atau abaikan sebelum memulai aksi lain."
+    "failed": "Tindakan tidak selesai. Tidak ada yang diubah. Coba lagi untuk memulai percobaan baru.",
+    "notApplied": "Tindakan dilaporkan selesai, tetapi add-on tidak berubah. Coba lagi untuk memulai percobaan baru.",
+    "unknown": "Tindakan belum dikonfirmasi. Tindakan mungkin masih diterapkan. Periksa statusnya atau abaikan sebelum memulai tindakan lain."
   },
   "approval": {
     "title": "Perlu persetujuan",
     "from": "Dari {{addon}}",
+    "connection": "Koneksi: {{name}}",
     "loading": "Memuat permintaan",
     "failed": "Permintaan ini tidak tersedia.",
     "rejected": "Permintaan tidak dapat diselesaikan. Periksa statusnya lalu coba lagi.",
@@ -37,14 +38,16 @@
     "emptyTitle": "Belum ada aplikasi",
     "firstRun": {
       "browse": "Browse add-ons",
-      "title": "Welcome to Apps",
-      "lead": "Add-ons give LocalAI pages and chat tools. Start with one of these, or find more.",
-      "featuredLabel": "Featured add-ons",
+      "title": "Belum ada add-on",
+      "lead": "Add-on memberi LocalAI halaman dan alat chat baru. Add-on berjalan sendiri dan hanya meminta yang dicantumkannya.",
+      "featuredLabel": "Mulai dengan salah satu ini",
       "featuredFailed": "The list of add-ons could not be read.",
-      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons."
+      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons.",
+      "factChecked": "Diperiksa terhadap sumber Anda sebelum berjalan",
+      "factRemove": "Matikan atau hapus kapan saja"
     },
     "headless": "Berjalan di latar belakang dan tidak punya halaman sendiri.",
-    "listLabel": "Aplikasi",
+    "listLabel": "Add-on terpasang",
     "loading": "Memuat aplikasi",
     "manage": "Kelola",
     "open": "Buka",
@@ -56,10 +59,14 @@
     "tools_one": "{{count}} alat",
     "tools_other": "{{count}} alat",
     "version": "Versi {{version}}",
-    "working": "Menunggu konfirmasi pemilik.",
+    "working": "Menunggu konfirmasi.",
     "noMatchTitle": "No add-on matches",
-    "noMatchBody": "Nothing in My add-ons matches \"{{query}}\". Try other words.",
-    "clearSearch": "Clear search"
+    "noMatchBody": "Tidak ada yang terpasang cocok dengan \"{{query}}\". Coba kata lain.",
+    "clearSearch": "Clear search",
+    "loadError": {
+      "title": "Add-on tidak tersedia saat ini.",
+      "paused": "Halaman dan alat add-on dijeda sampai layanan kembali."
+    }
   },
   "browse": {
     "confirmTitle": "Pasang {{name}}?",
@@ -69,7 +76,7 @@
     "fromLibrary": "dari {{library}}",
     "install": "Pasang",
     "installedDetail": "Versi {{version}}, generasi {{generation}}",
-    "installedOther": "Terpasang {{version}} (versi lain)",
+    "installedOther": "Anda memakai {{version}}",
     "installedSame": "Terpasang {{version}}",
     "installedState": "Terpasang",
     "installing": "Memasang",
@@ -85,7 +92,8 @@
     "backendFailed": "The backend was not installed.",
     "alias": "Alias",
     "kindLabel": "Kind",
-    "installedOn": "{{name}} is installed and on."
+    "installedOn": "{{name}} is installed and on.",
+    "installedChip": "Terpasang"
   },
   "catalog": {
     "allLibraries": "Semua pustaka",
@@ -115,8 +123,8 @@
     "pin": "Pin {{name}}",
     "pinLabel": "Pin",
     "pinned": "Pinned",
-    "running": "Aktif",
-    "search": "Search add-ons",
+    "running": "Berjalan",
+    "search": "Cari add-on terpasang",
     "status": {
       "failed": "failed",
       "starting": "starting"
@@ -129,7 +137,7 @@
     "denied": "Server menolak ini. Anda mungkin tidak punya izin, atau add-on berubah. Daftar telah diperbarui.",
     "invalid": "Server tidak dapat menerima permintaan ini.",
     "network": "Server tidak dapat dijangkau. Periksa koneksi Anda.",
-    "unavailable": "Pemilik add-on tidak tersedia saat ini. Coba lagi sebentar lagi.",
+    "unavailable": "Add-on tidak tersedia saat ini. Coba lagi sebentar lagi.",
     "unknownOutcome": "Hasil tidak dapat dikonfirmasi. Periksa statusnya sebelum mencoba lagi."
   },
   "installed": {
@@ -174,14 +182,14 @@
     },
     "hints": {
       "id": "Huruf kecil, angka, dan tanda hubung. Tidak dapat diubah nanti.",
-      "reference": "Nama kredensial yang dikonfigurasi pemilik. Jangan pernah menempelkan token atau kata sandi di sini.",
+      "reference": "Nama kredensial yang dikonfigurasi administrator di server ini. Jangan pernah menempelkan token atau kata sandi di sini.",
       "url": "Alamat https tanpa kredensial dan tanpa query string.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "Disegarkan {{when}}, {{count}} entri",
-    "lead": "Pustaka adalah dokumen katalog yang mendaftar add-on. Kredensial tidak pernah diketik di sini: pustaka privat menyebut kredensial yang dikonfigurasi pemilik.",
+    "lead": "Pustaka adalah indeks yang mendaftar add-on, backend, atau model. Kredensial tidak pernah diketik di sini: pustaka add-on privat menyebut kredensial yang dikonfigurasi administrator di server ini.",
     "listLabel": "Pustaka",
     "loading": "Memuat pustaka",
     "notRefreshed": "Belum disegarkan",
@@ -251,10 +259,11 @@
     "hasUI": "Punya halaman",
     "headless": "Tanpa antarmuka, tanpa halaman",
     "health": "Kesehatan",
+    "installedAt": "Dipasang",
     "host": "API host",
     "interface": "Antarmuka",
     "logs": "Log",
-    "logsNone": "Keluaran proses add-on tidak dikumpulkan di rilis ini. Kesehatan dan percobaan mulai ulang di atas adalah yang dapat dilaporkan pemilik.",
+    "logsNone": "Keluaran proses add-on tidak dikumpulkan di rilis ini. Kesehatan dan percobaan mulai ulang di atas adalah semua yang dapat dilaporkan LocalAI.",
     "observed": "Status teramati",
     "protocol": "Protokol",
     "restarts": "Percobaan mulai ulang",
@@ -338,17 +347,19 @@
   "state": {
     "failed": "Gagal",
     "label": "Status: {{state}}",
-    "running": "Aktif",
+    "running": "Berjalan",
     "starting": "Memulai",
     "stopped": "Nonaktif",
-    "update-pending": "Pembaruan tertunda"
+    "update-pending": "Pembaruan tertunda",
+    "updateTo": "Pembaruan {{version}}"
   },
-  "supporting": "Aplikasi yang dijalankan pemilik untuk Anda, beserta pustaka asalnya.",
+  "supporting": "Perangkat lunak yang Anda pasang untuk memberi LocalAI halaman dan alat chat baru. Masing-masing berjalan sendiri dan hanya meminta yang dicantumkannya.",
   "tabs": {
-    "apps": "Add-on saya",
+    "apps": "Terpasang",
     "browse": "Cari add-on",
     "label": "Bagian add-on",
-    "libraries": "Sumber"
+    "libraries": "Sumber",
+    "access": "Akses host"
   },
   "title": "Add-on",
   "trust": {
@@ -516,8 +527,8 @@
       "unknownOutcome": "Hasilnya tidak diketahui. Baca status lagi: tindakan yang sama tidak dikirim dua kali.",
       "auth": "Masuk lagi.",
       "denied": "Hanya administrator yang bisa melakukannya, dari sesi peramban mereka sendiri.",
-      "network": "Pemilik tidak dapat dijangkau.",
-      "unavailable": "Pemilik tidak tersedia."
+      "network": "Layanan add-on tidak dapat dijangkau.",
+      "unavailable": "Layanan add-on tidak tersedia."
     }
   },
   "updates": {
@@ -591,8 +602,30 @@
       "auth": "Masuk lagi untuk melanjutkan.",
       "denied": "Hanya administrator yang dapat melakukannya dari sesi browser sendiri.",
       "network": "Jaringan tidak dapat dijangkau.",
-      "unavailable": "Pemilik add-on tidak tersedia. Coba lagi."
-    }
+      "unavailable": "Layanan add-on tidak tersedia. Coba lagi."
+    },
+    "upgradeNamed": "Perbarui {{name}}",
+    "why": {
+      "role": "Pembaruan tersedia. Hanya administrator yang dapat menjalankannya.",
+      "needs-check": "Pembaruan dilaporkan, tetapi rinciannya belum dikonfirmasi. Periksa lagi untuk memastikannya.",
+      "check-failed": "Pemeriksaan terakhir gagal, sehingga pembaruan tidak dapat dikonfirmasi. Periksa lagi.",
+      "incompatible": "Ada pembaruan, tetapi tidak dapat berjalan di sini:",
+      "integrity": "Pustaka mencantumkan versi ini dengan isi berbeda. Versi ini tidak ditawarkan sebagai pembaruan.",
+      "recovery": "Data add-on ini perlu dipulihkan dulu. Pulihkan cadangan di Detail, lalu perbarui.",
+      "current": "Pemeriksaan terakhir tidak menemukan pembaruan. Pemberitahuan mungkin sudah usang. Periksa lagi.",
+      "unpinned": "Pustaka melaporkan pembaruan tetapi tidak menyebutkan build yang akan dipasang, jadi tidak dapat ditingkatkan dari sini. Periksa lagi nanti."
+    },
+    "checkAll": "Periksa pembaruan",
+    "checkingAll": "Memeriksa...",
+    "checkAllDone": "{{count}} add-on diperiksa.",
+    "checkAllFailed": "{{count}} tidak dapat diperiksa.",
+    "checkResult": {
+      "done": "Sudah diperiksa.",
+      "failed": "Pemeriksaan tidak selesai.",
+      "justNow": "Baru saja diperiksa."
+    },
+    "waitingService": "Layanan add-on sedang dimulai. LocalAI menanyakan peningkatan lagi dalam {{seconds}} dtk.",
+    "checkAgain": "Periksa sekarang"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -629,17 +662,19 @@
     "addsTools_other": "Adds {{count}} tools",
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
-    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted."
+    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
+    "removeNamed": "Hapus {{name}}…"
   },
   "preview": {
     "screenshots": "Screenshots",
-    "adds": "What it adds",
+    "adds": "Yang dapat dilakukannya",
     "page": "A page of its own in LocalAI",
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
     "sourceUnknown": "Not known",
-    "moreDetails": "Health, trust and updates"
+    "moreDetails": "Health, trust and updates",
+    "updateTitle": "Perbarui ke {{version}}"
   },
   "flow": {
     "installAndTurnOn": "Pasang dan aktifkan",
@@ -653,6 +688,247 @@
       "install": "Download, verify and install",
       "turn-on": "Turn on"
     },
-    "seeInList": "See it in My add-ons"
+    "seeInList": "Lihat di Terpasang",
+    "install": "Pasang",
+    "installNamed": "Pasang {{name}}",
+    "shadowWarning": "Add-on ini menggantikan {{tool}} bawaan. Add-on lain ({{name}}) sudah melakukannya. Hanya satu yang bisa aktif; Anda memilih yang mana di Pengaturan > Alat. Sebelum Anda memilih, yang dipasang lebih dulu yang melayaninya.",
+    "skillShadow": "Add-on ini menggantikan skill bawaan {{skill}}.",
+    "skillShadowWarning": "Add-on ini menggantikan skill bawaan {{skill}}. Add-on lain ({{name}}) sudah melakukannya. Hanya satu yang bisa aktif; Anda memilih yang mana di Pengaturan > Alat. Sebelum Anda memilih, yang dipasang lebih dulu yang melayaninya.",
+    "skillProvides": "Add-on ini menyediakan keterampilan {{skill}}.",
+    "skillProvidesWarning": "Add-on ini menyediakan keterampilan {{skill}}. Add-on lain ({{name}}) juga menyediakannya. Hanya satu yang dapat aktif; pilih di Pengaturan > Alat. Tanpa pilihan, yang dipasang lebih dahulu akan digunakan."
+  },
+  "family": {
+    "pages": "Mencari halaman yang Anda atau agen buat? Ada di <go>Halaman</go>."
+  },
+  "filter": {
+    "label": "Tampilkan",
+    "all": "Semua",
+    "running": "Berjalan",
+    "off": "Mati",
+    "showAll": "Tampilkan semua",
+    "none": {
+      "all": "Tidak ada add-on untuk ditampilkan.",
+      "running": "Tidak ada add-on yang berjalan.",
+      "off": "Semua add-on berjalan."
+    }
+  },
+  "attention": {
+    "label": "Perlu perhatian",
+    "failedTitle": "{{name}} berhenti.",
+    "failedRestarts_one": "Gagal dimulai {{count}} kali berturut-turut.",
+    "failedRestarts_other": "Gagal dimulai {{count}} kali berturut-turut.",
+    "failedOnce": "Add-on tidak dimulai.",
+    "toolsOff_one": "{{count}} alat chat-nya mati sampai add-on berjalan lagi.",
+    "toolsOff_other": "{{count}} alat chat-nya mati sampai add-on berjalan lagi.",
+    "pageOff": "Halamannya tidak tersedia sampai add-on berjalan lagi.",
+    "updateTitle": "{{name}} {{version}} tersedia.",
+    "updateBody": "Anda memakai {{current}}. Anda melihat perubahannya dan mengonfirmasi sebelum ada yang diganti."
+  },
+  "meta": {
+    "builtin": "Bawaan",
+    "builtinLong": "Disertakan dengan LocalAI",
+    "signed": "Bertanda tangan · {{library}}",
+    "checked": "Diperiksa · {{library}}",
+    "devBuild": "Build pengembangan",
+    "library": "pustaka {{library}}"
+  },
+  "skills": {
+    "title_one": "{{count}} skill obrolan",
+    "title_other": "{{count}} skill obrolan",
+    "provides": "menyediakan keterampilan {{skill}}",
+    "replaces": "menggantikan skill bawaan",
+    "serves": "dipakai di obrolan",
+    "notServing": "tidak dipakai sekarang",
+    "serveIn": "Pakai untuk {{skill}} di obrolan",
+    "saveFailed": "Pilihan tidak dapat disimpan."
+  },
+  "settingsTab": {
+    "overview": "Ringkasan",
+    "settings": "Pengaturan",
+    "tabsLabel": "Detail {{name}}",
+    "off": "Aktifkan {{name}} untuk mengubah pengaturannya.",
+    "pageLink": "Pengaturan",
+    "controls": {
+      "loadFailed": "Pengaturan tidak dapat dibaca",
+      "saveFailed": "Pengaturan tidak dapat disimpan: {{message}}"
+    }
+  },
+  "hostAccess": {
+    "addonsTitle": "Add-on",
+    "approve": {
+      "action": "Setujui dan tingkatkan",
+      "body": "Versi {{current}} dari {{name}} tetap berjalan. Jika Anda setuju, versi baru dapat menjalankan aksi ini. Yang baru ditandai.",
+      "done": "{{name}} telah ditingkatkan.",
+      "title": "Setujui akses host untuk {{name}} {{version}}"
+    },
+    "asksNothing": "Add-on ini tidak meminta akses host.",
+    "blanket": {
+      "alsoRevoke": "Cabut juga izin yang diberikannya",
+      "alsoRevokeHint": "Add-on yang akan kehilangan akses: {{names}}. Add-on yang kehilangan akses yang dibutuhkan akan berhenti.",
+      "applyInstalled": "Terapkan juga ke add-on yang sudah terpasang",
+      "applyInstalledHint": "Mati: hanya instalasi dan peningkatan baru.",
+      "change": "Ubah",
+      "fixed": "Ditetapkan oleh deployment. Anda tidak dapat mengubahnya di sini.",
+      "held": "Add-on yang memegang izin dari sakelar umum: {{count}}",
+      "includeOptional": "Sertakan operasi opsional",
+      "includeOptionalHint": "Mati: hanya operasi wajib yang diberikan.",
+      "intro": "Mati secara bawaan. Jika menyala, add-on yang Anda pasang atau tingkatkan mendapat operasi host yang menurut manifesnya dibutuhkan, tanpa langkah di dialog instalasi. Operasi di Jangan pernah izinkan tetap diblokir.",
+      "modeAny": "Pustaka mana pun",
+      "modeLabel": "Cakupan",
+      "modeOfficial": "Pustaka resmi",
+      "nowOff": "Persetujuan umum mati. Izin yang telah diberikannya tetap ada.",
+      "nowOn": "Persetujuan umum menyala.",
+      "offBody": "Instalasi baru kembali membutuhkan persetujuan Anda. Izin yang sudah diberikan sakelar tetap ada, ditandai sebagai umum, agar tidak ada yang berhenti tiba-tiba.",
+      "offText": "Mati. Anda menyetujui tiap add-on saat memasangnya.",
+      "offTitle": "Matikan persetujuan umum",
+      "onTitle": "Nyalakan persetujuan umum",
+      "revokeAll": "Cabut semua izin umum",
+      "revoked": "Izin umum dicabut.",
+      "risk": {
+        "any": "Jika ini menyala, setiap add-on yang Anda pasang dari pustaka mana pun yang Anda atur mendapat operasi host yang menurut manifesnya dibutuhkan, tanpa Anda meninjaunya. Entri mana pun di pustaka mana pun menerima apa yang dideklarasikannya, jadi entri berbahaya atau yang disusupi langsung mendapat operasi itu. Operasi yang Anda blokir di Jangan pernah izinkan tetap diblokir.",
+        "official": "Jika ini menyala, setiap add-on yang Anda pasang dari pustaka resmi mendapat operasi host yang menurut manifesnya dibutuhkan, tanpa Anda meninjaunya. Entri yang disusupi lalu mendapat persis operasi yang dideklarasikannya. Operasi yang Anda blokir di Jangan pernah izinkan tetap diblokir."
+      },
+      "scope": {
+        "any": "Menyala untuk add-on dari pustaka mana pun.",
+        "official": "Menyala untuk add-on dari pustaka resmi."
+      },
+      "switch": "Persetujuan umum",
+      "title": "Setujui semua yang diminta add-on",
+      "turnOff": "Matikan",
+      "turnOn": "Nyalakan",
+      "typeLabel": "Untuk mengonfirmasi, ketik: {{phrase}}",
+      "withOptional": "Operasi opsional disertakan."
+    },
+    "cannotInstallBlocked": "Add-on ini butuh {{ops}}, yang diblokir oleh kebijakan administrator. Add-on tidak dapat dipasang.",
+    "cannotInstallUnsupported": "Add-on ini butuh {{ops}}, yang tidak didukung LocalAI ini. Add-on tidak dapat dipasang.",
+    "chip": "Menunggu persetujuan",
+    "confirm": {
+      "revokeBody": "{{name}} kehilangan semua yang Anda atau sakelar umum izinkan. Izin dari deployment tetap. Jika kehilangan akses yang dibutuhkan, add-on berhenti.",
+      "revokeTitle": "Cabut semua akses host {{name}}?",
+      "stopAction": "Matikan dan hentikan",
+      "stopBody": "{{name}} tidak berjalan tanpa {{op}}. Add-on berhenti dan tetap berhenti sampai Anda mengizinkannya lagi.",
+      "stopTitle": "Matikan akses yang dibutuhkan {{name}}?"
+    },
+    "deny": {
+      "add": "Tambah aturan",
+      "added": "Aturan ditambahkan.",
+      "affectsNone": "Tidak ada add-on terpasang yang kehilangan akses.",
+      "allAddons": "Semua add-on",
+      "checkFailed": "Tidak dapat memeriksa apa yang diubah aturan ini. Tidak ada yang disimpan.",
+      "confirmAction": "Tambah aturan",
+      "confirmBody": "Berlaku untuk: {{target}}. Langsung berlaku. Panggilan yang sedang berjalan diselesaikan.",
+      "confirmTitle": "Jangan pernah izinkan {{entry}}?",
+      "entry": "Operasi, keluarga, atau *",
+      "everything": "Semuanya",
+      "fromFile": "Ditetapkan di deployment",
+      "hint": "Keluarga diakhiri titik, misalnya egress. Nama persis seperti egress.check. Tanda bintang memblokir semuanya.",
+      "intro": "Operasi yang tidak boleh dipakai add-on mana pun, apa pun yang mengizinkannya. Aturan di sini selalu menang.",
+      "invalid": "Tulis operasi seperti egress.check, keluarga seperti egress., atau *.",
+      "none": "Belum ada aturan.",
+      "remove": "Hapus",
+      "removeNamed": "Hapus aturan {{entry}} untuk {{target}}",
+      "removed": "Aturan dihapus.",
+      "target": "Berlaku untuk",
+      "title": "Jangan pernah izinkan",
+      "willStop": "akan berhenti, membutuhkannya"
+    },
+    "emptyBody": "Add-on yang meminta akses host muncul di sini setelah dipasang.",
+    "emptyTitle": "Belum ada add-on terpasang",
+    "errors": {
+      "approval_required": "Add-on ini butuh akses host. Setujui di dialog instalasi di browser.",
+      "approval_stale": "Paket berubah sejak Anda melihatnya. Tinjau daftar baru dan setujui lagi.",
+      "blocked_by_policy": "Kebijakan administrator memblokir operasi yang dibutuhkan add-on ini. Tidak ada yang diubah.",
+      "locked_by_deployment": "Deployment mengunci akses host. Anda tidak dapat mengubahnya di sini.",
+      "not_human_surface": "Administrator harus membuat perubahan ini di browser ini. Kunci API atau alat tidak bisa.",
+      "revision_conflict": "Akses host berubah di tempat lain. Halaman dibaca ulang. Periksa lalu coba lagi."
+    },
+    "family": {
+      "connector": "Konektor",
+      "egress": "Pemeriksaan jaringan",
+      "finetune": "Fine-tuning",
+      "quantize": "Kuantisasi",
+      "workspace": "Berkas ruang kerja"
+    },
+    "fileEntry": "Ditetapkan di berkas kebijakan atau flag deployment.",
+    "identityMismatch": "Izin ini diberikan untuk paket lain dengan nama yang sama. Izin tidak berlaku. Hapus.",
+    "intro": "Aksi yang boleh dijalankan add-on di server ini, siapa yang mengizinkan tiap aksi, dan cara menariknya kembali. Add-on hanya memegang apa yang Anda setujui.",
+    "keepOwn": "Jadikan milik saya",
+    "keepOwnNamed": "Jadikan izin umum {{name}} sebagai milik saya",
+    "loadError": "Akses host tidak termuat",
+    "loading": "Membaca apa yang diminta add-on ini...",
+    "loadingPage": "Memuat akses host",
+    "locked": "Deployment mematikan perubahan akses host. Anda dapat membaca halaman ini tetapi tidak mengubahnya.",
+    "lockedNoAuth": "Login dimatikan, sehingga siapa pun yang dapat menjangkau server ini dapat mengubahnya; administrator mengaturnya di berkas kebijakan.",
+    "newOptional": "Versi baru juga meminta {{ops}}. Ini opsional dan tidak diizinkan.",
+    "noLongerRequested": "Versi ini tidak lagi memintanya. Anda dapat mematikannya.",
+    "notOfficial": "Add-on ini berasal dari {{library}}, bukan pustaka resmi.",
+    "op": {
+      "alreadyAllowed": "Sudah diizinkan",
+      "blocked": "Diblokir oleh kebijakan administrator",
+      "byDeployment": "Sudah diizinkan oleh deployment",
+      "new": "Baru di versi ini",
+      "optional": "Opsional. Add-on berjalan tanpanya, dengan fitur lebih sedikit.",
+      "required": "Wajib. Add-on tidak berjalan tanpanya.",
+      "unsupported": "Tidak didukung LocalAI ini"
+    },
+    "previewFailed": "Tidak dapat membaca akses host yang diminta add-on ini. Coba lagi. Jika add-on butuh akses yang belum Anda setujui, instalasi ditolak dan tidak ada yang berubah.",
+    "removeStale": "Hapus",
+    "revokeAll": "Cabut semua",
+    "revokeAllNamed": "Cabut semua akses host {{name}}",
+    "risk": {
+      "changes_data": "Mengubah data",
+      "network": "Jaringan",
+      "read": "Membaca",
+      "runs_jobs": "Menjalankan tugas"
+    },
+    "source": {
+      "blanket": "Umum",
+      "deployment": "Deployment",
+      "you": "Anda"
+    },
+    "stepFooter": "Memberi akses mengizinkan add-on ini menjalankan aksi tersebut di server ini bagi orang yang memakainya. Anda dapat meninjau atau mencabutnya di halaman Akses host.",
+    "stepIntro": "{{name}} meminta menjalankan aksi ini di server ini. Yang wajib dibutuhkan agar add-on berfungsi. Yang opsional tetap mati sampai Anda menyalakannya.",
+    "stepTitle": "Akses host",
+    "stopped": "Berhenti: butuh {{ops}}, yang tidak lagi diizinkan.",
+    "tabWaiting": "Persetujuan menunggu: {{count}}",
+    "waiting": {
+      "body": "Versi baru meminta akses host yang tidak dimiliki versi sekarang. Versi {{current}} tetap berjalan sampai Anda menyetujui. Operasi yang ditambahkan: {{count}}.",
+      "review": "Tinjau dan setujui",
+      "reviewNamed": "Tinjau dan setujui akses host {{name}}",
+      "title": "{{name}} {{version}} menunggu persetujuan Anda"
+    }
+  },
+  "file": {
+    "button": "Pasang dari berkas",
+    "checking": "Memeriksa berkas…",
+    "pick": "Pilih berkas zip add-on",
+    "rejected": "Berkas tidak diterima.",
+    "gone": "Berkas sudah tidak ada. Berkas disimpan satu jam setelah diunggah. Unggah lagi.",
+    "installTitle": "Pasang {{name}} dari berkas?",
+    "upgradeTitle": "Perbarui {{name}} dari berkas?",
+    "confirmBody": "Versi {{version}} dari berkas {{name}} dipasang, lalu dinyalakan.",
+    "confirmBodyUpgrade": "Versi {{version}} dari berkas {{name}} dipasang. Add-on tetap menyala atau mati seperti sekarang.",
+    "upgradeAction": "Perbarui ke {{version}}",
+    "upgraded": "{{name}} sekarang berjalan di versi {{version}}.",
+    "unsignedTitle": "Berkas lokal, tanpa tanda tangan",
+    "unsignedNotice": "Tidak ada yang menandatangani berkas ini, jadi LocalAI tidak bisa tahu siapa yang membuatnya. Pasang hanya jika Anda memercayai asalnya.",
+    "unsignedShort": "Berkas lokal, tanpa tanda tangan",
+    "badge": "Berkas lokal, tanpa tanda tangan",
+    "sourceValue": "Berkas lokal, tanpa tanda tangan",
+    "hostNotice": "Add-on ini berasal dari berkas lokal yang tidak ditandatangani. Beri hanya akses host yang Anda yakini dibutuhkannya.",
+    "facts": {
+      "file": "Berkas",
+      "sha256": "SHA-256 berkas",
+      "addon": "Add-on",
+      "platform": "Platform",
+      "api": "API host"
+    },
+    "relation": {
+      "upgrade": "Ini mengganti versi {{installed}} dengan versi {{version}}. Data add-on tetap disimpan.",
+      "same": "Versi {{version}} sudah terpasang. Pilih berkas dengan versi lain.",
+      "downgradeTitle": "Versi lebih lama",
+      "downgrade": "Ini memasang versi {{version}}, yang lebih lama daripada versi terpasang {{installed}}. Versi yang lebih lama mungkin tidak bisa membaca data yang ditulis versi yang lebih baru.",
+      "downgradeConfirm": "Saya ingin memasang versi yang lebih lama"
+    }
   }
 }

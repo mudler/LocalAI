@@ -16,6 +16,7 @@ import (
 
 type DiscoveryServer struct {
 	sync.Mutex
+	limits         bool
 	database       *Database
 	connectionTime time.Duration
 	errorThreshold int
@@ -32,14 +33,16 @@ func redactToken(t string) string {
 
 // NewDiscoveryServer creates a new DiscoveryServer with the given Database.
 // it keeps the db state in sync with the network state
-func NewDiscoveryServer(db *Database, dur time.Duration, failureThreshold int) *DiscoveryServer {
+func NewDiscoveryServer(db *Database, dur time.Duration, failureThreshold int, limits ...bool) *DiscoveryServer {
 	if dur == 0 {
 		dur = 50 * time.Second
 	}
 	if failureThreshold == 0 {
 		failureThreshold = 3
 	}
+	enabled := len(limits) > 0 && limits[0]
 	return &DiscoveryServer{
+		limits:         enabled,
 		database:       db,
 		connectionTime: dur,
 		errorThreshold: failureThreshold,
@@ -64,7 +67,7 @@ func (s *DiscoveryServer) runBackground() {
 		// Get the number of nodes
 		// save it in the current state (mutex)
 		// do not do in parallel
-		n, err := p2p.NewNode(token)
+		n, err := p2p.NewNode(token, p2p.NodeConfig{EnableLimits: s.limits})
 		if err != nil {
 			xlog.Error("Failed to create node", "error", err)
 			s.failedToken(token)

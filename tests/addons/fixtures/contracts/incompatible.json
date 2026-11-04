@@ -1,7 +1,7 @@
 [
   {
     "host": 3,
-    "api": 1,
+    "api": 2,
     "protocol": 1,
     "sdk": 1,
     "dataFormat": 1,
@@ -19,7 +19,7 @@
   },
   {
     "host": 1,
-    "api": 1,
+    "api": 2,
     "protocol": 3,
     "sdk": 1,
     "dataFormat": 1,
@@ -28,7 +28,7 @@
   },
   {
     "host": 1,
-    "api": 1,
+    "api": 2,
     "protocol": 1,
     "sdk": 3,
     "dataFormat": 1,
@@ -37,7 +37,7 @@
   },
   {
     "host": 1,
-    "api": 1,
+    "api": 2,
     "protocol": 1,
     "sdk": 1,
     "dataFormat": 3,
@@ -46,7 +46,7 @@
   },
   {
     "host": 1,
-    "api": 1,
+    "api": 2,
     "protocol": 1,
     "sdk": 1,
     "dataFormat": 1,
@@ -55,7 +55,7 @@
   },
   {
     "host": 1,
-    "api": 1,
+    "api": 2,
     "protocol": 1,
     "sdk": 1,
     "dataFormat": 1,

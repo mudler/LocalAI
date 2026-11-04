@@ -7,17 +7,20 @@ import os
 uri = sys.argv[1]
 file_name = uri.split('/')[-1]
 
-# Function to parse the URI and determine download method
+# Function to parse the URI and determine download method.
+# A URI that pins a revision (.../resolve/<revision>/<file>) downloads that
+# revision, so its checksum has to come from the same revision, not from main.
 def parse_uri(uri):
     if uri.startswith('huggingface://'):
         repo_id = uri.split('://')[1]
-        return 'huggingface', repo_id.rsplit('/', 1)[0]
+        return 'huggingface', repo_id.rsplit('/', 1)[0], None
     elif 'huggingface.co' in uri:
         parts = uri.split('/resolve/')
         if len(parts) > 1:
             repo_path = parts[0].split('https://huggingface.co/')[-1]
-            return 'huggingface', repo_path
-    return 'direct', uri
+            revision = parts[1].split('/', 1)[0]
+            return 'huggingface', repo_path, revision
+    return 'direct', uri, None
 
 def calculate_sha256(file_path):
     sha256_hash = hashlib.sha256()
@@ -38,7 +41,7 @@ def manual_safety_check_hf(repo_id):
     else:
         return None
 
-download_type, repo_id_or_url = parse_uri(uri)
+download_type, repo_id_or_url, revision = parse_uri(uri)
 
 new_checksum =  None
 file_path = None
@@ -51,7 +54,7 @@ if download_type == 'huggingface':
         print(f'Error: HuggingFace has detected security problems for {repo_id_or_url}: {str(hazard)}', filename=file_name)
         sys.exit(5)
     # Use HF API to pull sha
-    for file in get_paths_info(repo_id_or_url, [file_name], repo_type='model'):
+    for file in get_paths_info(repo_id_or_url, [file_name], repo_type='model', revision=revision):
         try:
             new_checksum = file.lfs.sha256
             break
@@ -60,7 +63,7 @@ if download_type == 'huggingface':
             sys.exit(2)
     if new_checksum is None:
         try:
-            file_path = hf_hub_download(repo_id=repo_id_or_url, filename=file_name)
+            file_path = hf_hub_download(repo_id=repo_id_or_url, filename=file_name, revision=revision)
         except Exception as e:
             print(f'Error from Hugging Face Hub: {str(e)}', file=sys.stderr)
             sys.exit(2)

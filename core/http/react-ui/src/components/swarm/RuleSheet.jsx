@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import ModelPicker from './ModelPicker'
+import ModelPicker from '../ModelPicker'
 import KeyValueChips from '../nodes/KeyValueChips'
 import { rulePlan, selectorOf } from '../../utils/swarm'
 import Icon from '../Icon'
@@ -110,7 +110,6 @@ export default function RuleSheet({ initial, editing, labels, aliases, nodes, on
   }, [])
 
   const hasSelector = Object.keys(selector).length > 0
-  const aliasHints = Object.fromEntries(Object.entries(aliases || {}).map(([name, target]) => [name, t('sheet.aliasOf', { target })]))
   const aliasTarget = (aliases || {})[modelName]
 
   const valid = () => {
@@ -165,7 +164,7 @@ export default function RuleSheet({ initial, editing, labels, aliases, nodes, on
             {editing ? (
               <input id="sched-model" className="dk-input dk-input--mono" value={modelName} readOnly />
             ) : (
-              <ModelPicker id="sched-model" value={modelName} onChange={setModelName} hints={aliasHints} />
+              <ModelPicker id="sched-model" variant="field" allowCustom searchable autoSelect={false} rememberSelection={false} value={modelName} onChange={setModelName} placeholder={t('sheet.modelPlaceholder')} />
             )}
             {/* An alias is a stable name for whichever model serves it, so a rule
                 on one is a rule on a slot. Say so where it is chosen. */}

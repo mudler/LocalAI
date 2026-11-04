@@ -7,10 +7,10 @@ import (
 )
 
 var _ = Describe("ParseAddonHostOps", func() {
-	It("parses the default setting", func() {
-		got, err := ParseAddonHostOps(DefaultAddonHostOps)
+	It("preserves the historical explicit grant string", func() {
+		got, err := ParseAddonHostOps("fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,telegram=connector.")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(got).To(Equal(map[string][]string{"fine-tuning": {"finetune."}, "quantization": {"quantize."}}))
+		Expect(got).To(Equal(map[string][]string{"fine-tuning": {"finetune."}, "quantization": {"quantize."}, "sandbox": {"workspace.", "egress."}, "office": {"workspace."}, "web": {"workspace."}, "telegram": {"connector."}}))
 	})
 
 	It("trims blanks and merges repeated names", func() {
@@ -41,7 +41,16 @@ var _ = Describe("ParseAddonHostOps", func() {
 })
 
 var _ = Describe("WithAddonHostOps", func() {
-	It("replaces the default", func() {
+	It("does not resurrect grants for nil or empty programmatic configuration", func() {
+		o := &ApplicationConfig{}
+		Expect(o.AddonHostOps).To(BeEmpty())
+		for _, grants := range []map[string][]string{nil, {}} {
+			WithAddonHostOps(map[string][]string{"custom": {"workspace."}})(o)
+			WithAddonHostOps(grants)(o)
+			Expect(o.AddonHostOps).To(BeEmpty())
+		}
+	})
+	It("sets only the supplied grants", func() {
 		o := &ApplicationConfig{}
 		Expect(o.AddonHostOps).To(BeNil(), "the field starts unset")
 		WithAddonHostOps(map[string][]string{"x": {"y."}})(o)

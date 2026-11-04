@@ -1,85 +1,46 @@
 {
   "title": "技能",
-  "subtitle": "管理智能体技能（可重用的指令和资源）",
+  "subtitle": "任务匹配时，你的所有聊天都可以使用这些指令。智能体使用你为其添加的技能。",
   "unavailable": {
-    "subtitle": "技能服务不可用或索引正在重建。请稍后再试。",
-    "retry": "重试"
+    "subtitle": "技能需要“文件”功能，而此服务器已关闭“文件”。"
   },
   "actions": {
     "newSkill": "新技能",
     "createSkill": "创建技能",
-    "import": "导入",
-    "importing": "正在导入...",
-    "gitRepos": "Git 仓库",
     "edit": "编辑",
-    "delete": "删除",
-    "export": "导出",
-    "sync": "同步",
-    "addRepo": "添加仓库",
-    "adding": "添加中...",
-    "remove": "移除",
-    "enable": "启用",
-    "disable": "禁用"
+    "delete": "删除"
   },
   "search": {
     "placeholder": "搜索技能...",
     "label": "搜索技能"
-  },
-  "git": {
-    "title": "Git 仓库",
-    "description": "添加 Git 仓库以拉取技能。同步后技能将出现在列表中。",
-    "urlPlaceholder": "https://github.com/user/repo 或 git@github.com:user/repo.git",
-    "noRepos": "未配置 Git 仓库。请在上方添加。",
-    "disabled": "已禁用",
-    "removeRepo": "移除仓库",
-    "urlLabel": "仓库 URL"
   },
   "card": {
     "noDescription": "无描述",
     "readOnly": "只读",
     "editTitle": "编辑技能",
     "deleteTitle": "删除技能",
-    "exportTitle": "导出为 .tar.gz"
+    "invalid": "已跳过：不是有效的技能",
+    "invalidWhy": "已跳过此技能：{{reason}}",
+    "shadowed": "被 {{layer}} 技能隐藏",
+    "shadowedLong": "被 {{layer}} 中的同名技能隐藏",
+    "providedBy": "由 {{name}} 提供",
+    "proposedBy": "由 {{name}} 提出并经你确认。仅该智能体使用。",
+    "replacedBy": "已被 {{name}} 替换",
+    "notActive": "未生效：使用内置技能",
+    "notActiveBy": "未生效：由 {{name}} 提供",
+    "fallback": "因 {{name}} 插件的技能已关闭或未运行而使用"
   },
   "empty": {
     "title": "未找到技能",
     "text": "创建或导入一个技能以开始。",
-    "noPersonal": "您还没有任何技能。",
-    "stepWrite": "编写技能，或从 .tar.gz 文件或 Git 仓库导入。",
-    "stepTry": "尝试一下：选择上下文，查看它会向提示词添加什么。",
+    "stepWrite": "编写技能：填写名称、适用场景说明和具体指令。",
+    "stepTry": "在列表中检查：其中显示使用者和技能内容。",
     "stepAdd": "需要使用时，将其添加到智能体。"
-  },
-  "sections": {
-    "yourSkills": "您的技能",
-    "otherUsersSkills": "其他用户的技能"
-  },
-  "deleteDialog": {
-    "title": "删除技能",
-    "message": "删除技能 \"{{name}}\"？此操作无法撤销。",
-    "confirm": "删除"
-  },
-  "removeRepoDialog": {
-    "title": "移除 Git 仓库",
-    "message": "移除此 Git 仓库？其中的技能将不再可用。",
-    "confirm": "移除"
   },
   "toasts": {
     "loadFailed": "加载技能失败",
     "deleted": "技能 \"{{name}}\" 已删除",
-    "deleteFailed": "删除技能失败",
-    "exported": "技能 \"{{name}}\" 已导出",
-    "exportFailed": "导出失败",
-    "imported": "已从 \"{{file}}\" 导入技能",
-    "importFailed": "导入失败",
-    "loadReposFailed": "加载 Git 仓库失败",
-    "repoAdded": "Git 仓库已添加并正在同步",
-    "addRepoFailed": "添加仓库失败",
-    "synced": "仓库已同步",
-    "syncFailed": "同步失败",
-    "toggled": "仓库已切换",
-    "toggleFailed": "切换失败",
-    "removed": "仓库已移除",
-    "removeFailed": "移除失败"
+    "deleteFailed": "删除技能失败"
   },
   "filters": {
     "label": "显示",
@@ -97,27 +58,51 @@
     "tabs": "技能分区",
     "tab": {
       "overview": "概览",
-      "instructions": "指令",
-      "files": "文件"
+      "instructions": "指令"
     },
-    "description": "描述",
-    "allowedTools": "允许的工具",
-    "compatibility": "兼容性",
-    "license": "许可证",
-    "licenseFact": "许可证 {{license}}",
     "tokens": "约 {{count}} 个词元",
     "tokensTitle": "估算方式：字符数除以四",
-    "tokensExplain": "在提示词模式下，使用此技能的智能体在每条消息中约携带 {{count}} 个词元。此数值由字符数除以四估算。",
+    "tokensExplain": "聊天仅在任务匹配技能描述时读取技能，此前不会增加上下文。读取时约占 {{count}} 个词元（估算值）。",
     "noContent": "此技能没有指令。",
-    "filesLoading": "正在加载文件…",
-    "filesFailed": "无法列出文件。",
-    "filesNone": "此技能没有脚本、参考资料或资源。",
-    "files": {
-      "scripts": "脚本",
-      "references": "参考资料",
-      "assets": "资源"
-    },
     "startsWith": "开头内容",
-    "showAll": "显示所有指令"
+    "showAll": "显示所有指令",
+    "loading": "加载中...",
+    "loadFailed": "无法读取技能。"
+  },
+  "layers": {
+    "label": "层级",
+    "personal": "个人",
+    "agent": "智能体",
+    "shared": "共享",
+    "builtin": "内置",
+    "folder": "工作区",
+    "addon": "插件"
+  },
+  "edit": {
+    "back": "返回技能列表",
+    "titleNew": "新技能",
+    "titleEdit": "编辑：{{name}}",
+    "basic": "基本信息",
+    "content": "内容",
+    "layer": "层级",
+    "layerHelp": "个人技能仅属于你自己，共享技能可供所有用户读取。",
+    "name": "名称（仅限小写字母和连字符）",
+    "nameLocked": "名称创建后无法更改。",
+    "description": "描述（何时使用）",
+    "descriptionHelp": "聊天通过这段说明判断技能是否适用于当前任务。",
+    "body": "技能内容（Markdown）",
+    "cancel": "取消",
+    "save": "保存更改",
+    "create": "创建技能",
+    "saving": "保存中...",
+    "created": "技能已创建",
+    "updated": "技能已更新",
+    "required": "必须填写名称和描述",
+    "saveFailed": "保存失败",
+    "loadFailed": "加载技能失败",
+    "readOnly": "此技能在这里是只读的。内置技能随服务器提供，来自你文件的技能请在“文件”中修改。"
+  },
+  "load": {
+    "title": "无法加载你的技能。"
   }
 }

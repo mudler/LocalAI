@@ -1,0 +1,12 @@
+{
+  "overview": {
+    "usageErrorTitle": "사용량을 읽지 못했습니다."
+  },
+  "host": {
+    "errorTitle": "호스트 정보를 읽지 못했습니다."
+  },
+  "models": {
+    "noMatch": "“{{query}}”와 일치하는 모델이 없습니다."
+  },
+  "clearSearch": "검색 지우기"
+}

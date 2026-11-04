@@ -28,6 +28,23 @@ import (
 )
 
 var _ = Describe("Runtime lifecycle", func() {
+	It("distinguishes healthy empty connector discovery from loss of runtime ownership", func() {
+		cfg, c, installer := fixture()
+		m := open(cfg, c, installer)
+		s, e := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(cfg.Root, "runtime"), Limits: contract.DefaultLimits(), ReadyTimeout: time.Second, StableHealth: time.Second})
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(s.Close(ctx)).To(Succeed()) })
+		Expect(m.AttachRuntime(ctx, s)).To(Succeed())
+		kinds, e := m.ConnectorKinds(ctx)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(kinds).To(BeEmpty())
+		Expect(m.Close()).To(Succeed())
+		// Close releases the real owner guard. The empty registry must not
+		// turn loss of ownership into successful empty discovery.
+		_, e = m.ConnectorKinds(ctx)
+		Expect(e).To(MatchError(ErrNotOwner))
+	})
+
 	It("executes enabled owner intent on startup and stops on disable and close without forwarder execution", func() {
 		cfg, c, installer := fixture()
 		dir := GinkgoT().TempDir()
@@ -59,6 +76,9 @@ var _ = Describe("Runtime lifecycle", func() {
 		r, e := s.Registry.Snapshot(ctx)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(r).To(HaveLen(1))
+		kinds, e := m.ConnectorKinds(ctx)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(kinds).To(BeEmpty())
 		// A real rename failure during applied persistence closes the runtime.
 		journalPath := filepath.Join(cfg.Root, "journal.json")
 		m.boundary = func(phase string) error {
@@ -70,6 +90,11 @@ var _ = Describe("Runtime lifecycle", func() {
 		}
 		_, fault := m.Submit(ctx, actor, LifecycleCommand{OperationID: "persistence-fault", AddonID: "sample", Action: "enable"})
 		Expect(fault).To(HaveOccurred())
+		// The owner guard remains held, but the persistence failure fences
+		// its runtime. Discovery must not report an empty healthy registry.
+		Expect(m.check(ctx)).To(Succeed())
+		_, fault = m.ConnectorKinds(ctx)
+		Expect(fault).To(MatchError(addonruntime.ErrRuntime))
 		m.boundary = nil
 		Expect(os.Remove(journalPath)).To(Succeed())
 		Expect(os.Rename(journalPath+".saved", journalPath)).To(Succeed())
@@ -83,6 +108,9 @@ var _ = Describe("Runtime lifecycle", func() {
 		Expect(m.Reconcile(ctx)).To(Succeed())
 		s = makeRuntime()
 		Expect(m.AttachRuntime(ctx, s)).To(Succeed())
+		kinds, e = m.ConnectorKinds(ctx)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(kinds).To(BeEmpty())
 		old, e := m.Runtime(ctx, "sample")
 		Expect(e).NotTo(HaveOccurred())
 		Expect(syscall.Kill(old.PID, syscall.SIGKILL)).To(Succeed())
@@ -241,5 +269,52 @@ var _ = Describe("Restart lifecycle cancellation", func() {
 			}
 			Expect(m.Close()).To(Succeed())
 		}
+	})
+})
+
+var _ = Describe("Runtime startup of many add-ons", func() {
+	It("starts the enabled add-ons side by side, so the start takes the slowest ones and not the sum", func() {
+		cfg, c, installer := fixture()
+		dir := GinkgoT().TempDir()
+		real := filepath.Join(dir, "fixture-real")
+		out, e := exec.Command("go", "build", "-o", real, "../../../tests/addons/fixture/cmd").CombinedOutput()
+		Expect(e).NotTo(HaveOccurred(), string(out))
+		data, e := os.ReadFile("../../../tests/addons/fixtures/contracts/service.json")
+		Expect(e).NotTo(HaveOccurred())
+		base, e := contract.ParseManifest(data)
+		Expect(e).NotTo(HaveOccurred())
+		m, e := NewManager(ctx, cfg, c, installer, admin)
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(m.Close)
+		// Each add-on takes a second to be ready, as a real one that opens a
+		// database or probes the host does.
+		const count, boot = 8, time.Second
+		for i := range count {
+			id := fmt.Sprintf("slow%d", i)
+			pkg := filepath.Join(dir, id)
+			Expect(os.Mkdir(pkg, 0o700)).To(Succeed())
+			script := fmt.Sprintf("#!/bin/sh\nsleep %d\nexec %q \"$@\"\n", int(boot.Seconds()), real)
+			Expect(os.WriteFile(filepath.Join(pkg, "fixture"), []byte(script), 0o700)).To(Succeed())
+			manifest := base
+			manifest.ID, manifest.Executable = id, "fixture"
+			receipt := packages.PackageReceipt{Directory: pkg, Manifest: manifest}
+			raw, e := json.Marshal(receipt)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(pkg, "receipt.json"), raw, 0o400)).To(Succeed())
+			m.journal.Addons[id] = Status{AddonID: id, Installed: true, DesiredEnabled: true, Generation: 1, Generations: []Generation{{Number: 1, Receipt: receipt}}}
+		}
+		Expect(m.persist("test")).To(Succeed())
+		s, e := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(cfg.Root, "runtime"), Limits: contract.DefaultLimits(), ReadyTimeout: 10 * time.Second, StableHealth: time.Second})
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(s.Close(ctx)).To(Succeed()) })
+		began := time.Now()
+		Expect(m.AttachRuntime(ctx, s)).To(Succeed())
+		took := time.Since(began)
+		r, e := s.Registry.Snapshot(ctx)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(r).To(HaveLen(count))
+		// Serial start takes count*boot (8s). Four at a time takes two waves.
+		Expect(took).To(BeNumerically("<", 5*time.Second), "started %d add-ons in %s", count, took)
+		GinkgoWriter.Printf("started %d add-ons of %s boot each in %s\n", count, boot, took)
 	})
 })

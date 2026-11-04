@@ -1,4 +1,6 @@
 // eslint-disable-next-line no-unused-vars
+import ModelLaunch from '../../../addons/ModelLaunch'
+// eslint-disable-next-line no-unused-vars
 import { Link } from 'react-router-dom'
 import { useCleanupFacts } from '../../../hooks/useCleanupFacts'
 import { renderMarkdown, stripMarkdown } from '../../../utils/markdown'
@@ -134,7 +136,9 @@ function UsedBy({ view }) {
             <li key={`${ref.kind}:${ref.name}`}>
               <span className="modelpage-usedby__name">
                 {ref.kind === 'agent'
-                  ? <Link className="dk-link" to={`/app/agents/${encodeURIComponent(ref.name)}/edit`}>{ref.name}</Link>
+                  ? <Link className="dk-link" to="/app/agents">{ref.name}</Link>
+                  : ref.kind === 'task'
+                    ? <Link className="dk-link" to="/app/triggers">{ref.name}</Link>
                   : ref.kind === 'chain'
                     ? <Link className="dk-link" to="/app/failover">{ref.name}</Link>
                     : ref.name}
@@ -172,7 +176,7 @@ export default function OverviewTab({ view }) {
             <p className="dk-hint">{t('lifecycle.detail.noDescription')}</p>
           )}
           <dl className="dk-kv modelpage-facts">
-            {backend && (<><dt>{t('detail.backend')}</dt><dd><span className="dk-chip dk-chip--sm modelpage-chip dk-mono">{backend}</span></dd></>)}
+            {backend && (<><dt>{t('detail.backend')}</dt><dd><span className="dk-chip dk-chip--sm modelpage-chip">{backend}</span></dd></>)}
             {entry?.gallery && (<><dt>{t('detail.gallery')}</dt><dd>{typeof entry.gallery === 'string' ? entry.gallery : entry.gallery.name}</dd></>)}
             {license && (<><dt>{t('detail.license')}</dt><dd>{license}</dd></>)}
             {maxContext > 0 && (<><dt>{t('page.overview.maxContext')}</dt><dd>{t('page.overview.tokens', { size: contextLabel(maxContext) })}</dd></>)}
@@ -234,9 +238,7 @@ export default function OverviewTab({ view }) {
                     <dt>{t('lifecycle.open.title')}</dt>
                     <dd>
                       <div className="modelpage-tags">
-                        {useCases.map(u => u.route
-                          ? <Link key={u.cap} className="dk-chip dk-chip--sm modelpage-chip" to={u.route(view.id)}>{t(`lifecycle.open.${u.labelKey}`)}</Link>
-                          : <span key={u.cap} className="dk-chip dk-chip--sm modelpage-chip">{t(`lifecycle.open.${u.labelKey}`)}</span>)}
+                        {useCases.map(u => <ModelLaunch key={u.cap} useCase={u} model={view.id} label={t(`lifecycle.open.${u.labelKey}`)} className="dk-chip dk-chip--sm modelpage-chip" />)}
                       </div>
                     </dd>
                   </>

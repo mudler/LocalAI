@@ -16,6 +16,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -82,7 +83,7 @@ func tablesManifest() contract.Manifest {
 
 func tablesApp(m contract.Manifest) apps.App {
 	return apps.App{ID: "tables", Name: "tables", Generation: 3, Enabled: true, State: "running", Tools: m.Capabilities.Tools,
-		ToolDefinitions: m.Capabilities.ToolDefinitions}
+		ToolDefinitions: m.Capabilities.ToolDefinitions, Resources: m.Capabilities.Resources}
 }
 
 var member = contract.Actor{UserID: "bob", CredentialID: "session:s1", Mode: "named-user"}
@@ -235,6 +236,59 @@ var _ = Describe("Addon tool adapter", func() {
 				Expect(res.Code).To(Equal(tools.CodeInvalidRequest))
 				Expect(res.Proposal).To(BeNil())
 			}
+		})
+		It("passes on the reason the add-on gave, such as a missing engine, and not the generic class", func() {
+			reason := &addonruntime.Refusal{Status: 400, Reason: "quantization engine llama-cpp-quantization is not installed"}
+			f.proposeErr = fmt.Errorf("%w: %w", gateway.ErrInvalidRequest, reason)
+			res, e := a.Execute(context.Background(), member, "addon__tables__rows-insert", args(`{"resourceId":"db-one","table":"t","rows":[{}]}`))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(res.Code).To(Equal(tools.CodeInvalidRequest))
+			Expect(res.Message).To(Equal("quantization engine llama-cpp-quantization is not installed"))
+			Expect(res.Note).To(Equal(tools.ReasonedNote))
+			f.proposeErr = fmt.Errorf("%w: %w", gateway.ErrInvalidRequest, &addonruntime.Refusal{Status: 400, Reason: "invalid request"})
+			res, _ = a.Execute(context.Background(), member, "addon__tables__rows-insert", args(`{"resourceId":"db-one","table":"t","rows":[{}]}`))
+			Expect(res.Message).To(BeEmpty(), "the bare class says nothing")
+		})
+		It("tells the model a missing permission and an unreachable resource in plain words, for a read and for a change", func() {
+			for err, code := range map[error]string{
+				gateway.ErrNotPermitted:                             tools.CodeNotPermitted,
+				fmt.Errorf("x: %w", gateway.ErrNotPermitted):        tools.CodeNotPermitted,
+				gateway.ErrResourceUnreachable:                      tools.CodeResourceUnreachable,
+				fmt.Errorf("p: %w", gateway.ErrResourceUnreachable): tools.CodeResourceUnreachable,
+			} {
+				f.readErr, f.proposeErr = err, err
+				res, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))
+				Expect(e).NotTo(HaveOccurred())
+				Expect(res.Kind).To(Equal(tools.ResultError))
+				Expect(res.Code).To(Equal(code))
+				Expect(res.Note).To(ContainSubstring("Nothing was changed"))
+				Expect(res.Note).NotTo(ContainSubstring("forwarding"))
+				res, e = a.Execute(context.Background(), member, "addon__tables__rows-insert", args(`{"resourceId":"db-one","table":"t","rows":[{}]}`))
+				Expect(e).NotTo(HaveOccurred())
+				Expect(res.Code).To(Equal(code))
+			}
+		})
+		It("tells the model to wait when the service rate limits, and not to retry before then", func() {
+			f.readErr = fmt.Errorf("call: %w", &contract.ErrRateLimited{RetryAfter: 90})
+			res, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(res.Kind).To(Equal(tools.ResultError))
+			Expect(res.Code).To(Equal(tools.CodeRateLimited))
+			Expect(res.RetryAfter).To(Equal(90))
+			Expect(res.Note).To(ContainSubstring("retryAfter"))
+			Expect(res.JSON()).To(ContainSubstring(`"retryAfter":90`))
+		})
+		It("tells the model a resource is not on the list, with the allowed ones, and when no credential exists", func() {
+			f.readErr = &gateway.CredentialRefusal{Code: gateway.CodeResourceNotAllowed, Allowed: []string{"acme/widgets"}}
+			res, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(res.Code).To(Equal(tools.CodeResourceNotAllowed))
+			Expect(res.Allowed).To(Equal([]string{"acme/widgets"}))
+			Expect(res.Note).To(ContainSubstring("allowed"))
+			f.readErr = &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
+			res, e = a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(res.Code).To(Equal(tools.CodeNoCredential))
 		})
 		It("keeps an outage an error, never the refused result", func() {
 			f.readErr = gateway.ErrUnavailable

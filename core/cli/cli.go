@@ -15,15 +15,15 @@ var CLI struct {
 	Federated       FederatedCLI       `cmd:"" help:"Run LocalAI in federated mode"`
 	Models          ModelsCMD          `cmd:"" help:"Manage LocalAI models and definitions"`
 	Backends        BackendsCMD        `cmd:"" help:"Manage LocalAI backends and definitions"`
+	Addons          AddonsCMD          `cmd:"" help:"Check an add-on zip file and upload it to a running server to install it"`
 	Library         LibraryCMD         `cmd:"" help:"Manage the library sources LocalAI reads add-ons, backends and models from"`
 	TTS             TTSCMD             `cmd:"" help:"Convert text to speech"`
 	SoundGeneration SoundGenerationCMD `cmd:"" help:"Generates audio files from text or audio"`
 	Transcript      TranscriptCMD      `cmd:"" help:"Convert audio to text"`
 	P2PWorker       worker.Worker      `cmd:"" name:"p2p-worker" help:"Run workers to distribute workload via p2p (llama.cpp-only)"`
 	Worker          WorkerCMD          `cmd:"" help:"Start a worker for distributed mode (generic, backend-agnostic)"`
-	AgentWorker     AgentWorkerCMD     `cmd:"" name:"agent-worker" help:"Start an agent worker for distributed mode (executes agent chats via NATS)"`
+	AgentWorker     AgentWorkerCMD     `cmd:"" name:"agent-worker" help:"Start a worker for distributed mode (serves MCP tool calls via NATS)"`
 	Util            UtilCMD            `cmd:"" help:"Utility commands"`
-	Agent           AgentCMD           `cmd:"" help:"Run agents standalone without the full LocalAI server"`
 	MCPServer       MCPServerCMD       `cmd:"" name:"mcp-server" help:"Run the LocalAI admin tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP)"`
 	Explorer        ExplorerCMD        `cmd:"" help:"Run p2p explorer"`
 	Completion      CompletionCMD      `cmd:"" help:"Generate shell completion scripts for bash, zsh, or fish"`

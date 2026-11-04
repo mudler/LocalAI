@@ -6,24 +6,52 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/mudler/LocalAI/core/services/addons/modelsprobe"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 var ErrUnavailable = errors.New("addon owner unavailable")
 
+// ErrNotSent means the call never reached the add-on: it is not running (it is
+// starting, stopped or restarting) or the request was not written. The tool
+// cannot have run, so unlike an outage after the send this is not an unknown
+// outcome and the caller may try again.
+var ErrNotSent = fmt.Errorf("the add-on is not running now and nothing was sent: %w", ErrUnavailable)
+
 // Gateway deliberately admits lifecycle commands only until resource admission
 // and proposal confirmation are installed. Installation admin is not data access.
 type Gateway struct {
-	Limits    RelayLimits
-	Manager   *addons.Manager
-	Runtime   CurrentRuntime
-	Forward   *Carrier
-	Admission Admission
-	Resolver  ResourceResolver
+	// Transfers holds the handles of connector file transfers on the process
+	// that runs the add-ons. Without it a call that carries a handle is
+	// unavailable.
+	Transfers          *hostops.Transfers
+	Connectors         ConnectorSource
+	ConnectorAuthority ConnectorAuthority
+	// HostSettings is owner-only durable policy; frontends forward, never fall back.
+	HostSettings HostSettingsService
+	// HostSettingsAdmin checks current host authority, never add-on supplied flags.
+	HostSettingsAdmin func(context.Context, contract.Actor) error
+	// ResolveExecutionBinding loads actor-owned context on the owner. Nil denies.
+	ResolveExecutionBinding func(context.Context, contract.Actor, ExecutionBindingClaim) (ExecutionStatusBinding, error)
+	// AuthorizeExecutionStatus must revalidate current provider current selection,
+	// execution feature permission, access and builtin replacement authority on the owner.
+	// Nil denies all observations. Status is never selection authorization.
+	AuthorizeExecutionStatus func(context.Context, contract.Actor, ExecutionStatusBinding) error
+	// Credentials supplies the secret and the allowed resource of a call of
+	// an add-on that declares credentials. Only the owner holds it; a gateway
+	// with none refuses such calls as unavailable.
+	Credentials CredentialSource
+	Limits      RelayLimits
+	Manager     *addons.Manager
+	Runtime     CurrentRuntime
+	Forward     *Carrier
+	Admission   Admission
+	Resolver    ResourceResolver
 	// Tools reports the tools each installed add-on declares. When nil the
 	// Manager is used; with neither, a request that names a tool is denied.
 	Tools ToolSource
@@ -40,6 +68,10 @@ type Gateway struct {
 	// Libraries is the owner's library administration. Frontends leave it nil
 	// and forward through Forward.
 	Libraries LibraryAdmin
+	// HostGrantsOwner serves the host access routes (grants, deny rules and
+	// the blanket approval). Only the owner holds it: a frontend leaves it
+	// nil and forwards, and never answers from its own flags or files.
+	HostGrantsOwner *HostGrantsOwner
 	// ModelsProbe returns the probe the owner wrote into its models path, or
 	// false when it has none. Frontends leave it nil.
 	ModelsProbe func() (modelsprobe.Probe, bool)
@@ -88,6 +120,12 @@ type RelayRequest struct {
 }
 
 func (g *Gateway) Dispatch(ctx context.Context, actor contract.Actor, request contract.Request) (contract.Result, error) {
+	scrub(&request)
+	// The act action has its own door, Act. A frontend that forwarded it from
+	// here would let the owner run it for a consumer that was never offered it.
+	if request.Action == "act" {
+		return contract.Result{}, ErrForbidden
+	}
 	if e := g.revalidate(ctx, actor); e != nil {
 		return contract.Result{}, e
 	}
@@ -101,6 +139,8 @@ func (g *Gateway) Dispatch(ctx context.Context, actor contract.Actor, request co
 // dispatchLocal serves a request on the owner itself, with no forwarding.
 func (g *Gateway) dispatchLocal(ctx context.Context, actor contract.Actor, request contract.Request) (contract.Result, error) {
 	switch request.Action {
+	case ActionHostSettingsRead, ActionHostSettingsUpdate:
+		return g.hostSettingsAction(ctx, actor, request)
 	case "catalog-search", "catalog-details", "catalog-sources", "catalog-source-save", "catalog-source-refresh", "addons-installed":
 		return g.management(ctx, actor, request)
 	case ActionUpdateStatus, ActionUpdateCheck, ActionUpdateUpgrade:
@@ -124,7 +164,13 @@ func (g *Gateway) dispatchLocal(ctx context.Context, actor contract.Actor, reque
 			// disable; a stale one is denied before anything is recorded.
 			cmd.Generation = request.Generation
 		}
-		status, err := g.Manager.Submit(ctx, actor, cmd)
+		var status addons.OperationStatus
+		var err error
+		if cmd.Action == "upgrade" {
+			status, err = g.Manager.SubmitUpgrade(ctx, actor, cmd)
+		} else {
+			status, err = g.Manager.Submit(ctx, actor, cmd)
+		}
 		if err != nil {
 			return contract.Result{}, err
 		}

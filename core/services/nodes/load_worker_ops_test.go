@@ -50,11 +50,11 @@ func (w *fakeOpWorker) StopModelReplica(_ context.Context, _ string, replica Nod
 	return workerctl.ModelStopReply{Matched: true, Terminated: true}, nil
 }
 
-func (w *fakeOpWorker) InstallBackendOp(nodeID, backend, modelID, galleries string, replica int, opID, operationID string, deadline time.Duration, progress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+func (w *fakeOpWorker) InstallBackendOp(nodeID, backend, modelID, galleries string, replica int, opID, operationID string, deadline time.Duration, progress func(workerctl.BackendInstallProgressEvent), env ...map[string]string) (*workerctl.BackendInstallReply, error) {
 	w.mu.Lock()
-	w.installs = append(w.installs, workerctl.BackendInstallRequest{ModelID: modelID, ReplicaIndex: int32(replica), OperationID: operationID, DeadlineMs: deadline.Milliseconds()})
+	w.installs = append(w.installs, workerctl.BackendInstallRequest{EnvVars: installEnvSnapshot(env), ModelID: modelID, ReplicaIndex: int32(replica), OperationID: operationID, DeadlineMs: deadline.Milliseconds()})
 	w.mu.Unlock()
-	reply, err := w.fakeUnloader.InstallBackend(nodeID, backend, modelID, galleries, "", "", "", replica, opID, progress)
+	reply, err := w.fakeUnloader.InstallBackend(nodeID, backend, modelID, galleries, "", "", "", replica, opID, progress, env...)
 	if reply != nil {
 		copy := *reply
 		copy.ProcessInstance, copy.ReportsOperations = "", false

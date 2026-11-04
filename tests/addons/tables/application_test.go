@@ -101,7 +101,7 @@ func newHost() *host {
 	h.owner = config.AddonConfig{
 		Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local",
 		Root: root, ListenAddress: "127.0.0.1:0", Transport: ownerCarrier(),
-		Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH},
+		Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH},
 	}
 	return h
 }
@@ -279,9 +279,11 @@ func (h *host) library() *cluster.Library {
 	// files, so the declaration of them is left out. The UI suite installs
 	// the whole package.
 	delete(m.Capabilities, "ui")
+	skill, e := os.ReadFile("../../../addons/tables/skills/tables-readonly/SKILL.md")
+	Expect(e).NotTo(HaveOccurred())
 	exe, e := os.ReadFile(binary)
 	Expect(e).NotTo(HaveOccurred())
-	Expect(lib.Add(cluster.Package{ID: "tables", Version: "0.1.0", Capabilities: m.Capabilities, Executable: "bin/tables", Binary: exe}, GinkgoT().TempDir())).To(Succeed())
+	Expect(lib.Add(cluster.Package{ID: "tables", Version: "0.1.0", Capabilities: m.Capabilities, Files: map[string]string{"skills/tables-readonly/SKILL.md": string(skill)}, Executable: "bin/tables", Binary: exe}, GinkgoT().TempDir())).To(Succeed())
 	return lib
 }
 

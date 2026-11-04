@@ -83,7 +83,7 @@ func fixture(mode string, capabilities contract.Capabilities) packages.PackageRe
 	Expect(os.WriteFile(filepath.Join(dir, "fixture"), b, 0500)).To(Succeed())
 	Expect(os.WriteFile(filepath.Join(dir, "fixture.json"), []byte(`{"mode":"`+mode+`"}`), 0600)).To(Succeed())
 	v := contract.VersionRange{Min: 1, Max: 1}
-	m := contract.Manifest{SchemaVersion: 1, ID: "sample", Version: "1.0.0", Executable: "fixture", OS: goruntime.GOOS, Arch: goruntime.GOARCH, Host: v, API: v, Protocol: v, DataFormat: v, Capabilities: capabilities}
+	m := contract.Manifest{SchemaVersion: 1, ID: "sample", Version: "1.0.0", Executable: "fixture", OS: goruntime.GOOS, Arch: goruntime.GOARCH, Host: v, API: contract.VersionRange{Min: 2, Max: 2}, Protocol: v, DataFormat: v, Capabilities: capabilities}
 	p := packages.PackageReceipt{Manifest: m, Directory: dir, Digest: "sha256:fixture"}
 	b, e = json.Marshal(p)
 	Expect(e).NotTo(HaveOccurred())
@@ -104,6 +104,50 @@ func supervisor() *Supervisor {
 }
 
 var service = contract.Capabilities{Service: true}
+
+var _ = Describe("Stopping an add-on", func() {
+	It("gives it time to release what it owns before it kills the process", func() {
+		s := supervisor()
+		p := fixture("graceful", service)
+		i, e := s.Start(context.Background(), p, 1)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(s.Stop(context.Background(), i)).To(Succeed())
+		Expect(filepath.Join(p.Directory, "fixture.closed")).To(BeARegularFile(), "the process was killed while it was closing")
+	})
+	It("kills an add-on that ignores the closing of its startup channel, within the grace period", func() {
+		s := supervisor()
+		i, e := s.Start(context.Background(), fixture("orphan", service), 1)
+		Expect(e).NotTo(HaveOccurred())
+		start := time.Now()
+		Expect(s.Stop(context.Background(), i)).To(Succeed())
+		Expect(time.Since(start)).To(BeNumerically("<", 3*s.config.Limits.ShutdownTimeout))
+	})
+})
+
+var _ = Describe("Add-on output", func() {
+	It("goes to the log line by line with the add-on ID and a cap per line", func() {
+		var mu sync.Mutex
+		var got []string
+		s := supervisor()
+		s.config.Output = func(id, stream, line string) {
+			mu.Lock()
+			got = append(got, id+"|"+stream+"|"+line)
+			mu.Unlock()
+		}
+		i, e := s.Start(context.Background(), fixture("log", service), 1)
+		Expect(e).NotTo(HaveOccurred())
+		Eventually(func() []string { mu.Lock(); defer mu.Unlock(); return append([]string(nil), got...) }, 3*time.Second).Should(ContainElements(
+			"sample|stdout|hello from stdout", "sample|stderr|hello from stderr", "sample|stdout|"+strings.Repeat("x", maxOutputLine)+outputCut))
+		mu.Lock()
+		for _, l := range got {
+			Expect(len(l)).To(BeNumerically("<=", len("sample|stdout|")+maxOutputLine+len(outputCut)), "a line was not capped")
+		}
+		mu.Unlock()
+		Expect(s.Stop(context.Background(), i)).To(Succeed())
+		// The partial last line is not lost when the add-on ends.
+		Eventually(func() []string { mu.Lock(); defer mu.Unlock(); return append([]string(nil), got...) }, 3*time.Second).Should(ContainElement("sample|stdout|no newline at the end"))
+	})
+})
 var _ = Describe("Managed subprocess", func() {
 	It("registers only ready generation bound service headless and UI capabilities", func() {
 		for _, c := range []contract.Capabilities{service, {Tools: []string{"read"}}, {Tools: []string{"read"}, UI: &contract.UI{Entry: "ui.js", SDK: contract.VersionRange{Min: 1, Max: 2}}}} {
@@ -375,11 +419,28 @@ var _ = Describe("Process state observation", func() {
 	})
 	It("keeps reporting failed once the restart budget is exhausted", func() {
 		s := supervisor()
-		_, e := s.Start(context.Background(), fixture("crash", service), 1)
+		i, e := s.Start(context.Background(), fixture("normal", service), 1)
 		Expect(e).NotTo(HaveOccurred())
 		s.mu.Lock()
 		slot := s.slots["sample"]
 		s.mu.Unlock()
+		// A timed crash can beat the initial readiness handshake on a busy
+		// runner. Kill each incarnation only after the supervisor publishes it.
+		for attempt := 0; attempt <= 2; attempt++ {
+			Expect(s.Attempts("sample")).To(Equal(attempt))
+			Expect(i.process.cmd.Process.Kill()).To(Succeed())
+			if attempt < 2 {
+				previous := i.Incarnation
+				Eventually(func() string {
+					next, err := s.Current(context.Background(), "sample", 1)
+					if err != nil {
+						return ""
+					}
+					i = next
+					return next.Incarnation
+				}, time.Second).Should(And(Not(BeEmpty()), Not(Equal(previous))))
+			}
+		}
 		// The monitor returns only when the budget is spent.
 		Eventually(slot.workerDone, 5*time.Second).Should(BeClosed())
 		Expect(s.Attempts("sample")).To(Equal(2))
@@ -620,6 +681,7 @@ var _ = Describe("Addon data directory", func() {
 		entries, _ := os.ReadDir(root)
 		Expect(entries).To(BeEmpty())
 	})
+	var hostOpsSupervisorWith func(hostops.Authority) (*Supervisor, *hostops.InFlight)
 	hostOpsSeen := func(p packages.PackageReceipt) (endpoint, credential string) {
 		var b []byte
 		Eventually(func() error {
@@ -631,6 +693,9 @@ var _ = Describe("Addon data directory", func() {
 		return parts[0], parts[1]
 	}
 	hostOpsSupervisor := func(allowed map[string][]string) (*Supervisor, *hostops.InFlight) {
+		return hostOpsSupervisorWith(hostops.NewStaticAuthority(allowed))
+	}
+	hostOpsSupervisorWith = func(auth hostops.Authority) (*Supervisor, *hostops.InFlight) {
 		l := contract.DefaultLimits()
 		l.ReadTimeout = 300 * time.Millisecond
 		l.ShutdownTimeout = 100 * time.Millisecond
@@ -639,7 +704,7 @@ var _ = Describe("Addon data directory", func() {
 		Expect(b.Register(hostops.Spec{Op: "finetune.get", Scope: "read", Feature: "fine_tuning", Handler: func(context.Context, hostops.Call) (json.RawMessage, error) {
 			return json.RawMessage(`{"ok":true}`), nil
 		}})).To(Succeed())
-		s, e := NewSupervisor(Config{StateRoot: GinkgoT().TempDir(), Limits: l, ReadyTimeout: 2 * time.Second, StableHealth: time.Second, HostOps: &HostOps{Broker: b, InFlight: in, Allowed: allowed}})
+		s, e := NewSupervisor(Config{StateRoot: GinkgoT().TempDir(), Limits: l, ReadyTimeout: 2 * time.Second, StableHealth: time.Second, HostOps: &HostOps{Broker: b, InFlight: in, Authority: auth}})
 		Expect(e).NotTo(HaveOccurred())
 		DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
 		return s, in
@@ -668,10 +733,41 @@ var _ = Describe("Addon data directory", func() {
 		}
 		Expect(call("wrong")).To(Equal(http.StatusUnauthorized))
 		Expect(call(credential)).To(Equal(http.StatusForbidden))
-		end := in.Begin(contract.Envelope{Request: contract.Request{AddonID: "sample", OperationID: "op1", Generation: 1, Action: "a", Arguments: json.RawMessage(`{}`)}, Authority: contract.Authority{Actor: contract.Actor{UserID: "u", CredentialID: "c", Mode: "named-user"}, Scope: "read", ExpiresAt: time.Now().Add(time.Minute)}})
+		end := in.BeginRuntime(contract.Envelope{Request: contract.Request{AddonID: "sample", OperationID: "op1", Generation: 1, Action: "a", Arguments: json.RawMessage(`{}`)}, Authority: contract.Authority{Actor: contract.Actor{UserID: "u", CredentialID: "c", Mode: "named-user"}, Scope: "read", ExpiresAt: time.Now().Add(time.Minute)}}, hostops.Binding{}, false, inst.Incarnation)
 		Expect(call(credential)).To(Equal(http.StatusOK))
 		end()
 		Expect(call(credential)).To(Equal(http.StatusForbidden))
+	})
+
+	It("opens an endpoint for a declared operation that is not granted, and a later grant works with no restart", func() {
+		auth := &switchAuthority{}
+		s, in := hostOpsSupervisorWith(auth)
+		p := withID("sample")
+		p.Manifest.Capabilities.HostOperations = &contract.HostOperations{Optional: []string{"finetune.get"}}
+		raw, e := json.Marshal(p)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(os.Chmod(filepath.Join(p.Directory, "receipt.json"), 0600)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(p.Directory, "receipt.json"), raw, 0400)).To(Succeed())
+		inst, e := s.Start(context.Background(), p, 1)
+		Expect(e).NotTo(HaveOccurred())
+		endpoint, credential := hostOpsSeen(p)
+		Expect(endpoint).To(HavePrefix("http://127.0.0.1:"))
+		call := func() int {
+			body := strings.NewReader(`{"operationId":"op1","op":"finetune.get","arguments":{}}`)
+			req, _ := http.NewRequest("POST", endpoint+"/host", body)
+			req.Header.Set(contract.HostCredentialHeader, credential)
+			resp, e := http.DefaultClient.Do(req)
+			Expect(e).NotTo(HaveOccurred())
+			_ = resp.Body.Close()
+			return resp.StatusCode
+		}
+		end := in.BeginRuntime(contract.Envelope{Request: contract.Request{AddonID: "sample", OperationID: "op1", Generation: 1, Action: "a", Arguments: json.RawMessage(`{}`)}, Authority: contract.Authority{Actor: contract.Actor{UserID: "u", CredentialID: "c", Mode: "named-user"}, Scope: "read", ExpiresAt: time.Now().Add(time.Minute)}}, hostops.Binding{}, false, inst.Incarnation)
+		defer end()
+		Expect(call()).To(Equal(http.StatusForbidden))
+		auth.grant.Store(true)
+		Expect(call()).To(Equal(http.StatusOK))
+		auth.grant.Store(false)
+		Expect(call()).To(Equal(http.StatusForbidden))
 	})
 
 	It("gives an add-on that the host setting does not name no host endpoint", func() {
@@ -707,3 +803,15 @@ var _ = Describe("Addon data directory", func() {
 		}, 2*time.Second).Should(HaveOccurred())
 	})
 })
+
+// switchAuthority grants finetune.get to every add-on while grant is set.
+type switchAuthority struct{ grant atomic.Bool }
+
+func (a *switchAuthority) Allows(_, op string) (bool, hostops.Reason) {
+	if a.grant.Load() && op == "finetune.get" {
+		return true, hostops.ReasonNone
+	}
+	return false, hostops.ReasonNotGranted
+}
+func (a *switchAuthority) Snapshot(string) hostops.EffectiveSet { return hostops.EffectiveSet{} }
+func (a *switchAuthority) Entitled(string) bool                 { return a.grant.Load() }

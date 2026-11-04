@@ -9,7 +9,7 @@ export GOCACHE="$root/.cache/addons/go-build" GOBIN="$root/.cache/addons/bin"
 export npm_config_cache="$root/.cache/addons/npm" PLAYWRIGHT_BROWSERS_PATH="$root/.cache/addons/browsers"
 export PATH="$GOBIN:$PATH"
 mode=${1:-}
-case "$mode" in --check|--prepare|--integration) ;; *) echo 'usage: prepare.sh --check|--prepare|--integration' >&2; exit 2;; esac
+case "$mode" in --check|--prepare|--prepare-build|--integration) ;; *) echo 'usage: prepare.sh --check|--prepare|--prepare-build|--integration' >&2; exit 2;; esac
 [ "$#" -eq 1 ] || exit 2
 fail() { echo "$*" >&2; exit 1; }
 go version 2>/dev/null | grep -Eq '^go version go1\.26\.[0-9]+ ' || fail 'Go 1.26.x required (GOTOOLCHAIN=local)'
@@ -17,7 +17,7 @@ node --version 2>/dev/null | grep -Eq '^v22\.([1-9][2-9]|[2-9][0-9]|[1-9][0-9]{2
 [ "$(protoc --version 2>/dev/null)" = 'libprotoc 26.1' ] || fail 'protoc 26.1 required; provision explicitly (Makefile downloader uses a different version)'
 if [ "$mode" = --check ]; then
     # Fail before invoking compilers or package managers if generated inputs are absent.
-    for file in pkg/grpc/proto/backend.pb.go pkg/grpc/proto/backend_grpc.pb.go core/http/react-ui/dist/index.html; do
+    for file in pkg/grpc/proto/backend.pb.go pkg/grpc/proto/backend_grpc.pb.go pkg/motion/proto/motion.pb.go core/http/react-ui/dist/index.html; do
         [ -s "$file" ] || fail "missing generated file: $file; run --integration explicitly"
     done
 fi
@@ -28,7 +28,7 @@ space() {
     available=$(df -Pk "$root" | awk 'END {print $4}')
     [ "$available" -ge 20971520 ] || fail 'stop: at least 20 GiB free required before setup/build'
 }
-if [ "$mode" = --prepare ]; then
+if [ "$mode" = --prepare ] || [ "$mode" = --prepare-build ]; then
     space
     mkdir -p "$GOBIN" "$root/.cache/addons/tmp"
     export TMPDIR="$root/.cache/addons/tmp"
@@ -42,7 +42,11 @@ if [ "$mode" = --prepare ]; then
     (cd core/http/react-ui && npm ci --no-audit --no-fund)
     # Explicit setup only: the lockfile-pinned local CLI selects the browser
     # revision. Never use npx or install host OS packages here.
-    if [ -z "${PLAYWRIGHT_CHROMIUM_PATH:-}" ]; then
+    # A producer that only compiles fixtures needs no browser. Test consumers
+    # still use --prepare and the unchanged browser readiness checks.
+    if [ "$mode" = --prepare-build ]; then
+        :
+    elif [ -z "${PLAYWRIGHT_CHROMIUM_PATH:-}" ]; then
         space
         core/http/react-ui/node_modules/.bin/playwright install chromium
     else
@@ -68,6 +72,8 @@ if [ "$mode" = --integration ]; then
     mkdir -p pkg/grpc/proto "$root/.cache/addons/tmp"
     export TMPDIR="$root/.cache/addons/tmp"
     protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative backend/backend.proto
+    # Same command as the protogen-go target of the Makefile.
+    protoc -Ipkg/motion/proto --go_out=pkg/motion/proto --go_opt=paths=source_relative pkg/motion/proto/motion.proto
     space
     (cd core/http/react-ui && npm run build)
     space

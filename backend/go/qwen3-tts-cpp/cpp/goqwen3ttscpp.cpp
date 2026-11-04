@@ -25,7 +25,7 @@ static void ggml_log_cb(enum ggml_log_level level, const char *log,
 }
 
 int qt3_load(const char *talker_path, const char *codec_path, int use_fa,
-             int clamp_fp16) {
+             int clamp_fp16, int max_batch) {
     ggml_log_set(ggml_log_cb, nullptr);
     ggml_backend_load_all();
 
@@ -44,9 +44,13 @@ int qt3_load(const char *talker_path, const char *codec_path, int use_fa,
     p.codec_path = codec_path;
     p.use_fa = use_fa != 0;
     p.clamp_fp16 = clamp_fp16 != 0;
+    // > 1: qt's compute worker coalesces concurrent qt_synthesize calls on
+    // this handle into batched decode steps (qt_synthesize stays blocking and
+    // thread safe; streaming callbacks run on that worker thread).
+    p.max_batch = max_batch > 1 ? max_batch : 1;
 
-    fprintf(stderr, "[qwen3-tts-cpp] Loading talker=%s codec=%s\n", talker_path,
-            codec_path);
+    fprintf(stderr, "[qwen3-tts-cpp] Loading talker=%s codec=%s max_batch=%d\n",
+            talker_path, codec_path, p.max_batch);
 
     g_ctx = qt_init(&p);
     if (!g_ctx) {

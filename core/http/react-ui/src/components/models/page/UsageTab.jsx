@@ -53,7 +53,7 @@ function FilesOnDisk({ view }) {
                 {rows.map(f => (
                   <tr key={f.path} data-testid="disk-file-row" data-missing={f.missing ? 'true' : 'false'}>
                     <td className="dk-table-id dk-mono modelpage-files__path">{f.path}</td>
-                    <td className="dk-num dk-mono">{f.missing ? '\u2014' : formatBytes(f.size)}</td>
+                    <td className="dk-num">{f.missing ? '\u2014' : formatBytes(f.size)}</td>
                     <td>
                       {f.missing && <span className="dk-badge dk-badge--warn">{t('storage.status.missing')}</span>}
                       {!f.missing && f.others.length > 0 && (

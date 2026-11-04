@@ -544,9 +544,8 @@ message ModelOptions {
 
 // ProxyOptions configures the cloud-proxy backend. UpstreamURL and
 // Mode are always meaningful; Provider only matters in translate mode.
-// The two api_key_* fields are mutually exclusive and resolved by the
-// backend at LoadModel — core forwards the references rather than the
-// plaintext key.
+// The api_key, api_key_env and api_key_file fields are mutually exclusive
+// and resolved by the backend at LoadModel. api_key is plaintext admin config.
 message ProxyOptions {
   string upstream_url = 1;
   string mode = 2;
@@ -561,6 +560,7 @@ message ProxyOptions {
   // Cuts input cost on repeated/agentic calls (cache read = 0.1x). Only
   // meaningful for mode=translate + provider=anthropic; ignored otherwise.
   bool cache_prompt = 8;
+  string api_key = 9;
 }
 
 message Result {
@@ -1439,16 +1439,16 @@ message AudioToAudioRequest {
 
 message AudioToAudioConfig {
   // PCM format for client→server audio. 0 => backend default
-  // (16 kHz for the LFM2-Audio Conformer encoder).
+  // (16 kHz, the rate the speech encoder expects).
   int32 input_sample_rate = 1;
   // Preferred server→client audio rate. 0 => backend default
-  // (24 kHz for the LFM2-Audio vocoder).
+  // (24 kHz, the rate the speech decoder produces).
   int32 output_sample_rate = 2;
   // Optional system prompt override. Empty => backend chooses based on
   // mode (e.g. "Respond with interleaved text and audio.").
   string system_prompt = 3;
   // Optional baked-voice id. Models that only ship a fixed set of
-  // voices (e.g. LFM2-Audio: us_male/us_female/uk_male/uk_female) match
+  // voices (e.g. us_male/us_female/uk_male/uk_female) match
   // this against their voice table; an empty string keeps the default.
   string voice = 4;
   // JSON-encoded array of tool definitions in OpenAI Chat Completions
@@ -1479,6 +1479,11 @@ message AudioToAudioControl {
   //                                     function_call_output as JSON in
   //                                     `payload`)
   //   "session.update"                — re-configure mid-stream
+  //   "response.create"               — start a response; payload
+  //                                     {"output_modalities":[...],
+  //                                      "max_output_tokens":N}
+  // A function_call_output item is {"type":"function_call_output",
+  // "call_id":...,"output":...} in the payload of "conversation.item.create".
   string event = 1;
   // Event-specific JSON payload.
   bytes payload = 2;
@@ -1487,12 +1492,18 @@ message AudioToAudioControl {
 message AudioToAudioResponse {
   // Event identifies what this frame carries. Mirrors the OpenAI Realtime
   // API server-event names where applicable. Initial set:
+  //   "session.created"                — meta: input_sample_rate,
+  //                                      output_sample_rate, voices
+  //   "session.updated"                — meta: same as session.created
+  //   "input_audio_buffer.committed"
   //   "response.audio.delta"
-  //   "response.audio_transcript.delta"
+  //   "response.audio_transcript.delta"  — meta: {"delta": text}
+  //   "response.text.delta"              — text-only responses
   //   "response.function_call_arguments.delta"
-  //   "response.function_call_arguments.done"
-  //   "response.done"
-  //   "error"
+  //   "response.function_call_arguments.done" — meta: call_id, name,
+  //                                      arguments (a JSON string)
+  //   "response.done"                  — meta: status, usage, text
+  //   "error"                          — meta: type, message
   string event = 1;
   // Populated when event = response.audio.delta.
   bytes pcm = 2;

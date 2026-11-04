@@ -25,7 +25,10 @@
     "title": "Kelola LocalAI melalui obrolan",
     "description": "Instal model, ganti backend, edit konfigurasi dan periksa status dengan berbicara pada LocalAI.",
     "open": "Buka asisten",
-    "tooltip": "Kelola LocalAI melalui obrolan"
+    "tooltip": "Kelola LocalAI melalui obrolan",
+    "noModel": "Pilih model obrolan terlebih dahulu.",
+    "startFailed": "Tidak dapat memulai obrolan asisten: {{message}}",
+    "chatTitle": "Asisten LocalAI"
   },
   "input": {
     "placeholder": "Pesan...",
@@ -105,7 +108,48 @@
     "modelsSummary": "Explore, install, and manage models",
     "create": "Create",
     "createSummary": "Open a chat, image or voice session",
-    "operate": "Operate",
-    "operateSummary": "{{models}} models configured · nodes, activity and traces"
+    "operate": "Administrasi",
+    "operateSummary": "{{models}} models configured · nodes, activity and traces",
+    "allChats": "Semua obrolan"
+  },
+  "slash": {
+    "commandDiagnostics": "Diagnostik perintah aplikasi",
+    "apps": {
+      "label": "Aplikasi",
+      "desc": "Jelajahi aplikasi terpasang"
+    },
+    "group": {
+      "addons": "Aplikasi"
+    },
+    "agents": {
+      "label": "Agen",
+      "desc": "Agen tersimpan, pemicu, dan keahlian Anda"
+    },
+    "mcp": {
+      "label": "Konektor MCP",
+      "desc": "Server MCP yang bisa dipakai obrolan Anda"
+    },
+    "memory": {
+      "label": "Memori",
+      "desc": "Koleksi yang bisa dicari obrolan Anda"
+    },
+    "complete": "lengkapi"
+  },
+  "notice": {
+    "appUnavailable": "Aplikasi tidak lagi tersedia.",
+    "addonsDownTitle": "Add-on tidak merespons saat ini",
+    "addonsDownBody": "{{name}} adalah add-on. Coba lagi sebentar lagi.",
+    "addonsRetry": "Coba lagi"
+  },
+  "picker": {
+    "aliasOf": "alias dari {{target}}",
+    "aliasBroken": "alias rusak",
+    "disabled": "nonaktif",
+    "pinned": "disematkan",
+    "useTyped": "Gunakan \"{{name}}\"",
+    "empty": "Tidak ada model",
+    "add": "Tambah model",
+    "remove": "Hapus {{name}}",
+    "clear": "Kosongkan"
   }
 }

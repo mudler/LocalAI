@@ -253,7 +253,7 @@ func AudioTransformEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader,
 // and on schema.AudioTransformStreamControl.
 //
 // @Summary Bidirectional realtime audio transform over WebSocket.
-// @Description Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference) and out (mono). The model must support the audio_transform use case. Any-to-any models such as liquid-audio use the OpenAI Realtime API instead. The first message must be a JSON `session.update` envelope describing model + sample format + frame size + backend params. Server emits binary PCM on the same cadence.
+// @Description Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference) and out (mono). The model must support the audio_transform use case. Any-to-any realtime_audio models use the OpenAI Realtime API instead. The first message must be a JSON `session.update` envelope describing model + sample format + frame size + backend params. Server emits binary PCM on the same cadence.
 // @Tags audio
 // @Router /audio/transformations/stream [get]
 func AudioTransformStreamEndpoint(app *application.Application) echo.HandlerFunc {

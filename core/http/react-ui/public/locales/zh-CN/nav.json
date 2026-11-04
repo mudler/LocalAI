@@ -10,12 +10,13 @@
   "changeLanguage": "更改语言",
   "logout": "退出登录",
   "accountSettings": "账户设置",
+  "yourSettings": "你的设置",
   "account": "账户",
   "accountFor": "账户：{{name}}",
   "sections": {
     "recognition": "识别",
     "build": "构建",
-    "operate": "运维",
+    "operate": "管理",
     "workspace": "工作区"
   },
   "operate": {
@@ -47,7 +48,9 @@
     "mcpJobs": "MCP CI 任务",
     "usage": "用量",
     "users": "用户",
+    "middleware": "中间件",
     "backends": "后端",
+    "voiceLibrary": "声音库",
     "traces": "追踪",
     "nodes": "节点",
     "scheduling": "调度",
@@ -55,18 +58,23 @@
     "system": "系统",
     "settings": "设置",
     "api": "API",
-    "middleware": "中间件",
     "activity": "活动",
     "overview": "概览",
     "thisMachine": "本机",
     "failover": "故障转移",
-    "p2p": "P2P",
-    "addons": "附加组件",
-    "voiceLibrary": "声音库",
     "logs": "日志",
+    "p2p": "P2P",
     "trafficModels": "模型",
     "gpuHost": "GPU 与主机",
-    "prometheus": "Prometheus"
+    "prometheus": "Prometheus",
+    "addons": "附加组件",
+    "chats": "聊天会话",
+    "files": "文件",
+    "triggers": "触发器",
+    "mcpConnectors": "MCP 连接器",
+    "chatsAdmin": "所有用户的聊天",
+    "pages": "页面",
+    "allChats": "全部对话"
   },
   "footer": {
     "github": "GitHub",
@@ -90,16 +98,25 @@
     "overviewEmpty": "你的账户没有可用的构建工具。",
     "toolsLabel": "构建工具",
     "descriptions": {
-      "agents": "创建并运行使用你的模型和工具的智能体。",
-      "skills": "智能体可按需加载的可复用指令。",
+      "agents": "已保存的智能体：指令，以及聊天可以使用的工具、附加组件、集合和技能。",
+      "skills": "任务匹配时，聊天可以读取的可复用指令。",
       "memory": "智能体可以搜索的文档集合。",
-      "jobs": "智能体为你执行的定时任务和一次性任务。",
       "fineTune": "用你自己的数据训练模型。",
       "quantize": "压缩模型，使其能在更小的硬件上运行。",
       "import": "从文件、URL 或 Hugging Face 仓库添加模型。",
       "voices": "识别说话人，并维护声音档案库。",
       "faces": "检测、比较和匹配人脸。",
-      "addons": "安装附加组件并打开它们提供的应用。"
-    }
-  }
+      "addons": "安装附加组件并打开它们提供的应用。",
+      "triggers": "按计划或在文件到达时自动开始对话。"
+    },
+    "operateSupporting": "此服务器上运行的内容、使用情况和配置。"
+  },
+  "pinnedPages": "已固定的页面",
+  "new": "新",
+  "recentChats": "最近对话",
+  "newChat": "新对话",
+  "untitledChat": "未命名对话",
+  "chatRunning": "进行中",
+  "automatedWaiting": "等待你处理的自动聊天：{{count}}",
+  "automatedRunning": "运行中的自动聊天：{{count}}"
 }

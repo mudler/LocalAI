@@ -1,3 +1,4 @@
+import ModelLaunch from '../addons/ModelLaunch'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -31,15 +32,15 @@ import {
 import Icon from '../components/Icon'
 
 const USE_CASES = [
-  { cap: CAP_CHAT, labelKey: 'chat', route: id => `/app/chat/${encodeURIComponent(id)}` },
-  { cap: CAP_COMPLETION, labelKey: 'completion', route: id => `/app/chat/${encodeURIComponent(id)}`, hideIf: CAP_CHAT },
-  { cap: CAP_IMAGE, labelKey: 'image', route: id => `/app/image/${encodeURIComponent(id)}` },
-  { cap: CAP_VIDEO, labelKey: 'video', route: id => `/app/video/${encodeURIComponent(id)}` },
-  { cap: CAP_TTS, labelKey: 'tts', route: id => `/app/tts/${encodeURIComponent(id)}` },
-  { cap: CAP_TRANSCRIPT, labelKey: 'transcribe', route: () => '/app/talk' },
-  { cap: CAP_SOUND_GENERATION, labelKey: 'sound', route: id => `/app/sound/${encodeURIComponent(id)}` },
-  { cap: CAP_FACE_RECOGNITION, labelKey: 'face', route: id => `/app/face/${encodeURIComponent(id)}` },
-  { cap: CAP_SPEAKER_RECOGNITION, labelKey: 'voice', route: id => `/app/voice/${encodeURIComponent(id)}` },
+  { cap: CAP_CHAT, labelKey: 'chat', route: id => `/app/chats?model=${encodeURIComponent(id)}` },
+  { cap: CAP_COMPLETION, labelKey: 'completion', route: id => `/app/chats?model=${encodeURIComponent(id)}`, hideIf: CAP_CHAT },
+  { cap: CAP_IMAGE, labelKey: 'image' },
+  { cap: CAP_VIDEO, labelKey: 'video' },
+  { cap: CAP_TTS, labelKey: 'tts' },
+  { cap: CAP_TRANSCRIPT, labelKey: 'transcribe' },
+  { cap: CAP_SOUND_GENERATION, labelKey: 'sound' },
+  { cap: CAP_FACE_RECOGNITION, labelKey: 'face' },
+  { cap: CAP_SPEAKER_RECOGNITION, labelKey: 'voice' },
   { cap: CAP_EMBEDDINGS, labelKey: 'embeddings' },
   { cap: CAP_RERANK, labelKey: 'rerank' },
   { cap: CAP_VAD, labelKey: 'vad' },
@@ -486,18 +487,7 @@ export default function InstalledModels({
           <div>
             <span className="detail-pane__label">{t('lifecycle.open.title')}</span>
             <div className="badge-row">
-              {useCases.map(useCase => useCase.route ? (
-                <button
-                  key={useCase.cap}
-                  type="button"
-                  className="dk-chip"
-                  onClick={() => navigate(useCase.route(selectedModel.id))}
-                >
-                  {t(`lifecycle.open.${useCase.labelKey}`)}
-                </button>
-              ) : (
-                <span key={useCase.cap} className="dk-badge">{t(`lifecycle.open.${useCase.labelKey}`)}</span>
-              ))}
+              {useCases.map(useCase => <ModelLaunch key={useCase.cap} useCase={useCase} model={selectedModel.id} label={t(`lifecycle.open.${useCase.labelKey}`)} />)}
             </div>
           </div>
         )}

@@ -44,7 +44,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
 
   const failed = Boolean(operation.error)
   const name = operation.name || operation.id
-  const kind = operation.isBackend ? t('activity.kind.backend') : t('activity.kind.model')
+  const kind = operation.isAddon ? t('activity.kind.addon') : operation.isBackend ? t('activity.kind.backend') : t('activity.kind.model')
 
   // Same chain as the one-line strip, so the two never describe one job
   // differently. Without it a removal and an install render identically: a
@@ -58,6 +58,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
     // what happened, and would make the missing Retry button look like a bug.
     if (operation.isDeletion) verb = t('activity.verb.failedRemoval', { kind })
     else if (operation.taskType === 'staging') verb = t('activity.verb.failedStaging')
+    else if (operation.taskType === 'upgrade') verb = t('activity.verb.failedUpgrade', { kind })
     else verb = t('activity.verb.failed', { kind })
   } else if (operation.isQueued) {
     icon = <Icon name="clock" className="operation-card__icon" />
@@ -65,6 +66,9 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
   } else if (operation.taskType === 'staging') {
     icon = <Icon name="cloud-upload" className="operation-card__icon operation-card__icon--staging" />
     verb = t('activity.verb.staging')
+  } else if (operation.taskType === 'upgrade') {
+    icon = <span className="operation-card__spinner" aria-hidden="true" />
+    verb = t('activity.verb.upgrading', { kind })
   } else if (operation.isDeletion) {
     icon = <Icon name="trash" className="operation-card__icon operation-card__icon--removing" />
     verb = t('activity.verb.removing', { kind })
@@ -76,7 +80,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
   const byteLabel = Number.isFinite(operation.currentBytes) && Number.isFinite(operation.totalBytes) && operation.totalBytes > 0
     ? `${formatBytes(operation.currentBytes)} / ${formatBytes(operation.totalBytes)}`
     : ''
-  const phaseKey = phaseKeys[operation.phase]
+  const phaseKey = operation.isAddon ? `activity.addonStage.${operation.stage || operation.phase}` : phaseKeys[operation.phase]
   const etaLabel = formatEta(operation.etaSeconds)
   const rateLabel = Number.isFinite(operation.bytesPerSecond) && operation.bytesPerSecond > 0
     ? `${formatBytes(operation.bytesPerSecond)}/s`
@@ -88,6 +92,8 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
   // A cancel waiting in its undo window takes the buttons away: pressing Cancel
   // twice would only end the window early.
   const canCancel = operation.cancellable && !failed && !cancelling
+  // Pausing keeps a partial download; an add-on upgrade downloads nothing here.
+  const canPause = canCancel && !operation.isAddon
   // Retrying means reconstructing an install call out of the operation, which
   // is page knowledge. The card offers the button only when the page handed it
   // a handler, so the control can never be present with nothing behind it.
@@ -118,9 +124,10 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
 
           <div className="operation-card__sub">
             <span className="operation-card__verb">{verb}</span>
+            {operation.isAddon && operation.fromVersion && operation.toVersion && <span>{operation.fromVersion} to {operation.toVersion}</span>}
             {operation.nodeName && <span>{t('activity.toNode', { node: operation.nodeName })}</span>}
             {cancelling && <span>{t('activity.cancelling')}</span>}
-            {failed && <span className="operation-card__error" title={operation.error}>{operation.error}</span>}
+            {failed && <span className="operation-card__error" title={operation.error}>{operation.isAddon && operation.failureCode ? t(`activity.addonFailure.${operation.failureCode}`, { defaultValue: operation.error }) : operation.error}</span>}
             {!failed && phaseKey && <span>{t(phaseKey)}</span>}
             {/* Phases and byte counters exist only on the managed-artifact
                 path, so a legacy files: gallery model and every backend
@@ -156,7 +163,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
 
         <div className="operation-card__actions">
           {showProgress && <span className="operation-card__pct" aria-hidden="true">{Math.round(operation.progress)}%</span>}
-          {canCancel && (
+          {canPause && (
             <button
               type="button"
               className="dk-btn dk-btn--ghost dk-btn--sm operation-card__pause"

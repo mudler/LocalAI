@@ -502,3 +502,23 @@ var _ = Describe("timestral forecast capability", func() {
 		Expect(*flags).To(Equal(FLAG_FORECAST))
 	})
 })
+
+// LFM3-Audio runs through llama.cpp for speech recognition and for the
+// speech-to-speech loop, so the llama-cpp entry advertises both RPCs. Its
+// default stays chat: a bare GGUF is still a chat model.
+var _ = Describe("llama-cpp speech and realtime capabilities", func() {
+	It("advertises the transcription and audio-to-audio RPCs", func() {
+		capability := GetBackendCapability("llama-cpp")
+		Expect(capability).NotTo(BeNil())
+		Expect(capability.GRPCMethods).To(ContainElements(MethodAudioTranscription, MethodAudioToAudioStream))
+	})
+
+	It("accepts the transcript and realtime_audio usecases", func() {
+		Expect(IsValidUsecaseForBackend("llama-cpp", UsecaseTranscript)).To(BeTrue())
+		Expect(IsValidUsecaseForBackend("llama-cpp", UsecaseRealtimeAudio)).To(BeTrue())
+	})
+
+	It("keeps chat as its only default usecase", func() {
+		Expect(GetBackendCapability("llama-cpp").DefaultUsecases).To(Equal([]string{UsecaseChat}))
+	})
+})

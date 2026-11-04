@@ -45,33 +45,15 @@ var _ = Describe("library index document (YAML)", func() {
 		Expect(got.Digest).To(Equal(yamlDigest))
 		Expect(got.UI.MainPage).To(Equal("tables"))
 	})
-	It("reads the legacy addonId as id, and refuses an entry that has both", func() {
-		legacy := strings.Replace(yamlEntry, "- id: tables", "- addonId: tables", 1)
-		got, err := DecodeIndex([]byte(legacy))
-		Expect(err).NotTo(HaveOccurred())
-		Expect(got).To(HaveLen(1))
-		Expect(got[0].ID).To(Equal("tables"))
-		current, err := DecodeIndex([]byte(yamlEntry))
-		Expect(err).NotTo(HaveOccurred())
-		Expect(current).To(Equal(got))
-		_, err = DecodeIndex([]byte(yamlEntry + "  addonId: tables\n"))
-		Expect(err).To(HaveOccurred())
-		// A writer emits id, never the legacy name.
-		out, err := EncodeIndex(got)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(string(out)).To(HavePrefix("- "))
-		Expect(string(out)).NotTo(ContainSubstring("addonId"))
-		Expect(string(out)).To(ContainSubstring("id: tables"))
-	})
 	It("accepts an empty library written as an empty list", func() {
 		r, e, _ := refreshBody("[]\n")
 		Expect(e).NotTo(HaveOccurred())
 		Expect(r.Count).To(BeZero())
 	})
 	It("refuses a JSON index", func() {
-		_, e, _ := refreshBody(`[{"addonId":"tables","name":"Tables","version":"1.0.0","artifact":"oci://registry.example/tables","digest":"` + yamlDigest + `","os":"linux","arch":"amd64"}]`)
+		_, e, _ := refreshBody(`[{"id":"tables","name":"Tables","version":"1.0.0","artifact":"oci://registry.example/tables","digest":"` + yamlDigest + `","os":"linux","arch":"amd64"}]`)
 		Expect(e).To(MatchError(ErrRefresh))
-		_, e, _ = refreshBody("{\n  \"addonId\": \"tables\"\n}")
+		_, e, _ = refreshBody("{\n  \"id\": \"tables\"\n}")
 		Expect(e).To(MatchError(ErrRefresh))
 	})
 	It("refuses an unknown field, at the top and inside ui", func() {
@@ -112,6 +94,30 @@ var _ = Describe("library index document (YAML)", func() {
 		Expect(e).To(MatchError(ErrRefresh))
 	})
 	Context("tool hint", func() {
+		It("carries the built-in tools an add-on replaces, and refuses one that may not be replaced", func() {
+			body := yamlEntry + "  toolCount: 1\n  tools:\n    - bash\n  shadows:\n    - bash\n"
+			_, e, s := refreshBody(body)
+			Expect(e).NotTo(HaveOccurred())
+			page, e := (Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}).Search(ctx, Query{})
+			Expect(e).NotTo(HaveOccurred())
+			Expect(page.Releases).To(HaveLen(1))
+			Expect(page.Releases[0].Shadows).To(Equal([]string{"bash"}))
+			_, e, _ = refreshBody(yamlEntry + "  toolCount: 1\n  tools:\n    - bash\n  shadows:\n    - write_file\n")
+			Expect(e).To(HaveOccurred())
+		})
+		It("carries the built-in skills an add-on replaces, and refuses one that may not be replaced", func() {
+			body := yamlEntry + "  skillShadows:\n    - xlsx\n    - docx\n"
+			_, e, s := refreshBody(body)
+			Expect(e).NotTo(HaveOccurred())
+			page, e := (Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}).Search(ctx, Query{})
+			Expect(e).NotTo(HaveOccurred())
+			Expect(page.Releases).To(HaveLen(1))
+			Expect(page.Releases[0].SkillShadows).To(Equal([]string{"xlsx", "docx"}))
+			for _, bad := range []string{"writing-skills", "bash", "xlsx\n    - xlsx"} {
+				_, e, _ = refreshBody(yamlEntry + "  skillShadows:\n    - " + bad + "\n")
+				Expect(e).To(HaveOccurred(), bad)
+			}
+		})
 		It("carries toolCount and tools from the index to the listing", func() {
 			body := yamlEntry + "  toolCount: 2\n  tools:\n    - resource-exists\n    - tables-create\n"
 			_, e, s := refreshBody(body)

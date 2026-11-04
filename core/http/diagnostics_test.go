@@ -58,7 +58,7 @@ var _ = Describe("Diagnostics public API isolation", Serial, func() {
 					if timing {
 						recorder = diagnostics.NewRecorder(func(diagnostics.Event) {})
 					}
-					app, err := application.New(config.WithContext(ctx), config.WithSystemState(state), config.WithDebug(debug), config.WithDataPath(filepath.Join(dir, "data")), config.DisableRuntimeSettings, config.DisableAgentPool, config.DisableMCP, config.DisableMetricsEndpoint, config.WithDisableStats(true), config.WithAPIAddress(publicListener.Addr().String()), func(c *config.ApplicationConfig) {
+					app, err := application.New(config.WithContext(ctx), config.WithSystemState(state), config.WithDebug(debug), config.WithDataPath(filepath.Join(dir, "data")), config.DisableRuntimeSettings, config.DisableCollections, config.DisableMCP, config.DisableMetricsEndpoint, config.WithDisableStats(true), config.WithAPIAddress(publicListener.Addr().String()), func(c *config.ApplicationConfig) {
 						c.DiagnosticsRecorder = recorder
 						c.DisableLocalAIAssistant = true
 					})
@@ -124,7 +124,7 @@ var _ = Describe("Chat lazy fallback authentication", func() {
 		state, err := system.GetSystemState(system.WithModelPath(dir), system.WithBackendPath(dir))
 		Expect(err).NotTo(HaveOccurred())
 		var events []diagnostics.Event
-		app, err := application.New(config.WithContext(ctx), config.WithSystemState(state), config.WithDataPath(filepath.Join(dir, "data")), config.DisableRuntimeSettings, config.DisableAgentPool, config.DisableMCP, config.DisableMetricsEndpoint, config.WithDisableStats(true), config.WithApiKeys([]string{"secret"}), func(c *config.ApplicationConfig) {
+		app, err := application.New(config.WithContext(ctx), config.WithSystemState(state), config.WithDataPath(filepath.Join(dir, "data")), config.DisableRuntimeSettings, config.DisableCollections, config.DisableMCP, config.DisableMetricsEndpoint, config.WithDisableStats(true), config.WithApiKeys([]string{"secret"}), func(c *config.ApplicationConfig) {
 			c.DisableLocalAIAssistant = true
 			c.DiagnosticsRecorder = diagnostics.NewRecorder(func(e diagnostics.Event) { events = append(events, e) })
 		})

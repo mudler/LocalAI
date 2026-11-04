@@ -26,7 +26,10 @@
     "description": "Install models, switch backends, edit configs and check status by talking to LocalAI.",
     "open": "Open assistant",
     "tooltip": "Manage LocalAI by chatting",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "noModel": "Pick a chat model first.",
+    "startFailed": "Could not start the assistant chat: {{message}}",
+    "chatTitle": "LocalAI Assistant"
   },
   "input": {
     "placeholder": "Message...",
@@ -148,7 +151,8 @@
     "emptyBody": "They are grouped by day, with the model that answered. Move with j and k, resume with Enter.",
     "hasImage": "Includes an image",
     "noModel": "No model",
-    "examples": "Slash actions"
+    "examples": "Slash actions",
+    "allChats": "All chats"
   },
   "picker": {
     "loading": "Loading models",
@@ -163,13 +167,28 @@
     "cold": "not loaded",
     "loadedNow": "Loaded now",
     "installed": "Installed",
-    "vision": "Understands images"
+    "vision": "Understands images",
+    "aliasOf": "alias of {{target}}",
+    "aliasBroken": "broken alias",
+    "disabled": "disabled",
+    "pinned": "pinned",
+    "useTyped": "Use \"{{name}}\"",
+    "empty": "No models available",
+    "add": "Add a model",
+    "remove": "Remove {{name}}",
+    "clear": "Clear"
   },
   "slash": {
     "label": "Actions",
     "move": "move",
     "close": "close",
+    "commandDiagnostics": "App command diagnostics",
+    "apps": {
+      "label": "Apps",
+      "desc": "Browse installed apps"
+    },
     "group": {
+      "addons": "Apps",
       "chat": "Chat",
       "models": "Models",
       "go": "Go to"
@@ -183,8 +202,8 @@
       "desc": "Start an empty conversation"
     },
     "chat": {
-      "label": "Open Chat",
-      "desc": "Go to the chat page"
+      "label": "All chats",
+      "desc": "Find, rename and delete your chats"
     },
     "assistant": {
       "label": "Manage by chat",
@@ -206,10 +225,6 @@
       "label": "Stop a model",
       "desc": "Free memory by unloading a model"
     },
-    "studio": {
-      "label": "Open Studio",
-      "desc": "Create images, audio and video"
-    },
     "settings": {
       "label": "Settings",
       "desc": "Change how LocalAI runs"
@@ -217,7 +232,20 @@
     "docs": {
       "label": "Documentation",
       "desc": "Open localai.io in a new tab"
-    }
+    },
+    "agents": {
+      "label": "Agents",
+      "desc": "Your saved agents, triggers and skills"
+    },
+    "mcp": {
+      "label": "MCP connectors",
+      "desc": "MCP servers your chats can use"
+    },
+    "memory": {
+      "label": "Memory",
+      "desc": "Collections your chats can search"
+    },
+    "complete": "complete"
   },
   "strip": {
     "label": "Memory",
@@ -240,6 +268,7 @@
     "firstRun": "No models running. Memory use shows here once one loads."
   },
   "notice": {
+    "appUnavailable": "App is no longer available.",
     "loadFailedTitle": "LocalAI could not load your models",
     "loadFailedBody": "The server did not answer. Check that it is running, then try again.",
     "retry": "Try again",
@@ -247,7 +276,16 @@
     "stagingFailedBody": "The model could not be sent to a node. Nothing else was changed.",
     "stagingFailedBodyNode": "The model could not be sent to {{node}}. Nothing else was changed.",
     "openActivity": "Open Activity",
-    "details": "Details"
+    "details": "Details",
+    "addonsOffTitle": "Add-ons are off on this server",
+    "addonsOffAdmin": "{{name}} is an add-on. Start LocalAI with add-ons on, then install it from Add-ons.",
+    "addonsOffReader": "{{name}} is an add-on. Ask an administrator to turn add-ons on.",
+    "addonsDownTitle": "Add-ons are not answering right now",
+    "addonsDownBody": "{{name}} is an add-on. Try again in a moment.",
+    "addonsRetry": "Try again",
+    "thisPage": "That page",
+    "addonsDocs": "How to turn add-ons on",
+    "dismiss": "Dismiss"
   },
   "library": {
     "label": "Library"

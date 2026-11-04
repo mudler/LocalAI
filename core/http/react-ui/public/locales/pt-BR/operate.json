@@ -1,0 +1,77 @@
+{
+  "backends": {
+    "filterLabel": "Filtrar backends",
+    "check": "Verificar atualizações",
+    "reinstallBackend": "Reinstalar backend",
+    "deleteBackend": "Excluir backend",
+    "updateAllTitle": "Atualizar todos os backends",
+    "updateAllIntro": "Escolha quais backends atualizar. Cada um é atualizado separadamente, um após o outro. Uma falha não interrompe os demais.",
+    "updateSelected": "Atualizar selecionados",
+    "loadFailedTitle": "Não foi possível carregar o catálogo de backends.",
+    "filtersButton": "Filtros",
+    "filtersDone": "Concluir",
+    "filterGroups": {
+      "state": "Estado",
+      "type": "Tipo",
+      "show": "Mostrar",
+      "library": "Biblioteca"
+    },
+    "showVariants": "Variantes",
+    "showDevelopment": "Builds de desenvolvimento",
+    "allLibraries": "Todas as bibliotecas",
+    "moreActions": "Mais ações de backends",
+    "installFromUrl": "Instalar a partir de URL…",
+    "manageLibraries": "Gerenciar bibliotecas…",
+    "count_one": "{{count}} backend",
+    "count_other": "{{count}} backends",
+    "countOf": "{{shown}} de {{total}} backends",
+    "activeFilters": "Filtros ativos",
+    "removeFilter": "Remover filtro: {{name}}",
+    "checking": "Procurando atualizações…",
+    "updatesAvailable_one": "{{count}} atualização disponível",
+    "updatesAvailable_other": "{{count}} atualizações disponíveis",
+    "reviewUpdates": "Revisar",
+    "close": "Fechar",
+    "installedLoadFailedTitle": "Não foi possível carregar os backends instalados."
+  },
+  "capacity": {
+    "diskChip": "Disco quase cheio"
+  },
+  "activity": {
+    "kind": {
+      "addon": "complemento"
+    },
+    "verb": {
+      "upgrading": "Atualizando {{kind}}",
+      "failedUpgrade": "Não foi possível atualizar {{kind}}"
+    },
+    "filter": {
+      "addons": "Complementos"
+    },
+    "upgradeVersions": "{{from}} para {{to}}",
+    "rowUpgraded": "Atualizado em {{duration}}",
+    "rowUpgradedPlain": "Atualizado",
+    "viewInAddons": "Ver em Complementos",
+    "upgradeWaiting": "Aguardando o serviço de complementos iniciar. Próxima verificação em {{seconds}} s.",
+    "addonStage": {
+      "submitting": "Submitting upgrade",
+      "accepted": "Accepted by owner",
+      "running": "Running upgrade",
+      "preparing-package": "Preparing package",
+      "committing-package": "Committing package",
+      "backing-up": "Creating and verifying backup",
+      "backed-up": "Backup verified",
+      "staged": "Package committed",
+      "migrating": "Starting candidate and checking migration",
+      "healthy": "Candidate healthy",
+      "publishing": "Publishing generation",
+      "completed": "Upgrade completed",
+      "failed": "Upgrade failed"
+    },
+    "addonFailure": {
+      "upgrade_failed": "Upgrade failed. Check the owner logs for details.",
+      "interrupted": "Upgrade interrupted by owner shutdown or restart. It was not replayed.",
+      "recovery_required": "Upgrade interrupted. Data recovery is required before this add-on can run."
+    }
+  }
+}

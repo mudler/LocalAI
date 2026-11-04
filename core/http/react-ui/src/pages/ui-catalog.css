@@ -1,0 +1,35 @@
+/* The component catalog page (pages/UiCatalog.jsx). Layout only: the
+   components bring their own rules. */
+.ui-cat__section { padding: var(--sp-8) 0; border-top: 1px solid var(--dk-edge); }
+.ui-cat__title { margin: 0 0 var(--sp-1); font-size: var(--fs-section); line-height: var(--lh-section); }
+.ui-cat__sub { margin: var(--sp-6) 0 var(--sp-3); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--font-weight-semibold); }
+.ui-cat__note { margin: 0 0 var(--sp-4); color: var(--color-text-secondary); font-size: var(--fs-small); line-height: var(--lh-small); max-width: 64ch; }
+.ui-cat__table { display: grid; gap: var(--sp-3); }
+.ui-cat__row { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: var(--sp-4); align-items: center; }
+.ui-cat__label { color: var(--dk-muted); font-size: var(--fs-meta); line-height: var(--lh-meta); }
+.ui-cat__row .ui-cat__cell { margin-bottom: 0; }
+.ui-cat__cell { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.ui-cat__cell--loose { gap: var(--sp-6); margin-top: var(--sp-5); }
+.ui-cat__skel { display: grid; gap: var(--sp-1); width: 240px; }
+.ui-cat__stack { display: grid; gap: var(--sp-4); min-width: 0; }
+.ui-cat__frame { padding: var(--sp-6); border: 1px solid var(--dk-edge); border-radius: var(--r-lg); background: var(--dk-canvas); }
+.ui-cat__list { border: 1px solid var(--dk-edge); border-radius: var(--r-lg); background: var(--dk-card); overflow: hidden; }
+.ui-cat__item { display: flex; align-items: center; gap: var(--sp-3); padding: 14px var(--sp-4); border-top: 1px solid var(--dk-edge); }
+.ui-cat__item:first-child { border-top: 0; }
+.ui-cat__item > strong { flex: 1; min-width: 0; font-weight: var(--font-weight-semibold); }
+.ui-cat__bottombar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--dk-z-sticky);
+  padding: var(--sp-6) var(--sp-4);
+  background: var(--dk-card);
+  border-top: 1px solid var(--dk-edge);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-small);
+  text-align: center;
+}
+@media (max-width: 639px) {
+  .ui-cat__row { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
+}

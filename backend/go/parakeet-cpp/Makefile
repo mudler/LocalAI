@@ -1,6 +1,6 @@
 # parakeet-cpp backend Makefile.
 #
-# Upstream pin lives below as PARAKEET_VERSION?=43dce03cb3c36849d5e5a504076be3d9bea7b6c4
+# Upstream pin lives below as PARAKEET_VERSION?=2eac2e77d9c7ef8899f7a86a46e693ac5ac1a5cd
 # (.github/bump_deps.sh) can find and update it - matches the
 # whisper.cpp / ds4 / vibevoice-cpp convention.
 #
@@ -15,7 +15,7 @@
 # That's what the L0 smoke test uses. The default target below does the
 # proper clone-at-pin + cmake build so CI doesn't need a side-checkout.
 
-PARAKEET_VERSION?=43dce03cb3c36849d5e5a504076be3d9bea7b6c4
+PARAKEET_VERSION?=2eac2e77d9c7ef8899f7a86a46e693ac5ac1a5cd
 PARAKEET_REPO?=https://github.com/mudler/parakeet.cpp
 
 GOCMD?=go
@@ -46,7 +46,14 @@ ifeq ($(BUILD_TYPE),cublas)
 else ifeq ($(BUILD_TYPE),openblas)
 	CMAKE_ARGS+=-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS
 else ifeq ($(BUILD_TYPE),hipblas)
-	CMAKE_ARGS+=-DPARAKEET_GGML_HIP=ON
+	# PARAKEET_GGML_HIP enables ggml's HIP backend. Use the ROCm clang and forward the
+	# gfx targets explicitly, as the llama-cpp and qwen3-tts-cpp backends do.
+	ROCM_HOME ?= /opt/rocm
+	ROCM_PATH ?= /opt/rocm
+	export CXX=$(ROCM_HOME)/llvm/bin/clang++
+	export CC=$(ROCM_HOME)/llvm/bin/clang
+	AMDGPU_TARGETS ?= gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201
+	CMAKE_ARGS+=-DPARAKEET_GGML_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS) -DGPU_TARGETS=$(AMDGPU_TARGETS)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DPARAKEET_GGML_VULKAN=ON
 else ifeq ($(BUILD_TYPE),metal)

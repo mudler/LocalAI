@@ -22,7 +22,9 @@ type stubNodeCommandSender struct {
 	listBackendsCalled bool
 }
 
-func (s *stubNodeCommandSender) InstallBackend(_, _, _, _, _, _, _ string, _ int, _ string, _ func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+var _ nodes.NodeCommandSender = (*stubNodeCommandSender)(nil)
+
+func (s *stubNodeCommandSender) InstallBackend(_, _, _, _, _, _, _ string, _ int, _ string, _ func(workerctl.BackendInstallProgressEvent), _ ...map[string]string) (*workerctl.BackendInstallReply, error) {
 	return &workerctl.BackendInstallReply{}, nil
 }
 
@@ -46,7 +48,7 @@ func (s *stubNodeCommandSender) UnloadModelOnNode(_, _ string) error { return ni
 func (s *stubNodeCommandSender) PingNode(_ string) error { return nil }
 
 // The load operation verbs. This stub never reaches them.
-func (s *stubNodeCommandSender) InstallBackendOp(_, _, _, _ string, _ int, _, _ string, _ time.Duration, _ func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+func (s *stubNodeCommandSender) InstallBackendOp(_, _, _, _ string, _ int, _, _ string, _ time.Duration, _ func(workerctl.BackendInstallProgressEvent), _ ...map[string]string) (*workerctl.BackendInstallReply, error) {
 	return &workerctl.BackendInstallReply{}, nil
 }
 

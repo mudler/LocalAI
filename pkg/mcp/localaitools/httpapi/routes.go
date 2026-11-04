@@ -3,6 +3,7 @@ package httpapi
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 )
 
 // Route paths for the LocalAI admin REST surface that this client targets.
@@ -11,7 +12,6 @@ import (
 // registrations in core/http/routes/localai.go — the Tool↔REST drift detector
 // in coverage_test.go documents the mapping.
 const (
-	routeWelcome                = "/"
 	routeModelsApply            = "/models/apply"
 	routeModelsAvail            = "/models/available"
 	routeModelsGall             = "/models/galleries"
@@ -36,8 +36,26 @@ const (
 	routeMiddleware             = "/api/middleware/status"
 	routeRouterDecisions        = "/api/router/decisions"
 	routeVoiceProfiles          = "/api/voice-profiles"
+	routeModelsCapabilities     = "/api/models/capabilities"
+	routeVersion                = "/version"
+	routeSystem                 = "/system"
 	routeFailover               = "/api/failover"
+	routeSharedFolders          = "/api/chats/admin/shared-folders"
+	routeSharedFolderRestore    = "/api/chats/admin/shared-folders/restore"
+	routeSharedFolderEvents     = "/api/chats/admin/shared-folders/events"
+	routeChatTools              = "/api/chats/admin/tools"
+	routeHostExecEvents         = "/api/chats/admin/host-exec/events"
+	routeChatEgress             = "/api/chats/admin/egress"
+	routeEgressEvents           = "/api/chats/admin/egress/events"
 )
+
+func routeSharedFolder(id int64) string {
+	return routeSharedFolders + "/" + strconv.FormatInt(id, 10)
+}
+
+func routeSharedFolderMember(id int64, member string) string {
+	return routeSharedFolder(id) + "/members/" + url.PathEscape(member)
+}
 
 func routeJobStatus(jobID string) string {
 	return "/models/jobs/" + url.PathEscape(jobID)

@@ -1,9 +1,11 @@
 package application
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +17,6 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
-	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/monitoring"
@@ -41,6 +42,8 @@ import (
 
 func New(opts ...config.AppOption) (*Application, error) {
 	options := config.NewApplicationConfig(opts...)
+	ctx, cleanupWorkspace := workspaceStartupCleanup(options.Context, options)
+	options.Context = ctx
 
 	// Store a copy of the startup config (env/CLI only, before file
 	// loading): the settings endpoint uses it to tell env-provided API
@@ -68,6 +71,12 @@ func New(opts ...config.AppOption) (*Application, error) {
 	trace.ConfigureBackendTracePersistence(options.DataPath)
 	application := newApplication(options)
 	application.startupConfig = &startupConfigCopy
+	startupComplete := false
+	defer func() {
+		if !startupComplete {
+			cleanupWorkspace(application)
+		}
+	}()
 
 	xlog.Info("Starting LocalAI", "threads", options.Threads, "modelsPath", options.SystemState.Model.ModelsPath)
 	xlog.Info("LocalAI version", "version", internal.PrintableVersion())
@@ -192,7 +201,8 @@ func New(opts ...config.AppOption) (*Application, error) {
 			}
 		}()
 	}
-	application.initChatHistoryStore()
+	application.initStudioStore()
+	application.studioProvider = provider.New()
 
 	// Initialize the OTel + Prometheus metric pipeline before any
 	// counter is created. monitoring.NewLocalAIMetricsService calls
@@ -290,17 +300,6 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// edit takes effect on the next restart without conditional plumbing.
 	application.admissionLimiter = admission.New()
 
-	// Wire JobStore for DB-backed task/job persistence whenever auth DB is available.
-	// This ensures tasks and jobs survive restarts in both single-node and distributed modes.
-	if application.authDB != nil && application.agentJobService != nil {
-		dbJobStore, err := jobs.NewJobStore(application.authDB)
-		if err != nil {
-			xlog.Error("Failed to create job store for auth DB", "error", err)
-		} else {
-			application.agentJobService.SetDistributedJobStore(dbJobStore)
-		}
-	}
-
 	// Initialize distributed mode services (NATS, object storage, node registry)
 	// revisionStore is built inside the distributed block below but used after
 	// the model configs are loaded, so it is declared out here.
@@ -346,30 +345,8 @@ func New(opts ...config.AppOption) (*Application, error) {
 			go distSvc.Reconciler.Run(options.Context)
 		}
 		go distSvc.ModelCleanup.Run(options.Context)
-		// In distributed mode, MCP CI jobs are executed by agent workers (not the frontend)
-		// because the frontend can't create MCP sessions (e.g., stdio servers using docker).
-		// The dispatcher only enqueues jobs and persists the results and traces workers publish.
-
-		// Wire model config loader so job events include model config for agent workers
-		distSvc.Dispatcher.SetModelConfigLoader(application.backendLoader)
-
-		// Start job dispatcher — abort startup if it fails, as jobs would be accepted but never dispatched
-		if err := distSvc.Dispatcher.Start(options.Context); err != nil {
-			return nil, fmt.Errorf("starting job dispatcher: %w", err)
-		}
 		// Start ephemeral file cleanup
 		storage.StartEphemeralCleanup(options.Context, distSvc.FileMgr, 0, 0)
-		// Wire distributed backends into AgentJobService (before Start)
-		if application.agentJobService != nil {
-			application.agentJobService.SetDistributedBackends(distSvc.Dispatcher)
-			application.agentJobService.SetDistributedJobStore(distSvc.JobStore)
-			// Keep agent tasks consistent across replicas (jobs already sync via the
-			// dispatcher + DB read-through). Same NATS client the dispatcher uses.
-			application.agentJobService.SetTaskSyncNATS(distSvc.Nats)
-		}
-		// Wire skill store into AgentPoolService (wired at pool start time via closure)
-		// The actual wiring happens in StartAgentPool since the pool doesn't exist yet.
-
 		// Wire NATS and gallery store into GalleryService for cross-instance progress/cancel
 		if application.galleryService != nil {
 			application.galleryService.SetNATSClient(distSvc.Nats)
@@ -446,12 +423,11 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}
 
-	// Start AgentJobService (after distributed wiring so it knows whether to use local or NATS)
-	if application.agentJobService != nil {
-		if err := application.agentJobService.Start(options.Context); err != nil {
-			return nil, fmt.Errorf("starting agent job service: %w", err)
-		}
+	// The chats service needs the cluster message bus, so it starts after distributed wiring.
+	if err := application.initStudioFiles(); err != nil {
+		return nil, err
 	}
+	application.initStudioService()
 
 	if err := coreStartup.InstallModels(options.Context, application.GalleryService(), options.Galleries, options.BackendGalleries, options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.RequireBackendIntegrity, nil, options.ModelsURL...); err != nil {
 		xlog.Error("error installing models", "error", err)
@@ -643,6 +619,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	application.markStartupComplete()
 
 	xlog.Info("core/startup process completed!")
+	startupComplete = true
 	return application, nil
 }
 
@@ -853,4 +830,26 @@ func ensureAuthDBDirs(options *config.ApplicationConfig) error {
 		}
 	}
 	return nil
+}
+
+// workspaceStartupCleanup owns startup resources when workspace initialization
+// can fail fatally: configured S3 (with or without auth), or PostgreSQL metadata.
+// It returns the context that startup runs in and the cleanup. Without those
+// setups it returns ctx itself and a no-op: it never cancels the caller's
+// context or changes legacy JSON/SQLite without S3.
+func workspaceStartupCleanup(ctx context.Context, options *config.ApplicationConfig) (context.Context, func(*Application)) {
+	postgres := options.Auth.Enabled && (strings.HasPrefix(options.Auth.DatabaseURL, "postgres://") || strings.HasPrefix(options.Auth.DatabaseURL, "postgresql://"))
+	if options.Distributed.StorageURL == "" && !postgres {
+		return ctx, func(*Application) {}
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	return ctx, func(a *Application) {
+		cancel() // stop background work before shutting down its dependencies
+		_ = a.Shutdown()
+		if a.authDB != nil {
+			if db, err := a.authDB.DB(); err == nil {
+				_ = db.Close()
+			}
+		}
+	}
 }

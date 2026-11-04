@@ -3,13 +3,14 @@
     "blocked": "此附加组件上先前的操作尚未确认。请先检查其状态或忽略它。",
     "checkStatus": "检查状态",
     "dismiss": "忽略",
-    "failed": "所有者未完成该操作,未做任何更改。再次尝试将开始新的尝试。",
-    "notApplied": "所有者报告操作已完成，但附加组件没有变化。请重试。",
-    "unknown": "所有者尚未确认该操作。它可能仍会被应用。请先检查状态，或忽略它，再开始其他操作。"
+    "failed": "该操作未完成，未做任何更改。再次尝试将开始新的尝试。",
+    "notApplied": "该操作已报告完成，但附加组件没有变化。再次尝试将开始新的尝试。",
+    "unknown": "该操作尚未确认，它可能仍会被应用。请先检查状态，或忽略它，再开始其他操作。"
   },
   "approval": {
     "title": "需要审批",
     "from": "来自 {{addon}}",
+    "connection": "连接：{{name}}",
     "loading": "正在加载请求",
     "failed": "此请求不可用。",
     "rejected": "无法完成该请求。请检查其状态后重试。",
@@ -37,14 +38,16 @@
     "emptyTitle": "还没有应用",
     "firstRun": {
       "browse": "Browse add-ons",
-      "title": "Welcome to Apps",
-      "lead": "附加组件为 LocalAI 提供页面和聊天工具。从以下组件开始，或查找更多。",
-      "featuredLabel": "精选附加组件",
+      "title": "还没有附加组件",
+      "lead": "附加组件为 LocalAI 增加新页面和聊天工具。它们独立运行,只请求列出的权限。",
+      "featuredLabel": "从其中一个开始",
       "featuredFailed": "无法读取附加组件列表。",
-      "noFeatured": "你的来源尚未列出附加组件。添加来源后再查找。"
+      "noFeatured": "你的来源尚未列出附加组件。添加来源后再查找。",
+      "factChecked": "运行前会对照你的来源进行校验",
+      "factRemove": "随时可以关闭或移除"
     },
     "headless": "在后台运行,没有自己的页面。",
-    "listLabel": "应用",
+    "listLabel": "已安装的附加组件",
     "loading": "正在加载应用",
     "manage": "管理",
     "open": "打开",
@@ -56,10 +59,14 @@
     "tools_one": "{{count}} 个工具",
     "tools_other": "{{count}} 个工具",
     "version": "版本 {{version}}",
-    "working": "正在等待所有者确认。",
+    "working": "正在等待确认。",
     "noMatchTitle": "没有匹配的附加组件",
-    "noMatchBody": "「我的附加组件」中没有匹配「{{query}}」的项目。请尝试其他关键词。",
-    "clearSearch": "清除搜索"
+    "noMatchBody": "没有已安装的项目匹配“{{query}}”。请换个词试试。",
+    "clearSearch": "清除搜索",
+    "loadError": {
+      "title": "附加组件暂时不可用。",
+      "paused": "在它恢复之前,附加组件的页面和工具会暂停。"
+    }
   },
   "browse": {
     "confirmTitle": "安装 {{name}}?",
@@ -69,7 +76,7 @@
     "fromLibrary": "来自 {{library}}",
     "install": "安装",
     "installedDetail": "版本 {{version}},第 {{generation}} 代",
-    "installedOther": "已安装 {{version}}(其他版本)",
+    "installedOther": "你当前是 {{version}}",
     "installedSame": "已安装 {{version}}",
     "installedState": "已安装",
     "installing": "正在安装",
@@ -85,7 +92,8 @@
     "backendFailed": "后端未安装。",
     "alias": "别名",
     "kindLabel": "类型",
-    "installedOn": "{{name}}已安装并开启。"
+    "installedOn": "{{name}}已安装并开启。",
+    "installedChip": "已安装"
   },
   "catalog": {
     "allLibraries": "所有库",
@@ -115,8 +123,8 @@
     "pin": "固定 {{name}}",
     "pinLabel": "固定",
     "pinned": "已固定",
-    "running": "已打开",
-    "search": "搜索附加组件",
+    "running": "运行中",
+    "search": "搜索已安装的附加组件",
     "status": {
       "failed": "失败",
       "starting": "正在开始"
@@ -129,7 +137,7 @@
     "denied": "服务器拒绝了此请求。你可能没有权限,或附加组件已变更。列表已刷新。",
     "invalid": "服务器无法接受此请求。",
     "network": "无法连接服务器,请检查网络。",
-    "unavailable": "附加组件所有者暂时不可用,请稍后重试。",
+    "unavailable": "附加组件暂时不可用，请稍后重试。",
     "unknownOutcome": "无法确认结果。请先检查状态,再重试。"
   },
   "installed": {
@@ -140,10 +148,13 @@
   "libraries": {
     "add": "添加库",
     "addTitle": "添加库",
+    "default": "默认",
     "disabled": "已禁用",
     "edit": "编辑",
     "editTitle": "编辑 {{name}}",
     "emptyBody": "添加库以浏览和安装附加组件。",
+    "emptyKindBody": "添加此类型的资源库，或选择其他筛选条件。",
+    "emptyKindTitle": "没有此类型的资源库",
     "emptyTitle": "没有库",
     "enabled": "已启用",
     "errors": {
@@ -172,39 +183,19 @@
       "format": "索引格式",
       "mirrors": "镜像地址"
     },
-    "hints": {
-      "id": "小写字母、数字和连字符,之后不能更改。",
-      "reference": "所有者已配置的凭据名称。切勿在此粘贴令牌或密码。",
-      "url": "不含凭据和查询字符串的 https 地址。",
-      "identityRegex": "以 ^ 开头、$ 结尾的匹配模式，替代精确身份。后端资源库使用它同时验证 master 和标签构建。",
-      "format": "资源库索引使用共享的条目结构。模型库索引对应配置参数所指的模型或后端模型库。",
-      "mirrors": "备用地址，每行一个。无法获取主地址时依次尝试。"
-    },
-    "lastRefresh": "{{when}} 已刷新,{{count}} 个条目",
-    "lead": "库是列出附加组件的目录文档。凭据绝不在此输入:私有库只引用所有者配置的凭据。",
-    "listLabel": "库",
-    "loading": "正在加载库",
-    "notRefreshed": "尚未刷新",
-    "reference": "凭据引用:{{name}}",
-    "refresh": "刷新",
-    "refreshFailed": "上次刷新失败",
-    "refreshed": "已刷新 {{name}}。",
-    "remove": "移除",
-    "removeBody": "该库将从此列表中移除。从它安装的附加组件仍保持安装并继续运行。",
-    "removeTitle": "移除 {{name}}?",
-    "removed": "已移除 {{name}}。",
-    "save": "保存",
-    "saved": "已保存 {{name}}。",
-    "skipped_one": "已跳过 {{count}} 个条目：此版本不读取 {{kinds}} 类型",
-    "skipped_other": "已跳过 {{count}} 个条目：此版本不读取 {{kinds}} 类型",
-    "default": "默认",
-    "emptyKindBody": "添加此类型的资源库，或选择其他筛选条件。",
-    "emptyKindTitle": "没有此类型的资源库",
     "formats": {
       "library": "资源库索引",
       "gallery": "模型库索引"
     },
     "gallery": "模型库索引",
+    "hints": {
+      "id": "小写字母、数字和连字符,之后不能更改。",
+      "reference": "管理员在此服务器上配置的凭据名称。切勿在此粘贴令牌或密码。",
+      "url": "不含凭据和查询字符串的 https 地址。",
+      "identityRegex": "以 ^ 开头、$ 结尾的匹配模式，替代精确身份。后端资源库使用它同时验证 master 和标签构建。",
+      "format": "资源库索引使用共享的条目结构。模型库索引对应配置参数所指的模型或后端模型库。",
+      "mirrors": "备用地址，每行一个。无法获取主地址时依次尝试。"
+    },
     "kind": {
       "addon": "附加组件",
       "backend": "后端",
@@ -217,10 +208,27 @@
       "backend": "后端",
       "model": "模型"
     },
+    "lastRefresh": "{{when}} 已刷新,{{count}} 个条目",
+    "lead": "库是列出附加组件、后端或模型的索引。凭据绝不在此输入：私有附加组件库只引用管理员在此服务器上配置的凭据。",
+    "listLabel": "库",
+    "loading": "正在加载库",
+    "notRefreshed": "尚未刷新",
     "officialOff": "已在设置中关闭官方资源库。默认资源库仍列出但显示为关闭，不会读取。你添加的资源库不受影响。",
+    "reference": "凭据引用:{{name}}",
+    "refresh": "刷新",
+    "refreshFailed": "上次刷新失败",
+    "refreshed": "已刷新 {{name}}。",
+    "remove": "移除",
+    "removeBody": "该库将从此列表中移除。从它安装的附加组件仍保持安装并继续运行。",
     "removeDefaultBody": "这是 LocalAI 附带的默认资源库。移除后下次启动仍保持移除状态，可从列表恢复。已安装的项目不受影响。",
+    "removeTitle": "移除 {{name}}?",
+    "removed": "已移除 {{name}}。",
     "removedDefault": "已移除 {{name}}。下次启动仍保持移除状态，恢复后可重新使用。",
     "restore": "恢复",
+    "save": "保存",
+    "saved": "已保存 {{name}}。",
+    "skipped_one": "已跳过 {{count}} 个条目：此版本不读取 {{kinds}} 类型",
+    "skipped_other": "已跳过 {{count}} 个条目：此版本不读取 {{kinds}} 类型",
     "state": {
       "enabled": "Enabled",
       "disabled": "Disabled",
@@ -251,10 +259,11 @@
     "hasUI": "有页面",
     "headless": "无界面,没有页面",
     "health": "健康状况",
+    "installedAt": "安装时间",
     "host": "主机 API",
     "interface": "界面",
     "logs": "日志",
-    "logsNone": "此版本不收集附加组件进程的输出。上面的健康状况和重启尝试是所有者能报告的内容。",
+    "logsNone": "此版本不收集附加组件进程的输出。上面的健康状况和重启尝试是 LocalAI 能报告的全部内容。",
     "observed": "观测状态",
     "protocol": "协议",
     "restarts": "重启尝试次数",
@@ -338,17 +347,19 @@
   "state": {
     "failed": "失败",
     "label": "状态:{{state}}",
-    "running": "已打开",
+    "running": "运行中",
     "starting": "启动中",
     "stopped": "已关闭",
-    "update-pending": "等待更新"
+    "update-pending": "等待更新",
+    "updateTo": "更新 {{version}}"
   },
-  "supporting": "所有者为你运行的应用,以及它们的来源库。",
+  "supporting": "你安装的软件,为 LocalAI 增加新页面和聊天工具。每个都独立运行,只请求它列出的权限。",
   "tabs": {
-    "apps": "我的附加组件",
+    "apps": "已安装",
     "browse": "查找附加组件",
     "label": "附加组件分区",
-    "libraries": "来源"
+    "libraries": "来源",
+    "access": "主机访问"
   },
   "title": "附加组件",
   "trust": {
@@ -516,8 +527,8 @@
       "unknownOutcome": "结果未知。请重新读取状态：相同的操作不会发送两次。",
       "auth": "请重新登录。",
       "denied": "只有管理员才能在自己的浏览器会话中执行此操作。",
-      "network": "无法连接到所有者。",
-      "unavailable": "所有者不可用。"
+      "network": "无法连接到附加组件服务。",
+      "unavailable": "附加组件服务不可用。"
     }
   },
   "updates": {
@@ -591,8 +602,30 @@
       "auth": "请重新登录以继续。",
       "denied": "只有管理员才能在自己的浏览器会话中执行此操作。",
       "network": "无法连接到网络。",
-      "unavailable": "附加组件所有者不可用。请重试。"
-    }
+      "unavailable": "附加组件服务不可用，请重试。"
+    },
+    "upgradeNamed": "升级 {{name}}",
+    "why": {
+      "role": "有可用更新,只有管理员可以升级。",
+      "needs-check": "已报告有更新,但详情尚未确认。请重新检查以确认。",
+      "check-failed": "上次检查失败,无法确认更新。请重新检查。",
+      "incompatible": "存在更新,但无法在此运行:",
+      "integrity": "库中列出的此版本内容不同,不会作为更新提供。",
+      "recovery": "此插件的数据需要先恢复。请在详情中恢复备份,然后再升级。",
+      "current": "上次检查未发现更新,该提示可能已过期。请重新检查。",
+      "unpinned": "库报告有更新，但没有指明要安装的构建，因此无法在此升级。请稍后再检查。"
+    },
+    "checkAll": "检查更新",
+    "checkingAll": "正在检查...",
+    "checkAllDone": "已检查 {{count}} 个插件。",
+    "checkAllFailed": "{{count}} 个无法检查。",
+    "checkResult": {
+      "done": "已检查。",
+      "failed": "检查未完成。",
+      "justNow": "刚刚检查过。"
+    },
+    "waitingService": "插件服务正在启动。LocalAI 将在 {{seconds}} 秒后再次查询升级状态。",
+    "checkAgain": "立即检查"
   },
   "install": {
     "stepsLabel": "安装步骤",
@@ -629,17 +662,19 @@
     "addsTools_other": "添加 {{count}} 个工具",
     "openNamed": "打开 {{name}}",
     "removeTitle": "移除 {{name}}?",
-    "removeBody": "{{name}}将关闭并从此服务器移除。其数据会保留，重新安装时可继续使用。不会删除数据。"
+    "removeBody": "{{name}}将关闭并从此服务器移除。其数据会保留，重新安装时可继续使用。不会删除数据。",
+    "removeNamed": "移除 {{name}}…"
   },
   "preview": {
     "screenshots": "截图",
-    "adds": "提供的功能",
+    "adds": "它能做什么",
     "page": "LocalAI 中的独立页面",
     "addsNothing": "没有可见界面，在后台运行。",
     "version": "版本",
     "id": "标识符",
     "sourceUnknown": "未知",
-    "moreDetails": "健康、信任与更新"
+    "moreDetails": "健康、信任与更新",
+    "updateTitle": "更新到 {{version}}"
   },
   "flow": {
     "installAndTurnOn": "安装并打开",
@@ -653,6 +688,247 @@
       "install": "下载、验证并安装",
       "turn-on": "打开"
     },
-    "seeInList": "在「我的附加组件」中查看"
+    "seeInList": "在“已安装”中查看",
+    "install": "安装",
+    "installNamed": "安装 {{name}}",
+    "shadowWarning": "此插件会替换内置的 {{tool}}。另一个插件（{{name}}）已经替换了它。只能有一个生效；你可以在 设置 > 工具 中选择。 在你选择之前，由最先安装的插件提供。",
+    "skillShadow": "此插件会替换内置技能 {{skill}}。",
+    "skillShadowWarning": "此插件会替换内置技能 {{skill}}。另一个插件（{{name}}）已经替换了它。只能有一个生效；你可以在 设置 > 工具 中选择。 在你选择之前，由最先安装的插件提供。",
+    "skillProvides": "此插件提供 {{skill}} 技能。",
+    "skillProvidesWarning": "此插件提供 {{skill}} 技能。另一个插件（{{name}}）也提供此技能。只能启用一个；请在设置 > 工具中选择。如果未选择，则使用最先安装的插件。"
+  },
+  "family": {
+    "pages": "在找你或智能体创建的页面?它们在<go>页面</go>中。"
+  },
+  "filter": {
+    "label": "显示",
+    "all": "全部",
+    "running": "运行中",
+    "off": "已关闭",
+    "showAll": "显示全部",
+    "none": {
+      "all": "没有可显示的附加组件。",
+      "running": "没有正在运行的附加组件。",
+      "off": "所有附加组件都在运行。"
+    }
+  },
+  "attention": {
+    "label": "需要处理",
+    "failedTitle": "{{name}} 已停止。",
+    "failedRestarts_one": "连续 {{count}} 次启动失败。",
+    "failedRestarts_other": "连续 {{count}} 次启动失败。",
+    "failedOnce": "它没有启动。",
+    "toolsOff_one": "在它重新运行前,它的 {{count}} 个聊天工具不可用。",
+    "toolsOff_other": "在它重新运行前,它的 {{count}} 个聊天工具不可用。",
+    "pageOff": "在它重新运行前,它的页面不可用。",
+    "updateTitle": "{{name}} {{version}} 已可用。",
+    "updateBody": "你当前是 {{current}}。替换前你会看到变更并进行确认。"
+  },
+  "meta": {
+    "builtin": "内置",
+    "builtinLong": "随 LocalAI 提供",
+    "signed": "已签名 · {{library}}",
+    "checked": "已校验 · {{library}}",
+    "devBuild": "开发版本",
+    "library": "{{library}} 库"
+  },
+  "skills": {
+    "title_one": "{{count}} 个聊天技能",
+    "title_other": "{{count}} 个聊天技能",
+    "provides": "提供 {{skill}} 技能",
+    "replaces": "替换内置技能",
+    "serves": "在聊天中使用",
+    "notServing": "当前未使用",
+    "serveIn": "在聊天中用于 {{skill}}",
+    "saveFailed": "无法保存选择。"
+  },
+  "settingsTab": {
+    "overview": "概览",
+    "settings": "设置",
+    "tabsLabel": "{{name}} 的详情",
+    "off": "启用 {{name}} 后才能更改它的设置。",
+    "pageLink": "设置",
+    "controls": {
+      "loadFailed": "无法读取设置",
+      "saveFailed": "无法保存设置：{{message}}"
+    }
+  },
+  "hostAccess": {
+    "addonsTitle": "插件",
+    "approve": {
+      "action": "批准并升级",
+      "body": "{{name}} 的 {{current}} 版本继续运行。批准后，新版本可以运行这些操作。新增项已标出。",
+      "done": "{{name}} 已升级。",
+      "title": "批准 {{name}} {{version}} 的主机访问"
+    },
+    "asksNothing": "此插件不请求主机访问。",
+    "blanket": {
+      "alsoRevoke": "同时撤销它授予的权限",
+      "alsoRevokeHint": "将失去访问的插件：{{names}}。失去必需访问的插件会停止。",
+      "applyInstalled": "同时应用于已安装的插件",
+      "applyInstalledHint": "关闭：只针对新的安装和升级。",
+      "change": "更改",
+      "fixed": "由部署设置。你不能在此更改。",
+      "held": "持有统一开关所授权限的插件：{{count}}",
+      "includeOptional": "包含可选操作",
+      "includeOptionalHint": "关闭：只授予必需操作。",
+      "intro": "默认关闭。开启后，你安装或升级的插件会获得其清单声明所需的主机操作，无需安装对话框中的这一步。“始终禁止”中的操作仍然被禁止。",
+      "modeAny": "任何库",
+      "modeLabel": "范围",
+      "modeOfficial": "官方库",
+      "nowOff": "统一批准已关闭。它已授予的权限保留。",
+      "nowOn": "统一批准已开启。",
+      "offBody": "新的安装将重新需要你的批准。开关已授予的权限保留，并标记为统一授权，因此不会有东西突然停止。",
+      "offText": "已关闭。安装时你逐个批准插件。",
+      "offTitle": "关闭统一批准",
+      "onTitle": "开启统一批准",
+      "revokeAll": "撤销全部统一授权",
+      "revoked": "已撤销统一授权。",
+      "risk": {
+        "any": "开启后，你从所配置的任何库安装的每个插件都会获得其清单声明所需的主机操作，而无需你审查。任何库的任何条目都会获得它所声明的内容，因此恶意或被入侵的条目会立即获得这些操作。你在“始终禁止”中禁止的操作仍然被禁止。",
+        "official": "开启后，你从官方库安装的每个插件都会获得其清单声明所需的主机操作，而无需你审查。被入侵的条目将恰好获得它所声明的操作。你在“始终禁止”中禁止的操作仍然被禁止。"
+      },
+      "scope": {
+        "any": "对任何库的插件开启。",
+        "official": "对官方库的插件开启。"
+      },
+      "switch": "统一批准",
+      "title": "批准插件请求的一切",
+      "turnOff": "关闭",
+      "turnOn": "开启",
+      "typeLabel": "要确认，请输入：{{phrase}}",
+      "withOptional": "包含可选操作。"
+    },
+    "cannotInstallBlocked": "此插件需要 {{ops}}，但管理员策略禁止。无法安装。",
+    "cannotInstallUnsupported": "此插件需要 {{ops}}，但此 LocalAI 不支持。无法安装。",
+    "chip": "等待批准",
+    "confirm": {
+      "revokeBody": "{{name}} 会失去你或统一开关允许的全部内容。部署的授权保留。如果它失去必需的访问，就会停止。",
+      "revokeTitle": "撤销 {{name}} 的全部主机访问？",
+      "stopAction": "关闭并停止",
+      "stopBody": "没有 {{op}}，{{name}} 无法运行。它会停止，并保持停止，直到你再次允许。",
+      "stopTitle": "关闭 {{name}} 所需的访问？"
+    },
+    "deny": {
+      "add": "添加规则",
+      "added": "已添加规则。",
+      "affectsNone": "没有已安装的插件失去访问。",
+      "allAddons": "所有插件",
+      "checkFailed": "无法检查此规则的影响。未保存任何内容。",
+      "confirmAction": "添加规则",
+      "confirmBody": "适用于：{{target}}。立即生效。正在进行的调用会完成。",
+      "confirmTitle": "始终禁止 {{entry}}？",
+      "entry": "操作、族或 *",
+      "everything": "全部",
+      "fromFile": "在部署中设置",
+      "hint": "族以点结尾，例如 egress. 。精确名称形如 egress.check 。星号表示全部禁止。",
+      "intro": "无论其他设置是否允许，任何插件都不能使用的操作。这里的规则始终优先。",
+      "invalid": "请输入操作（如 egress.check）、族（如 egress.）或 *。",
+      "none": "还没有规则。",
+      "remove": "移除",
+      "removeNamed": "移除 {{target}} 的规则 {{entry}}",
+      "removed": "已移除规则。",
+      "target": "适用于",
+      "title": "始终禁止",
+      "willStop": "将停止，它需要此项"
+    },
+    "emptyBody": "请求主机访问的插件在安装后会显示在这里。",
+    "emptyTitle": "尚未安装插件",
+    "errors": {
+      "approval_required": "此插件需要主机访问。请在浏览器的安装对话框中批准。",
+      "approval_stale": "自你查看以来软件包已变化。请查看新列表并重新批准。",
+      "blocked_by_policy": "管理员策略禁止此插件所需的某项操作。未做任何更改。",
+      "locked_by_deployment": "部署已锁定主机访问。你不能在此更改。",
+      "not_human_surface": "必须由管理员在此浏览器中进行此更改。API 密钥或工具不能。",
+      "revision_conflict": "主机访问已在别处更改。页面已重新读取。请检查后重试。"
+    },
+    "family": {
+      "connector": "连接器",
+      "egress": "网络检查",
+      "finetune": "微调",
+      "quantize": "量化",
+      "workspace": "工作区文件"
+    },
+    "fileEntry": "在部署的策略文件或参数中设置。",
+    "identityMismatch": "这些授权是给同名的另一个软件包的，不起作用。请移除。",
+    "intro": "插件可以在此服务器上运行的操作、每项由谁允许，以及如何收回。插件只拥有你批准的内容。",
+    "keepOwn": "保留为我的授权",
+    "keepOwnNamed": "将 {{name}} 的统一授权保留为我的授权",
+    "loadError": "主机访问未能加载",
+    "loading": "正在读取此插件的请求...",
+    "loadingPage": "正在加载主机访问",
+    "locked": "部署已关闭对主机访问的修改。你可以查看此页面，但不能修改。",
+    "lockedNoAuth": "登录已关闭，任何能访问此服务器的人都可能修改这些设置；它们由管理员在策略文件中设定。",
+    "newOptional": "新版本还请求 {{ops}}。这些是可选的，且未被允许。",
+    "noLongerRequested": "此版本不再请求它。你可以将其关闭。",
+    "notOfficial": "此插件来自 {{library}}，不是官方库。",
+    "op": {
+      "alreadyAllowed": "已允许",
+      "blocked": "被管理员策略禁止",
+      "byDeployment": "部署已允许",
+      "new": "此版本新增",
+      "optional": "可选。没有它插件也能运行，但功能较少。",
+      "required": "必需。没有它，插件无法运行。",
+      "unsupported": "此 LocalAI 不支持"
+    },
+    "previewFailed": "无法读取此插件请求的主机访问。请重试。如果它需要你未批准的访问，安装会被拒绝，且不会有任何改变。",
+    "removeStale": "移除",
+    "revokeAll": "全部撤销",
+    "revokeAllNamed": "撤销 {{name}} 的全部主机访问",
+    "risk": {
+      "changes_data": "修改数据",
+      "network": "网络",
+      "read": "读取",
+      "runs_jobs": "运行任务"
+    },
+    "source": {
+      "blanket": "统一",
+      "deployment": "部署",
+      "you": "你"
+    },
+    "stepFooter": "授权后，此插件可以在此服务器上为使用它的人运行这些操作。你可以在“主机访问”页面查看或撤销。",
+    "stepIntro": "{{name}} 请求在此服务器上运行以下操作。必需项是它正常工作所必需的。可选项在你开启之前保持关闭。",
+    "stepTitle": "主机访问",
+    "stopped": "已停止：它需要 {{ops}}，但已不再允许。",
+    "tabWaiting": "待批准：{{count}}",
+    "waiting": {
+      "body": "新版本请求当前版本没有的主机访问。批准之前，{{current}} 版本继续运行。新增的操作数：{{count}}。",
+      "review": "查看并批准",
+      "reviewNamed": "查看并批准 {{name}} 的主机访问",
+      "title": "{{name}} {{version}} 等待你的批准"
+    }
+  },
+  "file": {
+    "button": "从文件安装",
+    "checking": "正在检查文件…",
+    "pick": "选择附加组件的 zip 文件",
+    "rejected": "文件未被接受。",
+    "gone": "文件已不存在。文件在上传后保留一小时。请重新上传。",
+    "installTitle": "从文件安装 {{name}}？",
+    "upgradeTitle": "从文件更新 {{name}}？",
+    "confirmBody": "将安装文件 {{name}} 中的 {{version}} 版本，然后启用。",
+    "confirmBodyUpgrade": "将安装文件 {{name}} 中的 {{version}} 版本。附加组件保持现在的开启或关闭状态。",
+    "upgradeAction": "更新到 {{version}}",
+    "upgraded": "{{name}} 现在运行 {{version}} 版本。",
+    "unsignedTitle": "本地文件，未签名",
+    "unsignedNotice": "没有人为此文件签名，因此 LocalAI 无法确定它由谁制作。只有在你信任其来源时才安装。",
+    "unsignedShort": "本地文件，未签名",
+    "badge": "本地文件，未签名",
+    "sourceValue": "本地文件，未签名",
+    "hostNotice": "此附加组件来自没有人签名的本地文件。只授予你确信它需要的主机访问权限。",
+    "facts": {
+      "file": "文件",
+      "sha256": "文件 SHA-256",
+      "addon": "附加组件",
+      "platform": "平台",
+      "api": "主机 API"
+    },
+    "relation": {
+      "upgrade": "这会把 {{installed}} 版本替换为 {{version}} 版本。附加组件的数据会保留。",
+      "same": "{{version}} 版本已安装。请选择另一个版本的文件。",
+      "downgradeTitle": "较旧的版本",
+      "downgrade": "这会安装 {{version}} 版本，它比已安装的 {{installed}} 版本更旧。较旧的版本可能无法读取较新版本写入的数据。",
+      "downgradeConfirm": "我要安装较旧的版本"
+    }
   }
 }

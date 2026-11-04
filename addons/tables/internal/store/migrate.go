@@ -8,11 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/mudler/LocalAI/addons/internal/atomicfile"
 )
 
 // ErrIncompatibleFormat means the data on disk is in a format this executable
@@ -268,19 +269,5 @@ func writeStatus(path string, st MigrationStatus) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.CreateTemp(filepath.Dir(path), ".migration-")
-	if err != nil {
-		return err
-	}
-	defer func() { _ = os.Remove(f.Name()) }()
-	if _, err = f.Write(b); err == nil {
-		err = f.Sync()
-	}
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		return err
-	}
-	return os.Rename(f.Name(), path)
+	return atomicfile.Write(path, b, 0o600)
 }

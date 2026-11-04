@@ -174,7 +174,7 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 
 		// Populate openAIReq fields for ComputeChoices
 		openAIReq.Tools = convertFuncsToOpenAITools(funcs)
-		openAIReq.ToolsChoice = input.ToolChoice
+		openAIReq.ToolsChoice = openAIToolChoice(input.ToolChoice)
 		openAIReq.Metadata = input.Metadata
 
 		var result string
@@ -310,6 +310,7 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 		if len(contentBlocks) == 0 {
 			contentBlocks = []schema.AnthropicContentBlock{{Type: "text", Text: result}}
 		}
+		stopReason = budgetStopReason(stopReason, tokenUsage.Completion, input.MaxTokens)
 
 		resp := &schema.AnthropicResponse{
 			ID:         fmt.Sprintf("msg_%s", id),
@@ -480,7 +481,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 
 		// Populate openAIReq fields for ComputeChoices
 		openAIReq.Tools = convertFuncsToOpenAITools(funcs)
-		openAIReq.ToolsChoice = input.ToolChoice
+		openAIReq.ToolsChoice = openAIToolChoice(input.ToolChoice)
 		openAIReq.Metadata = input.Metadata
 
 		_, tokenUsage, chatDeltas, err := openaiEndpoint.ComputeChoices(openAIReq, predInput, cfg, cl, appConfig, ml, func(s string, c *[]schema.Choice) {}, tokenCallback)
@@ -671,6 +672,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 		if toolCallsEmitted > 0 {
 			stopReason = "tool_use"
 		}
+		stopReason = budgetStopReason(stopReason, tokenUsage.Completion, input.MaxTokens)
 
 		sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 			Type: "message_delta",
@@ -829,6 +831,16 @@ func anthropicStreamSequence(in streamInput) []schema.AnthropicStreamEvent {
 	}
 
 	return events
+}
+
+// budgetStopReason reports "max_tokens" instead of "end_turn" when the
+// generation used up the request's max_tokens, mirroring the "length"
+// finish_reason of the OpenAI endpoint. tool_use is left as is.
+func budgetStopReason(stopReason string, completionTokens, maxTokens int) string {
+	if stopReason == "end_turn" && maxTokens > 0 && completionTokens >= maxTokens {
+		return "max_tokens"
+	}
+	return stopReason
 }
 
 func convertFuncsToOpenAITools(funcs functions.Functions) []functions.Tool {
@@ -1023,31 +1035,50 @@ func convertAnthropicTools(input *schema.AnthropicRequest, cfg *config.ModelConf
 		funcs = append(funcs, f)
 	}
 
-	// Handle tool_choice
-	if input.ToolChoice != nil {
-		switch tc := input.ToolChoice.(type) {
-		case string:
-			// "auto", "any", or "none"
-			if tc == "any" {
-				// Force the model to use one of the tools
-				cfg.SetFunctionCallString("required")
-			} else if tc == "none" {
-				// Don't use tools
-				return nil, false
-			}
-			// "auto" is the default - let model decide
-		case map[string]any:
-			// Specific tool selection: {"type": "tool", "name": "tool_name"}
-			if tcType, ok := tc["type"].(string); ok && tcType == "tool" {
-				if name, ok := tc["name"].(string); ok {
-					// Force specific tool
-					cfg.SetFunctionCallNameString(name)
-				}
-			}
+	switch mode, name := anthropicToolChoice(input.ToolChoice); mode {
+	case "any":
+		cfg.SetFunctionCallString("required")
+	case "none":
+		return nil, false
+	case "tool":
+		if name != "" {
+			cfg.SetFunctionCallNameString(name)
 		}
 	}
 
 	return funcs, len(funcs) > 0 && cfg.ShouldUseFunctions()
+}
+
+// anthropicToolChoice reads an Anthropic tool_choice, an object such as
+// {"type": "any"} or {"type": "tool", "name": "get_weather"}. The bare
+// strings "auto", "any" and "none" are accepted too.
+func anthropicToolChoice(toolChoice any) (mode, name string) {
+	switch tc := toolChoice.(type) {
+	case string:
+		mode = tc
+	case map[string]any:
+		mode, _ = tc["type"].(string)
+		name, _ = tc["name"].(string)
+	}
+	return mode, name
+}
+
+// openAIToolChoice translates an Anthropic tool_choice into the OpenAI form
+// the backends read. Passing the Anthropic object through is not neutral:
+// the llama.cpp backend turns any object tool_choice into "required", so
+// {"type": "auto"} and {"type": "none"} would force a tool call.
+func openAIToolChoice(toolChoice any) any {
+	switch mode, name := anthropicToolChoice(toolChoice); mode {
+	case "auto", "none":
+		return mode
+	case "any":
+		return "required"
+	case "tool":
+		if name != "" {
+			return map[string]any{"type": "function", "function": map[string]any{"name": name}}
+		}
+	}
+	return nil
 }
 
 // forwardCloudProxyAnthropicViaBackend marshals the Anthropic request,

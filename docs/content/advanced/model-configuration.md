@@ -157,7 +157,7 @@ behavior.
 
 The initially migrated backend families are `transformers` and its aliases,
 `diffusers`, `qwen-asr`, `fish-speech`, `nemo`, `voxcpm`, `qwen-tts`,
-`liquid-audio`, `vllm`, `vllm-omni`, and `sglang`. Automatic imports add
+`vllm`, `vllm-omni`, and `sglang`. Automatic imports add
 artifact declarations only for this set. Compatible external backends may opt
 in by declaring the artifact explicitly.
 
@@ -689,6 +689,18 @@ This is the load-time reasoning configuration. The orthogonal per-request `enabl
 - `reasoning_effort: "minimal" | "low" | "medium" | "high" | "xhigh" | "max"` enables thinking, unless the model config explicitly set `reasoning.disable: true` (an operator's explicit disable wins and is never re-enabled by a request).
 {{% /notice %}}
 
+The `/v1/responses` endpoint accepts the same effort levels through `reasoning.effort`.
+It also forwards request `metadata` to the backend, including `enable_thinking` overrides.
+
+```json
+{
+  "model": "qwen3",
+  "input": "Say hello",
+  "reasoning": { "effort": "none" },
+  "metadata": { "enable_thinking": "false" }
+}
+```
+
 #### `reasoning_effort` as a chat-template kwarg
 
 `reasoning_effort` is also forwarded to the backend as a `chat_template_kwarg`, so models whose **jinja chat template** keys on it - e.g. gpt-oss (Harmony) or LFM2.5 - honor the **level**, not just the on/off `enable_thinking` flag. This matters for models that ignore `enable_thinking` entirely (LFM2.5 keeps emitting `<think>` for `enable_thinking=false`, but respects `reasoning_effort`).
@@ -738,6 +750,19 @@ Per-request `metadata` overrides the model config defaults and the reasoning-con
 and (for `enable_thinking` / `reasoning_effort`) takes effect across every backend that
 reads them, not just llama.cpp. Typed (non-boolean) values are only supported through the
 model YAML `chat_template_kwargs`, where YAML preserves the type.
+
+Clients written for llama.cpp's `llama-server`, vLLM or SGLang send the same switches as a
+top-level `chat_template_kwargs` object. LocalAI accepts that too and folds its scalar values
+into `metadata` (booleans become `"true"` / `"false"`, numbers become strings; nested objects
+and arrays are ignored). If a key appears in both, `metadata` wins:
+
+```json
+{
+  "model": "qwen3",
+  "messages": [{"role": "user", "content": "hi"}],
+  "chat_template_kwargs": { "enable_thinking": false }
+}
+```
 
 ### Multimodal Backend Options
 
@@ -915,6 +940,7 @@ Configure how the model handles function/tool calls:
 | `function.replace_function_results` | array | | Replace function call results with patterns |
 | `function.replace_llm_results` | array | | Replace LLM results with patterns |
 | `function.capture_llm_results` | array | | Capture LLM results as text (e.g., for "thinking" blocks) |
+| `function.xml_format_preset` | string | | Force an XML tool-call format: `qwen3-coder`, `qwen3.5`, `lfm3`, `glm-4.5`, `minimax-m2`, `kimi-k2` and others. Empty tries all of them |
 
 ### Grammar Configuration
 
@@ -1005,17 +1031,16 @@ Model Context Protocol (MCP) configuration:
 
 ## Agent Configuration
 
-Agent/autonomous agent configuration:
+Options of the tool loop. They apply to the [chats](/features/chats/) (including saved agents, triggers and connector turns) and, for `max_iterations`, to `/v1/chat/completions`, `/v1/messages` and `/v1/responses`:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `agent.max_attempts` | int | Maximum number of attempts |
-| `agent.max_iterations` | int | Maximum number of iterations |
-| `agent.enable_reasoning` | bool | Enable reasoning capabilities |
-| `agent.enable_planning` | bool | Enable planning capabilities |
-| `agent.enable_mcp_prompts` | bool | Enable MCP prompts |
-| `agent.enable_plan_re_evaluator` | bool | Enable plan re-evaluation |
-| `agent.max_generation_tokens` | int | Output-token cap for each completion in the agent loop (agent jobs, `/api/agent/jobs`). Bounds a single completion that keeps generating, which `max_iterations` and `loop_detection` do not. A request that already carries a cap keeps it, so a length retry can still raise it. `0` (default) keeps the client default of 16384 |
+| `agent.max_iterations` | int | Maximum number of tool rounds in one turn. In the chats it replaces the runtime setting `chats_max_iterations` (default 40) for this model |
+| `agent.max_attempts` | int | How often a failed tool call is retried |
+| `agent.force_reasoning_tool` | bool | Make the model reason before it picks a tool |
+| `agent.max_generation_tokens` | int | Accepted and ignored. It capped the completions of the agent jobs, which were removed |
+
+The old agent loop also had `enable_reasoning`, `enable_planning`, `enable_mcp_prompts`, `enable_plan_re_evaluator`, `disable_sink_state`, `loop_detection` and `max_adjustment_attempts`. The chats loop has no counterpart for them. A model file that still sets one keeps loading; the option is ignored and a warning names it when the file is read.
 
 ## Reasoning Configuration
 
@@ -1122,8 +1147,9 @@ curl http://localhost:8080/v1/chat/completions \
 
 **Priority order:**
 1. Request-level `metadata.enable_thinking` (highest priority)
-2. Model config `reasoning.disable` (fallback)
-3. Auto-detected from model template (default)
+2. Request-level `chat_template_kwargs.enable_thinking` (the llama-server / vLLM form)
+3. Model config `reasoning.disable` (fallback)
+4. Auto-detected from model template (default)
 
 ## Pipeline Configuration
 
@@ -1135,6 +1161,7 @@ Define pipelines for audio-to-audio processing and the [Realtime API]({{%relref 
 | `pipeline.llm` | string | LLM model name |
 | `pipeline.transcription` | string | Transcription model name |
 | `pipeline.vad` | string | Voice activity detection model name |
+| `pipeline.any_to_any` | bool | When `true`, a `realtime_audio` model runs as one speech-to-speech model (audio in, audio or text out) instead of the chained VAD, transcription, LLM and TTS path. Experimental. See [Speech-to-speech models]({{%relref "features/openai-realtime#speech-to-speech-models-experimental" %}}) |
 | `pipeline.turn_detection` | object | Realtime turn-detection defaults. Keys: `type` (`server_vad`/`semantic_vad`), `eagerness` (`low`/`medium`/`high`/`auto`), `retranscribe`, `vad_window_sec` (widen the per-tick VAD scan window; values below the automatic floor are ignored). See [Realtime turn detection]({{%relref "features/openai-realtime" %}}) |
 | `pipeline.classifier` | object | Realtime classifier mode: prefill-scored option selection instead of generation. Keys: `enabled`, `threshold`, `normalization` (`raw`/`mean`), `history_items`, `fallback` (`mode`: `none`/`reply`/`generate`, `reply`), `options` (list of `id`, `description`, `reply`, `tool` `{name, arguments}`), `address` (wake-word gate: `names`, `mode`: `ignore`/`reply`, `reply`), `model` (optional separate scoring config). See [Realtime classifier mode]({{%relref "features/openai-realtime#classifier-mode-localai-extension" %}}) |
 

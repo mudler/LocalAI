@@ -17,8 +17,10 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/credentials"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
@@ -141,8 +143,12 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		if e != nil {
 			return out, ErrPackage
 		}
+		want, e := expectedImageDigest(pinned, r, transport)
+		if e != nil {
+			return out, ErrPackage
+		}
 		digest, e := img.Digest()
-		if e != nil || digest.String() != r.Digest {
+		if e != nil || digest.String() != want {
 			return out, ErrPackage
 		}
 		cfg, e := img.ConfigFile()
@@ -215,43 +221,14 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 			return out, e
 		}
 	}
-	manifestPath := filepath.Join(dir, "manifest.json")
-	manifestInfo, e := os.Lstat(manifestPath)
-	if e != nil || !manifestInfo.Mode().IsRegular() || manifestInfo.Size() > contract.DefaultLimits().ManifestBytes {
-		return out, ErrPackage
-	}
-	b, e := os.ReadFile(manifestPath) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
+	m, icon, skillFiles, e := i.inspectStage(dir)
 	if e != nil {
-		return out, e
-	}
-	m, e := contract.ParseManifest(b)
-	if e != nil {
-		return out, e
-	}
-	if e = contract.ValidateManifest(m, i.Host); e != nil {
 		return out, e
 	}
 	// A mutable entry names a moving tag, so the version the library shows is a
 	// label; the package says which build it is, and the digest pins it.
 	if m.ID != r.ID || (!r.Mutable && m.Version != r.Version) {
 		return out, ErrPackage
-	}
-	assets := []string{m.Executable}
-	if u := m.Capabilities.UI; u != nil {
-		assets = append(assets, u.Entry)
-		assets = append(assets, u.CSS...)
-	}
-	for _, asset := range assets {
-		info, e := os.Lstat(filepath.Join(dir, filepath.FromSlash(asset)))
-		if e != nil || !info.Mode().IsRegular() || (asset == m.Executable && info.Mode()&0100 == 0) {
-			return out, ErrPackage
-		}
-	}
-	var icon *PackageIcon
-	if u := m.Capabilities.UI; u != nil && u.Icon != "" {
-		if icon, e = verifyIcon(dir, u.Icon); e != nil {
-			return out, e
-		}
 	}
 	if _, e = os.Lstat(filepath.Join(dir, "receipt.json")); !os.IsNotExist(e) {
 		return out, ErrPackage
@@ -262,7 +239,51 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if progress != nil {
 		progress(Progress{Phase: "verified", Bytes: x.bytes})
 	}
-	return StagedPackage{&stagedState{owner: i, dir: dir, receipt: PackageReceipt{Digest: r.Digest, SourceID: r.SourceID, SourceURL: r.SourceURL, Channel: r.Channel, Selection: selection, Reference: r.Artifact, Verification: verification, Manifest: m, Icon: icon}}}, nil
+	return StagedPackage{&stagedState{owner: i, dir: dir, receipt: PackageReceipt{Digest: r.Digest, SourceID: r.SourceID, SourceURL: r.SourceURL, Channel: r.Channel, Selection: selection, Reference: r.Artifact, Verification: verification, Manifest: m, Icon: icon, Skills: skillFiles}}}, nil
+}
+
+// inspectStage reads and checks the staged tree: the manifest against the
+// host, the declared executable, UI assets, icon and skills. Both the library
+// path and the local file path end here, so one set of rules applies.
+func (i *Installer) inspectStage(dir string) (contract.Manifest, *PackageIcon, []PackageSkill, error) {
+	manifestPath := filepath.Join(dir, "manifest.json")
+	manifestInfo, e := os.Lstat(manifestPath)
+	if e != nil || !manifestInfo.Mode().IsRegular() || manifestInfo.Size() > contract.DefaultLimits().ManifestBytes {
+		return contract.Manifest{}, nil, nil, ErrPackage
+	}
+	b, e := os.ReadFile(manifestPath) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
+	if e != nil {
+		return contract.Manifest{}, nil, nil, e
+	}
+	m, e := contract.ParseManifest(b)
+	if e != nil {
+		return contract.Manifest{}, nil, nil, e
+	}
+	if e = contract.ValidateManifest(m, i.Host); e != nil {
+		return contract.Manifest{}, nil, nil, e
+	}
+	assets := []string{m.Executable}
+	if u := m.Capabilities.UI; u != nil {
+		assets = append(assets, u.Entry)
+		assets = append(assets, u.CSS...)
+	}
+	for _, asset := range assets {
+		info, e := os.Lstat(filepath.Join(dir, filepath.FromSlash(asset)))
+		if e != nil || !info.Mode().IsRegular() || (asset == m.Executable && info.Mode()&0100 == 0) {
+			return contract.Manifest{}, nil, nil, ErrPackage
+		}
+	}
+	var icon *PackageIcon
+	if u := m.Capabilities.UI; u != nil && u.Icon != "" {
+		if icon, e = verifyIcon(dir, u.Icon); e != nil {
+			return contract.Manifest{}, nil, nil, e
+		}
+	}
+	skillFiles, e := verifySkills(dir, m)
+	if e != nil {
+		return contract.Manifest{}, nil, nil, e
+	}
+	return m, icon, skillFiles, nil
 }
 
 // verifyIcon opens the declared icon inside the staged package without
@@ -407,4 +428,40 @@ func (t boundTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		next.Header.Set("User-Agent", req.Header.Get("User-Agent"))
 		cur = next
 	}
+}
+
+// expectedImageDigest returns the digest the fetched platform image must have.
+// The pinned digest names what the signature covers. For a single manifest it
+// is the image digest. For an image index it is the index digest, and the image
+// to install is the child the index lists for the release platform. An index
+// that does not list that platform is refused.
+func expectedImageDigest(pinned string, r catalog.Release, rt http.RoundTripper) (string, error) {
+	ref, err := name.ParseReference(pinned)
+	if err != nil {
+		return "", err
+	}
+	desc, err := remote.Get(ref, remote.WithTransport(rt), remote.WithAuthFromKeychain(credentials.Keychain()))
+	if err != nil {
+		return "", err
+	}
+	if desc.Digest.String() != r.Digest {
+		return "", ErrPackage
+	}
+	if !desc.MediaType.IsIndex() {
+		return r.Digest, nil
+	}
+	index, err := desc.ImageIndex()
+	if err != nil {
+		return "", err
+	}
+	manifest, err := index.IndexManifest()
+	if err != nil {
+		return "", err
+	}
+	for _, child := range manifest.Manifests {
+		if child.Platform != nil && child.Platform.OS == r.OS && child.Platform.Architecture == r.Arch {
+			return child.Digest.String(), nil
+		}
+	}
+	return "", ErrPackage
 }

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mudler/LocalAI/core/services/addons/modelsprobe"
+	"github.com/mudler/xlog"
 	"io"
 	"net/http"
 	"strings"
@@ -23,26 +24,50 @@ var (
 	ErrNotFound   = errors.New("not found")
 	ErrConflict   = errors.New("conflict")
 	ErrBadRequest = errors.New("invalid request")
+	// ErrForbidden is the refusal of an inbound operation: the add-on has no
+	// right to what it named.
+	ErrForbidden = errors.New("forbidden")
 )
 
 // Call is what a handler receives. The actor is the one of the live request,
 // never a value from the arguments.
 type Call struct {
 	AddonID, OperationID string
-	Actor                contract.Actor
-	Arguments            json.RawMessage
+	// ResourceID is the resource of the live request, as the host put it in
+	// the envelope (for an action tool, the key of the chat). It is never a
+	// value from the arguments.
+	ResourceID string
+	// Scope is the scope of the live request's authority.
+	Scope string
+	// ChatID and ChatPrincipal name the chat the live request was made for,
+	// from the host's own record of it (InFlight), never from the envelope
+	// or the arguments. Both are empty for a request no chat made.
+	ChatID, ChatPrincipal string
+	Actor                 contract.Actor
+	Arguments             json.RawMessage
 }
 
 type Handler func(ctx context.Context, call Call) (json.RawMessage, error)
 
-// Spec declares one host operation. Scope is "read" or "apply". Feature is
-// the permission the actor must hold; it is required. Admin marks an operation
-// only an administrator may run, on top of the feature.
+// ScopeInbound is the authorization class of an operation that an add-on starts
+// on its own, with no user behind it: a message that arrives from outside. It
+// is authorized by the credential of the live incarnation alone, so the call has
+// no actor and no feature check, and the handler must find its authority in the
+// host's own records (for a connector, the stored binding), never in the
+// arguments.
+const ScopeInbound = "inbound"
+
+// Spec declares one host operation. Scope is "read", "apply", "act" or
+// ScopeInbound. Feature is the permission the actor must hold; it is required
+// except for ScopeInbound, which has no actor. Admin marks an operation only an
+// administrator may run, on top of the feature.
 type Spec struct {
 	Op, Scope, Feature string
 	Idempotent         bool
 	Admin              bool
-	Handler            Handler
+	// Timeout replaces the default for the scope when it is set.
+	Timeout time.Duration
+	Handler Handler
 }
 
 const (
@@ -91,11 +116,14 @@ func (b *Broker) Register(s Spec) error {
 	if !contract.ValidHostOp(s.Op) {
 		return fmt.Errorf("host operation %q: malformed name", s.Op)
 	}
-	if s.Scope != "read" && s.Scope != "apply" {
-		return fmt.Errorf("host operation %q: scope must be read or apply", s.Op)
+	if s.Scope != "read" && s.Scope != "apply" && s.Scope != "act" && s.Scope != ScopeInbound {
+		return fmt.Errorf("host operation %q: scope must be read, apply, act or %s", s.Op, ScopeInbound)
 	}
-	if s.Feature == "" || s.Handler == nil {
+	if s.Handler == nil || (s.Feature == "" && s.Scope != ScopeInbound) {
 		return fmt.Errorf("host operation %q: feature and handler are required", s.Op)
+	}
+	if s.Scope == ScopeInbound && (s.Feature != "" || s.Admin) {
+		return fmt.Errorf("host operation %q: an inbound operation has no actor, so no feature or admin check", s.Op)
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -130,7 +158,62 @@ func refuse(w http.ResponseWriter, status int, code, msg string) {
 // Handler serves the channel of one add-on incarnation. credential is the
 // secret that incarnation holds; allowed lists the operation prefixes the
 // host setting gives the add-on. Whatever the check, the default is refuse.
+// It is a fixed list: use HandlerForRuntime with an Authority for grants that
+// change while the add-on runs.
 func (b *Broker) Handler(addonID, credential string, allowed []string) http.Handler {
+	return b.HandlerForRuntime(addonID, credential, NewStaticAuthority(map[string][]string{addonID: allowed}), 0, "")
+}
+
+// RuntimeEndpoint owns callback admission and draining for one runtime. Stop
+// prevents new HTTP requests and handler admissions. Drain waits for admitted
+// requests, including those still decoding, without holding a lock across them.
+// Retired observation correlations must not be forgotten until Drain returns.
+type RuntimeEndpoint struct {
+	handler http.Handler
+	mu      sync.Mutex
+	closed  bool
+	active  sync.WaitGroup
+}
+
+type endpointKey struct{}
+
+// EndpointForRuntime serves one runtime. auth is asked on every call, so a
+// revoke or a deny applies to the next call; a nil auth refuses every call.
+func (b *Broker) EndpointForRuntime(addonID, credential string, auth Authority, generation uint64, incarnation string) *RuntimeEndpoint {
+	return &RuntimeEndpoint{handler: b.HandlerForRuntime(addonID, credential, auth, generation, incarnation)}
+}
+
+func (e *RuntimeEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	e.mu.Lock()
+	if e.closed {
+		e.mu.Unlock()
+		refuse(w, http.StatusForbidden, contract.HostNoLiveOperation, "runtime endpoint closed")
+		return
+	}
+	e.active.Add(1)
+	e.mu.Unlock()
+	defer e.active.Done()
+	e.handler.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), endpointKey{}, e)))
+}
+
+func (e *RuntimeEndpoint) Stop() { e.mu.Lock(); e.closed = true; e.mu.Unlock() }
+
+// Drain must be called after Stop, which serializes admission with Wait.
+func (e *RuntimeEndpoint) Drain() { e.active.Wait() }
+
+// admit linearizes handler admission against Stop. No mutex is held while
+// running a handler: cancellation and teardown may themselves need the broker.
+func (e *RuntimeEndpoint) admit() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return !e.closed
+}
+
+// HandlerForRuntime authenticates callbacks for exactly one runtime. The
+// authority is asked for every call, after the credential check and before
+// anything else of the operation runs. A call that already runs is not
+// interrupted by a later revoke.
+func (b *Broker) HandlerForRuntime(addonID, credential string, auth Authority, generation uint64, incarnation string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			refuse(w, http.StatusMethodNotAllowed, contract.HostBadRequest, "POST only")
@@ -155,7 +238,20 @@ func (b *Broker) Handler(addonID, credential string, allowed []string) http.Hand
 			refuse(w, http.StatusBadRequest, contract.HostBadRequest, "malformed request")
 			return
 		}
-		if !hasPrefix(allowed, req.Op) {
+		if b.inflight.callbackDenied(addonID, req.OperationID, generation, incarnation) {
+			refuse(w, http.StatusForbidden, contract.HostScope, "observation callbacks denied")
+			return
+		}
+		// The add-on must not learn whether an operation is denied or only not
+		// granted, so the body is the same. The reason stays on the host.
+		if auth == nil {
+			refuse(w, http.StatusForbidden, contract.HostUnknownOp, "operation not allowed")
+			return
+		}
+		if ok, why := auth.Allows(addonID, req.Op); !ok {
+			if why.Denied() || why == ReasonIdentityMismatch {
+				xlog.Info("add-on host operation refused", "addon", addonID, "op", req.Op, "reason", string(why))
+			}
 			refuse(w, http.StatusForbidden, contract.HostUnknownOp, "operation not allowed")
 			return
 		}
@@ -166,7 +262,11 @@ func (b *Broker) Handler(addonID, credential string, allowed []string) http.Hand
 			refuse(w, http.StatusForbidden, contract.HostUnknownOp, "operation not allowed")
 			return
 		}
-		env, live := b.inflight.Lookup(addonID, req.OperationID)
+		if spec.Scope == ScopeInbound {
+			b.serveInbound(w, r, spec, addonID, req)
+			return
+		}
+		env, binding, live := b.inflight.LookupBound(addonID, req.OperationID)
 		if !live {
 			refuse(w, http.StatusForbidden, contract.HostNoLiveOperation, "no live request")
 			return
@@ -193,13 +293,19 @@ func (b *Broker) Handler(addonID, credential string, allowed []string) http.Hand
 		if spec.Scope == "apply" {
 			timeout = b.limits.ApplyTimeout
 		}
+		if spec.Timeout > 0 {
+			timeout = spec.Timeout
+		}
 		ctx, cancel := context.WithTimeout(r.Context(), timeout)
 		defer cancel()
-		call := Call{AddonID: addonID, OperationID: req.OperationID, Actor: actor, Arguments: args}
+		call := Call{AddonID: addonID, OperationID: req.OperationID, ResourceID: env.Request.ResourceID, Scope: env.Authority.Scope,
+			ChatID: binding.ChatID, ChatPrincipal: binding.Principal, Actor: actor, Arguments: args}
 		result, err := b.run(ctx, spec, call)
 		if err != nil {
 			status, code, msg := http.StatusServiceUnavailable, contract.HostUnavailable, "operation unavailable"
 			switch {
+			case errors.Is(err, ErrForbidden):
+				status, code, msg = http.StatusForbidden, contract.HostNoLiveOperation, "runtime endpoint closed"
 			case errors.Is(err, ErrNotFound):
 				status, code, msg = http.StatusNotFound, contract.HostNotFound, "not found"
 			case errors.Is(err, ErrConflict):
@@ -218,6 +324,39 @@ func (b *Broker) Handler(addonID, credential string, allowed []string) http.Hand
 	})
 }
 
+// serveInbound runs an inbound operation. The credential of the incarnation was
+// checked by the caller, and that credential is the whole authorization: the
+// call has no actor. The add-on ID is the one the broker was built for, never a
+// value of the request.
+func (b *Broker) serveInbound(w http.ResponseWriter, r *http.Request, spec Spec, addonID string, req contract.HostRequest) {
+	args, err := checkArguments(req.Arguments)
+	if err != nil {
+		refuse(w, http.StatusBadRequest, contract.HostBadRequest, err.Error())
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), b.limits.ApplyTimeout)
+	defer cancel()
+	result, err := b.run(ctx, spec, Call{AddonID: addonID, OperationID: req.OperationID, Arguments: args})
+	if err != nil {
+		status, code, msg := http.StatusServiceUnavailable, contract.HostUnavailable, "operation unavailable"
+		switch {
+		case errors.Is(err, ErrForbidden):
+			status, code, msg = http.StatusForbidden, contract.HostScope, "not allowed"
+		case errors.Is(err, ErrNotFound):
+			status, code, msg = http.StatusNotFound, contract.HostNotFound, "not found"
+		case errors.Is(err, ErrTransferTooLarge):
+			status, code, msg = http.StatusRequestEntityTooLarge, contract.HostTooLarge, "the file is larger than the limit"
+		case errors.Is(err, ErrConflict):
+			status, code, msg = http.StatusConflict, contract.HostConflict, "conflict"
+		case errors.Is(err, ErrBadRequest):
+			status, code, msg = http.StatusBadRequest, contract.HostBadRequest, err.Error()
+		}
+		refuse(w, status, code, msg)
+		return
+	}
+	reply(w, http.StatusOK, contract.HostResponse{Result: result})
+}
+
 func hasPrefix(allowed []string, op string) bool {
 	for _, p := range allowed {
 		if p != "" && strings.HasPrefix(op, p) {
@@ -227,13 +366,17 @@ func hasPrefix(allowed []string, op string) bool {
 	return false
 }
 
-// scopeAllows: an apply operation needs an apply envelope; a read operation
-// runs under a read, preview or apply envelope.
+// scopeAllows: an apply operation needs an apply envelope and an act
+// operation needs an act envelope; a read operation runs under a read,
+// preview, apply or act envelope.
 func scopeAllows(have, need string) bool {
-	if need == "apply" {
+	switch need {
+	case "apply":
 		return have == "apply"
+	case "act":
+		return have == "act"
 	}
-	return have == "read" || have == "preview" || have == "apply"
+	return have == "read" || have == "preview" || have == "apply" || have == "act"
 }
 
 // checkArguments returns the argument object, `{}` when absent. A name of
@@ -258,6 +401,9 @@ func checkArguments(raw json.RawMessage) (json.RawMessage, error) {
 // operation ID and name; a repeat gets the first result, and a call that
 // arrives while the first still runs waits for it. A failure is not kept.
 func (b *Broker) run(ctx context.Context, spec Spec, call Call) (json.RawMessage, error) {
+	if endpoint, ok := ctx.Value(endpointKey{}).(*RuntimeEndpoint); ok && !endpoint.admit() {
+		return nil, ErrForbidden
+	}
 	if !spec.Idempotent {
 		return spec.Handler(ctx, call)
 	}

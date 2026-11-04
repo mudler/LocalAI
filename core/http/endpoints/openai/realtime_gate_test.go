@@ -50,15 +50,30 @@ var _ = Describe("prepareRealtimeConfig", func() {
 
 	It("accepts a self-contained realtime_audio model and self-pipelines empty slots", func() {
 		cfg := &config.ModelConfig{
-			Name:          "lfm2.5-audio-realtime",
+			Name:          "s2s-realtime",
+			Backend:       "custom-engine",
 			KnownUsecases: withUsecases(config.FLAG_REALTIME_AUDIO),
 		}
 		_, _, ok := prepareRealtimeConfig(cfg)
 		Expect(ok).To(BeTrue())
-		Expect(cfg.Pipeline.VAD).To(Equal("lfm2.5-audio-realtime"))
-		Expect(cfg.Pipeline.Transcription).To(Equal("lfm2.5-audio-realtime"))
-		Expect(cfg.Pipeline.LLM).To(Equal("lfm2.5-audio-realtime"))
-		Expect(cfg.Pipeline.TTS).To(Equal("lfm2.5-audio-realtime"))
+		Expect(cfg.Pipeline.VAD).To(Equal("s2s-realtime"))
+		Expect(cfg.Pipeline.Transcription).To(Equal("s2s-realtime"))
+		Expect(cfg.Pipeline.LLM).To(Equal("s2s-realtime"))
+		Expect(cfg.Pipeline.TTS).To(Equal("s2s-realtime"))
+	})
+
+	It("rejects a llama-cpp realtime_audio model that lacks pipeline.any_to_any", func() {
+		// llama-cpp has no VAD, transcription or TTS RPCs: self-pipelining
+		// the slots would fail later with UNIMPLEMENTED.
+		cfg := &config.ModelConfig{
+			Name:          "lfm3",
+			Backend:       "llama-cpp",
+			KnownUsecases: withUsecases(config.FLAG_REALTIME_AUDIO),
+		}
+		code, msg, ok := prepareRealtimeConfig(cfg)
+		Expect(ok).To(BeFalse())
+		Expect(code).To(Equal("invalid_pipeline"))
+		Expect(msg).To(ContainSubstring("pipeline.any_to_any"))
 	})
 
 	It("preserves user-pinned pipeline slots on a realtime_audio model", func() {
@@ -66,6 +81,7 @@ var _ = Describe("prepareRealtimeConfig", func() {
 		// model own only STT/LLM/TTS.
 		cfg := &config.ModelConfig{
 			Name:          "lfm-with-external-vad",
+			Backend:       "custom-engine",
 			KnownUsecases: withUsecases(config.FLAG_REALTIME_AUDIO),
 			Pipeline: config.Pipeline{
 				VAD: "silero-vad",

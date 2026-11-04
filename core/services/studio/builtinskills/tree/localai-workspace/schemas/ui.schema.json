@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localai.io/schemas/workspace/ui.json",
+  "title": "LocalAI/ui.json",
+  "description": "How LocalAI looks for this user.",
+  "type": "object",
+  "properties": {
+    "theme": {
+      "enum": ["dark", "light", "system"],
+      "title": "Theme",
+      "description": "system follows the setting of your device."
+    },
+    "accent": {
+      "type": "string",
+      "title": "Accent colour",
+      "description": "A colour such as #3b82f6 for buttons and links. Empty keeps the default.",
+      "pattern": "^$|^#[0-9a-fA-F]{6}$",
+      "x-ui": { "widget": "color" }
+    },
+    "density": {
+      "enum": ["comfortable", "compact"],
+      "title": "Density",
+      "description": "compact shows more on one screen."
+    },
+    "defaultModel": {
+      "type": "string",
+      "title": "Default model",
+      "description": "The model a new chat starts with.",
+      "maxLength": 200,
+      "x-ui": { "widget": "model" }
+    },
+    "pinnedPages": {
+      "type": "array",
+      "description": "Pages shown in the sidebar. Pages come in a later release.",
+      "maxItems": 20,
+      "items": { "type": "string", "maxLength": 200 },
+      "x-ui": { "hidden": true }
+    }
+  }
+}

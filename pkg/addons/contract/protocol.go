@@ -17,6 +17,12 @@ import (
 // It is not an outage and not an unknown outcome.
 var ErrRefused = errors.New("addon refused the request as invalid")
 
+// ErrDenied is the add-on's own answer that this person may not do what the
+// request asks, for example because a feature of the host is not granted to
+// them. Nothing was changed and repeating the call cannot succeed. It is not an
+// outage and not an unknown outcome.
+var ErrDenied = errors.New("addon denied the request for this person")
+
 type Actor struct {
 	UserID       string `json:"userId"`
 	CredentialID string `json:"credentialId"`
@@ -29,6 +35,15 @@ type Request struct {
 	Generation  uint64          `json:"generation"`
 	Action      string          `json:"action"`
 	Arguments   json.RawMessage `json:"arguments" swaggertype:"object"`
+	// ResourceKey and Credential are set by the host alone, for an add-on that
+	// declares credentials (see CredentialSlot). ResourceKey is the external
+	// name of the resource the call works on, after the host checked it against
+	// the person's list, and ResourceID is then the host ID of that entry.
+	// Credential is the secret of the person's binding. An add-on never stores
+	// or logs it, and the host drops both fields from every request that a
+	// caller sends.
+	ResourceKey string `json:"resourceKey,omitempty"`
+	Credential  string `json:"credential,omitempty" swaggerignore:"true"`
 }
 type Authority struct {
 	Actor     Actor     `json:"actor"`
@@ -82,6 +97,13 @@ type Runtime interface {
 	OpenOutput(context.Context, Envelope, string) (io.ReadCloser, error)
 }
 
+// ActRuntime is a runtime that serves action tools. The host calls Act with an
+// envelope whose action and scope are act; the result is the tool's answer.
+// An add-on that declares no action tool does not implement it.
+type ActRuntime interface {
+	Act(context.Context, Envelope) (Result, error)
+}
+
 // UnmarshalJSON applies fixed default ingress bounds and structural validation.
 // Hosts with overrides decode using their transport's bounded decoder and call
 // Validate with their configured limits before admission.
@@ -106,14 +128,21 @@ func (v Envelope) Validate(now time.Time, l Limits) error {
 	if !namespace.MatchString(r.AddonID) || !namespace.MatchString(r.OperationID) || !namespace.MatchString(r.Action) || (r.ResourceID != "" && !namespace.MatchString(r.ResourceID)) || r.Generation == 0 {
 		return fmt.Errorf("invalid request binding")
 	}
+	if (r.ResourceKey != "" && !validResourceKey(r.ResourceKey)) || len(r.Credential) > MaxCredentialBytes {
+		return fmt.Errorf("invalid request resource key or credential")
+	}
 	// Principal identifiers are opaque authentication-system IDs, not filesystem paths.
 	if strings.TrimSpace(a.Actor.UserID) == "" || strings.TrimSpace(a.Actor.CredentialID) == "" || len(a.Actor.UserID) > 256 || len(a.Actor.CredentialID) > 256 || (a.Actor.Mode != "named-user" && a.Actor.Mode != "local-owner") || !a.ExpiresAt.After(now) {
 		return fmt.Errorf("incomplete or expired authority")
 	}
 	switch a.Scope {
-	case "read", "preview", "apply", "output":
+	case "read", "preview", "apply", "output", "act":
 	default:
 		return fmt.Errorf("invalid authority scope")
+	}
+	// The act scope belongs to the act action and to nothing else.
+	if (a.Scope == "act") != (r.Action == "act") {
+		return fmt.Errorf("the act scope and the act action go together")
 	}
 	var args map[string]json.RawMessage
 	if err := strictJSON(r.Arguments, &args, l.PayloadBytes); err != nil {

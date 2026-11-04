@@ -2,19 +2,22 @@
 package tools_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/services/addons/apps"
+	"github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 func host() contract.HostCompatibility {
-	return contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH}
+	return contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH}
 }
 
 // manifestWith validates the Tables manifest after a change to its tool
@@ -130,6 +133,169 @@ var _ = Describe("Manifest tool definitions", func() {
 		}
 		for name, change := range cases {
 			Expect(manifestWith(change)).To(HaveOccurred(), name)
+		}
+	})
+})
+
+var _ = Describe("Tools for the add-on's own page", func() {
+	ctx := context.Background()
+	It("are never offered to a model and are unknown when a model calls them", func() {
+		app := apps.App{ID: "sandbox", Name: "sandbox", Generation: 1, Enabled: true, State: "running", Tools: []string{"status", "set-backend"},
+			ToolDefinitions: []contract.ToolDefinition{
+				{Name: "status", Kind: contract.ToolKindRead, Description: "Say whether it works.", InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)},
+				{Name: "set-backend", Kind: contract.ToolKindRead, Description: "Choose the backend.", UIOnly: true, InputSchema: json.RawMessage(`{"type":"object","properties":{"backend":{"type":"string"}},"additionalProperties":false}`)},
+			}}
+		f := &fake{list: apps.List{Apps: []apps.App{app}}}
+		for name, a := range map[string]*tools.ToolAdapter{"plain": tools.NewToolAdapter(f), "chats": tools.NewChatToolAdapter(f)} {
+			defs, err := a.Discover(ctx, member)
+			Expect(err).NotTo(HaveOccurred(), name)
+			Expect(defs).To(HaveLen(1), name)
+			Expect(defs[0].Tool).To(Equal("status"), name)
+			_, err = a.Execute(ctx, member, tools.ToolName("sandbox", "set-backend"), json.RawMessage(`{"backend":"host"}`))
+			Expect(err).To(MatchError(tools.ErrUnknownTool), name)
+		}
+		Expect(f.calls()).To(BeZero())
+	})
+})
+
+var _ = Describe("A tool that shadows a built-in chat tool", func() {
+	ctx := context.Background()
+	schema := json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)
+	It("keeps its namespaced name and carries the built-in it shadows, only for a replaceable name", func() {
+		app := apps.App{ID: "sandbox", Name: "sandbox", Generation: 1, Enabled: true, State: "running", Tools: []string{"bash", "write", "fetch"},
+			ToolDefinitions: []contract.ToolDefinition{
+				{Name: "bash", Kind: contract.ToolKindAction, Description: "Run a script.", InputSchema: schema, Shadows: "bash"},
+				// A manifest that got past install with a name off the list
+				// still never shadows it.
+				{Name: "write", Kind: contract.ToolKindAction, Description: "Write.", InputSchema: schema, Shadows: "write_file"},
+				// Nor does a shadow of the wrong kind or schema: web_fetch is
+				// a read tool that requires url.
+				{Name: "fetch", Kind: contract.ToolKindAction, Description: "Fetch.", InputSchema: schema, Shadows: "web_fetch"},
+			}}
+		f := &fake{list: apps.List{Apps: []apps.App{app}}}
+		defs, err := tools.NewChatToolAdapter(f).Discover(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(defs).To(HaveLen(3))
+		byTool := map[string]tools.ToolDefinition{}
+		for _, d := range defs {
+			byTool[d.Tool] = d
+		}
+		Expect(byTool["bash"].Name).To(Equal(tools.ToolName("sandbox", "bash")))
+		Expect(byTool["bash"].Shadows).To(Equal("bash"))
+		Expect(byTool["write"].Shadows).To(BeEmpty())
+		Expect(byTool["fetch"].Shadows).To(BeEmpty())
+	})
+})
+
+var _ = Describe("The execution descriptor of a commands tool", func() {
+	ctx := context.Background()
+	schema := json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)
+	bashTool := func(e *contract.ExecutionDescriptor) contract.ToolDefinition {
+		return contract.ToolDefinition{Name: "bash", Kind: contract.ToolKindAction, Description: "Run.", InputSchema: schema, Shadows: "bash", Execution: e}
+	}
+	discover := func(app apps.App) tools.ToolDefinition {
+		defs, err := tools.NewChatToolAdapter(&fake{list: apps.List{Apps: []apps.App{app}}}).Discover(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(defs).To(HaveLen(1))
+		return defs[0]
+	}
+	It("reaches the chat as the add-on declared it", func() {
+		e := &contract.ExecutionDescriptor{Class: contract.ExecutionClassCommands, Title: "Runbox", Note: "It has jq."}
+		d := discover(apps.App{ID: "runbox", Title: "Run box", Generation: 1, Enabled: true, State: "running", Tools: []string{"bash"}, ToolDefinitions: []contract.ToolDefinition{bashTool(e)}})
+		Expect(d.Execution).To(Equal(e))
+	})
+	It("falls back to the add-on's title for a manifest that declares none", func() {
+		d := discover(apps.App{ID: "runbox", Title: "Run box", Generation: 1, Enabled: true, State: "running", Tools: []string{"bash"}, ToolDefinitions: []contract.ToolDefinition{bashTool(nil)}})
+		Expect(d.Execution).To(Equal(&contract.ExecutionDescriptor{Class: contract.ExecutionClassCommands, Title: "Run box"}))
+	})
+	It("lists the skills that need isolation for the add-on that owns the commands tool", func() {
+		skills := []contract.SkillDefinition{{Name: "docx", Shadows: "docx"}, {Name: "runbox-tips"}}
+		app := apps.App{ID: "runbox", Title: "Run box", Generation: 1, Enabled: true, State: "running", Tools: []string{"bash"}, Skills: skills,
+			ToolDefinitions: []contract.ToolDefinition{bashTool(nil)}}
+		list, err := tools.NewChatToolAdapter(&fake{list: apps.List{Apps: []apps.App{app}}}).Skills(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1))
+		Expect(list[0].Isolated).To(Equal([]string{"docx"}))
+	})
+})
+
+var _ = Describe("The add-ons that replace a built-in chat tool", func() {
+	ctx := context.Background()
+	bash := json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)
+	It("are listed in any state, with the names they replace and whether they run", func() {
+		running := apps.App{ID: "sandbox", Title: "Sandbox", Generation: 1, Enabled: true, State: "running", Tools: []string{"bash"}, InstalledAt: "2026-01-01T00:00:00Z",
+			ToolDefinitions: []contract.ToolDefinition{{Name: "bash", Kind: contract.ToolKindAction, Description: "Run.", InputSchema: bash, Shadows: "bash"}}}
+		stopped := apps.App{ID: "other", Title: "Other", Generation: 1, Enabled: true, State: "stopped", Tools: []string{"bash", "bad"},
+			ToolDefinitions: []contract.ToolDefinition{
+				{Name: "bash", Kind: contract.ToolKindAction, Description: "Run.", InputSchema: bash, Shadows: "bash"},
+				// A shadow that fails the check replaces nothing.
+				{Name: "bad", Kind: contract.ToolKindAction, Description: "Fetch.", InputSchema: bash, Shadows: "web_fetch"},
+			}}
+		plain := apps.App{ID: "notes", Generation: 1, Enabled: true, State: "running", Tools: []string{"read"},
+			ToolDefinitions: []contract.ToolDefinition{{Name: "read", Kind: contract.ToolKindRead, Description: "Read.", InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)}}}
+		f := &fake{list: apps.List{Apps: []apps.App{running, stopped, plain}}}
+		list, err := tools.NewChatToolAdapter(f).Shadowers(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(Equal([]tools.AddonShadows{
+			{AddonID: "other", Title: "Other", Tools: []string{"bash"}, Running: false},
+			{AddonID: "sandbox", Title: "Sandbox", InstalledAt: "2026-01-01T00:00:00Z", Tools: []string{"bash"}, Running: true},
+		}))
+	})
+})
+
+var _ = Describe("The add-ons that declare context files", func() {
+	ctx := context.Background()
+	It("are listed in any state, with their files and whether they run", func() {
+		files := []contract.ContextFile{{Scope: contract.ScopeUser, Path: "Memory/index.md"}}
+		running := apps.App{ID: "memory", Generation: 1, Enabled: true, State: "running", ContextFiles: files}
+		stopped := apps.App{ID: "aaa-notes", Generation: 1, Enabled: true, State: "stopped", ContextFiles: files}
+		plain := apps.App{ID: "plain", Generation: 1, Enabled: true, State: "running"}
+		list, err := tools.NewChatToolAdapter(&fake{list: apps.List{Apps: []apps.App{running, stopped, plain}}}).ContextFiles(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(Equal([]tools.AddonContextFiles{
+			{AddonID: "aaa-notes", Files: files, Running: false},
+			{AddonID: "memory", Files: files, Running: true},
+		}))
+	})
+})
+
+var _ = Describe("typed execution status model exclusion", func() {
+	It("keeps declared uiOnly execution status tools out of generic adapters", func() {
+		app := apps.App{ID: "renamed", Generation: 1, Enabled: true, State: "running", Tools: []string{"health"}, ToolDefinitions: []contract.ToolDefinition{{Name: "health", Kind: "read", UIOnly: true, Description: "Observe execution.", InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`)}}}
+		f := &fake{list: apps.List{Apps: []apps.App{app}}}
+		for _, a := range []*tools.ToolAdapter{tools.NewToolAdapter(f), tools.NewChatToolAdapter(f)} {
+			defs, e := a.Discover(context.Background(), member)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(defs).To(BeEmpty())
+			_, e = a.Execute(context.Background(), member, tools.ToolName("renamed", "health"), json.RawMessage(`{}`))
+			Expect(e).To(MatchError(tools.ErrUnknownTool))
+		}
+		Expect(f.calls()).To(BeZero())
+	})
+})
+
+var _ = Describe("The permission a tool declares to the chat", func() {
+	ctx := context.Background()
+	discover := func(credentialed bool) map[string]string {
+		app := tablesApp(tablesManifest())
+		app.Credentialed = credentialed
+		defs, err := tools.NewChatToolAdapter(&fake{list: apps.List{Apps: []apps.App{app}}}).Discover(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		out := map[string]string{}
+		for _, d := range defs {
+			out[d.Tool] = d.Permission
+		}
+		return out
+	}
+	It("is tools.write for the tools that change things, in an add-on that holds a credential", func() {
+		got := discover(true)
+		Expect(got["databases-inspect"]).To(BeEmpty(), "a read needs nothing")
+		Expect(got["tables-create"]).To(Equal(contract.CapToolsWrite))
+		Expect(got["databases-create"]).To(Equal(contract.CapToolsWrite))
+	})
+	It("is empty for every tool of an add-on without a credential", func() {
+		for name, p := range discover(false) {
+			Expect(p).To(BeEmpty(), name)
 		}
 	})
 })

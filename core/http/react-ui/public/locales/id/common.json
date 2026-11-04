@@ -111,5 +111,23 @@
     "megabytes": "MB",
     "gigabytes": "GB",
     "terabytes": "TB"
+  },
+  "ui": {
+    "tryAgain": "Coba lagi",
+    "undo": "Urungkan",
+    "loadError": {
+      "title": "Tidak dapat memuat.",
+      "serverSaid": "Server menjawab “{{message}}”.",
+      "nothingChanged": "Tidak ada yang diubah."
+    }
+  },
+  "chip": {
+    "running": "Berjalan",
+    "starting": "Memulai",
+    "stopped": "Berhenti",
+    "failed": "Gagal",
+    "updateAvailable": "Pembaruan tersedia",
+    "ready": "Siap",
+    "noRunsYet": "Belum ada eksekusi"
   }
 }

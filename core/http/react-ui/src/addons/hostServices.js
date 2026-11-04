@@ -4,15 +4,17 @@ import Icon from '../components/Icon'
 import i18n from '../i18n'
 import { addonsApi } from '../utils/addonsClient'
 import { resourceRequest, dispatchArgs } from './resourceCalls'
+import { userSettingsRequest } from './userSettingsCalls'
 import {
   Button, Spinner, EmptyState, Badge, Stack, Text,
+  Section, Field, Select, TextInput, Switch, Choice, Callout, StatusChip, List, ListRow, Code, Actions, Table, ExternalLink,
   PageHeader, ConfirmDialog, ErrorWithTraceLink, ModelSelector, MediaInput, WaveformPlayer,
   DistributionBars, EmbeddingInspector, TabSwitch,
 } from './hostComponents'
 import LoadingSpinner from '../components/LoadingSpinner'
 import Modal from '../components/Modal'
 import Lightbox from '../components/Lightbox'
-import HomeModelPicker from '../components/home/HomeModelPicker'
+import ModelPicker from '../components/ModelPicker'
 import { useMediaCapture, audioBufferToWavBlob } from '../hooks/useMediaCapture'
 import { useModels } from '../hooks/useModels'
 import { useResources } from '../hooks/useResources'
@@ -61,15 +63,21 @@ const gatewayApi = {
     const r = resourceRequest(call)
     return addonsApi.call(r.path, { method: r.method, body: r.body, headers: r.headers, signal })
   },
+  // The per-person settings of one add-on, over the same shaping rule.
+  async userSettings(call, signal) {
+    const r = userSettingsRequest(call)
+    return addonsApi.call(r.path, { method: r.method, body: r.body, headers: r.headers, signal })
+  },
 }
 
 export const host = Object.freeze({
   React,
   components: {
     Button, Spinner, EmptyState, Badge, Stack, Text, ArtifactCard,
+    Section, Field, Select, TextInput, Switch, Choice, Callout, StatusChip, List, ListRow, Code, Actions, Table, ExternalLink,
     PageHeader, ConfirmDialog, ErrorWithTraceLink, ModelSelector, MediaInput, WaveformPlayer,
     DistributionBars, EmbeddingInspector, TabSwitch,
-    LoadingSpinner, Modal, Lightbox, HomeModelPicker,
+    LoadingSpinner, Modal, Lightbox, ModelPicker, HomeModelPicker: ModelPicker,
   },
   hooks: {
     useMediaCapture, useObjectUrl, useDelayedAction, audioBufferToWavBlob,

@@ -8,7 +8,7 @@ mkdir -p "$TMPDIR"
 fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT HUP INT TERM
 mkdir -p "$fixture/scripts/addons" "$fixture/bin"
-for file in prepare.sh verify.sh suites.json ui_cases.py; do
+for file in prepare.sh verify.sh suites.json ui_cases.py ginkgo_report.py; do
     test -f "$root/scripts/addons/$file" || { echo "missing implementation: $file" >&2; exit 1; }
     cp "$root/scripts/addons/$file" "$fixture/scripts/addons/$file"
 done
@@ -29,6 +29,10 @@ echo "${FIXTURE_PROTOC:-libprotoc 26.1}"
 TOOL
 chmod +x "$fixture/bin/"*
 count=0
+# Exercise successful real-format hooks as well as fail-closed report evidence.
+python3 "$root/scripts/addons/ginkgo_report_test.py"
+count=$((count + 1))
+printf '{"case":"ginkgo-reporter-regressions","status":"passed"}\n'
 reject() {
     name=$1; expected=$2; shift 2
     if "$@" > "$fixture/output" 2>&1; then
@@ -101,6 +105,11 @@ TOOL
 reject ginkgo-empty 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[]' sh "$verify" prerequisites
 reject ginkgo-skipped 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"skipped","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" prerequisites
 reject ginkgo-missing 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='{}' sh "$verify" prerequisites
+# Valid JSON is insufficient: the actual comparator must reject a missing case
+# and a missing report artifact, even when the child exits successfully.
+reject ginkgo-inventory-missing 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"passed","LeafNodeType":"It","LeafNodeText":"different case"}]}]' sh "$verify" prerequisites
+printf '#!/bin/sh\nexit 0\n' > "$fixture/bin/go"
+reject ginkgo-artifact-missing 'Ginkgo report' env PATH="$fixture/bin:$PATH" sh "$verify" prerequisites
 # A failed Ginkgo run names its failed spec and the first line of its failure.
 cat > "$fixture/bin/go" <<'TOOL'
 #!/bin/sh
@@ -126,10 +135,22 @@ reject contracts-empty 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REP
 reject contracts-skipped 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"skipped","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" contracts
 # Every gateway report is mandatory, including a missing second report.
 cat > "$fixture/scripts/addons/suites.json" <<'JSON'
-{"gateway":{"kind":"ginkgo","commands":[["go","test","-count=1","-tags","auth","./fixture"]],"cases":["sqlite transaction","http"],"report":".cache/report.json","reports":[{"path":".cache/report.json","cases":["sqlite transaction"]},{"path":".cache/second.json","cases":["http"]}]}}
+{"gateway":{"kind":"ginkgo","commands":[["go","test","-count=1","-tags","auth","./fixture"]],"report":".cache/report.json","reports":[{"path":".cache/report.json","cases":["sqlite transaction"]},{"path":".cache/second.json","cases":["http"]}]}}
 JSON
 reject gateway-missing-report 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"passed","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" gateway
 reject gateway-skipped-report 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"skipped","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" gateway
+# The same cases listed at the top level and per report would drift apart.
+cat > "$fixture/scripts/addons/suites.json" <<'JSON'
+{"gateway":{"kind":"ginkgo","commands":[["go","test","-count=1","-tags","auth","./fixture"]],"cases":["sqlite transaction"],"report":".cache/report.json","reports":[{"path":".cache/report.json","cases":["sqlite transaction"]}]}}
+JSON
+reject cases-listed-twice 'lists its cases twice' env PATH="$fixture/bin:$PATH" sh "$verify" gateway
+# Pin/browser setup fixtures never build or download: make their disk
+# prerequisite deterministic without bypassing the real preparation gate.
+cat > "$fixture/bin/df" <<'TOOL'
+#!/bin/sh
+printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\nfixture 41943040 0 41943040 0%% /\n'
+TOOL
+chmod +x "$fixture/bin/df"
 # A commit at a tagged module resolves to the tag, with an exact module sum.
 cat > "$fixture/bin/go" <<'TOOL'
 #!/bin/sh

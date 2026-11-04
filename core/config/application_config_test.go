@@ -45,7 +45,6 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 				AutoloadGalleries:        true,
 				AutoloadBackendGalleries: true,
 				ApiKeys:                  []string{"key1", "key2"},
-				AgentJobRetentionDays:    30,
 			}
 
 			rs := appConfig.ToRuntimeSettings()
@@ -124,9 +123,6 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			Expect(rs.ApiKeys).ToNot(BeNil())
 			Expect(*rs.ApiKeys).To(HaveLen(2))
 			Expect(*rs.ApiKeys).To(ContainElements("key1", "key2"))
-
-			Expect(rs.AgentJobRetentionDays).ToNot(BeNil())
-			Expect(*rs.AgentJobRetentionDays).To(Equal(30))
 		})
 
 		It("should include auto_upgrade_backends", func() {
@@ -563,20 +559,6 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			appConfig.ApplyRuntimeSettings(&RuntimeSettings{})
 			Expect(appConfig.AutoUpgradeAddons).To(BeTrue())
 		})
-
-		It("should apply agent settings", func() {
-			appConfig := &ApplicationConfig{}
-
-			retentionDays := 14
-
-			rs := &RuntimeSettings{
-				AgentJobRetentionDays: &retentionDays,
-			}
-
-			appConfig.ApplyRuntimeSettings(rs)
-
-			Expect(appConfig.AgentJobRetentionDays).To(Equal(14))
-		})
 	})
 
 	Describe("Round-trip conversion", func() {
@@ -604,7 +586,6 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 				AutoloadGalleries:        true,
 				AutoloadBackendGalleries: false,
 				AutoUpgradeBackends:      true,
-				AgentJobRetentionDays:    60,
 			}
 
 			// Convert to RuntimeSettings
@@ -636,7 +617,6 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			Expect(target.AutoloadGalleries).To(Equal(original.AutoloadGalleries))
 			Expect(target.AutoloadBackendGalleries).To(Equal(original.AutoloadBackendGalleries))
 			Expect(target.AutoUpgradeBackends).To(Equal(original.AutoUpgradeBackends))
-			Expect(target.AgentJobRetentionDays).To(Equal(original.AgentJobRetentionDays))
 		})
 
 		It("should handle empty galleries correctly in round-trip", func() {

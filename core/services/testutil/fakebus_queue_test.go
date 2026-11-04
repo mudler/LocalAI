@@ -10,14 +10,14 @@ import (
 var _ = Describe("FakeBus queue helpers", func() {
 	It("records the queue group per subject", func() {
 		bus := testutil.NewFakeBus()
-		_, err := bus.QueueSubscribe("jobs.new", "workers", func([]byte) {})
+		_, err := bus.QueueSubscribe("gallery.new", "workers", func([]byte) {})
 		Expect(err).ToNot(HaveOccurred())
-		_, err = bus.QueueSubscribe("agent.execute", "agent-workers", func([]byte) {})
+		_, err = bus.QueueSubscribe("mcp.tools.execute", "agent-workers", func([]byte) {})
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(bus.QueueGroups()).To(Equal(map[string]string{
-			"jobs.new":      "workers",
-			"agent.execute": "agent-workers",
+			"gallery.new":       "workers",
+			"mcp.tools.execute": "agent-workers",
 		}))
 	})
 

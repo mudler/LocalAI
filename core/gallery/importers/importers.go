@@ -139,8 +139,6 @@ var defaultImporters = []Importer{
 	// and would otherwise swallow the C++ port's GGUF bundles.
 	&VibeVoiceCppImporter{},
 	&VibeVoiceImporter{},
-	// LiquidAudio (Python) — keep before LlamaCPP so non-GGUF LFM2-Audio repos route here.
-	&LiquidAudioImporter{},
 	&CoquiImporter{},
 	// Image/Video (Batch 3)
 	&StableDiffusionGGMLImporter{},

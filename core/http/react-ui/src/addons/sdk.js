@@ -9,6 +9,7 @@
 // generation anyway, so a copy of old code that stays in memory can do nothing.
 
 import { resourceOperationId, resourceRequest } from './resourceCalls.js'
+import { userSettingsRequest } from './userSettingsCalls.js'
 
 export const SDK_VERSION = 2
 
@@ -32,20 +33,36 @@ export const ICON_NAMES = Object.freeze([
 // the host theme, valid in the add-on's own scoped style sheet.
 export const THEME_TOKENS = Object.freeze({
   text: 'var(--dk-text)',
-  muted: 'var(--dk-text-muted, var(--dk-text))',
-  surface: 'var(--dk-surface, transparent)',
+  // --dk-text-muted never existed: the muted text of the host is --dk-muted.
+  muted: 'var(--dk-muted)',
+  surface: 'var(--dk-card)',
   inset: 'var(--dk-inset)',
   edge: 'var(--dk-edge)',
   hover: 'var(--dk-hover)',
   accent: 'var(--dk-accent)',
+  accentText: 'var(--dk-accent-text)',
+  accentWash: 'var(--dk-accent-wash)',
   onAccent: 'var(--dk-on-accent)',
+  okText: 'var(--dk-ok-text)',
+  okWash: 'var(--dk-ok-wash)',
+  warnText: 'var(--dk-warn-text)',
+  warnWash: 'var(--dk-warn-wash)',
   errorText: 'var(--dk-error-text)',
   errorWash: 'var(--dk-error-wash)',
   space1: 'var(--dk-space-1, 4px)',
   space2: 'var(--dk-space-2, 8px)',
   space3: 'var(--dk-space-3, 12px)',
   space4: 'var(--dk-space-4, 16px)',
+  space5: 'var(--dk-space-5, 20px)',
+  space6: 'var(--dk-space-6, 24px)',
   radius: 'var(--dk-radius-1)',
+  radiusSmall: 'var(--dk-radius-1)',
+  radiusMedium: 'var(--dk-radius-2)',
+  textMeta: 'var(--dk-text-12)',
+  textSmall: 'var(--dk-text-13)',
+  textBody: 'var(--dk-text-15)',
+  fontBody: 'var(--dk-font-body)',
+  fontMono: 'var(--dk-font-mono)',
 })
 
 export class AddonSdkError extends Error {
@@ -293,6 +310,22 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
     resourceRequest(body)
     return host.api.resource(body, anySignal(signal, options?.signal))
   }
+  // The settings this add-on declared for the signed-in person (manifest
+  // userSettings). The host keeps the answers and validates every write against
+  // the declaration; this binding reaches only this add-on's own settings. A
+  // write is the person's own action from their browser session.
+  const userSettingsCall = async (call, options) => {
+    alive()
+    const body = { ...call, addonId }
+    // A malformed call is refused here, before the host sees it.
+    userSettingsRequest(body)
+    return host.api.userSettings(body, anySignal(signal, options?.signal))
+  }
+  const userSettings = Object.freeze({
+    // Resolves to { settings: [{ key, values, default, value }] }.
+    get: (options) => userSettingsCall({ op: 'get' }, options),
+    set: (key, value, options) => userSettingsCall({ op: 'set', key: text(key), value: text(value) }, options),
+  })
   const operation = (options) => (typeof options?.operationId === 'string' && options.operationId ? options.operationId : resourceOperationId())
   const text = (v) => (typeof v === 'string' ? v : '')
   const resources = Object.freeze({
@@ -436,6 +469,7 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
     // sheet). It is the host's portal; the node must be in the page.
     portal: (children, node) => (host.createPortal && node ? host.createPortal(children, node) : children),
     resources,
+    userSettings,
     // Reads that answer with private files. The result is the host's own
     // description of each file (identifier, name, media type, size): the
     // add-on's handle, a path or a URL never reaches the add-on's page. The

@@ -5,8 +5,53 @@ description = "Prepare and verify the toolchain for focused addon tests."
 +++
 
 The addon verification scripts separate explicit dependency setup from offline checks.
-Run all commands from the repository root. Only the `prerequisites` suite is currently available.
+Run all commands from the repository root. `scripts/addons/suites.json` lists the available suites and their exact case inventories.
+For typed extensions, run `contracts`, `apps`, `runtime`, `gateway`, and `host-slots`.
+The `contracts` suite includes all official package manifests and generic architecture guards. It runs `./pkg/addons/contract`,
+`./pkg/addons/packaging`, and the root architecture suite, each with an exact
+Ginkgo report inventory (including twelve official manifest audits, two policy
+packaging checks, and two architecture guards). `apps` inventories the generic
+UI fixtures; `gateway` inventories the real application owner binding fixture.
+The latter installs two differently named packages through the actual catalog
+and Manager, uses JSON chat/agent stores, selects the oldest provider, then pins
+the second and checks each declared execution/status tool and runtime identity.
+The gateway callback-only test separately checks honest binding pass-through.
+
+The shared `scripts/addons/ginkgo_report.py` comparator checks actual report
+artifacts, not just JSON syntax. Every required case must pass exactly once.
+A report may declare an explicit `focus` matching its command's Ginkgo focus;
+only excluded specs may be skipped, never required cases. Harness self-tests
+exercise missing artifacts, missing required cases, and skipped reports.
 Unknown suites, empty selections, skipped required tests, and failed commands return a nonzero status.
+
+## Direct verification evidence and limits
+
+The bounded review verification used offline caches, `GOMAXPROCS=2`, and
+`GOFLAGS='-mod=readonly -p=2 "-ldflags=-s -w"'`. Direct commands used
+`go test -timeout=5m -count=1 -tags auth PACKAGE -ginkgo.json-report=REPORT`
+for `./pkg/addons/contract`, `./pkg/addons/packaging`, `.`,
+`./core/services/addons/apps`,
+`./core/services/addons/gateway`, and `./core/application`.
+Actual reports compared with the harness comparator contain 196 contract,
+174 packaging, 2 architecture, 10 apps, and 115 gateway cases, all passed.
+The focused `execution binding owner resolver` run passed all 8 required cases;
+its excluded specs are not required cases. Full application testing exited zero
+with 256 passed and 3 PostgreSQL-dependent Files cases skipped because
+`LOCALAI_TEST_POSTGRES_URL` was unset; it is not an all-cases acceptance pass.
+
+`sh scripts/addons/prerequisites_test.sh` passed its exact 38-case inventory,
+including missing/skipped report rejection. Model race testing and viewer tests
+passed, and `go run ./pkg/addons/model/executionstatus/cmd/viewer -check`
+verified trace coverage and deterministic data. Focused real owner artifacts
+with a removed or skipped required case were also rejected by the comparator.
+Existing contract coverage passed without an invented failing baseline.
+
+These are direct checks, **not a full harness pass**. The commands and report
+inventories are wired, but `sh scripts/addons/prepare.sh --check` remains blocked
+by missing `protoc` 26.1. No downloads or integration preparation were performed.
+Browser acceptance and named-user SQL authority integration remain unverified;
+the JSON owner fixture does not establish either. Local evidence reports and
+logs are under `.cache/addons/logs/review2-*` and are not product artifacts.
 
 ## Required tools
 
@@ -258,6 +303,37 @@ the set. A suite that is added to `suites.json` must be named in the script.
 The report of the parent review is this inventory plus the case list of
 `foundation-acceptance` in `scripts/addons/suites.json`.
 
+## Library sources suite
+
+`sh scripts/addons/verify.sh library-sources` runs the library sources spec
+(`core/http/react-ui/e2e/library-sources.spec.js`) in a real browser, against a
+real UI test server that starts like a normal install: the default galleries,
+the default library sources of the add-on, backend and model kinds, and add-ons
+on with nothing installed. `playwright.library.config.js` starts that server
+itself on a free port. The spec adds, turns off, removes and restores sources,
+checks that each page lists only its own kind, and checks the "Use official
+libraries" setting.
+
+## Continuous integration
+
+Each part of the add-on tests has a job that runs it, so a pull request cannot
+skip them:
+
+| What | Where |
+| --- | --- |
+| Go tests under `addons/` and the self-contained `tests/addons/actione2e` suite (real Sandbox and Office executables under the real supervisor) | `make test` and the coverage run, job `tests-linux` in `test.yml` |
+| Every suite of `suites.json` except `packaging`, in five groups | `addons-tests.yml` |
+| `packaging` | `addons-package.yml` |
+| UI unit tests of every add-on, the host UI unit tests, eslint and the locale ratchet | `tests-ui-unit.yml` (`make test-ui-unit`) |
+| Add-on pages in the browser against stubbed routes, and the shipped bundle | `tests-ui-e2e.yml` |
+
+The suites of `addons-tests.yml` need the integration build, so each group runs
+`prepare.sh --prepare` and `--integration` once, then `verify.sh` for each of
+its suites. Run the same way locally with
+`make test-addons-suites ADDON_SUITES='gallery-ui library-sources'`.
+A suite added to `suites.json` must be named in a group of the workflow and in
+`foundation_gate.sh` or `tables_gate.sh`.
+
 ## Packaging suite
 
 `sh scripts/addons/verify.sh packaging` checks the first-party OCI package, its release
@@ -385,3 +461,122 @@ and that the database and the backups are untouched.
   runtime client types the add-on's HTTP 400 and 422 as a refusal, and the host answers
   it the same way from the apply, read, proposal, chat and artifact paths, and from the
   owner and every frontend. The authorization specs pin the exact status.
+
+### Settings authority in both topologies
+
+For every add-on settings surface, run combined-mode and owner-with-two-frontends cases. Save through one frontend and verify the other frontend and the real consumer agree. Repeat a restrictive update, restart the owner, and interrupt owner access. Assert explicit errors rather than frontend-local settings or built-in fallback. Exercise CAS conflicts, per-key provider deletion, uncertain retries, and preservation of unrelated fields. Network policy tests must use new HTTP and CONNECT sockets after revocation; established streams may finish. Add rendered-form tests for the actual dispatch payload and disabled controls during failed reconciliation. Follow the existing distributed-state checklist before introducing a new settings path.
+
+## Document skill migration checks
+
+Run the contract, package, and packaging gates separately:
+
+```sh
+sh scripts/addons/verify.sh contracts
+sh scripts/addons/verify.sh packages
+sh scripts/addons/verify.sh packaging
+```
+
+The packaging tests use the actual skill-tree validator on Sandbox assets.
+They check reference coverage, local links, notices, receipt hashes, and existing file and byte limits.
+Package lifecycle tests cover install, upgrade, materialization, and uninstall.
+Core tests cover stale built-in cleanup, preserved user overrides, and unchanged document extraction.
+
+For guest execution, supply a real package whose guest image includes the document helpers:
+
+```sh
+sh scripts/addons/sandbox_smoke.sh --layout "$SANDBOX_DOCUMENT_LAYOUT" --require isolated
+```
+
+This smoke runs the generated PDF fixture checker through the real Sandbox command route.
+It requires gVisor or KVM; an unavailable runtime is a failure, not evidence of helper execution.
+The checker lives at `/usr/local/lib/localai/document-skills/check-document-skills.py` in the guest.
+A stand-in image reference from `--local-check` cannot establish guest execution.
+
+Run the focused UI checks with Node 22 and a dedicated server built from the current tree:
+
+```sh
+cd core/http/react-ui
+node tests/unit/run.mjs chatskills.test.mjs
+PLAYWRIGHT_EXTERNAL_SERVER=1 PW_WORKERS=2 ./node_modules/.bin/playwright test \
+  e2e/chats-skills-picker.spec.js e2e/agents-skills-real.spec.js e2e/skills.spec.js
+```
+
+Build the UI and test server first, as described above. Start your own server on the configured free port.
+The picker specs exercise rendering and switches; they do not alone establish real provider eligibility.
+Also test actual provider resolution, grants, pins, OFF persistence, and index/load agreement against the application.
+Require native linux/amd64 and linux/arm64 execution evidence before claiming release verification.
+Cross-compilation or a configured CI matrix alone does not establish native execution.
+
+## Upgrade submission and observation regressions
+
+- [ ] `go test -race ./core/services/addons ./core/services/addons/gateway ./core/services/addons/recovery -count=1`
+- [ ] `cd core/http/react-ui && node --test tests/unit/updatereview.test.mjs`
+- [ ] `cd core/http/react-ui && npm run build`
+- [ ] Verify cancellation during the real verified-backup path does not cancel
+      an accepted upgrade or prevent its package commit.
+- [ ] Verify status reads and same-ID retries through two real mTLS frontends
+      remain available while backup exceeds an injected ordinary client deadline.
+- [ ] Verify payload conflicts, actor isolation, terminal receipt replay after
+      restart, interruption without replay, and Close cancellation/join behavior.
+- [ ] Verify browser reload observes the stored ID, account switching isolates
+      records, logout clears records, and progress does not invent percentages.
+
+The recovery suite above remains required for crash boundaries during backup,
+staging, migration and publication, including format-changing recovery-required
+outcomes. The focused submission tests do not replace the real executable,
+real-auth HTTP or rendered-browser acceptance gates.
+
+### Current-read execution bindings
+
+`ApplicationConfig.ChatSelectionSnapshot` returns synchronized, detached current
+provider pins and host execution mode. Store reads preserve actor scope and return
+detached records. JSON stores use their existing mutexes and atomic writes; SQL
+stores use ordinary current reads. No revision ledger or directory lock is needed.
+
+The gateway compares current selection inputs and runtime identity before dispatch
+and after the reply. The reducer binds explicit actor, credential, conversation,
+provider, tools and runtime identity. These checks are advisory, not a transaction
+or a guarantee to detect revoke-and-restore changes between reads.
+
+### Model action contract milestone
+
+Run from the repository root (these packages share the root Go module):
+
+```sh
+go test -count=1 -v -tags auth ./pkg/addons/contract ./core/services/addons/apps ./core/services/addons/packages ./core/services/addons/runtime ./addons/internal/protocol ./core/config
+```
+
+`modelactions_test.go` covers strict keys, capability exclusion, traversal and
+SDK path/count bounds, full manifest round trips and owning manifests. Apps
+specs exercise actual installed projection and slice isolation. The package and
+protocol declaration matrices include model actions independently and together
+with all other extensions. Runtime specs verify exact registration equality,
+crash recovery, receipt replay and immutable registry snapshots. Core/config
+owns vocabulary parity; the contract package does not import core/config.
+Exact contract, Apps, package and protocol spec names are in
+`scripts/addons/suites.json`. These unit checks do not certify browser dispatch,
+PostgreSQL services, or full-system harness prerequisites.
+
+
+### Model launch and canonical route regressions
+
+`core/http/react-ui/e2e/addon-model-actions.spec.js` exercises the production
+React InstalledModels inspector, gallery Open and ModelPage Overview renderer.
+Each surface covers arbitrary single providers, deterministic named collisions,
+encoded selected model values, absence without install promotion and stale
+installation refusal. The removed-route case asserts NotFound without redirect.
+The tests mock HTTP responses; they do not verify backend authorization or
+multi-node integration. Node tests in `addonmodelactions.test.mjs` cover bounded
+metadata and dispatch rejection after actor, session, generation, entry or
+page/path changes. `legacyroutes.test.mjs` retains native chat handoff checks.
+
+The canonical-address fixture audit includes audio-transform, chats-switches-real,
+chrome-audit, diarization-profiles, media-history, navigation, no-edge-rails,
+page-render-smoke, sound-expansion, every studio spec, talk, taste-polish,
+threed-animation, threed-gen and addon-navigation. Existing cases remain;
+standalone addon addresses become declared fixture pages, and selected models
+travel as query values. Addon-local navigation adapter coverage stays in place.
+
+The execution-status viewer defaults to `viewer.html`. Use `-o /path/to/viewer.html`
+to choose an output location explicitly; it does not read environment variables.
+`-check` alone verifies the model without writing a file.

@@ -3,13 +3,14 @@
     "blocked": "Uma ação anterior neste complemento ainda não foi confirmada. Verifique o estado dela ou descarte-a primeiro.",
     "checkStatus": "Verificar estado",
     "dismiss": "Descartar",
-    "failed": "O proprietário não concluiu a ação. Nada foi alterado. Tente de novo para iniciar uma nova tentativa.",
-    "notApplied": "O proprietário informou a ação como concluída, mas o complemento não mudou. Tente novamente.",
-    "unknown": "O proprietário ainda não confirmou a ação. Ela ainda pode ser aplicada. Verifique o estado ou descarte-a antes de iniciar outra ação."
+    "failed": "A ação não terminou. Nada foi alterado. Tente de novo para iniciar uma nova tentativa.",
+    "notApplied": "A ação foi informada como concluída, mas o complemento não mudou. Tente de novo para iniciar uma nova tentativa.",
+    "unknown": "A ação ainda não foi confirmada. Ela ainda pode ser aplicada. Verifique o estado ou descarte-a antes de iniciar outra ação."
   },
   "approval": {
     "title": "Aprovação necessária",
     "from": "De {{addon}}",
+    "connection": "Conexão: {{name}}",
     "loading": "Carregando a solicitação",
     "failed": "Esta solicitação não está disponível.",
     "rejected": "Não foi possível concluir a solicitação. Verifique o estado e tente de novo.",
@@ -37,14 +38,16 @@
     "emptyTitle": "Ainda não há apps",
     "firstRun": {
       "browse": "Browse add-ons",
-      "title": "Welcome to Apps",
-      "lead": "Add-ons give LocalAI pages and chat tools. Start with one of these, or find more.",
-      "featuredLabel": "Featured add-ons",
+      "title": "Ainda não há complementos",
+      "lead": "Complementos dão ao LocalAI novas páginas e ferramentas de chat. Eles rodam separados e só pedem o que declaram.",
+      "featuredLabel": "Comece com um destes",
       "featuredFailed": "The list of add-ons could not be read.",
-      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons."
+      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons.",
+      "factChecked": "Verificados nas suas fontes antes de rodar",
+      "factRemove": "Desligue ou remova quando quiser"
     },
     "headless": "Roda em segundo plano e não tem página própria.",
-    "listLabel": "Apps",
+    "listLabel": "Complementos instalados",
     "loading": "Carregando apps",
     "manage": "Gerenciar",
     "open": "Abrir",
@@ -56,10 +59,14 @@
     "tools_one": "{{count}} ferramenta",
     "tools_other": "{{count}} ferramentas",
     "version": "Versão {{version}}",
-    "working": "Aguardando a confirmação do proprietário.",
+    "working": "Aguardando a confirmação.",
     "noMatchTitle": "No add-on matches",
-    "noMatchBody": "Nothing in My add-ons matches \"{{query}}\". Try other words.",
-    "clearSearch": "Clear search"
+    "noMatchBody": "Nada instalado corresponde a \"{{query}}\". Tente outras palavras.",
+    "clearSearch": "Clear search",
+    "loadError": {
+      "title": "Os complementos não estão disponíveis agora.",
+      "paused": "Páginas e ferramentas dos complementos ficam pausadas até ele voltar."
+    }
   },
   "browse": {
     "confirmTitle": "Instalar {{name}}?",
@@ -69,7 +76,7 @@
     "fromLibrary": "de {{library}}",
     "install": "Instalar",
     "installedDetail": "Versão {{version}}, geração {{generation}}",
-    "installedOther": "Instalado {{version}} (outra versão)",
+    "installedOther": "Você tem {{version}}",
     "installedSame": "Instalado {{version}}",
     "installedState": "Instalado",
     "installing": "Instalando",
@@ -85,7 +92,8 @@
     "backendFailed": "The backend was not installed.",
     "alias": "Alias",
     "kindLabel": "Kind",
-    "installedOn": "{{name}} is installed and on."
+    "installedOn": "{{name}} is installed and on.",
+    "installedChip": "Instalado"
   },
   "catalog": {
     "allLibraries": "Todas as bibliotecas",
@@ -115,8 +123,8 @@
     "pin": "Pin {{name}}",
     "pinLabel": "Pin",
     "pinned": "Pinned",
-    "running": "Ativado",
-    "search": "Search add-ons",
+    "running": "Em execução",
+    "search": "Pesquisar complementos instalados",
     "status": {
       "failed": "failed",
       "starting": "starting"
@@ -129,7 +137,7 @@
     "denied": "O servidor recusou. Você pode não ter permissão, ou o complemento mudou. A lista foi atualizada.",
     "invalid": "O servidor não pôde aceitar esta solicitação.",
     "network": "Não foi possível alcançar o servidor. Verifique sua conexão.",
-    "unavailable": "O proprietário do complemento não está disponível agora. Tente de novo em instantes.",
+    "unavailable": "Os complementos não estão disponíveis agora. Tente de novo em instantes.",
     "unknownOutcome": "Não foi possível confirmar o resultado. Verifique o estado antes de tentar de novo."
   },
   "installed": {
@@ -174,14 +182,14 @@
     },
     "hints": {
       "id": "Letras minúsculas, dígitos e hifens. Não pode mudar depois.",
-      "reference": "O nome de uma credencial que o proprietário configurou. Nunca cole um token ou senha aqui.",
+      "reference": "O nome de uma credencial que um administrador configurou neste servidor. Nunca cole um token ou senha aqui.",
       "url": "Um endereço https sem credenciais nem string de consulta.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "Atualizada {{when}}, {{count}} entradas",
-    "lead": "Uma biblioteca é um documento de catálogo que lista complementos. Credenciais nunca são digitadas aqui: uma biblioteca privada indica uma credencial que o proprietário configurou.",
+    "lead": "Uma biblioteca é um índice que lista complementos, backends ou modelos. Credenciais nunca são digitadas aqui: uma biblioteca privada de complementos indica uma credencial que um administrador configurou neste servidor.",
     "listLabel": "Bibliotecas",
     "loading": "Carregando bibliotecas",
     "notRefreshed": "Ainda não atualizada",
@@ -251,10 +259,11 @@
     "hasUI": "Tem páginas",
     "headless": "Sem interface, sem páginas",
     "health": "Saúde",
+    "installedAt": "Instalado",
     "host": "API do host",
     "interface": "Interface",
     "logs": "Logs",
-    "logsNone": "A saída dos processos dos complementos não é coletada nesta versão. A saúde e as tentativas de reinício acima são o que o proprietário pode informar.",
+    "logsNone": "A saída dos processos dos complementos não é coletada nesta versão. A saúde e as tentativas de reinício acima são tudo o que o LocalAI pode informar.",
     "observed": "Estado observado",
     "protocol": "Protocolo",
     "restarts": "Tentativas de reinício",
@@ -338,17 +347,19 @@
   "state": {
     "failed": "Com falha",
     "label": "Estado: {{state}}",
-    "running": "Ativado",
+    "running": "Em execução",
     "starting": "Iniciando",
     "stopped": "Desativado",
-    "update-pending": "Atualização pendente"
+    "update-pending": "Atualização pendente",
+    "updateTo": "Atualização {{version}}"
   },
-  "supporting": "Apps que o proprietário executa para você e as bibliotecas de onde vêm.",
+  "supporting": "Software que você instala para dar ao LocalAI novas páginas e ferramentas de chat. Cada um roda separado e só pede o que declara.",
   "tabs": {
-    "apps": "Meus complementos",
+    "apps": "Instalados",
     "browse": "Encontrar complementos",
     "label": "Seções de complementos",
-    "libraries": "Fontes"
+    "libraries": "Fontes",
+    "access": "Acesso ao host"
   },
   "title": "Complementos",
   "trust": {
@@ -516,8 +527,8 @@
       "unknownOutcome": "O resultado não é conhecido. Leia o estado de novo: a mesma ação não é enviada duas vezes.",
       "auth": "Entre novamente.",
       "denied": "Somente administradores podem fazer isto, na própria sessão do navegador.",
-      "network": "Não foi possível alcançar o proprietário.",
-      "unavailable": "O proprietário não está disponível."
+      "network": "Não foi possível alcançar o serviço de complementos.",
+      "unavailable": "O serviço de complementos não está disponível."
     }
   },
   "updates": {
@@ -591,8 +602,30 @@
       "auth": "Entre novamente para continuar.",
       "denied": "Somente um administrador pode fazer isso na própria sessão do navegador.",
       "network": "A rede não está acessível.",
-      "unavailable": "O proprietário do complemento não está disponível. Tente novamente."
-    }
+      "unavailable": "O serviço de complementos não está disponível. Tente de novo."
+    },
+    "upgradeNamed": "Atualizar {{name}}",
+    "why": {
+      "role": "Há uma atualização disponível. Somente um administrador pode instalá-la.",
+      "needs-check": "Uma atualização foi informada, mas os detalhes ainda não foram confirmados. Verifique novamente para confirmar.",
+      "check-failed": "A última verificação falhou, então a atualização não pode ser confirmada. Verifique novamente.",
+      "incompatible": "Existe uma atualização, mas ela não pode rodar aqui:",
+      "integrity": "A biblioteca lista esta versão com conteúdo diferente. Ela não é oferecida como atualização.",
+      "recovery": "Os dados deste complemento precisam de recuperação primeiro. Restaure um backup em Detalhes e depois atualize.",
+      "current": "A última verificação não encontrou atualização. O aviso pode estar desatualizado. Verifique novamente.",
+      "unpinned": "A biblioteca informa uma atualização, mas não indica qual build instalar, então não é possível atualizar daqui. Verifique novamente mais tarde."
+    },
+    "checkAll": "Verificar atualizações",
+    "checkingAll": "Verificando...",
+    "checkAllDone": "{{count}} complementos verificados.",
+    "checkAllFailed": "{{count}} não puderam ser verificados.",
+    "checkResult": {
+      "done": "Verificado.",
+      "failed": "A verificação não foi concluída.",
+      "justNow": "Verificado agora mesmo."
+    },
+    "waitingService": "O serviço de complementos está iniciando. O LocalAI pergunta de novo sobre a atualização em {{seconds}} s.",
+    "checkAgain": "Verificar agora"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -629,17 +662,19 @@
     "addsTools_other": "Adds {{count}} tools",
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
-    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted."
+    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
+    "removeNamed": "Remover {{name}}…"
   },
   "preview": {
     "screenshots": "Screenshots",
-    "adds": "What it adds",
+    "adds": "O que ele pode fazer",
     "page": "A page of its own in LocalAI",
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
     "sourceUnknown": "Not known",
-    "moreDetails": "Health, trust and updates"
+    "moreDetails": "Health, trust and updates",
+    "updateTitle": "Atualizar para {{version}}"
   },
   "flow": {
     "installAndTurnOn": "Instalar e ativar",
@@ -653,6 +688,247 @@
       "install": "Download, verify and install",
       "turn-on": "Turn on"
     },
-    "seeInList": "See it in My add-ons"
+    "seeInList": "Ver em Instalados",
+    "install": "Instalar",
+    "installNamed": "Instalar {{name}}",
+    "shadowWarning": "Este complemento substitui o {{tool}} integrado. Outro complemento ({{name}}) já faz isso. Só um pode estar ativo; você escolhe qual em Configurações > Ferramentas. Até você escolher, o que foi instalado primeiro o fornece.",
+    "skillShadow": "Este complemento substitui a habilidade integrada {{skill}}.",
+    "skillShadowWarning": "Este complemento substitui a habilidade integrada {{skill}}. Outro complemento ({{name}}) já faz isso. Só um pode estar ativo; você escolhe qual em Configurações > Ferramentas. Até você escolher, o que foi instalado primeiro o fornece.",
+    "skillProvides": "Este complemento fornece a habilidade {{skill}}.",
+    "skillProvidesWarning": "Este complemento fornece a habilidade {{skill}}. Outro complemento ({{name}}) também a fornece. Apenas um pode estar ativo; escolha em Configurações > Ferramentas. Sem uma escolha, o instalado primeiro será usado."
+  },
+  "family": {
+    "pages": "Procurando páginas que você ou um agente criou? Elas estão em <go>Páginas</go>."
+  },
+  "filter": {
+    "label": "Mostrar",
+    "all": "Todos",
+    "running": "Em execução",
+    "off": "Desligados",
+    "showAll": "Mostrar todos",
+    "none": {
+      "all": "Nenhum complemento para mostrar.",
+      "running": "Nenhum complemento está em execução.",
+      "off": "Todos os complementos estão em execução."
+    }
+  },
+  "attention": {
+    "label": "Precisa de atenção",
+    "failedTitle": "{{name}} parou.",
+    "failedRestarts_one": "Falhou ao iniciar {{count}} vez seguida.",
+    "failedRestarts_other": "Falhou ao iniciar {{count}} vezes seguidas.",
+    "failedOnce": "Ele não iniciou.",
+    "toolsOff_one": "Sua {{count}} ferramenta de chat fica desligada até ele rodar de novo.",
+    "toolsOff_other": "Suas {{count}} ferramentas de chat ficam desligadas até ele rodar de novo.",
+    "pageOff": "A página dele fica indisponível até ele rodar de novo.",
+    "updateTitle": "{{name}} {{version}} está disponível.",
+    "updateBody": "Você tem {{current}}. Você vê o que muda e confirma antes de qualquer substituição."
+  },
+  "meta": {
+    "builtin": "Integrado",
+    "builtinLong": "Vem com o LocalAI",
+    "signed": "Assinado · {{library}}",
+    "checked": "Verificado · {{library}}",
+    "devBuild": "Build de desenvolvimento",
+    "library": "biblioteca {{library}}"
+  },
+  "skills": {
+    "title_one": "{{count}} habilidade de chat",
+    "title_other": "{{count}} habilidades de chat",
+    "provides": "fornece a habilidade {{skill}}",
+    "replaces": "substitui a habilidade integrada",
+    "serves": "usada nos chats",
+    "notServing": "não está em uso agora",
+    "serveIn": "Usar para {{skill}} nos chats",
+    "saveFailed": "Não foi possível salvar a escolha."
+  },
+  "settingsTab": {
+    "overview": "Visão geral",
+    "settings": "Configurações",
+    "tabsLabel": "Detalhes de {{name}}",
+    "off": "Ative {{name}} para mudar as configurações dele.",
+    "pageLink": "Configurações",
+    "controls": {
+      "loadFailed": "Não foi possível ler as configurações",
+      "saveFailed": "Não foi possível salvar as configurações: {{message}}"
+    }
+  },
+  "hostAccess": {
+    "addonsTitle": "Add-ons",
+    "approve": {
+      "action": "Aprovar e atualizar",
+      "body": "A versão {{current}} de {{name}} continua rodando. Se você aprovar, a nova versão pode executar estas ações. As novas estão marcadas.",
+      "done": "{{name}} foi atualizado.",
+      "title": "Aprovar o acesso ao host de {{name}} {{version}}"
+    },
+    "asksNothing": "Este add-on não pede acesso ao host.",
+    "blanket": {
+      "alsoRevoke": "Revogar também as permissões que ela deu",
+      "alsoRevokeHint": "Add-ons que perderiam acesso: {{names}}. Um add-on que perde um acesso de que precisa para.",
+      "applyInstalled": "Aplicar também aos add-ons já instalados",
+      "applyInstalledHint": "Desligado: só novas instalações e atualizações.",
+      "change": "Alterar",
+      "fixed": "Definido pela implantação. Você não pode alterar aqui.",
+      "held": "Add-ons com permissões dadas pela chave geral: {{count}}",
+      "includeOptional": "Incluir operações opcionais",
+      "includeOptionalHint": "Desligado: só as operações obrigatórias são concedidas.",
+      "intro": "Desligado por padrão. Ligado, um add-on que você instala ou atualiza recebe as operações do host que seu manifesto diz precisar, sem a etapa da janela de instalação. As operações em Nunca permitir continuam bloqueadas.",
+      "modeAny": "Qualquer biblioteca",
+      "modeLabel": "Alcance",
+      "modeOfficial": "Biblioteca oficial",
+      "nowOff": "A aprovação geral está desligada. As permissões que ela deu ficam.",
+      "nowOn": "A aprovação geral está ligada.",
+      "offBody": "Novas instalações voltam a precisar da sua aprovação. As permissões que a chave já deu ficam, marcadas como gerais, para que nada pare de surpresa.",
+      "offText": "Desligada. Você aprova cada add-on ao instalar.",
+      "offTitle": "Desligar a aprovação geral",
+      "onTitle": "Ligar a aprovação geral",
+      "revokeAll": "Revogar todas as permissões gerais",
+      "revoked": "Permissões gerais revogadas.",
+      "risk": {
+        "any": "Com isto ligado, cada add-on que você instala de qualquer biblioteca configurada recebe as operações do host que seu manifesto diz precisar, sem você revisar. Qualquer entrada de qualquer biblioteca recebe o que declara, então uma entrada maliciosa ou comprometida obtém essas operações na hora. As operações que você bloqueia em Nunca permitir continuam bloqueadas.",
+        "official": "Com isto ligado, cada add-on que você instala da biblioteca oficial recebe as operações do host que seu manifesto diz precisar, sem você revisar. Uma entrada comprometida recebe exatamente as operações que declara. As operações que você bloqueia em Nunca permitir continuam bloqueadas."
+      },
+      "scope": {
+        "any": "Ligada para add-ons de qualquer biblioteca.",
+        "official": "Ligada para add-ons da biblioteca oficial."
+      },
+      "switch": "Aprovação geral",
+      "title": "Aprovar tudo o que um add-on pede",
+      "turnOff": "Desligar",
+      "turnOn": "Ligar",
+      "typeLabel": "Para confirmar, digite: {{phrase}}",
+      "withOptional": "As operações opcionais estão incluídas."
+    },
+    "cannotInstallBlocked": "Este add-on precisa de {{ops}}, que a política do administrador bloqueia. Ele não pode ser instalado.",
+    "cannotInstallUnsupported": "Este add-on precisa de {{ops}}, que este LocalAI não suporta. Ele não pode ser instalado.",
+    "chip": "Aguardando aprovação",
+    "confirm": {
+      "revokeBody": "{{name}} perde tudo o que você ou a chave geral permitiu. As permissões da implantação ficam. Se perder um acesso de que precisa, ele para.",
+      "revokeTitle": "Revogar todo o acesso ao host de {{name}}?",
+      "stopAction": "Desligar e parar",
+      "stopBody": "{{name}} não funciona sem {{op}}. Ele para e continua parado até você permitir de novo.",
+      "stopTitle": "Desligar o acesso de que {{name}} precisa?"
+    },
+    "deny": {
+      "add": "Adicionar regra",
+      "added": "Regra adicionada.",
+      "affectsNone": "Nenhum add-on instalado perde acesso.",
+      "allAddons": "Todos os add-ons",
+      "checkFailed": "Não foi possível verificar o que esta regra muda. Nada foi salvo.",
+      "confirmAction": "Adicionar regra",
+      "confirmBody": "Vale para: {{target}}. Tem efeito na hora. As chamadas em andamento terminam.",
+      "confirmTitle": "Nunca permitir {{entry}}?",
+      "entry": "Operação, família ou *",
+      "everything": "Tudo",
+      "fromFile": "Definida na implantação",
+      "hint": "Uma família termina com ponto, por exemplo egress. Um nome exato é como egress.check. Um asterisco bloqueia tudo.",
+      "intro": "Operações que nenhum add-on pode usar, não importa o que mais as permita. Uma regra aqui sempre vence.",
+      "invalid": "Escreva uma operação como egress.check, uma família como egress. ou *.",
+      "none": "Ainda sem regras.",
+      "remove": "Remover",
+      "removeNamed": "Remover a regra {{entry}} para {{target}}",
+      "removed": "Regra removida.",
+      "target": "Vale para",
+      "title": "Nunca permitir",
+      "willStop": "vai parar, precisa disto"
+    },
+    "emptyBody": "Os add-ons que pedem acesso ao host aparecem aqui depois de instalados.",
+    "emptyTitle": "Nenhum add-on instalado",
+    "errors": {
+      "approval_required": "Este add-on precisa de acesso ao host. Aprove na janela de instalação do navegador.",
+      "approval_stale": "O pacote mudou desde que você o viu. Revise a nova lista e aprove de novo.",
+      "blocked_by_policy": "A política do administrador bloqueia uma operação de que este add-on precisa. Nada foi alterado.",
+      "locked_by_deployment": "A implantação bloqueou o acesso ao host. Você não pode alterá-lo aqui.",
+      "not_human_surface": "Um administrador precisa fazer esta mudança neste navegador. Uma chave de API ou uma ferramenta não pode.",
+      "revision_conflict": "O acesso ao host mudou em outro lugar. A página foi lida de novo. Confira e tente de novo."
+    },
+    "family": {
+      "connector": "Conectores",
+      "egress": "Verificações de rede",
+      "finetune": "Ajuste fino",
+      "quantize": "Quantização",
+      "workspace": "Arquivos do espaço de trabalho"
+    },
+    "fileEntry": "Definido no arquivo de política ou nas opções da implantação.",
+    "identityMismatch": "Estas permissões foram dadas a outro pacote com o mesmo nome. Não têm efeito. Remova-as.",
+    "intro": "As ações que os add-ons podem executar neste servidor, quem permitiu cada uma e como retirá-la. Um add-on só tem o que você aprova.",
+    "keepOwn": "Manter como meu",
+    "keepOwnNamed": "Manter como minhas as permissões gerais de {{name}}",
+    "loadError": "O acesso ao host não carregou",
+    "loading": "Lendo o que este add-on pede...",
+    "loadingPage": "Carregando o acesso ao host",
+    "locked": "A implantação desativou mudanças no acesso ao host. Você pode ler esta página, mas não alterá-la.",
+    "lockedNoAuth": "O login está desativado, então qualquer pessoa que alcance este servidor poderia alterar isto; o administrador define no arquivo de política.",
+    "newOptional": "A nova versão também pede {{ops}}. São opcionais e não permitidas.",
+    "noLongerRequested": "Esta versão não pede mais. Você pode desligar.",
+    "notOfficial": "Este add-on vem de {{library}}, não da biblioteca oficial.",
+    "op": {
+      "alreadyAllowed": "Já permitido",
+      "blocked": "Bloqueado pela política do administrador",
+      "byDeployment": "Já permitido pela implantação",
+      "new": "Novo nesta versão",
+      "optional": "Opcional. O add-on funciona sem isso, com menos recursos.",
+      "required": "Obrigatório. O add-on não funciona sem isso.",
+      "unsupported": "Não suportado por este LocalAI"
+    },
+    "previewFailed": "Não foi possível ler o acesso ao host que este add-on pede. Tente de novo. Se ele precisar de um acesso que você não aprovou, a instalação é recusada e nada muda.",
+    "removeStale": "Remover",
+    "revokeAll": "Revogar tudo",
+    "revokeAllNamed": "Revogar todo o acesso ao host de {{name}}",
+    "risk": {
+      "changes_data": "Altera dados",
+      "network": "Rede",
+      "read": "Lê",
+      "runs_jobs": "Executa tarefas"
+    },
+    "source": {
+      "blanket": "Geral",
+      "deployment": "Implantação",
+      "you": "Você"
+    },
+    "stepFooter": "Conceder o acesso permite que este add-on execute estas ações neste servidor para quem o usa. Você pode revisar ou revogar na página Acesso ao host.",
+    "stepIntro": "{{name}} pede para executar estas ações neste servidor. As obrigatórias são necessárias para ele funcionar. As opcionais ficam desligadas até você ligá-las.",
+    "stepTitle": "Acesso ao host",
+    "stopped": "Parado: precisa de {{ops}}, que não é mais permitido.",
+    "tabWaiting": "Aprovações pendentes: {{count}}",
+    "waiting": {
+      "body": "A nova versão pede um acesso ao host que a atual não tem. A versão {{current}} continua rodando até você aprovar. Operações adicionadas: {{count}}.",
+      "review": "Revisar e aprovar",
+      "reviewNamed": "Revisar e aprovar o acesso ao host de {{name}}",
+      "title": "{{name}} {{version}} aguarda sua aprovação"
+    }
+  },
+  "file": {
+    "button": "Instalar de um arquivo",
+    "checking": "Verificando o arquivo…",
+    "pick": "Escolher um arquivo zip de complemento",
+    "rejected": "O arquivo não foi aceito.",
+    "gone": "O arquivo não está mais lá. Um arquivo fica por uma hora depois do envio. Envie de novo.",
+    "installTitle": "Instalar {{name}} de um arquivo?",
+    "upgradeTitle": "Atualizar {{name}} de um arquivo?",
+    "confirmBody": "A versão {{version}} do arquivo {{name}} é instalada e depois ligada.",
+    "confirmBodyUpgrade": "A versão {{version}} do arquivo {{name}} é instalada. O complemento continua ligado ou desligado como está agora.",
+    "upgradeAction": "Atualizar para {{version}}",
+    "upgraded": "{{name}} agora roda na versão {{version}}.",
+    "unsignedTitle": "Arquivo local, sem assinatura",
+    "unsignedNotice": "Ninguém assina este arquivo, então o LocalAI não sabe quem o criou. Instale só se confiar na origem.",
+    "unsignedShort": "Arquivo local, sem assinatura",
+    "badge": "Arquivo local, sem assinatura",
+    "sourceValue": "Arquivo local, sem assinatura",
+    "hostNotice": "Este complemento veio de um arquivo local que ninguém assina. Dê a ele só o acesso ao host de que você tem certeza que ele precisa.",
+    "facts": {
+      "file": "Arquivo",
+      "sha256": "SHA-256 do arquivo",
+      "addon": "Complemento",
+      "platform": "Plataforma",
+      "api": "API do host"
+    },
+    "relation": {
+      "upgrade": "Isto troca a versão {{installed}} pela versão {{version}}. Os dados do complemento são mantidos.",
+      "same": "A versão {{version}} já está instalada. Escolha um arquivo com outra versão.",
+      "downgradeTitle": "Versão mais antiga",
+      "downgrade": "Isto instala a versão {{version}}, que é mais antiga que a versão instalada {{installed}}. Uma versão mais antiga pode não ler dados escritos por uma mais nova.",
+      "downgradeConfirm": "Quero instalar a versão mais antiga"
+    }
   }
 }

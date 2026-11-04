@@ -5,12 +5,16 @@ function serverReason(error) {
   return m && m !== error.kind ? m : ''
 }
 
+const HOST_REFUSALS = new Set(['not_human_surface', 'locked_by_deployment', 'blocked_by_policy', 'revision_conflict', 'approval_stale', 'approval_required'])
+
 // One message per kind of answer, the same on every page. The server's words
 // are never shown as success and never hidden behind a generic "failed". A
 // refusal (403 or 400) shows the server's own reason when the body has one,
 // untranslated, and the generic text only when it has none.
 export function describeError(error, t) {
   const kind = error && error.kind
+  // The typed refusals of the host access routes have words of their own.
+  if (error && error.type && HOST_REFUSALS.has(error.type)) return t(`hostAccess.errors.${error.type}`)
   switch (kind) {
     case 'auth': return t('errors.auth')
     case 'denied': return serverReason(error) || t('errors.denied')
@@ -30,6 +34,6 @@ export function describeOutcome(outcome, t, error) {
     case 'unknown': return t('actions.unknown')
     case 'not_applied': return t('actions.notApplied')
     case 'blocked': return t('actions.blocked')
-    default: return describeError({ kind: outcome, message: error && error.message }, t)
+    default: return describeError(error && error.type ? error : { kind: outcome, message: error && error.message }, t)
   }
 }

@@ -49,7 +49,7 @@ type updatesStack struct {
 
 func (s *updatesStack) publish(content string, requires catalog.Requirements) catalog.Release {
 	GinkgoHelper()
-	manifest := []byte(`{"schemaVersion":1,"id":"notes","version":"1.0.0-dev","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min":1,"max":1},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"launchMode":"always","capabilities":{"service":true,"tools":["add"]}}`)
+	manifest := []byte(`{"schemaVersion":1,"id":"notes","version":"1.0.0-dev","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min": 2, "max": 2},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"launchMode":"always","capabilities":{"service":true,"tools":["add"]}}`)
 	var b bytes.Buffer
 	tw := tar.NewWriter(&b)
 	for _, f := range []struct {
@@ -114,7 +114,7 @@ func newUpdatesStack() *updatesStack {
 	Expect(err).NotTo(HaveOccurred())
 	c := catalog.Catalog{Sources: s.sources, TargetOS: "linux", TargetArch: "amd64"}
 	cfg := managerpkg.OwnerConfig{InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "disk", Root: filepath.Join(root, "owner")}
-	installer := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: c, Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}
+	installer := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: c, Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}
 	DeferCleanup(func() {
 		_ = filepath.Walk(root, func(p string, info os.FileInfo, e error) error {
 			if e == nil && info.IsDir() {
@@ -158,6 +158,20 @@ func (s *updatesStack) generation() uint64 {
 	st, err := s.manager.Status(context.Background(), "notes")
 	Expect(err).NotTo(HaveOccurred())
 	return st.Generation
+}
+
+// awaitLifecycle reads through the authenticated HTTP surface, never treating
+// an acceptance reply as proof that a generation was published.
+func awaitLifecycle(e http.Handler, addon, op string, headers func(*http.Request)) map[string]any {
+	GinkgoHelper()
+	var status map[string]any
+	Eventually(func() string {
+		r := send(e, "POST", "/api/addons/dispatch", dispatchBody(op, addon, "operation-status", 0, `{}`), headers)
+		Expect(r.code).To(Equal(200), fmt.Sprint(r.body))
+		status = payloadOf(r)
+		return status["Phase"].(string)
+	}, 5*time.Second).Should(Or(Equal("completed"), Equal("failed")))
+	return status
 }
 
 var _ = Describe("update routes", Label("updates"), func() {
@@ -246,13 +260,15 @@ var _ = Describe("update routes", Label("updates"), func() {
 
 		done := send(s.frontends["front-a"], "POST", path, upgradeBody("up-1", before, next.Digest), alice("up-1"))
 		Expect(done.code).To(Equal(200), fmt.Sprint(done.body))
-		Expect(done.body["payload"]).To(HaveKeyWithValue("Phase", "completed"))
+		Expect(done.body["payload"]).To(HaveKeyWithValue("Phase", "accepted"))
+		terminal := awaitLifecycle(s.frontends["front-b"], "notes", "up-1", alice("up-1"))
+		Expect(terminal).To(HaveKeyWithValue("Phase", "completed"))
 		Expect(s.generation()).To(Equal(uint64(2)))
 		Expect(s.installedDigest()).To(Equal(next.Digest))
 		// The same operation, from another frontend, replays; it runs nowhere again.
 		replay := send(s.frontends["front-b"], "POST", path, upgradeBody("up-1", before, next.Digest), alice("up-1"))
 		Expect(replay.code).To(Equal(200))
-		Expect(replay.body["payload"]).To(Equal(done.body["payload"]))
+		Expect(replay.body["payload"]).To(Equal(terminal))
 		// Another operation ID for the same transition is a conflict.
 		other := send(s.frontends["owner"], "POST", path, upgradeBody("up-2", before, next.Digest), alice("up-2"))
 		Expect(other.code).To(Equal(409))
@@ -285,7 +301,9 @@ var _ = Describe("update routes", Label("updates"), func() {
 		same := race([2]string{"same", "same"}, before, next.Digest)
 		Expect(same[0].code).To(Equal(200))
 		Expect(same[1].code).To(Equal(200))
-		Expect(same[0].body["payload"]).To(Equal(same[1].body["payload"]))
+		Expect(same[0].body["payload"]).To(HaveKeyWithValue("OperationID", "same"))
+		Expect(same[1].body["payload"]).To(HaveKeyWithValue("OperationID", "same"))
+		Expect(awaitLifecycle(s.frontends["owner"], "notes", "same", alice("same"))).To(HaveKeyWithValue("Phase", "completed"))
 		Expect(s.generation()).To(Equal(uint64(2)))
 
 		// A new candidate, and two different operation IDs for it.
@@ -299,6 +317,11 @@ var _ = Describe("update routes", Label("updates"), func() {
 		for _, r := range differ {
 			if r.code == 409 {
 				Expect(r.errType()).To(Equal("upgrade_conflict"))
+			}
+		}
+		for n, r := range differ {
+			if r.code == 200 {
+				Expect(awaitLifecycle(s.frontends["owner"], "notes", []string{"first", "second"}[n], alice([]string{"first", "second"}[n]))).To(HaveKeyWithValue("Phase", "completed"))
 			}
 		}
 		Expect(s.generation()).To(Equal(uint64(3)))

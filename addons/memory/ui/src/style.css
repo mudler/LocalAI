@@ -1,0 +1,7 @@
+/* The Memory page. It only lays the page out, with the host tokens. */
+.memory-page { max-width: 44rem; margin: 0 auto; padding: var(--dk-space-6, 1.5rem) var(--dk-space-4, 1rem); display: flex; flex-direction: column; gap: var(--dk-space-4, 1rem); }
+.memory-page > p { margin: 0; color: var(--dk-muted); line-height: 1.55; }
+.memory-page__title { margin: 0; }
+.memory-page__rules { margin: 0; padding-left: var(--dk-space-5, 1.25rem); display: grid; gap: var(--dk-space-2, 0.5rem); color: var(--dk-muted); }
+.memory-page__exception { margin: 0; color: var(--dk-muted); line-height: 1.55; font-size: var(--dk-text-13, 0.8125rem); }
+.memory-page__status { margin: 0; min-height: 1.25em; color: var(--dk-muted); font-size: var(--dk-text-13, 0.8125rem); }

@@ -59,7 +59,7 @@ var _ = Describe("addon bootstrap", func() {
 				return nil
 			})
 		})
-		c.Host = contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}
+		c.Host = contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}
 		manifest, e := os.ReadFile("../../tests/addons/fixtures/packages/manifest.json")
 		Expect(e).NotTo(HaveOccurred())
 		var b bytes.Buffer
@@ -148,10 +148,13 @@ var _ = Describe("addon bootstrap", func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 		a.applicationConfig.Context = ctx
-		Expect(a.startAddons()).NotTo(Succeed())
-		Expect(a.AddonManager()).To(BeNil())
-		Expect(a.AddonSources()).To(BeNil())
-		Expect(calls.Load()).To(Equal(int32(1)))
+		// The refresh of the libraries runs in the background, so an unreachable
+		// library does not keep the add-ons down; it ends with the context.
+		Expect(a.startAddons()).To(Succeed())
+		Expect(a.AddonManager()).NotTo(BeNil())
+		Eventually(calls.Load).Should(Equal(int32(1)))
+		<-ctx.Done()
+		Expect(a.Shutdown()).To(Succeed())
 		c.InstanceID = "frontend"
 		a = setup()
 		a.applicationConfig.Addons = c

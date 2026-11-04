@@ -31,7 +31,7 @@ import (
 // UpgradeBackend returns ErrNoRoute on an old worker that does not serve
 // backend.upgrade, and the caller falls back to the legacy install.
 type NodeCommandSender interface {
-	InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error)
+	InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent), env ...map[string]string) (*workerctl.BackendInstallReply, error)
 	UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendUpgradeReply, error)
 	DeleteBackend(nodeID, backendName string) (*workerctl.BackendDeleteReply, error)
 	ListBackends(nodeID string) (*workerctl.BackendListReply, error)
@@ -158,8 +158,9 @@ const operationControlTimeout = 5 * time.Second
 
 // InstallBackendOp is InstallBackend for a load operation: the request carries
 // the operation id and the longest the load may run, so the worker can bound it.
-func (a *RemoteUnloaderAdapter) InstallBackendOp(nodeID, backendType, modelID, galleriesJSON string, replicaIndex int, opID, operationID string, deadline time.Duration, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+func (a *RemoteUnloaderAdapter) InstallBackendOp(nodeID, backendType, modelID, galleriesJSON string, replicaIndex int, opID, operationID string, deadline time.Duration, onProgress func(workerctl.BackendInstallProgressEvent), env ...map[string]string) (*workerctl.BackendInstallReply, error) {
 	return a.installBackend(nodeID, workerctl.BackendInstallRequest{
+		EnvVars:          installEnvSnapshot(env),
 		Backend:          backendType,
 		ModelID:          modelID,
 		BackendGalleries: galleriesJSON,
@@ -257,8 +258,10 @@ func (a *RemoteUnloaderAdapter) InstallBackend(
 	replicaIndex int,
 	opID string,
 	onProgress func(workerctl.BackendInstallProgressEvent),
+	env ...map[string]string,
 ) (*workerctl.BackendInstallReply, error) {
 	return a.installBackend(nodeID, workerctl.BackendInstallRequest{
+		EnvVars:          installEnvSnapshot(env),
 		Backend:          backendType,
 		ModelID:          modelID,
 		BackendGalleries: galleriesJSON,
@@ -671,4 +674,17 @@ func (a *RemoteUnloaderAdapter) DeleteModelFiles(modelName string) error {
 func (a *RemoteUnloaderAdapter) StopNode(nodeID string) error {
 	subject := messaging.SubjectNodeStop(nodeID)
 	return a.nats.Publish(subject, nil)
+}
+
+// installEnvSnapshot preserves nil for legacy callers and an explicit empty
+// snapshot for new callers that remove their last model override.
+func installEnvSnapshot(env []map[string]string) map[string]string {
+	if len(env) == 0 {
+		return nil
+	}
+	result := make(map[string]string, len(env[0]))
+	for k, v := range env[0] {
+		result[k] = v
+	}
+	return result
 }

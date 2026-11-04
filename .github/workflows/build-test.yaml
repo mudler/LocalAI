@@ -1,36 +1,57 @@
+# Concurrency policy: a newer push to master cancels the in-flight run of this
+# workflow on master, because the newer commit contains the older one and the
+# result that matters is the newest. PR runs group by PR number (as before),
+# tag pushes group by their own tag ref, and schedule/dispatch runs group by
+# commit SHA, so none of those is ever cancelled by a master push.
+# See .agents/ci-caching.md, section "Concurrency".
 name: Build test
 
 on:
-  push:
-    branches:
-      - master
   pull_request:
-    # GoReleaser and the darwin launcher take no gallery, docs or markdown
-    # input, so a diff confined to these paths cannot change either binary.
-    # The darwin job matters here: macOS is the scarcest runner class.
-    #
-    # backend/{cpp,go,python}/**: GoReleaser builds ./cmd/local-ai and the
-    # launcher builds ./cmd/launcher; neither compiles a backend. The
-    # before-hooks still matter, but their input is backend/backend.proto
-    # (protogen-go) and go.mod/go.sum (go mod tidy), none of which live under
-    # these prefixes, so a change to any of those still triggers a full run.
-    # See .agents/ci-caching.md.
-    paths-ignore:
-      - 'gallery/**'
-      - 'docs/**'
-      - 'examples/**'
-      - '**/*.md'
-      - 'backend/cpp/**'
-      - 'backend/go/**'
-      - 'backend/python/**'
+    paths:
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'addons/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - '.goreleaser*'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
+      - '.github/workflows/build-test.yaml'
+      - 'Entitlements.plist'
+  push:
+    branches: [master]
+    paths:
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'addons/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - '.goreleaser*'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
+      - '.github/workflows/build-test.yaml'
+      - 'Entitlements.plist'
 
-# Supersede an in-flight run when a PR gets a new push. Keyed on the PR number
-# so every push to the same PR shares a group; on a master push the key falls
-# back to github.sha (unique per commit) and cancel-in-progress is false, so
-# master runs never cancel each other -- each commit is built on its own.
 concurrency:
-  group: ci-build-test-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-build-test-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
 
 jobs:
   build-test:
@@ -74,7 +95,7 @@ jobs:
           name: launcher-macos
           path: dist/
           retention-days: 30
-      
+
   launcher-build-linux:
     runs-on: ubuntu-latest
     steps:

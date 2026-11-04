@@ -738,9 +738,10 @@ func (m *ChatPegMapper) mapNode(node *AstNode) {
 				// Try to parse as JSON
 				var parsed json.RawMessage
 				if err := json.Unmarshal([]byte(content), &parsed); err == nil {
-					// Check if it's a string
+					// Check if it's a string. A null also unmarshals into a
+					// string without an error, so look at the first byte.
 					var s string
-					if err2 := json.Unmarshal(parsed, &s); err2 == nil {
+					if err2 := json.Unmarshal(parsed, &s); err2 == nil && parsed[0] == '"' {
 						// It's a string — strip closing quote for monotonic streaming
 						escaped, _ := json.Marshal(s)
 						str := string(escaped)

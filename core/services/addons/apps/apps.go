@@ -5,6 +5,8 @@
 package apps
 
 import (
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
+	"maps"
 	"net/url"
 	"regexp"
 	"slices"
@@ -26,9 +28,17 @@ type Snapshot struct {
 	// State is the supervisor's observation of the process.
 	State   string
 	Receipt packages.PackageReceipt
+	// InstalledAt is when the add-on was first installed, RFC 3339 in UTC, or
+	// "" for a record that predates the field.
+	InstalledAt string
 	// UpdatePending is true when the owner's cached update check says an
 	// update is available for exactly this installed package.
 	UpdatePending bool
+	// HostOps are the host operation prefixes the host setting grants this
+	// add-on. They decide which declared host controls are drawn.
+	HostOps        []string
+	HostOperations *hostops.RequestSummary
+	Unavailable    bool
 }
 
 // List is the response of the apps list.
@@ -70,6 +80,11 @@ type App struct {
 	// generation. It is absent when the manifest declares none.
 	Icon    string `json:"icon,omitempty" example:"/api/addons/apps/notes/icon?generation=3"`
 	Version string `json:"version" example:"1.2.3"`
+	// InstalledAt is when the add-on was first installed, RFC 3339 in UTC. It
+	// is absent for an add-on installed before the host kept the time. The
+	// oldest install is the default provider of a tool or skill name that
+	// several add-ons replace.
+	InstalledAt string `json:"installedAt,omitempty" example:"2026-10-30T09:15:00Z"`
 	// Generation is the installed generation. A Start or Stop request must
 	// carry the value that was listed; a stale value is denied.
 	Generation uint64 `json:"generation" example:"3"`
@@ -95,15 +110,55 @@ type App struct {
 	// full number. The manifest carries no tool descriptions.
 	Tools     []string `json:"tools"`
 	ToolCount int      `json:"toolCount"`
+	// Shadows lists the built-in chat tools the add-on replaces (bash, say).
+	Shadows []string `json:"shadows,omitempty"`
 	// ToolDefinitions are the model-facing definitions the manifest declares:
 	// the argument schema and the kind of each tool. The host serves them to
 	// chat from the verified manifest; the add-on process is never asked.
 	ToolDefinitions []contract.ToolDefinition `json:"toolDefinitions,omitempty"`
+	// Credentialed is true when the manifest declares credentials: the tools
+	// work with a secret that the person keeps in a connector binding. A
+	// connector chat holds its write tools to contract.ToolPermission.
+	Credentialed bool `json:"credentialed,omitempty"`
+	// ResourceArgument and ResourceLabel come from the credential slot: the
+	// argument that names the resource of a call, and the word for it in the
+	// lines that say which connection acted. They are not part of the apps API.
+	ResourceArgument string `json:"-"`
+	ResourceLabel    string `json:"-"`
+	// Resources is the resource mapping of the manifest, with the listing
+	// declaration the host acts on. It is not part of the apps API.
+	Resources *contract.ResourceTools `json:"-"`
+	// Skills are the skills the package ships, from the verified manifest.
+	// The owner copies their files into the chats' skill layer.
+	Skills []contract.SkillDefinition `json:"skills,omitempty"`
+	// SkillShadows lists the built-in skills the add-on replaces (xlsx, say).
+	SkillShadows []string `json:"skillShadows,omitempty"`
+	// ContextFiles are the index files the add-on asks the host to load into
+	// the prompt of a chat, from the verified manifest. The host reads them as
+	// the person; the add-on is not called.
+	ContextFiles []contract.ContextFile `json:"contextFiles,omitempty"`
+	// UserSettings are the per-person choices the add-on declares, from the
+	// verified manifest. The host keeps the answers; the add-on is not called.
+	UserSettings []contract.UserSetting `json:"userSettings,omitempty"`
 	// UI describes what the shell loads for this app. It is present only for
 	// an enabled addon with a UI whose installed package has a sha256 digest.
 	UI *UIView `json:"ui,omitempty"`
+	// Network is the network policy the add-on declares, present only while
+	// the host draws its network-policy control (see contract.EntitledControls).
+	Network *NetworkView `json:"network,omitempty"`
 	// Admin is present only for administrators.
 	Admin *AdminView `json:"admin,omitempty"`
+}
+
+// NetworkView is the network of the commands an add-on runs, as the host
+// names it in the text it shows.
+type NetworkView struct {
+	// Kind is the declared kind of network policy.
+	Kind string `json:"kind" enums:"egress-check" example:"egress-check"`
+	// Title names the network in text: the declared title, else the add-on's.
+	Title string `json:"title" example:"Example provider"`
+	// Presets are the titles the add-on gives the host's network presets.
+	Presets []contract.NetworkPreset `json:"presets,omitempty"`
 }
 
 // UIView is the registry entry of an addon UI: the same-origin URLs of its
@@ -133,6 +188,25 @@ type UIView struct {
 	Actions   []ChatActionView    `json:"actions,omitempty"`
 	Slots     []SlotView          `json:"slots,omitempty"`
 	Renderers []contract.Renderer `json:"renderers,omitempty"`
+	// HomeCommands contains only resolved navigation metadata for this app.
+	HomeCommands []HomeCommandView `json:"homeCommands,omitempty"`
+	// ModelActions contains only declared destinations for this installed UI.
+	ModelActions []contract.ModelAction `json:"modelActions,omitempty"`
+	// Controls are the host controls the host draws for the addon: the ones
+	// its manifest declares that its grants and tools entitle it to now. The
+	// host draws them with its own components; the addon supplies nothing.
+	Controls []string `json:"controls,omitempty" enums:"network-policy,tool-providers" example:"network-policy"`
+}
+
+// HomeCommandView is a navigation declaration resolved against this installed
+// generation. Page is a declared page identifier, not a URL or tool invocation.
+type HomeCommandView struct {
+	ID     string            `json:"id"`
+	Alias  string            `json:"alias,omitempty"`
+	Page   string            `json:"page"`
+	Label  string            `json:"label"`
+	Labels map[string]string `json:"labels,omitempty"`
+	Icon   string            `json:"icon"`
 }
 
 // ChatActionView is a declared chat action as the host draws it.
@@ -159,16 +233,19 @@ type ChatActionView struct {
 // SlotView is a component the manifest places in a host slot.
 type SlotView struct {
 	ID        string `json:"id" example:"notes-nav"`
-	Slot      string `json:"slot" enums:"chat.composer.actions,chat.message.actions,app.nav,settings.sections" example:"settings.sections"`
+	Slot      string `json:"slot" enums:"chat.composer.actions,chat.message.actions,app.nav,settings.sections,files.preview" example:"settings.sections"`
 	Component string `json:"component" example:"NotesSettings"`
+	// Extensions are set for a files.preview slot: the file extensions it handles.
+	Extensions []string `json:"extensions,omitempty" example:"docx,xlsx"`
 }
 
 // AdminView carries the controls only an administrator is shown. The server
 // refuses the matching requests of everyone else; this is a convenience for
 // the UI, never the control.
 type AdminView struct {
-	CanStart bool `json:"canStart"`
-	CanStop  bool `json:"canStop"`
+	CanStart       bool                    `json:"canStart"`
+	HostOperations *hostops.RequestSummary `json:"hostOperations,omitempty"`
+	CanStop        bool                    `json:"canStop"`
 	// ManagementURL opens the management view of the addon.
 	ManagementURL string `json:"managementUrl" example:"/app/addons?manage=notes"`
 }
@@ -191,15 +268,28 @@ func Build(snaps []Snapshot, admin bool) []App {
 func build(s Snapshot, admin bool) App {
 	m := s.Receipt.Manifest
 	id := s.AddonID
-	a := App{ID: id, Name: id, Title: id, Version: m.Version, Generation: s.Generation, Enabled: s.Enabled, State: state(s), LaunchMode: contract.LaunchModeAlways, Tools: []string{}}
+	a := App{ID: id, Name: id, Title: id, Version: m.Version, InstalledAt: s.InstalledAt, Generation: s.Generation, Enabled: s.Enabled, State: state(s), LaunchMode: contract.LaunchModeAlways, Tools: []string{}}
 	if m.LaunchMode != "" {
 		a.LaunchMode = m.LaunchMode
 	}
 	a.ToolCount = len(m.Capabilities.Tools)
 	a.Tools = append(a.Tools, m.Capabilities.Tools[:min(a.ToolCount, MaxTools)]...)
+	a.Shadows = contract.ShadowedTools(m.Capabilities.ToolDefinitions)
 	for _, d := range m.Capabilities.ToolDefinitions {
 		d.InputSchema = slices.Clone(d.InputSchema)
 		a.ToolDefinitions = append(a.ToolDefinitions, d)
+	}
+	a.Credentialed = len(m.Capabilities.Credentials) > 0
+	if a.Credentialed {
+		a.ResourceArgument, a.ResourceLabel = m.Capabilities.Credentials[0].ResourceArgument, m.Capabilities.Credentials[0].ResourceLabel
+	}
+	a.Resources = resourceTools(m)
+	a.Skills = slices.Clone(m.Capabilities.SkillDefinitions)
+	a.SkillShadows = contract.ShadowedSkills(m.Capabilities.SkillDefinitions)
+	a.ContextFiles = slices.Clone(m.Capabilities.ContextFiles)
+	for _, us := range m.Capabilities.UserSettings {
+		us.Values = slices.Clone(us.Values)
+		a.UserSettings = append(a.UserSettings, us)
 	}
 	if u := m.Capabilities.UI; u != nil {
 		a.HasUI = true
@@ -215,20 +305,36 @@ func build(s Snapshot, admin bool) App {
 		// The receipt came from the owner's journal, but the route is
 		// re-checked here: an Open action for a page the addon does not
 		// declare is never produced.
-		if s.Enabled && u.MainPage != "" && slices.Contains(u.Pages, u.MainPage) {
+		if s.Enabled && !s.Unavailable && u.MainPage != "" && slices.Contains(u.Pages, u.MainPage) {
 			a.MainPage = "/app/addons/" + url.PathEscape(id) + "/" + url.PathEscape(u.MainPage)
 		}
-		if s.Enabled {
+		if s.Enabled && !s.Unavailable {
 			a.UI = uiView(id, s.Receipt.Digest, u)
+			if a.UI != nil {
+				a.UI.Controls = contract.EntitledControls(m, s.HostOps)
+				a.Network = networkView(a.Title, m.Capabilities.Network, a.UI.Controls)
+			}
 		}
 	}
 	if s.UpdatePending {
 		a.Update = "update-pending"
 	}
 	if admin {
-		a.Admin = &AdminView{CanStart: !s.Enabled, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id)}
+		a.Admin = &AdminView{CanStart: !s.Enabled && !s.Unavailable, HostOperations: s.HostOperations, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id)}
 	}
 	return a
+}
+
+// networkView is the declared network of an add-on whose network-policy
+// control the host draws, or nil.
+func networkView(title string, n *contract.NetworkCapability, controls []string) *NetworkView {
+	if n == nil || !slices.Contains(controls, contract.ControlNetworkPolicy) {
+		return nil
+	}
+	if n.Title != "" {
+		title = n.Title
+	}
+	return &NetworkView{Kind: n.Kind, Title: title, Presets: slices.Clone(n.Presets)}
 }
 
 // state never claims more than was observed: a disabled addon is stopped, and
@@ -263,6 +369,42 @@ func uiView(id, digest string, u *contract.UI) *UIView {
 	}
 	v := &UIView{Entry: asset(u.Entry), SDK: u.SDK, Pages: slices.Clone(u.Pages), Navigation: slices.Clone(u.Navigation), ChatActions: u.ChatActionIDs()}
 	v.Actions, v.Slots, v.Renderers = contributions(u)
+	if contract.ValidateModelActions(u) == nil {
+		v.ModelActions = slices.Clone(u.ModelActions)
+	}
+	for _, command := range u.HomeCommands {
+		page := command.Page
+		if page == "" {
+			page = u.MainPage
+		}
+		if page == "" || !slices.Contains(u.Pages, page) {
+			continue
+		}
+		c := HomeCommandView{ID: command.ID, Alias: command.Alias, Page: page, Label: id, Icon: "puzzle"}
+		if u.Title != nil {
+			c.Label, c.Labels = u.Title.Default(), maps.Clone(u.Title.ByLanguage)
+		}
+		if page != u.MainPage {
+			c.Label += " — " + page
+			for language, label := range c.Labels {
+				c.Labels[language] = label + " — " + page
+			}
+		}
+		if command.Label != nil {
+			c.Label, c.Labels = command.Label.Default(), maps.Clone(command.Label.ByLanguage)
+		}
+		if u.Icon != "" {
+			c.Icon = asset(u.Icon)
+		}
+		if command.Icon != "" {
+			if command.Icon == u.Icon {
+				c.Icon = asset(u.Icon)
+			} else {
+				c.Icon = command.Icon
+			}
+		}
+		v.HomeCommands = append(v.HomeCommands, c)
+	}
 	for _, css := range u.CSS {
 		v.CSS = append(v.CSS, asset(css))
 	}
@@ -287,7 +429,20 @@ func contributions(u *contract.UI) ([]ChatActionView, []SlotView, []contract.Ren
 	}
 	var slots []SlotView
 	for _, s := range u.Slots {
-		slots = append(slots, SlotView{ID: s.ID, Slot: s.Slot, Component: s.Component})
+		slots = append(slots, SlotView{ID: s.ID, Slot: s.Slot, Component: s.Component, Extensions: slices.Clone(s.Extensions)})
 	}
 	return actions, slots, slices.Clone(u.Renderers)
+}
+
+// resourceTools copies the resource mapping of the manifest.
+func resourceTools(m contract.Manifest) *contract.ResourceTools {
+	if m.Capabilities.Resources == nil {
+		return nil
+	}
+	r := *m.Capabilities.Resources
+	if r.List != nil {
+		l := *r.List
+		r.List = &l
+	}
+	return &r
 }

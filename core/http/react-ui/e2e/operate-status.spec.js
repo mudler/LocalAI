@@ -178,7 +178,7 @@ test.describe('Status capacity chart', () => {
     await page.goto('/app/operate')
 
     const capacity = page.getByTestId('operate-capacity')
-    await expect(capacity).toContainText('Since you opened Operate. LocalAI keeps no memory history.')
+    await expect(capacity).toContainText('Since you opened Administration. LocalAI keeps no memory history.')
     // One reading is a bar, not a history.
     await expect(page.getByTestId('operate-capacity-wait')).toBeVisible()
     await expect(capacity.locator('.dk-chart-plot')).toHaveCount(0)

@@ -11,7 +11,7 @@ const emit = (page, event) => page.evaluate((e) => window.__talk.emit(e), event)
 const connected = (page) => page.waitForFunction(() => window.__talk.dc && window.__talk.pc?.connectionState === 'connected')
 
 async function startSession(page) {
-  await page.goto('/app/talk')
+  await page.goto('/app/addons/talk/talk')
   await expect(page.getByTestId('talk-start')).toBeEnabled()
   await page.getByTestId('talk-start').click()
   await connected(page)
@@ -21,7 +21,7 @@ async function startSession(page) {
 test.describe('Talk states', () => {
   test('idle: ready, with one way to start and a note on how the microphone is used', async ({ page }) => {
     await fakeRealtime(page)
-    await page.goto('/app/talk')
+    await page.goto('/app/addons/talk/talk')
     await expect(status(page)).toHaveAttribute('data-state', 'idle')
     await expect(status(page).getByRole('heading')).toHaveText('Ready')
     await expect(page.getByTestId('talk-start')).toHaveText('Start session')
@@ -38,7 +38,7 @@ test.describe('Talk states', () => {
   test('connecting: the call is being set up and the button cannot be pressed twice', async ({ page }) => {
     await fakeRealtime(page)
     await page.addInitScript(() => { window.__talk.hold = true })
-    await page.goto('/app/talk')
+    await page.goto('/app/addons/talk/talk')
     await page.getByTestId('talk-start').click()
     await expect(status(page)).toHaveAttribute('data-state', 'connecting')
     await expect(status(page).getByRole('heading')).toHaveText('Connecting')
@@ -130,7 +130,7 @@ test.describe('Talk states', () => {
 
   test('mic blocked: the browser refused the microphone', async ({ page }) => {
     await fakeRealtime(page, { micError: 'NotAllowedError' })
-    await page.goto('/app/talk')
+    await page.goto('/app/addons/talk/talk')
     await page.getByTestId('talk-start').click()
     await expect(status(page)).toHaveAttribute('data-state', 'blocked')
     await expect(status(page).getByRole('heading')).toHaveText('Microphone blocked')
@@ -169,7 +169,7 @@ test.describe('Talk states', () => {
 
   test('no pipeline: a card names the next step instead of an orb', async ({ page }) => {
     await fakeRealtime(page, { pipelines: false })
-    await page.goto('/app/talk')
+    await page.goto('/app/addons/talk/talk')
     const card = page.getByTestId('talk-no-pipeline')
     await expect(card.getByRole('heading')).toHaveText('Talk needs a pipeline model')
     await expect(page.locator('.talk-orb')).toHaveCount(0)
@@ -212,7 +212,7 @@ test.describe('Talk controls', () => {
 
   test('the pipeline can be changed before a session and not during one', async ({ page }) => {
     await fakeRealtime(page)
-    await page.goto('/app/talk')
+    await page.goto('/app/addons/talk/talk')
     await page.getByTestId('home-model-chip').click()
     await page.getByRole('option', { name: /voice-it/ }).click()
     await expect(page.getByTestId('home-model-chip')).toContainText('voice-it')
@@ -225,7 +225,7 @@ test.describe('Talk controls', () => {
 
   test('diagnostics are offered only during a session and show the audio panel', async ({ page }) => {
     await fakeRealtime(page)
-    await page.goto('/app/talk')
+    await page.goto('/app/addons/talk/talk')
     await expect(page.getByTestId('talk-diag-toggle')).toHaveCount(0)
     await page.getByTestId('talk-start').click()
     await connected(page)
@@ -239,7 +239,7 @@ test.describe('Talk controls', () => {
 test.describe('Talk session settings', () => {
   test('the sheet holds voice, language and instructions, and they go out when the session starts', async ({ page }) => {
     await fakeRealtime(page)
-    await page.goto('/app/talk')
+    await page.goto('/app/addons/talk/talk')
     await page.getByTestId('talk-settings-button').click()
     const sheet = page.getByTestId('talk-settings')
     await expect(sheet).toHaveClass(/dk-sheet/)
@@ -267,7 +267,7 @@ test.describe('Talk session settings', () => {
   // onClose. Focus has to stay in the field rather than jump to Close.
   test('typing in the sheet keeps focus in the field while the page re-renders', async ({ page }) => {
     await fakeRealtime(page)
-    await page.goto('/app/talk')
+    await page.goto('/app/addons/talk/talk')
     await page.getByTestId('talk-settings-button').click()
     const sheet = page.getByTestId('talk-settings')
     const instructions = sheet.getByRole('textbox', { name: 'Instructions' })
@@ -293,7 +293,7 @@ test.describe('Talk session settings', () => {
 
   test('Edit pipeline opens the model editor before a session', async ({ page }) => {
     await fakeRealtime(page)
-    await page.goto('/app/talk')
+    await page.goto('/app/addons/talk/talk')
     await page.getByTestId('talk-settings-button').click()
     await page.getByTestId('talk-pipeline').getByRole('button', { name: 'Edit pipeline' }).click()
     await expect(page).toHaveURL(/\/app\/model-editor\/voice-assistant/)
@@ -301,6 +301,83 @@ test.describe('Talk session settings', () => {
     // add-on page, labelled Talk.
     const state = await page.evaluate(() => window.history.state?.usr)
     expect(state).toEqual({ from: '/app/addons/talk/talk', fromLabel: 'Talk' })
+  })
+})
+
+test.describe('Talk with a speech-to-speech model', () => {
+  // The model list the server returns for an any-to-any model: no slots of
+  // its own, and a VAD only when the model config names one.
+  async function s2sModel(page, { vad = '' } = {}) {
+    await page.route('**/api/pipeline-models', route => route.fulfill({
+      json: [{ name: 'lfm3-audio', voice: 'female', vad, transcription: 'lfm3-audio', llm: 'lfm3-audio', tts: 'lfm3-audio', any_to_any: true, self_contained: true }],
+    }))
+  }
+
+  test('the sheet names one speech-to-speech model, with no slots and no voice detection', async ({ page }) => {
+    await fakeRealtime(page)
+    await s2sModel(page)
+    await page.goto('/app/addons/talk/talk')
+    await page.getByTestId('talk-settings-button').click()
+    const pipeline = page.getByTestId('talk-pipeline')
+    await expect(pipeline).toContainText('Speech-to-speech model')
+    await expect(pipeline).not.toContainText('Transcription')
+    await expect(pipeline).not.toContainText('Language model')
+    await expect(pipeline).toContainText('No voice detection model is set.')
+    await expect(pipeline.getByRole('button', { name: 'Edit model config' })).toBeVisible()
+    await expect(page.getByTestId('talk-settings').getByLabel('Voice', { exact: true })).toHaveAttribute('list', 'talk-voice-options')
+  })
+
+  test('without voice detection, Done speaking ends the turn: commit, then response.create', async ({ page }) => {
+    await fakeRealtime(page)
+    await s2sModel(page)
+    await startSession(page)
+    await expect(status(page)).toHaveAttribute('data-state', 'listening')
+    await expect(status(page)).toContainText('Say what you need, then press Done speaking.')
+    await page.getByTestId('talk-end-turn').click()
+    const types = await page.evaluate(() => window.__talk.sent.map(m => m.type))
+    expect(types.slice(-2)).toEqual(['input_audio_buffer.commit', 'response.create'])
+  })
+
+  test('without voice detection, the input buffer is emptied when the session starts and when a reply ends', async ({ page }) => {
+    await fakeRealtime(page)
+    await s2sModel(page)
+    await startSession(page)
+    const sentTypes = () => page.evaluate(() => window.__talk.sent.map(m => m.type))
+    expect(await sentTypes()).toContain('input_audio_buffer.clear')
+    const before = (await sentTypes()).filter(t => t === 'input_audio_buffer.clear').length
+    await emit(page, { type: 'response.done', response: { status: 'completed' } })
+    const after = (await sentTypes()).filter(t => t === 'input_audio_buffer.clear').length
+    expect(after).toBe(before + 1)
+  })
+
+  test('idle note says to press Done speaking when no voice detection model is set', async ({ page }) => {
+    await fakeRealtime(page)
+    await s2sModel(page)
+    await page.goto('/app/addons/talk/talk')
+    await expect(page.getByText('press Done speaking when you finish a turn')).toBeVisible()
+    await expect(page.getByText('The server notices when you stop talking')).toHaveCount(0)
+  })
+
+  test('with a voice detection model, the turns are detected and Done speaking is not offered', async ({ page }) => {
+    await fakeRealtime(page)
+    await s2sModel(page, { vad: 'silero-vad' })
+    await startSession(page)
+    await expect(status(page)).toHaveAttribute('data-state', 'listening')
+    await expect(page.getByTestId('talk-end-turn')).toHaveCount(0)
+    await expect(page.getByTestId('talk-settings-button')).toBeVisible()
+  })
+
+  test('text-only replies stream into the transcript', async ({ page }) => {
+    await fakeRealtime(page)
+    await s2sModel(page)
+    await startSession(page)
+    await emit(page, { type: 'response.output_text.delta', item_id: 'a1', delta: 'Hello ' })
+    await emit(page, { type: 'response.output_text.delta', item_id: 'a1', delta: 'there' })
+    await emit(page, { type: 'response.output_text.done', item_id: 'a1', text: 'Hello there.' })
+    await emit(page, { type: 'response.done', response: { status: 'completed' } })
+    const lines = page.getByTestId('talk-transcript').locator('.talk-turn')
+    await expect(lines).toHaveCount(1)
+    await expect(lines.nth(0)).toContainText('Hello there.')
   })
 })
 
@@ -321,7 +398,7 @@ test.describe('Talk on a phone', () => {
 
   test('the settings sheet rises from the bottom', async ({ page }) => {
     await fakeRealtime(page)
-    await page.goto('/app/talk')
+    await page.goto('/app/addons/talk/talk')
     await page.getByTestId('talk-settings-button').click()
     const box = await page.getByTestId('talk-settings').boundingBox()
     expect(box.width).toBeLessThanOrEqual(390)

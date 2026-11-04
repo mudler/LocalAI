@@ -26,7 +26,10 @@
     "description": "通过与 LocalAI 对话来安装模型、切换后端、编辑配置和查看状态。",
     "open": "打开助手",
     "tooltip": "通过聊天管理 LocalAI",
-    "dismiss": "关闭"
+    "dismiss": "关闭",
+    "noModel": "请先选择一个聊天模型。",
+    "startFailed": "无法启动助手聊天：{{message}}",
+    "chatTitle": "LocalAI 助手"
   },
   "input": {
     "placeholder": "消息...",
@@ -37,13 +40,6 @@
     "selectModelFirst": "请先选择一个模型",
     "sendMessage": "发送消息",
     "selectModelToast": "请先选择一个模型",
-    "dictate": "听写（语音转文字）",
-    "dictateStop": "停止录音",
-    "dictateBusy": "正在转写…",
-    "dictateEmpty": "未识别到语音。",
-    "dictateFailed": "转写失败：{{error}}",
-    "dictateNoMic": "麦克风不可用：{{error}}",
-    "pdfScannedAsImages": "{{name}} 没有文本层（扫描件）。已将 {{total}} 页中的 {{count}} 页作为图片附加，供视觉模型使用。",
     "pdfReadFailed": "无法读取 {{name}} 中的文本。文件可能是扫描件、已加密或已损坏。",
     "placeholderFirstRun": "安装模型以开始聊天",
     "label": "消息",
@@ -51,7 +47,14 @@
     "enterHint": "按 Enter 发送，Shift+Enter 换行",
     "send": "发送",
     "removeFile": "移除 {{name}}",
-    "stop": "停止"
+    "stop": "停止",
+    "dictate": "听写（语音转文字）",
+    "dictateStop": "停止录音",
+    "dictateBusy": "正在转写…",
+    "dictateEmpty": "未识别到语音。",
+    "dictateFailed": "转写失败：{{error}}",
+    "dictateNoMic": "麦克风不可用：{{error}}",
+    "pdfScannedAsImages": "{{name}} 没有文本层（扫描件）。已将 {{total}} 页中的 {{count}} 页作为图片附加，供视觉模型使用。"
   },
   "quickLinks": {
     "manageByChat": "通过聊天管理",
@@ -97,6 +100,21 @@
     "noModelsBody": "尚未安装模型。请联系您的管理员设置模型，以便开始聊天。",
     "guideLabel": "入门指南"
   },
+  "starters": {
+    "title": "适合你的硬件的推荐模型",
+    "tier": {
+      "cpu": "仅 CPU",
+      "gpu-small": "GPU",
+      "gpu-mid": "GPU",
+      "gpu-large": "GPU"
+    },
+    "cpuNote": "未检测到 GPU，这些小型模型在 CPU 上也能流畅运行。",
+    "gpuNote": "根据可用显存选择，并为上下文预留空间。",
+    "install": "安装",
+    "installing": "正在安装",
+    "installStarted": "正在安装 {{model}}…",
+    "installFailed": "安装失败：{{message}}"
+  },
   "connect": {
     "title": "一个端点，所有 API",
     "subtitle": "LocalAI 提供自己的完整 API——图像与视频生成、深度、目标检测、重排序、音频、人脸与声音识别，以及通过 WebRTC 和 WebSocket 的实时语音。在此之上，即插即用的兼容层让任何为 OpenAI、Anthropic、Ollama 或 OpenAI Responses 构建的应用无需改动即可使用。",
@@ -112,12 +130,6 @@
   },
   "jump": {
     "heading": "继续之前的对话",
-    "models": "Models",
-    "modelsSummary": "Explore, install, and manage models",
-    "create": "Create",
-    "createSummary": "Open a chat, image or voice session",
-    "operate": "Operate",
-    "operateSummary": "{{models}} models configured · nodes, activity and traces",
     "move": "移动",
     "resume": "继续",
     "group": {
@@ -139,22 +151,8 @@
     "emptyBody": "对话按日期分组，并显示回复的模型。用 j 和 k 移动，按 Enter 继续。",
     "hasImage": "包含图片",
     "noModel": "无模型",
-    "examples": "斜杠操作"
-  },
-  "starters": {
-    "title": "适合你的硬件的推荐模型",
-    "tier": {
-      "cpu": "仅 CPU",
-      "gpu-small": "GPU",
-      "gpu-mid": "GPU",
-      "gpu-large": "GPU"
-    },
-    "cpuNote": "未检测到 GPU，这些小型模型在 CPU 上也能流畅运行。",
-    "gpuNote": "根据可用显存选择，并为上下文预留空间。",
-    "install": "安装",
-    "installing": "正在安装",
-    "installStarted": "正在安装 {{model}}…",
-    "installFailed": "安装失败：{{message}}"
+    "examples": "斜杠操作",
+    "allChats": "全部对话"
   },
   "picker": {
     "loading": "正在加载模型",
@@ -169,13 +167,28 @@
     "cold": "未加载",
     "loadedNow": "当前已加载",
     "installed": "已安装",
-    "vision": "支持图像理解"
+    "vision": "支持图像理解",
+    "aliasOf": "{{target}} 的别名",
+    "aliasBroken": "别名失效",
+    "disabled": "已停用",
+    "pinned": "已固定",
+    "useTyped": "使用 \"{{name}}\"",
+    "empty": "没有可用模型",
+    "add": "添加模型",
+    "remove": "移除 {{name}}",
+    "clear": "清除"
   },
   "slash": {
     "label": "操作",
     "move": "移动",
     "close": "关闭",
+    "commandDiagnostics": "应用命令诊断",
+    "apps": {
+      "label": "应用",
+      "desc": "浏览已安装的应用"
+    },
     "group": {
+      "addons": "应用",
       "chat": "聊天",
       "models": "模型",
       "go": "前往"
@@ -189,8 +202,8 @@
       "desc": "开始新对话"
     },
     "chat": {
-      "label": "打开聊天",
-      "desc": "前往聊天页面"
+      "label": "全部对话",
+      "desc": "查找、重命名和删除你的聊天"
     },
     "assistant": {
       "label": "通过聊天管理",
@@ -212,10 +225,6 @@
       "label": "停止模型",
       "desc": "卸载模型以释放内存"
     },
-    "studio": {
-      "label": "打开工作室",
-      "desc": "创建图像、音频和视频"
-    },
     "settings": {
       "label": "设置",
       "desc": "更改 LocalAI 的运行方式"
@@ -223,7 +232,20 @@
     "docs": {
       "label": "文档",
       "desc": "在新标签页打开 localai.io"
-    }
+    },
+    "agents": {
+      "label": "智能体",
+      "desc": "你保存的智能体、触发器和技能"
+    },
+    "mcp": {
+      "label": "MCP 连接器",
+      "desc": "你的对话可以使用的 MCP 服务器"
+    },
+    "memory": {
+      "label": "记忆",
+      "desc": "你的对话可以搜索的集合"
+    },
+    "complete": "补全"
   },
   "strip": {
     "label": "内存",
@@ -246,6 +268,7 @@
     "firstRun": "没有运行中的模型。加载模型后会在此显示内存用量。"
   },
   "notice": {
+    "appUnavailable": "应用已不可用。",
     "loadFailedTitle": "LocalAI 无法加载你的模型",
     "loadFailedBody": "服务器未响应。请检查服务是否运行，然后重试。",
     "retry": "重试",
@@ -253,7 +276,16 @@
     "stagingFailedBody": "无法将模型发送到节点。其他内容未更改。",
     "stagingFailedBodyNode": "无法将模型发送到 {{node}}。其他内容未更改。",
     "openActivity": "打开活动",
-    "details": "详情"
+    "details": "详情",
+    "addonsOffTitle": "此服务器已关闭附加组件",
+    "addonsOffAdmin": "{{name}} 是附加组件。请在启动 LocalAI 时启用附加组件，再从「附加组件」中安装。",
+    "addonsOffReader": "{{name}} 是附加组件。请联系管理员启用附加组件。",
+    "addonsDownTitle": "插件暂时没有响应",
+    "addonsDownBody": "{{name}} 是一个插件。请稍后再试。",
+    "addonsRetry": "重试",
+    "thisPage": "该页面",
+    "addonsDocs": "如何启用附加组件",
+    "dismiss": "关闭"
   },
   "library": {
     "label": "资源库"

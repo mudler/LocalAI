@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -31,7 +32,28 @@ type ForwardedRequest struct {
 	Nonce       string         `json:"nonce"`
 	ExpiresAt   time.Time      `json:"expiresAt"`
 	Body        []byte         `json:"body"`
-	Signature   []byte         `json:"signature"`
+	// Chat is the chat the frontend made the call for, when a chat made it.
+	// It is covered by the signature, and the owner records it next to the
+	// envelope (hostops.InFlight) so the add-on's workspace operations act
+	// with the chat's access. It is never put in the envelope the add-on
+	// receives. Nil (omitted) for a call that no chat made, so such a
+	// request signs as before.
+	Chat *hostops.Binding `json:"chat,omitempty"`
+	// HumanSurface says the receiving frontend found the request to come from
+	// the administrator's own browser tab (see WithHumanSurface). It is
+	// covered by the signature and the owner honors it only for a host access
+	// call. Omitted when false, so other requests sign as before.
+	HumanSurface bool   `json:"humanSurface,omitempty"`
+	Signature    []byte `json:"signature"`
+}
+
+// Binding returns the chat binding of the request. Call it only on a request
+// that Verify accepted: only then is the binding the signed one.
+func (m ForwardedRequest) Binding() (hostops.Binding, bool) {
+	if m.Chat == nil || !m.Chat.Valid() {
+		return hostops.Binding{}, false
+	}
+	return *m.Chat, true
 }
 
 func (m ForwardedRequest) signingBytes() []byte {
@@ -60,6 +82,9 @@ func (v *ForwardVerifier) Verify(ctx context.Context, peer PeerIdentity, message
 	now := time.Now()
 	key := v.Keys[peer.ID]
 	if ctx.Err() != nil || !peer.Verified || peer.ID == "" || peer.ID != message.PeerID || v.OwnerID == "" || message.Audience != v.OwnerID || len(key) != ed25519.PublicKeySize || len(message.Body) > int(contract.DefaultLimits().EnvelopeBytes) || len(message.Body) == 0 || len(message.Nonce) < 1 || len(message.Nonce) > 128 || message.OperationID == "" || len(message.OperationID) > 256 || !message.ExpiresAt.After(now) || message.ExpiresAt.After(now.Add(time.Minute)) || !ed25519.Verify(key, message.signingBytes(), message.Signature) {
+		return denied()
+	}
+	if message.Chat != nil && !message.Chat.Valid() {
 		return denied()
 	}
 	a := message.Actor

@@ -1,10 +1,10 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { FEATURE_ADDONS } from '../utils/capabilities'
-import { basePath } from '../utils/basePath'
+import { apiUrl, basePath } from '../utils/basePath'
 import { addonsApi } from '../utils/addonsClient'
 import { pollDelay } from '../components/catalog/catalogState'
 import { resolveManage, resolveTab } from '../components/addons/addonState'
@@ -19,6 +19,9 @@ import { RegistryContext } from './registryContext'
 import AddonErrorBoundary from './AddonErrorBoundary'
 import ApprovalFrame from './ApprovalFrame'
 import { actionArguments, proposalIdOf, rendererFor, resultText } from './slots'
+import { createRegistryRequests } from './registryRequests'
+import { dispatchHomeCommand } from './homeCommands'
+import { dispatchModelAction } from './modelActions'
 import './shell.css'
 
 // The add-on registry of the shell. It polls the apps list while something
@@ -38,12 +41,39 @@ function guarded(build) {
 }
 
 export function AddonRegistryProvider({ children, api = addonsApi }) {
-  const { hasFeature, user, isAdmin } = useAuth()
+  const { hasFeature, user, isAdmin, sessionEpoch, captureSessionAuthority } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { t, i18n } = useTranslation('addons')
-  const allowed = hasFeature(FEATURE_ADDONS)
+  // With add-ons off the server answers 503 on every add-on route, so the
+  // registry waits for /api/features and calls none of them then. An unreadable
+  // answer counts as on.
+  const [serverOn, setServerOn] = useState(null)
+  useEffect(() => {
+    const ctl = new AbortController()
+    fetch(apiUrl('/api/features'), { signal: ctl.signal })
+      .then(r => r.json())
+      .then(f => setServerOn(f?.addons !== false))
+      .catch(() => { if (!ctl.signal.aborted) setServerOn(true) })
+    return () => ctl.abort()
+  }, [])
+  const allowed = hasFeature(FEATURE_ADDONS) && serverOn === true
   const [list, setList] = useState(EMPTY)
+  const requests = useMemo(() => createRegistryRequests(), [])
+  // The opaque auth epoch also changes on same-user refresh. Invalidate reads
+  // and pending Home dispatch synchronously, before effect cleanup can run.
+  const actor = `${user?.id || ''}:${allowed}:${isAdmin}:${sessionEpoch}`
+  const authority = useRef({ actor, allowed, list: EMPTY })
+  // Render only reads the ref: a render that React discards (concurrent or
+  // StrictMode) must not change the scope of live requests. A render for a new
+  // actor shows an empty list at once, and the layout effect below commits
+  // the new scope before the browser paints and before any passive effect.
+  const viewed = authority.current.actor === actor ? authority.current.list : EMPTY
+  useLayoutEffect(() => {
+    requests.setScope(actor)
+    if (authority.current.actor !== actor) authority.current = { actor, allowed, list: EMPTY }
+    authority.current.allowed = allowed
+  }, [requests, actor, allowed])
   const [consumers, setConsumers] = useState(0)
   const [layers, setLayers] = useState([])
   const navigateRef = useRef(navigate)
@@ -101,62 +131,60 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
   const params = new URLSearchParams(location.search)
   const appsTabOwnsList = location.pathname.replace(/\/+$/, '') === '/app/addons'
     && !resolveManage(params, isAdmin) && resolveTab(params.get('tab'), isAdmin) === 'apps'
-  const ingest = useCallback((apps) => {
-    setList({ status: 'ready', apps, error: null })
-    manager.revalidate(apps)
+  const publish = useCallback((next) => {
+    authority.current.list = next
+    setList(next)
+    manager.revalidate(next.apps)
+    if (next.status === 'error') { manager.disposeAll(); setLayers([]) }
   }, [manager])
+  const ingest = useCallback((apps) => {
+    if (authority.current.actor === actor && authority.current.allowed) publish({ status: 'ready', apps, error: null })
+  }, [publish, actor])
 
-  // One poll chain at a time, backing off on failure and slower when hidden.
-  const refresh = useCallback(async () => {
-    try {
-      const apps = await api.apps.list()
-      setList({ status: 'ready', apps, error: null })
-      manager.revalidate(apps)
-      return apps
-    } catch (error) {
-      // Signed out elsewhere (another tab, an expired session): nothing the
-      // person read may stay drawn or cached, so every add-on is withdrawn.
-      if (error && error.kind === 'auth') {
-        manager.disposeAll()
-        setLayers([])
-        setList({ status: 'error', apps: [], error })
-        return null
-      }
-      setList(prev => ({ status: prev.status === 'ready' ? 'ready' : 'error', apps: prev.apps, error }))
-      return null
-    }
-  }, [api, manager])
+  const refresh = useCallback(async (signal) => {
+    if (!authority.current.allowed) return null
+    return requests.read(s => api.apps.list(s), publish, signal)
+  }, [api, publish, requests])
 
-  // Off the Add-ons pages the chain runs only while an add-on contributes UI
-  // (so that its disable, crash or update is seen) and otherwise stops with no
-  // timer left. Entering /app/addons or a changed feature restarts it.
+  // Navigation always reads the authenticated installed view again. Even a
+  // response racing logout or a newer request cannot authorize this click.
+  const navigateHomeCommand = useCallback((command, options) => dispatchHomeCommand(command, {
+    refresh, current: () => authority.current, navigate: path => navigateRef.current(path),
+  }, options), [refresh])
+
+  const navigateModelAction = useCallback(command => dispatchModelAction(command, {
+    sessionCurrent: captureSessionAuthority(), refresh, current: () => authority.current, navigate: path => navigateRef.current(path),
+  }), [refresh, captureSessionAuthority])
+
+  // Mounted consumers keep a bounded chain alive even after disable/failure.
+  // The same reference count and cadence serve Home, slots and navigation.
   const pathname = location.pathname.replace(/\/+$/, '')
   const onAddonsPage = pathname === '/app/addons' || pathname.startsWith('/app/addons/')
   const polling = shouldPoll({ allowed, onAddonsPage, apps: list.apps, status: list.status, consumers })
   useEffect(() => {
     if (!polling || appsTabOwnsList) return undefined
+    const ctl = new AbortController()
     let alive = true
     let failures = 0
     let timer = null
     const run = async () => {
-      const apps = await refresh()
+      const apps = await refresh(ctl.signal)
       if (!alive) return
       failures = apps === null ? failures + 1 : 0
       timer = setTimeout(run, pollDelay(failures, document.hidden))
     }
     tick.current = () => { clearTimeout(timer); if (alive) run() }
     run()
-    return () => { alive = false; clearTimeout(timer); tick.current = null }
-  }, [polling, refresh, appsTabOwnsList])
+    return () => { alive = false; ctl.abort(); clearTimeout(timer); tick.current = null }
+  }, [polling, refresh, appsTabOwnsList, actor])
 
-  // A different user, or a user who lost the feature, never keeps another
-  // session's add-on code or caches.
-  const userId = user?.id || ''
+  // A changed actor or auth session never keeps old add-on code or caches.
   useEffect(() => {
     manager.disposeAll()
     setLayers([])
+    authority.current.list = EMPTY
     setList(EMPTY)
-  }, [manager, userId, allowed])
+  }, [manager, actor])
 
   // Layers of a withdrawn add-on close with it.
   useEffect(() => {
@@ -169,7 +197,7 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
     })
   }, [instances])
 
-  useEffect(() => () => manager.disposeAll(), [manager])
+  useEffect(() => () => { requests.setScope(Symbol('unmounted')); manager.disposeAll() }, [manager, requests])
 
   stateRef.current = { apps: list.apps, instances }
 
@@ -236,12 +264,18 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
   }, [])
 
   const value = useMemo(() => ({
-    status: list.status,
-    apps: list.apps,
-    error: list.error,
+    // Whether the server said if add-ons are on: until then `allowed` is false
+    // only because the answer is not in yet.
+    actor,
+    known: serverOn !== null,
+    status: viewed.status,
+    apps: viewed.apps,
+    error: viewed.error,
     instances,
     allowed,
     refresh,
+    navigateHomeCommand,
+    navigateModelAction,
     ingest,
     acquire,
     language: i18n.language,
@@ -256,7 +290,7 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
     // them leaves the host with no entries, never with a broken render.
     navigationItems: guarded(() => buildNavigation(list.apps, { language: i18n.language })),
     chatActions: guarded(() => availableChatActions(instances, list.apps, { hasFeature: () => allowed })),
-  }), [list, instances, allowed, refresh, ingest, acquire, manager, i18n.language, runAction, pushLayer, presentApproval])
+  }), [actor, serverOn, list, viewed, instances, allowed, refresh, navigateHomeCommand, navigateModelAction, ingest, acquire, manager, i18n.language, runAction, pushLayer, presentApproval])
 
   const boundaryLabels = { title: t('shell.error.title'), text: t('shell.error.text'), retryLabel: t('shell.error.retry') }
   return (

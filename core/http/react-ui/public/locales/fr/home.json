@@ -25,7 +25,10 @@
     "title": "Gérez LocalAI par la conversation",
     "description": "Installez des modèles, changez de backend, modifiez la configuration et vérifiez l'état en discutant avec LocalAI.",
     "open": "Ouvrir l'assistant",
-    "tooltip": "Gérer LocalAI par la conversation"
+    "tooltip": "Gérer LocalAI par la conversation",
+    "noModel": "Choisissez d'abord un modèle de chat.",
+    "startFailed": "Impossible de démarrer la conversation de l'assistant : {{message}}",
+    "chatTitle": "Assistant LocalAI"
   },
   "input": {
     "placeholder": "Message...",
@@ -109,6 +112,47 @@
     "dismiss": "Ignorer"
   },
   "jump": {
-    "heading": "Reprendre où vous en étiez"
+    "heading": "Reprendre où vous en étiez",
+    "allChats": "Toutes les conversations"
+  },
+  "slash": {
+    "commandDiagnostics": "Diagnostic des commandes d’applications",
+    "apps": {
+      "label": "Applications",
+      "desc": "Parcourir les applications installées"
+    },
+    "group": {
+      "addons": "Applications"
+    },
+    "agents": {
+      "label": "Agents",
+      "desc": "Vos agents enregistrés, déclencheurs et compétences"
+    },
+    "mcp": {
+      "label": "Connecteurs MCP",
+      "desc": "Serveurs MCP que vos chats peuvent utiliser"
+    },
+    "memory": {
+      "label": "Mémoire",
+      "desc": "Collections que vos chats peuvent consulter"
+    },
+    "complete": "compléter"
+  },
+  "notice": {
+    "appUnavailable": "L’application n’est plus disponible.",
+    "addonsDownTitle": "Les modules complémentaires ne répondent pas pour le moment",
+    "addonsDownBody": "{{name}} est un module complémentaire. Réessayez dans un instant.",
+    "addonsRetry": "Réessayer"
+  },
+  "picker": {
+    "aliasOf": "alias de {{target}}",
+    "aliasBroken": "alias cassé",
+    "disabled": "désactivé",
+    "pinned": "épinglé",
+    "useTyped": "Utiliser \"{{name}}\"",
+    "empty": "Aucun modèle disponible",
+    "add": "Ajouter un modèle",
+    "remove": "Retirer {{name}}",
+    "clear": "Effacer"
   }
 }

@@ -108,7 +108,7 @@ func (l *Library) Add(p Package, effectsDir string) error {
 	manifest := map[string]any{
 		"schemaVersion": 1, "id": p.ID, "version": p.Version, "executable": executable,
 		"os": runtime.GOOS, "arch": runtime.GOARCH,
-		"host": map[string]int{"min": 1, "max": 2}, "api": map[string]int{"min": 1, "max": 1},
+		"host": map[string]int{"min": 1, "max": 2}, "api": map[string]int{"min": 2, "max": 2},
 		"protocol": map[string]int{"min": 1, "max": 1}, "dataFormat": map[string]int{"min": 1, "max": 2},
 		"launchMode": "always", "capabilities": p.Capabilities,
 	}

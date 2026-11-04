@@ -7,6 +7,8 @@
 package toolargs
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"regexp"
@@ -41,6 +43,18 @@ func ValidConversationID(id string) bool { return conversationPattern.MatchStrin
 
 // ValidResourceID reports whether id has the shape of a resource identifier.
 func ValidResourceID(id string) bool { return resourceID.MatchString(id) }
+
+// ActionResourceID is the resource ID under which an action tool keeps the
+// state of one conversation. Conversation IDs are random hex, mixed case or
+// longer than a resource ID may be, so they cannot ride in a resource ID as
+// they are. The result is a function of the conversation ID alone (stable
+// across calls and restarts), valid for ValidResourceID, and two distinct
+// conversations get distinct IDs (SHA-256, 248 bits kept). It is a key, never
+// authority.
+func ActionResourceID(conversationID string) string {
+	sum := sha256.Sum256([]byte(conversationID))
+	return "c-" + hex.EncodeToString(sum[:])[:62]
+}
 
 // Bind validates the model's arguments against the manifest schema
 // and returns the resource ID and the argument object the owner receives. The
@@ -185,7 +199,7 @@ func number(v any) (int64, bool) {
 // returns the resource ID taken out of the arguments and the argument object
 // with the tool name set by the host.
 func BindDefinition(d contract.ToolDefinition, raw json.RawMessage) (string, json.RawMessage, error) {
-	if contract.ValidateToolSchema(d.InputSchema, d.Kind) != nil {
+	if contract.ValidateDefinitionSchema(d) != nil {
 		return "", nil, ErrInvalid
 	}
 	var params map[string]any

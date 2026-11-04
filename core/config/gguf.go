@@ -30,6 +30,18 @@ func reservedNonChatModel(cfg *ModelConfig) bool {
 // projector carrying the speech-synthesis pipeline (ggml-org/llama.cpp#26254).
 const genAudioEncoderKey = "clip.has_gen_audio_encoder"
 
+// audioEncoderKey is the mmproj metadata flag for the audio input side of a
+// projector (a speech encoder).
+const audioEncoderKey = "clip.has_audio_encoder"
+
+// audioProjectorTypeKey names the audio input encoder's family.
+const audioProjectorTypeKey = "clip.audio.projector_type"
+
+// lfm3AudioProjectorType is the audio encoder family llama.cpp writes for
+// LFM3-Audio. Qwen3-TTS sets both encoder flags as well, with its own speaker
+// encoder (qwen3tts_spkenc), so the flags cannot tell the two families apart.
+const lfm3AudioProjectorType = "lfm3a"
+
 // HasGenAudioProjector reports whether a parsed mmproj GGUF holds a gen-audio
 // pipeline (Qwen3-TTS) rather than a vision tower. This is the same flag
 // mtmd_helper_gen_audio itself checks before building the pipeline, so it is
@@ -37,10 +49,37 @@ const genAudioEncoderKey = "clip.has_gen_audio_encoder"
 // otherwise indistinguishable from a vision projector by name alone, and every
 // TTS repo names it mmproj-*.gguf exactly like a vision one.
 func HasGenAudioProjector(f *gguf.GGUFFile) bool {
+	return ggufBoolFlag(f, genAudioEncoderKey)
+}
+
+// HasAudioEncoderProjector reports whether a parsed mmproj GGUF carries a
+// speech encoder on its input side. Speaker-only encoders (Qwen3-TTS reference
+// audio) set it too, so it is only meaningful together with
+// HasGenAudioProjector, which identifies a speech-to-speech projector.
+func HasAudioEncoderProjector(f *gguf.GGUFFile) bool {
+	return ggufBoolFlag(f, audioEncoderKey)
+}
+
+// HasSpeechToSpeechProjector reports whether a parsed mmproj GGUF is the
+// projector of an any-to-any speech model (LFM3-Audio): an LFM3 audio encoder
+// together with the gen-audio decoder. The decoder alone is TTS, and the
+// encoder alone is reference-audio input, so neither flag decides on its own.
+func HasSpeechToSpeechProjector(f *gguf.GGUFFile) bool {
+	if !HasGenAudioProjector(f) || !HasAudioEncoderProjector(f) {
+		return false
+	}
+	kv, ok := f.Header.MetadataKV.Get(audioProjectorTypeKey)
+	return ok && kv.ValueType == gguf.GGUFMetadataValueTypeString && kv.ValueString() == lfm3AudioProjectorType
+}
+
+// ggufBoolFlag reads a boolean metadata key. A missing key, a value of another
+// type or a nil file all read as false: ValueBool panics on a type mismatch,
+// and these files come from arbitrary user repos.
+func ggufBoolFlag(f *gguf.GGUFFile, key string) bool {
 	if f == nil {
 		return false
 	}
-	kv, ok := f.Header.MetadataKV.Get(genAudioEncoderKey)
+	kv, ok := f.Header.MetadataKV.Get(key)
 	if !ok || kv.ValueType != gguf.GGUFMetadataValueTypeBool {
 		return false
 	}

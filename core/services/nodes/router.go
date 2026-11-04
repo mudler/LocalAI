@@ -2,6 +2,9 @@ package nodes
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -604,7 +607,7 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 		// the worker rejected ("backend name is empty"). Skip cleanly: the
 		// model needs to be served at least once via Route() so its load
 		// info is stored — then the reconciler can replicate it.
-		return nil, fmt.Errorf("no load info for model %s: serve at least one request for it before the reconciler can replicate (cause: %w)", modelName, err)
+		return nil, fmt.Errorf("no load info for model %s: serve at least one request for it before the reconciler can replicate: %w (cause: %w)", modelName, ErrNoLoadInfo, err)
 	}
 
 	// Deserialize the stored model options
@@ -1275,7 +1278,7 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 
 	// Send backend.install — the worker installs the backend if needed and
 	// starts the gRPC process bound to a port for this (model, replica) slot.
-	addr, installErr := r.installBackendOnNode(ctx, node, backendType, modelID, replicaIdx)
+	addr, installErr := r.installBackendOnNode(ctx, node, backendType, modelID, replicaIdx, modelOpts.GetEnvVars())
 	if installErr != nil {
 		// Roll back the reservation explicitly so the column is accurate
 		// before the next heartbeat. Best-effort.
@@ -1388,13 +1391,14 @@ func (r *SmartRouter) estimateModelVRAM(ctx context.Context, opts *pb.ModelOptio
 // Routine load: the worker's fast-path "already running → return current
 // address" is correct here. Upgrades go through
 // DistributedBackendManager.UpgradeBackend on the backend.upgrade subject.
-func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNode, backendType, modelID string, replicaIndex int) (string, error) {
+func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNode, backendType, modelID string, replicaIndex int, env ...map[string]string) (string, error) {
 	if r.unloader == nil {
 		return "", fmt.Errorf("no NATS connection for backend installation")
 	}
+	snapshot := installEnvSnapshot(env)
 	reportLoadPhase(ctx, LoadJobStateInstalling, node, replicaIndex)
 
-	key := fmt.Sprintf("%s|%s|%s|%d", node.ID, backendType, modelID, replicaIndex)
+	key := fmt.Sprintf("%s|%s|%s|%d|%s", node.ID, backendType, modelID, replicaIndex, installEnvIdentity(snapshot))
 	// DoChan rather than Do so this wait honors ctx cancellation. InstallBackend
 	// blocks for its full NATS deadline (15m by default) when a worker accepts
 	// the request but never replies (e.g. it died mid-install). Without ctx
@@ -1410,9 +1414,9 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 		var reply *workerctl.BackendInstallReply
 		var err error
 		if owned {
-			reply, err = r.unloader.InstallBackendOp(node.ID, backendType, modelID, r.galleriesJSON, replicaIndex, "", ref.Generation, r.loadOperationDeadline(), nil)
+			reply, err = r.unloader.InstallBackendOp(node.ID, backendType, modelID, r.galleriesJSON, replicaIndex, "", ref.Generation, r.loadOperationDeadline(), nil, snapshot)
 		} else {
-			reply, err = r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex, "", nil)
+			reply, err = r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex, "", nil, snapshot)
 		}
 		if err != nil {
 			return "", err
@@ -2138,6 +2142,10 @@ func (r *SmartRouter) EvictLRU(ctx context.Context, nodeID string) (string, erro
 // and none can be evicted to make room.
 var ErrEvictionBusy = errors.New("all models busy, cannot evict")
 
+// ErrNoLoadInfo is returned by ScheduleAndLoadModel when no replica of the model
+// has ever been loaded, so there are no stored load options to replicate.
+var ErrNoLoadInfo = errors.New("no load info")
+
 // ErrNoAvailableNodes is returned when the scheduler cannot find any healthy
 // node to serve a model — all nodes are full and eviction cannot free a slot,
 // or a node selector excludes every candidate. The HTTP layer maps this to
@@ -2261,4 +2269,21 @@ func (r *SmartRouter) loadOperationDeadline() time.Duration {
 		return r.modelLoadAbsoluteMax
 	}
 	return modelLoadAbsoluteMax
+}
+
+// Keyed identities let identical installs coalesce without retaining credentials
+// in singleflight keys or exposing a dictionary-testable credential hash.
+var installEnvKey = func() []byte {
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		panic(err)
+	}
+	return key
+}()
+
+func installEnvIdentity(env map[string]string) string {
+	body, _ := json.Marshal(env)
+	mac := hmac.New(sha256.New, installEnvKey)
+	mac.Write(body)
+	return fmt.Sprintf("%x", mac.Sum(nil))
 }

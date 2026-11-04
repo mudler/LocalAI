@@ -1,8 +1,7 @@
 // Studio and Talk are packaged add-ons. A spec that draws one of them installs
 // the real built bundle here: the app list names it, and its module and style
 // sheet are served from the build output the way the add-on owner serves them.
-// The old /app/studio and /app/talk addresses redirect to the add-on page, so a
-// spec can still open those.
+// Specs open canonical declared pages, never historical standalone redirects.
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -26,7 +25,7 @@ export async function buildAddonBundles(ids) {
 
 // The add-ons the specs serve from their build output: Studio, Talk and Voice
 // through installStudioAddons, Face and Fine-tuning through their own routes.
-export async function buildStudioAddons(ids = ['studio', 'talk', 'voice', 'face', 'fine-tuning']) {
+export async function buildStudioAddons(ids = ['studio', 'talk', 'voice', 'face', 'fine-tuning', 'telegram', 'slack', 'github']) {
   await buildAddonBundles(ids)
   process.env[BUILT] = '1'
 }
@@ -46,7 +45,7 @@ export function packagedApp(id, over = {}) {
   return app({
     id, name: id, title: ui.title, description: ui.description, icon: undefined, generation: 1, version: manifest.version,
     mainPage: `/app/addons/${id}/${ui.mainPage}`, tools: [], toolCount: 0,
-    ui: { entry: `${base}/${ui.entry}`, css: ui.css.map(c => `${base}/${c}`), sdk: ui.sdk, pages: ui.pages, navigation: ui.navigation },
+    ui: { entry: `${base}/${ui.entry}`, css: ui.css.map(c => `${base}/${c}`), sdk: ui.sdk, pages: ui.pages, navigation: ui.navigation, modelActions: ui.modelActions, homeCommands: ui.homeCommands?.map(c => ({ ...c, page: c.page || ui.mainPage, label: c.label || ui.title, icon: c.icon || 'puzzle' })) },
     ...over,
   })
 }
@@ -56,7 +55,7 @@ export function packagedApp(id, over = {}) {
 export async function installStudioAddons(page, { ids = ['studio', 'talk'], ...options } = {}) {
   const dirs = await Promise.all(ids.map(build))
   await stubAddonRoutes(page)
-  await page.route(/\/api\/addons\/(studio|talk|voice)\/assets\//, route => {
+  await page.route(/\/api\/addons\/(studio|talk|voice|telegram|slack|github)\/assets\//, route => {
     const parts = new URL(route.request().url()).pathname.split('/')
     const id = parts[3]
     const file = parts.slice(6).join('/')

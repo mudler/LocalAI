@@ -469,3 +469,13 @@ var _ = Describe("grpcModelOpts option forwarding", func() {
 		Expect(grpcModelOpts(cfg, "/models").Options).To(Equal(cfg.Options))
 	})
 })
+
+var _ = Describe("Proxy credential options", func() {
+	It("forwards the direct credential and preserves wire field 9", func() {
+		threads := 1
+		cfg := config.ModelConfig{Threads: &threads, Backend: "cloud-proxy", Proxy: config.ProxyConfig{APIKey: "direct-canary", UpstreamURL: "http://example.invalid"}}
+		opts := grpcModelOpts(cfg, "")
+		Expect(opts.Proxy.GetApiKey()).To(Equal("direct-canary"))
+		Expect(int(opts.Proxy.ProtoReflect().Descriptor().Fields().ByName("api_key").Number())).To(Equal(9))
+	})
+})

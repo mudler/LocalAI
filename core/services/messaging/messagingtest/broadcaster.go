@@ -67,12 +67,12 @@ func RunBroadcasterConformance(newBus Factory) {
 
 		It("delivers a published message to every subscriber", func() {
 			a, b := &collector{}, &collector{}
-			_, err := bus.Subscribe("jobs.j1.progress", a.handler)
+			_, err := bus.Subscribe("gallery.j1.progress", a.handler)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = bus.Subscribe("jobs.j1.progress", b.handler)
+			_, err = bus.Subscribe("gallery.j1.progress", b.handler)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(bus.Publish("jobs.j1.progress", blob{Data: "x"})).To(Succeed())
+			Expect(bus.Publish("gallery.j1.progress", blob{Data: "x"})).To(Succeed())
 
 			Eventually(a.count, 5*time.Second).Should(Equal(1))
 			Eventually(b.count, 5*time.Second).Should(Equal(1))
@@ -80,11 +80,11 @@ func RunBroadcasterConformance(newBus Factory) {
 
 		It("matches a single-token wildcard and nothing wider", func() {
 			c := &collector{}
-			_, err := bus.Subscribe("jobs.*.cancel", c.handler)
+			_, err := bus.Subscribe("gallery.*.cancel", c.handler)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(bus.Publish("jobs.abc.result", blob{Data: "no"})).To(Succeed())
-			Expect(bus.Publish("jobs.abc.cancel", blob{Data: "yes"})).To(Succeed())
+			Expect(bus.Publish("gallery.abc.progress", blob{Data: "no"})).To(Succeed())
+			Expect(bus.Publish("gallery.abc.cancel", blob{Data: "yes"})).To(Succeed())
 
 			Eventually(c.count, 5*time.Second).Should(Equal(1))
 			Consistently(c.count, 300*time.Millisecond).Should(Equal(1))
@@ -128,7 +128,7 @@ func RunBroadcasterConformance(newBus Factory) {
 		})
 
 		It("refuses a multi-token wildcard subscription", func() {
-			_, err := bus.Subscribe("jobs.>", func([]byte) {})
+			_, err := bus.Subscribe("gallery.>", func([]byte) {})
 			Expect(errors.Is(err, messaging.ErrUnsupportedWildcard)).To(BeTrue(), "got %v", err)
 		})
 

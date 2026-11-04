@@ -103,6 +103,45 @@ type LocalAIClient interface {
 	CreateVoiceProfile(ctx context.Context, req CreateVoiceProfileRequest) (*VoiceProfile, error)
 	DeleteVoiceProfile(ctx context.Context, id string) error
 
+	// ---- Shared folders ----
+	// ListSharedFolders returns every shared folder with its members.
+	ListSharedFolders(ctx context.Context) ([]SharedFolder, error)
+	CreateSharedFolder(ctx context.Context, name string) (*SharedFolder, error)
+	RenameSharedFolder(ctx context.Context, id int64, name string) (*SharedFolder, error)
+	// DeleteSharedFolder moves the folder to the trash; RestoreSharedFolder
+	// with the returned undo_rev brings it back with its members.
+	DeleteSharedFolder(ctx context.Context, id int64) (*SharedFolderRemoved, error)
+	RestoreSharedFolder(ctx context.Context, rev int64) (*SharedFolder, error)
+	// SetSharedFolderMember adds a member or changes its mode (read or write).
+	SetSharedFolderMember(ctx context.Context, id int64, member, mode string) (*SharedFolder, error)
+	RemoveSharedFolderMember(ctx context.Context, id int64, member string) (*SharedFolder, error)
+	ListSharedFolderEvents(ctx context.Context, limit int) ([]SharedFolderEvent, error)
+
+	// ---- Built-in chat tools ----
+
+	// ListChatTools lists the built-in chat tools an add-on may replace (bash
+	// on this machine, the web tools): on or off, who serves each, the add-ons
+	// that replace it, and for bash the mode of chats_host_exec. It also lists
+	// the built-in skills that installed add-ons replace, with who serves each.
+	ListChatTools(ctx context.Context) (ChatBuiltinToolList, error)
+	// ListHostExecEvents reads the audit of the commands the chats' built-in
+	// bash ran on this machine, newest first.
+	ListHostExecEvents(ctx context.Context, limit int) ([]HostExecEvent, error)
+
+	// ---- Sandbox network ----
+
+	// GetChatEgress returns the settings of the network of the chats' Sandbox
+	// commands in force, the package registries and the counts of the last
+	// 24 hours.
+	GetChatEgress(ctx context.Context) (*ChatEgress, error)
+	// ListEgressEvents reads the audit of the Sandbox network requests,
+	// newest first.
+	ListEgressEvents(ctx context.Context, q EgressEventsQuery) ([]EgressEvent, error)
+	// SetChatEgressCeiling sets chats_egress_ceiling: off, registries or all.
+	// The private-network switch is not here: its typed confirmation is a
+	// person's act in Settings.
+	SetChatEgressCeiling(ctx context.Context, ceiling string) (*ChatEgress, error)
+
 	// ---- Usage / billing ----
 
 	// GetUsageStats returns aggregated token usage. In single-user

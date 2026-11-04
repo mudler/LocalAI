@@ -48,7 +48,8 @@
     "emptyChat": "Open Chat",
     "emptyApi": "Scrape the metrics",
     "scrape": "Scrape the same numbers into your own Prometheus or Grafana from /metrics.",
-    "scrapeHow": "How"
+    "scrapeHow": "How",
+    "usageErrorTitle": "Usage could not be read."
   },
   "figures": {
     "requests": "Requests",
@@ -166,7 +167,8 @@
     "traces": "Backend operations",
     "logs": "Backend logs",
     "page": "Model page",
-    "bufferNote": "Operations and errors count the {{count}} operations the buffer still holds, not all time."
+    "bufferNote": "Operations and errors count the {{count}} operations the buffer still holds, not all time.",
+    "noMatch": "No model matches “{{query}}”."
   },
   "host": {
     "title": "GPU and host",
@@ -205,7 +207,8 @@
       "registering": "Registering",
       "unknown": "Unknown"
     },
-    "lostNodes": "A node that stops answering keeps its last reading and is marked in the State column. A node that reports no memory shows no reading."
+    "lostNodes": "A node that stops answering keeps its last reading and is marked in the State column. A node that reports no memory shows no reading.",
+    "errorTitle": "The host could not be read."
   },
   "traces": {
     "title": "Traces",
@@ -535,5 +538,6 @@
     "config": "Scrape config",
     "example": "Example query",
     "exampleNote": "The 95th percentile of request duration over 5 minutes, across all routes."
-  }
+  },
+  "clearSearch": "Clear search"
 }
