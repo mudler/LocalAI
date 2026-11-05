@@ -286,5 +286,16 @@
   "sender.line_other": "{{name}} · {{count}} messages · {{id}}",
   "ready.blocker.nobodyLetIn": "Personne n’est encore admis.",
   "ready.blocker.nobodyPaired": "Il faut une personne associée au bot, et personne n’est encore associé.",
-  "optional": "facultatif"
+  "optional": "facultatif",
+  "approvals.title": "Runs without asking",
+  "approvals.help": "Some tools of this add-on can run without a confirmation card, but only when the owner chose that on the page of the add-on. Every other tool and every other sender is still asked.",
+  "approvals.state.asks": "Asks every time",
+  "approvals.state.runs": "Runs without asking",
+  "approvals.state.idle": "Set to run without asking, does nothing now",
+  "approvals.state.other": "Still asks this sender",
+  "approvals.line.asks": "A card waits for the owner's OK.",
+  "approvals.line.runs": "For the owner's own chats and for senders paired with the bot. Everyone else is still asked.",
+  "approvals.line.idle": "The write mode of this connection is Read only, so no write tool runs.",
+  "approvals.line.other": "Only the owner and a paired sender skip the card. This kind of sender is asked.",
+  "access.viaNoConfirm": "ran without asking"
 }

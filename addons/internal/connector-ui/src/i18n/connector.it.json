@@ -286,5 +286,16 @@
   "sender.line_other": "{{name}} · {{count}} messaggi · {{id}}",
   "ready.blocker.nobodyLetIn": "Nessuno è ancora ammesso.",
   "ready.blocker.nobodyPaired": "Serve una persona abbinata al bot, e nessuno è ancora abbinato.",
-  "optional": "facoltativo"
+  "optional": "facoltativo",
+  "approvals.title": "Parte senza chiedere",
+  "approvals.help": "Alcuni strumenti di questo add-on possono partire senza una scheda di conferma, ma solo se il proprietario lo ha scelto nella pagina dell'add-on. Ogni altro strumento e ogni altro mittente viene comunque interpellato.",
+  "approvals.state.asks": "Chiede ogni volta",
+  "approvals.state.runs": "Parte senza chiedere",
+  "approvals.state.idle": "Impostato per partire senza chiedere, ora non fa nulla",
+  "approvals.state.other": "Chiede comunque a questo mittente",
+  "approvals.line.asks": "Una scheda attende il consenso del proprietario.",
+  "approvals.line.runs": "Per le chat del proprietario e per i mittenti abbinati al bot. Tutti gli altri vengono comunque interpellati.",
+  "approvals.line.idle": "La modalità di scrittura di questa connessione è Sola lettura, quindi nessuno strumento di scrittura parte.",
+  "approvals.line.other": "Solo il proprietario e un mittente abbinato saltano la scheda. Questo tipo di mittente viene interpellato.",
+  "access.viaNoConfirm": "eseguito senza chiedere"
 }

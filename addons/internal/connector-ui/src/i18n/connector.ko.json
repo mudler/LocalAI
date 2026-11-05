@@ -286,5 +286,16 @@
   "sender.line_other": "{{name}} · 메시지 {{count}}개 · {{id}}",
   "ready.blocker.nobodyLetIn": "아직 아무도 허용되지 않았습니다.",
   "ready.blocker.nobodyPaired": "봇과 페어링한 사람이 필요한데, 아직 페어링된 사람이 없습니다.",
-  "optional": "선택"
+  "optional": "선택",
+  "approvals.title": "Runs without asking",
+  "approvals.help": "Some tools of this add-on can run without a confirmation card, but only when the owner chose that on the page of the add-on. Every other tool and every other sender is still asked.",
+  "approvals.state.asks": "Asks every time",
+  "approvals.state.runs": "Runs without asking",
+  "approvals.state.idle": "Set to run without asking, does nothing now",
+  "approvals.state.other": "Still asks this sender",
+  "approvals.line.asks": "A card waits for the owner's OK.",
+  "approvals.line.runs": "For the owner's own chats and for senders paired with the bot. Everyone else is still asked.",
+  "approvals.line.idle": "The write mode of this connection is Read only, so no write tool runs.",
+  "approvals.line.other": "Only the owner and a paired sender skip the card. This kind of sender is asked.",
+  "access.viaNoConfirm": "ran without asking"
 }

@@ -647,4 +647,44 @@ test.describe('Connector permissions', () => {
     await page.getByRole('button', { name: 'Edit' }).click()
     await expect(page.getByTestId('connector-permissions')).toHaveCount(0)
   })
+  test('a tool the owner relaxed is listed as running without asking, for the owner and paired senders only', async ({ page }) => {
+    const approvals = [
+      { tool: 'power-action', skip: true, runs_without_asking: ['owner', 'paired'] },
+      { tool: 'send-key', skip: false },
+    ]
+    const a = api(page, [SET], {
+      access: { ...ACCESS, approvals },
+      preview: (body) => ({ ...previewFor(body, ROLES_KIND.roles), approvals }),
+    })
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    // The saved view is the owner's own: the relaxed tool runs, the other asks.
+    const saved = page.getByTestId('connector-access-approvals')
+    await expect(saved.getByTestId('connector-approval-power-action')).toHaveAttribute('data-state', 'runs')
+    await expect(saved.getByTestId('connector-approval-power-action')).toContainText('Runs without asking')
+    await expect(saved.getByTestId('connector-approval-send-key')).toHaveAttribute('data-state', 'asks')
+    // The preview follows the kind of sender chosen: only a paired one skips the card.
+    const can = page.getByTestId('connector-can')
+    const listed = can.getByTestId('connector-can-approvals')
+    await expect(listed.getByTestId('connector-approval-power-action')).toHaveAttribute('data-state', 'other')
+    await expect(listed.getByTestId('connector-approval-power-action')).toContainText('Still asks this sender')
+    await can.getByTestId('connector-can-sender').selectOption('paired')
+    await expect(can.getByTestId('connector-can-approvals').getByTestId('connector-approval-power-action')).toHaveAttribute('data-state', 'runs')
+    await can.getByTestId('connector-can-sender').selectOption('channel_member')
+    await expect(can.getByTestId('connector-can-approvals').getByTestId('connector-approval-power-action')).toHaveAttribute('data-state', 'other')
+    await shot(page, 'perm-6-approvals')
+  })
+
+  test('a run without asking appears in the latest decisions in plain words, with no typed text', async ({ page }) => {
+    const recent = [{ at: '2026-11-03T09:30:00Z', senders: ['U001'], capability: 'tools.write', allowed: true, via: 'no-confirmation', reason: 'power-action: applied' }]
+    const a = api(page, [SET], { access: { ...ACCESS, recent } })
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const audit = page.getByTestId('connector-audit')
+    await expect(audit).toContainText('ran without asking')
+    await expect(audit).toContainText('power-action: applied')
+    await expect(audit).not.toContainText('via no-confirmation')
+  })
 })

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Notice } from './controls'
 import { connectorsApi } from './api'
 import { pageLocale } from './connector'
+import ApprovalsView from './ApprovalsView'
 
 export default function AccessView({ binding, capabilities, s, version }) {
   const [view, setView] = useState(null)
@@ -27,6 +28,7 @@ export default function AccessView({ binding, capabilities, s, version }) {
           <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" aria-busy={loading ? 'true' : undefined} disabled={loading} onClick={load}>{s('access.refresh')}</button>
         </div>
         {view && (<>
+          <ApprovalsView approvals={view.approvals} s={s} testId="connector-access-approvals" />
           <p className="dk-hint">{s('access.recentHelp')}</p>
           {(view.recent || []).length === 0 ? <p className="cn-muted">{s('access.recentNone')}</p> : (
             <ul className="cn-runs" aria-label={s('access.recentTitle')} data-testid="connector-audit">
@@ -37,7 +39,7 @@ export default function AccessView({ binding, capabilities, s, version }) {
                   <span className="cn-muted">{new Date(e.at).toLocaleString(pageLocale(), { dateStyle: 'short', timeStyle: 'medium' })}</span>
                   {(e.senders || []).length > 0 && <span className="cn-muted cn-mono">{s('access.who', { senders: e.senders.join(', ') })}</span>}
                   {(e.roles || []).length > 0 && <span className="cn-muted">{s('access.roles', { roles: e.roles.join(', ') })}</span>}
-                  {e.via && <span className="cn-muted">{s('access.via', { via: e.via })}</span>}
+                  {e.via && <span className="cn-muted">{e.via === 'no-confirmation' ? s('access.viaNoConfirm') : s('access.via', { via: e.via })}</span>}
                   {e.reason && <span className="cn-muted">{e.reason}</span>}
                 </li>
               ))}

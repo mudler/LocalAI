@@ -20,7 +20,10 @@ import (
 
 // The three write tools have physical effects on a real machine. The manifest
 // declares approval "always" for each: a person confirms every call, whatever
-// the write mode of the connection is. The kvmd API has no idempotency key, so
+// the write mode of the connection is. power-action and send-key are also
+// approvalOverridable: the owner can choose "Don't ask" for them, and only the
+// host honors that, for the owner's own chat and for paired senders. type-text
+// is never overridable. The kvmd API has no idempotency key, so
 // the add-on notes an operation before it sends it and never sends one twice.
 
 const (

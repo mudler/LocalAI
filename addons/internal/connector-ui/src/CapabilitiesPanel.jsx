@@ -8,6 +8,7 @@ import Icon from '../../host-compat/src/components/Icon'
 import { basePath } from '../../host-compat/src/utils/basePath.js'
 import { FixNotice, Select } from './controls'
 import { connectorsApi } from './api'
+import ApprovalsView from './ApprovalsView'
 import { fixAction, remainingChecks, sentenceCase, fixLabelKey, pickSubject, previewBody, previewId, previewKey, senderOptions } from './access'
 
 const FLASH_MS = 1600
@@ -152,6 +153,7 @@ export default function CapabilitiesPanel({ form, kindInfo, capabilities, lists,
         <ul className="cn-can__list" aria-label={s('can.title')} data-dim={loading ? 'true' : undefined}>
           {decisions.map((d) => <Row key={d.capability} d={d} title={title} s={s} ctx={ctx} />)}
         </ul>
+        <ApprovalsView approvals={preview.view.approvals} s={s} sender={selected} testId="connector-can-approvals" />
       </>)}
     </fieldset>
   )

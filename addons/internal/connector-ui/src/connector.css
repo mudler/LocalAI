@@ -248,3 +248,11 @@ fieldset.cn-group {
 /* The host kit writes " (optional)" in English after a label marked data-optional.
    The page puts the word of its language in the attribute, and this draws it. */
 .cn-page .dk-label[data-optional]::after { content: " (" attr(data-optional) ")"; }
+
+/* The tools whose confirmation the owner can relax. */
+.cn-approvals { display: flex; flex-direction: column; gap: var(--dk-space-2); margin-top: var(--dk-space-3); }
+.cn-approvals__title { margin: 0; font-size: var(--fs-body); font-weight: var(--font-weight-semibold); }
+.cn-approvals__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-approvals__row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--dk-space-2); min-width: 0; overflow-wrap: anywhere; }
+.cn-approvals__state { font-size: var(--fs-meta); padding: 0 var(--dk-space-2); border-radius: var(--r-sm); background: var(--color-bg-secondary); color: var(--color-text-secondary); }
+.cn-approvals__state--runs { color: var(--dk-warn-text, var(--color-text-secondary)); background: var(--dk-warn-wash, var(--color-bg-secondary)); }

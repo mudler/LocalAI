@@ -14,8 +14,8 @@
   "agentOf": "Agent : {{name}}",
   "inactive": "À l’arrêt : {{reason}}.",
   "title": "PiKVM",
-  "intro": "Laissez vos chats et vos agents examiner un PiKVM et la machine qu’il pilote. Si vous l’autorisez, ils peuvent aussi appuyer sur ses boutons d’alimentation et utiliser son clavier, et une personne confirme chacune de ces actions.",
-  "limits": "Un agent qui peut appuyer sur un bouton d’alimentation ou taper sur une vraie machine peut faire perdre du travail ou lancer des commandes. Chaque action attend votre confirmation. La saisie et les actions d’alimentation forcées sont désactivées tant qu’un administrateur ne les active pas, plus bas. Un PiKVM n’a pas de droits par utilisateur : tout utilisateur qu’il connaît peut tout faire, donc les limites de cet add-on sont les seules.",
+  "intro": "Laissez vos chats et vos agents examiner un PiKVM et la machine qu’il pilote. Si vous l’autorisez, ils peuvent aussi appuyer sur ses boutons d’alimentation et utiliser son clavier, et une personne confirme ces actions, sauf si vous choisissez autrement plus bas.",
+  "limits": "Un agent qui peut appuyer sur un bouton d’alimentation ou taper sur une vraie machine peut faire perdre du travail ou lancer des commandes. Par défaut, chaque action attend votre confirmation. Pour les actions d’alimentation et les appuis de touches, vous pouvez le désactiver plus bas, jamais pour le texte saisi. La saisie et les actions d’alimentation forcées sont désactivées tant qu’un administrateur ne les active pas, plus bas. Un PiKVM n’a pas de droits par utilisateur : tout utilisateur qu’il connaît peut tout faire, donc les limites de cet add-on sont les seules.",
   "new": "Nouvelle connexion PiKVM",
   "edit": "Modifier la connexion PiKVM",
   "user": "Nom d’utilisateur PiKVM",
@@ -67,16 +67,16 @@
   },
   "writeMode": {
     "label": "Ce que l’agent peut faire avec cet appareil",
-    "hint": "La lecture de l’état est toujours autorisée. Chaque action est confirmée par vous, quel que soit votre choix.",
+    "hint": "La lecture de l’état est toujours autorisée. Chaque action est confirmée par vous, sauf si vous choisissez autrement pour un outil dans la section ci-dessous.",
     "off": "Lecture seule",
     "propose": "Vous demande d’abord",
     "line": {
       "off": "Il peut seulement lire.",
-      "propose": "Chaque action attend votre accord."
+      "propose": "Chaque action attend votre accord, sauf si vous le désactivez."
     },
     "note": {
       "off": "L’accès en écriture est désactivé : cette connexion ne fait que lire l’état.",
-      "propose": "Chaque action d’alimentation, saisie de texte et appui de touche attend dans vos approbations jusqu’à votre confirmation. La saisie et les actions d’alimentation forcées exigent aussi l’interrupteur ci-dessous."
+      "propose": "Chaque action d’alimentation, saisie de texte et appui de touche attend dans vos approbations jusqu’à votre confirmation, sauf si vous l’avez désactivé pour cet outil. La saisie et les actions d’alimentation forcées exigent aussi l’interrupteur ci-dessous."
     },
     "row": {
       "off": "Lecture seule",
@@ -90,17 +90,17 @@
     "saveFailed": "Impossible d’enregistrer les interrupteurs.",
     "intro": "Ces interrupteurs sont conservés pour chaque appareil et s’appliquent à tous les utilisateurs de ce serveur. Ils sont désactivés tant qu’un administrateur ne les modifie pas.",
     "physicalTitle": "Effets physiques.",
-    "physical": "Une action d’alimentation peut faire perdre du travail non enregistré. La saisie et les appuis de touches vont à ce qui a le focus sur la machine : un shell, un menu du BIOS, un écran de connexion. Une personne confirme chacune et voit le texte ou les touches exacts.",
+    "physical": "Une action d’alimentation peut faire perdre du travail non enregistré. La saisie et les appuis de touches vont à ce qui a le focus sur la machine : un shell, un menu du BIOS, un écran de connexion. Une personne confirme chacune et voit le texte ou les touches exacts, sauf si vous l’avez désactivé pour les actions d’alimentation ou les touches.",
     "readOnly": "Seul un administrateur peut modifier ces interrupteurs.",
     "broken": "Les interrupteurs enregistrés n’ont pas pu être lus, donc tout est considéré comme désactivé. Enregistrez-les de nouveau pour les réparer.",
     "none": "Ajoutez une connexion PiKVM pour régler ses interrupteurs.",
     "typing": "Autoriser la saisie et les appuis de touches",
-    "typingHint": "Permet à un chat de demander de taper du texte et d’appuyer sur des touches. Chaque demande attend toujours votre confirmation.",
+    "typingHint": "Permet à un chat de demander de taper du texte et d’appuyer sur des touches. Le texte saisi attend toujours votre confirmation. Les touches aussi, sauf si vous l’avez désactivé.",
     "maxChars": "Texte le plus long",
     "maxCharsHint": "Caractères dans un texte saisi. Par défaut {{default}}, au plus 1000.",
     "maxCharsShape": "Saisissez un nombre entier de 1 à 1000.",
     "hard": "Autoriser les actions d’alimentation forcées",
-    "hardHint": "Permet à un chat de demander un arrêt forcé, une réinitialisation matérielle ou un appui long sur le bouton d’alimentation. Chaque demande attend toujours votre confirmation.",
+    "hardHint": "Permet à un chat de demander un arrêt forcé, une réinitialisation matérielle ou un appui long sur le bouton d’alimentation. Chaque demande attend votre confirmation, sauf si vous l’avez désactivé pour les actions d’alimentation.",
     "save": "Enregistrer les interrupteurs",
     "saved": "Enregistré. Le prochain appel utilise les nouveaux interrupteurs.",
     "neverTitle": "Jamais disponible",
@@ -129,6 +129,31 @@
     "counts": "{{chars}} caractères, {{lines}} ligne(s)",
     "typeEffect": "Le texte est tapé sur le clavier de la machine, dans ce qui a le focus. Un retour à la ligne appuie sur Enter.",
     "keys": "Touches, dans l’ordre",
-    "keysEffect": "Les touches sont pressées dans cet ordre sur le clavier de la machine."
+    "keysEffect": "Les touches sont pressées dans cet ordre sur le clavier de la machine.",
+    "title": "Ask before acting",
+    "intro": "By default a power action, a key press or a typed text waits for your confirmation. For the two kinds of action below you can choose not to be asked. The choice is yours alone, it applies to all your PiKVM connections, and only this page can change it.",
+    "tool": {
+      "power-action": "Power actions (on, off, reset)",
+      "send-key": "Key presses"
+    },
+    "ask": "Ask each time",
+    "skip": "Don't ask",
+    "line": {
+      "ask": "A card waits for your OK.",
+      "skip": "It runs at once."
+    },
+    "warnTitle": "Read this before you choose Don't ask.",
+    "warn": {
+      "power-action": "A chat can then switch this machine off or reset it at once, with no card to confirm, and unsaved work on it is lost. If an administrator allowed hard power actions, those run without asking too.",
+      "send-key": "A chat can then press keys such as Ctrl+Alt+Delete, Escape or Enter on this machine at once, with no card to confirm."
+    },
+    "textAlways": "Typed text always asks. It can enter a password or a command, so it has no Don't ask.",
+    "who": "Don't ask holds for your own chats and for messaging senders you paired with the bot. Everyone else is still asked: senders only on the allowlist, senders let in because the bot accepts anyone, scheduled runs and sub-agents.",
+    "needsWrite": "A connection set to Read only runs nothing, whatever you choose here.",
+    "audit": "Every run without asking is written to the log with the tool, the connection and the result. The typed text and the keys are not.",
+    "loading": "Reading your choice...",
+    "loadFailed": "Your choice could not be read. Reload the page to try again.",
+    "saveFailed": "Your choice could not be saved. The earlier choice is still in force.",
+    "saved": "Saved. The next call follows it."
   }
 }
