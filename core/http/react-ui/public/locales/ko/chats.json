@@ -798,7 +798,10 @@
       "label": "{{collection}}에 추가할 텍스트",
       "size": "최대 {{max}} 중 {{size}}",
       "note": "확인하기 전에는 아무것도 추가되지 않습니다. 확인하면 텍스트가 구절로 나뉘어 색인되며, 이 컬렉션을 검색하는 모든 채팅에서 사용할 수 있습니다.",
-      "editLabel": "{{target}}에 추가할 텍스트"
+      "editLabel": "{{target}}에 추가할 텍스트",
+      "embed_one": "구절 1개를 {{model}}(으)로 임베딩합니다.",
+      "embed_other": "약 {{count}}개 구절을 {{model}}(으)로 임베딩합니다.",
+      "serverModel": "서버의 임베딩 모델"
     }
   },
   "proposalsPage": {

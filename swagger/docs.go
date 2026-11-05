@@ -11214,7 +11214,7 @@ const docTemplate = `{
         },
         "/api/collections": {
             "get": {
-                "description": "The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. search_mode says how a search finds passages: semantic (by meaning only) or hybrid (by meaning and by keyword). Needs the collections feature.",
+                "description": "The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. search_mode says how a search finds passages: semantic (by meaning only) or hybrid (by meaning and by keyword). max_chunk_size and chunk_overlap are the chunking of a text in characters: a text of N characters becomes about N / (max_chunk_size - chunk_overlap) passages, and each passage is embedded once. Needs the collections feature.",
                 "tags": [
                     "collections"
                 ],
@@ -26157,6 +26157,9 @@ const docTemplate = `{
         "schema.CollectionList": {
             "type": "object",
             "properties": {
+                "chunk_overlap": {
+                    "type": "integer"
+                },
                 "collections": {
                     "type": "array",
                     "items": {
@@ -26172,6 +26175,10 @@ const docTemplate = `{
                 },
                 "embedding_model_installed": {
                     "type": "boolean"
+                },
+                "max_chunk_size": {
+                    "description": "MaxChunkSize and ChunkOverlap are the chunking of a text, in characters.\nA text is cut into passages of at most MaxChunkSize characters, and each\npassage is embedded once.",
+                    "type": "integer"
                 },
                 "search_mode": {
                     "description": "SearchMode is how a search finds passages: \"semantic\" (by meaning only)\nor \"hybrid\" (by meaning and by keyword).",

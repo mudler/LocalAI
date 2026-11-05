@@ -798,7 +798,10 @@
       "label": "Texto a adicionar em {{collection}}",
       "size": "{{size}} de no máximo {{max}}",
       "note": "Nada é adicionado até você confirmar. Depois o texto é dividido em trechos e indexado, e qualquer chat que busque nesta coleção pode usá-lo.",
-      "editLabel": "Texto a adicionar em {{target}}"
+      "editLabel": "Texto a adicionar em {{target}}",
+      "embed_one": "1 trecho será incorporado com {{model}}.",
+      "embed_other": "Cerca de {{count}} trechos serão incorporados com {{model}}.",
+      "serverModel": "o modelo de embeddings do servidor"
     }
   },
   "proposalsPage": {

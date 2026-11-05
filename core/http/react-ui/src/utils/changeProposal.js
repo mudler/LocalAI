@@ -39,6 +39,23 @@ export const writesElsewhere = (p) => p?.kind === 'knowledge'
 // (contract.MaxKnowledgeBytes).
 export const KNOWLEDGE_MAX_BYTES = 64 * 1024
 
+// What the server stores for a knowledge change: the summary as a title, then
+// the text (see knowledgeEntryText in core/services/studio/knowledge.go).
+export const knowledgeEntryText = (p) => `# ${p?.summary || ''}\n\n${String(p?.content || '').trim()}\n`
+
+// How many passages a text becomes when it is added to a collection, and so how
+// many are embedded. The engine cuts a text at word boundaries into passages of
+// at most `size` characters that share `overlap` characters, so this is an
+// estimate: a text that fits in one passage is exactly one, a longer one is
+// about length / (size - overlap). The defaults are the ones of the server.
+export function estimatePassages(text, size = 400, overlap = 0) {
+  const bytes = new TextEncoder().encode(String(text || '')).length
+  const max = Number.isFinite(size) && size > 0 ? size : 400
+  if (bytes <= max) return 1
+  const ov = Number.isFinite(overlap) && overlap > 0 ? Math.min(overlap, max - 1) : 0
+  return Math.ceil((bytes - ov) / (max - ov))
+}
+
 // The first lines of a text, for the preview of a knowledge change.
 export function previewLines(text, max = 20) {
   const lines = String(text || '').replace(/\s+$/, '').split('\n')

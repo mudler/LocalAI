@@ -39,6 +39,8 @@ page with a search for it. `GET /api/collections` reports the same in
 The Knowledge page also shows how a search finds passages, for example
 *Search: semantic*. `GET /api/collections` reports it in `search_mode`: `semantic`
 for the `chromem` engine, and `hybrid` for the `postgres` engine.
+The same answer gives `max_chunk_size` and `chunk_overlap`, the chunking of a
+text in characters.
 
 ## Who sees a collection
 
@@ -155,6 +157,10 @@ with these rules:
   Knowledge.
 - **What you see.** The card in **Suggested changes** names the collection and
   shows the first 20 lines of the text and its size against the limit of 64 KiB.
+  It also says how many passages will be embedded and with which model, for
+  example "About 4 passages will be embedded with granite-embedding-107m-multilingual".
+  The count is an estimate from the size of the text and the chunking settings
+  (`max_chunk_size` and `chunk_overlap` in `GET /api/collections`).
   You can edit the text before you confirm. A change waits 24 hours, and you can
   have 10 waiting and an agent can make 5 an hour, as for the other kinds.
 - **What happens.** **Confirm** stores the text as one entry of the collection,
