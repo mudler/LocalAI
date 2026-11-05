@@ -549,7 +549,8 @@
           "403",
           "599",
           "600",
-          "cleans a hint to printable ASCII on one line, cut at the limit"
+          "cleans a hint to printable ASCII on one line, cut at the limit",
+          "requires featureLevel 3 for ownerData, and a level 2 host refuses it"
         ]
       },
       {
@@ -3267,7 +3268,15 @@
           "leaves a 429 with another body an outage: only the add-on's own word counts",
           "keeps the short-call slots free while more polls than the concurrency limit are open",
           "refuses a poll past the poll pool, and frees the slot when a poll is cancelled",
-          "refuses a poll after the client is withdrawn and waits for open polls to drain"
+          "refuses a poll after the client is withdrawn and waits for open polls to drain",
+          "carries the status of the service and the sentence of the add-on",
+          "above 599",
+          "below 400",
+          "empty",
+          "not a number",
+          "success",
+          "keeps a refusal with no header as it was",
+          "bounds the hint to printable ASCII"
         ]
       },
       {
@@ -4359,7 +4368,9 @@
       "go: states it on a refusal too, so the person sees whose list refused",
       "go: states it on a proposal card",
       "go: says nothing when the call carries no connection",
-      "go: turns a missing selection into a note the model can relay"
+      "go: turns a missing selection into a note the model can relay",
+      "go: is tools.write for the tools that change things, in an add-on that keeps the owner's own data",
+      "go: hands the host the held write with its digest and the facts the tool lets a chat repeat, never the arguments"
     ]
   },
   "tables-admin": {
