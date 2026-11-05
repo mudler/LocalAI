@@ -145,6 +145,11 @@ func (c *Client) send(ctx context.Context, path string, in any) (*http.Response,
 	if resp.StatusCode != http.StatusOK {
 		reason := refusalReason(resp.Body)
 		wait := resp.Header.Get("Retry-After")
+		upstream, _ := strconv.Atoi(resp.Header.Get(contract.HeaderUpstreamStatus))
+		if !contract.ValidUpstreamStatus(upstream) {
+			upstream = 0
+		}
+		hint := contract.CleanHint(resp.Header.Get(contract.HeaderUpstreamHint))
 		_ = resp.Body.Close()
 		if resp.StatusCode == http.StatusTooManyRequests && reason == "rate_limited" {
 			// The service behind the add-on asks the caller to wait. The call
@@ -161,7 +166,11 @@ func (c *Client) send(ctx context.Context, path string, in any) (*http.Response,
 			return nil, ErrDenied
 		}
 		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnprocessableEntity {
-			return nil, &Refusal{Status: resp.StatusCode, Reason: reason}
+			r := &Refusal{Status: resp.StatusCode, Reason: reason}
+			if upstream != 0 {
+				r.Upstream, r.Hint = upstream, hint
+			}
+			return nil, r
 		}
 		return nil, ErrRuntime
 	}

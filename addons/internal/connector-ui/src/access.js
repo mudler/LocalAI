@@ -431,3 +431,24 @@ export function visibleRows(rows, expanded) {
   const shown = rows.filter((r) => isProblem(r.state))
   return { shown, hidden: rows.length - shown.length }
 }
+
+// OUTCOME_TONES maps how an add-on tool call ended to the look of its badge:
+// a held call waits for a person, a refused or failed one needs a fix.
+const OUTCOME_TONES = { ok: 'done', held: 'skipped', denied: 'failed', error: 'failed' }
+
+// toolOutcomeRows lists the latest add-on tool calls of a binding for the access
+// view, newest first and at most `limit`. A row names the tool and says how the
+// call ended and why; the host sends names and codes, never arguments or results.
+export function toolOutcomeRows(view, limit = 20) {
+  return (view?.tool_outcomes || []).slice(0, limit).map((e, i) => ({
+    key: `${e.at}-${e.tool}-${i}`,
+    tool: e.addon ? `${e.addon} / ${e.tool}` : e.tool,
+    outcome: Object.hasOwn(OUTCOME_TONES, e.outcome) ? e.outcome : 'error',
+    tone: OUTCOME_TONES[e.outcome] || 'failed',
+    at: e.at,
+    code: e.code || '',
+    message: e.message || '',
+    status: e.status || 0,
+    senders: e.senders || [],
+  }))
+}

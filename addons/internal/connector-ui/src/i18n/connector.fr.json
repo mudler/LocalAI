@@ -336,5 +336,12 @@
   "can.sender.channel_acts": "Un membre d’un canal réglé sur Laisser tout le monde ici demander des actions",
   "can.via.channel": "Tout le monde dans ce canal peut le demander, car le canal est réglé sur Laisser tout le monde ici demander des actions",
   "ready.postTo_one": "Le bot peut publier dans 1 autre canal à la demande d’une personne autorisée. Cela ne rend pas fiables les personnes qui s’y trouvent.",
-  "ready.postTo_other": "Le bot peut publier dans {{count}} autres canaux à la demande d’une personne autorisée. Cela ne rend pas fiables les personnes qui s’y trouvent."
+  "ready.postTo_other": "Le bot peut publier dans {{count}} autres canaux à la demande d’une personne autorisée. Cela ne rend pas fiables les personnes qui s’y trouvent.",
+  "access.toolsTitle": "Appels aux outils des add-ons",
+  "access.toolsHelp": "Les derniers appels aux outils des add-ons qui ont utilisé cette connexion ou sont venus par ce bot, du plus récent au plus ancien, 20 au maximum. Ils contiennent des noms d'outils et des motifs, jamais ce qui a été demandé ou répondu. Ils sont remis à zéro au redémarrage du serveur.",
+  "access.toolsNone": "Aucun appel pour l'instant.",
+  "access.outcome.ok": "réussi",
+  "access.outcome.held": "en attente",
+  "access.outcome.denied": "refusé",
+  "access.outcome.error": "échoué"
 }

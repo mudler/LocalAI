@@ -396,7 +396,7 @@ func (r *Runtime) Preview(ctx context.Context, env contract.Envelope) (contract.
 	}
 	t, rev, err := c.inspect(w)
 	if err != nil {
-		return contract.Preview{}, translate(err)
+		return contract.Preview{}, translateFor(w.tool, err)
 	}
 	summary := plainJSON(map[string]any{"count": 1, "sample": sample(w, t)})
 	if len(summary) > 3<<10 {
@@ -440,7 +440,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	_, now, err := c.inspect(w)
 	if err != nil {
 		// Nothing was sent yet, so a limit is a refusal here, not an unknown.
-		return contract.Receipt{}, translateWrite(err)
+		return contract.Receipt{}, translateWrite(w.tool, err)
 	}
 	if now != rev.Data {
 		rc := contract.Receipt{OperationID: op, State: contract.ReceiptRejected, Revision: rev,
@@ -466,7 +466,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 		out = map[string]any{"note": "sent; GitHub's answer was not readable"}
 	case definite(err):
 		j.forget(op)
-		return contract.Receipt{}, translateWrite(err)
+		return contract.Receipt{}, translateWrite(w.tool, err)
 	default:
 		// The request may or may not have arrived. The host will ask for the
 		// receipt, get "unknown", and leave the decision to the person.
@@ -495,12 +495,12 @@ func definite(err error) bool {
 
 // translateWrite is translate for a definite failure of a write: a limit
 // becomes a refusal that says when to try again, since nothing was changed.
-func translateWrite(err error) error {
+func translateWrite(tool string, err error) error {
 	var limited *contract.ErrRateLimited
 	if errors.As(err, &limited) {
 		return bad("github is limiting calls; nothing was sent. Propose it again in %d seconds", limited.Seconds())
 	}
-	return translate(err)
+	return translateFor(tool, err)
 }
 
 // marker is the note that ties text on GitHub to one operation.

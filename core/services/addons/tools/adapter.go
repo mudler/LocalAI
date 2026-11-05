@@ -176,6 +176,15 @@ const InvalidNote = "The add-on refused this request as invalid. Nothing was cha
 // ReasonedNote is what the model is told when the add-on refused and said why.
 const ReasonedNote = "The add-on cannot do this now, and says why in message. Nothing was changed. Tell the person what it said in plain words; do not repeat the same call and do not report an outage."
 
+// CodeUpstreamRefused is the Code of a ResultError for a call that the service
+// behind the add-on refused (a permission its token lacks, a name that does
+// not exist, a value it does not accept). Upstream holds the status and Message
+// the sentence the add-on wrote for the person. Nothing was changed.
+const CodeUpstreamRefused = "upstream_refused"
+
+// UpstreamNote is what the model is told when the service behind the add-on refused.
+const UpstreamNote = "The service behind the add-on refused this call, and message says what to change. Nothing was changed. Tell the person what message says in plain words, with the status in upstream; do not repeat the same call and do not report an outage."
+
 // CodeNotRunning is the Code of a ResultError for a call that found the add-on
 // not running. Nothing was sent.
 const CodeNotRunning = "not_running"
@@ -276,6 +285,10 @@ type ProposalRef struct {
 	Count      uint64          `json:"count"`
 	Summary    json.RawMessage `json:"summary,omitempty"`
 	ExpiresAt  time.Time       `json:"expiresAt"`
+	// Hold says why the proposal waits for a person: write_mode_propose (the
+	// connection only proposes), approval_always (the tool always asks) or
+	// held_by_host (a rule of the host).
+	Hold string `json:"hold,omitempty"`
 	// Connection names the connection the change will be made with, as
 	// "as Work, repository acme/widgets"; empty for an add-on with no credential.
 	Connection string `json:"connection,omitempty"`
@@ -343,6 +356,9 @@ type ToolResult struct {
 	ConnectionID string `json:"connectionId,omitempty"`
 	// RetryAfter is how many seconds to wait, for the code rate_limited.
 	RetryAfter int `json:"retryAfter,omitempty"`
+	// Upstream is the status that the service behind the add-on answered, for
+	// the code upstream_refused. Message says in a sentence what to change.
+	Upstream int `json:"upstream,omitempty"`
 }
 
 // ProposalNote is what the model is told after a proposal.
@@ -874,6 +890,10 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, conversationID, name string, arguments json.RawMessage) (ToolResult, error) {
 	var acted connectionUse
 	res, err := t.executeTool(ctx, actor, conversationID, name, arguments, &acted)
+	if o := OutcomeFrom(ctx); o != nil {
+		result, reason, status := Classify(res, err)
+		o.Finish(result, reason, status)
+	}
 	if err == nil && acted.line != "" && res.Connection == "" {
 		res.Connection, res.ConnectionID = acted.line, acted.id
 		if res.Proposal != nil {
@@ -923,20 +943,28 @@ func (t *ToolAdapter) executeTool(ctx context.Context, actor contract.Actor, con
 	if !found {
 		return ToolResult{}, ErrUnknownTool
 	}
+	out := OutcomeFrom(ctx)
+	out.Call(def.Kind, "")
 	resource, body, err := toolargs.Bind(def.Tool, def.Parameters, arguments, conversationID != "")
 	if err != nil {
 		return ToolResult{}, err
 	}
-	if def.Credentialed && conversationID != "" && t.connection != nil {
-		if id := gateway.ConnectionOverride(ctx); id != "" {
-			cname := t.connection(ctx, conversationID, id)
-			key := ""
-			if def.ResourceArgument != "" {
-				var in map[string]json.RawMessage
-				if json.Unmarshal(body, &in) == nil {
-					_ = json.Unmarshal(in[def.ResourceArgument], &key)
-				}
+	out.Call("", resource)
+	if def.Credentialed {
+		id := gateway.ConnectionOverride(ctx)
+		key := ""
+		if id != "" && def.ResourceArgument != "" {
+			var in map[string]json.RawMessage
+			if json.Unmarshal(body, &in) == nil {
+				_ = json.Unmarshal(in[def.ResourceArgument], &key)
 			}
+		}
+		out.Connection(id)
+		// The name the person gave the resource of the connection (a
+		// repository), never the text of the call.
+		out.Call("", key)
+		if id != "" && conversationID != "" && t.connection != nil {
+			cname := t.connection(ctx, conversationID, id)
 			*acted = connectionUse{id: id, line: connectionLine(cname, def.ResourceLabel, key)}
 		}
 	}
@@ -1007,7 +1035,10 @@ func (t *ToolAdapter) executeTool(ctx context.Context, actor contract.Actor, con
 		return t.applyNow(ctx, actor, name, p)
 	}
 	ref := ProposalRef{ID: p.ID, AddonID: p.AddonID, ResourceID: p.ResourceID, Action: p.Action, Digest: p.Digest,
-		State: string(p.State), Count: p.Effects.Count, ExpiresAt: p.ExpiresAt}
+		State: string(p.State), Count: p.Effects.Count, ExpiresAt: p.ExpiresAt, Hold: p.Hold}
+	if ref.Hold == "" {
+		ref.Hold = HoldByHost
+	}
 	if p.ConnectionName != "" {
 		// What the owner stored, so the card says it on every frontend.
 		ref.Connection = "as " + p.ConnectionName
@@ -1091,6 +1122,14 @@ func refusedResult(name string, err error) (ToolResult, error) {
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNotRunning, Note: NotRunningNote}, nil
 	case errors.Is(err, gateway.ErrResourceUnreachable):
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceUnreachable, Note: ResourceUnreachableNote}, nil
+	}
+	var upstream *addonruntime.Refusal
+	if errors.As(err, &upstream) && upstream.Upstream != 0 {
+		msg := upstream.Hint
+		if msg == "" {
+			msg = refusalMessage(err)
+		}
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeUpstreamRefused, Note: UpstreamNote, Message: msg, Upstream: upstream.Upstream}, nil
 	}
 	if errors.Is(err, gateway.ErrInvalidRequest) || errors.Is(err, contract.ErrRefused) {
 		res := ToolResult{Kind: ResultError, Tool: name, Code: CodeInvalidRequest, Note: InvalidNote, Message: refusalMessage(err)}

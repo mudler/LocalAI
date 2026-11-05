@@ -125,6 +125,8 @@ type proposalRecord struct {
 	// confirm.
 	Credentialed bool `json:"credentialed,omitempty"`
 	Await        bool `json:"await,omitempty"`
+	// Hold says why Await is set: write_mode_propose or approval_always.
+	Hold string `json:"hold,omitempty"`
 	// Relaxed marks a proposal whose tool declares approval "always" but that
 	// the person's own setting let run without a confirmation (see
 	// BrokerOptions.RelaxApproval). The apply asks the setting again, and
@@ -674,7 +676,7 @@ func effects(summary json.RawMessage) (gateway.ProposalEffects, error) {
 func (b *Broker) view(r proposalRecord) Proposal {
 	p := Proposal{ID: r.ID, OperationID: r.ID, AddonID: r.AddonID, ResourceID: r.ResourceID, Generation: r.Generation, Action: r.Action,
 		Arguments: r.Arguments, Revision: r.Revision, Digest: r.Digest, Effects: r.Effects, State: r.State, ExpiresAt: r.ExpiresAt,
-		CreatedAt: r.CreatedAt, Receipt: r.Receipt, Reason: r.Reason, Resolution: r.Resolution, AwaitsPerson: r.Await,
+		CreatedAt: r.CreatedAt, Receipt: r.Receipt, Reason: r.Reason, Resolution: r.Resolution, AwaitsPerson: r.Await, Hold: r.Hold,
 		ConnectionID: r.ConnectionID, ConnectionName: r.ConnectionName}
 	if r.State == gateway.ProposalPending {
 		p.Blocked = b.blockedBy(r.ResourceID, r.ID) != ""
@@ -993,6 +995,11 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 			rec.ConnectionID, rec.ConnectionName = grant.BindingID, grant.BindingName
 			rec.Relaxed = b.relaxed(ctx, actor, request.AddonID, ct.def)
 			rec.Await = !rec.Relaxed && (grant.WriteMode != gateway.WriteAuto || ct.def.Approval == contract.ApprovalAlways)
+			if rec.Await && grant.WriteMode != gateway.WriteAuto {
+				rec.Hold = "write_mode_propose"
+			} else if rec.Await {
+				rec.Hold = "approval_always"
+			}
 		}
 		rec.Digest = digestOf(rec)
 		if rctx.Err() != nil {

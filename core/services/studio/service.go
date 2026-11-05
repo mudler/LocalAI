@@ -330,6 +330,9 @@ type Service struct {
 	// access holds the grants of the running connector turns and the recent
 	// permission decisions (see connectoraccess.go).
 	access accessState
+	// outcomes limits the log lines of the add-on tool outcomes (see
+	// addonoutcome.go).
+	outcomes outcomeLimiter
 	bus    Bus
 	log    *slog.Logger
 

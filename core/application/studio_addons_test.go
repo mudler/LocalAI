@@ -59,15 +59,35 @@ var _ = Describe("the studio add-ons", func() {
 
 	It("shows a proposal to the model as a text that says nothing changed", func() {
 		res := addontools.ToolResult{Kind: addontools.ResultProposal, Tool: "t", Proposal: &addontools.ProposalRef{ID: "p1", AddonID: "tables", Action: "rows-delete"}}
-		got := studioAddonText(res)
+		got := studioAddonText(context.Background(), res)
 		for _, want := range []string{"tables", "rows-delete", "p1", "Nothing has been changed", "Add-ons page"} {
 			Expect(got).To(ContainSubstring(want), "proposal text")
 		}
 		with := addontools.ToolResult{Kind: addontools.ResultProposal, Tool: "t", Proposal: &addontools.ProposalRef{ID: "p2", AddonID: "tracker", Action: "write", Connection: "as Work, project acme/widgets"}}
-		Expect(studioAddonText(with)).To(ContainSubstring("It will be made as Work, project acme/widgets"), "the connection is in the text the person is told")
+		Expect(studioAddonText(context.Background(), with)).To(ContainSubstring("It will be made as Work, project acme/widgets"), "the connection is in the text the person is told")
 		data := addontools.ToolResult{Kind: addontools.ResultData, Tool: "t", Result: []byte(`{"n":1}`)}
-		Expect(studioAddonText(data)).To(ContainSubstring(`"n":1`), "a read result lost its content")
+		Expect(studioAddonText(context.Background(), data)).To(ContainSubstring(`"n":1`), "a read result lost its content")
 	})
+
+	DescribeTable("tells the model who can confirm a held change",
+		func(surface, hold string, want []string, not []string) {
+			ctx := addontools.WithSurface(context.Background(), surface)
+			res := addontools.ToolResult{Kind: addontools.ResultProposal, Tool: "t", Proposal: &addontools.ProposalRef{ID: "p1", AddonID: "tracker", Action: "write", Hold: hold}}
+			got := studioAddonText(ctx, res)
+			for _, w := range want {
+				Expect(got).To(ContainSubstring(w))
+			}
+			for _, n := range not {
+				Expect(got).NotTo(ContainSubstring(n))
+			}
+		},
+		Entry("web chat, connection only proposes", "", "write_mode_propose",
+			[]string{"for the user to confirm", "because the connection is set to ask", "Add-ons page", "Nothing has been changed"}, []string{"cannot be confirmed from this chat"}),
+		Entry("messaging chat, the tool always asks", addontools.SurfaceMessaging, "approval_always",
+			[]string{"for the owner", "web UI on the Add-ons page", "cannot be confirmed from this chat", "because this tool always asks first"}, []string{"for the user to confirm"}),
+		Entry("messaging chat, a rule of the host", addontools.SurfaceMessaging, "held_by_host",
+			[]string{"waiting for the owner"}, []string{"because"}),
+	)
 
 	It("lets a chat credential confirm while session and key rules stay the same", func() {
 		named := confirmCredential(auth.AddonModeNamedUser)
@@ -121,7 +141,7 @@ var _ = Describe("the studio add-ons", func() {
 
 	It("shows an applied change to the model as a document that says it cannot be undone", func() {
 		res := addontools.ToolResult{Kind: addontools.ResultApplied, Tool: "t", Applied: &addontools.AppliedRef{ID: "o1", AddonID: "tables", Action: "write", Count: 2}, Note: addontools.AppliedNote}
-		got := studioAddonText(res)
+		got := studioAddonText(context.Background(), res)
 		for _, want := range []string{`"kind":"applied"`, `"undoable":false`, "cannot be undone", "tables"} {
 			Expect(got).To(ContainSubstring(want), "applied text")
 		}

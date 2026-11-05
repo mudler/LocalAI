@@ -368,10 +368,34 @@ type turnGrant struct {
 	// list it (see impliedWrite). The tool builder still checks the connection.
 	// With several senders it holds only when it holds for each.
 	ImpliedWrite bool
+	// Sender says how the sender was let in: SenderPaired, SenderListed,
+	// SenderRolePrefix+id (shown as "role"), SenderChannelMember, SenderAnyone,
+	// or senderMixed for senders that differ. DeniedCodes holds the refusal
+	// code of each capability in Denied. Both feed the log of the tool calls.
+	Sender      string
+	DeniedCodes map[string]string
 }
 
+// senderMixed is the Sender of a turn with senders who were let in in
+// different ways.
+const senderMixed = "mixed"
+
 func (g turnGrant) merge(o turnGrant) turnGrant {
-	out := turnGrant{Binding: g.Binding, Kind: g.Kind, Direct: g.Direct && o.Direct, Paired: g.Paired && o.Paired, ImpliedWrite: g.ImpliedWrite && o.ImpliedWrite}
+	out := turnGrant{Binding: g.Binding, Kind: g.Kind, Direct: g.Direct && o.Direct, Paired: g.Paired && o.Paired, ImpliedWrite: g.ImpliedWrite && o.ImpliedWrite, Sender: g.Sender}
+	if g.Sender != o.Sender {
+		out.Sender = senderMixed
+	}
+	if len(g.DeniedCodes)+len(o.DeniedCodes) > 0 {
+		out.DeniedCodes = maps.Clone(g.DeniedCodes)
+		if out.DeniedCodes == nil {
+			out.DeniedCodes = map[string]string{}
+		}
+		for k, v := range o.DeniedCodes {
+			if _, ok := out.DeniedCodes[k]; !ok {
+				out.DeniedCodes[k] = v
+			}
+		}
+	}
 	out.Senders = unionOf(g.Senders, o.Senders)
 	out.Roles = unionOf(g.Roles, o.Roles)
 	if len(g.Denied)+len(o.Denied) > 0 {
@@ -404,11 +428,31 @@ func unionOf(a, b []string) []string {
 }
 
 func grantOf(w *workerctl.ChatGrant) turnGrant {
-	return turnGrant{Binding: w.Binding, Kind: w.Kind, Senders: w.Senders, Roles: w.Roles, Caps: w.Caps, Denied: w.Denied, Direct: w.Direct, Paired: w.Paired, ImpliedWrite: w.ImpliedWrite}
+	return turnGrant{Binding: w.Binding, Kind: w.Kind, Senders: w.Senders, Roles: w.Roles, Caps: w.Caps, Denied: w.Denied, Direct: w.Direct, Paired: w.Paired, ImpliedWrite: w.ImpliedWrite,
+		Sender: w.Sender, DeniedCodes: w.DeniedCodes}
 }
 
 func (g turnGrant) wire() *workerctl.ChatGrant {
-	return &workerctl.ChatGrant{Binding: g.Binding, Kind: g.Kind, Senders: g.Senders, Roles: g.Roles, Caps: g.Caps, Denied: g.Denied, Direct: g.Direct, Paired: g.Paired, ImpliedWrite: g.ImpliedWrite}
+	return &workerctl.ChatGrant{Binding: g.Binding, Kind: g.Kind, Senders: g.Senders, Roles: g.Roles, Caps: g.Caps, Denied: g.Denied, Direct: g.Direct, Paired: g.Paired, ImpliedWrite: g.ImpliedWrite,
+		Sender: g.Sender, DeniedCodes: g.DeniedCodes}
+}
+
+// senderOf says how the sender of a message was let in, in the words of the
+// SenderXxx constants: a paired sender, one on the allowlist by name, one with
+// a role the kind declares, a bot that accepts anyone, or a member of a listed
+// channel.
+func senderOf(b connectors.Binding, s AccessSubject, paired bool, kind *contract.ConnectorKind) string {
+	switch {
+	case paired:
+		return SenderPaired
+	case s.Listed && s.SenderID != "":
+		return SenderListed
+	case kind != nil && len(kind.FilterRoles(s.Roles)) > 0:
+		return "role"
+	case b.AcceptAny:
+		return SenderAnyone
+	}
+	return "channel"
 }
 
 // grantFor computes what the sender of a message may do, for the whole closed
@@ -419,6 +463,7 @@ func (c *Connectors) grantFor(ctx context.Context, b connectors.Binding, m contr
 	g := turnGrant{Binding: b.ID, Kind: b.Kind, Senders: []string{m.SenderID}, Roles: slices.Clone(m.Roles),
 		Direct: m.Direct, Paired: m.SenderID != "" && b.IsPaired(m.SenderID, now)}
 	g.ImpliedWrite = impliedWrite(b, c.subjectOf(b, m, true), now, c.offReason(ctx, b, contract.CapToolsWrite))
+	g.Sender = senderOf(b, c.subjectOf(b, m, true), g.Paired, kind)
 	for _, name := range contract.ConnectorCapabilityNames() {
 		d := Authorize(b, kind, c.subjectOf(b, m, true), name, now, c.offReason(ctx, b, name))
 		switch {
@@ -431,6 +476,12 @@ func (c *Connectors) grantFor(ctx context.Context, b connectors.Binding, m contr
 			// The model and the person read this, so it is the plain
 			// sentence of the code, not the English line of the log.
 			g.Denied[name] = d.Say()
+			if d.Code != "" {
+				if g.DeniedCodes == nil {
+					g.DeniedCodes = map[string]string{}
+				}
+				g.DeniedCodes[name] = d.Code
+			}
 		}
 	}
 	return g
@@ -458,6 +509,10 @@ const (
 	// AccessLogSize is how many recent decisions a process keeps for the
 	// settings page of a binding.
 	AccessLogSize = 200
+	// ToolOutcomesPerBinding is how many tool outcomes a process keeps for a
+	// binding, and ToolOutcomeLogSize in all.
+	ToolOutcomesPerBinding = 20
+	ToolOutcomeLogSize     = 400
 )
 
 // AccessEvent is one audited decision. It holds IDs and capability names,
@@ -482,6 +537,16 @@ type AccessEvent struct {
 	Thread  string `json:"thread,omitempty"`
 	Length  int    `json:"length,omitempty"`
 	Hash    string `json:"hash,omitempty"`
+	// The fields below are set by the outcome of a tool call of an add-on (see
+	// recordTool). They hold names and codes, never arguments or results. The
+	// Capability of such an event is empty.
+	Addon string `json:"addon,omitempty"`
+	Tool  string `json:"tool,omitempty"`
+	// Outcome is ok, denied, held or error; Reason is the code of the cause (see
+	// connectortext.ToolReason) and Status the status of the service behind the
+	// add-on, when it answered one.
+	Outcome string `json:"outcome,omitempty"`
+	Status  int    `json:"status,omitempty"`
 }
 
 type heldGrant struct {
@@ -495,6 +560,9 @@ type accessState struct {
 	mu     sync.Mutex
 	grants map[string]heldGrant // by chat
 	log    []AccessEvent
+	// tools holds the latest outcomes of the tool calls of add-ons, at most
+	// ToolOutcomesPerBinding for each binding and ToolOutcomeLogSize in all.
+	tools []AccessEvent
 }
 
 // The grant lifetime is wall time, not the clock of the connector manager, so
@@ -546,6 +614,39 @@ func (a *accessState) append(e AccessEvent) {
 	if len(a.log) > AccessLogSize {
 		a.log = slices.Clone(a.log[len(a.log)-AccessLogSize:])
 	}
+}
+
+// recordTool keeps the outcome of a tool call for the settings page of the
+// binding it names. The oldest events of that binding go first.
+func (a *accessState) recordTool(e AccessEvent) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.tools = append(a.tools, e)
+	n := 0
+	for i := len(a.tools) - 1; i >= 0; i-- {
+		if a.tools[i].Binding != e.Binding {
+			continue
+		}
+		if n++; n > ToolOutcomesPerBinding {
+			a.tools = slices.Delete(a.tools, i, i+1)
+		}
+	}
+	if len(a.tools) > ToolOutcomeLogSize {
+		a.tools = slices.Clone(a.tools[len(a.tools)-ToolOutcomeLogSize:])
+	}
+}
+
+// recentTools returns the newest tool outcomes of a binding, newest first.
+func (a *accessState) recentTools(binding string, limit int) []AccessEvent {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	var out []AccessEvent
+	for i := len(a.tools) - 1; i >= 0 && len(out) < limit; i-- {
+		if a.tools[i].Binding == binding {
+			out = append(out, a.tools[i])
+		}
+	}
+	return out
 }
 
 // recent returns the newest decisions of a binding, newest first.
@@ -659,6 +760,9 @@ type AccessView struct {
 	Binding  string              `json:"binding"`
 	Subjects []AccessSubjectView `json:"subjects"`
 	Recent   []AccessEvent       `json:"recent"`
+	// ToolOutcomes are the latest outcomes of add-on tool calls that used this
+	// binding, newest first, at most ToolOutcomesPerBinding.
+	ToolOutcomes []AccessEvent `json:"tool_outcomes,omitempty"`
 	// Approvals lists the tools of the binding's add-on whose confirmation the
 	// owner can relax, and says for whom each one runs without asking now.
 	Approvals []ToolApproval `json:"approvals,omitempty"`
@@ -810,6 +914,7 @@ func (c *Connectors) Access(ctx context.Context, user, id string) (AccessView, e
 	}
 	out := c.accessOf(ctx, b, "")
 	out.Recent = c.svc.access.recent(b.ID, 50)
+	out.ToolOutcomes = c.svc.access.recentTools(b.ID, ToolOutcomesPerBinding)
 	return out, nil
 }
 

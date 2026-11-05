@@ -383,6 +383,7 @@ func (s *Service) addonToolsHeld(ctx context.Context, a workspace.Actor, rec ses
 			if guarded {
 				t = s.gateAddonAct(rec, pol, t, d)
 			}
+			t.Run = s.outcomeRun(rec, a, d, t.Run)
 			tools = append(tools, t)
 			continue
 		}
@@ -424,6 +425,7 @@ func (s *Service) addonToolsHeld(ctx context.Context, a workspace.Actor, rec ses
 		if guarded {
 			tool = s.gateAddonAct(rec, pol, tool, d)
 		}
+		tool.Run = s.outcomeRun(rec, a, d, tool.Run)
 		tools = append(tools, tool)
 	}
 	installed := map[string]string{}
@@ -490,11 +492,26 @@ func (s *Service) gateAddonTool(t session.Tool, permission, chat string, connect
 	run := t.Run
 	t.Run = func(ctx context.Context, args json.RawMessage) (string, error) {
 		if err := c.Require(permission); err != nil {
+			addontools.OutcomeFrom(ctx).Deny(s.deniedCode(chat, permission))
 			return "", err
 		}
 		return run(ctx, args)
 	}
 	return t, true, ""
+}
+
+// deniedCode is the code of the link that refuses a capability to the sender of
+// the turn of chat: the code of the refusal that was computed with the grant,
+// or no_grant when no sender of this chat holds a grant now.
+func (s *Service) deniedCode(chat, capability string) string {
+	g, ok := s.access.get(chat)
+	switch {
+	case !ok:
+		return "no_grant"
+	case g.DeniedCodes[capability] != "":
+		return g.DeniedCodes[capability]
+	}
+	return CodeConnectionPermissionOff
 }
 
 // agentConnectedForWrite says whether the agent selected a connection for the
@@ -612,12 +629,14 @@ func (s *Service) connectionRun(a workspace.Actor, addonID string, offered Conne
 		var chosen Connection
 		switch {
 		case len(set.Items) == 0:
+			addontools.OutcomeFrom(ctx).Deny(addontools.CodeSelectConnection)
 			return connectionSentence(nil, "", false), nil
 		case len(set.Items) == 1 && !present:
 			chosen = set.Items[0]
 		default:
 			var ok bool
 			if chosen, ok = pickConnection(set.Items, given); !ok {
+				addontools.OutcomeFrom(ctx).Deny(addontools.CodeSelectConnection)
 				return connectionSentence(set.Items, given, present && given != ""), nil
 			}
 		}

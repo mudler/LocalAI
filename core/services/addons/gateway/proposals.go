@@ -98,6 +98,9 @@ type Proposal struct {
 	// host surface such as the browser: a chat or an agent never applies it.
 	// The write mode of the binding or the approval of the tool asks for it.
 	AwaitsPerson bool `json:"awaitsPerson,omitempty"`
+	// Hold says why it awaits a person: write_mode_propose (the connection is
+	// in the mode that only proposes) or approval_always (the tool always asks).
+	Hold string `json:"hold,omitempty"`
 	// ConnectionID and ConnectionName say which connection of the person the
 	// change will be made with. They are present for a write of an add-on that
 	// runs with a credential, and the apply uses that very connection.

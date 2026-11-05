@@ -336,5 +336,12 @@
   "can.sender.channel_acts": "Un membro di un canale impostato su Lascia chiedere azioni a tutti qui",
   "can.via.channel": "Chiunque in questo canale può chiederlo perché il canale è impostato su Lascia chiedere azioni a tutti qui",
   "ready.postTo_one": "Il bot può pubblicare in 1 altro canale quando una persona consentita lo chiede. Questo non rende affidabili le persone al suo interno.",
-  "ready.postTo_other": "Il bot può pubblicare in {{count}} altri canali quando una persona consentita lo chiede. Questo non rende affidabili le persone al loro interno."
+  "ready.postTo_other": "Il bot può pubblicare in {{count}} altri canali quando una persona consentita lo chiede. Questo non rende affidabili le persone al loro interno.",
+  "access.toolsTitle": "Chiamate agli strumenti degli add-on",
+  "access.toolsHelp": "Le ultime chiamate agli strumenti degli add-on che hanno usato questa connessione o sono arrivate da questo bot, dalla più recente, al massimo 20. Contengono nomi di strumenti e motivi, mai ciò che è stato chiesto o risposto. Si azzerano al riavvio del server.",
+  "access.toolsNone": "Nessuna chiamata ancora.",
+  "access.outcome.ok": "riuscita",
+  "access.outcome.held": "in attesa",
+  "access.outcome.denied": "negata",
+  "access.outcome.error": "fallita"
 }

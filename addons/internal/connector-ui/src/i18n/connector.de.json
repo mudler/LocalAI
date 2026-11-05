@@ -336,5 +336,12 @@
   "can.sender.channel_acts": "Ein Mitglied eines Kanals mit Alle hier dürfen Aktionen anfragen",
   "can.via.channel": "Alle in diesem Kanal können das anfragen, weil der Kanal auf Alle hier dürfen Aktionen anfragen steht",
   "ready.postTo_one": "Der Bot darf in 1 weiteren Kanal posten, wenn eine erlaubte Person darum bittet. Das macht die Personen darin nicht vertrauenswürdig.",
-  "ready.postTo_other": "Der Bot darf in {{count}} weitere Kanäle posten, wenn eine erlaubte Person darum bittet. Das macht die Personen darin nicht vertrauenswürdig."
+  "ready.postTo_other": "Der Bot darf in {{count}} weitere Kanäle posten, wenn eine erlaubte Person darum bittet. Das macht die Personen darin nicht vertrauenswürdig.",
+  "access.toolsTitle": "Aufrufe von Add-on-Werkzeugen",
+  "access.toolsHelp": "Die letzten Aufrufe von Add-on-Werkzeugen, die diese Verbindung nutzten oder über diesen Bot kamen, neueste zuerst, höchstens 20. Sie enthalten Werkzeugnamen und Gründe, nie, was gefragt oder geantwortet wurde. Sie werden beim Neustart des Servers zurückgesetzt.",
+  "access.toolsNone": "Noch kein Aufruf.",
+  "access.outcome.ok": "erfolgreich",
+  "access.outcome.held": "angehalten",
+  "access.outcome.denied": "abgelehnt",
+  "access.outcome.error": "fehlgeschlagen"
 }

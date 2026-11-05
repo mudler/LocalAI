@@ -3475,6 +3475,52 @@ access view and its access preview (`approvals` in the answer of
 `GET /api/chats/connectors/{id}/access` and of the preview route) list each relaxable tool
 with its setting and who it runs for without asking now.
 
+### What happened to a tool call
+
+Every call of an add-on tool from a chat writes one line to the host log when it ends,
+whatever the ending:
+
+```
+studio: addon tool addon=<id> tool=<name> kind=<read|write|schema|create|action|-> binding=<id|-> resource=<name|-> chat=<origin> sender=<kind> outcome=<ok|denied|held|error> reason=<code|-> status=<http status|-> ms=<n>
+```
+
+- `chat` is the origin of the chat: `studio` for the web UI, or `connector`, `trigger`,
+  `job` or `page`.
+- `sender` says who the call is for: `owner` in the web UI; `paired`, `listed`, `role`,
+  `channel`, `anyone` or `mixed` for a messaging turn (how the sender was let in);
+  `trigger` or `job` for an unattended run.
+- `outcome` is `ok`, `held` (a write that waits for a person), `denied` (a rule stopped it
+  before the service was called) or `error`.
+- `reason` is a stable code: a code of the permission chain (`sender_needs_pairing`,
+  `connection_permission_off`), `write_mode_off`, `write_mode_propose` or
+  `approval_always` for a write that waits, `resource_not_allowed` or
+  `resource_not_in_agent_list`, `select_connection`, `act_read_only`, or
+  `upstream_<status>` when the service behind the add-on refused the call.
+- `status` is the HTTP status that service answered, when the add-on says so.
+
+The line holds names and codes. It never holds the arguments, the result, a token or the
+text of a note. An identical line is written once in 30 seconds; the next one says
+`repeated=<n>` for the ones it held back.
+
+The same event is kept in memory, at most 20 for each connection and each bot, and the
+connection page shows it under **Latest decisions** with the tool, the outcome, the reason
+in the language of the page and the time. `GET /api/chats/connectors/{id}/access` returns
+them as `tool_outcomes`. They reset when the server restarts.
+
+When the service behind an add-on refuses a call (a token without the permission, a name
+that does not exist, a value it does not accept), the add-on tells the host the status and
+one fixed sentence that names the fix. The model gets `code: upstream_refused`, the
+`upstream` status and that sentence as `message`, and tells the person plainly instead of
+reporting an outage. An add-on does this by returning `protocol.Upstream(status, hint,
+err)` from its runtime (the 400 answer carries the `X-Addon-Upstream-Status` and
+`X-Addon-Upstream-Hint` headers; a host that does not read them behaves as before). The
+sentence must hold no token and no text the service sent back.
+
+A write that waits for a person (the write mode of the connection is **propose**, or the
+tool always asks) says so in one sentence. In the web UI the user confirms or cancels it
+on the Add-ons page. In a messaging chat the model tells the sender that the change waits
+for the owner, who confirms it in the web UI: a chat turn never confirms a change.
+
 ### Tools that replace a built-in tool
 
 A chat has a few built-in tools that an add-on may replace: `bash`,

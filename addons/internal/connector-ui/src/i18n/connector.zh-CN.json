@@ -336,5 +336,12 @@
   "can.sender.channel_acts": "设为“允许此处所有人请求操作”的频道的成员",
   "can.via.channel": "此频道设为“允许此处所有人请求操作”，因此频道中的所有人都可以请求",
   "ready.postTo_one": "在被允许的人请求时，机器人可以向另外 1 个频道发消息。这不意味着信任其中的人。",
-  "ready.postTo_other": "在被允许的人请求时，机器人可以向另外 {{count}} 个频道发消息。这不意味着信任其中的人。"
+  "ready.postTo_other": "在被允许的人请求时，机器人可以向另外 {{count}} 个频道发消息。这不意味着信任其中的人。",
+  "access.toolsTitle": "插件工具调用",
+  "access.toolsHelp": "最近使用此连接或通过此机器人进来的插件工具调用，最新的在前，最多 20 条。只包含工具名称和原因，不包含请求或回复的内容。服务器重启后会清空。",
+  "access.toolsNone": "还没有调用。",
+  "access.outcome.ok": "成功",
+  "access.outcome.held": "已挂起",
+  "access.outcome.denied": "已拒绝",
+  "access.outcome.error": "失败"
 }

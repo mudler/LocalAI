@@ -1650,6 +1650,18 @@ type ChatsConnectorAccessEvent struct {
 	Reason     string    `json:"reason,omitempty"`
 	// Code is the code of a refusal, as in the decisions.
 	Code string `json:"code,omitempty"`
+	// Addon and Tool name the add-on tool call, for an event in tool_outcomes;
+	// capability is empty then. Outcome is ok, denied, held or error, code
+	// the cause and status the HTTP status of the service behind
+	// the add-on, when it answered one. Message is the owner's sentence for the
+	// reason, in English, and localized_message the same in the language of the
+	// request. An outcome holds names and codes, never arguments or results.
+	Addon            string `json:"addon,omitempty"`
+	Tool             string `json:"tool,omitempty"`
+	Outcome          string `json:"outcome,omitempty" enums:"ok,denied,held,error"`
+	Status           int    `json:"status,omitempty"`
+	Message          string `json:"message,omitempty"`
+	LocalizedMessage string `json:"localized_message,omitempty"`
 }
 
 // ChatsConnectorAccess is the effective permissions of a binding, as the host
@@ -1658,6 +1670,10 @@ type ChatsConnectorAccess struct {
 	Binding  string                        `json:"binding"`
 	Subjects []ChatsConnectorAccessSubject `json:"subjects"`
 	Recent   []ChatsConnectorAccessEvent   `json:"recent"`
+	// ToolOutcomes are the latest add-on tool calls that used this connection
+	// or came in through this bot, newest first, at most 20. They reset when
+	// the server restarts, like recent.
+	ToolOutcomes []ChatsConnectorAccessEvent `json:"tool_outcomes,omitempty"`
 	// Approvals lists the tools of the add-on whose confirmation the owner can
 	// relax, and for whom each runs without asking now. Absent when the
 	// add-on has none.

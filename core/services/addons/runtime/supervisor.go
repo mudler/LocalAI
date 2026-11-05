@@ -57,6 +57,11 @@ var ErrDenied = fmt.Errorf("addon denied the request: %w", contract.ErrDenied)
 type Refusal struct {
 	Status int
 	Reason string
+	// Upstream is the status that the service behind the add-on answered, when
+	// the add-on says its refusal comes from there (0 when it does not). Hint
+	// is the one sentence the add-on wrote for the person about it.
+	Upstream int
+	Hint     string
 }
 
 func (r *Refusal) Error() string {

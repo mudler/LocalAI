@@ -18,6 +18,7 @@ export function localizeAccess(view) {
   if (!view || !Array.isArray(view.subjects)) return view
   return {
     ...view,
+    tool_outcomes: (view.tool_outcomes || []).map((e) => (e.localized_message ? { ...e, message: e.localized_message } : e)),
     subjects: view.subjects.map((subject) => ({
       ...subject,
       decisions: (subject.decisions || []).map((d) => (d.localized_message ? { ...d, message: d.localized_message } : d)),

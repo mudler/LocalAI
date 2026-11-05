@@ -336,5 +336,12 @@
   "can.sender.channel_acts": "A member of a channel set to Let everyone here ask for actions",
   "can.via.channel": "Everyone in this channel can ask for this because the channel is set to Let everyone here ask for actions",
   "ready.postTo_one": "The bot may post to 1 other channel when an allowed person asks. That does not trust the people in it.",
-  "ready.postTo_other": "The bot may post to {{count}} other channels when an allowed person asks. That does not trust the people in them."
+  "ready.postTo_other": "The bot may post to {{count}} other channels when an allowed person asks. That does not trust the people in them.",
+  "access.toolsTitle": "Add-on tool calls",
+  "access.toolsHelp": "The latest calls of add-on tools that used this connection or came in through this bot, newest first, at most 20. They hold tool names and reasons, never what was asked or answered. They reset when the server restarts.",
+  "access.toolsNone": "No tool call yet.",
+  "access.outcome.ok": "ok",
+  "access.outcome.held": "held",
+  "access.outcome.denied": "denied",
+  "access.outcome.error": "failed"
 }

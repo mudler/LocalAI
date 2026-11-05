@@ -336,5 +336,12 @@
   "can.sender.channel_acts": "'여기 모두 작업 요청 허용'으로 설정된 채널의 구성원",
   "can.via.channel": "이 채널이 '여기 모두 작업 요청 허용'으로 설정되어 있어 이 채널의 모두가 요청할 수 있습니다",
   "ready.postTo_one": "봇은 허용된 사람이 요청하면 다른 채널 1곳에 게시할 수 있습니다. 그 안의 사람들을 신뢰하는 것은 아닙니다.",
-  "ready.postTo_other": "봇은 허용된 사람이 요청하면 다른 채널 {{count}}곳에 게시할 수 있습니다. 그 안의 사람들을 신뢰하는 것은 아닙니다."
+  "ready.postTo_other": "봇은 허용된 사람이 요청하면 다른 채널 {{count}}곳에 게시할 수 있습니다. 그 안의 사람들을 신뢰하는 것은 아닙니다.",
+  "access.toolsTitle": "애드온 도구 호출",
+  "access.toolsHelp": "이 연결을 사용했거나 이 봇을 통해 들어온 애드온 도구의 최근 호출이며, 최신순으로 최대 20개입니다. 도구 이름과 이유만 담고, 요청이나 응답 내용은 담지 않습니다. 서버를 다시 시작하면 초기화됩니다.",
+  "access.toolsNone": "아직 호출이 없습니다.",
+  "access.outcome.ok": "성공",
+  "access.outcome.held": "보류됨",
+  "access.outcome.denied": "거부됨",
+  "access.outcome.error": "실패"
 }

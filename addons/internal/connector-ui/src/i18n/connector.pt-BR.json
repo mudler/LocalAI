@@ -336,5 +336,12 @@
   "can.sender.channel_acts": "Um membro de um canal em Deixar todos aqui pedirem ações",
   "can.via.channel": "Todos neste canal podem pedir isso porque o canal está em Deixar todos aqui pedirem ações",
   "ready.postTo_one": "O bot pode publicar em mais 1 canal quando uma pessoa permitida pede. Isso não dá confiança às pessoas nele.",
-  "ready.postTo_other": "O bot pode publicar em mais {{count}} canais quando uma pessoa permitida pede. Isso não dá confiança às pessoas neles."
+  "ready.postTo_other": "O bot pode publicar em mais {{count}} canais quando uma pessoa permitida pede. Isso não dá confiança às pessoas neles.",
+  "access.toolsTitle": "Chamadas às ferramentas dos complementos",
+  "access.toolsHelp": "As últimas chamadas às ferramentas dos complementos que usaram esta conexão ou chegaram por este bot, da mais recente para a mais antiga, no máximo 20. Contêm nomes de ferramentas e motivos, nunca o que foi pedido ou respondido. Zeram quando o servidor reinicia.",
+  "access.toolsNone": "Ainda não há chamadas.",
+  "access.outcome.ok": "concluída",
+  "access.outcome.held": "retida",
+  "access.outcome.denied": "negada",
+  "access.outcome.error": "falhou"
 }

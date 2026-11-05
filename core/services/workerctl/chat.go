@@ -51,6 +51,12 @@ type ChatGrant struct {
 	// ImpliedWrite says the sender holds tools.write for the write tools of
 	// an add-on the agent is connected to without the ceiling listing it.
 	ImpliedWrite bool `json:"implied_write,omitempty"`
+	// Sender says how the sender was let in (paired, listed, role, channel,
+	// anyone, or mixed for several senders) and DeniedCodes the refusal code
+	// of each capability in Denied. Both are only for the host log and the
+	// latest decisions; an older frontend sends neither.
+	Sender      string            `json:"sender,omitempty"`
+	DeniedCodes map[string]string `json:"denied_codes,omitempty"`
 }
 
 // ChatStartReply is the worker's answer to a ChatStartRequest. With Error

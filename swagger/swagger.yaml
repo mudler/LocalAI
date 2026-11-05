@@ -2372,6 +2372,11 @@ definitions:
         type: string
       generation:
         type: integer
+      hold:
+        description: |-
+          Hold says why it awaits a person: write_mode_propose (the connection is
+          in the mode that only proposes) or approval_always (the tool always asks).
+        type: string
       id:
         description: |-
           ID is the proposal identifier. It is the operation identifier of the
@@ -5008,6 +5013,14 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsConnectorAccessSubject'
         type: array
+      tool_outcomes:
+        description: |-
+          ToolOutcomes are the latest add-on tool calls that used this connection
+          or came in through this bot, newest first, at most 20. They reset when
+          the server restarts, like recent.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorAccessEvent'
+        type: array
     type: object
   schema.ChatsConnectorAccessDecision:
     properties:
@@ -5060,6 +5073,15 @@ definitions:
     type: object
   schema.ChatsConnectorAccessEvent:
     properties:
+      addon:
+        description: |-
+          Addon and Tool name the add-on tool call, for an event in tool_outcomes;
+          capability is empty then. Outcome is ok, denied, held or error, code
+          the cause and status the HTTP status of the service behind
+          the add-on, when it answered one. Message is the owner's sentence for the
+          reason, in English, and localized_message the same in the language of the
+          request. An outcome holds names and codes, never arguments or results.
+        type: string
       allowed:
         type: boolean
       at:
@@ -5068,6 +5090,17 @@ definitions:
         type: string
       code:
         description: Code is the code of a refusal, as in the decisions.
+        type: string
+      localized_message:
+        type: string
+      message:
+        type: string
+      outcome:
+        enum:
+        - ok
+        - denied
+        - held
+        - error
         type: string
       reason:
         type: string
@@ -5079,6 +5112,10 @@ definitions:
         items:
           type: string
         type: array
+      status:
+        type: integer
+      tool:
+        type: string
       via:
         type: string
     type: object

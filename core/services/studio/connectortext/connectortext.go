@@ -13,6 +13,7 @@ import (
 	"embed"
 	"encoding/json"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -63,6 +64,21 @@ func Negotiate(explicit, acceptLanguage string) string {
 // Key builders, shared with the tests.
 func CapabilityKey(name, field string) string { return "cap." + name + "." + field }
 func BlockKey(code string) string             { return "block." + code }
+
+// ToolReasonKey is the key of the sentence for the reason of an add-on tool
+// outcome (see studio.ToolReasonCodes).
+func ToolReasonKey(code string) string { return "tool." + code }
+
+// ToolReason returns the sentence for the reason of an add-on tool outcome in a
+// language, with {status} filled in. It reports false when the language lacks
+// the text; the caller then keeps the English sentence.
+func ToolReason(lang, code string, status int) (string, bool) {
+	tpl, ok := lookup(lang, ToolReasonKey(code))
+	if !ok {
+		return "", false
+	}
+	return strings.ReplaceAll(tpl, "{status}", strconv.Itoa(status)), true
+}
 
 // Capability returns the title and description of a capability in a language.
 // It reports false when the language or the capability has no text.

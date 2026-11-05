@@ -19009,6 +19009,10 @@ const docTemplate = `{
                 "generation": {
                     "type": "integer"
                 },
+                "hold": {
+                    "description": "Hold says why it awaits a person: write_mode_propose (the connection is\nin the mode that only proposes) or approval_always (the tool always asks).",
+                    "type": "string"
+                },
                 "id": {
                     "description": "ID is the proposal identifier. It is the operation identifier of the\nstored operation, so a lost reply is always resolved by the same ID.",
                     "type": "string"
@@ -22291,6 +22295,13 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsConnectorAccessSubject"
                     }
+                },
+                "tool_outcomes": {
+                    "description": "ToolOutcomes are the latest add-on tool calls that used this connection\nor came in through this bot, newest first, at most 20. They reset when\nthe server restarts, like recent.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorAccessEvent"
+                    }
                 }
             }
         },
@@ -22346,6 +22357,10 @@ const docTemplate = `{
         "schema.ChatsConnectorAccessEvent": {
             "type": "object",
             "properties": {
+                "addon": {
+                    "description": "Addon and Tool name the add-on tool call, for an event in tool_outcomes;\ncapability is empty then. Outcome is ok, denied, held or error, code\nthe cause and status the HTTP status of the service behind\nthe add-on, when it answered one. Message is the owner's sentence for the\nreason, in English, and localized_message the same in the language of the\nrequest. An outcome holds names and codes, never arguments or results.",
+                    "type": "string"
+                },
                 "allowed": {
                     "type": "boolean"
                 },
@@ -22358,6 +22373,21 @@ const docTemplate = `{
                 "code": {
                     "description": "Code is the code of a refusal, as in the decisions.",
                     "type": "string"
+                },
+                "localized_message": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "outcome": {
+                    "type": "string",
+                    "enum": [
+                        "ok",
+                        "denied",
+                        "held",
+                        "error"
+                    ]
                 },
                 "reason": {
                     "type": "string"
@@ -22373,6 +22403,12 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "tool": {
+                    "type": "string"
                 },
                 "via": {
                     "type": "string"

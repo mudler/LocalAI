@@ -510,6 +510,19 @@ func accessOut(v studiosvc.AccessView, lang string) schema.ChatsConnectorAccess 
 	for _, e := range v.Recent {
 		out.Recent = append(out.Recent, schema.ChatsConnectorAccessEvent{At: e.At, Senders: e.Senders, Roles: e.Roles, Capability: e.Capability, Allowed: e.Allowed, Via: e.Via, Reason: e.Reason, Code: e.Code})
 	}
+	for _, e := range v.ToolOutcomes {
+		o := schema.ChatsConnectorAccessEvent{At: e.At, Senders: e.Senders, Roles: e.Roles, Addon: e.Addon, Tool: e.Tool, Outcome: e.Outcome,
+			Status: e.Status, Code: e.Reason, Message: studiosvc.ToolReasonMessage(e.Reason, e.Status)}
+		if lang != "" && e.Reason != "" {
+			key := studiosvc.ToolReasonKey(e.Reason)
+			if slices.Contains(studiosvc.BlockCodes(), key) {
+				o.LocalizedMessage, _ = connectortext.Block(lang, key, contract.CapToolsWrite)
+			} else {
+				o.LocalizedMessage, _ = connectortext.ToolReason(lang, key, e.Status)
+			}
+		}
+		out.ToolOutcomes = append(out.ToolOutcomes, o)
+	}
 	return out
 }
 

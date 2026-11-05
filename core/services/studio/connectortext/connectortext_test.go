@@ -95,6 +95,9 @@ func TestNoLocaleHasAnExtraKey(t *testing.T) {
 	for _, code := range studio.BlockCodes() {
 		known[connectortext.BlockKey(code)] = true
 	}
+	for _, code := range studio.ToolReasonCodes() {
+		known[connectortext.ToolReasonKey(code)] = true
+	}
 	for _, lang := range connectortext.Languages {
 		for _, k := range connectortext.KeysOf(lang) {
 			if !known[k] {
@@ -124,5 +127,56 @@ func TestNegotiate(t *testing.T) {
 	}
 	if !slices.Contains(connectortext.Languages, "id") {
 		t.Error("id is missing")
+	}
+}
+
+// Every reason of an add-on tool outcome has a sentence in every language, with
+// {status} where English has it, and an unknown code has none.
+func TestEveryToolReasonIsInEveryLanguage(t *testing.T) {
+	for _, code := range studio.ToolReasonCodes() {
+		english := studio.ToolReasonMessage(code, 403)
+		if english == "" || strings.Contains(english, "{") {
+			t.Errorf("code %q has no complete English sentence: %q", code, english)
+		}
+		for _, lang := range connectortext.Languages {
+			got, ok := connectortext.ToolReason(lang, code, 403)
+			if !ok || strings.TrimSpace(got) == "" {
+				t.Errorf("%s: tool reason %q has no text", lang, code)
+				continue
+			}
+			if strings.Contains(got, "{") {
+				t.Errorf("%s: tool reason %q leaves a placeholder: %q", lang, code, got)
+			}
+			if got == english {
+				t.Errorf("%s: tool reason %q is not translated", lang, code)
+			}
+			if code == "upstream" && !strings.Contains(got, "403") {
+				t.Errorf("%s: the generic upstream sentence lost the status: %q", lang, got)
+			}
+		}
+	}
+	for _, lang := range connectortext.Languages {
+		if _, ok := connectortext.ToolReason(lang, "no_such_reason", 0); ok {
+			t.Errorf("%s: an unknown reason must have no text", lang)
+		}
+	}
+}
+
+// A reason from the host maps to a sentence that exists.
+func TestToolReasonKeyAlwaysHasText(t *testing.T) {
+	for _, reason := range []string{"upstream_401", "upstream_403", "upstream_404", "upstream_422", "upstream_500", "upstream_429", "unknown_tool", "canceled", "write_mode_off", "sender_needs_pairing", "needs_confirmation"} {
+		key := studio.ToolReasonKey(reason)
+		if studio.ToolReasonMessage(reason, 500) == "" {
+			t.Errorf("%s: no English sentence", reason)
+		}
+		for _, lang := range connectortext.Languages {
+			if slices.Contains(studio.BlockCodes(), key) {
+				if _, ok := connectortext.Block(lang, key, contract.CapToolsWrite); !ok {
+					t.Errorf("%s: %s (%s) has no block text", lang, reason, key)
+				}
+			} else if _, ok := connectortext.ToolReason(lang, key, 500); !ok {
+				t.Errorf("%s: %s (%s) has no tool text", lang, reason, key)
+			}
+		}
 	}
 }

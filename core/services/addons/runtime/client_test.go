@@ -165,6 +165,59 @@ var _ = Describe("Invalid-request refusals of the add-on", func() {
 	})
 })
 
+var _ = Describe("Refusals that come from the service behind the add-on", func() {
+	answering := func(status int, headers map[string]string) *Client {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			for k, v := range headers {
+				w.Header().Set(k, v)
+			}
+			http.Error(w, "the token has no permission for this", status)
+		}))
+		DeferCleanup(srv.Close)
+		c, e := newClient(Registration{AddonID: "sample", Generation: 1, Endpoint: srv.URL}, strings.Repeat("a", 64), contract.DefaultLimits())
+		Expect(e).NotTo(HaveOccurred())
+		c.accept = true
+		return c
+	}
+	refusal := func(c *Client) *Refusal {
+		_, e := c.Read(context.Background(), envelope("read"))
+		var r *Refusal
+		Expect(errors.As(e, &r)).To(BeTrue(), "%v", e)
+		Expect(errors.Is(e, contract.ErrRefused)).To(BeTrue())
+		return r
+	}
+	It("carries the status of the service and the sentence of the add-on", func() {
+		r := refusal(answering(http.StatusBadRequest, map[string]string{
+			contract.HeaderUpstreamStatus: "403",
+			contract.HeaderUpstreamHint:   "The token cannot create issues in this repository (403). Give it Issues: write.",
+		}))
+		Expect(r.Upstream).To(Equal(403))
+		Expect(r.Hint).To(Equal("The token cannot create issues in this repository (403). Give it Issues: write."))
+		Expect(r.Reason).To(Equal("the token has no permission for this"))
+	})
+	DescribeTable("ignores a status that is not one a service answers",
+		func(status string) {
+			r := refusal(answering(http.StatusBadRequest, map[string]string{contract.HeaderUpstreamStatus: status, contract.HeaderUpstreamHint: "x"}))
+			Expect(r.Upstream).To(BeZero())
+			Expect(r.Hint).To(BeEmpty(), "a hint with no status is not kept")
+		},
+		Entry("success", "200"), Entry("below 400", "399"), Entry("above 599", "600"), Entry("not a number", "forbidden"), Entry("empty", ""),
+	)
+	It("keeps a refusal with no header as it was", func() {
+		r := refusal(answering(http.StatusUnprocessableEntity, nil))
+		Expect(r.Upstream).To(BeZero())
+		Expect(r.Status).To(Equal(http.StatusUnprocessableEntity))
+	})
+	It("bounds the hint to printable ASCII", func() {
+		r := refusal(answering(http.StatusBadRequest, map[string]string{
+			contract.HeaderUpstreamStatus: "404",
+			contract.HeaderUpstreamHint:   strings.Repeat("ab  c ", 200),
+		}))
+		Expect(len(r.Hint)).To(BeNumerically("<=", contract.MaxUpstreamHint))
+		Expect(r.Hint).NotTo(ContainSubstring("  "))
+	})
+})
+
 var _ = Describe("Denials of the add-on", func() {
 	denying := func(body string) *Client {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

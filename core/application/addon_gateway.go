@@ -1114,7 +1114,7 @@ func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args j
 	if err != nil {
 		return "", err
 	}
-	return studioAddonText(res), nil
+	return studioAddonText(ctx, res), nil
 }
 
 // CallProvider runs one tool of an add-on as the person, outside any chat: the
@@ -1129,14 +1129,14 @@ func (s *studioAddons) CallProvider(ctx context.Context, user, name string, args
 	if err != nil {
 		return "", err
 	}
-	return studioAddonText(res), nil
+	return studioAddonText(ctx, res), nil
 }
 
 // studioAddonText is what the model reads for a result. A change the chat made
 // comes as an "applied" document whose note says what was done and whether the
 // person can undo it (undoable, changeId and a one-line undo, or a reason). A change that stays a proposal (the owner could not apply
 // it) is not applied, and the text says who can apply it.
-func studioAddonText(res addontools.ToolResult) string {
+func studioAddonText(ctx context.Context, res addontools.ToolResult) string {
 	if res.Kind == addontools.ResultProposal && res.Proposal != nil {
 		// A change that runs with a credential names the connection it will be
 		// made with, so the person, and the connector chat that relays this
@@ -1145,11 +1145,30 @@ func studioAddonText(res addontools.ToolResult) string {
 		if res.Proposal.Connection != "" {
 			with = " It will be made " + res.Proposal.Connection + "; say which connection in your message."
 		}
-		return fmt.Sprintf("The add-on %s proposed a change (%s, proposal %s).%s Nothing has been changed. "+
-			"Tell the user to review and confirm it on the Add-ons page. Do not say the change was made.",
-			res.Proposal.AddonID, res.Proposal.Action, res.Proposal.ID, with)
+		return fmt.Sprintf("The add-on %s proposed a change (%s, proposal %s).%s Nothing has been changed. %s Do not say the change was made.",
+			res.Proposal.AddonID, res.Proposal.Action, res.Proposal.ID, with, heldSentence(addontools.SurfaceOf(ctx), res.Proposal.Hold))
 	}
 	return res.JSON()
+}
+
+// heldSentence says, for the model, why a change waits and who can confirm it.
+// Only a person at the web UI confirms it: a chat turn, a messaging sender and
+// an agent never do, so a messaging chat is told that nobody can confirm it
+// from there.
+func heldSentence(surface, hold string) string {
+	why := ""
+	switch hold {
+	case "write_mode_propose":
+		why = " because the connection is set to ask before it changes anything"
+	case "approval_always":
+		why = " because this tool always asks first"
+	}
+	if surface == addontools.SurfaceMessaging {
+		return "It is waiting" + why + " for the owner, who can confirm or cancel it in the web UI on the Add-ons page; it cannot be confirmed from this chat. " +
+			"Tell the sender in one sentence that the change is waiting for the owner."
+	}
+	return "It is waiting" + why + " for the user to confirm: they can confirm or cancel it on the Add-ons page. " +
+		"Tell the user in one sentence that the change is waiting for them."
 }
 
 // Resolve at call time: the connector service can start after the private gateway.

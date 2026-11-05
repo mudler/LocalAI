@@ -7,6 +7,7 @@ import { connectorsApi } from './api'
 import { pageLocale } from './connector'
 import ApprovalsView from './ApprovalsView'
 import NoteSaveView from './NoteSaveView'
+import { toolOutcomeRows } from './access'
 
 export default function AccessView({ binding, capabilities, s, version, onAllowed }) {
   const [view, setView] = useState(null)
@@ -55,8 +56,32 @@ export default function AccessView({ binding, capabilities, s, version, onAllowe
               ))}
             </ul>
           )}
+          <ToolOutcomes rows={toolOutcomeRows(view)} s={s} />
         </>)}
       </>)}
     </fieldset>
+  )
+}
+
+// The latest calls of add-on tools. A row holds the tool, how the call ended and
+// why, in the owner's words: never what was asked or answered.
+function ToolOutcomes({ rows, s }) {
+  return (
+    <div data-testid="connector-tool-outcomes-box">
+      <p className="dk-hint">{s('access.toolsHelp')}</p>
+      {rows.length === 0 ? <p className="cn-muted">{s('access.toolsNone')}</p> : (
+        <ul className="cn-runs" aria-label={s('access.toolsTitle')} data-testid="connector-tool-outcomes">
+          {rows.map((r) => (
+            <li key={r.key} data-outcome={r.outcome}>
+              <span className={`cn-status cn-status--${r.tone}`}>{s(`access.outcome.${r.outcome}`)}</span>
+              <span className="cn-mono">{r.tool}</span>
+              <span className="cn-muted">{new Date(r.at).toLocaleString(pageLocale(), { dateStyle: 'short', timeStyle: 'medium' })}</span>
+              {r.message && <span className="cn-muted">{r.message}</span>}
+              {r.senders.length > 0 && <span className="cn-muted cn-mono">{s('access.who', { senders: r.senders.join(', ') })}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }

@@ -25,6 +25,14 @@ const ACCESS = {
     { at: '2026-11-03T09:10:00Z', senders: ['U002'], roles: ['member'], capability: 'files.upload', allowed: false, reason: 'not enabled for this bot' },
   ],
 }
+// The latest add-on tool calls of the binding, newest first: names and codes of
+// the host, never what was asked or answered.
+const TOOL_OUTCOMES = [
+  { at: '2026-11-05T09:41:00Z', senders: ['U001'], addon: 'github', tool: 'create-issue', outcome: 'error', status: 403, code: 'upstream_403', message: 'The service refused the call (403): the token lacks a permission. Give the token the permission or use another connection.' },
+  { at: '2026-11-05T09:40:00Z', senders: ['U001'], addon: 'github', tool: 'create-issue', outcome: 'held', code: 'write_mode_propose', message: 'The change is waiting for the owner: this connection only proposes changes.' },
+  { at: '2026-11-05T09:39:00Z', senders: ['U002'], addon: 'github', tool: 'create-issue', outcome: 'denied', code: 'sender_needs_pairing', message: 'This sender is not paired with the bot, so it cannot change things in other services.' },
+  { at: '2026-11-05T09:38:00Z', senders: ['U001'], addon: 'github', tool: 'list-issues', outcome: 'ok' },
+]
 const api = (page, initial, extra = {}) => connectorApi(page, initial, 'slack', [], undefined, { kindExtra: ROLES_KIND, access: ACCESS, ...extra })
 
 // A screenshot of one element, which a full-page image of a long form cannot show.
@@ -318,6 +326,34 @@ test.describe('Connector permissions', () => {
     await expect(box.getByTestId('connector-audit')).toContainText('Receive files')
     await expect(box.getByRole('checkbox')).toHaveCount(0)
     await shot(page, 'perm-5-access')
+  })
+
+  test('the latest decisions also list the add-on tool calls, with the outcome, the reason and no content', async ({ page }) => {
+    await api(page, [SET], { access: { ...ACCESS, tool_outcomes: TOOL_OUTCOMES } }).install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const list = page.getByTestId('connector-access').getByTestId('connector-tool-outcomes')
+    await expect(list.getByRole('listitem')).toHaveCount(4)
+    const first = list.getByRole('listitem').nth(0)
+    await expect(first).toContainText('github / create-issue')
+    await expect(first).toContainText('failed')
+    await expect(first).toContainText('the token lacks a permission')
+    const held = list.getByRole('listitem').nth(1)
+    await expect(held).toHaveAttribute('data-outcome', 'held')
+    await expect(held).toContainText('held')
+    await expect(held).toContainText('waiting for the owner')
+    await expect(list.getByRole('listitem').nth(2)).toContainText('denied')
+    await expect(list.getByRole('listitem').nth(3)).toContainText('ok')
+    await expect(list.getByRole('listitem').nth(3)).toContainText('github / list-issues')
+    await expect(page.getByTestId('connector-access')).toContainText('never what was asked or answered')
+    await shot(page, 'perm-6-tool-outcomes')
+  })
+
+  test('the add-on tool calls say there are none yet', async ({ page }) => {
+    await api(page, [SET]).install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    await expect(page.getByTestId('connector-access')).toContainText('No tool call yet.')
   })
 
   test('What this bot can do shows each permission for the chosen sender, the host reason and one fix', async ({ page }) => {
