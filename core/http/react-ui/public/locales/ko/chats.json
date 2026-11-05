@@ -266,7 +266,12 @@
   "connectorsPage": {
     "loadFailed": "커넥터를 불러올 수 없습니다.",
     "waitingTitle": "애드온 대기 중",
-    "waitingText": "이 연결은 유지되지만, 해당 애드온을 설치하고 켜야 실행됩니다."
+    "waitingText": "이 연결은 유지되지만, 해당 애드온을 설치하고 켜야 실행됩니다.",
+    "duplicate": {
+      "text": "이 봇은 {{name}}(으)로도 연결되어 있습니다. 두 연결이 같은 메시지에 모두 답합니다.",
+      "turnOff": "이 연결 끄기",
+      "open": "{{name}} 열기"
+    }
   },
   "tools": {
     "commands": {

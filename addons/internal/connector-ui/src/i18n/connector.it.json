@@ -297,5 +297,11 @@
   "approvals.line.runs": "Per le chat del proprietario e per i mittenti abbinati al bot. Tutti gli altri vengono comunque interpellati.",
   "approvals.line.idle": "La modalità di scrittura di questa connessione è Sola lettura, quindi nessuno strumento di scrittura parte.",
   "approvals.line.other": "Solo il proprietario e un mittente abbinato saltano la scheda. Questo tipo di mittente viene interpellato.",
-  "access.viaNoConfirm": "eseguito senza chiedere"
+  "access.viaNoConfirm": "eseguito senza chiedere",
+  "dup.text": "Questo bot è collegato anche come {{name}}. Entrambe le connessioni risponderanno allo stesso messaggio.",
+  "dup.turnOff": "Disattiva questa",
+  "dup.openOther": "Apri {{name}}",
+  "dup.saveAnyway": "Salva comunque",
+  "dup.goBack": "Indietro",
+  "dup.confirmHelp": "Salva comunque solo se vuoi ricevere due risposte a ogni messaggio."
 }

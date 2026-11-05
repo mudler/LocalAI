@@ -297,5 +297,11 @@
   "approvals.line.runs": "For the owner's own chats and for senders paired with the bot. Everyone else is still asked.",
   "approvals.line.idle": "The write mode of this connection is Read only, so no write tool runs.",
   "approvals.line.other": "Only the owner and a paired sender skip the card. This kind of sender is asked.",
-  "access.viaNoConfirm": "ran without asking"
+  "access.viaNoConfirm": "ran without asking",
+  "dup.text": "이 봇은 {{name}}(으)로도 연결되어 있습니다. 두 연결이 같은 메시지에 모두 답합니다.",
+  "dup.turnOff": "이 연결 끄기",
+  "dup.openOther": "{{name}} 열기",
+  "dup.saveAnyway": "그래도 저장",
+  "dup.goBack": "돌아가기",
+  "dup.confirmHelp": "메시지마다 답을 두 번 받고 싶을 때만 그래도 저장하세요."
 }

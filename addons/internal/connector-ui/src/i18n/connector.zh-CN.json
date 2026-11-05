@@ -297,5 +297,11 @@
   "approvals.line.runs": "For the owner's own chats and for senders paired with the bot. Everyone else is still asked.",
   "approvals.line.idle": "The write mode of this connection is Read only, so no write tool runs.",
   "approvals.line.other": "Only the owner and a paired sender skip the card. This kind of sender is asked.",
-  "access.viaNoConfirm": "ran without asking"
+  "access.viaNoConfirm": "ran without asking",
+  "dup.text": "这个机器人也以 {{name}} 的名称连接。两个连接都会回复同一条消息。",
+  "dup.turnOff": "关闭这个连接",
+  "dup.openOther": "打开 {{name}}",
+  "dup.saveAnyway": "仍然保存",
+  "dup.goBack": "返回",
+  "dup.confirmHelp": "只有在你想让每条消息收到两个回复时，才仍然保存。"
 }

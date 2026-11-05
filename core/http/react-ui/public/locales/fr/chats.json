@@ -266,7 +266,12 @@
   "connectorsPage": {
     "loadFailed": "Impossible de charger vos connecteurs.",
     "waitingTitle": "En attente de leur module",
-    "waitingText": "Ces liaisons sont conservées, mais elles ne fonctionnent qu'une fois leur module installé et activé."
+    "waitingText": "Ces liaisons sont conservées, mais elles ne fonctionnent qu'une fois leur module installé et activé.",
+    "duplicate": {
+      "text": "Ce bot est aussi connecté sous le nom {{name}}. Les deux connexions répondront au même message.",
+      "turnOff": "Désactiver celle-ci",
+      "open": "Ouvrir {{name}}"
+    }
   },
   "tools": {
     "commands": {

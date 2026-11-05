@@ -76,6 +76,8 @@ fieldset.cn-group {
 
 .cn-link { background: none; border: 0; padding: 0 var(--dk-space-1); color: inherit; cursor: pointer; font: inherit; }
 .ui-callout__text .cn-link { margin-left: var(--dk-space-2); }
+/* The link to the other connection of the same bot: it reads as a link, not as a dismiss mark. */
+.ui-callout__text .cn-link--text { margin-left: 0; text-align: left; text-decoration: underline; overflow-wrap: anywhere; }
 .ui-callout__text .cn-notice__text { margin: 0 0 var(--dk-space-2); }
 
 @media (max-width: 900px) {

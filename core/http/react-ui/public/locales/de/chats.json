@@ -266,7 +266,12 @@
   "connectorsPage": {
     "loadFailed": "Ihre Konnektoren konnten nicht geladen werden.",
     "waitingTitle": "Warten auf ihr Add-on",
-    "waitingText": "Diese Verknüpfungen bleiben erhalten, laufen aber erst, wenn ihr Add-on installiert und eingeschaltet ist."
+    "waitingText": "Diese Verknüpfungen bleiben erhalten, laufen aber erst, wenn ihr Add-on installiert und eingeschaltet ist.",
+    "duplicate": {
+      "text": "Dieser Bot ist auch als {{name}} verbunden. Beide Verbindungen beantworten dieselbe Nachricht.",
+      "turnOff": "Diese ausschalten",
+      "open": "{{name}} öffnen"
+    }
   },
   "tools": {
     "commands": {

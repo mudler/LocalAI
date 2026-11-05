@@ -266,7 +266,12 @@
   "connectorsPage": {
     "loadFailed": "Impossibile caricare i tuoi connettori.",
     "waitingTitle": "In attesa del loro add-on",
-    "waitingText": "Questi collegamenti restano salvati, ma non funzionano finché il loro add-on non è installato e attivo."
+    "waitingText": "Questi collegamenti restano salvati, ma non funzionano finché il loro add-on non è installato e attivo.",
+    "duplicate": {
+      "text": "Questo bot è collegato anche come {{name}}. Entrambe le connessioni risponderanno allo stesso messaggio.",
+      "turnOff": "Disattiva questa",
+      "open": "Apri {{name}}"
+    }
   },
   "tools": {
     "commands": {

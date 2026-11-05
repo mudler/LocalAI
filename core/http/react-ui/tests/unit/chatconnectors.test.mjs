@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { acceptsOf, groupConnectors } from '../../src/utils/chatConnectors.js'
+import { acceptsOf, bindingAddress, duplicateOf, groupConnectors } from '../../src/utils/chatConnectors.js'
 
 const kinds = [{ addon: 'telegram', kind: 'telegram', title: 'Telegram', page: 'bot' }]
 
@@ -33,4 +33,19 @@ test('chat connectors: who a binding accepts', () => {
   assert.deepEqual(acceptsOf({ accept_any: true }), { key: 'anyone' })
   assert.deepEqual(acceptsOf({ allow: [] }), { key: 'nobody' })
   assert.deepEqual(acceptsOf({ allow: ['1', '2'] }), { key: 'listed', count: 2 })
+})
+
+test('chat connectors: the other binding of a bot that is connected twice', () => {
+  assert.equal(duplicateOf({ id: 'a' }), null)
+  assert.equal(duplicateOf({ id: 'a', duplicate: { code: 'duplicate_connection', others: [] } }), null)
+  assert.deepEqual(duplicateOf({ id: 'a', duplicate: { others: [{ id: 'b', name: 'Team app' }, { id: 'c', name: 'Third' }] } }), { id: 'b', name: 'Team app' })
+})
+
+test('chat connectors: a link to a binding opens the page of its add-on on that binding', () => {
+  const { groups } = groupConnectors(kinds, [])
+  const c = { kind: 'telegram', addon: 'telegram' }
+  assert.equal(bindingAddress(groups, c, 'b 2'), '/app/addons/telegram/bot?binding=b%202')
+  const noPage = groupConnectors([{ addon: 'slack', kind: 'slack', title: 'Slack' }], []).groups
+  assert.equal(bindingAddress(noPage, { kind: 'slack', addon: 'slack' }, 'b2'), '/app/addons?detail=slack&binding=b2')
+  assert.equal(bindingAddress(groups, { kind: 'telegram', addon: 'other' }, 'b2'), '', 'no running add-on, no link')
 })

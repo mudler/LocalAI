@@ -25,6 +25,15 @@ export function localizeAccess(view) {
   }
 }
 
+// Two enabled connections that are the same bot answer every message twice.
+// The host marks each of them with `duplicate` ({ code, message, others }); the
+// page only shows it. Saving one such connection first gets a 409 of type
+// duplicate_connection, and the same request with the confirmation goes through.
+export const DUPLICATE_CONFIRMATION = 'answer twice'
+export const duplicateOther = (c) => c?.duplicate?.others?.[0] || null
+export const isDuplicateRefusal = (err) => err?.status === 409 && err.body?.error?.type === 'duplicate_connection'
+export const duplicateRefusalName = (err) => (typeof err?.body?.error?.param === 'string' ? err.body.error.param : '')
+
 export const MAX_WINDOW_MINUTES = 7 * 24 * 60
 
 // How the triggers that the agent proposes in a chat are approved, and the

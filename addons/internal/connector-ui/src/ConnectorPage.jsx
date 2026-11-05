@@ -19,7 +19,7 @@ import { Check, Field, HintLabels, Notice, RadioCards, Select, Switch, TextInput
 import NameList from './NameList'
 import PermissionFields, { NoCapsNotice } from './PermissionFields'
 import { agentsApi, connectorsApi, setApiLanguage } from './api'
-import { canSave, channelOnly, connectorForm, hasNoCaps, connectorPayload, emptyConnector, listEntries, replaceList, senderLine, usualCaps } from './connector'
+import { DUPLICATE_CONFIRMATION, canSave, channelOnly, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, hasNoCaps, connectorPayload, emptyConnector, listEntries, replaceList, senderLine, usualCaps } from './connector'
 import { registerConnectorLocales } from './i18n'
 import './connector.css'
 
@@ -67,6 +67,23 @@ function SingleToken({ form, setForm, t }) {
   )
 }
 
+// Two enabled connections that are the same bot: both answer every message.
+// The warning names the other one, offers to switch this one off and opens the
+// other. The host decides what is a duplicate (c.duplicate); this only shows it.
+function SameBotNotice({ c, s, busy, onOff, onOpen }) {
+  const other = duplicateOther(c)
+  if (!other) return null
+  return (
+    <Notice tone="warn" role="status" testId="duplicate-warning">
+      <p className="cn-notice__text">{s('dup.text', { name: other.name })}</p>
+      <span className="cn-row__actions">
+        <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="duplicate-off" disabled={busy} onClick={onOff}>{s('dup.turnOff')}</button>
+        <button type="button" className="cn-link cn-link--text" data-testid="duplicate-open" onClick={() => onOpen(other.id)}>{s('dup.openOther', { name: other.name })}</button>
+      </span>
+    </Notice>
+  )
+}
+
 const ONE_LIST = [{ key: 'allow', label: 'allow', hint: 'allowHint', testId: 'connector-allow' }]
 
 /**
@@ -102,6 +119,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const [confirmed, setConfirmed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [toDelete, setToDelete] = useState(null)
+  // The question after a save that would make this connection the same bot as another: { other }.
+  const [dupAsk, setDupAsk] = useState(null)
   const [openSenders, setOpenSenders] = useState('')
   const [kindInfo, setKindInfo] = useState(null)
   const [capabilities, setCapabilities] = useState([])
@@ -162,7 +181,15 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   }, [items])
 
   const agentName = (id) => agents.find((a) => a.id === id)?.name || id
-  const open = (c) => { setForm(c); setConfirmed(Boolean(c.accept_any)); setNote(''); setPairedList(null) }
+  const open = (c) => { setForm(c); setConfirmed(Boolean(c.accept_any)); setNote(''); setPairedList(null); setDupAsk(null) }
+  // The question sits by the Save button, at the end of a long form: bring it into view.
+  useEffect(() => {
+    if (dupAsk) document.querySelector('[data-testid="duplicate-confirm"]')?.scrollIntoView?.({ block: 'nearest' })
+  }, [dupAsk])
+  const openById = (id) => {
+    const c = items.find((x) => x.id === id)
+    if (c) open({ ...connectorForm(c), ...(extraForm ? extraForm(c) : {}) })
+  }
   const extra = (form) => ({ ...(messaging ? {} : { enabled: false, accept_any: false }), ...(extraBody ? extraBody(form) : {}) })
   const check = async (c) => {
     try {
@@ -179,14 +206,16 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
 
   // The server refuses a token that the platform refuses. After a save with
   // a new token, the page names the bot the token belongs to.
-  const save = async (e) => {
-    e.preventDefault()
+  const save = (e) => { e.preventDefault(); return doSave(false) }
+  // confirmDuplicate answers the question of a save that makes the connection a twin of another.
+  const doSave = async (confirmDuplicate) => {
     setBusy(true)
     setError('')
     setNote('')
+    setDupAsk(null)
     try {
       const token = tokenOf(form).trim()
-      const body = connectorPayload(form, kind, token, extra(form))
+      const body = connectorPayload(form, kind, token, { ...extra(form), ...(confirmDuplicate ? { confirm_duplicate: DUPLICATE_CONFIRMATION } : {}) })
       const saved = form.id ? await connectorsApi.update(form.id, body) : await connectorsApi.create(body)
       setForm(null)
       await load()
@@ -195,7 +224,10 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
           setNote(await check(saved))
         } catch (err) { setError(t('checkFailed', { reason: err?.message || '' })) }
       }
-    } catch (err) { fail(err) } finally { setBusy(false) }
+    } catch (err) {
+      if (isDuplicateRefusal(err)) setDupAsk({ other: duplicateRefusalName(err) })
+      else fail(err)
+    } finally { setBusy(false) }
   }
 
   // The preset for a saved binding that has no permission on: the usual set,
@@ -260,6 +292,9 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
       {form && (
         <div className="cn-formgrid">
           <form className="cn-form" onSubmit={save} aria-label={form.id ? t('edit') : t('new')} data-testid="connector-form">
+            {messaging && form.id && (
+              <SameBotNotice c={savedItem} s={s} busy={busy} onOff={() => { setForm(null); act(() => connectorsApi.disable(form.id)) }} onOpen={openById} />
+            )}
             {messaging && capabilities.length > 0 && (
               <ReadinessList s={s} ctx={fixCtx} rowsInput={readyInput} />
             )}
@@ -307,6 +342,16 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
               <AccessView binding={form} capabilities={capabilities} s={s} version={accessVersion} />
             </>)}
             </>)}
+            {dupAsk && (
+              <Notice tone="warn" role="alert" testId="duplicate-confirm">
+                <p className="cn-notice__text">{s('dup.text', { name: dupAsk.other })}</p>
+                <p className="cn-notice__text">{s('dup.confirmHelp')}</p>
+                <span className="cn-row__actions">
+                  <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" data-testid="duplicate-save-anyway" disabled={busy} onClick={() => doSave(true)}>{s('dup.saveAnyway')}</button>
+                  <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setDupAsk(null)}>{s('dup.goBack')}</button>
+                </span>
+              </Notice>
+            )}
             <div className="cn-actions">
               <button type="submit" className="dk-btn dk-btn--primary" data-testid="connector-save" aria-busy={busy ? 'true' : undefined} disabled={busy || !canSave(form, confirmed, Boolean(tokenOf(form).trim()), kindFiles, agentOptional) || (extraValid ? !extraValid(form) : false)}>{t('save')}</button>
               <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setForm(null)}>{t('cancel')}</button>
@@ -341,6 +386,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
                 {c.credentials_only ? answerT(t)('credentialsOnly') : t('agentOf', { name: agentName(c.agent_id) })}
               </span>}
               {RowInfo && <RowInfo c={c} t={t} />}
+              {messaging && form?.id !== c.id && <SameBotNotice c={c} s={s} busy={busy} onOff={() => act(() => connectorsApi.disable(c.id))} onOpen={openById} />}
               {messaging && capabilities.length > 0 && hasNoCaps(c) && (
                 <NoCapsNotice capabilities={capabilities} s={s} busy={busy} name={c.name} onUsual={() => allowUsual(c)} />
               )}

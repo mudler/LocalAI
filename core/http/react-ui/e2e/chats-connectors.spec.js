@@ -73,6 +73,34 @@ test.describe('Chat connectors', () => {
     await expect.poll(() => s.calls.includes('disable')).toBe(true)
   })
 
+  test('warns on a binding that is the same bot as another, links to it and turns it off', async ({ page }) => {
+    const twin = { ...BINDING, id: 'b2', name: 'Support bot copy' }
+    const pair = (x, y) => ({ ...x, duplicate: { code: 'duplicate_connection', message: '', others: [{ id: y.id, name: y.name }] } })
+    const s = await api(page, { items: [pair(BINDING, twin), pair(twin, BINDING)] })
+    await page.route(/\/api\/chats\/connectors\/[^/?]+\/disable$/, r => {
+      s.calls.push('disable')
+      s.items = s.items.map(x => ({ ...x, enabled: false, duplicate: undefined }))
+      return r.fulfill({ json: s.items[0] })
+    })
+    await page.goto('/app/chats/connectors')
+    const rows = page.getByTestId('connector-row')
+    await expect(rows).toHaveCount(2)
+    await expect(rows.first().getByTestId('connector-duplicate')).toContainText('This bot is also connected as Support bot copy. Both connections will answer the same message.')
+    await expect(rows.last().getByTestId('connector-duplicate')).toContainText('This bot is also connected as Support bot. Both connections will answer the same message.')
+    await expect(rows.first().getByTestId('connector-duplicate-open')).toHaveAttribute('href', '/app/addons/telegram/bots?binding=b2')
+    await expect(rows.last().getByTestId('connector-duplicate-open')).toHaveAttribute('href', '/app/addons/telegram/bots?binding=b1')
+
+    await page.setViewportSize({ width: 360, height: 800 })
+    await page.reload()
+    await expect(rows).toHaveCount(2)
+    await expect(page.getByTestId('connector-duplicate')).toHaveCount(2)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+
+    await rows.last().getByRole('button', { name: 'Turn this one off' }).click()
+    await expect.poll(() => s.calls.includes('disable')).toBe(true)
+    await expect(page.getByTestId('connector-duplicate')).toHaveCount(0)
+  })
+
   test('an old link to the MCP kind opens the MCP connectors page', async ({ page }) => {
     await api(page)
     await page.route('**/api/chats/mcp-connectors*', r => r.fulfill({ json: { connectors: [] } }))

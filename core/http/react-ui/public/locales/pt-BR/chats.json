@@ -266,7 +266,12 @@
   "connectorsPage": {
     "loadFailed": "Não foi possível carregar seus conectores.",
     "waitingTitle": "Aguardando o complemento",
-    "waitingText": "Estes vínculos são mantidos, mas só funcionam quando o complemento deles estiver instalado e ligado."
+    "waitingText": "Estes vínculos são mantidos, mas só funcionam quando o complemento deles estiver instalado e ligado.",
+    "duplicate": {
+      "text": "Este bot também está conectado como {{name}}. As duas conexões vão responder à mesma mensagem.",
+      "turnOff": "Desativar esta",
+      "open": "Abrir {{name}}"
+    }
   },
   "tools": {
     "commands": {

@@ -332,7 +332,12 @@
     "bindingsOf": "Bindings of {{name}}",
     "loadFailed": "Could not load your connectors.",
     "waitingTitle": "Waiting for their add-on",
-    "waitingText": "These bindings are kept, but they do not run until their add-on is installed and turned on."
+    "waitingText": "These bindings are kept, but they do not run until their add-on is installed and turned on.",
+    "duplicate": {
+      "text": "This bot is also connected as {{name}}. Both connections will answer the same message.",
+      "turnOff": "Turn this one off",
+      "open": "Open {{name}}"
+    }
   },
   "conversionPage": {
     "title": "Converted from the old chat",

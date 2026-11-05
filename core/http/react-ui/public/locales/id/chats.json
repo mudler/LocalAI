@@ -266,7 +266,12 @@
   "connectorsPage": {
     "loadFailed": "Konektor Anda tidak dapat dimuat.",
     "waitingTitle": "Menunggu add-on-nya",
-    "waitingText": "Tautan ini tetap disimpan, tetapi tidak berjalan sampai add-on-nya dipasang dan diaktifkan."
+    "waitingText": "Tautan ini tetap disimpan, tetapi tidak berjalan sampai add-on-nya dipasang dan diaktifkan.",
+    "duplicate": {
+      "text": "Bot ini juga terhubung sebagai {{name}}. Kedua koneksi akan menjawab pesan yang sama.",
+      "turnOff": "Matikan yang ini",
+      "open": "Buka {{name}}"
+    }
   },
   "tools": {
     "commands": {

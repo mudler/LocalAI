@@ -84,6 +84,8 @@
 }
 @starting-style { .cn-result { opacity: 0; transform: translateY(-2px); } }
 .cn-result .lai-icon { flex: none; width: 14px; height: 14px; margin-top: 2px; }
+.cn-row__fix { margin-top: var(--sp-1); }
+.cn-result a { color: inherit; text-decoration: underline; }
 .cn-result--ok { color: var(--dk-ok-text); }
 .cn-result--error { color: var(--dk-error-text); }
 .cn-result--warn { color: var(--dk-warn-text); }

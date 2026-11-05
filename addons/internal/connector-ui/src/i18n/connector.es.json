@@ -297,5 +297,11 @@
   "approvals.line.runs": "For the owner's own chats and for senders paired with the bot. Everyone else is still asked.",
   "approvals.line.idle": "The write mode of this connection is Read only, so no write tool runs.",
   "approvals.line.other": "Only the owner and a paired sender skip the card. This kind of sender is asked.",
-  "access.viaNoConfirm": "ran without asking"
+  "access.viaNoConfirm": "ran without asking",
+  "dup.text": "Este bot también está conectado como {{name}}. Ambas conexiones responderán al mismo mensaje.",
+  "dup.turnOff": "Desactivar esta",
+  "dup.openOther": "Abrir {{name}}",
+  "dup.saveAnyway": "Guardar de todos modos",
+  "dup.goBack": "Volver",
+  "dup.confirmHelp": "Guarda de todos modos solo si quieres recibir dos respuestas a cada mensaje."
 }
