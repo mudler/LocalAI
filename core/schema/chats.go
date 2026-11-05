@@ -2036,6 +2036,12 @@ type ChatsConnectorSender struct {
 	First   time.Time `json:"first"`
 	Last    time.Time `json:"last"`
 	Allowed bool      `json:"allowed"`
+	// Chat and ChatName say where the last message came from: the ID, and the
+	// name when the add-on knows it. Reason is why that message was ignored
+	// (not_listed or not_addressed). All three are optional.
+	Chat     string `json:"chat,omitempty"`
+	ChatName string `json:"chat_name,omitempty"`
+	Reason   string `json:"reason,omitempty"`
 }
 
 // ChatsConnectorSenderList is the sender log of a binding, newest first.

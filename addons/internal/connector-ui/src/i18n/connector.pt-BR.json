@@ -169,7 +169,7 @@
   "access.needSave": "Salve este bot primeiro para ver as últimas decisões dele.",
   "access.refresh": "Atualizar",
   "access.recentTitle": "Últimas decisões",
-  "access.recentHelp": "As últimas verificações deste servidor, da mais recente para a mais antiga. Elas contêm IDs e nomes de permissões, nunca o texto das mensagens. São zeradas quando o servidor reinicia.",
+  "access.recentHelp": "As últimas verificações deste servidor, da mais recente para a mais antiga. Elas contêm IDs, nomes e conversas, nunca o texto das mensagens. Este registro fica só na memória: está vazio depois que o servidor reinicia.",
   "access.recentNone": "Nenhuma decisão ainda.",
   "access.allowed": "permitido",
   "access.denied": "negado",
@@ -348,5 +348,9 @@
   "access.outcome.confirmed": "confirmada",
   "access.outcome.cancelled": "cancelada",
   "access.outcome.expired": "expirada",
-  "access.askedBy": "pedida por {{sender}}"
+  "access.askedBy": "pedida por {{sender}}",
+  "access.chat": "em {{chat}}",
+  "sender.chat": "em {{chat}}",
+  "sender.reason.not_listed": "não é uma pessoa listada",
+  "sender.reason.not_addressed": "a mensagem não citava o bot"
 }

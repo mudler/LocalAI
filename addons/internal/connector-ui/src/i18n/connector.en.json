@@ -169,7 +169,7 @@
   "access.needSave": "Save this bot first to see its latest decisions.",
   "access.refresh": "Refresh",
   "access.recentTitle": "Latest decisions",
-  "access.recentHelp": "The latest checks of this server, newest first. They hold IDs and names of permissions, never message text. They reset when the server restarts.",
+  "access.recentHelp": "The latest checks of this server, newest first. They hold IDs, names and chats, never message text. This log is kept in memory only: it is empty after the server restarts.",
   "access.recentNone": "No decision yet.",
   "access.allowed": "allowed",
   "access.denied": "denied",
@@ -348,5 +348,9 @@
   "access.outcome.confirmed": "confirmed",
   "access.outcome.cancelled": "cancelled",
   "access.outcome.expired": "expired",
-  "access.askedBy": "asked by {{sender}}"
+  "access.askedBy": "asked by {{sender}}",
+  "access.chat": "in {{chat}}",
+  "sender.chat": "in {{chat}}",
+  "sender.reason.not_listed": "not a listed person",
+  "sender.reason.not_addressed": "the message did not name the bot"
 }

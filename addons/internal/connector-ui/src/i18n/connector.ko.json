@@ -169,7 +169,7 @@
   "access.needSave": "최근 결정을 보려면 먼저 이 봇을 저장하세요.",
   "access.refresh": "새로 고침",
   "access.recentTitle": "최근 결정",
-  "access.recentHelp": "이 서버의 최근 확인 내역이며 최신 항목이 위에 있습니다. 권한의 ID와 이름만 담고 메시지 내용은 담지 않습니다. 서버를 다시 시작하면 초기화됩니다.",
+  "access.recentHelp": "이 서버의 최근 확인 내역이며 최신 항목이 위에 있습니다. ID, 이름, 채팅만 담고 메시지 내용은 담지 않습니다. 이 기록은 메모리에만 보관되며 서버를 다시 시작하면 비어 있습니다.",
   "access.recentNone": "아직 결정이 없습니다.",
   "access.allowed": "허용됨",
   "access.denied": "거부됨",
@@ -348,5 +348,9 @@
   "access.outcome.confirmed": "확인됨",
   "access.outcome.cancelled": "취소됨",
   "access.outcome.expired": "만료됨",
-  "access.askedBy": "{{sender}} 요청"
+  "access.askedBy": "{{sender}} 요청",
+  "access.chat": "{{chat}}에서",
+  "sender.chat": "{{chat}}에서",
+  "sender.reason.not_listed": "목록에 있는 사람이 아님",
+  "sender.reason.not_addressed": "메시지에 봇이 언급되지 않음"
 }

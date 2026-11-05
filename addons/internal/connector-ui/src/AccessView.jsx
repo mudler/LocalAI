@@ -8,11 +8,14 @@ import { pageLocale } from './connector'
 import ApprovalsView from './ApprovalsView'
 import NoteSaveView from './NoteSaveView'
 import { toolOutcomeRows } from './access'
+import { chatText, personText } from './people'
+import { usePeople } from './Person'
 
 export default function AccessView({ binding, capabilities, s, version, onAllowed }) {
   const [view, setView] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const people = usePeople()
   const id = binding.id
   const load = useCallback(async () => {
     if (!id) return
@@ -45,7 +48,8 @@ export default function AccessView({ binding, capabilities, s, version, onAllowe
                   <span className={`cn-status cn-status--${e.allowed ? 'done' : 'failed'}`}>{s(e.allowed ? 'access.allowed' : 'access.denied')}</span>
                   <span>{title(e.capability)}</span>
                   <span className="cn-muted">{new Date(e.at).toLocaleString(pageLocale(), { dateStyle: 'short', timeStyle: 'medium' })}</span>
-                  {(e.senders || []).length > 0 && <span className="cn-muted cn-mono">{s('access.who', { senders: e.senders.join(', ') })}</span>}
+                  {(e.senders || []).length > 0 && <span className="cn-muted cn-mono">{s('access.who', { senders: e.senders.map((x, k) => personText(people, x, k === 0 ? e.sender_name : '')).join(', ') })}</span>}
+                  {e.chat && <span className="cn-muted" data-testid="connector-audit-chat">{s('access.chat', { chat: chatText(e.chat, e.chat_name) })}</span>}
                   {(e.roles || []).length > 0 && <span className="cn-muted">{s('access.roles', { roles: e.roles.join(', ') })}</span>}
                   {e.via && <span className="cn-muted">{e.via === 'no-confirmation' ? s('access.viaNoConfirm') : s('access.via', { via: e.via })}</span>}
                   {e.reason && <span className="cn-muted">{e.reason}</span>}
@@ -66,6 +70,7 @@ export default function AccessView({ binding, capabilities, s, version, onAllowe
 // The latest calls of add-on tools. A row holds the tool, how the call ended and
 // why, in the owner's words: never what was asked or answered.
 function ToolOutcomes({ rows, s }) {
+  const people = usePeople()
   return (
     <div data-testid="connector-tool-outcomes-box">
       <p className="dk-hint">{s('access.toolsHelp')}</p>
@@ -77,8 +82,8 @@ function ToolOutcomes({ rows, s }) {
               <span className="cn-mono">{r.tool}</span>
               <span className="cn-muted">{new Date(r.at).toLocaleString(pageLocale(), { dateStyle: 'short', timeStyle: 'medium' })}</span>
               {r.message && <span className="cn-muted">{r.message}</span>}
-              {r.senders.length > 0 && <span className="cn-muted cn-mono">{s('access.who', { senders: r.senders.join(', ') })}</span>}
-              {r.asker && <span className="cn-muted cn-mono">{s('access.askedBy', { sender: r.asker })}</span>}
+              {r.senders.length > 0 && <span className="cn-muted cn-mono">{s('access.who', { senders: r.senders.map((x, k) => personText(people, x, k === 0 ? r.senderName : '')).join(', ') })}</span>}
+              {r.asker && <span className="cn-muted cn-mono">{s('access.askedBy', { sender: personText(people, r.asker) })}</span>}
             </li>
           ))}
         </ul>

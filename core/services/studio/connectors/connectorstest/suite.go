@@ -321,6 +321,23 @@ func Run(newStore NewStore) {
 		Expect(all).To(HaveLen(connectors.MaxSendersKept))
 		Expect(all[0].ID).To(Equal(fmt.Sprint(connectors.MaxSendersKept + 4)))
 	})
+	It("keeps the chat and the reason of the last message of a sender, when the store can", func() {
+		s := newStore()
+		noter, ok := s.(connectors.SenderNoter)
+		if !ok {
+			Skip("this store keeps no notes of a sender")
+		}
+		_ = s.RecordSender(ctx, "b1", "1", "One", false, t0)
+		Expect(noter.NoteSender(ctx, "b1", "1", connectors.SenderNote{Chat: "C1", ChatName: "ops", Reason: connectors.ReasonNotListed})).To(Succeed())
+		Expect(noter.NoteSender(ctx, "b1", "missing", connectors.SenderNote{Chat: "x"})).To(Succeed(), "a sender that is not logged is not an error")
+		l, _ := s.Senders(ctx, "b1", 0)
+		Expect(l).To(HaveLen(1))
+		Expect([]string{l[0].Chat, l[0].ChatName, l[0].Reason}).To(Equal([]string{"C1", "ops", "not_listed"}))
+		_ = s.RecordSender(ctx, "b1", "1", "One", true, t0.Add(time.Minute))
+		Expect(noter.NoteSender(ctx, "b1", "1", connectors.SenderNote{Chat: "C2"})).To(Succeed())
+		l, _ = s.Senders(ctx, "b1", 0)
+		Expect([]string{l[0].Chat, l[0].ChatName, l[0].Reason}).To(Equal([]string{"C2", "", ""}), "a new message replaces the note")
+	})
 	It("maps a sender to a chat", func() {
 		s := newStore()
 		_, ok, _ := s.ChatOf(ctx, "b1", "1")

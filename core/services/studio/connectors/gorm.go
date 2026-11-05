@@ -82,6 +82,10 @@ type senderRow struct {
 	First   time.Time
 	Last    time.Time `gorm:"index"`
 	Allowed bool
+	// Chat, ChatName and Reason are optional notes of the last message (see SenderNote).
+	Chat     string `gorm:"size:128"`
+	ChatName string `gorm:"size:255"`
+	Reason   string `gorm:"size:32"`
 }
 
 func (senderRow) TableName() string { return "studio_connector_senders" }
@@ -250,6 +254,13 @@ func (s *gormStore) SetOffset(ctx context.Context, id string, offset int64) erro
 	return s.db.WithContext(ctx).Save(&stateRow{Binding: id, Offset: offset}).Error
 }
 
+// NoteSender keeps the chat of the last message of a sender and the reason it
+// was ignored, on the row that RecordSender made.
+func (s *gormStore) NoteSender(ctx context.Context, binding, senderID string, n SenderNote) error {
+	return s.db.WithContext(ctx).Model(&senderRow{}).Where("binding = ? AND id = ?", binding, senderID).
+		Updates(map[string]any{"chat": n.Chat, "chat_name": n.ChatName, "reason": n.Reason}).Error
+}
+
 func (s *gormStore) RecordSender(ctx context.Context, binding, senderID, name string, allowed bool, at time.Time) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var r senderRow
@@ -288,7 +299,8 @@ func (s *gormStore) Senders(ctx context.Context, binding string, limit int) ([]S
 	}
 	out := make([]Sender, len(rows))
 	for i, r := range rows {
-		out[i] = Sender{Binding: r.Binding, ID: r.ID, Name: r.Name, Count: r.Count, First: r.First.UTC(), Last: r.Last.UTC(), Allowed: r.Allowed}
+		out[i] = Sender{Binding: r.Binding, ID: r.ID, Name: r.Name, Count: r.Count, First: r.First.UTC(), Last: r.Last.UTC(), Allowed: r.Allowed,
+			Chat: r.Chat, ChatName: r.ChatName, Reason: r.Reason}
 	}
 	return out, nil
 }

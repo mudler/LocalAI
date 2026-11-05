@@ -5553,6 +5553,14 @@ definitions:
     properties:
       allowed:
         type: boolean
+      chat:
+        description: |-
+          Chat and ChatName say where the last message came from: the ID, and the
+          name when the add-on knows it. Reason is why that message was ignored
+          (not_listed or not_addressed). All three are optional.
+        type: string
+      chat_name:
+        type: string
       count:
         type: integer
       first:
@@ -5562,6 +5570,8 @@ definitions:
       last:
         type: string
       name:
+        type: string
+      reason:
         type: string
     type: object
   schema.ChatsConnectorSenderList:

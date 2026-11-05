@@ -22947,6 +22947,13 @@ const docTemplate = `{
                 "allowed": {
                     "type": "boolean"
                 },
+                "chat": {
+                    "description": "Chat and ChatName say where the last message came from: the ID, and the\nname when the add-on knows it. Reason is why that message was ignored\n(not_listed or not_addressed). All three are optional.",
+                    "type": "string"
+                },
+                "chat_name": {
+                    "type": "string"
+                },
                 "count": {
                     "type": "integer"
                 },
@@ -22960,6 +22967,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "reason": {
                     "type": "string"
                 }
             }

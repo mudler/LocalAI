@@ -169,7 +169,7 @@
   "access.needSave": "Enregistrez d’abord ce bot pour voir ses dernières décisions.",
   "access.refresh": "Actualiser",
   "access.recentTitle": "Dernières décisions",
-  "access.recentHelp": "Les dernières vérifications de ce serveur, les plus récentes d’abord. Elles contiennent des ID et des noms d’autorisations, jamais le texte des messages. Elles sont effacées au redémarrage du serveur.",
+  "access.recentHelp": "Les dernières vérifications de ce serveur, les plus récentes d’abord. Elles contiennent des ID, des noms et des conversations, jamais le texte des messages. Ce journal n’est gardé qu’en mémoire : il est vide après le redémarrage du serveur.",
   "access.recentNone": "Aucune décision pour le moment.",
   "access.allowed": "autorisé",
   "access.denied": "refusé",
@@ -348,5 +348,9 @@
   "access.outcome.confirmed": "confirmée",
   "access.outcome.cancelled": "annulée",
   "access.outcome.expired": "expirée",
-  "access.askedBy": "demandée par {{sender}}"
+  "access.askedBy": "demandée par {{sender}}",
+  "access.chat": "dans {{chat}}",
+  "sender.chat": "dans {{chat}}",
+  "sender.reason.not_listed": "pas une personne de la liste",
+  "sender.reason.not_addressed": "le message ne nommait pas le bot"
 }

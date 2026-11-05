@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Notice } from './controls'
 import { connectorsApi } from './api'
 import { pageLocale } from './connector'
+import Person from './Person'
 
 const MAX_PAIRED = 3
 const DAYS = 90
@@ -85,7 +86,7 @@ export default function PairingFields({ binding, s, onPaired }) {
         <ul className="cn-runs" aria-label={s('pair.title')} data-testid="connector-paired">
           {paired.map((p) => (
             <li key={p.sender_id}>
-              <span className="cn-mono">{p.sender_id}</span>
+              <Person id={p.sender_id} />
               <span className="cn-muted">{s('pair.expires', { time: time(p.expires_at) })}</span>
               <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" aria-label={s('pair.removeSender', { sender: p.sender_id })} onClick={() => remove(p.sender_id)}>{s('pair.remove')}</button>
             </li>

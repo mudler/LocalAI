@@ -22,6 +22,8 @@ import PermissionFields, { NoCapsNotice } from './PermissionFields'
 import { agentsApi, connectorsApi, setApiLanguage } from './api'
 import { DUPLICATE_CONFIRMATION, canSave, channelOnly, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, hasNoCaps, connectorPayload, emptyConnector, agentHeld, usualFor, listEntries, replaceList, senderLine, trustAfter, usualCaps } from './connector'
 import { registerConnectorLocales } from './i18n'
+import { chatText, peopleFrom } from './people'
+import { PeopleContext } from './Person'
 import './connector.css'
 
 // The shared words, in every language of the web UI, under the namespace "connector".
@@ -43,6 +45,8 @@ function Senders({ id, onAllowed, t }) {
         <li key={s.id}>
           <span className={`cn-status cn-status--${s.allowed ? 'done' : 'skipped'}`}>{s.allowed ? t('accepted') : t('ignored')}</span>
           <span>{senderLine(s, answerT(t))}</span>
+          {s.chat && <span className="cn-muted" data-testid="sender-chat">{answerT(t)('sender.chat', { chat: chatText(s.chat, s.chat_name) })}</span>}
+          {!s.allowed && s.reason && <span className="cn-muted" data-testid="sender-reason" data-code={s.reason}>{answerT(t)(`sender.reason.${s.reason}`, { defaultValue: s.reason })}</span>}
           {!s.allowed && (
             <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm"
               onClick={async () => {
@@ -127,6 +131,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const [kindInfo, setKindInfo] = useState(null)
   const [capabilities, setCapabilities] = useState([])
   const [accessVersion, setAccessVersion] = useState(0)
+  // The names of the people who wrote to the open binding, to show beside their IDs.
+  const [directory, setDirectory] = useState(() => new Map())
   // The last token test of each saved binding in this session: { ok, bot, reason }.
   const [tokenChecks, setTokenChecks] = useState({})
   // The pairings of the open binding, as pairing here changes them.
@@ -192,6 +198,13 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     const untouched = !f.id && same(f.caps || [], usualFor(capabilities, held(f.agent_id)).caps)
     return { ...f, agent_id: agentId, ...(untouched ? { caps: usualFor(capabilities, held(agentId)).caps } : {}) }
   }
+  const openId = form?.id || ''
+  useEffect(() => {
+    if (!openId || !messaging) { setDirectory(new Map()); return undefined }
+    let live = true
+    connectorsApi.senders(openId).then((r) => { if (live) setDirectory(peopleFrom(r?.senders)) }).catch(() => { if (live) setDirectory(new Map()) })
+    return () => { live = false }
+  }, [openId, messaging, accessVersion])
   const agentName = (id) => agents.find((a) => a.id === id)?.name || id
   const open = (c) => { setForm(c); setConfirmed(Boolean(c.accept_any)); setNote(''); setPairedList(null); setDupAsk(null) }
   // The question sits by the Save button, at the end of a long form: bring it into view.
@@ -283,6 +296,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
 
   return (
     <HintLabels.Provider value={{ more: s('more'), less: s('less'), optional: s('optional') }}>
+    <PeopleContext.Provider value={directory}>
     <div className="cn-page" data-testid={testId}>
       <header className="cn-head">
         <h1 className="cn-title">{t('title')}</h1>
@@ -434,6 +448,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
         onCancel={() => setToDelete(null)}
       />
     </div>
+    </PeopleContext.Provider>
     </HintLabels.Provider>
   )
 }

@@ -96,6 +96,14 @@ curl .../api/chats/connectors/<id>/senders
 curl -X POST .../api/chats/connectors/<id>/senders/<sender>/allow   # add a sender of the log to the allowlist
 ```
 
+Each sender of the log may carry `chat` (the ID of the chat of the last message), `chat_name`
+(its name, when the add-on knows it) and, for a message that was ignored, `reason`:
+`not_listed` (the sender is not on the list) or `not_addressed` (a group message that does not
+name the bot). All three are optional. Each recent decision of the access view may carry
+`sender_name`, `chat` and `chat_name` next to the sender IDs. The decision log is kept in
+memory only and is empty after the server restarts; the sender log is stored. The page shows
+the name beside the ID and falls back to the ID when it has none.
+
 ### What a person can send
 
 - **Text.** Up to 8,000 characters.

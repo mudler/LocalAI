@@ -169,7 +169,7 @@
   "access.needSave": "Simpan bot ini terlebih dahulu untuk melihat keputusan terbarunya.",
   "access.refresh": "Segarkan",
   "access.recentTitle": "Keputusan terbaru",
-  "access.recentHelp": "Pemeriksaan terbaru di server ini, yang terbaru di atas. Isinya ID dan nama izin, tidak pernah teks pesan. Daftar ini direset saat server dimulai ulang.",
+  "access.recentHelp": "Pemeriksaan terbaru di server ini, yang terbaru di atas. Isinya ID, nama, dan obrolan, tidak pernah teks pesan. Catatan ini hanya disimpan di memori: kosong setelah server dimulai ulang.",
   "access.recentNone": "Belum ada keputusan.",
   "access.allowed": "diizinkan",
   "access.denied": "ditolak",
@@ -348,5 +348,9 @@
   "access.outcome.confirmed": "dikonfirmasi",
   "access.outcome.cancelled": "dibatalkan",
   "access.outcome.expired": "kedaluwarsa",
-  "access.askedBy": "diminta oleh {{sender}}"
+  "access.askedBy": "diminta oleh {{sender}}",
+  "access.chat": "di {{chat}}",
+  "sender.chat": "di {{chat}}",
+  "sender.reason.not_listed": "bukan orang yang terdaftar",
+  "sender.reason.not_addressed": "pesan tidak menyebut bot"
 }

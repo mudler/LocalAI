@@ -169,7 +169,7 @@
   "access.needSave": "请先保存此机器人，才能查看它最近的决定。",
   "access.refresh": "刷新",
   "access.recentTitle": "最近的决定",
-  "access.recentHelp": "此服务器最近的检查，最新的在前。其中只有 ID 和权限名称，没有消息内容。服务器重启后会清空。",
+  "access.recentHelp": "此服务器最近的检查，最新的在前。其中只有 ID、名称和聊天，没有消息内容。此记录只保存在内存中：服务器重启后为空。",
   "access.recentNone": "暂无决定。",
   "access.allowed": "已允许",
   "access.denied": "已拒绝",
@@ -348,5 +348,9 @@
   "access.outcome.confirmed": "已确认",
   "access.outcome.cancelled": "已取消",
   "access.outcome.expired": "已过期",
-  "access.askedBy": "由 {{sender}} 请求"
+  "access.askedBy": "由 {{sender}} 请求",
+  "access.chat": "在 {{chat}}",
+  "sender.chat": "在 {{chat}}",
+  "sender.reason.not_listed": "不是名单中的人",
+  "sender.reason.not_addressed": "消息没有提到机器人"
 }

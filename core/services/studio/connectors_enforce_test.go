@@ -3,6 +3,7 @@ package studio_test
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/addons/telegram/transport"
@@ -42,7 +43,7 @@ var _ = Describe("permissions in the turns of a connector chat", func() {
 	ask := func(sender string, roles []string, text string) {
 		n++
 		Expect(r.conns.Ingest(ctx, "telegram", contract.ConnectorInbound{BindingID: b.ID, ConnectorMessage: contract.ConnectorMessage{
-			Chat: sender, Direct: true, SenderID: sender, SenderName: "S", Text: text, Roles: roles}})).To(Succeed())
+			Chat: sender, ChatName: "Room " + sender, Direct: true, SenderID: sender, SenderName: "S", Text: text, Roles: roles}})).To(Succeed())
 		waitFor("the answer", func() bool { return len(r.bot.answers()) >= n })
 	}
 	// askMember sends a message from a person who is not on the allowlist
@@ -145,6 +146,20 @@ var _ = Describe("permissions in the turns of a connector chat", func() {
 		Expect(string(raw)).To(ContainSubstring(`"capability":"profile.write"`))
 		Expect(string(raw)).To(ContainSubstring(`"allowed":false`))
 		Expect(strings.Contains(string(raw), "be brief")).To(BeFalse(), "no message content in the audit")
+	})
+
+	It("names the sender and the chat in the audit, next to their IDs", func() {
+		setup([]string{contract.CapMemoryWrite, contract.CapProfileWrite}, admin)
+		ask("11", []string{"admin"}, "profile")
+		view, err := r.conns.Access(ctx, alice, b.ID)
+		Expect(err).NotTo(HaveOccurred())
+		i := slices.IndexFunc(view.Recent, func(e studio.AccessEvent) bool { return e.Capability == contract.CapProfileWrite })
+		Expect(i).To(BeNumerically(">=", 0))
+		e := view.Recent[i]
+		Expect([]string{e.SenderName, e.Chat, e.ChatName}).To(Equal([]string{"S", "11", "Room 11"}))
+		Expect(e.Senders).To(Equal([]string{"11"}), "the ID is still there")
+		raw, _ := json.Marshal(e)
+		Expect(string(raw)).To(And(ContainSubstring(`"sender_name":"S"`), ContainSubstring(`"chat_name":"Room 11"`)))
 	})
 
 	It("shows what each kind of sender may do", func() {

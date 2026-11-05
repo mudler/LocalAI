@@ -169,7 +169,7 @@
   "access.needSave": "Speichere zuerst diesen Bot, um seine letzten Entscheidungen zu sehen.",
   "access.refresh": "Aktualisieren",
   "access.recentTitle": "Letzte Entscheidungen",
-  "access.recentHelp": "Die letzten Prüfungen dieses Servers, die neuesten zuerst. Sie enthalten IDs und Namen von Berechtigungen, nie den Text von Nachrichten. Sie werden beim Neustart des Servers zurückgesetzt.",
+  "access.recentHelp": "Die letzten Prüfungen dieses Servers, die neuesten zuerst. Sie enthalten IDs, Namen und Chats, nie den Text von Nachrichten. Dieses Protokoll liegt nur im Arbeitsspeicher: Nach einem Neustart des Servers ist es leer.",
   "access.recentNone": "Noch keine Entscheidung.",
   "access.allowed": "erlaubt",
   "access.denied": "abgelehnt",
@@ -348,5 +348,9 @@
   "access.outcome.confirmed": "bestätigt",
   "access.outcome.cancelled": "abgebrochen",
   "access.outcome.expired": "abgelaufen",
-  "access.askedBy": "angefragt von {{sender}}"
+  "access.askedBy": "angefragt von {{sender}}",
+  "access.chat": "in {{chat}}",
+  "sender.chat": "in {{chat}}",
+  "sender.reason.not_listed": "keine gelistete Person",
+  "sender.reason.not_addressed": "die Nachricht nannte den Bot nicht"
 }

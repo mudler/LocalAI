@@ -321,7 +321,7 @@ func (c *Connectors) Authorize(ctx context.Context, b connectors.Binding, m cont
 			}
 		}
 	}
-	c.svc.access.record(c.o.Clock(), b, []string{m.SenderID}, m.Roles, d)
+	c.svc.access.record(c.o.Clock(), b, []string{m.SenderID}, m.Roles, d, whereOf(m))
 	return d
 }
 
@@ -374,6 +374,9 @@ type turnGrant struct {
 	// code of each capability in Denied. Both feed the log of the tool calls.
 	Sender      string
 	DeniedCodes map[string]string
+	// Where is the name of the first sender and the chat of the turn, for the
+	// log of the tool decisions. It stays on this process.
+	Where eventWhere
 }
 
 // senderMixed is the Sender of a turn with senders who were let in in
@@ -381,7 +384,7 @@ type turnGrant struct {
 const senderMixed = "mixed"
 
 func (g turnGrant) merge(o turnGrant) turnGrant {
-	out := turnGrant{Binding: g.Binding, Kind: g.Kind, Direct: g.Direct && o.Direct, Paired: g.Paired && o.Paired, ImpliedWrite: g.ImpliedWrite && o.ImpliedWrite, Sender: g.Sender}
+	out := turnGrant{Binding: g.Binding, Kind: g.Kind, Direct: g.Direct && o.Direct, Paired: g.Paired && o.Paired, ImpliedWrite: g.ImpliedWrite && o.ImpliedWrite, Sender: g.Sender, Where: g.Where}
 	if g.Sender != o.Sender {
 		out.Sender = senderMixed
 	}
@@ -462,6 +465,7 @@ func (c *Connectors) grantFor(ctx context.Context, b connectors.Binding, m contr
 	now := c.o.Clock()
 	g := turnGrant{Binding: b.ID, Kind: b.Kind, Senders: []string{m.SenderID}, Roles: slices.Clone(m.Roles),
 		Direct: m.Direct, Paired: m.SenderID != "" && b.IsPaired(m.SenderID, now)}
+	g.Where = whereOf(m)
 	g.ImpliedWrite = impliedWrite(b, c.subjectOf(b, m, true), now, c.offReason(ctx, b, contract.CapToolsWrite))
 	g.Sender = grantSenderKind(b, c.subjectOf(b, m, true), g.Paired, kind)
 	for _, name := range contract.ConnectorCapabilityNames() {
@@ -518,15 +522,22 @@ const (
 // AccessEvent is one audited decision. It holds IDs and capability names,
 // never message text, pairing codes or tokens.
 type AccessEvent struct {
-	At         time.Time `json:"at"`
-	Binding    string    `json:"binding"`
-	Kind       string    `json:"kind,omitempty"`
-	Senders    []string  `json:"senders,omitempty"`
-	Roles      []string  `json:"roles,omitempty"`
-	Capability string    `json:"capability"`
-	Allowed    bool      `json:"allowed"`
-	Via        string    `json:"via,omitempty"`
-	Reason     string    `json:"reason,omitempty"`
+	At      time.Time `json:"at"`
+	Binding string    `json:"binding"`
+	Kind    string    `json:"kind,omitempty"`
+	Senders []string  `json:"senders,omitempty"`
+	Roles   []string  `json:"roles,omitempty"`
+	// SenderName is the display name of the first sender, and Chat and ChatName
+	// the conversation of the message (the ID, and the name when the add-on
+	// knows it). All three are optional: an event with no message at hand, such
+	// as a preview, has none, and a reader falls back to the IDs.
+	SenderName string `json:"sender_name,omitempty"`
+	Chat       string `json:"chat,omitempty"`
+	ChatName   string `json:"chat_name,omitempty"`
+	Capability string `json:"capability"`
+	Allowed    bool   `json:"allowed"`
+	Via        string `json:"via,omitempty"`
+	Reason     string `json:"reason,omitempty"`
 	// Code is the code of the refusal (see connectorreasons.go).
 	Code string `json:"code,omitempty"`
 	// The fields below are set by a message the host wrote on its own (see
@@ -602,9 +613,12 @@ func (a *accessState) get(chat string) (turnGrant, bool) {
 	return h.turnGrant, true
 }
 
-func (a *accessState) record(now time.Time, b connectors.Binding, senders, roles []string, d Decision) {
+func (a *accessState) record(now time.Time, b connectors.Binding, senders, roles []string, d Decision, where ...eventWhere) {
 	e := AccessEvent{At: now.UTC(), Binding: b.ID, Kind: b.Kind, Senders: senders, Roles: roles,
 		Capability: d.Capability, Allowed: d.Allowed, Via: d.Via, Reason: d.Reason, Code: d.Code}
+	if len(where) > 0 {
+		e.SenderName, e.Chat, e.ChatName = where[0].SenderName, where[0].Chat, where[0].ChatName
+	}
 	a.append(e)
 }
 
@@ -617,6 +631,18 @@ func (a *accessState) append(e AccessEvent) {
 	if len(a.log) > AccessLogSize {
 		a.log = slices.Clone(a.log[len(a.log)-AccessLogSize:])
 	}
+}
+
+// eventWhere is who and where an event came from, when the message is at hand.
+type eventWhere struct{ SenderName, Chat, ChatName string }
+
+// whereOf reads it from a message: the display name, else the username.
+func whereOf(m contract.ConnectorMessage) eventWhere {
+	name := m.SenderName
+	if name == "" {
+		name = m.SenderUsername
+	}
+	return eventWhere{SenderName: name, Chat: m.Chat, ChatName: m.ChatName}
 }
 
 // recordTool keeps the outcome of a tool call for the settings page of the
@@ -688,7 +714,7 @@ func (s *Service) turnAllow(chat string) (allow func(string) (bool, string), aud
 		if ok {
 			d.Via = "turn"
 		}
-		s.access.record(s.now(), connectors.Binding{ID: g.Binding, Kind: g.Kind}, g.Senders, g.Roles, d)
+		s.access.record(s.now(), connectors.Binding{ID: g.Binding, Kind: g.Kind}, g.Senders, g.Roles, d, g.Where)
 	}
 	return allow, audit
 }

@@ -461,5 +461,6 @@ export function toolOutcomeRows(view, limit = 20) {
     status: e.status || 0,
     senders: e.senders || [],
     asker: e.asker || '',
+    senderName: e.sender_name || '',
   }))
 }

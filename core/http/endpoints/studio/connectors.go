@@ -414,7 +414,8 @@ func (h *Handlers) ConnectorSenders(c echo.Context) error {
 	}
 	out := schema.ChatsConnectorSenderList{Senders: make([]schema.ChatsConnectorSender, 0, len(list))}
 	for _, s := range list {
-		out.Senders = append(out.Senders, schema.ChatsConnectorSender{ID: s.ID, Name: s.Name, Count: s.Count, First: s.First, Last: s.Last, Allowed: s.Allowed})
+		out.Senders = append(out.Senders, schema.ChatsConnectorSender{ID: s.ID, Name: s.Name, Count: s.Count, First: s.First, Last: s.Last, Allowed: s.Allowed,
+			Chat: s.Chat, ChatName: s.ChatName, Reason: s.Reason})
 	}
 	return c.JSON(http.StatusOK, out)
 }

@@ -285,6 +285,28 @@ type Sender struct {
 	Count             int
 	First, Last       time.Time
 	Allowed           bool
+	// Chat and ChatName say where the last message came from, and Reason is why
+	// that message was ignored (a Reason* code). They are optional: a sender
+	// logged before they existed, or by a store that does not keep them, has none.
+	Chat, ChatName, Reason string
+}
+
+// The codes of the reason a message is ignored.
+const (
+	// ReasonNotListed: the sender is not on the list and the bot does not accept anyone.
+	ReasonNotListed = "not_listed"
+	// ReasonNotAddressed: a message in a group that does not name the bot.
+	ReasonNotAddressed = "not_addressed"
+)
+
+// SenderNote is what a message adds to the log entry of its sender.
+type SenderNote struct{ Chat, ChatName, Reason string }
+
+// SenderNoter is implemented by the stores that keep where a sender wrote and
+// why a message was ignored. The manager calls it after RecordSender, and a
+// store without it just keeps the log as it was.
+type SenderNoter interface {
+	NoteSender(ctx context.Context, binding, senderID string, n SenderNote) error
 }
 
 // Store keeps bindings and the state of their loops.

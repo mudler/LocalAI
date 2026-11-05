@@ -715,6 +715,19 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 	if err := c.o.Store.RecordSender(ctx, b.ID, senderID, name, allowed, c.o.Clock()); err != nil {
 		c.log.Warn("studio: could not record a sender", "binding", b.ID, "error", err)
 	}
+	if ns, ok := c.o.Store.(connectors.SenderNoter); ok {
+		note := connectors.SenderNote{Chat: m.Chat, ChatName: m.ChatName}
+		switch {
+		case allowed:
+		case !m.Direct && !m.Mention:
+			note.Reason = connectors.ReasonNotAddressed
+		default:
+			note.Reason = connectors.ReasonNotListed
+		}
+		if err := ns.NoteSender(ctx, b.ID, senderID, note); err != nil {
+			c.log.Warn("studio: could not note a sender", "binding", b.ID, "error", err)
+		}
+	}
 	if !allowed {
 		return // ignored: not answered, and in the sender log for the owner
 	}
