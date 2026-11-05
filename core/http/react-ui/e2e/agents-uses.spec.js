@@ -254,19 +254,48 @@ test.describe('MCP servers', () => {
 })
 
 test.describe('Memory skills', () => {
-  test('the skills the host grants are one line in Memory and are not in the Skills list', async ({ page }) => {
+  // They used to be one line with no switch and no rows in the Skills list.
+  // They are real rows now, in the Memory section and in the Skills list:
+  // locked, a switch that shows the state and cannot be flipped, and the
+  // provider as the source.
+  test('are locked rows in Memory and in the Skills list, on while memory is on', async ({ page }) => {
     await open(page)
-    const line = page.getByTestId('agent-memory-skills')
-    await expect(line).toContainText('Memory skills')
-    await expect(line).toContainText('from Memory')
-    await expect(line).toContainText('memory-check-own-files')
-    await expect(line).toContainText('On with notes')
-    await expect(line.getByRole('switch')).toHaveCount(0)
-    await expect(page.getByTestId('agent-skills-panel').getByTestId('agent-skills-item').filter({ hasText: 'memory-check-own-files' })).toHaveCount(0)
-    await expect(page.getByTestId('agent-skills-panel').getByTestId('agent-skills-item').filter({ hasText: /^memory/ })).toHaveCount(0)
+    const box = page.getByTestId('agent-memory-skills')
+    await expect(box).toContainText('Memory skills')
+    const rows = box.getByTestId('agent-memory-skill')
+    await expect(rows).toHaveCount(2)
+    await expect(rows.filter({ hasText: 'memory-check-own-files' })).toContainText('from Memory')
+    await expect(rows.first()).toContainText('On while memory is on')
+    for (const sw of await box.getByRole('switch').all()) {
+      await expect(sw).toBeDisabled()
+      await expect(sw).toBeChecked()
+    }
+    const list = page.getByTestId('agent-skills-panel').getByTestId('agent-skills-item')
+    const inList = list.filter({ has: page.getByRole('switch', { name: 'memory-check-own-files', exact: true }) })
+    await expect(inList).toHaveCount(1)
+    await expect(inList).toHaveAttribute('data-locked', 'true')
+    await expect(inList).toContainText('from Memory')
+    await expect(inList.getByRole('switch')).toBeDisabled()
+    await expect(inList.getByRole('switch')).toBeChecked()
     await shot(page, 'memory')
-    await page.getByTestId('agent-memory-none').click()
-    await expect(line).toContainText('Off, because this agent keeps no notes')
+  })
+
+  test('go off with the reason when the agent has no memory, and the bulk actions leave them alone', async ({ page }) => {
+    const s = await open(page)
+    const list = page.getByTestId('agent-skills-panel').getByTestId('agent-skills-item')
+    const mem = list.filter({ has: page.getByRole('switch', { name: 'memory', exact: true }) })
+    await page.getByTestId('agent-memory-level-off').click()
+    await expect(mem.getByRole('switch')).not.toBeChecked()
+    await expect(mem).toContainText('Off while this agent')
+    await expect(page.getByTestId('agent-memory-skills')).toContainText('Off while this agent')
+    // Select all does not reach a locked row: it stays off while memory is off.
+    await page.getByTestId('agent-skills-all').click()
+    await expect(mem.getByRole('switch')).not.toBeChecked()
+    await page.getByTestId('agent-memory-level-reads').click()
+    await expect(mem.getByRole('switch')).toBeChecked()
+    await page.getByTestId('agent-skills-none').click()
+    await expect(mem.getByRole('switch')).toBeChecked()
+    expect(s.calls.some(c => c.method === 'PUT' || c.method === 'POST')).toBe(false)
   })
 })
 

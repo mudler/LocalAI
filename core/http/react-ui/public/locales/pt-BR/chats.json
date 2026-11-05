@@ -997,8 +997,6 @@
       "title": "Como antes",
       "body": "Este agente foi salvo antes de existir esta escolha. Ele lê suas notas se a lista de complementos dele citar Memory, e o modelo escolhe onde salvar uma nota. Escolha uma das opções abaixo para mudar isso."
     },
-    "saveGrant": "Deixar salvar notas",
-    "saveGrantHelp": "Liga a permissão Lembrar coisas. Sem ela, o agente lê notas mas não consegue salvar nenhuma.",
     "copyNote": "Exportar um agente, ou importá-lo como novo, mantém esta escolha e nunca copia as notas dele.",
     "summary": {
       "mine_and_own": "Minhas e dele",
@@ -1006,7 +1004,13 @@
       "mine": "Minhas",
       "none": "Nenhuma",
       "asBefore": "Como antes",
-      "withAuto": "{{choice}}, salva na hora"
+      "withAuto": "{{choice}}, salva na hora",
+      "level": {
+        "off": "Desligada",
+        "reads": "Lê notas",
+        "saves": "Lê e salva notas"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "Excluir {{name}}?",
@@ -1045,8 +1049,27 @@
         "title": "Nunca",
         "body": "Lê, nunca salva."
       },
-      "hint": "Em um chat de mensagens, a nota vai primeiro para essa conversa e só chega às notas próprias deste agente vinda de um remetente pareado. Salvar na hora em um chat de mensagens vale só para um remetente pareado em um chat um a um."
-    }
+      "hint": "Em um chat de mensagens, a nota vai primeiro para essa conversa e só chega às notas próprias deste agente vinda de um remetente pareado. Salvar na hora em um chat de mensagens vale só para um remetente pareado em um chat um a um.",
+      "offReason": "O nível de salvamento não vale enquanto a memória está desligada.",
+      "readsReason": "O nível de salvamento não vale: este agente lê notas, mas não pode salvar nenhuma."
+    },
+    "level": {
+      "title": "O que faz com as notas",
+      "off": {
+        "title": "Desligada",
+        "body": "Não lê nem salva notas."
+      },
+      "reads": {
+        "title": "Lê notas",
+        "body": "Usa suas notas para responder. Nunca salva nenhuma."
+      },
+      "saves": {
+        "title": "Lê e salva notas",
+        "body": "Usa notas e salva novas, conforme o seu nível de salvamento."
+      }
+    },
+    "whose": "De quem são as notas",
+    "whoseOff": "A memória está desligada para este agente, então não há notas para escolher."
   },
   "providerPicker": {
     "title": "Provedor",

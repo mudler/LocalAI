@@ -211,6 +211,22 @@ A saved agent has its own choice of notes. You set it in the agent form, in the
 **Memory** section, when you make the agent and again later. The host enforces it: the
 model does not choose where a note goes.
 
+The section has two controls. The first says how much the agent does with notes:
+
+| Level | What the agent does | Saved fields |
+|---|---|---|
+| **Off** | Reads and saves no notes | `memory` is `none`, and the right to remember things is removed |
+| **Reads notes** | Reads notes, never saves | `memory` is not `none`, without the right `memory.write` |
+| **Reads and saves notes** (new agents) | Reads notes and saves new ones | `memory` is not `none`, with the right `memory.write` |
+
+No new field is stored: the form reads the level from `memory` and `memory.write`, so an
+agent keeps exactly what it has. Switching a level changes both fields together and offers
+an Undo. The second control, whose notes (the table below), shows while memory is not Off.
+The save level of your settings and the agent's own save rule apply only to an agent that
+saves notes. The memory skills show as locked rows, on while memory is on, in the Memory
+section and in the Skills list. An agent that reads but cannot save still gets the skills
+(they also teach how to read), and the model is told that saving is off.
+
 | Choice | The chat reads | A note is saved to |
 |---|---|---|
 | **Mine and its own** (new agents) | Your notes and the agent's own | The agent's own notes |

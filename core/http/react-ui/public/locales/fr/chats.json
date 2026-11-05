@@ -997,8 +997,6 @@
       "title": "Comme avant",
       "body": "Cet agent a été enregistré avant que ce choix existe. Il lit vos notes si sa liste de modules nomme Memory, et le modèle choisit où une note est enregistrée. Choisissez une option ci-dessous pour changer cela."
     },
-    "saveGrant": "Autoriser l'enregistrement de notes",
-    "saveGrantHelp": "Active l'autorisation Retenir des choses. Sans elle, l'agent lit les notes mais ne peut pas en enregistrer.",
     "copyNote": "Exporter un agent, ou l'importer comme nouvel agent, garde ce choix et ne copie jamais ses notes.",
     "summary": {
       "mine_and_own": "Les miennes et les siennes",
@@ -1006,7 +1004,13 @@
       "mine": "Les miennes",
       "none": "Aucune",
       "asBefore": "Comme avant",
-      "withAuto": "{{choice}}, enregistre aussitôt"
+      "withAuto": "{{choice}}, enregistre aussitôt",
+      "level": {
+        "off": "Désactivée",
+        "reads": "Lit les notes",
+        "saves": "Lit et enregistre les notes"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "Supprimer {{name}} ?",
@@ -1045,8 +1049,27 @@
         "title": "Jamais",
         "body": "Il lit, n'enregistre jamais."
       },
-      "hint": "Dans une conversation de messagerie, la note va d'abord à cette conversation et n'atteint les notes propres de cet agent que depuis un expéditeur associé. L'enregistrement immédiat dans une conversation de messagerie ne vaut que pour un expéditeur associé dans une conversation privée."
-    }
+      "hint": "Dans une conversation de messagerie, la note va d'abord à cette conversation et n'atteint les notes propres de cet agent que depuis un expéditeur associé. L'enregistrement immédiat dans une conversation de messagerie ne vaut que pour un expéditeur associé dans une conversation privée.",
+      "offReason": "Le niveau d'enregistrement ne s'applique pas tant que la mémoire est désactivée.",
+      "readsReason": "Le niveau d'enregistrement ne s'applique pas : cet agent lit les notes mais ne peut en enregistrer aucune."
+    },
+    "level": {
+      "title": "Ce qu'il fait des notes",
+      "off": {
+        "title": "Désactivée",
+        "body": "Ne lit ni n'enregistre de notes."
+      },
+      "reads": {
+        "title": "Lit les notes",
+        "body": "Utilise vos notes pour répondre. N'en enregistre jamais."
+      },
+      "saves": {
+        "title": "Lit et enregistre les notes",
+        "body": "Utilise les notes et en enregistre de nouvelles, selon votre niveau d'enregistrement."
+      }
+    },
+    "whose": "De qui sont les notes",
+    "whoseOff": "La mémoire est désactivée pour cet agent, il n'y a donc pas de notes à choisir."
   },
   "providerPicker": {
     "title": "Fournisseur",

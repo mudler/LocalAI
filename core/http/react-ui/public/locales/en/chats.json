@@ -1319,8 +1319,6 @@
       "title": "As before",
       "body": "This agent was saved before this choice existed. It reads your notes when its add-ons list names Memory, and the model picks where a note is saved. Pick one of the choices below to change that."
     },
-    "saveGrant": "Let it save notes",
-    "saveGrantHelp": "Turns on the permission Remember things. Without it the agent reads notes but cannot save any.",
     "copyNote": "Exporting an agent, or importing it as a new one, keeps this choice and never copies its notes.",
     "summary": {
       "mine_and_own": "Mine and its own",
@@ -1328,7 +1326,13 @@
       "mine": "Mine",
       "none": "None",
       "asBefore": "As before",
-      "withAuto": "{{choice}}, saves at once"
+      "withAuto": "{{choice}}, saves at once",
+      "level": {
+        "off": "Off",
+        "reads": "Reads notes",
+        "saves": "Reads and saves notes"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "Delete {{name}}?",
@@ -1367,8 +1371,27 @@
         "title": "Never",
         "body": "It reads, never saves."
       },
-      "hint": "In a messaging chat a note goes to that conversation first, and reaches this agent's own notes only from a paired sender. Saving at once in a messaging chat applies only to a paired sender in a one-to-one chat."
-    }
+      "hint": "In a messaging chat a note goes to that conversation first, and reaches this agent's own notes only from a paired sender. Saving at once in a messaging chat applies only to a paired sender in a one-to-one chat.",
+      "offReason": "The save level does not apply while memory is off.",
+      "readsReason": "The save level does not apply: this agent reads notes but cannot save any."
+    },
+    "level": {
+      "title": "How much it does with notes",
+      "off": {
+        "title": "Off",
+        "body": "Reads and saves no notes."
+      },
+      "reads": {
+        "title": "Reads notes",
+        "body": "Uses your notes to answer. Never saves any."
+      },
+      "saves": {
+        "title": "Reads and saves notes",
+        "body": "Uses notes and saves new ones, as your save level allows."
+      }
+    },
+    "whose": "Whose notes",
+    "whoseOff": "Memory is off for this agent, so there are no notes to choose from."
   },
   "providerPicker": {
     "title": "Provider",

@@ -72,13 +72,39 @@ export function newAgent() {
   return { ...emptyAgent(), memory: DEFAULT_MEMORY, builtins: [...CONNECTOR_GRANTS, MEMORY_GRANT] }
 }
 
-// The form with another choice of notes. A choice that saves notes also
-// switches the grant on, because the choice says where and the grant says
-// whether; None leaves the grants alone.
-export function withMemoryChoice(form, choice) {
-  const next = { ...form, memory: choice }
-  if (memorySaves(choice) && !(form.builtins || []).includes(MEMORY_GRANT)) next.builtins = setGrant(form.builtins, MEMORY_GRANT, true)
+// How much the agent does with notes, as one control. It is read from the two
+// saved fields that already exist and never stored on its own:
+//   off    the choice is None (the grant is not read)
+//   reads  a choice other than None, without the grant
+//   saves  a choice other than None, with the grant
+// An agent saved before the choice has none ('' = as before): its level comes
+// from the grant alone.
+export const MEMORY_LEVELS = ['off', 'reads', 'saves']
+// The choices of whose notes, shown once memory is not Off.
+export const MEMORY_WHOSE = MEMORY_CHOICES.filter(memorySaves)
+export function memoryLevelOf(form) {
+  if (form?.memory === 'none') return 'off'
+  return (form?.builtins || []).includes(MEMORY_GRANT) ? 'saves' : 'reads'
+}
+
+// The form at another level. Off sets the choice to None and takes the grant
+// away; Reads keeps the choice (None gives way to `restore`, the choice the
+// agent had before, or the default) and takes the grant away; Reads and saves
+// does the same and adds the grant. An agent as before ('') keeps no choice
+// unless it goes through Off.
+export function withMemoryLevel(form, level, restore = '') {
+  const grant = level === 'saves'
+  const next = { ...form, builtins: setGrant(form.builtins, MEMORY_GRANT, grant) }
+  if (level === 'off') next.memory = 'none'
+  else if (form.memory === 'none') next.memory = MEMORY_WHOSE.includes(restore) ? restore : DEFAULT_MEMORY
   return next
+}
+
+// The form with another choice of whose notes. It changes the choice only: the
+// level (and the grant) stays as it is. None is the level Off.
+export function withMemoryChoice(form, choice) {
+  if (choice === 'none') return withMemoryLevel(form, 'off')
+  return { ...form, memory: choice }
 }
 
 export function emptyAgent() {

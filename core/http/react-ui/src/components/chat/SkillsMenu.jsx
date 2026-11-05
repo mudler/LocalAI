@@ -42,16 +42,19 @@ export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'cha
   const [query, setQuery] = useState('')
   const noteId = useId()
 
-  const { on, total } = skillCounts(skills)
+  // A locked row is one the host grants (its source says who): it shows its
+  // state and takes no part in the count or the bulk actions.
+  const free = skills.filter((s) => !s.locked)
+  const { on, total } = skillCounts(free)
   const searchable = total >= SEARCH_MIN
   const q = searchable ? query : ''
   const shown = filterSkills(skills, q)
   const filtering = q.trim() !== ''
-  const shownIds = new Set(shown.map(skillKey))
-  const allIds = new Set(skills.map(skillKey))
+  const shownIds = new Set(shown.filter((s) => !s.locked).map(skillKey))
+  const allIds = new Set(free.map(skillKey))
   const target = filtering ? shownIds : allIds
-  const nothingToEnable = !skills.some((s) => target.has(skillKey(s)) && !s.enabled)
-  const nothingToDisable = !skills.some((s) => target.has(skillKey(s)) && s.enabled)
+  const nothingToEnable = !free.some((s) => target.has(skillKey(s)) && !s.enabled)
+  const nothingToDisable = !free.some((s) => target.has(skillKey(s)) && s.enabled)
   const fallback = fallbackNotice(skills)
   // The title of the add-on that replaces a built-in skill, from the add-on
   // skill of the same name in the list.
@@ -126,10 +129,13 @@ function SkillRow({ skill, onSet, testId, fromLabel }) {
     <SwitchRow
       name={skill.name}
       desc={skill.unavailable || (desc ? skill.description : '')}
-      meta={source}
+      meta={skill.locked && skill.sourceLabel ? skill.sourceLabel : source}
       metaTestId={`${testId}-source`}
-      metaKind={src.kind}
+      metaKind={skill.locked ? 'provider' : src.kind}
       checked={skill.enabled}
+      disabled={Boolean(skill.locked)}
+      stacked={Boolean(skill.locked)}
+      data={skill.locked ? { locked: 'true' } : undefined}
       onChange={(next) => onSet(new Set([skillKey(skill)]), next)}
       testId={`${testId}-item`}
     />

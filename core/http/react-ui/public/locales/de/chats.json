@@ -997,8 +997,6 @@
       "title": "Wie bisher",
       "body": "Dieser Agent wurde gespeichert, bevor es diese Auswahl gab. Er liest deine Notizen, wenn seine Add-on-Liste Memory nennt, und das Modell wählt, wohin eine Notiz gespeichert wird. Wähle unten eine der Optionen, um das zu ändern."
     },
-    "saveGrant": "Notizen speichern lassen",
-    "saveGrantHelp": "Schaltet die Berechtigung „Dinge merken“ ein. Ohne sie liest der Agent Notizen, kann aber keine speichern.",
     "copyNote": "Beim Exportieren eines Agenten oder beim Import als neuen Agenten bleibt diese Auswahl erhalten; seine Notizen werden nie kopiert.",
     "summary": {
       "mine_and_own": "Meine und eigene",
@@ -1006,7 +1004,13 @@
       "mine": "Meine",
       "none": "Keine",
       "asBefore": "Wie bisher",
-      "withAuto": "{{choice}}, speichert sofort"
+      "withAuto": "{{choice}}, speichert sofort",
+      "level": {
+        "off": "Aus",
+        "reads": "Liest Notizen",
+        "saves": "Liest und speichert Notizen"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "{{name}} löschen?",
@@ -1045,8 +1049,27 @@
         "title": "Nie",
         "body": "Liest, speichert nie."
       },
-      "hint": "In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einem gekoppelten Absender. Sofortiges Speichern in einem Messaging-Chat gilt nur für einen gekoppelten Absender in einem Einzelchat."
-    }
+      "hint": "In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einem gekoppelten Absender. Sofortiges Speichern in einem Messaging-Chat gilt nur für einen gekoppelten Absender in einem Einzelchat.",
+      "offReason": "Die Speicherstufe gilt nicht, solange das Gedächtnis aus ist.",
+      "readsReason": "Die Speicherstufe gilt nicht: Dieser Agent liest Notizen, kann aber keine speichern."
+    },
+    "level": {
+      "title": "Wie viel er mit Notizen macht",
+      "off": {
+        "title": "Aus",
+        "body": "Liest und speichert keine Notizen."
+      },
+      "reads": {
+        "title": "Liest Notizen",
+        "body": "Nutzt deine Notizen für Antworten. Speichert nie welche."
+      },
+      "saves": {
+        "title": "Liest und speichert Notizen",
+        "body": "Nutzt Notizen und speichert neue, soweit deine Speicherstufe es erlaubt."
+      }
+    },
+    "whose": "Wessen Notizen",
+    "whoseOff": "Das Gedächtnis ist für diesen Agenten aus, es gibt also keine Notizen zur Auswahl."
   },
   "providerPicker": {
     "title": "Anbieter",

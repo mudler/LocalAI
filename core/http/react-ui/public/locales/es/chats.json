@@ -997,8 +997,6 @@
       "title": "Como antes",
       "body": "Este agente se guardó antes de que existiera esta opción. Lee tus notas si su lista de complementos nombra Memory, y el modelo elige dónde se guarda una nota. Elige una de las opciones de abajo para cambiarlo."
     },
-    "saveGrant": "Dejar que guarde notas",
-    "saveGrantHelp": "Activa el permiso Recordar cosas. Sin él, el agente lee notas pero no puede guardar ninguna.",
     "copyNote": "Exportar un agente, o importarlo como nuevo, conserva esta opción y nunca copia sus notas.",
     "summary": {
       "mine_and_own": "Mías y propias",
@@ -1006,7 +1004,13 @@
       "mine": "Mías",
       "none": "Ninguna",
       "asBefore": "Como antes",
-      "withAuto": "{{choice}}, guarda al momento"
+      "withAuto": "{{choice}}, guarda al momento",
+      "level": {
+        "off": "Desactivada",
+        "reads": "Lee notas",
+        "saves": "Lee y guarda notas"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "¿Eliminar {{name}}?",
@@ -1045,8 +1049,27 @@
         "title": "Nunca",
         "body": "Lee, nunca guarda."
       },
-      "hint": "En un chat de mensajería la nota va primero a esa conversación y llega a las notas propias de este agente solo desde un remitente emparejado. Guardar al momento en un chat de mensajería solo vale para un remitente emparejado en un chat uno a uno."
-    }
+      "hint": "En un chat de mensajería la nota va primero a esa conversación y llega a las notas propias de este agente solo desde un remitente emparejado. Guardar al momento en un chat de mensajería solo vale para un remitente emparejado en un chat uno a uno.",
+      "offReason": "El nivel de guardado no se aplica mientras la memoria está desactivada.",
+      "readsReason": "El nivel de guardado no se aplica: este agente lee notas pero no puede guardar ninguna."
+    },
+    "level": {
+      "title": "Qué hace con las notas",
+      "off": {
+        "title": "Desactivada",
+        "body": "No lee ni guarda notas."
+      },
+      "reads": {
+        "title": "Lee notas",
+        "body": "Usa tus notas para responder. Nunca guarda ninguna."
+      },
+      "saves": {
+        "title": "Lee y guarda notas",
+        "body": "Usa notas y guarda nuevas, según tu nivel de guardado."
+      }
+    },
+    "whose": "De quién son las notas",
+    "whoseOff": "La memoria está desactivada para este agente, así que no hay notas que elegir."
   },
   "providerPicker": {
     "title": "Proveedor",

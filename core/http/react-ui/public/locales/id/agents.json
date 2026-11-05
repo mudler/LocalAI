@@ -282,19 +282,20 @@
       },
       "memory": {
         "userOff": "Memori mati di pengaturan Anda, jadi agen ini tidak membaca atau menyimpan catatan, apa pun pilihannya di sini.",
-        "none": "Tidak menyimpan dan tidak membaca catatan.",
+        "none": "Memori mati untuk agen ini. Agen tidak membaca dan tidak menyimpan catatan.",
         "mine_and_own": "Membaca catatan Anda dan miliknya, dan menyimpan ke miliknya.",
         "own": "Hanya membaca dan menyimpan catatannya sendiri.",
         "mine": "Membaca catatan Anda dan menyimpan ke sana.",
         "asBefore": "Memori bekerja seperti sebelumnya: membaca catatan saat add-on menyebut Memory.",
-        "noGrant": "Agen diatur menyimpan catatan, tetapi hak untuk mengingat mati, jadi tidak ada yang disimpan. Nyalakan di Memori.",
         "level": {
-          "auto": "Catatan disimpan langsung.",
-          "ask": "Setiap catatan menunggu konfirmasi Anda.",
-          "always": "Setiap catatan menunggu Anda, dan tidak ada yang melonggarkannya.",
-          "never": "Tidak menyimpan catatan.",
+          "auto": "Menyimpan catatan langsung.",
+          "ask": "Menyimpan catatan (bertanya dulu): setiap catatan menunggu konfirmasi Anda.",
+          "always": "Menyimpan catatan, tetapi setiap catatan menunggu Anda dan tidak ada yang melonggarkannya.",
+          "never": "Membaca catatan tetapi tidak menyimpan: tingkat penyimpanan Anda adalah Tidak pernah.",
           "agentAuto": "Menyimpan catatan langsung dan memberi tahu Anda, dengan Urungkan. Ini pilihan agen itu sendiri."
-        }
+        },
+        "readsOnly": "Membaca catatan tetapi tidak bisa menyimpan.",
+        "connectionLimit": "Catatan tidak disimpan di koneksi pesan ini: {{names}}."
       },
       "knowledge": {
         "some_one": "Bisa mencari di {{count}} koleksi: {{names}}.",
@@ -438,13 +439,19 @@
       "memorySkills": {
         "title": "Skill memori",
         "from": "dari {{slot}}",
-        "on": "Aktif bersama catatan. Skill ini mengajari model membaca dan menyimpan catatan.",
-        "off": "Mati, karena agen ini tidak menyimpan catatan.",
-        "offUser": "Mati, karena memori dimatikan di Pengaturan Anda."
+        "on": "Aktif selama memori aktif.",
+        "off": "Mati selama memori agen ini mati.",
+        "offUser": "Mati, karena memori mati di Pengaturan Anda."
       },
       "slot": {
         "memory": "Memori"
       }
+    },
+    "memoryLevelApplied": {
+      "title": "Memori: {{name}}",
+      "off": "Agen tidak membaca dan tidak menyimpan catatan, dan izin mengingat hal dimatikan. Tidak ada yang tersimpan sampai Anda menyimpan.",
+      "reads": "Izin mengingat hal dimatikan, jadi agen membaca catatan tetapi tidak bisa menyimpan. Tidak ada yang tersimpan sampai Anda menyimpan.",
+      "saves": "Izin mengingat hal dinyalakan. Tidak ada yang tersimpan sampai Anda menyimpan."
     }
   },
   "run": {

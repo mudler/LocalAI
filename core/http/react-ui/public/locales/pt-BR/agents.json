@@ -282,19 +282,20 @@
       },
       "memory": {
         "userOff": "A memória está desligada nas suas configurações, então este agente não lê nem salva notas, seja qual for a escolha aqui.",
-        "none": "Não guarda nem lê notas.",
+        "none": "A memória está desligada para este agente. Ele não lê nem salva notas.",
         "mine_and_own": "Lê as suas notas e as próprias, e salva nas próprias.",
         "own": "Lê e salva só as próprias notas.",
         "mine": "Lê as suas notas e salva nelas.",
         "asBefore": "A memória funciona como antes: lê notas quando um complemento cita Memory.",
-        "noGrant": "Está configurado para salvar notas, mas a permissão de lembrar está desligada, então não salva nenhuma. Ligue em Memória.",
         "level": {
-          "auto": "As notas são salvas na hora.",
-          "ask": "Cada nota espera a sua confirmação.",
-          "always": "Cada nota espera por você, e nada afrouxa isso.",
-          "never": "Não salva notas.",
+          "auto": "Salva as notas na hora.",
+          "ask": "Salva notas (pergunta antes): cada nota espera a sua confirmação.",
+          "always": "Salva notas, mas cada nota espera por você e nada afrouxa isso.",
+          "never": "Lê notas, mas não salva nenhuma: o seu nível de salvamento é Nunca.",
           "agentAuto": "Salva as notas na hora e avisa você, com Desfazer. É a escolha própria do agente."
-        }
+        },
+        "readsOnly": "Lê notas, mas não pode salvar.",
+        "connectionLimit": "Nestas conexões de mensagens as notas não são salvas: {{names}}."
       },
       "knowledge": {
         "some_one": "Pode pesquisar {{count}} coleção: {{names}}.",
@@ -438,13 +439,19 @@
       "memorySkills": {
         "title": "Skills da memória",
         "from": "de {{slot}}",
-        "on": "Ligadas com as notas. Ensinam o modelo a ler e salvar notas.",
-        "off": "Desligadas, porque este agente não guarda notas.",
+        "on": "Ligadas enquanto a memória está ligada.",
+        "off": "Desligadas enquanto a memória deste agente está desligada.",
         "offUser": "Desligadas, porque a memória está desligada nas suas Configurações."
       },
       "slot": {
         "memory": "Memória"
       }
+    },
+    "memoryLevelApplied": {
+      "title": "Memória: {{name}}",
+      "off": "Não lê nem salva notas, e a permissão de lembrar coisas fica desligada. Nada é salvo até você salvar.",
+      "reads": "A permissão de lembrar coisas está desligada, então ele lê notas, mas não pode salvar nenhuma. Nada é salvo até você salvar.",
+      "saves": "A permissão de lembrar coisas está ligada. Nada é salvo até você salvar."
     }
   },
   "run": {

@@ -997,8 +997,6 @@
       "title": "Seperti sebelumnya",
       "body": "Agen ini disimpan sebelum pilihan ini ada. Ia membaca catatan Anda jika daftar add-on-nya menyebut Memory, dan model memilih tempat menyimpan catatan. Pilih salah satu opsi di bawah untuk mengubahnya."
     },
-    "saveGrant": "Izinkan menyimpan catatan",
-    "saveGrantHelp": "Menyalakan izin Mengingat hal. Tanpa izin ini agen membaca catatan tetapi tidak dapat menyimpan.",
     "copyNote": "Mengekspor agen, atau mengimpornya sebagai agen baru, mempertahankan pilihan ini dan tidak pernah menyalin catatannya.",
     "summary": {
       "mine_and_own": "Milik saya dan miliknya",
@@ -1006,7 +1004,13 @@
       "mine": "Milik saya",
       "none": "Tidak ada",
       "asBefore": "Seperti sebelumnya",
-      "withAuto": "{{choice}}, menyimpan langsung"
+      "withAuto": "{{choice}}, menyimpan langsung",
+      "level": {
+        "off": "Mati",
+        "reads": "Membaca catatan",
+        "saves": "Membaca dan menyimpan catatan"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "Hapus {{name}}?",
@@ -1045,8 +1049,27 @@
         "title": "Jangan pernah",
         "body": "Membaca, tidak pernah menyimpan."
       },
-      "hint": "Di obrolan aplikasi pesan, catatan masuk ke percakapan itu dulu, dan sampai ke catatan milik agen ini hanya dari pengirim yang dipasangkan. Menyimpan langsung di obrolan aplikasi pesan hanya berlaku untuk pengirim yang dipasangkan di obrolan satu lawan satu."
-    }
+      "hint": "Di obrolan aplikasi pesan, catatan masuk ke percakapan itu dulu, dan sampai ke catatan milik agen ini hanya dari pengirim yang dipasangkan. Menyimpan langsung di obrolan aplikasi pesan hanya berlaku untuk pengirim yang dipasangkan di obrolan satu lawan satu.",
+      "offReason": "Tingkat penyimpanan tidak berlaku selama memori mati.",
+      "readsReason": "Tingkat penyimpanan tidak berlaku: agen ini membaca catatan tetapi tidak bisa menyimpan."
+    },
+    "level": {
+      "title": "Apa yang dilakukannya dengan catatan",
+      "off": {
+        "title": "Mati",
+        "body": "Tidak membaca dan tidak menyimpan catatan."
+      },
+      "reads": {
+        "title": "Membaca catatan",
+        "body": "Memakai catatan Anda untuk menjawab. Tidak pernah menyimpan."
+      },
+      "saves": {
+        "title": "Membaca dan menyimpan catatan",
+        "body": "Memakai catatan dan menyimpan yang baru, sesuai tingkat penyimpanan Anda."
+      }
+    },
+    "whose": "Catatan milik siapa",
+    "whoseOff": "Memori mati untuk agen ini, jadi tidak ada catatan untuk dipilih."
   },
   "providerPicker": {
     "title": "Penyedia",

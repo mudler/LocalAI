@@ -115,6 +115,9 @@ tools, as they are your own settings.
 
 The optional field `memory` chooses the notes of an agent: `mine_and_own` (reads your notes
 and its own, saves to its own; the interface sets it for a new agent), `own`, `mine` or `none`.
+The form shows the level from this field and the grant `memory.write`: `none` is Off, any
+other choice without the grant is Reads notes, and any other choice with the grant is Reads
+and saves notes. Nothing else is stored.
 An agent without it is "as before": it reads notes when its add-ons name `memory`, and the
 model chooses where a note goes. The host enforces the choice. A `PUT` without `memory`
 keeps the stored one. `DELETE /api/chats/agents/{id}?memory=keep|export|delete` says what

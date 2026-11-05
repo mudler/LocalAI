@@ -9,7 +9,7 @@
 //   code     the reason code, when a server check or a switch gave one
 //   fix      { kind: 'section', section } to fix it on this form, or
 //            { kind: 'link', to } to fix it on another page
-import { MEMORY_GRANT, memorySaves, stricterLevel } from './chatAgents.js'
+import { MEMORY_GRANT, memoryLevelOf, stricterLevel } from './chatAgents.js'
 import { addonNow, addonSkillState } from './agentUses.js'
 
 const TOOL_GROUPS = new Set(['builtins', 'addons', 'servers', 'connectors'])
@@ -173,17 +173,19 @@ export function effectiveLines({ form, rows, skills, memory, access, isEdit, add
 
   // Memory.
   const choice = form.memory || ''
+  const mem = memoryLevelOf(form)
   const level = stricterLevel(memory?.save_mode, form.memory_save)
   if (memory && memory.enabled === false) {
     add({ id: 'memory-off', state: 'off', text: 'memory.userOff', section: 'memory', code: 'memory_off_user', fix: { kind: 'link', to: '/app/account?tab=memory' } })
-  } else if (choice === 'none') {
+  } else if (mem === 'off') {
     add({ id: 'memory', state: 'off', text: 'memory.none', section: 'memory' })
   } else {
     add({ id: 'memory', state: 'allowed', text: `memory.${choice || 'asBefore'}`, section: 'memory' })
-    const saves = memorySaves(choice) || choice === ''
-    const granted = list(form.builtins).includes(MEMORY_GRANT)
-    if (saves && !granted && choice) add({ id: 'memory-grant', state: 'blocked', text: 'memory.noGrant', section: 'memory', code: 'agent_permission_off', fix: { kind: 'section', section: 'memory' } })
-    else if (saves) add({ id: 'memory-level', state: level === 'auto' ? 'allowed' : level === 'never' ? 'off' : 'asks', text: level === 'auto' && form.memory_save === 'auto' ? 'memory.level.agentAuto' : `memory.level.${level}`, section: 'memory' })
+    // Reads without the right to remember is a choice, not a fault: the
+    // control says "Reads notes", and so does this line. An agent from before
+    // the choice has no line here, because what it reads is not decided yet.
+    if (mem === 'saves') add({ id: 'memory-level', state: level === 'auto' ? 'allowed' : level === 'never' ? 'off' : 'asks', text: level === 'auto' && form.memory_save === 'auto' ? 'memory.level.agentAuto' : `memory.level.${level}`, section: 'memory' })
+    else if (choice) add({ id: 'memory-level', state: 'info', text: 'memory.readsOnly', section: 'memory' })
   }
 
   // Knowledge.
@@ -202,9 +204,20 @@ export function effectiveLines({ form, rows, skills, memory, access, isEdit, add
     if (a.status === 'error') { add({ id: `conn-${a.id}`, state: 'info', text: 'connections.error', vars: { name: a.name }, section: 'identity', fix: { kind: 'link', to: a.to } }); continue }
     const sum = summariseAccess(a.view)
     add({ id: `conn-${a.id}`, state: sum.allowed ? 'allowed' : 'off', text: 'connections.summary', vars: { name: a.name, allowed: sum.allowed, blocked: sum.blocked.length }, section: 'identity' })
-    for (const b of sum.blocked.slice(0, 2)) {
+    // An agent that only reads has no right to remember on purpose: the
+    // connection cannot be blamed for it, so that refusal is not listed.
+    const blocked = sum.blocked.filter((b) => !(b.capability === MEMORY_GRANT && b.code === 'agent_permission_off' && choice && mem !== 'saves'))
+    for (const b of blocked.slice(0, 2)) {
       add({ id: `conn-${a.id}-${b.capability}`, state: 'blocked', text: 'connections.blocked', vars: { name: a.name, capability: rows.find((r) => r.id === b.capability)?.label || b.capability, message: b.message }, section: 'identity', code: b.code, fix: fixOf(b.fix, a) })
     }
+  }
+
+  // The memory line above speaks for the app. A messaging connection whose
+  // own permission for saving notes is off (not the agent's choice) saves none,
+  // and the line says where.
+  if (mem === 'saves' && !(memory && memory.enabled === false)) {
+    const cut = list(access).filter((a) => a.status === 'ok' && summariseAccess(a.view).blocked.some((b) => b.capability === MEMORY_GRANT && b.code !== 'agent_permission_off')).map((a) => a.name)
+    if (cut.length) add({ id: 'memory-connection', state: 'info', text: 'memory.connectionLimit', vars: { count: cut.length, ...names(cut) }, section: 'memory' })
   }
 
   return lines

@@ -282,19 +282,20 @@
       },
       "memory": {
         "userOff": "La memoria está desactivada en sus ajustes, así que este agente no lee ni guarda notas, elija lo que elija aquí.",
-        "none": "No guarda ni lee notas.",
+        "none": "La memoria está desactivada para este agente. No lee ni guarda notas.",
         "mine_and_own": "Lee sus notas y las suyas, y guarda en las suyas.",
         "own": "Lee y guarda solo sus propias notas.",
         "mine": "Lee sus notas y guarda en ellas.",
         "asBefore": "La memoria funciona como antes: lee notas cuando un complemento nombra Memory.",
-        "noGrant": "Está configurado para guardar notas, pero el permiso de recordar cosas está desactivado, así que no guarda ninguna. Actívelo en Memoria.",
         "level": {
-          "auto": "Las notas se guardan al instante.",
-          "ask": "Cada nota espera su confirmación.",
-          "always": "Cada nota espera su confirmación y nada lo relaja.",
-          "never": "No guarda notas.",
+          "auto": "Guarda las notas al instante.",
+          "ask": "Guarda notas (pregunta antes): cada nota espera tu confirmación.",
+          "always": "Guarda notas, pero cada nota espera tu confirmación y nada lo relaja.",
+          "never": "Lee notas pero no guarda ninguna: tu nivel de guardado es Nunca.",
           "agentAuto": "Guarda las notas al momento y te avisa, con Deshacer. Es la elección propia del agente."
-        }
+        },
+        "readsOnly": "Lee notas pero no puede guardar.",
+        "connectionLimit": "No se guardan notas en estas conexiones de mensajería: {{names}}."
       },
       "knowledge": {
         "some_one": "Puede buscar en {{count}} colección: {{names}}.",
@@ -438,13 +439,19 @@
       "memorySkills": {
         "title": "Habilidades de memoria",
         "from": "de {{slot}}",
-        "on": "Activas con las notas. Enseñan al modelo a leer y guardar notas.",
-        "off": "Apagadas, porque este agente no guarda notas.",
-        "offUser": "Apagadas, porque la memoria está apagada en tus Ajustes."
+        "on": "Activada mientras la memoria está activada.",
+        "off": "Desactivada mientras la memoria de este agente está desactivada.",
+        "offUser": "Desactivada, porque la memoria está desactivada en tus Ajustes."
       },
       "slot": {
         "memory": "Memoria"
       }
+    },
+    "memoryLevelApplied": {
+      "title": "Memoria: {{name}}",
+      "off": "No lee ni guarda notas, y el permiso de recordar cosas está desactivado. No se guarda nada hasta que guardes.",
+      "reads": "El permiso de recordar cosas está desactivado, así que lee notas pero no puede guardar ninguna. No se guarda nada hasta que guardes.",
+      "saves": "El permiso de recordar cosas está activado. No se guarda nada hasta que guardes."
     }
   },
   "run": {

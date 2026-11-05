@@ -41,15 +41,18 @@ async function serve(page, { enabled = true, agents = AGENTS, groups = GROUPS, s
 }
 
 test.describe('Memory section of the agent form', () => {
-  test('a new agent starts with Mine and its own, the permission to save, and sends them', async ({ page }) => {
+  // The old "Let it save notes" checkbox (agent-memory-saves) and the None card
+  // (agent-memory-none) are the level control now: Off, Reads notes, Reads and
+  // saves notes (agent-memory-level-off / -reads / -saves).
+  test('a new agent starts at Reads and saves notes with Mine and its own, and sends them', async ({ page }) => {
     const s = await serve(page)
     await page.goto('/app/agents/new')
     const choice = page.getByTestId('agent-memory-choice')
+    await expect(choice.getByTestId('agent-memory-level-saves').locator('input')).toBeChecked()
     await expect(choice.getByTestId('agent-memory-mine_and_own').locator('input')).toBeChecked()
     await expect(choice.getByTestId('agent-memory-mine_and_own')).toContainText('Recommended')
-    await expect(choice.getByTestId('agent-memory-saves')).toBeChecked()
     await expect(page.getByTestId('agent-memory-before')).toHaveCount(0)
-    await expect(fold(page, 'Notes')).toContainText('Mine and its own')
+    await expect(fold(page, 'Notes')).toContainText('Reads and saves notes, Mine and its own')
     await shot(page, 'agent-memory-new', { fullPage: true })
     await page.getByLabel('Name', { exact: false }).first().fill('Helper')
     await page.getByRole('button', { name: 'Create Agent' }).first().click()
@@ -64,7 +67,7 @@ test.describe('Memory section of the agent form', () => {
     await page.goto('/app/agents/a2/edit')
     await expect(page.getByTestId('agent-memory-before')).toContainText('As before')
     await expect(fold(page, 'Notes')).toContainText('As before')
-    await expect(page.getByTestId('agent-memory-choice').locator('input[type=radio]:checked')).toHaveCount(0)
+    await expect(page.getByTestId('agent-memory-whose').locator('input[type=radio]:checked')).toHaveCount(0)
     await shot(page, 'agent-memory-as-before', { fullPage: true })
     // Saving without choosing sends no choice: the server keeps the stored one.
     await page.getByRole('button', { name: 'Save changes' }).first().click()
@@ -72,10 +75,10 @@ test.describe('Memory section of the agent form', () => {
     expect('memory' in s.calls.find(c => c.method === 'PUT').body).toBe(false)
 
     await page.goto('/app/agents/a2/edit')
+    await page.getByTestId('agent-memory-level-saves').click()
     await page.getByTestId('agent-memory-mine').click()
     await expect(page.getByTestId('agent-memory-mine-warn')).toContainText('You confirm each one')
     await expect(page.getByTestId('agent-memory-before')).toHaveCount(0)
-    await expect(page.getByTestId('agent-memory-saves')).toBeChecked()
     await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
     const puts = s.calls.filter(c => c.method === 'PUT')
@@ -83,16 +86,17 @@ test.describe('Memory section of the agent form', () => {
     expect(puts[puts.length - 1].body.builtins).toContain('memory.write')
   })
 
-  test('None leaves the permissions alone and the save switch is hidden', async ({ page }) => {
+  test('choosing whose notes changes only that, not the level', async ({ page }) => {
     const s = await serve(page, { agents: [{ ...AGENTS[1], memory: 'own', builtins: ['skills.write'] }] })
     await page.goto('/app/agents/a2/edit')
-    await expect(page.getByTestId('agent-memory-own').locator('input')).toBeChecked()
-    await page.getByTestId('agent-memory-none').click()
-    await expect(page.getByTestId('agent-memory-saves')).toHaveCount(0)
+    await expect(page.getByTestId('agent-memory-level-reads').locator('input')).toBeChecked()
+    await page.getByTestId('agent-memory-mine').click()
+    await expect(page.getByTestId('agent-memory-level-reads').locator('input')).toBeChecked()
+    await expect(page.getByTestId('agent-memory-mine-warn')).toHaveCount(0)
     await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
     const put = s.calls.find(c => c.method === 'PUT').body
-    expect(put.memory).toBe('none')
+    expect(put.memory).toBe('mine')
     expect(put.builtins).toEqual(['skills.write'])
   })
 
@@ -110,7 +114,8 @@ test.describe('The save rule of the agent', () => {
   }
 
   test('offers four cards, says what is in force, and sends nothing until it is changed', async ({ page }) => {
-    const s = await serve(page, { save: 'auto' })
+    // The rule shows only while the agent saves notes: this one holds the right.
+    const s = await serve(page, { save: 'auto', agents: [{ ...AGENTS[1], builtins: ['memory.write'] }] })
     await open(page, '/app/agents/a2/edit')
     const rule = page.getByTestId('agent-memory-rule')
     await expect(rule.getByRole('radio')).toHaveCount(4)
@@ -128,7 +133,7 @@ test.describe('The save rule of the agent', () => {
   })
 
   test('sends always, then never, then use_mine to clear it', async ({ page }) => {
-    const s = await serve(page, { agents: [{ ...AGENTS[1], memory: 'own', memory_save: 'always' }] })
+    const s = await serve(page, { agents: [{ ...AGENTS[1], memory: 'own', memory_save: 'always', builtins: ['memory.write'] }] })
     await open(page, '/app/agents/a2/edit')
     await expect(page.getByTestId('agent-memory-rule-always').locator('input')).toBeChecked()
     await page.getByTestId('agent-memory-rule-never').click()
@@ -157,10 +162,18 @@ test.describe('The save rule of the agent', () => {
     expect(s.calls.filter(c => c.method === 'PUT').at(-1).body.memory_save).toBe('auto')
   })
 
-  test('is hidden when the agent has no memory', async ({ page }) => {
+  test('is hidden when the agent has no memory, with the reason', async ({ page }) => {
     await serve(page, { agents: [{ ...AGENTS[1], memory: 'none' }] })
     await open(page, '/app/agents/a2/edit')
     await expect(page.getByTestId('agent-memory-rule')).toHaveCount(0)
+    await expect(page.getByTestId('agent-memory-rule-off')).toContainText('memory is off')
+  })
+
+  test('is hidden when the agent only reads, with the reason', async ({ page }) => {
+    await serve(page, { agents: [{ ...AGENTS[1], memory: 'own', builtins: [] }] })
+    await open(page, '/app/agents/a2/edit')
+    await expect(page.getByTestId('agent-memory-rule')).toHaveCount(0)
+    await expect(page.getByTestId('agent-memory-rule-off')).toContainText('reads notes but cannot save')
   })
 })
 

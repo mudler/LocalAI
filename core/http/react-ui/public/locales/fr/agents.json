@@ -282,19 +282,20 @@
       },
       "memory": {
         "userOff": "La mémoire est désactivée dans vos réglages : cet agent ne lit ni n'enregistre de notes, quoi qu'il choisisse ici.",
-        "none": "Ne garde et ne lit aucune note.",
+        "none": "La mémoire est désactivée pour cet agent. Il ne lit ni n'enregistre de notes.",
         "mine_and_own": "Lit vos notes et les siennes, et enregistre dans les siennes.",
         "own": "Lit et enregistre seulement ses propres notes.",
         "mine": "Lit vos notes et y enregistre.",
         "asBefore": "La mémoire fonctionne comme avant : il lit les notes quand un module nomme Memory.",
-        "noGrant": "Il doit enregistrer des notes, mais le droit de mémoriser est désactivé, donc il n'en enregistre aucune. Activez-le dans Mémoire.",
         "level": {
-          "auto": "Les notes sont enregistrées tout de suite.",
-          "ask": "Chaque note attend votre confirmation.",
-          "always": "Chaque note attend votre confirmation, et rien ne l'assouplit.",
-          "never": "Il n'enregistre aucune note.",
+          "auto": "Enregistre les notes aussitôt.",
+          "ask": "Enregistre les notes (demande d'abord) : chaque note attend votre confirmation.",
+          "always": "Enregistre les notes, mais chaque note attend votre confirmation et rien n'assouplit cela.",
+          "never": "Lit les notes mais n'en enregistre aucune : votre niveau d'enregistrement est Jamais.",
           "agentAuto": "Enregistre les notes aussitôt et vous prévient, avec Annuler. C'est le choix propre de l'agent."
-        }
+        },
+        "readsOnly": "Lit les notes mais ne peut pas enregistrer.",
+        "connectionLimit": "Les notes ne sont pas enregistrées sur ces connexions de messagerie : {{names}}."
       },
       "knowledge": {
         "some_one": "Peut chercher dans {{count}} collection : {{names}}.",
@@ -438,13 +439,19 @@
       "memorySkills": {
         "title": "Compétences de mémoire",
         "from": "de {{slot}}",
-        "on": "Actives avec les notes. Elles apprennent au modèle à lire et à enregistrer des notes.",
-        "off": "Désactivées, car cet agent ne garde pas de notes.",
-        "offUser": "Désactivées, car la mémoire est désactivée dans vos Réglages."
+        "on": "Activées tant que la mémoire est activée.",
+        "off": "Désactivées tant que la mémoire de cet agent est désactivée.",
+        "offUser": "Désactivées, car la mémoire est désactivée dans vos Paramètres."
       },
       "slot": {
         "memory": "Mémoire"
       }
+    },
+    "memoryLevelApplied": {
+      "title": "Mémoire : {{name}}",
+      "off": "Il ne lit ni n'enregistre de notes, et le droit de retenir des choses est désactivé. Rien n'est enregistré avant que vous enregistriez.",
+      "reads": "Le droit de retenir des choses est désactivé : il lit les notes mais ne peut en enregistrer aucune. Rien n'est enregistré avant que vous enregistriez.",
+      "saves": "Le droit de retenir des choses est activé. Rien n'est enregistré avant que vous enregistriez."
     }
   },
   "run": {

@@ -389,19 +389,20 @@
       },
       "memory": {
         "userOff": "Memory is off in your Settings, so this agent reads and saves no notes, whatever it chooses here.",
-        "none": "Keeps and reads no notes.",
+        "none": "Memory is off for this agent. It reads and saves no notes.",
         "mine_and_own": "Reads your notes and its own, and saves to its own.",
         "own": "Reads and saves only its own notes.",
         "mine": "Reads your notes and saves to them.",
         "asBefore": "Memory works as before: it reads notes when an add-on names Memory.",
-        "noGrant": "It is set to save notes, but the right to remember things is off, so it saves none. Turn it on in Memory.",
         "level": {
-          "auto": "Notes are saved at once.",
-          "ask": "Each note waits for you to confirm it.",
-          "always": "Every note waits for you, and nothing loosens that.",
-          "never": "It saves no notes.",
+          "auto": "Saves notes at once.",
+          "ask": "Saves notes (asks first): each note waits for you to confirm it.",
+          "always": "Saves notes, but every note waits for you, and nothing loosens that.",
+          "never": "Reads notes but saves none: your save level is Never.",
           "agentAuto": "Saves notes at once and tells you, with an Undo. This is the agent's own choice."
-        }
+        },
+        "readsOnly": "Reads notes but cannot save.",
+        "connectionLimit": "Notes are not saved on these messaging connections: {{names}}."
       },
       "knowledge": {
         "some_one": "Can search {{count}} collection: {{names}}.",
@@ -545,13 +546,19 @@
       "memorySkills": {
         "title": "Memory skills",
         "from": "from {{slot}}",
-        "on": "On with notes. They teach the model to read and save notes.",
-        "off": "Off, because this agent keeps no notes.",
+        "on": "On while memory is on.",
+        "off": "Off while this agent's memory is off.",
         "offUser": "Off, because memory is off in your Settings."
       },
       "slot": {
         "memory": "Memory"
       }
+    },
+    "memoryLevelApplied": {
+      "title": "Memory: {{name}}",
+      "off": "It reads and saves no notes, and the right to remember things is off. Nothing is saved until you save.",
+      "reads": "The right to remember things is off, so it reads notes but cannot save any. Nothing is saved until you save.",
+      "saves": "The right to remember things is on. Nothing is saved until you save."
     }
   },
   "status": {

@@ -282,19 +282,20 @@
       },
       "memory": {
         "userOff": "La memoria è disattivata nelle tue impostazioni, quindi questo agente non legge né salva note, qualunque cosa scelga qui.",
-        "none": "Non tiene e non legge note.",
+        "none": "La memoria è disattivata per questo agente. Non legge e non salva note.",
         "mine_and_own": "Legge le tue note e le sue, e salva nelle sue.",
         "own": "Legge e salva solo le proprie note.",
         "mine": "Legge le tue note e salva in esse.",
         "asBefore": "La memoria funziona come prima: legge le note quando un add-on nomina Memory.",
-        "noGrant": "È impostato per salvare note, ma il permesso di ricordare è disattivato, quindi non ne salva. Attivalo in Memoria.",
         "level": {
-          "auto": "Le note vengono salvate subito.",
-          "ask": "Ogni nota aspetta la tua conferma.",
-          "always": "Ogni nota aspetta te e nulla lo allenta.",
-          "never": "Non salva note.",
+          "auto": "Salva le note subito.",
+          "ask": "Salva le note (prima chiede): ogni nota aspetta la tua conferma.",
+          "always": "Salva le note, ma ogni nota aspetta te e nulla lo allenta.",
+          "never": "Legge le note ma non ne salva: il tuo livello di salvataggio è Mai.",
           "agentAuto": "Salva le note subito e te lo dice, con Annulla. È la scelta propria dell'agente."
-        }
+        },
+        "readsOnly": "Legge le note ma non può salvare.",
+        "connectionLimit": "Su queste connessioni di messaggistica le note non vengono salvate: {{names}}."
       },
       "knowledge": {
         "some_one": "Può cercare in {{count}} raccolta: {{names}}.",
@@ -438,13 +439,19 @@
       "memorySkills": {
         "title": "Skill della memoria",
         "from": "da {{slot}}",
-        "on": "Attive con le note. Insegnano al modello a leggere e salvare note.",
-        "off": "Spente, perché questo agente non tiene note.",
-        "offUser": "Spente, perché la memoria è spenta nelle tue Impostazioni."
+        "on": "Attive finché la memoria è attiva.",
+        "off": "Disattivate finché la memoria di questo agente è disattivata.",
+        "offUser": "Disattivate, perché la memoria è disattivata nelle tue Impostazioni."
       },
       "slot": {
         "memory": "Memoria"
       }
+    },
+    "memoryLevelApplied": {
+      "title": "Memoria: {{name}}",
+      "off": "Non legge e non salva note, e il permesso di ricordare è disattivato. Nulla viene salvato finché non salvi.",
+      "reads": "Il permesso di ricordare è disattivato, quindi legge le note ma non può salvarne. Nulla viene salvato finché non salvi.",
+      "saves": "Il permesso di ricordare è attivo. Nulla viene salvato finché non salvi."
     }
   },
   "run": {

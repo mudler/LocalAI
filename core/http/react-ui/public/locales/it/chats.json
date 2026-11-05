@@ -997,8 +997,6 @@
       "title": "Come prima",
       "body": "Questo agente è stato salvato prima che esistesse questa scelta. Legge le tue note se il suo elenco di componenti aggiuntivi nomina Memory, e il modello sceglie dove salvare una nota. Scegli una delle opzioni qui sotto per cambiarlo."
     },
-    "saveGrant": "Lascia che salvi note",
-    "saveGrantHelp": "Attiva il permesso Ricordare cose. Senza di esso l'agente legge le note ma non può salvarne.",
     "copyNote": "Esportare un agente, o importarlo come nuovo, mantiene questa scelta e non copia mai le sue note.",
     "summary": {
       "mine_and_own": "Mie e sue",
@@ -1006,7 +1004,13 @@
       "mine": "Mie",
       "none": "Nessuna",
       "asBefore": "Come prima",
-      "withAuto": "{{choice}}, salva subito"
+      "withAuto": "{{choice}}, salva subito",
+      "level": {
+        "off": "Disattivata",
+        "reads": "Legge le note",
+        "saves": "Legge e salva le note"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "Eliminare {{name}}?",
@@ -1045,8 +1049,27 @@
         "title": "Mai",
         "body": "Legge, non salva mai."
       },
-      "hint": "In una chat di messaggistica la nota va prima in quella conversazione e arriva alle note proprie di questo agente solo da un mittente abbinato. Il salvataggio immediato in una chat di messaggistica vale solo per un mittente abbinato in una chat uno a uno."
-    }
+      "hint": "In una chat di messaggistica la nota va prima in quella conversazione e arriva alle note proprie di questo agente solo da un mittente abbinato. Il salvataggio immediato in una chat di messaggistica vale solo per un mittente abbinato in una chat uno a uno.",
+      "offReason": "Il livello di salvataggio non vale finché la memoria è disattivata.",
+      "readsReason": "Il livello di salvataggio non vale: questo agente legge le note ma non può salvarne."
+    },
+    "level": {
+      "title": "Cosa fa con le note",
+      "off": {
+        "title": "Disattivata",
+        "body": "Non legge e non salva note."
+      },
+      "reads": {
+        "title": "Legge le note",
+        "body": "Usa le tue note per rispondere. Non ne salva mai."
+      },
+      "saves": {
+        "title": "Legge e salva le note",
+        "body": "Usa le note e ne salva di nuove, secondo il tuo livello di salvataggio."
+      }
+    },
+    "whose": "Di chi sono le note",
+    "whoseOff": "La memoria è disattivata per questo agente, quindi non ci sono note da scegliere."
   },
   "providerPicker": {
     "title": "Fornitore",

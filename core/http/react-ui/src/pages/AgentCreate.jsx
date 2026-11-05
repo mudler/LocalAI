@@ -11,7 +11,7 @@ import { useMemorySettings } from '../hooks/useMemorySettings'
 import { useAgentAccess } from '../hooks/useAgentAccess'
 import { effectiveLines, flatRows, blockedCount } from '../utils/agentEffective'
 import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
-import { agentPayload, effectiveModes, emptyAgent, filesChoiceOf, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, withFilesChoice, MEMORY_GRANT, memoryChoiceOf, memorySaveOf, missingConnectorGrants, newAgent, setGrant, withMemoryChoice } from '../utils/chatAgents'
+import { agentPayload, effectiveModes, emptyAgent, filesChoiceOf, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, withFilesChoice, memoryChoiceOf, memoryLevelOf, memorySaveOf, missingConnectorGrants, newAgent, setGrant, withMemoryChoice, withMemoryLevel } from '../utils/chatAgents'
 import { activePreset, PRESET_KEYS, presetPatch, snapshot, TEMPLATE_TEXT_KEYS } from '../utils/agentPresets'
 import { accountsAfter, addonNow, addonSkillState, addonSwitch, mcpRows, mcpUnknown, memorySkillsState, resourcesAfter } from '../utils/agentUses'
 import { skillKey } from '../utils/chatSkills'
@@ -52,7 +52,7 @@ import AgentMcpPicker from '../components/agents/AgentMcpPicker'
 // eslint-disable-next-line no-unused-vars
 import AgentUses from '../components/agents/AgentUses'
 // eslint-disable-next-line no-unused-vars
-import AgentMemorySkills from '../components/agents/AgentMemorySkills'
+import AgentMemorySkills, { memorySkillFrom } from '../components/agents/AgentMemorySkills'
 // eslint-disable-next-line no-unused-vars
 import AgentEffective from '../components/agents/AgentEffective'
 // eslint-disable-next-line no-unused-vars
@@ -123,6 +123,9 @@ export default function AgentCreate() {
   const [applied, setApplied] = useState(null)
   const [collapsed, setCollapsed] = useState(() => new Set())
   const formRef = useRef(null)
+  // The choice of whose notes the agent last had, for coming back from Off.
+  const lastWhose = useRef('')
+  if (form.memory && form.memory !== 'none') lastWhose.current = form.memory
 
   // Suggestions are best effort: a failure leaves the field free text.
   useEffect(() => {
@@ -299,6 +302,7 @@ export default function AgentCreate() {
 
   // What each fold says about itself: ready mark, one line, and, when editing,
   // how many of its fields differ from the saved agent.
+  const memoryLevel = memoryLevelOf(form)
   const baseline = savedConfig ? agentPayload(savedConfig) : {}
   const diff = diffConfig(baseline, payload)
   const changedKeys = new Set(savedConfig ? diff.map(d => d.key) : [])
@@ -324,8 +328,9 @@ export default function AgentCreate() {
     let keys = (SUMMARY_FIELDS[s.id] || []).map(f => f.name)
     if (s.id === 'Notes') {
       keys = ['memory']
-      summary = t(`chats:agentMemory.summary.${form.memory || 'asBefore'}`)
-      if (form.memory_save === 'auto' && form.memory !== 'none') summary = t('chats:agentMemory.summary.withAuto', { choice: summary })
+      const lv = t(`chats:agentMemory.summary.level.${memoryLevel}`)
+      summary = memoryLevel === 'off' ? lv : t('chats:agentMemory.summary.combined', { level: lv, choice: t(`chats:agentMemory.summary.${form.memory || 'asBefore'}`) })
+      if (form.memory_save === 'auto' && memoryLevel === 'saves') summary = t('chats:agentMemory.summary.withAuto', { choice: summary })
       state = 'ready'
     }
     else if (s.id === 'MemorySettings') { keys = ['collections']; summary = countOf(form.collections.length, 'create.countCollections'); state = form.collections.length ? 'ready' : 'empty' }
@@ -399,6 +404,14 @@ export default function AgentCreate() {
     setApplied({ kind: 'preset', id: pid, name: t(`create.preset.${pid}.title`), before: snapshot(form, [...PRESET_KEYS, 'folders']) })
     setForm(prev => withPresetFiles({ ...prev, ...patch }))
   }
+  // The memory level: it sets the choice and the grant together (see
+  // withMemoryLevel), with the same way back as a level. The choice of whose
+  // notes the agent had is kept for when it comes back from Off.
+  const setMemoryLevel = (lv) => {
+    if (lv === memoryLevel) return
+    setApplied({ kind: 'level', id: lv, name: t(`chats:agentMemory.level.${lv}.title`), before: snapshot(form, ['memory', 'builtins']) })
+    setForm(prev => withMemoryLevel(prev, lv, lastWhose.current))
+  }
   const applyTemplate = (tpl) => {
     const patch = tpl.preset ? presetPatch(tpl.preset, form, toolGroupsList, grantCatalog) : null
     const keys = patch ? [...TEMPLATE_TEXT_KEYS, ...PRESET_KEYS, 'folders'] : TEMPLATE_TEXT_KEYS
@@ -454,6 +467,14 @@ export default function AgentCreate() {
   // The skills with an "its add-on is off" line, and the add-on's title as the source.
   const skillRowsShown = tools.skills.map(sk => (sk.layer === 'addon' && !sk.gone && !(form.addons || []).includes(sk.addon)
     ? { ...sk, unavailable: t('create.uses.skillAddonOff') } : sk))
+  // The skills the host grants with the notes are rows of their own: on while
+  // memory is on, off with the reason when it is not. They have no switch to flip.
+  const memSkillState = memorySkillsState(form, memoryUser.settings)
+  const grantedRowsShown = (tools.grantedSkills || []).map(sk => ({
+    ...sk, enabled: memSkillState === 'on', locked: true,
+    sourceLabel: memorySkillFrom(t, sk.provider), unavailable: t(`create.uses.memorySkills.${memSkillState}`),
+  }))
+  const allSkillRowsShown = [...skillRowsShown, ...grantedRowsShown]
   const setMcp = (r, on) => {
     if (r.ref.startsWith('connector:')) { tools.toggleMCP(r.ref, on); return }
     const rest = mcp.servers.filter(x => x !== r.id)
@@ -528,14 +549,17 @@ export default function AgentCreate() {
       case 'Notes':
         return (
           <AgentMemoryChoice
+            level={memoryLevel}
+            onLevel={setMemoryLevel}
             value={form.memory || ''}
             onChange={(c) => setForm(prev => withMemoryChoice(prev, c))}
-            saves={(form.builtins || []).includes(MEMORY_GRANT)}
-            onSaves={(on) => updateField('builtins', setGrant(form.builtins, MEMORY_GRANT, on))}
             userOff={memoryUser.settings?.enabled === false}
             saveRule={form.memory_save || ''}
             onSaveRule={(r) => updateField('memory_save', r || 'use_mine')}
             userLevel={memoryUser.settings?.save_mode}
+            notice={applied?.kind === 'level' && (
+              <AppliedNotice applied={applied} onUndo={undoApplied} onKeep={() => setApplied(null)} testId="agent-memory-applied" />
+            )}
           >
             <AgentMemorySkills rows={tools.grantedSkills} state={memorySkillsState(form, memoryUser.settings)} />
           </AgentMemoryChoice>
@@ -554,7 +578,7 @@ export default function AgentCreate() {
             <p className="ag-note">{t('create.skillsHelp')}</p>
             <div className="ag-switches" data-testid="agent-skills-panel">
               <SkillsPanel
- skills={skillRowsShown} replaced={tools.replacedSkills} onSet={tools.setSkillsOn} error={tools.skillsError}
+ skills={allSkillRowsShown} replaced={tools.replacedSkills} onSet={tools.setSkillsOn} error={tools.skillsError}
                 testId="agent-skills" fromLabel heading={t('create.skillsHeading')} later={t('create.skillsLater')}
               />
             </div>

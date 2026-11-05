@@ -48,7 +48,7 @@ test.describe('Effective view', () => {
     await expect(line(page, 'tools')).toContainText('Your files')
     await expect(page.getByTestId('agent-effective-summary')).toContainText('Nothing is blocked')
     await expect(line(page, 'memory')).toContainText('Reads your notes and its own')
-    await expect(line(page, 'memory-level')).toContainText('waits for you')
+    await expect(line(page, 'memory-level')).toContainText('Saves notes (asks first)')
     await expect(line(page, 'knowledge')).toContainText('No knowledge collections')
     await expect(line(page, 'connections')).toContainText('Save the agent')
 
@@ -57,8 +57,9 @@ test.describe('Effective view', () => {
     await page.getByRole('combobox', { name: 'Collections +' }).fill('handbook')
     await page.getByRole('combobox', { name: 'Collections +' }).press('Enter')
     await expect(line(page, 'knowledge')).toContainText('handbook')
-    await page.getByTestId('agent-memory-none').click()
-    await expect(line(page, 'memory')).toContainText('Keeps and reads no notes')
+    // The None card is the level Off now.
+    await page.getByTestId('agent-memory-level-off').click()
+    await expect(line(page, 'memory')).toContainText('Memory is off for this agent')
     await expect(page.getByTestId('agent-effective-unsaved')).toBeVisible()
     expect(s.calls.some(c => c.method === 'POST' || c.method === 'PUT')).toBe(false)
   })

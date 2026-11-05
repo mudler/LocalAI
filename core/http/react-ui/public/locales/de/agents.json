@@ -282,19 +282,20 @@
       },
       "memory": {
         "userOff": "Das Gedächtnis ist in Ihren Einstellungen aus. Dieser Agent liest und speichert daher keine Notizen, egal was er hier wählt.",
-        "none": "Behält und liest keine Notizen.",
+        "none": "Das Gedächtnis ist für diesen Agenten aus. Er liest und speichert keine Notizen.",
         "mine_and_own": "Liest Ihre Notizen und seine eigenen und speichert in seinen eigenen.",
         "own": "Liest und speichert nur seine eigenen Notizen.",
         "mine": "Liest Ihre Notizen und speichert darin.",
         "asBefore": "Das Gedächtnis arbeitet wie bisher: Er liest Notizen, wenn ein Add-on Memory nennt.",
-        "noGrant": "Er soll Notizen speichern, aber das Recht, sich Dinge zu merken, ist aus. Er speichert also nichts. Schalten Sie es unter Gedächtnis ein.",
         "level": {
-          "auto": "Notizen werden sofort gespeichert.",
-          "ask": "Jede Notiz wartet auf Ihre Bestätigung.",
-          "always": "Jede Notiz wartet auf Sie, und nichts lockert das.",
-          "never": "Er speichert keine Notizen.",
+          "auto": "Speichert Notizen sofort.",
+          "ask": "Speichert Notizen (fragt zuerst): Jede Notiz wartet auf deine Bestätigung.",
+          "always": "Speichert Notizen, aber jede Notiz wartet auf dich, und nichts lockert das.",
+          "never": "Liest Notizen, speichert aber keine: Deine Speicherstufe ist Nie.",
           "agentAuto": "Speichert Notizen sofort und sagt dir Bescheid, mit Rückgängig. Das ist die eigene Wahl des Agenten."
-        }
+        },
+        "readsOnly": "Liest Notizen, kann aber nicht speichern.",
+        "connectionLimit": "Auf diesen Messaging-Verbindungen werden keine Notizen gespeichert: {{names}}."
       },
       "knowledge": {
         "some_one": "Kann {{count}} Sammlung durchsuchen: {{names}}.",
@@ -438,13 +439,19 @@
       "memorySkills": {
         "title": "Gedächtnis-Skills",
         "from": "von {{slot}}",
-        "on": "Mit Notizen an. Sie bringen dem Modell bei, Notizen zu lesen und zu speichern.",
-        "off": "Aus, weil dieser Agent keine Notizen führt.",
+        "on": "An, solange das Gedächtnis an ist.",
+        "off": "Aus, solange das Gedächtnis dieses Agenten aus ist.",
         "offUser": "Aus, weil das Gedächtnis in deinen Einstellungen aus ist."
       },
       "slot": {
         "memory": "Gedächtnis"
       }
+    },
+    "memoryLevelApplied": {
+      "title": "Gedächtnis: {{name}}",
+      "off": "Er liest und speichert keine Notizen, und das Recht, sich Dinge zu merken, ist aus. Nichts ist gespeichert, bis du speicherst.",
+      "reads": "Das Recht, sich Dinge zu merken, ist aus. Er liest Notizen, kann aber keine speichern. Nichts ist gespeichert, bis du speicherst.",
+      "saves": "Das Recht, sich Dinge zu merken, ist an. Nichts ist gespeichert, bis du speicherst."
     }
   },
   "run": {

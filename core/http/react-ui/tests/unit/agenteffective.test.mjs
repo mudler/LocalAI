@@ -67,10 +67,47 @@ test('effective: the save level is the stricter of the person and the agent', ()
   assert.equal(byId(effectiveLines({ ...base(), memory: { enabled: true, save_mode: 'auto' } }), 'memory-level').state, 'allowed')
 })
 
-test('effective: a choice that saves without the right to remember is blocked', () => {
+test('effective: reads without the right to remember says it cannot save, and is not blocked', () => {
   const lines = effectiveLines(base({ builtins: [] }))
-  assert.equal(byId(lines, 'memory-grant').state, 'blocked')
-  assert.equal(effectiveLines(base({ memory: 'none' })).find((l) => l.id === 'memory').text, 'memory.none')
+  const l = byId(lines, 'memory-level')
+  assert.equal(l.text, 'memory.readsOnly')
+  assert.notEqual(l.state, 'blocked')
+  assert.equal(blockedCount(lines), blockedCount(effectiveLines(base())), 'it adds nothing blocked')
+  assert.equal(byId(lines, 'memory-grant'), undefined)
+})
+
+test('effective: Off says memory is off and has no save line, whatever the grant', () => {
+  const lines = effectiveLines(base({ memory: 'none' }))
+  assert.equal(byId(lines, 'memory').text, 'memory.none')
+  assert.equal(byId(lines, 'memory-level'), undefined)
+  assert.equal(byId(effectiveLines(base({ memory: 'none', builtins: ['memory.write'] })), 'memory-level'), undefined)
+})
+
+test('effective: an agent from before the choice has no save line unless it holds the right', () => {
+  assert.equal(byId(effectiveLines(base({ memory: '', builtins: [] })), 'memory-level'), undefined)
+  assert.equal(byId(effectiveLines(base({ memory: '', builtins: ['memory.write'] })), 'memory-level').text, 'memory.level.ask')
+})
+
+test('effective: Settings Off beats every level of the agent', () => {
+  for (const over of [{}, { builtins: [] }, { memory: 'none' }]) {
+    const lines = effectiveLines({ ...base(over), memory: { enabled: false, save_mode: 'auto' } })
+    assert.equal(byId(lines, 'memory-off').text, 'memory.userOff')
+    assert.equal(byId(lines, 'memory-level'), undefined)
+  }
+})
+
+const memView = (code) => ({ subjects: [{ id: 'anyone', decisions: [{ capability: 'memory.write', allowed: false, code, message: 'No.', fix: null }] }] })
+
+test('effective: a connection that lacks the memory permission is named, and an agent that only reads is not blamed on it', () => {
+  const conn = (view) => [{ id: 'b1', name: 'Team chat', to: '/x', status: 'ok', view }]
+  const cut = effectiveLines({ ...base(), isEdit: true, access: conn(memView('connection_permission_off')) })
+  assert.equal(byId(cut, 'memory-connection').vars.names, 'Team chat')
+  assert.equal(byId(cut, 'conn-b1-memory.write').state, 'blocked')
+  const reads = effectiveLines({ ...base({ builtins: [] }), isEdit: true, access: conn(memView('agent_permission_off')) })
+  assert.equal(byId(reads, 'memory-connection'), undefined)
+  assert.equal(byId(reads, 'conn-b1-memory.write'), undefined, 'the agent chose to only read')
+  const saves = effectiveLines({ ...base(), isEdit: true, access: conn(memView('agent_permission_off')) })
+  assert.equal(byId(saves, 'conn-b1-memory.write').state, 'blocked', 'the agent saves, so the missing right is a fault')
 })
 
 test('effective: knowledge collections and files scope', () => {

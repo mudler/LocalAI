@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { agentPayload, CONNECTOR_GRANTS, emptyAgent, MEMORY_CHOICES, MEMORY_SAVE_RULES, memoryChoiceOf, memorySaveOf, memorySaves, newAgent, stricterLevel, withMemoryChoice } from '../../src/utils/chatAgents.js'
+import { agentPayload, CONNECTOR_GRANTS, emptyAgent, MEMORY_CHOICES, MEMORY_SAVE_RULES, memoryChoiceOf, memorySaveOf, memorySaves, newAgent, stricterLevel, withMemoryChoice, withMemoryLevel, memoryLevelOf, MEMORY_LEVELS, MEMORY_WHOSE } from '../../src/utils/chatAgents.js'
 import { agentNoteCount, agentNotes, noteTabs } from '../../src/utils/memoryFiles.js'
 
 test('a new agent starts with Mine and its own, the grant to save, and the connector defaults', () => {
@@ -23,14 +23,56 @@ test('an agent from the server shows its choice, and as before when it has none'
   assert.equal(memoryChoiceOf({ memory: 'bogus' }), '')
 })
 
-test('a choice that saves switches the grant on, and none leaves the grants alone', () => {
+test('the level is read from the two saved fields and nothing else', () => {
+  assert.deepEqual(MEMORY_LEVELS, ['off', 'reads', 'saves'])
+  assert.deepEqual(MEMORY_WHOSE, ['mine_and_own', 'own', 'mine'])
+  assert.equal(memoryLevelOf(newAgent()), 'saves', 'a new agent reads and saves, with mine and its own')
+  assert.equal(memoryLevelOf({ memory: 'own', builtins: [] }), 'reads')
+  assert.equal(memoryLevelOf({ memory: 'mine', builtins: ['memory.write'] }), 'saves')
+  assert.equal(memoryLevelOf({ memory: 'none', builtins: ['memory.write'] }), 'off', 'None wins; the grant is not rewritten on load')
+  assert.equal(memoryLevelOf({ memory: '', builtins: ['memory.write'] }), 'saves', 'an agent from before the choice goes by its grant')
+  assert.equal(memoryLevelOf({ memory: '', builtins: [] }), 'reads')
+  assert.equal(memoryLevelOf({}), 'reads')
+})
+
+test('Off sets None and removes the grant; Reads removes it; Reads and saves adds it', () => {
+  const had = { ...emptyAgent(), memory: 'own', builtins: ['skills.write', 'memory.write'] }
+  const off = withMemoryLevel(had, 'off')
+  assert.equal(off.memory, 'none')
+  assert.deepEqual(off.builtins, ['skills.write'])
+  const reads = withMemoryLevel(had, 'reads')
+  assert.equal(reads.memory, 'own', 'the choice of whose notes stays')
+  assert.deepEqual(reads.builtins, ['skills.write'])
+  const saves = withMemoryLevel(reads, 'saves')
+  assert.equal(saves.memory, 'own')
+  assert.deepEqual(saves.builtins, ['skills.write', 'memory.write'])
+  assert.deepEqual(withMemoryLevel(saves, 'saves').builtins, ['skills.write', 'memory.write'], 'the grant is never listed twice')
+})
+
+test('coming back from Off restores the choice the agent had, or the default', () => {
+  const off = withMemoryLevel({ ...emptyAgent(), memory: 'mine', builtins: ['memory.write'] }, 'off')
+  assert.equal(withMemoryLevel(off, 'reads', 'mine').memory, 'mine')
+  assert.equal(withMemoryLevel(off, 'saves', 'own').memory, 'own')
+  assert.equal(withMemoryLevel(off, 'saves').memory, 'mine_and_own', 'no history: the default')
+  assert.equal(withMemoryLevel(off, 'saves', 'bogus').memory, 'mine_and_own')
+})
+
+test('an agent from before the choice keeps no choice unless it goes through Off', () => {
+  const old = { ...emptyAgent(), builtins: [] }
+  assert.equal(withMemoryLevel(old, 'saves').memory, undefined)
+  assert.deepEqual(withMemoryLevel(old, 'saves').builtins, ['memory.write'])
+  assert.equal(withMemoryLevel(old, 'off').memory, 'none')
+})
+
+test('choosing whose notes changes the choice only; None is the level Off', () => {
   const base = { ...emptyAgent(), builtins: ['skills.write'] }
-  assert.deepEqual(withMemoryChoice(base, 'own').builtins, ['skills.write', 'memory.write'])
-  assert.deepEqual(withMemoryChoice(base, 'mine').builtins, ['skills.write', 'memory.write'])
-  assert.deepEqual(withMemoryChoice(base, 'none').builtins, ['skills.write'])
-  assert.equal(withMemoryChoice(base, 'none').memory, 'none')
-  const had = { ...emptyAgent(), builtins: ['memory.write'] }
-  assert.deepEqual(withMemoryChoice(had, 'own').builtins, ['memory.write'])
+  assert.deepEqual(withMemoryChoice(base, 'own').builtins, ['skills.write'], 'reads stays reads')
+  assert.equal(withMemoryChoice(base, 'own').memory, 'own')
+  const had = { ...emptyAgent(), memory: 'own', builtins: ['memory.write'] }
+  assert.deepEqual(withMemoryChoice(had, 'mine').builtins, ['memory.write'])
+  const none = withMemoryChoice(had, 'none')
+  assert.equal(none.memory, 'none')
+  assert.deepEqual(none.builtins, [])
   assert.deepEqual([...MEMORY_CHOICES.filter(memorySaves)], ['mine_and_own', 'own', 'mine'])
 })
 
