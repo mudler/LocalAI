@@ -1609,6 +1609,26 @@ type ChatsConnectorAddonTools struct {
 	Capability string `json:"capability"`
 	// Tools are the names of the tools inside the add-on.
 	Tools []string `json:"tools"`
+	// Connections are the connections of the add-on that the agent selected,
+	// with their write modes. Only for tools.write; absent otherwise.
+	Connections []ChatsConnectorAddonConnection `json:"connections,omitempty"`
+	// WithoutTick lists the senders who use the tools although the permission
+	// is not ticked, because the agent is connected to the add-on: "paired".
+	// Absent when the tick is set, was taken away by the owner, or every
+	// selected connection is in write mode off.
+	WithoutTick []string `json:"without_tick,omitempty"`
+	// TickRemoved is true when the owner took the tick away, so nobody is
+	// covered without it.
+	TickRemoved bool `json:"tick_removed,omitempty"`
+}
+
+// ChatsConnectorAddonConnection is a connection the agent selected for an
+// add-on, as the access view names it.
+type ChatsConnectorAddonConnection struct {
+	// Name is the name the owner gave the connection.
+	Name string `json:"name"`
+	// WriteMode is the write mode of that connection: off, propose or auto.
+	WriteMode string `json:"write_mode"`
 }
 
 // ChatsConnectorToolApproval is the confirmation of one tool that the owner

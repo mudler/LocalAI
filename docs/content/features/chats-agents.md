@@ -180,7 +180,8 @@ after what you may use yourself (you own it, or it was shared with you):
 
 In a messaging chat the tools that change things need the `tools.write` permission of
 the connection, as for an add-on that holds a credential (see
-[Connectors](/features/chats-connectors/)). The access view and its preview say when
+[Connectors](/features/chats-connectors/)); paired people have them without the tick
+only for an add-on the agent is connected to. The access view and its preview say when
 an agent whose add-ons only change resources has none to change
 (`agent_resources_none`) or only read ones (`agent_resources_read_only`), and point at
 the agent. The export file never carries `resources`: a resource ID belongs to one

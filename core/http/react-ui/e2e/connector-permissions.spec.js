@@ -639,6 +639,54 @@ test.describe('Connector permissions', () => {
     await shot(page, 'acts-5-summary')
   })
 
+  test('write tools of an add-on the agent is connected to: paired people have them without the tick, the row and the access view say why', async ({ page }) => {
+    const hold = { addon: 'tracker', capability: 'tools.write', tools: ['create-issue', 'comment-issue'], connections: [{ name: 'Work tracker', write_mode: 'propose' }], without_tick: ['paired'] }
+    const cover = (view) => ({
+      ...view,
+      addon_tools: [hold],
+      subjects: view.subjects.map((x) => ({ ...x, decisions: x.decisions.map((d) => (x.id === 'paired' && d.capability === 'tools.write' ? { capability: 'tools.write', allowed: true, via: 'agent-connection' } : d)) })),
+    })
+    const a = api(page, [SET], { access: cover(ACCESS), preview: (body) => (body.caps?.includes('tools.write') ? { ...previewFor(body, ROLES_KIND.roles), addon_tools: [{ ...hold, without_tick: [] }] } : cover(previewFor(body, ROLES_KIND.roles))) })
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const ready = page.getByTestId('connector-readiness')
+    await ready.getByTestId('connector-ready-toggle').click()
+    // One info row, once: who has the tools, through which connection and mode, and who needs the tick.
+    const row = ready.getByTestId('connector-ready-addons:tracker')
+    await expect(row).toHaveAttribute('data-state', 'ok')
+    await expect(row).toContainText('Paired people can use the tracker write tools create-issue, comment-issue in this chat')
+    await expect(row).toContainText('connected to Work tracker (write mode: ask first)')
+    await expect(row).toContainText('People who are not paired need "Let people who are not paired change things with add-on tools"')
+    await expect(ready.locator('[data-testid^="connector-ready-addons:"]')).toHaveCount(1)
+    // The preview of the paired sender says the tools are allowed because of the connection; the listed sender needs the tick.
+    const can = page.getByTestId('connector-can')
+    await can.getByTestId('connector-can-sender').selectOption('paired')
+    await expect(can).toContainText('because this person is paired and the agent is connected to the add-on')
+    await shot(page, 'paired-write-1-paired-sender')
+    await can.getByTestId('connector-can-sender').selectOption('listed')
+    await expect(can).toContainText('Tick the matching permission on the connection')
+    await shot(page, 'paired-write-2-listed-sender')
+    await shot(page, 'paired-write-3-readiness')
+    // Ticking the permission turns the row into the usual one.
+    await page.getByTestId('connector-cap-switch-tools.write').click()
+    await expect(ready.getByTestId('connector-ready-addons:tracker')).toContainText('The agent can use the tracker tools create-issue, comment-issue in this chat')
+  })
+
+  test('write tools: the owner took the tick away, or the connection is in write mode off: the row says which', async ({ page }) => {
+    const holdOf = (extra) => ({ addon: 'tracker', capability: 'tools.write', tools: ['create-issue'], connections: [{ name: 'Work tracker', write_mode: 'off' }], ...extra })
+    for (const [extra, text] of [[{ tick_removed: true, connections: [{ name: 'Work tracker', write_mode: 'auto' }] }, 'You turned off'], [{}, 'the write mode of Work tracker is off']]) {
+      const a = api(page, [SET], { access: { ...ACCESS, addon_tools: [holdOf(extra)] }, preview: (body) => ({ ...previewFor(body, ROLES_KIND.roles), addon_tools: [holdOf(extra)] }) })
+      await a.install()
+      await page.goto(PAGE)
+      await page.getByRole('button', { name: 'Edit' }).click()
+      await expect(page.getByTestId('connector-readiness').getByTestId('connector-ready-addons:tracker')).toContainText(text)
+      await page.unrouteAll({ behavior: 'ignoreErrors' })
+      await mockChat(page)
+      await installStudioAddons(page, { ids: ['slack'] })
+    }
+  })
+
   test('an older host that sends no capability list shows no permission section', async ({ page }) => {
     await connectorApi(page, [LEGACY], 'slack', [], undefined, { capabilities: null }).install()
     await page.goto(PAGE)

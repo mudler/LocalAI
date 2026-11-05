@@ -212,7 +212,7 @@ export function unusable(cap, view, form, lists, paired, now) {
   const usable = decisions.filter((d) => d.allowed)
   if (usable.length > 0) {
     // A capability that only a paired sender holds is dead until somebody is paired.
-    if (usable.every((d) => d.via === 'paired') && !hasPairing(paired, now)) {
+    if (usable.every((d) => d.via === 'paired' || d.via === 'agent-connection') && !hasPairing(paired, now)) {
       return { capability: cap, allowed: false, code: 'nobody_paired', blocked_by: 'sender', fix: { kind: 'pair_sender', target: 'pairing' } }
     }
     return null
@@ -320,7 +320,27 @@ export function readinessRows(ctx) {
     const params = { addon: hold.addon, tools: names, permission: titleOf(hold.capability) }
     const id = `addons:${hold.addon}`
     if (!on(hold.capability)) {
-      rows.push({ id, labelKey: 'ready.row.addons', state: 'attention', key: 'ready.addons.off', params, fix: jump('caps', hold.capability, 'fix.turnOn') })
+      // Not ticked. A paired person still has the write tools when the agent is
+      // connected to a connection of the add-on that is not in write mode off:
+      // the connection already says what the owner wants. The tick is for the
+      // people who are not paired.
+      const conns = hold.connections || []
+      const live = conns.find((c) => c.write_mode && c.write_mode !== 'off')
+      if ((hold.without_tick || []).includes('paired') && live) {
+        const p = { ...params, connection: live.name, modeKey: `ready.addons.mode.${live.write_mode}` }
+        if (!hasPairing(paired, now)) {
+          const d = { capability: hold.capability, code: 'nobody_paired', fix: { kind: 'pair_sender', target: 'pairing' } }
+          rows.push({ id, labelKey: 'ready.row.addons', state: 'attention', key: 'ready.addons.blocked', params: { ...params, message: messageOf(d), messageKey: messageKey(d) }, fix: d.fix })
+        } else {
+          rows.push(afterSave({ id, labelKey: 'ready.row.addons', state: 'ok', key: 'ready.addons.paired', params: p }, 'caps', 'agent_id'))
+        }
+      } else if (hold.tick_removed) {
+        rows.push({ id, labelKey: 'ready.row.addons', state: 'attention', key: 'ready.addons.removed', params, fix: jump('caps', hold.capability, 'fix.turnOn') })
+      } else if (conns.length > 0 && !live) {
+        rows.push({ id, labelKey: 'ready.row.addons', state: 'attention', key: 'ready.addons.modeOff', params: { ...params, connection: conns.map((c) => c.name).join(', ') } })
+      } else {
+        rows.push({ id, labelKey: 'ready.row.addons', state: 'attention', key: 'ready.addons.off', params, fix: jump('caps', hold.capability, 'fix.turnOn') })
+      }
       continue
     }
     const d = unusable(hold.capability, view, form, lists, paired, now)

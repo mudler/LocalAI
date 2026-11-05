@@ -179,6 +179,13 @@ type Binding struct {
 	// contract.ConnectorCapabilityNames) that senders of the binding may ever
 	// use. Empty means none, which is today's behaviour.
 	Caps []string
+	// WriteTickRemoved says the owner had ticked tools.write and took the tick
+	// away. A binding that never had it lets the owner and paired senders use
+	// the write tools of the add-ons the agent is connected to without the
+	// tick (see AuthorizeConnected); this flag keeps the owner's choice to hold
+	// them. Ticking again clears it. An empty Caps cannot tell "never chosen"
+	// from "cleared", so only a removal of the tick sets it.
+	WriteTickRemoved bool
 	// Grants map the roles of the kind to capabilities, each within Caps.
 	// The kind of the binding decides which roles exist.
 	Grants []RoleGrant

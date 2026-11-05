@@ -32,6 +32,9 @@ type ChatGrant struct {
 	// a group chat and an unpaired sender.
 	Direct bool `json:"direct,omitempty"`
 	Paired bool `json:"paired,omitempty"`
+	// ImpliedWrite says the sender holds tools.write for the write tools of
+	// an add-on the agent is connected to without the ceiling listing it.
+	ImpliedWrite bool `json:"implied_write,omitempty"`
 }
 
 // ChatStartReply is the worker's answer to a ChatStartRequest. With Error

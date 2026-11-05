@@ -100,7 +100,7 @@ var capabilityText = map[string][2]string{
 	CapPagesWrite:       {"Write pages", "The agent may write or change pages."},
 	CapDashboardWrite:   {"Write the dashboard", "The agent may change the dashboard."},
 	CapKnowledgeWrite:   {"Add to knowledge", "The agent may propose a text for a collection of the Knowledge. The owner confirms each one."},
-	CapToolsWrite:       {"Change things with add-on tools", "An add-on tool may change something for a sender: outside LocalAI with the credential of the binding, such as a comment on an issue, or in your own data, such as a table."},
+	CapToolsWrite:       {"Let people who are not paired change things with add-on tools", "An add-on tool may change something outside LocalAI or in your own data. Paired people already use the write tools of the add-ons the agent is connected to; the write mode of the connection still applies. Turn this on to let people on the allowlist who are not paired use them too, and to let paired people use the write tools of add-ons that have no connection. People let in only through a channel, or by a bot that accepts anyone, do not get them, unless a role grants it."},
 }
 
 // usualCapabilities are what an owner normally allows on a new binding: the

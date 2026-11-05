@@ -412,7 +412,11 @@ func (s *Service) addonToolsHeld(ctx context.Context, a workspace.Actor, rec ses
 		if d.Permission != "" && rec.Origin == session.OriginConnector {
 			var ok bool
 			var why string
-			if tool, ok, why = s.gateAddonTool(tool, d.Permission, a.ChatID); !ok {
+			var connected bool
+			if d.Permission == contract.CapToolsWrite && d.Credentialed {
+				connected = s.agentConnectedForWrite(ctx, a.Principal, d.AddonID, conns)
+			}
+			if tool, ok, why = s.gateAddonTool(tool, d.Permission, a.ChatID, connected); !ok {
 				held.add(d, strings.TrimSuffix(why, "."))
 				continue
 			}
@@ -458,8 +462,27 @@ func unavailableTool(addonID, reason string) session.Tool {
 // offered. The second result is false when the tool must not be offered. A chat
 // that no connector started has no sender and is not gated here: the write
 // mode of the binding and the confirmation of the proposal govern it.
-func (s *Service) gateAddonTool(t session.Tool, permission, chat string) (session.Tool, bool, string) {
+//
+// connected says the agent selected a connection of the add-on whose write
+// mode is not off. A sender who holds tools.write only by that connection (see
+// impliedWrite) then passes for this tool, at the offer and at each call; the
+// write mode and the approval of the connection still decide whether the call
+// runs or waits for a confirmation.
+func (s *Service) gateAddonTool(t session.Tool, permission, chat string, connected bool) (session.Tool, bool, string) {
 	allow, audit := s.turnAllow(chat)
+	if connected && permission == contract.CapToolsWrite {
+		plain := allow
+		allow = func(capability string) (bool, string) {
+			ok, why := plain(capability)
+			if ok || capability != contract.CapToolsWrite {
+				return ok, why
+			}
+			if g, found := s.access.get(chat); found && g.ImpliedWrite {
+				return true, ""
+			}
+			return false, why
+		}
+	}
 	c := builtins.Chat{Allow: allow, Audit: audit}
 	if held, why := c.Holds(permission); !held {
 		return t, false, why
@@ -472,6 +495,17 @@ func (s *Service) gateAddonTool(t session.Tool, permission, chat string) (sessio
 		return run(ctx, args)
 	}
 	return t, true, ""
+}
+
+// agentConnectedForWrite says whether the agent selected a connection for the
+// add-on, and at least one of them is in a write mode other than off. A
+// connection that the chat or the only-connection rule picked does not count:
+// the owner connected the agent to it, or did not.
+func (s *Service) agentConnectedForWrite(ctx context.Context, user, addonID string, set ConnectionSet) bool {
+	if s.connectors == nil || set.By != ConnectionByAgent {
+		return false
+	}
+	return len(writeModeOn(s.connectors.agentConnections(ctx, user, addonID, set))) > 0
 }
 
 // heldTools collects, for one turn, the tools of an add-on that the chat would

@@ -84,6 +84,15 @@ var _ = Describe("add-on write tools in a messaging chat", func() {
 		raw := r.h.SentRaw(l[0].ID)
 		return r.h.ToolNames(l[0].ID), raw[len(raw)-1]
 	}
+	setMode := func(mode string) {
+		cred.WriteMode = mode
+		Expect(r.store.PutBinding(ctx, cred)).To(Succeed())
+	}
+	// saveCaps is the owner's save of the permissions on the page.
+	saveCaps := func(caps ...string) {
+		_, err := r.conns.UpdateConnector(ctx, alice, slack.ID, studio.ConnectorInput{Name: "Chatty", AgentID: r.agent.ID, Allow: []string{"11", "12"}, Enabled: true, Caps: append([]string{}, caps...)})
+		Expect(err).NotTo(HaveOccurred())
+	}
 	pairSender := func(id string) {
 		edit(func(b *connectors.Binding) {
 			b.Paired = append(b.Paired, connectors.PairedSender{SenderID: id, At: r.sh.clock.Now()})
@@ -104,9 +113,52 @@ var _ = Describe("add-on write tools in a messaging chat", func() {
 				Expect(got).NotTo(ContainSubstring("create-issue"))
 			}
 		},
-		// The live case: nothing ticked on the messaging binding.
-		Entry("no permission ticked on the messaging binding (the live case): write tool withheld, read stays, the model is told why",
-			func() { pairSender("11") }, "11", false, true, "Held back from this sender", "create-issue", "change things in other services"),
+		// The live case: nothing ticked on the messaging binding. The agent is
+		// connected to the add-on and the connection is in write mode auto, so
+		// the owner and paired senders have the write tool without a tick.
+		Entry("nothing ticked, paired sender, agent connected, write mode auto: offered, no note",
+			func() { pairSender("11") }, "11", true, true),
+		Entry("nothing ticked, paired sender, write mode propose: offered (the proposal still asks)",
+			func() { pairSender("11"); setMode(connectors.WritePropose) }, "11", true, true),
+		Entry("nothing ticked, paired sender, write mode off: withheld, the model is told why",
+			func() { pairSender("11"); setMode(connectors.WriteOff) }, "11", false, true, "Held back from this sender", "create-issue", "change things in other services"),
+		Entry("nothing ticked, sender on the allowlist but not paired: withheld",
+			func() {}, "12", false, true, "Held back from this sender", "create-issue"),
+		Entry("nothing ticked, sender let in only through a listed channel: withheld",
+			func() { edit(func(b *connectors.Binding) { b.Allow = []string{chatID} }) }, "12", false, true, "Held back from this sender", "create-issue"),
+		Entry("nothing ticked, the bot accepts anyone: withheld",
+			func() { edit(func(b *connectors.Binding) { b.AcceptAny, b.Allow = true, nil }) }, "99", false, true, "Held back from this sender", "create-issue"),
+		Entry("nothing ticked, paired sender, the agent does not list the add-on: no tool at all",
+			func() {
+				pairSender("11")
+				ag := r.agent
+				ag.Addons, ag.Connections = nil, nil
+				saved, err := r.svc.SaveAgent(ctx, alice, ag)
+				Expect(err).NotTo(HaveOccurred())
+				r.agent = saved
+			}, "11", false, false),
+		Entry("nothing ticked, paired sender, the agent selects no connection (the only one is picked): withheld",
+			func() {
+				pairSender("11")
+				ag := r.agent
+				ag.Connections = map[string][]string{}
+				saved, err := r.svc.SaveAgent(ctx, alice, ag)
+				Expect(err).NotTo(HaveOccurred())
+				r.agent = saved
+			}, "11", false, true, "Held back from this sender", "create-issue"),
+		Entry("the owner ticked tools.write and then took the tick away: the choice holds for the paired sender",
+			func() {
+				pairSender("11")
+				saveCaps(contract.CapToolsWrite)
+				saveCaps()
+			}, "11", false, true, "Held back from this sender", "create-issue"),
+		Entry("the owner ticked, took the tick away and ticked again: offered",
+			func() {
+				pairSender("11")
+				saveCaps(contract.CapToolsWrite)
+				saveCaps()
+				saveCaps(contract.CapToolsWrite)
+			}, "11", true, true),
 		Entry("tools.write ticked, sender paired: offered", func() {
 			edit(func(b *connectors.Binding) { b.Caps = []string{contract.CapToolsWrite} })
 			pairSender("11")
@@ -160,6 +212,73 @@ var _ = Describe("add-on write tools in a messaging chat", func() {
 		v, err = r.conns.Access(ctx, alice, slack.ID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(v.AddonTools).To(BeEmpty())
+	})
+})
+
+var _ = Describe("access view of write tools covered by the agent's connection", func() {
+	ctx := context.Background()
+	It("says who needs no tick and why, and who still does", func() {
+		fake := &postAddon{}
+		sh := newShared()
+		schema := json.RawMessage(`{"type":"object"}`)
+		sh.addons.tools[alice] = append(sh.addons.tools[alice],
+			studio.AddonTool{Name: "addon__tracker__create-issue", AddonID: "tracker", Tool: "create-issue", Description: "w", Schema: schema, Credentialed: true, Action: true, Permission: contract.CapToolsWrite})
+		tr := studiobot.NewTransport(studiobot.Addon{ID: "chat-addon", Kind: contract.ConnectorKind{ID: "chatty", Title: "Chatty", Delivery: contract.DeliveryPull}, Runtime: fake})
+		r := newConnRigOpts(sh, connStore(), tr, func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} }, nil, nil)
+		r.untrusted = true
+		r.svc.SetCapabilityGate(r.conns.CapabilityGate())
+		cred := connectors.Binding{ID: "tracker-b1", Owner: alice, Kind: "tracker", AddonID: "tracker", Name: "Work tracker", Token: []byte("sealed"),
+			WriteMode: connectors.WritePropose, Created: sh.clock.Now()}
+		Expect(r.store.PutBinding(ctx, cred)).To(Succeed())
+		ag := r.agent
+		ag.Name, ag.Model, ag.Addons, ag.Connections = "Support", "m", []string{"tracker"}, map[string][]string{"tracker": {cred.ID}}
+		saved, err := r.svc.SaveAgent(ctx, alice, ag)
+		Expect(err).NotTo(HaveOccurred())
+		r.agent = saved
+		slack := r.bind(studio.ConnectorInput{Kind: "chatty", Token: "tok", Allow: []string{"11", "12"}})
+
+		v, err := r.conns.Access(ctx, alice, slack.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.AddonTools).To(HaveLen(1))
+		Expect(v.AddonTools[0].WithoutTick).To(Equal([]string{studio.SenderPaired}))
+		Expect(v.AddonTools[0].Connections).To(Equal([]studio.AddonToolConnection{{Name: "Work tracker", WriteMode: connectors.WritePropose}}))
+		d := decisionFor(v, "paired", contract.CapToolsWrite)
+		Expect(d.Allowed).To(BeTrue())
+		Expect(d.Via).To(Equal(studio.ViaAgentConnection))
+		for _, who := range []string{"listed", "anyone"} {
+			d := decisionFor(v, who, contract.CapToolsWrite)
+			Expect(d.Allowed).To(BeFalse(), who)
+			Expect(d.Code).To(Equal(studio.CodeConnectionPermissionOff), who)
+		}
+
+		// The preview for a draft that ticks the permission: nothing is covered "without a tick".
+		pv, err := r.conns.AccessPreview(ctx, alice, slack.ID, studio.AccessDraft{Caps: []string{contract.CapToolsWrite}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(pv.AddonTools[0].WithoutTick).To(BeEmpty())
+
+		// Write mode off: nobody is covered, and the paired sender needs the tick too.
+		cred.WriteMode = connectors.WriteOff
+		Expect(r.store.PutBinding(ctx, cred)).To(Succeed())
+		v, err = r.conns.Access(ctx, alice, slack.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.AddonTools[0].WithoutTick).To(BeEmpty())
+		Expect(decisionFor(v, "paired", contract.CapToolsWrite).Allowed).To(BeFalse())
+		cred.WriteMode = connectors.WriteAuto
+		Expect(r.store.PutBinding(ctx, cred)).To(Succeed())
+
+		// The owner ticks and then takes the tick away: the choice wins, and the draft shows it before the save.
+		_, err = r.conns.UpdateConnector(ctx, alice, slack.ID, studio.ConnectorInput{Name: "Chatty", AgentID: r.agent.ID, Allow: []string{"11", "12"}, Enabled: true, Caps: []string{contract.CapToolsWrite}})
+		Expect(err).NotTo(HaveOccurred())
+		pv, err = r.conns.AccessPreview(ctx, alice, slack.ID, studio.AccessDraft{Caps: []string{}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(pv.AddonTools[0].TickRemoved).To(BeTrue())
+		Expect(pv.AddonTools[0].WithoutTick).To(BeEmpty())
+		_, err = r.conns.UpdateConnector(ctx, alice, slack.ID, studio.ConnectorInput{Name: "Chatty", AgentID: r.agent.ID, Allow: []string{"11", "12"}, Enabled: true, Caps: []string{}})
+		Expect(err).NotTo(HaveOccurred())
+		v, err = r.conns.Access(ctx, alice, slack.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.AddonTools[0].TickRemoved).To(BeTrue())
+		Expect(decisionFor(v, "paired", contract.CapToolsWrite).Allowed).To(BeFalse())
 	})
 })
 

@@ -32,7 +32,7 @@ export const CAPABILITIES = [
   { name: 'proposals.confirm', title: 'Confirm changes from the chat', description: 'A sender can confirm a trigger or a change that the agent proposed (a memory note, the agent rules, a skill, a page or the dashboard) by answering yes or no in the same chat. Changes to the rules, skills, pages and dashboard need a paired sender.', sensitive: false, usual: true },
   { name: 'talkback.channels', title: 'Post to approved channels', description: 'The agent may write to the approved channels when a sender asks.', sensitive: false, usual: true },
   { name: 'talkback.new_channel', title: 'Post to a new channel', description: 'The agent may write to a channel that is not approved yet.', sensitive: true, usual: false },
-  { name: 'tools.write', title: 'Change things outside LocalAI', description: 'An add-on tool may change something with the credential of the binding.', sensitive: false, usual: false },
+  { name: 'tools.write', title: 'Let people who are not paired change things with add-on tools', description: 'Paired people already use the write tools of the add-ons the agent is connected to. Turn this on for people on the allowlist who are not paired.', sensitive: false, usual: false },
   { name: 'triggers.propose', title: 'Propose triggers', description: 'The agent may propose a timer or an event trigger when a sender asks for one.', sensitive: false, usual: true },
   { name: 'triggers.run', title: 'Fire event triggers', description: 'A message from a sender may start a run of an event trigger.', sensitive: false, usual: true },
 ]

@@ -137,6 +137,48 @@ func Authorize(b connectors.Binding, kind *contract.ConnectorKind, s AccessSubje
 	return refusal(b, capability, CodeChannelNotTrusted, reason, nil)
 }
 
+// ViaAgentConnection is the Via of a write that the connection of the agent
+// allows without a tick of the messaging connection (see AuthorizeConnected).
+const ViaAgentConnection = "agent-connection"
+
+// AgentConnection is a connection that the agent itself selected for an
+// add-on it lists, with the write mode of that connection.
+type AgentConnection struct {
+	Addon, Name, WriteMode string
+}
+
+// impliedWrite says whether the sender is one for whom connecting the agent to
+// a connection already means that the agent may change things with it: the
+// owner or a paired sender, let in, on a binding whose ceiling has no tools.write
+// that the owner did not take away. It checks no connection and no mode; the
+// off switches still decide first. Roles, listed senders, anyone-mode senders,
+// triggers and sub-agents never pass: they have no pairing here.
+func impliedWrite(b connectors.Binding, s AccessSubject, now time.Time, off Block) bool {
+	return !b.CredentialsOnly() && !off.Off() && !b.WriteTickRemoved && !slices.Contains(b.Caps, contract.CapToolsWrite) &&
+		s.Allowlisted && s.SenderID != "" && b.IsPaired(s.SenderID, now)
+}
+
+// writeModeOn lists the connections whose write mode lets a call run or wait
+// for a confirmation. The mode and the approval still decide which of the two.
+func writeModeOn(conns []AgentConnection) []AgentConnection {
+	return slices.DeleteFunc(slices.Clone(conns), func(c AgentConnection) bool { return c.WriteMode == "" || c.WriteMode == connectors.WriteOff })
+}
+
+// AuthorizeConnected is Authorize for the write tools of an add-on that the
+// agent is connected to. It answers like Authorize, except that tools.write
+// needs no tick in the ceiling when the sender is the owner or a paired sender
+// and at least one connection the agent selected for the add-on is not in write
+// mode off. conns are the connections of that add-on the agent selected (empty
+// when the agent does not list the add-on or has none). The write mode and the
+// approval keep deciding whether a call runs or waits: nothing here runs it.
+func AuthorizeConnected(b connectors.Binding, kind *contract.ConnectorKind, s AccessSubject, now time.Time, off Block, conns []AgentConnection) Decision {
+	d := Authorize(b, kind, s, contract.CapToolsWrite, now, off)
+	if d.Allowed || !impliedWrite(b, s, now, off) || len(writeModeOn(conns)) == 0 {
+		return d
+	}
+	return Decision{Capability: contract.CapToolsWrite, Allowed: true, Via: ViaAgentConnection}
+}
+
 // refusal builds the Decision of a refused capability from its code: who holds
 // the link, the sentence for the owner, the fix and the links not looked at.
 // reason is the English sentence of the log. fix, when nil, is the usual one
@@ -284,10 +326,15 @@ type turnGrant struct {
 	// once (see effectiveSaveLevel). With several senders they hold only when
 	// they hold for each.
 	Direct, Paired bool
+	// ImpliedWrite says tools.write is held by this sender for the write tools
+	// of an add-on the agent is connected to, although the ceiling does not
+	// list it (see impliedWrite). The tool builder still checks the connection.
+	// With several senders it holds only when it holds for each.
+	ImpliedWrite bool
 }
 
 func (g turnGrant) merge(o turnGrant) turnGrant {
-	out := turnGrant{Binding: g.Binding, Kind: g.Kind, Direct: g.Direct && o.Direct, Paired: g.Paired && o.Paired}
+	out := turnGrant{Binding: g.Binding, Kind: g.Kind, Direct: g.Direct && o.Direct, Paired: g.Paired && o.Paired, ImpliedWrite: g.ImpliedWrite && o.ImpliedWrite}
 	out.Senders = unionOf(g.Senders, o.Senders)
 	out.Roles = unionOf(g.Roles, o.Roles)
 	if len(g.Denied)+len(o.Denied) > 0 {
@@ -320,11 +367,11 @@ func unionOf(a, b []string) []string {
 }
 
 func grantOf(w *workerctl.ChatGrant) turnGrant {
-	return turnGrant{Binding: w.Binding, Kind: w.Kind, Senders: w.Senders, Roles: w.Roles, Caps: w.Caps, Denied: w.Denied, Direct: w.Direct, Paired: w.Paired}
+	return turnGrant{Binding: w.Binding, Kind: w.Kind, Senders: w.Senders, Roles: w.Roles, Caps: w.Caps, Denied: w.Denied, Direct: w.Direct, Paired: w.Paired, ImpliedWrite: w.ImpliedWrite}
 }
 
 func (g turnGrant) wire() *workerctl.ChatGrant {
-	return &workerctl.ChatGrant{Binding: g.Binding, Kind: g.Kind, Senders: g.Senders, Roles: g.Roles, Caps: g.Caps, Denied: g.Denied, Direct: g.Direct, Paired: g.Paired}
+	return &workerctl.ChatGrant{Binding: g.Binding, Kind: g.Kind, Senders: g.Senders, Roles: g.Roles, Caps: g.Caps, Denied: g.Denied, Direct: g.Direct, Paired: g.Paired, ImpliedWrite: g.ImpliedWrite}
 }
 
 // grantFor computes what the sender of a message may do, for the whole closed
@@ -334,6 +381,7 @@ func (c *Connectors) grantFor(ctx context.Context, b connectors.Binding, m contr
 	now := c.o.Clock()
 	g := turnGrant{Binding: b.ID, Kind: b.Kind, Senders: []string{m.SenderID}, Roles: slices.Clone(m.Roles),
 		Direct: m.Direct, Paired: m.SenderID != "" && b.IsPaired(m.SenderID, now)}
+	g.ImpliedWrite = impliedWrite(b, c.subjectOf(b, m, true), now, c.offReason(ctx, b, contract.CapToolsWrite))
 	for _, name := range contract.ConnectorCapabilityNames() {
 		d := Authorize(b, kind, c.subjectOf(b, m, true), name, now, c.offReason(ctx, b, name))
 		switch {
@@ -592,22 +640,48 @@ type AddonToolHold struct {
 	Addon      string   `json:"addon"`
 	Capability string   `json:"capability"`
 	Tools      []string `json:"tools"`
+	// Connections are the connections of the add-on that the agent selected,
+	// with their write modes, for the capability tools.write. Empty for
+	// other capabilities and when the agent selected none.
+	Connections []AddonToolConnection `json:"connections,omitempty"`
+	// WithoutTick lists the senders who use these tools although the
+	// connection does not list the capability, because the agent is connected
+	// ("paired"). It is empty when the tick is set, when the owner took it away
+	// (TickRemoved), when every selected connection is in write mode off, and
+	// while a switch is off.
+	WithoutTick []string `json:"without_tick,omitempty"`
+	// TickRemoved says the owner took the tick away, so no sender is covered
+	// without it.
+	TickRemoved bool `json:"tick_removed,omitempty"`
+}
+
+// AddonToolConnection is a connection the agent selected for an add-on.
+type AddonToolConnection struct {
+	Name      string `json:"name"`
+	WriteMode string `json:"write_mode"`
 }
 
 // addonToolHolds lists the tools of the add-ons that the agent of b names and
 // that a messaging chat holds to a capability. A doubt (no broker, an agent
 // that cannot be read) lists none.
 func (c *Connectors) addonToolHolds(ctx context.Context, b connectors.Binding) []AddonToolHold {
+	holds, _ := c.addonToolHoldsWith(ctx, b)
+	return holds
+}
+
+// addonToolHoldsWith is addonToolHolds that also returns the connections of all
+// the add-ons whose write tools a paired sender uses without the tick.
+func (c *Connectors) addonToolHoldsWith(ctx context.Context, b connectors.Binding) ([]AddonToolHold, []AgentConnection) {
 	if b.AgentID == "" || c.svc.d.AddonTools == nil || c.svc.d.Agents == nil {
-		return nil
+		return nil, nil
 	}
 	ag, err := c.svc.d.Agents.Get(ctx, principal(b.Owner), b.AgentID)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	tools, err := c.svc.d.AddonTools.Tools(ctx, principal(b.Owner))
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	var out []AddonToolHold
 	for _, t := range tools {
@@ -625,13 +699,51 @@ func (c *Connectors) addonToolHolds(ctx context.Context, b connectors.Binding) [
 		}
 		out[i].Tools = append(out[i].Tools, name)
 	}
+	var covered []AgentConnection
 	for i := range out {
 		slices.Sort(out[i].Tools)
+		h := &out[i]
+		if h.Capability != contract.CapToolsWrite {
+			continue
+		}
+		conns := c.agentConnectionsOf(ctx, b, ag, h.Addon)
+		for _, x := range conns {
+			h.Connections = append(h.Connections, AddonToolConnection{Name: x.Name, WriteMode: x.WriteMode})
+		}
+		h.TickRemoved = b.WriteTickRemoved && !slices.Contains(b.Caps, h.Capability)
+		sender := AccessSubject{SenderID: "paired", Allowlisted: true}
+		paired := b
+		paired.Paired = []connectors.PairedSender{{SenderID: "paired", At: c.o.Clock()}}
+		if impliedWrite(paired, sender, c.o.Clock(), c.offReason(ctx, b, h.Capability)) && len(writeModeOn(conns)) > 0 {
+			h.WithoutTick = []string{SenderPaired}
+			covered = append(covered, conns...)
+		}
 	}
 	slices.SortFunc(out, func(x, y AddonToolHold) int {
 		return strings.Compare(x.Addon+"\x00"+x.Capability, y.Addon+"\x00"+y.Capability)
 	})
-	return out
+	return out, covered
+}
+
+// agentConnectionsOf lists the connections the agent ag selected for the
+// add-on, with their write modes (the second rule of ConnectionsOf). An agent
+// with no selection gives none: the chat does not fill the gap.
+func (c *Connectors) agentConnectionsOf(ctx context.Context, b connectors.Binding, ag agents.Agent, addonID string) []AgentConnection {
+	ids := ag.Connections[addonID]
+	if len(ids) == 0 {
+		return nil
+	}
+	list, err := c.Connections(ctx, b.Owner, addonID)
+	if err != nil {
+		return nil
+	}
+	var set ConnectionSet
+	for _, x := range list {
+		if slices.Contains(ids, x.ID) {
+			set.Items = append(set.Items, x)
+		}
+	}
+	return c.agentConnections(ctx, b.Owner, addonID, set)
 }
 
 // ToolApproval is the confirmation of one tool that the owner may relax (see
@@ -731,6 +843,7 @@ func (c *Connectors) AccessPreview(ctx context.Context, user, id string, d Acces
 		b.Allow = slices.Clone(d.Allow)
 	}
 	if d.Caps != nil {
+		b.WriteTickRemoved = writeTickRemoved(b.Caps, d.Caps, b.WriteTickRemoved)
 		b.Caps = slices.Clone(d.Caps)
 	}
 	if d.Grants != nil {
@@ -757,9 +870,16 @@ func (c *Connectors) AccessPreview(ctx context.Context, user, id string, d Acces
 func (c *Connectors) accessOf(ctx context.Context, b connectors.Binding, only string) AccessView {
 	kind := c.kindOf(ctx, b)
 	now := c.o.Clock()
+	holds, covered := c.addonToolHoldsWith(ctx, b)
 	view := func(id, title string, bind connectors.Binding, s AccessSubject) AccessSubjectView {
 		v := AccessSubjectView{ID: id, Title: title}
 		for _, name := range contract.ConnectorCapabilityNames() {
+			if name == contract.CapToolsWrite {
+				// The write tools of the add-ons the agent is connected to
+				// need no tick for the owner and paired senders.
+				v.Decisions = append(v.Decisions, AuthorizeConnected(bind, kind, s, now, c.offReason(ctx, b, name), covered))
+				continue
+			}
 			v.Decisions = append(v.Decisions, Authorize(bind, kind, s, name, now, c.offReason(ctx, b, name)))
 		}
 		v.Decisions = append(v.Decisions, notesDecision(bind, s, now))
@@ -772,7 +892,7 @@ func (c *Connectors) accessOf(ctx context.Context, b connectors.Binding, only st
 		}
 		return only == "" || only == id
 	}
-	out := AccessView{Binding: b.ID, Approvals: c.svc.approvalsOf(ctx, b), AddonTools: c.addonToolHolds(ctx, b)}
+	out := AccessView{Binding: b.ID, Approvals: c.svc.approvalsOf(ctx, b), AddonTools: holds}
 	if want("listed") {
 		out.Subjects = append(out.Subjects, view("listed", "A sender on the allowlist", b, AccessSubject{SenderID: "x", Allowlisted: true, Listed: true}))
 	}

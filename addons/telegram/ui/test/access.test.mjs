@@ -228,3 +228,36 @@ test('access: a permission that holds back the tools of an add-on gets a row of 
   // No hold from the host: no row.
   assert.equal(readinessRows(base({ caps: ['tools.write'] })).some((r) => r.id.startsWith('addons:')), false)
 })
+
+test('access: not ticked, a paired person has the write tools of an add-on the agent is connected to, and the row says so once', () => {
+  const caps = [{ name: 'tools.write', title: 'Let people who are not paired change things' }]
+  const holdOf = (extra) => [{ addon: 'tracker', capability: 'tools.write', tools: ['create-issue'], connections: [{ name: 'Work tracker', write_mode: 'propose' }], without_tick: ['paired'], ...extra }]
+  const saved = connectorForm({ id: 'b1', agent_id: 'a1', allow: ['42'], caps: [] })
+  const input = (hold, over = {}) => base({ id: 'b1', agent_id: 'a1', allow: ['42'], caps: [] }, { saved, capabilities: caps, preview: { status: 'ready', view: { ...view({ listed: [blocked('tools.write')], paired: [dec('tools.write', { via: 'agent-connection' })] }), addon_tools: hold } }, ...over })
+  const rowsOf = (hold, over) => readinessRows(input(hold, over)).filter((r) => r.id === 'addons:tracker')
+  const paired = [{ sender_id: 'p', at: new Date().toISOString() }]
+  // Covered: one info row, with the connection and the mode, no fix.
+  const covered = rowsOf(holdOf(), { paired })
+  assert.equal(covered.length, 1)
+  assert.equal(covered[0].state, 'ok')
+  assert.equal(covered[0].key, 'ready.addons.paired')
+  assert.deepEqual(covered[0].params, { addon: 'tracker', tools: 'create-issue', permission: 'Let people who are not paired change things', connection: 'Work tracker', modeKey: 'ready.addons.mode.propose' })
+  assert.equal(covered[0].fix, undefined)
+  // Nobody paired yet: the pairing is what is missing.
+  const none = rowsOf(holdOf(), { paired: [] })[0]
+  assert.equal(none.state, 'attention')
+  assert.equal(none.key, 'ready.addons.blocked')
+  assert.equal(none.fix.kind, 'pair_sender')
+  // The owner took the tick away: nobody has them, and the row says it was the owner's choice.
+  const removed = rowsOf(holdOf({ without_tick: [], tick_removed: true }), { paired })[0]
+  assert.equal(removed.key, 'ready.addons.removed')
+  assert.equal(removed.state, 'attention')
+  // Every connection is in write mode off: the row names the connection, not the tick.
+  const off = rowsOf(holdOf({ without_tick: [], connections: [{ name: 'Work tracker', write_mode: 'off' }] }), { paired })[0]
+  assert.equal(off.key, 'ready.addons.modeOff')
+  assert.equal(off.params.connection, 'Work tracker')
+  // The agent has no connection of the add-on: the tick is the way, as before.
+  const none2 = rowsOf(holdOf({ without_tick: [], connections: undefined }), { paired })[0]
+  assert.equal(none2.key, 'ready.addons.off')
+  assert.equal(none2.fix.field, 'tools.write')
+})

@@ -11,8 +11,9 @@ import { readinessRows, visibleRows } from './access'
 // that the translator picks by the rules of the language.
 function sentence(row, s) {
   const params = row.params || {}
-  const { messageKey, ...rest } = params
-  return s(row.key, messageKey ? { ...rest, message: s(messageKey) } : rest)
+  const { messageKey, modeKey, ...rest } = params
+  const words = messageKey ? { ...rest, message: s(messageKey) } : rest
+  return s(row.key, modeKey ? { ...words, mode: s(modeKey) } : words)
 }
 
 const ICON = { ok: 'check-circle', attention: 'warning', off: 'minus', after_save: 'save', broken: 'alert-circle', checking: 'spinner', unknown: 'help-circle' }

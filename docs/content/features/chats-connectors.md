@@ -809,7 +809,8 @@ capabilities only through a role, a pairing or an entry of their own. A binding 
 role or a pairing as before.
 
 The access view and the log name the way a sender got a capability: `allowlist`,
-`paired` or `role:<id>`. If several people share one turn, the turn gets only what
+`paired`, `agent-connection` (the write tools of an add-on the agent is connected to)
+or `role:<id>`. If several people share one turn, the turn gets only what
 all of them may do.
 
 A tool of an add-on that holds your credential and changes something outside
@@ -821,14 +822,42 @@ shape. The
 sender needs the capability as above; the write mode of the connection and the
 confirmation of the change still apply on top of it.
 
-A connection never gets `tools.write` by itself. If you do not tick it on the
-connection (or use "Allow the usual" on a kind that lists it), the agent has the
-read tools of the add-on in that chat and none of the write tools. Two things tell
-you: the model hears which tools are held back and why, so the bot says "the owner
-has not allowed this bot to change things in other services" and not "I have no such
-tool", and the readiness list of the connection page has a row for the add-on tools
-with a button that turns the permission on. The same note also appears when the agent
-names a connection of an add-on that no longer exists.
+The tick of `tools.write` is named "Let people who are not paired change things with
+add-on tools", because that is who it is for. Connecting the agent to a connection
+of an add-on already says that the agent may use it, so the write tools of that
+add-on need no tick for you and for the people you paired with the bot. All of
+these must hold:
+
+- the sender is paired with the bot, and the bot lets that sender in today;
+- the agent lists the add-on and has a connection of that add-on selected in the
+  agent (a connection chosen in the chat, or the only one you have, does not
+  count);
+- that connection is not in write mode `off`;
+- you did not take the tick away after setting it (see below).
+
+The write mode (`propose` or `auto`) and the approval setting keep deciding whether
+a call runs at once or waits for a confirmation: this changes only whether the tool
+is offered. For every other sender the tick is still needed: a person on the
+allowlist who is not paired, a person let in through a channel entry, anyone when the
+bot accepts anyone (they never get write tools), a role, a trigger, a job and a
+sub-agent. Write tools of an add-on without a connection, such as a table of the
+agent, need the tick for paired people too.
+
+If you tick the permission and later take the tick away, that is your choice and it
+holds: paired people then have no write tools either. Ticking it again undoes this.
+A save that never had the tick changes nothing.
+
+The access view says it for each kind of sender. The paired sender shows the
+permission as allowed "because this person is paired and the agent is connected to
+the add-on" (the `agent-connection` way), and the other senders show the reason
+`connection_permission_off`. The readiness list of the connection page has one row for
+the add-on tools. It says that paired people can use the tools because the agent is
+connected to the named connection (with its write mode) and that the others need the
+tick. When the tools are held back, the model hears which tools and why, so the bot
+says "the owner has not allowed this bot to change things in other services" and not
+"I have no such tool", and the row says whether the cause is your removed tick, a
+connection in write mode `off`, or a missing connection. The same note appears when
+the agent names a connection of an add-on that no longer exists.
 
 The agent's grants narrow the result: see Builtin grants in
 [Agents](/features/chats-agents/). For `triggers.propose`, `triggers.run`,

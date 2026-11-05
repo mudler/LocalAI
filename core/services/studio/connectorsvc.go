@@ -116,6 +116,7 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 		b.FileSendMax = *in.FileSendMax
 	}
 	if in.Caps != nil {
+		b.WriteTickRemoved = writeTickRemoved(b.Caps, in.Caps, b.WriteTickRemoved)
 		b.Caps = slices.Clone(in.Caps)
 	}
 	if in.Grants != nil {
@@ -673,4 +674,17 @@ func (c *Connectors) AllowSender(ctx context.Context, user, id, senderID string)
 		return ConnectorInfo{}, err
 	}
 	return c.withState(ctx, info(b)), nil
+}
+
+// writeTickRemoved tells whether the owner holds the write tools back after a
+// save of the permissions: taking away a tick that was set sets the flag, a
+// tick clears it, and any other save keeps it.
+func writeTickRemoved(was, now []string, flag bool) bool {
+	switch {
+	case slices.Contains(now, contract.CapToolsWrite):
+		return false
+	case slices.Contains(was, contract.CapToolsWrite):
+		return true
+	}
+	return flag
 }
