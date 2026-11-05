@@ -146,7 +146,8 @@
     "network": "无法连接服务器,请检查网络。",
     "unavailable": "附加组件暂时不可用，请稍后重试。",
     "unknownOutcome": "无法确认结果。请先检查状态,再重试。",
-    "busy": "附加组件服务器正忙，未能及时响应。请稍后再试。"
+    "busy": "附加组件服务器正忙，未能及时响应。请稍后再试。",
+    "needsNewerHost": "此插件需要更新版本的 LocalAI。请更新 LocalAI 后重试。未安装任何内容。"
   },
   "installed": {
     "disabled": "已关闭",
@@ -569,7 +570,8 @@
       "protocol-version": "协议版本不匹配",
       "sdk-version": "界面 SDK 版本不匹配",
       "data-format": "数据格式不匹配",
-      "digest-changed": "此版本的摘要已更改"
+      "digest-changed": "此版本的摘要已更改",
+      "feature-level": "此插件需要更新版本的 LocalAI。"
     },
     "class": {
       "source-unavailable": "无法连接到库。",

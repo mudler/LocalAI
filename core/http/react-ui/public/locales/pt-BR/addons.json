@@ -146,7 +146,8 @@
     "network": "Não foi possível alcançar o servidor. Verifique sua conexão.",
     "unavailable": "Os complementos não estão disponíveis agora. Tente de novo em instantes.",
     "unknownOutcome": "Não foi possível confirmar o resultado. Verifique o estado antes de tentar de novo.",
-    "busy": "O servidor de complementos está ocupado e não respondeu a tempo. Tente de novo em instantes."
+    "busy": "O servidor de complementos está ocupado e não respondeu a tempo. Tente de novo em instantes.",
+    "needsNewerHost": "Este add-on precisa de um LocalAI mais novo. Atualize o LocalAI e tente de novo. Nada foi instalado."
   },
   "installed": {
     "disabled": "Desativado",
@@ -569,7 +570,8 @@
       "protocol-version": "A versão do protocolo não se encaixa",
       "sdk-version": "A versão do SDK da interface não se encaixa",
       "data-format": "O formato dos dados não se encaixa",
-      "digest-changed": "O digest desta versão mudou"
+      "digest-changed": "O digest desta versão mudou",
+      "feature-level": "Este add-on precisa de um LocalAI mais novo."
     },
     "class": {
       "source-unavailable": "A biblioteca não pode ser acessada.",

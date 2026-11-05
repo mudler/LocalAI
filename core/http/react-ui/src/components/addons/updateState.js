@@ -33,7 +33,7 @@ const TONES = {
   unknown: 'idle',
 }
 
-const REASONS = new Set(['platform', 'host-version', 'api-version', 'protocol-version', 'sdk-version', 'data-format', 'digest-changed'])
+const REASONS = new Set(['platform', 'host-version', 'api-version', 'protocol-version', 'sdk-version', 'data-format', 'feature-level', 'digest-changed'])
 const CLASSES = new Set(['source-unavailable', 'refresh-failed', 'credential-unavailable', 'not-listed', 'ambiguous-release', 'canceled', 'internal'])
 
 // The view of the `update` object of an installed add-on. Anything the page

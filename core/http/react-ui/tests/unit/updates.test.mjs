@@ -111,8 +111,22 @@ test('updates: every locale carries the same update keys as English, and words f
     const d = load(lang)
     assert.deepEqual(walk(d.updates || {}).sort(), en, `${lang} update keys differ from English`)
     for (const s of UPDATE_STATES) assert.ok(d.updates.state[s], `${lang} lacks the words for state ${s}`)
-    for (const r of ['platform', 'host-version', 'api-version', 'protocol-version', 'sdk-version', 'data-format', 'digest-changed']) assert.ok(d.updates.reason[r], `${lang} lacks reason ${r}`)
+    for (const r of ['platform', 'host-version', 'api-version', 'protocol-version', 'sdk-version', 'data-format', 'feature-level', 'digest-changed']) assert.ok(d.updates.reason[r], `${lang} lacks reason ${r}`)
     for (const c of ['source-unavailable', 'refresh-failed', 'credential-unavailable', 'not-listed', 'ambiguous-release', 'canceled', 'internal']) assert.ok(d.updates.class[c], `${lang} lacks class ${c}`)
     for (const type of [...UPDATE_TYPES, 'unknownOutcome', 'auth', 'denied', 'network', 'unavailable']) assert.ok(d.updates.errors[type], `${lang} lacks the words for ${type}`)
+  }
+})
+
+test('updates: a release that needs a newer LocalAI is incompatible with the reason feature-level, and an install that fails for it says so', async () => {
+  assert.deepEqual(updateView({ state: 'incompatible', reasons: ['feature-level', 'made-up'] }).reasons, ['feature-level'])
+  const { describeOutcome } = await import('../../src/components/addons/errors.js')
+  for (const lang of readdirSync(join(here, '../../public/locales'))) {
+    const d = JSON.parse(readFileSync(join(here, '../../public/locales', lang, 'addons.json'), 'utf8'))
+    const t = (key) => key.split('.').reduce((o, k) => o?.[k], d)
+    // The cause is final whatever the outcome word is.
+    for (const outcome of ['failed', 'not_applied', 'invalid']) {
+      const text = describeOutcome(outcome, t, { type: 'needs_newer_host', kind: 'invalid' })
+      assert.ok(text && text === d.errors.needsNewerHost, `${lang} says ${outcome} for needs_newer_host with its own words`)
+    }
   }
 })

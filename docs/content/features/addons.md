@@ -1599,6 +1599,8 @@ level**: one integer that counts the additive manifest features it understands.
   LocalAI**. The add-on is not installed and not upgraded. A failed install or upgrade has
   the cause `needs_newer_host`, and an update check shows the add-on as incompatible with
   the reason `feature-level`.
+  The Add-ons page and the install and upgrade dialogs show it as "This add-on needs a newer
+  LocalAI." in every language of the interface.
 - The library entry has the optional `requires.featureLevel`. The host reads it before it
   downloads the package. If the entry says nothing, the manifest is checked when the
   package is staged, with the same reason.

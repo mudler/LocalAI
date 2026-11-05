@@ -146,7 +146,8 @@
     "network": "The server could not be reached. Check your connection.",
     "unavailable": "Add-ons are not available right now. Try again in a moment.",
     "unknownOutcome": "The result could not be confirmed. Check the status before you try again.",
-    "busy": "The add-on server is busy and did not answer in time. Try again in a moment."
+    "busy": "The add-on server is busy and did not answer in time. Try again in a moment.",
+    "needsNewerHost": "This add-on needs a newer LocalAI. Update LocalAI, then try again. Nothing was installed."
   },
   "installed": {
     "disabled": "Off",
@@ -569,7 +570,8 @@
       "protocol-version": "The protocol version does not fit",
       "sdk-version": "The interface SDK version does not fit",
       "data-format": "The data format does not fit",
-      "digest-changed": "The digest of this version changed"
+      "digest-changed": "The digest of this version changed",
+      "feature-level": "This add-on needs a newer LocalAI."
     },
     "class": {
       "source-unavailable": "The library cannot be reached.",

@@ -149,7 +149,8 @@
     "network": "Le serveur est injoignable. Vérifiez votre connexion.",
     "unavailable": "Les modules ne sont pas disponibles pour le moment. Réessayez dans un instant.",
     "unknownOutcome": "Le résultat n'a pas pu être confirmé. Vérifiez l'état avant de réessayer.",
-    "busy": "Le serveur de modules est occupé et n'a pas répondu à temps. Réessayez dans un instant."
+    "busy": "Le serveur de modules est occupé et n'a pas répondu à temps. Réessayez dans un instant.",
+    "needsNewerHost": "Cet add-on nécessite une version plus récente de LocalAI. Mettez LocalAI à jour, puis réessayez. Rien n'a été installé."
   },
   "installed": {
     "disabled": "Désactivé",
@@ -573,7 +574,8 @@
       "protocol-version": "La version du protocole ne convient pas",
       "sdk-version": "La version du SDK d'interface ne convient pas",
       "data-format": "Le format des données ne convient pas",
-      "digest-changed": "L'empreinte de cette version a changé"
+      "digest-changed": "L'empreinte de cette version a changé",
+      "feature-level": "Cet add-on nécessite une version plus récente de LocalAI."
     },
     "class": {
       "source-unavailable": "La bibliothèque est injoignable.",

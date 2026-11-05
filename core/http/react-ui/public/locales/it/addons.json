@@ -146,7 +146,8 @@
     "network": "Impossibile raggiungere il server. Controlla la connessione.",
     "unavailable": "I componenti non sono disponibili al momento. Riprova tra poco.",
     "unknownOutcome": "Non è stato possibile confermare il risultato. Controlla lo stato prima di riprovare.",
-    "busy": "Il server dei componenti è occupato e non ha risposto in tempo. Riprova tra poco."
+    "busy": "Il server dei componenti è occupato e non ha risposto in tempo. Riprova tra poco.",
+    "needsNewerHost": "Questo add-on richiede una versione più recente di LocalAI. Aggiorna LocalAI e riprova. Non è stato installato nulla."
   },
   "installed": {
     "disabled": "Disattivato",
@@ -569,7 +570,8 @@
       "protocol-version": "La versione del protocollo non è adatta",
       "sdk-version": "La versione dell'SDK dell'interfaccia non è adatta",
       "data-format": "Il formato dei dati non è adatto",
-      "digest-changed": "Il digest di questa versione è cambiato"
+      "digest-changed": "Il digest di questa versione è cambiato",
+      "feature-level": "Questo add-on richiede una versione più recente di LocalAI."
     },
     "class": {
       "source-unavailable": "La libreria non è raggiungibile.",
