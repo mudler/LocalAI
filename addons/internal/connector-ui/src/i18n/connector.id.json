@@ -335,5 +335,6 @@
   "fix.trust": "Atur kanal",
   "can.sender.channel_acts": "Anggota kanal yang disetel Biarkan semua orang di sini meminta tindakan",
   "can.via.channel": "Semua orang di kanal ini dapat memintanya karena kanal disetel ke Biarkan semua orang di sini meminta tindakan",
+  "ready.postTo_one": "Bot boleh memposting ke 1 kanal lain saat orang yang diizinkan memintanya. Itu tidak membuat orang di dalamnya dipercaya.",
   "ready.postTo_other": "Bot boleh memposting ke {{count}} kanal lain saat orang yang diizinkan memintanya. Itu tidak membuat orang di dalamnya dipercaya."
 }
