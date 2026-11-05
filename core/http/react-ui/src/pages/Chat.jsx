@@ -10,6 +10,9 @@ import { cardsByTool } from '../utils/chatEgress'
 import { useInbox } from '../hooks/useInbox'
 import { useOriginContext } from '../hooks/useOriginContext'
 import { isAutomated, knownKind, resolveOrigin } from '../utils/originChats'
+import { foldNotes, isConnectorChat } from '../utils/connectorChat'
+// eslint-disable-next-line no-unused-vars
+import { ConnectorHeader, HostNote, ThreadContext } from '../components/chat/ConnectorChat'
 import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import {
   threadRows, placeProposals, streamingParts, lastUserText, chatMarkdown, menuChats, downloadFrom, chatFromExport,
@@ -802,7 +805,7 @@ function ChatPage() {
     },
   }), [])
 
-  const rows = useMemo(() => placeProposals(threadRows(messages, chat.live), { streaming: chat.running }), [messages, chat.live, chat.running])
+  const rows = useMemo(() => foldNotes(placeProposals(threadRows(messages, chat.live), { streaming: chat.running })), [messages, chat.live, chat.running])
   // The cards of a turn that is still running go after the streaming text.
   const tailProposals = rows.length > 0 && rows[rows.length - 1].kind === 'proposals' ? rows[rows.length - 1] : null
   // Only the last answer can be answered again (the server cuts after the last
@@ -1108,6 +1111,19 @@ function ChatPage() {
           const o = resolveOrigin({ origin: activeChat.origin, originId: activeChat.origin_id }, originCtx)
           const kind = knownKind(o.kind)
           const name = o.title || t(`origin.kindFallback.${kind}`)
+          if (isConnectorChat(activeChat)) {
+            const kindTitle = (originCtx.connectorKinds || []).find((k) => k.kind === (originCtx.connectors || []).find((x) => x.id === o.id)?.kind)?.title || ''
+            return (
+              <ConnectorHeader
+                title={name}
+                kindTitle={kindTitle}
+                place={chat.detail?.id === activeId ? chat.detail?.place : null}
+                messages={messages}
+                href={o.href}
+                hrefLabel={t('origin.open', { title: name })}
+              />
+            )
+          }
           return (
             <p className="cx-notice cx-origin-banner" role="note" data-testid="chat-origin-banner">
               <span>{t('origin.banner', { title: name })}</span>
@@ -1128,6 +1144,8 @@ function ChatPage() {
                 if (row.kind === 'app') return <AppRow key={row.key} chatId={activeId} row={row} onSend={sendLive} />
                 if (row.kind === 'marker') return <ContextMarker key={row.key} marker={row.marker} before={row.before} after={row.after} />
                 if (row.kind === 'goal') return <GoalMarker key={row.key} msg={row.msg} />
+                if (row.kind === 'thread') return <ThreadContext key={row.key} msg={row.msg} />
+                if (row.kind === 'hostnote') return <HostNote key={row.key} msg={row.msg} count={row.count} />
                 return [
                   <ChatMessage
                     key={row.key}

@@ -699,5 +699,45 @@
       "page": "einer Seite",
       "other": "etwas anderem"
     }
+  },
+  "connector": {
+    "header": "Messaging-Unterhaltung",
+    "unknownSender": "Unbekannter Absender",
+    "people": "Personen in dieser Unterhaltung",
+    "inThread": "Thread",
+    "openThread": "In der Messaging-App öffnen",
+    "where": {
+      "direct": "Direktnachricht",
+      "channel": "Kanal {{name}}",
+      "group": "Kanal oder Gruppe"
+    },
+    "standing": {
+      "owner": "Besitzer",
+      "verified": "Verifiziert",
+      "listed": "Gelistet",
+      "channel": "Kanalmitglied",
+      "anyone": "Beliebig"
+    },
+    "standingHelp": {
+      "owner": "Mit diesem Bot gekoppelt: Der Besitzer steuert dieses Konto.",
+      "verified": "Hat eine Rolle, der der Besitzer Rechte gegeben hat.",
+      "listed": "Auf der Zulassungsliste dieser Verbindung.",
+      "channel": "Zugelassen, weil der Kanal oder die Gruppe auf der Zulassungsliste steht.",
+      "anyone": "Zugelassen, weil die Verbindung jeden akzeptiert."
+    },
+    "threadEarlier": "Früher im Thread ({{count}} Nachrichten)",
+    "threadCut": "Ältere Nachrichten des Threads werden nicht angezeigt.",
+    "note": {
+      "paired": "Mit diesem Bot gekoppelt",
+      "unsupported": "Nachricht nicht gelesen",
+      "too_long": "Nachricht zu lang",
+      "no_upload": "Dateien nicht angenommen",
+      "rate": "Zu viele Nachrichten",
+      "held_back": "Einige Werkzeuge wurden diesem Absender nicht angeboten",
+      "new_chat": "Neuer Chat gestartet",
+      "refused": "Nachricht abgelehnt",
+      "other": "Hinweis",
+      "why": "Warum"
+    }
   }
 }

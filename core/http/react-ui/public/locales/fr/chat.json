@@ -697,5 +697,45 @@
       "page": "une page",
       "other": "autre chose"
     }
+  },
+  "connector": {
+    "header": "Conversation de messagerie",
+    "unknownSender": "Expéditeur inconnu",
+    "people": "Personnes dans cette conversation",
+    "inThread": "Fil",
+    "openThread": "Ouvrir dans l'application de messagerie",
+    "where": {
+      "direct": "Message direct",
+      "channel": "Canal {{name}}",
+      "group": "Canal ou groupe"
+    },
+    "standing": {
+      "owner": "Propriétaire",
+      "verified": "Vérifié",
+      "listed": "Listé",
+      "channel": "Membre du canal",
+      "anyone": "N'importe qui"
+    },
+    "standingHelp": {
+      "owner": "Associé à ce bot : le propriétaire contrôle ce compte.",
+      "verified": "A un rôle auquel le propriétaire a donné des droits.",
+      "listed": "Sur la liste d'autorisation de cette connexion.",
+      "channel": "Admis parce que le canal ou le groupe est sur la liste d'autorisation.",
+      "anyone": "Admis parce que la connexion accepte tout le monde."
+    },
+    "threadEarlier": "Plus tôt dans le fil ({{count}} messages)",
+    "threadCut": "Les messages plus anciens du fil ne sont pas affichés.",
+    "note": {
+      "paired": "Associé à ce bot",
+      "unsupported": "Message non lu",
+      "too_long": "Message trop long",
+      "no_upload": "Fichiers non acceptés",
+      "rate": "Trop de messages",
+      "held_back": "Certains outils n'ont pas été proposés à cet expéditeur",
+      "new_chat": "Nouveau chat démarré",
+      "refused": "Message refusé",
+      "other": "Note",
+      "why": "Pourquoi"
+    }
   }
 }

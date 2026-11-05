@@ -699,5 +699,45 @@
       "page": "页面",
       "other": "其他来源"
     }
+  },
+  "connector": {
+    "header": "消息平台对话",
+    "unknownSender": "未知发送者",
+    "people": "此对话中的人",
+    "inThread": "线程",
+    "openThread": "在消息应用中打开",
+    "where": {
+      "direct": "私信",
+      "channel": "频道 {{name}}",
+      "group": "频道或群组"
+    },
+    "standing": {
+      "owner": "所有者",
+      "verified": "已验证",
+      "listed": "已列入名单",
+      "channel": "频道成员",
+      "anyone": "任何人"
+    },
+    "standingHelp": {
+      "owner": "已与此机器人配对：所有者控制此账号。",
+      "verified": "拥有所有者授予权限的角色。",
+      "listed": "在此连接的允许名单中。",
+      "channel": "因频道或群组在允许名单中而被接纳。",
+      "anyone": "因该连接接受任何人而被接纳。"
+    },
+    "threadEarlier": "线程中较早的消息（{{count}} 条）",
+    "threadCut": "线程中更早的消息未显示。",
+    "note": {
+      "paired": "已与此机器人配对",
+      "unsupported": "消息未读取",
+      "too_long": "消息过长",
+      "no_upload": "文件未被接受",
+      "rate": "消息过多",
+      "held_back": "部分工具未提供给此发送者",
+      "new_chat": "已开始新对话",
+      "refused": "消息被拒绝",
+      "other": "备注",
+      "why": "原因"
+    }
   }
 }

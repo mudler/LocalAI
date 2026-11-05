@@ -811,5 +811,45 @@
     "bodyMember": "Belum ada model obrolan yang terinstal di server ini. Hubungi administrator untuk menginstalnya.",
     "gallery": "Jelajahi galeri",
     "import": "Impor model"
+  },
+  "connector": {
+    "header": "Percakapan pesan",
+    "unknownSender": "Pengirim tidak dikenal",
+    "people": "Orang dalam percakapan ini",
+    "inThread": "Utas",
+    "openThread": "Buka di aplikasi pesan",
+    "where": {
+      "direct": "Pesan langsung",
+      "channel": "Kanal {{name}}",
+      "group": "Kanal atau grup"
+    },
+    "standing": {
+      "owner": "Pemilik",
+      "verified": "Terverifikasi",
+      "listed": "Terdaftar",
+      "channel": "Anggota kanal",
+      "anyone": "Siapa saja"
+    },
+    "standingHelp": {
+      "owner": "Dipasangkan dengan bot ini: pemilik mengendalikan akun ini.",
+      "verified": "Memiliki peran yang diberi hak oleh pemilik.",
+      "listed": "Ada di daftar izin koneksi ini.",
+      "channel": "Diizinkan karena kanal atau grup ada di daftar izin.",
+      "anyone": "Diizinkan karena koneksi menerima siapa saja."
+    },
+    "threadEarlier": "Sebelumnya di utas ({{count}} pesan)",
+    "threadCut": "Pesan yang lebih lama di utas tidak ditampilkan.",
+    "note": {
+      "paired": "Dipasangkan dengan bot ini",
+      "unsupported": "Pesan tidak dibaca",
+      "too_long": "Pesan terlalu panjang",
+      "no_upload": "File tidak diterima",
+      "rate": "Terlalu banyak pesan",
+      "held_back": "Beberapa alat tidak ditawarkan kepada pengirim ini",
+      "new_chat": "Chat baru dimulai",
+      "refused": "Pesan ditolak",
+      "other": "Catatan",
+      "why": "Mengapa"
+    }
   }
 }

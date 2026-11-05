@@ -702,5 +702,45 @@
       "page": "uma página",
       "other": "outra coisa"
     }
+  },
+  "connector": {
+    "header": "Conversa de mensagens",
+    "unknownSender": "Remetente desconhecido",
+    "people": "Pessoas nesta conversa",
+    "inThread": "Tópico",
+    "openThread": "Abrir no app de mensagens",
+    "where": {
+      "direct": "Mensagem direta",
+      "channel": "Canal {{name}}",
+      "group": "Canal ou grupo"
+    },
+    "standing": {
+      "owner": "Proprietário",
+      "verified": "Verificado",
+      "listed": "Na lista",
+      "channel": "Membro do canal",
+      "anyone": "Qualquer pessoa"
+    },
+    "standingHelp": {
+      "owner": "Pareado com este bot: o proprietário controla esta conta.",
+      "verified": "Tem um papel ao qual o proprietário deu direitos.",
+      "listed": "Na lista de permitidos desta conexão.",
+      "channel": "Admitido porque o canal ou o grupo está na lista de permitidos.",
+      "anyone": "Admitido porque a conexão aceita qualquer pessoa."
+    },
+    "threadEarlier": "Antes no tópico ({{count}} mensagens)",
+    "threadCut": "As mensagens mais antigas do tópico não são mostradas.",
+    "note": {
+      "paired": "Pareado com este bot",
+      "unsupported": "Mensagem não lida",
+      "too_long": "Mensagem longa demais",
+      "no_upload": "Arquivos não aceitos",
+      "rate": "Mensagens demais",
+      "held_back": "Algumas ferramentas não foram oferecidas a este remetente",
+      "new_chat": "Novo chat iniciado",
+      "refused": "Mensagem recusada",
+      "other": "Nota",
+      "why": "Por quê"
+    }
   }
 }

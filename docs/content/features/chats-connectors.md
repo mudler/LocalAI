@@ -504,7 +504,10 @@ the mention makes a new chat, and gives them to the agent with the first message
   mentioned, nothing else: not the channel, not other threads, not files. For a file it
   sees the name and the count. A mention outside a thread reads nothing.
 - **Once.** The messages are read when the chat of the thread starts. Later turns of the
-  chat do not read them again, and they are not copied into the transcript.
+  chat do not read them again. The agent gets them with the first message only; the
+  chat keeps a copy for you to read (see
+  [Reading a messaging chat in the web UI](#reading-a-messaging-chat-in-the-web-ui)),
+  and that copy is never sent to the agent as a message.
 - **Bounded.** At most 30 messages and 8 KiB of text. If there are more, the newest are
   kept, oldest first, one line `Label: text` each. The add-on can lower the number of
   messages. A thread of more than 1,000 messages is not read at all.
@@ -530,6 +533,41 @@ the mention makes a new chat, and gives them to the agent with the first message
 There is no setting for this. The bot always reads the thread when it is mentioned in
 one, on a platform whose add-on can give the earlier messages; on any other platform it
 reads nothing.
+
+### Reading a messaging chat in the web UI
+
+A chat that a messaging connection started shows in your chat list under the connection
+and opens like any chat. It also reads like the thread it came from. You see all of this
+in your own chats only; it has the same access and the same lifetime as the chat.
+
+- **Header.** The connection name and kind, whether the chat is a direct message or a
+  channel (with its name when the add-on gives one), a link that opens the thread in the
+  messaging app when the add-on can build one without an extra permission (Slack does,
+  from the workspace address; other kinds may leave it out, and then no link shows), and
+  the people who wrote in the chat.
+- **Sender of each message.** The name the platform gave (else the handle, else
+  "Unknown sender" with the platform id in small print), a badge and the time. The badge
+  says how the server saw the sender when the message came in: *Owner* (paired with the
+  bot), *Verified* (holds a role the owner gave rights to), *Listed* (on the allowlist
+  themselves), *Channel member* (let in because their channel or group is listed) or
+  *Anyone* (the connection accepts everyone). Messages of a chat made before this
+  feature, and a message that joined words of several people while a turn ran, show no
+  sender.
+- **Earlier in the thread.** Where the bot was first addressed, a shut block "Earlier in
+  the thread (N messages)" holds the lines the agent got with the first message, with the
+  same wording and the same cut as in [Earlier messages of a thread](#earlier-messages-of-a-thread).
+  It is stored once, when the chat starts, up to the 8 KiB limit. The server does not
+  read the platform again to show it. A chat made before this feature has no block.
+- **One answer.** An answer that the platform shows as a working message, an edit or
+  several messages (a long answer is split) is one answer in the chat.
+- **Notes of the server.** Small lines tell what the server did on its own: the tools it
+  did not offer to the sender and why, a message it could not read, a message that was too
+  long, files it did not accept, too many messages, a pairing that worked. Equal notes in a
+  row show once with a count. A note is kept only in a chat that already exists.
+
+The add-on may give two optional fields with an inbound message, `chatName` (the name of
+the channel or group) and `link` (an https address of the message or its thread). The
+server keeps the link only when it is https and short, and keeps nothing else of them.
 
 ## How the bot answers
 

@@ -14,6 +14,8 @@ import MessageAttachments from './Attachments'
 import { ActivityGroup, ActivityProposals, StreamingActivity } from './ActivityFold'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
+import { SenderLine } from './ConnectorChat'
+// eslint-disable-next-line no-unused-vars
 import AddonSlot from '../../addons/AddonSlot'
 
 // Assistant prose. The HTML string is memoised, so React leaves the node alone
@@ -156,6 +158,7 @@ function ChatMessage({
         </div>
       ) : isUser ? (
         <>
+          {msg.sender && <SenderLine sender={msg.sender} at={msg.at} />}
           {msg.loop && (
             <span className="cx-msg__loop" data-testid="message-loop-label">
               <Icon name="repeat" /> {t('message.loopRun', { run: msg.loop.run })}

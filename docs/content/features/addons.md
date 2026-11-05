@@ -2801,7 +2801,9 @@ calls. The limits come from the platforms' own documents: see the table in
 
 **Inbound.** A pull add-on answers `poll` with normalized messages (`cursor`, `chat`,
 `thread`, `direct`, `mention`, `messageId`, `replyTo`, `senderId`, `senderName`,
-`senderUsername`, `text`, `unsupported`, `media`, `skip`) and the next offset.
+`senderUsername`, `chatName`, `link`, `text`, `unsupported`, `media`, `skip`) and the next
+offset. `chatName` (the channel or group name) and `link` (an https address of the message or
+its thread) are optional and are only shown to the owner in the header of the chat.
 `messageId` is the platform's ID of the message and `replyTo` the message it answers;
 the thread conversation mode uses them. Core keeps the offset with the binding, passes it
 to the next `poll` and stores the offset the answer names, so a new leader continues

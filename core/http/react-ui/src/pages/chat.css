@@ -1981,3 +1981,90 @@ html[data-handoff='fade']::view-transition-new(root) {
   .cx-find-select { width: 100%; font-size: var(--fs-lead); }
   .cx-find-status { padding: 8px 12px 0; }
 }
+
+/* A chat that a messaging connection started: the header over the transcript,
+   the sender over each message, the earlier messages of the thread and the
+   notes of the host. Quiet rows that wrap on a phone and never scroll the page
+   sideways. */
+.cx-conn {
+  margin: var(--sp-2) var(--sp-4) 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--dk-radius-2);
+  box-shadow: inset 0 0 0 1px var(--color-border-divider);
+  background: var(--color-bg-secondary);
+  font-size: var(--fs-small);
+  min-width: 0;
+}
+.cx-conn__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
+.cx-conn__icon { flex: none; color: var(--dk-accent-text); }
+.cx-conn__title { font-weight: 650; color: var(--dk-text); min-width: 0; overflow-wrap: anywhere; }
+.cx-conn__kind, .cx-conn__where { color: var(--dk-muted); min-width: 0; overflow-wrap: anywhere; }
+.cx-conn__chip {
+  padding: 0 var(--sp-2);
+  border-radius: var(--radius-full);
+  box-shadow: inset 0 0 0 1px var(--color-border-divider);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-meta);
+}
+.cx-conn__links { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-left: auto; }
+.cx-conn__people { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); margin: var(--sp-2) 0 0; padding: 0; list-style: none; }
+.cx-conn__person { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; color: var(--color-text-secondary); font-size: var(--fs-meta); }
+.cx-conn__pname { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .cx-conn { margin-inline: var(--sp-3); }
+  .cx-conn__links { margin-left: 0; width: 100%; }
+}
+
+.cx-sender { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); min-width: 0; margin: 0 0 var(--sp-1); font-size: var(--fs-meta); color: var(--dk-muted); }
+.cx-sender__name { color: var(--color-text-secondary); font-weight: 650; overflow-wrap: anywhere; }
+.cx-sender__small { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.cx-sender__time { margin-left: auto; font-variant-numeric: tabular-nums; }
+.cx-standing {
+  padding: 0 var(--sp-2);
+  border-radius: var(--radius-full);
+  box-shadow: inset 0 0 0 1px var(--color-border-divider);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-meta);
+  white-space: nowrap;
+}
+.cx-standing[data-standing="owner"] { color: var(--dk-ok-text); }
+.cx-standing[data-standing="verified"] { color: var(--dk-accent-text); }
+.cx-standing[data-standing="anyone"] { color: var(--dk-muted); }
+
+.cx-thread-ctx {
+  max-width: 720px;
+  border-radius: var(--dk-radius-2);
+  box-shadow: inset 0 0 0 1px var(--color-border-divider);
+  background: var(--color-bg-secondary);
+  font-size: var(--fs-small);
+  min-width: 0;
+}
+.cx-thread-ctx__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.cx-thread-ctx__chev { flex: none; }
+.cx-thread-ctx__lines { margin: 0; padding: 0 var(--sp-3) var(--sp-3); list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }
+.cx-thread-ctx__lines[hidden] { display: none; }
+.cx-thread-ctx__line { display: flex; flex-direction: column; gap: 0; min-width: 0; overflow-wrap: anywhere; color: var(--dk-text); }
+.cx-thread-ctx__author { color: var(--color-text-secondary); font-size: var(--fs-meta); }
+.cx-thread-ctx__cut { color: var(--dk-muted); font-size: var(--fs-meta); }
+
+.cx-hostnote { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); max-width: 720px; min-width: 0; color: var(--dk-muted); font-size: var(--fs-meta); }
+.cx-hostnote__icon { flex: none; align-self: center; width: 12px; height: 12px; }
+.cx-hostnote[data-tone="ok"] .cx-hostnote__icon { color: var(--dk-ok-text); }
+.cx-hostnote[data-tone="warn"] .cx-hostnote__icon,
+.cx-hostnote[data-tone="warn"] .cx-hostnote__label { color: var(--dk-warn-text); }
+.cx-hostnote__label { color: var(--color-text-secondary); font-weight: 600; }
+.cx-hostnote__text, .cx-hostnote__more { min-width: 0; overflow-wrap: anywhere; }
+.cx-hostnote__count { font-variant-numeric: tabular-nums; }
