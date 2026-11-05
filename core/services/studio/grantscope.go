@@ -52,6 +52,8 @@ func (s *Service) grantUsable(ctx context.Context, user, grant string) bool {
 			return false
 		}
 		return s.changes.grantsAKind(grant)
+	case builtins.GrantKnowledgeWrite:
+		return s.changes != nil && s.changes.grantsAKind(grant) && s.knowledgeAvailable(ctx, user)
 	case builtins.GrantTriggersPropose, builtins.GrantTriggersRun:
 		return s.triggers != nil && s.mayUseTriggers(ctx, user) == nil
 	case builtins.GrantFilesUpload, builtins.GrantActFiles:

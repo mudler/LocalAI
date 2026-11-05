@@ -195,7 +195,7 @@ func NewConnectors(svc *Service, o ConnectorOptions) (*Connectors, error) {
 		o.Logger = slog.Default()
 	}
 	return &Connectors{svc: svc, o: o, log: o.Logger, loops: map[string]context.CancelFunc{}, senders: map[string]*senderState{}, nextEdit: map[string]time.Time{},
-		wake: make(chan struct{}, 1), done: make(chan struct{}), gates: []CapabilitySwitch{agentGrantSwitch(svc), toolsSwitch(svc)}}, nil
+		wake: make(chan struct{}, 1), done: make(chan struct{}), gates: []CapabilitySwitch{agentGrantSwitch(svc), toolsSwitch(svc), knowledgeSwitch(svc)}}, nil
 }
 
 // Notify asks Run to look at the bindings now.

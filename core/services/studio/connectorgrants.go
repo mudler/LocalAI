@@ -105,6 +105,14 @@ var toolGroupOf = map[string]string{
 	contract.CapSkillsWrite:     builtins.GroupChanges,
 	contract.CapPagesWrite:      builtins.GroupChanges,
 	contract.CapDashboardWrite:  builtins.GroupChanges,
+	contract.CapKnowledgeWrite:  builtins.GroupChanges,
+}
+
+// extraToolGroupOf names a second group that a capability also needs: a
+// knowledge text is proposed with the change tools but searched and indexed
+// through the Knowledge group, and the tool picker nests the grant under it.
+var extraToolGroupOf = map[string]string{
+	contract.CapKnowledgeWrite: builtins.GroupCollections,
 }
 
 // toolsSwitch is the CapabilitySwitch of the Tools switch: a capability whose
@@ -120,10 +128,34 @@ func toolsSwitch(s *Service) CapabilitySwitch {
 		if err != nil {
 			return Block{} // the grants switch reports an agent it cannot read
 		}
-		if slices.Contains(ag.BuiltinsOff, group) || (s.builtins.IsOptIn(group) && !slices.Contains(ag.BuiltinsOn, group)) {
-			return Block{Code: CodeToolsSwitchOff, Reason: "the " + group + " tools are switched off for the agent of this bot",
-				Fix: &Fix{Kind: FixOpenAgent, Target: b.AgentID, Field: "tools:" + group}}
+		for _, g := range []string{group, extraToolGroupOf[capability]} {
+			if g == "" {
+				continue
+			}
+			if slices.Contains(ag.BuiltinsOff, g) || (s.builtins.IsOptIn(g) && !slices.Contains(ag.BuiltinsOn, g)) {
+				return Block{Code: CodeToolsSwitchOff, Reason: "the " + g + " tools are switched off for the agent of this bot",
+					Fix: &Fix{Kind: FixOpenAgent, Target: b.AgentID, Field: "tools:" + g}}
+			}
 		}
 		return Block{}
+	}
+}
+
+// knowledgeSwitch is the CapabilitySwitch of adding to Knowledge: the server
+// must be able to index a text, and the agent of the binding needs a
+// collection on its list. Other capabilities pass.
+func knowledgeSwitch(s *Service) CapabilitySwitch {
+	return func(ctx context.Context, b connectors.Binding, capability string) Block {
+		if capability != contract.CapKnowledgeWrite {
+			return Block{}
+		}
+		code, reason := s.knowledgeBlock(ctx, b.Owner, b.AgentID)
+		switch code {
+		case "":
+			return Block{}
+		case CodeKnowledgeNone:
+			return Block{Code: code, Reason: reason, Fix: &Fix{Kind: FixOpenAgent, Target: b.AgentID, Field: "collections"}}
+		}
+		return Block{Code: code, Reason: reason}
 	}
 }

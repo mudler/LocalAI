@@ -423,6 +423,10 @@
         "title": "Cambiar el panel",
         "description": "El modelo puede proponer un nuevo diseño de tu panel de Inicio. Tú confirmas cada cambio."
       },
+      "knowledge_write": {
+        "title": "Añadir al conocimiento",
+        "description": "Permite al modelo proponer un texto para una colección de tu Conocimiento. Confirmas cada uno; nunca se añade de inmediato."
+      },
       "triggers_propose": {
         "title": "Proponer también desde aplicaciones de mensajería",
         "description": "El modelo puede proponer un disparador cuando alguien lo pide en una aplicación de mensajería. Tú lo confirmas."
@@ -725,7 +729,8 @@
       "profile": "Perfil",
       "skill": "Habilidad",
       "page": "Página",
-      "dashboard": "Panel"
+      "dashboard": "Panel",
+      "knowledge": "Conocimiento"
     },
     "scope": {
       "user": "Todos tus chats",
@@ -738,7 +743,8 @@
       "kind": "Tipo",
       "target": "Archivo",
       "source": "De",
-      "expires": "Caduca en"
+      "expires": "Caduca en",
+      "collection": "Colección"
     },
     "source": {
       "chat": "Un chat",
@@ -787,6 +793,12 @@
       "dismissed": "Cambio descartado.",
       "undone": "Cambio deshecho.",
       "asked": "Se pidió al asistente que lo proponga de nuevo."
+    },
+    "knowledge": {
+      "label": "Texto para añadir a {{collection}}",
+      "size": "{{size}} de un máximo de {{max}}",
+      "note": "No se añade nada hasta que confirmes. Después el texto se divide en pasajes y se indexa, y cualquier chat que busque en esta colección puede usarlo.",
+      "editLabel": "Texto para añadir a {{target}}"
     }
   },
   "proposalsPage": {

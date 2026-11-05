@@ -27,7 +27,22 @@ export function changeProposalView(p, err, now = Date.now()) {
   if (!known.includes(p?.status)) return { kind: 'error', message: `unknown change state ${p?.status}` }
   let kind = p.status
   if (kind === 'pending' && p.expires && Date.parse(p.expires) <= now) kind = 'expired'
-  return { kind, proposal: p, canUndo: kind === 'applied' && !!p.rev }
+  return { kind, proposal: p, canUndo: kind === 'applied' && (!!p.rev || writesElsewhere(p)) }
+}
+
+// A knowledge change adds an entry to a collection instead of writing a file of
+// the home, so it has no change set (rev stays 0) and its target is the name
+// of the collection, not a path. Undo removes the entry.
+export const writesElsewhere = (p) => p?.kind === 'knowledge'
+
+// The most a knowledge text may hold, as the server bounds it
+// (contract.MaxKnowledgeBytes).
+export const KNOWLEDGE_MAX_BYTES = 64 * 1024
+
+// The first lines of a text, for the preview of a knowledge change.
+export function previewLines(text, max = 20) {
+  const lines = String(text || '').replace(/\s+$/, '').split('\n')
+  return { shown: lines.slice(0, max), more: Math.max(0, lines.length - max) }
 }
 
 // The key of the words that open the receipt of an applied change. A note that
@@ -69,7 +84,7 @@ export function timeLeft(p, now = Date.now()) {
 }
 
 // A kind the card has no wording for is shown by its raw name.
-export const KNOWN_KINDS = ['memory', 'profile', 'skill', 'page', 'dashboard']
+export const KNOWN_KINDS = ['memory', 'profile', 'skill', 'page', 'dashboard', 'knowledge']
 export const KNOWN_SCOPES = ['user', 'agent', 'channel']
 
 // A short, readable size.

@@ -732,7 +732,7 @@ add-on.
 - **Capabilities** (`caps`). The ceiling you enable for a binding, from a closed list
   (`proposals.confirm`, `memory.write`, `files.upload`, `triggers.propose`,
   `triggers.run`, `talkback.channels`, `tools.write`, and the sensitive `talkback.new_channel`,
-  `profile.write`, `skills.write`, `pages.write`, `dashboard.write`). The default is
+  `profile.write`, `skills.write`, `pages.write`, `dashboard.write`, `knowledge.write`). The default is
   no: a binding with none enabled lets a sender talk to the agent, but the agent can
   not use any of these on the sender's behalf. A binding saved before permissions
   were enforced has none, so the first start after the upgrade gives it the usual set
@@ -883,6 +883,8 @@ shapes the result and never blocks.
 | `role_not_granted` | `sender` | The role of the sender has no grant. `fix.target` is `grants`. | `open_connection` |
 | `kind_not_running` | `sender` | The app of the connection is not running, so roles are unknown. | none |
 | `context_rule` | `connection` | Held, but not in this place or thread. | none |
+| `knowledge_none` | `agent` | `knowledge.write` only: no collection is on the list of the agent. `fix.field` is `collections`. | `open_agent` |
+| `knowledge_no_embedding` | `server` | `knowledge.write` only: the embedding model for Knowledge is not installed. | none |
 | `unknown_capability` | `server` | Not a capability. | none |
 
 The server sends no URL. A page maps `fix.kind` and `fix.target` to its own links. The

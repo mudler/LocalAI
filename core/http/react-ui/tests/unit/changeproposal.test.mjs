@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  appliedReceiptKey, byteText, changeProposalIds, changeProposalView, sourceOfProposal, targetPath, timeLeft,
+  appliedReceiptKey, byteText, changeProposalIds, changeProposalView, KNOWLEDGE_MAX_BYTES, KNOWN_KINDS, previewLines, sourceOfProposal, targetPath, timeLeft,
 } from '../../src/utils/changeProposal.js'
 import { diffLines, diffStats, splitLines, withContext } from '../../src/utils/lineDiff.js'
 import { allFiles, groupKind, indexFits, indexUse } from '../../src/utils/memoryFiles.js'
@@ -140,4 +140,23 @@ test('change proposals: a note the host saved at once says so, a confirmed one s
   const v = changeProposalView(proposal({ status: 'applied', auto: true, rev: 5 }), null, NOW)
   assert.equal(v.kind, 'applied')
   assert.equal(v.canUndo, true, 'an automatic note offers Undo')
+})
+
+test('change proposals: a knowledge change has no change set but can still be undone', () => {
+  const k = proposal({ kind: 'knowledge', target: 'manuals', status: 'applied', rev: 0 })
+  assert.equal(changeProposalView(k, null, NOW).canUndo, true)
+  assert.equal(changeProposalView(proposal({ kind: 'memory', status: 'applied', rev: 0 }), null, NOW).canUndo, false)
+  assert.equal(changeProposalView({ ...k, status: 'reverted' }, null, NOW).canUndo, false)
+  assert.ok(KNOWN_KINDS.includes('knowledge'))
+})
+
+test('change proposals: the preview of a knowledge text shows 20 lines and counts the rest', () => {
+  const text = Array.from({ length: 25 }, (_, i) => `line ${i + 1}`).join('\n') + '\n'
+  const { shown, more } = previewLines(text)
+  assert.equal(shown.length, 20)
+  assert.equal(shown[19], 'line 20')
+  assert.equal(more, 5)
+  assert.deepEqual(previewLines('one\n\n'), { shown: ['one'], more: 0 })
+  assert.deepEqual(previewLines(null), { shown: [''], more: 0 })
+  assert.equal(KNOWLEDGE_MAX_BYTES, 65536)
 })

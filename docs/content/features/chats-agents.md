@@ -280,7 +280,7 @@ empty by default, no template or import turns a grant on, and a chat of the
 agent holds only the grants you may use at that moment.
 `GET /api/chats/agents/builtin-grants` returns `{grants: [{name, title,
 description, sensitive}]}` for the editor. The names are `memory.write`,
-`profile.write`, `skills.write`, `pages.write`, `dashboard.write`,
+`profile.write`, `skills.write`, `pages.write`, `dashboard.write`, `knowledge.write`,
 `triggers.propose`, `triggers.run`, `talkback.channels`, `talkback.new_channel`,
 `files.upload`, `act.files`, `act.addons`, `act.send`, `act.spend`,
 `saved_agents` (the opt-in group of that name; granting it also switches the
@@ -291,11 +291,13 @@ watches, a messaging chat and a sub-agent never hold it; see
 [Past chats]({{%relref "features/chats#past-chats" %}})). A sensitive grant changes what the agent may do or reach later; the
 editor marks it. The five `*.write` grants let the agent propose a memory note,
 its profile, a skill, a page or a dashboard change with `propose_change`; you
-confirm every proposal, and you can undo it. The **Tools** list of the agent form
+confirm every proposal, and you can undo it. `knowledge.write` (**Add to
+knowledge**, sensitive) lets it propose a text for one of its collections; see
+[Adding to Knowledge]({{%relref "features/collections#let-an-agent-propose-a-text-for-a-collection" %}}). The **Tools** list of the agent form
 and of a chat show each grant once, as an option under the switch it refines:
 "Create and manage triggers" holds "Also propose from messaging apps" (`triggers.propose`)
 and "Let triggers start from messaging apps" (`triggers.run`); "Suggested
-changes" holds the five `*.write` grants; "Your files" holds `files.upload` and
+changes" holds the five `*.write` grants; "Knowledge" holds `knowledge.write`; "Your files" holds `files.upload` and
 `act.files`. An option is greyed, with the reason, while its switch is off, and keeps its
 stored value. `talkback.channels` and `talkback.new_channel` are in the section
 "Messaging apps", and `act.addons`, `act.send` and `act.spend` in "When nobody is

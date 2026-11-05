@@ -29,11 +29,14 @@ const (
 	ChangeSkill     ChangeKind = "skill"
 	ChangePage      ChangeKind = "page"
 	ChangeDashboard ChangeKind = "dashboard"
+	// ChangeKnowledge adds a text to a collection of the person's Knowledge.
+	// It is never applied unasked.
+	ChangeKnowledge ChangeKind = "knowledge"
 )
 
 // ChangeKinds lists every kind in a stable order.
 func ChangeKinds() []ChangeKind {
-	return []ChangeKind{ChangeMemory, ChangeProfile, ChangeSkill, ChangePage, ChangeDashboard}
+	return []ChangeKind{ChangeMemory, ChangeProfile, ChangeSkill, ChangePage, ChangeDashboard, ChangeKnowledge}
 }
 
 // ValidChangeKind reports whether s names a kind.
@@ -137,6 +140,10 @@ const (
 	// MaxPageChangeBytes is the largest content of a page proposal: all the
 	// files of the page together.
 	MaxPageChangeBytes = 256 << 10
+	// MaxKnowledgeBytes is the largest text of a knowledge proposal. The host
+	// cuts it into passages and embeds each one, so the bound is also a bound
+	// on compute.
+	MaxKnowledgeBytes = 64 << 10
 	// MaxProfileBytes is the largest agent profile.
 	MaxProfileBytes = 4 << 10
 )

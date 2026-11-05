@@ -131,3 +131,39 @@ Add the names of your collections to the `collections` list of a
 [saved agent](/features/chats-agents/). A chat with that agent can then search
 only those collections. If a listed collection is deleted, the chat still starts
 and the model is told that it is not available.
+
+## Let an agent propose a text for a collection
+
+A model can ask to add a text to a collection, for example a procedure that you
+pasted in the chat, with the `propose_change` tool and the kind `knowledge`. It
+works like any other [suggested change]({{%relref "features/chats-agents#builtin-grants" %}}),
+with these rules:
+
+- **A grant.** The agent needs the grant `knowledge.write` (**Add to knowledge**
+  in the Tools list, under **Knowledge**). It is sensitive and off by default. A
+  plain chat can propose to any of your collections; a saved agent only to the
+  collections on its own list.
+- **Always your decision.** The text is never added by the model alone, and never
+  at once, whatever your memory save level is: **Ask**, **Auto** and **Always
+  confirm** all wait for your **Confirm**. The level **Never** takes the kind
+  away. A wrong text would feed the answers of every chat that searches the
+  collection, and indexing costs compute, so there is no "save and tell me" for
+  Knowledge.
+- **What you see.** The card in **Suggested changes** names the collection and
+  shows the first 20 lines of the text and its size against the limit of 64 KiB.
+  You can edit the text before you confirm. A change waits 24 hours, and you can
+  have 10 waiting and an agent can make 5 an hour, as for the other kinds.
+- **What happens.** **Confirm** stores the text as one entry of the collection,
+  titled with the summary, and the server splits it into passages and embeds it.
+  **Undo** deletes that entry again. The embedding model must be installed;
+  without it the kind is not offered.
+- **Messaging apps.** `knowledge.write` is also a permission of a connection. It
+  is sensitive: only a sender you paired can use it, never a sender who is only
+  on the allowlist or in a listed channel. The bot writes the proposal in the
+  chat with the collection and the first lines of the text, and the paired sender
+  answers `yes`, `no` or `undo` there. The connection page explains a block with
+  the usual reasons, plus `knowledge_none` (the agent has no collection) and
+  `knowledge_no_embedding` (the embedding model is not installed).
+
+This first version takes a text. Following a URL or adding a file of your Files
+folder by proposal is not available yet; add those yourself on the Knowledge page.

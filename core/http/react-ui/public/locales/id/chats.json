@@ -423,6 +423,10 @@
         "title": "Mengubah dasbor",
         "description": "Model dapat mengusulkan tata letak baru untuk dasbor Beranda Anda. Anda mengonfirmasi setiap perubahan."
       },
+      "knowledge_write": {
+        "title": "Tambahkan ke pengetahuan",
+        "description": "Memungkinkan model mengusulkan teks untuk koleksi Pengetahuan Anda. Anda mengonfirmasi setiap teks; teks tidak pernah ditambahkan langsung."
+      },
       "triggers_propose": {
         "title": "Usulkan juga dari aplikasi pesan",
         "description": "Model dapat mengusulkan pemicu saat seseorang memintanya di aplikasi pesan. Anda mengonfirmasinya."
@@ -725,7 +729,8 @@
       "profile": "Profil",
       "skill": "Skill",
       "page": "Halaman",
-      "dashboard": "Dasbor"
+      "dashboard": "Dasbor",
+      "knowledge": "Pengetahuan"
     },
     "scope": {
       "user": "Semua obrolan Anda",
@@ -738,7 +743,8 @@
       "kind": "Jenis",
       "target": "Berkas",
       "source": "Dari",
-      "expires": "Kedaluwarsa dalam"
+      "expires": "Kedaluwarsa dalam",
+      "collection": "Koleksi"
     },
     "source": {
       "chat": "Obrolan",
@@ -787,6 +793,12 @@
       "dismissed": "Perubahan ditolak.",
       "undone": "Perubahan dibatalkan.",
       "asked": "Asisten diminta mengusulkannya lagi."
+    },
+    "knowledge": {
+      "label": "Teks untuk ditambahkan ke {{collection}}",
+      "size": "{{size}} dari maksimal {{max}}",
+      "note": "Tidak ada yang ditambahkan sebelum Anda mengonfirmasi. Teks lalu dipecah menjadi bagian dan diindeks, dan setiap chat yang mencari di koleksi ini dapat memakainya.",
+      "editLabel": "Teks untuk ditambahkan ke {{target}}"
     }
   },
   "proposalsPage": {

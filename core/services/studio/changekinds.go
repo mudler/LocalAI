@@ -232,7 +232,7 @@ func clipText(s string, n int) string {
 
 // registerChangeKinds adds the kinds that go beyond a file name to the host.
 func (c *Changes) registerChangeKinds() error {
-	for _, k := range []proposals.Kind{skillKind, pageKind, dashboardKind} {
+	for _, k := range []proposals.Kind{skillKind, pageKind, dashboardKind, c.knowledgeKind()} {
 		if err := c.kinds.Register(k); err != nil {
 			return err
 		}

@@ -88,6 +88,22 @@ test.describe('Agent form', () => {
     await expect.poll(() => s.calls.find(c => c.method === 'PUT')?.body).toMatchObject({ builtins_off: [], builtins: ['triggers.propose', 'act.files', 'triggers.run'] })
   })
 
+  test('adding to knowledge is a sensitive option under the Knowledge switch, off until the owner turns it on', async ({ page }) => {
+    const s = await installAgents(page, { agents: [{ ...AGENTS[1], builtins: ['memory.write'] }] })
+    await page.goto('/app/agents/a2/edit')
+    const panel = page.getByTestId('agent-tools-panel')
+    const options = panel.getByRole('group', { name: 'Options of Knowledge' })
+    await expect(options).toBeVisible()
+    const add = options.getByRole('switch', { name: 'Add to knowledge' })
+    await expect(add).not.toBeChecked()
+    await expect(options).toContainText('Sensitive')
+    // It is not also listed in the Suggested changes options or a section of its own.
+    await expect(panel.getByRole('switch', { name: 'Add to knowledge' })).toHaveCount(1)
+    await add.click()
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect.poll(() => s.calls.find(c => c.method === 'PUT')?.body.builtins).toEqual(['memory.write', 'knowledge.write'])
+  })
+
   test('saved agents is one switch: turning it off takes the grant away too, turning it on adds only the group', async ({ page }) => {
     const s = await installAgents(page, { agents: [{ ...AGENTS[1], builtins: ['memory.write', 'saved_agents'] }, { ...AGENTS[0], id: 'a9', name: 'plain' }] })
     await page.goto('/app/agents/a2/edit')
@@ -192,10 +208,10 @@ test.describe('Agent form', () => {
     await page.goto('/app/agents/a1/edit')
     const panel = page.getByTestId('agent-tools-panel')
     // The same words as the Tools menu of a chat: a title, a description, and
-    // the add-on's declared title instead of its id. Eight rows are the built-in
+    // the add-on's declared title instead of its id. Nine rows are the built-in
     // groups and add-ons; the others are the options and permissions under them.
     const rows = panel.getByTestId('agent-tools-item')
-    await expect(rows).toHaveCount(22)
+    await expect(rows).toHaveCount(24)
     for (const row of await rows.all()) await expect(row.getByTestId('agent-tools-blurb')).not.toBeEmpty()
     await expect(panel.getByRole('switch', { name: 'Suggested changes' })).toBeChecked()
     await expect(panel.getByRole('switch', { name: 'Office' })).toBeChecked()

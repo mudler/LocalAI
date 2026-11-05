@@ -423,6 +423,10 @@
         "title": "Dashboard ändern",
         "description": "Das Modell kann ein neues Layout für dein Home-Dashboard vorschlagen. Du bestätigst jede Änderung."
       },
+      "knowledge_write": {
+        "title": "Zum Wissen hinzufügen",
+        "description": "Erlaubt dem Modell, einen Text für eine Sammlung deines Wissens vorzuschlagen. Du bestätigst jeden einzelnen; er wird nie sofort hinzugefügt."
+      },
       "triggers_propose": {
         "title": "Auch aus Messaging-Apps vorschlagen",
         "description": "Das Modell kann einen Trigger vorschlagen, wenn jemand in einer Messaging-App danach fragt. Du bestätigst ihn."
@@ -725,7 +729,8 @@
       "profile": "Profil",
       "skill": "Skill",
       "page": "Seite",
-      "dashboard": "Dashboard"
+      "dashboard": "Dashboard",
+      "knowledge": "Wissen"
     },
     "scope": {
       "user": "Alle deine Chats",
@@ -738,7 +743,8 @@
       "kind": "Art",
       "target": "Datei",
       "source": "Von",
-      "expires": "Läuft ab in"
+      "expires": "Läuft ab in",
+      "collection": "Sammlung"
     },
     "source": {
       "chat": "Ein Chat",
@@ -787,6 +793,12 @@
       "dismissed": "Änderung abgelehnt.",
       "undone": "Änderung rückgängig gemacht.",
       "asked": "Der Assistent wurde gebeten, es erneut vorzuschlagen."
+    },
+    "knowledge": {
+      "label": "Text zum Hinzufügen zu {{collection}}",
+      "size": "{{size}} von höchstens {{max}}",
+      "note": "Nichts wird hinzugefügt, bevor du bestätigst. Der Text wird dann in Abschnitte geteilt und indexiert, und jeder Chat, der diese Sammlung durchsucht, kann ihn nutzen.",
+      "editLabel": "Text zum Hinzufügen zu {{target}}"
     }
   },
   "proposalsPage": {

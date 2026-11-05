@@ -2600,7 +2600,7 @@ The manifest declares the capability. It needs no tool and no `service` flag:
 | `kinds[].options` | Optional, manifest `api` 2, at most 4. A choice that each binding of the kind makes: `{"id", "title", "description", "values": [{"id", "title"}], "default"}` with 2 to 8 values and a default among them. The host shows the choice on the binding page, checks the owner's value against the declaration, stores it, and sends the value in effect to the add-on in `options` of every `poll`. What the option means is the add-on's own rule. |
 | `kinds[].files` | Optional. The files the kind can receive and send, with a limit for each. Needs manifest `api` 2. See [File abilities and limits](#file-abilities-and-limits). |
 | `kinds[].roles` | Optional, manifest `api` 2, at most 8. A role the kind can give to a sender: `{"id", "title", "description"}`, with an `id` in the same form as a kind `id`. The add-on owns the membership (for example, the admins of a workspace) and sends the role IDs of the sender in `roles` of each message, at most 8. The host drops a role the kind does not declare, and all roles for a kind that declares none. The owner of a binding maps each role to capabilities in the host. |
-| `kinds[].permissions` | Optional, manifest `api` 2, at most 12. The capabilities the kind can grant to a role, from the host's closed list: `proposals.confirm`, `memory.write`, `files.upload`, `triggers.propose`, `triggers.run`, `talkback.channels` and the sensitive `talkback.new_channel`, `profile.write`, `skills.write`, `pages.write`, `dashboard.write`. An unknown name is refused. A sensitive name may be listed, but it is never granted to a role: only a sender that the owner paired can use it. |
+| `kinds[].permissions` | Optional, manifest `api` 2, at most 13. The capabilities the kind can grant to a role, from the host's closed list: `proposals.confirm`, `memory.write`, `files.upload`, `triggers.propose`, `triggers.run`, `talkback.channels` and the sensitive `talkback.new_channel`, `profile.write`, `skills.write`, `pages.write`, `dashboard.write`, `knowledge.write`. An unknown name is refused. A sensitive name may be listed, but it is never granted to a role: only a sender that the owner paired can use it. |
 
 **Outbound: the connector route.** The host calls `POST /connector` on the add-on
 with the same bearer credential and incarnation header as every other route and a body
@@ -2855,8 +2855,8 @@ Limits and safety:
 | Chat that runs a saved agent | refused until the owner grants the kind (see below) |
 
 A saved agent proposes a kind only when its `builtins` list holds the grant of
-that kind: `memory.write`, `profile.write`, `skills.write`, `pages.write` or
-`dashboard.write`. The tool exists in a chat when the agent holds the grant, the
+that kind: `memory.write`, `profile.write`, `skills.write`, `pages.write`,
+`dashboard.write` or `knowledge.write`. The tool exists in a chat when the agent holds the grant, the
 user may still use it and the chat did not switch the `changes` group off; its
 schema lists only the kinds the chat holds. A plain chat holds what its user
 may use. A run that started by itself never holds a grant. `GET

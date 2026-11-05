@@ -11,6 +11,9 @@ export const SAVED_AGENTS_GROUP = 'saved_agents'
 export const GROUP_OPTIONS = {
   triggers: ['triggers.propose', 'triggers.run'],
   changes: ['memory.write', 'profile.write', 'skills.write', 'pages.write', 'dashboard.write'],
+  // The grant to add a text to a collection sits under the Knowledge switch,
+  // where the collections are.
+  collections: ['knowledge.write'],
   files: ['files.upload', 'act.files'],
 }
 
@@ -24,7 +27,7 @@ export const GRANT_SECTIONS = [
 // The grants a messaging connection also has to allow on its own permissions
 // page (the capabilities of a binding). The act.* grants are the agent's alone.
 export const BINDING_CAPS = new Set([
-  'memory.write', 'profile.write', 'skills.write', 'pages.write', 'dashboard.write',
+  'memory.write', 'profile.write', 'skills.write', 'pages.write', 'dashboard.write', 'knowledge.write',
   'files.upload', 'triggers.propose', 'triggers.run', 'talkback.channels', 'talkback.new_channel',
 ])
 

@@ -54,6 +54,8 @@ func kindWords(v hostmsg.Voice, k contract.ChangeKind) string {
 		return v.T("change.kind.page")
 	case contract.ChangeDashboard:
 		return v.T("change.kind.dashboard")
+	case contract.ChangeKnowledge:
+		return v.T("change.kind.knowledge")
 	}
 	return v.T("change.kind.other")
 }
@@ -110,6 +112,11 @@ func (h *Changes) proposalChatText(ctx context.Context, v hostmsg.Voice, p contr
 		switch p.Kind {
 		case contract.ChangePage:
 			shown = v.T("change.page_files")
+		case contract.ChangeKnowledge:
+			// The text is new to the collection: show its first lines.
+			if lines := addedLines("", p.Content); len(lines) > 0 {
+				shown = excerptOf(lines)
+			}
 		default:
 			if st, err := h.snapshot(ctx, p.Owner, kind, p.Target, p.Content); err == nil {
 				if add := addedLines(st.current, p.Content); len(add) > 0 {
@@ -121,7 +128,11 @@ func (h *Changes) proposalChatText(ctx context.Context, v hostmsg.Voice, p contr
 		}
 	}
 	var b strings.Builder
-	b.WriteString(v.T("change.propose", "kind", kindWords(v, p.Kind), "scope", scopeWords(v, p.Scope), "summary", p.Summary))
+	if p.Kind == contract.ChangeKnowledge {
+		b.WriteString(v.T("change.propose_knowledge", "collection", p.Target, "summary", p.Summary))
+	} else {
+		b.WriteString(v.T("change.propose", "kind", kindWords(v, p.Kind), "scope", scopeWords(v, p.Scope), "summary", p.Summary))
+	}
 	if shown != "" {
 		b.WriteString("\n" + shown)
 	}
@@ -278,8 +289,11 @@ func (c *Connectors) answerChange(ctx context.Context, b connectors.Binding, m c
 		return v.T("proposal.failed", "error", changeErr(err)), true
 	}
 	key := "change.done"
-	if done.Kind == contract.ChangeMemory {
+	switch done.Kind {
+	case contract.ChangeMemory:
 		key = "change.saved"
+	case contract.ChangeKnowledge:
+		return v.T("change.knowledge_done", "collection", done.Target, "summary", done.Summary, "minutes", int(cancelWindow/time.Minute)), true
 	}
 	return v.T(key, "summary", done.Summary, "minutes", int(cancelWindow/time.Minute)), true
 }

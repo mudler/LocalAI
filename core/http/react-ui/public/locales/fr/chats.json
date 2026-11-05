@@ -423,6 +423,10 @@
         "title": "Changer le tableau de bord",
         "description": "Le modèle peut proposer une nouvelle disposition de votre tableau de bord d'accueil. Vous confirmez chaque changement."
       },
+      "knowledge_write": {
+        "title": "Ajouter à la connaissance",
+        "description": "Permet au modèle de proposer un texte pour une collection de votre Connaissance. Vous confirmez chaque texte ; il n'est jamais ajouté immédiatement."
+      },
       "triggers_propose": {
         "title": "Proposer aussi depuis les applications de messagerie",
         "description": "Le modèle peut proposer un déclencheur quand quelqu'un le demande dans une application de messagerie. Vous le confirmez."
@@ -725,7 +729,8 @@
       "profile": "Profil",
       "skill": "Skill",
       "page": "Page",
-      "dashboard": "Tableau de bord"
+      "dashboard": "Tableau de bord",
+      "knowledge": "Connaissance"
     },
     "scope": {
       "user": "Toutes vos conversations",
@@ -738,7 +743,8 @@
       "kind": "Type",
       "target": "Fichier",
       "source": "De",
-      "expires": "Expire dans"
+      "expires": "Expire dans",
+      "collection": "Collection"
     },
     "source": {
       "chat": "Une conversation",
@@ -787,6 +793,12 @@
       "dismissed": "Modification refusée.",
       "undone": "Modification annulée.",
       "asked": "L'assistant a été prié de la proposer à nouveau."
+    },
+    "knowledge": {
+      "label": "Texte à ajouter à {{collection}}",
+      "size": "{{size}} sur {{max}} au maximum",
+      "note": "Rien n'est ajouté tant que vous n'avez pas confirmé. Le texte est ensuite découpé en passages et indexé, et tout chat qui interroge cette collection peut l'utiliser.",
+      "editLabel": "Texte à ajouter à {{target}}"
     }
   },
   "proposalsPage": {

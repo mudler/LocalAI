@@ -423,6 +423,10 @@
         "title": "대시보드 변경",
         "description": "모델이 홈 대시보드의 새 레이아웃을 제안할 수 있습니다. 변경마다 직접 확인합니다."
       },
+      "knowledge_write": {
+        "title": "지식에 추가",
+        "description": "모델이 지식의 컬렉션에 넣을 텍스트를 제안할 수 있게 합니다. 하나씩 직접 확인하며, 바로 추가되는 일은 없습니다."
+      },
       "triggers_propose": {
         "title": "메신저 앱에서도 제안",
         "description": "누군가 메신저 앱에서 요청하면 모델이 트리거를 제안할 수 있습니다. 직접 확인합니다."
@@ -725,7 +729,8 @@
       "profile": "프로필",
       "skill": "스킬",
       "page": "페이지",
-      "dashboard": "대시보드"
+      "dashboard": "대시보드",
+      "knowledge": "지식"
     },
     "scope": {
       "user": "내 모든 채팅",
@@ -738,7 +743,8 @@
       "kind": "종류",
       "target": "파일",
       "source": "출처",
-      "expires": "만료까지"
+      "expires": "만료까지",
+      "collection": "컬렉션"
     },
     "source": {
       "chat": "채팅",
@@ -787,6 +793,12 @@
       "dismissed": "변경을 거절했습니다.",
       "undone": "변경을 되돌렸습니다.",
       "asked": "어시스턴트에게 다시 제안하도록 요청했습니다."
+    },
+    "knowledge": {
+      "label": "{{collection}}에 추가할 텍스트",
+      "size": "최대 {{max}} 중 {{size}}",
+      "note": "확인하기 전에는 아무것도 추가되지 않습니다. 확인하면 텍스트가 구절로 나뉘어 색인되며, 이 컬렉션을 검색하는 모든 채팅에서 사용할 수 있습니다.",
+      "editLabel": "{{target}}에 추가할 텍스트"
     }
   },
   "proposalsPage": {

@@ -44,8 +44,10 @@ import (
 //     when the person said ask.
 //   - never applies to every origin: it is the person's choice, and refusing is
 //     the narrow side.
-//   - Only the memory kind reads the setting. Profile, skill, page and
-//     dashboard changes always ask.
+//   - Only the memory kind reads the setting to decide how it is saved.
+//     Profile, skill, page, dashboard and knowledge changes always ask.
+//     Never also takes the knowledge kind away; Always confirm changes
+//     nothing for it, since it always asks.
 //
 // The setting belongs to an add-on, not to the host: an add-on declares a user
 // setting with the role contract.UserSettingRoleMemorySave in its manifest,
@@ -382,9 +384,14 @@ func memoryKindOf(kind string) bool { return kind == string(contract.ChangeMemor
 
 // withoutMemory removes the memory kind from a list.
 func withoutMemory(kinds []contract.ChangeKind) []contract.ChangeKind {
+	return withoutKind(kinds, contract.ChangeMemory)
+}
+
+// withoutKind returns the kinds without one.
+func withoutKind(kinds []contract.ChangeKind, drop contract.ChangeKind) []contract.ChangeKind {
 	out := make([]contract.ChangeKind, 0, len(kinds))
 	for _, k := range kinds {
-		if k != contract.ChangeMemory {
+		if k != drop {
 			out = append(out, k)
 		}
 	}

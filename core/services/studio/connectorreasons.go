@@ -49,13 +49,20 @@ const (
 	// CodeContextRule: the capability is held but this place or thread is not
 	// one the feature allows.
 	CodeContextRule = "context_rule"
+	// CodeKnowledgeNone: the agent has no collection on its list, so there is
+	// nowhere to add a text.
+	CodeKnowledgeNone = "knowledge_none"
+	// CodeKnowledgeNoEmbedding: the model that indexes Knowledge is not
+	// installed on the server.
+	CodeKnowledgeNoEmbedding = "knowledge_no_embedding"
 )
 
 // BlockCodes lists every code, in the order of the chain.
 func BlockCodes() []string {
 	return []string{CodeNoAgent, CodeUnknownCapability, CodeServerSettingOff, CodeToolsSwitchOff, CodeAgentPermissionOff,
 		CodeAgentUnavailable, CodeConnectionPermissionOff, CodeSenderNotListed, CodeSenderNeedsPairing,
-		CodeChannelNotTrusted, CodeRoleNotGranted, CodeKindNotRunning, CodeContextRule}
+		CodeChannelNotTrusted, CodeRoleNotGranted, CodeKindNotRunning, CodeContextRule,
+		CodeKnowledgeNone, CodeKnowledgeNoEmbedding}
 }
 
 // Who holds the link of the chain that refused.
@@ -160,6 +167,12 @@ var blockTable = map[string]blockInfo{
 	CodeKindNotRunning: {BySender,
 		"The app for this connection is not running, so roles cannot be checked. Start the app.",
 		"The app for this bot is not running, so it cannot check what you may do."},
+	CodeKnowledgeNone: {ByAgent,
+		"No collection is on the list of the agent, so the bot has nowhere to {action}. Add a collection to the agent.",
+		"This bot has no collection to {action} yet."},
+	CodeKnowledgeNoEmbedding: {ByServer,
+		"The embedding model for Knowledge is not installed, so the bot cannot {action}. Install it in Models.",
+		"The server cannot index new texts right now, so the bot cannot {action}."},
 	CodeContextRule: {ByConnection,
 		"The bot cannot {action} in this place.",
 		"This bot cannot {action} in this place."},
@@ -184,6 +197,7 @@ var capabilityWords = map[string]capabilityPhrase{
 	contract.CapSkillsWrite:      {"save skills", "saving skills"},
 	contract.CapPagesWrite:       {"publish pages", "publishing pages"},
 	contract.CapDashboardWrite:   {"change the dashboard", "changing the dashboard"},
+	contract.CapKnowledgeWrite:   {"write to knowledge", "writing to knowledge"},
 	contract.CapToolsWrite:       {"change things in other services with add-on tools", "changes made by add-on tools"},
 }
 

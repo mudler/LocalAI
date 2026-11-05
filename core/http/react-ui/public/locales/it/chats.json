@@ -423,6 +423,10 @@
         "title": "Cambiare la dashboard",
         "description": "Il modello può proporre un nuovo layout della tua dashboard Home. Confermi tu ogni modifica."
       },
+      "knowledge_write": {
+        "title": "Aggiungi alla conoscenza",
+        "description": "Permette al modello di proporre un testo per una raccolta della tua Conoscenza. Confermi ogni testo; non viene mai aggiunto subito."
+      },
       "triggers_propose": {
         "title": "Proponi anche dalle app di messaggistica",
         "description": "Il modello può proporre un trigger quando qualcuno lo chiede in un'app di messaggistica. Lo confermi tu."
@@ -725,7 +729,8 @@
       "profile": "Profilo",
       "skill": "Skill",
       "page": "Pagina",
-      "dashboard": "Dashboard"
+      "dashboard": "Dashboard",
+      "knowledge": "Conoscenza"
     },
     "scope": {
       "user": "Tutte le tue chat",
@@ -738,7 +743,8 @@
       "kind": "Tipo",
       "target": "File",
       "source": "Da",
-      "expires": "Scade tra"
+      "expires": "Scade tra",
+      "collection": "Raccolta"
     },
     "source": {
       "chat": "Una chat",
@@ -787,6 +793,12 @@
       "dismissed": "Modifica rifiutata.",
       "undone": "Modifica annullata.",
       "asked": "Ho chiesto all'assistente di riproporla."
+    },
+    "knowledge": {
+      "label": "Testo da aggiungere a {{collection}}",
+      "size": "{{size}} su un massimo di {{max}}",
+      "note": "Non viene aggiunto nulla finché non confermi. Poi il testo viene diviso in passaggi e indicizzato, e ogni chat che cerca in questa raccolta può usarlo.",
+      "editLabel": "Testo da aggiungere a {{target}}"
     }
   },
   "proposalsPage": {

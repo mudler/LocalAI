@@ -9,7 +9,7 @@ import (
 // Limits of the permissions of a connector kind.
 const (
 	MaxConnectorRoles       = 8
-	MaxConnectorPermissions = 12
+	MaxConnectorPermissions = 13
 	// MaxMessageRoles is how many role IDs one ConnectorMessage carries.
 	MaxMessageRoles = 8
 )
@@ -29,6 +29,9 @@ const (
 	CapSkillsWrite      = "skills.write"
 	CapPagesWrite       = "pages.write"
 	CapDashboardWrite   = "dashboard.write"
+	// CapKnowledgeWrite lets a sender have the agent propose a text for the
+	// person's Knowledge. The owner still confirms each one.
+	CapKnowledgeWrite = "knowledge.write"
 	// CapToolsWrite lets a sender make an add-on tool change something outside
 	// LocalAI, such as a comment on an issue. It is for the tools of a kind
 	// whose binding holds a credential.
@@ -49,6 +52,7 @@ var capabilities = map[string]bool{
 	CapSkillsWrite:      true,
 	CapPagesWrite:       true,
 	CapDashboardWrite:   true,
+	CapKnowledgeWrite:   true,
 	CapToolsWrite:       false,
 }
 
@@ -83,7 +87,7 @@ type CapabilityInfo struct {
 // capabilityText is the title and description of each capability. Titles are
 // short verbs; descriptions say what changes and who can cause it.
 var capabilityText = map[string][2]string{
-	CapProposalsConfirm: {"Confirm changes from the chat", "A sender can confirm a trigger or a change that the agent proposed (a memory note, the agent rules, a skill, a page or the dashboard) by answering yes or no in the same chat. Changes to the rules, skills, pages and dashboard need a paired sender."},
+	CapProposalsConfirm: {"Confirm changes from the chat", "A sender can confirm a trigger or a change that the agent proposed (a memory note, the agent rules, a skill, a page, the dashboard or a text for Knowledge) by answering yes or no in the same chat. Every change except a memory note needs a paired sender."},
 	CapMemoryWrite:      {"Save to memory", "The agent may remember what a sender asks it to remember."},
 	CapFilesUpload:      {"Receive files", "The agent may read files that senders attach to a message."},
 	CapTriggersPropose:  {"Propose triggers", "The agent may propose a timer or an event trigger when a sender asks for one."},
@@ -94,6 +98,7 @@ var capabilityText = map[string][2]string{
 	CapSkillsWrite:      {"Write skills", "The agent may write or change skills."},
 	CapPagesWrite:       {"Write pages", "The agent may write or change pages."},
 	CapDashboardWrite:   {"Write the dashboard", "The agent may change the dashboard."},
+	CapKnowledgeWrite:   {"Add to knowledge", "The agent may propose a text for a collection of the Knowledge. The owner confirms each one."},
 	CapToolsWrite:       {"Change things outside LocalAI", "An add-on tool may change something with the credential of the binding, such as a comment on an issue."},
 }
 

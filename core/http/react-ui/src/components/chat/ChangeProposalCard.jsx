@@ -3,7 +3,8 @@ import { useCallback, useContext, useEffect, useId, useMemo, useState } from 're
 import { Link } from 'react-router-dom'
 import { chatChangesApi, filesApi } from '../../utils/api'
 import {
-  appliedReceiptKey, byteText, CHANGES_EVENT, changeProposalView, KNOWN_KINDS, KNOWN_SCOPES, scopeOfProposal, sourceOfProposal, targetPath, timeLeft,
+  appliedReceiptKey, byteText, CHANGES_EVENT, changeProposalView, KNOWLEDGE_MAX_BYTES, KNOWN_KINDS, KNOWN_SCOPES, previewLines, scopeOfProposal, sourceOfProposal,
+  targetPath, timeLeft, writesElsewhere,
 } from '../../utils/changeProposal'
 import { diffLines, diffStats, withContext } from '../../utils/lineDiff'
 import Icon from '../Icon'
@@ -80,6 +81,27 @@ function Diff({ before, after, target, t }) {
   )
 }
 
+// The text a knowledge change would add to a collection: its first lines, how
+// big it is against the cap, and what happens when it is confirmed. There is no
+// file to compare it with, so no diff is drawn.
+function KnowledgePreview({ p, t }) {
+  const text = p.content || ''
+  const { shown, more } = previewLines(text)
+  const size = new TextEncoder().encode(text).length
+  return (
+    <div className="cp-diff cp-knowledge" role="group" aria-label={t('changes.knowledge.label', { collection: p.target })} data-testid="change-knowledge-preview">
+      <p className="cp-diff__stat" data-testid="change-knowledge-size">{t('changes.knowledge.size', { size: byteText(size), max: byteText(KNOWLEDGE_MAX_BYTES) })}</p>
+      <ul className="cp-diff__lines">
+        {shown.map((line, i) => (
+          <li key={i} className="cp-diff__line" data-op="same"><code className="cp-diff__text">{line || ' '}</code></li>
+        ))}
+        {more > 0 && <li className="cp-diff__gap" data-op="gap">{t('changes.diff.more', { count: more })}</li>}
+      </ul>
+      <p className="cx-help">{t('changes.knowledge.note')}</p>
+    </div>
+  )
+}
+
 // A change that a model proposed to something that lasts (a memory note, an
 // agent profile, and the kinds that come later), drawn for any kind and any
 // source: a tool line whose card is of kind change_proposal (card.id is the
@@ -108,7 +130,7 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
       v = changeProposalView(null, e)
     }
     setView(v)
-    if (v.kind === 'pending') {
+    if (v.kind === 'pending' && !writesElsewhere(v.proposal)) {
       try {
         setCurrent(await filesApi.readText(targetPath(v.proposal), MAX_READ))
       } catch (e) {
@@ -161,7 +183,13 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
 
   const p = view.proposal
   const target = p.target || ''
-  const meta = [
+  const knowledge = writesElsewhere(p)
+  // A knowledge change belongs to the person and names a collection, not a file.
+  const meta = knowledge ? [
+    ['kind', t('changes.row.kind'), kindName(p, t)],
+    ['target', t('changes.row.collection'), <code key="c">{target}</code>],
+    ['source', t('changes.row.source'), sourceName(p, t)],
+  ] : [
     ['kind', t('changes.row.kind'), `${kindName(p, t)} · ${scopeName(p, t)}`],
     ['target', t('changes.row.target'), <code key="c">{target}</code>],
     ['source', t('changes.row.source'), sourceName(p, t)],
@@ -173,7 +201,7 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
         <Icon name="check-circle" className="cx-receipt__icon" />
         <div className="cx-receipt__main">
           <p className="cx-receipt__line"><b>{t(appliedReceiptKey(p))}</b> <span data-testid="change-summary">{p.summary}</span></p>
-          <p className="cx-receipt__sub"><span>{kindName(p, t)} · {scopeName(p, t)}</span><code>{target}</code></p>
+          <p className="cx-receipt__sub"><span>{knowledge ? kindName(p, t) : `${kindName(p, t)} · ${scopeName(p, t)}`}</span><code>{target}</code></p>
           {alert}
         </div>
         <span className="cx-receipt__acts">
@@ -223,17 +251,16 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
         ))}
         {expiry && <div className="cx-plan__row" data-row="expires"><dt>{t('changes.row.expires')}</dt><dd>{expiry}</dd></div>}
       </dl>
-      {current === undefined ? null : (edit === null
-        ? <Diff before={current ?? ''} after={p.content || ''} target={target} t={t} />
-        : null)}
-      {current === null && <p className="cx-help">{t('changes.unreadFile')}</p>}
+      {knowledge && edit === null && <KnowledgePreview p={p} t={t} />}
+      {!knowledge && current !== undefined && edit === null && <Diff before={current ?? ''} after={p.content || ''} target={target} t={t} />}
+      {!knowledge && current === null && <p className="cx-help">{t('changes.unreadFile')}</p>}
       {edit !== null ? (
         <form
           className="cx-proposal__edit cp-edit"
           onSubmit={(e) => { e.preventDefault(); act('confirm', () => chatChangesApi.confirm(p.id, edit), t('changes.announce.applied')) }}
           onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setEdit(null) } }}
         >
-          <label className="cx-field__label" htmlFor={`${uid}-text`}>{t('changes.editLabel', { target })}</label>
+          <label className="cx-field__label" htmlFor={`${uid}-text`}>{t(knowledge ? 'changes.knowledge.editLabel' : 'changes.editLabel', { target })}</label>
           <textarea
             id={`${uid}-text`} className="cx-in cp-edit__text" rows={Math.min(14, Math.max(5, edit.split('\n').length + 1))}
             value={edit} spellCheck={false} autoFocus data-testid="change-edit-text"

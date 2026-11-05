@@ -423,6 +423,10 @@
         "title": "修改仪表板",
         "description": "模型可以提议你首页仪表板的新布局。每次修改由你确认。"
       },
+      "knowledge_write": {
+        "title": "添加到知识库",
+        "description": "允许模型为你的知识库中的某个集合提出一段文本。每一条都由你确认，绝不会立即添加。"
+      },
       "triggers_propose": {
         "title": "也可从消息应用提议",
         "description": "有人在消息应用中提出请求时，模型可以提议触发器。由你确认。"
@@ -725,7 +729,8 @@
       "profile": "配置文件",
       "skill": "技能",
       "page": "页面",
-      "dashboard": "仪表板"
+      "dashboard": "仪表板",
+      "knowledge": "知识库"
     },
     "scope": {
       "user": "你的所有聊天",
@@ -738,7 +743,8 @@
       "kind": "类型",
       "target": "文件",
       "source": "来源",
-      "expires": "剩余时间"
+      "expires": "剩余时间",
+      "collection": "集合"
     },
     "source": {
       "chat": "聊天",
@@ -787,6 +793,12 @@
       "dismissed": "更改已拒绝。",
       "undone": "更改已撤销。",
       "asked": "已请助手重新提议。"
+    },
+    "knowledge": {
+      "label": "要添加到 {{collection}} 的文本",
+      "size": "{{size}}，上限 {{max}}",
+      "note": "确认之前不会添加任何内容。确认后文本会被切分为段落并建立索引，所有搜索此集合的聊天都能使用它。",
+      "editLabel": "要添加到 {{target}} 的文本"
     }
   },
   "proposalsPage": {

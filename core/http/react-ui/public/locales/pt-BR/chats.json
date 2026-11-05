@@ -423,6 +423,10 @@
         "title": "Alterar o painel",
         "description": "O modelo pode propor um novo layout do seu painel inicial. Você confirma cada alteração."
       },
+      "knowledge_write": {
+        "title": "Adicionar ao conhecimento",
+        "description": "Permite que o modelo proponha um texto para uma coleção do seu Conhecimento. Você confirma cada um; ele nunca é adicionado na hora."
+      },
       "triggers_propose": {
         "title": "Propor também de aplicativos de mensagens",
         "description": "O modelo pode propor um gatilho quando alguém pede em um aplicativo de mensagens. Você o confirma."
@@ -725,7 +729,8 @@
       "profile": "Perfil",
       "skill": "Skill",
       "page": "Página",
-      "dashboard": "Painel"
+      "dashboard": "Painel",
+      "knowledge": "Conhecimento"
     },
     "scope": {
       "user": "Todos os seus chats",
@@ -738,7 +743,8 @@
       "kind": "Tipo",
       "target": "Arquivo",
       "source": "De",
-      "expires": "Expira em"
+      "expires": "Expira em",
+      "collection": "Coleção"
     },
     "source": {
       "chat": "Um chat",
@@ -787,6 +793,12 @@
       "dismissed": "Alteração dispensada.",
       "undone": "Alteração desfeita.",
       "asked": "O assistente foi solicitado a propor de novo."
+    },
+    "knowledge": {
+      "label": "Texto a adicionar em {{collection}}",
+      "size": "{{size}} de no máximo {{max}}",
+      "note": "Nada é adicionado até você confirmar. Depois o texto é dividido em trechos e indexado, e qualquer chat que busque nesta coleção pode usá-lo.",
+      "editLabel": "Texto a adicionar em {{target}}"
     }
   },
   "proposalsPage": {

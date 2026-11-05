@@ -523,6 +523,10 @@
         "title": "Change the dashboard",
         "description": "Lets the model propose a new layout for your Home dashboard. You confirm each change."
       },
+      "knowledge_write": {
+        "title": "Add to knowledge",
+        "description": "Lets the model propose a text for a collection of your Knowledge. You confirm each one; it is never added at once."
+      },
       "triggers_propose": {
         "title": "Also propose from messaging apps",
         "description": "Lets the model propose a trigger when someone asks in a messaging app. You confirm it."
@@ -1047,7 +1051,8 @@
       "profile": "Profile",
       "skill": "Skill",
       "page": "Page",
-      "dashboard": "Dashboard"
+      "dashboard": "Dashboard",
+      "knowledge": "Knowledge"
     },
     "scope": {
       "user": "All your chats",
@@ -1060,7 +1065,8 @@
       "kind": "Kind",
       "target": "File",
       "source": "From",
-      "expires": "Expires in"
+      "expires": "Expires in",
+      "collection": "Collection"
     },
     "source": {
       "chat": "A chat",
@@ -1109,6 +1115,12 @@
       "dismissed": "Change dismissed.",
       "undone": "Change undone.",
       "asked": "Asked the assistant to propose it again."
+    },
+    "knowledge": {
+      "label": "Text to add to {{collection}}",
+      "size": "{{size}} of at most {{max}}",
+      "note": "Nothing is added until you confirm. The text is then split into passages and indexed, and every chat that searches this collection can use it.",
+      "editLabel": "Text to add to {{target}}"
     }
   },
   "proposalsPage": {

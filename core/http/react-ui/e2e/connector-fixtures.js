@@ -56,7 +56,7 @@ const WORDS = {
   'triggers.propose': 'set reminders and scheduled tasks', 'triggers.run': 'run scheduled tasks',
   'talkback.channels': 'write to other channels', 'talkback.new_channel': 'start conversations in new channels',
   'profile.write': "change the agent's rules", 'skills.write': 'save skills', 'pages.write': 'publish pages',
-  'dashboard.write': 'change the dashboard', 'tools.write': 'change things in other services with add-on tools',
+  'dashboard.write': 'change the dashboard', 'knowledge.write': 'write to knowledge', 'tools.write': 'change things in other services with add-on tools',
 }
 
 export function previewFor(body, roles = []) {

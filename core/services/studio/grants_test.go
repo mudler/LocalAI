@@ -65,7 +65,7 @@ var _ = Describe("builtin grants", func() {
 				Expect(g.Title).NotTo(BeEmpty(), g.Name)
 				Expect(g.Description).NotTo(BeEmpty(), g.Name)
 			}
-			Expect(names).To(Equal([]string{"memory.write", "profile.write", "skills.write", "pages.write", "dashboard.write",
+			Expect(names).To(Equal([]string{"memory.write", "profile.write", "skills.write", "pages.write", "dashboard.write", "knowledge.write",
 				"triggers.propose", "triggers.run", "talkback.channels", "talkback.new_channel", "files.upload",
 				"act.files", "act.addons", "act.send", "act.spend", "saved_agents", "history.read"}))
 		})
