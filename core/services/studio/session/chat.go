@@ -50,7 +50,18 @@ type Message struct {
 	// the person; the model gets Text as a user message.
 	Goal     bool
 	GoalTurn int
+	// Resume makes the turn go on from where the last one failed. The
+	// transcript and the model's own state are not touched: the model gets
+	// ResumePrompt as a message of the host, which the transcript does not
+	// keep. Any waiting text of Text goes first, as a message of the person.
+	Resume bool
 }
+
+// ResumePrompt is what the model gets when a failed turn goes on. The model
+// has the transcript of the failed turn, with the failure noted at its end.
+const ResumePrompt = "(System note: your last request stopped on an error before it finished. " +
+	"Go on from where you stopped. Keep what you already did and do not repeat a tool call that has a result. " +
+	"If the last step did not finish, do that step again, then finish the request.)"
 
 // withDirective puts the directive of a message before the text the model gets.
 func withDirective(directive, text string) string {
@@ -661,8 +672,13 @@ func (c *Chat) Send(ctx context.Context, msg Message) error { return c.send(ctx,
 // send is Send. logged is true when the message is in the transcript already.
 func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	text := strings.TrimSpace(msg.Text)
-	if text == "" && msg.Note == "" && len(msg.Files) == 0 && len(msg.Attachments) == 0 && msg.Directive == "" {
+	if text == "" && msg.Note == "" && len(msg.Files) == 0 && len(msg.Attachments) == 0 && msg.Directive == "" && !msg.Resume {
 		return fmt.Errorf("%w: empty message", ErrInvalid)
+	}
+	if msg.Resume && !logged && text == "" && msg.Note == "" && len(msg.Files) == 0 && len(msg.Attachments) == 0 {
+		// Nothing of the person's goes in the transcript: the turn goes on
+		// from it as it is.
+		logged = true
 	}
 	entry := Entry{Role: RoleUser, Text: text, Note: msg.Note, Attachments: msg.Attachments, Loop: msg.Loop, Invoked: msg.Invoked}
 	if msg.Goal {
@@ -686,6 +702,10 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 		}
 	}
 	if c.running {
+		if msg.Resume {
+			c.mu.Unlock()
+			return fmt.Errorf("%w: a turn is running", ErrTurnRunning)
+		}
 		if c.stopped {
 			// Stop was called and the turn has not ended: a message would be
 			// queued and then dropped.
@@ -755,7 +775,14 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	// The transcript keeps the words and the files apart; the model gets
 	// them together, as it always has.
 	entry.Attachments = append(slices.Clip(entry.Attachments), saved...)
-	full := strings.Join(append(carried, withDirective(msg.Directive, c.modelText(entry))), "\n\n")
+	parts := append(carried, withDirective(msg.Directive, c.modelText(entry)))
+	if msg.Resume {
+		if text == "" && msg.Note == "" && len(msg.Attachments) == 0 && len(saved) == 0 {
+			parts = carried // no words of the person; only the note below
+		}
+		parts = append(parts, ResumePrompt)
+	}
+	full := strings.Join(parts, "\n\n")
 	if !logged {
 		entry.Turn = c.turnNow() + 1
 		c.appendEntry(ctx, entry)
@@ -903,6 +930,8 @@ func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 	c.endMu.Unlock()
 	note := ""
 	var turnErr error
+	// failure is why the turn ended, when an error ended it.
+	var failure *Failure
 	if !skip {
 		var hookRefresh bool
 		note, hookRefresh, turnErr = c.applyChatTools(ctx, text)
@@ -943,11 +972,17 @@ func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 		if err != nil && !(stopped && (errors.Is(err, context.Canceled) || ctx.Err() != nil)) {
 			c.m.log.Error("session: the harness failed", "chat", c.id, "turn", n, "error", err)
 			f := Classify(err)
+			failure = &f
 			c.emit(Event{Kind: KindError, Turn: n, Text: f.Reason, Code: f.Code, Model: f.Model, Retry: f.RetryAfter, Detail: f.Detail, Fatal: true})
 		}
 	}
 	c.flushReasoning(context.Background(), n)
 	c.flushText(context.Background(), n)
+	if failure != nil {
+		// After the words and the steps of the turn: a reload reads the same
+		// transcript, with the reason at its end.
+		c.appendEntry(context.Background(), FailureEntry(n, *failure))
+	}
 
 	ch := c.checkpoint(n, text)
 	c.appendEntry(context.Background(), Entry{Turn: n, Role: RoleCheckpoint, Rev: ch.Rev, Text: strings.Join(ch.Paths, "\n")})
@@ -983,7 +1018,11 @@ func (c *Chat) checkpoint(n int, text string) ChangeEvent {
 	if c.vm.sb == nil {
 		return ChangeEvent{}
 	}
-	title := fmt.Sprintf("Turn %d: %s", n, CapText(strings.SplitN(text, "\n", 2)[0], 60))
+	first := strings.SplitN(text, "\n", 2)[0]
+	if strings.HasPrefix(text, ResumePrompt) {
+		first = "go on after an error"
+	}
+	title := fmt.Sprintf("Turn %d: %s", n, CapText(first, 60))
 	ctx, cancel := context.WithTimeout(context.Background(), checkpointLimit)
 	defer cancel()
 	sweepTemp(ctx, c.vm.sb)

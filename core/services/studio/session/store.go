@@ -261,6 +261,11 @@ const (
 	// the turn of the goal for a GoalLineContinue line. It is for display:
 	// the model got only the text of a GoalLineContinue line, with its turn.
 	RoleGoal = "goal"
+	// RoleFailure marks where a turn ended on an error. Text is the plain
+	// reason and Note the cause (see Failure.Encode). It is for display: the
+	// model never sees it, and a retry that goes on from the transcript keeps
+	// it.
+	RoleFailure = "failure"
 )
 
 // MaxReasoningBytes is the size limit of a stored reasoning entry, including

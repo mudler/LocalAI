@@ -25,7 +25,8 @@ function Prose({ html, className = '' }) {
 }
 
 // A turn that failed: the reason in plain words, what to do about it, a Retry
-// that sends the last question again and, apart, the cleaned technical detail.
+// that goes on from where the turn stopped (the lines before it stay) and,
+// apart, the cleaned technical detail.
 // failure says why (see utils/chatFailure.js); without it the card still shows
 // that the turn failed and offers the Retry.
 export function ErrorCard({ failure, isAdmin, kept, onRetry, canRetry }) {

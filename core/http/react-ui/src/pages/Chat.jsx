@@ -53,7 +53,7 @@ import SubAgentsMenu from '../components/chat/SubAgentsMenu'
 import { EmptyHead, EmptyUnder } from '../components/chat/EmptyChat'
 // eslint-disable-next-line no-unused-vars
 import ShortcutsRow from '../components/wellknown/ShortcutsRow'
-import { isStaleFailure } from '../utils/chatFailure'
+import { isStaleFailure, keptAbove } from '../utils/chatFailure'
 import { isFolderMissingError } from '../utils/chatAgents'
 // eslint-disable-next-line no-unused-vars
 import CommandsConsentCard from '../components/chat/CommandsConsentCard'
@@ -619,6 +619,12 @@ function ChatPage() {
     if (activeId) chat.regenerate(activeId)
   }, [activeId, chat])
 
+  // Retry of the failure card goes on from where the turn stopped: the
+  // messages, tool calls and results stay.
+  const handleRetry = useCallback(() => {
+    if (activeId) chat.resume(activeId)
+  }, [activeId, chat])
+
   // Branch copies the chat up to and including the line into a new chat, which opens.
   const handleFork = useCallback(async (seq) => {
     if (!activeId) return
@@ -1038,6 +1044,7 @@ function ChatPage() {
   // page was reloaded) fades after a day, so an old failure does not look new.
   const showFailure = Boolean(activeId) && !chat.running && chat.lastTurn === 'failed'
     && (Boolean(chat.failure) || !isStaleFailure(chat.detail?.updated))
+  const failureShown = chat.failure || chat.failureSaved
   // The one state of the status line, and whether the keyboard hint shows:
   // only while the composer has focus, is empty and the chat is idle.
   const footState = chatFootState({
@@ -1165,11 +1172,11 @@ function ChatPage() {
 
               {showFailure && (
                 <ErrorCard
-                  failure={chat.failure}
+                  failure={failureShown}
                   isAdmin={isAdmin}
-                  kept={false}
-                  canRetry={!!lastUserText(messages)}
-                  onRetry={handleRegenerate}
+                  kept={keptAbove(messages)}
+                  canRetry={!chat.resuming}
+                  onRetry={handleRetry}
                 />
               )}
 

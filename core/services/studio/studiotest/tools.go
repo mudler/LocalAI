@@ -165,7 +165,8 @@ func (h *ToolHarness) Start(_ context.Context, env session.HarnessEnv) (session.
 	h.resumes[env.Actor.ChatID] = append([]byte(nil), env.Resume...)
 	h.mu.Unlock()
 	if h.Compact != nil {
-		return &compactingToolSession{toolSession: &toolSession{h: h, env: env}}, nil
+		// A session started from a compacted state is compacted too.
+		return &compactingToolSession{toolSession: &toolSession{h: h, env: env}, compacted: strings.Contains(string(env.Resume), `"compacted":true`)}, nil
 	}
 	return &toolSession{h: h, env: env}, nil
 }

@@ -151,6 +151,10 @@ export const chatsApi = {
   // turn runs; settings apply from the next turn.
   update: (id, fields) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'PATCH', body: JSON.stringify(fields) }),
   // Regenerate and edit start a new turn; both answer 409 while one runs.
+  // Resume goes on from where a failed turn stopped; nothing is removed. It
+  // answers started: false when the chat is not at a failed turn (a second
+  // click, or another window resumed it).
+  resume: (id) => postJSON(`${API_CONFIG.endpoints.chat(id)}/resume`, {}),
   regenerate: (id) => postJSON(`${API_CONFIG.endpoints.chat(id)}/regenerate`, {}),
   editMessage: (id, seq, text) => postJSON(`${API_CONFIG.endpoints.chat(id)}/messages/${Number(seq)}/edit`, { text }),
   fork: (id, fromSeq, title) => postJSON(`${API_CONFIG.endpoints.chat(id)}/fork`, {

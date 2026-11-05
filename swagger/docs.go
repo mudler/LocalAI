@@ -11070,6 +11070,32 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/{id}/resume": {
+            "post": {
+                "description": "Starts a new turn that goes on from where the last one failed. The transcript stays as it is, with the messages, tool calls and results of the failed turn and the reason at its end; the model keeps its own state, so a tool call that has its result is not made again. Messages that wait for the chat go first. When the chat is not at a failed turn, or a turn runs, nothing starts and started is false, so a second click is harmless.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Go on with the turn that failed.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Whether a turn started",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSendResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/send-now": {
             "post": {
                 "description": "After a stop or a failed turn the waiting messages stay put. This starts a turn from them.",
@@ -23486,6 +23512,27 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsFailure": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "Code names the cause, such as model_not_found, upstream, timeout or agent.",
+                    "type": "string"
+                },
+                "detail": {
+                    "description": "Detail is the error text, cleaned, for the technical view.",
+                    "type": "string"
+                },
+                "model": {
+                    "description": "Model is the model the cause is about, when it is known.",
+                    "type": "string"
+                },
+                "retry_after": {
+                    "description": "RetryAfter is the seconds until a model in cooldown loads again.",
+                    "type": "integer"
+                }
+            }
+        },
         "schema.ChatsFile": {
             "type": "object",
             "properties": {
@@ -24531,6 +24578,14 @@ const docTemplate = `{
                     "description": "DurMs is how long the model thought, for reasoning lines.",
                     "type": "integer"
                 },
+                "failure": {
+                    "description": "Failure is set on a failure line: why the turn ended (Text is the reason\nin English).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsFailure"
+                        }
+                    ]
+                },
                 "goal_event": {
                     "description": "GoalEvent is set on a goal line: set, replaced, continue (a message the\nserver sent by itself to go on; Text is that message and GoalTurn its\nautomatic turn), paused (Text is the reason), resumed, done (Text is the\nsummary), blocked (Text is the reason) or cleared.",
                     "type": "string"
@@ -24559,7 +24614,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "role": {
-                    "description": "user, assistant, tool, checkpoint, reasoning, compacted, cleared or goal",
+                    "description": "user, assistant, tool, checkpoint, reasoning, compacted, cleared, goal or failure",
                     "type": "string"
                 },
                 "seq": {

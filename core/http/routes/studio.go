@@ -268,6 +268,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/:id", h.Get)
 	e.PATCH(base+"/:id", h.Update)
 	e.POST(base+"/:id/regenerate", h.Regenerate)
+	e.POST(base+"/:id/resume", h.Resume)
 	e.POST(base+"/:id/messages/:seq/edit", h.EditMessage)
 	e.POST(base+"/:id/fork", h.Fork)
 	e.GET(base+"/:id/export", h.Export)

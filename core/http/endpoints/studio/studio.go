@@ -435,6 +435,10 @@ func messageList(principal string, entries []session.Entry) schema.ChatsMessageL
 		if e.Role == session.RoleGoal {
 			m.GoalEvent, m.GoalTurn = e.Note, e.Rev
 		}
+		if e.Role == session.RoleFailure {
+			f := session.ParseFailure(e)
+			m.Failure = &schema.ChatsFailure{Code: f.Code, Model: f.Model, RetryAfter: f.RetryAfter, Detail: f.Detail}
+		}
 		out.Messages = append(out.Messages, m)
 	}
 	return out

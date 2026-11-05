@@ -420,7 +420,7 @@ type ChatsPendingEdit struct {
 type ChatsMessage struct {
 	Seq  int64  `json:"seq"`
 	Turn int    `json:"turn"`
-	Role string `json:"role"` // user, assistant, tool, checkpoint, reasoning, compacted, cleared or goal
+	Role string `json:"role"` // user, assistant, tool, checkpoint, reasoning, compacted, cleared, goal or failure
 	// Text is what was written. For a user line it is the text you typed:
 	// the files you attached are in Attachments.
 	Text string `json:"text"`
@@ -450,9 +450,24 @@ type ChatsMessage struct {
 	// server sent by itself to go on; Text is that message and GoalTurn its
 	// automatic turn), paused (Text is the reason), resumed, done (Text is the
 	// summary), blocked (Text is the reason) or cleared.
-	GoalEvent string    `json:"goal_event,omitempty"`
-	GoalTurn  int64     `json:"goal_turn,omitempty"`
-	At        time.Time `json:"at"`
+	GoalEvent string `json:"goal_event,omitempty"`
+	GoalTurn  int64  `json:"goal_turn,omitempty"`
+	// Failure is set on a failure line: why the turn ended (Text is the reason
+	// in English).
+	Failure *ChatsFailure `json:"failure,omitempty"`
+	At      time.Time     `json:"at"`
+}
+
+// ChatsFailure is the cause of a turn that ended on an error.
+type ChatsFailure struct {
+	// Code names the cause, such as model_not_found, upstream, timeout or agent.
+	Code string `json:"code"`
+	// Model is the model the cause is about, when it is known.
+	Model string `json:"model,omitempty"`
+	// RetryAfter is the seconds until a model in cooldown loads again.
+	RetryAfter int `json:"retry_after,omitempty"`
+	// Detail is the error text, cleaned, for the technical view.
+	Detail string `json:"detail,omitempty"`
 }
 
 // ChatsToolCard points the interface at a record that belongs to a tool result.

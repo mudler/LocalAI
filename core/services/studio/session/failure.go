@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strconv"
@@ -54,6 +55,32 @@ type Failure struct {
 	// Detail is the error text for the technical view: one line, with
 	// addresses, paths and secrets removed, and cut to a limit.
 	Detail string
+}
+
+// failureNote is the form of a Failure in the Note of a RoleFailure entry.
+type failureNote struct {
+	Code   string `json:"code"`
+	Model  string `json:"model,omitempty"`
+	Retry  int    `json:"retry,omitempty"`
+	Detail string `json:"detail,omitempty"`
+}
+
+// FailureEntry is the transcript line that keeps why a turn ended: a reload
+// of the chat shows the same reason as the live stream did.
+func FailureEntry(turn int, f Failure) Entry {
+	note, _ := json.Marshal(failureNote{Code: f.Code, Model: f.Model, Retry: f.RetryAfter, Detail: f.Detail})
+	return Entry{Turn: turn, Role: RoleFailure, Text: f.Reason, Note: string(note)}
+}
+
+// ParseFailure reads the cause back from a RoleFailure entry. An entry whose
+// note cannot be read still gives its text, with the generic code.
+func ParseFailure(e Entry) Failure {
+	f := Failure{Code: CodeAgent, Reason: e.Text}
+	var n failureNote
+	if json.Unmarshal([]byte(e.Note), &n) == nil && n.Code != "" {
+		f.Code, f.Model, f.RetryAfter, f.Detail = n.Code, n.Model, n.Retry, n.Detail
+	}
+	return f
 }
 
 var (

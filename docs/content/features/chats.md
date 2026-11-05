@@ -2079,7 +2079,9 @@ When a turn fails, the thread shows one banner: "The reply failed", the reason i
 | The provider behind the model returned an error | The provider or a proxy answered with a server error several times in a row. | Retry in a moment, then check the provider. |
 | The model took too long to answer / The turn was cancelled | A timeout, or the turn was stopped. | Retry, or use a smaller or faster model. |
 
-A failure that the page learns about only after a reload shows the banner without a reason, and only for a day after the turn. A new turn clears the banner.
+The banner stands after the messages, tool calls and results that the turn produced before it failed: nothing of them is removed. **Retry** goes on from where the turn stopped (`POST /api/chats/{id}/resume`). The model keeps its own state, so a tool call that already has a result is not made again, a step that did not finish is done again, the messages you sent while the turn ran stay, and a summary made by a compaction stays as it is. A second click, or a click in another window, starts nothing. To answer your last message again from the start, use **Regenerate** on the message.
+
+The reason is stored with the chat, so a reload shows the same banner as the live page, for a day after the turn. A new turn clears the banner.
 
 ## Moving from the old chat
 

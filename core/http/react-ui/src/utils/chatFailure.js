@@ -67,3 +67,30 @@ export function isStaleFailure(updated, now = Date.now()) {
   const at = Date.parse(updated || '')
   return Number.isFinite(at) && now - at > STALE_FAILURE_MS
 }
+
+// savedFailure reads why the last turn failed from the transcript, where the
+// server keeps it: the line that ends the failed turn is the last one before
+// the checkpoint. It is how a reload shows the same reason as the live page.
+// Null when the transcript does not end on a failure line.
+export function savedFailure(messages) {
+  for (let i = (messages?.length || 0) - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.role === 'checkpoint') continue
+    if (m.role !== 'failure') return null
+    const f = m.failure || {}
+    return { code: f.code || 'agent', model: f.model || '', retry: f.retry_after || 0, detail: f.detail || '', text: m.text || '' }
+  }
+  return null
+}
+
+// keptAbove says whether the failed turn left something to read: a model
+// message or a tool call after the last message of the person. The banner then
+// says that what was written so far stays.
+export function keptAbove(messages) {
+  for (let i = (messages?.length || 0) - 1; i >= 0; i--) {
+    const r = messages[i].role
+    if (r === 'user') return false
+    if (r === 'assistant' || r === 'tool') return true
+  }
+  return false
+}
