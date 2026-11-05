@@ -72,7 +72,10 @@
     "groupType": "Group by type",
     "groupLabel": "Label: {{key}}",
     "stale": "The node list could not be refreshed. What you see is the last reading.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "sort": "Sort nodes",
+    "sortBy": "Sort: {{by}}",
+    "sortDirection": "Reverse the sort order"
   },
   "first": {
     "title": "No workers registered yet",
@@ -604,5 +607,55 @@
     "replicaN": "Replica {{n}}",
     "allMerged": "All merged",
     "mergedTitle": "An interleaved timeline of every replica, to compare them side by side"
+  },
+  "hero": {
+    "label": "Fleet health",
+    "ringAria": "{{healthy}} of {{total}} nodes healthy",
+    "healthy": "{{healthy}} of {{total}}",
+    "healthyLabel_one": "node healthy",
+    "healthyLabel_other": "nodes healthy",
+    "vram": "VRAM",
+    "ram": "RAM",
+    "models": "Running models",
+    "attention_one": "{{count}} needs attention",
+    "attention_other": "{{count}} need attention",
+    "allClear": "No node needs attention"
+  },
+  "row": {
+    "noHeartbeat": "No heartbeat",
+    "idle": "No models loaded",
+    "agent": "Agent worker",
+    "cpuNode": "CPU · {{ram}} RAM",
+    "vram": "VRAM {{percent}}%",
+    "ram": "RAM {{percent}}%",
+    "sparkAria": "Load over the last {{count}} readings, now {{percent}} percent",
+    "selectAll": "Select all on this page",
+    "groupNodes_one": "{{count}} node",
+    "groupNodes_other": "{{count}} nodes",
+    "groupAttention_one": "{{count}} needs attention",
+    "groupAttention_other": "{{count}} need attention",
+    "groupSelected": "{{count}} selected"
+  },
+  "inspector": {
+    "label": "Selected node",
+    "kicker": "Node",
+    "empty": "Choose a node to see its details.",
+    "vram": "VRAM",
+    "ram": "RAM",
+    "cpu": "CPU",
+    "cores_one": "{{count}} core busy",
+    "cores_other": "{{count}} cores busy",
+    "models": "Running models",
+    "noModels": "No models loaded.",
+    "inFlight_one": "{{count}} request",
+    "inFlight_other": "{{count}} requests",
+    "details": "Details",
+    "gpu": "GPU",
+    "version": "Version",
+    "heartbeat": "Last heartbeat",
+    "labels": "Labels",
+    "logs": "Logs",
+    "open": "Open full page",
+    "close": "Close details"
   }
 }
