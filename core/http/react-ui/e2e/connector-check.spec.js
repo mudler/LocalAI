@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi, ROLES_KIND } from './connector-fixtures.js'
+import { connectorApi, ROLES_KIND, clippedOptions } from './connector-fixtures.js'
 
 // "Check it" on the shared connection page (drawn here by the Slack add-on):
 // Try it asks the preview of the host what a kind of sender may do and says
@@ -95,4 +95,23 @@ test.describe('Check it', () => {
     await open(page, { ...BINDING, allow: [], paired: [] })
     await expect(page.getByTestId('connector-try-none')).toHaveText('Add a person first. Then you can try what they may do.')
   })
+  // A select that cuts its option to "Post to a new ch" tells the reader the
+  // wrong thing. Every option must fit, and the selected one first of all.
+  for (const width of [1280, 375]) {
+    test(`the selects of Try it show their whole option at ${width} wide`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await open(page)
+      await page.getByTestId('connector-try-action').selectOption('talkback.new_channel')
+      // The titles of the actions are the add-on's own words and all must fit.
+      // The names of people, places and roles come from the platform and can be
+      // any length, so only the one shown is held to it.
+      for (const id of ['who', 'place', 'action']) {
+        const select = page.getByTestId(`connector-try-${id}`)
+        const m = await clippedOptions(select, { all: id === 'action' })
+        expect(m.scrollWidth, `${id} scrolls its text`).toBeLessThanOrEqual(m.clientWidth)
+        expect(m.out, `${id}: an option is cut when selected`).toEqual([])
+      }
+      if (process.env.UI_SHOTS_DIR) await page.getByTestId('connector-try').screenshot({ path: `${process.env.UI_SHOTS_DIR}/try-it-${width}.png` })
+    })
+  }
 })

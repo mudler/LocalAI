@@ -159,3 +159,30 @@ export async function openAnswerMore(page) {
   const more = page.getByTestId('connector-answer-more')
   if ((await more.getAttribute('open')) === null) await more.locator('summary').click()
 }
+
+// Measures a select the way a reader sees it. A native select shows the text
+// of the selected option only, and it has no scrollWidth to read, so each
+// option is made the selected one in turn and its text is measured, with the
+// font of the select, against the room the select leaves for text (its width
+// without padding, which holds the chevron). The choice is put back. It
+// returns the options that would be cut, with both widths. With `all` false
+// only the option that is selected now is measured.
+export async function clippedOptions(select, { all = true } = {}) {
+  return select.evaluate((el, every) => {
+    const cs = getComputedStyle(el)
+    const ctx = document.createElement('canvas').getContext('2d')
+    ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
+    const room = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+    const kept = el.selectedIndex
+    const out = []
+    for (let i = 0; i < el.options.length; i++) {
+      if (!every && i !== kept) continue
+      el.selectedIndex = i
+      const text = el.selectedOptions[0].textContent
+      const width = ctx.measureText(text).width
+      if (width > room + 0.5) out.push({ text, width: Math.ceil(width), room: Math.floor(room) })
+    }
+    el.selectedIndex = kept
+    return { scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, out }
+  }, all)
+}

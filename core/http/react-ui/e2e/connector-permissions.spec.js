@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi, previewFor, CAPABILITIES, ROLES_KIND, openAnswerMore } from './connector-fixtures.js'
+import { connectorApi, previewFor, CAPABILITIES, ROLES_KIND, openAnswerMore, clippedOptions } from './connector-fixtures.js'
 import { ADMIN, MEMBER, sessionFor } from './addons-fixtures.js'
 
 // The permissions of a binding on the shared connector page (drawn here by the
@@ -193,6 +193,23 @@ test.describe('Connector permissions', () => {
     expect(body.caps.sort()).toEqual(['memory.write', 'talkback.new_channel'])
     expect(body.grants).toEqual([{ role: 'workspace_admin', caps: ['memory.write'] }])
   })
+
+  for (const width of [1280, 375]) {
+    test(`the "who may ask" select of a place shows its whole option at ${width} wide`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await api(page, [SET]).install()
+      await page.goto(PAGE)
+      await page.getByRole('button', { name: 'Edit' }).click()
+      const box = page.getByTestId('connector-channels')
+      await box.getByTestId('connector-channel-add').click()
+      const select = box.getByTestId('connector-channel-approved').nth(1)
+      await expect(select).toHaveValue('verified')
+      const m = await clippedOptions(select)
+      expect(m.scrollWidth).toBeLessThanOrEqual(m.clientWidth)
+      expect(m.out, `an option is cut when selected`).toEqual([])
+      if (SHOTS) await box.screenshot({ path: `${SHOTS}/places-${width}.png` })
+    })
+  }
 
   test('edits the channels it may post to, at most ten, and refuses a bad id', async ({ page }) => {
     const a = api(page, [SET])
