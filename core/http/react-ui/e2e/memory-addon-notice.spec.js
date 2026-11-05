@@ -14,7 +14,7 @@ test.beforeAll(async () => {
   await buildAddonBundles(['memory'])
 })
 
-test('the add-on page has a notice that memory is built in, with a link to Settings > Memory', async ({ page }) => {
+async function serveMemory(page) {
   await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(ADMIN, { addons: true }) }))
   await stubAddonRoutes(page)
   await page.route(/\/api\/addons\/memory\/assets\//, (route) => {
@@ -25,6 +25,10 @@ test('the add-on page has a notice that memory is built in, with a link to Setti
   })
   await page.route('**/api/addons/memory/user-settings', route => route.fulfill({ json: { settings: [{ key: 'save-mode', values: ['ask', 'auto', 'never'], default: 'ask', value: 'ask' }] } }))
   await mockAddons(page, { apps: [packagedApp('memory')] })
+}
+
+test('the add-on page has a notice that memory is built in, with a link to Settings > Memory', async ({ page }) => {
+  await serveMemory(page)
   await page.goto('/app/addons/memory/memory')
   const notice = page.getByTestId('memory-builtin-notice')
   await expect(notice).toBeVisible()
@@ -33,4 +37,15 @@ test('the add-on page has a notice that memory is built in, with a link to Setti
   await page.screenshot({ path: 'test-results/memory-addon-notice.png' })
   await notice.getByRole('button', { name: 'Open Settings > Memory' }).click()
   await expect(page).toHaveURL(/\/app\/account\?tab=memory$/)
+})
+
+test('the add-on page reads in the language of the web UI', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('localai-language', 'it'))
+  await serveMemory(page)
+  await page.goto('/app/addons/memory/memory')
+  await expect(page.getByTestId('memory-page')).toContainText('Memoria breve')
+  await expect(page.getByTestId('memory-builtin-notice')).toContainText('La memoria è integrata')
+  await expect(page.getByTestId('memory-save')).toContainText('Salvare una nota')
+  await expect(page.getByTestId('memory-open')).toHaveText('Apri le mie note')
+  await expect(page.getByTestId('memory-page')).not.toContainText('Short memory')
 })

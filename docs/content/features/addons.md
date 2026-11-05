@@ -5144,6 +5144,12 @@ when a language lacks a bundle, a bundle lacks a key of English or has an extra 
 from English, or a value is empty. There is no baseline: add a key to English and every language in the
 same change.
 
+The Voice, Face, Fine-tuning, Quantization and Memory pages read their words from the same kind of bundle
+(`addons/<id>/ui/src/i18n/<id>.<language>.json`, flat keys). A list of notes is stored as numbered keys
+(`voice.why.0`, `voice.stored.0.where`) and the page puts it back together, so each item is translated like any
+other text. A string that has no translation yet repeats the English text in that language's bundle, which
+satisfies the gate and shows English; replace it when a translation exists.
+
 Compile an add-on with classic JSX transformed to `React.createElement` over
 `sdk.React`, inside the `createAddon` factory. Do not import a JSX runtime. The fixture
 packages under `tests/addons/fixture/ui` are written in that form.

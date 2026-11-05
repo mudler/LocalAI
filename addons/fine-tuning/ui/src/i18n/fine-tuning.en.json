@@ -1,6 +1,4 @@
-// Generated once from the host locale file public/locales/en/tools.json; edit by hand from here on.
-// The last three keys belong to this add-on.
-export default {
+{
   "steps.label": "Progress",
   "steps.setup": "Set up",
   "steps.check": "Check",

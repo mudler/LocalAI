@@ -1,4 +1,4 @@
-import en from './i18n/en.js'
+import { locales } from './i18n/index.js'
 import { modelFrom as pickModel } from './lib/model.js'
 
 // The one object every page factory of the Voice add-on receives. It binds the
@@ -8,12 +8,25 @@ export function createContext(sdk) {
   const { React } = sdk
   const h = React.createElement
   const Fragment = React.Fragment
-  sdk.locale.define('en', Object.fromEntries(Object.entries(en).filter(([, v]) => typeof v === 'string')))
-  const lists = Object.fromEntries(Object.entries(en).filter(([, v]) => Array.isArray(v)))
+  // Every language of the page; a key a language lacks reads in English.
+  for (const [language, bundle] of Object.entries(locales)) sdk.locale.define(language, bundle)
+  const en = locales.en
 
   const t = (key, vars) => sdk.locale.t(key, key, vars)
-  // A list of strings or objects (the "why" and "stored" notes).
-  const list = (key) => lists[key] || []
+  // A list of strings or objects (the "why" and "stored" notes). The bundles hold
+  // each item under a numbered key (key.0, or key.0.field for an object), so
+  // that every item is translated like any other text.
+  const list = (key) => {
+    const out = []
+    for (let i = 0; ; i++) {
+      const own = `${key}.${i}`
+      if (typeof en[own] === 'string') { out.push(t(own)); continue }
+      const prefix = `${own}.`
+      const fields = Object.keys(en).filter((k) => k.startsWith(prefix))
+      if (fields.length === 0) return out
+      out.push(Object.fromEntries(fields.map((k) => [k.slice(prefix.length), t(k)])))
+    }
+  }
 
   // A link to a page of this add-on, as an anchor the shell navigates.
   function Link({ page, query, className, children, ...rest }) {
