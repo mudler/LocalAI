@@ -23,6 +23,7 @@ type connectorRow struct {
 	HasHeaders bool
 	HasEnv     bool
 	Enabled    bool
+	AgentsOnly bool
 	Created    time.Time
 	Updated    time.Time
 }
@@ -45,7 +46,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 func (r connectorRow) connector() (Connector, error) {
 	c := Connector{ID: r.ID, Owner: r.Owner, Name: r.Name, Transport: r.Transport, URL: r.URL, Command: r.Command,
 		Secrets: append([]byte(nil), r.Secrets...), HasToken: r.HasToken, HasHeaders: r.HasHeaders, HasEnv: r.HasEnv,
-		Enabled: r.Enabled, Created: r.Created.UTC(), Updated: r.Updated.UTC()}
+		Enabled: r.Enabled, AgentsOnly: r.AgentsOnly, Created: r.Created.UTC(), Updated: r.Updated.UTC()}
 	if r.Args != "" {
 		if err := json.Unmarshal([]byte(r.Args), &c.Args); err != nil {
 			return c, err
@@ -70,7 +71,7 @@ func (s *gormStore) Put(ctx context.Context, c Connector) error {
 		}
 		return tx.Save(&connectorRow{ID: c.ID, Owner: c.Owner, Name: c.Name, Transport: c.Transport, URL: c.URL, Command: c.Command,
 			Args: args, Secrets: c.Secrets, HasToken: c.HasToken, HasHeaders: c.HasHeaders, HasEnv: c.HasEnv, Enabled: c.Enabled,
-			Created: c.Created, Updated: c.Updated}).Error
+			AgentsOnly: c.AgentsOnly, Created: c.Created, Updated: c.Updated}).Error
 	})
 }
 

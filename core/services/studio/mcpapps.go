@@ -64,8 +64,9 @@ type appTool struct {
 // appServerFor returns the server the chat may use now, or an error. The rules
 // are the ones the turn applies when it builds the chat's tools: the chat is the
 // user's, the server is not switched off for the chat, a saved agent names it,
-// the connector is the user's and enabled, and a model server is one the model
-// picks by itself or the agent names.
+// the connector is the user's and enabled (and, for a chat with no agent, not
+// for agents only), and a model server is one the model picks by itself or the
+// agent names.
 func (s *Service) appServerFor(ctx context.Context, user, conv, server string) (*appServer, error) {
 	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
 	if err != nil {
@@ -85,9 +86,31 @@ func (s *Service) appServerFor(ctx context.Context, user, conv, server string) (
 		}
 	}
 	if isConn {
+		if sc == nil && s.agentsOnly(ctx, user, id) {
+			return nil, refuse("the connector is for agents only")
+		}
 		return s.connectorApp(ctx, user, id)
 	}
 	return s.modelApp(ctx, user, rec, sc, server)
+}
+
+// agentsOnly says whether the user's connector id is for agents only. A list
+// that fails says yes, so that a chat with no agent is refused rather than
+// served a connector it might not get.
+func (s *Service) agentsOnly(ctx context.Context, user, id string) bool {
+	if s.d.Connectors == nil {
+		return false
+	}
+	mine, err := s.d.Connectors.List(ctx, principal(user))
+	if err != nil {
+		return true
+	}
+	for _, c := range mine {
+		if c.ID == id {
+			return c.AgentsOnly
+		}
+	}
+	return false
 }
 
 func (s *Service) connectorApp(ctx context.Context, user, id string) (*appServer, error) {

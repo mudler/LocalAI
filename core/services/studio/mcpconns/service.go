@@ -71,6 +71,8 @@ type Input struct {
 	Headers *map[string]string
 	Env     *map[string]string
 	Enabled bool
+	// AgentsOnly: see Connector.AgentsOnly. Like Enabled, an update replaces it.
+	AgentsOnly bool
 }
 
 // Probe is the outcome of a connection test. Error is empty when it worked.
@@ -311,7 +313,7 @@ func (s *Service) owned(ctx context.Context, user, id string) (Connector, error)
 // apply builds the connector of an input over the stored one (zero for a new one).
 func (s *Service) apply(ctx context.Context, user string, old Connector, in Input) (Connector, error) {
 	c := old
-	c.Name, c.Transport, c.Enabled = strings.TrimSpace(in.Name), in.Transport, in.Enabled
+	c.Name, c.Transport, c.Enabled, c.AgentsOnly = strings.TrimSpace(in.Name), in.Transport, in.Enabled, in.AgentsOnly
 	c.URL, c.Command, c.Args = strings.TrimSpace(in.URL), strings.TrimSpace(in.Command), in.Args
 	if err := Validate(c, s.o.AllowPrivate()); err != nil {
 		return c, err
@@ -574,7 +576,8 @@ func label(c Connector, reason string) string {
 
 // Resolve returns the tools of the user's connectors, and a phrase for each
 // connector that could not be used, for a note to the model. With all, every
-// enabled connector of the user is used; otherwise refs are connector IDs. A
+// enabled connector of the user that is not for agents only is used (the set of
+// a chat with no agent); otherwise refs are connector IDs. A
 // connector that is switched off, deleted, another user's or unreachable is a
 // phrase, never an error: a turn must not fail because of it.
 func (s *Service) Resolve(ctx context.Context, user string, refs []string, all bool) ([]Tool, []string) {
@@ -598,7 +601,7 @@ func (s *Service) Resolve(ctx context.Context, user string, refs []string, all b
 			return nil, nil
 		}
 		for _, c := range mine {
-			if c.Enabled {
+			if c.Enabled && !c.AgentsOnly {
 				list = append(list, c)
 			}
 		}

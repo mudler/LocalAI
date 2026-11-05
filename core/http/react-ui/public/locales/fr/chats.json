@@ -183,6 +183,8 @@
       "basics": "Connexion",
       "name": "Nom",
       "nameHelp": "Affiché dans le menu Outils d'un chat.",
+      "agentsOnly": "Réservé aux agents",
+      "agentsOnlyHelp": "Non proposé dans les chats sans agent. Un agent enregistré qui le nomme l'utilise toujours.",
       "url": "Adresse",
       "urlHelp": "Les serveurs d'un réseau privé sont refusés, sauf si un administrateur les autorise.",
       "command": "Commande",

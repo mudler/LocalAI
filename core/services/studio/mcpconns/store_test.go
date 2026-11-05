@@ -1,6 +1,7 @@
 package mcpconns_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -68,5 +69,21 @@ var _ = Describe("Connector stores", func() {
 		second, err := mcpconns.NewGORM(openSQLite(path))
 		Expect(err).NotTo(HaveOccurred())
 		mcpconnstest.CheckSeed(second)
+	})
+
+	It("GORM adds the agents-only column to an older table and reads old rows as not agents-only", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "c.db")
+		db := openSQLite(path)
+		first, _ := mcpconns.NewGORM(db)
+		mcpconnstest.Seed(first)
+		// The table as it was before the column existed.
+		Expect(db.Exec("ALTER TABLE studio_mcp_connectors DROP COLUMN agents_only").Error).To(Succeed())
+		second, err := mcpconns.NewGORM(openSQLite(path))
+		Expect(err).NotTo(HaveOccurred())
+		mcpconnstest.CheckSeed(second)
+		c, err := second.Get(context.Background(), "seed")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(c.AgentsOnly).To(BeFalse())
+		Expect(c.Enabled).To(BeTrue())
 	})
 })

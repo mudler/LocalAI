@@ -280,6 +280,25 @@ var _ = Describe("mcpapps", func() {
 		refused("a disabled connector", alice, id, e.ref(), "ui://clock/app.html")
 	})
 
+	It("a connector for agents only serves apps to the agents that name it, not to a chat with no agent", func() {
+		e := newAppsEnv()
+		ctx := context.Background()
+		in := mcpconns.Input{Name: "Clock", Transport: mcpconns.TransportHTTP, URL: e.ts.URL, Enabled: true, AgentsOnly: true}
+		_, err := e.conns.Update(ctx, alice, e.conn.ID, in)
+		Expect(err).NotTo(HaveOccurred())
+		plain := create(e.svc, alice)
+		_, err = e.svc.MCPAppResource(ctx, alice, plain, e.ref(), "ui://clock/app.html")
+		Expect(err).To(MatchError(studio.ErrMCPAppRefused), "a plain chat read the page of an agents-only connector: %v", err)
+		_, err = e.svc.MCPAppCall(ctx, alice, plain, e.ref(), "get-time", json.RawMessage(`{"zone":"UTC"}`))
+		Expect(err).To(MatchError(studio.ErrMCPAppRefused), "a plain chat called an agents-only connector: %v", err)
+
+		_ = e.ag.Put(ctx, agents.Agent{ID: "ag", Principal: alice, Name: "A", MCPServers: []string{e.ref()}})
+		chat, err := e.svc.Create(ctx, alice, studio.CreateInput{Model: "m", AgentID: "ag"})
+		Expect(err).NotTo(HaveOccurred())
+		_, err = e.svc.MCPAppResource(ctx, alice, chat.ID, e.ref(), "ui://clock/app.html")
+		Expect(err).NotTo(HaveOccurred(), "the agent names the connector")
+	})
+
 	It("an agent grant limits which servers serve apps", func() {
 		e := newAppsEnv()
 		ctx := context.Background()

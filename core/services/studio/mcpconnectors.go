@@ -21,7 +21,8 @@ type ConnectorTools interface {
 	// List returns the user's connectors, without their secrets.
 	List(ctx context.Context, user string) ([]mcpconns.Connector, error)
 	// Resolve returns the tools of the connectors with these IDs, or of every
-	// enabled connector of the user with all. A connector that cannot be used
+	// enabled connector of the user that is not for agents only with all. A
+	// connector that cannot be used
 	// (switched off, deleted, another user's, unreachable) is a phrase for a
 	// note to the model, never an error.
 	Resolve(ctx context.Context, user string, refs []string, all bool) (tools []mcpconns.Tool, missing []string)
@@ -202,7 +203,11 @@ func (s *Service) toolsFor(ctx context.Context, user string, rec session.ChatRec
 		}
 		if sc == nil {
 			for _, c := range mine {
-				add(c)
+				// A connector for agents only is never a tool of a chat
+				// with no agent, so it is not offered as a switch there.
+				if !c.AgentsOnly {
+					add(c)
+				}
 			}
 		} else {
 			for _, id := range grantedIDs {
@@ -222,8 +227,9 @@ func (s *Service) toolsFor(ctx context.Context, user string, rec session.ChatRec
 }
 
 // connectorTools turns the tools of the user's connectors into chat tools.
-// A chat with no agent gets every enabled connector that is not switched off; a
-// chat with an agent gets the ones in refs (already less the switched-off).
+// A chat with no agent gets every enabled connector that is not switched off and
+// not for agents only; a chat with an agent gets the ones in refs (already less
+// the switched-off), whether or not they are for agents only.
 func (s *Service) connectorTools(ctx context.Context, a workspace.Actor, rec session.ChatRecord, sc *scope, refs []string, off map[string]bool, have []session.Tool) ([]session.Tool, []string) {
 	if s.d.Connectors == nil {
 		if sc == nil {
@@ -238,7 +244,7 @@ func (s *Service) connectorTools(ctx context.Context, a workspace.Actor, rec ses
 			return nil, nil
 		}
 		for _, c := range mine {
-			if c.Enabled && !off[mcpconns.Prefix+c.ID] {
+			if c.Enabled && !c.AgentsOnly && !off[mcpconns.Prefix+c.ID] {
 				refs = append(refs, c.ID)
 			}
 		}

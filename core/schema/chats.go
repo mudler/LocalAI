@@ -2108,6 +2108,8 @@ type ChatsBrowserImport struct {
 
 // ChatsMCPConnector is an MCP server that you defined, for your chats. Its token,
 // headers and environment are never returned: the has_ fields say what is stored.
+// agents_only keeps it out of chats without an agent: only a saved agent that
+// names it uses its tools.
 type ChatsMCPConnector struct {
 	ID         string    `json:"id"`
 	Name       string    `json:"name"`
@@ -2119,23 +2121,26 @@ type ChatsMCPConnector struct {
 	HasHeaders bool      `json:"has_headers"`
 	HasEnv     bool      `json:"has_env"`
 	Enabled    bool      `json:"enabled"`
+	AgentsOnly bool      `json:"agents_only"`
 	Created    time.Time `json:"created"`
 	Updated    time.Time `json:"updated"`
 }
 
 // ChatsMCPConnectorWrite creates or replaces an MCP connector. token, headers and
 // env are write-only: left out they keep the stored value, and an empty value
-// clears it.
+// clears it. enabled and agents_only are replaced by every write: left out, they
+// are false.
 type ChatsMCPConnectorWrite struct {
-	Name      string             `json:"name"`
-	Transport string             `json:"transport"`
-	URL       string             `json:"url,omitempty"`
-	Command   string             `json:"command,omitempty"`
-	Args      []string           `json:"args,omitempty"`
-	Token     *string            `json:"token,omitempty"`
-	Headers   *map[string]string `json:"headers,omitempty"`
-	Env       *map[string]string `json:"env,omitempty"`
-	Enabled   bool               `json:"enabled"`
+	Name       string             `json:"name"`
+	Transport  string             `json:"transport"`
+	URL        string             `json:"url,omitempty"`
+	Command    string             `json:"command,omitempty"`
+	Args       []string           `json:"args,omitempty"`
+	Token      *string            `json:"token,omitempty"`
+	Headers    *map[string]string `json:"headers,omitempty"`
+	Env        *map[string]string `json:"env,omitempty"`
+	Enabled    bool               `json:"enabled"`
+	AgentsOnly bool               `json:"agents_only"`
 }
 
 // ChatsMCPConnectorList is the response of the MCP connector list endpoint.

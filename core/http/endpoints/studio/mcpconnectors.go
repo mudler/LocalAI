@@ -30,17 +30,18 @@ func mcpOut(m mcpconns.Connector) schema.ChatsMCPConnector {
 		args = []string{}
 	}
 	return schema.ChatsMCPConnector{ID: m.ID, Name: m.Name, Transport: m.Transport, URL: m.URL, Command: m.Command, Args: args,
-		HasToken: m.HasToken, HasHeaders: m.HasHeaders, HasEnv: m.HasEnv, Enabled: m.Enabled, Created: m.Created, Updated: m.Updated}
+		HasToken: m.HasToken, HasHeaders: m.HasHeaders, HasEnv: m.HasEnv, Enabled: m.Enabled, AgentsOnly: m.AgentsOnly,
+		Created: m.Created, Updated: m.Updated}
 }
 
 func mcpIn(r schema.ChatsMCPConnectorWrite) mcpconns.Input {
 	return mcpconns.Input{Name: r.Name, Transport: r.Transport, URL: r.URL, Command: r.Command, Args: r.Args,
-		Token: r.Token, Headers: r.Headers, Env: r.Env, Enabled: r.Enabled}
+		Token: r.Token, Headers: r.Headers, Env: r.Env, Enabled: r.Enabled, AgentsOnly: r.AgentsOnly}
 }
 
 // ListMCPConnectors lists your MCP connectors.
 // @Summary List your MCP connectors.
-// @Description An MCP connector is an MCP server that you defined. Your chats use the enabled ones next to the MCP servers of the model, and a saved agent can name one as connector:<id>. Tokens, headers and the environment of a local command are never returned. Needs the MCP feature.
+// @Description An MCP connector is an MCP server that you defined. Your chats use the enabled ones next to the MCP servers of the model, and a saved agent can name one as connector:<id>. A connector with agents_only is used only by the saved agents that name it, never by a chat without an agent. Tokens, headers and the environment of a local command are never returned. Needs the MCP feature.
 // @Tags chats
 // @Success 200 {object} schema.ChatsMCPConnectorList "Your connectors, sorted by name"
 // @Router /api/chats/mcp-connectors [get]
@@ -62,7 +63,7 @@ func (h *Handlers) ListMCPConnectors(c echo.Context) error {
 
 // CreateMCPConnector creates an MCP connector.
 // @Summary Create an MCP connector.
-// @Description transport is http (a remote server, streamable HTTP with a fall back to SSE) or stdio (a command run on the host, administrators only and refused in distributed mode). The address of an http connector must be http or https; an address on a private network is refused unless an administrator allows it (the mcp_connectors_allow_private setting), and the check is made again when the connection is opened. token, headers and env are sealed at rest and never returned. At most 20 connectors; names are unique per user. OAuth for remote servers is not supported.
+// @Description transport is http (a remote server, streamable HTTP with a fall back to SSE) or stdio (a command run on the host, administrators only and refused in distributed mode). The address of an http connector must be http or https; an address on a private network is refused unless an administrator allows it (the mcp_connectors_allow_private setting), and the check is made again when the connection is opened. token, headers and env are sealed at rest and never returned. agents_only keeps the connector out of chats without an agent; a saved agent that names it still uses it. At most 20 connectors; names are unique per user. OAuth for remote servers is not supported.
 // @Tags chats
 // @Param request body schema.ChatsMCPConnectorWrite true "the connector"
 // @Success 201 {object} schema.ChatsMCPConnector "The connector"
@@ -104,7 +105,7 @@ func (h *Handlers) GetMCPConnector(c echo.Context) error {
 
 // UpdateMCPConnector replaces an MCP connector.
 // @Summary Replace an MCP connector.
-// @Description The body replaces every field. token, headers and env keep the stored value when left out, and are cleared by an empty one. The open session of the connector is closed.
+// @Description The body replaces every field: enabled and agents_only are false when left out. token, headers and env keep the stored value when left out, and are cleared by an empty one. The open session of the connector is closed.
 // @Tags chats
 // @Param id path string true "the connector's id"
 // @Param request body schema.ChatsMCPConnectorWrite true "the connector"

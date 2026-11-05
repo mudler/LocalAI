@@ -183,6 +183,8 @@
       "basics": "Verbindung",
       "name": "Name",
       "nameHelp": "Erscheint im Werkzeuge-Menü eines Chats.",
+      "agentsOnly": "Nur für Agenten",
+      "agentsOnlyHelp": "Wird in Chats ohne Agent nicht angeboten. Ein gespeicherter Agent, der ihn nennt, nutzt ihn weiterhin.",
       "url": "Adresse",
       "urlHelp": "Server in einem privaten Netz werden abgelehnt, außer ein Administrator erlaubt sie.",
       "command": "Befehl",

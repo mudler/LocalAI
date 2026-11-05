@@ -183,6 +183,8 @@
       "basics": "Conexión",
       "name": "Nombre",
       "nameHelp": "Aparece en el menú Herramientas de un chat.",
+      "agentsOnly": "Solo para agentes",
+      "agentsOnlyHelp": "No se ofrece en los chats sin agente. Un agente guardado que lo nombra lo sigue usando.",
       "url": "Dirección",
       "urlHelp": "Los servidores de una red privada se rechazan salvo que un administrador los permita.",
       "command": "Comando",
