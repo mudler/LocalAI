@@ -138,7 +138,7 @@ func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []stri
 			// A provider the person did not pick ships no skill.
 			continue
 		}
-		if !set.Running || off[set.AddonID] || (sc != nil && !sc.addons[set.AddonID]) {
+		if !set.Running || off[set.AddonID] || (sc != nil && !sc.addons[set.AddonID] && set.AddonID != sc.hostSkillAddon) {
 			continue
 		}
 		if gate != nil && gate.Unavailable(ctx, p, set.AddonID, s.d.Files.Available()) != "" {

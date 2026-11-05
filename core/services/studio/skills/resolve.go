@@ -118,6 +118,11 @@ type Skill struct {
 	// Off is true when Options.Off turned the skill off. An off skill takes
 	// no part in the precedence rule and is not in the index.
 	Off bool
+	// Provider names the provider slot that grants the skill to every chat
+	// that uses the slot ("memory"), and Locked is true then: the person does
+	// not grant it in an agent, the host does. Set by the product.
+	Provider string
+	Locked   bool
 	// Requires are the capabilities the skill needs (the "requires" key of
 	// its frontmatter), for example RequireExec.
 	Requires []string

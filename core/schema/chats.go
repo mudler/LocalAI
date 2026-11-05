@@ -857,6 +857,12 @@ type ChatsSkill struct {
 	Invalid string `json:"invalid,omitempty"`
 	// Editable is true when you may change or delete it here.
 	Editable bool `json:"editable"`
+	// Provider names the provider slot whose active provider ships the skill
+	// ("memory"), and Locked is true then: the host grants it to a chat that
+	// uses the slot, an agent does not list it. Both are absent for any other
+	// skill.
+	Provider string `json:"provider,omitempty"`
+	Locked   bool   `json:"locked,omitempty"`
 }
 
 // ChatsSkillList is the skills a user has.

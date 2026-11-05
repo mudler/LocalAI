@@ -5784,6 +5784,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
+                    },
+                    "409": {
+                        "description": "The binding is enabled and is the same bot as another enabled binding of yours (type duplicate_connection, param the name of the other); send confirm_duplicate set to \\\"answer twice\\\" to save it anyway",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -5870,6 +5876,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The binding would be the same bot as another enabled binding of yours (type duplicate_connection); see the create endpoint",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -8330,7 +8342,7 @@ const docTemplate = `{
         },
         "/api/chats/skills": {
             "get": {
-                "description": "Skills from every layer: .skills folders of your files, your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. A chat with a saved agent also lists the skills of that agent (agent). The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.",
+                "description": "Skills from every layer: .skills folders of your files, your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. A chat with a saved agent also lists the skills of that agent (agent). The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied. A skill of the active memory provider says provider \"memory\" and locked: the host grants it to a chat that reads the notes, so an agent does not list it.",
                 "tags": [
                     "chats"
                 ],
@@ -20774,6 +20786,14 @@ const docTemplate = `{
                     "description": "CredentialsOnly is true for a binding without an agent: it holds the\ntoken, the resource list and the write mode, and never answers messages.",
                     "type": "boolean"
                 },
+                "duplicate": {
+                    "description": "Duplicate is present when another enabled connection of yours is the\nsame bot (the add-on reported the same upstream account for both) and\nthis one is enabled too: both then answer the same message.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorDuplicate"
+                        }
+                    ]
+                },
                 "enabled": {
                     "type": "boolean"
                 },
@@ -21928,6 +21948,14 @@ const docTemplate = `{
                     "description": "CredentialsOnly is true for a binding without an agent: it holds the\ntoken, the resource list and the write mode, and never answers messages.",
                     "type": "boolean"
                 },
+                "duplicate": {
+                    "description": "Duplicate is present when another enabled connection of yours is the\nsame bot (the add-on reported the same upstream account for both) and\nthis one is enabled too: both then answer the same message.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorDuplicate"
+                        }
+                    ]
+                },
                 "enabled": {
                     "type": "boolean"
                 },
@@ -22282,6 +22310,37 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorDuplicate": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "Code is duplicate_connection.",
+                    "type": "string"
+                },
+                "message": {
+                    "description": "Message is the plain sentence for the owner, in the language of the\nrequest (lang, else Accept-Language) with English as the fallback.",
+                    "type": "string"
+                },
+                "others": {
+                    "description": "Others are the other enabled connections of the same bot, oldest first.\nThe oldest enabled one is the one that answers.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorDuplicateRef"
+                    }
+                }
+            }
+        },
+        "schema.ChatsConnectorDuplicateRef": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 }
             }
@@ -22679,6 +22738,10 @@ const docTemplate = `{
                 },
                 "confirm_any_resource": {
                     "description": "ConfirmAnyResource must be the exact text \"allow any resource\" in the\nrequest that adds the entry * to resources. A kind that lists\nwildcard_resources lets resources hold owner/* and *.",
+                    "type": "string"
+                },
+                "confirm_duplicate": {
+                    "description": "ConfirmDuplicate must be the exact text \"answer twice\" to save an\nenabled connection that is the same bot as another enabled connection of\nyours. Without it the request is a 409 of type duplicate_connection, and\nnothing is saved.",
                     "type": "string"
                 },
                 "confirm_wider_token": {
@@ -25145,11 +25208,18 @@ const docTemplate = `{
                     "description": "Layer is where it comes from: folder (a .skills folder of your files),\nagent (a saved agent proposed it), personal, shared, addon (an installed\nadd-on ships it) or builtin.",
                     "type": "string"
                 },
+                "locked": {
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string"
                 },
                 "path": {
                     "description": "Path is the path of its SKILL.md as the model sees it.",
+                    "type": "string"
+                },
+                "provider": {
+                    "description": "Provider names the provider slot whose active provider ships the skill\n(\"memory\"), and Locked is true then: the host grants it to a chat that\nuses the slot, an agent does not list it. Both are absent for any other\nskill.",
                     "type": "string"
                 },
                 "removable": {

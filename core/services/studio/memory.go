@@ -431,11 +431,24 @@ func (s *Service) memoryChatScopes(ctx context.Context, c builtins.Chat) []strin
 // when the chat does not read the notes: a skill that says "read your notes"
 // has no use then, and the model must not look for them. The skills of the
 // built-in provider are off whenever another provider serves.
+//
+// It also records, on the scope of a saved agent, the skills that the host
+// grants for this chat: the skills of the active memory provider, whenever the
+// chat reads the notes and may read the personal ones. A sender who is not
+// paired in a messaging chat gets no personal notes, so it gets no skills that
+// teach reading them. The scope is built for this call, so it is set here and
+// read by grantsSkill; a caller must call this before it resolves the skills.
 func (s *Service) memorySkillsOff(ctx context.Context, rec session.ChatRecord, sc *scope, off []string) []string {
 	legacy := legacyMemoryOf(s.addonContextSets(ctx, rec.Principal))
 	prov := s.memoryProviderFor(ctx, rec.Principal, legacy)
 	builtin := prov.ID() == BuiltinMemoryID
-	reads := s.memoryReads(ctx, rec, sc, legacy)
+	reads := s.memoryReads(ctx, rec, sc, legacy) && s.personalNotesOpen(rec)
+	if reads && sc != nil {
+		sc.hostSkills = set(prov.Skills())
+		if !builtin {
+			sc.hostSkillAddon = prov.ID()
+		}
+	}
 	if builtin && reads {
 		return off
 	}
@@ -443,10 +456,22 @@ func (s *Service) memorySkillsOff(ctx context.Context, rec session.ChatRecord, s
 	if !builtin || !reads {
 		out = append(out, s.memory.Skills()...)
 	}
-	if !builtin && !s.memoryState(ctx, rec, legacy).On {
+	if !builtin && !reads {
 		out = append(out, prov.Skills()...)
 	}
 	return out
+}
+
+// memoryProviderSkills returns the skills that the active memory provider of
+// the user ships, for the skill lists: the names, and the add-on that ships
+// them ("" for the built-in provider).
+func (s *Service) memoryProviderSkills(ctx context.Context, user string) ([]string, string) {
+	legacy := legacyMemoryOf(s.addonContextSets(ctx, user))
+	prov := s.memoryProviderFor(ctx, user, legacy)
+	if prov.ID() == BuiltinMemoryID {
+		return prov.Skills(), ""
+	}
+	return prov.Skills(), prov.ID()
 }
 
 // memoryWritable says whether a chat may propose a memory note: memory is on

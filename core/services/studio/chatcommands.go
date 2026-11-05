@@ -81,7 +81,9 @@ func (s *Service) chatSkills(ctx context.Context, p string, rec session.ChatReco
 		return nil, err
 	}
 	list, _, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, ad.roots()...), ad.options(skills.Options{
-		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.skills[sk.Name]) },
+		Off: func(sk skills.Skill) bool {
+			return skip(sk) || (sc != nil && !sc.skills[sk.Name] && !sc.hostGrants(sk))
+		},
 		Logger: s.log,
 	}))
 	if err != nil {

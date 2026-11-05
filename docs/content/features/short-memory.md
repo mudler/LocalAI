@@ -20,6 +20,13 @@ you saved, never as instructions. The index is a list of lines
 such as `- home: lives in Rome -> home.md`. The model opens a topic with the `context_read`
 tool. Two built-in skills, `memory` and `memory-check-own-files`, tell the
 model to consult memory for almost every request and to say what it can and cannot read.
+The server grants these skills itself, in the same turns that read your notes. A saved
+agent does not list them in its Skills, and an agent saved before this existed gets them
+too. They are not granted when the agent's memory choice is **None**, when memory is off,
+when the chat is private, or to a sender in a messaging app who is not paired (that sender
+gets none of your personal notes). When an add-on serves the notes, the skills of that
+add-on are granted in their place. The skill list marks them with `provider: "memory"` and
+`locked: true`.
 While you have no notes, nothing is added to the prompt.
 
 There are three kinds of notes, each in the Memory folder of your files. The **Memory** tab
