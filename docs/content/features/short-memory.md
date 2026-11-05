@@ -256,7 +256,7 @@ or on the Files page.
 
 ## If you used the Memory add-on
 
-The add-on "Short memory" is no longer needed. Its notes, its save choice and its
+The add-on "Short memory" is no longer needed, and it is no longer offered in the library. Its notes, its save choice and its
 agent setting keep working, and the server does not load its index files or skills twice.
 You can leave it installed or remove it; no note is lost. If you disabled the add-on to
 stop memory and never chose otherwise, memory stays off for you.

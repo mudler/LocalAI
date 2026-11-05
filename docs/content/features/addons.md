@@ -974,7 +974,7 @@ list.
 On the first start, when the owner has no `sources.json` in the `addons` folder yet,
 LocalAI registers one library with the ID `official`. It is a YAML index of the
 first-party add-ons (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Simple Office,
-Sandbox, Web and Short memory). The index has one entry for each enabled platform of each add-on, so an
+Sandbox and Web, plus the other first-party add-ons). The index has one entry for each enabled platform of each add-on, so an
 install on Linux (amd64 or arm64) and on macOS (Apple silicon or Intel) finds the add-ons for
 its own platform. The Sandbox add-on is Linux only. No add-on is built for Windows yet, so the
 official library lists nothing there.
@@ -1145,7 +1145,7 @@ and prints what it holds. `local-ai addons install <file>` checks it, uploads it
 to a running server and prints the link of the page that finishes the install:
 
 ```bash
-local-ai addons install dist/addons/memory-0.1.0-linux-amd64.zip \
+local-ai addons install dist/addons/web-0.1.0-linux-amd64.zip \
   --target http://localhost:8080 --api-key "$LOCALAI_API_KEY"
 ```
 
@@ -1218,21 +1218,21 @@ second build path: the zip holds the same files as the registry package.
 
 ```bash
 # One add-on, for the platform of this machine
-make addons-zip ADDON=memory
+make addons-zip ADDON=web
 
 # Every add-on, for the platform of this machine
 make addons-zip
 
 # Other platforms need the native executables
-make addons-zip ADDON=memory PLATFORMS=linux/amd64,darwin/arm64 \
+make addons-zip ADDON=web PLATFORMS=linux/amd64,darwin/arm64 \
   ADDON_EXECUTABLES=/path/to/executables
 ```
 
 The files go to `dist/addons` (`ADDONS_ZIP_DIR` changes it):
 
 ```text
-dist/addons/memory-0.1.0-linux-amd64.zip
-dist/addons/memory-0.1.0-linux-amd64.zip.sha256
+dist/addons/web-0.1.0-linux-amd64.zip
+dist/addons/web-0.1.0-linux-amd64.zip.sha256
 ```
 
 | Variable | Meaning |
@@ -1253,8 +1253,8 @@ zip bytes, so you can rebuild a file and compare the sha256.
 To build and install one add-on:
 
 ```bash
-make addons-zip ADDON=memory
-local-ai addons install dist/addons/memory-0.1.0-linux-amd64.zip
+make addons-zip ADDON=web
+local-ai addons install dist/addons/web-0.1.0-linux-amd64.zip
 ```
 
 ## Library sources
@@ -3245,7 +3245,8 @@ anything is sent. A manifest that does not is refused.
 ### The retired Memory add-on
 
 The notes are built in, and the add-on `memory` that used to read them is an alias of the
-built-in provider. A copy that is still installed keeps working: the host does not list it
+built-in provider. Its package is retired: it is no longer in the library or built by the
+package workflow, so it is not offered for a new install. A copy that is still installed keeps working: the host does not list it
 as a provider, a choice that names it means the built-in provider, and its index files
 and skills are ignored so the notes do not load twice. Nothing is deleted. A new
 provider must use another ID.
