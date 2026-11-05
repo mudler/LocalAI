@@ -6,6 +6,9 @@
 
 export const GB = 1024 ** 3
 
+// Recent load readings in percent, oldest first, as the controller sends them.
+const wave = (base, swing, count = 24) => Array.from({ length: count }, (_, i) => Math.round(Math.min(100, Math.max(0, base + Math.sin(i * 1.3) * swing + (i % 5)))))
+
 const ago = ms => new Date(Date.now() - ms).toISOString()
 
 // A small cluster with one of everything the pages tell apart: a healthy GPU
@@ -16,18 +19,18 @@ export function clusterNodes() {
     {
       id: 'n-agent', name: 'agent-host', node_type: 'agent', address: '10.0.4.31:50051', status: 'healthy', version: 'v3.9.0',
       total_ram: 16 * GB, available_ram: 10 * GB, cpu_logical_cores: 8, cpu_usage_percent: 14, cpu_load_1: 0.8,
-      total_disk: 500 * GB, available_disk: 410 * GB, model_count: 0, in_flight_count: 0, last_heartbeat: ago(8_000), labels: { 'node.role': 'agents' },
+      total_disk: 500 * GB, available_disk: 410 * GB, model_count: 0, in_flight_count: 0, last_heartbeat: ago(8_000), labels: { 'node.role': 'agents' }, load_history: wave(14, 6),
     },
     {
       id: 'n-edge', name: 'edge-cpu', node_type: 'backend', address: '10.0.4.20:50051', status: 'healthy', version: 'v3.8.4',
       total_ram: 32 * GB, available_ram: 20 * GB, cpu_logical_cores: 12, cpu_usage_percent: 33, cpu_load_1: 2.1,
-      total_disk: 800 * GB, available_disk: 520 * GB, model_count: 2, in_flight_count: 0, last_heartbeat: ago(6_000), labels: { role: 'edge' },
+      total_disk: 800 * GB, available_disk: 520 * GB, model_count: 2, in_flight_count: 0, last_heartbeat: ago(6_000), labels: { role: 'edge' }, load_history: wave(33, 12),
       max_replicas_per_model: 1,
     },
     {
       id: 'n-gpu1', name: 'gpu-box-1', node_type: 'backend', address: '10.0.4.11:50051', status: 'healthy', version: 'v3.9.0', gpu_vendor: 'nvidia',
       total_vram: 48 * GB, available_vram: 19 * GB, total_ram: 128 * GB, available_ram: 68 * GB, cpu_logical_cores: 32, cpu_usage_percent: 52, cpu_load_1: 6.4,
-      total_disk: 2000 * GB, available_disk: 1360 * GB, model_count: 2, in_flight_count: 3, last_heartbeat: ago(3_000), labels: { gpu: '4090', zone: 'a' },
+      total_disk: 2000 * GB, available_disk: 1360 * GB, model_count: 2, in_flight_count: 3, last_heartbeat: ago(3_000), labels: { gpu: '4090', zone: 'a' }, load_history: wave(55, 14),
       max_replicas_per_model: 1,
     },
     {
@@ -39,7 +42,7 @@ export function clusterNodes() {
     {
       id: 'n-gpu3', name: 'gpu-box-3', node_type: 'backend', address: '10.0.4.13:50051', status: 'pending', version: 'v3.9.0', gpu_vendor: 'nvidia',
       total_vram: 24 * GB, available_vram: 24 * GB, total_ram: 64 * GB, available_ram: 56 * GB, cpu_logical_cores: 16, cpu_usage_percent: 4, cpu_load_1: 0.3,
-      total_disk: 1000 * GB, available_disk: 900 * GB, model_count: 0, in_flight_count: 0, last_heartbeat: ago(9_000), labels: {},
+      total_disk: 1000 * GB, available_disk: 900 * GB, model_count: 0, in_flight_count: 0, last_heartbeat: ago(9_000), labels: {}, load_history: [4],
     },
   ]
 }

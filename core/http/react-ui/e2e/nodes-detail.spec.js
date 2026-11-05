@@ -61,7 +61,9 @@ test.describe('Node detail page', () => {
       body: JSON.stringify([{ id: ID, name: 'alpha', node_type: 'backend', address: '10.0.0.1:50051', status: 'healthy' }]) }))
     await mockNode(page)
     await page.goto('/app/nodes')
-    await page.getByRole('link', { name: 'alpha' }).click()
+    // A row opens the inspector beside the roster; its link goes to the page.
+    await page.locator('[data-row]').getByRole('button', { name: /^alpha/ }).click()
+    await page.getByRole('link', { name: 'Open full page' }).click()
     await expect(page).toHaveURL(new RegExp(`/app/nodes/${ID}$`))
     await expect(page.getByRole('heading', { name: 'alpha' })).toBeVisible()
   })
