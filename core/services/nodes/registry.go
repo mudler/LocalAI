@@ -297,6 +297,10 @@ type NodeWithExtras struct {
 	ModelCount    int               `json:"model_count"`
 	InFlightCount int               `json:"in_flight_count"`
 	Labels        map[string]string `json:"labels,omitempty"`
+	// LoadHistory holds the node's recent load readings in percent, oldest
+	// first: VRAM use on a node with a GPU, CPU use otherwise. It lives in
+	// memory only and is absent for a worker that has not reported yet.
+	LoadHistory []float64 `json:"load_history,omitempty"`
 }
 
 // PendingBackendOp is a durable intent for a backend lifecycle operation
@@ -432,6 +436,9 @@ type NodeRegistry struct {
 	heartbeatCheckpoint time.Duration
 	hbMu                sync.Mutex
 	hbLastWrite         map[string]heartbeatSnapshot
+
+	// loadHist feeds NodeWithExtras.LoadHistory.
+	loadHist loadHistory
 }
 
 // AddReplicaRemovedHook registers a callback invoked after a replica row for
@@ -994,6 +1001,7 @@ func (r *NodeRegistry) Deregister(ctx context.Context, nodeID string) error {
 	// churns workers, and makes a re-registration under the same ID write its
 	// first beat immediately.
 	r.forgetHeartbeatCheckpoint(nodeID)
+	r.loadHist.forget(nodeID)
 	return nil
 }
 
@@ -1159,6 +1167,10 @@ func clampCPUUsage(usage float64) float64 {
 // they must be approved or re-register respectively.
 func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *HeartbeatUpdate) error {
 	db := r.db.WithContext(ctx)
+
+	// Sampled before the checkpoint decision: a beat the database skips still
+	// carries a reading.
+	r.recordLoad(ctx, nodeID, update)
 
 	// Decided BEFORE the updates map is built, because building that map costs
 	// a SELECT for the node's VRAM budget ceiling, and a beat the database does
@@ -1333,6 +1345,7 @@ func (r *NodeRegistry) GetWithExtras(ctx context.Context, nodeID string) (*NodeW
 		ModelCount:    int(modelCount),
 		InFlightCount: inFlight.Total,
 		Labels:        labels,
+		LoadHistory:   r.loadHist.snapshot(nodeID),
 	}, nil
 }
 
@@ -2730,6 +2743,7 @@ func (r *NodeRegistry) ListWithExtras(ctx context.Context) ([]NodeWithExtras, er
 			ModelCount:    countMap[n.ID],
 			InFlightCount: inFlightMap[n.ID],
 			Labels:        labelsMap[n.ID],
+			LoadHistory:   r.loadHist.snapshot(n.ID),
 		}
 	}
 	return result, nil
