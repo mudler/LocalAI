@@ -4785,6 +4785,12 @@ definitions:
     properties:
       binding:
         type: string
+      language:
+        description: |-
+          Language is the language of the localized_message fields, negotiated
+          from the lang query parameter, then Accept-Language. Absent for
+          English.
+        type: string
       preview:
         description: Preview is true when the view is for a form that is not saved.
         type: boolean
@@ -4822,6 +4828,13 @@ definitions:
         - $ref: '#/definitions/schema.ChatsConnectorAccessFix'
         description: Fix points at the one place that solves it. The server sends
           no URL.
+      localized_message:
+        description: |-
+          LocalizedMessage is message in the language of the request (see
+          ChatsConnectorAccess.Language), found by code. Absent when the
+          language is English or the code has no translation; message stays
+          English and code stays unchanged.
+        type: string
       message:
         description: Message is one plain sentence for the owner. It names no setting.
         type: string
@@ -4941,6 +4954,17 @@ definitions:
   schema.ChatsConnectorCapability:
     properties:
       description:
+        type: string
+      language:
+        description: |-
+          Language is the language of localized_title and localized_description:
+          the one the request asked for (lang, else Accept-Language) among the
+          translated ones. Absent for English and for a language with no
+          translation; title and description stay English.
+        type: string
+      localized_description:
+        type: string
+      localized_title:
         type: string
       name:
         type: string
@@ -17450,6 +17474,11 @@ paths:
         name: id
         required: true
         type: string
+      - description: Language tag for localized_message, such as it or pt-BR. Wins
+          over Accept-Language. English or an unknown language adds no localized field.
+        in: query
+        name: lang
+        type: string
       responses:
         "200":
           description: The effective permissions
@@ -17474,6 +17503,11 @@ paths:
         in: path
         name: id
         required: true
+        type: string
+      - description: Language tag for localized_message, such as it or pt-BR. Wins
+          over Accept-Language. English or an unknown language adds no localized field.
+        in: query
+        name: lang
         type: string
       - description: the form state to check
         in: body
@@ -17638,8 +17672,9 @@ paths:
         (lang, else Accept-Language), language, localized_title and localized_description
         with English as the fallback for each field; title and description stay English.
       parameters:
-      - description: Language tag to resolve the kind text for, such as it or pt-BR.
-          Wins over Accept-Language. An unknown language gives the English text.
+      - description: Language tag to resolve the kind text and the capability text
+          for, such as it or pt-BR. Wins over Accept-Language. An unknown language
+          gives the English text.
         in: query
         name: lang
         type: string

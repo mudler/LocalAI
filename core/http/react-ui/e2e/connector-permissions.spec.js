@@ -428,6 +428,29 @@ test.describe('Connector permissions', () => {
     await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
   })
 
+  test('in an Italian page the host is asked for Italian and its localized text is shown, with English as the fallback', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('localai-language', 'it'))
+    const capabilities = CAPABILITIES.map(c => (c.name === 'memory.write' ? { ...c, language: 'it', localized_title: 'Salva in memoria', localized_description: 'L\'agente può ricordare.' } : c))
+    const preview = body => {
+      const v = previewFor(body, [])
+      for (const subject of v.subjects) {
+        for (const d of subject.decisions) if (d.capability === 'memory.write') Object.assign(d, { allowed: false, code: 'connection_permission_off', blocked_by: 'connection', message: 'This connection does not allow the bot to save notes to memory.', localized_message: 'Questa connessione non permette al bot di salvare note in memoria.' })
+      }
+      return v
+    }
+    const a = connectorApi(page, [{ ...LEGACY, agent_id: 'a1', caps: ['memory.write'] }], 'slack', [], undefined, { kindExtra: ROLES_KIND, access: ACCESS, capabilities, preview })
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Modifica' }).click()
+    const row = page.getByTestId('connector-can-memory.write')
+    await expect(row).toContainText('Salva in memoria')
+    await expect(row.getByTestId('connector-can-why')).toHaveText('Questa connessione non permette al bot di salvare note in memoria.')
+    // A capability the host did not translate keeps its English title.
+    await expect(page.getByTestId('connector-can-files.upload')).toContainText('Receive files')
+    expect(a.s.urls.some(u => u.endsWith('/api/chats/connectors/kinds?lang=it'))).toBe(true)
+    expect(a.s.urls.some(u => u.endsWith('/access/preview?lang=it'))).toBe(true)
+  })
+
   test('a blocker held by the server settings links to Settings for an administrator and says to ask one otherwise', async ({ page }) => {
     const blocked = body => {
       const v = previewFor(body, [])

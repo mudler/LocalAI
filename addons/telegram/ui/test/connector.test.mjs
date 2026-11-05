@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { approvalForm, approvalPayload, approvalProblem, bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, REPLY_LANGUAGES, fileDirection, fileLimitProblem, formatBytes, mibToBytes, modeText, previewLimit, senderLine } from '../../../internal/connector-ui/src/connector.js'
+import { localizeAccess, localizeCapabilities, approvalForm, approvalPayload, approvalProblem, bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, REPLY_LANGUAGES, fileDirection, fileLimitProblem, formatBytes, mibToBytes, modeText, previewLimit, senderLine } from '../../../internal/connector-ui/src/connector.js'
 
 test('chat connectors: the token goes only when it was typed', () => {
   const create = connectorPayload({ ...emptyConnector(), name: ' Bot ', token: ' 1:abc ', agent_id: 'a1', allow: ['11', ' 11', '@ada_l', ''] }, 'telegram')
@@ -211,4 +211,23 @@ test('chat connectors: the shared words label every reply language and say what 
   assert.equal(en['answer.languageHelp'], 'The notes the bot writes itself, like confirmations and refusals. The answers of the model follow the language of the conversation.')
   const src = readFileSync(new URL('../../../internal/connector-ui/src/AnswerFields.jsx', import.meta.url), 'utf8')
   assert.ok(src.includes('data-testid="connector-reply-language"'))
+})
+
+test('chat connectors: the host text in the page language replaces the English one, field by field', () => {
+  const caps = localizeCapabilities([
+    { name: 'a', title: 'Save', description: 'D', language: 'it', localized_title: 'Salva' },
+    { name: 'b', title: 'Files', description: 'F' },
+  ])
+  assert.deepEqual(caps.map((c) => [c.title, c.description]), [['Salva', 'D'], ['Files', 'F']])
+  const view = { binding: 'b', subjects: [{ id: 'listed', decisions: [
+    { capability: 'a', code: 'x', message: 'English', localized_message: 'Italiano' },
+    { capability: 'b', code: 'y', message: 'English only' },
+    { capability: 'c', allowed: true },
+  ] }] }
+  const out = localizeAccess(view)
+  assert.deepEqual(out.subjects[0].decisions.map((d) => d.message), ['Italiano', 'English only', undefined])
+  assert.equal(out.subjects[0].decisions[0].code, 'x')
+  assert.equal(view.subjects[0].decisions[0].message, 'English', 'the input is not changed')
+  assert.equal(localizeAccess(null), null)
+  assert.deepEqual(localizeCapabilities(undefined), [])
 })

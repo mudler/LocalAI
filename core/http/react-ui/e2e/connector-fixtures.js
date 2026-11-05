@@ -89,7 +89,8 @@ export function previewFor(body, roles = []) {
 }
 
 export function connectorApi(page, initial = [], kind = 'telegram', senders = [NEWCOMER], files = ONE_MIB, { capabilities = CAPABILITIES, kindExtra = {}, access = null, preview = null, previewDelay = 0, previewStatus = 200 } = {}) {
-  const s = { items: structuredClone(initial), calls: [], senders: structuredClone(senders), previews: [] }
+  const s = { items: structuredClone(initial), calls: [], senders: structuredClone(senders), previews: [], urls: [] }
+  page.on('request', r => { if (r.url().includes('/api/chats/connectors/')) s.urls.push(r.url()) })
   const rec = (method, url, body) => s.calls.push({ method, url: new URL(url).pathname, body })
   return {
     s,
@@ -100,14 +101,14 @@ export function connectorApi(page, initial = [], kind = 'telegram', senders = [N
         s.senders = s.senders.map(x => ({ ...x, allowed: true }))
         return r.fulfill({ json: s.items[0] })
       })
-      await page.route(/\/api\/chats\/connectors\/[^/?]+\/access\/preview$/, async r => {
+      await page.route(/\/api\/chats\/connectors\/[^/?]+\/access\/preview(\?.*)?$/, async r => {
         const body = r.request().postDataJSON()
         s.previews.push({ id: decodeURIComponent(new URL(r.request().url()).pathname.split('/').at(-3)), body })
         if (previewDelay) await new Promise(ok => setTimeout(ok, previewDelay))
         if (previewStatus !== 200) return r.fulfill({ status: previewStatus, json: { error: { message: 'The check is not available right now.' } } })
         return r.fulfill({ json: typeof preview === 'function' ? preview(body) : preview || previewFor(body, kindExtra.roles || []) })
       })
-      await page.route(/\/api\/chats\/connectors\/[^/?]+\/access$/, r => r.fulfill({ json: access || { binding: 'b1', subjects: [], recent: [] } }))
+      await page.route(/\/api\/chats\/connectors\/[^/?]+\/access(\?.*)?$/, r => r.fulfill({ json: access || { binding: 'b1', subjects: [], recent: [] } }))
       await page.route(/\/api\/chats\/connectors\/[^/?]+\/pairing$/, r => {
         rec('POST', r.request().url(), null)
         return r.fulfill({ json: { code: 'LA-K7M2QX9P', expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() } })
@@ -146,7 +147,7 @@ export function connectorApi(page, initial = [], kind = 'telegram', senders = [N
       await page.route(/\/api\/chats(\?.*)?$/, r => r.fulfill({ json: { conversations: [], persistent: true, files: true } }))
       await page.route('**/api/chats/notifications*', r => r.fulfill({ json: { notifications: [], unread: 0 } }))
       // Registered last, so it answers before the route of one binding.
-      await page.route(/\/api\/chats\/connectors\/kinds$/, r => r.fulfill({ json: { kinds: [{ addon: kind, kind, title: kind, files, ...kindExtra }], capabilities } }))
+      await page.route(/\/api\/chats\/connectors\/kinds(\?.*)?$/, r => r.fulfill({ json: { kinds: [{ addon: kind, kind, title: kind, files, ...kindExtra }], capabilities } }))
     },
   }
 }

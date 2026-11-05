@@ -5798,7 +5798,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Language tag to resolve the kind text for, such as it or pt-BR. Wins over Accept-Language. An unknown language gives the English text.",
+                        "description": "Language tag to resolve the kind text and the capability text for, such as it or pt-BR. Wins over Accept-Language. An unknown language gives the English text.",
                         "name": "lang",
                         "in": "query"
                     }
@@ -5912,6 +5912,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Language tag for localized_message, such as it or pt-BR. Wins over Accept-Language. English or an unknown language adds no localized field.",
+                        "name": "lang",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -5938,6 +5944,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Language tag for localized_message, such as it or pt-BR. Wins over Accept-Language. English or an unknown language adds no localized field.",
+                        "name": "lang",
+                        "in": "query"
                     },
                     {
                         "description": "the form state to check",
@@ -21974,6 +21986,10 @@ const docTemplate = `{
                 "binding": {
                     "type": "string"
                 },
+                "language": {
+                    "description": "Language is the language of the localized_message fields, negotiated\nfrom the lang query parameter, then Accept-Language. Absent for\nEnglish.",
+                    "type": "string"
+                },
                 "preview": {
                     "description": "Preview is true when the view is for a form that is not saved.",
                     "type": "boolean"
@@ -22016,6 +22032,10 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ChatsConnectorAccessFix"
                         }
                     ]
+                },
+                "localized_message": {
+                    "description": "LocalizedMessage is message in the language of the request (see\nChatsConnectorAccess.Language), found by code. Absent when the\nlanguage is English or the code has no translation; message stays\nEnglish and code stays unchanged.",
+                    "type": "string"
                 },
                 "message": {
                     "description": "Message is one plain sentence for the owner. It names no setting.",
@@ -22175,6 +22195,16 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "description": {
+                    "type": "string"
+                },
+                "language": {
+                    "description": "Language is the language of localized_title and localized_description:\nthe one the request asked for (lang, else Accept-Language) among the\ntranslated ones. Absent for English and for a language with no\ntranslation; title and description stay English.",
+                    "type": "string"
+                },
+                "localized_description": {
+                    "type": "string"
+                },
+                "localized_title": {
                     "type": "string"
                 },
                 "name": {

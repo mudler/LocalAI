@@ -2,8 +2,17 @@
 // (sdk.core.fetch). The bindings, the sealed token and the sender log live in
 // core; the add-on only carries the messages.
 import { getSdk } from '../../host-compat/src/runtime.js'
+import { localizeAccess, localizeCapabilities } from './connector.js'
 
 const enc = encodeURIComponent
+
+// The language of the page. The three calls that return text for the owner
+// (kinds, access, preview) name it, so the host answers in it: the language
+// of the interface may differ from the language of the browser.
+let language = ''
+// English is the host's own text, so it is not asked for.
+export function setApiLanguage(tag) { language = typeof tag === 'string' && !/^en(-|$)/i.test(tag) ? tag : '' }
+const localized = (path) => (language ? `${path}${path.includes('?') ? '&' : '?'}lang=${enc(language)}` : path)
 
 async function call(path, init = {}) {
   const response = await getSdk().core.fetch(path, { headers: { 'Content-Type': 'application/json' }, ...init })
@@ -29,7 +38,7 @@ export const agentsApi = { list: () => call('/api/chats/agents') }
 
 export const connectorsApi = {
   list: () => call('/api/chats/connectors'),
-  kinds: () => call('/api/chats/connectors/kinds'),
+  kinds: () => call(localized('/api/chats/connectors/kinds')).then((r) => (r ? { ...r, capabilities: localizeCapabilities(r.capabilities) } : r)),
   create: (body) => send('POST', '/api/chats/connectors', body),
   update: (id, body) => send('PUT', `/api/chats/connectors/${enc(id)}`, body),
   remove: (id) => send('DELETE', `/api/chats/connectors/${enc(id)}`),
@@ -42,8 +51,8 @@ export const connectorsApi = {
   // to the bot as a direct message from that account.
   pair: (id) => send('POST', `/api/chats/connectors/${enc(id)}/pairing`, {}),
   // What each kind of sender may do on a binding now, and the latest decisions.
-  access: (id) => call(`/api/chats/connectors/${enc(id)}/access`),
+  access: (id) => call(localized(`/api/chats/connectors/${enc(id)}/access`)).then(localizeAccess),
   // What the form as it is now will do, before it is saved. The id is "new" for a connection that is not saved yet.
-  preview: (id, body, signal) => send('POST', `/api/chats/connectors/${enc(id)}/access/preview`, body, signal),
+  preview: (id, body, signal) => send('POST', localized(`/api/chats/connectors/${enc(id)}/access/preview`), body, signal).then(localizeAccess),
   unpair: (id, sender) => send('DELETE', `/api/chats/connectors/${enc(id)}/paired/${enc(sender)}`),
 }

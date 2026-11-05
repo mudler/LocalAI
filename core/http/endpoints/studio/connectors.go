@@ -2,6 +2,7 @@ package studio
 
 import (
 	"errors"
+	"github.com/mudler/LocalAI/core/services/studio/connectortext"
 	"net/http"
 	"slices"
 
@@ -178,7 +179,7 @@ func (h *Handlers) ListConnectors(c echo.Context) error {
 // @Summary List the connector kinds you can bind.
 // @Description The messaging platforms that a running connector add-on serves, with the add-on page that adds and edits their bindings. Empty when no connector add-on is installed. A kind whose manifest translates its text carries titles and descriptions by language and, when the request names a language it translates (lang, else Accept-Language), language, localized_title and localized_description with English as the fallback for each field; title and description stay English.
 // @Tags chats
-// @Param lang query string false "Language tag to resolve the kind text for, such as it or pt-BR. Wins over Accept-Language. An unknown language gives the English text."
+// @Param lang query string false "Language tag to resolve the kind text and the capability text for, such as it or pt-BR. Wins over Accept-Language. An unknown language gives the English text."
 // @Success 200 {object} schema.ChatsConnectorKindList "The kinds"
 // @Router /api/chats/connectors/kinds [get]
 func (h *Handlers) ConnectorKinds(c echo.Context) error {
@@ -198,8 +199,9 @@ func (h *Handlers) ConnectorKinds(c echo.Context) error {
 		translateKind(&view, k.Translations, explicit, accept)
 		out.Kinds = append(out.Kinds, view)
 	}
+	lang := connectortext.Negotiate(explicit, accept)
 	for _, ci := range contract.ConnectorCapabilities() {
-		out.Capabilities = append(out.Capabilities, schema.ChatsConnectorCapability(ci))
+		out.Capabilities = append(out.Capabilities, capabilityOut(ci, lang))
 	}
 	return c.JSON(http.StatusOK, out)
 }
@@ -416,6 +418,7 @@ func (h *Handlers) StartConnectorPairing(c echo.Context) error {
 // @Description Runs the permission check the host uses for each turn, for a sender on the allowlist by ID or name (trusted with every capability that is not sensitive), a sender let in only through a listed channel, a paired sender and a sender of each role the kind declares, and lists the latest decisions. A settings page of the add-on can show it.
 // @Tags chats
 // @Param id path string true "the binding's id"
+// @Param lang query string false "Language tag for localized_message, such as it or pt-BR. Wins over Accept-Language. English or an unknown language adds no localized field."
 // @Success 200 {object} schema.ChatsConnectorAccess "The effective permissions"
 // @Router /api/chats/connectors/{id}/access [get]
 func (h *Handlers) ConnectorAccess(c echo.Context) error {
@@ -427,16 +430,21 @@ func (h *Handlers) ConnectorAccess(c echo.Context) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusOK, accessOut(v))
+	return c.JSON(http.StatusOK, accessOut(v, connectortext.Negotiate(c.QueryParam("lang"), c.Request().Header.Get("Accept-Language"))))
 }
 
-func accessOut(v studiosvc.AccessView) schema.ChatsConnectorAccess {
-	out := schema.ChatsConnectorAccess{Binding: v.Binding, Subjects: []schema.ChatsConnectorAccessSubject{}, Recent: []schema.ChatsConnectorAccessEvent{}, Preview: v.Preview}
+func accessOut(v studiosvc.AccessView, lang string) schema.ChatsConnectorAccess {
+	out := schema.ChatsConnectorAccess{Binding: v.Binding, Subjects: []schema.ChatsConnectorAccessSubject{}, Recent: []schema.ChatsConnectorAccessEvent{}, Preview: v.Preview, Language: lang}
 	for _, s := range v.Subjects {
 		o := schema.ChatsConnectorAccessSubject{ID: s.ID, Title: s.Title, Decisions: []schema.ChatsConnectorAccessDecision{}}
 		for _, d := range s.Decisions {
 			od := schema.ChatsConnectorAccessDecision{Capability: d.Capability, Allowed: d.Allowed, Via: d.Via, Reason: d.Reason,
 				Code: d.Code, BlockedBy: d.BlockedBy, Message: d.Message, ThenCheck: d.ThenCheck}
+			if lang != "" && d.Code != "" {
+				if m, ok := connectortext.Block(lang, d.Code, d.Capability); ok {
+					od.LocalizedMessage = m
+				}
+			}
 			if d.Fix != nil {
 				od.Fix = &schema.ChatsConnectorAccessFix{Kind: d.Fix.Kind, Target: d.Fix.Target, Field: d.Fix.Field}
 			}
@@ -456,6 +464,7 @@ func accessOut(v studiosvc.AccessView) schema.ChatsConnectorAccess {
 // @Description Runs the same permission chain as the access view on the state in the request: the server setting, the Tools switch of the agent, the agent permission, the permission of the connection and the trust of the sender, in that order, and reports the first problem of each capability with a code, a plain message, one fix and the links not yet checked. Fields that are absent keep the saved value. Use the id "new" with a kind for a connection that is not saved yet. It writes nothing, records no decision, and neither takes nor returns the token. Same sign-in and Connectors feature as the other connector routes.
 // @Tags chats
 // @Param id path string true "the binding's id, or new"
+// @Param lang query string false "Language tag for localized_message, such as it or pt-BR. Wins over Accept-Language. English or an unknown language adds no localized field."
 // @Param request body schema.ChatsConnectorAccessPreviewRequest true "the form state to check"
 // @Success 200 {object} schema.ChatsConnectorAccess "The effective permissions of that state"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
@@ -474,7 +483,7 @@ func (h *Handlers) ConnectorAccessPreview(c echo.Context) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusOK, accessOut(v))
+	return c.JSON(http.StatusOK, accessOut(v, connectortext.Negotiate(c.QueryParam("lang"), c.Request().Header.Get("Accept-Language"))))
 }
 
 // RemoveConnectorPaired ends the pairing of a sender.
@@ -495,6 +504,19 @@ func (h *Handlers) RemoveConnectorPaired(c echo.Context) error {
 		return failConnector(c, err)
 	}
 	return c.JSON(http.StatusOK, connectorOut(i))
+}
+
+// capabilityOut adds the title and description in the negotiated language
+// beside the English ones.
+func capabilityOut(ci contract.CapabilityInfo, lang string) schema.ChatsConnectorCapability {
+	out := schema.ChatsConnectorCapability{Name: ci.Name, Title: ci.Title, Description: ci.Description, Sensitive: ci.Sensitive, Usual: ci.Usual}
+	if lang == "" {
+		return out
+	}
+	if t, d, ok := connectortext.Capability(lang, ci.Name); ok {
+		out.Language, out.LocalizedTitle, out.LocalizedDescription = lang, t, d
+	}
+	return out
 }
 
 func optionsOut(in []contract.ConnectorOption) []schema.ChatsConnectorOption {

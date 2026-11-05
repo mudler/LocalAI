@@ -901,6 +901,26 @@ sentence of every code, so `message` always reads as a whole sentence, for examp
 "People in a channel are not trusted one by one, so the bot cannot save notes to memory
 for them. Add the person to the allowed people."
 
+### Text in the language of the page
+
+The access view, the preview and the kinds call (which lists the capabilities) return
+English text and, beside it, the same text in the language of the request. The language
+is the `lang` query parameter (for example `it` or `pt-BR`), else the first language of
+`Accept-Language` that the host translates, else English. The host translates Italian,
+German, Spanish, French, Indonesian, Korean, Brazilian Portuguese and Simplified
+Chinese.
+
+- Each decision keeps `code` and `message` and gains `localized_message`, found by
+  `code`. The view gains `language`.
+- Each capability keeps `title` and `description` and gains `language`,
+  `localized_title` and `localized_description`.
+
+The `localized_*` fields are absent for English, for a language the host does not
+translate, and for a refusal that a rule of the feature wrote itself (it has no code).
+A page shows the localized field when it is there and the English one otherwise. The
+note for the model and the words a sender reads in the chat do not use these fields:
+the model reads English, and the sender reads the reply language of the connection.
+
 ### Preview before saving
 
 `POST /api/chats/connectors/<id>/access/preview` answers like the access view for a form

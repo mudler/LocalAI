@@ -1432,6 +1432,11 @@ type ChatsConnectorAccessDecision struct {
 	BlockedBy string `json:"blocked_by,omitempty"`
 	// Message is one plain sentence for the owner. It names no setting.
 	Message string `json:"message,omitempty"`
+	// LocalizedMessage is message in the language of the request (see
+	// ChatsConnectorAccess.Language), found by code. Absent when the
+	// language is English or the code has no translation; message stays
+	// English and code stays unchanged.
+	LocalizedMessage string `json:"localized_message,omitempty"`
 	// Fix points at the one place that solves it. The server sends no URL.
 	Fix *ChatsConnectorAccessFix `json:"fix,omitempty"`
 	// ThenCheck lists the links after the first problem that were not
@@ -1483,6 +1488,10 @@ type ChatsConnectorAccess struct {
 	Recent   []ChatsConnectorAccessEvent   `json:"recent"`
 	// Preview is true when the view is for a form that is not saved.
 	Preview bool `json:"preview,omitempty"`
+	// Language is the language of the localized_message fields, negotiated
+	// from the lang query parameter, then Accept-Language. Absent for
+	// English.
+	Language string `json:"language,omitempty"`
 }
 
 // ChatsConnectorAccessPreviewRequest is the state of a connection form that
@@ -1526,6 +1535,13 @@ type ChatsConnectorCapability struct {
 	Sensitive bool `json:"sensitive"`
 	// Usual capabilities are what a one-click preset turns on.
 	Usual bool `json:"usual"`
+	// Language is the language of localized_title and localized_description:
+	// the one the request asked for (lang, else Accept-Language) among the
+	// translated ones. Absent for English and for a language with no
+	// translation; title and description stay English.
+	Language             string `json:"language,omitempty"`
+	LocalizedTitle       string `json:"localized_title,omitempty"`
+	LocalizedDescription string `json:"localized_description,omitempty"`
 }
 
 // ChatsConnectorPermission is a capability that a kind lists. Sensitive ones

@@ -261,3 +261,7 @@ func chainRank(code string) int {
 	}
 	return slices.Index(chain, row.By)
 }
+
+// BlockOwnerMessage is the English sentence the owner reads for a code: the
+// source of the translations that connectortext holds by the same code.
+func BlockOwnerMessage(code, capability string) string { return blockMessage(code, capability) }
