@@ -10,6 +10,25 @@ The Connectors page of the [chats](/features/chats/) (`/app/chats/connectors`, u
 - A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram), the [Slack add-on](#slack) or the [Discord add-on](#discord) (the [GitHub add-on](#github) and the [Jellyfin add-on](#jellyfin) hold a token for your agents instead of carrying messages). This is the first half of this page.
 - An **MCP server** gives your chats and agents more tools. See [MCP servers](#mcp-servers).
 
+## Set up a bot in five steps
+
+This is the same for Slack, Telegram and Discord. Each platform's own steps
+(making the app or bot and copying its tokens) are in its section below.
+
+1. An administrator gives you the `connectors` and `agents` features (see
+   [Users and what each can do]({{%relref "features/users-and-features" %}})).
+   With authentication off you already have them.
+2. Install the platform's add-on from **Add-ons**, **Find add-ons**.
+3. Save an [agent]({{%relref "features/chats-agents" %}}) that names a model. A
+   binding cannot use an agent without one.
+4. Make the bot or app on the platform and copy its token.
+5. On the add-on's page make a binding: a name, the token, the agent, and who
+   may use it. Save, then write to the bot from an allowed account.
+
+Limits: only the people you list can talk to the bot. A bot is a door to
+your agent, so give the agent only the tools the bot needs. LocalAI opens the
+connection to the platform itself, so it needs no public address.
+
 ## Connector add-ons
 
 Core keeps what is the same for every platform: the bindings, the sealed bot token,

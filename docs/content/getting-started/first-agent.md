@@ -25,7 +25,7 @@ On the Agents page, choose **Chat** on the agent's row and write a message. The 
 
 ## Let it work by itself
 
-Open **Triggers** and make a schedule, for example `weekdays 09:00`, with the agent and a prompt. Each run is an ordinary chat of yours, and the result arrives in your **Inbox**. Add a [Telegram connector](/features/chats-connectors/) to talk to the agent from your phone.
+Open **Triggers** and make a schedule, for example `weekdays 09:00`, with the agent and a prompt. Each run is an ordinary chat of yours, and the result arrives in your **Inbox**. Add a Telegram, Slack or Discord [connector](/features/chats-connectors/) to talk to the agent from your phone or your team chat. Connectors need the `connectors` feature.
 
 ## If your agent will not run
 
