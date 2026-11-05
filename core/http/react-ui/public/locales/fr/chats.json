@@ -1025,7 +1025,7 @@
       "title": "Quand il veut enregistrer une note",
       "use_mine": {
         "title": "Utiliser mon réglage",
-        "body": "Actuellement : {{level}}."
+        "body": "Votre réglage est <b>{{level}}</b>. <settings>Modifiez-le dans Réglages > Mémoire.</settings>"
       },
       "always": {
         "title": "Toujours confirmer",
@@ -1035,7 +1035,7 @@
         "title": "Jamais",
         "body": "Il lit, n'enregistre jamais."
       },
-      "hint": "Un agent peut demander plus que votre réglage, jamais moins. « Enregistrer et me prévenir » n'est pas proposé ici. Dans une conversation de messagerie, la note va d'abord à cette conversation et n'atteint les notes propres de cet agent que depuis un expéditeur associé."
+      "hint": "Dans une conversation de messagerie, la note va d'abord à cette conversation et n'atteint les notes propres de cet agent que depuis un expéditeur associé."
     }
   },
   "providerPicker": {

@@ -1347,7 +1347,7 @@
       "title": "When it wants to save a note",
       "use_mine": {
         "title": "Use my setting",
-        "body": "Currently: {{level}}."
+        "body": "Your setting is <b>{{level}}</b>. <settings>Change it in Settings > Memory.</settings>"
       },
       "always": {
         "title": "Always confirm",
@@ -1357,7 +1357,7 @@
         "title": "Never",
         "body": "It reads, never saves."
       },
-      "hint": "An agent can ask more than your setting, never less. \"Save it and tell me\" is not offered here. In a messaging chat a note goes to that conversation first, and reaches this agent's own notes only from a paired sender."
+      "hint": "In a messaging chat a note goes to that conversation first, and reaches this agent's own notes only from a paired sender."
     }
   },
   "providerPicker": {

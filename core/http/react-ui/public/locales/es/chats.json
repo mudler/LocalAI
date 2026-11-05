@@ -1025,7 +1025,7 @@
       "title": "Cuando quiere guardar una nota",
       "use_mine": {
         "title": "Usar mi ajuste",
-        "body": "Ahora: {{level}}."
+        "body": "Tu ajuste es <b>{{level}}</b>. <settings>Cámbialo en Ajustes > Memoria.</settings>"
       },
       "always": {
         "title": "Confirmar siempre",
@@ -1035,7 +1035,7 @@
         "title": "Nunca",
         "body": "Lee, nunca guarda."
       },
-      "hint": "Un agente puede preguntar más que tu ajuste, nunca menos. «Guardar y avisarme» no se ofrece aquí. En un chat de mensajería la nota va primero a esa conversación y llega a las notas propias de este agente solo desde un remitente emparejado."
+      "hint": "En un chat de mensajería la nota va primero a esa conversación y llega a las notas propias de este agente solo desde un remitente emparejado."
     }
   },
   "providerPicker": {

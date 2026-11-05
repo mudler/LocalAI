@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useId } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
 import { Callout } from '../ui'
@@ -76,7 +76,10 @@ export default function AgentMemoryChoice({ value, onChange, saves, onSaves, use
                   <input type="radio" name="agent-memory-rule" value={key} checked={checked} onChange={() => onSaveRule(r)} />
                   <span className="am__text">
                     <span className="am__title">{t(`agentMemory.rule.${key}.title`)}</span>
-                    <span className="am__body">{r ? t(`agentMemory.rule.${key}.body`) : t('agentMemory.rule.use_mine.body', { level: t(`memorySettings.save.${userLevel || 'ask'}.title`) })}</span>
+                    <span className="am__body">{r ? t(`agentMemory.rule.${key}.body`) : (
+                      <Trans t={t} i18nKey="agentMemory.rule.use_mine.body" values={{ level: t(`memorySettings.save.${userLevel || 'ask'}.title`) }}
+                        components={{ b: <b data-testid="agent-memory-user-level" />, settings: <Link className="cs-link" to="/app/account?tab=memory" data-testid="agent-memory-settings-link" /> }} />
+                    )}</span>
                   </span>
                 </label>
               )

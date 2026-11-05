@@ -1025,7 +1025,7 @@
       "title": "Saat ingin menyimpan catatan",
       "use_mine": {
         "title": "Pakai pengaturan saya",
-        "body": "Saat ini: {{level}}."
+        "body": "Pengaturan Anda adalah <b>{{level}}</b>. <settings>Ubah di Pengaturan > Memori.</settings>"
       },
       "always": {
         "title": "Selalu konfirmasi",
@@ -1035,7 +1035,7 @@
         "title": "Jangan pernah",
         "body": "Membaca, tidak pernah menyimpan."
       },
-      "hint": "Agen boleh bertanya lebih banyak dari pengaturan Anda, tidak pernah lebih sedikit. \"Simpan dan beri tahu saya\" tidak ditawarkan di sini. Di obrolan aplikasi pesan, catatan masuk ke percakapan itu dulu, dan sampai ke catatan milik agen ini hanya dari pengirim yang dipasangkan."
+      "hint": "Di obrolan aplikasi pesan, catatan masuk ke percakapan itu dulu, dan sampai ke catatan milik agen ini hanya dari pengirim yang dipasangkan."
     }
   },
   "providerPicker": {

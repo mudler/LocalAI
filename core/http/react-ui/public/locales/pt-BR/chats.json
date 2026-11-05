@@ -1025,7 +1025,7 @@
       "title": "Quando quer salvar uma nota",
       "use_mine": {
         "title": "Usar minha configuração",
-        "body": "Agora: {{level}}."
+        "body": "Sua configuração é <b>{{level}}</b>. <settings>Altere em Configurações > Memória.</settings>"
       },
       "always": {
         "title": "Sempre confirmar",
@@ -1035,7 +1035,7 @@
         "title": "Nunca",
         "body": "Lê, nunca salva."
       },
-      "hint": "Um agente pode perguntar mais que a sua configuração, nunca menos. \"Salvar e me avisar\" não é oferecido aqui. Em um chat de mensagens, a nota vai primeiro para essa conversa e só chega às notas próprias deste agente vinda de um remetente pareado."
+      "hint": "Em um chat de mensagens, a nota vai primeiro para essa conversa e só chega às notas próprias deste agente vinda de um remetente pareado."
     }
   },
   "providerPicker": {

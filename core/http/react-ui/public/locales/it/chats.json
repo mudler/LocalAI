@@ -1025,7 +1025,7 @@
       "title": "Quando vuole salvare una nota",
       "use_mine": {
         "title": "Usa la mia impostazione",
-        "body": "Ora: {{level}}."
+        "body": "La tua impostazione è <b>{{level}}</b>. <settings>Cambiala in Impostazioni > Memoria.</settings>"
       },
       "always": {
         "title": "Conferma sempre",
@@ -1035,7 +1035,7 @@
         "title": "Mai",
         "body": "Legge, non salva mai."
       },
-      "hint": "Un agente può chiedere di più della tua impostazione, mai di meno. «Salva e avvisami» qui non è offerto. In una chat di messaggistica la nota va prima in quella conversazione e arriva alle note proprie di questo agente solo da un mittente abbinato."
+      "hint": "In una chat di messaggistica la nota va prima in quella conversazione e arriva alle note proprie di questo agente solo da un mittente abbinato."
     }
   },
   "providerPicker": {

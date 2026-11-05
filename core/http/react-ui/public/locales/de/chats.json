@@ -1025,7 +1025,7 @@
       "title": "Wenn er eine Notiz speichern will",
       "use_mine": {
         "title": "Meine Einstellung",
-        "body": "Aktuell: {{level}}."
+        "body": "Deine Einstellung ist <b>{{level}}</b>. <settings>Ändere sie unter Einstellungen > Gedächtnis.</settings>"
       },
       "always": {
         "title": "Immer bestätigen",
@@ -1035,7 +1035,7 @@
         "title": "Nie",
         "body": "Liest, speichert nie."
       },
-      "hint": "Ein Agent darf mehr fragen als deine Einstellung, aber nie weniger. „Speichern und Bescheid geben“ gibt es hier nicht. In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einem gekoppelten Absender."
+      "hint": "In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einem gekoppelten Absender."
     }
   },
   "providerPicker": {
