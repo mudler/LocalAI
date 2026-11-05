@@ -3,7 +3,7 @@
 This directory holds the template of the catalog entries of the first-party add-ons.
 It holds no live URL, registry or namespace. The registry and repository are inputs of
 the release workflow (`ADDON_OCI_REPOSITORY`). Each first-party add-on has its own
-template (`tables`, `voice`, `face`, `fine-tuning`, `quantization`, `studio`, `talk`, `office`, `sandbox`, `web`, `github`, `jellyfin`, `pikvm`, `discord`) and its own release
+template (`tables`, `voice`, `face`, `fine-tuning`, `quantization`, `studio`, `talk`, `office`, `sandbox`, `web`, `github`, `jellyfin`, `pikvm`, `discord`, `calendar`) and its own release
 platform matrix, `addons/<id>/package/platforms.yaml`. The templates differ in `name:` only.
 
 ## Generate the index
