@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi, previewFor, CAPABILITIES, ROLES_KIND } from './connector-fixtures.js'
+import { connectorApi, previewFor, CAPABILITIES, ROLES_KIND, openAnswerMore } from './connector-fixtures.js'
 import { ADMIN, MEMBER, sessionFor } from './addons-fixtures.js'
 
 // The permissions of a binding on the shared connector page (drawn here by the
@@ -202,8 +202,9 @@ test.describe('Connector permissions', () => {
     const box = page.getByTestId('connector-channels')
     await expect(box.getByTestId('connector-channel-id')).toHaveValue('C0123')
     await expect(box.getByTestId('connector-channel-label')).toHaveValue('ops')
-    await expect(box.getByTestId('connector-channel-approved')).toHaveAttribute('aria-checked', 'true')
+    await expect(box.getByTestId('connector-channel-approved')).toHaveValue('any')
     await box.getByTestId('connector-channel-add').click()
+    await expect(box.getByTestId('connector-channel-approved').nth(1)).toHaveValue('verified')
     await expect(page.getByTestId('connector-channel-problem')).toContainText('needs an ID')
     await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
     await box.getByTestId('connector-channel-id').nth(1).fill('bad id')
@@ -232,6 +233,49 @@ test.describe('Connector permissions', () => {
     await page.getByRole('button', { name: 'Edit' }).click()
     await expect(page.getByTestId('connector-channels')).toContainText('Switch on "Post to other channels"')
     await expect(page.getByTestId('connector-channel-add')).toHaveCount(0)
+    await page.getByTestId('connector-channels-switch').click()
+    await expect(page.getByTestId('connector-cap-switch-talkback.channels')).toBeFocused()
+  })
+
+  test('each place has one choice: any allowed person, or only a verified person', async ({ page }) => {
+    const a = api(page, [SET])
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const box = page.getByTestId('connector-channels')
+    const choice = box.getByTestId('connector-channel-approved')
+    await expect(choice.locator('option')).toHaveText(['When any allowed person asks', 'Only when a verified person asks'])
+    await choice.selectOption('verified')
+    await expect(box.getByTestId('connector-channel')).toHaveAttribute('data-approved', 'false')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.channels).toEqual([{ id: 'C0123', label: 'ops', approved: false }])
+  })
+
+  test('reminders go to a person or channel the page knows, or to a saved ID it does not', async ({ page }) => {
+    const a = connectorApi(page, [{ ...SET, allow: ['U001', 'C0123'], notify_chat: 'U9999' }], 'slack', [{ id: 'U001', name: 'Ada Example', count: 2, allowed: true }], undefined, { kindExtra: ROLES_KIND, access: ACCESS })
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const pick = page.getByTestId('connector-notify')
+    await expect(pick).toHaveValue('U9999')
+    await expect(pick.locator('option')).toContainText(['Nowhere', 'Ada Example · U001', 'C0123', 'U9999 (saved ID)', 'Another ID...'])
+    await pick.selectOption('U001')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.notify_chat).toBe('U001')
+  })
+
+  test('the file sizes and the reply language sit in one group that opens when one is set', async ({ page }) => {
+    await api(page, [SET]).install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const more = page.getByTestId('connector-answer-more')
+    await expect(more).not.toHaveAttribute('open', '')
+    await expect(page.getByTestId('connector-reply-language')).toBeHidden()
+    await more.locator('summary').click()
+    await expect(page.getByTestId('connector-reply-language')).toBeVisible()
+    await expect(page.getByTestId('connector-filelimits')).toBeVisible()
+    await expect(page.getByTestId('connector-reply')).toBeVisible()
+    await expect(page.getByTestId('connector-conversation')).toBeVisible()
   })
 
   test('Verify shows the code once, marks a verified person with a badge and removes one', async ({ page }) => {

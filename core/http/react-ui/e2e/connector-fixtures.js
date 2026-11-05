@@ -153,3 +153,9 @@ export function connectorApi(page, initial = [], kind = 'telegram', senders = [N
     },
   }
 }
+
+// Opens the group "File sizes and reply language" of the form, when it is closed.
+export async function openAnswerMore(page) {
+  const more = page.getByTestId('connector-answer-more')
+  if ((await more.getAttribute('open')) === null) await more.locator('summary').click()
+}

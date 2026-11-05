@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi as api, DECLARED } from './connector-fixtures.js'
+import { connectorApi as api, DECLARED, openAnswerMore } from './connector-fixtures.js'
 
 // The page of the Telegram add-on (the real built bundle, inside the add-on
 // shell) with the core API stubbed: the token only goes in, "anyone"
@@ -124,6 +124,7 @@ test.describe('Telegram add-on', () => {
     await expect(page.getByTestId('connector-files')).toBeChecked()
     await expect(page.getByTestId('connector-window')).toHaveCount(0)
     // The notes the bot writes itself follow the sender unless a language is chosen.
+    await openAnswerMore(page)
     await expect(page.getByTestId('connector-reply-language')).toHaveValue('auto')
     await expect(page.getByText('The notes the bot writes itself, like confirmations and refusals.')).toBeVisible()
     await page.getByLabel('Name', { exact: true }).fill('Live bot')
@@ -179,6 +180,7 @@ test.describe('Telegram add-on', () => {
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New Telegram bot' }).click()
+    await openAnswerMore(page)
     const files = page.getByTestId('connector-filelimits')
     await expect(files).toContainText('Now: 1 MiB (limit of the add-on).')
     // The owner can only lower the limit: 2 MiB is above the 1 MiB the kind allows.
@@ -200,6 +202,7 @@ test.describe('Telegram add-on', () => {
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New Telegram bot' }).click()
+    await openAnswerMore(page)
     const files = page.getByTestId('connector-filelimits')
     await expect(files).toContainText('Now: 20 MiB (limit of the add-on).')
     await expect(files).toContainText('Now: 256 KiB (limit of the add-on).')

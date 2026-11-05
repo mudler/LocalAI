@@ -10,7 +10,7 @@ import ConfirmDialog from '../../host-compat/src/components/ConfirmDialog'
 import Icon from '../../host-compat/src/components/Icon'
 import AnswerFields, { answerSummary, answerT } from './AnswerFields'
 import AccessView from './AccessView'
-import { useAccessPreview, useIsAdmin } from './accessHooks'
+import { jumpTo, useAccessPreview, useIsAdmin } from './accessHooks'
 import ReadinessList from './ReadinessList'
 import { useAuth } from '../../host-compat/src/context/AuthContext'
 import ApprovalOptions from './ApprovalFields'
@@ -19,10 +19,11 @@ import { Field, HintLabels, Notice, Select, Switch, TextInput } from './controls
 import WhoFields from './WhoFields'
 import AccessMatrix from './AccessMatrix'
 import PermissionFields from './PermissionFields'
+import NotifyField from './NotifyField'
 import { agentsApi, connectorsApi, setApiLanguage } from './api'
 import { DUPLICATE_CONFIRMATION, canSave, channelOnly, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, connectorPayload, emptyConnector, agentHeld, usualFor, listEntries, senderLine, withUsualCaps } from './connector'
 import { registerConnectorLocales } from './i18n'
-import { chatNamesFrom, chatText, peopleFrom, recentPeople } from './people'
+import { chatNamesFrom, chatText, knownTargets, peopleFrom, recentPeople } from './people'
 import { PeopleContext } from './Person'
 import './connector.css'
 
@@ -333,17 +334,19 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             <WhoFields key={form.id || 'new'} form={form} setForm={setForm} t={t} s={s} confirmed={confirmed} setConfirmed={setConfirmed} isChannel={isChannelEntry} mixed={mixedList}
               onPaired={pairedChanged} recent={recentPeople(senderLog, form.allow)} chatNames={chatNamesFrom(senderLog)}
               hint={lists[0]?.hint ? t(lists[0].hint) : undefined} help={lists[0]?.help ? t(lists[0].help) : undefined} />
-            <Field label={t('notifyChat')} hint={t('notifyHelp')} optional>
-              {(p) => <TextInput {...p} mono inputMode={notifyMode} data-testid="connector-notify" value={form.notify_chat} onChange={(e) => setForm({ ...form, notify_chat: e.target.value })} />}
-            </Field>
-            <AnswerFields form={form} setForm={setForm} t={t} kindInfo={kindInfo} />
-            <FilesFields form={form} setForm={setForm} kind={kindFiles} saved={form.files} s={answerT(t)} />
             {capabilities.length > 0 && (
               <AccessMatrix form={form} setForm={setForm} kindInfo={kindInfo} capabilities={capabilities} preview={preview} dirty={dirty} s={s} ctx={fixCtx}
                 agent={agents.find((a) => a.id === form.agent_id)} paired={pairedList || form.paired || []}
                 onReset={() => setForm(withUsualCaps(form, capabilities, agentHeld(agents.find((a) => a.id === form.agent_id))))} />
             )}
-            {capabilities.length > 0 && <PermissionFields form={form} setForm={setForm} s={s} />}
+            <AnswerFields key={form.id || 'new'} form={form} setForm={setForm} t={t} kindInfo={kindInfo}
+              places={capabilities.length > 0 && (
+                <PermissionFields form={form} setForm={setForm} s={s} chatNames={chatNamesFrom(senderLog)}
+                  onSwitchOn={() => jumpTo(['[data-testid="connector-cap-switch-talkback.channels"]', '[data-testid="connector-matrix"]'])} />
+              )}
+              notify={<NotifyField form={form} setForm={setForm} s={s} label={s('notify.label')} hint={t('notifyHelp')} inputMode={notifyMode}
+                known={knownTargets({ form, senders: senderLog, isChannel: isChannelEntry })} />}
+              sizes={<FilesFields form={form} setForm={setForm} kind={kindFiles} saved={form.files} s={s} />} />
             {/* The approval of proposed triggers sits under the row Propose triggers of the matrix; an older host with no capability list has no such row, so it shows here. */}
             {capabilities.length === 0 && <ApprovalOptions form={form} setForm={setForm} s={s} />}
             {capabilities.length > 0 && (

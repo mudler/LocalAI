@@ -1,35 +1,53 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-// The rest of what a connection lets its senders do, besides the matrix of
-// who can do what (AccessMatrix): the places the bot may post (talk-back). The
-// people and channels the bot listens to are in WhoFields. The host owns the
-// list of capabilities and enforces it on every turn.
-import { Field, Hint, Switch, TextInput } from './controls'
+// The places the bot may post (talk-back), besides the matrix of who can do
+// what (AccessMatrix): a table with a name, an ID and one choice for who may
+// make the bot post there. The people and channels the bot listens to are in
+// WhoFields. The host owns the list of capabilities and enforces it on every
+// turn. The saved field does not change: channels[] with approved.
+import { Select, TextInput } from './controls'
 import Icon from '../../host-compat/src/components/Icon'
 import { MAX_CHANNELS, MAX_CHANNEL_ID, MAX_CHANNEL_LABEL, channelsProblem } from './connector'
 
-function Channels({ form, setForm, s }) {
+// The two values of the choice, mapped to approved: any allowed person
+// (approved true) or only a verified person (approved false).
+export const POST_ANY = 'any'
+export const POST_VERIFIED = 'verified'
+export const postValueOf = (c) => (c.approved ? POST_ANY : POST_VERIFIED)
+
+function Channels({ form, setForm, s, chatNames, onSwitchOn }) {
   const list = form.channels || []
   const problem = channelsProblem(list)
   const set = (i, patch) => setForm({ ...form, channels: list.map((c, j) => (j === i ? { ...c, ...patch } : c)) })
+  const on = (form.caps || []).includes('talkback.channels')
   return (
     <div className="cn-sub" data-testid="connector-channels">
       <h3 className="cn-sub__title">{s('perm.channelsTitle')}</h3>
       <p className="dk-hint">{s('perm.channelsHelp', { max: MAX_CHANNELS })}</p>
-      {!(form.caps || []).includes('talkback.channels') ? <p className="cn-muted">{s('perm.channelsOff')}</p> : (<>
-        <ul className="cn-channels">
+      {!on ? (
+        <p className="cn-muted">
+          {s('perm.channelsOff')}{' '}
+          <button type="button" className="cn-link cn-link--text" data-testid="connector-channels-switch" onClick={onSwitchOn}>{s('perm.channelsSwitch')}</button>
+        </p>
+      ) : (<>
+        <ul className="cn-channels" aria-label={s('perm.channelsTitle')}>
           {list.map((c, i) => (
-            <li key={i} className="cn-channel" data-testid="connector-channel">
-              <Field label={s('perm.channelId')} hint={s('perm.channelIdHelp')}>
-                {(p) => <TextInput {...p} mono maxLength={MAX_CHANNEL_ID} value={c.id} data-testid="connector-channel-id" onChange={(e) => set(i, { id: e.target.value })} />}
-              </Field>
-              <Field label={s('perm.channelLabel')} hint={s('perm.channelLabelHelp')} optional>
-                {(p) => <TextInput {...p} maxLength={MAX_CHANNEL_LABEL} value={c.label} data-testid="connector-channel-label" onChange={(e) => set(i, { label: e.target.value })} />}
-              </Field>
-              <div className="cn-switchfield">
-                <Switch checked={Boolean(c.approved)} testId="connector-channel-approved" onChange={(on) => set(i, { approved: on })}>{s('perm.channelApproved')}</Switch>
-                <Hint more={s('more')} less={s('less')}>{s('perm.channelApprovedHelp')}</Hint>
+            <li key={i} className="cn-channel" data-testid="connector-channel" data-approved={c.approved ? 'true' : 'false'}>
+              <div className="cn-channel__cell" data-label={s('perm.channelLabel')}>
+                <TextInput maxLength={MAX_CHANNEL_LABEL} value={c.label} data-testid="connector-channel-label" aria-label={s('perm.channelLabel')}
+                  placeholder={chatNames?.get(c.id) || ''} onChange={(e) => set(i, { label: e.target.value })} />
               </div>
-              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" aria-label={s('perm.channelRemove', { id: c.id || '' })}
+              <div className="cn-channel__cell" data-label={s('perm.channelId')}>
+                <TextInput mono maxLength={MAX_CHANNEL_ID} value={c.id} data-testid="connector-channel-id" aria-label={s('perm.channelId')}
+                  onChange={(e) => set(i, { id: e.target.value })} />
+              </div>
+              <div className="cn-channel__cell cn-channel__cell--who" data-label={s('perm.channelWho')}>
+                <Select data-testid="connector-channel-approved" aria-label={s('perm.channelWhoFor', { id: c.label || c.id || '' })} value={postValueOf(c)}
+                  onChange={(e) => set(i, { approved: e.target.value === POST_ANY })}>
+                  <option value={POST_ANY}>{s('perm.channelWho.any')}</option>
+                  <option value={POST_VERIFIED}>{s('perm.channelWho.verified')}</option>
+                </Select>
+              </div>
+              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" aria-label={s('perm.channelRemove', { id: c.label || c.id || '' })}
                 onClick={() => setForm({ ...form, channels: list.filter((_, j) => j !== i) })}>
                 <Icon name="close" /> {s('perm.remove')}
               </button>
@@ -53,11 +71,13 @@ function Channels({ form, setForm, s }) {
  * @param {object} props.form       the form of the binding
  * @param {Function} props.setForm
  * @param {Function} props.s        the translation function with the defaults
+ * @param {Map} [props.chatNames]   chat ID -> name, from the sender log
+ * @param {Function} props.onSwitchOn  takes the person to the switch of "Post to other channels"
  */
-export default function PermissionFields({ form, setForm, s }) {
+export default function PermissionFields({ form, setForm, s, chatNames, onSwitchOn }) {
   return (
     <div className="cn-places" data-testid="connector-permissions">
-      <Channels form={form} setForm={setForm} s={s} />
+      <Channels form={form} setForm={setForm} s={s} chatNames={chatNames} onSwitchOn={onSwitchOn} />
     </div>
   )
 }

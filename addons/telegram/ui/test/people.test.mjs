@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { chatNamesFrom, chatText, nameOf, peopleFrom, personText, recentPeople } from '../../../internal/connector-ui/src/people.js'
+import { chatNamesFrom, chatText, nameOf, peopleFrom, personText, knownTargets, recentPeople } from '../../../internal/connector-ui/src/people.js'
 import { toolOutcomeRows } from '../../../internal/connector-ui/src/access.js'
 
 const LOG = [
@@ -59,4 +59,13 @@ test('people: the recent people are the ones not listed yet, newest first, named
   assert.deepEqual(recentPeople(log, ['U1']), [{ id: 'U2', name: '' }, { id: 'U3', name: 'Cleo' }, { id: 'U4', name: 'Dan' }])
   assert.equal(recentPeople(log, [], 2).length, 2)
   assert.deepEqual(recentPeople(undefined, []), [])
+})
+
+test('people: the places a reminder can go are the people and channels already known, each once', () => {
+  const form = { allow: ['U001', 'C0123', 'C0999'], channels: [{ id: 'C0456', label: 'alerts' }, { id: 'U001', label: '' }] }
+  const log = [{ id: 'U001', name: 'Ada Example', chat: 'C0123', chat_name: 'ops' }, { id: 'U002', name: 'U002', chat: 'C0777', chat_name: 'random' }]
+  const got = knownTargets({ form, senders: log, isChannel: (x) => x.startsWith('C') })
+  assert.deepEqual(got.people, [{ id: 'U001', name: 'Ada Example' }, { id: 'U002', name: '' }])
+  assert.deepEqual(got.channels, [{ id: 'C0123', name: 'ops' }, { id: 'C0999', name: '' }, { id: 'C0777', name: 'random' }, { id: 'C0456', name: 'alerts' }])
+  assert.deepEqual(knownTargets({ form: {}, senders: undefined }), { people: [], channels: [] })
 })
