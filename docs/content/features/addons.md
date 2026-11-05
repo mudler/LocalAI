@@ -1926,6 +1926,7 @@ your own: a class the host does not define has no style.
 | `Code` | `testId` | A monospace block for a raw error or a command, wrapped and scrolled. |
 | `Actions` | none | A row of buttons that wraps. |
 | `Table` | `caption`, `columns: [{key, label}]`, `rows`, `testId` | The host table. |
+| `Notice` | `severity` (`info`, `warn`, `error`), `title`, `reason`, `fixLabel` with `onFix`, `testId` | What is off or not available, why, and one action. Hosts older than this release do not have it: fall back to `Callout`. |
 | `ExternalLink` | `href` (https only), `testId` | A link out, in a new tab. |
 
 The Sandbox and Web sections are made of these components only (`addons/sandbox/ui/src/Settings.jsx`,

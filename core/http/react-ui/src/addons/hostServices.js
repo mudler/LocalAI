@@ -7,7 +7,7 @@ import { resourceRequest, dispatchArgs } from './resourceCalls'
 import { userSettingsRequest } from './userSettingsCalls'
 import {
   Button, Spinner, EmptyState, Badge, Stack, Text,
-  Section, Field, Select, TextInput, Switch, Choice, Callout, StatusChip, List, ListRow, Code, Actions, Table, ExternalLink,
+  Section, Field, Select, TextInput, Switch, Choice, Callout, Notice, StatusChip, List, ListRow, Code, Actions, Table, ExternalLink,
   PageHeader, ConfirmDialog, ErrorWithTraceLink, ModelSelector, MediaInput, WaveformPlayer,
   DistributionBars, EmbeddingInspector, TabSwitch,
 } from './hostComponents'
@@ -74,7 +74,7 @@ export const host = Object.freeze({
   React,
   components: {
     Button, Spinner, EmptyState, Badge, Stack, Text, ArtifactCard,
-    Section, Field, Select, TextInput, Switch, Choice, Callout, StatusChip, List, ListRow, Code, Actions, Table, ExternalLink,
+    Section, Field, Select, TextInput, Switch, Choice, Callout, Notice, StatusChip, List, ListRow, Code, Actions, Table, ExternalLink,
     PageHeader, ConfirmDialog, ErrorWithTraceLink, ModelSelector, MediaInput, WaveformPlayer,
     DistributionBars, EmbeddingInspector, TabSwitch,
     LoadingSpinner, Modal, Lightbox, ModelPicker, HomeModelPicker: ModelPicker,
