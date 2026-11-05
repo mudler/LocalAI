@@ -338,6 +338,26 @@ var _ = Describe("the memory choice of an agent", func() {
 			Expect(has).To(BeFalse())
 			Expect(tt.Prompt).To(ContainSubstring(agentNote), "it still reads")
 		})
+
+		It("reads, keeps the memory skills and refuses a memory note when the agent holds another change grant but not memory.write", func() {
+			a := agents.Agent{Name: "B", Model: "m", Memory: agents.MemoryMineAndOwn, Builtins: []string{contract.CapPagesWrite}}
+			saved, err := svc.SaveAgentWithFolder(ctx, "alice", a, nil)
+			Expect(err).NotTo(HaveOccurred())
+			put("Memory/agents/"+saved.ID+"/index.md", "- style: keeps answers terse -> style.md\n")
+			tt := turn(CreateInput{Model: "m", AgentID: saved.ID})
+			Expect(tt.Prompt).To(ContainSubstring(agentNote), "it still reads")
+			// The host keeps granting the memory skills: reading needs them, and
+			// the saving part of the skill tells the model what to say when the
+			// tool has no memory kind.
+			Expect(tt.Prompt).To(ContainSubstring("- memory:"))
+			t, ok := toolOf(tt, "propose_change")
+			Expect(ok).To(BeTrue())
+			Expect(string(t.Schema)).NotTo(ContainSubstring(`"memory"`), "the kind is not offered")
+			_, err = propose(tt, note(""))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("not given the right"))
+			Expect(pendingScopes()).To(BeEmpty())
+		})
 	})
 
 	Describe("reporting that memory is off", func() {
