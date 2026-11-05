@@ -154,7 +154,7 @@ var _ = Describe("permissions in the turns of a connector chat", func() {
 		allowed := map[string][]string{}
 		for _, s := range view.Subjects {
 			for _, d := range s.Decisions {
-				if d.Allowed {
+				if d.Allowed && d.Capability != studio.NotesReadCapability {
 					allowed[s.ID] = append(allowed[s.ID], d.Capability)
 				}
 			}

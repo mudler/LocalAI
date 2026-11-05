@@ -204,6 +204,11 @@ var capabilityWords = map[string]capabilityPhrase{
 // actionOf is the verb phrase of a capability, "do this" for a name that is
 // not on the list.
 func actionOf(capability string) string {
+	// The read rule of the personal notes is not a capability of the closed
+	// list, but it is refused with the same texts.
+	if capability == NotesReadCapability {
+		return "read the owner's personal notes"
+	}
 	if w, ok := capabilityWords[capability]; ok {
 		return w.Action
 	}

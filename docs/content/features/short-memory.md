@@ -190,6 +190,13 @@ memory choice allows that scope, and only after that sender confirms it: a note 
 scope never saves at once. Under **Always confirm** only the paired sender who asked can
 confirm a note, in a private chat too. An agent whose memory is **None** saves nothing.
 
+Reading follows the same rule. A turn from a messaging chat reads your notes, the agent's
+notes and the agent's profile only when the sender is paired with the bot. A listed sender who
+is not paired, and anyone let in through a channel, get the notes of that conversation only.
+This holds for the built-in notes and for an add-on that serves the notes. If no sender is
+known for the turn, it counts as unpaired. The connection page shows it as the line
+`notes.read` of each kind of sender.
+
 ## Memory for each agent
 
 A saved agent has its own choice of notes. You set it in the agent form, in the

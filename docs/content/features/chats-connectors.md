@@ -859,6 +859,11 @@ a page can turn into a sentence and a link, in the first place the check failed:
 }
 ```
 
+Each kind of sender has one more entry, `notes.read`. It is not a permission that you can tick:
+the owner's personal notes (the user and agent notes and the agent profile) are read into a
+turn only for a paired sender, so a listed sender who is not paired, an `anyone` sender and a
+role sender get `sender_needs_pairing`. The notes of the conversation itself are read for all.
+
 An allowed capability has `allowed: true` and `via` (`paired`, `allowlist` or
 `role:<id>`) and none of the other fields. `reason` stays the English line for logs.
 

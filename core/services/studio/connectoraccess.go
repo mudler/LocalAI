@@ -513,6 +513,26 @@ func (s *Service) messagingFacts(chat string) (direct, paired bool) {
 	return g.Direct, g.Paired
 }
 
+// NotesReadCapability names the decision that says whether a sender's turn
+// reads the owner's personal notes. It is not on the closed list of
+// capabilities: the owner cannot tick it, and no grant gives it. A paired
+// sender holds it and nobody else (see Service.personalNotesOpen); the
+// notes of the conversation itself are read whatever the answer.
+const NotesReadCapability = "notes.read"
+
+// notesDecision is the verdict of the read rule for a kind of sender, on the
+// same terms as the turn applies it.
+func notesDecision(b connectors.Binding, s AccessSubject, now time.Time) Decision {
+	if b.CredentialsOnly() {
+		return refusal(b, NotesReadCapability, CodeNoAgent, "this connection has no agent: it holds credentials only", nil)
+	}
+	if s.SenderID != "" && b.IsPaired(s.SenderID, now) {
+		return Decision{Capability: NotesReadCapability, Allowed: true, Via: "paired"}
+	}
+	return refusal(b, NotesReadCapability, CodeSenderNeedsPairing,
+		"the personal notes of the owner are read only for a sender that the owner paired with this bot", nil)
+}
+
 // AccessSubjectView is what one kind of sender may do on a binding.
 type AccessSubjectView struct {
 	// ID is "listed" (a sender on the allowlist by ID or name), "anyone" (a
@@ -520,7 +540,8 @@ type AccessSubjectView struct {
 	// "role:<id>".
 	ID    string `json:"id"`
 	Title string `json:"title"`
-	// Decisions has one entry for each capability of the closed list.
+	// Decisions has one entry for each capability of the closed list, then
+	// the one of NotesReadCapability.
 	Decisions []Decision `json:"decisions"`
 }
 
@@ -646,6 +667,7 @@ func (c *Connectors) accessOf(ctx context.Context, b connectors.Binding, only st
 		for _, name := range contract.ConnectorCapabilityNames() {
 			v.Decisions = append(v.Decisions, Authorize(bind, kind, s, name, now, c.offReason(ctx, b, name)))
 		}
+		v.Decisions = append(v.Decisions, notesDecision(bind, s, now))
 		return v
 	}
 	want := func(id string) bool {

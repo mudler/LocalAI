@@ -162,6 +162,11 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 			// This chat turned the notes off: the provider's files stay out.
 			extra = slices.DeleteFunc(extra, func(src contextfiles.Source) bool { return src.ID == prov.ID() })
 		}
+		if !s.personalNotesOpen(rec) {
+			// A messaging sender who is not paired reads the notes of the
+			// conversation only, never the owner's.
+			extra = withoutPersonalNotes(extra, MemoryAddonID, prov.ID())
+		}
 		notes, notesKey = s.contextTurnFor(ctx, rec, tools, extra, !(legacy.Installed && legacy.Running))
 		tools = append(tools, s.contextTools(rec, tools, extra)...)
 		// A provider that serves the notes answers for this message: its text
