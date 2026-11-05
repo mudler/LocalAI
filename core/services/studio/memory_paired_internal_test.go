@@ -28,8 +28,9 @@ import (
 )
 
 // The personal notes of the owner in a messaging chat: the user and agent
-// notes (and the agent profile) are read into the turn only for a sender who is
-// paired with the bot. The notes of the conversation itself are read for every
+// notes are read into the turn only for a sender who is paired with the bot.
+// The agent profile (the standing rules of the agent) is not a personal note:
+// every sender gets it, like the instructions of the agent. The notes of the conversation itself are read for every
 // sender. Both the built-in provider and an add-on served through the provider
 // slot follow the rule.
 var _ = Describe("the personal notes in a messaging chat", func() {
@@ -146,7 +147,7 @@ var _ = Describe("the personal notes in a messaging chat", func() {
 					wantUser, wantAgent := s.opened && c.user, s.opened && c.agent
 					Expect(strings.Contains(tt.Prompt, userNote)).To(Equal(wantUser), "the notes of the owner")
 					Expect(strings.Contains(tt.Prompt, agentNote)).To(Equal(wantAgent), "the notes of the agent")
-					Expect(strings.Contains(tt.Prompt, profileRule)).To(Equal(s.opened), "the profile of the agent")
+					Expect(tt.Prompt).To(ContainSubstring(profileRule), "the profile of the agent is for every sender")
 					Expect(tt.Prompt).To(ContainSubstring(channelNote), "the notes of the conversation are for every sender")
 					schema := contextRead(tt)
 					Expect(schema).NotTo(BeEmpty(), "the conversation notes can be read")
@@ -166,6 +167,7 @@ var _ = Describe("the personal notes in a messaging chat", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(tt.Prompt).NotTo(ContainSubstring(userNote))
 			Expect(tt.Prompt).NotTo(ContainSubstring(agentNote))
+			Expect(tt.Prompt).To(ContainSubstring(profileRule), "the profile is not gated, even without a known sender")
 		})
 
 		It("leaves a chat outside a messaging app unchanged", func() {

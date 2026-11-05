@@ -307,7 +307,9 @@ func (s *Service) memoryReads(ctx context.Context, rec session.ChatRecord, sc *s
 }
 
 // personalNotesOpen says whether a chat may read the owner's personal notes
-// (the user and agent scopes of the notes, and the agent profile). A chat
+// (the user and agent scopes of the notes). The agent profile is not one of
+// them: it holds the standing rules of the agent, like its instructions, and
+// every sender gets it. A chat
 // outside a messaging app always may. A messaging chat may only when the
 // sender is paired with the bot; an allowlisted sender who is not paired, a
 // sender let in through a channel, a turn with no known sender and a grant
