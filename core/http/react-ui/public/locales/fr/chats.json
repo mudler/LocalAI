@@ -798,7 +798,10 @@
       "label": "Texte à ajouter à {{collection}}",
       "size": "{{size}} sur {{max}} au maximum",
       "note": "Rien n'est ajouté tant que vous n'avez pas confirmé. Le texte est ensuite découpé en passages et indexé, et tout chat qui interroge cette collection peut l'utiliser.",
-      "editLabel": "Texte à ajouter à {{target}}"
+      "editLabel": "Texte à ajouter à {{target}}",
+      "embed_one": "1 passage sera vectorisé avec {{model}}.",
+      "embed_other": "Environ {{count}} passages seront vectorisés avec {{model}}.",
+      "serverModel": "le modèle d'embeddings du serveur"
     }
   },
   "proposalsPage": {

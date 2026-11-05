@@ -798,7 +798,10 @@
       "label": "Testo da aggiungere a {{collection}}",
       "size": "{{size}} su un massimo di {{max}}",
       "note": "Non viene aggiunto nulla finché non confermi. Poi il testo viene diviso in passaggi e indicizzato, e ogni chat che cerca in questa raccolta può usarlo.",
-      "editLabel": "Testo da aggiungere a {{target}}"
+      "editLabel": "Testo da aggiungere a {{target}}",
+      "embed_one": "1 passaggio verrà incorporato con {{model}}.",
+      "embed_other": "Circa {{count}} passaggi verranno incorporati con {{model}}.",
+      "serverModel": "il modello di embedding del server"
     }
   },
   "proposalsPage": {

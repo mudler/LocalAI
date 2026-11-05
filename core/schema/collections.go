@@ -12,6 +12,11 @@ type CollectionList struct {
 	// SearchMode is how a search finds passages: "semantic" (by meaning only)
 	// or "hybrid" (by meaning and by keyword).
 	SearchMode string `json:"search_mode"`
+	// MaxChunkSize and ChunkOverlap are the chunking of a text, in characters.
+	// A text is cut into passages of at most MaxChunkSize characters, and each
+	// passage is embedded once.
+	MaxChunkSize int `json:"max_chunk_size"`
+	ChunkOverlap int `json:"chunk_overlap"`
 	// UserGroups holds the collections of the other users. Only an administrator
 	// who asks for all users gets it.
 	UserGroups map[string]CollectionGroup `json:"user_groups,omitempty"`

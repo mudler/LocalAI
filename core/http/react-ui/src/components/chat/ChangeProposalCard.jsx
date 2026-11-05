@@ -1,9 +1,9 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useContext, useEffect, useId, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { chatChangesApi, filesApi } from '../../utils/api'
+import { agentCollectionsApi, chatChangesApi, filesApi } from '../../utils/api'
 import {
-  appliedReceiptKey, byteText, CHANGES_EVENT, changeProposalView, KNOWLEDGE_MAX_BYTES, KNOWN_KINDS, KNOWN_SCOPES, previewLines, scopeOfProposal, sourceOfProposal,
+  appliedReceiptKey, byteText, CHANGES_EVENT, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, KNOWN_KINDS, KNOWN_SCOPES, previewLines, scopeOfProposal, sourceOfProposal,
   targetPath, timeLeft, writesElsewhere,
 } from '../../utils/changeProposal'
 import { diffLines, diffStats, withContext } from '../../utils/lineDiff'
@@ -84,13 +84,17 @@ function Diff({ before, after, target, t }) {
 // The text a knowledge change would add to a collection: its first lines, how
 // big it is against the cap, and what happens when it is confirmed. There is no
 // file to compare it with, so no diff is drawn.
-function KnowledgePreview({ p, t }) {
+function KnowledgePreview({ p, t, chunking }) {
   const text = p.content || ''
+  const passages = estimatePassages(knowledgeEntryText(p), chunking.size, chunking.overlap)
   const { shown, more } = previewLines(text)
   const size = new TextEncoder().encode(text).length
   return (
     <div className="cp-diff cp-knowledge" role="group" aria-label={t('changes.knowledge.label', { collection: p.target })} data-testid="change-knowledge-preview">
       <p className="cp-diff__stat" data-testid="change-knowledge-size">{t('changes.knowledge.size', { size: byteText(size), max: byteText(KNOWLEDGE_MAX_BYTES) })}</p>
+      <p className="cx-help cp-knowledge__embed" data-testid="change-knowledge-embed">
+        {t('changes.knowledge.embed', { count: passages, model: chunking.model || t('changes.knowledge.serverModel') })}
+      </p>
       <ul className="cp-diff__lines">
         {shown.map((line, i) => (
           <li key={i} className="cp-diff__line" data-op="same"><code className="cp-diff__text">{line || ' '}</code></li>
@@ -121,6 +125,9 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [said, setSaid] = useState('')
+  // How the server cuts a text into passages, and the model that embeds them.
+  // The defaults are the server's; an older server or a failed read keeps them.
+  const [chunking, setChunking] = useState({ size: 400, overlap: 0, model: '' })
 
   const load = useCallback(async () => {
     let v
@@ -140,6 +147,15 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
     return v
   }, [id])
   useEffect(() => { load() }, [load, tick])
+  const waitingKnowledge = view.kind === 'pending' && writesElsewhere(view.proposal)
+  useEffect(() => {
+    if (!waitingKnowledge) return undefined
+    let live = true
+    agentCollectionsApi.list().then((d) => {
+      if (live) setChunking({ size: d?.max_chunk_size > 0 ? d.max_chunk_size : 400, overlap: d?.chunk_overlap > 0 ? d.chunk_overlap : 0, model: d?.embedding_model || '' })
+    }).catch(() => {})
+    return () => { live = false }
+  }, [waitingKnowledge])
 
   const act = async (what, call, say) => {
     setBusy(what)
@@ -251,7 +267,7 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
         ))}
         {expiry && <div className="cx-plan__row" data-row="expires"><dt>{t('changes.row.expires')}</dt><dd>{expiry}</dd></div>}
       </dl>
-      {knowledge && edit === null && <KnowledgePreview p={p} t={t} />}
+      {knowledge && edit === null && <KnowledgePreview p={p} t={t} chunking={chunking} />}
       {!knowledge && current !== undefined && edit === null && <Diff before={current ?? ''} after={p.content || ''} target={target} t={t} />}
       {!knowledge && current === null && <p className="cx-help">{t('changes.unreadFile')}</p>}
       {edit !== null ? (

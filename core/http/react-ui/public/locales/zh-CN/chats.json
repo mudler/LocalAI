@@ -798,7 +798,10 @@
       "label": "要添加到 {{collection}} 的文本",
       "size": "{{size}}，上限 {{max}}",
       "note": "确认之前不会添加任何内容。确认后文本会被切分为段落并建立索引，所有搜索此集合的聊天都能使用它。",
-      "editLabel": "要添加到 {{target}} 的文本"
+      "editLabel": "要添加到 {{target}} 的文本",
+      "embed_one": "1 个段落将使用 {{model}} 做嵌入。",
+      "embed_other": "约 {{count}} 个段落将使用 {{model}} 做嵌入。",
+      "serverModel": "服务器的嵌入模型"
     }
   },
   "proposalsPage": {

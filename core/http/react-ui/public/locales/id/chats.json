@@ -798,7 +798,10 @@
       "label": "Teks untuk ditambahkan ke {{collection}}",
       "size": "{{size}} dari maksimal {{max}}",
       "note": "Tidak ada yang ditambahkan sebelum Anda mengonfirmasi. Teks lalu dipecah menjadi bagian dan diindeks, dan setiap chat yang mencari di koleksi ini dapat memakainya.",
-      "editLabel": "Teks untuk ditambahkan ke {{target}}"
+      "editLabel": "Teks untuk ditambahkan ke {{target}}",
+      "embed_one": "1 bagian teks akan di-embed dengan {{model}}.",
+      "embed_other": "Sekitar {{count}} bagian teks akan di-embed dengan {{model}}.",
+      "serverModel": "model embedding milik server"
     }
   },
   "proposalsPage": {

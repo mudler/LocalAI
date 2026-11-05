@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  appliedReceiptKey, byteText, changeProposalIds, changeProposalView, KNOWLEDGE_MAX_BYTES, KNOWN_KINDS, previewLines, sourceOfProposal, targetPath, timeLeft,
+  appliedReceiptKey, byteText, changeProposalIds, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, KNOWN_KINDS, previewLines, sourceOfProposal, targetPath, timeLeft,
 } from '../../src/utils/changeProposal.js'
 import { diffLines, diffStats, splitLines, withContext } from '../../src/utils/lineDiff.js'
 import { allFiles, groupKind, indexFits, indexUse } from '../../src/utils/memoryFiles.js'
@@ -159,4 +159,22 @@ test('change proposals: the preview of a knowledge text shows 20 lines and count
   assert.deepEqual(previewLines('one\n\n'), { shown: ['one'], more: 0 })
   assert.deepEqual(previewLines(null), { shown: [''], more: 0 })
   assert.equal(KNOWLEDGE_MAX_BYTES, 65536)
+})
+
+test('change proposals: the passages of a knowledge text follow the chunking of the server', () => {
+  assert.equal(estimatePassages('short'), 1)
+  assert.equal(estimatePassages('x'.repeat(400)), 1)
+  assert.equal(estimatePassages('x'.repeat(401)), 2)
+  assert.equal(estimatePassages('x'.repeat(1200), 400, 0), 3)
+  // Overlap makes each passage add fewer new characters.
+  assert.equal(estimatePassages('x'.repeat(1200), 400, 100), 4)
+  // A bad value from the server falls back to the default size.
+  assert.equal(estimatePassages('x'.repeat(401), 0, -5), 2)
+  assert.equal(estimatePassages('', 400, 0), 1)
+  assert.equal(estimatePassages('é'.repeat(300), 400, 0), 2)
+})
+
+test('change proposals: the stored knowledge text is the summary as a title, then the text', () => {
+  assert.equal(knowledgeEntryText({ summary: 'Reset', content: '  steps \n\n' }), '# Reset\n\nsteps\n')
+  assert.equal(knowledgeEntryText(null), '# \n\n\n')
 })

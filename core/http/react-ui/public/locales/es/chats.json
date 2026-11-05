@@ -798,7 +798,10 @@
       "label": "Texto para añadir a {{collection}}",
       "size": "{{size}} de un máximo de {{max}}",
       "note": "No se añade nada hasta que confirmes. Después el texto se divide en pasajes y se indexa, y cualquier chat que busque en esta colección puede usarlo.",
-      "editLabel": "Texto para añadir a {{target}}"
+      "editLabel": "Texto para añadir a {{target}}",
+      "embed_one": "Se incrustará 1 pasaje con {{model}}.",
+      "embed_other": "Se incrustarán unos {{count}} pasajes con {{model}}.",
+      "serverModel": "el modelo de embeddings del servidor"
     }
   },
   "proposalsPage": {

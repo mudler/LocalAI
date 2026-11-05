@@ -11,7 +11,7 @@ import (
 
 // ListCollectionsEndpoint handles /api/collections (GET).
 // @Summary List your collections.
-// @Description The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. search_mode says how a search finds passages: semantic (by meaning only) or hybrid (by meaning and by keyword). Needs the collections feature.
+// @Description The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. search_mode says how a search finds passages: semantic (by meaning only) or hybrid (by meaning and by keyword). max_chunk_size and chunk_overlap are the chunking of a text in characters: a text of N characters becomes about N / (max_chunk_size - chunk_overlap) passages, and each passage is embedded once. Needs the collections feature.
 // @Tags collections
 // @Success 200 {object} schema.CollectionList "The collections"
 // @Router /api/collections [get]
@@ -31,6 +31,8 @@ func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 			"embedding_model":           model,
 			"embedding_model_installed": embeddingModelInstalled(app, model),
 			"search_mode":               collectionSearchMode(app.ApplicationConfig().Collections.VectorEngine),
+			"max_chunk_size":            app.ApplicationConfig().Collections.MaxChunkingSize,
+			"chunk_overlap":             app.ApplicationConfig().Collections.ChunkOverlap,
 		}
 
 		// Admin cross-user aggregation

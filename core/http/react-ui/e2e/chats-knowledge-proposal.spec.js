@@ -68,6 +68,25 @@ test('a knowledge proposal names the collection, shows the text and its size, an
   await shot(page, 'knowledge-suggested-change', page.getByTestId('proposals-page'))
 })
 
+test('the card says how many passages will be embedded and with which model', async ({ page }) => {
+  await serve(page, [make()])
+  await page.route(/\/api\/collections(\?.*)?$/, route => route.fulfill({ json: { collections: ['router-manuals'], embedding_model: 'granite-embedding-107m-multilingual', embedding_model_installed: true, search_mode: 'semantic', max_chunk_size: 400, chunk_overlap: 0 } }))
+  await page.goto('/app/chats/proposals')
+  const embed = page.getByTestId('change-proposal').getByTestId('change-knowledge-embed')
+  await expect(embed).toHaveText('About 4 passages will be embedded with granite-embedding-107m-multilingual.')
+  await page.setViewportSize({ width: 360, height: 740 })
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+})
+
+test('a small text is one passage, and without the model name the card says the server embeds it', async ({ page }) => {
+  await serve(page, [make({ content: 'Hold the reset button for ten seconds.\n' })])
+  // The list is not readable (the collections service is still starting): the
+  // card falls back to the defaults of the server and names no model.
+  await page.route(/\/api\/collections(\?.*)?$/, route => route.fulfill({ status: 503, json: { error: 'collections are starting, please retry shortly' } }))
+  await page.goto('/app/chats/proposals')
+  await expect(page.getByTestId('change-knowledge-embed')).toHaveText("1 passage will be embedded with the server's embedding model.")
+})
+
 test('Confirm adds it and keeps Undo although the change has no change set; Undo takes it back', async ({ page }) => {
   const s = await serve(page, [make()])
   await page.goto('/app/chats/proposals')

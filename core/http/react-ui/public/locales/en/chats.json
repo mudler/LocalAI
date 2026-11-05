@@ -1120,7 +1120,10 @@
       "label": "Text to add to {{collection}}",
       "size": "{{size}} of at most {{max}}",
       "note": "Nothing is added until you confirm. The text is then split into passages and indexed, and every chat that searches this collection can use it.",
-      "editLabel": "Text to add to {{target}}"
+      "editLabel": "Text to add to {{target}}",
+      "embed_one": "1 passage will be embedded with {{model}}.",
+      "embed_other": "About {{count}} passages will be embedded with {{model}}.",
+      "serverModel": "the server's embedding model"
     }
   },
   "proposalsPage": {
