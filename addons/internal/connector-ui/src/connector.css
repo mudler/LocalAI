@@ -317,3 +317,14 @@ fieldset.cn-group {
 }
 
 .cn-pill { display: inline-flex; align-items: center; padding: 0 var(--dk-space-2); border: 1px solid currentColor; border-radius: 999px; font-size: var(--fs-meta); font-weight: var(--font-weight-semibold); white-space: nowrap; }
+
+/* Check it: Try it and Recent refusals. */
+.cn-try__selects { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--dk-space-3); }
+.cn-try__selects .dk-field { min-width: 0; }
+.cn-try__answer { border-left: 3px solid var(--color-border-subtle); padding-left: var(--dk-space-3); display: flex; flex-direction: column; gap: var(--dk-space-1); }
+.cn-try__answer p { margin: 0; }
+.cn-try__verdict--refused { color: var(--color-error, var(--color-text-primary)); }
+.cn-try__verdict--allowed, .cn-try__verdict--asks { color: var(--color-success, var(--color-text-primary)); }
+.cn-refusals li { overflow-wrap: anywhere; }
+.cn-refusals__reason { flex-basis: 100%; }
+@media (max-width: 700px) { .cn-try__selects { grid-template-columns: minmax(0, 1fr); } }

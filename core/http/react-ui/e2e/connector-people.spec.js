@@ -59,13 +59,13 @@ for (const width of [1280, 375]) {
       await expect(row('U002').getByRole('button', { name: 'Verify Grace Sample' })).toBeVisible()
       // Someone who wrote to the bot and is not listed is offered under the add box, by name.
       await expect(page.getByTestId('connector-recent-chip')).toHaveText(['Quiet Example · U888', 'Stranger Example · U777'])
-      // The decisions: the name the event carried, the chat with its name, and the ID alone for an unknown person.
+      // The refusals: the name the event carried, the chat with its name, the ID alone for an unknown person.
       const audit = page.getByTestId('connector-audit')
-      await expect(audit.getByRole('listitem').nth(0)).toContainText('Ada Example · U001')
-      await expect(audit.getByRole('listitem').nth(0)).toContainText('in ops (C0123)')
-      await expect(audit.getByRole('listitem').nth(1)).toContainText('sender U555')
-      await expect(audit.getByRole('listitem').nth(1)).not.toContainText(' · U555')
-      await expect(audit.getByTestId('connector-audit-chat')).toHaveCount(1)
+      await expect(audit.getByRole('listitem').filter({ hasText: 'U555' })).toContainText('asked for: Receive files')
+      await expect(audit.getByRole('listitem').filter({ hasText: 'U555' })).not.toContainText(' · U555')
+      await expect(audit.getByRole('listitem').filter({ hasText: 'Stranger Example' })).toContainText('in ops (C0123)')
+      await expect(audit.getByRole('listitem').filter({ hasText: 'Stranger Example' })).toContainText('not a listed person')
+      await expect(audit.getByRole('button', { name: 'Allow Stranger Example' })).toBeVisible()
       // The tool calls take the name from the sender log.
       await expect(page.getByTestId('connector-tool-outcomes')).toContainText('Grace Sample · U002')
       // The log says it is kept in memory.

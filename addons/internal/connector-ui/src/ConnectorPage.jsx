@@ -350,7 +350,9 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             {/* The approval of proposed triggers sits under the row Propose triggers of the matrix; an older host with no capability list has no such row, so it shows here. */}
             {capabilities.length === 0 && <ApprovalOptions form={form} setForm={setForm} s={s} />}
             {capabilities.length > 0 && (
-              <AccessView binding={form} capabilities={capabilities} s={s} version={accessVersion} onAllowed={(sender) => { setForm((f) => (f && !(f.allow || []).includes(sender) ? { ...f, allow: [...(f.allow || []), sender] } : f)); load() }} />
+              <AccessView binding={form} capabilities={capabilities} s={s} version={accessVersion} setForm={setForm} preview={preview} kindInfo={kindInfo} ctx={fixCtx}
+                paired={pairedList || form.paired || []} isChannel={isChannelEntry} mixed={mixedList} chatNames={chatNamesFrom(senderLog)} senders={senderLog}
+                onAllowed={(sender) => { setForm((f) => (f && !(f.allow || []).includes(sender) ? { ...f, allow: [...(f.allow || []), sender] } : f)); setAccessVersion((v) => v + 1); load() }} />
             )}
             </>)}
             {dupAsk && (

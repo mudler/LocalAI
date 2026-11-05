@@ -325,15 +325,19 @@ test.describe('Connector permissions', () => {
     await expect(on).toHaveCount(0)
   })
 
-  test('the latest decisions are listed read only, newest first', async ({ page }) => {
+  test('recent refusals list only what was refused, newest first, read only, and say the log resets on restart', async ({ page }) => {
     const a = api(page, [SET])
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
     const box = page.getByTestId('connector-access')
-    await expect(box.getByTestId('connector-audit')).toContainText('allowed')
-    await expect(box.getByTestId('connector-audit')).toContainText('denied')
-    await expect(box.getByTestId('connector-audit')).toContainText('Receive files')
+    const audit = box.getByTestId('connector-audit')
+    await expect(audit.getByRole('listitem')).toHaveCount(1)
+    await expect(audit).toContainText('refused')
+    await expect(audit).toContainText('asked for: Receive files')
+    await expect(audit).toContainText('not enabled for this bot')
+    await expect(audit).not.toContainText('allowed')
+    await expect(box.getByTestId('connector-refusals-note')).toContainText('kept in memory only: it is empty after the server restarts')
     await expect(box.getByRole('checkbox')).toHaveCount(0)
     await shot(page, 'perm-5-access')
   })
@@ -813,16 +817,14 @@ test.describe('Connector permissions', () => {
     await expect(page.getByTestId('connector-can-notesave')).toHaveCount(0)
   })
 
-  test('a run without asking appears in the latest decisions in plain words, with no typed text', async ({ page }) => {
+  test('a run that was allowed is not a refusal, and the add-on tool calls still list it', async ({ page }) => {
     const recent = [{ at: '2026-11-03T09:30:00Z', senders: ['U001'], capability: 'tools.write', allowed: true, via: 'no-confirmation', reason: 'power-action: applied' }]
     const a = api(page, [SET], { access: { ...ACCESS, recent } })
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    const audit = page.getByTestId('connector-audit')
-    await expect(audit).toContainText('ran without asking')
-    await expect(audit).toContainText('power-action: applied')
-    await expect(audit).not.toContainText('via no-confirmation')
+    await expect(page.getByTestId('connector-refusals-none')).toHaveText('Nothing refused since the server started.')
+    await expect(page.getByTestId('connector-audit')).toHaveCount(0)
   })
 
   test.describe('channels where the bot listens', () => {
@@ -889,16 +891,35 @@ test.describe('Connector permissions', () => {
       await shotOf(page.getByTestId('connector-who'), 'trust-4b-320px-who')
     })
 
-    test('a refusal of a sender who came in through a channel offers List this person', async ({ page }) => {
-      const refused = { at: '2026-11-03T09:10:00Z', senders: ['U777'], capability: 'files.upload', allowed: false, code: 'channel_not_trusted', reason: 'files.upload needs a trusted sender: sender U777 was let in only through a channel set to Answer only; add U777 to the allowed people, or set the channel to Let everyone here ask for actions' }
+    test('a refusal of a sender who came in through a channel offers Allow <name>', async ({ page }) => {
+      const refused = { at: '2026-11-03T09:10:00Z', senders: ['U777'], sender_name: 'Stranger Example', capability: 'files.upload', allowed: false, code: 'channel_not_trusted', reason: 'files.upload needs a trusted sender: sender U777 was let in only through a channel set to Answer only; add U777 to the allowed people, or set the channel to Let everyone here ask for actions' }
       const a = api(page, [STORED], { access: { ...ACCESS, recent: [refused] } })
       await a.install()
       await page.goto(PAGE)
       await page.getByRole('button', { name: 'Edit' }).click()
       await shot(page, 'trust-5-refusal')
       await shotOf(page.getByTestId('connector-access'), 'trust-5b-refusal-allow-person')
-      await page.getByTestId('connector-audit-allow').click()
+      await page.getByRole('button', { name: 'Allow Stranger Example' }).click()
       await expect.poll(() => a.s.calls.some((c) => c.method === 'POST' && c.url.endsWith('/allow'))).toBe(true)
+      // The person is on the list of the form now, and the button is gone.
+      await expect(page.getByTestId('connector-person-row').and(page.locator('[data-id="U777"]'))).toHaveCount(1)
+      await expect(page.getByTestId('connector-audit-allow')).toHaveCount(0)
+    })
+
+    test('a refusal in a channel set to answer only offers Let <channel> members act, which changes the level of the form', async ({ page }) => {
+      const refused = { at: '2026-11-03T09:10:00Z', senders: ['U001'], chat: 'C0123', chat_name: 'ops', capability: 'files.upload', allowed: false, code: 'channel_not_trusted', reason: 'files.upload needs a trusted sender' }
+      const a = api(page, [{ ...STORED, allow_trust: {} }], { access: { ...ACCESS, recent: [refused] } })
+      await a.install()
+      await page.goto(PAGE)
+      await page.getByRole('button', { name: 'Edit' }).click()
+      await expect(page.getByTestId('connector-audit-allow')).toHaveCount(0)
+      await expect(page.getByTestId('connector-audit-chat')).toHaveText('in ops (C0123)')
+      await page.getByRole('button', { name: 'Let ops members act' }).click()
+      await expect(page.getByTestId('connector-trust-row')).toHaveAttribute('data-level', 'act')
+      await expect(page.getByTestId('connector-audit-act')).toHaveCount(0)
+      expect(a.s.calls.some((c) => c.method === 'PUT')).toBe(false)
+      await page.getByRole('button', { name: 'Save' }).click()
+      await expect.poll(() => a.s.calls.find((c) => c.method === 'PUT')?.body.allow_trust).toEqual({ C0123: 'act' })
     })
   })
 })
