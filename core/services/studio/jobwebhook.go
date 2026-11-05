@@ -138,6 +138,23 @@ type webhookData struct {
 	task webhookTask
 }
 
+// endedInfo reads the state of a job whose turn has just ended. Right after a
+// turn ends, the chat takes its own claim for a moment to look for waiting
+// messages and gives it back when there are none. A read in that moment says
+// the job runs, and a webhook would report a job that has ended as running. It
+// waits a little for the claim to go, as awaitTurn does after the end event.
+func (j *Jobs) endedInfo(ctx context.Context, rec jobs.Job, taskName string) JobInfo {
+	info := j.info(ctx, rec, taskName)
+	for range 250 {
+		if info.Status != JobRunning || ctx.Err() != nil {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+		info = j.info(ctx, rec, taskName)
+	}
+	return info
+}
+
 // deliver calls the webhooks of the job's task, once per job: a record that is
 // already done is left alone. It records whether any call succeeded.
 func (j *Jobs) deliver(ctx context.Context, rec jobs.Job) {
@@ -156,7 +173,7 @@ func (j *Jobs) deliver(ctx context.Context, rec jobs.Job) {
 		j.log.Warn("studio: could not read the task of a job for its webhooks", "job", rec.ID, "error", err)
 		return
 	}
-	info := j.info(ctx, rec, task.Name)
+	info := j.endedInfo(ctx, rec, task.Name)
 	data := webhookData{
 		job: webhookJob{ID: rec.ID, TaskID: rec.TaskID, Status: string(info.Status), Parameters: rec.Parameters, Result: info.Result,
 			Error: info.Error, StartedAt: utcPtr(info.StartedAt), CompletedAt: utcPtr(info.CompletedAt), CreatedAt: rec.Created, TriggeredBy: rec.TriggeredBy},
