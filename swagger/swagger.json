@@ -23162,6 +23162,14 @@
                 "parent_id": {
                     "type": "string"
                 },
+                "place": {
+                    "description": "Place is set on a chat that a messaging connection started, when the\nconnection kept where it lives.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsPlace"
+                        }
+                    ]
+                },
                 "running": {
                     "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed, interrupted, or paused (the tool loop\nreached its step limit; send a message to go on).",
                     "type": "boolean"
@@ -23246,6 +23254,14 @@
                     "items": {
                         "$ref": "#/definitions/schema.ChatsPending"
                     }
+                },
+                "place": {
+                    "description": "Place is set on a chat that a messaging connection started, when the\nconnection kept where it lives.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsPlace"
+                        }
+                    ]
                 },
                 "running": {
                     "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed, interrupted, or paused (the tool loop\nreached its step limit; send a message to go on).",
@@ -24238,6 +24254,15 @@
                 }
             }
         },
+        "schema.ChatsHostNote": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "Code is one of paired, unsupported, too_long, no_upload, rate,\nheld_back, new_chat or refused.",
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsImportRequest": {
             "type": "object",
             "properties": {
@@ -24927,6 +24952,14 @@
                 "goal_turn": {
                     "type": "integer"
                 },
+                "host_note": {
+                    "description": "HostNote is set on a hostnote line: something the host did on its own\nabout a message of a messaging connection. Text is the sentence the\nsender was told, when there was one.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsHostNote"
+                        }
+                    ]
+                },
                 "invoked": {
                     "description": "Invoked is the skill or saved agent a user line was sent with.",
                     "allOf": [
@@ -24948,8 +24981,16 @@
                     "type": "integer"
                 },
                 "role": {
-                    "description": "user, assistant, tool, checkpoint, reasoning, compacted, cleared, goal or failure",
+                    "description": "user, assistant, tool, checkpoint, reasoning, compacted, cleared, goal, failure, thread or hostnote",
                     "type": "string"
+                },
+                "sender": {
+                    "description": "Sender is set on a user line that a messaging connection delivered: who\nwrote it, as the connection told it.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsSender"
+                        }
+                    ]
                 },
                 "seq": {
                     "type": "integer"
@@ -24957,6 +24998,14 @@
                 "text": {
                     "description": "Text is what was written. For a user line it is the text you typed:\nthe files you attached are in Attachments.",
                     "type": "string"
+                },
+                "thread": {
+                    "description": "Thread is set on a thread line: the earlier messages of the messaging\nthread, exactly as the model's first turn got them. The line is for\nreading only; the model never gets it as a message.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsThread"
+                        }
+                    ]
                 },
                 "turn": {
                     "type": "integer"
@@ -25102,6 +25151,26 @@
             "properties": {
                 "text": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsPlace": {
+            "type": "object",
+            "properties": {
+                "direct": {
+                    "description": "Direct is true for a conversation with one person; Thread when the chat\nbelongs to a thread of the platform.",
+                    "type": "boolean"
+                },
+                "link": {
+                    "description": "Link opens the thread or message on the platform. It is an https address.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the channel or group name, when the connection told it.",
+                    "type": "string"
+                },
+                "thread": {
+                    "type": "boolean"
                 }
             }
         },
@@ -25407,6 +25476,25 @@
                 }
             }
         },
+        "schema.ChatsSender": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID is the platform's id of the sender, for the small print; the name is\nwhat to read.",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "standing": {
+                    "description": "Standing is how the host saw the sender: owner, verified, listed,\nchannel or anyone.",
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsSettings": {
             "type": "object",
             "properties": {
@@ -25664,6 +25752,22 @@
                     }
                 },
                 "skills_off": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsThread": {
+            "type": "object",
+            "properties": {
+                "cut": {
+                    "description": "Cut is true when older messages were left out.",
+                    "type": "boolean"
+                },
+                "lines": {
+                    "description": "Lines are the messages, oldest first, each as \"Author: text\".",
                     "type": "array",
                     "items": {
                         "type": "string"

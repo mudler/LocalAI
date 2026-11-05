@@ -5742,6 +5742,12 @@ definitions:
         type: string
       parent_id:
         type: string
+      place:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsPlace'
+        description: |-
+          Place is set on a chat that a messaging connection started, when the
+          connection kept where it lives.
       running:
         description: |-
           Running is true while a turn runs. LastTurn is how the last finished turn
@@ -5805,6 +5811,12 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsPending'
         type: array
+      place:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsPlace'
+        description: |-
+          Place is set on a chat that a messaging connection started, when the
+          connection kept where it lives.
       running:
         description: |-
           Running is true while a turn runs. LastTurn is how the last finished turn
@@ -6532,6 +6544,14 @@ definitions:
           $ref: '#/definitions/schema.ChatsHostExecEvent'
         type: array
     type: object
+  schema.ChatsHostNote:
+    properties:
+      code:
+        description: |-
+          Code is one of paired, unsupported, too_long, no_upload, rate,
+          held_back, new_chat or refused.
+        type: string
+    type: object
   schema.ChatsImportRequest:
     properties:
       chat:
@@ -7048,6 +7068,13 @@ definitions:
         type: string
       goal_turn:
         type: integer
+      host_note:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsHostNote'
+        description: |-
+          HostNote is set on a hostnote line: something the host did on its own
+          about a message of a messaging connection. Text is the sentence the
+          sender was told, when there was one.
       invoked:
         allOf:
         - $ref: '#/definitions/schema.ChatsInvocation'
@@ -7064,8 +7091,14 @@ definitions:
         type: integer
       role:
         description: user, assistant, tool, checkpoint, reasoning, compacted, cleared,
-          goal or failure
+          goal, failure, thread or hostnote
         type: string
+      sender:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsSender'
+        description: |-
+          Sender is set on a user line that a messaging connection delivered: who
+          wrote it, as the connection told it.
       seq:
         type: integer
       text:
@@ -7073,6 +7106,13 @@ definitions:
           Text is what was written. For a user line it is the text you typed:
           the files you attached are in Attachments.
         type: string
+      thread:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsThread'
+        description: |-
+          Thread is set on a thread line: the earlier messages of the messaging
+          thread, exactly as the model's first turn got them. The line is for
+          reading only; the model never gets it as a message.
       turn:
         type: integer
     type: object
@@ -7168,6 +7208,23 @@ definitions:
     properties:
       text:
         type: string
+    type: object
+  schema.ChatsPlace:
+    properties:
+      direct:
+        description: |-
+          Direct is true for a conversation with one person; Thread when the chat
+          belongs to a thread of the platform.
+        type: boolean
+      link:
+        description: Link opens the thread or message on the platform. It is an https
+          address.
+        type: string
+      name:
+        description: Name is the channel or group name, when the connection told it.
+        type: string
+      thread:
+        type: boolean
     type: object
   schema.ChatsProvider:
     properties:
@@ -7406,6 +7463,23 @@ definitions:
       started:
         type: boolean
     type: object
+  schema.ChatsSender:
+    properties:
+      id:
+        description: |-
+          ID is the platform's id of the sender, for the small print; the name is
+          what to read.
+        type: string
+      name:
+        type: string
+      standing:
+        description: |-
+          Standing is how the host saw the sender: owner, verified, listed,
+          channel or anyone.
+        type: string
+      username:
+        type: string
+    type: object
   schema.ChatsSettings:
     properties:
       context_size:
@@ -7613,6 +7687,17 @@ definitions:
           type: string
         type: array
       skills_off:
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ChatsThread:
+    properties:
+      cut:
+        description: Cut is true when older messages were left out.
+        type: boolean
+      lines:
+        description: 'Lines are the messages, oldest first, each as "Author: text".'
         items:
           type: string
         type: array

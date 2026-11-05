@@ -817,7 +817,11 @@ func (s *jsonStore) Entries(_ context.Context, id string, after int64, limit int
 	return out, nil
 }
 
-func (s *jsonStore) AddPending(_ context.Context, principal, id, text string) (Pending, error) {
+func (s *jsonStore) AddPending(ctx context.Context, principal, id, text string) (Pending, error) {
+	return s.AddPendingFrom(ctx, principal, id, text, nil)
+}
+
+func (s *jsonStore) AddPendingFrom(_ context.Context, principal, id, text string, sender *session.Sender) (Pending, error) {
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return Pending{}, err
@@ -825,7 +829,7 @@ func (s *jsonStore) AddPending(_ context.Context, principal, id, text string) (P
 	defer unlock()
 	next := c.chatState
 	next.NextPending++
-	p := Pending{ID: fmt.Sprintf("p%d", next.NextPending), Text: text, Seq: next.NextPending, At: time.Now().UTC()}
+	p := Pending{ID: fmt.Sprintf("p%d", next.NextPending), Text: text, Seq: next.NextPending, At: time.Now().UTC(), Sender: sender}
 	next.Pending = append(append([]Pending(nil), c.Pending...), p)
 	if err := s.save(&next); err != nil {
 		return Pending{}, err

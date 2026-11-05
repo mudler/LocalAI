@@ -223,6 +223,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// instead of saying that it has no such tool.
 	if line := deniedToolsNote(rec, append(slices.Clone(built), heldAddons...)); line != "" {
 		note = strings.TrimSpace(line + " " + note)
+		s.noteHeldBack(ctx, rec, line)
 	}
 	// What the user did with the triggers this chat proposed: the tool result
 	// said they were waiting, so a later turn must hear how they ended.

@@ -14,6 +14,22 @@ type ChatStartRequest struct {
 	// only for the capabilities in it. A start without a grant for a connector
 	// chat gets none of the gated tools.
 	Grant *ChatGrant `json:"grant,omitempty"`
+	// Sender and the Thread fields are display data of a connector message:
+	// the transcript names the sender, and the first turn of a thread chat
+	// keeps the block of earlier messages the model read. They never change
+	// what the model gets.
+	Sender      *ChatSender `json:"sender,omitempty"`
+	Thread      string      `json:"thread,omitempty"`
+	ThreadLines int         `json:"thread_lines,omitempty"`
+	ThreadCut   bool        `json:"thread_cut,omitempty"`
+}
+
+// ChatSender is who wrote a connector message, as the transcript shows it.
+type ChatSender struct {
+	ID       string `json:"id,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Username string `json:"username,omitempty"`
+	Standing string `json:"standing,omitempty"`
 }
 
 // ChatGrant is the outcome of the permission check for the senders of one

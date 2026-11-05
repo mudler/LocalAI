@@ -12,6 +12,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -365,5 +366,23 @@ func RunStoreSuite(newStore NewStore) {
 		Expect(es[1].Invoked).To(BeNil())
 		Expect(es[2].Role).To(Equal(session.RoleCleared))
 		Expect(es[3].Invoked).To(Equal(agent))
+	})
+	It("keeps the sender of a message and the display-only lines of a connector chat, and reads an older entry without them", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), rec("c1", "alice", t0))).To(Succeed())
+		who := &session.Sender{ID: "U1", Name: "Ada", Username: "ada", Standing: session.StandingListed}
+		Expect(s.AppendEntry(ctx(), "c1", session.Entry{Turn: 1, Role: session.RoleUser, Text: "old line"})).Error().NotTo(HaveOccurred())
+		Expect(s.AppendEntries(ctx(), "c1", []session.Entry{
+			{Turn: 2, Role: session.RoleThread, Text: "block", Rev: 3, Note: session.ThreadCut},
+			{Turn: 2, Role: session.RoleUser, Text: "hello", Sender: who},
+			{Turn: 2, Role: session.RoleHostNote, Note: session.HostNoteUnsupported, Text: "told"},
+		})).To(Succeed())
+		es, err := s.Entries(ctx(), "c1", 0, 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(es).To(HaveLen(4))
+		Expect(es[0].Sender).To(BeNil())
+		Expect(es[1]).To(MatchFields(IgnoreExtras, Fields{"Role": Equal(session.RoleThread), "Text": Equal("block"), "Rev": Equal(int64(3)), "Note": Equal(session.ThreadCut)}))
+		Expect(es[2].Sender).To(Equal(who))
+		Expect(es[3]).To(MatchFields(IgnoreExtras, Fields{"Role": Equal(session.RoleHostNote), "Note": Equal(session.HostNoteUnsupported), "Text": Equal("told")}))
 	})
 }

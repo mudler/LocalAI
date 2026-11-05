@@ -194,6 +194,13 @@ func (h *Handlers) describe(c echo.Context, user string, rec session.ChatRecord)
 	}
 	conv := conversation(rec, info)
 	conv.Goal = h.goalJSON(rec.Goal)
+	if rec.Origin == session.OriginConnector {
+		if conns := h.svc.Connectors(); conns != nil {
+			if p, ok := conns.InfoOf(c.Request().Context(), rec.OriginID, rec.ID); ok {
+				conv.Place = &schema.ChatsPlace{Direct: p.Direct, Thread: p.Thread, Name: p.Name, Link: p.Link}
+			}
+		}
+	}
 	return conv, nil
 }
 
@@ -435,6 +442,16 @@ func messageList(principal string, entries []session.Entry) schema.ChatsMessageL
 		}
 		if e.Role == session.RoleGoal {
 			m.GoalEvent, m.GoalTurn = e.Note, e.Rev
+		}
+		if e.Sender != nil && e.Role == session.RoleUser {
+			m.Sender = &schema.ChatsSender{ID: e.Sender.ID, Name: e.Sender.Name, Username: e.Sender.Username, Standing: e.Sender.Standing}
+		}
+		if e.Role == session.RoleThread {
+			m.Text = ""
+			m.Thread = &schema.ChatsThread{Lines: append([]string{}, session.ThreadLines(e.Text)...), Cut: e.Note == session.ThreadCut}
+		}
+		if e.Role == session.RoleHostNote {
+			m.HostNote = &schema.ChatsHostNote{Code: e.Note}
 		}
 		if e.Role == session.RoleFailure {
 			f := session.ParseFailure(e)

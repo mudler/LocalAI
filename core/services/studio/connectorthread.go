@@ -36,19 +36,21 @@ const (
 // It asks only when the message is in a thread and the add-on of the kind
 // declares the ability; no binding setting turns it off. A failure never
 // blocks the answer: it is logged and the turn goes on without context. The
-// caller calls it once, when the chat of the thread has just been made.
-func (c *Connectors) threadDirective(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage) string {
+// caller calls it once, when the chat of the thread has just been made. It
+// returns the block and the counts; the caller stores the block, as given to
+// the model, for the owner to read.
+func (c *Connectors) threadDirective(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage) (string, threadStats) {
 	if m.Thread == "" {
-		return ""
+		return "", threadStats{}
 	}
 	kinds, err := c.o.Transport.Kinds(ctx)
 	if err != nil {
-		return ""
+		return "", threadStats{}
 	}
 	k, ok := kindFor(kinds, b)
 	if !ok || !k.ServesThreadHistory() {
 		c.log.Info("studio: thread history not read", "binding", b.ID, "kind", b.Kind, "reason", "kind serves no thread history")
-		return ""
+		return "", threadStats{}
 	}
 	ctx, cancel := context.WithTimeout(ctx, threadContextTimeout)
 	defer cancel()
@@ -61,11 +63,11 @@ func (c *Connectors) threadDirective(ctx context.Context, b connectors.Binding, 
 	}
 	if err != nil {
 		c.log.Warn("studio: could not read the earlier messages of a thread", "binding", b.ID, "kind", b.Kind, "error", err)
-		return ""
+		return "", threadStats{}
 	}
 	block, st := renderThread(resp.Messages, m.MessageID, threadAsker{ID: m.SenderID, Username: m.SenderUsername}, limit, threadContextBytes, resp.Truncated)
 	c.log.Info("studio: thread history read", st.fields(b.ID, b.Kind)...)
-	return block
+	return block, st
 }
 
 // threadStats counts what one thread read gave. It holds numbers only: the

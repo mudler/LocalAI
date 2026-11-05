@@ -721,7 +721,16 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 	c.noteLanguage(b, m)
 	v := c.voice(ctx, b, senderID, m.Chat)
 	say := func(text string) { c.say(b, token, m.Chat, m.Thread, text) }
-	tell := func(key string, args ...any) { say(v.T(key, args...)) }
+	// What the host says to the sender about a message is also noted in the
+	// chat of that conversation, when there is one, so the owner reads why a
+	// message went unanswered.
+	tell := func(key string, args ...any) {
+		text := v.T(key, args...)
+		say(text)
+		if code, ok := hostNoteCodes[key]; ok {
+			c.noteChat(ctx, b, m, code, text)
+		}
+	}
 	st := c.sender(b.ID, senderID)
 	switch ok, notice := c.allow(st); {
 	case !ok && notice:
@@ -812,13 +821,20 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 		return
 	}
 	c.rememberPlace(ctx, b, chatID, m)
+	c.rememberInfo(ctx, b, chatID, m)
 	// One reply goroutine serves a conversation; the rate limit stays the sender's.
 	// The earlier messages of a thread go to the first turn of a chat that
 	// the thread just started, once.
 	var earlier string
+	who := turnWho{Sender: c.senderFor(b, m)}
 	if created {
-		earlier = c.threadDirective(ctx, b, token, m)
+		var st threadStats
+		earlier, st = c.threadDirective(ctx, b, token, m)
+		if earlier != "" {
+			who.Thread, who.ThreadLines, who.ThreadCut = earlier, st.Lines, st.Truncated
+		}
 	}
+	ctx = withTurnWho(ctx, who)
 	c.deliver(ctx, b, token, m, c.sender(b.ID, "\x01"+key), chatID, up, earlier)
 }
 
@@ -840,6 +856,26 @@ func refusalKey(b connectors.Binding, m contract.ConnectorMessage, d Decision, f
 		return "refuse.off"
 	}
 	return fallback
+}
+
+// hostNoteCodes maps the sentence keys of the host's own messages to the
+// code of the note the chat keeps (session.RoleHostNote). A sentence that has
+// no code here is told to the sender and not noted.
+var hostNoteCodes = map[string]string{
+	"unsupported":  session.HostNoteUnsupported,
+	"too_long":     session.HostNoteTooLong,
+	"no_upload":    session.HostNoteNoUpload,
+	"rate":         session.HostNoteRate,
+	"pairing.done": session.HostNotePairing,
+	"no_folder":    session.HostNoteRefused,
+	"folder_limit": session.HostNoteRefused,
+	"no_files":     session.HostNoteRefused,
+	// The reasons a capability was refused (see refusalKey): the sender read
+	// one sentence, and so does the owner.
+	"refuse.channel":  session.HostNoteRefused,
+	"refuse.unlisted": session.HostNoteRefused,
+	"refuse.pairing":  session.HostNoteRefused,
+	"refuse.off":      session.HostNoteRefused,
 }
 
 // inputs turns the files of a message into what the turn gets: the uploads

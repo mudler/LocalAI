@@ -44,6 +44,9 @@ func (s *Service) SendBackground(ctx context.Context, user, conv, text string, u
 	if g, ok := turnGrantFrom(ctx); ok {
 		req.Grant = g.wire()
 	}
+	if w, ok := turnWhoFrom(ctx); ok {
+		req.Sender = senderWire(w.Sender)
+	}
 	reply, err := s.d.Workers.StartChat(ctx, req)
 	switch {
 	case errors.Is(err, nodes.ErrNoRoute):
@@ -76,6 +79,9 @@ func (s *Service) ServeStart(ctx context.Context, req workerctl.ChatStartRequest
 	if req.Grant != nil {
 		// The frontend already narrowed the grant to the senders of the turn.
 		s.access.set(req.ChatID, grantOf(req.Grant))
+	}
+	if req.Sender != nil {
+		ctx = withTurnWho(ctx, turnWho{Sender: senderOf(req.Sender)})
 	}
 	res, err := s.SendWithFiles(ctx, req.Principal, req.ChatID, req.Text, nil)
 	if err != nil {

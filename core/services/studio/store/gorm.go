@@ -83,7 +83,11 @@ type entryRow struct {
 	Loop string `gorm:"type:text"`
 	// Invoked is the JSON of the command of a user message; empty otherwise.
 	Invoked string `gorm:"type:text"`
-	At      time.Time
+	// Sender is the JSON of the sender of a user message that a messaging
+	// connection delivered; empty otherwise. The column came after the table
+	// existed, so AutoMigrate adds it and older rows read as empty.
+	Sender string `gorm:"type:text"`
+	At     time.Time
 }
 
 func (entryRow) TableName() string { return "studio_entries" }
@@ -120,6 +124,13 @@ func toEntryRow(id string, seq int64, e session.Entry) (entryRow, error) {
 		}
 		r.Invoked = string(raw)
 	}
+	if e.Sender != nil {
+		raw, err := json.Marshal(e.Sender)
+		if err != nil {
+			return entryRow{}, err
+		}
+		r.Sender = string(raw)
+	}
 	return r, nil
 }
 
@@ -132,6 +143,8 @@ type pendingRow struct {
 	// Unconfirmed: taken by a model request, not yet recorded (see Pending).
 	Unconfirmed bool
 	At          time.Time
+	// Sender is the JSON of the sender of a connector message; empty otherwise.
+	Sender string `gorm:"type:text"`
 }
 
 func (pendingRow) TableName() string { return "studio_pending" }
@@ -853,16 +866,34 @@ func (s *gormStore) Entries(ctx context.Context, id string, after int64, limit i
 			}
 			e.Invoked = &inv
 		}
+		if r.Sender != "" {
+			var sd session.Sender
+			if err := json.Unmarshal([]byte(r.Sender), &sd); err != nil {
+				return nil, err
+			}
+			e.Sender = &sd
+		}
 		out = append(out, e)
 	}
 	return out, nil
 }
 
 func toPending(r pendingRow) Pending {
-	return Pending{ID: r.ID, Text: r.Text, Seq: r.Seq, Delivered: r.Delivered, Unconfirmed: r.Unconfirmed, At: r.At}
+	p := Pending{ID: r.ID, Text: r.Text, Seq: r.Seq, Delivered: r.Delivered, Unconfirmed: r.Unconfirmed, At: r.At}
+	if r.Sender != "" {
+		var sd session.Sender
+		if json.Unmarshal([]byte(r.Sender), &sd) == nil {
+			p.Sender = &sd
+		}
+	}
+	return p
 }
 
 func (s *gormStore) AddPending(ctx context.Context, principal, id, text string) (Pending, error) {
+	return s.AddPendingFrom(ctx, principal, id, text, nil)
+}
+
+func (s *gormStore) AddPendingFrom(ctx context.Context, principal, id, text string, sender *session.Sender) (Pending, error) {
 	var out Pending
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		seq, err := lock(tx, principal, id, "next_pending")
@@ -870,6 +901,13 @@ func (s *gormStore) AddPending(ctx context.Context, principal, id, text string) 
 			return err
 		}
 		row := pendingRow{ChatID: id, ID: fmt.Sprintf("p%d", seq), Seq: seq, Text: text, At: time.Now().UTC()}
+		if sender != nil {
+			raw, err := json.Marshal(sender)
+			if err != nil {
+				return err
+			}
+			row.Sender = string(raw)
+		}
 		if err := tx.Create(&row).Error; err != nil {
 			return err
 		}

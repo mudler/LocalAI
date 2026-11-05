@@ -44,6 +44,17 @@ type Message struct {
 	// Invoked is the command the person used, kept with the message in the
 	// transcript (Entry.Invoked).
 	Invoked *Invocation
+	// Sender is who wrote the message, for a message a messaging connection
+	// delivered. The transcript keeps it with the line (Entry.Sender).
+	Sender *Sender
+	// Thread is the block of earlier thread messages that Directive carries,
+	// for display. A turn that starts with it stores it as a RoleThread line
+	// before the message; ThreadLines is how many lines it holds and ThreadCut
+	// whether older ones were left out. The model gets Directive and nothing
+	// else of it.
+	Thread      string
+	ThreadLines int
+	ThreadCut   bool
 	// Goal marks a message the server sends by itself to go on with the
 	// chat's goal. The transcript keeps it as a RoleGoal line of kind
 	// GoalLineContinue whose Rev is GoalTurn, so it never reads as typed by
@@ -680,7 +691,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 		// from it as it is.
 		logged = true
 	}
-	entry := Entry{Role: RoleUser, Text: text, Note: msg.Note, Attachments: msg.Attachments, Loop: msg.Loop, Invoked: msg.Invoked}
+	entry := Entry{Role: RoleUser, Text: text, Note: msg.Note, Attachments: msg.Attachments, Loop: msg.Loop, Invoked: msg.Invoked, Sender: msg.Sender}
 	if msg.Goal {
 		entry = Entry{Role: RoleGoal, Text: text, Note: GoalLineContinue, Rev: int64(msg.GoalTurn)}
 	}
@@ -785,6 +796,15 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	full := strings.Join(parts, "\n\n")
 	if !logged {
 		entry.Turn = c.turnNow() + 1
+		if msg.Thread != "" {
+			// Before the message, so the transcript reads in the order the
+			// model did: the thread, then the words that addressed the bot.
+			th := Entry{Turn: entry.Turn, Role: RoleThread, Text: msg.Thread, Rev: int64(msg.ThreadLines)}
+			if msg.ThreadCut {
+				th.Note = ThreadCut
+			}
+			c.appendEntry(ctx, th)
+		}
 		c.appendEntry(ctx, entry)
 	}
 	c.m.wg.Add(1)

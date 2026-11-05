@@ -241,6 +241,9 @@ type ChatsConversation struct {
 	Settings *ChatsSettings `json:"settings,omitempty"`
 	// Goal is the chat's goal, when it has one.
 	Goal *ChatsGoal `json:"goal,omitempty"`
+	// Place is set on a chat that a messaging connection started, when the
+	// connection kept where it lives.
+	Place *ChatsPlace `json:"place,omitempty"`
 }
 
 // ChatsGoal is the persistent objective of a chat. While State is active the
@@ -438,7 +441,7 @@ type ChatsPendingEdit struct {
 type ChatsMessage struct {
 	Seq  int64  `json:"seq"`
 	Turn int    `json:"turn"`
-	Role string `json:"role"` // user, assistant, tool, checkpoint, reasoning, compacted, cleared, goal or failure
+	Role string `json:"role"` // user, assistant, tool, checkpoint, reasoning, compacted, cleared, goal, failure, thread or hostnote
 	// Text is what was written. For a user line it is the text you typed:
 	// the files you attached are in Attachments.
 	Text string `json:"text"`
@@ -473,7 +476,59 @@ type ChatsMessage struct {
 	// Failure is set on a failure line: why the turn ended (Text is the reason
 	// in English).
 	Failure *ChatsFailure `json:"failure,omitempty"`
-	At      time.Time     `json:"at"`
+	// Sender is set on a user line that a messaging connection delivered: who
+	// wrote it, as the connection told it.
+	Sender *ChatsSender `json:"sender,omitempty"`
+	// Thread is set on a thread line: the earlier messages of the messaging
+	// thread, exactly as the model's first turn got them. The line is for
+	// reading only; the model never gets it as a message.
+	Thread *ChatsThread `json:"thread,omitempty"`
+	// HostNote is set on a hostnote line: something the host did on its own
+	// about a message of a messaging connection. Text is the sentence the
+	// sender was told, when there was one.
+	HostNote *ChatsHostNote `json:"host_note,omitempty"`
+	At       time.Time      `json:"at"`
+}
+
+// ChatsSender is who wrote a message that came from a messaging connection.
+type ChatsSender struct {
+	// ID is the platform's id of the sender, for the small print; the name is
+	// what to read.
+	ID       string `json:"id,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Username string `json:"username,omitempty"`
+	// Standing is how the host saw the sender: owner, verified, listed,
+	// channel or anyone.
+	Standing string `json:"standing,omitempty"`
+}
+
+// ChatsThread is the block of earlier thread messages that a connector chat
+// kept for the owner.
+type ChatsThread struct {
+	// Lines are the messages, oldest first, each as "Author: text".
+	Lines []string `json:"lines"`
+	// Cut is true when older messages were left out.
+	Cut bool `json:"cut,omitempty"`
+}
+
+// ChatsHostNote is a note of the host about a connector message.
+type ChatsHostNote struct {
+	// Code is one of paired, unsupported, too_long, no_upload, rate,
+	// held_back, new_chat or refused.
+	Code string `json:"code"`
+}
+
+// ChatsPlace says where a connector chat lives on the messaging platform. Every
+// field is optional.
+type ChatsPlace struct {
+	// Direct is true for a conversation with one person; Thread when the chat
+	// belongs to a thread of the platform.
+	Direct bool `json:"direct,omitempty"`
+	Thread bool `json:"thread,omitempty"`
+	// Name is the channel or group name, when the connection told it.
+	Name string `json:"name,omitempty"`
+	// Link opens the thread or message on the platform. It is an https address.
+	Link string `json:"link,omitempty"`
 }
 
 // ChatsFailure is the cause of a turn that ended on an error.
