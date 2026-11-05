@@ -157,10 +157,28 @@ func (h *Changes) senderMayConfirm(ctx context.Context, c builtins.Chat, p contr
 		return false
 	}
 	if p.Kind == contract.ChangeMemory {
-		return true
+		// A note for the agent or the person, and any note under Always
+		// confirm, is confirmed by a paired sender only.
+		_, paired := h.s.messagingFacts(c.Actor.ChatID)
+		return paired || !h.pairedAnswerOnly(ctx, p)
 	}
 	return h.s.allowCap(ctx, CapabilityRequest{Capability: CapProposalsConfirm, Binding: c.OriginID, Owner: p.Owner, Agent: c.AgentID,
 		Sender: p.Source.Sender, Kind: string(p.Kind), Sensitive: true})
+}
+
+// pairedAnswerOnly says whether only a paired sender may confirm the memory
+// note p: a note that reaches the agent's own notes or the person's (not the
+// conversation's), or any note while the level in force is Always confirm.
+func (h *Changes) pairedAnswerOnly(ctx context.Context, p contract.ChangeProposal) bool {
+	return p.Kind == contract.ChangeMemory && (p.Scope != contract.ScopeChannel || h.alwaysConfirm(ctx, p))
+}
+
+// alwaysConfirm says whether the person's level or the agent's rule for the
+// proposal is Always confirm. The messaging row cannot loosen it.
+func (h *Changes) alwaysConfirm(ctx context.Context, p contract.ChangeProposal) bool {
+	in := SaveInputs{User: h.storedSaveMode(ctx, string(p.Owner)), Agent: h.s.agentMemorySave(ctx, string(p.Owner), p.Agent),
+		Messaging: MessagingAsk, Origin: session.OriginConnector}
+	return effectiveSaveLevel(in) == SaveAlways
 }
 
 // connectorProposed writes the proposal in the chat of the sender and words the
@@ -219,6 +237,9 @@ func (c *Connectors) hereChanges(ctx context.Context, b connectors.Binding, m co
 // proposal. A kind that changes what the agent may do is sensitive: only a
 // paired sender passes.
 func (c *Connectors) mayAnswerChange(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage, p contract.ChangeProposal) bool {
+	if c.svc.changes.pairedAnswerOnly(ctx, p) && !b.IsPaired(m.SenderID, c.o.Clock()) {
+		return false
+	}
 	return c.svc.allowCap(ctx, CapabilityRequest{Capability: CapProposalsConfirm, Binding: b.ID, Owner: b.Owner, Agent: b.AgentID,
 		Sender: m.SenderID, Username: m.SenderUsername, Roles: m.Roles, Kind: string(p.Kind), Sensitive: p.Kind != contract.ChangeMemory})
 }
@@ -239,7 +260,9 @@ func (c *Connectors) answerChange(ctx context.Context, b connectors.Binding, m c
 	}
 	// In a chat of two the other listed sender may answer; in a shared chat
 	// only the sender whose message made the proposal.
-	if !m.Direct && p.Source.Sender != "" && p.Source.Sender != m.SenderID {
+	// Under Always confirm the answer must come from the paired sender who
+	// asked, in a chat of two as well.
+	if p.Source.Sender != "" && p.Source.Sender != m.SenderID && (!m.Direct || ch.alwaysConfirm(ctx, p)) {
 		ch.audit(ctx, proposals.ActionRefuse, p, 0, "not the sender who asked; "+detail)
 		return v.T("change.not_you"), true
 	}
@@ -281,7 +304,7 @@ func (c *Connectors) undoChange(ctx context.Context, b connectors.Binding, m con
 		ch.audit(ctx, proposals.ActionRefuse, p, 0, "undo not allowed; by text from sender "+m.SenderID)
 		return v.T("change.no_right"), true
 	}
-	if !m.Direct && p.Source.Sender != "" && p.Source.Sender != m.SenderID {
+	if p.Source.Sender != "" && p.Source.Sender != m.SenderID && (!m.Direct || ch.alwaysConfirm(ctx, p)) {
 		return v.T("change.not_you"), true
 	}
 	if _, err := ch.Revert(ctx, b.Owner, p.ID); err != nil {

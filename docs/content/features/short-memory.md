@@ -77,8 +77,10 @@ you confirm; you can restore them from Files. Both work while memory is off.
 
 ### The API
 
-`GET /api/chats/memory` reads `{enabled, enabled_set, save_mode, save_mode_set, provider,
-available}` and `PUT /api/chats/memory` with `{enabled, save_mode}` changes them. The server
+`GET /api/chats/memory` reads `{enabled, enabled_set, save_mode, messaging_save,
+save_mode_set, provider, available}` and `PUT /api/chats/memory` with `{enabled, save_mode,
+messaging_save}` changes them (a field left out stays as it is; a value that is not allowed
+is a 400). The server
 keeps them with your other settings, so every frontend of a cluster reads the same answer.
 Before you choose, memory is on, unless you had disabled the old Memory add-on to stop it.
 
@@ -100,16 +102,37 @@ assistant wants to save something to your memory:
 
 | Choice | What happens |
 |---|---|
-| **Ask me first** (default) | The assistant proposes the note and you confirm it. |
 | **Save it and tell me** | In your own chats the note is saved at once. The chat shows "Saved to memory" with an **Undo**, and no confirmation card. |
+| **Ask me first** (default) | The assistant proposes the note and you confirm it. |
+| **Always confirm** | Like **Ask me first**, and nothing can loosen it. The model's own undo and forget wait for you too: `revert_change` is refused, and you undo with the **Undo** of the note. No agent setting and no messaging setting can override it. |
 | **Never** | The assistant cannot propose a note. It says that saving is off if you ask it to remember something. |
 
-The choice is yours alone and the server keeps it. These rules hold
-whatever you choose:
+The values of `save_mode` are `auto`, `ask`, `always` and `never`. The choice is yours alone
+and the server keeps it.
 
-- Chats that come from a messaging app always ask first. The person who wrote the
-  message is not always you, so a message from outside can never save to your memory
-  without your confirmation. Scheduled and background runs cannot save notes at all.
+### Which rule applies
+
+Several settings can have a say on one note. The strictest wins, in this order:
+`auto` is the loosest, then `ask`, then `always`, then `never`. One function combines them.
+
+| Rule | Who sets it | What it can do |
+|---|---|---|
+| Your level | You, on the **Memory** tab | Any of the four |
+| The agent's rule | The agent form: **When it wants to save a note** | **Always confirm** or **Never** only. It can ask more than you, never less, and it cannot choose "Save it and tell me" |
+| The messaging row | You, on the **Memory** tab | **Ask me first**, **Save it for a paired sender in a private chat**, or **Never**. Only for chats from a messaging app |
+| The chat | The host | A sub-agent, a trigger or a job is never looser than ask; a chat from a messaging app asks unless the row says otherwise |
+
+If your level is **Always confirm** or **Never**, the messaging row cannot loosen it: a
+saved agent and a messaging chat get at most that. With **Ask me first** or **Save it and
+tell me**, the messaging row decides for messaging chats. When any of these cannot be read,
+the host asks.
+
+These rules hold whatever you choose:
+
+- Chats that come from a messaging app ask first, unless you chose **Save it for a paired
+  sender in a private chat** (see below). The person who wrote the message is not always
+  you, so a message from outside never saves to your memory without your confirmation.
+  Scheduled and background runs cannot save notes at all.
   The bot writes the question in the chat ("I can save a note ... Reply yes to save it or
   no to drop it"), and a sender whom you trust with the permission **Confirm changes from
   the chat** answers there with `yes` or `no`, within 24 hours. `undo` takes a saved note
@@ -125,6 +148,27 @@ whatever you choose:
   is in the audit of changes (`GET /api/chats/changes/audit`).
 
 If the server cannot read your choice, it asks first.
+
+### In messaging apps
+
+Under **In messaging apps** on the **Memory** tab you choose how a note proposed in a chat
+from a messaging app is saved (`messaging_save`):
+
+| Choice | What happens |
+|---|---|
+| **Ask me first** (default) | The bot asks in the chat. A listed sender can answer there; others wait for you in Studio. |
+| **Save it for a paired sender in a private chat** (`paired_private`) | The note is saved at once only when the sender is paired **and** the chat is one-to-one (a direct message, not a group, channel or thread of several people). It goes to the notes of that conversation, with an Undo. A secret-looking note still waits, and the limit of 5 notes a reply and the size limit stay. |
+| **Never** | No note is saved from messaging apps. The model gets no way to propose one. |
+
+The host decides whether a chat is one-to-one from what the platform sent for the message
+(a Telegram private chat, a Slack direct message, a Discord direct message). When it does
+not know, the chat counts as a group, so nothing is saved at once.
+
+A note from a messaging chat goes to **this conversation** first (`Memory/channels/...`).
+It reaches the agent's own notes or yours only from a paired sender, only when the agent's
+memory choice allows that scope, and only after that sender confirms it: a note for another
+scope never saves at once. Under **Always confirm** only the paired sender who asked can
+confirm a note, in a private chat too. An agent whose memory is **None** saves nothing.
 
 ## Memory for each agent
 
@@ -159,11 +203,18 @@ How it works:
   pick one of the clearer choices. An agent that never had the field keeps reading and
   saving exactly as it did. A `PUT` that does not send `memory` keeps the stored choice.
 - **Messaging apps.** This does not change what a chat from a messaging app reads: it
-  still reads your notes and those of its own conversation, and it still asks you before it
-  saves. Limiting that to a paired sender is planned.
+  still reads your notes and those of its own conversation. What it saves, and where, is
+  in [In messaging apps](#in-messaging-apps): the conversation first, the agent's own notes
+  only after a paired sender confirms.
+- **The agent's save rule.** Under **When it wants to save a note** the form offers **Use my
+  setting** (the default), **Always confirm** and **Never**. The rule can only be stricter
+  than your level: "Save it and tell me" is not offered, and the API refuses `auto` and
+  `ask` there with a 400. A `PUT` that does not send `memory_save` keeps the stored rule,
+  so an older client cannot loosen an agent; `memory_save: "use_mine"` clears it.
 
-The API field is `memory` on an agent (`own`, `mine_and_own`, `mine`, `none`; absent is as
-before). It is part of an agent export file and of an import. A new agent that a client
+The API fields are `memory` on an agent (`own`, `mine_and_own`, `mine`, `none`; absent is as
+before) and `memory_save` (`always`, `never`; absent uses your setting). Both are part of an
+agent export file and of an import. A new agent that a client
 writes without `memory` is "as before"; the interface sends `mine_and_own`.
 
 ### Delete or copy an agent

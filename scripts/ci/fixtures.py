@@ -4,6 +4,7 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -30,6 +31,20 @@ def metadata(root):
                  'pkg/grpc/proto/backend_grpc.pb.go', 'pkg/motion/proto/motion.pb.go']:
         assert (root / name).stat().st_size > 0, f'missing generated input: {name}'
     return files
+
+def toolchain_identity(name, version):
+    # The producer and a consumer run on different runners that may hold
+    # different patch releases of the same toolchain (go1.26.9 and go1.26.10 on
+    # the same day). A patch release builds and runs the same fixtures, so the
+    # identity keeps the series the build config accepts: Go minor, Node major.
+    # protoc stays exact because generated code depends on it.
+    if name == 'go':
+        m = re.search(r'go(\d+\.\d+)(?:\.\d+)?', version)
+        return 'go' + m.group(1) if m else version
+    if name == 'node':
+        m = re.match(r'v(\d+)\.', version)
+        return 'v' + m.group(1) if m else version
+    return version
 
 def transfer(mode, root, archive, sha, tools=None):
     identity = {'sha': sha, 'config': 'ubuntu-24.04-amd64-go1.26-auth-production-v1', 'tools': tools or {}}
@@ -67,6 +82,6 @@ def transfer(mode, root, archive, sha, tools=None):
 if __name__ == '__main__':
     root = Path.cwd()
     sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-    tools = {name: subprocess.check_output(command, text=True).strip() for name, command in
+    tools = {name: toolchain_identity(name, subprocess.check_output(command, text=True).strip()) for name, command in
              {'go': ['go', 'version'], 'node': ['node', '--version'], 'protoc': ['protoc', '--version']}.items()}
     transfer(sys.argv[1], root, Path(os.environ['RUNNER_TEMP']) / 'addon-fixtures.tgz', sha, tools)

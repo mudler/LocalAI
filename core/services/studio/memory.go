@@ -178,8 +178,11 @@ const (
 	HostSettingsID = "_host"
 	// MemoryEnabledKey holds MemoryOn or MemoryOff.
 	MemoryEnabledKey = "memory"
-	// MemorySaveKey holds the save level: ask, auto or never.
+	// MemorySaveKey holds the save level: ask, auto, always or never.
 	MemorySaveKey = "memory-save-mode"
+	// MemorySaveMessagingKey holds the messaging row: ask, paired_private or
+	// never.
+	MemorySaveMessagingKey = "memory-save-messaging"
 )
 
 // The values of MemoryEnabledKey.
@@ -211,6 +214,21 @@ func (s *Service) agentMemory(ctx context.Context, user, agentID string) string 
 		return ""
 	}
 	return ag.Memory
+}
+
+// agentMemorySave is the save rule of a saved agent (agents.MemorySaveAlways,
+// agents.MemorySaveNever), or empty for the person's setting and for a chat
+// without an agent. An agent that cannot be read fails closed: the rule is
+// always, because the stored rule may have been a stricter one.
+func (s *Service) agentMemorySave(ctx context.Context, user, agentID string) string {
+	if agentID == "" || s.d.Agents == nil {
+		return ""
+	}
+	ag, err := s.d.Agents.Get(ctx, user, agentID)
+	if err != nil {
+		return agents.MemorySaveAlways
+	}
+	return ag.MemorySave
 }
 
 // memorySourcesFor narrows the index files of the notes to what a choice of
@@ -252,6 +270,30 @@ func (s *Service) memoryWriteScopes(ctx context.Context, c builtins.Chat) []stri
 		return []string{}
 	}
 	return nil
+}
+
+// memoryChatScopes are the scopes a chat may save a note to. A chat outside a
+// messaging app has what memoryWriteScopes says. A messaging chat saves to its
+// own conversation first, and may also save to the agent or the person only
+// when the sender is paired with the bot and the agent's choice allows that
+// scope (with no choice, "as before", the model may name either). An agent
+// with the choice None saves nowhere. It is never nil for a messaging chat.
+func (s *Service) memoryChatScopes(ctx context.Context, c builtins.Chat) []string {
+	fixed := s.memoryWriteScopes(ctx, c)
+	if c.Origin != session.OriginConnector {
+		return fixed
+	}
+	if fixed != nil && len(fixed) == 0 {
+		return fixed
+	}
+	out := []string{string(contract.ScopeChannel)}
+	if _, paired := s.messagingFacts(c.Actor.ChatID); !paired {
+		return out
+	}
+	if fixed == nil {
+		return append(out, string(contract.ScopeUser), string(contract.ScopeAgent))
+	}
+	return append(out, fixed...)
 }
 
 // memorySkillsOff adds the memory skills to the skills a chat has switched off

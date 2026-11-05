@@ -91,6 +91,25 @@ var _ = Describe("the connector route", func() {
 		Expect(pollUntil(r, out.NextOffset, 1).Updates[0].Thread).To(Equal("500.5"))
 	})
 
+	It("marks only a direct message as direct: a group message, a channel mention and a thread are not", func() {
+		f := fake()
+		r := runtimeOf(f)
+		call(r, contract.ConnectorRequest{Op: "poll", Offset: 1})
+		Eventually(func() bool { return f.Connected(appToken) }, 5*time.Second).Should(BeTrue())
+		// A conversation of several people is not read unless the bot is named,
+		// and what is read is never direct.
+		f.Push(appToken, map[string]any{"type": "message", "channel_type": "mpim", "channel": "G1", "user": "U1", "text": "talking", "ts": "1.1"})
+		f.Push(appToken, map[string]any{"type": "message", "channel_type": "group", "channel": "G2", "user": "U1", "text": "talking", "ts": "1.2"})
+		mention := slacktest.Mention("G1", "U1", "UBOT", "hello group", "")
+		f.Push(appToken, mention)
+		// A direct message inside a thread is still direct.
+		f.Push(appToken, map[string]any{"type": "message", "channel_type": "im", "channel": "D1", "user": "U1", "text": "in a thread", "ts": "2.2", "thread_ts": "2.1"})
+		out := pollUntil(r, 1, 2)
+		Expect(out.Updates).To(HaveLen(2))
+		Expect([]any{out.Updates[0].Chat, out.Updates[0].Direct, out.Updates[0].Mention}).To(Equal([]any{"G1", false, true}))
+		Expect([]any{out.Updates[1].Chat, out.Updates[1].Direct, out.Updates[1].Thread}).To(Equal([]any{"D1", true, "2.1"}))
+	})
+
 	It("waits for an event during a long poll", func() {
 		f := fake()
 		r := runtimeOf(f)

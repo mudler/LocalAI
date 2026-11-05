@@ -106,6 +106,18 @@ var _ = Describe("the Gateway link", func() {
 		Expect(got[1].Mention).To(BeTrue())
 	})
 
+	It("marks a message of a server, a channel or a thread as not direct", func() {
+		connected(f, g)
+		f.dispatch("THREAD_CREATE", map[string]any{"id": threadI, "type": 11, "parent_id": chanID, "guild_id": guildID, "newly_created": true})
+		f.dispatch("MESSAGE_CREATE", msg{channel: chanID, guild: guildID, sender: userID, text: "in the channel", mentionBot: true}.payload())
+		f.dispatch("MESSAGE_CREATE", msg{channel: threadI, guild: guildID, sender: userID, text: "in the thread", mentionBot: true}.payload())
+		f.dispatch("MESSAGE_CREATE", msg{channel: dmID, sender: userID, text: "in a direct message"}.payload())
+		got := next(g, 1, 3)
+		Expect(got).To(HaveLen(3))
+		Expect([]bool{got[0].Direct, got[1].Direct, got[2].Direct}).To(Equal([]bool{false, false, true}))
+		Expect(got[1].Thread).To(Equal(threadI))
+	})
+
 	It("ignores every message that a bot, a webhook or Discord wrote, and the bot's own", func() {
 		connected(f, g)
 		f.dispatch("MESSAGE_CREATE", msg{channel: dmID, sender: botID, text: "my own"}.payload())

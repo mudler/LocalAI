@@ -319,13 +319,11 @@ export function upgradingTitles(apps) {
 }
 
 // Why the list on screen may be out of date: 'busy' (the owner did not answer
-// in time or the server sent its last copy), 'unreachable' or '' when it is
-// current.
-export function staleKind({ error, stale, staleReason }) {
+// in time), 'unreachable' or '' when it is current.
+export function staleKind({ error, stale }) {
   if (!stale) return ''
   if (error && error.kind === 'busy') return 'busy'
-  if (staleReason === 'owner_busy') return 'busy'
-  if (error || staleReason === 'owner_unavailable') return 'unreachable'
+  if (error) return 'unreachable'
   return 'busy'
 }
 

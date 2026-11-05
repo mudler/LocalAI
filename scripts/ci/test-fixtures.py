@@ -28,6 +28,14 @@ class Fixtures(unittest.TestCase):
             if name in fixtures.BINARIES:
                 path.chmod(0o755)
 
+    def test_toolchain_identity_ignores_patch_releases(self):
+        ident = fixtures.toolchain_identity
+        self.assertEqual(ident('go', 'go version go1.26.9 linux/amd64'), ident('go', 'go version go1.26.10 linux/amd64'))
+        self.assertNotEqual(ident('go', 'go version go1.26.9 linux/amd64'), ident('go', 'go version go1.27.0 linux/amd64'))
+        self.assertEqual(ident('node', 'v22.12.0'), ident('node', 'v22.23.1'))
+        self.assertNotEqual(ident('node', 'v22.12.0'), ident('node', 'v24.0.0'))
+        self.assertNotEqual(ident('protoc', 'libprotoc 26.1'), ident('protoc', 'libprotoc 26.2'))
+
     def test_roundtrip_modes_paths_sha_and_checksums(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); src = root/'src'; dst = root/'dst'

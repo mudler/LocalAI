@@ -67,6 +67,12 @@ type ChatsAgent struct {
 	// before the choice existed: it reads notes when its add-ons name Memory
 	// and the model picks the scope of a note.
 	Memory string `json:"memory,omitempty" enums:"own,mine_and_own,mine,none" example:"mine_and_own"`
+	// MemorySave is the agent's own rule for saving a note: always (every note
+	// waits for the person, and the model cannot undo or forget by itself) or
+	// never (it reads notes and saves none). Absent uses the person's setting
+	// (Account > Memory). It can only be stricter than that setting: the host
+	// takes the stricter of the two, and there is no value that saves at once.
+	MemorySave string `json:"memory_save,omitempty" enums:"always,never" example:"always"`
 	// BuiltinsOff are the groups of built-in tools (web, files, triggers...)
 	// the agent's chats never have, and BuiltinsOn the opt-in groups (saved
 	// agents) they start with. The names are the ones GET /api/chats/{id}/tools
@@ -153,6 +159,11 @@ type ChatsAgentWrite struct {
 	// agent; the value must be own, mine_and_own, mine or none (400 otherwise).
 	// A new agent written without it is "as before".
 	Memory string `json:"memory,omitempty" enums:"own,mine_and_own,mine,none"`
+	// MemorySave is the save rule of the agent (see ChatsAgent). A write
+	// without it keeps the stored rule, so a client that does not know the
+	// field cannot loosen the agent. use_mine clears the rule. auto and ask
+	// are not accepted: an agent cannot be looser than the person (400).
+	MemorySave string `json:"memory_save,omitempty" enums:"always,never,use_mine"`
 	// BuiltinsOff and BuiltinsOn are the switches of the built-in tools of
 	// the agent's chats (see ChatsAgent). A write without them keeps the stored ones (an older client cannot widen
 	// the agent); an empty list clears them.
@@ -2091,8 +2102,16 @@ type ChatsMemorySettings struct {
 	// EnabledSet is true once you chose. Before that memory is on, unless you
 	// had disabled the Memory add-on to stop it.
 	EnabledSet bool `json:"enabled_set" example:"false"`
-	// SaveMode is how a note is saved: ask, auto or never.
-	SaveMode string `json:"save_mode" example:"ask"`
+	// SaveMode is how a note is saved: auto (save it and tell me), ask (ask me
+	// first, the default), always (always confirm: like ask, and nothing can
+	// loosen it; undo and forget by the model wait for you too) or never.
+	SaveMode string `json:"save_mode" enums:"auto,ask,always,never" example:"ask"`
+	// MessagingSave is how a note proposed in a chat of a messaging app is
+	// saved: ask (the bot asks in the chat; the default), paired_private
+	// (saved at once to the conversation when the sender is paired and the
+	// chat is one-to-one) or never. It cannot loosen save_mode: with always or
+	// never the row has no looser effect.
+	MessagingSave string `json:"messaging_save" enums:"ask,paired_private,never" example:"ask"`
 	// SaveModeSet is true once you chose in this setting.
 	SaveModeSet bool `json:"save_mode_set" example:"false"`
 	// Provider is what serves memory: builtin.
@@ -2105,7 +2124,9 @@ type ChatsMemorySettings struct {
 // it is.
 type ChatsMemoryRequest struct {
 	Enabled  *bool   `json:"enabled,omitempty" example:"false"`
-	SaveMode *string `json:"save_mode,omitempty" example:"ask"`
+	SaveMode *string `json:"save_mode,omitempty" enums:"auto,ask,always,never" example:"ask"`
+	// MessagingSave is the messaging row (see ChatsMemorySettings).
+	MessagingSave *string `json:"messaging_save,omitempty" enums:"ask,paired_private,never" example:"ask"`
 }
 
 // ChatsToolFallback is one built-in tool whose replacing add-on cannot serve

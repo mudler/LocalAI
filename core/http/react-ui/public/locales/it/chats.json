@@ -959,13 +959,36 @@
         "title": "Salva e avvisami",
         "body": "Nelle tue chat la nota viene salvata subito. La chat mostra «Salvato in memoria» con Annulla. Fino a 5 note per risposta. Una nota lunga, o che sembra un segreto, aspetta comunque te."
       },
+      "always": {
+        "title": "Conferma sempre",
+        "body": "Come Chiedimi prima, e nulla può allentarlo. Anche annulla e dimentica aspettano te. Nessuna impostazione di agente o di messaggistica può scavalcarlo."
+      },
       "never": {
         "title": "Mai",
         "body": "L'assistente non può salvare note. Ti dice che il salvataggio è disattivato."
       }
     },
     "default": "Predefinito",
-    "saveNote": "Le chat delle app di messaggistica chiedono sempre prima. Le esecuzioni in background e i trigger non salvano mai una nota. Un agente salvato può chiedere di più, mai di meno, di quanto scegli qui.",
+    "saveNote": "Le esecuzioni in background e i trigger non salvano mai una nota. Un agente salvato può chiedere di più, mai di meno, di quanto scegli qui.",
+    "messaging": {
+      "title": "Nelle app di messaggistica",
+      "lede": "Cosa succede quando una nota viene proposta in una chat di un'app di messaggistica, dove chi scrive può non essere tu.",
+      "ask": {
+        "title": "Chiedimi prima",
+        "body": "Il bot chiede nella chat: «Rispondi sì per salvarla». Un mittente in elenco può rispondere lì. Gli altri aspettano te nell'app."
+      },
+      "paired_private": {
+        "title": "Salva per un mittente abbinato in una chat privata",
+        "body": "Salvata subito solo se il mittente è abbinato e la chat è uno a uno. La nota va in quella conversazione, con Annulla. Una nota che sembra un segreto aspetta comunque."
+      },
+      "never": {
+        "title": "Mai",
+        "body": "Nessuna nota viene salvata dalle app di messaggistica."
+      },
+      "limit": "Mai più permissivo dell'impostazione qui sopra.",
+      "lockedAlways": "La tua impostazione qui sopra è Conferma sempre, quindi questa riga non può salvare una nota subito.",
+      "lockedNever": "La tua impostazione qui sopra è Mai, quindi nessuna nota viene salvata dalle app di messaggistica."
+    },
     "saveFailed": "Non è stato possibile salvare la tua scelta.",
     "loadError": "Non è stato possibile caricare le impostazioni della memoria.",
     "notesTitle": "Gestisci le tue note",
@@ -1040,6 +1063,22 @@
         "title": "Elimina anche le note",
         "body": "Vanno nel Cestino e puoi ripristinarle da File."
       }
+    },
+    "rule": {
+      "title": "Quando vuole salvare una nota",
+      "use_mine": {
+        "title": "Usa la mia impostazione",
+        "body": "Ora: {{level}}."
+      },
+      "always": {
+        "title": "Conferma sempre",
+        "body": "Più rigido della mia impostazione."
+      },
+      "never": {
+        "title": "Mai",
+        "body": "Legge, non salva mai."
+      },
+      "hint": "Un agente può chiedere di più della tua impostazione, mai di meno. «Salva e avvisami» qui non è offerto. In una chat di messaggistica la nota va prima in quella conversazione e arriva alle note proprie di questo agente solo da un mittente abbinato."
     }
   }
 }

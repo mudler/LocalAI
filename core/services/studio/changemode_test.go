@@ -27,14 +27,34 @@ type saveSetting struct {
 	set  bool
 	err  error
 	read int
+	// host holds the settings the host keeps itself (the owner "_host"), by key.
+	host    map[string]string
+	hostErr error
 }
 
 func (s *saveSetting) put(v string) { s.mu.Lock(); s.val, s.set = v, v != ""; s.mu.Unlock() }
+
+// putHost stores a host setting: the save level or the messaging row.
+func (s *saveSetting) putHost(key, v string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.host == nil {
+		s.host = map[string]string{}
+	}
+	s.host[key] = v
+}
 
 func (s *saveSetting) get(_ context.Context, user, addon, key string) (string, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.read++
+	if addon == studio.HostSettingsID {
+		v, ok := s.host[key]
+		if key == studio.MemorySaveKey {
+			return v, ok, s.hostErr
+		}
+		return v, ok, nil
+	}
 	if addon != "notes-addon" || key != "save-mode" {
 		return "", false, nil
 	}
@@ -71,31 +91,6 @@ func notes(n int, content func(i int) string) func(workspace.Actor, string) []st
 		return []studiotest.ToolStep{{Say: "ok"}}
 	}
 }
-
-var _ = DescribeTable("the mode that applies to a memory write",
-	func(stored, origin string, sub bool, want string) {
-		Expect(studio.EffectiveSaveMode(stored, origin, sub)).To(Equal(want))
-	},
-	// The person's own chat reads the setting as it is.
-	Entry("chat, unset", "", "", false, studio.SaveAsk),
-	Entry("chat, ask", "ask", "", false, studio.SaveAsk),
-	Entry("chat, auto", "auto", "", false, studio.SaveAuto),
-	Entry("chat, never", "never", "", false, studio.SaveNever),
-	Entry("chat, a value nobody declared", "always", "", false, studio.SaveAsk),
-	// A connector chat never saves unasked, and never means never.
-	Entry("connector, unset", "", session.OriginConnector, false, studio.SaveAsk),
-	Entry("connector, ask", "ask", session.OriginConnector, false, studio.SaveAsk),
-	Entry("connector, auto", "auto", session.OriginConnector, false, studio.SaveAsk),
-	Entry("connector, never", "never", session.OriginConnector, false, studio.SaveNever),
-	// An unattended run has no tool; the rule still holds if one ever had.
-	Entry("trigger, auto", "auto", session.OriginTrigger, false, studio.SaveAsk),
-	Entry("trigger, never", "never", session.OriginTrigger, false, studio.SaveNever),
-	Entry("job, auto", "auto", session.OriginJob, false, studio.SaveAsk),
-	Entry("job, ask", "ask", session.OriginJob, false, studio.SaveAsk),
-	// A sub-agent is not the person.
-	Entry("sub-agent, auto", "auto", "", true, studio.SaveAsk),
-	Entry("sub-agent, never", "never", "", true, studio.SaveNever),
-)
 
 var _ = Describe("how a memory note is saved", func() {
 	ctx := context.Background()
@@ -476,6 +471,9 @@ var _ = Describe("how a memory note is saved", func() {
 				Expect(r.conns.Ingest(ctx, "telegram", contract.ConnectorInbound{BindingID: b.ID, ConnectorMessage: contract.ConnectorMessage{
 					Chat: "11", Direct: true, SenderID: "11", SenderName: "S", Text: "remember"}})).To(Succeed())
 				waitFor("the answer", func() bool { return len(bot.answers()) >= 1 })
+				// The harness records a tool result after the turn's events went
+				// out, so the answer can reach the bot first: wait for the result.
+				waitFor("the tool result", func() bool { return len(r.h.ResultsFor("propose_change")) >= 1 })
 				res := r.h.ResultsFor("propose_change")
 				Expect(res).To(HaveLen(1))
 				Expect(res[0].Err).To(BeNil(), "%+v", res)

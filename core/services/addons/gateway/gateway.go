@@ -26,8 +26,6 @@ var ErrNotSent = fmt.Errorf("the add-on is not running now and nothing was sent:
 // Gateway deliberately admits lifecycle commands only until resource admission
 // and proposal confirmation are installed. Installation admin is not data access.
 type Gateway struct {
-	// appsCache backs the stale answer of the apps list; see Apps.
-	appsCache appsCache
 	// Transfers holds the handles of connector file transfers on the process
 	// that runs the add-ons. Without it a call that carries a handle is
 	// unavailable.

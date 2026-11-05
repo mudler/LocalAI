@@ -338,9 +338,8 @@ func (s *gormStore) titleChats(ctx context.Context, q chatsearch.Query, terms []
 // from the chat it reached. A message written while it runs is indexed by the
 // write itself, and a row that backfill adds for a message that was just
 // removed is ignored by every search (it joins the entry).
-func (s *gormStore) backfillTexts() {
+func (s *gormStore) backfillTexts(ctx context.Context) {
 	defer s.text.indexing.Store(false)
-	ctx := context.Background()
 	var st textStateRow
 	if err := s.db.Where("id = ?", 1).Limit(1).Find(&st).Error; err != nil {
 		xlog.Warn("Chat search: could not read the backfill state", "error", err)
@@ -359,6 +358,9 @@ func (s *gormStore) backfillTexts() {
 	}
 	last, started, logged := st.LastChat, time.Now(), time.Now()
 	for {
+		if ctx.Err() != nil {
+			return
+		}
 		var ids []string
 		if err := s.db.Model(&chatRow{}).Where("id > ?", last).Order("id").Limit(backfillStep).Pluck("id", &ids).Error; err != nil {
 			xlog.Debug("Chat search: backfill stopped", "error", err)
@@ -368,6 +370,9 @@ func (s *gormStore) backfillTexts() {
 			break
 		}
 		for _, id := range ids {
+			if ctx.Err() != nil {
+				return
+			}
 			if err := s.backfillChat(ctx, id); err != nil {
 				xlog.Debug("Chat search: backfill stopped", "error", err)
 				return
@@ -383,7 +388,11 @@ func (s *gormStore) backfillTexts() {
 			logged = time.Now()
 			xlog.Info("Chat search: indexing earlier chats", "done", s.text.done.Load(), "of", total)
 		}
-		time.Sleep(10 * time.Millisecond) // leave the database to the chats being written
+		select { // leave the database to the chats being written
+		case <-ctx.Done():
+			return
+		case <-time.After(10 * time.Millisecond):
+		}
 	}
 	// Rows of a chat deleted while the backfill read it.
 	_ = s.db.Exec(`DELETE FROM studio_entry_texts WHERE NOT EXISTS (SELECT 1 FROM studio_chats c WHERE c.id = studio_entry_texts.chat_id)`).Error

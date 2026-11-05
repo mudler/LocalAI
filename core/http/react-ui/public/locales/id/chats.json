@@ -959,13 +959,36 @@
         "title": "Simpan dan beri tahu saya",
         "body": "Di obrolan Anda sendiri, catatan langsung disimpan. Obrolan menampilkan \"Disimpan ke memori\" dengan Urungkan. Hingga 5 catatan per balasan. Catatan yang panjang, atau yang tampak seperti rahasia, tetap menunggu Anda."
       },
+      "always": {
+        "title": "Selalu konfirmasi",
+        "body": "Seperti Tanya saya dulu, dan tidak ada yang bisa melonggarkannya. Urungkan dan lupakan juga menunggu Anda. Tidak ada pengaturan agen atau aplikasi pesan yang bisa menggantinya."
+      },
       "never": {
         "title": "Jangan pernah",
         "body": "Asisten tidak dapat menyimpan catatan. Ia akan memberi tahu bahwa penyimpanan nonaktif."
       }
     },
     "default": "Bawaan",
-    "saveNote": "Obrolan dari aplikasi pesan selalu bertanya dulu. Proses latar belakang dan pemicu tidak pernah menyimpan catatan. Agen tersimpan boleh bertanya lebih banyak, tidak pernah lebih sedikit, daripada pilihan Anda di sini.",
+    "saveNote": "Proses latar belakang dan pemicu tidak pernah menyimpan catatan. Agen tersimpan boleh bertanya lebih banyak, tidak pernah lebih sedikit, daripada pilihan Anda di sini.",
+    "messaging": {
+      "title": "Di aplikasi pesan",
+      "lede": "Yang terjadi saat sebuah catatan diusulkan di obrolan aplikasi pesan, di mana pengirimnya belum tentu Anda.",
+      "ask": {
+        "title": "Tanya saya dulu",
+        "body": "Bot bertanya di obrolan: \"Balas ya untuk menyimpan.\" Pengirim yang terdaftar bisa menjawab di sana. Yang lain menunggu Anda di aplikasi."
+      },
+      "paired_private": {
+        "title": "Simpan untuk pengirim yang dipasangkan di obrolan pribadi",
+        "body": "Langsung disimpan hanya jika pengirim dipasangkan dan obrolannya satu lawan satu. Catatan masuk ke percakapan itu, dengan Urungkan. Catatan yang mirip rahasia tetap menunggu."
+      },
+      "never": {
+        "title": "Jangan pernah",
+        "body": "Tidak ada catatan yang disimpan dari aplikasi pesan."
+      },
+      "limit": "Tidak pernah lebih longgar dari pengaturan di atas.",
+      "lockedAlways": "Pengaturan Anda di atas adalah Selalu konfirmasi, jadi baris ini tidak bisa langsung menyimpan catatan.",
+      "lockedNever": "Pengaturan Anda di atas adalah Jangan pernah, jadi tidak ada catatan yang disimpan dari aplikasi pesan."
+    },
     "saveFailed": "Pilihan Anda tidak dapat disimpan.",
     "loadError": "Pengaturan memori Anda tidak dapat dimuat.",
     "notesTitle": "Kelola catatan Anda",
@@ -1040,6 +1063,22 @@
         "title": "Hapus juga catatannya",
         "body": "Dipindahkan ke Sampah dan dapat dipulihkan dari Berkas."
       }
+    },
+    "rule": {
+      "title": "Saat ingin menyimpan catatan",
+      "use_mine": {
+        "title": "Pakai pengaturan saya",
+        "body": "Saat ini: {{level}}."
+      },
+      "always": {
+        "title": "Selalu konfirmasi",
+        "body": "Lebih ketat dari pengaturan saya."
+      },
+      "never": {
+        "title": "Jangan pernah",
+        "body": "Membaca, tidak pernah menyimpan."
+      },
+      "hint": "Agen boleh bertanya lebih banyak dari pengaturan Anda, tidak pernah lebih sedikit. \"Simpan dan beri tahu saya\" tidak ditawarkan di sini. Di obrolan aplikasi pesan, catatan masuk ke percakapan itu dulu, dan sampai ke catatan milik agen ini hanya dari pengirim yang dipasangkan."
     }
   }
 }

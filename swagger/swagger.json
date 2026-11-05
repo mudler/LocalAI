@@ -161,7 +161,7 @@
                         }
                     },
                     "503": {
-                        "description": "Addons or the owner are unavailable, or the owner did not answer in time and this frontend has no earlier list to show (type owner_busy or owner_unavailable)",
+                        "description": "Addons or the owner are unavailable, or the owner did not answer in time (type owner_busy or owner_unavailable)",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -7263,7 +7263,7 @@
         },
         "/api/chats/memory": {
             "get": {
-                "description": "Memory is the short notes the assistant reads before it answers and may save. enabled is the switch for all your chats and agents: a private chat (the memory group of a chat, see PUT /api/chats/{id}/builtins), an agent that turns memory off, or this switch off each make memory off in a chat, and the narrowest wins; a saved agent cannot widen your choice. enabled_set is false until you choose; before that memory is on, unless you had disabled the Memory add-on to stop it. save_mode is how a note is saved (ask, auto or never) and applies as the strictest rule with the rules of the host; a chat from a messaging app always asks. Your notes stay and can be listed, exported and deleted while memory is off.",
+                "description": "Memory is the short notes the assistant reads before it answers and may save. enabled is the switch for all your chats and agents: a private chat (the memory group of a chat, see PUT /api/chats/{id}/builtins), an agent that turns memory off, or this switch off each make memory off in a chat, and the narrowest wins; a saved agent cannot widen your choice. enabled_set is false until you choose; before that memory is on, unless you had disabled the Memory add-on to stop it. save_mode is how a note is saved: auto (save it and tell me), ask (the default), always (always confirm: like ask, nothing can loosen it, and the model cannot undo or forget by itself) or never. It applies as the strictest rule together with the rule of the saved agent (memory_save) and the rules of the host. A chat from a messaging app asks, unless messaging_save is paired_private and the sender is paired and the chat is one-to-one; the row cannot loosen always or never. Your notes stay and can be listed, exported and deleted while memory is off.",
                 "tags": [
                     "chats"
                 ],
@@ -7278,7 +7278,7 @@
                 }
             },
             "put": {
-                "description": "Sets enabled (memory On or Off for every chat and agent) and save_mode (ask, auto or never). A field left out stays as it is. Off means nothing is put in the prompt, the model has no tool or skill for notes, nothing is proposed or saved (also by triggers and other runs that start by themselves) and the model is told in one line that memory is off. The settings are kept per person with the account, so every frontend of a cluster reads the same answer. 400 for a value that is not allowed.",
+                "description": "Sets enabled (memory On or Off for every chat and agent), save_mode (auto, ask, always or never) and messaging_save (ask, paired_private or never). A field left out stays as it is. Off means nothing is put in the prompt, the model has no tool or skill for notes, nothing is proposed or saved (also by triggers and other runs that start by themselves) and the model is told in one line that memory is off. The settings are kept per person with the account, so every frontend of a cluster reads the same answer. 400 for a value that is not allowed.",
                 "consumes": [
                     "application/json"
                 ],
@@ -16624,22 +16624,6 @@
                     "items": {
                         "$ref": "#/definitions/apps.App"
                     }
-                },
-                "stale": {
-                    "description": "Stale is true when the receiving frontend could not reach the owner in\ntime and answers with the last list it received from it. The list may be\nout of date; Apps still carries the operations the owner reported then.",
-                    "type": "boolean"
-                },
-                "staleReason": {
-                    "description": "StaleReason is why the list is stale: owner_busy when the owner did not\nanswer within the read deadline, owner_unavailable when it could not be\nreached at all.",
-                    "type": "string",
-                    "enum": [
-                        "owner_busy",
-                        "owner_unavailable"
-                    ]
-                },
-                "staleSince": {
-                    "description": "StaleSince is when the owner last answered, RFC 3339 in UTC.",
-                    "type": "string"
                 }
             }
         },
@@ -21156,6 +21140,15 @@
                     ],
                     "example": "mine_and_own"
                 },
+                "memory_save": {
+                    "description": "MemorySave is the agent's own rule for saving a note: always (every note\nwaits for the person, and the model cannot undo or forget by itself) or\nnever (it reads notes and saves none). Absent uses the person's setting\n(Account \u003e Memory). It can only be stricter than that setting: the host\ntakes the stricter of the two, and there is no value that saves at once.",
+                    "type": "string",
+                    "enum": [
+                        "always",
+                        "never"
+                    ],
+                    "example": "always"
+                },
                 "model": {
                     "type": "string"
                 },
@@ -21436,6 +21429,15 @@
                         "mine_and_own",
                         "mine",
                         "none"
+                    ]
+                },
+                "memory_save": {
+                    "description": "MemorySave is the save rule of the agent (see ChatsAgent). A write\nwithout it keeps the stored rule, so a client that does not know the\nfield cannot loosen the agent. use_mine clears the rule. auto and ask\nare not accepted: an agent cannot be looser than the person (400).",
+                    "type": "string",
+                    "enum": [
+                        "always",
+                        "never",
+                        "use_mine"
                     ]
                 },
                 "model": {
@@ -24461,8 +24463,24 @@
                     "type": "boolean",
                     "example": false
                 },
+                "messaging_save": {
+                    "description": "MessagingSave is the messaging row (see ChatsMemorySettings).",
+                    "type": "string",
+                    "enum": [
+                        "ask",
+                        "paired_private",
+                        "never"
+                    ],
+                    "example": "ask"
+                },
                 "save_mode": {
                     "type": "string",
+                    "enum": [
+                        "auto",
+                        "ask",
+                        "always",
+                        "never"
+                    ],
                     "example": "ask"
                 }
             }
@@ -24485,14 +24503,30 @@
                     "type": "boolean",
                     "example": false
                 },
+                "messaging_save": {
+                    "description": "MessagingSave is how a note proposed in a chat of a messaging app is\nsaved: ask (the bot asks in the chat; the default), paired_private\n(saved at once to the conversation when the sender is paired and the\nchat is one-to-one) or never. It cannot loosen save_mode: with always or\nnever the row has no looser effect.",
+                    "type": "string",
+                    "enum": [
+                        "ask",
+                        "paired_private",
+                        "never"
+                    ],
+                    "example": "ask"
+                },
                 "provider": {
                     "description": "Provider is what serves memory: builtin.",
                     "type": "string",
                     "example": "builtin"
                 },
                 "save_mode": {
-                    "description": "SaveMode is how a note is saved: ask, auto or never.",
+                    "description": "SaveMode is how a note is saved: auto (save it and tell me), ask (ask me\nfirst, the default), always (always confirm: like ask, and nothing can\nloosen it; undo and forget by the model wait for you too) or never.",
                     "type": "string",
+                    "enum": [
+                        "auto",
+                        "ask",
+                        "always",
+                        "never"
+                    ],
                     "example": "ask"
                 },
                 "save_mode_set": {

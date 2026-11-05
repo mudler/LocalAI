@@ -18,7 +18,7 @@ var memoryRules = []errRule{
 func failMemory(c echo.Context, err error) error { return mapErr(c, err, memoryRules, failFor) }
 
 func memorySettingsOut(m studiosvc.MemorySettings) schema.ChatsMemorySettings {
-	return schema.ChatsMemorySettings{Enabled: m.Enabled, EnabledSet: m.EnabledSet, SaveMode: m.SaveMode,
+	return schema.ChatsMemorySettings{Enabled: m.Enabled, EnabledSet: m.EnabledSet, SaveMode: m.SaveMode, MessagingSave: m.MessagingSave,
 		SaveModeSet: m.SaveModeSet, Provider: m.Provider, Available: m.Available}
 }
 
@@ -32,7 +32,7 @@ func memoryStateOut(m studiosvc.MemoryReason) schema.ChatsMemoryState {
 
 // GetMemory reads your memory choices.
 // @Summary Read your memory settings.
-// @Description Memory is the short notes the assistant reads before it answers and may save. enabled is the switch for all your chats and agents: a private chat (the memory group of a chat, see PUT /api/chats/{id}/builtins), an agent that turns memory off, or this switch off each make memory off in a chat, and the narrowest wins; a saved agent cannot widen your choice. enabled_set is false until you choose; before that memory is on, unless you had disabled the Memory add-on to stop it. save_mode is how a note is saved (ask, auto or never) and applies as the strictest rule with the rules of the host; a chat from a messaging app always asks. Your notes stay and can be listed, exported and deleted while memory is off.
+// @Description Memory is the short notes the assistant reads before it answers and may save. enabled is the switch for all your chats and agents: a private chat (the memory group of a chat, see PUT /api/chats/{id}/builtins), an agent that turns memory off, or this switch off each make memory off in a chat, and the narrowest wins; a saved agent cannot widen your choice. enabled_set is false until you choose; before that memory is on, unless you had disabled the Memory add-on to stop it. save_mode is how a note is saved: auto (save it and tell me), ask (the default), always (always confirm: like ask, nothing can loosen it, and the model cannot undo or forget by itself) or never. It applies as the strictest rule together with the rule of the saved agent (memory_save) and the rules of the host. A chat from a messaging app asks, unless messaging_save is paired_private and the sender is paired and the chat is one-to-one; the row cannot loosen always or never. Your notes stay and can be listed, exported and deleted while memory is off.
 // @Tags chats
 // @Success 200 {object} schema.ChatsMemorySettings "Your memory settings"
 // @Router /api/chats/memory [get]
@@ -46,7 +46,7 @@ func (h *Handlers) GetMemory(c echo.Context) error {
 
 // PutMemory changes your memory choices.
 // @Summary Change your memory settings.
-// @Description Sets enabled (memory On or Off for every chat and agent) and save_mode (ask, auto or never). A field left out stays as it is. Off means nothing is put in the prompt, the model has no tool or skill for notes, nothing is proposed or saved (also by triggers and other runs that start by themselves) and the model is told in one line that memory is off. The settings are kept per person with the account, so every frontend of a cluster reads the same answer. 400 for a value that is not allowed.
+// @Description Sets enabled (memory On or Off for every chat and agent), save_mode (auto, ask, always or never) and messaging_save (ask, paired_private or never). A field left out stays as it is. Off means nothing is put in the prompt, the model has no tool or skill for notes, nothing is proposed or saved (also by triggers and other runs that start by themselves) and the model is told in one line that memory is off. The settings are kept per person with the account, so every frontend of a cluster reads the same answer. 400 for a value that is not allowed.
 // @Tags chats
 // @Accept json
 // @Param request body schema.ChatsMemoryRequest true "the choices to change"
@@ -55,11 +55,11 @@ func (h *Handlers) GetMemory(c echo.Context) error {
 // @Failure 503 {object} schema.ErrorResponse "The settings cannot be stored on this server"
 // @Router /api/chats/memory [put]
 func (h *Handlers) PutMemory(c echo.Context) error {
-	req, ok := bind[schema.ChatsMemoryRequest](c, "the body must be {enabled, save_mode}")
+	req, ok := bind[schema.ChatsMemoryRequest](c, "the body must be {enabled, save_mode, messaging_save}")
 	if !ok {
 		return nil
 	}
-	m, err := h.svc.SetMemory(c.Request().Context(), userID(c), studiosvc.MemoryUpdate{Enabled: req.Enabled, SaveMode: req.SaveMode})
+	m, err := h.svc.SetMemory(c.Request().Context(), userID(c), studiosvc.MemoryUpdate{Enabled: req.Enabled, SaveMode: req.SaveMode, MessagingSave: req.MessagingSave})
 	if err != nil {
 		return failMemory(c, err)
 	}

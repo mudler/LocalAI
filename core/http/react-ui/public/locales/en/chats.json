@@ -1281,13 +1281,36 @@
         "title": "Save it and tell me",
         "body": "In your own chats the note is saved at once. The chat shows \"Saved to memory\" with an Undo. Up to 5 notes a reply. A long note, or one that looks like a secret, still waits for you."
       },
+      "always": {
+        "title": "Always confirm",
+        "body": "Like Ask me first, and nothing can loosen it. Undo and forget also wait for you. No agent or messaging setting can override it."
+      },
       "never": {
         "title": "Never",
         "body": "The assistant cannot save notes. It tells you that saving is off."
       }
     },
     "default": "Default",
-    "saveNote": "Chats from messaging apps always ask first. Background runs and triggers never save a note. A saved agent can ask more, never less, than you chose here.",
+    "saveNote": "Background runs and triggers never save a note. A saved agent can ask more, never less, than you chose here.",
+    "messaging": {
+      "title": "In messaging apps",
+      "lede": "What happens when a note is proposed in a chat from a messaging app, where the sender may not be you.",
+      "ask": {
+        "title": "Ask me first",
+        "body": "The bot asks in the chat: \"Reply yes to save it.\" A listed sender can answer there. Others wait for you in the app."
+      },
+      "paired_private": {
+        "title": "Save it for a paired sender in a private chat",
+        "body": "Saved at once only when the sender is paired and the chat is one-to-one. The note goes to that conversation, with an Undo. A note that looks like a secret still waits."
+      },
+      "never": {
+        "title": "Never",
+        "body": "No notes are saved from messaging apps."
+      },
+      "limit": "Never looser than the setting above.",
+      "lockedAlways": "Your setting above is Always confirm, so this row cannot save a note at once.",
+      "lockedNever": "Your setting above is Never, so no note is saved from a messaging app."
+    },
     "saveFailed": "Could not store your choice.",
     "loadError": "Could not load your memory settings.",
     "notesTitle": "Manage your notes",
@@ -1362,6 +1385,22 @@
         "title": "Delete the notes too",
         "body": "They move to the Trash and you can restore them from Files."
       }
+    },
+    "rule": {
+      "title": "When it wants to save a note",
+      "use_mine": {
+        "title": "Use my setting",
+        "body": "Currently: {{level}}."
+      },
+      "always": {
+        "title": "Always confirm",
+        "body": "Stricter than my setting."
+      },
+      "never": {
+        "title": "Never",
+        "body": "It reads, never saves."
+      },
+      "hint": "An agent can ask more than your setting, never less. \"Save it and tell me\" is not offered here. In a messaging chat a note goes to that conversation first, and reaches this agent's own notes only from a paired sender."
     }
   }
 }

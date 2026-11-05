@@ -4,6 +4,7 @@ package transport_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -42,6 +43,25 @@ var _ = Describe("the Bot API client", func() {
 		Expect(c.Body).To(And(HaveKeyWithValue("offset", float64(10)), HaveKeyWithValue("timeout", float64(25))))
 		Expect(c.Path).To(ContainSubstring("/bot" + secretToken + "/"))
 	})
+
+	DescribeTable("marks a conversation as direct only for a private chat",
+		func(chatType string, direct bool) {
+			f := newFakeBot()
+			f.reply["getUpdates"] = func(map[string]any) (int, string) {
+				return 200, fmt.Sprintf(`{"ok":true,"result":[
+ {"update_id":10,"message":{"chat":{"id":-300,"type":%q},"from":{"id":7,"first_name":"Bo"},"text":"hi"}}]}`, chatType)
+			}
+			ups, err := f.client().Updates(ctx, secretToken, 10, 25)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ups).To(HaveLen(1))
+			Expect(ups[0].Direct).To(Equal(direct), chatType)
+		},
+		Entry("private", "private", true),
+		Entry("group", "group", false),
+		Entry("supergroup", "supergroup", false),
+		Entry("a type nobody knows counts as a group", "forum", false),
+		Entry("no type counts as a group", "", false),
+	)
 
 	DescribeTable("types an error and keeps the token out of it",
 		func(code int, body string, check func(error) bool) {
