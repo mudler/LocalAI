@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strings"
 
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
@@ -217,20 +218,29 @@ func (s *Service) addonsFor(ctx context.Context, user string, rec session.ChatRe
 // it never fails the chat. The second result names the add-ons the agent grants
 // that the user cannot use.
 func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session.ChatRecord, sc *scope) ([]session.Tool, []string, error) {
+	tools, missing, _, err := s.addonToolsHeld(ctx, a, rec, sc)
+	return tools, missing, err
+}
+
+// addonToolsHeld is addonTools that also says which tools of an add-on the chat
+// would use but must not have, and why, so a messaging chat can tell the model
+// (see deniedToolsNote). Only a tool the agent and the chat switches let in is
+// reported: a tool the owner never gave to the agent is not "held back".
+func (s *Service) addonToolsHeld(ctx context.Context, a workspace.Actor, rec session.ChatRecord, sc *scope) ([]session.Tool, []string, []builtins.Built, error) {
 	pins, err := s.toolPins(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if s.d.AddonTools == nil {
 		if sc != nil {
-			return nil, prefixed("add-on", sc.addonNames), nil
+			return nil, prefixed("add-on", sc.addonNames), nil, nil
 		}
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	defs, err := s.d.AddonTools.Tools(ctx, a.Principal)
 	if err != nil {
 		s.log.Warn("studio: add-on tools unavailable", "chat", a.ChatID, "error", err)
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	off := make(map[string]bool, len(rec.AddonsOff))
 	for _, id := range rec.AddonsOff {
@@ -254,6 +264,7 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 	// The writes of a provider count against the same limit of a turn as the
 	// notes the built-in provider saves at once.
 	writes := &autoTurn{}
+	held := &heldTools{}
 	for _, d := range defs {
 		have[d.AddonID] = true
 		// The tools a provider fills a role with are offered only while it is
@@ -272,6 +283,9 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 				enabled[d.AddonID] = conns
 			}
 			if len(conns.Items) == 0 {
+				if !off[d.AddonID] && (sc == nil || sc.addons[d.AddonID]) {
+					held.add(d, "no connection is selected for the "+d.AddonID+" add-on in this agent, so its tools are not available")
+				}
 				continue
 			}
 		}
@@ -342,7 +356,9 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 		}
 		if d.Permission != "" && rec.Origin == session.OriginConnector {
 			var ok bool
-			if tool, ok = s.gateAddonTool(tool, d.Permission, a.ChatID); !ok {
+			var why string
+			if tool, ok, why = s.gateAddonTool(tool, d.Permission, a.ChatID); !ok {
+				held.add(d, strings.TrimSuffix(why, "."))
 				continue
 			}
 		}
@@ -364,7 +380,7 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 			}
 		}
 	}
-	return tools, missing, nil
+	return tools, missing, held.built(), nil
 }
 
 // unavailableTool is the one tool a chat gets for an add-on that cannot work:
@@ -387,11 +403,11 @@ func unavailableTool(addonID, reason string) session.Tool {
 // offered. The second result is false when the tool must not be offered. A chat
 // that no connector started has no sender and is not gated here: the write
 // mode of the binding and the confirmation of the proposal govern it.
-func (s *Service) gateAddonTool(t session.Tool, permission, chat string) (session.Tool, bool) {
+func (s *Service) gateAddonTool(t session.Tool, permission, chat string) (session.Tool, bool, string) {
 	allow, audit := s.turnAllow(chat)
 	c := builtins.Chat{Allow: allow, Audit: audit}
-	if held, _ := c.Holds(permission); !held {
-		return t, false
+	if held, why := c.Holds(permission); !held {
+		return t, false, why
 	}
 	run := t.Run
 	t.Run = func(ctx context.Context, args json.RawMessage) (string, error) {
@@ -400,7 +416,61 @@ func (s *Service) gateAddonTool(t session.Tool, permission, chat string) (sessio
 		}
 		return run(ctx, args)
 	}
-	return t, true
+	return t, true, ""
+}
+
+// heldTools collects, for one turn, the tools of an add-on that the chat would
+// use but was refused, grouped by add-on and reason.
+type heldTools struct {
+	order []string
+	by    map[string]*heldGroup
+}
+
+type heldGroup struct {
+	addon, why string
+	tools      []string
+}
+
+// maxHeldNames bounds the tool names one reason lists: the note is short.
+const maxHeldNames = 3
+
+func (h *heldTools) add(d AddonTool, why string) {
+	if why == "" {
+		return
+	}
+	if h.by == nil {
+		h.by = map[string]*heldGroup{}
+	}
+	k := d.AddonID + "\x00" + why
+	g := h.by[k]
+	if g == nil {
+		g = &heldGroup{addon: d.AddonID, why: why}
+		h.by[k] = g
+		h.order = append(h.order, k)
+	}
+	name := d.Tool
+	if name == "" {
+		name = d.Name
+	}
+	g.tools = append(g.tools, name)
+}
+
+// built turns the groups into the entries deniedToolsNote reads: one reason per
+// add-on and cause, naming the tools it holds back.
+func (h *heldTools) built() []builtins.Built {
+	var out []builtins.Built
+	for _, k := range h.order {
+		g := h.by[k]
+		names := g.tools
+		more := ""
+		if len(names) > maxHeldNames {
+			more = fmt.Sprintf(", and %d more", len(names)-maxHeldNames)
+			names = names[:maxHeldNames]
+		}
+		out = append(out, builtins.Built{ID: g.addon, Reason: builtins.ReasonNotPermitted + ": " + g.why +
+			" " + heldMark + g.addon + " add-on: " + strings.Join(names, ", ") + more + ")"})
+	}
+	return out
 }
 
 // enabledConnections is the set of connections the chat rec may use for the

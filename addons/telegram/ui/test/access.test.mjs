@@ -203,3 +203,28 @@ test('access: a title is a sentence with the product name right', () => {
   assert.equal(sentenceCase('Post to approved channels'), 'Post to approved channels')
   assert.equal(sentenceCase(''), '')
 })
+
+test('access: a permission that holds back the tools of an add-on gets a row of its own, with the fix', () => {
+  const hold = [{ addon: 'tracker', capability: 'tools.write', tools: ['create-issue', 'comment-issue'] }]
+  const caps = [{ name: 'tools.write', title: 'Change things outside LocalAI' }]
+  const withView = (form, subjects) => base(form, { capabilities: caps, preview: { status: 'ready', view: { ...view(subjects), addon_tools: hold } } })
+  // Not ticked: the row says which permission to turn on, and jumps to it.
+  const off = row(readinessRows(withView({ allow: ['42'], caps: [] }, { listed: [blocked('tools.write')], paired: [blocked('tools.write')] })), 'addons:tracker')
+  assert.equal(off.state, 'attention')
+  assert.equal(off.key, 'ready.addons.off')
+  assert.equal(off.labelKey, 'ready.row.addons')
+  assert.deepEqual(off.params, { addon: 'tracker', tools: 'create-issue, comment-issue', permission: 'Change things outside LocalAI' })
+  assert.deepEqual(fixAction(off.fix, { lists: ONE, form: {} }).selectors[0], '[data-testid="connector-cap-switch-tools.write"]')
+  // Ticked and usable by a listed sender: fine.
+  const saved = connectorForm({ id: 'b1', agent_id: 'a1', allow: ['42'], caps: ['tools.write'] })
+  const okInput = withView({ id: 'b1', agent_id: 'a1', allow: ['42'], caps: ['tools.write'] }, { listed: [dec('tools.write', { via: 'allowlist' })], paired: [dec('tools.write', { via: 'paired' })] })
+  const ok = row(readinessRows({ ...okInput, saved }), 'addons:tracker')
+  assert.equal(ok.state, 'ok')
+  // Ticked and still blocked for everyone: the host's sentence and fix.
+  const dead = row(readinessRows(withView({ allow: ['42'], caps: ['tools.write'] }, { listed: [blocked('tools.write', { blocked_by: 'sender', fix: { kind: 'pair_sender', target: 'pairing' } })], paired: [blocked('tools.write')] })), 'addons:tracker')
+  assert.equal(dead.state, 'attention')
+  assert.equal(dead.key, 'ready.addons.blocked')
+  assert.match(dead.params.message, /blocked tools.write/)
+  // No hold from the host: no row.
+  assert.equal(readinessRows(base({ caps: ['tools.write'] })).some((r) => r.id.startsWith('addons:')), false)
+})

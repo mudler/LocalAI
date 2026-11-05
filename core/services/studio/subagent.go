@@ -78,7 +78,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		prompt = joinBlocks(prompt, webBlock(tools), work)
 		return session.TurnTools{Tools: tools, Prompt: prompt}, nil
 	}
-	tools, missing, err := s.scopedHostTools(ctx, a)
+	tools, missing, heldAddons, err := s.scopedHostTools(ctx, a)
 	if err != nil {
 		var policyErr *providerPolicyError
 		if errors.As(err, &policyErr) {
@@ -221,7 +221,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// A tool the sender of a connector message may not use is not offered. The
 	// model hears why, so it tells the person what the owner can change
 	// instead of saying that it has no such tool.
-	if line := deniedToolsNote(rec, built); line != "" {
+	if line := deniedToolsNote(rec, append(slices.Clone(built), heldAddons...)); line != "" {
 		note = strings.TrimSpace(line + " " + note)
 	}
 	// What the user did with the triggers this chat proposed: the tool result

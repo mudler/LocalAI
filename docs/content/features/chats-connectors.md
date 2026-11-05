@@ -818,6 +818,15 @@ this from the add-on's manifest, so it applies to every add-on of that shape. Th
 sender needs the capability as above; the write mode of the connection and the
 confirmation of the change still apply on top of it.
 
+A connection never gets `tools.write` by itself. If you do not tick it on the
+connection (or use "Allow the usual" on a kind that lists it), the agent has the
+read tools of the add-on in that chat and none of the write tools. Two things tell
+you: the model hears which tools are held back and why, so the bot says "the owner
+has not allowed this bot to change things in other services" and not "I have no such
+tool", and the readiness list of the connection page has a row for the add-on tools
+with a button that turns the permission on. The same note also appears when the agent
+names a connection of an add-on that no longer exists.
+
 The agent's grants narrow the result: see Builtin grants in
 [Agents](/features/chats-agents/). For `triggers.propose`, `triggers.run`,
 `talkback.channels`, `talkback.new_channel` and `files.upload` the sender must hold

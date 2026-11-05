@@ -312,6 +312,22 @@ export function readinessRows(ctx) {
     }
   }
 
+  // Tools of the add-ons the agent uses that a permission of this connection
+  // decides: without the tick the agent has them in no messaging chat, and
+  // nothing else on the page says so.
+  for (const hold of view?.addon_tools || []) {
+    const names = (hold.tools || []).join(', ')
+    const params = { addon: hold.addon, tools: names, permission: titleOf(hold.capability) }
+    const id = `addons:${hold.addon}`
+    if (!on(hold.capability)) {
+      rows.push({ id, labelKey: 'ready.row.addons', state: 'attention', key: 'ready.addons.off', params, fix: jump('caps', hold.capability, 'fix.turnOn') })
+      continue
+    }
+    const d = unusable(hold.capability, view, form, lists, paired, now)
+    if (d) rows.push({ id, labelKey: 'ready.row.addons', state: 'attention', key: 'ready.addons.blocked', params: { ...params, message: messageOf(d), messageKey: messageKey(d) }, fix: d.fix })
+    else rows.push(afterSave({ id, labelKey: 'ready.row.addons', state: 'ok', key: 'ready.addons.ok', params }, 'caps', 'grants', 'allow', 'accept_any', 'agent_id'))
+  }
+
   // Triggers
   if (!on('triggers.propose')) {
     rows.push({ id: 'triggers', state: 'off', key: 'ready.triggers.off', fix: jump('caps', 'triggers.propose', 'fix.turnOn') })

@@ -1527,12 +1527,27 @@ type ChatsConnectorAccess struct {
 	// relax, and for whom each runs without asking now. Absent when the
 	// add-on has none.
 	Approvals []ChatsConnectorToolApproval `json:"approvals,omitempty"`
+	// AddonTools lists the tools of the add-ons the agent uses that a
+	// permission of the connection decides in a messaging chat, so the page can
+	// say which tools a missing permission holds back. Absent when none.
+	AddonTools []ChatsConnectorAddonTools `json:"addon_tools,omitempty"`
 	// Preview is true when the view is for a form that is not saved.
 	Preview bool `json:"preview,omitempty"`
 	// Language is the language of the localized_message fields, negotiated
 	// from the lang query parameter, then Accept-Language. Absent for
 	// English.
 	Language string `json:"language,omitempty"`
+}
+
+// ChatsConnectorAddonTools names the tools of one add-on that need one
+// permission of the connection in a messaging chat.
+type ChatsConnectorAddonTools struct {
+	// Addon is the ID of the add-on.
+	Addon string `json:"addon"`
+	// Capability is the permission the tools need, such as tools.write.
+	Capability string `json:"capability"`
+	// Tools are the names of the tools inside the add-on.
+	Tools []string `json:"tools"`
 }
 
 // ChatsConnectorToolApproval is the confirmation of one tool that the owner

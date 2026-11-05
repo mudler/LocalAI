@@ -579,6 +579,59 @@ type AccessView struct {
 	Approvals []ToolApproval `json:"approvals,omitempty"`
 	// Preview is true when the view describes a draft that is not saved.
 	Preview bool `json:"preview,omitempty"`
+	// AddonTools lists the tools of the add-ons the binding's agent uses that a
+	// permission of this binding decides, so the owner sees which tools a
+	// missing tick holds back. The decision itself is in Subjects, under the
+	// capability.
+	AddonTools []AddonToolHold `json:"addon_tools,omitempty"`
+}
+
+// AddonToolHold names the tools of one add-on that need one capability of the
+// binding in a messaging chat (see AddonTool.Permission).
+type AddonToolHold struct {
+	Addon      string   `json:"addon"`
+	Capability string   `json:"capability"`
+	Tools      []string `json:"tools"`
+}
+
+// addonToolHolds lists the tools of the add-ons that the agent of b names and
+// that a messaging chat holds to a capability. A doubt (no broker, an agent
+// that cannot be read) lists none.
+func (c *Connectors) addonToolHolds(ctx context.Context, b connectors.Binding) []AddonToolHold {
+	if b.AgentID == "" || c.svc.d.AddonTools == nil || c.svc.d.Agents == nil {
+		return nil
+	}
+	ag, err := c.svc.d.Agents.Get(ctx, principal(b.Owner), b.AgentID)
+	if err != nil {
+		return nil
+	}
+	tools, err := c.svc.d.AddonTools.Tools(ctx, principal(b.Owner))
+	if err != nil {
+		return nil
+	}
+	var out []AddonToolHold
+	for _, t := range tools {
+		if t.Permission == "" || !slices.Contains(ag.Addons, t.AddonID) {
+			continue
+		}
+		name := t.Tool
+		if name == "" {
+			name = t.Name
+		}
+		i := slices.IndexFunc(out, func(h AddonToolHold) bool { return h.Addon == t.AddonID && h.Capability == t.Permission })
+		if i < 0 {
+			out = append(out, AddonToolHold{Addon: t.AddonID, Capability: t.Permission})
+			i = len(out) - 1
+		}
+		out[i].Tools = append(out[i].Tools, name)
+	}
+	for i := range out {
+		slices.Sort(out[i].Tools)
+	}
+	slices.SortFunc(out, func(x, y AddonToolHold) int {
+		return strings.Compare(x.Addon+"\x00"+x.Capability, y.Addon+"\x00"+y.Capability)
+	})
+	return out
 }
 
 // ToolApproval is the confirmation of one tool that the owner may relax (see
@@ -719,7 +772,7 @@ func (c *Connectors) accessOf(ctx context.Context, b connectors.Binding, only st
 		}
 		return only == "" || only == id
 	}
-	out := AccessView{Binding: b.ID, Approvals: c.svc.approvalsOf(ctx, b)}
+	out := AccessView{Binding: b.ID, Approvals: c.svc.approvalsOf(ctx, b), AddonTools: c.addonToolHolds(ctx, b)}
 	if want("listed") {
 		out.Subjects = append(out.Subjects, view("listed", "A sender on the allowlist", b, AccessSubject{SenderID: "x", Allowlisted: true, Listed: true}))
 	}

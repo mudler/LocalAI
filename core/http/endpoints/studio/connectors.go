@@ -497,6 +497,9 @@ func accessOut(v studiosvc.AccessView, lang string) schema.ChatsConnectorAccess 
 		}
 		out.Subjects = append(out.Subjects, o)
 	}
+	for _, h := range v.AddonTools {
+		out.AddonTools = append(out.AddonTools, schema.ChatsConnectorAddonTools{Addon: h.Addon, Capability: h.Capability, Tools: h.Tools})
+	}
 	for _, a := range v.Approvals {
 		out.Approvals = append(out.Approvals, schema.ChatsConnectorToolApproval{Tool: a.Tool, Skip: a.Skip, RunsWithoutAsking: a.RunsWithoutAsking})
 	}

@@ -36,7 +36,7 @@ export default function ReadinessList({ rowsInput, s, ctx, onTest, onSave }) {
               <span>{s(`ready.state.${r.state}`)}</span>
             </span>
             <div className="cn-ready__text">
-              <span className="cn-ready__label">{s(`ready.row.${r.id}`)}</span>
+              <span className="cn-ready__label">{s(r.labelKey || `ready.row.${r.id}`)}</span>
               <span className="cn-ready__sentence">{sentence(r, s)}</span>
             </div>
             {r.fix && <div className="cn-ready__fix"><FixButton fix={r.fix} ctx={ctx} s={s} onTest={onTest} onSave={onSave} /></div>}

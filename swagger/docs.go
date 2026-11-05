@@ -22055,6 +22055,13 @@ const docTemplate = `{
         "schema.ChatsConnectorAccess": {
             "type": "object",
             "properties": {
+                "addon_tools": {
+                    "description": "AddonTools lists the tools of the add-ons the agent uses that a\npermission of the connection decides in a messaging chat, so the page can\nsay which tools a missing permission holds back. Absent when none.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorAddonTools"
+                    }
+                },
                 "approvals": {
                     "description": "Approvals lists the tools of the add-on whose confirmation the owner can\nrelax, and for whom each runs without asking now. Absent when the\nadd-on has none.",
                     "type": "array",
@@ -22249,6 +22256,26 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorAddonTools": {
+            "type": "object",
+            "properties": {
+                "addon": {
+                    "description": "Addon is the ID of the add-on.",
+                    "type": "string"
+                },
+                "capability": {
+                    "description": "Capability is the permission the tools need, such as tools.write.",
+                    "type": "string"
+                },
+                "tools": {
+                    "description": "Tools are the names of the tools inside the add-on.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
