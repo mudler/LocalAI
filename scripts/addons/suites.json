@@ -1538,7 +1538,8 @@
           "answers unavailable when the owner has no file service",
           "returns a typed timeout in the read deadline, not after the client timeout",
           "never answers with an older list of its own: every frontend gives the same typed error",
-          "does not hide a denial"
+          "does not hide a denial",
+          "asks the source for the whole reach (*) for a tool that enumerates, and refuses it when the list is not *"
         ]
       },
       {
@@ -2751,7 +2752,8 @@
           "answers unavailable when the owner has no file service",
           "returns a typed timeout in the read deadline, not after the client timeout",
           "never answers with an older list of its own: every frontend gives the same typed error",
-          "does not hide a denial"
+          "does not hide a denial",
+          "asks the source for the whole reach (*) for a tool that enumerates, and refuses it when the list is not *"
         ]
       },
       {
