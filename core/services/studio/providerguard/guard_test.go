@@ -65,6 +65,9 @@ const (
 var allowed = []entry{
 	{ui + "hooks/useToolGroups.js", "memory", "the switch group of the built-in memory"},
 	{ui + "utils/agentPresets.js", "'memory'", "the switch group of the built-in memory in the agent presets"},
+	{ui + "utils/agentEffective.js", "memory", "the effective view lines of the built-in memory in the agent editor"},
+	{ui + "utils/agentTryIt.js", "memory", "the list of what a test chat does not use, which includes the built-in memory"},
+	{locales + "en/agents.json", "create.try.skip.memory", "the name of the built-in memory in the list of what a test chat skips"},
 	{ui + "utils/memoryState.js", "memory", "the switch group of the built-in memory"},
 	// The memory choice of an agent and the notes list belong to the built-in.
 	{ui + "utils/memoryFiles.js", "memory", "the source of the built-in notes in the list of context files"},
