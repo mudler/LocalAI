@@ -24,9 +24,13 @@ import (
 // Client is an incarnation-bound capability. Only the supervisor creates one.
 // Callers must obtain Authority from host authentication, never model arguments.
 type Client struct {
-	mu                   sync.Mutex
-	accept               bool
-	active               int
+	mu     sync.Mutex
+	accept bool
+	active int
+	// polls counts the connector long polls in flight. They have a pool of
+	// their own (maxPolls) so that a binding that waits up to 25 s does not
+	// take a slot from the short calls (see admitIn).
+	polls                int
 	observationLeases    int
 	observations         map[string]context.CancelFunc
 	endpoint, credential string
@@ -64,7 +68,7 @@ func (c *Client) drain(ctx context.Context) {
 	defer ticker.Stop()
 	for {
 		c.mu.Lock()
-		n := c.active + c.observationLeases
+		n := c.active + c.polls + c.observationLeases
 		c.mu.Unlock()
 		if n == 0 {
 			return
@@ -76,10 +80,33 @@ func (c *Client) drain(ctx context.Context) {
 		}
 	}
 }
-func (c *Client) admit() (func(), error) {
+
+// maxPolls bounds the connector long polls in flight to one add-on. The host
+// keeps one poll per binding, so this is also the most pull bindings of one
+// add-on. A poll holds its slot for up to contract.MaxPollSeconds, which is
+// why it must not draw on limits.Concurrency, the budget of the short calls.
+const maxPolls = 64
+
+func (c *Client) admit() (func(), error) { return c.admitIn(false) }
+
+// admitIn admits one call into the pool of short calls or, for a long poll,
+// into the poll pool. Both pools stop at withdraw, and the returned function
+// frees the slot once.
+func (c *Client) admitIn(poll bool) (func(), error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if !c.accept || int64(c.active) >= c.limits.Concurrency {
+	if !c.accept {
+		return nil, ErrNotSent
+	}
+	if poll {
+		if c.polls >= maxPolls {
+			return nil, ErrNotSent
+		}
+		c.polls++
+		var once sync.Once
+		return func() { once.Do(func() { c.mu.Lock(); c.polls--; c.mu.Unlock() }) }, nil
+	}
+	if int64(c.active) >= c.limits.Concurrency {
 		return nil, ErrNotSent
 	}
 	c.active++
@@ -207,7 +234,10 @@ func (c *Client) begin(ctx context.Context, env *contract.Envelope) func() {
 	return c.inflight.BeginRuntime(*env, hostops.Binding{}, false, c.registration.Incarnation)
 }
 func (c *Client) call(ctx context.Context, path string, env *contract.Envelope, in, out any, timeout time.Duration) error {
-	done, e := c.admit()
+	return c.callIn(false, ctx, path, env, in, out, timeout)
+}
+func (c *Client) callIn(poll bool, ctx context.Context, path string, env *contract.Envelope, in, out any, timeout time.Duration) error {
+	done, e := c.admitIn(poll)
 	if e != nil {
 		return e
 	}
@@ -266,7 +296,7 @@ func (c *Client) Connector(ctx context.Context, v contract.ConnectorRequest) (co
 	if c.registration.Capabilities.Connector == nil {
 		return r, ErrNotSent
 	}
-	e := c.call(ctx, "/connector", nil, v, &r, v.CallTimeout())
+	e := c.callIn(v.Op == contract.ConnectorOpPoll, ctx, "/connector", nil, v, &r, v.CallTimeout())
 	return r, e
 }
 func (c *Client) Preview(ctx context.Context, v contract.Envelope) (contract.Preview, error) {
