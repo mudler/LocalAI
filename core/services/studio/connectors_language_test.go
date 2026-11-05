@@ -77,6 +77,19 @@ var _ = Describe("the language of the host sentences in a chat", func() {
 	ask := func(text string, n int) string {
 		ingest(dm(text))
 		waitFor("the answer", func() bool { return len(fake.texts("11", "")) >= n })
+		// The answer reaches the chat before the turn is marked finished, and a
+		// command that comes in that gap is refused as busy. Wait for the end of
+		// the turn, as a person does when they read the answer.
+		waitFor("the turn to end", func() bool {
+			chats, err := r.svc.List(ctx, alice, 50)
+			Expect(err).NotTo(HaveOccurred())
+			for _, c := range chats {
+				if turn(r.svc, alice, c.ID).Running {
+					return false
+				}
+			}
+			return true
+		})
 		t := fake.texts("11", "")
 		return t[len(t)-1]
 	}

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
@@ -126,6 +127,7 @@ var _ = Describe("the host's own calls to a provider", func() {
 		host   *callHost
 		stored map[string]string
 		smu    sync.Mutex
+		skew   atomic.Int64
 		logs   *bytes.Buffer
 		lmu    sync.Mutex
 	)
@@ -174,8 +176,12 @@ var _ = Describe("the host's own calls to a provider", func() {
 		st, _ := store.NewJSON("")
 		ag, _ := agents.NewJSON("")
 		host = newCallHost()
+		skew.Store(0)
 		host.on("context", func(map[string]any) (string, error) { return result(map[string]any{"text": "- likes tea"}), nil })
 		svc, err = New(Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Files: f, Agents: ag, AddonTools: host,
+			// Time only moves when a spec moves it: the cool-down must not end
+			// because a slow machine took long between two calls.
+			Clock:  func() time.Time { return time.Unix(1_800_000_000, 0).Add(time.Duration(skew.Load())) },
 			Logger: slog.New(slog.NewTextHandler(writerFunc(func(p []byte) (int, error) { lmu.Lock(); defer lmu.Unlock(); return logs.Write(p) }), nil)),
 			SetUserSetting: func(_ context.Context, user, addon, key, value string) error {
 				smu.Lock()
@@ -258,7 +264,7 @@ var _ = Describe("the host's own calls to a provider", func() {
 
 	Describe("the circuit breaker", func() {
 		BeforeEach(func() {
-			svc.providerTimings.coolDown = 150 * time.Millisecond
+			svc.providerTimings.coolDown = time.Minute
 			host.on("context", func(map[string]any) (string, error) { return "", context.DeadlineExceeded })
 		})
 
@@ -277,10 +283,9 @@ var _ = Describe("the host's own calls to a provider", func() {
 			Expect(host.count("context")).To(Equal(ProviderFailuresToOpen), "no call goes out while it rests")
 			Expect(logText()).To(ContainSubstring("outcome=cool_down"))
 
-			Eventually(func() bool {
-				v, _ := svc.ProviderSlot(ctx, "alice", MemorySlot)
-				return v.Health.CoolingDown
-			}, "2s", "20ms").Should(BeFalse())
+			skew.Add(int64(time.Minute + time.Second))
+			v, _ = svc.ProviderSlot(ctx, "alice", MemorySlot)
+			Expect(v.Health.CoolingDown).To(BeFalse(), "the rest is over")
 			host.on("context", func(map[string]any) (string, error) { return result(map[string]any{"text": "- back"}), nil })
 			Expect(turn("hi").Context).To(ContainSubstring("- back"))
 			Expect(host.count("context")).To(Equal(ProviderFailuresToOpen + 1))
