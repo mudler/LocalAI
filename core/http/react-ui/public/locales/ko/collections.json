@@ -57,5 +57,12 @@
     "noneSet": "컬렉션에 임베딩 모델이 설정되어 있지 않아(collections_embedding_model) 파일 추가와 검색이 실패합니다.",
     "install": "모델에서 찾기",
     "askAdmin": "관리자에게 설치를 요청하세요."
+  },
+  "searchMode": {
+    "label": "검색: {{mode}}",
+    "semantic": "의미 기반",
+    "hybrid": "하이브리드",
+    "semanticHint": "정확한 단어나 코드가 아니라 의미로 구절을 찾습니다.",
+    "hybridHint": "의미와 정확한 단어로 구절을 찾습니다."
   }
 }

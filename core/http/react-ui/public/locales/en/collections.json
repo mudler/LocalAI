@@ -146,5 +146,12 @@
     "noneSet": "No embedding model is set for collections (collections_embedding_model), so adding files and searching fail.",
     "install": "Find it in Models",
     "askAdmin": "Ask an administrator to install it."
+  },
+  "searchMode": {
+    "label": "Search: {{mode}}",
+    "semantic": "semantic",
+    "hybrid": "hybrid",
+    "semanticHint": "It finds passages by meaning, not by exact words or codes.",
+    "hybridHint": "It finds passages by meaning and by exact words."
   }
 }

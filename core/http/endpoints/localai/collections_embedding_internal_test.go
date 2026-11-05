@@ -48,3 +48,15 @@ var _ = Describe("the embedding model of the collections", func() {
 		Expect(embeddingModelInstalled(app, "plain.gguf")).To(BeTrue())
 	})
 })
+
+var _ = Describe("the search mode of the collections", func() {
+	It("is semantic for the engines that compare embeddings only", func() {
+		Expect(collectionSearchMode("chromem")).To(Equal("semantic"))
+		Expect(collectionSearchMode("localai")).To(Equal("semantic"))
+		Expect(collectionSearchMode("")).To(Equal("semantic"))
+	})
+
+	It("is hybrid for the postgres engine, which also matches words", func() {
+		Expect(collectionSearchMode("postgres")).To(Equal("hybrid"))
+	})
+})

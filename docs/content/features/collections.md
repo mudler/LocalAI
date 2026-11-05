@@ -36,6 +36,10 @@ and names the model; an administrator gets a button that opens the Models
 page with a search for it. `GET /api/collections` reports the same in
 `embedding_model` and `embedding_model_installed`.
 
+The Knowledge page also shows how a search finds passages, for example
+*Search: semantic*. `GET /api/collections` reports it in `search_mode`: `semantic`
+for the `chromem` engine, and `hybrid` for the `postgres` engine.
+
 ## Who sees a collection
 
 - With authentication off, there is one set of collections.

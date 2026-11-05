@@ -60,6 +60,9 @@ export default function Collections() {
   // The model that indexes and searches the collections, and whether this
   // server has it. Without it every upload and search fails.
   const [embedding, setEmbedding] = useState({ model: '', installed: true })
+  // How a search finds passages: 'semantic' or 'hybrid'. '' while unknown
+  // (an older server does not say).
+  const [searchMode, setSearchMode] = useState('')
 
   const selectedUser = params.get('user_id') || undefined
 
@@ -74,6 +77,7 @@ export default function Collections() {
       setCollections((Array.isArray(data.collections) ? data.collections : []).map(nameOf).filter(Boolean))
       setUserGroups(data.user_groups || null)
       setEmbedding({ model: data.embedding_model || '', installed: data.embedding_model_installed !== false })
+      setSearchMode(data.search_mode === 'hybrid' || data.search_mode === 'semantic' ? data.search_mode : '')
       setLoadError(null)
     } catch (err) {
       // A failed read shows an error in place of the list, never the empty
@@ -255,6 +259,13 @@ export default function Collections() {
           </Button>
           <Button variant="ghost" onClick={() => { setShowCreate(false); setNewName('') }}>{t('collections:actions.cancel')}</Button>
         </form>
+      )}
+
+      {!loading && !loadError && searchMode && (
+        <p className="lib-mode" data-testid="search-mode">
+          <strong>{t('collections:searchMode.label', { mode: t(`collections:searchMode.${searchMode}`) })}.</strong>{' '}
+          {t(`collections:searchMode.${searchMode}Hint`)}
+        </p>
       )}
 
       {!loading && !loadError && !embedding.installed && (

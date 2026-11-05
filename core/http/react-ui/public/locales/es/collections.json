@@ -57,5 +57,12 @@
     "noneSet": "No hay ningún modelo de embeddings configurado para las colecciones (collections_embedding_model), así que añadir archivos y buscar fallan.",
     "install": "Buscarlo en Modelos",
     "askAdmin": "Pide a un administrador que lo instale."
+  },
+  "searchMode": {
+    "label": "Búsqueda: {{mode}}",
+    "semantic": "semántica",
+    "hybrid": "híbrida",
+    "semanticHint": "Encuentra pasajes por su significado, no por palabras o códigos exactos.",
+    "hybridHint": "Encuentra pasajes por su significado y por palabras exactas."
   }
 }

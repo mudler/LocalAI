@@ -57,5 +57,12 @@
     "noneSet": "Nessun modello di embedding è impostato per le raccolte (collections_embedding_model), quindi l'aggiunta di file e la ricerca non funzionano.",
     "install": "Trovalo in Modelli",
     "askAdmin": "Chiedi a un amministratore di installarlo."
+  },
+  "searchMode": {
+    "label": "Ricerca: {{mode}}",
+    "semantic": "semantica",
+    "hybrid": "ibrida",
+    "semanticHint": "Trova i passaggi per significato, non per parole o codici esatti.",
+    "hybridHint": "Trova i passaggi per significato e per parole esatte."
   }
 }

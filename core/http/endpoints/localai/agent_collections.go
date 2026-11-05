@@ -11,7 +11,7 @@ import (
 
 // ListCollectionsEndpoint handles /api/collections (GET).
 // @Summary List your collections.
-// @Description The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. Needs the collections feature.
+// @Description The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. search_mode says how a search finds passages: semantic (by meaning only) or hybrid (by meaning and by keyword). Needs the collections feature.
 // @Tags collections
 // @Success 200 {object} schema.CollectionList "The collections"
 // @Router /api/collections [get]
@@ -30,6 +30,7 @@ func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 			"count":                     len(cols),
 			"embedding_model":           model,
 			"embedding_model_installed": embeddingModelInstalled(app, model),
+			"search_mode":               collectionSearchMode(app.ApplicationConfig().Collections.VectorEngine),
 		}
 
 		// Admin cross-user aggregation
@@ -55,6 +56,16 @@ func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 
 		return c.JSON(http.StatusOK, resp)
 	}
+}
+
+// collectionSearchMode says how a search of the vector engine finds passages.
+// The chromem and localai engines compare embeddings only. The postgres engine
+// also matches words (BM25) and mixes the two lists.
+func collectionSearchMode(engine string) string {
+	if engine == "postgres" {
+		return "hybrid"
+	}
+	return "semantic"
 }
 
 // CreateCollectionEndpoint handles /api/collections (POST).

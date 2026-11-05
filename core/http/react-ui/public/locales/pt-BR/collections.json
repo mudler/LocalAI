@@ -57,5 +57,12 @@
     "noneSet": "Nenhum modelo de embeddings está definido para as coleções (collections_embedding_model), então adicionar arquivos e pesquisar falham.",
     "install": "Encontrar em Modelos",
     "askAdmin": "Peça a um administrador para instalá-lo."
+  },
+  "searchMode": {
+    "label": "Busca: {{mode}}",
+    "semantic": "semântica",
+    "hybrid": "híbrida",
+    "semanticHint": "Encontra trechos pelo significado, não por palavras ou códigos exatos.",
+    "hybridHint": "Encontra trechos pelo significado e por palavras exatas."
   }
 }
