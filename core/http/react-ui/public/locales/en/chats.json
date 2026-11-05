@@ -1193,7 +1193,7 @@
       "mine": "Mine",
       "deleted": "Deleted agents",
       "channels": "Conversations",
-      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not verified with you always waits for your OK.",
       "export": "Export these notes",
       "clearAgent": "Delete the notes of this agent",
       "clearDeleted": "Delete these notes"
@@ -1261,8 +1261,8 @@
         "body": "The bot asks in the chat: \"Reply yes to save it.\" A listed sender can answer there. Others wait for you in the app."
       },
       "paired_private": {
-        "title": "Save it for a paired sender in a private chat",
-        "body": "Saved at once only when the sender is paired and the chat is one-to-one. The note goes to that conversation, with an Undo. A note that looks like a secret still waits."
+        "title": "Save it for a verified person in a private chat",
+        "body": "Saved at once only when the sender is a verified person and the chat is one-to-one. The note goes to that conversation, with an Undo. A note that looks like a secret still waits."
       },
       "never": {
         "title": "Never",
@@ -1371,7 +1371,7 @@
         "title": "Never",
         "body": "It reads, never saves."
       },
-      "hint": "In a messaging chat a note goes to that conversation first, and reaches this agent's own notes only from a paired sender. Saving at once in a messaging chat applies only to a paired sender in a one-to-one chat.",
+      "hint": "In a messaging chat a note goes to that conversation first, and reaches this agent's own notes only from a verified person. Saving at once in a messaging chat applies only to a verified person in a one-to-one chat.",
       "offReason": "The save level does not apply while memory is off.",
       "readsReason": "The save level does not apply: this agent reads notes but cannot save any."
     },

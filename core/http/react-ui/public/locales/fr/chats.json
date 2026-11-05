@@ -871,7 +871,7 @@
       "mine": "Les miennes",
       "deleted": "Agents supprimés",
       "channels": "Conversations",
-      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "channelsNote": "Notes enregistrées à partir des chats des applications de messagerie. Ouvrez une note pour la lire, ou supprimez-la. Une note d’un expéditeur qui n’est pas vérifié auprès de vous attend toujours votre accord.",
       "export": "Exporter ces notes",
       "clearAgent": "Supprimer les notes de cet agent",
       "clearDeleted": "Supprimer ces notes"
@@ -939,8 +939,8 @@
         "body": "Le bot demande dans la conversation : « Répondez oui pour l'enregistrer. » Un expéditeur de la liste peut y répondre. Les autres attendent votre réponse dans l'application."
       },
       "paired_private": {
-        "title": "Enregistrer pour un expéditeur associé dans une conversation privée",
-        "body": "Enregistrée tout de suite seulement si l'expéditeur est associé et la conversation en tête-à-tête. La note va dans cette conversation, avec Annuler. Une note qui ressemble à un secret attend toujours."
+        "title": "Enregistrer pour une personne vérifiée dans une conversation privée",
+        "body": "Enregistrée tout de suite seulement si l’expéditeur est une personne vérifiée et que la conversation est en tête-à-tête. La note va dans cette conversation, avec Annuler. Une note qui ressemble à un secret attend toujours."
       },
       "never": {
         "title": "Jamais",
@@ -1049,7 +1049,7 @@
         "title": "Jamais",
         "body": "Il lit, n'enregistre jamais."
       },
-      "hint": "Dans une conversation de messagerie, la note va d'abord à cette conversation et n'atteint les notes propres de cet agent que depuis un expéditeur associé. L'enregistrement immédiat dans une conversation de messagerie ne vaut que pour un expéditeur associé dans une conversation privée.",
+      "hint": "Dans une conversation de messagerie, la note va d’abord à cette conversation et n’atteint les notes propres de cet agent que depuis une personne vérifiée. L’enregistrement immédiat dans une conversation de messagerie ne vaut que pour une personne vérifiée dans une conversation privée.",
       "offReason": "Le niveau d'enregistrement ne s'applique pas tant que la mémoire est désactivée.",
       "readsReason": "Le niveau d'enregistrement ne s'applique pas : cet agent lit les notes mais ne peut en enregistrer aucune."
     },

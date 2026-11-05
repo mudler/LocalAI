@@ -59,8 +59,8 @@
     "label": "Cosa può modificare l'agente nella tua casa",
     "hint": "Solo i servizi dell'elenco dei consentiti qui sotto, su entità non escluse.",
     "off": "Sola lettura",
-    "propose": "Chiede prima a te",
-    "auto": "Agisce senza chiedere",
+    "propose": "Chiede prima",
+    "auto": "Parte subito",
     "line": {
       "off": "Non può azionare nulla.",
       "propose": "Ogni modifica aspetta il tuo OK.",
@@ -73,8 +73,8 @@
     },
     "row": {
       "off": "Sola lettura",
-      "propose": "Chiede prima a te",
-      "auto": "Agisce senza chiedere"
+      "propose": "Chiede prima",
+      "auto": "Parte subito"
     }
   },
   "policy": {

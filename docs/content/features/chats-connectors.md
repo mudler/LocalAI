@@ -961,10 +961,18 @@ sender who may not send files get a short refusal and no turn.
 A binding that was stored before this check has no capabilities. Enable what you want
 with `caps`, and pair the accounts that need the sensitive ones.
 
+The settings page uses one set of words. In this document and in the API, a *paired*
+sender is shown on the page as a **Verified person**; the saved fields and keys (`paired`,
+`allow`, `channels`) do not change. A person on the allowlist is a **Listed person**. A
+chat that the bot listens in is a **Channel**. The `channels` list is the **Place the bot
+may post**. For triggers and add-on writes, **Asks first** means a person confirms each
+change, and **Runs at once** means it runs without asking. The switches of the
+capabilities are shown under **On for this bot**.
+
 The settings page of every connector add-on edits all of this: a switch for each
 capability, with a description and a mark on the sensitive ones; the role matrix; the
 paired senders, with a button that shows a new code once; the channels it may post to
-(talk-back, **Where it may post**); and the access view with the latest decisions. A binding with no capability
+(talk-back, **Place the bot may post**); and the access view with the latest decisions. A binding with no capability
 shows a notice that says why the features are off. The button "Allow the usual" turns
 on the everyday capabilities that stay inside LocalAI and are not sensitive. In the
 form, **Allow the usual set** ticks only the usual ones that the agent of the binding
@@ -1311,7 +1319,7 @@ and a SHA-256 hash of the text, never the text). `LOCALAI_DISABLE_CONNECTOR_TALK
 turns the tool and the reports to a channel off for every binding; owner notices
 continue.
 
-A trigger can report to a channel under **Where it may post** with `delivery.target` `channel`. The
+A trigger can report to a channel under **Place the bot may post** with `delivery.target` `channel`. The
 agent can name the channel by its label or its ID. The description of `send_message` and
 of `propose_trigger` lists the approved channels (the first 10) as `label (id)`, so the
 agent does not guess an ID. The report is a new message at the top of the channel, never

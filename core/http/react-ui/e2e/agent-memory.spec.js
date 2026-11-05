@@ -125,7 +125,7 @@ test.describe('The save rule of the agent', () => {
     await expect(page.getByTestId('agent-memory-settings-link')).toHaveAttribute('href', '/app/account?tab=memory')
     await expect(page.getByTestId('agent-memory-rule-use_mine').locator('input')).toBeChecked()
     await expect(page.getByTestId('agent-memory-rule-auto').locator('input')).not.toBeChecked()
-    await expect(page.getByTestId('agent-memory-rule-hint')).toContainText('paired sender')
+    await expect(page.getByTestId('agent-memory-rule-hint')).toContainText('verified person')
     await shot(page, 'agent-memory-rule', { fullPage: true })
     await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)

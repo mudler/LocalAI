@@ -373,7 +373,7 @@ var _ = Describe("the acts of a trigger proposed in a connector chat", func() {
 			list, _ := r.host.ListTriggers(ctx, alice)
 			Expect(list).To(BeEmpty())
 			Expect(proposals()).To(HaveLen(1))
-			Expect(fake.texts(chatID, thread)[0]).To(ContainSubstring("paired"))
+			Expect(fake.texts(chatID, thread)[0]).To(ContainSubstring("verified"))
 		})
 
 		It("asks in the auto mode when the plan writes a file and act.files is not allowed", func() {

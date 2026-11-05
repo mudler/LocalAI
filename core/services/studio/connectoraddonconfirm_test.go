@@ -117,15 +117,15 @@ var _ = Describe("a held write of an add-on in a messaging chat", func() {
 		},
 		Entry("paired with the capability says yes: it runs", paired, "yes", "Done: Open an issue (acme/widgets). https://example.test/issues/7 It cannot be undone from here.", 1, 0, nil),
 		Entry("paired says no: it is dropped", paired, "no", "Cancelled. Nothing was sent.", 0, 1, nil),
-		Entry("the listed sender who asked cannot confirm", asker, "yes", "Only a person the owner paired with this bot can answer this.", 0, 0, nil),
-		Entry("a member of the listed group cannot confirm", member, "yes", "Only a person the owner paired with this bot can answer this.", 0, 0, nil),
-		Entry("anyone, on a bot that accepts anyone, cannot confirm", anyone, "yes", "Only a person the owner paired with this bot can answer this.", 0, 0, func() {
+		Entry("the listed sender who asked cannot confirm", asker, "yes", "Only a person the owner verified with this bot can answer this.", 0, 0, nil),
+		Entry("a member of the listed group cannot confirm", member, "yes", "Only a person the owner verified with this bot can answer this.", 0, 0, nil),
+		Entry("anyone, on a bot that accepts anyone, cannot confirm", anyone, "yes", "Only a person the owner verified with this bot can answer this.", 0, 0, func() {
 			got, err := r.store.GetBinding(ctx, b.ID)
 			Expect(err).NotTo(HaveOccurred())
 			got.AcceptAny = true
 			Expect(r.store.PutBinding(ctx, got)).To(Succeed())
 		}),
-		Entry("a sender whose pairing is gone cannot confirm", paired, "yes", "Only a person the owner paired with this bot can answer this.", 0, 0, func() {
+		Entry("a sender whose pairing is gone cannot confirm", paired, "yes", "Only a person the owner verified with this bot can answer this.", 0, 0, func() {
 			got, err := r.store.GetBinding(ctx, b.ID)
 			Expect(err).NotTo(HaveOccurred())
 			got.Paired = nil

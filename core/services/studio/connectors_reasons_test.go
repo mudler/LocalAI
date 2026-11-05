@@ -71,8 +71,8 @@ var _ = Describe("why a capability is blocked on a connection", func() {
 				Expect(d.Code).To(Equal(studio.CodeSenderNeedsPairing), name+" "+kind)
 				Expect(d.BlockedBy).To(Equal(studio.BySender))
 				Expect(d.Fix).To(Equal(&studio.Fix{Kind: studio.FixPairSender, Target: "pairing"}))
-				Expect(d.Message).To(Equal("This person needs to be paired with this bot before the bot can read the owner's personal notes for them."))
-				Expect(d.Say()).To(Equal("You need to be paired with this bot by the owner before it can read the owner's personal notes for you."))
+				Expect(d.Message).To(Equal("This person needs to be verified with this bot before the bot can read the owner's personal notes for them."))
+				Expect(d.Say()).To(Equal("You need to be verified with this bot by the owner before it can read the owner's personal notes for you."))
 			}
 		}
 	})

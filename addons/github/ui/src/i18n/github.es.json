@@ -80,8 +80,8 @@
     "label": "Qué puede cambiar el agente en GitHub",
     "hint": "Comentarios, issues nuevas, etiquetas y cierre de issues. Nunca fusiona, elimina ni sube código.",
     "off": "Solo lectura",
-    "propose": "Te pregunta antes",
-    "auto": "Actúa sin preguntar",
+    "propose": "Pregunta antes",
+    "auto": "Se ejecuta al instante",
     "line": {
       "off": "No puede cambiar nada en GitHub.",
       "propose": "Cada cambio espera tu visto bueno.",
@@ -94,8 +94,8 @@
     },
     "row": {
       "off": "Solo lectura",
-      "propose": "Te pregunta antes",
-      "auto": "Actúa sin preguntar"
+      "propose": "Pregunta antes",
+      "auto": "Se ejecuta al instante"
     }
   },
   "approval": {

@@ -871,7 +871,7 @@
       "mine": "Meine",
       "deleted": "Gelöschte Agenten",
       "channels": "Unterhaltungen",
-      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "channelsNote": "Notizen aus Chats in Messaging-Apps. Öffne eine Notiz, um sie zu lesen, oder lösche sie. Eine Notiz von einem Absender, der nicht mit dir verifiziert ist, wartet immer auf dein OK.",
       "export": "Diese Notizen exportieren",
       "clearAgent": "Die Notizen dieses Agenten löschen",
       "clearDeleted": "Diese Notizen löschen"
@@ -939,8 +939,8 @@
         "body": "Der Bot fragt im Chat: „Antworte mit Ja zum Speichern.“ Ein gelisteter Absender kann dort antworten. Andere warten auf dich in der App."
       },
       "paired_private": {
-        "title": "Für einen gekoppelten Absender im privaten Chat speichern",
-        "body": "Wird nur sofort gespeichert, wenn der Absender gekoppelt ist und der Chat ein Einzelchat ist. Die Notiz geht in diese Unterhaltung, mit Rückgängig. Eine Notiz, die wie ein Geheimnis aussieht, wartet weiter."
+        "title": "Für eine verifizierte Person im privaten Chat speichern",
+        "body": "Wird nur sofort gespeichert, wenn der Absender eine verifizierte Person ist und der Chat ein Einzelchat ist. Die Notiz geht in diese Unterhaltung, mit Rückgängig. Eine Notiz, die wie ein Geheimnis aussieht, wartet weiter."
       },
       "never": {
         "title": "Nie",
@@ -1049,7 +1049,7 @@
         "title": "Nie",
         "body": "Liest, speichert nie."
       },
-      "hint": "In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einem gekoppelten Absender. Sofortiges Speichern in einem Messaging-Chat gilt nur für einen gekoppelten Absender in einem Einzelchat.",
+      "hint": "In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einer verifizierten Person. Sofortiges Speichern in einem Messaging-Chat gilt nur für eine verifizierte Person in einem Einzelchat.",
       "offReason": "Die Speicherstufe gilt nicht, solange das Gedächtnis aus ist.",
       "readsReason": "Die Speicherstufe gilt nicht: Dieser Agent liest Notizen, kann aber keine speichern."
     },

@@ -115,13 +115,13 @@ func Authorize(b connectors.Binding, kind *contract.ConnectorKind, s AccessSubje
 	case !slices.Contains(b.Caps, capability):
 		return deny(CodeConnectionPermissionOff, "the owner has not enabled %s for this bot", capability)
 	case !s.Allowlisted:
-		return deny(CodeSenderNotListed, "the sender is not on the allowlist")
+		return deny(CodeSenderNotListed, "the sender is not a listed person")
 	}
 	if s.SenderID != "" && b.IsPaired(s.SenderID, now) {
 		return Decision{Capability: capability, Allowed: true, Via: "paired"}
 	}
 	if contract.SensitiveCapability(capability) {
-		return deny(CodeSenderNeedsPairing, "%s needs a sender that the owner paired with this bot", capability)
+		return deny(CodeSenderNeedsPairing, "%s needs a verified person: a sender that the owner verified with this bot", capability)
 	}
 	if s.Listed && s.SenderID != "" {
 		return Decision{Capability: capability, Allowed: true, Via: "allowlist"}
@@ -138,7 +138,7 @@ func Authorize(b connectors.Binding, kind *contract.ConnectorKind, s AccessSubje
 			}
 		}
 	}
-	reason := fmt.Sprintf("%s needs a sender on this bot's allowlist, or one that the owner paired with this bot", capability)
+	reason := fmt.Sprintf("%s needs a listed person, or a verified person: one that the owner verified with this bot", capability)
 	switch {
 	case len(s.Roles) > 0 && kind == nil:
 		return refusal(b, capability, CodeKindNotRunning, reason, nil)
@@ -161,12 +161,12 @@ func untrustedReason(capability string, s AccessSubject) string {
 		who = "sender " + s.SenderID
 	}
 	how := "because the bot accepts anyone"
-	fix := "put the sender on the allowlist, or use a sender the owner paired"
+	fix := "list the sender as a person, or use a verified person"
 	if s.ViaChannel {
 		how = "through a channel set to Answer only"
-		fix = "add " + strings.TrimPrefix(who, "sender ") + " to the allowed people, or set the channel to Let everyone here ask for actions"
+		fix = "list " + strings.TrimPrefix(who, "sender ") + " as a person, or set the channel to Let everyone here ask for actions"
 		if s.SenderID == "" {
-			fix = "add the sender to the allowed people, or set the channel to Let everyone here ask for actions"
+			fix = "list the sender as a person, or set the channel to Let everyone here ask for actions"
 		}
 	}
 	return fmt.Sprintf("%s needs a trusted sender: %s was let in only %s; %s", capability, who, how, fix)
@@ -721,7 +721,7 @@ func notesDecision(b connectors.Binding, s AccessSubject, now time.Time) Decisio
 		return Decision{Capability: NotesReadCapability, Allowed: true, Via: "paired"}
 	}
 	return refusal(b, NotesReadCapability, CodeSenderNeedsPairing,
-		"the personal notes of the owner are read only for a sender that the owner paired with this bot", nil)
+		"the personal notes of the owner are read only for a verified person, one that the owner verified with this bot", nil)
 }
 
 // AccessSubjectView is what one kind of sender may do on a binding.
@@ -1053,7 +1053,7 @@ func (c *Connectors) accessOf(ctx context.Context, b connectors.Binding, only st
 	}
 	out := AccessView{Binding: b.ID, Approvals: c.svc.approvalsOf(ctx, b), AddonTools: holds}
 	if want("listed") {
-		out.Subjects = append(out.Subjects, view("listed", "A sender on the allowlist", b, AccessSubject{SenderID: "x", Allowlisted: true, Listed: true}))
+		out.Subjects = append(out.Subjects, view("listed", "A listed person", b, AccessSubject{SenderID: "x", Allowlisted: true, Listed: true}))
 	}
 	if want("anyone") {
 		out.Subjects = append(out.Subjects, view("anyone", "A sender let in through a listed channel", b, AccessSubject{SenderID: "x", Allowlisted: true, ViaChannel: true}))
@@ -1064,7 +1064,7 @@ func (c *Connectors) accessOf(ctx context.Context, b connectors.Binding, only st
 	if want("paired") {
 		paired := b
 		paired.Paired = []connectors.PairedSender{{SenderID: "paired", At: now}}
-		out.Subjects = append(out.Subjects, view("paired", "A paired sender", paired, AccessSubject{SenderID: "paired", Allowlisted: true}))
+		out.Subjects = append(out.Subjects, view("paired", "A verified person", paired, AccessSubject{SenderID: "paired", Allowlisted: true}))
 	}
 	if kind != nil {
 		for _, r := range kind.Roles {

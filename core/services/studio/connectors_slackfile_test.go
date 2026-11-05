@@ -51,7 +51,7 @@ var _ = Describe("connectors slack files in a channel", func() {
 		}
 		return out
 	}
-	const answerOnly = "This channel is set to answer only, so I cannot do that for you here. Ask the owner to add you to the allowed people, or to let everyone in this channel ask for actions."
+	const answerOnly = "This channel is set to answer only, so I cannot do that for you here. Ask the owner to list you as a person, or to let everyone in this channel ask for actions."
 
 	for _, allow := range [][]string{{"U1", "C1"}, {"U1"}, {"@ada", "C1"}} {
 		It("reads the file of a listed person in a channel, allow = "+allow[0], func() {

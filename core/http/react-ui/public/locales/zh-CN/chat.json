@@ -713,22 +713,22 @@
     },
     "standing": {
       "owner": "所有者",
-      "verified": "已验证",
-      "listed": "已列入名单",
+      "verified": "有角色",
+      "listed": "名单中的人",
       "channel": "频道成员",
       "anyone": "任何人"
     },
     "standingHelp": {
-      "owner": "已与此机器人配对：所有者控制此账号。",
+      "owner": "已验证的人：所有者控制此账户。",
       "verified": "拥有所有者授予权限的角色。",
-      "listed": "在此连接的允许名单中。",
-      "channel": "因频道或群组在允许名单中而被接纳。",
+      "listed": "在此连接的名单中。",
+      "channel": "因频道或群组在名单中而被接纳。",
       "anyone": "因该连接接受任何人而被接纳。"
     },
     "threadEarlier": "线程中较早的消息（{{count}} 条）",
     "threadCut": "线程中更早的消息未显示。",
     "note": {
-      "paired": "已与此机器人配对",
+      "paired": "已在此机器人上验证",
       "unsupported": "消息未读取",
       "too_long": "消息过长",
       "no_upload": "文件未被接受",
@@ -736,7 +736,7 @@
       "held_back": "部分工具未提供给此发送者",
       "new_chat": "已开始新对话",
       "refused": "消息被拒绝",
-      "hold_waiting": "等待已配对的人确认",
+      "hold_waiting": "等待已验证的人确认",
       "hold_confirmed": "已在聊天中确认",
       "hold_cancelled": "已在聊天中取消",
       "hold_expired": "未及时确认",

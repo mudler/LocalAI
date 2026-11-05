@@ -871,7 +871,7 @@
       "mine": "Minhas",
       "deleted": "Agentes excluídos",
       "channels": "Conversas",
-      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "channelsNote": "Notas salvas de chats em apps de mensagens. Abra uma nota para lê-la ou exclua-a. Uma nota de um remetente que não está verificado com você sempre aguarda seu OK.",
       "export": "Exportar estas notas",
       "clearAgent": "Excluir as notas deste agente",
       "clearDeleted": "Excluir estas notas"
@@ -939,8 +939,8 @@
         "body": "O bot pergunta no chat: \"Responda sim para salvar.\" Um remetente da lista pode responder lá. Os outros esperam por você no app."
       },
       "paired_private": {
-        "title": "Salvar para um remetente pareado em chat privado",
-        "body": "Salva na hora só se o remetente estiver pareado e o chat for individual. A nota vai para essa conversa, com Desfazer. Uma nota que pareça um segredo continua esperando."
+        "title": "Salvar para uma pessoa verificada em chat privado",
+        "body": "Salva na hora só se o remetente for uma pessoa verificada e o chat for individual. A nota vai para essa conversa, com Desfazer. Uma nota que pareça um segredo continua aguardando."
       },
       "never": {
         "title": "Nunca",
@@ -1049,7 +1049,7 @@
         "title": "Nunca",
         "body": "Lê, nunca salva."
       },
-      "hint": "Em um chat de mensagens, a nota vai primeiro para essa conversa e só chega às notas próprias deste agente vinda de um remetente pareado. Salvar na hora em um chat de mensagens vale só para um remetente pareado em um chat um a um.",
+      "hint": "Em um chat de mensagens, a nota vai primeiro para essa conversa e só chega às notas próprias deste agente vinda de uma pessoa verificada. Salvar na hora em um chat de mensagens vale só para uma pessoa verificada em um chat individual.",
       "offReason": "O nível de salvamento não vale enquanto a memória está desligada.",
       "readsReason": "O nível de salvamento não vale: este agente lê notas, mas não pode salvar nenhuma."
     },

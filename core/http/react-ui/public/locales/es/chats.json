@@ -871,7 +871,7 @@
       "mine": "Mías",
       "deleted": "Agentes eliminados",
       "channels": "Conversaciones",
-      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "channelsNote": "Notas guardadas desde chats de aplicaciones de mensajería. Abre una nota para leerla o bórrala. Una nota de un remitente que no está verificado contigo siempre espera tu confirmación.",
       "export": "Exportar estas notas",
       "clearAgent": "Eliminar las notas de este agente",
       "clearDeleted": "Eliminar estas notas"
@@ -939,8 +939,8 @@
         "body": "El bot pregunta en el chat: «Responde sí para guardarla». Un remitente de la lista puede responder allí. Los demás esperan a que lo hagas en la app."
       },
       "paired_private": {
-        "title": "Guardar para un remitente emparejado en un chat privado",
-        "body": "Se guarda al instante solo si el remitente está emparejado y el chat es uno a uno. La nota va a esa conversación, con Deshacer. Una nota que parezca un secreto sigue esperando."
+        "title": "Guardar para una persona verificada en un chat privado",
+        "body": "Se guarda al instante solo si el remitente es una persona verificada y el chat es uno a uno. La nota va a esa conversación, con Deshacer. Una nota que parezca un secreto sigue esperando."
       },
       "never": {
         "title": "Nunca",
@@ -1049,7 +1049,7 @@
         "title": "Nunca",
         "body": "Lee, nunca guarda."
       },
-      "hint": "En un chat de mensajería la nota va primero a esa conversación y llega a las notas propias de este agente solo desde un remitente emparejado. Guardar al momento en un chat de mensajería solo vale para un remitente emparejado en un chat uno a uno.",
+      "hint": "En un chat de mensajería la nota va primero a esa conversación y llega a las notas propias de este agente solo desde una persona verificada. Guardar al momento en un chat de mensajería solo vale para una persona verificada en un chat uno a uno.",
       "offReason": "El nivel de guardado no se aplica mientras la memoria está desactivada.",
       "readsReason": "El nivel de guardado no se aplica: este agente lee notas pero no puede guardar ninguna."
     },

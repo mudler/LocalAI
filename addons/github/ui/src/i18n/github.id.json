@@ -80,8 +80,8 @@
     "label": "Apa yang boleh diubah agen di GitHub",
     "hint": "Komentar, issue baru, label, dan menutup issue. Agen tidak pernah melakukan merge, menghapus, atau mendorong kode.",
     "off": "Hanya baca",
-    "propose": "Tanya Anda dulu",
-    "auto": "Bertindak tanpa bertanya",
+    "propose": "Tanya dulu",
+    "auto": "Langsung dijalankan",
     "line": {
       "off": "Agen tidak dapat mengubah apa pun di GitHub.",
       "propose": "Setiap perubahan menunggu persetujuan Anda.",
@@ -94,8 +94,8 @@
     },
     "row": {
       "off": "Hanya baca",
-      "propose": "Tanya Anda dulu",
-      "auto": "Bertindak tanpa bertanya"
+      "propose": "Tanya dulu",
+      "auto": "Langsung dijalankan"
     }
   },
   "approval": {

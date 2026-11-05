@@ -110,7 +110,7 @@ test.describe('PiKVM add-on approvals', () => {
     await expect(page.getByTestId('pikvm-approval-send-key').getByRole('radio', { name: /Ask each time/ })).toBeChecked()
     // The effective view of the connection follows without a reload.
     await expect(row.getByTestId('connector-approval-power-action')).toHaveAttribute('data-state', 'runs')
-    await expect(row.getByTestId('connector-approval-power-action')).toContainText('For the owner\'s own chats and for senders paired with the bot')
+    await expect(row.getByTestId('connector-approval-power-action')).toContainText('For the owner\'s own chats and for verified people')
     await expect(row.getByTestId('connector-approval-send-key')).toHaveAttribute('data-state', 'asks')
     await shot(page, 'pikvm-2-power-skip')
     // Back to asking.

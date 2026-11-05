@@ -241,6 +241,7 @@ export default function PermissionFields({ form, setForm, kind, capabilities, s,
         </Notice>
       )}
       <Presets key={`${form.id || 'new'}:${form.agent_id || ''}`} form={form} setForm={setForm} capabilities={caps} agent={agent} s={s} />
+      <p className="cn-caps__head" data-testid="connector-caps-head">{s('perm.capsLegend')}</p>
       <ul className="cn-caps" aria-label={s('perm.capsLegend')}>
         {caps.map((c) => <Cap key={c.name} cap={c} on={on(c.name)} s={s}
           effect={c.name === 'triggers.propose' && form.approval ? approvalEffect(form.approval, s) : undefined} lacks={Boolean(form.agent_id) && held !== null && !agentHas(held, c.name)} onChange={(v) => setForm(setCap(form, c.name, v))}>

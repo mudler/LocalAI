@@ -200,7 +200,7 @@ test('the Conversations tab lists the notes saved from messaging chats, to read 
   await open(page, s)
   const tab = page.getByTestId('memory-tabs').getByRole('tab', { name: 'Conversations' })
   await tab.click()
-  await expect(page.getByTestId('memory-channels-note')).toContainText('not paired')
+  await expect(page.getByTestId('memory-channels-note')).toContainText('not verified')
   const g = group(page, 'notes-channel:chat-1')
   await expect(g.getByRole('heading')).toHaveText('Notes of conversation chat-1')
   await g.locator('.mt-file__name').click()

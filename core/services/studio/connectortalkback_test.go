@@ -141,7 +141,7 @@ var _ = Describe("talk-back from a connector chat", func() {
 			Expect(chatTools()).NotTo(ContainElement("send_message"))
 			l, _ := r.svc.List(ctx, alice, 10)
 			prompt := strings.Join(r.h.SentRaw(l[0].ID), "\n")
-			Expect(prompt).To(ContainSubstring("This bot can write to other channels only for people the owner added by name or paired"), "the model is told why")
+			Expect(prompt).To(ContainSubstring("This bot can write to other channels only for people the owner listed by name or verified"), "the model is told why")
 			Expect(prompt).To(ContainSubstring("never say it does not exist"))
 		})
 

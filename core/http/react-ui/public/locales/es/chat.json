@@ -713,22 +713,22 @@
     },
     "standing": {
       "owner": "Propietario",
-      "verified": "Verificado",
-      "listed": "En la lista",
+      "verified": "Tiene un rol",
+      "listed": "Persona de la lista",
       "channel": "Miembro del canal",
       "anyone": "Cualquiera"
     },
     "standingHelp": {
-      "owner": "Emparejado con este bot: el propietario controla esta cuenta.",
+      "owner": "Persona verificada: el propietario controla esta cuenta.",
       "verified": "Tiene un rol al que el propietario dio permisos.",
-      "listed": "En la lista de permitidos de esta conexión.",
-      "channel": "Admitido porque el canal o el grupo está en la lista de permitidos.",
+      "listed": "En la lista de esta conexión.",
+      "channel": "Admitido porque el canal o el grupo está en la lista.",
       "anyone": "Admitido porque la conexión acepta a cualquiera."
     },
     "threadEarlier": "Antes en el hilo ({{count}} mensajes)",
     "threadCut": "No se muestran los mensajes más antiguos del hilo.",
     "note": {
-      "paired": "Emparejado con este bot",
+      "paired": "Verificado con este bot",
       "unsupported": "Mensaje no leído",
       "too_long": "Mensaje demasiado largo",
       "no_upload": "Archivos no aceptados",
@@ -736,7 +736,7 @@
       "held_back": "Algunas herramientas no se ofrecieron a este remitente",
       "new_chat": "Nuevo chat iniciado",
       "refused": "Mensaje rechazado",
-      "hold_waiting": "Esperando la confirmación de una persona emparejada",
+      "hold_waiting": "Esperando la confirmación de una persona verificada",
       "hold_confirmed": "Confirmada en el chat",
       "hold_cancelled": "Cancelada en el chat",
       "hold_expired": "No se confirmó a tiempo",

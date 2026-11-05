@@ -871,7 +871,7 @@
       "mine": "Mie",
       "deleted": "Agenti eliminati",
       "channels": "Conversazioni",
-      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "channelsNote": "Note salvate dalle chat delle app di messaggistica. Apri una nota per leggerla o eliminala. Una nota da una persona non verificata con te attende sempre il tuo OK.",
       "export": "Esporta queste note",
       "clearAgent": "Elimina le note di questo agente",
       "clearDeleted": "Elimina queste note"
@@ -939,8 +939,8 @@
         "body": "Il bot chiede nella chat: «Rispondi sì per salvarla». Un mittente in elenco può rispondere lì. Gli altri aspettano te nell'app."
       },
       "paired_private": {
-        "title": "Salva per un mittente abbinato in una chat privata",
-        "body": "Salvata subito solo se il mittente è abbinato e la chat è uno a uno. La nota va in quella conversazione, con Annulla. Una nota che sembra un segreto aspetta comunque."
+        "title": "Salva per una persona verificata in una chat privata",
+        "body": "Salvata subito solo se il mittente è una persona verificata e la chat è uno a uno. La nota va in quella conversazione, con Annulla. Una nota che sembra un segreto aspetta comunque."
       },
       "never": {
         "title": "Mai",
@@ -1049,7 +1049,7 @@
         "title": "Mai",
         "body": "Legge, non salva mai."
       },
-      "hint": "In una chat di messaggistica la nota va prima in quella conversazione e arriva alle note proprie di questo agente solo da un mittente abbinato. Il salvataggio immediato in una chat di messaggistica vale solo per un mittente abbinato in una chat uno a uno.",
+      "hint": "In una chat di messaggistica la nota va prima in quella conversazione e arriva alle note proprie di questo agente solo da una persona verificata. Il salvataggio immediato in una chat di messaggistica vale solo per una persona verificata in una chat uno a uno.",
       "offReason": "Il livello di salvataggio non vale finché la memoria è disattivata.",
       "readsReason": "Il livello di salvataggio non vale: questo agente legge le note ma non può salvarne."
     },

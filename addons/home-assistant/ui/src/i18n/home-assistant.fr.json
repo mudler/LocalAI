@@ -59,8 +59,8 @@
     "label": "Ce que l’agent peut modifier dans votre maison",
     "hint": "Seulement les services de la liste d’autorisation ci-dessous, sur des entités non exclues.",
     "off": "Lecture seule",
-    "propose": "Vous demande d’abord",
-    "auto": "Agit sans demander",
+    "propose": "Demande d’abord",
+    "auto": "S’exécute tout de suite",
     "line": {
       "off": "Il ne peut rien commander.",
       "propose": "Chaque modification attend votre accord.",
@@ -73,8 +73,8 @@
     },
     "row": {
       "off": "Lecture seule",
-      "propose": "Vous demande d’abord",
-      "auto": "Agit sans demander"
+      "propose": "Demande d’abord",
+      "auto": "S’exécute tout de suite"
     }
   },
   "policy": {

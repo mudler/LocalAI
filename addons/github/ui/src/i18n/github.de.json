@@ -80,8 +80,8 @@
     "label": "Was der Agent auf GitHub ändern darf",
     "hint": "Kommentare, neue Issues, Labels und das Schließen von Issues. Er führt nie einen Merge aus, löscht nichts und pusht keinen Code.",
     "off": "Nur lesen",
-    "propose": "Fragt dich zuerst",
-    "auto": "Handelt ohne Rückfrage",
+    "propose": "Fragt zuerst",
+    "auto": "Läuft sofort",
     "line": {
       "off": "Er kann auf GitHub nichts ändern.",
       "propose": "Jede Änderung wartet auf dein OK.",
@@ -94,8 +94,8 @@
     },
     "row": {
       "off": "Nur lesen",
-      "propose": "Fragt dich zuerst",
-      "auto": "Handelt ohne Rückfrage"
+      "propose": "Fragt zuerst",
+      "auto": "Läuft sofort"
     }
   },
   "approval": {

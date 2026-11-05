@@ -713,22 +713,22 @@
     },
     "standing": {
       "owner": "소유자",
-      "verified": "인증됨",
-      "listed": "허용 목록",
+      "verified": "역할이 있음",
+      "listed": "목록에 있는 사람",
       "channel": "채널 멤버",
       "anyone": "누구나"
     },
     "standingHelp": {
-      "owner": "이 봇과 페어링됨: 소유자가 이 계정을 제어합니다.",
+      "owner": "검증된 사람: 소유자가 이 계정을 제어합니다.",
       "verified": "소유자가 권한을 부여한 역할을 가지고 있습니다.",
-      "listed": "이 연결의 허용 목록에 있습니다.",
-      "channel": "채널 또는 그룹이 허용 목록에 있어 허용되었습니다.",
+      "listed": "이 연결의 목록에 있습니다.",
+      "channel": "채널 또는 그룹이 목록에 있어 허용되었습니다.",
       "anyone": "연결이 누구나 허용하므로 허용되었습니다."
     },
     "threadEarlier": "스레드 앞부분 ({{count}}개 메시지)",
     "threadCut": "스레드의 이전 메시지는 표시되지 않습니다.",
     "note": {
-      "paired": "이 봇과 페어링됨",
+      "paired": "이 봇과 검증됨",
       "unsupported": "읽지 못한 메시지",
       "too_long": "메시지가 너무 김",
       "no_upload": "파일이 허용되지 않음",
@@ -736,7 +736,7 @@
       "held_back": "일부 도구가 이 발신자에게 제공되지 않았습니다",
       "new_chat": "새 채팅 시작됨",
       "refused": "메시지 거부됨",
-      "hold_waiting": "페어링된 사람의 확인을 기다리는 중",
+      "hold_waiting": "검증된 사람의 확인을 기다리는 중",
       "hold_confirmed": "채팅에서 확인됨",
       "hold_cancelled": "채팅에서 취소됨",
       "hold_expired": "제때 확인되지 않음",

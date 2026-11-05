@@ -79,7 +79,7 @@ test.describe('A chat from a messaging thread', () => {
   test('a write that waits in the chat shows its life as small status lines', async ({ page }) => {
     const hold = (seq, code, text) => ({ seq, turn: 2, role: 'hostnote', host_note: { code }, text, at: '2026-11-05T09:20:00.000Z' })
     const messages = [...MESSAGES.slice(0, 3),
-      hold(11, 'hold_waiting', 'Waiting for a paired person to confirm in this chat: Open an issue (code K7M2).'),
+      hold(11, 'hold_waiting', 'Waiting for a verified person to confirm in this chat: Open an issue (code K7M2).'),
       hold(12, 'hold_confirmed', 'Done: Open an issue (acme/widgets). https://example.test/issues/7 It cannot be undone from here.'),
       hold(13, 'hold_cancelled', 'Cancelled. Nothing was sent.'),
       hold(14, 'hold_expired', 'Nobody confirmed in time, so it was dropped: Open an issue.'),
@@ -88,7 +88,7 @@ test.describe('A chat from a messaging thread', () => {
     await page.goto('/app/chats/cc1')
     const notes = page.getByTestId('host-note')
     await expect(notes).toHaveCount(5)
-    const labels = ['Waiting for a paired person to confirm', 'Confirmed in the chat', 'Cancelled in the chat', 'Not confirmed in time', 'Could not be done']
+    const labels = ['Waiting for a verified person to confirm', 'Confirmed in the chat', 'Cancelled in the chat', 'Not confirmed in time', 'Could not be done']
     for (const [i, label] of labels.entries()) await expect(notes.nth(i)).toContainText(label)
     await expect(notes.nth(0)).toHaveAttribute('data-code', 'hold_waiting')
     await expect(notes.nth(1)).toHaveAttribute('data-code', 'hold_confirmed')

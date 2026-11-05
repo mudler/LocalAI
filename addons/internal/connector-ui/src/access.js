@@ -421,7 +421,7 @@ export function readinessRows(ctx) {
 export function messageOf(d) {
   if (d.message) return d.message
   if (d.code === 'nobody_let_in') return 'Nobody is let in yet.'
-  if (d.code === 'nobody_paired') return 'This needs a person you paired with the bot, and nobody is paired yet.'
+  if (d.code === 'nobody_paired') return 'This needs a verified person, and nobody is verified yet.'
   return d.reason || ''
 }
 

@@ -191,7 +191,7 @@ var _ = Describe("Authorize for a listed sender", func() {
 		for _, name := range sensitiveCaps {
 			d := Authorize(binding, &kind, listed, name, now, Block{})
 			Expect(d.Allowed).To(BeFalse(), name)
-			Expect(d.Reason).To(ContainSubstring("paired"), name)
+			Expect(d.Reason).To(ContainSubstring("verified"), name)
 		}
 	})
 	It("lets a pairing hold a sensitive capability, and names the pairing", func() {
@@ -249,8 +249,8 @@ var _ = Describe("Authorize for a listed sender", func() {
 	})
 	It("tells the owner what to do when a plain capability is not trusted", func() {
 		d := Authorize(binding, &kind, AccessSubject{SenderID: "U9", Allowlisted: true}, contract.CapTriggersPropose, now, Block{})
-		Expect(d.Reason).To(ContainSubstring("allowlist"))
-		Expect(d.Reason).To(ContainSubstring("paired"))
+		Expect(d.Reason).To(ContainSubstring("list the sender"))
+		Expect(d.Reason).To(ContainSubstring("verified"))
 	})
 
 	Describe("subjectOf", func() {
@@ -370,7 +370,7 @@ var _ = Describe("Authorize with the trust level of a channel", func() {
 		b := bind("answer", ceiling)
 		d := Authorize(b, &kind, (&Connectors{}).subjectOf(b, msg("U9", "C1", false), true), contract.CapFilesUpload, now, Block{})
 		Expect(d.Code).To(Equal(CodeChannelNotTrusted))
-		Expect(d.Reason).To(And(ContainSubstring("U9"), ContainSubstring("Answer only"), ContainSubstring("Let everyone here ask for actions"), ContainSubstring("allowed people")))
+		Expect(d.Reason).To(And(ContainSubstring("U9"), ContainSubstring("Answer only"), ContainSubstring("Let everyone here ask for actions"), ContainSubstring("as a person")))
 	})
 	It("ignores a level for an entry that is not on the allowlist", func() {
 		b := bind("act", ceiling)

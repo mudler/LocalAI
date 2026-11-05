@@ -4,7 +4,7 @@
 // answers there, nobody in it is trusted one by one) or "Let everyone here ask
 // for actions" (everyone who posts there may use the actions that are not
 // sensitive, as a listed person does). This is not the list of channels the bot
-// posts to: that is "Where it may post" under the permissions.
+// posts to: that is "Place the bot may post" under the permissions.
 import { Notice, RadioCards } from './controls'
 import { channelEntries, trustOf } from './connector'
 

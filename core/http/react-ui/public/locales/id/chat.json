@@ -825,22 +825,22 @@
     },
     "standing": {
       "owner": "Pemilik",
-      "verified": "Terverifikasi",
-      "listed": "Terdaftar",
+      "verified": "Punya peran",
+      "listed": "Orang yang terdaftar",
       "channel": "Anggota kanal",
       "anyone": "Siapa saja"
     },
     "standingHelp": {
-      "owner": "Dipasangkan dengan bot ini: pemilik mengendalikan akun ini.",
+      "owner": "Orang terverifikasi: pemilik mengendalikan akun ini.",
       "verified": "Memiliki peran yang diberi hak oleh pemilik.",
-      "listed": "Ada di daftar izin koneksi ini.",
-      "channel": "Diizinkan karena kanal atau grup ada di daftar izin.",
+      "listed": "Ada di daftar koneksi ini.",
+      "channel": "Diizinkan masuk karena kanal atau grup ada di daftar.",
       "anyone": "Diizinkan karena koneksi menerima siapa saja."
     },
     "threadEarlier": "Sebelumnya di utas ({{count}} pesan)",
     "threadCut": "Pesan yang lebih lama di utas tidak ditampilkan.",
     "note": {
-      "paired": "Dipasangkan dengan bot ini",
+      "paired": "Terverifikasi dengan bot ini",
       "unsupported": "Pesan tidak dibaca",
       "too_long": "Pesan terlalu panjang",
       "no_upload": "File tidak diterima",
@@ -848,7 +848,7 @@
       "held_back": "Beberapa alat tidak ditawarkan kepada pengirim ini",
       "new_chat": "Chat baru dimulai",
       "refused": "Pesan ditolak",
-      "hold_waiting": "Menunggu konfirmasi dari orang yang dipasangkan",
+      "hold_waiting": "Menunggu konfirmasi dari orang terverifikasi",
       "hold_confirmed": "Dikonfirmasi di obrolan",
       "hold_cancelled": "Dibatalkan di obrolan",
       "hold_expired": "Tidak dikonfirmasi tepat waktu",

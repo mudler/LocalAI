@@ -713,22 +713,22 @@
     },
     "standing": {
       "owner": "Besitzer",
-      "verified": "Verifiziert",
-      "listed": "Gelistet",
+      "verified": "Hat eine Rolle",
+      "listed": "Gelistete Person",
       "channel": "Kanalmitglied",
       "anyone": "Beliebig"
     },
     "standingHelp": {
-      "owner": "Mit diesem Bot gekoppelt: Der Besitzer steuert dieses Konto.",
+      "owner": "Verifizierte Person: Der Besitzer steuert dieses Konto.",
       "verified": "Hat eine Rolle, der der Besitzer Rechte gegeben hat.",
-      "listed": "Auf der Zulassungsliste dieser Verbindung.",
-      "channel": "Zugelassen, weil der Kanal oder die Gruppe auf der Zulassungsliste steht.",
+      "listed": "Auf der Liste dieser Verbindung.",
+      "channel": "Zugelassen, weil der Kanal oder die Gruppe auf der Liste steht.",
       "anyone": "Zugelassen, weil die Verbindung jeden akzeptiert."
     },
     "threadEarlier": "Früher im Thread ({{count}} Nachrichten)",
     "threadCut": "Ältere Nachrichten des Threads werden nicht angezeigt.",
     "note": {
-      "paired": "Mit diesem Bot gekoppelt",
+      "paired": "Mit diesem Bot verifiziert",
       "unsupported": "Nachricht nicht gelesen",
       "too_long": "Nachricht zu lang",
       "no_upload": "Dateien nicht angenommen",
@@ -736,7 +736,7 @@
       "held_back": "Einige Werkzeuge wurden diesem Absender nicht angeboten",
       "new_chat": "Neuer Chat gestartet",
       "refused": "Nachricht abgelehnt",
-      "hold_waiting": "Wartet auf die Bestätigung einer gekoppelten Person",
+      "hold_waiting": "Wartet auf die Bestätigung einer verifizierten Person",
       "hold_confirmed": "Im Chat bestätigt",
       "hold_cancelled": "Im Chat abgebrochen",
       "hold_expired": "Nicht rechtzeitig bestätigt",

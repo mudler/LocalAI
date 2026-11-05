@@ -29,7 +29,7 @@ var _ = Describe("the new chat command of a connector", func() {
 	const (
 		done     = "Started a new chat. I will not see our earlier messages."
 		each     = "Every message here already starts a new chat."
-		sharedNo = "Only a paired account can start a new chat here, because everyone in this conversation shares it."
+		sharedNo = "Only a verified account can start a new chat here, because everyone in this conversation shares it."
 		busy     = "I am still answering. Send the command again when I am done."
 	)
 	setup := func(in studio.ConnectorInput) {

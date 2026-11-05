@@ -80,8 +80,8 @@
     "label": "Ce que l’agent peut modifier sur GitHub",
     "hint": "Commentaires, nouvelles issues, étiquettes et fermeture d’issues. Il ne fusionne, ne supprime et ne pousse jamais de code.",
     "off": "Lecture seule",
-    "propose": "Vous demande d’abord",
-    "auto": "Agit sans demander",
+    "propose": "Demande d’abord",
+    "auto": "S’exécute tout de suite",
     "line": {
       "off": "Il ne peut rien modifier sur GitHub.",
       "propose": "Chaque modification attend votre accord.",
@@ -94,8 +94,8 @@
     },
     "row": {
       "off": "Lecture seule",
-      "propose": "Vous demande d’abord",
-      "auto": "Agit sans demander"
+      "propose": "Demande d’abord",
+      "auto": "S’exécute tout de suite"
     }
   },
   "approval": {

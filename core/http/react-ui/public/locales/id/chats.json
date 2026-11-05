@@ -871,7 +871,7 @@
       "mine": "Milik saya",
       "deleted": "Agen yang dihapus",
       "channels": "Percakapan",
-      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "channelsNote": "Catatan yang disimpan dari chat di aplikasi pesan. Buka catatan untuk membacanya, atau hapus. Catatan dari pengirim yang belum terverifikasi bersama Anda selalu menunggu OK Anda.",
       "export": "Ekspor catatan ini",
       "clearAgent": "Hapus catatan agen ini",
       "clearDeleted": "Hapus catatan ini"
@@ -939,8 +939,8 @@
         "body": "Bot bertanya di obrolan: \"Balas ya untuk menyimpan.\" Pengirim yang terdaftar bisa menjawab di sana. Yang lain menunggu Anda di aplikasi."
       },
       "paired_private": {
-        "title": "Simpan untuk pengirim yang dipasangkan di obrolan pribadi",
-        "body": "Langsung disimpan hanya jika pengirim dipasangkan dan obrolannya satu lawan satu. Catatan masuk ke percakapan itu, dengan Urungkan. Catatan yang mirip rahasia tetap menunggu."
+        "title": "Simpan untuk orang terverifikasi di obrolan pribadi",
+        "body": "Langsung disimpan hanya jika pengirim adalah orang terverifikasi dan obrolannya satu lawan satu. Catatan masuk ke percakapan itu, dengan Urungkan. Catatan yang mirip rahasia tetap menunggu."
       },
       "never": {
         "title": "Jangan pernah",
@@ -1049,7 +1049,7 @@
         "title": "Jangan pernah",
         "body": "Membaca, tidak pernah menyimpan."
       },
-      "hint": "Di obrolan aplikasi pesan, catatan masuk ke percakapan itu dulu, dan sampai ke catatan milik agen ini hanya dari pengirim yang dipasangkan. Menyimpan langsung di obrolan aplikasi pesan hanya berlaku untuk pengirim yang dipasangkan di obrolan satu lawan satu.",
+      "hint": "Di obrolan aplikasi pesan, catatan masuk ke percakapan itu dulu, dan sampai ke catatan milik agen ini hanya dari orang terverifikasi. Menyimpan langsung di obrolan aplikasi pesan hanya berlaku untuk orang terverifikasi di obrolan satu lawan satu.",
       "offReason": "Tingkat penyimpanan tidak berlaku selama memori mati.",
       "readsReason": "Tingkat penyimpanan tidak berlaku: agen ini membaca catatan tetapi tidak bisa menyimpan."
     },
