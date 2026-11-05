@@ -128,6 +128,10 @@ type ToolDefinition struct {
 	// run with the token of a connection that the person selects. A chat
 	// offers them only after a connection is selected.
 	Credentialed bool `json:"credentialed,omitempty"`
+	// ApprovalOverridable is true for a write tool that declares approval
+	// "always" and lets the person relax it with their own setting (see
+	// contract.ToolDefinition). The chat consumer shows it; the broker decides.
+	ApprovalOverridable bool `json:"approvalOverridable,omitempty"`
 	// ResourceArgument and ResourceLabel come from the credential slot of the
 	// add-on. They only shape the line that says which connection acted.
 	ResourceArgument string `json:"-"`
@@ -750,7 +754,7 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	if json.Unmarshal(d.InputSchema, &params) != nil {
 		return ToolDefinition{}, false
 	}
-	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, Permission: contract.ToolPermission(a.Credentialed, d), Credentialed: a.Credentialed,
+	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, Permission: contract.ToolPermission(a.Credentialed, d), Credentialed: a.Credentialed, ApprovalOverridable: d.ApprovalOverridable && d.Approval == contract.ApprovalAlways,
 		ResourceArgument: a.ResourceArgument, ResourceLabel: a.ResourceLabel}
 	// Checked again for the same reason as the schema: a manifest that names a
 	// tool outside the list, or a shadow of the wrong kind or schema, never

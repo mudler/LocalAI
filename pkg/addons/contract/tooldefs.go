@@ -37,6 +37,20 @@ const (
 // binding says.
 const ApprovalAlways = "always"
 
+// The two answers of the user setting that relaxes ApprovalAlways for a tool
+// that declares ApprovalOverridable (see ApprovalSettingKey).
+const (
+	// ApprovalAsk is the default: a person confirms every call.
+	ApprovalAsk = "ask"
+	// ApprovalSkip is the owner's choice to run the tool without a
+	// confirmation, where the host allows it (see ToolDefinition).
+	ApprovalSkip = "skip"
+)
+
+// ApprovalSettingKey is the key of the user setting that holds the person's
+// choice for an ApprovalOverridable tool: "approval-" and the tool name.
+func ApprovalSettingKey(tool string) string { return "approval-" + tool }
+
 // ResourceArgument is the tool argument that names the resource a tool works
 // on. The host takes it out of the arguments and binds it to the request, so
 // the add-on never reads it from the arguments.
@@ -73,6 +87,17 @@ type ToolDefinition struct {
 	// never applies it, even when the person allowed writes without asking.
 	// Only a write tool may set it.
 	Approval string `json:"approval,omitempty"`
+	// ApprovalOverridable lets the person relax Approval to "ask never" for
+	// this tool, and nothing else. The choice is a user setting that the
+	// manifest declares under ApprovalSettingKey(Name), with the values
+	// ApprovalAsk and ApprovalSkip and the default ApprovalAsk, so the answer
+	// is the person's own, written from their own browser session only. The
+	// host honors ApprovalSkip only for a call that the person makes in their
+	// own chat, or that a sender paired with the person's bot makes in a
+	// messaging chat. Every other caller, and every call without a chat,
+	// still waits for a confirmation. Only a tool with Approval "always" may
+	// set it.
+	ApprovalOverridable bool `json:"approvalOverridable,omitempty"`
 	// UIOnly marks a tool that only the add-on's own page may call, such as a
 	// settings change that asks the host whether the caller is an
 	// administrator. It is never offered to a model, a chat or an agent. The
@@ -248,6 +273,9 @@ func validateToolDefinitionsFor(defs []ToolDefinition, tools []string, credentia
 		}
 		if d.Approval != "" && (d.Approval != ApprovalAlways || d.Kind != ToolKindWrite) {
 			return fmt.Errorf("tool %s: approval is %q for a write tool only", d.Name, ApprovalAlways)
+		}
+		if d.ApprovalOverridable && d.Approval != ApprovalAlways {
+			return fmt.Errorf("tool %s: approvalOverridable needs approval %q", d.Name, ApprovalAlways)
 		}
 		check := ValidateToolSchema
 		if credentialed {

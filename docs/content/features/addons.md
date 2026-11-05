@@ -3361,6 +3361,41 @@ names it gets the unknown-tool answer. The Sandbox uses it for `set-backend` and
 `confirm-host`: they change a setting, and the add-on asks the host whether the
 caller is an administrator before it acts.
 
+### A confirmation the owner can relax
+
+A `write` tool with `"approval": "always"` always waits for a person. A tool can also
+declare `"approvalOverridable": true`, so that the owner can choose not to be asked for
+that one tool. It is the only way to relax `approval`, and it needs three things:
+
+- The add-on declares a credential. The choice belongs to the person who owns the
+  connection.
+- The manifest declares the [user setting](#user-settings) `approval-<tool>` with the
+  values `ask` and `skip`, the default `ask` and no `role`. A manifest with another
+  default, other values or no setting is refused at install.
+- The owner sets it to `skip` on the add-on's page. The write needs the owner's own
+  browser session, like every user setting, so no model, API key or tool call can do it.
+
+The host then runs the tool without a card only when the connection's write mode is
+**propose** or **auto** (never **off**) and the call comes from one of two places:
+
+- a chat that the owner has open themselves, or
+- a messaging chat in which every sender of the turn is paired with the bot.
+
+A sender who is only on the allowlist, a sender let in because the bot accepts anyone, a
+role, a trigger, an agent job, a page, a sub-agent, and any call with no chat still get a
+proposal that waits for a person. The setting is read again when the call is applied, so
+switching it back stops a call that was stored a moment earlier. A tool that is not
+marked `approvalOverridable` is never relaxed, whatever the setting holds. In a cluster
+the decision for a messaging chat needs the grant of the turn, which lives on the
+frontend that runs it; a call without it asks.
+
+Every call that runs without a card is logged with the add-on, the tool, the connection,
+the user and the outcome (`applied`, `rejected`, `unknown` or `not_run`), and never the
+arguments. The same line is added to the connection's latest decisions. The connection's
+access view and its access preview (`approvals` in the answer of
+`GET /api/chats/connectors/{id}/access` and of the preview route) list each relaxable tool
+with its setting and who it runs for without asking now.
+
 ### Tools that replace a built-in tool
 
 A chat has a few built-in tools that an add-on may replace: `bash`,

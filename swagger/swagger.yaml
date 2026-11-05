@@ -1196,6 +1196,19 @@ definitions:
           never applies it, even when the person allowed writes without asking.
           Only a write tool may set it.
         type: string
+      approvalOverridable:
+        description: |-
+          ApprovalOverridable lets the person relax Approval to "ask never" for
+          this tool, and nothing else. The choice is a user setting that the
+          manifest declares under ApprovalSettingKey(Name), with the values
+          ApprovalAsk and ApprovalSkip and the default ApprovalAsk, so the answer
+          is the person's own, written from their own browser session only. The
+          host honors ApprovalSkip only for a call that the person makes in their
+          own chat, or that a sender paired with the person's bot makes in a
+          messaging chat. Every other caller, and every call without a chat,
+          still waits for a confirmation. Only a tool with Approval "always" may
+          set it.
+        type: boolean
       description:
         description: Description is plain text for the model.
         type: string
@@ -4803,6 +4816,14 @@ definitions:
     type: object
   schema.ChatsConnectorAccess:
     properties:
+      approvals:
+        description: |-
+          Approvals lists the tools of the add-on whose confirmation the owner can
+          relax, and for whom each runs without asking now. Absent when the
+          add-on has none.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorToolApproval'
+        type: array
       binding:
         type: string
       language:
@@ -5250,6 +5271,27 @@ definitions:
       option:
         type: string
       prefix:
+        type: string
+    type: object
+  schema.ChatsConnectorToolApproval:
+    properties:
+      runs_without_asking:
+        description: |-
+          RunsWithoutAsking says for whom the tool runs without a confirmation
+          now: owner (the owner's own chats) and paired (a sender paired with the
+          bot). Empty when the setting is on ask or the write mode is off. Every
+          other sender is still asked.
+        items:
+          enum:
+          - owner
+          - paired
+          type: string
+        type: array
+      skip:
+        description: Skip is true when the owner chose not to be asked for this tool.
+        type: boolean
+      tool:
+        description: Tool is the name of the tool inside the add-on.
         type: string
     type: object
   schema.ChatsConnectorWrite:

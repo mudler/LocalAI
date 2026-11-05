@@ -1490,12 +1490,30 @@ type ChatsConnectorAccess struct {
 	Binding  string                        `json:"binding"`
 	Subjects []ChatsConnectorAccessSubject `json:"subjects"`
 	Recent   []ChatsConnectorAccessEvent   `json:"recent"`
+	// Approvals lists the tools of the add-on whose confirmation the owner can
+	// relax, and for whom each runs without asking now. Absent when the
+	// add-on has none.
+	Approvals []ChatsConnectorToolApproval `json:"approvals,omitempty"`
 	// Preview is true when the view is for a form that is not saved.
 	Preview bool `json:"preview,omitempty"`
 	// Language is the language of the localized_message fields, negotiated
 	// from the lang query parameter, then Accept-Language. Absent for
 	// English.
 	Language string `json:"language,omitempty"`
+}
+
+// ChatsConnectorToolApproval is the confirmation of one tool that the owner
+// can relax with their own setting on the page of the add-on.
+type ChatsConnectorToolApproval struct {
+	// Tool is the name of the tool inside the add-on.
+	Tool string `json:"tool"`
+	// Skip is true when the owner chose not to be asked for this tool.
+	Skip bool `json:"skip"`
+	// RunsWithoutAsking says for whom the tool runs without a confirmation
+	// now: owner (the owner's own chats) and paired (a sender paired with the
+	// bot). Empty when the setting is on ask or the write mode is off. Every
+	// other sender is still asked.
+	RunsWithoutAsking []string `json:"runs_without_asking,omitempty" enums:"owner,paired"`
 }
 
 // ChatsConnectorAccessPreviewRequest is the state of a connection form that

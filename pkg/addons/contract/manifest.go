@@ -414,6 +414,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	if e := validateUserSettings(c.UserSettings); e != nil {
 		return e
 	}
+	if e := validateApprovalSettings(c.ToolDefinitions, c.UserSettings, len(c.Credentials) > 0); e != nil {
+		return e
+	}
 	if e := validateProvides(c); e != nil {
 		return e
 	}

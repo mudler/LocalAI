@@ -551,8 +551,27 @@ type AccessView struct {
 	Binding  string              `json:"binding"`
 	Subjects []AccessSubjectView `json:"subjects"`
 	Recent   []AccessEvent       `json:"recent"`
+	// Approvals lists the tools of the binding's add-on whose confirmation the
+	// owner can relax, and says for whom each one runs without asking now.
+	Approvals []ToolApproval `json:"approvals,omitempty"`
 	// Preview is true when the view describes a draft that is not saved.
 	Preview bool `json:"preview,omitempty"`
+}
+
+// ToolApproval is the confirmation of one tool that the owner may relax (see
+// contract.ToolDefinition.ApprovalOverridable).
+type ToolApproval struct {
+	// Tool is the name of the tool inside the add-on.
+	Tool string `json:"tool"`
+	// Skip is the owner's setting: true when the owner chose not to be asked.
+	Skip bool `json:"skip"`
+	// RunsWithoutAsking says who the tool runs for without a confirmation right
+	// now: "owner" (the owner's own chats) and "paired" (a sender paired with
+	// the bot in a messaging chat). It is empty when the setting is on ask, or
+	// when the write mode of the binding is off. Every other sender, a listed
+	// one, one let in because the bot accepts anyone, and a role, is still
+	// asked, and so is a trigger, a job and a sub-agent.
+	RunsWithoutAsking []string `json:"runs_without_asking,omitempty"`
 }
 
 // Access explains what each kind of sender may do on a binding, by running
@@ -676,7 +695,7 @@ func (c *Connectors) accessOf(ctx context.Context, b connectors.Binding, only st
 		}
 		return only == "" || only == id
 	}
-	out := AccessView{Binding: b.ID}
+	out := AccessView{Binding: b.ID, Approvals: c.svc.approvalsOf(ctx, b)}
 	if want("listed") {
 		out.Subjects = append(out.Subjects, view("listed", "A sender on the allowlist", b, AccessSubject{SenderID: "x", Allowlisted: true, Listed: true}))
 	}

@@ -410,6 +410,10 @@ func (a *Application) startAddonGateway() error {
 	// host surface only, never by a chat turn.
 	brokerOpts.ConfirmPerson = confirmPerson(mode)
 	brokerOpts.Credentials = credentialSource{a}
+	// The person may relax the confirmation of a tool that the manifest marks
+	// approvalOverridable. The host decides from the chat of the call.
+	brokerOpts.RelaxApproval = a.addonApprovalRelaxed
+	brokerOpts.OnRelaxedRun = a.recordRelaxedRun
 	// A deletion trusts only an explicit answer of the add-on.
 	confirmed := a.addonResourceExists
 	if confirmed == nil {
@@ -910,7 +914,7 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 			continue
 		}
 		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead,
-			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt, Permission: d.Permission, Credentialed: d.Credentialed})
+			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt, Permission: d.Permission, Credentialed: d.Credentialed, ApprovalOverridable: d.ApprovalOverridable, Tool: d.Tool})
 	}
 	return filterByFeature(out, s.hostOps, s.has, actor), nil
 }
@@ -1225,4 +1229,35 @@ func (a *Application) chatConnectionName(ctx context.Context, conversationID, bi
 		return ""
 	}
 	return a.studioConnectors.ConnectionName(ctx, b.Principal, bindingID)
+}
+
+// addonApprovalRelaxed says whether the person's own setting lets a tool of an
+// add-on run without a confirmation for this call. All of these must hold, and
+// any doubt is no:
+//
+//   - the call belongs to a chat the host bound to it (a call without a chat
+//     asks), and the chat is the actor's own;
+//   - the person chose "skip" for this tool and the chat qualifies: the
+//     person's own chat, or a messaging chat whose senders are all paired
+//     (see studio.Service.ApprovalRelaxed).
+func (a *Application) addonApprovalRelaxed(ctx context.Context, actor contract.Actor, addonID, tool string) bool {
+	b, ok := hostops.BindingOf(ctx)
+	if !ok || a.studioService == nil {
+		return false
+	}
+	user := addonWorkspacePrincipal(a.authDB != nil)(actor)
+	if user == "" || b.Principal != user {
+		return false
+	}
+	return a.studioService.ApprovalRelaxed(ctx, user, b.ChatID, addonID, tool)
+}
+
+// recordRelaxedRun adds a run without a confirmation to the recent decisions of
+// the connection that acted, next to the broker's own audit line.
+func (a *Application) recordRelaxedRun(ctx context.Context, run policy.RelaxedRun) {
+	b, ok := hostops.BindingOf(ctx)
+	if !ok || a.studioService == nil || run.ConnectionID == "" {
+		return
+	}
+	a.studioService.RecordRelaxedRun(run.ConnectionID, b.ChatID, run.Tool, run.Outcome)
 }

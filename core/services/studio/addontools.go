@@ -45,6 +45,11 @@ type AddonTool struct {
 	// enabled for the chat (see Connectors.ConnectionsOf); until then a chat
 	// does not offer it.
 	Credentialed bool
+	// ApprovalOverridable is true for a write tool whose confirmation the
+	// person can relax with their own setting. Tool is its name inside the
+	// add-on, the key of that setting.
+	ApprovalOverridable bool
+	Tool                string
 }
 
 // AddonTools is the add-on broker as the chats see it. Both calls run as the

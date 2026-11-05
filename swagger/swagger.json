@@ -17384,6 +17384,10 @@
                     "description": "Approval, when it is ApprovalAlways, is a ceiling the person cannot lift:\nthe host stores a proposal for a write tool of this kind and applies it\nonly when a person confirms it at a host surface. A chat or an agent\nnever applies it, even when the person allowed writes without asking.\nOnly a write tool may set it.",
                     "type": "string"
                 },
+                "approvalOverridable": {
+                    "description": "ApprovalOverridable lets the person relax Approval to \"ask never\" for\nthis tool, and nothing else. The choice is a user setting that the\nmanifest declares under ApprovalSettingKey(Name), with the values\nApprovalAsk and ApprovalSkip and the default ApprovalAsk, so the answer\nis the person's own, written from their own browser session only. The\nhost honors ApprovalSkip only for a call that the person makes in their\nown chat, or that a sender paired with the person's bot makes in a\nmessaging chat. Every other caller, and every call without a chat,\nstill waits for a confirmation. Only a tool with Approval \"always\" may\nset it.",
+                    "type": "boolean"
+                },
                 "description": {
                     "description": "Description is plain text for the model.",
                     "type": "string"
@@ -21992,6 +21996,13 @@
         "schema.ChatsConnectorAccess": {
             "type": "object",
             "properties": {
+                "approvals": {
+                    "description": "Approvals lists the tools of the add-on whose confirmation the owner can\nrelax, and for whom each runs without asking now. Absent when the\nadd-on has none.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorToolApproval"
+                    }
+                },
                 "binding": {
                     "type": "string"
                 },
@@ -22568,6 +22579,30 @@
                     "type": "string"
                 },
                 "prefix": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorToolApproval": {
+            "type": "object",
+            "properties": {
+                "runs_without_asking": {
+                    "description": "RunsWithoutAsking says for whom the tool runs without a confirmation\nnow: owner (the owner's own chats) and paired (a sender paired with the\nbot). Empty when the setting is on ask or the write mode is off. Every\nother sender is still asked.",
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "owner",
+                            "paired"
+                        ]
+                    }
+                },
+                "skip": {
+                    "description": "Skip is true when the owner chose not to be asked for this tool.",
+                    "type": "boolean"
+                },
+                "tool": {
+                    "description": "Tool is the name of the tool inside the add-on.",
                     "type": "string"
                 }
             }
