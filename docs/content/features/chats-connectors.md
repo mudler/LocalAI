@@ -878,9 +878,21 @@ Discord channel) has a trust level, `allow_trust` in the API, a map from the ent
   upgrade never widens trust. It is also the level of an entry that an API client adds
   without `allow_trust`.
 
+On the settings page, **Who can talk to the bot** is one choice, **Only people I choose**
+(the default) or **Anyone who can message it** (`accept_any`, with its warning and
+confirmation). With the first choice the page shows a table of people and a table of
+channels, and one box that adds a name, an `@name` or an ID. Each kind of add-on says what
+an ID is: in Slack, an ID that starts with `C` or `G` is a channel and one that starts with
+`U` or `W` is a person; in Telegram, a negative ID is a group; Discord cannot tell a person
+from a channel by the ID, so it keeps one list, **People and channels**, with the level on
+every entry. A person shows as **Verified** or **Listed**, with **Verify** (which makes the
+pairing code) and **Remove**. A channel has a level, **Answer only** or **Let everyone here ask for
+actions**, and **Remove**. Under the box, the people who wrote to the bot recently and are not
+listed show as buttons that add them. None of this adds a field: the page saves `accept_any`,
+`allow`, `allow_trust` and the pairings as before.
+
 A channel that you add on the settings page starts as `act`: allowing a channel is
-what you expect to let its people use the bot, and the page shows one sentence on what
-it means next to a switch back to **Answer only**. The level counts only for messages
+what you expect to let its people use the bot, and the page shows one sentence under the table: people in a channel act only inside that channel, never in a direct message. The level counts only for messages
 written in that channel. A person who is not listed and writes to the bot in a direct
 message is not trusted by the channel entry. `accept_any` is unchanged: it accepts
 everyone and trusts nobody. The level applies to a group entry only; an `@name` or user

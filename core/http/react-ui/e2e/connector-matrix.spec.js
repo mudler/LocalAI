@@ -147,9 +147,9 @@ for (const width of [1280, 375]) {
       await page.getByTestId('connector-matrix-more-triggers.propose').click()
       await page.getByRole('radio', { name: /^Runs at once: it is set up/ }).check()
       await expect.poll(() => a.s.previews.at(-1)?.body.approval_mode).toBe('auto')
-      await page.getByRole('radio', { name: 'Anyone in the workspace who can message the app' }).check()
+      await page.getByRole('radio', { name: 'Anyone who can message it' }).check()
       await expect(page.getByTestId('connector-matrix').locator('th[data-col="anyone"]')).toHaveCount(1)
-      await page.getByRole('radio', { name: 'Only the people and channels I list' }).check()
+      await page.getByRole('radio', { name: 'Only people I choose' }).check()
       await expect(page.getByTestId('connector-matrix').locator('th[data-col="anyone"]')).toHaveCount(0)
     })
 

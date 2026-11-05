@@ -72,5 +72,5 @@ test('discord: the words say what the anyone mode does and does not give', () =>
   assert.ok(words.answer.conversationHelp.includes('!new'))
   assert.ok(words.setup.step3.includes('Message Content Intent'))
   assert.ok(words.setup.never.includes('Administrator'))
-  for (const key of ['title', 'intro', 'token', 'agent', 'who', 'onlyListed', 'anyone', 'save', 'test', 'testOk']) assert.ok(words[key], key)
+  for (const key of ['title', 'intro', 'token', 'agent', 'save', 'test', 'testOk']) assert.ok(words[key], key)
 })

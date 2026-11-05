@@ -84,7 +84,7 @@ test.describe('Add-on pages in Italian', () => {
     await expect(page.getByTestId('connector-ready-who')).toContainText('1 persona o chat è in elenco.')
     await expect(page.getByTestId('connector-matrix')).toContainText('Chi può fare cosa')
     await expect(page.getByTestId('connector-matrix')).toContainText('Attivo per questo bot')
-    await expect(page.getByTestId('connector-pairing')).toContainText('Persone verificate')
+    await expect(page.getByTestId('connector-pairing')).toContainText('Persone')
     await expect(page.getByTestId('connector-pair-start')).toHaveText('Verifica una persona')
     await page.getByTestId('connector-matrix-more-triggers.propose').click()
     await expect(page.getByTestId('connector-approval')).toContainText('Le esecuzioni possono agire')

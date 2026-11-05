@@ -1,13 +1,11 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 // The rest of what a connection lets its senders do, besides the matrix of
-// who can do what (AccessMatrix): the places the bot may post (talk-back) and
-// the verified people. The host owns the list of capabilities and enforces it
-// on every turn.
-import { useCallback } from 'react'
+// who can do what (AccessMatrix): the places the bot may post (talk-back). The
+// people and channels the bot listens to are in WhoFields. The host owns the
+// list of capabilities and enforces it on every turn.
 import { Field, Hint, Switch, TextInput } from './controls'
 import Icon from '../../host-compat/src/components/Icon'
 import { MAX_CHANNELS, MAX_CHANNEL_ID, MAX_CHANNEL_LABEL, channelsProblem } from './connector'
-import PairingFields from './PairingFields'
 
 function Channels({ form, setForm, s }) {
   const list = form.channels || []
@@ -55,15 +53,11 @@ function Channels({ form, setForm, s }) {
  * @param {object} props.form       the form of the binding
  * @param {Function} props.setForm
  * @param {Function} props.s        the translation function with the defaults
- * @param {Function} props.onPaired called when pairing changed the binding
  */
-export default function PermissionFields({ form, setForm, s, onPaired }) {
-  // What the pairing list is now: the saved one, and what pairing here changes.
-  const pairedHere = useCallback((list) => { onPaired?.(list) }, [onPaired])
+export default function PermissionFields({ form, setForm, s }) {
   return (
     <div className="cn-places" data-testid="connector-permissions">
       <Channels form={form} setForm={setForm} s={s} />
-      <PairingFields binding={form} s={s} onPaired={pairedHere} />
     </div>
   )
 }

@@ -40,22 +40,25 @@ for (const width of [1280, 375]) {
       await connectorApi(page, [BINDING], 'slack', SENDERS, undefined, { kindExtra: ROLES_KIND, access: ACCESS }).install()
     })
 
-    test('the people list, the pairing list and the decisions show the name next to the ID, and the ID alone when no name is known', async ({ page }) => {
+    test('the table of people and the decisions show the name next to the ID, and the ID alone when no name is known', async ({ page }) => {
       await page.goto(PAGE)
       await page.getByRole('button', { name: 'Edit' }).click()
-      const chips = page.getByTestId('connector-allow').or(page.locator('[data-testid^="connector-allow"]')).first()
-      await expect(page.getByRole('list', { name: 'Listed people' })).toContainText('Ada Example · U001')
-      await expect(page.getByRole('list', { name: 'Listed people' })).toContainText('Grace Sample · U002')
-      await expect(page.getByRole('list', { name: 'Listed people' })).toContainText('U009')
-      await expect(page.getByRole('list', { name: 'Listed people' })).not.toContainText('· U009')
-      // A chip keeps its accessible name, the ID, so the button to remove it does not change.
-      await expect(page.getByRole('button', { name: 'U001 ×' })).toBeVisible()
-      await expect(chips).toBeVisible()
-      // The pairing list: the name for a person of the sender log, the ID for the other.
-      const paired = page.getByTestId('connector-paired')
-      await expect(paired).toContainText('Ada Example · U001')
-      await expect(paired.getByRole('listitem').nth(1)).toContainText('U009')
-      await expect(paired.getByRole('listitem').nth(1)).not.toContainText('· ')
+      // The table of people: the name big and the ID small, and the ID alone when no name is known.
+      const row = (id) => page.getByTestId('connector-person-row').and(page.locator(`[data-id="${id}"]`))
+      await expect(row('U001')).toContainText('Ada Example')
+      await expect(row('U001')).toContainText('U001')
+      await expect(row('U002')).toContainText('Grace Sample')
+      await expect(row('U009')).toContainText('U009')
+      await expect(row('U009').locator('.cn-who__name')).toHaveText('U009')
+      await expect(row('U009').locator('.cn-who__id')).toHaveCount(0)
+      // The badge says Verified for a verified person and Listed for the other, and the buttons name the person.
+      await expect(row('U001').getByTestId('connector-person-badge')).toHaveText('Verified')
+      await expect(row('U002').getByTestId('connector-person-badge')).toHaveText('Listed')
+      await expect(row('U001').getByRole('button', { name: 'Remove Ada Example' })).toBeVisible()
+      await expect(row('U009').getByRole('button', { name: 'Remove U009' })).toBeVisible()
+      await expect(row('U002').getByRole('button', { name: 'Verify Grace Sample' })).toBeVisible()
+      // Someone who wrote to the bot and is not listed is offered under the add box, by name.
+      await expect(page.getByTestId('connector-recent-chip')).toHaveText(['Quiet Example · U888', 'Stranger Example · U777'])
       // The decisions: the name the event carried, the chat with its name, and the ID alone for an unknown person.
       const audit = page.getByTestId('connector-audit')
       await expect(audit.getByRole('listitem').nth(0)).toContainText('Ada Example · U001')

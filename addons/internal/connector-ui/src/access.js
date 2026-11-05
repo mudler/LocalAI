@@ -63,7 +63,7 @@ export function connectionTargets(fix, lists = [], form = {}) {
     case 'allow':
       return allowTargets(lists, form)
     case 'trust':
-      return [`${sel('connector-trust')} input`, sel('connector-trust'), sel('connector-who')]
+      return [sel('connector-trust-level'), sel('connector-who-channels'), sel('connector-who')]
     case 'token':
       return ['[data-testid="connector-form"] input[type="password"]', sel('connector-form')]
     case 'save':

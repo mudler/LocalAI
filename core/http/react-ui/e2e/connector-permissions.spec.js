@@ -165,8 +165,8 @@ test.describe('Connector permissions', () => {
     await expect(page.getByTestId('connector-channel-only')).toHaveCount(0)
     await expect(page.getByTestId('connector-ready-who')).toContainText('Only channels are on the list')
     await shot(page, 'perm-8-channel-only')
-    await page.getByRole('textbox', { name: 'Listed people +' }).fill('U001')
-    await page.getByRole('textbox', { name: 'Listed people +' }).press('Enter')
+    await page.getByRole('textbox', { name: 'Add a person or channel' }).fill('U001')
+    await page.getByRole('textbox', { name: 'Add a person or channel' }).press('Enter')
     await expect(page.getByTestId('connector-ready-who')).toHaveAttribute('data-state', 'after_save')
   })
 
@@ -234,27 +234,36 @@ test.describe('Connector permissions', () => {
     await expect(page.getByTestId('connector-channel-add')).toHaveCount(0)
   })
 
-  test('pairing shows the code once, lists paired senders with their expiry and removes one', async ({ page }) => {
-    const a = api(page, [SET])
+  test('Verify shows the code once, marks a verified person with a badge and removes one', async ({ page }) => {
+    const a = api(page, [{ ...SET, allow: ['U001', 'U002'] }])
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
     const box = page.getByTestId('connector-pairing')
-    await expect(box.getByTestId('connector-paired')).toContainText('U001')
-    await expect(box.getByTestId('connector-paired')).toContainText('ends')
-    await box.getByTestId('connector-pair-start').click()
+    const u1 = box.locator('[data-id="U001"]')
+    await expect(u1.getByTestId('connector-person-badge')).toHaveText('Verified')
+    await expect(u1).toContainText('ends')
+    // Only a listed person who is not verified has a Verify button; it starts the pairing, like the one under the table.
+    await expect(u1.getByTestId('connector-verify')).toHaveCount(0)
+    await box.locator('[data-id="U002"]').getByTestId('connector-verify').click()
     await expect(box.getByTestId('connector-pair-code')).toHaveText('LA-K7M2QX9P')
     await expect(box.getByTestId('connector-pair-code-box')).toContainText('shown only now')
+    expect(a.s.calls.filter(c => c.url.endsWith('/pairing')).length).toBe(1)
     await shot(page, 'perm-4-pairing')
     await box.getByRole('button', { name: 'Hide the code' }).click()
     await expect(page.getByText('LA-K7M2QX9P')).toHaveCount(0)
-    await box.getByRole('button', { name: 'Remove the verification of U001' }).click()
-    await expect(box).toContainText('Nobody is verified.')
+    await box.getByTestId('connector-pair-start').click()
+    await expect(box.getByTestId('connector-pair-code')).toHaveText('LA-K7M2QX9P')
+    // Remove takes the person off the list and ends the verification.
+    await u1.getByRole('button', { name: 'Remove U001' }).click()
+    await expect(u1).toHaveCount(0)
     expect(a.s.calls.some(c => c.method === 'DELETE' && c.url === '/api/chats/connectors/b1/paired/U001')).toBe(true)
     // The page never puts the code in a request body of a save.
     await page.getByRole('button', { name: 'Save' }).click()
     await expect.poll(() => a.s.calls.some(c => c.method === 'PUT')).toBe(true)
-    expect(JSON.stringify(a.s.calls.find(c => c.method === 'PUT').body)).not.toContain('LA-K7M2QX9P')
+    const put = a.s.calls.find(c => c.method === 'PUT').body
+    expect(put.allow).toEqual(['U002'])
+    expect(JSON.stringify(put)).not.toContain('LA-K7M2QX9P')
   })
 
   test('a new binding explains that pairing needs a saved one', async ({ page }) => {
@@ -775,27 +784,25 @@ test.describe('Connector permissions', () => {
   test.describe('channels where the bot listens', () => {
     const STORED = { ...SET, allow: ['U001', 'C0123'], caps: ['files.upload', 'memory.write', 'talkback.channels'] }
 
-    test('a channel that is added starts as Let everyone here ask for actions, and the choice goes back to Answer only', async ({ page }) => {
+    test('a channel that is added starts as Let everyone here ask for actions, and the level goes back to Answer only', async ({ page }) => {
       const a = api(page, [{ ...SET, allow: ['U001'], caps: ['files.upload', 'memory.write'] }])
       await a.install()
       await page.goto(PAGE)
       await page.getByRole('button', { name: 'Edit' }).click()
-      await page.getByRole('textbox', { name: 'Listed channels +' }).fill('C0555')
-      await page.getByRole('textbox', { name: 'Listed channels +' }).press('Enter')
+      await page.getByRole('textbox', { name: 'Add a person or channel' }).fill('C0555')
+      await page.getByRole('textbox', { name: 'Add a person or channel' }).press('Enter')
       const row = page.getByTestId('connector-trust-row')
       await expect(row).toHaveCount(1)
       await expect(row).toHaveAttribute('data-level', 'act')
-      await expect(row.getByRole('radio', { name: 'Let everyone here ask for actions' })).toBeChecked()
-      await expect(page.getByTestId('connector-trust-effect')).toContainText('Anyone who can post here can make the bot read their files')
-      await expect(page.getByTestId('connector-trust-effect')).toContainText('Sensitive things still need a verified person')
+      const level = row.getByTestId('connector-trust-level')
+      await expect(level).toHaveValue('act')
+      await expect(level.locator('option')).toHaveText(['Answer only', 'Let everyone here ask for actions'])
+      await expect(page.getByTestId('connector-who-channels-note')).toHaveText('People in a channel can act only inside that channel, never in a direct message.')
       await shot(page, 'trust-1-new-channel-act')
       await shotOf(page.getByTestId('connector-who'), 'trust-1b-who-section')
-      await shotOf(page.getByTestId('connector-trust'), 'trust-1c-channels-section')
-      await row.getByRole('radio', { name: 'Answer only' }).check()
+      await level.selectOption('answer')
       await expect(row).toHaveAttribute('data-level', 'answer')
-      await expect(page.getByTestId('connector-trust-effect')).toContainText('only listed people can ask for actions')
       await shot(page, 'trust-2-answer-only')
-      await shotOf(page.getByTestId('connector-trust'), 'trust-2b-channels-answer-only')
       await page.getByRole('button', { name: 'Save' }).click()
       await expect.poll(() => a.s.calls.some((c) => c.method === 'PUT')).toBe(true)
       expect(a.s.calls.find((c) => c.method === 'PUT').body.allow_trust).toEqual({ C0555: 'answer' })
@@ -806,8 +813,7 @@ test.describe('Connector permissions', () => {
       await a.install()
       await page.goto(PAGE)
       await page.getByRole('button', { name: 'Edit' }).click()
-      const row = page.getByTestId('connector-trust-row')
-      await expect(row).toHaveAttribute('data-level', 'answer')
+      await expect(page.getByTestId('connector-trust-level')).toHaveValue('answer')
       await shot(page, 'trust-3-stored-channel')
       await shotOf(page.getByTestId('connector-channels'), 'trust-3c-where-it-may-post')
       await page.getByRole('button', { name: 'Save' }).click()
@@ -825,25 +831,18 @@ test.describe('Connector permissions', () => {
       await expect(box).not.toContainText('Approved')
     })
 
-    test('with no permission ticked the page says files are still refused', async ({ page }) => {
-      await api(page, [{ ...STORED, caps: [], allow_trust: { C0123: 'act' } }]).install()
-      await page.goto(PAGE)
-      await page.getByRole('button', { name: 'Edit' }).click()
-      await expect(page.getByTestId('connector-trust-nocaps')).toContainText('No permission is ticked on this connection')
-    })
-
-    test('the channel rows do not overflow a 320 px screen', async ({ page }) => {
+    test('the people and channel rows do not overflow a 320 px screen', async ({ page }) => {
       await page.setViewportSize({ width: 320, height: 800 })
       await api(page, [{ ...STORED, allow: ['U001', 'C0123', 'C0456'], allow_trust: { C0456: 'act' } }]).install()
       await page.goto(PAGE)
       await page.getByRole('button', { name: 'Edit' }).click()
       await expect(page.getByTestId('connector-trust-row')).toHaveCount(2)
       // Only the section of this change is measured: the matrix has its own scroll box.
-      const over = await page.evaluate(() => [...document.querySelectorAll('[data-testid="connector-trust"], [data-testid="connector-trust"] *')]
+      const over = await page.evaluate(() => [...document.querySelectorAll('[data-testid="connector-who"], [data-testid="connector-who"] *')]
         .filter((e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 1).map((e) => e.tagName + '.' + String(e.className)))
-      expect(over, 'elements of the channel section wider than the screen').toEqual([])
+      expect(over, 'elements of the who section wider than the screen').toEqual([])
       await shot(page, 'trust-4-320px')
-      await shotOf(page.getByTestId('connector-trust'), 'trust-4b-320px-channels')
+      await shotOf(page.getByTestId('connector-who'), 'trust-4b-320px-who')
     })
 
     test('a refusal of a sender who came in through a channel offers List this person', async ({ page }) => {

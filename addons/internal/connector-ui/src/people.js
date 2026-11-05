@@ -30,3 +30,20 @@ export function chatText(chat, chatName) {
   if (!chat) return chatName || ''
   return chatName && chatName !== chat ? `${chatName} (${chat})` : chat
 }
+
+// The names of the chats that people wrote from, by chat ID, from a sender log.
+export function chatNamesFrom(senders) {
+  const m = new Map()
+  for (const s of senders || []) if (s?.chat && s.chat_name && s.chat_name !== s.chat) m.set(s.chat, s.chat_name)
+  return m
+}
+
+// The people of a sender log who are not on the list yet, newest first, at most max.
+export function recentPeople(senders, listed, max = 8) {
+  const on = new Set(listed || [])
+  return [...(senders || [])]
+    .filter((s) => s?.id && !on.has(s.id))
+    .sort((a, b) => String(b.last || '').localeCompare(String(a.last || '')))
+    .slice(0, max)
+    .map((s) => ({ id: s.id, name: s.name && s.name !== s.id ? s.name : '' }))
+}
