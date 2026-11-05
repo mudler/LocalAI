@@ -886,6 +886,7 @@ definitions:
     - skill
     - page
     - dashboard
+    - knowledge
     type: string
     x-enum-varnames:
     - ChangeMemory
@@ -893,6 +894,7 @@ definitions:
     - ChangeSkill
     - ChangePage
     - ChangeDashboard
+    - ChangeKnowledge
   contract.ChangeProposal:
     properties:
       agent:
@@ -6468,6 +6470,17 @@ definitions:
         example: memory
         type: string
     type: object
+  schema.ChatsMemoryForget:
+    properties:
+      done:
+        description: |-
+          Done is true when the provider forgot. Otherwise the change waits for you
+          to confirm it on the Add-ons page.
+        type: boolean
+      proposal:
+        description: Proposal names the change that waits.
+        type: string
+    type: object
   schema.ChatsMemoryRequest:
     properties:
       enabled:
@@ -6774,6 +6787,24 @@ definitions:
         example: Built-in
         type: string
     type: object
+  schema.ChatsProviderHealth:
+    properties:
+      cooling_down:
+        description: CoolingDown is true while the host does not call the provider.
+        type: boolean
+      last:
+        description: |-
+          Last is the outcome of the failure that stopped the calls: failed,
+          timeout or bad_result.
+        example: timeout
+        type: string
+      notice:
+        description: Notice is a plain sentence for the person.
+        type: string
+      retry_at:
+        description: RetryAt is when the host calls the provider again (RFC 3339).
+        type: string
+    type: object
   schema.ChatsProviderRequest:
     properties:
       provider:
@@ -6822,6 +6853,12 @@ definitions:
     properties:
       description:
         type: string
+      health:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsProviderHealth'
+        description: |-
+          Health says when the host leaves the provider alone after repeated
+          failures. Absent while the provider answers.
       id:
         example: memory
         type: string
@@ -18243,6 +18280,50 @@ paths:
       tags:
       - chats
   /api/chats/memory:
+    delete:
+      description: 'Calls the forget tool of the add-on you picked as the provider
+        of your memory. scope (user, agent or channel) and key narrow it to one group;
+        empty forgets everything the provider keeps. resource names the resource the
+        tool works on, when it has one. The change is applied at once, or stored as
+        a proposal that you confirm on the Add-ons page (done is false then). The
+        built-in provider has none: delete its notes in Files. 404 when the provider
+        has no forget, 503 while the host leaves a failing provider alone, 502 when
+        it does not answer.'
+      parameters:
+      - description: user, agent or channel
+        in: query
+        name: scope
+        type: string
+      - description: the agent ID or the conversation folder, with scope
+        in: query
+        name: key
+        type: string
+      - description: the resource the forget tool works on
+        in: query
+        name: resource
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: What the provider did
+          schema:
+            $ref: '#/definitions/schema.ChatsMemoryForget'
+        "404":
+          description: No forget
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "502":
+          description: The provider did not answer
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: The provider is resting
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Forget notes at the provider that serves your memory.
+      tags:
+      - chats
     get:
       description: 'Memory is the short notes the assistant reads before it answers
         and may save. enabled is the switch for all your chats and agents: a private

@@ -13,6 +13,10 @@ import (
 var memoryRules = []errRule{
 	fixed(http.StatusServiceUnavailable, "unavailable", "the memory settings cannot be stored on this server", studiosvc.ErrMemorySettings),
 	fixed(http.StatusNotFound, typeNotFound, "there are no notes to export", studiosvc.ErrNoNotes),
+	fixed(http.StatusNotFound, typeNotFound, "this provider has no export; use its own site", studiosvc.ErrProviderNoExport),
+	fixed(http.StatusNotFound, typeNotFound, "this provider has no forget; delete the notes in Files, or use its own site", studiosvc.ErrNoForget, studiosvc.ErrProviderNoRole),
+	fixed(http.StatusServiceUnavailable, "unavailable", "the provider is resting after repeated failures; try again in a minute", studiosvc.ErrProviderCoolingDown),
+	fixed(http.StatusBadGateway, typeUpstream, "the provider did not answer", studiosvc.ErrProviderCall),
 }
 
 func failMemory(c echo.Context, err error) error { return mapErr(c, err, memoryRules, failFor) }
@@ -83,4 +87,25 @@ func (h *Handlers) ExportMemory(c echo.Context) error {
 	}
 	c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="memory-notes.zip"`)
 	return c.Blob(http.StatusOK, "application/zip", buf.Bytes())
+}
+
+// ForgetMemory asks the provider that serves your memory to forget notes.
+// @Summary Forget notes at the provider that serves your memory.
+// @Description Calls the forget tool of the add-on you picked as the provider of your memory. scope (user, agent or channel) and key narrow it to one group; empty forgets everything the provider keeps. resource names the resource the tool works on, when it has one. The change is applied at once, or stored as a proposal that you confirm on the Add-ons page (done is false then). The built-in provider has none: delete its notes in Files. 404 when the provider has no forget, 503 while the host leaves a failing provider alone, 502 when it does not answer.
+// @Tags chats
+// @Produce json
+// @Param scope query string false "user, agent or channel"
+// @Param key query string false "the agent ID or the conversation folder, with scope"
+// @Param resource query string false "the resource the forget tool works on"
+// @Success 200 {object} schema.ChatsMemoryForget "What the provider did"
+// @Failure 404 {object} schema.ErrorResponse "No forget"
+// @Failure 502 {object} schema.ErrorResponse "The provider did not answer"
+// @Failure 503 {object} schema.ErrorResponse "The provider is resting"
+// @Router /api/chats/memory [delete]
+func (h *Handlers) ForgetMemory(c echo.Context) error {
+	r, err := h.svc.ForgetMemory(c.Request().Context(), userID(c), c.QueryParam("scope"), c.QueryParam("key"), c.QueryParam("resource"))
+	if err != nil {
+		return failMemory(c, err)
+	}
+	return c.JSON(http.StatusOK, schema.ChatsMemoryForget{Done: r.Done, Proposal: r.Proposal})
 }

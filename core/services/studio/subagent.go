@@ -139,7 +139,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// The agent's profile and the index of the user's notes follow the persona.
 	// The first is the user's standing rules for this agent; the second points
 	// the model at context_read.
-	var notes, notesKey string
+	var notes, notesKey, turnContext, providerNote string
 	if !sub {
 		sets := s.addonContextSets(ctx, a.Principal)
 		legacy := legacyMemoryOf(sets)
@@ -164,6 +164,10 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		}
 		notes, notesKey = s.contextTurnFor(ctx, rec, tools, extra, !(legacy.Installed && legacy.Running))
 		tools = append(tools, s.contextTools(rec, tools, extra)...)
+		// A provider that serves the notes answers for this message: its text
+		// goes in front of the message, not in the prompt, so a text that
+		// changes with each message does not restart the harness.
+		turnContext, providerNote = s.providerContext(ctx, rec, sc, legacy)
 		if st := s.memoryState(ctx, rec, legacy); !st.On && st.Code != MemoryOffFiles {
 			// Off: the model hears it in one line, and has no note and no tool.
 			line := memoryOffLine(st)
@@ -188,6 +192,9 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	}
 	if fallback != "" {
 		note = strings.TrimSpace(note + " " + fallback)
+	}
+	if providerNote != "" {
+		note = strings.TrimSpace(providerNote + " " + note)
 	}
 	if !sub && !hidden[spawnAgentName] {
 		// The agent argument is offered only when list_agents is: the chat
@@ -282,7 +289,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// The action policy of a run that nobody watches: the tools that change
 	// files or run commands on this machine are checked at each call.
 	tools = s.gateBuiltinActs(ctx, rec, tools)
-	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey + "\x00" + notesKey}, nil
+	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, Context: turnContext, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey + "\x00" + notesKey}, nil
 }
 
 // spawnTool is spawn_agent for the chat of x: a generic sub-agent gets

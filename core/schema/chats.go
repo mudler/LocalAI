@@ -1977,6 +1977,31 @@ type ChatsProviderSlot struct {
 	OffMeans   string                  `json:"off_means,omitempty"`
 	Providers  []ChatsProvider         `json:"providers"`
 	Resolution ChatsProviderResolution `json:"resolution"`
+	// Health says when the host leaves the provider alone after repeated
+	// failures. Absent while the provider answers.
+	Health *ChatsProviderHealth `json:"health,omitempty"`
+}
+
+// ChatsProviderHealth is the circuit breaker of the provider that serves a slot.
+type ChatsProviderHealth struct {
+	// CoolingDown is true while the host does not call the provider.
+	CoolingDown bool `json:"cooling_down"`
+	// RetryAt is when the host calls the provider again (RFC 3339).
+	RetryAt string `json:"retry_at,omitempty"`
+	// Last is the outcome of the failure that stopped the calls: failed,
+	// timeout or bad_result.
+	Last string `json:"last,omitempty" example:"timeout"`
+	// Notice is a plain sentence for the person.
+	Notice string `json:"notice,omitempty"`
+}
+
+// ChatsMemoryForget is what a forget of the provider that serves your memory did.
+type ChatsMemoryForget struct {
+	// Done is true when the provider forgot. Otherwise the change waits for you
+	// to confirm it on the Add-ons page.
+	Done bool `json:"done"`
+	// Proposal names the change that waits.
+	Proposal string `json:"proposal,omitempty"`
 }
 
 // ChatsProvider is one provider you can pick for a slot.

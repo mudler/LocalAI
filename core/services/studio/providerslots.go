@@ -125,6 +125,9 @@ type SlotView struct {
 	OffMeans   string         `json:"off_means,omitempty"`
 	Providers  []ProviderView `json:"providers"`
 	Resolution SlotResolution `json:"resolution"`
+	// Health says when the host leaves the provider alone after repeated
+	// failures, with a plain notice. Zero while the provider answers.
+	Health ProviderHealth `json:"health"`
 }
 
 // slotWiring is what a slot brings to the generic code.
@@ -201,6 +204,8 @@ func (s *Service) resolveSlot(ctx context.Context, user, slot string, legacy fun
 			out.Selected = lv
 		}
 	}
+	// An add-on the built-in provider stands in for means the built-in one.
+	out.Selected = desc.Canonical(out.Selected)
 	switch out.Selected {
 	case contract.ProviderBuiltin:
 		out.Active = contract.ProviderBuiltin
@@ -248,6 +253,13 @@ func declares(list []contract.ProviderDeclaration, slot string) bool {
 	return slices.ContainsFunc(list, func(d contract.ProviderDeclaration) bool { return d.Slot == slot })
 }
 
+// isSlotAlias reports an add-on that the built-in provider of the slot stands
+// in for. It is never listed as a provider and never serves.
+func isSlotAlias(slot, addonID string) bool {
+	desc, ok := contract.ProviderSlotByID(slot)
+	return ok && desc.IsAlias(addonID)
+}
+
 // ProviderSlots lists the slots of the host with their providers and the
 // choice in force for a person.
 func (s *Service) ProviderSlots(ctx context.Context, user string) ([]SlotView, error) {
@@ -273,7 +285,8 @@ func (s *Service) ProviderSlot(ctx context.Context, user, slot string) (SlotView
 
 func (s *Service) slotView(ctx context.Context, user string, desc contract.ProviderSlot) (SlotView, error) {
 	res := s.ResolveProvider(ctx, user, desc.ID)
-	view := SlotView{ID: desc.ID, Version: desc.Version, Title: desc.Title, Description: desc.Description, OffMeans: desc.Selection.OffMeans, Resolution: res}
+	view := SlotView{ID: desc.ID, Version: desc.Version, Title: desc.Title, Description: desc.Description, OffMeans: desc.Selection.OffMeans, Resolution: res,
+		Health: s.providerHealthOf(desc.ID, res)}
 	view.Providers = append(view.Providers, ProviderView{ID: contract.ProviderBuiltin, Title: desc.Builtin.Title, Description: desc.Builtin.Description,
 		Kind: "builtin", Available: true, Selected: res.Selected == contract.ProviderBuiltin})
 	sets, err := s.providerSets(ctx, user)
@@ -283,7 +296,7 @@ func (s *Service) slotView(ctx context.Context, user string, desc contract.Provi
 	listed := false
 	for _, set := range sets {
 		for _, d := range set.Provides {
-			if d.Slot != desc.ID {
+			if d.Slot != desc.ID || desc.IsAlias(set.AddonID) {
 				continue
 			}
 			p := ProviderView{ID: set.AddonID, Title: set.Title, Description: set.Description, Kind: "addon", Available: set.Running,
@@ -322,6 +335,7 @@ func (s *Service) SelectProvider(ctx context.Context, user, slot, id string) (Sl
 	if !ok {
 		return SlotView{}, ErrUnknownSlot
 	}
+	id = desc.Canonical(id)
 	switch id {
 	case contract.ProviderBuiltin:
 	case contract.ProviderOff:
@@ -361,6 +375,15 @@ type providerGate struct {
 	declared map[string]bool            // add-ons that declare a slot
 	serving  map[string]bool            // add-ons that serve one of their slots now
 	roles    map[string]map[string]bool // add-on -> full names of the tools of its roles
+	// filled says which role of which slot a tool of an add-on that serves
+	// fills: add-on -> full tool name -> role.
+	filled map[string]map[string]providerRoleRef
+}
+
+// roleOf returns the role a tool fills while its add-on serves the slot.
+func (g providerGate) roleOf(addonID, tool string) (providerRoleRef, bool) {
+	r, ok := g.filled[addonID][tool]
+	return r, ok && g.serving[addonID]
 }
 
 // contributes reports whether the add-on's files and skills count.
@@ -376,7 +399,7 @@ func (g providerGate) hidden(addonID, tool string) bool {
 // providerGateFor reads the providers once for a turn. rec, when it is not
 // nil, narrows the slots a chat turns off for itself.
 func (s *Service) providerGateFor(ctx context.Context, user string, rec *session.ChatRecord) providerGate {
-	g := providerGate{declared: map[string]bool{}, serving: map[string]bool{}, roles: map[string]map[string]bool{}}
+	g := providerGate{declared: map[string]bool{}, serving: map[string]bool{}, roles: map[string]map[string]bool{}, filled: map[string]map[string]providerRoleRef{}}
 	sets, err := s.providerSets(ctx, user)
 	if err != nil {
 		// Cannot tell: every add-on that might declare a slot is held back, and
@@ -388,10 +411,12 @@ func (s *Service) providerGateFor(ctx context.Context, user string, rec *session
 	for _, set := range sets {
 		g.declared[set.AddonID] = true
 		g.roles[set.AddonID] = map[string]bool{}
+		g.filled[set.AddonID] = map[string]providerRoleRef{}
 		for _, d := range set.Provides {
-			for _, tools := range d.Roles {
+			for role, tools := range d.Roles {
 				for _, t := range tools {
 					g.roles[set.AddonID][roleToolName(set.AddonID, t)] = true
+					g.filled[set.AddonID][roleToolName(set.AddonID, t)] = providerRoleRef{Slot: d.Slot, Role: role, Props: d.Properties}
 				}
 			}
 			res, ok := resolved[d.Slot]

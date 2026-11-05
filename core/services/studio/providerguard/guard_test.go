@@ -64,6 +64,7 @@ const (
 
 var allowed = []entry{
 	{ui + "hooks/useToolGroups.js", "memory", "the switch group of the built-in memory"},
+	{ui + "utils/agentPresets.js", "'memory'", "the switch group of the built-in memory in the agent presets"},
 	{ui + "utils/memoryState.js", "memory", "the switch group of the built-in memory"},
 	// The memory choice of an agent and the notes list belong to the built-in.
 	{ui + "utils/memoryFiles.js", "memory", "the source of the built-in notes in the list of context files"},
@@ -75,6 +76,7 @@ var allowed = []entry{
 	// host ignores its copies.
 	{"core/services/studio/memory.go", `memory`, "the id the retired Memory add-on had; the host serves its index files and skills itself"},
 	{"core/services/studio/builtins/builtins.go", `memory`, "the switch group of the built-in memory"},
+	{"pkg/addons/providerconformance/conformance.go", `memory`, "the id of the notes slot, which the suite tests; it equals the id of the retired add-on"},
 	{"pkg/addons/contract/skills.go", `memory`, "the two memory skills are built in; the retired add-on may still declare them"},
 
 	// Third-party services: the login, the release source, the token issuer.

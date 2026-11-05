@@ -7107,6 +7107,62 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "description": "Calls the forget tool of the add-on you picked as the provider of your memory. scope (user, agent or channel) and key narrow it to one group; empty forgets everything the provider keeps. resource names the resource the tool works on, when it has one. The change is applied at once, or stored as a proposal that you confirm on the Add-ons page (done is false then). The built-in provider has none: delete its notes in Files. 404 when the provider has no forget, 503 while the host leaves a failing provider alone, 502 when it does not answer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Forget notes at the provider that serves your memory.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "user, agent or channel",
+                        "name": "scope",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "the agent ID or the conversation folder, with scope",
+                        "name": "key",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "the resource the forget tool works on",
+                        "name": "resource",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "What the provider did",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMemoryForget"
+                        }
+                    },
+                    "404": {
+                        "description": "No forget",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "The provider did not answer",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The provider is resting",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/chats/memory/export": {
@@ -16941,14 +16997,16 @@ const docTemplate = `{
                 "profile",
                 "skill",
                 "page",
-                "dashboard"
+                "dashboard",
+                "knowledge"
             ],
             "x-enum-varnames": [
                 "ChangeMemory",
                 "ChangeProfile",
                 "ChangeSkill",
                 "ChangePage",
-                "ChangeDashboard"
+                "ChangeDashboard",
+                "ChangeKnowledge"
             ]
         },
         "contract.ChangeProposal": {
@@ -24183,6 +24241,19 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsMemoryForget": {
+            "type": "object",
+            "properties": {
+                "done": {
+                    "description": "Done is true when the provider forgot. Otherwise the change waits for you\nto confirm it on the Add-ons page.",
+                    "type": "boolean"
+                },
+                "proposal": {
+                    "description": "Proposal names the change that waits.",
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsMemoryRequest": {
             "type": "object",
             "properties": {
@@ -24573,6 +24644,28 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsProviderHealth": {
+            "type": "object",
+            "properties": {
+                "cooling_down": {
+                    "description": "CoolingDown is true while the host does not call the provider.",
+                    "type": "boolean"
+                },
+                "last": {
+                    "description": "Last is the outcome of the failure that stopped the calls: failed,\ntimeout or bad_result.",
+                    "type": "string",
+                    "example": "timeout"
+                },
+                "notice": {
+                    "description": "Notice is a plain sentence for the person.",
+                    "type": "string"
+                },
+                "retry_at": {
+                    "description": "RetryAt is when the host calls the provider again (RFC 3339).",
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsProviderRequest": {
             "type": "object",
             "properties": {
@@ -24630,6 +24723,14 @@ const docTemplate = `{
             "properties": {
                 "description": {
                     "type": "string"
+                },
+                "health": {
+                    "description": "Health says when the host leaves the provider alone after repeated\nfailures. Absent while the provider answers.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsProviderHealth"
+                        }
+                    ]
                 },
                 "id": {
                     "type": "string",

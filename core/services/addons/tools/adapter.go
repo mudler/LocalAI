@@ -216,6 +216,25 @@ func WithConnection(ctx context.Context, bindingID string) context.Context {
 	return gateway.WithConnection(ctx, bindingID)
 }
 
+type holdKey struct{}
+
+// HoldForPerson returns a context for a call whose write must wait for a
+// person: the adapter stores the proposal and returns it, and does not apply
+// it, even for a chat that applies its writes at once. The host sets it when a
+// rule of its own, such as the save level of a person, says the write needs a
+// confirmation. A read tool is not affected.
+func HoldForPerson(ctx context.Context) context.Context {
+	return context.WithValue(ctx, holdKey{}, true)
+}
+
+// HeldForPerson reports whether HoldForPerson marked the context.
+func HeldForPerson(ctx context.Context) bool { return heldForPerson(ctx) }
+
+func heldForPerson(ctx context.Context) bool {
+	v, _ := ctx.Value(holdKey{}).(bool)
+	return v
+}
+
 // NoCredentialNote is what the model is told when the person has no credential for the add-on.
 const NoCredentialNote = "The person has not connected this add-on yet, so nothing was sent. Tell them to add a connection on the add-on page. Do not repeat the call and do not report an outage."
 
@@ -956,7 +975,7 @@ func (t *ToolAdapter) executeTool(ctx context.Context, actor contract.Actor, con
 	if err != nil {
 		return refusedResult(name, err)
 	}
-	if t.apply != nil && !p.AwaitsPerson {
+	if t.apply != nil && !p.AwaitsPerson && !heldForPerson(ctx) {
 		return t.applyNow(ctx, actor, name, p)
 	}
 	ref := ProposalRef{ID: p.ID, AddonID: p.AddonID, ResourceID: p.ResourceID, Action: p.Action, Digest: p.Digest,

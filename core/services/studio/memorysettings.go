@@ -131,6 +131,10 @@ var ErrNoNotes = errors.New("studio: there are no notes to export")
 // agent ID; channel and the folder name); empty exports all. It works while
 // memory is off: the notes belong to the person.
 func (s *Service) ExportMemory(ctx context.Context, user string, w io.Writer, scope, key string) (int, error) {
+	// A provider that serves the notes keeps them: its export is the export.
+	if res := s.memoryResolution(ctx, user, legacyMemoryOf(s.addonContextSets(ctx, user))); res.Addon() != "" {
+		return s.exportFromProvider(ctx, user, res, w)
+	}
 	list, err := s.ListContextFiles(ctx, user)
 	if err != nil {
 		return 0, err

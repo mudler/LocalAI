@@ -184,6 +184,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/memory", h.GetMemory)
 	e.PUT(base+"/memory", h.PutMemory)
 	e.GET(base+"/memory/export", h.ExportMemory)
+	e.DELETE(base+"/memory", h.ForgetMemory)
 	e.GET(base+"/providers", h.ListProviders)
 	e.GET(base+"/providers/:slot", h.GetProvider)
 	e.PUT(base+"/providers/:slot", h.PutProvider)

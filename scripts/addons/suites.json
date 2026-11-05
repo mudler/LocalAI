@@ -513,7 +513,9 @@
           "accepts undo by the add-on when it keeps change sets",
           "refuses a repeated slot and more slots than the bound",
           "limits the context files to the scopes the slot allows",
-          "keeps api 2 as the only manifest api"
+          "keeps api 2 as the only manifest api",
+          "refuses a remote provider that does not declare its network access",
+          "keeps an alias of the built-in provider out of the providers and maps it to the built-in"
         ]
       },
       {
@@ -1857,7 +1859,8 @@
           "mounts the first at home and the others by name, each capped by the fence",
           "skips a folder outside the fence instead of widening it",
           "names two folders with the same name apart and never takes a reserved name",
-          "refuses a path that climbs out of a mounted folder"
+          "refuses a path that climbs out of a mounted folder",
+          "gives the hook the message and puts the block in front of it for this turn only"
         ]
       }
     ]

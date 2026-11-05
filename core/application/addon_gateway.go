@@ -726,6 +726,16 @@ func (l lateStudioAddons) Call(ctx context.Context, user, conv, name string, arg
 	return b.Call(ctx, user, conv, name, args)
 }
 
+// CallProvider runs a tool of a provider for a call that no chat made (see
+// studio.AddonProviderCaller).
+func (l lateStudioAddons) CallProvider(ctx context.Context, user, name string, args json.RawMessage) (string, error) {
+	b, ok := l.a.StudioAddonTools().(studio.AddonProviderCaller)
+	if !ok {
+		return "", gateway.ErrUnavailable
+	}
+	return b.CallProvider(ctx, user, name, args)
+}
+
 type studioAddons struct {
 	adapter *addontools.ToolAdapter
 	mode    string
@@ -1062,6 +1072,21 @@ func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args j
 	// workspace operations act with the chat's access (a chat whose agent has
 	// a folder reaches only that folder), for every tool kind.
 	res, err := s.adapter.ExecuteChat(ctx, actor, addontools.NewChatCall(user, conv), name, args)
+	if err != nil {
+		return "", err
+	}
+	return studioAddonText(res), nil
+}
+
+// CallProvider runs one tool of an add-on as the person, outside any chat: the
+// export and the forget of a provider come from the settings page. The call is
+// not bound to a chat, so a tool that works on a resource names it.
+func (s *studioAddons) CallProvider(ctx context.Context, user, name string, args json.RawMessage) (string, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return "", err
+	}
+	res, err := s.adapter.Execute(ctx, actor, name, args)
 	if err != nil {
 		return "", err
 	}

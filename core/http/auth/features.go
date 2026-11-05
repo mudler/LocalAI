@@ -110,6 +110,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/chats/memory", FeatureChats},
 	{"PUT", "/api/chats/memory", FeatureChats},
 	{"GET", "/api/chats/memory/export", FeatureChats},
+	{"DELETE", "/api/chats/memory", FeatureChats},
 	{"GET", "/api/chats/providers", FeatureChats},
 	{"GET", "/api/chats/providers/:slot", FeatureChats},
 	{"PUT", "/api/chats/providers/:slot", FeatureChats},
