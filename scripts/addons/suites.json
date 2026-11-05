@@ -502,7 +502,96 @@
           "the header is used without an explicit language",
           "translates only a kind that the manifest declares",
           "translates only a text that the English kind has",
-          "zh finds zh-CN"
+          "zh finds zh-CN",
+          "query",
+          "backslash",
+          "backslash",
+          "carry the scopes the host holds and round-trip",
+          "are omitted when empty",
+          "are bounded in count, size and shape",
+          "is valid in a slot of kind oauth2",
+          "is required for kind oauth2 and refused for kind token",
+          "round-trips through the strict manifest parser and refuses unknown fields",
+          "empty authorize URL",
+          "empty token URL",
+          "http",
+          "user info",
+          "empty query mark",
+          "fragment",
+          "IPv4 literal",
+          "IPv6 literal",
+          "other port",
+          "upper-case host",
+          "host outside the patterns",
+          "space",
+          "space",
+          "accepts port 443",
+          "allows the revoke URL to be absent",
+          "none",
+          "five",
+          "upper case",
+          "wildcard of one label",
+          "bare wildcard",
+          "wildcard in the middle",
+          "wildcard without dot",
+          "port",
+          "IP address",
+          "empty label",
+          "leading hyphen",
+          "repeat",
+          "repeat",
+          "hex number",
+          "dotted hex",
+          "decimal number",
+          "short dotted form",
+          "dotted octal",
+          "localhost",
+          "localhost with a trailing dot",
+          "a name under localhost",
+          "a trailing dot",
+          "one label",
+          "a numeric label",
+          "a hex label",
+          "a numeric top-level label",
+          "a top-level label with digits",
+          "accepts registrable names, punycode top-level labels and labels that only start with digits",
+          "matches a wildcard against exactly one label before the suffix",
+          "17 required",
+          "17 optional",
+          "overlap",
+          "empty token",
+          "quote",
+          "non-ASCII",
+          "129 bytes",
+          "accepts 16 of each, 128 bytes and URL-like scopes",
+          "accepts no scope at all",
+          "accepts only S256 as the PKCE method",
+          "accepts the three client authentications and no other",
+          "accepts the names of the closed registry",
+          "an unknown name",
+          "client_id",
+          "client_secret",
+          "redirect_uri",
+          "response_type",
+          "scope",
+          "state",
+          "code",
+          "code_challenge",
+          "code_challenge_method",
+          "grant_type",
+          "access_type other than offline",
+          "include_granted_scopes other than true",
+          "a value with a space",
+          "a value with an ampersand",
+          "an empty value",
+          "a value of 129 bytes",
+          "a repeated name",
+          "five parameters",
+          "keeps every protocol name out of the registry",
+          "is stable across field order, whitespace and list order",
+          "changes with every field",
+          "does not move a scope from one list to the other unseen",
+          "treats a missing and an empty list alike"
         ]
       },
       {
@@ -742,7 +831,15 @@
           "translates the title and the description of talk in every main language",
           "translates the title and the description of telegram in every main language",
           "translates the title and the description of voice in every main language",
-          "translates the title and the description of web in every main language"
+          "translates the title and the description of web in every main language",
+          "audits actual host calls and strict package contract for gdrive",
+          "audits actual host calls and strict package contract for gmail",
+          "has consistent package files for gdrive",
+          "has consistent package files for gmail",
+          "translates the title and the description of gdrive in every main language",
+          "translates the title and the description of gmail in every main language",
+          "gives every translated connector kind of gdrive the fields of its English kind, and no others",
+          "gives every translated connector kind of gmail the fields of its English kind, and no others"
         ]
       },
       {
@@ -866,7 +963,9 @@
       "carries the translated title and description of an entry through the library",
       "finds an entry by its translated text as well as by the English text",
       "keeps a plain entry free of translation fields on the wire",
-      "rejects translations that the manifest would refuse"
+      "rejects translations that the manifest would refuse",
+      "is true only for the official ID at an address the shipped library has used",
+      "is false for an entry of another library, even when the index claims otherwise"
     ],
     "report": ".cache/addons/logs/catalog.json"
   },
@@ -1204,7 +1303,10 @@
           "opens an endpoint for a declared operation that is not granted, and a later grant works with no restart",
           "types the add-on's own 429 answer with its wait, never as an outage",
           "keeps the wait between one second and the bound",
-          "leaves a 429 with another body an outage: only the add-on's own word counts"
+          "leaves a 429 with another body an outage: only the add-on's own word counts",
+          "types a 401 credential_rejected answer, never as an outage",
+          "keeps a 401 with another reason, or none, an outage",
+          "does not read the reason on another status as a rejection"
         ]
       },
       {
@@ -1241,7 +1343,8 @@
           "exits when the owner closes the startup channel",
           "still exits when the runtime does not return in time",
           "exits at once for a runtime with nothing to close",
-          "answers 429 with the wait in Retry-After and a fixed body"
+          "answers 429 with the wait in Retry-After and a fixed body",
+          "answers 401 credential_rejected, the answer the host renews the credential for"
         ]
       }
     ]
@@ -1518,7 +1621,29 @@
           "answers unavailable when the owner has no file service",
           "returns a typed timeout in the read deadline, not after the client timeout",
           "never answers with an older list of its own: every frontend gives the same typed error",
-          "does not hide a denial"
+          "does not hide a denial",
+          "needs no host change and no branch on the add-on ID",
+          "forwards the callback with its typed fields and the signed actor to the owner",
+          "carries a client secret to the owner and returns its typed refusal unchanged",
+          "answers unavailable when the owner has no OAuth service, and never from the frontend's own",
+          "serves the call on the owner itself when nothing forwards",
+          "refuses an actor the host does not accept before anything is sent",
+          "an unknown op",
+          "a start with no binding",
+          "a client call with no add-on",
+          "a field that is too long",
+          "too many scopes",
+          "prints and logs no secret of a call",
+          "keeps a lost answer to a write an unknown outcome and a lost read unavailable",
+          "drops granted scopes that the caller put in the request and sets the host's",
+          "names reconnect_needed on the wire",
+          "crosses the carrier from the owner to a forwarding frontend as the same refusal",
+          "is a plain denial for a caller that does not tell refusals apart",
+          "is renewed once and the call is retried with the new token",
+          "ends the login after a second rejection and refuses with reconnect_needed",
+          "stays a plain outage for a source that cannot renew",
+          "is renewed on the owner, so a forwarding frontend gets the result or the reconnect_needed refusal",
+          "crosses the carrier as rate limited when the token endpoint asks to wait"
         ]
       },
       {
@@ -2025,7 +2150,10 @@
       "names the connection it was previewed with",
       "applies with that very connection, even if the chat selects another one meanwhile",
       "refuses the apply when that connection is gone, and sends nothing",
-      "refuses to propose when no connection is selected"
+      "refuses to propose when no connection is selected",
+      "renews it once at the preview and gives the add-on the scopes of the login",
+      "refuses the preview with reconnect_needed after a second rejection, and stores nothing",
+      "renews it once at the apply, and after a second rejection keeps the proposal pending"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -2214,7 +2342,10 @@
           "names the connection it was previewed with",
           "applies with that very connection, even if the chat selects another one meanwhile",
           "refuses the apply when that connection is gone, and sends nothing",
-          "refuses to propose when no connection is selected"
+          "refuses to propose when no connection is selected",
+          "renews it once at the preview and gives the add-on the scopes of the login",
+          "refuses the preview with reconnect_needed after a second rejection, and stores nothing",
+          "renews it once at the apply, and after a second rejection keeps the proposal pending"
         ]
       },
       {
@@ -2692,7 +2823,29 @@
           "answers unavailable when the owner has no file service",
           "returns a typed timeout in the read deadline, not after the client timeout",
           "never answers with an older list of its own: every frontend gives the same typed error",
-          "does not hide a denial"
+          "does not hide a denial",
+          "drops granted scopes that the caller put in the request and sets the host's",
+          "names reconnect_needed on the wire",
+          "crosses the carrier from the owner to a forwarding frontend as the same refusal",
+          "is a plain denial for a caller that does not tell refusals apart",
+          "needs no host change and no branch on the add-on ID",
+          "is renewed once and the call is retried with the new token",
+          "ends the login after a second rejection and refuses with reconnect_needed",
+          "stays a plain outage for a source that cannot renew",
+          "is renewed on the owner, so a forwarding frontend gets the result or the reconnect_needed refusal",
+          "crosses the carrier as rate limited when the token endpoint asks to wait",
+          "forwards the callback with its typed fields and the signed actor to the owner",
+          "carries a client secret to the owner and returns its typed refusal unchanged",
+          "answers unavailable when the owner has no OAuth service, and never from the frontend's own",
+          "serves the call on the owner itself when nothing forwards",
+          "refuses an actor the host does not accept before anything is sent",
+          "an unknown op",
+          "a start with no binding",
+          "a client call with no add-on",
+          "a field that is too long",
+          "too many scopes",
+          "prints and logs no secret of a call",
+          "keeps a lost answer to a write an unknown outcome and a lost read unavailable"
         ]
       },
       {
@@ -2942,7 +3095,9 @@
           "changes no existing field and adds the resolved text beside them",
           "does not share a map with the original",
           "falls back to English for each field on its own",
-          "takes the explicit language before the header, and the header before English"
+          "takes the explicit language before the header, and the header before English",
+          "names the scopes of an OAuth login, and nothing of a token slot",
+          "tells an administrator whether an add-on comes from the official library, and nobody else"
         ]
       },
       {
@@ -3142,7 +3297,10 @@
           "opens an endpoint for a declared operation that is not granted, and a later grant works with no restart",
           "types the add-on's own 429 answer with its wait, never as an outage",
           "keeps the wait between one second and the bound",
-          "leaves a 429 with another body an outage: only the add-on's own word counts"
+          "leaves a 429 with another body an outage: only the add-on's own word counts",
+          "types a 401 credential_rejected answer, never as an outage",
+          "keeps a 401 with another reason, or none, an outage",
+          "does not read the reason on another status as a rejection"
         ]
       },
       {
