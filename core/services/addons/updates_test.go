@@ -45,6 +45,8 @@ type updateLibrary struct {
 	sources  *catalog.Sources
 	// transform lets lifecycle specs publish real typed executable packages.
 	transform func(map[string]any) map[string][]byte
+	// archiveDelay slows every package download, as a large package on a slow link does.
+	archiveDelay time.Duration
 }
 
 func (l *updateLibrary) publish(version, channel, content string, requires catalog.Requirements) catalog.Release {
@@ -120,6 +122,7 @@ func newUpdateRig(withUpdates bool) *updateRig {
 			return
 		}
 		if data, ok := lib.archives[r.URL.Path]; ok {
+			time.Sleep(lib.archiveDelay)
 			_, _ = w.Write(data)
 			return
 		}

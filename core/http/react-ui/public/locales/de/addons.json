@@ -864,6 +864,7 @@
     "keepOwnNamed": "Die pauschalen Freigaben von {{name}} als eigene behalten",
     "loadError": "Der Host-Zugriff wurde nicht geladen",
     "loading": "Lese, was dieses Add-on anfordert...",
+    "loadingSlow": "Läuft noch. Das Paket wird heruntergeladen und seine Signatur geprüft, bevor die Berechtigungen angezeigt werden können. Ein großes Add-on kann etwas dauern.",
     "loadingPage": "Host-Zugriff wird geladen",
     "locked": "Das Deployment hat Änderungen am Host-Zugriff abgeschaltet. Du kannst diese Seite lesen, aber nicht ändern.",
     "lockedNoAuth": "Die Anmeldung ist ausgeschaltet, daher könnte jeder, der diesen Server erreicht, dies ändern; der Administrator legt es in der Richtliniendatei fest.",

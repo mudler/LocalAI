@@ -864,6 +864,7 @@
     "keepOwnNamed": "Jadikan izin umum {{name}} sebagai milik saya",
     "loadError": "Akses host tidak termuat",
     "loading": "Membaca apa yang diminta add-on ini...",
+    "loadingSlow": "Masih berjalan. Paket sedang diunduh dan tanda tangannya diperiksa sebelum izin dapat ditampilkan. Add-on yang besar dapat memakan waktu.",
     "loadingPage": "Memuat akses host",
     "locked": "Deployment mematikan perubahan akses host. Anda dapat membaca halaman ini tetapi tidak mengubahnya.",
     "lockedNoAuth": "Login dimatikan, sehingga siapa pun yang dapat menjangkau server ini dapat mengubahnya; administrator mengaturnya di berkas kebijakan.",

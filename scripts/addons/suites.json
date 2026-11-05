@@ -1111,7 +1111,11 @@
       "serves every other read from the snapshot too",
       "refuses a second upgrade with a conflict instead of racing or waiting",
       "shows the new generation and no operation once the upgrade ended",
-      "still refuses a read after the owner closed"
+      "still refuses a read after the owner closed",
+      "downloads and verifies the package once, so the next read of the same release is immediate",
+      "reads again when the library lists another package for the same version",
+      "does not wait behind a read of the same release that is in flight",
+      "is a recent check once the owner has refreshed in the background, not unknown"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -3079,7 +3083,11 @@
           "serves every other read from the snapshot too",
           "refuses a second upgrade with a conflict instead of racing or waiting",
           "shows the new generation and no operation once the upgrade ended",
-          "still refuses a read after the owner closed"
+          "still refuses a read after the owner closed",
+          "downloads and verifies the package once, so the next read of the same release is immediate",
+          "reads again when the library lists another package for the same version",
+          "does not wait behind a read of the same release that is in flight",
+          "is a recent check once the owner has refreshed in the background, not unknown"
         ]
       },
       {

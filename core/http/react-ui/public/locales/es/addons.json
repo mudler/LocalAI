@@ -864,6 +864,7 @@
     "keepOwnNamed": "Conservar como míos los permisos generales de {{name}}",
     "loadError": "El acceso al host no se cargó",
     "loading": "Leyendo lo que pide este complemento...",
+    "loadingSlow": "Sigue en curso. Se está descargando el paquete y comprobando su firma antes de poder mostrar los permisos. Un complemento grande puede tardar un poco.",
     "loadingPage": "Cargando el acceso al host",
     "locked": "El despliegue desactivó los cambios en el acceso al host. Puedes leer esta página, pero no cambiarla.",
     "lockedNoAuth": "El inicio de sesión está desactivado, así que cualquiera que llegue a este servidor podría cambiar esto; el administrador lo define en el archivo de políticas.",
