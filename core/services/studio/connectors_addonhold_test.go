@@ -78,11 +78,21 @@ var _ = Describe("add-on write tools in a messaging chat", func() {
 		Expect(r.conns.Ingest(ctx, "chat-addon", contract.ConnectorInbound{BindingID: slack.ID, ConnectorMessage: contract.ConnectorMessage{
 			Chat: chatID, Thread: thread, Mention: true, MessageID: "m" + sender + string(rune('a'+before)), SenderID: sender, SenderName: "S", Text: "open an issue"}})).To(Succeed())
 		waitFor("the answer", func() bool { return len(fake.texts(chatID, thread)) > before })
-		l, err := r.svc.List(ctx, alice, 10)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(l).NotTo(BeEmpty())
-		raw := r.h.SentRaw(l[0].ID)
-		return r.h.ToolNames(l[0].ID), raw[len(raw)-1]
+		// The first text to the thread can be the working note, which goes out
+		// before the model gets the message. The model's message is what is read.
+		var chat string
+		var raw []string
+		waitFor("the message to reach the model", func() bool {
+			l, err := r.svc.List(ctx, alice, 10)
+			Expect(err).NotTo(HaveOccurred())
+			if len(l) == 0 {
+				return false
+			}
+			chat = l[0].ID
+			raw = r.h.SentRaw(chat)
+			return len(raw) > 0
+		})
+		return r.h.ToolNames(chat), raw[len(raw)-1]
 	}
 	setMode := func(mode string) {
 		cred.WriteMode = mode
