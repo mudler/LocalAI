@@ -53,5 +53,6 @@
   "block.kind_not_running": "L'app di questa connessione non è in esecuzione, quindi non si possono controllare i ruoli. Avvia l'app.",
   "block.context_rule": "Il bot non può {action} in questo posto.",
   "block.knowledge_none": "Nessuna raccolta è nell'elenco dell'agente, quindi il bot non ha dove {action}. Aggiungi una raccolta all'agente.",
-  "block.knowledge_no_embedding": "Il modello di embedding per la Conoscenza non è installato, quindi il bot non può {action}. Installalo in Modelli."
+  "block.knowledge_no_embedding": "Il modello di embedding per la Conoscenza non è installato, quindi il bot non può {action}. Installalo in Modelli.",
+  "block.duplicate_connection": "Questo bot è collegato anche come {other}. Entrambe le connessioni risponderanno allo stesso messaggio."
 }

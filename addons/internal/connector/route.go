@@ -40,6 +40,10 @@ func (r *RetryAfter) Error() string {
 type Bot struct {
 	ID       string
 	Username string
+	// AccountID is a stable name of the upstream account that the token
+	// belongs to, equal for every token of that account (see
+	// contract.ConnectorResponse.AccountID). Empty when the platform cannot tell.
+	AccountID string
 }
 
 // Platform is the API of one messaging platform. The host passes the token in
@@ -145,6 +149,9 @@ func ServeWith(ctx context.Context, p Platform, host Host, req contract.Connecto
 		var bot Bot
 		if bot, err = p.Me(ctx, req.Token); err == nil {
 			out.BotID, out.BotUsername = bot.ID, bot.Username
+			if len(bot.AccountID) <= contract.MaxAccountIDBytes {
+				out.AccountID = bot.AccountID
+			}
 		}
 	case contract.ConnectorOpSendFile:
 		ss, ok := p.(StreamSender)

@@ -202,6 +202,12 @@ type Binding struct {
 	// from a chat of the binding, and the limits of the modes that create one
 	// without asking. The zero value asks.
 	Approval Approval
+	// AccountID is the stable name of the upstream account that the token of
+	// the binding belongs to, as its add-on told it (see
+	// contract.ConnectorResponse.AccountID). Empty until the host has learned
+	// it, and for an add-on that does not tell. Two enabled bindings of one
+	// owner and kind with the same AccountID are the same bot.
+	AccountID string
 	// Token is the bot token. In a Store it is sealed bytes; the Store returns
 	// what it was given.
 	Token   []byte
@@ -314,6 +320,11 @@ type Store interface {
 	// as one step, so it never overwrites a choice that an owner saved at the
 	// same time. It reports whether it wrote. A missing binding is false.
 	SetCapsIfEmpty(ctx context.Context, id string, caps []string) (bool, error)
+
+	// SetAccountID records the upstream account of a binding as one step, so it
+	// never overwrites a setting that an owner saved at the same time. A missing
+	// binding is not an error.
+	SetAccountID(ctx context.Context, id, accountID string) error
 
 	// ClaimMigration lets one caller, on any frontend, run the named one-time
 	// migration. It is true for the first caller, and for a later one only when

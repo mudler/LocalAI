@@ -19,7 +19,31 @@ func (h *Handlers) connectorHost(c echo.Context) (*studiosvc.Connectors, bool) {
 	return feature(c, h.svc.Connectors(), func(c echo.Context) error { return failFor(c, studiosvc.ErrConnectorsOff) })
 }
 
-func connectorOut(i studiosvc.ConnectorInfo) schema.ChatsConnector {
+// connectorLang is the language of the texts for the owner in a request.
+func connectorLang(c echo.Context) string {
+	return connectortext.Negotiate(c.QueryParam("lang"), c.Request().Header.Get("Accept-Language"))
+}
+
+// duplicateOut says that a connection is the same bot as others, in lang.
+func duplicateOut(i studiosvc.ConnectorInfo, lang string) *schema.ChatsConnectorDuplicate {
+	if len(i.SameBotAs) == 0 {
+		return nil
+	}
+	others := make([]schema.ChatsConnectorDuplicateRef, len(i.SameBotAs))
+	for n, o := range i.SameBotAs {
+		others[n] = schema.ChatsConnectorDuplicateRef{ID: o.ID, Name: o.Name}
+	}
+	return &schema.ChatsConnectorDuplicate{Code: studiosvc.CodeDuplicateConnection, Message: duplicateText(lang, others[0].Name), Others: others}
+}
+
+func duplicateText(lang, other string) string {
+	if t, ok := connectortext.Duplicate(lang, other); ok {
+		return t
+	}
+	return studiosvc.DuplicateMessage(other)
+}
+
+func connectorOut(i studiosvc.ConnectorInfo, lang string) schema.ChatsConnector {
 	allow := i.Allow
 	if allow == nil {
 		allow = []string{}
@@ -27,7 +51,7 @@ func connectorOut(i studiosvc.ConnectorInfo) schema.ChatsConnector {
 	return schema.ChatsConnector{Caps: capsOut(i.Caps), Grants: grantsOut(i.Grants), Paired: pairedOut(i.Paired), ID: i.ID, Name: i.Name, Kind: i.Kind, Addon: i.AddonID, Active: i.Active, Reason: i.Reason, AgentID: i.AgentID, CredentialsOnly: i.CredentialsOnly(), Enabled: i.Enabled, AcceptAny: i.AcceptAny,
 		Allow: allow, NotifyChat: i.NotifyChat, HasToken: i.HasToken, Created: i.Created,
 		ReplyMode: i.ReplyMode(), Conversation: i.ConversationMode(), WindowMinutes: i.WindowMinutes, SendFiles: i.SendsFiles(), ReplyLanguage: i.ReplyLang(), UILanguage: i.UILanguage, Options: i.Options,
-		Files: filesOut(i.Files), FileReceiveMaxBytes: i.FileReceiveMax, FileSendMaxBytes: i.FileSendMax, Resources: connectors.ResourceKeys(i.Resources), Channels: channelsOut(i.Channels), WriteMode: i.Writes(), Approval: approvalOut(i.Approval)}
+		Files: filesOut(i.Files), FileReceiveMaxBytes: i.FileReceiveMax, FileSendMaxBytes: i.FileSendMax, Resources: connectors.ResourceKeys(i.Resources), Channels: channelsOut(i.Channels), WriteMode: i.Writes(), Approval: approvalOut(i.Approval), Duplicate: duplicateOut(i, lang)}
 }
 
 func approvalOut(a connectors.Approval) schema.ChatsConnectorApproval {
@@ -139,7 +163,7 @@ func connectorIn(req schema.ChatsConnectorWrite) studiosvc.ConnectorInput {
 	return studiosvc.ConnectorInput{Kind: req.Kind, Name: req.Name, Token: req.Token, AgentID: req.AgentID, Enabled: req.Enabled,
 		AcceptAny: req.AcceptAny, Allow: req.Allow, NotifyChat: req.NotifyChat,
 		Reply: req.ReplyMode, Conversation: req.Conversation, WindowMinutes: req.WindowMinutes, SendFiles: req.SendFiles, ReplyLanguage: req.ReplyLanguage, UILanguage: req.UILanguage, Options: req.Options,
-		FileReceiveMax: req.FileReceiveMaxBytes, FileSendMax: req.FileSendMaxBytes, Caps: req.Caps, Grants: grantsIn(req.Grants), Resources: req.Resources, ConfirmAnyResource: req.ConfirmAnyResource, ConfirmWiderToken: req.ConfirmWiderToken, Channels: channelsIn(req.Channels), WriteMode: req.WriteMode, Approval: approvalIn(req.Approval)}
+		FileReceiveMax: req.FileReceiveMaxBytes, FileSendMax: req.FileSendMaxBytes, Caps: req.Caps, Grants: grantsIn(req.Grants), Resources: req.Resources, ConfirmAnyResource: req.ConfirmAnyResource, ConfirmWiderToken: req.ConfirmWiderToken, ConfirmDuplicate: req.ConfirmDuplicate, Channels: channelsIn(req.Channels), WriteMode: req.WriteMode, Approval: approvalIn(req.Approval)}
 }
 
 var connectorRules = []errRule{
@@ -152,6 +176,14 @@ var connectorRules = []errRule{
 }
 
 func failConnector(c echo.Context, err error) error {
+	var dup *studiosvc.DuplicateError
+	if errors.As(err, &dup) {
+		// Nothing was saved. The owner reads the sentence in their language and
+		// may save again with confirm_duplicate.
+		// param is the name of the connection it repeats, for a client that words the question itself.
+		other := dup.Other.Name
+		return c.JSON(http.StatusConflict, schema.ErrorResponse{Error: &schema.APIError{Message: duplicateText(connectorLang(c), other), Code: http.StatusConflict, Type: typeDuplicateConnection, Param: &other}})
+	}
 	return mapErr(c, err, connectorRules, func(c echo.Context, err error) error {
 		var ce *contract.ConnectorError
 		if errors.As(err, &ce) && ce.Code == contract.ConnectorUnauthorized {
@@ -181,7 +213,7 @@ func (h *Handlers) ListConnectors(c echo.Context) error {
 	}
 	out := schema.ChatsConnectorList{Connectors: make([]schema.ChatsConnector, 0, len(list))}
 	for _, i := range list {
-		out.Connectors = append(out.Connectors, connectorOut(i))
+		out.Connectors = append(out.Connectors, connectorOut(i, connectorLang(c)))
 	}
 	return c.JSON(http.StatusOK, out)
 }
@@ -224,6 +256,7 @@ func (h *Handlers) ConnectorKinds(c echo.Context) error {
 // @Param request body schema.ChatsConnectorWrite true "the binding"
 // @Success 201 {object} schema.ChatsConnector "The binding"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 409 {object} schema.ErrorResponse "The binding is enabled and is the same bot as another enabled binding of yours (type duplicate_connection, param the name of the other); send confirm_duplicate set to \"answer twice\" to save it anyway"
 // @Router /api/chats/connectors [post]
 func (h *Handlers) CreateConnector(c echo.Context) error {
 	host, ok := h.connectorHost(c)
@@ -241,7 +274,7 @@ func (h *Handlers) CreateConnector(c echo.Context) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusCreated, connectorOut(i))
+	return c.JSON(http.StatusCreated, connectorOut(i, connectorLang(c)))
 }
 
 // GetConnector reads a binding.
@@ -259,7 +292,7 @@ func (h *Handlers) GetConnector(c echo.Context) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusOK, connectorOut(i))
+	return c.JSON(http.StatusOK, connectorOut(i, connectorLang(c)))
 }
 
 // UpdateConnector replaces a binding.
@@ -270,6 +303,7 @@ func (h *Handlers) GetConnector(c echo.Context) error {
 // @Param request body schema.ChatsConnectorWrite true "the binding"
 // @Success 200 {object} schema.ChatsConnector "The binding"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 409 {object} schema.ErrorResponse "The binding would be the same bot as another enabled binding of yours (type duplicate_connection); see the create endpoint"
 // @Router /api/chats/connectors/{id} [put]
 func (h *Handlers) UpdateConnector(c echo.Context) error {
 	host, ok := h.connectorHost(c)
@@ -294,7 +328,7 @@ func (h *Handlers) UpdateConnector(c echo.Context) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusOK, connectorOut(i))
+	return c.JSON(http.StatusOK, connectorOut(i, connectorLang(c)))
 }
 
 // DeleteConnector deletes a binding.
@@ -324,7 +358,7 @@ func (h *Handlers) setConnectorEnabled(c echo.Context, on bool) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusOK, connectorOut(i))
+	return c.JSON(http.StatusOK, connectorOut(i, connectorLang(c)))
 }
 
 // EnableConnector switches a binding on.
@@ -402,7 +436,7 @@ func (h *Handlers) AllowConnectorSender(c echo.Context) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusOK, connectorOut(i))
+	return c.JSON(http.StatusOK, connectorOut(i, connectorLang(c)))
 }
 
 // StartConnectorPairing makes a pairing code for a binding.
@@ -517,7 +551,7 @@ func (h *Handlers) RemoveConnectorPaired(c echo.Context) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusOK, connectorOut(i))
+	return c.JSON(http.StatusOK, connectorOut(i, connectorLang(c)))
 }
 
 // capabilityOut adds the title and description in the negotiated language

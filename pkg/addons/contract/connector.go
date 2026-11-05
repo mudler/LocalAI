@@ -86,6 +86,8 @@ const (
 	MaxConnectorMedia  = 8
 	MaxPollSeconds     = 25
 	MaxConnectorSender = 64 // the width of the sender column of the stores
+	// MaxAccountIDBytes bounds ConnectorResponse.AccountID.
+	MaxAccountIDBytes = 128
 	// MaxConnectorFileName is the longest file name, in bytes, that the op
 	// send_file takes.
 	MaxConnectorFileName = 128
@@ -476,6 +478,13 @@ type ConnectorResponse struct {
 	// me
 	BotID       string `json:"botId,omitempty"`
 	BotUsername string `json:"botUsername,omitempty"`
+	// AccountID answers the op me: a stable name of the upstream account that
+	// the token belongs to, the same for every token pair of that account (for
+	// example the workspace and the bot user together). The host compares it,
+	// within one kind, to find two connections that are the same bot. It is
+	// optional: an add-on that cannot tell leaves it empty, and its connections
+	// are never compared. At most MaxAccountIDBytes.
+	AccountID string `json:"accountId,omitempty"`
 	// Received answers the op media: the file was written by handle. The host
 	// adds Size and SHA256 from its record.
 	Received *ConnectorReceived `json:"received,omitempty"`

@@ -353,6 +353,19 @@ func Run(newStore NewStore) {
 		got, _ = s.GetBinding(ctx, "has")
 		Expect(got.Caps).To(Equal([]string{"memory.write"}))
 	})
+	It("records the upstream account of a binding without touching its other fields", func() {
+		s := newStore()
+		b := binding("acct", "u1", "Acct")
+		Expect(s.PutBinding(ctx, b)).To(Succeed())
+		Expect(s.SetAccountID(ctx, "acct", "T1/U1")).To(Succeed())
+		got, err := s.GetBinding(ctx, "acct")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.AccountID).To(Equal("T1/U1"))
+		Expect(got.Name).To(Equal("Acct"))
+		Expect(s.SetAccountID(ctx, "missing", "x")).To(Succeed(), "a missing binding is not an error")
+		all, _ := s.AllBindings(ctx)
+		Expect(all).To(HaveLen(1))
+	})
 	It("lets one caller claim a migration, once, until a stale claim is taken over", func() {
 		s := newStore()
 		lease := 10 * time.Minute

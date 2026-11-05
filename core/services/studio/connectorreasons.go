@@ -55,6 +55,11 @@ const (
 	// CodeKnowledgeNoEmbedding: the model that indexes Knowledge is not
 	// installed on the server.
 	CodeKnowledgeNoEmbedding = "knowledge_no_embedding"
+	// CodeDuplicateConnection: another enabled connection of the owner is the
+	// same bot, so both answer the same message. It is not a refusal of a
+	// capability: the sentence names the other connection with {other}, and
+	// DuplicateMessage fills it.
+	CodeDuplicateConnection = "duplicate_connection"
 )
 
 // BlockCodes lists every code, in the order of the chain.
@@ -62,7 +67,7 @@ func BlockCodes() []string {
 	return []string{CodeNoAgent, CodeUnknownCapability, CodeServerSettingOff, CodeToolsSwitchOff, CodeAgentPermissionOff,
 		CodeAgentUnavailable, CodeConnectionPermissionOff, CodeSenderNotListed, CodeSenderNeedsPairing,
 		CodeChannelNotTrusted, CodeRoleNotGranted, CodeKindNotRunning, CodeContextRule,
-		CodeKnowledgeNone, CodeKnowledgeNoEmbedding}
+		CodeKnowledgeNone, CodeKnowledgeNoEmbedding, CodeDuplicateConnection}
 }
 
 // Who holds the link of the chain that refused.
@@ -173,6 +178,9 @@ var blockTable = map[string]blockInfo{
 	CodeKnowledgeNoEmbedding: {ByServer,
 		"The embedding model for Knowledge is not installed, so the bot cannot {action}. Install it in Models.",
 		"The server cannot index new texts right now, so the bot cannot {action}."},
+	CodeDuplicateConnection: {ByConnection,
+		"This bot is also connected as {other}. Both connections will answer the same message.",
+		"This bot is connected twice, so a second copy may answer too."},
 	CodeContextRule: {ByConnection,
 		"The bot cannot {action} in this place.",
 		"This bot cannot {action} in this place."},

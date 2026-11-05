@@ -1220,6 +1220,35 @@ allows one reader; a new leader in a cluster waits and retries for about a minut
 before it gives up), when the agent is deleted or has no model, or when the owner no longer
 exists. Fix the cause and switch it on.
 
+## One bot connected twice
+
+You can register the same bot twice with two token pairs, for example one Slack app
+with two sets of tokens. Both bindings then see every message, and both would
+answer it. The messaging add-ons (Slack, Telegram and Discord) tell the host which
+upstream account a token belongs to: the workspace and bot user for Slack, the bot
+for Telegram, the application for Discord. The host keeps it with the binding, and it
+learns it when you save a token and, for a binding that has none yet, when its add-on
+runs. An add-on that does not tell has no identity, and its bindings are never compared.
+
+When two enabled bindings of one owner and one kind share an identity:
+
+- Both connection pages and the list show "This bot is also connected as *name*. Both
+  connections will answer the same message.", a link to the other connection and a
+  "Turn this one off" button. The API shows it as `duplicate` on the binding, with the
+  code `duplicate_connection`.
+- Saving a binding that is enabled and a twin of another enabled binding asks first. The
+  API answers `409` with the type `duplicate_connection`, and `param` holds the name of the
+  other binding. Send `confirm_duplicate` set to `answer twice` to save it anyway. Nothing is
+  saved without it. Switching a binding on with the switch does not ask; the warning shows at
+  once.
+- At run time only the oldest enabled binding answers a message. The younger one logs one
+  line and stays silent, so you never get two replies, even if you ignore the warning. This
+  applies to a message that has a platform message ID, because that ID shows that the two
+  bindings were handed the same message. Switch the older one off and the younger one answers.
+
+The choice of the binding that answers is a function of the stored bindings (age, then ID),
+so every frontend makes the same one without a lock. See also "Multiple frontends" above.
+
 ## Storage and clusters
 
 Bindings, the read position in Telegram's updates, the sender log and the chat of
@@ -1231,6 +1260,7 @@ restart). The JSON store is for one process.
 |---|---|---|
 | Bindings, offsets, sender log, sender chats, the key | Shared | Rows in the database. |
 | Which frontend reads the bot | Single runner | The frontend that holds the advisory lock (`KeyChatsConnectors`). When it stops, another takes the lock and continues from the stored offset. Add-ons run on the process that owns the add-ons, and the loops run only where the add-on answers. |
+| The upstream account of a binding, and which of two twin bindings answers | Shared | The account is stored with the binding. The oldest enabled binding of the same account answers; every frontend derives that from the stored bindings, so no claim is needed. A frontend remembers in memory only when it last asked an add-on for an account that the add-on did not tell, to ask again after 10 minutes. |
 | Where the next message is read from | Shared | The offset is stored with the binding. Core passes it to the add-on's poll call and stores the offset that the answer names. |
 | The reply being sent for a turn | Per instance | The frontend that took the message sends the answer, edits its working message or sends its draft, and sends its files. If it dies, the answer is lost; the message is not repeated. |
 | The preview budget of a binding | Per instance | The time of the next edit or draft is kept in memory by the frontend that sends the replies. Replies of one binding run on the leader, so one budget covers them. |
@@ -1262,6 +1292,13 @@ chat files or add tools for this. When the platform refuses a file, return a
 `ConnectorError` with a short, plain `message` (for example the name of a missing
 permission): the host puts it after "I could not send <name>" in the message to the person.
 Keep the message free of tokens and internal addresses.
+
+### For add-on authors: the account of a token
+
+The op `me` may return `accountId`: a stable name of the upstream account, equal for every
+token of that account and at most 128 bytes (Slack returns the workspace and bot user, Telegram
+the bot ID, Discord the application ID). The host compares it within one kind. Leave it empty
+when the platform cannot tell. The SDK's `connector.Bot` has an `AccountID` field for it.
 
 ### Other connectors
 

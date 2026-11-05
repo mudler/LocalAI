@@ -350,6 +350,8 @@ func (c *connRig) bind(in studio.ConnectorInput) connectors.Binding {
 		in.AgentID = c.agent.ID
 	}
 	in.Enabled = true
+	// Many specs bind the same fake bot twice on purpose.
+	in.ConfirmDuplicate = studio.DuplicateConfirmation
 	if in.Reply == "" {
 		// The specs written before the reply modes read the answer as the
 		// one message the bot sends; the live modes have their own specs.

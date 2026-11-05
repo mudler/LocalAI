@@ -215,6 +215,7 @@ var _ = Describe("the connector route", func() {
 		out := call(r, contract.ConnectorRequest{Op: "me"})
 		Expect(out.Error).To(BeNil())
 		Expect([]string{out.BotID, out.BotUsername}).To(Equal([]string{"UBOT", "helper (Acme)"}))
+		Expect(out.AccountID).To(Equal("T1/UBOT"), "the workspace and the bot user name the app, whatever the token pair")
 		for _, bad := range []string{botToken, appToken, botToken + " xapp-SECRET-other"} {
 			out = call(r, contract.ConnectorRequest{Op: "me", Token: bad})
 			Expect(out.Error).NotTo(BeNil(), bad)

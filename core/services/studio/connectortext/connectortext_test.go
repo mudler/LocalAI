@@ -32,7 +32,8 @@ func TestEveryCodeIsInEveryLanguage(t *testing.T) {
 				t.Errorf("%s: block code %q has no text", lang, code)
 				continue
 			}
-			if strings.Contains(got, "{") {
+			// {other} names a connection and is filled by Duplicate.
+			if strings.Contains(strings.ReplaceAll(got, "{other}", ""), "{") {
 				t.Errorf("%s: block code %q leaves a placeholder: %q", lang, code, got)
 			}
 		}
@@ -59,6 +60,27 @@ func TestPlaceholdersMatchEnglish(t *testing.T) {
 				t.Errorf("%s: code %q uses the action = %v, English uses it = %v", lang, code, got, wantAction)
 			}
 		}
+	}
+}
+
+// The sentence about two connections of one bot names the other connection in
+// every language, so the owner reads which one it is.
+func TestDuplicateNamesTheOtherConnection(t *testing.T) {
+	english := studio.DuplicateMessage("Work bot")
+	if !strings.Contains(english, "Work bot") || strings.Contains(english, "{") {
+		t.Fatalf("English: %q", english)
+	}
+	for _, lang := range connectortext.Languages {
+		got, ok := connectortext.Duplicate(lang, "Work bot")
+		if !ok || !strings.Contains(got, "Work bot") || strings.Contains(got, "{") {
+			t.Errorf("%s: %q", lang, got)
+		}
+		if got == english {
+			t.Errorf("%s: not translated", lang)
+		}
+	}
+	if _, ok := connectortext.Duplicate("xx", "a"); ok {
+		t.Error("an unknown language must have no text")
 	}
 }
 

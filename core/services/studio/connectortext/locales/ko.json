@@ -53,5 +53,6 @@
   "block.kind_not_running": "이 연결의 앱이 실행 중이 아니어서 역할을 확인할 수 없습니다. 앱을 시작해 주세요.",
   "block.context_rule": "봇은 이 위치에서 다음 작업을 할 수 없습니다: {action}.",
   "block.knowledge_none": "에이전트의 목록에 컬렉션이 없어서 봇이 다음 작업을 할 곳이 없습니다: {action}. 에이전트에 컬렉션을 추가해 주세요.",
-  "block.knowledge_no_embedding": "지식용 임베딩 모델이 설치되어 있지 않아 봇이 다음 작업을 할 수 없습니다: {action}. 모델에서 설치해 주세요."
+  "block.knowledge_no_embedding": "지식용 임베딩 모델이 설치되어 있지 않아 봇이 다음 작업을 할 수 없습니다: {action}. 모델에서 설치해 주세요.",
+  "block.duplicate_connection": "이 봇은 {other}(으)로도 연결되어 있습니다. 두 연결이 같은 메시지에 모두 답합니다."
 }

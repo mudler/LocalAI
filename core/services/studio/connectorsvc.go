@@ -80,6 +80,9 @@ type ConnectorInput struct {
 	// WiderTokenConfirmation in the request that chooses the option which
 	// allows a guarded token (see contract.TokenGuard). Neither is stored.
 	ConfirmAnyResource, ConfirmWiderToken string
+	// ConfirmDuplicate must be DuplicateConfirmation to save an enabled
+	// connection that is the same bot as another enabled one. Not stored.
+	ConfirmDuplicate string
 }
 
 // apply sets the fields of the input that an owner writes on a binding.
@@ -182,6 +185,10 @@ type ConnectorInfo struct {
 	Reason string
 	// Files are the file limits in effect for the binding.
 	Files FileLimits
+	// SameBotAs lists the other enabled connections of the owner that are the
+	// same bot as this one, oldest first. It is empty unless this binding is
+	// enabled too. Both then answer the same message.
+	SameBotAs []DuplicateRef
 }
 
 func info(b connectors.Binding) ConnectorInfo {
@@ -404,6 +411,7 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if err := c.verifyToken(ctx, b, strings.TrimSpace(in.Token)); err != nil {
 		return ConnectorInfo{}, err
 	}
+	b.AccountID = c.accountOf(ctx, b, strings.TrimSpace(in.Token))
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
 	mine, err := c.o.Store.ListBindings(ctx, owner)
@@ -414,6 +422,9 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 		return ConnectorInfo{}, connectorBad("you can have at most %d bindings", connectors.MaxPerUser)
 	}
 	if err := checkConnectionName(b, mine); err != nil {
+		return ConnectorInfo{}, err
+	}
+	if err := checkDuplicate(nil, b, mine, in); err != nil {
 		return ConnectorInfo{}, err
 	}
 	sealer, err := c.sealerFor(ctx)
@@ -429,7 +440,7 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 		return ConnectorInfo{}, err
 	}
 	c.Notify()
-	return c.withState(ctx, info(b)), nil
+	return c.withDuplicates(ctx, c.withState(ctx, info(b))), nil
 }
 
 // checkConnectionName refuses a name that another credential-only binding of
@@ -458,6 +469,7 @@ func checkConnectionName(b connectors.Binding, mine []connectors.Binding) error 
 func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in ConnectorInput) (ConnectorInfo, error) {
 	// A new token is checked before the write lock: the check asks the
 	// platform. The kind and the add-on of a binding never change.
+	newAccount := ""
 	if t := strings.TrimSpace(in.Token); t != "" {
 		cur, err := c.owned(ctx, user, id)
 		if err != nil {
@@ -466,6 +478,7 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 		if err := c.verifyToken(ctx, cur, t); err != nil {
 			return ConnectorInfo{}, err
 		}
+		newAccount = c.accountOf(ctx, cur, t)
 	}
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
@@ -475,6 +488,10 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 	}
 	b := old
 	in.apply(&b)
+	if strings.TrimSpace(in.Token) != "" {
+		// A new token may belong to another account: the identity is the one just read.
+		b.AccountID = newAccount
+	}
 	if err := connectors.ValidateKind(b, c.agentOptional(ctx, b)); err != nil {
 		return ConnectorInfo{}, err
 	}
@@ -496,14 +513,17 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 	if err := c.checkAgentIfAny(ctx, old.Owner, in.AgentID); err != nil {
 		return ConnectorInfo{}, err
 	}
+	mine, err := c.o.Store.ListBindings(ctx, old.Owner)
+	if err != nil {
+		return ConnectorInfo{}, err
+	}
 	if b.Name != old.Name {
-		mine, err := c.o.Store.ListBindings(ctx, old.Owner)
-		if err != nil {
-			return ConnectorInfo{}, err
-		}
 		if err := checkConnectionName(b, mine); err != nil {
 			return ConnectorInfo{}, err
 		}
+	}
+	if err := checkDuplicate(&old, b, mine, in); err != nil {
+		return ConnectorInfo{}, err
 	}
 	if strings.TrimSpace(in.Token) != "" {
 		sealer, err := c.sealerFor(ctx)
@@ -519,7 +539,7 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 		return ConnectorInfo{}, err
 	}
 	c.Notify()
-	return c.withState(ctx, info(b)), nil
+	return c.withDuplicates(ctx, c.withState(ctx, info(b))), nil
 }
 
 // SetConnectorEnabled switches a binding on or off.
@@ -538,7 +558,7 @@ func (c *Connectors) SetConnectorEnabled(ctx context.Context, user, id string, o
 		return ConnectorInfo{}, err
 	}
 	c.Notify()
-	return c.withState(ctx, info(b)), nil
+	return c.withDuplicates(ctx, c.withState(ctx, info(b))), nil
 }
 
 // GetConnector returns a binding of the user, without its token.
@@ -547,7 +567,18 @@ func (c *Connectors) GetConnector(ctx context.Context, user, id string) (Connect
 	if err != nil {
 		return ConnectorInfo{}, err
 	}
-	return c.withState(ctx, info(b)), nil
+	return c.withDuplicates(ctx, c.withState(ctx, info(b))), nil
+}
+
+// withDuplicates fills SameBotAs of one binding. A store that fails leaves it empty.
+func (c *Connectors) withDuplicates(ctx context.Context, i ConnectorInfo) ConnectorInfo {
+	if i.AccountID == "" || !i.Enabled {
+		return i
+	}
+	if all, err := c.o.Store.ListBindings(ctx, i.Owner); err == nil {
+		i.SameBotAs = refsOf(duplicatesOf(all, i.Binding))
+	}
+	return i
 }
 
 // ListConnectors returns the user's bindings, without their tokens.
@@ -560,6 +591,7 @@ func (c *Connectors) ListConnectors(ctx context.Context, user string) ([]Connect
 	for i, b := range all {
 		out[i] = c.withState(ctx, info(b))
 	}
+	markDuplicates(out, all)
 	return out, nil
 }
 

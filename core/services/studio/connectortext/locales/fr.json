@@ -53,5 +53,6 @@
   "block.kind_not_running": "L'application de cette connexion ne tourne pas, donc les rôles ne peuvent pas être vérifiés. Démarrez l'application.",
   "block.context_rule": "Le bot ne peut pas {action} à cet endroit.",
   "block.knowledge_none": "Aucune collection n'est dans la liste de l'agent, donc le bot n'a nulle part où {action}. Ajoutez une collection à l'agent.",
-  "block.knowledge_no_embedding": "Le modèle d'embedding des Connaissances n'est pas installé, donc le bot ne peut pas {action}. Installez-le dans Modèles."
+  "block.knowledge_no_embedding": "Le modèle d'embedding des Connaissances n'est pas installé, donc le bot ne peut pas {action}. Installez-le dans Modèles.",
+  "block.duplicate_connection": "Ce bot est aussi connecté sous le nom {other}. Les deux connexions répondront au même message."
 }

@@ -1366,6 +1366,10 @@ type ChatsConnector struct {
 	// Files are the limits of the files the bot reads and sends, with the
 	// limit that you set for this bot.
 	Files ChatsConnectorFiles `json:"files"`
+	// Duplicate is present when another enabled connection of yours is the
+	// same bot (the add-on reported the same upstream account for both) and
+	// this one is enabled too: both then answer the same message.
+	Duplicate *ChatsConnectorDuplicate `json:"duplicate,omitempty"`
 	// FileReceiveMaxBytes and FileSendMaxBytes are your limits for this bot;
 	// zero means you set none and the limit of the kind applies.
 	FileReceiveMaxBytes int64 `json:"file_receive_max_bytes"`
@@ -1757,6 +1761,11 @@ type ChatsConnectorWrite struct {
 	// request that chooses the option a token guard of the kind names (for
 	// example a classic access token). The token is refused without it.
 	ConfirmWiderToken string `json:"confirm_wider_token,omitempty"`
+	// ConfirmDuplicate must be the exact text "answer twice" to save an
+	// enabled connection that is the same bot as another enabled connection of
+	// yours. Without it the request is a 409 of type duplicate_connection, and
+	// nothing is saved.
+	ConfirmDuplicate string `json:"confirm_duplicate,omitempty"`
 	// Channels are the chats of the platform where the agent may write
 	// besides the conversation, at most 10: {id, label, approved}. A channel
 	// that is not approved needs a paired sender for each message. Absent
@@ -1772,6 +1781,24 @@ type ChatsConnectorWrite struct {
 	// present it replaces the whole approval, acts included: send the acts
 	// again to keep them. An act that is not in the closed list is refused.
 	Approval *ChatsConnectorApproval `json:"approval,omitempty"`
+}
+
+// ChatsConnectorDuplicate says that a connection is the same bot as others.
+type ChatsConnectorDuplicate struct {
+	// Code is duplicate_connection.
+	Code string `json:"code"`
+	// Message is the plain sentence for the owner, in the language of the
+	// request (lang, else Accept-Language) with English as the fallback.
+	Message string `json:"message"`
+	// Others are the other enabled connections of the same bot, oldest first.
+	// The oldest enabled one is the one that answers.
+	Others []ChatsConnectorDuplicateRef `json:"others"`
+}
+
+// ChatsConnectorDuplicateRef names another connection of the same bot.
+type ChatsConnectorDuplicateRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // ChatsConnectorChannel is a chat of the platform where the agent may write.

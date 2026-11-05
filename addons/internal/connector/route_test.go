@@ -21,6 +21,7 @@ type script struct {
 	typed   int
 	ups     []contract.ConnectorMessage
 	err     error
+	account string
 	sendErr []error
 	editErr error
 }
@@ -53,7 +54,7 @@ func (s *script) Edit(_ context.Context, req contract.ConnectorRequest) error {
 }
 func (s *script) Typing(context.Context, contract.ConnectorRequest) error { s.typed++; return s.err }
 func (s *script) Me(context.Context, string) (connector.Bot, error) {
-	return connector.Bot{ID: "1", Username: "bot"}, s.err
+	return connector.Bot{ID: "1", Username: "bot", AccountID: s.account}, s.err
 }
 
 // shouting formats.
@@ -149,9 +150,19 @@ var _ = Describe("Serve", func() {
 		out, err := connector.Serve(ctx, s, req("me"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out.BotUsername).To(Equal("bot"))
+		Expect(out.AccountID).To(BeEmpty(), "a platform that cannot tell leaves it empty")
 		_, err = connector.Serve(ctx, s, req("typing"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(s.typed).To(Equal(1))
+	})
+
+	It("passes the account of the token, and drops one that is too long", func() {
+		out, err := connector.Serve(ctx, &script{account: "T1/U1"}, req("me"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.AccountID).To(Equal("T1/U1"))
+		out, err = connector.Serve(ctx, &script{account: strings.Repeat("x", contract.MaxAccountIDBytes+1)}, req("me"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.AccountID).To(BeEmpty())
 	})
 
 	DescribeTable("types the errors of a platform",

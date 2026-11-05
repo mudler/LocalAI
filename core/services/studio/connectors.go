@@ -132,6 +132,9 @@ type Connectors struct {
 	smu     sync.Mutex
 	senders map[string]*senderState
 
+	amu2         sync.Mutex
+	accountTried map[string]time.Time // by binding: when this process last asked its add-on for its account
+
 	emu      sync.Mutex
 	nextEdit map[string]time.Time // by binding: when its next edit may go
 
@@ -362,6 +365,8 @@ poll:
 			c.disable(b, "its bot token cannot be read")
 			return
 		}
+		// A binding whose add-on told no account yet is asked again every so often.
+		b = c.learnAccount(ctx, b, token)
 		offset, _, err := c.o.Store.Offset(ctx, id)
 		if err != nil {
 			c.log.Warn("studio: could not read a connector offset", "binding", id, "error", err)
@@ -580,6 +585,13 @@ func (c *Connectors) Ingest(ctx context.Context, addonID string, in contract.Con
 	if err != nil {
 		c.disable(b, "its bot token cannot be read")
 		return connectors.ErrForbidden
+	}
+	// A push platform has no loop that learns the account, so it is learned here.
+	b = c.learnAccount(ctx, b, token)
+	// Two connections of one bot get the same message: the oldest answers.
+	if older, twin := c.olderTwin(ctx, b, m); twin {
+		c.log.Info("studio: a connection stays silent because an older connection of the same bot answers", "binding", b.ID, "answering", older.ID, "kind", b.Kind, "message", m.MessageID)
+		return nil
 	}
 	c.handle(ctx, b, token, m)
 	return nil

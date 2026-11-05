@@ -93,6 +93,17 @@ func Block(lang, code, capability string) (string, bool) {
 	return strings.ReplaceAll(tpl, "{action}", action), true
 }
 
+// Duplicate returns the sentence of the code duplicate_connection in a
+// language, with the name of the other connection filled in. It reports false
+// when the language lacks the text; the caller then keeps the English sentence.
+func Duplicate(lang, other string) (string, bool) {
+	tpl, ok := lookup(lang, BlockKey("duplicate_connection"))
+	if !ok {
+		return "", false
+	}
+	return strings.ReplaceAll(tpl, "{other}", other), true
+}
+
 // KeysOf lists the keys of a language, for the tests that guard the files.
 func KeysOf(lang string) []string {
 	loadOnce.Do(load)

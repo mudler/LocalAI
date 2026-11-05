@@ -306,6 +306,23 @@ func (s *jsonStore) SetCapsIfEmpty(_ context.Context, id string, caps []string) 
 	return true, nil
 }
 
+func (s *jsonStore) SetAccountID(_ context.Context, id, accountID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	b, ok := s.d.Bindings[id]
+	if !ok || b.AccountID == accountID {
+		return nil
+	}
+	old := b
+	b.AccountID = accountID
+	s.d.Bindings[id] = b
+	if err := s.save(); err != nil {
+		s.d.Bindings[id] = old
+		return err
+	}
+	return nil
+}
+
 func (s *jsonStore) ClaimMigration(_ context.Context, name string, now time.Time, lease time.Duration) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

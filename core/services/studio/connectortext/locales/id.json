@@ -53,5 +53,6 @@
   "block.kind_not_running": "Aplikasi untuk koneksi ini tidak berjalan, jadi peran tidak dapat diperiksa. Jalankan aplikasinya.",
   "block.context_rule": "Bot tidak dapat {action} di tempat ini.",
   "block.knowledge_none": "Tidak ada koleksi dalam daftar agen, jadi bot tidak punya tempat untuk {action}. Tambahkan koleksi ke agen.",
-  "block.knowledge_no_embedding": "Model embedding untuk Pengetahuan belum dipasang, jadi bot tidak dapat {action}. Pasang di Model."
+  "block.knowledge_no_embedding": "Model embedding untuk Pengetahuan belum dipasang, jadi bot tidak dapat {action}. Pasang di Model.",
+  "block.duplicate_connection": "Bot ini juga terhubung sebagai {other}. Kedua koneksi akan menjawab pesan yang sama."
 }

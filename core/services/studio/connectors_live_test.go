@@ -464,6 +464,7 @@ var _ = Describe("connectors live", func() {
 		Expect(err).NotTo(HaveOccurred(), "an update that keeps the token does not ask the platform")
 		in.Token = "777:other"
 		bot.setFail("getMe", nil)
+		in.ConfirmDuplicate = studio.DuplicateConfirmation
 		info, err := r.conns.CreateConnector(ctx, alice, in)
 		Expect(err).NotTo(HaveOccurred())
 		Expect([]any{info.ReplyMode(), info.ConversationMode(), info.SendsFiles()}).To(Equal([]any{connectors.ReplyProgress, connectors.ConversationSender, true}), "the defaults")

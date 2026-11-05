@@ -24,6 +24,9 @@ const (
 	typeNotifyOff    = "notifications_off"
 	typeTriggersOff  = "triggers_off"
 	typeConnectorOff = "connectors_off"
+	// typeDuplicateConnection: the connection to save is the same bot as
+	// another enabled one; send confirm_duplicate to save it anyway.
+	typeDuplicateConnection = "duplicate_connection"
 	// typePageNotAllowed: a shared page called its bridge without your consent
 	// to the version it runs (or after you revoked it).
 	typePageNotAllowed = "page_not_allowed"

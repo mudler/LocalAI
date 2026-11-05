@@ -47,7 +47,7 @@ var _ = Describe("the texts of a refusal", func() {
 	It("renders a whole, plain sentence for every code and capability", func() {
 		for _, code := range BlockCodes() {
 			for _, name := range names {
-				for kind, text := range map[string]string{"message": blockMessage(code, name), "say": BlockSay(code, name)} {
+				for kind, text := range map[string]string{"message": sampleOther(blockMessage(code, name)), "say": BlockSay(code, name)} {
 					where := code + "/" + name + "/" + kind + ": " + text
 					Expect(text).NotTo(BeEmpty(), where)
 					Expect(text).To(HaveSuffix("."), where)
@@ -130,3 +130,6 @@ var _ = Describe("the texts of a refusal", func() {
 		})
 	}
 })
+
+// sampleOther fills {other} of a sentence with a name, so the sentence is read as a person reads it.
+func sampleOther(text string) string { return strings.ReplaceAll(text, "{other}", "Alpha") }

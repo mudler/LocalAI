@@ -173,7 +173,13 @@ func (p platform) Me(ctx context.Context, token string) (connector.Bot, error) {
 	if id.Team != "" {
 		name += " (" + id.Team + ")"
 	}
-	return connector.Bot{ID: id.UserID, Username: name}, nil
+	// The bot user and the workspace together name the app: every token pair of
+	// the same app installed in the same workspace gives the same pair.
+	account := id.UserID
+	if id.TeamID != "" {
+		account = id.TeamID + "/" + id.UserID
+	}
+	return connector.Bot{ID: id.UserID, Username: name, AccountID: account}, nil
 }
 
 var fileID = regexp.MustCompile(`^F[A-Z0-9]{1,31}$`)

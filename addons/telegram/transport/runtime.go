@@ -171,5 +171,6 @@ func (p platform) Me(ctx context.Context, token string) (connector.Bot, error) {
 	if err != nil {
 		return connector.Bot{}, err
 	}
-	return connector.Bot{ID: strconv.FormatInt(bot.ID, 10), Username: bot.Username}, nil
+	id := strconv.FormatInt(bot.ID, 10)
+	return connector.Bot{ID: id, Username: bot.Username, AccountID: id}, nil
 }
