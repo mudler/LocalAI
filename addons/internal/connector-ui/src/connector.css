@@ -269,3 +269,37 @@ fieldset.cn-group {
 .cn-approvals__row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--dk-space-2); min-width: 0; overflow-wrap: anywhere; }
 .cn-approvals__state { font-size: var(--fs-meta); padding: 0 var(--dk-space-2); border-radius: var(--r-sm); background: var(--color-bg-secondary); color: var(--color-text-secondary); }
 .cn-approvals__state--runs { color: var(--dk-warn-text, var(--color-text-secondary)); background: var(--dk-warn-wash, var(--color-bg-secondary)); }
+
+/* The matrix of who can do what. A cell is an icon and a word; the state also
+   shows in the border, never in colour alone. On a phone one kind of sender is
+   shown at a time, chosen with the select above the table. */
+.cn-mx { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-mx__table { table-layout: fixed; }
+.cn-mx__table th, .cn-mx__table td { text-align: left; vertical-align: top; overflow-wrap: break-word; padding: var(--dk-space-1); font-size: var(--fs-meta); }
+.cn-mx__table thead th { font-size: var(--fs-meta); }
+.cn-mx__table th:first-child { width: 20%; }
+.cn-mx__title { font-weight: var(--font-weight-semibold); }
+.cn-mx__sub .cn-mx__title { font-weight: normal; padding-left: var(--dk-space-4); }
+.cn-mx__word > span { min-width: 0; overflow-wrap: anywhere; }
+.cn-mx__word { display: inline-flex; min-width: 0; max-width: 100%; align-items: flex-start; gap: var(--dk-space-1); font-weight: var(--font-weight-medium, 500); }
+.cn-mx__why { display: block; padding: 0 var(--dk-space-1); color: var(--color-text-muted); font-size: var(--fs-meta); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+.cn-mx__btn { display: block; width: 100%; text-align: left; background: none; color: inherit; font: inherit; cursor: pointer; padding: var(--dk-space-1); border: 1px dashed var(--color-border-subtle); border-radius: var(--radius-sm, 4px); }
+.cn-mx__btn[aria-pressed="true"] { border-style: solid; border-color: var(--dk-accent, currentColor); background: var(--dk-hover); }
+.cn-mx__btn:focus-visible { outline: 2px solid var(--dk-accent, currentColor); outline-offset: 1px; }
+.cn-mx__static { display: block; padding: var(--dk-space-1); }
+.cn-mx__cell--no .cn-mx__word, .cn-mx__cell--off .cn-mx__word { text-decoration: none; }
+.cn-mx__detail { border-left: 3px solid var(--color-border-subtle); padding-left: var(--dk-space-3); display: flex; flex-direction: column; gap: var(--dk-space-1); }
+.cn-mx__detail p { margin: 0; }
+.cn-mx__detail-title { font-weight: var(--font-weight-semibold); }
+.cn-mx__pick { display: none; }
+@media (max-width: 640px) {
+  .cn-mx__pick { display: flex; }
+  .cn-mx__table [data-col]:not([data-col="on"]) { display: none; }
+  .cn-mx__table[data-sel="paired"] [data-col="paired"],
+  .cn-mx__table[data-sel="listed"] [data-col="listed"],
+  .cn-mx__table[data-sel="channel_acts"] [data-col="channel_acts"],
+  .cn-mx__table[data-sel="channel_member"] [data-col="channel_member"],
+  .cn-mx__table[data-sel="anyone"] [data-col="anyone"] { display: table-cell; }
+}
+
+.cn-pill { display: inline-flex; align-items: center; padding: 0 var(--dk-space-2); border: 1px solid currentColor; border-radius: 999px; font-size: var(--fs-meta); font-weight: var(--font-weight-semibold); white-space: nowrap; }

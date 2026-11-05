@@ -69,6 +69,7 @@ export function previewFor(body, roles = []) {
     if (!(body.caps || []).includes(c.name)) {
       return { capability: c.name, allowed: false, code: 'connection_permission_off', blocked_by: 'connection', message: `This connection does not allow the bot to ${WORDS[c.name]}. Tick the matching permission on the connection.`, fix: { kind: 'open_connection', target: 'caps', field: c.name }, then_check: ['sender'] }
     }
+    if (who === 'channel_acts') return c.sensitive ? { capability: c.name, allowed: false, code: 'sender_needs_pairing', blocked_by: 'sender', message: `This person needs to be verified with this bot before the bot can ${WORDS[c.name]} for them.`, fix: { kind: 'pair_sender', target: 'pairing' } } : { capability: c.name, allowed: true, via: 'channel' }
     if (who === 'anyone') return { capability: c.name, allowed: false, code: 'channel_not_trusted', blocked_by: 'sender', message: `People in a channel are not trusted one by one, so the bot cannot ${WORDS[c.name]} for them. Add the person to the allowed people.`, fix: { kind: 'add_person', target: 'allow' } }
     if (who.startsWith('role:')) {
       const id = who.slice(5)
@@ -82,10 +83,11 @@ export function previewFor(body, roles = []) {
   const subjects = [
     { id: 'listed', title: 'A listed person' },
     { id: 'anyone', title: 'A sender let in through a listed channel' },
+    { id: 'channel_acts', title: 'A sender in a channel set to let everyone act' },
     { id: 'paired', title: 'A verified person' },
     ...roles.map(r => ({ id: `role:${r.id}`, title: r.title })),
   ].map(sub => ({ ...sub, decisions: CAPABILITIES.map(c => decide(c, sub.id)) }))
-  return { binding: 'b1', preview: true, subjects, recent: [] }
+  return { binding: 'b1', preview: true, subjects, recent: [], proposal_mode: body.approval_mode || 'ask' }
 }
 
 export function connectorApi(page, initial = [], kind = 'telegram', senders = [NEWCOMER], files = ONE_MIB, { capabilities = CAPABILITIES, kindExtra = {}, access = null, preview = null, previewDelay = 0, previewStatus = 200 } = {}) {

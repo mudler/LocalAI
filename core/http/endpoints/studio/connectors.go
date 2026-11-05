@@ -480,7 +480,7 @@ func (h *Handlers) ConnectorAccess(c echo.Context) error {
 }
 
 func accessOut(v studiosvc.AccessView, lang string) schema.ChatsConnectorAccess {
-	out := schema.ChatsConnectorAccess{Binding: v.Binding, Subjects: []schema.ChatsConnectorAccessSubject{}, Recent: []schema.ChatsConnectorAccessEvent{}, Preview: v.Preview, Language: lang}
+	out := schema.ChatsConnectorAccess{ProposalMode: v.ProposalMode, Binding: v.Binding, Subjects: []schema.ChatsConnectorAccessSubject{}, Recent: []schema.ChatsConnectorAccessEvent{}, Preview: v.Preview, Language: lang}
 	for _, s := range v.Subjects {
 		o := schema.ChatsConnectorAccessSubject{ID: s.ID, Title: s.Title, NoteSave: s.NoteSave, Decisions: []schema.ChatsConnectorAccessDecision{}}
 		for _, d := range s.Decisions {
@@ -548,7 +548,7 @@ func (h *Handlers) ConnectorAccessPreview(c echo.Context) error {
 		return nil
 	}
 	v, err := host.AccessPreview(c.Request().Context(), userID(c), c.Param("id"), studiosvc.AccessDraft{
-		Kind: req.Kind, AgentID: req.AgentID, AcceptAny: req.AcceptAny, Allow: req.Allow, AllowTrust: req.AllowTrust, Caps: req.Caps, Grants: grantsIn(req.Grants), Sender: req.Sender})
+		Kind: req.Kind, AgentID: req.AgentID, AcceptAny: req.AcceptAny, Allow: req.Allow, AllowTrust: req.AllowTrust, Channels: channelsIn(req.Channels), ApprovalMode: req.ApprovalMode, Caps: req.Caps, Grants: grantsIn(req.Grants), Sender: req.Sender})
 	if err != nil {
 		return failConnector(c, err)
 	}

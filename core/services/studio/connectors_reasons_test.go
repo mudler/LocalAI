@@ -190,6 +190,24 @@ var _ = Describe("why a capability is blocked on a connection", func() {
 			Expect(saved().Recent).To(BeEmpty(), "no decision is recorded")
 		})
 
+		It("takes the places the bot may post and the approval mode of the form, and writes neither", func() {
+			setup(contract.CapMemoryWrite, propose)
+			Expect(saved().ProposalMode).To(Equal(connectors.ApprovalAsk), "the default is to ask")
+			auto := connectors.ApprovalAuto
+			v := preview(studio.AccessDraft{ApprovalMode: &auto, Channels: []connectors.Channel{{ID: "C0123", Label: "ops", Approved: true}}})
+			Expect(v.ProposalMode).To(Equal(connectors.ApprovalAuto))
+			Expect(v.Preview).To(BeTrue())
+			// A draft with no mode keeps the saved one, and nothing was saved by looking.
+			Expect(preview(studio.AccessDraft{}).ProposalMode).To(Equal(connectors.ApprovalAsk))
+			after, err := r.store.GetBinding(ctx, b.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(after.Channels).To(BeEmpty())
+			Expect(after.Approval.Mode).NotTo(Equal(connectors.ApprovalAuto))
+			bad := "sometimes"
+			_, err = r.conns.AccessPreview(ctx, alice, b.ID, studio.AccessDraft{ApprovalMode: &bad})
+			Expect(err).To(MatchError(connectors.ErrInvalid))
+		})
+
 		It("limits the answer to one kind of sender, and refuses one that does not exist", func() {
 			setup(contract.CapMemoryWrite)
 			for sender, id := range map[string]string{"listed": "listed", "paired": "paired", "anyone": "anyone", "channel_member": "anyone", "role:writer": "role:writer"} {

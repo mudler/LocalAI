@@ -17,6 +17,7 @@ import ApprovalOptions from './ApprovalFields'
 import FilesFields from './FilesFields'
 import { Check, Field, HintLabels, Notice, RadioCards, Select, Switch, TextInput } from './controls'
 import NameList from './NameList'
+import AccessMatrix from './AccessMatrix'
 import ChannelTrust from './ChannelTrust'
 import PermissionFields, { NoCapsNotice } from './PermissionFields'
 import { agentsApi, connectorsApi, setApiLanguage } from './api'
@@ -361,6 +362,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             </Field>
             <AnswerFields form={form} setForm={setForm} t={t} kindInfo={kindInfo} />
             <FilesFields form={form} setForm={setForm} kind={kindFiles} saved={form.files} s={answerT(t)} />
+            {capabilities.length > 0 && <AccessMatrix form={form} kindInfo={kindInfo} capabilities={capabilities} preview={preview} dirty={dirty} s={s} ctx={fixCtx} />}
             <PermissionFields form={form} setForm={setForm} kind={kindInfo} capabilities={capabilities} s={s} onPaired={pairedChanged} agent={agents.find((a) => a.id === form.agent_id)} channelsOnly={channelOnly(form, lists)} />
             {/* The approval of proposed triggers sits under the permission Propose triggers; an older host with no capability list has no such row, so it shows here. */}
             {capabilities.length === 0 && <ApprovalOptions form={form} setForm={setForm} s={s} />}

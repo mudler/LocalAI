@@ -802,6 +802,10 @@ type AccessView struct {
 	// missing tick holds back. The decision itself is in Subjects, under the
 	// capability.
 	AddonTools []AddonToolHold `json:"addon_tools,omitempty"`
+	// ProposalMode is what the connection does with a trigger the agent
+	// proposes: ask, auto or auto_readonly. The page shows "Asks first" next
+	// to the permission to propose triggers when it is not auto.
+	ProposalMode string `json:"proposal_mode,omitempty"`
 }
 
 // AddonToolHold names the tools of one add-on that need one capability of the
@@ -974,7 +978,14 @@ type AccessDraft struct {
 	// AllowTrust is the trust level of the chat entries of Allow. Nil keeps the
 	// saved levels.
 	AllowTrust map[string]string
-	Caps       []string
+	// Channels are the places the bot may post, as the form lists them. Nil
+	// keeps the saved list.
+	Channels []connectors.Channel
+	// ApprovalMode is the form's choice for triggers that the agent proposes
+	// (ask, auto or auto_readonly). Nil keeps the saved one. It is shown in the
+	// view as ProposalMode and decides nothing here.
+	ApprovalMode *string
+	Caps         []string
 	Grants     []connectors.RoleGrant
 	// Sender, when set, limits the answer to one kind of sender: "listed",
 	// "paired", "channel_member", "anyone" or "role:<id>".
@@ -1027,6 +1038,17 @@ func (c *Connectors) AccessPreview(ctx context.Context, user, id string, d Acces
 			delete(b.AllowTrust, k)
 		}
 	}
+	if d.Channels != nil {
+		b.Channels = slices.Clone(d.Channels)
+	}
+	if d.ApprovalMode != nil {
+		switch m := *d.ApprovalMode; m {
+		case "", connectors.ApprovalAsk, connectors.ApprovalAuto, connectors.ApprovalAutoReadonly:
+			b.Approval.Mode = m
+		default:
+			return AccessView{}, connectorBad("approval_mode must be ask, auto or auto_readonly")
+		}
+	}
 	if d.Caps != nil {
 		b.WriteTickRemoved = writeTickRemoved(b.Caps, d.Caps, b.WriteTickRemoved)
 		b.Caps = slices.Clone(d.Caps)
@@ -1077,7 +1099,7 @@ func (c *Connectors) accessOf(ctx context.Context, b connectors.Binding, only st
 		}
 		return only == "" || only == id
 	}
-	out := AccessView{Binding: b.ID, Approvals: c.svc.approvalsOf(ctx, b), AddonTools: holds}
+	out := AccessView{Binding: b.ID, Approvals: c.svc.approvalsOf(ctx, b), AddonTools: holds, ProposalMode: b.Approval.ModeOrDefault()}
 	if want("listed") {
 		out.Subjects = append(out.Subjects, view("listed", "A listed person", b, AccessSubject{SenderID: "x", Allowlisted: true, Listed: true}))
 	}

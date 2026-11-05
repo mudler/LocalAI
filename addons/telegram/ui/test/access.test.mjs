@@ -20,7 +20,7 @@ const row = (rows, id) => rows.find((r) => r.id === id)
 
 test('access: the preview body holds the form values, no token, and the kind only for a new connection', () => {
   const b = previewBody({ ...emptyConnector(), agent_id: 'a1', allow: [' 42 ', '42', ''], caps: ['memory.write'], grants: [{ role: 'r', caps: ['memory.write'] }], token: 'secret' }, 'telegram')
-  assert.deepEqual(b, { agent_id: 'a1', accept_any: false, allow: ['42'], allow_trust: {}, caps: ['memory.write'], grants: [{ role: 'r', caps: ['memory.write'] }], kind: 'telegram' })
+  assert.deepEqual(b, { agent_id: 'a1', accept_any: false, allow: ['42'], allow_trust: {}, channels: [], approval_mode: 'ask', caps: ['memory.write'], grants: [{ role: 'r', caps: ['memory.write'] }], kind: 'telegram' })
   assert.equal(JSON.stringify(b).includes('secret'), false)
   assert.equal(previewId({ id: '' }), 'new')
   const saved = previewBody({ ...emptyConnector(), id: 'b1', accept_any: true, allow: ['x'] }, 'telegram')

@@ -27,7 +27,8 @@ export default function ReadinessList({ rowsInput, s, ctx, onTest, onSave }) {
     <section className="cn-ready" aria-labelledby="cn-ready-title" data-testid="connector-readiness">
       <div className="cn-ready__head">
         <h2 id="cn-ready-title" className="cn-sub__title">{s('ready.title')}</h2>
-        <span className="cn-muted" data-testid="connector-ready-summary">{problems > 0 ? s('ready.problems', { count: problems }) : rows.some((r) => r.state === 'checking') ? s('ready.checkingSummary') : s('ready.allGood')}</span>
+        <span className="cn-muted" data-testid="connector-ready-summary">{problems > 0 ? s('ready.notReady') : rows.some((r) => r.state === 'checking') ? s('ready.checkingSummary') : s('ready.allGood')}</span>
+        {problems > 0 && <span className="cn-pill" data-testid="connector-ready-pill">{s('ready.fixCount', { count: problems })}</span>}
       </div>
       <ul className="cn-ready__list" aria-label={s('ready.title')}>
         {shown.map((r) => (

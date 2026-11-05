@@ -969,6 +969,18 @@ sender who may not send files get a short refusal and no turn.
 A binding that was stored before this check has no capabilities. Enable what you want
 with `caps`, and pair the accounts that need the sensitive ones.
 
+The settings page opens with a table, **Who can do what**, above the switches. Its rows are the
+permissions and its columns are **On for this bot**, **Verified person**, **Listed person**,
+**Channel: everyone acts**, **Channel: answer only** and, when the bot accepts anyone,
+**Anyone**. Each cell is an icon and a word: Yes, Asks first, No, Waiting for a person or Off. The
+page works nothing out: every cell is what the host says in the answer of
+`POST /api/chats/connectors/{id}/access/preview`, which the page calls with the form as it is,
+including `allow_trust`, `channels` (the places the bot may post) and `approval_mode`. The answer
+carries `proposal_mode` (what the connection does with a proposed trigger). A cell that says
+No or Off opens the message, the fix and the checks that were not made. The tools of the add-ons
+are sub-rows of the permission to change things in connected services. On a phone the table shows
+one kind of sender at a time.
+
 The settings page uses one set of words. In this document and in the API, a *paired*
 sender is shown on the page as a **Verified person**; the saved fields and keys (`paired`,
 `allow`, `channels`) do not change. A person on the allowlist is a **Listed person**. A

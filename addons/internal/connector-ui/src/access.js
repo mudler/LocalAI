@@ -19,7 +19,10 @@ export function previewBody(form, kind) {
     allow_trust: form.accept_any ? {} : Object.fromEntries((form.allow || []).map((x) => x.trim()).filter((x) => form.allow_trust?.[x]).map((x) => [x, form.allow_trust[x]])),
     caps: [...(form.caps || [])],
     grants: (form.grants || []).map((g) => ({ role: g.role, caps: [...g.caps] })),
+    // Places the bot may post, and the choice for proposed triggers: the host shows them in its answer.
+    channels: (form.channels || []).map((c) => ({ id: (c.id || '').trim(), label: (c.label || '').trim(), approved: Boolean(c.approved) })),
   }
+  if (form.approval?.mode) body.approval_mode = form.approval.mode
   if (!form.id) body.kind = kind
   return body
 }

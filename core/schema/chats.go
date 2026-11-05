@@ -1691,6 +1691,9 @@ type ChatsConnectorAccess struct {
 	// permission of the connection decides in a messaging chat, so the page can
 	// say which tools a missing permission holds back. Absent when none.
 	AddonTools []ChatsConnectorAddonTools `json:"addon_tools,omitempty"`
+	// ProposalMode is what the connection does with a trigger the agent
+	// proposes: ask, auto or auto_readonly.
+	ProposalMode string `json:"proposal_mode,omitempty"`
 	// Preview is true when the view is for a form that is not saved.
 	Preview bool `json:"preview,omitempty"`
 	// Language is the language of the localized_message fields, negotiated
@@ -1758,6 +1761,12 @@ type ChatsConnectorAccessPreviewRequest struct {
 	// Caps and Grants are the form's permissions; an empty list clears.
 	Caps   []string                  `json:"caps,omitempty"`
 	Grants []ChatsConnectorRoleGrant `json:"grants,omitempty"`
+	// Channels is the form's list of places the bot may post. Absent keeps the
+	// saved list.
+	Channels []ChatsConnectorChannel `json:"channels,omitempty"`
+	// ApprovalMode is the form's choice for proposed triggers: ask, auto or
+	// auto_readonly. Absent keeps the saved one.
+	ApprovalMode *string `json:"approval_mode,omitempty"`
 	// Sender limits the answer to one kind of sender: listed, paired,
 	// channel_member, channel_acts, anyone or role:<id>. Absent means every kind.
 	Sender string `json:"sender,omitempty"`

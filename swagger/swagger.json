@@ -22292,6 +22292,10 @@
                     "description": "Preview is true when the view is for a form that is not saved.",
                     "type": "boolean"
                 },
+                "proposal_mode": {
+                    "description": "ProposalMode is what the connection does with a trigger the agent\nproposes: ask, auto or auto_readonly.",
+                    "type": "string"
+                },
                 "recent": {
                     "type": "array",
                     "items": {
@@ -22479,11 +22483,22 @@
                         "type": "string"
                     }
                 },
+                "approval_mode": {
+                    "description": "ApprovalMode is the form's choice for proposed triggers: ask, auto or\nauto_readonly. Absent keeps the saved one.",
+                    "type": "string"
+                },
                 "caps": {
                     "description": "Caps and Grants are the form's permissions; an empty list clears.",
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                },
+                "channels": {
+                    "description": "Channels is the form's list of places the bot may post. Absent keeps the\nsaved list.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorChannel"
                     }
                 },
                 "grants": {
