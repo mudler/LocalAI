@@ -56,6 +56,11 @@ type ProviderSlot struct {
 	Description string              `json:"description"`
 	Selection   ProviderSelection   `json:"selection"`
 	Builtin     ProviderBuiltinInfo `json:"builtin"`
+	// Aliases are add-on IDs that mean the built-in provider. An add-on whose
+	// job the host took over keeps its ID here, so a copy that is still
+	// installed, and a choice that names it, keep working without serving a
+	// second time. The host lists no alias as a provider of its own.
+	Aliases []string `json:"aliases,omitempty"`
 	// Roles name what a provider can supply. A role maps to tools the add-on
 	// declares in capabilities.tools.
 	Roles map[string]ProviderRole `json:"roles"`
@@ -159,8 +164,22 @@ func (s ProviderSlot) clone() ProviderSlot {
 	}
 	s.Properties = props
 	s.Contributions.ContextFiles = slices.Clone(s.Contributions.ContextFiles)
+	s.Aliases = slices.Clone(s.Aliases)
 	s.Policy = slices.Clone(s.Policy)
 	return s
+}
+
+// IsAlias reports whether id is an add-on that the built-in provider of the
+// slot stands in for.
+func (s ProviderSlot) IsAlias(id string) bool { return slices.Contains(s.Aliases, id) }
+
+// Canonical turns an alias into the built-in provider and leaves every other
+// ID as it is.
+func (s ProviderSlot) Canonical(id string) string {
+	if s.IsAlias(id) {
+		return ProviderBuiltin
+	}
+	return id
 }
 
 // RoleNames returns the role names of the slot, sorted.
@@ -196,6 +215,11 @@ func validateProviderSlots(slots []ProviderSlot) error {
 		}
 		if !ValidName(s.Builtin.ID) || s.Builtin.ID != ProviderBuiltin || !plainText(s.Builtin.Title, MaxTitleChars) || !plainText(s.Builtin.Description, MaxDescriptionChars) {
 			return fmt.Errorf("slot %s: invalid built-in provider", s.ID)
+		}
+		for _, a := range s.Aliases {
+			if !ValidName(a) || a == ProviderBuiltin || a == ProviderOff {
+				return fmt.Errorf("slot %s: invalid alias %q", s.ID, a)
+			}
 		}
 		for name, r := range s.Roles {
 			if !ValidName(name) || len(r.Kinds) == 0 || r.Max < 0 || r.Max > MaxProviderRoleTools {
@@ -347,6 +371,12 @@ func validateProvides(c Capabilities) error {
 			default:
 				return fmt.Errorf("provider slot %s: property %s has an invalid value", d.Slot, key)
 			}
+		}
+		// A provider that sends notes to a service says so, and a service is
+		// reached over the network: the manifest must declare the network, so
+		// the person and the host see the access before anything is sent.
+		if v, _ := d.Properties["remote"].(bool); v && c.Network == nil {
+			return fmt.Errorf("provider slot %s: remote true needs a network declaration (capabilities.network)", d.Slot)
 		}
 		// A provider that says its changes are undone by the add-on keeps the
 		// change sets that the host's undo calls read.

@@ -10,6 +10,11 @@ import (
 )
 
 var _ = Describe("The provider slot declaration", func() {
+	hostWithSDK := func() HostCompatibility {
+		h := compatible()
+		h.SDK = HostSDKVersion
+		return h
+	}
 	schema := json.RawMessage(`{"type":"object","properties":{"query":{"type":"string"}},"additionalProperties":false}`)
 	// A write tool names the resource it changes, as the contract requires.
 	withResource := json.RawMessage(`{"type":"object","properties":{"resourceId":{"type":"string"},"text":{"type":"string"}},"required":["resourceId"],"additionalProperties":false}`)
@@ -20,6 +25,12 @@ var _ = Describe("The provider slot declaration", func() {
 		}
 		return ToolDefinition{Name: name, Description: "does " + name, Kind: kind, InputSchema: in}
 	}
+	// declareNetwork gives a manifest the network access a remote provider owes.
+	declareNetwork := func(m *Manifest) {
+		m.Capabilities.Network = &NetworkCapability{Kind: NetworkKindEgressCheck, Title: "Notes service"}
+		m.Capabilities.HostOperations = &HostOperations{Optional: []string{"egress.check"}}
+		m.Capabilities.UI = &UI{Entry: "ui/main.js", SDK: VersionRange{Min: 2, Max: 2}, Controls: []string{ControlNetworkPolicy}}
+	}
 	// provider is a manifest that declares the given provider entries and the
 	// tools they name, on top of the fixture.
 	provider := func(d ProviderDeclaration) Manifest {
@@ -29,6 +40,9 @@ var _ = Describe("The provider slot declaration", func() {
 		m.Capabilities.ToolDefinitions = append(m.Capabilities.ToolDefinitions,
 			tool("recall", ToolKindRead), tool("remember", ToolKindWrite), tool("export-notes", ToolKindRead))
 		m.Capabilities.Provides = []ProviderDeclaration{d}
+		if remote, _ := d.Properties["remote"].(bool); remote {
+			declareNetwork(&m)
+		}
 		return m
 	}
 	good := func() ProviderDeclaration {
@@ -54,13 +68,13 @@ var _ = Describe("The provider slot declaration", func() {
 
 	It("accepts an add-on whose roles name its own tools of the right kind", func() {
 		m := provider(good())
-		Expect(ValidateManifest(m, compatible())).To(Succeed())
+		Expect(ValidateManifest(m, hostWithSDK())).To(Succeed())
 		Expect(m.Capabilities.ProvidesSlot("memory")).To(BeTrue())
 		Expect(m.Capabilities.ProvidedSlots()).To(Equal([]string{"memory"}))
 	})
 
 	It("accepts a declaration with no roles, as a file-based provider has none", func() {
-		Expect(ValidateManifest(provider(ProviderDeclaration{Slot: "memory", SlotVersion: 1}), compatible())).To(Succeed())
+		Expect(ValidateManifest(provider(ProviderDeclaration{Slot: "memory", SlotVersion: 1}), hostWithSDK())).To(Succeed())
 	})
 
 	It("reads one tool as a string and several as a list, and refuses anything else", func() {
@@ -104,8 +118,32 @@ var _ = Describe("The provider slot declaration", func() {
 		} {
 			d := good()
 			edit(&d)
-			Expect(ValidateManifest(provider(d), compatible())).NotTo(Succeed(), name)
+			Expect(ValidateManifest(provider(d), hostWithSDK())).NotTo(Succeed(), name)
 		}
+	})
+
+	It("refuses a remote provider that does not declare its network access", func() {
+		m := provider(good())
+		Expect(ValidateManifest(m, hostWithSDK())).To(Succeed())
+		m.Capabilities.Network = nil
+		err := ValidateManifest(m, hostWithSDK())
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("network"))
+		// A provider that keeps everything on this machine owes no declaration.
+		d := good()
+		d.Properties["remote"] = false
+		local := provider(d)
+		Expect(local.Capabilities.Network).To(BeNil())
+		Expect(ValidateManifest(local, hostWithSDK())).To(Succeed())
+	})
+
+	It("keeps an alias of the built-in provider out of the providers and maps it to the built-in", func() {
+		slot, _ := ProviderSlotByID("memory")
+		Expect(slot.Aliases).NotTo(BeEmpty())
+		Expect(slot.IsAlias(slot.Aliases[0])).To(BeTrue())
+		Expect(slot.Canonical(slot.Aliases[0])).To(Equal(ProviderBuiltin))
+		Expect(slot.Canonical("other-notes")).To(Equal("other-notes"))
+		Expect(slot.Canonical(ProviderOff)).To(Equal(ProviderOff))
 	})
 
 	It("refuses a tool that only the add-on's page may call", func() {
@@ -115,39 +153,39 @@ var _ = Describe("The provider slot declaration", func() {
 				m.Capabilities.ToolDefinitions[i].UIOnly = true
 			}
 		}
-		Expect(ValidateManifest(m, compatible())).NotTo(Succeed())
+		Expect(ValidateManifest(m, hostWithSDK())).NotTo(Succeed())
 	})
 
 	It("accepts undo by the add-on when it keeps change sets", func() {
 		m := provider(good())
 		m.Capabilities.Provides[0].Properties["undo"] = "provider"
 		m.Capabilities.Undo = true
-		Expect(ValidateManifest(m, compatible())).To(Succeed())
+		Expect(ValidateManifest(m, hostWithSDK())).To(Succeed())
 	})
 
 	It("refuses a repeated slot and more slots than the bound", func() {
 		m := provider(good())
 		m.Capabilities.Provides = append(m.Capabilities.Provides, ProviderDeclaration{Slot: "memory", SlotVersion: 1})
-		Expect(ValidateManifest(m, compatible())).NotTo(Succeed())
+		Expect(ValidateManifest(m, hostWithSDK())).NotTo(Succeed())
 		m.Capabilities.Provides = nil
 		for range MaxProvides + 1 {
 			m.Capabilities.Provides = append(m.Capabilities.Provides, ProviderDeclaration{Slot: "memory", SlotVersion: 1})
 		}
-		Expect(ValidateManifest(m, compatible())).NotTo(Succeed())
+		Expect(ValidateManifest(m, hostWithSDK())).NotTo(Succeed())
 	})
 
 	It("limits the context files to the scopes the slot allows", func() {
 		m := provider(ProviderDeclaration{Slot: "memory", SlotVersion: 1})
 		m.Capabilities.ContextFiles = []ContextFile{{Scope: ScopeUser, Path: ContextFilesRoot + "index.md"}}
-		Expect(ValidateManifest(m, compatible())).To(Succeed())
+		Expect(ValidateManifest(m, hostWithSDK())).To(Succeed())
 		m.Capabilities.ContextFiles = []ContextFile{{Scope: ChangeScope("team"), Path: ContextFilesRoot + "index.md"}}
-		Expect(ValidateManifest(m, compatible())).NotTo(Succeed())
+		Expect(ValidateManifest(m, hostWithSDK())).NotTo(Succeed())
 	})
 
 	It("keeps api 2 as the only manifest api", func() {
 		m := provider(good())
 		m.API = VersionRange{Min: 1, Max: 1}
-		err := ValidateManifest(m, compatible())
+		err := ValidateManifest(m, hostWithSDK())
 		Expect(err).To(HaveOccurred())
 		Expect(strings.ToLower(err.Error())).To(ContainSubstring("api"))
 	})

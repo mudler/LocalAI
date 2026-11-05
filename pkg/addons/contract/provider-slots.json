@@ -16,6 +16,7 @@
       "title": "Built-in",
       "description": "Plain files in your Memory folder. Nothing leaves this machine."
     },
+    "aliases": ["memory"],
     "roles": {
       "context": {"kinds": ["read"], "max": 1},
       "read": {"kinds": ["read"], "max": 8},
