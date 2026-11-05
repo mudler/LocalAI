@@ -518,7 +518,7 @@
       "ko": "에이전트가 선택한 저장소의 코드, 이슈, 풀 리퀘스트를 읽고, 허용하면 그곳에 쓸 수 있게 합니다."
       "pt-BR": "Deixe seus agentes lerem o código, as issues e os pull requests dos repositórios que você escolher, e escreverem neles se você permitir."
       "zh-CN": "让你的智能体读取你所选仓库的代码、Issue 和 Pull Request，并在你允许时向其中写入。"
-  toolCount: 14
+  toolCount: 15
   tools:
     - "search-code"
     - "read-file"
@@ -528,6 +528,7 @@
     - "get-pr"
     - "get-pr-diff"
     - "check"
+    - "list-repos"
     - "comment-issue"
     - "comment-pr"
     - "create-issue"
@@ -570,7 +571,7 @@
       "ko": "에이전트가 선택한 저장소의 코드, 이슈, 풀 리퀘스트를 읽고, 허용하면 그곳에 쓸 수 있게 합니다."
       "pt-BR": "Deixe seus agentes lerem o código, as issues e os pull requests dos repositórios que você escolher, e escreverem neles se você permitir."
       "zh-CN": "让你的智能体读取你所选仓库的代码、Issue 和 Pull Request，并在你允许时向其中写入。"
-  toolCount: 14
+  toolCount: 15
   tools:
     - "search-code"
     - "read-file"
@@ -580,6 +581,7 @@
     - "get-pr"
     - "get-pr-diff"
     - "check"
+    - "list-repos"
     - "comment-issue"
     - "comment-pr"
     - "create-issue"
@@ -622,7 +624,7 @@
       "ko": "에이전트가 선택한 저장소의 코드, 이슈, 풀 리퀘스트를 읽고, 허용하면 그곳에 쓸 수 있게 합니다."
       "pt-BR": "Deixe seus agentes lerem o código, as issues e os pull requests dos repositórios que você escolher, e escreverem neles se você permitir."
       "zh-CN": "让你的智能体读取你所选仓库的代码、Issue 和 Pull Request，并在你允许时向其中写入。"
-  toolCount: 14
+  toolCount: 15
   tools:
     - "search-code"
     - "read-file"
@@ -632,6 +634,7 @@
     - "get-pr"
     - "get-pr-diff"
     - "check"
+    - "list-repos"
     - "comment-issue"
     - "comment-pr"
     - "create-issue"
@@ -674,7 +677,7 @@
       "ko": "에이전트가 선택한 저장소의 코드, 이슈, 풀 리퀘스트를 읽고, 허용하면 그곳에 쓸 수 있게 합니다."
       "pt-BR": "Deixe seus agentes lerem o código, as issues e os pull requests dos repositórios que você escolher, e escreverem neles se você permitir."
       "zh-CN": "让你的智能体读取你所选仓库的代码、Issue 和 Pull Request，并在你允许时向其中写入。"
-  toolCount: 14
+  toolCount: 15
   tools:
     - "search-code"
     - "read-file"
@@ -684,6 +687,7 @@
     - "get-pr"
     - "get-pr-diff"
     - "check"
+    - "list-repos"
     - "comment-issue"
     - "comment-pr"
     - "create-issue"
@@ -1320,7 +1324,7 @@
     - "pdf"
 - id: "pikvm"
   name: PiKVM
-  description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+  description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, asking you to confirm each time unless you say otherwise."
   version: "0.0.0-development"
   channel: "development"
   artifact: "oci://quay.io/go-skynet/local-ai-addons:pikvm-development"
@@ -1333,7 +1337,7 @@
     identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
   ui:
     title: "PiKVM"
-    description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+    description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, asking you to confirm each time unless you say otherwise."
     mainPage: "apps"
     icon: "ui/icon.png"
     titles:
@@ -1346,14 +1350,14 @@
       "pt-BR": "PiKVM"
       "zh-CN": "PiKVM"
     descriptions:
-      "de": "Lassen Sie Ihre Chats und Agenten einen PiKVM prüfen und, wenn Sie es erlauben, Einschalttasten drücken und auf dem gesteuerten Rechner tippen, jedes Mal mit einer Bestätigung."
-      "es": "Permite que tus chats y agentes revisen un PiKVM y, si lo autorizas, pulsen los botones de encendido y escriban en la máquina que controla, con una confirmación cada vez."
-      "fr": "Laissez vos conversations et vos agents consulter un PiKVM et, si vous l'autorisez, appuyer sur les boutons d'alimentation et taper sur la machine qu'il pilote, avec une confirmation à chaque fois."
-      "id": "Izinkan obrolan dan agen Anda memeriksa PiKVM dan, jika Anda mengizinkan, menekan tombol daya dan mengetik di mesin yang dikendalikannya, dengan konfirmasi setiap kali."
-      "it": "Lascia che le tue chat e i tuoi agenti controllino un PiKVM e, se lo permetti, premano i pulsanti di accensione e scrivano sulla macchina che governa, con una conferma ogni volta."
-      "ko": "채팅과 에이전트가 PiKVM을 확인하고, 허용하면 전원 버튼을 누르고 PiKVM이 제어하는 기기에 입력할 수 있게 합니다. 매번 확인을 거칩니다."
-      "pt-BR": "Deixe seus chats e agentes verificarem um PiKVM e, se você permitir, pressionarem os botões de energia e digitarem na máquina que ele controla, com uma confirmação a cada vez."
-      "zh-CN": "让你的聊天和智能体查看 PiKVM，并在你允许时按下电源按钮、在它所控制的机器上输入内容，每次都需要确认。"
+      "de": "Lassen Sie Ihre Chats und Agenten einen PiKVM prüfen und, wenn Sie es erlauben, Einschalttasten drücken und auf dem gesteuerten Rechner tippen, mit einer Bestätigung bei jedem Mal, sofern Sie nichts anderes festlegen."
+      "es": "Permite que tus chats y agentes revisen un PiKVM y, si lo autorizas, pulsen los botones de encendido y escriban en la máquina que controla, pidiendo confirmación cada vez, salvo que decidas otra cosa."
+      "fr": "Laissez vos conversations et vos agents consulter un PiKVM et, si vous l'autorisez, appuyer sur les boutons d'alimentation et taper sur la machine qu'il pilote, en demandant une confirmation à chaque fois, sauf si vous en décidez autrement."
+      "id": "Izinkan obrolan dan agen Anda memeriksa PiKVM dan, jika Anda mengizinkan, menekan tombol daya dan mengetik di mesin yang dikendalikannya, dengan meminta konfirmasi setiap kali kecuali Anda menentukan lain."
+      "it": "Lascia che le tue chat e i tuoi agenti controllino un PiKVM e, se lo permetti, premano i pulsanti di accensione e scrivano sulla macchina che governa, chiedendo conferma ogni volta, salvo che tu decida diversamente."
+      "ko": "채팅과 에이전트가 PiKVM을 확인하고, 허용하면 전원 버튼을 누르고 PiKVM이 제어하는 기기에 입력할 수 있게 합니다. 별도로 설정하지 않으면 매번 확인을 거칩니다."
+      "pt-BR": "Deixe seus chats e agentes verificarem um PiKVM e, se você permitir, pressionarem os botões de energia e digitarem na máquina que ele controla, pedindo confirmação a cada vez, a menos que você decida o contrário."
+      "zh-CN": "让你的聊天和智能体查看 PiKVM，并在你允许时按下电源按钮、在它所控制的机器上输入内容，每次都需要确认，除非你另行设置。"
   toolCount: 8
   tools:
     - "get-info"
@@ -1366,7 +1370,7 @@
     - "set-settings"
 - id: "pikvm"
   name: PiKVM
-  description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+  description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, asking you to confirm each time unless you say otherwise."
   version: "0.0.0-development"
   channel: "development"
   artifact: "oci://quay.io/go-skynet/local-ai-addons:pikvm-development"
@@ -1379,7 +1383,7 @@
     identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
   ui:
     title: "PiKVM"
-    description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+    description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, asking you to confirm each time unless you say otherwise."
     mainPage: "apps"
     icon: "ui/icon.png"
     titles:
@@ -1392,14 +1396,14 @@
       "pt-BR": "PiKVM"
       "zh-CN": "PiKVM"
     descriptions:
-      "de": "Lassen Sie Ihre Chats und Agenten einen PiKVM prüfen und, wenn Sie es erlauben, Einschalttasten drücken und auf dem gesteuerten Rechner tippen, jedes Mal mit einer Bestätigung."
-      "es": "Permite que tus chats y agentes revisen un PiKVM y, si lo autorizas, pulsen los botones de encendido y escriban en la máquina que controla, con una confirmación cada vez."
-      "fr": "Laissez vos conversations et vos agents consulter un PiKVM et, si vous l'autorisez, appuyer sur les boutons d'alimentation et taper sur la machine qu'il pilote, avec une confirmation à chaque fois."
-      "id": "Izinkan obrolan dan agen Anda memeriksa PiKVM dan, jika Anda mengizinkan, menekan tombol daya dan mengetik di mesin yang dikendalikannya, dengan konfirmasi setiap kali."
-      "it": "Lascia che le tue chat e i tuoi agenti controllino un PiKVM e, se lo permetti, premano i pulsanti di accensione e scrivano sulla macchina che governa, con una conferma ogni volta."
-      "ko": "채팅과 에이전트가 PiKVM을 확인하고, 허용하면 전원 버튼을 누르고 PiKVM이 제어하는 기기에 입력할 수 있게 합니다. 매번 확인을 거칩니다."
-      "pt-BR": "Deixe seus chats e agentes verificarem um PiKVM e, se você permitir, pressionarem os botões de energia e digitarem na máquina que ele controla, com uma confirmação a cada vez."
-      "zh-CN": "让你的聊天和智能体查看 PiKVM，并在你允许时按下电源按钮、在它所控制的机器上输入内容，每次都需要确认。"
+      "de": "Lassen Sie Ihre Chats und Agenten einen PiKVM prüfen und, wenn Sie es erlauben, Einschalttasten drücken und auf dem gesteuerten Rechner tippen, mit einer Bestätigung bei jedem Mal, sofern Sie nichts anderes festlegen."
+      "es": "Permite que tus chats y agentes revisen un PiKVM y, si lo autorizas, pulsen los botones de encendido y escriban en la máquina que controla, pidiendo confirmación cada vez, salvo que decidas otra cosa."
+      "fr": "Laissez vos conversations et vos agents consulter un PiKVM et, si vous l'autorisez, appuyer sur les boutons d'alimentation et taper sur la machine qu'il pilote, en demandant une confirmation à chaque fois, sauf si vous en décidez autrement."
+      "id": "Izinkan obrolan dan agen Anda memeriksa PiKVM dan, jika Anda mengizinkan, menekan tombol daya dan mengetik di mesin yang dikendalikannya, dengan meminta konfirmasi setiap kali kecuali Anda menentukan lain."
+      "it": "Lascia che le tue chat e i tuoi agenti controllino un PiKVM e, se lo permetti, premano i pulsanti di accensione e scrivano sulla macchina che governa, chiedendo conferma ogni volta, salvo che tu decida diversamente."
+      "ko": "채팅과 에이전트가 PiKVM을 확인하고, 허용하면 전원 버튼을 누르고 PiKVM이 제어하는 기기에 입력할 수 있게 합니다. 별도로 설정하지 않으면 매번 확인을 거칩니다."
+      "pt-BR": "Deixe seus chats e agentes verificarem um PiKVM e, se você permitir, pressionarem os botões de energia e digitarem na máquina que ele controla, pedindo confirmação a cada vez, a menos que você decida o contrário."
+      "zh-CN": "让你的聊天和智能体查看 PiKVM，并在你允许时按下电源按钮、在它所控制的机器上输入内容，每次都需要确认，除非你另行设置。"
   toolCount: 8
   tools:
     - "get-info"
@@ -1412,7 +1416,7 @@
     - "set-settings"
 - id: "pikvm"
   name: PiKVM
-  description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+  description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, asking you to confirm each time unless you say otherwise."
   version: "0.0.0-development"
   channel: "development"
   artifact: "oci://quay.io/go-skynet/local-ai-addons:pikvm-development"
@@ -1425,7 +1429,7 @@
     identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
   ui:
     title: "PiKVM"
-    description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+    description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, asking you to confirm each time unless you say otherwise."
     mainPage: "apps"
     icon: "ui/icon.png"
     titles:
@@ -1438,14 +1442,14 @@
       "pt-BR": "PiKVM"
       "zh-CN": "PiKVM"
     descriptions:
-      "de": "Lassen Sie Ihre Chats und Agenten einen PiKVM prüfen und, wenn Sie es erlauben, Einschalttasten drücken und auf dem gesteuerten Rechner tippen, jedes Mal mit einer Bestätigung."
-      "es": "Permite que tus chats y agentes revisen un PiKVM y, si lo autorizas, pulsen los botones de encendido y escriban en la máquina que controla, con una confirmación cada vez."
-      "fr": "Laissez vos conversations et vos agents consulter un PiKVM et, si vous l'autorisez, appuyer sur les boutons d'alimentation et taper sur la machine qu'il pilote, avec une confirmation à chaque fois."
-      "id": "Izinkan obrolan dan agen Anda memeriksa PiKVM dan, jika Anda mengizinkan, menekan tombol daya dan mengetik di mesin yang dikendalikannya, dengan konfirmasi setiap kali."
-      "it": "Lascia che le tue chat e i tuoi agenti controllino un PiKVM e, se lo permetti, premano i pulsanti di accensione e scrivano sulla macchina che governa, con una conferma ogni volta."
-      "ko": "채팅과 에이전트가 PiKVM을 확인하고, 허용하면 전원 버튼을 누르고 PiKVM이 제어하는 기기에 입력할 수 있게 합니다. 매번 확인을 거칩니다."
-      "pt-BR": "Deixe seus chats e agentes verificarem um PiKVM e, se você permitir, pressionarem os botões de energia e digitarem na máquina que ele controla, com uma confirmação a cada vez."
-      "zh-CN": "让你的聊天和智能体查看 PiKVM，并在你允许时按下电源按钮、在它所控制的机器上输入内容，每次都需要确认。"
+      "de": "Lassen Sie Ihre Chats und Agenten einen PiKVM prüfen und, wenn Sie es erlauben, Einschalttasten drücken und auf dem gesteuerten Rechner tippen, mit einer Bestätigung bei jedem Mal, sofern Sie nichts anderes festlegen."
+      "es": "Permite que tus chats y agentes revisen un PiKVM y, si lo autorizas, pulsen los botones de encendido y escriban en la máquina que controla, pidiendo confirmación cada vez, salvo que decidas otra cosa."
+      "fr": "Laissez vos conversations et vos agents consulter un PiKVM et, si vous l'autorisez, appuyer sur les boutons d'alimentation et taper sur la machine qu'il pilote, en demandant une confirmation à chaque fois, sauf si vous en décidez autrement."
+      "id": "Izinkan obrolan dan agen Anda memeriksa PiKVM dan, jika Anda mengizinkan, menekan tombol daya dan mengetik di mesin yang dikendalikannya, dengan meminta konfirmasi setiap kali kecuali Anda menentukan lain."
+      "it": "Lascia che le tue chat e i tuoi agenti controllino un PiKVM e, se lo permetti, premano i pulsanti di accensione e scrivano sulla macchina che governa, chiedendo conferma ogni volta, salvo che tu decida diversamente."
+      "ko": "채팅과 에이전트가 PiKVM을 확인하고, 허용하면 전원 버튼을 누르고 PiKVM이 제어하는 기기에 입력할 수 있게 합니다. 별도로 설정하지 않으면 매번 확인을 거칩니다."
+      "pt-BR": "Deixe seus chats e agentes verificarem um PiKVM e, se você permitir, pressionarem os botões de energia e digitarem na máquina que ele controla, pedindo confirmação a cada vez, a menos que você decida o contrário."
+      "zh-CN": "让你的聊天和智能体查看 PiKVM，并在你允许时按下电源按钮、在它所控制的机器上输入内容，每次都需要确认，除非你另行设置。"
   toolCount: 8
   tools:
     - "get-info"
@@ -1458,7 +1462,7 @@
     - "set-settings"
 - id: "pikvm"
   name: PiKVM
-  description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+  description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, asking you to confirm each time unless you say otherwise."
   version: "0.0.0-development"
   channel: "development"
   artifact: "oci://quay.io/go-skynet/local-ai-addons:pikvm-development"
@@ -1471,7 +1475,7 @@
     identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
   ui:
     title: "PiKVM"
-    description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+    description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, asking you to confirm each time unless you say otherwise."
     mainPage: "apps"
     icon: "ui/icon.png"
     titles:
@@ -1484,14 +1488,14 @@
       "pt-BR": "PiKVM"
       "zh-CN": "PiKVM"
     descriptions:
-      "de": "Lassen Sie Ihre Chats und Agenten einen PiKVM prüfen und, wenn Sie es erlauben, Einschalttasten drücken und auf dem gesteuerten Rechner tippen, jedes Mal mit einer Bestätigung."
-      "es": "Permite que tus chats y agentes revisen un PiKVM y, si lo autorizas, pulsen los botones de encendido y escriban en la máquina que controla, con una confirmación cada vez."
-      "fr": "Laissez vos conversations et vos agents consulter un PiKVM et, si vous l'autorisez, appuyer sur les boutons d'alimentation et taper sur la machine qu'il pilote, avec une confirmation à chaque fois."
-      "id": "Izinkan obrolan dan agen Anda memeriksa PiKVM dan, jika Anda mengizinkan, menekan tombol daya dan mengetik di mesin yang dikendalikannya, dengan konfirmasi setiap kali."
-      "it": "Lascia che le tue chat e i tuoi agenti controllino un PiKVM e, se lo permetti, premano i pulsanti di accensione e scrivano sulla macchina che governa, con una conferma ogni volta."
-      "ko": "채팅과 에이전트가 PiKVM을 확인하고, 허용하면 전원 버튼을 누르고 PiKVM이 제어하는 기기에 입력할 수 있게 합니다. 매번 확인을 거칩니다."
-      "pt-BR": "Deixe seus chats e agentes verificarem um PiKVM e, se você permitir, pressionarem os botões de energia e digitarem na máquina que ele controla, com uma confirmação a cada vez."
-      "zh-CN": "让你的聊天和智能体查看 PiKVM，并在你允许时按下电源按钮、在它所控制的机器上输入内容，每次都需要确认。"
+      "de": "Lassen Sie Ihre Chats und Agenten einen PiKVM prüfen und, wenn Sie es erlauben, Einschalttasten drücken und auf dem gesteuerten Rechner tippen, mit einer Bestätigung bei jedem Mal, sofern Sie nichts anderes festlegen."
+      "es": "Permite que tus chats y agentes revisen un PiKVM y, si lo autorizas, pulsen los botones de encendido y escriban en la máquina que controla, pidiendo confirmación cada vez, salvo que decidas otra cosa."
+      "fr": "Laissez vos conversations et vos agents consulter un PiKVM et, si vous l'autorisez, appuyer sur les boutons d'alimentation et taper sur la machine qu'il pilote, en demandant une confirmation à chaque fois, sauf si vous en décidez autrement."
+      "id": "Izinkan obrolan dan agen Anda memeriksa PiKVM dan, jika Anda mengizinkan, menekan tombol daya dan mengetik di mesin yang dikendalikannya, dengan meminta konfirmasi setiap kali kecuali Anda menentukan lain."
+      "it": "Lascia che le tue chat e i tuoi agenti controllino un PiKVM e, se lo permetti, premano i pulsanti di accensione e scrivano sulla macchina che governa, chiedendo conferma ogni volta, salvo che tu decida diversamente."
+      "ko": "채팅과 에이전트가 PiKVM을 확인하고, 허용하면 전원 버튼을 누르고 PiKVM이 제어하는 기기에 입력할 수 있게 합니다. 별도로 설정하지 않으면 매번 확인을 거칩니다."
+      "pt-BR": "Deixe seus chats e agentes verificarem um PiKVM e, se você permitir, pressionarem os botões de energia e digitarem na máquina que ele controla, pedindo confirmação a cada vez, a menos que você decida o contrário."
+      "zh-CN": "让你的聊天和智能体查看 PiKVM，并在你允许时按下电源按钮、在它所控制的机器上输入内容，每次都需要确认，除非你另行设置。"
   toolCount: 8
   tools:
     - "get-info"

@@ -1051,7 +1051,7 @@ var _ = Describe("catalog template", func() {
 		for _, e := range entries {
 			got[e.ID] = e.ToolCount
 		}
-		Expect(got).To(Equal(map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "face": 0, "studio": 0, "talk": 0, "telegram": 0, "slack": 0, "discord": 0, "github": 14, "home-assistant": 11, "jellyfin": 16, "office": 11, "pikvm": 8, "sandbox": 5, "web": 5}))
+		Expect(got).To(Equal(map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "face": 0, "studio": 0, "talk": 0, "telegram": 0, "slack": 0, "discord": 0, "github": 15, "home-assistant": 11, "jellyfin": 16, "office": 11, "pikvm": 8, "sandbox": 5, "web": 5}))
 	})
 	It("refuses missing inputs, backend repositories, bad channels and unknown placeholders", func() {
 		reg := newRegistry()
