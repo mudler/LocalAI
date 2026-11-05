@@ -84,7 +84,8 @@
       "Tools": "工具",
       "Notes": "记忆",
       "Connections": "连接",
-      "Effective": "生效视图"
+      "Effective": "生效视图",
+      "Uses": "可使用的内容"
     },
     "name": "Name",
     "description": "Description",
@@ -260,7 +261,10 @@
       },
       "skills": {
         "some_one": "可以使用 {{count}} 个技能：{{names}}。",
-        "some_other": "可以使用 {{count}} 个技能：{{names}}。"
+        "some_other": "可以使用 {{count}} 个技能：{{names}}。",
+        "withAddons_one": "可使用 {{count}} 个随插件而来的技能：{{names}}。",
+        "withAddons_other": "可使用 {{count}} 个随插件而来的技能：{{names}}。",
+        "addonOff": "技能 {{name}} 已开启，但它的插件 {{addon}} 已关闭，因此不起作用。请开启该插件。"
       },
       "files": {
         "all": "可以访问你的所有文件。",
@@ -304,6 +308,18 @@
         "error": "无法检查 {{name}}。打开它查看权限。",
         "summary": "{{name}}：允许 {{allowed}} 项，不允许 {{blocked}} 项。",
         "blocked": "{{name}} 无法使用 {{capability}}。{{message}}"
+      },
+      "addons": {
+        "noConnection": "{{name}} 已开启但目前无法工作：你没有对应的账户。请添加一个。",
+        "stale": "{{name}} 已开启但目前无法工作：保存的账户已不存在。请选择一个账户。",
+        "pick": "{{name}} 已开启但目前无法工作：没有选择账户。无人在场的运行得不到它的任何工具。",
+        "resourcesNone": "{{name}} 已开启但目前无法工作：没有勾选任何{{noun}}。",
+        "account": "{{name}} 使用 {{names}}。",
+        "resources": "{{name}} 可使用 {{n}} 个{{plural}}，其中可修改 {{w}} 个。",
+        "resourcesRead": "{{name}} 可读取 {{n}} 个{{plural}}，但不能修改任何一个。"
+      },
+      "mcp": {
+        "ignored": "{{name}} 在代理的 MCP 服务器中，但不存在此名称的内容，因此被忽略。请移除它。"
       }
     },
     "try": {
@@ -335,6 +351,100 @@
       "chatTitle": "{{name}} 的测试",
       "failed": "测试失败：{{message}}",
       "slow": "智能体仍在工作。请停止它或关闭面板。"
+    },
+    "uses": {
+      "presetNote": "级别只设置内置工具和权限。插件、账户、MCP 服务器和技能保持不变。",
+      "needsSummary_one": "{{count}} 个插件暂时无法工作",
+      "needsSummary_other": "{{count}} 个插件暂时无法工作",
+      "builtins": {
+        "title": "内置工具",
+        "lead": "由 LocalAI 提供。选项位于各自开关下方。"
+      },
+      "addons": {
+        "title": "插件",
+        "lead": "每个插件一行：打开它，选择它使用的账户，查看它提供的内容。",
+        "none": "没有安装插件。",
+        "gone": "已授权，但未安装或你无法使用。关闭即可移除。"
+      },
+      "mcp": {
+        "title": "MCP 服务器",
+        "lead": "LocalAI 之外的服务器。其工具可能产生费用或访问其他系统。",
+        "search": "搜索 MCP 服务器",
+        "none": "尚未定义 MCP 连接器。请在 MCP 连接器页面添加。",
+        "connector": "你定义的 MCP 连接器。",
+        "server": "模型的 MCP 服务器。",
+        "unknown": "未定义：不存在此名称的内容，因此代理会忽略它。",
+        "unverified": "模型在每次聊天中选择，因此该名称在那里检查。",
+        "remove": "移除 {{name}}",
+        "noMatch": "没有与“{{query}}”匹配的 MCP 服务器。",
+        "removeShort": "移除"
+      },
+      "account": {
+        "label": "使用的账户",
+        "group": "{{name}} 的账户",
+        "none": "还没有账户。",
+        "add": "添加账户",
+        "kept": "留待以后"
+      },
+      "meta": {
+        "account": "需要账户",
+        "resources": "仅限你勾选的{{plural}}"
+      },
+      "tools_one": "{{count}} 个工具",
+      "tools_other": "{{count}} 个工具",
+      "toolsSplit_one": "{{count}} 个工具（{{read}} 个读取，{{write}} 个修改数据）",
+      "toolsSplit_other": "{{count}} 个工具（{{read}} 个读取，{{write}} 个修改数据）",
+      "writes": "修改数据",
+      "now": {
+        "label": "当前：",
+        "off": "已关闭。不提供任何内容。",
+        "offKept": "已关闭。不提供任何内容。留待以后的账户：{{names}}。",
+        "noAccountNeeded": "已开启。提供：{{tools}}。不需要账户。",
+        "only": "已开启。提供：{{tools}}，使用 {{names}}，这是你唯一的账户。",
+        "using": "已开启。提供：{{tools}}，使用 {{names}}。",
+        "usingMany": "已开启。提供：{{tools}}，使用 {{names}}。模型在每次调用中指明账户。",
+        "pick": "已开启，但没有选择账户。聊天会先请你选择一个才提供工具；无人在场的运行得不到任何工具。请在上方勾选要使用的账户。",
+        "noConnection": "已开启，但你还没有对应的账户，因此不提供它的任何工具。请在上方添加账户。",
+        "stale": "已开启，但保存的账户已不存在，因此不提供它的任何工具。请选择一个账户。请在上方勾选一个账户。",
+        "resourcesNone": "已开启，但没有勾选任何{{noun}}，因此无法使用任何一个。请在上方勾选一个。",
+        "resourcesRead": "已开启。提供：{{tools}}，针对 {{n}} 个已勾选的{{plural}}，只读。修改数据的工具无法运行。",
+        "resources": "已开启。提供：{{tools}}，针对 {{n}} 个已勾选的{{plural}}；可修改其中 {{w}} 个。"
+      },
+      "res": {
+        "heading": "可使用哪些<n>{{plural}}</n>",
+        "headingPlain": "可使用哪些{{plural}}",
+        "loading": "正在加载列表。",
+        "error": "无法读取列表。",
+        "empty": "你还没有可授予的<n>{{plural}}</n>。",
+        "truncated": "列表已被截断。",
+        "gone": "不可用",
+        "access": "对 {{name}} 的权限",
+        "read": "读取",
+        "write": "读取和修改",
+        "none": "未勾选：无法使用任何<n>{{noun}}</n>。",
+        "some": "仅限已勾选的。你仍需对每一项拥有自己的权限。"
+      },
+      "skills": {
+        "summaryOff_one": "{{count}} 个技能随之开启",
+        "summaryOff_other": "{{count}} 个技能随之开启",
+        "summaryOn": "{{total}} 个技能中开启 {{on}} 个"
+      },
+      "addonOn": {
+        "title": "已开启 {{name}}",
+        "body_one": "随之开启了 {{count}} 个技能：{{names}}。保存之前不会存储任何内容。",
+        "body_other": "随之开启了 {{count}} 个技能：{{names}}。保存之前不会存储任何内容。"
+      },
+      "skillAddonOff": "它的插件已关闭，因此该技能不起作用。",
+      "memorySkills": {
+        "title": "记忆技能",
+        "from": "来自 {{slot}}",
+        "on": "随笔记开启。它们教模型读取和保存笔记。",
+        "off": "已关闭，因为此代理不保存笔记。",
+        "offUser": "已关闭，因为你的设置中记忆已关闭。"
+      },
+      "slot": {
+        "memory": "记忆"
+      }
     }
   },
   "run": {

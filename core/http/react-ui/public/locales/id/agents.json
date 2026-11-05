@@ -84,7 +84,8 @@
       "Tools": "Alat",
       "Notes": "Memori",
       "Connections": "Koneksi",
-      "Effective": "Tampilan efektif"
+      "Effective": "Tampilan efektif",
+      "Uses": "Yang dapat digunakan"
     },
     "name": "Name",
     "description": "Description",
@@ -260,7 +261,10 @@
       },
       "skills": {
         "some_one": "Bisa memakai {{count}} keahlian: {{names}}.",
-        "some_other": "Bisa memakai {{count}} keahlian: {{names}}."
+        "some_other": "Bisa memakai {{count}} keahlian: {{names}}.",
+        "withAddons_one": "Dapat memakai {{count}} skill yang datang dengan add-on: {{names}}.",
+        "withAddons_other": "Dapat memakai {{count}} skill yang datang dengan add-on: {{names}}.",
+        "addonOff": "Skill {{name}} aktif, tetapi add-on-nya {{addon}} mati, jadi tidak berfungsi. Aktifkan add-on-nya."
       },
       "files": {
         "all": "Bisa mengakses semua berkas Anda.",
@@ -304,6 +308,18 @@
         "error": "Tidak bisa memeriksa {{name}}. Buka untuk melihat izinnya.",
         "summary": "{{name}}: {{allowed}} diizinkan, {{blocked}} tidak diizinkan.",
         "blocked": "{{name}} tidak bisa memakai {{capability}}. {{message}}"
+      },
+      "addons": {
+        "noConnection": "{{name}} aktif tetapi tidak bisa bekerja sekarang: Anda belum punya akun untuknya. Tambahkan satu.",
+        "stale": "{{name}} aktif tetapi tidak bisa bekerja sekarang: akun yang disimpan sudah tidak ada. Pilih akun.",
+        "pick": "{{name}} aktif tetapi tidak bisa bekerja sekarang: belum ada akun dipilih. Proses tanpa orang tidak mendapat alatnya.",
+        "resourcesNone": "{{name}} aktif tetapi tidak bisa bekerja sekarang: tidak ada {{noun}} yang dicentang.",
+        "account": "{{name}} memakai {{names}}.",
+        "resources": "{{name}} boleh memakai {{n}} {{plural}} dan mengubah {{w}}.",
+        "resourcesRead": "{{name}} boleh membaca {{n}} {{plural}} dan tidak mengubah satu pun."
+      },
+      "mcp": {
+        "ignored": "{{name}} ada di server MCP agen, tetapi tidak ada yang bernama itu, sehingga diabaikan. Hapus."
       }
     },
     "try": {
@@ -335,6 +351,100 @@
       "chatTitle": "Uji {{name}}",
       "failed": "Uji gagal: {{message}}",
       "slow": "Agen masih bekerja. Hentikan atau tutup panel."
+    },
+    "uses": {
+      "presetNote": "Satu level hanya mengatur alat bawaan dan izin. Add-on, akun, server MCP, dan skill tetap seperti semula.",
+      "needsSummary_one": "{{count}} add-on belum bisa bekerja",
+      "needsSummary_other": "{{count}} add-on belum bisa bekerja",
+      "builtins": {
+        "title": "Alat bawaan",
+        "lead": "Disediakan oleh LocalAI. Opsi ada di bawah sakelarnya."
+      },
+      "addons": {
+        "title": "Add-on",
+        "lead": "Satu baris per add-on: aktifkan, pilih akun yang dipakai, lihat yang ditawarkan.",
+        "none": "Tidak ada add-on yang terpasang.",
+        "gone": "Diizinkan, tetapi tidak terpasang atau tidak tersedia untuk Anda. Matikan untuk menghapusnya."
+      },
+      "mcp": {
+        "title": "Server MCP",
+        "lead": "Server di luar LocalAI. Alatnya mungkin berbiaya atau menjangkau sistem lain.",
+        "search": "Cari server MCP",
+        "none": "Belum ada konektor MCP yang didefinisikan. Tambahkan di halaman konektor MCP.",
+        "connector": "Konektor MCP yang Anda definisikan.",
+        "server": "Server MCP milik model.",
+        "unknown": "Tidak didefinisikan: tidak ada yang bernama ini, sehingga agen mengabaikannya.",
+        "unverified": "Model dipilih di setiap chat, jadi nama ini diperiksa di sana.",
+        "remove": "Hapus {{name}}",
+        "noMatch": "Tidak ada server MCP yang cocok dengan “{{query}}”.",
+        "removeShort": "Hapus"
+      },
+      "account": {
+        "label": "Akun yang dipakai",
+        "group": "Akun untuk {{name}}",
+        "none": "Belum ada akun.",
+        "add": "Tambah akun",
+        "kept": "Disimpan untuk nanti"
+      },
+      "meta": {
+        "account": "perlu akun",
+        "resources": "dibatasi pada {{plural}} yang Anda centang"
+      },
+      "tools_one": "{{count}} alat",
+      "tools_other": "{{count}} alat",
+      "toolsSplit_one": "{{count}} alat ({{read}} baca, {{write}} mengubah data)",
+      "toolsSplit_other": "{{count}} alat ({{read}} baca, {{write}} mengubah data)",
+      "writes": "mengubah data",
+      "now": {
+        "label": "Saat ini:",
+        "off": "Mati. Tidak ada yang ditawarkan.",
+        "offKept": "Mati. Tidak ada yang ditawarkan. Akun disimpan untuk nanti: {{names}}.",
+        "noAccountNeeded": "Aktif. Ditawarkan: {{tools}}. Tidak perlu akun.",
+        "only": "Aktif. Ditawarkan: {{tools}}, memakai {{names}}, satu-satunya akun Anda.",
+        "using": "Aktif. Ditawarkan: {{tools}}, memakai {{names}}.",
+        "usingMany": "Aktif. Ditawarkan: {{tools}}, memakai {{names}}. Model menyebut akun di setiap panggilan.",
+        "pick": "Aktif, tetapi belum ada akun dipilih. Chat meminta Anda memilih satu sebelum mendapat alat; proses tanpa orang tidak mendapat apa pun. Centang akun yang dipakai di atas.",
+        "noConnection": "Aktif, tetapi Anda belum punya akun untuknya, sehingga tidak ada alatnya yang ditawarkan. Tambahkan akun di atas.",
+        "stale": "Aktif, tetapi akun yang disimpan sudah tidak ada, sehingga tidak ada alatnya yang ditawarkan. Pilih akun. Centang akun di atas.",
+        "resourcesNone": "Aktif, tetapi tidak ada {{noun}} yang dicentang, sehingga tidak bisa memakai satu pun. Centang satu di atas.",
+        "resourcesRead": "Aktif. Ditawarkan: {{tools}}, pada {{n}} {{plural}} yang dicentang, hanya baca. Alat yang mengubah data tidak bisa berjalan.",
+        "resources": "Aktif. Ditawarkan: {{tools}}, pada {{n}} {{plural}} yang dicentang; boleh mengubah {{w}}."
+      },
+      "res": {
+        "heading": "<n>{{plural}}</n> mana yang boleh dipakai",
+        "headingPlain": "{{plural}} mana yang boleh dipakai",
+        "loading": "Memuat daftar.",
+        "error": "Daftar tidak bisa dibaca.",
+        "empty": "Anda belum punya <n>{{plural}}</n> untuk diberikan.",
+        "truncated": "Daftar dipotong.",
+        "gone": "tidak tersedia",
+        "access": "Akses ke {{name}}",
+        "read": "Baca",
+        "write": "Baca dan ubah",
+        "none": "Tidak ada yang dicentang: tidak bisa memakai <n>{{noun}}</n> apa pun.",
+        "some": "Hanya yang dicentang. Anda tetap perlu akses sendiri ke masing-masing."
+      },
+      "skills": {
+        "summaryOff_one": "{{count}} skill ikut aktif bersamanya",
+        "summaryOff_other": "{{count}} skill ikut aktif bersamanya",
+        "summaryOn": "{{on}} dari {{total}} skill aktif"
+      },
+      "addonOn": {
+        "title": "{{name}} diaktifkan",
+        "body_one": "{{count}} skill ikut diaktifkan: {{names}}. Tidak ada yang disimpan sampai Anda menyimpan.",
+        "body_other": "{{count}} skill ikut diaktifkan: {{names}}. Tidak ada yang disimpan sampai Anda menyimpan."
+      },
+      "skillAddonOff": "Add-on-nya mati, jadi skill ini tidak berfungsi.",
+      "memorySkills": {
+        "title": "Skill memori",
+        "from": "dari {{slot}}",
+        "on": "Aktif bersama catatan. Skill ini mengajari model membaca dan menyimpan catatan.",
+        "off": "Mati, karena agen ini tidak menyimpan catatan.",
+        "offUser": "Mati, karena memori dimatikan di Pengaturan Anda."
+      },
+      "slot": {
+        "memory": "Memori"
+      }
     }
   },
   "run": {

@@ -473,7 +473,8 @@
       "personal": "Personal",
       "shared": "Shared",
       "folder": "Workspace",
-      "addon": "{{name}}"
+      "addon": "{{name}}",
+      "addonFrom": "from {{name}}"
     },
     "replacedBy": "Replaced by {{name}}",
     "fallback_one": "Built-in {{skills}} in use: the {{name}} add-on's own skill is off or not running here.",

@@ -204,7 +204,8 @@
       "personal": "Persönlich",
       "shared": "Geteilt",
       "folder": "Arbeitsbereich",
-      "addon": "{{name}}"
+      "addon": "{{name}}",
+      "addonFrom": "von {{name}}"
     },
     "replacedBy": "Ersetzt durch {{name}}",
     "fallback_one": "Integriertes {{skills}} aktiv: der eigene Skill des Add-ons {{name}} ist hier aus oder läuft nicht.",

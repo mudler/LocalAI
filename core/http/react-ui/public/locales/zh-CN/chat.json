@@ -204,7 +204,8 @@
       "personal": "个人",
       "shared": "共享",
       "folder": "工作区",
-      "addon": "{{name}}"
+      "addon": "{{name}}",
+      "addonFrom": "来自 {{name}}"
     },
     "replacedBy": "已被 {{name}} 替换",
     "fallback_one": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。",

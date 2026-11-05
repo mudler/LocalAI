@@ -12,7 +12,7 @@ import './agentmemory.css'
 // none: it shows "As before" as a note, with the cards below to pick a clearer
 // choice. `userOff` is the person's own switch (read only here): when it is
 // off the choice has no effect, and the form says so.
-export default function AgentMemoryChoice({ value, onChange, saves, onSaves, userOff, saveRule = '', onSaveRule, userLevel }) {
+export default function AgentMemoryChoice({ value, onChange, saves, onSaves, userOff, saveRule = '', onSaveRule, userLevel, children }) {
   const { t } = useTranslation('chats')
   const groupId = useId()
   const grantId = useId()
@@ -56,7 +56,7 @@ export default function AgentMemoryChoice({ value, onChange, saves, onSaves, use
         )}
         {memorySaves(value) && (
           <label className="am__grant" htmlFor={grantId}>
-            <input id={grantId} type="checkbox" checked={Boolean(saves)} onChange={(e) => onSaves(e.target.checked)} data-testid="agent-memory-saves" />
+            <input id={grantId} type="checkbox" className="dk-check" checked={Boolean(saves)} onChange={(e) => onSaves(e.target.checked)} data-testid="agent-memory-saves" />
             <span className="am__text">
               <span className="am__title">{t('agentMemory.saveGrant')}</span>
               <span className="am__body">{t('agentMemory.saveGrantHelp')}</span>
@@ -89,6 +89,7 @@ export default function AgentMemoryChoice({ value, onChange, saves, onSaves, use
         </div>
       )}
       <p className="am__note"><Icon name="info" />{' '}{t('agentMemory.copyNote')}</p>
+      {children}
     </div>
   )
 }

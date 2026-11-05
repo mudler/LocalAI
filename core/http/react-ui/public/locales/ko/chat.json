@@ -204,7 +204,8 @@
       "personal": "개인",
       "shared": "공유",
       "folder": "작업 공간",
-      "addon": "{{name}}"
+      "addon": "{{name}}",
+      "addonFrom": "{{name}} 제공"
     },
     "replacedBy": "{{name}}(으)로 대체됨",
     "fallback_one": "기본 제공 {{skills}} 사용 중: {{name}} 애드온의 자체 스킬이 여기서 꺼져 있거나 실행 중이 아닙니다.",

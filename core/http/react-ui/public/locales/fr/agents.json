@@ -84,7 +84,8 @@
       "Tools": "Outils",
       "Notes": "Mémoire",
       "Connections": "Connexions",
-      "Effective": "Vue effective"
+      "Effective": "Vue effective",
+      "Uses": "Ce qu'il peut utiliser"
     },
     "name": "Name",
     "description": "Description",
@@ -260,7 +261,10 @@
       },
       "skills": {
         "some_one": "Peut utiliser {{count}} compétence : {{names}}.",
-        "some_other": "Peut utiliser {{count}} compétences : {{names}}."
+        "some_other": "Peut utiliser {{count}} compétences : {{names}}.",
+        "withAddons_one": "Peut utiliser {{count}} compétence fournie avec un add-on : {{names}}.",
+        "withAddons_other": "Peut utiliser {{count}} compétences fournies avec des add-ons : {{names}}.",
+        "addonOff": "La compétence {{name}} est activée, mais son add-on {{addon}} est désactivé : elle ne fait rien. Activez l'add-on."
       },
       "files": {
         "all": "Peut accéder à tous vos fichiers.",
@@ -304,6 +308,18 @@
         "error": "Impossible de vérifier {{name}}. Ouvrez-la pour voir ses autorisations.",
         "summary": "{{name}} : {{allowed}} autorisés, {{blocked}} non autorisés.",
         "blocked": "{{name}} ne peut pas utiliser {{capability}}. {{message}}"
+      },
+      "addons": {
+        "noConnection": "{{name}} est activé mais ne peut pas fonctionner : vous n'avez pas de compte pour lui. Ajoutez-en un.",
+        "stale": "{{name}} est activé mais ne peut pas fonctionner : les comptes enregistrés n'existent plus. Choisissez un compte.",
+        "pick": "{{name}} est activé mais ne peut pas fonctionner : aucun compte n'est choisi. Une exécution sans personne ne reçoit aucun de ses outils.",
+        "resourcesNone": "{{name}} est activé mais ne peut pas fonctionner : aucun élément ({{noun}}) n'est coché.",
+        "account": "{{name}} utilise {{names}}.",
+        "resources": "{{name}} peut utiliser {{n}} ({{plural}}) et en modifier {{w}}.",
+        "resourcesRead": "{{name}} peut lire {{n}} ({{plural}}) et n'en modifier aucun."
+      },
+      "mcp": {
+        "ignored": "{{name}} figure dans les serveurs MCP de l'agent, mais rien ne porte ce nom : il est ignoré. Retirez-le."
       }
     },
     "try": {
@@ -335,6 +351,100 @@
       "chatTitle": "Test de {{name}}",
       "failed": "Le test a échoué : {{message}}",
       "slow": "L'agent travaille encore. Arrêtez-le ou fermez le panneau."
+    },
+    "uses": {
+      "presetNote": "Un niveau règle seulement les outils intégrés et les autorisations. Les add-ons, comptes, serveurs MCP et compétences ne changent pas.",
+      "needsSummary_one": "{{count}} add-on ne peut pas encore fonctionner",
+      "needsSummary_other": "{{count}} add-ons ne peuvent pas encore fonctionner",
+      "builtins": {
+        "title": "Outils intégrés",
+        "lead": "Fournis par LocalAI. Les options sont sous leur interrupteur."
+      },
+      "addons": {
+        "title": "Add-ons",
+        "lead": "Une ligne chacun : activez-le, choisissez le compte utilisé, voyez ce qu'il offre.",
+        "none": "Aucun add-on n'est installé.",
+        "gone": "Autorisé, mais non installé ou indisponible pour vous. Désactivez-le pour le retirer."
+      },
+      "mcp": {
+        "title": "Serveurs MCP",
+        "lead": "Serveurs hors de LocalAI. Leurs outils peuvent coûter de l'argent ou atteindre d'autres systèmes.",
+        "search": "Rechercher un serveur MCP",
+        "none": "Aucun connecteur MCP n'est défini. Ajoutez-en un sur la page des connecteurs MCP.",
+        "connector": "Un connecteur MCP que vous avez défini.",
+        "server": "Un serveur MCP du modèle.",
+        "unknown": "Non défini : rien ne porte ce nom, l'agent l'ignore donc.",
+        "unverified": "Le modèle est choisi dans chaque chat, ce nom y est donc vérifié.",
+        "remove": "Retirer {{name}}",
+        "noMatch": "Aucun serveur MCP ne correspond à « {{query}} ».",
+        "removeShort": "Retirer"
+      },
+      "account": {
+        "label": "Compte utilisé",
+        "group": "Comptes pour {{name}}",
+        "none": "Pas encore de compte.",
+        "add": "Ajouter un compte",
+        "kept": "Gardé pour plus tard"
+      },
+      "meta": {
+        "account": "nécessite un compte",
+        "resources": "limité à : {{plural}} cochés"
+      },
+      "tools_one": "{{count}} outil",
+      "tools_other": "{{count}} outils",
+      "toolsSplit_one": "{{count}} outil ({{read}} en lecture, {{write}} modifient des données)",
+      "toolsSplit_other": "{{count}} outils ({{read}} en lecture, {{write}} modifient des données)",
+      "writes": "modifie des données",
+      "now": {
+        "label": "En ce moment :",
+        "off": "Désactivé. Rien n'est proposé.",
+        "offKept": "Désactivé. Rien n'est proposé. Comptes gardés pour plus tard : {{names}}.",
+        "noAccountNeeded": "Activé. Proposé : {{tools}}. Aucun compte requis.",
+        "only": "Activé. Proposé : {{tools}}, avec {{names}}, votre seul compte.",
+        "using": "Activé. Proposé : {{tools}}, avec {{names}}.",
+        "usingMany": "Activé. Proposé : {{tools}}, avec {{names}}. Le modèle nomme le compte à chaque appel.",
+        "pick": "Activé, mais aucun compte n'est choisi. Un chat vous demande d'en choisir un avant d'avoir des outils ; une exécution sans personne n'en reçoit aucun. Cochez ci-dessus le compte à utiliser.",
+        "noConnection": "Activé, mais vous n'avez pas encore de compte pour lui : aucun de ses outils n'est proposé. Ajoutez un compte, ci-dessus.",
+        "stale": "Activé, mais les comptes enregistrés n'existent plus : aucun de ses outils n'est proposé. Choisissez un compte. Cochez un compte, ci-dessus.",
+        "resourcesNone": "Activé, mais aucun élément ({{noun}}) n'est coché : il ne peut en utiliser aucun. Cochez-en un, ci-dessus.",
+        "resourcesRead": "Activé. Proposé : {{tools}}, sur {{n}} éléments cochés ({{plural}}), lecture seule. Les outils qui modifient des données ne peuvent pas s'exécuter.",
+        "resources": "Activé. Proposé : {{tools}}, sur {{n}} éléments cochés ({{plural}}) ; il peut en modifier {{w}}."
+      },
+      "res": {
+        "heading": "Quels <n>{{plural}}</n> il peut utiliser",
+        "headingPlain": "Quels {{plural}} il peut utiliser",
+        "loading": "Chargement de la liste.",
+        "error": "La liste n'a pas pu être lue.",
+        "empty": "Vous n'avez pas encore de <n>{{plural}}</n> à attribuer.",
+        "truncated": "La liste est tronquée.",
+        "gone": "indisponible",
+        "access": "Accès à {{name}}",
+        "read": "Lecture",
+        "write": "Lire et modifier",
+        "none": "Aucun coché : il ne peut utiliser aucun élément (<n>{{noun}}</n>).",
+        "some": "Seulement ceux cochés. Vous devez toujours avoir votre propre accès à chacun."
+      },
+      "skills": {
+        "summaryOff_one": "{{count}} compétence s'active avec lui",
+        "summaryOff_other": "{{count}} compétences s'activent avec lui",
+        "summaryOn": "{{on}} compétences sur {{total}} activées"
+      },
+      "addonOn": {
+        "title": "{{name}} activé",
+        "body_one": "{{count}} compétence activée avec lui : {{names}}. Rien n'est enregistré avant que vous enregistriez.",
+        "body_other": "{{count}} compétences activées avec lui : {{names}}. Rien n'est enregistré avant que vous enregistriez."
+      },
+      "skillAddonOff": "Son add-on est désactivé, cette compétence ne fait donc rien.",
+      "memorySkills": {
+        "title": "Compétences de mémoire",
+        "from": "de {{slot}}",
+        "on": "Actives avec les notes. Elles apprennent au modèle à lire et à enregistrer des notes.",
+        "off": "Désactivées, car cet agent ne garde pas de notes.",
+        "offUser": "Désactivées, car la mémoire est désactivée dans vos Réglages."
+      },
+      "slot": {
+        "memory": "Mémoire"
+      }
     }
   },
   "run": {

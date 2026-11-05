@@ -204,7 +204,8 @@
       "personal": "Personal",
       "shared": "Compartida",
       "folder": "Espacio de trabajo",
-      "addon": "{{name}}"
+      "addon": "{{name}}",
+      "addonFrom": "de {{name}}"
     },
     "replacedBy": "Reemplazada por {{name}}",
     "fallback_one": "{{skills}} integrada en uso: la habilidad propia del complemento {{name}} está desactivada o no se ejecuta aquí.",

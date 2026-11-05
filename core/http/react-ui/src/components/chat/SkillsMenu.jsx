@@ -37,7 +37,7 @@ export default function SkillsMenu({ skills, replaced = [], onSet, error, testId
 // The body of the skills list, without the chip: the header, the search, one
 // row per skill and the status line. The agent form draws it inline.
 // `heading` replaces the title of the list; `later` is the note under the header (what a skill added later does).
-export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'chat-skills', heading, later, manage = true }) {
+export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'chat-skills', heading, later, manage = true, fromLabel = false }) {
   const { t } = useTranslation('chat')
   const [query, setQuery] = useState('')
   const noteId = useId()
@@ -98,7 +98,7 @@ export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'cha
         )}
       </SwitchHead>
       <div className="swl-list" data-testid={`${testId}-list`}>
-        {shown.map((s) => <SkillRow key={skillKey(s)} skill={s} onSet={onSet} testId={testId} />)}
+        {shown.map((s) => <SkillRow key={skillKey(s)} skill={s} onSet={onSet} testId={testId} fromLabel={fromLabel} />)}
         {shownReplaced.map((s) => (
           <SwitchRowStatic
             key={`replaced:${s.name}`}
@@ -117,11 +117,11 @@ export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'cha
   )
 }
 
-function SkillRow({ skill, onSet, testId }) {
+function SkillRow({ skill, onSet, testId, fromLabel }) {
   const { t } = useTranslation('chat')
   const desc = (skill.description || '').trim()
   const src = skillSource(skill)
-  const source = src.kind === 'addon' ? t('skills.source.addon', { name: src.name }) : src.kind ? t(`skills.source.${src.kind}`, { defaultValue: '' }) : ''
+  const source = src.kind === 'addon' ? t(fromLabel ? 'skills.source.addonFrom' : 'skills.source.addon', { name: src.name }) : src.kind ? t(`skills.source.${src.kind}`, { defaultValue: '' }) : ''
   return (
     <SwitchRow
       name={skill.name}

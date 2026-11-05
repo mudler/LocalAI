@@ -197,7 +197,8 @@
       "Tools": "Tools",
       "Notes": "Memory",
       "Connections": "Connections",
-      "Effective": "Effective view"
+      "Effective": "Effective view",
+      "Uses": "What it can use"
     },
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
@@ -219,7 +220,7 @@
     "manageSkills": "Write or manage skills",
     "addonsHelp": "The add-ons whose tools a chat with this agent may use.",
     "noAddons": "No add-on offers tools to a model.",
-    "mcpHelp": "The MCP servers of the fixed model and the MCP connectors a chat with this agent may use.",
+    "mcpHelp": "The MCP connectors you defined and the MCP servers of the fixed model. Switch on the ones a chat with this agent may use.",
     "mcpServers": "MCP servers",
     "mcpHint": "Server name",
     "mcpConnectors": "MCP connectors",
@@ -249,7 +250,7 @@
       "all": "All public sites"
     },
     "toolsSummary": "{{on}} of {{total}} on",
-    "toolsHelp": "Choose what a chat with this agent can use. These are the same switches as the Tools menu of a chat, with the options of a switch under it. A tool that is off is never offered to the model. With no option ticked, the agent keeps the defaults it had on its messaging connections; once you tick any, only the ticked ones work.",
+    "toolsHelp": "Choose what a chat with this agent can use, from three sources: tools LocalAI serves, add-ons and MCP servers. A tool that is off is never offered to the model. With no option ticked, the agent keeps the defaults it had on its messaging connections; once you tick any, only the ticked ones work.",
     "toolsHeading": "Tools of this agent",
     "skillsLater": "A chat with this agent reads only the skills that are on.",
     "skillsHeading": "Skills of this agent",
@@ -367,7 +368,10 @@
       },
       "skills": {
         "some_one": "Can use {{count}} skill: {{names}}.",
-        "some_other": "Can use {{count}} skills: {{names}}."
+        "some_other": "Can use {{count}} skills: {{names}}.",
+        "withAddons_one": "Can use {{count}} skill that comes with an add-on: {{names}}.",
+        "withAddons_other": "Can use {{count}} skills that come with add-ons: {{names}}.",
+        "addonOff": "The skill {{name}} is on, but its add-on {{addon}} is off, so it does nothing. Switch the add-on on."
       },
       "files": {
         "all": "Can reach all your files.",
@@ -411,6 +415,18 @@
         "error": "Could not check {{name}}. Open it to see its permissions.",
         "summary": "{{name}}: {{allowed}} allowed, {{blocked}} not allowed.",
         "blocked": "{{name}} cannot use {{capability}}. {{message}}"
+      },
+      "addons": {
+        "noConnection": "{{name}} is on but cannot work now: you have no account for it. Add one.",
+        "stale": "{{name}} is on but cannot work now: the accounts saved for it are gone. Pick an account.",
+        "pick": "{{name}} is on but cannot work now: no account is chosen. A run with nobody there gets none of its tools.",
+        "resourcesNone": "{{name}} is on but cannot work now: no {{noun}} is ticked.",
+        "account": "{{name}} uses {{names}}.",
+        "resources": "{{name}} may use {{n}} {{plural}} and change {{w}}.",
+        "resourcesRead": "{{name}} may read {{n}} {{plural}} and change none."
+      },
+      "mcp": {
+        "ignored": "{{name}} is in the agent's MCP servers, but nothing by that name is defined, so it is ignored. Remove it."
       }
     },
     "try": {
@@ -442,6 +458,100 @@
       "chatTitle": "Test of {{name}}",
       "failed": "The test failed: {{message}}",
       "slow": "The agent is still working. Stop it or close the panel."
+    },
+    "uses": {
+      "presetNote": "A level sets the built-in tools and permissions only. Add-ons, accounts, MCP servers and skills stay as they are.",
+      "needsSummary_one": "{{count}} add-on cannot work yet",
+      "needsSummary_other": "{{count}} add-ons cannot work yet",
+      "builtins": {
+        "title": "Built-in tools",
+        "lead": "Served by LocalAI. Options sit under their switch."
+      },
+      "addons": {
+        "title": "Add-ons",
+        "lead": "One row each: switch it on, pick the account it uses, see what it offers.",
+        "none": "No add-on is installed.",
+        "gone": "Granted, but not installed or not available to you. Switch it off to remove it."
+      },
+      "mcp": {
+        "title": "MCP servers",
+        "lead": "Servers outside LocalAI. Their tools may cost money or reach other systems.",
+        "search": "Search MCP servers",
+        "none": "No MCP connector is defined yet. Add one on the MCP connectors page.",
+        "connector": "An MCP connector you defined.",
+        "server": "An MCP server of the model.",
+        "unknown": "Not defined: nothing by this name exists, so the agent ignores it.",
+        "unverified": "The model is chosen in each chat, so this name is checked there.",
+        "remove": "Remove {{name}}",
+        "noMatch": "No MCP server matches “{{query}}”.",
+        "removeShort": "Remove"
+      },
+      "account": {
+        "label": "Account it uses",
+        "group": "Accounts for {{name}}",
+        "none": "No account yet.",
+        "add": "Add an account",
+        "kept": "Kept for later"
+      },
+      "meta": {
+        "account": "needs an account",
+        "resources": "limited to the {{plural}} you tick"
+      },
+      "tools_one": "{{count}} tool",
+      "tools_other": "{{count}} tools",
+      "toolsSplit_one": "{{count}} tool ({{read}} read, {{write}} change data)",
+      "toolsSplit_other": "{{count}} tools ({{read}} read, {{write}} change data)",
+      "writes": "changes data",
+      "now": {
+        "label": "Right now:",
+        "off": "Off. Nothing from it is offered.",
+        "offKept": "Off. Nothing from it is offered. Accounts kept for later: {{names}}.",
+        "noAccountNeeded": "On. Offered: {{tools}}. It needs no account.",
+        "only": "On. Offered: {{tools}}, using {{names}}, your only account.",
+        "using": "On. Offered: {{tools}}, using {{names}}.",
+        "usingMany": "On. Offered: {{tools}}, using {{names}}. The model names the account in each call.",
+        "pick": "On, but no account is chosen. A chat asks you to pick one before it gets any tool; a run with nobody there gets none. Tick the account to use, above.",
+        "noConnection": "On, but you have no account for it yet, so none of its tools are offered. Add an account, above.",
+        "stale": "On, but the accounts saved for it are gone, so none of its tools are offered. Tick an account, above.",
+        "resourcesNone": "On, but no {{noun}} is ticked, so it can use none. Tick one, above.",
+        "resourcesRead": "On. Offered: {{tools}}, on {{n}} ticked {{plural}}, read only. Tools that change data cannot run.",
+        "resources": "On. Offered: {{tools}}, on {{n}} ticked {{plural}}; it may change {{w}}."
+      },
+      "res": {
+        "heading": "Which <n>{{plural}}</n> it may use",
+        "headingPlain": "Which {{plural}} it may use",
+        "loading": "Loading the list.",
+        "error": "The list could not be read.",
+        "empty": "You have no <n>{{plural}}</n> to give yet.",
+        "truncated": "The list is cut short.",
+        "gone": "not available",
+        "access": "Access to {{name}}",
+        "read": "Read",
+        "write": "Read and change",
+        "none": "None ticked: it can use no <n>{{noun}}</n>.",
+        "some": "Only the ticked ones. You still need your own access to each."
+      },
+      "skills": {
+        "summaryOff_one": "{{count}} skill turns on with it",
+        "summaryOff_other": "{{count}} skills turn on with it",
+        "summaryOn": "{{on}} of {{total}} skills on"
+      },
+      "addonOn": {
+        "title": "{{name}} switched on",
+        "body_one": "{{count}} skill turned on with it: {{names}}. Nothing is saved until you save.",
+        "body_other": "{{count}} skills turned on with it: {{names}}. Nothing is saved until you save."
+      },
+      "skillAddonOff": "Its add-on is off, so this skill does nothing.",
+      "memorySkills": {
+        "title": "Memory skills",
+        "from": "from {{slot}}",
+        "on": "On with notes. They teach the model to read and save notes.",
+        "off": "Off, because this agent keeps no notes.",
+        "offUser": "Off, because memory is off in your Settings."
+      },
+      "slot": {
+        "memory": "Memory"
+      }
     }
   },
   "status": {

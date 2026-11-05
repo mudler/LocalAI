@@ -84,7 +84,8 @@
       "Tools": "도구",
       "Notes": "메모리",
       "Connections": "연결",
-      "Effective": "유효 보기"
+      "Effective": "유효 보기",
+      "Uses": "사용할 수 있는 것"
     },
     "name": "Name",
     "description": "Description",
@@ -260,7 +261,10 @@
       },
       "skills": {
         "some_one": "스킬 {{count}}개를 쓸 수 있습니다: {{names}}.",
-        "some_other": "스킬 {{count}}개를 쓸 수 있습니다: {{names}}."
+        "some_other": "스킬 {{count}}개를 쓸 수 있습니다: {{names}}.",
+        "withAddons_one": "애드온과 함께 제공되는 스킬 {{count}}개를 사용할 수 있습니다: {{names}}.",
+        "withAddons_other": "애드온과 함께 제공되는 스킬 {{count}}개를 사용할 수 있습니다: {{names}}.",
+        "addonOff": "스킬 {{name}}은(는) 켜져 있지만 애드온 {{addon}}이(가) 꺼져 있어 작동하지 않습니다. 애드온을 켜세요."
       },
       "files": {
         "all": "내 파일 전체에 접근할 수 있습니다.",
@@ -304,6 +308,18 @@
         "error": "{{name}}을(를) 확인할 수 없습니다. 열어서 권한을 확인하세요.",
         "summary": "{{name}}: 허용 {{allowed}}개, 불허 {{blocked}}개.",
         "blocked": "{{name}}은(는) {{capability}}을(를) 쓸 수 없습니다. {{message}}"
+      },
+      "addons": {
+        "noConnection": "{{name}}이(가) 켜져 있지만 지금은 작동할 수 없습니다: 계정이 없습니다. 계정을 추가하세요.",
+        "stale": "{{name}}이(가) 켜져 있지만 지금은 작동할 수 없습니다: 저장된 계정이 사라졌습니다. 계정을 고르세요.",
+        "pick": "{{name}}이(가) 켜져 있지만 지금은 작동할 수 없습니다: 계정이 선택되지 않았습니다. 아무도 없는 실행은 도구를 받지 못합니다.",
+        "resourcesNone": "{{name}}이(가) 켜져 있지만 지금은 작동할 수 없습니다: 선택된 {{noun}}이(가) 없습니다.",
+        "account": "{{name}}은(는) {{names}}을(를) 사용합니다.",
+        "resources": "{{name}}은(는) {{plural}} {{n}}개를 사용할 수 있고 {{w}}개를 변경할 수 있습니다.",
+        "resourcesRead": "{{name}}은(는) {{plural}} {{n}}개를 읽을 수 있지만 변경할 수는 없습니다."
+      },
+      "mcp": {
+        "ignored": "{{name}}은(는) 에이전트의 MCP 서버에 있지만 해당 이름이 정의되어 있지 않아 무시됩니다. 제거하세요."
       }
     },
     "try": {
@@ -335,6 +351,100 @@
       "chatTitle": "{{name}} 테스트",
       "failed": "테스트 실패: {{message}}",
       "slow": "에이전트가 아직 작업 중입니다. 중지하거나 패널을 닫으세요."
+    },
+    "uses": {
+      "presetNote": "수준은 내장 도구와 권한만 설정합니다. 애드온, 계정, MCP 서버, 스킬은 그대로 유지됩니다.",
+      "needsSummary_one": "애드온 {{count}}개가 아직 작동할 수 없음",
+      "needsSummary_other": "애드온 {{count}}개가 아직 작동할 수 없음",
+      "builtins": {
+        "title": "내장 도구",
+        "lead": "LocalAI가 제공합니다. 옵션은 각 스위치 아래에 있습니다."
+      },
+      "addons": {
+        "title": "애드온",
+        "lead": "애드온마다 한 줄: 켜고, 사용할 계정을 고르고, 제공하는 것을 확인합니다.",
+        "none": "설치된 애드온이 없습니다.",
+        "gone": "허용되었지만 설치되어 있지 않거나 사용할 수 없습니다. 끄면 제거됩니다."
+      },
+      "mcp": {
+        "title": "MCP 서버",
+        "lead": "LocalAI 외부의 서버입니다. 이 도구는 비용이 들거나 다른 시스템에 접근할 수 있습니다.",
+        "search": "MCP 서버 검색",
+        "none": "정의된 MCP 커넥터가 없습니다. MCP 커넥터 페이지에서 추가하세요.",
+        "connector": "직접 정의한 MCP 커넥터입니다.",
+        "server": "모델의 MCP 서버입니다.",
+        "unknown": "정의되지 않음: 이 이름의 항목이 없어 에이전트가 무시합니다.",
+        "unverified": "모델은 채팅마다 선택되므로 이 이름은 거기서 확인됩니다.",
+        "remove": "{{name}} 제거",
+        "noMatch": "“{{query}}”와 일치하는 MCP 서버가 없습니다.",
+        "removeShort": "제거"
+      },
+      "account": {
+        "label": "사용하는 계정",
+        "group": "{{name}}의 계정",
+        "none": "아직 계정이 없습니다.",
+        "add": "계정 추가",
+        "kept": "나중을 위해 유지됨"
+      },
+      "meta": {
+        "account": "계정 필요",
+        "resources": "선택한 {{plural}}만"
+      },
+      "tools_one": "도구 {{count}}개",
+      "tools_other": "도구 {{count}}개",
+      "toolsSplit_one": "도구 {{count}}개 (읽기 {{read}}, 데이터 변경 {{write}})",
+      "toolsSplit_other": "도구 {{count}}개 (읽기 {{read}}, 데이터 변경 {{write}})",
+      "writes": "데이터 변경",
+      "now": {
+        "label": "현재:",
+        "off": "꺼짐. 제공되는 것이 없습니다.",
+        "offKept": "꺼짐. 제공되는 것이 없습니다. 나중을 위해 유지된 계정: {{names}}.",
+        "noAccountNeeded": "켜짐. 제공: {{tools}}. 계정이 필요 없습니다.",
+        "only": "켜짐. 제공: {{tools}}, {{names}} 사용 (유일한 계정).",
+        "using": "켜짐. 제공: {{tools}}, {{names}} 사용.",
+        "usingMany": "켜짐. 제공: {{tools}}, {{names}} 사용. 모델이 호출마다 계정을 지정합니다.",
+        "pick": "켜졌지만 계정이 선택되지 않았습니다. 채팅은 도구를 받기 전에 계정을 고르라고 요청하며, 아무도 없는 실행은 도구를 받지 못합니다. 위에서 사용할 계정을 선택하세요.",
+        "noConnection": "켜졌지만 이 애드온용 계정이 아직 없어 도구가 제공되지 않습니다. 위에서 계정을 추가하세요.",
+        "stale": "켜졌지만 저장된 계정이 사라져 도구가 제공되지 않습니다. 계정을 고르세요. 위에서 계정을 선택하세요.",
+        "resourcesNone": "켜졌지만 선택된 {{noun}}이(가) 없어 사용할 수 없습니다. 위에서 하나를 선택하세요.",
+        "resourcesRead": "켜짐. 제공: {{tools}}, 선택한 {{plural}} {{n}}개, 읽기 전용. 데이터를 바꾸는 도구는 실행되지 않습니다.",
+        "resources": "켜짐. 제공: {{tools}}, 선택한 {{plural}} {{n}}개, 그중 {{w}}개는 변경 가능."
+      },
+      "res": {
+        "heading": "사용할 수 있는 <n>{{plural}}</n>",
+        "headingPlain": "사용할 수 있는 {{plural}}",
+        "loading": "목록을 불러오는 중입니다.",
+        "error": "목록을 읽을 수 없습니다.",
+        "empty": "아직 줄 수 있는 <n>{{plural}}</n>이(가) 없습니다.",
+        "truncated": "목록이 잘렸습니다.",
+        "gone": "사용할 수 없음",
+        "access": "{{name}} 접근 권한",
+        "read": "읽기",
+        "write": "읽기 및 변경",
+        "none": "선택 없음: 사용할 수 있는 <n>{{noun}}</n>이(가) 없습니다.",
+        "some": "선택한 항목만 해당됩니다. 각 항목에 대한 본인의 접근 권한도 필요합니다."
+      },
+      "skills": {
+        "summaryOff_one": "스킬 {{count}}개가 함께 켜짐",
+        "summaryOff_other": "스킬 {{count}}개가 함께 켜짐",
+        "summaryOn": "스킬 {{total}}개 중 {{on}}개 켜짐"
+      },
+      "addonOn": {
+        "title": "{{name}} 켜짐",
+        "body_one": "스킬 {{count}}개가 함께 켜졌습니다: {{names}}. 저장하기 전에는 아무것도 저장되지 않습니다.",
+        "body_other": "스킬 {{count}}개가 함께 켜졌습니다: {{names}}. 저장하기 전에는 아무것도 저장되지 않습니다."
+      },
+      "skillAddonOff": "해당 애드온이 꺼져 있어 이 스킬은 아무 작동도 하지 않습니다.",
+      "memorySkills": {
+        "title": "메모리 스킬",
+        "from": "{{slot}} 제공",
+        "on": "메모와 함께 켜집니다. 모델이 메모를 읽고 저장하는 방법을 알려 줍니다.",
+        "off": "이 에이전트는 메모를 보관하지 않아 꺼져 있습니다.",
+        "offUser": "설정에서 메모리가 꺼져 있어 꺼져 있습니다."
+      },
+      "slot": {
+        "memory": "메모리"
+      }
     }
   },
   "run": {

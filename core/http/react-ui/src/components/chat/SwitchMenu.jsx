@@ -202,6 +202,7 @@ function RowPick({ pick: p, testId }) {
         <label key={o.value} className="swl-pick__option" data-testid={`${testId}-pick-option`}>
           <input
             type="checkbox"
+            className="dk-check"
             checked={values.includes(o.value)}
             disabled={p.disabled}
             data-testid={`${testId}-pick-check`}

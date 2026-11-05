@@ -20,7 +20,7 @@ An agent has:
 | `description` | A short note for you. |
 | `instructions` | Text added to the system prompt of every turn. At most 32 KiB. |
 | `model` | Optional. The chat uses this model. Chat-capable model aliases can also be selected; the agent saves the alias name, not its target name. Without it, the chat is created with the model you choose. |
-| `mcp_servers` | Names of servers in the model's MCP configuration, and your [MCP connectors](/features/chats-connectors/#mcp-servers) as `connector:<id>`. The form lists both. |
+| `mcp_servers` | Names of servers in the model's MCP configuration, and your [MCP connectors](/features/chats-connectors/#mcp-servers) as `connector:<id>`. The form lists both as a picker; it does not take free text. A save that adds a `connector:<id>` you have not defined, or, for an agent with a fixed model, a name that is not one of that model's MCP servers, is a `400` ("... is not one of your MCP connectors"). A name the agent already holds is kept, so an older agent still loads and saves; the form shows it as **Not defined** with a remove button, the Effective view says it is ignored, and the agent's chats skip it. |
 | `addons` | IDs of installed add-ons. |
 | `collections` | Names of your collections. |
 | `skills` | Names of skills. The index of skills and the `load_skill` tool of the chat offer only these. |
@@ -120,17 +120,52 @@ model chooses where a note goes. The host enforces the choice. A `PUT` without `
 keeps the stored one. `DELETE /api/chats/agents/{id}?memory=keep|export|delete` says what
 to do with the agent's own notes (default `keep`). The optional field `memory_save` (`always`, `auto` or `never`) is the agent's own rule for saving a note: `always` and `never` can only be stricter than the person's setting, `auto` (Save it and tell me) lets this agent save at once even when the person's level is ask (the person's own always and never still hold), `ask` is refused with a 400, a `PUT` without it keeps the stored rule, and `use_mine` clears it. See [Short memory](/features/short-memory/#memory-for-each-agent).
 
+### What it can use
+
+The agent form has one section, **What it can use**, with three sources and the
+tool levels on top:
+
+- **Built-in tools**: the groups LocalAI serves itself, with their options.
+- **Add-ons**: one row for each add-on, with its switch, the account it uses,
+  a **Right now** sentence, the skills that come with it and its tools (the ones
+  that change data are marked).
+- **MCP servers**: a picker over your defined MCP connectors and the MCP servers
+  of the agent's model, one switch each, with a search field when there are
+  many. They write the same `mcp_servers` list as before; they no longer sit
+  under **Advanced**, and there is no free text.
+
+A level (Look only, Assistant, Full) sets the built-in tools and permissions only.
+It does not touch add-ons, accounts, MCP servers or skills.
+
+**Right now** says what a chat of the agent gets from the add-on, by the same rule
+the server uses to pick the account: an add-on that is off offers nothing; one
+that needs no account just works; the accounts the agent names are used; with
+none named, your only account is used; with two or more and none named, a chat
+asks you to pick one before it gets any tool and a run with nobody there (a
+trigger, a messaging chat) gets none. That last case, and an add-on with no
+account at all, are shown in amber and in the Effective view as blocked.
+
+Ticking an account switches the add-on on, as it does in a chat. Switching the
+add-on off keeps the accounts, shown as **Kept for later**. Switching an add-on
+on turns on the skills that come with it, with the same **Undo** and **Keep**
+notice as a level; switching it off turns off only those skills. Nothing new is
+stored for this: the skills that come with an add-on are read from the skill list.
+Skills of an add-on show in the **Skills** list as "from" the add-on's title. The
+skills that the memory provider ships are granted by the host with the notes;
+the **Memory** section shows them once, without switches.
+
 ### Connections of an agent
 
 An add-on whose tools run with the token of one of your
 [connections](/features/chats-connectors/#github) lets the agent name which
-connections its chats may use. In the agent form, the add-on's row in **Tools**
-has a **Connections for chats of this agent** list with a checkbox for each
-connection. A chat of the agent uses that set, shows it read only, and cannot
-change it. With two or more in the set, the model names the connection in each
-tool call (see [The connections of an add-on](/features/chats/#the-connections-of-an-add-on)).
-With none ticked (the default) each chat chooses its own; until a person
-chooses, the add-on's tools are not offered.
+accounts its chats may use. In the agent form, the add-on's row in **What it can
+use** has an **Account it uses** list with a checkbox for each connection. A chat
+of the agent uses that set, shows it read only, and cannot change it. With two or
+more in the set, the model names the connection in each tool call (see [The
+connections of an add-on](/features/chats/#the-connections-of-an-add-on)). With
+none ticked each chat chooses its own (with one connection, it is used); until a
+person chooses, the add-on's tools are not offered. The messaging connections that
+answer with the agent are listed under **Identity**, read only.
 
 Over the API an agent has `connections`, an object from add-on ID to a list of
 binding IDs (`{"<add-on id>": ["<binding id>", ...]}`). Every binding must be
@@ -144,9 +179,11 @@ imported agent has no connections until you choose some.
 
 Some add-ons keep their data in resources that you own or were granted, such as the
 databases of Tables. An add-on can ask that each saved agent names the resources it
-may use. In the agent form, the add-on's row in **Tools** then lists your resources
-under the add-on's own word for them ("Databases it may use"), each with a switch and
-a mode: **Read** or **Read and change**. Nothing ticked means the agent can use none.
+may use. In the agent form, the add-on's row in **What it can use** then lists your
+resources under the add-on's own word for them ("Which databases it may use"), each
+with a checkbox and a mode: **Read** or **Read and change**. Nothing ticked means the
+agent can use none, and the row says so. The words come from the add-on's manifest
+(`noun`, `noun_plural` and their translation); the form names no add-on.
 
 Over the API an agent has `resources`, an object from add-on ID to a list of
 `{"id": "<resource id>", "mode": "read" | "write"}`. A `PUT` that does not name

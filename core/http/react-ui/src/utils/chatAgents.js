@@ -1,4 +1,5 @@
 // Helpers of the saved agents page. No React, so a node test drives them.
+import { resourcesPayload } from './agentUses.js'
 
 // builtins_off and builtins_on are the switches of the built-in tool groups
 // (see utils/agentTools.js); they are lists like the grants.
@@ -124,6 +125,10 @@ export function agentPayload(form, opts) {
       .map(([k, ids]) => [k, [].concat(ids || []).filter((id) => typeof id === 'string' && id.trim()).map((id) => id.trim()).filter((id, i, a) => a.indexOf(id) === i)])
       .filter(([, ids]) => ids.length))
   }
+  // The resources the agent may use for each add-on that scopes them per
+  // agent. Sent once the agent has the field or the person changed it ({}
+  // clears); a write without it keeps the stored list.
+  if (form.resources && typeof form.resources === 'object') body.resources = resourcesPayload(form.resources)
   if (opts && 'initialFolders' in opts) {
     const folders = foldersPayload(opts.initialFolders, form.folders)
     if (folders) body.folders = folders

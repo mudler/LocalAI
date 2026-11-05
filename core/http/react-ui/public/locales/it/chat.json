@@ -204,7 +204,8 @@
       "personal": "Personale",
       "shared": "Condivisa",
       "folder": "Area di lavoro",
-      "addon": "{{name}}"
+      "addon": "{{name}}",
+      "addonFrom": "da {{name}}"
     },
     "replacedBy": "Sostituita da {{name}}",
     "fallback_one": "{{skills}} integrata in uso: la skill del componente {{name}} è disattivata o non in esecuzione qui.",

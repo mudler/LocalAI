@@ -490,6 +490,9 @@ export const chatAgentsApi = {
   importFile: (data) => postJSON('/api/chats/agents/import', data),
   // The builtin grants an agent can hold: { grants: [{ name, title, description, sensitive }] }.
   builtinGrants: () => fetchJSON('/api/chats/agents/builtin-grants'),
+  // The resources of one add-on you may give an agent, with the add-on's own
+  // word for them: { addon_id, noun, noun_plural, language, items: [{ id, name, role }], truncated }.
+  addonResources: (addon) => fetchJSON(`/api/chats/agents/addons/${enc2(addon)}/resources`),
   templates: () => fetchJSON('/api/chats/agents/templates'),
   fromTemplate: (id, name) => postJSON(`/api/chats/agents/templates/${enc2(id)}/create`, name ? { name } : {}),
   runs: (id, limit) => fetchJSON(`/api/chats/agents/${enc2(id)}/runs${q({ limit })}`),
