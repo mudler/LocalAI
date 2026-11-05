@@ -137,6 +137,17 @@ var _ = Describe("the outcome of an add-on tool call", func() {
 		Expect(res.Proposal.Hold).To(Equal(tools.HoldByHost))
 		Expect(out.Data().Reason).To(Equal(tools.HoldByHost))
 	})
+	It("hands the host the held write with its digest and the facts the tool lets a chat repeat, never the arguments", func() {
+		held := tools.HoldForPerson(ctx)
+		res, err := a.ExecuteChat(held, member, tools.NewChatCall("bob", "chat-1"), write, args(`{"repo":"acme/widgets","body":"x"}`))
+		Expect(err).NotTo(HaveOccurred())
+		h := out.HeldProposal()
+		Expect(h).NotTo(BeNil())
+		Expect(h.ID).To(Equal(res.Proposal.ID))
+		Expect(h.Digest).To(Equal(res.Proposal.Digest))
+		Expect(h.Hold).To(Equal(tools.HoldByHost))
+		Expect(res.JSON()).NotTo(ContainSubstring("Facts"))
+	})
 	It("keeps the kind of the tool", func() {
 		_, err := call(write)
 		Expect(err).NotTo(HaveOccurred())

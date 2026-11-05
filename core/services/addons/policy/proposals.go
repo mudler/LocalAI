@@ -849,6 +849,19 @@ func (b *Broker) credentialFor(ctx context.Context, actor contract.Actor, addonI
 	return grant, nil
 }
 
+// HoldWriteModePropose is the Hold of a proposal that waits only because the
+// write mode of its connection is the one that asks first.
+const HoldWriteModePropose = "write_mode_propose"
+
+// chatMayConfirm says whether the host took the confirmation of r from a
+// paired sender in a messaging chat, and the proposal is of a kind that such a
+// sender may confirm: one that waits because the connection asks first. A tool
+// that always asks (approval_always) waits for a person at a host surface
+// whatever a chat says.
+func chatMayConfirm(ctx context.Context, r proposalRecord) bool {
+	return gateway.ChatConfirmed(ctx) && r.Credentialed && r.Hold == HoldWriteModePropose
+}
+
 // confirmPerson says whether the credential stands for a person at a host
 // surface and not for a chat turn.
 func (b *Broker) confirmPerson(p *Policy, a contract.Actor) bool {
@@ -1514,7 +1527,7 @@ func (b *Broker) ConfirmBound(ctx context.Context, actor contract.Actor, proposa
 	if err = b.authorizeTool(ctx, r.AddonID, r.Generation, r.Arguments); err != nil {
 		return contract.Receipt{}, err
 	}
-	if r.Await && !b.confirmPerson(p, actor) {
+	if r.Await && !b.confirmPerson(p, actor) && !chatMayConfirm(ctx, r) {
 		// Only a person at a host surface applies it: a chat turn or an agent
 		// that proposed it cannot.
 		return contract.Receipt{}, ErrForbidden
@@ -1622,7 +1635,7 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		if r.Relaxed && !stillRelaxed && (gateway.IsChatTurn(ctx) || !b.confirmPerson(b.policy, actor)) {
 			return contract.Receipt{}, ErrForbidden
 		}
-		if (r.Await || (grant.WriteMode != gateway.WriteAuto && !stillRelaxed)) && (gateway.IsChatTurn(ctx) || !b.confirmPerson(b.policy, actor)) {
+		if (r.Await || (grant.WriteMode != gateway.WriteAuto && !stillRelaxed)) && (gateway.IsChatTurn(ctx) || !b.confirmPerson(b.policy, actor)) && !chatMayConfirm(ctx, r) {
 			return contract.Receipt{}, ErrForbidden
 		}
 	}

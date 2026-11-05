@@ -6,8 +6,10 @@ import (
 	"errors"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // The results of a tool call, as the host log and the latest decisions of a
@@ -36,6 +38,49 @@ type Outcome struct {
 	mu                                      sync.Mutex
 	kind, binding, resource, result, reason string
 	status                                  int
+	held                                    *HeldProposal
+}
+
+// HeldProposal is the write that the call stored and that waits for a person.
+// The host reads it to ask the sender in a messaging chat. It holds the facts
+// the tool definition lists for a chat, never the arguments or a token.
+type HeldProposal struct {
+	ID, Digest, AddonID string
+	// Tool is the name the model called, Title the plain title the tool
+	// definition gives it (empty when it gives none).
+	Tool, Title string
+	// Hold says why it waits (see HoldNeedsConfirmation).
+	Hold      string
+	ExpiresAt time.Time
+	Facts     []contract.Fact
+	// Connection is the name of the connection the write will use.
+	Connection string
+	// Resource is the name the person gave the resource.
+	Resource string
+}
+
+// Held records the proposal that a held call stored.
+func (o *Outcome) Held(h HeldProposal) {
+	if o == nil {
+		return
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.held = &h
+}
+
+// HeldProposal returns the proposal the call left waiting, or nil.
+func (o *Outcome) HeldProposal() *HeldProposal {
+	if o == nil {
+		return nil
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if o.held == nil {
+		return nil
+	}
+	h := *o.held
+	return &h
 }
 
 // OutcomeData is a copy of what an Outcome recorded.
@@ -187,4 +232,16 @@ func WithSurface(ctx context.Context, surface string) context.Context {
 func SurfaceOf(ctx context.Context) string {
 	s, _ := ctx.Value(surfaceKey{}).(string)
 	return s
+}
+
+// FailureOf says, for the error of a confirmation, how it reads in the log of
+// the tool calls: the reason code and the status of the service behind the
+// add-on, the same words Classify gives a call that failed the same way.
+func FailureOf(err error) (reason string, status int) {
+	if res, e := refusedResult("", err); e == nil {
+		_, reason, status = Classify(res, nil)
+		return reason, status
+	}
+	_, reason, status = Classify(ToolResult{}, err)
+	return reason, status
 }
