@@ -522,7 +522,11 @@
           "when the setting has another value",
           "when the setting carries a host role",
           "on a tool without approval always",
-          "in an add-on without a credential"
+          "in an add-on without a credential",
+          "lets a kind that declares them have a tool that enumerates",
+          "refuses an enumerating tool when the kind has no wildcards, or when it is not a plain read tool",
+          "refuses an enumerating tool that names a resource",
+          "name a prefix, an option of the kind and a value it offers"
         ]
       },
       {
