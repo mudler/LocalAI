@@ -437,11 +437,11 @@ func (g turnGrant) wire() *workerctl.ChatGrant {
 		Sender: g.Sender, DeniedCodes: g.DeniedCodes}
 }
 
-// senderOf says how the sender of a message was let in, in the words of the
+// grantSenderKind says how the sender of a message was let in, in the words of the
 // SenderXxx constants: a paired sender, one on the allowlist by name, one with
 // a role the kind declares, a bot that accepts anyone, or a member of a listed
 // channel.
-func senderOf(b connectors.Binding, s AccessSubject, paired bool, kind *contract.ConnectorKind) string {
+func grantSenderKind(b connectors.Binding, s AccessSubject, paired bool, kind *contract.ConnectorKind) string {
 	switch {
 	case paired:
 		return SenderPaired
@@ -463,7 +463,7 @@ func (c *Connectors) grantFor(ctx context.Context, b connectors.Binding, m contr
 	g := turnGrant{Binding: b.ID, Kind: b.Kind, Senders: []string{m.SenderID}, Roles: slices.Clone(m.Roles),
 		Direct: m.Direct, Paired: m.SenderID != "" && b.IsPaired(m.SenderID, now)}
 	g.ImpliedWrite = impliedWrite(b, c.subjectOf(b, m, true), now, c.offReason(ctx, b, contract.CapToolsWrite))
-	g.Sender = senderOf(b, c.subjectOf(b, m, true), g.Paired, kind)
+	g.Sender = grantSenderKind(b, c.subjectOf(b, m, true), g.Paired, kind)
 	for _, name := range contract.ConnectorCapabilityNames() {
 		d := Authorize(b, kind, c.subjectOf(b, m, true), name, now, c.offReason(ctx, b, name))
 		switch {
