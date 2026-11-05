@@ -185,6 +185,27 @@ func Run(newStore NewStore) {
 		Expect(bare.Paired).To(BeEmpty())
 	})
 
+	It("keeps the trust level of the channel entries of the allowlist, and reads none for a binding stored without it", func() {
+		s := newStore()
+		b := binding("b1", "u1", "Bot")
+		b.Allow = []string{"U1", "C1", "C2"}
+		b.AllowTrust = map[string]string{"C1": connectors.TrustAct, "C2": connectors.TrustAnswer}
+		Expect(s.PutBinding(ctx, b)).To(Succeed())
+		got, err := s.GetBinding(ctx, "b1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Allow).To(Equal(b.Allow), "the list of strings is untouched")
+		Expect(got.AllowTrust).To(Equal(b.AllowTrust))
+		Expect(got.ChatTrust("C1")).To(Equal(connectors.TrustAct))
+		Expect(got.ChatTrust("C2")).To(Equal(connectors.TrustAnswer))
+		Expect(s.PutBinding(ctx, binding("b2", "u1", "Old"))).To(Succeed())
+		old, _ := s.GetBinding(ctx, "b2")
+		Expect(old.AllowTrust).To(BeEmpty())
+		// The caller's map is not shared with the store.
+		b.AllowTrust["C1"] = connectors.TrustAnswer
+		again, _ := s.GetBinding(ctx, "b1")
+		Expect(again.AllowTrust["C1"]).To(Equal(connectors.TrustAct))
+	})
+
 	It("keeps the approval mode, limits and the acts that runs may hold", func() {
 		s := newStore()
 		b := binding("b1", "u1", "Bot")

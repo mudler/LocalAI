@@ -20867,6 +20867,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "allow_trust": {
+                    "description": "AllowTrust sets, for a chat entry of allow, what the people who write in\nthat chat may do: \"answer\" (the bot answers there, but its members are not\ntrusted one by one; the level of an entry that is not listed) or \"act\"\n(every member may use the capabilities that are not sensitive, as a listed\nperson does; sensitive ones still need a pairing).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "approval": {
                     "description": "Approval is what the host does with a trigger that the agent proposes\nfrom a chat of this binding.",
                     "allOf": [
@@ -22095,6 +22102,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "allow_trust": {
+                    "description": "AllowTrust sets, for a chat entry of allow, what the people who write in\nthat chat may do: \"answer\" (the bot answers there, but its members are not\ntrusted one by one; the level of an entry that is not listed) or \"act\"\n(every member may use the capabilities that are not sensitive, as a listed\nperson does; sensitive ones still need a pairing).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "approval": {
                     "description": "Approval is what the host does with a trigger that the agent proposes\nfrom a chat of this binding.",
                     "allOf": [
@@ -22389,6 +22403,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "allow_trust": {
+                    "description": "AllowTrust is the form's trust levels for the chat entries of allow.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "caps": {
                     "description": "Caps and Grants are the form's permissions; an empty list clears.",
                     "type": "array",
@@ -22407,7 +22428,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "sender": {
-                    "description": "Sender limits the answer to one kind of sender: listed, paired,\nchannel_member, anyone or role:\u003cid\u003e. Absent means every kind.",
+                    "description": "Sender limits the answer to one kind of sender: listed, paired,\nchannel_member, channel_acts, anyone or role:\u003cid\u003e. Absent means every kind.",
                     "type": "string"
                 }
             }
@@ -22953,6 +22974,13 @@ const docTemplate = `{
                 "allow": {
                     "type": "array",
                     "items": {
+                        "type": "string"
+                    }
+                },
+                "allow_trust": {
+                    "description": "AllowTrust sets the level of the chat entries of allow, \"answer\" or\n\"act\" (see ChatsConnector.AllowTrust). Absent keeps the saved levels; an\nentry with no level is \"answer\".",
+                    "type": "object",
+                    "additionalProperties": {
                         "type": "string"
                     }
                 },

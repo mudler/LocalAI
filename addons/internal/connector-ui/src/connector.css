@@ -178,6 +178,11 @@ fieldset.cn-group {
 .cn-matrix__desc { display: block; font-weight: normal; }
 .cn-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
+.cn-trust { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.cn-trust__row { display: flex; flex-direction: column; gap: var(--dk-space-2); min-width: 0; padding-bottom: var(--dk-space-3); border-bottom: 1px solid var(--color-border-subtle); }
+.cn-trust__id { font-family: var(--font-mono, monospace); overflow-wrap: anywhere; }
+.cn-trust__row .cn-cards { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
+.cn-trust__effect { margin: 0; color: var(--dk-text-muted, var(--color-text-secondary)); font-size: var(--dk-font-sm, 0.875rem); overflow-wrap: anywhere; }
 .cn-channels { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--dk-space-3); }
 .cn-channel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--dk-space-3); align-items: start; padding-bottom: var(--dk-space-3); border-bottom: 1px solid var(--color-border-subtle); }
 .cn-channel .cn-switchfield { grid-column: 1 / -1; }

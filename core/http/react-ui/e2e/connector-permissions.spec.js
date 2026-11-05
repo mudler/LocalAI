@@ -27,6 +27,11 @@ const ACCESS = {
 }
 const api = (page, initial, extra = {}) => connectorApi(page, initial, 'slack', [], undefined, { kindExtra: ROLES_KIND, access: ACCESS, ...extra })
 
+// A screenshot of one element, which a full-page image of a long form cannot show.
+async function shotOf(locator, name) {
+  if (SHOTS) await locator.screenshot({ path: `${SHOTS}/${name}.png` })
+}
+
 async function shot(page, name) {
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true })
 }
@@ -216,13 +221,13 @@ test.describe('Connector permissions', () => {
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
     const roles = page.getByTestId('connector-roles')
-    await expect(roles.getByRole('columnheader')).toHaveText(['Roles', 'Save to memory', 'Post to approved channels'])
+    await expect(roles.getByRole('columnheader')).toHaveText(['Roles', 'Save to memory', 'Post to other channels'])
     await expect(roles.getByRole('checkbox', { name: 'Workspace admin: Post to a new channel' })).toHaveCount(0)
     await roles.getByRole('checkbox', { name: 'Workspace admin: Save to memory' }).check()
-    await roles.getByRole('checkbox', { name: 'Channel member: Post to approved channels' }).check()
+    await roles.getByRole('checkbox', { name: 'Channel member: Post to other channels' }).check()
     // Turning a permission off takes it from the roles too.
     await page.getByTestId('connector-cap-switch-talkback.channels').click()
-    await expect(roles.getByRole('checkbox', { name: 'Channel member: Post to approved channels' })).toHaveCount(0)
+    await expect(roles.getByRole('checkbox', { name: 'Channel member: Post to other channels' })).toHaveCount(0)
     await page.getByRole('button', { name: 'Save' }).click()
     await expect.poll(() => a.s.calls.some(c => c.method === 'PUT')).toBe(true)
     const body = a.s.calls.find(c => c.method === 'PUT').body
@@ -230,7 +235,7 @@ test.describe('Connector permissions', () => {
     expect(body.grants).toEqual([{ role: 'workspace_admin', caps: ['memory.write'] }])
   })
 
-  test('edits the approved channels, at most ten, and refuses a bad id', async ({ page }) => {
+  test('edits the channels it may post to, at most ten, and refuses a bad id', async ({ page }) => {
     const a = api(page, [SET])
     await a.install()
     await page.goto(PAGE)
@@ -266,7 +271,7 @@ test.describe('Connector permissions', () => {
     await api(page, [LEGACY]).install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    await expect(page.getByTestId('connector-channels')).toContainText('Switch on "Post to approved channels"')
+    await expect(page.getByTestId('connector-channels')).toContainText('Switch on "Post to other channels"')
     await expect(page.getByTestId('connector-channel-add')).toHaveCount(0)
   })
 
@@ -494,7 +499,7 @@ test.describe('Connector permissions', () => {
     await who.getByRole('button', { name: 'Add a person' }).click()
     await expect(page.getByTestId('connector-allow').getByRole('textbox')).toBeFocused()
     await ready.getByTestId('connector-ready-toggle').click()
-    await expect(ready.getByRole('listitem')).toHaveCount(7)
+    await expect(ready.getByRole('listitem')).toHaveCount(8)
     await expect(ready.getByTestId('connector-ready-token')).toHaveAttribute('data-state', 'ok')
     await expect(ready.getByTestId('connector-ready-triggers')).toHaveAttribute('data-state', 'off')
     await expect(ready.getByTestId('connector-ready-notify')).toHaveAttribute('data-state', 'off')
@@ -762,5 +767,101 @@ test.describe('Connector permissions', () => {
     await expect(audit).toContainText('ran without asking')
     await expect(audit).toContainText('power-action: applied')
     await expect(audit).not.toContainText('via no-confirmation')
+  })
+
+  test.describe('channels where the bot listens', () => {
+    const STORED = { ...SET, allow: ['U001', 'C0123'], caps: ['files.upload', 'memory.write', 'talkback.channels'] }
+
+    test('a channel that is added starts as Let everyone here ask for actions, and the choice goes back to Answer only', async ({ page }) => {
+      const a = api(page, [{ ...SET, allow: ['U001'], caps: ['files.upload', 'memory.write'] }])
+      await a.install()
+      await page.goto(PAGE)
+      await page.getByRole('button', { name: 'Edit' }).click()
+      await page.getByRole('textbox', { name: 'Allowed channels +' }).fill('C0555')
+      await page.getByRole('textbox', { name: 'Allowed channels +' }).press('Enter')
+      const row = page.getByTestId('connector-trust-row')
+      await expect(row).toHaveCount(1)
+      await expect(row).toHaveAttribute('data-level', 'act')
+      await expect(row.getByRole('radio', { name: 'Let everyone here ask for actions' })).toBeChecked()
+      await expect(page.getByTestId('connector-trust-effect')).toContainText('Anyone who can post here can make the bot read their files')
+      await expect(page.getByTestId('connector-trust-effect')).toContainText('Sensitive things still need pairing')
+      await expect(page.getByTestId('connector-ready-channelTrust')).toContainText('People in C0555 can ask for everyday actions')
+      await shot(page, 'trust-1-new-channel-act')
+      await shotOf(page.getByTestId('connector-who'), 'trust-1b-who-section')
+      await shotOf(page.getByTestId('connector-trust'), 'trust-1c-channels-section')
+      await shotOf(page.getByTestId('connector-readiness'), 'trust-1d-readiness')
+      await row.getByRole('radio', { name: 'Answer only' }).check()
+      await expect(row).toHaveAttribute('data-level', 'answer')
+      await expect(page.getByTestId('connector-trust-effect')).toContainText('only people on the allowed list can ask for actions')
+      await expect(page.getByTestId('connector-ready-channelTrust')).toContainText('People in C0555 cannot use actions: set it to Let everyone here ask for actions')
+      await shot(page, 'trust-2-answer-only')
+      await shotOf(page.getByTestId('connector-trust'), 'trust-2b-channels-answer-only')
+      await shotOf(page.getByTestId('connector-readiness'), 'trust-2c-readiness')
+      await page.getByRole('button', { name: 'Save' }).click()
+      await expect.poll(() => a.s.calls.some((c) => c.method === 'PUT')).toBe(true)
+      expect(a.s.calls.find((c) => c.method === 'PUT').body.allow_trust).toEqual({ C0555: 'answer' })
+    })
+
+    test('a channel stored before the setting reads as Answer only and is not widened by a save', async ({ page }) => {
+      const a = api(page, [STORED])
+      await a.install()
+      await page.goto(PAGE)
+      await page.getByRole('button', { name: 'Edit' }).click()
+      const row = page.getByTestId('connector-trust-row')
+      await expect(row).toHaveAttribute('data-level', 'answer')
+      await expect(page.getByTestId('connector-ready-channelTrust')).toContainText('People in C0123 cannot use actions')
+      await page.getByTestId('connector-ready-toggle').click()
+      await expect(page.getByTestId('connector-ready-postTo')).toContainText('may post to 1 other channel when')
+      await shot(page, 'trust-3-stored-channel')
+      await shotOf(page.getByTestId('connector-readiness'), 'trust-3b-readiness-expanded')
+      await shotOf(page.getByTestId('connector-channels'), 'trust-3c-where-it-may-post')
+      await page.getByRole('button', { name: 'Save' }).click()
+      await expect.poll(() => a.s.calls.some((c) => c.method === 'PUT')).toBe(true)
+      expect(a.s.calls.find((c) => c.method === 'PUT').body.allow_trust).toEqual({})
+    })
+
+    test('the talk-back list is named Where it may post and says it trusts nobody', async ({ page }) => {
+      await api(page, [STORED]).install()
+      await page.goto(PAGE)
+      await page.getByRole('button', { name: 'Edit' }).click()
+      const box = page.getByTestId('connector-channels')
+      await expect(box).toContainText('Where it may post')
+      await expect(box).toContainText('This does not decide who the bot listens to')
+      await expect(box).not.toContainText('Approved')
+    })
+
+    test('with no permission ticked the page says files are still refused', async ({ page }) => {
+      await api(page, [{ ...STORED, caps: [], allow_trust: { C0123: 'act' } }]).install()
+      await page.goto(PAGE)
+      await page.getByRole('button', { name: 'Edit' }).click()
+      await expect(page.getByTestId('connector-trust-nocaps')).toContainText('No permission is ticked on this connection')
+      await expect(page.getByTestId('connector-ready-channelTrust')).toContainText('Nothing is ticked under permissions')
+    })
+
+    test('the channel rows do not overflow a 320 px screen', async ({ page }) => {
+      await page.setViewportSize({ width: 320, height: 800 })
+      await api(page, [{ ...STORED, allow: ['U001', 'C0123', 'C0456'], allow_trust: { C0456: 'act' } }]).install()
+      await page.goto(PAGE)
+      await page.getByRole('button', { name: 'Edit' }).click()
+      await expect(page.getByTestId('connector-trust-row')).toHaveCount(2)
+      // Only the section of this change is measured: the role matrix has its own scroll box.
+      const over = await page.evaluate(() => [...document.querySelectorAll('[data-testid="connector-trust"], [data-testid="connector-trust"] *')]
+        .filter((e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 1).map((e) => e.tagName + '.' + String(e.className)))
+      expect(over, 'elements of the channel section wider than the screen').toEqual([])
+      await shot(page, 'trust-4-320px')
+      await shotOf(page.getByTestId('connector-trust'), 'trust-4b-320px-channels')
+    })
+
+    test('a refusal of a sender who came in through a channel offers Allow this person', async ({ page }) => {
+      const refused = { at: '2026-11-03T09:10:00Z', senders: ['U777'], capability: 'files.upload', allowed: false, code: 'channel_not_trusted', reason: 'files.upload needs a trusted sender: sender U777 was let in only through a channel set to Answer only; add U777 to the allowed people, or set the channel to Let everyone here ask for actions' }
+      const a = api(page, [STORED], { access: { ...ACCESS, recent: [refused] } })
+      await a.install()
+      await page.goto(PAGE)
+      await page.getByRole('button', { name: 'Edit' }).click()
+      await shot(page, 'trust-5-refusal')
+      await shotOf(page.getByTestId('connector-access'), 'trust-5b-refusal-allow-person')
+      await page.getByTestId('connector-audit-allow').click()
+      await expect.poll(() => a.s.calls.some((c) => c.method === 'POST' && c.url.endsWith('/allow'))).toBe(true)
+    })
   })
 })

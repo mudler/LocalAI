@@ -93,7 +93,7 @@ var capabilityText = map[string][2]string{
 	CapFilesUpload:      {"Receive files", "The agent may read files that senders attach to a message."},
 	CapTriggersPropose:  {"Propose triggers", "The agent may propose a timer or an event trigger when a sender asks for one."},
 	CapTriggersRun:      {"Fire event triggers", "A message from a sender may start a run of an event trigger."},
-	CapTalkbackChannels: {"Post to approved channels", "The agent may write to the approved channels below when a sender asks, besides the chat it answers in."},
+	CapTalkbackChannels: {"Post to other channels", "The agent may write to the channels listed under Where it may post when a sender asks, besides the chat it answers in. This does not decide whose messages the bot trusts."},
 	CapTalkbackNewChan:  {"Post to a new channel", "The agent may write to a channel that is not approved yet."},
 	CapProfileWrite:     {"Change the agent profile", "The agent may change its own profile."},
 	CapSkillsWrite:      {"Write skills", "The agent may write or change skills."},
@@ -104,7 +104,7 @@ var capabilityText = map[string][2]string{
 }
 
 // usualCapabilities are what an owner normally allows on a new binding: the
-// everyday ones that stay inside LocalAI and the approved channels.
+// everyday ones that stay inside LocalAI and the channels it may post to.
 var usualCapabilities = map[string]bool{
 	CapProposalsConfirm: true, CapMemoryWrite: true, CapFilesUpload: true,
 	CapTriggersPropose: true, CapTriggersRun: true, CapTalkbackChannels: true,

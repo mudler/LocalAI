@@ -295,7 +295,11 @@ The binding has two lists, kept as one allowlist:
 - **Allowed people**: Slack user IDs (`U...`, `W...`) or `@names`. A listed person may
   use the app in a direct message and by mentioning it anywhere.
 - **Allowed channels**: channel IDs (`C...`, `G...`). Everyone in a listed channel may
-  mention the app there. A direct message still needs the person on the list.
+  mention the app there. A direct message still needs the person on the list. Each
+  channel also has a trust level, see [Channels where the bot listens](#channels-where-the-bot-listens).
+  An `@name` entry matches the Slack username (the handle) of the sender, not the
+  display name, and only when the app has the scope `users:read`. When in doubt, use
+  the user ID (`U...`): the access log names the sender ID of every refusal.
 
 Copy an ID in Slack from the profile of a person or the details of a channel, or read
 it from the sender log after the person has written to the app. "Anyone in the
@@ -802,15 +806,54 @@ the capability is in `caps`, no switch is off, and:
 
 The allowlist can hold people and channels together. The host matches the sender of
 the message against the people entries (ID, and `@name` without regard to case). It
-matches the chat only to decide whether the bot answers, never to trust the sender.
-So a listed channel lets its members talk to the bot, but each of them gets
-capabilities only through a role, a pairing or an entry of their own. A binding with
-`accept_any` lists nobody. A sender who is let in but is not trusted still gets a
-role or a pairing as before.
+matches the chat to decide whether the bot answers, and to find the trust level of
+that channel (below). So a listed channel always lets its members talk to the bot, but
+each of them gets capabilities only through a role, a pairing, an entry of their own,
+or a channel that is set to let everyone act. A binding with `accept_any` lists
+nobody. A sender who is let in but is not trusted still gets a role or a pairing as
+before.
+
+#### Channels where the bot listens
+
+Every channel or group on the allowlist (a Slack `C...` or `G...`, a Telegram group, a
+Discord channel) has a trust level, `allow_trust` in the API, a map from the entry to
+`answer` or `act`:
+
+- `act` (the page says **Let everyone here ask for actions**): everyone who writes in
+  the channel, in a thread of it too, is treated like a listed person for the
+  capabilities that are not sensitive: sending files, proposing triggers, talk-back and
+  the like. The ticked permissions of the connection and the grants of the agent still
+  apply, so with an empty ceiling nothing is allowed. The add-on write tools still need
+  `tools.write` ticked on the connection (the paired rule is unchanged). Sensitive
+  capabilities, such as saving to the owner's notes or knowledge, still need a
+  pairing, and the personal notes are still read for paired senders only.
+- `answer` (**Answer only**): the bot answers there, but members who are not listed get
+  no capability. This is the level of an entry stored before the setting existed, so an
+  upgrade never widens trust. It is also the level of an entry that an API client adds
+  without `allow_trust`.
+
+A channel that you add on the settings page starts as `act`: allowing a channel is
+what you expect to let its people use the bot, and the page shows one sentence on what
+it means next to a switch back to **Answer only**. The level counts only for messages
+written in that channel. A person who is not listed and writes to the bot in a direct
+message is not trusted by the channel entry. `accept_any` is unchanged: it accepts
+everyone and trusts nobody. The level applies to a group entry only; an `@name` or user
+entry has none.
+
+This list is not the list of channels the bot may post to. That list is **Where it may
+post** (`channels`, capability `talkback.channels`) and says nothing about whose
+messages the bot trusts.
+
+When something is still refused in a channel, the bot says why in one plain sentence:
+the channel is set to answer only, the person is not on the list, the action needs a
+pairing, or the owner has not turned it on. The access log line carries the sender ID,
+the code and the reason, for example that a sender was let in only through a channel set
+to Answer only, and the settings page offers **Allow this person** next to such a
+refusal.
 
 The access view and the log name the way a sender got a capability: `allowlist`,
-`paired`, `agent-connection` (the write tools of an add-on the agent is connected to)
-or `role:<id>`. If several people share one turn, the turn gets only what
+`paired`, `channel` (a member of a channel set to `act`), `agent-connection` (the write
+tools of an add-on the agent is connected to) or `role:<id>`. If several people share one turn, the turn gets only what
 all of them may do.
 
 A tool of an add-on that holds your credential and changes something outside
@@ -882,8 +925,8 @@ with `caps`, and pair the accounts that need the sensitive ones.
 
 The settings page of every connector add-on edits all of this: a switch for each
 capability, with a description and a mark on the sensitive ones; the role matrix; the
-paired senders, with a button that shows a new code once; the approved channels for
-talk-back; and the access view with the latest decisions. A binding with no capability
+paired senders, with a button that shows a new code once; the channels it may post to
+(talk-back, **Where it may post**); and the access view with the latest decisions. A binding with no capability
 shows a notice that says why the features are off. The button "Allow the usual" turns
 on the everyday capabilities that stay inside LocalAI and are not sensitive. In the
 form, **Allow the usual set** ticks only the usual ones that the agent of the binding
@@ -956,7 +999,7 @@ shapes the result and never blocks.
 | `connection_permission_off` | `connection` | The permission is not ticked. `fix.target` is `caps`. | `open_connection` |
 | `sender_not_listed` | `sender` | The sender is not let in. | `add_person` |
 | `sender_needs_pairing` | `sender` | A sensitive permission needs a pairing. | `pair_sender` |
-| `channel_not_trusted` | `sender` | The sender got in through a channel or because the bot accepts anyone. | `add_person` |
+| `channel_not_trusted` | `sender` | The sender got in through a channel set to answer only, or because the bot accepts anyone. Add the person, or set the channel to `act`. | `add_person` |
 | `role_not_granted` | `sender` | The role of the sender has no grant. `fix.target` is `grants`. | `open_connection` |
 | `kind_not_running` | `sender` | The app of the connection is not running, so roles are unknown. | none |
 | `context_rule` | `connection` | Held, but not in this place or thread. | none |
@@ -1004,7 +1047,7 @@ the model reads English, and the sender reads the reply language of the connecti
 that is not saved. The body has the fields that the check reads, with the names of the
 update call: `agent_id`, `accept_any`, `allow`, `caps` and `grants`. A field that is
 absent keeps the saved value; an empty list clears it. `sender` limits the answer to one
-kind of sender: `listed`, `paired`, `channel_member` (or `anyone`), or `role:<id>`;
+kind of sender: `listed`, `paired`, `channel_member` (or `anyone`), `channel_acts`, or `role:<id>`;
 an unknown value is a 400. Use the id `new` with a `kind` for a connection that is not
 saved yet. The reply has the shape of the access view, with `preview: true` and no recent
 decisions.
@@ -1209,7 +1252,7 @@ tool `send_message`. The tool names no platform. The agent can use it to:
   `label` and `approved`, at most 10; an add-on settings page or the API sets them). A
   channel that is not listed is refused, and the error lists the ones that are. `thread`
   answers in a thread of that channel.
-- **Write in a channel the owner has not approved.** A listed channel with `approved`
+- **Write in a channel the owner has not enabled.** A listed channel with `approved`
   false needs the sensitive capability `talkback.new_channel` for each message, so only a
   paired sender can use it. A role never grants it. The owner approves a channel by
   setting `approved` to true.
@@ -1225,7 +1268,7 @@ and a SHA-256 hash of the text, never the text). `LOCALAI_DISABLE_CONNECTOR_TALK
 turns the tool and the reports to a channel off for every binding; owner notices
 continue.
 
-A trigger can report to an approved channel with `delivery.target` `channel`. The
+A trigger can report to a channel under **Where it may post** with `delivery.target` `channel`. The
 proposal is refused if the channel is not listed and approved. When a run ends, LocalAI
 checks again that the binding is on, the capability is on and the channel is still listed
 and approved; if not, the Inbox gets the notice.

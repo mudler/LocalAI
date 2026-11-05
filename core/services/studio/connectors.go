@@ -781,7 +781,7 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 	var up []session.Upload
 	if len(m.Media) > 0 {
 		if d := c.Authorize(ctx, b, m, contract.CapFilesUpload); !d.Allowed {
-			tell("no_upload")
+			tell(refusalKey(b, m, d, "no_upload"))
 			return
 		}
 		var ok bool
@@ -820,6 +820,26 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 		earlier = c.threadDirective(ctx, b, token, m)
 	}
 	c.deliver(ctx, b, token, m, c.sender(b.ID, "\x01"+key), chatID, up, earlier)
+}
+
+// refusalKey picks the sentence a sender reads for a refused capability, so
+// the reply says why in one plain sentence and not only "not allowed": the
+// channel is set to answer only, the sender is not on the list, the action
+// needs a pairing, or the owner has not turned it on. fallback is the sentence
+// of the feature, for a reason the sender cannot act on.
+func refusalKey(b connectors.Binding, m contract.ConnectorMessage, d Decision, fallback string) string {
+	switch d.Code {
+	case CodeChannelNotTrusted:
+		if !m.Direct && b.Allows(m.Chat, "") {
+			return "refuse.channel"
+		}
+		return "refuse.unlisted"
+	case CodeSenderNeedsPairing:
+		return "refuse.pairing"
+	case CodeConnectionPermissionOff, CodeAgentPermissionOff, CodeToolsSwitchOff:
+		return "refuse.off"
+	}
+	return fallback
 }
 
 // inputs turns the files of a message into what the turn gets: the uploads

@@ -192,7 +192,42 @@ export function unpairedSensitive(form, paired, capabilities, now = Date.now()) 
 export function channelOnly(form, lists) {
   if (!Array.isArray(lists) || lists.length < 2 || form?.accept_any) return false
   const allow = form?.allow || []
-  return allow.length > 0 && listEntries(allow, lists, 0).length === 0
+  return allow.length > 0 && listEntries(allow, lists, 0).length === 0 && !allow.some((x) => trustOf(form, x) === 'act')
+}
+
+// The trust level of an allowlist entry that is a channel: 'act' (everyone who
+// writes there may use the actions that are not sensitive) or 'answer' (the
+// bot answers there, but its members are not trusted one by one). An entry with
+// no level, such as one stored before the setting, is 'answer'.
+export function trustOf(form, entry) {
+  return form?.allow_trust?.[entry] === 'act' ? 'act' : 'answer'
+}
+
+// The levels the request carries: only for entries that are on the allowlist.
+function trustPayload(form) {
+  if (form.accept_any) return {}
+  const allow = new Set((form.allow || []).map((x) => x.trim()))
+  return Object.fromEntries(Object.entries(form.allow_trust || {}).filter(([k, v]) => allow.has(k) && (v === 'act' || v === 'answer')))
+}
+
+// The channel entries of the allowlist, in the order of the list. isChannel
+// tells whether an entry names a channel or group (a kind knows its IDs).
+export function channelEntries(form, isChannel) {
+  return (form?.allow || []).filter((x) => isChannel(x))
+}
+
+// The levels after the allowlist changed to allow: an entry that is new and is a
+// channel starts as 'act' (what the owner expects from allowing a channel), and
+// the level of an entry that left the list is dropped. The levels of the
+// entries that stayed do not change, so a channel stored before the setting
+// stays 'answer' until the owner changes it.
+export function trustAfter(form, allow, isChannel) {
+  const out = {}
+  for (const x of allow) {
+    if (form.allow_trust?.[x]) out[x] = form.allow_trust[x]
+    else if (!(form.allow || []).includes(x) && isChannel(x)) out[x] = 'act'
+  }
+  return out
 }
 
 // The form after cap name was turned on or off. Turning one off also takes it
@@ -244,7 +279,7 @@ export function channelsProblem(list) {
 
 export function emptyConnector() {
   return {
-    id: '', name: '', token: '', agent_id: '', enabled: true, accept_any: false, allow: [], notify_chat: '',
+    id: '', name: '', token: '', agent_id: '', enabled: true, accept_any: false, allow: [], allow_trust: {}, notify_chat: '',
     reply_mode: 'progress', conversation: 'sender', window_minutes: 60, send_files: true, reply_language: 'auto',
     options: {},
     file_receive_mib: '', file_send_mib: '',
@@ -271,7 +306,7 @@ export function connectorForm(c) {
   return {
     ...emptyConnector(), ...c, token: '',
     file_receive_mib: bytesToMib(c.file_receive_max_bytes), file_send_mib: bytesToMib(c.file_send_max_bytes),
-    approval: approvalForm(c.approval),
+    approval: approvalForm(c.approval), allow_trust: { ...(c.allow_trust || {}) },
     caps: [...(c.caps || [])], grants: (c.grants || []).map((g) => ({ role: g.role, caps: [...g.caps] })),
     channels: (c.channels || []).map((x) => ({ id: x.id, label: x.label || '', approved: Boolean(x.approved) })),
   }
@@ -329,6 +364,7 @@ export function connectorPayload(form, kind, token = form.token, extra = {}) {
     enabled: Boolean(form.enabled),
     accept_any: Boolean(form.accept_any),
     allow: form.accept_any ? [] : (form.allow || []).map(x => x.trim()).filter((x, i, a) => x && a.indexOf(x) === i),
+    allow_trust: trustPayload(form),
     notify_chat: (form.notify_chat || '').trim(),
     reply_mode: form.reply_mode || 'progress',
     conversation: form.conversation || 'sender',

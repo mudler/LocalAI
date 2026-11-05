@@ -144,5 +144,9 @@
   "day.short.3": "mer",
   "day.short.4": "jeu",
   "day.short.5": "ven",
-  "day.short.6": "sam"
+  "day.short.6": "sam",
+  "refuse.channel": "Ce canal est réglé sur réponse seule, je ne peux donc pas le faire pour vous ici. Demandez au propriétaire de vous ajouter aux personnes autorisées, ou de laisser tout le monde dans ce canal demander des actions.",
+  "refuse.unlisted": "Seules les personnes ajoutées à ce bot par le propriétaire peuvent le faire, et vous n'en faites pas partie.",
+  "refuse.pairing": "Seules les personnes que le propriétaire a associées à ce bot peuvent le faire.",
+  "refuse.off": "Le propriétaire n'a pas activé cela pour ce bot."
 }

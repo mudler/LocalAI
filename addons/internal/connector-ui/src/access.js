@@ -2,7 +2,7 @@
 // React, so a node test drives it. Three jobs: the request of the preview for
 // the form as it is now, the one fix button of a blocked capability, and the
 // rows of the readiness list.
-import { approvalPayload, channelOnly, listEntries } from './connector.js'
+import { approvalPayload, channelEntries, channelOnly, listEntries, trustOf } from './connector.js'
 
 const enc = encodeURIComponent
 
@@ -16,6 +16,7 @@ export function previewBody(form, kind) {
     agent_id: form.agent_id || '',
     accept_any: Boolean(form.accept_any),
     allow: form.accept_any ? [] : (form.allow || []).map((x) => x.trim()).filter((x, i, a) => x && a.indexOf(x) === i),
+    allow_trust: form.accept_any ? {} : Object.fromEntries((form.allow || []).map((x) => x.trim()).filter((x) => form.allow_trust?.[x]).map((x) => [x, form.allow_trust[x]])),
     caps: [...(form.caps || [])],
     grants: (form.grants || []).map((g) => ({ role: g.role, caps: [...g.caps] })),
   }
@@ -30,11 +31,11 @@ export const previewKey = (form, kind) => JSON.stringify([previewId(form), previ
 
 // The form fields that differ from the saved binding, as a set of names.
 // With no saved binding, every field counts as changed.
-const WATCHED = ['agent_id', 'accept_any', 'allow', 'caps', 'grants', 'approval', 'send_files', 'file_receive_mib', 'file_send_mib', 'notify_chat']
+const WATCHED = ['agent_id', 'accept_any', 'allow', 'allow_trust', 'caps', 'grants', 'approval', 'send_files', 'file_receive_mib', 'file_send_mib', 'notify_chat']
 export function changedFields(form, saved) {
   if (!saved) return new Set(WATCHED)
   const norm = (f, k) => JSON.stringify(k === 'approval' ? approvalPayload(f.approval) : k === 'send_files' ? f.send_files !== false : (f[k] ?? ''))
-  const sorted = (f, k) => (k === 'allow' || k === 'caps' ? JSON.stringify([...(f[k] || [])].sort()) : norm(f, k))
+  const sorted = (f, k) => (k === 'allow_trust' ? JSON.stringify(Object.entries(f[k] || {}).sort()) : k === 'allow' || k === 'caps' ? JSON.stringify([...(f[k] || [])].sort()) : norm(f, k))
   return new Set(WATCHED.filter((k) => sorted(form, k) !== sorted(saved, k)))
 }
 
@@ -51,6 +52,7 @@ export function senderOptions(form, kindInfo, lists) {
   } else {
     out.push({ id: 'listed', key: 'listed' })
     if (Array.isArray(lists) && lists.length > 1) out.push({ id: 'channel_member', key: 'channel_member' })
+    if (Object.values(form.allow_trust || {}).includes('act')) out.push({ id: 'channel_acts', key: 'channel_acts' })
   }
   out.push({ id: 'paired', key: 'paired' })
   for (const r of kindInfo?.roles || []) out.push({ id: `role:${r.id}`, key: 'role', title: r.title })
@@ -87,6 +89,8 @@ export function connectionTargets(fix, lists = [], form = {}) {
       return [sel('connector-agent')]
     case 'allow':
       return allowTargets(lists, form)
+    case 'trust':
+      return [`${sel('connector-trust')} input`, sel('connector-trust'), sel('connector-who')]
     case 'token':
       return ['[data-testid="connector-form"] input[type="password"]', sel('connector-form')]
     case 'save':
@@ -194,6 +198,7 @@ export function reachable(form, lists, view) {
   const out = []
   if (people) out.push('listed', 'paired')
   if (channels) out.push('anyone')
+  if ((form.allow || []).some((x) => trustOf(form, x) === 'act')) out.push('channel_acts')
   if (people || channels) out.push(...roles)
   return out
 }
@@ -237,7 +242,7 @@ const jump = (target, field, label) => ({ kind: 'open_connection', target, field
 // Every row is { id, state, key, params, fix } with the sentence as a key of
 // the page's words. A row that works only after the form is saved says so.
 export function readinessRows(ctx) {
-  const { form, saved, kindInfo, agents = [], lists = [], tokenTyped, token, preview = {}, paired, agentOptional = false, now = Date.now(), capabilities = [] } = ctx
+  const { form, saved, kindInfo, agents = [], lists = [], tokenTyped, token, preview = {}, paired, agentOptional = false, now = Date.now(), capabilities = [], isChannel = () => false } = ctx
   const changed = changedFields(form, saved)
   const caps = form.caps || []
   const on = (n) => caps.includes(n)
@@ -288,6 +293,22 @@ export function readinessRows(ctx) {
     rows.push({ id: 'who', state: 'attention', key: 'ready.who.channelsOnly', fix: { kind: 'add_person', target: 'allow' } })
   } else {
     rows.push(afterSave({ id: 'who', state: 'ok', key: multi && entries.length > people ? 'ready.who.mixed' : 'ready.who.listed', params: { count: entries.length } }, 'accept_any', 'allow'))
+  }
+
+  // The channels where the bot listens: one sentence on what the people in them
+  // may do, and one on where it may post, which is another list.
+  const listening = form.accept_any ? [] : channelEntries(form, isChannel)
+  const acting = listening.filter((x) => trustOf(form, x) === 'act')
+  const answering = listening.filter((x) => trustOf(form, x) !== 'act')
+  if (answering.length > 0) {
+    rows.push({ id: 'channelTrust', state: 'attention', key: 'ready.channelTrust.answer', params: { channels: answering.join(', ') }, fix: jump('trust', '', 'fix.trust') })
+  } else if (acting.length > 0 && caps.length === 0) {
+    rows.push({ id: 'channelTrust', state: 'attention', key: 'ready.channelTrust.noCaps', fix: jump('usual', '', 'fix.usual') })
+  } else if (acting.length > 0) {
+    rows.push(afterSave({ id: 'channelTrust', state: 'ok', key: 'ready.channelTrust.act', params: { channels: acting.join(', ') } }, 'allow', 'allow_trust', 'caps'))
+  }
+  if (on('talkback.channels') && (form.channels || []).length > 0) {
+    rows.push({ id: 'postTo', state: 'ok', key: 'ready.postTo', params: { count: form.channels.length } })
   }
 
   // Permissions (all ticked ones except the two with a row of their own)

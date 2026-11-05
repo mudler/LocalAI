@@ -160,9 +160,10 @@ var _ = Describe("permissions in the turns of a connector chat", func() {
 			}
 		}
 		Expect(allowed).To(Equal(map[string][]string{
-			"listed":     {contract.CapMemoryWrite},
-			"paired":     {contract.CapMemoryWrite, contract.CapProfileWrite},
-			"role:admin": {contract.CapMemoryWrite},
+			"listed":       {contract.CapMemoryWrite},
+			"channel_acts": {contract.CapMemoryWrite},
+			"paired":       {contract.CapMemoryWrite, contract.CapProfileWrite},
+			"role:admin":   {contract.CapMemoryWrite},
 		}))
 	})
 
@@ -171,7 +172,7 @@ var _ = Describe("permissions in the turns of a connector chat", func() {
 		Expect(r.conns.Ingest(ctx, "telegram", contract.ConnectorInbound{BindingID: b.ID, ConnectorMessage: contract.ConnectorMessage{
 			Chat: "11", Direct: true, SenderID: "11", Media: []string{"m1"}}})).To(Succeed())
 		waitFor("the refusal", func() bool { return len(r.bot.answers()) == 1 })
-		Expect(r.bot.answers()[0]).To(Equal("You may not send files to this bot."))
+		Expect(r.bot.answers()[0]).To(Equal("The owner has not turned that on for this bot."))
 		chats, _ := r.svc.List(ctx, alice, 10)
 		Expect(chats).To(BeEmpty())
 	})

@@ -48,7 +48,7 @@
   "block.connection_permission_off": "Koneksi ini tidak mengizinkan bot untuk {action}. Centang izin yang sesuai di koneksi.",
   "block.sender_not_listed": "Orang ini tidak ada dalam daftar orang yang dijawab bot. Tambahkan ke orang yang diizinkan.",
   "block.sender_needs_pairing": "Orang ini harus dipasangkan dengan bot sebelum bot dapat {action} untuknya.",
-  "block.channel_not_trusted": "Orang di sebuah kanal tidak dipercaya satu per satu, jadi bot tidak dapat {action} untuk mereka. Tambahkan orang itu ke orang yang diizinkan.",
+  "block.channel_not_trusted": "Orang di saluran yang disetel Hanya menjawab tidak dipercaya satu per satu, jadi bot tidak dapat {action} untuk mereka. Tambahkan orang itu ke orang yang diizinkan, atau setel saluran ke Biarkan semua orang di sini meminta tindakan.",
   "block.role_not_granted": "Peran orang ini tidak mengizinkan bot untuk {action}. Izinkan untuk peran itu di koneksi.",
   "block.kind_not_running": "Aplikasi untuk koneksi ini tidak berjalan, jadi peran tidak dapat diperiksa. Jalankan aplikasinya.",
   "block.context_rule": "Bot tidak dapat {action} di tempat ini.",

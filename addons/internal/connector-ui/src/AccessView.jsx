@@ -8,7 +8,7 @@ import { pageLocale } from './connector'
 import ApprovalsView from './ApprovalsView'
 import NoteSaveView from './NoteSaveView'
 
-export default function AccessView({ binding, capabilities, s, version }) {
+export default function AccessView({ binding, capabilities, s, version, onAllowed }) {
   const [view, setView] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -19,6 +19,11 @@ export default function AccessView({ binding, capabilities, s, version }) {
     try { setView(await connectorsApi.access(id)) } catch (e) { setError(e?.message || '') } finally { setLoading(false) }
   }, [id])
   useEffect(() => { load() }, [load, version])
+  // A refusal for a sender who was let in only through a channel: one click puts that person on the allowed list.
+  const allowPerson = async (sender) => {
+    setError('')
+    try { await connectorsApi.allow(id, sender); await load(); onAllowed?.(sender) } catch (e) { setError(e?.message || '') }
+  }
   const title = (name) => (capabilities || []).find((c) => c.name === name)?.title || name
   return (
     <fieldset className="cn-group" data-testid="connector-access">
@@ -43,6 +48,9 @@ export default function AccessView({ binding, capabilities, s, version }) {
                   {(e.roles || []).length > 0 && <span className="cn-muted">{s('access.roles', { roles: e.roles.join(', ') })}</span>}
                   {e.via && <span className="cn-muted">{e.via === 'no-confirmation' ? s('access.viaNoConfirm') : s('access.via', { via: e.via })}</span>}
                   {e.reason && <span className="cn-muted">{e.reason}</span>}
+                  {!e.allowed && e.code === 'channel_not_trusted' && (e.senders || []).length === 1 && !(binding.allow || []).includes(e.senders[0]) && (
+                    <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="connector-audit-allow" onClick={() => allowPerson(e.senders[0])}>{s('access.allowPerson')}</button>
+                  )}
                 </li>
               ))}
             </ul>

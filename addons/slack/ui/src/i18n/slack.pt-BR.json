@@ -21,9 +21,9 @@
   "anyoneWarning": "Qualquer pessoa que possa enviar mensagem a este app ou mencioná-lo pode usar as ferramentas deste agente, como se fosse você. Cada pessoa, e cada thread, tem uma conversa própria.",
   "anyoneConfirm": "Entendi",
   "allowUsers": "Pessoas permitidas",
-  "allowUsersHint": "ID do usuário (U...) ou @nome",
+  "allowUsersHint": "ID de usuário (U...) ou @usuário",
   "allowChannels": "Canais permitidos",
-  "allowChannelsHint": "ID do canal (C...): todos nele podem mencionar o app",
+  "allowChannelsHint": "ID de canal (C...): o bot responde a todos quando mencionado. Abaixo você escolhe o que podem pedir",
   "notifyChat": "Enviar minhas notificações para este ID de usuário ou canal",
   "notifyHelp": "Opcional. Seu ID de usuário (U...) as envia como mensagens diretas do app.",
   "test": "Testar",
@@ -65,5 +65,6 @@
     "copied": "Copiado",
     "manifest": "Manifesto do app do Slack"
   },
-  "back": "Voltar aos conectores"
+  "back": "Voltar aos conectores",
+  "allowUsersHelp": "Um @usuário corresponde ao nome de usuário do Slack (o identificador), não ao nome de exibição, e precisa do escopo users:read. Um ID de usuário (U...) sempre corresponde. Quando uma pessoa é recusada, o registro de acesso mostra o ID de usuário dela."
 }

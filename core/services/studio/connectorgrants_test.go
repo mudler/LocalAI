@@ -175,7 +175,9 @@ var _ = Describe("builtin grants in the turns of a connector chat", func() {
 			setup()
 			grants(contract.CapTalkbackChannels)
 			say("11", "here", "file-1")
-			waitFor("the refusal", func() bool { return slices.Contains(fake.texts(chatID, thread), "You may not send files to this bot.") })
+			waitFor("the refusal", func() bool {
+				return slices.Contains(fake.texts(chatID, thread), "The owner has not turned that on for this bot.")
+			})
 			Expect(denied(contract.CapFilesUpload)).To(BeTrue())
 		})
 

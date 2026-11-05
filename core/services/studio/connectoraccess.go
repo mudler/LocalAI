@@ -38,6 +38,13 @@ type AccessSubject struct {
 	// anyone, does not set it: those let a whole room talk to the bot, and the
 	// trust of a listed sender must not reach the rest of the room.
 	Listed bool
+	// ViaChannel says the message was let in because its chat is an entry of
+	// the allowlist. ChannelActs says that entry has the level TrustAct (see
+	// connectors.Binding.AllowTrust): every member of the chat then holds the
+	// capabilities that are not sensitive, as a listed sender does. Neither is
+	// set for a direct message, so a member who is not listed gets nothing from
+	// the entry of a channel when they write in private.
+	ViaChannel, ChannelActs bool
 }
 
 // Decision is the outcome of Authorize for one capability.
@@ -78,8 +85,9 @@ type Decision struct {
 //   - a sensitive capability needs a pairing that has not ended; neither a
 //     role nor the allowlist counts;
 //   - any other capability is held by a pairing, by a sender who is on the
-//     allowlist themselves (Listed: their ID or handle is an entry; an entry
-//     for a channel or group does not count), or by a role of the sender that
+//     allowlist themselves (Listed: their ID or handle is an entry), by a
+//     chat that the owner set to let everyone in it act (ChannelActs; a
+//     channel entry set to answer only does not count), or by a role of the sender that
 //     the owner granted the capability (Grants) and that the kind can grant
 //     (Permissions).
 //
@@ -118,6 +126,9 @@ func Authorize(b connectors.Binding, kind *contract.ConnectorKind, s AccessSubje
 	if s.Listed && s.SenderID != "" {
 		return Decision{Capability: capability, Allowed: true, Via: "allowlist"}
 	}
+	if s.ChannelActs && s.SenderID != "" {
+		return Decision{Capability: capability, Allowed: true, Via: ViaChannel}
+	}
 	if kind != nil && kind.Grantable(capability) {
 		for _, id := range kind.FilterRoles(s.Roles) {
 			for _, g := range b.Grants {
@@ -134,7 +145,31 @@ func Authorize(b connectors.Binding, kind *contract.ConnectorKind, s AccessSubje
 	case len(s.Roles) > 0:
 		return refusal(b, capability, CodeRoleNotGranted, reason, nil)
 	}
-	return refusal(b, capability, CodeChannelNotTrusted, reason, nil)
+	return refusal(b, capability, CodeChannelNotTrusted, untrustedReason(capability, s), nil)
+}
+
+// ViaChannel is the Via of a capability that a sender holds because the chat
+// they write in is set to let everyone in it act.
+const ViaChannel = "channel"
+
+// untrustedReason is the English line of the log for a sender who is let in
+// but not trusted. It names the sender and the way they were let in, and the
+// two fixes, so the owner does not have to guess.
+func untrustedReason(capability string, s AccessSubject) string {
+	who := "the sender"
+	if s.SenderID != "" {
+		who = "sender " + s.SenderID
+	}
+	how := "because the bot accepts anyone"
+	fix := "put the sender on the allowlist, or use a sender the owner paired"
+	if s.ViaChannel {
+		how = "through a channel set to Answer only"
+		fix = "add " + strings.TrimPrefix(who, "sender ") + " to the allowed people, or set the channel to Let everyone here ask for actions"
+		if s.SenderID == "" {
+			fix = "add the sender to the allowed people, or set the channel to Let everyone here ask for actions"
+		}
+	}
+	return fmt.Sprintf("%s needs a trusted sender: %s was let in only %s; %s", capability, who, how, fix)
 }
 
 // ViaAgentConnection is the Via of a write that the connection of the agent
@@ -263,8 +298,10 @@ func (c *Connectors) kindOf(ctx context.Context, b connectors.Binding) *contract
 // against the sender, and AcceptAny lists nobody: neither makes a sender
 // Listed.
 func (c *Connectors) subjectOf(b connectors.Binding, m contract.ConnectorMessage, allowlisted bool) AccessSubject {
+	channel := !m.Direct && m.Chat != "" && b.Allows(m.Chat, "")
 	return AccessSubject{SenderID: m.SenderID, Roles: m.Roles, Allowlisted: allowlisted,
-		Listed: m.SenderID != "" && b.Allows(m.SenderID, m.SenderUsername)}
+		Listed:     m.SenderID != "" && b.Allows(m.SenderID, m.SenderUsername),
+		ViaChannel: channel, ChannelActs: channel && b.ChatTrust(m.Chat) == connectors.TrustAct}
 }
 
 // Authorize decides whether the sender of a message may use a capability, and
@@ -502,7 +539,7 @@ func (a *accessState) record(now time.Time, b connectors.Binding, senders, roles
 
 func (a *accessState) append(e AccessEvent) {
 	slog.Info("studio: connector access", "binding", e.Binding, "kind", e.Kind, "senders", e.Senders, "roles", e.Roles,
-		"capability", e.Capability, "allowed", e.Allowed, "via", e.Via)
+		"capability", e.Capability, "allowed", e.Allowed, "via", e.Via, "code", e.Code, "reason", e.Reason)
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.log = append(a.log, e)
@@ -784,7 +821,10 @@ const (
 	SenderPaired        = "paired"
 	SenderChannelMember = "channel_member"
 	SenderAnyone        = "anyone"
-	SenderRolePrefix    = "role:"
+	// SenderChannelActs is a sender let in through a channel that the owner set
+	// to Let everyone here ask for actions.
+	SenderChannelActs = "channel_acts"
+	SenderRolePrefix  = "role:"
 )
 
 // AccessDraft is the state of a connection as the form holds it, before it is
@@ -797,15 +837,18 @@ type AccessDraft struct {
 	AgentID   *string
 	AcceptAny *bool
 	Allow     []string
-	Caps      []string
-	Grants    []connectors.RoleGrant
+	// AllowTrust is the trust level of the chat entries of Allow. Nil keeps the
+	// saved levels.
+	AllowTrust map[string]string
+	Caps       []string
+	Grants     []connectors.RoleGrant
 	// Sender, when set, limits the answer to one kind of sender: "listed",
 	// "paired", "channel_member", "anyone" or "role:<id>".
 	Sender string
 }
 
 // ErrBadSender means a preview asked for a kind of sender that does not exist.
-var ErrBadSender = fmt.Errorf("%w: sender must be listed, paired, channel_member, anyone or role:<id>", connectors.ErrInvalid)
+var ErrBadSender = fmt.Errorf("%w: sender must be listed, paired, channel_member, channel_acts, anyone or role:<id>", connectors.ErrInvalid)
 
 // NewConnectionID is the id under which a preview describes a connection that
 // is not saved yet.
@@ -842,6 +885,14 @@ func (c *Connectors) AccessPreview(ctx context.Context, user, id string, d Acces
 	if d.Allow != nil {
 		b.Allow = slices.Clone(d.Allow)
 	}
+	if d.AllowTrust != nil {
+		b.AllowTrust = maps.Clone(d.AllowTrust)
+	}
+	for k := range b.AllowTrust {
+		if !slices.Contains(b.Allow, k) {
+			delete(b.AllowTrust, k)
+		}
+	}
 	if d.Caps != nil {
 		b.WriteTickRemoved = writeTickRemoved(b.Caps, d.Caps, b.WriteTickRemoved)
 		b.Caps = slices.Clone(d.Caps)
@@ -850,7 +901,7 @@ func (c *Connectors) AccessPreview(ctx context.Context, user, id string, d Acces
 		b.Grants = slices.Clone(d.Grants)
 	}
 	switch s := d.Sender; {
-	case s == "", s == SenderListed, s == SenderPaired, s == SenderChannelMember, s == SenderAnyone:
+	case s == "", s == SenderListed, s == SenderPaired, s == SenderChannelMember, s == SenderAnyone, s == SenderChannelActs:
 	case strings.HasPrefix(s, SenderRolePrefix):
 		kind := c.kindOf(ctx, b)
 		if kind == nil || !slices.ContainsFunc(kind.Roles, func(r contract.ConnectorRole) bool { return SenderRolePrefix+r.ID == s }) {
@@ -897,7 +948,10 @@ func (c *Connectors) accessOf(ctx context.Context, b connectors.Binding, only st
 		out.Subjects = append(out.Subjects, view("listed", "A sender on the allowlist", b, AccessSubject{SenderID: "x", Allowlisted: true, Listed: true}))
 	}
 	if want("anyone") {
-		out.Subjects = append(out.Subjects, view("anyone", "A sender let in through a listed channel", b, AccessSubject{SenderID: "x", Allowlisted: true}))
+		out.Subjects = append(out.Subjects, view("anyone", "A sender let in through a listed channel", b, AccessSubject{SenderID: "x", Allowlisted: true, ViaChannel: true}))
+	}
+	if want("channel_acts") {
+		out.Subjects = append(out.Subjects, view("channel_acts", "A sender in a channel set to let everyone act", b, AccessSubject{SenderID: "x", Allowlisted: true, ViaChannel: true, ChannelActs: true}))
 	}
 	if want("paired") {
 		paired := b
@@ -932,10 +986,12 @@ func (c *Connectors) CapabilityGate() CapabilityGate {
 		}
 		roles := r.Roles
 		listed := b.Allows(r.Sender, r.Username)
+		channel := !r.Direct && r.Chat != "" && b.Allows(r.Chat, "")
+		acts := channel && b.ChatTrust(r.Chat) == connectors.TrustAct
 		if r.Sensitive {
-			roles, listed = nil, false
+			roles, listed, acts = nil, false, false
 		}
-		d := Authorize(b, c.kindOf(ctx, b), AccessSubject{SenderID: r.Sender, Roles: roles, Allowlisted: true, Listed: listed},
+		d := Authorize(b, c.kindOf(ctx, b), AccessSubject{SenderID: r.Sender, Roles: roles, Allowlisted: true, Listed: listed, ViaChannel: channel, ChannelActs: acts},
 			r.Capability, c.o.Clock(), c.offReason(ctx, b, r.Capability))
 		c.svc.access.record(c.o.Clock(), b, []string{r.Sender}, roles, d)
 		return d.Allowed

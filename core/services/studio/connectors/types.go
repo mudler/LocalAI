@@ -144,6 +144,14 @@ type Binding struct {
 	// Allow lists the chat IDs, user IDs or @usernames that are accepted. A
 	// chat ID accepts everyone who addresses the bot in that chat.
 	Allow []string
+	// AllowTrust says, for an entry of Allow that is a chat ID, what the people
+	// who write in that chat may do. An entry that is absent, or has the level
+	// TrustAnswer, only lets the chat talk to the bot: its members are not
+	// trusted one by one. TrustAct lets every member use the capabilities that
+	// are not sensitive, as a listed sender does. It is a separate map so the
+	// Allow list of strings, and every export or client that only knows it,
+	// keeps working.
+	AllowTrust map[string]string
 	// NotifyChat, when set, receives the owner's run notifications.
 	NotifyChat string
 	// Reply is a reply mode (ReplyOff, ReplyProgress, ReplyStream); empty
@@ -417,6 +425,16 @@ func ValidateKind(b Binding, agentOptional bool) error {
 			return bad("%q is not a chat ID, user ID or @username", a)
 		}
 	}
+	for k, v := range b.AllowTrust {
+		switch {
+		case !slices.Contains(b.Allow, k):
+			return bad("%q has a trust level but is not on the allowlist", k)
+		case strings.HasPrefix(k, "@"):
+			return bad("a trust level is for a channel or group, not for the person %q", k)
+		case v != TrustAnswer && v != TrustAct:
+			return bad("the trust level of %q must be %s or %s", k, TrustAnswer, TrustAct)
+		}
+	}
 	if b.FileReceiveMax < 0 || b.FileReceiveMax > MaxFileLimit || b.FileSendMax < 0 || b.FileSendMax > MaxFileLimit {
 		return bad("a file limit must be 0 (the limit of the kind) or 1 to %d bytes", MaxFileLimit)
 	}
@@ -541,6 +559,24 @@ func (b Binding) Writes() string {
 	return b.WriteMode
 }
 
+// The trust levels of a chat entry of the allowlist (see Binding.AllowTrust).
+const (
+	// TrustAnswer: the bot answers in the chat, but its members are not trusted.
+	TrustAnswer = "answer"
+	// TrustAct: every member of the chat is trusted for the capabilities that
+	// are not sensitive.
+	TrustAct = "act"
+)
+
+// ChatTrust is the level of an allowlist entry for a chat: TrustAnswer unless
+// the entry is on the list and the owner chose TrustAct.
+func (b Binding) ChatTrust(chat string) string {
+	if chat != "" && b.AllowTrust[chat] == TrustAct && slices.Contains(b.Allow, chat) {
+		return TrustAct
+	}
+	return TrustAnswer
+}
+
 // Allows tells whether a sender is on the allowlist. A match is by ID or, for an
 // @name entry, by username, ignoring case.
 func (b Binding) Allows(senderID, username string) bool {
@@ -554,6 +590,7 @@ func (b Binding) Allows(senderID, username string) bool {
 
 func (b Binding) clone() Binding {
 	b.Allow = append([]string(nil), b.Allow...)
+	b.AllowTrust = maps.Clone(b.AllowTrust)
 	b.Token = append([]byte(nil), b.Token...)
 	b.Options = maps.Clone(b.Options)
 	b.Caps = slices.Clone(b.Caps)

@@ -17,9 +17,10 @@ import ApprovalOptions from './ApprovalFields'
 import FilesFields from './FilesFields'
 import { Check, Field, HintLabels, Notice, RadioCards, Select, Switch, TextInput } from './controls'
 import NameList from './NameList'
+import ChannelTrust from './ChannelTrust'
 import PermissionFields, { NoCapsNotice } from './PermissionFields'
 import { agentsApi, connectorsApi, setApiLanguage } from './api'
-import { DUPLICATE_CONFIRMATION, canSave, channelOnly, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, hasNoCaps, connectorPayload, emptyConnector, listEntries, replaceList, senderLine, usualCaps } from './connector'
+import { DUPLICATE_CONFIRMATION, canSave, channelOnly, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, hasNoCaps, connectorPayload, emptyConnector, listEntries, replaceList, senderLine, trustAfter, usualCaps } from './connector'
 import { registerConnectorLocales } from './i18n'
 import './connector.css'
 
@@ -96,6 +97,7 @@ const ONE_LIST = [{ key: 'allow', label: 'allow', hint: 'allowHint', testId: 'co
  * @param {Array} [props.lists]        the allowlists: { key, label, hint, testId, match }
  * @param {Function} [props.Help]      a block under the intro ({ t })
  * @param {string} [props.notifyMode]  the inputMode of the notification field
+ * @param {Function} [props.isChannelEntry] whether an allowlist entry names a channel or group: (entry) => boolean
  * @param {boolean} [props.messaging]  false for a kind that carries no messages: the page then hides the sender,
  *                                     reply, file and notification settings and the switch of the binding
  * @param {Function} [props.ExtraFields] more fields of the add-on's own ({ form, setForm, t })
@@ -106,7 +108,7 @@ const ONE_LIST = [{ key: 'allow', label: 'allow', hint: 'allowHint', testId: 'co
  * @param {Function} [props.RowInfo]   a line under a binding in the list ({ c, t })
  */
 export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleToken, tokenOf = (f) => f.token || '', lists = ONE_LIST, Help, notifyMode = 'text',
-  messaging = true, ExtraFields, extraBody, extraForm, extraValid, testExtra, RowInfo }) {
+  messaging = true, isChannelEntry: channelPredicate, ExtraFields, extraBody, extraForm, extraValid, testExtra, RowInfo }) {
   const { t, i18n } = useTranslation([ns, 'connector'])
   const uiLanguage = i18n?.resolvedLanguage || i18n?.language || ''
   setApiLanguage(uiLanguage)
@@ -133,6 +135,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   // A kind that declares agent_optional lets a binding hold credentials only.
   const agentOptional = Boolean(kindInfo?.agent_optional)
   const s = answerT(t)
+  // Which entries of the allowlist name a channel or group, where people are trusted by the setting of the channel. Without a rule of the kind, the last of several lists holds the channels.
+  const isChannelEntry = channelPredicate || ((x) => lists.length > 1 && listEntries([x], lists, lists.length - 1).length === 1)
   const pairedChanged = useCallback((list) => { if (Array.isArray(list)) setPairedList(list); setAccessVersion((v) => v + 1) }, [])
   const isAdmin = useIsAdmin(useAuth)
 
@@ -258,7 +262,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const dirty = form ? !savedForm || tokenTyped || JSON.stringify(connectorPayload(form, kind, '', extra(form))) !== JSON.stringify(connectorPayload(savedForm, kind, '', extra(savedForm))) : false
   const people = form ? (lists.length > 1 ? listEntries(form.allow, lists, 0).length : (form.allow || []).length) : 0
   const fixCtx = { agentId: form?.agent_id || '', isAdmin, lists, form: form || {}, people }
-  const readyInput = form && { form, saved: savedForm, kindInfo, capabilities, agents, lists, tokenTyped, token: form.id ? tokenChecks[form.id] : null, preview, paired: pairedList || form.paired || [], agentOptional, messaging }
+  const readyInput = form && { form, saved: savedForm, kindInfo, capabilities, agents, lists, tokenTyped, token: form.id ? tokenChecks[form.id] : null, preview, paired: pairedList || form.paired || [], agentOptional, messaging, isChannel: isChannelEntry }
 
   if (off) {
     return (
@@ -325,9 +329,10 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
                 </Notice>
               )}
               {!form.accept_any && lists.map((l, i) => (
-                <NameList key={l.key} label={t(l.label)} hint={t(l.hint)} value={listEntries(form.allow, lists, i)} addLabel={answerT(t)('add')}
-                  onChange={(v) => setForm({ ...form, allow: replaceList(form.allow, lists, i, v) })} testId={l.testId} />
+                <NameList key={l.key} label={t(l.label)} hint={t(l.hint)} help={l.help ? t(l.help) : undefined} value={listEntries(form.allow, lists, i)} addLabel={answerT(t)('add')}
+                  onChange={(v) => { const allow = replaceList(form.allow, lists, i, v); setForm({ ...form, allow, allow_trust: trustAfter(form, allow, isChannelEntry) }) }} testId={l.testId} />
               ))}
+              <ChannelTrust form={form} setForm={setForm} t={s} isChannel={isChannelEntry} />
             </fieldset>
             <Field label={t('notifyChat')} hint={t('notifyHelp')} optional>
               {(p) => <TextInput {...p} mono inputMode={notifyMode} data-testid="connector-notify" value={form.notify_chat} onChange={(e) => setForm({ ...form, notify_chat: e.target.value })} />}
@@ -339,7 +344,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             {capabilities.length === 0 && <ApprovalOptions form={form} setForm={setForm} s={s} />}
             {capabilities.length > 0 && (<>
               <CapabilitiesPanel form={form} kindInfo={kindInfo} capabilities={capabilities} lists={lists} preview={preview} dirty={dirty} s={s} ctx={fixCtx} />
-              <AccessView binding={form} capabilities={capabilities} s={s} version={accessVersion} />
+              <AccessView binding={form} capabilities={capabilities} s={s} version={accessVersion} onAllowed={(sender) => { setForm((f) => (f && !(f.allow || []).includes(sender) ? { ...f, allow: [...(f.allow || []), sender] } : f)); load() }} />
             </>)}
             </>)}
             {dupAsk && (

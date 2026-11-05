@@ -291,3 +291,98 @@ var _ = Describe("the grant of a turn, denied reasons", func() {
 		Expect(m.Denied).To(Equal(map[string]string{"x": "ra", "memory.write": "rb"}))
 	})
 })
+
+// The trust level of a channel entry of the allowlist (connectors.AllowTrust).
+// The expectations are written out for each kind of sender, so a change of the
+// rule shows as a failing line.
+var _ = Describe("Authorize with the trust level of a channel", func() {
+	now := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
+	kind := contract.ConnectorKind{ID: "chat", Permissions: []string{contract.CapFilesUpload, contract.CapMemoryWrite, contract.CapToolsWrite}}
+	ceiling := []string{contract.CapFilesUpload, contract.CapTriggersPropose, contract.CapTalkbackChannels, contract.CapMemoryWrite, contract.CapKnowledgeWrite, contract.CapProfileWrite}
+	bind := func(level string, caps []string) connectors.Binding {
+		b := connectors.Binding{ID: "b1", Kind: "chat", AgentID: "a1", Allow: []string{"U1", "C1", "C2"}, Caps: caps,
+			Paired: []connectors.PairedSender{{SenderID: "P", At: now.Add(-time.Hour)}}}
+		if level != "" {
+			b.AllowTrust = map[string]string{"C1": level}
+		}
+		return b
+	}
+	msg := func(sender, chat string, direct bool) contract.ConnectorMessage {
+		return contract.ConnectorMessage{SenderID: sender, Chat: chat, Direct: direct, Mention: true}
+	}
+	allowedOf := func(b connectors.Binding, m contract.ConnectorMessage, names ...string) []string {
+		c := &Connectors{}
+		var out []string
+		for _, n := range names {
+			if Authorize(b, &kind, c.subjectOf(b, m, true), n, now, Block{}).Allowed {
+				out = append(out, n)
+			}
+		}
+		return out
+	}
+	plain := []string{contract.CapFilesUpload, contract.CapTriggersPropose, contract.CapTalkbackChannels, contract.CapMemoryWrite}
+	sensitive := []string{contract.CapKnowledgeWrite, contract.CapProfileWrite}
+	all := append(slices.Clone(plain), sensitive...)
+
+	DescribeTable("who holds what",
+		func(level string, m contract.ConnectorMessage, want []string) {
+			got := allowedOf(bind(level, ceiling), m, all...)
+			slices.Sort(got)
+			slices.Sort(want)
+			Expect(got).To(Equal(want))
+		},
+		Entry("the owner's pairing in the channel", "act", msg("P", "C1", false), all),
+		Entry("a listed user in the channel", "act", msg("U1", "C1", false), plain),
+		Entry("a member of a channel set to answer only", "answer", msg("U9", "C1", false), nil),
+		Entry("a member of a channel with no level (stored before the setting)", "", msg("U9", "C1", false), nil),
+		Entry("a member of a channel set to members act", "act", msg("U9", "C1", false), plain),
+		Entry("a member of another listed channel that is answer only", "act", msg("U9", "C2", false), nil),
+		Entry("a thread reply keeps the level of its channel", "act", contract.ConnectorMessage{SenderID: "U9", Chat: "C1", Thread: "t1", Mention: true}, plain),
+		Entry("a member who writes in private", "act", msg("U9", "D9", true), nil),
+		Entry("a member who writes in private in the chat id of the channel", "act", msg("U9", "C1", true), nil),
+	)
+
+	It("keeps a member of a members-act channel from a sensitive capability, and says so", func() {
+		b := bind("act", ceiling)
+		d := Authorize(b, &kind, (&Connectors{}).subjectOf(b, msg("U9", "C1", false), true), contract.CapMemoryWrite, now, Block{})
+		Expect(d.Allowed).To(BeTrue())
+		Expect(d.Via).To(Equal(ViaChannel))
+		d = Authorize(b, &kind, (&Connectors{}).subjectOf(b, msg("U9", "C1", false), true), contract.CapKnowledgeWrite, now, Block{})
+		Expect(d.Code).To(Equal(CodeSenderNeedsPairing))
+	})
+	It("grants nothing outside the ceiling, whatever the level", func() {
+		b := bind("act", []string{contract.CapMemoryWrite})
+		Expect(allowedOf(b, msg("U9", "C1", false), all...)).To(Equal([]string{contract.CapMemoryWrite}))
+		b = bind("act", nil)
+		Expect(allowedOf(b, msg("U9", "C1", false), all...)).To(BeEmpty())
+	})
+	It("needs the ceiling tick for the add-on write tools, for a member of a members-act channel", func() {
+		withTick := bind("act", append(slices.Clone(ceiling), contract.CapToolsWrite))
+		Expect(allowedOf(withTick, msg("U9", "C1", false), contract.CapToolsWrite)).To(Equal([]string{contract.CapToolsWrite}))
+		Expect(allowedOf(bind("act", ceiling), msg("U9", "C1", false), contract.CapToolsWrite)).To(BeEmpty())
+	})
+	It("leaves the anyone mode as it was: accepted, never trusted", func() {
+		b := bind("", ceiling)
+		b.AcceptAny, b.Allow = true, nil
+		Expect(allowedOf(b, msg("U9", "C5", false), all...)).To(BeEmpty())
+	})
+	It("names the sender, how it was let in and both fixes when a channel set to answer only refuses", func() {
+		b := bind("answer", ceiling)
+		d := Authorize(b, &kind, (&Connectors{}).subjectOf(b, msg("U9", "C1", false), true), contract.CapFilesUpload, now, Block{})
+		Expect(d.Code).To(Equal(CodeChannelNotTrusted))
+		Expect(d.Reason).To(And(ContainSubstring("U9"), ContainSubstring("Answer only"), ContainSubstring("Let everyone here ask for actions"), ContainSubstring("allowed people")))
+	})
+	It("ignores a level for an entry that is not on the allowlist", func() {
+		b := bind("act", ceiling)
+		b.Allow = []string{"U1"}
+		Expect(b.ChatTrust("C1")).To(Equal(connectors.TrustAnswer))
+	})
+	It("rejects a level that is not known and a level for a person", func() {
+		b := bind("act", ceiling)
+		b.AllowTrust = map[string]string{"C1": "everything"}
+		Expect(connectors.Validate(b)).NotTo(Succeed())
+		b.AllowTrust = map[string]string{"@ada": "act"}
+		b.Allow = append(b.Allow, "@ada")
+		Expect(connectors.Validate(b)).NotTo(Succeed())
+	})
+})

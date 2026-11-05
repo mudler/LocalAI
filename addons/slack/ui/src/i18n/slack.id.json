@@ -21,9 +21,9 @@
   "anyoneWarning": "Siapa saja yang dapat mengirim pesan ke aplikasi ini atau menyebutnya dapat memakai alat agen ini, sebagai Anda. Setiap orang, dan setiap thread, mendapat percakapan tersendiri.",
   "anyoneConfirm": "Saya mengerti",
   "allowUsers": "Orang yang diizinkan",
-  "allowUsersHint": "ID pengguna (U...) atau @nama",
+  "allowUsersHint": "ID pengguna (U...) atau @username",
   "allowChannels": "Kanal yang diizinkan",
-  "allowChannelsHint": "ID kanal (C...): semua orang di dalamnya boleh menyebut aplikasi",
+  "allowChannelsHint": "ID kanal (C...): bot menjawab semua orang di dalamnya saat disebut. Pilih di bawah apa yang boleh mereka minta",
   "notifyChat": "Kirim notifikasi saya ke ID pengguna atau kanal ini",
   "notifyHelp": "Opsional. ID pengguna Anda (U...) mengirimnya sebagai pesan langsung dari aplikasi.",
   "test": "Uji",
@@ -65,5 +65,6 @@
     "copied": "Tersalin",
     "manifest": "Manifest aplikasi Slack"
   },
-  "back": "Kembali ke konektor"
+  "back": "Kembali ke konektor",
+  "allowUsersHelp": "@username cocok dengan nama pengguna Slack (handle), bukan nama tampilan, dan memerlukan scope users:read. ID pengguna (U...) selalu cocok. Saat seseorang ditolak, log akses menyebut ID penggunanya."
 }

@@ -12,15 +12,17 @@ import (
 )
 
 type bindingRow struct {
-	ID         string `gorm:"primaryKey;size:64"`
-	Owner      string `gorm:"index;size:255;not null"`
-	Kind       string `gorm:"size:32"`
-	AddonID    string `gorm:"size:64"`
-	Name       string `gorm:"size:255"`
-	AgentID    string `gorm:"size:128"`
-	Enabled    bool   `gorm:"index"`
-	AcceptAny  bool
-	Allow      string
+	ID        string `gorm:"primaryKey;size:64"`
+	Owner     string `gorm:"index;size:255;not null"`
+	Kind      string `gorm:"size:32"`
+	AddonID   string `gorm:"size:64"`
+	Name      string `gorm:"size:255"`
+	AgentID   string `gorm:"size:128"`
+	Enabled   bool   `gorm:"index"`
+	AcceptAny bool
+	Allow     string
+	// AllowTrust is JSON, added by AutoMigrate; a row stored before it trusts no chat.
+	AllowTrust string
 	NotifyChat string `gorm:"size:64"`
 	// The columns of the reply and conversation modes are added by
 	// AutoMigrate; a row stored before them reads as the defaults.
@@ -149,7 +151,7 @@ func (r bindingRow) binding() (Binding, error) {
 	for _, f := range []struct {
 		raw string
 		dst any
-	}{{r.Caps, &b.Caps}, {r.Grants, &b.Grants}, {r.Paired, &b.Paired}, {r.Resources, &b.Resources}, {r.Channels, &b.Channels}, {r.Approval, &b.Approval}} {
+	}{{r.Caps, &b.Caps}, {r.AllowTrust, &b.AllowTrust}, {r.Grants, &b.Grants}, {r.Paired, &b.Paired}, {r.Resources, &b.Resources}, {r.Channels, &b.Channels}, {r.Approval, &b.Approval}} {
 		if f.raw == "" {
 			continue
 		}
@@ -178,7 +180,7 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 		raw, _ := json.Marshal(v)
 		return string(raw)
 	}
-	return s.db.WithContext(ctx).Save(&bindingRow{Approval: enc(b.Approval, b.Approval.IsZero()), WriteMode: b.WriteMode, Resources: enc(b.Resources, len(b.Resources) == 0), Channels: enc(b.Channels, len(b.Channels) == 0), Caps: enc(b.Caps, len(b.Caps) == 0), WriteTickRemoved: b.WriteTickRemoved, Grants: enc(b.Grants, len(b.Grants) == 0), Paired: enc(b.Paired, len(b.Paired) == 0), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
+	return s.db.WithContext(ctx).Save(&bindingRow{AllowTrust: enc(b.AllowTrust, len(b.AllowTrust) == 0), Approval: enc(b.Approval, b.Approval.IsZero()), WriteMode: b.WriteMode, Resources: enc(b.Resources, len(b.Resources) == 0), Channels: enc(b.Channels, len(b.Channels) == 0), Caps: enc(b.Caps, len(b.Caps) == 0), WriteTickRemoved: b.WriteTickRemoved, Grants: enc(b.Grants, len(b.Grants) == 0), Paired: enc(b.Paired, len(b.Paired) == 0), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
 		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Reply: b.Reply, Conversation: b.Conversation, WindowMinutes: b.WindowMinutes,
 		FilesOff: b.FilesOff, ReplyLanguage: b.ReplyLanguage, UILanguage: b.UILanguage, AccountID: b.AccountID, Options: options, FileReceiveMax: b.FileReceiveMax, FileSendMax: b.FileSendMax,
 		Token: b.Token, Created: b.Created, Updated: b.Updated}).Error

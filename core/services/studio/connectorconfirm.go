@@ -34,7 +34,7 @@ func (c *Connectors) answerPhrase(ctx context.Context, b connectors.Binding, m c
 		return false
 	}
 	reply, handled := h.AnswerByPhrase(ctx, PhraseFrom{Binding: b.ID, Owner: b.Owner, Agent: b.AgentID,
-		Chat: m.Chat, Thread: m.Thread, Sender: m.SenderID, Username: m.SenderUsername, Roles: m.Roles, Voice: v}, verb, code)
+		Chat: m.Chat, Direct: m.Direct, Thread: m.Thread, Sender: m.SenderID, Username: m.SenderUsername, Roles: m.Roles, Voice: v}, verb, code)
 	if handled {
 		say(reply)
 	}

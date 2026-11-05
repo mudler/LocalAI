@@ -144,5 +144,9 @@
   "day.short.3": "mié",
   "day.short.4": "jue",
   "day.short.5": "vie",
-  "day.short.6": "sáb"
+  "day.short.6": "sáb",
+  "refuse.channel": "Este canal está en modo solo responder, así que no puedo hacerlo por ti aquí. Pide al propietario que te añada a las personas permitidas, o que deje a todos en este canal pedir acciones.",
+  "refuse.unlisted": "Solo pueden hacerlo las personas que el propietario añadió a este bot, y tú no eres una de ellas.",
+  "refuse.pairing": "Solo pueden hacerlo las personas que el propietario vinculó con este bot.",
+  "refuse.off": "El propietario no ha activado eso para este bot."
 }

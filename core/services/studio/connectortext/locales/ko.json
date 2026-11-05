@@ -48,7 +48,7 @@
   "block.connection_permission_off": "이 연결은 봇이 다음 작업을 하도록 허용하지 않습니다: {action}. 연결에서 해당 권한을 선택해 주세요.",
   "block.sender_not_listed": "이 사람은 봇이 응답하는 사람 목록에 없습니다. 허용된 사람에 추가해 주세요.",
   "block.sender_needs_pairing": "봇이 이 사람을 위해 다음 작업을 하려면 먼저 이 사람이 봇과 페어링되어야 합니다: {action}.",
-  "block.channel_not_trusted": "채널에 있는 사람은 한 명씩 신뢰되지 않으므로 봇이 그들을 위해 다음 작업을 할 수 없습니다: {action}. 이 사람을 허용된 사람에 추가해 주세요.",
+  "block.channel_not_trusted": "'답변만' 으로 설정된 채널의 사람들은 개별적으로 신뢰되지 않으므로 봇이 그들을 위해 {action} 할 수 없습니다. 그 사람을 허용된 사람에 추가하거나 채널을 '여기 모두 작업 요청 허용'으로 설정하세요.",
   "block.role_not_granted": "이 사람의 역할로는 봇이 다음 작업을 할 수 없습니다: {action}. 연결에서 해당 역할에 허용해 주세요.",
   "block.kind_not_running": "이 연결의 앱이 실행 중이 아니어서 역할을 확인할 수 없습니다. 앱을 시작해 주세요.",
   "block.context_rule": "봇은 이 위치에서 다음 작업을 할 수 없습니다: {action}.",

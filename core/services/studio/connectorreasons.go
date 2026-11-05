@@ -170,7 +170,7 @@ var blockTable = map[string]blockInfo{
 		"This person needs to be paired with this bot before the bot can {action} for them.",
 		"You need to be paired with this bot by the owner before it can {action} for you."},
 	CodeChannelNotTrusted: {BySender,
-		"People in a channel are not trusted one by one, so the bot cannot {action} for them. Add the person to the allowed people.",
+		"This channel is set to Answer only, so the bot cannot {action} for its members. Add the person, or set it to Let everyone here ask for actions.",
 		"This bot can {action} only for people the owner added by name or paired, and you are not one of them."},
 	CodeRoleNotGranted: {BySender,
 		"The role of this person does not let the bot {action}. Allow it for that role on the connection.",

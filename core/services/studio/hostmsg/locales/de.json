@@ -144,5 +144,9 @@
   "day.short.3": "Mi",
   "day.short.4": "Do",
   "day.short.5": "Fr",
-  "day.short.6": "Sa"
+  "day.short.6": "Sa",
+  "refuse.channel": "Dieser Kanal ist auf Nur antworten gestellt, deshalb kann ich das hier nicht für dich tun. Bitte den Besitzer, dich zu den erlaubten Personen hinzuzufügen oder allen in diesem Kanal Aktionen zu erlauben.",
+  "refuse.unlisted": "Das können nur Personen, die der Besitzer diesem Bot hinzugefügt hat, und du gehörst nicht dazu.",
+  "refuse.pairing": "Das können nur Personen, die der Besitzer mit diesem Bot gekoppelt hat.",
+  "refuse.off": "Der Besitzer hat das für diesen Bot nicht eingeschaltet."
 }

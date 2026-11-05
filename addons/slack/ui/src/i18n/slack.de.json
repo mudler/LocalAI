@@ -21,9 +21,9 @@
   "anyoneWarning": "Wer dieser App schreiben oder sie erwähnen kann, kann die Werkzeuge dieses Agenten nutzen, als wärst du es. Jede Person und jeder Thread bekommt eine eigene Unterhaltung.",
   "anyoneConfirm": "Verstanden",
   "allowUsers": "Erlaubte Personen",
-  "allowUsersHint": "Nutzer-ID (U...) oder @name",
+  "allowUsersHint": "Nutzer-ID (U...) oder @Benutzername",
   "allowChannels": "Erlaubte Kanäle",
-  "allowChannelsHint": "Kanal-ID (C...): Alle darin dürfen die App erwähnen",
+  "allowChannelsHint": "Kanal-ID (C...): Der Bot antwortet allen darin, wenn er erwähnt wird. Unten wählst du, was sie anfragen dürfen",
   "notifyChat": "Meine Benachrichtigungen an diese Nutzer- oder Kanal-ID senden",
   "notifyHelp": "Optional. Mit deiner Nutzer-ID (U...) kommen sie als Direktnachrichten von der App.",
   "test": "Test",
@@ -65,5 +65,6 @@
     "copied": "Kopiert",
     "manifest": "Slack-App-Manifest"
   },
-  "back": "Zurück zu den Konnektoren"
+  "back": "Zurück zu den Konnektoren",
+  "allowUsersHelp": "Ein @Benutzername passt zum Slack-Benutzernamen (dem Kürzel), nicht zum Anzeigenamen, und braucht den Scope users:read. Eine Nutzer-ID (U...) passt immer. Wird eine Person abgelehnt, nennt das Zugriffsprotokoll ihre Nutzer-ID."
 }

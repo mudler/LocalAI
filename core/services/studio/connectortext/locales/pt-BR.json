@@ -48,7 +48,7 @@
   "block.connection_permission_off": "Esta conexão não permite que o bot possa {action}. Marque a permissão correspondente na conexão.",
   "block.sender_not_listed": "Esta pessoa não está na lista de quem o bot atende. Adicione-a às pessoas permitidas.",
   "block.sender_needs_pairing": "Esta pessoa precisa estar pareada com o bot antes de o bot poder {action} para ela.",
-  "block.channel_not_trusted": "As pessoas de um canal não são confiáveis uma a uma, então o bot não pode {action} para elas. Adicione a pessoa às pessoas permitidas.",
+  "block.channel_not_trusted": "As pessoas de um canal em Só responder não são confiáveis uma a uma, então o bot não pode {action} por elas. Adicione a pessoa às pessoas permitidas, ou defina o canal como Deixar todos aqui pedirem ações.",
   "block.role_not_granted": "O papel desta pessoa não permite que o bot possa {action}. Permita para esse papel na conexão.",
   "block.kind_not_running": "O app desta conexão não está em execução, então os papéis não podem ser verificados. Inicie o app.",
   "block.context_rule": "O bot não pode {action} neste lugar.",

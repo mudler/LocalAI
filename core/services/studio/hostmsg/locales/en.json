@@ -144,5 +144,9 @@
   "day.short.3": "Wed",
   "day.short.4": "Thu",
   "day.short.5": "Fri",
-  "day.short.6": "Sat"
+  "day.short.6": "Sat",
+  "refuse.channel": "This channel is set to answer only, so I cannot do that for you here. Ask the owner to add you to the allowed people, or to let everyone in this channel ask for actions.",
+  "refuse.unlisted": "Only people the owner added to this bot can do that, and you are not one of them.",
+  "refuse.pairing": "Only people the owner paired with this bot can do that.",
+  "refuse.off": "The owner has not turned that on for this bot."
 }

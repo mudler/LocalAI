@@ -19,7 +19,7 @@ const row = (rows, id) => rows.find((r) => r.id === id)
 
 test('access: the preview body holds the form values, no token, and the kind only for a new connection', () => {
   const b = previewBody({ ...emptyConnector(), agent_id: 'a1', allow: [' 42 ', '42', ''], caps: ['memory.write'], grants: [{ role: 'r', caps: ['memory.write'] }], token: 'secret' }, 'telegram')
-  assert.deepEqual(b, { agent_id: 'a1', accept_any: false, allow: ['42'], caps: ['memory.write'], grants: [{ role: 'r', caps: ['memory.write'] }], kind: 'telegram' })
+  assert.deepEqual(b, { agent_id: 'a1', accept_any: false, allow: ['42'], allow_trust: {}, caps: ['memory.write'], grants: [{ role: 'r', caps: ['memory.write'] }], kind: 'telegram' })
   assert.equal(JSON.stringify(b).includes('secret'), false)
   assert.equal(previewId({ id: '' }), 'new')
   const saved = previewBody({ ...emptyConnector(), id: 'b1', accept_any: true, allow: ['x'] }, 'telegram')
@@ -200,7 +200,7 @@ test('access: the unchecked links never list the sender, which the selector alre
 
 test('access: a title is a sentence with the product name right', () => {
   assert.equal(sentenceCase('change things outside localai'), 'Change things outside LocalAI')
-  assert.equal(sentenceCase('Post to approved channels'), 'Post to approved channels')
+  assert.equal(sentenceCase('Post to other channels'), 'Post to other channels')
   assert.equal(sentenceCase(''), '')
 })
 
@@ -261,3 +261,20 @@ test('access: not ticked, a paired person has the write tools of an add-on the a
   assert.equal(none2.key, 'ready.addons.off')
   assert.equal(none2.fix.field, 'tools.write')
 })
+
+test('access: the readiness list says what the people of a channel may do, and where the bot may post, in one sentence each', () => {
+  const isChannel = (x) => x.startsWith('C')
+  const form = { ...base().form, allow: ['U1', 'C1', 'C2'], allow_trust: { C1: 'act' }, caps: ['files.upload', 'talkback.channels'], channels: [{ id: 'C7', label: '', approved: true }] }
+  const rows = readinessRows({ ...base({}, {}), form, lists: TWO, isChannel })
+  const trust = row(rows, 'channelTrust')
+  assert.equal(trust.key, 'ready.channelTrust.answer', 'one channel is still answer only')
+  assert.equal(trust.params.channels, 'C2')
+  assert.equal(row(rows, 'postTo').key, 'ready.postTo')
+  assert.equal(row(rows, 'postTo').params.count, 1)
+  const ok = row(readinessRows({ ...base({}, {}), form: { ...form, allow: ['U1', 'C1'] }, lists: TWO, isChannel }), 'channelTrust')
+  assert.equal(ok.key, 'ready.channelTrust.act')
+  const none = row(readinessRows({ ...base({}, {}), form: { ...form, allow: ['U1', 'C1'], caps: [] }, lists: TWO, isChannel }), 'channelTrust')
+  assert.equal(none.key, 'ready.channelTrust.noCaps', 'nothing is ticked: still refused')
+  assert.deepEqual(previewBodyTrust(), { C1: 'act' })
+})
+function previewBodyTrust() { return previewBody({ allow: ['C1', 'U1'], allow_trust: { C1: 'act', C9: 'act' } }, 'slack').allow_trust }

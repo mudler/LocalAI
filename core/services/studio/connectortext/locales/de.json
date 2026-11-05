@@ -48,7 +48,7 @@
   "block.connection_permission_off": "Diese Verbindung erlaubt dem Bot nicht, {action}. Hake die passende Berechtigung in der Verbindung an.",
   "block.sender_not_listed": "Diese Person steht nicht auf der Liste der Personen, denen der Bot antwortet. Füge sie zu den erlaubten Personen hinzu.",
   "block.sender_needs_pairing": "Diese Person muss mit dem Bot gekoppelt sein, bevor der Bot für sie {action} kann.",
-  "block.channel_not_trusted": "Personen in einem Kanal gelten nicht einzeln als vertrauenswürdig, daher kann der Bot für sie nicht {action}. Füge die Person zu den erlaubten Personen hinzu.",
+  "block.channel_not_trusted": "Personen in einem Kanal, der auf Nur antworten steht, gelten nicht einzeln als vertrauenswürdig, daher kann der Bot für sie nicht {action}. Füge die Person zu den erlaubten Personen hinzu oder stelle den Kanal auf Alle hier dürfen Aktionen anfragen.",
   "block.role_not_granted": "Die Rolle dieser Person erlaubt dem Bot nicht, {action}. Erlaube es für diese Rolle in der Verbindung.",
   "block.kind_not_running": "Die App dieser Verbindung läuft nicht, daher können Rollen nicht geprüft werden. Starte die App.",
   "block.context_rule": "Der Bot kann an diesem Ort nicht {action}.",

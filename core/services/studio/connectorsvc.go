@@ -27,8 +27,13 @@ type ConnectorInput struct {
 	AgentID string
 	// AcceptAny lets anyone who can message the bot use the agent. Without it
 	// only Allow is accepted.
-	AcceptAny  bool
-	Allow      []string
+	AcceptAny bool
+	Allow     []string
+	// AllowTrust is the trust level of the chat entries of Allow (see
+	// connectors.Binding.AllowTrust). Nil keeps the saved levels, as a client
+	// that only knows Allow sends it; an empty map sets every entry back to
+	// answer only. A level of an entry that leaves Allow is dropped.
+	AllowTrust map[string]string
 	NotifyChat string
 	Enabled    bool
 	// Reply, Conversation and WindowMinutes are the modes of the binding
@@ -88,6 +93,17 @@ type ConnectorInput struct {
 // apply sets the fields of the input that an owner writes on a binding.
 func (in ConnectorInput) apply(b *connectors.Binding) {
 	b.Name, b.AgentID, b.AcceptAny, b.Allow, b.NotifyChat, b.Enabled = strings.TrimSpace(in.Name), in.AgentID, in.AcceptAny, in.Allow, in.NotifyChat, in.Enabled
+	if in.AllowTrust != nil {
+		b.AllowTrust = maps.Clone(in.AllowTrust)
+	}
+	for k := range b.AllowTrust {
+		if !slices.Contains(b.Allow, k) {
+			delete(b.AllowTrust, k)
+		}
+	}
+	if len(b.AllowTrust) == 0 {
+		b.AllowTrust = nil
+	}
 	b.Reply, b.Conversation, b.WindowMinutes = in.Reply, in.Conversation, in.WindowMinutes
 	if b.Conversation != connectors.ConversationWindow {
 		b.WindowMinutes = 0

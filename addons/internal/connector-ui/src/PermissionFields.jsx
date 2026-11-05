@@ -2,7 +2,7 @@
 // What the senders of a binding may do. The host owns the list of capabilities
 // and enforces it on every turn; this section edits the owner's side of it:
 // the capabilities the binding allows, what each role of the kind gets, the
-// approved channels for talk-back, and the paired senders. A binding that was
+// channels it may post to (talk-back), and the paired senders. A binding that was
 // saved before the host enforced permissions has none switched on, so it denies
 // everything gated; the notice and the preset below say so and fix it in a click.
 import { useCallback, useState } from 'react'

@@ -98,7 +98,7 @@ export function FixButton({ fix, ctx, s, onTest, onSave, variant = 'secondary' }
 
 function Row({ d, title, s, ctx }) {
   const fix = d.allowed ? null : d.fix
-  const via = d.allowed && d.via ? (d.via.startsWith('role:') ? s('can.via.role', { role: d.via.slice(5) }) : ['paired', 'allowlist'].includes(d.via) ? s(`can.via.${d.via}`) : d.via === 'agent-connection' ? s('can.via.agentConnection') : '') : ''
+  const via = d.allowed && d.via ? (d.via.startsWith('role:') ? s('can.via.role', { role: d.via.slice(5) }) : ['paired', 'allowlist', 'channel'].includes(d.via) ? s(`can.via.${d.via}`) : d.via === 'agent-connection' ? s('can.via.agentConnection') : '') : ''
   return (
     <li className="cn-can__row" data-testid={`connector-can-${d.capability}`} data-allowed={d.allowed ? 'true' : 'false'}>
       <span className={`cn-can__state cn-can__state--${d.allowed ? 'yes' : 'no'}`}>

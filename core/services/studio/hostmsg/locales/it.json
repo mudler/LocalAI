@@ -144,5 +144,9 @@
   "day.short.3": "mer",
   "day.short.4": "gio",
   "day.short.5": "ven",
-  "day.short.6": "sab"
+  "day.short.6": "sab",
+  "refuse.channel": "Questo canale è impostato su sola risposta, quindi qui non posso farlo per te. Chiedi al proprietario di aggiungerti alle persone consentite, o di far chiedere azioni a tutti in questo canale.",
+  "refuse.unlisted": "Solo le persone aggiunte dal proprietario a questo bot possono farlo, e tu non sei tra loro.",
+  "refuse.pairing": "Solo le persone abbinate a questo bot dal proprietario possono farlo.",
+  "refuse.off": "Il proprietario non ha attivato questa funzione per questo bot."
 }

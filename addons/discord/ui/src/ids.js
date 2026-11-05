@@ -15,6 +15,10 @@ export function badEntries(form) {
 // the host matches the sender of a message against the person IDs, and the
 // channel of the message against the channel IDs. Both are numbers, so one
 // list shows them together.
+// An entry that can name a channel: a number. Discord does not tell a channel ID from
+// a user ID by its shape, so every number gets the choice; for a user it changes nothing.
+export const isChannelId = (x) => /^[0-9]+$/.test(x)
+
 export const DISCORD_LISTS = [
   { key: 'ids', label: 'allowIds', hint: 'allowIdsHint', testId: 'connector-allow' },
 ]

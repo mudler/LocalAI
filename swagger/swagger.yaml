@@ -3749,6 +3749,16 @@ definitions:
         items:
           type: string
         type: array
+      allow_trust:
+        additionalProperties:
+          type: string
+        description: |-
+          AllowTrust sets, for a chat entry of allow, what the people who write in
+          that chat may do: "answer" (the bot answers there, but its members are not
+          trusted one by one; the level of an entry that is not listed) or "act"
+          (every member may use the capabilities that are not sensitive, as a listed
+          person does; sensitive ones still need a pairing).
+        type: object
       approval:
         allOf:
         - $ref: '#/definitions/schema.ChatsConnectorApproval'
@@ -4812,6 +4822,16 @@ definitions:
         items:
           type: string
         type: array
+      allow_trust:
+        additionalProperties:
+          type: string
+        description: |-
+          AllowTrust sets, for a chat entry of allow, what the people who write in
+          that chat may do: "answer" (the bot answers there, but its members are not
+          trusted one by one; the level of an entry that is not listed) or "act"
+          (every member may use the capabilities that are not sensitive, as a listed
+          person does; sensitive ones still need a pairing).
+        type: object
       approval:
         allOf:
         - $ref: '#/definitions/schema.ChatsConnectorApproval'
@@ -5086,6 +5106,12 @@ definitions:
         items:
           type: string
         type: array
+      allow_trust:
+        additionalProperties:
+          type: string
+        description: AllowTrust is the form's trust levels for the chat entries of
+          allow.
+        type: object
       caps:
         description: Caps and Grants are the form's permissions; an empty list clears.
         items:
@@ -5102,7 +5128,7 @@ definitions:
       sender:
         description: |-
           Sender limits the answer to one kind of sender: listed, paired,
-          channel_member, anyone or role:<id>. Absent means every kind.
+          channel_member, channel_acts, anyone or role:<id>. Absent means every kind.
         type: string
     type: object
   schema.ChatsConnectorAccessSubject:
@@ -5525,6 +5551,14 @@ definitions:
         items:
           type: string
         type: array
+      allow_trust:
+        additionalProperties:
+          type: string
+        description: |-
+          AllowTrust sets the level of the chat entries of allow, "answer" or
+          "act" (see ChatsConnector.AllowTrust). Absent keeps the saved levels; an
+          entry with no level is "answer".
+        type: object
       approval:
         allOf:
         - $ref: '#/definitions/schema.ChatsConnectorApproval'

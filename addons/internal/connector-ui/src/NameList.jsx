@@ -5,7 +5,7 @@ import { Field } from './controls'
 
 // A list of senders as chips, with a field to add one: Enter or a comma adds
 // the entry. Entries are trimmed and kept once; the server checks their shape.
-export default function NameList({ label, hint, value, onChange, testId, addLabel = 'Add' }) {
+export default function NameList({ label, hint, help, value, onChange, testId, addLabel = 'Add' }) {
   const [text, setText] = useState('')
   const add = () => {
     const v = text.trim()
@@ -29,6 +29,7 @@ export default function NameList({ label, hint, value, onChange, testId, addLabe
                 ))}
               </ul>
             )}
+            {help && <p className="dk-hint" data-testid={testId ? `${testId}-help` : undefined}>{help}</p>}
             <div className="cn-add">
               <input {...p} className="dk-input" value={text} aria-label={`${label} +`} placeholder={hint}
                 onChange={(e) => setText(e.target.value)}

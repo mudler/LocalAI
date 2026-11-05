@@ -11,6 +11,9 @@ import id from './i18n/telegram.id.json'
 import ko from './i18n/telegram.ko.json'
 import pt from './i18n/telegram.pt-BR.json'
 
+// A group or channel of Telegram has a negative ID; a person or a private chat a positive one.
+const isGroupId = (x) => /^-[0-9]+$/.test(x)
+
 // The words of the page, in every language of the web UI; a key a language lacks reads in English.
 registerLocales({ telegram: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
 
@@ -21,7 +24,7 @@ export function createTelegram() {
     if (page !== 'bots') return null
     return (
       <RouteProvider value={{ page, path: path || '', search: search || '' }}>
-        <ConnectorPage kind="telegram" ns="telegram" testId="telegram-page" notifyMode="numeric" />
+        <ConnectorPage kind="telegram" ns="telegram" testId="telegram-page" notifyMode="numeric" isChannelEntry={isGroupId} />
       </RouteProvider>
     )
   }

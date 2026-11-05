@@ -147,3 +147,25 @@ test('channel-only allowlist: shown when the page has a people list and every en
   assert.equal(channelOnly({ allow: ['C1'], accept_any: true }, lists), false)
   assert.equal(channelOnly({ allow: ['C1'] }, [{}]), false, 'one list: nothing to tell apart')
 })
+
+test('channel trust: an entry that is added starts as act, one stored before the setting stays answer only', async () => {
+  const { trustOf, trustAfter, channelEntries } = await import('../../../internal/connector-ui/src/connector.js')
+  const isChannel = (x) => x.startsWith('C')
+  const stored = { allow: ['U1', 'C1'], allow_trust: {} }
+  assert.equal(trustOf(stored, 'C1'), 'answer', 'no level is answer only')
+  assert.deepEqual(channelEntries(stored, isChannel), ['C1'])
+  const added = trustAfter(stored, ['U1', 'C1', 'C2'], isChannel)
+  assert.deepEqual(added, { C2: 'act' }, 'only the new channel is act, the stored one is not widened')
+  assert.deepEqual(trustAfter({ allow: ['C2'], allow_trust: { C2: 'answer' } }, ['C2', 'U9'], isChannel), { C2: 'answer' }, 'a choice is kept, a person gets none')
+  assert.deepEqual(trustAfter({ allow: ['C2'], allow_trust: { C2: 'act' } }, [], isChannel), {}, 'the level of a removed entry goes')
+})
+
+test('channel trust: the request carries the levels of the entries on the list only, and a channel set to act is not channel-only', async () => {
+  const f = { ...emptyConnector(), allow: ['U1', 'C1'], allow_trust: { C1: 'act', C9: 'act' } }
+  assert.deepEqual(connectorPayload(f, 'slack', '').allow_trust, { C1: 'act' })
+  assert.deepEqual(connectorPayload({ ...f, accept_any: true }, 'slack', '').allow_trust, {})
+  assert.deepEqual(connectorForm({ allow: ['C1'], allow_trust: { C1: 'act' } }).allow_trust, { C1: 'act' })
+  const lists = [{ match: (x) => !x.startsWith('C') }, { match: (x) => x.startsWith('C') }]
+  assert.equal(channelOnly({ allow: ['C1'], allow_trust: { C1: 'answer' } }, lists), true)
+  assert.equal(channelOnly({ allow: ['C1'], allow_trust: { C1: 'act' } }, lists), false)
+})

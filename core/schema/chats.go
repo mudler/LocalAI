@@ -1394,13 +1394,19 @@ type ChatsConnector struct {
 	AgentID string `json:"agent_id"`
 	// CredentialsOnly is true for a binding without an agent: it holds the
 	// token, the resource list and the write mode, and never answers messages.
-	CredentialsOnly bool      `json:"credentials_only,omitempty"`
-	Enabled         bool      `json:"enabled"`
-	AcceptAny       bool      `json:"accept_any"`
-	Allow           []string  `json:"allow"`
-	NotifyChat      string    `json:"notify_chat,omitempty"`
-	HasToken        bool      `json:"has_token"`
-	Created         time.Time `json:"created"`
+	CredentialsOnly bool     `json:"credentials_only,omitempty"`
+	Enabled         bool     `json:"enabled"`
+	AcceptAny       bool     `json:"accept_any"`
+	Allow           []string `json:"allow"`
+	// AllowTrust sets, for a chat entry of allow, what the people who write in
+	// that chat may do: "answer" (the bot answers there, but its members are not
+	// trusted one by one; the level of an entry that is not listed) or "act"
+	// (every member may use the capabilities that are not sensitive, as a listed
+	// person does; sensitive ones still need a pairing).
+	AllowTrust map[string]string `json:"allow_trust,omitempty"`
+	NotifyChat string            `json:"notify_chat,omitempty"`
+	HasToken   bool              `json:"has_token"`
+	Created    time.Time         `json:"created"`
 	// ReplyMode is what a sender sees while a turn runs: off (typing, then
 	// the answer), progress (a working message that names the tools as they
 	// start) or stream (a working message that shows the answer as it is
@@ -1654,11 +1660,13 @@ type ChatsConnectorAccessPreviewRequest struct {
 	AgentID   *string  `json:"agent_id,omitempty"`
 	AcceptAny *bool    `json:"accept_any,omitempty"`
 	Allow     []string `json:"allow,omitempty"`
+	// AllowTrust is the form's trust levels for the chat entries of allow.
+	AllowTrust map[string]string `json:"allow_trust,omitempty"`
 	// Caps and Grants are the form's permissions; an empty list clears.
 	Caps   []string                  `json:"caps,omitempty"`
 	Grants []ChatsConnectorRoleGrant `json:"grants,omitempty"`
 	// Sender limits the answer to one kind of sender: listed, paired,
-	// channel_member, anyone or role:<id>. Absent means every kind.
+	// channel_member, channel_acts, anyone or role:<id>. Absent means every kind.
 	Sender string `json:"sender,omitempty"`
 }
 
@@ -1823,7 +1831,11 @@ type ChatsConnectorWrite struct {
 	// the agent's tools as you, so the server asks you to say you mean it.
 	ConfirmAcceptAny string   `json:"confirm_accept_any,omitempty"`
 	Allow            []string `json:"allow,omitempty"`
-	NotifyChat       string   `json:"notify_chat,omitempty"`
+	// AllowTrust sets the level of the chat entries of allow, "answer" or
+	// "act" (see ChatsConnector.AllowTrust). Absent keeps the saved levels; an
+	// entry with no level is "answer".
+	AllowTrust map[string]string `json:"allow_trust,omitempty"`
+	NotifyChat string            `json:"notify_chat,omitempty"`
 	// ReplyMode is off, progress or stream; empty means progress.
 	ReplyMode string `json:"reply_mode,omitempty"`
 	// Conversation is sender, chat, window or thread; empty means sender.

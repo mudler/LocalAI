@@ -30,7 +30,7 @@ export const CAPABILITIES = [
   { name: 'files.upload', title: 'Receive files', description: 'The agent may read files that senders attach to a message.', sensitive: false, usual: true },
   { name: 'memory.write', title: 'Save to memory', description: 'The agent may remember what a sender asks it to remember.', sensitive: false, usual: true },
   { name: 'proposals.confirm', title: 'Confirm changes from the chat', description: 'A sender can confirm a trigger or a change that the agent proposed (a memory note, the agent rules, a skill, a page or the dashboard) by answering yes or no in the same chat. Changes to the rules, skills, pages and dashboard need a paired sender.', sensitive: false, usual: true },
-  { name: 'talkback.channels', title: 'Post to approved channels', description: 'The agent may write to the approved channels when a sender asks.', sensitive: false, usual: true },
+  { name: 'talkback.channels', title: 'Post to other channels', description: 'The agent may write to the channels listed under Where it may post when a sender asks.', sensitive: false, usual: true },
   { name: 'talkback.new_channel', title: 'Post to a new channel', description: 'The agent may write to a channel that is not approved yet.', sensitive: true, usual: false },
   { name: 'tools.write', title: 'Let people who are not paired change things with add-on tools', description: 'Paired people already use the write tools of the add-ons the agent is connected to. Turn this on for people on the allowlist who are not paired.', sensitive: false, usual: false },
   { name: 'triggers.propose', title: 'Propose triggers', description: 'The agent may propose a timer or an event trigger when a sender asks for one.', sensitive: false, usual: true },
