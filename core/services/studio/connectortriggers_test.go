@@ -248,7 +248,7 @@ var _ = Describe("triggers proposed from a connector chat", func() {
 			texts := fake.texts(chatID, thread)
 			Expect(texts[0]).To(ContainSubstring("Proposal " + p.Route.Code))
 			Expect(texts[0]).To(ContainSubstring(`confirm ` + p.Route.Code))
-			Expect(texts[0]).To(ContainSubstring("this chat"))
+			Expect(texts[0]).To(ContainSubstring("this thread"))
 			Expect(texts[0]).To(ContainSubstring("RUN do the thing"), "the person reads what the run will do")
 			res := r.h.ResultsFor("propose_trigger")
 			Expect(res).To(HaveLen(1))

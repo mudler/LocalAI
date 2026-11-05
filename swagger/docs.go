@@ -21049,6 +21049,14 @@ const docTemplate = `{
                 "daily_cap": {
                     "type": "integer"
                 },
+                "delivery": {
+                    "description": "Delivery says where the answer of each run goes.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsTriggerDelivery"
+                        }
+                    ]
+                },
                 "enabled": {
                     "type": "boolean"
                 },
@@ -26059,6 +26067,14 @@ const docTemplate = `{
                 "daily_cap": {
                     "type": "integer"
                 },
+                "delivery": {
+                    "description": "Delivery says where the answer of each run goes.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsTriggerDelivery"
+                        }
+                    ]
+                },
                 "enabled": {
                     "type": "boolean"
                 },
@@ -26203,6 +26219,20 @@ const docTemplate = `{
                 },
                 "runs": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsTriggerDelivery": {
+            "type": "object",
+            "properties": {
+                "channel_label": {
+                    "type": "string"
+                },
+                "in_thread": {
+                    "type": "boolean"
+                },
+                "target": {
+                    "type": "string"
                 }
             }
         },

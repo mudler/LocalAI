@@ -291,7 +291,7 @@ func (h *Triggers) autoCreate(ctx context.Context, ap connectors.Approval, p tri
 		return triggers.Trigger{}, false, err
 	}
 	h.audit(ctx, proposals.ActionConfirm, t, "automatic, mode "+ap.ModeOrDefault())
-	return t, h.say(ctx, t, h.autoText(h.voiceOf(ctx, t), t, dr)), nil
+	return t, h.say(ctx, t, h.autoText(h.voiceOf(ctx, t), t, h.channelLabel(ctx, t), dr)), nil
 }
 
 // say writes text in the chat and thread where a trigger was proposed.
@@ -318,7 +318,7 @@ func (h *Triggers) costText(v hostmsg.Voice, t triggers.Trigger) string {
 
 // autoText is what the host writes in the chat when it made a trigger without
 // asking.
-func (h *Triggers) autoText(v hostmsg.Voice, t triggers.Trigger, dr DroppedActs) string {
+func (h *Triggers) autoText(v hostmsg.Voice, t triggers.Trigger, where string, dr DroppedActs) string {
 	end := ""
 	if !t.Route.Until.IsZero() {
 		end = v.T("trigger.auto_stops", "date", t.Route.Until.UTC().Format("2006-01-02"))
@@ -329,7 +329,7 @@ func (h *Triggers) autoText(v hostmsg.Voice, t triggers.Trigger, dr DroppedActs)
 	if acts := effectiveActs(t); len(acts) > 0 {
 		end += " " + actsText(v, t, false)
 	}
-	return v.T("trigger.auto", "name", strconv.Quote(t.Name), "when", lowerFirst(h.whenTextIn(v, t)), "cost", h.costText(v, t), "where", resultsGo(v, t), "end", end, "code", t.Route.Code)
+	return v.T("trigger.auto", "name", strconv.Quote(t.Name), "when", lowerFirst(h.whenTextIn(v, t)), "cost", h.costText(v, t), "where", resultsGo(v, t, where), "end", end, "code", t.Route.Code)
 }
 
 // whenText is summary with the day of a one-off trigger spelled out.

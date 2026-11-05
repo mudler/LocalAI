@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // ProposalCardKind is the Kind of the tool card that points at a trigger
@@ -78,8 +79,8 @@ const proposeTriggerConnectorSchema = `{"type":"object","properties":{` +
 	`"acts":{"type":"array","maxItems":8,"items":{"type":"string","enum":["act.files","act.addons","act.send","act.spend"]},"description":"What a run may do when nobody is present: act.files writes files in the agent's folders, act.addons uses the actions of its add-ons, act.send sends messages beyond the delivery target, act.spend uses paid or external tools and the network. Leave it out for a run that only reads and reports. Only what your agent holds; the person sees the list on the proposal before they confirm, and nothing can widen it afterwards."},` +
 	`"estimated_tokens":{"type":"integer","minimum":0,"maximum":10000000,"description":"About how many tokens one run uses."},` +
 	`"delivery":{"type":"object","description":"Where the answer of each run goes. Default: the owner's Inbox.","properties":{` +
-	`"target":{"type":"string","enum":["inbox","origin","channel"],"description":"origin writes the answer in this chat and thread, inbox in the owner's Inbox, channel in a channel the owner listed and approved (name it in channel)."},` +
-	`"channel":{"type":"string","description":"With target channel: the ID of the channel."},` +
+	`"target":{"type":"string","enum":["inbox","origin","channel"],"description":"origin writes the answer in this chat and thread, inbox in the owner's Inbox, channel in the channel itself, at the top and not in a thread, for a channel the owner approved (name it in channel)."},` +
+	`"channel":{"type":"string","description":"With target channel: the name or the ID of one of the approved channels."},` +
 	`"mode":{"type":"string","enum":["always","on_change","on_problem"],"description":"always: every run. on_change: only when the answer differs from the run before. on_problem: only when a run fails."}}}},` +
 	`"required":["name","prompt","when"]}`
 
@@ -206,7 +207,7 @@ func (s *Service) registerTriggerTools() error {
 						return session.Tool{}, false, builtins.ReasonNotPermitted + ": " + why
 					}
 					if d.id == proposeTriggerName {
-						desc, schema = desc+connectorProposeNote+h.actsNote(ctx, c), proposeTriggerConnectorSchema
+						desc, schema = desc+connectorProposeNote+h.actsNote(ctx, c)+h.channelsNote(ctx, c), proposeTriggerConnectorSchema
 					}
 				}
 				return session.Tool{Description: desc, Schema: json.RawMessage(schema), Run: d.run(h, c.Actor, c)}, true, ""
@@ -359,10 +360,11 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 		if d := args.Delivery; d != nil {
 			in.Route.Target, in.Route.Mode = d.Target, d.Mode
 			if d.Target == triggers.TargetChannel {
-				if err := h.checkChannelTarget(ctx, c, d.Channel); err != nil {
+				id, err := h.checkChannelTarget(ctx, c, d.Channel)
+				if err != nil {
 					return "", err
 				}
-				in.Route.Channel = d.Channel
+				in.Route.Channel = id
 			}
 		}
 		switch args.Access {
@@ -665,6 +667,22 @@ func (h *Triggers) connectorRoute(ctx context.Context, c builtins.Chat) (trigger
 		return triggers.Route{}, errors.New("I cannot tell where this conversation is written, so I cannot show a proposal here; ask the owner to propose it in Studio")
 	}
 	return triggers.Route{Binding: c.OriginID, Chat: chat, Thread: thread}, nil
+}
+
+// channelsNote names the channels that delivery.channel accepts here, and says
+// where each target writes.
+func (h *Triggers) channelsNote(ctx context.Context, c builtins.Chat) string {
+	conns := h.svc.connectors
+	if conns == nil {
+		return ""
+	}
+	b, err := conns.o.Store.GetBinding(ctx, c.OriginID)
+	if err != nil {
+		return ""
+	}
+	holds, _ := c.Holds(contract.CapTalkbackChannels)
+	return channelsNote(b, holds, "delivery.target channel posts in the channel itself, at the top and not in a thread; origin posts in this thread. "+
+		"Name the channel in delivery.channel by its name or its ID, and use channel only when the person asks for the results there.")
 }
 
 // actsNote tells the model which acts it may ask for from this connection, and

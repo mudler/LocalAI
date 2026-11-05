@@ -26,7 +26,7 @@ const sendMessageDescription = "Write a message to a chat of the messaging app, 
 
 const sendMessageSchema = `{"type":"object","properties":{` +
 	`"text":{"type":"string","minLength":1,"maxLength":4000,"description":"The message."},` +
-	`"channel":{"type":"string","description":"The ID of a listed channel. Leave it out to write in this conversation."},` +
+	`"channel":{"type":"string","description":"The name or the ID of a listed channel. Leave it out to write in this conversation."},` +
 	`"thread":{"type":"string","description":"With channel: the ID of a thread in that channel, to answer in it."}},` +
 	`"required":["text"]}`
 
@@ -46,7 +46,14 @@ func (s *Service) registerTalkbackTool() error {
 			case c.Origin != session.OriginConnector || c.SubAgent:
 				return session.Tool{}, false, "only the agent of a messaging app connection writes there"
 			}
-			return session.Tool{Description: sendMessageDescription, Schema: json.RawMessage(sendMessageSchema),
+			desc := sendMessageDescription
+			if conns.o.Store != nil {
+				if b, err := conns.o.Store.GetBinding(ctx, c.OriginID); err == nil {
+					holds, _ := c.Holds(contract.CapTalkbackChannels)
+					desc += channelsNote(b, holds, "With channel it writes in the channel itself, as a new message at the top, not in this thread; without channel it writes in this conversation and thread. Name the channel by its name or its ID.")
+				}
+			}
+			return session.Tool{Description: desc, Schema: json.RawMessage(sendMessageSchema),
 				Run: func(ctx context.Context, raw json.RawMessage) (string, error) {
 					return conns.sendMessageTool(ctx, c, raw)
 				}}, true, ""
@@ -83,6 +90,9 @@ func (c *Connectors) sendMessageTool(ctx context.Context, ch builtins.Chat, raw 
 		}
 		o.Kind, o.Capability, o.Chat, o.Thread = SendReply, contract.CapTalkbackChannels, chat, thread
 	default:
+		if ch, ok := MatchChannel(b, in.Channel); ok {
+			in.Channel = ch.ID
+		}
 		kind, capability, terr := ChannelTarget(b, in.Channel)
 		if terr != nil {
 			return "", terr

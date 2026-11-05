@@ -101,6 +101,79 @@ func ChannelTarget(b connectors.Binding, channel string) (kind, capability strin
 	return SendNew, contract.CapTalkbackNewChan, nil
 }
 
+// MatchChannel finds a listed channel by its ID, or else by its label: the
+// label match ignores case and a leading "#", so a model that read the name in
+// a message finds the channel the owner listed. ok is false when no channel
+// matches or the label names more than one.
+func MatchChannel(b connectors.Binding, name string) (connectors.Channel, bool) {
+	if ch, ok := b.FindChannel(name); ok {
+		return ch, true
+	}
+	want := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(name), "#"))
+	if want == "" {
+		return connectors.Channel{}, false
+	}
+	var found []connectors.Channel
+	for _, c := range b.Channels {
+		if strings.EqualFold(strings.TrimPrefix(strings.TrimSpace(c.Label), "#"), want) {
+			found = append(found, c)
+		}
+	}
+	if len(found) != 1 {
+		return connectors.Channel{}, false
+	}
+	return found[0], true
+}
+
+// channelName words a channel for the model and the person: the label with the
+// ID in brackets, or the ID alone.
+func channelName(c connectors.Channel) string {
+	if c.Label != "" {
+		return c.Label + " (" + c.ID + ")"
+	}
+	return c.ID
+}
+
+// approvedChannelNames lists the approved channels of a binding, at most
+// connectors.MaxChannels (the limit of a binding).
+func approvedChannelNames(b connectors.Binding) []string {
+	var out []string
+	for _, c := range b.Channels {
+		if c.Approved && len(out) < connectors.MaxChannels {
+			out = append(out, channelName(c))
+		}
+	}
+	return out
+}
+
+// approvedChannel finds the approved channel that a model names by ID or
+// label. Any other channel is refused with the list of the approved ones.
+func approvedChannel(b connectors.Binding, name string) (connectors.Channel, error) {
+	if ch, ok := MatchChannel(b, name); ok && ch.Approved {
+		return ch, nil
+	}
+	list := approvedChannelNames(b)
+	if len(list) == 0 {
+		return connectors.Channel{}, fmt.Errorf("%q is not a channel the owner approved for this bot; the owner approved none", name)
+	}
+	return connectors.Channel{}, fmt.Errorf("%q is not a channel the owner approved for this bot; the approved channels are %s", name, strings.Join(list, ", "))
+}
+
+// channelsNote is added to the description of a tool that can write in a
+// channel. It names the approved channels of the binding, so a model never
+// guesses an ID, and says where each target writes. holds says whether the
+// sender may write in channels; without it the note says so in one sentence.
+func channelsNote(b connectors.Binding, holds bool, rule string) string {
+	list := approvedChannelNames(b)
+	switch {
+	case !holds:
+		return " This bot may not write in channels here, so do not offer it."
+	case len(list) == 0:
+		return " The owner approved no channel for this bot, so do not offer one."
+	}
+	return " Channels the owner approved for this bot: " + strings.Join(list, ", ") + ". " + rule
+}
+
 // listedChannels words the channels of a binding for the model.
 func listedChannels(b connectors.Binding) string {
 	if len(b.Channels) == 0 {

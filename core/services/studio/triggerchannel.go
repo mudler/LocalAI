@@ -3,7 +3,6 @@ package studio
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
@@ -13,26 +12,60 @@ import (
 
 // checkChannelTarget is what a proposal that reports to a channel must pass at
 // once, so the model hears the reason while the person is there: the sender
-// holds talkback.channels, and the channel is one the owner listed and
-// approved. A run has no sender at delivery time, so a channel that waits for
-// a paired sender is not a target for reports.
-func (h *Triggers) checkChannelTarget(ctx context.Context, c builtins.Chat, channel string) error {
+// holds talkback.channels, and the channel is one the owner approved. The model
+// may name it by label or by ID; the ID comes back. A run has no sender at
+// delivery time, so a channel that waits for a paired sender is not a target
+// for reports.
+func (h *Triggers) checkChannelTarget(ctx context.Context, c builtins.Chat, channel string) (string, error) {
 	conns := h.svc.connectors
 	if conns == nil {
-		return errors.New("connections to messaging apps are off on this server")
+		return "", errors.New("connections to messaging apps are off on this server")
 	}
 	b, err := conns.o.Store.GetBinding(ctx, c.OriginID)
 	if err != nil {
-		return errors.New("this connection is gone")
+		return "", errors.New("this connection is gone")
 	}
-	kind, _, terr := ChannelTarget(b, channel)
-	if terr != nil {
-		return terr
+	ch, err := approvedChannel(b, channel)
+	if err != nil {
+		return "", err
 	}
-	if kind != SendChannel {
-		return fmt.Errorf("the channel %q is not approved for reports; the owner approves it in Studio", channel)
+	return ch.ID, c.Require(contract.CapTalkbackChannels)
+}
+
+// channelLabel is the name the owner gave the channel of a trigger, for the
+// text that a person reads; the ID when it has no label.
+func (h *Triggers) channelLabel(ctx context.Context, t triggers.Trigger) string {
+	if t.Route.Target != triggers.TargetChannel || h.svc.connectors == nil {
+		return t.Route.Channel
 	}
-	return c.Require(contract.CapTalkbackChannels)
+	if b, err := h.svc.connectors.o.Store.GetBinding(ctx, t.Route.Binding); err == nil {
+		if ch, ok := b.FindChannel(t.Route.Channel); ok && ch.Label != "" {
+			return ch.Label
+		}
+	}
+	return t.Route.Channel
+}
+
+// DeliveryView is where the answer of a trigger goes, for a screen.
+type DeliveryView struct {
+	// Target is the inbox, origin or channel target of the trigger.
+	Target string
+	// ChannelLabel is the name of the channel of TargetChannel.
+	ChannelLabel string
+	// InThread is set when the origin is a thread.
+	InThread bool
+}
+
+// DeliveryOf says where the runs of a trigger report.
+func (h *Triggers) DeliveryOf(ctx context.Context, t triggers.Trigger) DeliveryView {
+	d := DeliveryView{Target: string(t.Route.TargetOrDefault())}
+	switch t.Route.TargetOrDefault() {
+	case triggers.TargetChannel:
+		d.ChannelLabel = h.channelLabel(ctx, t)
+	case triggers.TargetOrigin:
+		d.InThread = t.Route.Thread != ""
+	}
+	return d
 }
 
 // deliverChannel writes body in the channel of the trigger. It checks, now and

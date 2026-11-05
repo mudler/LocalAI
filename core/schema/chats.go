@@ -1285,6 +1285,19 @@ type ChatsTrigger struct {
 	ActsHeld    []string `json:"acts_held,omitempty"`
 	ReadOnly    bool     `json:"read_only"`
 	ReadOnlyWhy string   `json:"read_only_why,omitempty"`
+	// Delivery says where the answer of each run goes.
+	Delivery ChatsTriggerDelivery `json:"delivery"`
+}
+
+// ChatsTriggerDelivery is where the answer of each run of a trigger goes.
+// Target is inbox (the Inbox, the default), origin (the chat that proposed the
+// trigger; InThread is set when that is a thread) or channel (a channel of a
+// messaging app, at its top level, not in a thread; ChannelLabel is the name
+// the owner gave it).
+type ChatsTriggerDelivery struct {
+	Target       string `json:"target"`
+	ChannelLabel string `json:"channel_label,omitempty"`
+	InThread     bool   `json:"in_thread,omitempty"`
 }
 
 // ChatsTriggerProposal is a trigger a chat proposed and what became of it.

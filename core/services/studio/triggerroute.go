@@ -331,7 +331,7 @@ func (h *Triggers) cancelAuto(ctx context.Context, from PhraseFrom, t triggers.T
 // proposalText is what the host writes in the chat where a proposal was made.
 // It shows what the run will do and costs, so a person can answer it from
 // there, and how to answer.
-func (h *Triggers) proposalText(v hostmsg.Voice, t triggers.Trigger, note string, dr DroppedActs, canAsk bool) string {
+func (h *Triggers) proposalText(v hostmsg.Voice, t triggers.Trigger, where, note string, dr DroppedActs, canAsk bool) string {
 	prompt := strings.Join(strings.Fields(t.Prompt), " ")
 	if utf8.RuneCountInString(prompt) > 280 {
 		prompt = string([]rune(prompt)[:280]) + "…"
@@ -352,16 +352,21 @@ func (h *Triggers) proposalText(v hostmsg.Voice, t triggers.Trigger, note string
 		perms += " " + d
 	}
 	return v.T("trigger.proposal", "code", t.Route.Code, "name", strconv.Quote(t.Name), "when", lowerFirst(h.whenTextIn(v, t)), "prompt", prompt,
-		"cost", h.costText(v, t), "where", resultsGo(v, t), "mode", mode, "perms", perms, "extra", extra)
+		"cost", h.costText(v, t), "where", resultsGo(v, t, where), "mode", mode, "perms", perms, "extra", extra)
 }
 
 // resultsGo says where the results of a trigger go, for the text of a proposal.
-func resultsGo(v hostmsg.Voice, t triggers.Trigger) string {
+// channel is the label of the channel of the trigger. Results to the origin
+// go in the thread of the message when it has one.
+func resultsGo(v hostmsg.Voice, t triggers.Trigger, channel string) string {
 	switch t.Route.TargetOrDefault() {
 	case triggers.TargetOrigin:
+		if t.Route.Thread != "" {
+			return v.T("trigger.where.thread")
+		}
 		return v.T("trigger.where.chat")
 	case triggers.TargetChannel:
-		return v.T("trigger.where.channel", "channel", t.Route.Channel)
+		return v.T("trigger.where.channel", "channel", channel)
 	}
 	return v.T("trigger.where.inbox")
 }
@@ -379,7 +384,7 @@ func (h *Triggers) announce(ctx context.Context, t triggers.Trigger, note string
 	if c == nil || !t.Route.FromConnector() || t.Route.Chat == "" {
 		return false
 	}
-	_, err := c.Post(ctx, Post{Binding: t.Route.Binding, Chat: t.Route.Chat, Thread: t.Route.Thread, Text: h.proposalText(c.voiceOf(ctx, t.Route.Binding, "", t.Route.Chat), t, note, dr, h.canAskActs(ctx, t))})
+	_, err := c.Post(ctx, Post{Binding: t.Route.Binding, Chat: t.Route.Chat, Thread: t.Route.Thread, Text: h.proposalText(c.voiceOf(ctx, t.Route.Binding, "", t.Route.Chat), t, h.channelLabel(ctx, t), note, dr, h.canAskActs(ctx, t))})
 	if err != nil {
 		h.log.Warn("studio: could not write a proposal to its chat", "trigger", t.ID, "error", err)
 		return false

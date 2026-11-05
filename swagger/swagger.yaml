@@ -3929,6 +3929,10 @@ definitions:
         $ref: '#/definitions/schema.ChatsTriggerCost'
       daily_cap:
         type: integer
+      delivery:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsTriggerDelivery'
+        description: Delivery says where the answer of each run goes.
       enabled:
         type: boolean
       folder:
@@ -7922,6 +7926,10 @@ definitions:
         $ref: '#/definitions/schema.ChatsTriggerCost'
       daily_cap:
         type: integer
+      delivery:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsTriggerDelivery'
+        description: Delivery says where the answer of each run goes.
       enabled:
         type: boolean
       folder:
@@ -8030,6 +8038,15 @@ definitions:
         type: boolean
       runs:
         type: integer
+    type: object
+  schema.ChatsTriggerDelivery:
+    properties:
+      channel_label:
+        type: string
+      in_thread:
+        type: boolean
+      target:
+        type: string
     type: object
   schema.ChatsTriggerList:
     properties:

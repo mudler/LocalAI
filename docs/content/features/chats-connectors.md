@@ -1289,7 +1289,8 @@ tool `send_message`. The tool names no platform. The agent can use it to:
   channel that the owner listed for the binding (`channels` in the binding: `id`,
   `label` and `approved`, at most 10; an add-on settings page or the API sets them). A
   channel that is not listed is refused, and the error lists the ones that are. `thread`
-  answers in a thread of that channel.
+  answers in a thread of that channel. The agent can name the channel by its label (case
+  does not matter and a leading `#` is fine) or by its ID.
 - **Write in a channel the owner has not enabled.** A listed channel with `approved`
   false needs the sensitive capability `talkback.new_channel` for each message, so only a
   paired sender can use it. A role never grants it. The owner approves a channel by
@@ -1307,7 +1308,13 @@ turns the tool and the reports to a channel off for every binding; owner notices
 continue.
 
 A trigger can report to a channel under **Where it may post** with `delivery.target` `channel`. The
-proposal is refused if the channel is not listed and approved. When a run ends, LocalAI
+agent can name the channel by its label or its ID. The description of `send_message` and
+of `propose_trigger` lists the approved channels (the first 10) as `label (id)`, so the
+agent does not guess an ID. The report is a new message at the top of the channel, never
+in the thread of the chat where the trigger was proposed; `delivery.target` `origin` writes
+in that thread. The proposal text in the chat and the card in Studio say where the results
+go, with the label of the channel. The proposal is refused if the channel is not listed
+and approved, and the error lists the approved ones. When a run ends, LocalAI
 checks again that the binding is on, the capability is on and the channel is still listed
 and approved; if not, the Inbox gets the notice.
 
