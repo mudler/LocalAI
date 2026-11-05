@@ -78,7 +78,7 @@ export function useAgentTools(form, update) {
     // The grants are rows with their own switch each: no bulk setter, so a
     // click on Select all never grants a sensitive right.
     grants: grantList.length > 0 ? { list: grantList, editable: true, onToggle: (name, on) => setGrantsOn([name], on) } : null,
-    builtins, addons, servers: [], connectors, connections, skills, replacedSkills: replaced, error, skillsError: '',
+    builtins, addons, servers: [], connectors, connections, pickElsewhere: true, skills, replacedSkills: replaced, error, skillsError: '',
     toggleBuiltin: (g, on) => setBuiltinsOn([g], on),
     toggleAddon: (id, on) => setAddonsOn([id], on),
     toggleMCP: (key, on) => setMCPOn([key], on),

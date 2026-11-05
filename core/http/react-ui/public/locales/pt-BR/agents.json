@@ -82,7 +82,8 @@
       "export": "Export",
       "Files": "Arquivos",
       "Tools": "Ferramentas",
-      "Notes": "Memória"
+      "Notes": "Memória",
+      "Connections": "Conexões"
     },
     "name": "Name",
     "description": "Description",
@@ -157,13 +158,15 @@
       "identity": "Identidade",
       "capabilities": "Capacidades",
       "memory": "Memória e conhecimento",
-      "advanced": "Avançado"
+      "advanced": "Avançado",
+      "connections": "Conexões"
     },
     "lead": {
       "identity": "Quem é o agente e como ele se comporta.",
       "capabilities": "O que o agente pode usar e alcançar.",
       "memory": "O que o agente lembra e o que ele pode consultar.",
-      "advanced": "Servidores extras e exportação."
+      "advanced": "Servidores extras e exportação.",
+      "connections": "Quais conexões este agente pode usar."
     },
     "header": {
       "unnamed": "Agente sem nome",
@@ -175,6 +178,54 @@
       "clean": "Nenhuma alteração não salva",
       "new": "Ainda não criado",
       "unsaved": "Alterações não salvas ({{count}})"
+    },
+    "preset": {
+      "label": "Nível de ferramentas",
+      "loading": "Carregando a lista de ferramentas",
+      "current": "Nível: {{name}}. Se você mudar uma chave abaixo, vira uma combinação própria.",
+      "custom": "Combinação própria de chaves. Escolha um nível para substituí-la.",
+      "applied": "Nível {{name}} aplicado",
+      "appliedBody": "As chaves abaixo mudaram. Nada é salvo até você salvar.",
+      "readonly": {
+        "title": "Só consulta",
+        "body": "Pesquisa na web e nas suas coleções. Sem arquivos, sem comandos, sem gatilhos."
+      },
+      "assistant": {
+        "title": "Assistente",
+        "body": "Adiciona agentes salvos, gatilhos e mudanças sugeridas. Sem arquivos, sem comandos."
+      },
+      "full": {
+        "title": "Completo",
+        "body": "Todas as ferramentas que o servidor lista. Os direitos sensíveis continuam desligados."
+      }
+    },
+    "tpl": {
+      "applied": "Iniciado a partir de {{name}}",
+      "appliedBody": "Nome, descrição, instruções e ferramentas mudaram. Nada é salvo até você salvar.",
+      "tools": "Ferramentas: {{level}}",
+      "noTools": "Ferramentas: como estão"
+    },
+    "undo": "Desfazer",
+    "keep": "Manter",
+    "modelCaps": "O que este modelo sabe fazer",
+    "modelChat": "Chat",
+    "connections": {
+      "addonsTitle": "Complementos que usam uma conexão",
+      "addonsNone": "Nenhum complemento precisa de uma conexão.",
+      "messagingTitle": "Onde este agente está conectado",
+      "messagingNone": "Nenhuma conexão de mensagens usa este agente ainda. Salve o agente e adicione uma.",
+      "messagingHelp": "As conexões de mensagens são definidas na página própria.",
+      "allows_one": "permite {{count}} direito",
+      "allows_other": "permite {{count}} direitos",
+      "open": "Abrir",
+      "addonOff": "desligado",
+      "noneYet": "Ainda não há conexão.",
+      "add": "Adicionar uma conexão",
+      "groupLabel": "Conexões para {{name}}",
+      "chosenHelp": "Os chats deste agente só podem usar as conexões marcadas.",
+      "perChat": "Nenhuma marcada: cada chat escolhe a sua.",
+      "summary_one": "{{count}} conexão",
+      "summary_other": "{{count}} conexões"
     }
   },
   "run": {
@@ -538,5 +589,19 @@
     "effectiveWrite": "Está dentro de uma pasta que pode ser alterada, então esta também pode ser alterada.",
     "notMounted": "{{n}} pastas compartilhadas não cabem no limite de acesso de um chat e não são montadas.",
     "exportNoteMany": "O arquivo cita {{n}} pastas. Onde você importar, o agente recebe as pastas com esses caminhos que existirem e pede que você escolha as outras."
+  },
+  "templates": {
+    "researcher": {
+      "description": "Pesquisa, lê fontes e escreve resumos curtos."
+    },
+    "reviewer": {
+      "description": "Revisa uma mudança e lista primeiro o que corrigir."
+    },
+    "digest": {
+      "description": "Reúne as novidades de um tema e as resume."
+    },
+    "blank": {
+      "description": "Vazio. Comece do zero."
+    }
   }
 }

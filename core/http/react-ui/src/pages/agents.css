@@ -415,7 +415,7 @@ a.ag-run-row:hover { background: color-mix(in srgb, var(--dk-hover) 45%, transpa
 .aed-chip__v { min-width: 0; color: var(--dk-text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .aed-layout { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: var(--sp-6); align-items: start; min-width: 0; }
-.aed-nav { position: sticky; top: 148px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.aed-nav { position: sticky; top: calc(var(--aed-bar-h, 132px) + var(--sp-3)); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .aed-nav__item {
   display: flex; align-items: center; gap: var(--sp-2); min-height: 36px; padding: 0 var(--sp-3);
   border-left: 2px solid transparent; border-radius: 0 var(--r-md) var(--r-md) 0;
@@ -430,13 +430,13 @@ a.ag-run-row:hover { background: color-mix(in srgb, var(--dk-hover) 45%, transpa
 .aed-card {
   display: flex; flex-direction: column; gap: var(--sp-5); min-width: 0;
   padding: var(--sp-5); border: 1px solid var(--dk-edge); border-radius: var(--r-lg); background: var(--dk-card);
-  scroll-margin-top: 148px;
+  scroll-margin-top: calc(var(--aed-bar-h, 132px) + var(--sp-3));
 }
 .aed-card__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--sp-3); }
 .aed-card__title { margin: 0; font: 600 var(--fs-section)/var(--lh-section) var(--font-sans); color: var(--dk-text); }
 .aed-card__lead { margin: 0; font-size: var(--fs-small); color: var(--dk-muted); }
 .aed-part { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
-.aed-part:not([data-bare]) { padding-top: var(--sp-5); border-top: 1px solid var(--dk-edge); scroll-margin-top: 148px; }
+.aed-part:not([data-bare]) { padding-top: var(--sp-5); border-top: 1px solid var(--dk-edge); scroll-margin-top: calc(var(--aed-bar-h, 132px) + var(--sp-3)); }
 .aed-part__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); min-width: 0; }
 .aed-part__title { margin: 0; font: 600 var(--fs-body)/var(--lh-body) var(--font-sans); color: var(--dk-text); }
 .aed-part__sum { min-width: 0; font-size: var(--fs-small); color: var(--dk-muted); overflow-wrap: anywhere; }
@@ -448,10 +448,16 @@ a.ag-run-row:hover { background: color-mix(in srgb, var(--dk-hover) 45%, transpa
 
 @media (max-width: 960px) {
   .aed-layout { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
-  .aed-nav { position: static; flex-direction: row; flex-wrap: wrap; gap: var(--sp-2); }
-  .aed-nav__item { flex: none; border: 1px solid var(--dk-edge); border-radius: var(--r-xl); padding: 0 var(--sp-3); }
+  /* One row of chips that scrolls inside itself and sticks under the header. */
+  .aed-nav {
+    position: sticky; top: calc(var(--aed-bar-h, 56px) - 1px); z-index: 15; flex-direction: row; gap: var(--sp-2);
+    padding: var(--sp-2) 0; overflow-x: auto; background: var(--dk-canvas);
+    border-bottom: 1px solid var(--dk-edge); scrollbar-width: none;
+  }
+  .aed-nav::-webkit-scrollbar { display: none; }
+  .aed-nav__item { flex: none; white-space: nowrap; border: 1px solid var(--dk-edge); border-radius: var(--r-xl); padding: 0 var(--sp-3); }
   .aed-nav__item[aria-current="true"] { border-color: var(--dk-accent-text); }
-  .aed-card, .aed-part:not([data-bare]) { scroll-margin-top: 140px; }
+  .aed-card, .aed-part:not([data-bare]) { scroll-margin-top: calc(var(--aed-bar-h, 56px) + 56px); }
 }
 @media (max-width: 760px) {
   .aed-bar { grid-template-columns: minmax(0, 1fr); padding: var(--sp-2) var(--sp-3); gap: var(--sp-2); }
@@ -468,3 +474,5 @@ a.ag-run-row:hover { background: color-mix(in srgb, var(--dk-hover) 45%, transpa
 }
 @media (prefers-reduced-motion: reduce) { .aed-nav__item { transition: none; } }
 .aed-card__needs { font-size: var(--fs-meta); font-weight: 500; color: var(--dk-warn-text); }
+
+.aed-part__body > .ui-callout { margin-bottom: var(--sp-3); }

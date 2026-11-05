@@ -82,7 +82,8 @@
       "export": "Export",
       "Files": "Dateien",
       "Tools": "Werkzeuge",
-      "Notes": "Gedächtnis"
+      "Notes": "Gedächtnis",
+      "Connections": "Verbindungen"
     },
     "name": "Name",
     "description": "Description",
@@ -157,13 +158,15 @@
       "identity": "Identität",
       "capabilities": "Fähigkeiten",
       "memory": "Gedächtnis und Wissen",
-      "advanced": "Erweitert"
+      "advanced": "Erweitert",
+      "connections": "Verbindungen"
     },
     "lead": {
       "identity": "Wer der Agent ist und wie er sich verhält.",
       "capabilities": "Was der Agent nutzen und erreichen darf.",
       "memory": "Woran sich der Agent erinnert und was er nachschlagen kann.",
-      "advanced": "Zusätzliche Server und Export."
+      "advanced": "Zusätzliche Server und Export.",
+      "connections": "Welche Verbindungen dieser Agent nutzen darf."
     },
     "header": {
       "unnamed": "Unbenannter Agent",
@@ -175,6 +178,54 @@
       "clean": "Keine ungespeicherten Änderungen",
       "new": "Noch nicht erstellt",
       "unsaved": "Ungespeicherte Änderungen ({{count}})"
+    },
+    "preset": {
+      "label": "Werkzeugstufe",
+      "loading": "Werkzeugliste wird geladen",
+      "current": "Stufe: {{name}}. Ändern Sie unten einen Schalter, wird daraus eine eigene Mischung.",
+      "custom": "Eigene Mischung von Schaltern. Wählen Sie eine Stufe, um sie zu ersetzen.",
+      "applied": "Stufe {{name}} angewendet",
+      "appliedBody": "Die Schalter unten haben sich geändert. Nichts wird gespeichert, bis Sie speichern.",
+      "readonly": {
+        "title": "Nur nachsehen",
+        "body": "Sucht im Internet und in Ihren Sammlungen. Keine Dateien, keine Befehle, keine Trigger."
+      },
+      "assistant": {
+        "title": "Assistent",
+        "body": "Fügt gespeicherte Agenten, Trigger und vorgeschlagene Änderungen hinzu. Keine Dateien, keine Befehle."
+      },
+      "full": {
+        "title": "Voll",
+        "body": "Jedes Werkzeug, das der Server auflistet. Sensible Rechte bleiben aus."
+      }
+    },
+    "tpl": {
+      "applied": "Gestartet mit {{name}}",
+      "appliedBody": "Name, Beschreibung, Anweisungen und Werkzeuge haben sich geändert. Nichts wird gespeichert, bis Sie speichern.",
+      "tools": "Werkzeuge: {{level}}",
+      "noTools": "Werkzeuge: unverändert"
+    },
+    "undo": "Rückgängig",
+    "keep": "Behalten",
+    "modelCaps": "Was dieses Modell kann",
+    "modelChat": "Chat",
+    "connections": {
+      "addonsTitle": "Add-ons mit Verbindung",
+      "addonsNone": "Kein Add-on braucht eine Verbindung.",
+      "messagingTitle": "Wo dieser Agent verbunden ist",
+      "messagingNone": "Noch keine Messaging-Verbindung nutzt diesen Agenten. Speichern Sie den Agenten und fügen Sie dann eine hinzu.",
+      "messagingHelp": "Messaging-Verbindungen werden auf ihrer eigenen Seite eingestellt.",
+      "allows_one": "erlaubt {{count}} Recht",
+      "allows_other": "erlaubt {{count}} Rechte",
+      "open": "Öffnen",
+      "addonOff": "aus",
+      "noneYet": "Noch keine Verbindung.",
+      "add": "Verbindung hinzufügen",
+      "groupLabel": "Verbindungen für {{name}}",
+      "chosenHelp": "Chats dieses Agenten dürfen nur die angehakten Verbindungen nutzen.",
+      "perChat": "Nichts angehakt: Jeder Chat wählt selbst.",
+      "summary_one": "{{count}} Verbindung",
+      "summary_other": "{{count}} Verbindungen"
     }
   },
   "run": {
@@ -538,5 +589,19 @@
     "effectiveWrite": "Liegt in einem Ordner, der geändert werden kann, daher kann auch dieser geändert werden.",
     "notMounted": "{{n}} geteilte Ordner passen nicht in das Zugriffslimit eines Chats und sind nicht eingebunden.",
     "exportNoteMany": "Die Datei nennt {{n}} Ordner. Beim Import erhält der Agent die Ordner mit diesen Pfaden, die es gibt, und bittet dich, die anderen zu wählen."
+  },
+  "templates": {
+    "researcher": {
+      "description": "Sucht, liest Quellen und schreibt kurze Berichte."
+    },
+    "reviewer": {
+      "description": "Prüft eine Änderung und nennt zuerst, was zu beheben ist."
+    },
+    "digest": {
+      "description": "Sammelt Neues zu einem Thema und fasst es zusammen."
+    },
+    "blank": {
+      "description": "Leer. Von Null beginnen."
+    }
   }
 }

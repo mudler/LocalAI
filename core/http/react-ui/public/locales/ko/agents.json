@@ -82,7 +82,8 @@
       "export": "Export",
       "Files": "파일",
       "Tools": "도구",
-      "Notes": "메모리"
+      "Notes": "메모리",
+      "Connections": "연결"
     },
     "name": "Name",
     "description": "Description",
@@ -157,13 +158,15 @@
       "identity": "정체성",
       "capabilities": "기능",
       "memory": "메모리와 지식",
-      "advanced": "고급"
+      "advanced": "고급",
+      "connections": "연결"
     },
     "lead": {
       "identity": "에이전트가 누구이고 어떻게 행동하는지 정합니다.",
       "capabilities": "에이전트가 사용하고 접근할 수 있는 것을 정합니다.",
       "memory": "에이전트가 기억하는 것과 찾아볼 수 있는 것을 정합니다.",
-      "advanced": "추가 서버와 내보내기."
+      "advanced": "추가 서버와 내보내기.",
+      "connections": "이 에이전트가 사용할 수 있는 연결입니다."
     },
     "header": {
       "unnamed": "이름 없는 에이전트",
@@ -175,6 +178,54 @@
       "clean": "저장하지 않은 변경 사항 없음",
       "new": "아직 만들지 않음",
       "unsaved": "저장하지 않은 변경 사항 ({{count}})"
+    },
+    "preset": {
+      "label": "도구 수준",
+      "loading": "도구 목록을 불러오는 중",
+      "current": "수준: {{name}}. 아래 스위치를 바꾸면 사용자 지정 조합이 됩니다.",
+      "custom": "사용자 지정 스위치 조합입니다. 수준을 고르면 바뀝니다.",
+      "applied": "{{name}} 수준을 적용했습니다",
+      "appliedBody": "아래 스위치가 바뀌었습니다. 저장하기 전에는 아무것도 저장되지 않습니다.",
+      "readonly": {
+        "title": "보기만",
+        "body": "웹과 컬렉션을 검색합니다. 파일, 명령, 트리거는 없습니다."
+      },
+      "assistant": {
+        "title": "어시스턴트",
+        "body": "저장된 에이전트, 트리거, 제안된 변경을 더합니다. 파일과 명령은 없습니다."
+      },
+      "full": {
+        "title": "전체",
+        "body": "서버가 나열하는 모든 도구입니다. 민감한 권한은 꺼진 채로 둡니다."
+      }
+    },
+    "tpl": {
+      "applied": "{{name}}에서 시작함",
+      "appliedBody": "이름, 설명, 지침, 도구가 바뀌었습니다. 저장하기 전에는 아무것도 저장되지 않습니다.",
+      "tools": "도구: {{level}}",
+      "noTools": "도구: 그대로"
+    },
+    "undo": "실행 취소",
+    "keep": "유지",
+    "modelCaps": "이 모델이 할 수 있는 일",
+    "modelChat": "채팅",
+    "connections": {
+      "addonsTitle": "연결을 쓰는 애드온",
+      "addonsNone": "연결이 필요한 애드온이 없습니다.",
+      "messagingTitle": "이 에이전트가 연결된 곳",
+      "messagingNone": "이 에이전트를 쓰는 메시징 연결이 아직 없습니다. 에이전트를 저장한 뒤 추가하세요.",
+      "messagingHelp": "메시징 연결은 해당 페이지에서 설정합니다.",
+      "allows_one": "권한 {{count}}개 허용",
+      "allows_other": "권한 {{count}}개 허용",
+      "open": "열기",
+      "addonOff": "꺼짐",
+      "noneYet": "아직 연결이 없습니다.",
+      "add": "연결 추가",
+      "groupLabel": "{{name}}의 연결",
+      "chosenHelp": "이 에이전트의 채팅은 선택한 연결만 쓸 수 있습니다.",
+      "perChat": "선택 없음: 채팅마다 직접 고릅니다.",
+      "summary_one": "연결 {{count}}개",
+      "summary_other": "연결 {{count}}개"
     }
   },
   "run": {
@@ -538,5 +589,19 @@
     "effectiveWrite": "변경할 수 있는 폴더 안에 있어서 이 폴더도 변경할 수 있습니다.",
     "notMounted": "공유 폴더 {{n}}개가 채팅의 접근 한도에 맞지 않아 마운트되지 않았습니다.",
     "exportNoteMany": "이 파일에는 폴더 {{n}}개가 적혀 있습니다. 가져오는 곳에서는 해당 경로에 실제로 있는 폴더가 에이전트에 지정되고, 나머지는 직접 고르라고 안내합니다."
+  },
+  "templates": {
+    "researcher": {
+      "description": "검색하고 출처를 읽어 짧은 요약을 씁니다."
+    },
+    "reviewer": {
+      "description": "변경 사항을 검토하고 먼저 고칠 것을 나열합니다."
+    },
+    "digest": {
+      "description": "주제의 새 소식을 모아 요약합니다."
+    },
+    "blank": {
+      "description": "비어 있음. 처음부터 시작합니다."
+    }
   }
 }

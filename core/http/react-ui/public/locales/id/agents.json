@@ -82,7 +82,8 @@
       "export": "Export",
       "Files": "File",
       "Tools": "Alat",
-      "Notes": "Memori"
+      "Notes": "Memori",
+      "Connections": "Koneksi"
     },
     "name": "Name",
     "description": "Description",
@@ -157,13 +158,15 @@
       "identity": "Identitas",
       "capabilities": "Kemampuan",
       "memory": "Memori dan pengetahuan",
-      "advanced": "Lanjutan"
+      "advanced": "Lanjutan",
+      "connections": "Koneksi"
     },
     "lead": {
       "identity": "Siapa agen ini dan bagaimana ia bersikap.",
       "capabilities": "Apa yang boleh digunakan dan dijangkau agen.",
       "memory": "Apa yang diingat agen dan apa yang bisa dicarinya.",
-      "advanced": "Server tambahan dan ekspor."
+      "advanced": "Server tambahan dan ekspor.",
+      "connections": "Koneksi mana yang boleh dipakai agen ini."
     },
     "header": {
       "unnamed": "Agen tanpa nama",
@@ -175,6 +178,54 @@
       "clean": "Tidak ada perubahan yang belum disimpan",
       "new": "Belum dibuat",
       "unsaved": "Perubahan belum disimpan ({{count}})"
+    },
+    "preset": {
+      "label": "Tingkat alat",
+      "loading": "Memuat daftar alat",
+      "current": "Tingkat: {{name}}. Ubah satu sakelar di bawah dan jadilah campuran kustom.",
+      "custom": "Campuran sakelar kustom. Pilih satu tingkat untuk menggantinya.",
+      "applied": "Tingkat {{name}} diterapkan",
+      "appliedBody": "Sakelar di bawah berubah. Tidak ada yang disimpan sampai Anda menyimpan.",
+      "readonly": {
+        "title": "Hanya melihat",
+        "body": "Mencari di web dan koleksi Anda. Tanpa berkas, tanpa perintah, tanpa pemicu."
+      },
+      "assistant": {
+        "title": "Asisten",
+        "body": "Menambahkan agen tersimpan, pemicu, dan perubahan yang disarankan. Tanpa berkas, tanpa perintah."
+      },
+      "full": {
+        "title": "Penuh",
+        "body": "Semua alat yang didaftarkan server. Hak sensitif tetap mati."
+      }
+    },
+    "tpl": {
+      "applied": "Dimulai dari {{name}}",
+      "appliedBody": "Nama, deskripsi, instruksi, dan alat berubah. Tidak ada yang disimpan sampai Anda menyimpan.",
+      "tools": "Alat: {{level}}",
+      "noTools": "Alat: tidak berubah"
+    },
+    "undo": "Urungkan",
+    "keep": "Pertahankan",
+    "modelCaps": "Apa yang bisa dilakukan model ini",
+    "modelChat": "Obrolan",
+    "connections": {
+      "addonsTitle": "Add-on yang memakai koneksi",
+      "addonsNone": "Tidak ada add-on yang butuh koneksi.",
+      "messagingTitle": "Tempat agen ini terhubung",
+      "messagingNone": "Belum ada koneksi pesan yang memakai agen ini. Simpan agen, lalu tambahkan satu.",
+      "messagingHelp": "Koneksi pesan diatur di halamannya sendiri.",
+      "allows_one": "mengizinkan {{count}} hak",
+      "allows_other": "mengizinkan {{count}} hak",
+      "open": "Buka",
+      "addonOff": "mati",
+      "noneYet": "Belum ada koneksi.",
+      "add": "Tambah koneksi",
+      "groupLabel": "Koneksi untuk {{name}}",
+      "chosenHelp": "Obrolan agen ini hanya boleh memakai koneksi yang dicentang.",
+      "perChat": "Tidak ada yang dicentang: tiap obrolan memilih sendiri.",
+      "summary_one": "{{count}} koneksi",
+      "summary_other": "{{count}} koneksi"
     }
   },
   "run": {
@@ -538,5 +589,19 @@
     "effectiveWrite": "Ada di dalam folder yang bisa diubah, jadi folder ini juga bisa diubah.",
     "notMounted": "{{n}} folder bersama tidak muat dalam batas akses sebuah chat dan tidak dipasang.",
     "exportNoteMany": "File ini menyebut {{n}} folder. Di tempat Anda mengimpornya, agen mendapat folder dengan path itu yang ada, dan meminta Anda memilih sisanya."
+  },
+  "templates": {
+    "researcher": {
+      "description": "Mencari, membaca sumber, dan menulis ringkasan singkat."
+    },
+    "reviewer": {
+      "description": "Meninjau perubahan dan mendaftar yang perlu diperbaiki lebih dulu."
+    },
+    "digest": {
+      "description": "Mengumpulkan yang baru pada suatu topik dan merangkumnya."
+    },
+    "blank": {
+      "description": "Kosong. Mulai dari nol."
+    }
   }
 }

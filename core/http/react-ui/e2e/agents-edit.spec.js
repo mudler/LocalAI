@@ -541,7 +541,8 @@ test('create uses the chat picker, filters unusable models and persists the alia
   await chip.click()
   const options = page.getByRole('listbox').getByRole('option')
   await expect(options.locator('code')).toHaveText(['Any model (the chat picks one)', 'production', 'alternate'])
-  await expect(options.locator('small')).toHaveText(['not loaded', 'not loaded'])
+  // The agent picker now draws the rich row (state and capabilities), so the state is the bold line.
+  await expect(options.locator('.home-menu__state b')).toHaveText(['not loaded', 'not loaded'])
   await options.filter({ has: page.getByText('production', { exact: true }) }).click()
   await page.getByRole('button', { name: 'Create Agent' }).first().click()
   await expect(page).toHaveURL(/\/app\/agents$/)

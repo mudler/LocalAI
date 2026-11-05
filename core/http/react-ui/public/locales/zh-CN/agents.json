@@ -82,7 +82,8 @@
       "export": "Export",
       "Files": "文件",
       "Tools": "工具",
-      "Notes": "记忆"
+      "Notes": "记忆",
+      "Connections": "连接"
     },
     "name": "Name",
     "description": "Description",
@@ -157,13 +158,15 @@
       "identity": "身份",
       "capabilities": "能力",
       "memory": "记忆与知识",
-      "advanced": "高级"
+      "advanced": "高级",
+      "connections": "连接"
     },
     "lead": {
       "identity": "智能体是谁,以及它如何行事。",
       "capabilities": "智能体可以使用和访问的内容。",
       "memory": "智能体记住什么,以及可以查找什么。",
-      "advanced": "额外的服务器和导出。"
+      "advanced": "额外的服务器和导出。",
+      "connections": "此代理可以使用哪些连接。"
     },
     "header": {
       "unnamed": "未命名的智能体",
@@ -175,6 +178,54 @@
       "clean": "没有未保存的更改",
       "new": "尚未创建",
       "unsaved": "未保存的更改({{count}})"
+    },
+    "preset": {
+      "label": "工具级别",
+      "loading": "正在加载工具列表",
+      "current": "级别：{{name}}。更改下方任一开关后，它就成为自定义组合。",
+      "custom": "自定义开关组合。选择一个级别可替换它。",
+      "applied": "已应用{{name}}级别",
+      "appliedBody": "下方的开关已更改。保存之前不会存储任何内容。",
+      "readonly": {
+        "title": "仅查看",
+        "body": "搜索网页和你的集合。没有文件、命令和触发器。"
+      },
+      "assistant": {
+        "title": "助手",
+        "body": "加入已保存的代理、触发器和建议的更改。没有文件和命令。"
+      },
+      "full": {
+        "title": "完整",
+        "body": "服务器列出的所有工具。敏感权限保持关闭。"
+      }
+    },
+    "tpl": {
+      "applied": "从{{name}}开始",
+      "appliedBody": "名称、描述、指令和工具已更改。保存之前不会存储任何内容。",
+      "tools": "工具：{{level}}",
+      "noTools": "工具：保持不变"
+    },
+    "undo": "撤销",
+    "keep": "保留",
+    "modelCaps": "此模型能做什么",
+    "modelChat": "聊天",
+    "connections": {
+      "addonsTitle": "使用连接的附加组件",
+      "addonsNone": "没有附加组件需要连接。",
+      "messagingTitle": "此代理连接到哪里",
+      "messagingNone": "还没有消息连接使用此代理。请先保存代理，再添加连接。",
+      "messagingHelp": "消息连接在各自的页面中设置。",
+      "allows_one": "允许 {{count}} 项权限",
+      "allows_other": "允许 {{count}} 项权限",
+      "open": "打开",
+      "addonOff": "已关闭",
+      "noneYet": "还没有连接。",
+      "add": "添加连接",
+      "groupLabel": "{{name}}的连接",
+      "chosenHelp": "此代理的聊天只能使用已勾选的连接。",
+      "perChat": "未勾选：每个聊天自行选择。",
+      "summary_one": "{{count}} 个连接",
+      "summary_other": "{{count}} 个连接"
     }
   },
   "run": {
@@ -538,5 +589,19 @@
     "effectiveWrite": "位于可修改的文件夹内，因此这个文件夹也可以修改。",
     "notMounted": "有 {{n}} 个共享文件夹超出了聊天的访问上限，未挂载。",
     "exportNoteMany": "文件列出了 {{n}} 个文件夹。导入时，智能体会使用这些路径中存在的文件夹，并请你为其余的重新选择。"
+  },
+  "templates": {
+    "researcher": {
+      "description": "搜索、阅读来源并撰写简短摘要。"
+    },
+    "reviewer": {
+      "description": "审阅一项更改，并先列出需要修复的内容。"
+    },
+    "digest": {
+      "description": "收集某个主题的新内容并加以总结。"
+    },
+    "blank": {
+      "description": "空白。从头开始。"
+    }
   }
 }

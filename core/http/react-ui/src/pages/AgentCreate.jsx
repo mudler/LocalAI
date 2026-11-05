@@ -5,10 +5,14 @@ import { Link, useParams, useNavigate, useLocation, useOutletContext, useSearchP
 import { useTranslation } from 'react-i18next'
 import { agentCollectionsApi, chatAgentsApi, modelMCPServersApi } from '../utils/api'
 import { useAgentTools } from '../hooks/useAgentTools'
+import { useModels } from '../hooks/useModels'
 import { useToolGroups } from '../hooks/useToolGroups'
 import { useMemorySettings } from '../hooks/useMemorySettings'
 import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
 import { agentPayload, effectiveModes, emptyAgent, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, MEMORY_GRANT, memoryChoiceOf, memorySaveOf, missingConnectorGrants, newAgent, setGrant, withMemoryChoice } from '../utils/chatAgents'
+import { activePreset, PRESET_KEYS, presetPatch, snapshot, TEMPLATE_TEXT_KEYS } from '../utils/agentPresets'
+import { modelCaps } from '../utils/modelCaps'
+import { seesImages } from '../utils/chatVision'
 import { downloadAgentFile } from '../utils/agentFiles'
 import { joinAgentMCP, splitAgentMCP } from '../utils/chatMCP'
 import './agents.css'
@@ -33,6 +37,12 @@ import { SwitchPanel } from '../components/chat/SwitchMenu'
 import { switchCounts, switchRows } from '../utils/chatSwitchRows'
 // eslint-disable-next-line no-unused-vars
 import { SkillsPanel } from '../components/chat/SkillsMenu'
+// eslint-disable-next-line no-unused-vars
+import AgentPresets, { AppliedNotice } from '../components/agents/AgentPresets'
+// eslint-disable-next-line no-unused-vars
+import AgentTemplates from '../components/agents/AgentTemplates'
+// eslint-disable-next-line no-unused-vars
+import AgentConnections from '../components/agents/AgentConnections'
 
 // The cards of the page, in order. `bare` parts have no heading of their own:
 // the card heading says what they are. `export` exists only for a saved agent.
@@ -40,7 +50,8 @@ const GROUPS = [
   { id: 'identity', icon: 'info', parts: ['BasicInfo', 'ModelSettings', 'PromptsGoals'], bare: true },
   { id: 'capabilities', icon: 'plug', parts: ['Tools', 'Skills', 'Files'] },
   { id: 'memory', icon: 'memory', parts: ['Notes', 'MemorySettings'] },
-  { id: 'advanced', icon: 'server', parts: ['MCP', 'export'] },
+  { id: 'connections', icon: 'plug', parts: ['Connections'], bare: true },
+  { id: 'advanced', icon: 'server', parts: ['MCP', 'export'], collapsible: true },
 ]
 const secDomId = (gid) => `aed-sec-${gid}`
 
@@ -66,7 +77,7 @@ export default function AgentCreate() {
   const navigate = useNavigate()
   const location = useLocation()
   const { addToast } = useOutletContext()
-  const { t } = useTranslation(['agents', 'library', 'chats'])
+  const { t } = useTranslation(['agents', 'library', 'chats', 'home'])
   const [searchParams] = useSearchParams()
   const templateId = searchParams.get('template') || ''
   const isEdit = !!id
@@ -88,6 +99,12 @@ export default function AgentCreate() {
   const initialFormRef = useRef(null)
   const [collectionNames, setCollectionNames] = useState([])
   const [modelServers, setModelServers] = useState([])
+  // The chat models, for the picker and for the capabilities line under it.
+  const { models: chatModels, loading: modelsLoading } = useModels(CAP_CHAT, { keepBroken: true })
+  // What a level or a template just filled in, with the values to go back to.
+  const [applied, setApplied] = useState(null)
+  const [collapsed, setCollapsed] = useState(() => new Set())
+  const formRef = useRef(null)
 
   // Suggestions are best effort: a failure leaves the field free text.
   useEffect(() => {
@@ -204,9 +221,12 @@ export default function AgentCreate() {
     const update = () => {
       frame = 0
       let current = GROUPS[0].id
+      // The line under the sticky header (and the nav chips on a phone).
+      const bar = parseFloat(formRef.current?.style.getPropertyValue('--aed-bar-h')) || 132
+      const line = bar + (window.innerWidth <= 768 ? 72 : 40)
       for (const g of GROUPS) {
         const el = document.getElementById(secDomId(g.id))
-        if (el && el.getBoundingClientRect().top <= 180) current = g.id
+        if (el && el.getBoundingClientRect().top <= line) current = g.id
       }
       setActiveSec(current)
     }
@@ -219,6 +239,19 @@ export default function AgentCreate() {
       window.removeEventListener('resize', onScroll)
       if (frame) cancelAnimationFrame(frame)
     }
+  }, [loading, loadError])
+
+  // The sticky nav sits right under the header, whatever height the header has.
+  useEffect(() => {
+    const form = formRef.current
+    const bar = form?.querySelector('.aed-bar')
+    if (!bar) return undefined
+    const set = () => form.style.setProperty('--aed-bar-h', `${Math.round(bar.getBoundingClientRect().height)}px`)
+    set()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const ro = new ResizeObserver(set)
+    ro.observe(bar)
+    return () => ro.disconnect()
   }, [loading, loadError])
 
   const mcp = splitAgentMCP(form.mcp_servers)
@@ -265,6 +298,13 @@ export default function AgentCreate() {
       state = on ? 'ready' : 'empty'
     }
     else if (s.id === 'Files') { keys = ['folders']; ({ summary, state } = folderFold()) }
+    else if (s.id === 'Connections') {
+      keys = ['connections']
+      const named = tools.addons.filter(a => a.credentialed && !a.gone).reduce((n, a) => n + (a.enabled_connections || []).length, 0)
+      const n = named + tools.connections.length
+      summary = n ? t('create.connections.summary', { count: n }) : t('create.noneYet')
+      state = n ? 'ready' : 'empty'
+    }
     else if (s.id === 'MCP') { keys = ['mcp_servers']; summary = countOf(form.mcp_servers.length, 'create.countServers'); state = form.mcp_servers.length ? 'ready' : 'empty' }
     else {
       summary = summarise(SUMMARY_FIELDS[s.id], form)
@@ -302,8 +342,33 @@ export default function AgentCreate() {
   const removeRow = (i) => updateField('folders', form.folders.filter((_, j) => j !== i))
   const addRow = () => { updateField('folders', [...form.folders, { mode: 'read' }]); setChoosingFolder('new') }
 
+  // The level of the tool switches, and a level or template applied by hand.
+  // Both stay in the form until Save and can be undone.
+  const toolGroupsList = tools.builtins
+  const grantCatalog = tools.grants?.list || []
+  const levelReady = toolGroupsList.length > 0
+  const level = activePreset(form, toolGroupsList, grantCatalog)
+  const applyLevel = (pid) => {
+    const patch = presetPatch(pid, form, toolGroupsList, grantCatalog)
+    if (!patch) return
+    setApplied({ kind: 'preset', id: pid, name: t(`create.preset.${pid}.title`), before: snapshot(form, PRESET_KEYS) })
+    setForm(prev => ({ ...prev, ...patch }))
+  }
   const applyTemplate = (tpl) => {
-    setForm(prev => ({ ...prev, name: tpl.name, description: tpl.description, instructions: tpl.instructions }))
+    const patch = tpl.preset ? presetPatch(tpl.preset, form, toolGroupsList, grantCatalog) : null
+    const keys = patch ? [...TEMPLATE_TEXT_KEYS, ...PRESET_KEYS] : TEMPLATE_TEXT_KEYS
+    setApplied({ kind: 'template', id: tpl.id, name: t(`templates.${tpl.id}.label`), before: snapshot(form, keys) })
+    setForm(prev => ({ ...prev, name: tpl.name, description: tpl.description, instructions: tpl.instructions, ...(patch || {}) }))
+  }
+  const undoApplied = () => {
+    if (!applied) return
+    setForm(prev => ({ ...prev, ...applied.before }))
+    setApplied(null)
+  }
+  const chosenModel = chatModels.find(m => m.id === form.model)
+  const describeModel = (name) => {
+    const m = chatModels.find(x => x.id === name)
+    return { vision: seesImages(m), caps: modelCaps(m).filter(c => c !== 'vision').map(c => t(`home:picker.cap.${c}`, { defaultValue: c })) }
   }
 
   const renderSection = (sid) => {
@@ -337,8 +402,24 @@ export default function AgentCreate() {
               value={form.model}
               onChange={(v) => updateField('model', v)}
               capability={CAP_CHAT}
+              models={chatModels}
+              loading={modelsLoading}
+              describe={describeModel}
+              variant="field"
+              searchable
               placeholder={t('create.modelPlaceholder')}
             />
+            {chosenModel && (
+              <>
+                <p className="aed-caps__lead">{t('create.modelCaps')}</p>
+                <ul className="aed-caps" data-testid="agent-model-caps">
+                  <li className="aed-caps__chip">{t('create.modelChat')}</li>
+                  {modelCaps(chosenModel).filter(c => c !== 'chat').map(c => (
+                    <li key={c} className="aed-caps__chip">{c === 'vision' ? t('home:picker.vision') : t(`home:picker.cap.${c}`, { defaultValue: c })}</li>
+                  ))}
+                </ul>
+              </>
+            )}
             <p className="ag-note">{t('create.modelHelp')}</p>
           </div>
         )
@@ -383,9 +464,13 @@ export default function AgentCreate() {
             </div>
           </>
         )
+      case 'Connections':
+        return <AgentConnections addons={tools.addons} bindings={tools.connections} onChange={tools.setConnections} />
       case 'Tools':
         return (
           <>
+            <AgentPresets active={level} ready={levelReady} onPick={applyLevel} />
+            <AppliedNotice applied={applied?.kind === 'preset' ? applied : null} onUndo={undoApplied} onKeep={() => setApplied(null)} testId="agent-preset-applied" />
             <p className="ag-note">{t('create.toolsHelp')}</p>
             {memoryUser.settings && memoryUser.settings.enabled === false && (
               <Callout tone="info" icon="eye-off" testId="agent-memory-off">
@@ -515,9 +600,13 @@ export default function AgentCreate() {
   // A card needs the person when one of its parts does.
   const groupNeeds = (g) => g.parts.some(pid => pid !== 'export' && foldInfo({ id: pid }).state === 'needs')
 
+  const folded = (g) => !!g.collapsible && collapsed.has(g.id)
+  const flip = (gid) => setCollapsed(prev => { const n = new Set(prev); if (n.has(gid)) n.delete(gid); else n.add(gid); return n })
+
   const goTo = (gid) => {
     const el = document.getElementById(secDomId(gid))
     if (!el) return
+    if (collapsed.has(gid)) setCollapsed(prev => { const n = new Set(prev); n.delete(gid); return n })
     const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     el.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' })
     setActiveSec(gid)
@@ -532,7 +621,7 @@ export default function AgentCreate() {
   return (
     <Page className="ag-page aed-page" data-testid="agent-edit">
       <UnsavedChangesGuard when={dirty && !saving} />
-      <form onSubmit={handleSubmit} noValidate className="ag-edit aed">
+      <form ref={formRef} onSubmit={handleSubmit} noValidate className="ag-edit aed">
         <button type="button" className="ag-back" onClick={leave}><Icon name="arrow-left" /> {isEdit ? savedConfig?.name : t('agent.back')}</button>
         <header className="aed-bar" data-testid="agent-edit-header">
           <div className="aed-bar__who">
@@ -588,13 +677,8 @@ export default function AgentCreate() {
             {!isEdit && !imported && (
               <section className="ag-start" aria-labelledby="ag-start-h" data-testid="agent-start">
                 <h2 id="ag-start-h" className="ag-h3">{t('create.startFrom')}</h2>
-                <div className="ag-start__row">
-                  {AGENT_TEMPLATES.map(tpl => (
-                    <button key={tpl.id} type="button" className="dk-chip" onClick={() => applyTemplate(tpl)} data-template={tpl.id}>
-                      {t(`templates.${tpl.id}.label`)}
-                    </button>
-                  ))}
-                </div>
+                <AgentTemplates templates={AGENT_TEMPLATES} picked={applied?.kind === 'template' ? applied.id : ''} onPick={applyTemplate} />
+                <AppliedNotice applied={applied?.kind === 'template' ? applied : null} onUndo={undoApplied} onKeep={() => setApplied(null)} testId="agent-template-applied" />
               </section>
             )}
 
@@ -605,13 +689,20 @@ export default function AgentCreate() {
               const needs = infos.find(i => i.state === 'needs')
               const changed = infos.reduce((n, i) => n + i.changed, 0)
               return (
-              <section key={g.id} id={secDomId(g.id)} className="aed-card" aria-labelledby={`${secDomId(g.id)}-h`} data-group={g.id}>
+              <section key={g.id} id={secDomId(g.id)} className="aed-card" aria-labelledby={`${secDomId(g.id)}-h`} data-group={g.id} data-collapsed={folded(g) || undefined}>
                 <div className="aed-card__head">
-                  <h2 id={`${secDomId(g.id)}-h`} className="aed-card__title">{t(`create.nav.${g.id}`)}</h2>
+                  <h2 id={`${secDomId(g.id)}-h`} className="aed-card__title">
+                    {g.collapsible ? (
+                      <button type="button" className="aed-card__toggle" aria-expanded={!folded(g)} aria-controls={`${secDomId(g.id)}-body`} onClick={() => flip(g.id)} data-testid={`agent-toggle-${g.id}`}>
+                        {t(`create.nav.${g.id}`)}<Icon name="chevron-down" className="aed-card__chev" />
+                      </button>
+                    ) : t(`create.nav.${g.id}`)}
+                  </h2>
                   <p className="aed-card__lead">{t(`create.lead.${g.id}`)}</p>
                   {needs && <span className="aed-card__needs" data-testid="agent-card-needs">{needs.summary}</span>}
                   {changed > 0 && <span className="ag-badge-changed">{t('create.changed', { count: changed })}</span>}
                 </div>
+                <div className="aed-card__body" id={`${secDomId(g.id)}-body`} hidden={folded(g)}>
                 {g.parts.map(pid => {
                   const info = pid === 'export' ? null : foldInfo({ id: pid })
                   return (
@@ -630,6 +721,7 @@ export default function AgentCreate() {
                     </div>
                   )
                 })}
+                </div>
               </section>
               )
             })}

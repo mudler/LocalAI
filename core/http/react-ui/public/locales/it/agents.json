@@ -82,7 +82,8 @@
       "export": "Export",
       "Files": "File",
       "Tools": "Strumenti",
-      "Notes": "Memoria"
+      "Notes": "Memoria",
+      "Connections": "Connessioni"
     },
     "name": "Name",
     "description": "Description",
@@ -157,13 +158,15 @@
       "identity": "Identità",
       "capabilities": "Capacità",
       "memory": "Memoria e conoscenza",
-      "advanced": "Avanzate"
+      "advanced": "Avanzate",
+      "connections": "Connessioni"
     },
     "lead": {
       "identity": "Chi è l'agente e come si comporta.",
       "capabilities": "Cosa può usare e raggiungere l'agente.",
       "memory": "Cosa ricorda l'agente e cosa può consultare.",
-      "advanced": "Server aggiuntivi ed esportazione."
+      "advanced": "Server aggiuntivi ed esportazione.",
+      "connections": "Quali connessioni può usare questo agente."
     },
     "header": {
       "unnamed": "Agente senza nome",
@@ -175,6 +178,54 @@
       "clean": "Nessuna modifica non salvata",
       "new": "Non ancora creato",
       "unsaved": "Modifiche non salvate ({{count}})"
+    },
+    "preset": {
+      "label": "Livello degli strumenti",
+      "loading": "Caricamento dell'elenco degli strumenti",
+      "current": "Livello: {{name}}. Se cambi un interruttore qui sotto diventa una combinazione personalizzata.",
+      "custom": "Combinazione personalizzata di interruttori. Scegli un livello per sostituirla.",
+      "applied": "Livello {{name}} applicato",
+      "appliedBody": "Gli interruttori qui sotto sono cambiati. Non viene salvato nulla finché non salvi.",
+      "readonly": {
+        "title": "Solo consultazione",
+        "body": "Cerca sul web e nelle tue raccolte. Niente file, niente comandi, niente trigger."
+      },
+      "assistant": {
+        "title": "Assistente",
+        "body": "Aggiunge agenti salvati, trigger e modifiche suggerite. Niente file, niente comandi."
+      },
+      "full": {
+        "title": "Completo",
+        "body": "Tutti gli strumenti elencati dal server. I permessi sensibili restano disattivati."
+      }
+    },
+    "tpl": {
+      "applied": "Partito da {{name}}",
+      "appliedBody": "Nome, descrizione, istruzioni e strumenti sono cambiati. Non viene salvato nulla finché non salvi.",
+      "tools": "Strumenti: {{level}}",
+      "noTools": "Strumenti: invariati"
+    },
+    "undo": "Annulla",
+    "keep": "Mantieni",
+    "modelCaps": "Cosa sa fare questo modello",
+    "modelChat": "Chat",
+    "connections": {
+      "addonsTitle": "Add-on che usano una connessione",
+      "addonsNone": "Nessun add-on ha bisogno di una connessione.",
+      "messagingTitle": "Dove è connesso questo agente",
+      "messagingNone": "Nessuna connessione di messaggistica usa ancora questo agente. Salva l'agente, poi aggiungine una.",
+      "messagingHelp": "Le connessioni di messaggistica si impostano nella loro pagina.",
+      "allows_one": "consente {{count}} permesso",
+      "allows_other": "consente {{count}} permessi",
+      "open": "Apri",
+      "addonOff": "disattivato",
+      "noneYet": "Ancora nessuna connessione.",
+      "add": "Aggiungi una connessione",
+      "groupLabel": "Connessioni per {{name}}",
+      "chosenHelp": "Le chat di questo agente possono usare solo le connessioni selezionate.",
+      "perChat": "Nessuna selezionata: ogni chat sceglie la sua.",
+      "summary_one": "{{count}} connessione",
+      "summary_other": "{{count}} connessioni"
     }
   },
   "run": {
@@ -538,5 +589,19 @@
     "effectiveWrite": "È dentro una cartella modificabile, quindi anche questa si può modificare.",
     "notMounted": "{{n}} cartelle condivise non rientrano nel limite di accesso di una chat e non sono montate.",
     "exportNoteMany": "Il file nomina {{n}} cartelle. Dove lo importi, l'agente riceve le cartelle con quei percorsi che esistono e ti chiede di scegliere le altre."
+  },
+  "templates": {
+    "researcher": {
+      "description": "Cerca, legge le fonti e scrive brevi sintesi."
+    },
+    "reviewer": {
+      "description": "Esamina una modifica ed elenca prima ciò che va corretto."
+    },
+    "digest": {
+      "description": "Raccoglie le novità su un argomento e le riassume."
+    },
+    "blank": {
+      "description": "Vuoto. Parti da zero."
+    }
   }
 }

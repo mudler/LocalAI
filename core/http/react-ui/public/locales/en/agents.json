@@ -112,16 +112,20 @@
   },
   "templates": {
     "researcher": {
-      "label": "Research assistant"
+      "label": "Research assistant",
+      "description": "Searches, reads sources and writes short briefs."
     },
     "reviewer": {
-      "label": "Code reviewer"
+      "label": "Code reviewer",
+      "description": "Reviews a change and lists what to fix first."
     },
     "digest": {
-      "label": "Daily digest"
+      "label": "Daily digest",
+      "description": "Collects what is new on a topic and summarises it."
     },
     "blank": {
-      "label": "Blank"
+      "label": "Blank",
+      "description": "Empty. Start from scratch."
     }
   },
   "agent": {
@@ -191,7 +195,8 @@
       "export": "Export",
       "Files": "Files",
       "Tools": "Tools",
-      "Notes": "Memory"
+      "Notes": "Memory",
+      "Connections": "Connections"
     },
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
@@ -260,13 +265,15 @@
       "identity": "Identity",
       "capabilities": "Capabilities",
       "memory": "Memory and knowledge",
-      "advanced": "Advanced"
+      "advanced": "Advanced",
+      "connections": "Connections"
     },
     "lead": {
       "identity": "Who the agent is and how it behaves.",
       "capabilities": "What the agent may use and reach.",
       "memory": "What the agent remembers and what it can look up.",
-      "advanced": "Extra servers and export."
+      "advanced": "Extra servers and export.",
+      "connections": "Which connections this agent may use."
     },
     "header": {
       "unnamed": "Unnamed agent",
@@ -278,6 +285,54 @@
       "clean": "No unsaved changes",
       "new": "Not created yet",
       "unsaved": "Unsaved changes ({{count}})"
+    },
+    "preset": {
+      "label": "Tool level",
+      "loading": "Loading the tool list",
+      "current": "Level: {{name}}. Change a switch below and it becomes a custom mix.",
+      "custom": "Custom mix of switches. Pick a level to replace it.",
+      "applied": "Applied the {{name}} level",
+      "appliedBody": "The switches below changed. Nothing is saved until you save.",
+      "readonly": {
+        "title": "Look only",
+        "body": "Searches the web and your collections. No files, no commands, no triggers."
+      },
+      "assistant": {
+        "title": "Assistant",
+        "body": "Adds saved agents, triggers and suggested changes. No files, no commands."
+      },
+      "full": {
+        "title": "Full",
+        "body": "Every tool the server lists. Sensitive rights stay off."
+      }
+    },
+    "tpl": {
+      "applied": "Started from {{name}}",
+      "appliedBody": "The name, description, instructions and tools changed. Nothing is saved until you save.",
+      "tools": "Tools: {{level}}",
+      "noTools": "Tools: as they are"
+    },
+    "undo": "Undo",
+    "keep": "Keep",
+    "modelCaps": "What this model can do",
+    "modelChat": "Chat",
+    "connections": {
+      "addonsTitle": "Add-ons that use a connection",
+      "addonsNone": "No add-on needs a connection.",
+      "messagingTitle": "Where this agent is connected",
+      "messagingNone": "No messaging connection uses this agent yet. Save the agent, then add one.",
+      "messagingHelp": "Messaging connections are set on their own page.",
+      "allows_one": "allows {{count}} right",
+      "allows_other": "allows {{count}} rights",
+      "open": "Open",
+      "addonOff": "off",
+      "noneYet": "No connection yet.",
+      "add": "Add a connection",
+      "groupLabel": "Connections for {{name}}",
+      "chosenHelp": "Chats of this agent may use only the ticked connections.",
+      "perChat": "None ticked: each chat chooses its own.",
+      "summary_one": "{{count}} connection",
+      "summary_other": "{{count}} connections"
     }
   },
   "status": {

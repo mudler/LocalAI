@@ -82,7 +82,8 @@
       "export": "Export",
       "Files": "Archivos",
       "Tools": "Herramientas",
-      "Notes": "Memoria"
+      "Notes": "Memoria",
+      "Connections": "Conexiones"
     },
     "name": "Name",
     "description": "Description",
@@ -157,13 +158,15 @@
       "identity": "Identidad",
       "capabilities": "Capacidades",
       "memory": "Memoria y conocimiento",
-      "advanced": "Avanzado"
+      "advanced": "Avanzado",
+      "connections": "Conexiones"
     },
     "lead": {
       "identity": "Quién es el agente y cómo se comporta.",
       "capabilities": "Lo que el agente puede usar y alcanzar.",
       "memory": "Lo que el agente recuerda y lo que puede consultar.",
-      "advanced": "Servidores adicionales y exportación."
+      "advanced": "Servidores adicionales y exportación.",
+      "connections": "Qué conexiones puede usar este agente."
     },
     "header": {
       "unnamed": "Agente sin nombre",
@@ -175,6 +178,54 @@
       "clean": "Sin cambios sin guardar",
       "new": "Aún no creado",
       "unsaved": "Cambios sin guardar ({{count}})"
+    },
+    "preset": {
+      "label": "Nivel de herramientas",
+      "loading": "Cargando la lista de herramientas",
+      "current": "Nivel: {{name}}. Si cambia un interruptor de abajo, pasa a ser una mezcla propia.",
+      "custom": "Mezcla propia de interruptores. Elija un nivel para sustituirla.",
+      "applied": "Nivel {{name}} aplicado",
+      "appliedBody": "Los interruptores de abajo han cambiado. No se guarda nada hasta que guarde.",
+      "readonly": {
+        "title": "Solo consultar",
+        "body": "Busca en la web y en sus colecciones. Sin archivos, sin comandos, sin disparadores."
+      },
+      "assistant": {
+        "title": "Asistente",
+        "body": "Añade agentes guardados, disparadores y cambios sugeridos. Sin archivos, sin comandos."
+      },
+      "full": {
+        "title": "Completo",
+        "body": "Todas las herramientas que lista el servidor. Los permisos sensibles siguen desactivados."
+      }
+    },
+    "tpl": {
+      "applied": "Empezado desde {{name}}",
+      "appliedBody": "El nombre, la descripción, las instrucciones y las herramientas han cambiado. No se guarda nada hasta que guarde.",
+      "tools": "Herramientas: {{level}}",
+      "noTools": "Herramientas: sin cambios"
+    },
+    "undo": "Deshacer",
+    "keep": "Conservar",
+    "modelCaps": "Qué puede hacer este modelo",
+    "modelChat": "Chat",
+    "connections": {
+      "addonsTitle": "Complementos que usan una conexión",
+      "addonsNone": "Ningún complemento necesita una conexión.",
+      "messagingTitle": "Dónde está conectado este agente",
+      "messagingNone": "Ninguna conexión de mensajería usa todavía este agente. Guarde el agente y añada una.",
+      "messagingHelp": "Las conexiones de mensajería se configuran en su propia página.",
+      "allows_one": "permite {{count}} permiso",
+      "allows_other": "permite {{count}} permisos",
+      "open": "Abrir",
+      "addonOff": "desactivado",
+      "noneYet": "Aún no hay ninguna conexión.",
+      "add": "Añadir una conexión",
+      "groupLabel": "Conexiones para {{name}}",
+      "chosenHelp": "Los chats de este agente solo pueden usar las conexiones marcadas.",
+      "perChat": "Ninguna marcada: cada chat elige la suya.",
+      "summary_one": "{{count}} conexión",
+      "summary_other": "{{count}} conexiones"
     }
   },
   "run": {
@@ -538,5 +589,19 @@
     "effectiveWrite": "Está dentro de una carpeta que se puede cambiar, así que esta también se puede cambiar.",
     "notMounted": "{{n}} carpetas compartidas no caben en el límite de acceso de un chat y no se montan.",
     "exportNoteMany": "El archivo nombra {{n}} carpetas. Donde lo importes, el agente recibe las carpetas con esas rutas que existan y te pide elegir las demás."
+  },
+  "templates": {
+    "researcher": {
+      "description": "Busca, lee fuentes y escribe resúmenes breves."
+    },
+    "reviewer": {
+      "description": "Revisa un cambio y lista primero lo que hay que corregir."
+    },
+    "digest": {
+      "description": "Reúne las novedades de un tema y las resume."
+    },
+    "blank": {
+      "description": "Vacío. Empiece desde cero."
+    }
   }
 }

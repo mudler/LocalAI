@@ -148,6 +148,8 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
     const options = list.map((c) => ({ value: c.id, label: c.name }))
     // The only connection of the person is always enabled: there is nothing to choose.
     const sole = list.length === 1 && a.connection_by === 'only'
+    // The agent form draws this choice in its Connections section.
+    if (forAgent && switches.pickElsewhere) return {}
     if (forAgent) {
       return {
         pick: {

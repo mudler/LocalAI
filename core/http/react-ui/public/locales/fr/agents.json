@@ -82,7 +82,8 @@
       "export": "Export",
       "Files": "Fichiers",
       "Tools": "Outils",
-      "Notes": "Mémoire"
+      "Notes": "Mémoire",
+      "Connections": "Connexions"
     },
     "name": "Name",
     "description": "Description",
@@ -157,13 +158,15 @@
       "identity": "Identité",
       "capabilities": "Capacités",
       "memory": "Mémoire et connaissances",
-      "advanced": "Avancé"
+      "advanced": "Avancé",
+      "connections": "Connexions"
     },
     "lead": {
       "identity": "Qui est l'agent et comment il se comporte.",
       "capabilities": "Ce que l'agent peut utiliser et atteindre.",
       "memory": "Ce dont l'agent se souvient et ce qu'il peut consulter.",
-      "advanced": "Serveurs supplémentaires et export."
+      "advanced": "Serveurs supplémentaires et export.",
+      "connections": "Les connexions que cet agent peut utiliser."
     },
     "header": {
       "unnamed": "Agent sans nom",
@@ -175,6 +178,54 @@
       "clean": "Aucune modification non enregistrée",
       "new": "Pas encore créé",
       "unsaved": "Modifications non enregistrées ({{count}})"
+    },
+    "preset": {
+      "label": "Niveau d'outils",
+      "loading": "Chargement de la liste d'outils",
+      "current": "Niveau : {{name}}. Si vous changez un interrupteur ci-dessous, cela devient un mélange personnalisé.",
+      "custom": "Mélange personnalisé d'interrupteurs. Choisissez un niveau pour le remplacer.",
+      "applied": "Niveau {{name}} appliqué",
+      "appliedBody": "Les interrupteurs ci-dessous ont changé. Rien n'est enregistré avant que vous enregistriez.",
+      "readonly": {
+        "title": "Consultation seule",
+        "body": "Cherche sur le web et dans vos collections. Pas de fichiers, pas de commandes, pas de déclencheurs."
+      },
+      "assistant": {
+        "title": "Assistant",
+        "body": "Ajoute les agents enregistrés, les déclencheurs et les modifications suggérées. Pas de fichiers, pas de commandes."
+      },
+      "full": {
+        "title": "Complet",
+        "body": "Tous les outils que le serveur liste. Les droits sensibles restent désactivés."
+      }
+    },
+    "tpl": {
+      "applied": "Démarré depuis {{name}}",
+      "appliedBody": "Le nom, la description, les instructions et les outils ont changé. Rien n'est enregistré avant que vous enregistriez.",
+      "tools": "Outils : {{level}}",
+      "noTools": "Outils : inchangés"
+    },
+    "undo": "Annuler",
+    "keep": "Garder",
+    "modelCaps": "Ce que ce modèle sait faire",
+    "modelChat": "Chat",
+    "connections": {
+      "addonsTitle": "Modules qui utilisent une connexion",
+      "addonsNone": "Aucun module n'a besoin d'une connexion.",
+      "messagingTitle": "Où cet agent est connecté",
+      "messagingNone": "Aucune connexion de messagerie n'utilise encore cet agent. Enregistrez l'agent, puis ajoutez-en une.",
+      "messagingHelp": "Les connexions de messagerie se règlent sur leur propre page.",
+      "allows_one": "autorise {{count}} droit",
+      "allows_other": "autorise {{count}} droits",
+      "open": "Ouvrir",
+      "addonOff": "désactivé",
+      "noneYet": "Aucune connexion pour l'instant.",
+      "add": "Ajouter une connexion",
+      "groupLabel": "Connexions pour {{name}}",
+      "chosenHelp": "Les discussions de cet agent ne peuvent utiliser que les connexions cochées.",
+      "perChat": "Aucune cochée : chaque discussion choisit la sienne.",
+      "summary_one": "{{count}} connexion",
+      "summary_other": "{{count}} connexions"
     }
   },
   "run": {
@@ -538,5 +589,19 @@
     "effectiveWrite": "Dans un dossier modifiable : celui-ci peut aussi être modifié.",
     "notMounted": "{{n}} dossiers partagés ne tiennent pas dans la limite d'accès d'un chat et ne sont pas montés.",
     "exportNoteMany": "Le fichier nomme {{n}} dossiers. Là où vous l'importez, l'agent reçoit les dossiers de ces chemins qui existent et vous demande de choisir les autres."
+  },
+  "templates": {
+    "researcher": {
+      "description": "Cherche, lit des sources et rédige de courtes synthèses."
+    },
+    "reviewer": {
+      "description": "Examine une modification et liste d'abord ce qu'il faut corriger."
+    },
+    "digest": {
+      "description": "Réunit les nouveautés d'un sujet et les résume."
+    },
+    "blank": {
+      "description": "Vide. Partez de zéro."
+    }
   }
 }
