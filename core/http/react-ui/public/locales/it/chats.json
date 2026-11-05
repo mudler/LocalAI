@@ -1056,6 +1056,19 @@
         "builtinBody": "File semplici nella tua cartella Memory. Niente lascia questa macchina.",
         "offBody": "Non viene letto, offerto, salvato né inviato nulla. Le note esistenti restano."
       }
+    },
+    "healthTitle": "Il fornitore è in pausa",
+    "forget": {
+      "lede": "Chiedi a {{name}} di dimenticare le note che conserva per te. I tuoi file nella cartella Memory non vengono toccati.",
+      "action": "Dimentica tutto di questo fornitore",
+      "confirmTitle": "Dimenticare tutto di {{name}}?",
+      "confirmBody": "A {{name}} verrà chiesto di dimenticare ogni nota che conserva per te. Può trattenere la modifica finché non la confermi nella pagina Add-ons.",
+      "confirmBodyFinal": "A {{name}} verrà chiesto di dimenticare ogni nota che conserva per te. Non si può annullare.",
+      "confirm": "Dimentica tutto",
+      "pending": "Sto dimenticando...",
+      "done": "{{name}} ha dimenticato le sue note",
+      "waiting": "La modifica attende la tua conferma nella pagina Add-ons",
+      "failed": "Il fornitore non ha potuto dimenticare: {{message}}"
     }
   }
 }

@@ -1056,6 +1056,19 @@
         "builtinBody": "Arquivos simples na sua pasta Memory. Nada sai desta máquina.",
         "offBody": "Nada é lido, oferecido, salvo ou enviado. As notas existentes são mantidas."
       }
+    },
+    "healthTitle": "O provedor está em pausa",
+    "forget": {
+      "lede": "Peça a {{name}} que esqueça as notas que guarda para você. Seus arquivos na pasta Memory não são tocados.",
+      "action": "Esquecer tudo deste provedor",
+      "confirmTitle": "Esquecer tudo de {{name}}?",
+      "confirmBody": "{{name}} será solicitado a esquecer cada nota que guarda para você. Ele pode reter a mudança até você confirmá-la na página de Add-ons.",
+      "confirmBodyFinal": "{{name}} será solicitado a esquecer cada nota que guarda para você. Isso não pode ser desfeito.",
+      "confirm": "Esquecer tudo",
+      "pending": "Esquecendo...",
+      "done": "{{name}} esqueceu suas notas",
+      "waiting": "A mudança aguarda sua confirmação na página de Add-ons",
+      "failed": "O provedor não conseguiu esquecer: {{message}}"
     }
   }
 }

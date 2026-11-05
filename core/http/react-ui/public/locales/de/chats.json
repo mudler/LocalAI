@@ -1056,6 +1056,19 @@
         "builtinBody": "Einfache Dateien in deinem Ordner „Memory“. Nichts verlässt diesen Rechner.",
         "offBody": "Nichts wird gelesen, angeboten, gespeichert oder gesendet. Vorhandene Notizen bleiben erhalten."
       }
+    },
+    "healthTitle": "Der Anbieter pausiert",
+    "forget": {
+      "lede": "Bitte {{name}}, die Notizen zu vergessen, die er für dich speichert. Deine Dateien im Ordner Memory bleiben unberührt.",
+      "action": "Alles dieses Anbieters vergessen",
+      "confirmTitle": "Alles von {{name}} vergessen?",
+      "confirmBody": "{{name}} wird gebeten, jede Notiz zu vergessen, die er für dich speichert. Er kann die Änderung zurückhalten, bis du sie auf der Seite Add-ons bestätigst.",
+      "confirmBodyFinal": "{{name}} wird gebeten, jede Notiz zu vergessen, die er für dich speichert. Das lässt sich nicht rückgängig machen.",
+      "confirm": "Alles vergessen",
+      "pending": "Wird vergessen...",
+      "done": "{{name}} hat seine Notizen vergessen",
+      "waiting": "Die Änderung wartet auf deine Bestätigung auf der Seite Add-ons",
+      "failed": "Der Anbieter konnte nicht vergessen: {{message}}"
     }
   }
 }

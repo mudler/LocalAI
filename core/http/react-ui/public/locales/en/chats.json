@@ -1378,6 +1378,19 @@
         "builtinBody": "Plain files in your Memory folder. Nothing leaves this machine.",
         "offBody": "Nothing is read, offered, saved or sent. Existing notes are kept."
       }
+    },
+    "healthTitle": "The provider is paused",
+    "forget": {
+      "lede": "Ask {{name}} to forget the notes it keeps for you. Your files in the Memory folder are not touched.",
+      "action": "Forget everything from this provider",
+      "confirmTitle": "Forget everything from {{name}}?",
+      "confirmBody": "{{name}} will be asked to forget every note it keeps for you. It may hold the change until you confirm it on the Add-ons page.",
+      "confirmBodyFinal": "{{name}} will be asked to forget every note it keeps for you. This cannot be undone.",
+      "confirm": "Forget everything",
+      "pending": "Forgetting...",
+      "done": "{{name}} forgot its notes",
+      "waiting": "The change waits for your confirmation on the Add-ons page",
+      "failed": "The provider could not forget: {{message}}"
     }
   }
 }

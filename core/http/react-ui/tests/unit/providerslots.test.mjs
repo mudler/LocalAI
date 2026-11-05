@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { pickable, providerFacts, providerFailure, slotOf } from '../../src/utils/providerSlots.js'
+import { forgettable, pickable, providerFacts, providerFailure, slotOf } from '../../src/utils/providerSlots.js'
 
 const builtin = { id: 'builtin', kind: 'builtin', available: true, selected: true }
 const fake = { id: 'fake-notes', kind: 'addon', title: 'Fake notes', available: true, selected: false, properties: { remote: true, undo: 'none' } }
@@ -45,4 +45,16 @@ test('provider slots: only a provider that is listed, available and not already 
   const down = slot({ selected: 'builtin' }, [builtin, { ...fake, available: false }, off])
   assert.equal(pickable(down, 'fake-notes'), null, 'an add-on that cannot serve now')
   assert.equal(pickable(null, 'off'), null)
+})
+
+test('provider slots: forget is offered only for an add-on that serves and declares the forget role', () => {
+  const can = { ...fake, selected: true, roles: ['read', 'forget'] }
+  const cannot = { ...fake, selected: true, roles: ['read'] }
+  const on = { selected: 'fake-notes', active: 'fake-notes', off: false }
+  assert.deepEqual(forgettable(slot(on, [builtin, can, off])), { id: 'fake-notes', title: 'Fake notes', undo: 'none' })
+  assert.equal(forgettable(slot(on, [builtin, cannot, off])), null, 'no forget role')
+  assert.equal(forgettable(slot({ selected: 'builtin', active: 'builtin', off: false })), null, 'the built-in provider has none')
+  assert.equal(forgettable(slot({ selected: 'off', active: 'off', off: true, code: 'provider_off' }, [builtin, can, off])), null, 'Off serves nothing')
+  assert.equal(forgettable(slot({ selected: 'fake-notes', active: 'off', off: true, code: 'provider_unavailable' }, [builtin, { ...can, available: false }, off])), null, 'a provider that is down')
+  assert.equal(forgettable(null), null)
 })

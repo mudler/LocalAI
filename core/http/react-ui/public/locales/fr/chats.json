@@ -1056,6 +1056,19 @@
         "builtinBody": "Des fichiers simples dans votre dossier Memory. Rien ne quitte cette machine.",
         "offBody": "Rien n'est lu, proposé, enregistré ni envoyé. Les notes existantes sont conservées."
       }
+    },
+    "healthTitle": "Le fournisseur est en pause",
+    "forget": {
+      "lede": "Demandez à {{name}} d'oublier les notes qu'il garde pour vous. Vos fichiers du dossier Memory ne sont pas touchés.",
+      "action": "Tout oublier chez ce fournisseur",
+      "confirmTitle": "Tout oublier chez {{name}} ?",
+      "confirmBody": "{{name}} devra oublier chaque note qu'il garde pour vous. Il peut retenir le changement jusqu'à ce que vous le confirmiez sur la page Add-ons.",
+      "confirmBodyFinal": "{{name}} devra oublier chaque note qu'il garde pour vous. Cette action est irréversible.",
+      "confirm": "Tout oublier",
+      "pending": "Oubli en cours...",
+      "done": "{{name}} a oublié ses notes",
+      "waiting": "Le changement attend votre confirmation sur la page Add-ons",
+      "failed": "Le fournisseur n'a pas pu oublier : {{message}}"
     }
   }
 }

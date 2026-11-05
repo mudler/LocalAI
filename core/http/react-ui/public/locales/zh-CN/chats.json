@@ -1056,6 +1056,19 @@
         "builtinBody": "你的 Memory 文件夹中的普通文件。数据不会离开这台机器。",
         "offBody": "不读取、不提供、不保存也不发送任何内容。现有笔记保留不变。"
       }
+    },
+    "healthTitle": "该提供方已暂停",
+    "forget": {
+      "lede": "请 {{name}} 忘记它为你保存的笔记。你在 Memory 文件夹中的文件不会被改动。",
+      "action": "忘记此提供方的全部内容",
+      "confirmTitle": "忘记 {{name}} 的全部内容？",
+      "confirmBody": "将请 {{name}} 忘记它为你保存的每条笔记。它可能会保留该更改，直到你在 Add-ons 页面确认。",
+      "confirmBodyFinal": "将请 {{name}} 忘记它为你保存的每条笔记。此操作无法撤销。",
+      "confirm": "全部忘记",
+      "pending": "正在忘记...",
+      "done": "{{name}} 已忘记其笔记",
+      "waiting": "该更改正等待你在 Add-ons 页面确认",
+      "failed": "提供方无法忘记：{{message}}"
     }
   }
 }

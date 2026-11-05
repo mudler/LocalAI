@@ -1056,6 +1056,19 @@
         "builtinBody": "Archivos simples en tu carpeta Memory. Nada sale de esta máquina.",
         "offBody": "No se lee, ofrece, guarda ni envía nada. Las notas existentes se conservan."
       }
+    },
+    "healthTitle": "El proveedor está en pausa",
+    "forget": {
+      "lede": "Pide a {{name}} que olvide las notas que guarda para ti. Tus archivos de la carpeta Memory no se tocan.",
+      "action": "Olvidar todo de este proveedor",
+      "confirmTitle": "¿Olvidar todo de {{name}}?",
+      "confirmBody": "Se pedirá a {{name}} que olvide cada nota que guarda para ti. Puede retener el cambio hasta que lo confirmes en la página de Add-ons.",
+      "confirmBodyFinal": "Se pedirá a {{name}} que olvide cada nota que guarda para ti. No se puede deshacer.",
+      "confirm": "Olvidar todo",
+      "pending": "Olvidando...",
+      "done": "{{name}} olvidó sus notas",
+      "waiting": "El cambio espera tu confirmación en la página de Add-ons",
+      "failed": "El proveedor no pudo olvidar: {{message}}"
     }
   }
 }

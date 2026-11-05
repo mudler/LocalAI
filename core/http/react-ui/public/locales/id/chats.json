@@ -1056,6 +1056,19 @@
         "builtinBody": "File biasa di folder Memory Anda. Tidak ada yang keluar dari mesin ini.",
         "offBody": "Tidak ada yang dibaca, ditawarkan, disimpan, atau dikirim. Catatan yang ada tetap disimpan."
       }
+    },
+    "healthTitle": "Penyedia sedang dijeda",
+    "forget": {
+      "lede": "Minta {{name}} melupakan catatan yang disimpannya untuk Anda. File Anda di folder Memory tidak disentuh.",
+      "action": "Lupakan semuanya dari penyedia ini",
+      "confirmTitle": "Lupakan semuanya dari {{name}}?",
+      "confirmBody": "{{name}} akan diminta melupakan setiap catatan yang disimpannya untuk Anda. Perubahan bisa ditahan sampai Anda mengonfirmasinya di halaman Add-ons.",
+      "confirmBodyFinal": "{{name}} akan diminta melupakan setiap catatan yang disimpannya untuk Anda. Ini tidak dapat diurungkan.",
+      "confirm": "Lupakan semuanya",
+      "pending": "Melupakan...",
+      "done": "{{name}} melupakan catatannya",
+      "waiting": "Perubahan menunggu konfirmasi Anda di halaman Add-ons",
+      "failed": "Penyedia tidak dapat melupakan: {{message}}"
     }
   }
 }

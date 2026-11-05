@@ -42,3 +42,15 @@ export function pickable(slot, id) {
   if (!p || !p.available || slot.resolution?.selected === id) return null
   return id
 }
+
+// The add-on that serves the slot now when it can forget what it keeps, as
+// { id, title, undo }, or null. It needs a provider that serves (not Off, not a
+// failed one) and the forget role in what it declared. The built-in provider
+// declares none.
+export function forgettable(slot) {
+  const r = slot?.resolution
+  if (!r || r.off || !r.active || r.active === PROVIDER_BUILTIN) return null
+  const p = slot.providers?.find((x) => x.id === r.active && x.kind === 'addon')
+  if (!p || !p.available || !(p.roles || []).includes('forget')) return null
+  return { id: p.id, title: p.title, undo: p.properties?.undo || '' }
+}
