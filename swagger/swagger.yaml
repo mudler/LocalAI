@@ -3780,6 +3780,12 @@ definitions:
           SendFiles sends the files that a turn makes to the sender, after the
           answer.
         type: boolean
+      ui_language:
+        description: |-
+          UILanguage is the interface language the owner's page last sent, such as
+          it or pt-BR. With reply_language auto, the bot speaks in it before it
+          reads the language of the sender. Absent when the server was not told.
+        type: string
       window_minutes:
         type: integer
       write_mode:
@@ -4767,6 +4773,12 @@ definitions:
           SendFiles sends the files that a turn makes to the sender, after the
           answer.
         type: boolean
+      ui_language:
+        description: |-
+          UILanguage is the interface language the owner's page last sent, such as
+          it or pt-BR. With reply_language auto, the bot speaks in it before it
+          reads the language of the sender. Absent when the server was not told.
+        type: string
       window_minutes:
         type: integer
       write_mode:
@@ -5324,6 +5336,13 @@ definitions:
           on for a new binding and unchanged for an update.
         type: boolean
       token:
+        type: string
+      ui_language:
+        description: |-
+          UILanguage is the interface language of the person who saves the
+          binding (a language tag such as it or pt-BR). The page of the add-on
+          sends it with each save. Absent or empty keeps the stored value; a value
+          that is not a language tag is ignored.
         type: string
       window_minutes:
         description: WindowMinutes is the time window of the window mode, 1 to 10080.

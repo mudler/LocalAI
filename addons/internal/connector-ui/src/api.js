@@ -10,8 +10,15 @@ const enc = encodeURIComponent
 // (kinds, access, preview) name it, so the host answers in it: the language
 // of the interface may differ from the language of the browser.
 let language = ''
+// The interface language, English included: a save sends it to the host, which
+// keeps it with the binding for the sentences the bot writes itself.
+let uiLanguage = ''
 // English is the host's own text, so it is not asked for.
-export function setApiLanguage(tag) { language = typeof tag === 'string' && !/^en(-|$)/i.test(tag) ? tag : '' }
+export function setApiLanguage(tag) {
+  uiLanguage = typeof tag === 'string' ? tag : ''
+  language = uiLanguage && !/^en(-|$)/i.test(uiLanguage) ? uiLanguage : ''
+}
+const withUILanguage = (body) => (uiLanguage && body && typeof body === 'object' ? { ...body, ui_language: uiLanguage } : body)
 const localized = (path) => (language ? `${path}${path.includes('?') ? '&' : '?'}lang=${enc(language)}` : path)
 
 async function call(path, init = {}) {
@@ -39,8 +46,8 @@ export const agentsApi = { list: () => call('/api/chats/agents') }
 export const connectorsApi = {
   list: () => call('/api/chats/connectors'),
   kinds: () => call(localized('/api/chats/connectors/kinds')).then((r) => (r ? { ...r, capabilities: localizeCapabilities(r.capabilities) } : r)),
-  create: (body) => send('POST', '/api/chats/connectors', body),
-  update: (id, body) => send('PUT', `/api/chats/connectors/${enc(id)}`, body),
+  create: (body) => send('POST', '/api/chats/connectors', withUILanguage(body)),
+  update: (id, body) => send('PUT', `/api/chats/connectors/${enc(id)}`, withUILanguage(body)),
   remove: (id) => send('DELETE', `/api/chats/connectors/${enc(id)}`),
   enable: (id) => send('POST', `/api/chats/connectors/${enc(id)}/enable`, {}),
   disable: (id) => send('POST', `/api/chats/connectors/${enc(id)}/disable`, {}),

@@ -449,6 +449,9 @@ test.describe('Connector permissions', () => {
     await expect(page.getByTestId('connector-can-files.upload')).toContainText('Receive files')
     expect(a.s.urls.some(u => u.endsWith('/api/chats/connectors/kinds?lang=it'))).toBe(true)
     expect(a.s.urls.some(u => u.endsWith('/access/preview?lang=it'))).toBe(true)
+    // A save tells the host the interface language, for the sentences the bot writes itself.
+    await page.getByRole('button', { name: 'Salva' }).click()
+    await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.ui_language).toBe('it')
   })
 
   test('a blocker held by the server settings links to Settings for an administrator and says to ask one otherwise', async ({ page }) => {

@@ -157,6 +157,11 @@ type Binding struct {
 	// people in the chat: hostmsg.Auto (or empty) follows the language of the
 	// sender's message, any other value is a language of the catalog.
 	ReplyLanguage string
+	// UILanguage is the interface language of the owner, as the owner's page
+	// last sent it (a tag such as "it" or "pt-BR"), or empty when the server
+	// has not been told. With the reply language on auto, the host speaks in it
+	// before it tries to detect the language of the sender.
+	UILanguage string
 	// FilesOff keeps the files a turn makes from going to the sender. The
 	// zero value sends them, so a binding stored before the option sends
 	// them too.

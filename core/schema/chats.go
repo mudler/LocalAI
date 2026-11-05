@@ -1336,6 +1336,10 @@ type ChatsConnector struct {
 	// language of the sender's message), en, it, de, es, fr or pt-BR. The
 	// answers of the model follow the conversation, not this setting.
 	ReplyLanguage string `json:"reply_language"`
+	// UILanguage is the interface language the owner's page last sent, such as
+	// it or pt-BR. With reply_language auto, the bot speaks in it before it
+	// reads the language of the sender. Absent when the server was not told.
+	UILanguage string `json:"ui_language,omitempty"`
 	// Options are the choices made for the options of the kind, by option id.
 	// An option that is absent has its default (see ChatsConnectorKind).
 	Options map[string]string `json:"options,omitempty"`
@@ -1667,6 +1671,11 @@ type ChatsConnectorWrite struct {
 	// ReplyLanguage is auto, en, it, de, es, fr or pt-BR. Absent means auto
 	// for a new binding and unchanged for an update.
 	ReplyLanguage *string `json:"reply_language,omitempty" enums:"auto,en,it,de,es,fr,pt-BR"`
+	// UILanguage is the interface language of the person who saves the
+	// binding (a language tag such as it or pt-BR). The page of the add-on
+	// sends it with each save. Absent or empty keeps the stored value; a value
+	// that is not a language tag is ignored.
+	UILanguage *string `json:"ui_language,omitempty"`
 	// SendFiles turns the sending of a turn's files on or off. Absent means
 	// on for a new binding and unchanged for an update.
 	SendFiles *bool `json:"send_files,omitempty"`

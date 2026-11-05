@@ -15,7 +15,7 @@
   "answer.windowRange": "Saisissez un nombre entier de 1 à {{max}}.",
   "answer.languageLabel": "Langue des réponses",
   "answer.languageHelp": "Les messages que le bot écrit lui-même, comme les confirmations et les refus. Les réponses du modèle suivent la langue de la conversation.",
-  "answer.language.auto": "Automatique (la langue de l'expéditeur)",
+  "answer.language.auto": "Automatique (la langue de votre interface, sinon celle de l'expéditeur)",
   "answer.language.en": "English",
   "answer.language.it": "Italiano",
   "answer.language.de": "Deutsch",

@@ -15,7 +15,7 @@
   "answer.windowRange": "Gib eine ganze Zahl von 1 bis {{max}} ein.",
   "answer.languageLabel": "Antwortsprache",
   "answer.languageHelp": "Die Hinweise, die der Bot selbst schreibt, etwa Bestätigungen und Absagen. Die Antworten des Modells folgen der Sprache der Unterhaltung.",
-  "answer.language.auto": "Automatisch (Sprache des Absenders)",
+  "answer.language.auto": "Automatisch (Sprache deiner Oberfläche, sonst die des Absenders)",
   "answer.language.en": "English",
   "answer.language.it": "Italiano",
   "answer.language.de": "Deutsch",

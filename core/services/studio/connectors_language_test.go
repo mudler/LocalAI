@@ -8,6 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -72,14 +73,7 @@ var _ = Describe("the language of the host sentences in a chat", func() {
 	dm := func(text string) contract.ConnectorMessage {
 		return contract.ConnectorMessage{Chat: "11", Direct: true, Text: text}
 	}
-	// ask sends a direct message and returns what the bot wrote back last,
-	// after n messages have come.
-	ask := func(text string, n int) string {
-		ingest(dm(text))
-		waitFor("the answer", func() bool { return len(fake.texts("11", "")) >= n })
-		// The answer reaches the chat before the turn is marked finished, and a
-		// command that comes in that gap is refused as busy. Wait for the end of
-		// the turn, as a person does when they read the answer.
+	turnEnded := func() {
 		waitFor("the turn to end", func() bool {
 			chats, err := r.svc.List(ctx, alice, 50)
 			Expect(err).NotTo(HaveOccurred())
@@ -90,6 +84,16 @@ var _ = Describe("the language of the host sentences in a chat", func() {
 			}
 			return true
 		})
+	}
+	// ask sends a direct message and returns what the bot wrote back last,
+	// after n messages have come.
+	ask := func(text string, n int) string {
+		ingest(dm(text))
+		waitFor("the answer", func() bool { return len(fake.texts("11", "")) >= n })
+		// The answer reaches the chat before the turn is marked finished, and a
+		// command that comes in that gap is refused as busy. Wait for the end of
+		// the turn, as a person does when they read the answer.
+		turnEnded()
 		t := fake.texts("11", "")
 		return t[len(t)-1]
 	}
@@ -139,6 +143,55 @@ var _ = Describe("the language of the host sentences in a chat", func() {
 		setup(nil, func(o *studio.ConnectorOptions) {
 			o.OwnerLanguage = func(context.Context, string) string { return "fr-CA" }
 		})
+		Expect(ask("/new", 1)).To(HavePrefix("Nouvelle conversation démarrée."))
+	})
+
+	// refusalSentence sends a kind of message the host cannot read and returns
+	// the sentence it wrote for it. The refusal does not depend on a running
+	// turn, so it is never the "still answering" note.
+	refusalSentence := func() string {
+		before := len(fake.texts("11", ""))
+		ingest(contract.ConnectorMessage{Chat: "11", Direct: true, Unsupported: true})
+		waitFor("the refusal", func() bool { return len(fake.texts("11", "")) > before })
+		t := fake.texts("11", "")
+		return t[len(t)-1]
+	}
+
+	It("speaks the interface language the owner's page sent, before it reads the sender", func() {
+		setup(nil, nil)
+		saved, err := r.conns.UpdateConnector(ctx, alice, b.ID, studio.ConnectorInput{Kind: "chatty", Name: b.Name, AgentID: b.AgentID, Allow: []string{"11"}, Enabled: true, UILanguage: ptr("de-AT")})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(saved.UILanguage).To(Equal("de-AT"))
+		ask("Ciao, puoi mandarmi il file di ieri?", 1)
+		Expect(refusalSentence()).To(Equal(hostmsg.Template("de", "unsupported")), "the owner's language comes before the detection")
+	})
+
+	It("keeps the stored interface language when a save sends none, and ignores a value that is no tag", func() {
+		setup(nil, nil)
+		update := func(lang *string) studio.ConnectorInfo {
+			got, err := r.conns.UpdateConnector(ctx, alice, b.ID, studio.ConnectorInput{Kind: "chatty", Name: b.Name, AgentID: b.AgentID, Allow: []string{"11"}, Enabled: true, UILanguage: lang})
+			Expect(err).NotTo(HaveOccurred())
+			return got
+		}
+		Expect(update(ptr("it")).UILanguage).To(Equal("it"))
+		Expect(update(nil).UILanguage).To(Equal("it"))
+		Expect(update(ptr("")).UILanguage).To(Equal("it"))
+		Expect(update(ptr("not a tag!")).UILanguage).To(Equal("it"))
+		Expect(update(ptr("fr")).UILanguage).To(Equal("fr"))
+	})
+
+	It("falls back to the detection when the owner's language is not one of the catalog or is unknown", func() {
+		setup(nil, nil)
+		_, err := r.conns.UpdateConnector(ctx, alice, b.ID, studio.ConnectorInput{Kind: "chatty", Name: b.Name, AgentID: b.AgentID, Allow: []string{"11"}, Enabled: true, UILanguage: ptr("ko")})
+		Expect(err).NotTo(HaveOccurred())
+		ask("Ciao, puoi mandarmi il file di ieri?", 1)
+		Expect(refusalSentence()).To(Equal(hostmsg.Template("it", "unsupported")))
+	})
+
+	It("lets a fixed reply language win over the interface language of the owner", func() {
+		setup(ptr("fr"), nil)
+		_, err := r.conns.UpdateConnector(ctx, alice, b.ID, studio.ConnectorInput{Kind: "chatty", Name: b.Name, AgentID: b.AgentID, Allow: []string{"11"}, Enabled: true, UILanguage: ptr("de")})
+		Expect(err).NotTo(HaveOccurred())
 		Expect(ask("/new", 1)).To(HavePrefix("Nouvelle conversation démarrée."))
 	})
 

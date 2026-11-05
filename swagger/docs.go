@@ -20819,6 +20819,10 @@ const docTemplate = `{
                     "description": "SendFiles sends the files that a turn makes to the sender, after the\nanswer.",
                     "type": "boolean"
                 },
+                "ui_language": {
+                    "description": "UILanguage is the interface language the owner's page last sent, such as\nit or pt-BR. With reply_language auto, the bot speaks in it before it\nreads the language of the sender. Absent when the server was not told.",
+                    "type": "string"
+                },
                 "window_minutes": {
                     "type": "integer"
                 },
@@ -21966,6 +21970,10 @@ const docTemplate = `{
                     "description": "SendFiles sends the files that a turn makes to the sender, after the\nanswer.",
                     "type": "boolean"
                 },
+                "ui_language": {
+                    "description": "UILanguage is the interface language the owner's page last sent, such as\nit or pt-BR. With reply_language auto, the bot speaks in it before it\nreads the language of the sender. Absent when the server was not told.",
+                    "type": "string"
+                },
                 "window_minutes": {
                     "type": "integer"
                 },
@@ -22646,6 +22654,10 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "token": {
+                    "type": "string"
+                },
+                "ui_language": {
+                    "description": "UILanguage is the interface language of the person who saves the\nbinding (a language tag such as it or pt-BR). The page of the add-on\nsends it with each save. Absent or empty keeps the stored value; a value\nthat is not a language tag is ignored.",
                     "type": "string"
                 },
                 "window_minutes": {

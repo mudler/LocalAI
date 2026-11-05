@@ -671,7 +671,7 @@ model answers in the language of the conversation, as it does without this setti
 
 | Value | Language |
 |---|---|
-| `auto` (default) | The language of the sender, see below. |
+| `auto` (default) | The interface language of the owner when the server knows it, else the language of the sender, see below. |
 | `en` | English |
 | `it` | Italian |
 | `de` | German |
@@ -679,11 +679,17 @@ model answers in the language of the conversation, as it does without this setti
 | `fr` | French |
 | `pt-BR` | Portuguese (Brazil) |
 
-With `auto`, LocalAI reads each message of the sender and scores it against the common
+With `auto`, the bot first uses the interface language of the owner, when the catalog has it.
+The page of the add-on sends that language with each save (`ui_language`, a tag such as `it`
+or `pt-BR`) and the binding keeps it, so every frontend of a cluster knows it. A save that
+sends none keeps the stored one, and a value that is not a language tag is ignored. When
+the owner's language is not known, or the six languages above lack it (Korean, for
+example), LocalAI reads each message of the sender and scores it against the common
 words of the six languages. It needs no model and sends the text nowhere. A message that
 does not show a language clearly (`ok`, `yes`, `thanks`, a number, an emoji) does not
 change anything. The last clear language of a sender is kept in memory for 24 hours, and
-a later short reply keeps it; a full sentence in another language moves it. A trigger
+a later short reply keeps it; a full sentence in another language moves it. The reading
+decides only when the owner's language is not known. A trigger
 that writes to a chat on its own uses the language last seen in that chat. When nothing
 is known, the host uses English. A fixed language ignores what the sender writes.
 
@@ -1201,7 +1207,7 @@ restart). The JSON store is for one process.
 | Draft IDs | Per instance | A counter in the process that sends the replies gives each turn a new draft ID. Two frontends could give the same ID, but a draft only lives in one chat for one turn. |
 | The chats of the answers (thread mode) | Shared | Each answer's message IDs are stored with the chat of each sender, so a reply finds its chat on any frontend. |
 | Slack Socket Mode links and their queues | Per instance | The Slack add-on process keeps one link per polled binding, acknowledges each event at once and queues it until the next poll. An event that is queued when the process stops is lost. The followed threads and the "Working…" messages are kept there too. |
-| The language of each sender | Per instance | With `reply_language` set to `auto`, the frontend that takes a message keeps the last clear language of the sender and of the chat in memory for 24 hours. A trigger that runs on another frontend does not know it and uses the interface language of the owner when the server has it, else English. A fixed language is stored with the binding and works everywhere. |
+| The language of each sender | Per instance | With `reply_language` set to `auto`, the frontend that takes a message keeps the last clear language of the sender and of the chat in memory for 24 hours. A trigger that runs on another frontend does not know it and uses English. The interface language of the owner is stored with the binding, so it is the same on every frontend. A fixed language is stored with the binding and works everywhere. |
 | Files marked by `attach_file` | Per instance | The marks live in the process that runs the turn and are sent by the process that sends the replies. A turn that ends on another frontend than the one that sends the answer loses its marks; the agent then sees no error, and the person asks again. |
 
 ### For add-on authors: sending files

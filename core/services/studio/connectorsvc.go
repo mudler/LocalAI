@@ -40,6 +40,11 @@ type ConnectorInput struct {
 	// the chat: hostmsg.Auto or a language code. Nil means auto for a new
 	// binding and unchanged for an update.
 	ReplyLanguage *string
+	// UILanguage is the interface language of the owner, sent by the page that
+	// saves the binding. Nil or empty leaves the stored value; a value that is
+	// not a language tag is ignored, because it is a hint and never a reason to
+	// refuse a save.
+	UILanguage *string
 	// SendFiles sends the files a turn makes to the sender. Nil means on for
 	// a new binding and unchanged for an update.
 	SendFiles *bool
@@ -83,6 +88,11 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 		b.ReplyLanguage = *in.ReplyLanguage
 		if b.ReplyLanguage == hostmsg.Auto {
 			b.ReplyLanguage = ""
+		}
+	}
+	if in.UILanguage != nil {
+		if tag := strings.TrimSpace(*in.UILanguage); tag != "" && contract.ValidLanguageTag(tag) {
+			b.UILanguage = tag
 		}
 	}
 	if in.SendFiles != nil {
