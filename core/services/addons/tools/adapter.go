@@ -129,6 +129,11 @@ type ToolDefinition struct {
 	// run with the token of a connection that the person selects. A chat
 	// offers them only after a connection is selected.
 	Credentialed bool `json:"credentialed,omitempty"`
+	// OwnerData is true when the add-on keeps the owner's own data (see
+	// contract.Capabilities.OwnerData). Its write tools carry Permission
+	// tools.write; the owner and paired senders of a messaging chat hold it
+	// without a tick, as for an add-on the agent is connected to.
+	OwnerData bool `json:"ownerData,omitempty"`
 	// ApprovalOverridable is true for a write tool that declares approval
 	// "always" and lets the person relax it with their own setting (see
 	// contract.ToolDefinition). The chat consumer shows it; the broker decides.
@@ -799,7 +804,7 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	if json.Unmarshal(d.InputSchema, &params) != nil {
 		return ToolDefinition{}, false
 	}
-	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, Permission: contract.ToolPermission(a.Credentialed || (a.Resources != nil && a.Resources.AgentScoped), d), Credentialed: a.Credentialed, ApprovalOverridable: d.ApprovalOverridable && d.Approval == contract.ApprovalAlways,
+	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, OwnerData: a.OwnerData, Permission: contract.ToolPermission(a.Credentialed || a.OwnerData || (a.Resources != nil && a.Resources.AgentScoped), d), Credentialed: a.Credentialed, ApprovalOverridable: d.ApprovalOverridable && d.Approval == contract.ApprovalAlways,
 		ResourceArgument: a.ResourceArgument, ResourceLabel: a.ResourceLabel, ResourceScoped: a.Resources != nil && a.Resources.AgentScoped,
 		Title: d.Title, SummaryFields: slices.Clone(d.SummaryFields)}
 	// Checked again for the same reason as the schema: a manifest that names a

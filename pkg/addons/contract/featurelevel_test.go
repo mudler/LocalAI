@@ -71,6 +71,16 @@ var _ = Describe("Feature level", func() {
 		m.FeatureLevel = 0
 		Expect(ValidateManifest(m, compatible())).NotTo(Succeed(), "a plural noun is a level 2 field")
 	})
+	It("requires featureLevel 3 for ownerData, and a level 2 host refuses it", func() {
+		m := base()
+		m.Capabilities.OwnerData = true
+		Expect(ValidateManifest(m, compatible())).To(MatchError(ContainSubstring("must declare featureLevel 3")))
+		m.FeatureLevel = 3
+		Expect(ValidateManifest(m, compatible())).To(Succeed())
+		h := compatible()
+		h.FeatureLevel = 2
+		Expect(ValidateManifest(m, h)).To(MatchError("needs a newer LocalAI"))
+	})
 	It("keeps the field out of an older strict reader: an unknown key is refused", func() {
 		type olderManifest struct {
 			SchemaVersion int `json:"schemaVersion"`

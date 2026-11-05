@@ -1588,13 +1588,13 @@ The four compatibility ranges above are integers that every published add-on sta
 without making every published add-on incompatible, so the host also has a **feature
 level**: one integer that counts the additive manifest features it understands.
 
-- The host declares its level (`contract.HostFeatureLevel`). This version has level 2.
+- The host declares its level (`contract.HostFeatureLevel`). This version has level 3.
   A host that predates the levels is level 1.
 - A manifest may set `featureLevel` (a positive integer, default 1). It states the level
   the add-on needs. A manifest that uses a field of a higher level must say so: the
   parser refuses a manifest that uses `capabilities.resources.agentScoped`,
   `capabilities.resources.nounPlural` or `i18n.<language>.resources` and does not declare
-  `featureLevel: 2`.
+  `featureLevel: 2`. `capabilities.ownerData` is level 3.
 - A host with a lower level refuses the add-on with the plain reason **needs a newer
   LocalAI**. The add-on is not installed and not upgraded. A failed install or upgrade has
   the cause `needs_newer_host`, and an update check shows the add-on as incompatible with
@@ -3407,6 +3407,18 @@ but never offers it to a model, a chat, an agent or a trigger, and a model that
 names it gets the unknown-tool answer. The Sandbox uses it for `set-backend` and
 `confirm-host`: they change a setting, and the add-on asks the host whether the
 caller is an administrator before it acts.
+
+### Add-ons that keep the owner's own data
+
+An add-on that keeps the data of one person and needs no credential and no resource list (the
+[Calendar add-on](/features/calendar/)) sets `capabilities.ownerData` to `true` and
+`featureLevel` to 3. Its tools name no resource: the add-on keys the data on the user in the
+authority of the call, never on an argument. Reads run at once for every sender a messaging
+bot lets in. A tool of another kind than `read` is held to `tools.write` in a messaging chat,
+like the writes of a credentialed add-on: the owner and the senders paired with the bot hold
+it without a tick on the bot, and every other sender (a listed person who is not paired, a
+channel, a bot that accepts anyone) can read but not change. A trigger or a job runs the writes
+only under the `act.addons` grant of the action policy, as for any action tool.
 
 ### Resource listing for agents
 

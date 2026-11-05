@@ -949,7 +949,7 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 			continue
 		}
 		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead,
-			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt, Permission: d.Permission, Credentialed: d.Credentialed, ApprovalOverridable: d.ApprovalOverridable, Tool: d.Tool, ResourceScoped: d.ResourceScoped})
+			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt, Permission: d.Permission, Credentialed: d.Credentialed, OwnerData: d.OwnerData, ApprovalOverridable: d.ApprovalOverridable, Tool: d.Tool, ResourceScoped: d.ResourceScoped})
 	}
 	return filterByFeature(out, s.hostOps, s.has, actor), nil
 }

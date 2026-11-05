@@ -75,7 +75,8 @@ func (r VersionRange) isHostAPI() bool {
 // the manifest, as it refuses any unknown field.
 //
 // Level 2: capabilities.resources.agentScoped.
-const HostFeatureLevel uint64 = 2
+// Level 3: capabilities.ownerData.
+const HostFeatureLevel uint64 = 3
 
 // BaseFeatureLevel is the level of a manifest that sets no featureLevel.
 const BaseFeatureLevel uint64 = 1
@@ -109,6 +110,9 @@ func (m Manifest) RequiredFeatureLevel() uint64 {
 // usedFeatureLevel is the lowest level that holds every optional field the
 // manifest uses.
 func (m Manifest) usedFeatureLevel() uint64 {
+	if m.Capabilities.OwnerData {
+		return 3
+	}
 	if r := m.Capabilities.Resources; r != nil && (r.AgentScoped || r.NounPlural != "") {
 		return 2
 	}
@@ -171,6 +175,12 @@ type Capabilities struct {
 	// no manifest that declares one without it, so reading the capabilities is
 	// enough to know that an add-on can change things without a confirmation.
 	Actions bool `json:"actions,omitempty"`
+	// OwnerData says that the tools keep the owner's own data in the add-on
+	// (a calendar, say) without a credential or a resource list. A tool of
+	// another kind than read then changes the owner's data on the word of
+	// whoever is talking, so a messaging chat holds it to the tools.write
+	// permission (see ToolPermission). Level 3.
+	OwnerData bool `json:"ownerData,omitempty"`
 	// AdminTools are tools that only the host's own UI-only resource
 	// management endpoints may run. They are never in Tools, never have a
 	// tool definition and never reach a model, a proposal, a typed dispatch

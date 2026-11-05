@@ -142,8 +142,9 @@ func ConnectorCapabilities() []CapabilityInfo {
 // writes, in an add-on that holds a credential for the person's binding,
 // changes something outside LocalAI with that person's token, and needs
 // CapToolsWrite. So does a tool that writes in an add-on whose resources are
-// scoped per agent: it changes the owner's data on a sender's word, and the
-// capability is sensitive, so only the owner and paired senders hold it.
+// scoped per agent, or in an add-on that declares ownerData: it changes the
+// owner's data on a sender's word, so a sender needs the capability, which
+// the owner and paired senders hold.
 // credentialed says that the manifest declares credentials or per-agent
 // resources.
 func ToolPermission(credentialed bool, d ToolDefinition) string {

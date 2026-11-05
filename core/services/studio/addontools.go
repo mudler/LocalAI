@@ -48,6 +48,10 @@ type AddonTool struct {
 	// enabled for the chat (see Connectors.ConnectionsOf); until then a chat
 	// does not offer it.
 	Credentialed bool
+	// OwnerData is true for a tool of an add-on that keeps the owner's own
+	// data. Its write tools are held to tools.write, which the owner and the
+	// paired senders of a messaging chat have without a tick.
+	OwnerData bool
 	// ApprovalOverridable is true for a write tool whose confirmation the
 	// person can relax with their own setting. Tool is its name inside the
 	// add-on, the key of that setting.
@@ -416,6 +420,10 @@ func (s *Service) addonToolsHeld(ctx context.Context, a workspace.Actor, rec ses
 			var connected bool
 			if d.Permission == contract.CapToolsWrite && d.Credentialed {
 				connected = s.agentConnectedForWrite(ctx, a.Principal, d.AddonID, conns)
+			} else if d.Permission == contract.CapToolsWrite && d.OwnerData {
+				// The data is the owner's and the agent was given the add-on:
+				// the owner and paired senders write, every other sender reads.
+				connected = true
 			}
 			if tool, ok, why = s.gateAddonTool(tool, d.Permission, a.ChatID, connected); !ok {
 				held.add(d, strings.TrimSuffix(why, "."))

@@ -192,6 +192,10 @@ type App struct {
 	// work with a secret that the person keeps in a connector binding. A
 	// connector chat holds its write tools to contract.ToolPermission.
 	Credentialed bool `json:"credentialed,omitempty"`
+	// OwnerData is true when the manifest says the tools keep the owner's own
+	// data (capabilities.ownerData). Its writes need tools.write in a
+	// connector chat, like the writes of a credentialed add-on.
+	OwnerData bool `json:"ownerData,omitempty"`
 	// ResourceArgument and ResourceLabel come from the credential slot: the
 	// argument that names the resource of a call, and the word for it in the
 	// lines that say which connection acted. They are not part of the apps API.
@@ -359,6 +363,7 @@ func build(s Snapshot, admin bool) App {
 		a.ToolDefinitions = append(a.ToolDefinitions, d)
 	}
 	a.Credentialed = len(m.Capabilities.Credentials) > 0
+	a.OwnerData = m.Capabilities.OwnerData
 	if a.Credentialed {
 		a.ResourceArgument, a.ResourceLabel = m.Capabilities.Credentials[0].ResourceArgument, m.Capabilities.Credentials[0].ResourceLabel
 	}
