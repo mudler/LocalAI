@@ -265,7 +265,8 @@
       "files": {
         "all": "Pode acessar todos os seus arquivos.",
         "folders_one": "Só pode acessar a {{count}} pasta escolhida.",
-        "folders_other": "Só pode acessar as {{count}} pastas escolhidas."
+        "folders_other": "Só pode acessar as {{count}} pastas escolhidas.",
+        "none": "Não alcança nenhum dos seus arquivos."
       },
       "grants": {
         "parentOff": "{{name}} é permitido, mas não funciona enquanto {{parent}} estiver desligado. Ligue {{parent}}.",
@@ -451,7 +452,8 @@
       "noChanges": "Nothing differs from the saved trigger.",
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
-      "changed_other": "{{count}} changes"
+      "changed_other": "{{count}} changes",
+      "watchNoFiles": "Este agente está em \"Nenhum arquivo\": uma execução deste gatilho fica sabendo que chegou um arquivo, mas não consegue abri-lo. Dê acesso a arquivos no editor do agente ou escolha outro agente."
     },
     "subtitle": "Inicie um agente por agenda ou quando um arquivo chegar. Cada execução é um chat que você pode abrir."
   },
@@ -655,7 +657,7 @@
   },
   "folder": {
     "all": "Todos os meus arquivos",
-    "one": "Pastas escolhidas",
+    "one": "Somente estas pastas",
     "scopeLabel": "Arquivos que este agente pode alcançar",
     "allHelp": "Os chats com este agente alcançam todos os seus arquivos, como um chat sem agente.",
     "choose": "Escolher pasta",
@@ -696,7 +698,9 @@
     "effectiveRead": "Está dentro de uma pasta somente leitura, então esta só pode ser lida.",
     "effectiveWrite": "Está dentro de uma pasta que pode ser alterada, então esta também pode ser alterada.",
     "notMounted": "{{n}} pastas compartilhadas não cabem no limite de acesso de um chat e não são montadas.",
-    "exportNoteMany": "O arquivo cita {{n}} pastas. Onde você importar, o agente recebe as pastas com esses caminhos que existirem e pede que você escolha as outras."
+    "exportNoteMany": "O arquivo cita {{n}} pastas. Onde você importar, o agente recebe as pastas com esses caminhos que existirem e pede que você escolha as outras.",
+    "none": "Nenhum arquivo",
+    "noneHelp": "Este agente não alcança nenhum dos seus arquivos. Os arquivos que você anexa a um chat ficam nesse chat. Vigiar uma pasta exige acesso a arquivos: um gatilho que vigia uma pasta ainda inicia para este agente, mas não consegue abrir os arquivos que chegam."
   },
   "templates": {
     "researcher": {

@@ -200,6 +200,47 @@ export function effectiveModes(rows) {
   })
 }
 
+// --- The Files choice of an agent ---
+//
+// One choice in three words, stored in fields every saved agent already has:
+//   none     the Files tool switch is off (builtins_off holds "files"); the
+//            server then gives the agent's chats no file access at all and
+//            ignores any folder still stored
+//   all      the switch is on and the folder list is empty
+//   folders  the switch is on and the list names the folders
+// An agent saved before the choice maps as it always behaved: Files on with
+// no folders is "all", Files off is "none", a folder list is "folders".
+
+export const FILES_GROUP = 'files'
+export const FILES_CHOICES = ['none', 'all', 'folders']
+
+const asList = (x) => (Array.isArray(x) ? x : [])
+
+// Whether the Files tool switch of an agent (or of the form) is off.
+export const filesOff = (agent) => asList(agent?.builtins_off).includes(FILES_GROUP)
+
+// The choice as the form or a saved agent holds it.
+export function filesChoiceOf(agent) {
+  if (filesOff(agent)) return 'none'
+  // A form holds `folders` (the rows being edited), and the singular `folder`
+  // of the server's reply may still sit next to it: the rows are the answer.
+  const rows = Array.isArray(agent?.folders) ? agent.folders : folderRows(agent)
+  return rows.length ? 'folders' : 'all'
+}
+
+// The form with another Files choice. No files switches the tool off and drops
+// the folder rows (a stored folder would still fence the agent and, if
+// missing, stop it); All my files switches it on with no rows; Only these
+// folders switches it on and keeps the rows, else brings back the saved ones,
+// else starts one row to fill in (the save waits until it has a folder).
+export function withFilesChoice(form, choice, savedRows) {
+  const rest = asList(form.builtins_off).filter((g) => g !== FILES_GROUP)
+  if (choice === 'none') return { ...form, builtins_off: [...rest, FILES_GROUP], folders: [] }
+  if (choice === 'all') return { ...form, builtins_off: rest, folders: [] }
+  const rows = asList(form.folders).length ? form.folders : asList(savedRows).length ? savedRows : [{ mode: 'read' }]
+  return { ...form, builtins_off: rest, folders: rows }
+}
+
 // The folders field of a create or replace request, or undefined when the
 // rows did not change, so a save keeps the stored folders. `initial` is the
 // rows as read from the server, `current` what the form holds now. No rows

@@ -103,9 +103,11 @@ export function effectiveLines({ form, rows, skills, memory, access, isEdit }) {
   const skillOn = list(skills).filter((s) => s.on)
   if (skillOn.length) add({ id: 'skills', state: 'allowed', text: 'skills.some', vars: { count: skillOn.length, ...names(skillOn.map((s) => s.label || s.id)) }, section: 'capabilities' })
 
-  // Files.
+  // Files. One line for the three choices: the switch off is No files.
   const files = tools.find((r) => r.id === 'files')
-  if (files && files.usable !== false) {
+  if (list(form.builtins_off).includes('files')) {
+    add({ id: 'files', state: 'off', text: 'files.none', section: 'capabilities' })
+  } else if (files && files.usable !== false) {
     const n = list(form.folders).length
     add({ id: 'files', state: 'allowed', text: n ? 'files.folders' : 'files.all', vars: { count: n }, section: 'capabilities' })
   }

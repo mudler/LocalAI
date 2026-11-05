@@ -265,7 +265,8 @@
       "files": {
         "all": "Può raggiungere tutti i tuoi file.",
         "folders_one": "Può raggiungere solo la {{count}} cartella scelta.",
-        "folders_other": "Può raggiungere solo le {{count}} cartelle scelte."
+        "folders_other": "Può raggiungere solo le {{count}} cartelle scelte.",
+        "none": "Non può raggiungere nessuno dei tuoi file."
       },
       "grants": {
         "parentOff": "{{name}} è consentito, ma non funziona finché {{parent}} è disattivato. Attiva {{parent}}.",
@@ -451,7 +452,8 @@
       "noChanges": "Nothing differs from the saved trigger.",
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
-      "changed_other": "{{count}} changes"
+      "changed_other": "{{count}} changes",
+      "watchNoFiles": "Questo agente ha «Nessun file»: un’esecuzione di questo trigger sa che è arrivato un file, ma non può aprirlo. Dagli l’accesso ai file nel suo editor o scegli un altro agente."
     },
     "subtitle": "Avvia un agente secondo un orario o quando arriva un file. Ogni esecuzione è una chat che puoi aprire."
   },
@@ -655,7 +657,7 @@
   },
   "folder": {
     "all": "Tutti i miei file",
-    "one": "Cartelle scelte",
+    "one": "Solo queste cartelle",
     "scopeLabel": "File che questo agente può raggiungere",
     "allHelp": "Le chat con questo agente raggiungono tutti i tuoi file, come una chat senza agente.",
     "choose": "Scegli cartella",
@@ -696,7 +698,9 @@
     "effectiveRead": "È dentro una cartella di sola lettura, quindi questa si può solo leggere.",
     "effectiveWrite": "È dentro una cartella modificabile, quindi anche questa si può modificare.",
     "notMounted": "{{n}} cartelle condivise non rientrano nel limite di accesso di una chat e non sono montate.",
-    "exportNoteMany": "Il file nomina {{n}} cartelle. Dove lo importi, l'agente riceve le cartelle con quei percorsi che esistono e ti chiede di scegliere le altre."
+    "exportNoteMany": "Il file nomina {{n}} cartelle. Dove lo importi, l'agente riceve le cartelle con quei percorsi che esistono e ti chiede di scegliere le altre.",
+    "none": "Nessun file",
+    "noneHelp": "Questo agente non può raggiungere nessuno dei tuoi file. I file che alleghi a una chat restano in quella chat. Controllare una cartella richiede l’accesso ai file: un trigger che controlla una cartella parte comunque per questo agente, ma non può aprire i file in arrivo."
   },
   "templates": {
     "researcher": {

@@ -16,6 +16,7 @@ import { JobStrip } from '../components/agents/JobBits'
 // eslint-disable-next-line no-unused-vars
 import { StatusMark, formatWhen } from '../components/agents/AgentBits'
 import { CAP_CHAT } from '../utils/capabilities'
+import { filesOff } from '../utils/chatAgents'
 import { diffConfig, displayValue } from '../utils/agentConfigTools'
 import { jobOfRun, STRIP } from '../utils/agentJobs'
 import { jobSentence } from '../utils/agentJobText'
@@ -253,7 +254,7 @@ const SECTIONS = [
 
 // The fields of the schedule: the preset chosen, then what that preset needs.
 // eslint-disable-next-line no-unused-vars
-function ScheduleFields({ form, setForm, folders, t }) {
+function ScheduleFields({ form, setForm, folders, noFiles, t }) {
   const s = form.schedule
   const set = (patch) => setForm({ ...form, schedule: { ...s, ...patch } })
   const hasTime = ['daily', 'weekdays', 'weekly', 'monthly', 'once'].includes(s.preset)
@@ -348,6 +349,7 @@ function ScheduleFields({ form, setForm, folders, t }) {
           </div>
         </fieldset>
       )}
+      {s.preset === 'file' && noFiles && <p className="dk-hint" role="note" data-testid="aj-folder-nofiles">{t('jobs.edit.watchNoFiles')}</p>}
       {s.preset === 'file' && (
         <div className="aj-row2">
           <div className="dk-field">
@@ -570,7 +572,7 @@ function TaskForm({ id, isNew }) {
     if (sid === 'schedule') {
       return (
         <div className="aj-form">
-          <ScheduleFields form={task} setForm={setTask} folders={folders} t={t} />
+          <ScheduleFields form={task} setForm={setTask} folders={folders} noFiles={!!picked && filesOff(picked)} t={t} />
           {next.text && <p className="aj-words" data-testid="trigger-preview">{next.text}</p>}
           {next.error && <p className="dk-field-error" role="alert">{next.error}</p>}
         </div>

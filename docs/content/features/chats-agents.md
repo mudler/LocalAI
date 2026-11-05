@@ -244,8 +244,33 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folders": [
   [Triggers of an agent with a folder](#triggers-of-an-agent-with-a-folder) and
   the [connectors page](/features/chats-connectors/#what-a-message-gets).
 
-In the web interface, the **Files** section of the agent form sets the folder:
-**All my files**, or **Chosen folders**: one row for each folder, with **Choose folder**, which opens a folder
+In the web interface, the **Files** section of the agent form is one choice in
+three words:
+
+- **No files**: the agent cannot list, read, write or search any of your files,
+  with any tool. It is the Files tool switch (`builtins_off` holds `files`).
+  The server then fences the agent's chats to their own chat folder and the
+  read-only skill layers, so the image and audio helpers, a Sandbox command and
+  an add-on cannot reach your files either. Files you attach to a chat stay in
+  that chat. Any folder stored on the agent is ignored while Files is off, and
+  choosing **No files** in the form removes the folders from the agent. The
+  Look only and Assistant levels already mean **No files** and now select it.
+  Watching a folder needs file access: a trigger that watches a folder still
+  starts for such an agent but cannot open the files that arrive, and the
+  trigger editor says so.
+- **All my files**: the Files tool is on and the agent has no folder. A new
+  agent starts here, and an agent saved before this choice with Files on and no
+  folder reads the same.
+- **Only these folders**: the Files tool is on and the agent has a folder list.
+
+The folder rows, the picker and the access of each row show only for **Only
+these folders**. The choice shows in the agent's header and page, in the
+Effective view (**Cannot reach any of your files**, **Can reach all your files**
+or **Can reach only N folders**) and in the Try it list of what a test chat does
+not use. The API has no new field: send `builtins_off` with or without `files`
+and `folders`.
+
+For **Only these folders**, one row for each folder, with **Choose folder**, which opens a folder
 picker of your files (`LocalAI`, `Chats` and shared folders cannot be chosen),
 the access of that row, **Can read** or **Can read and change**, and a remove button. **Add folder** stops at eight. A row inside another row shows the mode it works at. The agents list and the
 agent's page show the folder and its access, with a lock for read only, or

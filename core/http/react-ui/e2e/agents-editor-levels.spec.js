@@ -39,6 +39,8 @@ test.describe('Tool levels', () => {
     await expect(files).not.toBeChecked()
     await expect(page.getByTestId('agent-preset-readonly').locator('input')).toBeChecked()
     await expect(page.getByTestId('agent-preset-state')).toContainText('Level: Look only')
+    // Look only means No files, and the Files choice says so.
+    await expect(page.getByTestId('agent-folder-scope-none')).toHaveAttribute('aria-pressed', 'true')
     const note = page.getByTestId('agent-preset-applied')
     await expect(note).toContainText('Applied the Look only level')
     await expect(note).toContainText('Nothing is saved until you save')
@@ -46,6 +48,7 @@ test.describe('Tool levels', () => {
     await page.getByTestId('agent-preset-applied-undo').click()
     await expect(note).toHaveCount(0)
     await expect(files).toBeChecked()
+    await expect(page.getByTestId('agent-folder-scope-all')).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByTestId('agent-preset-state')).toContainText('Custom mix')
     expect(s.calls.some(c => c.method === 'POST' || c.method === 'PUT')).toBe(false)
   })

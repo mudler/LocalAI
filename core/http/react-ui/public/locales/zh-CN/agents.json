@@ -265,7 +265,8 @@
       "files": {
         "all": "可以访问你的所有文件。",
         "folders_one": "只能访问你选择的 {{count}} 个文件夹。",
-        "folders_other": "只能访问你选择的 {{count}} 个文件夹。"
+        "folders_other": "只能访问你选择的 {{count}} 个文件夹。",
+        "none": "无法访问你的任何文件。"
       },
       "grants": {
         "parentOff": "{{name}} 已允许，但在 {{parent}} 关闭时无法工作。请打开 {{parent}}。",
@@ -451,7 +452,8 @@
       "noChanges": "Nothing differs from the saved trigger.",
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
-      "changed_other": "{{count}} changes"
+      "changed_other": "{{count}} changes",
+      "watchNoFiles": "此智能体设置为“无文件”，此触发器的运行只会得知有文件到达，却无法打开。请在其编辑器中授予文件访问权限，或选择其他智能体。"
     },
     "subtitle": "按计划或在文件到达时启动智能体。每次运行都是一个可以打开的聊天。"
   },
@@ -655,7 +657,7 @@
   },
   "folder": {
     "all": "我的所有文件",
-    "one": "选定的文件夹",
+    "one": "仅这些文件夹",
     "scopeLabel": "此智能体可访问的文件",
     "allHelp": "与此智能体的对话可以访问你的所有文件，就像没有智能体的对话一样。",
     "choose": "选择文件夹",
@@ -696,7 +698,9 @@
     "effectiveRead": "位于只读文件夹内，因此这个文件夹也只能读取。",
     "effectiveWrite": "位于可修改的文件夹内，因此这个文件夹也可以修改。",
     "notMounted": "有 {{n}} 个共享文件夹超出了聊天的访问上限，未挂载。",
-    "exportNoteMany": "文件列出了 {{n}} 个文件夹。导入时，智能体会使用这些路径中存在的文件夹，并请你为其余的重新选择。"
+    "exportNoteMany": "文件列出了 {{n}} 个文件夹。导入时，智能体会使用这些路径中存在的文件夹，并请你为其余的重新选择。",
+    "none": "无文件",
+    "noneHelp": "此智能体无法访问你的任何文件。你附加到聊天的文件只保留在该聊天中。监视文件夹需要文件访问权限：监视文件夹的触发器仍会为此智能体启动，但无法打开到达的文件。"
   },
   "templates": {
     "researcher": {

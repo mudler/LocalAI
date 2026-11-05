@@ -372,7 +372,8 @@
       "files": {
         "all": "Can reach all your files.",
         "folders_one": "Can reach only the {{count}} folder you chose.",
-        "folders_other": "Can reach only the {{count}} folders you chose."
+        "folders_other": "Can reach only the {{count}} folders you chose.",
+        "none": "Cannot reach any of your files."
       },
       "grants": {
         "parentOff": "{{name}} is allowed, but it cannot work while {{parent}} is off. Turn {{parent}} on.",
@@ -674,7 +675,8 @@
       "loadingTask": "Loading trigger",
       "promptRequired": "Write what the trigger should do",
       "noAgent": "No agent",
-      "capHint": "The most chats this trigger may start in one day. Empty uses the default."
+      "capHint": "The most chats this trigger may start in one day. Empty uses the default.",
+      "watchNoFiles": "This agent has No files, so a run of this trigger is told that a file arrived but cannot open it. Give the agent file access in its editor, or choose another agent."
     },
     "actionFailed": "The action failed: {{message}}",
     "subtitle": "Start an agent on a schedule or when a file arrives. Every run is a chat you can open."
@@ -898,7 +900,7 @@
   },
   "folder": {
     "all": "All my files",
-    "one": "Chosen folders",
+    "one": "Only these folders",
     "scopeLabel": "Files this agent can reach",
     "allHelp": "Chats with this agent can reach all your files, as a chat without an agent can.",
     "choose": "Choose folder",
@@ -939,6 +941,8 @@
     "effectiveRead": "Inside a folder that can only be read, so this one can only be read.",
     "effectiveWrite": "Inside a folder that can be changed, so this one can be changed too.",
     "notMounted": "{{n}} shared folders do not fit the access limit of a chat and are not mounted.",
-    "exportNoteMany": "The file names {{n}} folders. Where you import it, the agent gets the folders with those paths that exist, and asks you to choose the others."
+    "exportNoteMany": "The file names {{n}} folders. Where you import it, the agent gets the folders with those paths that exist, and asks you to choose the others.",
+    "none": "No files",
+    "noneHelp": "This agent cannot reach any of your files. Files you attach to a chat stay in that chat. Watching a folder needs file access, so a trigger that watches a folder still starts for this agent but cannot open the files that arrive."
   }
 }

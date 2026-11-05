@@ -11,7 +11,7 @@ import { useMemorySettings } from '../hooks/useMemorySettings'
 import { useAgentAccess } from '../hooks/useAgentAccess'
 import { effectiveLines, flatRows, blockedCount } from '../utils/agentEffective'
 import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
-import { agentPayload, effectiveModes, emptyAgent, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, MEMORY_GRANT, memoryChoiceOf, memorySaveOf, missingConnectorGrants, newAgent, setGrant, withMemoryChoice } from '../utils/chatAgents'
+import { agentPayload, effectiveModes, emptyAgent, filesChoiceOf, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, withFilesChoice, MEMORY_GRANT, memoryChoiceOf, memorySaveOf, missingConnectorGrants, newAgent, setGrant, withMemoryChoice } from '../utils/chatAgents'
 import { activePreset, PRESET_KEYS, presetPatch, snapshot, TEMPLATE_TEXT_KEYS } from '../utils/agentPresets'
 import { modelCaps } from '../utils/modelCaps'
 import { seesImages } from '../utils/chatVision'
@@ -182,7 +182,8 @@ export default function AgentCreate() {
   const initialFolders = useMemo(() => (isEdit ? folderRows(savedConfig) : []), [isEdit, savedConfig])
   const payload = useMemo(() => agentPayload(form, { initialFolders }), [form, initialFolders])
   // A folder row was added or changed and has no folder chosen.
-  const folderUnchosen = foldersUnchosen(initialFolders, form.folders)
+  // With No files the rows do not count: the server ignores them.
+  const folderUnchosen = filesChoiceOf(form) !== 'none' && foldersUnchosen(initialFolders, form.folders)
 
   // Adding the first grant to an agent that had none turns off what it did
   // by default on its messaging connections. Say so, and offer the fix.
@@ -346,6 +347,7 @@ export default function AgentCreate() {
   // What the Files fold says when closed, and whether it needs the person.
   function folderFold() {
     const rows = form.folders || []
+    if (filesChoice === 'none') return { summary: t('folder.none'), state: 'ready' }
     if (!rows.length) return { summary: t('folder.all'), state: 'ready' }
     const open = rows.find(r => !r.path)
     if (open) {
@@ -360,11 +362,14 @@ export default function AgentCreate() {
   }
   function shownPath(path) { return path === '/' ? t('folder.home') : path }
 
-  // All my files, or chosen folders: back to the saved rows when there are some.
-  const setScope = (scope) => {
-    if (scope === 'all') updateField('folders', [])
-    else if (!(form.folders || []).length) updateField('folders', initialFolders.length ? initialFolders : [{ mode: 'read' }])
-  }
+  // The Files choice: No files, All my files or Only these folders. It sets
+  // the Files tool switch and the folder rows together (see withFilesChoice).
+  const filesChoice = filesChoiceOf(form)
+  const setScope = (choice) => setForm(prev => withFilesChoice(prev, choice, initialFolders))
+  // A level or template that leaves the Files tool off is No files: the folder
+  // rows go with it, so the choice reads the same everywhere. One that leaves
+  // it on keeps the rows (Full never wipes them).
+  const withPresetFiles = (next) => (filesChoiceOf(next) === 'none' ? { ...next, folders: [] } : next)
   const setRow = (i, patch) => updateField('folders', form.folders.map((r, j) => (j === i ? { ...r, ...patch } : r)))
   const removeRow = (i) => updateField('folders', form.folders.filter((_, j) => j !== i))
   const addRow = () => { updateField('folders', [...form.folders, { mode: 'read' }]); setChoosingFolder('new') }
@@ -378,14 +383,14 @@ export default function AgentCreate() {
   const applyLevel = (pid) => {
     const patch = presetPatch(pid, form, toolGroupsList, grantCatalog)
     if (!patch) return
-    setApplied({ kind: 'preset', id: pid, name: t(`create.preset.${pid}.title`), before: snapshot(form, PRESET_KEYS) })
-    setForm(prev => ({ ...prev, ...patch }))
+    setApplied({ kind: 'preset', id: pid, name: t(`create.preset.${pid}.title`), before: snapshot(form, [...PRESET_KEYS, 'folders']) })
+    setForm(prev => withPresetFiles({ ...prev, ...patch }))
   }
   const applyTemplate = (tpl) => {
     const patch = tpl.preset ? presetPatch(tpl.preset, form, toolGroupsList, grantCatalog) : null
-    const keys = patch ? [...TEMPLATE_TEXT_KEYS, ...PRESET_KEYS] : TEMPLATE_TEXT_KEYS
+    const keys = patch ? [...TEMPLATE_TEXT_KEYS, ...PRESET_KEYS, 'folders'] : TEMPLATE_TEXT_KEYS
     setApplied({ kind: 'template', id: tpl.id, name: t(`templates.${tpl.id}.label`), before: snapshot(form, keys) })
-    setForm(prev => ({ ...prev, name: tpl.name, description: tpl.description, instructions: tpl.instructions, ...(patch || {}) }))
+    setForm(prev => withPresetFiles({ ...prev, name: tpl.name, description: tpl.description, instructions: tpl.instructions, ...(patch || {}) }))
   }
   const undoApplied = () => {
     if (!applied) return
@@ -537,10 +542,11 @@ export default function AgentCreate() {
           <>
             <Segmented
               label={t('folder.scopeLabel')} testId="agent-folder-scope" itemTestId="agent-folder-scope-"
-              value={rows.length ? 'one' : 'all'} onChange={setScope}
-              options={[{ id: 'all', label: t('folder.all') }, { id: 'one', label: t('folder.one') }]}
+              value={filesChoice === 'folders' ? 'one' : filesChoice} onChange={(c) => setScope(c === 'one' ? 'folders' : c)}
+              options={[{ id: 'none', label: t('folder.none') }, { id: 'all', label: t('folder.all') }, { id: 'one', label: t('folder.one') }]}
             />
-            {rows.length > 0 && (
+            {filesChoice === 'none' && <p className="ag-note ag-note--gap" data-testid="agent-folder-none-help">{t('folder.noneHelp')}</p>}
+            {filesChoice === 'folders' && (
               <div className="ag-folder" data-testid="agent-folder">
                 {rows.map((f, i) => {
                   const st = f.path ? 'ok' : folderState({ folder: f })
@@ -595,7 +601,7 @@ export default function AgentCreate() {
                 {isEdit && <p className="ag-note">{t('folder.nextMessage')}</p>}
               </div>
             )}
-            {!rows.length && <p className="ag-note ag-note--gap">{t('folder.allHelp')}</p>}
+            {filesChoice === 'all' && <p className="ag-note ag-note--gap">{t('folder.allHelp')}</p>}
           </>
         )
       }

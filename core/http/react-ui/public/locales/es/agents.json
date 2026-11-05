@@ -265,7 +265,8 @@
       "files": {
         "all": "Puede acceder a todos sus archivos.",
         "folders_one": "Solo puede acceder a la {{count}} carpeta elegida.",
-        "folders_other": "Solo puede acceder a las {{count}} carpetas elegidas."
+        "folders_other": "Solo puede acceder a las {{count}} carpetas elegidas.",
+        "none": "No puede acceder a ninguno de tus archivos."
       },
       "grants": {
         "parentOff": "{{name}} está permitido, pero no funciona mientras {{parent}} esté desactivado. Active {{parent}}.",
@@ -451,7 +452,8 @@
       "noChanges": "Nothing differs from the saved trigger.",
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
-      "changed_other": "{{count}} changes"
+      "changed_other": "{{count}} changes",
+      "watchNoFiles": "Este agente tiene «Sin archivos»: una ejecución de este disparador sabe que llegó un archivo, pero no puede abrirlo. Dale acceso a archivos en su editor o elige otro agente."
     },
     "subtitle": "Inicia un agente según un horario o cuando llega un archivo. Cada ejecución es un chat que puedes abrir."
   },
@@ -655,7 +657,7 @@
   },
   "folder": {
     "all": "Todos mis archivos",
-    "one": "Carpetas elegidas",
+    "one": "Solo estas carpetas",
     "scopeLabel": "Archivos que este agente puede alcanzar",
     "allHelp": "Los chats con este agente alcanzan todos tus archivos, como un chat sin agente.",
     "choose": "Elegir carpeta",
@@ -696,7 +698,9 @@
     "effectiveRead": "Está dentro de una carpeta de solo lectura, así que esta solo se puede leer.",
     "effectiveWrite": "Está dentro de una carpeta que se puede cambiar, así que esta también se puede cambiar.",
     "notMounted": "{{n}} carpetas compartidas no caben en el límite de acceso de un chat y no se montan.",
-    "exportNoteMany": "El archivo nombra {{n}} carpetas. Donde lo importes, el agente recibe las carpetas con esas rutas que existan y te pide elegir las demás."
+    "exportNoteMany": "El archivo nombra {{n}} carpetas. Donde lo importes, el agente recibe las carpetas con esas rutas que existan y te pide elegir las demás.",
+    "none": "Sin archivos",
+    "noneHelp": "Este agente no puede acceder a ninguno de tus archivos. Los archivos que adjuntas a un chat se quedan en ese chat. Vigilar una carpeta necesita acceso a archivos: un disparador que vigila una carpeta sigue iniciándose para este agente, pero no puede abrir los archivos que llegan."
   },
   "templates": {
     "researcher": {

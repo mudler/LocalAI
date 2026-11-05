@@ -40,7 +40,7 @@ export function notApplied(form) {
   if (list(form.builtins).length) out.push('grants')
   if (form.memory) out.push('memory')
   if (list(form.collections).length) out.push('knowledge')
-  if (list(form.folders).length) out.push('folders')
+  if (list(form.folders).length && !list(form.builtins_off).includes('files')) out.push('folders')
   return out
 }
 

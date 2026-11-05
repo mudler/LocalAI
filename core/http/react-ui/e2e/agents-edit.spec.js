@@ -331,6 +331,76 @@ test.describe('Agent folder', () => {
     await expect(page.locator('[data-agent="code-reviewer"]').getByTestId('agent-folder-chip')).toContainText('Acme, read only')
   })
 
+  test('Files is one explicit choice: No files, All my files or Only these folders', async ({ page }) => {
+    const s = await installAgents(page, { files: HOME_FOLDERS })
+    await page.goto('/app/agents/new')
+    await page.getByLabel('Name', { exact: false }).first().fill('Reader')
+    const choice = page.getByTestId('agent-folder-scope')
+    await expect(choice.getByRole('button')).toHaveText(['No files', 'All my files', 'Only these folders'])
+    // A new agent keeps All my files, and no folder is added for it.
+    await expect(page.getByTestId('agent-folder-scope-all')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByTestId('agent-folder')).toHaveCount(0)
+
+    await page.getByTestId('agent-folder-scope-none').click()
+    await expect(page.getByTestId('agent-folder-scope-none')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByTestId('agent-folder-none-help')).toContainText('cannot reach any of your files')
+    await expect(page.getByTestId('agent-folder')).toHaveCount(0)
+    await expect(fold(page, 'Files')).toContainText('No files')
+    // The Tools list says the same: the Files switch is off.
+    await expect(page.getByTestId('agent-tools-panel').getByRole('switch', { name: /Your files/ })).not.toBeChecked()
+
+    await page.getByTestId('agent-folder-scope-one').click()
+    await expect(page.getByTestId('agent-folder')).toBeVisible()
+    await expect(page.getByTestId('agent-tools-panel').getByRole('switch', { name: /Your files/ })).toBeChecked()
+    // Back to None: the unchosen row does not block the save.
+    await page.getByTestId('agent-folder-scope-none').click()
+    await page.getByRole('button', { name: 'Create Agent' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    const body = s.calls.find(c => c.method === 'POST').body
+    expect(body.builtins_off).toContain('files')
+    expect(body.folders).toBeUndefined()
+  })
+
+  test('No files shows in the Effective view and the Try it list, and clears the folders of a saved agent', async ({ page }) => {
+    const s = await installAgents(page, { files: HOME_FOLDERS, agents: withFolder(ACME_READ) })
+    await page.goto('/app/agents/a2/edit')
+    await expect(page.getByTestId('agent-folder-scope-one')).toHaveAttribute('aria-pressed', 'true')
+    await page.getByTestId('agent-try-open').click()
+    await expect(page.getByTestId('agent-try-skipped')).toContainText('shared folders')
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('agent-try')).toHaveCount(0)
+    await page.getByTestId('agent-folder-scope-none').click()
+    await expect(page.getByTestId('agent-effective')).toContainText('Cannot reach any of your files.')
+    await page.getByTestId('agent-try-open').click()
+    await expect(page.getByTestId('agent-try')).toBeVisible()
+    await expect(page.getByTestId('agent-try-skipped')).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('agent-try')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    const body = s.calls.find(c => c.method === 'PUT').body
+    expect(body.folders).toEqual([])
+    expect(body.builtins_off).toContain('files')
+    await expect(page.locator('[data-agent="code-reviewer"]').getByTestId('agent-folder-chip')).toContainText('No files')
+  })
+
+  test('existing agents read as before: Files off is No files, a folder list is Only these folders, the rest All my files', async ({ page }) => {
+    await installAgents(page, { files: HOME_FOLDERS, agents: AGENTS.map(a => (a.id === 'a2' ? { ...a, builtins_off: ['files'] } : a)) })
+    await page.goto('/app/agents/a2/edit')
+    await expect(page.getByTestId('agent-folder-scope-none')).toHaveAttribute('aria-pressed', 'true')
+    await page.getByTestId('agent-folder-scope-all').click()
+    await expect(page.getByTestId('agent-folder')).toHaveCount(0)
+    await page.goto('/app/agents/a1/edit')
+    await expect(page.getByTestId('agent-folder-scope-all')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('No files says that watching a folder needs file access', async ({ page }) => {
+    await installAgents(page, { files: HOME_FOLDERS })
+    await page.goto('/app/agents/new')
+    await page.getByTestId('agent-folder-scope-none').click()
+    await expect(page.getByTestId('agent-folder-none-help')).toContainText('Watching a folder needs file access')
+  })
+
   test('read only shows the lock chip, and the mode switch sends write', async ({ page }) => {
     const s = await installAgents(page, { files: HOME_FOLDERS, agents: withFolder(ACME_READ) })
     await page.goto('/app/agents/a2')
@@ -360,6 +430,8 @@ test.describe('Agent folder', () => {
 
     await page.goto('/app/agents/a2/edit')
     await page.getByTestId('agent-folder-scope-all').click()
+    await expect(page.getByTestId('agent-folder-scope-all')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByTestId('agent-folder')).toHaveCount(0)
     await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
     expect(s.calls.filter(c => c.method === 'PUT')[1].body.folders).toEqual([])

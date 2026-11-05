@@ -152,3 +152,18 @@ test('try it: names what the test does not use, and keeps only readable lines', 
   const lines = tryLines([{ seq: 1, role: 'user', text: 'hi' }, { seq: 2, role: 'reasoning', text: 'x' }, { seq: 3, role: 'tool', text: 'web_search\n{...}' }, { seq: 4, role: 'assistant', text: ' ' }, { seq: 5, role: 'assistant', text: 'ok' }])
   assert.deepEqual(lines.map((l) => [l.role, l.text]), [['user', 'hi'], ['tool', 'web_search'], ['assistant', 'ok']])
 })
+
+test('effective: the Files line follows the three choices', () => {
+  assert.equal(byId(effectiveLines(base()), 'files').text, 'files.all')
+  assert.equal(byId(effectiveLines(base({ folders: [{ path: '/Work', mode: 'read' }] })), 'files').text, 'files.folders')
+  const none = byId(effectiveLines(base({ builtins_off: ['files'] })), 'files')
+  assert.equal(none.text, 'files.none')
+  assert.equal(none.state, 'off')
+  // No files wins over folders the form still holds
+  assert.equal(byId(effectiveLines(base({ builtins_off: ['files'], folders: [{ path: '/Work' }] })), 'files').text, 'files.none')
+})
+
+test('try it: folders are not listed as skipped when the agent has No files', () => {
+  assert.deepEqual(notApplied({ ...emptyAgent(), folders: [{ path: '/Work' }] }), ['folders'])
+  assert.deepEqual(notApplied({ ...emptyAgent(), builtins_off: ['files'], folders: [{ path: '/Work' }] }), [])
+})

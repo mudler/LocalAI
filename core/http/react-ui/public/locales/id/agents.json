@@ -265,7 +265,8 @@
       "files": {
         "all": "Bisa mengakses semua berkas Anda.",
         "folders_one": "Hanya bisa mengakses {{count}} folder yang dipilih.",
-        "folders_other": "Hanya bisa mengakses {{count}} folder yang dipilih."
+        "folders_other": "Hanya bisa mengakses {{count}} folder yang dipilih.",
+        "none": "Tidak dapat menjangkau file Anda."
       },
       "grants": {
         "parentOff": "{{name}} diizinkan, tetapi tidak bekerja selama {{parent}} mati. Nyalakan {{parent}}.",
@@ -451,7 +452,8 @@
       "noChanges": "Nothing differs from the saved trigger.",
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
-      "changed_other": "{{count}} changes"
+      "changed_other": "{{count}} changes",
+      "watchNoFiles": "Agen ini diatur \"Tanpa file\": satu eksekusi pemicu ini diberi tahu bahwa ada file masuk, tetapi tidak dapat membukanya. Beri agen akses file di editornya, atau pilih agen lain."
     },
     "subtitle": "Jalankan agen sesuai jadwal atau saat sebuah file tiba. Setiap jalan adalah chat yang bisa Anda buka."
   },
@@ -655,7 +657,7 @@
   },
   "folder": {
     "all": "Semua file saya",
-    "one": "Folder terpilih",
+    "one": "Hanya folder ini",
     "scopeLabel": "File yang dapat dijangkau agen ini",
     "allHelp": "Chat dengan agen ini menjangkau semua file Anda, seperti chat tanpa agen.",
     "choose": "Pilih folder",
@@ -696,7 +698,9 @@
     "effectiveRead": "Ada di dalam folder yang hanya bisa dibaca, jadi folder ini hanya bisa dibaca.",
     "effectiveWrite": "Ada di dalam folder yang bisa diubah, jadi folder ini juga bisa diubah.",
     "notMounted": "{{n}} folder bersama tidak muat dalam batas akses sebuah chat dan tidak dipasang.",
-    "exportNoteMany": "File ini menyebut {{n}} folder. Di tempat Anda mengimpornya, agen mendapat folder dengan path itu yang ada, dan meminta Anda memilih sisanya."
+    "exportNoteMany": "File ini menyebut {{n}} folder. Di tempat Anda mengimpornya, agen mendapat folder dengan path itu yang ada, dan meminta Anda memilih sisanya.",
+    "none": "Tanpa file",
+    "noneHelp": "Agen ini tidak dapat menjangkau file Anda. File yang Anda lampirkan ke obrolan tetap berada di obrolan itu. Memantau folder memerlukan akses file: pemicu yang memantau folder tetap dimulai untuk agen ini, tetapi tidak dapat membuka file yang masuk."
   },
   "templates": {
     "researcher": {

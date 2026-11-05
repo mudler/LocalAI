@@ -265,7 +265,8 @@
       "files": {
         "all": "Kann alle Ihre Dateien erreichen.",
         "folders_one": "Kann nur den {{count}} gewählten Ordner erreichen.",
-        "folders_other": "Kann nur die {{count}} gewählten Ordner erreichen."
+        "folders_other": "Kann nur die {{count}} gewählten Ordner erreichen.",
+        "none": "Kann keine deiner Dateien erreichen."
       },
       "grants": {
         "parentOff": "{{name}} ist erlaubt, funktioniert aber nicht, solange {{parent}} aus ist. Schalten Sie {{parent}} ein.",
@@ -451,7 +452,8 @@
       "noChanges": "Nothing differs from the saved trigger.",
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
-      "changed_other": "{{count}} changes"
+      "changed_other": "{{count}} changes",
+      "watchNoFiles": "Dieser Agent hat „Keine Dateien“. Ein Lauf dieses Triggers erfährt, dass eine Datei eingegangen ist, kann sie aber nicht öffnen. Gib dem Agenten im Editor Dateizugriff oder wähle einen anderen Agenten."
     },
     "subtitle": "Starten Sie einen Agenten nach Zeitplan oder wenn eine Datei ankommt. Jeder Lauf ist ein Chat, den Sie öffnen können."
   },
@@ -655,7 +657,7 @@
   },
   "folder": {
     "all": "Alle meine Dateien",
-    "one": "Gewählte Ordner",
+    "one": "Nur diese Ordner",
     "scopeLabel": "Dateien, die dieser Agent erreicht",
     "allHelp": "Chats mit diesem Agenten erreichen alle deine Dateien, wie ein Chat ohne Agent.",
     "choose": "Ordner wählen",
@@ -696,7 +698,9 @@
     "effectiveRead": "Liegt in einem Ordner, der nur gelesen werden kann, daher kann dieser nur gelesen werden.",
     "effectiveWrite": "Liegt in einem Ordner, der geändert werden kann, daher kann auch dieser geändert werden.",
     "notMounted": "{{n}} geteilte Ordner passen nicht in das Zugriffslimit eines Chats und sind nicht eingebunden.",
-    "exportNoteMany": "Die Datei nennt {{n}} Ordner. Beim Import erhält der Agent die Ordner mit diesen Pfaden, die es gibt, und bittet dich, die anderen zu wählen."
+    "exportNoteMany": "Die Datei nennt {{n}} Ordner. Beim Import erhält der Agent die Ordner mit diesen Pfaden, die es gibt, und bittet dich, die anderen zu wählen.",
+    "none": "Keine Dateien",
+    "noneHelp": "Dieser Agent kann auf keine deiner Dateien zugreifen. Dateien, die du an einen Chat anhängst, bleiben in diesem Chat. Das Überwachen eines Ordners braucht Dateizugriff: Ein Trigger, der einen Ordner überwacht, startet für diesen Agenten zwar, kann die eingehenden Dateien aber nicht öffnen."
   },
   "templates": {
     "researcher": {

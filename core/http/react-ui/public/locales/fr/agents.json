@@ -265,7 +265,8 @@
       "files": {
         "all": "Peut accéder à tous vos fichiers.",
         "folders_one": "Ne peut accéder qu'au {{count}} dossier choisi.",
-        "folders_other": "Ne peut accéder qu'aux {{count}} dossiers choisis."
+        "folders_other": "Ne peut accéder qu'aux {{count}} dossiers choisis.",
+        "none": "Ne peut accéder à aucun de vos fichiers."
       },
       "grants": {
         "parentOff": "{{name}} est autorisé, mais ne fonctionne pas tant que {{parent}} est désactivé. Activez {{parent}}.",
@@ -451,7 +452,8 @@
       "noChanges": "Nothing differs from the saved trigger.",
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
-      "changed_other": "{{count}} changes"
+      "changed_other": "{{count}} changes",
+      "watchNoFiles": "Cet agent a « Aucun fichier » : une exécution de ce déclencheur apprend qu’un fichier est arrivé, mais ne peut pas l’ouvrir. Donnez-lui l’accès aux fichiers dans son éditeur, ou choisissez un autre agent."
     },
     "subtitle": "Lancez un agent selon un horaire ou à l'arrivée d'un fichier. Chaque exécution est un chat que vous pouvez ouvrir."
   },
@@ -655,7 +657,7 @@
   },
   "folder": {
     "all": "Tous mes fichiers",
-    "one": "Dossiers choisis",
+    "one": "Seulement ces dossiers",
     "scopeLabel": "Fichiers que cet agent peut atteindre",
     "allHelp": "Les chats avec cet agent atteignent tous vos fichiers, comme un chat sans agent.",
     "choose": "Choisir un dossier",
@@ -696,7 +698,9 @@
     "effectiveRead": "Dans un dossier en lecture seule : celui-ci ne peut qu'être lu.",
     "effectiveWrite": "Dans un dossier modifiable : celui-ci peut aussi être modifié.",
     "notMounted": "{{n}} dossiers partagés ne tiennent pas dans la limite d'accès d'un chat et ne sont pas montés.",
-    "exportNoteMany": "Le fichier nomme {{n}} dossiers. Là où vous l'importez, l'agent reçoit les dossiers de ces chemins qui existent et vous demande de choisir les autres."
+    "exportNoteMany": "Le fichier nomme {{n}} dossiers. Là où vous l'importez, l'agent reçoit les dossiers de ces chemins qui existent et vous demande de choisir les autres.",
+    "none": "Aucun fichier",
+    "noneHelp": "Cet agent ne peut accéder à aucun de vos fichiers. Les fichiers que vous joignez à une discussion restent dans cette discussion. Surveiller un dossier demande un accès aux fichiers : un déclencheur qui surveille un dossier démarre quand même pour cet agent, mais ne peut pas ouvrir les fichiers qui arrivent."
   },
   "templates": {
     "researcher": {
