@@ -151,7 +151,31 @@
       "files_upload": "Ricevere file dalle app di messaggistica"
     },
     "memoryOffUser": "La memoria è disattivata nelle tue impostazioni, quindi questo agente non legge né salva note, qualunque cosa imposti qui.",
-    "memoryOffFix": "Impostazioni, Memoria"
+    "memoryOffFix": "Impostazioni, Memoria",
+    "nav": {
+      "label": "Sezioni",
+      "identity": "Identità",
+      "capabilities": "Capacità",
+      "memory": "Memoria e conoscenza",
+      "advanced": "Avanzate"
+    },
+    "lead": {
+      "identity": "Chi è l'agente e come si comporta.",
+      "capabilities": "Cosa può usare e raggiungere l'agente.",
+      "memory": "Cosa ricorda l'agente e cosa può consultare.",
+      "advanced": "Server aggiuntivi ed esportazione."
+    },
+    "header": {
+      "unnamed": "Agente senza nome",
+      "modeEdit": "Modifica agente",
+      "modeCreate": "Nuovo agente",
+      "summary": "Riepilogo di questo agente"
+    },
+    "status": {
+      "clean": "Nessuna modifica non salvata",
+      "new": "Non ancora creato",
+      "unsaved": "Modifiche non salvate ({{count}})"
+    }
   },
   "run": {
     "workingLine": "Working"

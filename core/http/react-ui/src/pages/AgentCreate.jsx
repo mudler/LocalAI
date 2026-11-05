@@ -23,7 +23,7 @@ import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import { CAP_CHAT } from '../utils/capabilities'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
-import { Button, Callout, LoadError, Page, PageHeader, Segmented, SkeletonRows } from '../components/ui'
+import { Button, Callout, LoadError, Page, Segmented, SkeletonRows } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import AgentFolderDialog from '../components/agents/AgentFolderDialog'
 // eslint-disable-next-line no-unused-vars
@@ -34,18 +34,23 @@ import { switchCounts, switchRows } from '../utils/chatSwitchRows'
 // eslint-disable-next-line no-unused-vars
 import { SkillsPanel } from '../components/chat/SkillsMenu'
 
-// The sections of the form. Each folds; Basic info is open at first.
-const SECTIONS = [
-  { id: 'BasicInfo', icon: 'info' },
-  { id: 'ModelSettings', icon: 'brain' },
-  { id: 'PromptsGoals', icon: 'target' },
-  { id: 'Files', icon: 'folder' },
-  { id: 'Notes', icon: 'memory' },
-  { id: 'MemorySettings', icon: 'database' },
-  { id: 'Skills', icon: 'sparkles' },
-  { id: 'Tools', icon: 'plug' },
-  { id: 'MCP', icon: 'server' },
+// The cards of the page, in order. `bare` parts have no heading of their own:
+// the card heading says what they are. `export` exists only for a saved agent.
+const GROUPS = [
+  { id: 'identity', icon: 'info', parts: ['BasicInfo', 'ModelSettings', 'PromptsGoals'], bare: true },
+  { id: 'capabilities', icon: 'plug', parts: ['Tools', 'Skills', 'Files'] },
+  { id: 'memory', icon: 'memory', parts: ['Notes', 'MemorySettings'] },
+  { id: 'advanced', icon: 'server', parts: ['MCP', 'export'] },
 ]
+const secDomId = (gid) => `aed-sec-${gid}`
+
+// Two letters for the avatar tile of the header: the start of the name.
+function monogram(name) {
+  const words = (name || '').match(/[\p{L}\p{N}]+/gu) || []
+  if (!words.length) return ''
+  const letters = words.length > 1 ? words[0][0] + words[1][0] : words[0].slice(0, 2)
+  return letters.toUpperCase()
+}
 
 // The fields each fold summarises on its closed line.
 const SUMMARY_FIELDS = {
@@ -71,8 +76,8 @@ export default function AgentCreate() {
   const [loadError, setLoadError] = useState(null)
   const [attempt, setAttempt] = useState(0)
   const [saving, setSaving] = useState(false)
-  // Sections fold. Basics is open at first; the rest open on demand.
-  const [openSections, setOpenSections] = useState(() => new Set(['BasicInfo']))
+  // The section the reader is in, for the section nav.
+  const [activeSec, setActiveSec] = useState(GROUPS[0].id)
   const [savedConfig, setSavedConfig] = useState(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewTab, setPreviewTab] = useState('config')
@@ -120,7 +125,6 @@ export default function AgentCreate() {
         }
         initialFormRef.current = initialForm
         setForm(initialForm)
-        if (imported) setOpenSections(new Set(SECTIONS.map(s => s.id)))
       } catch (err) {
         // An agent that could not be read is said in place of the form: an
         // empty form would save over it.
@@ -154,16 +158,24 @@ export default function AgentCreate() {
   // by default on its messaging connections. Say so, and offer the fix.
   const missingGrants = isEdit ? missingConnectorGrants(savedConfig?.builtins, form.builtins) : []
 
+  // Bring a field into view below the sticky header, then focus it.
+  const focusField = (fieldId) => {
+    const el = document.getElementById(fieldId)
+    if (!el) return
+    el.scrollIntoView({ block: 'center' })
+    el.focus({ preventScroll: true })
+  }
+
   const handleSubmit = async (e) => {
     e?.preventDefault?.()
     if (!payload.name) {
       addToast(t('create.needsName'), 'warning')
-      setOpenSections(prev => new Set([...prev, 'BasicInfo']))
+      focusField('ag-name')
       return
     }
     if (folderUnchosen) {
       addToast(t('folder.needsChoice'), 'warning')
-      setOpenSections(prev => new Set([...prev, 'Files']))
+      document.querySelector('[data-section="Files"]')?.scrollIntoView({ block: 'start' })
       return
     }
     setSaving(true)
@@ -183,6 +195,31 @@ export default function AgentCreate() {
       setSaving(false)
     }
   }
+
+  // Mark the section in view in the nav: the last one whose top has passed
+  // the line under the sticky header.
+  useEffect(() => {
+    if (loading || loadError) return undefined
+    let frame = 0
+    const update = () => {
+      frame = 0
+      let current = GROUPS[0].id
+      for (const g of GROUPS) {
+        const el = document.getElementById(secDomId(g.id))
+        if (el && el.getBoundingClientRect().top <= 180) current = g.id
+      }
+      setActiveSec(current)
+    }
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(update) }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    update()
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [loading, loadError])
 
   const mcp = splitAgentMCP(form.mcp_servers)
   if (loading || loadError) {
@@ -265,16 +302,8 @@ export default function AgentCreate() {
   const removeRow = (i) => updateField('folders', form.folders.filter((_, j) => j !== i))
   const addRow = () => { updateField('folders', [...form.folders, { mode: 'read' }]); setChoosingFolder('new') }
 
-  const toggleSection = (sid) => setOpenSections(prev => {
-    const next = new Set(prev)
-    if (next.has(sid)) next.delete(sid)
-    else next.add(sid)
-    return next
-  })
-
   const applyTemplate = (tpl) => {
     setForm(prev => ({ ...prev, name: tpl.name, description: tpl.description, instructions: tpl.instructions }))
-    setOpenSections(prev => new Set([...prev, 'BasicInfo', 'PromptsGoals']))
   }
 
   const renderSection = (sid) => {
@@ -464,112 +493,147 @@ export default function AgentCreate() {
               onChange={(v) => updateField('mcp_servers', joinAgentMCP(v, mcp.connectors))} testId="agent-mcp" />
           </>
         )
+      case 'export':
+        return (
+          <>
+            <p className="ag-note">{t('create.exportHelp')}</p>
+            {savedConfig?.folder?.path && <p className="ag-note ag-note--bottom" data-testid="agent-export-folder">{folderRows(savedConfig).length > 1 ? t('folder.exportNoteMany', { n: folderRows(savedConfig).length }) : t('folder.exportNote', { path: shownPath(savedConfig.folder.path) })}</p>}
+            <Button icon="download" onClick={() => downloadAgentFile(savedConfig, addToast, t)}>
+              {t('create.exportButton')}
+            </Button>
+          </>
+        )
       default:
         return null
     }
   }
 
-  const title = isEdit ? t('create.titleEdit', { name: savedConfig?.name || '' }) : imported ? t('create.titleImport') : t('create.titleCreate')
   const saveLabel = isEdit ? t('create.save') : imported ? t('create.titleImport') : t('create.titleCreate')
+  const headName = (form.name || '').trim()
+  const visibleGroups = GROUPS.map(g => ({ ...g, parts: g.parts.filter(pid => pid !== 'export' || (isEdit && savedConfig)) }))
+
+  // A card needs the person when one of its parts does.
+  const groupNeeds = (g) => g.parts.some(pid => pid !== 'export' && foldInfo({ id: pid }).state === 'needs')
+
+  const goTo = (gid) => {
+    const el = document.getElementById(secDomId(gid))
+    if (!el) return
+    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    el.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' })
+    setActiveSec(gid)
+  }
+
+  const status = dirty
+    ? t('create.status.unsaved', { count: Math.max(diff.length, 1) })
+    : t(isEdit ? 'create.status.clean' : 'create.status.new')
+  const toolsInfo = foldInfo({ id: 'Tools' })
+  const memoryInfo = foldInfo({ id: 'Notes' })
 
   return (
-    <Page className="ag-page" data-testid="agent-edit">
+    <Page className="ag-page aed-page" data-testid="agent-edit">
       <UnsavedChangesGuard when={dirty && !saving} />
-      <form onSubmit={handleSubmit} noValidate className="ag-edit">
-        <div className="ag-edit__head">
-          <button type="button" className="ag-back" onClick={leave}><Icon name="arrow-left" /> {isEdit ? savedConfig?.name : t('agent.back')}</button>
-          <PageHeader
-            title={title}
-            supporting={isEdit ? t('create.subEdit') : t('create.subCreate')}
-            actions={(
-              <div className="ag-edit__acts">
-                <Button variant="ghost" onClick={leave}>{t('create.discard')}</Button>
-                <Button icon="eye" onClick={() => { setPreviewTab('config'); setPreviewOpen(true) }} data-testid="agent-preview-open">
-                  {t('create.preview')}
-                  {diff.length > 0 && <span className="dk-badge dk-badge--count">{diff.length}</span>}
-                </Button>
-                <Button type="submit" variant="primary" icon="save" busy={saving}>{saveLabel}</Button>
+      <form onSubmit={handleSubmit} noValidate className="ag-edit aed">
+        <button type="button" className="ag-back" onClick={leave}><Icon name="arrow-left" /> {isEdit ? savedConfig?.name : t('agent.back')}</button>
+        <header className="aed-bar" data-testid="agent-edit-header">
+          <div className="aed-bar__who">
+            <span className="aed-avatar" aria-hidden="true">{monogram(headName) || <Icon name="sparkles" />}</span>
+            <div className="aed-bar__text">
+              <h1 className="aed-bar__name" data-empty={headName ? undefined : ''}>{headName || t('create.header.unnamed')}</h1>
+              <p className="aed-bar__sub">{isEdit ? t('create.header.modeEdit') : imported ? t('create.titleImport') : t('create.header.modeCreate')}</p>
+              <p className="aed-bar__sub aed-bar__sub--status" aria-hidden="true" data-dirty={dirty || undefined}>{status}</p>
+            </div>
+          </div>
+          <div className="aed-bar__acts">
+            <span className="aed-status" role="status" data-dirty={dirty || undefined} data-testid="agent-edit-status">{status}</span>
+            <Button variant="ghost" onClick={leave}>{t('create.discard')}</Button>
+            <Button icon="eye" onClick={() => { setPreviewTab('config'); setPreviewOpen(true) }} data-testid="agent-preview-open">
+              {t('create.preview')}
+              {diff.length > 0 && <span className="dk-badge dk-badge--count">{diff.length}</span>}
+            </Button>
+            <Button type="submit" variant="primary" icon="save" busy={saving}>{saveLabel}</Button>
+          </div>
+          <ul className="aed-chips" aria-label={t('create.header.summary')}>
+            <li className="aed-chip"><span className="aed-chip__k">{t('create.sections.ModelSettings')}</span><span className="aed-chip__v">{form.model || t('create.anyModel')}</span></li>
+            <li className="aed-chip"><span className="aed-chip__k">{t('create.sections.Tools')}</span><span className="aed-chip__v">{toolsInfo.summary}</span></li>
+            <li className="aed-chip"><span className="aed-chip__k">{t('create.sections.Notes')}</span><span className="aed-chip__v">{memoryInfo.summary}</span></li>
+          </ul>
+        </header>
+
+        <div className="aed-layout">
+          <nav className="aed-nav" aria-label={t('create.nav.label')}>
+            {visibleGroups.map(g => (
+              <a
+                key={g.id}
+                href={`#${secDomId(g.id)}`}
+                className="aed-nav__item"
+                aria-current={activeSec === g.id ? 'true' : undefined}
+                data-needs={groupNeeds(g) || undefined}
+                data-testid={`agent-nav-${g.id}`}
+                onClick={(e) => { e.preventDefault(); goTo(g.id) }}
+              >
+                <span className="aed-nav__dot" aria-hidden="true" />
+                {t(`create.nav.${g.id}`)}
+              </a>
+            ))}
+          </nav>
+
+          <div className="aed-main">
+            {imported && (
+              <div className="ag-import-note" role="note" data-testid="agent-import-note">
+                <p>{imported.legacy ? t('create.importLegacy') : t('create.importNew')}</p>
+                {imported.dropped.length > 0 && <p>{t('create.importDropped', { keys: imported.dropped.join(', ') })}</p>}
               </div>
             )}
-          />
-        </div>
 
-        {imported && (
-          <div className="ag-import-note" role="note" data-testid="agent-import-note">
-            <p>{imported.legacy ? t('create.importLegacy') : t('create.importNew')}</p>
-            {imported.dropped.length > 0 && <p>{t('create.importDropped', { keys: imported.dropped.join(', ') })}</p>}
-          </div>
-        )}
-
-        {!isEdit && !imported && (
-          <section className="ag-start" aria-labelledby="ag-start-h" data-testid="agent-start">
-            <h2 id="ag-start-h" className="ag-h3">{t('create.startFrom')}</h2>
-            <div className="ag-start__row">
-              {AGENT_TEMPLATES.map(tpl => (
-                <button key={tpl.id} type="button" className="dk-chip" onClick={() => applyTemplate(tpl)} data-template={tpl.id}>
-                  {t(`templates.${tpl.id}.label`)}
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <div className="ag-folds">
-          {SECTIONS.map(s => {
-            const open = openSections.has(s.id)
-            const info = foldInfo(s)
-            return (
-              <section key={s.id} className="ag-fold" data-open={open || undefined} data-section={s.id}>
-                <h2 className="ag-fold__h">
-                  <button
-                    type="button"
-                    className="ag-fold__button"
-                    aria-expanded={open}
-                    aria-controls={`ag-fold-${s.id}`}
-                    onClick={() => toggleSection(s.id)}
-                  >
-                    <span className="ag-ready" data-state={info.state} aria-hidden="true"><Icon name={info.state === 'needs' ? 'warning' : 'check'} /></span>
-                    <span className="ag-fold__title">{t(`create.sections.${s.id}`)}</span>
-                    <span className="ag-fold__sum">{info.summary}</span>
-                    {info.changed > 0 ? <span className="ag-badge-changed">{t('create.changed', { count: info.changed })}</span> : <span />}
-                    <Icon name="chevron-down" className="ag-fold__chev" />
-                  </button>
-                </h2>
-                {open && (
-                  <div className="ag-fold__body" id={`ag-fold-${s.id}`}>
-                    {renderSection(s.id)}
-                  </div>
-                )}
-              </section>
-            )
-          })}
-          {isEdit && savedConfig && (
-            <section className="ag-fold" data-open={openSections.has('export') || undefined} data-section="export">
-              <h2 className="ag-fold__h">
-                <button type="button" className="ag-fold__button" aria-expanded={openSections.has('export')} aria-controls="ag-fold-export" onClick={() => toggleSection('export')}>
-                  <span className="ag-ready" data-state="ready" aria-hidden="true"><Icon name="check" /></span>
-                  <span className="ag-fold__title">{t('create.sections.export')}</span>
-                  <span className="ag-fold__sum">{t('create.exportSummary')}</span>
-                  <span />
-                  <Icon name="chevron-down" className="ag-fold__chev" />
-                </button>
-              </h2>
-              {openSections.has('export') && (
-                <div className="ag-fold__body" id="ag-fold-export">
-                  <p className="ag-note">{t('create.exportHelp')}</p>
-                  {savedConfig.folder?.path && <p className="ag-note ag-note--bottom" data-testid="agent-export-folder">{folderRows(savedConfig).length > 1 ? t('folder.exportNoteMany', { n: folderRows(savedConfig).length }) : t('folder.exportNote', { path: shownPath(savedConfig.folder.path) })}</p>}
-                  <Button icon="download" onClick={() => downloadAgentFile(savedConfig, addToast, t)}>
-                    {t('create.exportButton')}
-                  </Button>
+            {!isEdit && !imported && (
+              <section className="ag-start" aria-labelledby="ag-start-h" data-testid="agent-start">
+                <h2 id="ag-start-h" className="ag-h3">{t('create.startFrom')}</h2>
+                <div className="ag-start__row">
+                  {AGENT_TEMPLATES.map(tpl => (
+                    <button key={tpl.id} type="button" className="dk-chip" onClick={() => applyTemplate(tpl)} data-template={tpl.id}>
+                      {t(`templates.${tpl.id}.label`)}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </section>
-          )}
-        </div>
+              </section>
+            )}
 
-        <div className="ag-foot">
-          <Button variant="ghost" onClick={leave}>{t('create.discard')}</Button>
-          <Button type="submit" variant="primary" icon="save" busy={saving}>{saveLabel}</Button>
+            {visibleGroups.map(g => {
+              // What the card says about itself: the first part that needs the
+              // person, and how many of its fields differ from the saved agent.
+              const infos = g.parts.filter(pid => pid !== 'export').map(pid => foldInfo({ id: pid }))
+              const needs = infos.find(i => i.state === 'needs')
+              const changed = infos.reduce((n, i) => n + i.changed, 0)
+              return (
+              <section key={g.id} id={secDomId(g.id)} className="aed-card" aria-labelledby={`${secDomId(g.id)}-h`} data-group={g.id}>
+                <div className="aed-card__head">
+                  <h2 id={`${secDomId(g.id)}-h`} className="aed-card__title">{t(`create.nav.${g.id}`)}</h2>
+                  <p className="aed-card__lead">{t(`create.lead.${g.id}`)}</p>
+                  {needs && <span className="aed-card__needs" data-testid="agent-card-needs">{needs.summary}</span>}
+                  {changed > 0 && <span className="ag-badge-changed">{t('create.changed', { count: changed })}</span>}
+                </div>
+                {g.parts.map(pid => {
+                  const info = pid === 'export' ? null : foldInfo({ id: pid })
+                  return (
+                    <div key={pid} className="aed-part" data-section={pid} data-bare={g.bare || undefined}>
+                      {!g.bare && (
+                        <div className="aed-part__head">
+                          {info && <span className="ag-ready" data-state={info.state} aria-hidden="true"><Icon name={info.state === 'needs' ? 'warning' : 'check'} /></span>}
+                          <h3 className="aed-part__title">{t(`create.sections.${pid}`)}</h3>
+                          {info && <span className="aed-part__sum">{info.summary}</span>}
+                          {info && info.changed > 0 && <span className="ag-badge-changed">{t('create.changed', { count: info.changed })}</span>}
+                        </div>
+                      )}
+                      <div className="aed-part__body" data-pair={pid === 'BasicInfo' || undefined}>
+                        {renderSection(pid)}
+                      </div>
+                    </div>
+                  )
+                })}
+              </section>
+              )
+            })}
+          </div>
         </div>
       </form>
 

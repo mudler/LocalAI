@@ -97,7 +97,7 @@ async function chatSetup(page) {
 }
 
 const PAGES = [
-  { name: 'agent editor', url: '/app/agents/a1/edit', ready: '[data-testid=agent-edit]', setup: agentsSetup, open: '.ag-fold__button' },
+  { name: 'agent editor', url: '/app/agents/a1/edit', ready: '[data-testid=agent-edit]', setup: agentsSetup },
   { name: 'new agent', url: '/app/agents/new', ready: '[data-testid=agent-edit]', setup: agentsSetup },
   { name: 'agents list', url: '/app/agents', ready: '.ag-home, .page', setup: agentsSetup },
   { name: 'agent page', url: '/app/agents/a1', ready: '.page', setup: agentsSetup },
@@ -211,7 +211,6 @@ for (const width of [1280, 1100, 390]) {
           await page.route(/\/api\/chats\/connectors\/kinds$/, r => r.fulfill({ json: { kinds: [{ kind: 'slack', addon: 'slack', title: 'Slack' }, { kind: 'telegram', addon: 'telegram', title: 'Telegram' }], capabilities: [] } }))
           await page.goto(`/app/agents/${aid}/edit`)
           await page.locator('[data-testid=agent-edit]').waitFor()
-          for (const b of await page.locator('.ag-fold__button').all()) await b.click()
           await page.waitForTimeout(300)
           const r = await overflow(page)
           expect(r.bad, `elements past the right edge (document ${r.scrollWidth} in ${r.clientWidth})`).toEqual([])

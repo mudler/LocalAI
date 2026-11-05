@@ -44,7 +44,6 @@ test.describe('Memory section of the agent form', () => {
   test('a new agent starts with Mine and its own, the permission to save, and sends them', async ({ page }) => {
     const s = await serve(page)
     await page.goto('/app/agents/new')
-    await fold(page, 'Notes').locator('.ag-fold__button').click()
     const choice = page.getByTestId('agent-memory-choice')
     await expect(choice.getByTestId('agent-memory-mine_and_own').locator('input')).toBeChecked()
     await expect(choice.getByTestId('agent-memory-mine_and_own')).toContainText('Recommended')
@@ -63,7 +62,6 @@ test.describe('Memory section of the agent form', () => {
   test('an agent saved before shows As before, and picking a choice sends it with the grant', async ({ page }) => {
     const s = await serve(page)
     await page.goto('/app/agents/a2/edit')
-    await fold(page, 'Notes').locator('.ag-fold__button').click()
     await expect(page.getByTestId('agent-memory-before')).toContainText('As before')
     await expect(fold(page, 'Notes')).toContainText('As before')
     await expect(page.getByTestId('agent-memory-choice').locator('input[type=radio]:checked')).toHaveCount(0)
@@ -74,7 +72,6 @@ test.describe('Memory section of the agent form', () => {
     expect('memory' in s.calls.find(c => c.method === 'PUT').body).toBe(false)
 
     await page.goto('/app/agents/a2/edit')
-    await fold(page, 'Notes').locator('.ag-fold__button').click()
     await page.getByTestId('agent-memory-mine').click()
     await expect(page.getByTestId('agent-memory-mine-warn')).toContainText('You confirm each one')
     await expect(page.getByTestId('agent-memory-before')).toHaveCount(0)
@@ -89,7 +86,6 @@ test.describe('Memory section of the agent form', () => {
   test('None leaves the permissions alone and the save switch is hidden', async ({ page }) => {
     const s = await serve(page, { agents: [{ ...AGENTS[1], memory: 'own', builtins: ['skills.write'] }] })
     await page.goto('/app/agents/a2/edit')
-    await fold(page, 'Notes').locator('.ag-fold__button').click()
     await expect(page.getByTestId('agent-memory-own').locator('input')).toBeChecked()
     await page.getByTestId('agent-memory-none').click()
     await expect(page.getByTestId('agent-memory-saves')).toHaveCount(0)
@@ -103,7 +99,6 @@ test.describe('Memory section of the agent form', () => {
   test('says that memory is off in the settings of the person', async ({ page }) => {
     await serve(page, { enabled: false })
     await page.goto('/app/agents/a2/edit')
-    await fold(page, 'Notes').locator('.ag-fold__button').click()
     await expect(page.getByTestId('agent-memory-user-off')).toContainText('Memory is off in your settings')
     await shot(page, 'agent-memory-user-off', { fullPage: true })
   })
@@ -112,7 +107,6 @@ test.describe('Memory section of the agent form', () => {
 test.describe('The save rule of the agent', () => {
   const open = async (page, path) => {
     await page.goto(path)
-    await fold(page, 'Notes').locator('.ag-fold__button').click()
   }
 
   test('offers three cards, never auto, says what is in force, and sends nothing until it is changed', async ({ page }) => {

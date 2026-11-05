@@ -151,7 +151,31 @@
       "files_upload": "Recibir archivos de aplicaciones de mensajería"
     },
     "memoryOffUser": "La memoria está desactivada en tus ajustes, así que este agente no lee ni guarda notas, hagas lo que hagas aquí.",
-    "memoryOffFix": "Ajustes, Memoria"
+    "memoryOffFix": "Ajustes, Memoria",
+    "nav": {
+      "label": "Secciones",
+      "identity": "Identidad",
+      "capabilities": "Capacidades",
+      "memory": "Memoria y conocimiento",
+      "advanced": "Avanzado"
+    },
+    "lead": {
+      "identity": "Quién es el agente y cómo se comporta.",
+      "capabilities": "Lo que el agente puede usar y alcanzar.",
+      "memory": "Lo que el agente recuerda y lo que puede consultar.",
+      "advanced": "Servidores adicionales y exportación."
+    },
+    "header": {
+      "unnamed": "Agente sin nombre",
+      "modeEdit": "Editar agente",
+      "modeCreate": "Agente nuevo",
+      "summary": "Resumen de este agente"
+    },
+    "status": {
+      "clean": "Sin cambios sin guardar",
+      "new": "Aún no creado",
+      "unsaved": "Cambios sin guardar ({{count}})"
+    }
   },
   "run": {
     "workingLine": "Working"

@@ -254,7 +254,31 @@
       "files_upload": "Receive files from messaging apps"
     },
     "memoryOffUser": "Memory is off in your settings, so this agent reads and saves no notes, whatever you set here.",
-    "memoryOffFix": "Settings, Memory"
+    "memoryOffFix": "Settings, Memory",
+    "nav": {
+      "label": "Sections",
+      "identity": "Identity",
+      "capabilities": "Capabilities",
+      "memory": "Memory and knowledge",
+      "advanced": "Advanced"
+    },
+    "lead": {
+      "identity": "Who the agent is and how it behaves.",
+      "capabilities": "What the agent may use and reach.",
+      "memory": "What the agent remembers and what it can look up.",
+      "advanced": "Extra servers and export."
+    },
+    "header": {
+      "unnamed": "Unnamed agent",
+      "modeEdit": "Edit agent",
+      "modeCreate": "New agent",
+      "summary": "Summary of this agent"
+    },
+    "status": {
+      "clean": "No unsaved changes",
+      "new": "Not created yet",
+      "unsaved": "Unsaved changes ({{count}})"
+    }
   },
   "status": {
     "title": "Status",

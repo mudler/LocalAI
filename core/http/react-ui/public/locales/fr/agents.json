@@ -151,7 +151,31 @@
       "files_upload": "Recevoir des fichiers des applications de messagerie"
     },
     "memoryOffUser": "La mémoire est désactivée dans vos réglages : cet agent ne lit ni n'enregistre de notes, quoi que vous choisissiez ici.",
-    "memoryOffFix": "Réglages, Mémoire"
+    "memoryOffFix": "Réglages, Mémoire",
+    "nav": {
+      "label": "Sections",
+      "identity": "Identité",
+      "capabilities": "Capacités",
+      "memory": "Mémoire et connaissances",
+      "advanced": "Avancé"
+    },
+    "lead": {
+      "identity": "Qui est l'agent et comment il se comporte.",
+      "capabilities": "Ce que l'agent peut utiliser et atteindre.",
+      "memory": "Ce dont l'agent se souvient et ce qu'il peut consulter.",
+      "advanced": "Serveurs supplémentaires et export."
+    },
+    "header": {
+      "unnamed": "Agent sans nom",
+      "modeEdit": "Modifier l'agent",
+      "modeCreate": "Nouvel agent",
+      "summary": "Résumé de cet agent"
+    },
+    "status": {
+      "clean": "Aucune modification non enregistrée",
+      "new": "Pas encore créé",
+      "unsaved": "Modifications non enregistrées ({{count}})"
+    }
   },
   "run": {
     "workingLine": "Working"

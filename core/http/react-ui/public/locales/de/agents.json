@@ -151,7 +151,31 @@
       "files_upload": "Dateien aus Messaging-Apps empfangen"
     },
     "memoryOffUser": "Das Gedächtnis ist in deinen Einstellungen aus. Dieser Agent liest und speichert deshalb keine Notizen, egal was du hier einstellst.",
-    "memoryOffFix": "Einstellungen, Gedächtnis"
+    "memoryOffFix": "Einstellungen, Gedächtnis",
+    "nav": {
+      "label": "Abschnitte",
+      "identity": "Identität",
+      "capabilities": "Fähigkeiten",
+      "memory": "Gedächtnis und Wissen",
+      "advanced": "Erweitert"
+    },
+    "lead": {
+      "identity": "Wer der Agent ist und wie er sich verhält.",
+      "capabilities": "Was der Agent nutzen und erreichen darf.",
+      "memory": "Woran sich der Agent erinnert und was er nachschlagen kann.",
+      "advanced": "Zusätzliche Server und Export."
+    },
+    "header": {
+      "unnamed": "Unbenannter Agent",
+      "modeEdit": "Agent bearbeiten",
+      "modeCreate": "Neuer Agent",
+      "summary": "Übersicht dieses Agenten"
+    },
+    "status": {
+      "clean": "Keine ungespeicherten Änderungen",
+      "new": "Noch nicht erstellt",
+      "unsaved": "Ungespeicherte Änderungen ({{count}})"
+    }
   },
   "run": {
     "workingLine": "Working"

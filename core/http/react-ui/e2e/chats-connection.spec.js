@@ -140,7 +140,6 @@ test.describe('The connections an agent names', () => {
     }))
     await page.goto('/app/agents/new')
     await page.getByLabel('Name', { exact: false }).first().fill('Reviewer')
-    await page.locator('[data-section="Tools"] .ag-fold__button').click()
     const panel = page.getByTestId('agent-tools-panel')
     const group = panel.getByRole('group', { name: 'Connections for chats of this agent' })
     await expect(group).toBeVisible()

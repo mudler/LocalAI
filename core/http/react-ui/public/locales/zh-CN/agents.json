@@ -151,7 +151,31 @@
       "files_upload": "从消息应用接收文件"
     },
     "memoryOffUser": "你的设置中记忆已关闭，因此无论这里如何设置，此智能体都不会读取或保存笔记。",
-    "memoryOffFix": "设置，记忆"
+    "memoryOffFix": "设置，记忆",
+    "nav": {
+      "label": "分区",
+      "identity": "身份",
+      "capabilities": "能力",
+      "memory": "记忆与知识",
+      "advanced": "高级"
+    },
+    "lead": {
+      "identity": "智能体是谁,以及它如何行事。",
+      "capabilities": "智能体可以使用和访问的内容。",
+      "memory": "智能体记住什么,以及可以查找什么。",
+      "advanced": "额外的服务器和导出。"
+    },
+    "header": {
+      "unnamed": "未命名的智能体",
+      "modeEdit": "编辑智能体",
+      "modeCreate": "新智能体",
+      "summary": "此智能体的摘要"
+    },
+    "status": {
+      "clean": "没有未保存的更改",
+      "new": "尚未创建",
+      "unsaved": "未保存的更改({{count}})"
+    }
   },
   "run": {
     "workingLine": "Working"

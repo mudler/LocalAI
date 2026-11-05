@@ -151,7 +151,31 @@
       "files_upload": "Menerima file dari aplikasi pesan"
     },
     "memoryOffUser": "Memori nonaktif di pengaturan Anda, jadi agen ini tidak membaca atau menyimpan catatan, apa pun yang Anda atur di sini.",
-    "memoryOffFix": "Pengaturan, Memori"
+    "memoryOffFix": "Pengaturan, Memori",
+    "nav": {
+      "label": "Bagian",
+      "identity": "Identitas",
+      "capabilities": "Kemampuan",
+      "memory": "Memori dan pengetahuan",
+      "advanced": "Lanjutan"
+    },
+    "lead": {
+      "identity": "Siapa agen ini dan bagaimana ia bersikap.",
+      "capabilities": "Apa yang boleh digunakan dan dijangkau agen.",
+      "memory": "Apa yang diingat agen dan apa yang bisa dicarinya.",
+      "advanced": "Server tambahan dan ekspor."
+    },
+    "header": {
+      "unnamed": "Agen tanpa nama",
+      "modeEdit": "Ubah agen",
+      "modeCreate": "Agen baru",
+      "summary": "Ringkasan agen ini"
+    },
+    "status": {
+      "clean": "Tidak ada perubahan yang belum disimpan",
+      "new": "Belum dibuat",
+      "unsaved": "Perubahan belum disimpan ({{count}})"
+    }
   },
   "run": {
     "workingLine": "Working"

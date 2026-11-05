@@ -151,7 +151,31 @@
       "files_upload": "Receber arquivos de aplicativos de mensagens"
     },
     "memoryOffUser": "A memória está desativada nas suas configurações, então este agente não lê nem salva notas, não importa o que você defina aqui.",
-    "memoryOffFix": "Configurações, Memória"
+    "memoryOffFix": "Configurações, Memória",
+    "nav": {
+      "label": "Seções",
+      "identity": "Identidade",
+      "capabilities": "Capacidades",
+      "memory": "Memória e conhecimento",
+      "advanced": "Avançado"
+    },
+    "lead": {
+      "identity": "Quem é o agente e como ele se comporta.",
+      "capabilities": "O que o agente pode usar e alcançar.",
+      "memory": "O que o agente lembra e o que ele pode consultar.",
+      "advanced": "Servidores extras e exportação."
+    },
+    "header": {
+      "unnamed": "Agente sem nome",
+      "modeEdit": "Editar agente",
+      "modeCreate": "Novo agente",
+      "summary": "Resumo deste agente"
+    },
+    "status": {
+      "clean": "Nenhuma alteração não salva",
+      "new": "Ainda não criado",
+      "unsaved": "Alterações não salvas ({{count}})"
+    }
   },
   "run": {
     "workingLine": "Working"

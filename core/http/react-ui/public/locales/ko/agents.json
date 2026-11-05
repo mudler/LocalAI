@@ -151,7 +151,31 @@
       "files_upload": "메신저 앱에서 파일 받기"
     },
     "memoryOffUser": "설정에서 메모리가 꺼져 있어 여기서 어떻게 정하든 이 에이전트는 메모를 읽거나 저장하지 않습니다.",
-    "memoryOffFix": "설정, 메모리"
+    "memoryOffFix": "설정, 메모리",
+    "nav": {
+      "label": "섹션",
+      "identity": "정체성",
+      "capabilities": "기능",
+      "memory": "메모리와 지식",
+      "advanced": "고급"
+    },
+    "lead": {
+      "identity": "에이전트가 누구이고 어떻게 행동하는지 정합니다.",
+      "capabilities": "에이전트가 사용하고 접근할 수 있는 것을 정합니다.",
+      "memory": "에이전트가 기억하는 것과 찾아볼 수 있는 것을 정합니다.",
+      "advanced": "추가 서버와 내보내기."
+    },
+    "header": {
+      "unnamed": "이름 없는 에이전트",
+      "modeEdit": "에이전트 편집",
+      "modeCreate": "새 에이전트",
+      "summary": "이 에이전트 요약"
+    },
+    "status": {
+      "clean": "저장하지 않은 변경 사항 없음",
+      "new": "아직 만들지 않음",
+      "unsaved": "저장하지 않은 변경 사항 ({{count}})"
+    }
   },
   "run": {
     "workingLine": "Working"
