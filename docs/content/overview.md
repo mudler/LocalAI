@@ -31,7 +31,10 @@ The LocalAI core is a single small binary (or container). It gives you everythin
 
 - **OpenAI-compatible API** - Drop-in replacement for OpenAI, Anthropic, and Open Responses APIs
 - **Built-in Web Interface** - Chat, model management, agent creation, image generation, and system monitoring
-- **AI Agents** - Create autonomous agents with MCP (Model Context Protocol) tool support, directly from the UI
+- **Chats that do the work** - The server keeps your conversations. Keep typing while the model works, approve what lasts, and let it use sub-agents, tools, files and skills
+- **AI Agents** - Save agents with MCP (Model Context Protocol) tools, add-ons and skills, run them on a schedule, and talk to them from Slack, Telegram or Discord
+- **Add-ons** - Install Sandbox (run code in isolation), Simple Office (Word, Excel, PowerPoint, PDF), Studio and more from a signed library
+- **Multi-user** - Accounts with per-user features, files and chats
 - **Any Model, Any Modality**: LLMs, image and video, text-to-speech, speech-to-text, vision, and embeddings, each on its own backend, pulled automatically when you load a model
 - **GPU Acceleration** - Automatic detection and support for NVIDIA, AMD, Intel, and Vulkan GPUs
 - **Distributed Mode** - Scale horizontally with worker nodes, P2P federation, and model sharding
