@@ -1589,7 +1589,14 @@ time limit to start and to answer. It runs on the frontend, as the LocalAI proce
 ### How chats use them
 
 - **A chat with no agent** gets the tools of all your enabled connectors, next to
-  the MCP servers its model has.
+  the MCP servers its model has, except the connectors marked **Only for agents**.
+- **Only for agents** (`agents_only` in the API, off by default) keeps a connector
+  out of every chat without an agent: its tools are not sent to the model and the
+  tools panel of such a chat does not list it, nor does it serve its MCP Apps
+  there. A saved agent that names it uses it as before, and the connector stays
+  enabled. Use it for a connector you made for one agent, so its tool schemas do
+  not take room in the context of every plain chat. Like `enabled`, the field is
+  part of every `PUT`: a body without it sets it to `false`.
 - **A saved agent** names a connector as `connector:<id>` in its `mcp_servers` list;
   a name without the prefix is a server of the model. The agent form lists both.
   The agent holds the ID, so renaming a connector does not break it.

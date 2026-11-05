@@ -692,6 +692,8 @@
       "basics": "Connection",
       "name": "Name",
       "nameHelp": "Shown in the Tools menu of a chat.",
+      "agentsOnly": "Only for agents",
+      "agentsOnlyHelp": "Not offered in chats without an agent. A saved agent that names it still uses it.",
       "url": "Address",
       "urlHelp": "Servers on a private network are refused unless an administrator allows them.",
       "command": "Command",

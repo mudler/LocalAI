@@ -57,7 +57,7 @@ func (f *fakeMCPConnectors) Resolve(_ context.Context, user string, refs []strin
 	}
 	if all {
 		for _, c := range f.conns[user] {
-			if c.Enabled {
+			if c.Enabled && !c.AgentsOnly {
 				use(c)
 			}
 		}
@@ -155,6 +155,43 @@ var _ = Describe("mcpconnectors", func() {
 		Expect(res).To(HaveLen(1), "result = %+v", res)
 		Expect(res[0].Out).To(Equal("from c1"), "result = %+v", res)
 		Expect(fc.calls).To(ContainElement("c1/doc_search"), "calls = %v", fc.calls)
+	})
+
+	It("a plain chat does not get a connector for agents only, nor list it, while an agent naming it does", func() {
+		fc := newFakeMCPConnectors()
+		fin := mcpConn("c4", "Finance", true)
+		fin.AgentsOnly = true
+		fc.conns[alice] = append(fc.conns[alice], fin)
+		fc.tools["c4"] = []string{"book_invoice"}
+		r := newMCPConnRig(sayOK, fc)
+		id := create(r.svc, alice)
+		r.turn(id, "hi")
+		names := r.h.ToolNames(id)
+		Expect(names).To(ContainElement("doc_search"), "tools = %v, a normal connector must stay", names)
+		Expect(names).NotTo(ContainElement("book_invoice"), "tools = %v hold the agents-only connector", names)
+		Expect(fc.asked).NotTo(ContainElement("c4"), "a plain chat asked for the agents-only connector")
+		panel, err := r.svc.Tools(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		for _, c := range panel.Connectors {
+			Expect(c.ID).NotTo(Equal("c4"), "the panel of a plain chat offers the agents-only connector: %+v", panel.Connectors)
+		}
+		draft, err := r.svc.DraftTools(context.Background(), alice, "", "")
+		Expect(err).NotTo(HaveOccurred())
+		for _, c := range draft.Connectors {
+			Expect(c.ID).NotTo(Equal("c4"), "a new chat offers the agents-only connector: %+v", draft.Connectors)
+		}
+
+		r.save(agents.Agent{ID: "ag", Name: "A", MCPServers: []string{"connector:c4"}})
+		withAgent := r.chatWith("ag")
+		r.turn(withAgent, "hi")
+		names = r.h.ToolNames(withAgent)
+		Expect(names).To(ContainElement("book_invoice"), "tools = %v, the agent names the connector", names)
+		Expect(names).NotTo(ContainElement("doc_search"), "tools = %v", names)
+		panel, err = r.svc.Tools(context.Background(), alice, withAgent)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(panel.Connectors).To(HaveLen(1))
+		Expect(panel.Connectors[0].ID).To(Equal("c4"))
+		Expect(panel.Connectors[0].Usable).To(BeTrue())
 	})
 
 	It("a connector tool cannot take a built in or an addon name", func() {

@@ -118,6 +118,31 @@ var _ = Describe("Chats MCP connectors endpoints", func() {
 		Expect(s.do("alice", http.MethodGet, "/api/chats/mcp-connectors/"+id, nil).Code).To(Equal(http.StatusNotFound))
 	})
 
+	It("carries the agents-only mark and replaces it with the rest of the body", func() {
+		private = true
+		rec := create("alice", map[string]any{"name": "Finance", "transport": "http", "url": mcpSrv.URL, "enabled": true, "agents_only": true})
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		b := decodeJSON(rec)
+		id := b["id"].(string)
+		Expect(b).To(And(HaveKeyWithValue("agents_only", true), HaveKeyWithValue("enabled", true)))
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/mcp-connectors/"+id, nil))).To(HaveKeyWithValue("agents_only", true))
+		list := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/mcp-connectors", nil))["connectors"].([]any)
+		Expect(list).To(ConsistOf(HaveKeyWithValue("agents_only", true)))
+		// Enabling and disabling leave the mark alone.
+		Expect(decodeJSON(s.do("alice", http.MethodPost, "/api/chats/mcp-connectors/"+id+"/disable", nil))).To(HaveKeyWithValue("agents_only", true))
+		Expect(decodeJSON(s.do("alice", http.MethodPost, "/api/chats/mcp-connectors/"+id+"/enable", nil))).To(HaveKeyWithValue("agents_only", true))
+		// A plain chat does not offer it.
+		chat := s.create("alice")
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/"+chat+"/tools", nil))["connectors"]).To(BeEmpty())
+		// PUT replaces every field: like enabled, a body without the mark clears it.
+		put := s.do("alice", http.MethodPut, "/api/chats/mcp-connectors/"+id, map[string]any{"name": "Finance", "transport": "http", "url": mcpSrv.URL, "enabled": true})
+		Expect(put.Code).To(Equal(http.StatusOK), put.Body.String())
+		Expect(decodeJSON(put)).To(HaveKeyWithValue("agents_only", false))
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/"+chat+"/tools", nil))["connectors"]).To(HaveLen(1))
+		put = s.do("alice", http.MethodPut, "/api/chats/mcp-connectors/"+id, map[string]any{"name": "Finance", "transport": "http", "url": mcpSrv.URL, "enabled": true, "agents_only": true})
+		Expect(decodeJSON(put)).To(HaveKeyWithValue("agents_only", true))
+	})
+
 	It("keeps connectors private to their owner", func() {
 		private = true
 		id := decodeJSON(create("alice", map[string]any{"name": "Mine", "transport": "http", "url": mcpSrv.URL, "enabled": true}))["id"].(string)

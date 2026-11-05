@@ -6904,7 +6904,7 @@ const docTemplate = `{
         },
         "/api/chats/mcp-connectors": {
             "get": {
-                "description": "An MCP connector is an MCP server that you defined. Your chats use the enabled ones next to the MCP servers of the model, and a saved agent can name one as connector:\u003cid\u003e. Tokens, headers and the environment of a local command are never returned. Needs the MCP feature.",
+                "description": "An MCP connector is an MCP server that you defined. Your chats use the enabled ones next to the MCP servers of the model, and a saved agent can name one as connector:\u003cid\u003e. A connector with agents_only is used only by the saved agents that name it, never by a chat without an agent. Tokens, headers and the environment of a local command are never returned. Needs the MCP feature.",
                 "tags": [
                     "chats"
                 ],
@@ -6919,7 +6919,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "transport is http (a remote server, streamable HTTP with a fall back to SSE) or stdio (a command run on the host, administrators only and refused in distributed mode). The address of an http connector must be http or https; an address on a private network is refused unless an administrator allows it (the mcp_connectors_allow_private setting), and the check is made again when the connection is opened. token, headers and env are sealed at rest and never returned. At most 20 connectors; names are unique per user. OAuth for remote servers is not supported.",
+                "description": "transport is http (a remote server, streamable HTTP with a fall back to SSE) or stdio (a command run on the host, administrators only and refused in distributed mode). The address of an http connector must be http or https; an address on a private network is refused unless an administrator allows it (the mcp_connectors_allow_private setting), and the check is made again when the connection is opened. token, headers and env are sealed at rest and never returned. agents_only keeps the connector out of chats without an agent; a saved agent that names it still uses it. At most 20 connectors; names are unique per user. OAuth for remote servers is not supported.",
                 "tags": [
                     "chats"
                 ],
@@ -6976,7 +6976,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "The body replaces every field. token, headers and env keep the stored value when left out, and are cleared by an empty one. The open session of the connector is closed.",
+                "description": "The body replaces every field: enabled and agents_only are false when left out. token, headers and env keep the stored value when left out, and are cleared by an empty one. The open session of the connector is closed.",
                 "tags": [
                     "chats"
                 ],
@@ -24535,6 +24535,9 @@ const docTemplate = `{
         "schema.ChatsMCPConnector": {
             "type": "object",
             "properties": {
+                "agents_only": {
+                    "type": "boolean"
+                },
                 "args": {
                     "type": "array",
                     "items": {
@@ -24648,6 +24651,9 @@ const docTemplate = `{
         "schema.ChatsMCPConnectorWrite": {
             "type": "object",
             "properties": {
+                "agents_only": {
+                    "type": "boolean"
+                },
                 "args": {
                     "type": "array",
                     "items": {

@@ -183,6 +183,8 @@
       "basics": "Koneksi",
       "name": "Nama",
       "nameHelp": "Muncul di menu Alat pada chat.",
+      "agentsOnly": "Hanya untuk agen",
+      "agentsOnlyHelp": "Tidak ditawarkan di chat tanpa agen. Agen tersimpan yang menyebutnya tetap menggunakannya.",
       "url": "Alamat",
       "urlHelp": "Server di jaringan privat ditolak kecuali administrator mengizinkannya.",
       "command": "Perintah",

@@ -191,6 +191,16 @@ test('chat MCP: the edit form starts with empty secrets, and only a real change 
   assert.notEqual(formFingerprint({ ...f, token: 'x' }), start)
 })
 
+test('chat MCP: the agents-only mark is sent on every write, read back by the edit form and counts as a change', () => {
+  assert.equal(mcpPayload({ ...emptyMCP(), name: 'Docs', url: 'https://x.example' }).agents_only, false, 'a new connector is offered to every chat')
+  assert.equal(mcpPayload({ ...emptyMCP(), name: 'Docs', url: 'https://x.example', agents_only: true }).agents_only, true)
+  assert.equal(mcpPayload({ ...emptyMCP(), transport: 'stdio', name: 'Files', command: 'npx', agents_only: true }).agents_only, true)
+  // A replace without the mark would clear it, so the edit form must carry the stored value.
+  const f = formOf({ id: 'c1', name: 'Docs', transport: 'http', url: 'https://x.example', agents_only: true })
+  assert.equal(mcpPayload(f).agents_only, true)
+  assert.notEqual(formFingerprint({ ...f, agents_only: false }), formFingerprint(f))
+})
+
 test('tools counts: an add-on that waits for a connection is not counted as on', () => {
   const addons = [{ id: 'tracker', off: false, needs_connection: true }, { id: 'office', off: false }]
   assert.deepEqual(toolsCounts({ addons }), { on: 1, total: 2, mcp: 0 })

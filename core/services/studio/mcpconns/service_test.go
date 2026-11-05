@@ -436,6 +436,37 @@ var _ = Describe("Service", func() {
 		Expect(missing).To(HaveLen(2), "disabled or deleted")
 	})
 
+	It("leaves a connector for agents only out of the whole set but serves it by id", func() {
+		e := newEnv()
+		ctx := specCtx()
+		f := newFakeServer(0)
+		plain, _ := e.svc.Create(ctx, "u1", httpInput("Docs", f.URL))
+		in := httpInput("Finance", f.URL)
+		in.AgentsOnly = true
+		fin, err := e.svc.Create(ctx, "u1", in)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(fin.AgentsOnly).To(BeTrue())
+		Expect(fin.Enabled).To(BeTrue(), "agents-only does not switch a connector off")
+
+		tools, missing := e.svc.Resolve(ctx, "u1", nil, true)
+		Expect(missing).To(BeEmpty())
+		Expect(tools).NotTo(BeEmpty())
+		for _, t := range tools {
+			Expect(t.ConnectorID).To(Equal(plain.ID), "the whole set holds a tool of the agents-only connector")
+		}
+		tools, missing = e.svc.Resolve(ctx, "u1", []string{fin.ID}, false)
+		Expect(missing).To(BeEmpty(), "an agent naming the connector must still use it")
+		Expect(tools).NotTo(BeEmpty(), "an agent naming the connector must still use it")
+		for _, t := range tools {
+			Expect(t.ConnectorID).To(Equal(fin.ID))
+		}
+
+		// An update replaces every field, as it does for Enabled.
+		got, err := e.svc.Update(ctx, "u1", fin.ID, httpInput("Finance", f.URL))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.AgentsOnly).To(BeFalse(), "an update without the mark clears it")
+	})
+
 	It("times out a call that takes too long", func() {
 		e := newEnv(func(o *mcpconns.Options) { o.CallTimeout = 150 * time.Millisecond })
 		ctx := specCtx()
