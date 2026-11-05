@@ -17064,6 +17064,10 @@
                 },
                 "v": {
                     "type": "integer"
+                },
+                "warning": {
+                    "description": "Warning is set by the host when the text of a proposal looks risky, as a\nstable code (see the Warning constants). The owner still sees the text,\nwith a warning, and can confirm it in the web interface; a messaging chat\ncannot confirm it. The host works it out when it reads the proposal and\ndoes not keep it.",
+                    "type": "string"
                 }
             }
         },

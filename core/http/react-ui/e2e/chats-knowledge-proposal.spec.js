@@ -87,6 +87,25 @@ test('a small text is one passage, and without the model name the card says the 
   await expect(page.getByTestId('change-knowledge-embed')).toHaveText("1 passage will be embedded with the server's embedding model.")
 })
 
+test('a flagged text shows a warning next to the text and can still be confirmed here', async ({ page }) => {
+  const s = await serve(page, [make({ id: 'k3', summary: 'Office Wi-Fi', content: 'Wi-Fi of the office\npassword: correct-horse-battery\n', warning: 'secret' }), make({ id: 'k4' })])
+  await page.goto('/app/chats/proposals')
+  const cards = page.getByTestId('change-proposal')
+  await expect(cards).toHaveCount(2)
+  const flagged = cards.first()
+  await expect(flagged.getByTestId('change-warning')).toContainText('Check this text before you confirm.')
+  await expect(flagged.getByTestId('change-warning')).toContainText('holds a secret')
+  await expect(flagged.getByTestId('change-warning')).toContainText('A messaging chat cannot confirm it')
+  // The text is still shown, so the owner can judge it.
+  await expect(flagged.getByTestId('change-knowledge-preview')).toContainText('password: correct-horse-battery')
+  await expect(cards.nth(1).getByTestId('change-warning')).toHaveCount(0)
+  await page.setViewportSize({ width: 360, height: 740 })
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+  await flagged.getByRole('button', { name: 'Confirm', exact: true }).click()
+  await expect(flagged).toHaveAttribute('data-state', 'applied')
+  expect(s.calls).toContain('POST k3 confirm')
+})
+
 test('Confirm adds it and keeps Undo although the change has no change set; Undo takes it back', async ({ page }) => {
   const s = await serve(page, [make()])
   await page.goto('/app/chats/proposals')

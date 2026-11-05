@@ -802,6 +802,11 @@
       "embed_one": "1 trecho será incorporado com {{model}}.",
       "embed_other": "Cerca de {{count}} trechos serão incorporados com {{model}}.",
       "serverModel": "o modelo de embeddings do servidor"
+    },
+    "warning": {
+      "title": "Confira este texto antes de confirmar.",
+      "secret": "Ele parece conter um segredo, como uma chave, um token ou uma senha. Depois de adicionado, qualquer chat que pesquise esta coleção pode lê-lo. Um chat de mensagens não pode confirmá-lo; só você, aqui.",
+      "other": "O servidor marcou este texto como arriscado. Um chat de mensagens não pode confirmá-lo; só você, aqui."
     }
   },
   "proposalsPage": {

@@ -53,6 +53,7 @@
   "proposal.multi": "Hier warten mehrere. Sag, welcher gemeint ist, zum Beispiel \"bestätigen CODE\" oder \"abbrechen CODE\":",
   "change.no_right": "Nur der Eigentümer kann das bestätigen.",
   "change.not_you": "Nur die Person, die gefragt hat, kann das bestätigen.",
+  "change.flagged": "Dieser Text enthält möglicherweise ein Geheimnis und kann deshalb nicht im Chat bestätigt werden. Prüfe den Vorschlag in der Weboberfläche.",
   "change.cannot": "Das konnte nicht rückgängig gemacht werden: {error}",
   "change.saved": "Gespeichert: {summary}. Antworte innerhalb von {minutes} Minuten mit \"rückgängig\", um es zurückzunehmen.",
   "change.done": "Erledigt: {summary}. Antworte innerhalb von {minutes} Minuten mit \"rückgängig\", um es zurückzunehmen.",

@@ -1124,6 +1124,11 @@
       "embed_one": "1 passage will be embedded with {{model}}.",
       "embed_other": "About {{count}} passages will be embedded with {{model}}.",
       "serverModel": "the server's embedding model"
+    },
+    "warning": {
+      "title": "Check this text before you confirm.",
+      "secret": "It looks like it holds a secret, such as a key, a token or a password. Once it is added, every chat that searches this collection can read it. A messaging chat cannot confirm it; only you can, here.",
+      "other": "The server flagged this text as risky. A messaging chat cannot confirm it; only you can, here."
     }
   },
   "proposalsPage": {

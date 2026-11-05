@@ -163,6 +163,13 @@ with these rules:
   (`max_chunk_size` and `chunk_overlap` in `GET /api/collections`).
   You can edit the text before you confirm. A change waits 24 hours, and you can
   have 10 waiting and an agent can make 5 an hour, as for the other kinds.
+- **A scan for secrets.** Before a text is shown, LocalAI checks it with the same
+  patterns that keep a memory note from being saved at once (private keys, access
+  tokens, `password: ...` lines). A text that matches is not refused: it shows
+  with a warning in the card, and you can still confirm it in the web interface.
+  A messaging chat cannot confirm it. The bot writes nothing about it in the
+  chat, a `yes` there does not confirm it, and a `no` still drops it. The proposal
+  carries the code in `warning` (`secret`).
 - **What happens.** **Confirm** stores the text as one entry of the collection,
   titled with the summary, and the server splits it into passages and embeds it.
   **Undo** deletes that entry again. The embedding model must be installed;

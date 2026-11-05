@@ -53,6 +53,7 @@
   "proposal.multi": "More than one is waiting here. Say which, for example \"confirm CODE\" or \"cancel CODE\":",
   "change.no_right": "Only the owner can confirm this.",
   "change.not_you": "Only the person who asked can confirm this.",
+  "change.flagged": "This text looks like it holds a secret, so it cannot be confirmed from a chat. Open the proposal in the web interface to check it.",
   "change.cannot": "I could not undo it: {error}",
   "change.saved": "Saved: {summary}. Reply \"undo\" within {minutes} minutes to take it back.",
   "change.done": "Done: {summary}. Reply \"undo\" within {minutes} minutes to take it back.",

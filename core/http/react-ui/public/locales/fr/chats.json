@@ -802,6 +802,11 @@
       "embed_one": "1 passage sera vectorisé avec {{model}}.",
       "embed_other": "Environ {{count}} passages seront vectorisés avec {{model}}.",
       "serverModel": "le modèle d'embeddings du serveur"
+    },
+    "warning": {
+      "title": "Vérifiez ce texte avant de confirmer.",
+      "secret": "Il semble contenir un secret, comme une clé, un jeton ou un mot de passe. Une fois ajouté, tout chat qui interroge cette collection peut le lire. Un chat de messagerie ne peut pas le confirmer ; vous seul le pouvez, ici.",
+      "other": "Le serveur a signalé ce texte comme risqué. Un chat de messagerie ne peut pas le confirmer ; vous seul le pouvez, ici."
     }
   },
   "proposalsPage": {

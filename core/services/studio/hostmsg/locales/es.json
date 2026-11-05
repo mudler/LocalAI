@@ -53,6 +53,7 @@
   "proposal.multi": "Hay más de uno esperando aquí. Indica cuál, por ejemplo \"confirmar CODIGO\" o \"cancelar CODIGO\":",
   "change.no_right": "Solo el propietario puede confirmar esto.",
   "change.not_you": "Solo la persona que lo pidió puede confirmar esto.",
+  "change.flagged": "Este texto parece contener un secreto, así que no se puede confirmar desde un chat. Revisa la propuesta en la interfaz web.",
   "change.cannot": "No se pudo deshacer: {error}",
   "change.saved": "Guardado: {summary}. Responde \"deshacer\" en los próximos {minutes} minutos para revertirlo.",
   "change.done": "Hecho: {summary}. Responde \"deshacer\" en los próximos {minutes} minutos para revertirlo.",

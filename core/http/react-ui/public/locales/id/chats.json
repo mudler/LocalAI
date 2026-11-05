@@ -802,6 +802,11 @@
       "embed_one": "1 bagian teks akan di-embed dengan {{model}}.",
       "embed_other": "Sekitar {{count}} bagian teks akan di-embed dengan {{model}}.",
       "serverModel": "model embedding milik server"
+    },
+    "warning": {
+      "title": "Periksa teks ini sebelum Anda mengonfirmasi.",
+      "secret": "Teks ini tampak berisi rahasia, seperti kunci, token, atau kata sandi. Setelah ditambahkan, setiap obrolan yang mencari di koleksi ini dapat membacanya. Obrolan pesan tidak dapat mengonfirmasinya; hanya Anda, di sini.",
+      "other": "Server menandai teks ini berisiko. Obrolan pesan tidak dapat mengonfirmasinya; hanya Anda, di sini."
     }
   },
   "proposalsPage": {
