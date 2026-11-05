@@ -121,6 +121,11 @@ type Connectors struct {
 	o   ConnectorOptions
 	log *slog.Logger
 
+	// beforeJoin runs in deliver after a message has joined a running reply
+	// and before it reaches the chat. Only the specs set it, to hold a
+	// message in that gap.
+	beforeJoin func()
+
 	sealMu sync.Mutex
 	sealer *connectors.Sealer
 	wmu    sync.Mutex // serialises writes of bindings
@@ -166,6 +171,10 @@ type senderState struct {
 	// do: the intersection over the messages the turn took. Nil while no turn
 	// runs.
 	grant *turnGrant
+	// joining counts the messages that found a reply running and are on their
+	// way to the chat. The reply may not give the chat up while one is: the
+	// turn it starts would have no reply to carry its answer.
+	joining int
 }
 
 // NewConnectors returns the manager. It does nothing until Run or Sync is called.
@@ -1071,6 +1080,9 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 	c.smu.Lock()
 	was := st.active
 	st.active = true
+	if was {
+		st.joining++
+	}
 	if was && st.grant != nil {
 		grant = st.grant.merge(grant)
 	}
@@ -1078,6 +1090,9 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 	c.smu.Unlock()
 	c.svc.access.set(chatID, grant)
 	ctx = withTurnGrant(ctx, grant)
+	if was && c.beforeJoin != nil {
+		c.beforeJoin()
+	}
 	var events <-chan session.Event
 	var cancel func()
 	if !was {
@@ -1091,7 +1106,13 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 			return
 		}
 	}
-	if _, err := c.start(ctx, b, chatID, m.Text, up, earlier); err != nil {
+	_, err := c.start(ctx, b, chatID, m.Text, up, earlier)
+	if was {
+		c.smu.Lock()
+		st.joining--
+		c.smu.Unlock()
+	}
+	if err != nil {
 		if !was {
 			cancel()
 			c.smu.Lock()
@@ -1169,7 +1190,7 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 		tcancel()
 		// A waiting message starts the next turn at once, and that turn may be
 		// over before this point; its events are then still queued.
-		if (err == nil && info.Running) || len(events) > 0 {
+		if (err == nil && info.Running) || len(events) > 0 || st.joining > 0 {
 			c.smu.Unlock()
 			return false
 		}

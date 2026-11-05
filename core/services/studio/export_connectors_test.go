@@ -14,3 +14,8 @@ func (c *Connectors) RepliesActiveForTest() bool {
 	}
 	return false
 }
+
+// HoldJoiningMessagesForTest runs f for every message that joins a running
+// reply, after the reply has been told and before the message reaches the
+// chat. It sets the hook before any message comes in.
+func (c *Connectors) HoldJoiningMessagesForTest(f func()) { c.beforeJoin = f }
