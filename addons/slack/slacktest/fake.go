@@ -28,6 +28,9 @@ type App struct {
 	UserID, User  string
 	BotID, Team   string
 	TeamID        string
+	// URL is the workspace address that auth.test returns, such as
+	// https://acme.slack.com/. Empty: auth.test returns none.
+	URL string
 }
 
 // Post is a message that a bot posted or edited.
@@ -380,7 +383,7 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 	}
 	switch method {
 	case "auth.test":
-		s.reply(w, map[string]any{"ok": true, "user_id": app.UserID, "user": app.User, "bot_id": app.BotID, "team_id": app.TeamID, "team": app.Team})
+		s.reply(w, map[string]any{"ok": true, "user_id": app.UserID, "user": app.User, "bot_id": app.BotID, "team_id": app.TeamID, "team": app.Team, "url": app.URL})
 	case "apps.connections.open":
 		s.mu.Lock()
 		s.seq++

@@ -3,6 +3,7 @@ package transport
 
 import (
 	"log/slog"
+	"net/url"
 	"strings"
 	"time"
 
@@ -77,7 +78,29 @@ func (ss *session) message(e event) (contract.ConnectorMessage, bool) {
 		}
 	}
 	m.Unsupported = m.Text == "" && len(m.Media) == 0
+	m.Link = Permalink(ss.bot.URL, e.Channel, e.TS, m.Thread)
 	return m, true
+}
+
+// Permalink builds the address that opens a message, or the thread it
+// belongs to, in the Slack app or the browser. It is the format Slack itself
+// uses (archives/<channel>/p<ts without the dot>), built from the workspace
+// address that auth.test returns, so no extra scope is needed. It returns ""
+// when the workspace address is unknown or is not https.
+func Permalink(workspace, channel, ts, thread string) string {
+	u, err := url.Parse(strings.TrimSpace(workspace))
+	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || channel == "" || ts == "" {
+		return ""
+	}
+	root := ts
+	if thread != "" {
+		root = thread
+	}
+	link := "https://" + u.Host + "/archives/" + url.PathEscape(channel) + "/p" + strings.ReplaceAll(root, ".", "")
+	if thread != "" && thread != ts {
+		link += "?thread_ts=" + url.QueryEscape(thread) + "&cid=" + url.QueryEscape(channel)
+	}
+	return link
 }
 
 // follow remembers a thread that the bot answers in, and keeps it on disk

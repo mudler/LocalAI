@@ -133,6 +133,9 @@ type Identity struct {
 	BotID  string `json:"bot_id"`
 	TeamID string `json:"team_id"`
 	Team   string `json:"team"`
+	// URL is the address of the workspace, such as https://name.slack.com/.
+	// auth.test returns it to any token, so it needs no extra scope.
+	URL string `json:"url"`
 }
 
 // AuthTest returns the bot of a bot token.
