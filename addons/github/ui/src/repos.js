@@ -1,8 +1,19 @@
 // Helpers of the GitHub page. No React, so a node test drives them.
 
-// A fine-grained token. A classic token (ghp_) reaches every repository of
-// the account, so the page does not take it.
+// A fine-grained token is limited to the repositories it was made for. A
+// classic token (ghp_) has scopes for the whole account, wider than the
+// repository list, so a connection takes one only after the person allowed it
+// with the classic_token choice and confirmed it. The host enforces that
+// (token_guards of the kind); this page asks for it and says why.
 export const TOKEN_PREFIX = 'github_pat_'
+export const CLASSIC_PREFIX = 'ghp_'
+
+// What the request must carry, as the host defines it.
+export const WIDER_TOKEN_CONFIRM = 'accept wider token'
+export const ANY_RESOURCE_CONFIRM = 'allow any resource'
+
+// The option of the kind that allows a classic token.
+export const CLASSIC_OPTION = 'classicToken'
 
 // What is wrong with the typed token, as a key of the page's words, or ''.
 // Nothing typed is no problem: an update without a token keeps the stored one.
@@ -10,6 +21,7 @@ export function tokenProblem(form) {
   const token = (form.token || '').trim()
   if (!token) return ''
   if (/\s/.test(token)) return 'tokenSpace'
+  if (token.startsWith(CLASSIC_PREFIX)) return form.classic_token ? '' : 'tokenClassic'
   if (!token.startsWith(TOKEN_PREFIX)) return 'tokenShape'
   return ''
 }
@@ -37,7 +49,14 @@ export function parseRepos(text) {
   return out
 }
 
-const validRepo = (r) => REPO.test(r) && !r.includes('..')
+// A repository is owner/name; owner/* stands for every repository of one
+// owner and * for any repository the token reaches. The host matches them.
+const OWNER_ALL = /^[A-Za-z0-9_.-]{1,100}\/\*$/
+export const ANY_REPO = '*'
+const validRepo = (r) => r === ANY_REPO || OWNER_ALL.test(r) || (REPO.test(r) && !r.includes('..'))
+
+// Whether the list holds the entry that allows every repository.
+export const hasAnyRepo = (text) => parseRepos(text).includes(ANY_REPO)
 
 // The first thing wrong with the typed list: { key, entry } where key is a key
 // of the page's words and entry is the line to name, or null.
@@ -45,6 +64,7 @@ export function reposIssue(text) {
   const list = parseRepos(text)
   if (list.length > MAX_REPOS) return { key: 'reposMany', entry: '' }
   const bad = list.find((r) => !validRepo(r))
+  if (bad === undefined && list.includes(ANY_REPO) && list.length > 1) return { key: 'reposAnyAlone', entry: '' }
   return bad === undefined ? null : { key: 'reposShape', entry: bad.length > 60 ? `${bad.slice(0, 57)}...` : bad }
 }
 
@@ -76,9 +96,30 @@ export const writeModeOf = (m) => (WRITE_MODES.includes(m) ? m : 'off')
 
 // The fields this page adds to a binding: its form values, the request body
 // they make, and whether they allow saving.
-export const extraForm = (c) => ({ repos_text: (c.resources || []).join('\n'), write_mode: writeModeOf(c.write_mode) })
-export const extraBody = (form) => ({ resources: parseRepos(form.repos_text), write_mode: writeModeOf(form.write_mode) })
+//
+// classic_token is the person's choice to allow a classic token; classic_was
+// and any_was say the saved connection already had a choice, which the host
+// does not ask to confirm again. classic_ack and any_ack are the ticks of this
+// edit and are never saved.
+export const allowsClassic = (c) => c?.options?.[CLASSIC_OPTION] === 'allow'
+export const extraForm = (c) => ({
+  repos_text: (c.resources || []).join('\n'), write_mode: writeModeOf(c.write_mode),
+  classic_token: allowsClassic(c), classic_was: allowsClassic(c), classic_ack: false,
+  any_was: (c.resources || []).includes(ANY_REPO), any_ack: false,
+})
+export const extraBody = (form) => {
+  const body = {
+    resources: parseRepos(form.repos_text), write_mode: writeModeOf(form.write_mode),
+    options: { [CLASSIC_OPTION]: form.classic_token ? 'allow' : 'refuse' },
+  }
+  if (form.classic_token && !form.classic_was && form.classic_ack) body.confirm_wider_token = WIDER_TOKEN_CONFIRM
+  if (hasAnyRepo(form.repos_text) && !form.any_was && form.any_ack) body.confirm_any_resource = ANY_RESOURCE_CONFIRM
+  return body
+}
+// Saving needs the ticks for a choice that is new: * and a classic token.
 export const extraValid = (form) => !reposProblem(form.repos_text)
+  && (!hasAnyRepo(form.repos_text) || form.any_was || Boolean(form.any_ack))
+  && (!form.classic_token || form.classic_was || Boolean(form.classic_ack))
 
 // What the Test button shows for one repository: { tone, key, vars }, where
 // key is a key of the page's words under check. A failure of the check itself
@@ -87,6 +128,8 @@ export function checkItem(r) {
   const repo = r?.repo || ''
   if (r?.failed === 'refused') return { tone: 'warn', key: 'check.refused', vars: { repo } }
   if (r?.failed) return { tone: 'warn', key: 'check.failed', vars: { repo } }
+  if (r?.wildcard === 'owner') return { tone: 'ok', key: 'check.owner', vars: { repo } }
+  if (r?.wildcard === 'any') return { tone: 'ok', key: r.more ? 'check.anyMore' : 'check.any', vars: { count: r.count } }
   if (!r || r.reachable === false) return { tone: 'warn', key: 'check.unreachable', vars: { repo } }
   return { tone: 'ok', key: r.canWrite ? 'check.readWrite' : 'check.readOnly', vars: { repo: r.fullName || repo } }
 }

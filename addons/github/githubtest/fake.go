@@ -241,6 +241,8 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case path == "user":
 		writeJSON(w, map[string]any{"login": login, "id": 4242, "type": "User"})
+	case path == "user/repos":
+		s.userRepos(w, r)
 	case path == "search/code":
 		s.searchCode(w, r)
 	case strings.HasPrefix(path, "repos/"):
@@ -685,4 +687,38 @@ func jsonError(w http.ResponseWriter, status int, msg string) {
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// userRepos answers GET /user/repos: every repository of the fake, sorted by
+// name, one page at a time. The fake knows no ownership, so all are visible.
+func (s *Server) userRepos(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	var names []string
+	for _, repo := range s.repos {
+		names = append(names, repo.FullName)
+	}
+	s.mu.Unlock()
+	sort.Strings(names)
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	per, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+	if page < 1 {
+		page = 1
+	}
+	if per < 1 {
+		per = 30
+	}
+	start := min((page-1)*per, len(names))
+	end := min(start+per, len(names))
+	if end < len(names) {
+		w.Header().Set("Link", `<https://api.github.com/user/repos?page=`+strconv.Itoa(page+1)+`>; rel="next"`)
+	}
+	out := []map[string]any{}
+	for _, n := range names[start:end] {
+		s.mu.Lock()
+		repo := s.repos[strings.ToLower(n)]
+		s.mu.Unlock()
+		out = append(out, map[string]any{"full_name": repo.FullName, "default_branch": repo.DefaultBranch, "private": repo.Private, "archived": false,
+			"html_url": "https://github.com/" + repo.FullName, "permissions": map[string]bool{"pull": true, "push": true}})
+	}
+	writeJSON(w, out)
 }

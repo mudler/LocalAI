@@ -139,6 +139,17 @@ type ConnectorKind struct {
 	// the other settings of the binding, keeps the choice, checks it against
 	// this declaration and sends it with the op poll.
 	Options []ConnectorOption `json:"options,omitempty"`
+	// WildcardResources lets a binding of this kind list a wildcard in its
+	// resources: owner/* (every resource under one owner) or * (every resource
+	// the credential reaches). The host matches the wildcard itself, before the
+	// add-on runs. Without it every entry is an exact name. A binding that
+	// lists * must be saved with an explicit confirmation.
+	WildcardResources bool `json:"wildcardResources,omitempty"`
+	// TokenGuards name credentials that are wider than the resource list can
+	// express, such as a classic access token. The host refuses a credential
+	// that starts with a guard's Prefix unless the binding chose Allow for the
+	// guard's Option, and it asks for a confirmation when that choice is made.
+	TokenGuards []TokenGuard `json:"tokenGuards,omitempty"`
 	// Files declares the files the kind can receive and send, with a limit
 	// for each direction. A kind that declares none moves no files; a
 	// direction it leaves out is not served. The bytes travel by handle, never
@@ -153,6 +164,18 @@ type ConnectorKind struct {
 	// path, but it is never granted to a role.
 	Permissions []string `json:"permissions,omitempty"`
 }
+
+// TokenGuard holds back a credential by its prefix until the person chose
+// to allow it. Option is the ID of one of the kind's Options, and Allow the
+// value of that option that lets the credential be used.
+type TokenGuard struct {
+	Prefix string `json:"prefix"`
+	Option string `json:"option"`
+	Allow  string `json:"allow"`
+}
+
+// MaxTokenGuards is the most guards a kind declares.
+const MaxTokenGuards = 4
 
 // ConnectorOption is one choice among a few values.
 type ConnectorOption struct {
@@ -289,6 +312,9 @@ func validateConnector(c *ConnectorCapability, ui *UI) error {
 			if err := validateOptions(k.Options); err != nil {
 				return err
 			}
+		}
+		if err := validateTokenGuards(k); err != nil {
+			return err
 		}
 		if err := k.Files.validate(); err != nil {
 			return err
@@ -533,4 +559,23 @@ func SafeFileName(name string) string {
 		stem = stem[:len(stem)-1]
 	}
 	return stem + ext
+}
+
+var tokenPrefix = regexp.MustCompile(`^[A-Za-z0-9_-]{2,16}$`)
+
+// validateTokenGuards checks that each guard names a prefix and an option of
+// the kind, and a value that option offers.
+func validateTokenGuards(k ConnectorKind) error {
+	if len(k.TokenGuards) > MaxTokenGuards {
+		return fmt.Errorf("connector tokenGuards has at most %d entries", MaxTokenGuards)
+	}
+	seen := map[string]bool{}
+	for _, g := range k.TokenGuards {
+		o, ok := k.Option(g.Option)
+		if !tokenPrefix.MatchString(g.Prefix) || seen[g.Prefix] || !ok || !o.allows(g.Allow) {
+			return fmt.Errorf("invalid connector token guard")
+		}
+		seen[g.Prefix] = true
+	}
+	return nil
 }

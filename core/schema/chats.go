@@ -1605,6 +1605,12 @@ type ChatsConnectorKind struct {
 	// AgentOptional is true when a binding of this kind may have no agent. It
 	// then only holds credentials (token, resource list, write mode).
 	AgentOptional bool `json:"agent_optional,omitempty"`
+	// WildcardResources is true when a binding of this kind may list owner/*
+	// or * as resources; * needs confirm_any_resource.
+	WildcardResources bool `json:"wildcard_resources,omitempty"`
+	// TokenGuards say which tokens of this kind are held back until the
+	// binding chooses an option, and the confirm_wider_token text it needs.
+	TokenGuards []ChatsConnectorTokenGuard `json:"token_guards,omitempty"`
 	// ThreadHistory is true when the platform can give the earlier messages
 	// of a thread. The host then reads them whenever the bot is mentioned in a
 	// thread.
@@ -1619,6 +1625,15 @@ type ChatsConnectorKind struct {
 	// the grants of a binding.
 	Roles       []ChatsConnectorRole       `json:"roles,omitempty"`
 	Permissions []ChatsConnectorPermission `json:"permissions,omitempty"`
+}
+
+// ChatsConnectorTokenGuard holds back tokens that start with Prefix until the
+// binding sets the option Option to Allow, in a request that also carries
+// confirm_wider_token.
+type ChatsConnectorTokenGuard struct {
+	Prefix string `json:"prefix"`
+	Option string `json:"option"`
+	Allow  string `json:"allow"`
 }
 
 // ChatsConnectorOption is one choice of a connector kind.
@@ -1701,6 +1716,14 @@ type ChatsConnectorWrite struct {
 	// with this binding, such as "owner/repo", at most 50. Absent means none
 	// for a new binding and unchanged for an update; an empty list clears it.
 	Resources []string `json:"resources,omitempty"`
+	// ConfirmAnyResource must be the exact text "allow any resource" in the
+	// request that adds the entry * to resources. A kind that lists
+	// wildcard_resources lets resources hold owner/* and *.
+	ConfirmAnyResource string `json:"confirm_any_resource,omitempty"`
+	// ConfirmWiderToken must be the exact text "accept wider token" in the
+	// request that chooses the option a token guard of the kind names (for
+	// example a classic access token). The token is refused without it.
+	ConfirmWiderToken string `json:"confirm_wider_token,omitempty"`
 	// Channels are the chats of the platform where the agent may write
 	// besides the conversation, at most 10: {id, label, approved}. A channel
 	// that is not approved needs a paired sender for each message. Absent

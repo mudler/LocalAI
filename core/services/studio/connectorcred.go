@@ -187,13 +187,18 @@ func (c *Connectors) CredentialFor(ctx context.Context, user, addonID, bindingID
 	if err != nil || b.Owner != principal(user) || b.AddonID != addonID {
 		return CredentialGrant{}, connectors.ErrNoCredential
 	}
-	entry, err := connectors.Entry(b, key)
+	kind := c.kindOf(ctx, b)
+	entry, err := connectors.EntryFor(b, key, kind != nil && kind.WildcardResources)
 	if err != nil {
 		return CredentialGrant{}, err
 	}
 	secret, err := c.openToken(ctx, b)
 	if err != nil {
 		return CredentialGrant{}, err
+	}
+	// The option may have been switched off after the token was saved.
+	if c.guardedToken(ctx, b, secret) {
+		return CredentialGrant{}, ErrTokenGuarded
 	}
 	// Which connection acted: the binding, the add-on and the resource key (a
 	// name from the person's own list, never the token).

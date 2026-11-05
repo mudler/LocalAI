@@ -42,3 +42,5 @@
 
 /* Three cards on one row when they fit, one column on a phone. */
 .gh-mode-block .cn-cards { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+
+.gh-classic { display: flex; flex-direction: column; gap: 0.5rem; }

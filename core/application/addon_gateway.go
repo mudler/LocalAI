@@ -1150,7 +1150,7 @@ func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, 
 			BindingID: grant.BindingID, BindingName: grant.BindingName}, nil
 	case errors.Is(err, connectors.ErrNoConnection):
 		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeSelectConnection}
-	case errors.Is(err, connectors.ErrNoCredential):
+	case errors.Is(err, connectors.ErrNoCredential), errors.Is(err, studio.ErrTokenGuarded):
 		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
 	case errors.As(err, &notAllowed):
 		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeResourceNotAllowed, Allowed: notAllowed.Allowed}

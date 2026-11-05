@@ -1199,6 +1199,14 @@ definitions:
       description:
         description: Description is plain text for the model.
         type: string
+      enumerates:
+        description: |-
+          Enumerates marks a read tool that lists what the credential reaches, such
+          as the repositories of a token. It names no resource, so the host cannot
+          hold it to the person's list: it runs only for a binding whose list is
+          the wildcard * (see ConnectorKind.WildcardResources), and is refused for
+          any other.
+        type: boolean
       execution:
         allOf:
         - $ref: '#/definitions/contract.ExecutionDescriptor'
@@ -5109,6 +5117,18 @@ definitions:
           Titles and Descriptions carry the translated text of the manifest by
           language tag, when it has some. Title and Description stay English.
         type: object
+      token_guards:
+        description: |-
+          TokenGuards say which tokens of this kind are held back until the
+          binding chooses an option, and the confirm_wider_token text it needs.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorTokenGuard'
+        type: array
+      wildcard_resources:
+        description: |-
+          WildcardResources is true when a binding of this kind may list owner/*
+          or * as resources; * needs confirm_any_resource.
+        type: boolean
     type: object
   schema.ChatsConnectorKindList:
     properties:
@@ -5223,6 +5243,15 @@ definitions:
       bot_username:
         type: string
     type: object
+  schema.ChatsConnectorTokenGuard:
+    properties:
+      allow:
+        type: string
+      option:
+        type: string
+      prefix:
+        type: string
+    type: object
   schema.ChatsConnectorWrite:
     properties:
       accept_any:
@@ -5267,6 +5296,18 @@ definitions:
           request that turns accept_any on (a create with accept_any, or an update
           that changes it from off to on). Anyone who can message the bot then uses
           the agent's tools as you, so the server asks you to say you mean it.
+        type: string
+      confirm_any_resource:
+        description: |-
+          ConfirmAnyResource must be the exact text "allow any resource" in the
+          request that adds the entry * to resources. A kind that lists
+          wildcard_resources lets resources hold owner/* and *.
+        type: string
+      confirm_wider_token:
+        description: |-
+          ConfirmWiderToken must be the exact text "accept wider token" in the
+          request that chooses the option a token guard of the kind names (for
+          example a classic access token). The token is refused without it.
         type: string
       conversation:
         description: Conversation is sender, chat, window or thread; empty means sender.
@@ -17390,17 +17431,24 @@ paths:
       tags:
       - chats
     post:
-      description: 'Needs the kind (the platform), the bot token (kept sealed, never
-        returned) and an agent of yours that names a model. The token is checked with
-        the platform when its add-on runs: a token that the platform refuses is a
-        400. reply_mode (off, progress, stream; default progress), conversation (sender,
-        chat, window with window_minutes, thread; default sender), send_files (default
-        true) and reply_language (auto, en, it, de, es, fr, pt-BR; default auto, the
-        language of the sentences the bot writes itself) say how the bot answers.
-        The allowlist is empty at first, so nobody is accepted: add chat IDs, user
-        IDs or @usernames, or set accept_any (anyone who can message the bot then
-        uses the agent''s tools; the request that turns it on must also carry confirm_accept_any
-        set to "accept any message", or it is a 400). At most 50 bindings.'
+      description: '// @Description For a kind that lists wildcard_resources, resources
+        may hold owner/* (every resource of one owner) and * (every resource the token
+        reaches); the request that adds * must also carry confirm_any_resource set
+        to "allow any resource". A kind that lists token_guards refuses a token with
+        a guarded prefix (a classic GitHub token) unless options sets the guarded
+        option to its allow value in a request that also carries confirm_wider_token
+        set to "accept wider token". Needs the kind (the platform), the bot token
+        (kept sealed, never returned) and an agent of yours that names a model. The
+        token is checked with the platform when its add-on runs: a token that the
+        platform refuses is a 400. reply_mode (off, progress, stream; default progress),
+        conversation (sender, chat, window with window_minutes, thread; default sender),
+        send_files (default true) and reply_language (auto, en, it, de, es, fr, pt-BR;
+        default auto, the language of the sentences the bot writes itself) say how
+        the bot answers. The allowlist is empty at first, so nobody is accepted: add
+        chat IDs, user IDs or @usernames, or set accept_any (anyone who can message
+        the bot then uses the agent''s tools; the request that turns it on must also
+        carry confirm_accept_any set to "accept any message", or it is a 400). At
+        most 50 bindings.'
       parameters:
       - description: the binding
         in: body

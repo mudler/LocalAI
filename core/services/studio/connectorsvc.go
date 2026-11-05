@@ -75,6 +75,11 @@ type ConnectorInput struct {
 	// Approval is the owner's choice for the triggers the agent proposes from
 	// a chat of the binding. Nil: new binding asks, update unchanged.
 	Approval *connectors.Approval
+	// ConfirmAnyResource must be AnyResourceConfirmation in the request that
+	// adds the entry * to the resource list. ConfirmWiderToken must be
+	// WiderTokenConfirmation in the request that chooses the option which
+	// allows a guarded token (see contract.TokenGuard). Neither is stored.
+	ConfirmAnyResource, ConfirmWiderToken string
 }
 
 // apply sets the fields of the input that an owner writes on a binding.
@@ -383,6 +388,12 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if err := c.checkOwnerLimits(ctx, b, in); err != nil {
 		return ConnectorInfo{}, err
 	}
+	if err := c.checkWildcards(ctx, nil, b, in); err != nil {
+		return ConnectorInfo{}, err
+	}
+	if err := c.checkTokenGuards(ctx, nil, b, in); err != nil {
+		return ConnectorInfo{}, err
+	}
 	if strings.TrimSpace(in.Token) == "" {
 		return ConnectorInfo{}, connectorBad("the bot token is required")
 	}
@@ -474,6 +485,12 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 		return ConnectorInfo{}, err
 	}
 	if err := c.checkOwnerLimits(ctx, b, in); err != nil {
+		return ConnectorInfo{}, err
+	}
+	if err := c.checkWildcards(ctx, &old, b, in); err != nil {
+		return ConnectorInfo{}, err
+	}
+	if err := c.checkTokenGuards(ctx, &old, b, in); err != nil {
 		return ConnectorInfo{}, err
 	}
 	if err := c.checkAgentIfAny(ctx, old.Owner, in.AgentID); err != nil {
