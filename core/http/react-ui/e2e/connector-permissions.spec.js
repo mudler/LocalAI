@@ -349,6 +349,43 @@ test.describe('Connector permissions', () => {
     await shot(page, 'perm-6-tool-outcomes')
   })
 
+  test('a write that waits in the chat shows as waiting, then confirmed, cancelled or expired, with who asked and who answered', async ({ page }) => {
+    const rows = [
+      { at: '2026-11-05T09:45:00Z', senders: [], addon: 'github', tool: 'Open an issue (acme/widgets)', outcome: 'expired', code: 'hold_expired', message: 'Nobody confirmed the change in 24 hours, so it was dropped.', asker: 'U001' },
+      { at: '2026-11-05T09:44:00Z', senders: ['P001'], addon: 'github', tool: 'Comment on an issue (acme/widgets)', outcome: 'cancelled', code: 'chat_cancelled', message: 'A person cancelled the change in the chat.', asker: 'U001' },
+      { at: '2026-11-05T09:43:00Z', senders: ['P001'], addon: 'github', tool: 'Open an issue (acme/widgets)', outcome: 'confirmed', code: 'chat_confirmed', message: 'A paired person confirmed the change in the chat and it was made.', asker: 'U001' },
+      { at: '2026-11-05T09:42:00Z', senders: ['U001'], addon: 'github', tool: 'create-issue', outcome: 'held', code: 'waiting_in_chat', message: 'The change is waiting for a paired person to confirm it in the chat.' },
+    ]
+    await api(page, [SET], { access: { ...ACCESS, tool_outcomes: rows } }).install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const list = page.getByTestId('connector-access').getByTestId('connector-tool-outcomes')
+    await expect(list.getByRole('listitem')).toHaveCount(4)
+    await expect(list.getByRole('listitem').nth(0)).toHaveAttribute('data-outcome', 'expired')
+    await expect(list.getByRole('listitem').nth(0)).toContainText('expired')
+    await expect(list.getByRole('listitem').nth(1)).toContainText('cancelled')
+    const done = list.getByRole('listitem').nth(2)
+    await expect(done).toHaveAttribute('data-outcome', 'confirmed')
+    await expect(done).toContainText('confirmed')
+    await expect(done).toContainText('sender P001')
+    await expect(done).toContainText('asked by U001')
+    await expect(list.getByRole('listitem').nth(3)).toContainText('waiting for a paired person')
+    await shot(page, 'hold-1-decisions')
+  })
+
+  test('the add-on tools row says a paired person can confirm the writes in the chat when the connection asks first', async ({ page }) => {
+    const hold = { addon: 'tracker', capability: 'tools.write', tools: ['create-issue'], connections: [{ name: 'Work tracker', write_mode: 'propose' }], without_tick: ['paired'] }
+    const withHold = (view) => ({ ...view, addon_tools: [hold] })
+    const a = api(page, [{ ...SET, caps: [...(SET.caps || []), 'proposals.confirm'] }], { access: withHold(ACCESS), preview: (body) => withHold(previewFor(body, ROLES_KIND.roles)) })
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const ready = page.getByTestId('connector-readiness')
+    await ready.getByTestId('connector-ready-toggle').click()
+    await expect(ready.getByTestId('connector-ready-addons:tracker:confirm')).toContainText('A paired person can confirm the tracker writes in the chat')
+    await shot(page, 'hold-2-readiness')
+  })
+
   test('the add-on tool calls say there are none yet', async ({ page }) => {
     await api(page, [SET]).install()
     await page.goto(PAGE)

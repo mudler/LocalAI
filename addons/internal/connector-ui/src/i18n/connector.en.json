@@ -343,5 +343,10 @@
   "access.outcome.ok": "ok",
   "access.outcome.held": "held",
   "access.outcome.denied": "denied",
-  "access.outcome.error": "failed"
+  "access.outcome.error": "failed",
+  "ready.addons.confirmChat": "A paired person can confirm the {{addon}} writes in the chat: the bot writes each one there and they answer yes or no.",
+  "access.outcome.confirmed": "confirmed",
+  "access.outcome.cancelled": "cancelled",
+  "access.outcome.expired": "expired",
+  "access.askedBy": "asked by {{sender}}"
 }

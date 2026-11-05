@@ -343,5 +343,10 @@
   "access.outcome.ok": "成功",
   "access.outcome.held": "已挂起",
   "access.outcome.denied": "已拒绝",
-  "access.outcome.error": "失败"
+  "access.outcome.error": "失败",
+  "ready.addons.confirmChat": "已配对的人可以在聊天中确认 {{addon}} 的写入：机器人会在聊天中写出每一项，对方回答是或否。",
+  "access.outcome.confirmed": "已确认",
+  "access.outcome.cancelled": "已取消",
+  "access.outcome.expired": "已过期",
+  "access.askedBy": "由 {{sender}} 请求"
 }

@@ -343,5 +343,10 @@
   "access.outcome.ok": "correcta",
   "access.outcome.held": "retenida",
   "access.outcome.denied": "denegada",
-  "access.outcome.error": "fallida"
+  "access.outcome.error": "fallida",
+  "ready.addons.confirmChat": "Quien está emparejado puede confirmar en el chat las escrituras de {{addon}}: el bot escribe cada una allí y responde sí o no.",
+  "access.outcome.confirmed": "confirmada",
+  "access.outcome.cancelled": "cancelada",
+  "access.outcome.expired": "caducada",
+  "access.askedBy": "pedida por {{sender}}"
 }

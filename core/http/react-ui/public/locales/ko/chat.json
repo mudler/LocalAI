@@ -736,6 +736,11 @@
       "held_back": "일부 도구가 이 발신자에게 제공되지 않았습니다",
       "new_chat": "새 채팅 시작됨",
       "refused": "메시지 거부됨",
+      "hold_waiting": "페어링된 사람의 확인을 기다리는 중",
+      "hold_confirmed": "채팅에서 확인됨",
+      "hold_cancelled": "채팅에서 취소됨",
+      "hold_expired": "제때 확인되지 않음",
+      "hold_failed": "실행할 수 없었음",
       "other": "메모",
       "why": "이유"
     }

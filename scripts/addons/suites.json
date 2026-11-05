@@ -535,7 +535,21 @@
           "keeps the field out of an older strict reader: an unknown key is refused",
           "needs a list mapping",
           "accepts a plural and translated nouns, and falls back from the translation to English",
-          "refuses translated nouns the manifest does not name, empty ones and markup"
+          "refuses translated nouns the manifest does not name, empty ones and markup",
+          "accepts a title and summary fields on a write tool",
+          "refuses them on a read tool",
+          "refuses a bad title, a bad key, a repeated key and too many keys",
+          "shows only the listed scalar keys, in order, as short plain lines",
+          "cuts a long value and shows nothing without keys",
+          "is found in a wrapped error and keeps the cause",
+          "400",
+          "just below 400",
+          "success",
+          "zero",
+          "403",
+          "599",
+          "600",
+          "cleans a hint to printable ASCII on one line, cut at the limit"
         ]
       },
       {
@@ -2082,7 +2096,11 @@
       "send-key, ask each time",
       "type-text, even when the host would say skip",
       "type-text, ask each time",
-      "declares the setting of each relaxable tool with the default ask, and none for type-text"
+      "declares the setting of each relaxable tool with the default ask, and none for type-text",
+      "refuses the chat credential without the mark, runs it once with the mark, and does nothing on a replay",
+      "refuses a digest other than the one stored, even with the mark",
+      "does not let the mark lift a tool that always asks",
+      "does not let another user confirm with the mark"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -2290,7 +2308,11 @@
           "send-key, ask each time",
           "type-text, even when the host would say skip",
           "type-text, ask each time",
-          "declares the setting of each relaxable tool with the default ask, and none for type-text"
+          "declares the setting of each relaxable tool with the default ask, and none for type-text",
+          "refuses the chat credential without the mark, runs it once with the mark, and does nothing on a replay",
+          "refuses a digest other than the one stored, even with the mark",
+          "does not let the mark lift a tool that always asks",
+          "does not let another user confirm with the mark"
         ]
       },
       {

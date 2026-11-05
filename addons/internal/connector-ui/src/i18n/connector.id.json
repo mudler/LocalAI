@@ -343,5 +343,10 @@
   "access.outcome.ok": "berhasil",
   "access.outcome.held": "ditahan",
   "access.outcome.denied": "ditolak",
-  "access.outcome.error": "gagal"
+  "access.outcome.error": "gagal",
+  "ready.addons.confirmChat": "Orang yang sudah dipasangkan dapat mengonfirmasi penulisan {{addon}} di obrolan: bot menuliskan setiap permintaan di sana dan mereka menjawab ya atau tidak.",
+  "access.outcome.confirmed": "dikonfirmasi",
+  "access.outcome.cancelled": "dibatalkan",
+  "access.outcome.expired": "kedaluwarsa",
+  "access.askedBy": "diminta oleh {{sender}}"
 }

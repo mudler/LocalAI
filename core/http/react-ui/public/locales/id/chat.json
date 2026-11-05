@@ -848,6 +848,11 @@
       "held_back": "Beberapa alat tidak ditawarkan kepada pengirim ini",
       "new_chat": "Chat baru dimulai",
       "refused": "Pesan ditolak",
+      "hold_waiting": "Menunggu konfirmasi dari orang yang dipasangkan",
+      "hold_confirmed": "Dikonfirmasi di obrolan",
+      "hold_cancelled": "Dibatalkan di obrolan",
+      "hold_expired": "Tidak dikonfirmasi tepat waktu",
+      "hold_failed": "Tidak dapat dilakukan",
       "other": "Catatan",
       "why": "Mengapa"
     }

@@ -343,5 +343,10 @@
   "access.outcome.ok": "riuscita",
   "access.outcome.held": "in attesa",
   "access.outcome.denied": "negata",
-  "access.outcome.error": "fallita"
+  "access.outcome.error": "fallita",
+  "ready.addons.confirmChat": "Chi è abbinato può confermare nella chat le scritture di {{addon}}: il bot le scrive lì e risponde sì o no.",
+  "access.outcome.confirmed": "confermata",
+  "access.outcome.cancelled": "annullata",
+  "access.outcome.expired": "scaduta",
+  "access.askedBy": "richiesta da {{sender}}"
 }

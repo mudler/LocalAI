@@ -1,5 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
-import { mockConnectorThread } from './chats-connector-thread.js'
+import { mockConnectorThread, MESSAGES } from './chats-connector-thread.js'
 
 // A chat that a messaging connection started reads like the thread it came
 // from: the header says where it lives, each message names who wrote it, the
@@ -74,6 +74,26 @@ test.describe('A chat from a messaging thread', () => {
     await expect(notes.nth(1)).toContainText('Message not read')
     await expect(notes.nth(1).getByTestId('host-note-text')).toHaveText('I can only read text and files.')
     await expect(notes.nth(1)).toContainText('×2')
+  })
+
+  test('a write that waits in the chat shows its life as small status lines', async ({ page }) => {
+    const hold = (seq, code, text) => ({ seq, turn: 2, role: 'hostnote', host_note: { code }, text, at: '2026-11-05T09:20:00.000Z' })
+    const messages = [...MESSAGES.slice(0, 3),
+      hold(11, 'hold_waiting', 'Waiting for a paired person to confirm in this chat: Open an issue (code K7M2).'),
+      hold(12, 'hold_confirmed', 'Done: Open an issue (acme/widgets). https://example.test/issues/7 It cannot be undone from here.'),
+      hold(13, 'hold_cancelled', 'Cancelled. Nothing was sent.'),
+      hold(14, 'hold_expired', 'Nobody confirmed in time, so it was dropped: Open an issue.'),
+      hold(15, 'hold_failed', 'I could not do that: The service refused the call (403).')]
+    await mockConnectorThread(page, { messages: { cc1: messages, cc0: [] } })
+    await page.goto('/app/chats/cc1')
+    const notes = page.getByTestId('host-note')
+    await expect(notes).toHaveCount(5)
+    const labels = ['Waiting for a paired person to confirm', 'Confirmed in the chat', 'Cancelled in the chat', 'Not confirmed in time', 'Could not be done']
+    for (const [i, label] of labels.entries()) await expect(notes.nth(i)).toContainText(label)
+    await expect(notes.nth(0)).toHaveAttribute('data-code', 'hold_waiting')
+    await expect(notes.nth(1)).toHaveAttribute('data-code', 'hold_confirmed')
+    await expect(notes.nth(1).getByTestId('host-note-text')).toContainText('https://example.test/issues/7')
+    if (process.env.UI_SHOTS_DIR) await page.screenshot({ path: `${process.env.UI_SHOTS_DIR}/hold-3-chat-notes.png`, fullPage: true })
   })
 
   test('an answer shows once, as one row', async ({ page }) => {

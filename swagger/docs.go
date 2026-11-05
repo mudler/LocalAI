@@ -17499,6 +17499,17 @@ const docTemplate = `{
                     "description": "Shadows names a built-in chat tool that this tool replaces. When the\nadd-on is installed, running and on for a chat, the model sees one tool\nunder that name, served by the add-on, and the built-in one is hidden.\nOnly a name in ReplaceableTools may be shadowed. A tool without it keeps\nits add-on name (addon__\u003cid\u003e__\u003ctool\u003e).",
                     "type": "string"
                 },
+                "summaryFields": {
+                    "description": "SummaryFields name keys of the sample that the add-on's preview returns\n(the facts it shows the person who confirms). The host may repeat the\nscalar values of those keys, cut short, in the chat where a call waits\nfor a confirmation. Only the add-on knows which facts are safe to show\nthere; a key that is not listed is never shown in a chat. At most\nMaxSummaryFields keys.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "title": {
+                    "description": "Title is the name of the tool in plain words (\"Open an issue\"), for a\nperson who reads that a call waits for them in a chat. Only a write,\nschema or create tool may set it. A tool without one is named by its\ntool name.",
+                    "type": "string"
+                },
                 "uiOnly": {
                     "description": "UIOnly marks a tool that only the add-on's own page may call, such as a\nsettings change that asks the host whether the caller is an\nadministrator. It is never offered to a model, a chat or an agent. The\npage has no resource to name, so it must be a read tool without one.",
                     "type": "boolean"
@@ -22364,6 +22375,10 @@ const docTemplate = `{
                 "allowed": {
                     "type": "boolean"
                 },
+                "asker": {
+                    "description": "Asker is the sender whose message asked for a write that waited in the\nchat; senders then holds who answered it (confirmed, cancelled).",
+                    "type": "string"
+                },
                 "at": {
                     "type": "string"
                 },
@@ -22386,7 +22401,10 @@ const docTemplate = `{
                         "ok",
                         "denied",
                         "held",
-                        "error"
+                        "error",
+                        "confirmed",
+                        "cancelled",
+                        "expired"
                     ]
                 },
                 "reason": {

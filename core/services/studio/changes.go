@@ -126,6 +126,9 @@ func (c *Changes) sweep(ctx context.Context) {
 	}
 	for _, p := range done {
 		c.audit(ctx, proposals.ActionExpire, p, 0, "")
+		if p.Kind == addonHoldKind && c.s.connectors != nil {
+			c.s.connectors.holdLapsed(ctx, p)
+		}
 	}
 }
 
@@ -349,6 +352,9 @@ func targetName(p contract.ChangeProposal) string {
 func (c *Changes) List(ctx context.Context, user string, statuses ...contract.ProposalStatus) ([]contract.ChangeProposal, error) {
 	c.sweep(ctx)
 	list, err := c.store.List(ctx, principal(user), statuses...)
+	// The held writes of add-ons share the store but are answered through
+	// the add-on, not here.
+	list = slices.DeleteFunc(list, func(p contract.ChangeProposal) bool { return p.Kind == addonHoldKind })
 	for i := range list {
 		list[i] = withWarning(list[i])
 	}
@@ -361,6 +367,9 @@ func (c *Changes) Get(ctx context.Context, user, id string) (contract.ChangeProp
 	p, err := c.store.Get(ctx, principal(user), id)
 	if err != nil {
 		return p, err
+	}
+	if p.Kind == addonHoldKind {
+		return contract.ChangeProposal{}, proposals.ErrNotFound
 	}
 	return withWarning(p), nil
 }

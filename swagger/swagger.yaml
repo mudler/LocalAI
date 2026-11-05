@@ -1246,6 +1246,24 @@ definitions:
           Only a name in ReplaceableTools may be shadowed. A tool without it keeps
           its add-on name (addon__<id>__<tool>).
         type: string
+      summaryFields:
+        description: |-
+          SummaryFields name keys of the sample that the add-on's preview returns
+          (the facts it shows the person who confirms). The host may repeat the
+          scalar values of those keys, cut short, in the chat where a call waits
+          for a confirmation. Only the add-on knows which facts are safe to show
+          there; a key that is not listed is never shown in a chat. At most
+          MaxSummaryFields keys.
+        items:
+          type: string
+        type: array
+      title:
+        description: |-
+          Title is the name of the tool in plain words ("Open an issue"), for a
+          person who reads that a call waits for them in a chat. Only a write,
+          schema or create tool may set it. A tool without one is named by its
+          tool name.
+        type: string
       uiOnly:
         description: |-
           UIOnly marks a tool that only the add-on's own page may call, such as a
@@ -5084,6 +5102,11 @@ definitions:
         type: string
       allowed:
         type: boolean
+      asker:
+        description: |-
+          Asker is the sender whose message asked for a write that waited in the
+          chat; senders then holds who answered it (confirmed, cancelled).
+        type: string
       at:
         type: string
       capability:
@@ -5101,6 +5124,9 @@ definitions:
         - denied
         - held
         - error
+        - confirmed
+        - cancelled
+        - expired
         type: string
       reason:
         type: string

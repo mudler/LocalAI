@@ -343,5 +343,10 @@
   "access.outcome.ok": "성공",
   "access.outcome.held": "보류됨",
   "access.outcome.denied": "거부됨",
-  "access.outcome.error": "실패"
+  "access.outcome.error": "실패",
+  "ready.addons.confirmChat": "페어링된 사람은 채팅에서 {{addon}} 쓰기 작업을 확인할 수 있습니다. 봇이 각 요청을 그곳에 쓰고 예 또는 아니요로 답합니다.",
+  "access.outcome.confirmed": "확인됨",
+  "access.outcome.cancelled": "취소됨",
+  "access.outcome.expired": "만료됨",
+  "access.askedBy": "{{sender}} 요청"
 }

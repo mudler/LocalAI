@@ -547,6 +547,9 @@ type AccessEvent struct {
 	// add-on, when it answered one.
 	Outcome string `json:"outcome,omitempty"`
 	Status  int    `json:"status,omitempty"`
+	// Asker is the sender whose message made the turn that asked for a held
+	// write; Senders of the event is who answered it.
+	Asker string `json:"asker,omitempty"`
 }
 
 type heldGrant struct {

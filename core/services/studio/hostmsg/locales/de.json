@@ -149,5 +149,15 @@
   "refuse.channel": "Dieser Kanal ist auf Nur antworten gestellt, deshalb kann ich das hier nicht für dich tun. Bitte den Besitzer, dich zu den erlaubten Personen hinzuzufügen oder allen in diesem Kanal Aktionen zu erlauben.",
   "refuse.unlisted": "Das können nur Personen, die der Besitzer diesem Bot hinzugefügt hat, und du gehörst nicht dazu.",
   "refuse.pairing": "Das können nur Personen, die der Besitzer mit diesem Bot gekoppelt hat.",
-  "refuse.off": "Der Besitzer hat das für diesen Bot nicht eingeschaltet."
+  "refuse.off": "Der Besitzer hat das für diesen Bot nicht eingeschaltet.",
+  "hold.head": "Wartet auf deine Bestätigung: {title}{on}",
+  "hold.ask": "Es wird nichts gesendet, bevor du antwortest. Antworte hier innerhalb von 24 Stunden mit \"ja\", um es auszuführen, oder mit \"nein\", um es zu verwerfen. Wenn mehrere warten, antworte mit \"bestätigen {code}\" oder \"abbrechen {code}\".",
+  "hold.no_right": "Nur eine Person, die der Besitzer mit diesem Bot gekoppelt hat, kann das beantworten. Der Besitzer kann es auch in der Web-Oberfläche beantworten.",
+  "hold.closed": "Das wurde schon beantwortet, in der Web-Oberfläche oder von jemand anderem.",
+  "hold.cancelled": "Abgebrochen. Es wurde nichts gesendet.",
+  "hold.done": "Erledigt: {title}.",
+  "hold.undoable": "Der Besitzer kann es in der Web-Oberfläche rückgängig machen.",
+  "hold.not_undoable": "Von hier aus lässt es sich nicht rückgängig machen.",
+  "hold.note_waiting": "Wartet darauf, dass eine gekoppelte Person in diesem Chat bestätigt: {title} (Code {code}).",
+  "hold.note_expired": "Niemand hat rechtzeitig bestätigt, deshalb wurde es verworfen: {title}."
 }

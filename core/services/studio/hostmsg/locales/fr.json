@@ -149,5 +149,15 @@
   "refuse.channel": "Ce canal est réglé sur réponse seule, je ne peux donc pas le faire pour vous ici. Demandez au propriétaire de vous ajouter aux personnes autorisées, ou de laisser tout le monde dans ce canal demander des actions.",
   "refuse.unlisted": "Seules les personnes ajoutées à ce bot par le propriétaire peuvent le faire, et vous n'en faites pas partie.",
   "refuse.pairing": "Seules les personnes que le propriétaire a associées à ce bot peuvent le faire.",
-  "refuse.off": "Le propriétaire n'a pas activé cela pour ce bot."
+  "refuse.off": "Le propriétaire n'a pas activé cela pour ce bot.",
+  "hold.head": "En attente de votre confirmation : {title}{on}",
+  "hold.ask": "Rien n'est envoyé avant votre réponse. Répondez « oui » pour le faire ou « non » pour l'abandonner, ici, dans les 24 heures. Si plusieurs attendent, répondez « confirmer {code} » ou « annuler {code} ».",
+  "hold.no_right": "Seule une personne appairée à ce bot par le propriétaire peut répondre. Le propriétaire peut aussi répondre dans l'interface web.",
+  "hold.closed": "Il a déjà reçu une réponse, dans l'interface web ou par quelqu'un d'autre.",
+  "hold.cancelled": "Annulé. Rien n'a été envoyé.",
+  "hold.done": "Fait : {title}.",
+  "hold.undoable": "Le propriétaire peut l'annuler dans l'interface web.",
+  "hold.not_undoable": "Impossible de l'annuler d'ici.",
+  "hold.note_waiting": "En attente qu'une personne appairée confirme dans cette discussion : {title} (code {code}).",
+  "hold.note_expired": "Personne n'a confirmé à temps, il a donc été abandonné : {title}."
 }

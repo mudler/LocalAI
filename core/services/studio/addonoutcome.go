@@ -79,6 +79,15 @@ func (s *Service) outcomeRun(rec session.ChatRecord, a workspace.Actor, d AddonT
 		}
 		start := s.now()
 		text, err := run(ctx, args)
+		if h := out.HeldProposal(); h != nil && err == nil && rec.Origin == session.OriginConnector && s.connectors != nil {
+			// The write waits. When a paired sender can answer in the chat, the
+			// host asks there and tells the model so; otherwise the text of the
+			// tool stands and the owner answers in the web UI.
+			if note, ok := s.connectors.holdInChat(ctx, rec, a.ChatID, *h); ok {
+				text = note
+				out.Finish(addontools.OutcomeHeld, reasonWaitingInChat, 0)
+			}
+		}
 		s.recordOutcome(rec, a.ChatID, d, out.Data(), err, s.now().Sub(start))
 		return text, err
 	}

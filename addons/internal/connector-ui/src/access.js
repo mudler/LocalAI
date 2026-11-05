@@ -354,6 +354,11 @@ export function readinessRows(ctx) {
           rows.push({ id, labelKey: 'ready.row.addons', state: 'attention', key: 'ready.addons.blocked', params: { ...params, message: messageOf(d), messageKey: messageKey(d) }, fix: d.fix })
         } else {
           rows.push(afterSave({ id, labelKey: 'ready.row.addons', state: 'ok', key: 'ready.addons.paired', params: p }, 'caps', 'agent_id'))
+          // A connection that asks first: the bot writes the proposal in the
+          // chat and a paired person answers it there.
+          if (conns.some((c) => c.write_mode === 'propose') && on('proposals.confirm')) {
+            rows.push(afterSave({ id: `${id}:confirm`, labelKey: 'ready.row.addons', state: 'ok', key: 'ready.addons.confirmChat', params: { addon: hold.addon } }, 'caps', 'agent_id'))
+          }
         }
       } else if (hold.tick_removed) {
         rows.push({ id, labelKey: 'ready.row.addons', state: 'attention', key: 'ready.addons.removed', params, fix: jump('caps', hold.capability, 'fix.turnOn') })
@@ -366,7 +371,12 @@ export function readinessRows(ctx) {
     }
     const d = unusable(hold.capability, view, form, lists, paired, now)
     if (d) rows.push({ id, labelKey: 'ready.row.addons', state: 'attention', key: 'ready.addons.blocked', params: { ...params, message: messageOf(d), messageKey: messageKey(d) }, fix: d.fix })
-    else rows.push(afterSave({ id, labelKey: 'ready.row.addons', state: 'ok', key: 'ready.addons.ok', params }, 'caps', 'grants', 'allow', 'accept_any', 'agent_id'))
+    else {
+      rows.push(afterSave({ id, labelKey: 'ready.row.addons', state: 'ok', key: 'ready.addons.ok', params }, 'caps', 'grants', 'allow', 'accept_any', 'agent_id'))
+      if ((hold.connections || []).some((c) => c.write_mode === 'propose') && on('proposals.confirm') && hasPairing(paired, now)) {
+        rows.push(afterSave({ id: `${id}:confirm`, labelKey: 'ready.row.addons', state: 'ok', key: 'ready.addons.confirmChat', params: { addon: hold.addon } }, 'caps', 'agent_id'))
+      }
+    }
   }
 
   // Triggers
@@ -434,7 +444,7 @@ export function visibleRows(rows, expanded) {
 
 // OUTCOME_TONES maps how an add-on tool call ended to the look of its badge:
 // a held call waits for a person, a refused or failed one needs a fix.
-const OUTCOME_TONES = { ok: 'done', held: 'skipped', denied: 'failed', error: 'failed' }
+const OUTCOME_TONES = { ok: 'done', held: 'skipped', denied: 'failed', error: 'failed', confirmed: 'done', cancelled: 'skipped', expired: 'skipped' }
 
 // toolOutcomeRows lists the latest add-on tool calls of a binding for the access
 // view, newest first and at most `limit`. A row names the tool and says how the
@@ -450,5 +460,6 @@ export function toolOutcomeRows(view, limit = 20) {
     message: e.message || '',
     status: e.status || 0,
     senders: e.senders || [],
+    asker: e.asker || '',
   }))
 }

@@ -881,6 +881,11 @@
       "held_back": "Some tools were not offered to this sender",
       "new_chat": "New chat started",
       "refused": "Message refused",
+      "hold_waiting": "Waiting for a paired person to confirm",
+      "hold_confirmed": "Confirmed in the chat",
+      "hold_cancelled": "Cancelled in the chat",
+      "hold_expired": "Not confirmed in time",
+      "hold_failed": "Could not be done",
       "other": "Note",
       "why": "Why"
     }

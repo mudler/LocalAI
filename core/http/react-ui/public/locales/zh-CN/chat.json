@@ -736,6 +736,11 @@
       "held_back": "部分工具未提供给此发送者",
       "new_chat": "已开始新对话",
       "refused": "消息被拒绝",
+      "hold_waiting": "等待已配对的人确认",
+      "hold_confirmed": "已在聊天中确认",
+      "hold_cancelled": "已在聊天中取消",
+      "hold_expired": "未及时确认",
+      "hold_failed": "无法执行",
       "other": "备注",
       "why": "原因"
     }

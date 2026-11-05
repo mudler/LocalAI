@@ -736,6 +736,11 @@
       "held_back": "Algunas herramientas no se ofrecieron a este remitente",
       "new_chat": "Nuevo chat iniciado",
       "refused": "Mensaje rechazado",
+      "hold_waiting": "Esperando la confirmación de una persona emparejada",
+      "hold_confirmed": "Confirmada en el chat",
+      "hold_cancelled": "Cancelada en el chat",
+      "hold_expired": "No se confirmó a tiempo",
+      "hold_failed": "No se pudo realizar",
       "other": "Nota",
       "why": "Por qué"
     }

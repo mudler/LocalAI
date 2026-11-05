@@ -1133,8 +1133,12 @@ question.
   [Reply language](#reply-language-reply_language)), alone, within 30 minutes of a save
   that was made from the chat, restores the earlier text (`Removed: ...`). Any other
   word does not undo.
-- **Several waiting.** A bare word answers only when exactly one proposal (a change or a
-  trigger) waits in that chat and thread. Otherwise the bot lists the codes and the
+- **Add-on writes.** A write of an add-on that waits because its connection asks first is
+  written in the chat the same way and answered with the same words, by a paired sender
+  who holds `proposals.confirm`. See [Confirming a held write in the
+  chat]({{% relref "features/addons" %}}#confirming-a-held-write-in-the-chat).
+- **Several waiting.** A bare word answers only when exactly one proposal (a change, an
+  add-on write or a trigger) waits in that chat and thread. Otherwise the bot lists the codes and the
   person writes `confirm CODE` or `cancel CODE`.
 - **Who may answer.** A sender who holds `proposals.confirm` on the binding (a sender on
   the allowlist by ID or name, a paired sender, or a role with the grant). A change of

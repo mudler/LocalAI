@@ -149,5 +149,15 @@
   "refuse.channel": "Este canal está configurado só para responder, então não posso fazer isso por você aqui. Peça ao proprietário que adicione você às pessoas permitidas, ou que deixe todos neste canal pedirem ações.",
   "refuse.unlisted": "Só as pessoas que o proprietário adicionou a este bot podem fazer isso, e você não é uma delas.",
   "refuse.pairing": "Só as pessoas que o proprietário vinculou a este bot podem fazer isso.",
-  "refuse.off": "O proprietário não ativou isso para este bot."
+  "refuse.off": "O proprietário não ativou isso para este bot.",
+  "hold.head": "Aguardando sua confirmação: {title}{on}",
+  "hold.ask": "Nada é enviado até você responder. Responda \"sim\" para fazer ou \"não\" para descartar, aqui, em até 24 horas. Se houver mais de uma esperando, responda \"confirmar {code}\" ou \"cancelar {code}\".",
+  "hold.no_right": "Só uma pessoa que o proprietário emparelhou com este bot pode responder. O proprietário também pode responder na interface web.",
+  "hold.closed": "Isso já foi respondido, na interface web ou por outra pessoa.",
+  "hold.cancelled": "Cancelado. Nada foi enviado.",
+  "hold.done": "Feito: {title}.",
+  "hold.undoable": "O proprietário pode desfazer na interface web.",
+  "hold.not_undoable": "Não dá para desfazer daqui.",
+  "hold.note_waiting": "Aguardando uma pessoa emparelhada confirmar neste chat: {title} (código {code}).",
+  "hold.note_expired": "Ninguém confirmou a tempo, então foi descartado: {title}."
 }

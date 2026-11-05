@@ -343,5 +343,10 @@
   "access.outcome.ok": "réussi",
   "access.outcome.held": "en attente",
   "access.outcome.denied": "refusé",
-  "access.outcome.error": "échoué"
+  "access.outcome.error": "échoué",
+  "ready.addons.confirmChat": "Une personne associée peut confirmer dans le chat les écritures de {{addon}} : le bot écrit chacune là et elle répond oui ou non.",
+  "access.outcome.confirmed": "confirmée",
+  "access.outcome.cancelled": "annulée",
+  "access.outcome.expired": "expirée",
+  "access.askedBy": "demandée par {{sender}}"
 }

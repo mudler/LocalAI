@@ -149,5 +149,15 @@
   "refuse.channel": "This channel is set to answer only, so I cannot do that for you here. Ask the owner to add you to the allowed people, or to let everyone in this channel ask for actions.",
   "refuse.unlisted": "Only people the owner added to this bot can do that, and you are not one of them.",
   "refuse.pairing": "Only people the owner paired with this bot can do that.",
-  "refuse.off": "The owner has not turned that on for this bot."
+  "refuse.off": "The owner has not turned that on for this bot.",
+  "hold.head": "Waiting for your confirmation: {title}{on}",
+  "hold.ask": "Nothing is sent until you answer. Reply \"yes\" to do it or \"no\" to drop it, here, within 24 hours. If more than one waits, reply \"confirm {code}\" or \"cancel {code}\".",
+  "hold.no_right": "Only a person the owner paired with this bot can answer this. The owner can also answer it in the web UI.",
+  "hold.closed": "That was already answered, in the web UI or by someone else.",
+  "hold.cancelled": "Cancelled. Nothing was sent.",
+  "hold.done": "Done: {title}.",
+  "hold.undoable": "The owner can undo it in the web UI.",
+  "hold.not_undoable": "It cannot be undone from here.",
+  "hold.note_waiting": "Waiting for a paired person to confirm in this chat: {title} (code {code}).",
+  "hold.note_expired": "Nobody confirmed in time, so it was dropped: {title}."
 }

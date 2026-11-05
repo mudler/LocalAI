@@ -343,5 +343,10 @@
   "access.outcome.ok": "erfolgreich",
   "access.outcome.held": "angehalten",
   "access.outcome.denied": "abgelehnt",
-  "access.outcome.error": "fehlgeschlagen"
+  "access.outcome.error": "fehlgeschlagen",
+  "ready.addons.confirmChat": "Eine gekoppelte Person kann die Schreibaktionen von {{addon}} im Chat bestätigen: Der Bot schreibt jede dort hinein und sie antwortet mit ja oder nein.",
+  "access.outcome.confirmed": "bestätigt",
+  "access.outcome.cancelled": "abgebrochen",
+  "access.outcome.expired": "abgelaufen",
+  "access.askedBy": "angefragt von {{sender}}"
 }

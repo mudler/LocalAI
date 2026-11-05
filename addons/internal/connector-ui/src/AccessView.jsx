@@ -78,6 +78,7 @@ function ToolOutcomes({ rows, s }) {
               <span className="cn-muted">{new Date(r.at).toLocaleString(pageLocale(), { dateStyle: 'short', timeStyle: 'medium' })}</span>
               {r.message && <span className="cn-muted">{r.message}</span>}
               {r.senders.length > 0 && <span className="cn-muted cn-mono">{s('access.who', { senders: r.senders.join(', ') })}</span>}
+              {r.asker && <span className="cn-muted cn-mono">{s('access.askedBy', { sender: r.asker })}</span>}
             </li>
           ))}
         </ul>

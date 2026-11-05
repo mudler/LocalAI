@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -631,7 +632,7 @@ func (a *Application) StudioAddonTools() studio.AddonTools {
 	if db := a.AuthDB(); db != nil {
 		has = addonFeatureCheck(db)
 	}
-	return &studioAddons{adapter: addontools.NewChatToolAdapter(a.addonGateway).WithConnectionNames(a.chatConnectionName), mode: a.AddonOwnershipMode(), hostOps: a.addonAuthority(), ids: a.installedAddonIDs, has: has}
+	return &studioAddons{gw: a.addonGateway, adapter: addontools.NewChatToolAdapter(a.addonGateway).WithConnectionNames(a.chatConnectionName), mode: a.AddonOwnershipMode(), hostOps: a.addonAuthority(), ids: a.installedAddonIDs, has: has}
 }
 
 // lateStudioAddons asks for the broker at each call: the chats service starts
@@ -731,6 +732,29 @@ func (l lateStudioAddons) Network(ctx context.Context, user, addonID string) (st
 	return studio.AddonNetwork{}, false
 }
 
+// HeldState, ConfirmHeld and CancelHeld forward to the broker (see
+// studio.AddonHolds).
+func (l lateStudioAddons) HeldState(ctx context.Context, user, id string) (studio.AddonHeld, error) {
+	if b, ok := l.a.StudioAddonTools().(studio.AddonHolds); ok {
+		return b.HeldState(ctx, user, id)
+	}
+	return studio.AddonHeld{}, gateway.ErrUnavailable
+}
+
+func (l lateStudioAddons) ConfirmHeld(ctx context.Context, user, id, digest string) (studio.AddonHeldResult, error) {
+	if b, ok := l.a.StudioAddonTools().(studio.AddonHolds); ok {
+		return b.ConfirmHeld(ctx, user, id, digest)
+	}
+	return studio.AddonHeldResult{}, gateway.ErrUnavailable
+}
+
+func (l lateStudioAddons) CancelHeld(ctx context.Context, user, id string) error {
+	if b, ok := l.a.StudioAddonTools().(studio.AddonHolds); ok {
+		return b.CancelHeld(ctx, user, id)
+	}
+	return gateway.ErrUnavailable
+}
+
 func (l lateStudioAddons) Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error) {
 	b := l.a.StudioAddonTools()
 	if b == nil {
@@ -750,6 +774,8 @@ func (l lateStudioAddons) CallProvider(ctx context.Context, user, name string, a
 }
 
 type studioAddons struct {
+	// gw answers the held writes that a messaging chat confirms or drops.
+	gw      *gateway.Gateway
 	adapter *addontools.ToolAdapter
 	mode    string
 	// hostOps says which host operations an add-on may call. An add-on that may
@@ -1117,6 +1143,75 @@ func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args j
 	return studioAddonText(ctx, res), nil
 }
 
+// HeldState says where the stored proposal of the user is.
+func (s *studioAddons) HeldState(ctx context.Context, user, id string) (studio.AddonHeld, error) {
+	actor, err := s.actor(user)
+	if err != nil || s.gw == nil {
+		return studio.AddonHeld{}, gateway.ErrForbidden
+	}
+	p, err := s.gw.GetProposal(ctx, actor, id)
+	if err != nil {
+		return studio.AddonHeld{}, err
+	}
+	return studio.AddonHeld{State: string(p.State), Digest: p.Digest}, nil
+}
+
+// ConfirmHeld runs the stored proposal for a paired sender who confirmed it in
+// a messaging chat. The studio service checked the sender; the mark tells the
+// owner so, and it honors it only for a proposal that waits because the
+// connection asks first.
+func (s *studioAddons) ConfirmHeld(ctx context.Context, user, id, digest string) (studio.AddonHeldResult, error) {
+	actor, err := s.actor(user)
+	if err != nil || s.gw == nil {
+		return studio.AddonHeldResult{}, &studio.AddonHoldFailure{Reason: "forbidden"}
+	}
+	p, err := s.gw.ConfirmProposal(gateway.WithChatConfirmed(ctx), actor, id, digest)
+	if err != nil {
+		reason, status := addontools.FailureOf(err)
+		return studio.AddonHeldResult{}, &studio.AddonHoldFailure{Reason: reason, Status: status}
+	}
+	res := studio.AddonHeldResult{Applied: p.State == gateway.ProposalApplied}
+	if p.Receipt != nil {
+		res.Link, res.ID = safeReceiptRef(p.Receipt.Result.Payload)
+		n, _ := contract.ParseUndoNote(p.Receipt.Result.Payload)
+		res.Undoable = n.Available
+	}
+	return res, nil
+}
+
+// CancelHeld withdraws the stored proposal.
+func (s *studioAddons) CancelHeld(ctx context.Context, user, id string) error {
+	actor, err := s.actor(user)
+	if err != nil || s.gw == nil {
+		return gateway.ErrForbidden
+	}
+	_, err = s.gw.CancelProposal(ctx, actor, id)
+	return err
+}
+
+// safeReceiptRef reads, from the payload of a receipt, a link and an ID that
+// are safe to repeat in a chat: an https address without credentials, short
+// and on one line, and a number or short word. Anything else is left out.
+func safeReceiptRef(payload json.RawMessage) (link, id string) {
+	var m map[string]any
+	if json.Unmarshal(payload, &m) != nil {
+		return "", ""
+	}
+	if u, ok := m["url"].(string); ok && len(u) <= 300 && strings.HasPrefix(u, "https://") && !strings.ContainsAny(u, " \t\r\n<>@") {
+		link = u
+	}
+	switch v := m["number"].(type) {
+	case float64:
+		id = "#" + strconv.FormatInt(int64(v), 10)
+	}
+	if id == "" {
+		if v, ok := m["id"].(float64); ok {
+			id = strconv.FormatInt(int64(v), 10)
+		}
+	}
+	return link, id
+}
+
 // CallProvider runs one tool of an add-on as the person, outside any chat: the
 // export and the forget of a provider come from the settings page. The call is
 // not bound to a chat, so a tool that works on a resource names it.
@@ -1152,9 +1247,12 @@ func studioAddonText(ctx context.Context, res addontools.ToolResult) string {
 }
 
 // heldSentence says, for the model, why a change waits and who can confirm it.
-// Only a person at the web UI confirms it: a chat turn, a messaging sender and
-// an agent never do, so a messaging chat is told that nobody can confirm it
-// from there.
+// A person at the web UI confirms it. This is the text for a change the host
+// did not ask for in a messaging chat: when the connection only asks first and
+// a paired sender can answer, the studio service asks in the chat and tells the
+// model so itself. What reaches this text in a messaging chat is a tool that
+// always asks, a chat nobody paired can answer in, or a chat with too many
+// waiting.
 func heldSentence(surface, hold string) string {
 	why := ""
 	switch hold {
@@ -1164,7 +1262,7 @@ func heldSentence(surface, hold string) string {
 		why = " because this tool always asks first"
 	}
 	if surface == addontools.SurfaceMessaging {
-		return "It is waiting" + why + " for the owner, who can confirm or cancel it in the web UI on the Add-ons page; it cannot be confirmed from this chat. " +
+		return "It is waiting" + why + " for the owner, who can confirm or cancel it in the web UI on the Add-ons page; it cannot be confirmed from this chat; the host did not ask for it here. " +
 			"Tell the sender in one sentence that the change is waiting for the owner."
 	}
 	return "It is waiting" + why + " for the user to confirm: they can confirm or cancel it on the Add-ons page. " +

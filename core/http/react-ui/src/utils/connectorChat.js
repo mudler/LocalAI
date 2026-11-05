@@ -57,14 +57,14 @@ export function threadLine(line) {
 
 // The codes of a host note that the page has words for; any other reads as a
 // plain note with the sentence the server kept.
-export const NOTE_CODES = ['paired', 'unsupported', 'too_long', 'no_upload', 'rate', 'held_back', 'new_chat', 'refused']
+export const NOTE_CODES = ['paired', 'unsupported', 'too_long', 'no_upload', 'rate', 'held_back', 'new_chat', 'refused', 'hold_waiting', 'hold_confirmed', 'hold_cancelled', 'hold_expired', 'hold_failed']
 export const noteCode = (code) => (NOTE_CODES.includes(code) ? code : 'other')
 
 // The tone of a host note: ok for a pairing that worked, info for a note that
 // only informs (tools held back), warn for a message the bot did not take.
 export function noteTone(code) {
-  if (code === 'paired') return 'ok'
-  if (code === 'held_back' || code === 'new_chat') return 'info'
+  if (code === 'paired' || code === 'hold_confirmed') return 'ok'
+  if (code === 'held_back' || code === 'new_chat' || code === 'hold_waiting' || code === 'hold_cancelled' || code === 'hold_expired') return 'info'
   return 'warn'
 }
 

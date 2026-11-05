@@ -149,5 +149,15 @@
   "refuse.channel": "Questo canale è impostato su sola risposta, quindi qui non posso farlo per te. Chiedi al proprietario di aggiungerti alle persone consentite, o di far chiedere azioni a tutti in questo canale.",
   "refuse.unlisted": "Solo le persone aggiunte dal proprietario a questo bot possono farlo, e tu non sei tra loro.",
   "refuse.pairing": "Solo le persone abbinate a questo bot dal proprietario possono farlo.",
-  "refuse.off": "Il proprietario non ha attivato questa funzione per questo bot."
+  "refuse.off": "Il proprietario non ha attivato questa funzione per questo bot.",
+  "hold.head": "In attesa della tua conferma: {title}{on}",
+  "hold.ask": "Non viene inviato nulla finché non rispondi. Rispondi \"sì\" per eseguirlo o \"no\" per scartarlo, qui, entro 24 ore. Se ce n'è più di uno in attesa, rispondi \"conferma {code}\" oppure \"annulla {code}\".",
+  "hold.no_right": "Solo una persona abbinata dal proprietario a questo bot può rispondere. Il proprietario può rispondere anche dall'interfaccia web.",
+  "hold.closed": "Ha già avuto risposta, dall'interfaccia web o da qualcun altro.",
+  "hold.cancelled": "Annullato. Non è stato inviato nulla.",
+  "hold.done": "Fatto: {title}.",
+  "hold.undoable": "Il proprietario può annullarla dall'interfaccia web.",
+  "hold.not_undoable": "Da qui non si può annullare.",
+  "hold.note_waiting": "In attesa che una persona abbinata confermi in questa chat: {title} (codice {code}).",
+  "hold.note_expired": "Nessuno ha confermato in tempo, quindi è stato scartato: {title}."
 }

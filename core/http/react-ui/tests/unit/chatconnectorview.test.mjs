@@ -84,6 +84,8 @@ test('connector chat: a host note has words for the codes the server writes and 
   assert.equal(noteCode('from-a-newer-server'), 'other')
   assert.equal(noteTone('paired'), 'ok')
   assert.equal(noteTone('held_back'), 'info')
+  assert.deepEqual(['hold_waiting', 'hold_confirmed', 'hold_cancelled', 'hold_expired', 'hold_failed'].map(noteTone), ['info', 'ok', 'info', 'info', 'warn'])
+  assert.equal(noteCode('hold_waiting'), 'hold_waiting')
   assert.equal(noteTone('no_upload'), 'warn')
 })
 

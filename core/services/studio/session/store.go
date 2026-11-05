@@ -328,6 +328,13 @@ const (
 	HostNoteHeldBack    = "held_back"
 	HostNoteNewChat     = "new_chat"
 	HostNoteRefused     = "refused"
+	// The life of a write of an add-on that waits for a paired sender to
+	// confirm it in the chat.
+	HostNoteHoldWaiting   = "hold_waiting"
+	HostNoteHoldConfirmed = "hold_confirmed"
+	HostNoteHoldCancelled = "hold_cancelled"
+	HostNoteHoldExpired   = "hold_expired"
+	HostNoteHoldFailed    = "hold_failed"
 )
 
 // MaxReasoningBytes is the size limit of a stored reasoning entry, including

@@ -736,6 +736,11 @@
       "held_back": "Einige Werkzeuge wurden diesem Absender nicht angeboten",
       "new_chat": "Neuer Chat gestartet",
       "refused": "Nachricht abgelehnt",
+      "hold_waiting": "Wartet auf die Bestätigung einer gekoppelten Person",
+      "hold_confirmed": "Im Chat bestätigt",
+      "hold_cancelled": "Im Chat abgebrochen",
+      "hold_expired": "Nicht rechtzeitig bestätigt",
+      "hold_failed": "Konnte nicht ausgeführt werden",
       "other": "Hinweis",
       "why": "Warum"
     }
