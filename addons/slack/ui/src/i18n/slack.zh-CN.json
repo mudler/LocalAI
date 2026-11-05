@@ -18,7 +18,6 @@
   "anyoneWarning": "任何能给此应用发消息或提及它的人，都可以以你的身份使用此智能体的工具。每个人和每个讨论串都有自己的对话。",
   "anyoneConfirm": "我已了解",
   "allowUsersHint": "用户 ID（U...）或 @用户名",
-  "notifyChat": "把我的通知发送到此用户或频道 ID",
   "notifyHelp": "可选。填你的用户 ID（U...），通知会以应用私信的形式发给你。",
   "test": "测试",
   "testOk": "已连接到 {{bot}}。",
@@ -59,6 +58,5 @@
     "copied": "已复制",
     "manifest": "Slack 应用 manifest"
   },
-  "back": "返回连接器",
   "allowUsersHelp": "@用户名匹配 Slack 用户名（账号名），而不是显示名称，并且需要 users:read 范围。用户 ID（U...）总是匹配。有人被拒绝时，访问日志会显示其用户 ID。"
 }

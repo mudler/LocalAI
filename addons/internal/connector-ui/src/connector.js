@@ -359,13 +359,6 @@ export function pageLocale() {
   return lang || []
 }
 
-// Who the binding accepts, in a few words.
-export function modeText(c) {
-  if (c.accept_any) return 'anyone'
-  const n = (c.allow || []).length
-  return n === 0 ? 'nobody yet' : `${n} listed sender${n === 1 ? '' : 's'}`
-}
-
 // A sender of the log as a short line: name, how many messages, and the id.
 // With a translator t, the words follow the language of the page.
 export function senderLine(s, t) {
@@ -398,10 +391,4 @@ export function listEntries(allow, lists, index) {
     return first === -1 ? index === lists.length - 1 : first === index
   }
   return (allow || []).filter(own)
-}
-
-// The allowlist after list index changed to values.
-export function replaceList(allow, lists, index, values) {
-  const others = lists.flatMap((_, i) => (i === index ? [] : listEntries(allow, lists, i)))
-  return [...others, ...values]
 }

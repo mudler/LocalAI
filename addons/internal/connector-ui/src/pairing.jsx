@@ -10,7 +10,6 @@ import { connectorsApi } from './api'
 import { pageLocale } from './connector'
 
 export const MAX_PAIRED = 3
-const DAYS = 90
 const POLL_MS = 3000
 
 export function time(iso) {
@@ -78,7 +77,7 @@ export function usePairing(binding, onPaired) {
 export function PairingNotices({ p, s }) {
   return (<>
     {p.error && <Notice tone="error" role="alert">{p.error}</Notice>}
-    {p.done && <Notice tone="ok" role="status" testId="connector-pair-done">{s('pair.done', { sender: p.done })}</Notice>}
+    {p.done && <Notice tone="ok" role="status">{s('pair.done', { sender: p.done })}</Notice>}
     {p.expired && <Notice tone="info" role="status">{s('pair.codeGone')}</Notice>}
     {p.code && (
       <Notice tone="info" role="status" testId="connector-pair-code-box">

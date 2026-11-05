@@ -18,7 +18,6 @@
   "anyoneWarning": "Toute personne pouvant écrire à cette app ou la mentionner peut utiliser les outils de cet agent, en votre nom. Chaque personne, et chaque fil, a sa propre conversation.",
   "anyoneConfirm": "J’ai compris",
   "allowUsersHint": "ID d’utilisateur (U...) ou @identifiant",
-  "notifyChat": "Envoyer mes notifications à cet ID d’utilisateur ou de canal",
   "notifyHelp": "Facultatif. Votre ID d’utilisateur (U...) les envoie en messages privés depuis l’app.",
   "test": "Tester",
   "testOk": "Connecté à {{bot}}.",
@@ -59,6 +58,5 @@
     "copied": "Copié",
     "manifest": "Manifeste de l’app Slack"
   },
-  "back": "Retour aux connecteurs",
   "allowUsersHelp": "Un @identifiant correspond au nom d’utilisateur Slack (le pseudo), pas au nom affiché, et nécessite le scope users:read. Un ID d’utilisateur (U...) correspond toujours. Quand une personne est refusée, le journal d’accès indique son ID d’utilisateur."
 }

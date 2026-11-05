@@ -262,6 +262,12 @@ test.describe('Connector permissions', () => {
     await pick.selectOption('U001')
     await page.getByRole('button', { name: 'Save' }).click()
     await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.notify_chat).toBe('U001')
+    // An ID that the page does not know can still be typed.
+    await page.getByRole('button', { name: 'Edit' }).click()
+    await page.getByTestId('connector-notify').selectOption({ label: 'Another ID...' })
+    await page.getByTestId('connector-notify-other').fill('U4242')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect.poll(() => a.s.calls.filter(c => c.method === 'PUT').at(-1)?.body.notify_chat).toBe('U4242')
   })
 
   test('the file sizes and the reply language sit in one group that opens when one is set', async ({ page }) => {
@@ -334,8 +340,9 @@ test.describe('Connector permissions', () => {
     const audit = box.getByTestId('connector-audit')
     await expect(audit.getByRole('listitem')).toHaveCount(1)
     await expect(audit).toContainText('refused')
-    await expect(audit).toContainText('asked for: Receive files')
-    await expect(audit).toContainText('not enabled for this bot')
+    await expect(audit.getByTestId('connector-audit-who')).toHaveText('U002')
+    await expect(audit.getByTestId('connector-audit-action')).toHaveText('asked for: Receive files')
+    await expect(audit.getByTestId('connector-audit-reason')).toHaveText('not enabled for this bot')
     await expect(audit).not.toContainText('allowed')
     await expect(box.getByTestId('connector-refusals-note')).toContainText('kept in memory only: it is empty after the server restarts')
     await expect(box.getByRole('checkbox')).toHaveCount(0)

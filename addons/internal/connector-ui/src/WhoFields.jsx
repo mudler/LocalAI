@@ -92,7 +92,7 @@ export default function WhoFields({ form, setForm, t, s, confirmed, setConfirmed
             <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="connector-verify" disabled={verifyDisabled}
               aria-label={s('who.verifyPerson', { name: nameOf(people, id) || id })} onClick={pairing.start}>{s('who.verify')}</button>
           )}
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="connector-person-remove"
+          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm"
             aria-label={s('who.removePerson', { name: nameOf(people, id) || id })} onClick={() => remove(id)}>{s('who.remove')}</button>
         </span>
       </li>
@@ -115,7 +115,7 @@ export default function WhoFields({ form, setForm, t, s, confirmed, setConfirmed
         <h3 className="cn-sub__title">{mixed ? s('who.peopleAndChannels') : s('who.people')}</h3>
         <PairingNotices p={pairing} s={s} />
         {rows.length === 0
-          ? <p className="cn-muted" data-testid="connector-people-none">{anyone ? s('pair.none') : s('who.peopleNone')}</p>
+          ? <p className="cn-muted">{anyone ? s('pair.none') : s('who.peopleNone')}</p>
           : <ul className="cn-who__list" aria-label={mixed ? s('who.peopleAndChannels') : s('who.people')} data-testid="connector-who-people">{rows.map(personRow)}</ul>}
         <div className="cn-who__verify">
           <button type="button" className="dk-btn dk-btn--secondary" data-testid="connector-pair-start" disabled={verifyDisabled} onClick={pairing.start}>{s('pair.start')}</button>
@@ -132,7 +132,7 @@ export default function WhoFields({ form, setForm, t, s, confirmed, setConfirmed
                 <Who id={id} name={chatNames.get(id) || ''} />
                 <LevelSelect entry={id} level={trustOf(form, id)} onChange={(v) => setLevel(id, v)} t={s} />
                 <span className="cn-who__actions">
-                  <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="connector-channel-remove"
+                  <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm"
                     aria-label={s('who.removeChannel', { name: chatNames.get(id) || id })} onClick={() => setAllow(allow.filter((x) => x !== id))}>{s('who.remove')}</button>
                 </span>
               </li>

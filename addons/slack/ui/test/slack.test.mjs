@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { APP_MANIFEST, SLACK_LISTS, isTrustChannel, slackSecret, tokenProblem } from '../src/tokens.js'
-import { canSave, connectorPayload, emptyConnector, listEntries, replaceList } from '../../../internal/connector-ui/src/connector.js'
+import { canSave, connectorPayload, emptyConnector, listEntries } from '../../../internal/connector-ui/src/connector.js'
 
 test('slack: both tokens make one secret, and only when both are right', () => {
   assert.equal(slackSecret({ bot_token: ' xoxb-1 ', app_token: 'xapp-2' }), 'xoxb-1 xapp-2')
@@ -36,8 +36,6 @@ test('slack: people and channels are two lists of one allowlist', () => {
   const allow = ['U1', 'C1', '@ada', 'G2']
   assert.deepEqual(listEntries(allow, SLACK_LISTS, 0), ['U1', '@ada'])
   assert.deepEqual(listEntries(allow, SLACK_LISTS, 1), ['C1', 'G2'])
-  assert.deepEqual(replaceList(allow, SLACK_LISTS, 1, ['C9']), ['U1', '@ada', 'C9'])
-  assert.deepEqual(replaceList(allow, SLACK_LISTS, 0, []), ['C1', 'G2'])
 })
 
 test('slack: the app manifest turns on Socket Mode and asks for the scopes the add-on uses', () => {

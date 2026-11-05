@@ -1,6 +1,6 @@
 {
   "title": "Telegram",
-  "intro": "Verbinde einen Telegram-Bot mit einem deiner gespeicherten Agenten. Wer dem Bot schreibt, spricht mit diesem Agenten, in einer eigenen Unterhaltung. Möglich sind Text, Fotos, Dateien und Sprachnachrichten (wie groß, zeigt der Abschnitt Dateien); eine Sprachnachricht wird mit dem Chat-Transkriptionsmodell aus den Einstellungen transkribiert.",
+  "intro": "Verbinde einen Telegram-Bot mit einem deiner gespeicherten Agenten. Wer dem Bot schreibt, spricht mit diesem Agenten, in einer eigenen Unterhaltung. Möglich sind Text, Fotos, Dateien und Sprachnachrichten (wie groß, zeigt der Bereich Dateigrößen und Antwortsprache); eine Sprachnachricht wird mit dem Chat-Transkriptionsmodell aus den Einstellungen transkribiert.",
   "new": "Neuer Telegram-Bot",
   "edit": "Telegram-Bot bearbeiten",
   "name": "Name",
@@ -13,7 +13,6 @@
   "anyoneWarning": "Wer diesem Bot schreiben kann, kann die Werkzeuge dieses Agenten nutzen, als wärst du es. Jede Person bekommt eine eigene Unterhaltung.",
   "anyoneConfirm": "Verstanden",
   "allowHint": "Chat-ID, Nutzer-ID oder @username",
-  "notifyChat": "Meine Benachrichtigungen an diese Chat-ID senden",
   "notifyHelp": "Optional. Eine numerische Telegram-Chat-ID.",
   "test": "Test",
   "testOk": "Mit @{{bot}} verbunden.",
@@ -43,6 +42,5 @@
     "title": "{{name}} löschen?",
     "message": "Der Bot antwortet nicht mehr, und das mit ihm gespeicherte Bot-Token wird gelöscht. Um den Bot erneut einzurichten, musst du das Token noch einmal eingeben.",
     "confirm": "Löschen"
-  },
-  "back": "Zurück zu den Konnektoren"
+  }
 }

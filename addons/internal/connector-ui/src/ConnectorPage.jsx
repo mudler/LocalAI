@@ -46,7 +46,7 @@ function Senders({ id, onAllowed, t }) {
         <li key={s.id}>
           <span className={`cn-status cn-status--${s.allowed ? 'done' : 'skipped'}`}>{s.allowed ? t('accepted') : t('ignored')}</span>
           <span>{senderLine(s, answerT(t))}</span>
-          {s.chat && <span className="cn-muted" data-testid="sender-chat">{answerT(t)('sender.chat', { chat: chatText(s.chat, s.chat_name) })}</span>}
+          {s.chat && <span className="cn-muted">{answerT(t)('sender.chat', { chat: chatText(s.chat, s.chat_name) })}</span>}
           {!s.allowed && s.reason && <span className="cn-muted" data-testid="sender-reason" data-code={s.reason}>{answerT(t)(`sender.reason.${s.reason}`, { defaultValue: s.reason })}</span>}
           {!s.allowed && (
             <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm"
@@ -83,7 +83,7 @@ function SameBotNotice({ c, s, busy, onOff, onOpen }) {
     <Notice tone="warn" role="status" testId="duplicate-warning">
       <p className="cn-notice__text">{s('dup.text', { name: other.name })}</p>
       <span className="cn-row__actions">
-        <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="duplicate-off" disabled={busy} onClick={onOff}>{s('dup.turnOff')}</button>
+        <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" disabled={busy} onClick={onOff}>{s('dup.turnOff')}</button>
         <button type="button" className="cn-link cn-link--text" data-testid="duplicate-open" onClick={() => onOpen(other.id)}>{s('dup.openOther', { name: other.name })}</button>
       </span>
     </Notice>

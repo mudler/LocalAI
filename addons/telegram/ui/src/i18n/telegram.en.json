@@ -1,6 +1,6 @@
 {
   "title": "Telegram",
-  "intro": "Bind a Telegram bot to one of your saved agents. A person who messages the bot talks to that agent, in a conversation of their own. They can send text, photos, files and voice messages (the Files section shows how large); a voice message is transcribed with the Chat transcription model of the settings.",
+  "intro": "Bind a Telegram bot to one of your saved agents. A person who messages the bot talks to that agent, in a conversation of their own. They can send text, photos, files and voice messages (File sizes and reply language shows how large); a voice message is transcribed with the Chat transcription model of the settings.",
   "new": "New Telegram bot",
   "edit": "Edit Telegram bot",
   "name": "Name",
@@ -13,7 +13,6 @@
   "anyoneWarning": "Anyone who can message this bot can use this agent's tools, as you. Each person gets a conversation of their own.",
   "anyoneConfirm": "I understand",
   "allowHint": "Chat ID, user ID or @username",
-  "notifyChat": "Send my notifications to this chat ID",
   "notifyHelp": "Optional. A numeric Telegram chat ID.",
   "test": "Test",
   "testOk": "Connected to @{{bot}}.",
@@ -43,6 +42,5 @@
     "title": "Delete {{name}}?",
     "message": "The bot stops answering, and the bot token saved with it is deleted. To set the bot up again you must enter the token again.",
     "confirm": "Delete"
-  },
-  "back": "Back to connectors"
+  }
 }

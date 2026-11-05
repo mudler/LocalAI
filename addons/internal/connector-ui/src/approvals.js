@@ -18,6 +18,3 @@ export function approvalState(a, sender = '') {
   if (sender && !who.includes(sender)) return 'other'
   return 'runs'
 }
-
-// The tools that run without asking, in the order the host gave them.
-export const runningUnasked = (list) => (Array.isArray(list) ? list.filter((a) => approvalState(a) === 'runs').map((a) => a.tool) : [])

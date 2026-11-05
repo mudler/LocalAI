@@ -17,7 +17,6 @@
   "allowIdsHint": "Eine Nutzer-ID oder eine Kanal-ID (Zahlen)",
   "rules": "Aufgeführte Personen können in einer Direktnachricht schreiben und den Bot in jedem Kanal erwähnen. Ein aufgeführter Kanal lässt alle darin den Bot dort erwähnen, aber sie bekommen keine eigene Berechtigung. Auf einem Server antwortet der Bot nur, wenn er erwähnt wird, wenn man ihm antwortet oder in einem Thread, in dem er erwähnt wurde. Er antwortet nie auf Bots oder Webhooks, und seine Nachrichten benachrichtigen niemanden. Nutze Kanal-IDs: Eine Server-ID (Guild) passt auf nichts. Nur IDs, keine Namen: Schalte in Discord den Entwicklermodus ein (Einstellungen, Erweitert), klicke dann mit der rechten Maustaste auf eine Person oder einen Kanal und wähle Copy ID.",
   "badIds": "Das sind keine Discord-IDs: {{list}}. Nutze die Zahl aus Copy ID (17 bis 20 Ziffern). Namen werden nicht akzeptiert.",
-  "notifyChat": "Meine Benachrichtigungen an diesen Kanal oder diese Person senden",
   "notifyHelp": "Optional. Eine Kanal-ID, oder user: gefolgt von deiner Nutzer-ID, um sie als Direktnachrichten zu erhalten.",
   "test": "Test",
   "testOk": "Mit {{bot}} verbunden.",
@@ -72,7 +71,6 @@
     },
     "never": "Gib dem Bot nie Administrator, Manage Messages oder Mention Everyone. Er braucht keine davon."
   },
-  "back": "Zurück zu den Konnektoren",
   "answer": {
     "reply": {
       "off": "Nur die Antwort (Discord hat hier keine Schreibanzeige)"

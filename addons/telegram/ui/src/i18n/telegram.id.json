@@ -1,6 +1,6 @@
 {
   "title": "Telegram",
-  "intro": "Hubungkan bot Telegram ke salah satu agen tersimpan Anda. Orang yang mengirim pesan ke bot berbicara dengan agen itu, dalam percakapan tersendiri. Mereka dapat mengirim teks, foto, file, dan pesan suara (bagian File menunjukkan batas ukurannya); pesan suara ditranskripsikan dengan model transkripsi Chat di pengaturan.",
+  "intro": "Hubungkan bot Telegram ke salah satu agen tersimpan Anda. Orang yang mengirim pesan ke bot berbicara dengan agen itu, dalam percakapan tersendiri. Mereka dapat mengirim teks, foto, file, dan pesan suara (Ukuran berkas dan bahasa balasan menunjukkan batas ukurannya); pesan suara ditranskripsikan dengan model transkripsi Chat di pengaturan.",
   "new": "Bot Telegram baru",
   "edit": "Ubah bot Telegram",
   "name": "Nama",
@@ -13,7 +13,6 @@
   "anyoneWarning": "Siapa saja yang dapat mengirim pesan ke bot ini dapat memakai alat agen ini, sebagai Anda. Setiap orang mendapat percakapan tersendiri.",
   "anyoneConfirm": "Saya mengerti",
   "allowHint": "ID chat, ID pengguna, atau @username",
-  "notifyChat": "Kirim notifikasi saya ke ID chat ini",
   "notifyHelp": "Opsional. ID chat Telegram berupa angka.",
   "test": "Uji",
   "testOk": "Terhubung ke @{{bot}}.",
@@ -43,6 +42,5 @@
     "title": "Hapus {{name}}?",
     "message": "Bot berhenti menjawab, dan token bot yang tersimpan bersamanya dihapus. Untuk menyiapkan bot lagi, Anda harus memasukkan token lagi.",
     "confirm": "Hapus"
-  },
-  "back": "Kembali ke konektor"
+  }
 }

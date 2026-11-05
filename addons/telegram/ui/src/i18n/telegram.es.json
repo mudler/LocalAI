@@ -1,6 +1,6 @@
 {
   "title": "Telegram",
-  "intro": "Conecta un bot de Telegram a uno de tus agentes guardados. Quien escriba al bot habla con ese agente, en una conversación propia. Puede enviar texto, fotos, archivos y mensajes de voz (la sección Archivos muestra el tamaño máximo); un mensaje de voz se transcribe con el modelo de transcripción del chat de la configuración.",
+  "intro": "Conecta un bot de Telegram a uno de tus agentes guardados. Quien escriba al bot habla con ese agente, en una conversación propia. Puede enviar texto, fotos, archivos y mensajes de voz (Tamaño de archivos e idioma de respuesta muestra el tamaño máximo); un mensaje de voz se transcribe con el modelo de transcripción del chat de la configuración.",
   "new": "Nuevo bot de Telegram",
   "edit": "Editar bot de Telegram",
   "name": "Nombre",
@@ -13,7 +13,6 @@
   "anyoneWarning": "Cualquiera que pueda escribir a este bot puede usar las herramientas de este agente, como si fueras tú. Cada persona tiene su propia conversación.",
   "anyoneConfirm": "Lo entiendo",
   "allowHint": "ID de chat, ID de usuario o @username",
-  "notifyChat": "Enviar mis notificaciones a este ID de chat",
   "notifyHelp": "Opcional. Un ID de chat numérico de Telegram.",
   "test": "Probar",
   "testOk": "Conectado a @{{bot}}.",
@@ -43,6 +42,5 @@
     "title": "¿Eliminar {{name}}?",
     "message": "El bot deja de responder y se elimina el token del bot guardado con él. Para configurar el bot de nuevo tendrás que volver a introducir el token.",
     "confirm": "Eliminar"
-  },
-  "back": "Volver a los conectores"
+  }
 }

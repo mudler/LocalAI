@@ -57,7 +57,7 @@ export default function AccessView({ binding, capabilities, s, version, onAllowe
 function ToolOutcomes({ rows, s }) {
   const people = usePeople()
   return (
-    <div data-testid="connector-tool-outcomes-box">
+    <div>
       <p className="dk-hint">{s('access.toolsHelp')}</p>
       {rows.length === 0 ? <p className="cn-muted">{s('access.toolsNone')}</p> : (
         <ul className="cn-runs" aria-label={s('access.toolsTitle')} data-testid="connector-tool-outcomes">

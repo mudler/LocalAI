@@ -189,7 +189,7 @@ export default function AccessMatrix({ form, setForm, kindInfo, capabilities, pr
               ? <p data-testid="connector-matrix-message">{viaText(d, s) ? sentenceCase(viaText(d, s)) : s('can.allowed')}</p>
               : <p data-testid="connector-matrix-message">{d.message || d.reason || s('can.noMessage')}</p>}
             {!d.allowed && remainingChecks(d.then_check).length > 0 && (
-              <p className="cn-muted" data-testid="connector-matrix-then">{s('can.then', { list: remainingChecks(d.then_check).map((x) => s(`can.then.${x}`)).join(', ') })}</p>
+              <p className="cn-muted">{s('can.then', { list: remainingChecks(d.then_check).map((x) => s(`can.then.${x}`)).join(', ') })}</p>
             )}
             {!d.allowed && d.fix && <div className="cn-can__fix"><FixButton fix={d.fix} ctx={ctx} s={s} /></div>}
           </div>

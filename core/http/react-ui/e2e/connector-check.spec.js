@@ -65,6 +65,14 @@ test.describe('Check it', () => {
     expect(a.s.calls.filter((c) => c.method === 'POST' && !/\/access\/preview$/.test(c.url))).toEqual([])
   })
 
+  test('Try it names the links of the check that were not looked at', async ({ page }) => {
+    await open(page, { ...BINDING, agent_id: 'a3', caps: ['talkback.new_channel'] })
+    await page.getByTestId('connector-try-who').selectOption('person:U002')
+    await page.getByTestId('connector-try-action').selectOption('talkback.new_channel')
+    await expect(page.getByTestId('connector-try-answer')).toHaveAttribute('data-verdict', 'refused')
+    await expect(page.getByTestId('connector-try-then')).toContainText('Not checked yet:')
+  })
+
   test('the answer follows the form without a save: setting the channel to let everyone act changes it', async ({ page }) => {
     await open(page)
     await page.getByTestId('connector-try-who').selectOption('channel:C0123')

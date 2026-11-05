@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { DUPLICATE_CONFIRMATION, duplicateOther, duplicateRefusalName, isDuplicateRefusal, localizeAccess, localizeCapabilities, approvalForm, approvalPayload, approvalProblem, bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, REPLY_LANGUAGES, fileDirection, fileLimitProblem, formatBytes, mibToBytes, modeText, previewLimit, senderLine } from '../../../internal/connector-ui/src/connector.js'
+import { DUPLICATE_CONFIRMATION, duplicateOther, duplicateRefusalName, isDuplicateRefusal, localizeAccess, localizeCapabilities, approvalForm, approvalPayload, approvalProblem, bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, REPLY_LANGUAGES, fileDirection, fileLimitProblem, formatBytes, mibToBytes, previewLimit, senderLine } from '../../../internal/connector-ui/src/connector.js'
 
 test('chat connectors: the token goes only when it was typed', () => {
   const create = connectorPayload({ ...emptyConnector(), name: ' Bot ', token: ' 1:abc ', agent_id: 'a1', allow: ['11', ' 11', '@ada_l', ''] }, 'telegram')
@@ -17,13 +17,6 @@ test('chat connectors: accept any drops the allowlist from the request', () => {
   const body = connectorPayload({ ...emptyConnector(), name: 'B', agent_id: 'a', accept_any: true, allow: ['11'] }, 'telegram')
   assert.equal(body.accept_any, true)
   assert.deepEqual(body.allow, [])
-})
-
-test('chat connectors: who a binding accepts, in words', () => {
-  assert.equal(modeText({ accept_any: true }), 'anyone')
-  assert.equal(modeText({ allow: [] }), 'nobody yet')
-  assert.equal(modeText({ allow: ['1'] }), '1 listed sender')
-  assert.equal(modeText({ allow: ['1', '2'] }), '2 listed senders')
 })
 
 test('chat connectors: a sender line names the person, the count and the id', () => {

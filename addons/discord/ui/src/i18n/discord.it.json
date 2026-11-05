@@ -17,7 +17,6 @@
   "allowIdsHint": "Un ID utente o un ID canale (numeri)",
   "rules": "Le persone in elenco possono scrivere in un messaggio diretto e menzionare il bot in qualsiasi canale. Un canale in elenco permette a tutti i suoi membri di menzionare il bot lì, ma non dà loro alcun permesso proprio. In un server il bot risponde solo quando viene menzionato o gli si risponde, o dentro un thread in cui è stato menzionato. Non risponde mai a bot o webhook, e i suoi messaggi non avvisano mai nessuno. Usa gli ID dei canali: l'ID di un server (guild) non corrisponde a nulla. Solo ID, niente nomi: in Discord attiva la Modalità sviluppatore (Impostazioni, Avanzate), poi fai clic destro su una persona o un canale e scegli Copia ID.",
   "badIds": "Questi non sono ID Discord: {{list}}. Usa il numero di Copia ID (da 17 a 20 cifre). I nomi non sono accettati.",
-  "notifyChat": "Invia le mie notifiche a questo canale o persona",
   "notifyHelp": "Facoltativo. Un ID di canale, oppure user: seguito dal tuo ID utente per riceverle come messaggi diretti.",
   "test": "Prova",
   "testOk": "Connesso a {{bot}}.",
@@ -72,7 +71,6 @@
     },
     "never": "Non dare mai al bot Administrator, Manage Messages o Mention Everyone. Non gli serve nessuno dei tre."
   },
-  "back": "Torna ai connettori",
   "answer": {
     "reply": {
       "off": "Solo la risposta (qui Discord non ha l'indicatore «sta scrivendo»)"

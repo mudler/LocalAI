@@ -17,7 +17,6 @@
   "allowIdsHint": "A user ID or a channel ID (numbers)",
   "rules": "Listed people can write in a direct message and mention the bot in any channel. A listed channel lets everyone in it mention the bot there, but they get no permission of their own. In a server the bot answers only when it is mentioned or replied to, or inside a thread where it was mentioned. It never answers bots or webhooks, and its messages never ping anyone. Use channel IDs: a server (guild) ID matches nothing. IDs only, no names: in Discord turn on Developer Mode (Settings, Advanced), then right-click a person or channel and choose Copy ID.",
   "badIds": "These are not Discord IDs: {{list}}. Use the number from Copy ID (17 to 20 digits). Names are not accepted.",
-  "notifyChat": "Send my notifications to this channel or person",
   "notifyHelp": "Optional. A channel ID, or user: followed by your user ID to get them as direct messages.",
   "test": "Test",
   "testOk": "Connected to {{bot}}.",
@@ -72,7 +71,6 @@
     },
     "never": "Never give the bot Administrator, Manage Messages or Mention Everyone. It needs none of them."
   },
-  "back": "Back to connectors",
   "answer": {
     "reply": {
       "off": "The answer only (Discord has no typing indicator here)"

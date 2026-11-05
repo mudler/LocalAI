@@ -579,9 +579,13 @@ server keeps the link only when it is https and short, and keeps nothing else of
 
 ## How the bot answers
 
-Each binding has four settings, under **How it answers** on the add-on page and in
-the API as `reply_mode`, `conversation` (with `window_minutes`), `send_files` and
-`reply_language`.
+Each binding has four settings, in the group **Where it posts and how it replies** on the
+add-on page and in the API as `reply_mode`, `conversation` (with `window_minutes`),
+`send_files` and `reply_language`. The group lists, in this order: the places the bot may post
+(see [Where it posts](#where-it-posts)), **Send my reminders and run results to**, **While the
+agent works**, **Conversations** and **Send the files the agent makes**. The two settings that
+people change least, the reply language and the file size limits, sit in a closed group named
+**File sizes and reply language**. It opens by itself when one of them is set.
 
 ### While the agent works (`reply_mode`)
 
@@ -654,7 +658,7 @@ every connector, and with several frontends, because the link from a person to a
 in the shared store.
 
 Some add-ons add settings of their own to a binding (for example Slack's **Threads the
-bot follows**). They appear under **How it answers**, and in the API as `options`, a
+bot follows**). They appear under **Where it posts and how it replies**, and in the API as `options`, a
 map from the option id to a value. The add-on declares the allowed values, and an
 unknown option or value is a 400. An update without `options` keeps the stored values.
 
@@ -691,7 +695,7 @@ The server holds only one chunk of a file in memory, on both sides. Each transfe
 one audit line (direction, binding, size, result, layer, time), with no name and no
 content. The files of one message may add up to three times the limit.
 
-- **Per bot.** The **Files** section of a binding has one field for the largest file the
+- **Per bot.** The group **File sizes and reply language** of a binding has one field for the largest file the
   bot reads and one for the largest it sends, in MiB. Leave a field empty to use the
   limit of the add-on. A value can only lower that limit. The API takes
   `file_receive_max_bytes` and `file_send_max_bytes` (0 clears), and a value above
@@ -906,8 +910,9 @@ When something is still refused in a channel, the bot says why in one plain sent
 the channel is set to answer only, the person is not on the list, the action needs a
 pairing, or the owner has not turned it on. The access log line carries the sender ID,
 the code and the reason, for example that a sender was let in only through a channel set
-to Answer only, and the settings page offers **Allow this person** next to such a
-refusal.
+to Answer only, and the settings page lists the refusal under **Recent refusals** with
+**Allow <name>** (it lists the person) and **Let <channel> members act** (it sets the level of the
+channel to `act`, in the form, until you save).
 
 The access view and the log name the way a sender got a capability: `allowlist`,
 `paired`, `channel` (a member of a channel set to `act`), `agent-connection` (the write
@@ -1009,8 +1014,9 @@ capabilities are shown under **On for this bot**.
 
 The settings page of every connector add-on edits all of this: the table above (the switch of
 each permission, the role boxes and the cells); the paired senders, with a button that shows a new
-code once; the channels it may post to (talk-back, **Place the bot may post**); and the access view with
-the latest decisions. A permission the agent does not hold cannot be switched on. A link with
+code once; the places it may post to (talk-back, **Place the bot may post**); and the section **Check it**,
+with **Try it**, **Recent refusals**, the add-on writes that wait for a person and the latest calls of
+add-on tools. A permission the agent does not hold cannot be switched on. A link with
 `?binding=<id>` opens that binding at its table. The table states the rule: people on the allowlist
 can use the ticked capabilities, and a sensitive one also needs the person to be paired; it says
 when nobody is paired. A new binding starts with the usual set. The
@@ -1115,6 +1121,17 @@ A page shows the localized field when it is there and the English one otherwise.
 note for the model and the words a sender reads in the chat do not use these fields:
 the model reads English, and the sender reads the reply language of the connection.
 
+### Where it posts
+
+The `channels` list (capability `talkback.channels`) is a table of **Place the bot may post**: a
+name, an ID and one choice that maps to `approved`. **When any allowed person asks** is
+`approved: true`, and **Only when a verified person asks** is `approved: false`. The table
+shows only while the permission **Post to other channels** is on; otherwise the page says so and
+links to the switch. At most 10 places are kept, as before. **Send my reminders and run results to**
+(`notify_chat`) is a choice among the people and channels the page already knows (the allowed
+people, the people and chats of the sender log, the places above), with a saved ID that the page
+does not know shown as it is and **Another ID...** for a new one. It saves the same ID as before.
+
 ### Preview before saving
 
 `POST /api/chats/connectors/<id>/access/preview` answers like the access view for a form
@@ -1139,9 +1156,21 @@ other connector routes, and the connection of another user is a 404.
 The page of a messaging connection (the Telegram and Slack add-ons) uses these calls in two places.
 
 - **Status** sits at the top of the form: Token, Agent and Who may use it, with a state (OK, needs attention, off, after you save, not working), one sentence and at most one button, and a count of the things to fix. Only the rows that need attention show at first; "Show all" opens the rest. A row that works only once the form is saved says so and offers "Keep these changes", which is the Save button. What each kind of sender may do is in the table, not here.
+- **Check it** closes the page. **Try it** has three choices: who (a person, someone in a channel, anyone, or a
+  role), where (a direct message or a channel) and what they ask for (a permission of the table). It does not
+  call the host again: it reads the answer of the preview for the form as it is, picks the kind of sender
+  (`paired`, `listed`, `channel_acts`, `anyone` or `role:<id>`) and writes one sentence from the `message`, `fix`
+  and `then_check` of the decision, for example "Refused. Ada Example is a listed person, writing in a direct
+  message." followed by the sentence of the host and its button. Nothing is sent to the platform and nothing
+  is saved. **Recent refusals** lists what was refused since the server started, from the sender log (a
+  sender who is not listed, or a message that did not name the bot) and the access log (a permission that was
+  refused), one line each with the person, the chat, the action and the reason. Both logs are kept in memory,
+  so they are empty after a restart, and the page says so. The rows of add-on writes that wait for a person
+  (waiting, confirmed, cancelled, expired, with who asked and who answered) and the latest tool calls stay in
+  the same section.
 - **Who can do what** is the table described above. The page calls the preview with the values of the form as they are now, 400 ms after the last change, so it shows what a save will do, and it says so while the form has unsaved changes. A new connection is previewed under the id `new` with its kind. A blocked cell shows the sentence of the host for the first blocker and one button.
 
-The button follows `fix.kind`: `open_connection` jumps to that setting on the page, `open_agent` opens the agent in a new tab (so the form stays as it is), `open_server_setting` opens Settings for an administrator and says "Ask an administrator" for anyone else, `pair_sender` jumps to the pairing button, and `add_person` jumps to the allowed people. The latest decisions stay below the table.
+The button follows `fix.kind`: `open_connection` jumps to that setting on the page, `open_agent` opens the agent in a new tab (so the form stays as it is), `open_server_setting` opens Settings for an administrator and says "Ask an administrator" for anyone else, `pair_sender` jumps to the pairing button, and `add_person` jumps to the allowed people. Check it stays below the table.
 
 ## Confirming a change in the chat
 

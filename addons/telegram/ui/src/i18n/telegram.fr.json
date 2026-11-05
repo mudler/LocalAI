@@ -1,6 +1,6 @@
 {
   "title": "Telegram",
-  "intro": "Associez un bot Telegram à l’un de vos agents enregistrés. Une personne qui écrit au bot parle à cet agent, dans une conversation qui lui est propre. Elle peut envoyer du texte, des photos, des fichiers et des messages vocaux (la section Fichiers indique la taille maximale) ; un message vocal est transcrit avec le modèle de transcription du chat défini dans les paramètres.",
+  "intro": "Associez un bot Telegram à l’un de vos agents enregistrés. Une personne qui écrit au bot parle à cet agent, dans une conversation qui lui est propre. Elle peut envoyer du texte, des photos, des fichiers et des messages vocaux (Taille des fichiers et langue des réponses indique la taille maximale) ; un message vocal est transcrit avec le modèle de transcription du chat défini dans les paramètres.",
   "new": "Nouveau bot Telegram",
   "edit": "Modifier le bot Telegram",
   "name": "Nom",
@@ -13,7 +13,6 @@
   "anyoneWarning": "Toute personne pouvant écrire à ce bot peut utiliser les outils de cet agent, en votre nom. Chaque personne a sa propre conversation.",
   "anyoneConfirm": "J’ai compris",
   "allowHint": "ID de chat, ID d’utilisateur ou @username",
-  "notifyChat": "Envoyer mes notifications à cet ID de chat",
   "notifyHelp": "Facultatif. Un ID de chat Telegram numérique.",
   "test": "Tester",
   "testOk": "Connecté à @{{bot}}.",
@@ -43,6 +42,5 @@
     "title": "Supprimer {{name}} ?",
     "message": "Le bot cesse de répondre, et le jeton enregistré avec lui est supprimé. Pour le reconfigurer, vous devrez saisir de nouveau le jeton.",
     "confirm": "Supprimer"
-  },
-  "back": "Retour aux connecteurs"
+  }
 }

@@ -200,8 +200,6 @@ export function unusable(cap, view, form, lists, paired, now) {
 
 // ---- The readiness rows --------------------------------------------------
 
-export const ROW_STATES = ['ok', 'attention', 'off', 'after_save', 'broken', 'checking', 'unknown']
-
 // A row that needs the owner: shown even when the list is collapsed.
 export const isProblem = (state) => state === 'attention' || state === 'broken' || state === 'after_save' || state === 'unknown'
 

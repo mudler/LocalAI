@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { DISCORD_LISTS, PERMISSIONS, PERMISSION_INTEGER, badEntries, discordSecret, inviteUrl, isSnowflake, tokenProblem } from '../src/ids.js'
-import { canSave, connectorPayload, emptyConnector, listEntries, replaceList } from '../../../internal/connector-ui/src/connector.js'
+import { canSave, connectorPayload, emptyConnector, listEntries } from '../../../internal/connector-ui/src/connector.js'
 
 const TOKEN = 'MTAwMDAwMDAwMDAwMDAwMDAw.GabcDE.' + 'x'.repeat(27)
 
@@ -45,7 +45,6 @@ test('discord: people and channels share one list of bare IDs', () => {
   assert.equal(DISCORD_LISTS.length, 1)
   const allow = ['123456789012345678', '223456789012345678']
   assert.deepEqual(listEntries(allow, DISCORD_LISTS, 0), allow)
-  assert.deepEqual(replaceList(allow, DISCORD_LISTS, 0, ['323456789012345678']), ['323456789012345678'])
   const body = connectorPayload({ ...emptyConnector(), name: 'B', agent_id: 'a', token: TOKEN, allow: [...allow, allow[0]] }, 'discord', TOKEN)
   assert.deepEqual(body.allow, allow, 'kept once')
 })

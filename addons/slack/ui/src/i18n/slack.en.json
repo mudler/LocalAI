@@ -18,7 +18,6 @@
   "anyoneWarning": "Anyone who can message this app or mention it can use this agent's tools, as you. Each person, and each thread, gets a conversation of its own.",
   "anyoneConfirm": "I understand",
   "allowUsersHint": "User ID (U...) or @username",
-  "notifyChat": "Send my notifications to this user or channel ID",
   "notifyHelp": "Optional. Your user ID (U...) sends them as direct messages from the app.",
   "test": "Test",
   "testOk": "Connected to {{bot}}.",
@@ -59,6 +58,5 @@
     "copied": "Copied",
     "manifest": "Slack app manifest"
   },
-  "back": "Back to connectors",
   "allowUsersHelp": "An @username matches the Slack username (the handle), not the display name, and needs the users:read scope. A user ID (U...) always matches. When a person is refused, the access log names their user ID."
 }
