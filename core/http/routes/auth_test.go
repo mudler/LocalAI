@@ -865,7 +865,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			target := createRouteTestUser(db, "deletes-author@test.com", auth.RoleAdmin)
 			Expect(db.Create(&auth.InviteCode{
 				ID: uuid.New().String(), Code: "code-authored", CodePrefix: "code-aut",
-				CreatedBy: target.ID, ExpiresAt: time.Now().Add(time.Hour),
+				CreatedBy: &target.ID, ExpiresAt: time.Now().Add(time.Hour),
 			}).Error).ToNot(HaveOccurred())
 			sessionID, _ := auth.CreateSession(db, admin.ID, "")
 			app := newTestAuthApp(db, appConfig)
@@ -885,7 +885,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			now := time.Now()
 			Expect(db.Create(&auth.InviteCode{
 				ID: uuid.New().String(), Code: "code-used", CodePrefix: "code-use",
-				CreatedBy: admin.ID, UsedBy: &usedBy, UsedAt: &now,
+				CreatedBy: &admin.ID, UsedBy: &usedBy, UsedAt: &now,
 				ExpiresAt: now.Add(time.Hour),
 			}).Error).ToNot(HaveOccurred())
 			sessionID, _ := auth.CreateSession(db, admin.ID, "")
@@ -942,7 +942,7 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			target := createRouteTestUser(db, "deletes-fk@test.com", auth.RoleAdmin)
 			Expect(db.Create(&auth.InviteCode{
 				ID: uuid.New().String(), Code: "code-fk", CodePrefix: "code-fk1",
-				CreatedBy: target.ID, ExpiresAt: time.Now().Add(time.Hour),
+				CreatedBy: &target.ID, ExpiresAt: time.Now().Add(time.Hour),
 			}).Error).ToNot(HaveOccurred())
 
 			sessionID, _ := auth.CreateSession(db, admin.ID, "")
