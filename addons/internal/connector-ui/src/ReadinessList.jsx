@@ -1,11 +1,12 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-// The readiness list at the top of the form: one row per thing that must agree
-// for the bot to work, each with a state, one sentence and at most one fix.
+// The status line at the top of the form: the token, the agent and who is let
+// in, each with a state, one sentence and at most one fix, and how many things
+// need the owner. What each kind of sender may do is in the matrix, not here.
 // The rows come from access.js; this file only draws them.
 import { useState } from 'react'
 import Icon from '../../host-compat/src/components/Icon'
-import { FixButton } from './CapabilitiesPanel'
-import { readinessRows, visibleRows } from './access'
+import { FixButton } from './accessHooks'
+import { readinessRows, statusRows, visibleRows } from './access'
 
 // The words of a row. A key with a count has plural forms (_one, _other, ...)
 // that the translator picks by the rules of the language.
@@ -19,7 +20,8 @@ function sentence(row, s) {
 const ICON = { ok: 'check-circle', attention: 'warning', off: 'minus', after_save: 'save', broken: 'alert-circle', checking: 'spinner', unknown: 'help-circle' }
 
 export default function ReadinessList({ rowsInput, s, ctx, onTest, onSave }) {
-  const rows = readinessRows(rowsInput)
+  // Only the token, the agent and who is let in: everything else is a cell of the matrix.
+  const rows = statusRows(readinessRows(rowsInput))
   const [expanded, setExpanded] = useState(false)
   const { shown, hidden } = visibleRows(rows, expanded)
   const problems = rows.length - rows.filter((r) => ['ok', 'off', 'checking'].includes(r.state)).length

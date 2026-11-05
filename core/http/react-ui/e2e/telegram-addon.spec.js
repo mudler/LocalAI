@@ -241,8 +241,8 @@ test.describe('Telegram add-on', () => {
     await expect(ready.getByTestId('connector-ready-who')).toHaveAttribute('data-state', 'after_save')
     await expect.poll(() => a.s.previews.at(-1)?.body).toMatchObject({ kind: 'telegram', agent_id: 'a1', allow: ['42'] })
     expect(a.s.previews.at(-1).id).toBe('new')
-    // One list of senders: no member-of-a-channel choice.
-    await expect(page.getByTestId('connector-can-sender').locator('option')).toHaveText(['A listed person', 'A verified person'])
+    // The columns of the matrix follow the subjects the host sends.
+    await expect(page.getByTestId('connector-matrix').locator('th[data-col="paired"], th[data-col="listed"]')).toContainText(['Verified person', 'Listed person'])
     expect(JSON.stringify(a.s.previews)).not.toContain('secret-token')
   })
 

@@ -10,7 +10,7 @@ import ConfirmDialog from '../../host-compat/src/components/ConfirmDialog'
 import Icon from '../../host-compat/src/components/Icon'
 import AnswerFields, { answerSummary, answerT } from './AnswerFields'
 import AccessView from './AccessView'
-import CapabilitiesPanel, { useAccessPreview, useIsAdmin } from './CapabilitiesPanel'
+import { useAccessPreview, useIsAdmin } from './accessHooks'
 import ReadinessList from './ReadinessList'
 import { useAuth } from '../../host-compat/src/context/AuthContext'
 import ApprovalOptions from './ApprovalFields'
@@ -19,9 +19,9 @@ import { Check, Field, HintLabels, Notice, RadioCards, Select, Switch, TextInput
 import NameList from './NameList'
 import AccessMatrix from './AccessMatrix'
 import ChannelTrust from './ChannelTrust'
-import PermissionFields, { NoCapsNotice } from './PermissionFields'
+import PermissionFields from './PermissionFields'
 import { agentsApi, connectorsApi, setApiLanguage } from './api'
-import { DUPLICATE_CONFIRMATION, canSave, channelOnly, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, hasNoCaps, connectorPayload, emptyConnector, agentHeld, usualFor, listEntries, replaceList, senderLine, trustAfter, usualCaps } from './connector'
+import { DUPLICATE_CONFIRMATION, canSave, channelOnly, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, connectorPayload, emptyConnector, agentHeld, usualFor, listEntries, replaceList, senderLine, trustAfter, withUsualCaps } from './connector'
 import { registerConnectorLocales } from './i18n'
 import { chatText, peopleFrom } from './people'
 import { PeopleContext } from './Person'
@@ -187,7 +187,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     if (!c) return
     linked.current = true
     open({ ...connectorForm(c), ...(extraForm ? extraForm(c) : {}) })
-    setTimeout(() => document.querySelector('[data-testid="connector-permissions"]')?.scrollIntoView?.({ block: 'start' }), 50)
+    setTimeout(() => document.querySelector('[data-testid="connector-matrix"]')?.scrollIntoView?.({ block: 'start' }), 50)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items])
 
@@ -254,21 +254,6 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
       if (isDuplicateRefusal(err)) setDupAsk({ other: duplicateRefusalName(err) })
       else fail(err)
     } finally { setBusy(false) }
-  }
-
-  // The preset for a saved binding that has no permission on: the usual set,
-  // saved at once, with every other setting as it was.
-  const allowUsual = async (c) => {
-    setBusy(true)
-    setError('')
-    setNote('')
-    try {
-      const f = { ...connectorForm(c), ...(extraForm ? extraForm(c) : {}) }
-      f.caps = usualCaps(capabilities)
-      await connectorsApi.update(c.id, connectorPayload(f, kind, '', extra(f)))
-      setNote(s('perm.usualSaved', { name: c.name }))
-      await load()
-    } catch (e) { fail(e) } finally { setBusy(false) }
   }
 
   const act = async (fn) => {
@@ -362,14 +347,17 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             </Field>
             <AnswerFields form={form} setForm={setForm} t={t} kindInfo={kindInfo} />
             <FilesFields form={form} setForm={setForm} kind={kindFiles} saved={form.files} s={answerT(t)} />
-            {capabilities.length > 0 && <AccessMatrix form={form} kindInfo={kindInfo} capabilities={capabilities} preview={preview} dirty={dirty} s={s} ctx={fixCtx} />}
-            <PermissionFields form={form} setForm={setForm} kind={kindInfo} capabilities={capabilities} s={s} onPaired={pairedChanged} agent={agents.find((a) => a.id === form.agent_id)} channelsOnly={channelOnly(form, lists)} />
-            {/* The approval of proposed triggers sits under the permission Propose triggers; an older host with no capability list has no such row, so it shows here. */}
+            {capabilities.length > 0 && (
+              <AccessMatrix form={form} setForm={setForm} kindInfo={kindInfo} capabilities={capabilities} preview={preview} dirty={dirty} s={s} ctx={fixCtx}
+                agent={agents.find((a) => a.id === form.agent_id)} paired={pairedList || form.paired || []}
+                onReset={() => setForm(withUsualCaps(form, capabilities, agentHeld(agents.find((a) => a.id === form.agent_id))))} />
+            )}
+            {capabilities.length > 0 && <PermissionFields form={form} setForm={setForm} s={s} onPaired={pairedChanged} />}
+            {/* The approval of proposed triggers sits under the row Propose triggers of the matrix; an older host with no capability list has no such row, so it shows here. */}
             {capabilities.length === 0 && <ApprovalOptions form={form} setForm={setForm} s={s} />}
-            {capabilities.length > 0 && (<>
-              <CapabilitiesPanel form={form} kindInfo={kindInfo} capabilities={capabilities} lists={lists} preview={preview} dirty={dirty} s={s} ctx={fixCtx} />
+            {capabilities.length > 0 && (
               <AccessView binding={form} capabilities={capabilities} s={s} version={accessVersion} onAllowed={(sender) => { setForm((f) => (f && !(f.allow || []).includes(sender) ? { ...f, allow: [...(f.allow || []), sender] } : f)); load() }} />
-            </>)}
+            )}
             </>)}
             {dupAsk && (
               <Notice tone="warn" role="alert" testId="duplicate-confirm">
@@ -416,9 +404,6 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
               </span>}
               {RowInfo && <RowInfo c={c} t={t} />}
               {messaging && form?.id !== c.id && <SameBotNotice c={c} s={s} busy={busy} onOff={() => act(() => connectorsApi.disable(c.id))} onOpen={openById} />}
-              {messaging && capabilities.length > 0 && hasNoCaps(c) && (
-                <NoCapsNotice capabilities={capabilities} s={s} busy={busy} name={c.name} onUsual={() => allowUsual(c)} />
-              )}
               {c.active === false && <span className="cn-muted" data-testid="connector-inactive">{t('inactive', { reason: c.reason })}</span>}
               {openSenders === c.id && <Senders id={c.id} onAllowed={load} t={t} />}
             </div>

@@ -227,7 +227,7 @@ test.describe('Slack add-on', () => {
     await page.getByRole('button', { name: 'Edit' }).click()
     const who = page.getByTestId('connector-ready-who')
     await expect(who).toContainText('Only channels are on the list')
-    await expect(page.getByTestId('connector-can-sender').locator('option')).toContainText(['A listed person', 'A person in a channel set to Answer only'])
+    await expect(page.getByTestId('connector-matrix').locator('th[data-col="listed"], th[data-col="channel_member"]')).toHaveText(['Listed person', 'Channel: answer only'])
     await who.getByRole('button', { name: 'Add a person' }).click()
     await page.getByTestId('connector-allow').getByRole('textbox').fill('U001')
     await page.getByTestId('connector-allow').getByRole('textbox').press('Enter')

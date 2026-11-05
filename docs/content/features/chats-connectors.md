@@ -939,8 +939,8 @@ A save that never had the tick changes nothing.
 The access view says it for each kind of sender. The paired sender shows the
 permission as allowed "because this person is paired and the agent is connected to
 the add-on" (the `agent-connection` way), and the other senders show the reason
-`connection_permission_off`. The readiness list of the connection page has one row for
-the add-on tools. It says that paired people can use the tools because the agent is
+`connection_permission_off`. The table of the connection page has one sub-row for each
+add-on tool. It says that paired people can use the tools because the agent is
 connected to the named connection (with its write mode) and that the others need the
 tick. When the tools are held back, the model hears which tools and why, so the bot
 says "the owner has not allowed this bot to change things in other services" and not
@@ -969,17 +969,23 @@ sender who may not send files get a short refusal and no turn.
 A binding that was stored before this check has no capabilities. Enable what you want
 with `caps`, and pair the accounts that need the sensitive ones.
 
-The settings page opens with a table, **Who can do what**, above the switches. Its rows are the
+The settings page has one table, **Who can do what**, where you set what the bot may do. Its rows are the
 permissions and its columns are **On for this bot**, **Verified person**, **Listed person**,
-**Channel: everyone acts**, **Channel: answer only** and, when the bot accepts anyone,
-**Anyone**. Each cell is an icon and a word: Yes, Asks first, No, Waiting for a person or Off. The
-page works nothing out: every cell is what the host says in the answer of
+**Channel: everyone acts**, **Channel: answer only**, when the bot accepts anyone,
+**Anyone**, and one column for each role the kind declares. The switch of a row in **On for this bot**
+is the `caps` ceiling. In a role column, a box is a grant (`grants`): it shows only for a
+permission that the kind can give to a role, that is not sensitive, and a box is off until the
+switch of its row is on. Each other cell is an icon and a word: Yes, Asks first, No, Waiting for a person or Off. The
+page works nothing out for those cells: each one is what the host says in the answer of
 `POST /api/chats/connectors/{id}/access/preview`, which the page calls with the form as it is,
 including `allow_trust`, `channels` (the places the bot may post) and `approval_mode`. The answer
 carries `proposal_mode` (what the connection does with a proposed trigger). A cell that says
-No or Off opens the message, the fix and the checks that were not made. The tools of the add-ons
-are sub-rows of the permission to change things in connected services. On a phone the table shows
-one kind of sender at a time.
+No or Off, and in fact any cell, opens the message, the fix and the checks that were not made. The
+tools of the add-ons are sub-rows of the permission to change things in connected services. A row has a
+**Details** disclosure with the description of the permission and, for **Propose triggers**, the
+choices for how a proposal is approved. **Reset to the usual set** puts the switches back to what a new
+connection starts with, for the agent of the connection. On a phone the table shows one kind of sender
+at a time, chosen with a select.
 
 The settings page uses one set of words. In this document and in the API, a *paired*
 sender is shown on the page as a **Verified person**; the saved fields and keys (`paired`,
@@ -989,23 +995,13 @@ may post**. For triggers and add-on writes, **Asks first** means a person confir
 change, and **Runs at once** means it runs without asking. The switches of the
 capabilities are shown under **On for this bot**.
 
-The settings page of every connector add-on edits all of this: a switch for each
-capability, with a description and a mark on the sensitive ones; the role matrix; the
-paired senders, with a button that shows a new code once; the channels it may post to
-(talk-back, **Place the bot may post**); and the access view with the latest decisions. A binding with no capability
-shows a notice that says why the features are off. The button "Allow the usual" turns
-on the everyday capabilities that stay inside LocalAI and are not sensitive. In the
-form, **Allow the usual set** ticks only the usual ones that the agent of the binding
-holds, and says what it did. **Same as the agent** copies, once, every capability that
-the agent holds and that has a binding capability, the sensitive ones too after a
-confirmation that lists them; it does not follow later changes to the agent. A
-capability the agent does not hold cannot be switched on. Both buttons only fill the form
-and are off, with the reason, when the binding has no agent or the permissions of the
-agent cannot be read. A link with `?binding=<id>` opens that binding at its permissions.
-The form states the rule: people on the allowlist can use the ticked capabilities, and a
-sensitive one also needs the person to be paired. It shows a notice when a sensitive
-capability is ticked and nobody is paired, with a way to pair, and when the allowlist holds
-only channels, whose members are not trusted one by one. A new binding still starts with no capability. The
+The settings page of every connector add-on edits all of this: the table above (the switch of
+each permission, the role boxes and the cells); the paired senders, with a button that shows a new
+code once; the channels it may post to (talk-back, **Place the bot may post**); and the access view with
+the latest decisions. A permission the agent does not hold cannot be switched on. A link with
+`?binding=<id>` opens that binding at its table. The table states the rule: people on the allowlist
+can use the ticked capabilities, and a sensitive one also needs the person to be paired; it says
+when nobody is paired. A new binding starts with the usual set. The
 kind list also returns `capabilities`, the closed list with a title, a description
 and the `sensitive` and `usual` flags of each, so a page needs no list of its own.
 
@@ -1130,10 +1126,10 @@ other connector routes, and the connection of another user is a 404.
 
 The page of a messaging connection (the Telegram and Slack add-ons) uses these calls in two places.
 
-- **Readiness** sits at the top of the form: Token, Agent, Who may use it, Permissions, Triggers, Files and Notifications. Each row has a state (OK, needs attention, off, after you save, not working), one sentence and at most one button. Only the rows that need attention show at first; "Show all" opens the rest. A row that works only once the form is saved says so and offers "Keep these changes", which is the Save button.
-- **What this bot can do** replaces the old list of what a sender may do. Choose the kind of sender (a listed person, a member of a listed channel, anyone when the bot accepts anyone, a paired person, or a role of the kind). Each permission shows as allowed or blocked. A blocked one shows the sentence of the host for the first blocker and one button. The page calls the preview with the values of the form as they are now, 400 ms after the last change, so it shows what a save will do, and it says so while the form has unsaved changes. A new connection is previewed under the id `new` with its kind.
+- **Status** sits at the top of the form: Token, Agent and Who may use it, with a state (OK, needs attention, off, after you save, not working), one sentence and at most one button, and a count of the things to fix. Only the rows that need attention show at first; "Show all" opens the rest. A row that works only once the form is saved says so and offers "Keep these changes", which is the Save button. What each kind of sender may do is in the table, not here.
+- **Who can do what** is the table described above. The page calls the preview with the values of the form as they are now, 400 ms after the last change, so it shows what a save will do, and it says so while the form has unsaved changes. A new connection is previewed under the id `new` with its kind. A blocked cell shows the sentence of the host for the first blocker and one button.
 
-The button follows `fix.kind`: `open_connection` jumps to that setting on the page, `open_agent` opens the agent in a new tab (so the form stays as it is), `open_server_setting` opens Settings for an administrator and says "Ask an administrator" for anyone else, `pair_sender` jumps to the pairing button, and `add_person` jumps to the allowed people. The latest decisions stay below the list.
+The button follows `fix.kind`: `open_connection` jumps to that setting on the page, `open_agent` opens the agent in a new tab (so the form stays as it is), `open_server_setting` opens Settings for an administrator and says "Ask an administrator" for anyone else, `pair_sender` jumps to the pairing button, and `add_person` jumps to the allowed people. The latest decisions stay below the table.
 
 ## Confirming a change in the chat
 

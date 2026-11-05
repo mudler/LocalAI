@@ -100,14 +100,7 @@ export const MAX_CHANNELS = 10
 export const MAX_CHANNEL_ID = 64
 export const MAX_CHANNEL_LABEL = 60
 
-// A binding with no caps denies every gated feature: files from senders,
-// triggers, memory writes and talk-back. A binding saved before the host
-// enforced permissions has none.
-export function hasNoCaps(c) {
-  return !(c?.caps || []).length
-}
-
-// The caps that the one-click preset turns on: the ones the host marks usual,
+// The caps of the usual set: the ones the host marks usual,
 // never a sensitive one, whatever the list says.
 export function usualCaps(capabilities) {
   return (capabilities || []).filter((c) => c.usual && !c.sensitive).map((c) => c.name)
@@ -139,52 +132,19 @@ export function agentHeld(agent) {
 // a grant of the agent is not gated. held is agentHeld(agent); null gates nothing.
 export const agentHas = (held, name) => held === null || !AGENT_GRANT_CAPS.includes(name) || held.includes(name)
 
-// Why a preset cannot be used: 'noAgent', 'unreadable', 'nothing' or ''.
-export function presetBlock(agentId, held, capabilities) {
-  if (!agentId) return 'noAgent'
-  if (held === null) return 'unreadable'
-  if (!(capabilities || []).some((c) => AGENT_GRANT_CAPS.includes(c.name) && held.includes(c.name))) return 'nothing'
-  return ''
-}
-
-// "Allow the usual set": the caps the host marks usual (never a sensitive one)
+// The usual set: the caps the host marks usual (never a sensitive one)
 // that the agent holds. skipped are the usual ones the agent does not hold.
 export function usualFor(capabilities, held) {
   const usual = usualCaps(capabilities)
   return { caps: usual.filter((n) => agentHas(held, n)), skipped: usual.filter((n) => !agentHas(held, n)) }
 }
 
-// "Same as the agent": every cap the agent holds that is a capability of the
-// host's list, sensitive ones too. sensitive names the ones that are.
-export function copyFromAgent(capabilities, held) {
-  const list = (capabilities || []).filter((c) => AGENT_GRANT_CAPS.includes(c.name) && (held || []).includes(c.name))
-  return { caps: list.map((c) => c.name), sensitive: list.filter((c) => c.sensitive).map((c) => c.name) }
-}
-
-// The form after the caps of the agent were copied in. The caps that are not
-// grants of an agent stay as they were; the others become exactly the copy, and
-// a role never keeps a cap the ceiling lost.
-export function withCopiedCaps(form, caps) {
-  const keep = (form.caps || []).filter((n) => !AGENT_GRANT_CAPS.includes(n))
-  const next = [...new Set([...keep, ...caps])]
-  const grants = (form.grants || []).map((g) => ({ ...g, caps: g.caps.filter((x) => next.includes(x)) })).filter((g) => g.caps.length > 0)
-  return { ...form, caps: next, grants }
-}
-
-// The form with these caps added to the ones it has.
-export function withAddedCaps(form, caps) {
-  return { ...form, caps: [...new Set([...(form.caps || []), ...caps])] }
-}
-
-// The ticked sensitive caps that nobody can use yet. A sender on the allowlist
-// may use the other ticked caps; a sensitive cap also needs a sender the owner
-// paired with the bot (see Authorize in core/services/studio/connectoraccess.go).
-// So with no live pairing, every ticked sensitive cap is dead. Returns names.
-export function unpairedSensitive(form, paired, capabilities, now = Date.now()) {
-  const active = (paired || []).some((p) => !p.expires_at || new Date(p.expires_at).getTime() > now)
-  if (active) return []
-  const sensitive = new Set((capabilities || []).filter((c) => c.sensitive).map((c) => c.name))
-  return (form?.caps || []).filter((c) => sensitive.has(c))
+// The form with the caps reset to the usual set for the agent, which is what a
+// new connection starts with. A role never keeps a cap the ceiling lost.
+export function withUsualCaps(form, capabilities, held) {
+  const caps = usualFor(capabilities, held).caps
+  const grants = (form.grants || []).map((g) => ({ ...g, caps: g.caps.filter((x) => caps.includes(x)) })).filter((g) => g.caps.length > 0)
+  return { ...form, caps, grants }
 }
 
 // Whether the allowlist holds channel entries only: members of a channel are not

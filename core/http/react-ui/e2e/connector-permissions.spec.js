@@ -5,9 +5,9 @@ import { connectorApi, previewFor, CAPABILITIES, ROLES_KIND } from './connector-
 import { ADMIN, MEMBER, sessionFor } from './addons-fixtures.js'
 
 // The permissions of a binding on the shared connector page (drawn here by the
-// Slack add-on, whose kind declares roles): the notice of a binding that has no
-// permission on, the one-click preset, the switches, the role matrix, the
-// approved channels, pairing and the read-only access view.
+// Slack add-on, whose kind declares roles): the matrix of who can do what (the
+// switches, the role boxes, the cells and their messages), the places the bot
+// may post, pairing and the read-only access view.
 
 const PAGE = '/app/addons/slack/apps'
 const SHOTS = process.env.UI_SHOTS_DIR
@@ -40,6 +40,13 @@ async function shotOf(locator, name) {
   if (SHOTS) await locator.screenshot({ path: `${SHOTS}/${name}.png` })
 }
 
+// The disclosure of a row of the matrix, opened.
+async function disclosure(page, cap) {
+  const more = page.getByTestId(`connector-matrix-more-${cap}`)
+  if ((await more.getAttribute('aria-expanded')) !== 'true') await more.click()
+  return page.getByTestId(`connector-matrix-disclosure-${cap}`)
+}
+
 async function shot(page, name) {
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true })
 }
@@ -50,118 +57,63 @@ test.describe('Connector permissions', () => {
     await installStudioAddons(page, { ids: ['slack'] })
   })
 
-  test('a binding with no permission says why features are off, and one click turns the usual set on', async ({ page }) => {
+  test('a saved binding with no permission shows every switch off, and Reset to the usual set turns the usual ones on without saving', async ({ page }) => {
     const a = api(page, [LEGACY])
     await a.install()
     await page.goto(PAGE)
-    const row = page.getByTestId('connector-row')
-    await expect(row.getByTestId('connector-nocaps')).toContainText('these features are off')
-    await expect(row.getByTestId('connector-nocaps')).toContainText('Receive files')
-    await expect(row.getByTestId('connector-nocaps')).not.toContainText('Post to a new channel')
-    await shot(page, 'perm-1-legacy-banner')
-    await row.getByTestId('connector-usual').click()
-    await expect(page.getByText('The usual permissions are saved for Team app.')).toBeVisible()
+    await expect(page.getByTestId('connector-row').getByTestId('connector-nocaps')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const mx = page.getByTestId('connector-matrix')
+    await expect(mx.getByTestId('connector-cap-switch-memory.write')).toHaveAttribute('aria-checked', 'false')
+    await mx.getByTestId('connector-usual').click()
+    await expect(mx.getByTestId('connector-cap-switch-memory.write')).toHaveAttribute('aria-checked', 'true')
+    await expect(mx.getByTestId('connector-cap-switch-talkback.new_channel')).toHaveAttribute('aria-checked', 'false')
+    await expect(mx.getByTestId('connector-cap-switch-tools.write')).toHaveAttribute('aria-checked', 'false')
+    expect(a.s.calls.some(c => c.method === 'PUT')).toBe(false)
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.caps.sort()).toEqual(['files.upload', 'memory.write', 'proposals.confirm', 'talkback.channels', 'triggers.propose', 'triggers.run'])
     const put = a.s.calls.find(c => c.method === 'PUT')
-    expect(put.body.caps.sort()).toEqual(['files.upload', 'memory.write', 'proposals.confirm', 'talkback.channels', 'triggers.propose', 'triggers.run'])
-    expect(put.body.caps).not.toContain('talkback.new_channel')
-    expect(put.body.caps).not.toContain('tools.write')
     expect('token' in put.body).toBe(false)
     expect(put.body.allow).toEqual(['U001'])
   })
 
-  test('the form lists every permission with a switch and a description, marks the sensitive one and previews the preset', async ({ page }) => {
+  test('the matrix lists every permission with a switch, marks the sensitive one and has no list of switches besides it', async ({ page }) => {
     await api(page, [LEGACY]).install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    const box = page.getByTestId('connector-permissions')
+    const box = page.getByTestId('connector-matrix')
     for (const c of CAPABILITIES) {
-      await expect(box.getByTestId(`connector-cap-${c.name}`)).toContainText(c.title)
+      if (c.name !== 'tools.write') await expect(box.getByTestId(`connector-matrix-row-${c.name}`)).toContainText(c.title.charAt(0).toUpperCase() + c.title.slice(1))
       await expect(box.getByTestId(`connector-cap-switch-${c.name}`)).toHaveAttribute('aria-checked', 'false')
     }
+    await expect(page.locator('[data-testid^="connector-cap-switch-"]')).toHaveCount(CAPABILITIES.length)
     await expect(box.getByTestId('connector-cap-sensitive-talkback.new_channel')).toHaveText('Verified people only')
     await expect(box.getByTestId('connector-cap-sensitive-memory.write')).toHaveCount(0)
-    await box.getByTestId('connector-usual').click()
-    await expect(box.getByTestId('connector-cap-switch-memory.write')).toHaveAttribute('aria-checked', 'true')
-    await expect(box.getByTestId('connector-cap-switch-talkback.new_channel')).toHaveAttribute('aria-checked', 'false')
-    await expect(box.getByTestId('connector-nocaps')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Same as the agent' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Allow the usual set' })).toHaveCount(0)
     await shot(page, 'perm-2-form-switches')
   })
 
-  test('"Allow the usual set" ticks the usual caps the agent has, disables the ones it lacks and says what it did', async ({ page }) => {
+  test('Reset to the usual set ticks the usual caps the agent has and leaves the ones it lacks off', async ({ page }) => {
     const a = api(page, [{ ...LEGACY, agent_id: 'a3' }])
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    const box = page.getByTestId('connector-permissions')
+    const box = page.getByTestId('connector-matrix')
     // The agent holds two of the permissions; the others are shown off and cannot be switched on.
     await expect(box.getByTestId('connector-cap-switch-triggers.propose')).toBeDisabled()
     await expect(box.getByTestId('connector-cap-switch-triggers.propose')).toHaveAccessibleDescription('The agent does not have this.')
     await expect(box.getByTestId('connector-cap-switch-memory.write')).toBeEnabled()
-    await box.getByRole('button', { name: 'Allow the usual set' }).click()
+    await box.getByTestId('connector-usual').click()
     await expect(box.getByTestId('connector-cap-switch-memory.write')).toHaveAttribute('aria-checked', 'true')
     await expect(box.getByTestId('connector-cap-switch-files.upload')).toHaveAttribute('aria-checked', 'true')
     await expect(box.getByTestId('connector-cap-switch-proposals.confirm')).toHaveAttribute('aria-checked', 'true')
     await expect(box.getByTestId('connector-cap-switch-triggers.propose')).toHaveAttribute('aria-checked', 'false')
     await expect(box.getByTestId('connector-cap-switch-talkback.new_channel')).toHaveAttribute('aria-checked', 'false')
-    const done = box.getByTestId('connector-preset-done-usual')
-    await expect(done).toContainText('Ticked 3')
-    await expect(done).toContainText('Not ticked, because the agent does not have them')
-    await expect(done).toContainText('Propose triggers')
     expect(a.s.calls.some(c => c.method === 'PUT')).toBe(false)
     await shot(page, 'perm-4-usual-set')
     await page.getByRole('button', { name: 'Save' }).click()
     await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.caps.sort()).toEqual(['files.upload', 'memory.write', 'proposals.confirm'])
-  })
-
-  test('"Same as the agent" copies what the agent has, asks first when that includes a sensitive permission, and is not a live link', async ({ page }) => {
-    const a = api(page, [{ ...LEGACY, caps: ['tools.write'], agent_id: 'a1' }])
-    await a.install()
-    await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Edit' }).click()
-    const box = page.getByTestId('connector-permissions')
-    await expect(box).toContainText('does not follow later changes')
-    await box.getByRole('button', { name: 'Same as the agent' }).click()
-    const ask = box.getByTestId('connector-same-confirm')
-    await expect(ask).toBeVisible()
-    await expect(ask.getByRole('listitem')).toHaveCount(1)
-    await expect(ask).toContainText('Post to a new channel')
-    await expect(ask).not.toContainText('Save to memory')
-    // Nothing changed until the owner confirms.
-    await expect(box.getByTestId('connector-cap-switch-memory.write')).toHaveAttribute('aria-checked', 'false')
-    await shot(page, 'perm-5-same-confirm')
-    await ask.getByRole('button', { name: 'Cancel' }).click()
-    await expect(ask).toHaveCount(0)
-    await expect(box.getByTestId('connector-cap-switch-memory.write')).toHaveAttribute('aria-checked', 'false')
-    await box.getByRole('button', { name: 'Same as the agent' }).click()
-    await box.getByRole('button', { name: 'Copy them too' }).click()
-    for (const n of ['memory.write', 'files.upload', 'triggers.propose', 'triggers.run', 'talkback.channels', 'talkback.new_channel']) {
-      await expect(box.getByTestId(`connector-cap-switch-${n}`)).toHaveAttribute('aria-checked', 'true')
-    }
-    // A cap that is not a grant of the agent stays as it was.
-    await expect(box.getByTestId('connector-cap-switch-tools.write')).toHaveAttribute('aria-checked', 'true')
-    await expect(box.getByTestId('connector-preset-done-same')).toContainText('Copied 6 permissions of Support')
-    await shot(page, 'perm-6-same-done')
-    await page.getByRole('button', { name: 'Save' }).click()
-    await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.caps.length).toBe(7)
-  })
-
-  test('a copy without sensitive permissions needs no question, and both buttons say why they are off without an agent or without readable permissions', async ({ page }) => {
-    const a = api(page, [{ ...LEGACY, agent_id: 'a3' }, { ...LEGACY, id: 'b2', name: 'Orphan', agent_id: 'gone' }])
-    await a.install()
-    await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Edit' }).first().click()
-    const box = page.getByTestId('connector-permissions')
-    await box.getByRole('button', { name: 'Same as the agent' }).click()
-    await expect(box.getByTestId('connector-same-confirm')).toHaveCount(0)
-    await expect(box.getByTestId('connector-preset-done-same')).toContainText('Copied 2 permissions of Careful')
-    await page.getByRole('button', { name: 'Cancel' }).click()
-    await page.getByRole('button', { name: 'Edit' }).nth(1).click()
-    const orphan = page.getByTestId('connector-permissions')
-    await expect(orphan.getByRole('button', { name: 'Same as the agent' })).toBeDisabled()
-    await expect(orphan.getByRole('button', { name: 'Allow the usual set' })).toBeDisabled()
-    await expect(orphan.getByRole('button', { name: 'Allow the usual set' })).toHaveAccessibleDescription('The permissions of this agent could not be read.')
-    await page.getByLabel('Agent', { exact: true }).selectOption('')
-    await expect(orphan.getByTestId('connector-preset-reason')).toContainText('Choose an agent first.')
   })
 
   test('a link with the id of a binding opens it at its permissions', async ({ page }) => {
@@ -175,67 +127,66 @@ test.describe('Connector permissions', () => {
     await api(page, [{ ...LEGACY, agent_id: 'a1', caps: ['triggers.propose', 'memory.write'] }]).install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    const box = page.getByTestId('connector-permissions')
-    await expect(box.getByTestId('connector-rule')).toHaveText('Listed people can use the ticked permissions. Sensitive ones also need a verified person.')
-    // Nothing sensitive is ticked, so there is no pairing notice.
-    await expect(box.getByTestId('connector-stuck')).toHaveCount(0)
-    await expect(box.getByTestId('connector-channel-only')).toHaveCount(0)
+    await expect(page.getByTestId('connector-matrix').getByTestId('connector-rule')).toHaveText('Listed people can use the ticked permissions. Sensitive ones also need a verified person.')
   })
 
-  test('a ticked sensitive permission with nobody paired is said on the page, with a way to pair, and goes away once someone is paired', async ({ page }) => {
-    const a = api(page, [{ ...LEGACY, agent_id: 'a1', caps: ['talkback.new_channel', 'memory.write'] }])
-    await a.install()
+  test('the Verified person column says when nobody is verified, and stops saying it once a pairing is live', async ({ page }) => {
+    const sens = { ...SET, caps: ['talkback.new_channel'], grants: [] }
+    await api(page, [{ ...sens, paired: [] }]).install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    const box = page.getByTestId('connector-permissions')
-    const notice = box.getByTestId('connector-stuck')
-    await expect(notice).toContainText('Sensitive permissions are ticked, but nobody is verified')
-    await expect(notice).toContainText('Post to a new channel')
-    await expect(notice).not.toContainText('Save to memory')
+    const mx = page.getByTestId('connector-matrix')
+    await expect(mx.getByTestId('connector-matrix-nobody-verified')).toHaveText('Nobody is verified yet.')
+    await expect(page.getByTestId('connector-stuck')).toHaveCount(0)
     await shot(page, 'perm-7-sensitive-nobody-paired')
-    await notice.getByRole('button', { name: 'Verify your account' }).click()
-    await expect(box.getByTestId('connector-pair-start')).toBeFocused()
+    await mx.getByTestId('connector-matrix-cell-talkback.new_channel-listed').click()
+    await mx.getByTestId('connector-matrix-detail').getByRole('button', { name: 'Verify a person' }).click()
+    await expect(page.getByTestId('connector-pair-start')).toBeFocused()
   })
 
-  test('the notice stays off with a live pairing and comes back when the pairing ended', async ({ page }) => {
+  test('the note about nobody verified stays off with a live pairing and comes back when the pairing ended', async ({ page }) => {
     const sens = { ...SET, caps: ['talkback.new_channel'], grants: [] }
     await api(page, [sens]).install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    await expect(page.getByTestId('connector-permissions').getByTestId('connector-stuck')).toHaveCount(0)
+    await expect(page.getByTestId('connector-matrix')).toBeVisible()
+    await expect(page.getByTestId('connector-matrix-nobody-verified')).toHaveCount(0)
     await page.getByRole('button', { name: 'Cancel' }).click()
     await api(page, [{ ...sens, paired: [{ sender_id: 'U001', paired_at: '2026-01-01T10:00:00Z', expires_at: '2026-02-01T10:00:00Z' }] }]).install()
     await page.reload()
     await page.getByRole('button', { name: 'Edit' }).click()
-    await expect(page.getByTestId('connector-permissions').getByTestId('connector-stuck')).toContainText('Post to a new channel')
+    await expect(page.getByTestId('connector-matrix-nobody-verified')).toBeVisible()
   })
 
-  test('an allowlist with only channels says that members are not trusted one by one', async ({ page }) => {
+  test('an allowlist with only channels is named in the status line, not in a notice of its own', async ({ page }) => {
     await api(page, [{ ...LEGACY, agent_id: 'a1', allow: ['C0123'], caps: ['memory.write'] }]).install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    const box = page.getByTestId('connector-permissions')
-    await expect(box.getByTestId('connector-channel-only')).toContainText('The list has only channels')
-    await expect(box.getByTestId('connector-channel-only')).toContainText('Add their user')
+    await expect(page.getByTestId('connector-channel-only')).toHaveCount(0)
+    await expect(page.getByTestId('connector-ready-who')).toContainText('Only channels are on the list')
     await shot(page, 'perm-8-channel-only')
     await page.getByRole('textbox', { name: 'Listed people +' }).fill('U001')
     await page.getByRole('textbox', { name: 'Listed people +' }).press('Enter')
-    await expect(box.getByTestId('connector-channel-only')).toHaveCount(0)
+    await expect(page.getByTestId('connector-ready-who')).toHaveAttribute('data-state', 'after_save')
   })
 
-  test('roles get only non-sensitive permissions that are switched on, and the request carries the grants', async ({ page }) => {
+  test('role columns hold checkboxes for non-sensitive permissions that are switched on, and the request carries the grants', async ({ page }) => {
     const a = api(page, [{ ...LEGACY, caps: ['memory.write', 'talkback.channels', 'talkback.new_channel'] }])
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    const roles = page.getByTestId('connector-roles')
-    await expect(roles.getByRole('columnheader')).toHaveText(['Roles', 'Save to memory', 'Post to other channels'])
-    await expect(roles.getByRole('checkbox', { name: 'Workspace admin: Post to a new channel' })).toHaveCount(0)
-    await roles.getByRole('checkbox', { name: 'Workspace admin: Save to memory' }).check()
-    await roles.getByRole('checkbox', { name: 'Channel member: Post to other channels' }).check()
+    const mx = page.getByTestId('connector-matrix')
+    await expect(mx.locator('th[data-col^="role:"]')).toHaveText(['Role: Workspace admin', 'Role: Channel member'])
+    // A sensitive permission has no box; a permission that is off has a box that cannot be used.
+    await expect(mx.getByRole('checkbox', { name: 'Workspace admin: Post to a new channel' })).toHaveCount(0)
+    await expect(mx.getByRole('checkbox', { name: 'Workspace admin: Receive files' })).toBeDisabled()
+    await mx.getByRole('checkbox', { name: 'Workspace admin: Save to memory' }).check()
+    await mx.getByRole('checkbox', { name: 'Channel member: Post to other channels' }).check()
+    await expect(mx.getByTestId('connector-matrix-cell-memory.write-role:workspace_admin')).toHaveAttribute('data-state', 'yes')
     // Turning a permission off takes it from the roles too.
     await page.getByTestId('connector-cap-switch-talkback.channels').click()
-    await expect(roles.getByRole('checkbox', { name: 'Channel member: Post to other channels' })).toHaveCount(0)
+    await expect(mx.getByRole('checkbox', { name: 'Channel member: Post to other channels' })).toBeDisabled()
+    await expect(mx.getByRole('checkbox', { name: 'Channel member: Post to other channels' })).not.toBeChecked()
     await page.getByRole('button', { name: 'Save' }).click()
     await expect.poll(() => a.s.calls.some(c => c.method === 'PUT')).toBe(true)
     const body = a.s.calls.find(c => c.method === 'PUT').body
@@ -312,14 +263,13 @@ test.describe('Connector permissions', () => {
     await page.getByRole('button', { name: 'New Slack app' }).click()
     await expect(page.getByTestId('connector-pairing')).toContainText('Save this bot first')
     await expect(page.getByTestId('connector-access')).toContainText('Save this bot first')
-    // The usual set is ticked from the start, so there is no warning; a sensitive row is not.
-    await expect(page.getByTestId('connector-nocaps')).toHaveCount(0)
+    // The usual set is ticked from the start; a sensitive row is not.
     await expect(page.getByTestId('connector-cap-switch-memory.write')).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByTestId('connector-cap-switch-talkback.new_channel')).toHaveAttribute('aria-checked', 'false')
-    // Clearing every row brings the warning back.
+    // Clearing every row leaves every switch off.
     const on = page.locator('[data-testid^="connector-cap-switch-"][aria-checked="true"]')
     while (await on.count()) await on.first().click()
-    await expect(page.getByTestId('connector-nocaps')).toBeVisible()
+    await expect(on).toHaveCount(0)
   })
 
   test('the latest decisions are listed read only, newest first', async ({ page }) => {
@@ -380,16 +330,16 @@ test.describe('Connector permissions', () => {
     await shot(page, 'hold-1-decisions')
   })
 
-  test('the add-on tools row says a verified person can confirm the writes in the chat when the connection asks first', async ({ page }) => {
+  test('the tools of an add-on are sub-rows of the matrix, and a connection that asks first makes the verified cell wait for a person', async ({ page }) => {
     const hold = { addon: 'tracker', capability: 'tools.write', tools: ['create-issue'], connections: [{ name: 'Work tracker', write_mode: 'propose' }], without_tick: ['paired'] }
     const withHold = (view) => ({ ...view, addon_tools: [hold] })
-    const a = api(page, [{ ...SET, caps: [...(SET.caps || []), 'proposals.confirm'] }], { access: withHold(ACCESS), preview: (body) => withHold(previewFor(body, ROLES_KIND.roles)) })
+    const a = api(page, [{ ...SET, caps: [...(SET.caps || []), 'proposals.confirm', 'tools.write'] }], { access: withHold(ACCESS), preview: (body) => withHold(previewFor(body, ROLES_KIND.roles)) })
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    const ready = page.getByTestId('connector-readiness')
-    await ready.getByTestId('connector-ready-toggle').click()
-    await expect(ready.getByTestId('connector-ready-addons:tracker:confirm')).toContainText('A verified person can confirm the tracker writes in the chat')
+    const mx = page.getByTestId('connector-matrix')
+    await expect(mx.getByTestId('connector-matrix-row-tools.write:tracker:create-issue')).toContainText('tracker: create-issue')
+    await expect(mx.getByTestId('connector-matrix-cell-tools.write:tracker:create-issue-paired')).toHaveAttribute('data-state', 'waiting')
     await shot(page, 'hold-2-readiness')
   })
 
@@ -400,38 +350,40 @@ test.describe('Connector permissions', () => {
     await expect(page.getByTestId('connector-access')).toContainText('No tool call yet.')
   })
 
-  test('What this bot can do shows each permission for the chosen sender, the host reason and one fix', async ({ page }) => {
+  test('a cell of the matrix opens the host reason and one fix, and the fix of a switch scrolls to it', async ({ page }) => {
     const a = api(page, [{ ...LEGACY, agent_id: 'a3', caps: ['memory.write', 'triggers.propose', 'talkback.new_channel'] }])
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    const can = page.getByTestId('connector-can')
-    await expect(can.getByTestId('connector-can-memory.write')).toHaveAttribute('data-allowed', 'true')
+    const mx = page.getByTestId('connector-matrix')
+    const detail = mx.getByTestId('connector-matrix-detail')
+    await mx.getByTestId('connector-matrix-cell-memory.write-listed').click()
+    await expect(detail.getByTestId('connector-can-memory.write')).toHaveAttribute('data-allowed', 'true')
     // The agent lacks the permission: the first blocker is the agent, and the fix opens the agent in a new tab.
-    const trig = can.getByTestId('connector-can-triggers.propose')
+    await mx.getByTestId('connector-matrix-cell-triggers.propose-listed').click()
+    const trig = detail.getByTestId('connector-can-triggers.propose')
     await expect(trig).toHaveAttribute('data-allowed', 'false')
-    await expect(trig.getByTestId('connector-can-why')).toContainText('is not allowed to set reminders and scheduled tasks')
+    await expect(trig.getByTestId('connector-matrix-message')).toContainText('is not allowed to set reminders and scheduled tasks')
     await expect(trig.getByTestId('connector-fix')).toHaveAttribute('href', '/app/agents/a3/edit')
     await expect(trig.getByTestId('connector-fix')).toHaveAttribute('target', '_blank')
     await expect(trig.getByTestId('connector-fix')).toHaveCount(1)
-    // Not ticked: the fix scrolls to the switch and focuses it.
-    const files = can.getByTestId('connector-can-files.upload')
-    await expect(files.getByTestId('connector-can-why')).toContainText('does not allow')
-    // The sender is known (the selector), so only the other links are listed; none remain here.
-    await expect(files).not.toContainText('Not checked yet')
     await expect(trig).toContainText('Not checked yet: the permissions of this connection.')
     await expect(trig).not.toContainText('who is sending')
+    // Not ticked: the fix scrolls to the switch and focuses it.
+    await mx.getByTestId('connector-matrix-cell-files.upload-listed').click()
+    const files = detail.getByTestId('connector-can-files.upload')
+    await expect(files.getByTestId('connector-matrix-message')).toContainText('does not allow')
+    await expect(files).not.toContainText('Not checked yet')
     await files.getByRole('button', { name: 'Show the setting' }).click()
     await expect(page.getByTestId('connector-cap-switch-files.upload')).toBeFocused()
     await shot(page, 'can-1-listed')
     // A verified person: the same form, other trust.
-    await can.getByTestId('connector-can-sender').selectOption('paired')
-    await expect(can.getByTestId('connector-can-memory.write')).toContainText('because this person is verified')
+    await mx.getByTestId('connector-matrix-cell-memory.write-paired').click()
+    await expect(detail.getByTestId('connector-can-memory.write')).toContainText('Because this person is verified')
     // A role of the kind.
-    await can.getByTestId('connector-can-sender').selectOption('role:workspace_admin')
-    await expect(can.getByTestId('connector-can-memory.write')).toHaveAttribute('data-allowed', 'false')
-    await expect(can.getByTestId('connector-can-memory.write').getByRole('button', { name: 'Show the setting' })).toBeVisible()
-    await expect(can.getByTestId('connector-can-sender').locator('option')).toHaveText(['A listed person', 'A person in a channel set to Answer only', 'A verified person', 'Role: Workspace admin', 'Role: Channel member'])
+    await mx.getByTestId('connector-matrix-cell-memory.write-role:workspace_admin').click()
+    await expect(detail.getByTestId('connector-can-memory.write')).toHaveAttribute('data-allowed', 'false')
+    await expect(detail.getByTestId('connector-can-memory.write').getByRole('button', { name: 'Show the setting' })).toBeVisible()
   })
 
   test('a fix that needs a pairing jumps to the pairing button, and a person to the allowed people', async ({ page }) => {
@@ -439,14 +391,16 @@ test.describe('Connector permissions', () => {
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    const can = page.getByTestId('connector-can')
-    await expect(can.getByTestId('connector-can-talkback.new_channel').getByTestId('connector-can-why')).toContainText('verified')
-    await can.getByTestId('connector-can-talkback.new_channel').getByRole('button', { name: 'Verify a person' }).click()
+    const mx = page.getByTestId('connector-matrix')
+    const detail = mx.getByTestId('connector-matrix-detail')
+    await mx.getByTestId('connector-matrix-cell-talkback.new_channel-listed').click()
+    await expect(detail.getByTestId('connector-matrix-message')).toContainText('verified')
+    await detail.getByRole('button', { name: 'Verify a person' }).click()
     await expect(page.getByTestId('connector-pair-start')).toBeFocused()
     // A member of the listed channel is not trusted one by one: add the person.
-    await can.getByTestId('connector-can-sender').selectOption('channel_member')
-    await expect(can.getByTestId('connector-can-memory.write').getByTestId('connector-can-why')).toContainText('cannot save notes to memory for them')
-    await can.getByTestId('connector-can-memory.write').getByRole('button', { name: 'Add a person' }).click()
+    await mx.getByTestId('connector-matrix-cell-memory.write-channel_member').click()
+    await expect(detail.getByTestId('connector-matrix-message')).toContainText('cannot save notes to memory for them')
+    await detail.getByRole('button', { name: 'Add a person' }).click()
     await expect(page.getByTestId('connector-allow').getByRole('textbox')).toBeFocused()
   })
 
@@ -466,7 +420,7 @@ test.describe('Connector permissions', () => {
     await expect.poll(() => a.s.previews.at(-1).body.caps.sort()).toEqual(['files.upload', 'memory.write', 'triggers.propose'])
     expect(a.s.previews.length).toBeLessThanOrEqual(2)
     expect(JSON.stringify(a.s.previews)).not.toContain('xoxb-secret')
-    await expect(page.getByTestId('connector-can-memory.write')).toHaveAttribute('data-allowed', 'true')
+    await expect(page.getByTestId('connector-matrix-cell-memory.write-listed')).toHaveAttribute('data-state', 'yes')
     // Nothing was saved by looking.
     expect(a.s.calls.some(c => c.method === 'PUT')).toBe(false)
   })
@@ -488,7 +442,7 @@ test.describe('Connector permissions', () => {
     await page.getByTestId('connector-cap-switch-memory.write').click()
     await expect.poll(() => a.s.previews.at(-1).body.caps).not.toContain('memory.write')
     await page.getByTestId('connector-cap-switch-memory.write').click()
-    await expect(page.getByTestId('connector-can-memory.write')).toHaveAttribute('data-allowed', 'true')
+    await expect(page.getByTestId('connector-matrix-cell-memory.write-listed')).toHaveAttribute('data-state', 'yes')
     await shot(page, 'can-2-new')
   })
 
@@ -498,9 +452,9 @@ test.describe('Connector permissions', () => {
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
     await expect(page.getByTestId('connector-can-status')).toHaveText('Checking what this bot can do')
-    await expect(page.getByTestId('connector-can')).toHaveAttribute('aria-busy', 'true')
+    await expect(page.getByTestId('connector-matrix')).toHaveAttribute('aria-busy', 'true')
     await shot(page, 'can-3-loading')
-    await expect(page.getByTestId('connector-can-memory.write')).toBeVisible()
+    await expect(page.getByTestId('connector-matrix-cell-memory.write-listed')).toBeVisible()
     await expect(page.getByTestId('connector-can-status')).toHaveText('')
   })
 
@@ -533,11 +487,11 @@ test.describe('Connector permissions', () => {
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Modifica' }).click()
-    const row = page.getByTestId('connector-can-memory.write')
-    await expect(row).toContainText('Salva in memoria')
-    await expect(row.getByTestId('connector-can-why')).toHaveText('Questa connessione non permette al bot di salvare note in memoria.')
+    await expect(page.getByTestId('connector-matrix-row-memory.write')).toContainText('Salva in memoria')
+    await page.getByTestId('connector-matrix-cell-memory.write-listed').click()
+    await expect(page.getByTestId('connector-can-memory.write').getByTestId('connector-matrix-message')).toHaveText('Questa connessione non permette al bot di salvare note in memoria.')
     // A capability the host did not translate keeps its English title.
-    await expect(page.getByTestId('connector-can-files.upload')).toContainText('Receive files')
+    await expect(page.getByTestId('connector-matrix-row-files.upload')).toContainText('Receive files')
     expect(a.s.urls.some(u => u.endsWith('/api/chats/connectors/kinds?lang=it'))).toBe(true)
     expect(a.s.urls.some(u => u.endsWith('/access/preview?lang=it'))).toBe(true)
     // A save tells the host the interface language, for the sentences the bot writes itself.
@@ -559,8 +513,9 @@ test.describe('Connector permissions', () => {
       await connectorApi(p, [{ ...LEGACY, agent_id: 'a1', caps: ['triggers.propose'] }], 'slack', [], undefined, { kindExtra: ROLES_KIND, preview: blocked }).install()
       await p.goto(PAGE)
       await p.getByRole('button', { name: 'Edit' }).click()
-      const row = p.getByTestId('connector-can').getByTestId('connector-can-triggers.propose')
-      await expect(row.getByTestId('connector-can-why')).toContainText('turned reminders off')
+      await p.getByTestId('connector-matrix-cell-triggers.propose-listed').click()
+      const row = p.getByTestId('connector-matrix-detail')
+      await expect(row.getByTestId('connector-matrix-message')).toContainText('turned reminders off')
       if (admin) await expect(row.getByRole('link', { name: 'Open Settings' })).toHaveAttribute('href', '/app/settings')
       else {
         await expect(row.getByTestId('connector-fix-text')).toHaveText('Ask an administrator')
@@ -570,7 +525,7 @@ test.describe('Connector permissions', () => {
     }
   })
 
-  test('readiness lists only what needs attention and opens to every row; the channel-only trap is named', async ({ page }) => {
+  test('the status line lists only what needs attention and opens to the token, the agent and who is let in; the channel-only trap is named', async ({ page }) => {
     const a = api(page, [{ ...LEGACY, agent_id: 'a1', allow: ['C001'], caps: ['memory.write'] }])
     await a.install()
     await page.goto(PAGE)
@@ -585,35 +540,32 @@ test.describe('Connector permissions', () => {
     await who.getByRole('button', { name: 'Add a person' }).click()
     await expect(page.getByTestId('connector-allow').getByRole('textbox')).toBeFocused()
     await ready.getByTestId('connector-ready-toggle').click()
-    await expect(ready.getByRole('listitem')).toHaveCount(8)
+    await expect(ready.getByRole('listitem')).toHaveCount(3)
     await expect(ready.getByTestId('connector-ready-token')).toHaveAttribute('data-state', 'ok')
-    await expect(ready.getByTestId('connector-ready-triggers')).toHaveAttribute('data-state', 'off')
-    await expect(ready.getByTestId('connector-ready-notify')).toHaveAttribute('data-state', 'off')
+    await expect(ready.getByTestId('connector-ready-triggers')).toHaveCount(0)
     await expect(ready.getByTestId('connector-ready-toggle')).toHaveAttribute('aria-expanded', 'true')
     await shot(page, 'ready-2-all')
   })
 
-  test('readiness follows the form: a ticked permission that nobody can use, then a fix, then a row that works after saving', async ({ page }) => {
+  test('the matrix follows the form: a cell that is off because of the agent changes when another agent is chosen, with no save', async ({ page }) => {
     const a = api(page, [{ ...LEGACY, agent_id: 'a3', caps: ['memory.write', 'triggers.propose'], approval: { mode: 'ask' } }])
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    const ready = page.getByTestId('connector-readiness')
-    await ready.getByTestId('connector-ready-toggle').click()
-    // The agent lacks Propose triggers: the row shows the host sentence and a link to the agent.
-    const trig = ready.getByTestId('connector-ready-triggers')
-    await expect(trig).toHaveAttribute('data-state', 'attention')
-    await expect(trig).toContainText('is not allowed to set reminders and scheduled tasks')
-    await expect(trig.getByTestId('connector-fix')).toHaveAttribute('href', '/app/agents/a3/edit')
-    // Choosing an agent that has it changes the row without a save; the row then works after a save.
+    const mx = page.getByTestId('connector-matrix')
+    // The agent lacks Propose triggers: the cell reads Off and its message links to the agent.
+    const cell = mx.getByTestId('connector-matrix-cell-triggers.propose-listed')
+    await expect(cell).toHaveAttribute('data-state', 'off')
+    await cell.click()
+    await expect(mx.getByTestId('connector-matrix-message')).toContainText('is not allowed to set reminders and scheduled tasks')
+    await expect(mx.getByTestId('connector-matrix-detail').getByTestId('connector-fix')).toHaveAttribute('href', '/app/agents/a3/edit')
+    // Choosing an agent that has it changes the cell without a save.
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
-    await expect(trig).toHaveAttribute('data-state', 'after_save')
-    await expect(trig).toContainText('You confirm each one')
-    await trig.getByRole('button', { name: 'Keep these changes' }).click()
-    await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.agent_id).toBe('a1')
+    await expect(cell).toHaveAttribute('data-state', 'asks')
+    expect(a.s.calls.some(c => c.method === 'PUT')).toBe(false)
   })
 
-  test('readiness says when the agent has no model, and when no permission is on', async ({ page }) => {
+  test('the status line says when the agent has no model', async ({ page }) => {
     const a = api(page, [{ ...LEGACY, agent_id: 'a2', caps: [] }])
     await a.install()
     await page.goto(PAGE)
@@ -621,9 +573,7 @@ test.describe('Connector permissions', () => {
     const ready = page.getByTestId('connector-readiness')
     await expect(ready.getByTestId('connector-ready-agent')).toHaveAttribute('data-state', 'broken')
     await expect(ready.getByTestId('connector-ready-agent')).toContainText('has no model')
-    await expect(ready.getByTestId('connector-ready-permissions')).toHaveAttribute('data-state', 'attention')
-    await ready.getByTestId('connector-ready-permissions').getByRole('button', { name: 'Choose permissions' }).click()
-    await expect(page.getByTestId('connector-presets').getByTestId('connector-usual')).toBeFocused()
+    await expect(ready.getByTestId('connector-ready-permissions')).toHaveCount(0)
   })
 
   test('the approval of proposed triggers sits under Propose triggers, shows its choice in the row and is greyed while the permission is off', async ({ page }) => {
@@ -631,7 +581,7 @@ test.describe('Connector permissions', () => {
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    const row = page.getByTestId('connector-cap-triggers.propose')
+    const row = await disclosure(page, 'triggers.propose')
     // One place only: nothing at the bottom of the page.
     await expect(page.getByTestId('connector-approval')).toHaveCount(1)
     await expect(row.getByTestId('connector-approval')).toBeVisible()
@@ -641,7 +591,7 @@ test.describe('Connector permissions', () => {
     await expect(row.getByRole('radio').first()).toBeDisabled()
     await expect(row.getByTestId('connector-approval')).toHaveAccessibleDescription('Turn on Propose triggers to use this.')
     await shot(page, 'perm-9-approval-greyed')
-    await row.getByTestId('connector-cap-switch-triggers.propose').click()
+    await page.getByTestId('connector-cap-switch-triggers.propose').click()
     await expect(row.getByTestId('connector-approval-off')).toHaveCount(0)
     await expect(row.getByRole('radio', { name: /Asks first/ })).toBeEnabled()
     // The three modes change the line of the row.
@@ -668,7 +618,7 @@ test.describe('Connector permissions', () => {
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    const row = page.getByTestId('connector-cap-triggers.propose')
+    const row = await disclosure(page, 'triggers.propose')
     const acts = row.getByTestId('connector-acts')
     await expect(acts.getByTestId('connector-acts-switch')).toHaveAttribute('aria-checked', 'false')
     await expect(acts.getByRole('checkbox')).toHaveCount(0)
@@ -701,6 +651,7 @@ test.describe('Connector permissions', () => {
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
+    await disclosure(page, 'triggers.propose')
     const acts = page.getByTestId('connector-acts')
     await expect(acts.getByTestId('connector-acts-switch')).toHaveAttribute('aria-checked', 'true')
     await expect(acts.getByTestId('connector-act-check-act.send')).toBeChecked()
@@ -719,18 +670,18 @@ test.describe('Connector permissions', () => {
     await api(page, [{ ...LEGACY, agent_id: 'a4', caps: ['memory.write'], approval: { mode: 'ask', acts: ['act.files'] } }]).install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    const row = page.getByTestId('connector-cap-triggers.propose')
+    const row = await disclosure(page, 'triggers.propose')
     await expect(row.getByTestId('connector-approval-off')).toHaveText('Turn on Propose triggers to use this.')
     await expect(row.getByTestId('connector-acts-switch')).toBeDisabled()
     await expect(row.getByTestId('connector-act-check-act.files')).toBeDisabled()
     await shot(page, 'acts-4-greyed')
-    await row.getByTestId('connector-cap-switch-triggers.propose').click()
+    await page.getByTestId('connector-cap-switch-triggers.propose').click()
     await expect(row.getByTestId('connector-act-check-act.files')).toBeEnabled()
     await expect(row.getByTestId('connector-cap-effect-triggers.propose')).toHaveText('Proposals: asks first, runs may: write files')
     await shot(page, 'acts-5-summary')
   })
 
-  test('write tools of an add-on the agent is connected to: paired people have them without the tick, the row and the access view say why', async ({ page }) => {
+  test('write tools of an add-on the agent is connected to: verified people have them without the tick, and the cells say why', async ({ page }) => {
     const hold = { addon: 'tracker', capability: 'tools.write', tools: ['create-issue', 'comment-issue'], connections: [{ name: 'Work tracker', write_mode: 'propose' }], without_tick: ['paired'] }
     const cover = (view) => ({
       ...view,
@@ -741,41 +692,17 @@ test.describe('Connector permissions', () => {
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    const ready = page.getByTestId('connector-readiness')
-    await ready.getByTestId('connector-ready-toggle').click()
-    // One info row, once: who has the tools, through which connection and mode, and who needs the tick.
-    const row = ready.getByTestId('connector-ready-addons:tracker')
-    await expect(row).toHaveAttribute('data-state', 'ok')
-    await expect(row).toContainText('Verified people can use the tracker write tools create-issue, comment-issue in this chat')
-    await expect(row).toContainText('connected to Work tracker (write mode: asks first)')
-    await expect(row).toContainText('Listed people who are not verified need "Let people who are not verified change things with add-on tools"')
-    await expect(ready.locator('[data-testid^="connector-ready-addons:"]')).toHaveCount(1)
-    // The preview of the paired sender says the tools are allowed because of the connection; the listed sender needs the tick.
-    const can = page.getByTestId('connector-can')
-    await can.getByTestId('connector-can-sender').selectOption('paired')
-    await expect(can).toContainText('because this person is verified and the agent is connected to the add-on')
+    const mx = page.getByTestId('connector-matrix')
+    const detail = mx.getByTestId('connector-matrix-detail')
+    await expect(mx.getByTestId('connector-matrix-row-tools.write:tracker:create-issue')).toBeVisible()
+    await expect(mx.getByTestId('connector-matrix-row-tools.write:tracker:comment-issue')).toBeVisible()
+    // The verified person has the tools through the connection; the listed person needs the tick.
+    await mx.getByTestId('connector-matrix-cell-tools.write-paired').click()
+    await expect(detail).toContainText('Because this person is verified and the agent is connected to the add-on')
     await shot(page, 'paired-write-1-paired-sender')
-    await can.getByTestId('connector-can-sender').selectOption('listed')
-    await expect(can).toContainText('Tick the matching permission on the connection')
+    await mx.getByTestId('connector-matrix-cell-tools.write-listed').click()
+    await expect(detail).toContainText('Tick the matching permission on the connection')
     await shot(page, 'paired-write-2-listed-sender')
-    await shot(page, 'paired-write-3-readiness')
-    // Ticking the permission turns the row into the usual one.
-    await page.getByTestId('connector-cap-switch-tools.write').click()
-    await expect(ready.getByTestId('connector-ready-addons:tracker')).toContainText('The agent can use the tracker tools create-issue, comment-issue in this chat')
-  })
-
-  test('write tools: the owner took the tick away, or the connection is in write mode off: the row says which', async ({ page }) => {
-    const holdOf = (extra) => ({ addon: 'tracker', capability: 'tools.write', tools: ['create-issue'], connections: [{ name: 'Work tracker', write_mode: 'off' }], ...extra })
-    for (const [extra, text] of [[{ tick_removed: true, connections: [{ name: 'Work tracker', write_mode: 'auto' }] }, 'You turned off'], [{}, 'the write mode of Work tracker is off']]) {
-      const a = api(page, [SET], { access: { ...ACCESS, addon_tools: [holdOf(extra)] }, preview: (body) => ({ ...previewFor(body, ROLES_KIND.roles), addon_tools: [holdOf(extra)] }) })
-      await a.install()
-      await page.goto(PAGE)
-      await page.getByRole('button', { name: 'Edit' }).click()
-      await expect(page.getByTestId('connector-readiness').getByTestId('connector-ready-addons:tracker')).toContainText(text)
-      await page.unrouteAll({ behavior: 'ignoreErrors' })
-      await mockChat(page)
-      await installStudioAddons(page, { ids: ['slack'] })
-    }
   })
 
   test('an older host that sends no capability list shows no permission section', async ({ page }) => {
@@ -803,15 +730,6 @@ test.describe('Connector permissions', () => {
     await expect(saved.getByTestId('connector-approval-power-action')).toHaveAttribute('data-state', 'runs')
     await expect(saved.getByTestId('connector-approval-power-action')).toContainText('Runs at once')
     await expect(saved.getByTestId('connector-approval-send-key')).toHaveAttribute('data-state', 'asks')
-    // The preview follows the kind of sender chosen: only a paired one skips the card.
-    const can = page.getByTestId('connector-can')
-    const listed = can.getByTestId('connector-can-approvals')
-    await expect(listed.getByTestId('connector-approval-power-action')).toHaveAttribute('data-state', 'other')
-    await expect(listed.getByTestId('connector-approval-power-action')).toContainText('Still asks this sender')
-    await can.getByTestId('connector-can-sender').selectOption('paired')
-    await expect(can.getByTestId('connector-can-approvals').getByTestId('connector-approval-power-action')).toHaveAttribute('data-state', 'runs')
-    await can.getByTestId('connector-can-sender').selectOption('channel_member')
-    await expect(can.getByTestId('connector-can-approvals').getByTestId('connector-approval-power-action')).toHaveAttribute('data-state', 'other')
     await shot(page, 'perm-6-approvals')
   })
 
@@ -827,10 +745,9 @@ test.describe('Connector permissions', () => {
     const saved = page.getByTestId('connector-access-notesave')
     await expect(saved.getByTestId('connector-access-notesave-paired')).toContainText('Saves notes at once and tells you, with an Undo')
     await expect(saved.getByTestId('connector-access-notesave-anyone')).toContainText('wait for the owner')
-    const can = page.getByTestId('connector-can')
-    await expect(can.getByTestId('connector-can-notesave')).toContainText('wait for the owner')
-    await can.getByTestId('connector-can-sender').selectOption('paired')
-    await expect(can.getByTestId('connector-can-notesave')).toContainText('Saves notes at once and tells you, with an Undo')
+    // The matrix says it per kind of sender: a verified person saves at once, a listed one asks first.
+    await expect(page.getByTestId('connector-matrix-cell-memory.write-paired')).toHaveAttribute('data-state', 'yes')
+    await expect(page.getByTestId('connector-matrix-cell-memory.write-listed')).toHaveAttribute('data-state', 'asks')
     await shot(page, 'perm-7-notesave')
   })
 
@@ -871,18 +788,14 @@ test.describe('Connector permissions', () => {
       await expect(row.getByRole('radio', { name: 'Let everyone here ask for actions' })).toBeChecked()
       await expect(page.getByTestId('connector-trust-effect')).toContainText('Anyone who can post here can make the bot read their files')
       await expect(page.getByTestId('connector-trust-effect')).toContainText('Sensitive things still need a verified person')
-      await expect(page.getByTestId('connector-ready-channelTrust')).toContainText('People in C0555 can ask for everyday actions')
       await shot(page, 'trust-1-new-channel-act')
       await shotOf(page.getByTestId('connector-who'), 'trust-1b-who-section')
       await shotOf(page.getByTestId('connector-trust'), 'trust-1c-channels-section')
-      await shotOf(page.getByTestId('connector-readiness'), 'trust-1d-readiness')
       await row.getByRole('radio', { name: 'Answer only' }).check()
       await expect(row).toHaveAttribute('data-level', 'answer')
       await expect(page.getByTestId('connector-trust-effect')).toContainText('only listed people can ask for actions')
-      await expect(page.getByTestId('connector-ready-channelTrust')).toContainText('People in C0555 cannot use actions: set it to Let everyone here ask for actions')
       await shot(page, 'trust-2-answer-only')
       await shotOf(page.getByTestId('connector-trust'), 'trust-2b-channels-answer-only')
-      await shotOf(page.getByTestId('connector-readiness'), 'trust-2c-readiness')
       await page.getByRole('button', { name: 'Save' }).click()
       await expect.poll(() => a.s.calls.some((c) => c.method === 'PUT')).toBe(true)
       expect(a.s.calls.find((c) => c.method === 'PUT').body.allow_trust).toEqual({ C0555: 'answer' })
@@ -895,11 +808,7 @@ test.describe('Connector permissions', () => {
       await page.getByRole('button', { name: 'Edit' }).click()
       const row = page.getByTestId('connector-trust-row')
       await expect(row).toHaveAttribute('data-level', 'answer')
-      await expect(page.getByTestId('connector-ready-channelTrust')).toContainText('People in C0123 cannot use actions')
-      await page.getByTestId('connector-ready-toggle').click()
-      await expect(page.getByTestId('connector-ready-postTo')).toContainText('may post to 1 other place when')
       await shot(page, 'trust-3-stored-channel')
-      await shotOf(page.getByTestId('connector-readiness'), 'trust-3b-readiness-expanded')
       await shotOf(page.getByTestId('connector-channels'), 'trust-3c-where-it-may-post')
       await page.getByRole('button', { name: 'Save' }).click()
       await expect.poll(() => a.s.calls.some((c) => c.method === 'PUT')).toBe(true)
@@ -921,7 +830,6 @@ test.describe('Connector permissions', () => {
       await page.goto(PAGE)
       await page.getByRole('button', { name: 'Edit' }).click()
       await expect(page.getByTestId('connector-trust-nocaps')).toContainText('No permission is ticked on this connection')
-      await expect(page.getByTestId('connector-ready-channelTrust')).toContainText('Nothing is ticked under permissions')
     })
 
     test('the channel rows do not overflow a 320 px screen', async ({ page }) => {
@@ -930,7 +838,7 @@ test.describe('Connector permissions', () => {
       await page.goto(PAGE)
       await page.getByRole('button', { name: 'Edit' }).click()
       await expect(page.getByTestId('connector-trust-row')).toHaveCount(2)
-      // Only the section of this change is measured: the role matrix has its own scroll box.
+      // Only the section of this change is measured: the matrix has its own scroll box.
       const over = await page.evaluate(() => [...document.querySelectorAll('[data-testid="connector-trust"], [data-testid="connector-trust"] *')]
         .filter((e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 1).map((e) => e.tagName + '.' + String(e.className)))
       expect(over, 'elements of the channel section wider than the screen').toEqual([])

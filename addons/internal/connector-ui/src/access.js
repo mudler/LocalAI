@@ -42,36 +42,6 @@ export function changedFields(form, saved) {
   return new Set(WATCHED.filter((k) => sorted(form, k) !== sorted(saved, k)))
 }
 
-// ---- The senders ---------------------------------------------------------
-
-// The kinds of sender the selector offers. "listed" is a person on the
-// allowlist, "channel_member" someone let in through a listed channel (only
-// when the kind has channels), "anyone" is offered when the bot accepts
-// anyone. Each role the kind declares follows.
-export function senderOptions(form, kindInfo, lists) {
-  const out = []
-  if (form.accept_any) {
-    out.push({ id: 'anyone', key: 'anyone' })
-  } else {
-    out.push({ id: 'listed', key: 'listed' })
-    if (Array.isArray(lists) && lists.length > 1) out.push({ id: 'channel_member', key: 'channel_member' })
-    if (Object.values(form.allow_trust || {}).includes('act')) out.push({ id: 'channel_acts', key: 'channel_acts' })
-  }
-  out.push({ id: 'paired', key: 'paired' })
-  for (const r of kindInfo?.roles || []) out.push({ id: `role:${r.id}`, key: 'role', title: r.title })
-  return out
-}
-
-// The id of the subject in the reply for a choice of the selector: a member
-// of a channel and "anyone" are one subject.
-export const subjectId = (option) => (option === 'channel_member' ? 'anyone' : option)
-
-// The subject of the reply for the selected choice; the first when it is gone.
-export function pickSubject(view, option) {
-  const subjects = view?.subjects || []
-  return subjects.find((s) => s.id === subjectId(option)) || null
-}
-
 // ---- Fix routing ---------------------------------------------------------
 
 // What a person sees of the Tools of an agent: the editor of the agent.
@@ -85,9 +55,9 @@ export function connectionTargets(fix, lists = [], form = {}) {
   const field = fix.field || ''
   switch (fix.target) {
     case 'caps':
-      return field ? [sel(`connector-cap-switch-${field}`), sel(`connector-cap-${field}`)] : [sel('connector-permissions')]
+      return field ? [sel(`connector-cap-switch-${field}`), sel(`connector-cap-${field}`)] : [sel('connector-matrix')]
     case 'grants':
-      return [sel('connector-roles'), sel('connector-permissions')]
+      return [sel('connector-matrix')]
     case 'agent_id':
       return [sel('connector-agent')]
     case 'allow':
@@ -99,13 +69,13 @@ export function connectionTargets(fix, lists = [], form = {}) {
     case 'save':
       return [sel('connector-save')]
     case 'usual':
-      return [`${sel('connector-presets')} ${sel('connector-usual')}`, sel('connector-permissions')]
+      return [sel('connector-usual'), sel('connector-matrix')]
     case 'notify':
       return [sel('connector-notify')]
     case 'files':
       return [sel('connector-files')]
     case 'approval':
-      return [sel('connector-cap-switch-triggers.propose'), sel('connector-permissions')]
+      return [sel('connector-cap-switch-triggers.propose'), sel('connector-matrix')]
     default:
       return []
   }
@@ -436,6 +406,12 @@ export function messageKey(d) {
   if (d.code === 'nobody_paired') return 'ready.blocker.nobodyPaired'
   return ''
 }
+
+// The rows of the status line: the connection itself (token, agent) and who is
+// let in. The other rows say what a kind of sender may do, which the matrix
+// shows cell by cell.
+export const STATUS_ROW_IDS = ['token', 'agent', 'who']
+export const statusRows = (rows) => rows.filter((r) => STATUS_ROW_IDS.includes(r.id))
 
 // The rows to show, and how many are hidden, in collapsed mode: only the
 // rows that need the owner.
