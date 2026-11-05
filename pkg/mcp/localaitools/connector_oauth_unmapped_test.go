@@ -1,6 +1,7 @@
 package localaitools
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,6 +36,11 @@ var _ = Describe("OAuth logins of connections and the MCP tools", func() {
 			b, rerr := os.ReadFile(path)
 			if rerr != nil {
 				return rerr
+			}
+			// A compiled test binary (ginkgo leaves <package>.test here) holds
+			// the strings of the test files; only text sources count.
+			if bytes.IndexByte(b, 0) >= 0 {
+				return nil
 			}
 			s := strings.ToLower(string(b))
 			if strings.Contains(s, "oauth-clients") || strings.Contains(s, "connectors/oauth") || strings.Contains(s, "/oauth/start") || strings.Contains(s, "/oauth/disconnect") {
