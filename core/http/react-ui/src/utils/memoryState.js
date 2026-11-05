@@ -7,11 +7,11 @@
 export const MEMORY_GROUP = 'memory'
 
 // null while memory works, else { kind, by } with kind one of chat, agent,
-// user or files.
+// user, files or provider (the add-on that serves memory is not available).
 export function memoryOff(memory, group) {
   if (group?.off) return { kind: 'chat', by: 'chat' }
   if (!memory || memory.on !== false) return null
-  const kind = { memory_off_chat: 'chat', memory_off_agent: 'agent', memory_off_user: 'user', memory_off_files: 'files' }[memory.code] || 'user'
+  const kind = { memory_off_chat: 'chat', memory_off_agent: 'agent', memory_off_user: 'user', memory_off_files: 'files', memory_provider_unavailable: 'provider' }[memory.code] || 'user'
   return { kind, by: memory.blocked_by || kind }
 }
 
@@ -20,6 +20,6 @@ export function memoryOff(memory, group) {
 // Tools menu right there).
 export function memoryFix(off) {
   if (!off) return null
-  if (off.kind === 'user') return { to: '/app/account?tab=memory', key: 'fixUser' }
+  if (off.kind === 'user' || off.kind === 'provider') return { to: '/app/account?tab=memory', key: 'fixUser' }
   return null
 }

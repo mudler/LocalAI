@@ -1944,7 +1944,9 @@ type ChatsMemoryState struct {
 	// On is true when the chat reads and may save notes.
 	On bool `json:"on" example:"false"`
 	// Code names the level that is off: memory_off_chat, memory_off_agent,
-	// memory_off_user or memory_off_files. Absent when on.
+	// memory_off_user, memory_off_files or memory_provider_unavailable (the
+	// add-on you picked to serve memory cannot serve now; provider names it).
+	// Absent when on.
 	Code string `json:"code,omitempty" example:"memory_off_chat"`
 	// BlockedBy is who holds that switch: chat, agent, user or server.
 	BlockedBy string `json:"blocked_by,omitempty" example:"chat"`
@@ -1953,6 +1955,74 @@ type ChatsMemoryState struct {
 	// Fix says where to turn memory on again: kind open_tools_menu,
 	// open_memory_settings, open_agent or open_server_setting.
 	Fix *ChatsMemoryFix `json:"fix,omitempty"`
+	// Provider is the ID of the add-on that cannot serve, with the code
+	// memory_provider_unavailable, and ProviderTitle the name it shows.
+	Provider      string `json:"provider,omitempty"`
+	ProviderTitle string `json:"provider_title,omitempty"`
+}
+
+// ChatsProviderSlots is the list of provider slots of the host.
+type ChatsProviderSlots struct {
+	Slots []ChatsProviderSlot `json:"slots"`
+}
+
+// ChatsProviderSlot is a job the host does itself and lets an add-on do in its
+// place, with the providers you can pick and the choice in force.
+type ChatsProviderSlot struct {
+	ID          string `json:"id" example:"memory"`
+	Version     int    `json:"version" example:"1"`
+	Title       string `json:"title" example:"Memory"`
+	Description string `json:"description"`
+	// OffMeans is what Off does for this slot.
+	OffMeans   string                  `json:"off_means,omitempty"`
+	Providers  []ChatsProvider         `json:"providers"`
+	Resolution ChatsProviderResolution `json:"resolution"`
+}
+
+// ChatsProvider is one provider you can pick for a slot.
+type ChatsProvider struct {
+	// ID is builtin, off or the ID of an add-on.
+	ID          string `json:"id" example:"builtin"`
+	Title       string `json:"title" example:"Built-in"`
+	Description string `json:"description,omitempty"`
+	// Kind is builtin, addon or off.
+	Kind string `json:"kind" enums:"builtin,addon,off" example:"builtin"`
+	// Available is false for an add-on that cannot serve now.
+	Available bool `json:"available"`
+	// Properties are the facts the add-on declared about itself, such as
+	// remote and undo.
+	Properties map[string]any `json:"properties,omitempty"`
+	// Roles are the roles of the slot that the add-on fills with tools.
+	Roles    []string `json:"roles,omitempty"`
+	Selected bool     `json:"selected"`
+}
+
+// ChatsProviderResolution is what serves a slot for you now.
+type ChatsProviderResolution struct {
+	Slot string `json:"slot" example:"memory"`
+	// Selected is your stored choice, or the default of the slot.
+	Selected string `json:"selected" example:"builtin"`
+	// Stored is true once you chose.
+	Stored bool `json:"stored"`
+	// Active is what serves: builtin, an add-on ID or off.
+	Active string `json:"active" example:"builtin"`
+	Off    bool   `json:"off"`
+	// Code says why the slot is off: provider_off, provider_unavailable (the
+	// add-on you picked cannot serve; the slot does not move to the built-in
+	// provider) or provider_unreadable. Absent when on.
+	Code string `json:"code,omitempty" example:"provider_unavailable"`
+	// Reason is an English sentence for logs; the interface words it by Code.
+	Reason string `json:"reason,omitempty"`
+	// AddonID and AddonTitle name the add-on a failure is about.
+	AddonID    string `json:"addon_id,omitempty"`
+	AddonTitle string `json:"addon_title,omitempty"`
+}
+
+// ChatsProviderRequest picks the provider of a slot.
+type ChatsProviderRequest struct {
+	// Provider is builtin, off (when the slot allows it) or the ID of an add-on
+	// that declares the slot.
+	Provider string `json:"provider" example:"builtin"`
 }
 
 // ChatsMemoryFix points at the one place that turns memory on again.

@@ -60,6 +60,23 @@ A saved agent cannot widen your choice: with your switch off, an agent that is a
 save notes still reads and saves none. The agent form shows "Memory is off in your
 settings" as a read-only line.
 
+### Choose the provider
+
+Built-in memory is the default. At the top of the **Memory** tab, **Memory provider**
+lists the providers you can pick: **Built-in**, **Off**, and every installed add-on that
+says it can serve memory (see [Provider slots](/features/addons/#provider-slots)). One
+serves at a time. When you pick an add-on, its index files, skills and memory tools
+replace the built-in ones, and the built-in provider does not read or save notes. Your
+existing notes stay where they are.
+
+**Off** is the same as the switch above: the two are one choice.
+
+If the add-on you picked stops, is disabled or is removed, memory is **off** and the tab
+says which add-on it was. Memory does not move to the built-in provider by itself, so a
+note is never saved somewhere you did not choose. Pick the add-on again once it runs, or
+pick **Built-in**. In a chat, `GET /api/chats/{id}/tools` reports the code
+`memory_provider_unavailable`.
+
 ### Private chat
 
 In the **Tools** menu of a chat, the **Memory** row has a switch. Turn it off to make the
@@ -76,6 +93,9 @@ On the **Memory** tab, **Export** downloads your notes as a zip file
 you confirm; you can restore them from Files. Both work while memory is off.
 
 ### The API
+
+`GET /api/chats/providers` lists the providers of memory and `PUT /api/chats/providers/memory`
+with `{provider}` picks one; `provider` of the memory settings is what serves now.
 
 `GET /api/chats/memory` reads `{enabled, enabled_set, save_mode, messaging_save,
 save_mode_set, provider, available}` and `PUT /api/chats/memory` with `{enabled, save_mode,
@@ -243,7 +263,9 @@ stop memory and never chose otherwise, memory stays off for you.
 
 ## For add-on authors
 
-The host serves memory itself. The add-on `memory` stays valid and harmless. An add-on
+The host serves memory itself. An add-on that wants to serve it in place of the built-in
+provider declares `capabilities.provides` with the slot `memory`; the person picks it in
+**Memory provider**. See [Provider slots](/features/addons/#provider-slots). The add-on `memory` stays valid and harmless. An add-on
 can still declare `capabilities.contextFiles` for its own index files;
 see [Context files](/features/addons/#context-files). A skill named `memory` or
 `memory-check-own-files` is reserved for the built-in ones.

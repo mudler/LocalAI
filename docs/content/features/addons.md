@@ -3104,6 +3104,107 @@ Rules:
   unattended run may do; a host rule that reads one says so (see
   [How a memory note is saved](#how-a-memory-note-is-saved)).
 
+## Provider slots
+
+A provider slot is a job the host does itself and lets an add-on do in its place. The
+host owns the slot, its gates and a built-in provider. An add-on says in its manifest
+that it can serve the slot, and each person picks one provider: the built-in one, an
+add-on that declares the slot, or Off. Memory (the notes the assistant reads and saves)
+is the first slot.
+
+The list of slots is data in the host (`pkg/addons/contract/provider-slots.json`) and it
+is closed. An add-on cannot invent a slot: a new slot comes with a host release, with
+one descriptor entry and its built-in provider. A descriptor gives the slot an ID, a
+version, a title and a description, the choice a person has (the default, whether Off
+is allowed and what Off means), the built-in provider, the **roles** a provider can
+fill, which declarations the slot activates, the facts a provider may declare about
+itself, and the ids of the host rules that apply to every provider.
+
+### Declare a slot in a manifest
+
+An add-on declares at most four slots under `capabilities.provides`. The manifest stays
+at `api` 2: `provides` is an optional key.
+
+```json
+{
+  "capabilities": {
+    "tools": ["recall", "remember"],
+    "toolDefinitions": [
+      {"name": "recall", "kind": "read", "description": "...", "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}}, "additionalProperties": false}},
+      {"name": "remember", "kind": "write", "description": "...", "inputSchema": {"type": "object", "properties": {"resourceId": {"type": "string"}, "text": {"type": "string"}}, "required": ["resourceId"], "additionalProperties": false}}
+    ],
+    "provides": [
+      {
+        "slot": "memory",
+        "slotVersion": 1,
+        "roles": {"read": "recall", "write": ["remember"]},
+        "properties": {"remote": true, "undo": "none"}
+      }
+    ]
+  }
+}
+```
+
+- `slot` is a slot of the host. An unknown slot refuses the manifest.
+- `slotVersion` is the version of the slot's contract that the add-on was written for.
+  The host accepts the range from the slot's `minVersion` to its current version.
+- `roles` map a role of the slot to tools of `capabilities.tools`, as one name or a
+  list. The host checks each tool against the role: it must be declared with a
+  definition, have an allowed kind, not be page-only, not shadow a built-in tool, and
+  serve one role only. A role takes at most the number of tools its descriptor allows.
+  A role the descriptor marks required must be present. A provider never brings an
+  `action` tool through a role.
+- `properties` are typed facts the descriptor asks for, such as `remote` (a boolean)
+  and `undo` (`host`, `provider` or `none`). `undo: "provider"` needs
+  `capabilities.undo`. The interface shows them to the person who picks the provider.
+- The title and the description in the list of providers are the add-on's `ui.title`
+  and `ui.description`.
+
+An add-on with no `roles` is valid. A provider that only ships index files and skills
+declares the slot and its `contextFiles` and `skillDefinitions`, and needs no tool.
+
+### What a pick changes
+
+A declaration does nothing until a person picks the add-on. While another provider
+serves, the add-on's context files, its skills and the tools of its roles are not
+offered in the chats of that person. Its other tools are not touched. When the person
+picks it, those contributions count, and the built-in provider stops serving: one
+provider serves a slot at a time. The host keeps every gate for any provider, so an
+add-on cannot loosen a save rule, a grant or Off. The `contextFiles` of a provider must
+lie in the scopes that the slot allows.
+
+### When the provider fails
+
+If the add-on a person picked stops, is disabled, is removed or cannot be listed, the
+slot is **off** for that person, with the reason `provider_unavailable`, and the person
+sees which add-on it is. It does not fall back to the built-in provider: a person who
+chose an external provider must not have their data written somewhere else without
+being asked. The choice stays stored, so the add-on serves again when it runs, and the
+person can pick the built-in provider at any time. A store that cannot be read, or an
+add-on list that cannot be read, also turns the slot off for that call.
+
+### Routes
+
+| Route | Does |
+|---|---|
+| `GET /api/chats/providers` | every slot with its providers and the choice in force |
+| `GET /api/chats/providers/{slot}` | one slot; 404 for an unknown slot |
+| `PUT /api/chats/providers/{slot}` | pick a provider: `{"provider": "builtin" \| "off" \| "<add-on id>"}`; 400 for a provider the slot does not list, 409 for an add-on that cannot serve now |
+
+`resolution.active` says what serves: `builtin`, an add-on ID or `off`. The choice is
+kept per person with the account, so every frontend of a cluster reads the same answer.
+It is a person's choice and needs no add-on call. The settings page draws the list from
+this answer, and **Settings** then **Memory** is the first place that uses it.
+
+### Test a provider add-on
+
+Test a provider with a fake add-on: declare the slot, serve a context file, list the
+add-on through the broker interface of the tests, then check that the add-on's files
+reach the prompt only after the person picks it, that the built-in notes do not load
+at the same time, and that a stopped or removed add-on turns the slot off instead of
+falling back. `core/services/studio/providerslots_internal_test.go` is the reference.
+`pkg/addons/contract/providerslots_test.go` covers the manifest rules.
+
 ## Owner forwarding and HTTP relays
 
 The embedding host can configure `AddonConfig.Transport` at startup. The configuration

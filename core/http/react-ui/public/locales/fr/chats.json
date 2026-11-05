@@ -932,7 +932,8 @@
       "chat": "C'est une conversation privée : rien n'est lu ni enregistré. Vos notes ne sont pas touchées. Activez-la dans le menu des outils.",
       "user": "Aucune conversation ni aucun agent ne lit ou n'enregistre de notes, et vos notes ne sont pas touchées.",
       "agent": "L'agent de cette conversation a désactivé la mémoire.",
-      "files": "Les notes sont des fichiers, et les fichiers sont désactivés sur ce serveur."
+      "files": "Les notes sont des fichiers, et les fichiers sont désactivés sur ce serveur.",
+      "provider": "Le module complémentaire qui fournit la mémoire n'est pas disponible : rien n'est lu ni enregistré. Choisissez un fournisseur dans Paramètres, Mémoire."
     },
     "chip": "Mémoire off",
     "chipPrivate": "Conversation privée",
@@ -1010,6 +1011,31 @@
         "body": "Il lit, n'enregistre jamais."
       },
       "hint": "Un agent peut demander plus que votre réglage, jamais moins. « Enregistrer et me prévenir » n'est pas proposé ici. Dans une conversation de messagerie, la note va d'abord à cette conversation et n'atteint les notes propres de cet agent que depuis un expéditeur associé."
+    }
+  },
+  "providerPicker": {
+    "title": "Fournisseur",
+    "lede": "Un seul fournisseur sert à la fois. Vos données existantes restent où elles sont quand vous changez.",
+    "off": "Désactivé",
+    "unavailable": "Indisponible",
+    "loadError": "Impossible de charger les fournisseurs",
+    "saveFailed": "Impossible de changer le fournisseur",
+    "failedTitle": "{{name}} n'est pas disponible",
+    "failedReason": "Cela reste désactivé jusqu'à ce que vous choisissiez un fournisseur. Rien n'a été déplacé vers le fournisseur intégré : rien n'est enregistré là où vous ne l'avez pas choisi.",
+    "useBuiltin": "Utiliser le fournisseur intégré",
+    "facts": {
+      "local": "Local",
+      "remote": "Distant",
+      "undoHost": "Annuler ici",
+      "undoProvider": "Annulation par le service",
+      "undoNone": "Impossible à annuler"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Intégré",
+        "builtinBody": "Des fichiers simples dans votre dossier Memory. Rien ne quitte cette machine.",
+        "offBody": "Rien n'est lu, proposé, enregistré ni envoyé. Les notes existantes sont conservées."
+      }
     }
   }
 }

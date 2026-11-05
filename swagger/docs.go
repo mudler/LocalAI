@@ -7601,6 +7601,114 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/providers": {
+            "get": {
+                "description": "A provider slot is a job the host does itself and lets an add-on do in its place (memory is the first). Each slot lists the built-in provider, every installed add-on that declares the slot in capabilities.provides, and Off when the slot allows it, with the choice in force. resolution.active is what serves now: builtin, an add-on ID or off. A picked add-on that is stopped, disabled or removed does not fall back to the built-in provider: the slot is off, with resolution.code provider_unavailable and the add-on named, until you pick again. Only the add-on you picked has its context files, skills and role tools in your chats.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the provider slots and their providers.",
+                "responses": {
+                    "200": {
+                        "description": "The slots and their providers",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProviderSlots"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/providers/{slot}": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read one provider slot.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the slot, such as memory",
+                        "name": "slot",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The slot with its providers and your choice",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProviderSlot"
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown slot",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Sets your provider for the slot: builtin, off (when the slot allows it) or the ID of an add-on that declares the slot and runs now. The choice is kept with your account, so every frontend of a cluster reads the same answer. 400 for a provider the slot does not list, 409 for an add-on that cannot serve now.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Pick the provider of a slot.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the slot, such as memory",
+                        "name": "slot",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the provider to pick",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProviderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The slot as it stands now",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProviderSlot"
+                        }
+                    },
+                    "400": {
+                        "description": "The slot does not list this provider",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown slot",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The add-on cannot serve now",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The choice cannot be stored on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/push/key": {
             "get": {
                 "description": "The VAPID public key a browser needs to subscribe to push for your notifications. 409 when the server cannot keep subscriptions (no database and no data path).",
@@ -24164,7 +24272,7 @@ const docTemplate = `{
                     "example": "chat"
                 },
                 "code": {
-                    "description": "Code names the level that is off: memory_off_chat, memory_off_agent,\nmemory_off_user or memory_off_files. Absent when on.",
+                    "description": "Code names the level that is off: memory_off_chat, memory_off_agent,\nmemory_off_user, memory_off_files or memory_provider_unavailable (the\nadd-on you picked to serve memory cannot serve now; provider names it).\nAbsent when on.",
                     "type": "string",
                     "example": "memory_off_chat"
                 },
@@ -24180,6 +24288,13 @@ const docTemplate = `{
                     "description": "On is true when the chat reads and may save notes.",
                     "type": "boolean",
                     "example": false
+                },
+                "provider": {
+                    "description": "Provider is the ID of the add-on that cannot serve, with the code\nmemory_provider_unavailable, and ProviderTitle the name it shows.",
+                    "type": "string"
+                },
+                "provider_title": {
+                    "type": "string"
                 },
                 "reason": {
                     "description": "Reason is an English sentence for logs; the interface words it by Code.",
@@ -24409,6 +24524,148 @@ const docTemplate = `{
             "properties": {
                 "text": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsProvider": {
+            "type": "object",
+            "properties": {
+                "available": {
+                    "description": "Available is false for an add-on that cannot serve now.",
+                    "type": "boolean"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID is builtin, off or the ID of an add-on.",
+                    "type": "string",
+                    "example": "builtin"
+                },
+                "kind": {
+                    "description": "Kind is builtin, addon or off.",
+                    "type": "string",
+                    "enum": [
+                        "builtin",
+                        "addon",
+                        "off"
+                    ],
+                    "example": "builtin"
+                },
+                "properties": {
+                    "description": "Properties are the facts the add-on declared about itself, such as\nremote and undo.",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "roles": {
+                    "description": "Roles are the roles of the slot that the add-on fills with tools.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "selected": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Built-in"
+                }
+            }
+        },
+        "schema.ChatsProviderRequest": {
+            "type": "object",
+            "properties": {
+                "provider": {
+                    "description": "Provider is builtin, off (when the slot allows it) or the ID of an add-on\nthat declares the slot.",
+                    "type": "string",
+                    "example": "builtin"
+                }
+            }
+        },
+        "schema.ChatsProviderResolution": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "description": "Active is what serves: builtin, an add-on ID or off.",
+                    "type": "string",
+                    "example": "builtin"
+                },
+                "addon_id": {
+                    "description": "AddonID and AddonTitle name the add-on a failure is about.",
+                    "type": "string"
+                },
+                "addon_title": {
+                    "type": "string"
+                },
+                "code": {
+                    "description": "Code says why the slot is off: provider_off, provider_unavailable (the\nadd-on you picked cannot serve; the slot does not move to the built-in\nprovider) or provider_unreadable. Absent when on.",
+                    "type": "string",
+                    "example": "provider_unavailable"
+                },
+                "off": {
+                    "type": "boolean"
+                },
+                "reason": {
+                    "description": "Reason is an English sentence for logs; the interface words it by Code.",
+                    "type": "string"
+                },
+                "selected": {
+                    "description": "Selected is your stored choice, or the default of the slot.",
+                    "type": "string",
+                    "example": "builtin"
+                },
+                "slot": {
+                    "type": "string",
+                    "example": "memory"
+                },
+                "stored": {
+                    "description": "Stored is true once you chose.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsProviderSlot": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "memory"
+                },
+                "off_means": {
+                    "description": "OffMeans is what Off does for this slot.",
+                    "type": "string"
+                },
+                "providers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProvider"
+                    }
+                },
+                "resolution": {
+                    "$ref": "#/definitions/schema.ChatsProviderResolution"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Memory"
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "schema.ChatsProviderSlots": {
+            "type": "object",
+            "properties": {
+                "slots": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProviderSlot"
+                    }
                 }
             }
         },

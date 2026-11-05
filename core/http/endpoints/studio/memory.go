@@ -23,7 +23,7 @@ func memorySettingsOut(m studiosvc.MemorySettings) schema.ChatsMemorySettings {
 }
 
 func memoryStateOut(m studiosvc.MemoryReason) schema.ChatsMemoryState {
-	out := schema.ChatsMemoryState{On: m.On, Code: m.Code, BlockedBy: m.By, Reason: m.Reason}
+	out := schema.ChatsMemoryState{On: m.On, Code: m.Code, BlockedBy: m.By, Reason: m.Reason, Provider: m.Provider, ProviderTitle: m.ProviderTitle}
 	if m.Fix != nil {
 		out.Fix = &schema.ChatsMemoryFix{Kind: m.Fix.Kind, Target: m.Fix.Target, Field: m.Fix.Field}
 	}

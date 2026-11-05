@@ -1254,7 +1254,8 @@
       "chat": "This is a private chat: nothing is read or saved. Your notes are untouched. Turn it on in the Tools menu.",
       "user": "No chat or agent reads or saves notes, and your notes are untouched.",
       "agent": "The agent of this chat has memory switched off.",
-      "files": "Notes are files, and files are off on this server."
+      "files": "Notes are files, and files are off on this server.",
+      "provider": "The add-on that serves memory is not available, so nothing is read or saved. Pick a provider in Settings, Memory."
     },
     "chip": "Memory off",
     "chipPrivate": "Private chat",
@@ -1332,6 +1333,31 @@
         "body": "It reads, never saves."
       },
       "hint": "An agent can ask more than your setting, never less. \"Save it and tell me\" is not offered here. In a messaging chat a note goes to that conversation first, and reaches this agent's own notes only from a paired sender."
+    }
+  },
+  "providerPicker": {
+    "title": "Provider",
+    "lede": "One provider serves at a time. Your existing data stays where it is when you switch.",
+    "off": "Off",
+    "unavailable": "Not available",
+    "loadError": "The providers could not be loaded",
+    "saveFailed": "The provider could not be changed",
+    "failedTitle": "{{name}} is not available",
+    "failedReason": "This stays off until you pick a provider. Nothing moved to the built-in provider, so nothing is saved where you did not choose.",
+    "useBuiltin": "Use the built-in provider",
+    "facts": {
+      "local": "Local",
+      "remote": "Remote",
+      "undoHost": "Undo here",
+      "undoProvider": "Undo by the service",
+      "undoNone": "Cannot be undone"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Built-in",
+        "builtinBody": "Plain files in your Memory folder. Nothing leaves this machine.",
+        "offBody": "Nothing is read, offered, saved or sent. Existing notes are kept."
+      }
     }
   }
 }

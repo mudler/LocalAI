@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
+	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -146,13 +147,20 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		// The notes: the host's own, for the chats that read them. A person
 		// who has the Memory add-on running keeps the header when no note
 		// exists yet, as before; everyone else gets no block until a note
-		// exists.
-		if s.memoryReads(ctx, rec, sc, legacy) {
-			choice := ""
-			if sc != nil {
-				choice = sc.memory
+		// exists. When the person picked an add-on to serve the notes, its
+		// files are in extra and the built-in ones are not read.
+		prov := s.memoryProviderFor(ctx, a.Principal, legacy)
+		if prov.ID() == BuiltinMemoryID {
+			if s.memoryReads(ctx, rec, sc, legacy) {
+				choice := ""
+				if sc != nil {
+					choice = sc.memory
+				}
+				extra = append(memorySourcesFor(prov.Sources(), choice), extra...)
 			}
-			extra = append(memorySourcesFor(s.memory.Sources(), choice), extra...)
+		} else if !s.memoryState(ctx, rec, legacy).On {
+			// This chat turned the notes off: the provider's files stay out.
+			extra = slices.DeleteFunc(extra, func(src contextfiles.Source) bool { return src.ID == prov.ID() })
 		}
 		notes, notesKey = s.contextTurnFor(ctx, rec, tools, extra, !(legacy.Installed && legacy.Running))
 		tools = append(tools, s.contextTools(rec, tools, extra)...)

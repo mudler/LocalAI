@@ -932,7 +932,8 @@
       "chat": "Das ist ein privater Chat: nichts wird gelesen oder gespeichert. Deine Notizen bleiben unberührt. Schalte es im Werkzeugmenü an.",
       "user": "Kein Chat und kein Agent liest oder speichert Notizen, und deine Notizen bleiben unberührt.",
       "agent": "Beim Agenten dieses Chats ist das Gedächtnis ausgeschaltet.",
-      "files": "Notizen sind Dateien, und Dateien sind auf diesem Server aus."
+      "files": "Notizen sind Dateien, und Dateien sind auf diesem Server aus.",
+      "provider": "Das Add-on, das den Speicher bereitstellt, ist nicht verfügbar. Es wird nichts gelesen oder gespeichert. Wähle einen Anbieter unter Einstellungen, Speicher."
     },
     "chip": "Gedächtnis aus",
     "chipPrivate": "Privater Chat",
@@ -1010,6 +1011,31 @@
         "body": "Liest, speichert nie."
       },
       "hint": "Ein Agent darf mehr fragen als deine Einstellung, aber nie weniger. „Speichern und Bescheid geben“ gibt es hier nicht. In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einem gekoppelten Absender."
+    }
+  },
+  "providerPicker": {
+    "title": "Anbieter",
+    "lede": "Es arbeitet immer nur ein Anbieter. Deine vorhandenen Daten bleiben beim Wechsel, wo sie sind.",
+    "off": "Aus",
+    "unavailable": "Nicht verfügbar",
+    "loadError": "Die Anbieter konnten nicht geladen werden",
+    "saveFailed": "Der Anbieter konnte nicht geändert werden",
+    "failedTitle": "{{name}} ist nicht verfügbar",
+    "failedReason": "Das bleibt aus, bis du einen Anbieter wählst. Nichts wurde zum integrierten Anbieter verschoben, es wird also nichts dort gespeichert, wo du es nicht gewählt hast.",
+    "useBuiltin": "Integrierten Anbieter verwenden",
+    "facts": {
+      "local": "Lokal",
+      "remote": "Extern",
+      "undoHost": "Hier rückgängig machen",
+      "undoProvider": "Rückgängig durch den Dienst",
+      "undoNone": "Nicht rückgängig zu machen"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Integriert",
+        "builtinBody": "Einfache Dateien in deinem Ordner „Memory“. Nichts verlässt diesen Rechner.",
+        "offBody": "Nichts wird gelesen, angeboten, gespeichert oder gesendet. Vorhandene Notizen bleiben erhalten."
+      }
     }
   }
 }

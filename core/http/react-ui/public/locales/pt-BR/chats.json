@@ -932,7 +932,8 @@
       "chat": "Este é um chat privado: nada é lido nem salvo. Suas notas não são tocadas. Ative no menu de ferramentas.",
       "user": "Nenhum chat ou agente lê ou salva notas, e suas notas não são tocadas.",
       "agent": "O agente deste chat desativou a memória.",
-      "files": "As notas são arquivos, e os arquivos estão desativados neste servidor."
+      "files": "As notas são arquivos, e os arquivos estão desativados neste servidor.",
+      "provider": "O complemento que fornece a memória não está disponível, então nada é lido nem salvo. Escolha um provedor em Configurações, Memória."
     },
     "chip": "Memória off",
     "chipPrivate": "Chat privado",
@@ -1010,6 +1011,31 @@
         "body": "Lê, nunca salva."
       },
       "hint": "Um agente pode perguntar mais que a sua configuração, nunca menos. \"Salvar e me avisar\" não é oferecido aqui. Em um chat de mensagens, a nota vai primeiro para essa conversa e só chega às notas próprias deste agente vinda de um remetente pareado."
+    }
+  },
+  "providerPicker": {
+    "title": "Provedor",
+    "lede": "Só um provedor atende por vez. Seus dados existentes ficam onde estão quando você troca.",
+    "off": "Desativado",
+    "unavailable": "Indisponível",
+    "loadError": "Não foi possível carregar os provedores",
+    "saveFailed": "Não foi possível alterar o provedor",
+    "failedTitle": "{{name}} não está disponível",
+    "failedReason": "Isto continua desativado até você escolher um provedor. Nada foi movido para o provedor integrado, então nada é salvo onde você não escolheu.",
+    "useBuiltin": "Usar o provedor integrado",
+    "facts": {
+      "local": "Local",
+      "remote": "Remoto",
+      "undoHost": "Desfazer aqui",
+      "undoProvider": "Desfazer pelo serviço",
+      "undoNone": "Não pode ser desfeito"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Integrado",
+        "builtinBody": "Arquivos simples na sua pasta Memory. Nada sai desta máquina.",
+        "offBody": "Nada é lido, oferecido, salvo ou enviado. As notas existentes são mantidas."
+      }
     }
   }
 }

@@ -20,9 +20,37 @@ async function shot(page, name, options = {}) {
 const LIMITS = { index_lines: 40, index_bytes: 2048, profile_bytes: 4096, turn_bytes: 6144 }
 const NOTES = { 'Memory/index.md': '- home: lives in Rome -> home.md\n- units: metric, 24-hour clock -> units.md\n', 'Memory/home.md': 'Rome.\n', 'Memory/units.md': 'Metric.\n' }
 
-async function serveAccount(page, { enabled = true, save = 'ask', messaging = 'ask', fail = false } = {}) {
-  const s = { enabled, save, messaging, puts: [], exports: 0, removed: [] }
+// The memory slot as the server lists it: the built-in provider, an add-on that
+// declares the slot, and Off. `picked` is the stored choice; `down` stops the
+// add-on, which turns the slot off without moving it to the built-in provider.
+function slotView(s) {
+  const failed = s.picked === 'fake-notes' && s.down
+  const off = s.picked === 'off' || failed
+  return {
+    id: 'memory', version: 1, title: 'Memory', description: 'Short notes the assistant reads before it answers and may save.',
+    providers: [
+      { id: 'builtin', title: 'Built-in', description: 'Plain files in your Memory folder. Nothing leaves this machine.', kind: 'builtin', available: true, selected: s.picked === 'builtin' },
+      { id: 'fake-notes', title: 'Fake notes', description: 'Keeps notes in a service.', kind: 'addon', available: !s.down, properties: { remote: true, undo: 'none' }, roles: ['read'], selected: s.picked === 'fake-notes' },
+      { id: 'off', title: 'Off', kind: 'off', available: true, selected: s.picked === 'off' },
+    ],
+    resolution: { slot: 'memory', selected: s.picked, stored: true, active: off ? 'off' : s.picked, off,
+      ...(failed ? { code: 'provider_unavailable', addon_id: 'fake-notes', addon_title: 'Fake notes' } : {}) },
+  }
+}
+
+async function serveAccount(page, { enabled = true, save = 'ask', messaging = 'ask', fail = false, picked = 'builtin', down = false } = {}) {
+  const s = { enabled, save, messaging, puts: [], picks: [], exports: 0, removed: [], picked, down }
   await mockChat(page)
+  await page.route('**/api/chats/providers/memory', (route) => {
+    const req = route.request()
+    if (req.method() === 'PUT') {
+      const body = req.postDataJSON()
+      s.picks.push(body.provider)
+      s.picked = body.provider
+      s.enabled = body.provider !== 'off'
+    }
+    return route.fulfill({ json: slotView(s) })
+  })
   await page.route('**/api/chats/memory', (route) => {
     const req = route.request()
     if (req.method() === 'PUT') {
@@ -33,7 +61,7 @@ async function serveAccount(page, { enabled = true, save = 'ask', messaging = 'a
       if (body.save_mode) s.save = body.save_mode
       if (body.messaging_save) s.messaging = body.messaging_save
     }
-    return route.fulfill({ json: { enabled: s.enabled, enabled_set: s.puts.length > 0, save_mode: s.save, messaging_save: s.messaging, save_mode_set: false, provider: 'builtin', available: true } })
+    return route.fulfill({ json: { enabled: s.enabled, enabled_set: s.puts.length > 0, save_mode: s.save, messaging_save: s.messaging, save_mode_set: false, provider: s.enabled ? s.picked : 'off', available: true } })
   })
   await page.route('**/api/chats/memory/export*', (route) => { s.exports++; return route.fulfill({ status: 200, contentType: 'application/zip', body: 'PK' }) })
   await page.route('**/api/chats/context-files', route => route.fulfill({ json: {
@@ -123,6 +151,43 @@ test.describe('Settings, Memory: the switch and how a note is saved', () => {
     await page.getByRole('radiogroup', { name: 'Saving a note' }).getByRole('radio', { name: /^Never/ }).click()
     await expect(page.getByTestId('memory-messaging-locked')).toContainText('Your setting above is Never')
     await shot(page, 'memory-settings-messaging', { fullPage: true })
+  })
+
+  test('lists the providers from the server and stores the one picked', async ({ page }) => {
+    const s = await serveAccount(page)
+    await page.goto('/app/account?tab=memory')
+    const picker = page.getByTestId('provider-picker-memory')
+    const group = picker.getByRole('radiogroup', { name: 'Provider' })
+    await expect(group.locator('.ms-level__title')).toHaveText(['Built-in', 'Fake notesRemoteCannot be undone', 'Off'])
+    await expect(group.getByRole('radio', { name: /^Built-in/ })).toBeChecked()
+    await expect(picker.getByTestId('provider-picker-memory-failed')).toHaveCount(0)
+    await group.getByRole('radio', { name: /^Fake notes/ }).click()
+    await expect.poll(() => s.picks).toEqual(['fake-notes'])
+    await expect(group.getByRole('radio', { name: /^Fake notes/ })).toBeChecked()
+    await shot(page, 'settings-memory-provider', { fullPage: true })
+    // Off here and the switch above are one answer.
+    await group.getByRole('radio', { name: /^Off/ }).click()
+    await expect.poll(() => s.picks).toEqual(['fake-notes', 'off'])
+    await expect(page.getByTestId('memory-switch-card')).toHaveAttribute('data-state', 'off')
+    await page.getByRole('switch', { name: 'Memory is off' }).click()
+    await expect.poll(() => s.puts.at(-1)).toEqual({ enabled: true })
+    await expect(page.getByTestId('memory-switch-card')).toHaveAttribute('data-state', 'on')
+  })
+
+  test('says which add-on stopped, keeps the choice, and offers the built-in provider', async ({ page }) => {
+    const s = await serveAccount(page, { picked: 'fake-notes', down: true })
+    await page.goto('/app/account?tab=memory')
+    const notice = page.getByTestId('provider-picker-memory-failed')
+    await expect(notice).toContainText('Fake notes is not available')
+    await expect(notice).toContainText('Nothing moved to the built-in provider')
+    const group = page.getByTestId('provider-picker-memory').getByRole('radiogroup', { name: 'Provider' })
+    await expect(group.getByRole('radio', { name: /^Fake notes/ })).toBeChecked()
+    await expect(page.getByTestId('provider-picker-memory-fake-notes')).toContainText('Not available')
+    await shot(page, 'settings-memory-provider-down', { fullPage: true })
+    s.down = false
+    await page.getByTestId('provider-picker-memory-use-builtin').click()
+    await expect.poll(() => s.picks).toEqual(['builtin'])
+    await expect(notice).toHaveCount(0)
   })
 
   test('a choice the server did not store is not shown as stored', async ({ page }) => {

@@ -67,6 +67,7 @@ var allowed = []entry{
 	{ui + "utils/memoryState.js", "memory", "the switch group of the built-in memory"},
 	// The memory choice of an agent and the notes list belong to the built-in.
 	{ui + "utils/memoryFiles.js", "memory", "the source of the built-in notes in the list of context files"},
+	{ui + "components/MemorySettings.jsx", "memory", "the provider slot of the built-in memory, drawn by the generic provider chooser"},
 	{ui + "pages/AgentCreate.jsx", "memory", "the memory choice of the agent form and the icon of its section: the built-in memory"},
 	{"core/http/endpoints/studio/agents.go", "memory", "the memory query of the agent delete: what to do with the notes of the built-in memory"},
 	// Memory is built into the host. The add-on of that name is the alias of

@@ -667,6 +667,15 @@ func (l lateStudioAddons) AddonContextFiles(ctx context.Context, user string) ([
 	return nil, nil
 }
 
+// AddonProviders forwards to the broker when it knows the provider slots the
+// add-ons declare.
+func (l lateStudioAddons) AddonProviders(ctx context.Context, user string) ([]studio.AddonProviderSet, error) {
+	if g, ok := l.a.StudioAddonTools().(studio.AddonProviderLister); ok {
+		return g.AddonProviders(ctx, user)
+	}
+	return nil, nil
+}
+
 // AddonUserSettings forwards to the broker when it knows the per-person
 // settings the add-ons declare.
 func (l lateStudioAddons) AddonUserSettings(ctx context.Context, user string) ([]studio.AddonUserSettingSet, error) {
@@ -945,6 +954,32 @@ func (s *studioAddons) AddonContextFiles(ctx context.Context, user string) ([]st
 			continue
 		}
 		out = append(out, studio.AddonContextSet{AddonID: a.AddonID, Files: a.Files, Running: a.Running})
+	}
+	return out, nil
+}
+
+// AddonProviders lists the add-ons that declare provider slots and that the
+// user can see, less those whose host operations need a feature the user lacks:
+// the same rule as their tools. The host decides which one serves a slot.
+func (s *studioAddons) AddonProviders(ctx context.Context, user string) ([]studio.AddonProviderSet, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return nil, nil
+	}
+	list, err := s.adapter.Providers(ctx, actor)
+	if errors.Is(err, gateway.ErrForbidden) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	denied := addonsWithoutFeature(s.hostOps, s.installed(), s.has, actor)
+	out := make([]studio.AddonProviderSet, 0, len(list))
+	for _, a := range list {
+		if denied[a.AddonID] {
+			continue
+		}
+		out = append(out, studio.AddonProviderSet{AddonID: a.AddonID, Title: a.Title, Description: a.Description, Provides: a.Provides, Running: a.Running})
 	}
 	return out, nil
 }

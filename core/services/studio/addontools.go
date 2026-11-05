@@ -71,6 +71,9 @@ type AddonGate interface {
 	Unavailable(ctx context.Context, user, addonID string, workspace bool) string
 }
 
+// roleToolName is the name a chat sees for a tool of an add-on.
+func roleToolName(addonID, tool string) string { return addontools.ToolName(addonID, tool) }
+
 // unavailableToolName is the name of the stand-in tool of an add-on that
 // cannot work. It has the shape of the broker's tool names.
 func unavailableToolName(addonID string) string { return addontools.ToolName(addonID, "unavailable") }
@@ -238,8 +241,14 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 	gate, _ := s.d.AddonTools.(AddonGate)
 	reasons := map[string]string{}
 	enabled := map[string]ConnectionSet{}
+	providers := s.providerGateFor(ctx, a.Principal, &rec)
 	for _, d := range defs {
 		have[d.AddonID] = true
+		// The tools a provider fills a role with are offered only while it is
+		// the provider the person picked and the chat has the slot on.
+		if providers.hidden(d.AddonID, d.Name) {
+			continue
+		}
 		// A tool that runs with a credential is offered only once the person
 		// has enabled at least one connection for the chat. The host picks
 		// none for the person.

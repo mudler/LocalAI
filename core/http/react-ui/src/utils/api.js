@@ -575,6 +575,14 @@ export const chatMemoryApi = {
   exportUrl: (scope, key) => apiUrl(`/api/chats/memory/export${q({ scope, key })}`),
 }
 
+// The provider slots: a job the host does itself and lets an add-on do in its
+// place. The slot is a path segment, so it is escaped.
+export const chatProvidersApi = {
+  list: () => fetchJSON('/api/chats/providers'),
+  get: (slot) => fetchJSON(`/api/chats/providers/${encodeURIComponent(slot)}`),
+  set: (slot, provider) => fetchJSON(`/api/chats/providers/${encodeURIComponent(slot)}`, { method: 'PUT', body: JSON.stringify({ provider }) }),
+}
+
 // The inbox: what ended while the user was elsewhere.
 export const chatNotificationsApi = {
   list: (unread, limit = 50) => fetchJSON(`/api/chats/notifications${q({ unread: unread ? 1 : undefined, limit })}`),

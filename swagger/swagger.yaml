@@ -6550,7 +6550,9 @@ definitions:
       code:
         description: |-
           Code names the level that is off: memory_off_chat, memory_off_agent,
-          memory_off_user or memory_off_files. Absent when on.
+          memory_off_user, memory_off_files or memory_provider_unavailable (the
+          add-on you picked to serve memory cannot serve now; provider names it).
+          Absent when on.
         example: memory_off_chat
         type: string
       fix:
@@ -6563,6 +6565,13 @@ definitions:
         description: On is true when the chat reads and may save notes.
         example: false
         type: boolean
+      provider:
+        description: |-
+          Provider is the ID of the add-on that cannot serve, with the code
+          memory_provider_unavailable, and ProviderTitle the name it shows.
+        type: string
+      provider_title:
+        type: string
       reason:
         description: Reason is an English sentence for logs; the interface words it
           by Code.
@@ -6728,6 +6737,116 @@ definitions:
     properties:
       text:
         type: string
+    type: object
+  schema.ChatsProvider:
+    properties:
+      available:
+        description: Available is false for an add-on that cannot serve now.
+        type: boolean
+      description:
+        type: string
+      id:
+        description: ID is builtin, off or the ID of an add-on.
+        example: builtin
+        type: string
+      kind:
+        description: Kind is builtin, addon or off.
+        enum:
+        - builtin
+        - addon
+        - "off"
+        example: builtin
+        type: string
+      properties:
+        additionalProperties: {}
+        description: |-
+          Properties are the facts the add-on declared about itself, such as
+          remote and undo.
+        type: object
+      roles:
+        description: Roles are the roles of the slot that the add-on fills with tools.
+        items:
+          type: string
+        type: array
+      selected:
+        type: boolean
+      title:
+        example: Built-in
+        type: string
+    type: object
+  schema.ChatsProviderRequest:
+    properties:
+      provider:
+        description: |-
+          Provider is builtin, off (when the slot allows it) or the ID of an add-on
+          that declares the slot.
+        example: builtin
+        type: string
+    type: object
+  schema.ChatsProviderResolution:
+    properties:
+      active:
+        description: 'Active is what serves: builtin, an add-on ID or off.'
+        example: builtin
+        type: string
+      addon_id:
+        description: AddonID and AddonTitle name the add-on a failure is about.
+        type: string
+      addon_title:
+        type: string
+      code:
+        description: |-
+          Code says why the slot is off: provider_off, provider_unavailable (the
+          add-on you picked cannot serve; the slot does not move to the built-in
+          provider) or provider_unreadable. Absent when on.
+        example: provider_unavailable
+        type: string
+      "off":
+        type: boolean
+      reason:
+        description: Reason is an English sentence for logs; the interface words it
+          by Code.
+        type: string
+      selected:
+        description: Selected is your stored choice, or the default of the slot.
+        example: builtin
+        type: string
+      slot:
+        example: memory
+        type: string
+      stored:
+        description: Stored is true once you chose.
+        type: boolean
+    type: object
+  schema.ChatsProviderSlot:
+    properties:
+      description:
+        type: string
+      id:
+        example: memory
+        type: string
+      off_means:
+        description: OffMeans is what Off does for this slot.
+        type: string
+      providers:
+        items:
+          $ref: '#/definitions/schema.ChatsProvider'
+        type: array
+      resolution:
+        $ref: '#/definitions/schema.ChatsProviderResolution'
+      title:
+        example: Memory
+        type: string
+      version:
+        example: 1
+        type: integer
+    type: object
+  schema.ChatsProviderSlots:
+    properties:
+      slots:
+        items:
+          $ref: '#/definitions/schema.ChatsProviderSlot'
+        type: array
     type: object
   schema.ChatsPushKey:
     properties:
@@ -18528,6 +18647,89 @@ paths:
       summary: List a folder of a page (bridge files.list).
       tags:
       - pages
+  /api/chats/providers:
+    get:
+      description: 'A provider slot is a job the host does itself and lets an add-on
+        do in its place (memory is the first). Each slot lists the built-in provider,
+        every installed add-on that declares the slot in capabilities.provides, and
+        Off when the slot allows it, with the choice in force. resolution.active is
+        what serves now: builtin, an add-on ID or off. A picked add-on that is stopped,
+        disabled or removed does not fall back to the built-in provider: the slot
+        is off, with resolution.code provider_unavailable and the add-on named, until
+        you pick again. Only the add-on you picked has its context files, skills and
+        role tools in your chats.'
+      responses:
+        "200":
+          description: The slots and their providers
+          schema:
+            $ref: '#/definitions/schema.ChatsProviderSlots'
+      summary: List the provider slots and their providers.
+      tags:
+      - chats
+  /api/chats/providers/{slot}:
+    get:
+      parameters:
+      - description: the slot, such as memory
+        in: path
+        name: slot
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The slot with its providers and your choice
+          schema:
+            $ref: '#/definitions/schema.ChatsProviderSlot'
+        "404":
+          description: Unknown slot
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read one provider slot.
+      tags:
+      - chats
+    put:
+      consumes:
+      - application/json
+      description: 'Sets your provider for the slot: builtin, off (when the slot allows
+        it) or the ID of an add-on that declares the slot and runs now. The choice
+        is kept with your account, so every frontend of a cluster reads the same answer.
+        400 for a provider the slot does not list, 409 for an add-on that cannot serve
+        now.'
+      parameters:
+      - description: the slot, such as memory
+        in: path
+        name: slot
+        required: true
+        type: string
+      - description: the provider to pick
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsProviderRequest'
+      responses:
+        "200":
+          description: The slot as it stands now
+          schema:
+            $ref: '#/definitions/schema.ChatsProviderSlot'
+        "400":
+          description: The slot does not list this provider
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Unknown slot
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The add-on cannot serve now
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: The choice cannot be stored on this server
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Pick the provider of a slot.
+      tags:
+      - chats
   /api/chats/push/key:
     get:
       description: The VAPID public key a browser needs to subscribe to push for your

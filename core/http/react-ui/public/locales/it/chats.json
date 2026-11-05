@@ -932,7 +932,8 @@
       "chat": "È una chat privata: non si legge né si salva nulla. Le tue note non vengono toccate. Attivala nel menu degli strumenti.",
       "user": "Nessuna chat o agente legge o salva note, e le tue note non vengono toccate.",
       "agent": "L'agente di questa chat ha disattivato la memoria.",
-      "files": "Le note sono file, e i file sono disattivati su questo server."
+      "files": "Le note sono file, e i file sono disattivati su questo server.",
+      "provider": "L'add-on che fornisce la memoria non è disponibile, quindi non viene letto né salvato nulla. Scegli un fornitore in Impostazioni, Memoria."
     },
     "chip": "Memoria off",
     "chipPrivate": "Chat privata",
@@ -1010,6 +1011,31 @@
         "body": "Legge, non salva mai."
       },
       "hint": "Un agente può chiedere di più della tua impostazione, mai di meno. «Salva e avvisami» qui non è offerto. In una chat di messaggistica la nota va prima in quella conversazione e arriva alle note proprie di questo agente solo da un mittente abbinato."
+    }
+  },
+  "providerPicker": {
+    "title": "Fornitore",
+    "lede": "Serve un solo fornitore alla volta. I tuoi dati esistenti restano dove sono quando cambi.",
+    "off": "Disattivato",
+    "unavailable": "Non disponibile",
+    "loadError": "Impossibile caricare i fornitori",
+    "saveFailed": "Impossibile cambiare il fornitore",
+    "failedTitle": "{{name}} non è disponibile",
+    "failedReason": "Resta disattivato finché non scegli un fornitore. Niente è passato al fornitore integrato, quindi non viene salvato nulla dove non hai scelto.",
+    "useBuiltin": "Usa il fornitore integrato",
+    "facts": {
+      "local": "Locale",
+      "remote": "Remoto",
+      "undoHost": "Annulla qui",
+      "undoProvider": "Annullamento a cura del servizio",
+      "undoNone": "Non si può annullare"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Integrato",
+        "builtinBody": "File semplici nella tua cartella Memory. Niente lascia questa macchina.",
+        "offBody": "Non viene letto, offerto, salvato né inviato nulla. Le note esistenti restano."
+      }
     }
   }
 }
