@@ -57,5 +57,12 @@
     "noneSet": "Für Sammlungen ist kein Embedding-Modell festgelegt (collections_embedding_model), daher schlagen das Hinzufügen von Dateien und die Suche fehl.",
     "install": "In Modelle suchen",
     "askAdmin": "Bitte eine Administratorin oder einen Administrator, es zu installieren."
+  },
+  "searchMode": {
+    "label": "Suche: {{mode}}",
+    "semantic": "semantisch",
+    "hybrid": "hybrid",
+    "semanticHint": "Sie findet Textstellen nach Bedeutung, nicht nach genauen Wörtern oder Codes.",
+    "hybridHint": "Sie findet Textstellen nach Bedeutung und nach genauen Wörtern."
   }
 }

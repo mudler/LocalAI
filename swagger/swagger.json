@@ -11211,7 +11211,7 @@
         },
         "/api/collections": {
             "get": {
-                "description": "The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. Needs the collections feature.",
+                "description": "The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. search_mode says how a search finds passages: semantic (by meaning only) or hybrid (by meaning and by keyword). Needs the collections feature.",
                 "tags": [
                     "collections"
                 ],
@@ -26169,6 +26169,10 @@
                 },
                 "embedding_model_installed": {
                     "type": "boolean"
+                },
+                "search_mode": {
+                    "description": "SearchMode is how a search finds passages: \"semantic\" (by meaning only)\nor \"hybrid\" (by meaning and by keyword).",
+                    "type": "string"
                 },
                 "user_groups": {
                     "description": "UserGroups holds the collections of the other users. Only an administrator\nwho asks for all users gets it.",

@@ -57,5 +57,12 @@
     "noneSet": "未为集合设置嵌入模型（collections_embedding_model），因此添加文件和搜索都会失败。",
     "install": "在模型中查找",
     "askAdmin": "请让管理员安装它。"
+  },
+  "searchMode": {
+    "label": "搜索：{{mode}}",
+    "semantic": "语义",
+    "hybrid": "混合",
+    "semanticHint": "按含义查找段落，不按精确的词或代码匹配。",
+    "hybridHint": "按含义和精确的词查找段落。"
   }
 }

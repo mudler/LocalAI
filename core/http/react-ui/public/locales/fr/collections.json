@@ -57,5 +57,12 @@
     "noneSet": "Aucun modèle d'embedding n'est défini pour les collections (collections_embedding_model) : l'ajout de fichiers et la recherche échouent.",
     "install": "Le trouver dans Modèles",
     "askAdmin": "Demandez à un administrateur de l'installer."
+  },
+  "searchMode": {
+    "label": "Recherche : {{mode}}",
+    "semantic": "sémantique",
+    "hybrid": "hybride",
+    "semanticHint": "Elle trouve des passages par le sens, pas par des mots ou des codes exacts.",
+    "hybridHint": "Elle trouve des passages par le sens et par des mots exacts."
   }
 }

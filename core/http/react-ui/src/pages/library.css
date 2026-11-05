@@ -197,6 +197,8 @@ a.lib-chip__link:hover { text-decoration: underline; text-underline-offset: 3px;
 .lib-kv__pair { display: contents; }
 .lib-gap { margin-left: var(--dk-space-2); }
 .lib-fine { margin: 0; font-size: var(--fs-meta); }
+.lib-mode { margin: 0 0 var(--dk-space-3); font-size: var(--fs-small); color: var(--dk-muted); overflow-wrap: anywhere; }
+.lib-mode strong { color: var(--dk-text); font-weight: 600; }
 .lib-create--page { margin-bottom: var(--dk-space-4); max-width: 520px; }
 .lib-more { align-self: flex-start; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; color: var(--dk-accent-text); text-decoration: underline; text-underline-offset: 3px; }
 

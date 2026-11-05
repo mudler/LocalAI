@@ -9,6 +9,9 @@ type CollectionList struct {
 	// adding files and searching then fail until it is installed.
 	EmbeddingModel          string `json:"embedding_model"`
 	EmbeddingModelInstalled bool   `json:"embedding_model_installed"`
+	// SearchMode is how a search finds passages: "semantic" (by meaning only)
+	// or "hybrid" (by meaning and by keyword).
+	SearchMode string `json:"search_mode"`
 	// UserGroups holds the collections of the other users. Only an administrator
 	// who asks for all users gets it.
 	UserGroups map[string]CollectionGroup `json:"user_groups,omitempty"`
