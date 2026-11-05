@@ -142,4 +142,23 @@ var _ = Describe("gateAddonTool with a connected agent", func() {
 		Expect(a.merge(turnGrant{ImpliedWrite: true}).ImpliedWrite).To(BeTrue())
 		Expect(a.merge(turnGrant{}).ImpliedWrite).To(BeFalse())
 	})
+	It("opens the write tool of an owner-data add-on to every let-in sender only when the grant says so", func() {
+		s := &Service{}
+		s.access.set("chat", turnGrant{Binding: "b", EveryoneWrite: true})
+		_, ok, _ := s.gateAddonToolFor(tool(), contract.CapToolsWrite, "chat", true, true)
+		Expect(ok).To(BeTrue())
+		// A credentialed add-on, or any other add-on, is not opened by it.
+		_, ok, _ = s.gateAddonToolFor(tool(), contract.CapToolsWrite, "chat", true, false)
+		Expect(ok).To(BeFalse())
+		// Without the grant nothing changes.
+		s.access.set("chat", turnGrant{Binding: "b"})
+		_, ok, _ = s.gateAddonToolFor(tool(), contract.CapToolsWrite, "chat", true, true)
+		Expect(ok).To(BeFalse())
+	})
+
+	It("merges the everyone write by intersection", func() {
+		a := turnGrant{EveryoneWrite: true}
+		Expect(a.merge(turnGrant{EveryoneWrite: true}).EveryoneWrite).To(BeTrue())
+		Expect(a.merge(turnGrant{}).EveryoneWrite).To(BeFalse())
+	})
 })

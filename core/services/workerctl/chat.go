@@ -51,6 +51,10 @@ type ChatGrant struct {
 	// ImpliedWrite says the sender holds tools.write for the write tools of
 	// an add-on the agent is connected to without the ceiling listing it.
 	ImpliedWrite bool `json:"implied_write,omitempty"`
+	// EveryoneWrite says the ceiling holds tools.write and the sender was let
+	// in, so the write tools of an add-on that keeps the owner's own data are
+	// open to this sender, however they were let in.
+	EveryoneWrite bool `json:"everyone_write,omitempty"`
 	// Sender says how the sender was let in (paired, listed, role, channel,
 	// anyone, or mixed for several senders) and DeniedCodes the refusal code
 	// of each capability in Denied. Both are only for the host log and the

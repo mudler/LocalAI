@@ -3417,7 +3417,11 @@ authority of the call, never on an argument. Reads run at once for every sender 
 bot lets in. A tool of another kind than `read` is held to `tools.write` in a messaging chat,
 like the writes of a credentialed add-on: the owner and the senders paired with the bot hold
 it without a tick on the bot, and every other sender (a listed person who is not paired, a
-channel, a bot that accepts anyone) can read but not change. A trigger or a job runs the writes
+channel, a bot that accepts anyone) can read but not change. To let everyone the bot lets in
+change the data, tick **Let people who are not verified change things with add-on tools**
+(`tools.write`) in the permissions of that bot. The tick covers every sender, including listed
+people and, for a bot that accepts anyone, any sender, and it applies to these add-ons only:
+for other add-ons `tools.write` still stops short of a sender who is only let in. A trigger or a job runs the writes
 only under the `act.addons` grant of the action policy, as for any action tool.
 
 ### Resource listing for agents

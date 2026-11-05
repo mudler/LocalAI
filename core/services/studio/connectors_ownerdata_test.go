@@ -101,4 +101,34 @@ var _ = Describe("owner data write tools in a messaging chat", func() {
 		Expect(slices.Contains(tools, write)).To(BeFalse(), "tools = %v", tools)
 		Expect(slices.Contains(tools, read)).To(BeTrue())
 	})
+	// Allow everyone: the owner ticks tools.write for the bot (the same tick
+	// that lets listed senders use the write tools of credentialed add-ons).
+	Context("when the owner ticks tools.write for the bot", func() {
+		tick := func() {
+			edit(func(b *connectors.Binding) { b.Caps = append(b.Caps, contract.CapToolsWrite) })
+		}
+		It("lets a listed sender write", func() {
+			setup()
+			tick()
+			tools := ask("12")
+			Expect(slices.Contains(tools, write)).To(BeTrue(), "tools = %v", tools)
+			Expect(slices.Contains(tools, read)).To(BeTrue())
+		})
+		It("lets a paired sender write", func() {
+			setup()
+			tick()
+			edit(func(b *connectors.Binding) {
+				b.Paired = append(b.Paired, connectors.PairedSender{SenderID: "11", At: r.sh.clock.Now()})
+			})
+			Expect(slices.Contains(ask("11"), write)).To(BeTrue())
+		})
+		It("lets a sender write who is let in because the bot accepts anyone", func() {
+			setup()
+			tick()
+			edit(func(b *connectors.Binding) { b.AcceptAny, b.Allow = true, nil })
+			tools := ask("99")
+			Expect(slices.Contains(tools, write)).To(BeTrue(), "tools = %v", tools)
+			Expect(slices.Contains(tools, read)).To(BeTrue())
+		})
+	})
 })
