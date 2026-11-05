@@ -656,24 +656,43 @@ func (s *Service) childResult(ctx context.Context, a workspace.Actor, childID st
 // finalText is the last thing the sub-agent said. A long run has more entries
 // than one page, so it reads to the end.
 func (s *Service) finalText(ctx context.Context, convID string) string {
+	return s.finalTextOf(ctx, convID, 0)
+}
+
+// finalTextOf is finalText for one turn: the last assistant text that the turn
+// numbered turn wrote. A message that waited starts the next turn at once, so
+// the latest text may belong to a later turn than the one that ended. turn 0,
+// or a turn that wrote no text, gives the latest text of the chat.
+func (s *Service) finalTextOf(ctx context.Context, convID string, turn int) string {
 	const page = 1000
 	var after int64
-	last := ""
+	last, lastOfTurn := "", ""
 	for {
 		entries, err := s.d.Store.Entries(ctx, convID, after, page)
 		if err != nil {
-			return last
+			return pick(lastOfTurn, last)
 		}
 		for _, e := range entries {
 			if e.Role == session.RoleAssistant {
 				last = e.Text
+				if turn > 0 && e.Turn == turn && strings.TrimSpace(e.Text) != "" {
+					lastOfTurn = e.Text
+				}
 			}
 		}
 		if len(entries) < page {
-			return last
+			return pick(lastOfTurn, last)
 		}
 		after = entries[len(entries)-1].Seq
 	}
+}
+
+// pick is the text of the turn when it wrote one, else the latest text.
+func pick(ofTurn, latest string) string {
+	if ofTurn != "" {
+		return ofTurn
+	}
+	return latest
 }
 
 // reportBack waits for a background sub-agent and tells the parent. A finished

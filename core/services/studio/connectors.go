@@ -1121,7 +1121,7 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 		if !ended {
 			continue
 		}
-		answer := c.answerOf(b, chatID, errText, c.voice(context.Background(), b, m.SenderID, m.Chat))
+		answer := c.answerOf(b, chatID, turn, errText, c.voice(context.Background(), b, m.SenderID, m.Chat))
 		ids := c.finish(b, token, m, l, answer)
 		c.remember(b, m, chatID, ids)
 		c.sendFiles(b, token, m, chatID, turn, since, answer)
@@ -1130,7 +1130,9 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 		tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
 		info, err := c.svc.Turn(tctx, b.Owner, chatID) // under smu on purpose: a message that arrives now must see either the running turn or the cleared flag
 		tcancel()
-		if err == nil && info.Running {
+		// A waiting message starts the next turn at once, and that turn may be
+		// over before this point; its events are then still queued.
+		if (err == nil && info.Running) || len(events) > 0 {
 			c.smu.Unlock()
 			// A waiting message started the next turn.
 			l, since, turn = c.startLive(b, token, m, pace), time.Now(), 0
@@ -1157,7 +1159,7 @@ func (c *Connectors) remember(b connectors.Binding, m contract.ConnectorMessage,
 }
 
 // answerOf is what the sender reads for the turn that just ended.
-func (c *Connectors) answerOf(b connectors.Binding, chatID, errText string, v hostmsg.Voice) string {
+func (c *Connectors) answerOf(b connectors.Binding, chatID string, turn int, errText string, v hostmsg.Voice) string {
 	var info store.TurnInfo
 	// The event comes before the store records the outcome, so look again for
 	// up to five seconds. Close ends the wait at once.
@@ -1191,7 +1193,7 @@ wait:
 	}
 	fctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if t := strings.TrimSpace(c.svc.finalText(fctx, chatID)); t != "" {
+	if t := strings.TrimSpace(c.svc.finalTextOf(fctx, chatID, turn)); t != "" {
 		return t
 	}
 	return v.T("no_answer")

@@ -297,6 +297,14 @@ func (a *API) EditMessage(ctx context.Context, token, channel, id, text string) 
 	return a.do(ctx, token, http.MethodPatch, "/channels/"+channel+"/messages/"+id, strings.NewReader(string(raw)), "application/json", nil)
 }
 
+// DeleteMessage removes a message the bot sent.
+func (a *API) DeleteMessage(ctx context.Context, token, channel, id string) error {
+	if !isSnowflake(channel) || !isSnowflake(id) {
+		return errors.New("discord: not a channel or message ID")
+	}
+	return a.do(ctx, token, http.MethodDelete, "/channels/"+channel+"/messages/"+id, nil, "", nil)
+}
+
 // DMChannel opens (or returns) the direct conversation with a user.
 func (a *API) DMChannel(ctx context.Context, token, user string) (string, error) {
 	if !isSnowflake(user) {

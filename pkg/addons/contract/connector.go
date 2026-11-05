@@ -61,6 +61,10 @@ const (
 	// ConnectorRequest.Thread of Chat, oldest first. Only a kind with
 	// History serves it; the host never calls it for another kind.
 	ConnectorOpHistory = "history"
+	// ConnectorOpDelete deletes the message MessageID of the bot in Chat. The
+	// host uses it to remove a preview that an answer could not replace. A
+	// kind that cannot delete refuses it; the host then leaves the message.
+	ConnectorOpDelete = "delete"
 )
 
 // Codes of a ConnectorError.

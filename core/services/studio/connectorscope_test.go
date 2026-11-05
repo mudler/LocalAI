@@ -84,7 +84,7 @@ var _ = Describe("the authorization of a connector call", func() {
 		s := studio.BindingConnectorScope(b)
 		for _, op := range []string{
 			contract.ConnectorOpPoll, contract.ConnectorOpSend, contract.ConnectorOpEdit, contract.ConnectorOpTyping, contract.ConnectorOpMe,
-			contract.ConnectorOpMedia, contract.ConnectorOpSendFile, contract.ConnectorOpDraft, contract.ConnectorOpHistory,
+			contract.ConnectorOpMedia, contract.ConnectorOpSendFile, contract.ConnectorOpDraft, contract.ConnectorOpHistory, contract.ConnectorOpDelete,
 		} {
 			_, err := r.conns.AuthorizeConnector(ctx, s, contract.ConnectorRequest{Op: op, Kind: b.Kind})
 			Expect(err).NotTo(HaveOccurred(), op)

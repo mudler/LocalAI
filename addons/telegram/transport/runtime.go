@@ -148,6 +148,15 @@ func (p platform) EditRich(ctx context.Context, req contract.ConnectorRequest) e
 	return p.api.EditMarkdown(ctx, req.Token, chat, msg, req.Text)
 }
 
+// Delete removes the preview that an answer could not replace.
+func (p platform) Delete(ctx context.Context, req contract.ConnectorRequest) error {
+	chat, msg, err := edited(req)
+	if err != nil {
+		return err
+	}
+	return p.api.Delete(ctx, req.Token, chat, msg)
+}
+
 // Draft shows a preview as a draft, which only a private chat has; Telegram
 // refuses it elsewhere, and the host then edits a working message instead.
 func (p platform) Draft(ctx context.Context, req contract.ConnectorRequest) error {

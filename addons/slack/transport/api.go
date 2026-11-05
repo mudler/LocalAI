@@ -177,6 +177,11 @@ func (a *API) Update(ctx context.Context, bot, channel, ts, text string) error {
 	return a.call(ctx, bot, "chat.update", url.Values{"channel": {channel}, "ts": {ts}, "text": {text}}, nil)
 }
 
+// Delete removes a message that the bot sent.
+func (a *API) Delete(ctx context.Context, bot, channel, ts string) error {
+	return a.call(ctx, bot, "chat.delete", url.Values{"channel": {channel}, "ts": {ts}}, nil)
+}
+
 // User is a person of the workspace.
 type User struct {
 	ID      string `json:"id"`

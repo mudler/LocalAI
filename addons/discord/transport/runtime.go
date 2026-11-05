@@ -128,6 +128,15 @@ func (p platform) Edit(ctx context.Context, req contract.ConnectorRequest) error
 	return p.r.API.EditMessage(ctx, req.Token, ch, req.MessageID, req.Text)
 }
 
+// Delete removes the preview that an answer could not replace.
+func (p platform) Delete(ctx context.Context, req contract.ConnectorRequest) error {
+	ch, err := p.r.channel(ctx, req)
+	if err != nil {
+		return err
+	}
+	return p.r.API.DeleteMessage(ctx, req.Token, ch, req.MessageID)
+}
+
 // Typing does nothing. The typing indicator of Discord lasts ten seconds and
 // its documentation discourages it for bots; the host shows its own working
 // message and edits it.

@@ -551,6 +551,11 @@ func (t *API) edit(ctx context.Context, token string, chatID, messageID int64, t
 	return err
 }
 
+// Delete removes a message the bot sent.
+func (t *API) Delete(ctx context.Context, token string, chatID, messageID int64) error {
+	return t.call(ctx, token, "deleteMessage", map[string]any{"chat_id": chatID, "message_id": messageID}, 0, nil)
+}
+
 // Typing shows "typing" in a chat, or in a topic of it, for a few seconds.
 func (t *API) Typing(ctx context.Context, token string, chatID, thread int64) error {
 	params := map[string]any{"chat_id": chatID, "action": "typing"}

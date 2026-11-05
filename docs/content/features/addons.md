@@ -2649,8 +2649,17 @@ with the same bearer credential and incarnation header as every other route and 
 [Moving a file by handle](#moving-a-file-by-handle)), `me` (who the bot
 is, for the token check on save and the Test button), `media` (`media`: one
 reference of a message's `media`, and a `transfer` handle; the answer is
-`{"received": {"name", "mime"}}`) and, for a kind that declares `drafts`, `draft`
-(`chat`, `thread`, `draftId`, `text`).
+`{"received": {"name", "mime"}}`), `delete` (`chat`, `messageId`: remove a message of
+the bot) and, for a kind that declares `drafts`, `draft` (`chat`, `thread`, `draftId`,
+`text`).
+
+- **One message per answer.** A `send` with `messageId` replaces that message (the
+  preview) with the first part of the text. The shared route tries the edit again after
+  each wait the platform asks for (up to 3 tries, none over 30 s). If the edit still
+  cannot be made, it sends the part as a new message and then deletes the preview with the
+  same op as `delete`, so a preview with a cursor never stays beside the answer. A
+  platform that cannot delete leaves it. The host never sends the reasoning of the model
+  in a preview.
 
 - **Options.** A `poll` carries `options`, a map from each declared option id to the
   value in effect (the owner's choice, or the default). The host sends it with every
