@@ -287,7 +287,8 @@
           "auto": "Le note vengono salvate subito.",
           "ask": "Ogni nota aspetta la tua conferma.",
           "always": "Ogni nota aspetta te e nulla lo allenta.",
-          "never": "Non salva note."
+          "never": "Non salva note.",
+          "agentAuto": "Salva le note subito e te lo dice, con Annulla. È la scelta propria dell'agente."
         }
       },
       "knowledge": {

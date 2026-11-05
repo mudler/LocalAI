@@ -30,7 +30,22 @@ func TestEffectiveSaveLevelCases(t *testing.T) {
 		{"agent never over auto", SaveInputs{User: SaveAuto, Agent: agents.MemorySaveNever}, SaveNever},
 		{"agent always does not loosen never", SaveInputs{User: SaveNever, Agent: agents.MemorySaveAlways}, SaveNever},
 		{"agent never over always", SaveInputs{User: SaveAlways, Agent: agents.MemorySaveNever}, SaveNever},
-		{"an agent value that is not offered fails closed", SaveInputs{User: SaveAuto, Agent: SaveAuto}, SaveAlways},
+		{"an agent value that is not offered fails closed", SaveInputs{User: SaveAuto, Agent: SaveAsk}, SaveAlways},
+		// An explicit agent auto is the one loosening, for that agent only.
+		{"agent auto over ask", SaveInputs{User: SaveAsk, Agent: agents.MemorySaveAuto}, SaveAuto},
+		{"agent auto, person unset", SaveInputs{Agent: agents.MemorySaveAuto}, SaveAuto},
+		{"agent auto does not loosen always", SaveInputs{User: SaveAlways, Agent: agents.MemorySaveAuto}, SaveAlways},
+		{"agent auto does not loosen never", SaveInputs{User: SaveNever, Agent: agents.MemorySaveAuto}, SaveNever},
+		{"agent auto, sub-agent", SaveInputs{User: SaveAsk, Agent: agents.MemorySaveAuto, SubAgent: true}, SaveAsk},
+		{"agent auto, trigger", SaveInputs{User: SaveAsk, Agent: agents.MemorySaveAuto, Origin: session.OriginTrigger}, SaveAsk},
+		{"agent auto, job", SaveInputs{User: SaveAsk, Agent: agents.MemorySaveAuto, Origin: session.OriginJob}, SaveAsk},
+		{"agent auto lifts the messaging row ask for a paired private chat", SaveInputs{User: SaveAsk, Agent: agents.MemorySaveAuto, Origin: conn, Messaging: MessagingAsk, Direct: true, Paired: true}, SaveAuto},
+		{"agent auto lifts the unset row for a paired private chat", SaveInputs{User: SaveAsk, Agent: agents.MemorySaveAuto, Origin: conn, Direct: true, Paired: true}, SaveAuto},
+		{"agent auto, unpaired sender", SaveInputs{User: SaveAsk, Agent: agents.MemorySaveAuto, Origin: conn, Direct: true}, SaveAsk},
+		{"agent auto, group chat", SaveInputs{User: SaveAsk, Agent: agents.MemorySaveAuto, Origin: conn, Paired: true}, SaveAsk},
+		{"agent auto, sub-agent on a messaging chat", SaveInputs{User: SaveAsk, Agent: agents.MemorySaveAuto, Origin: conn, SubAgent: true, Direct: true, Paired: true}, SaveAsk},
+		{"agent auto does not lift the row never", SaveInputs{User: SaveAsk, Agent: agents.MemorySaveAuto, Origin: conn, Messaging: MessagingNever, Direct: true, Paired: true}, SaveNever},
+		{"agent auto does not loosen always on a messaging chat", SaveInputs{User: SaveAlways, Agent: agents.MemorySaveAuto, Origin: conn, Direct: true, Paired: true}, SaveAlways},
 		// A messaging chat asks unless the row and the facts say otherwise.
 		{"connector, auto, row ask", SaveInputs{User: SaveAuto, Origin: conn}, SaveAsk},
 		{"connector, ask, row ask", SaveInputs{User: SaveAsk, Origin: conn, Messaging: MessagingAsk}, SaveAsk},
@@ -71,8 +86,9 @@ func oracle(in SaveInputs) string {
 		user = SaveAsk
 	}
 	var say []string
+	agentAuto := in.Agent == agents.MemorySaveAuto
 	switch in.Agent {
-	case "":
+	case "", agents.MemorySaveAuto:
 	case agents.MemorySaveNever:
 		say = append(say, SaveNever)
 	default:
@@ -80,6 +96,9 @@ func oracle(in SaveInputs) string {
 	}
 	switch in.Origin {
 	case "":
+		if agentAuto && user != SaveAlways && user != SaveNever {
+			user = SaveAuto
+		}
 		say = append(say, user)
 		if in.SubAgent {
 			say = append(say, SaveAsk)
@@ -91,7 +110,7 @@ func oracle(in SaveInputs) string {
 		switch {
 		case in.Messaging == MessagingNever:
 			say = append(say, SaveNever)
-		case in.Messaging == MessagingPairedPrivate && in.Direct && in.Paired && !in.SubAgent:
+		case (in.Messaging == MessagingPairedPrivate || agentAuto) && in.Direct && in.Paired && !in.SubAgent:
 			// the one case that saves at once
 		default:
 			say = append(say, SaveAsk)
@@ -115,7 +134,7 @@ func oracle(in SaveInputs) string {
 func TestEffectiveSaveLevelEveryCombination(t *testing.T) {
 	n := 0
 	for _, user := range []string{"", SaveAsk, SaveAuto, SaveAlways, SaveNever} {
-		for _, agent := range []string{"", agents.MemorySaveAlways, agents.MemorySaveNever} {
+		for _, agent := range []string{"", agents.MemorySaveAlways, agents.MemorySaveAuto, agents.MemorySaveNever} {
 			for _, row := range []string{"", MessagingAsk, MessagingPairedPrivate, MessagingNever} {
 				for _, origin := range []string{"", session.OriginConnector, session.OriginTrigger, session.OriginJob} {
 					for _, sub := range []bool{false, true} {
@@ -137,11 +156,11 @@ func TestEffectiveSaveLevelEveryCombination(t *testing.T) {
 								}
 								// Saving at once needs the person's own chat or the
 								// whole paired private chat condition.
-								if got == SaveAuto && origin != "" && !(origin == session.OriginConnector && direct && paired && row == MessagingPairedPrivate) {
+								if got == SaveAuto && origin != "" && !(origin == session.OriginConnector && direct && paired && (row == MessagingPairedPrivate || agent == agents.MemorySaveAuto)) {
 									t.Errorf("%+v: saved at once without the conditions", in)
 								}
 								// An agent is never looser than the person.
-								if agent != "" && levelRank(got) < levelRank(effectiveSaveLevel(SaveInputs{User: user, Messaging: row, Origin: origin, SubAgent: sub, Direct: direct, Paired: paired})) {
+								if (agent == agents.MemorySaveAlways || agent == agents.MemorySaveNever) && levelRank(got) < levelRank(effectiveSaveLevel(SaveInputs{User: user, Messaging: row, Origin: origin, SubAgent: sub, Direct: direct, Paired: paired})) {
 									t.Errorf("%+v: the agent loosened the level to %s", in, got)
 								}
 							}
@@ -151,7 +170,7 @@ func TestEffectiveSaveLevelEveryCombination(t *testing.T) {
 			}
 		}
 	}
-	if n != 5*3*4*4*2*2*2 {
+	if n != 5*4*4*4*2*2*2 {
 		t.Fatal(fmt.Sprint("swept ", n))
 	}
 }

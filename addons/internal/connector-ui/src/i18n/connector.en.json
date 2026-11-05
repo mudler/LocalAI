@@ -303,5 +303,8 @@
   "dup.openOther": "Open {{name}}",
   "dup.saveAnyway": "Save anyway",
   "dup.goBack": "Go back",
-  "dup.confirmHelp": "Save it anyway only if you want to get two answers to each message."
+  "dup.confirmHelp": "Save it anyway only if you want to get two answers to each message.",
+  "access.noteSave.title": "Notes",
+  "access.noteSave.now": "Saves notes at once and tells you, with an Undo",
+  "access.noteSave.ask": "Notes from this kind of sender wait for the owner"
 }

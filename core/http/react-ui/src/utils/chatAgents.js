@@ -42,20 +42,23 @@ export function memoryChoiceOf(agent) {
 // Whether a choice saves notes somewhere (None does not).
 export const memorySaves = (choice) => choice === 'own' || choice === 'mine_and_own' || choice === 'mine'
 
-// The agent's own rule for saving a note, stricter than the person's setting:
-// 'always' (every note waits, nothing loosens it) or 'never'. An agent without
-// one uses the person's setting. 'auto' is not offered: an agent cannot be
-// looser than the person. The form holds '' (or absent) for "use my setting";
-// the person's explicit pick of it is 'use_mine', which the server reads as
-// clear the rule. A write without the field keeps the stored rule.
-export const MEMORY_SAVE_RULES = ['always', 'never']
+// The agent's own rule for saving a note: 'always' (every note waits, nothing
+// loosens it), 'never', or 'auto' (Save it and tell me: this agent saves at
+// once even when the person's level is Ask me first). An agent without a rule
+// uses the person's setting. The form holds '' (or absent) for "use my
+// setting"; the person's explicit pick of it is 'use_mine', which the server
+// reads as clear the rule. A write without the field keeps the stored rule.
+export const MEMORY_SAVE_RULES = ['auto', 'always', 'never']
 export const memorySaveOf = (agent) => (MEMORY_SAVE_RULES.includes(agent?.memory_save) ? agent.memory_save : '')
 
 // The levels of the person's setting, strictest last, and what the agent's rule
-// does to them: the stricter of the two wins. Used to say what is in force.
+// does to them: the stricter of the two wins, except an explicit 'auto', which
+// loosens ask for this agent. The person's always and never still hold. Used to
+// say what is in force.
 const LEVEL_RANK = { auto: 0, ask: 1, always: 2, never: 3 }
 export function stricterLevel(level, rule) {
   const base = level in LEVEL_RANK ? level : 'ask'
+  if (rule === 'auto') return LEVEL_RANK[base] >= LEVEL_RANK.always ? base : 'auto'
   return (LEVEL_RANK[rule] ?? -1) > LEVEL_RANK[base] ? rule : base
 }
 
@@ -108,7 +111,7 @@ export function agentPayload(form, opts) {
   // The choice of notes. An agent saved before it has none, and a write
   // without it keeps the stored one.
   if (MEMORY_CHOICES.includes(form.memory)) body.memory = form.memory
-  // The save rule: always or never, or use_mine to clear a stored one. A form
+  // The save rule: always, auto or never, or use_mine to clear a stored one. A form
   // that never touched it sends nothing, so the stored rule stays.
   if (MEMORY_SAVE_RULES.includes(form.memory_save) || form.memory_save === 'use_mine') body.memory_save = form.memory_save
   for (const k of LIST_KEYS) body[k] = (form[k] || []).map(x => x.trim()).filter((x, i, a) => x && a.indexOf(x) === i)

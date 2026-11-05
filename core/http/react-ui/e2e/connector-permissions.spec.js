@@ -676,6 +676,34 @@ test.describe('Connector permissions', () => {
     await shot(page, 'perm-6-approvals')
   })
 
+  test('an agent that saves notes at once says so in the access view and the preview, for the paired sender', async ({ page }) => {
+    const mark = (view) => ({ ...view, subjects: view.subjects.map((x) => ({ ...x, note_save: x.id === 'paired' ? 'now' : 'ask' })) })
+    const a = api(page, [SET], {
+      access: mark(ACCESS),
+      preview: (body) => mark(previewFor(body, ROLES_KIND.roles)),
+    })
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const saved = page.getByTestId('connector-access-notesave')
+    await expect(saved.getByTestId('connector-access-notesave-paired')).toContainText('Saves notes at once and tells you, with an Undo')
+    await expect(saved.getByTestId('connector-access-notesave-anyone')).toContainText('wait for the owner')
+    const can = page.getByTestId('connector-can')
+    await expect(can.getByTestId('connector-can-notesave')).toContainText('wait for the owner')
+    await can.getByTestId('connector-can-sender').selectOption('paired')
+    await expect(can.getByTestId('connector-can-notesave')).toContainText('Saves notes at once and tells you, with an Undo')
+    await shot(page, 'perm-7-notesave')
+  })
+
+  test('an agent without the rule shows no note line', async ({ page }) => {
+    await api(page, [SET]).install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    await expect(page.getByTestId('connector-access')).toBeVisible()
+    await expect(page.getByTestId('connector-access-notesave')).toHaveCount(0)
+    await expect(page.getByTestId('connector-can-notesave')).toHaveCount(0)
+  })
+
   test('a run without asking appears in the latest decisions in plain words, with no typed text', async ({ page }) => {
     const recent = [{ at: '2026-11-03T09:30:00Z', senders: ['U001'], capability: 'tools.write', allowed: true, via: 'no-confirmation', reason: 'power-action: applied' }]
     const a = api(page, [SET], { access: { ...ACCESS, recent } })

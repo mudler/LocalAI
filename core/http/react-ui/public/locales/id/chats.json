@@ -1000,7 +1000,8 @@
       "own": "Hanya miliknya",
       "mine": "Milik saya",
       "none": "Tidak ada",
-      "asBefore": "Seperti sebelumnya"
+      "asBefore": "Seperti sebelumnya",
+      "withAuto": "{{choice}}, menyimpan langsung"
     },
     "delete": {
       "title": "Hapus {{name}}?",
@@ -1027,6 +1028,10 @@
         "title": "Pakai pengaturan saya",
         "body": "Pengaturan Anda adalah <b>{{level}}</b>. <settings>Ubah di Pengaturan > Memori.</settings>"
       },
+      "auto": {
+        "title": "Simpan dan beri tahu saya",
+        "body": "Menyimpan setiap catatan langsung dan memberi tahu Anda di obrolan, dengan Urungkan, meski pengaturan Anda Tanya saya dulu. Catatan yang panjang, atau yang tampak seperti rahasia, tetap menunggu."
+      },
       "always": {
         "title": "Selalu konfirmasi",
         "body": "Lebih ketat dari pengaturan saya."
@@ -1035,7 +1040,7 @@
         "title": "Jangan pernah",
         "body": "Membaca, tidak pernah menyimpan."
       },
-      "hint": "Di obrolan aplikasi pesan, catatan masuk ke percakapan itu dulu, dan sampai ke catatan milik agen ini hanya dari pengirim yang dipasangkan."
+      "hint": "Di obrolan aplikasi pesan, catatan masuk ke percakapan itu dulu, dan sampai ke catatan milik agen ini hanya dari pengirim yang dipasangkan. Menyimpan langsung di obrolan aplikasi pesan hanya berlaku untuk pengirim yang dipasangkan di obrolan satu lawan satu."
     }
   },
   "providerPicker": {

@@ -1000,7 +1000,8 @@
       "own": "Nur eigene",
       "mine": "Meine",
       "none": "Keine",
-      "asBefore": "Wie bisher"
+      "asBefore": "Wie bisher",
+      "withAuto": "{{choice}}, speichert sofort"
     },
     "delete": {
       "title": "{{name}} löschen?",
@@ -1027,6 +1028,10 @@
         "title": "Meine Einstellung",
         "body": "Deine Einstellung ist <b>{{level}}</b>. <settings>Ändere sie unter Einstellungen > Gedächtnis.</settings>"
       },
+      "auto": {
+        "title": "Speichern und Bescheid geben",
+        "body": "Speichert jede Notiz sofort und sagt dir im Chat Bescheid, mit Rückgängig, auch wenn deine Einstellung „Erst fragen“ ist. Eine lange Notiz oder eine, die wie ein Geheimnis aussieht, wartet trotzdem."
+      },
       "always": {
         "title": "Immer bestätigen",
         "body": "Strenger als meine Einstellung."
@@ -1035,7 +1040,7 @@
         "title": "Nie",
         "body": "Liest, speichert nie."
       },
-      "hint": "In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einem gekoppelten Absender."
+      "hint": "In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einem gekoppelten Absender. Sofortiges Speichern in einem Messaging-Chat gilt nur für einen gekoppelten Absender in einem Einzelchat."
     }
   },
   "providerPicker": {

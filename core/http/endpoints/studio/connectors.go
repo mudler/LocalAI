@@ -481,7 +481,7 @@ func (h *Handlers) ConnectorAccess(c echo.Context) error {
 func accessOut(v studiosvc.AccessView, lang string) schema.ChatsConnectorAccess {
 	out := schema.ChatsConnectorAccess{Binding: v.Binding, Subjects: []schema.ChatsConnectorAccessSubject{}, Recent: []schema.ChatsConnectorAccessEvent{}, Preview: v.Preview, Language: lang}
 	for _, s := range v.Subjects {
-		o := schema.ChatsConnectorAccessSubject{ID: s.ID, Title: s.Title, Decisions: []schema.ChatsConnectorAccessDecision{}}
+		o := schema.ChatsConnectorAccessSubject{ID: s.ID, Title: s.Title, NoteSave: s.NoteSave, Decisions: []schema.ChatsConnectorAccessDecision{}}
 		for _, d := range s.Decisions {
 			od := schema.ChatsConnectorAccessDecision{Capability: d.Capability, Allowed: d.Allowed, Via: d.Via, Reason: d.Reason,
 				Code: d.Code, BlockedBy: d.BlockedBy, Message: d.Message, ThenCheck: d.ThenCheck}

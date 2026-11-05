@@ -70,10 +70,10 @@ type Agent struct {
 	// the choice existed: it reads the notes when its add-ons name Memory and
 	// the model picks the scope of a note. The host enforces any other value.
 	Memory string
-	// MemorySave is the agent's own rule for saving a note: MemorySaveAlways
-	// or MemorySaveNever. Empty uses the person's setting. It can only be
-	// stricter than the person's setting, so there is no value that saves at
-	// once: the host takes the stricter of the two.
+	// MemorySave is the agent's own rule for saving a note: MemorySaveAlways,
+	// MemorySaveAuto or MemorySaveNever. Empty uses the person's setting.
+	// Always and never can only be stricter than the person's setting; auto is
+	// the one explicit choice that loosens it, for this agent only.
 	MemorySave string
 	// Connections names the connections (connector binding IDs) the agent's
 	// chats may use for each add-on whose tools run with a credential, by
@@ -125,6 +125,12 @@ const (
 	MemorySaveAlways = "always"
 	// MemorySaveNever: the agent reads notes and never saves one.
 	MemorySaveNever = "never"
+	// MemorySaveAuto: the agent saves a note at once and tells the person in
+	// the chat, with an Undo, even when the person's own level is Ask me
+	// first. It is the one value that loosens, and only for this agent: the
+	// person's Always confirm and Never still hold, and so do the limits of an
+	// automatic save (see studio.effectiveSaveLevel).
+	MemorySaveAuto = "auto"
 	// MemorySaveUseMine is what a client writes to clear the override. It is
 	// never stored: the stored value is empty.
 	MemorySaveUseMine = "use_mine"
@@ -132,7 +138,7 @@ const (
 
 // ValidMemorySave reports whether v is a value of Agent.MemorySave, or empty.
 func ValidMemorySave(v string) bool {
-	return v == "" || v == MemorySaveAlways || v == MemorySaveNever
+	return v == "" || v == MemorySaveAlways || v == MemorySaveAuto || v == MemorySaveNever
 }
 
 // ValidMemory reports whether v is a choice of Agent.Memory, or empty.
@@ -230,7 +236,7 @@ func Validate(a Agent) error {
 		return bad("memory must be own, mine_and_own, mine or none")
 	}
 	if !ValidMemorySave(a.MemorySave) {
-		return bad("memory_save must be always or never")
+		return bad("memory_save must be always, auto or never")
 	}
 	switch a.Network {
 	case "", "off", "registries", "all":

@@ -118,7 +118,7 @@ and its own, saves to its own; the interface sets it for a new agent), `own`, `m
 An agent without it is "as before": it reads notes when its add-ons name `memory`, and the
 model chooses where a note goes. The host enforces the choice. A `PUT` without `memory`
 keeps the stored one. `DELETE /api/chats/agents/{id}?memory=keep|export|delete` says what
-to do with the agent's own notes (default `keep`). The optional field `memory_save` (`always` or `never`) is the agent's own rule for saving a note: it can only be stricter than the person's setting, `auto` and `ask` are refused with a 400, a `PUT` without it keeps the stored rule, and `use_mine` clears it. See [Short memory](/features/short-memory/#memory-for-each-agent).
+to do with the agent's own notes (default `keep`). The optional field `memory_save` (`always`, `auto` or `never`) is the agent's own rule for saving a note: `always` and `never` can only be stricter than the person's setting, `auto` (Save it and tell me) lets this agent save at once even when the person's level is ask (the person's own always and never still hold), `ask` is refused with a 400, a `PUT` without it keeps the stored rule, and `use_mine` clears it. See [Short memory](/features/short-memory/#memory-for-each-agent).
 
 ### Connections of an agent
 
@@ -333,7 +333,7 @@ curl -X POST .../api/chats/agents/import -F file=@reviewer.json
 ```
 
 The file holds the definition only (kind `localai-agent`): no ID, owner or
-time. An agent with tool switches (`builtins_off`, `builtins_on`) is version 4, so that a server that does not know them refuses the file instead of giving the agent every tool. The `builtins` list, `memory` and `memory_save` are extra fields of any version; a server that does not know them ignores them, so the agent arrives without the grants, as before and without its own save rule (it then follows the setting of the person). An import makes a new agent: it has the exported `memory` choice and `memory_save` rule and none of the original's notes. An agent without a folder or tool switches is version 1. An agent with one folder is
+time. An agent with tool switches (`builtins_off`, `builtins_on`) is version 4, so that a server that does not know them refuses the file instead of giving the agent every tool. The `builtins` list, `memory` and `memory_save` are extra fields of any version; a server that does not know them ignores them, so the agent arrives without the grants, as before and without its own save rule (it then follows the setting of the person); a server that knows `memory_save` but only `always` and `never` refuses a file with `auto` (400). An import makes a new agent: it has the exported `memory` choice and `memory_save` rule and none of the original's notes. An agent without a folder or tool switches is version 1. An agent with one folder is
 version 2 and carries `folder` with the folder's path at export time and the
 mode, for example `{"path": "/Projects/Acme", "mode": "read"}` (the path is
 empty when the folder is missing, not chosen, or now outside your home).

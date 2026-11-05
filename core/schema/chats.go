@@ -68,11 +68,14 @@ type ChatsAgent struct {
 	// and the model picks the scope of a note.
 	Memory string `json:"memory,omitempty" enums:"own,mine_and_own,mine,none" example:"mine_and_own"`
 	// MemorySave is the agent's own rule for saving a note: always (every note
-	// waits for the person, and the model cannot undo or forget by itself) or
+	// waits for the person, and the model cannot undo or forget by itself),
+	// auto (Save it and tell me: this agent saves a note at once and tells the
+	// person, with an Undo, even when the person's level is Ask me first) or
 	// never (it reads notes and saves none). Absent uses the person's setting
-	// (Account > Memory). It can only be stricter than that setting: the host
-	// takes the stricter of the two, and there is no value that saves at once.
-	MemorySave string `json:"memory_save,omitempty" enums:"always,never" example:"always"`
+	// (Account > Memory). Always and never are never looser than that setting.
+	// auto loosens ask and auto for this agent only: the person's Always
+	// confirm and Never still hold, and so do the limits of an automatic save.
+	MemorySave string `json:"memory_save,omitempty" enums:"always,auto,never" example:"always"`
 	// BuiltinsOff are the groups of built-in tools (web, files, triggers...)
 	// the agent's chats never have, and BuiltinsOn the opt-in groups (saved
 	// agents) they start with. The names are the ones GET /api/chats/{id}/tools
@@ -161,9 +164,9 @@ type ChatsAgentWrite struct {
 	Memory string `json:"memory,omitempty" enums:"own,mine_and_own,mine,none"`
 	// MemorySave is the save rule of the agent (see ChatsAgent). A write
 	// without it keeps the stored rule, so a client that does not know the
-	// field cannot loosen the agent. use_mine clears the rule. auto and ask
-	// are not accepted: an agent cannot be looser than the person (400).
-	MemorySave string `json:"memory_save,omitempty" enums:"always,never,use_mine"`
+	// field cannot loosen the agent. use_mine clears the rule. ask is not
+	// accepted (400).
+	MemorySave string `json:"memory_save,omitempty" enums:"always,auto,never,use_mine"`
 	// BuiltinsOff and BuiltinsOn are the switches of the built-in tools of
 	// the agent's chats (see ChatsAgent). A write without them keeps the stored ones (an older client cannot widen
 	// the agent); an empty list clears them.
@@ -1494,6 +1497,11 @@ type ChatsConnectorAccessSubject struct {
 	ID        string                         `json:"id"`
 	Title     string                         `json:"title"`
 	Decisions []ChatsConnectorAccessDecision `json:"decisions"`
+	// NoteSave is present only when the agent of the connection has the save
+	// rule auto (Save it and tell me): now when a note from this kind of
+	// sender, in a one-to-one chat, is saved at once with an Undo, ask when it
+	// waits for the owner.
+	NoteSave string `json:"note_save,omitempty" enums:"now,ask"`
 }
 
 // ChatsConnectorAccessEvent is a recorded decision. It holds IDs, never text.

@@ -303,5 +303,8 @@
   "dup.openOther": "Buka {{name}}",
   "dup.saveAnyway": "Tetap simpan",
   "dup.goBack": "Kembali",
-  "dup.confirmHelp": "Tetap simpan hanya jika Anda ingin menerima dua jawaban untuk setiap pesan."
+  "dup.confirmHelp": "Tetap simpan hanya jika Anda ingin menerima dua jawaban untuk setiap pesan.",
+  "access.noteSave.title": "Catatan",
+  "access.noteSave.now": "Menyimpan catatan langsung dan memberi tahu, dengan Urungkan",
+  "access.noteSave.ask": "Catatan dari jenis pengirim ini menunggu pemilik"
 }

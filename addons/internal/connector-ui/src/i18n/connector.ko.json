@@ -303,5 +303,8 @@
   "dup.openOther": "{{name}} 열기",
   "dup.saveAnyway": "그래도 저장",
   "dup.goBack": "돌아가기",
-  "dup.confirmHelp": "메시지마다 답을 두 번 받고 싶을 때만 그래도 저장하세요."
+  "dup.confirmHelp": "메시지마다 답을 두 번 받고 싶을 때만 그래도 저장하세요.",
+  "access.noteSave.title": "메모",
+  "access.noteSave.now": "메모를 바로 저장하고 되돌리기와 함께 알려줍니다",
+  "access.noteSave.ask": "이 유형의 보낸 사람의 메모는 소유자를 기다립니다"
 }

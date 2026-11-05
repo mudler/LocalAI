@@ -140,7 +140,7 @@ export function effectiveLines({ form, rows, skills, memory, access, isEdit }) {
     const saves = memorySaves(choice) || choice === ''
     const granted = list(form.builtins).includes(MEMORY_GRANT)
     if (saves && !granted && choice) add({ id: 'memory-grant', state: 'blocked', text: 'memory.noGrant', section: 'memory', code: 'agent_permission_off', fix: { kind: 'section', section: 'memory' } })
-    else if (saves) add({ id: 'memory-level', state: level === 'auto' ? 'allowed' : level === 'never' ? 'off' : 'asks', text: `memory.level.${level}`, section: 'memory' })
+    else if (saves) add({ id: 'memory-level', state: level === 'auto' ? 'allowed' : level === 'never' ? 'off' : 'asks', text: level === 'auto' && form.memory_save === 'auto' ? 'memory.level.agentAuto' : `memory.level.${level}`, section: 'memory' })
   }
 
   // Knowledge.

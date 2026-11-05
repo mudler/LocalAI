@@ -303,5 +303,8 @@
   "dup.openOther": "Ouvrir {{name}}",
   "dup.saveAnyway": "Enregistrer quand même",
   "dup.goBack": "Retour",
-  "dup.confirmHelp": "N'enregistrez quand même que si vous voulez recevoir deux réponses à chaque message."
+  "dup.confirmHelp": "N'enregistrez quand même que si vous voulez recevoir deux réponses à chaque message.",
+  "access.noteSave.title": "Notes",
+  "access.noteSave.now": "Enregistre les notes aussitôt et prévient, avec Annuler",
+  "access.noteSave.ask": "Les notes de ce type d'expéditeur attendent le propriétaire"
 }

@@ -287,7 +287,8 @@
           "auto": "Catatan disimpan langsung.",
           "ask": "Setiap catatan menunggu konfirmasi Anda.",
           "always": "Setiap catatan menunggu Anda, dan tidak ada yang melonggarkannya.",
-          "never": "Tidak menyimpan catatan."
+          "never": "Tidak menyimpan catatan.",
+          "agentAuto": "Menyimpan catatan langsung dan memberi tahu Anda, dengan Urungkan. Ini pilihan agen itu sendiri."
         }
       },
       "knowledge": {

@@ -109,17 +109,17 @@ test.describe('The save rule of the agent', () => {
     await page.goto(path)
   }
 
-  test('offers three cards, never auto, says what is in force, and sends nothing until it is changed', async ({ page }) => {
+  test('offers four cards, says what is in force, and sends nothing until it is changed', async ({ page }) => {
     const s = await serve(page, { save: 'auto' })
     await open(page, '/app/agents/a2/edit')
     const rule = page.getByTestId('agent-memory-rule')
-    await expect(rule.getByRole('radio')).toHaveCount(3)
-    await expect(rule.locator('.am__title')).toHaveText(['Use my setting', 'Always confirm', 'Never'])
+    await expect(rule.getByRole('radio')).toHaveCount(4)
+    await expect(rule.locator('.am__title')).toHaveText(['Use my setting', 'Save it and tell me', 'Always confirm', 'Never'])
     await expect(page.getByTestId('agent-memory-rule-use_mine')).toContainText('Your setting is Save it and tell me. Change it in Settings > Memory.')
     await expect(page.getByTestId('agent-memory-user-level')).toHaveText('Save it and tell me')
     await expect(page.getByTestId('agent-memory-settings-link')).toHaveAttribute('href', '/app/account?tab=memory')
     await expect(page.getByTestId('agent-memory-rule-use_mine').locator('input')).toBeChecked()
-    await expect(rule.locator('.am__title').getByText('Save it and tell me', { exact: true })).toHaveCount(0)
+    await expect(page.getByTestId('agent-memory-rule-auto').locator('input')).not.toBeChecked()
     await expect(page.getByTestId('agent-memory-rule-hint')).toContainText('paired sender')
     await shot(page, 'agent-memory-rule', { fullPage: true })
     await page.getByRole('button', { name: 'Save changes' }).first().click()
@@ -140,6 +140,21 @@ test.describe('The save rule of the agent', () => {
     await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
     expect(s.calls.filter(c => c.method === 'PUT').at(-1).body.memory_save).toBe('use_mine')
+  })
+
+  test('sends auto for Save it and tell me, and shows it in the Effective view and the Notes chip', async ({ page }) => {
+    const s = await serve(page, { agents: [{ ...AGENTS[1], memory: 'own', builtins: ['memory.write'] }], save: 'ask' })
+    await open(page, '/app/agents/a2/edit')
+    await page.getByTestId('agent-memory-rule-auto').click()
+    await expect(page.getByTestId('agent-memory-rule-auto').locator('input')).toBeChecked()
+    await expect(page.getByTestId('agent-memory-rule-auto')).toContainText('even when your setting is Ask me first')
+    await expect(page.getByTestId('agent-memory-rule-use_mine')).toContainText('Your setting is Ask me first.')
+    await expect(page.getByText('Saves notes at once and tells you, with an Undo. This is the agent\'s own choice.')).toBeVisible()
+    await expect(page.locator('.aed-chip__v').filter({ hasText: 'saves at once' })).toBeVisible()
+    await shot(page, 'agent-memory-rule-auto', { fullPage: true })
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    expect(s.calls.filter(c => c.method === 'PUT').at(-1).body.memory_save).toBe('auto')
   })
 
   test('is hidden when the agent has no memory', async ({ page }) => {

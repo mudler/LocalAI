@@ -7074,7 +7074,7 @@
         },
         "/api/chats/memory": {
             "get": {
-                "description": "Memory is the short notes the assistant reads before it answers and may save. enabled is the switch for all your chats and agents: a private chat (the memory group of a chat, see PUT /api/chats/{id}/builtins), an agent that turns memory off, or this switch off each make memory off in a chat, and the narrowest wins; a saved agent cannot widen your choice. enabled_set is false until you choose; before that memory is on, unless you had disabled the Memory add-on to stop it. save_mode is how a note is saved: auto (save it and tell me), ask (the default), always (always confirm: like ask, nothing can loosen it, and the model cannot undo or forget by itself) or never. It applies as the strictest rule together with the rule of the saved agent (memory_save) and the rules of the host. A chat from a messaging app asks, unless messaging_save is paired_private and the sender is paired and the chat is one-to-one; the row cannot loosen always or never. Your notes stay and can be listed, exported and deleted while memory is off.",
+                "description": "Memory is the short notes the assistant reads before it answers and may save. enabled is the switch for all your chats and agents: a private chat (the memory group of a chat, see PUT /api/chats/{id}/builtins), an agent that turns memory off, or this switch off each make memory off in a chat, and the narrowest wins; a saved agent cannot widen your choice. enabled_set is false until you choose; before that memory is on, unless you had disabled the Memory add-on to stop it. save_mode is how a note is saved: auto (save it and tell me), ask (the default), always (always confirm: like ask, nothing can loosen it, and the model cannot undo or forget by itself) or never. It applies as the strictest rule together with the rule of the saved agent (memory_save: always and never only tighten it; auto lets that one agent save at once when your level is ask, while always and never of yours still hold) and the rules of the host. A chat from a messaging app asks, unless messaging_save is paired_private and the sender is paired and the chat is one-to-one; the row cannot loosen always or never. Your notes stay and can be listed, exported and deleted while memory is off.",
                 "tags": [
                     "chats"
                 ],
@@ -21106,10 +21106,11 @@
                     "example": "mine_and_own"
                 },
                 "memory_save": {
-                    "description": "MemorySave is the agent's own rule for saving a note: always (every note\nwaits for the person, and the model cannot undo or forget by itself) or\nnever (it reads notes and saves none). Absent uses the person's setting\n(Account \u003e Memory). It can only be stricter than that setting: the host\ntakes the stricter of the two, and there is no value that saves at once.",
+                    "description": "MemorySave is the agent's own rule for saving a note: always (every note\nwaits for the person, and the model cannot undo or forget by itself),\nauto (Save it and tell me: this agent saves a note at once and tells the\nperson, with an Undo, even when the person's level is Ask me first) or\nnever (it reads notes and saves none). Absent uses the person's setting\n(Account \u003e Memory). Always and never are never looser than that setting.\nauto loosens ask and auto for this agent only: the person's Always\nconfirm and Never still hold, and so do the limits of an automatic save.",
                     "type": "string",
                     "enum": [
                         "always",
+                        "auto",
                         "never"
                     ],
                     "example": "always"
@@ -21397,10 +21398,11 @@
                     ]
                 },
                 "memory_save": {
-                    "description": "MemorySave is the save rule of the agent (see ChatsAgent). A write\nwithout it keeps the stored rule, so a client that does not know the\nfield cannot loosen the agent. use_mine clears the rule. auto and ask\nare not accepted: an agent cannot be looser than the person (400).",
+                    "description": "MemorySave is the save rule of the agent (see ChatsAgent). A write\nwithout it keeps the stored rule, so a client that does not know the\nfield cannot loosen the agent. use_mine clears the rule. ask is not\naccepted (400).",
                     "type": "string",
                     "enum": [
                         "always",
+                        "auto",
                         "never",
                         "use_mine"
                     ]
@@ -22233,6 +22235,14 @@
                 },
                 "id": {
                     "type": "string"
+                },
+                "note_save": {
+                    "description": "NoteSave is present only when the agent of the connection has the save\nrule auto (Save it and tell me): now when a note from this kind of\nsender, in a one-to-one chat, is saved at once with an Undo, ask when it\nwaits for the owner.",
+                    "type": "string",
+                    "enum": [
+                        "now",
+                        "ask"
+                    ]
                 },
                 "title": {
                     "type": "string"

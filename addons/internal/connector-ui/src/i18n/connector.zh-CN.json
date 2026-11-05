@@ -303,5 +303,8 @@
   "dup.openOther": "打开 {{name}}",
   "dup.saveAnyway": "仍然保存",
   "dup.goBack": "返回",
-  "dup.confirmHelp": "只有在你想让每条消息收到两个回复时，才仍然保存。"
+  "dup.confirmHelp": "只有在你想让每条消息收到两个回复时，才仍然保存。",
+  "access.noteSave.title": "笔记",
+  "access.noteSave.now": "立即保存笔记并告知，可撤销",
+  "access.noteSave.ask": "此类发送者的笔记等待所有者处理"
 }

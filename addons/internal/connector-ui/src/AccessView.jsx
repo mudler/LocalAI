@@ -6,6 +6,7 @@ import { Notice } from './controls'
 import { connectorsApi } from './api'
 import { pageLocale } from './connector'
 import ApprovalsView from './ApprovalsView'
+import NoteSaveView from './NoteSaveView'
 
 export default function AccessView({ binding, capabilities, s, version }) {
   const [view, setView] = useState(null)
@@ -28,6 +29,7 @@ export default function AccessView({ binding, capabilities, s, version }) {
           <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" aria-busy={loading ? 'true' : undefined} disabled={loading} onClick={load}>{s('access.refresh')}</button>
         </div>
         {view && (<>
+          <NoteSaveView subjects={view.subjects} s={s} testId="connector-access-notesave" />
           <ApprovalsView approvals={view.approvals} s={s} testId="connector-access-approvals" />
           <p className="dk-hint">{s('access.recentHelp')}</p>
           {(view.recent || []).length === 0 ? <p className="cn-muted">{s('access.recentNone')}</p> : (

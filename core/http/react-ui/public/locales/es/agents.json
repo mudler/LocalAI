@@ -287,7 +287,8 @@
           "auto": "Las notas se guardan al instante.",
           "ask": "Cada nota espera su confirmación.",
           "always": "Cada nota espera su confirmación y nada lo relaja.",
-          "never": "No guarda notas."
+          "never": "No guarda notas.",
+          "agentAuto": "Guarda las notas al momento y te avisa, con Deshacer. Es la elección propia del agente."
         }
       },
       "knowledge": {

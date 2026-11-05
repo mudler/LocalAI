@@ -394,7 +394,8 @@
           "auto": "Notes are saved at once.",
           "ask": "Each note waits for you to confirm it.",
           "always": "Every note waits for you, and nothing loosens that.",
-          "never": "It saves no notes."
+          "never": "It saves no notes.",
+          "agentAuto": "Saves notes at once and tells you, with an Undo. This is the agent's own choice."
         }
       },
       "knowledge": {

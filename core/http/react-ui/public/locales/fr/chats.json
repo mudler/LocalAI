@@ -1000,7 +1000,8 @@
       "own": "Les siennes seulement",
       "mine": "Les miennes",
       "none": "Aucune",
-      "asBefore": "Comme avant"
+      "asBefore": "Comme avant",
+      "withAuto": "{{choice}}, enregistre aussitôt"
     },
     "delete": {
       "title": "Supprimer {{name}} ?",
@@ -1027,6 +1028,10 @@
         "title": "Utiliser mon réglage",
         "body": "Votre réglage est <b>{{level}}</b>. <settings>Modifiez-le dans Réglages > Mémoire.</settings>"
       },
+      "auto": {
+        "title": "Enregistrer et me prévenir",
+        "body": "Enregistre chaque note aussitôt et vous prévient dans la conversation, avec Annuler, même si votre réglage est Me demander d'abord. Une note longue, ou qui ressemble à un secret, attend toujours."
+      },
       "always": {
         "title": "Toujours confirmer",
         "body": "Plus strict que mon réglage."
@@ -1035,7 +1040,7 @@
         "title": "Jamais",
         "body": "Il lit, n'enregistre jamais."
       },
-      "hint": "Dans une conversation de messagerie, la note va d'abord à cette conversation et n'atteint les notes propres de cet agent que depuis un expéditeur associé."
+      "hint": "Dans une conversation de messagerie, la note va d'abord à cette conversation et n'atteint les notes propres de cet agent que depuis un expéditeur associé. L'enregistrement immédiat dans une conversation de messagerie ne vaut que pour un expéditeur associé dans une conversation privée."
     }
   },
   "providerPicker": {

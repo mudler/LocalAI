@@ -287,7 +287,8 @@
           "auto": "As notas são salvas na hora.",
           "ask": "Cada nota espera a sua confirmação.",
           "always": "Cada nota espera por você, e nada afrouxa isso.",
-          "never": "Não salva notas."
+          "never": "Não salva notas.",
+          "agentAuto": "Salva as notas na hora e avisa você, com Desfazer. É a escolha própria do agente."
         }
       },
       "knowledge": {

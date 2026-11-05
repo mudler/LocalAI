@@ -4012,12 +4012,16 @@ definitions:
       memory_save:
         description: |-
           MemorySave is the agent's own rule for saving a note: always (every note
-          waits for the person, and the model cannot undo or forget by itself) or
+          waits for the person, and the model cannot undo or forget by itself),
+          auto (Save it and tell me: this agent saves a note at once and tells the
+          person, with an Undo, even when the person's level is Ask me first) or
           never (it reads notes and saves none). Absent uses the person's setting
-          (Account > Memory). It can only be stricter than that setting: the host
-          takes the stricter of the two, and there is no value that saves at once.
+          (Account > Memory). Always and never are never looser than that setting.
+          auto loosens ask and auto for this agent only: the person's Always
+          confirm and Never still hold, and so do the limits of an automatic save.
         enum:
         - always
+        - auto
         - never
         example: always
         type: string
@@ -4265,10 +4269,11 @@ definitions:
         description: |-
           MemorySave is the save rule of the agent (see ChatsAgent). A write
           without it keeps the stored rule, so a client that does not know the
-          field cannot loosen the agent. use_mine clears the rule. auto and ask
-          are not accepted: an agent cannot be looser than the person (400).
+          field cannot loosen the agent. use_mine clears the rule. ask is not
+          accepted (400).
         enum:
         - always
+        - auto
         - never
         - use_mine
         type: string
@@ -4985,6 +4990,16 @@ definitions:
           $ref: '#/definitions/schema.ChatsConnectorAccessDecision'
         type: array
       id:
+        type: string
+      note_save:
+        description: |-
+          NoteSave is present only when the agent of the connection has the save
+          rule auto (Save it and tell me): now when a note from this kind of
+          sender, in a one-to-one chat, is saved at once with an Undo, ask when it
+          waits for the owner.
+        enum:
+        - now
+        - ask
         type: string
       title:
         type: string
@@ -18609,11 +18624,13 @@ paths:
         the Memory add-on to stop it. save_mode is how a note is saved: auto (save
         it and tell me), ask (the default), always (always confirm: like ask, nothing
         can loosen it, and the model cannot undo or forget by itself) or never. It
-        applies as the strictest rule together with the rule of the saved agent (memory_save)
-        and the rules of the host. A chat from a messaging app asks, unless messaging_save
-        is paired_private and the sender is paired and the chat is one-to-one; the
-        row cannot loosen always or never. Your notes stay and can be listed, exported
-        and deleted while memory is off.'
+        applies as the strictest rule together with the rule of the saved agent (memory_save:
+        always and never only tighten it; auto lets that one agent save at once when
+        your level is ask, while always and never of yours still hold) and the rules
+        of the host. A chat from a messaging app asks, unless messaging_save is paired_private
+        and the sender is paired and the chat is one-to-one; the row cannot loosen
+        always or never. Your notes stay and can be listed, exported and deleted while
+        memory is off.'
       responses:
         "200":
           description: Your memory settings

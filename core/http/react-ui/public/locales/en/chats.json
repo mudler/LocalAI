@@ -1322,7 +1322,8 @@
       "own": "Its own only",
       "mine": "Mine",
       "none": "None",
-      "asBefore": "As before"
+      "asBefore": "As before",
+      "withAuto": "{{choice}}, saves at once"
     },
     "delete": {
       "title": "Delete {{name}}?",
@@ -1349,6 +1350,10 @@
         "title": "Use my setting",
         "body": "Your setting is <b>{{level}}</b>. <settings>Change it in Settings > Memory.</settings>"
       },
+      "auto": {
+        "title": "Save it and tell me",
+        "body": "Saves each note at once and tells you in the chat, with an Undo, even when your setting is Ask me first. A long note, or one that looks like a secret, still waits."
+      },
       "always": {
         "title": "Always confirm",
         "body": "Stricter than my setting."
@@ -1357,7 +1362,7 @@
         "title": "Never",
         "body": "It reads, never saves."
       },
-      "hint": "In a messaging chat a note goes to that conversation first, and reaches this agent's own notes only from a paired sender."
+      "hint": "In a messaging chat a note goes to that conversation first, and reaches this agent's own notes only from a paired sender. Saving at once in a messaging chat applies only to a paired sender in a one-to-one chat."
     }
   },
   "providerPicker": {

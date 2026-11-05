@@ -308,6 +308,7 @@ export default function AgentCreate() {
     if (s.id === 'Notes') {
       keys = ['memory']
       summary = t(`chats:agentMemory.summary.${form.memory || 'asBefore'}`)
+      if (form.memory_save === 'auto' && form.memory !== 'none') summary = t('chats:agentMemory.summary.withAuto', { choice: summary })
       state = 'ready'
     }
     else if (s.id === 'MemorySettings') { keys = ['collections']; summary = countOf(form.collections.length, 'create.countCollections'); state = form.collections.length ? 'ready' : 'empty' }

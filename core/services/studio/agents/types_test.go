@@ -20,7 +20,7 @@ var _ = Describe("agent validation", func() {
 		for _, m := range []string{"", "own", "mine_and_own", "mine", "none"} {
 			Expect(agents.Validate(agents.Agent{Name: "a", Memory: m})).To(Succeed(), m)
 		}
-		for _, m := range []string{"", "always", "never"} {
+		for _, m := range []string{"", "always", "auto", "never"} {
 			Expect(agents.Validate(agents.Agent{Name: "a", MemorySave: m})).To(Succeed(), m)
 		}
 		for _, f := range []agents.Agent{
@@ -47,7 +47,7 @@ var _ = Describe("agent validation", func() {
 			"long entry":          {Name: "a", MCPServers: []string{strings.Repeat("s", agents.MaxEntryRunes+1)}},
 			"bad network":         {Name: "a", Network: "everything"},
 			"bad memory":          {Name: "a", Memory: "everything"},
-			"auto is not offered": {Name: "a", MemorySave: "auto"},
+			"a made-up rule":      {Name: "a", MemorySave: "sometimes"},
 			"ask is not offered":  {Name: "a", MemorySave: "ask"},
 			"folder, no mode":     {Name: "a", FolderID: 7},
 			"bad folder mode":     {Name: "a", FolderID: 7, FolderMode: "admin"},

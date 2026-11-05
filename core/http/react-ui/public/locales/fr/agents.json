@@ -287,7 +287,8 @@
           "auto": "Les notes sont enregistrées tout de suite.",
           "ask": "Chaque note attend votre confirmation.",
           "always": "Chaque note attend votre confirmation, et rien ne l'assouplit.",
-          "never": "Il n'enregistre aucune note."
+          "never": "Il n'enregistre aucune note.",
+          "agentAuto": "Enregistre les notes aussitôt et vous prévient, avec Annuler. C'est le choix propre de l'agent."
         }
       },
       "knowledge": {

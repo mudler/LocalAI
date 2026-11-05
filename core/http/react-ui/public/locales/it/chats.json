@@ -1000,7 +1000,8 @@
       "own": "Solo sue",
       "mine": "Mie",
       "none": "Nessuna",
-      "asBefore": "Come prima"
+      "asBefore": "Come prima",
+      "withAuto": "{{choice}}, salva subito"
     },
     "delete": {
       "title": "Eliminare {{name}}?",
@@ -1027,6 +1028,10 @@
         "title": "Usa la mia impostazione",
         "body": "La tua impostazione è <b>{{level}}</b>. <settings>Cambiala in Impostazioni > Memoria.</settings>"
       },
+      "auto": {
+        "title": "Salva e avvisami",
+        "body": "Salva ogni nota subito e te lo dice in chat, con Annulla, anche se la tua impostazione è Chiedimi prima. Una nota lunga, o che sembra un segreto, aspetta comunque."
+      },
       "always": {
         "title": "Conferma sempre",
         "body": "Più rigido della mia impostazione."
@@ -1035,7 +1040,7 @@
         "title": "Mai",
         "body": "Legge, non salva mai."
       },
-      "hint": "In una chat di messaggistica la nota va prima in quella conversazione e arriva alle note proprie di questo agente solo da un mittente abbinato."
+      "hint": "In una chat di messaggistica la nota va prima in quella conversazione e arriva alle note proprie di questo agente solo da un mittente abbinato. Il salvataggio immediato in una chat di messaggistica vale solo per un mittente abbinato in una chat uno a uno."
     }
   },
   "providerPicker": {

@@ -303,5 +303,8 @@
   "dup.openOther": "Abrir {{name}}",
   "dup.saveAnyway": "Salvar mesmo assim",
   "dup.goBack": "Voltar",
-  "dup.confirmHelp": "Salve mesmo assim só se você quiser receber duas respostas para cada mensagem."
+  "dup.confirmHelp": "Salve mesmo assim só se você quiser receber duas respostas para cada mensagem.",
+  "access.noteSave.title": "Notas",
+  "access.noteSave.now": "Salva as notas na hora e avisa, com Desfazer",
+  "access.noteSave.ask": "As notas deste tipo de remetente esperam o proprietário"
 }

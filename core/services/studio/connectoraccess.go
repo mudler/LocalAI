@@ -10,7 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -543,6 +545,27 @@ type AccessSubjectView struct {
 	// Decisions has one entry for each capability of the closed list, then
 	// the one of NotesReadCapability.
 	Decisions []Decision `json:"decisions"`
+	// NoteSave is set only when the agent of the binding has the rule Save it
+	// and tell me (auto): "now" when a note from this kind of sender, in a
+	// one-to-one chat, is saved at once with an Undo, and "ask" when it waits
+	// for the owner. It is empty for every other agent rule.
+	NoteSave string `json:"note_save,omitempty" enums:"now,ask"`
+}
+
+// noteSaveOf says how a note from a kind of sender is saved on the binding, but
+// only for an agent whose rule is auto (see AccessSubjectView.NoteSave). It
+// asks effectiveSaveLevel for a one-to-one chat; a sender that is not paired
+// never gets "now".
+func (s *Service) noteSaveOf(ctx context.Context, b connectors.Binding, paired bool) string {
+	if b.AgentID == "" || s.changes == nil || s.agentMemorySave(ctx, b.Owner, b.AgentID) != agents.MemorySaveAuto {
+		return ""
+	}
+	level := effectiveSaveLevel(SaveInputs{User: s.changes.storedSaveMode(ctx, b.Owner), Agent: agents.MemorySaveAuto,
+		Messaging: s.changes.storedMessagingSave(ctx, b.Owner), Origin: session.OriginConnector, Direct: true, Paired: paired})
+	if level == SaveAuto {
+		return "now"
+	}
+	return "ask"
 }
 
 // AccessView is the effective permissions of a binding, for the settings page
@@ -687,6 +710,7 @@ func (c *Connectors) accessOf(ctx context.Context, b connectors.Binding, only st
 			v.Decisions = append(v.Decisions, Authorize(bind, kind, s, name, now, c.offReason(ctx, b, name)))
 		}
 		v.Decisions = append(v.Decisions, notesDecision(bind, s, now))
+		v.NoteSave = c.svc.noteSaveOf(ctx, b, bind.IsPaired(s.SenderID, now))
 		return v
 	}
 	want := func(id string) bool {

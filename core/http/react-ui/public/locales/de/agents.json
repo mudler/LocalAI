@@ -287,7 +287,8 @@
           "auto": "Notizen werden sofort gespeichert.",
           "ask": "Jede Notiz wartet auf Ihre Bestätigung.",
           "always": "Jede Notiz wartet auf Sie, und nichts lockert das.",
-          "never": "Er speichert keine Notizen."
+          "never": "Er speichert keine Notizen.",
+          "agentAuto": "Speichert Notizen sofort und sagt dir Bescheid, mit Rückgängig. Das ist die eigene Wahl des Agenten."
         }
       },
       "knowledge": {

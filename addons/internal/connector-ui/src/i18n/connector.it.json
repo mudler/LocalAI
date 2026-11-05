@@ -303,5 +303,8 @@
   "dup.openOther": "Apri {{name}}",
   "dup.saveAnyway": "Salva comunque",
   "dup.goBack": "Indietro",
-  "dup.confirmHelp": "Salva comunque solo se vuoi ricevere due risposte a ogni messaggio."
+  "dup.confirmHelp": "Salva comunque solo se vuoi ricevere due risposte a ogni messaggio.",
+  "access.noteSave.title": "Note",
+  "access.noteSave.now": "Salva le note subito e avvisa, con Annulla",
+  "access.noteSave.ask": "Le note di questo tipo di mittente aspettano il proprietario"
 }

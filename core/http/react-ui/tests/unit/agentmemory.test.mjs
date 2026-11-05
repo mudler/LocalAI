@@ -34,12 +34,12 @@ test('a choice that saves switches the grant on, and none leaves the grants alon
   assert.deepEqual([...MEMORY_CHOICES.filter(memorySaves)], ['mine_and_own', 'own', 'mine'])
 })
 
-test('the save rule of an agent is always or never, and auto is not offered', () => {
-  assert.deepEqual(MEMORY_SAVE_RULES, ['always', 'never'])
+test('the save rule of an agent is auto, always or never; ask is not offered', () => {
+  assert.deepEqual(MEMORY_SAVE_RULES, ['auto', 'always', 'never'])
+  assert.equal(memorySaveOf({ memory_save: 'auto' }), 'auto')
   assert.equal(memorySaveOf({ memory_save: 'always' }), 'always')
   assert.equal(memorySaveOf({ memory_save: 'never' }), 'never')
   assert.equal(memorySaveOf({}), '', 'an agent without a rule uses my setting')
-  assert.equal(memorySaveOf({ memory_save: 'auto' }), '', 'an agent cannot be looser')
   assert.equal(memorySaveOf({ memory_save: 'ask' }), '')
 })
 
@@ -48,7 +48,8 @@ test('the payload sends a save rule only when the form holds one, and use_mine c
   assert.equal(agentPayload({ ...emptyAgent(), memory_save: 'always' }).memory_save, 'always')
   assert.equal(agentPayload({ ...emptyAgent(), memory_save: 'never' }).memory_save, 'never')
   assert.equal(agentPayload({ ...emptyAgent(), memory_save: 'use_mine' }).memory_save, 'use_mine')
-  assert.equal('memory_save' in agentPayload({ ...emptyAgent(), memory_save: 'auto' }), false, 'auto is never sent')
+  assert.equal(agentPayload({ ...emptyAgent(), memory_save: 'auto' }).memory_save, 'auto')
+  assert.equal('memory_save' in agentPayload({ ...emptyAgent(), memory_save: 'ask' }), false, 'ask is never sent')
   assert.equal('memory_save' in agentPayload({ ...emptyAgent(), memory_save: '' }), false)
 })
 
@@ -58,6 +59,10 @@ test('the stricter of the setting and the rule is the level in force', () => {
   assert.equal(stricterLevel('auto', ''), 'auto')
   assert.equal(stricterLevel('always', 'never'), 'never')
   assert.equal(stricterLevel('never', 'always'), 'never', 'a rule never loosens')
+  assert.equal(stricterLevel('ask', 'auto'), 'auto', 'an explicit auto loosens ask for the agent')
+  assert.equal(stricterLevel('auto', 'auto'), 'auto')
+  assert.equal(stricterLevel('always', 'auto'), 'always', 'the person always confirm still holds')
+  assert.equal(stricterLevel('never', 'auto'), 'never', 'the person never still holds')
   assert.equal(stricterLevel('bogus', ''), 'ask', 'an unknown level counts as ask')
 })
 

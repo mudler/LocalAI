@@ -1000,7 +1000,8 @@
       "own": "Só dele",
       "mine": "Minhas",
       "none": "Nenhuma",
-      "asBefore": "Como antes"
+      "asBefore": "Como antes",
+      "withAuto": "{{choice}}, salva na hora"
     },
     "delete": {
       "title": "Excluir {{name}}?",
@@ -1027,6 +1028,10 @@
         "title": "Usar minha configuração",
         "body": "Sua configuração é <b>{{level}}</b>. <settings>Altere em Configurações > Memória.</settings>"
       },
+      "auto": {
+        "title": "Salvar e me avisar",
+        "body": "Salva cada nota na hora e avisa você no chat, com Desfazer, mesmo que sua configuração seja Perguntar antes. Uma nota longa, ou que pareça um segredo, continua esperando."
+      },
       "always": {
         "title": "Sempre confirmar",
         "body": "Mais rígido que minha configuração."
@@ -1035,7 +1040,7 @@
         "title": "Nunca",
         "body": "Lê, nunca salva."
       },
-      "hint": "Em um chat de mensagens, a nota vai primeiro para essa conversa e só chega às notas próprias deste agente vinda de um remetente pareado."
+      "hint": "Em um chat de mensagens, a nota vai primeiro para essa conversa e só chega às notas próprias deste agente vinda de um remetente pareado. Salvar na hora em um chat de mensagens vale só para um remetente pareado em um chat um a um."
     }
   },
   "providerPicker": {

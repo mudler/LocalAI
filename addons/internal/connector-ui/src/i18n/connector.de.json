@@ -303,5 +303,8 @@
   "dup.openOther": "{{name}} öffnen",
   "dup.saveAnyway": "Trotzdem speichern",
   "dup.goBack": "Zurück",
-  "dup.confirmHelp": "Speichere nur dann trotzdem, wenn du auf jede Nachricht zwei Antworten haben willst."
+  "dup.confirmHelp": "Speichere nur dann trotzdem, wenn du auf jede Nachricht zwei Antworten haben willst.",
+  "access.noteSave.title": "Notizen",
+  "access.noteSave.now": "Speichert Notizen sofort und sagt Bescheid, mit Rückgängig",
+  "access.noteSave.ask": "Notizen dieser Art Absender warten auf den Eigentümer"
 }

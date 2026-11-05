@@ -1000,7 +1000,8 @@
       "own": "Solo propias",
       "mine": "Mías",
       "none": "Ninguna",
-      "asBefore": "Como antes"
+      "asBefore": "Como antes",
+      "withAuto": "{{choice}}, guarda al momento"
     },
     "delete": {
       "title": "¿Eliminar {{name}}?",
@@ -1027,6 +1028,10 @@
         "title": "Usar mi ajuste",
         "body": "Tu ajuste es <b>{{level}}</b>. <settings>Cámbialo en Ajustes > Memoria.</settings>"
       },
+      "auto": {
+        "title": "Guardar y avisarme",
+        "body": "Guarda cada nota al momento y te avisa en el chat, con Deshacer, aunque tu ajuste sea Preguntarme antes. Una nota larga, o una que parezca un secreto, sigue esperando."
+      },
       "always": {
         "title": "Confirmar siempre",
         "body": "Más estricto que mi ajuste."
@@ -1035,7 +1040,7 @@
         "title": "Nunca",
         "body": "Lee, nunca guarda."
       },
-      "hint": "En un chat de mensajería la nota va primero a esa conversación y llega a las notas propias de este agente solo desde un remitente emparejado."
+      "hint": "En un chat de mensajería la nota va primero a esa conversación y llega a las notas propias de este agente solo desde un remitente emparejado. Guardar al momento en un chat de mensajería solo vale para un remitente emparejado en un chat uno a uno."
     }
   },
   "providerPicker": {
