@@ -864,6 +864,7 @@
     "keepOwnNamed": "Keep the blanket grants of {{name}} as my own",
     "loadError": "Host access did not load",
     "loading": "Reading what this add-on asks for...",
+    "loadingSlow": "Still working. The package is being downloaded and its signature checked before the permissions can be shown. A large add-on can take a while.",
     "loadingPage": "Loading host access",
     "locked": "The deployment turned off changes to host access. You can read this page but not change it.",
     "lockedNoAuth": "Sign-in is off, so anyone who can reach this server could change these; they are set by the administrator in the policy file.",

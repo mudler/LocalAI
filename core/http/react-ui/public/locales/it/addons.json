@@ -864,6 +864,7 @@
     "keepOwnNamed": "Tieni come miei i permessi generali di {{name}}",
     "loadError": "L'accesso all'host non si è caricato",
     "loading": "Lettura di ciò che questo add-on richiede...",
+    "loadingSlow": "Ancora in corso. Il pacchetto viene scaricato e la sua firma verificata prima di mostrare i permessi. Un add-on grande può richiedere un po' di tempo.",
     "loadingPage": "Caricamento dell'accesso all'host",
     "locked": "Il deployment ha disattivato le modifiche all'accesso all'host. Puoi leggere questa pagina ma non modificarla.",
     "lockedNoAuth": "L'accesso è disattivato, quindi chiunque raggiunga questo server potrebbe modificarlo; l'amministratore lo imposta nel file di policy.",

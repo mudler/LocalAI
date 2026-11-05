@@ -1060,6 +1060,7 @@ func (a *Application) startAddons() error {
 		// The update check reads the libraries and the journal the owner
 		// holds; it applies nothing, and its cache is bounded.
 		m.EnableUpdates(updates.Config{TTL: c.UpdateCacheTTL, MinRefresh: c.UpdateRefreshInterval})
+		startUpdateRefresh(a.applicationConfig.Context, m.RefreshUpdates, addonUpdateRefreshEvery)
 		// The staging area of zip files waits empty at start: a file that was
 		// uploaded before a restart has to be uploaded again.
 		files := &uploads.Store{Root: filepath.Join(c.Root, "uploads")}
@@ -1118,6 +1119,35 @@ func (a *Application) startAddons() error {
 // and an unreachable library must not keep LocalAI or the installed add-ons
 // down. Until it ends the cache is empty, as it is after any failed refresh;
 // an explicit refresh does the same work again.
+// addonUpdateRefreshEvery is how often the owner asks the libraries about the
+// installed add-ons in the background. The check is an observation; an upgrade
+// decides again when it runs.
+const addonUpdateRefreshEvery = 30 * time.Minute
+
+// startUpdateRefresh checks the installed add-ons shortly after start and then
+// on every interval, until ctx ends. Without it the answer of the update check
+// is empty after each restart and the page shows "not known" until an
+// administrator asks.
+func startUpdateRefresh(ctx context.Context, refresh func(context.Context) int, every time.Duration) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	go func() {
+		// Let the startup read of the libraries finish first.
+		timer := time.NewTimer(10 * time.Second)
+		defer timer.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+			}
+			refresh(ctx)
+			timer.Reset(every)
+		}
+	}()
+}
+
 func startLibraryRefresh(ctx context.Context, refresh func(context.Context) error) {
 	go func() {
 		if err := refresh(ctx); err != nil && ctx.Err() == nil {

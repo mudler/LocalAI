@@ -169,6 +169,8 @@ type Manager struct {
 	autoFailures map[string]string
 	// heldUpgrades holds, per add-on, an upgrade that waits for approval.
 	heldUpgrades map[string]heldUpgrade
+	// previews keeps the verified answer of the host access preview per release.
+	previews previewCache
 	// skillSync keeps the chats' skill layer in step with the installed
 	// packages. Nil until the chats' files exist (see SetSkillSync).
 	skillSync SkillSync
