@@ -83,7 +83,8 @@
       "Files": "File",
       "Tools": "Strumenti",
       "Notes": "Memoria",
-      "Connections": "Connessioni"
+      "Connections": "Connessioni",
+      "Effective": "Vista effettiva"
     },
     "name": "Name",
     "description": "Description",
@@ -159,14 +160,16 @@
       "capabilities": "Capacità",
       "memory": "Memoria e conoscenza",
       "advanced": "Avanzate",
-      "connections": "Connessioni"
+      "connections": "Connessioni",
+      "effective": "Vista effettiva"
     },
     "lead": {
       "identity": "Chi è l'agente e come si comporta.",
       "capabilities": "Cosa può usare e raggiungere l'agente.",
       "memory": "Cosa ricorda l'agente e cosa può consultare.",
       "advanced": "Server aggiuntivi ed esportazione.",
-      "connections": "Quali connessioni può usare questo agente."
+      "connections": "Quali connessioni può usare questo agente.",
+      "effective": "Cosa può fare questo agente adesso."
     },
     "header": {
       "unnamed": "Agente senza nome",
@@ -226,6 +229,110 @@
       "perChat": "Nessuna selezionata: ogni chat sceglie la sua.",
       "summary_one": "{{count}} connessione",
       "summary_other": "{{count}} connessioni"
+    },
+    "more": "Altre azioni",
+    "eff": {
+      "summaryOk": "Niente è bloccato.",
+      "summaryBlocked_one": "{{count}} cosa è bloccata.",
+      "summaryBlocked_other": "{{count}} cose sono bloccate.",
+      "unsaved": "Questo elenco segue il modulo com'è ora, con le modifiche non salvate.",
+      "unsavedConn": "Strumenti, memoria e conoscenza seguono il modulo com'è ora. Le righe delle connessioni vengono dall'agente salvato e dalla connessione salvata.",
+      "state": {
+        "allowed": "Può",
+        "asks": "Chiede prima",
+        "off": "Disattivato",
+        "blocked": "Bloccato",
+        "info": "Nota"
+      },
+      "more_one": "e altri {{count}}",
+      "more_other": "e altri {{count}}",
+      "fixHere": "Correggi qui",
+      "fixOpen": "Apri la pagina che lo corregge",
+      "model": {
+        "fixed": "Usa {{model}}.",
+        "any": "Usa il modello scelto in ogni chat."
+      },
+      "tools": {
+        "none": "Nessuno strumento è attivo. Può rispondere solo con ciò che sa.",
+        "some_one": "Può usare {{count}} strumento: {{names}}.",
+        "some_other": "Può usare {{count}} strumenti: {{names}}.",
+        "blocked": "{{name}} è attivo ma ora non può funzionare. {{reason}}"
+      },
+      "skills": {
+        "some_one": "Può usare {{count}} competenza: {{names}}.",
+        "some_other": "Può usare {{count}} competenze: {{names}}."
+      },
+      "files": {
+        "all": "Può raggiungere tutti i tuoi file.",
+        "folders_one": "Può raggiungere solo la {{count}} cartella scelta.",
+        "folders_other": "Può raggiungere solo le {{count}} cartelle scelte."
+      },
+      "grants": {
+        "parentOff": "{{name}} è consentito, ma non funziona finché {{parent}} è disattivato. Attiva {{parent}}.",
+        "connection": "{{name}} è consentito per l'agente, ma non su questa connessione: {{connection}}",
+        "some_one": "Ha {{count}} permesso in più: {{names}}.",
+        "some_other": "Ha {{count}} permessi in più: {{names}}.",
+        "unattended_one": "Quando nessuno guarda, può usare {{count}} permesso da solo: {{names}}.",
+        "unattended_other": "Quando nessuno guarda, può usare {{count}} permessi da solo: {{names}}."
+      },
+      "memory": {
+        "userOff": "La memoria è disattivata nelle tue impostazioni, quindi questo agente non legge né salva note, qualunque cosa scelga qui.",
+        "none": "Non tiene e non legge note.",
+        "mine_and_own": "Legge le tue note e le sue, e salva nelle sue.",
+        "own": "Legge e salva solo le proprie note.",
+        "mine": "Legge le tue note e salva in esse.",
+        "asBefore": "La memoria funziona come prima: legge le note quando un add-on nomina Memory.",
+        "noGrant": "È impostato per salvare note, ma il permesso di ricordare è disattivato, quindi non ne salva. Attivalo in Memoria.",
+        "level": {
+          "auto": "Le note vengono salvate subito.",
+          "ask": "Ogni nota aspetta la tua conferma.",
+          "always": "Ogni nota aspetta te e nulla lo allenta.",
+          "never": "Non salva note."
+        }
+      },
+      "knowledge": {
+        "some_one": "Può cercare in {{count}} raccolta: {{names}}.",
+        "some_other": "Può cercare in {{count}} raccolte: {{names}}.",
+        "none": "Nessuna raccolta di conoscenza in cui cercare."
+      },
+      "connections": {
+        "unsaved": "Non ancora usato nelle app di messaggistica. Salva l'agente, poi aggiungi una connessione.",
+        "none": "Non usato in nessuna app di messaggistica.",
+        "loading": "Controllo di {{name}}...",
+        "error": "Impossibile controllare {{name}}. Aprila per vedere i suoi permessi.",
+        "summary": "{{name}}: {{allowed}} consentiti, {{blocked}} non consentiti.",
+        "blocked": "{{name}} non può usare {{capability}}. {{message}}"
+      }
+    },
+    "try": {
+      "open": "Prova",
+      "title": "Prova questo agente",
+      "desc": "Invia un messaggio a una chat di prova che usa le impostazioni di questo modulo. Non viene salvato nulla.",
+      "noModel": "Nessun modello di chat installato. Installa o scegli prima un modello.",
+      "defaultModel": "Nessun modello impostato, quindi la prova usa {{model}}.",
+      "skipped": "La prova non usa: {{what}}. Appartengono a un agente salvato.",
+      "skip": {
+        "grants": "permessi",
+        "memory": "memoria",
+        "knowledge": "raccolte di conoscenza",
+        "folders": "cartelle condivise"
+      },
+      "empty": "Invia un messaggio per iniziare.",
+      "role": {
+        "user": "Tu",
+        "assistant": "Agente",
+        "tool": "Strumento"
+      },
+      "toolRan": "Ha usato uno strumento: {{name}}",
+      "working": "Al lavoro...",
+      "label": "Messaggio all'agente",
+      "placeholder": "Chiedi qualcosa che questo agente deve saper gestire",
+      "send": "Invia",
+      "stop": "Ferma",
+      "deleted": "La chat di prova viene eliminata alla chiusura di questo pannello.",
+      "chatTitle": "Prova di {{name}}",
+      "failed": "La prova non è riuscita: {{message}}",
+      "slow": "L'agente sta ancora lavorando. Fermalo o chiudi il pannello."
     }
   },
   "run": {

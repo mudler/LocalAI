@@ -83,7 +83,8 @@
       "Files": "Dateien",
       "Tools": "Werkzeuge",
       "Notes": "Gedächtnis",
-      "Connections": "Verbindungen"
+      "Connections": "Verbindungen",
+      "Effective": "Wirksame Ansicht"
     },
     "name": "Name",
     "description": "Description",
@@ -159,14 +160,16 @@
       "capabilities": "Fähigkeiten",
       "memory": "Gedächtnis und Wissen",
       "advanced": "Erweitert",
-      "connections": "Verbindungen"
+      "connections": "Verbindungen",
+      "effective": "Wirksame Ansicht"
     },
     "lead": {
       "identity": "Wer der Agent ist und wie er sich verhält.",
       "capabilities": "Was der Agent nutzen und erreichen darf.",
       "memory": "Woran sich der Agent erinnert und was er nachschlagen kann.",
       "advanced": "Zusätzliche Server und Export.",
-      "connections": "Welche Verbindungen dieser Agent nutzen darf."
+      "connections": "Welche Verbindungen dieser Agent nutzen darf.",
+      "effective": "Was dieser Agent gerade tun kann."
     },
     "header": {
       "unnamed": "Unbenannter Agent",
@@ -226,6 +229,110 @@
       "perChat": "Nichts angehakt: Jeder Chat wählt selbst.",
       "summary_one": "{{count}} Verbindung",
       "summary_other": "{{count}} Verbindungen"
+    },
+    "more": "Weitere Aktionen",
+    "eff": {
+      "summaryOk": "Nichts ist blockiert.",
+      "summaryBlocked_one": "{{count}} Sache ist blockiert.",
+      "summaryBlocked_other": "{{count}} Dinge sind blockiert.",
+      "unsaved": "Diese Liste folgt dem Formular, wie es jetzt ist, auch mit nicht gespeicherten Änderungen.",
+      "unsavedConn": "Werkzeuge, Gedächtnis und Wissen folgen dem Formular, wie es jetzt ist. Die Zeilen zu Verbindungen stammen vom gespeicherten Agenten und der gespeicherten Verbindung.",
+      "state": {
+        "allowed": "Kann",
+        "asks": "Fragt zuerst",
+        "off": "Aus",
+        "blocked": "Blockiert",
+        "info": "Hinweis"
+      },
+      "more_one": "und {{count}} weitere",
+      "more_other": "und {{count}} weitere",
+      "fixHere": "Hier beheben",
+      "fixOpen": "Die Seite öffnen, die es behebt",
+      "model": {
+        "fixed": "Läuft mit {{model}}.",
+        "any": "Nutzt das Modell, das in jedem Chat gewählt wird."
+      },
+      "tools": {
+        "none": "Keine Werkzeuge sind an. Er kann nur aus seinem Wissen antworten.",
+        "some_one": "Kann {{count}} Werkzeug nutzen: {{names}}.",
+        "some_other": "Kann {{count}} Werkzeuge nutzen: {{names}}.",
+        "blocked": "{{name}} ist an, kann aber jetzt nicht arbeiten. {{reason}}"
+      },
+      "skills": {
+        "some_one": "Kann {{count}} Skill nutzen: {{names}}.",
+        "some_other": "Kann {{count}} Skills nutzen: {{names}}."
+      },
+      "files": {
+        "all": "Kann alle Ihre Dateien erreichen.",
+        "folders_one": "Kann nur den {{count}} gewählten Ordner erreichen.",
+        "folders_other": "Kann nur die {{count}} gewählten Ordner erreichen."
+      },
+      "grants": {
+        "parentOff": "{{name}} ist erlaubt, funktioniert aber nicht, solange {{parent}} aus ist. Schalten Sie {{parent}} ein.",
+        "connection": "{{name}} ist für den Agenten erlaubt, aber nicht auf dieser Verbindung: {{connection}}",
+        "some_one": "Hat {{count}} zusätzliches Recht: {{names}}.",
+        "some_other": "Hat {{count}} zusätzliche Rechte: {{names}}.",
+        "unattended_one": "Wenn niemand zusieht, darf er {{count}} Recht selbst nutzen: {{names}}.",
+        "unattended_other": "Wenn niemand zusieht, darf er {{count}} Rechte selbst nutzen: {{names}}."
+      },
+      "memory": {
+        "userOff": "Das Gedächtnis ist in Ihren Einstellungen aus. Dieser Agent liest und speichert daher keine Notizen, egal was er hier wählt.",
+        "none": "Behält und liest keine Notizen.",
+        "mine_and_own": "Liest Ihre Notizen und seine eigenen und speichert in seinen eigenen.",
+        "own": "Liest und speichert nur seine eigenen Notizen.",
+        "mine": "Liest Ihre Notizen und speichert darin.",
+        "asBefore": "Das Gedächtnis arbeitet wie bisher: Er liest Notizen, wenn ein Add-on Memory nennt.",
+        "noGrant": "Er soll Notizen speichern, aber das Recht, sich Dinge zu merken, ist aus. Er speichert also nichts. Schalten Sie es unter Gedächtnis ein.",
+        "level": {
+          "auto": "Notizen werden sofort gespeichert.",
+          "ask": "Jede Notiz wartet auf Ihre Bestätigung.",
+          "always": "Jede Notiz wartet auf Sie, und nichts lockert das.",
+          "never": "Er speichert keine Notizen."
+        }
+      },
+      "knowledge": {
+        "some_one": "Kann {{count}} Sammlung durchsuchen: {{names}}.",
+        "some_other": "Kann {{count}} Sammlungen durchsuchen: {{names}}.",
+        "none": "Keine Wissenssammlungen zum Durchsuchen."
+      },
+      "connections": {
+        "unsaved": "Noch in keiner Messaging-App genutzt. Speichern Sie den Agenten und fügen Sie dann eine Verbindung hinzu.",
+        "none": "In keiner Messaging-App genutzt.",
+        "loading": "{{name}} wird geprüft ...",
+        "error": "{{name}} konnte nicht geprüft werden. Öffnen Sie sie, um die Berechtigungen zu sehen.",
+        "summary": "{{name}}: {{allowed}} erlaubt, {{blocked}} nicht erlaubt.",
+        "blocked": "{{name}} kann {{capability}} nicht nutzen. {{message}}"
+      }
+    },
+    "try": {
+      "open": "Ausprobieren",
+      "title": "Diesen Agenten ausprobieren",
+      "desc": "Senden Sie eine Nachricht an einen Test-Chat mit den Einstellungen dieses Formulars. Nichts wird gespeichert.",
+      "noModel": "Kein Chat-Modell ist installiert. Installieren oder wählen Sie zuerst ein Modell.",
+      "defaultModel": "Kein Modell ist gesetzt, daher nutzt der Test {{model}}.",
+      "skipped": "Der Test nutzt nicht: {{what}}. Das gehört zu einem gespeicherten Agenten.",
+      "skip": {
+        "grants": "Berechtigungen",
+        "memory": "Gedächtnis",
+        "knowledge": "Wissenssammlungen",
+        "folders": "geteilte Ordner"
+      },
+      "empty": "Senden Sie eine Nachricht, um zu beginnen.",
+      "role": {
+        "user": "Sie",
+        "assistant": "Agent",
+        "tool": "Werkzeug"
+      },
+      "toolRan": "Werkzeug genutzt: {{name}}",
+      "working": "Arbeitet ...",
+      "label": "Nachricht an den Agenten",
+      "placeholder": "Fragen Sie etwas, das dieser Agent können soll",
+      "send": "Senden",
+      "stop": "Stopp",
+      "deleted": "Der Test-Chat wird gelöscht, wenn Sie dieses Fenster schließen.",
+      "chatTitle": "Test von {{name}}",
+      "failed": "Der Test ist fehlgeschlagen: {{message}}",
+      "slow": "Der Agent arbeitet noch. Stoppen Sie ihn oder schließen Sie das Fenster."
     }
   },
   "run": {

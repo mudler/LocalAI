@@ -196,7 +196,8 @@
       "Files": "Files",
       "Tools": "Tools",
       "Notes": "Memory",
-      "Connections": "Connections"
+      "Connections": "Connections",
+      "Effective": "Effective view"
     },
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
@@ -266,14 +267,16 @@
       "capabilities": "Capabilities",
       "memory": "Memory and knowledge",
       "advanced": "Advanced",
-      "connections": "Connections"
+      "connections": "Connections",
+      "effective": "Effective view"
     },
     "lead": {
       "identity": "Who the agent is and how it behaves.",
       "capabilities": "What the agent may use and reach.",
       "memory": "What the agent remembers and what it can look up.",
       "advanced": "Extra servers and export.",
-      "connections": "Which connections this agent may use."
+      "connections": "Which connections this agent may use.",
+      "effective": "What this agent can do right now."
     },
     "header": {
       "unnamed": "Unnamed agent",
@@ -333,6 +336,110 @@
       "perChat": "None ticked: each chat chooses its own.",
       "summary_one": "{{count}} connection",
       "summary_other": "{{count}} connections"
+    },
+    "more": "More actions",
+    "eff": {
+      "summaryOk": "Nothing is blocked.",
+      "summaryBlocked_one": "{{count}} thing is blocked.",
+      "summaryBlocked_other": "{{count}} things are blocked.",
+      "unsaved": "This list follows the form as it is now, including changes you have not saved.",
+      "unsavedConn": "Tools, memory and knowledge follow the form as it is now. Connection lines come from the saved agent and the saved connection.",
+      "state": {
+        "allowed": "Can",
+        "asks": "Asks first",
+        "off": "Off",
+        "blocked": "Blocked",
+        "info": "Note"
+      },
+      "more_one": "and {{count}} more",
+      "more_other": "and {{count}} more",
+      "fixHere": "Fix it here",
+      "fixOpen": "Open the page that fixes it",
+      "model": {
+        "fixed": "Runs on {{model}}.",
+        "any": "Uses the model picked in each chat."
+      },
+      "tools": {
+        "none": "No tools are on. It can only answer from what it knows.",
+        "some_one": "Can use {{count}} tool: {{names}}.",
+        "some_other": "Can use {{count}} tools: {{names}}.",
+        "blocked": "{{name}} is on but cannot work now. {{reason}}"
+      },
+      "skills": {
+        "some_one": "Can use {{count}} skill: {{names}}.",
+        "some_other": "Can use {{count}} skills: {{names}}."
+      },
+      "files": {
+        "all": "Can reach all your files.",
+        "folders_one": "Can reach only the {{count}} folder you chose.",
+        "folders_other": "Can reach only the {{count}} folders you chose."
+      },
+      "grants": {
+        "parentOff": "{{name}} is allowed, but it cannot work while {{parent}} is off. Turn {{parent}} on.",
+        "connection": "{{name}} is allowed for the agent, but not on this connection: {{connection}}",
+        "some_one": "Has {{count}} extra right: {{names}}.",
+        "some_other": "Has {{count}} extra rights: {{names}}.",
+        "unattended_one": "When nobody is watching, it may use {{count}} right on its own: {{names}}.",
+        "unattended_other": "When nobody is watching, it may use {{count}} rights on its own: {{names}}."
+      },
+      "memory": {
+        "userOff": "Memory is off in your Settings, so this agent reads and saves no notes, whatever it chooses here.",
+        "none": "Keeps and reads no notes.",
+        "mine_and_own": "Reads your notes and its own, and saves to its own.",
+        "own": "Reads and saves only its own notes.",
+        "mine": "Reads your notes and saves to them.",
+        "asBefore": "Memory works as before: it reads notes when an add-on names Memory.",
+        "noGrant": "It is set to save notes, but the right to remember things is off, so it saves none. Turn it on in Memory.",
+        "level": {
+          "auto": "Notes are saved at once.",
+          "ask": "Each note waits for you to confirm it.",
+          "always": "Every note waits for you, and nothing loosens that.",
+          "never": "It saves no notes."
+        }
+      },
+      "knowledge": {
+        "some_one": "Can search {{count}} collection: {{names}}.",
+        "some_other": "Can search {{count}} collections: {{names}}.",
+        "none": "No knowledge collections to search."
+      },
+      "connections": {
+        "unsaved": "Not used in messaging apps yet. Save the agent, then add a connection.",
+        "none": "Not used in any messaging app.",
+        "loading": "Checking {{name}}...",
+        "error": "Could not check {{name}}. Open it to see its permissions.",
+        "summary": "{{name}}: {{allowed}} allowed, {{blocked}} not allowed.",
+        "blocked": "{{name}} cannot use {{capability}}. {{message}}"
+      }
+    },
+    "try": {
+      "open": "Try it",
+      "title": "Try this agent",
+      "desc": "Send a message to a test chat that uses the settings in this form. Nothing is saved.",
+      "noModel": "No chat model is installed. Install or pick a model first.",
+      "defaultModel": "No model is set, so the test uses {{model}}.",
+      "skipped": "The test does not use: {{what}}. Those belong to a saved agent.",
+      "skip": {
+        "grants": "permissions",
+        "memory": "memory",
+        "knowledge": "knowledge collections",
+        "folders": "shared folders"
+      },
+      "empty": "Send a message to start.",
+      "role": {
+        "user": "You",
+        "assistant": "Agent",
+        "tool": "Tool"
+      },
+      "toolRan": "Used a tool: {{name}}",
+      "working": "Working...",
+      "label": "Message to the agent",
+      "placeholder": "Ask something this agent should handle",
+      "send": "Send",
+      "stop": "Stop",
+      "deleted": "The test chat is deleted when you close this panel.",
+      "chatTitle": "Test of {{name}}",
+      "failed": "The test failed: {{message}}",
+      "slow": "The agent is still working. Stop it or close the panel."
     }
   },
   "status": {

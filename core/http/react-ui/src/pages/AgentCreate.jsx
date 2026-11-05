@@ -8,6 +8,8 @@ import { useAgentTools } from '../hooks/useAgentTools'
 import { useModels } from '../hooks/useModels'
 import { useToolGroups } from '../hooks/useToolGroups'
 import { useMemorySettings } from '../hooks/useMemorySettings'
+import { useAgentAccess } from '../hooks/useAgentAccess'
+import { effectiveLines, flatRows, blockedCount } from '../utils/agentEffective'
 import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
 import { agentPayload, effectiveModes, emptyAgent, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, MEMORY_GRANT, memoryChoiceOf, memorySaveOf, missingConnectorGrants, newAgent, setGrant, withMemoryChoice } from '../utils/chatAgents'
 import { activePreset, PRESET_KEYS, presetPatch, snapshot, TEMPLATE_TEXT_KEYS } from '../utils/agentPresets'
@@ -43,6 +45,13 @@ import AgentPresets, { AppliedNotice } from '../components/agents/AgentPresets'
 import AgentTemplates from '../components/agents/AgentTemplates'
 // eslint-disable-next-line no-unused-vars
 import AgentConnections from '../components/agents/AgentConnections'
+// eslint-disable-next-line no-unused-vars
+import AgentEffective from '../components/agents/AgentEffective'
+// eslint-disable-next-line no-unused-vars
+import AgentTryIt from '../components/agents/AgentTryIt'
+// eslint-disable-next-line no-unused-vars
+import ActionMenu from '../components/ActionMenu'
+import { useSheetFocus } from '../components/agents/useSheetFocus'
 
 // The cards of the page, in order. `bare` parts have no heading of their own:
 // the card heading says what they are. `export` exists only for a saved agent.
@@ -51,6 +60,7 @@ const GROUPS = [
   { id: 'capabilities', icon: 'plug', parts: ['Tools', 'Skills', 'Files'] },
   { id: 'memory', icon: 'memory', parts: ['Notes', 'MemorySettings'] },
   { id: 'connections', icon: 'plug', parts: ['Connections'], bare: true },
+  { id: 'effective', icon: 'eye', parts: ['Effective'], bare: true },
   { id: 'advanced', icon: 'server', parts: ['MCP', 'export'], collapsible: true },
 ]
 const secDomId = (gid) => `aed-sec-${gid}`
@@ -91,6 +101,7 @@ export default function AgentCreate() {
   const [activeSec, setActiveSec] = useState(GROUPS[0].id)
   const [savedConfig, setSavedConfig] = useState(null)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [tryOpen, setTryOpen] = useState(false)
   const [previewTab, setPreviewTab] = useState('config')
   const [form, setForm] = useState(emptyAgent())
   // null, a row index, or 'new' for a row being added
@@ -161,6 +172,8 @@ export default function AgentCreate() {
   // The person's own memory switch, read only here: an agent cannot widen it.
   const memoryUser = useMemorySettings()
   const toolGroups = useToolGroups(tools, { commandState: false, forAgent: true })
+  // What the server says each connection of this agent lets its senders do.
+  const access = useAgentAccess(form.id || '', tools.connections)
 
   // The definition exactly as it is saved. The preview shows this object and
   // Save sends it.
@@ -278,6 +291,14 @@ export default function AgentCreate() {
   const baseline = savedConfig ? agentPayload(savedConfig) : {}
   const diff = diffConfig(baseline, payload)
   const changedKeys = new Set(savedConfig ? diff.map(d => d.key) : [])
+  const effective = effectiveLines({
+    form,
+    rows: flatRows(toolGroups),
+    skills: (tools.skills || []).filter(s => s.enabled && !s.gone).map(s => ({ on: true, id: s.name, label: s.name })),
+    memory: memoryUser.settings,
+    access,
+    isEdit,
+  })
   const countOf = (n, key) => (n ? t(key, { count: n }) : t('create.noneYet'))
 
   const foldInfo = (s) => {
@@ -304,6 +325,11 @@ export default function AgentCreate() {
       const n = named + tools.connections.length
       summary = n ? t('create.connections.summary', { count: n }) : t('create.noneYet')
       state = n ? 'ready' : 'empty'
+    }
+    else if (s.id === 'Effective') {
+      const n = blockedCount(effective)
+      summary = n ? t('create.eff.summaryBlocked', { count: n }) : t('create.eff.summaryOk')
+      state = n ? 'needs' : 'ready'
     }
     else if (s.id === 'MCP') { keys = ['mcp_servers']; summary = countOf(form.mcp_servers.length, 'create.countServers'); state = form.mcp_servers.length ? 'ready' : 'empty' }
     else {
@@ -464,6 +490,8 @@ export default function AgentCreate() {
             </div>
           </>
         )
+      case 'Effective':
+        return <AgentEffective lines={effective} dirty={dirty} isEdit={isEdit} hasConnections={access.length > 0} onGoTo={goTo} />
       case 'Connections':
         return <AgentConnections addons={tools.addons} bindings={tools.connections} onChange={tools.setConnections} />
       case 'Tools':
@@ -639,7 +667,14 @@ export default function AgentCreate() {
               {t('create.preview')}
               {diff.length > 0 && <span className="dk-badge dk-badge--count">{diff.length}</span>}
             </Button>
+            <Button icon="flask" onClick={() => setTryOpen(true)} data-testid="agent-try-open">{t('create.try.open')}</Button>
             <Button type="submit" variant="primary" icon="save" busy={saving}>{saveLabel}</Button>
+            {isEdit && savedConfig && (
+              <ActionMenu
+                ariaLabel={t('create.more')}
+                items={[{ key: 'export', icon: 'download', label: t('create.exportButton'), onClick: () => downloadAgentFile(savedConfig, addToast, t) }]}
+              />
+            )}
           </div>
           <ul className="aed-chips" aria-label={t('create.header.summary')}>
             <li className="aed-chip"><span className="aed-chip__k">{t('create.sections.ModelSettings')}</span><span className="aed-chip__v">{form.model || t('create.anyModel')}</span></li>
@@ -745,6 +780,8 @@ export default function AgentCreate() {
         />
       )}
 
+      {tryOpen && <AgentTryIt form={form} tools={tools} models={chatModels} onClose={() => setTryOpen(false)} />}
+
       {previewOpen && (
         <PreviewSheet
           tab={previewTab}
@@ -766,35 +803,7 @@ export default function AgentCreate() {
 // eslint-disable-next-line no-unused-vars
 function PreviewSheet({ tab, onTab, payload, diff, isEdit, saving, onSave, onClose }) {
   const { t } = useTranslation('agents')
-  const sheetRef = useRef(null)
-  const closeRef = useRef(null)
-  const openerRef = useRef(null)
-  // The parent passes a fresh onClose on every render. Read it through a ref
-  // so the effect below runs once per open: re-running it would move focus to
-  // the opener and back to Close, pulling it out of the control in use.
-  const onCloseRef = useRef(onClose)
-  useEffect(() => { onCloseRef.current = onClose })
-
-  useEffect(() => {
-    openerRef.current = document.activeElement
-    closeRef.current?.focus()
-    const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCloseRef.current(); return }
-      if (e.key !== 'Tab' || !sheetRef.current) return
-      const focusable = Array.from(sheetRef.current.querySelectorAll('button:not([disabled]), [tabindex]:not([tabindex="-1"])'))
-      if (focusable.length === 0) return
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => {
-      window.removeEventListener('keydown', onKey, true)
-      const el = openerRef.current
-      if (el && document.contains(el)) el.focus?.()
-    }
-  }, [])
+  const { sheetRef, closeRef } = useSheetFocus(onClose)
 
   const shown = useCallback((v) => displayValue(maskSecrets(v)), [])
   const json = useMemo(() => JSON.stringify(maskSecrets(payload), null, 2), [payload])

@@ -75,3 +75,39 @@
 @media (max-width: 640px) {
   .aed-card .am__cards { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* The Effective view: one row per thing the agent can or cannot do. */
+.aed-eff { display: grid; gap: var(--sp-3); min-width: 0; }
+.aed-eff__sum { margin: 0; font-weight: 600; color: var(--dk-text); }
+.aed-eff__sum[data-blocked] { color: var(--dk-warn-text); }
+.aed-eff__list { display: grid; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; min-width: 0; }
+.aed-eff__row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-1) var(--sp-3); align-items: start; min-width: 0;
+  padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--dk-edge);
+}
+.aed-eff__row[data-state="blocked"] { background: var(--dk-warn-wash, var(--dk-hover)); box-shadow: inset 0 0 0 1px var(--dk-warn-text); }
+.aed-eff__icon { margin-top: 3px; color: var(--dk-muted); }
+.aed-eff__row[data-state="allowed"] .aed-eff__icon { color: var(--dk-ok-text); }
+.aed-eff__row[data-state="blocked"] .aed-eff__icon { color: var(--dk-warn-text); }
+.aed-eff__text { min-width: 0; overflow-wrap: anywhere; color: var(--dk-text); }
+.aed-eff__state { font-size: var(--fs-meta); font-weight: 600; text-transform: none; color: var(--dk-muted); }
+.aed-eff__row[data-state="blocked"] .aed-eff__state { color: var(--dk-warn-text); }
+.aed-eff__more { color: var(--dk-muted); }
+.aed-eff__code { margin-left: var(--sp-2); padding: 0 6px; border-radius: var(--r-sm); background: var(--dk-hover); color: var(--dk-muted); font-family: var(--font-mono); font-size: var(--fs-meta); }
+.aed-eff__acts { grid-column: 2; display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); min-width: 0; }
+.aed-eff__link { padding: 0; border: 0; background: none; font: inherit; font-size: var(--fs-small); color: var(--dk-accent-text); cursor: pointer; text-decoration: none; text-align: left; }
+.aed-eff__link:hover { text-decoration: underline; }
+.aed-eff__link:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; border-radius: var(--r-sm); }
+.aed-eff__link--quiet { color: var(--dk-muted); }
+
+/* The Try it sheet. */
+.aed-try { display: grid; gap: var(--sp-3); min-width: 0; }
+.aed-try__log { display: grid; gap: var(--sp-2); margin: 0; padding: var(--sp-3); list-style: none; min-width: 0; max-height: 40vh; overflow-y: auto; border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--dk-edge); }
+.aed-try__line { display: grid; gap: 2px; min-width: 0; }
+.aed-try__who { font-size: var(--fs-meta); font-weight: 600; color: var(--dk-muted); }
+.aed-try__text { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--dk-text); }
+.aed-try__line[data-role="tool"] .aed-try__text { color: var(--dk-muted); font-size: var(--fs-small); }
+.aed-try__empty { color: var(--dk-muted); font-size: var(--fs-small); }
+.aed-try__form { display: grid; gap: var(--sp-2); min-width: 0; }
+.aed-try__form .textarea { width: 100%; max-width: 100%; box-sizing: border-box; }
+.aed-try__acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }

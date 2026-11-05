@@ -83,7 +83,8 @@
       "Files": "파일",
       "Tools": "도구",
       "Notes": "메모리",
-      "Connections": "연결"
+      "Connections": "연결",
+      "Effective": "유효 보기"
     },
     "name": "Name",
     "description": "Description",
@@ -159,14 +160,16 @@
       "capabilities": "기능",
       "memory": "메모리와 지식",
       "advanced": "고급",
-      "connections": "연결"
+      "connections": "연결",
+      "effective": "유효 보기"
     },
     "lead": {
       "identity": "에이전트가 누구이고 어떻게 행동하는지 정합니다.",
       "capabilities": "에이전트가 사용하고 접근할 수 있는 것을 정합니다.",
       "memory": "에이전트가 기억하는 것과 찾아볼 수 있는 것을 정합니다.",
       "advanced": "추가 서버와 내보내기.",
-      "connections": "이 에이전트가 사용할 수 있는 연결입니다."
+      "connections": "이 에이전트가 사용할 수 있는 연결입니다.",
+      "effective": "이 에이전트가 지금 할 수 있는 일입니다."
     },
     "header": {
       "unnamed": "이름 없는 에이전트",
@@ -226,6 +229,110 @@
       "perChat": "선택 없음: 채팅마다 직접 고릅니다.",
       "summary_one": "연결 {{count}}개",
       "summary_other": "연결 {{count}}개"
+    },
+    "more": "더 많은 작업",
+    "eff": {
+      "summaryOk": "막힌 것이 없습니다.",
+      "summaryBlocked_one": "{{count}}개가 막혀 있습니다.",
+      "summaryBlocked_other": "{{count}}개가 막혀 있습니다.",
+      "unsaved": "이 목록은 저장하지 않은 변경을 포함해 지금의 양식을 따릅니다.",
+      "unsavedConn": "도구, 메모리, 지식은 지금의 양식을 따릅니다. 연결 줄은 저장된 에이전트와 저장된 연결에서 옵니다.",
+      "state": {
+        "allowed": "가능",
+        "asks": "먼저 물어봄",
+        "off": "꺼짐",
+        "blocked": "막힘",
+        "info": "참고"
+      },
+      "more_one": "외 {{count}}개",
+      "more_other": "외 {{count}}개",
+      "fixHere": "여기서 고치기",
+      "fixOpen": "고칠 수 있는 페이지 열기",
+      "model": {
+        "fixed": "{{model}}로 실행됩니다.",
+        "any": "채팅마다 고른 모델을 씁니다."
+      },
+      "tools": {
+        "none": "켜진 도구가 없습니다. 아는 것만으로 답할 수 있습니다.",
+        "some_one": "도구 {{count}}개를 쓸 수 있습니다: {{names}}.",
+        "some_other": "도구 {{count}}개를 쓸 수 있습니다: {{names}}.",
+        "blocked": "{{name}}은(는) 켜져 있지만 지금은 동작하지 않습니다. {{reason}}"
+      },
+      "skills": {
+        "some_one": "스킬 {{count}}개를 쓸 수 있습니다: {{names}}.",
+        "some_other": "스킬 {{count}}개를 쓸 수 있습니다: {{names}}."
+      },
+      "files": {
+        "all": "내 파일 전체에 접근할 수 있습니다.",
+        "folders_one": "고른 폴더 {{count}}개에만 접근할 수 있습니다.",
+        "folders_other": "고른 폴더 {{count}}개에만 접근할 수 있습니다."
+      },
+      "grants": {
+        "parentOff": "{{name}}은(는) 허용되지만 {{parent}}이(가) 꺼져 있는 동안은 동작하지 않습니다. {{parent}}을(를) 켜세요.",
+        "connection": "{{name}}은(는) 에이전트에는 허용되지만 이 연결에서는 아닙니다: {{connection}}",
+        "some_one": "추가 권한 {{count}}개가 있습니다: {{names}}.",
+        "some_other": "추가 권한 {{count}}개가 있습니다: {{names}}.",
+        "unattended_one": "아무도 보지 않을 때 권한 {{count}}개를 스스로 쓸 수 있습니다: {{names}}.",
+        "unattended_other": "아무도 보지 않을 때 권한 {{count}}개를 스스로 쓸 수 있습니다: {{names}}."
+      },
+      "memory": {
+        "userOff": "설정에서 메모리가 꺼져 있어, 여기서 무엇을 고르든 이 에이전트는 메모를 읽거나 저장하지 않습니다.",
+        "none": "메모를 보관하거나 읽지 않습니다.",
+        "mine_and_own": "내 메모와 자기 메모를 읽고 자기 메모에 저장합니다.",
+        "own": "자기 메모만 읽고 저장합니다.",
+        "mine": "내 메모를 읽고 거기에 저장합니다.",
+        "asBefore": "메모리는 이전처럼 동작합니다. 애드온이 Memory를 지정하면 메모를 읽습니다.",
+        "noGrant": "메모를 저장하도록 설정되어 있지만 기억할 권한이 꺼져 있어 저장하지 않습니다. 메모리에서 켜세요.",
+        "level": {
+          "auto": "메모가 바로 저장됩니다.",
+          "ask": "메모마다 확인을 기다립니다.",
+          "always": "메모마다 확인을 기다리며 이를 완화하는 것은 없습니다.",
+          "never": "메모를 저장하지 않습니다."
+        }
+      },
+      "knowledge": {
+        "some_one": "컬렉션 {{count}}개를 검색할 수 있습니다: {{names}}.",
+        "some_other": "컬렉션 {{count}}개를 검색할 수 있습니다: {{names}}.",
+        "none": "검색할 지식 컬렉션이 없습니다."
+      },
+      "connections": {
+        "unsaved": "아직 메시징 앱에서 쓰이지 않습니다. 에이전트를 저장한 뒤 연결을 추가하세요.",
+        "none": "어떤 메시징 앱에서도 쓰이지 않습니다.",
+        "loading": "{{name}} 확인 중...",
+        "error": "{{name}}을(를) 확인할 수 없습니다. 열어서 권한을 확인하세요.",
+        "summary": "{{name}}: 허용 {{allowed}}개, 불허 {{blocked}}개.",
+        "blocked": "{{name}}은(는) {{capability}}을(를) 쓸 수 없습니다. {{message}}"
+      }
+    },
+    "try": {
+      "open": "체험",
+      "title": "이 에이전트 체험",
+      "desc": "이 양식의 설정을 쓰는 테스트 채팅에 메시지를 보냅니다. 아무것도 저장되지 않습니다.",
+      "noModel": "설치된 채팅 모델이 없습니다. 먼저 모델을 설치하거나 고르세요.",
+      "defaultModel": "모델이 정해지지 않아 테스트는 {{model}}을(를) 씁니다.",
+      "skipped": "테스트는 {{what}}을(를) 쓰지 않습니다. 저장된 에이전트의 것입니다.",
+      "skip": {
+        "grants": "권한",
+        "memory": "메모리",
+        "knowledge": "지식 컬렉션",
+        "folders": "공유 폴더"
+      },
+      "empty": "메시지를 보내 시작하세요.",
+      "role": {
+        "user": "나",
+        "assistant": "에이전트",
+        "tool": "도구"
+      },
+      "toolRan": "도구 사용: {{name}}",
+      "working": "작업 중...",
+      "label": "에이전트에게 보낼 메시지",
+      "placeholder": "이 에이전트가 처리해야 할 것을 물어보세요",
+      "send": "보내기",
+      "stop": "중지",
+      "deleted": "이 패널을 닫으면 테스트 채팅이 삭제됩니다.",
+      "chatTitle": "{{name}} 테스트",
+      "failed": "테스트 실패: {{message}}",
+      "slow": "에이전트가 아직 작업 중입니다. 중지하거나 패널을 닫으세요."
     }
   },
   "run": {

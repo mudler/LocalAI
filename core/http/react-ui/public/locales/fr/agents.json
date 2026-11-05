@@ -83,7 +83,8 @@
       "Files": "Fichiers",
       "Tools": "Outils",
       "Notes": "Mémoire",
-      "Connections": "Connexions"
+      "Connections": "Connexions",
+      "Effective": "Vue effective"
     },
     "name": "Name",
     "description": "Description",
@@ -159,14 +160,16 @@
       "capabilities": "Capacités",
       "memory": "Mémoire et connaissances",
       "advanced": "Avancé",
-      "connections": "Connexions"
+      "connections": "Connexions",
+      "effective": "Vue effective"
     },
     "lead": {
       "identity": "Qui est l'agent et comment il se comporte.",
       "capabilities": "Ce que l'agent peut utiliser et atteindre.",
       "memory": "Ce dont l'agent se souvient et ce qu'il peut consulter.",
       "advanced": "Serveurs supplémentaires et export.",
-      "connections": "Les connexions que cet agent peut utiliser."
+      "connections": "Les connexions que cet agent peut utiliser.",
+      "effective": "Ce que cet agent peut faire en ce moment."
     },
     "header": {
       "unnamed": "Agent sans nom",
@@ -226,6 +229,110 @@
       "perChat": "Aucune cochée : chaque discussion choisit la sienne.",
       "summary_one": "{{count}} connexion",
       "summary_other": "{{count}} connexions"
+    },
+    "more": "Plus d'actions",
+    "eff": {
+      "summaryOk": "Rien n'est bloqué.",
+      "summaryBlocked_one": "{{count}} chose est bloquée.",
+      "summaryBlocked_other": "{{count}} choses sont bloquées.",
+      "unsaved": "Cette liste suit le formulaire tel qu'il est maintenant, avec les changements non enregistrés.",
+      "unsavedConn": "Les outils, la mémoire et les connaissances suivent le formulaire tel qu'il est maintenant. Les lignes de connexion viennent de l'agent enregistré et de la connexion enregistrée.",
+      "state": {
+        "allowed": "Peut",
+        "asks": "Demande d'abord",
+        "off": "Désactivé",
+        "blocked": "Bloqué",
+        "info": "Remarque"
+      },
+      "more_one": "et {{count}} de plus",
+      "more_other": "et {{count}} de plus",
+      "fixHere": "Corriger ici",
+      "fixOpen": "Ouvrir la page qui le corrige",
+      "model": {
+        "fixed": "Fonctionne avec {{model}}.",
+        "any": "Utilise le modèle choisi dans chaque discussion."
+      },
+      "tools": {
+        "none": "Aucun outil n'est activé. Il ne peut répondre qu'avec ce qu'il sait.",
+        "some_one": "Peut utiliser {{count}} outil : {{names}}.",
+        "some_other": "Peut utiliser {{count}} outils : {{names}}.",
+        "blocked": "{{name}} est activé mais ne peut pas fonctionner pour l'instant. {{reason}}"
+      },
+      "skills": {
+        "some_one": "Peut utiliser {{count}} compétence : {{names}}.",
+        "some_other": "Peut utiliser {{count}} compétences : {{names}}."
+      },
+      "files": {
+        "all": "Peut accéder à tous vos fichiers.",
+        "folders_one": "Ne peut accéder qu'au {{count}} dossier choisi.",
+        "folders_other": "Ne peut accéder qu'aux {{count}} dossiers choisis."
+      },
+      "grants": {
+        "parentOff": "{{name}} est autorisé, mais ne fonctionne pas tant que {{parent}} est désactivé. Activez {{parent}}.",
+        "connection": "{{name}} est autorisé pour l'agent, mais pas sur cette connexion : {{connection}}",
+        "some_one": "A {{count}} droit supplémentaire : {{names}}.",
+        "some_other": "A {{count}} droits supplémentaires : {{names}}.",
+        "unattended_one": "Quand personne ne regarde, il peut utiliser {{count}} droit seul : {{names}}.",
+        "unattended_other": "Quand personne ne regarde, il peut utiliser {{count}} droits seul : {{names}}."
+      },
+      "memory": {
+        "userOff": "La mémoire est désactivée dans vos réglages : cet agent ne lit ni n'enregistre de notes, quoi qu'il choisisse ici.",
+        "none": "Ne garde et ne lit aucune note.",
+        "mine_and_own": "Lit vos notes et les siennes, et enregistre dans les siennes.",
+        "own": "Lit et enregistre seulement ses propres notes.",
+        "mine": "Lit vos notes et y enregistre.",
+        "asBefore": "La mémoire fonctionne comme avant : il lit les notes quand un module nomme Memory.",
+        "noGrant": "Il doit enregistrer des notes, mais le droit de mémoriser est désactivé, donc il n'en enregistre aucune. Activez-le dans Mémoire.",
+        "level": {
+          "auto": "Les notes sont enregistrées tout de suite.",
+          "ask": "Chaque note attend votre confirmation.",
+          "always": "Chaque note attend votre confirmation, et rien ne l'assouplit.",
+          "never": "Il n'enregistre aucune note."
+        }
+      },
+      "knowledge": {
+        "some_one": "Peut chercher dans {{count}} collection : {{names}}.",
+        "some_other": "Peut chercher dans {{count}} collections : {{names}}.",
+        "none": "Aucune collection de connaissances où chercher."
+      },
+      "connections": {
+        "unsaved": "Pas encore utilisé dans une messagerie. Enregistrez l'agent, puis ajoutez une connexion.",
+        "none": "Utilisé dans aucune messagerie.",
+        "loading": "Vérification de {{name}}...",
+        "error": "Impossible de vérifier {{name}}. Ouvrez-la pour voir ses autorisations.",
+        "summary": "{{name}} : {{allowed}} autorisés, {{blocked}} non autorisés.",
+        "blocked": "{{name}} ne peut pas utiliser {{capability}}. {{message}}"
+      }
+    },
+    "try": {
+      "open": "Essayer",
+      "title": "Essayer cet agent",
+      "desc": "Envoyez un message à une discussion de test qui utilise les réglages de ce formulaire. Rien n'est enregistré.",
+      "noModel": "Aucun modèle de discussion n'est installé. Installez ou choisissez d'abord un modèle.",
+      "defaultModel": "Aucun modèle n'est défini, le test utilise donc {{model}}.",
+      "skipped": "Le test n'utilise pas : {{what}}. Cela appartient à un agent enregistré.",
+      "skip": {
+        "grants": "autorisations",
+        "memory": "mémoire",
+        "knowledge": "collections de connaissances",
+        "folders": "dossiers partagés"
+      },
+      "empty": "Envoyez un message pour commencer.",
+      "role": {
+        "user": "Vous",
+        "assistant": "Agent",
+        "tool": "Outil"
+      },
+      "toolRan": "A utilisé un outil : {{name}}",
+      "working": "En cours...",
+      "label": "Message à l'agent",
+      "placeholder": "Demandez quelque chose que cet agent doit savoir faire",
+      "send": "Envoyer",
+      "stop": "Arrêter",
+      "deleted": "La discussion de test est supprimée à la fermeture de ce panneau.",
+      "chatTitle": "Test de {{name}}",
+      "failed": "Le test a échoué : {{message}}",
+      "slow": "L'agent travaille encore. Arrêtez-le ou fermez le panneau."
     }
   },
   "run": {

@@ -83,7 +83,8 @@
       "Files": "Archivos",
       "Tools": "Herramientas",
       "Notes": "Memoria",
-      "Connections": "Conexiones"
+      "Connections": "Conexiones",
+      "Effective": "Vista efectiva"
     },
     "name": "Name",
     "description": "Description",
@@ -159,14 +160,16 @@
       "capabilities": "Capacidades",
       "memory": "Memoria y conocimiento",
       "advanced": "Avanzado",
-      "connections": "Conexiones"
+      "connections": "Conexiones",
+      "effective": "Vista efectiva"
     },
     "lead": {
       "identity": "Quién es el agente y cómo se comporta.",
       "capabilities": "Lo que el agente puede usar y alcanzar.",
       "memory": "Lo que el agente recuerda y lo que puede consultar.",
       "advanced": "Servidores adicionales y exportación.",
-      "connections": "Qué conexiones puede usar este agente."
+      "connections": "Qué conexiones puede usar este agente.",
+      "effective": "Lo que este agente puede hacer ahora."
     },
     "header": {
       "unnamed": "Agente sin nombre",
@@ -226,6 +229,110 @@
       "perChat": "Ninguna marcada: cada chat elige la suya.",
       "summary_one": "{{count}} conexión",
       "summary_other": "{{count}} conexiones"
+    },
+    "more": "Más acciones",
+    "eff": {
+      "summaryOk": "Nada está bloqueado.",
+      "summaryBlocked_one": "{{count}} cosa está bloqueada.",
+      "summaryBlocked_other": "{{count}} cosas están bloqueadas.",
+      "unsaved": "Esta lista sigue el formulario tal como está ahora, con los cambios sin guardar.",
+      "unsavedConn": "Herramientas, memoria y conocimiento siguen el formulario tal como está ahora. Las líneas de conexiones vienen del agente guardado y de la conexión guardada.",
+      "state": {
+        "allowed": "Puede",
+        "asks": "Pregunta antes",
+        "off": "Desactivado",
+        "blocked": "Bloqueado",
+        "info": "Nota"
+      },
+      "more_one": "y {{count}} más",
+      "more_other": "y {{count}} más",
+      "fixHere": "Corregirlo aquí",
+      "fixOpen": "Abrir la página que lo corrige",
+      "model": {
+        "fixed": "Se ejecuta con {{model}}.",
+        "any": "Usa el modelo elegido en cada chat."
+      },
+      "tools": {
+        "none": "No hay herramientas activadas. Solo puede responder con lo que sabe.",
+        "some_one": "Puede usar {{count}} herramienta: {{names}}.",
+        "some_other": "Puede usar {{count}} herramientas: {{names}}.",
+        "blocked": "{{name}} está activado pero no puede funcionar ahora. {{reason}}"
+      },
+      "skills": {
+        "some_one": "Puede usar {{count}} habilidad: {{names}}.",
+        "some_other": "Puede usar {{count}} habilidades: {{names}}."
+      },
+      "files": {
+        "all": "Puede acceder a todos sus archivos.",
+        "folders_one": "Solo puede acceder a la {{count}} carpeta elegida.",
+        "folders_other": "Solo puede acceder a las {{count}} carpetas elegidas."
+      },
+      "grants": {
+        "parentOff": "{{name}} está permitido, pero no funciona mientras {{parent}} esté desactivado. Active {{parent}}.",
+        "connection": "{{name}} está permitido para el agente, pero no en esta conexión: {{connection}}",
+        "some_one": "Tiene {{count}} permiso adicional: {{names}}.",
+        "some_other": "Tiene {{count}} permisos adicionales: {{names}}.",
+        "unattended_one": "Cuando nadie mira, puede usar {{count}} permiso por su cuenta: {{names}}.",
+        "unattended_other": "Cuando nadie mira, puede usar {{count}} permisos por su cuenta: {{names}}."
+      },
+      "memory": {
+        "userOff": "La memoria está desactivada en sus ajustes, así que este agente no lee ni guarda notas, elija lo que elija aquí.",
+        "none": "No guarda ni lee notas.",
+        "mine_and_own": "Lee sus notas y las suyas, y guarda en las suyas.",
+        "own": "Lee y guarda solo sus propias notas.",
+        "mine": "Lee sus notas y guarda en ellas.",
+        "asBefore": "La memoria funciona como antes: lee notas cuando un complemento nombra Memory.",
+        "noGrant": "Está configurado para guardar notas, pero el permiso de recordar cosas está desactivado, así que no guarda ninguna. Actívelo en Memoria.",
+        "level": {
+          "auto": "Las notas se guardan al instante.",
+          "ask": "Cada nota espera su confirmación.",
+          "always": "Cada nota espera su confirmación y nada lo relaja.",
+          "never": "No guarda notas."
+        }
+      },
+      "knowledge": {
+        "some_one": "Puede buscar en {{count}} colección: {{names}}.",
+        "some_other": "Puede buscar en {{count}} colecciones: {{names}}.",
+        "none": "No hay colecciones de conocimiento donde buscar."
+      },
+      "connections": {
+        "unsaved": "Aún no se usa en aplicaciones de mensajería. Guarde el agente y añada una conexión.",
+        "none": "No se usa en ninguna aplicación de mensajería.",
+        "loading": "Comprobando {{name}}...",
+        "error": "No se pudo comprobar {{name}}. Ábrala para ver sus permisos.",
+        "summary": "{{name}}: {{allowed}} permitidos, {{blocked}} no permitidos.",
+        "blocked": "{{name}} no puede usar {{capability}}. {{message}}"
+      }
+    },
+    "try": {
+      "open": "Probar",
+      "title": "Probar este agente",
+      "desc": "Envíe un mensaje a un chat de prueba que usa los ajustes de este formulario. No se guarda nada.",
+      "noModel": "No hay ningún modelo de chat instalado. Instale o elija un modelo primero.",
+      "defaultModel": "No hay modelo definido, así que la prueba usa {{model}}.",
+      "skipped": "La prueba no usa: {{what}}. Eso pertenece a un agente guardado.",
+      "skip": {
+        "grants": "permisos",
+        "memory": "memoria",
+        "knowledge": "colecciones de conocimiento",
+        "folders": "carpetas compartidas"
+      },
+      "empty": "Envíe un mensaje para empezar.",
+      "role": {
+        "user": "Usted",
+        "assistant": "Agente",
+        "tool": "Herramienta"
+      },
+      "toolRan": "Usó una herramienta: {{name}}",
+      "working": "Trabajando...",
+      "label": "Mensaje al agente",
+      "placeholder": "Pregunte algo que este agente deba resolver",
+      "send": "Enviar",
+      "stop": "Detener",
+      "deleted": "El chat de prueba se elimina al cerrar este panel.",
+      "chatTitle": "Prueba de {{name}}",
+      "failed": "La prueba falló: {{message}}",
+      "slow": "El agente sigue trabajando. Deténgalo o cierre el panel."
     }
   },
   "run": {

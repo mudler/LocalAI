@@ -527,6 +527,9 @@ export const chatConnectorsApi = {
   kinds: () => fetchJSON('/api/chats/connectors/kinds'),
   enable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/enable`, {}),
   disable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/disable`, {}),
+  // What each kind of sender may do on a connection, for the state in the body
+  // (agent_id, caps, allow...). Writes nothing; fields left out keep the saved value.
+  accessPreview: (id, body) => postJSON(`/api/chats/connectors/${enc2(id)}/access/preview`, body || {}),
 }
 
 // Triggers: work that starts by itself, as the user, in a new chat.
