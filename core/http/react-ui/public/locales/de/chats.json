@@ -802,6 +802,11 @@
       "embed_one": "1 Textstelle wird mit {{model}} eingebettet.",
       "embed_other": "Etwa {{count}} Textstellen werden mit {{model}} eingebettet.",
       "serverModel": "dem Einbettungsmodell des Servers"
+    },
+    "warning": {
+      "title": "Prüfe diesen Text, bevor du bestätigst.",
+      "secret": "Er enthält möglicherweise ein Geheimnis, etwa einen Schlüssel, ein Token oder ein Passwort. Nach dem Hinzufügen kann jeder Chat, der diese Sammlung durchsucht, es lesen. Ein Messaging-Chat kann ihn nicht bestätigen; nur du, hier.",
+      "other": "Der Server hat diesen Text als riskant markiert. Ein Messaging-Chat kann ihn nicht bestätigen; nur du, hier."
     }
   },
   "proposalsPage": {
@@ -1051,6 +1056,19 @@
         "builtinBody": "Einfache Dateien in deinem Ordner „Memory“. Nichts verlässt diesen Rechner.",
         "offBody": "Nichts wird gelesen, angeboten, gespeichert oder gesendet. Vorhandene Notizen bleiben erhalten."
       }
+    },
+    "healthTitle": "Der Anbieter pausiert",
+    "forget": {
+      "lede": "Bitte {{name}}, die Notizen zu vergessen, die er für dich speichert. Deine Dateien im Ordner Memory bleiben unberührt.",
+      "action": "Alles dieses Anbieters vergessen",
+      "confirmTitle": "Alles von {{name}} vergessen?",
+      "confirmBody": "{{name}} wird gebeten, jede Notiz zu vergessen, die er für dich speichert. Er kann die Änderung zurückhalten, bis du sie auf der Seite Add-ons bestätigst.",
+      "confirmBodyFinal": "{{name}} wird gebeten, jede Notiz zu vergessen, die er für dich speichert. Das lässt sich nicht rückgängig machen.",
+      "confirm": "Alles vergessen",
+      "pending": "Wird vergessen...",
+      "done": "{{name}} hat seine Notizen vergessen",
+      "waiting": "Die Änderung wartet auf deine Bestätigung auf der Seite Add-ons",
+      "failed": "Der Anbieter konnte nicht vergessen: {{message}}"
     }
   }
 }

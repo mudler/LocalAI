@@ -3,6 +3,7 @@ package studio
 
 import (
 	"github.com/mudler/LocalAI/core/schema"
+	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,5 +43,37 @@ var _ = Describe("translated connector kinds", func() {
 		k := kind()
 		translateKind(&k, nil, "it", "it")
 		Expect(k).To(Equal(kind()))
+	})
+})
+
+var _ = Describe("translated capability and refusal text", func() {
+	ci := contract.CapabilityInfo{Name: contract.CapMemoryWrite, Title: "Save to memory", Description: "The agent may remember."}
+	It("keeps the English fields and adds the negotiated language beside them", func() {
+		out := capabilityOut(ci, "it")
+		Expect(out.Title).To(Equal("Save to memory"))
+		Expect(out.Language).To(Equal("it"))
+		Expect(out.LocalizedTitle).To(Equal("Salva in memoria"))
+		Expect(out.LocalizedDescription).NotTo(BeEmpty())
+	})
+	It("adds nothing for English", func() {
+		out := capabilityOut(ci, "")
+		Expect(out.Language).To(BeEmpty())
+		Expect(out.LocalizedTitle).To(BeEmpty())
+	})
+	It("adds a localized message by code and leaves the code and the English message", func() {
+		v := studiosvc.AccessView{Binding: "b", Subjects: []studiosvc.AccessSubjectView{{ID: "listed", Decisions: []studiosvc.Decision{
+			{Capability: contract.CapFilesUpload, Code: studiosvc.CodeConnectionPermissionOff, Message: "English text"},
+			{Capability: contract.CapFilesUpload, Allowed: true},
+			{Capability: contract.CapFilesUpload, Reason: "a rule of the feature"},
+		}}}}
+		out := accessOut(v, "fr")
+		Expect(out.Language).To(Equal("fr"))
+		d := out.Subjects[0].Decisions
+		Expect(d[0].Code).To(Equal("connection_permission_off"))
+		Expect(d[0].Message).To(Equal("English text"))
+		Expect(d[0].LocalizedMessage).To(ContainSubstring("recevoir des fichiers"))
+		Expect(d[1].LocalizedMessage).To(BeEmpty())
+		Expect(d[2].LocalizedMessage).To(BeEmpty())
+		Expect(accessOut(v, "").Subjects[0].Decisions[0].LocalizedMessage).To(BeEmpty())
 	})
 })

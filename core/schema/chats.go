@@ -1336,6 +1336,10 @@ type ChatsConnector struct {
 	// language of the sender's message), en, it, de, es, fr or pt-BR. The
 	// answers of the model follow the conversation, not this setting.
 	ReplyLanguage string `json:"reply_language"`
+	// UILanguage is the interface language the owner's page last sent, such as
+	// it or pt-BR. With reply_language auto, the bot speaks in it before it
+	// reads the language of the sender. Absent when the server was not told.
+	UILanguage string `json:"ui_language,omitempty"`
 	// Options are the choices made for the options of the kind, by option id.
 	// An option that is absent has its default (see ChatsConnectorKind).
 	Options map[string]string `json:"options,omitempty"`
@@ -1432,6 +1436,11 @@ type ChatsConnectorAccessDecision struct {
 	BlockedBy string `json:"blocked_by,omitempty"`
 	// Message is one plain sentence for the owner. It names no setting.
 	Message string `json:"message,omitempty"`
+	// LocalizedMessage is message in the language of the request (see
+	// ChatsConnectorAccess.Language), found by code. Absent when the
+	// language is English or the code has no translation; message stays
+	// English and code stays unchanged.
+	LocalizedMessage string `json:"localized_message,omitempty"`
 	// Fix points at the one place that solves it. The server sends no URL.
 	Fix *ChatsConnectorAccessFix `json:"fix,omitempty"`
 	// ThenCheck lists the links after the first problem that were not
@@ -1483,6 +1492,10 @@ type ChatsConnectorAccess struct {
 	Recent   []ChatsConnectorAccessEvent   `json:"recent"`
 	// Preview is true when the view is for a form that is not saved.
 	Preview bool `json:"preview,omitempty"`
+	// Language is the language of the localized_message fields, negotiated
+	// from the lang query parameter, then Accept-Language. Absent for
+	// English.
+	Language string `json:"language,omitempty"`
 }
 
 // ChatsConnectorAccessPreviewRequest is the state of a connection form that
@@ -1526,6 +1539,13 @@ type ChatsConnectorCapability struct {
 	Sensitive bool `json:"sensitive"`
 	// Usual capabilities are what a one-click preset turns on.
 	Usual bool `json:"usual"`
+	// Language is the language of localized_title and localized_description:
+	// the one the request asked for (lang, else Accept-Language) among the
+	// translated ones. Absent for English and for a language with no
+	// translation; title and description stay English.
+	Language             string `json:"language,omitempty"`
+	LocalizedTitle       string `json:"localized_title,omitempty"`
+	LocalizedDescription string `json:"localized_description,omitempty"`
 }
 
 // ChatsConnectorPermission is a capability that a kind lists. Sensitive ones
@@ -1585,6 +1605,12 @@ type ChatsConnectorKind struct {
 	// AgentOptional is true when a binding of this kind may have no agent. It
 	// then only holds credentials (token, resource list, write mode).
 	AgentOptional bool `json:"agent_optional,omitempty"`
+	// WildcardResources is true when a binding of this kind may list owner/*
+	// or * as resources; * needs confirm_any_resource.
+	WildcardResources bool `json:"wildcard_resources,omitempty"`
+	// TokenGuards say which tokens of this kind are held back until the
+	// binding chooses an option, and the confirm_wider_token text it needs.
+	TokenGuards []ChatsConnectorTokenGuard `json:"token_guards,omitempty"`
 	// ThreadHistory is true when the platform can give the earlier messages
 	// of a thread. The host then reads them whenever the bot is mentioned in a
 	// thread.
@@ -1599,6 +1625,15 @@ type ChatsConnectorKind struct {
 	// the grants of a binding.
 	Roles       []ChatsConnectorRole       `json:"roles,omitempty"`
 	Permissions []ChatsConnectorPermission `json:"permissions,omitempty"`
+}
+
+// ChatsConnectorTokenGuard holds back tokens that start with Prefix until the
+// binding sets the option Option to Allow, in a request that also carries
+// confirm_wider_token.
+type ChatsConnectorTokenGuard struct {
+	Prefix string `json:"prefix"`
+	Option string `json:"option"`
+	Allow  string `json:"allow"`
 }
 
 // ChatsConnectorOption is one choice of a connector kind.
@@ -1651,6 +1686,11 @@ type ChatsConnectorWrite struct {
 	// ReplyLanguage is auto, en, it, de, es, fr or pt-BR. Absent means auto
 	// for a new binding and unchanged for an update.
 	ReplyLanguage *string `json:"reply_language,omitempty" enums:"auto,en,it,de,es,fr,pt-BR"`
+	// UILanguage is the interface language of the person who saves the
+	// binding (a language tag such as it or pt-BR). The page of the add-on
+	// sends it with each save. Absent or empty keeps the stored value; a value
+	// that is not a language tag is ignored.
+	UILanguage *string `json:"ui_language,omitempty"`
 	// SendFiles turns the sending of a turn's files on or off. Absent means
 	// on for a new binding and unchanged for an update.
 	SendFiles *bool `json:"send_files,omitempty"`
@@ -1676,6 +1716,14 @@ type ChatsConnectorWrite struct {
 	// with this binding, such as "owner/repo", at most 50. Absent means none
 	// for a new binding and unchanged for an update; an empty list clears it.
 	Resources []string `json:"resources,omitempty"`
+	// ConfirmAnyResource must be the exact text "allow any resource" in the
+	// request that adds the entry * to resources. A kind that lists
+	// wildcard_resources lets resources hold owner/* and *.
+	ConfirmAnyResource string `json:"confirm_any_resource,omitempty"`
+	// ConfirmWiderToken must be the exact text "accept wider token" in the
+	// request that chooses the option a token guard of the kind names (for
+	// example a classic access token). The token is refused without it.
+	ConfirmWiderToken string `json:"confirm_wider_token,omitempty"`
 	// Channels are the chats of the platform where the agent may write
 	// besides the conversation, at most 10: {id, label, approved}. A channel
 	// that is not approved needs a paired sender for each message. Absent

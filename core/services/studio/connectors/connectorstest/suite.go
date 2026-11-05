@@ -90,6 +90,19 @@ func Run(newStore NewStore) {
 		Expect(again.ReplyLanguage).To(BeEmpty())
 		Expect(again.ReplyLang()).To(Equal("auto"))
 	})
+	It("keeps the interface language of the owner, and reads a binding stored without one as unknown", func() {
+		s := newStore()
+		b := binding("ui", "u1", "Interface")
+		b.UILanguage = "zh-CN"
+		Expect(s.PutBinding(ctx, b)).To(Succeed())
+		got, err := s.GetBinding(ctx, "ui")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.UILanguage).To(Equal("zh-CN"))
+		other := binding("none", "u1", "Plain")
+		Expect(s.PutBinding(ctx, other)).To(Succeed())
+		plain, _ := s.GetBinding(ctx, "none")
+		Expect(plain.UILanguage).To(BeEmpty())
+	})
 	It("accepts auto and the languages of the catalog, and refuses any other reply language", func() {
 		base := connectors.Binding{Name: "n", Kind: "k", AgentID: "a"}
 		for _, l := range []string{"", "auto", "en", "it", "de", "es", "fr", "pt-BR"} {

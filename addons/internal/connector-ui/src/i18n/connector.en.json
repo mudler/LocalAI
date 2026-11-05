@@ -15,7 +15,7 @@
   "answer.windowRange": "Use a whole number from 1 to {{max}}.",
   "answer.languageLabel": "Reply language",
   "answer.languageHelp": "The notes the bot writes itself, like confirmations and refusals. The answers of the model follow the language of the conversation.",
-  "answer.language.auto": "Automatic (the language of the sender)",
+  "answer.language.auto": "Automatic (your interface language, else the language of the sender)",
   "answer.language.en": "English",
   "answer.language.it": "Italiano",
   "answer.language.de": "Deutsch",

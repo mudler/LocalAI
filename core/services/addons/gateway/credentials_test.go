@@ -62,9 +62,10 @@ var _ = Describe("a read of an add-on that declares credentials", Label("tools")
 	defs := []contract.ToolDefinition{
 		{Name: "read-file", Kind: "read", Description: "x", InputSchema: json.RawMessage(`{"type":"object","properties":{"repo":{"type":"string"}},"required":["repo"],"additionalProperties":false}`)},
 		{Name: "whoami", Kind: "read", Description: "x", InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)},
+		{Name: "list-repos", Kind: "read", Enumerates: true, Description: "x", InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)},
 		{Name: "page-settings", Kind: "read", UIOnly: true, Description: "x", InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)},
 	}
-	source := credCaps{capSet{toolSet: toolSet{gen: 1, tools: map[string][]string{"sample": {"read-file", "whoami", "page-settings"}}}, defs: defs}}
+	source := credCaps{capSet{toolSet: toolSet{gen: 1, tools: map[string][]string{"sample": {"read-file", "whoami", "list-repos", "page-settings"}}}, defs: defs}}
 	var (
 		g      *Gateway
 		client *envClient
@@ -112,6 +113,20 @@ var _ = Describe("a read of an add-on that declares credentials", Label("tools")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(client.seen[0].Credential).To(Equal("secret"))
 		Expect(client.seen[0].ResourceKey).To(BeEmpty())
+	})
+
+	It("asks the source for the whole reach (*) for a tool that enumerates, and refuses it when the list is not *", func() {
+		creds.allowed["*"] = "r-aaaaaaaaaa"
+		_, err := read(g, contract.Request{Arguments: json.RawMessage(`{"tool":"list-repos"}`)})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(creds.calls).To(Equal([]string{"alice|sample|*"}))
+		Expect(client.seen[0].ResourceKey).To(Equal("*"))
+		delete(creds.allowed, "*")
+		_, err = read(g, contract.Request{Arguments: json.RawMessage(`{"tool":"list-repos"}`)})
+		var refusal *CredentialRefusal
+		Expect(errors.As(err, &refusal)).To(BeTrue())
+		Expect(refusal.Code).To(Equal(CodeResourceNotAllowed))
+		Expect(client.reads.Load()).To(Equal(int32(1)))
 	})
 
 	It("gives a tool of the add-on's own page no credential and asks the source for none", func() {

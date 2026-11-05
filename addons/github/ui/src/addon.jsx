@@ -7,7 +7,7 @@ import Icon from '../../../internal/host-compat/src/components/Icon'
 import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
 import { pageLocale } from '../../../internal/connector-ui/src/connector'
 import { connectorsApi } from '../../../internal/connector-ui/src/api'
-import { Field, Notice, RadioCards, TextInput } from '../../../internal/connector-ui/src/controls'
+import { Check, Field, Notice, RadioCards, TextInput } from '../../../internal/connector-ui/src/controls'
 import en from './i18n/github.en.json'
 import it from './i18n/github.it.json'
 import es from './i18n/github.es.json'
@@ -18,7 +18,7 @@ import id from './i18n/github.id.json'
 import ko from './i18n/github.ko.json'
 import pt from './i18n/github.pt-BR.json'
 import ProposalCard from './ProposalCard'
-import { checkFailure, checkItem, extraBody, extraForm, extraValid, followName, githubSecret, parseRepos, PERMISSIONS, reposIssue, tokenProblem, WRITE_MODES, writeModeOf } from './repos'
+import { ANY_REPO, checkFailure, checkItem, CLASSIC_PREFIX, extraBody, extraForm, extraValid, followName, githubSecret, hasAnyRepo, parseRepos, PERMISSIONS, reposIssue, tokenProblem, WRITE_MODES, writeModeOf } from './repos'
 import { finishTest, resultOf, startTest, subscribe } from './results'
 import './github.css'
 
@@ -35,18 +35,36 @@ function TokenLink({ t, className, label }) {
   )
 }
 
-// The fine-grained token. It is typed only to replace it.
+// The access token. It is typed only to replace it. A fine-grained token is
+// the default; a classic one (ghp_) is taken only after the person allows it
+// here and ticks the warning. The host refuses it otherwise.
 function GitHubToken({ form, setForm, t }) {
   const problem = tokenProblem(form)
   const hint = <>{t('tokenHelp')}{!form.id && <>{' '}<TokenLink t={t} className="gh-link" /></>}</>
+  const typedClassic = (form.token || '').trim().startsWith(CLASSIC_PREFIX)
+  const askClassic = Boolean(form.classic_token) || typedClassic
   return (
-    <Field label={t('token')} hint={hint} error={problem ? t(problem) : undefined}>
-      {(p) => (
-        <TextInput {...p} mono type="password" autoComplete="off" value={form.token || ''} required={!form.id}
-          placeholder={form.id ? t('tokenSaved') : ''}
-          onChange={(e) => setForm({ ...form, token: e.target.value })} />
+    <>
+      <Field label={t('token')} hint={hint} error={problem ? t(problem) : undefined}>
+        {(p) => (
+          <TextInput {...p} mono type="password" autoComplete="off" value={form.token || ''} required={!form.id}
+            placeholder={form.id ? t('tokenSaved') : ''}
+            onChange={(e) => setForm({ ...form, token: e.target.value })} />
+        )}
+      </Field>
+      {askClassic && (
+        <div data-testid="github-classic" className="gh-classic">
+          <Check checked={Boolean(form.classic_token)} testId="github-classic-allow"
+            onChange={(on) => setForm({ ...form, classic_token: on, classic_ack: on ? form.classic_ack : false })}>{t('classic.allow')}</Check>
+          {form.classic_token && (
+            <Notice tone="warn" role="alert" testId="github-classic-warning" className="gh-note">
+              <p className="cn-notice__text">{t('classic.warning')}</p>
+              {!form.classic_was && <Check checked={Boolean(form.classic_ack)} testId="github-classic-ack" onChange={(on) => setForm({ ...form, classic_ack: on })}>{t('classic.confirm')}</Check>}
+            </Notice>
+          )}
+        </div>
       )}
-    </Field>
+    </>
   )
 }
 
@@ -61,9 +79,15 @@ function GitHubFields({ form, setForm, t }) {
       <Field label={t('repos')} hint={t('reposHelp', { count })} error={issue ? t(issue.key, { entry: issue.entry }) : undefined}>
         {(p) => (
           <textarea {...p} className="cn-input cn-input--mono" rows={5} data-testid="github-repos" value={form.repos_text || ''}
-            placeholder="owner/name" onChange={(e) => change(e.target.value)} />
+            placeholder={'owner/name\nowner/*'} onChange={(e) => change(e.target.value)} />
         )}
       </Field>
+      {hasAnyRepo(form.repos_text) && !issue && (
+        <Notice tone="warn" role="alert" testId="github-any-warning" className="gh-note">
+          <p className="cn-notice__text">{t('any.warning')}</p>
+          {!form.any_was && <Check checked={Boolean(form.any_ack)} testId="github-any-ack" onChange={(on) => setForm({ ...form, any_ack: on })}>{t('any.confirm')}</Check>}
+        </Notice>
+      )}
       <WriteMode form={form} setForm={setForm} t={t} />
     </>
   )
@@ -156,11 +180,12 @@ function Checks({ c, t }) {
 
 function RowInfo({ c, t }) {
   const repos = c.resources || []
+  const anyRepo = repos.includes(ANY_REPO)
   const shown = Boolean(resultOf(c.id)) && repos.length > 0
   const mode = writeModeOf(c.write_mode)
   return (
     <>
-      {!shown && <span className="cn-muted" data-testid="github-row-repos">{repos.length === 0 ? t('noRepos') : t('reposOf', { count: repos.length, list: repos.join(', ') })}</span>}
+      {!shown && <span className="cn-muted" data-testid="github-row-repos">{repos.length === 0 ? t('noRepos') : anyRepo ? t('anyRepos') : t('reposOf', { count: repos.length, list: repos.join(', ') })}</span>}
       <span><span className={`gh-chip gh-chip--${mode}`} data-testid="github-row-write">{t(`writeMode.row.${mode}`)}</span></span>
       <Checks c={c} t={t} />
     </>
@@ -185,6 +210,24 @@ async function testExtra(c, t) {
   const items = []
   for (const repo of c.resources || []) {
     let r
+    if (repo === ANY_REPO) {
+      // The whole reach of the token: ask GitHub, through the host, what it lists.
+      try {
+        const res = await getSdk().api.read({ arguments: { tool: 'list-repos', perPage: 100 } })
+        const n = (res?.data?.items || []).length
+        r = { repo, wildcard: 'any', count: n, more: Boolean(res?.data?.next) }
+      } catch (e) {
+        r = { repo, failed: checkFailure(e) }
+      }
+      const i = checkItem(r)
+      items.push({ repo, tone: i.tone, text: t(i.key, i.vars) })
+      continue
+    }
+    if (repo.endsWith('/*')) {
+      const i = checkItem({ repo, wildcard: 'owner' })
+      items.push({ repo, tone: i.tone, text: t(i.key, i.vars) })
+      continue
+    }
     try {
       const res = await getSdk().api.read({ arguments: { tool: 'check', repo } })
       r = res?.data ? { ...res.data, repo } : { repo, reachable: false }

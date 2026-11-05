@@ -78,6 +78,21 @@ func (s *Service) knowledgeBlock(ctx context.Context, user, agentID string) (cod
 	return "", ""
 }
 
+// knowledgeWarning is the threat scan of a knowledge proposal. A text that
+// reaches a collection is read back by every chat that searches it, so a secret
+// in it would leak and a wrong text would mislead. It uses the same secret
+// patterns as the check that holds a memory note back from "Save it and tell
+// me" (secretLike). It returns a code of ChangeProposal.Warning, or "".
+func knowledgeWarning(p contract.ChangeProposal) string {
+	if p.Kind != contract.ChangeKnowledge {
+		return ""
+	}
+	if secretLike.MatchString(p.Summary) || secretLike.MatchString(p.Content) {
+		return contract.WarningSecret
+	}
+	return ""
+}
+
 func validCollectionName(n string) bool {
 	if n == "" || len(n) > maxCollectionName || !utf8.ValidString(n) {
 		return false

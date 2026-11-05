@@ -306,6 +306,33 @@ func (s *Service) memoryReads(ctx context.Context, rec session.ChatRecord, sc *s
 	return sc == nil || sc.memory != "" || sc.addons[MemoryAddonID]
 }
 
+// personalNotesOpen says whether a chat may read the owner's personal notes
+// (the user and agent scopes of the notes). The agent profile is not one of
+// them: it holds the standing rules of the agent, like its instructions, and
+// every sender gets it. A chat
+// outside a messaging app always may. A messaging chat may only when the
+// sender is paired with the bot; an allowlisted sender who is not paired, a
+// sender let in through a channel, a turn with no known sender and a grant
+// that expired all read none. The notes of the conversation itself (the
+// channel scope) are not personal notes and are never held back here. This is
+// the read side of the rule that memoryChatScopes enforces on writes.
+func (s *Service) personalNotesOpen(rec session.ChatRecord) bool {
+	if rec.Origin != session.OriginConnector {
+		return true
+	}
+	_, paired := s.messagingFacts(rec.ID)
+	return paired
+}
+
+// withoutPersonalNotes drops the user and agent index files of the notes from
+// a list of sources, for the ids that serve the notes. The channel files and
+// the sources of other add-ons stay.
+func withoutPersonalNotes(sources []contextfiles.Source, ids ...string) []contextfiles.Source {
+	return slices.DeleteFunc(slices.Clone(sources), func(src contextfiles.Source) bool {
+		return src.Scope != contextfiles.ScopeChannel && slices.Contains(ids, src.ID)
+	})
+}
+
 // agentMemory is the choice of notes of a saved agent: one of the agents.Memory
 // values, or empty for a chat without an agent, an agent that cannot be read
 // and an agent saved before the choice ("as before").

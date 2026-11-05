@@ -61,6 +61,22 @@ var _ = Describe("why a capability is blocked on a connection", func() {
 	}
 	const propose = contract.CapTriggersPropose
 
+	It("says that the owner's personal notes are read only for a paired sender, in the saved view and the preview", func() {
+		setup(contract.CapMemoryWrite)
+		for name, v := range map[string]studio.AccessView{"saved": saved(), "preview": preview(studio.AccessDraft{})} {
+			Expect(decision(v, "paired", studio.NotesReadCapability).Allowed).To(BeTrue(), name)
+			for _, kind := range []string{"listed", "anyone", "role:writer"} {
+				d := decision(v, kind, studio.NotesReadCapability)
+				Expect(d.Allowed).To(BeFalse(), name+" "+kind)
+				Expect(d.Code).To(Equal(studio.CodeSenderNeedsPairing), name+" "+kind)
+				Expect(d.BlockedBy).To(Equal(studio.BySender))
+				Expect(d.Fix).To(Equal(&studio.Fix{Kind: studio.FixPairSender, Target: "pairing"}))
+				Expect(d.Message).To(Equal("This person needs to be paired with this bot before the bot can read the owner's personal notes for them."))
+				Expect(d.Say()).To(Equal("You need to be paired with this bot by the owner before it can read the owner's personal notes for you."))
+			}
+		}
+	})
+
 	It("names the connection when the owner did not tick the permission", func() {
 		setup(contract.CapMemoryWrite)
 		d := decision(saved(), "listed", propose)

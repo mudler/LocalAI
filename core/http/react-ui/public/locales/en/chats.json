@@ -1124,6 +1124,11 @@
       "embed_one": "1 passage will be embedded with {{model}}.",
       "embed_other": "About {{count}} passages will be embedded with {{model}}.",
       "serverModel": "the server's embedding model"
+    },
+    "warning": {
+      "title": "Check this text before you confirm.",
+      "secret": "It looks like it holds a secret, such as a key, a token or a password. Once it is added, every chat that searches this collection can read it. A messaging chat cannot confirm it; only you can, here.",
+      "other": "The server flagged this text as risky. A messaging chat cannot confirm it; only you can, here."
     }
   },
   "proposalsPage": {
@@ -1373,6 +1378,19 @@
         "builtinBody": "Plain files in your Memory folder. Nothing leaves this machine.",
         "offBody": "Nothing is read, offered, saved or sent. Existing notes are kept."
       }
+    },
+    "healthTitle": "The provider is paused",
+    "forget": {
+      "lede": "Ask {{name}} to forget the notes it keeps for you. Your files in the Memory folder are not touched.",
+      "action": "Forget everything from this provider",
+      "confirmTitle": "Forget everything from {{name}}?",
+      "confirmBody": "{{name}} will be asked to forget every note it keeps for you. It may hold the change until you confirm it on the Add-ons page.",
+      "confirmBodyFinal": "{{name}} will be asked to forget every note it keeps for you. This cannot be undone.",
+      "confirm": "Forget everything",
+      "pending": "Forgetting...",
+      "done": "{{name}} forgot its notes",
+      "waiting": "The change waits for your confirmation on the Add-ons page",
+      "failed": "The provider could not forget: {{message}}"
     }
   }
 }

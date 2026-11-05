@@ -131,7 +131,7 @@ gets one sentence (for example "I cannot listen to voice messages here: no
 speech-to-text model is set up") and no turn starts.
 
 `GET`, `PUT` and `DELETE /api/chats/connectors/{id}` read, replace and delete a
-binding. `POST .../enable` and `.../disable` switch it. You can have 10 bindings.
+binding. `POST .../enable` and `.../disable` switch it. You can have 50 bindings.
 A binding says `active: false` and gives a `reason` while its add-on does not run.
 
 ## GitHub
@@ -139,14 +139,39 @@ A binding says `active: false` and gives a `reason` while its add-on does not ru
 The GitHub add-on lets your [saved agents](/features/chats-agents/) read repositories: search code, read files and folders, and read issues, pull requests and their diffs. If you allow it, they can also write: comment on issues and pull requests, open issues, change a title or close an issue, add labels, and comment on a line of a pull request diff. It cannot merge, delete, push code, approve or request changes on a review.
 
 1. Install the **GitHub** add-on from the add-on gallery.
-2. On GitHub, make a **fine-grained personal access token** for only the repositories you want to share. The add-on page has a **Create a token on GitHub** button, and the steps and a table of the permissions are open there until you have a first connection. Give the token read access to Contents, Issues and Pull requests. To let the agent write, also give read and write access to Issues and Pull requests. Classic tokens are not accepted.
-3. On the add-on page, choose **New GitHub connection**. Paste the token and list the repositories, one `owner/name` per line or separated by commas (at most 50). The name of the connection defaults to the first repository; a line that is not `owner/name` is named under the list. Press **Test**: the row shows, for each listed repository, whether the token reaches it and whether it can write.
+2. On GitHub, make a **fine-grained personal access token** for only the repositories you want to share. The add-on page has a **Create a token on GitHub** button, and the steps and a table of the permissions are open there until you have a first connection. Give the token read access to Contents, Issues and Pull requests. To let the agent write, also give read and write access to Issues and Pull requests. Classic tokens (`ghp_`) are refused unless you allow them on the connection; see [Classic tokens](#classic-tokens).
+3. On the add-on page, choose **New GitHub connection**. Paste the token and list the repositories, one `owner/name` per line or separated by commas (at most 50). `owner/*` and `*` are also accepted; see [Any repository](#any-repository). The name of the connection defaults to the first repository; a line that is not `owner/name` is named under the list. Press **Test**: the row shows, for each listed repository, whether the token reaches it and whether it can write.
 
 This connection does not listen for `@mentions` on GitHub yet. An agent works on GitHub only when you ask it in a chat.
 
 The agent field is optional. A connection without an agent shows **Credentials only** in the list: it holds the token, the repository list and the write mode for your chats, and it never answers a message. It cannot be switched on, take an allowlist, send notifications or hold permissions; the server refuses those with a message that asks for an agent. This is the manifest key `agentOptional` of the kind (see [Connector add-ons](/features/addons/)), which the GitHub kind declares; Telegram and Slack bindings always need an agent. Over the API, `agent_id` may be empty for such a kind and the connection reports `credentials_only: true`.
 
-The list is checked by LocalAI before the add-on is called, so an agent is refused any repository that is not on it, even if the token could reach it. The token is kept sealed and is never shown again, and no tool result contains it. A call uses one of the connections that your chat enabled: with one connection it is enabled, with several you tick the ones the chat may use in the **Tools** menu of the chat (or the agent names a set), and until then the GitHub tools are not offered. With two or more enabled, the model names the connection in each call, and only an enabled one is accepted. LocalAI never picks one for you, and the list of the connection that was named is the only one that applies. See [The connections of an add-on](/features/chats/#the-connections-of-an-add-on).
+The list is checked by LocalAI before the add-on is called, so an agent is refused any repository that is not covered by it, even if the token could reach it. The token is kept sealed and is never shown again, and no tool result contains it. A call uses one of the connections that your chat enabled: with one connection it is enabled, with several you tick the ones the chat may use in the **Tools** menu of the chat (or the agent names a set), and until then the GitHub tools are not offered. With two or more enabled, the model names the connection in each call, and only an enabled one is accepted. LocalAI never picks one for you, and the list of the connection that was named is the only one that applies. See [The connections of an add-on](/features/chats/#the-connections-of-an-add-on).
+
+### Any repository
+
+A list entry can stand for many repositories. LocalAI matches the entry itself, before the add-on runs, as GitHub names compare: without regard to case, and only whole names.
+
+| Entry | Covers |
+|---|---|
+| `owner/name` | that repository |
+| `owner/*` | every repository of that owner or organization, one name deep. `other-owner/x` and `owner-evil/x` are not covered |
+| `*` | any repository the token can reach, now and later |
+
+A star works only as the whole entry `*` or as the whole name after an owner (`owner/*`). `acme/wid*` and `*/widgets` are refused, and `*` must be the only entry because it already covers the rest. The token still limits what GitHub shows: a fine-grained token reaches only the repositories you picked for it.
+
+`*` needs a confirmation. In the page, tick the box under the list. Over the API, send `confirm_any_resource` set to `allow any resource` in the request that adds `*` (create, or an update that did not have it). The write mode is separate: `*` with **Read only** can change nothing. With `*`, the agent can also list the repositories the token reaches (the `list-repos` tool); with any other list it asks you which repository to use. The Test button reports how many repositories the token reaches instead of testing each one.
+
+This is the manifest key `wildcardResources` of the connector kind (see [Connector add-ons](/features/addons/)). Only the GitHub kind declares it; for every other add-on, the Jellyfin and Home Assistant lists included, each entry stays an exact name. A tool that lists what a credential reaches declares `enumerates` and runs only for a connection whose list is `*`.
+
+### Classic tokens
+
+A classic token (`ghp_`) has scopes for the whole account, not for the repositories you list. By default LocalAI refuses one when you save it, and refuses to use a saved one. You can allow it per connection when a fine-grained token does not fit, for example for an organization that blocks them. Allowing it is a deliberate choice:
+
+- In the page, tick **Allow a classic token** and then the box that says you understand it is wider than the list.
+- Over the API, set the option `classicToken` to `allow` in `options`, and send `confirm_wider_token` set to `accept wider token` in the request that turns it on.
+
+The repository list and the write mode apply as before, and LocalAI still enforces them before the add-on runs. But GitHub would let a leaked classic token do more than the list, so prefer a fine-grained token. Switching the option off stops the stored classic token from being used at once; the token is not deleted. Fine-grained tokens work as they did and need none of this. This is the manifest key `tokenGuards` of the connector kind, which holds back any token that starts with a prefix until the connection chooses an option.
 
 What GitHub returns (issue text, comments, file content) is written by other people. Every result is marked as untrusted data for the model. Long files are cut at 96 KiB and long patches at 64 KiB; the result says what was cut and how to ask for the rest. When GitHub limits the rate of calls, the agent is told how long to wait.
 
@@ -671,7 +696,7 @@ model answers in the language of the conversation, as it does without this setti
 
 | Value | Language |
 |---|---|
-| `auto` (default) | The language of the sender, see below. |
+| `auto` (default) | The interface language of the owner when the server knows it, else the language of the sender, see below. |
 | `en` | English |
 | `it` | Italian |
 | `de` | German |
@@ -679,11 +704,17 @@ model answers in the language of the conversation, as it does without this setti
 | `fr` | French |
 | `pt-BR` | Portuguese (Brazil) |
 
-With `auto`, LocalAI reads each message of the sender and scores it against the common
+With `auto`, the bot first uses the interface language of the owner, when the catalog has it.
+The page of the add-on sends that language with each save (`ui_language`, a tag such as `it`
+or `pt-BR`) and the binding keeps it, so every frontend of a cluster knows it. A save that
+sends none keeps the stored one, and a value that is not a language tag is ignored. When
+the owner's language is not known, or the six languages above lack it (Korean, for
+example), LocalAI reads each message of the sender and scores it against the common
 words of the six languages. It needs no model and sends the text nowhere. A message that
 does not show a language clearly (`ok`, `yes`, `thanks`, a number, an emoji) does not
 change anything. The last clear language of a sender is kept in memory for 24 hours, and
-a later short reply keeps it; a full sentence in another language moves it. A trigger
+a later short reply keeps it; a full sentence in another language moves it. The reading
+decides only when the owner's language is not known. A trigger
 that writes to a chat on its own uses the language last seen in that chat. When nothing
 is known, the host uses English. A fixed language ignores what the sender writes.
 
@@ -853,6 +884,11 @@ a page can turn into a sentence and a link, in the first place the check failed:
 }
 ```
 
+Each kind of sender has one more entry, `notes.read`. It is not a permission that you can tick:
+the owner's personal notes (the user and agent notes) are read into a
+turn only for a paired sender, so a listed sender who is not paired, an `anyone` sender and a
+role sender get `sender_needs_pairing`. The notes of the conversation itself and the agent profile are read for all.
+
 An allowed capability has `allowed: true` and `via` (`paired`, `allowlist` or
 `role:<id>`) and none of the other fields. `reason` stays the English line for logs.
 
@@ -900,6 +936,26 @@ Each capability has a verb phrase ("set reminders and scheduled tasks") that fil
 sentence of every code, so `message` always reads as a whole sentence, for example
 "People in a channel are not trusted one by one, so the bot cannot save notes to memory
 for them. Add the person to the allowed people."
+
+### Text in the language of the page
+
+The access view, the preview and the kinds call (which lists the capabilities) return
+English text and, beside it, the same text in the language of the request. The language
+is the `lang` query parameter (for example `it` or `pt-BR`), else the first language of
+`Accept-Language` that the host translates, else English. The host translates Italian,
+German, Spanish, French, Indonesian, Korean, Brazilian Portuguese and Simplified
+Chinese.
+
+- Each decision keeps `code` and `message` and gains `localized_message`, found by
+  `code`. The view gains `language`.
+- Each capability keeps `title` and `description` and gains `language`,
+  `localized_title` and `localized_description`.
+
+The `localized_*` fields are absent for English, for a language the host does not
+translate, and for a refusal that a rule of the feature wrote itself (it has no code).
+A page shows the localized field when it is there and the English one otherwise. The
+note for the model and the words a sender reads in the chat do not use these fields:
+the model reads English, and the sender reads the reply language of the connection.
 
 ### Preview before saving
 
@@ -1181,7 +1237,7 @@ restart). The JSON store is for one process.
 | Draft IDs | Per instance | A counter in the process that sends the replies gives each turn a new draft ID. Two frontends could give the same ID, but a draft only lives in one chat for one turn. |
 | The chats of the answers (thread mode) | Shared | Each answer's message IDs are stored with the chat of each sender, so a reply finds its chat on any frontend. |
 | Slack Socket Mode links and their queues | Per instance | The Slack add-on process keeps one link per polled binding, acknowledges each event at once and queues it until the next poll. An event that is queued when the process stops is lost. The followed threads and the "Working…" messages are kept there too. |
-| The language of each sender | Per instance | With `reply_language` set to `auto`, the frontend that takes a message keeps the last clear language of the sender and of the chat in memory for 24 hours. A trigger that runs on another frontend does not know it and uses the interface language of the owner when the server has it, else English. A fixed language is stored with the binding and works everywhere. |
+| The language of each sender | Per instance | With `reply_language` set to `auto`, the frontend that takes a message keeps the last clear language of the sender and of the chat in memory for 24 hours. A trigger that runs on another frontend does not know it and uses English. The interface language of the owner is stored with the binding, so it is the same on every frontend. A fixed language is stored with the binding and works everywhere. |
 | Files marked by `attach_file` | Per instance | The marks live in the process that runs the turn and are sent by the process that sends the replies. A turn that ends on another frontend than the one that sends the answer loses its marks; the agent then sees no error, and the person asks again. |
 
 ### For add-on authors: sending files

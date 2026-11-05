@@ -323,6 +323,9 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 		// writes the question there and the person answers it there.
 		return h.connectorProposed(ctx, c, p, autoNote), nil
 	}
+	if p.Warning != "" {
+		autoNote += " The text looks like it holds a secret: the owner sees a warning next to it. Do not repeat the secret."
+	}
 	return fmt.Sprintf("Proposal %s stored: %s (%s, %s). Nothing is saved yet: the owner must confirm it in Studio, and it expires in 24 hours. Do not say it is saved.%s",
 		p.ID, p.Summary, p.Kind, p.Scope, autoNote), nil
 }

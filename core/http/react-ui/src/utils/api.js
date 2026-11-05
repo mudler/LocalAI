@@ -576,6 +576,9 @@ export const chatMemoryApi = {
   get: () => fetchJSON('/api/chats/memory'),
   set: (body) => fetchJSON('/api/chats/memory', { method: 'PUT', body: JSON.stringify(body) }),
   exportUrl: (scope, key) => apiUrl(`/api/chats/memory/export${q({ scope, key })}`),
+  // Asks the provider that serves to forget notes; with no scope it forgets
+  // everything the provider keeps. Answers { done, proposal }.
+  forget: (scope, key) => fetchJSON(`/api/chats/memory${q({ scope, key })}`, { method: 'DELETE' }),
 }
 
 // The provider slots: a job the host does itself and lets an add-on do in its

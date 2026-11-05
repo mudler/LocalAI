@@ -30,16 +30,17 @@ function slotView(s) {
     id: 'memory', version: 1, title: 'Memory', description: 'Short notes the assistant reads before it answers and may save.',
     providers: [
       { id: 'builtin', title: 'Built-in', description: 'Plain files in your Memory folder. Nothing leaves this machine.', kind: 'builtin', available: true, selected: s.picked === 'builtin' },
-      { id: 'fake-notes', title: 'Fake notes', description: 'Keeps notes in a service.', kind: 'addon', available: !s.down, properties: { remote: true, undo: 'none' }, roles: ['read'], selected: s.picked === 'fake-notes' },
+      { id: 'fake-notes', title: 'Fake notes', description: 'Keeps notes in a service.', kind: 'addon', available: !s.down, properties: { remote: true, undo: 'none' }, roles: ['read', 'forget'], selected: s.picked === 'fake-notes' },
       { id: 'off', title: 'Off', kind: 'off', available: true, selected: s.picked === 'off' },
     ],
     resolution: { slot: 'memory', selected: s.picked, stored: true, active: off ? 'off' : s.picked, off,
       ...(failed ? { code: 'provider_unavailable', addon_id: 'fake-notes', addon_title: 'Fake notes' } : {}) },
+    ...(s.health ? { health: { cooling_down: true, last: 'timeout', notice: s.health } } : {}),
   }
 }
 
-async function serveAccount(page, { enabled = true, save = 'ask', messaging = 'ask', fail = false, picked = 'builtin', down = false } = {}) {
-  const s = { enabled, save, messaging, puts: [], picks: [], exports: 0, removed: [], picked, down }
+async function serveAccount(page, { enabled = true, save = 'ask', messaging = 'ask', fail = false, picked = 'builtin', down = false, health = '', forget = 200 } = {}) {
+  const s = { enabled, save, messaging, puts: [], picks: [], exports: 0, removed: [], picked, down, health, forgets: 0 }
   await mockChat(page)
   await page.route('**/api/chats/providers/memory', (route) => {
     const req = route.request()
@@ -53,6 +54,11 @@ async function serveAccount(page, { enabled = true, save = 'ask', messaging = 'a
   })
   await page.route('**/api/chats/memory', (route) => {
     const req = route.request()
+    if (req.method() === 'DELETE') {
+      s.forgets++
+      if (forget !== 200) return route.fulfill({ status: forget, json: { error: { message: 'this provider has no forget' } } })
+      return route.fulfill({ json: { done: true } })
+    }
     if (req.method() === 'PUT') {
       const body = req.postDataJSON()
       s.puts.push(body)
@@ -188,6 +194,44 @@ test.describe('Settings, Memory: the switch and how a note is saved', () => {
     await page.getByTestId('provider-picker-memory-use-builtin').click()
     await expect.poll(() => s.picks).toEqual(['builtin'])
     await expect(notice).toHaveCount(0)
+  })
+
+  test('shows the notice of a provider the host leaves alone', async ({ page }) => {
+    await serveAccount(page, { picked: 'fake-notes', health: 'Fake notes did not answer three times. LocalAI will try it again in a minute.' })
+    await page.goto('/app/account?tab=memory')
+    const notice = page.getByTestId('provider-picker-memory-health')
+    await expect(notice).toBeVisible()
+    await expect(notice).toContainText('The provider is paused')
+    await expect(notice).toContainText('will try it again in a minute')
+    await shot(page, 'settings-memory-provider-paused', { fullPage: true })
+  })
+
+  test('forgets everything from a provider that can, after a confirm dialog', async ({ page }) => {
+    const s = await serveAccount(page, { picked: 'fake-notes' })
+    await page.goto('/app/account?tab=memory')
+    await page.getByTestId('provider-picker-memory-forget-button').click()
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toContainText('Forget everything from Fake notes?')
+    await expect(dialog).toContainText('This cannot be undone')
+    expect(s.forgets).toBe(0)
+    await shot(page, 'settings-memory-provider-forget-dialog')
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toHaveCount(0)
+    expect(s.forgets).toBe(0)
+    await page.getByTestId('provider-picker-memory-forget-button').click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Forget everything' }).click()
+    await expect.poll(() => s.forgets).toBe(1)
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
+  })
+
+  test('offers no forget for the built-in provider, Off or a provider that is down', async ({ page }) => {
+    await serveAccount(page)
+    await page.goto('/app/account?tab=memory')
+    await expect(page.getByTestId('provider-picker-memory')).toBeVisible()
+    await expect(page.getByTestId('provider-picker-memory-forget')).toHaveCount(0)
+    await page.getByTestId('provider-picker-memory').getByRole('radio', { name: /^Off/ }).click()
+    await expect(page.getByTestId('memory-switch-card')).toHaveAttribute('data-state', 'off')
+    await expect(page.getByTestId('provider-picker-memory-forget')).toHaveCount(0)
   })
 
   test('a choice the server did not store is not shown as stored', async ({ page }) => {

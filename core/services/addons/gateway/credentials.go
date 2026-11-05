@@ -149,6 +149,11 @@ func (g *Gateway) credentialize(ctx context.Context, a contract.Actor, r *contra
 			return fmt.Errorf("%w: %w", ErrInvalidRequest, contract.ErrRefused)
 		}
 		key = k
+		if d.Enumerates {
+			// It names no resource: the whole reach of the credential is the
+			// resource, and only a binding that lists * covers it.
+			key = contract.AnyResource
+		}
 	}
 	grant, err := g.Credentials.Credential(ctx, a, r.AddonID, key)
 	if err != nil {

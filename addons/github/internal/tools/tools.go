@@ -35,11 +35,14 @@ const (
 	ToolGetPR      = "get-pr"
 	ToolGetPRDiff  = "get-pr-diff"
 	ToolCheck      = "check"
+	// ToolListRepos lists what the token reaches. It names no repository, so
+	// the host runs it only for a connection whose list is *.
+	ToolListRepos = "list-repos"
 )
 
 // Declared is everything the manifest lists under capabilities.tools.
 func Declared() []string {
-	return append([]string{ToolSearchCode, ToolReadFile, ToolListTree, ToolListIssues, ToolGetIssue, ToolGetPR, ToolGetPRDiff, ToolCheck}, WriteTools()...)
+	return append([]string{ToolSearchCode, ToolReadFile, ToolListTree, ToolListIssues, ToolGetIssue, ToolGetPR, ToolGetPRDiff, ToolCheck, ToolListRepos}, WriteTools()...)
 }
 
 // Limits of what one result carries. The host refuses a read result above
@@ -151,6 +154,8 @@ func (r *Runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 		data, err = call.getPRDiff(args)
 	case ToolCheck:
 		data, err = call.check(args)
+	case ToolListRepos:
+		data, err = call.listRepos(args)
 	default:
 		return contract.Result{}, bad("unknown tool")
 	}

@@ -90,9 +90,9 @@ type ConnectorOptions struct {
 	// policy, in bytes. Nil or zero: contract.DefaultFileCeilingBytes.
 	FileCeiling func(ctx context.Context) (int64, error)
 	// OwnerLanguage returns the interface language of an owner (a tag such as
-	// "it" or "pt-BR"), or "" when the server does not know it. It is the
-	// fallback of a connection whose reply language is auto and whose sender
-	// has not yet written a message that shows a language. Nil: English.
+	// "it" or "pt-BR"), or "" when the server does not know it. It is asked
+	// for a connection whose reply language is auto and that holds no language
+	// of its own (Binding.UILanguage). Nil: not known.
 	OwnerLanguage func(ctx context.Context, owner string) string
 	// OutboxPoll is how often a queued message looks again for room under
 	// the limit of its binding; zero means one second.

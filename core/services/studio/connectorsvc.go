@@ -40,6 +40,11 @@ type ConnectorInput struct {
 	// the chat: hostmsg.Auto or a language code. Nil means auto for a new
 	// binding and unchanged for an update.
 	ReplyLanguage *string
+	// UILanguage is the interface language of the owner, sent by the page that
+	// saves the binding. Nil or empty leaves the stored value; a value that is
+	// not a language tag is ignored, because it is a hint and never a reason to
+	// refuse a save.
+	UILanguage *string
 	// SendFiles sends the files a turn makes to the sender. Nil means on for
 	// a new binding and unchanged for an update.
 	SendFiles *bool
@@ -70,6 +75,11 @@ type ConnectorInput struct {
 	// Approval is the owner's choice for the triggers the agent proposes from
 	// a chat of the binding. Nil: new binding asks, update unchanged.
 	Approval *connectors.Approval
+	// ConfirmAnyResource must be AnyResourceConfirmation in the request that
+	// adds the entry * to the resource list. ConfirmWiderToken must be
+	// WiderTokenConfirmation in the request that chooses the option which
+	// allows a guarded token (see contract.TokenGuard). Neither is stored.
+	ConfirmAnyResource, ConfirmWiderToken string
 }
 
 // apply sets the fields of the input that an owner writes on a binding.
@@ -83,6 +93,11 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 		b.ReplyLanguage = *in.ReplyLanguage
 		if b.ReplyLanguage == hostmsg.Auto {
 			b.ReplyLanguage = ""
+		}
+	}
+	if in.UILanguage != nil {
+		if tag := strings.TrimSpace(*in.UILanguage); tag != "" && contract.ValidLanguageTag(tag) {
+			b.UILanguage = tag
 		}
 	}
 	if in.SendFiles != nil {
@@ -373,6 +388,12 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if err := c.checkOwnerLimits(ctx, b, in); err != nil {
 		return ConnectorInfo{}, err
 	}
+	if err := c.checkWildcards(ctx, nil, b, in); err != nil {
+		return ConnectorInfo{}, err
+	}
+	if err := c.checkTokenGuards(ctx, nil, b, in); err != nil {
+		return ConnectorInfo{}, err
+	}
 	if strings.TrimSpace(in.Token) == "" {
 		return ConnectorInfo{}, connectorBad("the bot token is required")
 	}
@@ -464,6 +485,12 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 		return ConnectorInfo{}, err
 	}
 	if err := c.checkOwnerLimits(ctx, b, in); err != nil {
+		return ConnectorInfo{}, err
+	}
+	if err := c.checkWildcards(ctx, &old, b, in); err != nil {
+		return ConnectorInfo{}, err
+	}
+	if err := c.checkTokenGuards(ctx, &old, b, in); err != nil {
 		return ConnectorInfo{}, err
 	}
 	if err := c.checkAgentIfAny(ctx, old.Owner, in.AgentID); err != nil {

@@ -404,6 +404,19 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Expect(blocked).To(And(HaveKeyWithValue("allowed", false), HaveKeyWithValue("code", "connection_permission_off"),
 			HaveKeyWithValue("blocked_by", "connection"), HaveKey("message"), HaveKey("reason"),
 			HaveKeyWithValue("fix", HaveKeyWithValue("kind", "open_connection")), HaveKeyWithValue("then_check", ContainElement("sender"))))
+		// The same refusal in the language of the request: the code and the
+		// English message stay, a localized_message is added by code.
+		rec = s.do("alice", http.MethodGet, "/api/chats/connectors/"+id+"/access?lang=it", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		it := decision(decodeJSON(rec), "listed", "triggers.propose")
+		Expect(it).To(And(HaveKeyWithValue("code", "connection_permission_off"), HaveKeyWithValue("message", blocked["message"]),
+			HaveKeyWithValue("localized_message", ContainSubstring("promemoria"))))
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("language", "it"))
+		Expect(blocked).NotTo(HaveKey("localized_message"))
+		rec = s.do("alice", http.MethodGet, "/api/chats/connectors/kinds?lang=de", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)["capabilities"]).To(ContainElement(And(HaveKeyWithValue("name", "memory.write"), HaveKeyWithValue("title", "Save to memory"),
+			HaveKeyWithValue("language", "de"), HaveKeyWithValue("localized_title", "Im Gedächtnis speichern"))))
 		rec = s.do("alice", http.MethodPost, preview, map[string]any{"caps": []string{"triggers.propose"}, "sender": "listed"})
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		v := decodeJSON(rec)

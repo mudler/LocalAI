@@ -6,6 +6,25 @@ export const REPLY_MODES = ['off', 'progress', 'stream']
 export const CONVERSATIONS = ['sender', 'chat', 'window', 'thread']
 // The language of the sentences the bot writes itself (auto follows the sender).
 export const REPLY_LANGUAGES = ['auto', 'en', 'it', 'de', 'es', 'fr', 'pt-BR']
+// The host answers with English text and, when the request names a language it
+// translates, localized_* fields beside it, found by code. These two fold the
+// localized fields into the plain ones, so the rest of the page reads one name.
+// A field the host did not translate keeps its English text.
+export function localizeCapabilities(list) {
+  return (list || []).map((c) => ({ ...c, title: c.localized_title || c.title, description: c.localized_description || c.description }))
+}
+
+export function localizeAccess(view) {
+  if (!view || !Array.isArray(view.subjects)) return view
+  return {
+    ...view,
+    subjects: view.subjects.map((subject) => ({
+      ...subject,
+      decisions: (subject.decisions || []).map((d) => (d.localized_message ? { ...d, message: d.localized_message } : d)),
+    })),
+  }
+}
+
 export const MAX_WINDOW_MINUTES = 7 * 24 * 60
 
 // How the triggers that the agent proposes in a chat are approved, and the

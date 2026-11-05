@@ -940,6 +940,14 @@ definitions:
         type: string
       v:
         type: integer
+      warning:
+        description: |-
+          Warning is set by the host when the text of a proposal looks risky, as a
+          stable code (see the Warning constants). The owner still sees the text,
+          with a warning, and can confirm it in the web interface; a messaging chat
+          cannot confirm it. The host works it out when it reads the proposal and
+          does not keep it.
+        type: string
     type: object
   contract.ChangeScope:
     enum:
@@ -1191,6 +1199,14 @@ definitions:
       description:
         description: Description is plain text for the model.
         type: string
+      enumerates:
+        description: |-
+          Enumerates marks a read tool that lists what the credential reaches, such
+          as the repositories of a token. It names no resource, so the host cannot
+          hold it to the person's list: it runs only for a binding whose list is
+          the wildcard * (see ConnectorKind.WildcardResources), and is refused for
+          any other.
+        type: boolean
       execution:
         allOf:
         - $ref: '#/definitions/contract.ExecutionDescriptor'
@@ -3772,6 +3788,12 @@ definitions:
           SendFiles sends the files that a turn makes to the sender, after the
           answer.
         type: boolean
+      ui_language:
+        description: |-
+          UILanguage is the interface language the owner's page last sent, such as
+          it or pt-BR. With reply_language auto, the bot speaks in it before it
+          reads the language of the sender. Absent when the server was not told.
+        type: string
       window_minutes:
         type: integer
       write_mode:
@@ -4759,6 +4781,12 @@ definitions:
           SendFiles sends the files that a turn makes to the sender, after the
           answer.
         type: boolean
+      ui_language:
+        description: |-
+          UILanguage is the interface language the owner's page last sent, such as
+          it or pt-BR. With reply_language auto, the bot speaks in it before it
+          reads the language of the sender. Absent when the server was not told.
+        type: string
       window_minutes:
         type: integer
       write_mode:
@@ -4776,6 +4804,12 @@ definitions:
   schema.ChatsConnectorAccess:
     properties:
       binding:
+        type: string
+      language:
+        description: |-
+          Language is the language of the localized_message fields, negotiated
+          from the lang query parameter, then Accept-Language. Absent for
+          English.
         type: string
       preview:
         description: Preview is true when the view is for a form that is not saved.
@@ -4814,6 +4848,13 @@ definitions:
         - $ref: '#/definitions/schema.ChatsConnectorAccessFix'
         description: Fix points at the one place that solves it. The server sends
           no URL.
+      localized_message:
+        description: |-
+          LocalizedMessage is message in the language of the request (see
+          ChatsConnectorAccess.Language), found by code. Absent when the
+          language is English or the code has no translation; message stays
+          English and code stays unchanged.
+        type: string
       message:
         description: Message is one plain sentence for the owner. It names no setting.
         type: string
@@ -4933,6 +4974,17 @@ definitions:
   schema.ChatsConnectorCapability:
     properties:
       description:
+        type: string
+      language:
+        description: |-
+          Language is the language of localized_title and localized_description:
+          the one the request asked for (lang, else Accept-Language) among the
+          translated ones. Absent for English and for a language with no
+          translation; title and description stay English.
+        type: string
+      localized_description:
+        type: string
+      localized_title:
         type: string
       name:
         type: string
@@ -5065,6 +5117,18 @@ definitions:
           Titles and Descriptions carry the translated text of the manifest by
           language tag, when it has some. Title and Description stay English.
         type: object
+      token_guards:
+        description: |-
+          TokenGuards say which tokens of this kind are held back until the
+          binding chooses an option, and the confirm_wider_token text it needs.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorTokenGuard'
+        type: array
+      wildcard_resources:
+        description: |-
+          WildcardResources is true when a binding of this kind may list owner/*
+          or * as resources; * needs confirm_any_resource.
+        type: boolean
     type: object
   schema.ChatsConnectorKindList:
     properties:
@@ -5179,6 +5243,15 @@ definitions:
       bot_username:
         type: string
     type: object
+  schema.ChatsConnectorTokenGuard:
+    properties:
+      allow:
+        type: string
+      option:
+        type: string
+      prefix:
+        type: string
+    type: object
   schema.ChatsConnectorWrite:
     properties:
       accept_any:
@@ -5223,6 +5296,18 @@ definitions:
           request that turns accept_any on (a create with accept_any, or an update
           that changes it from off to on). Anyone who can message the bot then uses
           the agent's tools as you, so the server asks you to say you mean it.
+        type: string
+      confirm_any_resource:
+        description: |-
+          ConfirmAnyResource must be the exact text "allow any resource" in the
+          request that adds the entry * to resources. A kind that lists
+          wildcard_resources lets resources hold owner/* and *.
+        type: string
+      confirm_wider_token:
+        description: |-
+          ConfirmWiderToken must be the exact text "accept wider token" in the
+          request that chooses the option a token guard of the kind names (for
+          example a classic access token). The token is refused without it.
         type: string
       conversation:
         description: Conversation is sender, chat, window or thread; empty means sender.
@@ -5292,6 +5377,13 @@ definitions:
           on for a new binding and unchanged for an update.
         type: boolean
       token:
+        type: string
+      ui_language:
+        description: |-
+          UILanguage is the interface language of the person who saves the
+          binding (a language tag such as it or pt-BR). The page of the add-on
+          sends it with each save. Absent or empty keeps the stored value; a value
+          that is not a language tag is ignored.
         type: string
       window_minutes:
         description: WindowMinutes is the time window of the window mode, 1 to 10080.
@@ -17339,17 +17431,24 @@ paths:
       tags:
       - chats
     post:
-      description: 'Needs the kind (the platform), the bot token (kept sealed, never
-        returned) and an agent of yours that names a model. The token is checked with
-        the platform when its add-on runs: a token that the platform refuses is a
-        400. reply_mode (off, progress, stream; default progress), conversation (sender,
-        chat, window with window_minutes, thread; default sender), send_files (default
-        true) and reply_language (auto, en, it, de, es, fr, pt-BR; default auto, the
-        language of the sentences the bot writes itself) say how the bot answers.
-        The allowlist is empty at first, so nobody is accepted: add chat IDs, user
-        IDs or @usernames, or set accept_any (anyone who can message the bot then
-        uses the agent''s tools; the request that turns it on must also carry confirm_accept_any
-        set to "accept any message", or it is a 400). At most 10 bindings.'
+      description: '// @Description For a kind that lists wildcard_resources, resources
+        may hold owner/* (every resource of one owner) and * (every resource the token
+        reaches); the request that adds * must also carry confirm_any_resource set
+        to "allow any resource". A kind that lists token_guards refuses a token with
+        a guarded prefix (a classic GitHub token) unless options sets the guarded
+        option to its allow value in a request that also carries confirm_wider_token
+        set to "accept wider token". Needs the kind (the platform), the bot token
+        (kept sealed, never returned) and an agent of yours that names a model. The
+        token is checked with the platform when its add-on runs: a token that the
+        platform refuses is a 400. reply_mode (off, progress, stream; default progress),
+        conversation (sender, chat, window with window_minutes, thread; default sender),
+        send_files (default true) and reply_language (auto, en, it, de, es, fr, pt-BR;
+        default auto, the language of the sentences the bot writes itself) say how
+        the bot answers. The allowlist is empty at first, so nobody is accepted: add
+        chat IDs, user IDs or @usernames, or set accept_any (anyone who can message
+        the bot then uses the agent''s tools; the request that turns it on must also
+        carry confirm_accept_any set to "accept any message", or it is a 400). At
+        most 50 bindings.'
       parameters:
       - description: the binding
         in: body
@@ -17442,6 +17541,11 @@ paths:
         name: id
         required: true
         type: string
+      - description: Language tag for localized_message, such as it or pt-BR. Wins
+          over Accept-Language. English or an unknown language adds no localized field.
+        in: query
+        name: lang
+        type: string
       responses:
         "200":
           description: The effective permissions
@@ -17466,6 +17570,11 @@ paths:
         in: path
         name: id
         required: true
+        type: string
+      - description: Language tag for localized_message, such as it or pt-BR. Wins
+          over Accept-Language. English or an unknown language adds no localized field.
+        in: query
+        name: lang
         type: string
       - description: the form state to check
         in: body
@@ -17630,8 +17739,9 @@ paths:
         (lang, else Accept-Language), language, localized_title and localized_description
         with English as the fallback for each field; title and description stay English.
       parameters:
-      - description: Language tag to resolve the kind text for, such as it or pt-BR.
-          Wins over Accept-Language. An unknown language gives the English text.
+      - description: Language tag to resolve the kind text and the capability text
+          for, such as it or pt-BR. Wins over Accept-Language. An unknown language
+          gives the English text.
         in: query
         name: lang
         type: string

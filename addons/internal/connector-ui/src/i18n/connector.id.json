@@ -15,7 +15,7 @@
   "answer.windowRange": "Gunakan bilangan bulat dari 1 sampai {{max}}.",
   "answer.languageLabel": "Bahasa balasan",
   "answer.languageHelp": "Catatan yang ditulis bot sendiri, seperti konfirmasi dan penolakan. Jawaban model mengikuti bahasa percakapan.",
-  "answer.language.auto": "Otomatis (bahasa pengirim)",
+  "answer.language.auto": "Otomatis (bahasa antarmuka Anda, jika tidak bahasa pengirim)",
   "answer.language.en": "English",
   "answer.language.it": "Italiano",
   "answer.language.de": "Deutsch",

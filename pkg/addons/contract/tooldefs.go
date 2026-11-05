@@ -78,6 +78,12 @@ type ToolDefinition struct {
 	// administrator. It is never offered to a model, a chat or an agent. The
 	// page has no resource to name, so it must be a read tool without one.
 	UIOnly bool `json:"uiOnly,omitempty"`
+	// Enumerates marks a read tool that lists what the credential reaches, such
+	// as the repositories of a token. It names no resource, so the host cannot
+	// hold it to the person's list: it runs only for a binding whose list is
+	// the wildcard * (see ConnectorKind.WildcardResources), and is refused for
+	// any other.
+	Enumerates bool `json:"enumerates,omitempty"`
 	// Shadows names a built-in chat tool that this tool replaces. When the
 	// add-on is installed, running and on for a chat, the model sees one tool
 	// under that name, served by the add-on, and the built-in one is hidden.

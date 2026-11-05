@@ -81,7 +81,11 @@ func (s *Service) contextTurnFor(ctx context.Context, rec session.ChatRecord, to
 	}
 	sub := contextSubject(rec, saveToolOf(tools))
 	sub.OmitEmpty = omitEmpty
-	profile, index := s.ctxfiles.Profile(ctx, sub), s.ctxfiles.Block(ctx, sub, extra...)
+	// The profile holds the standing rules of the agent, like its
+	// instructions, so every sender gets it. Only the personal notes are held
+	// back for an unpaired sender (see personalNotesOpen).
+	profile := s.ctxfiles.Profile(ctx, sub)
+	index := s.ctxfiles.Block(ctx, sub, extra...)
 	return joinBlocks(profile.Text, index.Text), profile.Key + index.Key
 }
 

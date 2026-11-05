@@ -275,6 +275,44 @@ var _ = Describe("knowledge changes", func() {
 		Expect(fk.held()).To(BeEmpty())
 	})
 
+	Describe("the threat scan", func() {
+		const leaky = "Wi-Fi of the office\npassword: correct-horse-battery\n"
+
+		It("flags a text that looks like it holds a secret, keeps showing it, and lets the owner confirm it", func() {
+			p, err := propose(studio.ProposeInput{Target: "manuals", Content: leaky})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p.Warning).To(Equal(contract.WarningSecret))
+			Expect(p.Content).To(Equal(leaky), "the owner sees the text as it is")
+			got, err := r.svc.Changes().Get(ctx, alice, p.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Warning).To(Equal(contract.WarningSecret))
+			list, err := r.svc.Changes().List(ctx, alice)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list).To(HaveLen(1))
+			Expect(list[0].Warning).To(Equal(contract.WarningSecret))
+
+			done, err := r.svc.Changes().Confirm(ctx, alice, p.ID)
+			Expect(err).NotTo(HaveOccurred(), "the web interface confirms it")
+			Expect(done.Warning).To(Equal(contract.WarningSecret))
+			Expect(fk.held()).To(HaveLen(1))
+		})
+
+		It("scans the summary too, and flags a key block", func() {
+			p, err := propose(studio.ProposeInput{Target: "manuals", Content: "plain", Summary: "token = abcdef123456"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p.Warning).To(Equal(contract.WarningSecret))
+			p, err = propose(studio.ProposeInput{Target: "manuals", Content: "-----BEGIN RSA PRIVATE KEY-----\nabc\n"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p.Warning).To(Equal(contract.WarningSecret))
+		})
+
+		It("does not flag an ordinary text", func() {
+			p, err := propose(studio.ProposeInput{Target: "manuals", Content: "Hold the reset button for ten seconds. The password is set again by the reset."})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p.Warning).To(BeEmpty())
+		})
+	})
+
 	It("keeps the limits of the other kinds: 10 waiting, 5 an hour", func() {
 		for i := range contract.MaxChangesPerHour {
 			_, err := propose(studio.ProposeInput{Target: "manuals", Content: strings.Repeat("a", i+1)})
@@ -410,6 +448,8 @@ var _ = Describe("knowledge changes from a messaging app", func() {
 			switch text {
 			case "add":
 				return []studiotest.ToolStep{{Tool: "propose_change", Args: knowledgeArgs("manuals", "Hold reset for ten seconds.", "Reset steps")}, {Say: "ok"}}
+			case "leak":
+				return []studiotest.ToolStep{{Tool: "propose_change", Args: knowledgeArgs("manuals", "Wi-Fi\npassword: correct-horse-battery", "Wi-Fi of the office")}, {Say: "ok"}}
 			case "forget":
 				return []studiotest.ToolStep{{Tool: "revert_change", Args: `{}`}, {Say: "ok"}}
 			}
@@ -475,6 +515,23 @@ var _ = Describe("knowledge changes from a messaging app", func() {
 		say(paired, "no", 1)
 		Expect(list()[0].Status).To(Equal(contract.ProposalDismissed))
 		Expect(fk.held()).To(BeEmpty())
+	})
+
+	It("does not write a flagged text in the chat, and a yes does not confirm it, but a no still drops it", func() {
+		setup(true, []string{"manuals"})
+		say(paired, "leak", 1)
+		Expect(list()).To(HaveLen(1))
+		Expect(list()[0].Warning).To(Equal(contract.WarningSecret))
+		Expect(strings.Join(bot.answers(), "\n")).NotTo(ContainSubstring("correct-horse"), "the secret is not repeated in the chat")
+		Expect(r.h.ResultsFor("propose_change")[0].Out).To(ContainSubstring("cannot be confirmed from a chat"))
+
+		say(paired, "yes", 1)
+		Expect(bot.answers()[len(bot.answers())-1]).To(ContainSubstring("cannot be confirmed from a chat"))
+		Expect(list()[0].Status).To(Equal(contract.ProposalPending))
+		Expect(fk.held()).To(BeEmpty())
+
+		say(paired, "no", 1)
+		Expect(list()[0].Status).To(Equal(contract.ProposalDismissed))
 	})
 
 	It("is refused for a listed sender who is not paired: the capability is sensitive", func() {

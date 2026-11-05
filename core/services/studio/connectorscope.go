@@ -64,8 +64,10 @@ func (c *Connectors) AuthorizeConnector(ctx context.Context, s ConnectorCallScop
 				return deny()
 			}
 		}
+		// A new binding is not stored yet, so its agent is checked here. A
+		// credentials-only binding has none, and the token check still ran above.
 		if s.BindingID == "" {
-			if err := c.checkAgent(ctx, s.Principal, s.AgentID); err != nil {
+			if err := c.checkAgentIfAny(ctx, s.Principal, s.AgentID); err != nil {
 				return deny()
 			}
 		}

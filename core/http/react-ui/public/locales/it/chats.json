@@ -802,6 +802,11 @@
       "embed_one": "1 passaggio verrà incorporato con {{model}}.",
       "embed_other": "Circa {{count}} passaggi verranno incorporati con {{model}}.",
       "serverModel": "il modello di embedding del server"
+    },
+    "warning": {
+      "title": "Controlla questo testo prima di confermare.",
+      "secret": "Sembra contenere un segreto, come una chiave, un token o una password. Una volta aggiunto, ogni chat che cerca in questa raccolta può leggerlo. Una chat di messaggistica non può confermarlo; solo tu, qui.",
+      "other": "Il server ha segnalato questo testo come rischioso. Una chat di messaggistica non può confermarlo; solo tu, qui."
     }
   },
   "proposalsPage": {
@@ -1051,6 +1056,19 @@
         "builtinBody": "File semplici nella tua cartella Memory. Niente lascia questa macchina.",
         "offBody": "Non viene letto, offerto, salvato né inviato nulla. Le note esistenti restano."
       }
+    },
+    "healthTitle": "Il fornitore è in pausa",
+    "forget": {
+      "lede": "Chiedi a {{name}} di dimenticare le note che conserva per te. I tuoi file nella cartella Memory non vengono toccati.",
+      "action": "Dimentica tutto di questo fornitore",
+      "confirmTitle": "Dimenticare tutto di {{name}}?",
+      "confirmBody": "A {{name}} verrà chiesto di dimenticare ogni nota che conserva per te. Può trattenere la modifica finché non la confermi nella pagina Add-ons.",
+      "confirmBodyFinal": "A {{name}} verrà chiesto di dimenticare ogni nota che conserva per te. Non si può annullare.",
+      "confirm": "Dimentica tutto",
+      "pending": "Sto dimenticando...",
+      "done": "{{name}} ha dimenticato le sue note",
+      "waiting": "La modifica attende la tua conferma nella pagina Add-ons",
+      "failed": "Il fornitore non ha potuto dimenticare: {{message}}"
     }
   }
 }

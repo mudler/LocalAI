@@ -13,9 +13,10 @@ import (
 
 // The sentences that the host writes to people in a chat (see hostmsg) come
 // in the language of the person. A binding has a reply language: a fixed
-// language, or auto, which reads the language of the sender's messages. The
-// last clear language of a sender is kept for langTTL, so a short answer such
-// as "ok" or "yes" keeps the language of the conversation.
+// language, or auto, which uses the interface language of the owner when the
+// server knows it and otherwise reads the language of the sender's messages.
+// The last clear language of a sender is kept for langTTL, so a short answer
+// such as "ok" or "yes" keeps the language of the conversation.
 //
 // Every host sentence goes through msg (or a Voice made by voice). A guard
 // test fails when a fixed English text reaches the send path any other way.
@@ -105,14 +106,18 @@ func (c *Connectors) noteLanguage(b connectors.Binding, m contract.ConnectorMess
 }
 
 // languageOf is the language of the sentences for a sender (or a chat, when
-// the sender is not known): the setting of the binding when it names one, else
-// the language the sender last wrote clearly, else the interface language of
-// the owner when the server knows it, else English.
+// the sender is not known): the setting of the binding when it names one. With
+// auto it is the interface language of the owner when the server knows it and
+// the catalog has it, else the language the sender last wrote clearly (the
+// stop-word detection), else English.
 func (c *Connectors) languageOf(ctx context.Context, b connectors.Binding, sender, chat string) string {
 	if set := b.ReplyLang(); set != hostmsg.Auto {
 		if l, ok := hostmsg.Normalize(set); ok {
 			return l
 		}
+	}
+	if l, ok := c.ownerLanguage(ctx, b); ok {
+		return l
 	}
 	now := c.o.Clock()
 	if sender != "" {
@@ -125,12 +130,22 @@ func (c *Connectors) languageOf(ctx context.Context, b connectors.Binding, sende
 			return l
 		}
 	}
-	if c.o.OwnerLanguage != nil {
-		if l, ok := hostmsg.Normalize(c.o.OwnerLanguage(ctx, b.Owner)); ok {
-			return l
-		}
-	}
 	return hostmsg.English
+}
+
+// ownerLanguage is the interface language of the owner of a binding as a
+// language of the catalog. The page that saved the binding sent it and the
+// binding keeps it, so every frontend knows it. A server hook can supply it
+// for a binding that has none. A tag the catalog lacks (Korean, for example)
+// counts as unknown, and the detection decides.
+func (c *Connectors) ownerLanguage(ctx context.Context, b connectors.Binding) (string, bool) {
+	if l, ok := hostmsg.Normalize(b.UILanguage); ok {
+		return l, true
+	}
+	if c.o.OwnerLanguage != nil {
+		return hostmsg.Normalize(c.o.OwnerLanguage(ctx, b.Owner))
+	}
+	return "", false
 }
 
 // voice speaks to a sender (and a chat) of a binding in their language.

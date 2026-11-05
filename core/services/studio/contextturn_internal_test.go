@@ -434,6 +434,8 @@ var _ = Describe("context files in the prompt of a chat", func() {
 				_, err = svc.Changes().Confirm(ctx, "alice", p.ID)
 				Expect(err).NotTo(HaveOccurred(), scope)
 			}
+			// The owner's notes are read only for a paired sender.
+			svc.access.set(rec.ID, turnGrant{Binding: "b-tg", Kind: "telegram", Senders: []string{"owner"}, Direct: true, Paired: true})
 			x, err := svc.ChatAccess(ctx, "alice", rec.ID)
 			Expect(err).NotTo(HaveOccurred())
 			tt, err := svc.chatTools(ctx, x)

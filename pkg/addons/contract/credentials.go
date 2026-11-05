@@ -86,6 +86,16 @@ func validateCredentials(c Capabilities) error {
 		if d.Kind != ToolKindRead && d.Kind != ToolKindWrite {
 			return fmt.Errorf("tool %s: an add-on with credentials declares read and write tools only", d.Name)
 		}
+		if d.Enumerates {
+			if d.Kind != ToolKindRead || d.UIOnly || !c.wildcardKind() {
+				return fmt.Errorf("tool %s: enumerates needs a read tool and a connector kind with wildcardResources", d.Name)
+			}
+			if slot.ResourceArgument != "" {
+				if _, has := toolProperties(d)[slot.ResourceArgument]; has {
+					return fmt.Errorf("tool %s: an enumerating tool names no resource", d.Name)
+				}
+			}
+		}
 		if _, has := toolProperties(d)[ResourceArgument]; has {
 			return fmt.Errorf("tool %s: an add-on with credentials names its resources with %s, not %s", d.Name, slot.ResourceArgument, ResourceArgument)
 		}
@@ -110,6 +120,24 @@ func validateCredentials(c Capabilities) error {
 		}
 	}
 	return nil
+}
+
+// AnyResource is the resource key that stands for everything the credential
+// reaches: the entry a binding lists to allow it, and the key the host asks
+// for on behalf of an enumerating tool (see ToolDefinition.Enumerates).
+const AnyResource = "*"
+
+// wildcardKind reports a connector kind that lets bindings list a wildcard.
+func (c Capabilities) wildcardKind() bool {
+	if c.Connector == nil {
+		return false
+	}
+	for _, k := range c.Connector.Kinds {
+		if k.WildcardResources {
+			return true
+		}
+	}
+	return false
 }
 
 func toolProperties(d ToolDefinition) map[string]json.RawMessage {

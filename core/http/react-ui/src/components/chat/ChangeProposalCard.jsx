@@ -267,6 +267,12 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
         ))}
         {expiry && <div className="cx-plan__row" data-row="expires"><dt>{t('changes.row.expires')}</dt><dd>{expiry}</dd></div>}
       </dl>
+      {p.warning && (
+        <p className="cx-help cx-help--err cp-warning" data-testid="change-warning" data-warning={p.warning}>
+          <b>{t('changes.warning.title')}</b>{' '}
+          {t(`changes.warning.${p.warning}`, { defaultValue: t('changes.warning.other') })}
+        </p>
+      )}
       {knowledge && edit === null && <KnowledgePreview p={p} t={t} chunking={chunking} />}
       {!knowledge && current !== undefined && edit === null && <Diff before={current ?? ''} after={p.content || ''} target={target} t={t} />}
       {!knowledge && current === null && <p className="cx-help">{t('changes.unreadFile')}</p>}

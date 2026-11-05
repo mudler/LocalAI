@@ -217,7 +217,23 @@ func (c *Changes) Propose(ctx context.Context, in ProposeInput) (contract.Change
 		return contract.ChangeProposal{}, err
 	}
 	c.audit(ctx, proposals.ActionPropose, p, 0, "")
-	return p, nil
+	return withWarning(p), nil
+}
+
+// fetch reads one proposal of the owner from the store, with its warning.
+func (c *Changes) fetch(ctx context.Context, owner, id string) (contract.ChangeProposal, error) {
+	p, err := c.store.Get(ctx, owner, id)
+	if err != nil {
+		return p, err
+	}
+	return withWarning(p), nil
+}
+
+// withWarning adds the warning of the threat scan to a proposal. It is worked
+// out at each read, so a change of the patterns reaches the proposals that wait.
+func withWarning(p contract.ChangeProposal) contract.ChangeProposal {
+	p.Warning = knowledgeWarning(p)
+	return p
 }
 
 // prepare asks the destination of a kind that has one whether it can take the
@@ -332,13 +348,21 @@ func targetName(p contract.ChangeProposal) string {
 // settled first.
 func (c *Changes) List(ctx context.Context, user string, statuses ...contract.ProposalStatus) ([]contract.ChangeProposal, error) {
 	c.sweep(ctx)
-	return c.store.List(ctx, principal(user), statuses...)
+	list, err := c.store.List(ctx, principal(user), statuses...)
+	for i := range list {
+		list[i] = withWarning(list[i])
+	}
+	return list, err
 }
 
 // Get returns one proposal of the user.
 func (c *Changes) Get(ctx context.Context, user, id string) (contract.ChangeProposal, error) {
 	c.sweep(ctx)
-	return c.store.Get(ctx, principal(user), id)
+	p, err := c.store.Get(ctx, principal(user), id)
+	if err != nil {
+		return p, err
+	}
+	return withWarning(p), nil
 }
 
 // Events returns the audit of the user, newest first.
@@ -444,7 +468,7 @@ func (c *Changes) confirm(ctx context.Context, user, id string, edited *string) 
 	}
 	p.Status, p.Rev = contract.ProposalApplied, rev
 	c.audit(ctx, proposals.ActionConfirm, p, rev, "")
-	return c.store.Get(ctx, owner, id)
+	return c.fetch(ctx, owner, id)
 }
 
 // confirmExternal applies a proposal of a kind with a destination of its own.
@@ -473,7 +497,7 @@ func (c *Changes) confirmExternal(ctx context.Context, owner string, p contract.
 	}
 	p.Status = contract.ProposalApplied
 	c.audit(ctx, proposals.ActionConfirm, p, 0, "")
-	return c.store.Get(ctx, owner, p.ID)
+	return c.fetch(ctx, owner, p.ID)
 }
 
 // write puts the files of a change into the home as one change set.
@@ -503,7 +527,7 @@ func (c *Changes) Dismiss(ctx context.Context, user, id string) (contract.Change
 		return contract.ChangeProposal{}, notPending(p)
 	}
 	c.audit(ctx, proposals.ActionDismiss, p, 0, "")
-	return c.store.Get(ctx, owner, id)
+	return c.fetch(ctx, owner, id)
 }
 
 // Revert undoes an applied change with the change set it wrote.
@@ -546,7 +570,7 @@ func (c *Changes) Revert(ctx context.Context, user, id string) (contract.ChangeP
 		c.s.log.Warn("studio: could not record the change set of a revert", "proposal", id, "error", err)
 	}
 	c.audit(ctx, proposals.ActionRevert, p, cs.Rev, "")
-	return c.store.Get(ctx, owner, id)
+	return c.fetch(ctx, owner, id)
 }
 
 // revertExternal takes back a change of a kind with a destination of its own.
@@ -566,7 +590,7 @@ func (c *Changes) revertExternal(ctx context.Context, owner string, p contract.C
 		return contract.ChangeProposal{}, fmt.Errorf("studio: could not revert the change: %w", err)
 	}
 	c.audit(ctx, proposals.ActionRevert, p, 0, "")
-	return c.store.Get(ctx, owner, p.ID)
+	return c.fetch(ctx, owner, p.ID)
 }
 
 // RevertLast reverts the change applied last for the user in the scope of

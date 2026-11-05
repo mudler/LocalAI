@@ -164,7 +164,7 @@ func (h *Changes) sourceOf(c builtins.Chat) contract.ChangeSource {
 // confirm it. A change of a kind that changes what the agent may do needs a
 // paired sender, as the gate decides.
 func (h *Changes) senderMayConfirm(ctx context.Context, c builtins.Chat, p contract.ChangeProposal) bool {
-	if ok, _ := c.Holds(CapProposalsConfirm); !ok || p.Source.Sender == "" {
+	if ok, _ := c.Holds(CapProposalsConfirm); !ok || p.Source.Sender == "" || p.Warning != "" {
 		return false
 	}
 	if p.Kind == contract.ChangeMemory {
@@ -198,6 +198,12 @@ func (h *Changes) alwaysConfirm(ctx context.Context, p contract.ChangeProposal) 
 func (h *Changes) connectorProposed(ctx context.Context, c builtins.Chat, p contract.ChangeProposal, autoNote string) string {
 	head := fmt.Sprintf("Proposal %s stored: %s (%s, %s). Nothing is saved yet.", p.ID, p.Summary, p.Kind, p.Scope)
 	conns := h.s.connectors
+	if p.Warning != "" {
+		// The host wrote nothing in the chat: a flagged text is never shown
+		// there to be answered, and the answer would not be taken.
+		return head + " The text looks like it holds a secret, so it cannot be confirmed from a chat: it waits for the owner in Studio, with a warning, and expires in 24 hours. " +
+			"Tell them it is not saved and that the owner decides. Do not repeat the secret and do not say it is saved." + autoNote
+	}
 	if !h.senderMayConfirm(ctx, c, p) {
 		return head + " The person cannot confirm changes from this chat, so it waits for the owner in Studio and expires in 24 hours. " +
 			"Tell them it is not saved and that the owner decides. Do not say it is saved." + autoNote
@@ -276,6 +282,12 @@ func (c *Connectors) answerChange(ctx context.Context, b connectors.Binding, m c
 	if p.Source.Sender != "" && p.Source.Sender != m.SenderID && (!m.Direct || ch.alwaysConfirm(ctx, p)) {
 		ch.audit(ctx, proposals.ActionRefuse, p, 0, "not the sender who asked; "+detail)
 		return v.T("change.not_you"), true
+	}
+	if verb != "cancel" && p.Warning != "" {
+		// A flagged text is confirmed in the web interface, where the owner
+		// sees the warning next to the text. Dropping it is always allowed.
+		ch.audit(ctx, proposals.ActionRefuse, p, 0, "flagged text; "+detail)
+		return v.T("change.flagged"), true
 	}
 	if verb == "cancel" {
 		if _, err := ch.Dismiss(ctx, b.Owner, p.ID); err != nil {

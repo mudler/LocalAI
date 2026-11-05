@@ -14,6 +14,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/schema"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -57,6 +58,8 @@ var _ = Describe("the studio endpoint helpers", func() {
 			{"triggers off", failTrigger, studiosvc.ErrTriggersOff, 409, "triggers_off", studiosvc.ErrTriggersOff.Error()},
 			{"a trigger error falls to the chat table", failTrigger, session.ErrNotFound, 404, "not_found", "conversation not found"},
 			{"an app refusal keeps its reason", failApp, fmt.Errorf("%w: not declared", studiosvc.ErrMCPAppRefused), 403, "mcp_app_refused", "not declared"},
+			{"a host denial for a connector", failConnector, fmt.Errorf("verifying: %w", connectors.ErrForbidden), 403, "authorization_error", "not allowed"},
+			{"a host denial does not name the part that failed", failConnector, fmt.Errorf("agent \"secret-agent\": %w", connectors.ErrForbidden), 403, "authorization_error", "not allowed"},
 			{"an app refusal with no reason", failApp, studiosvc.ErrMCPAppRefused, 403, "mcp_app_refused", ""},
 			{"an MCP content failure", failMCPContent, fmt.Errorf("%w: server said no", studiosvc.ErrMCPContent), 502, "mcp_error", "server said no"},
 		}
@@ -66,6 +69,7 @@ var _ = Describe("the studio endpoint helpers", func() {
 			Expect(apiErr.Type).To(Equal(tt.typ), tt.name)
 			Expect(apiErr.Code).To(BeEquivalentTo(tt.status), tt.name)
 			Expect(apiErr.Message).To(ContainSubstring(tt.msg), tt.name)
+			Expect(apiErr.Message).NotTo(ContainSubstring("secret-agent"), tt.name)
 		}
 	})
 

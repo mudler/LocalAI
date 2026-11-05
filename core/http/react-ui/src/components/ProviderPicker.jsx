@@ -1,9 +1,10 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProviderSlot } from '../hooks/useProviderSlot'
-import { PROVIDER_BUILTIN, pickable, providerFacts, providerFailure } from '../utils/providerSlots'
-import { LoadError, Notice, SkeletonRows } from './ui'
+import { PROVIDER_BUILTIN, forgettable, pickable, providerFacts, providerFailure } from '../utils/providerSlots'
+import ConfirmDialog from './ConfirmDialog'
+import { Button, LoadError, Notice, SkeletonRows } from './ui'
 import './memorysettings.css'
 
 // The choice of provider for one slot, drawn from what the server lists: the
@@ -16,16 +17,35 @@ import './memorysettings.css'
 //   version    changes when something else changed the slot, to read it again
 //   onChange   called after a pick was stored
 //   addToast   shows a failure
-export default function ProviderPicker({ slot, version, onChange, addToast }) {
+//   forget     optional: async () => { done, proposal }. It asks the provider that
+//              serves to forget what it keeps. The action is offered only while
+//              an add-on serves and declares the forget role; the built-in
+//              provider has none.
+export default function ProviderPicker({ slot, version, onChange, addToast, forget }) {
   const { t } = useTranslation('chats')
   const { view, error, saving, reload, pick } = useProviderSlot(slot, version)
   const titleId = useId()
   const testId = `provider-picker-${slot}`
+  const [asking, setAsking] = useState(false)
+  const [forgetting, setForgetting] = useState(false)
 
   if (error && !view) return <LoadError title={t('providerPicker.loadError')} error={error} onRetry={reload} testId={`${testId}-error`} />
   if (!view) return <SkeletonRows count={2} />
 
   const failure = providerFailure(view)
+  const serving = forget ? forgettable(view) : null
+  const doForget = async () => {
+    setForgetting(true)
+    try {
+      const r = await forget()
+      addToast?.(r?.done === false ? t('providerPicker.forget.waiting') : t('providerPicker.forget.done', { name: serving.title }), 'success')
+    } catch (e) {
+      addToast?.(t('providerPicker.forget.failed', { message: e.message }), 'error')
+    } finally {
+      setForgetting(false)
+      setAsking(false)
+    }
+  }
   const choose = async (id) => {
     if (!pickable(view, id)) return
     if (await pick(id)) onChange?.(id)
@@ -50,6 +70,14 @@ export default function ProviderPicker({ slot, version, onChange, addToast }) {
           testId={`${testId}-failed`}
         />
       )}
+      {view.health?.notice && (
+        <Notice
+          severity="warn"
+          title={t('providerPicker.healthTitle')}
+          reason={view.health.notice}
+          testId={`${testId}-health`}
+        />
+      )}
       <div className="ms-levels" role="radiogroup" aria-labelledby={titleId}>
         {view.providers.map((p) => {
           const w = words(p)
@@ -69,6 +97,23 @@ export default function ProviderPicker({ slot, version, onChange, addToast }) {
         })}
       </div>
       {error && <p className="ms-p ms-p--warn" role="alert" data-testid={`${testId}-save-error`}>{error.message}</p>}
+      {serving && (
+        <div className="ms-forget" data-testid={`${testId}-forget`}>
+          <p className="ms-p">{t('providerPicker.forget.lede', { name: serving.title })}</p>
+          <Button variant="danger" size="sm" icon="trash" disabled={forgetting} data-testid={`${testId}-forget-button`} onClick={() => setAsking(true)}>{t('providerPicker.forget.action')}</Button>
+          <ConfirmDialog
+            open={asking}
+            danger
+            pending={forgetting}
+            title={t('providerPicker.forget.confirmTitle', { name: serving.title })}
+            message={t(serving.undo === 'none' ? 'providerPicker.forget.confirmBodyFinal' : 'providerPicker.forget.confirmBody', { name: serving.title })}
+            confirmLabel={t('providerPicker.forget.confirm')}
+            pendingLabel={t('providerPicker.forget.pending')}
+            onConfirm={doForget}
+            onCancel={() => setAsking(false)}
+          />
+        </div>
+      )}
     </section>
   )
 }

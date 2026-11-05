@@ -53,6 +53,7 @@
   "proposal.multi": "Qui ce n'è più di uno in attesa. Indica quale, ad esempio \"conferma CODICE\" oppure \"annulla CODICE\":",
   "change.no_right": "Solo il proprietario può confermare.",
   "change.not_you": "Solo la persona che l'ha chiesto può confermare.",
+  "change.flagged": "Questo testo sembra contenere un segreto, quindi non si può confermare da una chat. Controlla la proposta nell'interfaccia web.",
   "change.cannot": "Non è stato possibile annullare la modifica: {error}",
   "change.saved": "Salvato: {summary}. Rispondi \"annulla modifica\" entro {minutes} minuti per tornare indietro.",
   "change.done": "Fatto: {summary}. Rispondi \"annulla modifica\" entro {minutes} minuti per tornare indietro.",

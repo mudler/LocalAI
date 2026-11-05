@@ -2,8 +2,12 @@ package studio_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"net/http"
 
 	"github.com/mudler/LocalAI/addons/telegram/transport"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
@@ -100,6 +104,75 @@ var _ = Describe("a credentials-only connector binding", func() {
 		})
 	})
 
+	Describe("the number of bindings of a person", func() {
+		It("is 50, enough for several bots and a credential binding for each service", func() {
+			Expect(connectors.MaxPerUser).To(Equal(50))
+			newRig(true)
+			for i := range connectors.MaxPerUser {
+				in := credOnly(studio.ConnectorInput{})
+				in.Name = fmt.Sprintf("Connection %d", i)
+				_, err := r.conns.CreateConnector(ctx, alice, in)
+				Expect(err).NotTo(HaveOccurred(), "binding %d", i+1)
+			}
+			_, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: "telegram", Name: "One too many", Token: botToken})
+			Expect(err).To(MatchError(connectors.ErrInvalid))
+			Expect(err).To(MatchError(ContainSubstring("at most 50 bindings")))
+		})
+	})
+
+	Describe("creating with the token check of the platform", func() {
+		// The real check (who is the bot of this token) runs for a binding that is
+		// not stored yet, through the host authority. It must not look up an agent
+		// the binding does not have.
+		verified := func(optional bool) {
+			bot := newScriptedBot()
+			addon := studiobot.Telegram(&transport.API{BaseURL: bot.srv.URL, Client: bot.srv.Client()})
+			addon.Kind.AgentOptional = optional
+			tr := studiobot.NewTransport(addon)
+			st = connStore()
+			r = newConnRigOpts(newShared(), st, tr, connSay("never"), nil, func(o *studio.ConnectorOptions) { o.VerifyToken = studio.VerifyTokenWithMe(asApplication{tr}) })
+			r.bot, r.untrusted = bot, true
+		}
+		It("saves a binding with no agent", func() {
+			verified(true)
+			got, err := r.conns.CreateConnector(ctx, alice, credOnly(studio.ConnectorInput{}))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.CredentialsOnly()).To(BeTrue())
+		})
+		It("still refuses a token that the platform refuses", func() {
+			verified(true)
+			r.bot.setFail("getMe", func() (int, string) {
+				return http.StatusUnauthorized, `{"ok":false,"error_code":401,"description":"Unauthorized"}`
+			})
+			_, err := r.conns.CreateConnector(ctx, alice, credOnly(studio.ConnectorInput{}))
+			Expect(err).To(MatchError(studio.ErrTokenRefused))
+		})
+		It("still needs an agent when the kind does not declare agentOptional", func() {
+			verified(false)
+			_, err := r.conns.CreateConnector(ctx, alice, credOnly(studio.ConnectorInput{}))
+			Expect(err).To(MatchError(connectors.ErrInvalid))
+		})
+		It("still refuses an agent that is not the owner's", func() {
+			verified(true)
+			_, err := r.conns.CreateConnector(ctx, alice, credOnly(studio.ConnectorInput{AgentID: "someone-elses"}))
+			Expect(err).To(HaveOccurred())
+		})
+		It("authorizes the check of a new binding by its token, and by its agent only when it has one", func() {
+			verified(true)
+			me := func(scope studio.ConnectorCallScope, token string) error {
+				_, err := r.conns.AuthorizeConnector(ctx, scope, contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: "telegram", Token: token})
+				return err
+			}
+			scope := studio.ConnectorCallScope{Purpose: studio.ConnectorPurposeVerifyToken, Principal: alice, AddonID: "telegram", Kind: "telegram"}
+			Expect(me(scope, botToken)).To(Succeed())
+			Expect(me(scope, "")).To(MatchError(connectors.ErrForbidden), "the token is still required")
+			scope.AgentID = "someone-elses"
+			Expect(me(scope, botToken)).To(MatchError(connectors.ErrForbidden), "a foreign agent is still refused")
+			scope.AgentID = r.agentID()
+			Expect(me(scope, botToken)).To(Succeed())
+		})
+	})
+
 	Describe("a record that is on without an agent", func() {
 		BeforeEach(func() { newRig(true); b = stored() })
 
@@ -143,3 +216,15 @@ var _ = Describe("a credentials-only connector binding", func() {
 		})
 	})
 })
+
+// asApplication maps a refusal of the gateway to the one of the connectors, as
+// the application transport does.
+type asApplication struct{ *studiobot.BotTransport }
+
+func (t asApplication) Call(ctx context.Context, scope studio.ConnectorCallScope, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
+	resp, err := t.BotTransport.Call(ctx, scope, req)
+	if errors.Is(err, gateway.ErrForbidden) {
+		return resp, connectors.ErrForbidden
+	}
+	return resp, err
+}

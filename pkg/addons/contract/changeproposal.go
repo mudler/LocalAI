@@ -79,6 +79,13 @@ const (
 // Settled reports whether the proposal has an answer.
 func (s ProposalStatus) Settled() bool { return s != ProposalPending }
 
+// The codes of ChangeProposal.Warning.
+const (
+	// WarningSecret: the text looks like it holds a secret, such as a private
+	// key, an access token or a password.
+	WarningSecret = "secret"
+)
+
 // ChangeSource says where a proposal came from, without naming a platform.
 // Kind is the origin of the chat as the host names it ("" for a chat a person
 // watches, "connector" for a messaging app). ID names the binding of a
@@ -112,6 +119,12 @@ type ChangeProposal struct {
 	BaseHash string         `json:"base_hash,omitempty"`
 	Source   ChangeSource   `json:"source,omitzero"`
 	Status   ProposalStatus `json:"status"`
+	// Warning is set by the host when the text of a proposal looks risky, as a
+	// stable code (see the Warning constants). The owner still sees the text,
+	// with a warning, and can confirm it in the web interface; a messaging chat
+	// cannot confirm it. The host works it out when it reads the proposal and
+	// does not keep it.
+	Warning string `json:"warning,omitempty"`
 	// Auto is true when the host applied the change at once because the person
 	// chose so (the memory save setting), not after a confirmation. The change
 	// set is the same and can be undone the same way.

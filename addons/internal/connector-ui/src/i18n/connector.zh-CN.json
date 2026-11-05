@@ -15,7 +15,7 @@
   "answer.windowRange": "请输入 1 到 {{max}} 的整数。",
   "answer.languageLabel": "回复语言",
   "answer.languageHelp": "机器人自己撰写的提示，例如确认和拒绝。模型的回答则使用对话所用的语言。",
-  "answer.language.auto": "自动（发送者使用的语言）",
+  "answer.language.auto": "自动（你的界面语言，否则使用发送者的语言）",
   "answer.language.en": "English",
   "answer.language.it": "Italiano",
   "answer.language.de": "Deutsch",

@@ -47,14 +47,8 @@ test('Chinese plurals and namespaced labels resolve without English fallback', a
   assert.equal(i18n.t('traffic:overview.title', { window: '最近 7 天' }), '流量，最近 7 天')
 })
 
-test('Chinese built-in add-on bundles cover strings, lists and placeholders', async () => {
-  for (const name of ['voice', 'face', 'fine-tuning', 'quantization']) {
-    const base = new URL(`addons/${name}/ui/src/i18n/`, root)
-    const en = (await import(new URL('en.js', base))).default
-    const zh = (await import(new URL('zh-CN.js', base))).default
-    compare(en, zh, name)
-  }
-  for (const [name, ns] of [['studio', 'media'], ['talk', 'talk']]) {
+test('Chinese built-in add-on bundles cover strings, lists and placeholders', () => {
+  for (const [name, ns] of [['voice', 'voice'], ['face', 'face'], ['fine-tuning', 'fine-tuning'], ['quantization', 'quantization'], ['studio', 'media'], ['talk', 'talk']]) {
     const base = new URL(`addons/${name}/ui/src/i18n/`, root)
     compare(read(new URL(`${ns}.en.json`, base)), read(new URL(`${ns}.zh-CN.json`, base)), name)
   }

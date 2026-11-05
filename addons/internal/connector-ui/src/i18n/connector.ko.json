@@ -15,7 +15,7 @@
   "answer.windowRange": "1부터 {{max}}까지의 정수를 입력하세요.",
   "answer.languageLabel": "답변 언어",
   "answer.languageHelp": "확인이나 거절처럼 봇이 직접 쓰는 안내문입니다. 모델의 답변은 대화의 언어를 따릅니다.",
-  "answer.language.auto": "자동 (보낸 사람의 언어)",
+  "answer.language.auto": "자동 (사용 중인 인터페이스 언어, 없으면 보낸 사람의 언어)",
   "answer.language.en": "English",
   "answer.language.it": "Italiano",
   "answer.language.de": "Deutsch",

@@ -1777,7 +1777,7 @@ test-addons-suites:
 ## `local-ai addons install <file>`). Each zip holds the files of the OCI package
 ## of one add-on and platform: it is made from the package that package.sh builds.
 ##   make addons-zip                         every add-on, this host's platform
-##   make addons-zip ADDON=memory            one add-on
+##   make addons-zip ADDON=web            one add-on
 ##   make addons-zip PLATFORMS=linux/amd64,darwin/arm64 ADDON_EXECUTABLES=<dir>
 ## A platform other than this host needs the native executables at
 ## <dir>/<os>-<arch>/<executable name>. ADDON_VERSION overrides the manifest

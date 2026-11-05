@@ -974,7 +974,7 @@ list.
 On the first start, when the owner has no `sources.json` in the `addons` folder yet,
 LocalAI registers one library with the ID `official`. It is a YAML index of the
 first-party add-ons (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Simple Office,
-Sandbox, Web and Short memory). The index has one entry for each enabled platform of each add-on, so an
+Sandbox and Web, plus the other first-party add-ons). The index has one entry for each enabled platform of each add-on, so an
 install on Linux (amd64 or arm64) and on macOS (Apple silicon or Intel) finds the add-ons for
 its own platform. The Sandbox add-on is Linux only. No add-on is built for Windows yet, so the
 official library lists nothing there.
@@ -1145,7 +1145,7 @@ and prints what it holds. `local-ai addons install <file>` checks it, uploads it
 to a running server and prints the link of the page that finishes the install:
 
 ```bash
-local-ai addons install dist/addons/memory-0.1.0-linux-amd64.zip \
+local-ai addons install dist/addons/web-0.1.0-linux-amd64.zip \
   --target http://localhost:8080 --api-key "$LOCALAI_API_KEY"
 ```
 
@@ -1218,21 +1218,21 @@ second build path: the zip holds the same files as the registry package.
 
 ```bash
 # One add-on, for the platform of this machine
-make addons-zip ADDON=memory
+make addons-zip ADDON=web
 
 # Every add-on, for the platform of this machine
 make addons-zip
 
 # Other platforms need the native executables
-make addons-zip ADDON=memory PLATFORMS=linux/amd64,darwin/arm64 \
+make addons-zip ADDON=web PLATFORMS=linux/amd64,darwin/arm64 \
   ADDON_EXECUTABLES=/path/to/executables
 ```
 
 The files go to `dist/addons` (`ADDONS_ZIP_DIR` changes it):
 
 ```text
-dist/addons/memory-0.1.0-linux-amd64.zip
-dist/addons/memory-0.1.0-linux-amd64.zip.sha256
+dist/addons/web-0.1.0-linux-amd64.zip
+dist/addons/web-0.1.0-linux-amd64.zip.sha256
 ```
 
 | Variable | Meaning |
@@ -1253,8 +1253,8 @@ zip bytes, so you can rebuild a file and compare the sha256.
 To build and install one add-on:
 
 ```bash
-make addons-zip ADDON=memory
-local-ai addons install dist/addons/memory-0.1.0-linux-amd64.zip
+make addons-zip ADDON=web
+local-ai addons install dist/addons/web-0.1.0-linux-amd64.zip
 ```
 
 ## Library sources
@@ -2594,6 +2594,9 @@ The manifest declares the capability. It needs no tool and no `service` flag:
 | `kinds[].delivery` | `pull`: the host asks for updates (long polling). `push`: the add-on calls the host operation `connector.inbound`. |
 | `kinds[].page` | Optional. The add-on page that adds and edits bindings; it must be a declared page. The Connectors page links to it. |
 | `kinds[].agentOptional` | Optional, manifest `api` 2. `true` lets a binding of the kind have no agent. Such a binding is credentials only: it holds the token, the resource list and the write mode, and the host never delivers a message to it, polls for it, answers from it or authorizes a sender on it. The host refuses an empty agent together with listening, accepting senders, an allowlist, a notification chat, talk-back channels, permissions, pairing or trigger approval. Without the key every binding of the kind needs an agent. |
+| `kinds[].wildcardResources` | Optional. `true` lets a binding of the kind list `owner/*` (every resource of one owner) or `*` (every resource the credential reaches) in its resources. The host matches them before the add-on is called, without regard to case and on whole names; a star anywhere else is refused, `*` must be the only entry, and saving `*` needs the confirmation `confirm_any_resource` = `allow any resource`. Without the key every entry is an exact name. |
+| `kinds[].tokenGuards` | Optional list of `{prefix, option, allow}`. The host refuses a credential that starts with `prefix` unless the binding set the kind option `option` to `allow`, and asks for `confirm_wider_token` = `accept wider token` when the option is turned on. It is checked when the token is saved and again each time it is used. `option` and `allow` must exist in the kind's `options`. At most 4. |
+| `toolDefinitions[].enumerates` | Optional, on a read tool of an add-on with credentials. The tool lists what the credential reaches, names no resource, and runs only for a binding whose list is `*` (the kind needs `wildcardResources`). The request carries the resource key `*`. |
 | `kinds[].drafts` | Optional. `true` when the add-on serves the op `draft`. The host then shows the live answer of a direct conversation as a draft instead of a working message. |
 | `kinds[].previewMs` | Optional. The shortest time between two previews (edits or drafts) of one binding, 250 to 10000 ms. Without it the host waits one second. |
 | `kinds[].history` | Optional, manifest `api` 2. `{"thread": true, "maxMessages": N}`: the add-on serves the op `history` for threads, and returns at most `maxMessages` (1 to 200; without it the host asks for 30). A kind without it is never asked, so it keeps the behaviour of a platform that cannot give old messages. |
@@ -3245,7 +3248,8 @@ anything is sent. A manifest that does not is refused.
 ### The retired Memory add-on
 
 The notes are built in, and the add-on `memory` that used to read them is an alias of the
-built-in provider. A copy that is still installed keeps working: the host does not list it
+built-in provider. Its package is retired: it is no longer in the library or built by the
+package workflow, so it is not offered for a new install. A copy that is still installed keeps working: the host does not list it
 as a provider, a choice that names it means the built-in provider, and its index files
 and skills are ignored so the notes do not load twice. Nothing is deleted. A new
 provider must use another ID.
@@ -5142,6 +5146,12 @@ permissions, the approval, the pairing and the file limits. A bundle uses `{{nam
 when a language lacks a bundle, a bundle lacks a key of English or has an extra one, a placeholder differs
 from English, or a value is empty. There is no baseline: add a key to English and every language in the
 same change.
+
+The Voice, Face, Fine-tuning, Quantization and Memory pages read their words from the same kind of bundle
+(`addons/<id>/ui/src/i18n/<id>.<language>.json`, flat keys). A list of notes is stored as numbered keys
+(`voice.why.0`, `voice.stored.0.where`) and the page puts it back together, so each item is translated like any
+other text. A string that has no translation yet repeats the English text in that language's bundle, which
+satisfies the gate and shows English; replace it when a translation exists.
 
 Compile an add-on with classic JSX transformed to `React.createElement` over
 `sdk.React`, inside the `createAddon` factory. Do not import a JSX runtime. The fixture

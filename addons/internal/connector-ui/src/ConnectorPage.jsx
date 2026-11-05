@@ -18,7 +18,7 @@ import FilesFields from './FilesFields'
 import { Check, Field, HintLabels, Notice, RadioCards, Select, Switch, TextInput } from './controls'
 import NameList from './NameList'
 import PermissionFields, { NoCapsNotice } from './PermissionFields'
-import { agentsApi, connectorsApi } from './api'
+import { agentsApi, connectorsApi, setApiLanguage } from './api'
 import { canSave, channelOnly, connectorForm, hasNoCaps, connectorPayload, emptyConnector, listEntries, replaceList, senderLine, usualCaps } from './connector'
 import { registerConnectorLocales } from './i18n'
 import './connector.css'
@@ -90,7 +90,9 @@ const ONE_LIST = [{ key: 'allow', label: 'allow', hint: 'allowHint', testId: 'co
  */
 export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleToken, tokenOf = (f) => f.token || '', lists = ONE_LIST, Help, notifyMode = 'text',
   messaging = true, ExtraFields, extraBody, extraForm, extraValid, testExtra, RowInfo }) {
-  const { t } = useTranslation([ns, 'connector'])
+  const { t, i18n } = useTranslation([ns, 'connector'])
+  const uiLanguage = i18n?.resolvedLanguage || i18n?.language || ''
+  setApiLanguage(uiLanguage)
   const [items, setItems] = useState([])
   const [agents, setAgents] = useState([])
   const [off, setOff] = useState('')
@@ -135,7 +137,14 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
       setKindInfo((r.kinds || []).find((k) => k.kind === kind) || null)
       setCapabilities(r.capabilities || [])
     }).catch(() => {})
-  }, [kind])
+  }, [kind, uiLanguage])
+  // The permission texts come from the host in the language of the page: ask again when it changes.
+  const languageSeen = useRef(uiLanguage)
+  useEffect(() => {
+    if (languageSeen.current === uiLanguage) return
+    languageSeen.current = uiLanguage
+    setAccessVersion((v) => v + 1)
+  }, [uiLanguage])
   useEffect(() => { agentsApi.list().then((r) => setAgents(r.agents || [])).catch(() => {}) }, [])
 
   // A link with ?binding=<id> (from the Tools list of an agent) opens that
