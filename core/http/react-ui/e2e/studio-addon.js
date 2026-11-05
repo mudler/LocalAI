@@ -24,8 +24,9 @@ export async function buildAddonBundles(ids) {
 }
 
 // The add-ons the specs serve from their build output: Studio, Talk and Voice
-// through installStudioAddons, Face and Fine-tuning through their own routes.
-export async function buildStudioAddons(ids = ['studio', 'talk', 'voice', 'face', 'fine-tuning', 'telegram', 'slack', 'github', 'discord', 'home-assistant', 'jellyfin']) {
+// through installStudioAddons, Face, Fine-tuning and Memory through their own
+// routes.
+export async function buildStudioAddons(ids = ['studio', 'talk', 'voice', 'face', 'fine-tuning', 'telegram', 'slack', 'github', 'discord', 'home-assistant', 'jellyfin', 'memory']) {
   await buildAddonBundles(ids)
   process.env[BUILT] = '1'
 }
