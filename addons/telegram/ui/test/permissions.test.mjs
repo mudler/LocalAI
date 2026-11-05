@@ -21,6 +21,15 @@ test('permissions: a new binding has no caps, grants or channels', () => {
   assert.equal(hasNoCaps({}), true, 'a binding from an older host has no caps field')
 })
 
+test('permissions: a new binding opened with the host list starts with the usual set the agent holds', () => {
+  assert.deepEqual(emptyConnector(CAPS).caps, ['memory.write', 'talkback.channels'], 'no agent yet: every usual cap, no sensitive one')
+  assert.deepEqual(emptyConnector(CAPS, ['memory.write']).caps, ['memory.write'], 'only what the agent holds')
+  assert.deepEqual(emptyConnector(CAPS, []).caps, [])
+  const c = emptyConnector(CAPS)
+  assert.deepEqual([c.accept_any, c.approval.mode, c.grants], [false, emptyConnector().approval.mode, []], 'restrictions stay off')
+  assert.equal(hasNoCaps(emptyConnector([])), true, 'a host list with no usual cap leaves the warning')
+})
+
 test('permissions: the usual preset is the non-sensitive caps the host marks, and never a sensitive one', () => {
   assert.deepEqual(usualCaps(CAPS), ['memory.write', 'talkback.channels'])
   assert.deepEqual(usualCaps([{ name: 'profile.write', sensitive: true, usual: true }]), [], 'a sensitive cap is never usual, whatever the list says')

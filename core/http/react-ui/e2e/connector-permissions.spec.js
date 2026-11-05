@@ -312,6 +312,13 @@ test.describe('Connector permissions', () => {
     await page.getByRole('button', { name: 'New Slack app' }).click()
     await expect(page.getByTestId('connector-pairing')).toContainText('Save this bot first')
     await expect(page.getByTestId('connector-access')).toContainText('Save this bot first')
+    // The usual set is ticked from the start, so there is no warning; a sensitive row is not.
+    await expect(page.getByTestId('connector-nocaps')).toHaveCount(0)
+    await expect(page.getByTestId('connector-cap-switch-memory.write')).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByTestId('connector-cap-switch-talkback.new_channel')).toHaveAttribute('aria-checked', 'false')
+    // Clearing every row brings the warning back.
+    const on = page.locator('[data-testid^="connector-cap-switch-"][aria-checked="true"]')
+    while (await on.count()) await on.first().click()
     await expect(page.getByTestId('connector-nocaps')).toBeVisible()
   })
 
@@ -473,8 +480,14 @@ test.describe('Connector permissions', () => {
     expect(a.s.previews.at(-1).body.kind).toBe('slack')
     await expect(page.getByTestId('connector-can-dirty')).toContainText('Not saved yet')
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
+    // The usual set the agent holds is on from the start; no sensitive row is.
+    await expect.poll(() => a.s.previews.at(-1).body).toMatchObject({ agent_id: 'a1', kind: 'slack' })
+    const caps = a.s.previews.at(-1).body.caps
+    expect(caps).toContain('memory.write')
+    expect(caps).not.toContain('talkback.new_channel')
     await page.getByTestId('connector-cap-switch-memory.write').click()
-    await expect.poll(() => a.s.previews.at(-1).body).toMatchObject({ agent_id: 'a1', caps: ['memory.write'], kind: 'slack' })
+    await expect.poll(() => a.s.previews.at(-1).body.caps).not.toContain('memory.write')
+    await page.getByTestId('connector-cap-switch-memory.write').click()
     await expect(page.getByTestId('connector-can-memory.write')).toHaveAttribute('data-allowed', 'true')
     await shot(page, 'can-2-new')
   })

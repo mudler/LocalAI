@@ -20,7 +20,7 @@ import NameList from './NameList'
 import ChannelTrust from './ChannelTrust'
 import PermissionFields, { NoCapsNotice } from './PermissionFields'
 import { agentsApi, connectorsApi, setApiLanguage } from './api'
-import { DUPLICATE_CONFIRMATION, canSave, channelOnly, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, hasNoCaps, connectorPayload, emptyConnector, listEntries, replaceList, senderLine, trustAfter, usualCaps } from './connector'
+import { DUPLICATE_CONFIRMATION, canSave, channelOnly, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, hasNoCaps, connectorPayload, emptyConnector, agentHeld, usualFor, listEntries, replaceList, senderLine, trustAfter, usualCaps } from './connector'
 import { registerConnectorLocales } from './i18n'
 import './connector.css'
 
@@ -184,6 +184,14 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items])
 
+  // A new binding starts with the usual set for its agent. While those caps are
+  // untouched, choosing another agent ticks the usual set for that agent instead.
+  const withAgent = (f, agentId) => {
+    const held = (id) => agentHeld(agents.find((a) => a.id === id))
+    const same = (a, b) => a.length === b.length && a.every((x) => b.includes(x))
+    const untouched = !f.id && same(f.caps || [], usualFor(capabilities, held(f.agent_id)).caps)
+    return { ...f, agent_id: agentId, ...(untouched ? { caps: usualFor(capabilities, held(agentId)).caps } : {}) }
+  }
   const agentName = (id) => agents.find((a) => a.id === id)?.name || id
   const open = (c) => { setForm(c); setConfirmed(Boolean(c.accept_any)); setNote(''); setPairedList(null); setDupAsk(null) }
   // The question sits by the Save button, at the end of a long form: bring it into view.
@@ -278,7 +286,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     <div className="cn-page" data-testid={testId}>
       <header className="cn-head">
         <h1 className="cn-title">{t('title')}</h1>
-        <button type="button" className="dk-btn dk-btn--primary" onClick={() => open({ ...emptyConnector(), ...(extraForm ? extraForm({}) : {}) })}>
+        <button type="button" className="dk-btn dk-btn--primary" onClick={() => open({ ...emptyConnector(capabilities, agentHeld(agents.length === 1 ? agents[0] : null)), ...(extraForm ? extraForm({}) : {}) })}>
           <Icon name="plus" /> {t('new')}
         </button>
       </header>
@@ -308,7 +316,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             <TokenFields form={form} setForm={setForm} t={t} />
             <Field label={t('agent')} hint={agentOptional ? answerT(t)('agentOptionalHint') : undefined} optional={agentOptional}>
               {(p) => (
-                <Select {...p} data-testid="connector-agent" aria-label={t('agent')} value={form.agent_id} required={!agentOptional} onChange={(e) => setForm({ ...form, agent_id: e.target.value })}>
+                <Select {...p} data-testid="connector-agent" aria-label={t('agent')} value={form.agent_id} required={!agentOptional} onChange={(e) => setForm(withAgent(form, e.target.value))}>
                   <option value="">{agentOptional ? answerT(t)('agentCredentialsOnly') : t('agentNone')}</option>
                   {agents.map((a) => (
                     <option key={a.id} value={a.id} disabled={!a.model}>{a.model ? a.name : t('agentNoModel', { name: a.name })}</option>

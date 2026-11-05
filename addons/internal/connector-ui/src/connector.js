@@ -278,14 +278,18 @@ export function channelsProblem(list) {
   return ''
 }
 
-export function emptyConnector() {
+// The form of a new binding. With the host's capability list it starts with the
+// usual permission set ticked for what the agent holds (held is agentHeld(agent),
+// null when no agent is chosen yet); without it, with no permission on. Only the
+// non-sensitive usual ones are ever ticked, and the restrictions stay off.
+export function emptyConnector(capabilities, held = null) {
   return {
     id: '', name: '', token: '', agent_id: '', enabled: true, accept_any: false, allow: [], allow_trust: {}, notify_chat: '',
     reply_mode: 'progress', conversation: 'sender', window_minutes: 60, send_files: true, reply_language: 'auto',
     options: {},
     file_receive_mib: '', file_send_mib: '',
     approval: emptyApproval(),
-    caps: [], grants: [], channels: [],
+    caps: capabilities ? usualFor(capabilities, held).caps : [], grants: [], channels: [],
   }
 }
 
