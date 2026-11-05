@@ -131,7 +131,7 @@ gets one sentence (for example "I cannot listen to voice messages here: no
 speech-to-text model is set up") and no turn starts.
 
 `GET`, `PUT` and `DELETE /api/chats/connectors/{id}` read, replace and delete a
-binding. `POST .../enable` and `.../disable` switch it. You can have 10 bindings.
+binding. `POST .../enable` and `.../disable` switch it. You can have 50 bindings.
 A binding says `active: false` and gives a `reason` while its add-on does not run.
 
 ## GitHub

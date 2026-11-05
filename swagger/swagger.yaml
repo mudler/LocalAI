@@ -17400,7 +17400,7 @@ paths:
         The allowlist is empty at first, so nobody is accepted: add chat IDs, user
         IDs or @usernames, or set accept_any (anyone who can message the bot then
         uses the agent''s tools; the request that turns it on must also carry confirm_accept_any
-        set to "accept any message", or it is a 400). At most 10 bindings.'
+        set to "accept any message", or it is a 400). At most 50 bindings.'
       parameters:
       - description: the binding
         in: body

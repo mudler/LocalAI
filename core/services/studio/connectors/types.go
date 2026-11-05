@@ -85,7 +85,7 @@ const (
 	MaxNameRunes     = 80
 	MaxAllow         = 200
 	MaxAllowRunes    = 64
-	MaxPerUser       = 10
+	MaxPerUser       = 50
 	MaxSendersKept   = 200
 	MaxOptions       = 8
 	MaxOptionRunes   = 32

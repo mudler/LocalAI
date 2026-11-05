@@ -138,6 +138,9 @@ var connectorRules = []errRule{
 	fixed(http.StatusNotFound, typeNotFound, "connector not found", connectors.ErrNotFound),
 	verbatim(http.StatusBadRequest, typeInvalid, connectors.ErrInvalid.Error()+": ", connectors.ErrInvalid),
 	verbatim(http.StatusConflict, typeConnectorOff, "", studiosvc.ErrConnectorsOff),
+	// A host denial is not a failure of the server. The text names no part of the
+	// check (the add-on, the agent, the token), so it tells a caller nothing to probe.
+	fixed(http.StatusForbidden, typeAuthz, "you are not allowed to do this with this connector", connectors.ErrForbidden),
 }
 
 func failConnector(c echo.Context, err error) error {
@@ -208,7 +211,7 @@ func (h *Handlers) ConnectorKinds(c echo.Context) error {
 
 // CreateConnector creates a binding.
 // @Summary Create a connector binding.
-// @Description Needs the kind (the platform), the bot token (kept sealed, never returned) and an agent of yours that names a model. The token is checked with the platform when its add-on runs: a token that the platform refuses is a 400. reply_mode (off, progress, stream; default progress), conversation (sender, chat, window with window_minutes, thread; default sender), send_files (default true) and reply_language (auto, en, it, de, es, fr, pt-BR; default auto, the language of the sentences the bot writes itself) say how the bot answers. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to "accept any message", or it is a 400). At most 10 bindings.
+// @Description Needs the kind (the platform), the bot token (kept sealed, never returned) and an agent of yours that names a model. The token is checked with the platform when its add-on runs: a token that the platform refuses is a 400. reply_mode (off, progress, stream; default progress), conversation (sender, chat, window with window_minutes, thread; default sender), send_files (default true) and reply_language (auto, en, it, de, es, fr, pt-BR; default auto, the language of the sentences the bot writes itself) say how the bot answers. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to "accept any message", or it is a 400). At most 50 bindings.
 // @Tags chats
 // @Param request body schema.ChatsConnectorWrite true "the binding"
 // @Success 201 {object} schema.ChatsConnector "The binding"
