@@ -3411,7 +3411,7 @@ caller is an administrator before it acts.
 ### Add-ons that keep the owner's own data
 
 An add-on that keeps the data of one person and needs no credential and no resource list (the
-[Calendar add-on](/features/calendar/)) sets `capabilities.ownerData` to `true` and
+[Calendar](/features/calendar/) and [Contacts](/features/contacts/) add-ons) sets `capabilities.ownerData` to `true` and
 `featureLevel` to 3. Its tools name no resource: the add-on keys the data on the user in the
 authority of the call, never on an argument. Reads run at once for every sender a messaging
 bot lets in. A tool of another kind than `read` is held to `tools.write` in a messaging chat,

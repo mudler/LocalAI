@@ -1,0 +1,36 @@
+/* The Contacts page. Buttons come from the host's global classes; this sheet
+   lays the page out with the host tokens. */
+.ct-page { max-width: 64rem; margin: 0 auto; padding: var(--dk-space-6, 1.5rem) var(--dk-space-4, 1rem); display: flex; flex-direction: column; gap: var(--dk-space-4, 1rem); }
+.ct-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--dk-space-3, 0.75rem); }
+.ct-bar__title { margin: 0; }
+.ct-bar__tools { display: flex; flex-wrap: wrap; gap: var(--dk-space-3, 0.75rem); align-items: center; }
+.ct-search { flex: 1 1 14rem; min-width: 0; font: inherit; }
+.ct-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--dk-space-4, 1rem); }
+@media (min-width: 52rem) { .ct-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: start; } }
+.ct-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--dk-border, #8884); border-radius: var(--dk-radius-2, 8px); overflow: hidden; }
+.ct-list li + li { border-top: 1px solid var(--dk-border, #8884); }
+.ct-row { width: 100%; display: flex; gap: var(--dk-space-3, 0.75rem); align-items: center; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; padding: var(--dk-space-3, 0.75rem); cursor: pointer; min-width: 0; }
+.ct-row[aria-current="true"] { background: var(--dk-surface-2, #8881); }
+.ct-avatar { flex: none; width: 2.25rem; height: 2.25rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: var(--dk-accent, #c46a2e); color: var(--dk-accent-contrast, #fff); font-size: var(--dk-text-13, 13px); }
+.ct-row__text { display: flex; flex-direction: column; min-width: 0; }
+.ct-row__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-row__sub { color: var(--dk-muted); font-size: var(--dk-text-13, 13px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-form, .ct-detail { display: flex; flex-direction: column; gap: var(--dk-space-3, 0.75rem); padding: var(--dk-space-4, 1rem); border: 1px solid var(--dk-border, #8884); border-radius: var(--dk-radius-2, 8px); min-width: 0; }
+.ct-form h2, .ct-detail h2 { margin: 0; font-size: var(--dk-text-17, 17px); overflow-wrap: anywhere; }
+.ct-detail dl { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--dk-space-2, 0.5rem) var(--dk-space-3, 0.75rem); }
+.ct-detail dt { color: var(--dk-muted); font-size: var(--dk-text-13, 13px); }
+.ct-detail dd { margin: 0; overflow-wrap: anywhere; }
+.ct-detail dd small { color: var(--dk-muted); }
+.ct-notes { white-space: pre-wrap; }
+.ct-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ct-field__label { font-size: var(--dk-text-13, 13px); color: var(--dk-muted); }
+.ct-field input, .ct-field textarea { font: inherit; min-width: 0; }
+.ct-entries { display: flex; flex-direction: column; gap: var(--dk-space-2, 0.5rem); border: 0; margin: 0; padding: 0; min-width: 0; }
+.ct-entries legend { font-size: var(--dk-text-13, 13px); color: var(--dk-muted); padding: 0; }
+.ct-entry { display: flex; flex-wrap: wrap; gap: var(--dk-space-2, 0.5rem); }
+.ct-entry input { font: inherit; min-width: 0; }
+.ct-entry input:first-child { flex: 1 1 6rem; }
+.ct-entry input:nth-child(2) { flex: 3 1 10rem; }
+.ct-actions { display: flex; flex-wrap: wrap; gap: var(--dk-space-2, 0.5rem); align-items: center; }
+.ct-hint, .ct-empty { margin: 0; color: var(--dk-muted); font-size: var(--dk-text-13, 13px); }
+.ct-error { margin: 0; color: var(--dk-danger, #b3261e); }
