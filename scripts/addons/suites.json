@@ -4184,6 +4184,7 @@
       "go: lets a manifest without the declaration keep the tool of the old name only through the apps list",
       "go: rejects a declared listing that collides with a tool of the manifest",
       "go: leaves a proposal that awaits a person for the person, even for the chat adapter",
+      "go: stores the proposal and applies nothing when the host holds the call for a person",
       "go: tells the model that writes are off when the host refuses the call for that reason",
       "go: tells the model to wait when the service rate limits, and not to retry before then",
       "go: tells the model a resource is not on the list, with the allowed ones, and when no credential exists",
