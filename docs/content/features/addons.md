@@ -1578,6 +1578,36 @@ parent traversal, backslashes, percent escapes or URL schemes. These checks do
 not substitute for safe extraction, symlink checks, executable mode validation,
 or checking declared files exist, which belong to package installation.
 
+### Feature level
+
+The four compatibility ranges above are integers that every published add-on states
+(`host`, `api`, `protocol`, `dataFormat`). A new optional manifest field cannot use them
+without making every published add-on incompatible, so the host also has a **feature
+level**: one integer that counts the additive manifest features it understands.
+
+- The host declares its level (`contract.HostFeatureLevel`). This version has level 2.
+  A host that predates the levels is level 1.
+- A manifest may set `featureLevel` (a positive integer, default 1). It states the level
+  the add-on needs. A manifest that uses a field of a higher level must say so: the
+  parser refuses a manifest that uses `capabilities.resources.agentScoped`,
+  `capabilities.resources.nounPlural` or `i18n.<language>.resources` and does not declare
+  `featureLevel: 2`.
+- A host with a lower level refuses the add-on with the plain reason **needs a newer
+  LocalAI**. The add-on is not installed and not upgraded. A failed install or upgrade has
+  the cause `needs_newer_host`, and an update check shows the add-on as incompatible with
+  the reason `feature-level`.
+- The library entry has the optional `requires.featureLevel`. The host reads it before it
+  downloads the package. If the entry says nothing, the manifest is checked when the
+  package is staged, with the same reason.
+
+An older host cannot read the new names. It refuses a manifest with an unknown field, and
+it also refuses a **library index** that has an unknown field, because the index reader is
+strict too. So one entry with `requires.featureLevel` makes the whole index unreadable
+for a host that predates the field. For that reason the `catalog` command of the packager
+writes the field only when it gets `--feature-level-in-index`, and the committed index
+does not have it. Without it an older host still lists the add-on and refuses it when it
+stages the package. Turn the flag on once no host without the field needs the library.
+
 Capabilities are independent: `service` is a boolean, `tools` is a unique list
 of namespace names, and optional `ui` contains required `entry` and `sdk` range,
 optional `css`, `pages`, `navigation`, and `chatActions` lists. Navigation names

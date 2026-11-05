@@ -67,14 +67,69 @@ func (r VersionRange) isHostAPI() bool {
 	return r.Min == HostAPIVersion && r.Max == HostAPIVersion
 }
 
+// HostFeatureLevel is the feature level of this host. The level counts the
+// additive manifest features a host understands, apart from the integer
+// versions above, so a new optional field does not make every published
+// add-on incompatible. A manifest without a featureLevel needs level 1. A host
+// older than the first level-2 field reads the field as unknown and refuses
+// the manifest, as it refuses any unknown field.
+//
+// Level 2: capabilities.resources.agentScoped.
+const HostFeatureLevel uint64 = 2
+
+// BaseFeatureLevel is the level of a manifest that sets no featureLevel.
+const BaseFeatureLevel uint64 = 1
+
+// MaxFeatureLevel bounds the featureLevel of a manifest.
+const MaxFeatureLevel uint64 = 1000
+
+// FeatureLevelRefusal is the refusal of an add-on that needs a newer feature
+// level than the host has. Its text is meant for people.
+type FeatureLevelRefusal struct{ Need, Host uint64 }
+
+func (e *FeatureLevelRefusal) Error() string { return "needs a newer LocalAI" }
+
+// EffectiveFeatureLevel is the level a host tuple stands for: an unset level
+// is the base level.
+func (h HostCompatibility) EffectiveFeatureLevel() uint64 {
+	if h.FeatureLevel == 0 {
+		return BaseFeatureLevel
+	}
+	return h.FeatureLevel
+}
+
+// RequiredFeatureLevel is the level the manifest declares, 1 when it sets none.
+func (m Manifest) RequiredFeatureLevel() uint64 {
+	if m.FeatureLevel == 0 {
+		return BaseFeatureLevel
+	}
+	return m.FeatureLevel
+}
+
+// usedFeatureLevel is the lowest level that holds every optional field the
+// manifest uses.
+func (m Manifest) usedFeatureLevel() uint64 {
+	if r := m.Capabilities.Resources; r != nil && (r.AgentScoped || r.NounPlural != "") {
+		return 2
+	}
+	for _, t := range m.I18n {
+		if t.Resources != nil {
+			return 2
+		}
+	}
+	return BaseFeatureLevel
+}
+
 type HostCompatibility struct {
 	Host       uint64 `json:"host"`
 	API        uint64 `json:"api"`
 	Protocol   uint64 `json:"protocol"`
 	SDK        uint64 `json:"sdk"`
 	DataFormat uint64 `json:"dataFormat"`
-	OS         string `json:"os"`
-	Arch       string `json:"arch"`
+	// FeatureLevel is the feature level of the host; 0 means the base level.
+	FeatureLevel uint64 `json:"featureLevel,omitempty"`
+	OS           string `json:"os"`
+	Arch         string `json:"arch"`
 }
 type Manifest struct {
 	SchemaVersion int          `json:"schemaVersion"`
@@ -87,6 +142,12 @@ type Manifest struct {
 	API           VersionRange `json:"api"`
 	Protocol      VersionRange `json:"protocol"`
 	DataFormat    VersionRange `json:"dataFormat"`
+	// FeatureLevel is the feature level the manifest needs from the host. It is
+	// optional and defaults to 1. A manifest that uses a field of a higher
+	// level must say so; a host with a lower level refuses it with a plain
+	// reason. A host that predates the field refuses the manifest as it
+	// refuses any unknown field.
+	FeatureLevel uint64 `json:"featureLevel,omitempty"`
 	// LaunchMode is absent or "always": the owner starts the addon while it is
 	// enabled. "on-demand" is reserved and rejected until it is implemented.
 	LaunchMode   string       `json:"launchMode,omitempty"`
@@ -157,6 +218,16 @@ type Capabilities struct {
 type ResourceTools struct {
 	// Noun is the singular word for one resource in the UI, such as database.
 	Noun string `json:"noun,omitempty"`
+	// NounPlural is the plural of Noun, such as databases. It is optional and
+	// needs feature level 2; without it the UI uses the noun alone. A
+	// translation of both words is under i18n.<language>.resources.
+	NounPlural string `json:"nounPlural,omitempty"`
+	// AgentScoped opts the add-on in to per-agent resource lists: a saved
+	// agent then names the resources it may use and the mode of each, and the
+	// host enforces the list on every tool call that takes a resource. It
+	// needs feature level 2 and a List mapping, because the host builds the
+	// choices from the list tool.
+	AgentScoped bool `json:"agentScoped,omitempty"`
 	// Create is a tool of Tools whose definition has the kind create.
 	Create string `json:"create,omitempty"`
 	// Rename is a tool of Tools whose definition has the kind schema and takes
@@ -212,6 +283,12 @@ func validateResourceTools(c Capabilities) error {
 	}
 	if r.Noun != "" && !plainText(r.Noun, 40) {
 		return fmt.Errorf("invalid resource noun")
+	}
+	if r.NounPlural != "" && (r.Noun == "" || !plainText(r.NounPlural, 40)) {
+		return fmt.Errorf("invalid resource plural noun")
+	}
+	if r.AgentScoped && r.List == nil {
+		return fmt.Errorf("agentScoped resources need a list mapping")
 	}
 	for _, want := range []struct{ name, kind, label string }{
 		{r.Create, ToolKindCreate, "create"}, {r.Rename, ToolKindSchema, "rename"}, {r.Inspect, ToolKindRead, "inspect"},
@@ -363,7 +440,7 @@ func ParseManifest(data []byte) (Manifest, error) {
 		m.Capabilities.ToolDefinitions[i].InputSchema = c
 	}
 	// Parsing validates intrinsic constraints without imposing this machine's platform.
-	h := HostCompatibility{Host: m.Host.Min, API: m.API.Min, Protocol: m.Protocol.Min, DataFormat: m.DataFormat.Min, OS: m.OS, Arch: m.Arch}
+	h := HostCompatibility{Host: m.Host.Min, API: m.API.Min, Protocol: m.Protocol.Min, DataFormat: m.DataFormat.Min, FeatureLevel: m.RequiredFeatureLevel(), OS: m.OS, Arch: m.Arch}
 	if m.Capabilities.UI != nil {
 		h.SDK = m.Capabilities.UI.SDK.Min
 	}
@@ -389,6 +466,15 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	}
 	if !m.Host.accepts(h.Host) || !m.API.accepts(h.API) || !m.Protocol.accepts(h.Protocol) || !m.DataFormat.accepts(h.DataFormat) {
 		return fmt.Errorf("incompatible host, API, protocol or data format")
+	}
+	if m.FeatureLevel > MaxFeatureLevel {
+		return fmt.Errorf("invalid featureLevel")
+	}
+	if used := m.usedFeatureLevel(); m.RequiredFeatureLevel() < used {
+		return fmt.Errorf("the manifest uses a field of feature level %d and must declare featureLevel %d", used, used)
+	}
+	if need := m.RequiredFeatureLevel(); need > h.EffectiveFeatureLevel() {
+		return &FeatureLevelRefusal{Need: need, Host: h.EffectiveFeatureLevel()}
 	}
 	c := m.Capabilities
 	if (!c.Service && len(c.Tools) == 0 && c.UI == nil && c.Connector == nil) || !uniqueIDs(c.Tools) {

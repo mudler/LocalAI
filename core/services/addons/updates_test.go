@@ -386,6 +386,19 @@ var _ = Describe("explicit upgrade from an authoritative update check", func() {
 		Expect(s.Generation).To(Equal(uint64(1)))
 	})
 
+	It("refuses a candidate that needs a newer feature level, and offers one the host has", func() {
+		r := newUpdateRig(true)
+		s := r.installChannel()
+		installed := s.Generations[0].Receipt
+		next := r.lib.publish("1.2.3-dev", "development", "build-2", catalog.Requirements{FeatureLevel: contract.HostFeatureLevel + 1})
+		st, e := r.m.CheckUpdates(ctx, actor, "sample")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(st.State).To(Equal(updates.Incompatible))
+		Expect(st.Reasons).To(ConsistOf(updates.ReasonFeatureLevel))
+		_, e = r.m.Submit(ctx, actor, upgrade("lvl", installed.Digest, next.Digest))
+		Expect(e).To(MatchError(ErrIncompatible))
+	})
+
 	It("selects a newer immutable version and treats a rewritten version as an integrity error", func() {
 		r := newUpdateRig(true)
 		s := r.installVersion()

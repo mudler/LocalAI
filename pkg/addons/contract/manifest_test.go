@@ -16,7 +16,7 @@ func fixture() []byte {
 	return b
 }
 func compatible() HostCompatibility {
-	return HostCompatibility{Host: 1, API: 2, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}
+	return HostCompatibility{Host: 1, API: 2, Protocol: 1, SDK: 1, DataFormat: 1, FeatureLevel: HostFeatureLevel, OS: "linux", Arch: "amd64"}
 }
 
 var _ = Describe("Manifest", func() {

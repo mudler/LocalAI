@@ -215,6 +215,8 @@ func operationCauseMessage(code string) string {
 		return "This version of the add-on is installed already. Nothing was installed"
 	case managerpkg.CauseInstalledIncompatible:
 		return "This version of the add-on is not compatible with this server, so it cannot be turned on. Upgrade it to a newer version, then turn it on. Nothing was changed"
+	case managerpkg.CauseNeedsNewerHost:
+		return "This add-on needs a newer LocalAI. Update LocalAI, then try again. Nothing was installed"
 	case managerpkg.CauseDowngradeRefused:
 		return "The file holds an older version than the installed one. Confirm the downgrade to install it. Nothing was installed"
 	}

@@ -646,6 +646,9 @@ func Compatibility(host contract.HostCompatibility, installed packages.PackageRe
 	if q.SDK != zero && !accepts(q.SDK, host.SDK) {
 		out = append(out, ReasonSDK)
 	}
+	if q.FeatureLevel > host.EffectiveFeatureLevel() {
+		out = append(out, ReasonFeatureLevel)
+	}
 	// A candidate whose data format ends below the installed one could not
 	// read what the installed package wrote.
 	if q.DataFormat != zero && (!accepts(q.DataFormat, host.DataFormat) || q.DataFormat.Max < installed.Manifest.DataFormat.Max) {
