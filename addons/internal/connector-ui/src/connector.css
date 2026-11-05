@@ -29,6 +29,11 @@
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
+/* The host's connectors page also defines .cn-row, as a grid with a leading icon
+   column. The add-on sheet is scoped with :where(), so the sheet that loads
+   later would win. Under .cn-page this row keeps its own layout in any order. */
+.cn-page .cn-row { display: flex; grid-template-columns: none; }
+
 .cn-row__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 
 .cn-row__name { font-weight: var(--font-weight-semibold); }
