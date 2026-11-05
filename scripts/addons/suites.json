@@ -502,7 +502,18 @@
           "the header is used without an explicit language",
           "translates only a kind that the manifest declares",
           "translates only a text that the English kind has",
-          "zh finds zh-CN"
+          "zh finds zh-CN",
+          "reads the slots of the host from data and keeps them closed",
+          "accepts an add-on whose roles name its own tools of the right kind",
+          "accepts a declaration with no roles, as a file-based provider has none",
+          "reads one tool as a string and several as a list, and refuses anything else",
+          "is parsed strictly from a manifest file",
+          "refuses what the descriptor does not allow",
+          "refuses a tool that only the add-on's page may call",
+          "accepts undo by the add-on when it keeps change sets",
+          "refuses a repeated slot and more slots than the bound",
+          "limits the context files to the scopes the slot allows",
+          "keeps api 2 as the only manifest api"
         ]
       },
       {

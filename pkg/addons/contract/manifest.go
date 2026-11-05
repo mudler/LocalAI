@@ -140,6 +140,10 @@ type Capabilities struct {
 	// UserSettings declare the choices that each person makes for the add-on
 	// (see usersettings.go). The host keeps the answers and validates them.
 	UserSettings []UserSetting `json:"userSettings,omitempty"`
+	// Provides says which provider slots of the host the add-on can serve (see
+	// providerslots.go). The person picks one provider per slot; the add-on's
+	// context files and skills count only while it is the one picked.
+	Provides []ProviderDeclaration `json:"provides,omitempty"`
 
 	// Credentials declare the secret that the host keeps for the person and
 	// hands to each call (see credentials.go). It needs a connector
@@ -408,6 +412,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return e
 	}
 	if e := validateUserSettings(c.UserSettings); e != nil {
+		return e
+	}
+	if e := validateProvides(c); e != nil {
 		return e
 	}
 	if e := validateResourceTools(c); e != nil {

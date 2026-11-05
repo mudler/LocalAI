@@ -1569,6 +1569,7 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 	out.SkillDefinitions = append([]contract.SkillDefinition(nil), c.SkillDefinitions...)
 	out.ContextFiles = append([]contract.ContextFile(nil), c.ContextFiles...)
 	out.Credentials = slices.Clone(c.Credentials)
+	out.Provides = slices.Clone(c.Provides)
 	for _, us := range c.UserSettings {
 		us.Values = slices.Clone(us.Values)
 		out.UserSettings = append(out.UserSettings, us)

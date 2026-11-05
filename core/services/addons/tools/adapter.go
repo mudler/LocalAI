@@ -585,6 +585,38 @@ func (t *ToolAdapter) ContextFiles(ctx context.Context, actor contract.Actor) ([
 	return out, nil
 }
 
+// AddonProviders is the provider slots one add-on declares, with the title and
+// description it shows to people.
+type AddonProviders struct {
+	AddonID, Title, Description string
+	Provides                    []contract.ProviderDeclaration
+	// Running is true when the add-on may serve now: enabled and running.
+	Running bool
+}
+
+// Providers lists the installed add-ons that declare provider slots and that
+// the actor can see, running or not. The host decides which one serves a slot;
+// the add-on is not called.
+func (t *ToolAdapter) Providers(ctx context.Context, actor contract.Actor) ([]AddonProviders, error) {
+	if err := checkActor(actor); err != nil {
+		return nil, err
+	}
+	list, err := t.backend.Apps(ctx, actor)
+	if err != nil {
+		return nil, gateway.ClassifyCheck(err)
+	}
+	var out []AddonProviders
+	for _, a := range list.Apps {
+		if len(a.Provides) == 0 {
+			continue
+		}
+		running := a.Enabled && a.State == "running" && a.Generation > 0
+		out = append(out, AddonProviders{AddonID: a.ID, Title: a.Title, Description: a.Description, Provides: slices.Clone(a.Provides), Running: running})
+	}
+	slices.SortFunc(out, func(x, y AddonProviders) int { return strings.Compare(x.AddonID, y.AddonID) })
+	return out, nil
+}
+
 // AddonUserSettings is the per-person settings one add-on declares.
 type AddonUserSettings struct {
 	AddonID  string
