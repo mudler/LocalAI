@@ -509,10 +509,10 @@ func accessOut(v studiosvc.AccessView, lang string) schema.ChatsConnectorAccess 
 		out.Approvals = append(out.Approvals, schema.ChatsConnectorToolApproval{Tool: a.Tool, Skip: a.Skip, RunsWithoutAsking: a.RunsWithoutAsking})
 	}
 	for _, e := range v.Recent {
-		out.Recent = append(out.Recent, schema.ChatsConnectorAccessEvent{At: e.At, Senders: e.Senders, Roles: e.Roles, Capability: e.Capability, Allowed: e.Allowed, Via: e.Via, Reason: e.Reason, Code: e.Code})
+		out.Recent = append(out.Recent, schema.ChatsConnectorAccessEvent{At: e.At, Senders: e.Senders, Roles: e.Roles, SenderName: e.SenderName, Chat: e.Chat, ChatName: e.ChatName, Capability: e.Capability, Allowed: e.Allowed, Via: e.Via, Reason: e.Reason, Code: e.Code})
 	}
 	for _, e := range v.ToolOutcomes {
-		o := schema.ChatsConnectorAccessEvent{At: e.At, Senders: e.Senders, Roles: e.Roles, Addon: e.Addon, Tool: e.Tool, Outcome: e.Outcome, Asker: e.Asker,
+		o := schema.ChatsConnectorAccessEvent{At: e.At, Senders: e.Senders, Roles: e.Roles, SenderName: e.SenderName, Chat: e.Chat, ChatName: e.ChatName, Addon: e.Addon, Tool: e.Tool, Outcome: e.Outcome, Asker: e.Asker,
 			Status: e.Status, Code: e.Reason, Message: studiosvc.ToolReasonMessage(e.Reason, e.Status)}
 		if lang != "" && e.Reason != "" {
 			key := studiosvc.ToolReasonKey(e.Reason)

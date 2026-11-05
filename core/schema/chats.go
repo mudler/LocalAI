@@ -1641,13 +1641,19 @@ type ChatsConnectorAccessSubject struct {
 
 // ChatsConnectorAccessEvent is a recorded decision. It holds IDs, never text.
 type ChatsConnectorAccessEvent struct {
-	At         time.Time `json:"at"`
-	Senders    []string  `json:"senders,omitempty"`
-	Roles      []string  `json:"roles,omitempty"`
-	Capability string    `json:"capability"`
-	Allowed    bool      `json:"allowed"`
-	Via        string    `json:"via,omitempty"`
-	Reason     string    `json:"reason,omitempty"`
+	At      time.Time `json:"at"`
+	Senders []string  `json:"senders,omitempty"`
+	Roles   []string  `json:"roles,omitempty"`
+	// SenderName is the display name of the first sender, and Chat and ChatName
+	// the conversation of the message: its ID, and its name when the add-on
+	// knows it. All three are optional; a reader falls back to the IDs.
+	SenderName string `json:"sender_name,omitempty"`
+	Chat       string `json:"chat,omitempty"`
+	ChatName   string `json:"chat_name,omitempty"`
+	Capability string `json:"capability"`
+	Allowed    bool   `json:"allowed"`
+	Via        string `json:"via,omitempty"`
+	Reason     string `json:"reason,omitempty"`
 	// Code is the code of a refusal, as in the decisions.
 	Code string `json:"code,omitempty"`
 	// Addon and Tool name the add-on tool call, for an event in tool_outcomes;

@@ -22385,6 +22385,12 @@ const docTemplate = `{
                 "capability": {
                     "type": "string"
                 },
+                "chat": {
+                    "type": "string"
+                },
+                "chat_name": {
+                    "type": "string"
+                },
                 "code": {
                     "description": "Code is the code of a refusal, as in the decisions.",
                     "type": "string"
@@ -22415,6 +22421,10 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "sender_name": {
+                    "description": "SenderName is the display name of the first sender, and Chat and ChatName\nthe conversation of the message: its ID, and its name when the add-on\nknows it. All three are optional; a reader falls back to the IDs.",
+                    "type": "string"
                 },
                 "senders": {
                     "type": "array",
