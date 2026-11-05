@@ -82,7 +82,9 @@ var _ = Describe("the language of the host sentences in a chat", func() {
 					return false
 				}
 			}
-			return true
+			// The chat is idle before the connector has let go of the reply;
+			// a command in that gap is refused as busy.
+			return !r.conns.RepliesActiveForTest()
 		})
 	}
 	// ask sends a direct message and returns what the bot wrote back last,

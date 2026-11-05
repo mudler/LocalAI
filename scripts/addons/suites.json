@@ -1254,7 +1254,15 @@
           "leaves a 429 with another body an outage: only the add-on's own word counts",
           "keeps the short-call slots free while more polls than the concurrency limit are open",
           "refuses a poll past the poll pool, and frees the slot when a poll is cancelled",
-          "refuses a poll after the client is withdrawn and waits for open polls to drain"
+          "refuses a poll after the client is withdrawn and waits for open polls to drain",
+          "carries the status of the service and the sentence of the add-on",
+          "above 599",
+          "below 400",
+          "empty",
+          "not a number",
+          "success",
+          "keeps a refusal with no header as it was",
+          "bounds the hint to printable ASCII"
         ]
       },
       {
@@ -1291,7 +1299,9 @@
           "exits when the owner closes the startup channel",
           "still exits when the runtime does not return in time",
           "exits at once for a runtime with nothing to close",
-          "answers 429 with the wait in Retry-After and a fixed body"
+          "answers 429 with the wait in Retry-After and a fixed body",
+          "tells the owner which status the service behind the add-on answered, and what to do",
+          "sends no status header for a status that is not a refusal of a service"
         ]
       }
     ]
@@ -4898,6 +4908,7 @@
       "unit: updates: times are shown as the reader's own and a bad time as nothing",
       "unit: updates: the client sends check and upgrade as the administrator's own action and types the refusals",
       "unit: updates: every locale carries the same update keys as English, and words for every state, reason and refusal",
+      "unit: updates: a release that needs a newer LocalAI is incompatible with the reason feature-level, and an install that fails for it says so",
       "go: offers a digest-only change of the branch-fix-cache channel with an identical version label",
       "go: offers a digest-only change of the development channel with an identical version label",
       "go: offers a digest-only change of the latest channel with an identical version label",

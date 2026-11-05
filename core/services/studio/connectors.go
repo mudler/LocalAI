@@ -1145,9 +1145,46 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 	var poll <-chan time.Time
 	errText := ""
 	l, since, turn := c.startLive(b, token, m, pace), time.Now(), 0
+	// settle gives the chat up when it is idle. It reports false when another
+	// turn runs or its events are queued. The check is under smu on purpose: a
+	// message that arrives now must see either the running turn or the cleared
+	// flag.
+	settle := func() bool {
+		c.smu.Lock()
+		tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
+		info, err := c.svc.Turn(tctx, b.Owner, chatID)
+		tcancel()
+		// A waiting message starts the next turn at once, and that turn may be
+		// over before this point; its events are then still queued.
+		if (err == nil && info.Running) || len(events) > 0 {
+			c.smu.Unlock()
+			return false
+		}
+		st.active, st.grant = false, nil
+		c.smu.Unlock()
+		c.svc.access.clear(chatID)
+		return true
+	}
+	// quiet is set when settle saw a turn on its way and none of its events
+	// has come yet. The claim that starts a turn from the waiting messages is
+	// also held for a moment when it finds none, so that sign can be false:
+	// recheck then ends the reply instead of waiting for a turn that never
+	// comes, which would leave the sender refused as busy.
+	quiet := false
+	recheck := time.NewTicker(time.Second)
+	defer recheck.Stop()
 	for {
 		ended := false
+		var again <-chan time.Time
+		if quiet {
+			again = recheck.C
+		}
 		select {
+		case <-again:
+			if settle() {
+				return
+			}
+			continue
 		case ev, ok := <-events:
 			if !ok {
 				events = nil
@@ -1156,6 +1193,7 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 				poll = p.C
 				continue
 			}
+			quiet = false
 			l.observe(ev)
 			switch ev.Kind {
 			case session.KindError:
@@ -1182,22 +1220,11 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 		c.remember(b, m, chatID, ids)
 		c.sendFiles(b, token, m, chatID, turn, since, answer)
 		errText = ""
-		c.smu.Lock()
-		tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
-		info, err := c.svc.Turn(tctx, b.Owner, chatID) // under smu on purpose: a message that arrives now must see either the running turn or the cleared flag
-		tcancel()
-		// A waiting message starts the next turn at once, and that turn may be
-		// over before this point; its events are then still queued.
-		if (err == nil && info.Running) || len(events) > 0 {
-			c.smu.Unlock()
-			// A waiting message started the next turn.
-			l, since, turn = c.startLive(b, token, m, pace), time.Now(), 0
-			continue
+		if settle() {
+			return
 		}
-		st.active, st.grant = false, nil
-		c.smu.Unlock()
-		c.svc.access.clear(chatID)
-		return
+		// A waiting message started the next turn.
+		l, since, turn, quiet = c.startLive(b, token, m, pace), time.Now(), 0, true
 	}
 }
 
