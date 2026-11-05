@@ -39,6 +39,23 @@ type Snapshot struct {
 	HostOps        []string
 	HostOperations *hostops.RequestSummary
 	Unavailable    bool
+	// Operation is the lifecycle operation that runs on the add-on now, or nil.
+	Operation *Operation
+}
+
+// Operation names the lifecycle operation that runs on an add-on. The apps
+// list reports it so a page can say "upgrading" while the owner works, and the
+// list stays readable meanwhile: reading never waits for the operation.
+type Operation struct {
+	// Kind is the action: install, upgrade, enable, disable or uninstall.
+	Kind string `json:"kind" enums:"install,upgrade,enable,disable,uninstall" example:"upgrade"`
+	// Phase is the step the owner is in: queued, downloading (fetch and
+	// verify the package), backing-up, installing, migrating, starting or
+	// working for a step without a name of its own.
+	Phase string `json:"phase" example:"downloading"`
+	// Since is when the operation was accepted, RFC 3339 in UTC. It is absent
+	// for an operation recorded before the owner kept the time.
+	Since string `json:"since,omitempty" example:"2026-11-04T17:18:00Z"`
 }
 
 // List is the response of the apps list.
@@ -55,6 +72,47 @@ type StartRequest struct {
 	OperationID string `json:"operationId" example:"start-notes-1"`
 	// Generation is the installed generation the caller saw in the list.
 	Generation uint64 `json:"generation" example:"3"`
+}
+
+// Localize returns a copy of the app with the text in the language the
+// request negotiates: the explicit language, else the Accept-Language header,
+// else none. An app whose manifest translates nothing in that language is
+// returned as it is.
+func (a App) Localize(explicit, acceptLanguage string) App {
+	available := map[string]bool{}
+	for tag := range a.Titles {
+		available[tag] = true
+	}
+	for tag := range a.Descriptions {
+		available[tag] = true
+	}
+	tags := make([]string, 0, len(available))
+	for tag := range available {
+		tags = append(tags, tag)
+	}
+	tag := contract.NegotiateLanguage(explicit, acceptLanguage, tags)
+	if tag == "" {
+		return a
+	}
+	pick := func(m map[string]string, fallback string) string {
+		if got, ok := contract.MatchLanguage(tag, languagesOf(m)); ok && m[got] != "" {
+			return m[got]
+		}
+		return fallback
+	}
+	a.Titles, a.Descriptions = maps.Clone(a.Titles), maps.Clone(a.Descriptions)
+	a.Language = tag
+	a.LocalizedTitle = pick(a.Titles, a.Title)
+	a.LocalizedDescription = pick(a.Descriptions, a.Description)
+	return a
+}
+
+func languagesOf(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for tag := range m {
+		out = append(out, tag)
+	}
+	return out
 }
 
 // MaxTools bounds the tool names of one app.
@@ -76,6 +134,15 @@ type App struct {
 	Titles       map[string]string `json:"titles,omitempty"`
 	Description  string            `json:"description,omitempty" example:"Keep notes."`
 	Descriptions map[string]string `json:"descriptions,omitempty"`
+	// Language, LocalizedTitle and LocalizedDescription are present only when
+	// the request named a language (the lang query parameter, else the
+	// Accept-Language header) that the manifest translates. Language is the
+	// tag that matched. Each localized field falls back to English on its own,
+	// so a title without a translation is the English title. No other field
+	// changes: Title and Description stay the default-language text.
+	Language             string `json:"language,omitempty" example:"it"`
+	LocalizedTitle       string `json:"localizedTitle,omitempty" example:"Appunti"`
+	LocalizedDescription string `json:"localizedDescription,omitempty" example:"Tieni degli appunti."`
 	// Icon is a same-origin URL of the verified immutable icon of this
 	// generation. It is absent when the manifest declares none.
 	Icon    string `json:"icon,omitempty" example:"/api/addons/apps/notes/icon?generation=3"`
@@ -99,6 +166,11 @@ type App struct {
 	// observation from State and is absent otherwise: an unchecked, failed
 	// or up to date add-on has none. The list never reaches a library.
 	Update string `json:"update,omitempty" enums:"update-pending" example:"update-pending"`
+	// Operation is the lifecycle operation that runs on the add-on now (an
+	// upgrade, say). It is absent when none runs. The observation is
+	// separate from State: the process can run on while the owner stages
+	// the next generation.
+	Operation *Operation `json:"operation,omitempty"`
 	// MainPage is the path the Open action navigates to. It is present only
 	// for an enabled addon whose manifest declares a main page that is one of
 	// its pages.
@@ -137,6 +209,10 @@ type App struct {
 	// the prompt of a chat, from the verified manifest. The host reads them as
 	// the person; the add-on is not called.
 	ContextFiles []contract.ContextFile `json:"contextFiles,omitempty"`
+	// Provides are the provider slots the add-on declares, from the verified
+	// manifest. The host lists them for the person who picks a provider. It
+	// is not part of the apps API.
+	Provides []contract.ProviderDeclaration `json:"-"`
 	// UserSettings are the per-person choices the add-on declares, from the
 	// verified manifest. The host keeps the answers; the add-on is not called.
 	UserSettings []contract.UserSetting `json:"userSettings,omitempty"`
@@ -287,6 +363,7 @@ func build(s Snapshot, admin bool) App {
 	a.Skills = slices.Clone(m.Capabilities.SkillDefinitions)
 	a.SkillShadows = contract.ShadowedSkills(m.Capabilities.SkillDefinitions)
 	a.ContextFiles = slices.Clone(m.Capabilities.ContextFiles)
+	a.Provides = slices.Clone(m.Capabilities.Provides)
 	for _, us := range m.Capabilities.UserSettings {
 		us.Values = slices.Clone(us.Values)
 		a.UserSettings = append(a.UserSettings, us)
@@ -318,6 +395,10 @@ func build(s Snapshot, admin bool) App {
 	}
 	if s.UpdatePending {
 		a.Update = "update-pending"
+	}
+	if s.Operation != nil {
+		op := *s.Operation
+		a.Operation = &op
 	}
 	if admin {
 		a.Admin = &AdminView{CanStart: !s.Enabled && !s.Unavailable, HostOperations: s.HostOperations, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id)}

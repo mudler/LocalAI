@@ -50,8 +50,38 @@
       "pages": ["apps"],
       "mainPage": "apps",
       "icon": "ui/icon.png",
-      "title": "Slack",
-      "description": "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+      "title": {
+        "en": "Slack",
+        "it": "Slack",
+        "de": "Slack",
+        "es": "Slack",
+        "fr": "Slack",
+        "pt-BR": "Slack",
+        "zh-CN": "Slack",
+        "ko": "Slack",
+        "id": "Slack"
+      },
+      "description": {
+        "en": "Bind a Slack app to one of your saved agents, so people can talk to it from Slack.",
+        "it": "Collega un'app Slack a uno dei tuoi agenti salvati, così le persone possono parlarci da Slack.",
+        "de": "Verbinden Sie eine Slack-App mit einem Ihrer gespeicherten Agenten, damit andere über Slack mit ihm sprechen können.",
+        "es": "Vincula una aplicación de Slack a uno de tus agentes guardados para que la gente pueda hablar con él desde Slack.",
+        "fr": "Associez une application Slack à l'un de vos agents enregistrés pour que les gens puissent lui parler depuis Slack.",
+        "pt-BR": "Vincule um app do Slack a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Slack.",
+        "zh-CN": "将 Slack 应用绑定到你保存的某个智能体，让大家可以在 Slack 中与它对话。",
+        "ko": "저장한 에이전트 중 하나에 Slack 앱을 연결하여 사람들이 Slack에서 대화할 수 있게 합니다.",
+        "id": "Hubungkan aplikasi Slack ke salah satu agen tersimpan Anda agar orang dapat mengobrol dengannya dari Slack."
+      }
     }
+  },
+  "i18n": {
+    "it": {"kinds": {"slack": {"title": "Slack", "description": "Parla con uno dei tuoi agenti salvati da Slack, nei messaggi diretti e nei thread dei canali."}}},
+    "de": {"kinds": {"slack": {"title": "Slack", "description": "Sprechen Sie über Slack mit einem Ihrer gespeicherten Agenten, in Direktnachrichten und in Kanal-Threads."}}},
+    "es": {"kinds": {"slack": {"title": "Slack", "description": "Habla con uno de tus agentes guardados desde Slack, en mensajes directos y en hilos de canales."}}},
+    "fr": {"kinds": {"slack": {"title": "Slack", "description": "Parlez à l'un de vos agents enregistrés depuis Slack, en messages privés et dans les fils des canaux."}}},
+    "pt-BR": {"kinds": {"slack": {"title": "Slack", "description": "Converse com um dos seus agentes salvos pelo Slack, em mensagens diretas e em threads de canais."}}},
+    "zh-CN": {"kinds": {"slack": {"title": "Slack", "description": "在 Slack 中与你保存的某个智能体对话，支持私信和频道线程。"}}},
+    "ko": {"kinds": {"slack": {"title": "Slack", "description": "Slack에서 저장한 에이전트 중 하나와 대화합니다. 다이렉트 메시지와 채널 스레드에서 사용할 수 있습니다."}}},
+    "id": {"kinds": {"slack": {"title": "Slack", "description": "Berbicara dengan salah satu agen tersimpan Anda dari Slack, lewat pesan langsung dan di utas kanal."}}}
   }
 }

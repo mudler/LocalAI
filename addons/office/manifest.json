@@ -504,7 +504,17 @@
       "css": [
         "ui/office.css"
       ],
-      "description": "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox.",
+      "description": {
+        "en": "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox.",
+        "it": "Lavoro leggero e di base su file Word, Excel, PowerPoint e PDF dalle tue chat, senza richiedere Sandbox.",
+        "de": "Einfache Arbeit mit Word-, Excel-, PowerPoint- und PDF-Dateien direkt aus Ihren Chats, ohne dass Sandbox nötig ist.",
+        "es": "Trabajo ligero y básico con archivos de Word, Excel, PowerPoint y PDF desde tus chats, sin necesidad de Sandbox.",
+        "fr": "Travail léger et de base sur des fichiers Word, Excel, PowerPoint et PDF depuis vos conversations, sans avoir besoin de Sandbox.",
+        "pt-BR": "Trabalho leve e básico com arquivos Word, Excel, PowerPoint e PDF a partir dos seus chats, sem precisar do Sandbox.",
+        "zh-CN": "在聊天中轻量地处理基础的 Word、Excel、PowerPoint 和 PDF 文件，无需 Sandbox。",
+        "ko": "Sandbox 없이도 채팅에서 Word, Excel, PowerPoint, PDF 파일의 기본 작업을 가볍게 처리합니다.",
+        "id": "Pekerjaan ringan dan dasar dengan berkas Word, Excel, PowerPoint, dan PDF dari obrolan Anda, tanpa memerlukan Sandbox."
+      },
       "entry": "ui/office.js",
       "icon": "ui/icon.png",
       "mainPage": "office",
@@ -527,7 +537,17 @@
           "slot": "files.preview"
         }
       ],
-      "title": "Simple Office"
+      "title": {
+        "en": "Simple Office",
+        "it": "Office semplice",
+        "de": "Einfaches Office",
+        "es": "Office sencillo",
+        "fr": "Office simple",
+        "pt-BR": "Office simples",
+        "zh-CN": "简易 Office",
+        "ko": "간단한 Office",
+        "id": "Office Sederhana"
+      }
     }
   },
   "dataFormat": {

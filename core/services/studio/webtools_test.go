@@ -238,9 +238,9 @@ var _ = Describe("the one registry of built-in tools", func() {
 				if t.ID == "load_skill" || t.ID == "goal_done" || t.ID == "goal_blocked" || t.ID == studio.SendMessageName {
 					Expect(t.Group).To(BeEmpty(), t.ID)
 				} else if t.External {
-					Expect(t.Group).To(BeElementOf(builtins.GroupFiles, builtins.GroupMedia, builtins.GroupCollections, builtins.GroupSubAgents), t.ID)
+					Expect(t.Group).To(BeElementOf(builtins.GroupFiles, builtins.GroupMedia, builtins.GroupCollections, builtins.GroupSubAgents, builtins.GroupMemory), t.ID)
 				} else {
-					Expect(t.Group).To(BeElementOf(builtins.GroupTriggers, builtins.GroupChanges), t.ID)
+					Expect(t.Group).To(BeElementOf(builtins.GroupTriggers, builtins.GroupChanges, builtins.GroupHistory), t.ID)
 				}
 				Expect(t.Setting).To(BeEmpty(), t.ID)
 				continue
@@ -251,7 +251,7 @@ var _ = Describe("the one registry of built-in tools", func() {
 			}
 			Expect(t.Replaceable).To(BeTrue(), t.ID)
 		}
-		Expect(ids).To(Equal([]string{"bash", "web_search", "web_fetch", "propose_trigger", "list_triggers", "update_trigger", "delete_trigger", "send_message", "propose_change", "revert_change", "load_skill", "goal_done", "goal_blocked", "spawn_agent"}),
+		Expect(ids).To(Equal([]string{"bash", "web_search", "web_fetch", "search_chats", "read_chat", "propose_trigger", "list_triggers", "update_trigger", "delete_trigger", "send_message", "propose_change", "revert_change", "load_skill", "goal_done", "goal_blocked", "spawn_agent"}),
 			"a service without files has no file or media group")
 		for _, id := range []string{"web_search", "web_fetch"} {
 			t, ok := svc.Builtins().Lookup(id)
@@ -259,7 +259,7 @@ var _ = Describe("the one registry of built-in tools", func() {
 			Expect(t.Group).To(Equal(builtins.GroupWeb))
 			Expect(t.ReadOnly).To(BeTrue())
 		}
-		Expect(svc.Builtins().Groups()).To(Equal([]string{"shell", "web", "triggers", "changes", "subagents"}))
+		Expect(svc.Builtins().Groups()).To(Equal([]string{"shell", "web", "history", "triggers", "changes", "subagents"}))
 	})
 
 	It("lists the web tools in Settings > Tools with their settings", func() {

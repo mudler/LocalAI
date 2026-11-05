@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -35,6 +36,10 @@ type ConnectorInput struct {
 	Reply         string
 	Conversation  string
 	WindowMinutes int
+	// ReplyLanguage is the language of the sentences that the host writes in
+	// the chat: hostmsg.Auto or a language code. Nil means auto for a new
+	// binding and unchanged for an update.
+	ReplyLanguage *string
 	// SendFiles sends the files a turn makes to the sender. Nil means on for
 	// a new binding and unchanged for an update.
 	SendFiles *bool
@@ -74,6 +79,12 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 	if b.Conversation != connectors.ConversationWindow {
 		b.WindowMinutes = 0
 	}
+	if in.ReplyLanguage != nil {
+		b.ReplyLanguage = *in.ReplyLanguage
+		if b.ReplyLanguage == hostmsg.Auto {
+			b.ReplyLanguage = ""
+		}
+	}
 	if in.SendFiles != nil {
 		b.FilesOff = !*in.SendFiles
 	}
@@ -102,7 +113,7 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 		b.WriteMode = *in.WriteMode
 	}
 	if in.Approval != nil {
-		b.Approval = *in.Approval
+		b.Approval = in.Approval.Cleaned()
 	}
 }
 

@@ -113,6 +113,50 @@
       "job": "Job",
       "page": "Seite",
       "other": "Automatisch"
+    },
+    "keys": {
+      "clear": "leeren"
+    },
+    "find": {
+      "searching": "Suche läuft…",
+      "count_one": "{{count}} Treffer",
+      "count_other": "{{count}} Treffer",
+      "more_one": "{{count}} weiterer Treffer in diesem Chat",
+      "more_other": "{{count}} weitere Treffer in diesem Chat",
+      "indexing": "Ältere Chats werden noch indexiert. Die Ergebnisse können unvollständig sein.",
+      "partial": "Die neuesten {{searched}} von {{total}} Chats wurden durchsucht.",
+      "failed": "Die Suche ist fehlgeschlagen.",
+      "retry": "Erneut versuchen",
+      "noMatchFor": "Kein Chat passt zu „{{query}}“.",
+      "noMatchFiltered": "Kein Chat passt mit diesen Filtern zu „{{query}}“.",
+      "inTitle": "Passt zum Titel",
+      "you": "Du",
+      "assistant": "Assistent",
+      "filters": "Suchfilter",
+      "agent": "Agent",
+      "anyAgent": "Jeder Agent",
+      "origin": "Quelle",
+      "anyOrigin": "Überall",
+      "originName": {
+        "person": "Meine Chats",
+        "automated": "Add-ons und Automatisierungen",
+        "trigger": "Trigger",
+        "connector": "Messaging-Apps",
+        "job": "Jobs",
+        "page": "Seiten"
+      },
+      "when": "Wann",
+      "anyTime": "Jederzeit",
+      "range": {
+        "day": "Letzte 24 Stunden",
+        "week": "Letzte 7 Tage",
+        "month": "Letzte 30 Tage",
+        "year": "Letztes Jahr",
+        "custom": "Datum wählen…"
+      },
+      "from": "Von",
+      "to": "Bis",
+      "reset": "Filter zurücksetzen"
     }
   },
   "message": {
@@ -138,7 +182,8 @@
     "failed": "Nicht gespeichert. Der Schalter steht wieder wie vorher.",
     "unavailable": "In diesem Chat nicht verfügbar",
     "toolCount_one": "{{count}} Werkzeug",
-    "toolCount_other": "{{count}} Werkzeuge"
+    "toolCount_other": "{{count}} Werkzeuge",
+    "optionsOf": "Optionen von {{name}}"
   },
   "skills": {
     "label": "Skills",

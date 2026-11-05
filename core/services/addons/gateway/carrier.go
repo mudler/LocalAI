@@ -40,6 +40,9 @@ type CarrierConfig struct {
 	Pins                              map[string][32]byte
 	SigningKey                        ed25519.PrivateKey
 	VerificationKeys                  map[string]ed25519.PublicKey
+	// ReadTimeout bounds a quick read of the owner (the apps list, the host
+	// grants overview, the library list). Zero means DefaultReadTimeout.
+	ReadTimeout time.Duration
 }
 type Carrier struct {
 	config CarrierConfig
@@ -642,7 +645,7 @@ func operationCause(e error) string {
 func IsOperationCause(code string) bool {
 	switch code {
 	case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage,
-		addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused:
+		addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible:
 		return true
 	}
 	return false
@@ -757,6 +760,30 @@ func (c *Carrier) Reachable(ctx context.Context) error {
 }
 
 func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) (*http.Response, error) {
+	if quickRead(wire.Request.Action) && wire.Relay == nil {
+		// A page waits for these reads, so they have a short deadline of their
+		// own: an owner that is busy answers "busy" in seconds, not after the
+		// 65 s of the client.
+		d := c.config.ReadTimeout
+		if d <= 0 {
+			d = DefaultReadTimeout
+		}
+		rctx, cancel := context.WithTimeout(ctx, d)
+		resp, e := c.sendCtx(rctx, a, wire)
+		if e != nil {
+			cancel()
+			if rctx.Err() == context.DeadlineExceeded && ctx.Err() == nil {
+				return nil, &OwnerTimeout{After: d}
+			}
+			return nil, e
+		}
+		resp.Body = &cancelBody{ReadCloser: resp.Body, cancel: cancel}
+		return resp, nil
+	}
+	return c.sendCtx(ctx, a, wire)
+}
+
+func (c *Carrier) sendCtx(ctx context.Context, a contract.Actor, wire wireRequest) (*http.Response, error) {
 	audience, e := c.audience(ctx)
 	if e != nil {
 		return nil, e
@@ -825,7 +852,7 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 				case wirePackage:
 					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, packages.ErrPackage)
 				case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage,
-					addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused:
+					addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible:
 					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, &addons.FailureCause{Code: b.Type})
 				case wireNotPermitted:
 					return nil, ErrNotPermitted
@@ -867,6 +894,52 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 		return nil, ErrUnavailable
 	}
 	return resp, nil
+}
+
+// DefaultReadTimeout is how long a frontend waits for a quick read of the
+// owner before it reports the owner as busy.
+const DefaultReadTimeout = 8 * time.Second
+
+// OwnerTimeout means the owner did not answer a read within the read
+// deadline. The owner is up but busy (an upgrade holds it, say); the page
+// shows the last list it has and asks again. It is an unavailable error.
+type OwnerTimeout struct{ After time.Duration }
+
+func (e *OwnerTimeout) Error() string {
+	return "the add-on owner is busy and did not answer in " + e.After.String()
+}
+func (e *OwnerTimeout) Unwrap() error { return ErrUnavailable }
+
+// cancelBody ends the read deadline when the body is closed, so a slow body
+// is bound too.
+type cancelBody struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (b *cancelBody) Close() error {
+	err := b.ReadCloser.Close()
+	b.cancel()
+	return err
+}
+
+// quickRead are the reads a page waits for. They answer from the owner's
+// snapshot and never wait for a lifecycle operation.
+func quickRead(action string) bool {
+	return quickReads[action]
+}
+
+// quickReads names them one by one. A read that fetches from a library or
+// stages a package (the host grants preview, the update check, a catalog
+// search) can take long by its nature and keeps the client's own deadline.
+var quickReads = map[string]bool{
+	appsListAction:                 true,
+	"hostgrants-" + HostGrantsRead: true,
+	"library-" + LibraryList:       true,
+	"addons-installed":             true,
+	"catalog-sources":              true,
+	ActionUpdateStatus:             true,
+	ActionRecoveryStatus:           true,
 }
 
 // mutationOutcome applies the rule every frontend shares: a mutation that fails

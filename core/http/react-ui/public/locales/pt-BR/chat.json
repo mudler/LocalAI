@@ -116,6 +116,50 @@
       "job": "Job",
       "page": "Página",
       "other": "Automático"
+    },
+    "keys": {
+      "clear": "limpar"
+    },
+    "find": {
+      "searching": "Pesquisando…",
+      "count_one": "{{count}} resultado",
+      "count_other": "{{count}} resultados",
+      "more_one": "mais {{count}} ocorrência neste chat",
+      "more_other": "mais {{count}} ocorrências neste chat",
+      "indexing": "Os chats antigos ainda estão sendo indexados. Os resultados podem estar incompletos.",
+      "partial": "Pesquisados os {{searched}} chats mais recentes de {{total}}.",
+      "failed": "A pesquisa falhou.",
+      "retry": "Tentar de novo",
+      "noMatchFor": "Nenhum chat corresponde a “{{query}}”.",
+      "noMatchFiltered": "Nenhum chat corresponde a “{{query}}” com estes filtros.",
+      "inTitle": "Corresponde ao título",
+      "you": "Você",
+      "assistant": "Assistente",
+      "filters": "Filtros de pesquisa",
+      "agent": "Agente",
+      "anyAgent": "Qualquer agente",
+      "origin": "Origem",
+      "anyOrigin": "Qualquer lugar",
+      "originName": {
+        "person": "Meus chats",
+        "automated": "Add-ons e automações",
+        "trigger": "Gatilhos",
+        "connector": "Apps de mensagens",
+        "job": "Jobs",
+        "page": "Páginas"
+      },
+      "when": "Quando",
+      "anyTime": "Qualquer data",
+      "range": {
+        "day": "Últimas 24 horas",
+        "week": "Últimos 7 dias",
+        "month": "Últimos 30 dias",
+        "year": "Último ano",
+        "custom": "Escolher datas…"
+      },
+      "from": "De",
+      "to": "Até",
+      "reset": "Limpar filtros"
     }
   },
   "message": {
@@ -141,7 +185,8 @@
     "failed": "Não foi possível salvar. O interruptor voltou ao que era.",
     "unavailable": "Indisponível neste chat",
     "toolCount_one": "{{count}} ferramenta",
-    "toolCount_other": "{{count}} ferramentas"
+    "toolCount_other": "{{count}} ferramentas",
+    "optionsOf": "Opções de {{name}}"
   },
   "skills": {
     "label": "Habilidades",

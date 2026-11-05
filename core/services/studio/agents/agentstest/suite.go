@@ -24,7 +24,7 @@ func sample(id, principal, name string) agents.Agent {
 	return agents.Agent{
 		ID: id, Principal: principal, Name: name, Description: "d", Instructions: "Be brief.", Model: "m1",
 		MCPServers: []string{"github"}, Addons: []string{"office", "sandbox"}, Collections: []string{"docs"}, Skills: []string{"review"},
-		Network: "registries", BuiltinsOff: []string{"triggers", "web"}, BuiltinsOn: []string{"saved_agents"}, Builtins: []string{"memory.write", "skills.write"},
+		Network: "registries", Memory: agents.MemoryMineAndOwn, MemorySave: agents.MemorySaveAlways, BuiltinsOff: []string{"triggers", "web"}, BuiltinsOn: []string{"saved_agents"}, Builtins: []string{"memory.write", "skills.write"},
 		Connections: connsets.Sets{"tracker": {"b-work", "b-home"}}, Created: now, Updated: now,
 	}
 }
@@ -46,6 +46,8 @@ func Run(newStore NewStore) {
 		Expect(strings.Join(got.Collections, ",")).To(Equal("docs"))
 		Expect(strings.Join(got.Skills, ",")).To(Equal("review"))
 		Expect(got.Network).To(Equal("registries"))
+		Expect(got.Memory).To(Equal("mine_and_own"))
+		Expect(got.MemorySave).To(Equal("always"))
 		Expect(got.BuiltinsOff).To(Equal([]string{"triggers", "web"}))
 		Expect(got.BuiltinsOn).To(Equal([]string{"saved_agents"}))
 		Expect(got.Builtins).To(Equal([]string{"memory.write", "skills.write"}))

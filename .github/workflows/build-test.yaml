@@ -61,6 +61,11 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Free disk space
+        # The three-platform build and the UI build fill the hosted runner and
+        # fail with "no space left on device". Remove the unused preinstalled
+        # toolchains before Go is installed.
+        run: sh scripts/ci/free-runner-disk.sh
       - name: Set up Go
         uses: actions/setup-go@v5
         with:

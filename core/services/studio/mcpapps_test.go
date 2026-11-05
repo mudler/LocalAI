@@ -44,6 +44,14 @@ func appsMCPServer() *httptest.Server {
 	add("refresh", mcp.Meta{"ui": map[string]any{"resourceUri": "ui://clock/app.html", "visibility": []any{"app"}}}, "refreshed ")
 	add("model_only", mcp.Meta{"ui": map[string]any{"resourceUri": "ui://clock/app.html", "visibility": []any{"model"}}}, "model ")
 	add("plain", nil, "plain ")
+	mcp.AddTool(srv, &mcp.Tool{Name: "slow", Meta: mcp.Meta{"ui": map[string]any{"resourceUri": "ui://clock/app.html"}}},
+		func(ctx context.Context, _ *mcp.CallToolRequest, _ appIn) (*mcp.CallToolResult, any, error) {
+			select {
+			case <-time.After(30 * time.Second):
+			case <-ctx.Done():
+			}
+			return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "slept"}}}, nil, nil
+		})
 	add("big", mcp.Meta{"ui": map[string]any{"resourceUri": "ui://big/app.html"}}, "big ")
 	add("json", mcp.Meta{"ui": map[string]any{"resourceUri": "ui://json/app.html"}}, "json ")
 	page := func(uri, mime, body string, meta mcp.Meta) {
@@ -73,8 +81,18 @@ type appsEnv struct {
 }
 
 func newAppsEnv(turns ...[]sessiontest.Step) *appsEnv {
+	return newAppsEnvWith(nil, turns...)
+}
+
+// newAppsEnvWith is newAppsEnv with the options of the connector service
+// changed by tune.
+func newAppsEnvWith(tune func(*mcpconns.Options), turns ...[]sessiontest.Step) *appsEnv {
 	ts := appsMCPServer()
-	conns, _ := realConnectors(true)
+	var tuners []func(*mcpconns.Options)
+	if tune != nil {
+		tuners = append(tuners, tune)
+	}
+	conns, _ := realConnectors(true, tuners...)
 	in := mcpconns.Input{Name: "Clock", Transport: mcpconns.TransportHTTP, URL: ts.URL, Enabled: true}
 	token := "tok-clock-secret"
 	in.Token = &token
@@ -132,6 +150,16 @@ func toolEntries(svc *studio.Service, user, id string) []session.Entry {
 }
 
 var _ = Describe("mcpapps", func() {
+	It("ends an app tool call that outlasts the call time limit as a failure with no credential", func() {
+		e := newAppsEnvWith(func(o *mcpconns.Options) { o.CallTimeout = time.Second })
+		id := create(e.svc, alice)
+		start := time.Now()
+		_, err := e.svc.MCPAppCall(context.Background(), alice, id, e.ref(), "slow", json.RawMessage(`{"zone":"UTC"}`))
+		Expect(err).To(MatchError(studio.ErrMCPAppFailed))
+		Expect(time.Since(start)).To(BeNumerically("<", 10*time.Second))
+		Expect(err.Error()).NotTo(ContainSubstring("tok-clock-secret"))
+	})
+
 	It("a connector tool with a view gives the transcript an app reference", func() {
 		// The model's own server has the same tool names, so the connector's tools
 		// take the connector's name in front; the app still names the tool of the server.

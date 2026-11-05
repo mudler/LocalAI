@@ -81,6 +81,72 @@ var _ = Describe("attach_file in a connector chat", func() {
 		Expect(bot.answers()[1]).To(Equal("Here it is."), "the answer comes before the file, and no note follows")
 	})
 
+	It("attaches a file of a folder whose name has a space, by the path the shell shows", func() {
+		ctx := context.Background()
+		Expect(sh.files.EnsureHome(ctx, alice)).To(Succeed())
+		home := session.HomePath(alice)
+		_, err := sh.files.Store().Mkdir(ctx, sh.files.Actor(alice), home+"/Design Docs")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = sh.files.Store().Put(ctx, sh.files.Actor(alice), home+"/Design Docs/overview.pdf", strings.NewReader("%PDF-1.4 x"), workspace.PutOptions{Overwrite: true})
+		Expect(err).NotTo(HaveOccurred())
+		r := telegram(map[string][]studiotest.ToolStep{
+			"send": {attach("/workspace/home/Design Docs/overview.pdf"), attach("/Design Docs/overview.pdf"), {Say: "Here it is."}},
+		}, studio.ConnectorInput{})
+		ask(1, "send")
+		waitFor("the file", func() bool { return len(bot.sentFiles()) == 1 })
+		answered(1)
+		res := r.h.ResultsFor("attach_file")
+		Expect(res).To(HaveLen(2))
+		Expect(res[0].Err).NotTo(HaveOccurred())
+		Expect(res[1].Out).To(ContainSubstring("attached already"))
+		Expect(bot.sentFiles()[0].Name).To(Equal("overview.pdf"))
+	})
+
+	Describe("an answer that shows a file nobody attached", func() {
+		It("ends with one plain note", func() {
+			telegram(map[string][]studiotest.ToolStep{
+				"fake": {{Say: "Here it is, I'll send you one. 📎 `design-notes.pdf`"}},
+			}, studio.ConnectorInput{})
+			ask(1, "fake")
+			waitFor("the note", func() bool { return len(bot.answers()) == 2 })
+			Expect(bot.answers()[0]).To(Equal("Here it is, I'll send you one. 📎 `design-notes.pdf`"), "the answer is not changed")
+			Expect(bot.answers()[1]).To(Equal("I could not attach the file. Ask me again and I will send it."))
+			Expect(bot.sentFiles()).To(BeEmpty())
+		})
+
+		It("adds no note when the file went with the answer", func() {
+			telegram(map[string][]studiotest.ToolStep{
+				"make": {write("/out/report.csv", "a,b"), {Say: "📎 `report.csv`"}},
+			}, studio.ConnectorInput{})
+			ask(1, "make")
+			waitFor("the file", func() bool { return len(bot.sentFiles()) == 1 })
+			answered(1)
+			time.Sleep(300 * time.Millisecond)
+			Expect(bot.answers()).To(HaveLen(1))
+		})
+
+		It("adds no note when the binding sends no files", func() {
+			r := newConnRig(sh, connStore(), bot, attachScript(map[string][]studiotest.ToolStep{
+				"fake": {{Say: "📎 `design-notes.pdf`"}},
+			}), nil)
+			r.bind(studio.ConnectorInput{Allow: []string{"11"}, Reply: connectors.ReplyOff, SendFiles: &filesOff})
+			ask(1, "fake")
+			answered(1)
+			time.Sleep(300 * time.Millisecond)
+			Expect(bot.answers()).To(HaveLen(1))
+		})
+
+		It("adds no note to an answer that only talks about files", func() {
+			telegram(map[string][]studiotest.ToolStep{
+				"talk": {{Say: "The file is `report.pdf`. I can send it if you want."}},
+			}, studio.ConnectorInput{})
+			ask(1, "talk")
+			answered(1)
+			time.Sleep(300 * time.Millisecond)
+			Expect(bot.answers()).To(HaveLen(1))
+		})
+	})
+
 	It("sends a file once when it was made and attached in the same turn", func() {
 		telegram(map[string][]studiotest.ToolStep{
 			"make": {write("/out/report.csv", "a,b"), attach("/out/report.csv"), attach("/out/report.csv"), {Say: "Made."}},

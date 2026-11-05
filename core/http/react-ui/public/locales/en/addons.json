@@ -66,6 +66,13 @@
     "loadError": {
       "title": "Add-ons are not available right now.",
       "paused": "Add-on pages and tools are paused until it is back."
+    },
+    "busy": {
+      "upgrading": "The add-on server is busy (upgrading {{names}})",
+      "generic": "The add-on server is busy",
+      "unreachable": "The add-on server cannot be reached",
+      "reason": "Showing the last known state. This page asks again by itself.",
+      "retry": "Try again now"
     }
   },
   "browse": {
@@ -138,7 +145,8 @@
     "invalid": "The server could not accept this request.",
     "network": "The server could not be reached. Check your connection.",
     "unavailable": "Add-ons are not available right now. Try again in a moment.",
-    "unknownOutcome": "The result could not be confirmed. Check the status before you try again."
+    "unknownOutcome": "The result could not be confirmed. Check the status before you try again.",
+    "busy": "The add-on server is busy and did not answer in time. Try again in a moment."
   },
   "installed": {
     "disabled": "Off",
@@ -929,6 +937,31 @@
       "downgradeTitle": "Older version",
       "downgrade": "This installs version {{version}}, which is older than the installed version {{installed}}. An older version may not read data that a newer one wrote.",
       "downgradeConfirm": "I want to install the older version"
+    }
+  },
+  "notice": {
+    "enableFailedTitle": "Could not turn on {{name}}",
+    "incompatibleTitle": "Cannot turn on {{name}}: not compatible with this server",
+    "noUpgrade": "No newer version is listed yet. Keep it off, or remove it."
+  },
+  "operation": {
+    "kind": {
+      "install": "Installing…",
+      "upgrade": "Upgrading…",
+      "uninstall": "Removing…",
+      "enable": "Starting…",
+      "disable": "Stopping…",
+      "working": "Working…"
+    },
+    "label": "In progress: {{operation}}",
+    "phase": {
+      "queued": "waiting",
+      "downloading": "downloading and checking",
+      "backing-up": "backing up data",
+      "installing": "installing",
+      "migrating": "migrating data",
+      "starting": "starting",
+      "working": "working"
     }
   }
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -174,57 +175,74 @@ func (c *Connectors) checkOwnerLimits(ctx context.Context, b connectors.Binding,
 }
 
 // why names the layer that sets the limit, in words a person knows.
-func (l FileLimit) why(kindTitle string) string {
+func (l FileLimit) why(kindTitle string) string { return l.whyIn(hostmsg.Voice{}, kindTitle) }
+
+// whyIn is why in the language of the voice.
+func (l FileLimit) whyIn(v hostmsg.Voice, kindTitle string) string {
 	switch l.Layer {
 	case LayerOwner:
-		return "limit set for this bot"
+		return v.T("file.why_owner")
 	case LayerAddon:
-		return "limit of " + cmp.Or(kindTitle, "this add-on")
+		if kindTitle == "" {
+			kindTitle = v.T("file.why_addon_default")
+		}
+		return v.T("file.why_addon", "kind", kindTitle)
 	default:
-		return "limit of the platform"
+		return v.T("file.why_platform")
 	}
 }
 
 // sentence is the limit with the layer that sets it, such as
 // "1 MiB (limit of this add-on version)".
-func (l FileLimit) sentence(kindTitle string) string {
-	return formatFileSize(l.Bytes) + " (" + l.why(kindTitle) + ")"
+func (l FileLimit) sentence(kindTitle string) string { return l.sentenceIn(hostmsg.Voice{}, kindTitle) }
+
+// sentenceIn is sentence in the language of the voice.
+func (l FileLimit) sentenceIn(v hostmsg.Voice, kindTitle string) string {
+	return v.T("file.limit", "size", formatFileSizeIn(v, l.Bytes), "why", l.whyIn(v, kindTitle))
 }
 
 // formatFileSize writes a size in bytes, KiB, MiB, GiB or TiB, with at most
 // one decimal.
-func formatFileSize(n int64) string {
+func formatFileSize(n int64) string { return formatFileSizeIn(hostmsg.Voice{}, n) }
+
+// formatFileSizeIn writes a size for a person who reads the language of the
+// voice: the word for bytes and the decimal mark of the language.
+func formatFileSizeIn(v hostmsg.Voice, n int64) string {
 	if n == 1 {
-		return "1 byte"
+		return v.T("size.byte")
 	}
 	if n < 1<<10 {
-		return strconv.FormatInt(n, 10) + " bytes"
+		return v.T("size.bytes", "n", strconv.FormatInt(n, 10))
 	}
 	units := []string{"KiB", "MiB", "GiB", "TiB"}
-	v := float64(n) / 1024
+	val := float64(n) / 1024
 	i := 0
-	for v >= 1024 && i < len(units)-1 {
-		v /= 1024
+	for val >= 1024 && i < len(units)-1 {
+		val /= 1024
 		i++
 	}
-	return strings.TrimSuffix(strconv.FormatFloat(v, 'f', 1, 64), ".0") + " " + units[i]
+	out := strings.TrimSuffix(strconv.FormatFloat(val, 'f', 1, 64), ".0") + " " + units[i]
+	if v.Lang != "" && v.Lang != hostmsg.English {
+		out = strings.Replace(out, ".", ",", 1)
+	}
+	return out
 }
 
 // Sentences to people. Each is built from the limit in effect.
 
 // sentFileTooBig answers a person whose file the bot cannot read. size is
 // zero when the add-on did not say how large the file is.
-func sentFileTooBig(l FileLimits, size int64) string {
+func (c *Connectors) sentFileTooBig(v hostmsg.Voice, l FileLimits, size int64) string {
 	seen := ""
 	if size > 0 {
-		seen = " (" + formatFileSize(size) + ")"
+		seen = " (" + formatFileSizeIn(v, size) + ")"
 	}
-	return fmt.Sprintf("That file is too large%s: I can read files of up to %s here (%s).", seen, formatFileSize(l.Receive.Bytes), l.Receive.why(l.KindTitle))
+	return v.T("file.too_big", "seen", seen, "max", formatFileSizeIn(v, l.Receive.Bytes), "why", l.Receive.whyIn(v, l.KindTitle))
 }
 
 // noteSendTooBig tells a person that a file the agent made stays in the chat.
-func noteSendTooBig(name string, l FileLimits) string {
-	return fmt.Sprintf("%s is too large to send here (the limit is %s). It is in the chat's files.", name, l.Send.sentence(l.KindTitle))
+func noteSendTooBig(v hostmsg.Voice, name string, l FileLimits) string {
+	return v.T("file.send_too_big", "name", name, "limit", l.Send.sentenceIn(v, l.KindTitle))
 }
 
 // refuseAttachTooBig is the text that the attach tool gives the model.

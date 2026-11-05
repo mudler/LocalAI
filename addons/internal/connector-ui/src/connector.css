@@ -12,7 +12,7 @@
   overflow-y: auto;
 }
 
-.cn-head { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); }
+.cn-head { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); flex-wrap: wrap; }
 
 .cn-title { margin: 0; font-size: var(--fs-title); line-height: var(--lh-title); font-weight: var(--font-weight-semibold); }
 
@@ -191,3 +191,60 @@ fieldset.cn-group {
 .cn-access__no summary { cursor: pointer; color: var(--color-text-muted); }
 .cn-access__no ul { margin: var(--dk-space-1) 0 0; padding-left: var(--dk-space-5); }
 .cn-row:has(.cn-nocaps) { align-items: flex-start; }
+
+/* The presets of the permissions: fill the form from the agent of the binding. */
+.cn-presets { display: flex; flex-direction: column; gap: var(--dk-space-2); margin-block: var(--dk-space-2); }
+.cn-presets__row { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); }
+.cn-presets__done { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-primary); }
+.cn-confirm__list { margin: 0; padding-left: var(--dk-space-5); font-size: var(--fs-small); line-height: var(--lh-small); }
+.cn-cap__lacks { margin: 2px 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-muted); }
+.cn-cap[data-lacks="true"] .cn-cap__title { color: var(--color-text-muted); }
+
+/* The approval of proposed triggers, nested under the permission Propose triggers. */
+.cn-cap__effect { margin: 2px 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-secondary); }
+.cn-option { margin: var(--dk-space-2) 0 0 var(--dk-space-3); padding: 0 0 0 var(--dk-space-3); border: 0; border-left: 2px solid var(--color-border-subtle); min-width: 0; display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-option[data-off="true"] { opacity: 0.6; }
+.cn-option__title { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
+.cn-option__limits summary { cursor: pointer; font-size: var(--fs-small); color: var(--color-text-secondary); }
+.cn-option__limits[open] summary { margin-bottom: var(--dk-space-2); }
+.cn-acts { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-acts__list { list-style: none; margin: 0; padding: 0 0 0 var(--dk-space-3); display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-acts__item { display: flex; flex-direction: column; gap: 2px; }
+.cn-acts__label { display: flex; align-items: flex-start; gap: var(--dk-space-2); }
+.cn-acts__label .dk-check { flex: none; margin-top: 2px; }
+.cn-acts__text { display: flex; align-items: center; flex-wrap: wrap; gap: 2px var(--dk-space-2); min-width: 0; }
+.cn-acts__item[data-lacks="true"] .cn-acts__label { opacity: 0.7; }
+
+/* Readiness at the top of the form, and "What this bot can do": a state, a
+   sentence and one fix on each row. The colours are the host's tokens, so both
+   themes work; the state is also written in words, never colour alone. */
+.cn-ready { display: flex; flex-direction: column; gap: var(--dk-space-2); padding: var(--dk-space-3); border: 1px solid var(--color-border-subtle); border-radius: var(--r-md); background: var(--dk-inset, var(--color-bg-secondary)); }
+.cn-ready__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--dk-space-2); }
+.cn-ready__list, .cn-can__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.cn-ready__row, .cn-can__row { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr) auto; align-items: start; gap: var(--dk-space-3); padding: var(--dk-space-2) 0; border-top: 1px solid var(--color-border-subtle); font-size: var(--fs-small); line-height: var(--lh-small); }
+.cn-ready__row:first-child, .cn-can__row:first-child { border-top: 0; }
+.cn-ready__text, .cn-can__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cn-ready__label, .cn-can__title { font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
+.cn-ready__sentence, .cn-can__why { color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.cn-ready__state, .cn-can__state { display: inline-flex; align-items: center; gap: var(--dk-space-1); font-weight: var(--font-weight-medium, 500); color: var(--color-text-secondary); }
+.cn-ready__state--ok, .cn-can__state--yes { color: var(--color-success, var(--color-text-secondary)); }
+.cn-ready__state--attention, .cn-ready__state--after_save { color: var(--color-warning, var(--color-text-secondary)); }
+.cn-ready__state--broken, .cn-can__state--no { color: var(--color-error, var(--color-text-secondary)); }
+.cn-ready__state--off, .cn-ready__state--checking, .cn-ready__state--unknown { color: var(--color-text-muted); }
+.cn-ready__fix, .cn-can__fix { justify-self: end; }
+.cn-fix { white-space: nowrap; text-decoration: none; }
+.cn-fix__text { max-width: 12rem; text-align: right; }
+.cn-ready__toggle { align-self: flex-start; }
+.cn-can__list[data-dim="true"] { opacity: 0.6; }
+.cn-can__live:empty { display: none; }
+.cn-can .dk-select-wrap { max-width: 28rem; }
+[data-jumped="true"] { outline: 2px solid var(--dk-accent); outline-offset: 3px; border-radius: var(--r-sm); }
+@media (max-width: 700px) {
+  .cn-ready__row, .cn-can__row { grid-template-columns: minmax(0, 1fr); gap: var(--dk-space-1); }
+  .cn-ready__fix, .cn-can__fix { justify-self: start; }
+  .cn-fix__text { text-align: left; max-width: none; }
+}
+
+/* The host kit writes " (optional)" in English after a label marked data-optional.
+   The page puts the word of its language in the attribute, and this draws it. */
+.cn-page .dk-label[data-optional]::after { content: " (" attr(data-optional) ")"; }

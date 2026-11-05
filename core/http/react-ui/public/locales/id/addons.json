@@ -66,6 +66,13 @@
     "loadError": {
       "title": "Add-on tidak tersedia saat ini.",
       "paused": "Halaman dan alat add-on dijeda sampai layanan kembali."
+    },
+    "busy": {
+      "upgrading": "Server add-on sedang sibuk (memperbarui {{names}})",
+      "generic": "Server add-on sedang sibuk",
+      "unreachable": "Server add-on tidak dapat dijangkau",
+      "reason": "Menampilkan status terakhir yang diketahui. Halaman ini mencoba lagi sendiri.",
+      "retry": "Coba lagi sekarang"
     }
   },
   "browse": {
@@ -138,7 +145,8 @@
     "invalid": "Server tidak dapat menerima permintaan ini.",
     "network": "Server tidak dapat dijangkau. Periksa koneksi Anda.",
     "unavailable": "Add-on tidak tersedia saat ini. Coba lagi sebentar lagi.",
-    "unknownOutcome": "Hasil tidak dapat dikonfirmasi. Periksa statusnya sebelum mencoba lagi."
+    "unknownOutcome": "Hasil tidak dapat dikonfirmasi. Periksa statusnya sebelum mencoba lagi.",
+    "busy": "Server add-on sedang sibuk dan tidak menjawab tepat waktu. Coba lagi sebentar lagi."
   },
   "installed": {
     "disabled": "Nonaktif",
@@ -929,6 +937,31 @@
       "downgradeTitle": "Versi lebih lama",
       "downgrade": "Ini memasang versi {{version}}, yang lebih lama daripada versi terpasang {{installed}}. Versi yang lebih lama mungkin tidak bisa membaca data yang ditulis versi yang lebih baru.",
       "downgradeConfirm": "Saya ingin memasang versi yang lebih lama"
+    }
+  },
+  "notice": {
+    "enableFailedTitle": "{{name}} tidak dapat diaktifkan",
+    "incompatibleTitle": "{{name}} tidak dapat diaktifkan: tidak kompatibel dengan server ini",
+    "noUpgrade": "Belum ada versi yang lebih baru di daftar. Biarkan mati, atau hapus."
+  },
+  "operation": {
+    "kind": {
+      "install": "Memasang…",
+      "upgrade": "Memperbarui…",
+      "uninstall": "Menghapus…",
+      "enable": "Memulai…",
+      "disable": "Menghentikan…",
+      "working": "Bekerja…"
+    },
+    "label": "Sedang berjalan: {{operation}}",
+    "phase": {
+      "queued": "menunggu",
+      "downloading": "mengunduh dan memeriksa",
+      "backing-up": "mencadangkan data",
+      "installing": "memasang",
+      "migrating": "memigrasi data",
+      "starting": "memulai",
+      "working": "bekerja"
     }
   }
 }

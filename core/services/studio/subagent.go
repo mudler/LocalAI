@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
+	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -92,7 +93,8 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	cmds := s.commandsOf(ctx, a.Principal, tools, rec.AddonsOff, sc)
 	// The built-in tools no add-on serves: bash on this machine when the
 	// Sandbox does not serve it and the setting allows it.
-	tools = s.applyBuiltins(tools, s.builtinsFor(ctx, a, rec, sub))
+	built := s.builtinsFor(ctx, a, rec, sub)
+	tools = s.applyBuiltins(tools, built)
 	cmds = shellSwitched(s.withHostBash(cmds, tools), hidden)
 	// The file tools are the one file toolset of the chat. A sub-agent gets
 	// them from subset, built for the parent chat; one from a saved agent gets
@@ -119,7 +121,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// tools it has now: a chat with the file tools switched off hears of none.
 	canRead, canWrite := canReadFiles(tools, cmds), canWriteFiles(tools, cmds)
 	skillsOff := 0
-	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, cmds, execGate(cmds, &skillsOff))
+	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, s.memorySkillsOff(ctx, rec, sc, rec.SkillsOff), rec.AddonsOff, sc, cmds, execGate(cmds, &skillsOff))
 	if err != nil {
 		return session.TurnTools{}, err
 	}
@@ -137,11 +139,40 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// The agent's profile and the index of the user's notes follow the persona.
 	// The first is the user's standing rules for this agent; the second points
 	// the model at context_read.
-	var notes, notesKey string
+	var notes, notesKey, turnContext, providerNote string
 	if !sub {
-		extra := s.addonContextSources(ctx, a.Principal, rec.AddonsOff, sc)
-		notes, notesKey = s.contextTurn(ctx, rec, tools, extra)
+		sets := s.addonContextSets(ctx, a.Principal)
+		legacy := legacyMemoryOf(sets)
+		extra := s.addonContextSourcesOf(ctx, a.Principal, sets, rec.AddonsOff, sc)
+		// The notes: the host's own, for the chats that read them. A person
+		// who has the Memory add-on running keeps the header when no note
+		// exists yet, as before; everyone else gets no block until a note
+		// exists. When the person picked an add-on to serve the notes, its
+		// files are in extra and the built-in ones are not read.
+		prov := s.memoryProviderFor(ctx, a.Principal, legacy)
+		if prov.ID() == BuiltinMemoryID {
+			if s.memoryReads(ctx, rec, sc, legacy) {
+				choice := ""
+				if sc != nil {
+					choice = sc.memory
+				}
+				extra = append(memorySourcesFor(prov.Sources(), choice), extra...)
+			}
+		} else if !s.memoryState(ctx, rec, legacy).On {
+			// This chat turned the notes off: the provider's files stay out.
+			extra = slices.DeleteFunc(extra, func(src contextfiles.Source) bool { return src.ID == prov.ID() })
+		}
+		notes, notesKey = s.contextTurnFor(ctx, rec, tools, extra, !(legacy.Installed && legacy.Running))
 		tools = append(tools, s.contextTools(rec, tools, extra)...)
+		// A provider that serves the notes answers for this message: its text
+		// goes in front of the message, not in the prompt, so a text that
+		// changes with each message does not restart the harness.
+		turnContext, providerNote = s.providerContext(ctx, rec, sc, legacy)
+		if st := s.memoryState(ctx, rec, legacy); !st.On && st.Code != MemoryOffFiles {
+			// Off: the model hears it in one line, and has no note and no tool.
+			line := memoryOffLine(st)
+			notes, notesKey = joinBlocks(notes, line), notesKey+line
+		}
 	}
 	if lead := joinBlocks(persona, notes); lead != "" {
 		prompt = strings.TrimSpace(lead + "\n\n" + prompt)
@@ -162,6 +193,9 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	if fallback != "" {
 		note = strings.TrimSpace(note + " " + fallback)
 	}
+	if providerNote != "" {
+		note = strings.TrimSpace(providerNote + " " + note)
+	}
 	if !sub && !hidden[spawnAgentName] {
 		// The agent argument is offered only when list_agents is: the chat
 		// switched the saved agents on and its user may use them.
@@ -178,6 +212,12 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	}
 	if aNote != "" {
 		note = strings.TrimSpace(note + " " + aNote)
+	}
+	// A tool the sender of a connector message may not use is not offered. The
+	// model hears why, so it tells the person what the owner can change
+	// instead of saying that it has no such tool.
+	if line := deniedToolsNote(rec, built); line != "" {
+		note = strings.TrimSpace(line + " " + note)
 	}
 	// What the user did with the triggers this chat proposed: the tool result
 	// said they were waiting, so a later turn must hear how they ended.
@@ -249,7 +289,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// The action policy of a run that nobody watches: the tools that change
 	// files or run commands on this machine are checked at each call.
 	tools = s.gateBuiltinActs(ctx, rec, tools)
-	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey + "\x00" + notesKey}, nil
+	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, Context: turnContext, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey + "\x00" + notesKey}, nil
 }
 
 // spawnTool is spawn_agent for the chat of x: a generic sub-agent gets

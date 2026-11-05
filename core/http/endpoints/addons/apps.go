@@ -20,13 +20,15 @@ var appID = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 
 // ListApps lists the addons the caller may use as apps.
 // @Summary List the addon apps the caller may use
-// @Description Returns the installed addons that are enabled, for every authenticated caller who holds the addons feature. The owner decides what a caller sees; hiding an entry is never the control, because every call the entry leads to is authorized again. Each app has its title, description, icon URL, version and installed generation, a process state (running, starting, failed or stopped; the state is an observation, separate from the enabled flag), the path of its main page when its manifest declares a valid one, and a bounded tool summary. A headless addon is listed without a main page. Administrators additionally see installed addons that are disabled and, per app, the start and stop controls and the management link. An app carries update update-pending, separate from state, only when the owner's cached update check says an update is available for the installed package; the list never evaluates a check and never reaches a library.
+// @Description Returns the installed addons that are enabled, for every authenticated caller who holds the addons feature. The owner decides what a caller sees; hiding an entry is never the control, because every call the entry leads to is authorized again. Each app has its title, description, icon URL, version and installed generation, a process state (running, starting, failed or stopped; the state is an observation, separate from the enabled flag), the path of its main page when its manifest declares a valid one, and a bounded tool summary. A headless addon is listed without a main page. Administrators additionally see installed addons that are disabled and, per app, the start and stop controls and the management link. An app carries update update-pending, separate from state, only when the owner's cached update check says an update is available for the installed package; the list never evaluates a check and never reaches a library. Text that the manifest translates (ui.title and ui.description language maps) is returned in all languages in titles and descriptions. When the request names a language, each app that translates it also carries language, localizedTitle and localizedDescription, resolved per field with English as the fallback; title and description never change.
 // @Tags Addons
 // @Produce json
+// @Param lang query string false "Language tag to resolve the text for, such as it or pt-BR. Wins over Accept-Language. An unknown language gives the English text."
+// @Param Accept-Language header string false "Used when lang is absent. Quality values are honored; English or no match adds no localized field."
 // @Success 200 {object} apps.List "Apps visible to the caller"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
 // @Failure 403 {object} AddonErrorResponse "Feature or owner policy denied the request"
-// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable, or the owner did not answer in time (type owner_busy or owner_unavailable)"
 // @Router /api/addons/apps [get]
 func ListApps(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
 	s := resolve(opts)
@@ -45,6 +47,10 @@ func ListApps(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc 
 		}
 		if list.Apps == nil {
 			list.Apps = []apps.App{}
+		}
+		explicit, accept := c.QueryParam("lang"), c.Request().Header.Get("Accept-Language")
+		for i := range list.Apps {
+			list.Apps[i] = list.Apps[i].Localize(explicit, accept)
 		}
 		return c.JSON(200, list)
 	}

@@ -66,6 +66,13 @@
     "loadError": {
       "title": "Los complementos no están disponibles ahora.",
       "paused": "Las páginas y herramientas de los complementos quedan en pausa hasta que vuelva."
+    },
+    "busy": {
+      "upgrading": "El servidor de complementos está ocupado (actualizando {{names}})",
+      "generic": "El servidor de complementos está ocupado",
+      "unreachable": "No se puede acceder al servidor de complementos",
+      "reason": "Se muestra el último estado conocido. La página lo intenta de nuevo sola.",
+      "retry": "Reintentar ahora"
     }
   },
   "browse": {
@@ -138,7 +145,8 @@
     "invalid": "El servidor no pudo aceptar la solicitud.",
     "network": "No se pudo contactar con el servidor. Revisa tu conexión.",
     "unavailable": "Los complementos no están disponibles ahora. Inténtalo de nuevo en un momento.",
-    "unknownOutcome": "No se pudo confirmar el resultado. Comprueba el estado antes de volver a intentarlo."
+    "unknownOutcome": "No se pudo confirmar el resultado. Comprueba el estado antes de volver a intentarlo.",
+    "busy": "El servidor de complementos está ocupado y no respondió a tiempo. Inténtalo de nuevo en un momento."
   },
   "installed": {
     "disabled": "Desactivado",
@@ -929,6 +937,31 @@
       "downgradeTitle": "Versión anterior",
       "downgrade": "Esto instala la versión {{version}}, que es anterior a la versión instalada {{installed}}. Una versión anterior puede no leer los datos que escribió una más nueva.",
       "downgradeConfirm": "Quiero instalar la versión anterior"
+    }
+  },
+  "notice": {
+    "enableFailedTitle": "No se pudo activar {{name}}",
+    "incompatibleTitle": "No se puede activar {{name}}: no es compatible con este servidor",
+    "noUpgrade": "Todavía no hay una versión más reciente en la lista. Déjalo desactivado o quítalo."
+  },
+  "operation": {
+    "kind": {
+      "install": "Instalando…",
+      "upgrade": "Actualizando…",
+      "uninstall": "Quitando…",
+      "enable": "Iniciando…",
+      "disable": "Deteniendo…",
+      "working": "Trabajando…"
+    },
+    "label": "En curso: {{operation}}",
+    "phase": {
+      "queued": "en espera",
+      "downloading": "descarga y comprobación",
+      "backing-up": "copia de los datos",
+      "installing": "instalación",
+      "migrating": "migración de datos",
+      "starting": "inicio",
+      "working": "en curso"
     }
   }
 }

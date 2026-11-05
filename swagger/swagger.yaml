@@ -343,8 +343,24 @@ definitions:
           several add-ons replace.
         example: "2026-10-30T09:15:00Z"
         type: string
+      language:
+        description: |-
+          Language, LocalizedTitle and LocalizedDescription are present only when
+          the request named a language (the lang query parameter, else the
+          Accept-Language header) that the manifest translates. Language is the
+          tag that matched. Each localized field falls back to English on its own,
+          so a title without a translation is the English title. No other field
+          changes: Title and Description stay the default-language text.
+        example: it
+        type: string
       launchMode:
         example: always
+        type: string
+      localizedDescription:
+        example: Tieni degli appunti.
+        type: string
+      localizedTitle:
+        example: Appunti
         type: string
       mainPage:
         description: |-
@@ -362,6 +378,14 @@ definitions:
         description: |-
           Network is the network policy the add-on declares, present only while
           the host draws its network-policy control (see contract.EntitledControls).
+      operation:
+        allOf:
+        - $ref: '#/definitions/apps.Operation'
+        description: |-
+          Operation is the lifecycle operation that runs on the add-on now (an
+          upgrade, say). It is absent when none runs. The observation is
+          separate from State: the process can run on while the owner stages
+          the next generation.
       shadows:
         description: Shadows lists the built-in chat tools the add-on replaces (bash,
           say).
@@ -530,6 +554,32 @@ definitions:
         description: 'Title names the network in text: the declared title, else the
           add-on''s.'
         example: Example provider
+        type: string
+    type: object
+  apps.Operation:
+    properties:
+      kind:
+        description: 'Kind is the action: install, upgrade, enable, disable or uninstall.'
+        enum:
+        - install
+        - upgrade
+        - enable
+        - disable
+        - uninstall
+        example: upgrade
+        type: string
+      phase:
+        description: |-
+          Phase is the step the owner is in: queued, downloading (fetch and
+          verify the package), backing-up, installing, migrating, starting or
+          working for a step without a name of its own.
+        example: downloading
+        type: string
+      since:
+        description: |-
+          Since is when the operation was accepted, RFC 3339 in UTC. It is absent
+          for an operation recorded before the owner kept the time.
+        example: "2026-11-04T17:18:00Z"
         type: string
     type: object
   apps.SlotView:
@@ -836,6 +886,7 @@ definitions:
     - skill
     - page
     - dashboard
+    - knowledge
     type: string
     x-enum-varnames:
     - ChangeMemory
@@ -843,6 +894,7 @@ definitions:
     - ChangeSkill
     - ChangePage
     - ChangeDashboard
+    - ChangeKnowledge
   contract.ChangeProposal:
     properties:
       agent:
@@ -906,6 +958,12 @@ definitions:
       id:
         type: string
       kind:
+        type: string
+      sender:
+        description: |-
+          Sender is the platform ID of the sender whose message made a connector
+          chat propose this change. The host keeps it so that, in a shared chat,
+          only that sender can answer the proposal there.
         type: string
       thread:
         type: string
@@ -2106,6 +2164,10 @@ definitions:
         type: string
       installed:
         type: boolean
+      locked:
+        type: boolean
+      lockedReason:
+        type: string
       nonce:
         type: string
       nonceExpiresAt:
@@ -2146,6 +2208,9 @@ definitions:
         $ref: '#/definitions/gateway.HostGrantsFloor'
       locked:
         type: boolean
+      lockedReason:
+        description: LockedReason is LockedByDeployment or LockedNoAuth when Locked.
+        type: string
       revision:
         type: integer
     type: object
@@ -3510,6 +3575,12 @@ definitions:
         type: string
       commands_fallback_reason:
         type: string
+      commands_host_exec:
+        description: |-
+          CommandsHostExec is the mode of the setting chats_host_exec as it applies
+          now (off, ask or on), so a client can say that the built-in bash is off
+          when no add-on runs commands. Every signed-in user may read it.
+        type: string
       commands_isolation:
         description: |-
           CommandsIsolation is isolated (a sandbox) or host (directly on this
@@ -3673,6 +3744,13 @@ definitions:
         type: array
       reason:
         description: Reason says in plain words why the binding is not active.
+        type: string
+      reply_language:
+        description: |-
+          ReplyLanguage is the language of the sentences the bot writes itself in
+          the chat (confirmations, refusals, notes about files): auto (the
+          language of the sender's message), en, it, de, es, fr or pt-BR. The
+          answers of the model follow the conversation, not this setting.
         type: string
       reply_mode:
         description: |-
@@ -3873,6 +3951,34 @@ definitions:
         items:
           type: string
         type: array
+      memory:
+        description: |-
+          Memory is the choice of notes for this agent: own (its own notes only),
+          mine_and_own (reads your notes and its own, saves to its own; the
+          default of a new agent in the interface), mine (your notes only) or
+          none. The host enforces it: it decides which notes go in the prompt of
+          a chat and where a note is saved. Absent is "as before", an agent saved
+          before the choice existed: it reads notes when its add-ons name Memory
+          and the model picks the scope of a note.
+        enum:
+        - own
+        - mine_and_own
+        - mine
+        - none
+        example: mine_and_own
+        type: string
+      memory_save:
+        description: |-
+          MemorySave is the agent's own rule for saving a note: always (every note
+          waits for the person, and the model cannot undo or forget by itself) or
+          never (it reads notes and saves none). Absent uses the person's setting
+          (Account > Memory). It can only be stricter than that setting: the host
+          takes the stricter of the two, and there is no value that saves at once.
+        enum:
+        - always
+        - never
+        example: always
+        type: string
       model:
         type: string
       name:
@@ -4101,6 +4207,29 @@ definitions:
         items:
           type: string
         type: array
+      memory:
+        description: |-
+          Memory is the choice of notes (see ChatsAgent). A write without it keeps
+          the stored choice, so a client that does not know it cannot widen the
+          agent; the value must be own, mine_and_own, mine or none (400 otherwise).
+          A new agent written without it is "as before".
+        enum:
+        - own
+        - mine_and_own
+        - mine
+        - none
+        type: string
+      memory_save:
+        description: |-
+          MemorySave is the save rule of the agent (see ChatsAgent). A write
+          without it keeps the stored rule, so a client that does not know the
+          field cannot loosen the agent. use_mine clears the rule. auto and ask
+          are not accepted: an agent cannot be looser than the person (400).
+        enum:
+        - always
+        - never
+        - use_mine
+        type: string
       model:
         type: string
       name:
@@ -4425,14 +4554,29 @@ definitions:
     type: object
   schema.ChatsChatHit:
     properties:
+      at:
+        description: At is when the matching line was written.
+        type: string
       chat:
         $ref: '#/definitions/schema.ChatsConversation'
+      highlights:
+        description: Highlights are the parts of Snippet that match, in order.
+        items:
+          $ref: '#/definitions/schema.ChatsSearchRange'
+        type: array
       in_title:
         description: InTitle is true when the title matches.
         type: boolean
+      matches:
+        description: Matches is how many lines of the chat match, among the newest
+          matches.
+        type: integer
+      role:
+        description: 'Role is user or assistant: who wrote the matching line.'
+        type: string
       seq:
-        description: Seq is the first matching transcript line, or 0 when only the
-          title matches.
+        description: Seq is the matching transcript line, or 0 when only the title
+          matches.
         type: integer
       snippet:
         description: Snippet is the matching text with a little around it.
@@ -4440,10 +4584,27 @@ definitions:
     type: object
   schema.ChatsChatSearchResponse:
     properties:
+      engine:
+        description: 'Engine is how the server searched: fts5, pg_trgm or scan.'
+        type: string
       hits:
         items:
           $ref: '#/definitions/schema.ChatsChatHit'
         type: array
+      indexing:
+        description: |-
+          Indexing is true while the server still adds earlier chats to its
+          search index, so older chats may be missing from the hits.
+        type: boolean
+      partial:
+        description: |-
+          Partial is true when a server without an index stopped before it had
+          read every chat; SearchedChats of TotalChats were read.
+        type: boolean
+      searched_chats:
+        type: integer
+      total_chats:
+        type: integer
     type: object
   schema.ChatsConnection:
     properties:
@@ -4571,6 +4732,13 @@ definitions:
       reason:
         description: Reason says in plain words why the binding is not active.
         type: string
+      reply_language:
+        description: |-
+          ReplyLanguage is the language of the sentences the bot writes itself in
+          the chat (confirmations, refusals, notes about files): auto (the
+          language of the sender's message), en, it, de, es, fr or pt-BR. The
+          answers of the model follow the conversation, not this setting.
+        type: string
       reply_mode:
         description: |-
           ReplyMode is what a sender sees while a turn runs: off (typing, then
@@ -4609,6 +4777,9 @@ definitions:
     properties:
       binding:
         type: string
+      preview:
+        description: Preview is true when the view is for a form that is not saved.
+        type: boolean
       recent:
         items:
           $ref: '#/definitions/schema.ChatsConnectorAccessEvent'
@@ -4622,10 +4793,40 @@ definitions:
     properties:
       allowed:
         type: boolean
+      blocked_by:
+        description: |-
+          BlockedBy is the link that refused: server, tools, agent, connection
+          or sender.
+        type: string
       capability:
+        type: string
+      code:
+        description: |-
+          Code says which link of the chain refused first. It is one of
+          server_setting_off, tools_switch_off, agent_permission_off,
+          agent_unavailable, connection_permission_off, no_agent,
+          sender_not_listed, sender_needs_pairing, channel_not_trusted,
+          role_not_granted, kind_not_running, context_rule or
+          unknown_capability. Only a refused capability has it.
+        type: string
+      fix:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorAccessFix'
+        description: Fix points at the one place that solves it. The server sends
+          no URL.
+      message:
+        description: Message is one plain sentence for the owner. It names no setting.
         type: string
       reason:
         type: string
+      then_check:
+        description: |-
+          ThenCheck lists the links after the first problem that were not
+          looked at, in order: tools, agent, connection, sender and, for
+          triggers.propose, approval. More problems may follow.
+        items:
+          type: string
+        type: array
       via:
         description: 'Via is how the capability is reached: paired, or role:<id>.'
         type: string
@@ -4638,6 +4839,9 @@ definitions:
         type: string
       capability:
         type: string
+      code:
+        description: Code is the code of a refusal, as in the decisions.
+        type: string
       reason:
         type: string
       roles:
@@ -4649,6 +4853,53 @@ definitions:
           type: string
         type: array
       via:
+        type: string
+    type: object
+  schema.ChatsConnectorAccessFix:
+    properties:
+      field:
+        description: |-
+          Field narrows the target: the capability to tick on the connection or
+          to grant on the agent, or tools:<group> for a Tools switch.
+        type: string
+      kind:
+        description: |-
+          Kind is open_server_setting, open_agent, open_connection, pair_sender
+          or add_person.
+        type: string
+      target:
+        description: |-
+          Target is a stable ID: the key of a server setting, an agent ID, a field
+          of the connection form (caps, grants, agent_id, allow) or pairing.
+        type: string
+    type: object
+  schema.ChatsConnectorAccessPreviewRequest:
+    properties:
+      accept_any:
+        type: boolean
+      agent_id:
+        type: string
+      allow:
+        items:
+          type: string
+        type: array
+      caps:
+        description: Caps and Grants are the form's permissions; an empty list clears.
+        items:
+          type: string
+        type: array
+      grants:
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorRoleGrant'
+        type: array
+      kind:
+        description: Kind is read only for the id "new" (a connection that is not
+          saved).
+        type: string
+      sender:
+        description: |-
+          Sender limits the answer to one kind of sender: listed, paired,
+          channel_member, anyone or role:<id>. Absent means every kind.
         type: string
     type: object
   schema.ChatsConnectorAccessSubject:
@@ -4664,6 +4915,10 @@ definitions:
     type: object
   schema.ChatsConnectorApproval:
     properties:
+      acts:
+        items:
+          type: string
+        type: array
       max_lifetime_days:
         type: integer
       max_pending:
@@ -4748,6 +5003,10 @@ definitions:
         type: boolean
       description:
         type: string
+      descriptions:
+        additionalProperties:
+          type: string
+        type: object
       files:
         allOf:
         - $ref: '#/definitions/schema.ChatsConnectorFiles'
@@ -4755,6 +5014,17 @@ definitions:
           Files are the limits of a binding of this kind that has no limit of
           your own.
       kind:
+        type: string
+      language:
+        description: |-
+          Language, LocalizedTitle and LocalizedDescription are present only when
+          the request names a language (the lang query parameter, else the
+          Accept-Language header) that the kind translates. Each falls back to
+          English on its own.
+        type: string
+      localized_description:
+        type: string
+      localized_title:
         type: string
       options:
         description: Options are the choices the add-on lets each binding of this
@@ -4788,6 +5058,13 @@ definitions:
         type: boolean
       title:
         type: string
+      titles:
+        additionalProperties:
+          type: string
+        description: |-
+          Titles and Descriptions carry the translated text of the manifest by
+          language tag, when it has some. Title and Description stay English.
+        type: object
     type: object
   schema.ChatsConnectorKindList:
     properties:
@@ -4918,7 +5195,9 @@ definitions:
         description: |-
           Approval sets how triggers that the agent proposes from a chat of the
           binding are approved, and the limits of the automatic modes. Absent
-          means ask for a new binding and unchanged for an update.
+          means ask for a new binding and unchanged for an update. When it is
+          present it replaces the whole approval, acts included: send the acts
+          again to keep them. An act that is not in the closed list is refused.
       caps:
         description: |-
           Caps are the capabilities you enable for the binding (a closed list,
@@ -4983,6 +5262,19 @@ definitions:
           Options are the choices for the options of the kind, by option id. Absent
           means the defaults for a new binding and unchanged for an update.
         type: object
+      reply_language:
+        description: |-
+          ReplyLanguage is auto, en, it, de, es, fr or pt-BR. Absent means auto
+          for a new binding and unchanged for an update.
+        enum:
+        - auto
+        - en
+        - it
+        - de
+        - es
+        - fr
+        - pt-BR
+        type: string
       reply_mode:
         description: ReplyMode is off, progress or stream; empty means progress.
         type: string
@@ -6167,6 +6459,137 @@ definitions:
           type: string
         type: array
     type: object
+  schema.ChatsMemoryFix:
+    properties:
+      field:
+        type: string
+      kind:
+        example: open_memory_settings
+        type: string
+      target:
+        example: memory
+        type: string
+    type: object
+  schema.ChatsMemoryForget:
+    properties:
+      done:
+        description: |-
+          Done is true when the provider forgot. Otherwise the change waits for you
+          to confirm it on the Add-ons page.
+        type: boolean
+      proposal:
+        description: Proposal names the change that waits.
+        type: string
+    type: object
+  schema.ChatsMemoryRequest:
+    properties:
+      enabled:
+        example: false
+        type: boolean
+      messaging_save:
+        description: MessagingSave is the messaging row (see ChatsMemorySettings).
+        enum:
+        - ask
+        - paired_private
+        - never
+        example: ask
+        type: string
+      save_mode:
+        enum:
+        - auto
+        - ask
+        - always
+        - never
+        example: ask
+        type: string
+    type: object
+  schema.ChatsMemorySettings:
+    properties:
+      available:
+        description: Available is false when the server has no files, which notes
+          need.
+        example: true
+        type: boolean
+      enabled:
+        description: Enabled is memory On or Off for all your chats and agents.
+        example: true
+        type: boolean
+      enabled_set:
+        description: |-
+          EnabledSet is true once you chose. Before that memory is on, unless you
+          had disabled the Memory add-on to stop it.
+        example: false
+        type: boolean
+      messaging_save:
+        description: |-
+          MessagingSave is how a note proposed in a chat of a messaging app is
+          saved: ask (the bot asks in the chat; the default), paired_private
+          (saved at once to the conversation when the sender is paired and the
+          chat is one-to-one) or never. It cannot loosen save_mode: with always or
+          never the row has no looser effect.
+        enum:
+        - ask
+        - paired_private
+        - never
+        example: ask
+        type: string
+      provider:
+        description: 'Provider is what serves memory: builtin.'
+        example: builtin
+        type: string
+      save_mode:
+        description: |-
+          SaveMode is how a note is saved: auto (save it and tell me), ask (ask me
+          first, the default), always (always confirm: like ask, and nothing can
+          loosen it; undo and forget by the model wait for you too) or never.
+        enum:
+        - auto
+        - ask
+        - always
+        - never
+        example: ask
+        type: string
+      save_mode_set:
+        description: SaveModeSet is true once you chose in this setting.
+        example: false
+        type: boolean
+    type: object
+  schema.ChatsMemoryState:
+    properties:
+      blocked_by:
+        description: 'BlockedBy is who holds that switch: chat, agent, user or server.'
+        example: chat
+        type: string
+      code:
+        description: |-
+          Code names the level that is off: memory_off_chat, memory_off_agent,
+          memory_off_user, memory_off_files or memory_provider_unavailable (the
+          add-on you picked to serve memory cannot serve now; provider names it).
+          Absent when on.
+        example: memory_off_chat
+        type: string
+      fix:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsMemoryFix'
+        description: |-
+          Fix says where to turn memory on again: kind open_tools_menu,
+          open_memory_settings, open_agent or open_server_setting.
+      "on":
+        description: On is true when the chat reads and may save notes.
+        example: false
+        type: boolean
+      provider:
+        description: |-
+          Provider is the ID of the add-on that cannot serve, with the code
+          memory_provider_unavailable, and ProviderTitle the name it shows.
+        type: string
+      provider_title:
+        type: string
+      reason:
+        description: Reason is an English sentence for logs; the interface words it
+          by Code.
+        type: string
+    type: object
   schema.ChatsMessage:
     properties:
       after:
@@ -6328,6 +6751,140 @@ definitions:
       text:
         type: string
     type: object
+  schema.ChatsProvider:
+    properties:
+      available:
+        description: Available is false for an add-on that cannot serve now.
+        type: boolean
+      description:
+        type: string
+      id:
+        description: ID is builtin, off or the ID of an add-on.
+        example: builtin
+        type: string
+      kind:
+        description: Kind is builtin, addon or off.
+        enum:
+        - builtin
+        - addon
+        - "off"
+        example: builtin
+        type: string
+      properties:
+        additionalProperties: {}
+        description: |-
+          Properties are the facts the add-on declared about itself, such as
+          remote and undo.
+        type: object
+      roles:
+        description: Roles are the roles of the slot that the add-on fills with tools.
+        items:
+          type: string
+        type: array
+      selected:
+        type: boolean
+      title:
+        example: Built-in
+        type: string
+    type: object
+  schema.ChatsProviderHealth:
+    properties:
+      cooling_down:
+        description: CoolingDown is true while the host does not call the provider.
+        type: boolean
+      last:
+        description: |-
+          Last is the outcome of the failure that stopped the calls: failed,
+          timeout or bad_result.
+        example: timeout
+        type: string
+      notice:
+        description: Notice is a plain sentence for the person.
+        type: string
+      retry_at:
+        description: RetryAt is when the host calls the provider again (RFC 3339).
+        type: string
+    type: object
+  schema.ChatsProviderRequest:
+    properties:
+      provider:
+        description: |-
+          Provider is builtin, off (when the slot allows it) or the ID of an add-on
+          that declares the slot.
+        example: builtin
+        type: string
+    type: object
+  schema.ChatsProviderResolution:
+    properties:
+      active:
+        description: 'Active is what serves: builtin, an add-on ID or off.'
+        example: builtin
+        type: string
+      addon_id:
+        description: AddonID and AddonTitle name the add-on a failure is about.
+        type: string
+      addon_title:
+        type: string
+      code:
+        description: |-
+          Code says why the slot is off: provider_off, provider_unavailable (the
+          add-on you picked cannot serve; the slot does not move to the built-in
+          provider) or provider_unreadable. Absent when on.
+        example: provider_unavailable
+        type: string
+      "off":
+        type: boolean
+      reason:
+        description: Reason is an English sentence for logs; the interface words it
+          by Code.
+        type: string
+      selected:
+        description: Selected is your stored choice, or the default of the slot.
+        example: builtin
+        type: string
+      slot:
+        example: memory
+        type: string
+      stored:
+        description: Stored is true once you chose.
+        type: boolean
+    type: object
+  schema.ChatsProviderSlot:
+    properties:
+      description:
+        type: string
+      health:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsProviderHealth'
+        description: |-
+          Health says when the host leaves the provider alone after repeated
+          failures. Absent while the provider answers.
+      id:
+        example: memory
+        type: string
+      off_means:
+        description: OffMeans is what Off does for this slot.
+        type: string
+      providers:
+        items:
+          $ref: '#/definitions/schema.ChatsProvider'
+        type: array
+      resolution:
+        $ref: '#/definitions/schema.ChatsProviderResolution'
+      title:
+        example: Memory
+        type: string
+      version:
+        example: 1
+        type: integer
+    type: object
+  schema.ChatsProviderSlots:
+    properties:
+      slots:
+        items:
+          $ref: '#/definitions/schema.ChatsProviderSlot'
+        type: array
+    type: object
   schema.ChatsPushKey:
     properties:
       public_key:
@@ -6374,6 +6931,13 @@ definitions:
         type: integer
       snippet:
         type: string
+    type: object
+  schema.ChatsSearchRange:
+    properties:
+      end:
+        type: integer
+      start:
+        type: integer
     type: object
   schema.ChatsSearchResult:
     properties:
@@ -6761,6 +7325,12 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsToolFallback'
         type: array
+      memory:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsMemoryState'
+        description: |-
+          Memory says whether memory works in this chat and, when it does not,
+          which level turned it off and where to turn it on again.
       "off":
         description: Off is the list of MCP switches in force.
         items:
@@ -10691,11 +11261,19 @@ definitions:
     type: object
   studio.ContextGroup:
     properties:
+      deleted:
+        type: boolean
       files:
         items:
           $ref: '#/definitions/studio.ContextFile'
         type: array
       key:
+        type: string
+      label:
+        description: |-
+          Label is the name of the saved agent of an agent group. Deleted is true
+          when no saved agent of the user has that ID any more: its notes were
+          kept when the agent was deleted, and the Memory page lists them apart.
         type: string
       max_bytes:
         description: |-
@@ -11618,7 +12196,22 @@ paths:
         and the management link. An app carries update update-pending, separate from
         state, only when the owner's cached update check says an update is available
         for the installed package; the list never evaluates a check and never reaches
-        a library.
+        a library. Text that the manifest translates (ui.title and ui.description
+        language maps) is returned in all languages in titles and descriptions. When
+        the request names a language, each app that translates it also carries language,
+        localizedTitle and localizedDescription, resolved per field with English as
+        the fallback; title and description never change.
+      parameters:
+      - description: Language tag to resolve the text for, such as it or pt-BR. Wins
+          over Accept-Language. An unknown language gives the English text.
+        in: query
+        name: lang
+        type: string
+      - description: Used when lang is absent. Quality values are honored; English
+          or no match adds no localized field.
+        in: header
+        name: Accept-Language
+        type: string
       produces:
       - application/json
       responses:
@@ -11635,7 +12228,8 @@ paths:
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "503":
-          description: Addons or the owner are unavailable
+          description: Addons or the owner are unavailable, or the owner did not answer
+            in time (type owner_busy or owner_unavailable)
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: List the addon apps the caller may use
@@ -14457,8 +15051,10 @@ paths:
         and with its network, or the add-on''s ID) and commands_isolation says isolated
         or host; commands_consent is ask when each command waits for a yes in the
         chat, and commands_fallback names an add-on that would serve but does not
-        (commands_fallback_reason: off, or why it cannot run). Without the add-on
-        host the list is empty.'
+        (commands_fallback_reason: off, or why it cannot run). commands_host_exec
+        is the mode of chats_host_exec now (off, ask or on), so a client can say that
+        the built-in bash is off when commands is none. Without the add-on host the
+        list is empty.'
       parameters:
       - description: conversation id
         in: path
@@ -14594,13 +15190,15 @@ paths:
         write_file, edit_file, move_file, delete_file, search_files and read_document),
         media (describe_image and transcribe_audio), collections (list_collections
         and search_collection), subagents (spawn_agent), triggers (propose_trigger,
-        list_triggers, update_trigger and delete_trigger) and saved_agents. A sub-agent
-        follows the switches of its parent chat. An opt-in group (opt_in in the list,
-        such as saved_agents: list_agents and the agent argument of spawn_agent) is
-        off until on names it; on replaces the earlier list of opt-in groups that
-        are on, and an opt-in group in off is ignored. Omit on to keep it. A switch
-        never adds what the administrator has off or the user may not use. The next
-        turn of the chat gets the tools that are on.'
+        list_triggers, update_trigger and delete_trigger), memory (your notes: off
+        makes the chat a private chat that neither reads nor saves memory) saved_agents
+        and history (search_chats and read_chat). A sub-agent follows the switches
+        of its parent chat. An opt-in group (opt_in in the list, such as saved_agents:
+        list_agents and the agent argument of spawn_agent) is off until on names it;
+        on replaces the earlier list of opt-in groups that are on, and an opt-in group
+        in off is ignored. Omit on to keep it. A switch never adds what the administrator
+        has off or the user may not use. The next turn of the chat gets the tools
+        that are on.'
       parameters:
       - description: conversation id
         in: path
@@ -15756,14 +16354,16 @@ paths:
   /api/chats/{id}/tools:
     get:
       description: The groups of built-in tools (shell, web, files, media, collections,
-        subagents, triggers and saved_agents; a group the server does not offer is
-        absent, and shell is listed even when nothing can run commands, not usable
-        with the reason), add-ons, the MCP servers of the chat's model and your MCP
-        connectors, each with the chat's switch and whether it can be used now (with
-        the reason when not). A chat with a saved agent lists only what the agent
-        grants. fallbacks lists the built-in tools (bash, web_search, web_fetch) that
-        an installed add-on replaces but that no add-on serves in this chat now, with
-        the add-on and whether the built-in serves instead.
+        subagents, triggers, memory, saved_agents and history; a group the server
+        does not offer is absent, and shell is listed even when nothing can run commands,
+        not usable with the reason), add-ons, the MCP servers of the chat's model
+        and your MCP connectors, each with the chat's switch and whether it can be
+        used now (with the reason when not). A chat with a saved agent lists only
+        what the agent grants. memory says whether memory works in the chat and, when
+        it does not, the level that turned it off (code, blocked_by) and where to
+        turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch)
+        that an installed add-on replaces but that no add-on serves in this chat now,
+        with the add-on and whether the built-in serves instead.
       parameters:
       - description: conversation id
         in: path
@@ -16344,17 +16944,39 @@ paths:
       - chats
   /api/chats/agents/{id}:
     delete:
-      description: Chats that ran with it keep their history; their next turn runs
-        without the agent's tools.
+      description: 'Chats that ran with it keep their history; their next turn runs
+        without the agent''s tools. The agent''s own memory notes (Memory/agents/{id})
+        are not part of it: memory says what to do with them. keep (the default) leaves
+        them, listed under Deleted agents on the Memory page until you delete them.
+        delete moves them to the Trash. export answers 200 with a zip file of the
+        notes and then moves them to the Trash (204 when the agent has none). A value
+        that is not one of these is a 400 and nothing is deleted.'
       parameters:
       - description: the agent's id
         in: path
         name: id
         required: true
         type: string
+      - default: keep
+        description: what to do with the agent's own notes
+        enum:
+        - keep
+        - export
+        - delete
+        in: query
+        name: memory
+        type: string
       responses:
+        "200":
+          description: Deleted; a zip file of the agent's notes (memory=export)
+          schema:
+            type: file
         "204":
           description: Deleted
+        "400":
+          description: memory is not keep, export or delete
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such conversation, or it is another user's
           schema:
@@ -16708,12 +17330,13 @@ paths:
         returned) and an agent of yours that names a model. The token is checked with
         the platform when its add-on runs: a token that the platform refuses is a
         400. reply_mode (off, progress, stream; default progress), conversation (sender,
-        chat, window with window_minutes, thread; default sender) and send_files (default
-        true) say how the bot answers. The allowlist is empty at first, so nobody
-        is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone
-        who can message the bot then uses the agent''s tools; the request that turns
-        it on must also carry confirm_accept_any set to "accept any message", or it
-        is a 400). At most 10 bindings.'
+        chat, window with window_minutes, thread; default sender), send_files (default
+        true) and reply_language (auto, en, it, de, es, fr, pt-BR; default auto, the
+        language of the sentences the bot writes itself) say how the bot answers.
+        The allowlist is empty at first, so nobody is accepted: add chat IDs, user
+        IDs or @usernames, or set accept_any (anyone who can message the bot then
+        uses the agent''s tools; the request that turns it on must also carry confirm_accept_any
+        set to "accept any message", or it is a 400). At most 10 bindings.'
       parameters:
       - description: the binding
         in: body
@@ -16766,9 +17389,9 @@ paths:
       - chats
     put:
       description: 'The body replaces every field except the token, which is kept
-        unless the request has a new one, and send_files, which is kept when it is
-        absent. A new token is checked with the platform: a token that the platform
-        refuses is a 400 and nothing is saved.'
+        unless the request has a new one, and send_files and reply_language, which
+        are kept when absent. A new token is checked with the platform: a token that
+        the platform refuses is a 400 and nothing is saved.'
       parameters:
       - description: the binding's id
         in: path
@@ -16796,8 +17419,10 @@ paths:
   /api/chats/connectors/{id}/access:
     get:
       description: Runs the permission check the host uses for each turn, for a sender
-        on the allowlist, a paired sender and a sender of each role the kind declares,
-        and lists the latest decisions. A settings page of the add-on can show it.
+        on the allowlist by ID or name (trusted with every capability that is not
+        sensitive), a sender let in only through a listed channel, a paired sender
+        and a sender of each role the kind declares, and lists the latest decisions.
+        A settings page of the add-on can show it.
       parameters:
       - description: the binding's id
         in: path
@@ -16810,6 +17435,42 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsConnectorAccess'
       summary: Show what each kind of sender may do on a connector binding.
+      tags:
+      - chats
+  /api/chats/connectors/{id}/access/preview:
+    post:
+      description: 'Runs the same permission chain as the access view on the state
+        in the request: the server setting, the Tools switch of the agent, the agent
+        permission, the permission of the connection and the trust of the sender,
+        in that order, and reports the first problem of each capability with a code,
+        a plain message, one fix and the links not yet checked. Fields that are absent
+        keep the saved value. Use the id "new" with a kind for a connection that is
+        not saved yet. It writes nothing, records no decision, and neither takes nor
+        returns the token. Same sign-in and Connectors feature as the other connector
+        routes.'
+      parameters:
+      - description: the binding's id, or new
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the form state to check
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsConnectorAccessPreviewRequest'
+      responses:
+        "200":
+          description: The effective permissions of that state
+          schema:
+            $ref: '#/definitions/schema.ChatsConnectorAccess'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Preview what each kind of sender may do on a connector binding, before
+        saving.
       tags:
       - chats
   /api/chats/connectors/{id}/disable:
@@ -16951,7 +17612,16 @@ paths:
     get:
       description: The messaging platforms that a running connector add-on serves,
         with the add-on page that adds and edits their bindings. Empty when no connector
-        add-on is installed.
+        add-on is installed. A kind whose manifest translates its text carries titles
+        and descriptions by language and, when the request names a language it translates
+        (lang, else Accept-Language), language, localized_title and localized_description
+        with English as the fallback for each field; title and description stay English.
+      parameters:
+      - description: Language tag to resolve the kind text for, such as it or pt-BR.
+          Wins over Accept-Language. An unknown language gives the English text.
+        in: query
+        name: lang
+        type: string
       responses:
         "200":
           description: The kinds
@@ -17609,6 +18279,138 @@ paths:
       summary: Test an MCP connector.
       tags:
       - chats
+  /api/chats/memory:
+    delete:
+      description: 'Calls the forget tool of the add-on you picked as the provider
+        of your memory. scope (user, agent or channel) and key narrow it to one group;
+        empty forgets everything the provider keeps. resource names the resource the
+        tool works on, when it has one. The change is applied at once, or stored as
+        a proposal that you confirm on the Add-ons page (done is false then). The
+        built-in provider has none: delete its notes in Files. 404 when the provider
+        has no forget, 503 while the host leaves a failing provider alone, 502 when
+        it does not answer.'
+      parameters:
+      - description: user, agent or channel
+        in: query
+        name: scope
+        type: string
+      - description: the agent ID or the conversation folder, with scope
+        in: query
+        name: key
+        type: string
+      - description: the resource the forget tool works on
+        in: query
+        name: resource
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: What the provider did
+          schema:
+            $ref: '#/definitions/schema.ChatsMemoryForget'
+        "404":
+          description: No forget
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "502":
+          description: The provider did not answer
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: The provider is resting
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Forget notes at the provider that serves your memory.
+      tags:
+      - chats
+    get:
+      description: 'Memory is the short notes the assistant reads before it answers
+        and may save. enabled is the switch for all your chats and agents: a private
+        chat (the memory group of a chat, see PUT /api/chats/{id}/builtins), an agent
+        that turns memory off, or this switch off each make memory off in a chat,
+        and the narrowest wins; a saved agent cannot widen your choice. enabled_set
+        is false until you choose; before that memory is on, unless you had disabled
+        the Memory add-on to stop it. save_mode is how a note is saved: auto (save
+        it and tell me), ask (the default), always (always confirm: like ask, nothing
+        can loosen it, and the model cannot undo or forget by itself) or never. It
+        applies as the strictest rule together with the rule of the saved agent (memory_save)
+        and the rules of the host. A chat from a messaging app asks, unless messaging_save
+        is paired_private and the sender is paired and the chat is one-to-one; the
+        row cannot loosen always or never. Your notes stay and can be listed, exported
+        and deleted while memory is off.'
+      responses:
+        "200":
+          description: Your memory settings
+          schema:
+            $ref: '#/definitions/schema.ChatsMemorySettings'
+      summary: Read your memory settings.
+      tags:
+      - chats
+    put:
+      consumes:
+      - application/json
+      description: Sets enabled (memory On or Off for every chat and agent), save_mode
+        (auto, ask, always or never) and messaging_save (ask, paired_private or never).
+        A field left out stays as it is. Off means nothing is put in the prompt, the
+        model has no tool or skill for notes, nothing is proposed or saved (also by
+        triggers and other runs that start by themselves) and the model is told in
+        one line that memory is off. The settings are kept per person with the account,
+        so every frontend of a cluster reads the same answer. 400 for a value that
+        is not allowed.
+      parameters:
+      - description: the choices to change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsMemoryRequest'
+      responses:
+        "200":
+          description: Your memory settings now in force
+          schema:
+            $ref: '#/definitions/schema.ChatsMemorySettings'
+        "400":
+          description: A value is not allowed
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: The settings cannot be stored on this server
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Change your memory settings.
+      tags:
+      - chats
+  /api/chats/memory/export:
+    get:
+      description: The Markdown files of your memory folders (yours, each agent's
+        and each messaging conversation's) with their paths. scope (user, agent or
+        channel) and key (the agent ID or the conversation folder name, as GET /api/chats/context-files
+        lists them) narrow it to one group. It works while memory is off. 404 when
+        there is nothing to export.
+      parameters:
+      - description: user, agent or channel
+        in: query
+        name: scope
+        type: string
+      - description: the agent ID or the conversation folder, with scope
+        in: query
+        name: key
+        type: string
+      produces:
+      - application/zip
+      responses:
+        "200":
+          description: A zip file of the notes
+          schema:
+            type: file
+        "404":
+          description: No notes
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Download your memory notes as a zip file.
+      tags:
+      - chats
   /api/chats/notifications:
     delete:
       description: Name the ids, or pass all to empty your inbox; with all, read_only
@@ -17926,6 +18728,89 @@ paths:
       summary: List a folder of a page (bridge files.list).
       tags:
       - pages
+  /api/chats/providers:
+    get:
+      description: 'A provider slot is a job the host does itself and lets an add-on
+        do in its place (memory is the first). Each slot lists the built-in provider,
+        every installed add-on that declares the slot in capabilities.provides, and
+        Off when the slot allows it, with the choice in force. resolution.active is
+        what serves now: builtin, an add-on ID or off. A picked add-on that is stopped,
+        disabled or removed does not fall back to the built-in provider: the slot
+        is off, with resolution.code provider_unavailable and the add-on named, until
+        you pick again. Only the add-on you picked has its context files, skills and
+        role tools in your chats.'
+      responses:
+        "200":
+          description: The slots and their providers
+          schema:
+            $ref: '#/definitions/schema.ChatsProviderSlots'
+      summary: List the provider slots and their providers.
+      tags:
+      - chats
+  /api/chats/providers/{slot}:
+    get:
+      parameters:
+      - description: the slot, such as memory
+        in: path
+        name: slot
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The slot with its providers and your choice
+          schema:
+            $ref: '#/definitions/schema.ChatsProviderSlot'
+        "404":
+          description: Unknown slot
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read one provider slot.
+      tags:
+      - chats
+    put:
+      consumes:
+      - application/json
+      description: 'Sets your provider for the slot: builtin, off (when the slot allows
+        it) or the ID of an add-on that declares the slot and runs now. The choice
+        is kept with your account, so every frontend of a cluster reads the same answer.
+        400 for a provider the slot does not list, 409 for an add-on that cannot serve
+        now.'
+      parameters:
+      - description: the slot, such as memory
+        in: path
+        name: slot
+        required: true
+        type: string
+      - description: the provider to pick
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsProviderRequest'
+      responses:
+        "200":
+          description: The slot as it stands now
+          schema:
+            $ref: '#/definitions/schema.ChatsProviderSlot'
+        "400":
+          description: The slot does not list this provider
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Unknown slot
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The add-on cannot serve now
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: The choice cannot be stored on this server
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Pick the provider of a slot.
+      tags:
+      - chats
   /api/chats/push/key:
     get:
       description: The VAPID public key a browser needs to subscribe to push for your
@@ -17982,23 +18867,61 @@ paths:
       - chats
   /api/chats/search:
     get:
-      description: Finds chats whose title or messages contain the text, ignoring
-        case. The newest chats come first. It reads the newest 500 chats.
+      description: 'Finds the messages and titles of your chats that hold every word
+        of the text (a phrase in double quotes counts as one word), ignoring case.
+        It searches all your chats, not only the newest, except the runs of sub-agents.
+        The best match comes first: whole words, the whole phrase and newer messages
+        rank higher. By default each chat appears once, with its best line; group=message
+        returns every matching line. A hit has the line (seq), who wrote it, when,
+        a snippet and the parts of the snippet that match (highlights, UTF-16 offsets).
+        Messages written before the search index existed are added in the background
+        after an upgrade (indexing is true meanwhile). A server that keeps chats in
+        files has no index: it scans for a few seconds and says when it stopped early
+        (partial).'
       parameters:
-      - description: text to find
+      - description: 'text to find: words that must all be in the message'
         in: query
         name: q
         required: true
         type: string
-      - description: most chats to return (default 50, at most 200)
+      - description: most hits to return (default 50, at most 200)
         in: query
         name: limit
         type: integer
+      - description: only chats of this saved agent
+        in: query
+        name: agent
+        type: string
+      - description: 'only chats of one origin: person, automated, trigger, connector,
+          job or page'
+        in: query
+        name: origin
+        type: string
+      - description: only lines written by user or assistant
+        in: query
+        name: role
+        type: string
+      - description: only lines at or after this date (YYYY-MM-DD) or time (RFC 3339)
+        in: query
+        name: since
+        type: string
+      - description: only lines before this time, or on or before this date (YYYY-MM-DD)
+        in: query
+        name: until
+        type: string
+      - description: 'chat (default): one hit per chat; message: every matching line'
+        in: query
+        name: group
+        type: string
       responses:
         "200":
           description: The matching chats
           schema:
             $ref: '#/definitions/schema.ChatsChatSearchResponse'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Search your chats.
       tags:
       - chats

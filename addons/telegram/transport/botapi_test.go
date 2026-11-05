@@ -4,6 +4,7 @@ package transport_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -42,6 +43,25 @@ var _ = Describe("the Bot API client", func() {
 		Expect(c.Body).To(And(HaveKeyWithValue("offset", float64(10)), HaveKeyWithValue("timeout", float64(25))))
 		Expect(c.Path).To(ContainSubstring("/bot" + secretToken + "/"))
 	})
+
+	DescribeTable("marks a conversation as direct only for a private chat",
+		func(chatType string, direct bool) {
+			f := newFakeBot()
+			f.reply["getUpdates"] = func(map[string]any) (int, string) {
+				return 200, fmt.Sprintf(`{"ok":true,"result":[
+ {"update_id":10,"message":{"chat":{"id":-300,"type":%q},"from":{"id":7,"first_name":"Bo"},"text":"hi"}}]}`, chatType)
+			}
+			ups, err := f.client().Updates(ctx, secretToken, 10, 25)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ups).To(HaveLen(1))
+			Expect(ups[0].Direct).To(Equal(direct), chatType)
+		},
+		Entry("private", "private", true),
+		Entry("group", "group", false),
+		Entry("supergroup", "supergroup", false),
+		Entry("a type nobody knows counts as a group", "forum", false),
+		Entry("no type counts as a group", "", false),
+	)
 
 	DescribeTable("types an error and keeps the token out of it",
 		func(code int, body string, check func(error) bool) {
@@ -98,6 +118,26 @@ var _ = Describe("the Bot API client", func() {
 		p := f.called("getMe")[0].Path
 		Expect(p).NotTo(ContainSubstring("/../"))
 		Expect(strings.Count(p, "/")).To(Equal(2))
+	})
+
+	It("reads a command that names the bot as addressed to it, and keeps the text", func() {
+		f := newFakeBot()
+		f.reply["getMe"] = func(map[string]any) (int, string) {
+			return 200, `{"ok":true,"result":{"id":123456,"username":"helper_bot"}}`
+		}
+		f.reply["getUpdates"] = func(map[string]any) (int, string) {
+			return 200, `{"ok":true,"result":[
+ {"update_id":30,"message":{"message_id":601,"chat":{"id":-300,"type":"supergroup"},"from":{"id":7,"first_name":"Bo"},"text":"/new@Helper_Bot","entities":[{"type":"bot_command","offset":0,"length":15}]}},
+ {"update_id":31,"message":{"message_id":602,"chat":{"id":-300,"type":"supergroup"},"from":{"id":7,"first_name":"Bo"},"text":"/new@other_bot","entities":[{"type":"bot_command","offset":0,"length":14}]}},
+ {"update_id":32,"message":{"message_id":603,"chat":{"id":-300,"type":"supergroup"},"from":{"id":7,"first_name":"Bo"},"text":"/new","entities":[{"type":"bot_command","offset":0,"length":4}]}}]}`
+		}
+		ups, err := f.client().Updates(ctx, secretToken, 30, 0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ups).To(HaveLen(3))
+		Expect(ups[0].Mention).To(BeTrue())
+		Expect(ups[0].Text).To(Equal("/new@Helper_Bot"))
+		Expect(ups[1].Mention).To(BeFalse(), "another bot is named")
+		Expect(ups[2].Mention).To(BeFalse(), "a bare command in a group is not addressed")
 	})
 
 	It("reads the ID of a message, its reply, its topic and a mention of the bot in a group", func() {

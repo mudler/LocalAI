@@ -20,6 +20,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -152,6 +153,10 @@ type Binding struct {
 	Conversation string
 	// WindowMinutes is the time window of ConversationWindow.
 	WindowMinutes int
+	// ReplyLanguage is the language of the sentences that the host writes to
+	// people in the chat: hostmsg.Auto (or empty) follows the language of the
+	// sender's message, any other value is a language of the catalog.
+	ReplyLanguage string
 	// FilesOff keeps the files a turn makes from going to the sender. The
 	// zero value sends them, so a binding stored before the option sends
 	// them too.
@@ -282,6 +287,10 @@ type Store interface {
 	// ChatOf is the chat of a sender of a binding.
 	ChatOf(ctx context.Context, binding, senderID string) (string, bool, error)
 	SetChat(ctx context.Context, binding, senderID, chatID string) error
+	// ClearChat drops the mapping of a sender of a binding to its chat, so
+	// that the next message makes a new chat. The chat itself is not touched.
+	// It is not an error when there is no mapping.
+	ClearChat(ctx context.Context, binding, senderID string) error
 
 	// EnsureKey returns the sealing key. The first call stores what generate
 	// makes; every call after it, on any frontend, returns that key.
@@ -345,7 +354,7 @@ func needsAgent(b Binding) string {
 		return "permissions"
 	case len(b.Paired) > 0:
 		return "pairing"
-	case b.Approval != (Approval{}):
+	case !b.Approval.IsZero():
 		return "trigger approval"
 	}
 	return ""
@@ -395,6 +404,9 @@ func ValidateKind(b Binding, agentOptional bool) error {
 	case "", ReplyOff, ReplyProgress, ReplyStream:
 	default:
 		return bad("the reply mode must be %s, %s or %s", ReplyOff, ReplyProgress, ReplyStream)
+	}
+	if !hostmsg.ValidSetting(b.ReplyLanguage) {
+		return bad("the reply language must be auto, %s", strings.Join(hostmsg.Languages, ", "))
 	}
 	switch b.Conversation {
 	case "", ConversationSender, ConversationChat, ConversationThread:
@@ -484,6 +496,15 @@ func (b Binding) ConversationMode() string {
 		return ConversationSender
 	}
 	return b.Conversation
+}
+
+// ReplyLang is the reply language setting of a binding, with the default
+// filled in: hostmsg.Auto or a language code.
+func (b Binding) ReplyLang() string {
+	if b.ReplyLanguage == "" {
+		return hostmsg.Auto
+	}
+	return b.ReplyLanguage
 }
 
 // SendsFiles tells whether the files a turn makes go to the sender.

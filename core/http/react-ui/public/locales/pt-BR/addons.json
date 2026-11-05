@@ -66,6 +66,13 @@
     "loadError": {
       "title": "Os complementos não estão disponíveis agora.",
       "paused": "Páginas e ferramentas dos complementos ficam pausadas até ele voltar."
+    },
+    "busy": {
+      "upgrading": "O servidor de complementos está ocupado (atualizando {{names}})",
+      "generic": "O servidor de complementos está ocupado",
+      "unreachable": "Não foi possível alcançar o servidor de complementos",
+      "reason": "Mostrando o último estado conhecido. A página tenta de novo sozinha.",
+      "retry": "Tentar agora"
     }
   },
   "browse": {
@@ -138,7 +145,8 @@
     "invalid": "O servidor não pôde aceitar esta solicitação.",
     "network": "Não foi possível alcançar o servidor. Verifique sua conexão.",
     "unavailable": "Os complementos não estão disponíveis agora. Tente de novo em instantes.",
-    "unknownOutcome": "Não foi possível confirmar o resultado. Verifique o estado antes de tentar de novo."
+    "unknownOutcome": "Não foi possível confirmar o resultado. Verifique o estado antes de tentar de novo.",
+    "busy": "O servidor de complementos está ocupado e não respondeu a tempo. Tente de novo em instantes."
   },
   "installed": {
     "disabled": "Desativado",
@@ -929,6 +937,31 @@
       "downgradeTitle": "Versão mais antiga",
       "downgrade": "Isto instala a versão {{version}}, que é mais antiga que a versão instalada {{installed}}. Uma versão mais antiga pode não ler dados escritos por uma mais nova.",
       "downgradeConfirm": "Quero instalar a versão mais antiga"
+    }
+  },
+  "notice": {
+    "enableFailedTitle": "Não foi possível ativar {{name}}",
+    "incompatibleTitle": "Não é possível ativar {{name}}: incompatível com este servidor",
+    "noUpgrade": "Ainda não há uma versão mais nova na lista. Deixe-o desativado ou remova-o."
+  },
+  "operation": {
+    "kind": {
+      "install": "Instalando…",
+      "upgrade": "Atualizando…",
+      "uninstall": "Removendo…",
+      "enable": "Iniciando…",
+      "disable": "Parando…",
+      "working": "Trabalhando…"
+    },
+    "label": "Em andamento: {{operation}}",
+    "phase": {
+      "queued": "aguardando",
+      "downloading": "baixando e verificando",
+      "backing-up": "copiando os dados",
+      "installing": "instalando",
+      "migrating": "migrando os dados",
+      "starting": "iniciando",
+      "working": "em andamento"
     }
   }
 }

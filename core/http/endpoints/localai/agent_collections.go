@@ -3,8 +3,6 @@ package localai
 import (
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -400,16 +398,5 @@ func ListCollectionSourcesEndpoint(app *application.Application) echo.HandlerFun
 // models folder. The collections call this server's embeddings endpoint, which
 // answers 404 for a model it does not have.
 func embeddingModelInstalled(app *application.Application, name string) bool {
-	if name == "" {
-		return false
-	}
-	if _, ok := app.ModelConfigLoader().GetModelConfig(name); ok {
-		return true
-	}
-	st := app.ApplicationConfig().SystemState
-	if st == nil || st.Model.ModelsPath == "" || strings.ContainsAny(name, "/\\") {
-		return false
-	}
-	info, err := os.Stat(filepath.Join(st.Model.ModelsPath, name))
-	return err == nil && !info.IsDir()
+	return app.EmbeddingModelInstalled(name)
 }

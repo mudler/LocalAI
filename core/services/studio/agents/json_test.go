@@ -40,6 +40,8 @@ var _ = Describe("the JSON agent store", func() {
 		Expect(got.Name).To(Equal("Old"))
 		Expect(got.FolderID).To(BeZero())
 		Expect(got.FolderMode).To(BeEmpty())
+		Expect(got.Memory).To(BeEmpty(), "an agent stored before the memory choice reads as before")
+		Expect(got.MemorySave).To(BeEmpty(), "an agent stored before the save override uses the setting of the person")
 	})
 
 	It("survives a reopen", func() {

@@ -24,6 +24,7 @@ const (
 	GrantSkillsWrite      = contract.CapSkillsWrite
 	GrantPagesWrite       = contract.CapPagesWrite
 	GrantDashboardWrite   = contract.CapDashboardWrite
+	GrantKnowledgeWrite   = contract.CapKnowledgeWrite
 	GrantTriggersPropose  = contract.CapTriggersPropose
 	GrantTriggersRun      = contract.CapTriggersRun
 	GrantTalkbackChannels = contract.CapTalkbackChannels
@@ -35,6 +36,10 @@ const (
 	GrantActSpend         = "act.spend"
 	// GrantSavedAgents is the opt-in group GroupSavedAgents.
 	GrantSavedAgents = GroupSavedAgents
+	// GrantHistoryRead lets a saved agent search and read the owner's earlier
+	// chats (the group GroupHistory). A run that starts by itself, a
+	// sub-agent and a messaging chat never hold it.
+	GrantHistoryRead = "history.read"
 )
 
 // Grant describes one grant for a person: a title and what the agent can do
@@ -56,6 +61,7 @@ var grants = []Grant{
 	{GrantSkillsWrite, "Write skills", "The agent can propose a new or changed skill for itself or for you. You confirm each one, and a skill you locked stays as it is.", true},
 	{GrantPagesWrite, "Create pages", "The agent can propose a page: a small app that opens in a sandboxed frame. You see its files and confirm.", true},
 	{GrantDashboardWrite, "Change the dashboard", "The agent can propose a new layout of your Home dashboard. You confirm each change.", true},
+	{GrantKnowledgeWrite, "Add to knowledge", "The agent can propose a text for one of its collections. The host indexes it only after you confirm, and never at once.", true},
 	{GrantTriggersPropose, "Propose triggers", "The agent can propose a task that runs by itself, from a messaging app too. You confirm it.", false},
 	{GrantTriggersRun, "Run triggers", "The triggers of this agent may start from a messaging app.", false},
 	{GrantTalkbackChannels, "Reply on known channels", "The agent can send a message to a channel it already talks in.", false},
@@ -66,6 +72,7 @@ var grants = []Grant{
 	{GrantActSend, "Send messages on its own", "A run that nobody watches may send messages beyond its delivery target.", true},
 	{GrantActSpend, "Use paid or external tools on its own", "A run that nobody watches may use paid or external tools and the network.", true},
 	{GrantSavedAgents, "Call your saved agents", "The agent can list your saved agents and start one as a sub-agent.", false},
+	{GrantHistoryRead, "Read your earlier chats", "The agent can search and read your earlier chats. An agent that works in a folder reads only the chats of its own. Private chats, messaging chats and sub-agent runs are never read.", true},
 }
 
 // Grants returns the declared grants in display order. The caller may change

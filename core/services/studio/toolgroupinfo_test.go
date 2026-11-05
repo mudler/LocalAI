@@ -37,7 +37,7 @@ var _ = Describe("what a person reads next to a tool switch", func() {
 		// The group with no tool in the registry list of the interface
 		// ("changes") reads as a title, not as its ID.
 		changes := builtinGroup(p.Builtins, builtins.GroupChanges)
-		Expect(changes.Title).To(Equal("Memory and profile changes"))
+		Expect(changes.Title).To(Equal("Suggested changes"))
 		Expect(changes.Description).To(ContainSubstring("until you confirm"))
 	})
 

@@ -2,6 +2,9 @@ package connectors
 
 import (
 	"fmt"
+	"slices"
+
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
 )
 
 // The approval modes of a binding: what the host does with a trigger that the
@@ -51,6 +54,46 @@ type Approval struct {
 	// MaxLifetimeDays is how far ahead a trigger made without asking may run,
 	// and how long a recurring one lives before it is removed.
 	MaxLifetimeDays int `json:"max_lifetime_days,omitempty"`
+	// Acts are the act.* permissions that a trigger proposed from a chat of
+	// this binding may carry: "runs may act". Empty means none, so the runs
+	// only read and report. It is a ceiling on what a proposal can ask for,
+	// not a grant: the agent must hold an act too, at the proposal and at each
+	// run. Names come from the closed list (builtins.ActGrants).
+	Acts []string `json:"acts,omitempty"`
+}
+
+// IsZero says whether the approval is the default: ask, with no acts and the
+// default limits. A binding with a zero approval stores no JSON.
+func (a Approval) IsZero() bool {
+	return a.Mode == "" && a.MaxPending == 0 && a.MinGapMinutes == 0 && a.MaxRunsPerDay == 0 &&
+		a.MaxLifetimeDays == 0 && len(a.Acts) == 0
+}
+
+// AllowsAct says whether a trigger proposed from this binding may carry the act.
+func (a Approval) AllowsAct(name string) bool { return slices.Contains(a.Acts, name) }
+
+// Cleaned gives the approval with Acts trimmed of duplicates and put in the
+// order of the closed list. A name that is not on the list is kept, so that
+// Validate can refuse it.
+func (a Approval) Cleaned() Approval {
+	if len(a.Acts) == 0 {
+		a.Acts = nil
+		return a
+	}
+	var known, other []string
+	for _, n := range a.Acts {
+		switch {
+		case slices.Contains(known, n) || slices.Contains(other, n):
+		case slices.Contains(builtins.ActGrants(), n):
+			known = append(known, n)
+		default:
+			other = append(other, n)
+		}
+	}
+	order := builtins.ActGrants()
+	slices.SortFunc(known, func(x, y string) int { return slices.Index(order, x) - slices.Index(order, y) })
+	a.Acts = append(known, other...)
+	return a
 }
 
 // ModeOrDefault gives Mode, or ApprovalAsk when it is empty.
@@ -102,6 +145,11 @@ func (a Approval) Validate() error {
 		{"runs per day", a.MaxRunsPerDay, MaxMaxRunsPerDay}, {"lifetime in days", a.MaxLifetimeDays, MaxMaxLifetimeDays}} {
 		if f.v < 0 || f.v > f.max {
 			return fmt.Errorf("the approval limit %s must be 0 to %d", f.name, f.max)
+		}
+	}
+	for _, n := range a.Acts {
+		if !slices.Contains(builtins.ActGrants(), n) {
+			return fmt.Errorf("%q is not an act that runs may hold; use one of %v", n, builtins.ActGrants())
 		}
 	}
 	return nil

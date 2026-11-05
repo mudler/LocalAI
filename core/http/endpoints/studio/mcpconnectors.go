@@ -217,6 +217,7 @@ func writeToolsPanel(c echo.Context, p studiosvc.ToolsPanel) error {
 			Usable: g.Usable, Reason: g.Reason, Provider: g.Provider, Providers: g.Providers,
 			Title: g.Title, Description: g.Description, WhenOff: g.WhenOff})
 	}
+	out.Memory = memoryStateOut(p.Memory)
 	for _, a := range p.Addons {
 		out.Addons = append(out.Addons, addonOut(a))
 	}
@@ -234,7 +235,7 @@ func writeToolsPanel(c echo.Context, p studiosvc.ToolsPanel) error {
 
 // ListChatTools lists what a chat can use besides its built-in tools.
 // @Summary List the tools a chat can switch on and off.
-// @Description The groups of built-in tools (shell, web, files, media, collections, subagents, triggers and saved_agents; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants. fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.
+// @Description The groups of built-in tools (shell, web, files, media, collections, subagents, triggers, memory, saved_agents and history; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants. memory says whether memory works in the chat and, when it does not, the level that turned it off (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} schema.ChatsToolsPanel "The tools and their switches"
@@ -246,7 +247,7 @@ func (h *Handlers) ListChatTools(c echo.Context) error { return toolsPanel(c, h)
 // SetChatBuiltins sets the groups of built-in tools a chat has switched off,
 // and the opt-in groups it has switched on.
 // @Summary Switch groups of built-in tools on and off for a chat.
-// @Description off replaces the earlier list of groups that are off. The groups are shell (bash, whether the Sandbox add-on or the built-in bash on this machine serves it), web (web_search and web_fetch), files (list_files, read_file, write_file, edit_file, move_file, delete_file, search_files and read_document), media (describe_image and transcribe_audio), collections (list_collections and search_collection), subagents (spawn_agent), triggers (propose_trigger, list_triggers, update_trigger and delete_trigger) and saved_agents. A sub-agent follows the switches of its parent chat. An opt-in group (opt_in in the list, such as saved_agents: list_agents and the agent argument of spawn_agent) is off until on names it; on replaces the earlier list of opt-in groups that are on, and an opt-in group in off is ignored. Omit on to keep it. A switch never adds what the administrator has off or the user may not use. The next turn of the chat gets the tools that are on.
+// @Description off replaces the earlier list of groups that are off. The groups are shell (bash, whether the Sandbox add-on or the built-in bash on this machine serves it), web (web_search and web_fetch), files (list_files, read_file, write_file, edit_file, move_file, delete_file, search_files and read_document), media (describe_image and transcribe_audio), collections (list_collections and search_collection), subagents (spawn_agent), triggers (propose_trigger, list_triggers, update_trigger and delete_trigger), memory (your notes: off makes the chat a private chat that neither reads nor saves memory) saved_agents and history (search_chats and read_chat). A sub-agent follows the switches of its parent chat. An opt-in group (opt_in in the list, such as saved_agents: list_agents and the agent argument of spawn_agent) is off until on names it; on replaces the earlier list of opt-in groups that are on, and an opt-in group in off is ignored. Omit on to keep it. A switch never adds what the administrator has off or the user may not use. The next turn of the chat gets the tools that are on.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Param request body schema.ChatsBuiltinSwitches true "the groups that are off"

@@ -111,6 +111,15 @@ Agents need the `agents` feature, which is off by default for a user (see
 [Chats permissions](/features/chats/#permissions)). They have no administration
 tools, as they are your own settings.
 
+### Memory of an agent
+
+The optional field `memory` chooses the notes of an agent: `mine_and_own` (reads your notes
+and its own, saves to its own; the interface sets it for a new agent), `own`, `mine` or `none`.
+An agent without it is "as before": it reads notes when its add-ons name `memory`, and the
+model chooses where a note goes. The host enforces the choice. A `PUT` without `memory`
+keeps the stored one. `DELETE /api/chats/agents/{id}?memory=keep|export|delete` says what
+to do with the agent's own notes (default `keep`). The optional field `memory_save` (`always` or `never`) is the agent's own rule for saving a note: it can only be stricter than the person's setting, `auto` and `ask` are refused with a 400, a `PUT` without it keeps the stored rule, and `use_mine` clears it. See [Short memory](/features/short-memory/#memory-for-each-agent).
+
 ### Connections of an agent
 
 An add-on whose tools run with the token of one of your
@@ -271,17 +280,33 @@ empty by default, no template or import turns a grant on, and a chat of the
 agent holds only the grants you may use at that moment.
 `GET /api/chats/agents/builtin-grants` returns `{grants: [{name, title,
 description, sensitive}]}` for the editor. The names are `memory.write`,
-`profile.write`, `skills.write`, `pages.write`, `dashboard.write`,
+`profile.write`, `skills.write`, `pages.write`, `dashboard.write`, `knowledge.write`,
 `triggers.propose`, `triggers.run`, `talkback.channels`, `talkback.new_channel`,
-`files.upload`, `act.files`, `act.addons`, `act.send`, `act.spend` and
+`files.upload`, `act.files`, `act.addons`, `act.send`, `act.spend`,
 `saved_agents` (the opt-in group of that name; granting it also switches the
-group on). A sensitive grant changes what the agent may do or reach later; the
+group on) and `history.read` (the agent can search and read your earlier chats
+with the opt-in group **Past chats**; granting it also switches the group on, an
+agent that works in a folder reads only its own chats, and a run that nobody
+watches, a messaging chat and a sub-agent never hold it; see
+[Past chats]({{%relref "features/chats#past-chats" %}})). A sensitive grant changes what the agent may do or reach later; the
 editor marks it. The five `*.write` grants let the agent propose a memory note,
 its profile, a skill, a page or a dashboard change with `propose_change`; you
-confirm every proposal, and you can undo it. The **Tools** list of the agent form
-and of a chat show the grants in one group, "What the agent may change": the form has a
-switch per grant, each with its description and a mark on the sensitive ones; a chat of
-the agent lists the grants it holds, read only. "Select all" never touches this group. A write to the agent without the
+confirm every proposal, and you can undo it. `knowledge.write` (**Add to
+knowledge**, sensitive) lets it propose a text for one of its collections; see
+[Adding to Knowledge]({{%relref "features/collections#let-an-agent-propose-a-text-for-a-collection" %}}). The **Tools** list of the agent form
+and of a chat show each grant once, as an option under the switch it refines:
+"Create and manage triggers" holds "Also propose from messaging apps" (`triggers.propose`)
+and "Let triggers start from messaging apps" (`triggers.run`); "Suggested
+changes" holds the five `*.write` grants; "Knowledge" holds `knowledge.write`; "Your files" holds `files.upload` and
+`act.files`. An option is greyed, with the reason, while its switch is off, and keeps its
+stored value. `talkback.channels` and `talkback.new_channel` are in the section
+"Messaging apps", and `act.addons`, `act.send` and `act.spend` in "When nobody is
+watching". "Saved agents" is one switch: either the group `saved_agents` in
+`builtins_on` or the grant of that name turns it on, switching it off removes both, and
+switching it on adds only the group. Each switch and option has one line that says what it
+lets the model do, and the form names a messaging connection of the agent that does not
+allow an option the agent holds, with a link to the permissions of that connection. A chat
+of the agent lists the grants it holds, read only. "Select all" never touches a grant. A write to the agent without the
 `builtins` field keeps them, an empty list clears them and an unknown name is
 refused (an import drops it).
 
@@ -308,7 +333,7 @@ curl -X POST .../api/chats/agents/import -F file=@reviewer.json
 ```
 
 The file holds the definition only (kind `localai-agent`): no ID, owner or
-time. An agent with tool switches (`builtins_off`, `builtins_on`) is version 4, so that a server that does not know them refuses the file instead of giving the agent every tool. The `builtins` list is an extra field of any version; a server that does not know it ignores it, so the agent arrives without the grants. An agent without a folder or tool switches is version 1. An agent with one folder is
+time. An agent with tool switches (`builtins_off`, `builtins_on`) is version 4, so that a server that does not know them refuses the file instead of giving the agent every tool. The `builtins` list, `memory` and `memory_save` are extra fields of any version; a server that does not know them ignores them, so the agent arrives without the grants, as before and without its own save rule (it then follows the setting of the person). An import makes a new agent: it has the exported `memory` choice and `memory_save` rule and none of the original's notes. An agent without a folder or tool switches is version 1. An agent with one folder is
 version 2 and carries `folder` with the folder's path at export time and the
 mode, for example `{"path": "/Projects/Acme", "mode": "read"}` (the path is
 empty when the folder is missing, not chosen, or now outside your home).
@@ -447,9 +472,12 @@ What a run holds:
   edits the same list. A model can ask for `acts` only when it proposes a trigger
   (`propose_trigger` takes an optional `acts` list), and only for what its own
   agent holds; no tool changes the `acts` of a trigger afterwards. The proposal
-  card lists them, and confirming it grants exactly those. A trigger that a
-  connection makes without asking never carries `acts`: a proposal with `acts` is
-  always left for a yes. A trigger whose plan names a file it writes (`plan.writes`) also holds
+  card lists them, and confirming it grants exactly those. A proposal from a
+  chat of a messaging app carries only the acts that the binding allows
+  (`approval.acts`, see [Runs may act](../chats-connectors/#runs-may-act)) and the
+  agent holds; the rest is dropped and named in the proposal. A connection starts
+  such a trigger without asking only in the `auto` mode, when every act is allowed
+  for the binding and the sender is paired; otherwise it is left for a yes. A trigger whose plan names a file it writes (`plan.writes`) also holds
   `act.files`, because you saw that file on the proposal card. Triggers that exist
   before this change keep running, but they now read only unless they set `acts`
   or `plan.writes`.
@@ -469,7 +497,8 @@ holds, `acts_held` the part of it that applies to a run (within the grants of th
 agent, plus `act.files` for a plan that writes a file), `read_only` whether a run
 can only read and `read_only_why` why: `no_acts` (it holds none), `agent` (its
 agent holds none of them), `declared` (the proposal said `read_only`) or `binding`
-(a connection in `auto_readonly` mode made it). The Triggers page shows the same:
+(a connection in `auto_readonly` mode made it). A trigger that a connection made
+without asking also holds only the acts that its binding allows now. The Triggers page shows the same:
 a "Read only" mark on each row, and the reason on the trigger.
 
 A refused tool stays in the tool list and answers with one plain sentence instead
@@ -635,7 +664,10 @@ and a `trigger_proposed` event announces it to a client that is watching.
 A change does not count towards the 50 triggers or the 10 waiting proposals. At
 most 10 changes wait at a time. Like the other trigger tools, these tools are
 offered only in a chat a person started: a trigger run, a connector run and a
-sub-agent never get them.
+sub-agent never get them. A chat that a messaging app started gets `propose_trigger`
+and `list_triggers` when the connection holds `triggers.propose` and the agent holds
+the grant "Also propose from messaging apps"; `update_trigger` and `delete_trigger` stay in
+the app.
 
 ### Clusters
 

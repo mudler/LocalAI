@@ -6,6 +6,7 @@ import StatusPill from '../components/StatusPill'
 import { useId } from 'react'
 import HostSwitch from '../components/ui/Switch'
 import HostCallout from '../components/ui/Callout'
+import HostNotice from '../components/ui/Notice'
 import HostStatusChip from '../components/ui/StatusChip'
 
 // Small wrappers over components the host already ships: an add-on gets the
@@ -164,6 +165,13 @@ export function Choice({ legend, hideLegend, value, onChange, options = [], disa
 
 export function Callout({ tone = 'info', title, actions, role, testId, children }) {
   return <HostCallout tone={CALLOUT_TONES.has(tone) ? tone : 'info'} title={title} actions={actions} role={role === 'alert' ? 'alert' : undefined} testId={testId}>{children}</HostCallout>
+}
+
+// The host's Notice: what is off or not available, why, and one fix. The
+// add-on gives plain data; the fix is a label and a handler, never markup.
+export function Notice({ severity = 'info', title, reason, fixLabel, onFix, testId, children }) {
+  const fix = fixLabel && typeof onFix === 'function' ? { label: String(fixLabel), onClick: onFix } : undefined
+  return <HostNotice severity={severity} title={title} reason={reason} fix={fix} testId={testId}>{children}</HostNotice>
 }
 
 export function StatusChip({ tone = 'idle', children, testId, title }) {

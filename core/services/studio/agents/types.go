@@ -65,6 +65,16 @@ type Agent struct {
 	// and so on). Empty grants nothing: no grant is on by default, and a chat
 	// gets the intersection with what its user may use at the turn.
 	Builtins []string
+	// Memory is the agent's choice of notes: MemoryOwn, MemoryMineAndOwn,
+	// MemoryMine or MemoryNone. Empty is "as before", an agent saved before
+	// the choice existed: it reads the notes when its add-ons name Memory and
+	// the model picks the scope of a note. The host enforces any other value.
+	Memory string
+	// MemorySave is the agent's own rule for saving a note: MemorySaveAlways
+	// or MemorySaveNever. Empty uses the person's setting. It can only be
+	// stricter than the person's setting, so there is no value that saves at
+	// once: the host takes the stricter of the two.
+	MemorySave string
 	// Connections names the connections (connector binding IDs) the agent's
 	// chats may use for each add-on whose tools run with a credential, by
 	// add-on ID. The owner chooses them; a chat of the agent cannot change
@@ -93,6 +103,45 @@ type Agent struct {
 	FolderMode string
 	Created    time.Time
 	Updated    time.Time
+}
+
+// The choices of Agent.Memory. Empty (not listed) is "as before".
+const (
+	// MemoryOwn: read and write the notes of this agent only.
+	MemoryOwn = "own"
+	// MemoryMineAndOwn: read the person's notes and the agent's own, write the
+	// agent's own. The default of a new agent.
+	MemoryMineAndOwn = "mine_and_own"
+	// MemoryMine: read and write the person's notes.
+	MemoryMine = "mine"
+	// MemoryNone: read and write nothing.
+	MemoryNone = "none"
+)
+
+// The values of Agent.MemorySave. Empty uses the person's setting.
+const (
+	// MemorySaveAlways: every note waits for the person, and the model cannot
+	// undo or forget by itself.
+	MemorySaveAlways = "always"
+	// MemorySaveNever: the agent reads notes and never saves one.
+	MemorySaveNever = "never"
+	// MemorySaveUseMine is what a client writes to clear the override. It is
+	// never stored: the stored value is empty.
+	MemorySaveUseMine = "use_mine"
+)
+
+// ValidMemorySave reports whether v is a value of Agent.MemorySave, or empty.
+func ValidMemorySave(v string) bool {
+	return v == "" || v == MemorySaveAlways || v == MemorySaveNever
+}
+
+// ValidMemory reports whether v is a choice of Agent.Memory, or empty.
+func ValidMemory(v string) bool {
+	switch v {
+	case "", MemoryOwn, MemoryMineAndOwn, MemoryMine, MemoryNone:
+		return true
+	}
+	return false
 }
 
 // MaxFolders is the most folders one agent may have.
@@ -176,6 +225,12 @@ func Validate(a Agent) error {
 	}
 	if utf8.RuneCountInString(a.Model) > MaxModelRunes {
 		return bad("the model name is longer than %d characters", MaxModelRunes)
+	}
+	if !ValidMemory(a.Memory) {
+		return bad("memory must be own, mine_and_own, mine or none")
+	}
+	if !ValidMemorySave(a.MemorySave) {
+		return bad("memory_save must be always or never")
 	}
 	switch a.Network {
 	case "", "off", "registries", "all":

@@ -68,6 +68,13 @@
     "loadError": {
       "title": "Les add-ons ne sont pas disponibles pour le moment.",
       "paused": "Les pages et outils des add-ons sont en pause jusqu’à son retour."
+    },
+    "busy": {
+      "upgrading": "Le serveur de modules est occupé (mise à jour de {{names}})",
+      "generic": "Le serveur de modules est occupé",
+      "unreachable": "Le serveur de modules est injoignable",
+      "reason": "Dernier état connu affiché. La page réessaie toute seule.",
+      "retry": "Réessayer maintenant"
     }
   },
   "browse": {
@@ -141,7 +148,8 @@
     "invalid": "Le serveur n'a pas pu accepter cette demande.",
     "network": "Le serveur est injoignable. Vérifiez votre connexion.",
     "unavailable": "Les modules ne sont pas disponibles pour le moment. Réessayez dans un instant.",
-    "unknownOutcome": "Le résultat n'a pas pu être confirmé. Vérifiez l'état avant de réessayer."
+    "unknownOutcome": "Le résultat n'a pas pu être confirmé. Vérifiez l'état avant de réessayer.",
+    "busy": "Le serveur de modules est occupé et n'a pas répondu à temps. Réessayez dans un instant."
   },
   "installed": {
     "disabled": "Désactivé",
@@ -933,6 +941,31 @@
       "downgradeTitle": "Version plus ancienne",
       "downgrade": "Cela installe la version {{version}}, plus ancienne que la version installée {{installed}}. Une version plus ancienne peut ne pas lire les données écrites par une version plus récente.",
       "downgradeConfirm": "Je veux installer la version plus ancienne"
+    }
+  },
+  "notice": {
+    "enableFailedTitle": "Impossible d'activer {{name}}",
+    "incompatibleTitle": "Impossible d'activer {{name}} : incompatible avec ce serveur",
+    "noUpgrade": "Aucune version plus récente n'est encore listée. Laissez-le désactivé ou supprimez-le."
+  },
+  "operation": {
+    "kind": {
+      "install": "Installation…",
+      "upgrade": "Mise à jour…",
+      "uninstall": "Suppression…",
+      "enable": "Démarrage…",
+      "disable": "Arrêt…",
+      "working": "En cours…"
+    },
+    "label": "En cours : {{operation}}",
+    "phase": {
+      "queued": "en attente",
+      "downloading": "téléchargement et vérification",
+      "backing-up": "sauvegarde des données",
+      "installing": "installation",
+      "migrating": "migration des données",
+      "starting": "démarrage",
+      "working": "en cours"
     }
   }
 }

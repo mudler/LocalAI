@@ -50,6 +50,7 @@ func texts(ps []store.Pending) []string {
 func Run(newStore New) {
 	// The loop's own transcript contract.
 	sessiontest.RunStoreSuite(func() session.Store { return newStore() })
+	runSearch(newStore)
 
 	It("skill switches round-trip, survive a chat update and belong to the owner", func() {
 		s := newStore()
@@ -600,15 +601,18 @@ func Run(newStore New) {
 	})
 
 	It("a turn that stops beating is reaped, one that keeps beating is not", func() {
+		// The margin is wide: on a loaded runner under -race a few store calls
+		// can take longer than a tight threshold.
+		const stale = 300 * time.Millisecond
 		s := newStore()
 		chat(s, "stale", "alice")
 		chat(s, "alive", "alice")
 		Expect(s.ClaimTurn(ctx(), "alice", "stale", "r-stale")).To(Succeed())
 		Expect(s.ClaimTurn(ctx(), "alice", "alive", "r-alive")).To(Succeed())
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(2 * stale)
 		Expect(s.TouchTurn(ctx(), "alice", "alive", "r-alive")).To(Succeed())
 
-		got, err := s.ReapTurns(ctx(), 50*time.Millisecond)
+		got, err := s.ReapTurns(ctx(), stale)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got).To(HaveLen(1), "reaped = %+v, want only the chat that stopped beating", got)
 		Expect(got[0].ChatID).To(Equal("stale"))
@@ -622,7 +626,8 @@ func Run(newStore New) {
 		// The run that was reaped can no longer beat or release, and the chat is free.
 		Expect(s.TouchTurn(ctx(), "alice", "stale", "r-stale")).To(MatchError(store.ErrNotClaimed), "TouchTurn on a reaped run")
 		Expect(s.ClaimTurn(ctx(), "alice", "stale", "r-next")).To(Succeed(), "claim after reap")
-		again, _ := s.ReapTurns(ctx(), 50*time.Millisecond)
+		Expect(s.TouchTurn(ctx(), "alice", "alive", "r-alive")).To(Succeed())
+		again, _ := s.ReapTurns(ctx(), stale)
 		Expect(again).To(BeEmpty(), "a second reap found %+v", again)
 	})
 

@@ -314,6 +314,7 @@ func newConnRigOpts(sh *shared, store connectors.Store, tr *studiobot.BotTranspo
 	c, err := studio.NewConnectors(r.svc, o)
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(c.Close)
+	tr.UseAuthority(c) // as the application does: every call is authorized by the stored binding
 	r.svc.SetConnectors(c) // as the application does: the chats see their bindings
 	ctx, cancel := context.WithCancel(context.Background())
 	DeferCleanup(cancel)

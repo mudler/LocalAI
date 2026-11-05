@@ -18,10 +18,11 @@ import './catalog.css'
 //   onQueryChange     (nextQuery) => void
 //   renderEntry       (entry) => node, one list item body
 //   reloadToken       change it to search again with the same query
+//   orderEntries      optional (entries) => entries, the order of one page as drawn
 //   describeError     (error) => string for a failed search
 //
 // Every search is cancelled when the query changes or the view unmounts.
-export default function CatalogView({ adapter, query, onQueryChange, renderEntry, reloadToken = 0, describeError, emptyTitle, emptyText, searchLabel, pageSize = adapter.pageSize || PAGE_SIZE }) {
+export default function CatalogView({ adapter, query, onQueryChange, renderEntry, reloadToken = 0, orderEntries, describeError, emptyTitle, emptyText, searchLabel, pageSize = adapter.pageSize || PAGE_SIZE }) {
   const { t } = useTranslation('addons')
   const normalized = useMemo(() => normalizeQuery(query), [query])
   const key = queryKey(normalized)
@@ -106,7 +107,7 @@ export default function CatalogView({ adapter, query, onQueryChange, renderEntry
         />
       ) : (
         <ul className="cat-list" aria-busy={state.status === 'loading'} aria-label={label}>
-          {state.entries.map(entry => (
+          {(orderEntries ? orderEntries(state.entries) : state.entries).map(entry => (
             <li key={entry.key} className="cat-item">{renderEntry(entry)}</li>
           ))}
         </ul>

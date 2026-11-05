@@ -21,6 +21,9 @@ export function tileFromApp(app, { language = 'en' } = {}) {
     id: app.id,
     source: 'app',
     title: localizedText(app, 'title', language) || app.id,
+    // The English name, so a search finds the add-on by it in any language.
+    englishTitle: app.title || app.id,
+    englishDescription: app.description || '',
     titleKey: '',
     description: localizedText(app, 'description', language) || '',
     icon: app.icon || '',
@@ -39,6 +42,8 @@ export function tileFromBuiltin(entry) {
     id: entry.id,
     source: 'builtin',
     title: entry.id,
+    englishTitle: entry.id,
+    englishDescription: '',
     titleKey: entry.titleKey || '',
     description: '',
     icon: '',
@@ -54,10 +59,14 @@ export function tileFromBuiltin(entry) {
 export function buildTiles(apps, builtin, { language = 'en' } = {}) {
   const first = (builtin || []).map(tileFromBuiltin)
   const taken = new Set(first.map(t => t.id))
+  // The apps are in the alphabetical order of the language of the user, by the
+  // title they read; the id breaks a tie so the order is stable.
+  let collator
+  try { collator = new Intl.Collator(language || undefined, { sensitivity: 'base', numeric: true }) } catch { collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true }) }
   const rest = [...(apps || [])]
     .filter(a => !taken.has(a.id))
-    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
     .map(a => tileFromApp(a, { language }))
+    .sort((a, b) => collator.compare(a.title, b.title) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   return [...first, ...rest]
 }
 
@@ -65,7 +74,10 @@ export function buildTiles(apps, builtin, { language = 'en' } = {}) {
 export function filterTiles(tiles, query, titleOf = (t) => t.title) {
   const q = String(query || '').trim().toLowerCase()
   if (!q) return tiles
-  return tiles.filter(t => titleOf(t).toLowerCase().includes(q) || t.description.toLowerCase().includes(q))
+  // The text in the user's language and the English text both count, so a
+  // person finds an add-on by the name they know it by.
+  const hit = (text) => String(text || '').toLowerCase().includes(q)
+  return tiles.filter(t => hit(titleOf(t)) || hit(t.description) || hit(t.englishTitle) || hit(t.englishDescription) || hit(t.id))
 }
 
 // The pinned tiles, in the order the user chose. A pin without a tile (hidden,

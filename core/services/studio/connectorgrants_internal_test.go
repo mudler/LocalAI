@@ -106,7 +106,7 @@ var _ = Describe("the agent grants at the connector gate", func() {
 		for _, r := range rows {
 			It(r.who, func() {
 				off := grantVerdict(r.cap, r.listed, r.held, true)
-				d := Authorize(binding(r.caps...), kind, r.s, r.cap, now, off)
+				d := Authorize(binding(r.caps...), kind, r.s, r.cap, now, Block{Reason: off})
 				Expect(d.Allowed).To(Equal(r.allowed), "%s: %s", r.cap, d.Reason)
 				if !r.allowed {
 					Expect(d.Reason).NotTo(BeEmpty())

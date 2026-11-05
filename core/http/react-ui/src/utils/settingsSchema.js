@@ -24,7 +24,7 @@
 //   note     what applying does, only where the handler says it
 
 export const GROUPS = [
-  { id: 'memory', label: 'Memory and models', hint: 'When models stop, what gets evicted, GPU budget', icon: 'memory' },
+  { id: 'memory', label: 'Models in memory', hint: 'When models stop, what gets evicted, GPU budget', icon: 'memory' },
   { id: 'speed', label: 'Speed and defaults', hint: 'Threads, context window, downloads', icon: 'gauge' },
   { id: 'backends', label: 'Backends and galleries', hint: 'Upgrades, gallery sources, start-up loading', icon: 'boxes' },
   { id: 'access', label: 'Access and security', hint: 'Cross-origin rules, CSRF, legacy API keys', icon: 'shield' },
@@ -62,7 +62,7 @@ const WATCHDOG_LIVE = { apply: 'live', note: 'The watchdog restarts with the new
 //   bool, text, int, duration, percent, select, model, json, lines, hosts, token,
 //   asset (the three branding images, saved at once by their own endpoint).
 export const FIELDS = [
-  // ---- Memory and models ---------------------------------------------------
+  // ---- Models in memory ---------------------------------------------------
   { key: 'watchdog_enabled', group: 'memory', was: 'watchdog', kind: 'bool', label: 'Watchdog', composite: true,
     desc: 'Automatically monitor and manage backend processes. Switches the idle and busy checks together.',
     default: false, ...WATCHDOG_LIVE },

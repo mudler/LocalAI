@@ -1,6 +1,6 @@
 {
   "title": "知识库",
-  "subtitle": "为智能体的 RAG 管理文档集合",
+  "subtitle": "智能体可以搜索的文档集合。可在此搜索任意集合，或在需要时将其添加到智能体。",
   "newPlaceholder": "新集合名称...",
   "actions": {
     "create": "创建",
@@ -24,7 +24,7 @@
     "stepFill": "添加文件或网页。",
     "stepAsk": "提问查看检索结果，然后将集合提供给智能体。",
     "noPersonal": "您还没有任何集合。",
-    "learn": "了解记忆的工作方式"
+    "learn": "了解知识库的工作方式"
   },
   "deleteDialog": {
     "title": "删除集合",
@@ -137,8 +137,8 @@
   },
   "loadFailed": "无法加载你的集合。",
   "starting": {
-    "title": "记忆服务正在启动。",
-    "text": "服务器仍在准备记忆服务。此页面会自动重试。"
+    "title": "知识库服务正在启动。",
+    "text": "服务器仍在准备知识库服务。此页面会自动重试。"
   },
   "embedding": {
     "missingTitle": "未安装嵌入模型。",

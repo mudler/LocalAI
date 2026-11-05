@@ -113,6 +113,50 @@
       "job": "Job",
       "page": "Pagina",
       "other": "Automatico"
+    },
+    "keys": {
+      "clear": "cancella"
+    },
+    "find": {
+      "searching": "Ricerca in corso…",
+      "count_one": "{{count}} risultato",
+      "count_other": "{{count}} risultati",
+      "more_one": "{{count}} altra corrispondenza in questa chat",
+      "more_other": "{{count}} altre corrispondenze in questa chat",
+      "indexing": "Le chat più vecchie sono ancora in fase di indicizzazione. I risultati potrebbero essere incompleti.",
+      "partial": "Cercato nelle {{searched}} chat più recenti su {{total}}.",
+      "failed": "La ricerca non è riuscita.",
+      "retry": "Riprova",
+      "noMatchFor": "Nessuna chat corrisponde a “{{query}}”.",
+      "noMatchFiltered": "Nessuna chat corrisponde a “{{query}}” con questi filtri.",
+      "inTitle": "Corrisponde al titolo",
+      "you": "Tu",
+      "assistant": "Assistente",
+      "filters": "Filtri di ricerca",
+      "agent": "Agente",
+      "anyAgent": "Qualsiasi agente",
+      "origin": "Da",
+      "anyOrigin": "Ovunque",
+      "originName": {
+        "person": "Le mie chat",
+        "automated": "Add-on e automazioni",
+        "trigger": "Trigger",
+        "connector": "App di messaggistica",
+        "job": "Job",
+        "page": "Pagine"
+      },
+      "when": "Quando",
+      "anyTime": "In qualsiasi momento",
+      "range": {
+        "day": "Ultime 24 ore",
+        "week": "Ultimi 7 giorni",
+        "month": "Ultimi 30 giorni",
+        "year": "Ultimo anno",
+        "custom": "Scegli le date…"
+      },
+      "from": "Dal",
+      "to": "Al",
+      "reset": "Azzera i filtri"
     }
   },
   "message": {
@@ -138,7 +182,8 @@
     "failed": "Salvataggio non riuscito. L'interruttore è tornato com'era.",
     "unavailable": "Non disponibile in questa chat",
     "toolCount_one": "{{count}} strumento",
-    "toolCount_other": "{{count}} strumenti"
+    "toolCount_other": "{{count}} strumenti",
+    "optionsOf": "Opzioni di {{name}}"
   },
   "skills": {
     "label": "Skill",

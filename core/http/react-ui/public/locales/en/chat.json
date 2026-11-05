@@ -166,7 +166,8 @@
       "move": "move",
       "open": "open",
       "rename": "rename",
-      "delete": "delete"
+      "delete": "delete",
+      "clear": "clear"
     },
     "deleted": "Deleted \"{{title}}\"",
     "undo": "Undo",
@@ -187,6 +188,47 @@
       "job": "Job",
       "page": "Page",
       "other": "Automated"
+    },
+    "find": {
+      "searching": "Searching…",
+      "count_one": "{{count}} result",
+      "count_other": "{{count}} results",
+      "more_one": "{{count}} more match in this chat",
+      "more_other": "{{count}} more matches in this chat",
+      "indexing": "Older chats are still being indexed. Results may be incomplete.",
+      "partial": "Searched the newest {{searched}} of {{total}} chats.",
+      "failed": "The search failed.",
+      "retry": "Try again",
+      "noMatchFor": "No chats match “{{query}}”.",
+      "noMatchFiltered": "No chats match “{{query}}” with these filters.",
+      "inTitle": "Matches the title",
+      "you": "You",
+      "assistant": "Assistant",
+      "filters": "Search filters",
+      "agent": "Agent",
+      "anyAgent": "Any agent",
+      "origin": "Source",
+      "anyOrigin": "Anywhere",
+      "originName": {
+        "person": "My chats",
+        "automated": "Add-ons and automations",
+        "trigger": "Triggers",
+        "connector": "Messaging apps",
+        "job": "Jobs",
+        "page": "Pages"
+      },
+      "when": "When",
+      "anyTime": "Any time",
+      "range": {
+        "day": "Last 24 hours",
+        "week": "Last 7 days",
+        "month": "Last 30 days",
+        "year": "Last year",
+        "custom": "Choose dates…"
+      },
+      "from": "From",
+      "to": "To",
+      "reset": "Reset filters"
     }
   },
   "message": {
@@ -409,7 +451,8 @@
     "failed": "Could not save. The switch is back as it was.",
     "unavailable": "Not available in this chat",
     "toolCount_one": "{{count}} tool",
-    "toolCount_other": "{{count}} tools"
+    "toolCount_other": "{{count}} tools",
+    "optionsOf": "Options of {{name}}"
   },
   "skills": {
     "label": "Skills",

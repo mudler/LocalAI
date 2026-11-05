@@ -290,7 +290,15 @@
         "reported_unknown": "La disponibilità o l’isolamento dell’esecuzione non sono noti: l’add-on ha segnalato di non poterlo dire."
       },
       "providerUnavailable": "Il provider di esecuzione selezionato non è disponibile.",
-      "disabled": "L’esecuzione dei comandi è disattivata per questa chat."
+      "disabled": "L’esecuzione dei comandi è disattivata per questa chat.",
+      "hostOff": {
+        "reason": "Il bash integrato del server è disattivato, quindi l'assistente può scrivere file ma non può eseguire script o comandi.",
+        "whoAdmin": "Sei un amministratore. In Impostazioni, Strumenti, attiva la riga Comandi (bash). Chiedere ogni volta è la scelta più sicura. I comandi vengono poi eseguiti sul server senza isolamento e possono leggere ciò che il server può leggere.",
+        "whoMember": "Chiedi a un amministratore di questo server di attivarlo.",
+        "fix": "Apri l'impostazione",
+        "sandboxText": "Per comandi isolati, installa invece un componente aggiuntivo che esegue i comandi in isolamento.",
+        "sandbox": "Apri Componenti aggiuntivi"
+      }
     },
     "consent": {
       "title": "Eseguire questo comando su questa macchina?",
@@ -314,13 +322,15 @@
     "builtin": {
       "web": "Web",
       "saved_agents": "Agenti salvati",
-      "triggers": "Trigger",
+      "triggers": "Crea e gestisci i trigger",
       "shell": "Esegui comandi",
       "files": "I tuoi file",
       "media": "Immagini e audio",
-      "collections": "Raccolte",
+      "collections": "Conoscenza",
       "subagents": "Sotto-agenti",
-      "changes": "Modifiche a memoria e profilo"
+      "changes": "Modifiche suggerite",
+      "memory": "Memoria",
+      "history": "Chat precedenti"
     },
     "builtinBy": "{{tools}} · integrati",
     "builtinByAddon": "{{tools}} · servito da {{provider}}",
@@ -334,15 +344,17 @@
       "isolated": "I comandi girano isolati"
     },
     "describe": {
-      "shell": "Il modello può eseguire comandi di shell e script. Girano in un add-on che li isola, se ce n'è uno installato, altrimenti direttamente su questa macchina.",
-      "files": "Il modello può elencare, leggere, scrivere, modificare, spostare, eliminare e cercare i tuoi file, e leggere documenti. Una chat di un agente che lavora in una sola cartella raggiunge solo quella cartella.",
-      "web": "Il modello può cercare sul web e leggere una pagina pubblica dal suo indirizzo. Gli indirizzi dentro la tua rete sono rifiutati, a meno che un amministratore li permetta.",
-      "media": "Il modello può descrivere un'immagine o trascrivere una registrazione dai tuoi file con un modello di supporto.",
-      "collections": "Il modello può elencare le tue raccolte e cercarvi i passaggi che rispondono a una domanda.",
-      "subagents": "Il modello può avviare un sotto-agente che lavora su un compito con gli stessi interruttori di questa chat e poi riferisce.",
-      "saved_agents": "Il modello può elencare i tuoi agenti salvati e avviarne uno come sotto-agente, con le istruzioni e il modello di quell'agente.",
-      "triggers": "Il modello può proporre, elencare, modificare ed eliminare trigger: attività che partono da sole a un'ora stabilita o quando arriva un file in una cartella. Un nuovo trigger o una modifica aspetta su una scheda nella chat finché non la confermi; mettere in pausa o riprendere un trigger vale subito e puoi annullarlo.",
-      "changes": "Il modello può proporre una modifica alle tue note di memoria o alle regole fisse di un agente, e annullare una modifica che hai confermato. Nulla cambia finché non confermi la proposta su una scheda nella chat."
+      "shell": "Il modello può eseguire comandi shell e script.",
+      "files": "Il modello può elencare, leggere, scrivere e cercare nei tuoi file.",
+      "web": "Il modello può cercare sul web e leggere pagine pubbliche.",
+      "media": "Il modello può descrivere immagini e trascrivere registrazioni dai tuoi file.",
+      "collections": "Il modello può cercare nelle tue raccolte.",
+      "subagents": "Il modello può avviare un sotto-agente per un compito e ricevere il suo rapporto.",
+      "saved_agents": "Il modello può avviare uno dei tuoi agenti salvati come sotto-agente.",
+      "triggers": "Il modello può proporre, elencare, modificare ed eliminare trigger. Confermi tu ogni nuovo trigger o modifica.",
+      "changes": "Il modello può proporre modifiche alle tue note, alle sue regole, alle skill, alle pagine e alla dashboard. Confermi tu ognuna.",
+      "memory": "Il modello può leggere le tue note prima di rispondere e salvarne di nuove. Disattivala per rendere questa una chat privata: non si legge nulla dalle tue note e non si salva nulla in esse. Le altre chat non cambiano.",
+      "history": "Permette al modello di cercare e leggere le tue chat precedenti."
     },
     "whenOff": {
       "shell": "Il modello può scrivere file ma non può eseguire nulla.",
@@ -352,15 +364,17 @@
       "collections": "Il modello non può leggere le tue raccolte.",
       "subagents": "Il modello lavora da solo.",
       "saved_agents": "Il modello non può vedere né avviare i tuoi agenti salvati.",
-      "triggers": "Il modello non può creare né gestire trigger. Una esecuzione avviata da un trigger o da un connettore non li ha mai.",
-      "changes": "Il modello non può proporre modifiche alla tua memoria o alle regole di un agente."
+      "triggers": "Il modello non può proporre né gestire trigger.",
+      "changes": "Il modello non può proporre modifiche alle tue note, alle sue regole, alle skill, alle pagine o alla dashboard.",
+      "memory": "È una chat privata. Il modello non legge né salva le tue note.",
+      "history": "Il modello non può vedere le tue chat precedenti."
     },
     "addonDescribe_one": "Dà al modello {{count}} strumento di questo add-on.",
     "addonDescribe_other": "Dà al modello {{count}} strumenti di questo add-on.",
     "serverDescribe": "Un server MCP del modello: i suoi strumenti sono offerti al modello.",
     "connectorDescribe": "Uno dei tuoi connettori MCP: i suoi strumenti sono offerti al modello.",
     "gone": "Non più disponibile qui. Spegnilo per rimuoverlo.",
-    "grants": "Cosa può modificare l'agente",
+    "grants": "Altri permessi",
     "grantSensitive": "Sensibile: cambia ciò che l'agente potrà fare o raggiungere in seguito.",
     "connection": {
       "label": "Connessioni",
@@ -374,6 +388,85 @@
       "agentLabel": "Connessioni per le chat di questo agente",
       "agentHelp": "Le chat di questo agente possono usare solo queste connessioni e non possono cambiarle.",
       "perChatHelp": "Nessuna scelta: ogni chat sceglie la sua."
+    },
+    "optionNeeds": "Attiva «{{name}}» per usarlo.",
+    "connectionMissing": "{{name}} non lo consente ancora.",
+    "connectionOpen": "Apri i suoi permessi",
+    "section": {
+      "messaging": {
+        "title": "App di messaggistica",
+        "intro": "Vale per le chat che iniziano in un'app di messaggistica. La connessione deve consentire la stessa cosa nella sua pagina dei permessi."
+      },
+      "unattended": {
+        "title": "Quando nessuno guarda",
+        "intro": "Vale per le esecuzioni avviate da un trigger o da un'app di messaggistica, dove nessuno può confermare un passaggio."
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "Ricordare le cose",
+        "description": "Il modello può proporre una nota per la tua memoria o per quella dell'agente. Confermi tu ogni nota."
+      },
+      "profile_write": {
+        "title": "Cambiare le proprie regole",
+        "description": "Il modello può proporre una modifica alle regole permanenti dell'agente. Confermi tu ogni modifica."
+      },
+      "skills_write": {
+        "title": "Scrivere skill",
+        "description": "Il modello può proporre una skill nuova o modificata. Confermi tu ognuna."
+      },
+      "pages_write": {
+        "title": "Creare pagine",
+        "description": "Il modello può proporre una piccola app che si apre in un frame isolato. La confermi tu."
+      },
+      "dashboard_write": {
+        "title": "Cambiare la dashboard",
+        "description": "Il modello può proporre un nuovo layout della tua dashboard Home. Confermi tu ogni modifica."
+      },
+      "knowledge_write": {
+        "title": "Aggiungi alla conoscenza",
+        "description": "Permette al modello di proporre un testo per una raccolta della tua Conoscenza. Confermi ogni testo; non viene mai aggiunto subito."
+      },
+      "triggers_propose": {
+        "title": "Proponi anche dalle app di messaggistica",
+        "description": "Il modello può proporre un trigger quando qualcuno lo chiede in un'app di messaggistica. Lo confermi tu."
+      },
+      "triggers_run": {
+        "title": "Lascia partire i trigger dalle app di messaggistica",
+        "description": "Un trigger legato a una connessione di messaggistica può avviare un'esecuzione e consegnare lì il risultato."
+      },
+      "talkback_channels": {
+        "title": "Rispondere sui canali noti",
+        "description": "Il modello può inviare un messaggio a un canale in cui già interviene."
+      },
+      "talkback_new_channel": {
+        "title": "Aprire nuovi canali",
+        "description": "Il modello può iniziare una conversazione su un canale che non ha mai usato."
+      },
+      "files_upload": {
+        "title": "Ricevere file dalle app di messaggistica",
+        "description": "Chi scrive può allegare file che il modello legge. Non può inviare file."
+      },
+      "act_files": {
+        "title": "Scrivere file da solo",
+        "description": "Un'esecuzione che nessuno guarda può scrivere file nelle cartelle dell'agente."
+      },
+      "act_addons": {
+        "title": "Usare da solo le azioni dei componenti aggiuntivi",
+        "description": "Un'esecuzione che nessuno guarda può chiamare le azioni dei componenti aggiuntivi dell'agente."
+      },
+      "act_send": {
+        "title": "Inviare messaggi da solo",
+        "description": "Un'esecuzione che nessuno guarda può inviare messaggi oltre la sua destinazione di consegna."
+      },
+      "act_spend": {
+        "title": "Usare da solo strumenti a pagamento o esterni",
+        "description": "Un'esecuzione che nessuno guarda può usare strumenti a pagamento o esterni e la rete."
+      },
+      "history_read": {
+        "title": "Leggere le tue chat precedenti",
+        "description": "Permette al modello di cercare e leggere le tue chat precedenti. Un agente che lavora in una cartella legge solo le chat del proprio agente."
+      }
     }
   },
   "vision": {
@@ -636,7 +729,8 @@
       "profile": "Profilo",
       "skill": "Skill",
       "page": "Pagina",
-      "dashboard": "Dashboard"
+      "dashboard": "Dashboard",
+      "knowledge": "Conoscenza"
     },
     "scope": {
       "user": "Tutte le tue chat",
@@ -649,7 +743,8 @@
       "kind": "Tipo",
       "target": "File",
       "source": "Da",
-      "expires": "Scade tra"
+      "expires": "Scade tra",
+      "collection": "Raccolta"
     },
     "source": {
       "chat": "Una chat",
@@ -698,13 +793,19 @@
       "dismissed": "Modifica rifiutata.",
       "undone": "Modifica annullata.",
       "asked": "Ho chiesto all'assistente di riproporla."
+    },
+    "knowledge": {
+      "label": "Testo da aggiungere a {{collection}}",
+      "size": "{{size}} su un massimo di {{max}}",
+      "note": "Non viene aggiunto nulla finché non confermi. Poi il testo viene diviso in passaggi e indicizzato, e ogni chat che cerca in questa raccolta può usarlo.",
+      "editLabel": "Testo da aggiungere a {{target}}"
     }
   },
   "proposalsPage": {
     "title": "Proposte",
     "supporting": "Modifiche richieste dai modelli che attendono la tua risposta.",
     "emptyTitle": "Niente in attesa",
-    "emptyBody": "Quando un modello propone una modifica alla tua memoria o al profilo di un agente, appare qui finché non rispondi.",
+    "emptyBody": "Quando un modello propone una modifica alle tue note, al profilo di un agente, a una skill, a una pagina o alla dashboard, appare qui finché non rispondi.",
     "loadError": "Impossibile caricare le proposte."
   },
   "memoryPage": {
@@ -723,7 +824,9 @@
       "user": "Le tue note",
       "agent": "Note dell'agente {{key}}",
       "channel": "Note della conversazione {{key}}",
-      "profile": "Profilo dell'agente {{key}}"
+      "profile": "Profilo dell'agente {{key}}",
+      "agentNamed": "Note dell'agente {{name}}",
+      "profileNamed": "Profilo dell'agente {{name}}"
     },
     "edit": "Modifica",
     "save": "Salva",
@@ -738,13 +841,25 @@
     "deleteYes": "Elimina",
     "confirmDelete": "Eliminare {{name}}?",
     "deleted": "{{name}} spostato nel Cestino.",
-    "clear": "Cancella tutte le note",
+    "clear": "Dimentica tutto",
     "clearAsk_one": "Eliminare {{count}} file? Va nel Cestino e puoi ripristinarlo da File.",
     "clearAsk_other": "Eliminare {{count}} file? Vanno nel Cestino e puoi ripristinarli da File.",
     "clearYes_one": "Elimina {{count}} file",
     "clearYes_other": "Elimina {{count}} file",
     "cleared_one": "{{count}} file spostato nel Cestino.",
-    "cleared_other": "{{count}} file spostati nel Cestino."
+    "cleared_other": "{{count}} file spostati nel Cestino.",
+    "tabs": {
+      "label": "Note di",
+      "mine": "Mie",
+      "deleted": "Agenti eliminati",
+      "channels": "Conversazioni",
+      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "export": "Esporta queste note",
+      "clearAgent": "Elimina le note di questo agente",
+      "clearDeleted": "Elimina queste note"
+    },
+    "deletedNote": "Questi agenti sono stati eliminati. Le loro note restano finché non le elimini qui.",
+    "tabEmpty": "Nessuna nota qui."
   },
   "triggerActs": {
     "help": "Un'esecuzione parte da sola, quindi nessuno approva un passo. Può leggere e riferire. Spunta ciò che può fare in più. Non ottiene mai più di quanto ha il suo agente.",
@@ -766,6 +881,173 @@
       "agent": "Il suo agente non ha i permessi richiesti, quindi le sue esecuzioni leggono e riferiscono soltanto.",
       "declared": "È stato creato per leggere e riferire soltanto. Nulla di ciò che spunti qui lo cambia.",
       "binding": "L'ha creato una connessione in sola lettura. Nulla di ciò che spunti qui lo cambia."
+    }
+  },
+  "memorySettings": {
+    "titleOn": "La memoria è attiva",
+    "titleOff": "La memoria è disattivata",
+    "ledeOn": "Le tue chat conservano brevi note su di te e le leggono prima di rispondere. Disattivala per smettere di leggere e salvare ovunque. Le tue note restano dove sono.",
+    "ledeOff": "Non si legge nulla dalle tue note e non si salva nulla in esse, in nessuna chat o agente. L'assistente dice che la memoria è disattivata se gli chiedi di ricordare qualcosa. Le tue note restano e puoi ancora leggerle, esportarle ed eliminarle.",
+    "on": "Sì",
+    "off": "No",
+    "unavailable": "Le note sono file, e i file sono disattivati su questo server, quindi la memoria qui non può funzionare.",
+    "saveTitle": "Salvare una nota",
+    "saveLede": "Cosa succede quando l'assistente vuole conservare qualcosa. Vince sempre la regola più severa.",
+    "save": {
+      "ask": {
+        "title": "Chiedimi prima",
+        "body": "Una scheda aspetta nella chat. Tu la confermi, la modifichi o la scarti."
+      },
+      "auto": {
+        "title": "Salva e avvisami",
+        "body": "Nelle tue chat la nota viene salvata subito. La chat mostra «Salvato in memoria» con Annulla. Fino a 5 note per risposta. Una nota lunga, o che sembra un segreto, aspetta comunque te."
+      },
+      "always": {
+        "title": "Conferma sempre",
+        "body": "Come Chiedimi prima, e nulla può allentarlo. Anche annulla e dimentica aspettano te. Nessuna impostazione di agente o di messaggistica può scavalcarlo."
+      },
+      "never": {
+        "title": "Mai",
+        "body": "L'assistente non può salvare note. Ti dice che il salvataggio è disattivato."
+      }
+    },
+    "default": "Predefinito",
+    "saveNote": "Le esecuzioni in background e i trigger non salvano mai una nota. Un agente salvato può chiedere di più, mai di meno, di quanto scegli qui.",
+    "messaging": {
+      "title": "Nelle app di messaggistica",
+      "lede": "Cosa succede quando una nota viene proposta in una chat di un'app di messaggistica, dove chi scrive può non essere tu.",
+      "ask": {
+        "title": "Chiedimi prima",
+        "body": "Il bot chiede nella chat: «Rispondi sì per salvarla». Un mittente in elenco può rispondere lì. Gli altri aspettano te nell'app."
+      },
+      "paired_private": {
+        "title": "Salva per un mittente abbinato in una chat privata",
+        "body": "Salvata subito solo se il mittente è abbinato e la chat è uno a uno. La nota va in quella conversazione, con Annulla. Una nota che sembra un segreto aspetta comunque."
+      },
+      "never": {
+        "title": "Mai",
+        "body": "Nessuna nota viene salvata dalle app di messaggistica."
+      },
+      "limit": "Mai più permissivo dell'impostazione qui sopra.",
+      "lockedAlways": "La tua impostazione qui sopra è Conferma sempre, quindi questa riga non può salvare una nota subito.",
+      "lockedNever": "La tua impostazione qui sopra è Mai, quindi nessuna nota viene salvata dalle app di messaggistica."
+    },
+    "saveFailed": "Non è stato possibile salvare la tua scelta.",
+    "loadError": "Non è stato possibile caricare le impostazioni della memoria.",
+    "notesTitle": "Gestisci le tue note",
+    "notesLede": "Leggile, modificale, esportale o eliminale. Funziona anche con la memoria disattivata.",
+    "export": "Esporta"
+  },
+  "memoryOff": {
+    "title": "La memoria è disattivata qui.",
+    "line": {
+      "chat": "È una chat privata: non si legge né si salva nulla. Le tue note non vengono toccate. Attivala nel menu degli strumenti.",
+      "user": "Nessuna chat o agente legge o salva note, e le tue note non vengono toccate.",
+      "agent": "L'agente di questa chat ha disattivato la memoria.",
+      "files": "Le note sono file, e i file sono disattivati su questo server.",
+      "provider": "L'add-on che fornisce la memoria non è disponibile, quindi non viene letto né salvato nulla. Scegli un fornitore in Impostazioni, Memoria."
+    },
+    "chip": "Memoria off",
+    "chipPrivate": "Chat privata",
+    "fixUser": "Impostazioni, Memoria",
+    "userRow": "Disattivata nelle tue impostazioni. Attivala in Impostazioni, Memoria."
+  },
+  "agentMemory": {
+    "title": "Memoria",
+    "lede": "Scegli quali note legge questo agente e dove salva quelle nuove.",
+    "offUser": "La memoria è disattivata nelle tue impostazioni, quindi questa scelta non ha effetto finché non la riattivi.",
+    "offUserFix": "Impostazioni, Memoria",
+    "recommended": "Consigliato",
+    "mine_and_own": {
+      "title": "Mie e sue",
+      "body": "Legge le tue note e le sue. Salva solo nelle sue."
+    },
+    "own": {
+      "title": "Solo sue",
+      "body": "Legge e salva solo le sue note. Le tue note restano fuori portata."
+    },
+    "mine": {
+      "title": "Mie",
+      "body": "Legge e salva le tue note."
+    },
+    "none": {
+      "title": "Nessuna",
+      "body": "Non legge e non salva nulla."
+    },
+    "mineWarn": "Questo agente può aggiungere note alla tua memoria, per ogni chat. Confermi ogni nota.",
+    "asBefore": {
+      "title": "Come prima",
+      "body": "Questo agente è stato salvato prima che esistesse questa scelta. Legge le tue note se il suo elenco di componenti aggiuntivi nomina Memory, e il modello sceglie dove salvare una nota. Scegli una delle opzioni qui sotto per cambiarlo."
+    },
+    "saveGrant": "Lascia che salvi note",
+    "saveGrantHelp": "Attiva il permesso Ricordare cose. Senza di esso l'agente legge le note ma non può salvarne.",
+    "copyNote": "Esportare un agente, o importarlo come nuovo, mantiene questa scelta e non copia mai le sue note.",
+    "summary": {
+      "mine_and_own": "Mie e sue",
+      "own": "Solo sue",
+      "mine": "Mie",
+      "none": "Nessuna",
+      "asBefore": "Come prima"
+    },
+    "delete": {
+      "title": "Eliminare {{name}}?",
+      "ask": "Questo agente ha note proprie ({{count}}). Cosa farne?",
+      "legend": "Cosa fare delle note",
+      "default": "predefinito",
+      "confirm": "Elimina agente",
+      "keep": {
+        "title": "Tieni le note",
+        "body": "Restano nella pagina Memoria sotto Agenti eliminati finché non le elimini."
+      },
+      "export": {
+        "title": "Esporta, poi elimina",
+        "body": "Scarica le note come file zip, poi le sposta nel Cestino."
+      },
+      "delete": {
+        "title": "Elimina anche le note",
+        "body": "Vanno nel Cestino e puoi ripristinarle da File."
+      }
+    },
+    "rule": {
+      "title": "Quando vuole salvare una nota",
+      "use_mine": {
+        "title": "Usa la mia impostazione",
+        "body": "Ora: {{level}}."
+      },
+      "always": {
+        "title": "Conferma sempre",
+        "body": "Più rigido della mia impostazione."
+      },
+      "never": {
+        "title": "Mai",
+        "body": "Legge, non salva mai."
+      },
+      "hint": "Un agente può chiedere di più della tua impostazione, mai di meno. «Salva e avvisami» qui non è offerto. In una chat di messaggistica la nota va prima in quella conversazione e arriva alle note proprie di questo agente solo da un mittente abbinato."
+    }
+  },
+  "providerPicker": {
+    "title": "Fornitore",
+    "lede": "Serve un solo fornitore alla volta. I tuoi dati esistenti restano dove sono quando cambi.",
+    "off": "Disattivato",
+    "unavailable": "Non disponibile",
+    "loadError": "Impossibile caricare i fornitori",
+    "saveFailed": "Impossibile cambiare il fornitore",
+    "failedTitle": "{{name}} non è disponibile",
+    "failedReason": "Resta disattivato finché non scegli un fornitore. Niente è passato al fornitore integrato, quindi non viene salvato nulla dove non hai scelto.",
+    "useBuiltin": "Usa il fornitore integrato",
+    "facts": {
+      "local": "Locale",
+      "remote": "Remoto",
+      "undoHost": "Annulla qui",
+      "undoProvider": "Annullamento a cura del servizio",
+      "undoNone": "Non si può annullare"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Integrato",
+        "builtinBody": "File semplici nella tua cartella Memory. Niente lascia questa macchina.",
+        "offBody": "Non viene letto, offerto, salvato né inviato nulla. Le note esistenti restano."
+      }
     }
   }
 }

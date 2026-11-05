@@ -202,7 +202,17 @@
       "css": [
         "ui/web.css"
       ],
-      "description": "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web.",
+      "description": {
+        "en": "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web.",
+        "it": "Cerca sul web dalle tue chat con Brave Search, Tavily o Google, e leggi i file PDF sul web.",
+        "de": "Durchsuchen Sie das Web aus Ihren Chats mit Brave Search, Tavily oder Google und lesen Sie PDF-Dateien im Web.",
+        "es": "Busca en la web desde tus chats con Brave Search, Tavily o Google, y lee archivos PDF de la web.",
+        "fr": "Cherchez sur le web depuis vos conversations avec Brave Search, Tavily ou Google, et lisez des fichiers PDF sur le web.",
+        "pt-BR": "Pesquise na web a partir dos seus chats com Brave Search, Tavily ou Google, e leia arquivos PDF na web.",
+        "zh-CN": "在聊天中用 Brave Search、Tavily 或 Google 搜索网页，并读取网络上的 PDF 文件。",
+        "ko": "채팅에서 Brave Search, Tavily 또는 Google로 웹을 검색하고 웹의 PDF 파일을 읽습니다.",
+        "id": "Cari di web dari obrolan Anda dengan Brave Search, Tavily, atau Google, dan baca berkas PDF di web."
+      },
       "entry": "ui/web.js",
       "icon": "ui/icon.png",
       "mainPage": "web",
@@ -220,7 +230,17 @@
           "slot": "settings.sections"
         }
       ],
-      "title": "Web"
+      "title": {
+        "en": "Web",
+        "it": "Web",
+        "de": "Web",
+        "es": "Web",
+        "fr": "Web",
+        "pt-BR": "Web",
+        "zh-CN": "网页",
+        "ko": "웹",
+        "id": "Web"
+      }
     }
   },
   "dataFormat": {

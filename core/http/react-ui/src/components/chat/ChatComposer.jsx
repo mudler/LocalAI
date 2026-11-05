@@ -18,6 +18,8 @@ import AgentPicker from './AgentPicker'
 import SkillsMenu from './SkillsMenu'
 import SwitchMenu from './SwitchMenu'
 import VisionNotice from './VisionNotice'
+import { MemoryChip, MemoryLine } from './MemoryNotice'
+import { memoryOff, MEMORY_GROUP } from '../../utils/memoryState'
 import { ChatToolsControls } from '../../addons/hostControlComponents'
 import AgentFolderChip from './AgentFolderChip'
 import { agentFolderLine } from '../../utils/chatAgents'
@@ -132,6 +134,7 @@ export default function ChatComposer({
   const grants = useChatGrants(pickedAgent)
   const toolGroups = useToolGroups({ ...switches, grants }, { commandsInfo: commands.info })
   const network = egress && networkMode(egress) !== 'hidden'
+  const memoryIsOff = !!memoryOff(switches.memory, switches.builtins.find((b) => b.group === MEMORY_GROUP))
   // A chat whose agent has a folder reaches only that folder with its file tools.
   const scopeLine = agentFolderLine(pickedAgent, t)
   const tools = (
@@ -140,14 +143,15 @@ export default function ChatComposer({
         icon="plug" label={t('tools.label')} title={t('tools.title')} heading={t('tools.heading')}
         note={chatId ? t('tools.note') : t('tools.draftNote')}
         groups={toolGroups} error={switches.error} testId="chat-tools"
-        notice={scopeLine || commands.info || network || switches.fallbacks.length > 0
-          ? <>{scopeLine ? <p className="cmd-notice__line" data-testid="chat-tools-scope">{scopeLine}</p> : null}{commands.info ? <CommandsNotice notice={commands} /> : null}<ToolFallbacks fallbacks={switches.fallbacks} />{network ? <ChatToolsControls egress={egress} /> : null}</>
+        notice={scopeLine || commands.info || network || switches.fallbacks.length > 0 || memoryIsOff
+          ? <><MemoryLine memory={switches.memory} builtins={switches.builtins} />{scopeLine ? <p className="cmd-notice__line" data-testid="chat-tools-scope">{scopeLine}</p> : null}{commands.info ? <CommandsNotice notice={commands} /> : null}<ToolFallbacks fallbacks={switches.fallbacks} />{network ? <ChatToolsControls egress={egress} /> : null}</>
           : null}
         footer={switches.connectors.length > 0 || switches.servers.length > 0
           ? <Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/mcp-connectors" data-testid="chat-tools-manage">{tc('tools.manage')}</Button>
           : null}
       />
       <CommandsChip notice={commands} />
+      <MemoryChip memory={switches.memory} builtins={switches.builtins} />
       <SkillsMenu skills={switches.skills} replaced={switches.replacedSkills} onSet={switches.setSkillsOn} error={switches.skillsError} />
       {toolsExtra}
     </>

@@ -34,7 +34,7 @@ func (s *Service) describeGroups() {
 			WhenOff:     "The model cannot read images or recordings itself.",
 		},
 		builtins.GroupCollections: {
-			Title:       "Collections",
+			Title:       "Knowledge",
 			Description: "The model can list your collections and search them for the passages that match a question.",
 			WhenOff:     "The model cannot read your collections.",
 		},
@@ -48,17 +48,27 @@ func (s *Service) describeGroups() {
 			Description: "The model can list your saved agents and start one as a sub-agent, with that agent's own instructions and model.",
 			WhenOff:     "The model cannot see or start your saved agents.",
 		},
+		builtins.GroupHistory: {
+			Title:       "Past chats",
+			Description: "The model can search and read your earlier chats, to recall what you said or decided before. It never reads private chats, chats of messaging apps or runs that nobody watched.",
+			WhenOff:     "The model cannot see your earlier chats.",
+		},
 		builtins.GroupTriggers: {
 			Title: "Triggers",
 			Description: "The model can propose, list, change and delete triggers: tasks that run by themselves at a set time or when a file arrives in a folder. " +
 				"A new trigger or a change waits on a card in the chat until you confirm it; pausing or resuming a trigger applies at once and you can undo it.",
 			WhenOff: "The model cannot create or manage triggers. A run that a trigger or a connector started never has them.",
 		},
+		builtins.GroupMemory: {
+			Title:       "Memory",
+			Description: "The model can read your notes before it answers and save new ones. Turn it off to make this a private chat: nothing is read from your notes or saved to them. Your other chats are not affected.",
+			WhenOff:     "This is a private chat. The model neither reads nor saves your notes.",
+		},
 		builtins.GroupChanges: {
-			Title: "Memory and profile changes",
-			Description: "The model can propose an edit to your memory notes or to an agent's standing rules, and undo an edit you confirmed. " +
+			Title: "Suggested changes",
+			Description: "The model can propose an edit to your notes, its standing rules, skills, pages and dashboard, and undo an edit you confirmed. " +
 				"Nothing changes until you confirm the proposal on a card in the chat.",
-			WhenOff: "The model cannot propose edits to your memory or to an agent's rules.",
+			WhenOff: "The model cannot propose edits to your notes, its rules, skills, pages or dashboard.",
 		},
 	} {
 		s.builtins.DescribeGroup(group, info)

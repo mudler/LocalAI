@@ -75,14 +75,16 @@
       "BasicInfo": "Basic info",
       "ModelSettings": "Model",
       "PromptsGoals": "Instructions",
-      "MemorySettings": "Memory",
+      "MemorySettings": "Connaissances",
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "Fichiers",
       "Tools": "Outils",
-      "Grants": "Permissions"
+      "Notes": "Mémoire",
+      "Connections": "Connexions",
+      "Effective": "Vue effective"
     },
     "name": "Name",
     "description": "Description",
@@ -95,7 +97,7 @@
     "instructionsHelp": "What the agent always follows. Every chat with it starts from this text.",
     "collections": "Collections",
     "collectionsHint": "Collection name",
-    "collectionsHelp": "The memory collections a chat with this agent may search. The list is exact: an empty list grants none.",
+    "collectionsHelp": "Les collections qu'un chat avec cet agent peut consulter. La liste est exacte : une liste vide n'en accorde aucune.",
     "skillsHelp": "The skills a chat with this agent may read. The list is exact: an empty list grants none.",
     "noSkills": "No skills yet.",
     "manageSkills": "Write or manage skills",
@@ -137,17 +139,201 @@
       "all": "Tous les sites publics"
     },
     "toolsSummary": "{{on}} sur {{total}} activés",
-    "toolsHelp": "Choisissez ce qu'un chat avec cet agent peut utiliser. Ce sont les mêmes interrupteurs que le menu Outils d'un chat. Un outil désactivé n'est jamais proposé au modèle, et un chat avec cet agent ne peut pas l'activer.",
+    "toolsHelp": "Choisissez ce qu'une discussion avec cet agent peut utiliser. Ce sont les mêmes interrupteurs que le menu Outils d'une discussion, avec les options de chacun en dessous. Un outil désactivé n'est jamais proposé au modèle. Sans option cochée, l'agent garde les valeurs par défaut de ses connexions de messagerie ; dès que vous en cochez une, seules les cochées fonctionnent.",
     "toolsHeading": "Outils de cet agent",
     "skillsLater": "Un chat avec cet agent ne lit que les skills activées.",
     "skillsHeading": "Skills de cet agent",
-    "grantsHelp": "What the agent may do beyond its tools. With no permission ticked, the agent keeps the defaults it had before permissions existed. Once you tick any, only the ticked ones work.",
-    "grantsDefault": "Defaults",
-    "countGrants": "{{count}} granted",
-    "grantSensitive": "needs care",
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
-    "grantsAddMissing": "Add the missing permissions"
+    "grantsAddMissing": "Add the missing permissions",
+    "grantNames": {
+      "triggers_propose": "Proposer aussi depuis les applications de messagerie",
+      "triggers_run": "Laisser les déclencheurs démarrer depuis les applications de messagerie",
+      "talkback_channels": "Répondre sur les canaux connus",
+      "files_upload": "Recevoir des fichiers des applications de messagerie"
+    },
+    "memoryOffUser": "La mémoire est désactivée dans vos réglages : cet agent ne lit ni n'enregistre de notes, quoi que vous choisissiez ici.",
+    "memoryOffFix": "Réglages, Mémoire",
+    "nav": {
+      "label": "Sections",
+      "identity": "Identité",
+      "capabilities": "Capacités",
+      "memory": "Mémoire et connaissances",
+      "advanced": "Avancé",
+      "connections": "Connexions",
+      "effective": "Vue effective"
+    },
+    "lead": {
+      "identity": "Qui est l'agent et comment il se comporte.",
+      "capabilities": "Ce que l'agent peut utiliser et atteindre.",
+      "memory": "Ce dont l'agent se souvient et ce qu'il peut consulter.",
+      "advanced": "Serveurs supplémentaires et export.",
+      "connections": "Les connexions que cet agent peut utiliser.",
+      "effective": "Ce que cet agent peut faire en ce moment."
+    },
+    "header": {
+      "unnamed": "Agent sans nom",
+      "modeEdit": "Modifier l'agent",
+      "modeCreate": "Nouvel agent",
+      "summary": "Résumé de cet agent"
+    },
+    "status": {
+      "clean": "Aucune modification non enregistrée",
+      "new": "Pas encore créé",
+      "unsaved": "Modifications non enregistrées ({{count}})"
+    },
+    "preset": {
+      "label": "Niveau d'outils",
+      "loading": "Chargement de la liste d'outils",
+      "current": "Niveau : {{name}}. Si vous changez un interrupteur ci-dessous, cela devient un mélange personnalisé.",
+      "custom": "Mélange personnalisé d'interrupteurs. Choisissez un niveau pour le remplacer.",
+      "applied": "Niveau {{name}} appliqué",
+      "appliedBody": "Les interrupteurs ci-dessous ont changé. Rien n'est enregistré avant que vous enregistriez.",
+      "readonly": {
+        "title": "Consultation seule",
+        "body": "Cherche sur le web et dans vos collections. Pas de fichiers, pas de commandes, pas de déclencheurs."
+      },
+      "assistant": {
+        "title": "Assistant",
+        "body": "Ajoute les agents enregistrés, les déclencheurs et les modifications suggérées. Pas de fichiers, pas de commandes."
+      },
+      "full": {
+        "title": "Complet",
+        "body": "Tous les outils que le serveur liste. Les droits sensibles restent désactivés."
+      }
+    },
+    "tpl": {
+      "applied": "Démarré depuis {{name}}",
+      "appliedBody": "Le nom, la description, les instructions et les outils ont changé. Rien n'est enregistré avant que vous enregistriez.",
+      "tools": "Outils : {{level}}",
+      "noTools": "Outils : inchangés"
+    },
+    "undo": "Annuler",
+    "keep": "Garder",
+    "modelCaps": "Ce que ce modèle sait faire",
+    "modelChat": "Chat",
+    "connections": {
+      "addonsTitle": "Modules qui utilisent une connexion",
+      "addonsNone": "Aucun module n'a besoin d'une connexion.",
+      "messagingTitle": "Où cet agent est connecté",
+      "messagingNone": "Aucune connexion de messagerie n'utilise encore cet agent. Enregistrez l'agent, puis ajoutez-en une.",
+      "messagingHelp": "Les connexions de messagerie se règlent sur leur propre page.",
+      "allows_one": "autorise {{count}} droit",
+      "allows_other": "autorise {{count}} droits",
+      "open": "Ouvrir",
+      "addonOff": "désactivé",
+      "noneYet": "Aucune connexion pour l'instant.",
+      "add": "Ajouter une connexion",
+      "groupLabel": "Connexions pour {{name}}",
+      "chosenHelp": "Les discussions de cet agent ne peuvent utiliser que les connexions cochées.",
+      "perChat": "Aucune cochée : chaque discussion choisit la sienne.",
+      "summary_one": "{{count}} connexion",
+      "summary_other": "{{count}} connexions"
+    },
+    "more": "Plus d'actions",
+    "eff": {
+      "summaryOk": "Rien n'est bloqué.",
+      "summaryBlocked_one": "{{count}} chose est bloquée.",
+      "summaryBlocked_other": "{{count}} choses sont bloquées.",
+      "unsaved": "Cette liste suit le formulaire tel qu'il est maintenant, avec les changements non enregistrés.",
+      "unsavedConn": "Les outils, la mémoire et les connaissances suivent le formulaire tel qu'il est maintenant. Les lignes de connexion viennent de l'agent enregistré et de la connexion enregistrée.",
+      "state": {
+        "allowed": "Peut",
+        "asks": "Demande d'abord",
+        "off": "Désactivé",
+        "blocked": "Bloqué",
+        "info": "Remarque"
+      },
+      "more_one": "et {{count}} de plus",
+      "more_other": "et {{count}} de plus",
+      "fixHere": "Corriger ici",
+      "fixOpen": "Ouvrir la page qui le corrige",
+      "model": {
+        "fixed": "Fonctionne avec {{model}}.",
+        "any": "Utilise le modèle choisi dans chaque discussion."
+      },
+      "tools": {
+        "none": "Aucun outil n'est activé. Il ne peut répondre qu'avec ce qu'il sait.",
+        "some_one": "Peut utiliser {{count}} outil : {{names}}.",
+        "some_other": "Peut utiliser {{count}} outils : {{names}}.",
+        "blocked": "{{name}} est activé mais ne peut pas fonctionner pour l'instant. {{reason}}"
+      },
+      "skills": {
+        "some_one": "Peut utiliser {{count}} compétence : {{names}}.",
+        "some_other": "Peut utiliser {{count}} compétences : {{names}}."
+      },
+      "files": {
+        "all": "Peut accéder à tous vos fichiers.",
+        "folders_one": "Ne peut accéder qu'au {{count}} dossier choisi.",
+        "folders_other": "Ne peut accéder qu'aux {{count}} dossiers choisis."
+      },
+      "grants": {
+        "parentOff": "{{name}} est autorisé, mais ne fonctionne pas tant que {{parent}} est désactivé. Activez {{parent}}.",
+        "connection": "{{name}} est autorisé pour l'agent, mais pas sur cette connexion : {{connection}}",
+        "some_one": "A {{count}} droit supplémentaire : {{names}}.",
+        "some_other": "A {{count}} droits supplémentaires : {{names}}.",
+        "unattended_one": "Quand personne ne regarde, il peut utiliser {{count}} droit seul : {{names}}.",
+        "unattended_other": "Quand personne ne regarde, il peut utiliser {{count}} droits seul : {{names}}."
+      },
+      "memory": {
+        "userOff": "La mémoire est désactivée dans vos réglages : cet agent ne lit ni n'enregistre de notes, quoi qu'il choisisse ici.",
+        "none": "Ne garde et ne lit aucune note.",
+        "mine_and_own": "Lit vos notes et les siennes, et enregistre dans les siennes.",
+        "own": "Lit et enregistre seulement ses propres notes.",
+        "mine": "Lit vos notes et y enregistre.",
+        "asBefore": "La mémoire fonctionne comme avant : il lit les notes quand un module nomme Memory.",
+        "noGrant": "Il doit enregistrer des notes, mais le droit de mémoriser est désactivé, donc il n'en enregistre aucune. Activez-le dans Mémoire.",
+        "level": {
+          "auto": "Les notes sont enregistrées tout de suite.",
+          "ask": "Chaque note attend votre confirmation.",
+          "always": "Chaque note attend votre confirmation, et rien ne l'assouplit.",
+          "never": "Il n'enregistre aucune note."
+        }
+      },
+      "knowledge": {
+        "some_one": "Peut chercher dans {{count}} collection : {{names}}.",
+        "some_other": "Peut chercher dans {{count}} collections : {{names}}.",
+        "none": "Aucune collection de connaissances où chercher."
+      },
+      "connections": {
+        "unsaved": "Pas encore utilisé dans une messagerie. Enregistrez l'agent, puis ajoutez une connexion.",
+        "none": "Utilisé dans aucune messagerie.",
+        "loading": "Vérification de {{name}}...",
+        "error": "Impossible de vérifier {{name}}. Ouvrez-la pour voir ses autorisations.",
+        "summary": "{{name}} : {{allowed}} autorisés, {{blocked}} non autorisés.",
+        "blocked": "{{name}} ne peut pas utiliser {{capability}}. {{message}}"
+      }
+    },
+    "try": {
+      "open": "Essayer",
+      "title": "Essayer cet agent",
+      "desc": "Envoyez un message à une discussion de test qui utilise les réglages de ce formulaire. Rien n'est enregistré.",
+      "noModel": "Aucun modèle de discussion n'est installé. Installez ou choisissez d'abord un modèle.",
+      "defaultModel": "Aucun modèle n'est défini, le test utilise donc {{model}}.",
+      "skipped": "Le test n'utilise pas : {{what}}. Cela appartient à un agent enregistré.",
+      "skip": {
+        "grants": "autorisations",
+        "memory": "mémoire",
+        "knowledge": "collections de connaissances",
+        "folders": "dossiers partagés"
+      },
+      "empty": "Envoyez un message pour commencer.",
+      "role": {
+        "user": "Vous",
+        "assistant": "Agent",
+        "tool": "Outil"
+      },
+      "toolRan": "A utilisé un outil : {{name}}",
+      "working": "En cours...",
+      "label": "Message à l'agent",
+      "placeholder": "Demandez quelque chose que cet agent doit savoir faire",
+      "send": "Envoyer",
+      "stop": "Arrêter",
+      "deleted": "La discussion de test est supprimée à la fermeture de ce panneau.",
+      "chatTitle": "Test de {{name}}",
+      "failed": "Le test a échoué : {{message}}",
+      "slow": "L'agent travaille encore. Arrêtez-le ou fermez le panneau."
+    }
   },
   "run": {
     "workingLine": "Working"
@@ -510,5 +696,19 @@
     "effectiveWrite": "Dans un dossier modifiable : celui-ci peut aussi être modifié.",
     "notMounted": "{{n}} dossiers partagés ne tiennent pas dans la limite d'accès d'un chat et ne sont pas montés.",
     "exportNoteMany": "Le fichier nomme {{n}} dossiers. Là où vous l'importez, l'agent reçoit les dossiers de ces chemins qui existent et vous demande de choisir les autres."
+  },
+  "templates": {
+    "researcher": {
+      "description": "Cherche, lit des sources et rédige de courtes synthèses."
+    },
+    "reviewer": {
+      "description": "Examine une modification et liste d'abord ce qu'il faut corriger."
+    },
+    "digest": {
+      "description": "Réunit les nouveautés d'un sujet et les résume."
+    },
+    "blank": {
+      "description": "Vide. Partez de zéro."
+    }
   }
 }

@@ -358,10 +358,21 @@ func (t *API) addressed(ctx context.Context, token string, m tgMessage) (bool, s
 	// Entity offsets count UTF-16 units.
 	units := utf16.Encode([]rune(m.Text))
 	for _, e := range m.Entities {
-		if e.Type != "mention" || e.Offset < 0 || e.Length < 1 || e.Offset+e.Length > len(units) {
+		if e.Offset < 0 || e.Length < 1 || e.Offset+e.Length > len(units) {
 			continue
 		}
 		at := string(utf16.Decode(units[e.Offset : e.Offset+e.Length]))
+		// A command with the name of the bot ("/new@Bot") is a message to it.
+		// The text stays as it is: the host reads the command.
+		if e.Type == "bot_command" {
+			if _, to, ok := strings.Cut(at, "@"); ok && strings.EqualFold(to, name) {
+				return true, m.Text
+			}
+			continue
+		}
+		if e.Type != "mention" {
+			continue
+		}
 		if strings.EqualFold(at, "@"+name) {
 			rest := append(append([]uint16{}, units[:e.Offset]...), units[e.Offset+e.Length:]...)
 			return true, strings.Join(strings.Fields(string(utf16.Decode(rest))), " ")

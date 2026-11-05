@@ -111,6 +111,50 @@
       "job": "Tâche",
       "page": "Page",
       "other": "Automatique"
+    },
+    "keys": {
+      "clear": "effacer"
+    },
+    "find": {
+      "searching": "Recherche en cours…",
+      "count_one": "{{count}} résultat",
+      "count_other": "{{count}} résultats",
+      "more_one": "{{count}} autre correspondance dans ce chat",
+      "more_other": "{{count}} autres correspondances dans ce chat",
+      "indexing": "Les anciens chats sont encore en cours d’indexation. Les résultats peuvent être incomplets.",
+      "partial": "Recherche dans les {{searched}} chats les plus récents sur {{total}}.",
+      "failed": "La recherche a échoué.",
+      "retry": "Réessayer",
+      "noMatchFor": "Aucun chat ne correspond à « {{query}} ».",
+      "noMatchFiltered": "Aucun chat ne correspond à « {{query}} » avec ces filtres.",
+      "inTitle": "Correspond au titre",
+      "you": "Vous",
+      "assistant": "Assistant",
+      "filters": "Filtres de recherche",
+      "agent": "Agent",
+      "anyAgent": "Tous les agents",
+      "origin": "Source",
+      "anyOrigin": "Partout",
+      "originName": {
+        "person": "Mes chats",
+        "automated": "Modules et automatisations",
+        "trigger": "Déclencheurs",
+        "connector": "Applis de messagerie",
+        "job": "Tâches",
+        "page": "Pages"
+      },
+      "when": "Quand",
+      "anyTime": "À tout moment",
+      "range": {
+        "day": "Dernières 24 heures",
+        "week": "7 derniers jours",
+        "month": "30 derniers jours",
+        "year": "Dernière année",
+        "custom": "Choisir des dates…"
+      },
+      "from": "Du",
+      "to": "Au",
+      "reset": "Réinitialiser les filtres"
     }
   },
   "message": {
@@ -136,7 +180,8 @@
     "failed": "Enregistrement impossible. L'interrupteur revient à son état précédent.",
     "unavailable": "Indisponible dans ce chat",
     "toolCount_one": "{{count}} outil",
-    "toolCount_other": "{{count}} outils"
+    "toolCount_other": "{{count}} outils",
+    "optionsOf": "Options de {{name}}"
   },
   "skills": {
     "label": "Compétences",

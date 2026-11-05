@@ -1,0 +1,149 @@
+{
+  "title": "Talk",
+  "subtitle": "voce in tempo reale",
+  "stage": "Sessione vocale",
+  "picker": {
+    "title": "Pipeline vocale: ascolta, pensa, parla",
+    "heading": "Modelli pipeline",
+    "label": "Modello pipeline",
+    "none": "Nessuna pipeline",
+    "defaultVoice": "voce predefinita",
+    "auto": "auto"
+  },
+  "view": {
+    "idle": {
+      "title": "Pronto",
+      "body": "Avvia una sessione e parla. Il microfono viene usato solo mentre una sessione è aperta.",
+      "note": "Il microfono trasmette mentre la sessione è in corso. Il server si accorge quando smetti di parlare e risponde da solo.",
+      "noteManual": "Il microfono trasmette mentre la sessione è in corso. Questo modello non rileva la voce, quindi premi Ho finito alla fine di ogni turno."
+    },
+    "connecting": {
+      "title": "Connessione",
+      "body": "Preparazione della chiamata. Il modello non sta ancora ascoltando."
+    },
+    "listening": {
+      "title": "In ascolto",
+      "body": "Dimmi cosa ti serve. Rispondo quando smetti.",
+      "hearing": "Ti sto sentendo parlare.",
+      "manual": "Dimmi cosa ti serve, poi premi Ho finito."
+    },
+    "interrupted": {
+      "title": "Interrotto",
+      "body": "Mi sono fermato. Prosegui pure, ti ascolto."
+    },
+    "thinking": {
+      "title": "Sto pensando",
+      "body": "Sto preparando una risposta."
+    },
+    "speaking": {
+      "title": "Sto parlando",
+      "body": "Parla sopra di me in qualsiasi momento per interrompermi."
+    },
+    "blocked": {
+      "title": "Microfono bloccato",
+      "body": "Il browser non ha dato il microfono a questa pagina.",
+      "cardTitle": "Consenti il microfono",
+      "card": "Fai clic sull'icona del lucchetto nella barra degli indirizzi, imposta Microfono su Consenti, poi riprova. Non è stato registrato nulla."
+    },
+    "lost": {
+      "title": "Connessione persa",
+      "body": "Il collegamento con il server è caduto.",
+      "cardTitle": "La sessione è terminata",
+      "card": "Il collegamento WebRTC è fallito. La conversazione fin qui resta nella trascrizione."
+    },
+    "error": {
+      "title": "Qualcosa è andato storto",
+      "body": "Non è stato possibile preparare la chiamata, oppure il server ha segnalato un errore."
+    },
+    "nopipe": {
+      "title": "Talk ha bisogno di un modello pipeline",
+      "body": "Un modello pipeline unisce un modello da voce a testo, un modello di chat e un modello da testo a voce in un unico assistente vocale. Non ne è ancora configurato nessuno. Creane uno, oppure cerca prima i modelli nella galleria.",
+      "create": "Crea un modello pipeline",
+      "gallery": "Sfoglia la galleria"
+    }
+  },
+  "detail": {
+    "tool": "Esecuzione di {{name}}.",
+    "processing": "Sto preparando una risposta.",
+    "generating": "Sto scrivendo la risposta.",
+    "server": "Il server ha segnalato un errore: {{message}}",
+    "insecure": "L'accesso al microfono richiede HTTPS o localhost.",
+    "noMic": "Nessun microfono trovato.",
+    "failed": "Non è stato possibile preparare la chiamata: {{message}}",
+    "unknown": "errore sconosciuto"
+  },
+  "controls": {
+    "start": "Avvia sessione",
+    "end": "Termina sessione",
+    "testTone": "Tono di prova",
+    "endTurn": "Ho finito",
+    "diagnostics": "Diagnostica",
+    "viewTraces": "Vedi le tracce",
+    "retry": {
+      "blocked": "Riprova",
+      "lost": "Riconnetti",
+      "error": "Riprova"
+    }
+  },
+  "transcript": {
+    "title": "Trascrizione",
+    "copy": "Copia",
+    "empty": "Ciò che dici e ciò che risponde il modello compare qui man mano. Non viene salvato.",
+    "emptyNoPipeline": "Ancora niente da mostrare.",
+    "user": "Tu",
+    "assistant": "Risposta",
+    "tool_call": "Strumento",
+    "tool_result": "Risultato",
+    "interrupted": "Risposta interrotta",
+    "toneRequested": "Tono di prova richiesto"
+  },
+  "settings": {
+    "title": "Impostazioni della sessione",
+    "desc": "Valgono all'avvio della sessione.",
+    "close": "Chiudi",
+    "voiceLanguage": "Voce e lingua",
+    "voice": "Voce",
+    "voicePlaceholder": "Nome della voce (lascia vuoto per quella predefinita del modello)",
+    "language": "Lingua di trascrizione",
+    "languagePlaceholder": "Codice della lingua, per esempio it (vuoto: rilevamento automatico)",
+    "instructions": "Istruzioni",
+    "instructionsPlaceholder": "Istruzioni di sistema per il modello",
+    "instructionsHelp": "Inviate come istruzioni della sessione. Tienile brevi: le risposte vengono pronunciate.",
+    "tools": "Strumenti",
+    "manage": "Modalità di gestione",
+    "manageDesc": "Lascia che il modello interroghi LocalAI: modelli, backend e informazioni di sistema.",
+    "manageLocked": "Non modificabile mentre una sessione è aperta. Termina la sessione per cambiarla.",
+    "pipeline": "{{name}} nel dettaglio",
+    "anyToAny": "Modello da voce a voce: un solo modello ti ascolta, risponde e parla. Non servono un modello di trascrizione, di lingua o di sintesi vocale separati.",
+    "noVad": "Nessun modello di rilevamento della voce è impostato. Premi Ho finito dopo ogni turno.",
+    "editConfig": "Modifica la configurazione del modello",
+    "editPipeline": "Modifica la pipeline",
+    "slot": {
+      "vad": "Rilevamento della voce",
+      "transcription": "Trascrizione",
+      "llm": "Modello linguistico",
+      "tts": "Sintesi vocale"
+    }
+  },
+  "diag": {
+    "title": "Diagnostica audio",
+    "waveform": "Forma d'onda",
+    "spectrum": "Spettro (FFT)",
+    "waiting": "In attesa delle statistiche...",
+    "peakFreq": "Frequenza di picco",
+    "thd": "THD",
+    "rms": "Livello RMS",
+    "sampleRate": "Frequenza di campionamento",
+    "packetsRecv": "Pacchetti ricevuti",
+    "packetsLost": "Pacchetti persi",
+    "jitter": "Jitter",
+    "concealed": "Campioni mascherati"
+  },
+  "toasts": {
+    "selectModel": "Seleziona prima un modello pipeline.",
+    "modelsFailed": "Impossibile caricare i modelli realtime: {{message}}",
+    "viewTraces": "Vedi le tracce",
+    "copied": "Trascrizione copiata",
+    "copyFailed": "Impossibile copiare negli appunti"
+  }
+}

@@ -66,35 +66,90 @@ test('agentGrants lists every declared grant, on when the agent holds it, and ke
   assert.deepEqual(grantsAfter({}, ['memory.write'], true), ['memory.write'])
 })
 
-test('the Tools list shows each grant with its plain words, marks the sensitive ones and offers no bulk change', async () => {
+const optionGrants = [
+  { name: 'memory.write', title: 'Remember things', description: 'x', sensitive: false },
+  { name: 'skills.write', title: 'Write skills', description: 'x', sensitive: true },
+  { name: 'triggers.propose', title: 'Propose triggers', description: 'x', sensitive: false },
+  { name: 'triggers.run', title: 'Run triggers', description: 'x', sensitive: false },
+  { name: 'files.upload', title: 'Receive files', description: 'x', sensitive: false },
+  { name: 'talkback.channels', title: 'Reply', description: 'x', sensitive: false },
+  { name: 'act.send', title: 'Send', description: 'x', sensitive: true },
+  { name: 'saved_agents', title: 'Call your saved agents', description: 'x', sensitive: false },
+  { name: 'from.the.future', title: 'Future', description: 'x', sensitive: false, gone: true },
+]
+
+async function toolGroupsHarness() {
   const { hookHarness } = await import('./chatcommands-lifecycle.mjs')
+  const imports = Object.assign({}, ...await Promise.all(['chatMCP', 'chatCommands', 'toolOptions'].map((n) => import(`../../src/utils/${n}.js`))))
+  return hookHarness('../../src/hooks/useToolGroups.js', 'useToolGroups', {
+    useTranslation: () => ({ t: (key, o) => (o?.defaultValue ?? key) }), ...imports,
+  }, (source) => source.replace(/export const/g, 'const'))
+}
+
+test('the Tools list nests each grant under the switch it refines, shows every grant once and offers no bulk change', async () => {
   const { agentGrants } = await import('../../src/utils/agentTools.js')
   const { switchRows, switchCounts } = await import('../../src/utils/chatSwitchRows.js')
-  const imports = Object.assign({}, ...await Promise.all(['chatMCP', 'chatCommands'].map((n) => import(`../../src/utils/${n}.js`))))
-  const harness = hookHarness('../../src/hooks/useToolGroups.js', 'useToolGroups', {
-    useTranslation: () => ({ t: (key, o) => (o?.defaultValue ?? key) }), connectorRef: imports.connectorRef, unknownTextKey: imports.unknownTextKey,
-  }, (source) => source.replace(/export const/g, 'const'))
+  const harness = await toolGroupsHarness()
   const toggled = []
-  const base = { builtins: [], addons: [], servers: [], connectors: [], commands: {}, setBuiltinsOn() {}, setAddonsOn() {}, setMCPOn() {} }
-  const editable = { list: agentGrants(grantCatalog, ['memory.write']), editable: true, onToggle: (n, on) => toggled.push([n, on]) }
-  const groups = harness.render({ ...base, grants: editable }, {})
-  const g = groups.find((x) => x.key === 'grants')
-  assert.ok(g, 'a grants group')
-  assert.equal(g.onSet, undefined, 'no group setter: Select all never grants a right')
-  assert.deepEqual(g.rows.map((r) => [r.label, r.description, r.on, !!r.warn, !!r.readOnly]), [
-    ['Remember things', 'The agent can propose a note in your memory.', true, false, false],
-    ['Write skills', 'The agent can propose a skill.', false, true, false],
-  ])
-  assert.equal(g.rows[1].note, 'tools.grantSensitive')
-  g.rows[1].onToggle(true)
-  assert.deepEqual(toggled, [['skills.write', true]])
+  const mk = (group, off) => ({ group, off, usable: true, tools: [] })
+  const base = { builtins: [mk('triggers', false), mk('changes', true), mk('files', false), mk('saved_agents', false)], addons: [], servers: [], connectors: [], commands: {}, setBuiltinsOn() {}, setAddonsOn() {}, setMCPOn() {}, toggleBuiltin() {} }
+  const grants = { list: agentGrants(optionGrants.slice(0, 8), ['memory.write', 'triggers.propose', 'act.send', 'from.the.future']), editable: true, onToggle: (n, on) => toggled.push([n, on]) }
+  const groups = harness.render({ ...base, grants }, {})
+  const row = (id) => groups.find((x) => x.key === 'builtins').rows.find((r) => r.id === id)
+  assert.deepEqual(row('triggers').options.map((o) => [o.id, o.on, o.blocked]), [['triggers.propose', true, false], ['triggers.run', false, false]])
+  assert.deepEqual(row('files').options.map((o) => o.id), ['files.upload'], 'only the grants the server declares')
+  // The changes switch is off: its options are greyed, with the reason, and keep their stored state.
+  assert.deepEqual(row('changes').options.map((o) => [o.id, o.on, o.blocked]), [['memory.write', true, true], ['skills.write', false, true]])
+  assert.equal(row('changes').options[0].reason, 'tools.optionNeeds')
+  assert.equal(row('saved_agents').options, undefined, 'saved agents is one switch')
+  row('triggers').options[1].onToggle(true)
+  assert.deepEqual(toggled, [['triggers.run', true]])
+  // A grant with no switch to hang from is in a section; an unknown held one stays visible.
+  assert.deepEqual(groups.find((x) => x.key === 'messaging').rows.map((r) => r.id), ['talkback.channels'])
+  assert.deepEqual(groups.find((x) => x.key === 'unattended').rows.map((r) => [r.id, !!r.warn, r.on]), [['act.send', true, true]])
+  assert.deepEqual(groups.find((x) => x.key === 'grants').rows.map((r) => r.id), ['from.the.future'])
+  const all = groups.flatMap((g) => g.rows.flatMap((r) => [r.id, ...(r.options || []).map((o) => o.id)]))
+  assert.equal(new Set(all.filter((x) => x.includes('.'))).size, all.filter((x) => x.includes('.')).length, 'no grant twice')
   // The count and the bulk rows leave the grants out.
-  assert.deepEqual(switchCounts(switchRows(groups)), { on: 0, total: 0 })
+  assert.deepEqual(groups.filter((g) => !g.onSet).map((g) => g.key), ['messaging', 'unattended', 'grants'])
+  assert.deepEqual(switchCounts(switchRows(groups)), { on: 3, total: 4 })
   // A chat shows the held grants read only.
-  const chat = harness.render({ ...base, grants: { list: agentGrants(grantCatalog, ['memory.write'], { heldOnly: true }), editable: false } }, {})
-  assert.deepEqual(chat.find((x) => x.key === 'grants').rows.map((r) => [r.label, r.readOnly]), [['Remember things', true]])
-  // No grants prop, no section content.
-  assert.equal(harness.render(base, {}).find((x) => x.key === 'grants').rows.length, 0)
+  const chat = harness.render({ ...base, grants: { list: agentGrants(optionGrants, ['memory.write'], { heldOnly: true }), editable: false } }, {})
+  assert.deepEqual(chat.find((x) => x.key === 'builtins').rows.find((r) => r.id === 'changes').options.map((o) => [o.id, o.readOnly]), [['memory.write', true]])
+  // No grants prop, no content.
+  assert.equal(harness.render(base, {}).filter((x) => x.key === 'grants' || x.key === 'messaging').every((g) => g.rows.length === 0), true)
+})
+
+test('a connection that does not allow a grant the agent holds is named under that option, with a link', async () => {
+  const { agentGrants } = await import('../../src/utils/agentTools.js')
+  const { agentConnections } = await import('../../src/utils/toolOptions.js')
+  const harness = await toolGroupsHarness()
+  const connections = agentConnections(
+    [{ id: 'b1', name: 'Bender', kind: 'slack', agent_id: 'a1', caps: [] }, { id: 'b2', name: 'Other', kind: 'slack', agent_id: 'a2', caps: [] }, { id: 'b3', name: 'Ok', kind: 'telegram', agent_id: 'a1', caps: ['triggers.propose'] }],
+    [{ kind: 'slack', addon: 'slack', title: 'Slack' }], 'a1')
+  assert.deepEqual(connections.map((c) => [c.name, c.to]), [['Slack Bender', '/app/addons/slack/apps?binding=b1'], ['telegram Ok', '/app/chats/connectors']])
+  const base = { builtins: [{ group: 'triggers', off: false, usable: true }], addons: [], servers: [], connectors: [], commands: {}, toggleBuiltin() {}, connections }
+  const grants = { list: agentGrants(optionGrants, ['triggers.propose', 'act.send']), editable: true, onToggle() {} }
+  const groups = harness.render({ ...base, grants }, {})
+  const rows = groups.find((x) => x.key === 'builtins').rows[0].options
+  assert.deepEqual(rows[0].notes.map((n) => [n.key, n.link.to]), [['b1', '/app/addons/slack/apps?binding=b1']])
+  assert.deepEqual(rows[1].notes, [], 'an option that is off has no note')
+  assert.deepEqual(groups.find((x) => x.key === 'unattended').rows[0].notes, [], 'the act grants are the agent\'s alone')
+  // The agent not saved yet has no connections.
+  assert.deepEqual(agentConnections([{ agent_id: '' }], [], ''), [])
+})
+
+test('saved agents is one switch: either stored value turns it on, off clears both, on adds only the group', async () => {
+  const { agentBuiltins, savedAgentsGrantAfter, builtinsAfter } = await import('../../src/utils/agentTools.js')
+  const groups = [{ group: 'saved_agents', opt_in: true }]
+  assert.equal(agentBuiltins(groups, { builtins_on: [], builtins: ['saved_agents'] })[0].off, false)
+  assert.equal(agentBuiltins(groups, { builtins_on: ['saved_agents'], builtins: [] })[0].off, false)
+  assert.equal(agentBuiltins(groups, { builtins_on: [], builtins: [] })[0].off, true)
+  const held = { builtins_on: ['saved_agents'], builtins: ['saved_agents', 'memory.write'] }
+  assert.deepEqual(savedAgentsGrantAfter(held, ['saved_agents'], false), ['memory.write'])
+  assert.deepEqual(builtinsAfter(held, groups, ['saved_agents'], false).builtins_on, [])
+  assert.deepEqual(savedAgentsGrantAfter({ builtins: [] }, ['saved_agents'], true), [], 'switching on never adds the first grant')
+  assert.deepEqual(savedAgentsGrantAfter(held, ['web'], false), held.builtins)
 })
 
 test('agent tools: an add-on with a credential shows the connections the agent names, and ones the person no longer has are left out', () => {

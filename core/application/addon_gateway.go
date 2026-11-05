@@ -667,6 +667,15 @@ func (l lateStudioAddons) AddonContextFiles(ctx context.Context, user string) ([
 	return nil, nil
 }
 
+// AddonProviders forwards to the broker when it knows the provider slots the
+// add-ons declare.
+func (l lateStudioAddons) AddonProviders(ctx context.Context, user string) ([]studio.AddonProviderSet, error) {
+	if g, ok := l.a.StudioAddonTools().(studio.AddonProviderLister); ok {
+		return g.AddonProviders(ctx, user)
+	}
+	return nil, nil
+}
+
 // AddonUserSettings forwards to the broker when it knows the per-person
 // settings the add-ons declare.
 func (l lateStudioAddons) AddonUserSettings(ctx context.Context, user string) ([]studio.AddonUserSettingSet, error) {
@@ -715,6 +724,16 @@ func (l lateStudioAddons) Call(ctx context.Context, user, conv, name string, arg
 		return "", gateway.ErrUnavailable
 	}
 	return b.Call(ctx, user, conv, name, args)
+}
+
+// CallProvider runs a tool of a provider for a call that no chat made (see
+// studio.AddonProviderCaller).
+func (l lateStudioAddons) CallProvider(ctx context.Context, user, name string, args json.RawMessage) (string, error) {
+	b, ok := l.a.StudioAddonTools().(studio.AddonProviderCaller)
+	if !ok {
+		return "", gateway.ErrUnavailable
+	}
+	return b.CallProvider(ctx, user, name, args)
 }
 
 type studioAddons struct {
@@ -949,6 +968,32 @@ func (s *studioAddons) AddonContextFiles(ctx context.Context, user string) ([]st
 	return out, nil
 }
 
+// AddonProviders lists the add-ons that declare provider slots and that the
+// user can see, less those whose host operations need a feature the user lacks:
+// the same rule as their tools. The host decides which one serves a slot.
+func (s *studioAddons) AddonProviders(ctx context.Context, user string) ([]studio.AddonProviderSet, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return nil, nil
+	}
+	list, err := s.adapter.Providers(ctx, actor)
+	if errors.Is(err, gateway.ErrForbidden) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	denied := addonsWithoutFeature(s.hostOps, s.installed(), s.has, actor)
+	out := make([]studio.AddonProviderSet, 0, len(list))
+	for _, a := range list {
+		if denied[a.AddonID] {
+			continue
+		}
+		out = append(out, studio.AddonProviderSet{AddonID: a.AddonID, Title: a.Title, Description: a.Description, Provides: a.Provides, Running: a.Running})
+	}
+	return out, nil
+}
+
 // AddonUserSettings lists the per-person settings the add-ons declare, for the
 // host rules that read one by its role. The same visibility rule as the context
 // files: an add-on the user cannot see brings nothing.
@@ -1027,6 +1072,21 @@ func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args j
 	// workspace operations act with the chat's access (a chat whose agent has
 	// a folder reaches only that folder), for every tool kind.
 	res, err := s.adapter.ExecuteChat(ctx, actor, addontools.NewChatCall(user, conv), name, args)
+	if err != nil {
+		return "", err
+	}
+	return studioAddonText(res), nil
+}
+
+// CallProvider runs one tool of an add-on as the person, outside any chat: the
+// export and the forget of a provider come from the settings page. The call is
+// not bound to a chat, so a tool that works on a resource names it.
+func (s *studioAddons) CallProvider(ctx context.Context, user, name string, args json.RawMessage) (string, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return "", err
+	}
+	res, err := s.adapter.Execute(ctx, actor, name, args)
 	if err != nil {
 		return "", err
 	}

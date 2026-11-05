@@ -73,11 +73,23 @@ var _ = Describe("talk-back from a connector chat", func() {
 		Expect(r.conns.Ingest(ctx, "chat-addon", contract.ConnectorInbound{BindingID: b.ID, ConnectorMessage: contract.ConnectorMessage{
 			Chat: chatID, Thread: thread, Mention: true, MessageID: "m" + string(rune('a'+seq)), SenderID: "11", SenderName: "Cy", Text: text}})).To(Succeed())
 	}
+	// answers counts the replies of the chat. The working message goes out
+	// when a turn starts, so it is not an answer: counting it would end a
+	// wait before the tools of the turn have run.
+	answers := func() int {
+		n := 0
+		for _, t := range fake.texts(chatID, thread) {
+			if t != "Working…" {
+				n++
+			}
+		}
+		return n
+	}
 	// turn runs a turn and waits for its answer.
 	turn := func(text string) {
-		before := len(fake.texts(chatID, thread))
+		before := answers()
 		say(text)
-		waitFor("the answer", func() bool { return len(fake.texts(chatID, thread)) > before })
+		waitFor("the answer", func() bool { return answers() > before })
 	}
 	chatTools := func() []string {
 		l, err := r.svc.List(ctx, alice, 10)
@@ -110,13 +122,27 @@ var _ = Describe("talk-back from a connector chat", func() {
 			Expect(chatTools()).NotTo(ContainElement("send_message"))
 		})
 
-		It("is absent when the sender is not paired and has no granted role", func() {
+		It("is offered to a sender on the allowlist who is not paired", func() {
 			setup(nil)
 			bb, _ := r.store.GetBinding(ctx, b.ID)
 			bb.Paired = nil
 			Expect(r.store.PutBinding(ctx, bb)).To(Succeed())
 			turn("hello")
+			Expect(chatTools()).To(ContainElement("send_message"))
+		})
+
+		It("is absent when the sender only came in through a listed channel and is not paired", func() {
+			setup(nil)
+			bb, _ := r.store.GetBinding(ctx, b.ID)
+			bb.Paired = nil
+			bb.Allow = []string{chatID}
+			Expect(r.store.PutBinding(ctx, bb)).To(Succeed())
+			turn("hello")
 			Expect(chatTools()).NotTo(ContainElement("send_message"))
+			l, _ := r.svc.List(ctx, alice, 10)
+			prompt := strings.Join(r.h.SentRaw(l[0].ID), "\n")
+			Expect(prompt).To(ContainSubstring("This bot can write to other channels only for people the owner added by name or paired"), "the model is told why")
+			Expect(prompt).To(ContainSubstring("never say it does not exist"))
 		})
 
 		It("is absent when the server switch is off", func() {
@@ -351,14 +377,19 @@ var _ = Describe("talk-back from a connector chat", func() {
 			waitFor("the report", func() bool { return len(fake.texts(general, "")) == 1 })
 			Expect(fake.texts(general, "")[0]).To(Equal("Digest\n\nresult is 42"))
 			Expect(r.notes()).To(BeEmpty())
-			var row bool
-			for _, e := range recent() {
-				if e.Action == studio.SendDelivery {
-					row = true
-					Expect(e.Hash).NotTo(BeEmpty())
+			// The text reaches the fake before the access row is written, so
+			// wait for the row instead of reading it once.
+			var row studio.AccessEvent
+			waitFor("the delivery row", func() bool {
+				for _, e := range recent() {
+					if e.Action == studio.SendDelivery {
+						row = e
+						return true
+					}
 				}
-			}
-			Expect(row).To(BeTrue())
+				return false
+			})
+			Expect(row.Hash).NotTo(BeEmpty())
 		})
 
 		It("is refused at proposal time for a channel that is not listed or not approved", func() {

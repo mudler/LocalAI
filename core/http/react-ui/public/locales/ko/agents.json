@@ -75,14 +75,16 @@
       "BasicInfo": "Basic info",
       "ModelSettings": "Model",
       "PromptsGoals": "Instructions",
-      "MemorySettings": "Memory",
+      "MemorySettings": "지식",
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "파일",
       "Tools": "도구",
-      "Grants": "Permissions"
+      "Notes": "메모리",
+      "Connections": "연결",
+      "Effective": "유효 보기"
     },
     "name": "Name",
     "description": "Description",
@@ -95,7 +97,7 @@
     "instructionsHelp": "What the agent always follows. Every chat with it starts from this text.",
     "collections": "Collections",
     "collectionsHint": "Collection name",
-    "collectionsHelp": "The memory collections a chat with this agent may search. The list is exact: an empty list grants none.",
+    "collectionsHelp": "이 에이전트와의 채팅이 검색할 수 있는 컬렉션입니다. 목록이 곧 허용 범위이며, 비어 있으면 아무것도 허용하지 않습니다.",
     "skillsHelp": "The skills a chat with this agent may read. The list is exact: an empty list grants none.",
     "noSkills": "No skills yet.",
     "manageSkills": "Write or manage skills",
@@ -137,17 +139,201 @@
       "all": "모든 공개 사이트"
     },
     "toolsSummary": "{{total}}개 중 {{on}}개 켜짐",
-    "toolsHelp": "이 에이전트와의 채팅이 사용할 수 있는 것을 고르세요. 채팅의 도구 메뉴와 같은 스위치입니다. 꺼진 도구는 모델에 제공되지 않으며, 이 에이전트와의 채팅에서 켤 수 없습니다.",
+    "toolsHelp": "이 에이전트와의 채팅이 쓸 수 있는 것을 고르세요. 채팅의 도구 메뉴와 같은 스위치이며, 각 스위치의 옵션이 그 아래에 있습니다. 꺼진 도구는 모델에 제공되지 않습니다. 체크한 옵션이 없으면 에이전트는 메신저 연결의 기본값을 유지하고, 하나라도 체크하면 체크한 것만 작동합니다.",
     "toolsHeading": "이 에이전트의 도구",
     "skillsLater": "이 에이전트와의 채팅은 켜진 스킬만 읽습니다.",
     "skillsHeading": "이 에이전트의 스킬",
-    "grantsHelp": "What the agent may do beyond its tools. With no permission ticked, the agent keeps the defaults it had before permissions existed. Once you tick any, only the ticked ones work.",
-    "grantsDefault": "Defaults",
-    "countGrants": "{{count}} granted",
-    "grantSensitive": "needs care",
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
-    "grantsAddMissing": "Add the missing permissions"
+    "grantsAddMissing": "Add the missing permissions",
+    "grantNames": {
+      "triggers_propose": "메신저 앱에서도 제안",
+      "triggers_run": "메신저 앱에서 트리거 시작 허용",
+      "talkback_channels": "알려진 채널에 답장",
+      "files_upload": "메신저 앱에서 파일 받기"
+    },
+    "memoryOffUser": "설정에서 메모리가 꺼져 있어 여기서 어떻게 정하든 이 에이전트는 메모를 읽거나 저장하지 않습니다.",
+    "memoryOffFix": "설정, 메모리",
+    "nav": {
+      "label": "섹션",
+      "identity": "정체성",
+      "capabilities": "기능",
+      "memory": "메모리와 지식",
+      "advanced": "고급",
+      "connections": "연결",
+      "effective": "유효 보기"
+    },
+    "lead": {
+      "identity": "에이전트가 누구이고 어떻게 행동하는지 정합니다.",
+      "capabilities": "에이전트가 사용하고 접근할 수 있는 것을 정합니다.",
+      "memory": "에이전트가 기억하는 것과 찾아볼 수 있는 것을 정합니다.",
+      "advanced": "추가 서버와 내보내기.",
+      "connections": "이 에이전트가 사용할 수 있는 연결입니다.",
+      "effective": "이 에이전트가 지금 할 수 있는 일입니다."
+    },
+    "header": {
+      "unnamed": "이름 없는 에이전트",
+      "modeEdit": "에이전트 편집",
+      "modeCreate": "새 에이전트",
+      "summary": "이 에이전트 요약"
+    },
+    "status": {
+      "clean": "저장하지 않은 변경 사항 없음",
+      "new": "아직 만들지 않음",
+      "unsaved": "저장하지 않은 변경 사항 ({{count}})"
+    },
+    "preset": {
+      "label": "도구 수준",
+      "loading": "도구 목록을 불러오는 중",
+      "current": "수준: {{name}}. 아래 스위치를 바꾸면 사용자 지정 조합이 됩니다.",
+      "custom": "사용자 지정 스위치 조합입니다. 수준을 고르면 바뀝니다.",
+      "applied": "{{name}} 수준을 적용했습니다",
+      "appliedBody": "아래 스위치가 바뀌었습니다. 저장하기 전에는 아무것도 저장되지 않습니다.",
+      "readonly": {
+        "title": "보기만",
+        "body": "웹과 컬렉션을 검색합니다. 파일, 명령, 트리거는 없습니다."
+      },
+      "assistant": {
+        "title": "어시스턴트",
+        "body": "저장된 에이전트, 트리거, 제안된 변경을 더합니다. 파일과 명령은 없습니다."
+      },
+      "full": {
+        "title": "전체",
+        "body": "서버가 나열하는 모든 도구입니다. 민감한 권한은 꺼진 채로 둡니다."
+      }
+    },
+    "tpl": {
+      "applied": "{{name}}에서 시작함",
+      "appliedBody": "이름, 설명, 지침, 도구가 바뀌었습니다. 저장하기 전에는 아무것도 저장되지 않습니다.",
+      "tools": "도구: {{level}}",
+      "noTools": "도구: 그대로"
+    },
+    "undo": "실행 취소",
+    "keep": "유지",
+    "modelCaps": "이 모델이 할 수 있는 일",
+    "modelChat": "채팅",
+    "connections": {
+      "addonsTitle": "연결을 쓰는 애드온",
+      "addonsNone": "연결이 필요한 애드온이 없습니다.",
+      "messagingTitle": "이 에이전트가 연결된 곳",
+      "messagingNone": "이 에이전트를 쓰는 메시징 연결이 아직 없습니다. 에이전트를 저장한 뒤 추가하세요.",
+      "messagingHelp": "메시징 연결은 해당 페이지에서 설정합니다.",
+      "allows_one": "권한 {{count}}개 허용",
+      "allows_other": "권한 {{count}}개 허용",
+      "open": "열기",
+      "addonOff": "꺼짐",
+      "noneYet": "아직 연결이 없습니다.",
+      "add": "연결 추가",
+      "groupLabel": "{{name}}의 연결",
+      "chosenHelp": "이 에이전트의 채팅은 선택한 연결만 쓸 수 있습니다.",
+      "perChat": "선택 없음: 채팅마다 직접 고릅니다.",
+      "summary_one": "연결 {{count}}개",
+      "summary_other": "연결 {{count}}개"
+    },
+    "more": "더 많은 작업",
+    "eff": {
+      "summaryOk": "막힌 것이 없습니다.",
+      "summaryBlocked_one": "{{count}}개가 막혀 있습니다.",
+      "summaryBlocked_other": "{{count}}개가 막혀 있습니다.",
+      "unsaved": "이 목록은 저장하지 않은 변경을 포함해 지금의 양식을 따릅니다.",
+      "unsavedConn": "도구, 메모리, 지식은 지금의 양식을 따릅니다. 연결 줄은 저장된 에이전트와 저장된 연결에서 옵니다.",
+      "state": {
+        "allowed": "가능",
+        "asks": "먼저 물어봄",
+        "off": "꺼짐",
+        "blocked": "막힘",
+        "info": "참고"
+      },
+      "more_one": "외 {{count}}개",
+      "more_other": "외 {{count}}개",
+      "fixHere": "여기서 고치기",
+      "fixOpen": "고칠 수 있는 페이지 열기",
+      "model": {
+        "fixed": "{{model}}로 실행됩니다.",
+        "any": "채팅마다 고른 모델을 씁니다."
+      },
+      "tools": {
+        "none": "켜진 도구가 없습니다. 아는 것만으로 답할 수 있습니다.",
+        "some_one": "도구 {{count}}개를 쓸 수 있습니다: {{names}}.",
+        "some_other": "도구 {{count}}개를 쓸 수 있습니다: {{names}}.",
+        "blocked": "{{name}}은(는) 켜져 있지만 지금은 동작하지 않습니다. {{reason}}"
+      },
+      "skills": {
+        "some_one": "스킬 {{count}}개를 쓸 수 있습니다: {{names}}.",
+        "some_other": "스킬 {{count}}개를 쓸 수 있습니다: {{names}}."
+      },
+      "files": {
+        "all": "내 파일 전체에 접근할 수 있습니다.",
+        "folders_one": "고른 폴더 {{count}}개에만 접근할 수 있습니다.",
+        "folders_other": "고른 폴더 {{count}}개에만 접근할 수 있습니다."
+      },
+      "grants": {
+        "parentOff": "{{name}}은(는) 허용되지만 {{parent}}이(가) 꺼져 있는 동안은 동작하지 않습니다. {{parent}}을(를) 켜세요.",
+        "connection": "{{name}}은(는) 에이전트에는 허용되지만 이 연결에서는 아닙니다: {{connection}}",
+        "some_one": "추가 권한 {{count}}개가 있습니다: {{names}}.",
+        "some_other": "추가 권한 {{count}}개가 있습니다: {{names}}.",
+        "unattended_one": "아무도 보지 않을 때 권한 {{count}}개를 스스로 쓸 수 있습니다: {{names}}.",
+        "unattended_other": "아무도 보지 않을 때 권한 {{count}}개를 스스로 쓸 수 있습니다: {{names}}."
+      },
+      "memory": {
+        "userOff": "설정에서 메모리가 꺼져 있어, 여기서 무엇을 고르든 이 에이전트는 메모를 읽거나 저장하지 않습니다.",
+        "none": "메모를 보관하거나 읽지 않습니다.",
+        "mine_and_own": "내 메모와 자기 메모를 읽고 자기 메모에 저장합니다.",
+        "own": "자기 메모만 읽고 저장합니다.",
+        "mine": "내 메모를 읽고 거기에 저장합니다.",
+        "asBefore": "메모리는 이전처럼 동작합니다. 애드온이 Memory를 지정하면 메모를 읽습니다.",
+        "noGrant": "메모를 저장하도록 설정되어 있지만 기억할 권한이 꺼져 있어 저장하지 않습니다. 메모리에서 켜세요.",
+        "level": {
+          "auto": "메모가 바로 저장됩니다.",
+          "ask": "메모마다 확인을 기다립니다.",
+          "always": "메모마다 확인을 기다리며 이를 완화하는 것은 없습니다.",
+          "never": "메모를 저장하지 않습니다."
+        }
+      },
+      "knowledge": {
+        "some_one": "컬렉션 {{count}}개를 검색할 수 있습니다: {{names}}.",
+        "some_other": "컬렉션 {{count}}개를 검색할 수 있습니다: {{names}}.",
+        "none": "검색할 지식 컬렉션이 없습니다."
+      },
+      "connections": {
+        "unsaved": "아직 메시징 앱에서 쓰이지 않습니다. 에이전트를 저장한 뒤 연결을 추가하세요.",
+        "none": "어떤 메시징 앱에서도 쓰이지 않습니다.",
+        "loading": "{{name}} 확인 중...",
+        "error": "{{name}}을(를) 확인할 수 없습니다. 열어서 권한을 확인하세요.",
+        "summary": "{{name}}: 허용 {{allowed}}개, 불허 {{blocked}}개.",
+        "blocked": "{{name}}은(는) {{capability}}을(를) 쓸 수 없습니다. {{message}}"
+      }
+    },
+    "try": {
+      "open": "체험",
+      "title": "이 에이전트 체험",
+      "desc": "이 양식의 설정을 쓰는 테스트 채팅에 메시지를 보냅니다. 아무것도 저장되지 않습니다.",
+      "noModel": "설치된 채팅 모델이 없습니다. 먼저 모델을 설치하거나 고르세요.",
+      "defaultModel": "모델이 정해지지 않아 테스트는 {{model}}을(를) 씁니다.",
+      "skipped": "테스트는 {{what}}을(를) 쓰지 않습니다. 저장된 에이전트의 것입니다.",
+      "skip": {
+        "grants": "권한",
+        "memory": "메모리",
+        "knowledge": "지식 컬렉션",
+        "folders": "공유 폴더"
+      },
+      "empty": "메시지를 보내 시작하세요.",
+      "role": {
+        "user": "나",
+        "assistant": "에이전트",
+        "tool": "도구"
+      },
+      "toolRan": "도구 사용: {{name}}",
+      "working": "작업 중...",
+      "label": "에이전트에게 보낼 메시지",
+      "placeholder": "이 에이전트가 처리해야 할 것을 물어보세요",
+      "send": "보내기",
+      "stop": "중지",
+      "deleted": "이 패널을 닫으면 테스트 채팅이 삭제됩니다.",
+      "chatTitle": "{{name}} 테스트",
+      "failed": "테스트 실패: {{message}}",
+      "slow": "에이전트가 아직 작업 중입니다. 중지하거나 패널을 닫으세요."
+    }
   },
   "run": {
     "workingLine": "Working"
@@ -510,5 +696,19 @@
     "effectiveWrite": "변경할 수 있는 폴더 안에 있어서 이 폴더도 변경할 수 있습니다.",
     "notMounted": "공유 폴더 {{n}}개가 채팅의 접근 한도에 맞지 않아 마운트되지 않았습니다.",
     "exportNoteMany": "이 파일에는 폴더 {{n}}개가 적혀 있습니다. 가져오는 곳에서는 해당 경로에 실제로 있는 폴더가 에이전트에 지정되고, 나머지는 직접 고르라고 안내합니다."
+  },
+  "templates": {
+    "researcher": {
+      "description": "검색하고 출처를 읽어 짧은 요약을 씁니다."
+    },
+    "reviewer": {
+      "description": "변경 사항을 검토하고 먼저 고칠 것을 나열합니다."
+    },
+    "digest": {
+      "description": "주제의 새 소식을 모아 요약합니다."
+    },
+    "blank": {
+      "description": "비어 있음. 처음부터 시작합니다."
+    }
   }
 }

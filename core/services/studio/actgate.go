@@ -67,28 +67,40 @@ func (s *Service) triggerPolicy(ctx context.Context, t triggers.Trigger, ceiling
 		want = append(want, builtins.ClassFiles)
 	}
 	pol := builtins.ActPolicy{ReadOnly: t.Route.ReadOnly}
-	if t.Route.Auto && s.bindingMode(ctx, t.Route.Binding) == connectors.ApprovalAutoReadonly {
-		pol.ReadOnly = true
+	var ap connectors.Approval
+	if t.Route.Auto {
+		ap = s.bindingApproval(ctx, t.Route.Binding)
+		if ap.ModeOrDefault() == connectors.ApprovalAutoReadonly {
+			pol.ReadOnly = true
+		}
 	}
 	for _, n := range want {
-		if !hasAgent || withinCeiling(n, ceiling) {
-			pol.Held = append(pol.Held, n)
+		if hasAgent && !withinCeiling(n, ceiling) {
+			continue
 		}
+		// A trigger made without asking stays inside what the owner allows
+		// for its binding now; one the person confirmed keeps what they saw.
+		if t.Route.Auto && !ap.AllowsAct(n) {
+			continue
+		}
+		pol.Held = append(pol.Held, n)
 	}
 	return pol
 }
 
-// bindingMode is the approval mode of a binding. A binding that cannot be read
-// is treated as auto_readonly: the host does not widen a run on a doubt.
-func (s *Service) bindingMode(ctx context.Context, id string) string {
+// bindingApproval is the approval of a binding. A binding that cannot be read
+// is treated as auto_readonly with no acts: the host does not widen a run on a
+// doubt.
+func (s *Service) bindingApproval(ctx context.Context, id string) connectors.Approval {
+	doubt := connectors.Approval{Mode: connectors.ApprovalAutoReadonly}
 	if id == "" || s.connectors == nil {
-		return connectors.ApprovalAutoReadonly
+		return doubt
 	}
 	b, err := s.connectors.o.Store.GetBinding(ctx, id)
 	if err != nil {
-		return connectors.ApprovalAutoReadonly
+		return doubt
 	}
-	return b.Approval.ModeOrDefault()
+	return b.Approval
 }
 
 // actNames keeps the act.* names of a list of grants.

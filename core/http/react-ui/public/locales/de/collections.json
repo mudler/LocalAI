@@ -1,6 +1,6 @@
 {
-  "title": "Wissensdatenbank",
-  "subtitle": "Verwalten Sie Dokumentensammlungen für RAG der Agenten",
+  "title": "Wissen",
+  "subtitle": "Dokumentsammlungen, die Agenten durchsuchen können. Durchsuchen Sie sie hier oder fügen Sie eine einem Agenten hinzu, wenn er sie nutzen soll.",
   "newPlaceholder": "Name der neuen Sammlung...",
   "actions": {
     "create": "Erstellen",
@@ -20,7 +20,7 @@
     "title": "Noch keine Sammlungen",
     "text": "Mit Sammlungen organisieren Sie Dokumente in Wissensdatenbanken, die Agenten mit RAG (Retrieval-Augmented Generation) durchsuchen können. Erstellen Sie oben eine Sammlung, um zu beginnen.",
     "noPersonal": "Sie haben noch keine Sammlungen.",
-    "learn": "So funktioniert der Speicher"
+    "learn": "So funktioniert der Bereich Wissen"
   },
   "deleteDialog": {
     "title": "Sammlung löschen",
@@ -48,8 +48,8 @@
     "loadFailed": "Die Dateien konnten nicht geladen werden."
   },
   "starting": {
-    "title": "Der Speicher startet.",
-    "text": "Der Server bereitet den Speicherdienst noch vor. Diese Seite fragt von selbst erneut."
+    "title": "Wissen startet.",
+    "text": "Der Server bereitet den Wissensdienst noch vor. Diese Seite fragt von selbst erneut."
   },
   "embedding": {
     "missingTitle": "Kein Embedding-Modell installiert.",

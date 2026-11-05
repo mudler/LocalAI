@@ -19,11 +19,21 @@ export const AGENTS = [
 
 export const GRANTS = [
   { name: 'memory.write', title: 'Remember things', description: 'The agent can propose a note in your memory.', sensitive: false },
+  { name: 'profile.write', title: 'Change its own rules', description: 'The agent can propose an edit to its profile.', sensitive: true },
+  { name: 'skills.write', title: 'Write skills', description: 'The agent can propose a skill.', sensitive: true },
+  { name: 'pages.write', title: 'Create pages', description: 'The agent can propose a page.', sensitive: true },
+  { name: 'dashboard.write', title: 'Change the dashboard', description: 'The agent can propose a dashboard layout.', sensitive: true },
+  { name: 'knowledge.write', title: 'Add to knowledge', description: 'The agent can propose a text for one of its collections.', sensitive: true },
   { name: 'triggers.propose', title: 'Propose triggers', description: 'The agent can propose a task that runs by itself.', sensitive: false },
   { name: 'triggers.run', title: 'Run triggers', description: 'The triggers of this agent may start from a messaging app.', sensitive: false },
   { name: 'talkback.channels', title: 'Reply on known channels', description: 'The agent can send a message to a channel it already talks in.', sensitive: false },
+  { name: 'talkback.new_channel', title: 'Start new channels', description: 'The agent can start a conversation on a new channel.', sensitive: true },
   { name: 'files.upload', title: 'Receive files', description: 'Senders can attach files for the agent to read.', sensitive: false },
-  { name: 'profile.write', title: 'Change its own rules', description: 'The agent can propose an edit to its profile.', sensitive: true },
+  { name: 'act.files', title: 'Write files on its own', description: 'A run that nobody watches may write files.', sensitive: true },
+  { name: 'act.addons', title: 'Use add-on actions on its own', description: 'A run that nobody watches may call add-on actions.', sensitive: true },
+  { name: 'act.send', title: 'Send messages on its own', description: 'A run that nobody watches may send messages.', sensitive: true },
+  { name: 'act.spend', title: 'Use paid or external tools on its own', description: 'A run that nobody watches may use paid tools.', sensitive: true },
+  { name: 'saved_agents', title: 'Call your saved agents', description: 'The agent can start a saved agent.', sensitive: false },
 ]
 
 const iso = (minutesAgo) => new Date(Date.now() - minutesAgo * 60_000).toISOString()
@@ -113,14 +123,15 @@ export const DRAFT_TOOLS = {
     { group: 'web', tools: ['web_search', 'web_fetch'], off: false, usable: true, provider: 'builtin', providers: { web_search: 'builtin', web_fetch: 'builtin' }, title: 'Look things up online', description: 'The model can search the web and read a public page by its address.', when_off: 'The model cannot look anything up online.' },
     { group: 'saved_agents', tools: ['list_agents'], off: true, opt_in: true, usable: true, provider: 'builtin', providers: { list_agents: 'builtin' }, title: 'Saved agents', description: 'The model can list your saved agents and start one as a sub-agent.', when_off: 'The model cannot see or start your saved agents.' },
     { group: 'triggers', tools: ['propose_trigger'], off: false, usable: true, provider: 'builtin', providers: { propose_trigger: 'builtin' }, title: 'Triggers', description: 'The model can propose, list, change and delete triggers; a new one waits for your confirmation.', when_off: 'The model cannot create or manage triggers.' },
-    { group: 'changes', tools: ['propose_change'], off: false, usable: true, provider: 'builtin', providers: { propose_change: 'builtin' }, title: 'Memory and profile changes', description: 'The model can propose an edit to your memory notes; nothing changes until you confirm.', when_off: 'The model cannot propose edits to your memory.' },
+    { group: 'collections', tools: ['list_collections', 'search_collection'], off: false, usable: true, provider: 'builtin', providers: { list_collections: 'builtin', search_collection: 'builtin' }, title: 'Knowledge', description: 'The model can search the collections you chose for it.', when_off: 'The model cannot search your collections.' },
+    { group: 'changes', tools: ['propose_change'], off: false, usable: true, provider: 'builtin', providers: { propose_change: 'builtin' }, title: 'Suggested changes', description: 'The model can propose an edit to your memory notes; nothing changes until you confirm.', when_off: 'The model cannot propose edits to your memory.' },
   ],
   addons: [{ id: 'office', tools: 2, off: false, title: 'Office', description: 'Read and write documents and spreadsheets.' }],
 }
 
 export async function installAgents(page, {
   agents = AGENTS, chats = CHATS, triggers = TRIGGERS, runs = RUNS, skills = SKILLS, proposals = [], importWarnings = [], files = null,
-  models, collections = ['handbook', 'notes'], connectors = [{ id: 'm1', name: 'Docs', enabled: true }, { id: 'm2', name: 'Parked', enabled: false }],
+  models, collections = ['handbook', 'notes'], bindings = [], connectors = [{ id: 'm1', name: 'Docs', enabled: true }, { id: 'm2', name: 'Parked', enabled: false }],
 } = {}) {
   await mockChat(page, { models })
   const s = {
@@ -132,6 +143,9 @@ export async function installAgents(page, {
 
   await page.route('**/api/collections*', route => route.fulfill({ json: { collections } }))
   await page.route('**/v1/mcp/servers/*', route => route.fulfill({ json: { model: 'qwen3-8b', servers: [{ name: 'crm' }, { name: 'mail' }] } }))
+  // The messaging connections: the agent form names the ones of this agent.
+  await page.route(/\/api\/chats\/connectors$/, route => route.fulfill({ json: { connectors: bindings } }))
+  await page.route(/\/api\/chats\/connectors\/kinds$/, route => route.fulfill({ json: { kinds: [{ kind: 'slack', addon: 'slack', title: 'Slack' }], capabilities: [] } }))
   await page.route('**/api/chats/mcp-connectors*', route => route.fulfill({ json: { connectors } }))
   await page.route('**/api/chats/draft/tools*', route => route.fulfill({
     json: { ...DRAFT_TOOLS, servers: [], off: [], connectors: connectors.map(c => ({ id: c.id, name: c.name, off: false, usable: c.enabled, reason: c.enabled ? undefined : 'off' })) },

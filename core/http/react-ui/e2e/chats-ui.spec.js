@@ -765,25 +765,25 @@ test.describe('Chat tools menu: every group of built-in tools', () => {
     await stubGroups(page)
     await open(page)
     const names = await page.getByTestId('chat-tools-group-builtins').locator('.swl-row__name').allTextContents()
-    expect(names).toEqual(['Run commands', 'Your files', 'Look things up online', 'Images and audio', 'Collections', 'Sub-agents', 'Triggers'])
+    expect(names).toEqual(['Run commands', 'Your files', 'Look things up online', 'Images and audio', 'Knowledge', 'Sub-agents', 'Create and manage triggers'])
     await expect(row(page, 'Run commands').getByTestId('chat-tools-note')).toHaveText(['Served by add-on sandbox', 'Commands run isolated'])
     await expect(row(page, 'Your files')).toHaveAttribute('title', 'list_files, read_file, write_file · built-in')
-    await expect(sw(page, 'Collections')).toBeDisabled()
-    await expect(sw(page, 'Collections')).toHaveAccessibleDescription('collections are not enabled for this account')
+    await expect(sw(page, 'Knowledge')).toBeDisabled()
+    await expect(sw(page, 'Knowledge')).toHaveAccessibleDescription('collections are not enabled for this account')
     await shot(page, 'groups-all')
   })
 
   test('every group has a title and a description, also one the interface has no words for, and an add-on shows its declared title', async ({ page }) => {
     const state = await stubGroups(page)
     state.builtins.push({ group: 'changes', tools: ['propose_change'], off: false, usable: true, provider: 'builtin', providers: {},
-      title: 'Memory and profile changes', description: 'The model can propose an edit; nothing changes until you confirm.', when_off: 'The model cannot propose edits.' })
+      title: 'Suggested changes', description: 'The model can propose an edit; nothing changes until you confirm.', when_off: 'The model cannot propose edits.' })
     state.builtins.push({ group: 'newgroup', tools: ['x_tool'], off: false, usable: true, provider: 'builtin', providers: {},
       title: 'A new group', description: 'The model can use a tool the interface has no words for yet.' })
     await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: {
       addons: [{ id: 'sandbox', tools: 2, off: false, title: 'Isolated runner', description: 'Runs code in a box.' }], commands: 'available', commands_provider: 'sandbox' } }))
     await open(page)
     // The ninth built-in group reads as a title, not as its id.
-    await expect(sw(page, 'Memory and profile changes')).toBeVisible()
+    await expect(sw(page, 'Suggested changes')).toBeVisible()
     await expect(sw(page, 'A new group')).toBeVisible()
     await expect(sw(page, 'Isolated runner')).toBeVisible()
     await expect(page.getByTestId('chat-tools-menu')).toContainText('Runs code in a box.')
@@ -820,7 +820,7 @@ test.describe('Chat tools menu: every group of built-in tools', () => {
     await page.getByTestId('chat-tools-all').click()
     await expect.poll(() => state.puts.at(-1)).toEqual({ off: [] })
     await expect(sw(page, 'Run commands')).toHaveAttribute('aria-checked', 'true')
-    await expect(sw(page, 'Collections')).toHaveAttribute('aria-checked', 'false')
+    await expect(sw(page, 'Knowledge')).toHaveAttribute('aria-checked', 'false')
   })
 
   test('the shell row says commands run on this machine, with the warning', async ({ page }) => {
@@ -833,10 +833,10 @@ test.describe('Chat tools menu: every group of built-in tools', () => {
   })
 
   test('the shell row is disabled with the reason when nothing can run commands', async ({ page }) => {
-    await stubGroups(page, { shell: null, commands: { commands: 'none' } })
+    await stubGroups(page, { shell: null, commands: { commands: 'none', commands_host_exec: 'off' } })
     await open(page)
     await expect(sw(page, 'Run commands')).toBeDisabled()
-    await expect(sw(page, 'Run commands')).toHaveAccessibleDescription('No add-on that runs code is installed, so the assistant can write files but cannot run scripts or commands.')
+    await expect(sw(page, 'Run commands')).toHaveAccessibleDescription("The server's built-in bash is off, so the assistant can write files but cannot run scripts or commands.")
   })
 })
 

@@ -113,6 +113,50 @@
       "job": "Trabajo",
       "page": "Página",
       "other": "Automático"
+    },
+    "keys": {
+      "clear": "borrar"
+    },
+    "find": {
+      "searching": "Buscando…",
+      "count_one": "{{count}} resultado",
+      "count_other": "{{count}} resultados",
+      "more_one": "{{count}} coincidencia más en este chat",
+      "more_other": "{{count}} coincidencias más en este chat",
+      "indexing": "Los chats antiguos aún se están indexando. Los resultados pueden estar incompletos.",
+      "partial": "Se buscó en los {{searched}} chats más recientes de {{total}}.",
+      "failed": "La búsqueda ha fallado.",
+      "retry": "Reintentar",
+      "noMatchFor": "Ningún chat coincide con «{{query}}».",
+      "noMatchFiltered": "Ningún chat coincide con «{{query}}» con estos filtros.",
+      "inTitle": "Coincide con el título",
+      "you": "Tú",
+      "assistant": "Asistente",
+      "filters": "Filtros de búsqueda",
+      "agent": "Agente",
+      "anyAgent": "Cualquier agente",
+      "origin": "Origen",
+      "anyOrigin": "En cualquier lugar",
+      "originName": {
+        "person": "Mis chats",
+        "automated": "Complementos y automatizaciones",
+        "trigger": "Disparadores",
+        "connector": "Apps de mensajería",
+        "job": "Tareas",
+        "page": "Páginas"
+      },
+      "when": "Cuándo",
+      "anyTime": "Cualquier fecha",
+      "range": {
+        "day": "Últimas 24 horas",
+        "week": "Últimos 7 días",
+        "month": "Últimos 30 días",
+        "year": "Último año",
+        "custom": "Elegir fechas…"
+      },
+      "from": "Desde",
+      "to": "Hasta",
+      "reset": "Restablecer filtros"
     }
   },
   "message": {
@@ -138,7 +182,8 @@
     "failed": "No se pudo guardar. El interruptor vuelve a como estaba.",
     "unavailable": "No disponible en este chat",
     "toolCount_one": "{{count}} herramienta",
-    "toolCount_other": "{{count}} herramientas"
+    "toolCount_other": "{{count}} herramientas",
+    "optionsOf": "Opciones de {{name}}"
   },
   "skills": {
     "label": "Habilidades",

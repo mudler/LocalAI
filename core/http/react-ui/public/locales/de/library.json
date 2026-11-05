@@ -77,7 +77,7 @@
     "budgetNote": "Schätzungen: Zeichen geteilt durch vier. Das Kontextfenster des Modells ist hier nicht bekannt, daher gibt es keinen Anteil an einem Limit.",
     "instructions": "Anweisungen",
     "skills": "Skills",
-    "memory": "Speicher",
+    "memory": "Wissen",
     "skillsTitle": "Skills, die dieser Kontext lädt",
     "skillsNone": "Für diesen Agenten sind keine Skills aktiv.",
     "skillsPrompt": "Im Prompt jeder Nachricht.",
@@ -87,7 +87,7 @@
     "skillMissing": "{{name}} steht auf der Liste, aber kein Skill hat diesen Namen.",
     "skillTokens": "{{count}} Token",
     "skillTokensTools": "0 vorab",
-    "memoryTitle": "Speicher, der gesendet würde",
+    "memoryTitle": "Wissen, das gesendet würde",
     "memoryNone": "Auf der Liste dieses Agenten steht keine Sammlung. Fügen Sie eine hinzu, um sie zu nutzen.",
     "memoryNoCollection": "Die Wissensbasis dieses Agenten ist aktiv, aber es gibt noch keine Sammlung namens {{name}}.",
     "memoryTools": "Dieser Agent sucht nur, wenn das Modell es anfordert. Vorab wird nichts zur Nachricht hinzugefügt.",
@@ -108,7 +108,7 @@
   "agentBudget": "Die ausgewählten Skills fügen jeder Nachricht etwa {{count}} Token hinzu (Schätzung: Zeichen geteilt durch vier).",
   "agentKb": {
     "reads": "Dieser Agent liest die Sammlung namens {{name}}.",
-    "exists": "Dieser Agent liest die Sammlung namens {{name}}. Sie können sie im Speicher befüllen und durchsuchen.",
+    "exists": "Dieser Agent liest die Sammlung namens {{name}}. Sie können sie unter Wissen befüllen und durchsuchen.",
     "created": "Dieser Agent liest die Sammlung namens {{name}}. Sie wird beim Speichern erstellt."
   }
 }

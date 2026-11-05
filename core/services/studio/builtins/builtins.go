@@ -48,8 +48,15 @@ const (
 	// GroupChanges holds propose_change and revert_change: a chat can ask to
 	// change the person's memory or an agent profile, and the person confirms.
 	GroupChanges = "changes"
+	// GroupMemory is the switch of the notes of the chat: off makes it a
+	// private chat, which neither reads nor saves memory.
+	GroupMemory = "memory"
 	// GroupSubAgents holds spawn_agent.
 	GroupSubAgents = "subagents"
+	// GroupHistory holds search_chats and read_chat: the model can search and
+	// read the person's earlier chats. It is opt-in: off until the chat, or the
+	// saved agent that holds the grant history.read, switches it on.
+	GroupHistory = "history"
 )
 
 // The runtime settings of the built-in tools.

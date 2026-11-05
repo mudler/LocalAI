@@ -63,6 +63,25 @@ const (
 )
 
 var allowed = []entry{
+	{ui + "hooks/useToolGroups.js", "memory", "the switch group of the built-in memory"},
+	{ui + "utils/agentPresets.js", "'memory'", "the switch group of the built-in memory in the agent presets"},
+	{ui + "utils/agentEffective.js", "memory", "the effective view lines of the built-in memory in the agent editor"},
+	{ui + "utils/agentTryIt.js", "memory", "the list of what a test chat does not use, which includes the built-in memory"},
+	{locales + "en/agents.json", "create.try.skip.memory", "the name of the built-in memory in the list of what a test chat skips"},
+	{ui + "utils/memoryState.js", "memory", "the switch group of the built-in memory"},
+	// The memory choice of an agent and the notes list belong to the built-in.
+	{ui + "utils/memoryFiles.js", "memory", "the source of the built-in notes in the list of context files"},
+	{ui + "components/MemorySettings.jsx", "memory", "the provider slot of the built-in memory, drawn by the generic provider chooser"},
+	{ui + "pages/AgentCreate.jsx", "memory", "the memory choice of the agent form and the icon of its section: the built-in memory"},
+	{"core/http/endpoints/studio/agents.go", "memory", "the memory query of the agent delete: what to do with the notes of the built-in memory"},
+	// Memory is built into the host. The add-on of that name is the alias of
+	// the built-in: its index files and skills are the host's now, and the
+	// host ignores its copies.
+	{"core/services/studio/memory.go", `memory`, "the id the retired Memory add-on had; the host serves its index files and skills itself"},
+	{"core/services/studio/builtins/builtins.go", `memory`, "the switch group of the built-in memory"},
+	{"pkg/addons/providerconformance/conformance.go", `memory`, "the id of the notes slot, which the suite tests; it equals the id of the retired add-on"},
+	{"pkg/addons/contract/skills.go", `memory`, "the two memory skills are built in; the retired add-on may still declare them"},
+
 	// Third-party services: the login, the release source, the token issuer.
 	{"core/cli/run.go", "GitHub OAuth App", "help of the GitHub OAuth login: GitHub the service, not the add-on"},
 	{"core/http/auth/models.go", `github`, "the id of the GitHub OAuth login provider"},
@@ -100,17 +119,19 @@ var allowed = []entry{
 	{"docs/content/reference/cli-reference.md", "(Telegram, Slack)", "help text that gives chat platforms as examples"},
 	{"docs/content/getting-started/_index.en.md", "Telegram", "a chat platform as an example of where an agent can answer"},
 	{"docs/content/getting-started/first-agent.md", "Telegram", "a chat platform as an example of where an agent can answer"},
+	{"docs/content/reference/ai-coding-assistants.md", "Discord channel", "the project community server, not the add-on"},
+	{"docs/content/getting-started/troubleshooting.md", "LocalAI Discord", "the project community server, not the add-on"},
 
 	// Ordinary words that equal an id or a title.
 	{"core/schema/chats.go", `example:"Sandbox"`, "a sample value in the API documentation"},
 	{locales + "de/pages.json", "Sie öffnen sich hier in einer Sandbox", "German for the isolated frame of a page: the ordinary noun"},
-	{locales + "de/workspace.json", "types.sheet = Tabelle", "German for a sheet: the translated title and the noun coincide"},
 	{"core/application/studio_service.go", `memory`, "the in-memory kind of the store"},
 	{"core/application/studio_store.go", `memory`, "the in-memory kind of the store"},
 	{"core/services/studio/nibharness/tools.go", `memory`, "the built-in memory tool of the agent engine"},
 	{"pkg/xsysinfo/gpu.go", `memory`, "a GPU memory counter"},
 	{"core/http/auth/usage.go", `web`, "usage source of a request from the web UI session"},
 	{"core/services/studio/builtins/builtins.go", `web`, "the id of the built-in Web tool group of chats"},
+	{ui + "pages/Home.jsx", `data-testid="home-assistant"`, "test id of the LocalAI assistant button on the Home page: the built-in assistant, not the add-on"},
 	{"core/services/studio/webtools.go", "Web search", "the label of the built-in web search tool"},
 	{"core/services/studio/webtools.go", "Web:", "the built-in Web tool group, the web as a noun"},
 	{"pkg/web/search/brave.go", `web`, "the kind of search of the Brave API"},
@@ -173,7 +194,7 @@ var _ = Describe("the names of the shipped add-ons in core", func() {
 			role[a.ID] = a.Role
 		}
 		Expect(len(addons)).To(BeNumerically(">=", 10))
-		for _, id := range []string{"sandbox", "office", "web", "slack", "telegram", "github", "tables", "memory"} {
+		for _, id := range []string{"sandbox", "office", "web", "slack", "telegram", "github", "jellyfin", "tables", "memory"} {
 			Expect(role).To(HaveKeyWithValue(id, true), "%s gives the host something to act on", id)
 		}
 		for _, id := range []string{"face", "voice", "talk", "studio", "fine-tuning", "quantization"} {

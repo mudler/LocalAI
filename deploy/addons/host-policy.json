@@ -6,7 +6,10 @@
     "sandbox": ["workspace.", "egress."],
     "office": ["workspace."],
     "web": ["workspace."],
+    "home-assistant": ["workspace."],
+    "pikvm": ["workspace."],
     "telegram": ["connector."],
-    "slack": ["connector."]
+    "slack": ["connector."],
+    "discord": ["connector."]
   }
 }

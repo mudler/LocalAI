@@ -4,6 +4,8 @@
 // The modes a binding answers with. The server has the same defaults.
 export const REPLY_MODES = ['off', 'progress', 'stream']
 export const CONVERSATIONS = ['sender', 'chat', 'window', 'thread']
+// The language of the sentences the bot writes itself (auto follows the sender).
+export const REPLY_LANGUAGES = ['auto', 'en', 'it', 'de', 'es', 'fr', 'pt-BR']
 export const MAX_WINDOW_MINUTES = 7 * 24 * 60
 
 // How the triggers that the agent proposes in a chat are approved, and the
@@ -17,14 +19,23 @@ export const APPROVAL_LIMITS = [
   { key: 'max_lifetime_days', max: 365, fallback: 30 },
 ]
 
+// The acts a run of a trigger proposed from a chat may be allowed to do. The
+// names are also the grants of the agent, which must hold the same one. Every
+// one is sensitive.
+export const APPROVAL_ACTS = ['act.files', 'act.addons', 'act.send', 'act.spend']
+
 export function emptyApproval() {
-  return { mode: 'ask', max_pending: '', min_gap_minutes: '', max_runs_per_day: '', max_lifetime_days: '' }
+  return { mode: 'ask', acts: [], max_pending: '', min_gap_minutes: '', max_runs_per_day: '', max_lifetime_days: '' }
 }
+
+// Whether the agent holds the grant behind an act. held is agentHeld(agent);
+// null (permissions unreadable) gates nothing.
+export const agentHoldsAct = (held, act) => held === null || held === undefined || held.includes(act)
 
 // The approval of a saved binding as a form: a limit of zero is the default
 // and shows empty.
 export function approvalForm(a) {
-  const f = { ...emptyApproval(), mode: a?.mode || 'ask' }
+  const f = { ...emptyApproval(), mode: a?.mode || 'ask', acts: Array.isArray(a?.acts) ? [...a.acts] : [] }
   for (const { key } of APPROVAL_LIMITS) f[key] = a?.[key] > 0 ? String(a[key]) : ''
   return f
 }
@@ -34,6 +45,7 @@ export function approvalForm(a) {
 export function approvalProblem(a) {
   if (!a) return ''
   if (!APPROVAL_MODES.includes(a.mode)) return 'mode'
+  if ((a.acts || []).some((n) => !APPROVAL_ACTS.includes(n))) return 'acts'
   for (const { key, max } of APPROVAL_LIMITS) {
     const v = String(a[key] ?? '').trim()
     if (v === '') continue
@@ -44,7 +56,9 @@ export function approvalProblem(a) {
 }
 
 export function approvalPayload(a) {
-  const body = { mode: APPROVAL_MODES.includes(a?.mode) ? a.mode : 'ask' }
+  // The whole approval is sent each time (the server replaces it), acts too;
+  // an empty list means runs only read.
+  const body = { mode: APPROVAL_MODES.includes(a?.mode) ? a.mode : 'ask', acts: APPROVAL_ACTS.filter((n) => (a?.acts || []).includes(n)) }
   for (const { key } of APPROVAL_LIMITS) body[key] = Number(String(a?.[key] ?? '').trim()) || 0
   return body
 }
@@ -68,6 +82,89 @@ export function hasNoCaps(c) {
 // never a sensitive one, whatever the list says.
 export function usualCaps(capabilities) {
   return (capabilities || []).filter((c) => c.usual && !c.sensitive).map((c) => c.name)
+}
+
+// The binding capabilities that are also grants of a saved agent. A sender can
+// only use one of them when the agent holds the grant too, so the presets only
+// tick what the agent holds. proposals.confirm and tools.write are not grants:
+// they belong to the binding alone.
+export const AGENT_GRANT_CAPS = [
+  'memory.write', 'profile.write', 'skills.write', 'pages.write', 'dashboard.write', 'knowledge.write',
+  'files.upload', 'triggers.propose', 'triggers.run', 'talkback.channels', 'talkback.new_channel',
+]
+
+// What an agent without a grant list holds for its messaging connections (the
+// server rule is core/services/studio/connectorgrants.go). As soon as the list
+// names any grant, only the named ones count.
+export const DEFAULT_CONNECTOR_GRANTS = ['triggers.propose', 'triggers.run', 'talkback.channels', 'files.upload']
+
+// The grants the agent holds for a connection, or null when its permissions
+// cannot be read (no agent, an agent that is not in the list, a host that does
+// not send them).
+export function agentHeld(agent) {
+  if (!agent || !Array.isArray(agent.builtins)) return null
+  return agent.builtins.length > 0 ? agent.builtins : DEFAULT_CONNECTOR_GRANTS
+}
+
+// Whether the agent lets a capability be switched on: a capability that is not
+// a grant of the agent is not gated. held is agentHeld(agent); null gates nothing.
+export const agentHas = (held, name) => held === null || !AGENT_GRANT_CAPS.includes(name) || held.includes(name)
+
+// Why a preset cannot be used: 'noAgent', 'unreadable', 'nothing' or ''.
+export function presetBlock(agentId, held, capabilities) {
+  if (!agentId) return 'noAgent'
+  if (held === null) return 'unreadable'
+  if (!(capabilities || []).some((c) => AGENT_GRANT_CAPS.includes(c.name) && held.includes(c.name))) return 'nothing'
+  return ''
+}
+
+// "Allow the usual set": the caps the host marks usual (never a sensitive one)
+// that the agent holds. skipped are the usual ones the agent does not hold.
+export function usualFor(capabilities, held) {
+  const usual = usualCaps(capabilities)
+  return { caps: usual.filter((n) => agentHas(held, n)), skipped: usual.filter((n) => !agentHas(held, n)) }
+}
+
+// "Same as the agent": every cap the agent holds that is a capability of the
+// host's list, sensitive ones too. sensitive names the ones that are.
+export function copyFromAgent(capabilities, held) {
+  const list = (capabilities || []).filter((c) => AGENT_GRANT_CAPS.includes(c.name) && (held || []).includes(c.name))
+  return { caps: list.map((c) => c.name), sensitive: list.filter((c) => c.sensitive).map((c) => c.name) }
+}
+
+// The form after the caps of the agent were copied in. The caps that are not
+// grants of an agent stay as they were; the others become exactly the copy, and
+// a role never keeps a cap the ceiling lost.
+export function withCopiedCaps(form, caps) {
+  const keep = (form.caps || []).filter((n) => !AGENT_GRANT_CAPS.includes(n))
+  const next = [...new Set([...keep, ...caps])]
+  const grants = (form.grants || []).map((g) => ({ ...g, caps: g.caps.filter((x) => next.includes(x)) })).filter((g) => g.caps.length > 0)
+  return { ...form, caps: next, grants }
+}
+
+// The form with these caps added to the ones it has.
+export function withAddedCaps(form, caps) {
+  return { ...form, caps: [...new Set([...(form.caps || []), ...caps])] }
+}
+
+// The ticked sensitive caps that nobody can use yet. A sender on the allowlist
+// may use the other ticked caps; a sensitive cap also needs a sender the owner
+// paired with the bot (see Authorize in core/services/studio/connectoraccess.go).
+// So with no live pairing, every ticked sensitive cap is dead. Returns names.
+export function unpairedSensitive(form, paired, capabilities, now = Date.now()) {
+  const active = (paired || []).some((p) => !p.expires_at || new Date(p.expires_at).getTime() > now)
+  if (active) return []
+  const sensitive = new Set((capabilities || []).filter((c) => c.sensitive).map((c) => c.name))
+  return (form?.caps || []).filter((c) => sensitive.has(c))
+}
+
+// Whether the allowlist holds channel entries only: members of a channel are not
+// trusted one by one, so no person can use a ticked permission through it. Only
+// a page with a list of people before its other lists can tell (Slack).
+export function channelOnly(form, lists) {
+  if (!Array.isArray(lists) || lists.length < 2 || form?.accept_any) return false
+  const allow = form?.allow || []
+  return allow.length > 0 && listEntries(allow, lists, 0).length === 0
 }
 
 // The form after cap name was turned on or off. Turning one off also takes it
@@ -120,7 +217,7 @@ export function channelsProblem(list) {
 export function emptyConnector() {
   return {
     id: '', name: '', token: '', agent_id: '', enabled: true, accept_any: false, allow: [], notify_chat: '',
-    reply_mode: 'progress', conversation: 'sender', window_minutes: 60, send_files: true,
+    reply_mode: 'progress', conversation: 'sender', window_minutes: 60, send_files: true, reply_language: 'auto',
     options: {},
     file_receive_mib: '', file_send_mib: '',
     approval: emptyApproval(),
@@ -208,6 +305,7 @@ export function connectorPayload(form, kind, token = form.token, extra = {}) {
     reply_mode: form.reply_mode || 'progress',
     conversation: form.conversation || 'sender',
     send_files: form.send_files !== false,
+    reply_language: REPLY_LANGUAGES.includes(form.reply_language) ? form.reply_language : 'auto',
     // The choices for the options of the kind; a missing one has its default.
     options: Object.fromEntries(Object.entries(form.options || {}).filter(([, v]) => v)),
     file_receive_max_bytes: mibToBytes(form.file_receive_mib),
@@ -225,6 +323,13 @@ export function connectorPayload(form, kind, token = form.token, extra = {}) {
   return { ...body, ...extra }
 }
 
+// The language of the page, for dates: the web UI keeps it on the document, so
+// a date reads in the language of the words around it. [] is the browser's.
+export function pageLocale() {
+  const lang = typeof document !== 'undefined' ? document.documentElement?.lang : ''
+  return lang || []
+}
+
 // Who the binding accepts, in a few words.
 export function modeText(c) {
   if (c.accept_any) return 'anyone'
@@ -233,8 +338,11 @@ export function modeText(c) {
 }
 
 // A sender of the log as a short line: name, how many messages, and the id.
-export function senderLine(s) {
-  return `${s.name || s.id} · ${s.count} message${s.count === 1 ? '' : 's'} · ${s.id}`
+// With a translator t, the words follow the language of the page.
+export function senderLine(s, t) {
+  const name = s.name || s.id
+  if (typeof t === 'function') return t('sender.line', { name, count: s.count, id: s.id })
+  return `${name} · ${s.count} message${s.count === 1 ? '' : 's'} · ${s.id}`
 }
 
 // "Accept any message" is only saved after the person confirms the warning.

@@ -66,6 +66,13 @@
     "loadError": {
       "title": "Add-ons sind gerade nicht verfügbar.",
       "paused": "Add-on-Seiten und -Werkzeuge pausieren, bis er wieder da ist."
+    },
+    "busy": {
+      "upgrading": "Der Add-on-Server ist beschäftigt (aktualisiert {{names}})",
+      "generic": "Der Add-on-Server ist beschäftigt",
+      "unreachable": "Der Add-on-Server ist nicht erreichbar",
+      "reason": "Es wird der zuletzt bekannte Stand gezeigt. Die Seite fragt selbstständig erneut.",
+      "retry": "Jetzt erneut versuchen"
     }
   },
   "browse": {
@@ -138,7 +145,8 @@
     "invalid": "Der Server konnte diese Anfrage nicht annehmen.",
     "network": "Der Server ist nicht erreichbar. Prüfe deine Verbindung.",
     "unavailable": "Add-ons sind gerade nicht verfügbar. Versuche es gleich noch einmal.",
-    "unknownOutcome": "Das Ergebnis konnte nicht bestätigt werden. Prüfe den Status, bevor du es erneut versuchst."
+    "unknownOutcome": "Das Ergebnis konnte nicht bestätigt werden. Prüfe den Status, bevor du es erneut versuchst.",
+    "busy": "Der Add-on-Server ist beschäftigt und hat nicht rechtzeitig geantwortet. Versuche es gleich noch einmal."
   },
   "installed": {
     "disabled": "Aus",
@@ -929,6 +937,31 @@
       "downgradeTitle": "Ältere Version",
       "downgrade": "Dies installiert Version {{version}}, die älter ist als die installierte Version {{installed}}. Eine ältere Version kann Daten, die eine neuere geschrieben hat, eventuell nicht lesen.",
       "downgradeConfirm": "Ich möchte die ältere Version installieren"
+    }
+  },
+  "notice": {
+    "enableFailedTitle": "{{name}} konnte nicht eingeschaltet werden",
+    "incompatibleTitle": "{{name}} lässt sich nicht einschalten: nicht mit diesem Server kompatibel",
+    "noUpgrade": "Es ist noch keine neuere Version gelistet. Lass es aus oder entferne es."
+  },
+  "operation": {
+    "kind": {
+      "install": "Wird installiert…",
+      "upgrade": "Wird aktualisiert…",
+      "uninstall": "Wird entfernt…",
+      "enable": "Wird gestartet…",
+      "disable": "Wird gestoppt…",
+      "working": "In Arbeit…"
+    },
+    "label": "In Arbeit: {{operation}}",
+    "phase": {
+      "queued": "wartet",
+      "downloading": "Download und Prüfung",
+      "backing-up": "Datensicherung",
+      "installing": "Installation",
+      "migrating": "Datenmigration",
+      "starting": "Start",
+      "working": "in Arbeit"
     }
   }
 }

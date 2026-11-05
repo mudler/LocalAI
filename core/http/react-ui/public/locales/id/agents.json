@@ -75,14 +75,16 @@
       "BasicInfo": "Basic info",
       "ModelSettings": "Model",
       "PromptsGoals": "Instructions",
-      "MemorySettings": "Memory",
+      "MemorySettings": "Pengetahuan",
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "File",
       "Tools": "Alat",
-      "Grants": "Permissions"
+      "Notes": "Memori",
+      "Connections": "Koneksi",
+      "Effective": "Tampilan efektif"
     },
     "name": "Name",
     "description": "Description",
@@ -95,7 +97,7 @@
     "instructionsHelp": "What the agent always follows. Every chat with it starts from this text.",
     "collections": "Collections",
     "collectionsHint": "Collection name",
-    "collectionsHelp": "The memory collections a chat with this agent may search. The list is exact: an empty list grants none.",
+    "collectionsHelp": "Koleksi yang boleh dicari dalam obrolan dengan agen ini. Daftarnya persis: daftar kosong berarti tidak ada akses.",
     "skillsHelp": "The skills a chat with this agent may read. The list is exact: an empty list grants none.",
     "noSkills": "No skills yet.",
     "manageSkills": "Write or manage skills",
@@ -137,17 +139,201 @@
       "all": "Semua situs publik"
     },
     "toolsSummary": "{{on}} dari {{total}} aktif",
-    "toolsHelp": "Pilih apa yang dapat dipakai chat dengan agen ini. Sakelarnya sama dengan menu Alat pada chat. Alat yang mati tidak pernah ditawarkan kepada model, dan chat dengan agen ini tidak dapat menyalakannya.",
+    "toolsHelp": "Pilih apa yang dapat dipakai obrolan dengan agen ini. Ini sakelar yang sama dengan menu Alat pada obrolan, dengan opsi tiap sakelar di bawahnya. Alat yang mati tidak pernah ditawarkan ke model. Tanpa opsi yang dicentang, agen memakai bawaan koneksi pesannya; setelah Anda mencentang satu, hanya yang dicentang yang berlaku.",
     "toolsHeading": "Alat agen ini",
     "skillsLater": "Chat dengan agen ini hanya membaca skill yang aktif.",
     "skillsHeading": "Skill agen ini",
-    "grantsHelp": "What the agent may do beyond its tools. With no permission ticked, the agent keeps the defaults it had before permissions existed. Once you tick any, only the ticked ones work.",
-    "grantsDefault": "Defaults",
-    "countGrants": "{{count}} granted",
-    "grantSensitive": "needs care",
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
-    "grantsAddMissing": "Add the missing permissions"
+    "grantsAddMissing": "Add the missing permissions",
+    "grantNames": {
+      "triggers_propose": "Usulkan juga dari aplikasi pesan",
+      "triggers_run": "Biarkan pemicu dimulai dari aplikasi pesan",
+      "talkback_channels": "Membalas di kanal yang dikenal",
+      "files_upload": "Menerima file dari aplikasi pesan"
+    },
+    "memoryOffUser": "Memori nonaktif di pengaturan Anda, jadi agen ini tidak membaca atau menyimpan catatan, apa pun yang Anda atur di sini.",
+    "memoryOffFix": "Pengaturan, Memori",
+    "nav": {
+      "label": "Bagian",
+      "identity": "Identitas",
+      "capabilities": "Kemampuan",
+      "memory": "Memori dan pengetahuan",
+      "advanced": "Lanjutan",
+      "connections": "Koneksi",
+      "effective": "Tampilan efektif"
+    },
+    "lead": {
+      "identity": "Siapa agen ini dan bagaimana ia bersikap.",
+      "capabilities": "Apa yang boleh digunakan dan dijangkau agen.",
+      "memory": "Apa yang diingat agen dan apa yang bisa dicarinya.",
+      "advanced": "Server tambahan dan ekspor.",
+      "connections": "Koneksi mana yang boleh dipakai agen ini.",
+      "effective": "Apa yang bisa dilakukan agen ini sekarang."
+    },
+    "header": {
+      "unnamed": "Agen tanpa nama",
+      "modeEdit": "Ubah agen",
+      "modeCreate": "Agen baru",
+      "summary": "Ringkasan agen ini"
+    },
+    "status": {
+      "clean": "Tidak ada perubahan yang belum disimpan",
+      "new": "Belum dibuat",
+      "unsaved": "Perubahan belum disimpan ({{count}})"
+    },
+    "preset": {
+      "label": "Tingkat alat",
+      "loading": "Memuat daftar alat",
+      "current": "Tingkat: {{name}}. Ubah satu sakelar di bawah dan jadilah campuran kustom.",
+      "custom": "Campuran sakelar kustom. Pilih satu tingkat untuk menggantinya.",
+      "applied": "Tingkat {{name}} diterapkan",
+      "appliedBody": "Sakelar di bawah berubah. Tidak ada yang disimpan sampai Anda menyimpan.",
+      "readonly": {
+        "title": "Hanya melihat",
+        "body": "Mencari di web dan koleksi Anda. Tanpa berkas, tanpa perintah, tanpa pemicu."
+      },
+      "assistant": {
+        "title": "Asisten",
+        "body": "Menambahkan agen tersimpan, pemicu, dan perubahan yang disarankan. Tanpa berkas, tanpa perintah."
+      },
+      "full": {
+        "title": "Penuh",
+        "body": "Semua alat yang didaftarkan server. Hak sensitif tetap mati."
+      }
+    },
+    "tpl": {
+      "applied": "Dimulai dari {{name}}",
+      "appliedBody": "Nama, deskripsi, instruksi, dan alat berubah. Tidak ada yang disimpan sampai Anda menyimpan.",
+      "tools": "Alat: {{level}}",
+      "noTools": "Alat: tidak berubah"
+    },
+    "undo": "Urungkan",
+    "keep": "Pertahankan",
+    "modelCaps": "Apa yang bisa dilakukan model ini",
+    "modelChat": "Obrolan",
+    "connections": {
+      "addonsTitle": "Add-on yang memakai koneksi",
+      "addonsNone": "Tidak ada add-on yang butuh koneksi.",
+      "messagingTitle": "Tempat agen ini terhubung",
+      "messagingNone": "Belum ada koneksi pesan yang memakai agen ini. Simpan agen, lalu tambahkan satu.",
+      "messagingHelp": "Koneksi pesan diatur di halamannya sendiri.",
+      "allows_one": "mengizinkan {{count}} hak",
+      "allows_other": "mengizinkan {{count}} hak",
+      "open": "Buka",
+      "addonOff": "mati",
+      "noneYet": "Belum ada koneksi.",
+      "add": "Tambah koneksi",
+      "groupLabel": "Koneksi untuk {{name}}",
+      "chosenHelp": "Obrolan agen ini hanya boleh memakai koneksi yang dicentang.",
+      "perChat": "Tidak ada yang dicentang: tiap obrolan memilih sendiri.",
+      "summary_one": "{{count}} koneksi",
+      "summary_other": "{{count}} koneksi"
+    },
+    "more": "Tindakan lain",
+    "eff": {
+      "summaryOk": "Tidak ada yang diblokir.",
+      "summaryBlocked_one": "{{count}} hal diblokir.",
+      "summaryBlocked_other": "{{count}} hal diblokir.",
+      "unsaved": "Daftar ini mengikuti formulir saat ini, termasuk perubahan yang belum disimpan.",
+      "unsavedConn": "Alat, memori, dan pengetahuan mengikuti formulir saat ini. Baris koneksi berasal dari agen dan koneksi yang tersimpan.",
+      "state": {
+        "allowed": "Bisa",
+        "asks": "Bertanya dulu",
+        "off": "Mati",
+        "blocked": "Diblokir",
+        "info": "Catatan"
+      },
+      "more_one": "dan {{count}} lagi",
+      "more_other": "dan {{count}} lagi",
+      "fixHere": "Perbaiki di sini",
+      "fixOpen": "Buka halaman yang memperbaikinya",
+      "model": {
+        "fixed": "Berjalan dengan {{model}}.",
+        "any": "Memakai model yang dipilih di tiap obrolan."
+      },
+      "tools": {
+        "none": "Tidak ada alat yang aktif. Agen hanya bisa menjawab dari yang diketahuinya.",
+        "some_one": "Bisa memakai {{count}} alat: {{names}}.",
+        "some_other": "Bisa memakai {{count}} alat: {{names}}.",
+        "blocked": "{{name}} aktif tetapi belum bisa bekerja. {{reason}}"
+      },
+      "skills": {
+        "some_one": "Bisa memakai {{count}} keahlian: {{names}}.",
+        "some_other": "Bisa memakai {{count}} keahlian: {{names}}."
+      },
+      "files": {
+        "all": "Bisa mengakses semua berkas Anda.",
+        "folders_one": "Hanya bisa mengakses {{count}} folder yang dipilih.",
+        "folders_other": "Hanya bisa mengakses {{count}} folder yang dipilih."
+      },
+      "grants": {
+        "parentOff": "{{name}} diizinkan, tetapi tidak bekerja selama {{parent}} mati. Nyalakan {{parent}}.",
+        "connection": "{{name}} diizinkan untuk agen, tetapi tidak pada koneksi ini: {{connection}}",
+        "some_one": "Punya {{count}} hak tambahan: {{names}}.",
+        "some_other": "Punya {{count}} hak tambahan: {{names}}.",
+        "unattended_one": "Saat tidak ada yang mengawasi, agen boleh memakai {{count}} hak sendiri: {{names}}.",
+        "unattended_other": "Saat tidak ada yang mengawasi, agen boleh memakai {{count}} hak sendiri: {{names}}."
+      },
+      "memory": {
+        "userOff": "Memori mati di pengaturan Anda, jadi agen ini tidak membaca atau menyimpan catatan, apa pun pilihannya di sini.",
+        "none": "Tidak menyimpan dan tidak membaca catatan.",
+        "mine_and_own": "Membaca catatan Anda dan miliknya, dan menyimpan ke miliknya.",
+        "own": "Hanya membaca dan menyimpan catatannya sendiri.",
+        "mine": "Membaca catatan Anda dan menyimpan ke sana.",
+        "asBefore": "Memori bekerja seperti sebelumnya: membaca catatan saat add-on menyebut Memory.",
+        "noGrant": "Agen diatur menyimpan catatan, tetapi hak untuk mengingat mati, jadi tidak ada yang disimpan. Nyalakan di Memori.",
+        "level": {
+          "auto": "Catatan disimpan langsung.",
+          "ask": "Setiap catatan menunggu konfirmasi Anda.",
+          "always": "Setiap catatan menunggu Anda, dan tidak ada yang melonggarkannya.",
+          "never": "Tidak menyimpan catatan."
+        }
+      },
+      "knowledge": {
+        "some_one": "Bisa mencari di {{count}} koleksi: {{names}}.",
+        "some_other": "Bisa mencari di {{count}} koleksi: {{names}}.",
+        "none": "Tidak ada koleksi pengetahuan untuk dicari."
+      },
+      "connections": {
+        "unsaved": "Belum dipakai di aplikasi pesan. Simpan agen, lalu tambahkan koneksi.",
+        "none": "Tidak dipakai di aplikasi pesan mana pun.",
+        "loading": "Memeriksa {{name}}...",
+        "error": "Tidak bisa memeriksa {{name}}. Buka untuk melihat izinnya.",
+        "summary": "{{name}}: {{allowed}} diizinkan, {{blocked}} tidak diizinkan.",
+        "blocked": "{{name}} tidak bisa memakai {{capability}}. {{message}}"
+      }
+    },
+    "try": {
+      "open": "Coba",
+      "title": "Coba agen ini",
+      "desc": "Kirim pesan ke obrolan uji yang memakai pengaturan di formulir ini. Tidak ada yang disimpan.",
+      "noModel": "Belum ada model obrolan terpasang. Pasang atau pilih model dulu.",
+      "defaultModel": "Model belum diatur, jadi uji memakai {{model}}.",
+      "skipped": "Uji tidak memakai: {{what}}. Itu milik agen yang tersimpan.",
+      "skip": {
+        "grants": "izin",
+        "memory": "memori",
+        "knowledge": "koleksi pengetahuan",
+        "folders": "folder bersama"
+      },
+      "empty": "Kirim pesan untuk memulai.",
+      "role": {
+        "user": "Anda",
+        "assistant": "Agen",
+        "tool": "Alat"
+      },
+      "toolRan": "Memakai alat: {{name}}",
+      "working": "Bekerja...",
+      "label": "Pesan untuk agen",
+      "placeholder": "Tanyakan sesuatu yang harus bisa ditangani agen ini",
+      "send": "Kirim",
+      "stop": "Berhenti",
+      "deleted": "Obrolan uji dihapus saat panel ini ditutup.",
+      "chatTitle": "Uji {{name}}",
+      "failed": "Uji gagal: {{message}}",
+      "slow": "Agen masih bekerja. Hentikan atau tutup panel."
+    }
   },
   "run": {
     "workingLine": "Working"
@@ -510,5 +696,19 @@
     "effectiveWrite": "Ada di dalam folder yang bisa diubah, jadi folder ini juga bisa diubah.",
     "notMounted": "{{n}} folder bersama tidak muat dalam batas akses sebuah chat dan tidak dipasang.",
     "exportNoteMany": "File ini menyebut {{n}} folder. Di tempat Anda mengimpornya, agen mendapat folder dengan path itu yang ada, dan meminta Anda memilih sisanya."
+  },
+  "templates": {
+    "researcher": {
+      "description": "Mencari, membaca sumber, dan menulis ringkasan singkat."
+    },
+    "reviewer": {
+      "description": "Meninjau perubahan dan mendaftar yang perlu diperbaiki lebih dulu."
+    },
+    "digest": {
+      "description": "Mengumpulkan yang baru pada suatu topik dan merangkumnya."
+    },
+    "blank": {
+      "description": "Kosong. Mulai dari nol."
+    }
   }
 }

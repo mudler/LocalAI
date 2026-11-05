@@ -32,6 +32,11 @@ type agentRow struct {
 	Collections  string
 	Skills       string
 	Network      string `gorm:"size:16"`
+	// Memory came later: empty for the agents made before, which read as
+	// "as before".
+	Memory string `gorm:"size:16"`
+	// MemorySave came later: empty uses the person's setting.
+	MemorySave string `gorm:"size:16"`
 	// FolderID and FolderMode came after the table existed: the defaults
 	// fill the rows of agents made before, which have no folder, so
 	// AutoMigrate is their migration.
@@ -129,7 +134,7 @@ func listFromJSON(s string) ([]string, error) {
 
 func (r agentRow) agent(folders []folderRow) (Agent, error) {
 	a := Agent{ID: r.ID, Principal: r.Principal, Name: r.Name, Description: r.Description,
-		Instructions: r.Instructions, Model: r.Model, Network: r.Network, FolderID: r.FolderID, FolderMode: r.FolderMode, Created: r.Created, Updated: r.Updated}
+		Instructions: r.Instructions, Model: r.Model, Network: r.Network, Memory: r.Memory, MemorySave: r.MemorySave, FolderID: r.FolderID, FolderMode: r.FolderMode, Created: r.Created, Updated: r.Updated}
 	for _, f := range folders {
 		a.Folders = append(a.Folders, AgentFolder{Node: f.Node, Mode: f.Mode})
 	}
@@ -213,7 +218,7 @@ func (s *gormStore) Put(ctx context.Context, a Agent) error {
 		row := agentRow{ID: a.ID, Principal: a.Principal, NameKey: NameKey(a.Name), Name: a.Name,
 			Description: a.Description, Instructions: a.Instructions, Model: a.Model,
 			MCPServers: listJSON(a.MCPServers), Addons: listJSON(a.Addons),
-			Collections: listJSON(a.Collections), Skills: listJSON(a.Skills), Network: a.Network,
+			Collections: listJSON(a.Collections), Skills: listJSON(a.Skills), Network: a.Network, Memory: a.Memory, MemorySave: a.MemorySave,
 			FolderID: a.FolderID, FolderMode: a.FolderMode, BuiltinsOff: listJSON(a.BuiltinsOff), BuiltinsOn: listJSON(a.BuiltinsOn), Builtins: listJSON(a.Builtins),
 			Connections: connectionsJSON(a.Connections),
 			Created:     a.Created, Updated: a.Updated}

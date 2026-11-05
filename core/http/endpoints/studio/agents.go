@@ -77,7 +77,7 @@ func agentOut(a agents.Agent) schema.ChatsAgent {
 	}
 	return schema.ChatsAgent{ID: a.ID, Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
 		MCPServers: nz(a.MCPServers), Addons: nz(a.Addons), Collections: nz(a.Collections), Skills: nz(a.Skills),
-		Network: networkOf(a.Network), BuiltinsOff: nz(a.BuiltinsOff), BuiltinsOn: nz(a.BuiltinsOn), Builtins: nz(a.Builtins), Connections: a.Connections, Created: a.Created, Updated: a.Updated}
+		Network: networkOf(a.Network), Memory: a.Memory, MemorySave: a.MemorySave, BuiltinsOff: nz(a.BuiltinsOff), BuiltinsOn: nz(a.BuiltinsOn), Builtins: nz(a.Builtins), Connections: a.Connections, Created: a.Created, Updated: a.Updated}
 }
 
 // agentIn reads the body. A model the user may not use is refused here, so a
@@ -100,7 +100,7 @@ func (h *Handlers) agentIn(c echo.Context) (a agents.Agent, folders *[]studiosvc
 		}
 	}
 	return agents.Agent{Name: req.Name, Description: req.Description, Instructions: req.Instructions, Model: req.Model,
-			MCPServers: req.MCPServers, Addons: req.Addons, Collections: req.Collections, Skills: req.Skills, Network: req.Network,
+			MCPServers: req.MCPServers, Addons: req.Addons, Collections: req.Collections, Skills: req.Skills, Network: req.Network, Memory: req.Memory, MemorySave: req.MemorySave,
 			BuiltinsOff: req.BuiltinsOff, BuiltinsOn: req.BuiltinsOn, Builtins: req.Builtins, Connections: req.Connections},
 		foldersIn(req), true, nil
 }
@@ -194,15 +194,23 @@ func (h *Handlers) UpdateAgent(c echo.Context) error {
 
 // DeleteAgent deletes a saved agent.
 // @Summary Delete a saved agent.
-// @Description Chats that ran with it keep their history; their next turn runs without the agent's tools.
+// @Description Chats that ran with it keep their history; their next turn runs without the agent's tools. The agent's own memory notes (Memory/agents/{id}) are not part of it: memory says what to do with them. keep (the default) leaves them, listed under Deleted agents on the Memory page until you delete them. delete moves them to the Trash. export answers 200 with a zip file of the notes and then moves them to the Trash (204 when the agent has none). A value that is not one of these is a 400 and nothing is deleted.
 // @Tags chats
 // @Param id path string true "the agent's id"
+// @Param memory query string false "what to do with the agent's own notes" Enums(keep, export, delete) default(keep)
 // @Success 204 "Deleted"
+// @Success 200 {file} file "Deleted; a zip file of the agent's notes (memory=export)"
+// @Failure 400 {object} schema.ErrorResponse "memory is not keep, export or delete"
 // @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/agents/{id} [delete]
 func (h *Handlers) DeleteAgent(c echo.Context) error {
-	if err := h.svc.DeleteAgent(c.Request().Context(), userID(c), c.Param("id")); err != nil {
+	zipped, err := h.svc.DeleteAgentWithNotes(c.Request().Context(), userID(c), c.Param("id"), c.QueryParam("memory"))
+	if err != nil {
 		return failFor(c, err)
+	}
+	if zipped != nil {
+		c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="agent-memory-notes.zip"`)
+		return c.Blob(http.StatusOK, "application/zip", zipped)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

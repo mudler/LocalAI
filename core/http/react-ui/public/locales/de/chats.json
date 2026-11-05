@@ -290,7 +290,15 @@
         "reported_unknown": "Ausführungsbereitschaft oder Isolation ist unbekannt: das Add-on hat gemeldet, dass es das nicht sagen kann."
       },
       "providerUnavailable": "Der ausgewählte Ausführungsanbieter ist nicht verfügbar.",
-      "disabled": "Die Befehlsausführung ist für diesen Chat ausgeschaltet."
+      "disabled": "Die Befehlsausführung ist für diesen Chat ausgeschaltet.",
+      "hostOff": {
+        "reason": "Das eingebaute Bash des Servers ist aus, deshalb kann der Assistent Dateien schreiben, aber keine Skripte oder Befehle ausführen.",
+        "whoAdmin": "Du bist Administrator. Schalte in den Einstellungen unter Werkzeuge die Zeile Befehle (bash) ein. Jedes Mal fragen ist die sicherere Wahl. Befehle laufen dann ohne Isolierung auf dem Server und können lesen, was der Server lesen kann.",
+        "whoMember": "Bitte einen Administrator dieses Servers, es einzuschalten.",
+        "fix": "Einstellung öffnen",
+        "sandboxText": "Für isolierte Befehle installiere stattdessen ein Add-on, das Befehle isoliert ausführt.",
+        "sandbox": "Add-ons öffnen"
+      }
     },
     "consent": {
       "title": "Diesen Befehl auf diesem Rechner ausführen?",
@@ -314,13 +322,15 @@
     "builtin": {
       "web": "Web",
       "saved_agents": "Gespeicherte Agenten",
-      "triggers": "Trigger",
+      "triggers": "Trigger erstellen und verwalten",
       "shell": "Befehle ausführen",
       "files": "Deine Dateien",
       "media": "Bilder und Audio",
-      "collections": "Sammlungen",
+      "collections": "Wissen",
       "subagents": "Sub-Agenten",
-      "changes": "Änderungen an Gedächtnis und Profil"
+      "changes": "Vorgeschlagene Änderungen",
+      "memory": "Gedächtnis",
+      "history": "Frühere Chats"
     },
     "builtinBy": "{{tools}} · eingebaut",
     "builtinByAddon": "{{tools}} · bedient von {{provider}}",
@@ -334,15 +344,17 @@
       "isolated": "Befehle laufen isoliert"
     },
     "describe": {
-      "shell": "Das Modell kann Shell-Befehle und Skripte ausführen. Sie laufen in einem Add-on, das sie isoliert, wenn eines installiert ist, sonst direkt auf diesem Rechner.",
-      "files": "Das Modell kann deine Dateien auflisten, lesen, schreiben, bearbeiten, verschieben, löschen und durchsuchen und Dokumente lesen. Ein Chat eines Agenten, der in einem Ordner arbeitet, erreicht nur diesen Ordner.",
-      "web": "Das Modell kann im Internet suchen und eine öffentliche Seite über ihre Adresse lesen. Adressen in deinem Netzwerk werden abgelehnt, außer ein Administrator erlaubt sie.",
-      "media": "Das Modell kann ein Bild beschreiben oder eine Aufnahme aus deinen Dateien mit einem Hilfsmodell transkribieren.",
-      "collections": "Das Modell kann deine Sammlungen auflisten und darin nach den Passagen suchen, die zu einer Frage passen.",
-      "subagents": "Das Modell kann einen Sub-Agenten starten, der mit denselben Schaltern wie dieser Chat an einer Aufgabe arbeitet und Bericht erstattet.",
-      "saved_agents": "Das Modell kann deine gespeicherten Agenten auflisten und einen als Sub-Agenten starten, mit dessen eigenen Anweisungen und Modell.",
-      "triggers": "Das Modell kann Trigger vorschlagen, auflisten, ändern und löschen: Aufgaben, die von selbst zu einer festen Zeit oder beim Eintreffen einer Datei in einem Ordner laufen. Ein neuer Trigger oder eine Änderung wartet auf einer Karte im Chat, bis du sie bestätigst; Pausieren oder Fortsetzen gilt sofort und lässt sich rückgängig machen.",
-      "changes": "Das Modell kann eine Änderung an deinen Gedächtnisnotizen oder an den festen Regeln eines Agenten vorschlagen und eine bestätigte Änderung rückgängig machen. Nichts ändert sich, bis du den Vorschlag auf einer Karte im Chat bestätigst."
+      "shell": "Das Modell kann Shell-Befehle und Skripte ausführen.",
+      "files": "Das Modell kann deine Dateien auflisten, lesen, schreiben und durchsuchen.",
+      "web": "Das Modell kann im Internet suchen und öffentliche Seiten lesen.",
+      "media": "Das Modell kann Bilder beschreiben und Aufnahmen aus deinen Dateien transkribieren.",
+      "collections": "Das Modell kann deine Sammlungen durchsuchen.",
+      "subagents": "Das Modell kann für eine Aufgabe einen Sub-Agenten starten und dessen Bericht erhalten.",
+      "saved_agents": "Das Modell kann einen deiner gespeicherten Agenten als Sub-Agenten starten.",
+      "triggers": "Das Modell kann Trigger vorschlagen, auflisten, ändern und löschen. Du bestätigst jeden neuen Trigger und jede Änderung.",
+      "changes": "Das Modell kann Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten und am Dashboard vorschlagen. Du bestätigst jede einzelne.",
+      "memory": "Das Modell kann deine Notizen lesen, bevor es antwortet, und neue speichern. Schalte es aus, um den Chat privat zu machen: nichts wird aus deinen Notizen gelesen oder darin gespeichert. Deine anderen Chats bleiben unberührt.",
+      "history": "Erlaubt dem Modell, deine früheren Chats zu durchsuchen und zu lesen."
     },
     "whenOff": {
       "shell": "Das Modell kann Dateien schreiben, aber nichts ausführen.",
@@ -352,15 +364,17 @@
       "collections": "Das Modell kann deine Sammlungen nicht lesen.",
       "subagents": "Das Modell arbeitet allein.",
       "saved_agents": "Das Modell kann deine gespeicherten Agenten weder sehen noch starten.",
-      "triggers": "Das Modell kann keine Trigger erstellen oder verwalten. Ein Lauf, den ein Trigger oder ein Connector gestartet hat, hat sie nie.",
-      "changes": "Das Modell kann keine Änderungen an deinem Gedächtnis oder an den Regeln eines Agenten vorschlagen."
+      "triggers": "Das Modell kann keine Trigger vorschlagen oder verwalten.",
+      "changes": "Das Modell kann keine Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten oder am Dashboard vorschlagen.",
+      "memory": "Das ist ein privater Chat. Das Modell liest und speichert deine Notizen nicht.",
+      "history": "Das Modell kann deine früheren Chats nicht sehen."
     },
     "addonDescribe_one": "Gibt dem Modell {{count}} Werkzeug dieses Add-ons.",
     "addonDescribe_other": "Gibt dem Modell {{count}} Werkzeuge dieses Add-ons.",
     "serverDescribe": "Ein MCP-Server des Modells: Seine Werkzeuge werden dem Modell angeboten.",
     "connectorDescribe": "Einer deiner MCP-Connectors: Seine Werkzeuge werden dem Modell angeboten.",
     "gone": "Hier nicht mehr verfügbar. Schalte es aus, um es zu entfernen.",
-    "grants": "Was der Agent ändern darf",
+    "grants": "Weitere Berechtigungen",
     "grantSensitive": "Sensibel: Das ändert, was der Agent später tun oder erreichen darf.",
     "connection": {
       "label": "Verbindungen",
@@ -374,6 +388,85 @@
       "agentLabel": "Verbindungen für Chats dieses Agenten",
       "agentHelp": "Chats dieses Agenten dürfen nur diese Verbindungen nutzen und können sie nicht ändern.",
       "perChatHelp": "Keine gewählt: Jeder Chat wählt selbst."
+    },
+    "optionNeeds": "Schalte „{{name}}“ ein, um dies zu nutzen.",
+    "connectionMissing": "{{name}} erlaubt das noch nicht.",
+    "connectionOpen": "Berechtigungen öffnen",
+    "section": {
+      "messaging": {
+        "title": "Messaging-Apps",
+        "intro": "Das gilt für Chats, die in einer Messaging-App beginnen. Die Verbindung muss dasselbe auf ihrer eigenen Berechtigungsseite erlauben."
+      },
+      "unattended": {
+        "title": "Wenn niemand zusieht",
+        "intro": "Das gilt für Läufe, die ein Trigger oder eine Messaging-App startet und bei denen niemand einen Schritt bestätigen kann."
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "Dinge merken",
+        "description": "Das Modell kann eine Notiz für dein Gedächtnis oder das des Agenten vorschlagen. Du bestätigst jede Notiz."
+      },
+      "profile_write": {
+        "title": "Eigene Regeln ändern",
+        "description": "Das Modell kann eine Änderung der festen Regeln des Agenten vorschlagen. Du bestätigst jede Änderung."
+      },
+      "skills_write": {
+        "title": "Skills schreiben",
+        "description": "Das Modell kann einen neuen oder geänderten Skill vorschlagen. Du bestätigst jeden einzelnen."
+      },
+      "pages_write": {
+        "title": "Seiten erstellen",
+        "description": "Das Modell kann eine kleine App vorschlagen, die in einem isolierten Frame läuft. Du bestätigst sie."
+      },
+      "dashboard_write": {
+        "title": "Dashboard ändern",
+        "description": "Das Modell kann ein neues Layout für dein Home-Dashboard vorschlagen. Du bestätigst jede Änderung."
+      },
+      "knowledge_write": {
+        "title": "Zum Wissen hinzufügen",
+        "description": "Erlaubt dem Modell, einen Text für eine Sammlung deines Wissens vorzuschlagen. Du bestätigst jeden einzelnen; er wird nie sofort hinzugefügt."
+      },
+      "triggers_propose": {
+        "title": "Auch aus Messaging-Apps vorschlagen",
+        "description": "Das Modell kann einen Trigger vorschlagen, wenn jemand in einer Messaging-App danach fragt. Du bestätigst ihn."
+      },
+      "triggers_run": {
+        "title": "Trigger aus Messaging-Apps starten lassen",
+        "description": "Ein Trigger, der an eine Messaging-Verbindung gebunden ist, kann einen Lauf starten und das Ergebnis dort zustellen."
+      },
+      "talkback_channels": {
+        "title": "Auf bekannten Kanälen antworten",
+        "description": "Das Modell kann eine Nachricht an einen Kanal senden, in dem es schon schreibt."
+      },
+      "talkback_new_channel": {
+        "title": "Neue Kanäle starten",
+        "description": "Das Modell kann ein Gespräch in einem Kanal beginnen, den es noch nicht genutzt hat."
+      },
+      "files_upload": {
+        "title": "Dateien aus Messaging-Apps empfangen",
+        "description": "Absender können Dateien anhängen, die das Modell liest. Es kann keine Dateien versenden."
+      },
+      "act_files": {
+        "title": "Selbstständig Dateien schreiben",
+        "description": "Ein Lauf, den niemand beobachtet, kann Dateien in den Ordnern des Agenten schreiben."
+      },
+      "act_addons": {
+        "title": "Add-on-Aktionen selbstständig nutzen",
+        "description": "Ein Lauf, den niemand beobachtet, kann die Aktionen der Add-ons des Agenten aufrufen."
+      },
+      "act_send": {
+        "title": "Selbstständig Nachrichten senden",
+        "description": "Ein Lauf, den niemand beobachtet, kann Nachrichten über sein Zustellziel hinaus senden."
+      },
+      "act_spend": {
+        "title": "Kostenpflichtige oder externe Werkzeuge selbstständig nutzen",
+        "description": "Ein Lauf, den niemand beobachtet, kann kostenpflichtige oder externe Werkzeuge und das Netzwerk nutzen."
+      },
+      "history_read": {
+        "title": "Frühere Chats lesen",
+        "description": "Erlaubt dem Modell, deine früheren Chats zu durchsuchen und zu lesen. Ein Agent, der in einem Ordner arbeitet, liest nur die Chats seines eigenen Agenten."
+      }
     }
   },
   "vision": {
@@ -636,7 +729,8 @@
       "profile": "Profil",
       "skill": "Skill",
       "page": "Seite",
-      "dashboard": "Dashboard"
+      "dashboard": "Dashboard",
+      "knowledge": "Wissen"
     },
     "scope": {
       "user": "Alle deine Chats",
@@ -649,7 +743,8 @@
       "kind": "Art",
       "target": "Datei",
       "source": "Von",
-      "expires": "Läuft ab in"
+      "expires": "Läuft ab in",
+      "collection": "Sammlung"
     },
     "source": {
       "chat": "Ein Chat",
@@ -698,13 +793,19 @@
       "dismissed": "Änderung abgelehnt.",
       "undone": "Änderung rückgängig gemacht.",
       "asked": "Der Assistent wurde gebeten, es erneut vorzuschlagen."
+    },
+    "knowledge": {
+      "label": "Text zum Hinzufügen zu {{collection}}",
+      "size": "{{size}} von höchstens {{max}}",
+      "note": "Nichts wird hinzugefügt, bevor du bestätigst. Der Text wird dann in Abschnitte geteilt und indexiert, und jeder Chat, der diese Sammlung durchsucht, kann ihn nutzen.",
+      "editLabel": "Text zum Hinzufügen zu {{target}}"
     }
   },
   "proposalsPage": {
     "title": "Vorschläge",
     "supporting": "Änderungen, die Modelle vorgeschlagen haben und die auf deine Antwort warten.",
     "emptyTitle": "Nichts wartet",
-    "emptyBody": "Wenn ein Modell eine Änderung an deinem Gedächtnis oder einem Agentenprofil vorschlägt, erscheint sie hier, bis du antwortest.",
+    "emptyBody": "Wenn ein Modell eine Änderung an deinen Notizen, einem Agentenprofil, einem Skill, einer Seite oder am Dashboard vorschlägt, erscheint sie hier, bis du antwortest.",
     "loadError": "Die Vorschläge konnten nicht geladen werden."
   },
   "memoryPage": {
@@ -723,7 +824,9 @@
       "user": "Deine Notizen",
       "agent": "Notizen von Agent {{key}}",
       "channel": "Notizen der Unterhaltung {{key}}",
-      "profile": "Profil von Agent {{key}}"
+      "profile": "Profil von Agent {{key}}",
+      "agentNamed": "Notizen des Agenten {{name}}",
+      "profileNamed": "Profil des Agenten {{name}}"
     },
     "edit": "Bearbeiten",
     "save": "Speichern",
@@ -738,13 +841,25 @@
     "deleteYes": "Löschen",
     "confirmDelete": "{{name}} löschen?",
     "deleted": "{{name}} in den Papierkorb verschoben.",
-    "clear": "Alle Notizen löschen",
+    "clear": "Alles vergessen",
     "clearAsk_one": "{{count}} Datei löschen? Sie kommt in den Papierkorb und lässt sich unter Dateien wiederherstellen.",
     "clearAsk_other": "{{count}} Dateien löschen? Sie kommen in den Papierkorb und lassen sich unter Dateien wiederherstellen.",
     "clearYes_one": "{{count}} Datei löschen",
     "clearYes_other": "{{count}} Dateien löschen",
     "cleared_one": "{{count}} Datei in den Papierkorb verschoben.",
-    "cleared_other": "{{count}} Dateien in den Papierkorb verschoben."
+    "cleared_other": "{{count}} Dateien in den Papierkorb verschoben.",
+    "tabs": {
+      "label": "Notizen von",
+      "mine": "Meine",
+      "deleted": "Gelöschte Agenten",
+      "channels": "Unterhaltungen",
+      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "export": "Diese Notizen exportieren",
+      "clearAgent": "Die Notizen dieses Agenten löschen",
+      "clearDeleted": "Diese Notizen löschen"
+    },
+    "deletedNote": "Diese Agenten wurden gelöscht. Ihre Notizen bleiben, bis du sie hier löschst.",
+    "tabEmpty": "Keine Notizen hier."
   },
   "triggerActs": {
     "help": "Ein Lauf startet von selbst, also bestätigt niemand einen Schritt. Er kann lesen und berichten. Hake an, was er zusätzlich tun darf. Er bekommt nie mehr, als sein Agent hat.",
@@ -766,6 +881,173 @@
       "agent": "Sein Agent hat die verlangten Berechtigungen nicht, daher lesen und berichten seine Läufe nur.",
       "declared": "Er wurde so eingerichtet, dass er nur liest und berichtet. Nichts, was hier angehakt wird, ändert das.",
       "binding": "Eine Verbindung im Nur-Lesen-Modus hat ihn erstellt. Nichts, was hier angehakt wird, ändert das."
+    }
+  },
+  "memorySettings": {
+    "titleOn": "Gedächtnis ist an",
+    "titleOff": "Gedächtnis ist aus",
+    "ledeOn": "Deine Chats führen kurze Notizen über dich und lesen sie, bevor sie antworten. Schalte es aus, damit nirgends mehr gelesen oder gespeichert wird. Deine Notizen bleiben, wo sie sind.",
+    "ledeOff": "Aus deinen Notizen wird nichts gelesen und nichts darin gespeichert, in keinem Chat und bei keinem Agenten. Der Assistent sagt, dass das Gedächtnis aus ist, wenn du ihn bittest, sich etwas zu merken. Deine Notizen bleiben, und du kannst sie weiter lesen, exportieren und löschen.",
+    "on": "An",
+    "off": "Aus",
+    "unavailable": "Notizen sind Dateien, und Dateien sind auf diesem Server aus. Das Gedächtnis kann hier nicht arbeiten.",
+    "saveTitle": "Eine Notiz speichern",
+    "saveLede": "Was passiert, wenn der Assistent etwas behalten will. Die strengste Regel gilt immer.",
+    "save": {
+      "ask": {
+        "title": "Erst fragen",
+        "body": "Eine Karte wartet im Chat. Du bestätigst, bearbeitest oder verwirfst sie."
+      },
+      "auto": {
+        "title": "Speichern und Bescheid geben",
+        "body": "In deinen eigenen Chats wird die Notiz sofort gespeichert. Der Chat zeigt „Im Gedächtnis gespeichert“ mit Rückgängig. Bis zu 5 Notizen pro Antwort. Eine lange Notiz oder eine, die wie ein Geheimnis aussieht, wartet trotzdem auf dich."
+      },
+      "always": {
+        "title": "Immer bestätigen",
+        "body": "Wie Erst fragen, und nichts kann es lockern. Auch Rückgängig und Vergessen warten auf dich. Keine Einstellung eines Agenten oder einer Messaging-App hebt es auf."
+      },
+      "never": {
+        "title": "Nie",
+        "body": "Der Assistent kann keine Notizen speichern. Er sagt dir, dass das Speichern aus ist."
+      }
+    },
+    "default": "Standard",
+    "saveNote": "Hintergrundläufe und Trigger speichern nie eine Notiz. Ein gespeicherter Agent darf mehr fragen, aber nie weniger als du hier gewählt hast.",
+    "messaging": {
+      "title": "In Messaging-Apps",
+      "lede": "Was passiert, wenn in einem Chat einer Messaging-App eine Notiz vorgeschlagen wird, wo der Absender nicht du sein muss.",
+      "ask": {
+        "title": "Erst fragen",
+        "body": "Der Bot fragt im Chat: „Antworte mit Ja zum Speichern.“ Ein gelisteter Absender kann dort antworten. Andere warten auf dich in der App."
+      },
+      "paired_private": {
+        "title": "Für einen gekoppelten Absender im privaten Chat speichern",
+        "body": "Wird nur sofort gespeichert, wenn der Absender gekoppelt ist und der Chat ein Einzelchat ist. Die Notiz geht in diese Unterhaltung, mit Rückgängig. Eine Notiz, die wie ein Geheimnis aussieht, wartet weiter."
+      },
+      "never": {
+        "title": "Nie",
+        "body": "Aus Messaging-Apps werden keine Notizen gespeichert."
+      },
+      "limit": "Nie lockerer als die Einstellung oben.",
+      "lockedAlways": "Deine Einstellung oben ist Immer bestätigen, daher kann diese Zeile keine Notiz sofort speichern.",
+      "lockedNever": "Deine Einstellung oben ist Nie, daher wird aus Messaging-Apps keine Notiz gespeichert."
+    },
+    "saveFailed": "Deine Auswahl konnte nicht gespeichert werden.",
+    "loadError": "Die Gedächtnis-Einstellungen konnten nicht geladen werden.",
+    "notesTitle": "Notizen verwalten",
+    "notesLede": "Lesen, bearbeiten, exportieren oder löschen. Das geht auch, wenn das Gedächtnis aus ist.",
+    "export": "Exportieren"
+  },
+  "memoryOff": {
+    "title": "Das Gedächtnis ist hier aus.",
+    "line": {
+      "chat": "Das ist ein privater Chat: nichts wird gelesen oder gespeichert. Deine Notizen bleiben unberührt. Schalte es im Werkzeugmenü an.",
+      "user": "Kein Chat und kein Agent liest oder speichert Notizen, und deine Notizen bleiben unberührt.",
+      "agent": "Beim Agenten dieses Chats ist das Gedächtnis ausgeschaltet.",
+      "files": "Notizen sind Dateien, und Dateien sind auf diesem Server aus.",
+      "provider": "Das Add-on, das den Speicher bereitstellt, ist nicht verfügbar. Es wird nichts gelesen oder gespeichert. Wähle einen Anbieter unter Einstellungen, Speicher."
+    },
+    "chip": "Gedächtnis aus",
+    "chipPrivate": "Privater Chat",
+    "fixUser": "Einstellungen, Gedächtnis",
+    "userRow": "In deinen Einstellungen aus. Schalte es unter Einstellungen, Gedächtnis an."
+  },
+  "agentMemory": {
+    "title": "Gedächtnis",
+    "lede": "Lege fest, welche Notizen dieser Agent liest und wohin er neue speichert.",
+    "offUser": "Das Gedächtnis ist in deinen Einstellungen aus, daher wirkt diese Auswahl erst, wenn du es einschaltest.",
+    "offUserFix": "Einstellungen, Gedächtnis",
+    "recommended": "Empfohlen",
+    "mine_and_own": {
+      "title": "Meine und eigene",
+      "body": "Liest deine Notizen und seine eigenen. Speichert nur in seinen eigenen."
+    },
+    "own": {
+      "title": "Nur eigene",
+      "body": "Liest und speichert nur seine eigenen Notizen. Deine Notizen bleiben unberührt."
+    },
+    "mine": {
+      "title": "Meine",
+      "body": "Liest und speichert deine Notizen."
+    },
+    "none": {
+      "title": "Keine",
+      "body": "Liest und speichert nichts."
+    },
+    "mineWarn": "Dieser Agent kann Notizen zu deinem Gedächtnis hinzufügen, für jeden Chat. Du bestätigst jede einzelne.",
+    "asBefore": {
+      "title": "Wie bisher",
+      "body": "Dieser Agent wurde gespeichert, bevor es diese Auswahl gab. Er liest deine Notizen, wenn seine Add-on-Liste Memory nennt, und das Modell wählt, wohin eine Notiz gespeichert wird. Wähle unten eine der Optionen, um das zu ändern."
+    },
+    "saveGrant": "Notizen speichern lassen",
+    "saveGrantHelp": "Schaltet die Berechtigung „Dinge merken“ ein. Ohne sie liest der Agent Notizen, kann aber keine speichern.",
+    "copyNote": "Beim Exportieren eines Agenten oder beim Import als neuen Agenten bleibt diese Auswahl erhalten; seine Notizen werden nie kopiert.",
+    "summary": {
+      "mine_and_own": "Meine und eigene",
+      "own": "Nur eigene",
+      "mine": "Meine",
+      "none": "Keine",
+      "asBefore": "Wie bisher"
+    },
+    "delete": {
+      "title": "{{name}} löschen?",
+      "ask": "Dieser Agent hat eigene Notizen ({{count}}). Was soll damit geschehen?",
+      "legend": "Was mit den Notizen geschehen soll",
+      "default": "Standard",
+      "confirm": "Agent löschen",
+      "keep": {
+        "title": "Notizen behalten",
+        "body": "Sie bleiben auf der Seite Gedächtnis unter Gelöschte Agenten, bis du sie löschst."
+      },
+      "export": {
+        "title": "Exportieren, dann löschen",
+        "body": "Die Notizen als Zip-Datei herunterladen und dann in den Papierkorb legen."
+      },
+      "delete": {
+        "title": "Notizen ebenfalls löschen",
+        "body": "Sie wandern in den Papierkorb und lassen sich über Dateien wiederherstellen."
+      }
+    },
+    "rule": {
+      "title": "Wenn er eine Notiz speichern will",
+      "use_mine": {
+        "title": "Meine Einstellung",
+        "body": "Aktuell: {{level}}."
+      },
+      "always": {
+        "title": "Immer bestätigen",
+        "body": "Strenger als meine Einstellung."
+      },
+      "never": {
+        "title": "Nie",
+        "body": "Liest, speichert nie."
+      },
+      "hint": "Ein Agent darf mehr fragen als deine Einstellung, aber nie weniger. „Speichern und Bescheid geben“ gibt es hier nicht. In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einem gekoppelten Absender."
+    }
+  },
+  "providerPicker": {
+    "title": "Anbieter",
+    "lede": "Es arbeitet immer nur ein Anbieter. Deine vorhandenen Daten bleiben beim Wechsel, wo sie sind.",
+    "off": "Aus",
+    "unavailable": "Nicht verfügbar",
+    "loadError": "Die Anbieter konnten nicht geladen werden",
+    "saveFailed": "Der Anbieter konnte nicht geändert werden",
+    "failedTitle": "{{name}} ist nicht verfügbar",
+    "failedReason": "Das bleibt aus, bis du einen Anbieter wählst. Nichts wurde zum integrierten Anbieter verschoben, es wird also nichts dort gespeichert, wo du es nicht gewählt hast.",
+    "useBuiltin": "Integrierten Anbieter verwenden",
+    "facts": {
+      "local": "Lokal",
+      "remote": "Extern",
+      "undoHost": "Hier rückgängig machen",
+      "undoProvider": "Rückgängig durch den Dienst",
+      "undoNone": "Nicht rückgängig zu machen"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Integriert",
+        "builtinBody": "Einfache Dateien in deinem Ordner „Memory“. Nichts verlässt diesen Rechner.",
+        "offBody": "Nichts wird gelesen, angeboten, gespeichert oder gesendet. Vorhandene Notizen bleiben erhalten."
+      }
     }
   }
 }

@@ -17,6 +17,12 @@ var _ = Describe("agent validation", func() {
 		for _, n := range []string{"", "off", "registries", "all"} {
 			Expect(agents.Validate(agents.Agent{Name: "a", Network: n})).To(Succeed(), n)
 		}
+		for _, m := range []string{"", "own", "mine_and_own", "mine", "none"} {
+			Expect(agents.Validate(agents.Agent{Name: "a", Memory: m})).To(Succeed(), m)
+		}
+		for _, m := range []string{"", "always", "never"} {
+			Expect(agents.Validate(agents.Agent{Name: "a", MemorySave: m})).To(Succeed(), m)
+		}
 		for _, f := range []agents.Agent{
 			{Name: "a"},
 			{Name: "a", FolderID: 7, FolderMode: agents.FolderRead},
@@ -30,18 +36,21 @@ var _ = Describe("agent validation", func() {
 			many[i] = "x"
 		}
 		for name, a := range map[string]agents.Agent{
-			"empty name":       {Name: "  "},
-			"long name":        {Name: strings.Repeat("n", agents.MaxNameRunes+1)},
-			"long desc":        {Name: "a", Description: strings.Repeat("d", agents.MaxDescription+1)},
-			"instructions":     {Name: "a", Instructions: strings.Repeat("i", agents.MaxInstructions+1)},
-			"model":            {Name: "a", Model: strings.Repeat("m", agents.MaxModelRunes+1)},
-			"too many":         {Name: "a", Skills: many},
-			"bad addon":        {Name: "a", Addons: []string{"Office Tools"}},
-			"empty collection": {Name: "a", Collections: []string{" "}},
-			"long entry":       {Name: "a", MCPServers: []string{strings.Repeat("s", agents.MaxEntryRunes+1)}},
-			"bad network":      {Name: "a", Network: "everything"},
-			"folder, no mode":  {Name: "a", FolderID: 7},
-			"bad folder mode":  {Name: "a", FolderID: 7, FolderMode: "admin"},
+			"empty name":          {Name: "  "},
+			"long name":           {Name: strings.Repeat("n", agents.MaxNameRunes+1)},
+			"long desc":           {Name: "a", Description: strings.Repeat("d", agents.MaxDescription+1)},
+			"instructions":        {Name: "a", Instructions: strings.Repeat("i", agents.MaxInstructions+1)},
+			"model":               {Name: "a", Model: strings.Repeat("m", agents.MaxModelRunes+1)},
+			"too many":            {Name: "a", Skills: many},
+			"bad addon":           {Name: "a", Addons: []string{"Office Tools"}},
+			"empty collection":    {Name: "a", Collections: []string{" "}},
+			"long entry":          {Name: "a", MCPServers: []string{strings.Repeat("s", agents.MaxEntryRunes+1)}},
+			"bad network":         {Name: "a", Network: "everything"},
+			"bad memory":          {Name: "a", Memory: "everything"},
+			"auto is not offered": {Name: "a", MemorySave: "auto"},
+			"ask is not offered":  {Name: "a", MemorySave: "ask"},
+			"folder, no mode":     {Name: "a", FolderID: 7},
+			"bad folder mode":     {Name: "a", FolderID: 7, FolderMode: "admin"},
 		} {
 			Expect(agents.Validate(a)).To(MatchError(agents.ErrInvalid), name)
 		}

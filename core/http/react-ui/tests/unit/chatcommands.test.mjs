@@ -270,7 +270,7 @@ for (const provider of ['copper-runner', 'violet-executor']) test(`typed safety:
   // The rows of the Tools list come from useToolGroups, which the Tools menu
   // of a chat and the agent form both use.
   const toolGroups = hookHarness('../../src/hooks/useToolGroups.js', 'useToolGroups', {
-    useTranslation:() => ({t:key => key}), connectorRef: imports.connectorRef, unknownTextKey: imports.unknownTextKey,
+    useTranslation:() => ({t:key => key}), connectorRef: imports.connectorRef, unknownTextKey: imports.unknownTextKey, ...await import('../../src/utils/toolOptions.js'),
   }, source => source.replace(/export const/g, 'const'))
   const group = {group:'shell',providers:{bash:provider},provider,usable:true}
   const render = (actor = 'alice:1', override) => {
@@ -367,4 +367,23 @@ test('a draft chat keeps its commands state when a tool is switched on and off',
     assert.equal(commandsNotice(now.commands.state), null, `${step}: no banner`)
     assert.ok(now.commands.identity, `${step}: the state is the list's, not a reset`)
   }
+})
+
+test('chat commands: with the built-in bash off the notice says who can turn it on', async () => {
+  const { HOST_EXEC_SETTING, ADDONS_PAGE } = await import('../../src/utils/chatCommands.js')
+  const admin = commandsNotice('none', { isAdmin: true, hostExec: 'off' })
+  assert.equal(admin.hostOff, true)
+  assert.equal(admin.severity, 'warn')
+  assert.equal(admin.whoKey, 'hostOff.whoAdmin')
+  assert.deepEqual(admin.link, { to: HOST_EXEC_SETTING, labelKey: 'hostOff.fix' })
+  assert.deepEqual(admin.sandboxLink, { to: ADDONS_PAGE, labelKey: 'hostOff.sandbox' })
+  // Anyone else is told to ask: no setting link, no add-on link.
+  const member = commandsNotice('none', { isAdmin: false, hostExec: 'off' })
+  assert.equal(member.whoKey, 'hostOff.whoMember')
+  assert.equal(member.link, null)
+  assert.equal(member.sandboxLink, null)
+  // A server that does not say the mode, or says it is on, keeps the plain notice.
+  for (const hostExec of ['', 'ask', 'on', undefined]) assert.equal(commandsNotice('none', { isAdmin: true, hostExec }).textKey, 'none')
+  // The setting link opens Settings, Tools, on the bash row.
+  assert.match(HOST_EXEC_SETTING, /^\/app\/settings\?group=tools#settings-tools-row-bash$/)
 })

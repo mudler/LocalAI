@@ -62,6 +62,31 @@ export function updateView(update) {
   }
 }
 
+// The note a library entry shows under an installed add-on whose check found no
+// update to offer. An add-on that was never checked, a failed check and an
+// integrity error each say so; none of them reads as current, and a card that
+// only shows the installed version never leaves the reader to guess.
+export function entryUpdateNote(update) {
+  const v = updateView(update)
+  if (v.state === 'update-available') return null
+  return { state: v.state, tone: v.tone, version: v.version }
+}
+
+// The severity of the notice that says an add-on's update state: a state with an
+// update to apply or a check that did not answer is a warning, a status that was
+// never checked is information, and contents that do not match are an error.
+// Up to date has no notice.
+export function updateNoticeSeverity(state) {
+  switch (state) {
+    case 'integrity-error': return 'error'
+    case 'update-available':
+    case 'incompatible':
+    case 'check-failed': return 'warn'
+    case 'up-to-date': return ''
+    default: return 'info'
+  }
+}
+
 // The body of an upgrade request: the installed package the page showed and
 // the candidate the check resolved. The owner checks both again.
 export function upgradeBody(addon, operationId) {

@@ -2,11 +2,12 @@ package studio
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 )
 
@@ -99,19 +100,19 @@ func sameActs(a, b []string) bool {
 }
 
 // actWords says in plain words what an act lets an unattended run do.
-func actWords(name string) string {
+func actWords(v hostmsg.Voice, name string) string {
 	switch name {
 	case builtins.ClassFiles:
-		return "write files in the agent's folders"
+		return v.T("act.word.files")
 	case builtins.ClassAddons:
-		return "use the actions of the agent's add-ons"
+		return v.T("act.word.addons")
 	case builtins.ClassSend:
-		return "send messages beyond where it reports"
+		return v.T("act.word.send")
 	case builtins.ClassSpend:
-		return "use paid or external tools and the network"
+		return v.T("act.word.spend")
 	}
 	if id, ok := strings.CutPrefix(name, builtins.ClassAddons+":"); ok {
-		return "use the actions of the add-on " + id
+		return v.T("act.addon", "id", id)
 	}
 	return name
 }
@@ -126,23 +127,118 @@ func actSensitive(name string) bool {
 	return ok && g.Sensitive
 }
 
-// actsText is one sentence about what the runs of a proposed trigger may do.
-// It is on the text of a proposal in a chat of a messaging app, so the person
-// reads it before they answer yes.
-func actsText(t triggers.Trigger) string {
+// actLabel names an act in a few plain words, for the text of a proposal.
+func actLabel(v hostmsg.Voice, name string) string {
+	switch name {
+	case builtins.ClassFiles:
+		return v.T("act.label.files")
+	case builtins.ClassAddons:
+		return v.T("act.label.addons")
+	case builtins.ClassSend:
+		return v.T("act.label.send")
+	case builtins.ClassSpend:
+		return v.T("act.label.spend")
+	}
+	if id, ok := strings.CutPrefix(name, builtins.ClassAddons+":"); ok {
+		return v.T("act.addon", "id", id)
+	}
+	return name
+}
+
+// DroppedActs are the acts a model asked for in a proposal that the host left
+// out, and why. The proposal text names them, so the person is not misled
+// into thinking the run can do what the model said it could.
+type DroppedActs struct {
+	// Binding are the acts the owner has not allowed for this connection.
+	Binding []string
+	// Agent are the acts the agent of the connection does not hold.
+	Agent []string
+}
+
+// Empty says whether nothing was dropped.
+func (d DroppedActs) Empty() bool { return len(d.Binding) == 0 && len(d.Agent) == 0 }
+
+// Text is one sentence that names the dropped acts, or "" when none.
+func (d DroppedActs) Text() string { return d.TextIn(hostmsg.Voice{}) }
+
+// TextIn is Text in the language of the voice.
+func (d DroppedActs) TextIn(v hostmsg.Voice) string {
+	if d.Empty() {
+		return ""
+	}
+	var parts []string
+	words := func(names []string) string {
+		w := make([]string, len(names))
+		for i, n := range names {
+			w[i] = actLabel(v, n)
+		}
+		return strings.Join(w, ", ")
+	}
+	if len(d.Binding) > 0 {
+		parts = append(parts, v.T("dropped.binding", "words", words(d.Binding)))
+	}
+	if len(d.Agent) > 0 {
+		parts = append(parts, v.T("dropped.agent", "words", words(d.Agent)))
+	}
+	return v.T("dropped.text", "parts", strings.Join(parts, "; "))
+}
+
+// limitConnectorActs reduces what a model asked for in a chat of a messaging
+// app to the acts that the binding allows (its Acts) and the agent holds. The
+// rest is dropped and named, never an error: the proposal still stands, as
+// the read only or narrower job the person can judge. A chat without an agent
+// cannot propose from a connector, so the agent ceiling is always applied.
+func limitConnectorActs(asked []string, ap connectors.Approval, grants []string) (kept []string, dropped DroppedActs) {
+	ceiling := actNames(grants)
+	for _, n := range asked {
+		switch {
+		case !ap.AllowsAct(n):
+			dropped.Binding = append(dropped.Binding, n)
+		case !withinCeiling(n, ceiling):
+			dropped.Agent = append(dropped.Agent, n)
+		default:
+			kept = append(kept, n)
+		}
+	}
+	return kept, dropped
+}
+
+// requestableActs are the acts a model may ask for in a proposal from this
+// binding: what the owner allows for it, within what the agent holds.
+func requestableActs(ap connectors.Approval, grants []string) []string {
+	kept, _ := limitConnectorActs(ap.Acts, ap, grants)
+	return kept
+}
+
+// effectiveActs are the acts a trigger holds: its own list, plus act.files
+// when its plan names a file it writes. The card and the run read the same.
+func effectiveActs(t triggers.Trigger) []string {
 	held := slices.Clone(t.Acts)
 	if t.Writes != "" && !slices.Contains(held, builtins.ClassFiles) {
 		held = append(held, builtins.ClassFiles)
 	}
+	return held
+}
+
+// actsText is one sentence about what the runs of a proposed trigger may do.
+// It is on the text of a proposal in a chat of a messaging app, so the person
+// reads it before they answer yes. canAsk says that the binding lets runs act,
+// so the person can ask the agent for it; a read only text then says so.
+func actsText(v hostmsg.Voice, t triggers.Trigger, canAsk bool) string {
+	held := effectiveActs(t)
 	if t.Route.ReadOnly || len(held) == 0 {
-		return "Permissions: read only. A run can read and report, and cannot change anything."
+		next := v.T("acts.next_page")
+		if canAsk {
+			next = v.T("acts.next_ask")
+		}
+		return v.T("acts.read_only", "next", next)
 	}
 	words := make([]string, len(held))
 	for i, n := range held {
-		words[i] = actWords(n)
+		words[i] = actWords(v, n)
 		if actSensitive(n) {
-			words[i] += " (sensitive)"
+			words[i] = v.T("acts.sensitive", "words", words[i])
 		}
 	}
-	return fmt.Sprintf("Permissions: with nobody present, a run may %s. Say no if that is more than you want.", strings.Join(words, "; "))
+	return v.T("acts.with", "list", strings.Join(words, "; "))
 }

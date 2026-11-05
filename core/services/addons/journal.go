@@ -15,6 +15,9 @@ type journalOperation struct {
 	Actor   contract.Actor
 	Status  OperationStatus
 	Next    *Status
+	// StartedAt is when the owner accepted the operation, RFC 3339 in UTC.
+	// Empty for an operation recorded before the field.
+	StartedAt string `json:",omitempty"`
 }
 type journal struct {
 	Version    int
@@ -53,6 +56,7 @@ func durableWrite(path string, b []byte) error {
 func (m *Manager) persist(phase string) error {
 	err := m.persistJournal(phase)
 	m.refreshUpgradeViews()
+	m.refreshReadView()
 	return err
 }
 func (m *Manager) persistJournal(phase string) error {

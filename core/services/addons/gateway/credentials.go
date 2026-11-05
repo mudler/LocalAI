@@ -137,6 +137,13 @@ func (g *Gateway) credentialize(ctx context.Context, a contract.Actor, r *contra
 		if d.Name != tool {
 			continue
 		}
+		if d.UIOnly {
+			// A tool of the add-on's own page is never offered to a model and
+			// answers for the add-on, not for a service account of the person.
+			// It gets no credential, so the page works with no connection or
+			// with several.
+			return nil
+		}
 		k, _, err := slot.CredentialResource(d, r.Arguments)
 		if err != nil {
 			return fmt.Errorf("%w: %w", ErrInvalidRequest, contract.ErrRefused)

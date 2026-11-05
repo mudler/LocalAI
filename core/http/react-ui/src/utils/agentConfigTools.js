@@ -3,22 +3,27 @@
 // of a section.
 
 // Starting points are plain presets of fields every saved agent has. They
-// fill the form; nothing is saved until the person saves.
+// fill the form; nothing is saved until the person saves. `preset` is the
+// capability level the template starts at (see agentPresets.js); a template
+// without one leaves the tools as they are.
 export const AGENT_TEMPLATES = [
   {
     id: 'researcher',
+    preset: 'readonly',
     name: 'research-assistant',
     description: 'Searches, reads sources and writes short briefs.',
     instructions: 'You are a careful research assistant. Search first, read at least two sources, then summarise in plain language. Cite every claim with a numbered source. If a source cannot be read, say so.',
   },
   {
     id: 'reviewer',
+    preset: 'readonly',
     name: 'code-reviewer',
     description: 'Reviews a change and lists what to fix first.',
     instructions: 'You review code changes. Read the diff, find bugs and unclear code, and list the most important problems first. Quote the line you mean. Do not rewrite the change.',
   },
   {
     id: 'digest',
+    preset: 'assistant',
     name: 'daily-digest',
     description: 'Collects what is new on a topic and summarises it.',
     instructions: 'You collect what is new on the topics you are given and write a short digest: one line per item, newest first, each with its source.',

@@ -130,6 +130,8 @@ type Chat struct {
 	// turn can emit turn_start.
 	endMu sync.Mutex
 
+	// turnBlock is the TurnTools.Context of the turn that runs. hostMu guards it.
+	turnBlock string
 	// hostMu guards host, the host-side tools of the chat (see applyChatTools).
 	hostMu sync.Mutex
 	host   hostTools
@@ -903,7 +905,7 @@ func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 	var turnErr error
 	if !skip {
 		var hookRefresh bool
-		note, hookRefresh, turnErr = c.applyChatTools(ctx)
+		note, hookRefresh, turnErr = c.applyChatTools(ctx, text)
 		c.mu.Lock()
 		hs = c.hs // a changed set of tools restarted the harness
 		c.mu.Unlock()
@@ -922,6 +924,14 @@ func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 		if note != "" {
 			// The note is for the model only: the transcript keeps the user's words.
 			toModel = "(System note: " + note + ")\n\n" + text
+		}
+		c.hostMu.Lock()
+		block := c.turnBlock
+		c.hostMu.Unlock()
+		if block != "" {
+			// Text the product fetched for this turn only. The user's words
+			// stay in the transcript; the block is not stored.
+			toModel = block + "\n\n" + toModel
 		}
 		err := turnErr
 		if err == nil {

@@ -344,6 +344,7 @@
 .ad-entry__meta { margin-top: var(--sp-1); }
 .ad-entry__line { display: flex; flex-wrap: wrap; gap: 2px var(--sp-3); }
 .ad-entry__acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }
+.ad-entry__notice { margin-top: var(--sp-2); }
 .ad-entry__upgrade { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); }
 .ad-disclosure { margin-top: var(--sp-2); font-size: var(--fs-small); }
 .ad-disclosure > summary {

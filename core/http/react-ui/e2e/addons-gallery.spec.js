@@ -243,14 +243,14 @@ test.describe('Add-ons: apps', () => {
     await page.clock.runFor(200)
     await expect.poll(() => state.log.appsList).toBe(2)
     // The failure doubles the wait, and the old list stays visible and flagged.
-    await expect(page.getByText('may be out of date')).toBeVisible()
+    await expect(page.getByTestId('addons-stale')).toBeVisible()
     await page.clock.runFor(9_000)
     expect(state.log.appsList).toBe(2)
     await page.clock.runFor(1_500)
     await expect.poll(() => state.log.appsList).toBe(3)
     await page.clock.runFor(21_000)
     await expect.poll(() => state.log.appsList).toBe(4)
-    await expect(page.getByText('may be out of date')).toHaveCount(0)
+    await expect(page.getByTestId('addons-stale')).toHaveCount(0)
     // Leave for a route without a mounted add-on consumer (Home keeps commands current).
     await page.evaluate(() => { window.history.pushState({}, '', '/app/polling-left'); window.dispatchEvent(new PopStateEvent('popstate')) })
     // The route loads lazily and the page clock is paused: let the transition
@@ -798,5 +798,80 @@ test.describe('Add-ons: shared catalog components keep the backends gallery', ()
     // The page draws the shared empty state of the kit, in its no-results form.
     await expect(page.locator('.ui-empty.ui-empty--no-results')).toBeVisible()
     await expect(page.locator('.ui-empty .ui-empty__title')).toHaveText('No backends found')
+  })
+})
+
+test.describe('Add-ons: translated titles and descriptions', () => {
+  const translated = {
+    ui: {
+      title: 'Tables', description: 'Databases of tables.', mainPage: 'databases',
+      titles: { it: 'Tabelle', 'pt-BR': 'Tabelas' }, descriptions: { it: 'Database di tabelle tue o condivise.' },
+    },
+  }
+  const library = () => [
+    release('tables', { name: 'Tables', description: 'Databases of tables.', ...translated }),
+    release('voice', { name: 'Voice', description: 'Speak with voices.', ui: { title: 'Voice', description: 'Speak with voices.', titles: { it: 'Voce' } } }),
+    release('notes', { name: 'Notes', description: 'Keep notes.' }),
+  ]
+  const language = (code) => (page) => page.addInitScript(c => localStorage.setItem('localai-language', c), code)
+
+  test('library: the cards show the title and description in the user language, and English per field where a language has none', async ({ page }) => {
+    await language('it')(page)
+    await signIn(page, ADMIN)
+    await mockAddons(page, { installed: [], releases: library() })
+    await page.goto('/app/addons?tab=browse')
+    const tables = page.locator('[data-addon="tables"]')
+    await expect(tables.locator('.ad-entry__title')).toHaveText('Tabelle')
+    await expect(tables).toContainText('Database di tabelle tue o condivise.')
+    const voice = page.locator('[data-addon="voice"]')
+    await expect(voice.locator('.ad-entry__title')).toHaveText('Voce')
+    await expect(voice).toContainText('Speak with voices.')
+    const notes = page.locator('[data-addon="notes"]')
+    await expect(notes.locator('.ad-entry__title')).toHaveText('Notes')
+    await expect(notes).toContainText('Keep notes.')
+    await shoot(page, 'translations-library-it')
+  })
+
+  test('library: English and an unlisted language keep the English text', async ({ page }) => {
+    await language('de')(page)
+    await signIn(page, ADMIN)
+    await mockAddons(page, { installed: [], releases: library() })
+    await page.goto('/app/addons?tab=browse')
+    await expect(page.locator('[data-addon="tables"] .ad-entry__title')).toHaveText('Tables')
+    await expect(page.locator('[data-addon="tables"]')).toContainText('Databases of tables.')
+  })
+
+  test('library: the install dialog names the add-on in the user language', async ({ page }) => {
+    await language('it')(page)
+    await signIn(page, ADMIN)
+    await mockAddons(page, { installed: [], releases: library() })
+    await page.goto('/app/addons?tab=browse')
+    await page.locator('[data-addon="tables"]').getByRole('button').first().click()
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toContainText('Tabelle')
+    await expect(dialog).not.toContainText('Tables?')
+  })
+
+  test('installed list: tiles show the translated name and a search finds it by the translated or the English name', async ({ page }) => {
+    await language('it')(page)
+    await signIn(page, MEMBER, { addons: true })
+    await mockAddons(page, { apps: [
+      app({ id: 'tables', name: 'tables', title: 'Tables', titles: { en: 'Tables', it: 'Tabelle' }, description: 'Databases.', descriptions: { it: 'Database.' } }),
+      app({ id: 'voice', name: 'voice', title: 'Voice', titles: { it: 'Voce' } }),
+    ] })
+    await page.goto('/app/addons')
+    await expect(page.locator('[data-app="tables"] .ad-tile__title')).toHaveText('Tabelle')
+    await expect(page.locator('[data-app="voice"] .ad-tile__title')).toHaveText('Voce')
+    const search = page.getByRole('searchbox').first()
+    for (const [text, shown, hidden] of [['tabelle', 'tables', 'voice'], ['TABLES', 'tables', 'voice'], ['voce', 'voice', 'tables'], ['voice', 'voice', 'tables']]) {
+      await search.fill(text)
+      await expect(page.locator(`[data-app="${shown}"]`)).toHaveCount(1)
+      await expect(page.locator(`[data-app="${hidden}"]`)).toHaveCount(0)
+    }
+    await search.fill('')
+    await page.goto('/app/addons?detail=tables')
+    await expect(page.getByTestId('addon-detail')).toContainText('Tabelle')
+    await expect(page.getByTestId('addon-detail')).toContainText('Database.')
+    await shoot(page, 'translations-detail-it')
   })
 })

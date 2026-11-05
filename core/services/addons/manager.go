@@ -85,6 +85,10 @@ const (
 	// CauseDowngradeRefused: the file holds an older version and the request
 	// did not confirm the downgrade.
 	CauseDowngradeRefused = "downgrade_refused"
+	// CauseInstalledIncompatible: the installed package was built for an API,
+	// protocol or data format this host no longer runs. It cannot be turned
+	// on; an upgrade to a compatible release can.
+	CauseInstalledIncompatible = "installed_incompatible"
 )
 
 // FailureCause is the typed cause of a failed operation. Its text is fixed and
@@ -190,6 +194,8 @@ type Manager struct {
 	// uploads holds the zip files waiting for an install. Nil means the owner
 	// does not install from a file.
 	uploads atomic.Pointer[uploads.Store]
+	// view is the copy of the journal that reads use; see readview.go.
+	view atomic.Pointer[readView]
 }
 
 // SetAuthority sets the Authority that admission and the apps list ask. The
@@ -548,7 +554,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			return op.Status, e
 		}
 	} else if !resumed {
-		op = journalOperation{Command: cmd, Actor: actor, Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: string(lifecycleIntent)}}
+		op = journalOperation{Command: cmd, Actor: actor, StartedAt: time.Now().UTC().Format(time.RFC3339), Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: string(lifecycleIntent)}}
 		m.journal.Operations[cmd.OperationID] = op
 		if e := m.persist(string(lifecycleIntent)); e != nil {
 			return op.Status, e
@@ -630,7 +636,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			// available, and opMu keeps every other operation out.
 			var r catalog.Release
 			var resolveErr error
-			if e := m.upgradeStage(cmd.OperationID, "preparing-package"); e != nil {
+			if e := m.upgradeStage(cmd.OperationID, stagePreparing); e != nil {
 				return op.Status, e
 			}
 			m.mu.Unlock()
@@ -728,7 +734,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 					return m.upgradeWithRecovery(ctx, cmd, op, &next, staged, fail)
 				}
 			}
-			if e = m.upgradeStage(cmd.OperationID, "committing-package"); e != nil {
+			if e = m.upgradeStage(cmd.OperationID, stageCommitting); e != nil {
 				return op.Status, e
 			}
 			receipt, e = m.installer.Commit(ctx, staged)
@@ -754,6 +760,9 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		// it replaces the last good one in the journal. When it cannot, the
 		// last good generation runs again and the operation fails.
 		if cmd.Action == "upgrade" {
+			if e := m.upgradeStage(cmd.OperationID, stageStarting); e != nil {
+				return op.Status, e
+			}
 			if e := m.startCandidate(ctx, cmd.AddonID, m.journal.Addons[cmd.AddonID], receipt, next.Generation); e != nil {
 				if ctx.Err() != nil {
 					// The caller went away, which says nothing about the
@@ -775,6 +784,13 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		// Data that needs recovery is not served: it is restored or purged first.
 		if m.dataBlocked(cmd.AddonID) {
 			return fail()
+		}
+		// A package the host cannot run would only fail to start and leave
+		// the add-on off with no reason. Say so, and keep the upgrade open.
+		if r, ok := currentReceipt(m.journal.Addons[cmd.AddonID]); ok && m.installer != nil {
+			if contract.ValidateManifest(r.Manifest, m.installer.Host) != nil {
+				return fail(&FailureCause{Code: CauseInstalledIncompatible})
+			}
 		}
 		next.DesiredEnabled = true
 	case "disable":
@@ -1249,6 +1265,10 @@ func (m *Manager) Runtime(ctx context.Context, id string) (addonruntime.Instance
 type ConnectorKind struct {
 	AddonID string
 	contract.ConnectorKind
+	// Translations is the manifest's i18n text of this kind, by language tag.
+	// It is display text only and is never part of the kind that the add-on
+	// registers.
+	Translations map[string]contract.KindText `json:"translations,omitempty"`
 }
 
 // ConnectorKinds lists the connector kinds of the add-ons that run now. An
@@ -1272,8 +1292,14 @@ func (m *Manager) ConnectorKinds(ctx context.Context) ([]ConnectorKind, error) {
 		if r.Capabilities.Connector == nil {
 			continue
 		}
+		var manifest contract.Manifest
+		if st, ok := m.journal.Addons[r.AddonID]; ok {
+			if receipt, ok := currentReceipt(st); ok {
+				manifest = receipt.Manifest
+			}
+		}
 		for _, k := range r.Capabilities.Connector.Kinds {
-			out = append(out, ConnectorKind{AddonID: r.AddonID, ConnectorKind: k})
+			out = append(out, ConnectorKind{AddonID: r.AddonID, ConnectorKind: k, Translations: manifest.KindTranslations(k.ID)})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].AddonID+"/"+out[i].ID < out[j].AddonID+"/"+out[j].ID })
@@ -1355,17 +1381,14 @@ var ErrOperationNotFound = errors.New("addon lifecycle operation not found")
 // per-resource ACLs on every call. An administrator also sees installed addons
 // that are disabled, so a stopped addon can be started.
 func (m *Manager) Apps(ctx context.Context, actor contract.Actor) ([]apps.App, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if e := m.check(ctx); e != nil {
+	// A read never waits for a lifecycle operation: see readView.
+	v, e := m.readStateLive(ctx)
+	if e != nil {
 		return nil, e
 	}
-	if m.uncertain || m.runtimeRecoveryRequired {
-		return nil, ErrRecoveryRequired
-	}
 	isAdmin := m.admin != nil && m.admin(ctx, actor) == nil
-	snaps := make([]apps.Snapshot, 0, len(m.journal.Addons))
-	for id, st := range m.journal.Addons {
+	snaps := make([]apps.Snapshot, 0, len(v.addons))
+	for id, st := range v.addons {
 		receipt, ok := currentReceipt(st)
 		if !ok {
 			continue
@@ -1387,6 +1410,7 @@ func (m *Manager) Apps(ctx context.Context, actor contract.Actor) ([]apps.App, e
 				snap.UpdatePending = true
 			}
 		}
+		snap.Operation = v.operationFor(id)
 		snaps = append(snaps, snap)
 	}
 	return apps.Build(snaps, isAdmin), nil
@@ -1396,16 +1420,12 @@ func (m *Manager) Apps(ctx context.Context, actor contract.Actor) ([]apps.App, e
 // not, sorted. It is for the host's own housekeeping (the pin sweep); it takes
 // no actor and returns no detail.
 func (m *Manager) InstalledIDs(ctx context.Context) ([]string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if e := m.check(ctx); e != nil {
+	v, e := m.readStateLive(ctx)
+	if e != nil {
 		return nil, e
 	}
-	if m.uncertain || m.runtimeRecoveryRequired {
-		return nil, ErrRecoveryRequired
-	}
-	out := make([]string, 0, len(m.journal.Addons))
-	for id, st := range m.journal.Addons {
+	out := make([]string, 0, len(v.addons))
+	for id, st := range v.addons {
 		if st.Installed {
 			out = append(out, id)
 		}
@@ -1549,6 +1569,7 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 	out.SkillDefinitions = append([]contract.SkillDefinition(nil), c.SkillDefinitions...)
 	out.ContextFiles = append([]contract.ContextFile(nil), c.ContextFiles...)
 	out.Credentials = slices.Clone(c.Credentials)
+	out.Provides = slices.Clone(c.Provides)
 	for _, us := range c.UserSettings {
 		us.Values = slices.Clone(us.Values)
 		out.UserSettings = append(out.UserSettings, us)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
 	"github.com/mudler/LocalAI/core/services/studio/files"
@@ -69,10 +70,17 @@ func contextSubject(rec session.ChatRecord, saveTool string) contextfiles.Subjec
 // at each turn until a file changes, so the transcript does not grow and the
 // harness is restarted only for a real change.
 func (s *Service) contextTurn(ctx context.Context, rec session.ChatRecord, tools []session.Tool, extra []contextfiles.Source) (text, key string) {
+	return s.contextTurnFor(ctx, rec, tools, extra, false)
+}
+
+// contextTurnFor is contextTurn; omitEmpty leaves the header out while no
+// index has text.
+func (s *Service) contextTurnFor(ctx context.Context, rec session.ChatRecord, tools []session.Tool, extra []contextfiles.Source, omitEmpty bool) (text, key string) {
 	if !s.d.Files.Available() {
 		return "", ""
 	}
 	sub := contextSubject(rec, saveToolOf(tools))
+	sub.OmitEmpty = omitEmpty
 	profile, index := s.ctxfiles.Profile(ctx, sub), s.ctxfiles.Block(ctx, sub, extra...)
 	return joinBlocks(profile.Text, index.Text), profile.Key + index.Key
 }
@@ -97,7 +105,7 @@ func (s *Service) contextTools(rec session.ChatRecord, tools []session.Tool, ext
 		Description: contextfiles.ToolDescription,
 		Schema: json.RawMessage(`{"type":"object","properties":{` +
 			`"topic":{"type":"string","description":"The topic name or file name from a line of the index."},` +
-			`"scope":{"type":"string","enum":["user","agent","channel"],"description":"Where to look. Omit to search the channel, then the agent, then the user."}},` +
+			`"scope":{"type":"string","enum":` + scopeEnum(extra) + `,"description":"Where to look. Omit to search the channel, then the agent, then the user."}},` +
 			`"required":["topic"]}`),
 		Run: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			var args struct {
@@ -110,4 +118,19 @@ func (s *Service) contextTools(rec session.ChatRecord, tools []session.Tool, ext
 			return s.ctxfiles.Detail(ctx, sub, contextfiles.Scope(args.Scope), args.Topic, extra...)
 		},
 	}}
+}
+
+// scopeEnum is the JSON list of the scopes the sources hold, widest first, so
+// the model is offered only the notes the chat reads.
+func scopeEnum(sources []contextfiles.Source) string {
+	var out []string
+	for _, sc := range []contextfiles.Scope{contextfiles.ScopeUser, contextfiles.ScopeAgent, contextfiles.ScopeChannel} {
+		for _, src := range sources {
+			if src.Scope == sc {
+				out = append(out, `"`+string(sc)+`"`)
+				break
+			}
+		}
+	}
+	return "[" + strings.Join(out, ",") + "]"
 }

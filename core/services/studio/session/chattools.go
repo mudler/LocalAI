@@ -47,6 +47,45 @@ type TurnTools struct {
 	// when it has none yet. The folders are made when something is saved
 	// there, so a chat that saves nothing leaves no folder behind.
 	WorkFolder bool
+	// Context is text for this turn only. The model reads it in front of the
+	// user's message; it is not stored as a user message and it is not part of
+	// Prompt, so a text that changes with each message does not restart the
+	// harness. The product wraps it as data it does not trust. It is cut at
+	// MaxTurnContext bytes on a line boundary.
+	Context string
+}
+
+// MaxTurnContext is how much of TurnTools.Context the model gets.
+const MaxTurnContext = 8 << 10
+
+type turnMessageKey struct{}
+
+// TurnMessage is the message the turn answers, for the ChatTools hook of that
+// turn. It is empty outside a turn. A hook that fetches text for the turn
+// (TurnTools.Context) reads it here.
+func TurnMessage(ctx context.Context) string {
+	s, _ := ctx.Value(turnMessageKey{}).(string)
+	return s
+}
+
+// WithTurnMessage returns a context that carries the message of a turn, as the
+// session gives it to the ChatTools hook. The session sets it itself; a spec
+// of a hook sets it to call the hook as a turn would.
+func WithTurnMessage(ctx context.Context, message string) context.Context {
+	return context.WithValue(ctx, turnMessageKey{}, message)
+}
+
+// capContext cuts a turn context at MaxTurnContext on a line boundary.
+func capContext(s string) string {
+	s = strings.TrimSpace(s)
+	if len(s) <= MaxTurnContext {
+		return s
+	}
+	cut := s[:MaxTurnContext]
+	if i := strings.LastIndexByte(cut, '\n'); i > 0 {
+		cut = cut[:i]
+	}
+	return strings.TrimSpace(strings.ToValidUTF8(cut, ""))
 }
 
 const (
@@ -222,7 +261,10 @@ func mandatoryChatToolsError(err error) bool {
 //
 // The turn is already reserved (the chat is running), so nothing else changes
 // the harness. A change that arrives while a turn runs is seen at the next turn.
-func (c *Chat) applyChatTools(ctx context.Context) (note string, refresh bool, policyErr error) {
+func (c *Chat) applyChatTools(ctx context.Context, message string) (note string, refresh bool, policyErr error) {
+	c.hostMu.Lock()
+	c.turnBlock = ""
+	c.hostMu.Unlock()
 	f := c.m.o.ChatTools
 	if f == nil {
 		return "", false, nil
@@ -230,13 +272,18 @@ func (c *Chat) applyChatTools(ctx context.Context) (note string, refresh bool, p
 	c.accMu.RLock()
 	x := c.acc
 	c.accMu.RUnlock()
-	tt, err := callChatTools(ctx, f, x, c.m.log)
+	tt, err := callChatTools(context.WithValue(ctx, turnMessageKey{}, message), f, x, c.m.log)
 	if ctx.Err() != nil {
 		// The turn was stopped while the hook ran. Its result is partial: keep
 		// the state of the last turn, so that the next turn does not see a change.
 		return "", false, nil
 	}
 	note = oneLine(tt.Note)
+	if err == nil {
+		c.hostMu.Lock()
+		c.turnBlock = capContext(tt.Context)
+		c.hostMu.Unlock()
+	}
 	var tools []Tool
 	prompt := ""
 	if err != nil {

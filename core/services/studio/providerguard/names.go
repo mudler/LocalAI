@@ -105,9 +105,12 @@ func Addons() ([]Addon, error) {
 		if json.Unmarshal(m.Capabilities.UI.Title, &title) == nil {
 			add(title)
 		} else if json.Unmarshal(m.Capabilities.UI.Title, &titles) == nil {
-			for _, v := range titles {
-				add(v)
-			}
+			// The English title is the name of the add-on. Its translations
+			// are the same name in the language of the reader and are often an
+			// ordinary word there (the Korean for web, the Chinese for
+			// sandbox), so they are not names to keep out of core. The
+			// translated strings live in the add-on packages.
+			add(titles["en"])
 		}
 		sort.Strings(a.Titles)
 		out = append(out, a)

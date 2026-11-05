@@ -115,8 +115,14 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
     dispatchFile,
     apps: {
       async list(signal) {
+        return (await api.apps.read(signal)).apps
+      },
+      // The server fails closed: when the owner does not answer it sends a
+      // typed 503, never an older list. A page that wants to keep showing its
+      // last list keeps it in its own memory.
+      async read(signal) {
         const out = await call('/api/addons/apps', { signal })
-        return Array.isArray(out?.apps) ? out.apps : []
+        return { apps: Array.isArray(out?.apps) ? out.apps : [] }
       },
       async start(id, { operationId, generation }, signal) {
         const out = await call(`/api/addons/apps/${encodeURIComponent(id)}/start`, { method: 'POST', body: { operationId, generation }, signal })
@@ -269,6 +275,9 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
     id: release.id ?? release.addonId,
     title: release.name || (release.id ?? release.addonId),
     description: release.description || release.ui?.description || '',
+    // The other languages of the title and description, from the library.
+    titles: release.ui?.titles || {},
+    descriptions: release.ui?.descriptions || {},
     version: release.version,
     sourceId: release.sourceId,
     // The kind of the entry: addon when the library does not say.

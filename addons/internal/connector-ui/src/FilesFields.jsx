@@ -6,25 +6,6 @@
 import { Field, Hint, TextInput } from './controls'
 import { fileDirection, fileLimitProblem, formatBytes, previewLimit } from './connector'
 
-export const FILES_TEXT = {
-  'files.title': 'Files',
-  'files.help': 'Leave a field empty to use the limit of the add-on. Your limit can only be lower than that.',
-  'files.receiveLabel': 'Largest file it reads, in MiB',
-  'files.sendLabel': 'Largest file it sends, in MiB',
-  'files.invalid': 'Use a number greater than 0.',
-  'files.tooHigh': 'The add-on allows at most {{max}} here.',
-  'files.now': 'Now: {{limit}} ({{layer}}).',
-  'files.receiveHelp': 'Files that people send to the bot. A bigger file is refused, and the bot says which limit it hit.',
-  'files.sendHelp': 'Files that the agent makes and the bot sends back. A bigger file is not sent, and the bot says which limit it hit.',
-  'files.addon.off': 'This add-on does not move files in this direction, so there is nothing to set.',
-  'files.addon.declared': 'The add-on declares up to {{max}}.',
-  'files.addon.open': 'The add-on declares no limit, so the limit of the platform applies.',
-  'files.host': 'No bot can move a file above {{max}}. An administrator sets this in the settings.',
-  'files.layer.owner': 'limit set for this bot',
-  'files.layer.addon': 'limit of the add-on',
-  'files.layer.host': 'limit of the platform',
-}
-
 // The limit that a field shows: what the typed value gives over the limit of
 // the kind, or the saved limit of the binding when the kind is not known.
 function shown(base, saved, mib) {

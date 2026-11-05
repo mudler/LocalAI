@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -42,8 +43,10 @@ type ToolHarness struct {
 	mu      sync.Mutex
 	results []ToolResult
 	sent    map[string][]string
+	raw     map[string][]string
 	tools   map[string][]string
 	schemas map[string]map[string]string
+	descs   map[string]string
 	prompts map[string]string
 	systems map[string]string
 	resumes map[string][]byte
@@ -83,11 +86,19 @@ func (h *ToolHarness) ResultsFor(tool string) []ToolResult {
 	return out
 }
 
-// Sent returns the messages a chat's turns were given.
+// Sent returns the messages a chat's turns were given, without the sentence
+// about the tools held back from the sender (see SentRaw).
 func (h *ToolHarness) Sent(chat string) []string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return append([]string(nil), h.sent[chat]...)
+}
+
+// SentRaw is Sent with the sentence about the tools held back from the sender.
+func (h *ToolHarness) SentRaw(chat string) []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return append([]string(nil), h.raw[chat]...)
 }
 
 // ToolNames returns the names of the tools the chat's session was last started with.
@@ -113,6 +124,14 @@ func (h *ToolHarness) ToolSchema(chat, tool string) string {
 	return h.schemas[chat][tool]
 }
 
+// LastToolDescription returns the description a tool had when a session last
+// started with it, in any chat, or "".
+func (h *ToolHarness) LastToolDescription(tool string) string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.descs[tool]
+}
+
 // Start implements session.Harness.
 func (h *ToolHarness) Start(_ context.Context, env session.HarnessEnv) (session.HarnessSession, error) {
 	h.mu.Lock()
@@ -128,8 +147,12 @@ func (h *ToolHarness) Start(_ context.Context, env session.HarnessEnv) (session.
 		h.schemas = map[string]map[string]string{}
 	}
 	h.schemas[env.Actor.ChatID] = map[string]string{}
+	if h.descs == nil {
+		h.descs = map[string]string{}
+	}
 	for _, t := range env.Tools {
 		h.schemas[env.Actor.ChatID][t.Name] = string(t.Schema)
+		h.descs[t.Name] = t.Description
 	}
 	if h.prompts == nil {
 		h.prompts = map[string]string{}
@@ -184,9 +207,13 @@ func (s *toolSession) Send(ctx context.Context, text string) error {
 	defer cancel()
 	chat := s.env.Actor.ChatID
 	s.h.mu.Lock()
-	s.h.sent[chat] = append(s.h.sent[chat], text)
+	s.h.sent[chat] = append(s.h.sent[chat], withoutDeniedNote(text))
+	if s.h.raw == nil {
+		s.h.raw = map[string][]string{}
+	}
+	s.h.raw[chat] = append(s.h.raw[chat], text)
 	s.h.mu.Unlock()
-	for _, step := range s.h.Script(s.env.Actor, text) {
+	for _, step := range s.h.Script(s.env.Actor, withoutDeniedNote(text)) {
 		switch {
 		case step.Say != "":
 			s.env.Emit(session.Event{Kind: session.KindText, Text: step.Say})
@@ -243,3 +270,27 @@ func (s *toolSession) Interrupt() error {
 
 func (s *toolSession) Export() ([]byte, error) { return []byte(`{}`), nil }
 func (s *toolSession) Close() error            { return s.Interrupt() }
+
+// DeniedNoteStart and DeniedNoteEnd bound the sentence that tells the model
+// which tools the sender of a connector message may not use. Sent leaves it
+// out, so a spec keys on the words of the person; SentRaw keeps it.
+const (
+	DeniedNoteStart = "Held back from this sender: "
+	DeniedNoteEnd   = "never say it does not exist."
+)
+
+// withoutDeniedNote removes that sentence, and the empty note around it.
+func withoutDeniedNote(text string) string {
+	a := strings.Index(text, DeniedNoteStart)
+	if a < 0 {
+		return text
+	}
+	b := strings.Index(text[a:], DeniedNoteEnd)
+	if b < 0 {
+		return text
+	}
+	text = text[:a] + text[a+b+len(DeniedNoteEnd):]
+	text = strings.Replace(text, "(System note: )\n\n", "", 1)
+	text = strings.Replace(text, "(System note:  )\n\n", "", 1)
+	return strings.Replace(text, " )\n\n", ")\n\n", 1)
+}

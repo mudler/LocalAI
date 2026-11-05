@@ -18,7 +18,7 @@ var _ = Describe("official host policy deployment", func() {
 		grants, err := config.LoadAddonHostPolicy(filepath.Join(root, "deploy", "addons", "host-policy.json"))
 		Expect(err).NotTo(HaveOccurred())
 		// Deployment-owned exception: historical identity grants, not core defaults.
-		legacy := "fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,telegram=connector.,slack=connector."
+		legacy := "fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,home-assistant=workspace.,pikvm=workspace.,telegram=connector.,slack=connector.,discord=connector."
 		want, err := config.ParseAddonHostOps(legacy)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(grants).To(Equal(want))

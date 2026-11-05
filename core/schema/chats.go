@@ -59,6 +59,20 @@ type ChatsAgent struct {
 	// unattended runs: off (the default), registries or all, capped by the
 	// administrator's ceiling.
 	Network string `json:"network"`
+	// Memory is the choice of notes for this agent: own (its own notes only),
+	// mine_and_own (reads your notes and its own, saves to its own; the
+	// default of a new agent in the interface), mine (your notes only) or
+	// none. The host enforces it: it decides which notes go in the prompt of
+	// a chat and where a note is saved. Absent is "as before", an agent saved
+	// before the choice existed: it reads notes when its add-ons name Memory
+	// and the model picks the scope of a note.
+	Memory string `json:"memory,omitempty" enums:"own,mine_and_own,mine,none" example:"mine_and_own"`
+	// MemorySave is the agent's own rule for saving a note: always (every note
+	// waits for the person, and the model cannot undo or forget by itself) or
+	// never (it reads notes and saves none). Absent uses the person's setting
+	// (Account > Memory). It can only be stricter than that setting: the host
+	// takes the stricter of the two, and there is no value that saves at once.
+	MemorySave string `json:"memory_save,omitempty" enums:"always,never" example:"always"`
 	// BuiltinsOff are the groups of built-in tools (web, files, triggers...)
 	// the agent's chats never have, and BuiltinsOn the opt-in groups (saved
 	// agents) they start with. The names are the ones GET /api/chats/{id}/tools
@@ -140,6 +154,16 @@ type ChatsAgentWrite struct {
 	Collections  []string `json:"collections,omitempty"`
 	Skills       []string `json:"skills,omitempty"`
 	Network      string   `json:"network,omitempty"`
+	// Memory is the choice of notes (see ChatsAgent). A write without it keeps
+	// the stored choice, so a client that does not know it cannot widen the
+	// agent; the value must be own, mine_and_own, mine or none (400 otherwise).
+	// A new agent written without it is "as before".
+	Memory string `json:"memory,omitempty" enums:"own,mine_and_own,mine,none"`
+	// MemorySave is the save rule of the agent (see ChatsAgent). A write
+	// without it keeps the stored rule, so a client that does not know the
+	// field cannot loosen the agent. use_mine clears the rule. auto and ask
+	// are not accepted: an agent cannot be looser than the person (400).
+	MemorySave string `json:"memory_save,omitempty" enums:"always,never,use_mine"`
 	// BuiltinsOff and BuiltinsOn are the switches of the built-in tools of
 	// the agent's chats (see ChatsAgent). A write without them keeps the stored ones (an older client cannot widen
 	// the agent); an empty list clears them.
@@ -934,6 +958,10 @@ type ChatsAddonList struct {
 	// CommandsFallbackReason says why: off, or the add-on's reason.
 	CommandsFallback       string `json:"commands_fallback,omitempty"`
 	CommandsFallbackReason string `json:"commands_fallback_reason,omitempty"`
+	// CommandsHostExec is the mode of the setting chats_host_exec as it applies
+	// now (off, ask or on), so a client can say that the built-in bash is off
+	// when no add-on runs commands. Every signed-in user may read it.
+	CommandsHostExec string `json:"commands_host_exec,omitempty"`
 }
 
 // ChatsHostExecConsent answers the card that asks to run one command on this
@@ -1303,6 +1331,11 @@ type ChatsConnector struct {
 	// SendFiles sends the files that a turn makes to the sender, after the
 	// answer.
 	SendFiles bool `json:"send_files"`
+	// ReplyLanguage is the language of the sentences the bot writes itself in
+	// the chat (confirmations, refusals, notes about files): auto (the
+	// language of the sender's message), en, it, de, es, fr or pt-BR. The
+	// answers of the model follow the conversation, not this setting.
+	ReplyLanguage string `json:"reply_language"`
 	// Options are the choices made for the options of the kind, by option id.
 	// An option that is absent has its default (see ChatsConnectorKind).
 	Options map[string]string `json:"options,omitempty"`
@@ -1350,12 +1383,19 @@ type ChatsConnector struct {
 // proposal asks). The limits bound the modes that make a trigger without
 // asking; a zero limit means its default (5 live triggers, one hour between
 // runs of a recurring trigger, 10 runs a day, 30 days).
+//
+// acts is "runs may act": the act.* permissions that a trigger proposed from a
+// chat of this binding may carry (act.files, act.addons, act.send, act.spend).
+// An empty list, the default, means the runs only read and report. The list is
+// a ceiling: the agent must also hold an act, when the trigger is proposed and
+// at each run. Any other name is refused with 400.
 type ChatsConnectorApproval struct {
-	Mode            string `json:"mode"`
-	MaxPending      int    `json:"max_pending"`
-	MinGapMinutes   int    `json:"min_gap_minutes"`
-	MaxRunsPerDay   int    `json:"max_runs_per_day"`
-	MaxLifetimeDays int    `json:"max_lifetime_days"`
+	Mode            string   `json:"mode"`
+	MaxPending      int      `json:"max_pending"`
+	MinGapMinutes   int      `json:"min_gap_minutes"`
+	MaxRunsPerDay   int      `json:"max_runs_per_day"`
+	MaxLifetimeDays int      `json:"max_lifetime_days"`
+	Acts            []string `json:"acts"`
 }
 
 // ChatsConnectorRoleGrant gives the capabilities caps to the senders that the
@@ -1380,6 +1420,37 @@ type ChatsConnectorAccessDecision struct {
 	// Via is how the capability is reached: paired, or role:<id>.
 	Via    string `json:"via,omitempty"`
 	Reason string `json:"reason,omitempty"`
+	// Code says which link of the chain refused first. It is one of
+	// server_setting_off, tools_switch_off, agent_permission_off,
+	// agent_unavailable, connection_permission_off, no_agent,
+	// sender_not_listed, sender_needs_pairing, channel_not_trusted,
+	// role_not_granted, kind_not_running, context_rule or
+	// unknown_capability. Only a refused capability has it.
+	Code string `json:"code,omitempty"`
+	// BlockedBy is the link that refused: server, tools, agent, connection
+	// or sender.
+	BlockedBy string `json:"blocked_by,omitempty"`
+	// Message is one plain sentence for the owner. It names no setting.
+	Message string `json:"message,omitempty"`
+	// Fix points at the one place that solves it. The server sends no URL.
+	Fix *ChatsConnectorAccessFix `json:"fix,omitempty"`
+	// ThenCheck lists the links after the first problem that were not
+	// looked at, in order: tools, agent, connection, sender and, for
+	// triggers.propose, approval. More problems may follow.
+	ThenCheck []string `json:"then_check,omitempty"`
+}
+
+// ChatsConnectorAccessFix is the one place that solves a refusal.
+type ChatsConnectorAccessFix struct {
+	// Kind is open_server_setting, open_agent, open_connection, pair_sender
+	// or add_person.
+	Kind string `json:"kind"`
+	// Target is a stable ID: the key of a server setting, an agent ID, a field
+	// of the connection form (caps, grants, agent_id, allow) or pairing.
+	Target string `json:"target"`
+	// Field narrows the target: the capability to tick on the connection or
+	// to grant on the agent, or tools:<group> for a Tools switch.
+	Field string `json:"field,omitempty"`
 }
 
 // ChatsConnectorAccessSubject is what one kind of sender may do: a sender on
@@ -1400,6 +1471,8 @@ type ChatsConnectorAccessEvent struct {
 	Allowed    bool      `json:"allowed"`
 	Via        string    `json:"via,omitempty"`
 	Reason     string    `json:"reason,omitempty"`
+	// Code is the code of a refusal, as in the decisions.
+	Code string `json:"code,omitempty"`
 }
 
 // ChatsConnectorAccess is the effective permissions of a binding, as the host
@@ -1408,6 +1481,25 @@ type ChatsConnectorAccess struct {
 	Binding  string                        `json:"binding"`
 	Subjects []ChatsConnectorAccessSubject `json:"subjects"`
 	Recent   []ChatsConnectorAccessEvent   `json:"recent"`
+	// Preview is true when the view is for a form that is not saved.
+	Preview bool `json:"preview,omitempty"`
+}
+
+// ChatsConnectorAccessPreviewRequest is the state of a connection form that
+// the permission chain reads, saved or not. A field that is absent keeps the
+// saved value. It has no token: a preview never takes or returns one.
+type ChatsConnectorAccessPreviewRequest struct {
+	// Kind is read only for the id "new" (a connection that is not saved).
+	Kind      string   `json:"kind,omitempty"`
+	AgentID   *string  `json:"agent_id,omitempty"`
+	AcceptAny *bool    `json:"accept_any,omitempty"`
+	Allow     []string `json:"allow,omitempty"`
+	// Caps and Grants are the form's permissions; an empty list clears.
+	Caps   []string                  `json:"caps,omitempty"`
+	Grants []ChatsConnectorRoleGrant `json:"grants,omitempty"`
+	// Sender limits the answer to one kind of sender: listed, paired,
+	// channel_member, anyone or role:<id>. Absent means every kind.
+	Sender string `json:"sender,omitempty"`
 }
 
 // ChatsConnectorPairing is a pairing code. Send it from the account to pair, as
@@ -1476,7 +1568,18 @@ type ChatsConnectorKind struct {
 	Kind        string `json:"kind"`
 	Title       string `json:"title"`
 	Description string `json:"description,omitempty"`
-	SenderHint  string `json:"sender_hint,omitempty"`
+	// Titles and Descriptions carry the translated text of the manifest by
+	// language tag, when it has some. Title and Description stay English.
+	Titles       map[string]string `json:"titles,omitempty"`
+	Descriptions map[string]string `json:"descriptions,omitempty"`
+	// Language, LocalizedTitle and LocalizedDescription are present only when
+	// the request names a language (the lang query parameter, else the
+	// Accept-Language header) that the kind translates. Each falls back to
+	// English on its own.
+	Language             string `json:"language,omitempty"`
+	LocalizedTitle       string `json:"localized_title,omitempty"`
+	LocalizedDescription string `json:"localized_description,omitempty"`
+	SenderHint           string `json:"sender_hint,omitempty"`
 	// Page is the add-on page that adds and edits bindings of this kind.
 	Page string `json:"page,omitempty"`
 	// AgentOptional is true when a binding of this kind may have no agent. It
@@ -1545,6 +1648,9 @@ type ChatsConnectorWrite struct {
 	Conversation string `json:"conversation,omitempty"`
 	// WindowMinutes is the time window of the window mode, 1 to 10080.
 	WindowMinutes int `json:"window_minutes,omitempty"`
+	// ReplyLanguage is auto, en, it, de, es, fr or pt-BR. Absent means auto
+	// for a new binding and unchanged for an update.
+	ReplyLanguage *string `json:"reply_language,omitempty" enums:"auto,en,it,de,es,fr,pt-BR"`
 	// SendFiles turns the sending of a turn's files on or off. Absent means
 	// on for a new binding and unchanged for an update.
 	SendFiles *bool `json:"send_files,omitempty"`
@@ -1581,7 +1687,9 @@ type ChatsConnectorWrite struct {
 	WriteMode *string `json:"write_mode,omitempty" enums:"off,propose,auto"`
 	// Approval sets how triggers that the agent proposes from a chat of the
 	// binding are approved, and the limits of the automatic modes. Absent
-	// means ask for a new binding and unchanged for an update.
+	// means ask for a new binding and unchanged for an update. When it is
+	// present it replaces the whole approval, acts included: send the acts
+	// again to keep them. An act that is not in the closed list is refused.
 	Approval *ChatsConnectorApproval `json:"approval,omitempty"`
 }
 
@@ -1824,6 +1932,163 @@ type ChatsToolsPanel struct {
 	// that no add-on serves in this chat now: the add-on is stopped, off for
 	// the chat, not granted by its agent, or cannot run.
 	Fallbacks []ChatsToolFallback `json:"fallbacks,omitempty"`
+	// Memory says whether memory works in this chat and, when it does not,
+	// which level turned it off and where to turn it on again.
+	Memory ChatsMemoryState `json:"memory"`
+}
+
+// ChatsMemoryState is whether memory works in one chat. The narrowest level
+// that is off wins: this chat (a private chat), the agent of the chat, your
+// memory switch, then the server.
+type ChatsMemoryState struct {
+	// On is true when the chat reads and may save notes.
+	On bool `json:"on" example:"false"`
+	// Code names the level that is off: memory_off_chat, memory_off_agent,
+	// memory_off_user, memory_off_files or memory_provider_unavailable (the
+	// add-on you picked to serve memory cannot serve now; provider names it).
+	// Absent when on.
+	Code string `json:"code,omitempty" example:"memory_off_chat"`
+	// BlockedBy is who holds that switch: chat, agent, user or server.
+	BlockedBy string `json:"blocked_by,omitempty" example:"chat"`
+	// Reason is an English sentence for logs; the interface words it by Code.
+	Reason string `json:"reason,omitempty"`
+	// Fix says where to turn memory on again: kind open_tools_menu,
+	// open_memory_settings, open_agent or open_server_setting.
+	Fix *ChatsMemoryFix `json:"fix,omitempty"`
+	// Provider is the ID of the add-on that cannot serve, with the code
+	// memory_provider_unavailable, and ProviderTitle the name it shows.
+	Provider      string `json:"provider,omitempty"`
+	ProviderTitle string `json:"provider_title,omitempty"`
+}
+
+// ChatsProviderSlots is the list of provider slots of the host.
+type ChatsProviderSlots struct {
+	Slots []ChatsProviderSlot `json:"slots"`
+}
+
+// ChatsProviderSlot is a job the host does itself and lets an add-on do in its
+// place, with the providers you can pick and the choice in force.
+type ChatsProviderSlot struct {
+	ID          string `json:"id" example:"memory"`
+	Version     int    `json:"version" example:"1"`
+	Title       string `json:"title" example:"Memory"`
+	Description string `json:"description"`
+	// OffMeans is what Off does for this slot.
+	OffMeans   string                  `json:"off_means,omitempty"`
+	Providers  []ChatsProvider         `json:"providers"`
+	Resolution ChatsProviderResolution `json:"resolution"`
+	// Health says when the host leaves the provider alone after repeated
+	// failures. Absent while the provider answers.
+	Health *ChatsProviderHealth `json:"health,omitempty"`
+}
+
+// ChatsProviderHealth is the circuit breaker of the provider that serves a slot.
+type ChatsProviderHealth struct {
+	// CoolingDown is true while the host does not call the provider.
+	CoolingDown bool `json:"cooling_down"`
+	// RetryAt is when the host calls the provider again (RFC 3339).
+	RetryAt string `json:"retry_at,omitempty"`
+	// Last is the outcome of the failure that stopped the calls: failed,
+	// timeout or bad_result.
+	Last string `json:"last,omitempty" example:"timeout"`
+	// Notice is a plain sentence for the person.
+	Notice string `json:"notice,omitempty"`
+}
+
+// ChatsMemoryForget is what a forget of the provider that serves your memory did.
+type ChatsMemoryForget struct {
+	// Done is true when the provider forgot. Otherwise the change waits for you
+	// to confirm it on the Add-ons page.
+	Done bool `json:"done"`
+	// Proposal names the change that waits.
+	Proposal string `json:"proposal,omitempty"`
+}
+
+// ChatsProvider is one provider you can pick for a slot.
+type ChatsProvider struct {
+	// ID is builtin, off or the ID of an add-on.
+	ID          string `json:"id" example:"builtin"`
+	Title       string `json:"title" example:"Built-in"`
+	Description string `json:"description,omitempty"`
+	// Kind is builtin, addon or off.
+	Kind string `json:"kind" enums:"builtin,addon,off" example:"builtin"`
+	// Available is false for an add-on that cannot serve now.
+	Available bool `json:"available"`
+	// Properties are the facts the add-on declared about itself, such as
+	// remote and undo.
+	Properties map[string]any `json:"properties,omitempty"`
+	// Roles are the roles of the slot that the add-on fills with tools.
+	Roles    []string `json:"roles,omitempty"`
+	Selected bool     `json:"selected"`
+}
+
+// ChatsProviderResolution is what serves a slot for you now.
+type ChatsProviderResolution struct {
+	Slot string `json:"slot" example:"memory"`
+	// Selected is your stored choice, or the default of the slot.
+	Selected string `json:"selected" example:"builtin"`
+	// Stored is true once you chose.
+	Stored bool `json:"stored"`
+	// Active is what serves: builtin, an add-on ID or off.
+	Active string `json:"active" example:"builtin"`
+	Off    bool   `json:"off"`
+	// Code says why the slot is off: provider_off, provider_unavailable (the
+	// add-on you picked cannot serve; the slot does not move to the built-in
+	// provider) or provider_unreadable. Absent when on.
+	Code string `json:"code,omitempty" example:"provider_unavailable"`
+	// Reason is an English sentence for logs; the interface words it by Code.
+	Reason string `json:"reason,omitempty"`
+	// AddonID and AddonTitle name the add-on a failure is about.
+	AddonID    string `json:"addon_id,omitempty"`
+	AddonTitle string `json:"addon_title,omitempty"`
+}
+
+// ChatsProviderRequest picks the provider of a slot.
+type ChatsProviderRequest struct {
+	// Provider is builtin, off (when the slot allows it) or the ID of an add-on
+	// that declares the slot.
+	Provider string `json:"provider" example:"builtin"`
+}
+
+// ChatsMemoryFix points at the one place that turns memory on again.
+type ChatsMemoryFix struct {
+	Kind   string `json:"kind" example:"open_memory_settings"`
+	Target string `json:"target" example:"memory"`
+	Field  string `json:"field,omitempty"`
+}
+
+// ChatsMemorySettings is your memory choices.
+type ChatsMemorySettings struct {
+	// Enabled is memory On or Off for all your chats and agents.
+	Enabled bool `json:"enabled" example:"true"`
+	// EnabledSet is true once you chose. Before that memory is on, unless you
+	// had disabled the Memory add-on to stop it.
+	EnabledSet bool `json:"enabled_set" example:"false"`
+	// SaveMode is how a note is saved: auto (save it and tell me), ask (ask me
+	// first, the default), always (always confirm: like ask, and nothing can
+	// loosen it; undo and forget by the model wait for you too) or never.
+	SaveMode string `json:"save_mode" enums:"auto,ask,always,never" example:"ask"`
+	// MessagingSave is how a note proposed in a chat of a messaging app is
+	// saved: ask (the bot asks in the chat; the default), paired_private
+	// (saved at once to the conversation when the sender is paired and the
+	// chat is one-to-one) or never. It cannot loosen save_mode: with always or
+	// never the row has no looser effect.
+	MessagingSave string `json:"messaging_save" enums:"ask,paired_private,never" example:"ask"`
+	// SaveModeSet is true once you chose in this setting.
+	SaveModeSet bool `json:"save_mode_set" example:"false"`
+	// Provider is what serves memory: builtin.
+	Provider string `json:"provider" example:"builtin"`
+	// Available is false when the server has no files, which notes need.
+	Available bool `json:"available" example:"true"`
+}
+
+// ChatsMemoryRequest changes your memory choices. A field left out stays as
+// it is.
+type ChatsMemoryRequest struct {
+	Enabled  *bool   `json:"enabled,omitempty" example:"false"`
+	SaveMode *string `json:"save_mode,omitempty" enums:"auto,ask,always,never" example:"ask"`
+	// MessagingSave is the messaging row (see ChatsMemorySettings).
+	MessagingSave *string `json:"messaging_save,omitempty" enums:"ask,paired_private,never" example:"ask"`
 }
 
 // ChatsToolFallback is one built-in tool whose replacing add-on cannot serve

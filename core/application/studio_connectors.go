@@ -144,6 +144,9 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 		xlog.Info("Connector talk-back is turned off (LOCALAI_DISABLE_CONNECTOR_TALKBACK)")
 		c.AddCapabilitySwitch(studio.TalkbackSwitch("turned off on this server (LOCALAI_DISABLE_CONNECTOR_TALKBACK)"))
 	}
+	if a.applicationConfig.DisableTriggers {
+		c.AddCapabilitySwitch(studio.TriggersSwitch("triggers are turned off on this server (LOCALAI_DISABLE_TRIGGERS)"))
+	}
 	a.studioConnectorsHook.Store(c)
 	if a.applicationConfig.SkipBindingCapsMigration {
 		xlog.Info("Connectors: the grant of the usual permissions to old bindings is skipped (LOCALAI_SKIP_BINDING_CAPS_MIGRATION)")

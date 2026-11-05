@@ -1945,3 +1945,39 @@ html[data-handoff='fade']::view-transition-new(root) {
   .ac-group { padding: 10px; }
   .ac-row__open { flex-direction: column; align-items: flex-start; gap: 2px; }
 }
+
+/* ---- Chat search: filters, hits, deep link ------------------------------------- */
+.cx-find-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; padding: 8px 16px; box-shadow: inset 0 -1px 0 var(--dk-edge); flex: none; }
+.cx-find-filter { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cx-find-filter__label { color: var(--dk-muted); font-size: var(--fs-meta); font-weight: 600; letter-spacing: .04em; }
+.cx-find-select {
+  height: 32px;
+  max-width: 100%;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--dk-radius-1);
+  background: var(--dk-inset);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  color: var(--dk-text);
+  font: inherit;
+  font-size: var(--fs-small);
+}
+.cx-find-select:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 1px; }
+.cx-find-reset { align-self: flex-end; }
+.cx-find-status { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 16px 0; color: var(--dk-muted); font-size: var(--fs-meta); }
+.cx-find-status__note { color: var(--dk-warn-text, var(--dk-muted)); }
+.cx-find-list[data-dim] { opacity: .55; transition: opacity var(--dk-dur-1) var(--dk-ease-out); }
+.cx-find-snip { white-space: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
+.cx-find-snip__who { margin-right: 6px; color: var(--dk-text); font-weight: 600; }
+.cx-find-snip__more { margin-left: 8px; font-size: var(--fs-meta); }
+.cx-find-mark { padding: 0 1px; border-radius: var(--dk-radius-1); background: var(--dk-accent-wash); color: var(--dk-accent-text); font-weight: 650; }
+.cx-msg[data-flash] { border-radius: var(--dk-radius-2); transition: background-color 1.2s ease-out, box-shadow 1.2s ease-out; }
+.cx-msg[data-flash="on"] { background: var(--dk-accent-wash); box-shadow: 0 0 0 8px var(--dk-accent-wash); }
+.cx-msg[data-flash="off"] { background: transparent; box-shadow: 0 0 0 8px transparent; }
+@media (prefers-reduced-motion: reduce) { .cx-msg[data-flash] { transition: none; } }
+@media (max-width: 760px) {
+  .cx-find-filters { padding: 8px 12px; gap: 6px 8px; }
+  .cx-find-filter { flex: 1 1 42%; }
+  .cx-find-select { width: 100%; font-size: var(--fs-lead); }
+  .cx-find-status { padding: 8px 12px 0; }
+}

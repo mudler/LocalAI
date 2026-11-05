@@ -120,8 +120,12 @@ test.describe('Telegram add-on', () => {
     // A new binding shows progress, one chat per person, and sends files.
     await expect(page.getByTestId('connector-reply')).toHaveValue('progress')
     await expect(page.getByTestId('connector-conversation')).toHaveValue('sender')
+    await expect(page.getByText('Send /new (or !new) in the app to start a new chat.')).toBeVisible()
     await expect(page.getByTestId('connector-files')).toBeChecked()
     await expect(page.getByTestId('connector-window')).toHaveCount(0)
+    // The notes the bot writes itself follow the sender unless a language is chosen.
+    await expect(page.getByTestId('connector-reply-language')).toHaveValue('auto')
+    await expect(page.getByText('The notes the bot writes itself, like confirmations and refusals.')).toBeVisible()
     await page.getByLabel('Name', { exact: true }).fill('Live bot')
     await page.getByLabel('Bot token').fill('555:secret-token')
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
@@ -129,11 +133,12 @@ test.describe('Telegram add-on', () => {
     await page.getByTestId('connector-conversation').selectOption('window')
     await page.getByTestId('connector-window').fill('45')
     await page.getByTestId('connector-files').uncheck()
+    await page.getByTestId('connector-reply-language').selectOption('it')
     await page.getByRole('button', { name: 'Save' }).click()
 
     await expect(page.getByTestId('connector-answer-summary')).toHaveText('Answers: live answer · new chat after 45 min')
     const post = a.s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/connectors').body
-    expect(post).toMatchObject({ reply_mode: 'stream', conversation: 'window', window_minutes: 45, send_files: false })
+    expect(post).toMatchObject({ reply_mode: 'stream', conversation: 'window', window_minutes: 45, send_files: false, reply_language: 'it' })
     expect(a.s.items[0]).toMatchObject({ reply_mode: 'stream', conversation: 'window', window_minutes: 45, send_files: false })
 
     // Edit: the form shows what the API holds; the thread mode drops the window.
@@ -142,13 +147,15 @@ test.describe('Telegram add-on', () => {
     await expect(page.getByTestId('connector-conversation')).toHaveValue('window')
     await expect(page.getByTestId('connector-window')).toHaveValue('45')
     await expect(page.getByTestId('connector-files')).not.toBeChecked()
+    await expect(page.getByTestId('connector-reply-language')).toHaveValue('it')
+    await page.getByTestId('connector-reply-language').selectOption('pt-BR')
     await page.getByTestId('connector-reply').selectOption('off')
     await page.getByTestId('connector-conversation').selectOption('thread')
     await page.getByTestId('connector-files').check()
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByTestId('connector-answer-summary')).toHaveText('Answers: typing · a chat per message')
     const put = a.s.calls.filter(c => c.method === 'PUT').at(-1).body
-    expect(put).toMatchObject({ reply_mode: 'off', conversation: 'thread', send_files: true })
+    expect(put).toMatchObject({ reply_mode: 'off', conversation: 'thread', send_files: true, reply_language: 'pt-BR' })
     expect(put).not.toHaveProperty('window_minutes')
     expect(a.s.items[0]).toMatchObject({ reply_mode: 'off', conversation: 'thread', send_files: true })
   })
@@ -213,5 +220,43 @@ test.describe('Telegram add-on', () => {
     await page.getByRole('button', { name: 'Save' }).click()
     const put = a.s.calls.find(c => c.method === 'PUT').body
     expect(put).toMatchObject({ file_send_max_bytes: 0, file_receive_max_bytes: 0 })
+  })
+
+  test('readiness and the preview follow a new bot: token, agent and who, then the form values reach the preview', async ({ page }) => {
+    const a = api(page)
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'New Telegram bot' }).click()
+    const ready = page.getByTestId('connector-readiness')
+    await expect(ready.getByTestId('connector-ready-token')).toContainText('Paste the token')
+    await expect(ready.getByTestId('connector-ready-agent')).toContainText('Choose the agent')
+    await expect(ready.getByTestId('connector-ready-who')).toContainText('Nobody is allowed yet')
+    await ready.getByTestId('connector-ready-token').getByRole('button', { name: 'Paste the token' }).click()
+    await expect(page.getByLabel('Bot token')).toBeFocused()
+    await page.getByLabel('Bot token').fill('555:secret-token')
+    await expect(ready.getByTestId('connector-ready-token')).toHaveAttribute('data-state', 'after_save')
+    await page.getByLabel('Agent', { exact: true }).selectOption('a1')
+    await page.getByRole('textbox', { name: 'Allowed senders +' }).fill('42')
+    await page.getByRole('textbox', { name: 'Allowed senders +' }).press('Enter')
+    await expect(ready.getByTestId('connector-ready-who')).toHaveAttribute('data-state', 'after_save')
+    await expect.poll(() => a.s.previews.at(-1)?.body).toMatchObject({ kind: 'telegram', agent_id: 'a1', allow: ['42'] })
+    expect(a.s.previews.at(-1).id).toBe('new')
+    // One list of senders: no member-of-a-channel choice.
+    await expect(page.getByTestId('connector-can-sender').locator('option')).toHaveText(['A person on the allowed list', 'A person you paired'])
+    expect(JSON.stringify(a.s.previews)).not.toContain('secret-token')
+  })
+
+  test('a token the platform refuses shows as not working in the readiness list', async ({ page }) => {
+    const a = api(page, [{ id: 'b1', name: 'Support bot', kind: 'telegram', agent_id: 'a1', enabled: true, accept_any: false, allow: ['42'], has_token: true }])
+    await a.install()
+    await page.route(/\/api\/chats\/connectors\/[^/?]+\/test$/, r => r.fulfill({ status: 502, json: { error: { message: 'Unauthorized' } } }))
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Test' }).click()
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const token = page.getByTestId('connector-ready-token')
+    await expect(token).toHaveAttribute('data-state', 'broken')
+    await expect(token).toContainText('The platform refused the token: Unauthorized')
+    await token.getByRole('button', { name: 'Paste a new token' }).click()
+    await expect(page.getByLabel('Bot token')).toBeFocused()
   })
 })

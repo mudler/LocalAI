@@ -287,8 +287,28 @@
       "navigation": [],
       "mainPage": "jobs",
       "icon": "ui/icon.png",
-      "title": "Fine-tuning",
-      "description": "Train an adapter on your own data, then export it as a model you can chat with."
+      "title": {
+        "en": "Fine-tuning",
+        "it": "Fine-tuning",
+        "de": "Fine-Tuning",
+        "es": "Ajuste fino",
+        "fr": "Fine-tuning",
+        "pt-BR": "Ajuste fino",
+        "zh-CN": "微调",
+        "ko": "파인튜닝",
+        "id": "Fine-tuning"
+      },
+      "description": {
+        "en": "Train an adapter on your own data, then export it as a model you can chat with.",
+        "it": "Addestra un adapter sui tuoi dati, poi esportalo come modello con cui puoi chattare.",
+        "de": "Trainieren Sie einen Adapter mit Ihren eigenen Daten und exportieren Sie ihn dann als Modell, mit dem Sie chatten können.",
+        "es": "Entrena un adaptador con tus propios datos y expórtalo como un modelo con el que puedes chatear.",
+        "fr": "Entraînez un adaptateur sur vos propres données, puis exportez-le sous forme de modèle avec lequel vous pouvez discuter.",
+        "pt-BR": "Treine um adaptador com seus próprios dados e depois exporte-o como um modelo com o qual você pode conversar.",
+        "zh-CN": "用你自己的数据训练适配器，然后将其导出为可以聊天的模型。",
+        "ko": "내 데이터로 어댑터를 학습한 다음, 채팅할 수 있는 모델로 내보냅니다.",
+        "id": "Latih adapter dengan data Anda sendiri, lalu ekspor sebagai model yang dapat diajak mengobrol."
+      }
     }
   }
 }

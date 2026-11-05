@@ -7,6 +7,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/xlog"
 	"slices"
+	"time"
 )
 
 type upgradeExecutionKey struct{}
@@ -88,7 +89,7 @@ func (m *Manager) SubmitUpgrade(ctx context.Context, actor contract.Actor, cmd L
 			return OperationStatus{}, err
 		}
 	}
-	op := journalOperation{Command: cmd, Actor: actor, Async: true, Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: string(lifecycleAccepted)}}
+	op := journalOperation{Command: cmd, Actor: actor, Async: true, StartedAt: time.Now().UTC().Format(time.RFC3339), Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: string(lifecycleAccepted)}}
 	m.journal.Operations[cmd.OperationID] = op
 	// persist normally refreshes snapshots. We already hold the projection lock.
 	if e := m.persistJournal(string(lifecycleAccepted)); e != nil {

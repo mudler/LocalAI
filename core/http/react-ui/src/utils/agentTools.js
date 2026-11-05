@@ -1,5 +1,6 @@
 import { PREFIX, splitAgentMCP, joinAgentMCP } from './chatMCP.js'
 import { skillKey } from './chatSkills.js'
+import { SAVED_AGENTS_GROUP, savedAgentsOn } from './toolOptions.js'
 
 // A saved agent holds its tools as grants (add-ons, MCP servers, connectors,
 // skills: what is listed is on) and as switches of the built-in groups
@@ -16,7 +17,10 @@ const list = (x) => (Array.isArray(x) ? x : [])
 export function agentBuiltins(groups, form) {
   const off = new Set(list(form.builtins_off))
   const on = new Set(list(form.builtins_on))
-  return list(groups).map((b) => ({ ...b, off: b.opt_in ? !on.has(b.group) : off.has(b.group) }))
+  // Saved agents is one switch with two stored values: the opt-in group and the
+  // grant of the same name. Either one turns it on, as the server does at save.
+  const savedOn = savedAgentsOn(form)
+  return list(groups).map((b) => ({ ...b, off: b.group === SAVED_AGENTS_GROUP ? !savedOn : b.opt_in ? !on.has(b.group) : off.has(b.group) }))
 }
 
 // The builtins_off and builtins_on of the form after these groups are switched
@@ -35,6 +39,17 @@ export function builtinsAfter(form, groups, names, on) {
     }
   }
   return { builtins_off: dedupe(off), builtins_on: dedupe(onList) }
+}
+
+// The grant that goes with the saved-agents switch. The switch wins: turning
+// it off takes the grant away too (else the server would turn the group back
+// on at save). Turning it on adds only the group, never the grant, because the
+// first grant of an agent turns off what it does by default on its messaging
+// connections; an agent that already holds the grant keeps it.
+export function savedAgentsGrantAfter(form, names, on) {
+  const builtins = list(form.builtins)
+  if (on || !names.includes(SAVED_AGENTS_GROUP)) return builtins
+  return builtins.filter((g) => g !== SAVED_AGENTS_GROUP)
 }
 
 const dedupe = (l) => l.filter((x, i) => l.indexOf(x) === i)

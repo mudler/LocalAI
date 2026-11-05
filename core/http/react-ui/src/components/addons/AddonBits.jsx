@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import StatusChip from '../ui/StatusChip'
 import Button from '../ui/Button'
-import { addedByEntry, hueOf, monogram, stateChip, versionLabel } from './addonState'
+import { addedByEntry, hueOf, monogram, operationOf, stateChip, versionLabel } from './addonState'
 import { installSteps } from './installSteps'
 import './addons.css'
 
@@ -18,6 +18,21 @@ export function StateChip({ app, className = '' }) {
   return (
     <span className={`ad-state ${className}`.trim()} data-tone={chip.tone} data-state={chip.key} role="img" aria-label={t('state.label', { state: text })}>
       <StatusChip status={CHIP_STATUS[chip.key]} label={text} dot />
+    </span>
+  )
+}
+
+// The operation the owner runs on an add-on now ("Upgrading… Downloading and
+// checking"). It is separate from the process state: the old generation can
+// keep running while the next one is fetched and checked.
+export function OperationChip({ app, className = '' }) {
+  const { t } = useTranslation('addons')
+  const op = operationOf(app)
+  if (!op) return null
+  const text = `${t(`operation.kind.${op.kind}`)} · ${t(`operation.phase.${op.phase}`)}`
+  return (
+    <span className={`ad-state ${className}`.trim()} data-tone="accent" data-testid="operation-chip" data-operation={op.kind} data-phase={op.phase} role="img" aria-label={t('operation.label', { operation: text })}>
+      <StatusChip status="starting" label={text} />
     </span>
   )
 }

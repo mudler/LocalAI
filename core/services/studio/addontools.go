@@ -71,6 +71,13 @@ type AddonGate interface {
 	Unavailable(ctx context.Context, user, addonID string, workspace bool) string
 }
 
+// holdForPerson marks a call whose write must wait for the person, even in a
+// chat that applies the writes of an add-on at once.
+func holdForPerson(ctx context.Context) context.Context { return addontools.HoldForPerson(ctx) }
+
+// roleToolName is the name a chat sees for a tool of an add-on.
+func roleToolName(addonID, tool string) string { return addontools.ToolName(addonID, tool) }
+
 // unavailableToolName is the name of the stand-in tool of an add-on that
 // cannot work. It has the shape of the broker's tool names.
 func unavailableToolName(addonID string) string { return addontools.ToolName(addonID, "unavailable") }
@@ -238,8 +245,17 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 	gate, _ := s.d.AddonTools.(AddonGate)
 	reasons := map[string]string{}
 	enabled := map[string]ConnectionSet{}
+	providers := s.providerGateFor(ctx, a.Principal, &rec)
+	// The writes of a provider count against the same limit of a turn as the
+	// notes the built-in provider saves at once.
+	writes := &autoTurn{}
 	for _, d := range defs {
 		have[d.AddonID] = true
+		// The tools a provider fills a role with are offered only while it is
+		// the provider the person picked and the chat has the slot on.
+		if providers.hidden(d.AddonID, d.Name) {
+			continue
+		}
 		// A tool that runs with a credential is offered only once the person
 		// has enabled at least one connection for the chat. The host picks
 		// none for the person.
@@ -310,6 +326,14 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 			// The user and the conversation come from the chat, never from the
 			// arguments the model wrote.
 			Run: run,
+		}
+		// A write of the provider that serves the notes follows the save
+		// level, the grants and the messaging rules of the host.
+		if ref, ok := providers.roleOf(d.AddonID, d.Name); ok && ref.Slot == MemorySlot && (ref.Role == roleWrite || ref.Role == roleForget) {
+			var offered bool
+			if tool, offered = s.gateMemoryWrite(rec, tool, ref, writes); !offered {
+				continue
+			}
 		}
 		if d.Permission != "" && rec.Origin == session.OriginConnector {
 			var ok bool

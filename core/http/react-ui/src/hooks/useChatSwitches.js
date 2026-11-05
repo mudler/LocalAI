@@ -10,7 +10,7 @@ const noMCP = { servers: [], connectors: [], off: [] }
 const mcpOf = (res) => ({ servers: res.servers || [], connectors: res.connectors || [], off: res.off || [] })
 const noCommands = { state: 'unknown', reason: '', identity: '' }
 // The commands state of the list: see commandsState in utils/chatCommands.js.
-const commandsOf = (res) => ({ ...commandsState(res), provider: typeof res?.commands_provider === 'string' ? res.commands_provider : '', identity: noticeIdentity(res, '', '') })
+const commandsOf = (res) => ({ ...commandsState(res), provider: typeof res?.commands_provider === 'string' ? res.commands_provider : '', hostExec: typeof res?.commands_host_exec === 'string' ? res.commands_host_exec : '', identity: noticeIdentity(res, '', '') })
 
 export { skillKey }
 
@@ -44,6 +44,9 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
   const builtinsRef = useRef(builtins)
   // The built-in tools an installed add-on replaces but cannot serve here now.
   const [fallbacks, setFallbacks] = useState([])
+  // Whether memory works in the chat and which level turned it off (the memory
+  // object of the tools list), or null before the list is read.
+  const [memory, setMemory] = useState(null)
   const [skills, setSkills] = useState([])
   // The built-in skills an add-on replaces now: shown dimmed, with no switch.
   const [replaced, setReplaced] = useState([])
@@ -63,7 +66,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
   useEffect(() => {
     setError('')
     setSkillsError('')
-    if (!chatId && !draftOn) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setBuiltins([]); setFallbacks([]); setSkills([]); setReplaced([]); return undefined }
+    if (!chatId && !draftOn) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setBuiltins([]); setFallbacks([]); setMemory(null); setSkills([]); setReplaced([]); return undefined }
     let live = true
     const epoch = ++commandEpoch.current
     setCommands(noCommands)
@@ -80,8 +83,9 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
         setMcp(draftOn ? { servers: got.servers, connectors: got.connectors, off: got.mcpOff } : m)
         setBuiltins(got.builtins)
         setFallbacks(res.fallbacks || [])
+        setMemory(res.memory || null)
       })
-      .catch(() => { if (live) { setMcp(noMCP); setBuiltins([]); setFallbacks([]) } })
+      .catch(() => { if (live) { setMcp(noMCP); setBuiltins([]); setFallbacks([]); setMemory(null) } })
     return () => { live = false }
   }, [chatId, filesOn, draftOn, draftModel, draftAgent, actorSession])
 
@@ -252,6 +256,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
       putBuiltins(res.builtins || [])
       putMcp(mcpOf(res))
       setFallbacks(res.fallbacks || [])
+      setMemory(res.memory || null)
     } catch (e) {
       if (epoch !== commandEpoch.current) return
       setCommands(noCommands)
@@ -309,7 +314,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
 
   return {
     draftSwitches, resetDraft, draft: draftOn, commandsRev,
-    addons, builtins, fallbacks, commands: commands.context === context ? commands : noCommands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
+    addons, builtins, fallbacks, memory, commands: commands.context === context ? commands : noCommands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
     counts: toolsCounts({ builtins, addons, servers: mcp.servers, connectors: mcp.connectors }),
     toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn, setAddonsOn, setBuiltinsOn, setMCPOn, setConnections,
   }

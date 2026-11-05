@@ -216,6 +216,25 @@ func WithConnection(ctx context.Context, bindingID string) context.Context {
 	return gateway.WithConnection(ctx, bindingID)
 }
 
+type holdKey struct{}
+
+// HoldForPerson returns a context for a call whose write must wait for a
+// person: the adapter stores the proposal and returns it, and does not apply
+// it, even for a chat that applies its writes at once. The host sets it when a
+// rule of its own, such as the save level of a person, says the write needs a
+// confirmation. A read tool is not affected.
+func HoldForPerson(ctx context.Context) context.Context {
+	return context.WithValue(ctx, holdKey{}, true)
+}
+
+// HeldForPerson reports whether HoldForPerson marked the context.
+func HeldForPerson(ctx context.Context) bool { return heldForPerson(ctx) }
+
+func heldForPerson(ctx context.Context) bool {
+	v, _ := ctx.Value(holdKey{}).(bool)
+	return v
+}
+
 // NoCredentialNote is what the model is told when the person has no credential for the add-on.
 const NoCredentialNote = "The person has not connected this add-on yet, so nothing was sent. Tell them to add a connection on the add-on page. Do not repeat the call and do not report an outage."
 
@@ -585,6 +604,38 @@ func (t *ToolAdapter) ContextFiles(ctx context.Context, actor contract.Actor) ([
 	return out, nil
 }
 
+// AddonProviders is the provider slots one add-on declares, with the title and
+// description it shows to people.
+type AddonProviders struct {
+	AddonID, Title, Description string
+	Provides                    []contract.ProviderDeclaration
+	// Running is true when the add-on may serve now: enabled and running.
+	Running bool
+}
+
+// Providers lists the installed add-ons that declare provider slots and that
+// the actor can see, running or not. The host decides which one serves a slot;
+// the add-on is not called.
+func (t *ToolAdapter) Providers(ctx context.Context, actor contract.Actor) ([]AddonProviders, error) {
+	if err := checkActor(actor); err != nil {
+		return nil, err
+	}
+	list, err := t.backend.Apps(ctx, actor)
+	if err != nil {
+		return nil, gateway.ClassifyCheck(err)
+	}
+	var out []AddonProviders
+	for _, a := range list.Apps {
+		if len(a.Provides) == 0 {
+			continue
+		}
+		running := a.Enabled && a.State == "running" && a.Generation > 0
+		out = append(out, AddonProviders{AddonID: a.ID, Title: a.Title, Description: a.Description, Provides: slices.Clone(a.Provides), Running: running})
+	}
+	slices.SortFunc(out, func(x, y AddonProviders) int { return strings.Compare(x.AddonID, y.AddonID) })
+	return out, nil
+}
+
 // AddonUserSettings is the per-person settings one add-on declares.
 type AddonUserSettings struct {
 	AddonID  string
@@ -924,7 +975,7 @@ func (t *ToolAdapter) executeTool(ctx context.Context, actor contract.Actor, con
 	if err != nil {
 		return refusedResult(name, err)
 	}
-	if t.apply != nil && !p.AwaitsPerson {
+	if t.apply != nil && !p.AwaitsPerson && !heldForPerson(ctx) {
 		return t.applyNow(ctx, actor, name, p)
 	}
 	ref := ProposalRef{ID: p.ID, AddonID: p.AddonID, ResourceID: p.ResourceID, Action: p.Action, Digest: p.Digest,

@@ -77,7 +77,7 @@
     "budgetNote": "Perkiraan: jumlah karakter dibagi empat. Jendela konteks model tidak diketahui di sini, jadi tidak ada persentase dari batas.",
     "instructions": "Instruksi",
     "skills": "Skill",
-    "memory": "Memori",
+    "memory": "Pengetahuan",
     "skillsTitle": "Skill yang dimuat konteks ini",
     "skillsNone": "Tidak ada skill yang aktif untuk agen ini.",
     "skillsPrompt": "Di prompt setiap pesan.",
@@ -87,7 +87,7 @@
     "skillMissing": "{{name}} ada dalam daftar, tetapi tidak ada skill dengan nama itu.",
     "skillTokens": "{{count}} token",
     "skillTokensTools": "0 di awal",
-    "memoryTitle": "Memori yang akan dikirim",
+    "memoryTitle": "Pengetahuan yang akan dikirim",
     "memoryNone": "Tidak ada koleksi dalam daftar agen ini. Tambahkan satu ke agen untuk menggunakannya.",
     "memoryNoCollection": "Basis pengetahuan agen ini aktif, tetapi belum ada koleksi bernama {{name}}.",
     "memoryTools": "Agen ini hanya mencari saat model memintanya. Tidak ada yang ditambahkan ke pesan di awal.",
@@ -108,7 +108,7 @@
   "agentBudget": "Skill yang dipilih menambahkan sekitar {{count}} token ke setiap pesan (perkiraan: jumlah karakter dibagi empat).",
   "agentKb": {
     "reads": "Agen ini membaca koleksi bernama {{name}}.",
-    "exists": "Agen ini membaca koleksi bernama {{name}}. Anda dapat mengisi dan mencarinya di Memori.",
+    "exists": "Agen ini membaca koleksi bernama {{name}}. Anda dapat mengisi dan mencarinya di Pengetahuan.",
     "created": "Agen ini membaca koleksi bernama {{name}}. Koleksi dibuat saat Anda menyimpan."
   }
 }

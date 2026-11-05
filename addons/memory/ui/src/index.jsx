@@ -9,6 +9,8 @@
 // validates it. The rules that make it safe are the host's: this page only
 // states them.
 export const NOTES_ADDRESS = '/app/account?tab=memory'
+// Memory is built in; the save level lives in Settings > Memory.
+export const SETTINGS_ADDRESS = '/app/account?tab=memory'
 export const SAVE_MODE_KEY = 'save-mode'
 export const SAVE_MODES = ['ask', 'auto', 'never']
 
@@ -23,6 +25,9 @@ export function createAddon(sdk) {
     'memory.rules.scopes': 'There are three kinds of notes: yours for every chat, one for each saved agent, and one for each conversation that comes from a messaging app. A saved agent reads notes only when you allow this add-on for it.',
     'memory.rules.limits': 'The model reads a short list, at most 40 lines for each kind, and opens a topic when it needs the details.',
     'memory.open': 'Open my notes',
+    'memory.builtin.title': 'Memory is built in',
+    'memory.builtin.reason': 'Memory is part of LocalAI now, and you do not need this add-on for it. Choose how notes are saved in Settings > Memory.',
+    'memory.builtin.fix': 'Open Settings > Memory',
     'memory.save.title': 'Saving a note',
     'memory.save.legend': 'When the assistant wants to save something to my memory',
     'memory.save.ask': 'Ask me first',
@@ -86,11 +91,22 @@ export function createAddon(sdk) {
       failed ? h(sdk.ui.Callout, { tone: 'warning', role: 'alert', testId: 'memory-save-failed' }, t('memory.save.failed')) : null)
   }
 
+  // Memory is part of the host now. Older hosts have no Notice; they get the
+  // Callout with the same words.
+  function BuiltinNotice() {
+    const open = () => sdk.navigation.openApp(SETTINGS_ADDRESS)
+    if (sdk.ui.Notice) {
+      return h(sdk.ui.Notice, { severity: 'info', title: t('memory.builtin.title'), reason: t('memory.builtin.reason'), fixLabel: t('memory.builtin.fix'), onFix: open, testId: 'memory-builtin-notice' })
+    }
+    return h(sdk.ui.Callout, { tone: 'info', title: t('memory.builtin.title'), testId: 'memory-builtin-notice' }, t('memory.builtin.reason'))
+  }
+
   function Component({ page }) {
     if (page !== 'memory') return null
     return (
       <section data-testid="memory-page" className="memory-page">
         <h1 className="page-title memory-page__title">{t('memory.title')}</h1>
+        <BuiltinNotice />
         <p>{t('memory.intro')}</p>
         <ul className="memory-page__rules">
           <li>{t('memory.rules.confirm')}</li>

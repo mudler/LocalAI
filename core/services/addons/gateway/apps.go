@@ -30,6 +30,12 @@ func (g *Gateway) Apps(ctx context.Context, a contract.Actor) (apps.List, error)
 		return apps.List{}, e
 	}
 	if g.Forward != nil {
+		// The owner's answer is the answer. When the owner cannot answer in
+		// time, every frontend gives the same typed error (OwnerTimeout is
+		// owner_busy, anything else owner_unavailable) and never an older list
+		// of its own: a per-frontend copy would make two frontends disagree
+		// about whether the owner answered. A page keeps the last list in the
+		// browser.
 		return g.Forward.apps(ctx, a)
 	}
 	return g.appsLocal(ctx, a)

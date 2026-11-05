@@ -196,3 +196,22 @@
 .swl-pick__option { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-small); color: var(--color-text-primary); cursor: pointer; }
 .swl-pick__option input { margin: 0; }
 .swl-pick__link { font-size: var(--fs-meta); }
+
+/* The options of a switch: grants that refine it, indented under it. A greyed
+   option keeps its place and says why in its reason line. */
+.swl-options {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 0 var(--sp-2);
+  border-left: 2px solid var(--color-border-divider);
+}
+.swl-row--option { padding-right: 0; }
+.swl-row--option[data-disabled="true"] { opacity: 0.7; }
+.swl-row--option .swl-row__name { font-size: var(--fs-small); font-weight: 450; white-space: normal; overflow: visible; text-overflow: clip; }
+.swl-group__intro { margin: 0; padding: var(--sp-1) var(--sp-3) var(--sp-2); font-size: var(--fs-meta); line-height: 1.4; color: var(--color-text-secondary); }
+.swl-notes { list-style: none; margin: 0; padding: 0 0 var(--sp-1); display: flex; flex-direction: column; gap: 2px; }
+.swl-notes__item { display: flex; align-items: flex-start; gap: var(--sp-1); font-size: var(--fs-meta); line-height: 1.4; color: var(--color-warning); }
+.swl-notes__item > span { color: var(--color-text-secondary); min-width: 0; overflow-wrap: anywhere; }
+.swl-notes__icon { flex: none; margin-top: 2px; color: var(--color-warning); }
+.swl-rowbox:has(.swl-options):hover { background: none; }
+.swl-options .swl-rowbox:hover { background: var(--color-bg-hover); }

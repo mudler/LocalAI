@@ -11,7 +11,7 @@ test.describe('404', () => {
     await expect(nf).toContainText('/app/no-such-page')
     await expect(nf.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/app')
     const places = nf.getByRole('navigation', { name: 'Where to go' })
-    for (const name of ['Home', 'Models', 'Chat', 'Agents', 'MCP connectors', 'Memory', 'Add-ons', 'Administration']) {
+    for (const name of ['Home', 'Models', 'Chat', 'Agents', 'MCP connectors', 'Knowledge', 'Add-ons', 'Administration']) {
       await expect(places.getByRole('link', { name })).toBeVisible()
     }
     // The Build hub is gone.

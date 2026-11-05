@@ -67,12 +67,28 @@ type capSwitch struct {
 	mu  sync.Mutex
 	on  map[string]bool
 	ask []studio.CapabilityRequest
+	// paired, when not nil, makes a request marked Sensitive pass only for a
+	// sender in it, as the real gate counts a pairing and no role.
+	paired map[string]bool
+}
+
+// pairOnly makes the sensitive requests of the gate need a paired sender.
+func (g *capSwitch) pairOnly(senders ...string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.paired = map[string]bool{}
+	for _, s := range senders {
+		g.paired[s] = true
+	}
 }
 
 func (g *capSwitch) Allow(_ context.Context, r studio.CapabilityRequest) bool {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.ask = append(g.ask, r)
+	if r.Sensitive && g.paired != nil && !g.paired[r.Sender] {
+		return false
+	}
 	return g.on[r.Capability]
 }
 

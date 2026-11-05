@@ -119,7 +119,7 @@
         },
         "/api/addons/apps": {
             "get": {
-                "description": "Returns the installed addons that are enabled, for every authenticated caller who holds the addons feature. The owner decides what a caller sees; hiding an entry is never the control, because every call the entry leads to is authorized again. Each app has its title, description, icon URL, version and installed generation, a process state (running, starting, failed or stopped; the state is an observation, separate from the enabled flag), the path of its main page when its manifest declares a valid one, and a bounded tool summary. A headless addon is listed without a main page. Administrators additionally see installed addons that are disabled and, per app, the start and stop controls and the management link. An app carries update update-pending, separate from state, only when the owner's cached update check says an update is available for the installed package; the list never evaluates a check and never reaches a library.",
+                "description": "Returns the installed addons that are enabled, for every authenticated caller who holds the addons feature. The owner decides what a caller sees; hiding an entry is never the control, because every call the entry leads to is authorized again. Each app has its title, description, icon URL, version and installed generation, a process state (running, starting, failed or stopped; the state is an observation, separate from the enabled flag), the path of its main page when its manifest declares a valid one, and a bounded tool summary. A headless addon is listed without a main page. Administrators additionally see installed addons that are disabled and, per app, the start and stop controls and the management link. An app carries update update-pending, separate from state, only when the owner's cached update check says an update is available for the installed package; the list never evaluates a check and never reaches a library. Text that the manifest translates (ui.title and ui.description language maps) is returned in all languages in titles and descriptions. When the request names a language, each app that translates it also carries language, localizedTitle and localizedDescription, resolved per field with English as the fallback; title and description never change.",
                 "produces": [
                     "application/json"
                 ],
@@ -127,6 +127,20 @@
                     "Addons"
                 ],
                 "summary": "List the addon apps the caller may use",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Language tag to resolve the text for, such as it or pt-BR. Wins over Accept-Language. An unknown language gives the English text.",
+                        "name": "lang",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Used when lang is absent. Quality values are honored; English or no match adds no localized field.",
+                        "name": "Accept-Language",
+                        "in": "header"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Apps visible to the caller",
@@ -147,7 +161,7 @@
                         }
                     },
                     "503": {
-                        "description": "Addons or the owner are unavailable",
+                        "description": "Addons or the owner are unavailable, or the owner did not answer in time (type owner_busy or owner_unavailable)",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -5407,7 +5421,7 @@
                 }
             },
             "delete": {
-                "description": "Chats that ran with it keep their history; their next turn runs without the agent's tools.",
+                "description": "Chats that ran with it keep their history; their next turn runs without the agent's tools. The agent's own memory notes (Memory/agents/{id}) are not part of it: memory says what to do with them. keep (the default) leaves them, listed under Deleted agents on the Memory page until you delete them. delete moves them to the Trash. export answers 200 with a zip file of the notes and then moves them to the Trash (204 when the agent has none). A value that is not one of these is a 400 and nothing is deleted.",
                 "tags": [
                     "chats"
                 ],
@@ -5419,11 +5433,35 @@
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "enum": [
+                            "keep",
+                            "export",
+                            "delete"
+                        ],
+                        "type": "string",
+                        "default": "keep",
+                        "description": "what to do with the agent's own notes",
+                        "name": "memory",
+                        "in": "query"
                     }
                 ],
                 "responses": {
+                    "200": {
+                        "description": "Deleted; a zip file of the agent's notes (memory=export)",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
                     "204": {
                         "description": "Deleted"
+                    },
+                    "400": {
+                        "description": "memory is not keep, export or delete",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     },
                     "404": {
                         "description": "No such conversation, or it is another user's",
@@ -5715,7 +5753,7 @@
                 }
             },
             "post": {
-                "description": "Needs the kind (the platform), the bot token (kept sealed, never returned) and an agent of yours that names a model. The token is checked with the platform when its add-on runs: a token that the platform refuses is a 400. reply_mode (off, progress, stream; default progress), conversation (sender, chat, window with window_minutes, thread; default sender) and send_files (default true) say how the bot answers. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to \"accept any message\", or it is a 400). At most 10 bindings.",
+                "description": "Needs the kind (the platform), the bot token (kept sealed, never returned) and an agent of yours that names a model. The token is checked with the platform when its add-on runs: a token that the platform refuses is a 400. reply_mode (off, progress, stream; default progress), conversation (sender, chat, window with window_minutes, thread; default sender), send_files (default true) and reply_language (auto, en, it, de, es, fr, pt-BR; default auto, the language of the sentences the bot writes itself) say how the bot answers. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to \"accept any message\", or it is a 400). At most 10 bindings.",
                 "tags": [
                     "chats"
                 ],
@@ -5749,11 +5787,19 @@
         },
         "/api/chats/connectors/kinds": {
             "get": {
-                "description": "The messaging platforms that a running connector add-on serves, with the add-on page that adds and edits their bindings. Empty when no connector add-on is installed.",
+                "description": "The messaging platforms that a running connector add-on serves, with the add-on page that adds and edits their bindings. Empty when no connector add-on is installed. A kind whose manifest translates its text carries titles and descriptions by language and, when the request names a language it translates (lang, else Accept-Language), language, localized_title and localized_description with English as the fallback for each field; title and description stay English.",
                 "tags": [
                     "chats"
                 ],
                 "summary": "List the connector kinds you can bind.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Language tag to resolve the kind text for, such as it or pt-BR. Wins over Accept-Language. An unknown language gives the English text.",
+                        "name": "lang",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "The kinds",
@@ -5789,7 +5835,7 @@
                 }
             },
             "put": {
-                "description": "The body replaces every field except the token, which is kept unless the request has a new one, and send_files, which is kept when it is absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved.",
+                "description": "The body replaces every field except the token, which is kept unless the request has a new one, and send_files and reply_language, which are kept when absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved.",
                 "tags": [
                     "chats"
                 ],
@@ -5851,7 +5897,7 @@
         },
         "/api/chats/connectors/{id}/access": {
             "get": {
-                "description": "Runs the permission check the host uses for each turn, for a sender on the allowlist, a paired sender and a sender of each role the kind declares, and lists the latest decisions. A settings page of the add-on can show it.",
+                "description": "Runs the permission check the host uses for each turn, for a sender on the allowlist by ID or name (trusted with every capability that is not sensitive), a sender let in only through a listed channel, a paired sender and a sender of each role the kind declares, and lists the latest decisions. A settings page of the add-on can show it.",
                 "tags": [
                     "chats"
                 ],
@@ -5870,6 +5916,47 @@
                         "description": "The effective permissions",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConnectorAccess"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/{id}/access/preview": {
+            "post": {
+                "description": "Runs the same permission chain as the access view on the state in the request: the server setting, the Tools switch of the agent, the agent permission, the permission of the connection and the trust of the sender, in that order, and reports the first problem of each capability with a code, a plain message, one fix and the links not yet checked. Fields that are absent keep the saved value. Use the id \"new\" with a kind for a connection that is not saved yet. It writes nothing, records no decision, and neither takes nor returns the token. Same sign-in and Connectors feature as the other connector routes.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Preview what each kind of sender may do on a connector binding, before saving.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id, or new",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the form state to check",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorAccessPreviewRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The effective permissions of that state",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorAccess"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -6961,6 +7048,160 @@
                 }
             }
         },
+        "/api/chats/memory": {
+            "get": {
+                "description": "Memory is the short notes the assistant reads before it answers and may save. enabled is the switch for all your chats and agents: a private chat (the memory group of a chat, see PUT /api/chats/{id}/builtins), an agent that turns memory off, or this switch off each make memory off in a chat, and the narrowest wins; a saved agent cannot widen your choice. enabled_set is false until you choose; before that memory is on, unless you had disabled the Memory add-on to stop it. save_mode is how a note is saved: auto (save it and tell me), ask (the default), always (always confirm: like ask, nothing can loosen it, and the model cannot undo or forget by itself) or never. It applies as the strictest rule together with the rule of the saved agent (memory_save) and the rules of the host. A chat from a messaging app asks, unless messaging_save is paired_private and the sender is paired and the chat is one-to-one; the row cannot loosen always or never. Your notes stay and can be listed, exported and deleted while memory is off.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read your memory settings.",
+                "responses": {
+                    "200": {
+                        "description": "Your memory settings",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMemorySettings"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Sets enabled (memory On or Off for every chat and agent), save_mode (auto, ask, always or never) and messaging_save (ask, paired_private or never). A field left out stays as it is. Off means nothing is put in the prompt, the model has no tool or skill for notes, nothing is proposed or saved (also by triggers and other runs that start by themselves) and the model is told in one line that memory is off. The settings are kept per person with the account, so every frontend of a cluster reads the same answer. 400 for a value that is not allowed.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Change your memory settings.",
+                "parameters": [
+                    {
+                        "description": "the choices to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMemoryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Your memory settings now in force",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMemorySettings"
+                        }
+                    },
+                    "400": {
+                        "description": "A value is not allowed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The settings cannot be stored on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Calls the forget tool of the add-on you picked as the provider of your memory. scope (user, agent or channel) and key narrow it to one group; empty forgets everything the provider keeps. resource names the resource the tool works on, when it has one. The change is applied at once, or stored as a proposal that you confirm on the Add-ons page (done is false then). The built-in provider has none: delete its notes in Files. 404 when the provider has no forget, 503 while the host leaves a failing provider alone, 502 when it does not answer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Forget notes at the provider that serves your memory.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "user, agent or channel",
+                        "name": "scope",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "the agent ID or the conversation folder, with scope",
+                        "name": "key",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "the resource the forget tool works on",
+                        "name": "resource",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "What the provider did",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMemoryForget"
+                        }
+                    },
+                    "404": {
+                        "description": "No forget",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "The provider did not answer",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The provider is resting",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/memory/export": {
+            "get": {
+                "description": "The Markdown files of your memory folders (yours, each agent's and each messaging conversation's) with their paths. scope (user, agent or channel) and key (the agent ID or the conversation folder name, as GET /api/chats/context-files lists them) narrow it to one group. It works while memory is off. 404 when there is nothing to export.",
+                "produces": [
+                    "application/zip"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Download your memory notes as a zip file.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "user, agent or channel",
+                        "name": "scope",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "the agent ID or the conversation folder, with scope",
+                        "name": "key",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A zip file of the notes",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "404": {
+                        "description": "No notes",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/notifications": {
             "get": {
                 "description": "The inbox: one item for each run of a trigger that finished, failed or needs you. Newest first. It also returns the number unread and the total kept.",
@@ -7413,6 +7654,114 @@
                 }
             }
         },
+        "/api/chats/providers": {
+            "get": {
+                "description": "A provider slot is a job the host does itself and lets an add-on do in its place (memory is the first). Each slot lists the built-in provider, every installed add-on that declares the slot in capabilities.provides, and Off when the slot allows it, with the choice in force. resolution.active is what serves now: builtin, an add-on ID or off. A picked add-on that is stopped, disabled or removed does not fall back to the built-in provider: the slot is off, with resolution.code provider_unavailable and the add-on named, until you pick again. Only the add-on you picked has its context files, skills and role tools in your chats.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the provider slots and their providers.",
+                "responses": {
+                    "200": {
+                        "description": "The slots and their providers",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProviderSlots"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/providers/{slot}": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read one provider slot.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the slot, such as memory",
+                        "name": "slot",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The slot with its providers and your choice",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProviderSlot"
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown slot",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Sets your provider for the slot: builtin, off (when the slot allows it) or the ID of an add-on that declares the slot and runs now. The choice is kept with your account, so every frontend of a cluster reads the same answer. 400 for a provider the slot does not list, 409 for an add-on that cannot serve now.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Pick the provider of a slot.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the slot, such as memory",
+                        "name": "slot",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the provider to pick",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProviderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The slot as it stands now",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProviderSlot"
+                        }
+                    },
+                    "400": {
+                        "description": "The slot does not list this provider",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown slot",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The add-on cannot serve now",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The choice cannot be stored on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/push/key": {
             "get": {
                 "description": "The VAPID public key a browser needs to subscribe to push for your notifications. 409 when the server cannot keep subscriptions (no database and no data path).",
@@ -7491,7 +7840,7 @@
         },
         "/api/chats/search": {
             "get": {
-                "description": "Finds chats whose title or messages contain the text, ignoring case. The newest chats come first. It reads the newest 500 chats.",
+                "description": "Finds the messages and titles of your chats that hold every word of the text (a phrase in double quotes counts as one word), ignoring case. It searches all your chats, not only the newest, except the runs of sub-agents. The best match comes first: whole words, the whole phrase and newer messages rank higher. By default each chat appears once, with its best line; group=message returns every matching line. A hit has the line (seq), who wrote it, when, a snippet and the parts of the snippet that match (highlights, UTF-16 offsets). Messages written before the search index existed are added in the background after an upgrade (indexing is true meanwhile). A server that keeps chats in files has no index: it scans for a few seconds and says when it stopped early (partial).",
                 "tags": [
                     "chats"
                 ],
@@ -7499,15 +7848,51 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "text to find",
+                        "description": "text to find: words that must all be in the message",
                         "name": "q",
                         "in": "query",
                         "required": true
                     },
                     {
                         "type": "integer",
-                        "description": "most chats to return (default 50, at most 200)",
+                        "description": "most hits to return (default 50, at most 200)",
                         "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "only chats of this saved agent",
+                        "name": "agent",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "only chats of one origin: person, automated, trigger, connector, job or page",
+                        "name": "origin",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "only lines written by user or assistant",
+                        "name": "role",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "only lines at or after this date (YYYY-MM-DD) or time (RFC 3339)",
+                        "name": "since",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "only lines before this time, or on or before this date (YYYY-MM-DD)",
+                        "name": "until",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "chat (default): one hit per chat; message: every matching line",
+                        "name": "group",
                         "in": "query"
                     }
                 ],
@@ -7516,6 +7901,12 @@
                         "description": "The matching chats",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsChatSearchResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -9037,7 +9428,7 @@
         },
         "/api/chats/{id}/addons": {
             "get": {
-                "description": "The add-ons whose tools the signed-in user may use now, each with the chat's switch, and whether the chat can run commands at its next turn (commands: available, off, unavailable, none, or switched_off when the chat switched the built-in group shell off). When commands is available, commands_provider says who serves bash (builtin: directly on this machine with no isolation and with its network, or the add-on's ID) and commands_isolation says isolated or host; commands_consent is ask when each command waits for a yes in the chat, and commands_fallback names an add-on that would serve but does not (commands_fallback_reason: off, or why it cannot run). Without the add-on host the list is empty.",
+                "description": "The add-ons whose tools the signed-in user may use now, each with the chat's switch, and whether the chat can run commands at its next turn (commands: available, off, unavailable, none, or switched_off when the chat switched the built-in group shell off). When commands is available, commands_provider says who serves bash (builtin: directly on this machine with no isolation and with its network, or the add-on's ID) and commands_isolation says isolated or host; commands_consent is ask when each command waits for a yes in the chat, and commands_fallback names an add-on that would serve but does not (commands_fallback_reason: off, or why it cannot run). commands_host_exec is the mode of chats_host_exec now (off, ask or on), so a client can say that the built-in bash is off when commands is none. Without the add-on host the list is empty.",
                 "tags": [
                     "chats"
                 ],
@@ -9226,7 +9617,7 @@
         },
         "/api/chats/{id}/builtins": {
             "put": {
-                "description": "off replaces the earlier list of groups that are off. The groups are shell (bash, whether the Sandbox add-on or the built-in bash on this machine serves it), web (web_search and web_fetch), files (list_files, read_file, write_file, edit_file, move_file, delete_file, search_files and read_document), media (describe_image and transcribe_audio), collections (list_collections and search_collection), subagents (spawn_agent), triggers (propose_trigger, list_triggers, update_trigger and delete_trigger) and saved_agents. A sub-agent follows the switches of its parent chat. An opt-in group (opt_in in the list, such as saved_agents: list_agents and the agent argument of spawn_agent) is off until on names it; on replaces the earlier list of opt-in groups that are on, and an opt-in group in off is ignored. Omit on to keep it. A switch never adds what the administrator has off or the user may not use. The next turn of the chat gets the tools that are on.",
+                "description": "off replaces the earlier list of groups that are off. The groups are shell (bash, whether the Sandbox add-on or the built-in bash on this machine serves it), web (web_search and web_fetch), files (list_files, read_file, write_file, edit_file, move_file, delete_file, search_files and read_document), media (describe_image and transcribe_audio), collections (list_collections and search_collection), subagents (spawn_agent), triggers (propose_trigger, list_triggers, update_trigger and delete_trigger), memory (your notes: off makes the chat a private chat that neither reads nor saves memory) saved_agents and history (search_chats and read_chat). A sub-agent follows the switches of its parent chat. An opt-in group (opt_in in the list, such as saved_agents: list_agents and the agent argument of spawn_agent) is off until on names it; on replaces the earlier list of opt-in groups that are on, and an opt-in group in off is ignored. Omit on to keep it. A switch never adds what the administrator has off or the user may not use. The next turn of the chat gets the tools that are on.",
                 "tags": [
                     "chats"
                 ],
@@ -10782,7 +11173,7 @@
         },
         "/api/chats/{id}/tools": {
             "get": {
-                "description": "The groups of built-in tools (shell, web, files, media, collections, subagents, triggers and saved_agents; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants. fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.",
+                "description": "The groups of built-in tools (shell, web, files, media, collections, subagents, triggers, memory, saved_agents and history; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants. memory says whether memory works in the chat and, when it does not, the level that turned it off (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.",
                 "tags": [
                     "chats"
                 ],
@@ -15955,9 +16346,22 @@
                     "type": "string",
                     "example": "2026-10-30T09:15:00Z"
                 },
+                "language": {
+                    "description": "Language, LocalizedTitle and LocalizedDescription are present only when\nthe request named a language (the lang query parameter, else the\nAccept-Language header) that the manifest translates. Language is the\ntag that matched. Each localized field falls back to English on its own,\nso a title without a translation is the English title. No other field\nchanges: Title and Description stay the default-language text.",
+                    "type": "string",
+                    "example": "it"
+                },
                 "launchMode": {
                     "type": "string",
                     "example": "always"
+                },
+                "localizedDescription": {
+                    "type": "string",
+                    "example": "Tieni degli appunti."
+                },
+                "localizedTitle": {
+                    "type": "string",
+                    "example": "Appunti"
                 },
                 "mainPage": {
                     "description": "MainPage is the path the Open action navigates to. It is present only\nfor an enabled addon whose manifest declares a main page that is one of\nits pages.",
@@ -15973,6 +16377,14 @@
                     "allOf": [
                         {
                             "$ref": "#/definitions/apps.NetworkView"
+                        }
+                    ]
+                },
+                "operation": {
+                    "description": "Operation is the lifecycle operation that runs on the add-on now (an\nupgrade, say). It is absent when none runs. The observation is\nseparate from State: the process can run on while the owner stages\nthe next generation.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/apps.Operation"
                         }
                     ]
                 },
@@ -16172,6 +16584,33 @@
                     "description": "Title names the network in text: the declared title, else the add-on's.",
                     "type": "string",
                     "example": "Example provider"
+                }
+            }
+        },
+        "apps.Operation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "description": "Kind is the action: install, upgrade, enable, disable or uninstall.",
+                    "type": "string",
+                    "enum": [
+                        "install",
+                        "upgrade",
+                        "enable",
+                        "disable",
+                        "uninstall"
+                    ],
+                    "example": "upgrade"
+                },
+                "phase": {
+                    "description": "Phase is the step the owner is in: queued, downloading (fetch and\nverify the package), backing-up, installing, migrating, starting or\nworking for a step without a name of its own.",
+                    "type": "string",
+                    "example": "downloading"
+                },
+                "since": {
+                    "description": "Since is when the operation was accepted, RFC 3339 in UTC. It is absent\nfor an operation recorded before the owner kept the time.",
+                    "type": "string",
+                    "example": "2026-11-04T17:18:00Z"
                 }
             }
         },
@@ -16555,14 +16994,16 @@
                 "profile",
                 "skill",
                 "page",
-                "dashboard"
+                "dashboard",
+                "knowledge"
             ],
             "x-enum-varnames": [
                 "ChangeMemory",
                 "ChangeProfile",
                 "ChangeSkill",
                 "ChangePage",
-                "ChangeDashboard"
+                "ChangeDashboard",
+                "ChangeKnowledge"
             ]
         },
         "contract.ChangeProposal": {
@@ -16649,6 +17090,10 @@
                     "type": "string"
                 },
                 "kind": {
+                    "type": "string"
+                },
+                "sender": {
+                    "description": "Sender is the platform ID of the sender whose message made a connector\nchat propose this change. The host keeps it so that, in a shared chat,\nonly that sender can answer the proposal there.",
                     "type": "string"
                 },
                 "thread": {
@@ -18231,6 +18676,12 @@
                 "installed": {
                     "type": "boolean"
                 },
+                "locked": {
+                    "type": "boolean"
+                },
+                "lockedReason": {
+                    "type": "string"
+                },
                 "nonce": {
                     "type": "string"
                 },
@@ -18291,6 +18742,10 @@
                 },
                 "locked": {
                     "type": "boolean"
+                },
+                "lockedReason": {
+                    "description": "LockedReason is LockedByDeployment or LockedNoAuth when Locked.",
+                    "type": "string"
                 },
                 "revision": {
                     "type": "integer"
@@ -20117,6 +20572,10 @@
                 "commands_fallback_reason": {
                     "type": "string"
                 },
+                "commands_host_exec": {
+                    "description": "CommandsHostExec is the mode of the setting chats_host_exec as it applies\nnow (off, ask or on), so a client can say that the built-in bash is off\nwhen no add-on runs commands. Every signed-in user may read it.",
+                    "type": "string"
+                },
                 "commands_isolation": {
                     "description": "CommandsIsolation is isolated (a sandbox) or host (directly on this\nmachine, with its files and network), when Commands is available.",
                     "type": "string"
@@ -20320,6 +20779,10 @@
                 },
                 "reason": {
                     "description": "Reason says in plain words why the binding is not active.",
+                    "type": "string"
+                },
+                "reply_language": {
+                    "description": "ReplyLanguage is the language of the sentences the bot writes itself in\nthe chat (confirmations, refusals, notes about files): auto (the\nlanguage of the sender's message), en, it, de, es, fr or pt-BR. The\nanswers of the model follow the conversation, not this setting.",
                     "type": "string"
                 },
                 "reply_mode": {
@@ -20556,6 +21019,26 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "memory": {
+                    "description": "Memory is the choice of notes for this agent: own (its own notes only),\nmine_and_own (reads your notes and its own, saves to its own; the\ndefault of a new agent in the interface), mine (your notes only) or\nnone. The host enforces it: it decides which notes go in the prompt of\na chat and where a note is saved. Absent is \"as before\", an agent saved\nbefore the choice existed: it reads notes when its add-ons name Memory\nand the model picks the scope of a note.",
+                    "type": "string",
+                    "enum": [
+                        "own",
+                        "mine_and_own",
+                        "mine",
+                        "none"
+                    ],
+                    "example": "mine_and_own"
+                },
+                "memory_save": {
+                    "description": "MemorySave is the agent's own rule for saving a note: always (every note\nwaits for the person, and the model cannot undo or forget by itself) or\nnever (it reads notes and saves none). Absent uses the person's setting\n(Account \u003e Memory). It can only be stricter than that setting: the host\ntakes the stricter of the two, and there is no value that saves at once.",
+                    "type": "string",
+                    "enum": [
+                        "always",
+                        "never"
+                    ],
+                    "example": "always"
                 },
                 "model": {
                     "type": "string"
@@ -20828,6 +21311,25 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "memory": {
+                    "description": "Memory is the choice of notes (see ChatsAgent). A write without it keeps\nthe stored choice, so a client that does not know it cannot widen the\nagent; the value must be own, mine_and_own, mine or none (400 otherwise).\nA new agent written without it is \"as before\".",
+                    "type": "string",
+                    "enum": [
+                        "own",
+                        "mine_and_own",
+                        "mine",
+                        "none"
+                    ]
+                },
+                "memory_save": {
+                    "description": "MemorySave is the save rule of the agent (see ChatsAgent). A write\nwithout it keeps the stored rule, so a client that does not know the\nfield cannot loosen the agent. use_mine clears the rule. auto and ask\nare not accepted: an agent cannot be looser than the person (400).",
+                    "type": "string",
+                    "enum": [
+                        "always",
+                        "never",
+                        "use_mine"
+                    ]
                 },
                 "model": {
                     "type": "string"
@@ -21214,15 +21716,34 @@
         "schema.ChatsChatHit": {
             "type": "object",
             "properties": {
+                "at": {
+                    "description": "At is when the matching line was written.",
+                    "type": "string"
+                },
                 "chat": {
                     "$ref": "#/definitions/schema.ChatsConversation"
+                },
+                "highlights": {
+                    "description": "Highlights are the parts of Snippet that match, in order.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSearchRange"
+                    }
                 },
                 "in_title": {
                     "description": "InTitle is true when the title matches.",
                     "type": "boolean"
                 },
+                "matches": {
+                    "description": "Matches is how many lines of the chat match, among the newest matches.",
+                    "type": "integer"
+                },
+                "role": {
+                    "description": "Role is user or assistant: who wrote the matching line.",
+                    "type": "string"
+                },
                 "seq": {
-                    "description": "Seq is the first matching transcript line, or 0 when only the title matches.",
+                    "description": "Seq is the matching transcript line, or 0 when only the title matches.",
                     "type": "integer"
                 },
                 "snippet": {
@@ -21234,11 +21755,29 @@
         "schema.ChatsChatSearchResponse": {
             "type": "object",
             "properties": {
+                "engine": {
+                    "description": "Engine is how the server searched: fts5, pg_trgm or scan.",
+                    "type": "string"
+                },
                 "hits": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/schema.ChatsChatHit"
                     }
+                },
+                "indexing": {
+                    "description": "Indexing is true while the server still adds earlier chats to its\nsearch index, so older chats may be missing from the hits.",
+                    "type": "boolean"
+                },
+                "partial": {
+                    "description": "Partial is true when a server without an index stopped before it had\nread every chat; SearchedChats of TotalChats were read.",
+                    "type": "boolean"
+                },
+                "searched_chats": {
+                    "type": "integer"
+                },
+                "total_chats": {
+                    "type": "integer"
                 }
             }
         },
@@ -21389,6 +21928,10 @@
                     "description": "Reason says in plain words why the binding is not active.",
                     "type": "string"
                 },
+                "reply_language": {
+                    "description": "ReplyLanguage is the language of the sentences the bot writes itself in\nthe chat (confirmations, refusals, notes about files): auto (the\nlanguage of the sender's message), en, it, de, es, fr or pt-BR. The\nanswers of the model follow the conversation, not this setting.",
+                    "type": "string"
+                },
                 "reply_mode": {
                     "description": "ReplyMode is what a sender sees while a turn runs: off (typing, then\nthe answer), progress (a working message that names the tools as they\nstart) or stream (a working message that shows the answer as it is\nwritten). The answer replaces the working message.",
                     "type": "string"
@@ -21424,6 +21967,10 @@
                 "binding": {
                     "type": "string"
                 },
+                "preview": {
+                    "description": "Preview is true when the view is for a form that is not saved.",
+                    "type": "boolean"
+                },
                 "recent": {
                     "type": "array",
                     "items": {
@@ -21444,11 +21991,38 @@
                 "allowed": {
                     "type": "boolean"
                 },
+                "blocked_by": {
+                    "description": "BlockedBy is the link that refused: server, tools, agent, connection\nor sender.",
+                    "type": "string"
+                },
                 "capability": {
+                    "type": "string"
+                },
+                "code": {
+                    "description": "Code says which link of the chain refused first. It is one of\nserver_setting_off, tools_switch_off, agent_permission_off,\nagent_unavailable, connection_permission_off, no_agent,\nsender_not_listed, sender_needs_pairing, channel_not_trusted,\nrole_not_granted, kind_not_running, context_rule or\nunknown_capability. Only a refused capability has it.",
+                    "type": "string"
+                },
+                "fix": {
+                    "description": "Fix points at the one place that solves it. The server sends no URL.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorAccessFix"
+                        }
+                    ]
+                },
+                "message": {
+                    "description": "Message is one plain sentence for the owner. It names no setting.",
                     "type": "string"
                 },
                 "reason": {
                     "type": "string"
+                },
+                "then_check": {
+                    "description": "ThenCheck lists the links after the first problem that were not\nlooked at, in order: tools, agent, connection, sender and, for\ntriggers.propose, approval. More problems may follow.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "via": {
                     "description": "Via is how the capability is reached: paired, or role:\u003cid\u003e.",
@@ -21468,6 +22042,10 @@
                 "capability": {
                     "type": "string"
                 },
+                "code": {
+                    "description": "Code is the code of a refusal, as in the decisions.",
+                    "type": "string"
+                },
                 "reason": {
                     "type": "string"
                 },
@@ -21484,6 +22062,61 @@
                     }
                 },
                 "via": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorAccessFix": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "description": "Field narrows the target: the capability to tick on the connection or\nto grant on the agent, or tools:\u003cgroup\u003e for a Tools switch.",
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is open_server_setting, open_agent, open_connection, pair_sender\nor add_person.",
+                    "type": "string"
+                },
+                "target": {
+                    "description": "Target is a stable ID: the key of a server setting, an agent ID, a field\nof the connection form (caps, grants, agent_id, allow) or pairing.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorAccessPreviewRequest": {
+            "type": "object",
+            "properties": {
+                "accept_any": {
+                    "type": "boolean"
+                },
+                "agent_id": {
+                    "type": "string"
+                },
+                "allow": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "caps": {
+                    "description": "Caps and Grants are the form's permissions; an empty list clears.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorRoleGrant"
+                    }
+                },
+                "kind": {
+                    "description": "Kind is read only for the id \"new\" (a connection that is not saved).",
+                    "type": "string"
+                },
+                "sender": {
+                    "description": "Sender limits the answer to one kind of sender: listed, paired,\nchannel_member, anyone or role:\u003cid\u003e. Absent means every kind.",
                     "type": "string"
                 }
             }
@@ -21508,6 +22141,12 @@
         "schema.ChatsConnectorApproval": {
             "type": "object",
             "properties": {
+                "acts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "max_lifetime_days": {
                     "type": "integer"
                 },
@@ -21620,6 +22259,12 @@
                 "description": {
                     "type": "string"
                 },
+                "descriptions": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "files": {
                     "description": "Files are the limits of a binding of this kind that has no limit of\nyour own.",
                     "allOf": [
@@ -21629,6 +22274,16 @@
                     ]
                 },
                 "kind": {
+                    "type": "string"
+                },
+                "language": {
+                    "description": "Language, LocalizedTitle and LocalizedDescription are present only when\nthe request names a language (the lang query parameter, else the\nAccept-Language header) that the kind translates. Each falls back to\nEnglish on its own.",
+                    "type": "string"
+                },
+                "localized_description": {
+                    "type": "string"
+                },
+                "localized_title": {
                     "type": "string"
                 },
                 "options": {
@@ -21664,6 +22319,13 @@
                 },
                 "title": {
                     "type": "string"
+                },
+                "titles": {
+                    "description": "Titles and Descriptions carry the translated text of the manifest by\nlanguage tag, when it has some. Title and Description stay English.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -21855,7 +22517,7 @@
                     }
                 },
                 "approval": {
-                    "description": "Approval sets how triggers that the agent proposes from a chat of the\nbinding are approved, and the limits of the automatic modes. Absent\nmeans ask for a new binding and unchanged for an update.",
+                    "description": "Approval sets how triggers that the agent proposes from a chat of the\nbinding are approved, and the limits of the automatic modes. Absent\nmeans ask for a new binding and unchanged for an update. When it is\npresent it replaces the whole approval, acts included: send the acts\nagain to keep them. An act that is not in the closed list is refused.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/schema.ChatsConnectorApproval"
@@ -21917,6 +22579,19 @@
                     "additionalProperties": {
                         "type": "string"
                     }
+                },
+                "reply_language": {
+                    "description": "ReplyLanguage is auto, en, it, de, es, fr or pt-BR. Absent means auto\nfor a new binding and unchanged for an update.",
+                    "type": "string",
+                    "enum": [
+                        "auto",
+                        "en",
+                        "it",
+                        "de",
+                        "es",
+                        "fr",
+                        "pt-BR"
+                    ]
                 },
                 "reply_mode": {
                     "description": "ReplyMode is off, progress or stream; empty means progress.",
@@ -23547,6 +24222,154 @@
                 }
             }
         },
+        "schema.ChatsMemoryFix": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "example": "open_memory_settings"
+                },
+                "target": {
+                    "type": "string",
+                    "example": "memory"
+                }
+            }
+        },
+        "schema.ChatsMemoryForget": {
+            "type": "object",
+            "properties": {
+                "done": {
+                    "description": "Done is true when the provider forgot. Otherwise the change waits for you\nto confirm it on the Add-ons page.",
+                    "type": "boolean"
+                },
+                "proposal": {
+                    "description": "Proposal names the change that waits.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsMemoryRequest": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "messaging_save": {
+                    "description": "MessagingSave is the messaging row (see ChatsMemorySettings).",
+                    "type": "string",
+                    "enum": [
+                        "ask",
+                        "paired_private",
+                        "never"
+                    ],
+                    "example": "ask"
+                },
+                "save_mode": {
+                    "type": "string",
+                    "enum": [
+                        "auto",
+                        "ask",
+                        "always",
+                        "never"
+                    ],
+                    "example": "ask"
+                }
+            }
+        },
+        "schema.ChatsMemorySettings": {
+            "type": "object",
+            "properties": {
+                "available": {
+                    "description": "Available is false when the server has no files, which notes need.",
+                    "type": "boolean",
+                    "example": true
+                },
+                "enabled": {
+                    "description": "Enabled is memory On or Off for all your chats and agents.",
+                    "type": "boolean",
+                    "example": true
+                },
+                "enabled_set": {
+                    "description": "EnabledSet is true once you chose. Before that memory is on, unless you\nhad disabled the Memory add-on to stop it.",
+                    "type": "boolean",
+                    "example": false
+                },
+                "messaging_save": {
+                    "description": "MessagingSave is how a note proposed in a chat of a messaging app is\nsaved: ask (the bot asks in the chat; the default), paired_private\n(saved at once to the conversation when the sender is paired and the\nchat is one-to-one) or never. It cannot loosen save_mode: with always or\nnever the row has no looser effect.",
+                    "type": "string",
+                    "enum": [
+                        "ask",
+                        "paired_private",
+                        "never"
+                    ],
+                    "example": "ask"
+                },
+                "provider": {
+                    "description": "Provider is what serves memory: builtin.",
+                    "type": "string",
+                    "example": "builtin"
+                },
+                "save_mode": {
+                    "description": "SaveMode is how a note is saved: auto (save it and tell me), ask (ask me\nfirst, the default), always (always confirm: like ask, and nothing can\nloosen it; undo and forget by the model wait for you too) or never.",
+                    "type": "string",
+                    "enum": [
+                        "auto",
+                        "ask",
+                        "always",
+                        "never"
+                    ],
+                    "example": "ask"
+                },
+                "save_mode_set": {
+                    "description": "SaveModeSet is true once you chose in this setting.",
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "schema.ChatsMemoryState": {
+            "type": "object",
+            "properties": {
+                "blocked_by": {
+                    "description": "BlockedBy is who holds that switch: chat, agent, user or server.",
+                    "type": "string",
+                    "example": "chat"
+                },
+                "code": {
+                    "description": "Code names the level that is off: memory_off_chat, memory_off_agent,\nmemory_off_user, memory_off_files or memory_provider_unavailable (the\nadd-on you picked to serve memory cannot serve now; provider names it).\nAbsent when on.",
+                    "type": "string",
+                    "example": "memory_off_chat"
+                },
+                "fix": {
+                    "description": "Fix says where to turn memory on again: kind open_tools_menu,\nopen_memory_settings, open_agent or open_server_setting.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsMemoryFix"
+                        }
+                    ]
+                },
+                "on": {
+                    "description": "On is true when the chat reads and may save notes.",
+                    "type": "boolean",
+                    "example": false
+                },
+                "provider": {
+                    "description": "Provider is the ID of the add-on that cannot serve, with the code\nmemory_provider_unavailable, and ProviderTitle the name it shows.",
+                    "type": "string"
+                },
+                "provider_title": {
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason is an English sentence for logs; the interface words it by Code.",
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsMessage": {
             "type": "object",
             "properties": {
@@ -23772,6 +24595,178 @@
                 }
             }
         },
+        "schema.ChatsProvider": {
+            "type": "object",
+            "properties": {
+                "available": {
+                    "description": "Available is false for an add-on that cannot serve now.",
+                    "type": "boolean"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID is builtin, off or the ID of an add-on.",
+                    "type": "string",
+                    "example": "builtin"
+                },
+                "kind": {
+                    "description": "Kind is builtin, addon or off.",
+                    "type": "string",
+                    "enum": [
+                        "builtin",
+                        "addon",
+                        "off"
+                    ],
+                    "example": "builtin"
+                },
+                "properties": {
+                    "description": "Properties are the facts the add-on declared about itself, such as\nremote and undo.",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "roles": {
+                    "description": "Roles are the roles of the slot that the add-on fills with tools.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "selected": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Built-in"
+                }
+            }
+        },
+        "schema.ChatsProviderHealth": {
+            "type": "object",
+            "properties": {
+                "cooling_down": {
+                    "description": "CoolingDown is true while the host does not call the provider.",
+                    "type": "boolean"
+                },
+                "last": {
+                    "description": "Last is the outcome of the failure that stopped the calls: failed,\ntimeout or bad_result.",
+                    "type": "string",
+                    "example": "timeout"
+                },
+                "notice": {
+                    "description": "Notice is a plain sentence for the person.",
+                    "type": "string"
+                },
+                "retry_at": {
+                    "description": "RetryAt is when the host calls the provider again (RFC 3339).",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsProviderRequest": {
+            "type": "object",
+            "properties": {
+                "provider": {
+                    "description": "Provider is builtin, off (when the slot allows it) or the ID of an add-on\nthat declares the slot.",
+                    "type": "string",
+                    "example": "builtin"
+                }
+            }
+        },
+        "schema.ChatsProviderResolution": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "description": "Active is what serves: builtin, an add-on ID or off.",
+                    "type": "string",
+                    "example": "builtin"
+                },
+                "addon_id": {
+                    "description": "AddonID and AddonTitle name the add-on a failure is about.",
+                    "type": "string"
+                },
+                "addon_title": {
+                    "type": "string"
+                },
+                "code": {
+                    "description": "Code says why the slot is off: provider_off, provider_unavailable (the\nadd-on you picked cannot serve; the slot does not move to the built-in\nprovider) or provider_unreadable. Absent when on.",
+                    "type": "string",
+                    "example": "provider_unavailable"
+                },
+                "off": {
+                    "type": "boolean"
+                },
+                "reason": {
+                    "description": "Reason is an English sentence for logs; the interface words it by Code.",
+                    "type": "string"
+                },
+                "selected": {
+                    "description": "Selected is your stored choice, or the default of the slot.",
+                    "type": "string",
+                    "example": "builtin"
+                },
+                "slot": {
+                    "type": "string",
+                    "example": "memory"
+                },
+                "stored": {
+                    "description": "Stored is true once you chose.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsProviderSlot": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "health": {
+                    "description": "Health says when the host leaves the provider alone after repeated\nfailures. Absent while the provider answers.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsProviderHealth"
+                        }
+                    ]
+                },
+                "id": {
+                    "type": "string",
+                    "example": "memory"
+                },
+                "off_means": {
+                    "description": "OffMeans is what Off does for this slot.",
+                    "type": "string"
+                },
+                "providers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProvider"
+                    }
+                },
+                "resolution": {
+                    "$ref": "#/definitions/schema.ChatsProviderResolution"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Memory"
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "schema.ChatsProviderSlots": {
+            "type": "object",
+            "properties": {
+                "slots": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProviderSlot"
+                    }
+                }
+            }
+        },
         "schema.ChatsPushKey": {
             "type": "object",
             "properties": {
@@ -23835,6 +24830,17 @@
                 },
                 "snippet": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSearchRange": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "integer"
+                },
+                "start": {
+                    "type": "integer"
                 }
             }
         },
@@ -24316,6 +25322,14 @@
                     "items": {
                         "$ref": "#/definitions/schema.ChatsToolFallback"
                     }
+                },
+                "memory": {
+                    "description": "Memory says whether memory works in this chat and, when it does not,\nwhich level turned it off and where to turn it on again.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsMemoryState"
+                        }
+                    ]
                 },
                 "off": {
                     "description": "Off is the list of MCP switches in force.",
@@ -29785,6 +30799,9 @@
         "studio.ContextGroup": {
             "type": "object",
             "properties": {
+                "deleted": {
+                    "type": "boolean"
+                },
                 "files": {
                     "type": "array",
                     "items": {
@@ -29792,6 +30809,10 @@
                     }
                 },
                 "key": {
+                    "type": "string"
+                },
+                "label": {
+                    "description": "Label is the name of the saved agent of an agent group. Deleted is true\nwhen no saved agent of the user has that ID any more: its notes were\nkept when the agent was deleted, and the Memory page lists them apart.",
                     "type": "string"
                 },
                 "max_bytes": {

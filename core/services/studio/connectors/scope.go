@@ -33,4 +33,7 @@ const (
 type Kind struct {
 	AddonID string
 	contract.ConnectorKind
+	// Translations is the display text of the kind in other languages, from
+	// the manifest's i18n field, by language tag.
+	Translations map[string]contract.KindText `json:"translations,omitempty"`
 }

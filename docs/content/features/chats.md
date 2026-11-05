@@ -498,7 +498,7 @@ curl -X POST .../api/chats/3f1c.../regenerate
 curl -X POST .../api/chats/3f1c.../messages/12/edit -d '{"text":"A better question"}'
 # Copy the chat up to and including line 14 into a new chat.
 curl -X POST .../api/chats/3f1c.../fork -d '{"from_seq":14,"title":"Other idea"}'
-# Find chats by title or by what was said (newest 500 chats).
+# Find chats by title or by what was said, in all your chats.
 curl '.../api/chats/search?q=invoice'
 # Take a chat out as Markdown (default) or JSON, and bring a JSON file back in.
 curl '.../api/chats/3f1c.../export?format=json' > chat.json
@@ -518,6 +518,18 @@ curl -X POST .../api/chats/import -d "{\"chat\": $(cat chat.json)}"
   name the files of a message, not their paths. An import
   makes a new chat of yours with the model of the file, or the one named in
   `model`, which you must be allowed to use.
+
+### Search your chats
+
+`GET /api/chats/search?q=...` searches the titles and the messages (yours and the model's) of all your chats. It does not search the runs of sub-agents, and it never returns a chat of another user.
+
+- **Words and phrases.** A message matches when it holds every word of `q`, in any order, as part of a word or whole. A phrase in double quotes counts as one word: `q="port of qdrant"`. The search ignores case.
+- **Ranking.** The best match comes first: a message with the whole phrase or with whole words ranks above one with word parts, and newer messages rank above older ones. A search ranks the newest 600 matching messages.
+- **One hit for each chat.** A hit carries `chat` (with the agent and the origin), `seq` (the line of the message), `role`, `at`, a `snippet` and `highlights`: the parts of the snippet that match, as `start` and `end` offsets in UTF-16 units, so a client can mark them without parsing HTML. Add `group=message` to get every matching line.
+- **Filters.** `agent` (a saved agent), `origin` (`person`, `automated`, `trigger`, `connector`, `job` or `page`), `role` (`user` or `assistant`), `since` and `until` (a date `YYYY-MM-DD` or an RFC 3339 time; a date in `until` includes that whole day) and `limit` (default 50, at most 200).
+- **In the web UI.** The search box of the Chats page and of the Ctrl or Cmd+K dialog uses this search. From two characters it lists the hits best first, each with the chat, who wrote the line, its date and a snippet with the matched words marked. Three filters (agent, source, date) narrow it, and **Reset filters** takes them off. Arrow keys move through the hits, Enter opens one, and Escape clears the search first and closes the dialog next. A hit opens its chat at the message: the address `/app/chats/<id>?seq=14` scrolls to line 14 and marks it for a moment. The list says when it is still searching, when nothing matches, when the search failed (with **Try again**), and when older chats are still being indexed.
+- **After an upgrade.** The server keeps a search index. When it starts with chats from before the index, it adds them in the background and logs the progress; the answer says `indexing: true` until that ends, and older chats can be missing meanwhile. The index uses SQLite FTS5 (trigram), or `pg_trgm` on PostgreSQL; without them the server scans. Deleting a chat, or regenerating or editing from a message, removes the old text from the index in the same step.
+- **Chats in files.** A server that keeps chats in files (no database) has no index. It scans the newest chats first for up to two seconds and sets `partial: true` with `searched_chats` and `total_chats` when it stopped early.
 
 ## Images, video and documents
 
@@ -817,6 +829,29 @@ to keep them. An opt-in group in `off` is ignored. The group in `GET
 /api/chats/{id}/tools` has `opt_in: true`, and `usable` and `reason` say whether
 it can serve the chat now.
 
+### Past chats
+
+The group **Past chats** (`history`) lets the model recall what you said in earlier chats. It is off until you switch it on in the chat's Tools menu, like Saved agents. It has two read-only tools:
+
+- `search_chats` (`query`, `scope`, `limit`, `since`) finds messages in your earlier chats with the same search as the [web UI](#search-your-chats). `scope` is `this_chat` (this conversation, including parts that compaction took out of the model's context), `this_agent` (chats with the same saved agent) or `all`. It returns at most 10 hits; each has `chat_id`, title, date, message number (`seq`), who wrote it and a snippet of at most 300 characters.
+- `read_chat` (`chat_id`, `from_seq`, `limit`) reads the user and assistant messages of one chat that a search found, from a message number. It returns at most 20 messages and about 6 KiB, and says which message number to ask for next when more follow.
+
+The model is told to use them only to recall what you said, to say plainly when it finds nothing, and never to quote other people's messages back. Every result is wrapped as untrusted text, because an old message can contain anything: a line in it never changes a switch, a grant or a file.
+
+What the tools never reach:
+
+- Another user's chats. The search applies your account in the query itself.
+- Private chats (a chat with the notes of memory switched off), the runs of sub-agents, and every chat that no person started: triggers, jobs, pages and messaging apps. A messaging chat holds the words of other senders, so no chat of a messaging app is returned.
+- Deleted chats: a chat leaves the search index in the same step that deletes it, and text that regenerate or edit removed leaves it too.
+
+Who has the tools:
+
+- A chat of yours, when you switch **Past chats** on.
+- A saved agent, only when you grant it **Read your earlier chats** (`history.read`), which is off by default. Saving the agent with the grant turns the group on for its chats. An agent that works in a folder may search only its own chats (`this_agent`), never `all`, and `read_chat` refuses chats of other agents.
+- Never a run that starts by itself (trigger, job), a chat that a messaging app started, or a sub-agent, whatever its parent has.
+
+Each call writes one log line with the tool, the user, the chat, the scope, a hash of the query, the number of hits and the chat IDs returned. It never holds a query or a message.
+
 ## Running commands
 
 A chat runs commands and code with one tool, `bash`. Who serves it depends on
@@ -1067,7 +1102,8 @@ curl -s localhost:8080/api/chats/$ID/addons
 ### The connections of an add-on
 
 Some add-ons run their tools with a token that you keep in a connection (for
-example the [GitHub add-on](/features/chats-connectors/#github)). Any add-on
+example the [GitHub add-on](/features/chats-connectors/#github) or the
+[Jellyfin add-on](/features/chats-connectors/#jellyfin)). Any add-on
 that declares a credential in its manifest works this way. LocalAI never
 chooses the connections for you, and a chat can use more than one for the same
 add-on:
@@ -1326,11 +1362,13 @@ it off, so a chat that never touches the menu works as before:
 | **Your files** | `files` | `list_files`, `read_file`, `write_file`, `edit_file`, `move_file`, `delete_file`, `search_files` and `read_document` |
 | **Web** | `web` | `web_search` and `web_fetch` |
 | **Images and audio** | `media` | `describe_image` and `transcribe_audio` |
-| **Collections** | `collections` | `list_collections` and `search_collection` |
+| **Knowledge** | `collections` | `list_collections` and `search_collection` |
 | **Sub-agents** | `subagents` | `spawn_agent` |
 | **Saved agents** | `saved_agents` | `list_agents` and the `agent` argument of `spawn_agent` (opt-in) |
+| **Past chats** | `history` | `search_chats` and `read_chat` (opt-in; see [Past chats](#past-chats)) |
 | **Triggers** | `triggers` | `propose_trigger`, `list_triggers`, `update_trigger` and `delete_trigger` |
-| **Proposed changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your memory or an agent profile, and you confirm (see [change proposals](/features/addons/#change-proposals-from-chats)); for memory notes only, you can choose on the Short memory page to have them saved at once with an Undo, or never (see [Short memory](/features/short-memory/#choose-how-a-note-is-saved)) |
+| **Memory** | `memory` | Your notes: the model reads them before it answers and may save new ones (see [Memory](/features/short-memory/)). Switch it off to make the chat private: it neither reads nor saves memory |
+| **Suggested changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your notes, an agent profile, a skill, a page or the dashboard, and you confirm (see [change proposals](/features/addons/#change-proposals-from-chats)); for memory notes only, you can choose in your account settings to have them saved at once with an Undo, or never (see [Memory](/features/short-memory/#choose-how-a-note-is-saved)) |
 
 ```bash
 curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web","files"]}'
@@ -1339,8 +1377,8 @@ curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web","files"]}
 `off` replaces the earlier list, and a name that is not a group is refused
 (400). A group the server does not offer is not listed: **Your files** and
 **Images and audio** need the files, **Images and audio** the helper models,
-**Collections** the collections. A group that this chat cannot use now is
-listed as not usable with the reason, for example **Collections** for a user
+**Knowledge** the collections. A group that this chat cannot use now is
+listed as not usable with the reason, for example **Knowledge** for a user
 without the `collections` feature.
 
 **Run commands** governs `bash` from both providers: switched off, the chat
@@ -1457,7 +1495,7 @@ it. When the page cannot be loaded, the chat shows the result as text.
 
 ## Skills
 
-In the web UI, the **Skills** item in the sidebar, right after Memory, opens the page where you write, change and delete skills. Every chat can use them, and agents use the ones you add to them. You can also open the page from the **Manage skills** link at the bottom of the Skills menu in the composer, or by typing `/skills` in the message box.
+In the web UI, the **Skills** item in the sidebar, right after Knowledge, opens the page where you write, change and delete skills. Every chat can use them, and agents use the ones you add to them. You can also open the page from the **Manage skills** link at the bottom of the Skills menu in the composer, or by typing `/skills` in the message box.
 
 A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. An optional `requires` key lists what the procedure needs; today the only value is `exec`, a way to run commands (`requires: [exec]`). A chat that cannot run commands lists such a skill as unavailable (see [Running commands](#running-commands)). At each turn the chat's prompt lists the skills it has, by name and description only, and tells the model to call the `load_skill` tool with a skill's name before a task that matches it. `load_skill` returns the instructions of the skill, the text after its frontmatter. It offers exactly the skills of that list: for each name the nearest skill, not switched off, and the skills of the add-ons the chat can use now. Any other name is refused with the names of the chat's skills and the near ones first (for example `Did you mean pdf?` for `PDF`).
 
@@ -1552,7 +1590,7 @@ Search, Tavily or Google with a key and to read PDF files. See
 
 ## Collections
 
-When you may use collections, a chat has two more tools: `list_collections` and `search_collection` (`collection`, `query`, `limit`). They search your own collections, the ones of the Collections page, and nobody else's: a name that is not yours is answered "collection not found". An answer holds at most 20 passages and about 16 KiB. A sub-agent gets these tools only when its parent names them.
+When you may use collections, a chat has two more tools: `list_collections` and `search_collection` (`collection`, `query`, `limit`). They search your own collections, the ones of the Knowledge page, and nobody else's: a name that is not yours is answered "collection not found". An answer holds at most 20 passages and about 16 KiB. A sub-agent gets these tools only when its parent names them.
 
 ## Add-on tools
 
@@ -1593,8 +1631,7 @@ With authentication off, chats belong to one anonymous owner.
 ## Memory settings
 
 Your settings page (Account) has a **Memory** tab. It lists the notes that the host
-puts in the prompt of your chats when the [Short memory add-on](/features/short-memory/)
-(or another add-on that declares context files) is installed: your own index and its topic files, the notes of
+puts in the prompt of your chats ([Memory](/features/short-memory/) is built in, and another add-on can declare context files): your own index and its topic files, the notes of
 each saved agent and of each connector conversation, and the agent profiles. Each
 index shows its size against the caps (at most 40 lines and 2 KiB for an index,
 4 KiB for a profile, 6 KiB of notes in one turn). You can open a file, edit it,

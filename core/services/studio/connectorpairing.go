@@ -29,11 +29,6 @@ const (
 	// before the host stops looking at that sender's messages for an hour.
 	pairingAttempts = 5
 	pairingWindow   = time.Hour
-
-	sentPaired        = "Paired. This account can now use the sensitive features that you enabled for this bot."
-	sentPairingBad    = "That code is not valid. It may have expired or been used. Ask for a new one."
-	sentPairingFull   = "This bot already has the most paired accounts. Remove one in the settings, then pair again."
-	sentPairingDirect = "Pairing works in a direct message only."
 )
 
 var pairingShape = regexp.MustCompile(`^LA-[A-Z0-9]{8}$`)
@@ -137,7 +132,7 @@ func (c *Connectors) pairingFailed(s *senderState) {
 // tryPairing handles a message that has the shape of a pairing code. It
 // returns true when the message was a pairing attempt: the caller must not
 // start a turn for it. The sender is already on the allowlist.
-func (c *Connectors) tryPairing(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage, st *senderState, say func(string)) bool {
+func (c *Connectors) tryPairing(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage, st *senderState, tell func(string, ...any)) bool {
 	code := strings.ToUpper(strings.TrimSpace(m.Text))
 	if !pairingShape.MatchString(code) {
 		return false
@@ -150,28 +145,28 @@ func (c *Connectors) tryPairing(ctx context.Context, b connectors.Binding, m con
 		// A code written in a group is spent in public: it is not tried.
 		c.audit(b, m.SenderID, "pairing.attempt", "not direct")
 		c.pairingFailed(st)
-		say(sentPairingDirect)
+		tell("pairing.direct")
 		return true
 	}
 	ok, err := c.o.Store.ConsumePairing(ctx, b.ID, pairingHash(b.ID, code), c.o.Clock())
 	if err != nil {
 		c.log.Warn("studio: could not check a pairing code", "binding", b.ID, "error", err)
-		say(sentUnavailable)
+		tell("unavailable")
 		return true
 	}
 	if !ok {
 		c.audit(b, m.SenderID, "pairing.attempt", "refused")
 		c.pairingFailed(st)
-		say(sentPairingBad)
+		tell("pairing.bad")
 		return true
 	}
 	if err := c.addPaired(ctx, b.ID, m.SenderID); err != nil {
 		c.audit(b, m.SenderID, "pairing.attempt", err.Error())
-		say(sentPairingFull)
+		tell("pairing.full")
 		return true
 	}
 	c.audit(b, m.SenderID, "pairing.attempt", "paired")
-	say(sentPaired)
+	tell("pairing.done")
 	return true
 }
 

@@ -133,8 +133,8 @@
       "desc": "Serveurs MCP que vos chats peuvent utiliser"
     },
     "memory": {
-      "label": "Mémoire",
-      "desc": "Collections que vos chats peuvent consulter"
+      "label": "Connaissances",
+      "desc": "Connaissances que vos chats peuvent consulter"
     },
     "complete": "compléter"
   },

@@ -213,10 +213,24 @@ func operationCauseMessage(code string) string {
 		return "The uploaded file is gone: it expired, or another user uploaded it. Upload it again. Nothing was installed"
 	case managerpkg.CauseVersionNotNewer:
 		return "This version of the add-on is installed already. Nothing was installed"
+	case managerpkg.CauseInstalledIncompatible:
+		return "This version of the add-on is not compatible with this server, so it cannot be turned on. Upgrade it to a newer version, then turn it on. Nothing was changed"
 	case managerpkg.CauseDowngradeRefused:
 		return "The file holds an older version than the installed one. Confirm the downgrade to install it. Nothing was installed"
 	}
 	return "The operation failed"
+}
+
+// ownerNotAnswering is the typed answer of a read the owner did not serve.
+// owner_busy says the owner is up but did not answer in time (an upgrade is
+// running, say), so a page keeps what it shows and asks again; any other
+// cause is owner_unavailable. Both are 503 and neither is an empty list.
+func ownerNotAnswering(c echo.Context, e error) error {
+	var timeout *gateway.OwnerTimeout
+	if errors.As(e, &timeout) {
+		return c.JSON(503, AddonErrorResponse{Error: AddonError{Type: "owner_busy", Code: 503, Message: "The add-on server is busy and did not answer in time. Try again in a moment"}})
+	}
+	return c.JSON(503, AddonErrorResponse{Error: AddonError{Type: "owner_unavailable", Code: 503, Message: "The add-on server cannot be reached right now"}})
 }
 
 func resultError(c echo.Context, e error) error {
@@ -236,6 +250,10 @@ func resultError(c echo.Context, e error) error {
 		return c.JSON(503, AddonErrorResponse{Error: AddonError{Type: "proposal_unavailable", Message: "Proposal call unavailable; read the proposal and repeat the same call with the same proposal ID", OperationID: unavailable.ProposalID}})
 	}
 	if gateway.StatusFor(e) == http.StatusServiceUnavailable {
+		var timeout *gateway.OwnerTimeout
+		if errors.As(e, &timeout) {
+			return ownerNotAnswering(c, e)
+		}
 		return failure(c, 503, "Addon owner unavailable")
 	}
 	// An add-on built for another SDK range is refused at install. The

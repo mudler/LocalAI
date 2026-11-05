@@ -1,6 +1,7 @@
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { approvalForm, approvalPayload, approvalProblem, bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, fileDirection, fileLimitProblem, formatBytes, mibToBytes, modeText, previewLimit, senderLine } from '../../../internal/connector-ui/src/connector.js'
+import { approvalForm, approvalPayload, approvalProblem, bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, REPLY_LANGUAGES, fileDirection, fileLimitProblem, formatBytes, mibToBytes, modeText, previewLimit, senderLine } from '../../../internal/connector-ui/src/connector.js'
 
 test('chat connectors: the token goes only when it was typed', () => {
   const create = connectorPayload({ ...emptyConnector(), name: ' Bot ', token: ' 1:abc ', agent_id: 'a1', allow: ['11', ' 11', '@ada_l', ''] }, 'telegram')
@@ -142,14 +143,14 @@ test('chat connectors: a saved limit reads back to the same number of bytes', ()
 
 test('chat connectors: the approval of chat triggers asks by default and sends its limits as numbers', () => {
   const base = { ...emptyConnector(), name: 'B', agent_id: 'a' }
-  assert.deepEqual(connectorPayload(base, 'telegram').approval, { mode: 'ask', max_pending: 0, min_gap_minutes: 0, max_runs_per_day: 0, max_lifetime_days: 0 })
+  assert.deepEqual(connectorPayload(base, 'telegram').approval, { mode: 'ask', acts: [], max_pending: 0, min_gap_minutes: 0, max_runs_per_day: 0, max_lifetime_days: 0 })
   const auto = connectorPayload({ ...base, approval: { mode: 'auto', max_pending: '3', min_gap_minutes: '', max_runs_per_day: ' 8 ', max_lifetime_days: '14' } }, 'telegram')
-  assert.deepEqual(auto.approval, { mode: 'auto', max_pending: 3, min_gap_minutes: 0, max_runs_per_day: 8, max_lifetime_days: 14 })
+  assert.deepEqual(auto.approval, { mode: 'auto', acts: [], max_pending: 3, min_gap_minutes: 0, max_runs_per_day: 8, max_lifetime_days: 14 })
   assert.equal(connectorPayload({ ...base, approval: { mode: 'sometimes' } }, 'telegram').approval.mode, 'ask', 'an unknown mode falls back to ask')
 })
 
 test('chat connectors: a saved approval reads back, with a zero limit shown as empty', () => {
-  assert.deepEqual(approvalForm({ mode: 'auto_readonly', max_pending: 4, min_gap_minutes: 0 }), { mode: 'auto_readonly', max_pending: '4', min_gap_minutes: '', max_runs_per_day: '', max_lifetime_days: '' })
+  assert.deepEqual(approvalForm({ mode: 'auto_readonly', max_pending: 4, min_gap_minutes: 0 }), { mode: 'auto_readonly', acts: [], max_pending: '4', min_gap_minutes: '', max_runs_per_day: '', max_lifetime_days: '' })
   assert.equal(connectorForm({ id: 'b' }).approval.mode, 'ask')
 })
 
@@ -162,4 +163,52 @@ test('chat connectors: an approval limit is a whole number within its bound, or 
   const ok = { ...emptyConnector(), name: 'B', agent_id: 'a', token: '1:x' }
   assert.equal(canSave({ ...ok, approval: { mode: 'auto', max_pending: '500' } }, false), false)
   assert.equal(canSave(ok, false), true)
+})
+
+test('chat connectors: approval acts round trip, are sent with the mode and limits, and an empty list is sent as []', () => {
+  const saved = { mode: 'auto', acts: ['act.spend', 'act.files'], max_pending: 3 }
+  const form = approvalForm(saved)
+  assert.deepEqual(form.acts, ['act.spend', 'act.files'])
+  const out = approvalPayload(form)
+  assert.deepEqual(out, { mode: 'auto', acts: ['act.files', 'act.spend'], max_pending: 3, min_gap_minutes: 0, max_runs_per_day: 0, max_lifetime_days: 0 })
+  assert.deepEqual(approvalPayload({ ...form, acts: [] }).acts, [])
+  assert.deepEqual(approvalPayload({ mode: 'ask' }).acts, [])
+  assert.deepEqual(approvalForm({ mode: 'ask' }).acts, [])
+})
+
+test('chat connectors: approval acts replace the whole object, so a mode change keeps them, and only the four names are valid', () => {
+  const base = { ...connectorForm({ id: 'b', approval: { mode: 'ask', acts: ['act.addons'] } }) }
+  const changed = connectorPayload({ ...base, approval: { ...base.approval, mode: 'auto' } }, 'telegram')
+  assert.equal(changed.approval.mode, 'auto')
+  assert.deepEqual(changed.approval.acts, ['act.addons'])
+  assert.deepEqual(approvalPayload({ mode: 'ask', acts: ['act.files', 'act.bogus'] }).acts, ['act.files'])
+  assert.equal(approvalProblem({ mode: 'ask', acts: ['act.send'] }), '')
+  assert.equal(approvalProblem({ mode: 'ask', acts: ['act.bogus'] }), 'acts')
+})
+
+test('chat connectors: a new binding follows the language of the sender', () => {
+  assert.equal(emptyConnector().reply_language, 'auto')
+  assert.deepEqual(REPLY_LANGUAGES, ['auto', 'en', 'it', 'de', 'es', 'fr', 'pt-BR'])
+})
+
+test('chat connectors: the request carries the reply language, and an unknown one becomes auto', () => {
+  const base = { ...emptyConnector(), name: 'B', agent_id: 'a' }
+  assert.equal(connectorPayload(base, 'telegram').reply_language, 'auto')
+  for (const l of REPLY_LANGUAGES) assert.equal(connectorPayload({ ...base, reply_language: l }, 'telegram').reply_language, l)
+  assert.equal(connectorPayload({ ...base, reply_language: 'klingon' }, 'telegram').reply_language, 'auto')
+  assert.equal(connectorPayload({ ...base, reply_language: undefined }, 'telegram').reply_language, 'auto')
+})
+
+test('chat connectors: the form of a saved binding keeps its reply language, and an older one reads as auto', () => {
+  assert.equal(connectorForm({ id: 'b1', name: 'B', agent_id: 'a', reply_language: 'de' }).reply_language, 'de')
+  assert.equal(connectorForm({ id: 'b1', name: 'B', agent_id: 'a' }).reply_language, 'auto')
+})
+
+test('chat connectors: the shared words label every reply language and say what the setting changes', () => {
+  const en = JSON.parse(readFileSync(new URL('../../../internal/connector-ui/src/i18n/connector.en.json', import.meta.url), 'utf8'))
+  for (const l of REPLY_LANGUAGES) assert.ok(en[`answer.language.${l}`], `no label for ${l}`)
+  assert.equal(en['answer.languageLabel'], 'Reply language')
+  assert.equal(en['answer.languageHelp'], 'The notes the bot writes itself, like confirmations and refusals. The answers of the model follow the language of the conversation.')
+  const src = readFileSync(new URL('../../../internal/connector-ui/src/AnswerFields.jsx', import.meta.url), 'utf8')
+  assert.ok(src.includes('data-testid="connector-reply-language"'))
 })

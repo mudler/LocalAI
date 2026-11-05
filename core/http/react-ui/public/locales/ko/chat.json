@@ -113,6 +113,50 @@
       "job": "작업",
       "page": "페이지",
       "other": "자동"
+    },
+    "keys": {
+      "clear": "지우기"
+    },
+    "find": {
+      "searching": "검색 중…",
+      "count_one": "결과 {{count}}개",
+      "count_other": "결과 {{count}}개",
+      "more_one": "이 대화에 일치 항목 {{count}}개 더 있음",
+      "more_other": "이 대화에 일치 항목 {{count}}개 더 있음",
+      "indexing": "이전 대화를 아직 색인하는 중입니다. 결과가 완전하지 않을 수 있습니다.",
+      "partial": "전체 {{total}}개 대화 중 최신 {{searched}}개를 검색했습니다.",
+      "failed": "검색에 실패했습니다.",
+      "retry": "다시 시도",
+      "noMatchFor": "“{{query}}”와(과) 일치하는 대화가 없습니다.",
+      "noMatchFiltered": "이 필터로 “{{query}}”와(과) 일치하는 대화가 없습니다.",
+      "inTitle": "제목과 일치",
+      "you": "나",
+      "assistant": "어시스턴트",
+      "filters": "검색 필터",
+      "agent": "에이전트",
+      "anyAgent": "모든 에이전트",
+      "origin": "출처",
+      "anyOrigin": "모든 곳",
+      "originName": {
+        "person": "내 대화",
+        "automated": "애드온 및 자동화",
+        "trigger": "트리거",
+        "connector": "메신저 앱",
+        "job": "작업",
+        "page": "페이지"
+      },
+      "when": "시기",
+      "anyTime": "전체 기간",
+      "range": {
+        "day": "최근 24시간",
+        "week": "최근 7일",
+        "month": "최근 30일",
+        "year": "최근 1년",
+        "custom": "날짜 선택…"
+      },
+      "from": "시작",
+      "to": "종료",
+      "reset": "필터 초기화"
     }
   },
   "message": {
@@ -138,7 +182,8 @@
     "failed": "저장하지 못했습니다. 스위치가 이전 상태로 돌아갔습니다.",
     "unavailable": "이 채팅에서 사용할 수 없음",
     "toolCount_one": "도구 {{count}}개",
-    "toolCount_other": "도구 {{count}}개"
+    "toolCount_other": "도구 {{count}}개",
+    "optionsOf": "{{name}} 옵션"
   },
   "skills": {
     "label": "스킬",

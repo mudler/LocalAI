@@ -20,9 +20,7 @@ const (
 // check confirms. Every management read and write passes it, so the browser
 // surface never decides who may manage.
 func (m *Manager) authorize(ctx context.Context, actor contract.Actor) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if e := m.check(ctx); e != nil {
+	if _, e := m.readState(ctx); e != nil {
 		return e
 	}
 	if m.admin == nil || m.admin(ctx, actor) != nil {
@@ -152,16 +150,15 @@ func (m *Manager) Installed(ctx context.Context, actor contract.Actor) ([]apps.I
 	if e := m.authorize(ctx, actor); e != nil {
 		return nil, e
 	}
-	m.mu.Lock()
-	if m.uncertain || m.runtimeRecoveryRequired {
-		m.mu.Unlock()
-		return nil, ErrRecoveryRequired
+	v, e := m.readStateLive(ctx)
+	if e != nil {
+		return nil, e
 	}
-	snaps := make([]apps.Snapshot, 0, len(m.journal.Addons))
+	snaps := make([]apps.Snapshot, 0, len(v.addons))
 	generations := map[string]int{}
 	restarts := map[string]int{}
 	dirs := map[string]string{}
-	for id, st := range m.journal.Addons {
+	for id, st := range v.addons {
 		receipt, ok := currentReceipt(st)
 		if !ok || !st.Installed {
 			continue
@@ -178,11 +175,11 @@ func (m *Manager) Installed(ctx context.Context, actor contract.Actor) ([]apps.I
 		if m.runtime != nil {
 			restarts[id] = m.runtime.Attempts(id)
 		}
+		snap.Operation = v.operationFor(id)
 		snaps = append(snaps, snap)
 		generations[id] = len(st.Generations)
 		dirs[id] = st.DataDirectory
 	}
-	m.mu.Unlock()
 	list := apps.BuildInstalled(snaps)
 	for i := range list {
 		id := list[i].ID

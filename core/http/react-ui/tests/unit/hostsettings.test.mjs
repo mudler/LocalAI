@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 import React, { act } from 'react'
 import { createServer } from 'vite'
+import { MemoryRouter } from 'react-router-dom'
 import { createHostSettingsClient } from '../../src/utils/hostSettingsClient.js'
 import { createAddonsApi } from '../../src/utils/addonsApi.js'
 import { useHostSettings } from '../../src/hooks/useHostSettings.js'
@@ -272,7 +273,7 @@ async function providerRender() {
   const { default: Upgrades } = await server.ssrLoadModule('/src/components/settings/AddonUpgradeSettings.jsx')
   const { default: ConnectorFiles } = await server.ssrLoadModule('/src/components/settings/ConnectorFilesSettings.jsx')
   const root = createRoot(document.getElementById('root'))
-  return { Form, Skills, Upgrades, ConnectorFiles, async render(Component, props) { await act(async () => root.render(React.createElement(Component, props))) }, async close() { await act(async () => root.unmount()); await server.close() } }
+  return { Form, Skills, Upgrades, ConnectorFiles, async render(Component, props) { await act(async () => root.render(React.createElement(MemoryRouter, null, React.createElement(Component, props)))) }, async close() { await act(async () => root.unmount()); await server.close() } }
 }
 const buttonNamed = text => [...document.querySelectorAll('button')].find(b => b.textContent === text)
 const skillSwitch = name => document.querySelector(`[data-testid="app-skill-${name}-switch"]`)

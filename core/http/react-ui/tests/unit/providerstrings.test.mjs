@@ -38,8 +38,13 @@ function providerNames() {
     // when it cannot be an ordinary word (long or hyphenated).
     names.add(m.id[0].toUpperCase() + m.id.slice(1))
     if (m.id.length >= 7 || m.id.includes('-')) names.add(m.id)
+    // The English title is the name. A translation of it is the same name in
+    // the language of the reader and is often an ordinary word there (the
+    // Korean for web, the Chinese for sandbox), so it is not matched; the
+    // translated strings live in the add-on package.
     const t = c.ui?.title
-    for (const v of typeof t === 'string' ? [t] : Object.values(t || {})) if (typeof v === 'string' && v) names.add(v)
+    const english = typeof t === 'string' ? t : t?.en
+    if (typeof english === 'string' && english) names.add(english)
   }
   return [...names]
 }

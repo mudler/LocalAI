@@ -220,7 +220,8 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 		if err != nil {
 			return nil, nil, err
 		}
-		off, addonsOff, sc = rec.SkillsOff, rec.AddonsOff, s.scopeOf(ctx, rec)
+		sc = s.scopeOf(ctx, rec)
+		off, addonsOff = s.memorySkillsOff(ctx, rec, sc, rec.SkillsOff), rec.AddonsOff
 	}
 	command, err := s.addonCommandDescriptor(ctx, p, rec, sc)
 	if err != nil {

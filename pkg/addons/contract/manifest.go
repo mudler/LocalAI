@@ -91,6 +91,13 @@ type Manifest struct {
 	// enabled. "on-demand" is reserved and rejected until it is implemented.
 	LaunchMode   string       `json:"launchMode,omitempty"`
 	Capabilities Capabilities `json:"capabilities"`
+	// I18n translates the text that the host shows for the manifest, by
+	// language tag (see i18n.go). It is optional under api 2. A host that
+	// does not know the field refuses the manifest as it refuses any unknown
+	// field. The English fields remain the source and the fallback. The title
+	// and description of the add-on are translated by the language maps of
+	// ui.title and ui.description.
+	I18n map[string]Translation `json:"i18n,omitempty"`
 }
 type Capabilities struct {
 	Service bool     `json:"service,omitempty"`
@@ -133,6 +140,10 @@ type Capabilities struct {
 	// UserSettings declare the choices that each person makes for the add-on
 	// (see usersettings.go). The host keeps the answers and validates them.
 	UserSettings []UserSetting `json:"userSettings,omitempty"`
+	// Provides says which provider slots of the host the add-on can serve (see
+	// providerslots.go). The person picks one provider per slot; the add-on's
+	// context files and skills count only while it is the one picked.
+	Provides []ProviderDeclaration `json:"provides,omitempty"`
 
 	// Credentials declare the secret that the host keeps for the person and
 	// hands to each call (see credentials.go). It needs a connector
@@ -403,6 +414,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	if e := validateUserSettings(c.UserSettings); e != nil {
 		return e
 	}
+	if e := validateProvides(c); e != nil {
+		return e
+	}
 	if e := validateResourceTools(c); e != nil {
 		return e
 	}
@@ -416,6 +430,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return e
 	}
 	if e := validateSkillDefinitions(m.ID, c.SkillDefinitions); e != nil {
+		return e
+	}
+	if e := validateI18n(m); e != nil {
 		return e
 	}
 	if u := c.UI; u != nil {

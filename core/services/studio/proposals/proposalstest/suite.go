@@ -26,7 +26,7 @@ var t0 = time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC)
 func Sample(id, owner, agent string, age time.Duration) contract.ChangeProposal {
 	return contract.ChangeProposal{V: contract.ChangeProposalVersion, ID: id, Owner: owner, Agent: agent, Kind: contract.ChangeMemory,
 		Scope: contract.ScopeUser, Target: "Memory/index.md", Summary: "a note", Content: "- home: Rome\n", BaseHash: "abc",
-		Source: contract.ChangeSource{Kind: "connector", ID: "b1", Chat: "c1"}, Status: contract.ProposalPending,
+		Source: contract.ChangeSource{Kind: "connector", ID: "b1", Chat: "c1", Thread: "t1", Sender: "s1"}, Status: contract.ProposalPending,
 		Created: t0.Add(age), Expires: t0.Add(age + contract.ChangeExpiry)}
 }
 

@@ -470,7 +470,52 @@
           "refuses a resource key with a control character or too long, and a huge credential",
           "is found through wrapping and keeps its wait in bounds",
           "accepts agentOptional and keeps it through a JSON round trip",
-          "accepts a thread history"
+          "accepts a thread history",
+          "English in the header stops the search",
+          "English is the empty tag",
+          "a bare language finds its only regional entry",
+          "a lower quality is used when the first is missing",
+          "a malformed explicit language is English",
+          "a malformed header is English",
+          "a region falls back to the language",
+          "a wildcard is English",
+          "accepts translated connector kinds and keeps them through a JSON round trip",
+          "an explicit language wins over the header",
+          "an overlong header is English",
+          "an unknown explicit language is English, not the header",
+          "bounds each string like its English field and refuses markup and control characters",
+          "bounds the total text of all translations",
+          "case does not matter",
+          "is optional: an absent field writes nothing",
+          "is part of the manifest bytes, so a changed translation changes them",
+          "limits the number of languages",
+          "lists no language when none is available",
+          "lists the languages other than English in order",
+          "nothing asked is English",
+          "q=0 refuses a language",
+          "quality values order the header",
+          "refuses an empty translation and an empty entry",
+          "refuses an unknown field inside a translation, as a host that does not know the field does",
+          "refuses bad language tags, English and a repeated tag",
+          "refuses duplicate keys and a translation that is not an object",
+          "returns the text of the language and says whether it found one",
+          "the header is used without an explicit language",
+          "translates only a kind that the manifest declares",
+          "translates only a text that the English kind has",
+          "zh finds zh-CN",
+          "reads the slots of the host from data and keeps them closed",
+          "accepts an add-on whose roles name its own tools of the right kind",
+          "accepts a declaration with no roles, as a file-based provider has none",
+          "reads one tool as a string and several as a list, and refuses anything else",
+          "is parsed strictly from a manifest file",
+          "refuses what the descriptor does not allow",
+          "refuses a tool that only the add-on's page may call",
+          "accepts undo by the add-on when it keeps change sets",
+          "refuses a repeated slot and more slots than the bound",
+          "limits the context files to the scopes the slot allows",
+          "keeps api 2 as the only manifest api",
+          "refuses a remote provider that does not declare its network access",
+          "keeps an alias of the built-in provider out of the providers and maps it to the built-in"
         ]
       },
       {
@@ -482,6 +527,7 @@
           "audits actual host calls and strict package contract for quantization",
           "audits actual host calls and strict package contract for sandbox",
           "audits actual host calls and strict package contract for slack",
+          "audits actual host calls and strict package contract for discord",
           "audits actual host calls and strict package contract for studio",
           "audits actual host calls and strict package contract for tables",
           "audits actual host calls and strict package contract for talk",
@@ -553,6 +599,7 @@
           "has consistent package files for quantization",
           "has consistent package files for sandbox",
           "has consistent package files for slack",
+          "has consistent package files for discord",
           "has consistent package files for studio",
           "has consistent package files for tables",
           "has consistent package files for talk",
@@ -658,11 +705,57 @@
           "declares and packages a loadable, receipt-verified skill without shadows",
           "rejects a missing skill, mismatched frontmatter, and scripts",
           "has consistent package files for github",
+          "has consistent package files for home-assistant",
+          "has consistent package files for jellyfin",
+          "has consistent package files for pikvm",
           "writes the zip of a verified layout with a digest manifest and a sha256 file",
           "audits actual host calls and strict package contract for github",
+          "audits actual host calls and strict package contract for home-assistant",
+          "audits actual host calls and strict package contract for jellyfin",
+          "audits actual host calls and strict package contract for pikvm",
           "lists every release platform with its runner",
           "enables a platform exactly when its native check is recorded",
-          "has a catalog template"
+          "has a catalog template",
+          "changes the package digest when a translation changes, and the package still verifies",
+          "gives every translated connector kind of discord the fields of its English kind, and no others",
+          "gives every translated connector kind of face the fields of its English kind, and no others",
+          "gives every translated connector kind of fine-tuning the fields of its English kind, and no others",
+          "gives every translated connector kind of github the fields of its English kind, and no others",
+          "gives every translated connector kind of home-assistant the fields of its English kind, and no others",
+          "gives every translated connector kind of jellyfin the fields of its English kind, and no others",
+          "gives every translated connector kind of memory the fields of its English kind, and no others",
+          "gives every translated connector kind of office the fields of its English kind, and no others",
+          "gives every translated connector kind of pikvm the fields of its English kind, and no others",
+          "gives every translated connector kind of quantization the fields of its English kind, and no others",
+          "gives every translated connector kind of sandbox the fields of its English kind, and no others",
+          "gives every translated connector kind of slack the fields of its English kind, and no others",
+          "gives every translated connector kind of studio the fields of its English kind, and no others",
+          "gives every translated connector kind of tables the fields of its English kind, and no others",
+          "gives every translated connector kind of talk the fields of its English kind, and no others",
+          "gives every translated connector kind of telegram the fields of its English kind, and no others",
+          "gives every translated connector kind of voice the fields of its English kind, and no others",
+          "gives every translated connector kind of web the fields of its English kind, and no others",
+          "lists every add-on directory that has a manifest",
+          "refuses to build a package whose translation the host would refuse",
+          "renders the translated title and description of every add-on into its library entry",
+          "translates the title and the description of discord in every main language",
+          "translates the title and the description of face in every main language",
+          "translates the title and the description of fine-tuning in every main language",
+          "translates the title and the description of github in every main language",
+          "translates the title and the description of home-assistant in every main language",
+          "translates the title and the description of jellyfin in every main language",
+          "translates the title and the description of memory in every main language",
+          "translates the title and the description of office in every main language",
+          "translates the title and the description of pikvm in every main language",
+          "translates the title and the description of quantization in every main language",
+          "translates the title and the description of sandbox in every main language",
+          "translates the title and the description of slack in every main language",
+          "translates the title and the description of studio in every main language",
+          "translates the title and the description of tables in every main language",
+          "translates the title and the description of talk in every main language",
+          "translates the title and the description of telegram in every main language",
+          "translates the title and the description of voice in every main language",
+          "translates the title and the description of web in every main language"
         ]
       },
       {
@@ -778,7 +871,11 @@
       "does not add the default again after the admin removed it",
       "seeds only once per instance",
       "refuses an entry two of your sources list, and excludes disabled sources",
-      "reports the id of a skipped entry"
+      "reports the id of a skipped entry",
+      "carries the translated title and description of an entry through the library",
+      "finds an entry by its translated text as well as by the English text",
+      "keeps a plain entry free of translation fields on the wire",
+      "rejects translations that the manifest would refuse"
     ],
     "report": ".cache/addons/logs/catalog.json"
   },
@@ -913,6 +1010,8 @@
       "keeps the last good generation when the candidate cannot be staged",
       "never switches the library or channel, and a failed check is never up to date",
       "lets an administrator refresh and everyone with the feature read a redacted status",
+      "reports the pending update of an installed add-on that is turned off, and keeps the desired state through an upgrade",
+      "refuses to turn on an installed package the host cannot run with a typed cause, and an upgrade makes it startable",
       "shows the pending update in the apps list from the cache only",
       "does not accept pins without an update checker or on another action",
       "keeps the unpinned typed upgrade of an earlier release working",
@@ -1007,7 +1106,12 @@
       "tells the Apps listing which operations are held and which are denied",
       "keeps a deployment that grants the prefix in the policy file working as before",
       "is safe to read the grants while installs and changes run",
-      "stops a running add-on that loses a required operation and starts it again on a grant"
+      "stops a running add-on that loses a required operation and starts it again on a grant",
+      "answers the apps list at once, from the snapshot, with the operation state",
+      "serves every other read from the snapshot too",
+      "refuses a second upgrade with a conflict instead of racing or waiting",
+      "shows the new generation and no operation once the upgrade ended",
+      "still refuses a read after the owner closed"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -1372,6 +1476,7 @@
           "refuses a resource that is not on the list before the add-on is called",
           "refuses a call without the resource argument",
           "gives a tool without a resource argument the credential and no resource",
+          "gives a tool of the add-on's own page no credential and asks the source for none",
           "drops a credential, a key or a resource that the caller put in the request",
           "fails closed when the owner has no credential source",
           "reports an outage of the source as unavailable",
@@ -1419,7 +1524,10 @@
           "lets a second frontend read the file the first one uploaded",
           "needs no human mark to stage a file, and never changes the policy by it",
           "stages nothing while the deployment locks the UI host grants",
-          "answers unavailable when the owner has no file service"
+          "answers unavailable when the owner has no file service",
+          "returns a typed timeout in the read deadline, not after the client timeout",
+          "never answers with an older list of its own: every frontend gives the same typed error",
+          "does not hide a denial"
         ]
       },
       {
@@ -1586,7 +1694,11 @@
           "refuses a request without a file part",
           "types a file over the limit and a file that broke a rule",
           "does not let a script install a staged file: the install keeps its human surface rule",
-          "lets administrators stage a file and keeps it from everyone else"
+          "lets administrators stage a file and keeps it from everyone else",
+          "is a typed owner_busy 503 when the owner timed out",
+          "keeps the plain unavailable answer for an owner that cannot be reached",
+          "tells the pins routes apart too",
+          "adds the text in the negotiated language beside the English fields and changes none of them"
         ]
       },
       {
@@ -1747,7 +1859,8 @@
           "mounts the first at home and the others by name, each capped by the fence",
           "skips a folder outside the fence instead of widening it",
           "names two folders with the same name apart and never takes a reserved name",
-          "refuses a path that climbs out of a mounted folder"
+          "refuses a path that climbs out of a mounted folder",
+          "gives the hook the message and puts the block in front of it for this turn only"
         ]
       }
     ]
@@ -2278,7 +2391,11 @@
           "refuses a request without a file part",
           "types a file over the limit and a file that broke a rule",
           "does not let a script install a staged file: the install keeps its human surface rule",
-          "lets administrators stage a file and keeps it from everyone else"
+          "lets administrators stage a file and keeps it from everyone else",
+          "is a typed owner_busy 503 when the owner timed out",
+          "keeps the plain unavailable answer for an owner that cannot be reached",
+          "tells the pins routes apart too",
+          "adds the text in the negotiated language beside the English fields and changes none of them"
         ]
       }
     ]
@@ -2534,6 +2651,7 @@
           "refuses a resource that is not on the list before the add-on is called",
           "refuses a call without the resource argument",
           "gives a tool without a resource argument the credential and no resource",
+          "gives a tool of the add-on's own page no credential and asks the source for none",
           "drops a credential, a key or a resource that the caller put in the request",
           "fails closed when the owner has no credential source",
           "reports an outage of the source as unavailable",
@@ -2581,7 +2699,10 @@
           "lets a second frontend read the file the first one uploaded",
           "needs no human mark to stage a file, and never changes the policy by it",
           "stages nothing while the deployment locks the UI host grants",
-          "answers unavailable when the owner has no file service"
+          "answers unavailable when the owner has no file service",
+          "returns a typed timeout in the read deadline, not after the client timeout",
+          "never answers with an older list of its own: every frontend gives the same typed error",
+          "does not hide a denial"
         ]
       },
       {
@@ -2748,7 +2869,11 @@
           "refuses a request without a file part",
           "types a file over the limit and a file that broke a rule",
           "does not let a script install a staged file: the install keeps its human surface rule",
-          "lets administrators stage a file and keeps it from everyone else"
+          "lets administrators stage a file and keeps it from everyone else",
+          "is a typed owner_busy 503 when the owner timed out",
+          "keeps the plain unavailable answer for an owner that cannot be reached",
+          "tells the pins routes apart too",
+          "adds the text in the negotiated language beside the English fields and changes none of them"
         ]
       }
     ]
@@ -2822,7 +2947,12 @@
           "carries the declaration of any add-on, whatever its id",
           "carries nothing for an add-on that declares no resources",
           "does not alias the manifest",
-          "leaves an add-on with a mapping and no declaration without a listing"
+          "leaves an add-on with a mapping and no declaration without a listing",
+          "adds nothing for an app without translations, and writes none of the new fields then",
+          "changes no existing field and adds the resolved text beside them",
+          "does not share a map with the original",
+          "falls back to English for each field on its own",
+          "takes the explicit language before the header, and the header before English"
         ]
       },
       {
@@ -2868,6 +2998,8 @@
           "keeps the last good generation when the candidate cannot be staged",
           "never switches the library or channel, and a failed check is never up to date",
           "lets an administrator refresh and everyone with the feature read a redacted status",
+          "reports the pending update of an installed add-on that is turned off, and keeps the desired state through an upgrade",
+          "refuses to turn on an installed package the host cannot run with a typed cause, and an upgrade makes it startable",
           "shows the pending update in the apps list from the cache only",
           "does not accept pins without an update checker or on another action",
           "keeps the unpinned typed upgrade of an earlier release working",
@@ -2942,7 +3074,12 @@
           "tells the Apps listing which operations are held and which are denied",
           "keeps a deployment that grants the prefix in the policy file working as before",
           "is safe to read the grants while installs and changes run",
-          "stops a running add-on that loses a required operation and starts it again on a grant"
+          "stops a running add-on that loses a required operation and starts it again on a grant",
+          "answers the apps list at once, from the snapshot, with the operation state",
+          "serves every other read from the snapshot too",
+          "refuses a second upgrade with a conflict instead of racing or waiting",
+          "shows the new generation and no operation once the upgrade ended",
+          "still refuses a read after the owner closed"
         ]
       },
       {
@@ -3182,7 +3319,11 @@
           "refuses a request without a file part",
           "types a file over the limit and a file that broke a rule",
           "does not let a script install a staged file: the install keeps its human surface rule",
-          "lets administrators stage a file and keeps it from everyone else"
+          "lets administrators stage a file and keeps it from everyone else",
+          "is a typed owner_busy 503 when the owner timed out",
+          "keeps the plain unavailable answer for an owner that cannot be reached",
+          "tells the pins routes apart too",
+          "adds the text in the negotiated language beside the English fields and changes none of them"
         ]
       }
     ]
@@ -3269,7 +3410,19 @@
       "unit: the English wording is \"Adds 16 tools\" and \"Adds 1 tool\"",
       "unit: addons: the install dialog names each built-in skill the entry replaces, and who already does",
       "unit: addons: the details list the skills of an add-on and which replace a built-in one",
-      "hub: under the legacy switch the Add-ons tab appears only for an account that holds the feature"
+      "hub: under the legacy switch the Add-ons tab appears only for an account that holds the feature",
+      "unit: addons: a busy owner is its own kind of answer, and the list read never carries a stale mark",
+      "unit: addons: an error is never an empty list, and the page names what the owner is upgrading",
+      "unit: addons: the last list of a tab stands in for a page loaded while the owner is busy",
+      "unit: translations: a library entry shows its title and description in the user language and falls back to English per field",
+      "unit: translations: an installed record is named in the user language in dialogs and keeps the English text",
+      "unit: translations: the library adapter carries the languages of the entry",
+      "unit: translations: the installed list is searched by the translated and by the English name",
+      "unit: translations: the lists are in the alphabetical order of the user language",
+      "library: the cards show the title and description in the user language, and English per field where a language has none",
+      "library: English and an unlisted language keep the English text",
+      "library: the install dialog names the add-on in the user language",
+      "installed list: tiles show the translated name and a search finds it by the translated or the English name"
     ]
   },
   "esm-ui": {
@@ -4031,6 +4184,7 @@
       "go: lets a manifest without the declaration keep the tool of the old name only through the apps list",
       "go: rejects a declared listing that collides with a tool of the manifest",
       "go: leaves a proposal that awaits a person for the person, even for the chat adapter",
+      "go: stores the proposal and applies nothing when the host holds the call for a person",
       "go: tells the model that writes are off when the host refuses the call for that reason",
       "go: tells the model to wait when the service rate limits, and not to retry before then",
       "go: tells the model a resource is not on the list, with the allowed ones, and when no credential exists",
@@ -4459,6 +4613,7 @@
       "package.sh refuses a foreign platform without an executable: talk",
       "package.sh refuses a foreign platform without an executable: telegram",
       "package.sh refuses a foreign platform without an executable: slack",
+      "package.sh refuses a foreign platform without an executable: discord",
       "package.sh refuses a foreign platform without an executable for every add-on",
       "package.sh builds Tables with cgo and the pure Go add-ons without",
       "matrix fails closed while no platform is enabled",
@@ -4510,6 +4665,7 @@
       "go: has consistent package files for quantization",
       "go: has consistent package files for sandbox",
       "go: has consistent package files for slack",
+      "go: has consistent package files for discord",
       "go: has consistent package files for studio",
       "go: has consistent package files for tables",
       "go: has consistent package files for talk",
@@ -4558,11 +4714,15 @@
       "go: audits actual host calls and strict package contract for face",
       "go: audits actual host calls and strict package contract for fine-tuning",
       "go: audits actual host calls and strict package contract for github",
+      "go: audits actual host calls and strict package contract for home-assistant",
+      "go: audits actual host calls and strict package contract for jellyfin",
       "go: audits actual host calls and strict package contract for memory",
       "go: audits actual host calls and strict package contract for office",
+      "go: audits actual host calls and strict package contract for pikvm",
       "go: audits actual host calls and strict package contract for quantization",
       "go: audits actual host calls and strict package contract for sandbox",
       "go: audits actual host calls and strict package contract for slack",
+      "go: audits actual host calls and strict package contract for discord",
       "go: audits actual host calls and strict package contract for studio",
       "go: audits actual host calls and strict package contract for tables",
       "go: audits actual host calls and strict package contract for talk",
@@ -4574,7 +4734,10 @@
       "go: lists every release platform with its runner",
       "go: enables a platform exactly when its native check is recorded",
       "go: has a catalog template",
-      "go: has consistent package files for github"
+      "go: has consistent package files for github",
+      "go: has consistent package files for home-assistant",
+      "go: has consistent package files for jellyfin",
+      "go: has consistent package files for pikvm"
     ]
   },
   "updates": {
@@ -4590,6 +4753,7 @@
       "unit: updates: an upgrade is offered only for a candidate the owner confirmed, with a digest to pin",
       "unit: updates: the owner's typed refusals keep their type and are final answers",
       "unit: updates: the apps list marks an update beside the process state, never in place of it",
+      "unit: updates: a library card says when the update status of an installed add-on is not known, and never reads it as current",
       "unit: updates: times are shown as the reader's own and a bad time as nothing",
       "unit: updates: the client sends check and upgrade as the administrator's own action and types the refusals",
       "unit: updates: every locale carries the same update keys as English, and words for every state, reason and refusal",
@@ -4623,6 +4787,8 @@
       "go: marks a cached answer older than the time to live as stale",
       "go: refreshes the library only on an explicit refresh and applies nothing",
       "go: limits explicit refreshes to one per interval and says so",
+      "go: reports every add-on of one library that has an update when they are checked in a row",
+      "go: offers the moved build to an install that recorded the channel name, not the label, and never calls a failed lookup current",
       "go: shares one check among concurrent callers",
       "go: never lets an explicit refresh join a plain evaluation that is already in flight",
       "go: keeps the work of a canceled caller from spoiling the answer of the others",
@@ -4642,6 +4808,8 @@
       "go: keeps the last good generation when the candidate cannot be staged",
       "go: never switches the library or channel, and a failed check is never up to date",
       "go: lets an administrator refresh and everyone with the feature read a redacted status",
+      "go: reports the pending update of an installed add-on that is turned off, and keeps the desired state through an upgrade",
+      "go: refuses to turn on an installed package the host cannot run with a typed cause, and an upgrade makes it startable",
       "go: shows the pending update in the apps list from the cache only",
       "go: does not accept pins without an update checker or on another action",
       "go: keeps the unpinned typed upgrade of an earlier release working",

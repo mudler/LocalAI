@@ -27,6 +27,7 @@ const FILTER_FROM = 8
 //   models, loading   the list is already held by the caller, so no second fetch
 //   grouped, loadedIds, showWarm, describe, onOpen, footer, labels
 //   defaultChoice, defaultSelected, onChooseDefault   a first row for "use the default"
+//   describe(name, warm) -> { size, vision, caps: [label], fit }   a richer row; caps are small tags
 const ModelPicker = forwardRef(function ModelPicker(
   {
     value, onChange, capability, loadedIds, disabled = false, placeholder,
@@ -291,10 +292,11 @@ const ModelPicker = forwardRef(function ModelPicker(
                         <span className="home-menu__main">
                           <code>{name === null ? defaultChoice : name}</code>
                           {badges(name)}
-                          {(info.size || info.vision) && (
+                          {(info.size || info.vision || info.caps?.length > 0) && (
                             <small className="home-menu__caps">
                               {info.size && <span>{info.size}</span>}
                               {info.vision && <Icon name="eye" title={t('picker.vision')} />}
+                              {(info.caps || []).map(c => <span key={c} className="home-menu__tag" data-kind="cap">{c}</span>)}
                             </small>
                           )}
                         </span>

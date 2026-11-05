@@ -3,7 +3,7 @@
 // (core/http/react-ui/src/addons/hostComponents.jsx); these keep the same
 // props and draw plain markup with the test ids, so a test can check what an
 // add-on asks the host to draw without the host's build.
-export const KIT = ['Section', 'Field', 'Select', 'TextInput', 'Switch', 'Choice', 'Callout', 'StatusChip', 'List', 'ListRow', 'Code', 'Actions', 'Table', 'ExternalLink']
+export const KIT = ['Section', 'Field', 'Select', 'TextInput', 'Switch', 'Choice', 'Callout', 'Notice', 'StatusChip', 'List', 'ListRow', 'Code', 'Actions', 'Table', 'ExternalLink']
 
 export function kitStubs(React) {
   const h = React.createElement
@@ -18,6 +18,7 @@ export function kitStubs(React) {
       (p.options || []).map(o => h('label', { key: o.value, 'data-value': o.value, 'data-selected': p.value === o.value ? '' : undefined },
         h('input', { type: 'radio', checked: p.value === o.value, onChange: () => {}, disabled: o.disabled }), o.label, o.chip || null, o.description ? h('span', null, o.description) : null))),
     Callout: (p) => h('div', { 'data-kit': 'Callout', 'data-tone': p.tone || 'info', role: p.role, ...tid(p) }, p.title ? h('strong', null, p.title) : null, p.children, p.actions || null),
+    Notice: (p) => h('div', { 'data-kit': 'Notice', 'data-severity': p.severity || 'info', role: 'note', ...tid(p) }, p.title ? h('strong', null, p.title) : null, p.reason ? h('p', null, p.reason) : null, p.fixLabel ? h('button', { type: 'button', onClick: p.onFix }, p.fixLabel) : null, p.children),
     StatusChip: (p) => h('span', { 'data-kit': 'StatusChip', 'data-tone': p.tone || 'idle', ...tid(p) }, p.children),
     List: (p) => h('ul', { 'data-kit': 'List', 'aria-label': p.label, ...tid(p) }, p.children),
     ListRow: (p) => h('li', { 'data-kit': 'ListRow', ...tid(p) }, h('strong', null, p.title), p.status || null, p.meta ? h('span', null, p.meta) : null, p.children,

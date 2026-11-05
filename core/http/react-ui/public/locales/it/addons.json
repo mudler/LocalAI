@@ -66,6 +66,13 @@
     "loadError": {
       "title": "I componenti aggiuntivi non sono disponibili ora.",
       "paused": "Pagine e strumenti dei componenti sono in pausa finché non torna."
+    },
+    "busy": {
+      "upgrading": "Il server dei componenti è occupato (aggiorna {{names}})",
+      "generic": "Il server dei componenti è occupato",
+      "unreachable": "Il server dei componenti non è raggiungibile",
+      "reason": "Mostro l'ultimo stato noto. La pagina riprova da sola.",
+      "retry": "Riprova ora"
     }
   },
   "browse": {
@@ -138,7 +145,8 @@
     "invalid": "Il server non ha potuto accettare la richiesta.",
     "network": "Impossibile raggiungere il server. Controlla la connessione.",
     "unavailable": "I componenti non sono disponibili al momento. Riprova tra poco.",
-    "unknownOutcome": "Non è stato possibile confermare il risultato. Controlla lo stato prima di riprovare."
+    "unknownOutcome": "Non è stato possibile confermare il risultato. Controlla lo stato prima di riprovare.",
+    "busy": "Il server dei componenti è occupato e non ha risposto in tempo. Riprova tra poco."
   },
   "installed": {
     "disabled": "Disattivato",
@@ -929,6 +937,31 @@
       "downgradeTitle": "Versione precedente",
       "downgrade": "Questo installa la versione {{version}}, più vecchia della versione installata {{installed}}. Una versione più vecchia può non leggere i dati scritti da una più nuova.",
       "downgradeConfirm": "Voglio installare la versione precedente"
+    }
+  },
+  "notice": {
+    "enableFailedTitle": "Impossibile attivare {{name}}",
+    "incompatibleTitle": "Impossibile attivare {{name}}: non compatibile con questo server",
+    "noUpgrade": "Non è ancora elencata una versione più recente. Lascialo disattivato o rimuovilo."
+  },
+  "operation": {
+    "kind": {
+      "install": "Installazione…",
+      "upgrade": "Aggiornamento…",
+      "uninstall": "Rimozione…",
+      "enable": "Avvio…",
+      "disable": "Arresto…",
+      "working": "In corso…"
+    },
+    "label": "In corso: {{operation}}",
+    "phase": {
+      "queued": "in attesa",
+      "downloading": "download e verifica",
+      "backing-up": "copia dei dati",
+      "installing": "installazione",
+      "migrating": "migrazione dei dati",
+      "starting": "avvio",
+      "working": "in corso"
     }
   }
 }

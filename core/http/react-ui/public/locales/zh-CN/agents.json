@@ -1,6 +1,6 @@
 {
   "title": "智能体",
-  "subtitle": "已保存的智能体：指令、模型，以及与其聊天时可使用的内容。",
+  "subtitle": "管理自主 AI 智能体",
   "actions": {
     "import": "导入",
     "createAgent": "创建智能体",
@@ -28,7 +28,7 @@
   },
   "empty": {
     "noConfigured": "未配置智能体",
-    "noConfiguredText": "智能体包含保存的指令、模型，以及与其聊天时可使用的内容。你可以自行创建，或从以下示例开始。",
+    "noConfiguredText": "创建一个智能体以开始自主 AI 工作流。",
     "noMatching": "没有匹配的智能体",
     "noMatchingText": "没有智能体匹配 \"{{query}}\"",
     "startWith": "从以下模板开始",
@@ -93,7 +93,7 @@
     "model": "模型",
     "noModel": "未设置模型",
     "tools": "工具",
-    "memory": "内存",
+    "memory": "知识库",
     "skills": "技能",
     "instructions": "朗读指令",
     "record": "记录",
@@ -112,16 +112,20 @@
   },
   "templates": {
     "researcher": {
-      "label": "研究助手"
+      "label": "研究助手",
+      "description": "搜索、阅读来源并撰写简短摘要。"
     },
     "reviewer": {
-      "label": "代码审查员"
+      "label": "代码审查员",
+      "description": "审阅一项更改，并先列出需要修复的内容。"
     },
     "digest": {
-      "label": "每日摘要"
+      "label": "每日摘要",
+      "description": "收集某个主题的新内容并加以总结。"
     },
     "blank": {
-      "label": "空白"
+      "label": "空白",
+      "description": "空白。从头开始。"
     }
   },
   "agent": {
@@ -184,19 +188,17 @@
       "BasicInfo": "基本信息",
       "ModelSettings": "模型",
       "PromptsGoals": "指令",
-      "MemorySettings": "内存",
+      "MemorySettings": "知识库",
       "Skills": "技能",
       "Addons": "附加组件",
       "MCP": "MCP 服务器",
       "export": "导出",
       "Files": "文件",
       "Tools": "工具",
-      "Grants": "权限"
+      "Notes": "记忆",
+      "Connections": "连接",
+      "Effective": "生效视图"
     },
-    "grantsHelp": "智能体在工具之外可以执行的操作。未勾选任何权限时，智能体保留引入权限机制之前的默认行为。勾选任意权限后，仅允许已勾选的操作。",
-    "grantsDefault": "默认权限",
-    "countGrants": "已授予 {{count}} 项权限",
-    "grantSensitive": "需谨慎",
     "grantsNoticeTitle": "部分消息功能将被关闭。",
     "grantsNotice": "此智能体原本没有权限列表，因此在消息连接中保留了这些权限：{{grants}}。在此勾选之前，这些功能将不可用。",
     "grantsAddMissing": "添加缺少的权限",
@@ -211,7 +213,7 @@
     "instructionsHelp": "智能体始终遵循的指令。与其进行的每次聊天都以这段文本开始。",
     "collections": "集合",
     "collectionsHint": "集合名称",
-    "collectionsHelp": "与此智能体的聊天可以搜索的记忆集合。严格按列表授权：空列表表示不授予任何集合的访问权限。",
+    "collectionsHelp": "与此智能体的聊天可以搜索的集合。列表即全部权限：列表为空则不授予任何集合。",
     "skillsHelp": "与此智能体的聊天可以读取的技能。严格按列表授权：空列表表示不授予任何技能的访问权限。",
     "noSkills": "尚无技能。",
     "manageSkills": "编写或管理技能",
@@ -247,10 +249,198 @@
       "all": "所有公共网站"
     },
     "toolsSummary": "{{total}} 项中开启 {{on}} 项",
-    "toolsHelp": "选择使用此智能体的聊天可以用什么。这些开关与聊天的工具菜单相同。关闭的工具不会提供给模型,使用此智能体的聊天也无法将其打开。",
+    "toolsHelp": "选择与此智能体的聊天可以使用什么。这些开关与聊天的工具菜单相同，每个开关的选项在其下方。关闭的工具不会提供给模型。未勾选任何选项时，智能体保留其消息连接的默认设置；一旦勾选任何一项，只有勾选的才生效。",
     "toolsHeading": "此智能体的工具",
     "skillsLater": "使用此智能体的聊天只会读取已开启的技能。",
-    "skillsHeading": "此智能体的技能"
+    "skillsHeading": "此智能体的技能",
+    "grantNames": {
+      "triggers_propose": "也可从消息应用提议",
+      "triggers_run": "允许触发器从消息应用启动",
+      "talkback_channels": "在已知频道回复",
+      "files_upload": "从消息应用接收文件"
+    },
+    "memoryOffUser": "你的设置中记忆已关闭，因此无论这里如何设置，此智能体都不会读取或保存笔记。",
+    "memoryOffFix": "设置，记忆",
+    "nav": {
+      "label": "分区",
+      "identity": "身份",
+      "capabilities": "能力",
+      "memory": "记忆与知识",
+      "advanced": "高级",
+      "connections": "连接",
+      "effective": "生效视图"
+    },
+    "lead": {
+      "identity": "智能体是谁,以及它如何行事。",
+      "capabilities": "智能体可以使用和访问的内容。",
+      "memory": "智能体记住什么,以及可以查找什么。",
+      "advanced": "额外的服务器和导出。",
+      "connections": "此代理可以使用哪些连接。",
+      "effective": "这个智能体现在能做什么。"
+    },
+    "header": {
+      "unnamed": "未命名的智能体",
+      "modeEdit": "编辑智能体",
+      "modeCreate": "新智能体",
+      "summary": "此智能体的摘要"
+    },
+    "status": {
+      "clean": "没有未保存的更改",
+      "new": "尚未创建",
+      "unsaved": "未保存的更改({{count}})"
+    },
+    "preset": {
+      "label": "工具级别",
+      "loading": "正在加载工具列表",
+      "current": "级别：{{name}}。更改下方任一开关后，它就成为自定义组合。",
+      "custom": "自定义开关组合。选择一个级别可替换它。",
+      "applied": "已应用{{name}}级别",
+      "appliedBody": "下方的开关已更改。保存之前不会存储任何内容。",
+      "readonly": {
+        "title": "仅查看",
+        "body": "搜索网页和你的集合。没有文件、命令和触发器。"
+      },
+      "assistant": {
+        "title": "助手",
+        "body": "加入已保存的代理、触发器和建议的更改。没有文件和命令。"
+      },
+      "full": {
+        "title": "完整",
+        "body": "服务器列出的所有工具。敏感权限保持关闭。"
+      }
+    },
+    "tpl": {
+      "applied": "从{{name}}开始",
+      "appliedBody": "名称、描述、指令和工具已更改。保存之前不会存储任何内容。",
+      "tools": "工具：{{level}}",
+      "noTools": "工具：保持不变"
+    },
+    "undo": "撤销",
+    "keep": "保留",
+    "modelCaps": "此模型能做什么",
+    "modelChat": "聊天",
+    "connections": {
+      "addonsTitle": "使用连接的附加组件",
+      "addonsNone": "没有附加组件需要连接。",
+      "messagingTitle": "此代理连接到哪里",
+      "messagingNone": "还没有消息连接使用此代理。请先保存代理，再添加连接。",
+      "messagingHelp": "消息连接在各自的页面中设置。",
+      "allows_one": "允许 {{count}} 项权限",
+      "allows_other": "允许 {{count}} 项权限",
+      "open": "打开",
+      "addonOff": "已关闭",
+      "noneYet": "还没有连接。",
+      "add": "添加连接",
+      "groupLabel": "{{name}}的连接",
+      "chosenHelp": "此代理的聊天只能使用已勾选的连接。",
+      "perChat": "未勾选：每个聊天自行选择。",
+      "summary_one": "{{count}} 个连接",
+      "summary_other": "{{count}} 个连接"
+    },
+    "more": "更多操作",
+    "eff": {
+      "summaryOk": "没有被阻止的内容。",
+      "summaryBlocked_one": "{{count}} 项被阻止。",
+      "summaryBlocked_other": "{{count}} 项被阻止。",
+      "unsaved": "此列表按表单当前的样子生成，包括尚未保存的更改。",
+      "unsavedConn": "工具、记忆和知识按表单当前的样子生成。连接行来自已保存的智能体和已保存的连接。",
+      "state": {
+        "allowed": "可以",
+        "asks": "先询问",
+        "off": "关闭",
+        "blocked": "已阻止",
+        "info": "说明"
+      },
+      "more_one": "以及另外 {{count}} 项",
+      "more_other": "以及另外 {{count}} 项",
+      "fixHere": "在此修复",
+      "fixOpen": "打开可修复它的页面",
+      "model": {
+        "fixed": "使用 {{model}} 运行。",
+        "any": "使用每次聊天中选择的模型。"
+      },
+      "tools": {
+        "none": "没有开启任何工具。它只能凭已有知识回答。",
+        "some_one": "可以使用 {{count}} 个工具：{{names}}。",
+        "some_other": "可以使用 {{count}} 个工具：{{names}}。",
+        "blocked": "{{name}} 已开启，但现在无法工作。{{reason}}"
+      },
+      "skills": {
+        "some_one": "可以使用 {{count}} 个技能：{{names}}。",
+        "some_other": "可以使用 {{count}} 个技能：{{names}}。"
+      },
+      "files": {
+        "all": "可以访问你的所有文件。",
+        "folders_one": "只能访问你选择的 {{count}} 个文件夹。",
+        "folders_other": "只能访问你选择的 {{count}} 个文件夹。"
+      },
+      "grants": {
+        "parentOff": "{{name}} 已允许，但在 {{parent}} 关闭时无法工作。请打开 {{parent}}。",
+        "connection": "{{name}} 对智能体已允许，但在此连接上不行：{{connection}}",
+        "some_one": "另有 {{count}} 项权限：{{names}}。",
+        "some_other": "另有 {{count}} 项权限：{{names}}。",
+        "unattended_one": "无人看管时，它可以自行使用 {{count}} 项权限：{{names}}。",
+        "unattended_other": "无人看管时，它可以自行使用 {{count}} 项权限：{{names}}。"
+      },
+      "memory": {
+        "userOff": "你的设置中记忆已关闭，因此无论在此选择什么，这个智能体都不会读取或保存笔记。",
+        "none": "不保存也不读取笔记。",
+        "mine_and_own": "读取你的笔记和它自己的笔记，并保存到它自己的笔记。",
+        "own": "只读取并保存它自己的笔记。",
+        "mine": "读取你的笔记并保存到其中。",
+        "asBefore": "记忆照旧工作：当附加组件提到 Memory 时读取笔记。",
+        "noGrant": "它被设置为保存笔记，但“记住内容”的权限已关闭，所以什么都不会保存。请在记忆中打开。",
+        "level": {
+          "auto": "笔记会立即保存。",
+          "ask": "每条笔记都等你确认。",
+          "always": "每条笔记都等你确认，没有任何放宽。",
+          "never": "它不保存笔记。"
+        }
+      },
+      "knowledge": {
+        "some_one": "可以搜索 {{count}} 个集合：{{names}}。",
+        "some_other": "可以搜索 {{count}} 个集合：{{names}}。",
+        "none": "没有可搜索的知识集合。"
+      },
+      "connections": {
+        "unsaved": "尚未用于消息应用。请先保存智能体，再添加连接。",
+        "none": "未用于任何消息应用。",
+        "loading": "正在检查 {{name}}...",
+        "error": "无法检查 {{name}}。打开它查看权限。",
+        "summary": "{{name}}：允许 {{allowed}} 项，不允许 {{blocked}} 项。",
+        "blocked": "{{name}} 无法使用 {{capability}}。{{message}}"
+      }
+    },
+    "try": {
+      "open": "试用",
+      "title": "试用这个智能体",
+      "desc": "向使用此表单设置的测试聊天发送一条消息。不会保存任何内容。",
+      "noModel": "尚未安装聊天模型。请先安装或选择一个模型。",
+      "defaultModel": "未设置模型，因此测试使用 {{model}}。",
+      "skipped": "测试不使用：{{what}}。这些属于已保存的智能体。",
+      "skip": {
+        "grants": "权限",
+        "memory": "记忆",
+        "knowledge": "知识集合",
+        "folders": "共享文件夹"
+      },
+      "empty": "发送一条消息开始。",
+      "role": {
+        "user": "你",
+        "assistant": "智能体",
+        "tool": "工具"
+      },
+      "toolRan": "使用了工具：{{name}}",
+      "working": "处理中...",
+      "label": "给智能体的消息",
+      "placeholder": "问一件这个智能体应能处理的事",
+      "send": "发送",
+      "stop": "停止",
+      "deleted": "关闭此面板时，测试聊天会被删除。",
+      "chatTitle": "{{name}} 的测试",
+      "failed": "测试失败：{{message}}",
+      "slow": "智能体仍在工作。请停止它或关闭面板。"
+    }
   },
   "status": {
     "title": "状态",

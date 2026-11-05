@@ -71,6 +71,38 @@ func Run(newStore NewStore) {
 		Expect(got.ReplyMode()).To(Equal(connectors.ReplyProgress))
 		Expect(got.SendsFiles()).To(BeTrue())
 	})
+	It("keeps the reply language, and reads a binding stored without one as auto", func() {
+		s := newStore()
+		b := binding("lang", "u1", "Language")
+		b.ReplyLanguage = "pt-BR"
+		Expect(s.PutBinding(ctx, b)).To(Succeed())
+		got, err := s.GetBinding(ctx, "lang")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ReplyLanguage).To(Equal("pt-BR"))
+		Expect(got.ReplyLang()).To(Equal("pt-BR"))
+		list, err := s.ListBindings(ctx, "u1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1))
+		Expect(list[0].ReplyLanguage).To(Equal("pt-BR"))
+		got.ReplyLanguage = ""
+		Expect(s.PutBinding(ctx, got)).To(Succeed())
+		again, _ := s.GetBinding(ctx, "lang")
+		Expect(again.ReplyLanguage).To(BeEmpty())
+		Expect(again.ReplyLang()).To(Equal("auto"))
+	})
+	It("accepts auto and the languages of the catalog, and refuses any other reply language", func() {
+		base := connectors.Binding{Name: "n", Kind: "k", AgentID: "a"}
+		for _, l := range []string{"", "auto", "en", "it", "de", "es", "fr", "pt-BR"} {
+			b := base
+			b.ReplyLanguage = l
+			Expect(connectors.Validate(b)).To(Succeed(), l)
+		}
+		for _, l := range []string{"pt", "IT", "ja", "it-IT", "xx"} {
+			b := base
+			b.ReplyLanguage = l
+			Expect(connectors.Validate(b)).NotTo(Succeed(), l)
+		}
+	})
 	It("keeps the options of the kind", func() {
 		s := newStore()
 		b := binding("opt", "u1", "Options")
@@ -140,10 +172,10 @@ func Run(newStore NewStore) {
 		Expect(bare.Paired).To(BeEmpty())
 	})
 
-	It("keeps the approval mode and limits", func() {
+	It("keeps the approval mode, limits and the acts that runs may hold", func() {
 		s := newStore()
 		b := binding("b1", "u1", "Bot")
-		b.Approval = connectors.Approval{Mode: connectors.ApprovalAuto, MaxPending: 3, MaxRunsPerDay: 7}
+		b.Approval = connectors.Approval{Mode: connectors.ApprovalAuto, MaxPending: 3, MaxRunsPerDay: 7, Acts: []string{"act.files", "act.send"}}
 		Expect(s.PutBinding(ctx, b)).To(Succeed())
 		got, err := s.GetBinding(ctx, "b1")
 		Expect(err).NotTo(HaveOccurred())
@@ -151,6 +183,7 @@ func Run(newStore NewStore) {
 		Expect(s.PutBinding(ctx, binding("b2", "u1", "Bare"))).To(Succeed())
 		bare, _ := s.GetBinding(ctx, "b2")
 		Expect(bare.Approval.ModeOrDefault()).To(Equal(connectors.ApprovalAsk))
+		Expect(bare.Approval.Acts).To(BeEmpty())
 	})
 
 	It("uses a pairing code once, before it expires, and only with the right hash", func() {
@@ -266,6 +299,25 @@ func Run(newStore NewStore) {
 		Expect(id).To(Equal("c3"))
 		id, _, _ = s.ChatOf(ctx, "b1", "2")
 		Expect(id).To(Equal("c2"))
+	})
+	It("drops the mapping of a sender and leaves the others", func() {
+		s := newStore()
+		Expect(s.ClearChat(ctx, "b1", "1")).To(Succeed(), "no mapping is not an error")
+		_ = s.SetChat(ctx, "b1", "1", "c1")
+		_ = s.SetChat(ctx, "b1", "2", "c2")
+		_ = s.SetChat(ctx, "b2", "1", "c3")
+		Expect(s.ClearChat(ctx, "b1", "1")).To(Succeed())
+		_, ok, _ := s.ChatOf(ctx, "b1", "1")
+		Expect(ok).To(BeFalse())
+		id, ok, _ := s.ChatOf(ctx, "b1", "2")
+		Expect(ok).To(BeTrue())
+		Expect(id).To(Equal("c2"))
+		id, ok, _ = s.ChatOf(ctx, "b2", "1")
+		Expect(ok).To(BeTrue())
+		Expect(id).To(Equal("c3"))
+		_ = s.SetChat(ctx, "b1", "1", "c4")
+		id, _, _ = s.ChatOf(ctx, "b1", "1")
+		Expect(id).To(Equal("c4"), "a new chat can be mapped again")
 	})
 	It("sets the capabilities only while a binding has none", func() {
 		s := newStore()

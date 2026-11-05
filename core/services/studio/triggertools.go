@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -90,6 +92,7 @@ const connectorProposeNote = " This chat is in a messaging app. The host writes 
 	"Every run is one model run, so propose a recurring trigger only when the person asks for one; a recurring one runs at most once an hour. " +
 	"Use delivery.target origin when the person wants the result in this chat, and a mode that fits (on_change for a watch, on_problem for a check). " +
 	"Set access read_only only when the runs just read and report. " +
+	"A run only reads unless acts says more, and only the acts named below can be asked for here; anything else is dropped and the person is told. " +
 	"A proposal lapses after 24 hours, and at most 3 can be made in an hour."
 
 const listTriggersDescription = "List the triggers of the user: a ref, the name, when it runs or which folder it watches, whether it is on or off, and how its last run ended. " +
@@ -196,14 +199,14 @@ func (s *Service) registerTriggerTools() error {
 					case c.AgentID == "":
 						return session.Tool{}, false, "a trigger from a messaging app needs the agent of the connection"
 					case !s.allowCap(ctx, CapabilityRequest{Capability: CapTriggersPropose, Binding: c.OriginID, Owner: c.Actor.Principal, Agent: c.AgentID}):
-						return session.Tool{}, false, "triggers are off for this connection"
+						return session.Tool{}, false, builtins.ReasonNotPermitted + ": " + BlockSay(CodeConnectionPermissionOff, CapTriggersPropose)
 					}
 					// The binding allows it; the sender of this turn must hold it too.
 					if held, why := c.Holds(CapTriggersPropose); !held {
-						return session.Tool{}, false, why
+						return session.Tool{}, false, builtins.ReasonNotPermitted + ": " + why
 					}
 					if d.id == proposeTriggerName {
-						desc, schema = desc+connectorProposeNote, proposeTriggerConnectorSchema
+						desc, schema = desc+connectorProposeNote+h.actsNote(ctx, c), proposeTriggerConnectorSchema
 					}
 				}
 				return session.Tool{Description: desc, Schema: json.RawMessage(schema), Run: d.run(h, c.Actor, c)}, true, ""
@@ -379,7 +382,20 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 	} else if args.Delivery != nil {
 		return "", errors.New("delivery is for a chat in a messaging app; the answer of a run goes to the Inbox")
 	}
-	if in.Acts, err = checkProposedActs(args.Acts, agentID, c.Grants, in.Route.ReadOnly); err != nil {
+	var dropped DroppedActs
+	var may []string
+	if connector {
+		// The binding decides which acts a proposal from its chats may carry;
+		// the agent must hold them too. What is beyond that is dropped and
+		// named in the proposal, not refused.
+		asked, aerr := checkProposedActs(args.Acts, "", nil, in.Route.ReadOnly)
+		if aerr != nil {
+			return "", toolErr(aerr)
+		}
+		ap := h.svc.connectors.ApprovalOf(ctx, in.Route.Binding)
+		in.Acts, dropped = limitConnectorActs(asked, ap, c.Grants)
+		may = requestableActs(ap, c.Grants)
+	} else if in.Acts, err = checkProposedActs(args.Acts, agentID, c.Grants, in.Route.ReadOnly); err != nil {
 		return "", toolErr(err)
 	}
 	sc, err := h.toolScope(ctx, a, agentID)
@@ -396,7 +412,7 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 		return "", errors.New(strings.TrimPrefix(err.Error(), ErrBadTrigger.Error()+": "))
 	}
 	if connector {
-		return h.afterPropose(ctx, a, t, fresh, in.Route)
+		return h.afterPropose(ctx, a, t, fresh, in.Route, dropped, may)
 	}
 	// The card lets the interface show Create, Edit and Dismiss on this tool
 	// line, also after a reload; the event tells a client that is watching.
@@ -592,19 +608,48 @@ func (h *Triggers) changeCard(ctx context.Context, a workspace.Actor, rec trigge
 // "New files in /Contracts".
 func (h *Triggers) Summary(t triggers.Trigger) string { return h.summary(t) }
 
-func (h *Triggers) summary(t triggers.Trigger) string {
+func (h *Triggers) summary(t triggers.Trigger) string { return h.summaryIn(hostmsg.Voice{}, t) }
+
+// summaryIn is summary in the language of the voice.
+func (h *Triggers) summaryIn(v hostmsg.Voice, t triggers.Trigger) string {
 	if t.Kind == triggers.KindFile {
-		return "new files in " + h.RelFolder(t)
+		return v.T("when.files", "folder", h.RelFolder(t))
 	}
 	sch, err := triggers.ParseSchedule(t.Schedule)
 	if err != nil {
 		return t.Schedule
 	}
-	s := sch.String()
+	s := scheduleWords(v, sch)
 	if t.TZ != "" {
 		s += " (" + t.TZ + ")"
 	}
 	return s
+}
+
+// scheduleWords words a schedule in the language of the voice. For English it
+// is the same text as Schedule.String.
+func scheduleWords(v hostmsg.Voice, s triggers.Schedule) string {
+	p := s.Part()
+	hm := fmt.Sprintf("%02d:%02d", p.Hour, p.Minute)
+	switch p.Kind {
+	case "":
+		return v.T("when.never")
+	case "daily":
+		return v.T("when.daily", "time", hm)
+	case "weekdays":
+		return v.T("when.weekdays", "time", hm)
+	case "weekly":
+		days := make([]string, len(p.Weekdays))
+		for i, d := range p.Weekdays {
+			days[i] = v.T("day." + strconv.Itoa(d))
+		}
+		return v.T("when.weekly", "days", v.Join(days), "time", hm)
+	case "monthly":
+		return v.T("when.monthly", "day", p.Day, "time", hm)
+	case "once":
+		return v.T("when.once", "date", fmt.Sprintf("%04d-%02d-%02d", p.Year, p.Month, p.DayOfMonth), "time", hm)
+	}
+	return v.T("when.cron", "text", p.Text)
 }
 
 // connectorRoute is the place a trigger proposed in the connector chat c comes
@@ -622,18 +667,52 @@ func (h *Triggers) connectorRoute(ctx context.Context, c builtins.Chat) (trigger
 	return triggers.Route{Binding: c.OriginID, Chat: chat, Thread: thread}, nil
 }
 
+// actsNote tells the model which acts it may ask for from this connection, and
+// when to ask the person. It is added to the description of propose_trigger.
+func (h *Triggers) actsNote(ctx context.Context, c builtins.Chat) string {
+	may := requestableActs(h.svc.connectors.ApprovalOf(ctx, c.OriginID), c.Grants)
+	if len(may) == 0 {
+		return " The owner allows no acts for this connection: leave acts out; runs only read and report."
+	}
+	return " Acts you may ask for here: " + strings.Join(may, ", ") + ". Ask for one only when the job needs it " +
+		"(a run that executes commands needs act.addons). When the job clearly changes things, first ask the person: only report, or also act?"
+}
+
 // announceProposal writes the proposal in the chat it came from, with its code,
 // and words the result for the model.
-func (h *Triggers) announceProposal(ctx context.Context, a workspace.Actor, t triggers.Trigger, here triggers.Route, note string) (string, error) {
+func (h *Triggers) announceProposal(ctx context.Context, a workspace.Actor, t triggers.Trigger, here triggers.Route, note string, dr DroppedActs, may []string) (string, error) {
 	h.svc.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindTriggerProposed, IDs: []string{t.ID}, Text: t.Name})
 	if t.Route.Binding != here.Binding || t.Route.Chat != here.Chat || t.Route.Thread != here.Thread {
 		// The same proposal was made from another place: its code works there.
 		return fmt.Sprintf("A proposal like %q waits already, from another conversation. It is not active. Tell the person to confirm it in Studio.", t.Name), nil
 	}
-	if h.announce(ctx, t, note) {
+	actsNote := actsResultNote(t, dr, may)
+	if h.announce(ctx, t, note, dr) {
 		return fmt.Sprintf("Proposed %q (%s). It is not active. The host wrote the proposal and its code in this chat; the person answers there with confirm or cancel and the code, or in Studio. "+
-			"Say in one short sentence that you proposed it; do not repeat the code and do not say it will run until they confirm.", t.Name, h.summary(t)), nil
+			"Say in one short sentence that you proposed it; do not repeat the code and do not say it will run until they confirm.%s", t.Name, h.summary(t), actsNote), nil
 	}
 	return fmt.Sprintf("Proposed %q (%s). It is not active. The host could not write the code in this chat. Tell the person to reply \"confirm %s\" or \"cancel %s\" here, or to open Studio. "+
-		"Do not say it will run until they confirm.", t.Name, h.summary(t), t.Route.Code, t.Route.Code), nil
+		"Do not say it will run until they confirm.%s", t.Name, h.summary(t), t.Route.Code, t.Route.Code, actsNote), nil
+}
+
+// actsResultNote tells the model, in the result of propose_trigger, which acts
+// the proposal carries, which were dropped, and which it may ask for in this
+// chat. The model must not promise the person more than this.
+func actsResultNote(t triggers.Trigger, dr DroppedActs, may []string) string {
+	held := effectiveActs(t)
+	note := " Acts on the proposal: "
+	if t.Route.ReadOnly || len(held) == 0 {
+		note += "none, so its runs only read and report."
+	} else {
+		note += strings.Join(held, ", ") + "."
+	}
+	if !dr.Empty() {
+		note += " Dropped, and named in the proposal: " + strings.Join(append(slices.Clone(dr.Binding), dr.Agent...), ", ") + "."
+	}
+	if len(may) > 0 {
+		note += " Acts you may ask for in this chat: " + strings.Join(may, ", ") + "."
+	} else {
+		note += " This chat allows no acts: leave acts out."
+	}
+	return note
 }

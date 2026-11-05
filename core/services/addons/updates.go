@@ -107,16 +107,12 @@ func (m *Manager) checkPins(ctx context.Context, cmd LifecycleCommand, st Status
 // administrator for any installed add-on, anyone else only for an enabled one.
 // Hiding is the same denial for an add-on that does not exist.
 func (m *Manager) visibleTo(ctx context.Context, actor contract.Actor, id string) (admin bool, e error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if e = m.check(ctx); e != nil {
+	v, e := m.readStateLive(ctx)
+	if e != nil {
 		return false, e
 	}
-	if m.uncertain || m.runtimeRecoveryRequired {
-		return false, ErrRecoveryRequired
-	}
 	admin = m.admin != nil && m.admin(ctx, actor) == nil
-	st, ok := m.journal.Addons[id]
+	st, ok := v.addons[id]
 	if !addonID.MatchString(id) || !ok || !st.Installed || (!st.DesiredEnabled && !admin) {
 		return false, ErrForbidden
 	}

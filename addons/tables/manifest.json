@@ -603,16 +603,18 @@
         "id": "Tabel",
         "ko": "\ud14c\uc774\ube14",
         "pt-BR": "Tabelas",
+        "fr": "Tables",
         "zh-CN": "\u6570\u636e\u8868"
       },
       "description": {
         "en": "Databases of tables you own or share: typed rows, filters, schema and sharing.",
-        "it": "Database di tabelle tuoi o condivisi: righe tipizzate, filtri, schema e condivisione.",
+        "it": "Database di tabelle tue o condivise: righe tipizzate, filtri, schema e condivisione.",
         "de": "Datenbanken mit Tabellen, die Ihnen geh\u00f6ren oder geteilt wurden: typisierte Zeilen, Filter, Schema und Freigabe.",
         "es": "Bases de datos de tablas propias o compartidas: filas tipadas, filtros, esquema y uso compartido.",
         "id": "Basis data tabel milik Anda atau yang dibagikan: baris bertipe, filter, skema, dan berbagi.",
         "ko": "\ub0b4\uac00 \uc18c\uc720\ud558\uac70\ub098 \uacf5\uc720\ubc1b\uc740 \ud14c\uc774\ube14 \ub370\uc774\ud130\ubca0\uc774\uc2a4: \ud615\uc2dd\uc774 \uc788\ub294 \ud589, \ud544\ud130, \uc2a4\ud0a4\ub9c8, \uacf5\uc720.",
         "pt-BR": "Bancos de dados de tabelas pr\u00f3prios ou compartilhados: linhas tipadas, filtros, esquema e compartilhamento.",
+        "fr": "Bases de donn\u00e9es de tables que vous poss\u00e9dez ou partagez : lignes typ\u00e9es, filtres, sch\u00e9ma et partage.",
         "zh-CN": "\u4f60\u62e5\u6709\u6216\u88ab\u5171\u4eab\u7684\u6570\u636e\u8868\u6570\u636e\u5e93\uff1a\u5e26\u7c7b\u578b\u7684\u884c\u3001\u7b5b\u9009\u3001\u7ed3\u6784\u548c\u5171\u4eab\u3002"
       },
       "chatActions": [

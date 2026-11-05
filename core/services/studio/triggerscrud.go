@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/wellknown"
@@ -486,15 +487,18 @@ func gapAgo(d time.Duration) string {
 	return "only " + gapText(d) + " away"
 }
 
-func gapText(d time.Duration) string {
+func gapText(d time.Duration) string { return gapTextIn(hostmsg.Voice{}, d) }
+
+// gapTextIn is gapText in the language of the voice.
+func gapTextIn(v hostmsg.Voice, d time.Duration) string {
 	if d < time.Minute {
 		return d.Round(time.Second).String()
 	}
 	if m := int(d / time.Minute); m < 60 {
 		if m == 1 {
-			return "minute"
+			return v.T("gap.minute")
 		}
-		return fmt.Sprintf("%d minutes", m)
+		return v.T("gap.minutes", "n", m)
 	}
 	return d.Round(time.Minute).String()
 }

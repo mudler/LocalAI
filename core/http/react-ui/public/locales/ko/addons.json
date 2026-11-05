@@ -66,6 +66,13 @@
     "loadError": {
       "title": "지금은 애드온을 사용할 수 없습니다.",
       "paused": "서비스가 돌아올 때까지 애드온 페이지와 도구는 일시 중지됩니다."
+    },
+    "busy": {
+      "upgrading": "애드온 서버가 바쁩니다({{names}} 업그레이드 중)",
+      "generic": "애드온 서버가 바쁩니다",
+      "unreachable": "애드온 서버에 연결할 수 없습니다",
+      "reason": "마지막으로 알려진 상태를 표시합니다. 이 페이지는 스스로 다시 시도합니다.",
+      "retry": "지금 다시 시도"
     }
   },
   "browse": {
@@ -138,7 +145,8 @@
     "invalid": "서버가 이 요청을 받아들일 수 없습니다.",
     "network": "서버에 연결할 수 없습니다. 연결을 확인하세요.",
     "unavailable": "지금은 애드온을 사용할 수 없습니다. 잠시 후 다시 시도하세요.",
-    "unknownOutcome": "결과를 확인할 수 없습니다. 다시 시도하기 전에 상태를 확인하세요."
+    "unknownOutcome": "결과를 확인할 수 없습니다. 다시 시도하기 전에 상태를 확인하세요.",
+    "busy": "애드온 서버가 바빠서 제때 응답하지 못했습니다. 잠시 후 다시 시도하세요."
   },
   "installed": {
     "disabled": "꺼짐",
@@ -929,6 +937,31 @@
       "downgradeTitle": "이전 버전",
       "downgrade": "설치된 {{installed}} 버전보다 오래된 {{version}} 버전을 설치합니다. 이전 버전은 새 버전이 쓴 데이터를 읽지 못할 수 있습니다.",
       "downgradeConfirm": "이전 버전을 설치하겠습니다"
+    }
+  },
+  "notice": {
+    "enableFailedTitle": "{{name}}을(를) 켤 수 없습니다",
+    "incompatibleTitle": "{{name}}을(를) 켤 수 없습니다: 이 서버와 호환되지 않습니다",
+    "noUpgrade": "아직 더 새로운 버전이 목록에 없습니다. 꺼 두거나 제거하세요."
+  },
+  "operation": {
+    "kind": {
+      "install": "설치 중…",
+      "upgrade": "업그레이드 중…",
+      "uninstall": "제거 중…",
+      "enable": "시작 중…",
+      "disable": "중지 중…",
+      "working": "작업 중…"
+    },
+    "label": "진행 중: {{operation}}",
+    "phase": {
+      "queued": "대기 중",
+      "downloading": "다운로드 및 확인",
+      "backing-up": "데이터 백업",
+      "installing": "설치",
+      "migrating": "데이터 마이그레이션",
+      "starting": "시작",
+      "working": "작업 중"
     }
   }
 }

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import Button from '../ui/Button'
 import { apiUrl } from '../../utils/basePath'
-import { AppIcon, ApprovalChip, BuiltinIcon, StateChip, UpdateChip, VersionText } from './AddonBits'
+import { AppIcon, ApprovalChip, BuiltinIcon, OperationChip, StateChip, UpdateChip, VersionText } from './AddonBits'
 import AddonMenu from './AddonMenu'
 import { isLocalFile } from './fileInstall'
 import { addedByAddon, stateChip } from './addonState'
@@ -37,7 +37,8 @@ export default function AddonRow({ tile, pinned, selected = false, attention = '
           <span className="ad-tile__head">
             <span className="ad-tile__title">{title}</span>
             {app && <StateChip app={app} className="ad-tile__state" />}
-            {app && !waitingApproval && (app.update === 'update-pending' || updateVersion) && <UpdateChip version={updateVersion} />}
+            {app && <OperationChip app={app} className="ad-tile__state" />}
+            {app && !app.operation && !waitingApproval && (app.update === 'update-pending' || updateVersion) && <UpdateChip version={updateVersion} />}
             {app && waitingApproval && <ApprovalChip />}
           </span>
           {tile.description && <span className="ad-tile__desc">{tile.description}</span>}

@@ -1,6 +1,7 @@
 package studio
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -52,6 +54,16 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 	p := principal(user)
 	keepOff, keepOn, keepGrants := a.BuiltinsOff == nil, a.BuiltinsOn == nil, a.Builtins == nil
 	keepConnections := a.Connections == nil
+	// A write without the memory choice keeps the stored one: a client that
+	// does not know the field cannot widen what the agent reads or saves.
+	keepMemory := a.Memory == ""
+	// The save rule of the agent is kept the same way, so an older client
+	// cannot drop a stricter rule. A client that knows it writes use_mine to
+	// clear it.
+	keepMemorySave := a.MemorySave == ""
+	if a.MemorySave == agents.MemorySaveUseMine {
+		a.MemorySave = ""
+	}
 	grants, err := cleanGrants(a.Builtins, false)
 	if err != nil {
 		return agents.Agent{}, fmt.Errorf("%w: %w", agents.ErrInvalid, err)
@@ -106,11 +118,21 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 		if keepConnections {
 			a.Connections = old.Connections
 		}
+		if keepMemory {
+			a.Memory = old.Memory
+		}
+		if keepMemorySave {
+			a.MemorySave = old.MemorySave
+		}
 	}
 	// The grant saved_agents is the opt-in group of the same name: the chats of
 	// the agent start with it on.
 	if slices.Contains(a.Builtins, builtins.GrantSavedAgents) && s.builtins.IsGroup(builtins.GroupSavedAgents) && !slices.Contains(a.BuiltinsOn, builtins.GroupSavedAgents) {
 		a.BuiltinsOn = append(slices.Clone(a.BuiltinsOn), builtins.GroupSavedAgents)
+	}
+	// Likewise the grant history.read and the opt-in group history.
+	if slices.Contains(a.Builtins, builtins.GrantHistoryRead) && s.builtins.IsGroup(builtins.GroupHistory) && !slices.Contains(a.BuiltinsOn, builtins.GroupHistory) {
+		a.BuiltinsOn = append(slices.Clone(a.BuiltinsOn), builtins.GroupHistory)
 	}
 	if err := s.d.Agents.Put(ctx, a); err != nil {
 		return agents.Agent{}, err
@@ -142,6 +164,72 @@ func (s *Service) DeleteAgent(ctx context.Context, user, id string) error {
 	}
 	return s.d.Agents.Delete(ctx, principal(user), id)
 }
+
+// What happens to the notes of an agent that is deleted.
+const (
+	// AgentNotesKeep leaves the notes where they are. They show on the Memory
+	// page under Deleted agents until the person deletes them. The default.
+	AgentNotesKeep = "keep"
+	// AgentNotesExport returns the notes as a zip file and then moves them to
+	// the Trash.
+	AgentNotesExport = "export"
+	// AgentNotesDelete moves the notes to the Trash.
+	AgentNotesDelete = "delete"
+)
+
+// ValidAgentNotes reports whether v says what to do with the notes of a
+// deleted agent. Empty is keep.
+func ValidAgentNotes(v string) bool {
+	switch v {
+	case "", AgentNotesKeep, AgentNotesExport, AgentNotesDelete:
+		return true
+	}
+	return false
+}
+
+// DeleteAgentWithNotes removes a saved agent and does with its own notes
+// (Memory/agents/<id>/) what notes says: keep, export or delete. For export it
+// returns the zip of the notes, built before anything is removed, so a failure
+// leaves the agent and its notes as they were; the zip is nil when the agent
+// has no notes. The notes go to the Trash, as the Memory page does, so a
+// mistake can be undone from the Files page. The agent is deleted first; when
+// the notes then cannot be moved they stay, listed under Deleted agents, and
+// the error says so.
+func (s *Service) DeleteAgentWithNotes(ctx context.Context, user, id, notes string) ([]byte, error) {
+	if !ValidAgentNotes(notes) {
+		return nil, fmt.Errorf("%w: memory must be keep, export or delete", ErrInvalidSettings)
+	}
+	if s.d.Agents == nil {
+		return nil, ErrAgentsOff
+	}
+	if _, err := s.d.Agents.Get(ctx, principal(user), id); err != nil {
+		return nil, err
+	}
+	var zipped []byte
+	if notes == AgentNotesExport {
+		var buf bytes.Buffer
+		switch _, err := s.ExportMemory(ctx, user, &buf, string(contextfiles.ScopeAgent), id); {
+		case errors.Is(err, ErrNoNotes):
+		case err != nil:
+			return nil, err
+		default:
+			zipped = buf.Bytes()
+		}
+	}
+	if err := s.d.Agents.Delete(ctx, principal(user), id); err != nil {
+		return nil, err
+	}
+	if notes == AgentNotesExport || notes == AgentNotesDelete {
+		if err := s.d.Files.DeleteHome(ctx, principal(user), "Memory/agents/"+id); err != nil {
+			return zipped, fmt.Errorf("%w: %v", ErrAgentNotesKept, err)
+		}
+	}
+	return zipped, nil
+}
+
+// ErrAgentNotesKept means the agent was deleted but its notes could not be
+// moved to the Trash. They stay, under Deleted agents on the Memory page.
+var ErrAgentNotesKept = errors.New("studio: the agent was deleted, but its notes could not be removed")
 
 func trimName(n string) string { return strings.TrimSpace(n) }
 
@@ -239,7 +327,9 @@ func (s *Service) CreateAgentFromTemplate(ctx context.Context, user, id, name st
 	if strings.TrimSpace(name) == "" {
 		name = t.Name
 	}
-	return s.SaveAgent(ctx, user, agents.Agent{Name: name, Description: t.Description, Instructions: t.Instructions})
+	// A new agent starts with the default choice of notes: it reads yours and
+	// its own, and saves to its own.
+	return s.SaveAgent(ctx, user, agents.Agent{Name: name, Description: t.Description, Instructions: t.Instructions, Memory: agents.MemoryMineAndOwn})
 }
 
 // AgentRun is a chat that ran with a saved agent: one the person had with it,

@@ -42,20 +42,45 @@ type ChatsForkRequest struct {
 	Title string `json:"title,omitempty"`
 }
 
+// ChatsSearchRange marks a part of a snippet. Start and End are offsets in
+// UTF-16 code units (the way a JavaScript string counts); End is exclusive.
+type ChatsSearchRange struct {
+	Start int `json:"start"`
+	End   int `json:"end"`
+}
+
 // ChatsChatHit is a chat that matches a search.
 type ChatsChatHit struct {
 	Chat ChatsConversation `json:"chat"`
 	// InTitle is true when the title matches.
 	InTitle bool `json:"in_title"`
-	// Seq is the first matching transcript line, or 0 when only the title matches.
+	// Seq is the matching transcript line, or 0 when only the title matches.
 	Seq int64 `json:"seq,omitempty"`
 	// Snippet is the matching text with a little around it.
 	Snippet string `json:"snippet,omitempty"`
+	// Role is user or assistant: who wrote the matching line.
+	Role string `json:"role,omitempty"`
+	// At is when the matching line was written.
+	At *time.Time `json:"at,omitempty"`
+	// Highlights are the parts of Snippet that match, in order.
+	Highlights []ChatsSearchRange `json:"highlights,omitempty"`
+	// Matches is how many lines of the chat match, among the newest matches.
+	Matches int `json:"matches,omitempty"`
 }
 
 // ChatsChatSearchResponse is the response of the chat search.
 type ChatsChatSearchResponse struct {
 	Hits []ChatsChatHit `json:"hits"`
+	// Engine is how the server searched: fts5, pg_trgm or scan.
+	Engine string `json:"engine,omitempty"`
+	// Indexing is true while the server still adds earlier chats to its
+	// search index, so older chats may be missing from the hits.
+	Indexing bool `json:"indexing,omitempty"`
+	// Partial is true when a server without an index stopped before it had
+	// read every chat; SearchedChats of TotalChats were read.
+	Partial       bool `json:"partial,omitempty"`
+	SearchedChats int  `json:"searched_chats,omitempty"`
+	TotalChats    int  `json:"total_chats,omitempty"`
 }
 
 // ChatsExport is a chat as a file. Version is 1.

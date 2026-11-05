@@ -120,7 +120,7 @@ var _ = Describe("a credentials-only connector binding", func() {
 			b.Caps = contract.ConnectorCapabilityNames()
 			b.Paired = []connectors.PairedSender{{SenderID: "11", At: b.Created}}
 			for _, name := range contract.ConnectorCapabilityNames() {
-				d := studio.Authorize(b, nil, studio.AccessSubject{SenderID: "11", Allowlisted: true}, name, b.Updated, "")
+				d := studio.Authorize(b, nil, studio.AccessSubject{SenderID: "11", Allowlisted: true}, name, b.Updated, studio.Block{})
 				Expect(d.Allowed).To(BeFalse(), name)
 				Expect(d.Reason).To(ContainSubstring("no agent"))
 			}

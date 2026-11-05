@@ -290,7 +290,15 @@
         "reported_unknown": "Kesiapan atau isolasi eksekusi tidak diketahui: add-on melaporkan bahwa ia tidak dapat mengetahuinya."
       },
       "providerUnavailable": "Penyedia eksekusi yang dipilih tidak tersedia.",
-      "disabled": "Eksekusi perintah dinonaktifkan untuk percakapan ini."
+      "disabled": "Eksekusi perintah dinonaktifkan untuk percakapan ini.",
+      "hostOff": {
+        "reason": "Bash bawaan server mati, jadi asisten bisa menulis berkas tetapi tidak bisa menjalankan skrip atau perintah.",
+        "whoAdmin": "Anda administrator. Di Pengaturan, Alat, aktifkan baris Perintah (bash). Tanya setiap kali adalah pilihan yang lebih aman. Perintah lalu berjalan di server tanpa isolasi dan dapat membaca apa yang dapat dibaca server.",
+        "whoMember": "Minta administrator server ini untuk mengaktifkannya.",
+        "fix": "Buka pengaturan",
+        "sandboxText": "Untuk perintah yang terisolasi, pasang add-on yang menjalankan perintah secara terisolasi sebagai gantinya.",
+        "sandbox": "Buka Add-on"
+      }
     },
     "consent": {
       "title": "Jalankan perintah ini di mesin ini?",
@@ -314,13 +322,15 @@
     "builtin": {
       "web": "Web",
       "saved_agents": "Agen tersimpan",
-      "triggers": "Pemicu",
+      "triggers": "Buat dan kelola pemicu",
       "shell": "Jalankan perintah",
       "files": "File Anda",
       "media": "Gambar dan audio",
-      "collections": "Koleksi",
+      "collections": "Pengetahuan",
       "subagents": "Sub-agen",
-      "changes": "Perubahan memori dan profil"
+      "changes": "Perubahan yang disarankan",
+      "memory": "Memori",
+      "history": "Chat sebelumnya"
     },
     "builtinBy": "{{tools}} · bawaan",
     "builtinByAddon": "{{tools}} · dilayani oleh {{provider}}",
@@ -334,15 +344,17 @@
       "isolated": "Perintah berjalan terisolasi"
     },
     "describe": {
-      "shell": "Model dapat menjalankan perintah shell dan skrip. Perintah berjalan di add-on yang mengisolasinya jika ada yang terpasang, jika tidak langsung di mesin ini.",
-      "files": "Model dapat membuat daftar, membaca, menulis, mengedit, memindahkan, menghapus, dan mencari berkas Anda, serta membaca dokumen. Chat agen yang bekerja di satu folder hanya menjangkau folder itu.",
-      "web": "Model dapat mencari di web dan membaca halaman publik dari alamatnya. Alamat di dalam jaringan Anda ditolak kecuali administrator mengizinkannya.",
-      "media": "Model dapat mendeskripsikan gambar atau menyalin rekaman dari berkas Anda menjadi teks dengan model pembantu.",
-      "collections": "Model dapat membuat daftar koleksi Anda dan mencari bagian yang cocok dengan sebuah pertanyaan.",
-      "subagents": "Model dapat memulai sub-agen yang mengerjakan satu tugas dengan sakelar yang sama seperti chat ini, lalu melapor.",
-      "saved_agents": "Model dapat membuat daftar agen tersimpan Anda dan memulai salah satunya sebagai sub-agen, dengan instruksi dan model agen itu.",
-      "triggers": "Model dapat mengusulkan, membuat daftar, mengubah, dan menghapus pemicu: tugas yang berjalan sendiri pada waktu tertentu atau saat berkas masuk ke folder. Pemicu baru atau perubahan menunggu di kartu dalam chat sampai Anda mengonfirmasi; menjeda atau melanjutkan pemicu berlaku langsung dan bisa dibatalkan.",
-      "changes": "Model dapat mengusulkan perubahan pada catatan memori Anda atau aturan tetap sebuah agen, dan membatalkan perubahan yang sudah Anda konfirmasi. Tidak ada yang berubah sampai Anda mengonfirmasi usulan di kartu dalam chat."
+      "shell": "Model dapat menjalankan perintah shell dan skrip.",
+      "files": "Model dapat mencantumkan, membaca, menulis, dan mencari file Anda.",
+      "web": "Model dapat mencari di web dan membaca halaman publik.",
+      "media": "Model dapat mendeskripsikan gambar dan mentranskripsi rekaman dari file Anda.",
+      "collections": "Model dapat mencari di koleksi Anda.",
+      "subagents": "Model dapat memulai sub-agen untuk satu tugas dan menerima laporannya.",
+      "saved_agents": "Model dapat memulai salah satu agen tersimpan Anda sebagai sub-agen.",
+      "triggers": "Model dapat mengusulkan, mencantumkan, mengubah, dan menghapus pemicu. Anda mengonfirmasi setiap pemicu atau perubahan baru.",
+      "changes": "Model dapat mengusulkan perubahan pada catatan Anda, aturannya, skill, halaman, dan dasbor. Anda mengonfirmasi setiap perubahan.",
+      "memory": "Model dapat membaca catatan Anda sebelum menjawab dan menyimpan yang baru. Matikan untuk menjadikan ini obrolan pribadi: tidak ada yang dibaca dari catatan Anda atau disimpan ke dalamnya. Obrolan Anda yang lain tidak terpengaruh.",
+      "history": "Memungkinkan model mencari dan membaca chat Anda sebelumnya."
     },
     "whenOff": {
       "shell": "Model dapat menulis berkas tetapi tidak dapat menjalankan apa pun.",
@@ -352,15 +364,17 @@
       "collections": "Model tidak dapat membaca koleksi Anda.",
       "subagents": "Model bekerja sendiri.",
       "saved_agents": "Model tidak dapat melihat atau memulai agen tersimpan Anda.",
-      "triggers": "Model tidak dapat membuat atau mengelola pemicu. Proses yang dimulai oleh pemicu atau konektor tidak pernah memilikinya.",
-      "changes": "Model tidak dapat mengusulkan perubahan pada memori Anda atau aturan agen."
+      "triggers": "Model tidak dapat mengusulkan atau mengelola pemicu.",
+      "changes": "Model tidak dapat mengusulkan perubahan pada catatan Anda, aturannya, skill, halaman, atau dasbor.",
+      "memory": "Ini obrolan pribadi. Model tidak membaca maupun menyimpan catatan Anda.",
+      "history": "Model tidak dapat melihat chat Anda sebelumnya."
     },
     "addonDescribe_one": "Memberi model {{count}} alat dari add-on ini.",
     "addonDescribe_other": "Memberi model {{count}} alat dari add-on ini.",
     "serverDescribe": "Server MCP milik model: alatnya ditawarkan kepada model.",
     "connectorDescribe": "Salah satu konektor MCP Anda: alatnya ditawarkan kepada model.",
     "gone": "Tidak tersedia lagi di sini. Matikan untuk menghapusnya.",
-    "grants": "Yang boleh diubah agen",
+    "grants": "Izin lainnya",
     "grantSensitive": "Sensitif: ini mengubah apa yang boleh dilakukan atau dijangkau agen nanti.",
     "connection": {
       "label": "Koneksi",
@@ -374,6 +388,85 @@
       "agentLabel": "Koneksi untuk chat agen ini",
       "agentHelp": "Chat agen ini hanya boleh memakai koneksi ini dan tidak bisa mengubahnya.",
       "perChatHelp": "Belum dipilih: setiap chat memilih sendiri."
+    },
+    "optionNeeds": "Aktifkan “{{name}}” untuk menggunakannya.",
+    "connectionMissing": "{{name}} belum mengizinkan ini.",
+    "connectionOpen": "Buka izinnya",
+    "section": {
+      "messaging": {
+        "title": "Aplikasi pesan",
+        "intro": "Berlaku untuk obrolan yang dimulai di aplikasi pesan. Koneksi harus mengizinkan hal yang sama di halaman izinnya sendiri."
+      },
+      "unattended": {
+        "title": "Saat tidak ada yang mengawasi",
+        "intro": "Berlaku untuk proses yang dimulai oleh pemicu atau aplikasi pesan, tempat tidak ada yang bisa mengonfirmasi satu langkah."
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "Mengingat hal",
+        "description": "Model dapat mengusulkan catatan untuk memori Anda atau memori agen. Anda mengonfirmasi setiap catatan."
+      },
+      "profile_write": {
+        "title": "Mengubah aturannya sendiri",
+        "description": "Model dapat mengusulkan perubahan pada aturan tetap agen. Anda mengonfirmasi setiap perubahan."
+      },
+      "skills_write": {
+        "title": "Menulis skill",
+        "description": "Model dapat mengusulkan skill baru atau yang diubah. Anda mengonfirmasi masing-masing."
+      },
+      "pages_write": {
+        "title": "Membuat halaman",
+        "description": "Model dapat mengusulkan aplikasi kecil yang terbuka dalam bingkai terisolasi. Anda mengonfirmasinya."
+      },
+      "dashboard_write": {
+        "title": "Mengubah dasbor",
+        "description": "Model dapat mengusulkan tata letak baru untuk dasbor Beranda Anda. Anda mengonfirmasi setiap perubahan."
+      },
+      "knowledge_write": {
+        "title": "Tambahkan ke pengetahuan",
+        "description": "Memungkinkan model mengusulkan teks untuk koleksi Pengetahuan Anda. Anda mengonfirmasi setiap teks; teks tidak pernah ditambahkan langsung."
+      },
+      "triggers_propose": {
+        "title": "Usulkan juga dari aplikasi pesan",
+        "description": "Model dapat mengusulkan pemicu saat seseorang memintanya di aplikasi pesan. Anda mengonfirmasinya."
+      },
+      "triggers_run": {
+        "title": "Biarkan pemicu dimulai dari aplikasi pesan",
+        "description": "Pemicu yang terikat pada koneksi pesan dapat memulai proses dan mengirim hasilnya ke sana."
+      },
+      "talkback_channels": {
+        "title": "Membalas di kanal yang dikenal",
+        "description": "Model dapat mengirim pesan ke kanal yang sudah dipakainya."
+      },
+      "talkback_new_channel": {
+        "title": "Memulai kanal baru",
+        "description": "Model dapat memulai percakapan di kanal yang belum pernah dipakainya."
+      },
+      "files_upload": {
+        "title": "Menerima file dari aplikasi pesan",
+        "description": "Pengirim dapat melampirkan file untuk dibaca model. Model tidak dapat mengirim file keluar."
+      },
+      "act_files": {
+        "title": "Menulis file sendiri",
+        "description": "Proses yang tidak diawasi dapat menulis file di folder agen."
+      },
+      "act_addons": {
+        "title": "Memakai aksi add-on sendiri",
+        "description": "Proses yang tidak diawasi dapat memanggil aksi add-on milik agen."
+      },
+      "act_send": {
+        "title": "Mengirim pesan sendiri",
+        "description": "Proses yang tidak diawasi dapat mengirim pesan di luar tujuan pengirimannya."
+      },
+      "act_spend": {
+        "title": "Memakai alat berbayar atau eksternal sendiri",
+        "description": "Proses yang tidak diawasi dapat memakai alat berbayar atau eksternal dan jaringan."
+      },
+      "history_read": {
+        "title": "Baca chat Anda sebelumnya",
+        "description": "Memungkinkan model mencari dan membaca chat Anda sebelumnya. Agen yang bekerja di satu folder hanya membaca chat agennya sendiri."
+      }
     }
   },
   "vision": {
@@ -636,7 +729,8 @@
       "profile": "Profil",
       "skill": "Skill",
       "page": "Halaman",
-      "dashboard": "Dasbor"
+      "dashboard": "Dasbor",
+      "knowledge": "Pengetahuan"
     },
     "scope": {
       "user": "Semua obrolan Anda",
@@ -649,7 +743,8 @@
       "kind": "Jenis",
       "target": "Berkas",
       "source": "Dari",
-      "expires": "Kedaluwarsa dalam"
+      "expires": "Kedaluwarsa dalam",
+      "collection": "Koleksi"
     },
     "source": {
       "chat": "Obrolan",
@@ -698,13 +793,19 @@
       "dismissed": "Perubahan ditolak.",
       "undone": "Perubahan dibatalkan.",
       "asked": "Asisten diminta mengusulkannya lagi."
+    },
+    "knowledge": {
+      "label": "Teks untuk ditambahkan ke {{collection}}",
+      "size": "{{size}} dari maksimal {{max}}",
+      "note": "Tidak ada yang ditambahkan sebelum Anda mengonfirmasi. Teks lalu dipecah menjadi bagian dan diindeks, dan setiap chat yang mencari di koleksi ini dapat memakainya.",
+      "editLabel": "Teks untuk ditambahkan ke {{target}}"
     }
   },
   "proposalsPage": {
     "title": "Usulan",
     "supporting": "Perubahan yang diminta model dan menunggu jawaban Anda.",
     "emptyTitle": "Tidak ada yang menunggu",
-    "emptyBody": "Saat model mengusulkan perubahan pada memori Anda atau profil agen, usulan itu tampil di sini sampai Anda menjawab.",
+    "emptyBody": "Saat model mengusulkan perubahan pada catatan Anda, profil agen, skill, halaman, atau dasbor, usulan itu tampil di sini sampai Anda menjawab.",
     "loadError": "Usulan tidak dapat dimuat."
   },
   "memoryPage": {
@@ -723,7 +824,9 @@
       "user": "Catatan Anda",
       "agent": "Catatan agen {{key}}",
       "channel": "Catatan percakapan {{key}}",
-      "profile": "Profil agen {{key}}"
+      "profile": "Profil agen {{key}}",
+      "agentNamed": "Catatan agen {{name}}",
+      "profileNamed": "Profil agen {{name}}"
     },
     "edit": "Edit",
     "save": "Simpan",
@@ -738,13 +841,25 @@
     "deleteYes": "Hapus",
     "confirmDelete": "Hapus {{name}}?",
     "deleted": "{{name}} dipindahkan ke Tempat Sampah.",
-    "clear": "Hapus semua catatan",
+    "clear": "Lupakan semuanya",
     "clearAsk_one": "Hapus {{count}} berkas? Berkas dipindahkan ke Tempat Sampah dan dapat dipulihkan dari Berkas.",
     "clearAsk_other": "Hapus {{count}} berkas? Berkas dipindahkan ke Tempat Sampah dan dapat dipulihkan dari Berkas.",
     "clearYes_one": "Hapus {{count}} berkas",
     "clearYes_other": "Hapus {{count}} berkas",
     "cleared_one": "{{count}} berkas dipindahkan ke Tempat Sampah.",
-    "cleared_other": "{{count}} berkas dipindahkan ke Tempat Sampah."
+    "cleared_other": "{{count}} berkas dipindahkan ke Tempat Sampah.",
+    "tabs": {
+      "label": "Catatan milik",
+      "mine": "Milik saya",
+      "deleted": "Agen yang dihapus",
+      "channels": "Percakapan",
+      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "export": "Ekspor catatan ini",
+      "clearAgent": "Hapus catatan agen ini",
+      "clearDeleted": "Hapus catatan ini"
+    },
+    "deletedNote": "Agen ini sudah dihapus. Catatannya tetap ada sampai Anda menghapusnya di sini.",
+    "tabEmpty": "Tidak ada catatan di sini."
   },
   "triggerActs": {
     "help": "Satu jalan dimulai sendiri, jadi tidak ada yang menyetujui langkahnya. Ia bisa membaca dan melapor. Centang apa yang boleh dilakukannya juga. Ia tidak pernah mendapat lebih dari yang dimiliki agennya.",
@@ -766,6 +881,173 @@
       "agent": "Agennya tidak memiliki izin yang diminta, jadi jalannya hanya membaca dan melapor.",
       "declared": "Ini dibuat untuk hanya membaca dan melapor. Centangan di sini tidak mengubahnya.",
       "binding": "Dibuat oleh koneksi dalam mode hanya baca. Centangan di sini tidak mengubahnya."
+    }
+  },
+  "memorySettings": {
+    "titleOn": "Memori aktif",
+    "titleOff": "Memori nonaktif",
+    "ledeOn": "Obrolan Anda menyimpan catatan singkat tentang Anda dan membacanya sebelum menjawab. Matikan untuk berhenti membaca dan menyimpan di mana pun. Catatan Anda tetap di tempatnya.",
+    "ledeOff": "Tidak ada yang dibaca dari catatan Anda atau disimpan ke dalamnya, di obrolan atau agen mana pun. Asisten akan mengatakan bahwa memori nonaktif jika Anda memintanya mengingat sesuatu. Catatan Anda tetap ada, dan Anda masih bisa membaca, mengekspor, dan menghapusnya.",
+    "on": "Aktif",
+    "off": "Mati",
+    "unavailable": "Catatan adalah berkas, dan berkas dinonaktifkan di server ini, jadi memori tidak dapat bekerja di sini.",
+    "saveTitle": "Menyimpan catatan",
+    "saveLede": "Apa yang terjadi saat asisten ingin menyimpan sesuatu. Aturan yang paling ketat selalu menang.",
+    "save": {
+      "ask": {
+        "title": "Tanya saya dulu",
+        "body": "Sebuah kartu menunggu di obrolan. Anda mengonfirmasi, mengedit, atau menolaknya."
+      },
+      "auto": {
+        "title": "Simpan dan beri tahu saya",
+        "body": "Di obrolan Anda sendiri, catatan langsung disimpan. Obrolan menampilkan \"Disimpan ke memori\" dengan Urungkan. Hingga 5 catatan per balasan. Catatan yang panjang, atau yang tampak seperti rahasia, tetap menunggu Anda."
+      },
+      "always": {
+        "title": "Selalu konfirmasi",
+        "body": "Seperti Tanya saya dulu, dan tidak ada yang bisa melonggarkannya. Urungkan dan lupakan juga menunggu Anda. Tidak ada pengaturan agen atau aplikasi pesan yang bisa menggantinya."
+      },
+      "never": {
+        "title": "Jangan pernah",
+        "body": "Asisten tidak dapat menyimpan catatan. Ia akan memberi tahu bahwa penyimpanan nonaktif."
+      }
+    },
+    "default": "Bawaan",
+    "saveNote": "Proses latar belakang dan pemicu tidak pernah menyimpan catatan. Agen tersimpan boleh bertanya lebih banyak, tidak pernah lebih sedikit, daripada pilihan Anda di sini.",
+    "messaging": {
+      "title": "Di aplikasi pesan",
+      "lede": "Yang terjadi saat sebuah catatan diusulkan di obrolan aplikasi pesan, di mana pengirimnya belum tentu Anda.",
+      "ask": {
+        "title": "Tanya saya dulu",
+        "body": "Bot bertanya di obrolan: \"Balas ya untuk menyimpan.\" Pengirim yang terdaftar bisa menjawab di sana. Yang lain menunggu Anda di aplikasi."
+      },
+      "paired_private": {
+        "title": "Simpan untuk pengirim yang dipasangkan di obrolan pribadi",
+        "body": "Langsung disimpan hanya jika pengirim dipasangkan dan obrolannya satu lawan satu. Catatan masuk ke percakapan itu, dengan Urungkan. Catatan yang mirip rahasia tetap menunggu."
+      },
+      "never": {
+        "title": "Jangan pernah",
+        "body": "Tidak ada catatan yang disimpan dari aplikasi pesan."
+      },
+      "limit": "Tidak pernah lebih longgar dari pengaturan di atas.",
+      "lockedAlways": "Pengaturan Anda di atas adalah Selalu konfirmasi, jadi baris ini tidak bisa langsung menyimpan catatan.",
+      "lockedNever": "Pengaturan Anda di atas adalah Jangan pernah, jadi tidak ada catatan yang disimpan dari aplikasi pesan."
+    },
+    "saveFailed": "Pilihan Anda tidak dapat disimpan.",
+    "loadError": "Pengaturan memori Anda tidak dapat dimuat.",
+    "notesTitle": "Kelola catatan Anda",
+    "notesLede": "Baca, edit, ekspor, atau hapus. Ini berfungsi saat memori nonaktif.",
+    "export": "Ekspor"
+  },
+  "memoryOff": {
+    "title": "Memori nonaktif di sini.",
+    "line": {
+      "chat": "Ini obrolan pribadi: tidak ada yang dibaca atau disimpan. Catatan Anda tidak disentuh. Aktifkan di menu Alat.",
+      "user": "Tidak ada obrolan atau agen yang membaca atau menyimpan catatan, dan catatan Anda tidak disentuh.",
+      "agent": "Agen obrolan ini menonaktifkan memori.",
+      "files": "Catatan adalah berkas, dan berkas dinonaktifkan di server ini.",
+      "provider": "Add-on yang melayani memori tidak tersedia, jadi tidak ada yang dibaca atau disimpan. Pilih penyedia di Pengaturan, Memori."
+    },
+    "chip": "Memori mati",
+    "chipPrivate": "Obrolan pribadi",
+    "fixUser": "Pengaturan, Memori",
+    "userRow": "Nonaktif di pengaturan Anda. Aktifkan di Pengaturan, Memori."
+  },
+  "agentMemory": {
+    "title": "Memori",
+    "lede": "Pilih catatan yang dibaca agen ini dan tempat ia menyimpan catatan baru.",
+    "offUser": "Memori mati di pengaturan Anda, jadi pilihan ini tidak berpengaruh sampai Anda menyalakannya.",
+    "offUserFix": "Pengaturan, Memori",
+    "recommended": "Disarankan",
+    "mine_and_own": {
+      "title": "Milik saya dan miliknya",
+      "body": "Membaca catatan Anda dan catatannya sendiri. Menyimpan hanya ke catatannya sendiri."
+    },
+    "own": {
+      "title": "Hanya miliknya",
+      "body": "Membaca dan menyimpan hanya catatannya sendiri. Catatan Anda tidak tersentuh."
+    },
+    "mine": {
+      "title": "Milik saya",
+      "body": "Membaca dan menyimpan catatan Anda."
+    },
+    "none": {
+      "title": "Tidak ada",
+      "body": "Tidak membaca dan tidak menyimpan apa pun."
+    },
+    "mineWarn": "Agen ini dapat menambah catatan ke memori Anda, untuk setiap obrolan. Anda mengonfirmasi tiap catatan.",
+    "asBefore": {
+      "title": "Seperti sebelumnya",
+      "body": "Agen ini disimpan sebelum pilihan ini ada. Ia membaca catatan Anda jika daftar add-on-nya menyebut Memory, dan model memilih tempat menyimpan catatan. Pilih salah satu opsi di bawah untuk mengubahnya."
+    },
+    "saveGrant": "Izinkan menyimpan catatan",
+    "saveGrantHelp": "Menyalakan izin Mengingat hal. Tanpa izin ini agen membaca catatan tetapi tidak dapat menyimpan.",
+    "copyNote": "Mengekspor agen, atau mengimpornya sebagai agen baru, mempertahankan pilihan ini dan tidak pernah menyalin catatannya.",
+    "summary": {
+      "mine_and_own": "Milik saya dan miliknya",
+      "own": "Hanya miliknya",
+      "mine": "Milik saya",
+      "none": "Tidak ada",
+      "asBefore": "Seperti sebelumnya"
+    },
+    "delete": {
+      "title": "Hapus {{name}}?",
+      "ask": "Agen ini punya catatan sendiri ({{count}}). Apa yang harus dilakukan?",
+      "legend": "Apa yang dilakukan pada catatan",
+      "default": "bawaan",
+      "confirm": "Hapus agen",
+      "keep": {
+        "title": "Simpan catatan",
+        "body": "Tetap ada di halaman Memori di bawah Agen yang dihapus sampai Anda menghapusnya."
+      },
+      "export": {
+        "title": "Ekspor, lalu hapus",
+        "body": "Unduh catatan sebagai berkas zip, lalu pindahkan ke Sampah."
+      },
+      "delete": {
+        "title": "Hapus juga catatannya",
+        "body": "Dipindahkan ke Sampah dan dapat dipulihkan dari Berkas."
+      }
+    },
+    "rule": {
+      "title": "Saat ingin menyimpan catatan",
+      "use_mine": {
+        "title": "Pakai pengaturan saya",
+        "body": "Saat ini: {{level}}."
+      },
+      "always": {
+        "title": "Selalu konfirmasi",
+        "body": "Lebih ketat dari pengaturan saya."
+      },
+      "never": {
+        "title": "Jangan pernah",
+        "body": "Membaca, tidak pernah menyimpan."
+      },
+      "hint": "Agen boleh bertanya lebih banyak dari pengaturan Anda, tidak pernah lebih sedikit. \"Simpan dan beri tahu saya\" tidak ditawarkan di sini. Di obrolan aplikasi pesan, catatan masuk ke percakapan itu dulu, dan sampai ke catatan milik agen ini hanya dari pengirim yang dipasangkan."
+    }
+  },
+  "providerPicker": {
+    "title": "Penyedia",
+    "lede": "Hanya satu penyedia yang melayani pada satu waktu. Data Anda yang ada tetap di tempatnya saat Anda beralih.",
+    "off": "Mati",
+    "unavailable": "Tidak tersedia",
+    "loadError": "Penyedia tidak dapat dimuat",
+    "saveFailed": "Penyedia tidak dapat diubah",
+    "failedTitle": "{{name}} tidak tersedia",
+    "failedReason": "Ini tetap mati sampai Anda memilih penyedia. Tidak ada yang dipindahkan ke penyedia bawaan, jadi tidak ada yang disimpan di tempat yang tidak Anda pilih.",
+    "useBuiltin": "Gunakan penyedia bawaan",
+    "facts": {
+      "local": "Lokal",
+      "remote": "Jarak jauh",
+      "undoHost": "Urungkan di sini",
+      "undoProvider": "Diurungkan oleh layanan",
+      "undoNone": "Tidak dapat diurungkan"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Bawaan",
+        "builtinBody": "File biasa di folder Memory Anda. Tidak ada yang keluar dari mesin ini.",
+        "offBody": "Tidak ada yang dibaca, ditawarkan, disimpan, atau dikirim. Catatan yang ada tetap disimpan."
+      }
     }
   }
 }

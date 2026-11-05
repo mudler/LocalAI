@@ -2,15 +2,21 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { groupConversations } from '../utils/homeConversations'
 import Icon from './Icon'
-import { knownKind } from '../utils/originChats'
+import { knownKind, resolveOrigin } from '../utils/originChats'
+import { menuChats } from '../utils/chatThread'
+import { chatAgentsApi } from '../utils/api'
+import { useOriginContext } from '../hooks/useOriginContext'
+import { filtersActive, filtersKey, hitRows, noFilters, searchParams } from '../utils/chatSearch'
+import SearchSnippet from './chat/SearchSnippet'
+import SearchFilters from './chat/SearchFilters'
 
 // The chats come from the server list (see menuChats in utils/chatThread.js):
-// a name, the model and the times. The names are matched here at once; with
-// onSearch the server also finds the chats whose messages hold the text
-// (GET /api/chats/search), and the line under a name shows where it matched.
-function matches(chat, query) {
-  return (chat.name || '').toLowerCase().includes(query)
-}
+// a name, the model and the times. With onSearch, a search of two characters
+// or more leaves the day blocks: the server searches every chat, titles and
+// messages (GET /api/chats/search), and the list shows its hits best first,
+// each with the words that matched marked in a snippet. A hit opens its chat
+// at the message (onSelect gets { seq }). Filters narrow the search by agent,
+// origin and date.
 
 const SEARCH_DELAY_MS = 250
 
@@ -48,40 +54,65 @@ export default function ChatsList({
   const searchRef = useRef(null)
   const listRef = useRef(null)
 
-  const query = search.trim().toLowerCase()
-  // What the server found for the query: chat id -> snippet ('' for a title hit).
-  const [hits, setHits] = useState({ query: '', snippets: {} })
+  const query = search.trim()
+  const searching = Boolean(onSearch) && query.length >= 2
+  const [filters, setFilters] = useState(noFilters)
+  const fkey = filtersKey(filters)
+  const [tries, setTries] = useState(0)
+  // What the server found: the answer to the search named by `key`. The rows
+  // of an earlier search stay on screen, dimmed, while the next one runs.
+  const [found, setFound] = useState({ key: '', status: 'idle', rows: [], meta: null })
+  const searchKey = `${query}|${fkey}`
+  const onSearchRef = useRef(onSearch)
+  onSearchRef.current = onSearch
+  const filtersRef = useRef(filters)
+  filtersRef.current = filters
   useEffect(() => {
-    if (!onSearch || query.length < 2) return undefined
+    if (!searching) return undefined
     let live = true
+    setFound((f) => (f.key === searchKey && f.status === 'ready' ? f : { ...f, key: searchKey, status: 'loading' }))
     const timer = setTimeout(() => {
-      onSearch(query)
+      Promise.resolve(onSearchRef.current(query, searchParams(filtersRef.current)))
         .then((res) => {
           if (!live) return
-          const snippets = {}
-          for (const h of res?.hits || []) if (h?.chat?.id) snippets[h.chat.id] = h.in_title ? '' : (h.snippet || '')
-          setHits({ query, snippets })
+          setFound({
+            key: searchKey, status: 'ready', rows: hitRows(res, (c) => menuChats([c])[0]),
+            meta: { indexing: !!res?.indexing, partial: !!res?.partial, searched: res?.searched_chats || 0, total: res?.total_chats || 0 },
+          })
         })
-        .catch(() => { if (live) setHits({ query, snippets: {} }) })
+        .catch(() => { if (live) setFound({ key: searchKey, status: 'error', rows: [], meta: null }) })
     }, SEARCH_DELAY_MS)
     return () => { live = false; clearTimeout(timer) }
-  }, [onSearch, query])
-  const snippets = useMemo(() => (hits.query === query ? hits.snippets : {}), [hits, query])
+  }, [searching, query, searchKey, tries])
+  const searchState = !searching ? 'idle' : found.key === searchKey ? found.status : 'loading'
 
-  // Chats that hold a message, and the one you are in. An empty placeholder is
-  // not worth a row. Newest first, which is what the day blocks need.
-  const items = useMemo(() => {
-    const found = query ? chats.filter(c => matches(c, query) || c.id in snippets) : chats
-    return [...found].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-  }, [chats, query, snippets])
+  // Saved agents for the filter, read once the first search starts.
+  const [agents, setAgents] = useState(null)
+  useEffect(() => {
+    if (!searching || agents) return undefined
+    let live = true
+    chatAgentsApi.list().then((r) => { if (live) setAgents(r.agents || []) }).catch(() => { if (live) setAgents([]) })
+    return () => { live = false }
+  }, [searching, agents])
+  // What started the chats of the hits: the names of triggers and connections.
+  const originCtx = useOriginContext(searching && found.rows.some((r) => r.chat.origin))
 
-  const groups = useMemo(() => groupConversations(items), [items])
-  const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
+  // The chats shown in day blocks, newest first. Rows of a search come as the
+  // server ranks them.
+  const items = useMemo(() => [...chats].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)), [chats])
+  const groups = useMemo(() => (searching ? [] : groupConversations(items)), [items, searching])
+  const flat = useMemo(() => (
+    searching
+      ? found.rows.map((r) => ({ key: r.key, chat: r.chat, hit: r }))
+      : groups.flatMap((g) => g.items.map((c) => ({ key: c.id, chat: c, group: g.key })))
+  ), [searching, found.rows, groups])
 
   const fmtTime = useMemo(() => new Intl.DateTimeFormat(i18n.language, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }), [i18n.language])
   const fmtDay = useMemo(() => new Intl.DateTimeFormat(i18n.language, { weekday: 'short' }), [i18n.language])
   const fmtDate = useMemo(() => new Intl.DateTimeFormat(i18n.language, { day: 'numeric', month: 'short' }), [i18n.language])
   const when = (group, ts) => (group === 'older' ? fmtDate.format(ts) : group === 'week' ? fmtDay.format(ts) : fmtTime.format(ts))
+  // A hit has no day block, so its time carries the date.
+  const fmtHit = useMemo(() => new Intl.DateTimeFormat(i18n.language, { day: 'numeric', month: 'short', year: 'numeric' }), [i18n.language])
 
   // On mount: start on the current chat and, in the dialog, put the cursor in
   // the search box.
@@ -94,7 +125,9 @@ export default function ChatsList({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => { setActiveIdx(0) }, [query])
+  useEffect(() => { setActiveIdx(0) }, [query, fkey])
+  // A new answer starts on its best hit.
+  useEffect(() => { if (found.status === 'ready') setActiveIdx(0) }, [found])
 
   useEffect(() => {
     listRef.current?.querySelector(`[data-idx="${activeIdx}"]`)?.scrollIntoView({ block: 'nearest' })
@@ -105,7 +138,7 @@ export default function ChatsList({
     if (activeIdx > flat.length - 1) setActiveIdx(Math.max(0, flat.length - 1))
   }, [flat.length, activeIdx])
 
-  const choose = useCallback((id) => { onSelect?.(id) }, [onSelect])
+  const choose = useCallback((id, hit) => { onSelect?.(id, hit?.seq ? { seq: hit.seq } : undefined) }, [onSelect])
 
   const cancelledRef = useRef(false)
   const startRename = (chat) => { cancelledRef.current = false; setEditingId(chat.id); setEditName(chat.name || '') }
@@ -128,28 +161,131 @@ export default function ChatsList({
         e.preventDefault()
         e.stopPropagation()
         cancelRename()
+      } else if (search) {
+        // The first Escape clears the search; the next one leaves.
+        e.preventDefault()
+        e.stopPropagation()
+        setSearch('')
+        setFilters(noFilters)
       } else if (onEscape) {
         e.preventDefault()
         e.stopPropagation()
         onEscape()
-      } else if (search) {
-        e.preventDefault()
-        setSearch('')
       }
       return
     }
     if (editingId) return
     if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, flat.length - 1)) }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)) }
-    else if (e.key === 'Enter' && e.target === searchRef.current && current) { e.preventDefault(); choose(current.id) }
-    else if (e.key === 'F2' && current) { e.preventDefault(); startRename(current) }
+    else if (e.key === 'PageDown' && e.target === searchRef.current) { e.preventDefault(); setActiveIdx(i => Math.min(i + 5, flat.length - 1)) }
+    else if (e.key === 'PageUp' && e.target === searchRef.current) { e.preventDefault(); setActiveIdx(i => Math.max(i - 5, 0)) }
+    else if (e.key === 'Enter' && e.target === searchRef.current && current) { e.preventDefault(); choose(current.chat.id, current.hit) }
+    else if (e.key === 'F2' && current) { e.preventDefault(); startRename(current.chat) }
     else if (e.key === 'Delete' && current && canDelete && (e.target !== searchRef.current || !search)) {
       e.preventDefault()
-      onDelete?.(current)
+      onDelete?.(current.chat)
     }
   }
 
   const listId = `${idPrefix}-menu-list`
+  const showFilters = searching || (Boolean(onSearch) && filtersActive(filters) && search.trim().length > 0)
+  const meta = searching && found.status === 'ready' ? found.meta : null
+
+  // The words under the list while a search runs or ends.
+  const statusLine = (() => {
+    if (!searching) return ''
+    if (searchState === 'loading') return t('menu.find.searching')
+    if (searchState === 'error') return ''
+    return flat.length > 0 ? t('menu.find.count', { count: flat.length }) : ''
+  })()
+
+  const renderRow = (entry, idx, groupKey) => {
+    const { chat, hit } = entry
+    const selected = idx === activeIdx
+    const editing = editingId === chat.id
+    const originKind = chat.origin ? (knownKind(chat.origin)) : ''
+    const role = hit?.role === 'user' ? t('menu.find.you') : hit?.role === 'assistant' ? t('menu.find.assistant') : ''
+    const stamp = hit ? (hit.at || chat.updatedAt || chat.createdAt || 0) : (chat.updatedAt || chat.createdAt || 0)
+    return (
+      <div
+        key={entry.key}
+        id={`${idPrefix}-opt-${entry.key}`}
+        role="option"
+        aria-selected={selected}
+        data-idx={idx}
+        data-seq={hit?.seq || undefined}
+        data-current={chat.id === activeChatId || undefined}
+        data-testid="chats-row"
+        className="cx-row-item"
+        onClick={() => !editing && choose(chat.id, hit)}
+        onMouseMove={() => { if (!selected) setActiveIdx(idx) }}
+      >
+        <div className="cx-row-item__title">
+          {chat.running && <Icon name="spinner" spin />}
+          {editing ? (
+            <input
+              className="cx-row-item__rename"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onBlur={finishRename}
+              onKeyDown={(e) => {
+                e.stopPropagation()
+                if (e.key === 'Enter') { e.preventDefault(); finishRename() }
+                if (e.key === 'Escape') { e.preventDefault(); cancelRename() }
+              }}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={t('menu.rename')}
+              autoFocus
+            />
+          ) : (
+            <span
+              className="cx-row-item__name"
+              onDoubleClick={(e) => { e.stopPropagation(); startRename(chat) }}
+            >
+              {chat.name || t('menu.untitled')}
+            </span>
+          )}
+          {originKind && (
+            <span className="cx-row-item__origin" data-testid="chats-origin-badge" title={t(`menu.origin.${originKind}`)}>
+              {(originCtx && resolveOrigin({ origin: chat.origin, originId: chat.originId }, originCtx).title) || originTitle?.(chat) || t(`menu.originBadge.${originKind}`)}
+            </span>
+          )}
+        </div>
+        {hit && hit.snippet && (
+          <div className="cx-row-item__preview cx-find-snip" data-testid="chats-snippet">
+            {role && <span className="cx-find-snip__who">{role}</span>}
+            <SearchSnippet text={hit.snippet} ranges={hit.highlights} />
+            {hit.more > 0 && <span className="cx-find-snip__more">{t('menu.find.more', { count: hit.more })}</span>}
+          </div>
+        )}
+        {hit && !hit.snippet && hit.inTitle && (
+          <div className="cx-row-item__preview cx-find-snip">{t('menu.find.inTitle')}</div>
+        )}
+        <span className="cx-row-item__model">{chat.model || t('menu.noModel')}</span>
+        <span className="cx-row-item__time">{hit ? fmtHit.format(stamp) : when(groupKey, stamp)}</span>
+        <div className="cx-row-item__acts">
+          <button type="button" className="cx-icobtn" onClick={(e) => { e.stopPropagation(); startRename(chat) }} title={t('menu.rename')} aria-label={t('menu.rename')}>
+            <Icon name="pencil" />
+          </button>
+          {onCopyChat && (
+            <button type="button" className="cx-icobtn" onClick={(e) => { e.stopPropagation(); onCopyChat(chat) }} title={t('menu.copyChat')} aria-label={t('menu.copyChat')}>
+              <Icon name="clipboard" />
+            </button>
+          )}
+          {onExport && (
+            <button type="button" className="cx-icobtn" onClick={(e) => { e.stopPropagation(); onExport(chat) }} title={t('menu.exportMarkdown')} aria-label={t('menu.exportMarkdown')}>
+              <Icon name="download" />
+            </button>
+          )}
+          {canDelete && (
+            <button type="button" className="cx-icobtn cx-icobtn--danger" onClick={(e) => { e.stopPropagation(); onDelete?.(chat) }} title={t('menu.deleteChat')} aria-label={t('menu.deleteChat')}>
+              <Icon name="trash" />
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="cx-menu__body" onKeyDown={onKeyDown}>
@@ -161,14 +297,14 @@ export default function ChatsList({
           role="combobox"
           aria-expanded="true"
           aria-controls={listId}
-          aria-activedescendant={current ? `${idPrefix}-opt-${current.id}` : undefined}
+          aria-activedescendant={current ? `${idPrefix}-opt-${current.key}` : undefined}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t('menu.search')}
           aria-label={t('menu.search')}
         />
         {search && (
-          <button type="button" className="cx-icobtn" onClick={() => { setSearch(''); searchRef.current?.focus() }} aria-label={t('menu.clearSearch')}>
+          <button type="button" className="cx-icobtn" onClick={() => { setSearch(''); setFilters(noFilters); searchRef.current?.focus() }} aria-label={t('menu.clearSearch')}>
             <Icon name="close" />
           </button>
         )}
@@ -179,91 +315,51 @@ export default function ChatsList({
         )}
       </div>
 
-      <div className="cx-menu__list" ref={listRef} id={listId} role="listbox" aria-label={t('menu.title')}>
-        {flat.length === 0 && (
-          <div className="cx-menu__empty">{search ? t('menu.noMatch') : t('menu.noConversations')}</div>
+      {showFilters && (
+        <SearchFilters
+          filters={filters}
+          onChange={setFilters}
+          agents={agents || []}
+          idPrefix={idPrefix}
+          active={filtersActive(filters)}
+        />
+      )}
+      {searching && (
+        <div className="cx-find-status" role="status" aria-live="polite" data-testid="chats-search-status">
+          {statusLine}
+          {meta?.indexing && <span className="cx-find-status__note" data-testid="chats-search-indexing">{t('menu.find.indexing')}</span>}
+          {meta?.partial && <span className="cx-find-status__note" data-testid="chats-search-partial">{t('menu.find.partial', { searched: meta.searched, total: meta.total })}</span>}
+        </div>
+      )}
+
+      <div className="cx-menu__list" ref={listRef} id={listId} role="listbox" aria-label={t('menu.title')} aria-busy={searchState === 'loading' || undefined} data-state={searchState}>
+        {searchState === 'error' && (
+          <div className="cx-menu__empty" role="alert" data-testid="chats-search-error">
+            <p>{t('menu.find.failed')}</p>
+            <button type="button" className="cx-btn" onClick={() => setTries((n) => n + 1)}>{t('menu.find.retry')}</button>
+          </div>
         )}
-        {(() => {
+        {searchState !== 'error' && flat.length === 0 && searchState !== 'loading' && (
+          <div className="cx-menu__empty" data-testid="chats-empty">
+            {searching
+              ? (filtersActive(filters) ? t('menu.find.noMatchFiltered', { query }) : t('menu.find.noMatchFor', { query }))
+              : search ? t('menu.noMatch') : t('menu.noConversations')}
+          </div>
+        )}
+        {searchState !== 'error' && searchState === 'loading' && flat.length === 0 && (
+          <div className="cx-menu__empty" data-testid="chats-loading">{t('menu.find.searching')}</div>
+        )}
+        {searching && searchState !== 'error' && (
+          <div className="cx-find-list" data-dim={searchState === 'loading' || undefined}>
+            {flat.map((entry, idx) => renderRow(entry, idx))}
+          </div>
+        )}
+        {!searching && (() => {
           let n = 0
           return groups.map(g => (
             <div key={g.key} className="cx-menu__group" data-testid={`chats-day-${g.key}`}>
               <h3 className="cx-menu__day">{t(`menu.group.${g.key}`)}</h3>
-              {g.items.map(chat => {
-                const idx = n++
-                const selected = idx === activeIdx
-                const editing = editingId === chat.id
-                const preview = snippets[chat.id] || ''
-                const originKind = chat.origin ? (knownKind(chat.origin)) : ''
-                return (
-                  <div
-                    key={chat.id}
-                    id={`${idPrefix}-opt-${chat.id}`}
-                    role="option"
-                    aria-selected={selected}
-                    data-idx={idx}
-                    data-current={chat.id === activeChatId || undefined}
-                    data-testid="chats-row"
-                    className="cx-row-item"
-                    onClick={() => !editing && choose(chat.id)}
-                    onMouseMove={() => { if (!selected) setActiveIdx(idx) }}
-                  >
-                    <div className="cx-row-item__title">
-                      {chat.running && <Icon name="spinner" spin />}
-                      {editing ? (
-                        <input
-                          className="cx-row-item__rename"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          onBlur={finishRename}
-                          onKeyDown={(e) => {
-                            e.stopPropagation()
-                            if (e.key === 'Enter') { e.preventDefault(); finishRename() }
-                            if (e.key === 'Escape') { e.preventDefault(); cancelRename() }
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          aria-label={t('menu.rename')}
-                          autoFocus
-                        />
-                      ) : (
-                        <span
-                          className="cx-row-item__name"
-                          onDoubleClick={(e) => { e.stopPropagation(); startRename(chat) }}
-                        >
-                          {chat.name || t('menu.untitled')}
-                        </span>
-                      )}
-                      {originKind && (
-                        <span className="cx-row-item__origin" data-testid="chats-origin-badge" title={t(`menu.origin.${originKind}`)}>
-                          {originTitle?.(chat) || t(`menu.originBadge.${originKind}`)}
-                        </span>
-                      )}
-                    </div>
-                    {preview && <div className="cx-row-item__preview">{preview}</div>}
-                    <span className="cx-row-item__model">{chat.model || t('menu.noModel')}</span>
-                    <span className="cx-row-item__time">{when(g.key, chat.updatedAt || chat.createdAt || 0)}</span>
-                    <div className="cx-row-item__acts">
-                      <button type="button" className="cx-icobtn" onClick={(e) => { e.stopPropagation(); startRename(chat) }} title={t('menu.rename')} aria-label={t('menu.rename')}>
-                        <Icon name="pencil" />
-                      </button>
-                      {onCopyChat && (
-                        <button type="button" className="cx-icobtn" onClick={(e) => { e.stopPropagation(); onCopyChat(chat) }} title={t('menu.copyChat')} aria-label={t('menu.copyChat')}>
-                          <Icon name="clipboard" />
-                        </button>
-                      )}
-                      {onExport && (
-                        <button type="button" className="cx-icobtn" onClick={(e) => { e.stopPropagation(); onExport(chat) }} title={t('menu.exportMarkdown')} aria-label={t('menu.exportMarkdown')}>
-                          <Icon name="download" />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button type="button" className="cx-icobtn cx-icobtn--danger" onClick={(e) => { e.stopPropagation(); onDelete?.(chat) }} title={t('menu.deleteChat')} aria-label={t('menu.deleteChat')}>
-                          <Icon name="trash" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
+              {g.items.map(chat => renderRow(flat[n], n++, g.key))}
             </div>
           ))
         })()}
@@ -274,6 +370,7 @@ export default function ChatsList({
         <span><kbd className="dk-kbd">↵</kbd> {t('menu.keys.open')}</span>
         <span><kbd className="dk-kbd">F2</kbd> {t('menu.keys.rename')}</span>
         <span><kbd className="dk-kbd">Del</kbd> {t('menu.keys.delete')}</span>
+        <span><kbd className="dk-kbd">Esc</kbd> {t('menu.keys.clear')}</span>
         {onDeleteAll && chats.length > 1 && (
           <button
             type="button"

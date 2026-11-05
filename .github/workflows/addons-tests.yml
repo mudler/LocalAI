@@ -83,6 +83,10 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Free disk space
+        # prepare.sh stops below 20 GiB free. The hosted runner image ships
+        # toolchains this job never uses; remove them before anything installs.
+        run: sh scripts/ci/free-runner-disk.sh
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
@@ -149,6 +153,10 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Free disk space
+        # prepare.sh stops below 20 GiB free. The hosted runner image ships
+        # toolchains this job never uses; remove them before anything installs.
+        run: sh scripts/ci/free-runner-disk.sh
       - name: Setup Go
         uses: actions/setup-go@v6
         with:

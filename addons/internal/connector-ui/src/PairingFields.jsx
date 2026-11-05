@@ -6,24 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Notice } from './controls'
 import { connectorsApi } from './api'
-
-export const PAIRING_TEXT = {
-  'pair.title': 'Paired senders',
-  'pair.help': 'A paired sender proved that they control an allowed account. Only a paired sender can use the sensitive permissions. At most {{max}}; a pairing ends after {{days}} days.',
-  'pair.start': 'Pair a sender',
-  'pair.startHelp': 'Makes a code. Send it to the bot as a direct message from the account to pair, within ten minutes. The code works once.',
-  'pair.needSave': 'Save this bot first, then pair a sender.',
-  'pair.codeTitle': 'Your pairing code',
-  'pair.codeHelp': 'Send this code to the bot as a direct message from the account to pair. It is shown only now, works once and expires at {{time}}.',
-  'pair.codeGone': 'The code expired. Make a new one if the sender is not listed yet.',
-  'pair.done': 'Paired: {{sender}}.',
-  'pair.dismiss': 'Hide the code',
-  'pair.none': 'Nobody is paired.',
-  'pair.expires': 'ends {{time}}',
-  'pair.remove': 'Remove',
-  'pair.removeSender': 'Remove the pairing of {{sender}}',
-  'pair.full': 'Three senders are paired. Remove one to pair another.',
-}
+import { pageLocale } from './connector'
 
 const MAX_PAIRED = 3
 const DAYS = 90
@@ -31,7 +14,7 @@ const POLL_MS = 3000
 
 function time(iso) {
   const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString(pageLocale(), { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 export default function PairingFields({ binding, s, onPaired }) {
@@ -60,7 +43,7 @@ export default function PairingFields({ binding, s, onPaired }) {
           setPaired(list)
           setCode(null)
           setDone(fresh.sender_id)
-          onPaired?.()
+          onPaired?.(list)
           stop()
         }
       } catch (_e) { /* the next tick tries again */ }
@@ -88,7 +71,7 @@ export default function PairingFields({ binding, s, onPaired }) {
       const list = b?.paired || paired.filter((p) => p.sender_id !== sender)
       known.current = new Set(list.map((p) => p.sender_id))
       setPaired(list)
-      onPaired?.()
+      onPaired?.(list)
     } catch (e) { setError(e?.message || '') }
   }
   const full = paired.length >= MAX_PAIRED

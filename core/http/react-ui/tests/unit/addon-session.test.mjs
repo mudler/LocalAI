@@ -72,7 +72,7 @@ for (const switchUser of [false, true]) test(`installed records reject late admi
   let auth = { user: { id: 'admin' }, isAdmin: true, sessionEpoch: 1, hasFeature: () => true }
   const pending = deferred()
   let reads = 0
-  const api = { apps: { list: async () => [{ id: 'notes', generation: 1 }] }, installed: () => { reads++; return pending.promise } }
+  const api = { apps: { read: async () => ({ apps: [{ id: 'notes', generation: 1 }] }) }, installed: () => { reads++; return pending.promise } }
   const text = readFileSync(new URL('../../src/components/addons/AppsView.jsx', import.meta.url), 'utf8')
   // Full Apps body/effects; JSX is compiled, leaf hooks are external boundaries.
   const names = [...text.matchAll(/^import \{ ([^}]+) \} from/gm)].flatMap(m => m[1].split(',').map(n => n.trim()))

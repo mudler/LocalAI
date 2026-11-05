@@ -75,14 +75,16 @@
       "BasicInfo": "Basic info",
       "ModelSettings": "Model",
       "PromptsGoals": "Instructions",
-      "MemorySettings": "Memory",
+      "MemorySettings": "Wissen",
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "Dateien",
       "Tools": "Werkzeuge",
-      "Grants": "Permissions"
+      "Notes": "Gedächtnis",
+      "Connections": "Verbindungen",
+      "Effective": "Wirksame Ansicht"
     },
     "name": "Name",
     "description": "Description",
@@ -95,7 +97,7 @@
     "instructionsHelp": "What the agent always follows. Every chat with it starts from this text.",
     "collections": "Collections",
     "collectionsHint": "Collection name",
-    "collectionsHelp": "The memory collections a chat with this agent may search. The list is exact: an empty list grants none.",
+    "collectionsHelp": "Die Sammlungen, in denen ein Chat mit diesem Agenten suchen darf. Die Liste ist genau: Eine leere Liste erlaubt keine.",
     "skillsHelp": "The skills a chat with this agent may read. The list is exact: an empty list grants none.",
     "noSkills": "No skills yet.",
     "manageSkills": "Write or manage skills",
@@ -137,17 +139,201 @@
       "all": "Alle öffentlichen Seiten"
     },
     "toolsSummary": "{{on}} von {{total}} an",
-    "toolsHelp": "Wähle, was ein Chat mit diesem Agenten nutzen kann. Das sind dieselben Schalter wie im Werkzeuge-Menü eines Chats. Ein ausgeschaltetes Werkzeug wird dem Modell nie angeboten, und ein Chat mit diesem Agenten kann es nicht einschalten.",
+    "toolsHelp": "Wähle, was ein Chat mit diesem Agenten nutzen kann. Das sind dieselben Schalter wie im Werkzeug-Menü eines Chats, mit den Optionen eines Schalters darunter. Ein ausgeschaltetes Werkzeug wird dem Modell nie angeboten. Ohne angekreuzte Option behält der Agent die Standardwerte seiner Messaging-Verbindungen; sobald du eine ankreuzt, wirken nur die angekreuzten.",
     "toolsHeading": "Werkzeuge dieses Agenten",
     "skillsLater": "Ein Chat mit diesem Agenten liest nur die eingeschalteten Skills.",
     "skillsHeading": "Skills dieses Agenten",
-    "grantsHelp": "What the agent may do beyond its tools. With no permission ticked, the agent keeps the defaults it had before permissions existed. Once you tick any, only the ticked ones work.",
-    "grantsDefault": "Defaults",
-    "countGrants": "{{count}} granted",
-    "grantSensitive": "needs care",
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
-    "grantsAddMissing": "Add the missing permissions"
+    "grantsAddMissing": "Add the missing permissions",
+    "grantNames": {
+      "triggers_propose": "Auch aus Messaging-Apps vorschlagen",
+      "triggers_run": "Trigger aus Messaging-Apps starten lassen",
+      "talkback_channels": "Auf bekannten Kanälen antworten",
+      "files_upload": "Dateien aus Messaging-Apps empfangen"
+    },
+    "memoryOffUser": "Das Gedächtnis ist in deinen Einstellungen aus. Dieser Agent liest und speichert deshalb keine Notizen, egal was du hier einstellst.",
+    "memoryOffFix": "Einstellungen, Gedächtnis",
+    "nav": {
+      "label": "Abschnitte",
+      "identity": "Identität",
+      "capabilities": "Fähigkeiten",
+      "memory": "Gedächtnis und Wissen",
+      "advanced": "Erweitert",
+      "connections": "Verbindungen",
+      "effective": "Wirksame Ansicht"
+    },
+    "lead": {
+      "identity": "Wer der Agent ist und wie er sich verhält.",
+      "capabilities": "Was der Agent nutzen und erreichen darf.",
+      "memory": "Woran sich der Agent erinnert und was er nachschlagen kann.",
+      "advanced": "Zusätzliche Server und Export.",
+      "connections": "Welche Verbindungen dieser Agent nutzen darf.",
+      "effective": "Was dieser Agent gerade tun kann."
+    },
+    "header": {
+      "unnamed": "Unbenannter Agent",
+      "modeEdit": "Agent bearbeiten",
+      "modeCreate": "Neuer Agent",
+      "summary": "Übersicht dieses Agenten"
+    },
+    "status": {
+      "clean": "Keine ungespeicherten Änderungen",
+      "new": "Noch nicht erstellt",
+      "unsaved": "Ungespeicherte Änderungen ({{count}})"
+    },
+    "preset": {
+      "label": "Werkzeugstufe",
+      "loading": "Werkzeugliste wird geladen",
+      "current": "Stufe: {{name}}. Ändern Sie unten einen Schalter, wird daraus eine eigene Mischung.",
+      "custom": "Eigene Mischung von Schaltern. Wählen Sie eine Stufe, um sie zu ersetzen.",
+      "applied": "Stufe {{name}} angewendet",
+      "appliedBody": "Die Schalter unten haben sich geändert. Nichts wird gespeichert, bis Sie speichern.",
+      "readonly": {
+        "title": "Nur nachsehen",
+        "body": "Sucht im Internet und in Ihren Sammlungen. Keine Dateien, keine Befehle, keine Trigger."
+      },
+      "assistant": {
+        "title": "Assistent",
+        "body": "Fügt gespeicherte Agenten, Trigger und vorgeschlagene Änderungen hinzu. Keine Dateien, keine Befehle."
+      },
+      "full": {
+        "title": "Voll",
+        "body": "Jedes Werkzeug, das der Server auflistet. Sensible Rechte bleiben aus."
+      }
+    },
+    "tpl": {
+      "applied": "Gestartet mit {{name}}",
+      "appliedBody": "Name, Beschreibung, Anweisungen und Werkzeuge haben sich geändert. Nichts wird gespeichert, bis Sie speichern.",
+      "tools": "Werkzeuge: {{level}}",
+      "noTools": "Werkzeuge: unverändert"
+    },
+    "undo": "Rückgängig",
+    "keep": "Behalten",
+    "modelCaps": "Was dieses Modell kann",
+    "modelChat": "Chat",
+    "connections": {
+      "addonsTitle": "Add-ons mit Verbindung",
+      "addonsNone": "Kein Add-on braucht eine Verbindung.",
+      "messagingTitle": "Wo dieser Agent verbunden ist",
+      "messagingNone": "Noch keine Messaging-Verbindung nutzt diesen Agenten. Speichern Sie den Agenten und fügen Sie dann eine hinzu.",
+      "messagingHelp": "Messaging-Verbindungen werden auf ihrer eigenen Seite eingestellt.",
+      "allows_one": "erlaubt {{count}} Recht",
+      "allows_other": "erlaubt {{count}} Rechte",
+      "open": "Öffnen",
+      "addonOff": "aus",
+      "noneYet": "Noch keine Verbindung.",
+      "add": "Verbindung hinzufügen",
+      "groupLabel": "Verbindungen für {{name}}",
+      "chosenHelp": "Chats dieses Agenten dürfen nur die angehakten Verbindungen nutzen.",
+      "perChat": "Nichts angehakt: Jeder Chat wählt selbst.",
+      "summary_one": "{{count}} Verbindung",
+      "summary_other": "{{count}} Verbindungen"
+    },
+    "more": "Weitere Aktionen",
+    "eff": {
+      "summaryOk": "Nichts ist blockiert.",
+      "summaryBlocked_one": "{{count}} Sache ist blockiert.",
+      "summaryBlocked_other": "{{count}} Dinge sind blockiert.",
+      "unsaved": "Diese Liste folgt dem Formular, wie es jetzt ist, auch mit nicht gespeicherten Änderungen.",
+      "unsavedConn": "Werkzeuge, Gedächtnis und Wissen folgen dem Formular, wie es jetzt ist. Die Zeilen zu Verbindungen stammen vom gespeicherten Agenten und der gespeicherten Verbindung.",
+      "state": {
+        "allowed": "Kann",
+        "asks": "Fragt zuerst",
+        "off": "Aus",
+        "blocked": "Blockiert",
+        "info": "Hinweis"
+      },
+      "more_one": "und {{count}} weitere",
+      "more_other": "und {{count}} weitere",
+      "fixHere": "Hier beheben",
+      "fixOpen": "Die Seite öffnen, die es behebt",
+      "model": {
+        "fixed": "Läuft mit {{model}}.",
+        "any": "Nutzt das Modell, das in jedem Chat gewählt wird."
+      },
+      "tools": {
+        "none": "Keine Werkzeuge sind an. Er kann nur aus seinem Wissen antworten.",
+        "some_one": "Kann {{count}} Werkzeug nutzen: {{names}}.",
+        "some_other": "Kann {{count}} Werkzeuge nutzen: {{names}}.",
+        "blocked": "{{name}} ist an, kann aber jetzt nicht arbeiten. {{reason}}"
+      },
+      "skills": {
+        "some_one": "Kann {{count}} Skill nutzen: {{names}}.",
+        "some_other": "Kann {{count}} Skills nutzen: {{names}}."
+      },
+      "files": {
+        "all": "Kann alle Ihre Dateien erreichen.",
+        "folders_one": "Kann nur den {{count}} gewählten Ordner erreichen.",
+        "folders_other": "Kann nur die {{count}} gewählten Ordner erreichen."
+      },
+      "grants": {
+        "parentOff": "{{name}} ist erlaubt, funktioniert aber nicht, solange {{parent}} aus ist. Schalten Sie {{parent}} ein.",
+        "connection": "{{name}} ist für den Agenten erlaubt, aber nicht auf dieser Verbindung: {{connection}}",
+        "some_one": "Hat {{count}} zusätzliches Recht: {{names}}.",
+        "some_other": "Hat {{count}} zusätzliche Rechte: {{names}}.",
+        "unattended_one": "Wenn niemand zusieht, darf er {{count}} Recht selbst nutzen: {{names}}.",
+        "unattended_other": "Wenn niemand zusieht, darf er {{count}} Rechte selbst nutzen: {{names}}."
+      },
+      "memory": {
+        "userOff": "Das Gedächtnis ist in Ihren Einstellungen aus. Dieser Agent liest und speichert daher keine Notizen, egal was er hier wählt.",
+        "none": "Behält und liest keine Notizen.",
+        "mine_and_own": "Liest Ihre Notizen und seine eigenen und speichert in seinen eigenen.",
+        "own": "Liest und speichert nur seine eigenen Notizen.",
+        "mine": "Liest Ihre Notizen und speichert darin.",
+        "asBefore": "Das Gedächtnis arbeitet wie bisher: Er liest Notizen, wenn ein Add-on Memory nennt.",
+        "noGrant": "Er soll Notizen speichern, aber das Recht, sich Dinge zu merken, ist aus. Er speichert also nichts. Schalten Sie es unter Gedächtnis ein.",
+        "level": {
+          "auto": "Notizen werden sofort gespeichert.",
+          "ask": "Jede Notiz wartet auf Ihre Bestätigung.",
+          "always": "Jede Notiz wartet auf Sie, und nichts lockert das.",
+          "never": "Er speichert keine Notizen."
+        }
+      },
+      "knowledge": {
+        "some_one": "Kann {{count}} Sammlung durchsuchen: {{names}}.",
+        "some_other": "Kann {{count}} Sammlungen durchsuchen: {{names}}.",
+        "none": "Keine Wissenssammlungen zum Durchsuchen."
+      },
+      "connections": {
+        "unsaved": "Noch in keiner Messaging-App genutzt. Speichern Sie den Agenten und fügen Sie dann eine Verbindung hinzu.",
+        "none": "In keiner Messaging-App genutzt.",
+        "loading": "{{name}} wird geprüft ...",
+        "error": "{{name}} konnte nicht geprüft werden. Öffnen Sie sie, um die Berechtigungen zu sehen.",
+        "summary": "{{name}}: {{allowed}} erlaubt, {{blocked}} nicht erlaubt.",
+        "blocked": "{{name}} kann {{capability}} nicht nutzen. {{message}}"
+      }
+    },
+    "try": {
+      "open": "Ausprobieren",
+      "title": "Diesen Agenten ausprobieren",
+      "desc": "Senden Sie eine Nachricht an einen Test-Chat mit den Einstellungen dieses Formulars. Nichts wird gespeichert.",
+      "noModel": "Kein Chat-Modell ist installiert. Installieren oder wählen Sie zuerst ein Modell.",
+      "defaultModel": "Kein Modell ist gesetzt, daher nutzt der Test {{model}}.",
+      "skipped": "Der Test nutzt nicht: {{what}}. Das gehört zu einem gespeicherten Agenten.",
+      "skip": {
+        "grants": "Berechtigungen",
+        "memory": "Gedächtnis",
+        "knowledge": "Wissenssammlungen",
+        "folders": "geteilte Ordner"
+      },
+      "empty": "Senden Sie eine Nachricht, um zu beginnen.",
+      "role": {
+        "user": "Sie",
+        "assistant": "Agent",
+        "tool": "Werkzeug"
+      },
+      "toolRan": "Werkzeug genutzt: {{name}}",
+      "working": "Arbeitet ...",
+      "label": "Nachricht an den Agenten",
+      "placeholder": "Fragen Sie etwas, das dieser Agent können soll",
+      "send": "Senden",
+      "stop": "Stopp",
+      "deleted": "Der Test-Chat wird gelöscht, wenn Sie dieses Fenster schließen.",
+      "chatTitle": "Test von {{name}}",
+      "failed": "Der Test ist fehlgeschlagen: {{message}}",
+      "slow": "Der Agent arbeitet noch. Stoppen Sie ihn oder schließen Sie das Fenster."
+    }
   },
   "run": {
     "workingLine": "Working"
@@ -510,5 +696,19 @@
     "effectiveWrite": "Liegt in einem Ordner, der geändert werden kann, daher kann auch dieser geändert werden.",
     "notMounted": "{{n}} geteilte Ordner passen nicht in das Zugriffslimit eines Chats und sind nicht eingebunden.",
     "exportNoteMany": "Die Datei nennt {{n}} Ordner. Beim Import erhält der Agent die Ordner mit diesen Pfaden, die es gibt, und bittet dich, die anderen zu wählen."
+  },
+  "templates": {
+    "researcher": {
+      "description": "Sucht, liest Quellen und schreibt kurze Berichte."
+    },
+    "reviewer": {
+      "description": "Prüft eine Änderung und nennt zuerst, was zu beheben ist."
+    },
+    "digest": {
+      "description": "Sammelt Neues zu einem Thema und fasst es zusammen."
+    },
+    "blank": {
+      "description": "Leer. Von Null beginnen."
+    }
   }
 }

@@ -158,11 +158,53 @@
       "move": "pindah",
       "open": "buka",
       "rename": "ganti nama",
-      "delete": "hapus"
+      "delete": "hapus",
+      "clear": "hapus"
     },
     "deleted": "\"{{title}}\" telah dihapus",
     "undo": "Urungkan",
-    "dismiss": "Tutup"
+    "dismiss": "Tutup",
+    "find": {
+      "searching": "Mencari…",
+      "count_one": "{{count}} hasil",
+      "count_other": "{{count}} hasil",
+      "more_one": "{{count}} kecocokan lain di chat ini",
+      "more_other": "{{count}} kecocokan lain di chat ini",
+      "indexing": "Chat lama masih diindeks. Hasil mungkin belum lengkap.",
+      "partial": "Mencari di {{searched}} chat terbaru dari {{total}}.",
+      "failed": "Pencarian gagal.",
+      "retry": "Coba lagi",
+      "noMatchFor": "Tidak ada chat yang cocok dengan “{{query}}”.",
+      "noMatchFiltered": "Tidak ada chat yang cocok dengan “{{query}}” dengan filter ini.",
+      "inTitle": "Cocok dengan judul",
+      "you": "Anda",
+      "assistant": "Asisten",
+      "filters": "Filter pencarian",
+      "agent": "Agen",
+      "anyAgent": "Agen apa pun",
+      "origin": "Sumber",
+      "anyOrigin": "Di mana saja",
+      "originName": {
+        "person": "Chat saya",
+        "automated": "Add-on dan otomatisasi",
+        "trigger": "Pemicu",
+        "connector": "Aplikasi pesan",
+        "job": "Job",
+        "page": "Halaman"
+      },
+      "when": "Kapan",
+      "anyTime": "Kapan saja",
+      "range": {
+        "day": "24 jam terakhir",
+        "week": "7 hari terakhir",
+        "month": "30 hari terakhir",
+        "year": "Setahun terakhir",
+        "custom": "Pilih tanggal…"
+      },
+      "from": "Dari",
+      "to": "Sampai",
+      "reset": "Atur ulang filter"
+    }
   },
   "message": {
     "you": "Anda",
@@ -188,7 +230,8 @@
     "failed": "Gagal menyimpan. Sakelar kembali seperti semula.",
     "unavailable": "Tidak tersedia di obrolan ini",
     "toolCount_one": "{{count}} alat",
-    "toolCount_other": "{{count}} alat"
+    "toolCount_other": "{{count}} alat",
+    "optionsOf": "Opsi {{name}}"
   },
   "skills": {
     "label": "Keahlian",

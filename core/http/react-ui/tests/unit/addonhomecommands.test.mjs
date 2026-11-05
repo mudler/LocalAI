@@ -113,7 +113,7 @@ test('Home addons: disabled failed ready transitions remain pollable and restart
 test('Home addons: Studio manifest is consumed generically and live Home has no identity branches', () => {
  const manifest = JSON.parse(readFileSync(new URL('../../../../../addons/studio/manifest.json', import.meta.url)))
  const ui = manifest.capabilities.ui
- const commands = ui.homeCommands.map(c => ({...c, page:c.page || ui.mainPage, label:c.label || ui.title, icon:c.icon || 'puzzle'}))
+ const commands = ui.homeCommands.map(c => ({...c, page:c.page || ui.mainPage, label:c.label || (typeof ui.title === 'string' ? ui.title : ui.title.en), icon:c.icon || 'puzzle'}))
  const installed = app(manifest.id, commands); installed.ui.pages = ui.pages
  const menu = availableCommands('home', {addonRegistry:snapshot([installed])})
  assert.ok(menu.some(c => c.cmd === '/studio'))
@@ -257,7 +257,7 @@ for (const accountSwitch of [false, true]) test(`Apps registry: late list cannot
  let registry = r.render()
  let auth = { user:{id:'alice'}, sessionEpoch:1, isAdmin:true, hasFeature:() => true }
  const reads = []
- const api = { apps:{ list:() => { const d = deferred(); reads.push(d); return d.promise } } }
+ const api = { apps:{ read:() => { const d = deferred(); reads.push(d); return d.promise.then(apps => ({ apps })) } } }
  const h = hookHarness('../../src/components/addons/AppsView.jsx', 'AppsView', {
   useAuth:() => auth, useContext:() => registry, RegistryContext:{}, useTranslation:() => ({t:x=>x,i18n:{}}),
   FEATURE_ADDONS:'addons', pollDelay:() => 1000, setTimeout:()=>1, clearTimeout:()=>{},
