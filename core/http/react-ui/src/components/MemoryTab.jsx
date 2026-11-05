@@ -219,6 +219,7 @@ export default function MemoryTab({ addToast, embedded = false }) {
           {tabs.length > 1 && <Tabs tabs={tabs} active={tab.id} onPick={pick} t={t} />}
           <div id="mt-tabpanel" role={tabs.length > 1 ? 'tabpanel' : undefined} aria-labelledby={tabs.length > 1 ? `mt-tab-${tab.id}` : undefined} className="mt-panelgroup" data-testid="memory-tabpanel" data-tab={tab.id}>
             {tab.kind === 'deleted' && <p className="mt-lede" data-testid="memory-deleted-note">{t('memoryPage.deletedNote')}</p>}
+            {tab.kind === 'channels' && <p className="mt-lede" data-testid="memory-channels-note">{t('memoryPage.tabs.channelsNote')}</p>}
             {tab.groups.length === 0 && <p className="mt-lede" data-testid="memory-tab-empty">{t('memoryPage.tabEmpty')}</p>}
             {tab.groups.map((g) => (
               <section key={groupId(g)} className="mt-group" aria-labelledby={`mt-${groupId(g)}`} data-testid="memory-group" data-group={groupId(g)}>

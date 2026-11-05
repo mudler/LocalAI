@@ -45,6 +45,10 @@ function listing(s) {
   if (agent.length) groups.push({ source: 'notes-agent', scope: 'agent', key: 'bot', max_bytes: 2048, max_lines: 40, files: agent })
   const prof = has('LocalAI/agents/bot/profile.md') ? [file('LocalAI/agents/bot/profile.md', s.texts['LocalAI/agents/bot/profile.md'].length, { index: true, lines: 1 })] : []
   if (prof.length) groups.push({ source: 'profile', scope: 'agent', key: 'bot', max_bytes: 4096, files: prof })
+  if (s.texts['Memory/channels/chat-1/index.md'] !== undefined) {
+    const p = 'Memory/channels/chat-1/index.md'
+    groups.push({ source: 'notes-channel', scope: 'channel', key: 'chat-1', max_bytes: 2048, max_lines: 40, files: [file(p, s.texts[p].length, { index: true, lines: 1 })] })
+  }
   return { limits: LIMITS, groups }
 }
 
@@ -188,4 +192,21 @@ test('on a phone the page fits and the rows keep their buttons', async ({ page }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(overflow).toBeLessThanOrEqual(0)
   await shot(page, 'memory-page-phone', { fullPage: true })
+})
+
+test('the Conversations tab lists the notes saved from messaging chats, to read and delete', async ({ page }) => {
+  const s = fixture()
+  s.texts['Memory/channels/chat-1/index.md'] = '- coffee: black\n'
+  await open(page, s)
+  const tab = page.getByTestId('memory-tabs').getByRole('tab', { name: 'Conversations' })
+  await tab.click()
+  await expect(page.getByTestId('memory-channels-note')).toContainText('not paired')
+  const g = group(page, 'notes-channel:chat-1')
+  await expect(g.getByRole('heading')).toHaveText('Notes of conversation chat-1')
+  await g.locator('.mt-file__name').click()
+  await expect(g.getByTestId('memory-text')).toContainText('coffee: black')
+  await shot(page, 'memory-conversations')
+  await g.getByTestId('memory-delete').click()
+  await g.getByTestId('memory-delete-yes').click()
+  await expect.poll(() => s.removed).toEqual(['Memory/channels/chat-1/index.md'])
 })

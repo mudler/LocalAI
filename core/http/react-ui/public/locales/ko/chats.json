@@ -841,6 +841,7 @@
       "mine": "내 메모",
       "deleted": "삭제된 에이전트",
       "channels": "대화",
+      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
       "export": "이 메모 내보내기",
       "clearAgent": "이 에이전트의 메모 삭제",
       "clearDeleted": "이 메모 삭제"

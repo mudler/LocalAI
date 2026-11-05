@@ -1163,6 +1163,7 @@
       "mine": "Mine",
       "deleted": "Deleted agents",
       "channels": "Conversations",
+      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
       "export": "Export these notes",
       "clearAgent": "Delete the notes of this agent",
       "clearDeleted": "Delete these notes"

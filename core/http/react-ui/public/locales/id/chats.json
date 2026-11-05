@@ -841,6 +841,7 @@
       "mine": "Milik saya",
       "deleted": "Agen yang dihapus",
       "channels": "Percakapan",
+      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
       "export": "Ekspor catatan ini",
       "clearAgent": "Hapus catatan agen ini",
       "clearDeleted": "Hapus catatan ini"

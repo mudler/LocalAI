@@ -841,6 +841,7 @@
       "mine": "我的",
       "deleted": "已删除的智能体",
       "channels": "对话",
+      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
       "export": "导出这些笔记",
       "clearAgent": "删除此智能体的笔记",
       "clearDeleted": "删除这些笔记"

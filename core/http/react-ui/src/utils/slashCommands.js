@@ -32,7 +32,7 @@ import { projectHomeCommands } from '../addons/homeCommands.js'
 // args provider; "/loop stop <id>" is a provider that lists the loops.
 
 import { CHAT_SLASH_ACTIONS, CHAT_SLASH_GROUPS } from '../components/chat/chatActions.js'
-import { SLASH_ACTIONS, SLASH_GROUPS, availableActions } from '../components/home/homeActions.js'
+import { SLASH_ACTIONS, SLASH_GROUPS, availableActions, commandNames } from '../components/home/homeActions.js'
 import { shortId } from './chatLoops.js'
 
 // The groups of the new commands, after the page's own.
@@ -131,7 +131,7 @@ export function skillBadge(s) {
 // the registry, on any surface.
 export function reservedNames() {
   const names = new Set()
-  for (const a of [...CHAT_SLASH_ACTIONS, ...SLASH_ACTIONS, ...SHARED_COMMANDS]) names.add(a.cmd.slice(1))
+  for (const a of [...CHAT_SLASH_ACTIONS, ...SLASH_ACTIONS, ...SHARED_COMMANDS]) for (const n of commandNames(a)) names.add(n)
   return names
 }
 
@@ -231,7 +231,7 @@ export function slashQuery(text, commands) {
 export function filterCommands(commands, query, labelOf, groups) {
   const q = (query || '').trim()
   const matched = q
-    ? commands.filter((a) => a.cmd.slice(1).toLowerCase().startsWith(q) || String(labelOf(a) || '').toLowerCase().includes(q))
+    ? commands.filter((a) => commandNames(a).some((n) => n.startsWith(q)) || String(labelOf(a) || '').toLowerCase().includes(q))
     : commands
   return groups.flatMap((g) => matched.filter((a) => a.group === g))
 }
