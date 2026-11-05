@@ -32,9 +32,10 @@ const (
 	// CapKnowledgeWrite lets a sender have the agent propose a text for the
 	// person's Knowledge. The owner still confirms each one.
 	CapKnowledgeWrite = "knowledge.write"
-	// CapToolsWrite lets a sender make an add-on tool change something outside
-	// LocalAI, such as a comment on an issue. It is for the tools of a kind
-	// whose binding holds a credential.
+	// CapToolsWrite lets a sender make an add-on tool change something, such
+	// as a comment on an issue outside LocalAI, or a table of the owner. It is
+	// for the tools of a kind whose binding holds a credential and for the
+	// tools of an add-on whose resources are scoped per agent.
 	CapToolsWrite = "tools.write"
 )
 
@@ -99,7 +100,7 @@ var capabilityText = map[string][2]string{
 	CapPagesWrite:       {"Write pages", "The agent may write or change pages."},
 	CapDashboardWrite:   {"Write the dashboard", "The agent may change the dashboard."},
 	CapKnowledgeWrite:   {"Add to knowledge", "The agent may propose a text for a collection of the Knowledge. The owner confirms each one."},
-	CapToolsWrite:       {"Change things outside LocalAI", "An add-on tool may change something with the credential of the binding, such as a comment on an issue."},
+	CapToolsWrite:       {"Change things with add-on tools", "An add-on tool may change something for a sender: outside LocalAI with the credential of the binding, such as a comment on an issue, or in your own data, such as a table."},
 }
 
 // usualCapabilities are what an owner normally allows on a new binding: the
@@ -140,7 +141,11 @@ func ConnectorCapabilities() []CapabilityInfo {
 // binding. The rule is by shape, so the host names no add-on: a tool that
 // writes, in an add-on that holds a credential for the person's binding,
 // changes something outside LocalAI with that person's token, and needs
-// CapToolsWrite. credentialed says that the manifest declares credentials.
+// CapToolsWrite. So does a tool that writes in an add-on whose resources are
+// scoped per agent: it changes the owner's data on a sender's word, and the
+// capability is sensitive, so only the owner and paired senders hold it.
+// credentialed says that the manifest declares credentials or per-agent
+// resources.
 func ToolPermission(credentialed bool, d ToolDefinition) string {
 	if credentialed && d.Kind != ToolKindRead {
 		return CapToolsWrite

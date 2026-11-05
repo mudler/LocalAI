@@ -35,8 +35,8 @@
   "cap.knowledge.write.title": "Adicionar ao Conhecimento",
   "cap.knowledge.write.description": "O agente pode propor um texto para uma coleção do Conhecimento. O proprietário confirma cada um.",
   "cap.knowledge.write.action": "escrever no Conhecimento",
-  "cap.tools.write.title": "Alterar coisas fora do LocalAI",
-  "cap.tools.write.description": "Uma ferramenta de um complemento pode alterar algo com a credencial da vinculação, como um comentário em uma issue.",
+  "cap.tools.write.title": "Alterar coisas com ferramentas de complementos",
+  "cap.tools.write.description": "Uma ferramenta de um complemento pode alterar algo para quem escreve: fora do LocalAI com a credencial da vinculação, como um comentário em uma issue, ou nos seus próprios dados, como uma tabela.",
   "cap.tools.write.action": "alterar coisas em outros serviços com ferramentas de complementos",
   "action.unknown": "fazer isso",
   "block.no_agent": "Esta conexão não tem agente, então o bot ainda não pode responder nem agir.",
@@ -54,5 +54,7 @@
   "block.context_rule": "O bot não pode {action} neste lugar.",
   "block.knowledge_none": "Nenhuma coleção está na lista do agente, então o bot não tem onde {action}. Adicione uma coleção ao agente.",
   "block.knowledge_no_embedding": "O modelo de embeddings do Conhecimento não está instalado, então o bot não pode {action}. Instale-o em Modelos.",
+  "block.agent_resources_none": "Nenhum recurso está na lista do agente, então o bot não pode {action}. Adicione um ao agente.",
+  "block.agent_resources_read_only": "Todos os recursos da lista do agente são somente leitura, então o bot não pode {action}. Permita alterações em um deles no agente.",
   "block.duplicate_connection": "Este bot também está conectado como {other}. As duas conexões vão responder à mesma mensagem."
 }

@@ -158,6 +158,9 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 	case def.Folder != nil:
 		rowsIn = []studiosvc.AgentFolderWrite{{Path: def.Folder.Path, Mode: def.Folder.Mode}}
 	}
+	if len(def.Resources) > 0 {
+		warnings = append(warnings, "The resources the file lists belong to the server it came from, so the agent has none. Choose them in the agent.")
+	}
 	saved, err := h.svc.ImportAgentFolders(c.Request().Context(), userID(c), a, rowsIn)
 	if err != nil {
 		return failFor(c, err)

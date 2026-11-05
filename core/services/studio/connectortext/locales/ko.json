@@ -35,8 +35,8 @@
   "cap.knowledge.write.title": "지식에 추가",
   "cap.knowledge.write.description": "에이전트는 지식의 컬렉션에 넣을 텍스트를 제안할 수 있습니다. 소유자가 각 텍스트를 확인합니다.",
   "cap.knowledge.write.action": "지식에 쓰기",
-  "cap.tools.write.title": "LocalAI 밖의 항목 변경",
-  "cap.tools.write.description": "애드온 도구는 연결의 자격 증명으로 무언가를 변경할 수 있습니다. 예를 들어 이슈에 댓글을 남기는 일입니다.",
+  "cap.tools.write.title": "애드온 도구로 항목 변경",
+  "cap.tools.write.description": "애드온 도구는 발신자를 위해 무언가를 변경할 수 있습니다. LocalAI 밖에서는 연결의 자격 증명으로 이슈에 댓글을 남기는 일이고, 내 데이터에서는 표를 바꾸는 일입니다.",
   "cap.tools.write.action": "애드온 도구로 다른 서비스의 항목 변경",
   "action.unknown": "이 작업",
   "block.no_agent": "이 연결에는 에이전트가 없어서 봇이 아직 답하거나 동작할 수 없습니다.",
@@ -54,5 +54,7 @@
   "block.context_rule": "봇은 이 위치에서 다음 작업을 할 수 없습니다: {action}.",
   "block.knowledge_none": "에이전트의 목록에 컬렉션이 없어서 봇이 다음 작업을 할 곳이 없습니다: {action}. 에이전트에 컬렉션을 추가해 주세요.",
   "block.knowledge_no_embedding": "지식용 임베딩 모델이 설치되어 있지 않아 봇이 다음 작업을 할 수 없습니다: {action}. 모델에서 설치해 주세요.",
+  "block.agent_resources_none": "에이전트의 목록에 리소스가 없어서 봇이 다음 작업을 할 수 없습니다: {action}. 에이전트에 리소스를 추가해 주세요.",
+  "block.agent_resources_read_only": "에이전트의 목록에 있는 리소스가 모두 읽기 전용이라 봇이 다음 작업을 할 수 없습니다: {action}. 에이전트에서 그중 하나에 변경을 허용해 주세요.",
   "block.duplicate_connection": "이 봇은 {other}(으)로도 연결되어 있습니다. 두 연결이 같은 메시지에 모두 답합니다."
 }

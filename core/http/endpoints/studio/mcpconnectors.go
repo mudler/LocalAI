@@ -219,7 +219,7 @@ func writeToolsPanel(c echo.Context, p studiosvc.ToolsPanel) error {
 	}
 	out.Memory = memoryStateOut(p.Memory)
 	for _, a := range p.Addons {
-		out.Addons = append(out.Addons, addonOut(a))
+		out.Addons = append(out.Addons, addonOut(c, a))
 	}
 	for _, f := range p.Fallbacks {
 		out.Fallbacks = append(out.Fallbacks, schema.ChatsToolFallback{Tool: f.Tool, Addon: f.AddonID, AddonTitle: f.Title, Builtin: f.Builtin})

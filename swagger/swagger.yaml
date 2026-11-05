@@ -3380,6 +3380,26 @@ definitions:
       state:
         type: string
     type: object
+  resourcesets.Entry:
+    properties:
+      id:
+        description: ID is the resource ID the add-on host uses.
+        example: db-1a2b3c
+        type: string
+      mode:
+        description: Mode is read or write.
+        enum:
+        - read
+        - write
+        example: read
+        type: string
+    type: object
+  resourcesets.Sets:
+    additionalProperties:
+      items:
+        $ref: '#/definitions/resourcesets.Entry'
+      type: array
+    type: object
   schema.APIError:
     properties:
       code: {}
@@ -3568,11 +3588,26 @@ definitions:
         type: boolean
       "off":
         type: boolean
+      resources:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsAddonResources'
+        description: |-
+          Resources is set when the add-on scopes its resources per agent: a saved
+          agent then names the resources it may use (agent field resources). It
+          carries the word for them. GET /api/chats/agents/addons/{addon}/resources
+          lists what you can give an agent.
       title:
         description: |-
           Title and Description are what the add-on's manifest declares for
           people. Title is empty when the add-on declares none; the interface then shows the ID.
         type: string
+      tool_list:
+        description: |-
+          ToolList names the tools of the add-on you may use, by the name the
+          add-on declares, with kind read or write. Sorted by name.
+        items:
+          $ref: '#/definitions/schema.ChatsAddonTool'
+        type: array
       tools:
         type: integer
     type: object
@@ -3626,12 +3661,35 @@ definitions:
       execution_status:
         $ref: '#/definitions/schema.ChatsExecutionStatus'
     type: object
+  schema.ChatsAddonResources:
+    properties:
+      language:
+        example: it
+        type: string
+      noun:
+        example: database
+        type: string
+      noun_plural:
+        example: databases
+        type: string
+    type: object
   schema.ChatsAddonSwitches:
     properties:
       "off":
         items:
           type: string
         type: array
+    type: object
+  schema.ChatsAddonTool:
+    properties:
+      kind:
+        enum:
+        - read
+        - write
+        example: read
+        type: string
+      name:
+        type: string
     type: object
   schema.ChatsAdminAgent:
     properties:
@@ -4035,6 +4093,17 @@ definitions:
           unattended runs: off (the default), registries or all, capped by the
           administrator's ceiling.
         type: string
+      resources:
+        allOf:
+        - $ref: '#/definitions/resourcesets.Sets'
+        description: |-
+          Resources names, for each add-on whose manifest scopes its resources per
+          agent (by add-on ID), the resources the agent may use and the mode of
+          each, read or write. An add-on of that kind with no entry gives the
+          agent no resource; the field has no effect on any other add-on. The host
+          checks it on every tool call that takes a resource, on top of what you
+          may use yourself, and the resource list and the selection of a chat show
+          the agent nothing outside it.
       skills:
         items:
           type: string
@@ -4137,6 +4206,42 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsAgent'
         type: array
+    type: object
+  schema.ChatsAgentResourceChoice:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      role:
+        description: |-
+          Role is your own role on it: viewer, editor or owner. A viewer cannot
+          give an agent the write mode in a useful way: the owner of the resource
+          still decides what you may change.
+        enum:
+        - viewer
+        - editor
+        - owner
+        type: string
+    type: object
+  schema.ChatsAgentResourceChoices:
+    properties:
+      addon_id:
+        type: string
+      items:
+        description: Items are the resources you may use now, ordered by ID.
+        items:
+          $ref: '#/definitions/schema.ChatsAgentResourceChoice'
+        type: array
+      language:
+        type: string
+      noun:
+        type: string
+      noun_plural:
+        type: string
+      truncated:
+        description: Truncated is true when the list is cut short.
+        type: boolean
     type: object
   schema.ChatsAgentRun:
     properties:
@@ -4283,6 +4388,15 @@ definitions:
         type: string
       network:
         type: string
+      resources:
+        allOf:
+        - $ref: '#/definitions/resourcesets.Sets'
+        description: |-
+          Resources names the resources the agent may use for each add-on with
+          per-agent resources (see ChatsAgent). A write without it keeps the
+          stored list; an empty object clears it. Each mode is read or write (400
+          otherwise). An export file never carries it and an import drops it, a
+          resource ID belongs to one server.
       skills:
         items:
           type: string
@@ -12871,7 +12985,9 @@ paths:
         is never a bearer and is authorized again at the owner on every use. It is
         not process-global, not shared between users or conversations, and not part
         of the chat history. The store is bounded per user and expires unused entries.
-        No MCP tool maps to this route.
+        For an add-on whose manifest scopes its resources per agent, a chat of a saved
+        agent can select only a resource on the agent's list. No MCP tool maps to
+        this route.
       parameters:
       - description: Conversation ID
         in: path
@@ -12905,8 +13021,9 @@ paths:
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "403":
-          description: Feature denied, or the resource is unknown or not readable
-            by the caller
+          description: Feature denied, the resource is unknown or not readable by
+            the caller, or (type resource_not_in_agent_list) the chat's saved agent
+            does not list it
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "503":
@@ -17369,6 +17486,38 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsAgentHistory'
       summary: Show what an agent has run.
+      tags:
+      - chats
+  /api/chats/agents/addons/{addon}/resources:
+    get:
+      description: 'For an add-on whose manifest scopes its resources per agent, returns
+        what the add-on''s declared listing gives you now, ordered by ID: the resources
+        you own or were granted, with your role on each, and the add-on''s word for
+        them (noun, noun_plural; lang or Accept-Language picks a translation the manifest
+        has). The list is the choice for the agent field resources; a chat of the
+        agent still reaches only what you may use at that moment. An add-on that does
+        not scope its resources per agent, or is not there for you, is 404.'
+      parameters:
+      - description: the add-on's id
+        in: path
+        name: addon
+        required: true
+        type: string
+      - description: Language tag for the nouns, such as it or pt-BR. Wins over Accept-Language.
+          A language the manifest does not translate gives English.
+        in: query
+        name: lang
+        type: string
+      responses:
+        "200":
+          description: The resources you can give an agent
+          schema:
+            $ref: '#/definitions/schema.ChatsAgentResourceChoices'
+        "404":
+          description: No such add-on, or it has no resources to give to an agent
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the resources of an add-on that you can give a saved agent.
       tags:
       - chats
   /api/chats/agents/builtin-grants:

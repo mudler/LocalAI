@@ -200,18 +200,27 @@ func (m Manifest) ResourceNouns(tag string) (noun, plural string) {
 	if r == nil {
 		return "", ""
 	}
-	noun, plural = r.Noun, r.NounPlural
+	texts := map[string]ResourceText{}
+	for t, v := range m.I18n {
+		if v.Resources != nil {
+			texts[t] = *v.Resources
+		}
+	}
+	return ResolveResourceNouns(r.Noun, r.NounPlural, texts, tag)
+}
+
+// ResolveResourceNouns is the rule of Manifest.ResourceNouns for a host that
+// holds the English nouns and the translations apart from the manifest.
+func ResolveResourceNouns(noun, plural string, translations map[string]ResourceText, tag string) (string, string) {
 	if plural == "" {
 		plural = noun
 	}
-	langs := make([]string, 0, len(m.I18n))
-	for t, v := range m.I18n {
-		if v.Resources != nil {
-			langs = append(langs, t)
-		}
+	langs := make([]string, 0, len(translations))
+	for t := range translations {
+		langs = append(langs, t)
 	}
 	if got, ok := MatchLanguage(tag, langs); ok {
-		t := m.I18n[got].Resources
+		t := translations[got]
 		if t.Noun != "" {
 			noun, plural = t.Noun, t.Noun
 		}

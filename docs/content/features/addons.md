@@ -475,6 +475,9 @@ own record of the grants.
   must not be the name of a tool, an admin tool or a tool definition of the
   manifest; the host refuses such a manifest.
 - `list.items` is the key of the result array. It defaults to `resources`.
+- `agentScoped: true` (feature level 2) lets a saved agent name the resources it may
+  use. It needs a `list`, because the host builds the choices from it. See
+  [Resource listing for agents](#resource-listing-for-agents).
 - The manifest `api` range must reach 2. A manifest that declares a listing with
   `api.max` 1 is refused.
 - The tool is a read tool that takes exactly `{}`. The result lists at most 100
@@ -3371,6 +3374,7 @@ Two more optional capability fields describe the UI-only resource management (se
 | `capabilities.undo` | Boolean. The add-on keeps a change set for the writes a chat makes at once and answers the host's undo calls (see [Undoing a change a chat made](#undoing-a-change-a-chat-made)). It changes no tool and offers nothing to a model. |
 | `capabilities.adminTools` | At most 4 tool names that only the host's own UI-only endpoints may run. An admin tool is never in `tools`, never has a tool definition, is never offered to a model and is refused by every model, proposal and typed-read path: the declared-tool rule of those paths reads `tools` only. |
 | `capabilities.connector` | Optional. 1 to 4 `kinds` of messaging binding the add-on serves, each with an `id`, a `title`, a `delivery` (`pull` or `push`) and optional texts and a `page`. See [Connector add-ons](#connector-add-ons). |
+| `featureLevel` | Optional positive integer, default 1. The feature level the add-on needs from the host. See [Feature level](#feature-level). |
 | `capabilities.resources` | Maps the management operations to tools: `create` (a declared tool of kind `create`), `rename` (a declared tool of kind `schema`), `inspect` (a declared tool of kind `read` whose result is an object with a `name` and a `revision`), `delete` (the one admin tool) and a plain-text singular `noun`. Every field is optional. An admin tool must be the `delete` of the mapping, and a mapping must name tools that exist with the kind it needs. A mapping with `create` or `delete` must also declare the read tool `resource-exists` in `tools`, because the host settles interrupted creations and deletions only on its explicit answer. `list` asks the host for a listing tool; see [Resource listing](#resource-listing). |
 
 A tool definition names the resource it works on with a required `resourceId`
@@ -3390,6 +3394,38 @@ but never offers it to a model, a chat, an agent or a trigger, and a model that
 names it gets the unknown-tool answer. The Sandbox uses it for `set-backend` and
 `confirm-host`: they change a setting, and the add-on asks the host whether the
 caller is an administrator before it acts.
+
+### Resource listing for agents
+
+An add-on whose resources a person may want to hand out one by one can opt in to
+per-agent resources:
+
+```json
+{
+  "featureLevel": 2,
+  "capabilities": {
+    "resources": {
+      "noun": "database",
+      "nounPlural": "databases",
+      "agentScoped": true,
+      "list": {"tool": "databases-list", "items": "databases"}
+    }
+  },
+  "i18n": {"it": {"resources": {"noun": "database", "nounPlural": "database"}}}
+}
+```
+
+- `agentScoped`, `nounPlural` and `i18n.<language>.resources` need `featureLevel` 2
+  (see [Feature level](#feature-level)). `agentScoped` also needs a `list` mapping,
+  else the manifest is refused.
+- The host names the resources in the agent form with `noun` and `nounPlural`, or
+  their translation for the language of the page. `noun` is the singular fallback
+  when there is no plural. Main-app texts name no add-on and no noun.
+- The add-on is not told about the agent. The host checks the list of the agent
+  before it forwards a call that names a resource, and filters the listing and the
+  selection of a chat. See
+  [Resources of an agent](/features/chats-agents/#resources-of-an-agent).
+- A tool that writes in such an add-on needs `tools.write` in a messaging chat.
 
 ### A confirmation the owner can relax
 

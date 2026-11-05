@@ -306,9 +306,11 @@ var _ = Describe("the manifest declaration of admin tools and resource tools", f
 			Expect(parse(m)).NotTo(Succeed(), name)
 		}
 		// A manifest with no admin tools and no mapping stays valid.
+		// The translated resource nouns go with the mapping they translate.
 		m := manifest()
 		delete(caps(m), "adminTools")
 		delete(caps(m), "resources")
+		delete(m, "i18n")
 		Expect(parse(m)).To(Succeed())
 	})
 })

@@ -17,6 +17,7 @@ import (
 	corebackend "github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
+	endpointsaddons "github.com/mudler/LocalAI/core/http/endpoints/addons"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -32,6 +33,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // legacyAPIKeyUserID is the synthetic user the auth middleware gives a request
@@ -42,6 +44,23 @@ const legacyAPIKeyUserID = "legacy-api-key"
 // when it could not be built.
 func (a *Application) StudioService() *studio.Service {
 	return a.studioService
+}
+
+// StudioSelectionGuard is the check of the conversation selection of the
+// add-on routes: a chat of a saved agent selects only a resource on the list
+// of the agent. It is nil when the chats are off.
+func (a *Application) StudioSelectionGuard() endpointsaddons.SelectionGuard {
+	if a.studioService == nil {
+		return nil
+	}
+	hasAccounts := a.authDB != nil
+	return func(ctx context.Context, actor contract.Actor, conv, addonID, resourceID string) (bool, error) {
+		user := addonWorkspacePrincipal(hasAccounts)(actor)
+		if user == "" {
+			return false, nil
+		}
+		return a.studioService.ResourceSelectable(ctx, user, conv, addonID, resourceID)
+	}
 }
 
 // StudioBuiltins is the registry of the built-in chat tools an add-on may

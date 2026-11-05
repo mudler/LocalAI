@@ -35,8 +35,8 @@
   "cap.knowledge.write.title": "Tambah ke Pengetahuan",
   "cap.knowledge.write.description": "Agen boleh mengusulkan teks untuk sebuah koleksi Pengetahuan. Pemilik mengonfirmasi tiap teks.",
   "cap.knowledge.write.action": "menulis ke Pengetahuan",
-  "cap.tools.write.title": "Ubah hal di luar LocalAI",
-  "cap.tools.write.description": "Alat dari add-on boleh mengubah sesuatu dengan kredensial pengikatan, misalnya komentar pada sebuah issue.",
+  "cap.tools.write.title": "Ubah hal dengan alat add-on",
+  "cap.tools.write.description": "Alat dari add-on boleh mengubah sesuatu untuk pengirim: di luar LocalAI dengan kredensial pengikatan, misalnya komentar pada sebuah issue, atau pada data Anda sendiri, misalnya sebuah tabel.",
   "cap.tools.write.action": "mengubah hal di layanan lain dengan alat add-on",
   "action.unknown": "melakukan ini",
   "block.no_agent": "Koneksi ini tidak punya agen, jadi bot belum bisa menjawab atau bertindak.",
@@ -54,5 +54,7 @@
   "block.context_rule": "Bot tidak dapat {action} di tempat ini.",
   "block.knowledge_none": "Tidak ada koleksi dalam daftar agen, jadi bot tidak punya tempat untuk {action}. Tambahkan koleksi ke agen.",
   "block.knowledge_no_embedding": "Model embedding untuk Pengetahuan belum dipasang, jadi bot tidak dapat {action}. Pasang di Model.",
+  "block.agent_resources_none": "Tidak ada sumber daya dalam daftar agen, jadi bot tidak dapat {action}. Tambahkan satu ke agen.",
+  "block.agent_resources_read_only": "Semua sumber daya dalam daftar agen hanya-baca, jadi bot tidak dapat {action}. Izinkan perubahan untuk salah satunya di agen.",
   "block.duplicate_connection": "Bot ini juga terhubung sebagai {other}. Kedua koneksi akan menjawab pesan yang sama."
 }

@@ -126,6 +126,7 @@ var chatRules = []errRule{
 	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrCommandBusy),
 	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", studiosvc.ErrNothingToCompact, studiosvc.ErrNothingToClear, studiosvc.ErrCannotCompact),
 	fixed(http.StatusNotFound, typeNotFound, "agent not found", agents.ErrNotFound),
+	fixed(http.StatusNotFound, typeNotFound, "this add-on has no resources to give to an agent", studiosvc.ErrNotScoped),
 	fixed(http.StatusConflict, typeConflict, "you already have an agent with this name", agents.ErrNameTaken),
 	verbatim(http.StatusBadRequest, typeInvalid, agents.ErrInvalid.Error()+": ", agents.ErrInvalid),
 	sentinelText(http.StatusBadRequest, typeInvalid, studiosvc.ErrAgentFolder),

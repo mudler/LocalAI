@@ -252,6 +252,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/:id/mcp-apps/call", h.CallMCPAppTool)
 	e.GET(base+"/agents/templates", h.AgentTemplates)
 	e.GET(base+"/agents/builtin-grants", h.BuiltinGrants)
+	e.GET(base+"/agents/addons/:addon/resources", h.ListAgentResourceChoices)
 	e.POST(base+"/agents/templates/:id/create", h.CreateAgentFromTemplate)
 	e.POST(base+"/agents/import", h.ImportAgent)
 	e.GET(base+"/agents/:id/export", h.ExportAgent)

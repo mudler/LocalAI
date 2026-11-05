@@ -140,6 +140,55 @@ them, and `{}` clears them. The export file never carries them: a binding ID
 belongs to one server, so the format and its version are unchanged, and an
 imported agent has no connections until you choose some.
 
+### Resources of an agent
+
+Some add-ons keep their data in resources that you own or were granted, such as the
+databases of Tables. An add-on can ask that each saved agent names the resources it
+may use. In the agent form, the add-on's row in **Tools** then lists your resources
+under the add-on's own word for them ("Databases it may use"), each with a switch and
+a mode: **Read** or **Read and change**. Nothing ticked means the agent can use none.
+
+Over the API an agent has `resources`, an object from add-on ID to a list of
+`{"id": "<resource id>", "mode": "read" | "write"}`. A `PUT` that does not name
+`resources` keeps the stored list, and `{}` clears it. A mode other than `read` or
+`write`, a repeated resource or an ID that is not a resource ID is a `400`. The field
+has no effect on an add-on that does not opt in. `GET
+/api/chats/agents/addons/{addon}/resources` lists what you can give an agent for one
+add-on (`items` with `id`, `name` and your own `role`, and the `noun` and `noun_plural`
+the add-on uses; `lang` or `Accept-Language` picks a translation the add-on has). The
+add-on rows of `GET /api/chats/draft/tools` and `GET /api/chats/{id}/tools` also carry
+`tool_list` (the tools of the add-on, each `read` or `write`) and `resources` (the
+words, set only for an add-on that opts in).
+
+The host applies the list on every tool call that takes a resource, as one more link
+after what you may use yourself (you own it, or it was shared with you):
+
+- a call on a resource that is not on the list is refused, and the add-on is not
+  called (code `resource_not_in_agent_list`);
+- a call that changes a resource listed as `read` is refused
+  (`resource_read_only_for_agent`);
+- a tool that names no resource, such as one that creates a new one, is not affected;
+- the list tool of the add-on shows the agent only the resources on the list, and a
+  `read` resource shows as `viewer`;
+- a chat of the agent cannot select a resource outside the list (`403`, type
+  `resource_not_in_agent_list`), and a selection made earlier is checked again at each
+  call;
+- the chats that triggers and jobs of the agent start, and the sub-agents of a chat,
+  use the same list. A sub-agent never reaches more than the agents above it;
+- the host reads the list from the stored agent at each call, so a change holds at
+  once.
+
+In a messaging chat the tools that change things need the `tools.write` permission of
+the connection, as for an add-on that holds a credential (see
+[Connectors](/features/chats-connectors/)). The access view and its preview say when
+an agent whose add-ons only change resources has none to change
+(`agent_resources_none`) or only read ones (`agent_resources_read_only`), and point at
+the agent. The export file never carries `resources`: a resource ID belongs to one
+server. An import drops the field and says so under `warnings`.
+
+An add-on opts in with `capabilities.resources.agentScoped` in its manifest (feature
+level 2; see [the manifest](/features/addons/#feature-level)).
+
 ### Folders of an agent
 
 `folders` gives the agent up to eight folders of your files, each with a mode, `read` (the

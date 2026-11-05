@@ -35,8 +35,8 @@
   "cap.knowledge.write.title": "Zum Wissen hinzufügen",
   "cap.knowledge.write.description": "Der Agent darf einen Text für eine Sammlung des Wissens vorschlagen. Der Besitzer bestätigt jeden einzelnen.",
   "cap.knowledge.write.action": "ins Wissen schreiben",
-  "cap.tools.write.title": "Dinge außerhalb von LocalAI ändern",
-  "cap.tools.write.description": "Ein Add-on-Werkzeug darf mit der Zugangsberechtigung der Verbindung etwas ändern, etwa einen Kommentar zu einem Issue.",
+  "cap.tools.write.title": "Dinge mit Add-on-Werkzeugen ändern",
+  "cap.tools.write.description": "Ein Add-on-Werkzeug darf für einen Absender etwas ändern: außerhalb von LocalAI mit der Zugangsberechtigung der Verbindung, etwa einen Kommentar zu einem Issue, oder in deinen eigenen Daten, etwa einer Tabelle.",
   "cap.tools.write.action": "mit Add-on-Werkzeugen Dinge in anderen Diensten ändern",
   "action.unknown": "das tun",
   "block.no_agent": "Diese Verbindung hat keinen Agenten, daher kann der Bot noch nicht antworten oder handeln.",
@@ -54,5 +54,7 @@
   "block.context_rule": "Der Bot kann an diesem Ort nicht {action}.",
   "block.knowledge_none": "In der Liste des Agenten steht keine Sammlung, daher kann der Bot nirgends {action}. Füge dem Agenten eine Sammlung hinzu.",
   "block.knowledge_no_embedding": "Das Embedding-Modell für das Wissen ist nicht installiert, daher kann der Bot nicht {action}. Installiere es unter Modelle.",
+  "block.agent_resources_none": "In der Liste des Agenten steht keine Ressource, daher kann der Bot nicht {action}. Füge dem Agenten eine hinzu.",
+  "block.agent_resources_read_only": "Alle Ressourcen in der Liste des Agenten sind schreibgeschützt, daher kann der Bot nicht {action}. Erlaube im Agenten Änderungen für eine davon.",
   "block.duplicate_connection": "Dieser Bot ist auch als {other} verbunden. Beide Verbindungen beantworten dieselbe Nachricht."
 }

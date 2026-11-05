@@ -14,6 +14,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/internal/dberr"
+	"github.com/mudler/LocalAI/core/services/studio/resourcesets"
 )
 
 // agentRow is the table of saved agents. The lists are JSON text so one schema
@@ -51,8 +52,11 @@ type agentRow struct {
 	// Connections is the JSON object of the connection the agent names for
 	// each credentialed add-on; empty for the agents made before.
 	Connections string
-	Created     time.Time
-	Updated     time.Time
+	// Resources is the JSON object of the resources the agent may use for each
+	// add-on with per-agent resources; empty for the agents made before.
+	Resources string
+	Created   time.Time
+	Updated   time.Time
 }
 
 func (agentRow) TableName() string { return "studio_agents" }
@@ -123,6 +127,14 @@ func connectionsJSON(m connsets.Sets) string {
 	return string(raw)
 }
 
+func resourcesJSON(m resourcesets.Sets) string {
+	if len(m) == 0 {
+		return ""
+	}
+	raw, _ := json.Marshal(m)
+	return string(raw)
+}
+
 func listFromJSON(s string) ([]string, error) {
 	if s == "" {
 		return nil, nil
@@ -141,6 +153,11 @@ func (r agentRow) agent(folders []folderRow) (Agent, error) {
 	var err error
 	if r.Connections != "" {
 		if err = json.Unmarshal([]byte(r.Connections), &a.Connections); err != nil {
+			return a, err
+		}
+	}
+	if r.Resources != "" {
+		if err = json.Unmarshal([]byte(r.Resources), &a.Resources); err != nil {
 			return a, err
 		}
 	}
@@ -220,8 +237,8 @@ func (s *gormStore) Put(ctx context.Context, a Agent) error {
 			MCPServers: listJSON(a.MCPServers), Addons: listJSON(a.Addons),
 			Collections: listJSON(a.Collections), Skills: listJSON(a.Skills), Network: a.Network, Memory: a.Memory, MemorySave: a.MemorySave,
 			FolderID: a.FolderID, FolderMode: a.FolderMode, BuiltinsOff: listJSON(a.BuiltinsOff), BuiltinsOn: listJSON(a.BuiltinsOn), Builtins: listJSON(a.Builtins),
-			Connections: connectionsJSON(a.Connections),
-			Created:     a.Created, Updated: a.Updated}
+			Connections: connectionsJSON(a.Connections), Resources: resourcesJSON(a.Resources),
+			Created: a.Created, Updated: a.Updated}
 		if exists {
 			row.Created = old.Created
 			err = tx.Save(&row).Error

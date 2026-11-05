@@ -13,6 +13,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
+	"github.com/mudler/LocalAI/core/services/studio/resourcesets"
 )
 
 // NewStore returns an empty store. Each spec calls it once; clean up with
@@ -25,7 +26,8 @@ func sample(id, principal, name string) agents.Agent {
 		ID: id, Principal: principal, Name: name, Description: "d", Instructions: "Be brief.", Model: "m1",
 		MCPServers: []string{"github"}, Addons: []string{"office", "sandbox"}, Collections: []string{"docs"}, Skills: []string{"review"},
 		Network: "registries", Memory: agents.MemoryMineAndOwn, MemorySave: agents.MemorySaveAlways, BuiltinsOff: []string{"triggers", "web"}, BuiltinsOn: []string{"saved_agents"}, Builtins: []string{"memory.write", "skills.write"},
-		Connections: connsets.Sets{"tracker": {"b-work", "b-home"}}, Created: now, Updated: now,
+		Connections: connsets.Sets{"tracker": {"b-work", "b-home"}},
+		Resources:   resourcesets.Sets{"tables": {{ID: "db-one", Mode: "read"}, {ID: "db-two", Mode: "write"}}}, Created: now, Updated: now,
 	}
 }
 
@@ -52,9 +54,12 @@ func Run(newStore NewStore) {
 		Expect(got.BuiltinsOn).To(Equal([]string{"saved_agents"}))
 		Expect(got.Builtins).To(Equal([]string{"memory.write", "skills.write"}))
 		Expect(got.Connections).To(Equal(connsets.Sets{"tracker": {"b-work", "b-home"}}))
+		Expect(got.Resources).To(Equal(resourcesets.Sets{"tables": {{ID: "db-one", Mode: "read"}, {ID: "db-two", Mode: "write"}}}))
+		got.Resources["tables"][0].Mode = "write"
 		got.Connections["tracker"][0] = "changed"
 		again, _ := s.Get(ctx, "u1", "a1")
 		Expect(again.Connections).To(Equal(connsets.Sets{"tracker": {"b-work", "b-home"}}), "a caller cannot change a stored agent")
+		Expect(again.Resources["tables"][0].Mode).To(Equal("read"), "a caller cannot change a stored agent")
 		Expect(got.Created.Equal(a.Created)).To(BeTrue(), "got %+v", got)
 		a.Name, a.Addons, a.Updated = "Reviewer 2", nil, a.Updated.Add(time.Hour)
 		a.Created = time.Time{}
@@ -63,6 +68,22 @@ func Run(newStore NewStore) {
 		Expect(got.Name).To(Equal("Reviewer 2"))
 		Expect(got.Addons).To(BeEmpty())
 		Expect(got.Created.IsZero()).To(BeFalse(), "after replace: %+v", got)
+	})
+	It("ResourcesAreStoredAndCleared", func() {
+		s := newStore()
+		a := sample("r1", "u1", "Scoped")
+		Expect(s.Put(ctx, a)).To(Succeed())
+		got, _ := s.Get(ctx, "u1", "r1")
+		Expect(got.Resources["tables"]).To(HaveLen(2))
+		a.Resources = nil
+		Expect(s.Put(ctx, a)).To(Succeed())
+		got, _ = s.Get(ctx, "u1", "r1")
+		Expect(got.Resources).To(BeEmpty())
+		b := sample("r2", "u1", "Plain")
+		b.Resources = nil
+		Expect(s.Put(ctx, b)).To(Succeed())
+		got, _ = s.Get(ctx, "u1", "r2")
+		Expect(got.Resources).To(BeEmpty(), "an agent saved without the field has none")
 	})
 	It("ListAllSpansPrincipals", func() {
 		s := newStore()

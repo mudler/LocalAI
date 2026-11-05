@@ -180,6 +180,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/api/chats/agents", FeatureAgents},
 	{"GET", "/api/chats/agents/templates", FeatureAgents},
 	{"GET", "/api/chats/agents/builtin-grants", FeatureAgents},
+	{"GET", "/api/chats/agents/addons/:addon/resources", FeatureAgents},
 	{"POST", "/api/chats/agents/templates/:id/create", FeatureAgents},
 	{"POST", "/api/chats/agents/import", FeatureAgents},
 	{"GET", "/api/chats/agents/:id/export", FeatureAgents},

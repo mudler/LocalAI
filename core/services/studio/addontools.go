@@ -12,7 +12,9 @@ import (
 	"strings"
 
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/resourcesets"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -51,6 +53,10 @@ type AddonTool struct {
 	// add-on, the key of that setting.
 	ApprovalOverridable bool
 	Tool                string
+	// ResourceScoped is true for a tool of an add-on whose manifest opts in to
+	// per-agent resources: a chat of a saved agent reaches only the resources
+	// on the list of the agent (see Agent.Resources).
+	ResourceScoped bool
 }
 
 // AddonTools is the add-on broker as the chats see it. Both calls run as the
@@ -112,13 +118,52 @@ type AddonInfo struct {
 	// Title and Description are what the add-on declares for people, when its
 	// broker can say (see AddonLister). Empty otherwise.
 	Title, Description string
+	// ToolList names the tools of the add-on the user may use and says which
+	// change things.
+	ToolList []AddonToolEntry
+	// Resources is set when the add-on scopes its resources per agent.
+	Resources *ResourceLabel
+}
+
+// AddonToolEntry is the name of a tool of an add-on, as the add-on declares
+// it, and whether it changes things.
+type AddonToolEntry struct {
+	Name  string
+	Write bool
 }
 
 // AddonListing is the title and the description an add-on declares in its
 // manifest.
 type AddonListing struct {
 	AddonID, Title, Description string
+	// Resources is set for an add-on whose manifest scopes its resources per
+	// agent (see AddonTool.ResourceScoped).
+	Resources *ResourceLabel
 }
+
+// ResourceLabel is the word an add-on uses for one of its resources: the
+// singular, the plural, and the translations by language tag.
+type ResourceLabel struct {
+	Noun, NounPlural string
+	Translations     map[string]contract.ResourceText
+}
+
+// AddonResourceChooser is implemented by a broker that can list the resources
+// of an add-on that a person may give to a saved agent.
+type AddonResourceChooser interface {
+	// ResourceChoices lists the resources the user may use now for the add-on,
+	// before any limit of an agent. The bool says the list is cut short. An
+	// add-on that does not scope its resources per agent is ErrNotScoped.
+	ResourceChoices(ctx context.Context, user, addonID string) ([]ResourceChoice, bool, error)
+}
+
+// ResourceChoice is one resource a person may give to an agent. Role is the
+// person's own role on it: viewer, editor or owner.
+type ResourceChoice struct{ ID, Name, Role string }
+
+// ErrNotScoped means the add-on does not scope its resources per agent, or is
+// not there for the user.
+var ErrNotScoped = errors.New("studio: the add-on has no resources to give to an agent")
 
 // AddonLister is implemented by a broker that knows what each add-on declares
 // for people. It is optional: without it the lists show the add-on IDs only.
@@ -180,9 +225,11 @@ func (s *Service) addonsFor(ctx context.Context, user string, rec session.ChatRe
 	}
 	n := map[string]int{}
 	credentialed := map[string]bool{}
+	list := map[string][]AddonToolEntry{}
 	for _, t := range tools {
 		n[t.AddonID]++
 		credentialed[t.AddonID] = credentialed[t.AddonID] || t.Credentialed
+		list[t.AddonID] = append(list[t.AddonID], AddonToolEntry{Name: t.Tool, Write: t.Action})
 	}
 	listed := map[string]AddonListing{}
 	if l, ok := s.d.AddonTools.(AddonLister); ok {
@@ -196,7 +243,9 @@ func (s *Service) addonsFor(ctx context.Context, user string, rec session.ChatRe
 	}
 	out := make([]AddonInfo, 0, len(n))
 	for id, c := range n {
-		info := AddonInfo{ID: id, Tools: c, Off: off[id], Title: listed[id].Title, Description: listed[id].Description, Credentialed: credentialed[id]}
+		info := AddonInfo{ID: id, Tools: c, Off: off[id], Title: listed[id].Title, Description: listed[id].Description, Credentialed: credentialed[id],
+			ToolList: list[id], Resources: listed[id].Resources}
+		slices.SortFunc(info.ToolList, func(a, b AddonToolEntry) int { return strings.Compare(a.Name, b.Name) })
 		if info.Credentialed && s.connectors != nil {
 			var err error
 			if info.Connections, err = s.connectors.Connections(ctx, user, id); err != nil {
@@ -325,6 +374,9 @@ func (s *Service) addonToolsHeld(ctx context.Context, a workspace.Actor, rec ses
 			}
 		}
 		if t, ok := s.shadowTool(a, d, schema); ok {
+			if d.ResourceScoped {
+				t.Run = s.agentResourceRun(a, t.Run)
+			}
 			if d.Credentialed {
 				t.Run = s.connectionRun(a, d.AddonID, conns, t.Run)
 			}
@@ -336,6 +388,9 @@ func (s *Service) addonToolsHeld(ctx context.Context, a workspace.Actor, rec ses
 		}
 		run := func(ctx context.Context, args json.RawMessage) (string, error) {
 			return s.d.AddonTools.Call(ctx, a.Principal, a.ChatID, name, args)
+		}
+		if d.ResourceScoped {
+			run = s.agentResourceRun(a, run)
 		}
 		if d.Credentialed {
 			run = s.connectionRun(a, d.AddonID, conns, run)
@@ -539,4 +594,143 @@ func (s *Service) connectionRun(a workspace.Actor, addonID string, offered Conne
 		}
 		return run(addontools.WithConnection(ctx, chosen.ID), args)
 	}
+}
+
+// maxAgentChain bounds how far a sub-agent looks up for the agents it works
+// for.
+const maxAgentChain = 8
+
+// limitOf turns the resources of an agent into the limit the add-on tools
+// read.
+func limitOf(r resourcesets.Sets) addontools.ResourceLimit {
+	out := make(addontools.ResourceLimit, len(r))
+	for addon, entries := range r {
+		m := make(map[string]string, len(entries))
+		for _, e := range entries {
+			m[e.ID] = e.Mode
+		}
+		out[addon] = m
+	}
+	return out
+}
+
+// agentResourceLayers returns one limit for each saved agent that a chat works
+// for: the agent of the chat, and for a sub-agent also the agents above it, so
+// a sub-agent never reaches more than the agent that started it. A chat with
+// no agent has no layer, which means no limit. An agent that cannot be read
+// gives an empty layer: the chat reaches no scoped resource until it can.
+// Everything is read from the stored chats and agents at the call, so a change
+// of the list holds at once.
+func (s *Service) agentResourceLayers(ctx context.Context, user, chatID string) ([]addontools.ResourceLimit, error) {
+	var layers []addontools.ResourceLimit
+	id := chatID
+	for range maxAgentChain {
+		rec, err := s.d.Store.GetChat(ctx, user, id)
+		if errors.Is(err, session.ErrNotFound) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if rec.AgentID != "" {
+			var layer addontools.ResourceLimit
+			if s.d.Agents != nil {
+				if ag, aerr := s.d.Agents.Get(ctx, rec.Principal, rec.AgentID); aerr == nil {
+					layer = limitOf(ag.Resources)
+				} else if !errors.Is(aerr, agents.ErrNotFound) {
+					s.log.Warn("studio: agent resources unavailable", "chat", rec.ID, "agent", rec.AgentID, "error", aerr)
+				}
+			}
+			if layer == nil {
+				layer = addontools.ResourceLimit{}
+			}
+			layers = append(layers, layer)
+		}
+		if rec.Kind != session.KindSubAgent || rec.ParentID == "" {
+			break
+		}
+		id = rec.ParentID
+	}
+	return layers, nil
+}
+
+// agentResourceRun wraps the call of a tool of an add-on whose resources are
+// scoped per agent. The host, not the model, sets the limit: it is read from
+// the stored agent at each call and rides in the context, where only host code
+// sets it. The add-on does not know the agent.
+func (s *Service) agentResourceRun(a workspace.Actor, run func(context.Context, json.RawMessage) (string, error)) func(context.Context, json.RawMessage) (string, error) {
+	return func(ctx context.Context, args json.RawMessage) (string, error) {
+		layers, err := s.agentResourceLayers(ctx, a.Principal, a.ChatID)
+		if err != nil {
+			return "", err
+		}
+		if len(layers) > 0 {
+			ctx = addontools.WithResourceLimits(ctx, addontools.ResourceLimits{Layers: layers})
+		}
+		return run(ctx, args)
+	}
+}
+
+// ResourceSelectable says whether the chat may select the resource of an
+// add-on whose resources are scoped per agent. A chat of an agent selects only
+// a resource on the list of the agent; a chat with no agent, and an add-on
+// that is not scoped, have no such limit. The selection a chat made earlier is
+// checked again at every call, so a list that shrinks later holds too.
+func (s *Service) ResourceSelectable(ctx context.Context, user, chatID, addonID, resourceID string) (bool, error) {
+	if s.d.AddonTools == nil {
+		return true, nil
+	}
+	defs, err := s.d.AddonTools.Tools(ctx, principal(user))
+	if err != nil {
+		return false, err
+	}
+	scoped := false
+	for _, d := range defs {
+		if d.AddonID == addonID && d.ResourceScoped {
+			scoped = true
+			break
+		}
+	}
+	if !scoped {
+		return true, nil
+	}
+	layers, err := s.agentResourceLayers(ctx, principal(user), chatID)
+	if err != nil {
+		return false, err
+	}
+	return addontools.ResourceLimits{Layers: layers}.Allows(addonID, resourceID, false), nil
+}
+
+// AgentResourceChoices is what a person may give a saved agent for one add-on:
+// the resources they may use now and the add-on's word for them.
+type AgentResourceChoices struct {
+	Items     []ResourceChoice
+	Truncated bool
+	Label     *ResourceLabel
+}
+
+// AgentResourceChoices lists the resources of an add-on that scopes its
+// resources per agent which the user may use now, through the listing the
+// manifest declares. It is the choice for Agent.Resources. An add-on that does
+// not scope its resources, or that the user cannot see, is ErrNotScoped.
+func (s *Service) AgentResourceChoices(ctx context.Context, user, addonID string) (AgentResourceChoices, error) {
+	chooser, ok := s.d.AddonTools.(AddonResourceChooser)
+	if !ok {
+		return AgentResourceChoices{}, ErrNotScoped
+	}
+	items, truncated, err := chooser.ResourceChoices(ctx, principal(user), addonID)
+	if err != nil {
+		return AgentResourceChoices{}, err
+	}
+	out := AgentResourceChoices{Items: items, Truncated: truncated}
+	if l, ok := s.d.AddonTools.(AddonLister); ok {
+		if list, err := l.AddonListings(ctx, principal(user)); err == nil {
+			for _, a := range list {
+				if a.AddonID == addonID {
+					out.Label = a.Resources
+				}
+			}
+		}
+	}
+	return out, nil
 }

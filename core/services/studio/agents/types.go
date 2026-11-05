@@ -18,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
+	"github.com/mudler/LocalAI/core/services/studio/resourcesets"
 )
 
 // Errors. An agent that does not exist, or belongs to another principal, is
@@ -82,6 +83,13 @@ type Agent struct {
 	// chooses in the chat. The service checks that each binding is the
 	// owner's and belongs to the add-on.
 	Connections connsets.Sets
+	// Resources names, for each add-on whose resources are scoped per agent
+	// (the manifest opts in), the resources the agent may use and the mode of
+	// each, read or write, by add-on ID. An add-on of that kind with no entry
+	// gives the agent no resource. The field has no effect on an add-on that
+	// does not opt in. The host enforces it on every tool call that takes a
+	// resource, on top of what the owner of the chat may use.
+	Resources resourcesets.Sets
 	// Network is the network preset of the Sandbox commands of the agent's
 	// unattended runs (triggers, connectors): off, registries or all, capped
 	// by the administrator's ceiling. Empty is off. A run never asks a
@@ -256,6 +264,9 @@ func Validate(a Agent) error {
 			}
 		}
 	}
+	if err := resourcesets.Validate(a.Resources); err != nil {
+		return bad("%s", err)
+	}
 	if a.FolderMode == "" && a.FolderID != 0 && len(a.Folders) == 0 {
 		return bad("a folder needs a mode, read or write")
 	}
@@ -325,5 +336,6 @@ func (a Agent) clone() Agent {
 	a.BuiltinsOn = append([]string(nil), a.BuiltinsOn...)
 	a.Builtins = append([]string(nil), a.Builtins...)
 	a.Connections = connsets.Clone(a.Connections)
+	a.Resources = resourcesets.Clone(a.Resources)
 	return a.normalizeFolders()
 }

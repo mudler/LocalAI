@@ -697,6 +697,15 @@ func (l lateStudioAddons) AddonListings(ctx context.Context, user string) ([]stu
 	return nil, nil
 }
 
+// ResourceChoices forwards to the broker when it can list the resources a
+// person may give to an agent.
+func (l lateStudioAddons) ResourceChoices(ctx context.Context, user, addonID string) ([]studio.ResourceChoice, bool, error) {
+	if g, ok := l.a.StudioAddonTools().(studio.AddonResourceChooser); ok {
+		return g.ResourceChoices(ctx, user, addonID)
+	}
+	return nil, false, studio.ErrNotScoped
+}
+
 // Isolation forwards to the broker when it can say how commands are isolated.
 func (l lateStudioAddons) Isolation(ctx context.Context, user, addonID string) string {
 	if g, ok := l.a.StudioAddonTools().(studio.CommandIsolation); ok {
@@ -914,7 +923,7 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 			continue
 		}
 		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead,
-			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt, Permission: d.Permission, Credentialed: d.Credentialed, ApprovalOverridable: d.ApprovalOverridable, Tool: d.Tool})
+			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt, Permission: d.Permission, Credentialed: d.Credentialed, ApprovalOverridable: d.ApprovalOverridable, Tool: d.Tool, ResourceScoped: d.ResourceScoped})
 	}
 	return filterByFeature(out, s.hostOps, s.has, actor), nil
 }
@@ -1036,9 +1045,35 @@ func (s *studioAddons) AddonListings(ctx context.Context, user string) ([]studio
 	}
 	out := make([]studio.AddonListing, 0, len(list))
 	for _, a := range list {
-		out = append(out, studio.AddonListing{AddonID: a.AddonID, Title: a.Title, Description: a.Description})
+		l := studio.AddonListing{AddonID: a.AddonID, Title: a.Title, Description: a.Description}
+		if r := a.Resources; r != nil {
+			l.Resources = &studio.ResourceLabel{Noun: r.Noun, NounPlural: r.NounPlural, Translations: r.Translations}
+		}
+		out = append(out, l)
 	}
 	return out, nil
+}
+
+// ResourceChoices lists the resources of an add-on that scopes its resources
+// per agent which the user may use now: the declared listing of the host,
+// before any limit of an agent.
+func (s *studioAddons) ResourceChoices(ctx context.Context, user, addonID string) ([]studio.ResourceChoice, bool, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return nil, false, studio.ErrNotScoped
+	}
+	rows, truncated, err := s.adapter.ResourceChoices(ctx, actor, addonID)
+	switch {
+	case errors.Is(err, addontools.ErrUnknownTool), errors.Is(err, gateway.ErrForbidden):
+		return nil, false, studio.ErrNotScoped
+	case err != nil:
+		return nil, false, err
+	}
+	out := make([]studio.ResourceChoice, len(rows))
+	for i, r := range rows {
+		out[i] = studio.ResourceChoice{ID: r.ID, Name: r.Name, Role: r.Role}
+	}
+	return out, truncated, nil
 }
 
 // AddonShadowers lists the add-ons that replace a built-in chat tool and that

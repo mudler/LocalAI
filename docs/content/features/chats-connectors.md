@@ -813,8 +813,11 @@ The access view and the log name the way a sender got a capability: `allowlist`,
 all of them may do.
 
 A tool of an add-on that holds your credential and changes something outside
-LocalAI (a comment on an issue, for example) needs `tools.write`. The host reads
-this from the add-on's manifest, so it applies to every add-on of that shape. The
+LocalAI (a comment on an issue, for example) needs `tools.write`. So does a tool
+that changes a resource of an add-on whose manifest scopes its resources per agent
+(see [Resources of an agent](/features/chats-agents/#resources-of-an-agent)). The
+host reads this from the add-on's manifest, so it applies to every add-on of that
+shape. The
 sender needs the capability as above; the write mode of the connection and the
 confirmation of the change still apply on top of it.
 

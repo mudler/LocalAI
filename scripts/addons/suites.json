@@ -526,7 +526,16 @@
           "lets a kind that declares them have a tool that enumerates",
           "refuses an enumerating tool when the kind has no wildcards, or when it is not a plain read tool",
           "refuses an enumerating tool that names a resource",
-          "name a prefix, an option of the kind and a value it offers"
+          "name a prefix, an option of the kind and a value it offers",
+          "treats a manifest without featureLevel as level 1 and runs it on a level 1 host",
+          "refuses an add-on that needs a newer level with a plain reason",
+          "accepts it on a host that has the level, and the host of this build has it",
+          "parses a manifest of any level without a host, so the install can say it needs a newer host",
+          "requires the manifest to declare the level of the fields it uses",
+          "keeps the field out of an older strict reader: an unknown key is refused",
+          "needs a list mapping",
+          "accepts a plural and translated nouns, and falls back from the translation to English",
+          "refuses translated nouns the manifest does not name, empty ones and markup"
         ]
       },
       {
@@ -554,7 +563,6 @@
           "lists every release platform with its runner",
           "lists every release platform with its runner",
           "lists every release platform with its runner",
-          "lists every release platform with its runner",
           "enables a platform exactly when its native check is recorded",
           "enables a platform exactly when its native check is recorded",
           "enables a platform exactly when its native check is recorded",
@@ -564,8 +572,6 @@
           "enables a platform exactly when its native check is recorded",
           "enables a platform exactly when its native check is recorded",
           "enables a platform exactly when its native check is recorded",
-          "enables a platform exactly when its native check is recorded",
-          "has a catalog template",
           "has a catalog template",
           "has a catalog template",
           "has a catalog template",
@@ -762,7 +768,11 @@
           "translates the title and the description of talk in every main language",
           "translates the title and the description of telegram in every main language",
           "translates the title and the description of voice in every main language",
-          "translates the title and the description of web in every main language"
+          "translates the title and the description of web in every main language",
+          "writes nothing for a manifest at the base level, with or without the flag",
+          "keeps the level out of the index by default, so a host that predates the field still reads it",
+          "keeps the level of Tables out of the committed index shape, and writes it on request",
+          "writes the level the manifest needs when asked to"
         ]
       },
       {
@@ -882,7 +892,8 @@
       "carries the translated title and description of an entry through the library",
       "finds an entry by its translated text as well as by the English text",
       "keeps a plain entry free of translation fields on the wire",
-      "rejects translations that the manifest would refuse"
+      "rejects translations that the manifest would refuse",
+      "reads the feature level an entry requires, and an entry without it needs none"
     ],
     "report": ".cache/addons/logs/catalog.json"
   },
@@ -977,7 +988,8 @@
       "refuses a file that compresses like a bomb",
       "refuses more files than the limit",
       "refuses a path that is a file in one entry and a directory in another",
-      "does not read a path through a symbolic link planted in the staging area"
+      "does not read a path through a symbolic link planted in the staging area",
+      "refuses a package that needs a newer feature level, from the entry and from the manifest"
     ],
     "report": ".cache/addons/logs/packages.json"
   },
@@ -1122,7 +1134,8 @@
       "downloads and verifies the package once, so the next read of the same release is immediate",
       "reads again when the library lists another package for the same version",
       "does not wait behind a read of the same release that is in flight",
-      "is a recent check once the owner has refreshed in the background, not unknown"
+      "is a recent check once the owner has refreshed in the background, not unknown",
+      "refuses a candidate that needs a newer feature level, and offers one the host has"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -1224,7 +1237,10 @@
           "opens an endpoint for a declared operation that is not granted, and a later grant works with no restart",
           "types the add-on's own 429 answer with its wait, never as an outage",
           "keeps the wait between one second and the bound",
-          "leaves a 429 with another body an outage: only the add-on's own word counts"
+          "leaves a 429 with another body an outage: only the add-on's own word counts",
+          "keeps the short-call slots free while more polls than the concurrency limit are open",
+          "refuses a poll past the poll pool, and frees the slot when a poll is cancelled",
+          "refuses a poll after the client is withdrawn and waits for open polls to drain"
         ]
       },
       {
@@ -3134,7 +3150,8 @@
           "downloads and verifies the package once, so the next read of the same release is immediate",
           "reads again when the library lists another package for the same version",
           "does not wait behind a read of the same release that is in flight",
-          "is a recent check once the owner has refreshed in the background, not unknown"
+          "is a recent check once the owner has refreshed in the background, not unknown",
+          "refuses a candidate that needs a newer feature level, and offers one the host has"
         ]
       },
       {
@@ -3207,7 +3224,10 @@
           "opens an endpoint for a declared operation that is not granted, and a later grant works with no restart",
           "types the add-on's own 429 answer with its wait, never as an outage",
           "keeps the wait between one second and the bound",
-          "leaves a 429 with another body an outage: only the add-on's own word counts"
+          "leaves a 429 with another body an outage: only the add-on's own word counts",
+          "keeps the short-call slots free while more polls than the concurrency limit are open",
+          "refuses a poll past the poll pool, and frees the slot when a poll is cancelled",
+          "refuses a poll after the client is withdrawn and waits for open polls to drain"
         ]
       },
       {

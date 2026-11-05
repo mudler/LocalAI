@@ -44,6 +44,15 @@ var _ = Describe("feature level in the library index", func() {
 			Expect(e.Requires.FeatureLevel).To(BeZero())
 		}
 	})
+	It("keeps the level of Tables out of the committed index shape, and writes it on request", func() {
+		same := func(s string) string { return s }
+		for _, e := range render("tables", same) {
+			Expect(e.Requires.FeatureLevel).To(BeZero())
+		}
+		for _, e := range render("tables", same, "--feature-level-in-index") {
+			Expect(e.Requires.FeatureLevel).To(Equal(uint64(2)))
+		}
+	})
 	It("writes the level the manifest needs when asked to", func() {
 		for _, e := range render("telegram", needsTwo, "--feature-level-in-index") {
 			Expect(e.Requires.FeatureLevel).To(Equal(uint64(2)))

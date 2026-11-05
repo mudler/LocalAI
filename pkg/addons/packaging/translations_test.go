@@ -62,14 +62,24 @@ var _ = Describe("first-party add-on translations", func() {
 			if m.Capabilities.Connector != nil {
 				kinds = m.Capabilities.Connector.Kinds
 			}
-			if len(kinds) == 0 {
-				Expect(m.I18n).To(BeEmpty(), "%s has no connector kind to translate", id)
+			// An add-on that names its resources in the manifest translates the
+			// noun in every main language (the agent form shows it).
+			named := m.Capabilities.Resources != nil && m.Capabilities.Resources.AgentScoped
+			if len(kinds) == 0 && !named {
+				Expect(m.I18n).To(BeEmpty(), "%s has no connector kind and no resource noun to translate", id)
 				return
 			}
-			Expect(m.I18n).NotTo(BeEmpty(), "%s declares a connector kind and no translation of it", id)
+			Expect(m.I18n).NotTo(BeEmpty(), "%s declares text to translate and no translation of it", id)
 			for _, tag := range mainLanguages {
 				tr, ok := m.I18n[tag]
-				Expect(ok).To(BeTrue(), "%s has no %s translation of its kinds", id, tag)
+				Expect(ok).To(BeTrue(), "%s has no %s translation", id, tag)
+				if named {
+					Expect(tr.Resources).NotTo(BeNil(), "%s %s: the resource noun is not translated", id, tag)
+					Expect(tr.Resources.Noun).NotTo(BeEmpty(), "%s %s", id, tag)
+					Expect(tr.Resources.NounPlural).NotTo(BeEmpty(), "%s %s", id, tag)
+				} else {
+					Expect(tr.Resources).To(BeNil(), "%s %s translates resources the manifest does not scope", id, tag)
+				}
 				Expect(tr.Kinds).To(HaveLen(len(kinds)), "%s %s translates a different set of kinds", id, tag)
 				for _, k := range kinds {
 					got := tr.Kinds[k.ID]
@@ -79,17 +89,29 @@ var _ = Describe("first-party add-on translations", func() {
 			}
 			// The strict parser already refuses unknown fields; this pins the
 			// closed set at the byte level, so a looser parser would not hide one.
-			var loose map[string]map[string]map[string]map[string]json.RawMessage
+			var loose map[string]map[string]json.RawMessage
 			var top map[string]json.RawMessage
 			Expect(json.Unmarshal(raw, &top)).To(Succeed())
 			Expect(json.Unmarshal(top["i18n"], &loose)).To(Succeed())
 			for tag, tr := range loose {
-				Expect(tr).To(HaveLen(1), "%s %s: only kinds is translatable", id, tag)
-				Expect(tr).To(HaveKey("kinds"))
-				for kid, fields := range tr["kinds"] {
+				for key := range tr {
+					Expect(key).To(BeElementOf("kinds", "resources"), "%s %s: only kinds and resources are translatable", id, tag)
+				}
+				var kindFields map[string]map[string]json.RawMessage
+				if tr["kinds"] != nil {
+					Expect(json.Unmarshal(tr["kinds"], &kindFields)).To(Succeed())
+				}
+				for kid, fields := range kindFields {
 					for f := range fields {
 						Expect(f).To(BeElementOf("title", "description"), "%s %s %s: %s is not translatable", id, tag, kid, f)
 					}
+				}
+				var resFields map[string]json.RawMessage
+				if tr["resources"] != nil {
+					Expect(json.Unmarshal(tr["resources"], &resFields)).To(Succeed())
+				}
+				for f := range resFields {
+					Expect(f).To(BeElementOf("noun", "nounPlural"), "%s %s: %s is not translatable", id, tag, f)
 				}
 			}
 		})

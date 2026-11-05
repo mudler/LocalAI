@@ -35,8 +35,8 @@
   "cap.knowledge.write.title": "添加到知识库",
   "cap.knowledge.write.description": "代理可以为知识库的某个集合提议一段文本。每一段都由所有者确认。",
   "cap.knowledge.write.action": "写入知识库",
-  "cap.tools.write.title": "更改 LocalAI 之外的内容",
-  "cap.tools.write.description": "附加组件的工具可以使用绑定的凭据更改某些内容，例如在问题下发表评论。",
+  "cap.tools.write.title": "使用附加组件工具更改内容",
+  "cap.tools.write.description": "附加组件的工具可以为发送者更改某些内容：在 LocalAI 之外使用绑定的凭据，例如在问题下发表评论；或在你自己的数据中，例如一张表格。",
   "cap.tools.write.action": "使用附加组件工具更改其他服务中的内容",
   "action.unknown": "这样做",
   "block.no_agent": "此连接没有代理，因此机器人暂时无法回复或执行操作。",
@@ -54,5 +54,7 @@
   "block.context_rule": "机器人不能在此处{action}。",
   "block.knowledge_none": "代理的列表中没有任何集合，因此机器人无处可{action}。请为代理添加一个集合。",
   "block.knowledge_no_embedding": "知识库的嵌入模型尚未安装，因此机器人无法{action}。请在“模型”中安装。",
+  "block.agent_resources_none": "代理的列表中没有任何资源，因此机器人无法{action}。请为代理添加一个资源。",
+  "block.agent_resources_read_only": "代理列表中的资源都是只读的，因此机器人无法{action}。请在代理中允许更改其中一个。",
   "block.duplicate_connection": "这个机器人也以 {other} 的名称连接。两个连接都会回复同一条消息。"
 }

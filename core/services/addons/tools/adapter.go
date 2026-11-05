@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -136,6 +137,10 @@ type ToolDefinition struct {
 	// add-on. They only shape the line that says which connection acted.
 	ResourceArgument string `json:"-"`
 	ResourceLabel    string `json:"-"`
+	// ResourceScoped is true when the manifest opts in to per-agent resources
+	// (capabilities.resources.agentScoped). A chat of a saved agent then
+	// reaches only the resources on the list of the agent.
+	ResourceScoped bool `json:"-"`
 }
 
 // ResultKind says what a ToolResult carries.
@@ -674,6 +679,16 @@ func (t *ToolAdapter) UserSettings(ctx context.Context, actor contract.Actor) ([
 // AddonListing is the title and description an add-on declares for people.
 type AddonListing struct {
 	AddonID, Title, Description string
+	// Resources is set for an add-on that scopes its resources per agent.
+	Resources *ResourceLabel
+}
+
+// ResourceLabel is the word an add-on uses for one of its resources, as its
+// manifest declares it.
+type ResourceLabel struct {
+	Noun, NounPlural string
+	// Translations are the translated nouns by language tag.
+	Translations map[string]contract.ResourceText
 }
 
 // Listings returns the title and description of every add-on the actor can
@@ -688,7 +703,11 @@ func (t *ToolAdapter) Listings(ctx context.Context, actor contract.Actor) ([]Add
 	}
 	out := make([]AddonListing, 0, len(list.Apps))
 	for _, a := range list.Apps {
-		out = append(out, AddonListing{AddonID: a.ID, Title: a.Title, Description: a.Description})
+		l := AddonListing{AddonID: a.ID, Title: a.Title, Description: a.Description}
+		if r := a.Resources; r != nil && r.AgentScoped {
+			l.Resources = &ResourceLabel{Noun: r.Noun, NounPlural: r.NounPlural, Translations: maps.Clone(a.ResourceTexts)}
+		}
+		out = append(out, l)
 	}
 	return out, nil
 }
@@ -754,8 +773,8 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	if json.Unmarshal(d.InputSchema, &params) != nil {
 		return ToolDefinition{}, false
 	}
-	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, Permission: contract.ToolPermission(a.Credentialed, d), Credentialed: a.Credentialed, ApprovalOverridable: d.ApprovalOverridable && d.Approval == contract.ApprovalAlways,
-		ResourceArgument: a.ResourceArgument, ResourceLabel: a.ResourceLabel}
+	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, Permission: contract.ToolPermission(a.Credentialed || (a.Resources != nil && a.Resources.AgentScoped), d), Credentialed: a.Credentialed, ApprovalOverridable: d.ApprovalOverridable && d.Approval == contract.ApprovalAlways,
+		ResourceArgument: a.ResourceArgument, ResourceLabel: a.ResourceLabel, ResourceScoped: a.Resources != nil && a.Resources.AgentScoped}
 	// Checked again for the same reason as the schema: a manifest that names a
 	// tool outside the list, or a shadow of the wrong kind or schema, never
 	// shadows it.
@@ -940,6 +959,11 @@ func (t *ToolAdapter) executeTool(ctx context.Context, actor contract.Actor, con
 			return ToolResult{}, gateway.ErrForbidden
 		}
 		resource = id
+	}
+	// The list of the agent of the chat, on top of what the person may use.
+	// It binds the resource the model named and the one the chat selected.
+	if res, refused := limitedResult(ctx, def, name, resource); refused {
+		return res, nil
 	}
 	op, err := t.newID()
 	if err != nil {

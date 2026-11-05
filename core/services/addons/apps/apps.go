@@ -200,6 +200,9 @@ type App struct {
 	// Resources is the resource mapping of the manifest, with the listing
 	// declaration the host acts on. It is not part of the apps API.
 	Resources *contract.ResourceTools `json:"-"`
+	// ResourceTexts are the translated nouns of the resources, by language
+	// tag (the i18n field of the manifest). Not part of the apps API.
+	ResourceTexts map[string]contract.ResourceText `json:"-"`
 	// Skills are the skills the package ships, from the verified manifest.
 	// The owner copies their files into the chats' skill layer.
 	Skills []contract.SkillDefinition `json:"skills,omitempty"`
@@ -360,6 +363,7 @@ func build(s Snapshot, admin bool) App {
 		a.ResourceArgument, a.ResourceLabel = m.Capabilities.Credentials[0].ResourceArgument, m.Capabilities.Credentials[0].ResourceLabel
 	}
 	a.Resources = resourceTools(m)
+	a.ResourceTexts = resourceTexts(m)
 	a.Skills = slices.Clone(m.Capabilities.SkillDefinitions)
 	a.SkillShadows = contract.ShadowedSkills(m.Capabilities.SkillDefinitions)
 	a.ContextFiles = slices.Clone(m.Capabilities.ContextFiles)
@@ -513,6 +517,21 @@ func contributions(u *contract.UI) ([]ChatActionView, []SlotView, []contract.Ren
 		slots = append(slots, SlotView{ID: s.ID, Slot: s.Slot, Component: s.Component, Extensions: slices.Clone(s.Extensions)})
 	}
 	return actions, slots, slices.Clone(u.Renderers)
+}
+
+// resourceTexts copies the translated resource nouns of the manifest.
+func resourceTexts(m contract.Manifest) map[string]contract.ResourceText {
+	var out map[string]contract.ResourceText
+	for tag, t := range m.I18n {
+		if t.Resources == nil {
+			continue
+		}
+		if out == nil {
+			out = map[string]contract.ResourceText{}
+		}
+		out[tag] = *t.Resources
+	}
+	return out
 }
 
 // resourceTools copies the resource mapping of the manifest.

@@ -55,6 +55,12 @@ const (
 	// CodeKnowledgeNoEmbedding: the model that indexes Knowledge is not
 	// installed on the server.
 	CodeKnowledgeNoEmbedding = "knowledge_no_embedding"
+	// CodeAgentResourcesNone: every add-on of the agent that changes things
+	// works on resources the agent lists, and the list is empty, so there is
+	// nothing the bot may change.
+	CodeAgentResourcesNone = "agent_resources_none"
+	// CodeAgentResourcesReadOnly: the agent lists resources, but only to read.
+	CodeAgentResourcesReadOnly = "agent_resources_read_only"
 	// CodeDuplicateConnection: another enabled connection of the owner is the
 	// same bot, so both answer the same message. It is not a refusal of a
 	// capability: the sentence names the other connection with {other}, and
@@ -67,7 +73,7 @@ func BlockCodes() []string {
 	return []string{CodeNoAgent, CodeUnknownCapability, CodeServerSettingOff, CodeToolsSwitchOff, CodeAgentPermissionOff,
 		CodeAgentUnavailable, CodeConnectionPermissionOff, CodeSenderNotListed, CodeSenderNeedsPairing,
 		CodeChannelNotTrusted, CodeRoleNotGranted, CodeKindNotRunning, CodeContextRule,
-		CodeKnowledgeNone, CodeKnowledgeNoEmbedding, CodeDuplicateConnection}
+		CodeKnowledgeNone, CodeKnowledgeNoEmbedding, CodeAgentResourcesNone, CodeAgentResourcesReadOnly, CodeDuplicateConnection}
 }
 
 // Who holds the link of the chain that refused.
@@ -178,6 +184,12 @@ var blockTable = map[string]blockInfo{
 	CodeKnowledgeNoEmbedding: {ByServer,
 		"The embedding model for Knowledge is not installed, so the bot cannot {action}. Install it in Models.",
 		"The server cannot index new texts right now, so the bot cannot {action}."},
+	CodeAgentResourcesNone: {ByAgent,
+		"No resource is on the list of the agent, so the bot cannot {action}. Add one to the agent.",
+		"The owner gave this bot no resource to work on, so it cannot {action}."},
+	CodeAgentResourcesReadOnly: {ByAgent,
+		"Every resource on the list of the agent is read only, so the bot cannot {action}. Allow changes for one of them in the agent.",
+		"The owner let this bot read what it works on, not change it, so it cannot {action}."},
 	CodeDuplicateConnection: {ByConnection,
 		"This bot is also connected as {other}. Both connections will answer the same message.",
 		"This bot is connected twice, so a second copy may answer too."},

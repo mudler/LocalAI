@@ -35,8 +35,8 @@
   "cap.knowledge.write.title": "Ajouter aux Connaissances",
   "cap.knowledge.write.description": "L'agent peut proposer un texte pour une collection des Connaissances. Le propriétaire confirme chacun.",
   "cap.knowledge.write.action": "écrire dans les Connaissances",
-  "cap.tools.write.title": "Modifier des choses hors de LocalAI",
-  "cap.tools.write.description": "Un outil d'une extension peut modifier quelque chose avec l'identifiant de la liaison, comme un commentaire sur un ticket.",
+  "cap.tools.write.title": "Modifier des choses avec les outils d'extension",
+  "cap.tools.write.description": "Un outil d'une extension peut modifier quelque chose pour un expéditeur : hors de LocalAI avec l'identifiant de la liaison, comme un commentaire sur un ticket, ou dans vos propres données, comme un tableau.",
   "cap.tools.write.action": "modifier des choses dans d'autres services avec des outils d'extension",
   "action.unknown": "faire cela",
   "block.no_agent": "Cette connexion n'a pas d'agent, donc le bot ne peut pas encore répondre ni agir.",
@@ -54,5 +54,7 @@
   "block.context_rule": "Le bot ne peut pas {action} à cet endroit.",
   "block.knowledge_none": "Aucune collection n'est dans la liste de l'agent, donc le bot n'a nulle part où {action}. Ajoutez une collection à l'agent.",
   "block.knowledge_no_embedding": "Le modèle d'embedding des Connaissances n'est pas installé, donc le bot ne peut pas {action}. Installez-le dans Modèles.",
+  "block.agent_resources_none": "Aucune ressource n'est dans la liste de l'agent, donc le bot ne peut pas {action}. Ajoutez-en une à l'agent.",
+  "block.agent_resources_read_only": "Toutes les ressources de la liste de l'agent sont en lecture seule, donc le bot ne peut pas {action}. Autorisez les modifications pour l'une d'elles dans l'agent.",
   "block.duplicate_connection": "Ce bot est aussi connecté sous le nom {other}. Les deux connexions répondront au même message."
 }

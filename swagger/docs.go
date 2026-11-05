@@ -586,7 +586,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Stores which resource the authenticated user chose for the conversation and add-on, so that chat tool calls that name no resource use it. The caller must hold at least the viewer role on the resource now; the stored reference is never a bearer and is authorized again at the owner on every use. It is not process-global, not shared between users or conversations, and not part of the chat history. The store is bounded per user and expires unused entries. No MCP tool maps to this route.",
+                "description": "Stores which resource the authenticated user chose for the conversation and add-on, so that chat tool calls that name no resource use it. The caller must hold at least the viewer role on the resource now; the stored reference is never a bearer and is authorized again at the owner on every use. It is not process-global, not shared between users or conversations, and not part of the chat history. The store is bounded per user and expires unused entries. For an add-on whose manifest scopes its resources per agent, a chat of a saved agent can select only a resource on the agent's list. No MCP tool maps to this route.",
                 "consumes": [
                     "application/json"
                 ],
@@ -642,7 +642,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Feature denied, or the resource is unknown or not readable by the caller",
+                        "description": "Feature denied, the resource is unknown or not readable by the caller, or (type resource_not_in_agent_list) the chat's saved agent does not list it",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -5236,6 +5236,44 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The definition or the folder is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/agents/addons/{addon}/resources": {
+            "get": {
+                "description": "For an add-on whose manifest scopes its resources per agent, returns what the add-on's declared listing gives you now, ordered by ID: the resources you own or were granted, with your role on each, and the add-on's word for them (noun, noun_plural; lang or Accept-Language picks a translation the manifest has). The list is the choice for the agent field resources; a chat of the agent still reaches only what you may use at that moment. An add-on that does not scope its resources per agent, or is not there for you, is 404.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the resources of an add-on that you can give a saved agent.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the add-on's id",
+                        "name": "addon",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Language tag for the nouns, such as it or pt-BR. Wins over Accept-Language. A language the manifest does not translate gives English.",
+                        "name": "lang",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The resources you can give an agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentResourceChoices"
+                        }
+                    },
+                    "404": {
+                        "description": "No such add-on, or it has no resources to give to an agent",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -20336,6 +20374,34 @@ const docTemplate = `{
                 }
             }
         },
+        "resourcesets.Entry": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID is the resource ID the add-on host uses.",
+                    "type": "string",
+                    "example": "db-1a2b3c"
+                },
+                "mode": {
+                    "description": "Mode is read or write.",
+                    "type": "string",
+                    "enum": [
+                        "read",
+                        "write"
+                    ],
+                    "example": "read"
+                }
+            }
+        },
+        "resourcesets.Sets": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "array",
+                "items": {
+                    "$ref": "#/definitions/resourcesets.Entry"
+                }
+            }
+        },
         "schema.APIError": {
             "type": "object",
             "properties": {
@@ -20604,9 +20670,24 @@ const docTemplate = `{
                 "off": {
                     "type": "boolean"
                 },
+                "resources": {
+                    "description": "Resources is set when the add-on scopes its resources per agent: a saved\nagent then names the resources it may use (agent field resources). It\ncarries the word for them. GET /api/chats/agents/addons/{addon}/resources\nlists what you can give an agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAddonResources"
+                        }
+                    ]
+                },
                 "title": {
                     "description": "Title and Description are what the add-on's manifest declares for\npeople. Title is empty when the add-on declares none; the interface then shows the ID.",
                     "type": "string"
+                },
+                "tool_list": {
+                    "description": "ToolList names the tools of the add-on you may use, by the name the\nadd-on declares, with kind read or write. Sorted by name.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAddonTool"
+                    }
                 },
                 "tools": {
                     "type": "integer"
@@ -20658,6 +20739,23 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsAddonResources": {
+            "type": "object",
+            "properties": {
+                "language": {
+                    "type": "string",
+                    "example": "it"
+                },
+                "noun": {
+                    "type": "string",
+                    "example": "database"
+                },
+                "noun_plural": {
+                    "type": "string",
+                    "example": "databases"
+                }
+            }
+        },
         "schema.ChatsAddonSwitches": {
             "type": "object",
             "properties": {
@@ -20666,6 +20764,22 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "schema.ChatsAddonTool": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "read",
+                        "write"
+                    ],
+                    "example": "read"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },
@@ -21128,6 +21242,14 @@ const docTemplate = `{
                     "description": "Network is the network preset of the Sandbox commands of the agent's\nunattended runs: off (the default), registries or all, capped by the\nadministrator's ceiling.",
                     "type": "string"
                 },
+                "resources": {
+                    "description": "Resources names, for each add-on whose manifest scopes its resources per\nagent (by add-on ID), the resources the agent may use and the mode of\neach, read or write. An add-on of that kind with no entry gives the\nagent no resource; the field has no effect on any other add-on. The host\nchecks it on every tool call that takes a resource, on top of what you\nmay use yourself, and the resource list and the selection of a chat show\nthe agent nothing outside it.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/resourcesets.Sets"
+                        }
+                    ]
+                },
                 "skills": {
                     "type": "array",
                     "items": {
@@ -21246,6 +21368,54 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsAgent"
                     }
+                }
+            }
+        },
+        "schema.ChatsAgentResourceChoice": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "description": "Role is your own role on it: viewer, editor or owner. A viewer cannot\ngive an agent the write mode in a useful way: the owner of the resource\nstill decides what you may change.",
+                    "type": "string",
+                    "enum": [
+                        "viewer",
+                        "editor",
+                        "owner"
+                    ]
+                }
+            }
+        },
+        "schema.ChatsAgentResourceChoices": {
+            "type": "object",
+            "properties": {
+                "addon_id": {
+                    "type": "string"
+                },
+                "items": {
+                    "description": "Items are the resources you may use now, ordered by ID.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgentResourceChoice"
+                    }
+                },
+                "language": {
+                    "type": "string"
+                },
+                "noun": {
+                    "type": "string"
+                },
+                "noun_plural": {
+                    "type": "string"
+                },
+                "truncated": {
+                    "description": "Truncated is true when the list is cut short.",
+                    "type": "boolean"
                 }
             }
         },
@@ -21418,6 +21588,14 @@ const docTemplate = `{
                 },
                 "network": {
                     "type": "string"
+                },
+                "resources": {
+                    "description": "Resources names the resources the agent may use for each add-on with\nper-agent resources (see ChatsAgent). A write without it keeps the\nstored list; an empty object clears it. Each mode is read or write (400\notherwise). An export file never carries it and an import drops it, a\nresource ID belongs to one server.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/resourcesets.Sets"
+                        }
+                    ]
                 },
                 "skills": {
                     "type": "array",

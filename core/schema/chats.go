@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
+	"github.com/mudler/LocalAI/core/services/studio/resourcesets"
 )
 
 // ChatsCreateRequest starts a chat.
@@ -92,6 +93,14 @@ type ChatsAgent struct {
 	// A chat of the agent cannot change the set. An add-on with no entry gets
 	// none from the agent: the person chooses in the chat.
 	Connections connsets.Sets `json:"connections,omitempty"`
+	// Resources names, for each add-on whose manifest scopes its resources per
+	// agent (by add-on ID), the resources the agent may use and the mode of
+	// each, read or write. An add-on of that kind with no entry gives the
+	// agent no resource; the field has no effect on any other add-on. The host
+	// checks it on every tool call that takes a resource, on top of what you
+	// may use yourself, and the resource list and the selection of a chat show
+	// the agent nothing outside it.
+	Resources resourcesets.Sets `json:"resources,omitempty"`
 	// Folder is the one folder that chats with the agent work in. It is
 	// absent for an agent that works on all your files.
 	Folder *ChatsAgentFolder `json:"folder,omitempty"`
@@ -182,6 +191,12 @@ type ChatsAgentWrite struct {
 	// for that add-on. A single string is read as a set of one. An export file
 	// never carries it: a binding ID belongs to one server.
 	Connections connsets.Sets `json:"connections,omitempty"`
+	// Resources names the resources the agent may use for each add-on with
+	// per-agent resources (see ChatsAgent). A write without it keeps the
+	// stored list; an empty object clears it. Each mode is read or write (400
+	// otherwise). An export file never carries it and an import drops it, a
+	// resource ID belongs to one server.
+	Resources resourcesets.Sets `json:"resources,omitempty"`
 	// Folder chooses the one folder the agent's chats work in. A write
 	// without it keeps the folder the agent has; {"path": ""} clears it. In
 	// an export file it is the home-relative path and mode when the file was
@@ -931,6 +946,52 @@ type ChatsAddon struct {
 	Enabled         []string          `json:"enabled_connections,omitempty"`
 	ConnectionBy    string            `json:"connection_by,omitempty"`
 	NeedsConnection bool              `json:"needs_connection,omitempty"`
+	// ToolList names the tools of the add-on you may use, by the name the
+	// add-on declares, with kind read or write. Sorted by name.
+	ToolList []ChatsAddonTool `json:"tool_list,omitempty"`
+	// Resources is set when the add-on scopes its resources per agent: a saved
+	// agent then names the resources it may use (agent field resources). It
+	// carries the word for them. GET /api/chats/agents/addons/{addon}/resources
+	// lists what you can give an agent.
+	Resources *ChatsAddonResources `json:"resources,omitempty"`
+}
+
+// ChatsAddonTool is one tool of an add-on.
+type ChatsAddonTool struct {
+	Name string `json:"name"`
+	Kind string `json:"kind" enums:"read,write" example:"read"`
+}
+
+// ChatsAddonResources is the word an add-on uses for its resources. Noun and
+// NounPlural are in Language when the manifest translates them, else in
+// English; Language is empty for English.
+type ChatsAddonResources struct {
+	Noun       string `json:"noun,omitempty" example:"database"`
+	NounPlural string `json:"noun_plural,omitempty" example:"databases"`
+	Language   string `json:"language,omitempty" example:"it"`
+}
+
+// ChatsAgentResourceChoice is one resource you can give an agent.
+type ChatsAgentResourceChoice struct {
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
+	// Role is your own role on it: viewer, editor or owner. A viewer cannot
+	// give an agent the write mode in a useful way: the owner of the resource
+	// still decides what you may change.
+	Role string `json:"role" enums:"viewer,editor,owner"`
+}
+
+// ChatsAgentResourceChoices lists the resources of one add-on that you can
+// give an agent.
+type ChatsAgentResourceChoices struct {
+	AddonID    string `json:"addon_id"`
+	Noun       string `json:"noun,omitempty"`
+	NounPlural string `json:"noun_plural,omitempty"`
+	Language   string `json:"language,omitempty"`
+	// Items are the resources you may use now, ordered by ID.
+	Items []ChatsAgentResourceChoice `json:"items"`
+	// Truncated is true when the list is cut short.
+	Truncated bool `json:"truncated,omitempty"`
 }
 
 // ChatsConnection is one connection you can enable for an add-on. Name is its
