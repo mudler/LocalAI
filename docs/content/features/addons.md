@@ -3183,6 +3183,93 @@ being asked. The choice stays stored, so the add-on serves again when it runs, a
 person can pick the built-in provider at any time. A store that cannot be read, or an
 add-on list that cannot be read, also turns the slot off for that call.
 
+### What the host does itself with a provider
+
+The model reaches the tools of the `read` and `write` roles as ordinary tools. The host
+calls the other roles itself, and it keeps every gate while it does.
+
+| Role | When the host calls it | What the host does with the answer |
+|---|---|---|
+| `context` | At the start of each turn of a chat that reads the notes | Puts the text in front of the message, wrapped as data, for this turn only |
+| `export` | When the person downloads their notes | Writes the answer as a zip file |
+| `forget` | When the person asks the provider to forget notes | Reports the result, or the change that waits for a confirmation |
+| `write` | When the model calls the tool | Applies the save level of the person first (see below) |
+
+**Context.** The host calls the tool with the facts its schema declares, and no others:
+`query` (the message of the person, cut at 1 KiB), `scopes` (the scopes the chat may
+read), `budgetBytes`, `origin` (`studio` or `connector`) and the opaque references
+`userRef`, `agentRef` and `conversationRef`. A provider never gets a name, an instruction
+or a platform ID. The tool answers `{"text": "..."}` or a JSON string. The call has a
+time limit of 3 seconds, and the text is cut at 6 KiB. The host puts the text in front of
+the message inside the markers `<<<provider-data` and `provider-data>>>` with a header that
+says it is data and not instructions. A marker or a line that looks like a system note is
+defused inside the text. The text is not part of the system prompt, so a text that
+changes with each message does not restart the chat engine. A chat that has memory off,
+a private chat and an agent with no notes make no call at all.
+
+**Export and forget.** The export tool takes no argument and answers
+`{"files": [{"path": "a/notes.md", "content": "..."}]}`; any other JSON is kept as one
+file, `export.json`. A path must be relative and is made safe by the host. The forget
+tool is a `write` tool, so it names a resource like every write tool. The host offers the
+facts `group` (`user`, `agent` or `channel`), `key` and `resourceId` to the tools that
+declare them. A provider with no `export` or no `forget` role has none: the page says so,
+and the person uses the service itself. The built-in provider has no forget; its notes
+are files that the person deletes in Files. `GET /api/chats/memory/export` and
+`DELETE /api/chats/memory` route to the provider that serves.
+
+**Save path.** A write through a provider follows the same rules as a note of the
+built-in provider. The level of the person is the strictest of their setting, the rule of
+the saved agent and the messaging row. *Never* takes the write tools away. A saved agent
+needs the `memory.write` grant, and a sender in a messaging chat needs the capability.
+Only *Save it and tell me* applies a write at once, and only for a note of up to 4 KiB
+that does not look like a secret, within 5 writes in a turn, and from a provider that is
+local or declares `undo` as `host` or `provider`. Every other write is stored as a
+proposal and waits for the person; the model is told so and does not say it was saved.
+
+**When the provider fails.** The chat never fails because a provider does. A context call
+that times out or fails leaves the turn without notes, and the model hears one line
+saying so. After 3 failures in a row the host stops calling the provider for one minute (a
+circuit breaker), then tries one call. The slot shows a plain notice in `health` while it
+waits. The breaker is per server process: each frontend learns on its own.
+
+**Audit.** Every call of the host to a provider writes one log line,
+`studio: provider call`, with the slot, the role, the add-on, the tool, the person, the
+chat, the outcome (`ok`, `truncated`, `failed`, `timeout`, `bad_result` or `cool_down`),
+the time and the size. Every write adds `studio: provider write` with the level and
+whether it was held. No line has a note or any text of the provider.
+
+**A provider that sends notes away.** A provider that declares `remote: true` must also
+declare `capabilities.network`, so the person and the host see the network access before
+anything is sent. A manifest that does not is refused.
+
+### The retired Memory add-on
+
+The notes are built in, and the add-on `memory` that used to read them is an alias of the
+built-in provider. A copy that is still installed keeps working: the host does not list it
+as a provider, a choice that names it means the built-in provider, and its index files
+and skills are ignored so the notes do not load twice. Nothing is deleted. A new
+provider must use another ID.
+
+### Write a provider
+
+1. Start from `pkg/addons/providerconformance/sample`: a manifest that declares every
+   role, and a small service behind it. The sample keeps the notes in a service outside
+   this machine, so it declares `remote: true` and the network.
+2. Give the tools the shapes above. A tool of the `context` role needs no resource. Do not
+   declare a property that the contract reserves, such as `scope`.
+3. Run the conformance test from a Go test of your add-on:
+
+```go
+func TestMyProviderConforms(t *testing.T) {
+    providerconformance.Run(t, providerconformance.Subject{Manifest: manifestJSON, Call: myHandler})
+}
+```
+
+It checks the manifest against the descriptor, then calls the role tools the way the host
+does: the context within its byte budget and with an empty message, the export with safe
+paths, the read and forget tools, and a tool that does not exist. A provider that passes
+it works with the time limit, the size cap and the wrapping of the host.
+
 ### Routes
 
 | Route | Does |
@@ -3190,8 +3277,11 @@ add-on list that cannot be read, also turns the slot off for that call.
 | `GET /api/chats/providers` | every slot with its providers and the choice in force |
 | `GET /api/chats/providers/{slot}` | one slot; 404 for an unknown slot |
 | `PUT /api/chats/providers/{slot}` | pick a provider: `{"provider": "builtin" \| "off" \| "<add-on id>"}`; 400 for a provider the slot does not list, 409 for an add-on that cannot serve now |
+| `GET /api/chats/memory/export` | the notes as a zip file; the export of the provider when an add-on serves |
+| `DELETE /api/chats/memory` | ask the provider that serves to forget notes (`scope`, `key`, `resource`); 404 when it has none |
 
-`resolution.active` says what serves: `builtin`, an add-on ID or `off`. The choice is
+`resolution.active` says what serves: `builtin`, an add-on ID or `off`. `health` is present
+while the host leaves a failing provider alone, with a plain `notice`. The choice is
 kept per person with the account, so every frontend of a cluster reads the same answer.
 It is a person's choice and needs no add-on call. The settings page draws the list from
 this answer, and **Settings** then **Memory** is the first place that uses it.
@@ -3202,7 +3292,8 @@ Test a provider with a fake add-on: declare the slot, serve a context file, list
 add-on through the broker interface of the tests, then check that the add-on's files
 reach the prompt only after the person picks it, that the built-in notes do not load
 at the same time, and that a stopped or removed add-on turns the slot off instead of
-falling back. `core/services/studio/providerslots_internal_test.go` is the reference.
+falling back. `core/services/studio/providerslots_internal_test.go` is the reference, and
+`core/services/studio/providercalls_internal_test.go` covers the host's own calls.
 `pkg/addons/contract/providerslots_test.go` covers the manifest rules.
 
 ## Owner forwarding and HTTP relays

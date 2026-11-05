@@ -265,7 +265,10 @@ stop memory and never chose otherwise, memory stays off for you.
 
 The host serves memory itself. An add-on that wants to serve it in place of the built-in
 provider declares `capabilities.provides` with the slot `memory`; the person picks it in
-**Memory provider**. See [Provider slots](/features/addons/#provider-slots). The add-on `memory` stays valid and harmless. An add-on
+**Memory provider**. See [Provider slots](/features/addons/#provider-slots). A provider can also supply the notes of each turn, an export and a forget, and the host
+checks its writes against your save level; see
+[What the host does itself with a provider](/features/addons/#what-the-host-does-itself-with-a-provider).
+The add-on `memory` is an alias of the built-in provider: it stays valid and harmless. An add-on
 can still declare `capabilities.contextFiles` for its own index files;
 see [Context files](/features/addons/#context-files). A skill named `memory` or
 `memory-check-own-files` is reserved for the built-in ones.
