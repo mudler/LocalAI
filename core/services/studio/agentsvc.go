@@ -87,6 +87,9 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 	if err := s.checkConnections(ctx, p, a.Connections); err != nil {
 		return agents.Agent{}, err
 	}
+	if err := s.checkMCPServers(ctx, p, a); err != nil {
+		return agents.Agent{}, err
+	}
 	a.BuiltinsOff, a.BuiltinsOn = s.agentGroups(a.BuiltinsOff, false), s.agentGroups(a.BuiltinsOn, true)
 	if folders == nil {
 		if err := s.checkSharedRead(ctx, p, a.FolderList()); err != nil {
