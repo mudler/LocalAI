@@ -38,19 +38,18 @@
 <a href="https://zdoc.app/zh/mudler/LocalAI">中文</a>
 </p>
 
-**LocalAI** is the open-source AI engine. Run any model - LLMs, vision, voice, image, video - on any hardware. No GPU required.
+**LocalAI** is the open-source AI engine that answers and does the work, on your own hardware. Run any model - LLMs, vision, voice, image, video - on any hardware, no GPU required. Chat with it, let it use tools, files and sub-agents, run code in a sandbox, make Word, Excel and PDF files, and talk to it from Slack, Telegram or Discord. Your data stays on your infrastructure.
 
-**A small core, not a bundle.** Each backend wraps a best-in-class engine (llama.cpp, vLLM, whisper.cpp, stable-diffusion, MLX...) in its own image, pulled only when a model needs it. You install nothing you don't use.
+**A small core, not a bundle.** Each backend wraps a best-in-class engine (llama.cpp, vLLM, whisper.cpp, stable-diffusion, MLX...) in its own image, pulled only when a model needs it. Extra abilities arrive as add-ons. You install nothing you don't use.
 
-- **Composable by design**: backends are separate and pulled on demand, so you install only what your model needs
-- **Open and extensible**: load any model, or build your own backend in any language against an open interface
+- **Chats that do the work**: the server keeps your conversations. Keep typing while the model works, approve what lasts, and let it use sub-agents, MCP, skills and files
+- **Add-ons**: Sandbox, Simple Office, Studio, Talk, Voice, Face, Tables and more install from a signed library and run beside the server
+- **Saved agents**: instructions plus exact lists of tools, triggers on a schedule, and Slack, Telegram and Discord connectors
 - **Drop-in API compatibility**: OpenAI, Anthropic, and ElevenLabs APIs across every backend
 - **Any model, any modality**: LLMs, vision, voice, image, and video behind one API
 - **Any hardware**: NVIDIA, AMD, Intel, Apple Silicon, Vulkan, or CPU-only
-- **Multi-user ready**: API key auth, user quotas, role-based access
-- **Chats with saved agents**: conversations the server keeps, with agents that use tools, MCP, skills and files, triggers, and a Telegram connector
-- **Add-ons**: Studio, Talk, Voice, Face, Simple Office, Sandbox and more install from a signed catalog, and run beside the server
-- **Privacy-first**: your data never leaves your infrastructure
+- **Multi-user ready**: accounts, API keys, quotas, and features switched on per user
+- **Composable and open**: backends are separate and pulled on demand, and you can build your own in any language
 
 ![A small LocalAI core with backends (llama.cpp, vLLM, MLX, whisper.cpp, stable-diffusion, kokoro, parakeet.cpp...) plugged in as separate on-demand images](docs/static/images/diagrams/composable-core.png)
 
@@ -85,6 +84,23 @@ https://github.com/user-attachments/assets/5ba4ace9-d3df-4795-b7d4-b0b404ea71ee
 https://github.com/user-attachments/assets/ed88e34c-fed3-4b83-8a67-4716a9feeb7b
 
 </details>
+
+## What is new in 5.0
+
+LocalAI used to answer. It now also does the work. Each item links to its page.
+
+- **Keep typing, approve, delegate**: queue messages while the model works, confirm what lasts on a card, and let it hand work to sub-agents. [Work with a chat](https://localai.io/features/chat-control/)
+- **Add-ons**: install extensions from a signed library, with a review step for updates. Add-ons are trusted code. [Use add-ons](https://localai.io/features/using-addons/)
+- **Sandbox**: run commands and code in isolation, with a network switch that is off by default. [Sandbox](https://localai.io/features/sandbox/)
+- **Office documents**: read, edit and create Word, Excel, PowerPoint and PDF files in a chat. [Office documents](https://localai.io/features/office-documents/)
+- **Short memory**: notes about you, saved after you confirm. [Short memory](https://localai.io/features/short-memory/)
+- **Make LocalAI yours**: persona, shortcuts, Home widgets and the look, by asking in a chat. [Make LocalAI yours](https://localai.io/features/make-localai-yours/)
+- **Pages**: small HTML tools in your workspace, shown in a sandboxed frame, and tiles on Home. Off for ordinary users until an administrator switches them on. [Pages](https://localai.io/features/pages/)
+- **Slack, Telegram and Discord**: bind a bot to a saved agent. [Connectors](https://localai.io/features/chats-connectors/)
+- **Multi-user**: per-user files, chats, agents and features. Agents, triggers, connectors and pages are off by default for a user. [Users and what each can do](https://localai.io/features/users-and-features/)
+- **Studio, Tables, Calendar and more as add-ons**: [Studio](https://localai.io/features/studio/), [Tables](https://localai.io/features/tables/), [Calendar](https://localai.io/features/calendar/)
+
+Not sure where to start? [What do you want to do?](https://localai.io/features/by-goal/)
 
 ## Quickstart
 
@@ -167,7 +183,7 @@ local-ai chat --model llama-3.2-1b-instruct:q4_k_m
 
 > **Automatic Backend Detection**: LocalAI automatically detects your GPU capabilities and downloads the appropriate backend. For advanced options, see [GPU Acceleration](https://localai.io/features/gpu-acceleration/).
 
-For more details, see the [Getting Started guide](https://localai.io/basics/getting_started/).
+Open http://localhost:8080, install a small tool-calling model such as `qwen3-4b` from **Models**, and chat. [Getting started in 5 minutes](https://localai.io/basics/five-minutes/) walks through it, then shows how to make the model do work. For more details, see the [Getting Started guide](https://localai.io/basics/getting_started/).
 
 ## Latest News
 
@@ -221,7 +237,10 @@ For older news and full release notes, see [GitHub Releases](https://github.com/
 - [P2P Inferencing](https://localai.io/features/distribute/)
 - [Distributed Mode](https://localai.io/features/distributed-mode/) — Horizontal scaling with PostgreSQL + NATS
 - [Model Context Protocol (MCP)](https://localai.io/docs/features/mcp/)
-- [Chats](https://localai.io/features/chats/) — Conversations the server keeps, with saved agents, triggers, skills, files and a Telegram connector
+- [Chats](https://localai.io/features/chats/) - Conversations the server keeps, with sub-agents, saved agents, triggers, skills and files
+- [Add-ons](https://localai.io/features/using-addons/) - Sandbox, Simple Office, Studio, Talk and more, from a signed library
+- [Connectors](https://localai.io/features/chats-connectors/) - Talk to a saved agent from Slack, Telegram or Discord
+- [Users and features](https://localai.io/features/users-and-features/) - Several people on one server, with features per user
 - [Backend Gallery](https://localai.io/backends/) — Install/remove backends on the fly via OCI images
 - Voice Activity Detection (Silero-VAD)
 - Integrated WebUI
@@ -265,6 +284,7 @@ We also maintain [apex-quant](https://github.com/localai-org/apex-quant), a per-
 ## Resources
 
 - [Documentation](https://localai.io/)
+- [What do you want to do?](https://localai.io/features/by-goal/)
 - [LLM fine-tuning guide](https://localai.io/docs/advanced/fine-tuning/)
 - [Build from source](https://localai.io/basics/build/)
 - [Kubernetes installation](https://localai.io/basics/getting_started/#run-localai-in-kubernetes)
