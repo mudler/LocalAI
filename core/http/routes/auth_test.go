@@ -91,7 +91,7 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to hash password"})
 		}
-		role := auth.AssignRole(db, body.Email, appConfig.Auth.AdminEmail)
+		role := auth.AssignRole(db, body.Email, "")
 		status := auth.StatusActive
 		if appConfig.Auth.RegistrationMode == "approval" && role != auth.RoleAdmin {
 			status = auth.StatusPending
@@ -144,7 +144,6 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 		if user.Status == auth.StatusPending {
 			return c.JSON(http.StatusForbidden, map[string]string{"error": "account pending admin approval"})
 		}
-		auth.MaybePromote(db, &user, appConfig.Auth.AdminEmail)
 		sessionID, err := auth.CreateSession(db, user.ID, "")
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create session"})
