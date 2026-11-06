@@ -2,7 +2,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Button, Callout, EmptyState, LoadError, Notice, SearchField, Segmented, SkeletonRows } from '../ui'
+import { Button, Callout, EmptyState, LoadError, Notice, PaneLayout, SearchField, Segmented, SkeletonRows } from '../ui'
 import { newOperationId, pollDelay } from '../catalog/catalogState'
 import { RegistryContext } from '../../addons/registryContext'
 import { navigationItems } from '../../addons/registryState'
@@ -344,7 +344,7 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
       {Object.keys(actions.unknown).filter(id => actions.unknown[id].key.startsWith('uninstall:')).map(id => (
         <UnknownNotice key={id} addonId={id} actions={actions} className="ad-card__note" />
       ))}
-      <div className="ad-split" data-open={detail ? 'true' : 'false'} data-view={detail ? paneTab : undefined}>
+      <PaneLayout className="ad-split">
         <div className="ad-split__list">
           {showAttention && (
             <section className="ad-attention" aria-label={t('attention.label')} data-testid="addons-attention">
@@ -459,8 +459,6 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
             </ul>
           )}
         </div>
-        {/* Below 1280 px the pane covers the page; the scrim closes it. */}
-        {detail && <div className="ad-scrim" aria-hidden="true" onClick={closeDetail} />}
         {detail && (
           <AddonPreview
             tile={detail}
@@ -496,7 +494,7 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
             )}
           </AddonPreview>
         )}
-      </div>
+      </PaneLayout>
       {!legacy && <div className="ad-nav-slot"><AddonSlot slot="app.nav" context={null} /></div>}
       <ConfirmDialog
         open={Boolean(removing)}

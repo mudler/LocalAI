@@ -132,10 +132,10 @@
 .ad-tile__side > .ad-tile__pin { margin-left: var(--sp-1); }
 .ad-tile__pin[aria-pressed="true"] { color: var(--dk-accent-text); }
 .ad-tile__side .action-menu__trigger,
-.ad-pane__head .action-menu__trigger { width: var(--ctl-h-sm); height: var(--ctl-h-sm); }
+.ui-pane__head .action-menu__trigger { width: var(--ctl-h-sm); height: var(--ctl-h-sm); }
 .ad-tile:hover .action-menu__trigger,
 .ad-tile:focus-within .action-menu__trigger,
-.ad-pane__head .action-menu__trigger { opacity: 1; }
+.ui-pane__head .action-menu__trigger { opacity: 1; }
 .ad-tile__upgrade { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: 0 0 14px calc(var(--sp-4) + 36px + var(--sp-3)); }
 .ad-tile__upgrade:empty { display: none; }
 .ad-nav-slot { margin-top: var(--sp-4); }
@@ -192,57 +192,25 @@
    right below that; a bottom sheet on a phone. It slides in with transform
    and opacity. */
 
-.ad-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-6); align-items: start; }
-.ad-split[data-open="true"] { grid-template-columns: minmax(0, 1fr) 400px; }
 .ad-split__list { min-width: 0; display: flex; flex-direction: column; gap: var(--sp-4); }
-.ad-pane {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  border: 1px solid var(--dk-edge);
-  border-radius: var(--r-lg);
-  background: var(--dk-card);
-  box-shadow: var(--dk-shadow-float);
-  position: sticky;
-  top: var(--sp-6);
-  max-height: calc(100vh - 2 * var(--sp-6));
-  overflow: auto;
-  overscroll-behavior: contain;
-  outline: none;
-  transition: opacity var(--dur-slow) var(--ease-out-strong), transform var(--dur-slow) var(--ease-out-strong);
-}
-@starting-style { .ad-pane { opacity: 0; transform: translateX(16px); } }
-.ad-pane:focus { outline: none; }
 .ad-pane__inner { display: contents; }
-.ad-pane__head {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-3);
-  padding: var(--sp-4);
-  border-bottom: 1px solid var(--dk-edge);
-  background: var(--dk-card);
-}
-.ad-pane__lead { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
-.ad-pane__title { margin: 0; font-size: var(--fs-lead); line-height: var(--lh-lead); font-weight: 600; overflow-wrap: anywhere; }
+.ad-pane__identity { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .ad-pane__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--fs-meta); color: var(--dk-muted); }
 .ad-pane__where { display: inline-flex; flex-wrap: wrap; gap: var(--sp-1); }
-.ad-pane__body { display: flex; flex-direction: column; gap: var(--sp-5); padding: var(--sp-4); min-width: 0; }
+/* The details sit in the shared SidePane, which pads its body once. */
+.ad-pane__body { display: flex; flex-direction: column; gap: var(--sp-5); min-width: 0; }
 .ad-pane__text { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); overflow-wrap: anywhere; }
-.ad-pane__text--pad { padding: var(--sp-4); }
 .ad-pane__section { display: flex; flex-direction: column; gap: var(--sp-2); }
 .ad-pane__acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .ad-pane__facts { margin: 0; }
 /* Key-value facts in the pane: sans, no rules between rows; mono only for
    what a person may copy (ids, digests), which carry .dk-mono themselves. */
-.ad-pane .ad-kv { grid-template-columns: minmax(96px, max-content) minmax(0, 1fr); row-gap: var(--sp-2); }
-.ad-pane .ad-kv dt,
-.ad-pane .ad-kv dd { padding: 0; border-top: 0; font-size: var(--fs-small); line-height: var(--lh-small); }
-.ad-pane .ad-kv dd { font-family: var(--font-sans); }
-.ad-pane .ad-kv dd.dk-mono,
-.ad-pane .ad-kv .dk-mono { font-family: var(--font-mono); font-size: var(--fs-meta); }
+.ad-detail .ad-kv { grid-template-columns: minmax(96px, max-content) minmax(0, 1fr); row-gap: var(--sp-2); }
+.ad-detail .ad-kv dt,
+.ad-detail .ad-kv dd { padding: 0; border-top: 0; font-size: var(--fs-small); line-height: var(--lh-small); }
+.ad-detail .ad-kv dd { font-family: var(--font-sans); }
+.ad-detail .ad-kv dd.dk-mono,
+.ad-detail .ad-kv .dk-mono { font-family: var(--font-mono); font-size: var(--fs-meta); }
 .ad-pane__danger { padding-top: var(--sp-3); border-top: 1px solid var(--dk-edge); }
 .ad-adds { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: var(--fs-small); line-height: var(--lh-small); }
 .ad-adds li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; align-items: start; overflow-wrap: anywhere; }
@@ -252,46 +220,14 @@
 .ad-skill__switch { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .ad-shots { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: var(--sp-2); }
 .ad-shots img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border: 1px solid var(--dk-edge); border-radius: var(--r-md); background: var(--dk-inset); }
-.ad-scrim { display: none; }
-@media (max-width: 1279px) {
-  .ad-split[data-open="true"] { grid-template-columns: minmax(0, 1fr); }
-  .ad-scrim {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 59;
-    background: var(--dk-scrim);
-    transition: opacity var(--dur-base) var(--ease-out);
-  }
-  @starting-style { .ad-scrim { opacity: 0; } }
-  .ad-pane {
-    position: fixed;
-    inset: 0 0 0 auto;
-    z-index: 60;
-    width: min(400px, 100vw);
-    max-height: none;
-    border-radius: 0;
-    border-width: 0 0 0 1px;
-  }
-}
-@media (max-width: 639px) {
-  .ad-pane {
-    inset: auto 0 0 0;
-    width: 100%;
-    height: 90vh;
-    border-width: 1px 0 0;
-    border-radius: var(--r-xl) var(--r-xl) 0 0;
-  }
-  @starting-style { .ad-pane { opacity: 0; transform: translateY(24px); } }
-}
 
 /* ---- Sections of the pane (operator facts) ---------------------------------- */
 
-.ad-pane .ad-section { display: flex; flex-direction: column; gap: var(--sp-2); padding: 0; }
-.ad-pane .ad-section__title,
+.ad-detail .ad-section { display: flex; flex-direction: column; gap: var(--sp-2); padding: 0; }
+.ad-detail .ad-section__title,
 .ad-first__label { margin: 0; font-size: var(--fs-meta); line-height: var(--lh-meta); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--dk-muted); }
-.ad-pane .ad-section > .dk-btn { align-self: flex-start; }
-.ad-pane .ad-section p { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); }
+.ad-detail .ad-section > .dk-btn { align-self: flex-start; }
+.ad-detail .ad-section p { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); }
 .ad-section__acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
 .ad-facts-body { display: flex; flex-direction: column; gap: var(--sp-5); }
 .ad-reasons { margin: var(--sp-1) 0 0; padding: 0; list-style: none; }
@@ -466,7 +402,6 @@
    The add-on's own settings section and the server settings of its feature.
    A settings form needs more room than the facts, so the pane widens. */
 
-.ad-split[data-open="true"][data-view="settings"] { grid-template-columns: minmax(0, 1fr) 560px; }
 .ad-pane__tabs {
   display: flex;
   gap: var(--sp-5);
@@ -486,16 +421,9 @@
 .ad-settings__link + .ad-settings__link { border-top: 1px solid var(--dk-edge); }
 .ad-settings__words { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; flex: 1 1 220px; font-size: var(--fs-small); line-height: var(--lh-small); }
 .ad-settings__name { font-weight: 600; }
-.ad-pane .ad-settings__facts { grid-template-columns: max-content minmax(0, 1fr); column-gap: var(--sp-4); row-gap: var(--sp-1); }
-.ad-pane .ad-settings__facts dt { color: var(--dk-muted); font-size: var(--fs-meta); }
-.ad-pane .ad-settings__facts dd { font-size: var(--fs-meta); }
-@media (max-width: 1279px) {
-  .ad-split[data-open="true"][data-view="settings"] { grid-template-columns: minmax(0, 1fr); }
-  .ad-split[data-view="settings"] .ad-pane { width: min(560px, 100vw); }
-}
-@media (max-width: 639px) {
-  .ad-split[data-view="settings"] .ad-pane { width: 100%; }
-}
+.ad-detail .ad-settings__facts { grid-template-columns: max-content minmax(0, 1fr); column-gap: var(--sp-4); row-gap: var(--sp-1); }
+.ad-detail .ad-settings__facts dt { color: var(--dk-muted); font-size: var(--fs-meta); }
+.ad-detail .ad-settings__facts dd { font-size: var(--fs-meta); }
 
 /* ---- Host access: the install step, the approval and the page ------------- */
 

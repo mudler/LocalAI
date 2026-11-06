@@ -1,11 +1,8 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
-import { Button, Callout, Notice } from '../ui'
+import { Button, Callout, Notice, SidePane } from '../ui'
 import { apiUrl } from '../../utils/basePath'
-import { pushLayer } from '../../utils/modalLayers'
 import { StateChip, AppIcon, BuiltinIcon, UnknownNotice, UpdateChip, VersionText } from './AddonBits'
 import AddonMenu from './AddonMenu'
 import AddonSkills from './AddonSkills'
@@ -21,47 +18,37 @@ import { describeOutcome } from './errors'
 // and data). Remove sits last, apart from everything else.
 export default function AddonPreview({ tile, language, title, pinned, onPin, onMove, onClose, actions, onStartStop, onRemove, isAdmin, source, links = [], upgrade, hasSettings = false, view = 'overview', onView, children }) {
   const { t } = useTranslation('addons')
-  const ref = useRef(null)
   const app = tile.app
-  useEffect(() => { ref.current?.focus({ preventScroll: true }) }, [tile.id])
-  // The pane is a layer, so an Escape meant for a dialog opened from it (a
-  // restore, a removal) closes only that dialog. The dialog listens on the
-  // document, after this handler, so defaultPrevented is not set yet here.
-  const layerRef = useRef(null)
-  useEffect(() => {
-    const layer = pushLayer()
-    layerRef.current = layer
-    return () => { layer.pop(); layerRef.current = null }
-  }, [])
-  const onKeyDown = (e) => {
-    if (e.key !== 'Escape' || e.defaultPrevented || (layerRef.current && !layerRef.current.isTop())) return
-    e.preventDefault()
-    onClose()
-  }
   const update = isAdmin && source ? updateView(source.update) : null
+  // The shared pane: it docks beside the list from 1280 px, overlays the page
+  // below that and is a bottom sheet on a phone. Escape, the scrim and focus
+  // are its own. The Settings tab needs more room, so the pane is wide there.
   return (
-    <aside className="ad-pane" ref={ref} tabIndex={-1} data-testid="addon-detail" aria-labelledby="ad-pane-title" onKeyDown={onKeyDown}>
+    <SidePane
+      open
+      wide={Boolean(app && hasSettings && view === 'settings')}
+      title={<span className="ad-pane__identity" data-app={tile.id}>
+        {tile.source === 'builtin'
+          ? <BuiltinIcon name={tile.iconName} size={36} />
+          : <AppIcon src={tile.icon ? apiUrl(tile.icon) : ''} id={tile.id} name={title} size={36} />}
+        <span>{title}</span>
+      </span>}
+      meta={app ? (
+        <span className="ad-pane__meta">
+          <StateChip app={app} />
+          {(app.update === 'update-pending' || update?.state === 'update-available') && <UpdateChip version={update?.state === 'update-available' ? update.version : ''} />}
+          <span className="ad-pane__where">
+            <VersionText version={app.version} />
+            {isAdmin && source && source.sourceId ? <> · {t('meta.library', { library: source.sourceId })}</> : null}
+          </span>
+        </span>
+      ) : null}
+      actions={<AddonMenu name={title} pinned={pinned} onPin={onPin} onMove={pinned ? onMove : undefined} onRemove={onRemove} />}
+      onClose={onClose}
+      className="ad-detail"
+      testId="addon-detail"
+    >
       <div className="ad-pane__inner" data-app={tile.id}>
-        <div className="ad-pane__head">
-          {tile.source === 'builtin'
-            ? <BuiltinIcon name={tile.iconName} size={44} />
-            : <AppIcon src={tile.icon ? apiUrl(tile.icon) : ''} id={tile.id} name={title} size={44} />}
-          <div className="ad-pane__lead">
-            <h2 className="ad-pane__title" id="ad-pane-title">{title}</h2>
-            {app && (
-              <div className="ad-pane__meta">
-                <StateChip app={app} />
-                {(app.update === 'update-pending' || update?.state === 'update-available') && <UpdateChip version={update?.state === 'update-available' ? update.version : ''} />}
-                <span className="ad-pane__where">
-                  <VersionText version={app.version} />
-                  {isAdmin && source && source.sourceId ? <> · {t('meta.library', { library: source.sourceId })}</> : null}
-                </span>
-              </div>
-            )}
-          </div>
-          <AddonMenu name={title} pinned={pinned} onPin={onPin} onMove={pinned ? onMove : undefined} onRemove={onRemove} />
-          <Button variant="ghost" size="sm" icon="close" className="ad-pane__close" aria-label={t('drawer.close')} onClick={onClose} />
-        </div>
         {app && hasSettings && (
           <div className="ad-pane__tabs" role="tablist" aria-label={t('settingsTab.tabsLabel', { name: title })} onKeyDown={(e) => {
             if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
@@ -100,7 +87,7 @@ export default function AddonPreview({ tile, language, title, pinned, onPin, onM
         {app && !hasSettings && <PreviewBody app={app} title={title} language={language} pinned={pinned} onPin={onPin} actions={actions} onStartStop={onStartStop} onRemove={onRemove} isAdmin={isAdmin} source={source} update={update} upgrade={upgrade} links={links}>{children}</PreviewBody>}
         {!app && <p className="ad-pane__text ad-pane__text--pad">{t('drawer.builtinDetail')}</p>}
       </div>
-    </aside>
+    </SidePane>
   )
 }
 
