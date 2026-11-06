@@ -138,6 +138,9 @@ func (s *Service) gateAct(rec session.ChatRecord, pol builtins.ActPolicy, t sess
 				"tool", req.Name, "allowed", v.Allowed, "reason", v.Reason, "missing", v.Missing)
 		}
 		if !v.Allowed {
+			if v.Reason == "not_granted" {
+				s.refusedActs.LoadOrStore(rec.ID, v.Missing)
+			}
 			addontools.OutcomeFrom(ctx).Deny("act_" + v.Reason)
 			return v.Sentence, nil
 		}

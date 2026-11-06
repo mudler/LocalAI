@@ -75,12 +75,14 @@ var _ = Describe("the action policy of an unattended run", func() {
 	}
 	// run makes a trigger of the binding, lets it run once and returns what
 	// write_file answered.
+	var ended triggers.Run
 	run := func(in studio.TriggerInput) (out string, err error) {
 		in.Prompt, in.AgentID = "WRITE the report", r.agent.ID
 		tr := r.schedule(in)
 		r.due()
 		end := r.waitEnded(tr.ID)
-		Expect(end.Status).To(Equal(triggers.StatusDone), "run = %+v", end)
+		ended = end
+		Expect(end.Status).To(BeElementOf(triggers.StatusDone, triggers.StatusBlocked), "run = %+v", end)
 		rs := r.h.ResultsFor("write_file")
 		Expect(rs).To(HaveLen(1), "results = %+v", rs)
 		Expect(r.h.ResultsFor("list_files")).To(HaveLen(1))
@@ -115,6 +117,19 @@ var _ = Describe("the action policy of an unattended run", func() {
 		Expect(out).To(ContainSubstring(refused))
 		Expect(out).To(ContainSubstring("act.files"))
 		Expect(logs.String()).To(And(ContainSubstring("allowed=false"), ContainSubstring("reason=not_granted"), ContainSubstring("missing=act.files")))
+	})
+
+	It("ends a run as blocked when an action was refused for a missing grant, and names the grant", func() {
+		setup(connectors.Approval{}, "act.files")
+		run(studio.TriggerInput{Route: triggers.Route{Binding: b.ID}})
+		Expect(ended.Status).To(Equal(triggers.StatusBlocked))
+		Expect(ended.Reason).To(ContainSubstring("act.files"))
+	})
+
+	It("ends a run as done when its actions were allowed", func() {
+		setup(connectors.Approval{}, "act.files")
+		run(studio.TriggerInput{Acts: []string{"act.files"}, Route: triggers.Route{Binding: b.ID}})
+		Expect(ended.Status).To(Equal(triggers.StatusDone))
 	})
 
 	It("lets a trigger write when the owner gave it act.files and the agent allows it", func() {

@@ -384,6 +384,9 @@ type Service struct {
 	admin workspace.Actor
 
 	nudged nudges // the turns whose results said where helper files go
+	// refusedActs holds, for each chat of an unattended run, the first grant a
+	// refused action lacked, until the run ends and its status is set.
+	refusedActs sync.Map
 
 	shared *sharedfolders.Service // the folders an administrator shares
 
