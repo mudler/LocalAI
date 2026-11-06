@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -35,16 +36,26 @@ type shareAPI struct {
 	pol *policy.Policy
 	ag  agents.Store
 	hs  *Handlers
+	// actors records the principal of each turn, by the text of its message.
+	mu     sync.Mutex
+	actors map[string]string
 }
 
 func newShareAPI(withPolicy bool) *shareAPI {
 	names := map[string]string{"alice": "Alice", "bob": "Bob", "carol": "Carol"}
-	h := &studiotest.ToolHarness{Script: func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} }}
+	r := &shareAPI{actors: map[string]string{}}
+	h := &studiotest.ToolHarness{Script: func(a workspace.Actor, text string) []studiotest.ToolStep {
+		// The text may start with a note of the host; the message ends it.
+		r.mu.Lock()
+		r.actors[text[strings.LastIndex(text, "\n")+1:]] = a.Principal
+		r.mu.Unlock()
+		return []studiotest.ToolStep{{Say: "ok"}}
+	}}
 	st, err := store.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
 	as, err := agents.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
-	r := &shareAPI{ag: as}
+	r.ag = as
 	if withPolicy {
 		ps, err := policy.OpenStore(GinkgoT().TempDir(), policy.ModeNamedUser)
 		Expect(err).NotTo(HaveOccurred())
@@ -84,6 +95,10 @@ func (r *shareAPI) call(user, method, path, body string) (int, string) {
 	e.Pre(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			c.Set("auth_user", &auth.User{ID: user, Role: auth.RoleUser})
+			// What RequireRouteFeature caches for an account that has the
+			// agents feature: the chat route asks for it when a chat names an
+			// agent.
+			c.Set("auth_permissions", &auth.UserPermission{UserID: user, Permissions: auth.PermissionMap{auth.FeatureAgents: true}})
 			return next(c)
 		}
 	})
@@ -96,6 +111,9 @@ func (r *shareAPI) call(user, method, path, body string) (int, string) {
 	e.GET("/api/chats/agents/:id/references", r.hs.AgentReferences)
 	e.GET("/api/chats/agents/:id/needs", r.hs.AgentNeeds)
 	e.GET("/api/chats/agents/:id/runs", r.hs.AgentRuns)
+	e.POST("/api/chats", r.hs.Create)
+	e.GET("/api/chats/:id", r.hs.Get)
+	e.POST("/api/chats/:id/messages", r.hs.Send)
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
@@ -223,6 +241,42 @@ var _ = Describe("the shared agents API", func() {
 		Expect(kinds["addon-resource"].Share).NotTo(BeNil())
 		Expect(kinds["addon-resource"].Share.Kind).To(Equal("addon"))
 		Expect(kinds["addon-resource"].Share.Options).To(Equal([]string{"view", "use"}))
+	})
+
+	It("lets a grantee start a chat with a shared agent and run it as themselves, until the owner revokes", func() {
+		r := newShareAPI(true)
+		r.secretAgent()
+		ref := r.shareWith("bob", policy.RoleUse)
+		code, body := r.call("bob", http.MethodPost, "/api/chats", `{"agent_id":"ag1"}`)
+		Expect(code).To(Equal(http.StatusCreated), body)
+		var conv schema.ChatsConversation
+		Expect(json.Unmarshal([]byte(body), &conv)).To(Succeed())
+		Expect(conv.AgentID).To(Equal("ag1"))
+		Expect(conv.Model).To(Equal("m"), "the chat takes the model of the shared agent")
+		Expect(body).NotTo(ContainSubstring("SECRET-INSTRUCTIONS"))
+		code, body = r.call("bob", http.MethodPost, "/api/chats/"+conv.ID+"/messages", `{"text":"first"}`)
+		Expect(code).To(Equal(http.StatusOK), body)
+		Eventually(func() string {
+			r.mu.Lock()
+			defer r.mu.Unlock()
+			return r.actors["first"]
+		}).Should(Equal("bob"), "the turn runs as the grantee, with the grantee's own access")
+		Eventually(func() bool {
+			t, err := r.svc.Turn(context.Background(), "bob", conv.ID)
+			return err == nil && !t.Running
+		}).Should(BeTrue())
+		code, _ = r.call("alice", http.MethodGet, "/api/chats/"+conv.ID, "")
+		Expect(code).To(Equal(http.StatusNotFound), "the chat is the grantee's, not the owner's")
+
+		owner := contract.Actor{UserID: "alice", CredentialID: auth.AddonChatsCredential, Mode: auth.AddonModeNamedUser}
+		Expect(r.pol.RevokeRef(context.Background(), owner, policy.Ref{Kind: "agent", ResourceID: ref}, "bob")).To(Succeed())
+		code, body = r.call("bob", http.MethodPost, "/api/chats/"+conv.ID+"/messages", `{"text":"again"}`)
+		Expect(code).To(Equal(http.StatusConflict), body)
+		Expect(body).To(ContainSubstring("agent_not_shared"))
+		code, body = r.call("bob", http.MethodPost, "/api/chats", `{"agent_id":"ag1"}`)
+		Expect(code).To(Equal(http.StatusNotFound), "a new chat with an agent that is no longer shared: %s", body)
+		code, body = r.call("carol", http.MethodPost, "/api/chats", `{"agent_id":"ag1"}`)
+		Expect(code).To(Equal(http.StatusNotFound), "a person the agent was never shared with: %s", body)
 	})
 
 	It("answers 409 for a share when the server does not share agents", func() {

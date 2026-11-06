@@ -234,7 +234,9 @@ func (h *Handlers) Create(c echo.Context) error {
 	}
 	model := req.Model
 	if req.AgentID != "" && !req.Assistant {
-		ag, err := h.svc.Agent(c.Request().Context(), userID(c), req.AgentID)
+		// The agent is the caller's own or one shared with them, as the
+		// service resolves it when it makes the chat.
+		ag, _, err := h.svc.SharedAgent(c.Request().Context(), userID(c), req.AgentID)
 		if err != nil {
 			return failFor(c, err)
 		}
