@@ -48,6 +48,11 @@ type record struct {
 	// CreateRef binds a resource made by the UI creation path to the request
 	// that made it, so a repeated operation ID with another request is refused.
 	CreateRef string `json:"createRef,omitempty"`
+	// Local is the service's own name of a resource of a kind that is not an
+	// add-on, such as the ID of a connector binding or the name of a
+	// collection. One owner has at most one active record of a kind under a
+	// name. See EnsureRef.
+	Local string `json:"local,omitempty"`
 	// Drain names users whose grant was lowered or removed and whose admitted
 	// work and pending proposals are not yet known to be stopped. The mark is
 	// durable with the change itself and cleared only after the drain
@@ -291,7 +296,7 @@ func load(dir string) (*document, error) {
 		}
 	}
 	for _, r := range d.Resources {
-		if r == nil || r.Kind == "" || r.Owner == "" || !kindMatchesAddon(r.Kind, r.AddonID) || (r.State != stateActive && r.State != statePend && r.State != stateDeleting) || (r.State == stateDeleting) != (r.Delete != nil) {
+		if r == nil || r.Kind == "" || r.Owner == "" || !kindMatchesAddon(r.Kind, r.AddonID) || (r.Local != "" && (r.AddonID != "" || !validLocal(r.Local))) || (r.State != stateActive && r.State != statePend && r.State != stateDeleting) || (r.State == stateDeleting) != (r.Delete != nil) {
 			return nil, errors.New("addon policy store is corrupt")
 		}
 		for u, role := range r.Grants {

@@ -606,17 +606,13 @@ func (p *Policy) reserve(ctx context.Context, actor contract.Actor, addonID stri
 // caller has done every authority check; the reservation is marked in flight
 // until it calls release.
 func (p *Policy) newPending(actor contract.Actor, kind, addonID string) (string, func(), error) {
-	raw := make([]byte, 16)
-	if _, err := rand.Read(raw); err != nil {
-		return "", nil, ErrUnavailable
+	id, err := randomResourceID()
+	if err != nil {
+		return "", nil, err
 	}
-	// The envelope contract requires a lowercase letter first, so a bare hex
-	// value would be refused by the runtime whenever it starts with a digit.
-	// The first character is fixed; the other 124 bits stay random.
-	id := "r" + hex.EncodeToString(raw)[1:]
 	release := p.track(id)
 	owner := p.store.Mode().ownerOf(actor)
-	err := p.store.mutate(func(d *document) error {
+	err = p.store.mutate(func(d *document) error {
 		var pending, owned int
 		for _, r := range d.Resources {
 			if r.Owner == owner {
@@ -639,6 +635,19 @@ func (p *Policy) newPending(actor contract.Actor, kind, addonID string) (string,
 		return "", nil, err
 	}
 	return id, release, nil
+}
+
+// randomResourceID is a fresh resource ID. The ID space is shared by all
+// kinds.
+func randomResourceID() (string, error) {
+	raw := make([]byte, 16)
+	if _, err := rand.Read(raw); err != nil {
+		return "", ErrUnavailable
+	}
+	// The envelope contract requires a lowercase letter first, so a bare hex
+	// value would be refused by the runtime whenever it starts with a digit.
+	// The first character is fixed; the other 124 bits stay random.
+	return "r" + hex.EncodeToString(raw)[1:], nil
 }
 
 // CreateRef creates a resource of a kind that is not an add-on and makes it

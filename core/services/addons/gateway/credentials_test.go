@@ -36,10 +36,23 @@ func (c *envClient) Read(_ context.Context, e contract.Envelope) (contract.Resul
 	return contract.Result{Payload: json.RawMessage(`{"ok":true}`)}, nil
 }
 
+// ctxClient answers a read with the error of its context, as a client whose
+// call was cancelled does.
+type ctxClient struct{ *envClient }
+
+func (c ctxClient) Read(ctx context.Context, e contract.Envelope) (contract.Result, error) {
+	if err := ctx.Err(); err != nil {
+		return contract.Result{}, err
+	}
+	return c.envClient.Read(ctx, e)
+}
+
 type fakeCredentials struct {
 	allowed map[string]string // key -> id
 	calls   []string
 	err     error
+	// hold is set on every grant, as a source does for a shared binding.
+	hold func(context.Context, func(context.Context) error) error
 }
 
 func (f *fakeCredentials) Credential(_ context.Context, a contract.Actor, addonID, key string) (CredentialGrant, error) {
@@ -48,13 +61,13 @@ func (f *fakeCredentials) Credential(_ context.Context, a contract.Actor, addonI
 		return CredentialGrant{}, f.err
 	}
 	if key == "" {
-		return CredentialGrant{Credential: "secret"}, nil
+		return CredentialGrant{Credential: "secret", Hold: f.hold}, nil
 	}
 	id, ok := f.allowed[key]
 	if !ok {
 		return CredentialGrant{}, &CredentialRefusal{Code: CodeResourceNotAllowed, Allowed: []string{"acme/widgets"}}
 	}
-	return CredentialGrant{Credential: "secret", ResourceKey: key, ResourceID: id}, nil
+	return CredentialGrant{Credential: "secret", ResourceKey: key, ResourceID: id, Hold: f.hold}, nil
 }
 
 var _ = Describe("a read of an add-on that declares credentials", Label("tools"), func() {
@@ -90,6 +103,40 @@ var _ = Describe("a read of an add-on that declares credentials", Label("tools")
 		Expect(client.seen[0].ResourceKey).To(Equal("acme/widgets"))
 		Expect(client.seen[0].ResourceID).To(Equal("r-0123456789"))
 		Expect(creds.calls).To(Equal([]string{"alice|sample|acme/widgets"}))
+	})
+
+	It("runs the call of a shared credential inside its hold, and never when the hold refuses", func() {
+		type holdKey struct{}
+		held := 0
+		creds.hold = func(ctx context.Context, run func(context.Context) error) error {
+			held++
+			return run(context.WithValue(ctx, holdKey{}, "admitted"))
+		}
+		_, err := read(g, contract.Request{Arguments: json.RawMessage(`{"tool":"whoami"}`)})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(held).To(Equal(1))
+		Expect(client.reads.Load()).To(Equal(int32(1)))
+
+		// A lowering that already happened refuses at the hold: the add-on
+		// gets nothing, and the answer is the plain denial.
+		creds.hold = func(context.Context, func(context.Context) error) error { return ErrForbidden }
+		_, err = read(g, contract.Request{Arguments: json.RawMessage(`{"tool":"whoami"}`)})
+		Expect(err).To(MatchError(ErrForbidden))
+		Expect(client.reads.Load()).To(Equal(int32(1)))
+
+		// A lowering while the call runs cancels the context the add-on got.
+		cancelled := make(chan struct{})
+		creds.hold = func(ctx context.Context, run func(context.Context) error) error {
+			cctx, cancel := context.WithCancel(ctx)
+			cancel()
+			err := run(cctx)
+			close(cancelled)
+			return err
+		}
+		g.Runtime = currentFixture{ctxClient{envClient: client}}
+		_, err = read(g, contract.Request{Arguments: json.RawMessage(`{"tool":"whoami"}`)})
+		Expect(err).To(MatchError(context.Canceled))
+		Eventually(cancelled).Should(BeClosed())
 	})
 
 	It("refuses a resource that is not on the list before the add-on is called", func() {
