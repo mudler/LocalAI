@@ -42,6 +42,8 @@ import ChatHeader from '../components/chat/ChatHeader'
 import ShortcutsDialog from '../components/chat/ShortcutsDialog'
 // eslint-disable-next-line no-unused-vars
 import ChatSettingsSheet from '../components/chat/ChatSettingsSheet'
+import ReasoningChips from '../components/chat/ReasoningChips'
+import { settingsWithEffort } from '../utils/chatSettings'
 // eslint-disable-next-line no-unused-vars
 import FindBar from '../components/chat/FindBar'
 // eslint-disable-next-line no-unused-vars
@@ -196,6 +198,10 @@ function ChatPage() {
   const [scrolledUp, setScrolledUp] = useState(false)
   const chatsMenuRef = useRef(null)
   const pickerRef = useRef(null)
+  const effortRef = useRef(null)
+  // The reasoning effort picked before the chat exists. It is written to the
+  // chat's settings right after the chat is created.
+  const [draftEffort, setDraftEffort] = useState('')
 
   // The address names the open chat. Opening one by id selects it, unless it is
   // already open (creating a chat selects it before the address changes).
@@ -561,7 +567,7 @@ function ChatPage() {
       if (!target) {
         setBusy(true)
         // The chat is created with the switches drafted in its menus.
-        target = await chat.createChat(draftModel, agentId, switches.draftSwitches())
+        target = await createWithDraft()
         switches.resetDraft()
         await select(target)
         navigate(`/app/chats/${target}`)
@@ -879,8 +885,29 @@ function ChatPage() {
   // The sub-agents of a chat: a chip after Skills.
   const subAgents = activeId && <SubAgentsMenu chatId={activeId} tick={chat.ticks.subAgents} />
 
+  // Creates the chat with the drafted switches, then gives it the reasoning
+  // effort picked before it existed.
+  const createWithDraft = async () => {
+    const id = await chat.createChat(draftModel, agentId, switches.draftSwitches())
+    if (draftEffort) {
+      try { await chat.update(id, { settings: settingsWithEffort(null, draftEffort) }) } catch (e) { addToast(e.message || t('settings.saveFailed'), 'error') }
+      setDraftEffort('')
+    }
+    return id
+  }
+  const effortNow = activeId ? (activeChat?.settings?.reasoning_effort || '') : draftEffort
+  const setEffort = async (value) => {
+    if (!activeId) { setDraftEffort(value); return }
+    try {
+      await chat.update(activeId, { settings: settingsWithEffort(activeChat?.settings, value) })
+    } catch (e) {
+      addToast(e.message || t('settings.saveFailed'), 'error')
+    }
+  }
+
   const composerChips = (
     <>
+      {activeChat?.kind !== 'subagent' && <ReasoningChips effort={effortNow} onEffort={setEffort} openRef={effortRef} />}
       {activeId && chat.files.on && (
         <button
           type="button"
@@ -947,7 +974,7 @@ function ChatPage() {
       if (!target) {
         if (!effectiveModel) { addToast(t('toasts.selectModel'), 'warning'); return }
         setBusy(true)
-        target = await chat.createChat(draftModel, agentId, switches.draftSwitches())
+        target = await createWithDraft()
         switches.resetDraft()
         await select(target)
         navigate(`/app/chats/${target}`)
@@ -1029,6 +1056,7 @@ function ChatPage() {
       case 'chats': chatsMenuRef.current?.open(); break
       case 'assistant': openAssistant(); break
       case 'settings': setShowSettings(true); break
+      case 'effort': effortRef.current?.open(); break
       case 'find': openFind(); break
       case 'skills': navigate('/app/skills'); break
       case 'export': if (activeId) exportChat(activeId); break
@@ -1368,6 +1396,7 @@ function ChatPage() {
           onEditAgent={() => navigate(`/app/agents/${encodeURIComponent(pickedAgent.id)}/edit`)}
           onDelete={activeId ? () => { setShowSettings(false); promptDelete() } : undefined}
           onSaveSettings={activeId && activeChat?.kind !== 'subagent' ? (settings) => chat.update(activeId, { settings }) : undefined}
+          onEffort={activeId && activeChat?.kind !== 'subagent' ? setEffort : undefined}
           onClose={() => setShowSettings(false)}
         />
       )}

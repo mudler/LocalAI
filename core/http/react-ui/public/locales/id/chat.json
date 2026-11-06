@@ -50,7 +50,16 @@
     "topP": "Top P",
     "topK": "Top K",
     "contextSize": "Ukuran Konteks",
-    "modelDefault": "model bawaan"
+    "modelDefault": "model bawaan",
+    "sliderOf": "Penggeser {{name}}",
+    "reset": "Pakai nilai bawaan model untuk {{name}}",
+    "hint": {
+      "temperature": "Nilai lebih tinggi memberi jawaban yang lebih beragam. Dari 0 sampai 2.",
+      "topP": "Memilih dari kata paling mungkin yang jumlahnya mencapai porsi ini. Di atas 0, sampai 1.",
+      "topK": "Memilih dari sebanyak ini kata paling mungkin. Bilangan bulat, 0 atau lebih.",
+      "contextSize": "Dari 512 sampai 4194304 token.",
+      "effort": "Berlaku langsung, mulai giliran berikutnya."
+    }
   },
   "empty": {
     "manageTitle": "Kelola LocalAI dengan obrolan",
@@ -383,6 +392,10 @@
     "export": {
       "label": "Ekspor sebagai Markdown",
       "desc": "Unduh percakapan ini"
+    },
+    "effort": {
+      "label": "Upaya penalaran",
+      "desc": "Pilih seberapa keras model berpikir"
     }
   },
   "shortcuts": {
@@ -856,5 +869,10 @@
       "other": "Catatan",
       "why": "Mengapa"
     }
+  },
+  "reasoning": {
+    "chip": "Upaya",
+    "title": "Upaya penalaran untuk obrolan ini",
+    "note": "Berlaku mulai giliran berikutnya. Tidak ada meminta model untuk tidak berpikir."
   }
 }

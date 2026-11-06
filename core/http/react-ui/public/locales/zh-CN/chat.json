@@ -33,7 +33,16 @@
     "agent": "智能体",
     "agentHelp": "此对话使用智能体 {{name}}：它的指令以及它授予的工具。",
     "editAgent": "编辑智能体",
-    "deleteHelp": "永久删除此对话及其消息。"
+    "deleteHelp": "永久删除此对话及其消息。",
+    "sliderOf": "{{name}}滑块",
+    "reset": "使用模型的默认{{name}}",
+    "hint": {
+      "temperature": "值越高，回答越多样。范围 0 到 2。",
+      "topP": "从累计概率达到此比例的最可能词中选择。大于 0，最大 1。",
+      "topK": "从最可能的这么多个词中选择。0 或更大的整数。",
+      "contextSize": "512 到 4194304 个 token。",
+      "effort": "立即生效，从下一轮开始。"
+    }
   },
   "empty": {
     "manageTitle": "通过聊天管理 LocalAI",
@@ -311,6 +320,10 @@
       "desc": "设定一个聊天会自己持续推进的目标",
       "clearDesc": "清除目标",
       "resumeDesc": "继续推进目标"
+    },
+    "effort": {
+      "label": "推理强度",
+      "desc": "选择模型思考的深度"
     }
   },
   "shortcuts": {
@@ -744,5 +757,10 @@
       "other": "备注",
       "why": "原因"
     }
+  },
+  "reasoning": {
+    "chip": "推理强度",
+    "title": "此聊天的推理强度",
+    "note": "从下一轮开始生效。“无”会要求模型不要思考。"
   }
 }

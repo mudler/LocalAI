@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import {
   Button, Callout, EmptyState, Notice, LoadError, Page, PageHeader, PaneLayout, Segmented, SidePane,
-  Skeleton, SkeletonRows, LoadingSpinner, ShellFallback, StatusChip, STATUS, Switch,
+  Skeleton, SkeletonRows, LoadingSpinner, ShellFallback, Slider, StatusChip, STATUS, Switch,
 } from '../components/ui'
 import { useToastAnchor } from '../components/Toast'
 import SideSheet from '../components/SideSheet'
@@ -156,6 +156,36 @@ function Segments() {
         testId="cat-segmented"
         options={[{ id: 'all', label: 'All', count: 4 }, { id: 'on', label: 'On', count: 3 }, { id: 'off', label: 'Off', count: 1 }]}
       />
+    </Section>
+  )
+}
+
+function Sliders() {
+  const [temperature, setTemperature] = useState('0.7')
+  const [unset, setUnset] = useState('')
+  const [bad, setBad] = useState('3')
+  const range = { min: 0, max: 2, step: 0.05 }
+  return (
+    <Section id="slider" title="Slider" note="A number in a range, with a number box and a reset. Empty means the default applies. It applies when the form is saved.">
+      <div className="ui-cat__stack ui-cat__form" data-testid="sliders">
+        <div className="dk-field">
+          <label className="dk-label" htmlFor="cat-slider-set">Temperature</label>
+          <Slider id="cat-slider-set" range={range} value={temperature} onChange={setTemperature} label="Temperature" placeholder="Model default" resetLabel="Use the model default" testId="cat-slider" />
+        </div>
+        <div className="dk-field">
+          <label className="dk-label" htmlFor="cat-slider-unset">Not set</label>
+          <Slider id="cat-slider-unset" range={range} value={unset} onChange={setUnset} label="Not set" placeholder="Model default" resetLabel="Use the model default" />
+        </div>
+        <div className="dk-field">
+          <label className="dk-label" htmlFor="cat-slider-bad">Out of range</label>
+          <Slider id="cat-slider-bad" range={range} value={bad} onChange={setBad} label="Out of range" placeholder="Model default" resetLabel="Use the model default" invalid describedBy="cat-slider-bad-err" />
+          <p className="dk-field-error" id="cat-slider-bad-err">Use a number from 0 to 2.</p>
+        </div>
+        <div className="dk-field">
+          <label className="dk-label" htmlFor="cat-slider-off">Disabled</label>
+          <Slider id="cat-slider-off" range={range} value="1" onChange={() => {}} label="Disabled" placeholder="Model default" resetLabel="Use the model default" disabled />
+        </div>
+      </div>
     </Section>
   )
 }
@@ -360,6 +390,7 @@ export default function UiCatalog() {
       <Switches />
       <FormControls />
       <Segments />
+      <Sliders />
       <Callouts />
       <Notices />
       <LoadErrors />

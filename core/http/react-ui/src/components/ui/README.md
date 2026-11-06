@@ -22,6 +22,7 @@ in the navigation). `e2e/ui-primitives.spec.js` checks the catalog.
 | An action | `Button` | `primary` for the one main action of a region; `secondary`, `ghost`, `danger` and `danger-ghost` for the rest. |
 | Text | `dk-input` | One line of text. |
 | A choice from a list | `dk-select` in `dk-select-wrap` | A native list of options. |
+| A number in a range (a sampling value) | `Slider` | A range with a number box and a reset; "not set" is its own state. Applies when the form is saved. |
 | A setting that applies at once | `Switch` | On or off, no Save. |
 | A choice that applies on Save | `dk-check` | A yes or no inside a form. |
 | One choice of a few that filters | `Segmented` | A list filter with counts. |
@@ -236,6 +237,30 @@ Save button. For a choice that needs Save, use a checkbox.
 
 Do: put it at the end of a 36 px row, name on the left. Don't: use it to run an
 action ("Disable all" is a button).
+
+## Slider
+
+`<Slider id range value onChange label placeholder resetLabel invalid describedBy disabled testId />`
+
+A number in a range: the kit's `dk-range` with a number box (`dk-input`) beside
+it and a reset button. `range` is `{ min, max, step, integer, exclusiveMin }`.
+`value` is a string and `''` means "not set": the box is empty and shows
+`placeholder`, the thumb rests at the start of the track, dimmed. The reset
+button returns to that state. `onChange` receives the new text, from the
+range or the box.
+
+- The range is a native input: arrow keys move one step, Page Up and Page Down
+  move more, Home and End go to the ends. Name it with `label`; the box and the
+  range share that name. Give the box an `id` and put a visible `<label
+  htmlFor>` in the field.
+- A value typed in the box may lie outside the range when the setting allows it
+  (the box is the source of truth). Mark it with `invalid` when it does not.
+- It applies with the form's Save, like a checkbox. The pure rules (snap to the
+  step, clamp, fill) are in `sliderModel.js`.
+
+Do: use it for a sampling value or a threshold with a known range. Don't: use it
+for a count with no upper bound or for a value a person must read exactly (a
+size in tokens or bytes); use an input.
 
 ## Toast
 

@@ -412,6 +412,16 @@ curl -X PATCH .../api/chats/3f1c... -H 'Content-Type: application/json' -d '{
 - A new `title` (1 to 80 characters) or `model` needs a chat with no turn running (409 otherwise).
   The history stays when the model changes.
 
+In the web UI, the **Effort** chip in the message box (next to Tools and
+Skills) and the chat settings sheet (`/settings`, or the sliders icon in the
+chat header) show and change the same `reasoning_effort`. The chip and the
+effort buttons in the sheet apply at once. In the sheet, temperature, top P and
+top K are sliders with a number box and a reset button; an empty value means
+the model's own default. The sliders cover 0 to 2 (temperature), above 0 to 1
+(top P) and 0 to 200 (top K). You can type a larger top K in the box. These
+values and the system prompt and context size are sent when you press **Save
+settings**. `reasoning_effort` `none` asks the model not to think.
+
 ### Context meter and speed
 
 Each model request sends a `usage` event with `used` (tokens in the context
@@ -1305,6 +1315,7 @@ and `/model ` the chat models, `/loop stop ` the loops of the chat.
 | `/model`, `/models` | Open the model list; with a name, switch to that model. |
 | `/new`, `/chats` | Start a new chat, or open the list of your chats. |
 | `/find`, `/settings`, `/export`, `/delete` | Search this chat, open its settings, download it as Markdown, delete it. |
+| `/effort` | Open the reasoning effort menu of this chat. |
 | `/<skill>`, `/skill <name>` | Run the message with one of the skills of this chat (see below). |
 | `/skills` | Open the Skills page, where you write and manage skills (see [Skills](#skills)). |
 | `/agent <name> <task>` | Hand the task to one of your saved agents (see below). |

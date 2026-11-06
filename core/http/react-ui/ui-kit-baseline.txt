@@ -36,7 +36,6 @@ checkbox src/components/catalog/SourcesView.jsx 2
 checkbox src/components/files/FileList.jsx 2
 checkbox src/components/settings/AddonUpgradeSettings.jsx 1
 sheet-jsx src/components/agents/AgentTryIt.jsx 1
-sheet-jsx src/components/chat/ChatSettingsSheet.jsx 1
 sheet-jsx src/components/library/SimulateSheet.jsx 1
 sheet-jsx src/components/models/CleanupSheet.jsx 1
 sheet-jsx src/components/pages/TrustSheet.jsx 1
@@ -48,6 +47,5 @@ toggle src/components/FailoverTargetsEditor.jsx 1
 toggle src/components/FilterBar.jsx 1
 toggle src/components/ProxyVisionSwitch.jsx 1
 toggle src/pages/Models.jsx 1
-width src/pages/chat.css 1
 width src/pages/library.css 1
 width src/pages/models-ledger.css 1
