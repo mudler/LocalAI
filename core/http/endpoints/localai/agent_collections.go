@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -409,7 +410,7 @@ func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFu
 
 // GetCollectionEntryRawFileEndpoint serves the original uploaded binary file.
 // @Summary Download the file of an entry.
-// @Description Serves the file as it was uploaded.
+// @Description Serves the file as it was uploaded. For a collection shared with the caller the download runs under the share: a revocation or a lowering stops it.
 // @Tags collections
 // @Param name path string true "Collection name"
 // @Param entry path string true "Entry key"
@@ -425,39 +426,77 @@ func GetCollectionEntryRawFileEndpoint(app *application.Application) echo.Handle
 		if err != nil {
 			entry = entryParam
 		}
-		var fpath string
-		err = app.WithCollection(c.Request().Context(), userID, decodedParam(c, "name"), policy.ActionRead, func(_ context.Context, owner, coll string) error {
-			var err error
-			fpath, err = svc.EntryFilePathForUser(owner, coll, entry)
-			return err
+		if svc == nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "collections are not available"})
+		}
+		// The file is served inside the admission of the share: a revoke or a
+		// lowering that takes the read away stops the download and answers
+		// only once no more bytes go out.
+		err = app.ServeCollectionEntryFile(c.Request().Context(), userID, decodedParam(c, "name"), entry, func(ctx context.Context, fpath string) error {
+			return serveFileUntil(ctx, c, fpath)
 		})
 		if err != nil {
+			if c.Response().Committed {
+				// The download was cut short; the client sees a short body.
+				return nil
+			}
 			if handled, herr := collectionDenied(c, err); handled {
 				return herr
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
-		return c.File(fpath)
+		return nil
 	}
 }
 
+// serveFileUntil serves a file with its type, ranges and caching headers, and
+// stops reading it when ctx ends.
+func serveFileUntil(ctx context.Context, c echo.Context, fpath string) error {
+	f, err := os.Open(fpath) // #nosec G304 -- the path comes from the collection backend, never from the request
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return os.ErrNotExist
+	}
+	http.ServeContent(c.Response(), c.Request(), info.Name(), info.ModTime(), &ctxFile{ctx: ctx, f: f})
+	return ctx.Err()
+}
+
+// ctxFile is a file whose reads fail once ctx ends, so a running copy stops.
+type ctxFile struct {
+	ctx context.Context
+	f   *os.File
+}
+
+func (r *ctxFile) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.f.Read(p)
+}
+
+func (r *ctxFile) Seek(offset int64, whence int) (int64, error) { return r.f.Seek(offset, whence) }
+
 // ListCollectionSourcesEndpoint handles /api/collections/{name}/sources (GET).
 // @Summary List the URLs a collection follows.
+// @Description Only the owner may list the sources: a source URL can carry a credential. A person the collection is shared with gets 403 whatever the role.
 // @Tags collections
 // @Param name path string true "Collection name"
 // @Success 200 {object} schema.CollectionSources "The sources"
+// @Failure 403 {object} map[string]string "The collection is shared with the caller, who is not its owner"
 // @Failure 404 {object} map[string]string "Collection not found"
 // @Router /api/collections/{name}/sources [get]
 func ListCollectionSourcesEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
-		var sources []lagi.SourceInfo
-		err := app.WithCollection(c.Request().Context(), userID, decodedParam(c, "name"), policy.ActionRead, func(_ context.Context, owner, coll string) error {
-			var err error
-			sources, err = svc.ListSourcesForUser(owner, coll)
-			return err
-		})
+		// Only the owner lists the sources: a source URL can carry a token.
+		sources, err := app.CollectionSources(c.Request().Context(), userID, decodedParam(c, "name"))
 		if err != nil {
 			if handled, herr := collectionDenied(c, err); handled {
 				return herr

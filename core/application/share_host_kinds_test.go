@@ -136,6 +136,48 @@ var _ = Describe("sharing connector bindings and collections", func() {
 		Expect(mine).To(BeEmpty(), "nothing was made under the grantee")
 	})
 
+	It("keeps the sources of a shared collection the owner's, whatever the role", func() {
+		ref := shareCollection("manuals")
+		for _, role := range []policy.Role{policy.RoleViewer, policy.RoleEditor} {
+			Expect(p.SetGrantRef(ctx, hostActor(alice), ref, bob, role)).To(Succeed())
+			_, err := a.CollectionSources(ctx, bob, "manuals")
+			Expect(err).To(MatchError(ErrCollectionRole), "role %s", role)
+		}
+		// What a viewer and an editor may do is unchanged.
+		hits, err := col.Search(ctx, bob, "manuals", "router", 3)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(hits).NotTo(BeEmpty())
+		_, err = a.CollectionSources(ctx, alice, "manuals")
+		Expect(err).NotTo(HaveOccurred(), "the owner lists the sources")
+	})
+
+	It("stops a download of an entry file when the grant is revoked before the revoke answers", func() {
+		ref := shareCollection("manuals")
+		Expect(p.SetGrantRef(ctx, hostActor(alice), ref, bob, policy.RoleViewer)).To(Succeed())
+		started, stopped := make(chan string), make(chan struct{})
+		done := make(chan error, 1)
+		go func() {
+			defer GinkgoRecover()
+			done <- a.ServeCollectionEntryFile(ctx, bob, "manuals", "guide.txt", func(rctx context.Context, path string) error {
+				started <- path
+				<-rctx.Done()
+				close(stopped)
+				return rctx.Err()
+			})
+		}()
+		var path string
+		Eventually(started).Should(Receive(&path))
+		Expect(path).NotTo(BeEmpty())
+		Expect(p.RevokeRef(ctx, hostActor(alice), ref, bob)).To(Succeed())
+		Expect(stopped).To(BeClosed(), "the revoke answered only after the download stopped")
+		Eventually(done).Should(Receive(HaveOccurred()))
+		err := a.ServeCollectionEntryFile(ctx, bob, "manuals", "guide.txt", func(context.Context, string) error {
+			Fail("served after the revoke")
+			return nil
+		})
+		Expect(err).To(MatchError(ErrCollectionNotFound))
+	})
+
 	It("gives the grantee's own collection the name and the shared one its unambiguous name", func() {
 		ref := shareCollection("manuals")
 		Expect(p.SetGrantRef(ctx, hostActor(alice), ref, bob, policy.RoleViewer)).To(Succeed())

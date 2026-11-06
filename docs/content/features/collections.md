@@ -60,8 +60,10 @@ A person can receive it when their account may use collections.
 | **Can view** (`viewer`) | Search it and read its entries and files. |
 | **Can edit** (`editor`) | Also add and remove entries. |
 
-Sources, reset and sharing stay with the owner. A shared collection is listed under
-**Shared with you** with the owner's name and the role.
+Sources, reset and sharing stay with the owner. A person with either role cannot
+list the sources either (`GET /{name}/sources` answers `403`): a source URL can
+carry a credential. A shared collection is listed under **Shared with you** with the
+owner's name and the role.
 
 The agents and the chats of the person find a shared collection by its name, like
 their own. The person's own collection wins a name. When the person has a collection
@@ -74,7 +76,9 @@ Nothing is copied: a shared collection stays in its owner's store, and an entry 
 an editor adds is in the owner's collection. When the owner lowers or removes a
 share, LocalAI cancels the person's running searches and writes on it before it
 answers, and the next call answers `404`, as for a collection that does not exist. A
-call that the role does not allow answers `403`.
+download of an entry file (`GET /{name}/entries-raw/{entry}`) runs under the share
+too: a lowering or a revocation stops it, and answers only once no more bytes of the
+file are sent. A call that the role does not allow answers `403`.
 
 ## API
 
