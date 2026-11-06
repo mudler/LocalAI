@@ -212,6 +212,12 @@ a.ag-run-row:hover { background: color-mix(in srgb, var(--dk-hover) 45%, transpa
 .ag-run-row__line { font-size: var(--fs-small); color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ag-run-row__when { font-size: var(--fs-meta); font-variant-numeric: tabular-nums; color: var(--dk-muted); white-space: nowrap; }
 .ag-run-row .lai-icon { color: var(--dk-muted); }
+.ag-bind-list { margin: 0; padding: 0; list-style: none; }
+.ag-bind-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 4px var(--sp-4); min-height: 56px; padding: 10px var(--sp-4); border-top: 1px solid var(--dk-edge); }
+.ag-bind-row:first-child { border-top: 0; }
+.ag-bind-row__main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ag-bind-row__title { font-weight: 600; font-size: var(--fs-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-bind-row__line { font-size: var(--fs-small); color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ag-note--bottom { margin-bottom: var(--sp-3); }
 .ag-note--gap { margin-top: var(--sp-3); }
 .ag-note { max-width: 64ch; margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-muted); }
@@ -334,6 +340,10 @@ a.ag-run-row:hover { background: color-mix(in srgb, var(--dk-hover) 45%, transpa
   .ag-facts dt { min-height: 0; padding: var(--sp-3) 0 0; border-bottom: 0; }
   .ag-facts dd.ag-facts__text { padding-top: 4px; }
   .ag-facts dd { padding-top: 4px; min-height: 0; }
+  .ag-bind-row { grid-template-columns: minmax(0, 1fr) auto; padding: 10px var(--sp-3); }
+  .ag-bind-row__main { grid-column: 1 / -1; grid-row: 2; }
+  .ag-bind-row > .ag-state { grid-column: 1; grid-row: 1; justify-self: start; }
+  .ag-bind-row > :last-child { grid-column: 2; grid-row: 1; }
   .ag-run-row { grid-template-columns: minmax(0, 1fr) auto; padding: 10px var(--sp-3); }
   .ag-run-row > .ag-state { grid-column: 1; grid-row: 1; }
   .ag-run-row__main { grid-column: 1 / -1; grid-row: 2; }

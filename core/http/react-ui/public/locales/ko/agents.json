@@ -64,7 +64,18 @@
     },
     "noRunsText": "Press Chat to start a conversation with this agent. Chats that ran with it, and the ones its triggers start, are listed here.",
     "missingText": "It may have been deleted, or it belongs to another user.",
-    "backToList": "에이전트로 돌아가기"
+    "backToList": "에이전트로 돌아가기",
+    "bindings": "연결",
+    "bindingsAll": "모든 연결",
+    "noBindings": "이 에이전트에 연결된 메시징 앱이 없습니다.",
+    "noBindingsLink": "애드온에서 추가하세요.",
+    "bindingState": {
+      "ok": "실행 중",
+      "off": "꺼짐",
+      "attention": "확인 필요"
+    },
+    "openSettings": "설정 열기",
+    "openSettingsFor": "{{name}} 설정 열기"
   },
   "record": {
     "where": "A run is a chat that ran with the agent, including the ones its triggers and connectors started.",

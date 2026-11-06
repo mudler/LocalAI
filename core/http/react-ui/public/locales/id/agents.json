@@ -64,7 +64,18 @@
     },
     "noRunsText": "Press Chat to start a conversation with this agent. Chats that ran with it, and the ones its triggers start, are listed here.",
     "missingText": "It may have been deleted, or it belongs to another user.",
-    "backToList": "Kembali ke agen"
+    "backToList": "Kembali ke agen",
+    "bindings": "Koneksi",
+    "bindingsAll": "Semua koneksi",
+    "noBindings": "Tidak ada aplikasi pesan yang terhubung ke agen ini.",
+    "noBindingsLink": "Tambahkan di Add-on.",
+    "bindingState": {
+      "ok": "Berjalan",
+      "off": "Mati",
+      "attention": "Perlu perhatian"
+    },
+    "openSettings": "Buka pengaturan",
+    "openSettingsFor": "Buka pengaturan {{name}}"
   },
   "record": {
     "where": "A run is a chat that ran with the agent, including the ones its triggers and connectors started.",

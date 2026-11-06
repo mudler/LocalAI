@@ -149,7 +149,18 @@
       "trigger": "Started by a trigger",
       "connector": "Started by a connector"
     },
-    "backToList": "Back to agents"
+    "backToList": "Back to agents",
+    "bindings": "Connections",
+    "bindingsAll": "All connections",
+    "noBindings": "No messaging app is connected to this agent.",
+    "noBindingsLink": "Add one in Add-ons.",
+    "bindingState": {
+      "ok": "Running",
+      "off": "Off",
+      "attention": "Needs attention"
+    },
+    "openSettings": "Open settings",
+    "openSettingsFor": "Open settings of {{name}}"
   },
   "create": {
     "titleCreate": "Create agent",

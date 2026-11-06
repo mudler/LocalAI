@@ -64,7 +64,18 @@
     },
     "noRunsText": "Press Chat to start a conversation with this agent. Chats that ran with it, and the ones its triggers start, are listed here.",
     "missingText": "It may have been deleted, or it belongs to another user.",
-    "backToList": "Retour aux agents"
+    "backToList": "Retour aux agents",
+    "bindings": "Connexions",
+    "bindingsAll": "Toutes les connexions",
+    "noBindings": "Aucune application de messagerie n'est connectée à cet agent.",
+    "noBindingsLink": "Ajoutez-en une dans Add-ons.",
+    "bindingState": {
+      "ok": "Active",
+      "off": "Désactivée",
+      "attention": "À vérifier"
+    },
+    "openSettings": "Ouvrir les réglages",
+    "openSettingsFor": "Ouvrir les réglages de {{name}}"
   },
   "record": {
     "where": "A run is a chat that ran with the agent, including the ones its triggers and connectors started.",

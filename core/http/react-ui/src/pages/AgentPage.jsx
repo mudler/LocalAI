@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { chatAgentsApi, chatTriggersApi } from '../utils/api'
+import { chatAgentsApi, chatConnectorsApi, chatTriggersApi } from '../utils/api'
+import { bindingsOfAgent } from '../utils/chatConnectors'
 import { agentInfo } from '../utils/agentInfo'
 import { downloadAgentFile } from '../utils/agentFiles'
 import { outcomeLine, recordStatus, runOfChat, STRIP_LENGTH, titleOf } from '../utils/agentRuns'
@@ -12,11 +13,16 @@ import { StatusMark, RunStrip, RecordLine, Chip, FolderChip, LibraryChips, forma
 import ActionMenu from '../components/ActionMenu'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
+import StatusChip from '../components/ui/StatusChip'
+// eslint-disable-next-line no-unused-vars
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
 import { useAgentDelete } from '../components/agents/useAgentDelete'
 import { firstLine } from '../utils/agentRuns'
 import { filesOff, folderState } from '../utils/chatAgents'
 import './agents.css'
+
+// The chip tone of each state of a binding.
+const BINDING_TONE = { ok: 'ok', off: 'idle', attention: 'warn' }
 
 // An agent as a home: what it is, its record, a button to chat with it, the
 // triggers that start it, and the chats that ran with it. The facts come from
@@ -30,6 +36,9 @@ export default function AgentPage() {
   const [agent, setAgent] = useState(null)
   const [chats, setChats] = useState([])
   const [triggers, setTriggers] = useState([])
+  // The bindings of messaging apps that answer as this agent; null while unknown
+  // or when the server has connectors off, so the section is left out.
+  const [bindings, setBindings] = useState(null)
   const [missing, setMissing] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -45,10 +54,13 @@ export default function AgentPage() {
       setMissing(false)
       // The server's run history holds the chats you had with the agent and
       // the ones its triggers and connectors started.
-      const [hist, trig] = await Promise.all([
+      const [hist, trig, kinds, conns] = await Promise.all([
         chatAgentsApi.runs(found.id, 200).catch(() => ({ runs: [] })),
         chatTriggersApi.list().catch(() => ({ triggers: [] })),
+        chatConnectorsApi.kinds().catch(() => null),
+        chatConnectorsApi.list().catch(() => null),
       ])
+      setBindings(conns ? bindingsOfAgent(found.id, kinds?.kinds || [], conns.connectors || []) : null)
       setChats((hist.runs || []).map(r => ({ ...r, id: r.chat_id })))
       setTriggers((trig.triggers || []).filter(x => x.agent_id === found.id))
       setError(null)
@@ -193,6 +205,33 @@ export default function AgentPage() {
             </div>
           )}
         </section>
+
+        {bindings && (
+          <section className="ag-group" aria-labelledby="ag-bindings-h" data-testid="agent-bindings">
+            <div className="ag-section-head">
+              <h2 className="ag-h2" id="ag-bindings-h">{t('agent.bindings')}</h2>
+              <Button variant="ghost" size="sm" icon="puzzle" to="/app/chats/connectors">{t('agent.bindingsAll')}</Button>
+            </div>
+            {bindings.length === 0 ? (
+              <p className="ag-note" data-testid="agent-bindings-empty">
+                {t('agent.noBindings')} <Link to="/app/addons">{t('agent.noBindingsLink')}</Link>
+              </p>
+            ) : (
+              <ul className="ag-runs ag-bind-list">
+                {bindings.map(b => (
+                  <li key={b.id} className="ag-bind-row" data-binding={b.id} data-state={b.state}>
+                    <span className="ag-bind-row__main">
+                      <span className="ag-bind-row__title">{b.name}</span>
+                      <span className="ag-bind-row__line">{b.kindTitle}{b.reason ? ` - ${b.reason}` : ''}</span>
+                    </span>
+                    <StatusChip className="ag-state" tone={BINDING_TONE[b.state]} label={t(`agent.bindingState.${b.state}`)} testId="agent-binding-state" />
+                    <Button size="sm" iconEnd="arrow-right" to={b.href} aria-label={t('agent.openSettingsFor', { name: b.name })}>{t('agent.openSettings')}</Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
         <section className="ag-group" aria-labelledby="ag-runs-h">
           <div className="ag-section-head">

@@ -64,7 +64,18 @@
     },
     "noRunsText": "Press Chat to start a conversation with this agent. Chats that ran with it, and the ones its triggers start, are listed here.",
     "missingText": "It may have been deleted, or it belongs to another user.",
-    "backToList": "返回智能体"
+    "backToList": "返回智能体",
+    "bindings": "连接",
+    "bindingsAll": "所有连接",
+    "noBindings": "没有消息应用连接到此智能体。",
+    "noBindingsLink": "请在附加组件中添加。",
+    "bindingState": {
+      "ok": "运行中",
+      "off": "已关闭",
+      "attention": "需要处理"
+    },
+    "openSettings": "打开设置",
+    "openSettingsFor": "打开 {{name}} 的设置"
   },
   "record": {
     "where": "A run is a chat that ran with the agent, including the ones its triggers and connectors started.",
