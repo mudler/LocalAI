@@ -98,7 +98,11 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 	s.eng, s.tok, s.ctxLen, s.cfg = eng, tok, eng.ctxLen, c
 	s.eos = map[int]bool{}
 	eosIDs := c.eos
-	if eosIDs == nil {
+	switch {
+	case eosIDs != nil:
+	case c.family == familyDeepSeek41:
+		eosIDs = defaultDeepSeekEOS
+	default:
 		eosIDs = defaultEOS(tok)
 	}
 	for _, id := range eosIDs {
@@ -132,6 +136,12 @@ func defaultEOS(tok Tokenizer) []int {
 		return defaultEOSIDs
 	}
 	return out
+}
+
+func (s *Strata) familyName() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.cfg.family
 }
 
 func (s *Strata) freeLocked() {
@@ -423,6 +433,9 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw
 	}
 	if len(opts.GetVideos()) > 0 || len(opts.GetAudios()) > 0 {
 		return res, errors.New("strata: video and audio input are not supported")
+	}
+	if len(opts.GetImages()) > 0 && s.familyName() == familyDeepSeek41 {
+		return res, errors.New("strata: images are not supported with the deepseek41 family")
 	}
 
 	p, err := s.preparePrompt(tok, opts)
