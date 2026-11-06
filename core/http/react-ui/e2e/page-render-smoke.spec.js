@@ -72,7 +72,7 @@ test.describe('Add-on page render smoke', () => {
 // on the home and finishes loading.
 test.describe('Folder picker render smoke', () => {
   test('renders the folder picker of the agent editor', async ({ page }) => {
-    await page.goto('/app/agents/new')
+    await page.goto('/app/agents/a2/edit')
     await page.getByTestId('agent-folder-scope-one').click()
     await page.getByTestId('agent-folder-choose').click()
     const picker = page.getByTestId('folder-picker')

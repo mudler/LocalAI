@@ -8,10 +8,27 @@ import { join } from 'node:path'
 
 const fold = (page, id) => page.locator(`[data-section="${id}"]`)
 
+// The new-agent page is a wizard (see agents-wizard.spec.js). These helpers fill
+// its first step, move on, and finish from the Review step.
+const wizardStart = async (page, name = 'Reader', instructions = 'Be brief.') => {
+  await page.goto('/app/agents/new')
+  await page.getByLabel('Name', { exact: false }).first().fill(name)
+  await page.getByLabel('Instructions', { exact: false }).first().fill(instructions)
+}
+const wizardAbilities = async (page, name) => {
+  await wizardStart(page, name)
+  await page.getByTestId('wizard-next').click()
+}
+const wizardCreate = async (page) => {
+  while (await page.getByTestId('wizard-next').isVisible()) await page.getByTestId('wizard-next').click()
+  await page.getByTestId('wizard-create').click()
+}
+const openTools = (page) => page.getByTestId('wizard-fine').locator('summary').click()
+
 test.describe('Agent form', () => {
-  test('creates an agent from the folds and sends the definition', async ({ page }) => {
+  test('saves an agent from the folds and sends the definition', async ({ page }) => {
     const s = await installAgents(page)
-    await page.goto('/app/agents/new')
+    await page.goto('/app/agents/a2/edit')
     await expect(page.getByTestId('agent-edit')).toBeVisible()
 
     await page.getByLabel('Name', { exact: false }).first().fill('Reviewer')
@@ -28,13 +45,12 @@ test.describe('Agent form', () => {
     // Docs is an MCP connector: it is a row of the MCP servers picker in "What it can use", not in the built-in list.
     await page.getByTestId('agent-mcp-picker').getByRole('switch', { name: /Docs/ }).click()
 
-    await page.getByRole('button', { name: 'Create Agent' }).first().click()
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
-    expect(s.calls.find(c => c.method === 'POST').body).toEqual({
+    expect(s.calls.find(c => c.method === 'PUT').body).toEqual({
       name: 'Reviewer', description: 'Checks a change', instructions: 'Answer in French.', model: '',
       mcp_servers: ['connector:m1'], addons: [], collections: ['handbook'], skills: ['citations'], builtins_off: [], builtins_on: [],
-      // A new agent reads yours and its own notes and saves to its own; the connector defaults stay.
-      builtins: ['triggers.propose', 'triggers.run', 'talkback.channels', 'files.upload', 'memory.write'], memory: 'mine_and_own', network: 'off',
+      builtins: [], network: 'off',
     })
   })
 
@@ -142,20 +158,23 @@ test.describe('Agent form', () => {
 
   test('sets the network of the commands of unattended runs', async ({ page }) => {
     const s = await installAgents(page)
-    await page.goto('/app/agents/new')
-    await page.getByLabel('Name', { exact: false }).first().fill('Builder')
+    await page.goto('/app/agents/a2/edit')
     await expect(page.getByTestId('agent-network')).toHaveValue('off')
     await page.getByTestId('agent-network').selectOption('registries')
-    await page.getByRole('button', { name: 'Create Agent' }).first().click()
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
-    expect(s.calls.find(c => c.method === 'POST').body.network).toBe('registries')
+    expect(s.calls.find(c => c.method === 'PUT').body.network).toBe('registries')
   })
 
-  test('needs a name, and says so on the fold', async ({ page }) => {
+  test('needs a name and instructions, and says so before the next step', async ({ page }) => {
     const s = await installAgents(page)
     await page.goto('/app/agents/new')
-    await expect(page.locator('[data-group="identity"]')).toContainText('Needs a name')
-    await page.getByRole('button', { name: 'Create Agent' }).first().click()
+    await expect(page.getByTestId('wizard-needs')).toContainText('A name and instructions are needed')
+    await expect(page.getByTestId('wizard-next')).toBeDisabled()
+    await page.getByLabel('Name', { exact: false }).first().fill('Builder')
+    await expect(page.getByTestId('wizard-next')).toBeDisabled()
+    await page.getByLabel('Instructions', { exact: false }).first().fill('Build things.')
+    await expect(page.getByTestId('wizard-next')).toBeEnabled()
     expect(s.calls.some(c => c.method === 'POST')).toBe(false)
   })
 
@@ -235,9 +254,8 @@ test.describe('Agent form', () => {
     await page.route(/\/api\/chats\/agents(\?.*)?$/, route => (route.request().method() === 'POST'
       ? route.fulfill({ status: 409, json: { error: { message: 'you already have an agent with this name', type: 'conflict', code: 409 } } })
       : route.fulfill({ json: { agents: [] } })))
-    await page.goto('/app/agents/new')
-    await page.getByLabel('Name', { exact: false }).first().fill('Dup')
-    await page.getByRole('button', { name: 'Create Agent' }).first().click()
+    await wizardStart(page, 'Dup')
+    await wizardCreate(page)
     await expect(page.getByText('you already have an agent with this name')).toBeVisible()
     await expect(page).toHaveURL(/\/app\/agents\/new$/)
   })
@@ -337,8 +355,7 @@ test.describe('Agent folder', () => {
 
   test('Files is one explicit choice: No files, All my files or Only these folders', async ({ page }) => {
     const s = await installAgents(page, { files: HOME_FOLDERS })
-    await page.goto('/app/agents/new')
-    await page.getByLabel('Name', { exact: false }).first().fill('Reader')
+    await wizardAbilities(page, 'Reader')
     const choice = page.getByTestId('agent-folder-scope')
     await expect(choice.getByRole('button')).toHaveText(['No files', 'All my files', 'Only these folders'])
     // A new agent keeps All my files, and no folder is added for it.
@@ -349,8 +366,9 @@ test.describe('Agent folder', () => {
     await expect(page.getByTestId('agent-folder-scope-none')).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByTestId('agent-folder-none-help')).toContainText('cannot reach any of your files')
     await expect(page.getByTestId('agent-folder')).toHaveCount(0)
-    await expect(fold(page, 'Files')).toContainText('No files')
+    await expect(page.getByTestId('wizard-rail-files')).toHaveText('No files')
     // The Tools list says the same: the Files switch is off.
+    await openTools(page)
     await expect(page.getByTestId('agent-tools-panel').getByRole('switch', { name: /Your files/ })).not.toBeChecked()
 
     await page.getByTestId('agent-folder-scope-one').click()
@@ -358,11 +376,22 @@ test.describe('Agent folder', () => {
     await expect(page.getByTestId('agent-tools-panel').getByRole('switch', { name: /Your files/ })).toBeChecked()
     // Back to None: the unchosen row does not block the save.
     await page.getByTestId('agent-folder-scope-none').click()
-    await page.getByRole('button', { name: 'Create Agent' }).first().click()
-    await expect(page).toHaveURL(/\/app\/agents$/)
+    await wizardCreate(page)
+    await expect(page).toHaveURL(/\/app\/agents\/a3$/)
     const body = s.calls.find(c => c.method === 'POST').body
     expect(body.builtins_off).toContain('files')
     expect(body.folders).toBeUndefined()
+  })
+
+  test('an unchosen folder row stops the create and sends the person back to Files', async ({ page }) => {
+    const s = await installAgents(page, { files: HOME_FOLDERS })
+    await wizardAbilities(page, 'Reader')
+    await page.getByTestId('agent-folder-scope-one').click()
+    await expect(page.getByTestId('agent-folder-choose')).toBeVisible()
+    await wizardCreate(page)
+    await expect(page.getByText('Choose a folder')).toBeVisible()
+    await expect(page.getByTestId('wizard-pane-abilities')).toBeVisible()
+    expect(s.calls.some(c => c.method === 'POST')).toBe(false)
   })
 
   test('No files shows in the Effective view and the Try it list, and clears the folders of a saved agent', async ({ page }) => {
@@ -400,7 +429,7 @@ test.describe('Agent folder', () => {
 
   test('No files says that watching a folder needs file access', async ({ page }) => {
     await installAgents(page, { files: HOME_FOLDERS })
-    await page.goto('/app/agents/new')
+    await wizardAbilities(page, 'Reader')
     await page.getByTestId('agent-folder-scope-none').click()
     await expect(page.getByTestId('agent-folder-none-help')).toContainText('Watching a folder needs file access')
   })
@@ -473,8 +502,7 @@ test.describe('Agent folder', () => {
 
   test('the picker cannot choose Chats or LocalAI, and all the files can be chosen', async ({ page }) => {
     const s = await installAgents(page, { files: HOME_FOLDERS })
-    await page.goto('/app/agents/new')
-    await page.getByLabel('Name', { exact: false }).first().fill('Reader')
+    await wizardAbilities(page, 'Reader')
     await page.getByTestId('agent-folder-scope-one').click()
     await page.getByTestId('agent-folder-choose').click()
     const dialog = page.getByTestId('agent-folder-dialog')
@@ -488,8 +516,8 @@ test.describe('Agent folder', () => {
     await expect(dialog).not.toContainText('notes.txt')
     await dialog.getByTestId('agent-folder-use').click()
     await expect(page.getByTestId('agent-folder-path')).toHaveText('Home')
-    await page.getByRole('button', { name: 'Create Agent' }).first().click()
-    await expect(page).toHaveURL(/\/app\/agents$/)
+    await wizardCreate(page)
+    await expect(page).toHaveURL(/\/app\/agents\/a3$/)
     expect(s.calls.find(c => c.method === 'POST').body.folders).toEqual([{ path: '/', mode: 'read' }])
   })
 
@@ -499,8 +527,7 @@ test.describe('Agent folder', () => {
     files['/'] = [...HOME_FOLDERS['/'], ...names.map(n => ({ path: `/${n}`, name: n, kind: 'dir' }))]
     for (const n of names) files[`/${n}`] = []
     const s = await installAgents(page, { files })
-    await page.goto('/app/agents/new')
-    await page.getByLabel('Name', { exact: false }).first().fill('Many')
+    await wizardAbilities(page, 'Many')
     await page.getByTestId('agent-folder-scope-one').click()
     const pick = async (name, choose) => {
       await choose.click()
@@ -531,13 +558,13 @@ test.describe('Agent folder', () => {
     await expect(page.getByTestId('agent-folder-add')).toBeDisabled()
     await page.getByTestId('agent-folder-remove').last().click()
     await expect(page.getByTestId('agent-folder-add')).toBeEnabled()
-    await page.getByRole('button', { name: 'Create Agent' }).first().click()
-    await expect(page).toHaveURL(/\/app\/agents$/)
+    await wizardCreate(page)
+    await expect(page).toHaveURL(/\/app\/agents\/a3$/)
     const body = s.calls.find(c => c.method === 'POST').body
     expect(body.folders).toHaveLength(7)
     expect(body.folders[0]).toEqual({ path: '/DirA', mode: 'write' })
     expect(body.folders[1]).toEqual({ path: '/DirB', mode: 'read' })
-    await expect(page.locator('[data-agent="Many"]').getByTestId('agent-folder-chip')).toContainText('+6')
+    await expect(page.getByTestId('agent-facts').getByTestId('agent-folder-chip')).toContainText('+6')
   })
 
   test('a row added and cancelled goes away, and a folder inside another shows the outer mode', async ({ page }) => {
@@ -577,7 +604,7 @@ test.describe('Agent folder', () => {
       if (fail) { fail = false; return route.fulfill({ status: 500, json: { error: { message: 'boom' } } }) }
       return route.fallback()
     })
-    await page.goto('/app/agents/new')
+    await wizardAbilities(page, 'Reader')
     await page.getByTestId('agent-folder-scope-one').click()
     await page.getByTestId('agent-folder-choose').click()
     const dialog = page.getByTestId('agent-folder-dialog')
@@ -626,18 +653,19 @@ test('create uses the chat picker, filters unusable models and persists the alia
   const s = await installAgents(page, { models: aliasModels })
   const aliasRequests = []
   page.on('request', r => { if (new URL(r.url()).pathname.startsWith('/api/aliases')) aliasRequests.push(r.url()) })
-  await page.goto('/app/agents/new')
-  await page.getByLabel('Name', { exact: false }).first().fill('Alias user')
+  await wizardStart(page, 'Alias user')
+  // The model is a quiet line until the person chooses a fixed one.
+  await page.getByTestId('wizard-model-choose').click()
   const chip = await openModel(page)
-  await expect(chip).toContainText('Any model')
+  await expect(chip).toContainText('The one I pick in each chat')
   await chip.click()
   const options = page.getByRole('listbox').getByRole('option')
-  await expect(options.locator('code')).toHaveText(['Any model (the chat picks one)', 'production', 'alternate'])
+  await expect(options.locator('code')).toHaveText(['The one I pick in each chat', 'production', 'alternate'])
   // The agent picker now draws the rich row (state and capabilities), so the state is the bold line.
   await expect(options.locator('.home-menu__state b')).toHaveText(['not loaded', 'not loaded'])
   await options.filter({ has: page.getByText('production', { exact: true }) }).click()
-  await page.getByRole('button', { name: 'Create Agent' }).first().click()
-  await expect(page).toHaveURL(/\/app\/agents$/)
+  await wizardCreate(page)
+  await expect(page).toHaveURL(/\/app\/agents\/a3$/)
   const created = s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/agents')
   expect(created.body.model).toBe('production')
   const id = s.agents.find(a => a.name === 'Alias user').id
@@ -655,8 +683,8 @@ test('create can pick an alias, shows what it stands for, and saves the alias na
     { id: 'lost', capabilities: [], alias_of: 'gone', alias_error: 'alias "lost" points to unknown model "gone"' },
   ]
   const s = await installAgents(page, { models })
-  await page.goto('/app/agents/new')
-  await page.getByLabel('Name', { exact: false }).first().fill('Alias picker')
+  await wizardStart(page, 'Alias picker')
+  await page.getByTestId('wizard-model-choose').click()
   const chip = await openModel(page)
   await chip.click()
   const options = page.getByRole('listbox').getByRole('option')
@@ -666,8 +694,8 @@ test('create can pick an alias, shows what it stands for, and saves the alias na
   if (process.env.PICKER_SHOTS) await page.screenshot({ path: `${process.env.PICKER_SHOTS}/agent-create-picker.png` })
   await options.filter({ hasText: 'daily' }).click()
   await expect(chip).toContainText('daily')
-  await page.getByRole('button', { name: 'Create Agent' }).first().click()
-  await expect(page).toHaveURL(/\/app\/agents$/)
+  await wizardCreate(page)
+  await expect(page).toHaveURL(/\/app\/agents\/a3$/)
   expect(s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/agents').body.model).toBe('daily')
 })
 
