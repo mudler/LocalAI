@@ -1,0 +1,445 @@
+diff --git a/include/engine/framework/runtime/session.h b/include/engine/framework/runtime/session.h
+index 60433a1..4a60d0a 100644
+--- a/include/engine/framework/runtime/session.h
++++ b/include/engine/framework/runtime/session.h
+@@ -1,6 +1,8 @@
+ #pragma once
+ 
+ #include "engine/framework/core/backend.h"
++#include "engine/framework/core/execution_context.h"
++#include <stdexcept>
+ #include "engine/framework/debug/trace.h"
+ #include "engine/framework/io/json.h"
+ 
+@@ -271,6 +273,22 @@ public:
+     virtual TaskResult run(const TaskRequest & request) = 0;
+ };
+ 
++// GraphOnly is not sufficient for music admission: host DSP and session loops
++// are not latency-bounded by the graph abort callback.
++enum class OfflineCancellationSupport { Unsupported, GraphOnly, CompleteOffline };
++
++class RunCancelled : public std::runtime_error {
++public:
++    RunCancelled() : std::runtime_error("offline run cancelled") {}
++};
++
++class ICancellableOfflineVoiceTaskSession : public virtual IOfflineVoiceTaskSession {
++public:
++    ~ICancellableOfflineVoiceTaskSession() override = default;
++    virtual OfflineCancellationSupport cancellation_support() const noexcept = 0;
++    virtual TaskResult run_cancellable(const TaskRequest & request, core::RunStopHandle stop) = 0;
++};
++
+ class IBatchedOfflineVoiceTaskSession : public virtual IVoiceTaskSession {
+ public:
+     using ResultCallback = std::function<void(size_t, TaskResult)>;
+diff --git a/include/engine/models/sheetsage/session.h b/include/engine/models/sheetsage/session.h
+index 2ce078d..6c0effd 100644
+--- a/include/engine/models/sheetsage/session.h
++++ b/include/engine/models/sheetsage/session.h
+@@ -29,7 +29,7 @@ std::shared_ptr<runtime::IVoiceModelLoader> make_sheetsage2_loader();
+ 
+ class SheetSage2Session final
+     : public runtime::RuntimeSessionBase
+-    , public runtime::IOfflineVoiceTaskSession {
++    , public runtime::ICancellableOfflineVoiceTaskSession {
+ public:
+     SheetSage2Session(
+         runtime::TaskSpec task,
+@@ -44,7 +44,11 @@ public:
+     void prepare(const runtime::SessionPreparationRequest & request) override;
+     runtime::TaskResult run(const runtime::TaskRequest & request) override;
+ 
++    runtime::OfflineCancellationSupport cancellation_support() const noexcept override;
++    runtime::TaskResult run_cancellable(const runtime::TaskRequest & request, core::RunStopHandle stop) override;
++
+ private:
++    runtime::TaskResult run_impl(const runtime::TaskRequest & request);
+     runtime::TaskSpec task_;
+     std::shared_ptr<const SheetSage2Assets> assets_;
+     std::shared_ptr<const model_spec::ModelContract> contract_;
+diff --git a/src/models/sheetsage/runtime.cpp b/src/models/sheetsage/runtime.cpp
+index 8af69a9..56b9226 100644
+--- a/src/models/sheetsage/runtime.cpp
++++ b/src/models/sheetsage/runtime.cpp
+@@ -1,4 +1,5 @@
+ #include "engine/models/sheetsage/runtime.h"
++#include "engine/framework/runtime/session.h"
+ 
+ #include "engine/framework/core/backend.h"
+ #include "engine/framework/core/backend_weight_store.h"
+@@ -22,6 +23,7 @@
+ #include <chrono>
+ #include <cmath>
+ #include <memory>
++#include <limits>
+ #include <stdexcept>
+ #include <string>
+ #include <utility>
+@@ -32,6 +34,18 @@ namespace {
+ 
+ namespace modules = engine::modules;
+ 
++void check_stop(const core::ExecutionContext & execution) {
++    if (execution.stop_requested()) throw runtime::RunCancelled();
++}
++
++void check_graph_status(ggml_status status, const core::ExecutionContext & execution, const char * message) {
++    if (status == GGML_STATUS_ABORTED) throw runtime::RunCancelled();
++    // A real failure remains a failure even if cancellation races it.
++    if (status != GGML_STATUS_SUCCESS) throw std::runtime_error(message);
++    check_stop(execution);
++}
++
++
+ struct GgmlContextDeleter {
+     void operator()(ggml_context * ctx) const noexcept {
+         if (ctx != nullptr) {
+@@ -582,7 +596,15 @@ core::TensorValue global_response_norm(
+     const core::TensorValue & eps,
+     const modules::NormWeights & weights) {
+     auto squared = core::wrap_tensor(ggml_sqr(ctx.ggml, input.tensor), input.shape, GGML_TYPE_F32);
+-    auto sum = modules::ReduceSumModule({1}).build(ctx, squared);
++    // GRN reduces logical time in [B,T,C]. Move T to GGML axis zero,
++    // then materialize even when T==1: ggml_is_contiguous ignores singleton
++    // strides, but CPU SUM_ROWS unconditionally requires nb[0]==sizeof(float).
++    // ggml_cont preserves every indexed value; only physical layout changes.
++    auto time_last = modules::TransposeModule({{0, 2, 1, 3}, 3}).build(ctx, squared);
++    auto * packed = ggml_cont(ctx.ggml, time_last.tensor);
++    auto reduced = core::wrap_tensor(ggml_sum_rows(ctx.ggml, packed),
++        core::TensorShape::from_dims({input.shape.dims[0], input.shape.dims[2], 1}), GGML_TYPE_F32);
++    auto sum = modules::TransposeModule({{0, 2, 1, 3}, 3}).build(ctx, reduced);
+     auto magnitude = core::wrap_tensor(ggml_sqrt(ctx.ggml, sum.tensor), sum.shape, GGML_TYPE_F32);
+     auto mean = modules::ReduceMeanModule({2}).build(ctx, magnitude);
+     auto denom = modules::AddModule().build(ctx, mean, eps);
+@@ -735,6 +757,17 @@ core::TensorValue conformer_layer(
+ 
+ }  // namespace
+ 
++// Model-local test seam: invokes the same GRN graph builder as ConvNeXt.
++ggml_tensor * sheetsage_grn_for_test(ggml_context * ggml, ggml_tensor * input,
++    ggml_tensor * eps, ggml_tensor * weight, ggml_tensor * bias, int64_t frames, int64_t channels) {
++    core::ModuleBuildContext ctx{ggml, "sheetsage.grn.test", core::BackendType::Cpu};
++    return global_response_norm(ctx,
++        core::wrap_tensor(input, core::TensorShape::from_dims({1, frames, channels}), GGML_TYPE_F32),
++        core::wrap_tensor(eps, core::TensorShape::from_dims({1, 1, 1}), GGML_TYPE_F32),
++        {core::wrap_tensor(weight, core::TensorShape::from_dims({1, 1, channels}), GGML_TYPE_F32),
++         core::wrap_tensor(bias, core::TensorShape::from_dims({1, 1, channels}), GGML_TYPE_F32)}).tensor;
++}
++
+ struct Mert2EncoderRuntime::Impl {
+     class EncoderGraph;
+ 
+@@ -786,7 +819,8 @@ public:
+         const SheetSage2EncoderWeights & weights,
+         int64_t batch,
+         int64_t mel_frames)
+-        : backend_(execution.backend()),
++        : execution_(execution),
++          backend_(execution.backend()),
+           backend_type_(execution.backend_type()),
+           threads_(std::max(1, execution.config().threads)),
+           config_(config),
+@@ -829,12 +863,13 @@ public:
+         core::write_tensor_f32(rope_cos_, rope_values(true));
+         core::write_tensor_f32(rope_sin_, rope_values(false));
+         core::write_tensor_f32(grn_eps_, std::vector<float>(static_cast<size_t>(batch_), 1.0e-6F));
++        check_stop(execution_);
+         core::set_backend_threads(backend_, threads_);
+-        const ggml_status status = core::compute_backend_graph(backend_, graph_, nullptr, "models.sheetsage2.encoder");
+-        if (status != GGML_STATUS_SUCCESS) {
+-            throw std::runtime_error("SheetSage2 encoder graph compute failed");
+-        }
+-        return core::read_tensor_f32(mixed_);
++        const ggml_status status = core::compute_backend_graph(execution_, graph_, nullptr, "models.sheetsage2.encoder");
++        check_graph_status(status, execution_, "SheetSage2 encoder graph compute failed");
++        auto result = core::read_tensor_f32(mixed_);
++        check_stop(execution_);
++        return result;
+     }
+ 
+ private:
+@@ -918,6 +953,7 @@ private:
+         return mixed;
+     }
+ 
++    core::ExecutionContext & execution_;
+     ggml_backend_t backend_ = nullptr;
+     core::BackendType backend_type_ = core::BackendType::Cpu;
+     int threads_ = 1;
+@@ -988,7 +1024,8 @@ public:
+         int64_t batch,
+         int64_t memory_steps,
+         int64_t decoder_steps)
+-        : backend_(execution.backend()),
++        : execution_(execution),
++          backend_(execution.backend()),
+           backend_type_(execution.backend_type()),
+           threads_(std::max(1, execution.config().threads)),
+           config_(config),
+@@ -1031,12 +1068,13 @@ public:
+         core::write_tensor_f32(mixed_encoder_state_, mixed_encoder_state);
+         core::write_tensor_i32(decoder_input_ids_, decoder_input_ids);
+         core::write_tensor_i32(position_ids_, position_ids());
++        check_stop(execution_);
+         core::set_backend_threads(backend_, threads_);
+-        const ggml_status status = core::compute_backend_graph(backend_, graph_, nullptr, "models.sheetsage2.decoder");
+-        if (status != GGML_STATUS_SUCCESS) {
+-            throw std::runtime_error("SheetSage2 decoder graph compute failed");
+-        }
+-        return core::read_tensor_f32(logits_);
++        const ggml_status status = core::compute_backend_graph(execution_, graph_, nullptr, "models.sheetsage2.decoder");
++        check_graph_status(status, execution_, "SheetSage2 decoder graph compute failed");
++        auto result = core::read_tensor_f32(logits_);
++        check_stop(execution_);
++        return result;
+     }
+ 
+ private:
+@@ -1116,6 +1154,7 @@ private:
+             core::TensorShape::from_dims({config_.vocab_size}));
+     }
+ 
++    core::ExecutionContext & execution_;
+     ggml_backend_t backend_ = nullptr;
+     core::BackendType backend_type_ = core::BackendType::Cpu;
+     int threads_ = 1;
+@@ -1143,7 +1182,8 @@ public:
+         const SheetSage2DecoderWeights & weights,
+         int64_t memory_steps,
+         int64_t cache_steps)
+-        : backend_(execution.backend()),
++        : execution_(execution),
++          backend_(execution.backend()),
+           backend_type_(execution.backend_type()),
+           threads_(std::max(1, execution.config().threads)),
+           config_(config),
+@@ -1199,12 +1239,11 @@ public:
+             throw std::runtime_error("SheetSage2 cached decoder memory shape mismatch");
+         }
+         core::write_tensor_f32(mixed_encoder_state_, mixed_encoder_state);
++        check_stop(execution_);
+         const auto cross_start = std::chrono::steady_clock::now();
+         const ggml_status cross_status =
+-            core::compute_backend_graph(backend_, cross_graph_, nullptr, "models.sheetsage2.decoder.cross_cache");
+-        if (cross_status != GGML_STATUS_SUCCESS) {
+-            throw std::runtime_error("SheetSage2 cached decoder cross-cache graph compute failed");
+-        }
++            core::compute_backend_graph(execution_, cross_graph_, nullptr, "models.sheetsage2.decoder.cross_cache");
++        check_graph_status(cross_status, execution_, "SheetSage2 cached decoder cross-cache graph compute failed");
+         engine::debug::timing_log_scalar(
+             "sheetsage2.decoder.cross_cache_ms",
+             engine::debug::elapsed_ms(cross_start));
+@@ -1241,18 +1280,19 @@ public:
+             attention_mask_values_.data(),
+             0,
+             attention_mask_values_.size() * sizeof(ggml_fp16_t));
++        check_stop(execution_);
+         core::set_backend_threads(backend_, threads_);
+         const ggml_status status = core::compute_backend_graph(
+-            backend_,
++            execution_,
+             read_logits ? graph_ : state_graph_,
+             nullptr,
+             read_logits ? "models.sheetsage2.decoder.cached_step" : "models.sheetsage2.decoder.cached_state_step");
+-        if (status != GGML_STATUS_SUCCESS) {
+-            throw std::runtime_error("SheetSage2 cached decoder graph compute failed");
+-        }
++        check_graph_status(status, execution_, "SheetSage2 cached decoder graph compute failed");
+         ggml_backend_synchronize(backend_);
+         step_cache_.advance_after_direct_append(1);
+-        return read_logits ? core::read_tensor_f32(logits_) : std::vector<float>{};
++        auto result = read_logits ? core::read_tensor_f32(logits_) : std::vector<float>{};
++        check_stop(execution_);
++        return result;
+     }
+ 
+ private:
+@@ -1411,6 +1451,7 @@ private:
+             core::TensorShape::from_dims({config_.vocab_size}));
+     }
+ 
++    core::ExecutionContext & execution_;
+     ggml_backend_t backend_ = nullptr;
+     core::BackendType backend_type_ = core::BackendType::Cpu;
+     int threads_ = 1;
+@@ -1449,7 +1490,8 @@ Mert2EncoderRuntime::~Mert2EncoderRuntime() = default;
+ Mert2EncoderRuntime::Mert2EncoderRuntime(Mert2EncoderRuntime &&) noexcept = default;
+ Mert2EncoderRuntime & Mert2EncoderRuntime::operator=(Mert2EncoderRuntime &&) noexcept = default;
+ 
+-void Mert2EncoderRuntime::prepare(int64_t batch, int64_t mel_frames) {
++void Mert2EncoderRuntime::prepare(int64_t batch, int64_t mel_frames) try {
++    check_stop(*impl_->execution);
+     const auto & weights = impl_->require_encoder_weights();
+     if (!impl_->encoder_graph || !impl_->encoder_graph->matches(batch, mel_frames)) {
+         impl_->encoder_graph = std::make_unique<Impl::EncoderGraph>(
+@@ -1460,11 +1502,17 @@ void Mert2EncoderRuntime::prepare(int64_t batch, int64_t mel_frames) {
+             batch,
+             mel_frames);
+     }
++
++    check_stop(*impl_->execution);
++} catch (...) {
++    release_runtime_graphs();
++    throw;
+ }
+ 
+ std::vector<float> Mert2EncoderRuntime::encode_mel(
+     const std::vector<float> & normalized_mel,
+-    int64_t mel_frames) {
++    int64_t mel_frames) try {
++    check_stop(*impl_->execution);
+     if (mel_frames <= 0) {
+         throw std::runtime_error("MERT2 mel frames must be positive");
+     }
+@@ -1474,6 +1522,9 @@ std::vector<float> Mert2EncoderRuntime::encode_mel(
+     const int64_t batch = static_cast<int64_t>(normalized_mel.size()) / (mel_frames * impl_->config.mel_bins);
+     prepare(batch, mel_frames);
+     return impl_->encoder_graph->run(normalized_mel);
++} catch (...) {
++    release_runtime_graphs();
++    throw;
+ }
+ 
+ void Mert2EncoderRuntime::release_runtime_graphs() {
+@@ -1491,7 +1542,8 @@ SheetSage2DecoderRuntime::~SheetSage2DecoderRuntime() = default;
+ SheetSage2DecoderRuntime::SheetSage2DecoderRuntime(SheetSage2DecoderRuntime &&) noexcept = default;
+ SheetSage2DecoderRuntime & SheetSage2DecoderRuntime::operator=(SheetSage2DecoderRuntime &&) noexcept = default;
+ 
+-void SheetSage2DecoderRuntime::prepare(int64_t batch, int64_t memory_steps, int64_t decoder_steps) {
++void SheetSage2DecoderRuntime::prepare(int64_t batch, int64_t memory_steps, int64_t decoder_steps) try {
++    check_stop(*impl_->execution);
+     const auto & weights = impl_->require_weights();
+     if (!impl_->graph || !impl_->graph->matches(batch, memory_steps, decoder_steps)) {
+         impl_->graph = std::make_unique<Impl::DecodeGraph>(
+@@ -1503,18 +1555,29 @@ void SheetSage2DecoderRuntime::prepare(int64_t batch, int64_t memory_steps, int6
+             memory_steps,
+             decoder_steps);
+     }
++
++    check_stop(*impl_->execution);
++} catch (...) {
++    release_runtime_graphs();
++    throw;
+ }
+ 
+ std::vector<float> SheetSage2DecoderRuntime::decode_logits(
+     const std::vector<float> & mixed_encoder_state,
+     int64_t memory_steps,
+-    const std::vector<int32_t> & decoder_input_ids) {
++    const std::vector<int32_t> & decoder_input_ids) try {
++    check_stop(*impl_->execution);
+     if (memory_steps <= 0) {
+         throw std::runtime_error("SheetSage2 memory steps must be positive");
+     }
+     if (decoder_input_ids.empty()) {
+         throw std::runtime_error("SheetSage2 decoder input ids must not be empty");
+     }
++    // Reject zero batches before the token-count modulo (and before loading).
++    if (mixed_encoder_state.empty() ||
++        memory_steps > std::numeric_limits<int64_t>::max() / impl_->config.encoder_hidden_size) {
++        throw std::invalid_argument("SheetSage2 mixed encoder state must contain a valid nonempty batch");
++    }
+     const int64_t memory_values_per_batch = memory_steps * impl_->config.encoder_hidden_size;
+     if (static_cast<int64_t>(mixed_encoder_state.size()) % memory_values_per_batch != 0) {
+         throw std::runtime_error("SheetSage2 mixed encoder state does not divide into batches");
+@@ -1526,12 +1589,16 @@ std::vector<float> SheetSage2DecoderRuntime::decode_logits(
+     const int64_t decoder_steps = static_cast<int64_t>(decoder_input_ids.size()) / batch;
+     prepare(batch, memory_steps, decoder_steps);
+     return impl_->graph->run(mixed_encoder_state, decoder_input_ids);
++} catch (...) {
++    release_runtime_graphs();
++    throw;
+ }
+ 
+ void SheetSage2DecoderRuntime::reset_cached_decode(
+     const std::vector<float> & mixed_encoder_state,
+     int64_t memory_steps,
+-    int64_t cache_steps) {
++    int64_t cache_steps) try {
++    check_stop(*impl_->execution);
+     if (memory_steps <= 0 || cache_steps <= 0) {
+         throw std::runtime_error("SheetSage2 cached decode requires positive memory/cache steps");
+     }
+@@ -1550,20 +1617,33 @@ void SheetSage2DecoderRuntime::reset_cached_decode(
+             cache_steps);
+     }
+     impl_->cached_graph->reset(mixed_encoder_state);
++
++    check_stop(*impl_->execution);
++} catch (...) {
++    release_runtime_graphs();
++    throw;
+ }
+ 
+-std::vector<float> SheetSage2DecoderRuntime::decode_cached_step(int32_t token) {
++std::vector<float> SheetSage2DecoderRuntime::decode_cached_step(int32_t token) try {
++    check_stop(*impl_->execution);
+     if (!impl_->cached_graph) {
+         throw std::runtime_error("SheetSage2 cached decode graph is not prepared");
+     }
+     return impl_->cached_graph->run_step(token);
++} catch (...) {
++    release_runtime_graphs();
++    throw;
+ }
+ 
+-std::vector<float> SheetSage2DecoderRuntime::prefill_cached_decode(const std::vector<int32_t> & token_ids) {
++std::vector<float> SheetSage2DecoderRuntime::prefill_cached_decode(const std::vector<int32_t> & token_ids) try {
++    check_stop(*impl_->execution);
+     if (!impl_->cached_graph) {
+         throw std::runtime_error("SheetSage2 cached decode graph is not prepared");
+     }
+     return impl_->cached_graph->prefill(token_ids);
++} catch (...) {
++    release_runtime_graphs();
++    throw;
+ }
+ 
+ void SheetSage2DecoderRuntime::release_runtime_graphs() {
+diff --git a/src/models/sheetsage/session.cpp b/src/models/sheetsage/session.cpp
+index 9e0774a..a47ee85 100644
+--- a/src/models/sheetsage/session.cpp
++++ b/src/models/sheetsage/session.cpp
+@@ -955,7 +955,40 @@ void SheetSage2Session::prepare(const runtime::SessionPreparationRequest & reque
+     mark_prepared();
+ }
+ 
++runtime::OfflineCancellationSupport SheetSage2Session::cancellation_support() const noexcept {
++    return execution_context().supports_cancellation()
++        ? runtime::OfflineCancellationSupport::GraphOnly
++        : runtime::OfflineCancellationSupport::Unsupported;
++}
++
++runtime::TaskResult SheetSage2Session::run_cancellable(
++    const runtime::TaskRequest & request, core::RunStopHandle stop) {
++    // Binding rejects null, nested and unsupported resolved backends before work.
++    auto binding = execution_context().begin_cancellable_run(std::move(stop));
++    try {
++        if (execution_context().stop_requested()) throw runtime::RunCancelled();
++        auto result = run_impl(request);
++        if (execution_context().stop_requested()) throw runtime::RunCancelled();
++        return result;
++    } catch (...) {
++        // Computation is synchronous and settled before releasing any graph/KV.
++        encoder_.release_runtime_graphs();
++        decoder_.release_runtime_graphs();
++        throw;
++    }
++}
++
+ runtime::TaskResult SheetSage2Session::run(const runtime::TaskRequest & request) {
++    try {
++        return run_impl(request);
++    } catch (...) {
++        encoder_.release_runtime_graphs();
++        decoder_.release_runtime_graphs();
++        throw;
++    }
++}
++
++runtime::TaskResult SheetSage2Session::run_impl(const runtime::TaskRequest & request) {
+     require_prepared("SheetSage2 run");
+     runtime::validate_spec_backed_request_options(request.options, *contract_, "SheetSage2");
+     if (!request.audio_input.has_value()) {

@@ -1,0 +1,289 @@
+diff --git a/src/models/sheetsage/session.cpp b/src/models/sheetsage/session.cpp
+--- a/src/models/sheetsage/session.cpp
++++ b/src/models/sheetsage/session.cpp
+@@ -57,6 +57,16 @@
+     "melody_vocal",
+     "melody_full",
+ };
++
++int64_t checked_tokenizer_seconds(int64_t seconds) {
++    const int64_t safe_seconds=std::max<int64_t>(1,seconds);
++    const int64_t fixed=4+kPromptCapacity+kMaxSubbeatShift+1+32*6+256+
++        sheetsage2_structure_label_count()+24+25+361+256+sheetsage2_duration_bin_count();
++    if (fixed<=0 || fixed>std::numeric_limits<int32_t>::max() ||
++        safe_seconds>(std::numeric_limits<int32_t>::max()-fixed)/kTimeHz)
++        throw std::runtime_error("SheetSage2 tokenizer ranges exceed int32 vocabulary");
++    return safe_seconds;
++}
+ 
+ struct SheetSage2Tokenizer {
+     int64_t audio_seconds = 300;
+@@ -87,7 +97,7 @@
+     int64_t duration_end = duration_start + sheetsage2_duration_bin_count();
+     int64_t vocab_size = duration_end;
+ 
+-    explicit SheetSage2Tokenizer(int64_t seconds) : audio_seconds(std::max<int64_t>(1, seconds)) {
++    explicit SheetSage2Tokenizer(int64_t seconds) : audio_seconds(checked_tokenizer_seconds(seconds)) {
+         time_end = time_start + audio_seconds * kTimeHz;
+         meter_start = time_end;
+         meter_end = meter_start + 32 * 6;
+@@ -380,6 +390,216 @@
+     if (state.last_field_index <= 5) {
+         scan_range(tokenizer.pitch_start, tokenizer.pitch_end);
+     }
++    return best;
++}
++
++#ifdef ENGINE_SHEETSAGE_TOKEN_HOST_TESTING
++namespace token_testing {
++// 0 copy,1 search,2 replay,3 candidate,5 append; phase4 selection publish,
++// 6 prefix publish,7 transition publish,8 final publish,9/10/11 real decoder boundaries.
++void work(int stage,size_t unit,int64_t token,int32_t best,const SheetSage2GrammarState & state) noexcept;
++void phase(int stage) noexcept;
++}
++#endif
++void token_stop(const core::RunStopHandle & stop) { if(stop && stop->cancelled()) throw runtime::RunCancelled(); }
++void token_phase(int stage,const core::RunStopHandle & stop) {
++#ifdef ENGINE_SHEETSAGE_TOKEN_HOST_TESTING
++    token_testing::phase(stage);
++#else
++    (void)stage;
++#endif
++    token_stop(stop);
++}
++void token_work(int stage,size_t unit,int64_t token,const SheetSage2GrammarState & state) {
++#ifdef ENGINE_SHEETSAGE_TOKEN_HOST_TESTING
++    token_testing::work(stage,unit,token,0,state);
++#else
++    (void)stage;(void)unit;(void)token;(void)state;
++#endif
++}
++struct TokenHostPrefix { std::vector<int32_t> ids;SheetSage2GrammarState state; };
++#ifdef ENGINE_SHEETSAGE_TOKEN_HOST_TESTING
++TokenHostPrefix legacy_generation_prefix(const SheetSage2Tokenizer & tokenizer,int64_t max_sequence_length,
++    const std::vector<int32_t>* prefix_tokens) {
++    auto ids = prefix_tokens == nullptr ? prompt_prefix(tokenizer) : *prefix_tokens;
++    if (ids.empty() || ids.front() != tokenizer.sos) {
++        throw std::runtime_error("SheetSage2 generation prefix must begin with sos");
++    }
++    if (ids.back() == tokenizer.eos) {
++        ids.pop_back();
++    }
++    const auto out_it = std::find(ids.begin(), ids.end(), static_cast<int32_t>(tokenizer.out));
++    if (out_it == ids.end()) {
++        throw std::runtime_error("SheetSage2 generation prefix is missing out token");
++    }
++    SheetSage2GrammarState state;
++    for (auto it = out_it + 1; it != ids.end(); ++it) {
++        update_grammar(tokenizer, state, *it);
++    }
++    if (max_sequence_length <= static_cast<int64_t>(ids.size())) {
++        throw std::runtime_error("SheetSage2 max_tokens must exceed the generation prefix length");
++    }
++    return {std::move(ids),state};
++}
++
++#endif
++void token_host_limits(const SheetSage2Tokenizer & tokenizer,int64_t maximum,int64_t context) {
++    if(context<=0 || context>std::numeric_limits<int>::max()-2 || maximum<=0 || maximum>context ||
++        tokenizer.vocab_size<=0 || tokenizer.vocab_size>std::numeric_limits<int32_t>::max() ||
++        static_cast<uint64_t>(maximum)+1>std::vector<int32_t>().max_size())
++        throw std::runtime_error("SheetSage2 generation limits exceed decoder context");
++}
++void token_grammar_safe(const SheetSage2GrammarState & state) {
++    if(state.payload_count<0 || state.shift_run<0 || state.payload_count==std::numeric_limits<int>::max() ||
++        state.shift_run==std::numeric_limits<int>::max())
++        throw std::runtime_error("SheetSage2 grammar counter exceeds supported range");
++}
++TokenHostPrefix token_prefix(const SheetSage2Tokenizer & tokenizer,int64_t maximum,int64_t context,
++    const std::vector<int32_t>* prefix,core::RunStopHandle stop) {
++    token_host_limits(tokenizer,maximum,context);
++    const std::array<int32_t,8> prompt={static_cast<int32_t>(tokenizer.sos),static_cast<int32_t>(tokenizer.prompt_start),
++        static_cast<int32_t>(tokenizer.prompt_start+1),static_cast<int32_t>(tokenizer.prompt_start+2),
++        static_cast<int32_t>(tokenizer.prompt_start+3),static_cast<int32_t>(tokenizer.prompt_start+5),
++        static_cast<int32_t>(tokenizer.prompt_start+7),static_cast<int32_t>(tokenizer.out)};
++    const size_t source_size=prefix?prefix->size():prompt.size();
++    const int32_t * source_data=prefix?prefix->data():prompt.data();
++    struct PrefixView { const int32_t * data;size_t count;
++        bool empty()const{return count==0;}size_t size()const{return count;}
++        int32_t front()const{return data[0];}int32_t back()const{return data[count-1];}
++        int32_t operator[](size_t i)const{return data[i];}
++    } source{source_data,source_size};
++    if(source.empty() || source.size()>static_cast<uint64_t>(context)+1 || source.front()!=tokenizer.sos)
++        throw std::runtime_error("SheetSage2 generation prefix must begin with sos and fit context");
++    const size_t effective=source.size()-(source.back()==tokenizer.eos?1:0);
++    if(effective==0 || static_cast<uint64_t>(maximum)<=effective)
++        throw std::runtime_error("SheetSage2 max_tokens must exceed the generation prefix length");
++    size_t first_out=effective;
++    SheetSage2GrammarState preflight;
++    for(size_t i=0;i<effective;++i) {
++        if(source[i]<0 || source[i]>=tokenizer.vocab_size)
++            throw std::runtime_error("SheetSage2 prefix token is outside vocabulary");
++        if(first_out==effective && source[i]==tokenizer.out) first_out=i;
++        else if(first_out!=effective) {token_grammar_safe(preflight);update_grammar(tokenizer,preflight,source[i]);}
++    }
++    if(first_out==effective) throw std::runtime_error("SheetSage2 generation prefix is missing out token");
++    token_stop(stop);
++    TokenHostPrefix result;result.ids.resize(effective);token_stop(stop);
++    for(size_t begin=0;begin<effective;) {
++        token_stop(stop); // copy tile pre-poll
++        size_t end=begin+std::min<size_t>(64,effective-begin);
++        for(size_t i=begin;i<end;++i){result.ids[i]=source[i];token_work(0,i,result.ids[i],result.state);}
++        token_stop(stop); // copy tile post-poll final-short
++        begin=end;
++    }
++#ifdef ENGINE_SHEETSAGE_TOKEN_HOST_TESTING
++    token_testing::phase(12); // search entry, after completed copy polls
++#endif
++    size_t out=result.ids.size();
++    for(size_t i=0;i<result.ids.size();++i){
++        if(i%64==0)token_stop(stop); // search tile pre-poll
++        token_work(1,i,result.ids[i],result.state);
++        if(result.ids[i]==tokenizer.out){out=i;token_stop(stop);break;} // first-out stop
++        if((i+1)%64==0)token_stop(stop); // search tile post-poll
++    }
++    token_stop(stop); // search final-short
++    size_t replayed=0;
++    for(size_t i=out+1;i<result.ids.size();++i){
++        if(replayed%64==0)token_stop(stop); // replay tile pre-poll
++        update_grammar(tokenizer,result.state,result.ids[i]);token_work(2,replayed,result.ids[i],result.state);++replayed;
++        if(replayed%64==0)token_stop(stop); // replay tile post-poll
++    }
++    token_stop(stop); // replay final-short
++    token_phase(6,stop);
++    return result;
++}
++bool token_transition(TokenHostPrefix & host,const SheetSage2Tokenizer & tokenizer,int32_t token,
++    std::optional<double> stop_time,core::RunStopHandle stop) {
++    if(token<0 || token>=tokenizer.vocab_size || host.ids.empty() || host.ids.size()>static_cast<size_t>(std::numeric_limits<int>::max()-2))
++        throw std::runtime_error("SheetSage2 invalid generation transition");
++    token_grammar_safe(host.state);token_stop(stop);
++    host.ids.push_back(token);token_work(5,host.ids.size()-1,token,host.state);
++    bool finished=update_grammar(tokenizer,host.state,token);
++    if(!finished && stop_time.has_value() && token>=tokenizer.time_start && token<tokenizer.time_end &&
++       static_cast<double>(token-tokenizer.time_start)/static_cast<double>(kTimeHz)>=*stop_time){
++        host.ids.push_back(static_cast<int32_t>(tokenizer.eos));token_work(5,host.ids.size()-1,tokenizer.eos,host.state);finished=true;
++    }
++    token_phase(7,stop);return finished;
++}
++std::vector<int32_t> token_publish(TokenHostPrefix & host,const SheetSage2Tokenizer & tokenizer,core::RunStopHandle stop) {
++    if(host.ids.empty() || host.ids.size()>static_cast<size_t>(std::numeric_limits<int>::max()-1))
++        throw std::runtime_error("SheetSage2 invalid generation result");
++    token_stop(stop);
++    if(host.ids.back()!=tokenizer.eos){host.ids.push_back(static_cast<int32_t>(tokenizer.eos));token_work(5,host.ids.size()-1,tokenizer.eos,host.state);}
++    token_phase(8,stop);return std::move(host.ids);
++}
++int32_t select_next_token(
++    const std::vector<float> & logits,
++    const SheetSage2Tokenizer & tokenizer,
++    const SheetSage2GrammarState & state, core::RunStopHandle stop) {
++    if (tokenizer.vocab_size<=0 || logits.size()<static_cast<uint64_t>(tokenizer.vocab_size) ||
++        state.payload_count<0 || state.shift_run<0 || state.last_field_index < -1 || state.last_field_index>5 ||
++        static_cast<int>(state.incomplete)<0 || static_cast<int>(state.incomplete)>2)
++        throw std::runtime_error("SheetSage2 invalid token selection inputs");
++    token_stop(stop);
++    size_t scanned=0;
++    int32_t best = static_cast<int32_t>(tokenizer.eos);
++    float best_value = -std::numeric_limits<float>::infinity();
++    const size_t start = logits.size() - static_cast<size_t>(tokenizer.vocab_size);
++    const auto scan_token = [&](int64_t token) {
++        if(scanned%64==0) token_stop(stop); // scan tile pre-poll
++        const float value = logits[static_cast<size_t>(start + token)];
++        if (value > best_value) {
++            best_value = value;
++            best = static_cast<int32_t>(token);
++        }
++#ifdef ENGINE_SHEETSAGE_TOKEN_HOST_TESTING
++        token_testing::work(3,scanned,token,best,state);
++#endif
++        ++scanned;
++        if(scanned%64==0) token_stop(stop); // scan tile post-poll
++    };
++    const auto scan_range = [&](int64_t begin, int64_t end) {
++        for (int64_t token = begin; token < end; ++token) {
++            scan_token(token);
++        }
++    };
++    if (state.payload_count > 0) {
++        scan_token(tokenizer.eos);
++    }
++    if ((state.payload_count > 0 || state.in_shift) && state.shift_run < 4) {
++        scan_range(tokenizer.subbeat_start, tokenizer.subbeat_end);
++    }
++    if (state.incomplete == SheetSage2GrammarState::Incomplete::RhythmAfterMeter) {
++        scan_range(tokenizer.eighth_start, tokenizer.eighth_end);
++        token_phase(4,stop); // early selection publication
++        return best;
++    }
++    if (state.incomplete == SheetSage2GrammarState::Incomplete::MelodyAfterPitch) {
++        scan_range(tokenizer.pitch_start, tokenizer.pitch_end);
++        scan_range(tokenizer.duration_start, tokenizer.duration_end);
++        token_phase(4,stop); // early selection publication
++        return best;
++    }
++    if (state.last_field_index < 0) {
++        scan_range(tokenizer.time_start, tokenizer.time_end);
++    }
++    if (state.last_field_index < 1) {
++        scan_range(tokenizer.meter_start, tokenizer.meter_end);
++        scan_range(tokenizer.eighth_start, tokenizer.eighth_end);
++    }
++    if (state.last_field_index < 2) {
++        scan_range(tokenizer.structure_start, tokenizer.structure_end);
++    }
++    if (state.last_field_index < 3) {
++        scan_range(tokenizer.key_start, tokenizer.key_end);
++    }
++    if (state.last_field_index < 4) {
++        scan_range(tokenizer.full_chord_start, tokenizer.full_chord_end);
++    }
++    if (state.last_field_index <= 5) {
++        scan_range(tokenizer.pitch_start, tokenizer.pitch_end);
++    }
++    token_phase(4,stop); // selection publication
+     return best;
+ }
+ 
+@@ -1113,6 +1333,32 @@
+     return ids;
+ }
+ 
++std::vector<int32_t> generate_tokens(
++    SheetSage2DecoderRuntime & decoder,const std::vector<float> & memory,int64_t memory_steps,
++    const SheetSage2Tokenizer & tokenizer,int64_t maximum,const std::vector<int32_t>* prefix,
++    std::optional<double> stop_time,int64_t context,core::RunStopHandle stop) {
++    token_host_limits(tokenizer,maximum,context);
++    if(memory_steps<=0 || static_cast<uint64_t>(memory_steps)>std::vector<float>().max_size()/1024 ||
++       memory.size()!=static_cast<size_t>(memory_steps)*1024)
++        throw std::runtime_error("SheetSage2 generation memory shape mismatch");
++    if(!stop) return generate_tokens(decoder,memory,memory_steps,tokenizer,maximum,prefix,stop_time);
++    auto host=token_prefix(tokenizer,maximum,context,prefix,stop);
++    token_phase(9,stop);
++    decoder.reset_cached_decode(memory,memory_steps,maximum);
++    token_phase(9,stop);
++    token_phase(10,stop);
++    auto logits=decoder.prefill_cached_decode(host.ids);
++    token_phase(10,stop);
++    for(int64_t step=static_cast<int64_t>(host.ids.size());step<maximum;++step){
++        int32_t token=select_next_token(logits,tokenizer,host.state,stop);
++        if(token_transition(host,tokenizer,token,stop_time,stop))break;
++        token_phase(11,stop);
++        logits=decoder.decode_cached_step(token);
++        token_phase(11,stop);
++    }
++    return token_publish(host,tokenizer,stop);
++}
++
+ engine::audio::AudioTensor load_mel_filterbank(const assets::TensorSource & source, int64_t n_fft, int64_t mel_bins) {
+     const int64_t freq_bins = n_fft / 2 + 1;
+     const auto values = source.require_f32("feature_extractor.mel_scale.fb", {freq_bins, mel_bins});
+@@ -1335,7 +1581,8 @@
+             tokenizer,
+             max_tokens,
+             prefix_tokens.empty() ? nullptr : &prefix_tokens,
+-            window.generation_stop);
++            window.generation_stop, assets_->config.max_position_embeddings,
++            execution_context().current_run_stop());
+         generation_ms += engine::debug::elapsed_ms(generation_start, Clock::now());
+ 
+         const auto decoded = decode_events(tokenizer, last_ids);

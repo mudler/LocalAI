@@ -95,6 +95,8 @@ const faceEmbeddingDim = 0
 const voiceEmbeddingDim = 0
 
 type Application struct {
+	musicOutputMu       sync.RWMutex
+	musicOutputStore    MusicOutputStore
 	addonPolicy         *policy.Policy
 	addonStore          *policy.Store
 	addonResourceExists func(context.Context, policy.ResourceKey) (bool, error)

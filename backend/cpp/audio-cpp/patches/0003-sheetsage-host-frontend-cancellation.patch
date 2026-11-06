@@ -1,0 +1,346 @@
+diff --git a/include/engine/framework/core/execution_context.h b/include/engine/framework/core/execution_context.h
+--- a/include/engine/framework/core/execution_context.h
++++ b/include/engine/framework/core/execution_context.h
+@@ -48,6 +48,9 @@
+     BackendMemorySnapshot memory_snapshot() const;
+     bool supports_cancellation() const noexcept;
+     bool stop_requested() const noexcept;
++    // Owner thread only, like binding/unbinding. Retains the actual run state;
++    // empty while unbound. Only RunStopState::cancel may race frontend work.
++    RunStopHandle current_run_stop() const noexcept;
+     RunBinding begin_cancellable_run(RunStopHandle stop);
+     std::shared_ptr<RunCallbackBridge> callback_bridge() const noexcept { return bridge_; }
+ 
+diff --git a/include/engine/models/sheetsage/audio_frontend.h b/include/engine/models/sheetsage/audio_frontend.h
+--- a/include/engine/models/sheetsage/audio_frontend.h
++++ b/include/engine/models/sheetsage/audio_frontend.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include "engine/framework/core/execution_context.h"
++
+ #include <map>
+ #include <utility>
+ #include <vector>
+@@ -15,6 +17,19 @@
+         int target_rate,
+         int threads);
+ 
++    // Owner-thread frontend/cache. No concurrent prepare/cache mutation support.
++    std::vector<float> prepare(const std::vector<float> & interleaved,
++        int source_rate, int channels, int target_rate, int threads,
++        engine::core::RunStopHandle stop);
++
++#ifdef ENGINE_SHEETSAGE_FRONTEND_TESTING
++    enum class Work { Extraction, MonoCopy, Mixdown, Accumulation,
++                      Coefficients, Normalization, PhaseCopy, Convolution };
++    // Test-only callback: invoked AFTER actual units, may run on OpenMP workers.
++    // Must be noexcept/thread-safe. Installed on owner thread before prepare.
++    using Progress = void (*)(void *, Work) noexcept;
++    static void set_progress(Progress callback, void * data) noexcept;
++#endif
+ private:
+     std::map<std::pair<int, int>, std::vector<float>> filters_;
+ };
+diff --git a/src/framework/core/execution_context.cpp b/src/framework/core/execution_context.cpp
+--- a/src/framework/core/execution_context.cpp
++++ b/src/framework/core/execution_context.cpp
+@@ -26,6 +26,9 @@
+ bool ExecutionContext::stop_requested() const noexcept {
+     return bridge_ && bridge_->stop && bridge_->stop->cancelled();
+ }
++RunStopHandle ExecutionContext::current_run_stop() const noexcept {
++    return bridge_ ? bridge_->stop : RunStopHandle{};
++}
+ RunBinding ExecutionContext::begin_cancellable_run(RunStopHandle stop) {
+     if (!stop || !supports_cancellation() || bridge_->stop) {
+         throw std::logic_error("cancellable run requires a supported idle context and stop handle");
+diff --git a/src/models/sheetsage/audio_frontend.cpp b/src/models/sheetsage/audio_frontend.cpp
+--- a/src/models/sheetsage/audio_frontend.cpp
++++ b/src/models/sheetsage/audio_frontend.cpp
+@@ -1,6 +1,10 @@
+ #include "engine/models/sheetsage/audio_frontend.h"
+ 
+-#include "engine/framework/audio/conversion.h"
++#include "engine/framework/runtime/session.h"
++#include <limits>
++#ifdef _OPENMP
++#include <omp.h>
++#endif
+ 
+ #include <algorithm>
+ #include <array>
+@@ -10,6 +14,17 @@
+ #include <stdexcept>
+ 
+ namespace engine::models::sheetsage {
++#ifdef ENGINE_SHEETSAGE_FRONTEND_TESTING
++namespace {
++SheetSage2AudioFrontend::Progress progress_ = nullptr;
++void * progress_data_ = nullptr;
++}
++// Test executable only; install/remove while all prepare workers are settled.
++void SheetSage2AudioFrontend::set_progress(Progress callback, void * data) noexcept {
++    progress_ = callback;
++    progress_data_ = data;
++}
++#endif
+ 
+ std::vector<float> SheetSage2AudioFrontend::prepare(
+     const std::vector<float> & interleaved,
+@@ -17,6 +32,27 @@
+     int channels,
+     int target_rate,
+     int threads) {
++    return prepare(interleaved, source_rate, channels, target_rate, threads, {});
++}
++
++std::vector<float> SheetSage2AudioFrontend::prepare(
++    const std::vector<float> & interleaved, int source_rate, int channels,
++    int target_rate, int threads, engine::core::RunStopHandle stop) {
++    // Fixed poll interval: ONE scalar copy/mix/coefficient/normalization/tap unit.
++    // Allocations/value initialization and deallocation are not interruptible.
++    // No exception crosses an OpenMP region: workers poll atomically and settle
++    // at the implicit barrier before the owner throws the typed cancellation.
++    const auto stopped = [&]() noexcept { return stop && stop->cancelled(); };
++    const auto check = [&]() { if (stopped()) throw engine::runtime::RunCancelled(); };
++#ifdef ENGINE_SHEETSAGE_FRONTEND_TESTING
++    const auto progress = [&](Work work) noexcept {
++        if (progress_) progress_(progress_data_, work);
++    };
++#define FRONTEND_PROGRESS(stage) progress(Work::stage)
++#else
++#define FRONTEND_PROGRESS(stage) ((void)0)
++#endif
++    check();
+     if (source_rate <= 0 || target_rate <= 0 || channels < 1 || channels > 8 || threads < 1 ||
+         interleaved.size() % static_cast<size_t>(channels) != 0) {
+         throw std::runtime_error("SheetSage2 requires positive rates and 1-8 interleaved channels");
+@@ -34,36 +70,55 @@
+         {{side, side, 1, 0, 0.5F, 0.5F, 0.5F}},
+         {{side, side, 1, 0, 0.5F, 0.5F, 0.5F, 0.5F}},
+     }};
+-    const int64_t frames = static_cast<int64_t>(interleaved.size() / static_cast<size_t>(channels));
++    const size_t frame_count = interleaved.size() / static_cast<size_t>(channels);
++    if (frame_count > static_cast<size_t>(std::numeric_limits<int64_t>::max() / 2))
++        throw std::runtime_error("SheetSage2 frame/reflection index overflow");
++    const int64_t frames = static_cast<int64_t>(frame_count);
+     std::vector<float> mono;
+     // Match the file frontend's operation order, including FP32 rounding.
+     if (channels > 1 && source_rate != target_rate) {
+         for (int channel = 0; channel < channels; ++channel) {
+-            const auto resampled = prepare(
+-                engine::audio::extract_interleaved_channel(interleaved, channels, channel),
+-                source_rate, 1, target_rate, threads);
++            check();
++            std::vector<float> extracted(frame_count);
++            for (size_t frame = 0; frame < frame_count; ++frame) {
++                check();
++                extracted[frame] = interleaved[frame * channels + channel];
++                FRONTEND_PROGRESS(Extraction);
++            }
++            const auto resampled = prepare(extracted, source_rate, 1, target_rate, threads, stop);
+             if (channel == 0) mono.resize(resampled.size(), 0.0F);
+             const float gain = gains[static_cast<size_t>(channels - 1)][static_cast<size_t>(channel)];
+             for (size_t frame = 0; frame < resampled.size(); ++frame) {
++                check();
+                 mono[frame] += resampled[frame] * gain;
++                FRONTEND_PROGRESS(Accumulation);
+             }
+         }
++        check();
+         return mono;
+     }
+     if (channels == 1) {
+-        mono = engine::audio::mixdown_interleaved_to_mono_average(interleaved, channels);
++        mono.resize(frame_count);
++        for (size_t frame = 0; frame < frame_count; ++frame) {
++            check();
++            mono[frame] = interleaved[frame];
++            FRONTEND_PROGRESS(MonoCopy);
++        }
+     } else {
+         mono.resize(static_cast<size_t>(frames));
+         const auto & row = gains[static_cast<size_t>(channels - 1)];
+         for (int64_t frame = 0; frame < frames; ++frame) {
+             float value = 0.0F;
+             for (int channel = 0; channel < channels; ++channel) {
+-                value += interleaved[static_cast<size_t>(frame * channels + channel)] * row[static_cast<size_t>(channel)];
++                check();
++                value += interleaved[static_cast<size_t>(frame) * channels + channel] * row[static_cast<size_t>(channel)];
++                FRONTEND_PROGRESS(Mixdown);
+             }
+             mono[static_cast<size_t>(frame)] = value;
+         }
+     }
+     if (source_rate == target_rate || mono.empty()) {
++        check();
+         return mono;
+     }
+ 
+@@ -71,18 +126,32 @@
+     // Keep exact rational phases where possible, otherwise interpolate a 1024-phase bank.
+     constexpr double pi = 3.14159265358979323846264338327950288;
+     const double cutoff = std::min(0.97 * target_rate / source_rate, 1.0);
+-    const int taps = (static_cast<int>(std::ceil(32.0 / cutoff)) + 1) & ~1;
+-    const int stride = (taps + 7) & ~7;
++    const double rounded_taps = std::ceil(32.0 / cutoff);
++    if (rounded_taps > std::numeric_limits<int>::max())
++        throw std::runtime_error("SheetSage2 filter tap index overflow");
++    const int64_t wide_taps = (static_cast<int64_t>(rounded_taps) + 1) & ~int64_t{1};
++    const int64_t wide_stride = (wide_taps + 7) & ~int64_t{7};
++    if (wide_stride > std::numeric_limits<int>::max())
++        throw std::runtime_error("SheetSage2 filter stride index overflow");
++    const int taps = static_cast<int>(wide_taps);
++    const int stride = static_cast<int>(wide_stride);
+     const int center = (taps - 1) / 2;
+     const int phases = std::min(1024, target_rate / std::gcd(source_rate, target_rate));
+     const auto key = std::make_pair(source_rate, target_rate);
+     auto found = filters_.find(key);
+     if (found == filters_.end()) {
+-        std::vector<float> bank(static_cast<size_t>((phases + 1) * stride));
+-        std::vector<double> coefficients(static_cast<size_t>(phases * taps));
++        const auto count = [](size_t rows, size_t columns, size_t max_size) {
++            if (columns > max_size / rows)
++                throw std::runtime_error("SheetSage2 filter allocation size overflow");
++            return rows * columns;
++        };
++        check();
++        std::vector<float> bank(count(phases + 1, stride, std::vector<float>().max_size()));
++        std::vector<double> coefficients(count(phases, taps, std::vector<double>().max_size()));
+         double normalization = 0.0;
+         for (int phase = 0; phase < phases; ++phase) {
+             for (int tap = 0; tap < taps; ++tap) {
++                check();
+                 const double distance = tap - center - static_cast<double>(phase) / phases;
+                 const double angle = pi * distance * cutoff;
+                 const double radius = 2.0 * distance / taps;
+@@ -100,55 +169,93 @@
+                 if (phase == 0) {
+                     normalization += value;
+                 }
+-                coefficients[static_cast<size_t>(phase * taps + tap)] = value;
++                coefficients[static_cast<size_t>(phase) * taps + tap] = value;
++                FRONTEND_PROGRESS(Coefficients);
+             }
+         }
+         for (int phase = 0; phase < phases; ++phase) {
+             for (int tap = 0; tap < taps; ++tap) {
+-                bank[static_cast<size_t>(phase * stride + tap)] = static_cast<float>(
+-                    coefficients[static_cast<size_t>(phase * taps + tap)] / normalization);
++                check();
++                bank[static_cast<size_t>(phase) * stride + tap] = static_cast<float>(
++                    coefficients[static_cast<size_t>(phase) * taps + tap] / normalization);
++                FRONTEND_PROGRESS(Normalization);
+             }
+         }
+         // Phase 1 is phase 0 shifted by one input sample.
+-        bank[static_cast<size_t>(phases * stride)] = bank[static_cast<size_t>(stride - 1)];
+-        std::copy_n(bank.begin(), stride - 1, bank.begin() + phases * stride + 1);
++        check();
++        bank[static_cast<size_t>(phases) * stride] = bank[static_cast<size_t>(stride - 1)];
++        FRONTEND_PROGRESS(PhaseCopy);
++        for (int tap = 0; tap < stride - 1; ++tap) {
++            check();
++            bank[static_cast<size_t>(phases) * stride + 1 + tap] = bank[tap];
++            FRONTEND_PROGRESS(PhaseCopy);
++        }
++        check(); // Never publish a partially built/cancelled bank.
+         found = filters_.emplace(key, std::move(bank)).first;
+     }
+     const auto & bank = found->second;
+     // Flush only the reflected tail available after the unpadded convolution.
++    // Check the exact arithmetic domains used below, not public music limits.
++    const auto scaled = [](int64_t value, int rate, int bias) {
++        if (value > (std::numeric_limits<int64_t>::max() - bias) / rate ||
++            value < std::numeric_limits<int64_t>::min() / rate)
++            throw std::runtime_error("SheetSage2 resampling frame arithmetic overflow");
++        return value * rate + bias;
++    };
+     const int64_t unpadded_frames = std::max<int64_t>(0,
+-        ((frames - taps / 2) * target_rate + source_rate - 1) / source_rate);
+-    const int64_t remaining = frames - unpadded_frames * source_rate / target_rate + center;
++        scaled(frames - taps / 2, target_rate, source_rate - 1) / source_rate);
++    const int64_t remaining = frames - scaled(unpadded_frames, source_rate, 0) / target_rate + center;
+     const int64_t reflection = (std::min<int64_t>(remaining, taps) + 1) / 2;
+     const int64_t output_frames = std::max<int64_t>(0,
+-        ((frames + reflection - taps / 2) * target_rate + source_rate - 1) / source_rate);
++        scaled(frames + reflection - taps / 2, target_rate, source_rate - 1) / source_rate);
++    if (static_cast<uint64_t>(output_frames) > std::vector<float>().max_size())
++        throw std::runtime_error("SheetSage2 output allocation size overflow");
++    scaled(output_frames, source_rate, 0);
++    check();
+     std::vector<float> output(static_cast<size_t>(output_frames));
+ #ifdef _OPENMP
+-#pragma omp parallel for num_threads(threads) if (output_frames >= 4096)
++#pragma omp parallel num_threads(threads) if (output_frames >= 4096)
++#endif
++    {
++        int worker = 0, workers = 1;
++#ifdef _OPENMP
++        worker = omp_get_thread_num();
++        workers = omp_get_num_threads();
+ #endif
+-    for (int64_t frame = 0; frame < output_frames; ++frame) {
++        // Same static contiguous partition, but a stopped worker exits its range
++        // rather than scanning every remaining output frame with continue.
++        const int64_t chunk = output_frames / workers;
++        const int64_t extra = output_frames % workers;
++        const int64_t begin = chunk * worker + std::min<int64_t>(worker, extra);
++        const int64_t end = begin + chunk + (worker < extra ? 1 : 0);
++        for (int64_t frame = begin; frame < end && !stopped(); ++frame) {
+         const int64_t numerator = frame * source_rate;
+         const int64_t sample = numerator / target_rate;
+         const int64_t phase_numerator = (numerator % target_rate) * phases;
+         const int phase = static_cast<int>(phase_numerator / target_rate);
+         const double fraction = static_cast<double>(phase_numerator % target_rate) / target_rate;
+-        const float * weights = bank.data() + phase * stride;
++        const float * weights = bank.data() + static_cast<size_t>(phase) * stride;
+         // Fixed FP32 lanes keep the reduction independent of the inference backend.
+         std::array<float, 8> sums{};
+         std::array<float, 8> next_sums{};
+         for (int tap = 0; tap < stride; ++tap) {
++            if (stopped()) break;
+             int64_t index = sample - center + tap;
+             // Reflect about the first sample; repeat the last sample at the right edge.
+             while (index < 0 || index >= frames) {
++                if (stopped()) break;
+                 index = index < 0 ? -index : 2 * frames - 1 - index;
+             }
++            if (stopped()) break;
+             const float input = mono[static_cast<size_t>(index)];
+             const size_t lane = static_cast<size_t>(tap % 8);
+             sums[lane] = std::fma(input, weights[tap], sums[lane]);
+             if (fraction != 0.0) {
+-                next_sums[lane] = std::fma(input, weights[stride + tap], next_sums[lane]);
++                next_sums[lane] = std::fma(input, weights[static_cast<size_t>(stride) + tap], next_sums[lane]);
+             }
++            FRONTEND_PROGRESS(Convolution);
+         }
++        if (stopped()) continue;
+         const float value = ((sums[0] + sums[4]) + (sums[2] + sums[6])) +
+                             ((sums[1] + sums[5]) + (sums[3] + sums[7]));
+         const float next_value = ((next_sums[0] + next_sums[4]) + (next_sums[2] + next_sums[6])) +
+@@ -156,6 +263,9 @@
+         output[static_cast<size_t>(frame)] = static_cast<float>(
+             fraction == 0.0 ? value : value + (next_value - value) * fraction);
+     }
++    } // Implicit OpenMP barrier: no buffers are released while workers run.
++    check();
++#undef FRONTEND_PROGRESS
+     return output;
+ }
+ 
+diff --git a/src/models/sheetsage/session.cpp b/src/models/sheetsage/session.cpp
+--- a/src/models/sheetsage/session.cpp
++++ b/src/models/sheetsage/session.cpp
+@@ -1013,7 +1013,8 @@
+         request.audio_input->sample_rate,
+         request.audio_input->channels,
+         static_cast<int>(assets_->config.sampling_rate),
+-        std::max(1, RuntimeSessionBase::options().backend.threads));
++        std::max(1, RuntimeSessionBase::options().backend.threads),
++        execution_context().current_run_stop());
+     if (static_cast<int64_t>(waveform.size()) <= assets_->config.n_fft) {
+         throw std::runtime_error("SheetSage2 input audio is too short for the audio frontend");
+     }

@@ -1,0 +1,393 @@
+{
+  "base_commit": "ad14f0c4dbd5b12b7711bb7b46abb8d94f78f067",
+  "files": {
+    "include/engine/framework/core/backend.h": {
+      "base_sha256": "376bc465860bc7e7fc94eb15a9ff572a5747dc3b8ec261e15c7eec4f7ea4ec58",
+      "final_sha256": "8c6877fe86bb7d035e9073f31a5afc5fdaaf9c5d4e1a137d16aaf2c6436c9e2f"
+    },
+    "include/engine/framework/core/execution_context.h": {
+      "base_sha256": "12d5f640c0994c2a5851dbda5bc3a0370628a18413676182c787ccf6e3162d99",
+      "final_sha256": "ccbe7783a77c474fd9ecd9650c21e3f149ee464df81d7b168c051e1963597cd8"
+    },
+    "include/engine/framework/runtime/graph_executor.h": {
+      "base_sha256": "24b49f98489d4db942eefa2d3917f45153339c37018dc9e7182bb841a280a8c0",
+      "final_sha256": "5e3c40fa1327b317caccffddddadafbdb01f7b46ba61fb1a380e41ec88a566a7"
+    },
+    "include/engine/framework/runtime/session.h": {
+      "base_sha256": "8ea01d52e91796c4049bbc72c019c6df4ac98d245e680d8abab2d9b514d9610b",
+      "final_sha256": "cc196eb324773791f795f764a57ae42153f9ca5430ec522d4c98550b1cf75b33"
+    },
+    "include/engine/models/sheetsage/audio_frontend.h": {
+      "base_sha256": "f0d7984bd124b9d14ce644344cebc4439f6b67f378cfb84e8cd2aa0d754ce2e5",
+      "final_sha256": "ca638b2c3ba43e97627e4e60d2e8d00f3d00964b63218a01adb02520486e919a"
+    },
+    "include/engine/models/sheetsage/session.h": {
+      "base_sha256": "2f76d0e21bbca9c968465cd2bea4a3b4f9be070350c2e82c5fd650343c63fe08",
+      "final_sha256": "19c4b2aecdbc2183c862736baa45b125aece4bc604132e711c4e26ceeb2b96f6"
+    },
+    "src/framework/core/backend.cpp": {
+      "base_sha256": "3f9a5a491ef4ae2f337272144f25baf5173fc46f577eb61afba7b639dc833ae7",
+      "final_sha256": "f007f06172edc071cc3b07d812ee1e2c2cfc617f531e0afb44b05aff12d7807e"
+    },
+    "src/framework/core/execution_context.cpp": {
+      "base_sha256": "c299ec73c1599d077f0480ed6c3cf91779eff26200d9514b2033850c4f101611",
+      "final_sha256": "ee78258888f5258a3de9d412ba2399d2f77f250dcf74fcc3e59e22276ac11b48"
+    },
+    "src/framework/runtime/graph_executor.cpp": {
+      "base_sha256": "e71d1c7015a6c49505a059cf9ca2314f278953d5291ab504fea5962b41dbddb5",
+      "final_sha256": "7536e3e0ad958433395771460d502a5489357c4c2b8f37ffafcab4d6b1700b9e"
+    },
+    "src/models/sheetsage/audio_frontend.cpp": {
+      "base_sha256": "0584e407ef3ea67dd7f29a85634fbeb53cf45da9ae327d8632ad4a7c27077701",
+      "final_sha256": "138b24a2eab2fae0d5e117a572548760574cd06a9d65608d5d60f56943c345c7"
+    },
+    "src/models/sheetsage/runtime.cpp": {
+      "base_sha256": "01a1825c7011e14308f1a5f40a57907a21899c2fa4ab321f421499be1579ed36",
+      "final_sha256": "3e2e4bee1a838ec2489cc35663c8636189d6ffdd9385b6a1f54000fbc3dea199"
+    },
+    "src/models/sheetsage/session.cpp": {
+      "base_sha256": "67a658b48821e9ca88ab92f839549077c3a0461d71b35c2296e685fcb47395de",
+      "final_sha256": "1228def38d836edaac9b95d862007c05f03e42768a686950197fc71066b96ca2"
+    },
+    "include/engine/framework/audio/fft.h": {
+      "base_sha256": "5a63de2ab9d7361f186b9c9b7b6ba390526b4cb5122fa1174921295c2f2b7f55",
+      "final_sha256": "fab4168ba3725ce403d294602193872a50269846f594b01440ba103857b43641"
+    },
+    "src/framework/audio/fft.cpp": {
+      "base_sha256": "dc83ca2b7cf7d7aa455787865b082045447c1e826e8a55bf3fdd1c43113a4d00",
+      "final_sha256": "b6b51b1feae006ae0a9997b18d70243cb2da4a5d23977875ad3ac3d952ab2e44"
+    },
+    "src/framework/audio/detail/speech_fft_internal.h": {
+      "base_sha256": "f5a2d777125fbb0ebd3f407de8e516a092c065fdd61c3f6c7a5aeedb69ca271f",
+      "final_sha256": "6f47dd8d23af30dd7a8926f1339dfcde905f101c831acd4424210549d1f0ea6c"
+    },
+    "include/engine/framework/audio/dsp.h": {
+      "base_sha256": "2283025fe130de4fd3b0011d51babaa4b2c33b38408826ce82a37f1b28740e7d",
+      "final_sha256": "5064ea0ef2d92940c92a9ae92d7c698ea4fe9101b736bf76611513f84b48f57f"
+    },
+    "src/framework/audio/dsp.cpp": {
+      "base_sha256": "9087fa5de390365e4e7c4fea7fde4c068c882a16568ab775bdcdbcefae36f494",
+      "final_sha256": "b7eb3e1d88624d8f3d4e0b2f37c3699b5b8978376706f1f08bc99d534377aa9d"
+    },
+    "src/models/sheetsage/processing.cpp": {
+      "base_sha256": "75017425f5f207e6ec2a8cddfcc4b9a78cea2f047ec0fff0097474fa067bf2cd",
+      "final_sha256": "1d098dd26d7a03fc5e133c6d9babd91c7a1d5334ccddf3dd3e901790e6e3904f"
+    },
+    "include/engine/models/sheetsage/processing.h": {
+      "base_sha256": "c4fcd5a98970c0dfed084ea54cf71178d5a5d0a22be6ead80b21b61f476a9c72",
+      "final_sha256": "8c2f96998bfb4ea43aca959a44046c397ba2b603c543cece03ad536039619f41"
+    },
+    "include/engine/models/yue2/session.h": {
+      "base_sha256": "1576e5bb78e0f52657222ba04b3aaca4fb5a1654aa81edbd45a0fc642b0b643c",
+      "final_sha256": "0dcba50e827499ca8d614e699140e4884fb372c6d90701ffbdee300ea1d743e8"
+    },
+    "src/models/yue2/session.cpp": {
+      "base_sha256": "6e8687512b5a4cfe73208eb0202021405ee70f6bbe18b398ebb8fbe536023c82",
+      "final_sha256": "cd6fbaf82e4bdeebe00b2b145f46cf2b46ec79cf18bb972c4d82f2caee76d2c4"
+    },
+    "src/models/yue2/pipeline.cpp": {
+      "base_sha256": "f1f856a8d1a6d4bb2647e31df695a72051219aba8f10f6478151d7cdfa544a01",
+      "final_sha256": "582cbd3e7458ceacd883c0be9923279635981df7d7b69e8c81bab525a85797a2"
+    },
+    "src/models/yue2/ar_runtime.cpp": {
+      "base_sha256": "6c9b6ed1b220957082e758969baab648a945c6a4109cbdd4a0d29e97e3225aaa",
+      "final_sha256": "72926f9b8d8f50f636b0c68472c51a6b9ff5a189393cb48a5e3fdfd3739d446b"
+    },
+    "src/framework/modules/transformers/causal_decoder_runtime.cpp": {
+      "base_sha256": "54a4170b9aedda90a531710a70f0db9a86d3235bb70a01ce726d226a6d0f3eeb",
+      "final_sha256": "38e36750488988ad2f39498385bad42769e57356825b3cdd57f02f7a74ed36e0"
+    },
+    "src/models/yue2/nar_runtime.cpp": {
+      "base_sha256": "4d0dbd1238b0ed5893061dd966b997f2d41f02f762a6d4b6801acc3692e08e9e",
+      "final_sha256": "b1d594d638589e576502d80096e3d0075abd287f2508b6981f129dd3f9363ef4"
+    },
+    "src/framework/codecs/oobleck_audio_vae_runtime.cpp": {
+      "base_sha256": "a5ebf277a3dd2cabf62c2a0d89a85665db4a3e49eb866080407a8a07ecb137a5",
+      "final_sha256": "2eb3df47065ea8ceed38901647544b2883d744503385a40333ff6f44e177e611"
+    }
+  },
+  "omitted_tracked_paths": {
+    "assets/framework/audio_utilities/deepfilternet2/deepfilternet2.safetensors": "d2a4fe4e5dbb1a51f9ec41162460ce82ca4667a6",
+    "assets/framework/audio_utilities/flashsr/flashsr.safetensors": "cd281f710108234b162424523a8d13380df6e4bd",
+    "assets/framework/audio_utilities/gtcrn/gtcrn_dns3.safetensors": "1aca773733bdb1b04bcd2f39f59036b440ef1ce2",
+    "assets/framework/audio_utilities/gtcrn/gtcrn_streaming.safetensors": "fd2df63a5e6a6d5850605d134e3100c2a5dcc11a",
+    "assets/framework/audio_utilities/gtcrn/gtcrn_vctk.safetensors": "a2615ae0562114b7496196b8e781bf99a6ba58b2",
+    "assets/framework/audio_utilities/rnnoise/rnnoise10Ga_12.safetensors": "9f84e8d3aff68b1e9db1ffb9cf7a80aaa92dc1b8",
+    "assets/framework/audio_utilities/rnnoise/rnnoise10Gb_15.safetensors": "f0d841426657b80d7bc29a4d18a58d95c954343d",
+    "assets/framework/audio_utilities/zipenhancer/zipenhancer.safetensors": "f8e86990714a9c042d63198f9b8fb8fc6e35551d",
+    "assets/framework/models/earshot_vad/earshot_vad.safetensors": "92a4a92d31ed169f0bbb42592cf40654d054e0ea",
+    "assets/framework/models/marblenet_vad/marblenet_vad.safetensors": "3932b545ccf3fd9aa197fa3e4cd3c692ec9ba75e",
+    "assets/framework/models/silero_vad/silero_vad_16k.safetensors": "367975dcd8924bd8f17254f3da99361be0a3b928",
+    "examples/model_spec_demo/toy_package/model.safetensors": "39086d2fc52dcbeb48bf4edcd29c694532168ed3",
+    "external/sentencepiece/data/nfkc.bin": "101907ed80c10718002ac58631ab4539cab1804d",
+    "external/sentencepiece/data/nfkc_cf.bin": "af7704e9676f3c114e1f31c38c469d8ceb34701f",
+    "external/sentencepiece/data/nmt_nfkc.bin": "d9a6e20a787cb7281a44101c13c6635e94e9d915",
+    "external/sentencepiece/data/nmt_nfkc_cf.bin": "56e56bfb0f34de23a8653903d708a57b30ffdce7",
+    "tests/fun_asr_nano/adaptor_reference.bin": "b43dd61105a60d0e4b01480a2c2406d3d9c61819",
+    "tests/fun_asr_nano/decoder_reference.bin": "d6c4ff66c36d77611bbfb3dbd0e60f428bb4779e",
+    "tests/fun_asr_nano/encoder_reference.bin": "3ba164ac92988d6035f6c2542d2e5c9fd4ab0a9a",
+    "tests/fun_asr_nano/frontend_reference.bin": "6c8bcbf44e0175df2db67d2ee75b36a4e6efbf74",
+    "tests/fun_asr_nano/sanm_reference.bin": "2066e0402be73956a5f0ba96d330410bb682c7de",
+    "tests/higgs_audio_tts/higgs_audio_tts_sampler_logits.bin": "54ca2c0442f3ee8c73cc7cf91c36f8e186e8d248",
+    "tests/unittests/assets/framework/audio_utilities/flashsr/flashsr_case0.safetensors": "1c82b310b4cd0eb31b0ceb744704dc07971cd452",
+    "tests/unittests/assets/framework/audio_utilities/flashsr/flashsr_case1.safetensors": "f0e66e79cb58997f86ab40262ff4e40c784c059a",
+    "tests/unittests/assets/framework/audio_utilities/gtcrn/gtcrn_dns3_case0.safetensors": "527c66d0d0fe124ffeba39c6f10d8d4c6b804113",
+    "tests/unittests/assets/framework/audio_utilities/gtcrn/gtcrn_dns3_case1.safetensors": "ece82382f0ba2dadfd77d6071aca72d62c8c99bd",
+    "tests/unittests/assets/framework/audio_utilities/gtcrn/gtcrn_streaming_case0.safetensors": "72fc4997ad48b7003e66ff13a35d5228718ffc14",
+    "tests/unittests/assets/framework/audio_utilities/gtcrn/gtcrn_streaming_case1.safetensors": "c9aeff10eea6ef4d9a388847b505ab0236b53021",
+    "tests/unittests/assets/framework/audio_utilities/gtcrn/gtcrn_vctk_case0.safetensors": "9110ba364de8b811528335e0a66dab4a836c7d7b",
+    "tests/unittests/assets/framework/audio_utilities/gtcrn/gtcrn_vctk_case1.safetensors": "73cf886c9c8866ea3dbe48069fdb3d5086a20c98",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Ga_12_case0.safetensors": "3c4b42cbe41ae7a148af61bd161874f53dd3e439",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Ga_12_case1.safetensors": "0cee78a8cf8e2516daebaf54c63dcf4802f6f35b",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Ga_12_waveform_case0.safetensors": "2d3d119733e94d0e2adef8acfa89a3e9364ce31f",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Ga_12_waveform_case1.safetensors": "93e5730da52d8aa34595764103b8ef04103e25ea",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Gb_15_case0.safetensors": "7d146aa07ae6f2fa7021707bbe9e976ec1ea9317",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Gb_15_case1.safetensors": "580a78afde212bd9e9a63d74dcec8e2a0bfb503b",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Gb_15_waveform_case0.safetensors": "bea0fdeb5ad972862b54118bd50f9d2e324e377b",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Gb_15_waveform_case1.safetensors": "254c228d7097ead0669e9ce84d9b627b20a35179",
+    "tests/unittests/assets/framework/audio_utilities/zipenhancer/zipenhancer_case0.safetensors": "4a30e8ca23828490d8e282ed353df6e3177058a4",
+    "tests/unittests/assets/framework/audio_utilities/zipenhancer/zipenhancer_case1.safetensors": "1841178c640e6d580de3bf5728d65eb63518656c"
+  },
+  "patches": [
+    {
+      "files": {
+        "include/engine/framework/core/backend.h": {
+          "base_sha256": "376bc465860bc7e7fc94eb15a9ff572a5747dc3b8ec261e15c7eec4f7ea4ec58",
+          "final_sha256": "8c6877fe86bb7d035e9073f31a5afc5fdaaf9c5d4e1a137d16aaf2c6436c9e2f"
+        },
+        "include/engine/framework/core/execution_context.h": {
+          "base_sha256": "12d5f640c0994c2a5851dbda5bc3a0370628a18413676182c787ccf6e3162d99",
+          "final_sha256": "bd9717685ebb65535982418002ade100ab1ae1c6d755b7e817d22e739c94096b"
+        },
+        "include/engine/framework/runtime/graph_executor.h": {
+          "base_sha256": "24b49f98489d4db942eefa2d3917f45153339c37018dc9e7182bb841a280a8c0",
+          "final_sha256": "5e3c40fa1327b317caccffddddadafbdb01f7b46ba61fb1a380e41ec88a566a7"
+        },
+        "src/framework/core/backend.cpp": {
+          "base_sha256": "3f9a5a491ef4ae2f337272144f25baf5173fc46f577eb61afba7b639dc833ae7",
+          "final_sha256": "f007f06172edc071cc3b07d812ee1e2c2cfc617f531e0afb44b05aff12d7807e"
+        },
+        "src/framework/core/execution_context.cpp": {
+          "base_sha256": "c299ec73c1599d077f0480ed6c3cf91779eff26200d9514b2033850c4f101611",
+          "final_sha256": "5d714c17c823eb9468c4d38824fe99a4160bc7a185663e6255a132ac334fa12f"
+        },
+        "src/framework/runtime/graph_executor.cpp": {
+          "base_sha256": "e71d1c7015a6c49505a059cf9ca2314f278953d5291ab504fea5962b41dbddb5",
+          "final_sha256": "7536e3e0ad958433395771460d502a5489357c4c2b8f37ffafcab4d6b1700b9e"
+        }
+      },
+      "patch": "0001-core-run-cancellation.patch",
+      "patch_sha256": "ebb201f00bb2aea5cfbc391f934b8d38cb4ee1c50ece6d4be09c124b036d954e"
+    },
+    {
+      "files": {
+        "include/engine/framework/runtime/session.h": {
+          "base_sha256": "8ea01d52e91796c4049bbc72c019c6df4ac98d245e680d8abab2d9b514d9610b",
+          "final_sha256": "cc196eb324773791f795f764a57ae42153f9ca5430ec522d4c98550b1cf75b33"
+        },
+        "include/engine/models/sheetsage/session.h": {
+          "base_sha256": "2f76d0e21bbca9c968465cd2bea4a3b4f9be070350c2e82c5fd650343c63fe08",
+          "final_sha256": "19c4b2aecdbc2183c862736baa45b125aece4bc604132e711c4e26ceeb2b96f6"
+        },
+        "src/models/sheetsage/runtime.cpp": {
+          "base_sha256": "01a1825c7011e14308f1a5f40a57907a21899c2fa4ab321f421499be1579ed36",
+          "final_sha256": "209a4db8234ca235e4b510856a07534a338735f4b8ac94808fbff2881f00ef4c"
+        },
+        "src/models/sheetsage/session.cpp": {
+          "base_sha256": "67a658b48821e9ca88ab92f839549077c3a0461d71b35c2296e685fcb47395de",
+          "final_sha256": "a04d3c4ac347f276eb0b9582c4006d3ac04d85cca0513695bcc444a35cb77d2f"
+        }
+      },
+      "patch": "0002-sheetsage-graph-cancellation.patch",
+      "patch_sha256": "f8ba3761b8912afe7a34bb17af603a239ff71ca0940c507660863a060a3e4811"
+    },
+    {
+      "files": {
+        "include/engine/framework/core/execution_context.h": {
+          "base_sha256": "bd9717685ebb65535982418002ade100ab1ae1c6d755b7e817d22e739c94096b",
+          "final_sha256": "ccbe7783a77c474fd9ecd9650c21e3f149ee464df81d7b168c051e1963597cd8"
+        },
+        "include/engine/models/sheetsage/audio_frontend.h": {
+          "base_sha256": "f0d7984bd124b9d14ce644344cebc4439f6b67f378cfb84e8cd2aa0d754ce2e5",
+          "final_sha256": "ca638b2c3ba43e97627e4e60d2e8d00f3d00964b63218a01adb02520486e919a"
+        },
+        "src/framework/core/execution_context.cpp": {
+          "base_sha256": "5d714c17c823eb9468c4d38824fe99a4160bc7a185663e6255a132ac334fa12f",
+          "final_sha256": "ee78258888f5258a3de9d412ba2399d2f77f250dcf74fcc3e59e22276ac11b48"
+        },
+        "src/models/sheetsage/audio_frontend.cpp": {
+          "base_sha256": "0584e407ef3ea67dd7f29a85634fbeb53cf45da9ae327d8632ad4a7c27077701",
+          "final_sha256": "138b24a2eab2fae0d5e117a572548760574cd06a9d65608d5d60f56943c345c7"
+        },
+        "src/models/sheetsage/session.cpp": {
+          "base_sha256": "a04d3c4ac347f276eb0b9582c4006d3ac04d85cca0513695bcc444a35cb77d2f",
+          "final_sha256": "6e29eaed2492b362b24c6c1d75200be756198bd007cb07c13944b32196f1ada0"
+        }
+      },
+      "patch": "0003-sheetsage-host-frontend-cancellation.patch",
+      "patch_sha256": "e0fc51c5634cead74543b3b7853c43c7295faed5d94ccebe3142cd2c1cdfa3e3"
+    },
+    {
+      "patch": "0004-shared-forward-fft-cancellation.patch",
+      "patch_sha256": "d3e7caa070de3f36aa1bcbbe890a59f9db350d818623a19383716dc30f8902b8",
+      "files": {
+        "include/engine/framework/audio/fft.h": {
+          "base_sha256": "5a63de2ab9d7361f186b9c9b7b6ba390526b4cb5122fa1174921295c2f2b7f55",
+          "final_sha256": "fab4168ba3725ce403d294602193872a50269846f594b01440ba103857b43641"
+        },
+        "src/framework/audio/fft.cpp": {
+          "base_sha256": "dc83ca2b7cf7d7aa455787865b082045447c1e826e8a55bf3fdd1c43113a4d00",
+          "final_sha256": "b6b51b1feae006ae0a9997b18d70243cb2da4a5d23977875ad3ac3d952ab2e44"
+        },
+        "src/framework/audio/detail/speech_fft_internal.h": {
+          "base_sha256": "f5a2d777125fbb0ebd3f407de8e516a092c065fdd61c3f6c7a5aeedb69ca271f",
+          "final_sha256": "6f47dd8d23af30dd7a8926f1339dfcde905f101c831acd4424210549d1f0ea6c"
+        }
+      }
+    },
+    {
+      "patch": "0005-shared-stft-cancellation.patch",
+      "patch_sha256": "7f2543796f9bb70b7ea0b3457c4f7b69f3fe0463c5bf3dc4b5d01effd8c5a714",
+      "files": {
+        "include/engine/framework/audio/dsp.h": {
+          "base_sha256": "2283025fe130de4fd3b0011d51babaa4b2c33b38408826ce82a37f1b28740e7d",
+          "final_sha256": "ca243d295e2c10dde55c4537959b72587ff3444559c2a1b74bec58ef174944f0"
+        },
+        "src/framework/audio/dsp.cpp": {
+          "base_sha256": "9087fa5de390365e4e7c4fea7fde4c068c882a16568ab775bdcdbcefae36f494",
+          "final_sha256": "dd93661513c14245f508615eeac2fb0e79d4a3a34fcadf5a4227ac4bade4d689"
+        }
+      }
+    },
+    {
+      "patch": "0006-shared-mel-cancellation.patch",
+      "patch_sha256": "a9bd74e09105eb019eb405a87a00c8d6b89168598a0a620c9a41cadd03d87388",
+      "files": {
+        "include/engine/framework/audio/dsp.h": {
+          "base_sha256": "ca243d295e2c10dde55c4537959b72587ff3444559c2a1b74bec58ef174944f0",
+          "final_sha256": "5064ea0ef2d92940c92a9ae92d7c698ea4fe9101b736bf76611513f84b48f57f"
+        },
+        "src/framework/audio/dsp.cpp": {
+          "base_sha256": "dd93661513c14245f508615eeac2fb0e79d4a3a34fcadf5a4227ac4bade4d689",
+          "final_sha256": "b7eb3e1d88624d8f3d4e0b2f37c3699b5b8978376706f1f08bc99d534377aa9d"
+        },
+        "src/models/sheetsage/session.cpp": {
+          "base_sha256": "6e29eaed2492b362b24c6c1d75200be756198bd007cb07c13944b32196f1ada0",
+          "final_sha256": "5f18605e8affa1c5e8098aa5cfef52b2a06db0fdcebecba700722c19f5bfd350"
+        }
+      }
+    },
+    {
+      "patch": "0007-sheetsage-window-cancellation.patch",
+      "patch_sha256": "97bac89e398518fa73c70ecce04119aeed298e56fe42a8511b158c5f5f1abd7b",
+      "files": {
+        "src/models/sheetsage/session.cpp": {
+          "base_sha256": "5f18605e8affa1c5e8098aa5cfef52b2a06db0fdcebecba700722c19f5bfd350",
+          "final_sha256": "3613ab53600aae2daea168b91f4cadca776cfd82ba26e324b6fbbbbf2327dd2e"
+        }
+      }
+    },
+    {
+      "patch": "0008-sheetsage-encoder-host-cancellation.patch",
+      "patch_sha256": "f2c8d74b97ace8ee4bd017c0b82c285ad5302cef8ddc924edb67b29c79acc733",
+      "files": {
+        "src/models/sheetsage/runtime.cpp": {
+          "base_sha256": "209a4db8234ca235e4b510856a07534a338735f4b8ac94808fbff2881f00ef4c",
+          "final_sha256": "74e6fc339d24b3943d54255154dd231b9c6ab9f71864485d02ff1ccfe06e7737"
+        }
+      }
+    },
+    {
+      "patch": "0009-sheetsage-decoder-host-staging.patch",
+      "patch_sha256": "bc26b54d96077b47080c6371b2592e908b7d2764a65eb1202fc439b04c5ac286",
+      "files": {
+        "src/models/sheetsage/runtime.cpp": {
+          "base_sha256": "74e6fc339d24b3943d54255154dd231b9c6ab9f71864485d02ff1ccfe06e7737",
+          "final_sha256": "3e2e4bee1a838ec2489cc35663c8636189d6ffdd9385b6a1f54000fbc3dea199"
+        }
+      }
+    },
+    {
+      "patch": "0010-sheetsage-token-host-cancellation.patch",
+      "patch_sha256": "2a79e4b707bc6025780d781a82d542d5d6aab8c113b2ed267f7bbeb9d578c330",
+      "files": {
+        "src/models/sheetsage/session.cpp": {
+          "base_sha256": "3613ab53600aae2daea168b91f4cadca776cfd82ba26e324b6fbbbbf2327dd2e",
+          "final_sha256": "ec9eb9b069514a56c7a6f687828eaf40fc9df63c72cbbe995cd5ba5cad2d28c9"
+        }
+      }
+    },
+    {
+      "patch": "0011-sheetsage-output-host-cancellation.patch",
+      "patch_sha256": "06c38f03efd0ef1b04166f0c67cfd1e653d818fab44765a6cda3da8bd5a78f8d",
+      "files": {
+        "src/models/sheetsage/session.cpp": {
+          "base_sha256": "ec9eb9b069514a56c7a6f687828eaf40fc9df63c72cbbe995cd5ba5cad2d28c9",
+          "final_sha256": "1228def38d836edaac9b95d862007c05f03e42768a686950197fc71066b96ca2"
+        },
+        "src/models/sheetsage/processing.cpp": {
+          "base_sha256": "75017425f5f207e6ec2a8cddfcc4b9a78cea2f047ec0fff0097474fa067bf2cd",
+          "final_sha256": "1d098dd26d7a03fc5e133c6d9babd91c7a1d5334ccddf3dd3e901790e6e3904f"
+        },
+        "include/engine/models/sheetsage/processing.h": {
+          "base_sha256": "c4fcd5a98970c0dfed084ea54cf71178d5a5d0a22be6ead80b21b61f476a9c72",
+          "final_sha256": "8c2f96998bfb4ea43aca959a44046c397ba2b603c543cece03ad536039619f41"
+        }
+      }
+    },
+    {
+      "patch": "0012-yue2-owned-ar-cancellation.patch",
+      "patch_sha256": "65134384f7ba8e49aa581e772a391f806fcb04c5ebf90efb1c65898ab55c8849",
+      "files": {
+        "include/engine/models/yue2/session.h": {
+          "base_sha256": "1576e5bb78e0f52657222ba04b3aaca4fb5a1654aa81edbd45a0fc642b0b643c",
+          "final_sha256": "0dcba50e827499ca8d614e699140e4884fb372c6d90701ffbdee300ea1d743e8"
+        },
+        "src/models/yue2/session.cpp": {
+          "base_sha256": "6e8687512b5a4cfe73208eb0202021405ee70f6bbe18b398ebb8fbe536023c82",
+          "final_sha256": "cd6fbaf82e4bdeebe00b2b145f46cf2b46ec79cf18bb972c4d82f2caee76d2c4"
+        },
+        "src/models/yue2/pipeline.cpp": {
+          "base_sha256": "f1f856a8d1a6d4bb2647e31df695a72051219aba8f10f6478151d7cdfa544a01",
+          "final_sha256": "d66cd3517c3c20f2fd90b5d7824715516522c45821da2760e59491a0b09f8eed"
+        },
+        "src/models/yue2/ar_runtime.cpp": {
+          "base_sha256": "6c9b6ed1b220957082e758969baab648a945c6a4109cbdd4a0d29e97e3225aaa",
+          "final_sha256": "72926f9b8d8f50f636b0c68472c51a6b9ff5a189393cb48a5e3fdfd3739d446b"
+        },
+        "src/framework/modules/transformers/causal_decoder_runtime.cpp": {
+          "base_sha256": "54a4170b9aedda90a531710a70f0db9a86d3235bb70a01ce726d226a6d0f3eeb",
+          "final_sha256": "38e36750488988ad2f39498385bad42769e57356825b3cdd57f02f7a74ed36e0"
+        }
+      }
+    },
+    {
+      "patch": "0013-yue2-nar-cancellation.patch",
+      "patch_sha256": "b1506c94f23663ccfc20e434c66c5b9920887e6adc390de86ce2762288e09284",
+      "files": {
+        "src/models/yue2/nar_runtime.cpp": {
+          "base_sha256": "4d0dbd1238b0ed5893061dd966b997f2d41f02f762a6d4b6801acc3692e08e9e",
+          "final_sha256": "b1d594d638589e576502d80096e3d0075abd287f2508b6981f129dd3f9363ef4"
+        },
+        "src/models/yue2/pipeline.cpp": {
+          "base_sha256": "d66cd3517c3c20f2fd90b5d7824715516522c45821da2760e59491a0b09f8eed",
+          "final_sha256": "fcc792665f7af5fc69b490b73882260c4c7158a563af5a1e1d073b20b9ee010b"
+        }
+      }
+    },
+    {
+      "patch": "0014-yue2-owned-vae-cancellation.patch",
+      "patch_sha256": "78fbc827d3b02c383ac41c7e99e54eee85d71ffab4cb20138750ea590ae2e07e",
+      "files": {
+        "src/framework/codecs/oobleck_audio_vae_runtime.cpp": {
+          "base_sha256": "a5ebf277a3dd2cabf62c2a0d89a85665db4a3e49eb866080407a8a07ecb137a5",
+          "final_sha256": "2eb3df47065ea8ceed38901647544b2883d744503385a40333ff6f44e177e611"
+        },
+        "src/models/yue2/pipeline.cpp": {
+          "base_sha256": "fcc792665f7af5fc69b490b73882260c4c7158a563af5a1e1d073b20b9ee010b",
+          "final_sha256": "582cbd3e7458ceacd883c0be9923279635981df7d7b69e8c81bab525a85797a2"
+        }
+      }
+    }
+  ]
+}

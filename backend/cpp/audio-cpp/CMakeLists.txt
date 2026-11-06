@@ -15,6 +15,17 @@ if(NOT EXISTS "${AUDIO_CPP_DIR}/CMakeLists.txt")
         "Run 'make audio.cpp' first.")
 endif()
 
+# Direct configurations only verify: source mutation belongs to make preparation.
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+execute_process(
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/apply-upstream-patches.py"
+            --source "${AUDIO_CPP_DIR}" --verify-only
+    RESULT_VARIABLE _audio_patch_status
+    OUTPUT_VARIABLE _audio_patch_output ERROR_VARIABLE _audio_patch_error)
+if(NOT _audio_patch_status EQUAL 0)
+    message(FATAL_ERROR "audio.cpp requires verified preparation: ${_audio_patch_error}")
+endif()
+
 if(APPLE)
     # Homebrew installs protobuf/grpc under a non-default prefix.
     if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "arm64")
@@ -136,6 +147,7 @@ add_subdirectory("${AUDIO_CPP_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/audio-cpp" EXCL
 
 add_executable(${TARGET}
     grpc-server.cpp
+    music_adapter.cpp
     model_options.cpp
     capability_routing.cpp
     family_gate.cpp
@@ -215,7 +227,251 @@ set_target_properties(${TARGET} PROPERTIES
     BUILD_WITH_INSTALL_RPATH TRUE)
 
 if(AUDIO_CPP_GRPC_BUILD_TESTS)
+    add_executable(music_adapter_ctest music_adapter_ctest.cpp music_adapter.cpp capability_routing.cpp)
+    target_link_libraries(music_adapter_ctest PRIVATE hw_grpc_proto)
+    add_test(NAME music_adapter COMMAND music_adapter_ctest)
+    set_tests_properties(music_adapter PROPERTIES TIMEOUT 45)
+    add_executable(music_yue2_vae_ctest music_yue2_vae_ctest.cpp)
+    target_include_directories(music_yue2_vae_ctest PRIVATE "${AUDIO_CPP_DIR}")
+    target_compile_options(music_yue2_vae_ctest PRIVATE -ffunction-sections -fdata-sections)
+    if(APPLE)
+        target_link_options(music_yue2_vae_ctest PRIVATE -Wl,-dead_strip)
+    else()
+        target_link_options(music_yue2_vae_ctest PRIVATE -Wl,--gc-sections)
+    endif()
+    target_link_libraries(music_yue2_vae_ctest PRIVATE engine_runtime ggml Threads::Threads)
+    add_test(NAME music_yue2_vae COMMAND music_yue2_vae_ctest)
+    set_tests_properties(music_yue2_vae PROPERTIES TIMEOUT 45)
+
+    add_executable(music_yue2_nar_ctest music_yue2_nar_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/models/yue2/ar_runtime.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/modules/transformers/causal_decoder_runtime.cpp")
+    target_include_directories(music_yue2_nar_ctest PRIVATE "${AUDIO_CPP_DIR}")
+    target_compile_options(music_yue2_nar_ctest PRIVATE -ffunction-sections -fdata-sections)
+    if(APPLE)
+        target_link_options(music_yue2_nar_ctest PRIVATE -Wl,-dead_strip)
+    else()
+        target_link_options(music_yue2_nar_ctest PRIVATE -Wl,--gc-sections)
+    endif()
+    target_link_libraries(music_yue2_nar_ctest PRIVATE engine_runtime ggml Threads::Threads)
+    add_test(NAME music_yue2_nar COMMAND music_yue2_nar_ctest)
+    set_tests_properties(music_yue2_nar PROPERTIES TIMEOUT 45)
+
+    add_executable(music_yue2_owned_ar_ctest music_yue2_owned_ar_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/framework/modules/transformers/causal_decoder_runtime.cpp")
+    target_include_directories(music_yue2_owned_ar_ctest PRIVATE "${AUDIO_CPP_DIR}")
+    target_compile_definitions(music_yue2_owned_ar_ctest PRIVATE ENGINE_YUE2_AR_TESTING=1)
+    target_compile_options(music_yue2_owned_ar_ctest PRIVATE -ffunction-sections -fdata-sections)
+    if(APPLE)
+        target_link_options(music_yue2_owned_ar_ctest PRIVATE -Wl,-dead_strip)
+    else()
+        target_link_options(music_yue2_owned_ar_ctest PRIVATE -Wl,--gc-sections)
+    endif()
+    target_link_libraries(music_yue2_owned_ar_ctest PRIVATE engine_runtime ggml Threads::Threads)
+    add_test(NAME music_yue2_owned_ar COMMAND music_yue2_owned_ar_ctest)
+    set_tests_properties(music_yue2_owned_ar PROPERTIES TIMEOUT 45)
+
+    add_executable(music_sheetsage_output_host_ctest music_sheetsage_output_host_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/framework/runtime/session.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/io/json.cpp")
+    target_include_directories(music_sheetsage_output_host_ctest PRIVATE "${AUDIO_CPP_DIR}" "${AUDIO_CPP_DIR}/include")
+    target_compile_options(music_sheetsage_output_host_ctest PRIVATE -ffunction-sections -fdata-sections)
+    if(APPLE)
+        target_link_options(music_sheetsage_output_host_ctest PRIVATE -Wl,-dead_strip)
+    else()
+        target_link_options(music_sheetsage_output_host_ctest PRIVATE -Wl,--gc-sections)
+    endif()
+    target_link_libraries(music_sheetsage_output_host_ctest PRIVATE ggml cjson_vendor Threads::Threads)
+    add_test(NAME music_sheetsage_output_host COMMAND music_sheetsage_output_host_ctest)
+    set_tests_properties(music_sheetsage_output_host PROPERTIES TIMEOUT 45)
+
+    add_executable(music_sheetsage_token_host_ctest music_sheetsage_token_host_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/models/sheetsage/processing.cpp")
+    target_include_directories(music_sheetsage_token_host_ctest PRIVATE "${AUDIO_CPP_DIR}" "${AUDIO_CPP_DIR}/include")
+    target_compile_options(music_sheetsage_token_host_ctest PRIVATE -ffunction-sections -fdata-sections)
+    if(APPLE)
+        target_link_options(music_sheetsage_token_host_ctest PRIVATE -Wl,-dead_strip)
+    else()
+        target_link_options(music_sheetsage_token_host_ctest PRIVATE -Wl,--gc-sections)
+    endif()
+    target_link_libraries(music_sheetsage_token_host_ctest PRIVATE ggml Threads::Threads)
+    add_test(NAME music_sheetsage_token_host COMMAND music_sheetsage_token_host_ctest)
+    set_tests_properties(music_sheetsage_token_host PROPERTIES TIMEOUT 45)
+
+    add_executable(music_sheetsage_decoder_host_ctest
+        music_sheetsage_decoder_host_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/framework/core/backend.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/core/module.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/core/execution_context.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/core/host_memory.cpp")
+    target_include_directories(music_sheetsage_decoder_host_ctest PRIVATE "${AUDIO_CPP_DIR}" "${AUDIO_CPP_DIR}/include")
+    target_compile_options(music_sheetsage_decoder_host_ctest PRIVATE -ffunction-sections -fdata-sections)
+    if(APPLE)
+        target_link_options(music_sheetsage_decoder_host_ctest PRIVATE -Wl,-dead_strip)
+    else()
+        target_link_options(music_sheetsage_decoder_host_ctest PRIVATE -Wl,--gc-sections)
+    endif()
+    target_link_libraries(music_sheetsage_decoder_host_ctest PRIVATE ggml Threads::Threads ${CMAKE_DL_LIBS})
+    find_package(OpenMP QUIET)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(music_sheetsage_decoder_host_ctest PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+    add_test(NAME music_sheetsage_decoder_host COMMAND music_sheetsage_decoder_host_ctest)
+    set_tests_properties(music_sheetsage_decoder_host PROPERTIES TIMEOUT 45)
+
+    add_executable(music_sheetsage_runtime_host_ctest
+        music_sheetsage_runtime_host_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/framework/core/backend.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/core/module.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/core/execution_context.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/core/host_memory.cpp")
+    target_include_directories(music_sheetsage_runtime_host_ctest PRIVATE "${AUDIO_CPP_DIR}" "${AUDIO_CPP_DIR}/include")
+    target_compile_options(music_sheetsage_runtime_host_ctest PRIVATE -ffunction-sections -fdata-sections)
+    if(APPLE)
+        target_link_options(music_sheetsage_runtime_host_ctest PRIVATE -Wl,-dead_strip)
+    else()
+        target_link_options(music_sheetsage_runtime_host_ctest PRIVATE -Wl,--gc-sections)
+    endif()
+    target_link_libraries(music_sheetsage_runtime_host_ctest PRIVATE ggml Threads::Threads ${CMAKE_DL_LIBS})
+    find_package(OpenMP QUIET)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(music_sheetsage_runtime_host_ctest PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+    add_test(NAME music_sheetsage_runtime_host COMMAND music_sheetsage_runtime_host_ctest)
+    set_tests_properties(music_sheetsage_runtime_host PROPERTIES TIMEOUT 45)
+
+    add_executable(music_sheetsage_window_cancellation_ctest music_sheetsage_window_cancellation_ctest.cpp)
+    target_include_directories(music_sheetsage_window_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}" "${AUDIO_CPP_DIR}/include" "${AUDIO_CPP_DIR}/external/ggml/include")
+    target_compile_options(music_sheetsage_window_cancellation_ctest PRIVATE -ffunction-sections -fdata-sections)
+    if(APPLE)
+        target_link_options(music_sheetsage_window_cancellation_ctest PRIVATE -Wl,-dead_strip)
+    else()
+        target_link_options(music_sheetsage_window_cancellation_ctest PRIVATE -Wl,--gc-sections)
+    endif()
+    target_link_libraries(music_sheetsage_window_cancellation_ctest PRIVATE Threads::Threads)
+    add_test(NAME music_sheetsage_window_cancellation COMMAND music_sheetsage_window_cancellation_ctest)
+    set_tests_properties(music_sheetsage_window_cancellation PROPERTIES TIMEOUT 45)
+
+    add_executable(music_shared_mel_cancellation_ctest
+        music_shared_mel_cancellation_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/framework/audio/dsp.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/audio/fft.cpp"
+        "${AUDIO_CPP_DIR}/src/models/sheetsage/session.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/assets/resource_bundle.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/debug/trace.cpp")
+    target_compile_definitions(music_shared_mel_cancellation_ctest PRIVATE
+        ENGINE_MEL_TESTING=1 ENGINE_STFT_TESTING=1 ENGINE_FFT_TESTING=1)
+    target_include_directories(music_shared_mel_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}/include")
+    # The actual session helper lives with model-loading functions. Discard only
+    # unused sections, rather than link an engine or duplicate frontend code.
+    if(APPLE)
+        target_compile_options(music_shared_mel_cancellation_ctest PRIVATE -ffunction-sections -fdata-sections)
+        target_link_options(music_shared_mel_cancellation_ctest PRIVATE -Wl,-dead_strip)
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(music_shared_mel_cancellation_ctest PRIVATE -ffunction-sections -fdata-sections)
+        target_link_options(music_shared_mel_cancellation_ctest PRIVATE -Wl,--gc-sections)
+    endif()
+    target_link_libraries(music_shared_mel_cancellation_ctest PRIVATE ggml Threads::Threads)
+    find_package(OpenMP QUIET)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(music_shared_mel_cancellation_ctest PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+    add_test(NAME music_shared_mel_cancellation COMMAND music_shared_mel_cancellation_ctest)
+    set_tests_properties(music_shared_mel_cancellation PROPERTIES TIMEOUT 45)
+
+    add_executable(music_shared_stft_cancellation_ctest
+        music_shared_stft_cancellation_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/framework/audio/dsp.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/audio/fft.cpp")
+    target_compile_definitions(music_shared_stft_cancellation_ctest PRIVATE ENGINE_STFT_TESTING=1 ENGINE_FFT_TESTING=1)
+    target_include_directories(music_shared_stft_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}/include")
+    target_sources(music_shared_stft_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}/src/framework/debug/trace.cpp")
+    target_link_libraries(music_shared_stft_cancellation_ctest PRIVATE ggml Threads::Threads)
+    find_package(OpenMP QUIET)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(music_shared_stft_cancellation_ctest PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+    add_test(NAME music_shared_stft_cancellation COMMAND music_shared_stft_cancellation_ctest)
+    set_tests_properties(music_shared_stft_cancellation PROPERTIES TIMEOUT 45)
+
+    add_executable(music_shared_fft_cancellation_ctest
+        music_shared_fft_cancellation_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/framework/audio/fft.cpp")
+    target_compile_definitions(music_shared_fft_cancellation_ctest PRIVATE ENGINE_FFT_TESTING=1)
+    target_include_directories(music_shared_fft_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}/include")
+    target_link_libraries(music_shared_fft_cancellation_ctest PRIVATE ggml Threads::Threads)
+    add_test(NAME music_shared_fft_cancellation COMMAND music_shared_fft_cancellation_ctest)
+    set_tests_properties(music_shared_fft_cancellation PROPERTIES TIMEOUT 45)
+
+    target_compile_definitions(engine_core PRIVATE ENGINE_CORE_CANCELLATION_TESTING=1)
+    add_executable(music_core_cancellation_ctest music_core_cancellation_ctest.cpp)
+    target_compile_definitions(music_core_cancellation_ctest PRIVATE ENGINE_CORE_CANCELLATION_TESTING=1)
+    target_include_directories(music_core_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}/include")
+    target_link_libraries(music_core_cancellation_ctest PRIVATE engine_runtime ggml Threads::Threads)
+    target_compile_options(music_core_cancellation_ctest PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME music_core_cancellation COMMAND music_core_cancellation_ctest)
+    set_tests_properties(music_core_cancellation PROPERTIES TIMEOUT 60)
+
     enable_testing()
+
+    # Compile the real frontend in this executable with test-only instrumentation.
+    # Production engine objects have no observer; the class layout is unchanged.
+    add_executable(music_sheetsage_frontend_cancellation_ctest
+        music_sheetsage_frontend_cancellation_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/models/sheetsage/audio_frontend.cpp")
+    target_compile_definitions(music_sheetsage_frontend_cancellation_ctest PRIVATE
+        ENGINE_SHEETSAGE_FRONTEND_TESTING=1)
+    target_include_directories(music_sheetsage_frontend_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}/include")
+    target_link_libraries(music_sheetsage_frontend_cancellation_ctest PRIVATE engine_runtime ggml Threads::Threads)
+    find_package(OpenMP QUIET)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(music_sheetsage_frontend_cancellation_ctest PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+    target_compile_options(music_sheetsage_frontend_cancellation_ctest PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME music_sheetsage_frontend_cancellation COMMAND music_sheetsage_frontend_cancellation_ctest)
+    set_tests_properties(music_sheetsage_frontend_cancellation PROPERTIES TIMEOUT 60)
+
+    # Graph-only checkpoint, not complete offline/music cancellation acceptance.
+    add_executable(music_sheetsage_cancellation_ctest music_sheetsage_cancellation_ctest.cpp)
+    target_include_directories(music_sheetsage_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}/include")
+    target_link_libraries(music_sheetsage_cancellation_ctest PRIVATE engine_runtime ggml Threads::Threads)
+    target_compile_options(music_sheetsage_cancellation_ctest PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME music_sheetsage_cancellation COMMAND music_sheetsage_cancellation_ctest)
+    set_tests_properties(music_sheetsage_cancellation PROPERTIES TIMEOUT 60)
+
+    # This bounded CPU test calls the linked CPU API, not dynamically loaded
+    # all-variant modules. Shipping builds (tests OFF) are unaffected.
+    option(AUDIO_CPP_GRPC_BUILD_MUSIC_CANCELLATION_TEST
+        "Build the single-CPU music cancellation test" ON)
+    if(AUDIO_CPP_GRPC_BUILD_MUSIC_CANCELLATION_TEST)
+    if(ENGINE_ENABLE_CPU_ALL_VARIANTS OR GGML_CPU_ALL_VARIANTS)
+        message(FATAL_ERROR
+            "music_cancellation requires a single linked CPU backend; "
+            "ENGINE_ENABLE_CPU_ALL_VARIANTS=ON is unsupported for this test. "
+            "Set AUDIO_CPP_GRPC_BUILD_MUSIC_CANCELLATION_TEST=OFF to build other CTests, "
+            "or AUDIO_CPP_GRPC_BUILD_TESTS=OFF for shipping builds.")
+    endif()
+    if(NOT TARGET ggml-cpu)
+        message(FATAL_ERROR "music_cancellation requires the linked ggml-cpu target")
+    endif()
+    add_executable(music_cancellation_ctest
+        music_cancellation_ctest.cpp music_cancellation.cpp inference_lane.cpp)
+    target_link_libraries(music_cancellation_ctest PRIVATE
+        engine_runtime ggml ggml-cpu Threads::Threads)
+    target_compile_definitions(music_cancellation_ctest PRIVATE MUSIC_CPU_TEST_FAULTS)
+    target_compile_options(music_cancellation_ctest PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME music_cancellation COMMAND music_cancellation_ctest)
+    set_tests_properties(music_cancellation PROPERTIES TIMEOUT 30)
+    endif()
+
+    add_executable(music_result_mapping_ctest
+        music_result_mapping_ctest.cpp music_result_mapping.cpp)
+    target_include_directories(music_result_mapping_ctest PRIVATE
+        "${AUDIO_CPP_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}")
+    # TaskResult's JSON Value destructor is out of line in engine_runtime.
+    target_link_libraries(music_result_mapping_ctest PRIVATE engine_runtime Threads::Threads)
+    target_compile_options(music_result_mapping_ctest PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME music_result_mapping COMMAND music_result_mapping_ctest)
 
     # These are the units whose tests CANNOT run under
     # backend/cpp/run-unit-tests.sh, because that script compiles each
@@ -230,21 +486,18 @@ if(AUDIO_CPP_GRPC_BUILD_TESTS)
         audio_units.cpp)
     target_include_directories(result_map_ctest PRIVATE
         "${AUDIO_CPP_DIR}/include"
-        "${CMAKE_CURRENT_SOURCE_DIR}"
-        # session.h reaches ggml.h through core/backend.h. Every other target
-        # here inherits that directory from the ggml target it links; this one
-        # links no ggml, so it has to name it.
-        "${AUDIO_CPP_DIR}/external/ggml/include")
-    # No engine_runtime: result_map touches only the plain structs in
-    # engine/framework/runtime/session.h, so the header is all it needs.
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    # TaskResult owns CustomSchemaOutput's JSON Value, whose destructor is
+    # defined out of line in engine_runtime even when no model is loaded.
     target_link_libraries(result_map_ctest PRIVATE
+        engine_runtime
         hw_grpc_proto
         protobuf::libprotobuf
         Threads::Threads)
     target_compile_options(result_map_ctest PRIVATE -Wall -Wextra -Wpedantic)
     add_test(NAME result_map COMMAND result_map_ctest)
 
-    # Same shape as result_map_ctest: generation_request touches only the plain
+    # Unlike result_map_ctest, generation_request touches only the plain
     # structs in engine/framework/runtime/session.h plus the generated protobuf
     # messages, so the headers are all it needs and no engine_runtime is linked.
     add_executable(generation_request_ctest

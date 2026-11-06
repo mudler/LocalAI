@@ -501,42 +501,25 @@ static void test_unsupported_reasons_name_the_upstream_limitation() {
 
     const auto &transform =
         unsupported_surface(UnsupportedRpc::AudioTransformStream);
-    // The reason must be scoped to the tasks AudioTransform routes to. The
-    // broader claim, "upstream streams tts and asr only", is FALSE: silero_vad
-    // advertises vad with RunMode::Streaming. A refusal resting on a false
-    // premise is worse than a bare UNIMPLEMENTED, because it will be believed.
-    check(std::string(transform.reason).find("sep, vc, svc, s2s") !=
-              std::string::npos,
-          "the AudioTransformStream reason is scoped to the routed tasks");
-    check(std::string(transform.reason).find("tts, asr and vad") !=
-              std::string::npos,
-          "the AudioTransformStream reason counts vad among the streaming tasks");
-    check(std::string(transform.reason).find("tts and asr only") ==
-              std::string::npos,
-          "the AudioTransformStream reason does not repeat the refuted claim");
-    // An absence is not an impossibility. A sep family could be buffered and
-    // emitted as a stream, so the reason has to say this backend declines to
-    // rather than cannot, or it overreaches on a true premise.
-    check(std::string(transform.reason).find("buffered offline call in disguise") !=
-              std::string::npos,
-          "the AudioTransformStream reason does not overclaim impossibility");
+    check(std::string(transform.reason).find("no audio.cpp family") ==
+              std::string::npos &&
+              std::string(transform.reason).find("backend has no") !=
+                  std::string::npos,
+          "streaming transform refusal names the backend adapter gap, not an upstream absence");
+    check(std::string(transform.reason).find("meanvc2") != std::string::npos &&
+              std::string(transform.reason).find("s2s") != std::string::npos,
+          "streaming transform refusal acknowledges upstream streaming vc and s2s");
 
     const auto &s2s = unsupported_surface(UnsupportedRpc::AudioToAudioStream);
     check(std::string(s2s.reason).find("Realtime") != std::string::npos &&
-              std::string(s2s.reason).find("clip-to-clip") != std::string::npos,
-          "the AudioToAudioStream reason contrasts the two contracts");
-    // Naming both s2s families, and what each of them actually does, makes the
-    // claim checkable. It must NOT say s2s is voice conversion full stop: that
-    // is true of miocodec and false of vevo2, whose s2s route is `editing` and
-    // rewrites the spoken content against a target voice.
-    check(std::string(s2s.reason).find("miocodec (voice conversion)") !=
-                  std::string::npos &&
-              std::string(s2s.reason).find("vevo2 (speech editing)") !=
-                  std::string::npos,
-          "the AudioToAudioStream reason names each s2s family's actual task");
-    check(std::string(s2s.reason).find("s2s is offline voice conversion") ==
-              std::string::npos,
-          "the AudioToAudioStream reason does not miscast vevo2 as conversion");
+              std::string(s2s.reason).find("backend has no") != std::string::npos,
+          "AudioToAudioStream refusal names the missing backend Realtime adapter");
+    check(std::string(s2s.reason).find("personaplex") != std::string::npos &&
+              std::string(s2s.reason).find("conversational") != std::string::npos,
+          "AudioToAudioStream refusal acknowledges conversational upstream s2s");
+    check(std::string(s2s.reason).find("declared only by") == std::string::npos &&
+              std::string(s2s.reason).find("s2s is offline") == std::string::npos,
+          "AudioToAudioStream refusal does not repeat obsolete s2s limitations");
 
     const auto &embed = unsupported_surface(UnsupportedRpc::VoiceEmbed);
     check(std::string(embed.reason).find("spk") != std::string::npos,
@@ -607,7 +590,35 @@ static void test_detection_tasks_are_not_existing_rpcs() {
     }
 }
 
+static void test_music_routes() {
+    for (const auto rpc : {Rpc::MusicTranscription, Rpc::MusicGeneration}) {
+        const Task task = rpc == Rpc::MusicTranscription ? Task::Midi : Task::AudioGeneration;
+        const Capabilities caps{"synthetic-music", {{task, {Mode::Offline}}}};
+        RequestShape shape;
+        shape.has_prompt_text = shape.has_instructions = shape.has_voice_reference = true;
+        auto r = resolve_route(rpc, shape, caps);
+        check(r.ok && r.task == task && r.mode == Mode::Offline, "music exact offline route");
+        shape.pinned_task = task_name(task);
+        check(resolve_route(rpc, shape, caps).ok, "music correct pin");
+        shape.pinned_task = "asr";
+        check(!resolve_route(rpc, shape, caps).ok, "music refuses unrelated pin");
+        shape.pinned_task = task == Task::Midi ? "gen" : "midi";
+        check(!resolve_route(rpc, shape, caps).ok, "music refuses other music task pin");
+        shape.pinned_task.clear();
+        check(!resolve_route(rpc, shape, Capabilities{"empty", {}}).ok, "music missing capability");
+        check(!resolve_route(rpc, shape, Capabilities{"stream-only", {{task, {Mode::Streaming}}}}).ok,
+              "music refuses streaming-only task");
+    }
+    check(!resolve_route(Rpc::AudioTranscription, {}, Capabilities{"score", {{Task::Midi, {Mode::Offline}}}}).ok,
+          "speech transcription does not become music");
+    RequestShape shape;
+    shape.pinned_task = "midi";
+    check(!resolve_route(Rpc::SoundGeneration, shape, Capabilities{"both", {{Task::Midi, {Mode::Offline}},
+          {Task::AudioGeneration, {Mode::Offline}}}}).ok, "legacy sound never routes to Midi");
+}
+
 int main() {
+    test_music_routes();
     test_detection_tasks_are_not_existing_rpcs();
     test_turn_detection_is_not_vad();
     test_plain_tts();

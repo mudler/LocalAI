@@ -79,7 +79,7 @@ RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mi
     sh /usr/local/sbin/apt-mirror && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        git cmake build-essential pkg-config ca-certificates \
+        git cmake build-essential pkg-config ca-certificates python3 \
         libgrpc++-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc && \
     if [ "${BUILD_TYPE}" = "vulkan" ]; then \
         apt-get install -y --no-install-recommends libvulkan-dev glslc; \

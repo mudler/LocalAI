@@ -100,7 +100,10 @@ std::vector<Task> task_candidates(Rpc rpc, const RequestShape &shape) {
     case Rpc::Diarize:
         return {Task::Diarization};
     case Rpc::SoundGeneration:
+    case Rpc::MusicGeneration:
         return {Task::AudioGeneration};
+    case Rpc::MusicTranscription:
+        return {Task::Midi};
     case Rpc::AudioTransform:
         // Svc is listed for completeness but is unreachable by auto-routing, by
         // design: the only families advertising it (seed_vc, vevo2) also
@@ -113,57 +116,25 @@ std::vector<Task> task_candidates(Rpc rpc, const RequestShape &shape) {
     return {};
 }
 
-// The reasons behind unsupported_surfaces(), spelled once because AudioEncode
-// and AudioDecode share theirs. Each is phrased in terms of what upstream does
-// and does not have, so a reader can check it against the pinned checkout
-// rather than take it on trust. Every one of them was checked against
-// audio.cpp e800d435d130dc776baf6f3e6129bb62b1495c89, and one of the four
-// claims this backend was planned against did not survive that check: see
-// kTransformStreamReason.
-//
-// A latent upstream inconsistency worth knowing about but deliberately NOT put
-// on the wire, because it would mislead: model_spec/schema.cpp's task-string
-// whitelist does accept "codec" (and "dialogue"), while
-// model_spec/metadata.cpp's parse_task_kind has no branch for either and
-// throws "unknown model spec task". So a spec declaring "codec" validates and
-// then fails to load. That is a hole in upstream's own validation, not a codec
-// task this backend could reach.
+// Refusals distinguish missing upstream tasks from missing backend adapters.
+// Upstream capability assumptions are checked against the pinned registry by
+// upstream_absence_ctest; an advertised task alone does not implement an RPC.
 const char *const kCodecReason =
     "audio.cpp's VoiceTaskKind has no codec entry, so no family can be asked to "
     "turn PCM into codec frames or back; miocodec carries a Codec tag in "
     "upstream's README but its loader advertises only vc and s2s";
-// NOT "streaming exists for tts and asr only", which is what this backend was
-// planned to say and is false: silero_vad advertises vad with RunMode::Streaming
-// (src/models/silero_vad/session.cpp). The claim that actually holds is the
-// narrower one below, about the four tasks AudioTransform routes to.
-// The trailing clause is not padding. The premise is an absence, and an absence
-// does not on its own make the RPC impossible: an offline sep family could be
-// buffered and emitted as a stream, which is what several LocalAI backends do.
-// Stopping at "nothing advertises streaming" would imply an impossibility the
-// evidence does not support. What is true, and what the caller needs, is that
-// this backend declines to dress an offline call up as a streaming one.
+// These RPCs remain refused even when the loaded family advertises streaming.
+// grpc-server.cpp has no stream adapter for either surface; do not describe
+// that backend policy as an absence of streaming or conversation upstream.
 const char *const kTransformStreamReason =
-    "no audio.cpp family advertises streaming for any task AudioTransform routes "
-    "to (sep, vc, svc, s2s); upstream advertises RunMode::Streaming for tts, asr "
-    "and vad only, and no conversion or separation family even implements its "
-    "IStreamingVoiceTaskSession interface, so a streaming transform here would be "
-    "a buffered offline call in disguise, which this backend does not pretend to "
-    "offer";
-// "clip-to-clip processing against a target voice", NOT "voice conversion". The
-// latter is true of miocodec and FALSE of vevo2, whose s2s route is `editing`
-// and only `editing`: src/models/vevo2/session.cpp's default_route_for_task maps
-// SpeechToSpeech to Editing and route_matches_task accepts nothing else, and
-// docs/models/vevo2.md defines that route as "Edit source speech into new target
-// text while using the target voice", requiring --target-text. It rewrites what
-// was said. vevo2's actual voice conversion is its separate vc task, which is
-// why upstream's README tags the family "TTS, Music, VC, Edit". The conclusion
-// is unaffected: neither family converses.
+    "this backend has no adapter from AudioTransformStream frames to audio.cpp "
+    "streaming sessions; upstream does advertise streaming vc (meanvc2) and "
+    "s2s, but this backend exposes AudioTransform only as an offline RPC";
 const char *const kAudioToAudioReason =
-    "LocalAI's contract here is OpenAI-Realtime shaped, an audio conversation "
-    "emitting audio, transcript and tool-call deltas from a system prompt and a "
-    "tool list; audio.cpp's s2s is offline clip-to-clip processing against a "
-    "target voice, declared only by miocodec (voice conversion) and vevo2 "
-    "(speech editing), with no conversation, system prompt or tool loop";
+    "this backend has no adapter from LocalAI's OpenAI-Realtime shaped audio, "
+    "transcript and tool-call stream to audio.cpp sessions; upstream advertises "
+    "streaming s2s, including conversational personaplex, but that capability "
+    "alone does not implement this backend's Realtime RPC contract";
 const char *const kVoiceEmbedReason =
     "no audio.cpp family advertises the spk (SpeakerRecognition) task, so "
     "nothing in the engine can produce a speaker embedding; the task kind "
@@ -248,6 +219,10 @@ const char *rpc_name(Rpc rpc) {
         return "Diarize";
     case Rpc::SoundGeneration:
         return "SoundGeneration";
+    case Rpc::MusicTranscription:
+        return "MusicTranscription";
+    case Rpc::MusicGeneration:
+        return "MusicGeneration";
     case Rpc::AudioTransform:
         return "AudioTransform";
     }
@@ -354,7 +329,7 @@ Route resolve_route(Rpc rpc, const RequestShape &shape,
         if (!parse_task_name(shape.pinned_task, pinned)) {
             route.error = "audio-cpp: unknown task option '" + shape.pinned_task +
                           "'. Known tasks: gen, tts, clon, vc, svc, s2s, asr, "
-                          "align, vad, diar, sep, vdes, spk";
+                          "align, vad, diar, sep, vdes, spk, midi, turn, wake, cls";
             return route;
         }
         // A pin is honoured exactly, but ONLY on an RPC that could have routed

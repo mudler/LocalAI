@@ -1,0 +1,278 @@
+diff --git a/include/engine/framework/audio/dsp.h b/include/engine/framework/audio/dsp.h
+index dad6d3e..2158bb8 100644
+--- a/include/engine/framework/audio/dsp.h
++++ b/include/engine/framework/audio/dsp.h
+@@ -3,6 +3,8 @@
+ #include <cstddef>
+ #include <cstdint>
+ #include <vector>
++#include <optional>
++#include "engine/framework/audio/fft.h"
+ 
+ namespace engine::audio {
+ 
+@@ -11,6 +13,13 @@ struct AudioTensor {
+     std::vector<int64_t> shape;
+ };
+ 
++// Cancelled never exposes partial output. The nonowning noexcept callback must
++// remain alive until synchronous return; all workers settle before that return.
++struct STFTResult {
++    FFTStatus status;
++    std::optional<AudioTensor> output;
++};
++
+ enum class STFTPadMode {
+     Reflect,
+     Constant,
+@@ -53,6 +62,16 @@ public:
+         int64_t samples,
+         const STFTConfig & config,
+         size_t threads = 0) const;
++
++    STFTResult compute_complex(
++        const std::vector<float> & waveform, const std::vector<float> & window,
++        int64_t batch, int64_t samples, const STFTConfig & config,
++        size_t threads, FFTStop stop) const;
++    STFTResult compute_magnitude(
++        const std::vector<float> & waveform, const std::vector<float> & window,
++        int64_t batch, int64_t samples, const STFTConfig & config,
++        size_t threads, FFTStop stop) const;
++
+ };
+ 
+ class ISTFT {
+diff --git a/src/framework/audio/dsp.cpp b/src/framework/audio/dsp.cpp
+index e9ba5a8..a1ff986 100644
+--- a/src/framework/audio/dsp.cpp
++++ b/src/framework/audio/dsp.cpp
+@@ -3,6 +3,11 @@
+ #include "engine/framework/debug/trace.h"
+ 
+ #include <algorithm>
++#include <atomic>
++#include <limits>
++#ifdef _OPENMP
++#include <omp.h>
++#endif
+ #include <chrono>
+ #include <cmath>
+ #include <complex>
+@@ -472,6 +477,217 @@ AudioTensor STFT::compute_complex(
+     return result;
+ }
+ 
++
++#ifdef ENGINE_STFT_TESTING
++namespace stft_testing {
++// stage: 0 framing, 1 reflection iterations, 2 transpose, 3 magnitude.
++void stored(int stage, size_t worker, size_t begin, size_t count, float value) noexcept;
++bool fft_returned(FFTStatus status) noexcept;
++void fft_context(const std::complex<float>* output, size_t frames, size_t bins) noexcept;
++}
++#endif
++
++namespace {
++struct STFTStopLatch {
++    FFTStop upstream;
++    std::atomic<bool> cancelled{false};
++    bool poll() noexcept {
++        if (cancelled.load(std::memory_order_acquire)) return true;
++        if (upstream.requested && upstream.requested(upstream.data)) {
++            cancelled.store(true, std::memory_order_release);
++            return true;
++        }
++        return cancelled.load(std::memory_order_acquire);
++    }
++    static bool requested(void * p) noexcept { return static_cast<STFTStopLatch *>(p)->poll(); }
++    FFTStop bridge() noexcept { return {requested, this}; }
++};
++
++void stft_stored(int stage, size_t begin, size_t count, float value) noexcept {
++#ifdef ENGINE_STFT_TESTING
++    size_t worker = 0;
++#ifdef _OPENMP
++    worker = static_cast<size_t>(omp_get_thread_num());
++#endif
++    stft_testing::stored(stage, worker, begin, count, value);
++#else
++    (void)stage; (void)begin; (void)count; (void)value;
++#endif
++}
++
++int64_t stft_product(std::initializer_list<int64_t> dims) {
++    int64_t product = 1;
++    for (int64_t dim : dims) {
++        if (dim <= 0 || product > std::numeric_limits<int64_t>::max() / dim)
++            throw std::invalid_argument("STFT dimensions overflow");
++        product *= dim;
++    }
++    // All derived byte strides and vector indexing must be representable too.
++    if (static_cast<uint64_t>(product) > static_cast<uint64_t>(std::numeric_limits<std::ptrdiff_t>::max()) / sizeof(std::complex<float>) ||
++        static_cast<uint64_t>(product) > std::vector<float>().max_size())
++        throw std::invalid_argument("STFT storage overflow");
++    return product;
++}
++
++struct STFTDimensions { int64_t pad, frames, bins, offset, framed, spectra, output; };
++STFTDimensions stft_dimensions(const std::vector<float> & waveform, const std::vector<float> & window,
++                              int64_t batch, int64_t samples, const STFTConfig & c) {
++    if (batch <= 0 || samples <= 0 || c.n_fft <= 0 || c.hop_length <= 0 ||
++        c.win_length <= 0 || c.win_length > c.n_fft)
++        throw std::invalid_argument("Invalid STFT configuration");
++    const int64_t input = stft_product({batch, samples});
++    if (waveform.size() != static_cast<size_t>(input) || window.size() != static_cast<size_t>(c.win_length))
++        throw std::runtime_error("STFT input size mismatch");
++    const int64_t pad = c.center ? c.n_fft / 2 : 0;
++    if (samples > std::numeric_limits<int64_t>::max() - 2 * pad)
++        throw std::invalid_argument("STFT padded length overflow");
++    const int64_t quotient = (samples + 2 * pad - c.n_fft) / c.hop_length;
++    if (quotient == std::numeric_limits<int64_t>::max())
++        throw std::invalid_argument("STFT frame count overflow");
++    const int64_t frames = 1 + quotient;
++    if (frames <= 0 || (c.pad_mode == STFTPadMode::Reflect && samples < 2))
++        throw std::invalid_argument("Invalid STFT padding domain");
++    // Bound starts, reflected arithmetic (2*length), and complete frame indexing.
++    if (samples > std::numeric_limits<int64_t>::max() / 2 ||
++        frames - 1 > (std::numeric_limits<int64_t>::max() - c.n_fft) / c.hop_length)
++        throw std::invalid_argument("STFT index overflow");
++    const int64_t bins = c.n_fft / 2 + 1;
++    return {pad, frames, bins, (c.n_fft - c.win_length) / 2,
++            stft_product({batch, frames, c.n_fft}), stft_product({batch, frames, bins}),
++            stft_product({batch, bins, frames, 2})};
++}
++
++bool stft_reflect(int64_t & index, int64_t length, STFTStopLatch & stop) noexcept {
++    while (index < 0 || index >= length) {
++        if (stop.poll()) return false; // reflection tile pre-poll
++        size_t iterations = 0;
++        do {
++            if (index < 0) index = -index;
++            else index = 2 * length - index - 2;
++            ++iterations;
++        } while ((index < 0 || index >= length) && iterations < 256);
++        stft_stored(1, 0, iterations, static_cast<float>(index));
++        if (stop.poll()) return false; // reflection tile post-poll
++    }
++    return true;
++}
++}
++
++STFTResult STFT::compute_complex(
++    const std::vector<float> & waveform, const std::vector<float> & window,
++    int64_t batch, int64_t samples, const STFTConfig & config,
++    size_t threads, FFTStop callback) const {
++    const auto d = stft_dimensions(waveform, window, batch, samples, config);
++    STFTStopLatch stop{callback};
++    if (stop.poll()) return {FFTStatus::Cancelled, std::nullopt};
++    std::vector<float> framed(static_cast<size_t>(d.framed), 0.0f);
++#ifdef _OPENMP
++    #pragma omp parallel for collapse(2) if(batch * d.frames >= 8)
++#endif
++    for (int64_t b = 0; b < batch; ++b) {
++        for (int64_t t = 0; t < d.frames; ++t) {
++            const float * signal = waveform.data() + static_cast<size_t>(b * samples);
++            float * frame = framed.data() + static_cast<size_t>((b * d.frames + t) * config.n_fft);
++            const int64_t start = t * config.hop_length - d.pad;
++            for (int64_t tile = 0; tile < config.win_length; ) {
++                if (stop.poll()) break; // framing tile pre-poll
++                const int64_t end = tile + std::min<int64_t>(256, config.win_length - tile);
++                int64_t i = tile;
++                for (; i < end; ++i) {
++                    int64_t index = start + d.offset + i;
++                    float sample = 0.0f;
++                    if (index >= 0 && index < samples) sample = signal[index];
++                    else if (config.pad_mode == STFTPadMode::Reflect) {
++                        if (!stft_reflect(index, samples, stop)) break;
++                        sample = signal[index];
++                    }
++                    frame[d.offset + i] = sample * window[static_cast<size_t>(i)];
++                }
++                if (i > tile) stft_stored(0, static_cast<size_t>((b * d.frames + t) * config.n_fft + d.offset + tile),
++                                          static_cast<size_t>(i - tile), frame[d.offset + i - 1]);
++                if (stop.poll()) break; // framing tile post-poll
++                tile = end;
++            }
++        }
++    }
++    if (stop.poll()) return {FFTStatus::Cancelled, std::nullopt};
++    TensorShape shape{static_cast<size_t>(batch), static_cast<size_t>(d.frames), static_cast<size_t>(config.n_fft)};
++    TensorStrideBytes in_stride{d.frames * config.n_fft * static_cast<int64_t>(sizeof(float)),
++                                config.n_fft * static_cast<int64_t>(sizeof(float)), sizeof(float)};
++    TensorStrideBytes out_stride{d.frames * d.bins * static_cast<int64_t>(sizeof(std::complex<float>)),
++                                 d.bins * static_cast<int64_t>(sizeof(std::complex<float>)), sizeof(std::complex<float>)};
++    std::vector<std::complex<float>> spectrum(static_cast<size_t>(d.spectra), {0.0f, 0.0f});
++#ifdef ENGINE_STFT_TESTING
++    stft_testing::fft_context(spectrum.data(), static_cast<size_t>(batch * d.frames), static_cast<size_t>(d.bins));
++#endif
++    const FFTStatus fft_status = real_fft_forward(shape, in_stride, out_stride, 2, framed.data(), spectrum.data(),
++                                                 1.0f, threads, stop.bridge());
++#ifdef ENGINE_STFT_TESTING
++    stft_testing::fft_context(nullptr, 0, 0);
++    // Test-only suppression isolates authoritative returned status from the latch.
++    if (stft_testing::fft_returned(fft_status)) stop.cancelled.store(false);
++#endif
++    if (fft_status == FFTStatus::Cancelled) {
++        stop.cancelled.store(true, std::memory_order_release);
++        return {FFTStatus::Cancelled, std::nullopt};
++    }
++    if (stop.poll()) return {FFTStatus::Cancelled, std::nullopt};
++    AudioTensor result;
++    result.shape = {batch, d.bins, d.frames, 2};
++    result.values.assign(static_cast<size_t>(d.output), 0.0f);
++    // Keep the legacy threshold; each OpenMP iteration is now a time tile.
++#ifdef _OPENMP
++    #pragma omp parallel for collapse(3) if(batch * d.bins * d.frames >= 4096)
++#endif
++    for (int64_t b = 0; b < batch; ++b) {
++        for (int64_t f = 0; f < d.bins; ++f) {
++            for (int64_t tile = 0; tile < (d.frames + 127) / 128; ++tile) {
++                if (stop.poll()) continue; // transpose tile pre-poll
++                const int64_t begin = tile * 128;
++                const int64_t end = begin + std::min<int64_t>(128, d.frames - begin);
++                for (int64_t t = begin; t < end; ++t) {
++                    const auto value = spectrum[static_cast<size_t>((b * d.frames + t) * d.bins + f)];
++                    const size_t base = static_cast<size_t>(((b * d.bins + f) * d.frames + t) * 2);
++                    result.values[base] = value.real();
++                    result.values[base + 1] = value.imag();
++                }
++                const size_t base = static_cast<size_t>(((b * d.bins + f) * d.frames + begin) * 2);
++                stft_stored(2, base, static_cast<size_t>((end - begin) * 2), result.values[base]);
++                stop.poll(); // transpose tile post-poll
++            }
++        }
++    }
++    if (stop.poll()) return {FFTStatus::Cancelled, std::nullopt};
++    return {FFTStatus::Completed, std::move(result)};
++}
++
++STFTResult STFT::compute_magnitude(
++    const std::vector<float> & waveform, const std::vector<float> & window,
++    int64_t batch, int64_t samples, const STFTConfig & config,
++    size_t threads, FFTStop callback) const {
++    STFTStopLatch stop{callback};
++    auto complex_result = compute_complex(waveform, window, batch, samples, config, threads, stop.bridge());
++    if (complex_result.status == FFTStatus::Cancelled) return {FFTStatus::Cancelled, std::nullopt};
++    if (stop.poll()) return {FFTStatus::Cancelled, std::nullopt};
++    const auto & c = *complex_result.output;
++    AudioTensor result;
++    result.shape = {c.shape[0], c.shape[1], c.shape[2]};
++    result.values.resize(c.values.size() / 2);
++    for (size_t begin = 0; begin < result.values.size(); ) {
++        if (stop.poll()) break; // magnitude tile pre-poll
++        const size_t end = begin + std::min<size_t>(256, result.values.size() - begin);
++        for (size_t i = begin; i < end; ++i) {
++            const float re = c.values[2 * i], im = c.values[2 * i + 1];
++            result.values[i] = std::sqrt(re * re + im * im);
++        }
++        stft_stored(3, begin, end - begin, result.values[begin]);
++        if (stop.poll()) break; // magnitude tile post-poll
++        begin = end;
++    }
++    if (stop.poll()) return {FFTStatus::Cancelled, std::nullopt};
++    return {FFTStatus::Completed, std::move(result)};
++}
++
+ AudioTensor ISTFT::compute(
+     const std::vector<float> & complex_spec,
+     const std::vector<float> & window,

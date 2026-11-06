@@ -1,0 +1,314 @@
+diff --git a/include/engine/framework/audio/fft.h b/include/engine/framework/audio/fft.h
+index d701218..843f9a4 100644
+--- a/include/engine/framework/audio/fft.h
++++ b/include/engine/framework/audio/fft.h
+@@ -11,6 +11,14 @@ namespace engine::audio {
+ using TensorShape = std::vector<size_t>;
+ using TensorStrideBytes = std::vector<std::ptrdiff_t>;
+ 
++// Cancellation is cooperative between complete transform groups. Cold plan creation
++// and allocation are not interruptible. Discard all output on Cancelled.
++struct FFTStop {
++    bool (*requested)(void *) noexcept = nullptr;
++    void * data = nullptr;
++};
++enum class FFTStatus { Completed, Cancelled };
++
+ class RealFFTPlan {
+ public:
+     explicit RealFFTPlan(size_t fft_size);
+@@ -33,6 +41,16 @@ public:
+         float scale = 1.0f,
+         size_t threads = 0) const;
+ 
++    FFTStatus forward(
++        const TensorShape & input_shape,
++        const TensorStrideBytes & input_strides,
++        const TensorStrideBytes & output_strides,
++        size_t axis,
++        const float * data_in,
++        std::complex<float> * data_out,
++        float scale,
++        size_t threads, FFTStop stop) const;
++
+     void inverse(
+         const TensorShape & output_shape,
+         const TensorStrideBytes & input_strides,
+@@ -60,6 +78,16 @@ void real_fft_forward(
+     float scale = 1.0f,
+     size_t threads = 0);
+ 
++FFTStatus real_fft_forward(
++    const TensorShape & input_shape,
++    const TensorStrideBytes & input_strides,
++    const TensorStrideBytes & output_strides,
++    size_t axis,
++    const float * data_in,
++    std::complex<float> * data_out,
++    float scale,
++    size_t threads, FFTStop stop);
++
+ void real_fft_inverse(
+     const TensorShape & output_shape,
+     const TensorStrideBytes & input_strides,
+diff --git a/src/framework/audio/detail/speech_fft_internal.h b/src/framework/audio/detail/speech_fft_internal.h
+index 961267c..95af844 100644
+--- a/src/framework/audio/detail/speech_fft_internal.h
++++ b/src/framework/audio/detail/speech_fft_internal.h
+@@ -61,6 +61,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #define ENGINE_SPEECHFFT_CACHE_SIZE 0
+ #endif
+ 
++#include <atomic>
+ #include <cmath>
+ #include <cstdlib>
+ #include <cstddef>
+@@ -104,6 +105,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ 
+ namespace ENGINE_SPEECHFFT_NAMESPACE {
+ 
++#ifdef ENGINE_FFT_TESTING
++// Free test hooks only: no public class layout or production observer state.
++namespace testing {
++void stored(bool vector, size_t units, size_t worker, size_t workers) noexcept;
++void worker();
++void submitting(size_t index);
++void plan_miss(size_t length, bool published) noexcept;
++}
++#endif
++
+ namespace detail {
+ using std::size_t;
+ using std::ptrdiff_t;
+@@ -761,8 +772,8 @@ template <typename T> class concurrent_queue
+     void push(T val)
+       {
+       lock_t lock(mut_);
+-      ++size_;
+       q_.push(std::move(val));
++      ++size_;
+       }
+ 
+     bool try_pop(T &val)
+@@ -931,7 +942,8 @@ class thread_pool
+           }
+ 
+       // If no workers were idle, push onto the overflow queue for later
+-      overflow_work_.push(std::move(work));
++      try { overflow_work_.push(std::move(work)); }
++      catch (...) { --unscheduled_tasks_; throw; }
+       }
+ 
+     void shutdown()
+@@ -979,8 +991,14 @@ void thread_map(size_t nthreads, Func f)
+   latch counter(nthreads);
+   std::exception_ptr ex;
+   std::mutex ex_mut;
+-  for (size_t i=0; i<nthreads; ++i)
++  size_t submitted = 0;
++  try {
++  for (; submitted<nthreads; ++submitted)
+     {
++#ifdef ENGINE_FFT_TESTING
++    testing::submitting(submitted);
++#endif
++    const size_t i = submitted;
+     pool.submit(
+       [&f, &counter, &ex, &ex_mut, i, nthreads] {
+       thread_id() = i;
+@@ -994,6 +1012,14 @@ void thread_map(size_t nthreads, Func f)
+       counter.count_down();
+       });
+     }
++  } catch (...) {
++    // Every accepted closure captures this stack. Settle it before unwinding,
++    // and account for every slot that was never handed to the pool.
++    auto submission_error = std::current_exception();
++    for (; submitted<nthreads; ++submitted) counter.count_down();
++    counter.wait();
++    std::rethrow_exception(submission_error);
++  }
+   counter.wait();
+   if (ex)
+     std::rethrow_exception(ex);
+@@ -2987,6 +3013,9 @@ template<typename T> std::shared_ptr<T> get_plan(size_t length)
+   auto p = find_in_cache();
+   if (p) return p;
+   }
++#ifdef ENGINE_FFT_TESTING
++  testing::plan_miss(length, false);
++#endif
+   auto plan = std::make_shared<T>(length);
+   {
+   std::lock_guard<std::mutex> lock(mut);
+@@ -3001,6 +3030,9 @@ template<typename T> std::shared_ptr<T> get_plan(size_t length)
+   cache[lru] = plan;
+   last_access[lru] = ++access_counter;
+   }
++#ifdef ENGINE_FFT_TESTING
++  testing::plan_miss(length, true);
++#endif
+   return plan;
+ #endif
+   }
+@@ -3519,6 +3551,86 @@ template<typename T> ENGINE_SPEECHFFT_NOINLINE void general_r2c(
+       }
+     });  // end of parallel region
+   }
++template<typename T> ENGINE_SPEECHFFT_NOINLINE engine::audio::FFTStatus general_r2c_stoppable(
++  const cndarr<T> &in, ndarr<cmplx<T>> &out, size_t axis, bool forward, T fct,
++  size_t nthreads, engine::audio::FFTStop stop)
++  {
++  std::atomic<bool> cancelled{false};
++  auto poll = [&]() noexcept {
++    if (cancelled.load(std::memory_order_acquire)) return true;
++    if (stop.requested && stop.requested(stop.data)) {
++      cancelled.store(true, std::memory_order_release);
++      return true;
++    }
++    return false;
++  };
++  if (poll()) return engine::audio::FFTStatus::Cancelled;
++  auto plan = get_plan<internal_fft_r<T>>(in.shape(axis));
++  if (poll()) return engine::audio::FFTStatus::Cancelled;
++  size_t len=in.shape(axis);
++  threading::thread_map(
++    util::thread_count(nthreads, in.shape(), axis, VLEN<T>::val),
++    [&] {
++#ifdef ENGINE_FFT_TESTING
++    testing::worker();
++#endif
++    constexpr auto vlen = VLEN<T>::val;
++    auto storage = alloc_tmp<T>(in.shape(), len, sizeof(T));
++    multi_iter<vlen> it(in, out, axis);
++#ifndef ENGINE_SPEECHFFT_NO_VECTORS
++    if (vlen>1)
++      while (it.remaining()>=vlen)
++        {
++        if (poll()) return; // vector pre-group
++        it.advance(vlen);
++        auto tdatav = reinterpret_cast<vtype_t<T> *>(storage.data());
++        copy_input(it, in, tdatav);
++        plan->exec(tdatav, fct, true);
++        for (size_t j=0; j<vlen; ++j)
++          out[it.oofs(j,0)].Set(tdatav[0][j]);
++        size_t i=1, ii=1;
++        if (forward)
++          for (; i<len-1; i+=2, ++ii)
++            for (size_t j=0; j<vlen; ++j)
++              out[it.oofs(j,ii)].Set(tdatav[i][j], tdatav[i+1][j]);
++        else
++          for (; i<len-1; i+=2, ++ii)
++            for (size_t j=0; j<vlen; ++j)
++              out[it.oofs(j,ii)].Set(tdatav[i][j], -tdatav[i+1][j]);
++        if (i<len)
++          for (size_t j=0; j<vlen; ++j)
++            out[it.oofs(j,ii)].Set(tdatav[i][j]);
++#ifdef ENGINE_FFT_TESTING
++        testing::stored(true, vlen, threading::thread_id(), threading::num_threads());
++#endif
++        if (poll()) return; // vector post-group
++        }
++#endif
++    while (it.remaining()>0)
++      {
++      if (poll()) return; // scalar pre-group
++      it.advance(1);
++      auto tdata = reinterpret_cast<T *>(storage.data());
++      copy_input(it, in, tdata);
++      plan->exec(tdata, fct, true);
++      out[it.oofs(0)].Set(tdata[0]);
++      size_t i=1, ii=1;
++      if (forward)
++        for (; i<len-1; i+=2, ++ii)
++          out[it.oofs(ii)].Set(tdata[i], tdata[i+1]);
++      else
++        for (; i<len-1; i+=2, ++ii)
++          out[it.oofs(ii)].Set(tdata[i], -tdata[i+1]);
++      if (i<len)
++        out[it.oofs(ii)].Set(tdata[i]);
++#ifdef ENGINE_FFT_TESTING
++      testing::stored(false, 1, threading::thread_id(), threading::num_threads());
++#endif
++      if (poll()) return; // scalar post-group
++      }
++    });  // end of parallel region
++  return poll() ? engine::audio::FFTStatus::Cancelled : engine::audio::FFTStatus::Completed;
++  }
+ template<typename T> ENGINE_SPEECHFFT_NOINLINE void general_c2r(
+   const cndarr<cmplx<T>> &in, ndarr<T> &out, size_t axis, bool forward, T fct,
+   size_t nthreads)
+@@ -3673,6 +3785,21 @@ template<typename T> void r2c(const FftShape &shape_in,
+   general_r2c(ain, aout, axis, forward, fct, nthreads);
+   }
+ 
++template<typename T> engine::audio::FFTStatus r2c_stoppable(const FftShape &shape_in,
++  const FftStride &stride_in, const FftStride &stride_out, size_t axis,
++  bool forward, const T *data_in, std::complex<T> *data_out, T fct,
++  size_t nthreads, engine::audio::FFTStop stop)
++  {
++  if (util::prod(shape_in)==0)
++    return stop.requested && stop.requested(stop.data) ? engine::audio::FFTStatus::Cancelled : engine::audio::FFTStatus::Completed;
++  util::sanity_check(shape_in, stride_in, stride_out, false, axis);
++  cndarr<T> ain(data_in, shape_in, stride_in);
++  FftShape shape_out(shape_in);
++  shape_out[axis] = shape_in[axis]/2 + 1;
++  ndarr<cmplx<T>> aout(data_out, shape_out, stride_out);
++  return general_r2c_stoppable(ain, aout, axis, forward, fct, nthreads, stop);
++  }
++
+ template<typename T> void r2c(const FftShape &shape_in,
+   const FftStride &stride_in, const FftStride &stride_out, const FftShape &axes,
+   bool forward, const T *data_in, std::complex<T> *data_out, T fct,
+@@ -3837,6 +3964,7 @@ using detail::FftStride;
+ using detail::c2c;
+ using detail::c2r;
+ using detail::r2c;
++using detail::r2c_stoppable;
+ using detail::r2r_fftpack;
+ using detail::r2r_separable_hartley;
+ using detail::r2r_genuine_hartley;
+diff --git a/src/framework/audio/fft.cpp b/src/framework/audio/fft.cpp
+index d3ab5f7..3642386 100644
+--- a/src/framework/audio/fft.cpp
++++ b/src/framework/audio/fft.cpp
+@@ -58,6 +58,24 @@ void RealFFTPlan::forward(
+     real_fft_forward(input_shape, input_strides, output_strides, axis, data_in, data_out, scale, threads);
+ }
+ 
++FFTStatus RealFFTPlan::forward(
++    const TensorShape & input_shape,
++    const TensorStrideBytes & input_strides,
++    const TensorStrideBytes & output_strides,
++    size_t axis,
++    const float * data_in,
++    std::complex<float> * data_out,
++    float scale,
++    size_t threads, FFTStop stop) const {
++    if (axis >= input_shape.size()) {
++        throw std::runtime_error("RealFFTPlan forward axis out of range");
++    }
++    if (input_shape[axis] != impl_->fft_size) {
++        throw std::runtime_error("RealFFTPlan forward shape mismatch");
++    }
++    return real_fft_forward(input_shape, input_strides, output_strides, axis, data_in, data_out, scale, threads, stop);
++}
++
+ void RealFFTPlan::inverse(
+     const TensorShape & output_shape,
+     const TensorStrideBytes & input_strides,
+@@ -101,6 +119,14 @@ void real_fft_forward(
+         threads);
+ }
+ 
++FFTStatus real_fft_forward(
++    const TensorShape & input_shape, const TensorStrideBytes & input_strides,
++    const TensorStrideBytes & output_strides, size_t axis, const float * data_in,
++    std::complex<float> * data_out, float scale, size_t threads, FFTStop stop) {
++    return internal_fft::r2c_stoppable(input_shape, input_strides, output_strides,
++        axis, internal_fft::FORWARD, data_in, data_out, scale, threads, stop);
++}
++
+ void real_fft_inverse(
+     const TensorShape & output_shape,
+     const TensorStrideBytes & input_strides,

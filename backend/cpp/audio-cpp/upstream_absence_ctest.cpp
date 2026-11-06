@@ -1,52 +1,12 @@
-// Asserts the ABSENCES that capability_routing.cpp's five refusal reasons rest
-// on, against the engine itself rather than against somebody's reading of it.
+// Checks upstream premises used by the backend's refusal messages against
+// audio.cpp ad14f0c4dbd5b12b7711bb7b46abb8d94f78f067. Codec and speaker
+// recognition remain absent; streaming transforms and conversational S2S do
+// NOT. Exact catalog checks make future pin drift visible without exposing
+// new RPCs. The backend still needs adapters for those streaming contracts.
 //
-// Those reasons are prose making checkable claims about a pinned third-party
-// checkout: "VoiceTaskKind has no codec entry", "no family advertises spk",
-// "miocodec advertises only vc and s2s". Prose rots silently across an
-// AUDIO_CPP_VERSION bump, and it rots in the worst possible place, since a
-// refusal that states a false fact is worse than a bare UNIMPLEMENTED: it will
-// be believed. One of the four claims this backend was planned against was
-// already false when it was written ("streaming exists for tts and asr only" is
-// contradicted by silero_vad). This test is what turns the next such change
-// from a silent lie on the wire into a build failure.
-//
-// Pinned at audio.cpp e800d435d130dc776baf6f3e6129bb62b1495c89. What follows
-// was true of that commit; a bump is exactly when it needs to be re-run.
-//
-// It links engine_runtime and queries make_default_registry(), touching only
-// include/engine/framework/**, like every other unit in this backend. It loads
-// no model and reads no file: advertise_loaders() is the path-free catalog
-// upstream publishes for --list-loaders.
-//
-// FOUR CAVEATS, so nobody reads more into a green run than it earns:
-//
-//   1. It cannot assert the AudioToAudioStream reason. That one contrasts
-//      LocalAI's OpenAI-Realtime contract (conversation, system prompt, tool
-//      loop) with what audio.cpp's s2s families actually do, and semantics are
-//      not a queryable property. What IS asserted is the enumerable half: that
-//      s2s is advertised by exactly miocodec and vevo2, which is the clause the
-//      message names by hand.
-//   2. It queries the LOADER catalog, while grpc-server.cpp reads the LOADED
-//      model's own capabilities(). The two agree today, cross-checked on the
-//      wire: this test asserts miocodec advertises {vc/offline, s2s/offline},
-//      and a live LoadModel of miocodec-q8_0.gguf reports exactly
-//      "vc/offline, s2s/offline". A family whose loaded capabilities diverged
-//      from its advertisement would slip past, but nothing loads without a
-//      model file and a ctest cannot depend on one.
-//   3. Capabilities need not come from a loader at all.
-//      src/framework/model_spec/metadata.cpp's advertised_capabilities() builds
-//      a CapabilitySet from a spec's "capabilities"/"tasks"/"modes" keys, which
-//      is a second route by which a bump could falsify claim 3. Today no
-//      shipped model_specs/*.json carries a top-level "tasks" key and no loader
-//      calls that function, so the route is dead. It is covered anyway to the
-//      extent that a loader adopting it would surface through advertise_loaders
-//      like any other capability, which is why every assertion below queries
-//      advertised capabilities rather than loader source.
-//   4. An absence test passes trivially when the query is broken, so
-//      test_catalog_is_populated below is a POSITIVE control and is not
-//      optional. It proves the registry is non-empty and that the query does
-//      find a capability it should, before any absence is believed.
+// Queries loader advertisements, not loaded-model capabilities: no models,
+// inference or files are needed. A loaded model may differ from its loader's
+// advertisement. Positive controls keep absence checks from passing vacuously.
 
 #include "engine/framework/runtime/registry.h"
 #include "engine/framework/runtime/session.h"
@@ -183,38 +143,25 @@ void test_no_family_advertises_speaker_recognition() {
               (offenders.empty() ? std::string() : " (found: " + offenders + ")"));
 }
 
-// The AudioTransformStream premise, and the one that has to be scoped exactly.
-// The broad claim "upstream streams tts and asr only" is FALSE: silero_vad
-// advertises vad/streaming. The claim that holds is that none of the four tasks
-// AudioTransform routes to is advertised streaming by anybody.
-//
-// NEGATIVE CONTROL: add VoiceTaskKind::Tts to kTransformTasks and this test must
-// fail, naming the tts families. A run where that edit stays green means the
-// query is broken and every absence above is worthless.
-void test_no_streaming_for_the_transform_tasks() {
-    const VoiceTaskKind kTransformTasks[] = {
-        VoiceTaskKind::SourceSeparation,
-        VoiceTaskKind::VoiceConversion,
-        VoiceTaskKind::Svc,
-        VoiceTaskKind::SpeechToSpeech,
+// Streaming upstream is real, but does not supply a backend RPC adapter.
+void test_streaming_transform_catalog() {
+    const VoiceTaskKind tasks[] = {
+        VoiceTaskKind::SourceSeparation, VoiceTaskKind::VoiceConversion,
+        VoiceTaskKind::Svc, VoiceTaskKind::SpeechToSpeech,
     };
-
-    std::string offenders;
-    for (const VoiceTaskKind task : kTransformTasks) {
+    std::set<std::string> found;
+    for (const auto task : tasks) {
         for (const auto &loader : catalog()) {
             if (advertises(loader, task, RunMode::Streaming)) {
-                if (!offenders.empty()) {
-                    offenders += ", ";
-                }
-                offenders += loader.family;
-                offenders += "/";
-                offenders += engine::runtime::to_string(task);
+                found.insert(loader.family + "/" + engine::runtime::to_string(task));
             }
         }
     }
-    check(offenders.empty(),
-          "no streaming for sep/vc/svc/s2s" +
-              (offenders.empty() ? std::string() : " (found: " + offenders + ")"));
+    const std::set<std::string> expected = {
+        "meanvc2/vc", "lfm2_audio/s2s", "lfm3_audio/s2s", "personaplex/s2s",
+    };
+    check(found == expected,
+          "streaming transform catalog is exactly meanvc2/vc and lfm2_audio, lfm3_audio, personaplex/s2s");
 }
 
 // The clause the AudioEncode message names by hand: miocodec carries a Codec tag
@@ -238,17 +185,19 @@ void test_miocodec_advertises_exactly_vc_and_s2s() {
               describe(*miocodec) + ")");
 }
 
-// The "declared only by" clause in the AudioToAudioStream message. Exact set,
-// for the same reason as above: a third s2s family would make the message stale
-// without making it obviously wrong.
-void test_speech_to_speech_is_exactly_miocodec_and_vevo2() {
+// The current pin has more than the original two clip-to-clip S2S families.
+void test_speech_to_speech_catalog() {
     std::set<std::string> families;
     for (const auto &loader : catalog()) {
         if (advertises_any_mode(loader, VoiceTaskKind::SpeechToSpeech)) {
             families.insert(loader.family);
         }
     }
-    const std::set<std::string> expected = {"miocodec", "vevo2"};
+    const std::set<std::string> expected = {
+        "apollo", "audiosr", "builtin_audio_utils", "lfm2_audio", "lfm3_audio",
+        "ming3_audio", "miocodec", "personaplex", "reuse", "sam_audio", "sidon",
+        "universr", "vevo2",
+    };
     std::string found;
     for (const auto &family : families) {
         if (!found.empty()) {
@@ -257,7 +206,7 @@ void test_speech_to_speech_is_exactly_miocodec_and_vevo2() {
         found += family;
     }
     check(families == expected,
-          "s2s is advertised by exactly miocodec and vevo2 (got: " +
+          "s2s families match the pinned catalog (got: " +
               (found.empty() ? "nothing" : found) + ")");
 }
 
@@ -267,14 +216,13 @@ int main() {
     test_catalog_is_populated();
     test_no_codec_task_kind();
     test_no_family_advertises_speaker_recognition();
-    test_no_streaming_for_the_transform_tasks();
+    test_streaming_transform_catalog();
     test_miocodec_advertises_exactly_vc_and_s2s();
-    test_speech_to_speech_is_exactly_miocodec_and_vevo2();
+    test_speech_to_speech_catalog();
     if (failures) {
         fprintf(stderr,
-                "%d upstream absence check(s) failed. A refusal message in "
-                "capability_routing.cpp now states something that is not true "
-                "of the pinned audio.cpp; fix the message, not this test.\n",
+                "%d upstream capability check(s) failed. Review the pinned catalog "
+                "and capability_routing.cpp refusal premises together.\n",
                 failures);
         return 1;
     }

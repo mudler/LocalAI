@@ -1,0 +1,371 @@
+diff --git a/include/engine/framework/core/backend.h b/include/engine/framework/core/backend.h
+index 888b28a..90f92a1 100644
+--- a/include/engine/framework/core/backend.h
++++ b/include/engine/framework/core/backend.h
+@@ -9,12 +9,16 @@
+ #include <cstdint>
+ #include <iosfwd>
+ #include <optional>
++#include <memory>
++#include <utility>
+ #include <string>
+ #include <vector>
+ 
+ namespace engine::core {
+ 
+ class ExecutionContext;
++struct RunCallbackBridge;
++bool set_backend_abort_callback(ggml_backend_t backend, ggml_abort_callback callback, void * data);
+ 
+ struct BackendConfig {
+     BackendType type = BackendType::Cpu;
+@@ -111,7 +115,32 @@ ggml_status compute_backend_graph(
+     ggml_backend_graph_plan_t plan = nullptr,
+     const char * label = nullptr);
+ 
++ggml_status compute_backend_graph(
++    const ExecutionContext & context, ggml_cgraph * graph,
++    ggml_backend_graph_plan_t plan = nullptr, const char * label = nullptr);
++
++#ifdef ENGINE_CORE_CANCELLATION_TESTING
++// One-shot owner-thread dispatch failure; real abort tests never use this hook.
++void inject_backend_graph_status_for_test(ggml_status status);
++#endif
++
+ struct HostGraphPlan {
++    HostGraphPlan() = default;
++    HostGraphPlan(const HostGraphPlan &) = delete;
++    HostGraphPlan & operator=(const HostGraphPlan &) = delete;
++    HostGraphPlan(HostGraphPlan && other) noexcept { swap(other); }
++    HostGraphPlan & operator=(HostGraphPlan && other) noexcept {
++        if (this != &other) { reset(); swap(other); }
++        return *this;
++    }
++    void swap(HostGraphPlan & other) noexcept {
++        std::swap(plan, other.plan);
++        std::swap(backend, other.backend);
++        std::swap(graph, other.graph);
++        bridge.swap(other.bridge);
++    }
++    ggml_cgraph * graph = nullptr;
++    std::shared_ptr<RunCallbackBridge> bridge;
+     ggml_backend_graph_plan_t plan = nullptr;
+     ggml_backend_t backend = nullptr;
+ 
+@@ -124,6 +153,8 @@ struct HostGraphPlan {
+         }
+         plan = nullptr;
+         backend = nullptr;
++        graph = nullptr;
++        bridge.reset();
+     }
+ };
+ 
+diff --git a/include/engine/framework/core/execution_context.h b/include/engine/framework/core/execution_context.h
+index 5789de8..057bcd5 100644
+--- a/include/engine/framework/core/execution_context.h
++++ b/include/engine/framework/core/execution_context.h
+@@ -2,8 +2,35 @@
+ 
+ #include "engine/framework/core/backend.h"
+ 
++#include <atomic>
++#include <memory>
++
+ namespace engine::core {
+ 
++class RunStopState {
++public:
++    void cancel() noexcept { stopped_.store(true, std::memory_order_release); }
++    bool cancelled() const noexcept { return stopped_.load(std::memory_order_acquire); }
++private:
++    std::atomic<bool> stopped_{false};
++};
++using RunStopHandle = std::shared_ptr<RunStopState>;
++struct RunCallbackBridge;
++
++// Only cancel() may race compute. Binding changes require all compute to settle.
++class RunBinding {
++public:
++    ~RunBinding();
++    RunBinding(const RunBinding &) = delete;
++    RunBinding & operator=(const RunBinding &) = delete;
++    RunBinding(RunBinding &&) = delete;
++    RunBinding & operator=(RunBinding &&) = delete;
++private:
++    friend class ExecutionContext;
++    explicit RunBinding(std::shared_ptr<RunCallbackBridge> bridge) noexcept;
++    std::shared_ptr<RunCallbackBridge> bridge_;
++};
++
+ class ExecutionContext {
+ public:
+     explicit ExecutionContext(const BackendConfig & config);
+@@ -19,9 +46,15 @@ public:
+     BackendType backend_type() const noexcept;
+     bool uses_host_graph_plan() const noexcept;
+     BackendMemorySnapshot memory_snapshot() const;
++    bool supports_cancellation() const noexcept;
++    bool stop_requested() const noexcept;
++    RunBinding begin_cancellable_run(RunStopHandle stop);
++    std::shared_ptr<RunCallbackBridge> callback_bridge() const noexcept { return bridge_; }
+ 
+ private:
+     BackendConfig config_;
++    // Allocate before acquiring the raw backend: allocation failure must not leak it.
++    std::shared_ptr<RunCallbackBridge> bridge_;
+     ggml_backend_t backend_ = nullptr;
+ };
+ 
+diff --git a/include/engine/framework/runtime/graph_executor.h b/include/engine/framework/runtime/graph_executor.h
+index 7b86e8d..df02cdf 100644
+--- a/include/engine/framework/runtime/graph_executor.h
++++ b/include/engine/framework/runtime/graph_executor.h
+@@ -10,6 +10,9 @@ namespace engine::runtime {
+ 
+ struct GraphRunResult {
+     double average_ms = 0.0;
++    ggml_status status = GGML_STATUS_SUCCESS;
++    int completed_warmup = 0;
++    int completed_iterations = 0;
+ };
+ 
+ class GraphExecutor {
+diff --git a/src/framework/core/backend.cpp b/src/framework/core/backend.cpp
+index 6b8bc67..f332531 100644
+--- a/src/framework/core/backend.cpp
++++ b/src/framework/core/backend.cpp
+@@ -395,6 +395,33 @@ ggml_backend_t init_backend(const BackendConfig & config) {
+     }
+ }
+ 
++#ifdef ENGINE_CORE_CANCELLATION_TESTING
++// Scoped owner-thread lookup override. Never changes the registry or other
++// threads; nullptr restores the actual production lookup.
++using AbortLookupForTest = void * (*)(ggml_backend_reg_t, const char *);
++static thread_local AbortLookupForTest abort_lookup_for_test = nullptr;
++AbortLookupForTest exchange_abort_lookup_for_test(AbortLookupForTest lookup) {
++    auto previous = abort_lookup_for_test;
++    abort_lookup_for_test = lookup;
++    return previous;
++}
++#endif
++
++bool set_backend_abort_callback(ggml_backend_t backend, ggml_abort_callback callback, void * data) {
++    if (!is_host_backend(backend)) { return false; }
++    auto reg = ggml_backend_dev_backend_reg(ggml_backend_get_device(backend));
++    if (reg == nullptr) { return false; }
++    using Setter = void (*)(ggml_backend_t, ggml_abort_callback, void *);
++    auto lookup = ggml_backend_reg_get_proc_address;
++#ifdef ENGINE_CORE_CANCELLATION_TESTING
++    if (abort_lookup_for_test) { lookup = abort_lookup_for_test; }
++#endif
++    auto setter = reinterpret_cast<Setter>(lookup(reg, "ggml_backend_set_abort_callback"));
++    if (setter == nullptr) { return false; }
++    setter(backend, callback, data);
++    return true;
++}
++
+ void set_backend_threads(ggml_backend_t backend, int threads) {
+     if (backend == nullptr) {
+         return;
+@@ -695,6 +722,13 @@ void free_backend_graph_plan(ggml_backend_t backend, ggml_backend_graph_plan_t &
+     }
+ }
+ 
++#ifdef ENGINE_CORE_CANCELLATION_TESTING
++static thread_local std::optional<ggml_status> injected_graph_status;
++void inject_backend_graph_status_for_test(ggml_status status) {
++    injected_graph_status = status;
++}
++#endif
++
+ ggml_status compute_backend_graph(
+     ggml_backend_t backend,
+     ggml_cgraph * graph,
+@@ -711,15 +745,30 @@ ggml_status compute_backend_graph(
+     }
+ #else
+     (void)label;
++#endif
++#ifdef ENGINE_CORE_CANCELLATION_TESTING
++    if (injected_graph_status) {
++        auto status = *injected_graph_status;
++        injected_graph_status.reset();
++        return status;
++    }
+ #endif
+     return plan != nullptr
+         ? ggml_backend_graph_plan_compute(backend, plan)
+         : ggml_backend_graph_compute(backend, graph);
+ }
+ 
++ggml_status compute_backend_graph(
++    const ExecutionContext & context, ggml_cgraph * graph,
++    ggml_backend_graph_plan_t plan, const char * label) {
++    if (context.backend() == nullptr || graph == nullptr) { return GGML_STATUS_FAILED; }
++    if (context.stop_requested()) { return GGML_STATUS_ABORTED; }
++    return compute_backend_graph(context.backend(), graph, plan, label);
++}
++
+ void prepare_host_graph_plan(const ExecutionContext & execution_context, ggml_cgraph * graph, HostGraphPlan & plan) {
+     plan.reset();
+-    if (!execution_context.uses_host_graph_plan()) {
++    if (graph == nullptr || !execution_context.uses_host_graph_plan()) {
+         return;
+     }
+     ggml_backend_t backend = execution_context.backend();
+@@ -730,6 +779,8 @@ void prepare_host_graph_plan(const ExecutionContext & execution_context, ggml_cg
+     if (new_plan != nullptr) {
+         plan.plan = new_plan;
+         plan.backend = backend;
++        plan.graph = graph;
++        plan.bridge = execution_context.callback_bridge();
+     }
+ }
+ 
+@@ -739,9 +790,11 @@ ggml_status compute_graph(
+     HostGraphPlan & plan,
+     const char * label) {
+     if (plan.active()) {
+-        return ggml_backend_graph_plan_compute(plan.backend, plan.plan);
++        if (plan.backend != execution_context.backend() || plan.graph != graph ||
++            plan.bridge != execution_context.callback_bridge()) { return GGML_STATUS_FAILED; }
++        return compute_backend_graph(execution_context, graph, plan.plan, label);
+     }
+-    return compute_backend_graph(execution_context.backend(), graph, nullptr, label);
++    return compute_backend_graph(execution_context, graph, nullptr, label);
+ }
+ 
+ void write_tensor_f32(const TensorValue & tensor, const float * values, size_t count) {
+diff --git a/src/framework/core/execution_context.cpp b/src/framework/core/execution_context.cpp
+index 7f98e7e..8bc7f07 100644
+--- a/src/framework/core/execution_context.cpp
++++ b/src/framework/core/execution_context.cpp
+@@ -1,18 +1,52 @@
+ #include "engine/framework/core/execution_context.h"
+ 
+ #include <utility>
++#include <cassert>
++#include <stdexcept>
+ 
+ namespace engine::core {
+ 
++struct RunCallbackBridge {
++    RunStopHandle stop;
++    bool supported = false;
++};
++
++static bool abort_run(void * data) noexcept {
++    const auto & bridge = *static_cast<RunCallbackBridge *>(data);
++    return bridge.stop && bridge.stop->cancelled();
++}
++
++RunBinding::RunBinding(std::shared_ptr<RunCallbackBridge> bridge) noexcept
++    : bridge_(std::move(bridge)) {}
++RunBinding::~RunBinding() { bridge_->stop.reset(); }
++
++bool ExecutionContext::supports_cancellation() const noexcept {
++    return bridge_ && bridge_->supported;
++}
++bool ExecutionContext::stop_requested() const noexcept {
++    return bridge_ && bridge_->stop && bridge_->stop->cancelled();
++}
++RunBinding ExecutionContext::begin_cancellable_run(RunStopHandle stop) {
++    if (!stop || !supports_cancellation() || bridge_->stop) {
++        throw std::logic_error("cancellable run requires a supported idle context and stop handle");
++    }
++    bridge_->stop = std::move(stop);
++    // Guaranteed copy elision: no allocation/throw after the binding is published.
++    return RunBinding(bridge_);
++}
++
+ ExecutionContext::ExecutionContext(const BackendConfig & config)
+     : config_(config),
++      bridge_(std::make_shared<RunCallbackBridge>()),
+       backend_(init_backend(config)) {
++    bridge_->supported = set_backend_abort_callback(backend_, abort_run, bridge_.get());
+     if (backend_ != nullptr && config_.threads > 0) {
+         set_backend_threads(backend_, config_.threads);
+     }
+ }
+ 
+ ExecutionContext::~ExecutionContext() {
++    assert(!bridge_ || !bridge_->stop);
+     if (backend_ != nullptr) {
+         ggml_backend_free(backend_);
+         backend_ = nullptr;
+@@ -21,7 +55,9 @@ ExecutionContext::~ExecutionContext() {
+ 
+ ExecutionContext::ExecutionContext(ExecutionContext && other) noexcept
+     : config_(std::move(other.config_)),
++      bridge_(std::move(other.bridge_)),
+       backend_(other.backend_) {
++    assert(!bridge_ || !bridge_->stop);
+     other.backend_ = nullptr;
+ }
+ 
+@@ -29,10 +65,12 @@ ExecutionContext & ExecutionContext::operator=(ExecutionContext && other) noexce
+     if (this == &other) {
+         return *this;
+     }
++    assert((!bridge_ || !bridge_->stop) && (!other.bridge_ || !other.bridge_->stop));
+     if (backend_ != nullptr) {
+         ggml_backend_free(backend_);
+     }
+     config_ = std::move(other.config_);
++    bridge_ = std::move(other.bridge_);
+     backend_ = other.backend_;
+     other.backend_ = nullptr;
+     return *this;
+diff --git a/src/framework/runtime/graph_executor.cpp b/src/framework/runtime/graph_executor.cpp
+index 7c36001..d14ccb7 100644
+--- a/src/framework/runtime/graph_executor.cpp
++++ b/src/framework/runtime/graph_executor.cpp
+@@ -36,29 +36,41 @@ GraphRunResult GraphExecutor::run(
+         throw std::runtime_error("GraphExecutor::run requires non-null graph context and output tensor");
+     }
+ 
++    GraphRunResult result;
++    auto fail = [&](ggml_status status) {
++        result.status = status;
++        cached_graph_ = nullptr;
++        cached_ggml_ctx_ = nullptr;
++        cached_output_ = nullptr;
++        cached_graph_allocated_ = false;
++        return result;
++    };
+     if (cached_ggml_ctx_ != ggml_ctx || cached_output_ != output || cached_graph_ == nullptr) {
+         cached_ggml_ctx_ = ggml_ctx;
+         cached_output_ = output;
+         cached_graph_ = ggml_new_graph_custom(ggml_ctx, kDefaultGraphNodeCapacity, false);
+         ggml_build_forward_expand(cached_graph_, output);
+-        ggml_gallocr_alloc_graph(gallocr_, cached_graph_);
++        if (!ggml_gallocr_alloc_graph(gallocr_, cached_graph_)) { return fail(GGML_STATUS_ALLOC_FAILED); }
+         cached_graph_allocated_ = true;
+     } else if (!cached_graph_allocated_) {
+-        ggml_gallocr_alloc_graph(gallocr_, cached_graph_);
++        if (!ggml_gallocr_alloc_graph(gallocr_, cached_graph_)) { return fail(GGML_STATUS_ALLOC_FAILED); }
+         cached_graph_allocated_ = true;
+     }
+ 
+     for (int i = 0; i < warmup; ++i) {
+-        engine::core::compute_backend_graph(execution_context_.backend(), cached_graph_);
++        auto status = engine::core::compute_backend_graph(execution_context_, cached_graph_);
++        if (status != GGML_STATUS_SUCCESS) { return fail(status); }
++        ++result.completed_warmup;
+     }
+ 
+     const auto started = std::chrono::steady_clock::now();
+     for (int i = 0; i < std::max(1, iterations); ++i) {
+-        engine::core::compute_backend_graph(execution_context_.backend(), cached_graph_);
++        auto status = engine::core::compute_backend_graph(execution_context_, cached_graph_);
++        if (status != GGML_STATUS_SUCCESS) { return fail(status); }
++        ++result.completed_iterations;
+     }
+     const auto ended = std::chrono::steady_clock::now();
+ 
+-    GraphRunResult result;
+     result.average_ms =
+         std::chrono::duration<double, std::milli>(ended - started).count() / std::max(1, iterations);
+     return result;

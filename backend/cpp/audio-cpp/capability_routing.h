@@ -56,6 +56,9 @@ enum class Rpc {
     Vad,
     Diarize,
     SoundGeneration,
+    // Internal music selectors only; no RPC adapter/readiness is implied.
+    MusicTranscription,
+    MusicGeneration,
     AudioTransform,
 };
 
