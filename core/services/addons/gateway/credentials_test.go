@@ -180,3 +180,102 @@ var _ = Describe("a read of an add-on that declares credentials", Label("tools")
 		Expect(client.seen[0].Credential).To(BeEmpty())
 	})
 })
+
+// optionalCaps is credCaps with a resource argument that a call may leave out.
+type optionalCaps struct{ capSet }
+
+func (c optionalCaps) DeclaredCapabilities(ctx context.Context, id string, gen uint64) (contract.Capabilities, error) {
+	caps, err := c.capSet.DeclaredCapabilities(ctx, id, gen)
+	caps.Credentials = []contract.CredentialSlot{{ID: "token", Title: "Token", Kind: contract.CredentialKindToken, ResourceArgument: "repo", ResourceOptional: true}}
+	return caps, err
+}
+
+// defaultCredentials is a source with one connection that lists the keys in
+// only; with more than one key the connection cannot pick for the call.
+type defaultCredentials struct {
+	fakeCredentials
+	only []string
+}
+
+func (f *defaultCredentials) DefaultCredential(_ context.Context, a contract.Actor, addonID string) (CredentialGrant, error) {
+	f.calls = append(f.calls, a.UserID+"|"+addonID+"|<default>")
+	if len(f.only) != 1 {
+		return CredentialGrant{}, &CredentialRefusal{Code: CodeResourceNotAllowed, Allowed: f.only}
+	}
+	return CredentialGrant{Credential: "secret", ResourceKey: f.only[0], ResourceID: f.allowed[f.only[0]]}, nil
+}
+
+var _ = Describe("a read that may leave out the resource argument", Label("tools"), func() {
+	ctx := context.Background()
+	defs := []contract.ToolDefinition{
+		{Name: "read-file", Kind: "read", Description: "x", InputSchema: json.RawMessage(`{"type":"object","properties":{"repo":{"type":"string"}},"additionalProperties":false}`)},
+	}
+	source := optionalCaps{capSet{toolSet: toolSet{gen: 1, tools: map[string][]string{"sample": {"read-file"}}}, defs: defs}}
+	var (
+		client *envClient
+		creds  *defaultCredentials
+	)
+	gateway := func(src CredentialSource) *Gateway {
+		return &Gateway{Admission: &addonAdmitted{}, Resolver: strictResolver{}, Runtime: currentFixture{client}, Tools: source, Credentials: src,
+			Revalidate: func(context.Context, contract.Actor) error { return nil }}
+	}
+	read := func(g *Gateway, args string) (contract.Result, error) {
+		req := contract.Request{Arguments: json.RawMessage(args), AddonID: "sample", Generation: 1, OperationID: "op", Action: "read"}
+		return g.Dispatch(ctx, contract.Actor{UserID: "alice", CredentialID: "c", Mode: "named-user"}, req)
+	}
+	BeforeEach(func() {
+		client = &envClient{}
+		creds = &defaultCredentials{fakeCredentials: fakeCredentials{allowed: map[string]string{"http://ha.local:8123": "r-0123456789"}}, only: []string{"http://ha.local:8123"}}
+	})
+
+	It("gives the add-on the resource of the only connection when the call names none", func() {
+		_, err := read(gateway(creds), `{"tool":"read-file"}`)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(client.seen).To(HaveLen(1))
+		Expect(client.seen[0].Credential).To(Equal("secret"))
+		Expect(client.seen[0].ResourceKey).To(Equal("http://ha.local:8123"))
+		Expect(client.seen[0].ResourceID).To(Equal("r-0123456789"))
+		Expect(creds.calls).To(Equal([]string{"alice|sample|<default>"}))
+	})
+
+	It("holds a call that names the resource to the list, as before", func() {
+		_, err := read(gateway(creds), `{"tool":"read-file","repo":"http://ha.local:8123"}`)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(creds.calls).To(Equal([]string{"alice|sample|http://ha.local:8123"}))
+		Expect(client.seen[0].ResourceKey).To(Equal("http://ha.local:8123"))
+	})
+
+	It("refuses a resource that is not listed, names the listed ones and never calls the add-on", func() {
+		_, err := read(gateway(creds), `{"tool":"read-file","repo":"http://evil.example"}`)
+		var refusal *CredentialRefusal
+		Expect(errors.As(err, &refusal)).To(BeTrue())
+		Expect(refusal.Code).To(Equal(CodeResourceNotAllowed))
+		Expect(refusal.Allowed).To(Equal([]string{"acme/widgets"}))
+		Expect(client.reads.Load()).To(Equal(int32(0)))
+	})
+
+	It("names the listed resources when the connection lists several, so the model picks one", func() {
+		creds.only = []string{"http://a.local:8123", "http://b.local:8123"}
+		_, err := read(gateway(creds), `{"tool":"read-file"}`)
+		var refusal *CredentialRefusal
+		Expect(errors.As(err, &refusal)).To(BeTrue())
+		Expect(refusal.Code).To(Equal(CodeResourceNotAllowed))
+		Expect(refusal.Allowed).To(Equal([]string{"http://a.local:8123", "http://b.local:8123"}))
+		Expect(client.reads.Load()).To(Equal(int32(0)))
+	})
+
+	It("refuses the omission when the source cannot serve it", func() {
+		_, err := read(gateway(&creds.fakeCredentials), `{"tool":"read-file"}`)
+		Expect(err).To(HaveOccurred())
+		Expect(client.reads.Load()).To(Equal(int32(0)))
+	})
+
+	It("does not change a slot that is not optional: the omission is refused", func() {
+		g := &Gateway{Admission: &addonAdmitted{}, Resolver: strictResolver{}, Runtime: currentFixture{client}, Tools: credCaps{capSet{toolSet: toolSet{gen: 1, tools: map[string][]string{"sample": {"read-file"}}}, defs: defs}},
+			Credentials: creds, Revalidate: func(context.Context, contract.Actor) error { return nil }}
+		_, err := read(g, `{"tool":"read-file"}`)
+		Expect(err).To(HaveOccurred())
+		Expect(creds.calls).To(BeEmpty())
+		Expect(client.reads.Load()).To(Equal(int32(0)))
+	})
+})

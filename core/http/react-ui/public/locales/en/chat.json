@@ -72,7 +72,16 @@
     "save": "Save settings",
     "saving": "Saving...",
     "saved": "Saved. The next turn uses these settings.",
-    "saveFailed": "The settings could not be saved."
+    "saveFailed": "The settings could not be saved.",
+    "sliderOf": "{{name}} slider",
+    "reset": "Use the model default for {{name}}",
+    "hint": {
+      "temperature": "Higher values give more varied answers. From 0 to 2.",
+      "topP": "Picks from the most likely words that add up to this share. Above 0, up to 1.",
+      "topK": "Picks from this many of the most likely words. A whole number, 0 or more.",
+      "contextSize": "From 512 to 4194304 tokens.",
+      "effort": "Applies at once, from the next turn."
+    }
   },
   "empty": {
     "manageTitle": "Manage LocalAI by chatting",
@@ -395,6 +404,10 @@
       "desc": "Set a goal the chat keeps working on by itself",
       "clearDesc": "Remove the goal",
       "resumeDesc": "Go on with the goal"
+    },
+    "effort": {
+      "label": "Reasoning effort",
+      "desc": "Choose how hard the model thinks"
     }
   },
   "shortcuts": {
@@ -901,5 +914,10 @@
   },
   "connection": {
     "lost": "Connection lost. Reconnecting."
+  },
+  "reasoning": {
+    "chip": "Effort",
+    "title": "Reasoning effort for this chat",
+    "note": "Applies from the next turn. None asks the model not to think."
   }
 }

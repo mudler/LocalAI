@@ -193,6 +193,18 @@ type Deps struct {
 	// switched it on may call the user's saved agents as sub-agents. Read at
 	// each turn. Nil: on.
 	SavedAgentsOn func() bool
+	// LocalAIClientOn and LocalAIAdminOn are the settings chats_localai_client
+	// and chats_localai_admin: whether the chats may offer the LocalAI client
+	// tools and the LocalAI admin tools. Read at each turn. Nil: on.
+	LocalAIClientOn, LocalAIAdminOn func() bool
+	// ToolSearchMode is the setting chats_tool_search: auto, on or off. It
+	// decides whether the LocalAI tool groups are sent to the model as typed
+	// tools or hidden behind tool_search, tool_describe and tool_call. Read
+	// at each turn. Nil: auto.
+	ToolSearchMode func() string
+	// ClientTools serves the LocalAI client tools. Nil: the client group is
+	// not registered.
+	ClientTools ClientAssistant
 	// WorkFolderOn is the setting chats_work_folder: whether the prompt of a
 	// chat names its work folder for scripts and other working files, and a
 	// helper file saved elsewhere gets a nudge. Read at each turn. Nil: on.
@@ -489,6 +501,9 @@ func New(d Deps) (*Service, error) {
 		return nil, err
 	}
 	if err := s.registerSavedAgents(); err != nil {
+		return nil, err
+	}
+	if err := s.registerLocalAIGroups(); err != nil {
 		return nil, err
 	}
 	if err := s.registerHistoryTools(); err != nil {

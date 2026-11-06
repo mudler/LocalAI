@@ -23,6 +23,10 @@ const level = (page, l) => page.getByTestId(`agent-memory-level-${l}`)
 const line = (page, id) => page.locator(`[data-testid=agent-effective-line][data-line="${id}"]`)
 const memorySection = (page) => page.locator('#aed-sec-memory')
 
+// An agent as the wizard creates it (the blank editor form of a new agent): it
+// reads yours and its own notes, saves to its own, and keeps the connector grants.
+const DEFAULT_AGENT = { ...AGENTS[1], memory: 'mine_and_own', builtins: ['triggers.propose', 'triggers.run', 'talkback.channels', 'files.upload', 'memory.write'] }
+
 async function serve(page, { agents = AGENTS, enabled = true, save = 'ask', bindings = [] } = {}) {
   const s = await installUses(page, { agents, bindings })
   await page.route('**/api/chats/agents/builtin-grants', route => route.fulfill({ json: { grants: GRANTS } }))
@@ -33,9 +37,9 @@ const saved = (page) => page.getByRole('button', { name: /Create agent|Save chan
 const putBody = (s) => s.calls.filter(c => c.method === 'PUT' || c.method === 'POST').at(-1)?.body
 
 test.describe('Memory level: defaults and what an agent has today', () => {
-  test('a new agent reads and saves notes, with Mine and its own, and sends both', async ({ page }) => {
-    const s = await serve(page)
-    await page.goto('/app/agents/new')
+  test('an agent with the default notes reads and saves notes, with Mine and its own, and sends both', async ({ page }) => {
+    const s = await serve(page, { agents: [DEFAULT_AGENT] })
+    await page.goto('/app/agents/a2/edit')
     await expect(level(page, 'saves').locator('input')).toBeChecked()
     await expect(page.getByTestId('agent-memory-mine_and_own').locator('input')).toBeChecked()
     await expect(page.getByTestId('agent-memory-applied')).toHaveCount(0)
@@ -153,7 +157,7 @@ test.describe('Memory level: the three states', () => {
 test.describe('Memory level: the skills that come with memory', () => {
   test('are locked rows, on with Reads and Reads and saves, off with Off', async ({ page }) => {
     await serve(page)
-    await page.goto('/app/agents/new')
+    await page.goto('/app/agents/a2/edit')
     const box = page.getByTestId('agent-memory-skills')
     const inList = page.getByTestId('agent-skills-panel').getByTestId('agent-skills-item').filter({ has: page.getByRole('switch', { name: 'memory', exact: true }) })
     for (const l of ['saves', 'reads']) {
@@ -174,8 +178,8 @@ test.describe('Memory level: the skills that come with memory', () => {
   })
 
   test('are off with the reason when memory is off in Settings, whatever the agent has', async ({ page }) => {
-    await serve(page, { enabled: false })
-    await page.goto('/app/agents/new')
+    await serve(page, { enabled: false, agents: [DEFAULT_AGENT] })
+    await page.goto('/app/agents/a2/edit')
     await expect(page.getByTestId('agent-memory-user-off')).toContainText('Memory is off in your settings')
     const box = page.getByTestId('agent-memory-skills')
     await expect(level(page, 'saves').locator('input')).toBeChecked()
@@ -214,7 +218,7 @@ test.describe('Memory level: narrow screens', () => {
     test(`has no horizontal overflow at ${width} px in any state`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 })
       await serve(page)
-      await page.goto('/app/agents/new')
+      await page.goto('/app/agents/a2/edit')
       for (const l of ['saves', 'reads', 'off']) {
         await level(page, l).click()
         await expect(level(page, l).locator('input')).toBeChecked()

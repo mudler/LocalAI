@@ -4,6 +4,7 @@
 package voiceprofile
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -51,7 +52,20 @@ var (
 	ErrConsentRequired = errors.New("voice cloning consent must be confirmed")
 	ErrAudioTooLarge   = errors.New("voice reference exceeds the maximum size")
 	ErrUnsupportedWAV  = errors.New("voice reference must be a PCM WAV file")
+	ErrQuotaExceeded   = errors.New("voice profile limit reached")
+	ErrForbidden       = errors.New("only an administrator can delete an instance-wide voice profile")
 )
+
+// MaxProfilesPerUser is how many profiles one non-administrator may own. It
+// is a constant, not a runtime setting: the limit only has to keep a single
+// account from filling the disk (each profile is capped by MaxAudioBytes per
+// clip), and an administrator who needs more owns the profiles instance-wide.
+const MaxProfilesPerUser = 20
+
+// MaxBytesPerUser is the total size of the reference audio one non-administrator
+// may keep. The count limit alone allows 20 profiles of 10 clips of 50 MiB each,
+// so this caps the disk one account can fill.
+const MaxBytesPerUser int64 = 100 * 1024 * 1024
 
 // AudioMetadata describes the validated reference clip without exposing its
 // filesystem location.
@@ -62,6 +76,9 @@ type AudioMetadata struct {
 	BitDepth             uint16 `json:"bit_depth"`
 	SizeBytes            int64  `json:"size_bytes"`
 	MIMEType             string `json:"mime_type"`
+	// SHA256 is set only by a check of a clip held in memory (the voice_profile
+	// tool before a person confirms); the store does not fill it.
+	SHA256 string `json:"sha256,omitempty"`
 }
 
 // ReferenceMetadata describes one ordered audio/transcript pair in a profile.
@@ -72,12 +89,20 @@ type ReferenceMetadata struct {
 
 // Profile is the public, path-free representation of a saved cloned voice.
 type Profile struct {
-	ID                 string              `json:"id"`
-	Name               string              `json:"name"`
-	Description        string              `json:"description,omitempty"`
-	Language           string              `json:"language,omitempty"`
-	Transcript         string              `json:"transcript"`
-	Voice              string              `json:"voice"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Language    string `json:"language,omitempty"`
+	Transcript  string `json:"transcript"`
+	Voice       string `json:"voice"`
+	// OwnerID is the user who created the profile. Empty means the profile
+	// belongs to the instance: every user may use it and only an
+	// administrator may delete it. Profiles stored before ownership existed
+	// have no owner, so they stay instance-wide.
+	OwnerID string `json:"owner_id,omitempty"`
+	// CanDelete tells the caller whether it may delete the profile. It is
+	// worked out for each caller (see Viewer) and never stored.
+	CanDelete          bool                `json:"can_delete,omitempty"`
 	ConsentConfirmedAt time.Time           `json:"consent_confirmed_at"`
 	CreatedAt          time.Time           `json:"created_at"`
 	UpdatedAt          time.Time           `json:"updated_at"`
@@ -92,6 +117,14 @@ type CreateInput struct {
 	Language         string
 	Transcript       string
 	ConsentConfirmed bool
+	// OwnerID is stored as the owner of the profile. Empty: instance-wide.
+	OwnerID string
+	// MaxOwned, when positive, refuses the profile if OwnerID already owns
+	// that many. The count and the write happen under one lock.
+	MaxOwned int
+	// MaxOwnedBytes, when positive, refuses the profile if the audio of the
+	// profiles OwnerID already owns, plus this profile's, exceeds it.
+	MaxOwnedBytes int64
 }
 
 // ReferenceInput contains one reference clip and its exact transcript.
@@ -229,6 +262,18 @@ func (s *Store) CreateWithReferences(ctx context.Context, input CreateInput, ref
 	}
 	defer func() { _ = root.Close() }()
 
+	var ownedBytes int64
+	if input.OwnerID != "" && (input.MaxOwned > 0 || input.MaxOwnedBytes > 0) {
+		owned, bytesUsed, err := countOwned(root, input.OwnerID)
+		if err != nil {
+			return Profile{}, err
+		}
+		if input.MaxOwned > 0 && owned >= input.MaxOwned {
+			return Profile{}, fmt.Errorf("%w: at most %d profiles per user", ErrQuotaExceeded, input.MaxOwned)
+		}
+		ownedBytes = bytesUsed
+	}
+
 	id := uuid.NewString()
 	tempDir := ".creating-" + uuid.NewString()
 	if err := root.Mkdir(tempDir, 0o700); err != nil {
@@ -261,6 +306,12 @@ func (s *Store) CreateWithReferences(ctx context.Context, input CreateInput, ref
 		if written > MaxAudioBytes {
 			return Profile{}, ErrAudioTooLarge
 		}
+		if input.OwnerID != "" && input.MaxOwnedBytes > 0 {
+			ownedBytes += written
+			if ownedBytes > input.MaxOwnedBytes {
+				return Profile{}, fmt.Errorf("%w: at most %d MiB of audio per user", ErrQuotaExceeded, input.MaxOwnedBytes>>20)
+			}
+		}
 		storedAudio, err := root.Open(audioPath)
 		if err != nil {
 			return Profile{}, fmt.Errorf("voiceprofile: reopen reference audio: %w", err)
@@ -280,6 +331,7 @@ func (s *Store) CreateWithReferences(ctx context.Context, input CreateInput, ref
 		Description:        input.Description,
 		Language:           input.Language,
 		Transcript:         input.Transcript,
+		OwnerID:            input.OwnerID,
 		Voice:              Reference(id),
 		ConsentConfirmedAt: now,
 		CreatedAt:          now,
@@ -452,7 +504,15 @@ func (s *Store) LeaseAudios(_ context.Context, id string) (Profile, []string, fu
 
 // Delete removes one profile. Existing audio leases remain valid until their
 // synthesis requests complete.
-func (s *Store) Delete(_ context.Context, id string) error {
+//
+// Delete ignores ownership; callers that act for a user use DeleteFor.
+func (s *Store) Delete(ctx context.Context, id string) error {
+	return s.deleteIf(ctx, id, nil)
+}
+
+// deleteIf removes a profile when check is nil or accepts it; the error of
+// check is returned and the profile stays.
+func (s *Store) deleteIf(_ context.Context, id string, check func(Profile) error) error {
 	if err := validateID(id); err != nil {
 		return err
 	}
@@ -468,6 +528,15 @@ func (s *Store) Delete(_ context.Context, id string) error {
 		return ErrNotFound
 	} else if err != nil {
 		return fmt.Errorf("voiceprofile: stat profile: %w", err)
+	}
+	if check != nil {
+		profile, err := readProfile(root, id)
+		if err != nil {
+			return err
+		}
+		if err := check(profile); err != nil {
+			return err
+		}
 	}
 	if err := root.RemoveAll(id); err != nil {
 		return fmt.Errorf("voiceprofile: delete profile: %w", err)
@@ -491,6 +560,33 @@ func (s *Store) Close() error {
 		return fmt.Errorf("voiceprofile: remove lease directory: %w", err)
 	}
 	return nil
+}
+
+// countOwned counts the profiles of one owner and the bytes of their audio. An
+// unreadable entry is not counted, as List skips it.
+func countOwned(root *os.Root, owner string) (int, int64, error) {
+	entries, err := fs.ReadDir(root.FS(), ".")
+	if err != nil {
+		return 0, 0, fmt.Errorf("voiceprofile: list store: %w", err)
+	}
+	n := 0
+	var total int64
+	for _, entry := range entries {
+		if !entry.IsDir() || validateID(entry.Name()) != nil {
+			continue
+		}
+		if p, err := readProfile(root, entry.Name()); err == nil && p.OwnerID == owner {
+			n++
+			if len(p.References) > 0 {
+				for _, r := range p.References {
+					total += r.Audio.SizeBytes
+				}
+			} else {
+				total += p.Audio.SizeBytes
+			}
+		}
+	}
+	return n, total, nil
 }
 
 func normalizeInput(input CreateInput) CreateInput {
@@ -534,7 +630,14 @@ func validateID(id string) error {
 	return nil
 }
 
-func validateWAV(file *os.File, size int64) (AudioMetadata, error) {
+// InspectWAV validates a reference clip held in memory with the same rules as
+// the store applies at create time and returns its metadata. A caller uses it
+// to reject a bad clip before it asks a person to confirm.
+func InspectWAV(data []byte) (AudioMetadata, error) {
+	return validateWAV(bytes.NewReader(data), int64(len(data)))
+}
+
+func validateWAV(file io.ReadSeeker, size int64) (AudioMetadata, error) {
 	decoder := wav.NewDecoder(file)
 	if !decoder.IsValidFile() {
 		return AudioMetadata{}, ErrUnsupportedWAV
@@ -581,6 +684,7 @@ func readProfile(root *os.Root, id string) (Profile, error) {
 		return Profile{}, errors.New("voiceprofile: metadata id does not match directory")
 	}
 	profile.Voice = Reference(id)
+	profile.CanDelete = false
 	if len(profile.References) == 0 {
 		profile.References = []ReferenceMetadata{{Transcript: profile.Transcript, Audio: profile.Audio}}
 	}

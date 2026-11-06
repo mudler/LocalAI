@@ -1733,12 +1733,13 @@ test-ui-coverage-check: test-ui-coverage
 	sh $(CURDIR)/scripts/ui-coverage-check.sh core/http/react-ui/coverage/coverage-summary.json core/http/react-ui/coverage-baseline.txt
 
 ## Node-only UI checks that need no server and no browser: eslint (errors
-## only, warnings are tracked by the editor), the inline-style ratchet, the
-## host UI unit tests, the UI unit tests of every add-on and the locale
-## completeness ratchet. Run `npm ci` in core/http/react-ui first.
+## only, warnings are tracked by the editor), the inline-style ratchet, the UI
+## kit ratchet, the host UI unit tests, the UI unit tests of every add-on and
+## the locale completeness ratchet. Run `npm ci` in core/http/react-ui first.
 test-ui-unit: test-i18n
 	cd core/http/react-ui && npm run lint -- --quiet
 	cd core/http/react-ui && npm run lint:inline-styles
+	cd core/http/react-ui && npm run lint:ui-kit
 	cd core/http/react-ui && npm run test:unit
 	@set -e; for dir in addons/*/ui; do \
 		[ -f "$$dir/test/run.mjs" ] || continue; \

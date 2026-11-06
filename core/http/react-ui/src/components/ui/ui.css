@@ -843,3 +843,9 @@
 .ui-seg__item[aria-pressed="true"] { background: var(--dk-card); color: var(--dk-text); box-shadow: var(--shadow-subtle); }
 .ui-seg__item:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .ui-seg__count { font-size: var(--fs-meta); font-variant-numeric: tabular-nums; color: var(--dk-muted); }
+
+/* ---- Slider: a range, a number box and a reset ---------------------------- */
+.ui-slider { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.ui-slider__range { flex: 1 1 auto; min-width: 0; }
+.ui-slider__box { flex: none; width: 6rem; text-align: right; }
+.ui-slider[data-unset] .ui-slider__range { opacity: .55; }

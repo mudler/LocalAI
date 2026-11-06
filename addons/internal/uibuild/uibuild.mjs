@@ -9,25 +9,55 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
+import { GLYPHS } from './glyphs.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const hostUi = resolve(here, '../../../core/http/react-ui')
 const require = createRequire(join(hostUi, 'package.json'))
 
-// A solid rounded square, 128 by 128, written by hand so a package build needs
-// no image tool and no download.
-function solidIcon([r, g, b]) {
-  const size = 128
+// The tile of an add-on that ships no icon file: a rounded square of its own
+// colour with a white line glyph on it, 256 by 256, written by hand so a
+// package build needs no image tool and no download. The tile has the same
+// size and corner radius as the committed icons, so the two kinds sit side by
+// side in a list. An unknown glyph name draws the plain "app" glyph.
+export function tileIcon([r, g, b], glyph = 'app') {
+  const size = 256
+  const radius = 56
+  const stroke = 6 // half of the line width, in pixels (a 12 px line)
+  const scale = 6 // one glyph unit in pixels: the 24 unit grid fills 144 px
+  const offset = (size - 24 * scale) / 2
+  const shapes = GLYPHS[glyph] || GLYPHS.app
+  const segments = []
+  const dots = []
+  for (const shape of shapes) {
+    const pts = (shape.line || shape.loop || []).map(([x, y]) => [offset + x * scale, offset + y * scale])
+    for (let i = 0; i + 1 < pts.length; i++) segments.push([...pts[i], ...pts[i + 1]])
+    if (shape.loop && pts.length > 2) segments.push([...pts[pts.length - 1], ...pts[0]])
+    if (shape.dot) dots.push([offset + shape.dot[0] * scale, offset + shape.dot[1] * scale])
+  }
+  const dist = (px, py) => {
+    let best = Infinity
+    for (const [x1, y1, x2, y2] of segments) {
+      const dx = x2 - x1, dy = y2 - y1
+      const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy || 1)))
+      best = Math.min(best, Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy)))
+    }
+    for (const [x, y] of dots) best = Math.min(best, Math.hypot(px - x, py - y) - 1.3 * scale + stroke)
+    return best
+  }
   const row = size * 4 + 1
   const px = Buffer.alloc(size * row)
-  const radius = 22
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const cx = Math.min(Math.max(x, radius), size - 1 - radius)
-      const cy = Math.min(Math.max(y, radius), size - 1 - radius)
-      const inside = (x - cx) ** 2 + (y - cy) ** 2 <= radius * radius
+      const cx = Math.min(Math.max(x + 0.5, radius), size - radius)
+      const cy = Math.min(Math.max(y + 0.5, radius), size - radius)
+      const tile = Math.max(0, Math.min(1, radius - Math.hypot(x + 0.5 - cx, y + 0.5 - cy) + 0.5))
+      const ink = Math.max(0, Math.min(1, stroke - dist(x + 0.5, y + 0.5) + 0.5))
       const o = y * row + 1 + x * 4
-      px[o] = r; px[o + 1] = g; px[o + 2] = b; px[o + 3] = inside ? 255 : 0
+      px[o] = Math.round(r + (255 - r) * ink)
+      px[o + 1] = Math.round(g + (255 - g) * ink)
+      px[o + 2] = Math.round(b + (255 - b) * ink)
+      px[o + 3] = Math.round(255 * tile)
     }
   }
   const table = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0 })
@@ -104,7 +134,7 @@ function compatPlugin({ srcRoot, compatSrc, sheets }) {
 
 const reactImport = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)(['"])(react|react-dom)(?:\/[^'"]*)?\1/
 
-export async function buildAddonUI({ root, name, rgb, compat }) {
+export async function buildAddonUI({ root, name, rgb, glyph, compat }) {
   const out = join(root, 'dist')
   const { build: bundle } = await import(require.resolve('rolldown'))
   rmSync(out, { recursive: true, force: true })
@@ -137,10 +167,10 @@ export async function buildAddonUI({ root, name, rgb, compat }) {
     copyFileSync(join(root, 'src/style.css'), join(out, `ui/${name}.css`))
   }
   // A committed icon (ui/icon.png next to src/) ships unchanged. Only an
-  // add-on without one gets the generated solid square.
+  // add-on without one gets the generated tile: its colour and a line glyph.
   const icon = join(root, 'icon.png')
   if (existsSync(icon)) copyFileSync(icon, join(out, 'ui/icon.png'))
-  else writeFileSync(join(out, 'ui/icon.png'), solidIcon(rgb))
+  else writeFileSync(join(out, 'ui/icon.png'), tileIcon(rgb, glyph))
   const js = readFileSync(join(out, `ui/${name}.js`), 'utf8')
   const bad = reactImport.exec(js)
   if (bad) throw new Error(`the bundle must not import React: found ${bad[0]}`)
@@ -149,7 +179,7 @@ export async function buildAddonUI({ root, name, rgb, compat }) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const [root, name, r, g, b] = process.argv.slice(2)
-  buildAddonUI({ root: resolve(root), name, rgb: [Number(r), Number(g), Number(b)] })
+  const [root, name, r, g, b, glyph] = process.argv.slice(2)
+  buildAddonUI({ root: resolve(root), name, rgb: [Number(r), Number(g), Number(b)], glyph })
     .then((dir) => console.log(`built ${dir}`), (e) => { console.error(e); process.exit(1) })
 }

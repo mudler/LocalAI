@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import {
-  Button, Callout, EmptyState, Notice, LoadError, Page, PageHeader, PaneLayout, SidePane,
-  Skeleton, SkeletonRows, LoadingSpinner, ShellFallback, StatusChip, STATUS, Switch,
+  Button, Callout, EmptyState, Notice, LoadError, Page, PageHeader, PaneLayout, Segmented, SidePane,
+  Skeleton, SkeletonRows, LoadingSpinner, ShellFallback, Slider, StatusChip, STATUS, Switch,
 } from '../components/ui'
 import { useToastAnchor } from '../components/Toast'
+import SideSheet from '../components/SideSheet'
 import StatusPill from '../components/StatusPill'
 import './ui-catalog.css'
 
@@ -27,7 +28,7 @@ function Section({ id, title, note, children }) {
 
 function Buttons() {
   return (
-    <Section id="buttons" title="Button" note="One button: the kit's dk-btn. Legacy .btn classes render the same look.">
+    <Section id="buttons" title="Button" note="One button: the kit's dk-btn. Use primary for the one main action of a region, secondary for the rest, ghost for quiet actions, danger to confirm a delete. Legacy .btn classes render the same look.">
       <div className="ui-cat__table" role="table" aria-label="Button variants">
         {VARIANTS.map(v => (
           <div className="ui-cat__row" role="row" key={v} data-variant={v}>
@@ -84,7 +85,7 @@ function Header() {
 
 function Chips() {
   return (
-    <Section id="chips" title="Status chip" note="Colour, icon and words. One state per chip.">
+    <Section id="chips" title="Status chip" note="The state of one item, as a pill. Colour, icon and words; one state per chip.">
       <div className="ui-cat__cell" data-testid="chips">
         {Object.keys(STATUS).map(s => <StatusChip key={s} status={s} />)}
       </div>
@@ -105,7 +106,7 @@ function Chips() {
 function Switches() {
   const [on, setOn] = useState(true)
   return (
-    <Section id="switch" title="Switch" note="A control that applies at once. Space toggles. Name it with a label.">
+    <Section id="switch" title="Switch" note="A setting that applies at once, with no Save. Space toggles. Name it with a label.">
       <div className="ui-cat__cell" data-testid="switches">
         <Switch checked={on} onChange={setOn} label="Sample switch" />
         <Switch checked={!on} onChange={() => setOn(v => !v)} label="Opposite switch" />
@@ -116,9 +117,82 @@ function Switches() {
   )
 }
 
+function FormControls() {
+  const [checked, setChecked] = useState(true)
+  return (
+    <Section id="form" title="Input, select and checkbox" note="Text, a choice from a list, and a choice that applies when the person presses Save. Controls and buttons share one height. For a choice that applies at once, use a switch.">
+      <div className="ui-cat__stack ui-cat__form" data-testid="form-controls">
+        <div className="dk-field">
+          <label className="dk-label" htmlFor="cat-input">Name</label>
+          <input id="cat-input" className="dk-input" defaultValue="daily-digest" />
+          <p className="dk-hint">Shown in lists. You can change it later.</p>
+        </div>
+        <div className="dk-field">
+          <label className="dk-label" htmlFor="cat-select">Model</label>
+          <div className="dk-select-wrap">
+            <select id="cat-select" className="dk-select" defaultValue="qwen3-8b">
+              <option value="qwen3-8b">qwen3-8b</option>
+              <option value="gemma-3-4b">gemma-3-4b</option>
+            </select>
+          </div>
+        </div>
+        <label className="ui-cat__check">
+          <input type="checkbox" className="dk-check" checked={checked} onChange={e => setChecked(e.target.checked)} />
+          <span>Keep the run history</span>
+        </label>
+      </div>
+    </Section>
+  )
+}
+
+function Segments() {
+  const [filter, setFilter] = useState('all')
+  return (
+    <Section id="segmented" title="Segmented" note="One choice of a few that filters a list on this page, with a count. To change views, use tabs.">
+      <Segmented
+        label="Show tasks"
+        value={filter}
+        onChange={setFilter}
+        testId="cat-segmented"
+        options={[{ id: 'all', label: 'All', count: 4 }, { id: 'on', label: 'On', count: 3 }, { id: 'off', label: 'Off', count: 1 }]}
+      />
+    </Section>
+  )
+}
+
+function Sliders() {
+  const [temperature, setTemperature] = useState('0.7')
+  const [unset, setUnset] = useState('')
+  const [bad, setBad] = useState('3')
+  const range = { min: 0, max: 2, step: 0.05 }
+  return (
+    <Section id="slider" title="Slider" note="A number in a range, with a number box and a reset. Empty means the default applies. It applies when the form is saved.">
+      <div className="ui-cat__stack ui-cat__form" data-testid="sliders">
+        <div className="dk-field">
+          <label className="dk-label" htmlFor="cat-slider-set">Temperature</label>
+          <Slider id="cat-slider-set" range={range} value={temperature} onChange={setTemperature} label="Temperature" placeholder="Model default" resetLabel="Use the model default" testId="cat-slider" />
+        </div>
+        <div className="dk-field">
+          <label className="dk-label" htmlFor="cat-slider-unset">Not set</label>
+          <Slider id="cat-slider-unset" range={range} value={unset} onChange={setUnset} label="Not set" placeholder="Model default" resetLabel="Use the model default" />
+        </div>
+        <div className="dk-field">
+          <label className="dk-label" htmlFor="cat-slider-bad">Out of range</label>
+          <Slider id="cat-slider-bad" range={range} value={bad} onChange={setBad} label="Out of range" placeholder="Model default" resetLabel="Use the model default" invalid describedBy="cat-slider-bad-err" />
+          <p className="dk-field-error" id="cat-slider-bad-err">Use a number from 0 to 2.</p>
+        </div>
+        <div className="dk-field">
+          <label className="dk-label" htmlFor="cat-slider-off">Disabled</label>
+          <Slider id="cat-slider-off" range={range} value="1" onChange={() => {}} label="Disabled" placeholder="Model default" resetLabel="Use the model default" disabled />
+        </div>
+      </div>
+    </Section>
+  )
+}
+
 function Callouts() {
   return (
-    <Section id="callouts" title="Callout">
+    <Section id="callouts" title="Callout" note="Something on this page that needs attention: a warning, news or a result. For a state of one item, use a status chip.">
       <div className="ui-cat__stack">
         <Callout tone="info" title="Chats use the connectors that are on.">A saved agent uses only the ones you pick for it.</Callout>
         <Callout tone="ok" title="qwen3-8b is ready." actions={<Button size="sm" variant="primary">Start a chat</Button>}>It loaded in 2.1 s.</Callout>
@@ -249,7 +323,7 @@ function BottomBar() {
 function Pane() {
   const [open, setOpen] = useState(false)
   return (
-    <Section id="pane" title="Side pane" note="Docked from 1280 px, an overlay below, a bottom sheet on a phone. Escape closes it.">
+    <Section id="pane" title="Side pane" note="The detail of one item beside a list. Docked from 1280 px, an overlay below, a bottom sheet on a phone. Escape closes it.">
       <PaneLayout>
         <div className="ui-cat__stack">
           <div className="ui-cat__list">
@@ -281,6 +355,31 @@ function Pane() {
   )
 }
 
+function Sheet() {
+  const [open, setOpen] = useState(false)
+  return (
+    <Section id="sheet" title="Side sheet" note="A create or edit form that blocks the page until it is saved or closed. 480 px, wide is 720 px, a bottom sheet on a phone. For a detail beside a list, use a side pane.">
+      <div className="ui-cat__cell">
+        <Button variant="primary" icon="plus" onClick={() => setOpen(true)} data-testid="open-sheet">Create agent</Button>
+      </div>
+      {open && (
+        <SideSheet
+          title="Create agent"
+          description="Name it and pick a model. You can change both later."
+          onClose={() => setOpen(false)}
+          testId="cat-sheet"
+          footer={<><Button onClick={() => setOpen(false)}>Cancel</Button><Button variant="primary" onClick={() => setOpen(false)}>Create agent</Button></>}
+        >
+          <div className="dk-field">
+            <label className="dk-label" htmlFor="cat-sheet-name">Name</label>
+            <input id="cat-sheet-name" className="dk-input" />
+          </div>
+        </SideSheet>
+      )}
+    </Section>
+  )
+}
+
 export default function UiCatalog() {
   return (
     <Page className="ui-cat">
@@ -289,6 +388,9 @@ export default function UiCatalog() {
       <Header />
       <Chips />
       <Switches />
+      <FormControls />
+      <Segments />
+      <Sliders />
       <Callouts />
       <Notices />
       <LoadErrors />
@@ -296,6 +398,7 @@ export default function UiCatalog() {
       <Loading />
       <Toasts />
       <Pane />
+      <Sheet />
     </Page>
   )
 }

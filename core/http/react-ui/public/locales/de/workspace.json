@@ -460,7 +460,16 @@
     "marker": "von LocalAI verwaltet",
     "about": {
       "localai": "Einstellungen, die LocalAI liest: Persona, Profil, Kurzbefehle, Home, Design.",
-      "chats": "Ein Ordner pro Chat, mit den Dateien des Chats."
+      "chats": "Ein Ordner pro Chat, mit den Dateien des Chats.",
+      "memory": "Die Notizen, die der Assistent über dich führt.",
+      "pages": "Die Seiten in deinem Arbeitsbereich.",
+      "skills": "Die Skills, die die Agenten nutzen.",
+      "other": "Von LocalAI angelegt und genutzt."
+    },
+    "open": {
+      "memory": "Memory öffnen",
+      "pages": "Seiten öffnen",
+      "skills": "Skills öffnen"
     },
     "confirm": {
       "deleteTitle": "{{name}} in den Papierkorb verschieben?",

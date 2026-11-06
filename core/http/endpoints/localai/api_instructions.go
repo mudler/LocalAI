@@ -56,7 +56,7 @@ var instructionDefs = []instructionDef{
 		Name:        "voice-library",
 		Description: "Create, preview, list, and delete reusable voice-cloning reference profiles",
 		Tags:        []string{"voice-profiles"},
-		Intro:       "Profiles persist below the LocalAI data directory as private PCM-WAV references plus exact transcripts. GET and audio preview require the audio_speech feature; create and delete are admin-only. Pass the returned `voice` URI to /v1/audio/speech or /tts. LocalAI resolves the URI at request time and never exposes a filesystem path.",
+		Intro:       "Profiles persist below the LocalAI data directory as private PCM-WAV references plus exact transcripts. Every route needs the audio_speech feature. A user creates and deletes their own profiles (at most 20 each); an administrator's profiles, and those stored before ownership existed, are instance-wide: every user can use them and only an administrator can delete them. A user lists, previews and speaks with their own and the instance-wide profiles; another user's profile answers 404. An administrator manages all. Pass the returned `voice` URI to /v1/audio/speech or /tts. LocalAI resolves the URI at request time and never exposes a filesystem path.",
 	},
 	{
 		Name:        "images",

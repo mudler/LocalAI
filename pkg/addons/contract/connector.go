@@ -118,6 +118,10 @@ type ConnectorKind struct {
 	Description string `json:"description,omitempty"`
 	// SenderHint says what an allowlist entry looks like on this platform.
 	SenderHint string `json:"senderHint,omitempty"`
+	// Setup says in one short phrase what the person needs before a binding
+	// of this kind works, such as "a bot token from @BotFather". Plain text of
+	// at most MaxSetupChars characters, on one line (feature level 4).
+	Setup string `json:"setup,omitempty"`
 	// Delivery is DeliveryPull or DeliveryPush.
 	Delivery string `json:"delivery"`
 	// Page is the add-on page that adds and edits bindings of this kind. It
@@ -302,6 +306,9 @@ func validateConnector(c *ConnectorCapability, ui *UI) error {
 		seen[k.ID] = true
 		if !plainText(k.Title, MaxTitleChars) || (k.Description != "" && !plainText(k.Description, MaxDescriptionChars)) || (k.SenderHint != "" && !plainText(k.SenderHint, MaxDescriptionChars)) {
 			return fmt.Errorf("invalid connector kind text")
+		}
+		if k.Setup != "" && !plainText(k.Setup, MaxSetupChars) {
+			return fmt.Errorf("invalid connector kind setup text")
 		}
 		if k.Delivery != DeliveryPull && k.Delivery != DeliveryPush {
 			return fmt.Errorf("connector delivery must be %s or %s", DeliveryPull, DeliveryPush)

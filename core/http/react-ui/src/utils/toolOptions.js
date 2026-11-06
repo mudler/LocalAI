@@ -82,6 +82,7 @@ export function agentConnections(bindings, kinds, agentId) {
     const title = k?.title || b.kind || ''
     return {
       id: b.id,
+      addon: k?.addon || b.addon || '',
       name: [title, b.name].filter(Boolean).join(' '),
       caps: list(b.caps),
       // The page the add-on declares for the kind opens the binding and shows

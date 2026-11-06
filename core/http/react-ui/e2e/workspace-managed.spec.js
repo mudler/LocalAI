@@ -8,6 +8,10 @@ import { mockChat } from './chat-fixtures.js'
 const HOME = [
   { path: '/Chats', name: 'Chats', kind: 'dir', size: 0, version: 1, managed: 'chats' },
   { path: '/LocalAI', name: 'LocalAI', kind: 'dir', size: 0, version: 1, managed: 'localai' },
+  { path: '/Memory', name: 'Memory', kind: 'dir', size: 0, version: 1, managed: 'memory' },
+  { path: '/pages', name: 'pages', kind: 'dir', size: 0, version: 1, managed: 'pages' },
+  { path: '/.skills', name: '.skills', kind: 'dir', size: 0, version: 1, managed: 'skills' },
+  { path: '/Scratch', name: 'Scratch', kind: 'dir', size: 0, version: 1, managed: 'future' },
   { path: '/Notes', name: 'Notes', kind: 'dir', size: 0, version: 1 },
   { path: '/report.txt', name: 'report.txt', kind: 'file', size: 12, version: 1 },
 ]
@@ -44,7 +48,7 @@ test.describe('Files: the folders LocalAI manages', () => {
     await stubFiles(page)
     await page.goto('/app/files')
     const rows = page.getByTestId('ws-row')
-    await expect(rows).toHaveCount(4)
+    await expect(rows).toHaveCount(8)
     await expect(rows.nth(0)).toContainText('Notes')
     await expect(rows.nth(1)).toContainText('report.txt')
     const group = page.getByTestId('ws-managed')
@@ -54,7 +58,12 @@ test.describe('Files: the folders LocalAI manages', () => {
     await expect(managed.nth(0)).toContainText('managed by LocalAI')
     await expect(managed.nth(0)).toContainText('Settings LocalAI reads: persona, profile, shortcuts, Home, theme.')
     await expect(managed.nth(1)).toContainText('Chats')
-    await expect(page.getByTestId('ws-managed-tag')).toHaveCount(2)
+    await expect(managed.nth(2)).toContainText('Memory')
+    await expect(managed.nth(2)).toContainText('The notes the assistant keeps about you.')
+    await expect(managed.nth(3)).toContainText('pages')
+    await expect(managed.nth(4)).toContainText('.skills')
+    await expect(managed.nth(4)).toContainText('The skills the agents use.')
+    await expect(page.getByTestId('ws-managed-tag')).toHaveCount(6)
     await page.screenshot({ path: process.env.LAYOUT_SHOTS ? `${process.env.LAYOUT_SHOTS}/files-home-after.png` : undefined, fullPage: true })
 
     await managed.nth(0).getByRole('button', { name: 'LocalAI', exact: true }).click()
@@ -62,6 +71,38 @@ test.describe('Files: the folders LocalAI manages', () => {
     await expect(page.getByTestId('ws-managed')).toHaveCount(0)
     await expect(page.getByTestId('ws-row')).toHaveCount(2)
     await page.screenshot({ path: process.env.LAYOUT_SHOTS ? `${process.env.LAYOUT_SHOTS}/files-localai-after.png` : undefined, fullPage: true })
+  })
+
+  test('groups a folder it never heard of because the listing marks it, and keeps the folders of the person out of the group', async ({ page }) => {
+    await stubFiles(page)
+    await page.goto('/app/files')
+    const group = page.getByTestId('ws-managed')
+    const unknown = group.getByTestId('ws-row').filter({ hasText: 'Scratch' })
+    await expect(unknown).toHaveCount(1)
+    await expect(unknown).toContainText('managed by LocalAI')
+    await expect(unknown).toContainText('Created and used by LocalAI.')
+    await expect(unknown.getByTestId('ws-managed-glyph')).toBeVisible()
+    await expect(group.getByRole('button', { name: 'Notes', exact: true })).toHaveCount(0)
+    await expect(group.getByRole('button', { name: 'report.txt', exact: true })).toHaveCount(0)
+    await expect(page.getByTestId('ws-row').filter({ has: page.getByRole('button', { name: 'Notes', exact: true }) }).getByTestId('ws-managed-glyph')).toHaveCount(0)
+  })
+
+  test('opens the page of a managed folder from the keyboard, and offers none for a folder without one', async ({ page }) => {
+    await stubFiles(page)
+    await page.goto('/app/files')
+    const skills = page.getByTestId('ws-managed').getByTestId('ws-row').filter({ hasText: '.skills' })
+    const trigger = skills.getByRole('button', { name: 'More actions for .skills' })
+    await trigger.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('menuitem', { name: 'Open Skills' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    const chats = page.getByTestId('ws-managed').getByTestId('ws-row').filter({ hasText: 'Chats' })
+    await chats.getByRole('button', { name: 'More actions for Chats' }).click()
+    await expect(page.getByRole('menuitem', { name: /^Open (Skills|Pages|Memory)$/ })).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await skills.getByRole('button', { name: 'More actions for .skills' }).click()
+    await page.getByRole('menuitem', { name: 'Open Skills' }).click()
+    await expect(page).toHaveURL(/\/app\/skills/)
   })
 
   test('asks before LocalAI/ goes to the Trash and says what stops working; Cancel changes nothing', async ({ page }) => {

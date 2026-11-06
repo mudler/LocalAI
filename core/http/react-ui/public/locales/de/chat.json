@@ -33,7 +33,16 @@
     "agent": "Agent",
     "agentHelp": "Dieser Chat läuft mit dem Agenten {{name}}: mit seinen Anweisungen und nur den Werkzeugen, die er erlaubt.",
     "editAgent": "Agent bearbeiten",
-    "deleteHelp": "Diesen Chat und seine Nachrichten endgültig löschen."
+    "deleteHelp": "Diesen Chat und seine Nachrichten endgültig löschen.",
+    "sliderOf": "{{name}}-Regler",
+    "reset": "Standardwert des Modells für {{name}} verwenden",
+    "hint": {
+      "temperature": "Höhere Werte geben abwechslungsreichere Antworten. Von 0 bis 2.",
+      "topP": "Wählt aus den wahrscheinlichsten Wörtern, die zusammen diesen Anteil ergeben. Über 0, bis 1.",
+      "topK": "Wählt aus so vielen der wahrscheinlichsten Wörter. Eine ganze Zahl, 0 oder mehr.",
+      "contextSize": "Von 512 bis 4194304 Token.",
+      "effort": "Gilt sofort, ab dem nächsten Beitrag."
+    }
   },
   "empty": {
     "manageTitle": "LocalAI per Chat verwalten",
@@ -311,6 +320,10 @@
       "desc": "Ein Ziel setzen, an dem der Chat selbstständig weiterarbeitet",
       "clearDesc": "Das Ziel entfernen",
       "resumeDesc": "Mit dem Ziel weitermachen"
+    },
+    "effort": {
+      "label": "Denkaufwand",
+      "desc": "Wie intensiv das Modell nachdenkt"
     }
   },
   "shortcuts": {
@@ -756,5 +769,10 @@
   },
   "connection": {
     "lost": "Verbindung verloren. Verbindung wird neu aufgebaut."
+  },
+  "reasoning": {
+    "chip": "Aufwand",
+    "title": "Denkaufwand für diesen Chat",
+    "note": "Gilt ab dem nächsten Beitrag. „Kein“ bittet das Modell, nicht zu denken."
   }
 }

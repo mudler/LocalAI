@@ -3,13 +3,17 @@ import { addonPageAddress } from '../addons/addresses.js'
 
 // The page where a kind is managed: the page its add-on declares, else the
 // add-on's entry in the gallery.
-function kindPageHref(k) {
+export function kindPageHref(k) {
   return k.page ? addonPageAddress({ addon: k.addon, page: k.page }) : `/app/addons?detail=${encodeURIComponent(k.addon)}`
 }
 
 // An address opened on one binding.
 function withBinding(href, id) {
   return `${href}${href.includes('?') ? '&' : '?'}binding=${encodeURIComponent(id)}`
+}
+
+function withQuery(href, query) {
+  return `${href}${href.includes('?') ? '&' : '?'}${query}`
 }
 
 // Groups the bindings of the user by the connector add-on that serves them. A
@@ -21,6 +25,8 @@ export function groupConnectors(kinds, items) {
   const groups = (kinds || []).map((k) => ({
     key: `${k.addon}/${k.kind}`, addon: k.addon, kind: k.kind, title: k.title, description: k.description || '',
     href: kindPageHref(k),
+    // The page of the kind opened on its add sheet.
+    newHref: k.page ? withQuery(kindPageHref(k), 'new=1') : '',
     items: [],
   }))
   const waiting = []
@@ -85,4 +91,31 @@ export function bindingsOfAgent(agentId, kinds, items) {
       href: kind ? withBinding(kindPageHref(kind), c.id) : `/app/addons?detail=${encodeURIComponent(c.addon || c.kind)}`,
     }
   })
+}
+
+// The state of a binding in a list row: 'attention' when the host says its
+// add-on does not run, no token is saved, or it answers the same bot as another
+// connection; 'off' when the owner switched it off; else 'running'. A switched
+// off binding is off, except that one whose add-on does not run still says so.
+export function rowState(c) {
+  if (c.active === false) return 'attention'
+  if (c.enabled === false) return 'off'
+  if (c.has_token === false || duplicateOf(c)) return 'attention'
+  return 'running'
+}
+
+// The facts of a connection a person reads in a list or a pane: the agent that
+// answers, and who it accepts, as keys and counts for the translator. Nothing
+// here shows the raw kind or a raw id.
+export function connectionFacts(c, agents) {
+  const agent = (agents || []).find((a) => a.id === c.agent_id)
+  return { agentName: agent ? agent.name : '', accepts: acceptsOf(c) }
+}
+
+// The agent that answers and who it accepts, as words, for a connection row.
+// `t` is the translator of the add-ons namespace. Never the raw kind or an id.
+export function connectionLine(c, agents, t) {
+  const { agentName, accepts } = connectionFacts(c, agents)
+  const who = accepts.key === 'listed' ? t('connection.acceptsListed', { count: accepts.count }) : t(`connection.accepts.${accepts.key}`)
+  return { agentName, who }
 }

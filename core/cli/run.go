@@ -170,13 +170,14 @@ type RunCMD struct {
 	LegacyNavigation bool `env:"LOCALAI_LEGACY_NAVIGATION" default:"false" help:"Show the previous sidebar instead of Chat, Models, Add-ons and Settings with pinned add-ons" group:"ui"`
 
 	// LocalAI Assistant chat modality (in-process admin MCP server)
-	DisableLocalAIAssistant bool   `env:"LOCALAI_DISABLE_ASSISTANT" default:"false" help:"Disable the LocalAI Assistant chat modality (in-process admin MCP server)" group:"assistant"`
-	DisableSharedPages      bool   `env:"LOCALAI_DISABLE_SHARED_PAGES" default:"false" help:"Turn off the pages of shared folders (they can be switched on again in the runtime settings)" group:"assistant"`
-	ChatsHostExec           string `env:"LOCALAI_CHATS_HOST_EXEC" default:"" enum:",off,ask,on" help:"Who gets the chats' built-in bash, which runs commands on this machine with no isolation and with its network: off, ask (administrators, who allow each command) or on. Empty: off with accounts, ask without. An add-on that runs commands in isolation replaces it" group:"assistant"`
-	ChatsAutoResume         bool   `env:"LOCALAI_CHATS_AUTO_RESUME" default:"false" help:"Go on by itself with a chat turn that a restart interrupted: up to 3 tries, after 15 seconds, 1 minute and 5 minutes, and only within 30 minutes of the interruption. Off: a person, or the page, resumes it" group:"assistant"`
+	DisableSharedPages bool   `env:"LOCALAI_DISABLE_SHARED_PAGES" default:"false" help:"Turn off the pages of shared folders (they can be switched on again in the runtime settings)" group:"assistant"`
+	ChatsHostExec      string `env:"LOCALAI_CHATS_HOST_EXEC" default:"" enum:",off,ask,on" help:"Who gets the chats' built-in bash, which runs commands on this machine with no isolation and with its network: off, ask (administrators, who allow each command) or on. Empty: off with accounts, ask without. An add-on that runs commands in isolation replaces it" group:"assistant"`
+	ChatsAutoResume    bool   `env:"LOCALAI_CHATS_AUTO_RESUME" default:"false" help:"Go on by itself with a chat turn that a restart interrupted: up to 3 tries, after 15 seconds, 1 minute and 5 minutes, and only within 30 minutes of the interruption. Off: a person, or the page, resumes it" group:"assistant"`
 
 	// Removed agent, job and skill options: accepted and ignored.
 	RemovedAgentOptions `embed:""`
+	// The removed LocalAI Assistant switch: accepted, ignored, and warned about.
+	RemovedAssistantOptions `embed:""`
 
 	// Chats: the chats API, saved agents, triggers, connectors and agent jobs
 	DisableChats             bool          `env:"LOCALAI_DISABLE_CHATS" default:"false" help:"Turn off the chats: the /api/chats API, saved agents, triggers, connectors and the agent tasks and jobs. Nothing of them starts" group:"chats"`
@@ -323,6 +324,7 @@ func (r *RunCMD) normalizeDataPath() {
 func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	warnDeprecatedFlags()
 	r.RemovedAgentOptions.warn()
+	r.RemovedAssistantOptions.warn()
 	r.resolveLegacyCollections()
 	r.normalizeDataPath()
 
@@ -692,6 +694,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 
 	// Chats
+	if r.RemovedAssistantOptions.DisableLocalAIAssistant {
+		opts = append(opts, config.DisableLocalAIAdminByDeprecatedOption)
+	}
 	if r.DisableChats {
 		opts = append(opts, config.DisableChats)
 	}
@@ -725,9 +730,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	if r.LegacyNavigation {
 		opts = append(opts, config.WithLegacyNavigation(true))
-	}
-	if r.DisableLocalAIAssistant {
-		opts = append(opts, config.WithDisableLocalAIAssistant(true))
 	}
 	if r.DisableSharedPages {
 		opts = append(opts, config.WithDisableSharedPages(true))

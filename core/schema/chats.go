@@ -751,7 +751,9 @@ type ChatsFile struct {
 	// caller asked for, and Path is where the new content went.
 	ConflictOf string `json:"conflict_of,omitempty"`
 	// Managed is set on a path LocalAI manages: "localai" for the LocalAI
-	// folder and the settings files in it, "chats" for the Chats folder.
+	// folder and the settings files in it, and for the folders LocalAI creates
+	// itself "chats" (Chats), "memory" (Memory), "pages" (pages) and "skills"
+	// (.skills). Other values may be added; a client treats any value as managed.
 	Managed string `json:"managed,omitempty"`
 	// Modified is when the entry last changed. A folder listing sets it.
 	Modified *time.Time `json:"modified,omitempty"`
@@ -1907,7 +1909,15 @@ type ChatsConnectorKind struct {
 	Language             string `json:"language,omitempty"`
 	LocalizedTitle       string `json:"localized_title,omitempty"`
 	LocalizedDescription string `json:"localized_description,omitempty"`
-	SenderHint           string `json:"sender_hint,omitempty"`
+	// Setup says in one short phrase what a binding of this kind needs from
+	// the person before it works, such as "a bot token from @BotFather". It
+	// is English plain text and absent when the add-on declares none. Setups
+	// carries the translations by language tag; LocalizedSetup follows the
+	// rule of LocalizedTitle and is absent when the kind has no setup text.
+	Setup          string            `json:"setup,omitempty"`
+	Setups         map[string]string `json:"setups,omitempty"`
+	LocalizedSetup string            `json:"localized_setup,omitempty"`
+	SenderHint     string            `json:"sender_hint,omitempty"`
 	// Page is the add-on page that adds and edits bindings of this kind.
 	Page string `json:"page,omitempty"`
 	// AgentOptional is true when a binding of this kind may have no agent. It
@@ -2254,6 +2264,10 @@ type ChatsBuiltinGroup struct {
 	Provider string `json:"provider" example:"builtin"`
 	// Providers says who serves each tool, by tool name.
 	Providers map[string]string `json:"providers" example:"web_search:builtin"`
+	// Deferred is true when the chat loads the tools of the group on demand:
+	// the model sees tool_search, tool_describe and tool_call in their place
+	// (see the setting chats_tool_search).
+	Deferred bool `json:"deferred,omitempty"`
 	// Title and Description say what the group is and what the model can do
 	// when its switch is on; WhenOff says what it cannot do when it is off.
 	// They are English; the interface may translate them by group.

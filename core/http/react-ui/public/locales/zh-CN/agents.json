@@ -843,5 +843,86 @@
     "blank": {
       "description": "空白。从头开始。"
     }
+  },
+  "wizard": {
+    "title": "新建智能体",
+    "supporting": "四个简短步骤。只需填写名称和指令。",
+    "stepsLabel": "步骤",
+    "back": "返回",
+    "next": "继续",
+    "defaultTools": "默认工具",
+    "step": {
+      "purpose": "用途",
+      "abilities": "能力",
+      "where": "工作位置",
+      "review": "检查"
+    },
+    "purpose": {
+      "title": "这个智能体用来做什么？",
+      "lead": "从模板开始，或自己写。之后都可以修改。",
+      "needs": "需要名称和指令才能继续。",
+      "modelLine": "模型：每次聊天时由你选择。",
+      "modelChoose": "选择固定模型",
+      "modelEach": "每次聊天时由我选择"
+    },
+    "abilities": {
+      "title": "它可以自主做多少事？",
+      "lead": "不确定？保持原样：智能体使用默认工具。或者选择一个级别来替换它们。",
+      "defaultNote": "尚未选择级别。智能体使用默认工具。",
+      "files": "它可以查看你的哪些文件？",
+      "fine": "逐项调整工具",
+      "templateHint": "此模板建议使用“{{level}}”级别。",
+      "templateUse": "使用{{level}}"
+    },
+    "where": {
+      "title": "它应该在哪里工作？",
+      "lead": "可选。选择这个智能体工作的地方。目前不会连接任何应用。",
+      "chat": "聊天应用",
+      "chatLead": "人们可以与此智能体对话的应用。",
+      "tools": "工具与服务",
+      "toolsLead": "为它增加新能力的插件。",
+      "notInstalled": "未安装",
+      "generic": "完成 {{title}} 的设置",
+      "loading": "正在查找应用",
+      "empty": "暂时没有可用的应用。",
+      "note": "选择应用不会连接它。创建智能体后，一份简短清单会带你完成每个应用的设置。",
+      "find": "查找插件"
+    },
+    "review": {
+      "title": "可以创建了",
+      "lead": "检查摘要。之后都可以修改。",
+      "named": "已有名称和指令",
+      "tools": "工具：{{level}}",
+      "modelFixed": "模型：{{model}}",
+      "modelEach": "模型：每次聊天时由你选择",
+      "apps": "创建后需要完成设置的应用：{{count}}",
+      "filesTitle": "它可以查看你的所有文件。",
+      "filesBody": "你在“文件”中能打开的内容，此智能体都能读取。你可以将其限制在某些文件夹。",
+      "limit": "限制为文件夹",
+      "setupNext": "创建智能体后，其页面会列出所选应用的设置步骤。"
+    },
+    "rail": {
+      "title": "你的智能体",
+      "unnamed": "未命名",
+      "abilities": "能力",
+      "modelEach": "每次聊天时选择",
+      "files": "文件",
+      "folders": "仅所选文件夹（{{count}}）",
+      "works": "工作位置",
+      "thisApp": "此应用"
+    }
+  },
+  "setup": {
+    "title": "完成设置",
+    "count": "已完成 {{done}}/{{total}}",
+    "dismiss": "隐藏",
+    "progress": "设置进度",
+    "done": "完成",
+    "stays": "在所有应用完成或你将其隐藏之前，此清单会一直显示在本页。",
+    "connect": "新建连接",
+    "account": "选择账户",
+    "turnOn": "开启",
+    "find": "在插件中查看",
+    "actionFor": "{{action}}：{{title}}"
   }
 }

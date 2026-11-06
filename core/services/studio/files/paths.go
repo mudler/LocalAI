@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 // Actor returns the actor that acts for a user. Every user is in the
@@ -59,18 +61,29 @@ func (s *Service) Rel(principal, abs string) string {
 const (
 	ManagedSettings = "localai" // LocalAI/ and the settings files in it
 	ManagedChats    = "chats"   // Chats/, one folder per chat
+	ManagedMemory   = "memory"  // Memory/, the memory notes
+	ManagedPages    = "pages"   // pages/, one folder per page
+	ManagedSkills   = "skills"  // .skills/, one folder per personal skill
 )
 
 // Managed says whether LocalAI manages a path inside the home: ManagedSettings
-// for LocalAI/ and what is in it, ManagedChats for the Chats folder itself,
-// and "" for the user's own files. The Files page marks these paths and asks
-// before they are deleted or moved.
+// for LocalAI/ and what is in it, and for the folders Chats/, Memory/, pages/
+// and .skills/ themselves (not what is in them) ManagedChats, ManagedMemory,
+// ManagedPages and ManagedSkills. It says "" for the user's own files. The
+// Files page marks these paths and asks before the settings are deleted or
+// moved. It only describes: it never refuses an operation.
 func Managed(rel string) string {
 	switch {
 	case rel == "/"+session.SettingsDir || strings.HasPrefix(rel, "/"+session.SettingsDir+"/"):
 		return ManagedSettings
 	case rel == "/"+session.ChatsDir:
 		return ManagedChats
+	case rel == "/"+session.MemoryDir:
+		return ManagedMemory
+	case rel == "/"+workfiles.PagesDir:
+		return ManagedPages
+	case rel == "/"+skills.SkillsDir:
+		return ManagedSkills
 	}
 	return ""
 }

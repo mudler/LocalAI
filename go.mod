@@ -42,11 +42,11 @@ require (
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.5.0
-	github.com/mudler/cogito v0.11.1-0.20261102210640-d6e79113568b
+	github.com/mudler/cogito v0.11.1-0.20261106211749-0fc4e5761794
 	github.com/mudler/edgevpn v0.34.0
 	github.com/mudler/go-processmanager v0.1.2-0.20260823202314-dfa0ed852db6
 	github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8
-	github.com/mudler/nib v0.15.3-0.20261106162616-4825c9efabb3
+	github.com/mudler/nib v0.15.3-0.20261106212148-c41fec8c69b8
 	github.com/mudler/xlog v0.0.6
 	github.com/nats-io/jwt/v2 v2.7.4
 	github.com/nats-io/nats.go v1.52.0

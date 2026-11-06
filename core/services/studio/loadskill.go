@@ -149,7 +149,7 @@ func (s *Service) loadableSkillsAndNotesForActor(ctx context.Context, a workspac
 	if final != nil && !*final {
 		command = Commands{State: CommandsNone}
 	}
-	list, notes, _, err := s.chatSkillSet(ctx, a.Principal, s.memorySkillsOff(ctx, rec, sc, rec.SkillsOff), rec.AddonsOff, sc, command)
+	list, notes, _, err := s.chatSkillSet(ctx, a.Principal, s.skillsOffOf(ctx, rec, sc), rec.AddonsOff, sc, command)
 	if err != nil {
 		return nil, nil, err
 	}

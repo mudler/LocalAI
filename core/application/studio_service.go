@@ -144,6 +144,7 @@ func (a *Application) initStudioService() {
 		Push:               pusher,
 		AddonTools:         lateStudioAddons{a},
 		Assistant:          studioAssistant{a},
+		ClientTools:        studioAssistant{a},
 		Collections:        studioCollections{a},
 		ContextTokens:      a.studioContextTokens,
 		RemoteModel:        a.studioRemoteModel,
@@ -162,7 +163,7 @@ func (a *Application) initStudioService() {
 		AgentOptions:       a.studioAgentOptions,
 		Persistent:         a.studioStoreKind != "memory",
 		Files:              a.StudioFiles(),
-		Media:              media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel).WithVisionChooser(a.studioVisionModel),
+		Media:              media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel).WithVisionChooser(a.studioVisionModel).WithClient(a.studioMediaClient),
 		Web:                a.studioWeb,
 	}
 	if a.studioMCPConns != nil {
@@ -205,6 +206,9 @@ func (a *Application) initStudioService() {
 	}
 	deps.HostExecMode = a.studioHostExecMode
 	deps.SavedAgentsOn = func() bool { return !a.applicationConfig.DisableChatsSavedAgents }
+	deps.LocalAIClientOn = func() bool { return !a.applicationConfig.DisableChatsLocalAIClient }
+	deps.LocalAIAdminOn = func() bool { return !a.applicationConfig.DisableChatsLocalAIAdmin }
+	deps.ToolSearchMode = a.applicationConfig.EffectiveChatsToolSearch
 	deps.WorkFolderOn = func() bool { return !a.applicationConfig.DisableChatsWorkFolder }
 	deps.GoalLimits = func() (int, int) {
 		return a.applicationConfig.EffectiveChatsGoalMaxTurns(), a.applicationConfig.EffectiveChatsGoalMaxSteps()
@@ -333,7 +337,7 @@ func (a *Application) everyStudioTick(ctx context.Context, f func()) {
 
 // studioUsers returns the user lookup, or nil when auth is off.
 func (a *Application) studioUsers() studio.UserLookup {
-	if a.authDB == nil && len(a.applicationConfig.ApiKeys) == 0 {
+	if !a.AuthActive() {
 		return nil
 	}
 	return a.loadStudioUser

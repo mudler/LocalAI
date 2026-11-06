@@ -20,9 +20,13 @@ platform's API is spoken by an add-on that declares the `connector` capability (
 from the add-on gallery, and its page adds and edits the bindings of its platform.
 
 The Connectors page groups your bindings by add-on and links each group to the
-add-on's own page. With no connector add-on installed, the page says so and links
+add-on's own page. Each row has a state chip (**Running**, **Off** or **Needs attention**), the
+agent and who may write to it, and a switch that applies at once. **New connection** lists the installed
+platforms and opens the add form of the one you pick. With no connector add-on installed, the page says so and links
 to the gallery. `GET /api/chats/connectors/kinds` lists the platforms that a running
-add-on serves.
+add-on serves. A kind whose add-on declares a setup text also has `setup`, a short phrase
+such as "a bot token from @BotFather" that says what the person needs before a connection
+works (see [Setup text]({{%relref "features/addons#setup-text" %}})).
 
 A binding names the add-on that serves it. A binding made before connectors became
 add-ons names none, and belongs to the add-on of its kind: a Telegram binding keeps
@@ -68,6 +72,16 @@ a transport failure, since the platform may already have received it.
 Telegram's legacy binding resolution remains compatible with existing bindings.
 It is not a fallback for discovering other connector kinds or for owner outages.
 
+### The page of a connector add-on
+
+The page of a connector add-on (Telegram, Slack, Discord, GitHub and the others) looks like the MCP connectors page:
+
+- A **row** for each connection has a letter tile, the name, a state chip, one line of facts (the service, the agent and who may write to it), a **Test** button, a switch that turns it on or off at once, and a menu with **Edit** and **Delete**. A row that **Needs attention** shows why (no token saved, the add-on is not running, the same bot as another connection, or a failed test) and, when the cause is the token, a **Fix token** button in place of **Test**.
+- A click on a row opens a **pane** beside the list with the facts, the last test (kept in this browser, so it says "Not tested in this browser yet" until you test), the recent refusals and the senders of the bot, and **Remove**, **Edit** and **Test connection** at the foot.
+- **New** and **Edit** open a **side sheet** with one form in three sections: **Connection** (the name, the token, the agent and the fields of the add-on), **Who can talk to it** and **What it may do**. **Save and test** saves the connection and tests it at once. Closing the sheet over a change asks first.
+- **What it may do** has three presets. **Answer only** ticks no permission: the bot replies and nothing else. **Standard** ticks the usual set that the agent holds (what **Reset to the usual set** ticks) and never a sensitive permission. **Custom** shows the whole matrix of who can do what. A preset never turns on a sensitive permission. The replies, the files and the places the bot may post are behind **Replies, files and places**, and the check of what the form will do is behind **Check what it will do**.
+- The address `?new=1&agent=<agent id>` opens the add form at once, with that agent chosen and shown as fixed text. `?binding=<id>` opens the settings of that connection with its permissions in view.
+
 ## Telegram
 
 The Telegram add-on binds a bot to one of your [saved agents](/features/chats-agents/).
@@ -75,6 +89,10 @@ A person who messages the bot talks to that agent, in a conversation of their
 own, and the answer comes back in Telegram. The conversation is a
 [chat](/features/chats/) of yours: it uses your quota and your model allowlist,
 and you can open it in LocalAI.
+
+### LocalAI tools in a messaging chat
+
+The [LocalAI client tools]({{% relref "features/localai-assistant#tool-groups" %}}) (images, speech, transcription and so on) work in a messaging chat by default, within the permissions and model allowlist of the agent's owner. An agent can switch the group off with `localai_client` in `builtins_off`. The admin group is never offered there, whatever the agent says: the person who writes to the bot may not be the owner. Three actions are refused in a messaging chat with a plain error, because they read or change data of the owner that the sender must not reach: `voice_profile` with `delete`, and `identify` of `voice` and `face` (they search the registry of known people). `voice_profile` with `create` is refused too, because the person who confirms that the speaker agreed does it in Studio, not in a messaging chat.
 
 ### Set up a binding
 
@@ -839,8 +857,8 @@ nobody. List chat IDs, user IDs or `@usernames`: numbers for Telegram, IDs such 
 addresses the bot in it.
 
 A message from anyone else is ignored: it is not answered, and the sender goes
-in the sender log with a count. Open **Senders** on the binding to see who tried,
-and use **Allow** to add a person to the allowlist.
+in the sender log with a count. Open the binding in the list: its pane shows **Senders**, who tried,
+and **Allow** adds a person to the allowlist.
 
 "Anyone who can message the bot" (`accept_any`) lets everyone use the agent. The
 server asks you to confirm it, because anyone who can find the bot can then use

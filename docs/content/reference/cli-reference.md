@@ -186,7 +186,6 @@ The collections service is the knowledge base that the chats search. The old
 | `--collections-max-chunking-size` | `400` | Maximum chunking size for documents | `$LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE` |
 | `--collections-chunk-overlap` | `0` | Chunk overlap for documents | `$LOCALAI_COLLECTIONS_CHUNK_OVERLAP` |
 | `--collections-db-path` | | Where the vector engine keeps its data | `$LOCALAI_COLLECTIONS_DB_PATH` |
-| `--disable-local-ai-assistant` | `false` | Turn the LocalAI Assistant chat modality off | `$LOCALAI_DISABLE_ASSISTANT` |
 
 `LOCALAI_DISABLE_AGENTS` is now a name for `LOCALAI_DISABLE_COLLECTIONS`; nothing
 switches the chats themselves off except the `chats` permission of each user.
@@ -235,6 +234,7 @@ See [Authentication & Authorization]({{%relref "features/authentication" %}}) fo
 | `--trigger-run-retention-days` | `30` | Days to keep finished trigger runs. `-1` keeps them forever | `$LOCALAI_TRIGGER_RUN_RETENTION_DAYS` |
 | `--mcp-ci-job-timeout` | `10m` | Longest an agent job may run | `$LOCALAI_MCP_CI_JOB_TIMEOUT` |
 | `--disable-agents` | `false` | Deprecated. Sets `--disable-chats` and `--disable-collections`, as the old agent pool switch did | `$LOCALAI_DISABLE_AGENTS` |
+| `--disable-local-ai-assistant` | `false` | Deprecated. A true value is mapped to `chats_localai_admin=false` (the admin tools off), with one warning at start. The flag wins over a stored `chats_localai_admin=true`, also after a settings change. Use `chats_localai_admin` in Settings > Tools | `$LOCALAI_DISABLE_ASSISTANT` |
 | `--distributed-chat-workers` | `false` | Distributed mode: send the turns of triggers, agent jobs and connector messages to chat workers. With no chat worker listening, the turn runs on the frontend | `$LOCALAI_DISTRIBUTED_CHAT_WORKERS` |
 | `--chat-worker` | `false` | Distributed mode: run this instance as a chat worker, which runs the turns that frontends send it and starts no triggers, connectors or jobs | `$LOCALAI_CHAT_WORKER` |
 | `--chat-worker-max-turns` | `32` | Distributed mode: on a chat worker, the most turns it runs at once. A start beyond it is refused and its run fails. `0` means no limit | `$LOCALAI_CHAT_WORKER_MAX_TURNS` |
@@ -359,7 +359,7 @@ LocalAI supports several subcommands beyond `run`:
 - `local-ai tts` - Convert text to speech
 - `local-ai sound-generation` - Generate audio files from text or audio
 - `local-ai transcript` - Convert audio to text
-- `local-ai mcp-server` - Run the LocalAI admin tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP)
+- `local-ai mcp-server` - Run the LocalAI admin and client tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP). `--files-dir` (`LOCALAI_MCP_FILES_DIR`) is the folder where the client tools read and write files; it has no default, and without it the client tools that read or write files are not registered. `--read-only` also leaves out the client tools that write files or make content (`generate_*`, `speak`, `embed`, `voice_profile` create and delete)
 - `local-ai worker` - Start a worker for distributed mode (generic, backend-agnostic)
 - `local-ai p2p-worker` - Run workers to distribute workload via p2p (llama.cpp-only)
 - `local-ai agent-worker` - Start a worker for distributed mode (serves MCP tool calls via NATS)

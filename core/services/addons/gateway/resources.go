@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -543,6 +544,44 @@ type resourceWire struct {
 	// Code and Detail type a refused undo.
 	Code   string `json:"code,omitempty"`
 	Detail string `json:"detail,omitempty"`
+	refusalWire
+}
+
+// refusalWire carries what the add-on said about an invalid-request refusal,
+// so a frontend that forwards the call to the owner shows the model the same
+// reason as the owner does. Reason is the short, printable class the owner
+// already bounded; Upstream and Hint are set when the service behind the
+// add-on refused. None holds a token or text the service sent.
+type refusalWire struct {
+	Reason   string `json:"reason,omitempty"`
+	Upstream int    `json:"upstream,omitempty"`
+	Hint     string `json:"hint,omitempty"`
+}
+
+// refusalWireOf reads the reason and the upstream refusal out of e.
+func refusalWireOf(e error) refusalWire {
+	var r *addonruntime.Refusal
+	if !errors.As(e, &r) {
+		return refusalWire{}
+	}
+	w := refusalWire{Reason: r.Reason}
+	if contract.ValidUpstreamStatus(r.Upstream) {
+		w.Upstream, w.Hint = r.Upstream, contract.CleanHint(r.Hint)
+	}
+	return w
+}
+
+// err is the invalid-request error that a frontend returns for w. The text is
+// bounded again here, because it crossed a wire.
+func (w refusalWire) err() error {
+	r := &addonruntime.Refusal{Status: http.StatusBadRequest, Reason: contract.CleanHint(w.Reason)}
+	if len(r.Reason) > 64 {
+		r.Reason = r.Reason[:64]
+	}
+	if contract.ValidUpstreamStatus(w.Upstream) {
+		r.Upstream, r.Hint = w.Upstream, contract.CleanHint(w.Hint)
+	}
+	return fmt.Errorf("%w: %w", ErrInvalidRequest, r)
 }
 
 const (
@@ -578,7 +617,7 @@ func resourceFailure(w http.ResponseWriter, call ResourceCall, id string, e erro
 	case errors.Is(e, ErrOperationConflict):
 		status, body.Type = http.StatusConflict, wireOpConflict
 	case errors.Is(e, ErrInvalidRequest):
-		status, body.Type = http.StatusBadRequest, wireInvalid
+		status, body.Type, body.refusalWire = http.StatusBadRequest, wireInvalid, refusalWireOf(e)
 	case errors.Is(e, ErrQuotaReached):
 		status, body.Type = http.StatusForbidden, wireQuota
 	case errors.Is(e, ErrNotSelected):
@@ -634,7 +673,7 @@ func resourceReplyError(r io.Reader, status int, id string) error {
 		case wireOpConflict:
 			return ErrOperationConflict
 		case wireInvalid:
-			return ErrInvalidRequest
+			return b.refusalWire.err()
 		case wireQuota:
 			return ErrQuotaReached
 		case wireNotSelected:

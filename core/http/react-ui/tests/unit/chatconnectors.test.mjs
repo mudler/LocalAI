@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { acceptsOf, bindingAddress, bindingsOfAgent, duplicateOf, groupConnectors } from '../../src/utils/chatConnectors.js'
+import { acceptsOf, bindingAddress, bindingsOfAgent, duplicateOf, groupConnectors, rowState } from '../../src/utils/chatConnectors.js'
 
 const kinds = [{ addon: 'telegram', kind: 'telegram', title: 'Telegram', page: 'bot' }]
 
@@ -89,4 +89,19 @@ test('agent bindings: an agent with none, or no agent ID, gets an empty list', (
   assert.deepEqual(bindingsOfAgent('a1', agentKinds, []), [])
   assert.deepEqual(bindingsOfAgent('', agentKinds, [{ id: 'b1', agent_id: '' }]), [])
   assert.deepEqual(bindingsOfAgent('a1', null, null), [])
+})
+
+test('chat connectors: a kind with a declared page has an address that opens its add sheet, and one without has none', () => {
+  const { groups } = groupConnectors([...kinds, { addon: 'slack', kind: 'slack', title: 'Slack' }], [])
+  assert.equal(groups[0].newHref, '/app/addons/telegram/bot?new=1')
+  assert.equal(groups[1].newHref, '')
+})
+
+test('chat connectors: a row is running, off or needs attention', () => {
+  const ok = { id: 'b', enabled: true, active: true, has_token: true }
+  assert.equal(rowState(ok), 'running')
+  assert.equal(rowState({ ...ok, enabled: false }), 'off')
+  assert.equal(rowState({ ...ok, has_token: false }), 'attention')
+  assert.equal(rowState({ ...ok, duplicate: { others: [{ id: 'c', name: 'C' }] } }), 'attention')
+  assert.equal(rowState({ ...ok, active: false, enabled: false, reason: 'install it' }), 'attention')
 })

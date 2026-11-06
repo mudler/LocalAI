@@ -460,7 +460,16 @@
     "marker": "由 LocalAI 管理",
     "about": {
       "localai": "LocalAI 读取的设置：角色、个人资料、快捷方式、主页、主题。",
-      "chats": "每个对话一个文件夹，存放该对话的文件。"
+      "chats": "每个对话一个文件夹，存放该对话的文件。",
+      "memory": "助手保存的关于你的笔记。",
+      "pages": "你工作区中的页面。",
+      "skills": "智能体使用的技能。",
+      "other": "由 LocalAI 创建并使用。"
+    },
+    "open": {
+      "memory": "打开记忆",
+      "pages": "打开页面",
+      "skills": "打开技能"
     },
     "confirm": {
       "deleteTitle": "将 {{name}} 移到回收站？",

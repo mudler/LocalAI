@@ -313,10 +313,11 @@ stop it. Type `/loop` in the message box, or use the API.
   `match` (a regular expression) or `json_equals` (a JSON field equals a
   value). The first check sets a baseline and never wakes the model; an error
   is not a change. The model wakes when the condition holds, when the source
-  fails `max_errors` checks in a row (3 by default), or at the `timeout` (1
+  fails `max_errors` checks in a row (3 by default), or at the timeout (`timeout_seconds`; 1
   hour by default, 24 hours at most). Failure and timeout wake it too, and the
   wake-up text says plainly that the condition was *not* met. The check
-  interval is at least the loop minimum. A wait is listed with the loops (the
+  interval (`interval_seconds`) is at least the loop minimum. The tool is nib's
+  own `wait_for`, answered by the server; it takes no `script`. A wait is listed with the loops (the
   API gives it `kind: "wait"`), counts against the same limits, and you stop it
   like a loop. A sub-agent that arms a wait stays running until it ends, as with
   a loop.
@@ -327,7 +328,7 @@ stop it. Type `/loop` in the message box, or use the API.
   removed with a short note to the model.
 - **Waiting for sub-agents: `wait_agents`.** A chat that started background
   sub-agents can wait for them with `ids` (empty: all that run now) and a mode,
-  `all` or `any_failed_or_all`. The wait is bounded by `timeout` (30 seconds by
+  `all` or `any_failed_or_all`. The wait is bounded by `timeout_seconds` (30 seconds by
   default, from 10 seconds to 10 minutes); at the timeout the tool returns the
   current statuses and the sub-agents keep running. An unknown id is reported
   at once. `spawn_agent` with `wait` set to true returns after at most two
@@ -441,6 +442,19 @@ curl -X PATCH .../api/chats/3f1c... -H 'Content-Type: application/json' -d '{
   decides to compact the conversation. It does not reload the model.
 - A new `title` (1 to 80 characters) or `model` needs a chat with no turn running (409 otherwise).
   The history stays when the model changes.
+
+In the web UI, the **Effort** chip in the message box (next to Tools and
+Skills, on the chat page and on the Home page) and the chat settings sheet (`/settings`, or the sliders icon in the
+chat header) show and change the same `reasoning_effort`. The chip and the
+effort buttons in the sheet apply at once. In the sheet, temperature, top P and
+top K are sliders with a number box and a reset button; an empty value means
+the model's own default. The sliders cover 0 to 2 (temperature), above 0 to 1
+(top P) and 0 to 200 (top K). You can type a larger top K in the box. These
+values and the system prompt and context size are sent when you press **Save
+settings**. `reasoning_effort` `none` asks the model not to think.
+
+A level picked on the Home page is saved to the new chat when it is created,
+before the first message is sent, and the chat page opens with it.
 
 ### Context meter and speed
 
@@ -1335,6 +1349,7 @@ and `/model ` the chat models, `/loop stop ` the loops of the chat.
 | `/model`, `/models` | Open the model list; with a name, switch to that model. |
 | `/new`, `/chats` | Start a new chat, or open the list of your chats. |
 | `/find`, `/settings`, `/export`, `/delete` | Search this chat, open its settings, download it as Markdown, delete it. |
+| `/effort` | Open the reasoning effort menu of this chat. |
 | `/<skill>`, `/skill <name>` | Run the message with one of the skills of this chat (see below). |
 | `/skills` | Open the Skills page, where you write and manage skills (see [Skills](#skills)). |
 | `/agent <name> <task>` | Hand the task to one of your saved agents (see below). |
@@ -1455,17 +1470,26 @@ it off, so a chat that never touches the menu works as before:
 | **Your files** | `files` | `list_files`, `read_file`, `write_file`, `edit_file`, `move_file`, `delete_file`, `search_files` and `read_document` |
 | **Web** | `web` | `web_search` and `web_fetch` |
 | **Images and audio** | `media` | `describe_image` and `transcribe_audio` |
+| **LocalAI client** | `localai_client` | The inference tools of the [LocalAI Assistant]({{% relref "features/localai-assistant#tool-groups" %}}): `generate_image`, `speak`, `embed`, `voice_profile` and more. Each one is offered only when your account has its feature and an installed model can serve it. Saving a voice with `voice_profile` shows a card where you confirm that the speaker agreed; nothing is saved before |
 | **Knowledge** | `collections` | `list_collections` and `search_collection` |
 | **Sub-agents** | `subagents` | `spawn_agent` |
 | **Saved agents** | `saved_agents` | `list_agents` and the `agent` argument of `spawn_agent` (opt-in) |
 | **Past chats** | `history` | `search_chats` and `read_chat` (opt-in; see [Past chats](#past-chats)) |
 | **Triggers** | `triggers` | `propose_trigger`, `list_triggers`, `update_trigger` and `delete_trigger` |
 | **Memory** | `memory` | Your notes: the model reads them before it answers and may save new ones (see [Memory](/features/short-memory/)). Switch it off to make the chat private: it neither reads nor saves memory |
+| **LocalAI admin** | `localai_admin` | The tools that manage this server (administrators only, opt-in; see [LocalAI Assistant]({{% relref "features/localai-assistant#tool-groups" %}})). A chat in assistant mode has it on. It is never offered in a messaging chat or a run that starts by itself, whatever the agent switches on |
 | **Suggested changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your notes, an agent profile, a skill, a page or the dashboard, and you confirm (see [change proposals](/features/addons/#change-proposals-from-chats)); for memory notes only, you can choose in your account settings to have them saved at once with an Undo, or never (see [Memory](/features/short-memory/#choose-how-a-note-is-saved)) |
 
 ```bash
 curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web","files"]}'
 ```
+
+The two LocalAI groups are large, so on a small context window a chat may not send
+them in full: it sends `tool_search`, `tool_describe` and `tool_call` instead, and the
+model finds and runs their tools through them, under the same permissions. The setting
+`chats_tool_search` (`auto`, `on` or `off`) decides; see
+[Tool search]({{% relref "features/localai-assistant#tool-search" %}}). The tools panel marks
+such a group with `"deferred":true`.
 
 `off` replaces the earlier list, and a name that is not a group is refused
 (400). A group the server does not offer is not listed: **Your files** and
@@ -1627,7 +1651,9 @@ The **Skills** page lists them by layer and edits personal skills, and the **Ski
 
 A chat stores the skills that are **off**, not the skills that are on. So **Select all** sends an empty list, **Disable all** sends the ids of every skill in the list, and a skill you add later is on in every chat, also in a chat where you chose **Disable all**. The menu says so under its title.
 
-The server ships three built-in skills: `writing-skills`, `localai-workspace`, and `localai-apps`.
+The server ships these built-in skills: `writing-skills`, `localai-workspace`, `localai-apps` and `localai`.
+`localai` teaches the model the [LocalAI client tools]({{% relref "features/localai-assistant#client-tools" %}}): when to use each one, how to clone a voice and what to say when a model is missing or a permission is refused. A chat lists it only while it has the **LocalAI client** group, so it costs nothing when the group is off. An add-on cannot replace it, as for the other skills that describe LocalAI itself.
+An administrator's chat that has the **LocalAI admin** group also lists one skill per admin recipe, named `localai-admin-<recipe>`, such as `localai-admin-install-chat-model`. Nobody else sees them. See [the prompt and the recipes]({{% relref "features/localai-assistant#the-prompt-and-the-recipes" %}}).
 `localai-workspace` describes changes to your persona, profile, shortcuts, Home widgets, and theme;
 see [Make LocalAI yours](/features/make-localai-yours/).
 `localai-apps` describes how to build an app, tracker, or tool as a [Page]({{%relref "features/pages" %}}).
@@ -2002,8 +2028,8 @@ An admin can start a chat that has the tools to manage the instance (install
 models and backends, edit model configs, check status). It starts from the Home
 page with `/assistant`, or over the API with `assistant: true` in
 `POST /api/chats`. It is an ordinary chat in the list after that. Only that chat
-has the tools, never its sub-agents. The `localai_assistant_enabled` setting
-turns the feature on and off. See [LocalAI Assistant](/features/localai-assistant/).
+has the tools, never its sub-agents. The `chats_localai_admin` setting
+turns the admin tools off. See [LocalAI Assistant](/features/localai-assistant/).
 
 ## Chats in the web UI
 
