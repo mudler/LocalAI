@@ -385,5 +385,18 @@
   "who.post.verified": "Posts here only when a verified person asks.",
   "who.post.any": "Posts here when any allowed person asks.",
   "who.post.show": "Show the place",
-  "who.post.showFor": "Show the place for {{name}}"
+  "who.post.showFor": "Show the place for {{name}}",
+  "agentLink": "Open the agent {{name}}",
+  "saved.created": "Connection added.",
+  "saved.nothing": "Saved. Nothing changed.",
+  "saved.changed": "Saved. Changed: {{what}}.",
+  "saved.part.name": "name",
+  "saved.part.agent": "agent",
+  "saved.part.who": "who it accepts",
+  "saved.part.permissions": "permissions",
+  "saved.part.approval": "trigger approval and acts",
+  "saved.part.files": "file settings",
+  "saved.part.notify": "notifications",
+  "saved.dropped.title": "This connection no longer allows these acts, so the runs of these triggers lose them:",
+  "saved.dropped.item": "{{name}}: {{acts}}"
 }

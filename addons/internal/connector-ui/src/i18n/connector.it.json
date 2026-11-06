@@ -385,5 +385,18 @@
   "who.post.verified": "Scrive qui solo quando lo chiede una persona verificata.",
   "who.post.any": "Scrive qui quando lo chiede una persona consentita.",
   "who.post.show": "Mostra il posto",
-  "who.post.showFor": "Mostra il posto di {{name}}"
+  "who.post.showFor": "Mostra il posto di {{name}}",
+  "agentLink": "Apri l'agente {{name}}",
+  "saved.created": "Connessione aggiunta.",
+  "saved.nothing": "Salvato. Nessuna modifica.",
+  "saved.changed": "Salvato. Modificato: {{what}}.",
+  "saved.part.name": "nome",
+  "saved.part.agent": "agente",
+  "saved.part.who": "chi accetta",
+  "saved.part.permissions": "permessi",
+  "saved.part.approval": "approvazione e azioni dei trigger",
+  "saved.part.files": "impostazioni dei file",
+  "saved.part.notify": "notifiche",
+  "saved.dropped.title": "Questa connessione non permette più queste azioni, quindi le esecuzioni di questi trigger le perdono:",
+  "saved.dropped.item": "{{name}}: {{acts}}"
 }

@@ -1,6 +1,17 @@
 // Helpers of the connectors page. No React, so a node test drives them.
 import { addonPageAddress } from '../addons/addresses.js'
 
+// The page where a kind is managed: the page its add-on declares, else the
+// add-on's entry in the gallery.
+function kindPageHref(k) {
+  return k.page ? addonPageAddress({ addon: k.addon, page: k.page }) : `/app/addons?detail=${encodeURIComponent(k.addon)}`
+}
+
+// An address opened on one binding.
+function withBinding(href, id) {
+  return `${href}${href.includes('?') ? '&' : '?'}binding=${encodeURIComponent(id)}`
+}
+
 // Groups the bindings of the user by the connector add-on that serves them. A
 // kind that a running add-on serves gets a group with the address of the
 // add-on's own page, where bindings are added and edited. A binding whose kind
@@ -9,7 +20,7 @@ import { addonPageAddress } from '../addons/addresses.js'
 export function groupConnectors(kinds, items) {
   const groups = (kinds || []).map((k) => ({
     key: `${k.addon}/${k.kind}`, addon: k.addon, kind: k.kind, title: k.title, description: k.description || '',
-    href: k.page ? addonPageAddress({ addon: k.addon, page: k.page }) : `/app/addons?detail=${encodeURIComponent(k.addon)}`,
+    href: kindPageHref(k),
     items: [],
   }))
   const waiting = []
@@ -38,7 +49,20 @@ export function duplicateOf(c) {
 // groups come from groupConnectors; '' when no running add-on serves the kind.
 export function bindingAddress(groups, c, id) {
   const href = (groups || []).find((g) => g.kind === c.kind && g.addon === c.addon)?.href
-  return href ? `${href}${href.includes('?') ? '&' : '?'}binding=${encodeURIComponent(id)}` : ''
+  return href ? withBinding(href, id) : ''
+}
+
+// The running add-on kind that serves a binding, or undefined. A binding names
+// its add-on; one that does not (an older record) matches on the kind alone.
+export function kindOfBinding(kinds, c) {
+  return (kinds || []).find((k) => k.kind === c.kind && (!c.addon || k.addon === c.addon))
+}
+
+// The bindings that answer as one agent, each with the kind that serves it:
+// [{ c, kind }]. Both the agent page and the Tools list of the agent start here.
+export function bindingsWithKind(agentId, kinds, items) {
+  if (!agentId) return []
+  return (items || []).filter((c) => c.agent_id === agentId).map((c) => ({ c, kind: kindOfBinding(kinds, c) }))
 }
 
 // The bindings that answer as one agent, for the agent's page. Each row has the
@@ -48,20 +72,17 @@ export function bindingAddress(groups, c, id) {
 // answers the same bot twice, 'off' when the owner switched it off, else 'ok';
 // reason is the host's words for 'attention', when it gave any.
 export function bindingsOfAgent(agentId, kinds, items) {
-  if (!agentId) return []
-  const { groups } = groupConnectors(kinds, items)
-  return (items || []).filter((c) => c.agent_id === agentId).map((c) => {
-    const group = groups.find((g) => g.kind === c.kind && g.addon === c.addon)
+  return bindingsWithKind(agentId, kinds, items).map(({ c, kind }) => {
     const attention = c.active === false || !!duplicateOf(c)
     return {
       id: c.id,
       name: c.name,
-      kindTitle: group?.title || c.kind,
+      kindTitle: kind?.title || c.kind,
       state: attention ? 'attention' : c.enabled === false ? 'off' : 'ok',
       reason: c.active === false ? (c.reason || '') : '',
       // Without a running add-on there is no page to open; the gallery entry of
       // the add-on is the nearest place.
-      href: group ? bindingAddress(groups, c, c.id) : `/app/addons?detail=${encodeURIComponent(c.addon || c.kind)}`,
+      href: kind ? withBinding(kindPageHref(kind), c.id) : `/app/addons?detail=${encodeURIComponent(c.addon || c.kind)}`,
     }
   })
 }

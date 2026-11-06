@@ -21058,6 +21058,10 @@ const docTemplate = `{
                 "agent_id": {
                     "type": "string"
                 },
+                "binding": {
+                    "description": "Binding is the ID of the messaging connection that a trigger belongs to\nwhen it was made without asking under that connection's approval. Such a\ntrigger stays within the acts the connection allows. Empty otherwise.",
+                    "type": "string"
+                },
                 "cost": {
                     "$ref": "#/definitions/schema.ChatsTriggerCost"
                 },
@@ -26148,6 +26152,10 @@ const docTemplate = `{
                     }
                 },
                 "agent_id": {
+                    "type": "string"
+                },
+                "binding": {
+                    "description": "Binding is the ID of the messaging connection that a trigger belongs to\nwhen it was made without asking under that connection's approval. Such a\ntrigger stays within the acts the connection allows. Empty otherwise.",
                     "type": "string"
                 },
                 "cost": {

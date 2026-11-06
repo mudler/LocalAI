@@ -45,6 +45,9 @@ func triggerOut(ctx context.Context, host *studiosvc.Triggers, t triggers.Trigge
 		Acts: t.Acts}
 	av := host.ActsView(ctx, t)
 	out.ActsHeld, out.ReadOnly, out.ReadOnlyWhy = av.Held, av.ReadOnly, av.Why
+	if t.Route.Auto {
+		out.Binding = t.Route.Binding
+	}
 	d := host.DeliveryOf(ctx, t)
 	out.Delivery = schema.ChatsTriggerDelivery{Target: d.Target, ChannelLabel: d.ChannelLabel, InThread: d.InThread}
 	if t.Kind == triggers.KindFile {

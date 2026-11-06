@@ -385,5 +385,18 @@
   "who.post.verified": "Memposting di sini hanya saat orang terverifikasi meminta.",
   "who.post.any": "Memposting di sini saat orang yang diizinkan meminta.",
   "who.post.show": "Tampilkan tempatnya",
-  "who.post.showFor": "Tampilkan tempat untuk {{name}}"
+  "who.post.showFor": "Tampilkan tempat untuk {{name}}",
+  "agentLink": "Buka agen {{name}}",
+  "saved.created": "Koneksi ditambahkan.",
+  "saved.nothing": "Tersimpan. Tidak ada yang berubah.",
+  "saved.changed": "Tersimpan. Berubah: {{what}}.",
+  "saved.part.name": "nama",
+  "saved.part.agent": "agen",
+  "saved.part.who": "siapa yang diterima",
+  "saved.part.permissions": "izin",
+  "saved.part.approval": "persetujuan dan tindakan pemicu",
+  "saved.part.files": "pengaturan berkas",
+  "saved.part.notify": "notifikasi",
+  "saved.dropped.title": "Koneksi ini tidak lagi mengizinkan tindakan ini, sehingga eksekusi pemicu berikut kehilangannya:",
+  "saved.dropped.item": "{{name}}: {{acts}}"
 }

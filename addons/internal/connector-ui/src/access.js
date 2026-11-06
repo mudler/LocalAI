@@ -42,6 +42,43 @@ export function changedFields(form, saved) {
   return new Set(WATCHED.filter((k) => sorted(form, k) !== sorted(saved, k)))
 }
 
+// ---- What a save changed -------------------------------------------------
+
+// The parts of the form that a person knows by name, for the notice after a
+// save. Several fields can belong to one part.
+const CHANGE_PART = {
+  name: 'name', agent_id: 'agent', accept_any: 'who', allow: 'who', allow_trust: 'who', caps: 'permissions', grants: 'permissions',
+  approval: 'approval', send_files: 'files', file_receive_mib: 'files', file_send_mib: 'files', notify_chat: 'notify',
+}
+
+// The parts that a save changed, in a fixed order, as keys of saved.part.*.
+// With no saved binding (a new connection) the list is empty.
+export function changedParts(form, saved) {
+  if (!saved) return []
+  const fields = changedFields(form, saved)
+  if ((form.name || '').trim() !== (saved.name || '')) fields.add('name')
+  const parts = new Set([...fields].map((f) => CHANGE_PART[f]).filter(Boolean))
+  return Object.values(CHANGE_PART).filter((p, i, all) => all.indexOf(p) === i && parts.has(p))
+}
+
+// The acts that the approval of the saved binding allowed and the form no longer does.
+export function removedActs(saved, form) {
+  const now = form?.approval?.acts || []
+  return (saved?.approval?.acts || []).filter((n) => !now.includes(n))
+}
+
+// The triggers that a save leaves with fewer acts. A trigger made without
+// asking under a connection stays within the acts the connection allows (the
+// host decides this at each run), so a removed act that the trigger holds is
+// dropped from its runs. Gives [{ id, name, acts }] for the connection id.
+export function droppedActs(triggers, bindingId, removed) {
+  if (!bindingId || !removed?.length) return []
+  return (Array.isArray(triggers) ? triggers : [])
+    .filter((t) => t && t.binding === bindingId)
+    .map((t) => ({ id: t.id, name: t.name || t.id, acts: (t.acts || []).filter((n) => removed.includes(n)) }))
+    .filter((t) => t.acts.length > 0)
+}
+
 // ---- Fix routing ---------------------------------------------------------
 
 // What a person sees of the Tools of an agent: the editor of the agent.

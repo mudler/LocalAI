@@ -829,6 +829,53 @@ test.describe('Connector permissions', () => {
     await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.approval).toEqual({ mode: 'ask', acts: [], max_pending: 0, min_gap_minutes: 0, max_runs_per_day: 0, max_lifetime_days: 0 })
   })
 
+  test('a saved connection links back to its agent, and a connection with no agent shows no link', async ({ page }) => {
+    await api(page, [{ ...LEGACY, agent_id: 'a1' }]).install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const link = page.getByTestId('connector-agent-link')
+    await expect(link).toHaveText('Open the agent Support')
+    await expect(link).toHaveAttribute('href', '/app/agents/a1')
+    await shot(page, 'agent-link')
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    await api(page, [{ ...LEGACY, agent_id: '' }]).install()
+    await page.reload()
+    await page.getByRole('button', { name: 'Edit' }).click()
+    await expect(page.getByTestId('connector-form')).toBeVisible()
+    await expect(page.getByTestId('connector-agent-link')).toHaveCount(0)
+  })
+
+  test('a save says what it changed, and names the triggers that lose an act the connection no longer allows', async ({ page }) => {
+    const a = api(page, [{ ...LEGACY, agent_id: 'a4', caps: ['triggers.propose'], approval: { mode: 'auto', acts: ['act.files', 'act.addons'], max_pending: 3 } }])
+    await a.install()
+    await page.route('**/api/chats/triggers', r => r.fulfill({ json: { triggers: [
+      { id: 't1', name: 'Morning digest', binding: 'b1', acts: ['act.addons', 'act.files'] },
+      { id: 't2', name: 'Weekly sweep', binding: 'b1', acts: ['act.files'] },
+      { id: 't3', name: 'Other connection', binding: 'b2', acts: ['act.addons'] },
+      { id: 't4', name: 'Made by the owner', acts: ['act.addons'] },
+    ] } }))
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const row = await disclosure(page, 'triggers.propose')
+    await row.getByTestId('connector-act-check-act.addons').uncheck()
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByTestId('connector-saved')).toHaveText('Saved. Changed: trigger approval and acts.')
+    const dropped = page.getByTestId('connector-acts-dropped-item')
+    await expect(dropped).toHaveCount(1)
+    await expect(dropped).toHaveText('Morning digest: use add-ons')
+    await shot(page, 'save-notice-dropped')
+  })
+
+  test('a save that removes no act leaves the dropped notice out', async ({ page }) => {
+    await api(page, [{ ...LEGACY, agent_id: 'a4', caps: ['triggers.propose'], approval: { mode: 'ask', acts: [] } }]).install()
+    await page.route('**/api/chats/triggers', r => r.fulfill({ json: { triggers: [{ id: 't1', name: 'Morning digest', binding: 'b1', acts: ['act.addons'] }] } }))
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByTestId('connector-saved')).toHaveText('Saved. Nothing changed.')
+    await expect(page.getByTestId('connector-acts-dropped')).toHaveCount(0)
+  })
+
   test('Runs may act is greyed with the reason while Propose triggers is off', async ({ page }) => {
     await api(page, [{ ...LEGACY, agent_id: 'a4', caps: ['memory.write'], approval: { mode: 'ask', acts: ['act.files'] } }]).install()
     await page.goto(PAGE)
