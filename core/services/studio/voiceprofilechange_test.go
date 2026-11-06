@@ -130,6 +130,27 @@ var _ = Describe("the voice_profile tool and the consent of a person", func() {
 		}
 	})
 
+	It("refuses delete in a run that nobody watches, even with act.spend, and lets list run without it", func() {
+		unattendedRun := func(args string, grants ...string) (*localaiRig, string) {
+			r := newRig(args)
+			saved, err := r.svc.SaveAgent(ctx, "root", agents.Agent{Name: "Auto", Model: "m", Builtins: grants})
+			Expect(err).NotTo(HaveOccurred())
+			rec, err := r.svc.CreateAs(ctx, "root", studio.CreateInput{Model: "m", AgentID: saved.ID}, studio.Origin{Kind: session.OriginJob, ID: "x"})
+			Expect(err).NotTo(HaveOccurred())
+			r.turnNames("root", rec.ID)
+			res := r.h.ResultsFor(localaitools.ToolVoiceProfile)
+			Expect(res).To(HaveLen(1))
+			return r, res[0].Out
+		}
+		r, out := unattendedRun(`{"action":"delete","id":"p1"}`, builtins.GrantActSpend)
+		Expect(out).To(ContainSubstring("Not deleted"))
+		Expect(r.client.voiceCalls()).To(BeEmpty())
+
+		r, out = unattendedRun(`{"action":"list"}`)
+		Expect(out).NotTo(ContainSubstring("I did not run"))
+		Expect(r.client.voiceCalls()).To(Equal([]string{"plain-list"}))
+	})
+
 	It("refuses the create action in a messaging chat, where no one can confirm in Studio", func() {
 		r := newRig(createVoiceArgs)
 		saved, err := r.svc.SaveAgent(ctx, "root", agents.Agent{Name: "Bot", Model: "m"})
