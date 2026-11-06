@@ -398,5 +398,15 @@
   "saved.part.files": "文件设置",
   "saved.part.notify": "通知",
   "saved.dropped.title": "此连接不再允许这些操作，因此这些触发器的运行会失去它们：",
-  "saved.dropped.item": "{{name}}：{{acts}}"
+  "saved.dropped.item": "{{name}}：{{acts}}",
+  "share.label": "共享",
+  "share.button": "共享 {{name}}",
+  "share.intro": "你添加的人可以在自己的聊天和智能体中使用此连接。他们能看到它的名称和状态，但永远看不到令牌或设置。发给机器人的消息仍由你的智能体接收。",
+  "share.roleUse": "可以使用",
+  "share.roleUseHelp": "可以在自己的聊天和智能体中使用。无法查看令牌、修改或再次共享。",
+  "shared.title": "与你共享",
+  "shared.text": "其他人允许你在自己的聊天和智能体中使用这些连接。只有所有者可以修改它们。",
+  "shared.on": "监听中",
+  "shared.off": "已关闭",
+  "shared.by": "由 {{name}} 共享"
 }

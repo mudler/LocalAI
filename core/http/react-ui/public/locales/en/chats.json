@@ -337,6 +337,19 @@
       "text": "This bot is also connected as {{name}}. Both connections will answer the same message.",
       "turnOff": "Turn this one off",
       "open": "Open {{name}}"
+    },
+    "share": {
+      "label": "Share",
+      "button": "Share {{name}}",
+      "intro": "People you add can use this connection in their own chats and agents. They see its name and state, never its token or its settings. Messages to the bot still reach your agent.",
+      "roleUse": "Can use",
+      "roleUseHelp": "Can use it in their chats and agents. Cannot see the token, change it or share it."
+    },
+    "shared": {
+      "title": "Shared with you",
+      "text": "Other people let you use these connections in your chats and agents. Only their owner can change them.",
+      "on": "Listening",
+      "off": "Off"
     }
   },
   "conversionPage": {

@@ -14,7 +14,8 @@
   },
   "sections": {
     "yourCollections": "Le tue raccolte",
-    "otherUsersCollections": "Raccolte di altri utenti"
+    "otherUsersCollections": "Raccolte di altri utenti",
+    "sharedWithYou": "Condivise con te"
   },
   "empty": {
     "title": "Nessuna raccolta ancora",
@@ -42,7 +43,8 @@
   },
   "loadFailed": "Impossibile caricare le tue raccolte.",
   "sources": {
-    "loadFailed": "Impossibile caricare le fonti web."
+    "loadFailed": "Impossibile caricare le fonti web.",
+    "noneShared": "Nessuna fonte web."
   },
   "entries": {
     "loadFailed": "Impossibile caricare i file."
@@ -64,5 +66,22 @@
     "hybrid": "ibrida",
     "semanticHint": "Trova i passaggi per significato, non per parole o codici esatti.",
     "hybridHint": "Trova i passaggi per significato e per parole esatte."
+  },
+  "pane": {
+    "addFile": "Aggiungi file"
+  },
+  "share": {
+    "label": "Condividi",
+    "button": "Condividi {{name}}",
+    "intro": "Le persone che aggiungi trovano questa raccolta nel proprio elenco e i loro agenti possono cercarla per nome.",
+    "failed": "Impossibile condividere la raccolta: {{message}}",
+    "roles": {
+      "viewer": "Può vedere",
+      "viewerHelp": "Può cercarla e leggerne i file.",
+      "editor": "Può modificare",
+      "editorHelp": "Può anche aggiungere e rimuovere file."
+    },
+    "noteViewer": "Puoi cercarla e leggerne i file.",
+    "noteEditor": "Puoi cercarla e aggiungere o rimuovere file."
   }
 }

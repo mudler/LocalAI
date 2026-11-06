@@ -398,5 +398,15 @@
   "saved.part.files": "configurações de arquivos",
   "saved.part.notify": "notificações",
   "saved.dropped.title": "Esta conexão não permite mais estas ações, então as execuções destes gatilhos as perdem:",
-  "saved.dropped.item": "{{name}}: {{acts}}"
+  "saved.dropped.item": "{{name}}: {{acts}}",
+  "share.label": "Compartilhar",
+  "share.button": "Compartilhar {{name}}",
+  "share.intro": "As pessoas que você adicionar podem usar esta conexão nos próprios chats e agentes. Elas veem o nome e o estado, nunca o token nem as configurações. As mensagens para o bot continuam chegando ao seu agente.",
+  "share.roleUse": "Pode usar",
+  "share.roleUseHelp": "Pode usá-la nos próprios chats e agentes. Não pode ver o token, alterá-la nem compartilhá-la.",
+  "shared.title": "Compartilhadas com você",
+  "shared.text": "Outras pessoas deixam você usar estas conexões nos seus chats e agentes. Só o dono pode alterá-las.",
+  "shared.on": "Ouvindo",
+  "shared.off": "Desligada",
+  "shared.by": "Compartilhada por {{name}}"
 }

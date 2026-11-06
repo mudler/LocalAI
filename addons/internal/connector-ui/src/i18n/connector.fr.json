@@ -398,5 +398,15 @@
   "saved.part.files": "réglages des fichiers",
   "saved.part.notify": "notifications",
   "saved.dropped.title": "Cette connexion n'autorise plus ces actions, donc les exécutions de ces déclencheurs les perdent :",
-  "saved.dropped.item": "{{name}} : {{acts}}"
+  "saved.dropped.item": "{{name}} : {{acts}}",
+  "share.label": "Partager",
+  "share.button": "Partager {{name}}",
+  "share.intro": "Les personnes que vous ajoutez peuvent utiliser cette connexion dans leurs propres conversations et agents. Elles voient son nom et son état, jamais son jeton ni ses réglages. Les messages adressés au bot arrivent toujours à votre agent.",
+  "share.roleUse": "Peut utiliser",
+  "share.roleUseHelp": "Peut l'utiliser dans ses conversations et ses agents. Ne peut ni voir le jeton, ni la modifier, ni la partager.",
+  "shared.title": "Partagées avec vous",
+  "shared.text": "D'autres personnes vous permettent d'utiliser ces connexions dans vos conversations et vos agents. Seul leur propriétaire peut les modifier.",
+  "shared.on": "À l'écoute",
+  "shared.off": "Désactivée",
+  "shared.by": "Partagée par {{name}}"
 }

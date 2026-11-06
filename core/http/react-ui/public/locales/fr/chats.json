@@ -276,6 +276,19 @@
       "text": "Ce bot est aussi connecté sous le nom {{name}}. Les deux connexions répondront au même message.",
       "turnOff": "Désactiver celle-ci",
       "open": "Ouvrir {{name}}"
+    },
+    "share": {
+      "label": "Partager",
+      "button": "Partager {{name}}",
+      "intro": "Les personnes que vous ajoutez peuvent utiliser cette connexion dans leurs propres conversations et agents. Elles voient son nom et son état, jamais son jeton ni ses réglages. Les messages adressés au bot arrivent toujours à votre agent.",
+      "roleUse": "Peut utiliser",
+      "roleUseHelp": "Peut l'utiliser dans ses conversations et ses agents. Ne peut ni voir le jeton, ni la modifier, ni la partager."
+    },
+    "shared": {
+      "title": "Partagées avec vous",
+      "text": "D'autres personnes vous permettent d'utiliser ces connexions dans vos conversations et vos agents. Seul leur propriétaire peut les modifier.",
+      "on": "À l'écoute",
+      "off": "Désactivée"
     }
   },
   "tools": {

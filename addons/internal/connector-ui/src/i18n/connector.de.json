@@ -398,5 +398,15 @@
   "saved.part.files": "Dateieinstellungen",
   "saved.part.notify": "Benachrichtigungen",
   "saved.dropped.title": "Diese Verbindung erlaubt diese Aktionen nicht mehr, deshalb verlieren die Läufe dieser Trigger sie:",
-  "saved.dropped.item": "{{name}}: {{acts}}"
+  "saved.dropped.item": "{{name}}: {{acts}}",
+  "share.label": "Teilen",
+  "share.button": "{{name}} teilen",
+  "share.intro": "Personen, die du hinzufügst, können diese Verbindung in ihren eigenen Chats und Agenten nutzen. Sie sehen ihren Namen und Zustand, nie das Token oder die Einstellungen. Nachrichten an den Bot erreichen weiterhin deinen Agenten.",
+  "share.roleUse": "Darf nutzen",
+  "share.roleUseHelp": "Darf sie in eigenen Chats und Agenten nutzen. Kann das Token nicht sehen, sie nicht ändern und nicht teilen.",
+  "shared.title": "Mit dir geteilt",
+  "shared.text": "Andere Personen lassen dich diese Verbindungen in deinen Chats und Agenten nutzen. Nur die Eigentümer können sie ändern.",
+  "shared.on": "Hört zu",
+  "shared.off": "Aus",
+  "shared.by": "Geteilt von {{name}}"
 }
