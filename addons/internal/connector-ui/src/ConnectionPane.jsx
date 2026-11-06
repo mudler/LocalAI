@@ -18,7 +18,11 @@ const when = (at) => (at ? new Date(at).toLocaleString(pageLocale(), { dateStyle
 // The scope the add-on style sheet needs: the pane and the sheet draw in the
 // host's overlay layer, outside the root element of the add-on.
 export function AddonScope({ className = '', children }) {
-  return <div data-addon={getSdk().addonId} className={`cn-scope ${className}`.trim()}>{children}</div>
+  return (
+    <div data-addon={getSdk().addonId} className="cn-scope">
+      <div className={className || undefined}>{children}</div>
+    </div>
+  )
 }
 
 // The last refusals of the host for this connection: a few lines, newest first.

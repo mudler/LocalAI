@@ -73,8 +73,6 @@
 .cn-sheet__section { display: flex; flex-direction: column; gap: var(--dk-space-4); min-width: 0; }
 .cn-sheet__section + .cn-sheet__section { padding-top: var(--dk-space-5); border-top: 1px solid var(--dk-edge); }
 .cn-fixed { margin: 0; font-size: var(--fs-body); }
-.cn-cards--three { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; }
-@media (max-width: 640px) { .cn-cards--three { grid-template-columns: minmax(0, 1fr); } }
 .cn-card__words { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cn-card__desc { font-size: var(--fs-meta); line-height: var(--lh-meta); color: var(--dk-muted); }
 
@@ -139,6 +137,8 @@ fieldset.cn-group {
 .cn-card:hover { border-color: color-mix(in srgb, var(--dk-control-edge) 70%, var(--dk-text)); }
 .cn-card.is-on { border-color: var(--dk-accent); background: var(--dk-accent-wash); }
 .cn-card:has(:focus-visible) { outline: 2px solid var(--dk-accent); outline-offset: 2px; }
+.cn-cards--three { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; }
+@media (max-width: 640px) { .cn-cards--three { grid-template-columns: minmax(0, 1fr); } }
 
 /* A switch with its label and help. */
 .cn-switchrow { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); min-height: var(--ctl-h); font-size: var(--fs-body); }

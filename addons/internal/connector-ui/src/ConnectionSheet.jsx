@@ -66,10 +66,15 @@ export default function ConnectionSheet({ p }) {
   const [checkOpen, setCheckOpen] = useState(Boolean(p.openCheck))
 
   // "Fix token" opens the form on the token: the first password field, else the first field.
+  // The sheet opens on its first field, not on a fix button of the status panel.
   useEffect(() => {
-    if (!p.focusToken) return
-    const id = requestAnimationFrame(() => (bodyRef.current?.querySelector('input[type="password"]') || bodyRef.current?.querySelector('input'))?.focus())
+    const id = requestAnimationFrame(() => {
+      const form = bodyRef.current
+      const target = p.focusToken ? form?.querySelector('input[type="password"]') : null
+      ;(target || form?.querySelector('input:not([type="radio"]):not([type="checkbox"])'))?.focus()
+    })
     return () => cancelAnimationFrame(id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [p.focusToken])
   useEffect(() => {
     if (!p.scrollToPermissions) return
