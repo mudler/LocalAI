@@ -145,6 +145,38 @@ ID `@everyone` and no display name. The call is safe to repeat. If the answer is
 | 409 | `sharing_disabled` | The installation runs in local-owner mode, which has no named accounts to share with. |
 | 503 | `outcome_unknown` | A grant change may have run. Repeat the same call. |
 
+## Kinds of LocalAI itself
+
+LocalAI shares two kinds of its own resources with these routes. Their owners get
+the resource ID from the page of the resource, or from the route in the table.
+
+| Kind | What it is | Roles | `@everyone` | Feature | Resource ID from |
+|------|------------|-------|-------------|---------|------------------|
+| `connection` | A [connector binding]({{%relref "features/chats-connectors#sharing-a-connection" %}}) | `use` | No | `connectors` | `POST /api/chats/connectors/{id}/share` |
+| `collection` | A [collection]({{%relref "features/collections#sharing-a-collection" %}}) | `viewer`, `editor` | Yes | `collections` | `POST /api/collections/{name}/share` |
+
+- **`connection`**: `use` lets the person's chats and agents run the tools of the
+  binding's add-on with its credential. The person sees the name and the state of
+  the binding and never its token or settings; every other operation stays with the
+  owner and answers `404` to the person. Messages to the bot still reach the owner's
+  agent.
+- **`collection`**: `viewer` searches and reads, `editor` also adds and removes
+  entries. Sources, reset and sharing stay with the owner. The person finds a shared
+  collection by its name; their own collection of that name wins, and the shared one
+  is then named `shared:<resource ID>`.
+
+The binding and the collection stay where they are. A share is one record of the
+policy that names the binding ID or the collection name of its owner, so nothing is
+copied. Work that reads or sends through a shared resource is admitted work of that
+record: lowering or revoking cancels it as described above, and the next call gets
+the answer of a resource that does not exist. Deleting a binding drops its record
+after it revoked every grant.
+
+Admission needs the policy, which only the add-on owner holds. With several
+frontends, the shared bindings and collections are listed and used only through the
+owner process; the other frontends list none and report `sharing: false`. The calls
+through a shared binding always run on the owner, which holds the tokens.
+
 ## For service authors
 
 A service shares its resources by implementing `policy.KindProvider`
@@ -155,7 +187,11 @@ may receive a grant, whether `@everyone` is allowed, the feature a caller needs
 (`Feature`, empty for none), who may create a resource and how to check that the
 backing of a pending resource exists. The service then creates
 its resources with `Policy.CreateRef` and runs its work under `Policy.AdmitRef`, so
-that a lowering or a revocation cancels it. Package
+that a lowering or a revocation cancels it. A service that already names its
+resources keeps its names: `Policy.EnsureRef` makes the record of a name on its
+first share, `Policy.FindRef` and `Policy.LocalOf` look it up from either side, and
+`Policy.ForgetRef` drops it, after it revoked every grant, when the resource is
+deleted. Package
 `core/services/addons/policy/sharetest` is a complete example that only the tests
 use.
 
@@ -246,7 +282,8 @@ and `everyone`.
 
 ## Distributed mode
 
-The grants are stored only in the policy store of the add-on owner, the single
+The grants, and the records of the bindings and collections that LocalAI shares,
+are stored only in the policy store of the add-on owner, the single
 process that writes them. Frontends hold no copy and forward every call, so no
 frontend answers from stale state, and there is no per-instance behavior to
 configure. The kinds register on the owner when its policy opens.
