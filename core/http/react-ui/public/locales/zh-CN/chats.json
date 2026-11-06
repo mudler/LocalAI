@@ -352,6 +352,7 @@
       "localai_admin": "LocalAI 管理"
     },
     "builtinBy": "{{tools}} · 内置",
+    "onDemand": "按需加载",
     "builtinByAddon": "{{tools}} · 由 {{provider}} 提供",
     "servedBy": "由附加组件 {{provider}} 提供",
     "servedByTool": "{{tool}}: {{provider}}",

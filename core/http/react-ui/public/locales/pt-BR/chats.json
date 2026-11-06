@@ -352,6 +352,7 @@
       "localai_admin": "Administração do LocalAI"
     },
     "builtinBy": "{{tools}} · integradas",
+    "onDemand": "Carregado sob demanda",
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",
     "servedBy": "Servido pelo complemento {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",

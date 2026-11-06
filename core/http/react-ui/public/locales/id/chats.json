@@ -352,6 +352,7 @@
       "localai_admin": "Admin LocalAI"
     },
     "builtinBy": "{{tools}} · bawaan",
+    "onDemand": "Dimuat sesuai kebutuhan",
     "builtinByAddon": "{{tools}} · dilayani oleh {{provider}}",
     "servedBy": "Dilayani oleh add-on {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",

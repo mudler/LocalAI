@@ -91,6 +91,8 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
     title: tc('tools.builtinBy', { tools: (b.tools || []).join(', ') }),
     on: !b.off, usable: b.usable, reason: b.reason, onToggle: (on) => switches.toggleBuiltin(b.group, on),
     ...(b.group === SHELL ? shellNote(b) : b.group === MEMORY ? memoryNote(b) : builtinNote(b)),
+    // The tools of the group are found with tool_search instead of being sent in full.
+    ...(b.deferred ? { chip: tc('tools.onDemand') } : {}),
   })
   // A built-in row with the options that refine it.
   const withOptions = (row) => {

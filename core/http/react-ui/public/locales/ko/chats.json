@@ -352,6 +352,7 @@
       "localai_admin": "LocalAI 관리"
     },
     "builtinBy": "{{tools}} · 기본 제공",
+    "onDemand": "필요할 때 불러옴",
     "builtinByAddon": "{{tools}} · {{provider}}이(가) 제공",
     "servedBy": "애드온 {{provider}}이(가) 제공",
     "servedByTool": "{{tool}}: {{provider}}",
