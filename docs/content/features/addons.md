@@ -513,7 +513,7 @@ a call may reach. The model never sees or sets either.
   most 50 entries, each an external name (`owner/name` for a repository) with a
   host ID made from its hash. The person edits it where they edit the binding.
 - `resourceArgument` names a string argument that carries the external name. A
-  tool that declares it must require it. Before the add-on is called, the host
+  tool that declares it must require it, unless the slot sets `resourceOptional`. Before the add-on is called, the host
   matches the argument against the list of the one binding that the call
   names, without regard to case. A name that is not on that list is refused with
   the code `resource_not_allowed` and the names of that list; the add-on is not
@@ -533,6 +533,13 @@ a call may reach. The model never sees or sets either.
   behaves the same way.
 - `resourceLabel` is optional (at most 24 characters of plain text): the word for
   the resource in that line. Without it the host says "resource".
+- `resourceOptional` (default `false`) lets a call leave the resource argument out.
+  The tools then declare the argument and do not require it. The host uses the one
+  resource that the selected binding lists, so the connection is the only source
+  of the target and the model never has to write it. A binding that lists several
+  resources refuses the call with `resource_not_allowed` and names them. A call
+  that names a resource is held to the list as before. An add-on that does not set
+  it is not changed.
 - A call that passes the check carries `Request.Credential` (the secret),
   `Request.ResourceKey` (the name as the person wrote it) and `Request.ResourceID`
   (the host ID). The host drops these three fields from any request a client

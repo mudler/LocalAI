@@ -79,6 +79,29 @@ type CredentialSource interface {
 	Credential(ctx context.Context, actor contract.Actor, addonID, key string) (CredentialGrant, error)
 }
 
+// DefaultCredentialSource is a CredentialSource that can also serve a call
+// that leaves out an optional resource argument (see
+// contract.CredentialSlot.ResourceOptional): it uses the one resource that the
+// binding lists. A binding that lists several is a *CredentialRefusal with
+// CodeResourceNotAllowed, which names them. A source that does not implement it
+// refuses such a call as invalid.
+type DefaultCredentialSource interface {
+	DefaultCredential(ctx context.Context, actor contract.Actor, addonID string) (CredentialGrant, error)
+}
+
+// CredentialFor asks src for the grant of a call. omitted says that the call
+// left out an optional resource argument, and key is then empty.
+func CredentialFor(ctx context.Context, src CredentialSource, actor contract.Actor, addonID, key string, omitted bool) (CredentialGrant, error) {
+	if !omitted {
+		return src.Credential(ctx, actor, addonID, key)
+	}
+	d, ok := src.(DefaultCredentialSource)
+	if !ok {
+		return CredentialGrant{}, fmt.Errorf("%w: %w", ErrInvalidRequest, contract.ErrRefused)
+	}
+	return d.DefaultCredential(ctx, actor, addonID)
+}
+
 // CredentialRefusal is the host's refusal of a call before the add-on was
 // called. Nothing was sent. It is a denial, and a repeat of the same call is
 // denied again until the person changes their binding.
@@ -133,6 +156,7 @@ func (g *Gateway) credentialize(ctx context.Context, a contract.Actor, r *contra
 	}
 	slot := caps.Credentials[0]
 	key := ""
+	omitted := false
 	for _, d := range caps.ToolDefinitions {
 		if d.Name != tool {
 			continue
@@ -145,17 +169,20 @@ func (g *Gateway) credentialize(ctx context.Context, a contract.Actor, r *contra
 			return nil
 		}
 		k, _, err := slot.CredentialResource(d, r.Arguments)
-		if err != nil {
+		switch {
+		case errors.Is(err, contract.ErrResourceOmitted):
+			omitted = true
+		case err != nil:
 			return fmt.Errorf("%w: %w", ErrInvalidRequest, contract.ErrRefused)
 		}
 		key = k
 		if d.Enumerates {
 			// It names no resource: the whole reach of the credential is the
 			// resource, and only a binding that lists * covers it.
-			key = contract.AnyResource
+			key, omitted = contract.AnyResource, false
 		}
 	}
-	grant, err := g.Credentials.Credential(ctx, a, r.AddonID, key)
+	grant, err := CredentialFor(ctx, g.Credentials, a, r.AddonID, key, omitted)
 	if err != nil {
 		var refusal *CredentialRefusal
 		if errors.As(err, &refusal) {

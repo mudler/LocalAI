@@ -829,10 +829,11 @@ func (b *Broker) credentialFor(ctx context.Context, actor contract.Actor, addonI
 		return gateway.CredentialGrant{}, ErrUnavailable
 	}
 	key, _, err := ct.slot.CredentialResource(ct.def, args)
-	if err != nil {
+	omitted := errors.Is(err, contract.ErrResourceOmitted)
+	if err != nil && !omitted {
 		return gateway.CredentialGrant{}, fmt.Errorf("%w: %w", gateway.ErrInvalidRequest, contract.ErrRefused)
 	}
-	grant, err := b.opts.Credentials.Credential(ctx, actor, addonID, key)
+	grant, err := gateway.CredentialFor(ctx, b.opts.Credentials, actor, addonID, key, omitted)
 	if err != nil {
 		var refusal *gateway.CredentialRefusal
 		if errors.As(err, &refusal) {
