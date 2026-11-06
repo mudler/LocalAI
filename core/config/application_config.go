@@ -473,8 +473,9 @@ type ApplicationConfig struct {
 	DisableChatsLocalAIAdmin  bool
 
 	// AdminOffByDeprecatedOption is true when the admin group was switched
-	// off by the deprecated --disable-local-ai-assistant option. A stored
-	// chats_localai_admin value overrides it at startup.
+	// off by the deprecated --disable-local-ai-assistant option or its
+	// variable. This is an operator choice: a stored chats_localai_admin=true,
+	// at startup or in a later runtime settings change, does not override it.
 	AdminOffByDeprecatedOption bool
 
 	// ChatsToolSearch is the setting chats_tool_search: whether the large
@@ -1543,6 +1544,7 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	if settings == nil {
 		return false
 	}
+	defer o.keepAdminOffByOperator()
 	for _, f := range runtimeSettingsFields {
 		if f.snapshotOnly || !f.isSet(settings) {
 			continue
@@ -1591,6 +1593,16 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 // 		o.Metrics = meter
 // 	}
 // }
+
+// keepAdminOffByOperator puts the admin tool group back off when the operator
+// switched it off with the deprecated flag or variable. An explicit disable
+// must not fail open because a stored or posted chats_localai_admin=true says
+// otherwise.
+func (o *ApplicationConfig) keepAdminOffByOperator() {
+	if o.AdminOffByDeprecatedOption {
+		o.DisableChatsLocalAIAdmin = true
+	}
+}
 
 // WithRouterDecisionLog retains routing decisions independently of billing stats.
 func WithRouterDecisionLog(enabled bool) AppOption {

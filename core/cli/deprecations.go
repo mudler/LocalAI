@@ -47,8 +47,8 @@ type RemovedAgentOptions struct {
 
 // RemovedAssistantOptions are the flag and environment variable that used to
 // switch the LocalAI Assistant off. They are deprecated: a true value is mapped
-// to chats_localai_admin=false (the admin tool group off), with a warning. An
-// explicit chats_localai_admin in the stored runtime settings wins.
+// to chats_localai_admin=false (the admin tool group off), with a warning. The
+// option is an operator choice: it wins over a stored chats_localai_admin=true.
 type RemovedAssistantOptions struct {
 	DisableLocalAIAssistant bool `name:"disable-local-ai-assistant" env:"LOCALAI_DISABLE_ASSISTANT" hidden:"" help:"Deprecated: maps to chats_localai_admin=false (Settings > Tools)"`
 }

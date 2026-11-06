@@ -33,10 +33,29 @@ var _ = Describe("the deprecated assistant switch at startup", func() {
 		Expect(cfg.DisableChatsLocalAIAdmin).To(BeTrue())
 	})
 
-	It("lets an explicit stored chats_localai_admin win over the deprecated flag", func() {
+	It("keeps an explicit disable by the deprecated flag over a stored chats_localai_admin=true", func() {
 		cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"chats_localai_admin": true}`)}
 		config.DisableLocalAIAdminByDeprecatedOption(cfg)
 		loadRuntimeSettingsFromFile(cfg)
+		Expect(cfg.DisableChatsLocalAIAdmin).To(BeTrue())
+	})
+
+	It("keeps that disable after a runtime settings reload or change", func() {
+		on := true
+		cfg := &config.ApplicationConfig{}
+		config.DisableLocalAIAdminByDeprecatedOption(cfg)
+		cfg.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsLocalAIAdmin: &on})
+		Expect(cfg.DisableChatsLocalAIAdmin).To(BeTrue(), "a posted setting")
+		cfg.ApplyRuntimeSettingsAtStartup(&config.RuntimeSettings{ChatsLocalAIAdmin: &on})
+		Expect(cfg.DisableChatsLocalAIAdmin).To(BeTrue(), "a reload from the file")
+	})
+
+	It("lets chats_localai_admin change freely when the flag is not set", func() {
+		on, off := true, false
+		cfg := &config.ApplicationConfig{}
+		cfg.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsLocalAIAdmin: &off})
+		Expect(cfg.DisableChatsLocalAIAdmin).To(BeTrue())
+		cfg.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsLocalAIAdmin: &on})
 		Expect(cfg.DisableChatsLocalAIAdmin).To(BeFalse())
 	})
 })
