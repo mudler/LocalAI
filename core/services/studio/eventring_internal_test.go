@@ -45,9 +45,9 @@ var _ = Describe("eventRing", func() {
 			r.Add(delta(1, "lo "))
 			r.Add(delta(1, "world"))
 			Expect(r.entries).To(HaveLen(1))
-			got, ok := r.After("r.0")
+			_, ok := r.After("r.0")
 			Expect(ok).To(BeFalse(), "0 is not an id")
-			got, ok = r.After("r.1")
+			got, ok := r.After("r.1")
 			Expect(ok).To(BeTrue())
 			Expect(texts(got)).To(Equal("lo world"))
 			Expect(got[0].ID).To(Equal("r.3"))
@@ -83,10 +83,9 @@ var _ = Describe("eventRing", func() {
 			for i := 0; i < 500; i++ {
 				r.Add(delta(1, "x"))
 			}
-			got, ok := r.After("r.0")
-			_ = got
+			_, ok := r.After("r.0")
 			Expect(ok).To(BeFalse())
-			got, ok = r.After("r.100")
+			got, ok := r.After("r.100")
 			Expect(ok).To(BeTrue())
 			Expect(texts(got)).To(HaveLen(400))
 		})
@@ -122,8 +121,7 @@ var _ = Describe("eventRing", func() {
 			r := newEventRing("r", 100, 100)
 			r.Add(session.Event{Kind: session.KindToolEnd, Tool: &session.ToolEvent{Output: strings.Repeat("o", 500)}})
 			Expect(r.entries).To(HaveLen(1))
-			got, ok := r.After("r.0x")
-			_ = got
+			_, ok := r.After("r.0x")
 			Expect(ok).To(BeFalse())
 		})
 	})
