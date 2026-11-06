@@ -512,6 +512,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 		}
 	} else {
 		routes.RegisterAddonsUnavailable(e, "/api/addons")
+		// Sharing lives in the add-on owner's policy store, so it is off too.
+		routes.RegisterAddonsUnavailable(e, "/api/shares")
 	}
 
 	// Register routing-module usage endpoints. Unlike /api/auth/usage

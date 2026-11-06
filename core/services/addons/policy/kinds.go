@@ -114,6 +114,10 @@ var allActions = []Action{ActionRead, ActionOutput, ActionWrite, ActionSchema, A
 // optional subtype, so it can be part of a path.
 var kindName = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}(:[a-z0-9][a-z0-9-]{0,63})?$`)
 
+// ValidKind says whether a name has the shape of a kind that is not an
+// add-on. A request that names a kind of another shape names nothing.
+func ValidKind(kind string) bool { return kindName.MatchString(kind) }
+
 // addonRoles is the table of every add-on kind. It is the one Action.required
 // gives, written as role sets.
 func addonRoles(a Action) []Role {

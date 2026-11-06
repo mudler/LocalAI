@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: MIT
+//go:build auth
+
+package application
+
+import (
+	"context"
+	"errors"
+	"path/filepath"
+
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/addons/policy"
+	"github.com/mudler/LocalAI/core/services/addons/policy/sharetest"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+// otherKind registers one more kind, after the owner started.
+type otherKind struct{}
+
+func (otherKind) RegisterKinds(r policy.KindRegistrar) error {
+	return r.RegisterKind("example:other", policy.KindSpec{
+		Grantable: []policy.Role{policy.RoleUse},
+		Roles:     func(policy.Action) []policy.Role { return nil },
+		Backing:   func(context.Context, policy.Ref) (bool, error) { return true, nil },
+	})
+}
+
+type failingKind struct{}
+
+func (failingKind) RegisterKinds(policy.KindRegistrar) error { return errors.New("kind refused") }
+
+var _ = Describe("share kind registration on the owner", func() {
+	owner := func() (*Application, config.AddonConfig) {
+		a := &Application{applicationConfig: &config.ApplicationConfig{Context: context.Background()}}
+		db, e := auth.InitDB(filepath.Join(GinkgoT().TempDir(), "auth.db"))
+		Expect(e).NotTo(HaveOccurred())
+		a.authDB = db
+		c := config.AddonConfig{Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local", Root: filepath.Join(realTempDir(), "addons"), ListenAddress: "127.0.0.1:0", Transport: ownerTransport()}
+		return a, c
+	}
+
+	It("registers the kinds given before the start when the policy opens, and later ones at once", func() {
+		requireAddonRuntime()
+		a, c := owner()
+		Expect(a.RegisterShareKinds(&sharetest.Provider{})).To(Succeed())
+		Expect(a.AddonPolicy()).To(BeNil())
+		a.applicationConfig.Addons = c
+		Expect(a.startAddons()).To(Succeed())
+		DeferCleanup(a.Shutdown)
+
+		rules, ok := a.AddonPolicy().Shareable(sharetest.Kind)
+		Expect(ok).To(BeTrue())
+		Expect(rules.Grantable).To(Equal([]policy.Role{policy.RoleUse, policy.RoleManage}))
+		Expect(a.AddonGateway().Sharing).NotTo(BeNil())
+
+		Expect(a.RegisterShareKinds(otherKind{})).To(Succeed())
+		_, ok = a.AddonPolicy().Shareable("example:other")
+		Expect(ok).To(BeTrue())
+		Expect(a.RegisterShareKinds(&sharetest.Provider{})).NotTo(Succeed(), "a kind registers once")
+		Expect(a.RegisterShareKinds(nil)).NotTo(Succeed())
+	})
+
+	It("does not start the owner when a provider fails", func() {
+		requireAddonRuntime()
+		a, c := owner()
+		Expect(a.RegisterShareKinds(failingKind{})).To(Succeed())
+		a.applicationConfig.Addons = c
+		Expect(a.startAddons()).To(MatchError(ContainSubstring("kind refused")))
+		DeferCleanup(a.Shutdown)
+		Expect(a.AddonPolicy()).To(BeNil())
+	})
+})

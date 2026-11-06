@@ -431,6 +431,14 @@ func (a *Application) startAddonGateway() error {
 		Proposals:       broker,
 	})
 	broker.Attach(p)
+	// The services whose resources are shared through the policy register
+	// their kinds before anything is reconciled or served, so a pending
+	// record of a kind is settled by its own backing check at startup.
+	if e = a.registerShareKinds(p); e != nil {
+		_ = broker.Close()
+		_ = store.Close()
+		return e
+	}
 	// Recovery gets the owner's access state. A restore or a purge that a
 	// crash stopped is finished now, before anything is served; an add-on
 	// that needs recovery stays unavailable until an administrator acts.
@@ -482,6 +490,7 @@ func (a *Application) startAddonGateway() error {
 	}
 	manage := resources.New(resourceOpts)
 	g.Resources = manage
+	g.Sharing = manage
 	// The owner serves the library calls of the frontends. A node with no
 	// source store (no catalog) has nothing to serve.
 	if a.addonSources != nil {

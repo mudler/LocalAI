@@ -542,10 +542,16 @@ func (s *Service) owned(ctx context.Context, actor contract.Actor, resourceID st
 	// denies like a resource that is not the actor's.
 	key, _ := s.o.Policy.Key(resourceID)
 	key.ResourceID = resourceID
-	if err := s.o.Policy.Authorize(ctx, actor, key, policy.ActionShare); err != nil {
-		return policy.ResourceKey{}, classify(err)
+	if err := s.ownedRef(ctx, actor, policy.AddonRef(key)); err != nil {
+		return policy.ResourceKey{}, err
 	}
 	return key, nil
+}
+
+// ownedRef checks that the actor holds the owner role of a resource of any
+// kind, with the same denial for a resource that does not exist.
+func (s *Service) ownedRef(ctx context.Context, actor contract.Actor, ref policy.Ref) error {
+	return classify(s.o.Policy.AuthorizeRef(ctx, actor, ref, policy.ActionShare))
 }
 
 func (s *Service) sharing() error {
@@ -571,9 +577,19 @@ func (s *Service) Grants(ctx context.Context, actor contract.Actor, resourceID s
 }
 
 func (s *Service) grantList(ctx context.Context, actor contract.Actor, key policy.ResourceKey) (gateway.GrantList, error) {
-	m, err := s.o.Policy.Grants(ctx, actor, key)
+	grants, err := s.grants(ctx, actor, policy.AddonRef(key))
 	if err != nil {
-		return gateway.GrantList{}, classify(err)
+		return gateway.GrantList{}, err
+	}
+	return gateway.GrantList{ResourceID: key.ResourceID, Grants: grants}, nil
+}
+
+// grants lists the grants of a resource of any kind in ID order, with the
+// display names, bounded by MaxGrants. A grant to everyone has no name.
+func (s *Service) grants(ctx context.Context, actor contract.Actor, ref policy.Ref) ([]gateway.Grant, error) {
+	m, err := s.o.Policy.GrantsRef(ctx, actor, ref)
+	if err != nil {
+		return nil, classify(err)
 	}
 	ids := make([]string, 0, len(m))
 	for u := range m {
@@ -587,9 +603,13 @@ func (s *Service) grantList(ctx context.Context, actor contract.Actor, key polic
 	if s.o.Users != nil && len(ids) > 0 {
 		names, _ = s.o.Users.Lookup(ctx, ids)
 	}
-	out := gateway.GrantList{ResourceID: key.ResourceID, Grants: []gateway.Grant{}}
+	out := []gateway.Grant{}
 	for _, u := range ids {
-		out.Grants = append(out.Grants, gateway.Grant{UserID: u, DisplayName: cleanName(names[u]), Role: string(m[u])})
+		name := ""
+		if u != policy.Everyone {
+			name = cleanName(names[u])
+		}
+		out = append(out, gateway.Grant{UserID: u, DisplayName: name, Role: string(m[u])})
 	}
 	return out, nil
 }
@@ -609,6 +629,8 @@ func (s *Service) SetGrant(ctx context.Context, actor contract.Actor, resourceID
 	if userID == "" || len(userID) > 256 || s.o.Users == nil {
 		return gateway.GrantList{}, gateway.ErrForbidden
 	}
+	// The add-on kinds keep their account rule here: an active named account
+	// that may use add-ons. Other kinds bring their own rule to the policy.
 	ok, err := s.o.Users.Eligible(ctx, userID)
 	if err != nil {
 		return gateway.GrantList{}, classify(err)
@@ -632,15 +654,21 @@ func (s *Service) RevokeGrant(ctx context.Context, actor contract.Actor, resourc
 	if err != nil {
 		return gateway.GrantList{}, err
 	}
-	if userID == "" || len(userID) > 256 {
-		return gateway.GrantList{}, gateway.ErrInvalidRequest
-	}
-	if err = s.o.Policy.Revoke(ctx, actor, key, userID); err != nil {
-		return gateway.GrantList{}, classify(err)
+	if err = s.revoke(ctx, actor, policy.AddonRef(key), userID); err != nil {
+		return gateway.GrantList{}, err
 	}
 	// Selections of the revoked user are left alone on purpose: the reference
 	// is no authority, so it is denied at its next use like an unknown one.
 	return s.grantList(ctx, actor, key)
+}
+
+// revoke removes a grant on a resource of any kind once the owner role is
+// checked.
+func (s *Service) revoke(ctx context.Context, actor contract.Actor, ref policy.Ref, principal string) error {
+	if principal == "" || len(principal) > 256 {
+		return gateway.ErrInvalidRequest
+	}
+	return classify(s.o.Policy.RevokeRef(ctx, actor, ref, principal))
 }
 
 // SearchUsers is the user picker behind a resource's share dialog. It is
@@ -654,6 +682,12 @@ func (s *Service) SearchUsers(ctx context.Context, actor contract.Actor, resourc
 	if err != nil {
 		return gateway.UserList{}, err
 	}
+	return s.searchUsers(ctx, actor, policy.AddonRef(key), query, limit, nil)
+}
+
+// searchUsers runs the user picker for a resource whose owner role is
+// checked. keep, when set, leaves out the people a grant would refuse.
+func (s *Service) searchUsers(ctx context.Context, actor contract.Actor, ref policy.Ref, query string, limit int, keep func(id string) (bool, error)) (gateway.UserList, error) {
 	query = strings.TrimSpace(query)
 	if n := utf8.RuneCountInString(query); n < MinQueryRunes || n > MaxQueryRunes || strings.ContainsFunc(query, unicode.IsControl) {
 		return gateway.UserList{}, gateway.ErrInvalidRequest
@@ -664,7 +698,7 @@ func (s *Service) SearchUsers(ctx context.Context, actor contract.Actor, resourc
 	if s.o.Users == nil {
 		return gateway.UserList{}, gateway.ErrUnavailable
 	}
-	owner, _ := s.o.Policy.OwnerOf(key)
+	owner, _ := s.o.Policy.OwnerOfRef(ref)
 	found, err := s.o.Users.Search(ctx, query, limit+2)
 	if err != nil {
 		return gateway.UserList{}, classify(err)
@@ -673,6 +707,15 @@ func (s *Service) SearchUsers(ctx context.Context, actor contract.Actor, resourc
 	for _, u := range found {
 		if u.ID == actor.UserID || u.ID == owner || u.ID == "" || len(out.Users) >= limit {
 			continue
+		}
+		if keep != nil {
+			ok, err := keep(u.ID)
+			if err != nil {
+				return gateway.UserList{}, classify(err)
+			}
+			if !ok {
+				continue
+			}
 		}
 		out.Users = append(out.Users, gateway.UserRef{ID: u.ID, DisplayName: cleanName(u.DisplayName)})
 	}

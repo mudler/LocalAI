@@ -65,6 +65,10 @@ type Gateway struct {
 	// creation, grants, rename, deletion and conversation selections.
 	// Frontends leave it nil and forward through Forward.
 	Resources ResourceManager
+	// Shares is the owner's sharing of the resource kinds that are not
+	// add-ons: the /api/shares routes. Frontends leave it nil and forward
+	// through Forward.
+	Sharing ShareManager
 	// Libraries is the owner's library administration. Frontends leave it nil
 	// and forward through Forward.
 	Libraries LibraryAdmin

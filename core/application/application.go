@@ -95,6 +95,13 @@ const faceEmbeddingDim = 0
 const voiceEmbeddingDim = 0
 
 type Application struct {
+	// shareKinds are the services whose resource kinds are shared through
+	// the policy; shareKindsPolicy is the policy they were registered with
+	// once the owner opened it. See RegisterShareKinds.
+	shareKindsMu     sync.Mutex
+	shareKinds       []policy.KindProvider
+	shareKindsPolicy *policy.Policy
+
 	addonPolicy         *policy.Policy
 	addonStore          *policy.Store
 	addonResourceExists func(context.Context, policy.ResourceKey) (bool, error)
