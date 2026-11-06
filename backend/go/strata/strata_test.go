@@ -405,7 +405,7 @@ var _ = Describe("backend", func() {
 		if _, err := s2.Predict(&pb.PredictOptions{Prompt: "x", Videos: []string{"abc"}}); err == nil || !strings.Contains(err.Error(), "not supported") {
 			Fail(fmt.Sprintf("videos: %v", err))
 		}
-		if _, err := s2.Predict(&pb.PredictOptions{Prompt: strings.Repeat("a", 5000)}); err == nil || !strings.Contains(err.Error(), "context") {
+		if _, err := s2.Predict(&pb.PredictOptions{Prompt: strings.Repeat("a", 5000)}); err == nil || !strings.Contains(err.Error(), "exceeds the available context size") {
 			Fail(fmt.Sprintf("long prompt: %v", err))
 		}
 	})

@@ -431,7 +431,7 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw
 
 	room := ctxLen - len(ids) - 8
 	if room < 1 {
-		return res, fmt.Errorf("strata: prompt (%d tokens) does not fit the context (%d)", len(ids), ctxLen)
+		return res, fmt.Errorf("strata: request (%d tokens) exceeds the available context size (%d tokens)", len(ids), ctxLen)
 	}
 	maxNew := int(opts.GetTokens())
 	if maxNew <= 0 || maxNew > room {
