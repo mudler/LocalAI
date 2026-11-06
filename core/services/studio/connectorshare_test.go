@@ -221,6 +221,12 @@ var _ = Describe("a binding shared with another person", func() {
 		}
 	})
 
+	It("has no flag for a grant to everyone, which a binding never has", func() {
+		for _, t := range []reflect.Type{reflect.TypeOf(studio.SharedConnectorView{}), reflect.TypeOf(schema.ChatsSharedConnector{}), reflect.TypeOf(studio.SharedBinding{})} {
+			Expect(fieldNames(t, map[reflect.Type]bool{})).NotTo(ContainElement(MatchRegexp(`(?i)everyone`)), t.String())
+		}
+	})
+
 	It("stops at once when the share goes: the next call is the answer of an unknown binding", func() {
 		shares.revoke(b.ID, bob)
 		_, err := r.conns.CredentialFor(ctx, bob, "telegram", b.ID, "acme/widgets")

@@ -2157,10 +2157,8 @@ type ChatsSharedConnector struct {
 	Reason string `json:"reason,omitempty"`
 	// Owner is the display name of the person who shared it.
 	Owner string `json:"owner"`
-	// Role is always use.
+	// Role is always use: a binding is never shared with everyone.
 	Role string `json:"role"`
-	// Everyone says that the share is the grant to every account.
-	Everyone bool `json:"everyone,omitempty"`
 }
 
 // ChatsConnectorTest is the bot that a token belongs to.
