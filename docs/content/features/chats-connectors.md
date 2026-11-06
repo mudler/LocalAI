@@ -1441,6 +1441,8 @@ A person who holds **Can use**:
   connections of a saved agent. A call of those tools then uses the binding's
   credential and its list of resources, as for the owner. A shared binding is never
   picked by default: the rule "the only connection" counts the person's own bindings.
+  The one exception is a saved agent that the owner shared with the person and that
+  names the binding: see [Share an agent]({{%relref "features/chats-agents#share-an-agent" %}}).
 - never reads the token or any setting. Reading, changing, switching on or off,
   testing, the sender log, pairing, deleting and sharing it again stay with the
   owner. For the person, each of these answers `404`, as for a binding that does not

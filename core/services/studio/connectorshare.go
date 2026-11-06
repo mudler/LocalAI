@@ -126,6 +126,13 @@ func (c *Connectors) sharedBinding(ctx context.Context, user, id string) (connec
 	return b, share, true
 }
 
+// sharedTo says whether the binding id of another person is shared with user
+// now.
+func (c *Connectors) sharedTo(ctx context.Context, user, id string) bool {
+	_, _, ok := c.sharedBinding(ctx, user, id)
+	return ok
+}
+
 // SharedConnectors lists the bindings of other people shared with user, by
 // name. A server without sharing lists none.
 func (c *Connectors) SharedConnectors(ctx context.Context, user string) ([]SharedConnectorView, error) {

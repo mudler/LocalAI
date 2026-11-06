@@ -675,9 +675,9 @@ func (s *Service) AgentNeeds(ctx context.Context, user, id string) ([]AgentNeed,
 				state = ReferenceMissing
 			}
 		case "connection":
-			// A connection of the owner is never used on behalf of another
-			// person; only the owner's own chats have it.
-			if !acc.Owner() {
+			// The binding is the owner's. A grantee's chat uses it only while
+			// the owner shares it with them (see ConnectionsOf).
+			if !acc.Owner() && (s.connectors == nil || !s.connectors.sharedTo(ctx, user, r.ID)) {
 				state = ReferenceMissing
 			}
 		case "addon-resource":

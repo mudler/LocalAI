@@ -501,8 +501,21 @@ keep running as you.
 A person who chats with a shared agent runs it as themselves. The chat, the
 memory, the files, the folders, the add-ons, the collections and the connections
 are theirs, exactly as for their own agent. Only the definition comes from you.
-Your connections and your files are never used for them, and no answer to them
-carries a token, a secret or the ID of your connection.
+Your files are never used for them, and no answer to them carries a token, a
+secret or the ID of your connection.
+
+The connections the agent names are yours. A chat of the person uses one of them
+only while you share that connection with them (role `use`), and only when it is
+not a choice:
+
+- When the person has no connection of their own for the add-on and holds a
+  grant on exactly one of the agent's connections for it, the chat uses that one.
+- When the person has a connection of their own for the add-on, or holds grants
+  on several of the agent's connections for it, the chat uses none of yours by
+  itself. The person picks the connection in the chat, from their own and the
+  ones shared with them.
+- The agent's connections do not lock the person's chat, as they do in your
+  own chats: the person may always choose another one.
 
 Sharing the agent does not share what it uses. Before the dialog adds a person,
 it lists what the agent names and asks you, for each thing that can be shared,
@@ -521,8 +534,9 @@ choice as a grant on that thing, for the same person.
 
 The agent page of a person tells them what they are missing: each thing the agent
 names is **ok**, **missing** (not shared with them) or **unavailable** (the server
-or their account does not offer it). A chat with the agent shows the same notice
-before the first message.
+or their account does not offer it). A connection of yours is **ok** while you
+share it with them and **missing** otherwise. A chat with the agent shows the same
+notice before the first message.
 
 When you lower the role or remove the person, a run of the agent in one of their
 chats stops, and the chat takes no new message with the agent. Their past chats

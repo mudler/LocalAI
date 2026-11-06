@@ -157,7 +157,9 @@ the resource ID from the page of the resource, or from the route in the table.
 | `collection` | A [collection]({{%relref "features/collections#sharing-a-collection" %}}) | `viewer`, `editor` | Yes | `collections` | `POST /api/collections/{name}/share` |
 
 - **`connection`**: `use` lets the person's chats and agents run the tools of the
-  binding's add-on with its credential. The person sees the name and the state of
+  binding's add-on with its credential. A chat of the person with a shared agent
+  that names the binding uses it as described in
+  [Share an agent]({{%relref "features/chats-agents#share-an-agent" %}}). The person sees the name and the state of
   the binding and never its token or settings; every other operation stays with the
   owner and answers `404` to the person. Messages to the bot still reach the owner's
   agent.
