@@ -17123,7 +17123,8 @@ const docTemplate = `{
                 "skill",
                 "page",
                 "dashboard",
-                "knowledge"
+                "knowledge",
+                "voice_profile"
             ],
             "x-enum-varnames": [
                 "ChangeMemory",
@@ -17131,7 +17132,8 @@ const docTemplate = `{
                 "ChangeSkill",
                 "ChangePage",
                 "ChangeDashboard",
-                "ChangeKnowledge"
+                "ChangeKnowledge",
+                "ChangeVoiceProfile"
             ]
         },
         "contract.ChangeProposal": {
@@ -31867,6 +31869,10 @@ const docTemplate = `{
                 "sample_rate": {
                     "type": "integer"
                 },
+                "sha256": {
+                    "description": "SHA256 is set only by a check of a clip held in memory (the voice_profile\ntool before a person confirms); the store does not fill it.",
+                    "type": "string"
+                },
                 "size_bytes": {
                     "type": "integer"
                 }
@@ -31901,6 +31907,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "owner_id": {
+                    "description": "OwnerID is the user who created the profile. Empty means the profile\nbelongs to the instance: every user may use it and only an\nadministrator may delete it. Profiles stored before ownership existed\nhave no owner, so they stay instance-wide.",
                     "type": "string"
                 },
                 "references": {
