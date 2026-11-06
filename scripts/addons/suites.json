@@ -1594,7 +1594,8 @@
           "check the account alone, here and through the carrier, while the add-on calls keep the add-ons check",
           "run the work under the owner's lease, stop it when the owner says the lease is lost, and release it",
           "run nothing when the owner refuses the admission, and are unavailable on an owner without a ShareAuthority",
-          "runs the call of a shared credential inside its hold, and never when the hold refuses"
+          "runs the call of a shared credential inside its hold, and never when the hold refuses",
+          "keep the record of a resource the service names through the owner, and are mutations"
         ]
       },
       {
@@ -2192,7 +2193,8 @@
       "keeps one record for each name of an owner and finds it from either side",
       "refuses a name that is empty, too long or has control characters, an unknown kind and local-owner mode",
       "forgets a record for its owner only, after the work of every grantee stopped",
-      "previews and applies the call of a shared binding inside its hold, and keeps the proposal pending when the hold refuses"
+      "previews and applies the call of a shared binding inside its hold, and keeps the proposal pending when the hold refuses",
+      "keeps one record for a name through either frontend, lists it with the name, and forgets it after the grantee's run stopped"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -2457,7 +2459,8 @@
           "keeps one record for each name of an owner and finds it from either side",
           "refuses a name that is empty, too long or has control characters, an unknown kind and local-owner mode",
           "forgets a record for its owner only, after the work of every grantee stopped",
-          "previews and applies the call of a shared binding inside its hold, and keeps the proposal pending when the hold refuses"
+          "previews and applies the call of a shared binding inside its hold, and keeps the proposal pending when the hold refuses",
+          "keeps one record for a name through either frontend, lists it with the name, and forgets it after the grantee's run stopped"
         ]
       },
       {
@@ -2952,7 +2955,8 @@
           "check the account alone, here and through the carrier, while the add-on calls keep the add-ons check",
           "run the work under the owner's lease, stop it when the owner says the lease is lost, and release it",
           "run nothing when the owner refuses the admission, and are unavailable on an owner without a ShareAuthority",
-          "runs the call of a shared credential inside its hold, and never when the hold refuses"
+          "runs the call of a shared credential inside its hold, and never when the hold refuses",
+          "keep the record of a resource the service names through the owner, and are mutations"
         ]
       },
       {
