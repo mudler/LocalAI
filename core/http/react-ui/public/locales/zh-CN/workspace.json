@@ -1,4 +1,102 @@
 {
+  "title": "文件",
+  "home": "首页",
+  "breadcrumb": "文件夹路径",
+  "upload": "上传",
+  "newFolder": "新建文件夹",
+  "folderName": "文件夹名称",
+  "download": "下载",
+  "rename": "重命名",
+  "delete": "移到回收站",
+  "dismiss": "关闭",
+  "tabs": {
+    "label": "视图",
+    "files": "文件",
+    "trash": "回收站",
+    "history": "历史",
+    "shared": "共享",
+    "trashCount_one": "回收站中有 {{count}} 项",
+    "trashCount_other": "回收站中有 {{count}} 项"
+  },
+  "trash": {
+    "empty": "回收站是空的。",
+    "restore": "恢复",
+    "emptyAll": "清空回收站",
+    "purge": "永久删除",
+    "purgeNamed": "永久删除 {{name}}",
+    "files_one": "{{count}} 个文件",
+    "files_other": "{{count}} 个文件",
+    "folders_one": "{{count}} 个文件夹",
+    "folders_other": "{{count}} 个文件夹",
+    "listJoin": "，",
+    "summary": "回收站中有：{{what}}。",
+    "removed": "已永久删除：{{what}}。",
+    "confirmAll": {
+      "title": "清空回收站？",
+      "message": "这将永久删除 {{what}}及其历史版本，且无法撤销。"
+    },
+    "confirmOne": {
+      "title": "永久删除？",
+      "message": "{{path}}：这将永久删除 {{what}}及其历史版本，且无法撤销。"
+    }
+  },
+  "history": {
+    "empty": "尚无更改。",
+    "undo": "撤销",
+    "agent": "聊天"
+  },
+  "search": {
+    "label": "搜索你的文件",
+    "placeholder": "筛选此文件夹",
+    "none": "未找到内容。",
+    "resultsFor": "包含“{{query}}”的文件",
+    "back": "返回文件夹",
+    "noneBody": "你的文件中没有匹配的名称或文本。换个词试试。",
+    "page": "第 {{n}} 页",
+    "sheet": "工作表“{{name}}”",
+    "slide": "第 {{n}} 张幻灯片",
+    "indexing_one": "还有 {{count}} 个文档正在建立索引，请稍后再搜索以包含它。",
+    "indexing_other": "还有 {{count}} 个文档正在建立索引，请稍后再搜索以包含它们。",
+    "limited": "结果有限：搜索在查看所有文件之前已达到上限。请在某个文件夹中搜索或换用其他词语以查看其余结果。",
+    "filtering_one": "此文件夹中有 {{count}} 项与“{{query}}”匹配。",
+    "filtering_other": "此文件夹中有 {{count}} 项与“{{query}}”匹配。",
+    "everywhere": "在所有文件中搜索“{{query}}”",
+    "everywhereShort": "搜索所有文件",
+    "noMatch": "此文件夹中没有与“{{query}}”匹配的项目。",
+    "clear": "清除筛选"
+  },
+  "preview": {
+    "label": "预览",
+    "failed": "无法显示此文件。",
+    "loading": "正在加载 {{name}} 的预览",
+    "failedTitle": "无法显示 {{name}}。",
+    "tooLarge": "此文件太大，无法在这里预览。请下载后打开。",
+    "none": "此类型的文件没有预览。",
+    "typeFile": "{{ext}} 文件",
+    "typeUnknown": "文件",
+    "sheets": "工作表",
+    "sheetLabel": "工作表 {{name}}",
+    "sheetEmpty": "此工作表为空。",
+    "row": "行",
+    "showingRows": "显示 {{total}} 行中的 {{rows}} 行",
+    "showingCols": "以及 {{total}} 列中的 {{cols}} 列。",
+    "downloadRest": "下载文件查看其余内容。",
+    "textOnly": "文本预览，不显示格式。",
+    "truncated": "文本已截断。",
+    "noText": "此文件没有可显示的文本。",
+    "slide": "幻灯片 {{n}}",
+    "notes": "演讲者备注",
+    "pdfTitle": "PDF {{name}}",
+    "pdfFallback": "如果 PDF 没有显示，请下载。",
+    "htmlTitle": "{{name}} 的预览",
+    "imageFailed": "无法显示图片。",
+    "zoomIn": "按原始大小显示",
+    "zoomOut": "适应面板",
+    "items_one": "{{count}} 项",
+    "items_other": "{{count}} 项",
+    "textCut": "显示前 {{size}}。",
+    "actions": "文件操作"
+  },
   "wellKnown": {
     "revert": "恢复到上一个版本",
     "view": "查看",
@@ -338,33 +436,6 @@
       "dismissedNone": "暂无。你回应提议后，助手会记在这里。"
     }
   },
-  "tabs": {
-    "shared": "共享",
-    "trashCount_one": "回收站中有 {{count}} 项",
-    "trashCount_other": "回收站中有 {{count}} 项"
-  },
-  "trash": {
-    "empty": "回收站是空的。",
-    "restore": "恢复",
-    "emptyAll": "清空回收站",
-    "purge": "永久删除",
-    "purgeNamed": "永久删除 {{name}}",
-    "files_one": "{{count}} 个文件",
-    "files_other": "{{count}} 个文件",
-    "folders_one": "{{count}} 个文件夹",
-    "folders_other": "{{count}} 个文件夹",
-    "listJoin": "，",
-    "summary": "回收站中有：{{what}}。",
-    "removed": "已永久删除：{{what}}。",
-    "confirmAll": {
-      "title": "清空回收站？",
-      "message": "这将永久删除 {{what}}及其历史版本，且无法撤销。"
-    },
-    "confirmOne": {
-      "title": "永久删除？",
-      "message": "{{path}}：这将永久删除 {{what}}及其历史版本，且无法撤销。"
-    }
-  },
   "shared": {
     "adminTitle": "共享文件夹",
     "adminLede": "多人共用的文件夹。成员可以打开其中的页面，他们的聊天可以读取或编辑这些文件。",
@@ -422,38 +493,6 @@
     "factUndo": "移除文件夹可以撤销",
     "emptyUserTitle": "还没有与你共享的内容",
     "emptyUserBody": "管理员与你共享文件夹后，它会显示在这里，其页面会显示在“页面”中。"
-  },
-  "preview": {
-    "label": "预览",
-    "failed": "无法显示此文件。",
-    "loading": "正在加载 {{name}} 的预览",
-    "failedTitle": "无法显示 {{name}}。",
-    "tooLarge": "此文件太大，无法在这里预览。请下载后打开。",
-    "none": "此类型的文件没有预览。",
-    "typeFile": "{{ext}} 文件",
-    "typeUnknown": "文件",
-    "sheets": "工作表",
-    "sheetLabel": "工作表 {{name}}",
-    "sheetEmpty": "此工作表为空。",
-    "row": "行",
-    "showingRows": "显示 {{total}} 行中的 {{rows}} 行",
-    "showingCols": "以及 {{total}} 列中的 {{cols}} 列。",
-    "downloadRest": "下载文件查看其余内容。",
-    "textOnly": "文本预览，不显示格式。",
-    "truncated": "文本已截断。",
-    "noText": "此文件没有可显示的文本。",
-    "slide": "幻灯片 {{n}}",
-    "notes": "演讲者备注",
-    "pdfTitle": "PDF {{name}}",
-    "pdfFallback": "如果 PDF 没有显示，请下载。",
-    "htmlTitle": "{{name}} 的预览",
-    "imageFailed": "无法显示图片。",
-    "zoomIn": "按原始大小显示",
-    "zoomOut": "适应面板",
-    "items_one": "{{count}} 项",
-    "items_other": "{{count}} 项",
-    "textCut": "显示前 {{size}}。",
-    "actions": "文件操作"
   },
   "managed": {
     "group": "由 LocalAI 管理",
@@ -561,24 +600,6 @@
     "moved_one": "已将 {{count}} 项移动到 {{folder}}。",
     "moved_other": "已将 {{count}} 项移动到 {{folder}}。",
     "moveUndone": "已移回原位置。"
-  },
-  "search": {
-    "placeholder": "筛选此文件夹",
-    "resultsFor": "包含“{{query}}”的文件",
-    "back": "返回文件夹",
-    "noneBody": "你的文件中没有匹配的名称或文本。换个词试试。",
-    "page": "第 {{n}} 页",
-    "sheet": "工作表“{{name}}”",
-    "slide": "第 {{n}} 张幻灯片",
-    "indexing_one": "还有 {{count}} 个文档正在建立索引，请稍后再搜索以包含它。",
-    "indexing_other": "还有 {{count}} 个文档正在建立索引，请稍后再搜索以包含它们。",
-    "limited": "结果有限：搜索在查看所有文件之前已达到上限。请在某个文件夹中搜索或换用其他词语以查看其余结果。",
-    "filtering_one": "此文件夹中有 {{count}} 项与“{{query}}”匹配。",
-    "filtering_other": "此文件夹中有 {{count}} 项与“{{query}}”匹配。",
-    "everywhere": "在所有文件中搜索“{{query}}”",
-    "everywhereShort": "搜索所有文件",
-    "noMatch": "此文件夹中没有与“{{query}}”匹配的项目。",
-    "clear": "清除筛选"
   },
   "emptyHome": {
     "title": "你的文件都在这里"

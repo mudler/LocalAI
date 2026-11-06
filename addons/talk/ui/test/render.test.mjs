@@ -15,6 +15,14 @@ async function load(overrides) {
   return { mod, ...host }
 }
 
+test('render: Talk reads Chinese session labels from its own bundle', async () => {
+  const { mod, sdk } = await load({ language: () => 'zh-CN' })
+  const addon = await mod.createAddon(sdk)
+  const html = renderToString(React.createElement(addon.Component, { page: 'talk', path: '', search: '' }))
+  assert.match(html, /语音会话/)
+  assert.match(html, /开始会话/)
+})
+
 test('render: createAddon returns a page component and dispose', async () => {
   const { mod, sdk, controller } = await load()
   const addon = await mod.createAddon(sdk)

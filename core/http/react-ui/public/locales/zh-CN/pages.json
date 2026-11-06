@@ -1,8 +1,23 @@
 {
+  "title": "页面",
   "subtitle": "助手为你制作的小工具。它们在这里的沙盒中打开，数据保存在你的文件里。",
+  "loading": "正在加载你的页面",
+  "error": "无法读取页面：{{message}}",
+  "retry": "重试",
+  "off": "页面不可用：{{reason}}",
+  "justNow": "刚刚",
   "card": {
+    "changed": "修改于 {{when}}",
+    "author": {
+      "you": "由你创建",
+      "assistant": "由助手创建"
+    },
+    "open": "打开",
     "pin": "固定到侧边栏",
     "unpin": "从侧边栏取消固定",
+    "pinFailed": "无法保存固定状态：{{message}}",
+    "ask": "请助手修改此页面",
+    "list": "你的页面",
     "changedBy": {
       "you": "{{when}}由你修改",
       "assistant": "{{when}}由助手修改"
@@ -22,7 +37,9 @@
     "deleteFailed": "页面未能删除：{{message}}"
   },
   "empty": {
+    "title": "尚无页面",
     "text": "页面是一个小工具，比如任务看板或阅读清单。可以在聊天中让助手做一个，或从现成的页面开始。",
+    "starter": "从任务看板开始",
     "starting": "正在复制页面",
     "starterFailed": "页面未能复制：{{message}}",
     "ask": "请求创建页面",
@@ -30,6 +47,36 @@
     "starterReading": "从阅读清单开始",
     "note": "没有页面时，此入口会从侧边栏消失。创建下一个页面后会重新出现。",
     "learn": "页面的工作原理"
+  },
+  "view": {
+    "runsAsYou": "以你的身份运行",
+    "runsAsYouHint": "页面以你的权限读写其所在文件夹的文件，无法访问网络或你的其他文件。",
+    "updated": {
+      "you": "由你更新于 {{when}}",
+      "assistant": "由助手更新于 {{when}}"
+    },
+    "reload": "重新加载",
+    "ask": "请助手修改此页面",
+    "askPrompt": "修改 pages/{{name}}/ 中的页面，使其满足以下要求：",
+    "sandbox": "沙盒框架，仅限自身文件夹",
+    "frameTitle": "页面：{{title}}",
+    "loading": "正在加载页面",
+    "notFound": "不存在名为 {{name}} 的页面。",
+    "failed": "无法加载页面：{{message}}",
+    "back": "所有页面",
+    "navigated": "页面尝试打开其他地址，已被阻止。重新加载可再次启动。",
+    "untrusted": "此页面来自共享文件夹，只有你允许后才会运行。"
+  },
+  "send": {
+    "label": "此页面请求向助手发送消息",
+    "to": "发送至",
+    "pageChat": "此页面的聊天",
+    "send": "发送",
+    "dismiss": "关闭",
+    "sending": "发送中",
+    "sent": "已发送至 {{title}}",
+    "openChat": "打开聊天",
+    "failed": "未发送：{{message}}"
   },
   "askNew": "请求创建新页面",
   "yours": "你的页面",

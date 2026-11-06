@@ -11,72 +11,95 @@
     "delete": "删除"
   },
   "search": {
-    "placeholder": "搜索技能..."
+    "placeholder": "搜索技能...",
+    "label": "搜索技能"
   },
   "card": {
     "noDescription": "无描述",
     "readOnly": "只读",
     "editTitle": "编辑技能",
     "deleteTitle": "删除技能",
-    "invalid": "Skipped: not a valid skill",
+    "invalid": "已跳过：不是有效的技能",
     "invalidWhy": "已跳过此技能：{{reason}}",
-    "shadowed": "Hidden by a {{layer}} skill",
-    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "shadowed": "被 {{layer}} 技能隐藏",
+    "shadowedLong": "被 {{layer}} 中的同名技能隐藏",
     "providedBy": "由 {{name}} 提供",
+    "proposedBy": "由 {{name}} 提出并经你确认。仅该智能体使用。",
     "replacedBy": "已被 {{name}} 替换",
     "notActive": "未生效：使用内置技能",
     "notActiveBy": "未生效：由 {{name}} 提供",
-    "fallback": "因 {{name}} 插件的技能已关闭或未运行而使用",
-    "proposedBy": "由 {{name}} 提出并经你确认。仅该智能体使用。"
+    "fallback": "因 {{name}} 插件的技能已关闭或未运行而使用"
   },
   "empty": {
     "title": "未找到技能",
     "text": "创建或导入一个技能以开始。",
-    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
-    "stepTry": "Check it in the list: it shows who uses it and what it says.",
-    "stepAdd": "Add it to an agent when you want it used."
+    "stepWrite": "编写技能：填写名称、适用场景说明和具体指令。",
+    "stepTry": "在列表中检查：其中显示使用者和技能内容。",
+    "stepAdd": "需要使用时，将其添加到智能体。"
   },
   "toasts": {
     "loadFailed": "加载技能失败",
     "deleted": "技能 \"{{name}}\" 已删除",
     "deleteFailed": "删除技能失败"
   },
-  "layers": {
-    "label": "Layer",
-    "personal": "Personal",
-    "shared": "Shared",
-    "builtin": "Built-in",
-    "folder": "Workspace",
-    "addon": "插件",
-    "agent": "智能体"
+  "filters": {
+    "label": "显示",
+    "all": "全部",
+    "used": "已使用",
+    "unused": "尚未使用"
+  },
+  "list": {
+    "label": "技能",
+    "none": "没有匹配的技能。"
   },
   "pane": {
-    "loading": "Loading...",
-    "loadFailed": "The skill could not be read.",
-    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate)."
+    "back": "所有技能",
+    "pick": "选择技能以查看其内容和使用情况。",
+    "tabs": "技能分区",
+    "tab": {
+      "overview": "概览",
+      "instructions": "指令"
+    },
+    "tokens": "约 {{count}} 个词元",
+    "tokensTitle": "估算方式：字符数除以四",
+    "tokensExplain": "聊天仅在任务匹配技能描述时读取技能，此前不会增加上下文。读取时约占 {{count}} 个词元（估算值）。",
+    "noContent": "此技能没有指令。",
+    "startsWith": "开头内容",
+    "showAll": "显示所有指令",
+    "loading": "加载中...",
+    "loadFailed": "无法读取技能。"
+  },
+  "layers": {
+    "label": "层级",
+    "personal": "个人",
+    "agent": "智能体",
+    "shared": "共享",
+    "builtin": "内置",
+    "folder": "工作区",
+    "addon": "插件"
   },
   "edit": {
-    "back": "Back to skills",
-    "titleNew": "New skill",
-    "titleEdit": "Edit: {{name}}",
-    "basic": "Basic information",
-    "content": "Content",
-    "layer": "Layer",
-    "layerHelp": "Personal is yours alone. Shared is read by every user.",
-    "name": "Name (lowercase, hyphens only)",
-    "nameLocked": "Name cannot be changed after creation.",
-    "description": "Description (when to use it)",
-    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
-    "body": "Skill content (markdown)",
-    "cancel": "Cancel",
-    "save": "Save changes",
-    "create": "Create skill",
-    "saving": "Saving...",
-    "created": "Skill created",
-    "updated": "Skill updated",
-    "required": "A name and a description are required",
-    "saveFailed": "Save failed",
-    "loadFailed": "Failed to load the skill",
+    "back": "返回技能列表",
+    "titleNew": "新技能",
+    "titleEdit": "编辑：{{name}}",
+    "basic": "基本信息",
+    "content": "内容",
+    "layer": "层级",
+    "layerHelp": "个人技能仅属于你自己，共享技能可供所有用户读取。",
+    "name": "名称（仅限小写字母和连字符）",
+    "nameLocked": "名称创建后无法更改。",
+    "description": "描述（何时使用）",
+    "descriptionHelp": "聊天通过这段说明判断技能是否适用于当前任务。",
+    "body": "技能内容（Markdown）",
+    "cancel": "取消",
+    "save": "保存更改",
+    "create": "创建技能",
+    "saving": "保存中...",
+    "created": "技能已创建",
+    "updated": "技能已更新",
+    "required": "必须填写名称和描述",
+    "saveFailed": "保存失败",
+    "loadFailed": "加载技能失败",
     "readOnly": "此技能在这里是只读的。内置技能随服务器提供，来自你文件的技能请在“文件”中修改。"
   },
   "load": {

@@ -11,7 +11,7 @@
   "run.step": "步",
   "run.of": "/",
   "run.epoch": "轮次",
-  "run.tokens": "tokens/s",
+  "run.tokens": "词元/秒",
   "run.eta": "约剩 {{time}}",
   "run.etaSeconds": "约剩 {{seconds}} 秒",
   "checks.heading": "开始前检查",
