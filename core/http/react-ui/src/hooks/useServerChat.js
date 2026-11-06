@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { chatsApi, chatLoopsApi } from '../utils/api'
-import { eventPayload, retryDelay } from '../utils/streamRetry'
+import { eventPayload, retryDelay, resumeUrl } from '../utils/streamRetry'
 import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWanted, consentAsk } from '../utils/chatLive'
 import { notifyTurnEnd } from './useWorkspaceFeed'
 import { pushUsage } from '../utils/chatFoot'
@@ -11,7 +11,7 @@ const EVENT_KINDS = [
   'turn_start', 'text', 'reasoning', 'tool_start', 'tool_end', 'checkpoint',
   'turn_end', 'error', 'pending_delivered', 'sub_agent_started', 'sub_agent_done', 'compacted',
   'usage', 'trigger_proposed', 'files', 'host_exec_consent', 'egress_consent', 'egress_card',
-  'paused', 'loops', 'cleared', 'goal',
+  'paused', 'loops', 'cleared', 'goal', 'resync',
 ]
 
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
@@ -81,6 +81,8 @@ export function useServerChat({ seed = null } = {}) {
   // Whether the last read of the open chat said a turn runs.
   const runningRef = useRef(false)
   const attemptRef = useRef(0)
+  // The id of the last event of the open chat's stream, {chat, id}: a reconnect asks for what follows it.
+  const lastEventRef = useRef(null)
   // Counts the turns started, so that the end of one turn does not clear the
   // live view of the next.
   const epochRef = useRef(0)
@@ -175,9 +177,10 @@ export function useServerChat({ seed = null } = {}) {
     }
   }, [])
 
-  const connect = useCallback((id) => {
+  const connect = useCallback((id, resume = false) => {
     closeStream()
-    const source = new EventSource(chatsApi.eventsUrl(id))
+    if (!resume) lastEventRef.current = null
+    const source = new EventSource(resumeUrl(chatsApi.eventsUrl(id), lastEventRef.current, id))
     sourceRef.current = source
 
     const on = {
@@ -207,6 +210,8 @@ export function useServerChat({ seed = null } = {}) {
           .then((card) => { if (activeRef.current === id) setLive(l => cardResult(l, seq, card)) })
       },
       pending_delivered: () => refreshChat(id),
+      // The server cannot give the events that were missed: read the record.
+      resync: () => refreshChat(id),
       // A compaction during a turn is the chat's own and shows as a note; one
       // the person asked for (/compact) runs with no turn and is a line of the
       // transcript. Either way the meter shows the smaller context.
@@ -269,6 +274,7 @@ export function useServerChat({ seed = null } = {}) {
     }
     for (const kind of EVENT_KINDS) {
       source.addEventListener(kind, (ev) => {
+        if (ev.lastEventId) lastEventRef.current = { chat: id, id: ev.lastEventId }
         // The browser fires its own "error" event when the connection breaks:
         // it has no data and is not the server's error event.
         const payload = eventPayload(ev)
@@ -277,8 +283,8 @@ export function useServerChat({ seed = null } = {}) {
     }
     source.onopen = () => { attemptRef.current = 0 }
     source.onerror = () => {
-      // The stream carries only what happens after it connects, so a reconnect
-      // reads the transcript again to close the gap.
+      // A reconnect asks for the events after the last id (see resumeUrl) and
+      // reads the transcript again; a resync event says the ask was too old.
       source.close()
       if (sourceRef.current === source) sourceRef.current = null
       if (activeRef.current !== id) return
@@ -287,7 +293,7 @@ export function useServerChat({ seed = null } = {}) {
         // Read first: a chat deleted in another tab answers 404 and the stream stops.
         const state = await refreshChat(id)
         if (state === 'gone' || activeRef.current !== id) return
-        connect(id)
+        connect(id, true)
       }, retryDelay(attemptRef.current++, RECONNECT_MS))
     }
   }, [closeStream, refreshChat, refreshDetail, refreshList, setError, piece])
