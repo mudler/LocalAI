@@ -37,6 +37,9 @@ func loopJSON(l loops.Loop) schema.ChatsLoop {
 	if l.Interval > 0 {
 		out.Interval = loops.ShortDuration(l.Interval)
 	}
+	if l.Watch != nil {
+		out.Kind = "wait"
+	}
 	return out
 }
 

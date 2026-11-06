@@ -34,7 +34,7 @@ var mediaToolNames = []string{"describe_image", "transcribe_audio"}
 // The collection tools, in the group GroupCollections.
 var collectionToolNames = []string{"list_collections", "search_collection"}
 
-// spawnAgentName is the tool that starts a sub-agent, in GroupSubAgents.
+// spawnAgentName is the tool that starts a sub-agent, in GroupSubAgents. wait_agents follows its switch.
 const spawnAgentName = "spawn_agent"
 
 // ErrSubAgentsOff means the chat switched the sub-agents off.

@@ -271,6 +271,43 @@ stop it. Type `/loop` in the message box, or use the API.
   counts once against the limit of background sub-agents. Stopping the parent
   or the sub-agent ends the loop. You cannot start a loop in a sub-agent chat
   yourself.
+- **Waits: `wait_for`.** A model that says "I will wait until the download is
+  done" can arm a wait. A wait is a loop whose check is code, not a model call:
+  the server polls a source and calls the model once. The source is a
+  read-only tool of the same chat with fixed arguments (for example a tool that
+  lists downloads; the chat must be allowed to call it, and only tools whose
+  name says they read, such as `list_*`, `get_*`, `search_*` or `*_status`, can
+  be polled), or a URL, which is read like `web_fetch` and so passes the same
+  checks. The condition is `change` (the output differs from the first check),
+  `match` (a regular expression) or `json_equals` (a JSON field equals a
+  value). The first check sets a baseline and never wakes the model; an error
+  is not a change. The model wakes when the condition holds, when the source
+  fails `max_errors` checks in a row (3 by default), or at the `timeout` (1
+  hour by default, 24 hours at most). Failure and timeout wake it too, and the
+  wake-up text says plainly that the condition was *not* met. The check
+  interval is at least the loop minimum. A wait is listed with the loops (the
+  API gives it `kind: "wait"`), counts against the same limits, and you stop it
+  like a loop. A sub-agent that arms a wait stays running until it ends, as with
+  a loop.
+- **Waiting for sub-agents: `wait_agents`.** A chat that started background
+  sub-agents can wait for them with `ids` (empty: all that run now) and a mode,
+  `all` or `any_failed_or_all`. The wait is bounded by `timeout` (30 seconds by
+  default, from 10 seconds to 10 minutes); at the timeout the tool returns the
+  current statuses and the sub-agents keep running. An unknown id is reported
+  at once. `spawn_agent` with `wait` set to true returns after at most two
+  minutes of waiting for a sub-agent that ended its turn and holds for a loop
+  or a wait; the sub-agent then goes on in the background and its result
+  arrives as a message.
+- **The promise guard.** When the last answer of a turn promises a later
+  check or action ("I'll check in a few minutes", "Controllo tra poco") and
+  nothing is armed in the chat (no active or running loop or wait, no running
+  sub-agent, no queued message), the server adds one short note for the model
+  and the model gets one more turn: arm a loop, a wait or a background
+  sub-agent now, or tell you plainly that it cannot watch. It happens at most
+  once per turn. In a chat that a connector started, where the model cannot
+  arm anything, the note only asks it to say so plainly. Sub-agent reports are
+  not checked. The matcher reads English, Italian, Spanish, French and German
+  and ignores questions, offers and promises that wait for you.
 - **The prompt** is plain text, or a skill: `/<skill-name>` (or
   `/skill <name>`) and its words. Each run sends it as that skill command
   would: the transcript shows the words and the skill's chip. Other slash

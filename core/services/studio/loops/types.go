@@ -1,6 +1,7 @@
 package loops
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -111,6 +112,94 @@ type Loop struct {
 	Created   time.Time `json:"created"`
 	Updated   time.Time `json:"updated"`
 	LastRun   time.Time `json:"last_run"`
+	// Watch is set on a wait: a loop whose check is code, not a model call.
+	// The host polls the source at the loop's Interval and runs the model once,
+	// when the condition holds, the source fails or the deadline passes.
+	// Treat it as immutable: change it by copying (Watch.Clone).
+	Watch *Watch `json:"watch,omitempty"`
+}
+
+// Kinds of condition a Watch waits for.
+const (
+	// UntilChange waits for the output to differ from the first check.
+	UntilChange = "change"
+	// UntilMatch waits for the output to match Pattern.
+	UntilMatch = "match"
+	// UntilJSONEquals waits for the JSON field Field of the output to equal Equals.
+	UntilJSONEquals = "json_equals"
+)
+
+// Bounds of a wait.
+const (
+	// DefaultWaitTimeout is how long a wait lasts when the model names none.
+	DefaultWaitTimeout = time.Hour
+	// MaxWaitTimeout is the longest a wait may last.
+	MaxWaitTimeout = 24 * time.Hour
+	// MaxWatchChecks ends a wait after that many checks, as a timeout.
+	MaxWatchChecks = 2000
+	// MaxWatchOutput bounds the output kept as the baseline of a wait.
+	MaxWatchOutput = 8000
+)
+
+// Watch is the state of a wait: what it checks, the condition, and what the
+// checks found so far. It is kept in the store so that the next leader of a
+// cluster goes on from the baseline of the last one.
+type Watch struct {
+	// Tool and Args name a read-only tool of the chat that is polled; URL is
+	// fetched with web_fetch. Exactly one of Tool and URL is set.
+	Tool string          `json:"tool,omitempty"`
+	Args json.RawMessage `json:"args,omitempty"`
+	URL  string          `json:"url,omitempty"`
+	// Mode is UntilChange, UntilMatch or UntilJSONEquals; Pattern, Field and
+	// Equals are its arguments.
+	Mode    string `json:"mode"`
+	Pattern string `json:"pattern,omitempty"`
+	Field   string `json:"field,omitempty"`
+	Equals  string `json:"equals,omitempty"`
+	// Deadline ends the wait; MaxErrors failed checks in a row end it too.
+	Deadline  time.Time `json:"deadline"`
+	MaxErrors int       `json:"max_errors"`
+	// Then is what the model is asked to do when the wait ends; Note is the
+	// reason the model gave, which the person sees.
+	Then string `json:"then,omitempty"`
+	Note string `json:"note,omitempty"`
+	// Checks counts the checks made; Errors the failed ones in a row.
+	Checks  int    `json:"checks"`
+	Errors  int    `json:"errors"`
+	LastErr string `json:"last_err,omitempty"`
+	// BaseHash and BaseOut are the first successful check, or the last one
+	// that differed (the hash is stored before the model is woken).
+	BaseHash string `json:"base_hash,omitempty"`
+	BaseOut  string `json:"base_out,omitempty"`
+	// Wake is the text of the run that the end of the wait asks for; Why is
+	// the short reason shown to the person. Both are set when the wait ends.
+	Wake string `json:"wake,omitempty"`
+	Why  string `json:"why,omitempty"`
+}
+
+// Clone returns a copy that is safe to change.
+func (w *Watch) Clone() *Watch {
+	if w == nil {
+		return nil
+	}
+	c := *w
+	c.Args = append(json.RawMessage(nil), w.Args...)
+	return &c
+}
+
+// Describe is one short line about what the wait waits for.
+func (w *Watch) Describe() string {
+	src := "the URL " + w.URL
+	if w.Tool != "" {
+		src = "the tool " + w.Tool
+	}
+	switch w.Mode {
+	case UntilMatch:
+		return fmt.Sprintf("%s to match %q", src, w.Pattern)
+	case UntilJSONEquals:
+		return fmt.Sprintf("the field %s of %s to equal %q", w.Field, src, w.Equals)
+	}
+	return "the output of " + src + " to change"
 }
 
 // SelfPaced reports whether the model decides when the loop runs again.

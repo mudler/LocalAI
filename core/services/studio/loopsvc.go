@@ -252,6 +252,9 @@ func (h *Loops) Start(ctx context.Context, user, conv string, in LoopInput) (loo
 type modelStart struct {
 	wait   time.Duration
 	reason string
+	// watch makes the loop a wait: wait is then its check interval, and the
+	// first check is due at once.
+	watch *loops.Watch
 }
 
 // begin is Start. A non-nil by makes it the start of a model.
@@ -291,6 +294,12 @@ func (h *Loops) begin(ctx context.Context, user, conv string, in LoopInput, by *
 	switch {
 	case by != nil:
 		l.State, l.Next, l.Scheduled, l.Wait = loops.StateActive, now.Add(by.wait), true, loops.Cut(by.reason)
+		if by.watch != nil {
+			l.Interval, l.Next, l.Watch = by.wait, now, by.watch
+			if l.Wait == "" {
+				l.Wait = loops.Cut("Waiting for " + by.watch.Describe())
+			}
+		}
 	case ok:
 		l.State, l.Next = loops.StateActive, now
 	}
@@ -320,6 +329,10 @@ func (h *Loops) message(ctx context.Context, rec session.ChatRecord, l loops.Loo
 	msg := session.Message{Text: l.Prompt}
 	if l.ID != "" {
 		msg.Loop = &session.LoopMark{ID: l.ID, Run: l.Runs, SelfPaced: l.SelfPaced()}
+	}
+	if l.Watch != nil && l.Watch.Wake != "" {
+		msg.Text = l.Watch.Wake
+		return msg, nil
 	}
 	name, words, ok := loopSkill(l.Prompt)
 	if !ok {
@@ -446,6 +459,7 @@ func (h *Loops) Pass(ctx context.Context) error {
 		return err
 	}
 	lim := h.Limits()
+	var checks []loops.Loop
 	for _, l := range list {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -455,25 +469,20 @@ func (h *Loops) Pass(ctx context.Context) error {
 		case l.Running:
 			h.reconcile(ctx, l, lim)
 		case l.State == loops.StateActive && !l.Next.IsZero() && !now.Before(l.Next):
+			if l.Watch != nil && l.Watch.Wake == "" {
+				checks = append(checks, l) // a check is code, not a run
+				continue
+			}
 			h.fire(ctx, l, now, lim)
 		}
 	}
+	h.checkWatches(ctx, checks, lim)
 	return nil
 }
 
 // fire starts the run of a due loop, or skips it when the chat is busy.
 func (h *Loops) fire(ctx context.Context, l loops.Loop, now time.Time, lim LoopLimits) {
-	if _, err := h.svc.d.Store.GetChat(ctx, l.Owner, l.ChatID); err != nil {
-		if errors.Is(err, session.ErrNotFound) {
-			h.drop(ctx, l, "the chat was deleted")
-		}
-		return
-	}
-	if why, gone := h.checkOwner(ctx, l.Owner); gone {
-		h.drop(ctx, l, why)
-		return
-	} else if why != "" {
-		h.pause(ctx, l, why)
+	if !h.ready(ctx, l) {
 		return
 	}
 	if h.busy(ctx, l) {
@@ -511,6 +520,25 @@ func (h *Loops) fire(ctx context.Context, l loops.Loop, now time.Time, lim LoopL
 		return
 	}
 	h.start(ctx, claimed, now)
+}
+
+// ready says whether the chat and the owner of a due loop can have a run or a
+// check now. It drops or pauses the loop when they never can.
+func (h *Loops) ready(ctx context.Context, l loops.Loop) bool {
+	if _, err := h.svc.d.Store.GetChat(ctx, l.Owner, l.ChatID); err != nil {
+		if errors.Is(err, session.ErrNotFound) {
+			h.drop(ctx, l, "the chat was deleted")
+		}
+		return false
+	}
+	if why, gone := h.checkOwner(ctx, l.Owner); gone {
+		h.drop(ctx, l, why)
+		return false
+	} else if why != "" {
+		h.pause(ctx, l, why)
+		return false
+	}
+	return true
 }
 
 // start sends the prompt of a claimed run to the chat and watches the turn.
@@ -591,7 +619,8 @@ func (h *Loops) busy(ctx context.Context, l loops.Loop) bool {
 // skipBusy moves an interval loop to its next slot: the runs a busy chat
 // missed do not pile up. A self-paced loop tries again at the next pass.
 func (h *Loops) skipBusy(ctx context.Context, l loops.Loop, now time.Time) {
-	if l.SelfPaced() {
+	if l.SelfPaced() || l.Watch != nil {
+		// A wait that ended keeps its wake-up until the chat is free.
 		return
 	}
 	_, err := h.o.Store.Update(ctx, l.ID, func(c *loops.Loop) error {
@@ -607,7 +636,7 @@ func (h *Loops) skipBusy(ctx context.Context, l loops.Loop, now time.Time) {
 }
 
 func (h *Loops) nextAfterBusy(c *loops.Loop, now time.Time) {
-	if c.SelfPaced() {
+	if c.SelfPaced() || c.Watch != nil {
 		c.Next = now
 		return
 	}
@@ -715,6 +744,12 @@ func (h *Loops) finish(id string, failed bool, why string) {
 		case c.Runs >= most:
 			c.State, c.Next = loops.StateEnded, time.Time{}
 			c.Reason = fmt.Sprintf("Stopped after %d runs, the most a loop may make.", most)
+		case c.Watch != nil && failed:
+			// The wake-up run failed: ask again, the wake-up text is kept.
+			c.Next = now.Add(lim.MinInterval)
+		case c.Watch != nil:
+			c.State, c.Next = loops.StateEnded, time.Time{}
+			c.Reason = loops.Cut("Done: the wait ended (" + c.Watch.Why + ") and the model was woken.")
 		case c.SelfPaced() && failed:
 			c.Next = now.Add(lim.MinInterval)
 		case c.SelfPaced() && !c.Scheduled:

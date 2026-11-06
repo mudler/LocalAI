@@ -66,6 +66,10 @@ type Message struct {
 	// ResumePrompt as a message of the host, which the transcript does not
 	// keep. Any waiting text of Text goes first, as a message of the person.
 	Resume bool
+	// HostNote is a note of the host that only the model gets, after any
+	// words of Text. The transcript does not keep it. A message with only a
+	// HostNote starts a turn that answers the note, as Resume does.
+	HostNote string
 }
 
 // ResumePrompt is what the model gets when a failed turn goes on. The model
@@ -683,10 +687,10 @@ func (c *Chat) Send(ctx context.Context, msg Message) error { return c.send(ctx,
 // send is Send. logged is true when the message is in the transcript already.
 func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	text := strings.TrimSpace(msg.Text)
-	if text == "" && msg.Note == "" && len(msg.Files) == 0 && len(msg.Attachments) == 0 && msg.Directive == "" && !msg.Resume {
+	if text == "" && msg.Note == "" && len(msg.Files) == 0 && len(msg.Attachments) == 0 && msg.Directive == "" && !msg.Resume && msg.HostNote == "" {
 		return fmt.Errorf("%w: empty message", ErrInvalid)
 	}
-	if msg.Resume && !logged && text == "" && msg.Note == "" && len(msg.Files) == 0 && len(msg.Attachments) == 0 {
+	if (msg.Resume || msg.HostNote != "") && !logged && text == "" && msg.Note == "" && len(msg.Files) == 0 && len(msg.Attachments) == 0 {
 		// Nothing of the person's goes in the transcript: the turn goes on
 		// from it as it is.
 		logged = true
@@ -713,7 +717,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 		}
 	}
 	if c.running {
-		if msg.Resume {
+		if msg.Resume || msg.HostNote != "" {
 			c.mu.Unlock()
 			return fmt.Errorf("%w: a turn is running", ErrTurnRunning)
 		}
@@ -792,6 +796,12 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 			parts = carried // no words of the person; only the note below
 		}
 		parts = append(parts, ResumePrompt)
+	}
+	if msg.HostNote != "" {
+		if text == "" && msg.Note == "" && len(msg.Attachments) == 0 && len(saved) == 0 {
+			parts = carried
+		}
+		parts = append(parts, msg.HostNote)
 	}
 	full := strings.Join(parts, "\n\n")
 	if !logged {

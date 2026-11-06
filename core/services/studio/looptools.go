@@ -73,6 +73,8 @@ func (s *Service) loopTools(ctx context.Context, a workspace.Actor, rec session.
 			paced = true
 		}
 	}
+	wait := session.Tool{Name: waitForName, Description: waitForDescription, Schema: json.RawMessage(waitForSchema),
+		Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.startWait(ctx, a, raw) }}
 	if !paced {
 		if live {
 			// A paused or waiting loop is the person's to resume: it has no
@@ -80,13 +82,14 @@ func (s *Service) loopTools(ctx context.Context, a workspace.Actor, rec session.
 			return nil
 		}
 		return []session.Tool{{Name: startLoopName, Description: startLoopDescription, Schema: json.RawMessage(startLoopSchema),
-			Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.startLoop(ctx, a, raw) }}}
+			Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.startLoop(ctx, a, raw) }}, wait}
 	}
 	return []session.Tool{
 		{Name: scheduleNextName, Description: scheduleNextDescription, Schema: json.RawMessage(scheduleNextSchema),
 			Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.scheduleNext(ctx, a, raw) }},
 		{Name: loopDoneName, Description: loopDoneDescription, Schema: json.RawMessage(loopDoneSchema),
 			Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.loopDone(ctx, a, raw) }},
+		wait,
 	}
 }
 

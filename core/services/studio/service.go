@@ -351,6 +351,9 @@ type Service struct {
 	// process that serves the chat may note it once more, and the interface
 	// folds equal neighbours.
 	heldNotes sync.Map
+	// guardRuns holds, per chat, the run id of the turn that the promise guard
+	// started, so that the turn is not guarded again (see promiseguard.go).
+	guardRuns sync.Map
 
 	// admit makes the check of MaxWorkerTurns and the start it admits one step,
 	// so two starts cannot both take the last place.
@@ -409,6 +412,9 @@ type run struct {
 	// steps counts the model requests of the turn (see inputs), for the
 	// chat's goal.
 	steps int
+	// final is the text the model wrote since its last tool call (see
+	// noteFinalText).
+	final string
 	// chat is the chat the turn runs on. Stop goes through it and never opens
 	// the chat again: a turn that ended has closed it, and a chat left open by
 	// a late Stop would hold stale state while another frontend runs the next turn.
@@ -1338,6 +1344,13 @@ func (s *Service) pump(chat *session.Chat, evs <-chan session.Event, p, conv str
 			continue
 		}
 		s.bus.Publish(k, ev)
+		if ev.Kind == session.KindText || ev.Kind == session.KindToolStart {
+			s.mu.Lock()
+			if r := s.runs[k]; r != nil {
+				r.noteFinalText(ev)
+			}
+			s.mu.Unlock()
+		}
 		switch ev.Kind {
 		case session.KindError:
 			// Only the error that ended the turn fails it. A failed save or a
@@ -1408,6 +1421,12 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 		// this one only cleans up after itself and reports a terminal status.
 		status = store.TurnInterrupted
 	}
+	final, guarded := r.final, false
+	if v, ok := s.guardRuns.Load(k); ok && v == r.id {
+		// This turn answered the note of the guard: it is not guarded again.
+		s.guardRuns.Delete(k)
+		guarded = true
+	}
 	s.settleGoal(ctx, p, conv, status, r.steps)
 	s.observeTurn(ctx, p, conv, r.started, outcomeOf(r.stopped, r.failed || status == store.TurnInterrupted))
 	if !s.holdForLoop(ctx, p, conv, status) {
@@ -1433,6 +1452,9 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 			started, err := s.startFromPending(ctx, p, conv)
 			if err == nil && !started {
 				started, err = s.continueGoal(ctx, p, conv, goalContinue)
+			}
+			if err == nil && !started && !guarded {
+				started, err = s.promiseGuard(ctx, p, conv, final)
 			}
 			if err != nil {
 				s.log.Warn("studio: could not start the next turn", "chat", conv, "error", err)

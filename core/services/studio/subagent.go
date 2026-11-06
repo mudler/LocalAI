@@ -207,7 +207,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	if !sub && !hidden[spawnAgentName] {
 		// The agent argument is offered only when list_agents is: the chat
 		// switched the saved agents on and its user may use them.
-		tools = append(tools, s.spawnTool(x, hasTool(tools, listAgentsName)))
+		tools = append(tools, s.spawnTool(x, hasTool(tools, listAgentsName)), s.waitAgentsTool(a))
 	}
 	// The assistant tools are not part of hostTools, so a sub-agent never gets
 	// them, whatever its parent names.
@@ -442,7 +442,18 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		go s.reportBack(a, childID, title, done) // #nosec G118 -- a background sub-agent reports after the request ended
 		return fmt.Sprintf("Started sub-agent %s in the background. Its result will arrive as a message.", childID), nil
 	}
-	st, err := s.waitChild(ctx, a.Principal, childID, done)
+	st, err := s.waitChild(ctx, a.Principal, childID, done, foregroundLoopWait)
+	if errors.Is(err, errChildHeld) {
+		// The sub-agent armed a loop or a wait and waits for it. Do not hold
+		// this call open: it goes on as a background sub-agent.
+		s.mu.Lock()
+		if c := s.children[parentKey][childID]; c != nil {
+			c.background = true
+		}
+		s.mu.Unlock()
+		go s.reportBack(a, childID, title, done) // #nosec G118 -- the sub-agent reports after the request ended
+		return fmt.Sprintf("The sub-agent %s keeps running: it waits for a loop or a wait it armed. It continues in the background and its result will arrive as a message.", childID), nil
+	}
 	if err != nil {
 		_ = s.Stop(context.WithoutCancel(ctx), a.Principal, childID)
 		s.forgetChild(parentKey, childID)
@@ -704,7 +715,7 @@ func pick(ofTurn, latest string) string {
 // idle. One that was stopped or failed only raises the event.
 func (s *Service) reportBack(a workspace.Actor, childID, title string, done <-chan store.TurnStatus) {
 	ctx := context.Background()
-	st, err := s.waitChild(ctx, a.Principal, childID, done)
+	st, err := s.waitChild(ctx, a.Principal, childID, done, 0)
 	if err != nil {
 		return
 	}

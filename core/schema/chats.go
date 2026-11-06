@@ -332,7 +332,10 @@ type ChatsLoop struct {
 	// Running is true while a run of the loop goes on in the chat.
 	Running bool `json:"running"`
 	// Wait is what the model of a self-paced loop said it waits for.
-	Wait    string     `json:"wait,omitempty"`
+	Wait string `json:"wait,omitempty"`
+	// Kind is "wait" for a wait (the server checks a source and wakes the
+	// model once); empty for a loop.
+	Kind    string     `json:"kind,omitempty"`
 	Created time.Time  `json:"created"`
 	LastRun *time.Time `json:"last_run,omitempty"`
 }

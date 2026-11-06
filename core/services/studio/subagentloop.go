@@ -35,7 +35,7 @@ func (s *Service) loopHolds(ctx context.Context, p, conv string) bool {
 		return false
 	}
 	for _, l := range list {
-		if l.SelfPaced() && l.State == loops.StateActive {
+		if (l.SelfPaced() || l.Watch != nil) && l.State == loops.StateActive {
 			return true
 		}
 	}
@@ -75,11 +75,25 @@ func (s *Service) endChildLoops(ctx context.Context, p, conv string) {
 
 var errChildWait = errors.New("studio: the service closed while a sub-agent was awaited")
 
+// errChildHeld means a sub-agent that a parent awaits ended its turn but
+// holds the report back for a loop or a wait, for longer than the bound.
+var errChildHeld = errors.New("studio: the sub-agent waits for its loop")
+
+// foregroundLoopWait is how long a foreground spawn_agent call waits for a
+// sub-agent that has ended its turn and armed a loop or a wait. The call then
+// returns and the sub-agent goes on as a background one: its result arrives as
+// a message. Work that is running is never cut: only the time a sub-agent
+// spends waiting for its loop counts. A test shortens it.
+var foregroundLoopWait = 2 * time.Minute
+
 // waitChild waits until the turn of a sub-agent ends for good. done is the
 // channel of waitFor. It gives up with ctx's error, or when the service
 // closes. When the store shows that the sub-agent is idle with no loop for two
 // checks in a row, the word did not reach this frontend and the check answers.
-func (s *Service) waitChild(ctx context.Context, p, id string, done <-chan store.TurnStatus) (store.TurnStatus, error) {
+//
+// heldMax bounds the time the sub-agent is idle and holds for a loop (0: no
+// bound); when it passes, waitChild returns errChildHeld and keeps the waiter.
+func (s *Service) waitChild(ctx context.Context, p, id string, done <-chan store.TurnStatus, heldMax time.Duration) (store.TurnStatus, error) {
 	var tick <-chan time.Time
 	if s.loops != nil {
 		t := time.NewTicker(childPoll)
@@ -87,6 +101,7 @@ func (s *Service) waitChild(ctx context.Context, p, id string, done <-chan store
 		tick = t.C
 	}
 	idle := 0
+	var heldSince time.Time
 	for {
 		select {
 		case st := <-done:
@@ -97,6 +112,15 @@ func (s *Service) waitChild(ctx context.Context, p, id string, done <-chan store
 			return "", errChildWait
 		case <-tick:
 			info, err := s.d.Store.Turn(ctx, p, id)
+			if err == nil && !info.Running && info.Last != "" && heldMax > 0 && s.loopHolds(ctx, p, id) {
+				if heldSince.IsZero() {
+					heldSince = time.Now()
+				} else if time.Since(heldSince) >= heldMax {
+					return "", errChildHeld
+				}
+			} else {
+				heldSince = time.Time{}
+			}
 			if err != nil || info.Running || info.Last == "" || s.loopHolds(ctx, p, id) {
 				idle = 0
 				continue
