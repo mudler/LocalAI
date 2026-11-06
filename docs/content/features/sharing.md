@@ -139,6 +139,91 @@ that a lowering or a revocation cancels it. Package
 `core/services/addons/policy/sharetest` is a complete example that only the tests
 use.
 
+## The Share dialog
+
+The web UI has one Share dialog for every resource that can be shared. It shows
+who has access and their role, finds people by name, offers `@everyone` where the
+kind allows it, asks before it revokes a grant, and says so in local-owner mode.
+A search result is only an account ID and a display name: an address is never
+shown.
+
+The dialog does not know the routes. It takes a client with four calls:
+
+| Call | Answer |
+|------|--------|
+| `grants()` | `{ grants: [{ userId, displayName, role }] }` |
+| `setGrant(principal, role)` | The grants after the change |
+| `revoke(principal)` | The grants after the change |
+| `searchUsers(query)` | `{ users: [{ id, displayName }] }` |
+
+### In an add-on
+
+An add-on page gets the dialog as `sdk.ui.ShareDialog` and the client of one of
+its own resources from `sdk.resources.shareClient(resourceId)`. The client uses
+the add-on routes and is bound to the add-on and its installed generation. Add-on
+resources have the roles `viewer` and `editor` and no grant to `@everyone`. Render
+the dialog in the page while it is open; it draws its own modal frame, so do not
+put it inside `sdk.layers.openDialog`.
+
+```jsx
+const ShareDialog = sdk.ui.ShareDialog
+const client = R.useMemo(() => sdk.resources.shareClient(db.id), [db.id])
+
+{open && ShareDialog ? (
+  <ShareDialog
+    client={client}
+    resource={{ id: db.id, name: db.name }}
+    sharing={listing.sharing}
+    roles={[
+      { id: 'viewer', label: t('role.viewer'), help: t('role.viewerHelp') },
+      { id: 'editor', label: t('role.editor'), help: t('role.editorHelp') },
+    ]}
+    onChanged={refresh}
+    onLost={() => { setOpen(false); showUnavailable() }}
+    close={() => setOpen(false)}
+  />
+) : null}
+```
+
+A host that is older than the dialog has no `sdk.ui.ShareDialog`. Check for it and
+hide the Share button when it is missing. The SDK version stays 2: the dialog, the
+badges and `shareClient` are additions to the SDK 2 surface.
+
+### In a page of the web UI
+
+A page of the React UI imports `ShareDialog` from `components/share/ShareDialog`
+and builds the client of a resource of a kind with
+`kindShareClient(sharesApi, kind, resourceId)` (`components/share/shareClients.js`
+and `utils/api.js`). Take the roles and `everyone` from the answer of
+`GET /api/shares/{kind}`; `shareRoles(roles, t)` in `components/share/shareModel.js`
+gives the host's words for `use`, `manage`, `viewer` and `editor`. The dialog and
+the badges are also in the UI catalog at `/app/ui-catalog`.
+
+### Props
+
+| Prop | Meaning |
+|------|---------|
+| `client` | The four calls above. |
+| `roles` | `[{ id, label, help }]`, the roles the kind grants, in order. The first one is the default role for people you add. `help` is shown under the search field. |
+| `allowEveryone` | `true` when the kind may be shared with `@everyone`. |
+| `resource` | `{ id, name }`. The name is in the title. |
+| `sharing` | `false` in local-owner mode. The dialog then shows that sharing is not available and makes no call. |
+| `references` | Optional. Other resources that this one uses, which the owner decides on before sharing: `[{ id, label, kind, options }]`, where `options` is a subset of `view`, `use` and `none`. The dialog does not add anyone until every row has a choice. |
+| `onShare` | With `references` only: called after each new grant, in the same step, with `{ principal, role, choices }`, where `choices` maps each reference ID to the chosen option. The page shares the referenced resources from there. |
+| `onChanged` | Called after every change. |
+| `onLost` | Called when the answer says that the person can no longer share the resource here (403, 401, or the add-on was withdrawn). |
+| `close` | Closes the dialog. |
+| `title`, `intro` | Replace the default title and the line under it. |
+
+### Role and "Shared by" on a list row
+
+`sdk.ui.RoleBadge` (`role`, `label`) draws the caller's role as a chip.
+`sdk.ui.SharedByBadge` (`entry`, `roleLabel`, `hideRole`) draws the role and one
+line from a row of a listing: "Shared by Alice", "Shared with everyone by Alice",
+"Shared with 2" or "Private". Pass a row of `GET /api/shares/{kind}` as `entry`:
+owned rows have `role: "owner"` and `sharedWith`, shared rows have `role`, `owner`
+and `everyone`.
+
 ## Distributed mode
 
 The grants are stored only in the policy store of the add-on owner, the single

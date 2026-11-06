@@ -253,3 +253,7 @@ export { default as WaveformPlayer } from '../components/audio/WaveformPlayer'
 export { default as DistributionBars } from '../components/biometrics/DistributionBars'
 export { default as EmbeddingInspector } from '../components/biometrics/EmbeddingInspector'
 export { default as TabSwitch } from '../components/biometrics/TabSwitch'
+// The Share dialog and the sharing line of a list row. An add-on passes the
+// client of sdk.resources.shareClient(resourceId); see sharing.md.
+export { default as ShareDialog } from '../components/share/ShareDialog'
+export { RoleBadge, SharedByBadge } from '../components/share/ShareBadges'

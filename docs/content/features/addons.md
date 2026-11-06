@@ -1868,6 +1868,10 @@ draw the same thing.
   `HomeModelPicker` and `ModelSelector` stay as names for the same picker.
 - `sdk.ui` also has the settings kit, for a settings section or any form: see
   [The settings kit](#the-settings-kit).
+- `sdk.ui` also has the Share dialog, `ShareDialog`, and the role and sharing line
+  of a list row, `RoleBadge` and `SharedByBadge`. `sdk.resources.shareClient(resourceId)`
+  is the dialog's client for one resource of the add-on. See
+  [The Share dialog]({{%relref "features/sharing#the-share-dialog" %}}).
 - `sdk.theme.tokens`: the host's design tokens as CSS values (`var(--dk-...)`), for the
   add-on's own scoped style sheet: `text`, `muted`, `surface`, `inset`, `edge`, `hover`,
   `accent`, `accentText`, `accentWash`, `onAccent`, `okText`, `okWash`, `warnText`,

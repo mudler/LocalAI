@@ -231,20 +231,25 @@ test.describe('Tables UI', () => {
     expect(await names(op, 'Item')).toEqual(['pen', 'ink'])
     await shoot(op, 'tables-ui-owner-grid')
 
-    // Sharing: the picker finds a named account and the owner names the role.
+    // Sharing: the host's Share dialog finds a named account by name and the
+    // owner names the role before adding it.
     await op.getByRole('button', { name: 'Share' }).click()
-    const sharing = op.getByTestId('tbl-sharing')
-    await expect(sharing.getByTestId('tbl-no-grants')).toBeVisible({ timeout: 25_000 })
+    const sharing = op.getByTestId('share-dialog')
+    await expect(sharing.getByTestId('share-no-grants')).toBeVisible({ timeout: 25_000 })
+    await sharing.getByLabel('Role for people you add').selectOption('editor')
     await sharing.getByLabel('Find a person by name').fill('ed')
-    const candidate = sharing.getByTestId('tbl-user').filter({ hasText: 'editor' })
+    const candidate = sharing.getByTestId('share-user').filter({ hasText: 'editor' })
     await expect(candidate).toHaveCount(1, { timeout: 25_000 })
-    await candidate.getByRole('button', { name: 'Add as editor' }).click()
-    await expect(sharing.getByTestId('tbl-grant')).toHaveCount(1, { timeout: 25_000 })
+    await candidate.getByRole('button', { name: 'Add editor as Editor' }).click()
+    await expect(sharing.getByTestId('share-grant')).toHaveCount(1, { timeout: 25_000 })
+    await sharing.getByLabel('Role for people you add').selectOption('viewer')
     await sharing.getByLabel('Find a person by name').fill('vi')
-    await sharing.getByTestId('tbl-user').filter({ hasText: 'viewer' }).getByRole('button', { name: 'Add as viewer' }).click()
-    await expect(sharing.getByTestId('tbl-grant')).toHaveCount(2, { timeout: 25_000 })
-    await expect(sharing.locator(`[data-testid="tbl-grant"][data-user="${creds.users.editor.id}"]`)).toHaveAttribute('data-role', 'editor')
-    await expect(sharing.locator(`[data-testid="tbl-grant"][data-user="${creds.users.viewer.id}"]`)).toHaveAttribute('data-role', 'viewer')
+    await sharing.getByTestId('share-user').filter({ hasText: 'viewer' }).getByRole('button', { name: 'Add viewer as Viewer' }).click()
+    await expect(sharing.getByTestId('share-grant')).toHaveCount(2, { timeout: 25_000 })
+    await expect(sharing.locator(`[data-testid="share-grant"][data-user="${creds.users.editor.id}"]`)).toHaveAttribute('data-role', 'editor')
+    await expect(sharing.locator(`[data-testid="share-grant"][data-user="${creds.users.viewer.id}"]`)).toHaveAttribute('data-role', 'viewer')
+    // Add-on resources have no grant to everyone.
+    await expect(sharing.getByTestId('share-everyone-add')).toHaveCount(0)
     // A person is found by name only: an address never shows.
     await expect(sharing).not.toContainText('@')
     await shoot(op, 'tables-ui-sharing')

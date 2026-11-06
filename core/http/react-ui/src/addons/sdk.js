@@ -10,6 +10,7 @@
 
 import { resourceOperationId, resourceRequest } from './resourceCalls.js'
 import { userSettingsRequest } from './userSettingsCalls.js'
+import { addonShareClient } from '../components/share/shareClients.js'
 
 export const SDK_VERSION = 2
 
@@ -328,7 +329,7 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
   })
   const operation = (options) => (typeof options?.operationId === 'string' && options.operationId ? options.operationId : resourceOperationId())
   const text = (v) => (typeof v === 'string' ? v : '')
-  const resources = Object.freeze({
+  const resources = {
     list: (options) => resourceCall('list', {}, options),
     create: (spec, options) => resourceCall('create', { arguments: spec?.arguments, operationId: operation(options) }, options),
     rename: (resourceId, spec, options) => resourceCall('rename', { resourceId, name: text(spec?.name), revision: spec?.revision, operationId: operation(options) }, options),
@@ -348,7 +349,11 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
       set: (conversationId, resourceId, options) => resourceCall('selection-put', { conversationId, resourceId }, options),
       clear: (conversationId, options) => resourceCall('selection-clear', { conversationId }, options),
     }),
-  })
+  }
+  // The client of sdk.ui.ShareDialog for one resource of this add-on: the
+  // four grant calls above, bound to the resource.
+  resources.shareClient = (resourceId) => addonShareClient(resources, String(resourceId))
+  Object.freeze(resources)
 
   const notify = (kind) => (message) => {
     if (disposed || signal.aborted) return
