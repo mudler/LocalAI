@@ -1921,7 +1921,11 @@
           "skips a folder outside the fence instead of widening it",
           "names two folders with the same name apart and never takes a reserved name",
           "refuses a path that climbs out of a mounted folder",
-          "gives the hook the message and puts the block in front of it for this turn only"
+          "gives the hook the message and puts the block in front of it for this turn only",
+          "still announces the end of the turn",
+          "keeps a files_change card whose path has letters outside ASCII",
+          "refuses a files_change card with a control character, bad UTF-8 or a path that is too long",
+          "still holds the other cards to 128 printable ASCII characters"
         ]
       }
     ]
