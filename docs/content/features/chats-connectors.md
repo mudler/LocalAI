@@ -24,7 +24,9 @@ add-on's own page. Each row has a state chip (**Running**, **Off** or **Needs at
 agent and who may write to it, and a switch that applies at once. **New connection** lists the installed
 platforms and opens the add form of the one you pick. With no connector add-on installed, the page says so and links
 to the gallery. `GET /api/chats/connectors/kinds` lists the platforms that a running
-add-on serves.
+add-on serves. A kind whose add-on declares a setup text also has `setup`, a short phrase
+such as "a bot token from @BotFather" that says what the person needs before a connection
+works (see [Setup text]({{%relref "features/addons#setup-text" %}})).
 
 A binding names the add-on that serves it. A binding made before connectors became
 add-ons names none, and belongs to the add-on of its kind: a Telegram binding keeps

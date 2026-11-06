@@ -1597,13 +1597,14 @@ The four compatibility ranges above are integers that every published add-on sta
 without making every published add-on incompatible, so the host also has a **feature
 level**: one integer that counts the additive manifest features it understands.
 
-- The host declares its level (`contract.HostFeatureLevel`). This version has level 3.
+- The host declares its level (`contract.HostFeatureLevel`). This version has level 4.
   A host that predates the levels is level 1.
 - A manifest may set `featureLevel` (a positive integer, default 1). It states the level
   the add-on needs. A manifest that uses a field of a higher level must say so: the
   parser refuses a manifest that uses `capabilities.resources.agentScoped`,
   `capabilities.resources.nounPlural` or `i18n.<language>.resources` and does not declare
   `featureLevel: 2`. `capabilities.ownerData` is level 3.
+  The setup text (`setup` on the manifest, `kinds[].setup` and the `setup` of a kind translation) is level 4.
 - A host with a lower level refuses the add-on with the plain reason **needs a newer
   LocalAI**. The add-on is not installed and not upgraded. A failed install or upgrade has
   the cause `needs_newer_host`, and an update check shows the add-on as incompatible with
@@ -1673,8 +1674,8 @@ It is an optional addition to `api` 2. Its shape is closed on purpose:
 | Rule | Value |
 |---|---|
 | Language tags | A BCP 47 subset: two or three letters and up to three subtags, such as `it`, `pt-BR`, `zh-CN`. At most 16 languages. A tag is unique whatever its case. `en` is refused: the English fields are the manifest. |
-| Fields | `kinds.<id>.title` and `kinds.<id>.description`. The kind must be declared in `capabilities.connector.kinds`, and a description can be translated only when the English kind has one. An unknown field fails the strict parser, as does a duplicate key. |
-| Text | Plain text, as for `ui.title`: no `<` or `>`, no control characters, no direction overrides, no leading or trailing space. A title has at most 80 characters and a description at most 280. All the translated text of one manifest has at most 12 000 characters. The whole manifest keeps its size limit. |
+| Fields | `kinds.<id>.title`, `kinds.<id>.description` and `kinds.<id>.setup`. The kind must be declared in `capabilities.connector.kinds`, and a description or a setup can be translated only when the English kind has one. An unknown field fails the strict parser, as does a duplicate key. |
+| Text | Plain text, as for `ui.title`: no `<` or `>`, no control characters, no direction overrides, no leading or trailing space. A title has at most 80 characters, a description at most 280 and a setup at most 120. All the translated text of one manifest has at most 12 000 characters. The whole manifest keeps its size limit. |
 | Fallback | A field that a language leaves out, and every language that the manifest does not list, shows the English text. Each field falls back on its own. |
 | Not translatable | Tool descriptions, input schemas and skills are written for the model and stay English. User setting keys and values are identifiers. The text of the add-on's own pages is part of the UI bundle and has its own strings. |
 
@@ -1699,6 +1700,40 @@ are honored); without both, English and no extra field. An unknown or malformed 
 English and the header is not read behind it. `title` and `description` never change, so an
 existing client sees the same answer as before. The UI reads the maps and picks the language of
 the user itself.
+
+### Setup text
+
+Some add-ons do nothing until the person gives them something: a bot token, an access
+token, an account on another service. The setup text says so in one short phrase, so the
+UI can show "Needs a bot token from @BotFather" before the person starts. It is plain
+text that completes the sentence "Needs ...". Write it without a capital letter, a final
+full stop or a verb of its own: `a bot token from @BotFather`, `an access token and the
+repositories it may use`.
+
+It has two places, and both are optional:
+
+- A **connector kind** declares `kinds[].setup` in `capabilities.connector`.
+- An **add-on that has no connector kind** (a tool add-on) declares the top-level
+  `setup`. It is one string or a map of language tag to string, like `ui.title`.
+
+```json
+"featureLevel": 4,
+"setup": { "en": "an access token", "it": "un token di accesso" }
+```
+
+| Rule | Value |
+|---|---|
+| Length | At most 120 characters, and not empty. |
+| Text | Plain text, as for `ui.title`: no `<` or `>`, no control characters (so no line break and no tab), no direction overrides, no leading or trailing space. It is not Markdown. |
+| Translation | For a kind, `i18n.<language>.kinds.<id>.setup`, only when the English kind has a setup. For the add-on, the language map of `setup`. A language that leaves it out, and every language that the manifest does not list, shows the English text. |
+| Feature level | Level 4. A manifest that uses it must declare `featureLevel: 4`. A host with a lower level refuses the add-on with "needs a newer LocalAI"; a host that predates feature levels refuses the unknown field. Do not add it to a package that older hosts must still install. |
+
+**What the host does with it.** `GET /api/chats/connectors/kinds` returns `setup` (English),
+`setups` (every translation, by language tag) and, when the request names a language that
+the kind translates, `localized_setup`. `GET /api/addons/apps` returns `setup`, `setups` and
+`localizedSetup` for an add-on in the same way. The fields are left out when the manifest
+declares no setup. The language is chosen as for the other texts: the `lang` query parameter,
+else `Accept-Language`. Each localized field falls back to English on its own.
 
 **Authoring.** Translate by hand, in the tone of the main locale of the language. Keep product
 names (GitHub, Slack, Telegram, Discord, Jellyfin, Home Assistant, LocalAI) as they are. Keep the
@@ -2652,6 +2687,7 @@ The manifest declares the capability. It needs no tool and no `service` flag:
 | `kinds` | 1 to 4 kinds. A kind is what a binding stores in `kind`, so it names the platform. |
 | `kinds[].id` | A lower-case identifier, unique in the manifest. A binding names the add-on too, so another add-on cannot take over the bindings of a kind. |
 | `kinds[].title`, `description`, `senderHint` | Plain text for people, with the bounds of the UI texts. |
+| `kinds[].setup` | Optional, feature level 4. What the person needs before a binding of this kind works, as a short phrase that completes the sentence "Needs ...", such as `a bot token from @BotFather`. See [Setup text](#setup-text). |
 | `kinds[].delivery` | `pull`: the host asks for updates (long polling). `push`: the add-on calls the host operation `connector.inbound`. |
 | `kinds[].page` | Optional. The add-on page that adds and edits bindings; it must be a declared page. The Connectors page links to it. |
 | `kinds[].agentOptional` | Optional, manifest `api` 2. `true` lets a binding of the kind have no agent. Such a binding is credentials only: it holds the token, the resource list and the write mode, and the host never delivers a message to it, polls for it, answers from it or authorizes a sender on it. The host refuses an empty agent together with listening, accepting senders, an allowlist, a notification chat, talk-back channels, permissions, pairing or trigger approval. Without the key every binding of the kind needs an agent. |
@@ -3414,6 +3450,7 @@ Two more optional capability fields describe the UI-only resource management (se
 | `capabilities.adminTools` | At most 4 tool names that only the host's own UI-only endpoints may run. An admin tool is never in `tools`, never has a tool definition, is never offered to a model and is refused by every model, proposal and typed-read path: the declared-tool rule of those paths reads `tools` only. |
 | `capabilities.connector` | Optional. 1 to 4 `kinds` of messaging binding the add-on serves, each with an `id`, a `title`, a `delivery` (`pull` or `push`) and optional texts and a `page`. See [Connector add-ons](#connector-add-ons). |
 | `featureLevel` | Optional positive integer, default 1. The feature level the add-on needs from the host. See [Feature level](#feature-level). |
+| `setup` | Optional, feature level 4. What the person needs before the add-on works, as a short phrase such as `an access token`. A string or a map of language tag to string, like `ui.title`. For an add-on that has no connector kind; a kind has its own `kinds[].setup`. See [Setup text](#setup-text). |
 | `capabilities.resources` | Maps the management operations to tools: `create` (a declared tool of kind `create`), `rename` (a declared tool of kind `schema`), `inspect` (a declared tool of kind `read` whose result is an object with a `name` and a `revision`), `delete` (the one admin tool) and a plain-text singular `noun`. Every field is optional. An admin tool must be the `delete` of the mapping, and a mapping must name tools that exist with the kind it needs. A mapping with `create` or `delete` must also declare the read tool `resource-exists` in `tools`, because the host settles interrupted creations and deletions only on its explicit answer. `list` asks the host for a listing tool; see [Resource listing](#resource-listing). |
 
 A tool definition names the resource it works on with a required `resourceId`
