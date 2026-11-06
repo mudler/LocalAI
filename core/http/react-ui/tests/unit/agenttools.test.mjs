@@ -135,6 +135,8 @@ test('a connection that does not allow a grant the agent holds is named under th
   assert.deepEqual(rows[0].notes.map((n) => [n.key, n.link.to]), [['b1', '/app/addons/slack/apps?binding=b1']])
   assert.deepEqual(rows[1].notes, [], 'an option that is off has no note')
   assert.deepEqual(groups.find((x) => x.key === 'unattended').rows[0].notes, [], 'the act grants are the agent\'s alone')
+  // A kind that declares a page is opened on that page.
+  assert.equal(agentConnections([{ id: 'b9', name: 'X', kind: 'room', agent_id: 'a1' }], [{ kind: 'room', addon: 'chat-b', title: 'Room B', page: 'rooms' }], 'a1')[0].to, '/app/addons/chat-b/rooms?binding=b9')
   // The agent not saved yet has no connections.
   assert.deepEqual(agentConnections([{ agent_id: '' }], [], ''), [])
 })

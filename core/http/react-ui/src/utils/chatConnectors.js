@@ -40,3 +40,28 @@ export function bindingAddress(groups, c, id) {
   const href = (groups || []).find((g) => g.kind === c.kind && g.addon === c.addon)?.href
   return href ? `${href}${href.includes('?') ? '&' : '?'}binding=${encodeURIComponent(id)}` : ''
 }
+
+// The bindings that answer as one agent, for the agent's page. Each row has the
+// title of its kind (from the running add-on, else the kind ID), a state and the
+// address of the binding's own settings. Any add-on works: nothing here names a
+// kind. state is 'attention' when the host says the binding is not running or
+// answers the same bot twice, 'off' when the owner switched it off, else 'ok';
+// reason is the host's words for 'attention', when it gave any.
+export function bindingsOfAgent(agentId, kinds, items) {
+  if (!agentId) return []
+  const { groups } = groupConnectors(kinds, items)
+  return (items || []).filter((c) => c.agent_id === agentId).map((c) => {
+    const group = groups.find((g) => g.kind === c.kind && g.addon === c.addon)
+    const attention = c.active === false || !!duplicateOf(c)
+    return {
+      id: c.id,
+      name: c.name,
+      kindTitle: group?.title || c.kind,
+      state: attention ? 'attention' : c.enabled === false ? 'off' : 'ok',
+      reason: c.active === false ? (c.reason || '') : '',
+      // Without a running add-on there is no page to open; the gallery entry of
+      // the add-on is the nearest place.
+      href: group ? bindingAddress(groups, c, c.id) : `/app/addons?detail=${encodeURIComponent(c.addon || c.kind)}`,
+    }
+  })
+}

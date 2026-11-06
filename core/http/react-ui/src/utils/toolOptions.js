@@ -1,3 +1,4 @@
+import { addonPageAddress } from '../addons/addresses.js'
 // The options of the Tools list. A saved agent stores a capability twice: as a
 // switch of a built-in group (builtins_off, builtins_on) and as a list of
 // grants (builtins). The Tools list shows one switch per capability, and the
@@ -87,8 +88,9 @@ export function agentConnections(bindings, kinds, agentId) {
         id: b.id,
         name: [title, b.name].filter(Boolean).join(' '),
         caps: list(b.caps),
-        // The page of the kind opens the binding and shows its permissions.
-        to: k?.addon ? `/app/addons/${encodeURIComponent(k.addon)}/apps?binding=${encodeURIComponent(b.id)}` : '/app/chats/connectors',
+        // The page the add-on declares for the kind opens the binding and shows
+        // its permissions; a kind that declares none keeps the usual "apps" page.
+        to: k?.addon ? addonPageAddress({ addon: k.addon, page: k.page || 'apps', search: `binding=${encodeURIComponent(b.id)}` }) : '/app/chats/connectors',
       }
     })
 }
