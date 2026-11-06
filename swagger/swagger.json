@@ -16940,10 +16940,6 @@
                         }
                     ]
                 },
-                "ownerData": {
-                    "description": "OwnerData is true when the manifest says the tools keep the owner's own\ndata (capabilities.ownerData). Its writes need tools.write in a\nconnector chat, like the writes of a credentialed add-on.",
-                    "type": "boolean"
-                },
                 "shadows": {
                     "description": "Shadows lists the built-in chat tools the add-on replaces (bash, say).",
                     "type": "array",

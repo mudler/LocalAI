@@ -386,12 +386,6 @@ definitions:
           upgrade, say). It is absent when none runs. The observation is
           separate from State: the process can run on while the owner stages
           the next generation.
-      ownerData:
-        description: |-
-          OwnerData is true when the manifest says the tools keep the owner's own
-          data (capabilities.ownerData). Its writes need tools.write in a
-          connector chat, like the writes of a credentialed add-on.
-        type: boolean
       shadows:
         description: Shadows lists the built-in chat tools the add-on replaces (bash,
           say).
