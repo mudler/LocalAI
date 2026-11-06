@@ -102,7 +102,9 @@ var _ = Describe("generic sharing without the add-ons feature", Label("sharing")
 		users := func(q string) shareReply {
 			return r.do("GET", "/api/shares/"+sharetest.Kind+"/"+ref.ResourceID+"/users?q="+q, "", r.browser("dave", ref.ResourceID))
 		}
-		for q, want := range map[string][]string{"fr": {"frank"}, "fi": {"fiona"}, "f": nil, "ev": {}, "gi": {}, "da": {}, "bo": {"bob"}, "frank@example": {"frank"}} {
+		// The picker matches a display name, from three characters; an address
+		// finds nobody who has a name.
+		for q, want := range map[string][]string{"fra": {"frank"}, "fio": {"fiona"}, "fr": nil, "eve": {}, "gin": {}, "dav": {}, "bob": {"bob"}, "frank@example": {}, "frank@example.test": {}} {
 			got := users(q)
 			if want == nil {
 				Expect(got.code).To(Equal(400), q)
@@ -112,7 +114,7 @@ var _ = Describe("generic sharing without the add-ons feature", Label("sharing")
 			Expect(foundIDs(got)).To(Equal(want), q)
 		}
 		var found gateway.UserList
-		users("fr").json(&found)
+		users("fra").json(&found)
 		Expect(found.Users).To(Equal([]gateway.UserRef{{ID: "frank", DisplayName: "Frank"}}))
 
 		set := r.do("PUT", grantsPath(ref)+"/frank", `{"role":"manage"}`, r.browser("dave", ref.ResourceID))

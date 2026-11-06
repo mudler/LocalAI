@@ -96,9 +96,10 @@ limits, apart from the add-on resources:
 | Add-on resources | 256 | 4096 |
 | Share records (agents, bindings, collections, other kinds) | 256 | 8192 |
 
-A person at a limit gets 403 with type `quota_reached`. Share records never take
-the room of add-on resources, and an owner reaches their own limit long before the
-total: 32 owners at their limit are needed to fill it.
+An owner at the limit of share records cannot share one more resource for the first
+time until one of their records goes; resources that are already shared are not
+affected. Share records never take the room of add-on resources, and an owner reaches
+their own limit long before the total: 32 owners at their limit are needed to fill it.
 
 A record is dropped when its resource is deleted: deleting a saved agent or a
 binding revokes every grant and then drops the record. At startup the add-on owner

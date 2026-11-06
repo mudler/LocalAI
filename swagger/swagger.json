@@ -11530,7 +11530,7 @@
         },
         "/api/collections/{name}/entries-raw/{entry}": {
             "get": {
-                "description": "Serves the file as it was uploaded.",
+                "description": "Serves the file as it was uploaded. For a collection shared with the caller the download runs under the share: a revocation or a lowering stops it.",
                 "tags": [
                     "collections"
                 ],
@@ -11779,6 +11779,7 @@
         },
         "/api/collections/{name}/sources": {
             "get": {
+                "description": "Only the owner may list the sources: a source URL can carry a credential. A person the collection is shared with gets 403 whatever the role.",
                 "tags": [
                     "collections"
                 ],
@@ -11797,6 +11798,15 @@
                         "description": "The sources",
                         "schema": {
                             "$ref": "#/definitions/schema.CollectionSources"
+                        }
+                    },
+                    "403": {
+                        "description": "The collection is shared with the caller, who is not its owner",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
                     "404": {
@@ -13715,7 +13725,7 @@
         },
         "/api/shares/{kind}/{resourceId}/users": {
             "get": {
-                "description": "Finds active named accounts by a prefix of the display name or of the address, 2 to 64 characters, at most 20 results, whether or not they may use add-ons, and keeps only those the kind accepts as grantees. Each result is an immutable account ID and a display name and nothing else. Only the owner of the resource may search; the owner and the caller are left out. Local-owner mode answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID, no API key, no tool, agent or MCP marker). No MCP tool maps to this route.",
+                "description": "Finds active named accounts by a prefix of the display name, 3 to 64 characters, at most 20 results, whether or not they may use add-ons, and keeps only those the kind accepts as grantees. A prefix of an address finds nobody; an account without a display name is found by its whole address only and comes back with an empty display name. Each result is an immutable account ID and a display name and nothing else. Each person may search 20 times at once and then once every 2 seconds; a search over that rate answers 429 rate_limited. Only the owner of the resource may search; the owner and the caller are left out. Local-owner mode answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID, no API key, no tool, agent or MCP marker). No MCP tool maps to this route.",
                 "produces": [
                     "application/json"
                 ],
@@ -13740,7 +13750,7 @@
                     },
                     {
                         "type": "string",
-                        "description": "Name or address prefix",
+                        "description": "Display name prefix, or a whole address",
                         "name": "q",
                         "in": "query",
                         "required": true
@@ -13779,6 +13789,12 @@
                     },
                     "409": {
                         "description": "Type sharing_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Type rate_limited: too many searches",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
