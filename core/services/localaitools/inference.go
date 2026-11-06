@@ -355,7 +355,7 @@ func (i *Inference) GenerateImage(ctx context.Context, req GenerateImageRequest)
 
 // EditImage repaints the masked part of an image (POST /v1/images/inpainting).
 func (i *Inference) EditImage(ctx context.Context, req EditImageRequest) (*ImageResult, error) {
-	spec := clientSpec(ToolEditImage)
+	spec := clientSpecAction(ToolGenerateImage, ActionEdit)
 	if strings.TrimSpace(req.Prompt) == "" {
 		return nil, errors.New("prompt is required")
 	}
@@ -778,7 +778,7 @@ func (i *Inference) GenerateSound(ctx context.Context, req GenerateSoundRequest)
 
 // VerifyVoice tells whether two recordings have the same speaker.
 func (i *Inference) VerifyVoice(ctx context.Context, req VoiceVerifyRequest) (*VerifyResult, error) {
-	spec := clientSpec(ToolVerifyVoice)
+	spec := clientSpecAction(ToolVoice, ActionVerify)
 	a1, err := i.readAudio(ctx, req.Audio1, "audio1")
 	if err != nil {
 		return nil, err
@@ -800,7 +800,7 @@ func (i *Inference) VerifyVoice(ctx context.Context, req VoiceVerifyRequest) (*V
 
 // VerifyFace tells whether two images show the same person.
 func (i *Inference) VerifyFace(ctx context.Context, req VerifyFaceRequest) (*VerifyResult, error) {
-	spec := clientSpec(ToolVerifyFace)
+	spec := clientSpecAction(ToolFace, ActionVerify)
 	i1, err := i.readImage(ctx, req.Image1, "image1")
 	if err != nil {
 		return nil, err
@@ -837,7 +837,7 @@ func (i *Inference) verify(ctx context.Context, spec ClientToolSpec, model strin
 
 // IdentifyVoice finds the registered speakers closest to a recording.
 func (i *Inference) IdentifyVoice(ctx context.Context, req IdentifyVoiceRequest) (*IdentifyResult, error) {
-	spec := clientSpec(ToolIdentifyVoice)
+	spec := clientSpecAction(ToolVoice, ActionIdentify)
 	a, err := i.readAudio(ctx, req.Audio, "audio")
 	if err != nil {
 		return nil, err
@@ -851,7 +851,7 @@ func (i *Inference) IdentifyVoice(ctx context.Context, req IdentifyVoiceRequest)
 
 // IdentifyFace finds the registered faces closest to the face in an image.
 func (i *Inference) IdentifyFace(ctx context.Context, req IdentifyFaceRequest) (*IdentifyResult, error) {
-	spec := clientSpec(ToolIdentifyFace)
+	spec := clientSpecAction(ToolFace, ActionIdentify)
 	img, err := i.readImage(ctx, req.Image, "image")
 	if err != nil {
 		return nil, err

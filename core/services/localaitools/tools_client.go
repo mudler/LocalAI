@@ -2,7 +2,11 @@ package localaitools
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -12,53 +16,138 @@ import (
 // which is about changing the instance.
 func registerClientTools(s *mcp.Server, client LocalAIClient, _ Options) {
 	addClientTool(s, ToolGenerateImage,
-		"Generate one or more images from a text prompt. The images are saved as files; the result gives a file reference, the size and the dimensions of each.",
-		client.GenerateImage)
-	addClientTool(s, ToolEditImage,
-		"Repaint part of an image: the white area of the mask is painted again following the prompt. Takes file references for the image and the mask and saves the result as a file.",
-		client.EditImage)
+		"Make images from a prompt, or with image and mask repaint the masked area. Saves files.",
+		func(ctx context.Context, in GenerateImageToolInput) (*ImageResult, error) {
+			return generateImage(ctx, client, in)
+		})
 	addClientTool(s, ToolSpeak,
-		"Turn text into speech and save it as an audio file. To speak in a cloned voice, pass a saved voice profile URI from list_voice_profiles as voice.",
+		"Turn text into speech. Saves an audio file.",
 		client.Speak)
 	addClientTool(s, ToolTranscribeAudio,
-		"Turn a recording into text. Takes a file reference to the audio.",
+		"Turn a recording into text.",
 		client.TranscribeAudio)
 	addClientTool(s, ToolDescribeImage,
-		"Describe an image, or answer a question about it, with a model that can look at images. Reads text in the image too. Takes a file reference.",
+		"Describe an image or answer a question about it, including text in it.",
 		client.DescribeImage)
 	addClientTool(s, ToolEmbed,
-		"Turn texts into embedding vectors. The vectors are saved as a JSON file; the result gives its reference, the dimensions and the first values.",
+		"Turn texts into embedding vectors. Saves them as a JSON file.",
 		client.Embed)
 	addClientTool(s, ToolDetect,
-		"Find objects in an image and return their boxes, classes and confidence. Takes a file reference.",
+		"Find objects in an image: boxes, classes, confidence.",
 		client.Detect)
 	addClientTool(s, ToolRerank,
-		"Rank documents by how well they answer a query. Returns the documents' positions and scores, best first.",
+		"Rank documents by how well they answer a query.",
 		client.Rerank)
 	addClientTool(s, ToolGenerateVideo,
-		"Generate a video from a text prompt, optionally starting from an image. The video is saved as a file. Generation can take minutes.",
+		"Generate a video from a prompt, optionally from an image. Can take minutes. Saves a file.",
 		client.GenerateVideo)
 	addClientTool(s, ToolGenerateSound,
-		"Generate a sound effect or a piece of music from a description. The audio is saved as a file.",
+		"Generate a sound effect or music from a description. Saves an audio file.",
 		client.GenerateSound)
-	addClientTool(s, ToolVerifyVoice,
-		"Tell whether two recordings are of the same speaker. Takes file references.",
-		client.VerifyVoice)
-	addClientTool(s, ToolIdentifyVoice,
-		"Find which registered speakers a recording is closest to. Takes a file reference.",
-		client.IdentifyVoice)
-	addClientTool(s, ToolVerifyFace,
-		"Tell whether two images show the same person. Takes file references.",
-		client.VerifyFace)
-	addClientTool(s, ToolIdentifyFace,
-		"Find which registered faces the face in an image is closest to. Takes a file reference.",
-		client.IdentifyFace)
+	addActionTool(s, ToolVoice,
+		"Speaker recognition: verify two recordings, or identify a speaker.",
+		func(ctx context.Context, in VoiceToolInput) (any, error) { return voiceAction(ctx, client, in) })
+	addActionTool(s, ToolFace,
+		"Face recognition: verify two images, or identify a face.",
+		func(ctx context.Context, in FaceToolInput) (any, error) { return faceAction(ctx, client, in) })
+}
+
+// generateImage serves generate_image: the inpainting route when the call
+// names an image, the generations route otherwise.
+func generateImage(ctx context.Context, client LocalAIClient, in GenerateImageToolInput) (*ImageResult, error) {
+	if in.Image == "" {
+		if in.Mask != "" {
+			return nil, errors.New("generate_image: mask needs image; give both to edit an image, or neither to make a new one")
+		}
+		return client.GenerateImage(ctx, GenerateImageRequest{
+			Prompt: in.Prompt, Model: in.Model, Size: in.Size,
+			NegativePrompt: in.NegativePrompt, Steps: in.Steps, N: in.N,
+		})
+	}
+	if in.Mask == "" {
+		return nil, errors.New("generate_image: mask is required when image is set")
+	}
+	return client.EditImage(ctx, EditImageRequest{
+		Prompt: in.Prompt, Image: in.Image, Mask: in.Mask, Model: in.Model, Steps: in.Steps,
+	})
+}
+
+// need names the first empty required field of an action, as an error that
+// says the tool, the action and the field.
+func need(tool, action string, fields ...[2]string) error {
+	for _, f := range fields {
+		if strings.TrimSpace(f[1]) == "" {
+			return fmt.Errorf("%s: action %q needs %s", tool, action, f[0])
+		}
+	}
+	return nil
+}
+
+func voiceAction(ctx context.Context, client LocalAIClient, in VoiceToolInput) (any, error) {
+	switch in.Action {
+	case ActionVerify:
+		if err := need(ToolVoice, in.Action, [2]string{"audio", in.Audio}, [2]string{"audio2", in.Audio2}); err != nil {
+			return nil, err
+		}
+		return client.VerifyVoice(ctx, VoiceVerifyRequest{Audio1: in.Audio, Audio2: in.Audio2, Model: in.Model, Threshold: in.Threshold})
+	case ActionIdentify:
+		if err := need(ToolVoice, in.Action, [2]string{"audio", in.Audio}); err != nil {
+			return nil, err
+		}
+		return client.IdentifyVoice(ctx, IdentifyVoiceRequest{Audio: in.Audio, Model: in.Model, TopK: in.TopK, Threshold: in.Threshold})
+	}
+	return nil, badAction(ToolVoice, in.Action)
+}
+
+func faceAction(ctx context.Context, client LocalAIClient, in FaceToolInput) (any, error) {
+	switch in.Action {
+	case ActionVerify:
+		if err := need(ToolFace, in.Action, [2]string{"image", in.Image}, [2]string{"image2", in.Image2}); err != nil {
+			return nil, err
+		}
+		return client.VerifyFace(ctx, VerifyFaceRequest{Image1: in.Image, Image2: in.Image2, Model: in.Model, Threshold: in.Threshold})
+	case ActionIdentify:
+		if err := need(ToolFace, in.Action, [2]string{"image", in.Image}); err != nil {
+			return nil, err
+		}
+		return client.IdentifyFace(ctx, IdentifyFaceRequest{Image: in.Image, Model: in.Model, TopK: in.TopK, Threshold: in.Threshold})
+	}
+	return nil, badAction(ToolFace, in.Action)
+}
+
+func badAction(tool, action string) error {
+	if action == "" {
+		return fmt.Errorf("%s: action is required (verify or identify)", tool)
+	}
+	return fmt.Errorf("%s: unknown action %q (use verify or identify)", tool, action)
 }
 
 // addClientTool registers a typed tool whose handler calls one client method
 // and returns the result as JSON.
 func addClientTool[In, Out any](s *mcp.Server, name, description string, call func(context.Context, In) (*Out, error)) {
 	mcp.AddTool(s, &mcp.Tool{Name: name, Description: description},
+		func(ctx context.Context, _ *mcp.CallToolRequest, args In) (*mcp.CallToolResult, any, error) {
+			out, err := call(ctx, args)
+			if err != nil {
+				return errorResult(err), nil, nil
+			}
+			return jsonResult(out), nil, nil
+		})
+}
+
+// addActionTool registers a tool with an action parameter. The schema stays
+// one flat object (many MCP clients and model APIs reject a top-level
+// oneOf/anyOf), with the action as an enum; the handler checks the fields
+// each action needs.
+func addActionTool[In any](s *mcp.Server, name, description string, call func(context.Context, In) (any, error)) {
+	schema, err := jsonschema.For[In](nil)
+	if err != nil {
+		panic(fmt.Sprintf("localaitools: schema of %s: %v", name, err))
+	}
+	if a := schema.Properties["action"]; a != nil {
+		a.Enum = []any{ActionVerify, ActionIdentify}
+	}
+	mcp.AddTool(s, &mcp.Tool{Name: name, Description: description, InputSchema: schema},
 		func(ctx context.Context, _ *mcp.CallToolRequest, args In) (*mcp.CallToolResult, any, error) {
 			out, err := call(ctx, args)
 			if err != nil {

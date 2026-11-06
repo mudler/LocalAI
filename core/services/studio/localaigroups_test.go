@@ -155,7 +155,7 @@ func (r *localaiRig) group(user, id, group string) studio.BuiltinGroup {
 func clientNames() []string {
 	var out []string
 	for _, s := range localaitools.ClientTools {
-		if s.Tool != "describe_image" && s.Tool != "transcribe_audio" {
+		if s.Tool != "describe_image" && s.Tool != "transcribe_audio" && !slices.Contains(out, s.Tool) {
 			out = append(out, s.Tool)
 		}
 	}
@@ -194,7 +194,7 @@ var _ = Describe("the LocalAI client and admin tool groups", func() {
 		r := newLocalAIRig(sayOK)
 		r.set(func() { r.deniedFeats[bob] = []string{auth.FeatureImages} })
 		names := r.names(bob)
-		Expect(names).NotTo(ContainElements("generate_image", "edit_image"))
+		Expect(names).NotTo(ContainElement("generate_image"))
 		Expect(names).To(ContainElement("speak"))
 		// Another user keeps them.
 		Expect(r.names("root")).To(ContainElement("generate_image"))

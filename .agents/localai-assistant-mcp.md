@@ -142,6 +142,13 @@ any user, within their own permissions, in the same package. They differ from th
   `httpapi`: `DirFileStore`). Never put file bytes in a tool argument or result.
 - Errors name the capability (`NoModelError`, `StatusError`), so the model can tell the person.
 - Client tools are not removed by `Options.DisableMutating`.
+- The group is sent on every turn, so it is small. Related operations that share state in one
+  domain are one tool with an `action` parameter: `voice` and `face` (`verify`, `identify`), and
+  `generate_image` (with `image` and `mask` it repaints). The schema is one flat object with an
+  `action` enum, never `oneOf`/`anyOf`; the handler checks the fields each action needs and the
+  `ClientTools` table has one row per route (`Action` tells them apart). Media tools stay
+  single-purpose. `clientBudgetBytes` in `clienttools_merge_test.go` caps the size of the group's
+  `tools/list` entries; raise it only with a reason in the commit.
 - Add a method to `LocalAIClient`, the DTOs to `dto_client.go`, and a dispatch case to
   `server_test.go`. The route goes in `toolToHTTPRoute` automatically from `ClientTools`.
 

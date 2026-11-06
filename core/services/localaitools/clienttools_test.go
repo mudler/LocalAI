@@ -11,9 +11,11 @@ import (
 
 // clientToolNames lists the names in ClientTools.
 func clientToolNames() []string {
-	out := make([]string, 0, len(ClientTools))
+	var out []string
 	for _, s := range ClientTools {
-		out = append(out, s.Tool)
+		if !slices.Contains(out, s.Tool) {
+			out = append(out, s.Tool)
+		}
 	}
 	return out
 }
@@ -21,9 +23,9 @@ func clientToolNames() []string {
 var _ = Describe("Client tool table", func() {
 	It("has an entry with a route, a feature and a model flag for every client tool", func() {
 		want := []string{
-			ToolGenerateImage, ToolEditImage, ToolSpeak, ToolTranscribeAudio, ToolDescribeImage, ToolEmbed,
+			ToolGenerateImage, ToolSpeak, ToolTranscribeAudio, ToolDescribeImage, ToolEmbed,
 			ToolDetect, ToolRerank, ToolGenerateVideo, ToolGenerateSound,
-			ToolVerifyVoice, ToolIdentifyVoice, ToolVerifyFace, ToolIdentifyFace,
+			ToolVoice, ToolFace,
 		}
 		Expect(clientToolNames()).To(ConsistOf(want))
 		for _, s := range ClientTools {

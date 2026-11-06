@@ -20,7 +20,6 @@ const (
 // Names of the client tools.
 const (
 	ToolGenerateImage   = "generate_image"
-	ToolEditImage       = "edit_image"
 	ToolSpeak           = "speak"
 	ToolTranscribeAudio = "transcribe_audio"
 	ToolDescribeImage   = "describe_image"
@@ -29,10 +28,8 @@ const (
 	ToolRerank          = "rerank"
 	ToolGenerateVideo   = "generate_video"
 	ToolGenerateSound   = "generate_sound"
-	ToolVerifyVoice     = "verify_voice"
-	ToolIdentifyVoice   = "identify_voice"
-	ToolVerifyFace      = "verify_face"
-	ToolIdentifyFace    = "identify_face"
+	ToolVoice           = "voice"
+	ToolFace            = "face"
 )
 
 // ClientToolSpec is what a client tool needs from the API: the route it
@@ -40,8 +37,15 @@ const (
 // the model must have. The API route enforces the permission, because the
 // call reaches it as the acting user; this table is for tests and for the
 // coverage check "every inference route has a tool".
+//
+// A tool with an action parameter (voice, face) or an optional input that
+// picks another route (generate_image with an image) has one row per route:
+// Action tells them apart. The first row of a tool is its default.
 type ClientToolSpec struct {
-	Tool    string
+	Tool string
+	// Action names the variant of a tool that has several routes. Empty for
+	// the main route.
+	Action  string
 	Method  string
 	Route   string
 	Feature string
@@ -52,26 +56,39 @@ type ClientToolSpec struct {
 
 // ClientTools lists the client tools in registration order.
 var ClientTools = []ClientToolSpec{
-	{ToolGenerateImage, "POST", "/v1/images/generations", auth.FeatureImages, config.FLAG_IMAGE, "image generation"},
-	{ToolEditImage, "POST", "/v1/images/inpainting", auth.FeatureImages, config.FLAG_IMAGE, "image generation"},
-	{ToolSpeak, "POST", "/v1/audio/speech", auth.FeatureAudioSpeech, config.FLAG_TTS, "text-to-speech"},
-	{ToolTranscribeAudio, "POST", "/v1/audio/transcriptions", auth.FeatureAudioTranscription, config.FLAG_TRANSCRIPT, "transcription"},
-	{ToolDescribeImage, "POST", "/v1/chat/completions", auth.FeatureChat, config.FLAG_VISION, "vision"},
-	{ToolEmbed, "POST", "/v1/embeddings", auth.FeatureEmbeddings, config.FLAG_EMBEDDINGS, "embedding"},
-	{ToolDetect, "POST", "/v1/detection", auth.FeatureDetection, config.FLAG_DETECTION, "detection"},
-	{ToolRerank, "POST", "/v1/rerank", auth.FeatureRerank, config.FLAG_RERANK, "rerank"},
-	{ToolGenerateVideo, "POST", "/video", auth.FeatureVideo, config.FLAG_VIDEO, "video generation"},
-	{ToolGenerateSound, "POST", "/v1/sound-generation", auth.FeatureSound, config.FLAG_SOUND_GENERATION, "sound generation"},
-	{ToolVerifyVoice, "POST", "/v1/voice/verify", auth.FeatureVoiceRecognition, config.FLAG_SPEAKER_RECOGNITION, "speaker recognition"},
-	{ToolIdentifyVoice, "POST", "/v1/voice/identify", auth.FeatureVoiceRecognition, config.FLAG_SPEAKER_RECOGNITION, "speaker recognition"},
-	{ToolVerifyFace, "POST", "/v1/face/verify", auth.FeatureFaceRecognition, config.FLAG_FACE_RECOGNITION, "face recognition"},
-	{ToolIdentifyFace, "POST", "/v1/face/identify", auth.FeatureFaceRecognition, config.FLAG_FACE_RECOGNITION, "face recognition"},
+	{ToolGenerateImage, "", "POST", "/v1/images/generations", auth.FeatureImages, config.FLAG_IMAGE, "image generation"},
+	{ToolGenerateImage, ActionEdit, "POST", "/v1/images/inpainting", auth.FeatureImages, config.FLAG_IMAGE, "image generation"},
+	{ToolSpeak, "", "POST", "/v1/audio/speech", auth.FeatureAudioSpeech, config.FLAG_TTS, "text-to-speech"},
+	{ToolTranscribeAudio, "", "POST", "/v1/audio/transcriptions", auth.FeatureAudioTranscription, config.FLAG_TRANSCRIPT, "transcription"},
+	{ToolDescribeImage, "", "POST", "/v1/chat/completions", auth.FeatureChat, config.FLAG_VISION, "vision"},
+	{ToolEmbed, "", "POST", "/v1/embeddings", auth.FeatureEmbeddings, config.FLAG_EMBEDDINGS, "embedding"},
+	{ToolDetect, "", "POST", "/v1/detection", auth.FeatureDetection, config.FLAG_DETECTION, "detection"},
+	{ToolRerank, "", "POST", "/v1/rerank", auth.FeatureRerank, config.FLAG_RERANK, "rerank"},
+	{ToolGenerateVideo, "", "POST", "/video", auth.FeatureVideo, config.FLAG_VIDEO, "video generation"},
+	{ToolGenerateSound, "", "POST", "/v1/sound-generation", auth.FeatureSound, config.FLAG_SOUND_GENERATION, "sound generation"},
+	{ToolVoice, ActionVerify, "POST", "/v1/voice/verify", auth.FeatureVoiceRecognition, config.FLAG_SPEAKER_RECOGNITION, "speaker recognition"},
+	{ToolVoice, ActionIdentify, "POST", "/v1/voice/identify", auth.FeatureVoiceRecognition, config.FLAG_SPEAKER_RECOGNITION, "speaker recognition"},
+	{ToolFace, ActionVerify, "POST", "/v1/face/verify", auth.FeatureFaceRecognition, config.FLAG_FACE_RECOGNITION, "face recognition"},
+	{ToolFace, ActionIdentify, "POST", "/v1/face/identify", auth.FeatureFaceRecognition, config.FLAG_FACE_RECOGNITION, "face recognition"},
 }
 
-// clientSpec returns the spec of a client tool.
+// ActionEdit is the Action of the generate_image row that repaints an image.
+const ActionEdit = "edit"
+
+// clientSpec returns the first (main) spec of a client tool.
 func clientSpec(tool string) ClientToolSpec {
 	for _, s := range ClientTools {
 		if s.Tool == tool {
+			return s
+		}
+	}
+	return ClientToolSpec{}
+}
+
+// clientSpecAction returns the spec of one action of a client tool.
+func clientSpecAction(tool, action string) ClientToolSpec {
+	for _, s := range ClientTools {
+		if s.Tool == tool && s.Action == action {
 			return s
 		}
 	}

@@ -142,7 +142,9 @@ func (s *Service) clientToolNames(ctx context.Context, user string) ([]string, s
 	missingFeature, missingModel := false, false
 	hasModel := map[config.ModelConfigUsecase]bool{}
 	for _, spec := range localaitools.ClientTools {
-		if clientSkipped[spec.Tool] || !served[spec.Tool] {
+		// A tool with several routes has several rows (same feature and
+		// model use case); it is offered once.
+		if clientSkipped[spec.Tool] || !served[spec.Tool] || slices.Contains(out, spec.Tool) {
 			continue
 		}
 		if u != nil && s.d.Allowed != nil && !s.d.Allowed(u, spec.Feature) {

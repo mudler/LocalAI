@@ -101,7 +101,13 @@ var toolToHTTPRoute = map[string]string{
 // and feature table, so the two cannot drift.
 func init() {
 	for _, s := range ClientTools {
-		toolToHTTPRoute[s.Tool] = s.Method + " " + s.Route
+		route := s.Method + " " + s.Route
+		if prev, ok := toolToHTTPRoute[s.Tool]; ok {
+			// One tool, several routes (an action parameter, or an optional
+			// input that picks another route).
+			route = prev + ", " + route
+		}
+		toolToHTTPRoute[s.Tool] = route
 	}
 }
 

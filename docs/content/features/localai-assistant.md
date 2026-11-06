@@ -104,8 +104,7 @@ Besides the management tools above, the server registers a second group, the cli
 
 | Tool | API route | Permission | Model use case |
 |---|---|---|---|
-| `generate_image` | `POST /v1/images/generations` | `images` | image |
-| `edit_image` | `POST /v1/images/inpainting` | `images` | image |
+| `generate_image` | `POST /v1/images/generations`, or `POST /v1/images/inpainting` when it gets `image` and `mask` | `images` | image |
 | `speak` | `POST /v1/audio/speech` | `audio_speech` | tts |
 | `transcribe_audio` | `POST /v1/audio/transcriptions` | `audio_transcription` | transcript |
 | `describe_image` | `POST /v1/chat/completions` with an image | `chat` | vision |
@@ -114,8 +113,10 @@ Besides the management tools above, the server registers a second group, the cli
 | `rerank` | `POST /v1/rerank` | `rerank` | rerank |
 | `generate_video` | `POST /video` | `video` | video |
 | `generate_sound` | `POST /v1/sound-generation` | `sound` | sound generation |
-| `verify_voice`, `identify_voice` | `POST /v1/voice/verify`, `/v1/voice/identify` | `voice_recognition` | speaker recognition |
-| `verify_face`, `identify_face` | `POST /v1/face/verify`, `/v1/face/identify` | `face_recognition` | face recognition |
+| `voice` | `POST /v1/voice/verify` or `/v1/voice/identify`, by `action` | `voice_recognition` | speaker recognition |
+| `face` | `POST /v1/face/verify` or `/v1/face/identify`, by `action` | `face_recognition` | face recognition |
+
+`generate_image` repaints the white area of `mask` in `image` when you give both, and makes new images otherwise. `voice` and `face` take an `action`, `verify` (are these two the same?) or `identify` (who is this closest to?); `verify` needs a second file (`audio2` or `image2`). The tools stay few and short on purpose: every tool of the group is sent to the model on every turn, so related operations share one tool.
 
 Every tool takes an optional `model`. When you leave it out, the tool uses the first installed model, by name, that has the use case. If there is none, the tool answers `no <capability> model installed`. `describe_image` uses the model that the **Chat image model** setting names, or an installed model that can look at images.
 

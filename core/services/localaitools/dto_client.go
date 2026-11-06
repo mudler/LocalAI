@@ -8,47 +8,47 @@ package localaitools
 // OutputFile describes a file a tool wrote. Ref is what the next tool takes
 // as a file argument.
 type OutputFile struct {
-	Ref    string `json:"ref"              jsonschema:"Reference of the file. Pass it as a file argument of another tool, or tell the person where it is."`
+	Ref    string `json:"ref"              jsonschema:"File reference. Pass it to another tool."`
 	MIME   string `json:"mime,omitempty"`
 	Size   int    `json:"size_bytes"`
-	Width  int    `json:"width,omitempty"  jsonschema:"Image width in pixels, when the file is an image."`
-	Height int    `json:"height,omitempty" jsonschema:"Image height in pixels, when the file is an image."`
+	Width  int    `json:"width,omitempty"`
+	Height int    `json:"height,omitempty"`
 }
 
 // GenerateImageRequest is the input for generate_image.
 type GenerateImageRequest struct {
 	Prompt         string `json:"prompt"                    jsonschema:"What the image shows."`
-	Model          string `json:"model,omitempty"           jsonschema:"Image model to use. Empty picks the first installed image model."`
-	Size           string `json:"size,omitempty"            jsonschema:"Size as WIDTHxHEIGHT, for example 512x512. Empty uses the model default."`
-	NegativePrompt string `json:"negative_prompt,omitempty" jsonschema:"What the image must not show."`
-	Steps          int    `json:"steps,omitempty"           jsonschema:"Number of diffusion steps. Empty uses the model default."`
-	N              int    `json:"n,omitempty"               jsonschema:"How many images to make, 1 to 4. Defaults to 1."`
+	Model          string `json:"model,omitempty"           jsonschema:"Model; default first installed."`
+	Size           string `json:"size,omitempty"            jsonschema:"WIDTHxHEIGHT, for example 512x512."`
+	NegativePrompt string `json:"negative_prompt,omitempty" jsonschema:"What to leave out."`
+	Steps          int    `json:"steps,omitempty"`
+	N              int    `json:"n,omitempty"               jsonschema:"1 to 4. Default 1."`
 }
 
-// ImageResult is the result of generate_image and edit_image.
+// ImageResult is the result of generate_image.
 type ImageResult struct {
 	Model  string       `json:"model"`
 	Images []OutputFile `json:"images"`
 }
 
-// EditImageRequest is the input for edit_image.
+// EditImageRequest is the input for generate_image when it gets an image.
 type EditImageRequest struct {
-	Prompt string `json:"prompt"          jsonschema:"What to paint in the masked area."`
-	Image  string `json:"image"           jsonschema:"File reference of the image to edit."`
-	Mask   string `json:"mask"            jsonschema:"File reference of the mask image. White marks the area to repaint."`
-	Model  string `json:"model,omitempty" jsonschema:"Image model to use. Empty picks the first installed image model."`
-	Steps  int    `json:"steps,omitempty" jsonschema:"Number of diffusion steps. Empty uses the model default."`
+	Prompt string `json:"prompt"          jsonschema:"What to paint."`
+	Image  string `json:"image"           jsonschema:"Image file."`
+	Mask   string `json:"mask"            jsonschema:"Mask file. White is repainted."`
+	Model  string `json:"model,omitempty" jsonschema:"Model; default first installed."`
+	Steps  int    `json:"steps,omitempty"`
 }
 
 // SpeakRequest is the input for speak.
 type SpeakRequest struct {
-	Text         string   `json:"text"                   jsonschema:"The text to say."`
-	Model        string   `json:"model,omitempty"        jsonschema:"Text-to-speech model to use. Empty picks the first installed one."`
-	Voice        string   `json:"voice,omitempty"        jsonschema:"A speaker id of the model, or a saved voice profile URI from list_voice_profiles to speak in a cloned voice. The server takes no uploaded reference audio."`
-	Language     string   `json:"language,omitempty"     jsonschema:"Language code, if the model needs it."`
-	Format       string   `json:"format,omitempty"       jsonschema:"Audio format: wav, mp3, opus, flac. Empty uses the model default."`
-	Speed        *float32 `json:"speed,omitempty"        jsonschema:"Speaking speed from 0.25 to 4.0."`
-	Instructions string   `json:"instructions,omitempty" jsonschema:"Style of the voice, for models that take one."`
+	Text         string   `json:"text"`
+	Model        string   `json:"model,omitempty"        jsonschema:"Model; default first installed."`
+	Voice        string   `json:"voice,omitempty"        jsonschema:"Speaker id, or a profile URI from list_voice_profiles."`
+	Language     string   `json:"language,omitempty"`
+	Format       string   `json:"format,omitempty"       jsonschema:"wav, mp3, opus or flac."`
+	Speed        *float32 `json:"speed,omitempty"        jsonschema:"0.25 to 4.0."`
+	Instructions string   `json:"instructions,omitempty" jsonschema:"Voice style."`
 }
 
 // AudioResult is the result of speak and generate_sound.
@@ -59,10 +59,10 @@ type AudioResult struct {
 
 // TranscribeAudioRequest is the input for transcribe_audio.
 type TranscribeAudioRequest struct {
-	Audio    string `json:"audio"              jsonschema:"File reference of the recording."`
-	Model    string `json:"model,omitempty"    jsonschema:"Transcription model to use. Empty picks the first installed one."`
-	Language string `json:"language,omitempty" jsonschema:"Spoken language code. Empty lets the model decide."`
-	Prompt   string `json:"prompt,omitempty"   jsonschema:"Words or names that the recording is likely to contain."`
+	Audio    string `json:"audio"              jsonschema:"Audio file."`
+	Model    string `json:"model,omitempty"    jsonschema:"Model; default first installed."`
+	Language string `json:"language,omitempty"`
+	Prompt   string `json:"prompt,omitempty"   jsonschema:"Expected words."`
 }
 
 // TranscriptResult is the result of transcribe_audio.
@@ -75,9 +75,9 @@ type TranscriptResult struct {
 
 // DescribeImageRequest is the input for describe_image.
 type DescribeImageRequest struct {
-	Image    string `json:"image"              jsonschema:"File reference of the image."`
-	Question string `json:"question,omitempty" jsonschema:"What to ask about the image. Empty asks for a full description with any text in it."`
-	Model    string `json:"model,omitempty"    jsonschema:"Model that can look at images. Empty picks one."`
+	Image    string `json:"image"              jsonschema:"Image file."`
+	Question string `json:"question,omitempty" jsonschema:"Question; default full description."`
+	Model    string `json:"model,omitempty"    jsonschema:"Vision model. Empty picks one."`
 }
 
 // DescribeImageResult is the result of describe_image.
@@ -89,7 +89,7 @@ type DescribeImageResult struct {
 // EmbedRequest is the input for embed.
 type EmbedRequest struct {
 	Input []string `json:"input"           jsonschema:"The texts to embed."`
-	Model string   `json:"model,omitempty" jsonschema:"Embedding model to use. Empty picks the first installed one."`
+	Model string   `json:"model,omitempty" jsonschema:"Model; default first installed."`
 }
 
 // EmbedResult is the result of embed. The vectors go to a JSON file, because
@@ -98,16 +98,16 @@ type EmbedResult struct {
 	Model      string      `json:"model"`
 	Count      int         `json:"count"`
 	Dimensions int         `json:"dimensions"`
-	Vectors    OutputFile  `json:"vectors"           jsonschema:"JSON file with one vector per input text."`
-	Preview    [][]float32 `json:"preview,omitempty" jsonschema:"The first values of each vector."`
+	Vectors    OutputFile  `json:"vectors"           jsonschema:"JSON file, one vector per text."`
+	Preview    [][]float32 `json:"preview,omitempty" jsonschema:"First values of each vector."`
 }
 
 // DetectRequest is the input for detect.
 type DetectRequest struct {
-	Image     string  `json:"image"               jsonschema:"File reference of the image."`
-	Model     string  `json:"model,omitempty"     jsonschema:"Detection model to use. Empty picks the first installed one."`
-	Prompt    string  `json:"prompt,omitempty"    jsonschema:"What to find, for models that take a text prompt."`
-	Threshold float32 `json:"threshold,omitempty" jsonschema:"Minimum confidence from 0 to 1."`
+	Image     string  `json:"image"               jsonschema:"Image file."`
+	Model     string  `json:"model,omitempty"     jsonschema:"Model; default first installed."`
+	Prompt    string  `json:"prompt,omitempty"    jsonschema:"What to find, if the model takes a prompt."`
+	Threshold float32 `json:"threshold,omitempty" jsonschema:"Minimum confidence, 0 to 1."`
 }
 
 // Detection is one object found by detect.
@@ -129,15 +129,15 @@ type DetectResult struct {
 
 // RerankRequest is the input for rerank.
 type RerankRequest struct {
-	Query     string   `json:"query"            jsonschema:"The query to rank the documents against."`
-	Documents []string `json:"documents"        jsonschema:"The documents to rank."`
-	TopN      int      `json:"top_n,omitempty"  jsonschema:"Return only the best N. Empty returns all."`
-	Model     string   `json:"model,omitempty"  jsonschema:"Rerank model to use. Empty picks the first installed one."`
+	Query     string   `json:"query"`
+	Documents []string `json:"documents"`
+	TopN      int      `json:"top_n,omitempty"  jsonschema:"Return only the best N."`
+	Model     string   `json:"model,omitempty"  jsonschema:"Model; default first installed."`
 }
 
 // RerankItem is one ranked document.
 type RerankItem struct {
-	Index int     `json:"index" jsonschema:"Position of the document in the input."`
+	Index int     `json:"index" jsonschema:"Position in the input."`
 	Score float64 `json:"score"`
 	Text  string  `json:"text,omitempty"`
 }
@@ -150,13 +150,13 @@ type RerankResult struct {
 
 // GenerateVideoRequest is the input for generate_video.
 type GenerateVideoRequest struct {
-	Prompt         string `json:"prompt"                    jsonschema:"What the video shows."`
-	Model          string `json:"model,omitempty"           jsonschema:"Video model to use. Empty picks the first installed one."`
-	Size           string `json:"size,omitempty"            jsonschema:"Size as WIDTHxHEIGHT, for example 512x512."`
+	Prompt         string `json:"prompt"`
+	Model          string `json:"model,omitempty"           jsonschema:"Model; default first installed."`
+	Size           string `json:"size,omitempty"            jsonschema:"WIDTHxHEIGHT."`
 	Seconds        string `json:"seconds,omitempty"         jsonschema:"Length in seconds."`
-	FPS            int    `json:"fps,omitempty"             jsonschema:"Frames per second."`
-	NegativePrompt string `json:"negative_prompt,omitempty" jsonschema:"What the video must not show."`
-	StartImage     string `json:"start_image,omitempty"     jsonschema:"File reference of an image to start from."`
+	FPS            int    `json:"fps,omitempty"`
+	NegativePrompt string `json:"negative_prompt,omitempty" jsonschema:"What to leave out."`
+	StartImage     string `json:"start_image,omitempty"     jsonschema:"Image file to start from."`
 }
 
 // VideoResult is the result of generate_video.
@@ -168,21 +168,21 @@ type VideoResult struct {
 // GenerateSoundRequest is the input for generate_sound.
 type GenerateSoundRequest struct {
 	Text         string   `json:"text"                       jsonschema:"Describes the sound or the music."`
-	Model        string   `json:"model,omitempty"            jsonschema:"Sound generation model to use. Empty picks the first installed one."`
+	Model        string   `json:"model,omitempty"            jsonschema:"Model; default first installed."`
 	Duration     *float32 `json:"duration_seconds,omitempty" jsonschema:"Length in seconds."`
-	Lyrics       string   `json:"lyrics,omitempty"           jsonschema:"Lyrics to sing, for models that make songs."`
-	Instrumental *bool    `json:"instrumental,omitempty"     jsonschema:"True for music with no voice."`
+	Lyrics       string   `json:"lyrics,omitempty"           jsonschema:"Lyrics, for song models."`
+	Instrumental *bool    `json:"instrumental,omitempty"     jsonschema:"Music with no voice."`
 }
 
-// VoiceVerifyRequest is the input for verify_voice.
+// VoiceVerifyRequest is the input for voice with action verify.
 type VoiceVerifyRequest struct {
-	Audio1    string  `json:"audio1"              jsonschema:"File reference of the first recording."`
-	Audio2    string  `json:"audio2"              jsonschema:"File reference of the second recording."`
-	Model     string  `json:"model,omitempty"     jsonschema:"Speaker recognition model. Empty picks the first installed one."`
-	Threshold float32 `json:"threshold,omitempty" jsonschema:"Distance under which the voices count as the same. Empty uses the model default."`
+	Audio1    string  `json:"audio1"              jsonschema:"First recording."`
+	Audio2    string  `json:"audio2"              jsonschema:"Second recording."`
+	Model     string  `json:"model,omitempty"     jsonschema:"Model; default first installed."`
+	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
 }
 
-// VerifyResult is the result of verify_voice and verify_face.
+// VerifyResult is the result of voice and face with action verify.
 type VerifyResult struct {
 	Model      string  `json:"model"`
 	Verified   bool    `json:"verified"`
@@ -191,15 +191,15 @@ type VerifyResult struct {
 	Confidence float32 `json:"confidence"`
 }
 
-// IdentifyVoiceRequest is the input for identify_voice.
+// IdentifyVoiceRequest is the input for voice with action identify.
 type IdentifyVoiceRequest struct {
-	Audio     string  `json:"audio"               jsonschema:"File reference of the recording."`
-	Model     string  `json:"model,omitempty"     jsonschema:"Speaker recognition model. Empty picks the first installed one."`
-	TopK      int     `json:"top_k,omitempty"     jsonschema:"How many matches to return."`
-	Threshold float32 `json:"threshold,omitempty" jsonschema:"Distance under which a speaker counts as a match."`
+	Audio     string  `json:"audio"               jsonschema:"Audio file."`
+	Model     string  `json:"model,omitempty"     jsonschema:"Model; default first installed."`
+	TopK      int     `json:"top_k,omitempty"     jsonschema:"How many matches."`
+	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
 }
 
-// Match is one registered person that identify_voice or identify_face found.
+// Match is one registered person that voice or face with action identify found.
 type Match struct {
 	ID         string            `json:"id"`
 	Name       string            `json:"name"`
@@ -209,24 +209,66 @@ type Match struct {
 	Match      bool              `json:"match"`
 }
 
-// IdentifyResult is the result of identify_voice and identify_face.
+// IdentifyResult is the result of voice and face with action identify.
 type IdentifyResult struct {
 	Model   string  `json:"model"`
 	Matches []Match `json:"matches"`
 }
 
-// VerifyFaceRequest is the input for verify_face.
+// VerifyFaceRequest is the input for face with action verify.
 type VerifyFaceRequest struct {
-	Image1    string  `json:"image1"              jsonschema:"File reference of the first image."`
-	Image2    string  `json:"image2"              jsonschema:"File reference of the second image."`
-	Model     string  `json:"model,omitempty"     jsonschema:"Face recognition model. Empty picks the first installed one."`
-	Threshold float32 `json:"threshold,omitempty" jsonschema:"Distance under which the faces count as the same person. Empty uses the model default."`
+	Image1    string  `json:"image1"              jsonschema:"First image."`
+	Image2    string  `json:"image2"              jsonschema:"Second image."`
+	Model     string  `json:"model,omitempty"     jsonschema:"Model; default first installed."`
+	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
 }
 
-// IdentifyFaceRequest is the input for identify_face.
+// IdentifyFaceRequest is the input for face with action identify.
 type IdentifyFaceRequest struct {
-	Image     string  `json:"image"               jsonschema:"File reference of the image."`
-	Model     string  `json:"model,omitempty"     jsonschema:"Face recognition model. Empty picks the first installed one."`
-	TopK      int     `json:"top_k,omitempty"     jsonschema:"How many matches to return."`
-	Threshold float32 `json:"threshold,omitempty" jsonschema:"Distance under which a face counts as a match."`
+	Image     string  `json:"image"               jsonschema:"Image file."`
+	Model     string  `json:"model,omitempty"     jsonschema:"Model; default first installed."`
+	TopK      int     `json:"top_k,omitempty"     jsonschema:"How many matches."`
+	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
+}
+
+// GenerateImageToolInput is the input of the generate_image tool. It covers
+// both image routes: with Image set the tool repaints the masked area of that
+// image, without it the tool makes new images. The client methods stay apart
+// (GenerateImage and EditImage); only the tool merges them.
+type GenerateImageToolInput struct {
+	Prompt         string `json:"prompt"                    jsonschema:"What to show, or paint in the mask."`
+	Model          string `json:"model,omitempty"           jsonschema:"Model; default first installed."`
+	Size           string `json:"size,omitempty"            jsonschema:"WIDTHxHEIGHT, for example 512x512."`
+	NegativePrompt string `json:"negative_prompt,omitempty" jsonschema:"What to leave out."`
+	Steps          int    `json:"steps,omitempty"`
+	N              int    `json:"n,omitempty"               jsonschema:"1 to 4. Default 1."`
+	Image          string `json:"image,omitempty"           jsonschema:"Image to repaint; needs mask."`
+	Mask           string `json:"mask,omitempty"            jsonschema:"Mask; white is repainted."`
+}
+
+// Actions of the voice and face tools.
+const (
+	ActionVerify   = "verify"
+	ActionIdentify = "identify"
+)
+
+// VoiceToolInput is the input of the voice tool. One flat object: the action
+// says which fields count, and the handler checks them.
+type VoiceToolInput struct {
+	Action    string  `json:"action"              jsonschema:"verify needs audio and audio2; identify needs audio."`
+	Audio     string  `json:"audio"               jsonschema:"Audio file."`
+	Audio2    string  `json:"audio2,omitempty"    jsonschema:"Second recording; verify."`
+	Model     string  `json:"model,omitempty"     jsonschema:"Model; default first installed."`
+	TopK      int     `json:"top_k,omitempty"     jsonschema:"Matches to return; identify."`
+	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
+}
+
+// FaceToolInput is the input of the face tool, shaped like VoiceToolInput.
+type FaceToolInput struct {
+	Action    string  `json:"action"              jsonschema:"verify needs image and image2; identify needs image."`
+	Image     string  `json:"image"               jsonschema:"Image file."`
+	Image2    string  `json:"image2,omitempty"    jsonschema:"Second image; verify."`
+	Model     string  `json:"model,omitempty"     jsonschema:"Model; default first installed."`
+	TopK      int     `json:"top_k,omitempty"     jsonschema:"Matches to return; identify."`
+	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
 }
