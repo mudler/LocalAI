@@ -180,6 +180,55 @@ group:
 - In a run nobody watches, a client tool goes through `act.spend`
   (`gateBuiltinActs`).
 
+## Keep the tool surface small
+
+Every tool of an always-sent group is paid for on every turn of every chat, by
+every user, whether or not the turn needs it. On a small context window that
+decides whether the chat fits at all. So:
+
+- A new model tool must justify its place. Ask first whether an existing tool,
+  a parameter or a skill recipe already covers it.
+- Merge operations into one action-parameter tool only when they share state
+  in one domain (`voice`: verify and identify; `generate_image` with `image` and
+  `mask`). Use one flat object schema (many MCP clients and model APIs reject a
+  top-level `oneOf`/`anyOf`), an `action` enum, and check the fields of each
+  action in the handler with an error that names the action and the field. The
+  `ClientTools` table keeps one row per route. Media tools and unrelated
+  operations stay single-purpose.
+- Keep descriptions to one short sentence per tool and short field descriptions.
+- A group that is large must be deferrable behind the tool search (below). The
+  admin group is the example: 58 tools, about 7,000 tokens.
+- `clientBudgetBytes` in `clienttools_merge_test.go` caps the size of the client
+  group's `tools/list` entries. Raise it only with a reason in the commit
+  message.
+
+## Tool search: the large groups behind three tools
+
+The studio chats (`core/services/studio/toolsearch.go`) can send three small
+tools, `tool_search`, `tool_describe` and `tool_call`, in place of the two LocalAI
+groups. The setting `chats_tool_search` is `auto` (default), `on` or `off`. In
+`auto`, a chat defers the groups when the estimated size of the schemas it would
+send (bytes of the tool JSON over four) reaches a tenth of the chat's context
+window: the chat's own context size, else the model's configured size; an
+unknown window never defers. The decision is a pure function of the offered tools
+and the window (`shouldDefer`), so it is the same on every turn and the prompt
+cache keeps working. Nothing mutates the tool list during a turn.
+
+Rules for this code:
+
+- `localaiTurn` builds the tools of both groups as usual (the registry applies
+  the setting, the chat's switches, the role and the agent's ceiling; the MCP
+  executor is wrapped with `mcp.AsUser`). When the chat defers, the tools come
+  back as `deferred` instead of being offered. The turn assembly then runs
+  `gateBuiltinActs` on them (the `act.*` policy of a run that nobody watches) and
+  hands them to `toolSearchTools`. The bridge holds only that list, so a name
+  outside it is `no such tool`, whether the tool exists or not.
+- The search index (BM25 over name, description and parameter names) is built
+  from that same list. Never index a tool the chat could not call.
+- The bridge tools never defer, and the core tools (files, web, shell, memory,
+  media, triggers, add-on tools) are not part of this.
+- The tools panel marks a group with `deferred: true`.
+
 ## The acting user
 
 A tool call can name the user it acts for. `localaitools.WithUser(ctx, user)` puts the user in a
