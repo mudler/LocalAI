@@ -369,7 +369,7 @@
     "adminTitle": "Folder bersama",
     "adminLede": "Folder yang dipakai beberapa orang. Anggota membuka halamannya, dan chat mereka bisa membaca atau mengubah filenya.",
     "userTitle": "Dibagikan kepada Anda",
-    "userLede": "Folder yang dibagikan administrator kepada Anda. Halamannya ada di Halaman, dan chat Anda bisa memakai filenya.",
+    "userLede": "Folder yang dibagikan kepada Anda oleh administrator atau orang lain. Chat Anda dapat memakai berkasnya.",
     "new": "Folder bersama baru",
     "nameLabel": "Nama folder",
     "nameHint": "Hingga 64 huruf, angka, spasi, titik, tanda hubung, atau garis bawah. Mulai dengan huruf atau angka.",
@@ -421,7 +421,7 @@
     "factChats": "Chat anggota melihat file folder itu",
     "factUndo": "Menghapus folder bisa dibatalkan",
     "emptyUserTitle": "Belum ada yang dibagikan kepada Anda",
-    "emptyUserBody": "Saat administrator membagikan folder kepada Anda, folder itu muncul di sini dan halamannya di Halaman."
+    "emptyUserBody": "Saat seseorang membagikan folder kepada Anda, folder itu muncul di sini."
   },
   "preview": {
     "label": "Pratinjau",
@@ -536,7 +536,8 @@
     "moveMany_one": "Pindahkan {{count}} item ke…",
     "moveMany_other": "Pindahkan {{count}} item ke…",
     "deleteMany_one": "Pindahkan {{count}} item ke Sampah",
-    "deleteMany_other": "Pindahkan {{count}} item ke Sampah"
+    "deleteMany_other": "Pindahkan {{count}} item ke Sampah",
+    "share": "Bagikan…"
   },
   "keys": {
     "delete": "Del"
@@ -677,5 +678,12 @@
     "read": "{{name}} (bisa membaca)",
     "write": "{{name}} (bisa membaca dan mengubah)",
     "many": "{{count}} agen"
+  },
+  "share": {
+    "intro": "Orang yang Anda tambahkan menemukan folder ini di tab Dibagikan, dan chat mereka dapat memakai berkasnya.",
+    "readHelp": "Mereka dapat membuka dan menyalin berkas.",
+    "writeHelp": "Mereka juga dapat menambah, mengubah, dan menghapus berkas di sini.",
+    "failed": "Tidak dapat membuka berbagi: {{message}}",
+    "lost": "Anda tidak dapat lagi membagikan folder ini di sini."
   }
 }

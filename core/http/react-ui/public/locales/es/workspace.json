@@ -369,7 +369,7 @@
     "adminTitle": "Carpetas compartidas",
     "adminLede": "Carpetas que usan varias personas. Los miembros abren sus páginas y sus chats pueden leer o editar los archivos.",
     "userTitle": "Compartido contigo",
-    "userLede": "Carpetas que un administrador compartió contigo. Sus páginas están en Páginas y tus chats pueden usar los archivos.",
+    "userLede": "Carpetas que un administrador u otra persona compartió contigo. Tus chats pueden usar los archivos.",
     "new": "Nueva carpeta compartida",
     "nameLabel": "Nombre de la carpeta",
     "nameHint": "Hasta 64 letras, dígitos, espacios, puntos, guiones o guiones bajos. Empieza con una letra o un dígito.",
@@ -421,7 +421,7 @@
     "factChats": "Los chats de los miembros ven los archivos de la carpeta",
     "factUndo": "Quitar una carpeta se puede deshacer",
     "emptyUserTitle": "Todavía no se ha compartido nada contigo",
-    "emptyUserBody": "Cuando un administrador comparta una carpeta contigo, aparecerá aquí y sus páginas en Páginas."
+    "emptyUserBody": "Cuando alguien comparta una carpeta contigo, aparecerá aquí."
   },
   "preview": {
     "label": "Vista previa",
@@ -536,7 +536,8 @@
     "moveMany_one": "Mover {{count}} elemento a…",
     "moveMany_other": "Mover {{count}} elementos a…",
     "deleteMany_one": "Mover {{count}} elemento a la papelera",
-    "deleteMany_other": "Mover {{count}} elementos a la papelera"
+    "deleteMany_other": "Mover {{count}} elementos a la papelera",
+    "share": "Compartir…"
   },
   "keys": {
     "delete": "Supr"
@@ -677,5 +678,12 @@
     "read": "{{name}} (puede leer)",
     "write": "{{name}} (puede leer y cambiar)",
     "many": "{{count}} agentes"
+  },
+  "share": {
+    "intro": "Las personas que añadas encuentran esta carpeta en su pestaña Compartido, y sus chats pueden usar sus archivos.",
+    "readHelp": "Pueden abrir y copiar los archivos.",
+    "writeHelp": "También pueden añadir, cambiar y eliminar archivos aquí.",
+    "failed": "No se pudo abrir el uso compartido: {{message}}",
+    "lost": "Ya no puedes compartir esta carpeta aquí."
   }
 }

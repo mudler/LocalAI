@@ -3,6 +3,7 @@ import { apiUrl } from './basePath'
 import { chatsListPath } from './chatsQuery'
 import { addonsApi } from './addonsClient'
 import { createSharesApi } from './sharesApi'
+import { createFolderSharesApi } from './folderSharesApi'
 
 const enc = encodeURIComponent
 const userQ = (userId) => userId ? `?user_id=${enc(userId)}` : ''
@@ -1139,3 +1140,4 @@ export const diarizationApi = {
 // grant call and the share dialog reads both alike. Pair it with
 // kindShareClient (components/share/shareClients.js) for the dialog.
 export const sharesApi = createSharesApi(addonsApi)
+export const folderSharesApi = createFolderSharesApi(addonsApi)

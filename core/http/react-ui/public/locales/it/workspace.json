@@ -369,7 +369,7 @@
     "adminTitle": "Cartelle condivise",
     "adminLede": "Cartelle usate da più persone. I membri aprono le loro pagine e le loro chat possono leggere o modificare i file.",
     "userTitle": "Condivisi con te",
-    "userLede": "Le cartelle che un amministratore ha condiviso con te. Le loro pagine sono in Pagine e le tue chat possono usare i file.",
+    "userLede": "Cartelle che un amministratore o un'altra persona ha condiviso con te. Le tue chat possono usarne i file.",
     "new": "Nuova cartella condivisa",
     "nameLabel": "Nome della cartella",
     "nameHint": "Fino a 64 lettere, cifre, spazi, punti, trattini o trattini bassi. Inizia con una lettera o una cifra.",
@@ -421,7 +421,7 @@
     "factChats": "Le chat dei membri vedono i file della cartella",
     "factUndo": "La rimozione di una cartella si può annullare",
     "emptyUserTitle": "Ancora nulla è condiviso con te",
-    "emptyUserBody": "Quando un amministratore condivide una cartella con te, compare qui e le sue pagine in Pagine."
+    "emptyUserBody": "Quando qualcuno condivide una cartella con te, compare qui."
   },
   "preview": {
     "label": "Anteprima",
@@ -536,7 +536,8 @@
     "moveMany_one": "Sposta {{count}} elemento in…",
     "moveMany_other": "Sposta {{count}} elementi in…",
     "deleteMany_one": "Sposta {{count}} elemento nel Cestino",
-    "deleteMany_other": "Sposta {{count}} elementi nel Cestino"
+    "deleteMany_other": "Sposta {{count}} elementi nel Cestino",
+    "share": "Condividi…"
   },
   "keys": {
     "delete": "Canc"
@@ -677,5 +678,12 @@
     "read": "{{name}} (può leggere)",
     "write": "{{name}} (può leggere e modificare)",
     "many": "{{count}} agenti"
+  },
+  "share": {
+    "intro": "Le persone che aggiungi trovano questa cartella nella scheda Condivisi, e le loro chat possono usarne i file.",
+    "readHelp": "Possono aprire e copiare i file.",
+    "writeHelp": "Possono anche aggiungere, modificare ed eliminare file qui.",
+    "failed": "Impossibile aprire la condivisione: {{message}}",
+    "lost": "Non puoi più condividere questa cartella da qui."
   }
 }
