@@ -30,17 +30,19 @@ func failFolderShare(c echo.Context, err error) error {
 
 // shareCall checks what every sharing call needs: the files, the sharing of
 // folders on this server and, for human, the person's own browser session.
+// The browser session is checked first: a key, an agent or a tool learns
+// nothing about the server from these routes, not even whether files are on.
 func (h *Handlers) shareCall(c echo.Context, human bool) (fileCall, bool) {
+	if human && !addonsendpoint.HumanSession(c, c.Param("id")) {
+		_ = fail(c, http.StatusForbidden, "not_human_surface", "This action requires your own browser session")
+		return fileCall{}, false
+	}
 	fc, ok := h.files(c)
 	if !ok {
 		return fileCall{}, false
 	}
 	if !h.svc.SharedFolders().SharingAvailable() {
 		_ = failFolderShare(c, sharedfolders.ErrSharingOff)
-		return fileCall{}, false
-	}
-	if human && !addonsendpoint.HumanSession(c, c.Param("id")) {
-		_ = fail(c, http.StatusForbidden, "not_human_surface", "This action requires your own browser session")
 		return fileCall{}, false
 	}
 	return fc, true
