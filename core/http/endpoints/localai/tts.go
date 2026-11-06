@@ -68,7 +68,7 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 				if profiles == nil {
 					return echo.NewHTTPError(http.StatusInternalServerError, "voice profile store is unavailable")
 				}
-				profile, referencePaths, release, err := profiles.LeaseAudios(c.Request().Context(), profileID)
+				profile, referencePaths, release, err := profiles.LeaseAudiosFor(c.Request().Context(), VoiceViewer(c), profileID)
 				if err != nil {
 					if errors.Is(err, voiceprofile.ErrNotFound) {
 						return echo.NewHTTPError(http.StatusNotFound, "voice profile not found")

@@ -13370,7 +13370,7 @@ const docTemplate = `{
         },
         "/api/voice-profiles": {
             "get": {
-                "description": "List saved voice-cloning references without exposing filesystem paths.",
+                "description": "List the saved voice-cloning references the caller may use (their own and the instance-wide ones; an administrator sees all), without exposing filesystem paths.",
                 "produces": [
                     "application/json"
                 ],
@@ -13395,7 +13395,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Save a consent-confirmed PCM WAV reference clip and exact transcript for voice cloning. Admin-only.",
+                "description": "Save a consent-confirmed PCM WAV reference clip and exact transcript for voice cloning. Needs the audio speech feature. The profile belongs to the caller (an administrator creates instance-wide profiles); a user who is not an administrator may own at most 20.",
                 "consumes": [
                     "multipart/form-data",
                     "application/json"
@@ -13463,6 +13463,18 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The per-user profile limit is reached",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
                     "413": {
                         "description": "Request Entity Too Large",
                         "schema": {
@@ -13474,7 +13486,7 @@ const docTemplate = `{
         },
         "/api/voice-profiles/{id}": {
             "delete": {
-                "description": "Permanently remove a saved voice-cloning profile. Admin-only.",
+                "description": "Permanently remove a saved voice-cloning profile. The owner or an administrator may delete it; an instance-wide profile only an administrator. The profile of another user answers 404.",
                 "tags": [
                     "audio",
                     "voice-profiles"
@@ -13492,6 +13504,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     },
                     "404": {
                         "description": "Not Found",
@@ -31860,6 +31878,10 @@ const docTemplate = `{
                 "audio": {
                     "$ref": "#/definitions/voiceprofile.AudioMetadata"
                 },
+                "can_delete": {
+                    "description": "CanDelete tells the caller whether it may delete the profile. It is\nworked out for each caller (see Viewer) and never stored.",
+                    "type": "boolean"
+                },
                 "consent_confirmed_at": {
                     "type": "string"
                 },
@@ -31876,6 +31898,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "owner_id": {
                     "type": "string"
                 },
                 "references": {

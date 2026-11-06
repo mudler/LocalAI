@@ -108,7 +108,9 @@ func modalitiesContainAudio(m []types.Modality) bool {
 
 // Session represents a single WebSocket connection and its state
 type Session struct {
-	ID                string
+	ID string
+	// voiceViewer is who may use which saved voice profile in this session.
+	voiceViewer       voiceprofile.Viewer
 	TranscriptionOnly bool
 	// The pipeline or any-to-any model name (full realtime mode)
 	Model string
@@ -556,6 +558,20 @@ type RealtimeSessionOptions struct {
 	// cookie/Bearer) and drop the result here so runRealtimeSession can
 	// decide without holding onto the request.
 	IsAdmin bool
+	// VoiceViewer is the user of the handshake, for the ownership rules of the
+	// saved voice profiles a session may speak with. The zero value sees only
+	// the instance-wide profiles.
+	VoiceViewer voiceprofile.Viewer
+}
+
+// realtimeVoiceViewer is the voice profile viewer of a handshake: the
+// authenticated user, or the administrator when the server has no accounts.
+func realtimeVoiceViewer(c echo.Context) voiceprofile.Viewer {
+	u := auth.GetUser(c)
+	if u == nil {
+		return voiceprofile.AdminViewer()
+	}
+	return voiceprofile.Viewer{UserID: u.ID, Admin: u.Role == auth.RoleAdmin}
 }
 
 func Realtime(application *application.Application) echo.HandlerFunc {
@@ -575,6 +591,7 @@ func Realtime(application *application.Application) echo.HandlerFunc {
 		opts := RealtimeSessionOptions{
 			LocalAIAssistant: assistantFlag,
 			IsAdmin:          isCurrentUserAdmin(c, application),
+			VoiceViewer:      realtimeVoiceViewer(c),
 		}
 
 		registerRealtime(application, model, opts)(ws)
@@ -781,6 +798,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	sessionID := generateSessionID()
 	session := &Session{
 		ID:                      sessionID,
+		voiceViewer:             opts.VoiceViewer,
 		TranscriptionOnly:       false,
 		Model:                   model,
 		Voice:                   cfg.TTSConfig.Voice,
@@ -867,7 +885,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		return
 	}
 	if wrapped, ok := m.(*wrappedModel); ok {
-		resolvedVoice, params, release, resolveErr := resolveRealtimeVoice(context.Background(), wrapped.TTSConfig.TTSConfig.Voice, wrapped.TTSConfig, application.VoiceProfileStore())
+		resolvedVoice, params, release, resolveErr := resolveRealtimeVoice(context.Background(), wrapped.TTSConfig.TTSConfig.Voice, wrapped.TTSConfig, application.VoiceProfileStore(), opts.VoiceViewer)
 		if resolveErr != nil {
 			xlog.Error("failed to resolve realtime voice", "error", resolveErr)
 			sendError(t, "voice_profile_error", resolveErr.Error(), "", "")
@@ -1534,7 +1552,7 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 				configuredVoice = string(rt.Audio.Output.Voice)
 			}
 			candidateVoice, candidateParams, candidateRelease, err = resolveRealtimeVoice(
-				context.Background(), configuredVoice, wrapped.TTSConfig, profiles,
+				context.Background(), configuredVoice, wrapped.TTSConfig, profiles, session.voiceViewer,
 			)
 			if err != nil {
 				return err

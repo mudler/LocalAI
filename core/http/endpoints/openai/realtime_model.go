@@ -664,7 +664,7 @@ func (m *wrappedModel) TTSStream(ctx context.Context, text, voice, language stri
 	})
 }
 
-func resolveRealtimeVoice(ctx context.Context, configuredVoice string, ttsConfig *config.ModelConfig, profiles *voiceprofile.Store) (string, map[string]string, func(), error) {
+func resolveRealtimeVoice(ctx context.Context, configuredVoice string, ttsConfig *config.ModelConfig, profiles *voiceprofile.Store, viewer voiceprofile.Viewer) (string, map[string]string, func(), error) {
 	if !voiceprofile.IsReference(configuredVoice) {
 		return configuredVoice, nil, func() {}, nil
 	}
@@ -678,7 +678,7 @@ func resolveRealtimeVoice(ctx context.Context, configuredVoice string, ttsConfig
 	if profiles == nil {
 		return "", nil, nil, fmt.Errorf("voice profile store is unavailable")
 	}
-	profile, referencePath, release, err := profiles.LeaseAudio(ctx, profileID)
+	profile, referencePath, release, err := profiles.LeaseAudioFor(ctx, viewer, profileID)
 	if err != nil {
 		if errors.Is(err, voiceprofile.ErrNotFound) {
 			return "", nil, nil, fmt.Errorf("voice profile not found: %w", err)

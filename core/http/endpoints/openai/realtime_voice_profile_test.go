@@ -63,7 +63,7 @@ var _ = Describe("realtime pipeline voice profiles", func() {
 			Name:      "clone-base",
 			Backend:   "qwen3-tts-cpp",
 			TTSConfig: config.TTSConfig{VoiceCloning: ptrTo(true)},
-		}, store)
+		}, store, voiceprofile.Viewer{})
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(voice).To(BeAnExistingFile())
@@ -74,7 +74,7 @@ var _ = Describe("realtime pipeline voice profiles", func() {
 	})
 
 	It("leaves an ordinary backend voice unchanged with no parameters", func() {
-		voice, params, release, err := resolveRealtimeVoice(context.Background(), "speaker-7", &config.ModelConfig{}, nil)
+		voice, params, release, err := resolveRealtimeVoice(context.Background(), "speaker-7", &config.ModelConfig{}, nil, voiceprofile.Viewer{})
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(voice).To(Equal("speaker-7"))
@@ -85,7 +85,7 @@ var _ = Describe("realtime pipeline voice profiles", func() {
 
 	DescribeTable("returns actionable reference errors",
 		func(configuredVoice string, cfg *config.ModelConfig, store *voiceprofile.Store, expected string) {
-			_, _, release, err := resolveRealtimeVoice(context.Background(), configuredVoice, cfg, store)
+			_, _, release, err := resolveRealtimeVoice(context.Background(), configuredVoice, cfg, store, voiceprofile.Viewer{})
 			Expect(err).To(MatchError(ContainSubstring(expected)))
 			Expect(release).To(BeNil())
 		},
@@ -94,12 +94,29 @@ var _ = Describe("realtime pipeline voice profiles", func() {
 		Entry("unavailable store", "localai://voice-profiles/00000000-0000-0000-0000-000000000001", &config.ModelConfig{Name: "clone-base", Backend: "qwen3-tts-cpp", TTSConfig: config.TTSConfig{VoiceCloning: ptrTo(true)}}, nil, "voice profile store is unavailable"),
 	)
 
+	It("resolves a profile for its owner and reports another user's as not found", func() {
+		store := voiceprofile.NewStore(GinkgoT().TempDir())
+		DeferCleanup(func() { Expect(store.Close()).To(Succeed()) })
+		profile, err := store.CreateFor(context.Background(), voiceprofile.Viewer{UserID: "alice"}, voiceprofile.CreateInput{
+			Name: "Mine", Transcript: "Words.", ConsentConfirmed: true,
+		}, []voiceprofile.ReferenceInput{{Transcript: "Words.", Audio: bytes.NewReader(realtimeProfileWAV(time.Second))}})
+		Expect(err).NotTo(HaveOccurred())
+		cfg := &config.ModelConfig{Name: "clone-base", Backend: "qwen3-tts-cpp", TTSConfig: config.TTSConfig{VoiceCloning: ptrTo(true)}}
+
+		_, _, release, err := resolveRealtimeVoice(context.Background(), profile.Voice, cfg, store, voiceprofile.Viewer{UserID: "alice"})
+		Expect(err).NotTo(HaveOccurred())
+		release()
+		_, _, release, err = resolveRealtimeVoice(context.Background(), profile.Voice, cfg, store, voiceprofile.Viewer{UserID: "bob"})
+		Expect(errors.Is(err, voiceprofile.ErrNotFound)).To(BeTrue())
+		Expect(release).To(BeNil())
+	})
+
 	It("reports a missing profile", func() {
 		store := voiceprofile.NewStore(GinkgoT().TempDir())
 		DeferCleanup(func() { Expect(store.Close()).To(Succeed()) })
 		_, _, release, err := resolveRealtimeVoice(context.Background(), "localai://voice-profiles/00000000-0000-0000-0000-000000000001", &config.ModelConfig{
 			Name: "clone-base", Backend: "qwen3-tts-cpp", TTSConfig: config.TTSConfig{VoiceCloning: ptrTo(true)},
-		}, store)
+		}, store, voiceprofile.Viewer{})
 		Expect(errors.Is(err, voiceprofile.ErrNotFound)).To(BeTrue())
 		Expect(err.Error()).To(ContainSubstring("voice profile not found"))
 		Expect(release).To(BeNil())
@@ -238,7 +255,7 @@ var _ = Describe("realtime session voice switching", func() {
 			Model: "pipe-a", Voice: voice, ModelConfig: cfg, ModelInterface: m,
 			InputAudioTranscription: &types.AudioTranscription{Model: "stt"},
 		}
-		resolved, params, release, err := resolveRealtimeVoice(context.Background(), voice, m.(*wrappedModel).TTSConfig, f.store)
+		resolved, params, release, err := resolveRealtimeVoice(context.Background(), voice, m.(*wrappedModel).TTSConfig, f.store, voiceprofile.Viewer{})
 		Expect(err).NotTo(HaveOccurred())
 		session.installVoiceBinding(resolved, params, release)
 		return session

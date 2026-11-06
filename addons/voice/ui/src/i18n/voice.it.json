@@ -1,6 +1,6 @@
 {
-  "voice.adminOnly.title": "Solo per amministratori",
-  "voice.adminOnly.text": "Le voci salvate possono essere gestite da un amministratore di questo server. Chiedine uno se devi aggiungere o rimuovere una voce.",
+  "voice.noSpeech.title": "Voce non disponibile",
+  "voice.noSpeech.text": "Il tuo account non può usare la sintesi vocale, quindi non può gestire voci salvate. Chiedi a un amministratore di attivarla.",
   "speech.title": "Pronuncia un testo",
   "speech.lede": "Trasforma un testo in voce con un modello vocale di questo server.",
   "speech.model": "Model",

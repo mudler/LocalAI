@@ -241,6 +241,7 @@ func RealtimeCalls(application *application.Application) echo.HandlerFunc {
 		opts := RealtimeSessionOptions{
 			LocalAIAssistant: req.LocalAIAssistant,
 			IsAdmin:          isCurrentUserAdmin(c, application),
+			VoiceViewer:      realtimeVoiceViewer(c),
 		}
 		go func() {
 			defer transport.Close()

@@ -1,6 +1,6 @@
 {
-  "voice.adminOnly.title": "Administrators only",
-  "voice.adminOnly.text": "Saved voices can be managed by an administrator of this server. Ask one if you need a voice added or removed.",
+  "voice.noSpeech.title": "Speech is not available",
+  "voice.noSpeech.text": "Your account cannot use speech, so it cannot manage saved voices. Ask an administrator to turn it on.",
   "speech.title": "Speak text",
   "speech.lede": "Turn text into speech with a voice model of this server.",
   "speech.model": "Model",

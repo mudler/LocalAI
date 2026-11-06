@@ -80,27 +80,40 @@ this control may ignore it.
 
 ## Voice Library
 
-Administrators can manage reusable voice-cloning references from the **Library** tab of the Voice add-on (**Add-ons → Voice**) in the LocalAI WebUI. (Recognition, the first tab of that page, is a separate feature: voiceprints for recognising who is speaking. See [Voice recognition](/features/voice-recognition/).) The library replaces per-model filesystem and YAML setup for supported cloning backends:
+Every user who may use speech can keep reusable voice-cloning references of their own, and administrators manage all of them. Use the **Library** tab of the Voice add-on (**Add-ons → Voice**) in the LocalAI WebUI. (Recognition, the first tab of that page, is a separate feature: voiceprints for recognising who is speaking. See [Voice recognition](/features/voice-recognition/).) The library replaces per-model filesystem and YAML setup for supported cloning backends:
 
 1. Select **Add a speech voice** and upload or record a clear reference clip. A speech voice can also be made while enrolling a speaker, from the enrol sheet.
 2. Enter the exact words spoken in the clip. Add more audio/transcript pairs when the personality needs more examples.
 3. Confirm that you have permission to clone the voice, then save the profile.
 4. Open **Text to Speech**, choose a model marked **Cloning ready**, and select the saved voice.
 
-The browser converts uploads and recordings to mono, 24 kHz, 16-bit PCM WAV so the same profile works across compatible backends. A profile can contain up to ten ordered references. Each clip must be between 1 and 120 seconds and no larger than 50 MiB; 6-30 seconds of clean audio is recommended. Profile audio is private biometric source material: LocalAI stores it below its configured data path, serves previews only to authenticated TTS users, and never returns its filesystem path.
+The browser converts uploads and recordings to mono, 24 kHz, 16-bit PCM WAV so the same profile works across compatible backends. A profile can contain up to ten ordered references. Each clip must be between 1 and 120 seconds and no larger than 50 MiB; 6-30 seconds of clean audio is recommended. Profile audio is private biometric source material: LocalAI stores it below its configured data path, serves previews only to authenticated TTS users who may see that profile, and never returns its filesystem path.
 
 ### Voice profile API
 
-The WebUI uses the following endpoints. Creating and deleting profiles requires administrator access; listing profiles and playing previews requires access to the TTS feature.
+The WebUI uses the following endpoints. Every route needs access to the audio speech feature (`audio_speech`).
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/voice-profiles` | List saved profiles and their public metadata. |
-| `POST` | `/api/voice-profiles` | Create a profile from multipart form data or JSON with base64 audio. |
+| `GET` | `/api/voice-profiles` | List the profiles you may use: your own and the instance-wide ones. An administrator sees all. |
+| `POST` | `/api/voice-profiles` | Create a profile from multipart form data or JSON with base64 audio. The profile belongs to you. |
 | `GET` | `/api/voice-profiles/{id}/audio` | Stream the authenticated WAV preview, including range requests. |
-| `DELETE` | `/api/voice-profiles/{id}` | Permanently delete a profile. |
+| `DELETE` | `/api/voice-profiles/{id}` | Permanently delete a profile of yours. |
 
-For example, an administrator can create a profile without the WebUI:
+### Who owns a profile
+
+A profile has an owner: the user who created it. These rules apply to the endpoints above, to `voice` in `/v1/audio/speech` and `/tts`, and to the `voice` of a realtime session:
+
+- You see, preview and speak with your own profiles and with the instance-wide ones.
+- An instance-wide profile has no owner. Profiles an administrator creates are instance-wide, and so are profiles stored before ownership existed. Every user can use them; only an administrator can delete them (other users get `403`).
+- You can delete your own profiles. An administrator can list, use and delete all profiles.
+- The profile of another user answers `404`, never `403`, in every endpoint and in speech requests, so nobody can learn that it exists.
+- A user who is not an administrator may own at most 20 profiles. A request over the limit answers `409`. The limit is a constant, not a setting. Each clip is limited to 50 MiB, as before.
+- A server without accounts (authentication off) has no owners: every profile is instance-wide, as before.
+
+The profiles are files below the data path of the instance (`voice-profiles/`, one folder per profile; `owner_id` in its `profile.json`). They follow the data path: frontends that share a data path share the profiles, and frontends with separate data paths each have their own library, as before. The profile limit is counted on the files under a lock of one process, so two frontends that create profiles for the same user at the same moment can exceed it by a few.
+
+For example, you can create a profile without the WebUI:
 
 ```bash
 curl http://localhost:8080/api/voice-profiles \
