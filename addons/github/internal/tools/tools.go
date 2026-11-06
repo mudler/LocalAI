@@ -15,6 +15,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -160,14 +161,18 @@ func (r *Runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 		return contract.Result{}, bad("unknown tool")
 	}
 	if err != nil {
-		return contract.Result{}, translate(err)
+		return contract.Result{}, translateFor(tool, err)
 	}
 	return finish(data)
 }
 
 // translate maps an error of the API to what the protocol sends. A refusal
 // keeps a fixed sentence; a limit keeps its wait; an outage stays one.
-func translate(err error) error {
+func translate(err error) error { return translateFor("", err) }
+
+// translateFor is translate for a call of one tool: a refusal of GitHub also
+// carries its status and a sentence that names the fix for that tool.
+func translateFor(tool string, err error) error {
 	var limited *contract.ErrRateLimited
 	switch {
 	case errors.As(err, &limited):
@@ -175,9 +180,51 @@ func translate(err error) error {
 	case errors.Is(err, protocol.ErrBadRequest), errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return err
 	case errors.Is(err, ghapi.ErrUnauthorized), errors.Is(err, ghapi.ErrForbidden), errors.Is(err, ghapi.ErrNotFound), errors.Is(err, ghapi.ErrInvalid), errors.Is(err, ghapi.ErrTooLarge):
-		return bad("%s", ghapi.Describe(err))
+		cause := bad("%s", ghapi.Describe(err))
+		if status := ghapi.StatusOf(err); status != 0 {
+			return protocol.Upstream(status, upstreamHint(tool, status), cause)
+		}
+		return cause
 	}
 	return err
+}
+
+// permissionOf says what a token needs to do a tool, as the settings page of
+// a fine-grained token names it, and the phrase for what the tool does.
+func permissionOf(tool string) (action, permission string) {
+	switch tool {
+	case ToolCreateIssue:
+		return "create issues", "Issues: write"
+	case ToolEditIssue:
+		return "edit issues", "Issues: write"
+	case ToolCommentIssue:
+		return "comment on issues", "Issues: write"
+	case ToolAddLabels:
+		return "add labels", "Issues: write"
+	case ToolCommentPR:
+		return "comment on pull requests", "Pull requests: write"
+	case ToolReviewCommentPR:
+		return "comment on a pull request review", "Pull requests: write"
+	}
+	return "read this", "the read permission for it"
+}
+
+// upstreamHint is the sentence for the person after GitHub refused a call: what
+// was refused and the one thing that fixes it. It is fixed text; nothing that
+// GitHub sent back is in it.
+func upstreamHint(tool string, status int) string {
+	action, permission := permissionOf(tool)
+	switch status {
+	case 401:
+		return "GitHub refused the token (401): it is not valid or has expired. Replace the token of this connection, or use another connection."
+	case 403:
+		return "GitHub refused: the token cannot " + action + " in this repository (403). Give the token " + permission + " on that repository, or use another connection."
+	case 404, 410:
+		return "GitHub could not find it (" + strconv.Itoa(status) + "), or the token cannot see it. Check the repository and the number, and that the token has access to the repository."
+	case 422:
+		return "GitHub did not accept the request (422). Check the values the call sent, such as the title, the labels and the number, and try again."
+	}
+	return "GitHub refused the request (" + strconv.Itoa(status) + "). Check the values the call sent and the access of the token."
 }
 
 // call is one tool call: the token, the resource the host allowed and the

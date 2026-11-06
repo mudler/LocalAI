@@ -61,6 +61,10 @@ const (
 	// ConnectorRequest.Thread of Chat, oldest first. Only a kind with
 	// History serves it; the host never calls it for another kind.
 	ConnectorOpHistory = "history"
+	// ConnectorOpDelete deletes the message MessageID of the bot in Chat. The
+	// host uses it to remove a preview that an answer could not replace. A
+	// kind that cannot delete refuses it; the host then leaves the message.
+	ConnectorOpDelete = "delete"
 )
 
 // Codes of a ConnectorError.
@@ -86,6 +90,8 @@ const (
 	MaxConnectorMedia  = 8
 	MaxPollSeconds     = 25
 	MaxConnectorSender = 64 // the width of the sender column of the stores
+	// MaxAccountIDBytes bounds ConnectorResponse.AccountID.
+	MaxAccountIDBytes = 128
 	// MaxConnectorFileName is the longest file name, in bytes, that the op
 	// send_file takes.
 	MaxConnectorFileName = 128
@@ -390,7 +396,15 @@ type ConnectorMessage struct {
 	SenderID       string `json:"senderId,omitempty"`
 	SenderName     string `json:"senderName,omitempty"`
 	SenderUsername string `json:"senderUsername,omitempty"`
-	Text           string `json:"text,omitempty"`
+	// ChatName is the name of the conversation on the platform (a channel or
+	// a group), when the add-on knows it without an extra permission. The host
+	// shows it in the header of the chat and keeps nothing else of it.
+	ChatName string `json:"chatName,omitempty"`
+	// Link is an https address that opens this message, or its thread, on the
+	// platform, when the add-on can build one without an extra permission. The
+	// host shows it to the owner and drops any other scheme.
+	Link string `json:"link,omitempty"`
+	Text string `json:"text,omitempty"`
 	// Unsupported is a message with no text and no file that the add-on can
 	// hand over, such as a sticker or a poll.
 	Unsupported bool `json:"unsupported,omitempty"`
@@ -476,6 +490,13 @@ type ConnectorResponse struct {
 	// me
 	BotID       string `json:"botId,omitempty"`
 	BotUsername string `json:"botUsername,omitempty"`
+	// AccountID answers the op me: a stable name of the upstream account that
+	// the token belongs to, the same for every token pair of that account (for
+	// example the workspace and the bot user together). The host compares it,
+	// within one kind, to find two connections that are the same bot. It is
+	// optional: an add-on that cannot tell leaves it empty, and its connections
+	// are never compared. At most MaxAccountIDBytes.
+	AccountID string `json:"accountId,omitempty"`
 	// Received answers the op media: the file was written by handle. The host
 	// adds Size and SHA256 from its record.
 	Received *ConnectorReceived `json:"received,omitempty"`

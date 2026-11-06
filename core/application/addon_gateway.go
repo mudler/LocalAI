@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -410,6 +411,10 @@ func (a *Application) startAddonGateway() error {
 	// host surface only, never by a chat turn.
 	brokerOpts.ConfirmPerson = confirmPerson(mode)
 	brokerOpts.Credentials = credentialSource{a}
+	// The person may relax the confirmation of a tool that the manifest marks
+	// approvalOverridable. The host decides from the chat of the call.
+	brokerOpts.RelaxApproval = a.addonApprovalRelaxed
+	brokerOpts.OnRelaxedRun = a.recordRelaxedRun
 	// A deletion trusts only an explicit answer of the add-on.
 	confirmed := a.addonResourceExists
 	if confirmed == nil {
@@ -627,7 +632,7 @@ func (a *Application) StudioAddonTools() studio.AddonTools {
 	if db := a.AuthDB(); db != nil {
 		has = addonFeatureCheck(db)
 	}
-	return &studioAddons{adapter: addontools.NewChatToolAdapter(a.addonGateway).WithConnectionNames(a.chatConnectionName), mode: a.AddonOwnershipMode(), hostOps: a.addonAuthority(), ids: a.installedAddonIDs, has: has}
+	return &studioAddons{gw: a.addonGateway, adapter: addontools.NewChatToolAdapter(a.addonGateway).WithConnectionNames(a.chatConnectionName), mode: a.AddonOwnershipMode(), hostOps: a.addonAuthority(), ids: a.installedAddonIDs, has: has}
 }
 
 // lateStudioAddons asks for the broker at each call: the chats service starts
@@ -693,6 +698,15 @@ func (l lateStudioAddons) AddonListings(ctx context.Context, user string) ([]stu
 	return nil, nil
 }
 
+// ResourceChoices forwards to the broker when it can list the resources a
+// person may give to an agent.
+func (l lateStudioAddons) ResourceChoices(ctx context.Context, user, addonID string) ([]studio.ResourceChoice, bool, error) {
+	if g, ok := l.a.StudioAddonTools().(studio.AddonResourceChooser); ok {
+		return g.ResourceChoices(ctx, user, addonID)
+	}
+	return nil, false, studio.ErrNotScoped
+}
+
 // Isolation forwards to the broker when it can say how commands are isolated.
 func (l lateStudioAddons) Isolation(ctx context.Context, user, addonID string) string {
 	if g, ok := l.a.StudioAddonTools().(studio.CommandIsolation); ok {
@@ -718,6 +732,29 @@ func (l lateStudioAddons) Network(ctx context.Context, user, addonID string) (st
 	return studio.AddonNetwork{}, false
 }
 
+// HeldState, ConfirmHeld and CancelHeld forward to the broker (see
+// studio.AddonHolds).
+func (l lateStudioAddons) HeldState(ctx context.Context, user, id string) (studio.AddonHeld, error) {
+	if b, ok := l.a.StudioAddonTools().(studio.AddonHolds); ok {
+		return b.HeldState(ctx, user, id)
+	}
+	return studio.AddonHeld{}, gateway.ErrUnavailable
+}
+
+func (l lateStudioAddons) ConfirmHeld(ctx context.Context, user, id, digest string) (studio.AddonHeldResult, error) {
+	if b, ok := l.a.StudioAddonTools().(studio.AddonHolds); ok {
+		return b.ConfirmHeld(ctx, user, id, digest)
+	}
+	return studio.AddonHeldResult{}, gateway.ErrUnavailable
+}
+
+func (l lateStudioAddons) CancelHeld(ctx context.Context, user, id string) error {
+	if b, ok := l.a.StudioAddonTools().(studio.AddonHolds); ok {
+		return b.CancelHeld(ctx, user, id)
+	}
+	return gateway.ErrUnavailable
+}
+
 func (l lateStudioAddons) Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error) {
 	b := l.a.StudioAddonTools()
 	if b == nil {
@@ -737,6 +774,8 @@ func (l lateStudioAddons) CallProvider(ctx context.Context, user, name string, a
 }
 
 type studioAddons struct {
+	// gw answers the held writes that a messaging chat confirms or drops.
+	gw      *gateway.Gateway
 	adapter *addontools.ToolAdapter
 	mode    string
 	// hostOps says which host operations an add-on may call. An add-on that may
@@ -910,7 +949,7 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 			continue
 		}
 		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead,
-			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt, Permission: d.Permission, Credentialed: d.Credentialed})
+			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt, Permission: d.Permission, Credentialed: d.Credentialed, OwnerData: d.OwnerData, ApprovalOverridable: d.ApprovalOverridable, Tool: d.Tool, ResourceScoped: d.ResourceScoped})
 	}
 	return filterByFeature(out, s.hostOps, s.has, actor), nil
 }
@@ -1032,9 +1071,35 @@ func (s *studioAddons) AddonListings(ctx context.Context, user string) ([]studio
 	}
 	out := make([]studio.AddonListing, 0, len(list))
 	for _, a := range list {
-		out = append(out, studio.AddonListing{AddonID: a.AddonID, Title: a.Title, Description: a.Description})
+		l := studio.AddonListing{AddonID: a.AddonID, Title: a.Title, Description: a.Description}
+		if r := a.Resources; r != nil {
+			l.Resources = &studio.ResourceLabel{Noun: r.Noun, NounPlural: r.NounPlural, Translations: r.Translations}
+		}
+		out = append(out, l)
 	}
 	return out, nil
+}
+
+// ResourceChoices lists the resources of an add-on that scopes its resources
+// per agent which the user may use now: the declared listing of the host,
+// before any limit of an agent.
+func (s *studioAddons) ResourceChoices(ctx context.Context, user, addonID string) ([]studio.ResourceChoice, bool, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return nil, false, studio.ErrNotScoped
+	}
+	rows, truncated, err := s.adapter.ResourceChoices(ctx, actor, addonID)
+	switch {
+	case errors.Is(err, addontools.ErrUnknownTool), errors.Is(err, gateway.ErrForbidden):
+		return nil, false, studio.ErrNotScoped
+	case err != nil:
+		return nil, false, err
+	}
+	out := make([]studio.ResourceChoice, len(rows))
+	for i, r := range rows {
+		out[i] = studio.ResourceChoice{ID: r.ID, Name: r.Name, Role: r.Role}
+	}
+	return out, truncated, nil
 }
 
 // AddonShadowers lists the add-ons that replace a built-in chat tool and that
@@ -1075,7 +1140,76 @@ func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args j
 	if err != nil {
 		return "", err
 	}
-	return studioAddonText(res), nil
+	return studioAddonText(ctx, res), nil
+}
+
+// HeldState says where the stored proposal of the user is.
+func (s *studioAddons) HeldState(ctx context.Context, user, id string) (studio.AddonHeld, error) {
+	actor, err := s.actor(user)
+	if err != nil || s.gw == nil {
+		return studio.AddonHeld{}, gateway.ErrForbidden
+	}
+	p, err := s.gw.GetProposal(ctx, actor, id)
+	if err != nil {
+		return studio.AddonHeld{}, err
+	}
+	return studio.AddonHeld{State: string(p.State), Digest: p.Digest}, nil
+}
+
+// ConfirmHeld runs the stored proposal for a paired sender who confirmed it in
+// a messaging chat. The studio service checked the sender; the mark tells the
+// owner so, and it honors it only for a proposal that waits because the
+// connection asks first.
+func (s *studioAddons) ConfirmHeld(ctx context.Context, user, id, digest string) (studio.AddonHeldResult, error) {
+	actor, err := s.actor(user)
+	if err != nil || s.gw == nil {
+		return studio.AddonHeldResult{}, &studio.AddonHoldFailure{Reason: "forbidden"}
+	}
+	p, err := s.gw.ConfirmProposal(gateway.WithChatConfirmed(ctx), actor, id, digest)
+	if err != nil {
+		reason, status := addontools.FailureOf(err)
+		return studio.AddonHeldResult{}, &studio.AddonHoldFailure{Reason: reason, Status: status}
+	}
+	res := studio.AddonHeldResult{Applied: p.State == gateway.ProposalApplied}
+	if p.Receipt != nil {
+		res.Link, res.ID = safeReceiptRef(p.Receipt.Result.Payload)
+		n, _ := contract.ParseUndoNote(p.Receipt.Result.Payload)
+		res.Undoable = n.Available
+	}
+	return res, nil
+}
+
+// CancelHeld withdraws the stored proposal.
+func (s *studioAddons) CancelHeld(ctx context.Context, user, id string) error {
+	actor, err := s.actor(user)
+	if err != nil || s.gw == nil {
+		return gateway.ErrForbidden
+	}
+	_, err = s.gw.CancelProposal(ctx, actor, id)
+	return err
+}
+
+// safeReceiptRef reads, from the payload of a receipt, a link and an ID that
+// are safe to repeat in a chat: an https address without credentials, short
+// and on one line, and a number or short word. Anything else is left out.
+func safeReceiptRef(payload json.RawMessage) (link, id string) {
+	var m map[string]any
+	if json.Unmarshal(payload, &m) != nil {
+		return "", ""
+	}
+	if u, ok := m["url"].(string); ok && len(u) <= 300 && strings.HasPrefix(u, "https://") && !strings.ContainsAny(u, " \t\r\n<>@") {
+		link = u
+	}
+	switch v := m["number"].(type) {
+	case float64:
+		id = "#" + strconv.FormatInt(int64(v), 10)
+	}
+	if id == "" {
+		if v, ok := m["id"].(float64); ok {
+			id = strconv.FormatInt(int64(v), 10)
+		}
+	}
+	return link, id
 }
 
 // CallProvider runs one tool of an add-on as the person, outside any chat: the
@@ -1090,14 +1224,14 @@ func (s *studioAddons) CallProvider(ctx context.Context, user, name string, args
 	if err != nil {
 		return "", err
 	}
-	return studioAddonText(res), nil
+	return studioAddonText(ctx, res), nil
 }
 
 // studioAddonText is what the model reads for a result. A change the chat made
 // comes as an "applied" document whose note says what was done and whether the
 // person can undo it (undoable, changeId and a one-line undo, or a reason). A change that stays a proposal (the owner could not apply
 // it) is not applied, and the text says who can apply it.
-func studioAddonText(res addontools.ToolResult) string {
+func studioAddonText(ctx context.Context, res addontools.ToolResult) string {
 	if res.Kind == addontools.ResultProposal && res.Proposal != nil {
 		// A change that runs with a credential names the connection it will be
 		// made with, so the person, and the connector chat that relays this
@@ -1106,11 +1240,33 @@ func studioAddonText(res addontools.ToolResult) string {
 		if res.Proposal.Connection != "" {
 			with = " It will be made " + res.Proposal.Connection + "; say which connection in your message."
 		}
-		return fmt.Sprintf("The add-on %s proposed a change (%s, proposal %s).%s Nothing has been changed. "+
-			"Tell the user to review and confirm it on the Add-ons page. Do not say the change was made.",
-			res.Proposal.AddonID, res.Proposal.Action, res.Proposal.ID, with)
+		return fmt.Sprintf("The add-on %s proposed a change (%s, proposal %s).%s Nothing has been changed. %s Do not say the change was made.",
+			res.Proposal.AddonID, res.Proposal.Action, res.Proposal.ID, with, heldSentence(addontools.SurfaceOf(ctx), res.Proposal.Hold))
 	}
 	return res.JSON()
+}
+
+// heldSentence says, for the model, why a change waits and who can confirm it.
+// A person at the web UI confirms it. This is the text for a change the host
+// did not ask for in a messaging chat: when the connection only asks first and
+// a paired sender can answer, the studio service asks in the chat and tells the
+// model so itself. What reaches this text in a messaging chat is a tool that
+// always asks, a chat nobody paired can answer in, or a chat with too many
+// waiting.
+func heldSentence(surface, hold string) string {
+	why := ""
+	switch hold {
+	case "write_mode_propose":
+		why = " because the connection is set to ask before it changes anything"
+	case "approval_always":
+		why = " because this tool always asks first"
+	}
+	if surface == addontools.SurfaceMessaging {
+		return "It is waiting" + why + " for the owner, who can confirm or cancel it in the web UI on the Add-ons page; it cannot be confirmed from this chat; the host did not ask for it here. " +
+			"Tell the sender in one sentence that the change is waiting for the owner."
+	}
+	return "It is waiting" + why + " for the user to confirm: they can confirm or cancel it on the Add-ons page. " +
+		"Tell the user in one sentence that the change is waiting for them."
 }
 
 // Resolve at call time: the connector service can start after the private gateway.
@@ -1225,4 +1381,35 @@ func (a *Application) chatConnectionName(ctx context.Context, conversationID, bi
 		return ""
 	}
 	return a.studioConnectors.ConnectionName(ctx, b.Principal, bindingID)
+}
+
+// addonApprovalRelaxed says whether the person's own setting lets a tool of an
+// add-on run without a confirmation for this call. All of these must hold, and
+// any doubt is no:
+//
+//   - the call belongs to a chat the host bound to it (a call without a chat
+//     asks), and the chat is the actor's own;
+//   - the person chose "skip" for this tool and the chat qualifies: the
+//     person's own chat, or a messaging chat whose senders are all paired
+//     (see studio.Service.ApprovalRelaxed).
+func (a *Application) addonApprovalRelaxed(ctx context.Context, actor contract.Actor, addonID, tool string) bool {
+	b, ok := hostops.BindingOf(ctx)
+	if !ok || a.studioService == nil {
+		return false
+	}
+	user := addonWorkspacePrincipal(a.authDB != nil)(actor)
+	if user == "" || b.Principal != user {
+		return false
+	}
+	return a.studioService.ApprovalRelaxed(ctx, user, b.ChatID, addonID, tool)
+}
+
+// recordRelaxedRun adds a run without a confirmation to the recent decisions of
+// the connection that acted, next to the broker's own audit line.
+func (a *Application) recordRelaxedRun(ctx context.Context, run policy.RelaxedRun) {
+	b, ok := hostops.BindingOf(ctx)
+	if !ok || a.studioService == nil || run.ConnectionID == "" {
+		return
+	}
+	a.studioService.RecordRelaxedRun(run.ConnectionID, b.ChatID, run.Tool, run.Outcome)
 }

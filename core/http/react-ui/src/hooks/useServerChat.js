@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { chatsApi, chatLoopsApi } from '../utils/api'
 import { eventPayload, retryDelay } from '../utils/streamRetry'
 import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWanted, consentAsk } from '../utils/chatLive'
 import { notifyTurnEnd } from './useWorkspaceFeed'
 import { pushUsage } from '../utils/chatFoot'
+import { savedFailure } from '../utils/chatFailure'
 
 // Every event kind the server sends. EventSource needs one listener per name.
 const EVENT_KINDS = [
@@ -434,6 +435,26 @@ export function useServerChat({ seed = null } = {}) {
     await refreshChat(id)
   }, [refreshChat, setError])
   const regenerate = useCallback((id) => restart(id, () => chatsApi.regenerate(id)), [restart])
+
+  // Retry of a failed turn: the server goes on from where it stopped and
+  // removes nothing. The guard makes a double click one call; the server
+  // answers started: false to a second one anyway (another window).
+  const [resuming, setResuming] = useState(false)
+  const resumingRef = useRef(false)
+  const resume = useCallback(async (id) => {
+    if (resumingRef.current) return
+    resumingRef.current = true
+    setResuming(true)
+    try {
+      await restart(id, () => chatsApi.resume(id))
+    } finally {
+      resumingRef.current = false
+      setResuming(false)
+    }
+  }, [restart])
+  // Why the last turn failed, as the transcript keeps it (a reload has no
+  // live event).
+  const failureSaved = useMemo(() => savedFailure(messages), [messages])
   const editMessage = useCallback((id, seq, text) => restart(id, () => chatsApi.editMessage(id, seq, text)), [restart])
 
   // The context commands. They answer 409 while a turn runs; the caller
@@ -457,7 +478,7 @@ export function useServerChat({ seed = null } = {}) {
   }, [refreshList, select])
 
   return {
-    chats, persistent, imageModel, files, activeId, detail, messages, live, notes, error, failure, loading, usage, usageHistory, firstTokenMs, readPace, ticks, pausedSteps,
+    chats, persistent, imageModel, files, activeId, detail, messages, live, notes, error, failure, failureSaved, resuming, loading, usage, usageHistory, firstTokenMs, readPace, ticks, pausedSteps,
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     pending: detail?.pending || [],
@@ -467,7 +488,7 @@ export function useServerChat({ seed = null } = {}) {
     // The command that waits for a yes, as the server keeps it with the chat: a
     // reload shows the card again. Null when none waits.
     hostConsent: detail?.host_consent ? { chatId: detail.id, id: detail.host_consent.id, command: detail.host_consent.command || '' } : null,
-    select, createChat, send, editPending, cancelPending, stop, sendNow, startLoop, setLoopState, stopLoop, stopLoops, remove, rename, update, regenerate, editMessage, refreshList, compact, clear,
+    select, createChat, send, editPending, cancelPending, stop, sendNow, startLoop, setLoopState, stopLoop, stopLoops, remove, rename, update, regenerate, resume, editMessage, refreshList, compact, clear,
     setGoal, clearGoal, resumeGoal, pauseGoal,
     clearError: () => setError(''),
   }

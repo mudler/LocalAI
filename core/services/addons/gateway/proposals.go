@@ -98,6 +98,9 @@ type Proposal struct {
 	// host surface such as the browser: a chat or an agent never applies it.
 	// The write mode of the binding or the approval of the tool asks for it.
 	AwaitsPerson bool `json:"awaitsPerson,omitempty"`
+	// Hold says why it awaits a person: write_mode_propose (the connection is
+	// in the mode that only proposes) or approval_always (the tool always asks).
+	Hold string `json:"hold,omitempty"`
 	// ConnectionID and ConnectionName say which connection of the person the
 	// change will be made with. They are present for a write of an add-on that
 	// runs with a credential, and the apply uses that very connection.
@@ -224,6 +227,9 @@ type ProposalCall struct {
 	ID     string `json:"id,omitempty"`
 	Digest string `json:"digest,omitempty"`
 	Reason string `json:"reason,omitempty"`
+	// ChatConfirmed marks a confirm that the host took from a paired sender in
+	// a messaging chat (see WithChatConfirmed).
+	ChatConfirmed bool `json:"chatConfirmed,omitempty"`
 }
 
 // wireAction is the action the carrier classifies a proposal call by. Only
@@ -298,6 +304,9 @@ func (g *Gateway) proposalLocal(ctx context.Context, a contract.Actor, request c
 	case proposalPropose:
 		return g.Proposals.Propose(ctx, a, request)
 	case proposalConfirm:
+		if call.ChatConfirmed {
+			ctx = WithChatConfirmed(ctx)
+		}
 		return g.Proposals.Confirm(ctx, a, call.ID, call.Digest)
 	case proposalCancel:
 		return g.Proposals.Cancel(ctx, a, call.ID)
@@ -320,7 +329,7 @@ func (g *Gateway) Propose(ctx context.Context, a contract.Actor, request contrac
 // ConfirmProposal applies a pending proposal. The owner accepts it only from a
 // credential that stands for a human at a host-owned confirmation surface.
 func (g *Gateway) ConfirmProposal(ctx context.Context, a contract.Actor, id, digest string) (Proposal, error) {
-	return g.proposal(ctx, a, contract.Request{OperationID: id}, ProposalCall{Op: proposalConfirm, ID: id, Digest: digest})
+	return g.proposal(ctx, a, contract.Request{OperationID: id}, ProposalCall{Op: proposalConfirm, ID: id, Digest: digest, ChatConfirmed: ChatConfirmed(ctx)})
 }
 
 // CancelProposal withdraws a pending proposal.

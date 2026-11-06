@@ -42,6 +42,7 @@ var _ = Describe("Chats feature registration", func() {
 			"POST /api/chats/agents",
 			"GET /api/chats/agents/templates",
 			"GET /api/chats/agents/builtin-grants",
+			"GET /api/chats/agents/addons/:addon/resources",
 			"POST /api/chats/agents/templates/:id/create",
 			"POST /api/chats/agents/import",
 			"GET /api/chats/agents/:id/export",

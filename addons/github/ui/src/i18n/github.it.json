@@ -80,8 +80,8 @@
     "label": "Cosa può modificare l'agente su GitHub",
     "hint": "Commenti, nuove issue, etichette e chiusura di issue. Non fa mai merge, non elimina e non invia codice.",
     "off": "Sola lettura",
-    "propose": "Chiede prima a te",
-    "auto": "Agisce senza chiedere",
+    "propose": "Chiede prima",
+    "auto": "Parte subito",
     "line": {
       "off": "Non può cambiare nulla su GitHub.",
       "propose": "Ogni modifica aspetta il tuo OK.",
@@ -94,8 +94,8 @@
     },
     "row": {
       "off": "Sola lettura",
-      "propose": "Chiede prima a te",
-      "auto": "Agisce senza chiedere"
+      "propose": "Chiede prima",
+      "auto": "Parte subito"
     }
   },
   "approval": {

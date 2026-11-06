@@ -41,6 +41,11 @@
       "readsLabel": "Lee",
       "writesLabel": "Escribe",
       "costLabel": "Coste",
+      "deliveryLabel": "Los resultados van a",
+      "deliveryInbox": "Tu bandeja de entrada",
+      "deliveryChat": "Este chat",
+      "deliveryThread": "Este hilo",
+      "deliveryChannel": "{{channel}}, en el nivel principal del canal",
       "stopLabel": "Para detenerlo",
       "when": "{{schedule}}, {{zone}}. Primera ejecución {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -266,7 +271,12 @@
   "connectorsPage": {
     "loadFailed": "No se pudieron cargar tus conectores.",
     "waitingTitle": "Esperando su complemento",
-    "waitingText": "Estos enlaces se conservan, pero no funcionan hasta que su complemento esté instalado y activado."
+    "waitingText": "Estos enlaces se conservan, pero no funcionan hasta que su complemento esté instalado y activado.",
+    "duplicate": {
+      "text": "Este bot también está conectado como {{name}}. Ambas conexiones responderán al mismo mensaje.",
+      "turnOff": "Desactivar esta",
+      "open": "Abrir {{name}}"
+    }
   },
   "tools": {
     "commands": {
@@ -861,7 +871,7 @@
       "mine": "Mías",
       "deleted": "Agentes eliminados",
       "channels": "Conversaciones",
-      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "channelsNote": "Notas guardadas desde chats de aplicaciones de mensajería. Abre una nota para leerla o bórrala. Una nota de un remitente que no está verificado contigo siempre espera tu confirmación.",
       "export": "Exportar estas notas",
       "clearAgent": "Eliminar las notas de este agente",
       "clearDeleted": "Eliminar estas notas"
@@ -929,8 +939,8 @@
         "body": "El bot pregunta en el chat: «Responde sí para guardarla». Un remitente de la lista puede responder allí. Los demás esperan a que lo hagas en la app."
       },
       "paired_private": {
-        "title": "Guardar para un remitente emparejado en un chat privado",
-        "body": "Se guarda al instante solo si el remitente está emparejado y el chat es uno a uno. La nota va a esa conversación, con Deshacer. Una nota que parezca un secreto sigue esperando."
+        "title": "Guardar para una persona verificada en un chat privado",
+        "body": "Se guarda al instante solo si el remitente es una persona verificada y el chat es uno a uno. La nota va a esa conversación, con Deshacer. Una nota que parezca un secreto sigue esperando."
       },
       "never": {
         "title": "Nunca",
@@ -987,15 +997,20 @@
       "title": "Como antes",
       "body": "Este agente se guardó antes de que existiera esta opción. Lee tus notas si su lista de complementos nombra Memory, y el modelo elige dónde se guarda una nota. Elige una de las opciones de abajo para cambiarlo."
     },
-    "saveGrant": "Dejar que guarde notas",
-    "saveGrantHelp": "Activa el permiso Recordar cosas. Sin él, el agente lee notas pero no puede guardar ninguna.",
     "copyNote": "Exportar un agente, o importarlo como nuevo, conserva esta opción y nunca copia sus notas.",
     "summary": {
       "mine_and_own": "Mías y propias",
       "own": "Solo propias",
       "mine": "Mías",
       "none": "Ninguna",
-      "asBefore": "Como antes"
+      "asBefore": "Como antes",
+      "withAuto": "{{choice}}, guarda al momento",
+      "level": {
+        "off": "Desactivada",
+        "reads": "Lee notas",
+        "saves": "Lee y guarda notas"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "¿Eliminar {{name}}?",
@@ -1020,7 +1035,11 @@
       "title": "Cuando quiere guardar una nota",
       "use_mine": {
         "title": "Usar mi ajuste",
-        "body": "Ahora: {{level}}."
+        "body": "Tu ajuste es <b>{{level}}</b>. <settings>Cámbialo en Ajustes > Memoria.</settings>"
+      },
+      "auto": {
+        "title": "Guardar y avisarme",
+        "body": "Guarda cada nota al momento y te avisa en el chat, con Deshacer, aunque tu ajuste sea Preguntarme antes. Una nota larga, o una que parezca un secreto, sigue esperando."
       },
       "always": {
         "title": "Confirmar siempre",
@@ -1030,8 +1049,27 @@
         "title": "Nunca",
         "body": "Lee, nunca guarda."
       },
-      "hint": "Un agente puede preguntar más que tu ajuste, nunca menos. «Guardar y avisarme» no se ofrece aquí. En un chat de mensajería la nota va primero a esa conversación y llega a las notas propias de este agente solo desde un remitente emparejado."
-    }
+      "hint": "En un chat de mensajería la nota va primero a esa conversación y llega a las notas propias de este agente solo desde una persona verificada. Guardar al momento en un chat de mensajería solo vale para una persona verificada en un chat uno a uno.",
+      "offReason": "El nivel de guardado no se aplica mientras la memoria está desactivada.",
+      "readsReason": "El nivel de guardado no se aplica: este agente lee notas pero no puede guardar ninguna."
+    },
+    "level": {
+      "title": "Qué hace con las notas",
+      "off": {
+        "title": "Desactivada",
+        "body": "No lee ni guarda notas."
+      },
+      "reads": {
+        "title": "Lee notas",
+        "body": "Usa tus notas para responder. Nunca guarda ninguna."
+      },
+      "saves": {
+        "title": "Lee y guarda notas",
+        "body": "Usa notas y guarda nuevas, según tu nivel de guardado."
+      }
+    },
+    "whose": "De quién son las notas",
+    "whoseOff": "La memoria está desactivada para este agente, así que no hay notas que elegir."
   },
   "providerPicker": {
     "title": "Proveedor",

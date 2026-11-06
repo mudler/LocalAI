@@ -473,7 +473,8 @@
       "personal": "个人",
       "shared": "共享",
       "folder": "工作区",
-      "addon": "{{name}}"
+      "addon": "{{name}}",
+      "addonFrom": "来自 {{name}}"
     },
     "replacedBy": "已被 {{name}} 替换",
     "fallback_one": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。",
@@ -842,6 +843,51 @@
       "job": "作业",
       "page": "页面",
       "other": "其他来源"
+    }
+  },
+  "connector": {
+    "header": "消息平台对话",
+    "unknownSender": "未知发送者",
+    "people": "此对话中的人",
+    "inThread": "线程",
+    "openThread": "在消息应用中打开",
+    "where": {
+      "direct": "私信",
+      "channel": "频道 {{name}}",
+      "group": "频道或群组"
+    },
+    "standing": {
+      "owner": "所有者",
+      "verified": "有角色",
+      "listed": "名单中的人",
+      "channel": "频道成员",
+      "anyone": "任何人"
+    },
+    "standingHelp": {
+      "owner": "已验证的人：所有者控制此账户。",
+      "verified": "拥有所有者授予权限的角色。",
+      "listed": "在此连接的名单中。",
+      "channel": "因频道或群组在名单中而被接纳。",
+      "anyone": "因该连接接受任何人而被接纳。"
+    },
+    "threadEarlier": "线程中较早的消息（{{count}} 条）",
+    "threadCut": "线程中更早的消息未显示。",
+    "note": {
+      "paired": "已在此机器人上验证",
+      "unsupported": "消息未读取",
+      "too_long": "消息过长",
+      "no_upload": "文件未被接受",
+      "rate": "消息过多",
+      "held_back": "部分工具未提供给此发送者",
+      "new_chat": "已开始新对话",
+      "refused": "消息被拒绝",
+      "hold_waiting": "等待已验证的人确认",
+      "hold_confirmed": "已在聊天中确认",
+      "hold_cancelled": "已在聊天中取消",
+      "hold_expired": "未及时确认",
+      "hold_failed": "无法执行",
+      "other": "备注",
+      "why": "原因"
     }
   }
 }

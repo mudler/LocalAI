@@ -354,6 +354,8 @@
         "name": "comment-issue",
         "description": "Post a comment on an issue (not a pull request). Everything you write is public to everyone who can see the repository: never include secrets, tokens or private details. The change may wait for the person to confirm; do not say it was posted until the result says so.",
         "kind": "write",
+        "title": "Comment on an issue",
+        "summaryFields": ["repo", "number", "targetTitle", "body"],
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -385,6 +387,8 @@
         "name": "comment-pr",
         "description": "Post a comment on the conversation of a pull request. Everything you write is public to everyone who can see the repository: never include secrets, tokens or private details. The change may wait for the person to confirm; do not say it was posted until the result says so.",
         "kind": "write",
+        "title": "Comment on a pull request",
+        "summaryFields": ["repo", "number", "targetTitle", "body"],
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -416,6 +420,8 @@
         "name": "create-issue",
         "description": "Open a new issue. Everything you write is public to everyone who can see the repository: never include secrets, tokens or private details. Search with list-issues first so you do not open a duplicate. The change may wait for the person to confirm.",
         "kind": "write",
+        "title": "Open an issue",
+        "summaryFields": ["repo", "title", "labels", "body"],
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -456,6 +462,8 @@
         "name": "edit-issue",
         "description": "Change the title of an issue or pull request, or close or reopen it. It cannot edit the text. Closing is visible to everyone. Everything you write is public to everyone who can see the repository: never include secrets, tokens or private details.",
         "kind": "write",
+        "title": "Edit an issue or pull request",
+        "summaryFields": ["repo", "number", "targetTitle", "title", "state"],
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -502,6 +510,8 @@
         "name": "add-labels",
         "description": "Add labels to an issue or pull request. It never removes labels. A name that does not exist is created by GitHub. Everything you write is public to everyone who can see the repository: never include secrets, tokens or private details.",
         "kind": "write",
+        "title": "Add labels",
+        "summaryFields": ["repo", "number", "targetTitle", "labels"],
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -538,6 +548,8 @@
         "name": "review-comment-pr",
         "description": "Post one comment on a line of a pull request diff, as a review comment. It cannot approve, request changes or merge. Everything you write is public to everyone who can see the repository: never include secrets, tokens or private details. Read the diff first; path and line must be in it.",
         "kind": "write",
+        "title": "Comment on a line of a pull request",
+        "summaryFields": ["repo", "number", "path", "line", "body"],
         "inputSchema": {
           "type": "object",
           "properties": {

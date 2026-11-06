@@ -95,6 +95,45 @@ func (s *Service) Regenerate(ctx context.Context, user, conv string) (SendResult
 	})
 }
 
+// Resume goes on with a turn that failed, from where it stopped. The
+// transcript stays as it is, with the steps the failed turn finished and the
+// reason at its end; the model keeps its own state, so a tool call that has
+// its result is not made again and a summary of the context stays. Messages
+// that wait for the chat go first, as in any new turn. It does nothing, and
+// says so with Started false, when the chat is not at a failed turn: another
+// click or another window may have resumed it already, and a second run would
+// answer the same failure twice.
+func (s *Service) Resume(ctx context.Context, user, conv string) (SendResult, error) {
+	p := principal(user)
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil {
+		return SendResult{}, err
+	}
+	if rec.Kind == session.KindSubAgent {
+		return SendResult{}, ErrSubAgentReadOnly
+	}
+	unlock := s.lock(key(p, conv))
+	defer unlock()
+	info, err := s.d.Store.Turn(ctx, p, conv)
+	if err != nil {
+		return SendResult{}, err
+	}
+	if info.Running || info.Last != store.TurnFailed {
+		return SendResult{}, nil
+	}
+	runID := newID()
+	if err := s.d.Store.ClaimTurn(ctx, p, conv, runID); err != nil {
+		if errors.Is(err, store.ErrTurnRunning) {
+			return SendResult{}, nil
+		}
+		return SendResult{}, err
+	}
+	if err := s.startClaimed(ctx, p, conv, runID, session.Message{Resume: true}); err != nil {
+		return SendResult{}, err
+	}
+	return SendResult{Started: true}, nil
+}
+
 // EditAndRerun replaces the user message with sequence number seq by text,
 // removes everything after it and starts a new turn.
 func (s *Service) EditAndRerun(ctx context.Context, user, conv string, seq int64, text string) (SendResult, error) {
@@ -221,7 +260,7 @@ func (s *Service) Fork(ctx context.Context, user, conv string, upTo int64, title
 	}
 	var kept []session.Entry
 	for _, e := range entries {
-		if (upTo == 0 || e.Seq <= upTo) && e.Role != session.RoleCheckpoint && e.Role != session.RoleGoal {
+		if (upTo == 0 || e.Seq <= upTo) && e.Role != session.RoleCheckpoint && e.Role != session.RoleGoal && e.Role != session.RoleFailure && !session.DisplayOnly(e.Role) {
 			kept = append(kept, e)
 		}
 	}

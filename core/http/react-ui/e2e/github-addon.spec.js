@@ -69,7 +69,7 @@ test.describe('GitHub add-on', () => {
     const group = page.getByRole('radiogroup', { name: 'What the agent may change on GitHub' })
     await expect(group.getByRole('radio', { name: /Read only/ })).toBeChecked()
     await expect(group).toContainText('Each change waits for your OK.')
-    await expect(group).toContainText('Acts without asking')
+    await expect(group).toContainText('Runs at once')
     await expect(group).not.toContainText('Allowed')
   })
 

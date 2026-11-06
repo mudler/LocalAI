@@ -41,6 +41,11 @@
       "readsLabel": "읽는 것",
       "writesLabel": "쓰는 것",
       "costLabel": "비용",
+      "deliveryLabel": "결과 전송 위치",
+      "deliveryInbox": "내 받은편지함",
+      "deliveryChat": "이 채팅",
+      "deliveryThread": "이 스레드",
+      "deliveryChannel": "{{channel}}, 채널 최상단",
       "stopLabel": "멈추려면",
       "when": "{{schedule}}, {{zone}}. 첫 실행 {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -266,7 +271,12 @@
   "connectorsPage": {
     "loadFailed": "커넥터를 불러올 수 없습니다.",
     "waitingTitle": "애드온 대기 중",
-    "waitingText": "이 연결은 유지되지만, 해당 애드온을 설치하고 켜야 실행됩니다."
+    "waitingText": "이 연결은 유지되지만, 해당 애드온을 설치하고 켜야 실행됩니다.",
+    "duplicate": {
+      "text": "이 봇은 {{name}}(으)로도 연결되어 있습니다. 두 연결이 같은 메시지에 모두 답합니다.",
+      "turnOff": "이 연결 끄기",
+      "open": "{{name}} 열기"
+    }
   },
   "tools": {
     "commands": {
@@ -861,7 +871,7 @@
       "mine": "내 메모",
       "deleted": "삭제된 에이전트",
       "channels": "대화",
-      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "channelsNote": "메시징 앱의 채팅에서 저장된 메모입니다. 메모를 열어 읽거나 삭제할 수 있습니다. 검증되지 않은 보낸 사람의 메모는 항상 확인을 기다립니다.",
       "export": "이 메모 내보내기",
       "clearAgent": "이 에이전트의 메모 삭제",
       "clearDeleted": "이 메모 삭제"
@@ -929,8 +939,8 @@
         "body": "봇이 채팅에서 \"저장하려면 예라고 답하세요\"라고 묻습니다. 목록에 있는 보낸 사람은 거기서 답할 수 있습니다. 다른 사람은 앱에서 내 확인을 기다립니다."
       },
       "paired_private": {
-        "title": "비공개 채팅에서 페어링된 보낸 사람의 메모는 저장",
-        "body": "보낸 사람이 페어링되어 있고 일대일 채팅일 때만 바로 저장됩니다. 메모는 그 대화에 실행 취소와 함께 들어갑니다. 비밀처럼 보이는 메모는 계속 기다립니다."
+        "title": "비공개 채팅에서 검증된 사람의 메모는 저장",
+        "body": "보낸 사람이 검증된 사람이고 일대일 채팅일 때만 바로 저장됩니다. 메모는 그 대화에 실행 취소와 함께 들어갑니다. 비밀처럼 보이는 메모는 계속 기다립니다."
       },
       "never": {
         "title": "안 함",
@@ -987,15 +997,20 @@
       "title": "이전과 동일",
       "body": "이 에이전트는 이 선택이 생기기 전에 저장되었습니다. 애드온 목록에 Memory가 있으면 내 메모를 읽고, 메모를 어디에 저장할지는 모델이 정합니다. 바꾸려면 아래 선택지 중 하나를 고르세요."
     },
-    "saveGrant": "메모 저장 허용",
-    "saveGrantHelp": "‘기억하기’ 권한을 켭니다. 이 권한이 없으면 에이전트는 메모를 읽기만 하고 저장하지 못합니다.",
     "copyNote": "에이전트를 내보내거나 새 에이전트로 가져와도 이 선택은 유지되며, 메모는 복사되지 않습니다.",
     "summary": {
       "mine_and_own": "내 메모와 자기 메모",
       "own": "자기 메모만",
       "mine": "내 메모",
       "none": "없음",
-      "asBefore": "이전과 동일"
+      "asBefore": "이전과 동일",
+      "withAuto": "{{choice}}, 바로 저장",
+      "level": {
+        "off": "끔",
+        "reads": "메모 읽기",
+        "saves": "메모 읽기 및 저장"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "{{name}}을(를) 삭제할까요?",
@@ -1020,7 +1035,11 @@
       "title": "메모를 저장하려 할 때",
       "use_mine": {
         "title": "내 설정 사용",
-        "body": "현재: {{level}}."
+        "body": "내 설정은 <b>{{level}}</b>입니다. <settings>설정 > 메모리에서 바꿀 수 있습니다.</settings>"
+      },
+      "auto": {
+        "title": "저장하고 알려주기",
+        "body": "내 설정이 먼저 물어보기여도 각 메모를 바로 저장하고 채팅에서 되돌리기와 함께 알려줍니다. 긴 메모나 비밀처럼 보이는 메모는 계속 기다립니다."
       },
       "always": {
         "title": "항상 확인",
@@ -1030,8 +1049,27 @@
         "title": "안 함",
         "body": "읽기만 하고 저장하지 않습니다."
       },
-      "hint": "에이전트는 내 설정보다 더 물어볼 수는 있어도 덜 묻지는 않습니다. \"저장하고 알려주기\"는 여기서 제공되지 않습니다. 메시징 채팅에서는 메모가 먼저 그 대화에 들어가고, 페어링된 보낸 사람일 때만 이 에이전트 자기 메모에 닿습니다."
-    }
+      "hint": "메시징 채팅에서는 메모가 먼저 그 대화에 들어가고, 검증된 사람일 때만 이 에이전트 자기 메모에 닿습니다. 메시징 채팅에서 바로 저장하는 것은 일대일 채팅의 검증된 사람에게만 적용됩니다.",
+      "offReason": "메모리가 꺼져 있는 동안에는 저장 수준이 적용되지 않습니다.",
+      "readsReason": "저장 수준이 적용되지 않습니다. 이 에이전트는 메모를 읽을 수만 있고 저장할 수 없습니다."
+    },
+    "level": {
+      "title": "메모로 하는 일",
+      "off": {
+        "title": "끔",
+        "body": "메모를 읽거나 저장하지 않습니다."
+      },
+      "reads": {
+        "title": "메모 읽기",
+        "body": "답할 때 내 메모를 사용합니다. 저장은 하지 않습니다."
+      },
+      "saves": {
+        "title": "메모 읽기 및 저장",
+        "body": "메모를 사용하고, 저장 수준이 허용하는 만큼 새 메모를 저장합니다."
+      }
+    },
+    "whose": "누구의 메모",
+    "whoseOff": "이 에이전트는 메모리가 꺼져 있어 고를 메모가 없습니다."
   },
   "providerPicker": {
     "title": "제공자",

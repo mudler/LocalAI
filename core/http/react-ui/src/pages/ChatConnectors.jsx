@@ -5,7 +5,7 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
 import { chatAgentsApi, chatConnectorsApi } from '../utils/api'
-import { acceptsOf, groupConnectors } from '../utils/chatConnectors'
+import { acceptsOf, bindingAddress, duplicateOf, groupConnectors } from '../utils/chatConnectors'
 import './connectors.css'
 
 // The messaging connectors of the user. A platform comes from a connector
@@ -59,6 +59,8 @@ export default function ChatConnectors() {
 
   const row = (c) => {
     const a = acceptsOf(c)
+    const other = duplicateOf(c)
+    const otherHref = other ? bindingAddress(groups, c, other.id) : ''
     return (
       <li key={c.id} className="cn-row" data-testid="connector-row" data-on={c.enabled ? 'true' : 'false'}>
         <span className="cn-row__lead" aria-hidden="true"><Icon name="chat" /></span>
@@ -68,6 +70,20 @@ export default function ChatConnectors() {
             <span>{t('connectorsPage.agentOf', { name: agentName(c.agent_id) })}</span>
             <span>{t('connectorsPage.accepts', { who: a.key === 'listed' ? t('connectorsPage.modes.listed', { count: a.count }) : t(`connectorsPage.modes.${a.key}`) })}</span>
           </span>
+          {other && (
+            <span className="cn-result cn-result--warn" data-testid="connector-duplicate">
+              <Icon name="warning" />
+              <span>
+                {t('connectorsPage.duplicate.text', { name: other.name })}
+                {otherHref && <> <Link to={otherHref} data-testid="connector-duplicate-open">{t('connectorsPage.duplicate.open', { name: other.name })}</Link></>}
+              </span>
+            </span>
+          )}
+          {other && (
+            <span className="cn-row__fix">
+              <Button size="sm" data-testid="connector-duplicate-off" onClick={() => act(() => chatConnectorsApi.disable(c.id))}>{t('connectorsPage.duplicate.turnOff')}</Button>
+            </span>
+          )}
           {c.active === false && (
             <span className="cn-result cn-result--warn">
               <Icon name="warning" />

@@ -15,23 +15,16 @@
   "agent": "Agent",
   "agentNone": "Choisir un agent",
   "agentNoModel": "{{name}} (a besoin d’un modèle)",
-  "who": "Qui peut l’utiliser",
-  "onlyListed": "Seulement les personnes et canaux que j’indique",
-  "anyone": "Toute personne de l’espace de travail pouvant écrire à l’app",
   "anyoneWarning": "Toute personne pouvant écrire à cette app ou la mentionner peut utiliser les outils de cet agent, en votre nom. Chaque personne, et chaque fil, a sa propre conversation.",
   "anyoneConfirm": "J’ai compris",
-  "allowUsers": "Personnes autorisées",
-  "allowUsersHint": "ID d’utilisateur (U...) ou @nom",
-  "allowChannels": "Canaux autorisés",
-  "allowChannelsHint": "ID de canal (C...) : tous ses membres peuvent mentionner l’app",
-  "notifyChat": "Envoyer mes notifications à cet ID d’utilisateur ou de canal",
+  "allowUsersHint": "ID d’utilisateur (U...) ou @identifiant",
   "notifyHelp": "Facultatif. Votre ID d’utilisateur (U...) les envoie en messages privés depuis l’app.",
   "test": "Tester",
   "testOk": "Connecté à {{bot}}.",
   "checkFailed": "Enregistré. La vérification du jeton a échoué : {{reason}}",
   "senders": "Expéditeurs",
   "noSenders": "Personne n’a encore écrit à cette app.",
-  "allowButton": "Autoriser",
+  "allowButton": "Ajouter cette personne à la liste",
   "ignored": "Ignoré",
   "accepted": "Accepté",
   "save": "Enregistrer",
@@ -65,5 +58,5 @@
     "copied": "Copié",
     "manifest": "Manifeste de l’app Slack"
   },
-  "back": "Retour aux connecteurs"
+  "allowUsersHelp": "Un @identifiant correspond au nom d’utilisateur Slack (le pseudo), pas au nom affiché, et nécessite le scope users:read. Un ID d’utilisateur (U...) correspond toujours. Quand une personne est refusée, le journal d’accès indique son ID d’utilisateur."
 }

@@ -76,6 +76,20 @@ var _ = Describe("Handler and refusals", func() {
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))
 		Expect(rec.Body.String()).To(ContainSubstring("quantization engine llama-cpp-quantization is not installed"))
 	})
+	It("tells the owner which status the service behind the add-on answered, and what to do", func() {
+		cause := fmt.Errorf("%w: the token has no permission for this", ErrBadRequest)
+		rec := read(Upstream(403, "The token cannot do this (403).\nGive it the permission.", cause))
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Header().Get(contract.HeaderUpstreamStatus)).To(Equal("403"))
+		Expect(rec.Header().Get(contract.HeaderUpstreamHint)).To(Equal("The token cannot do this (403). Give it the permission."))
+		Expect(strings.TrimSpace(rec.Body.String())).To(Equal("the token has no permission for this"))
+	})
+	It("sends no status header for a status that is not a refusal of a service", func() {
+		rec := read(Upstream(200, "x", fmt.Errorf("%w: nope", ErrBadRequest)))
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Header().Values(contract.HeaderUpstreamStatus)).To(BeEmpty())
+		Expect(rec.Header().Values(contract.HeaderUpstreamHint)).To(BeEmpty())
+	})
 	It("keeps the plain answer for a bad request without a reason", func() {
 		rec := read(ErrBadRequest)
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))

@@ -15,7 +15,7 @@ import Icon from '../components/Icon'
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
 import { useAgentDelete } from '../components/agents/useAgentDelete'
 import { firstLine } from '../utils/agentRuns'
-import { folderState } from '../utils/chatAgents'
+import { filesOff, folderState } from '../utils/chatAgents'
 import './agents.css'
 
 // An agent as a home: what it is, its record, a button to chat with it, the
@@ -132,7 +132,7 @@ export default function AgentPage() {
         />
 
         {error && <LoadError title={t('load.agentStale')} error={error} onRetry={load} />}
-        {(folderState(agent) === 'missing' || folderState(agent) === 'unset') && (
+        {!filesOff(agent) && (folderState(agent) === 'missing' || folderState(agent) === 'unset') && (
           <Callout
             tone="warn" testId="agent-folder-warning"
             actions={<Button size="sm" icon="folder" to={agentPath(agent.id, '/edit')}>{t('folder.chooseOther')}</Button>}

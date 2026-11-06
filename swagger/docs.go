@@ -586,7 +586,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Stores which resource the authenticated user chose for the conversation and add-on, so that chat tool calls that name no resource use it. The caller must hold at least the viewer role on the resource now; the stored reference is never a bearer and is authorized again at the owner on every use. It is not process-global, not shared between users or conversations, and not part of the chat history. The store is bounded per user and expires unused entries. No MCP tool maps to this route.",
+                "description": "Stores which resource the authenticated user chose for the conversation and add-on, so that chat tool calls that name no resource use it. The caller must hold at least the viewer role on the resource now; the stored reference is never a bearer and is authorized again at the owner on every use. It is not process-global, not shared between users or conversations, and not part of the chat history. The store is bounded per user and expires unused entries. For an add-on whose manifest scopes its resources per agent, a chat of a saved agent can select only a resource on the agent's list. No MCP tool maps to this route.",
                 "consumes": [
                     "application/json"
                 ],
@@ -642,7 +642,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Feature denied, or the resource is unknown or not readable by the caller",
+                        "description": "Feature denied, the resource is unknown or not readable by the caller, or (type resource_not_in_agent_list) the chat's saved agent does not list it",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -5243,6 +5243,44 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/agents/addons/{addon}/resources": {
+            "get": {
+                "description": "For an add-on whose manifest scopes its resources per agent, returns what the add-on's declared listing gives you now, ordered by ID: the resources you own or were granted, with your role on each, and the add-on's word for them (noun, noun_plural; lang or Accept-Language picks a translation the manifest has). The list is the choice for the agent field resources; a chat of the agent still reaches only what you may use at that moment. An add-on that does not scope its resources per agent, or is not there for you, is 404.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the resources of an add-on that you can give a saved agent.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the add-on's id",
+                        "name": "addon",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Language tag for the nouns, such as it or pt-BR. Wins over Accept-Language. A language the manifest does not translate gives English.",
+                        "name": "lang",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The resources you can give an agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentResourceChoices"
+                        }
+                    },
+                    "404": {
+                        "description": "No such add-on, or it has no resources to give to an agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/agents/builtin-grants": {
             "get": {
                 "description": "Each grant has a name (the value for builtins in an agent), a title, a description and sensitive. A sensitive grant changes what the agent may do or reach later (profile, skills, pages, dashboard, new channels, actions of unattended runs); none is on by default. A chat of the agent holds only the grants you may use at that moment.",
@@ -5784,6 +5822,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
+                    },
+                    "409": {
+                        "description": "The binding is enabled and is the same bot as another enabled binding of yours (type duplicate_connection, param the name of the other); send confirm_duplicate set to \\\"answer twice\\\" to save it anyway",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -5870,6 +5914,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The binding would be the same bot as another enabled binding of yours (type duplicate_connection); see the create endpoint",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -7065,7 +7115,7 @@ const docTemplate = `{
         },
         "/api/chats/memory": {
             "get": {
-                "description": "Memory is the short notes the assistant reads before it answers and may save. enabled is the switch for all your chats and agents: a private chat (the memory group of a chat, see PUT /api/chats/{id}/builtins), an agent that turns memory off, or this switch off each make memory off in a chat, and the narrowest wins; a saved agent cannot widen your choice. enabled_set is false until you choose; before that memory is on, unless you had disabled the Memory add-on to stop it. save_mode is how a note is saved: auto (save it and tell me), ask (the default), always (always confirm: like ask, nothing can loosen it, and the model cannot undo or forget by itself) or never. It applies as the strictest rule together with the rule of the saved agent (memory_save) and the rules of the host. A chat from a messaging app asks, unless messaging_save is paired_private and the sender is paired and the chat is one-to-one; the row cannot loosen always or never. Your notes stay and can be listed, exported and deleted while memory is off.",
+                "description": "Memory is the short notes the assistant reads before it answers and may save. enabled is the switch for all your chats and agents: a private chat (the memory group of a chat, see PUT /api/chats/{id}/builtins), an agent that turns memory off, or this switch off each make memory off in a chat, and the narrowest wins; a saved agent cannot widen your choice. enabled_set is false until you choose; before that memory is on, unless you had disabled the Memory add-on to stop it. save_mode is how a note is saved: auto (save it and tell me), ask (the default), always (always confirm: like ask, nothing can loosen it, and the model cannot undo or forget by itself) or never. It applies as the strictest rule together with the rule of the saved agent (memory_save: always and never only tighten it; auto lets that one agent save at once when your level is ask, while always and never of yours still hold) and the rules of the host. A chat from a messaging app asks, unless messaging_save is paired_private and the sender is paired and the chat is one-to-one; the row cannot loosen always or never. Your notes stay and can be listed, exported and deleted while memory is off.",
                 "tags": [
                     "chats"
                 ],
@@ -8330,7 +8380,7 @@ const docTemplate = `{
         },
         "/api/chats/skills": {
             "get": {
-                "description": "Skills from every layer: .skills folders of your files, your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. A chat with a saved agent also lists the skills of that agent (agent). The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.",
+                "description": "Skills from every layer: .skills folders of your files, your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. A chat with a saved agent also lists the skills of that agent (agent). The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied. A skill of the active memory provider says provider \"memory\" and locked: the host grants it to a chat that reads the notes, so an agent does not list it.",
                 "tags": [
                     "chats"
                 ],
@@ -11063,6 +11113,32 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "The new turn started",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSendResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/resume": {
+            "post": {
+                "description": "Starts a new turn that goes on from where the last one failed. The transcript stays as it is, with the messages, tool calls and results of the failed turn and the reason at its end; the model keeps its own state, so a tool call that has its result is not made again. Messages that wait for the chat go first. When the chat is not at a failed turn, or a turn runs, nothing starts and started is false, so a second click is harmless.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Go on with the turn that failed.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Whether a turn started",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsSendResponse"
                         }
@@ -17387,6 +17463,10 @@ const docTemplate = `{
                     "description": "Approval, when it is ApprovalAlways, is a ceiling the person cannot lift:\nthe host stores a proposal for a write tool of this kind and applies it\nonly when a person confirms it at a host surface. A chat or an agent\nnever applies it, even when the person allowed writes without asking.\nOnly a write tool may set it.",
                     "type": "string"
                 },
+                "approvalOverridable": {
+                    "description": "ApprovalOverridable lets the person relax Approval to \"ask never\" for\nthis tool, and nothing else. The choice is a user setting that the\nmanifest declares under ApprovalSettingKey(Name), with the values\nApprovalAsk and ApprovalSkip and the default ApprovalAsk, so the answer\nis the person's own, written from their own browser session only. The\nhost honors ApprovalSkip only for a call that the person makes in their\nown chat, or that a sender paired with the person's bot makes in a\nmessaging chat. Every other caller, and every call without a chat,\nstill waits for a confirmation. Only a tool with Approval \"always\" may\nset it.",
+                    "type": "boolean"
+                },
                 "description": {
                     "description": "Description is plain text for the model.",
                     "type": "string"
@@ -17417,6 +17497,17 @@ const docTemplate = `{
                 },
                 "shadows": {
                     "description": "Shadows names a built-in chat tool that this tool replaces. When the\nadd-on is installed, running and on for a chat, the model sees one tool\nunder that name, served by the add-on, and the built-in one is hidden.\nOnly a name in ReplaceableTools may be shadowed. A tool without it keeps\nits add-on name (addon__\u003cid\u003e__\u003ctool\u003e).",
+                    "type": "string"
+                },
+                "summaryFields": {
+                    "description": "SummaryFields name keys of the sample that the add-on's preview returns\n(the facts it shows the person who confirms). The host may repeat the\nscalar values of those keys, cut short, in the chat where a call waits\nfor a confirmation. Only the add-on knows which facts are safe to show\nthere; a key that is not listed is never shown in a chat. At most\nMaxSummaryFields keys.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "title": {
+                    "description": "Title is the name of the tool in plain words (\"Open an issue\"), for a\nperson who reads that a call waits for them in a chat. Only a write,\nschema or create tool may set it. A tool without one is named by its\ntool name.",
                     "type": "string"
                 },
                 "uiOnly": {
@@ -18929,6 +19020,10 @@ const docTemplate = `{
                 "generation": {
                     "type": "integer"
                 },
+                "hold": {
+                    "description": "Hold says why it awaits a person: write_mode_propose (the connection is\nin the mode that only proposes) or approval_always (the tool always asks).",
+                    "type": "string"
+                },
                 "id": {
                     "description": "ID is the proposal identifier. It is the operation identifier of the\nstored operation, so a lost reply is always resolved by the same ID.",
                     "type": "string"
@@ -20294,6 +20389,34 @@ const docTemplate = `{
                 }
             }
         },
+        "resourcesets.Entry": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID is the resource ID the add-on host uses.",
+                    "type": "string",
+                    "example": "db-1a2b3c"
+                },
+                "mode": {
+                    "description": "Mode is read or write.",
+                    "type": "string",
+                    "enum": [
+                        "read",
+                        "write"
+                    ],
+                    "example": "read"
+                }
+            }
+        },
+        "resourcesets.Sets": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "array",
+                "items": {
+                    "$ref": "#/definitions/resourcesets.Entry"
+                }
+            }
+        },
         "schema.APIError": {
             "type": "object",
             "properties": {
@@ -20562,9 +20685,24 @@ const docTemplate = `{
                 "off": {
                     "type": "boolean"
                 },
+                "resources": {
+                    "description": "Resources is set when the add-on scopes its resources per agent: a saved\nagent then names the resources it may use (agent field resources). It\ncarries the word for them. GET /api/chats/agents/addons/{addon}/resources\nlists what you can give an agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAddonResources"
+                        }
+                    ]
+                },
                 "title": {
                     "description": "Title and Description are what the add-on's manifest declares for\npeople. Title is empty when the add-on declares none; the interface then shows the ID.",
                     "type": "string"
+                },
+                "tool_list": {
+                    "description": "ToolList names the tools of the add-on you may use, by the name the\nadd-on declares, with kind read or write. Sorted by name.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAddonTool"
+                    }
                 },
                 "tools": {
                     "type": "integer"
@@ -20616,6 +20754,23 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsAddonResources": {
+            "type": "object",
+            "properties": {
+                "language": {
+                    "type": "string",
+                    "example": "it"
+                },
+                "noun": {
+                    "type": "string",
+                    "example": "database"
+                },
+                "noun_plural": {
+                    "type": "string",
+                    "example": "databases"
+                }
+            }
+        },
         "schema.ChatsAddonSwitches": {
             "type": "object",
             "properties": {
@@ -20624,6 +20779,22 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "schema.ChatsAddonTool": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "read",
+                        "write"
+                    ],
+                    "example": "read"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },
@@ -20711,6 +20882,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "allow_trust": {
+                    "description": "AllowTrust sets, for a chat entry of allow, what the people who write in\nthat chat may do: \"answer\" (the bot answers there, but its members are not\ntrusted one by one; the level of an entry that is not listed) or \"act\"\n(every member may use the capabilities that are not sensitive, as a listed\nperson does; sensitive ones still need a pairing).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "approval": {
                     "description": "Approval is what the host does with a trigger that the agent proposes\nfrom a chat of this binding.",
                     "allOf": [
@@ -20743,6 +20921,14 @@ const docTemplate = `{
                 "credentials_only": {
                     "description": "CredentialsOnly is true for a binding without an agent: it holds the\ntoken, the resource list and the write mode, and never answers messages.",
                     "type": "boolean"
+                },
+                "duplicate": {
+                    "description": "Duplicate is present when another enabled connection of yours is the\nsame bot (the add-on reported the same upstream account for both) and\nthis one is enabled too: both then answer the same message.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorDuplicate"
+                        }
+                    ]
                 },
                 "enabled": {
                     "type": "boolean"
@@ -20877,6 +21063,14 @@ const docTemplate = `{
                 },
                 "daily_cap": {
                     "type": "integer"
+                },
+                "delivery": {
+                    "description": "Delivery says where the answer of each run goes.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsTriggerDelivery"
+                        }
+                    ]
                 },
                 "enabled": {
                     "type": "boolean"
@@ -21059,10 +21253,11 @@ const docTemplate = `{
                     "example": "mine_and_own"
                 },
                 "memory_save": {
-                    "description": "MemorySave is the agent's own rule for saving a note: always (every note\nwaits for the person, and the model cannot undo or forget by itself) or\nnever (it reads notes and saves none). Absent uses the person's setting\n(Account \u003e Memory). It can only be stricter than that setting: the host\ntakes the stricter of the two, and there is no value that saves at once.",
+                    "description": "MemorySave is the agent's own rule for saving a note: always (every note\nwaits for the person, and the model cannot undo or forget by itself),\nauto (Save it and tell me: this agent saves a note at once and tells the\nperson, with an Undo, even when the person's level is Ask me first) or\nnever (it reads notes and saves none). Absent uses the person's setting\n(Account \u003e Memory). Always and never are never looser than that setting.\nauto loosens ask and auto for this agent only: the person's Always\nconfirm and Never still hold, and so do the limits of an automatic save.",
                     "type": "string",
                     "enum": [
                         "always",
+                        "auto",
                         "never"
                     ],
                     "example": "always"
@@ -21076,6 +21271,14 @@ const docTemplate = `{
                 "network": {
                     "description": "Network is the network preset of the Sandbox commands of the agent's\nunattended runs: off (the default), registries or all, capped by the\nadministrator's ceiling.",
                     "type": "string"
+                },
+                "resources": {
+                    "description": "Resources names, for each add-on whose manifest scopes its resources per\nagent (by add-on ID), the resources the agent may use and the mode of\neach, read or write. An add-on of that kind with no entry gives the\nagent no resource; the field has no effect on any other add-on. The host\nchecks it on every tool call that takes a resource, on top of what you\nmay use yourself, and the resource list and the selection of a chat show\nthe agent nothing outside it.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/resourcesets.Sets"
+                        }
+                    ]
                 },
                 "skills": {
                     "type": "array",
@@ -21195,6 +21398,54 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsAgent"
                     }
+                }
+            }
+        },
+        "schema.ChatsAgentResourceChoice": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "description": "Role is your own role on it: viewer, editor or owner. A viewer cannot\ngive an agent the write mode in a useful way: the owner of the resource\nstill decides what you may change.",
+                    "type": "string",
+                    "enum": [
+                        "viewer",
+                        "editor",
+                        "owner"
+                    ]
+                }
+            }
+        },
+        "schema.ChatsAgentResourceChoices": {
+            "type": "object",
+            "properties": {
+                "addon_id": {
+                    "type": "string"
+                },
+                "items": {
+                    "description": "Items are the resources you may use now, ordered by ID.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgentResourceChoice"
+                    }
+                },
+                "language": {
+                    "type": "string"
+                },
+                "noun": {
+                    "type": "string"
+                },
+                "noun_plural": {
+                    "type": "string"
+                },
+                "truncated": {
+                    "description": "Truncated is true when the list is cut short.",
+                    "type": "boolean"
                 }
             }
         },
@@ -21350,10 +21601,11 @@ const docTemplate = `{
                     ]
                 },
                 "memory_save": {
-                    "description": "MemorySave is the save rule of the agent (see ChatsAgent). A write\nwithout it keeps the stored rule, so a client that does not know the\nfield cannot loosen the agent. use_mine clears the rule. auto and ask\nare not accepted: an agent cannot be looser than the person (400).",
+                    "description": "MemorySave is the save rule of the agent (see ChatsAgent). A write\nwithout it keeps the stored rule, so a client that does not know the\nfield cannot loosen the agent. use_mine clears the rule. ask is not\naccepted (400).",
                     "type": "string",
                     "enum": [
                         "always",
+                        "auto",
                         "never",
                         "use_mine"
                     ]
@@ -21366,6 +21618,14 @@ const docTemplate = `{
                 },
                 "network": {
                     "type": "string"
+                },
+                "resources": {
+                    "description": "Resources names the resources the agent may use for each add-on with\nper-agent resources (see ChatsAgent). A write without it keeps the\nstored list; an empty object clears it. Each mode is read or write (400\notherwise). An export file never carries it and an import drops it, a\nresource ID belongs to one server.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/resourcesets.Sets"
+                        }
+                    ]
                 },
                 "skills": {
                     "type": "array",
@@ -21865,6 +22125,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "allow_trust": {
+                    "description": "AllowTrust sets, for a chat entry of allow, what the people who write in\nthat chat may do: \"answer\" (the bot answers there, but its members are not\ntrusted one by one; the level of an entry that is not listed) or \"act\"\n(every member may use the capabilities that are not sensitive, as a listed\nperson does; sensitive ones still need a pairing).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "approval": {
                     "description": "Approval is what the host does with a trigger that the agent proposes\nfrom a chat of this binding.",
                     "allOf": [
@@ -21897,6 +22164,14 @@ const docTemplate = `{
                 "credentials_only": {
                     "description": "CredentialsOnly is true for a binding without an agent: it holds the\ntoken, the resource list and the write mode, and never answers messages.",
                     "type": "boolean"
+                },
+                "duplicate": {
+                    "description": "Duplicate is present when another enabled connection of yours is the\nsame bot (the add-on reported the same upstream account for both) and\nthis one is enabled too: both then answer the same message.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorDuplicate"
+                        }
+                    ]
                 },
                 "enabled": {
                     "type": "boolean"
@@ -21995,6 +22270,20 @@ const docTemplate = `{
         "schema.ChatsConnectorAccess": {
             "type": "object",
             "properties": {
+                "addon_tools": {
+                    "description": "AddonTools lists the tools of the add-ons the agent uses that a\npermission of the connection decides in a messaging chat, so the page can\nsay which tools a missing permission holds back. Absent when none.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorAddonTools"
+                    }
+                },
+                "approvals": {
+                    "description": "Approvals lists the tools of the add-on whose confirmation the owner can\nrelax, and for whom each runs without asking now. Absent when the\nadd-on has none.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorToolApproval"
+                    }
+                },
                 "binding": {
                     "type": "string"
                 },
@@ -22006,6 +22295,10 @@ const docTemplate = `{
                     "description": "Preview is true when the view is for a form that is not saved.",
                     "type": "boolean"
                 },
+                "proposal_mode": {
+                    "description": "ProposalMode is what the connection does with a trigger the agent\nproposes: ask, auto or auto_readonly.",
+                    "type": "string"
+                },
                 "recent": {
                     "type": "array",
                     "items": {
@@ -22016,6 +22309,13 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/schema.ChatsConnectorAccessSubject"
+                    }
+                },
+                "tool_outcomes": {
+                    "description": "ToolOutcomes are the latest add-on tool calls that used this connection\nor came in through this bot, newest first, at most 20. They reset when\nthe server restarts, like recent.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorAccessEvent"
                     }
                 }
             }
@@ -22072,8 +22372,16 @@ const docTemplate = `{
         "schema.ChatsConnectorAccessEvent": {
             "type": "object",
             "properties": {
+                "addon": {
+                    "description": "Addon and Tool name the add-on tool call, for an event in tool_outcomes;\ncapability is empty then. Outcome is ok, denied, held or error, code\nthe cause and status the HTTP status of the service behind\nthe add-on, when it answered one. Message is the owner's sentence for the\nreason, in English, and localized_message the same in the language of the\nrequest. An outcome holds names and codes, never arguments or results.",
+                    "type": "string"
+                },
                 "allowed": {
                     "type": "boolean"
+                },
+                "asker": {
+                    "description": "Asker is the sender whose message asked for a write that waited in the\nchat; senders then holds who answered it (confirmed, cancelled).",
+                    "type": "string"
                 },
                 "at": {
                     "type": "string"
@@ -22081,9 +22389,33 @@ const docTemplate = `{
                 "capability": {
                     "type": "string"
                 },
+                "chat": {
+                    "type": "string"
+                },
+                "chat_name": {
+                    "type": "string"
+                },
                 "code": {
                     "description": "Code is the code of a refusal, as in the decisions.",
                     "type": "string"
+                },
+                "localized_message": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "outcome": {
+                    "type": "string",
+                    "enum": [
+                        "ok",
+                        "denied",
+                        "held",
+                        "error",
+                        "confirmed",
+                        "cancelled",
+                        "expired"
+                    ]
                 },
                 "reason": {
                     "type": "string"
@@ -22094,11 +22426,21 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "sender_name": {
+                    "description": "SenderName is the display name of the first sender, and Chat and ChatName\nthe conversation of the message: its ID, and its name when the add-on\nknows it. All three are optional; a reader falls back to the IDs.",
+                    "type": "string"
+                },
                 "senders": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "tool": {
+                    "type": "string"
                 },
                 "via": {
                     "type": "string"
@@ -22137,11 +22479,29 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "allow_trust": {
+                    "description": "AllowTrust is the form's trust levels for the chat entries of allow.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "approval_mode": {
+                    "description": "ApprovalMode is the form's choice for proposed triggers: ask, auto or\nauto_readonly. Absent keeps the saved one.",
+                    "type": "string"
+                },
                 "caps": {
                     "description": "Caps and Grants are the form's permissions; an empty list clears.",
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                },
+                "channels": {
+                    "description": "Channels is the form's list of places the bot may post. Absent keeps the\nsaved list.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorChannel"
                     }
                 },
                 "grants": {
@@ -22155,7 +22515,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "sender": {
-                    "description": "Sender limits the answer to one kind of sender: listed, paired,\nchannel_member, anyone or role:\u003cid\u003e. Absent means every kind.",
+                    "description": "Sender limits the answer to one kind of sender: listed, paired,\nchannel_member, channel_acts, anyone or role:\u003cid\u003e. Absent means every kind.",
                     "type": "string"
                 }
             }
@@ -22172,8 +22532,67 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "note_save": {
+                    "description": "NoteSave is present only when the agent of the connection has the save\nrule auto (Save it and tell me): now when a note from this kind of\nsender, in a one-to-one chat, is saved at once with an Undo, ask when it\nwaits for the owner.",
+                    "type": "string",
+                    "enum": [
+                        "now",
+                        "ask"
+                    ]
+                },
                 "title": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorAddonConnection": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Name is the name the owner gave the connection.",
+                    "type": "string"
+                },
+                "write_mode": {
+                    "description": "WriteMode is the write mode of that connection: off, propose or auto.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorAddonTools": {
+            "type": "object",
+            "properties": {
+                "addon": {
+                    "description": "Addon is the ID of the add-on.",
+                    "type": "string"
+                },
+                "capability": {
+                    "description": "Capability is the permission the tools need, such as tools.write.",
+                    "type": "string"
+                },
+                "connections": {
+                    "description": "Connections are the connections of the add-on that the agent selected,\nwith their write modes. Only for tools.write; absent otherwise.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorAddonConnection"
+                    }
+                },
+                "tick_removed": {
+                    "description": "TickRemoved is true when the owner took the tick away, so nobody is\ncovered without it.",
+                    "type": "boolean"
+                },
+                "tools": {
+                    "description": "Tools are the names of the tools inside the add-on.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "without_tick": {
+                    "description": "WithoutTick lists the senders who use the tools although the permission\nis not ticked, because the agent is connected to the add-on: \"paired\".\nAbsent when the tick is set, was taken away by the owner, or every\nselected connection is in write mode off.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -22245,6 +22664,37 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorDuplicate": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "Code is duplicate_connection.",
+                    "type": "string"
+                },
+                "message": {
+                    "description": "Message is the plain sentence for the owner, in the language of the\nrequest (lang, else Accept-Language) with English as the fallback.",
+                    "type": "string"
+                },
+                "others": {
+                    "description": "Others are the other enabled connections of the same bot, oldest first.\nThe oldest enabled one is the one that answers.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorDuplicateRef"
+                    }
+                }
+            }
+        },
+        "schema.ChatsConnectorDuplicateRef": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 }
             }
@@ -22522,6 +22972,13 @@ const docTemplate = `{
                 "allowed": {
                     "type": "boolean"
                 },
+                "chat": {
+                    "description": "Chat and ChatName say where the last message came from: the ID, and the\nname when the add-on knows it. Reason is why that message was ignored\n(not_listed or not_addressed). All three are optional.",
+                    "type": "string"
+                },
+                "chat_name": {
+                    "type": "string"
+                },
                 "count": {
                     "type": "integer"
                 },
@@ -22535,6 +22992,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "reason": {
                     "type": "string"
                 }
             }
@@ -22575,6 +23035,30 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsConnectorToolApproval": {
+            "type": "object",
+            "properties": {
+                "runs_without_asking": {
+                    "description": "RunsWithoutAsking says for whom the tool runs without a confirmation\nnow: owner (the owner's own chats) and paired (a sender paired with the\nbot). Empty when the setting is on ask or the write mode is off. Every\nother sender is still asked.",
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "owner",
+                            "paired"
+                        ]
+                    }
+                },
+                "skip": {
+                    "description": "Skip is true when the owner chose not to be asked for this tool.",
+                    "type": "boolean"
+                },
+                "tool": {
+                    "description": "Tool is the name of the tool inside the add-on.",
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsConnectorWrite": {
             "type": "object",
             "properties": {
@@ -22587,6 +23071,13 @@ const docTemplate = `{
                 "allow": {
                     "type": "array",
                     "items": {
+                        "type": "string"
+                    }
+                },
+                "allow_trust": {
+                    "description": "AllowTrust sets the level of the chat entries of allow, \"answer\" or\n\"act\" (see ChatsConnector.AllowTrust). Absent keeps the saved levels; an\nentry with no level is \"answer\".",
+                    "type": "object",
+                    "additionalProperties": {
                         "type": "string"
                     }
                 },
@@ -22618,6 +23109,10 @@ const docTemplate = `{
                 },
                 "confirm_any_resource": {
                     "description": "ConfirmAnyResource must be the exact text \"allow any resource\" in the\nrequest that adds the entry * to resources. A kind that lists\nwildcard_resources lets resources hold owner/* and *.",
+                    "type": "string"
+                },
+                "confirm_duplicate": {
+                    "description": "ConfirmDuplicate must be the exact text \"answer twice\" to save an\nenabled connection that is the same bot as another enabled connection of\nyours. Without it the request is a 409 of type duplicate_connection, and\nnothing is saved.",
                     "type": "string"
                 },
                 "confirm_wider_token": {
@@ -22767,6 +23262,14 @@ const docTemplate = `{
                 "parent_id": {
                     "type": "string"
                 },
+                "place": {
+                    "description": "Place is set on a chat that a messaging connection started, when the\nconnection kept where it lives.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsPlace"
+                        }
+                    ]
+                },
                 "running": {
                     "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed, interrupted, or paused (the tool loop\nreached its step limit; send a message to go on).",
                     "type": "boolean"
@@ -22851,6 +23354,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsPending"
                     }
+                },
+                "place": {
+                    "description": "Place is set on a chat that a messaging connection started, when the\nconnection kept where it lives.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsPlace"
+                        }
+                    ]
                 },
                 "running": {
                     "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed, interrupted, or paused (the tool loop\nreached its step limit; send a message to go on).",
@@ -23451,6 +23962,27 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsFailure": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "Code names the cause, such as model_not_found, upstream, timeout or agent.",
+                    "type": "string"
+                },
+                "detail": {
+                    "description": "Detail is the error text, cleaned, for the technical view.",
+                    "type": "string"
+                },
+                "model": {
+                    "description": "Model is the model the cause is about, when it is known.",
+                    "type": "string"
+                },
+                "retry_after": {
+                    "description": "RetryAfter is the seconds until a model in cooldown loads again.",
+                    "type": "integer"
+                }
+            }
+        },
         "schema.ChatsFile": {
             "type": "object",
             "properties": {
@@ -23819,6 +24351,15 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsHostExecEvent"
                     }
+                }
+            }
+        },
+        "schema.ChatsHostNote": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "Code is one of paired, unsupported, too_long, no_upload, rate,\nheld_back, new_chat or refused.",
+                    "type": "string"
                 }
             }
         },
@@ -24496,12 +25037,28 @@ const docTemplate = `{
                     "description": "DurMs is how long the model thought, for reasoning lines.",
                     "type": "integer"
                 },
+                "failure": {
+                    "description": "Failure is set on a failure line: why the turn ended (Text is the reason\nin English).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsFailure"
+                        }
+                    ]
+                },
                 "goal_event": {
                     "description": "GoalEvent is set on a goal line: set, replaced, continue (a message the\nserver sent by itself to go on; Text is that message and GoalTurn its\nautomatic turn), paused (Text is the reason), resumed, done (Text is the\nsummary), blocked (Text is the reason) or cleared.",
                     "type": "string"
                 },
                 "goal_turn": {
                     "type": "integer"
+                },
+                "host_note": {
+                    "description": "HostNote is set on a hostnote line: something the host did on its own\nabout a message of a messaging connection. Text is the sentence the\nsender was told, when there was one.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsHostNote"
+                        }
+                    ]
                 },
                 "invoked": {
                     "description": "Invoked is the skill or saved agent a user line was sent with.",
@@ -24524,8 +25081,16 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "role": {
-                    "description": "user, assistant, tool, checkpoint, reasoning, compacted, cleared or goal",
+                    "description": "user, assistant, tool, checkpoint, reasoning, compacted, cleared, goal, failure, thread or hostnote",
                     "type": "string"
+                },
+                "sender": {
+                    "description": "Sender is set on a user line that a messaging connection delivered: who\nwrote it, as the connection told it.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsSender"
+                        }
+                    ]
                 },
                 "seq": {
                     "type": "integer"
@@ -24533,6 +25098,14 @@ const docTemplate = `{
                 "text": {
                     "description": "Text is what was written. For a user line it is the text you typed:\nthe files you attached are in Attachments.",
                     "type": "string"
+                },
+                "thread": {
+                    "description": "Thread is set on a thread line: the earlier messages of the messaging\nthread, exactly as the model's first turn got them. The line is for\nreading only; the model never gets it as a message.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsThread"
+                        }
+                    ]
                 },
                 "turn": {
                     "type": "integer"
@@ -24678,6 +25251,26 @@ const docTemplate = `{
             "properties": {
                 "text": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsPlace": {
+            "type": "object",
+            "properties": {
+                "direct": {
+                    "description": "Direct is true for a conversation with one person; Thread when the chat\nbelongs to a thread of the platform.",
+                    "type": "boolean"
+                },
+                "link": {
+                    "description": "Link opens the thread or message on the platform. It is an https address.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the channel or group name, when the connection told it.",
+                    "type": "string"
+                },
+                "thread": {
+                    "type": "boolean"
                 }
             }
         },
@@ -24983,6 +25576,25 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsSender": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID is the platform's id of the sender, for the small print; the name is\nwhat to read.",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "standing": {
+                    "description": "Standing is how the host saw the sender: owner, verified, listed,\nchannel or anyone.",
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsSettings": {
             "type": "object",
             "properties": {
@@ -25055,11 +25667,18 @@ const docTemplate = `{
                     "description": "Layer is where it comes from: folder (a .skills folder of your files),\nagent (a saved agent proposed it), personal, shared, addon (an installed\nadd-on ships it) or builtin.",
                     "type": "string"
                 },
+                "locked": {
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string"
                 },
                 "path": {
                     "description": "Path is the path of its SKILL.md as the model sees it.",
+                    "type": "string"
+                },
+                "provider": {
+                    "description": "Provider names the provider slot whose active provider ships the skill\n(\"memory\"), and Locked is true then: the host grants it to a chat that\nuses the slot, an agent does not list it. Both are absent for any other\nskill.",
                     "type": "string"
                 },
                 "removable": {
@@ -25233,6 +25852,22 @@ const docTemplate = `{
                     }
                 },
                 "skills_off": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsThread": {
+            "type": "object",
+            "properties": {
+                "cut": {
+                    "description": "Cut is true when older messages were left out.",
+                    "type": "boolean"
+                },
+                "lines": {
+                    "description": "Lines are the messages, oldest first, each as \"Author: text\".",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -25521,6 +26156,14 @@ const docTemplate = `{
                 "daily_cap": {
                     "type": "integer"
                 },
+                "delivery": {
+                    "description": "Delivery says where the answer of each run goes.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsTriggerDelivery"
+                        }
+                    ]
+                },
                 "enabled": {
                     "type": "boolean"
                 },
@@ -25665,6 +26308,20 @@ const docTemplate = `{
                 },
                 "runs": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsTriggerDelivery": {
+            "type": "object",
+            "properties": {
+                "channel_label": {
+                    "type": "string"
+                },
+                "in_thread": {
+                    "type": "boolean"
+                },
+                "target": {
+                    "type": "string"
                 }
             }
         },

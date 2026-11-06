@@ -214,8 +214,42 @@ type Entry struct {
 	// the person asked for with a slash command. The interface shows it as a
 	// chip; the instructions it gave the model are not stored.
 	Invoked *Invocation `json:",omitempty"`
-	At      time.Time
+	// Sender says who wrote a user message that a messaging connection
+	// delivered. It is nil for every other line and for lines stored before
+	// it existed. It is for display: the model never reads it.
+	Sender *Sender `json:",omitempty"`
+	At     time.Time
 }
+
+// Sender is the person behind a user message that came from a messaging
+// connection, as the connection told it. It holds what the connector sender
+// log holds already: the platform id, the names the platform gave and how the
+// host classified the sender when the message came in. A token is never part
+// of it.
+type Sender struct {
+	ID       string `json:"id,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Username string `json:"username,omitempty"`
+	// Standing is one of the Standing* constants.
+	Standing string `json:"standing,omitempty"`
+}
+
+// How the host saw the sender of a connector message. The values are stable:
+// the interface labels them.
+const (
+	// StandingOwner: the sender proved with a pairing code that the owner
+	// controls the account.
+	StandingOwner = "owner"
+	// StandingVerified: not paired, but holds a role the owner granted
+	// something to.
+	StandingVerified = "verified"
+	// StandingListed: the sender itself is on the allowlist.
+	StandingListed = "listed"
+	// StandingChannel: let in because its channel or group is on the allowlist.
+	StandingChannel = "channel"
+	// StandingAnyone: let in because the connection accepts anyone.
+	StandingAnyone = "anyone"
+)
 
 // LoopMark names the loop run that sent a user message.
 type LoopMark struct {
@@ -261,6 +295,46 @@ const (
 	// the turn of the goal for a GoalLineContinue line. It is for display:
 	// the model got only the text of a GoalLineContinue line, with its turn.
 	RoleGoal = "goal"
+	// RoleFailure marks where a turn ended on an error. Text is the plain
+	// reason and Note the cause (see Failure.Encode). It is for display: the
+	// model never sees it, and a retry that goes on from the transcript keeps
+	// it.
+	RoleFailure = "failure"
+	// RoleThread holds, for a chat that a messaging thread started, the
+	// earlier messages of that thread exactly as the model's first turn got
+	// them (Text, size-capped by the connector). Rev is the number
+	// of lines and Note is ThreadCut when older messages were left out. It is
+	// for display: the model never gets it as a message, and a compaction
+	// leaves it out, so nothing counts twice.
+	RoleThread = "thread"
+	// RoleHostNote marks something the host did on its own about a message of
+	// a messaging connection: a refusal, a message held back. Note is the
+	// code (HostNote*) and Text is the plain sentence the sender was told, if
+	// any. It is for display: the model never sees it.
+	RoleHostNote = "hostnote"
+)
+
+// ThreadCut is the Note of a RoleThread entry whose block left out older
+// messages of the thread.
+const ThreadCut = "cut"
+
+// Codes of a RoleHostNote entry.
+const (
+	HostNotePairing     = "paired"
+	HostNoteUnsupported = "unsupported"
+	HostNoteTooLong     = "too_long"
+	HostNoteNoUpload    = "no_upload"
+	HostNoteRate        = "rate"
+	HostNoteHeldBack    = "held_back"
+	HostNoteNewChat     = "new_chat"
+	HostNoteRefused     = "refused"
+	// The life of a write of an add-on that waits for a paired sender to
+	// confirm it in the chat.
+	HostNoteHoldWaiting   = "hold_waiting"
+	HostNoteHoldConfirmed = "hold_confirmed"
+	HostNoteHoldCancelled = "hold_cancelled"
+	HostNoteHoldExpired   = "hold_expired"
+	HostNoteHoldFailed    = "hold_failed"
 )
 
 // MaxReasoningBytes is the size limit of a stored reasoning entry, including

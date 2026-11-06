@@ -9,7 +9,8 @@
 //   code     the reason code, when a server check or a switch gave one
 //   fix      { kind: 'section', section } to fix it on this form, or
 //            { kind: 'link', to } to fix it on another page
-import { MEMORY_GRANT, memorySaves, stricterLevel } from './chatAgents.js'
+import { MEMORY_GRANT, memoryLevelOf, stricterLevel } from './chatAgents.js'
+import { addonNow, addonSkillState } from './agentUses.js'
 
 const TOOL_GROUPS = new Set(['builtins', 'addons', 'servers', 'connectors'])
 const list = (x) => (Array.isArray(x) ? x : [])
@@ -77,11 +78,13 @@ export function summariseAccess(view) {
 // Builds the lines.
 //   form       the agent form
 //   rows       flatRows(toolGroups)
-//   skills     the rows of the Skills list ({ on })
+//   skills     the rows of the Skills list ({ on }), without the skills of add-ons
+//   addons     the add-on rows of the form (with the account and resource picks)
+//   skillRows  the skill rows of the Skills list (to tell add-on skills apart)
 //   memory     the person's memory settings ({ enabled, save_mode }) or null
 //   access     one entry per connection of this agent: { id, name, to, status, view }
 //   isEdit     the agent exists on the server
-export function effectiveLines({ form, rows, skills, memory, access, isEdit }) {
+export function effectiveLines({ form, rows, skills, memory, access, isEdit, addons = [], skillRows = [], mcpUnknown = [] }) {
   const lines = []
   const add = (l) => lines.push(l)
 
@@ -91,7 +94,11 @@ export function effectiveLines({ form, rows, skills, memory, access, isEdit }) {
     : { id: 'model', state: 'info', text: 'model.any', section: 'identity' })
 
   // Tools: what is on and works, and what is on and cannot work.
-  const tools = rows.filter((r) => r.kind === 'tool' && r.on)
+  // An add-on that is on and cannot work has a line of its own, with the
+  // reason; it is not counted as a tool the agent can use.
+  const now = new Map(list(addons).filter((a) => !a.gone && !a.off).map((a) => [a.id, addonNow(a)]))
+  const stuck = new Set([...now].filter(([, n]) => n.tone === 'warn').map(([id]) => id))
+  const tools = rows.filter((r) => r.kind === 'tool' && r.on && !(r.group === 'addons' && stuck.has(r.id)))
   const working = tools.filter((r) => r.usable !== false)
   if (working.length === 0) add({ id: 'tools', state: 'off', text: 'tools.none', section: 'capabilities' })
   else add({ id: 'tools', state: 'allowed', text: 'tools.some', vars: { count: working.length, ...names(working.map((r) => r.label)) }, section: 'capabilities' })
@@ -99,13 +106,49 @@ export function effectiveLines({ form, rows, skills, memory, access, isEdit }) {
     add({ id: `tool-${r.id}`, state: 'blocked', text: 'tools.blocked', vars: { name: r.label, reason: r.reason || '' }, section: 'capabilities', code: 'tool_unusable', fix: { kind: 'section', section: 'capabilities' } })
   }
 
-  // Skills.
+  // Add-ons: the account each one uses, the resources it may use, and why one
+  // cannot work.
+  for (const a of list(addons).filter((x) => !x.gone && !x.off)) {
+    const n = now.get(a.id)
+    const name = a.title || a.id
+    if (n.tone === 'warn') {
+      add({ id: `addon-${a.id}`, state: 'blocked', text: `addons.${n.key}`, vars: { name, noun: n.vars.noun, plural: n.vars.plural }, section: 'capabilities', code: n.code, fix: { kind: 'section', section: 'capabilities' } })
+      continue
+    }
+    if (a.credentialed) {
+      const used = list(a.connections).filter((c) => list(a.enabled_connections).includes(c.id))
+      const who = (used.length ? used : list(a.connections).slice(0, 1)).map((c) => c.name).join(', ')
+      if (who) add({ id: `addon-account-${a.id}`, state: 'allowed', text: 'addons.account', vars: { name, names: who }, section: 'capabilities' })
+    }
+    if (a.resources) {
+      const picked = list(a.agent_resources)
+      const w = picked.filter((r) => r.mode === 'write').length
+      const vars = { name, plural: a.resources.noun_plural || a.resources.noun || '', n: picked.length, w }
+      if (n.code === 'agent_resources_read_only') add({ id: `addon-resources-${a.id}`, state: 'info', text: 'addons.resourcesRead', vars, section: 'capabilities', code: n.code })
+      else add({ id: `addon-resources-${a.id}`, state: 'allowed', text: 'addons.resources', vars, section: 'capabilities' })
+    }
+  }
+
+  // An MCP server the agent holds that nothing defined matches is ignored.
+  for (const name of list(mcpUnknown)) {
+    add({ id: `mcp-${name}`, state: 'blocked', text: 'mcp.ignored', vars: { name }, section: 'capabilities', code: 'mcp_not_defined', fix: { kind: 'section', section: 'capabilities' } })
+  }
+
+  // Skills. Those that come with an add-on are named apart; a ticked one whose
+  // add-on is off does nothing, and the line says so.
   const skillOn = list(skills).filter((s) => s.on)
   if (skillOn.length) add({ id: 'skills', state: 'allowed', text: 'skills.some', vars: { count: skillOn.length, ...names(skillOn.map((s) => s.label || s.id)) }, section: 'capabilities' })
+  const withAddons = addonSkillState(form, skillRows)
+  if (withAddons.live.length) add({ id: 'addon-skills', state: 'allowed', text: 'skills.withAddons', vars: { count: withAddons.live.length, ...names(withAddons.live.map((s) => s.name)) }, section: 'capabilities' })
+  for (const s of withAddons.dead) {
+    add({ id: `skill-dead-${s.addon}-${s.name}`, state: 'blocked', text: 'skills.addonOff', vars: { name: s.name, addon: s.addon_title || s.addon }, section: 'capabilities', code: 'skill_addon_off', fix: { kind: 'section', section: 'capabilities' } })
+  }
 
-  // Files.
+  // Files. One line for the three choices: the switch off is No files.
   const files = tools.find((r) => r.id === 'files')
-  if (files && files.usable !== false) {
+  if (list(form.builtins_off).includes('files')) {
+    add({ id: 'files', state: 'off', text: 'files.none', section: 'capabilities' })
+  } else if (files && files.usable !== false) {
     const n = list(form.folders).length
     add({ id: 'files', state: 'allowed', text: n ? 'files.folders' : 'files.all', vars: { count: n }, section: 'capabilities' })
   }
@@ -121,7 +164,7 @@ export function effectiveLines({ form, rows, skills, memory, access, isEdit }) {
       continue
     }
     for (const n of list(g.notes)) {
-      add({ id: `grant-${g.id}-${n.key}`, state: 'blocked', text: 'grants.connection', vars: { name: g.label, connection: n.text }, section: 'connections', code: 'connection_permission_off', fix: n.link?.to ? { kind: 'link', to: n.link.to } : null })
+      add({ id: `grant-${g.id}-${n.key}`, state: 'blocked', text: 'grants.connection', vars: { name: g.label, connection: n.text }, section: 'identity', code: 'connection_permission_off', fix: n.link?.to ? { kind: 'link', to: n.link.to } : null })
     }
     ;(unattended(g.id) ? acts : held).push(g.label)
   }
@@ -130,17 +173,19 @@ export function effectiveLines({ form, rows, skills, memory, access, isEdit }) {
 
   // Memory.
   const choice = form.memory || ''
+  const mem = memoryLevelOf(form)
   const level = stricterLevel(memory?.save_mode, form.memory_save)
   if (memory && memory.enabled === false) {
     add({ id: 'memory-off', state: 'off', text: 'memory.userOff', section: 'memory', code: 'memory_off_user', fix: { kind: 'link', to: '/app/account?tab=memory' } })
-  } else if (choice === 'none') {
+  } else if (mem === 'off') {
     add({ id: 'memory', state: 'off', text: 'memory.none', section: 'memory' })
   } else {
     add({ id: 'memory', state: 'allowed', text: `memory.${choice || 'asBefore'}`, section: 'memory' })
-    const saves = memorySaves(choice) || choice === ''
-    const granted = list(form.builtins).includes(MEMORY_GRANT)
-    if (saves && !granted && choice) add({ id: 'memory-grant', state: 'blocked', text: 'memory.noGrant', section: 'memory', code: 'agent_permission_off', fix: { kind: 'section', section: 'memory' } })
-    else if (saves) add({ id: 'memory-level', state: level === 'auto' ? 'allowed' : level === 'never' ? 'off' : 'asks', text: `memory.level.${level}`, section: 'memory' })
+    // Reads without the right to remember is a choice, not a fault: the
+    // control says "Reads notes", and so does this line. An agent from before
+    // the choice has no line here, because what it reads is not decided yet.
+    if (mem === 'saves') add({ id: 'memory-level', state: level === 'auto' ? 'allowed' : level === 'never' ? 'off' : 'asks', text: level === 'auto' && form.memory_save === 'auto' ? 'memory.level.agentAuto' : `memory.level.${level}`, section: 'memory' })
+    else if (choice) add({ id: 'memory-level', state: 'info', text: 'memory.readsOnly', section: 'memory' })
   }
 
   // Knowledge.
@@ -150,18 +195,29 @@ export function effectiveLines({ form, rows, skills, memory, access, isEdit }) {
 
   // Connections.
   if (!isEdit) {
-    add({ id: 'connections', state: 'info', text: 'connections.unsaved', section: 'connections' })
+    add({ id: 'connections', state: 'info', text: 'connections.unsaved', section: 'identity' })
   } else if (access.length === 0) {
-    add({ id: 'connections', state: 'info', text: 'connections.none', section: 'connections' })
+    add({ id: 'connections', state: 'info', text: 'connections.none', section: 'identity' })
   }
   for (const a of access) {
-    if (a.status === 'loading') { add({ id: `conn-${a.id}`, state: 'info', text: 'connections.loading', vars: { name: a.name }, section: 'connections' }); continue }
-    if (a.status === 'error') { add({ id: `conn-${a.id}`, state: 'info', text: 'connections.error', vars: { name: a.name }, section: 'connections', fix: { kind: 'link', to: a.to } }); continue }
+    if (a.status === 'loading') { add({ id: `conn-${a.id}`, state: 'info', text: 'connections.loading', vars: { name: a.name }, section: 'identity' }); continue }
+    if (a.status === 'error') { add({ id: `conn-${a.id}`, state: 'info', text: 'connections.error', vars: { name: a.name }, section: 'identity', fix: { kind: 'link', to: a.to } }); continue }
     const sum = summariseAccess(a.view)
-    add({ id: `conn-${a.id}`, state: sum.allowed ? 'allowed' : 'off', text: 'connections.summary', vars: { name: a.name, allowed: sum.allowed, blocked: sum.blocked.length }, section: 'connections' })
-    for (const b of sum.blocked.slice(0, 2)) {
-      add({ id: `conn-${a.id}-${b.capability}`, state: 'blocked', text: 'connections.blocked', vars: { name: a.name, capability: rows.find((r) => r.id === b.capability)?.label || b.capability, message: b.message }, section: 'connections', code: b.code, fix: fixOf(b.fix, a) })
+    add({ id: `conn-${a.id}`, state: sum.allowed ? 'allowed' : 'off', text: 'connections.summary', vars: { name: a.name, allowed: sum.allowed, blocked: sum.blocked.length }, section: 'identity' })
+    // An agent that only reads has no right to remember on purpose: the
+    // connection cannot be blamed for it, so that refusal is not listed.
+    const blocked = sum.blocked.filter((b) => !(b.capability === MEMORY_GRANT && b.code === 'agent_permission_off' && choice && mem !== 'saves'))
+    for (const b of blocked.slice(0, 2)) {
+      add({ id: `conn-${a.id}-${b.capability}`, state: 'blocked', text: 'connections.blocked', vars: { name: a.name, capability: rows.find((r) => r.id === b.capability)?.label || b.capability, message: b.message }, section: 'identity', code: b.code, fix: fixOf(b.fix, a) })
     }
+  }
+
+  // The memory line above speaks for the app. A messaging connection whose
+  // own permission for saving notes is off (not the agent's choice) saves none,
+  // and the line says where.
+  if (mem === 'saves' && !(memory && memory.enabled === false)) {
+    const cut = list(access).filter((a) => a.status === 'ok' && summariseAccess(a.view).blocked.some((b) => b.capability === MEMORY_GRANT && b.code !== 'agent_permission_off')).map((a) => a.name)
+    if (cut.length) add({ id: 'memory-connection', state: 'info', text: 'memory.connectionLimit', vars: { count: cut.length, ...names(cut) }, section: 'memory' })
   }
 
   return lines

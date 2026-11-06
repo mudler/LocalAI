@@ -330,6 +330,9 @@ type Service struct {
 	// access holds the grants of the running connector turns and the recent
 	// permission decisions (see connectoraccess.go).
 	access accessState
+	// outcomes limits the log lines of the add-on tool outcomes (see
+	// addonoutcome.go).
+	outcomes outcomeLimiter
 	bus    Bus
 	log    *slog.Logger
 
@@ -337,6 +340,13 @@ type Service struct {
 	runs  map[string]*run                 // the turn this process runs, by conversation
 	pumps map[string]<-chan session.Event // the event channel read for each conversation
 	locks map[string]*keyLock
+
+	// heldNotes is the last held-back line this process noted in each connector
+	// chat (see noteHeldBack). State mode: per-instance on purpose. It only
+	// keeps a process from noting the same line at every turn; another
+	// process that serves the chat may note it once more, and the interface
+	// folds equal neighbours.
+	heldNotes sync.Map
 
 	// admit makes the check of MaxWorkerTurns and the start it admits one step,
 	// so two starts cannot both take the last place.
@@ -866,7 +876,14 @@ func (s *Service) sendWithFiles(ctx context.Context, user, conv, text string, up
 	if err != nil {
 		return SendResult{}, err
 	}
-	return s.send(ctx, user, conv, session.Message{Text: text, Note: note, Files: up, Media: parts, Directive: directive, Invoked: inv})
+	msg := session.Message{Text: text, Note: note, Files: up, Media: parts, Directive: directive, Invoked: inv}
+	if w, ok := turnWhoFrom(ctx); ok {
+		msg.Sender = w.Sender
+		if directive != "" && directive == w.Thread {
+			msg.Thread, msg.ThreadLines, msg.ThreadCut = w.Thread, w.ThreadLines, w.ThreadCut
+		}
+	}
+	return s.send(ctx, user, conv, msg)
 }
 
 // joinPending puts waiting messages and msg, in that order, into one message:
@@ -880,8 +897,10 @@ func joinPending(taken []store.Pending, msg session.Message) session.Message {
 	var (
 		texts, notes []string
 		atts         []session.Attachment
+		senders      []*session.Sender
 	)
 	for _, t := range taken {
+		senders = append(senders, t.Sender)
 		body, note, a := session.SplitMessage(t.Text)
 		if body != "" {
 			texts = append(texts, body)
@@ -890,10 +909,12 @@ func joinPending(taken []store.Pending, msg session.Message) session.Message {
 	}
 	if strings.TrimSpace(msg.Text) != "" {
 		texts = append(texts, msg.Text)
+		senders = append(senders, msg.Sender)
 	}
 	msg.Text = strings.Join(texts, "\n\n")
 	msg.Note = strings.Join(notes, "") + msg.Note
 	msg.Attachments = append(atts, msg.Attachments...)
+	msg.Sender = mergeSender(senders)
 	return msg
 }
 
@@ -931,7 +952,16 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 		}
 		// A waiting message holds the text the model gets; the transcript and
 		// the list of waiting messages split the files out of it again.
-		pend, err := s.d.Store.AddPending(ctx, p, conv, session.ComposeMessage(msg.Text, msg.Note, atts))
+		waiting := session.ComposeMessage(msg.Text, msg.Note, atts)
+		var (
+			pend store.Pending
+			err  error
+		)
+		if msg.Sender != nil {
+			pend, err = s.d.Store.AddPendingFrom(ctx, p, conv, waiting, msg.Sender)
+		} else {
+			pend, err = s.d.Store.AddPending(ctx, p, conv, waiting)
+		}
 		if err != nil {
 			return SendResult{}, err
 		}

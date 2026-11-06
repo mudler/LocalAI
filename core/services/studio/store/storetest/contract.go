@@ -504,6 +504,19 @@ func Run(newStore New) {
 		Expect(left).To(BeEmpty(), "Pending after take = %v; want nothing", texts(left))
 	})
 
+	It("a pending message keeps its sender until it is taken", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		who := &session.Sender{ID: "U1", Name: "Ada", Standing: session.StandingChannel}
+		Expect(s.AddPendingFrom(ctx(), "alice", "c1", "from a person", who)).Error().NotTo(HaveOccurred())
+		Expect(s.AddPending(ctx(), "alice", "c1", "typed")).Error().NotTo(HaveOccurred())
+		got, err := s.TakePending(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(2))
+		Expect(got[0].Sender).To(Equal(who))
+		Expect(got[1].Sender).To(BeNil())
+	})
+
 	It("edit and cancel work until the message is taken", func() {
 		s := newStore()
 		chat(s, "c1", "alice")

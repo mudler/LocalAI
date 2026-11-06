@@ -332,7 +332,12 @@
     "bindingsOf": "Bindings of {{name}}",
     "loadFailed": "Could not load your connectors.",
     "waitingTitle": "Waiting for their add-on",
-    "waitingText": "These bindings are kept, but they do not run until their add-on is installed and turned on."
+    "waitingText": "These bindings are kept, but they do not run until their add-on is installed and turned on.",
+    "duplicate": {
+      "text": "This bot is also connected as {{name}}. Both connections will answer the same message.",
+      "turnOff": "Turn this one off",
+      "open": "Open {{name}}"
+    }
   },
   "conversionPage": {
     "title": "Converted from the old chat",
@@ -814,6 +819,11 @@
       "readsLabel": "Reads",
       "writesLabel": "Writes",
       "costLabel": "Cost",
+      "deliveryLabel": "Results go to",
+      "deliveryInbox": "Your Inbox",
+      "deliveryChat": "This chat",
+      "deliveryThread": "This thread",
+      "deliveryChannel": "{{channel}}, at the top of the channel",
       "stopLabel": "To stop it",
       "when": "{{schedule}}, {{zone}}. First run {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -1183,7 +1193,7 @@
       "mine": "Mine",
       "deleted": "Deleted agents",
       "channels": "Conversations",
-      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not verified with you always waits for your OK.",
       "export": "Export these notes",
       "clearAgent": "Delete the notes of this agent",
       "clearDeleted": "Delete these notes"
@@ -1251,8 +1261,8 @@
         "body": "The bot asks in the chat: \"Reply yes to save it.\" A listed sender can answer there. Others wait for you in the app."
       },
       "paired_private": {
-        "title": "Save it for a paired sender in a private chat",
-        "body": "Saved at once only when the sender is paired and the chat is one-to-one. The note goes to that conversation, with an Undo. A note that looks like a secret still waits."
+        "title": "Save it for a verified person in a private chat",
+        "body": "Saved at once only when the sender is a verified person and the chat is one-to-one. The note goes to that conversation, with an Undo. A note that looks like a secret still waits."
       },
       "never": {
         "title": "Never",
@@ -1309,15 +1319,20 @@
       "title": "As before",
       "body": "This agent was saved before this choice existed. It reads your notes when its add-ons list names Memory, and the model picks where a note is saved. Pick one of the choices below to change that."
     },
-    "saveGrant": "Let it save notes",
-    "saveGrantHelp": "Turns on the permission Remember things. Without it the agent reads notes but cannot save any.",
     "copyNote": "Exporting an agent, or importing it as a new one, keeps this choice and never copies its notes.",
     "summary": {
       "mine_and_own": "Mine and its own",
       "own": "Its own only",
       "mine": "Mine",
       "none": "None",
-      "asBefore": "As before"
+      "asBefore": "As before",
+      "withAuto": "{{choice}}, saves at once",
+      "level": {
+        "off": "Off",
+        "reads": "Reads notes",
+        "saves": "Reads and saves notes"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "Delete {{name}}?",
@@ -1342,7 +1357,11 @@
       "title": "When it wants to save a note",
       "use_mine": {
         "title": "Use my setting",
-        "body": "Currently: {{level}}."
+        "body": "Your setting is <b>{{level}}</b>. <settings>Change it in Settings > Memory.</settings>"
+      },
+      "auto": {
+        "title": "Save it and tell me",
+        "body": "Saves each note at once and tells you in the chat, with an Undo, even when your setting is Ask me first. A long note, or one that looks like a secret, still waits."
       },
       "always": {
         "title": "Always confirm",
@@ -1352,8 +1371,27 @@
         "title": "Never",
         "body": "It reads, never saves."
       },
-      "hint": "An agent can ask more than your setting, never less. \"Save it and tell me\" is not offered here. In a messaging chat a note goes to that conversation first, and reaches this agent's own notes only from a paired sender."
-    }
+      "hint": "In a messaging chat a note goes to that conversation first, and reaches this agent's own notes only from a verified person. Saving at once in a messaging chat applies only to a verified person in a one-to-one chat.",
+      "offReason": "The save level does not apply while memory is off.",
+      "readsReason": "The save level does not apply: this agent reads notes but cannot save any."
+    },
+    "level": {
+      "title": "How much it does with notes",
+      "off": {
+        "title": "Off",
+        "body": "Reads and saves no notes."
+      },
+      "reads": {
+        "title": "Reads notes",
+        "body": "Uses your notes to answer. Never saves any."
+      },
+      "saves": {
+        "title": "Reads and saves notes",
+        "body": "Uses notes and saves new ones, as your save level allows."
+      }
+    },
+    "whose": "Whose notes",
+    "whoseOff": "Memory is off for this agent, so there are no notes to choose from."
   },
   "providerPicker": {
     "title": "Provider",

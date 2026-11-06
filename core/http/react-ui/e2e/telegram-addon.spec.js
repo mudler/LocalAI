@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi as api, DECLARED } from './connector-fixtures.js'
+import { connectorApi as api, DECLARED, openAnswerMore } from './connector-fixtures.js'
 
 // The page of the Telegram add-on (the real built bundle, inside the add-on
 // shell) with the core API stubbed: the token only goes in, "anyone"
@@ -26,8 +26,8 @@ test.describe('Telegram add-on', () => {
     await page.getByLabel('Name', { exact: true }).fill('Support bot')
     await page.getByLabel('Bot token').fill('555:secret-token')
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
-    await page.getByRole('textbox', { name: 'Allowed senders +' }).fill('42')
-    await page.getByRole('textbox', { name: 'Allowed senders +' }).press('Enter')
+    await page.getByRole('textbox', { name: 'Add a person or channel' }).fill('42')
+    await page.getByRole('textbox', { name: 'Add a person or channel' }).press('Enter')
     await page.getByRole('button', { name: 'Save' }).click()
 
     await expect(page.getByTestId('connector-row')).toContainText('Support bot')
@@ -60,7 +60,7 @@ test.describe('Telegram add-on', () => {
     await page.getByLabel('Name', { exact: true }).fill('Public bot')
     await page.getByLabel('Bot token').fill('1:x')
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
-    await page.getByRole('radio', { name: 'Anyone who can message the bot' }).check()
+    await page.getByRole('radio', { name: 'Anyone who can message it' }).check()
     await expect(page.getByTestId('anyone-warning')).toContainText("can use this agent's tools")
     await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
     await page.getByRole('checkbox', { name: 'I understand' }).check()
@@ -76,7 +76,7 @@ test.describe('Telegram add-on', () => {
     await page.getByRole('button', { name: 'Senders' }).click()
     await expect(page.getByTestId('sender-log')).toContainText('Newcomer · 2 messages · 42')
     await expect(page.getByTestId('sender-log')).toContainText('Ignored')
-    await page.getByRole('button', { name: 'Allow', exact: true }).click()
+    await page.getByRole('button', { name: 'List this person', exact: true }).click()
     await expect(page.getByTestId('sender-log')).toContainText('Accepted')
     expect(a.s.calls.some(c => c.url === '/api/chats/connectors/b1/senders/42/allow')).toBe(true)
   })
@@ -124,6 +124,7 @@ test.describe('Telegram add-on', () => {
     await expect(page.getByTestId('connector-files')).toBeChecked()
     await expect(page.getByTestId('connector-window')).toHaveCount(0)
     // The notes the bot writes itself follow the sender unless a language is chosen.
+    await openAnswerMore(page)
     await expect(page.getByTestId('connector-reply-language')).toHaveValue('auto')
     await expect(page.getByText('The notes the bot writes itself, like confirmations and refusals.')).toBeVisible()
     await page.getByLabel('Name', { exact: true }).fill('Live bot')
@@ -179,6 +180,7 @@ test.describe('Telegram add-on', () => {
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New Telegram bot' }).click()
+    await openAnswerMore(page)
     const files = page.getByTestId('connector-filelimits')
     await expect(files).toContainText('Now: 1 MiB (limit of the add-on).')
     // The owner can only lower the limit: 2 MiB is above the 1 MiB the kind allows.
@@ -200,6 +202,7 @@ test.describe('Telegram add-on', () => {
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New Telegram bot' }).click()
+    await openAnswerMore(page)
     const files = page.getByTestId('connector-filelimits')
     await expect(files).toContainText('Now: 20 MiB (limit of the add-on).')
     await expect(files).toContainText('Now: 256 KiB (limit of the add-on).')
@@ -230,19 +233,19 @@ test.describe('Telegram add-on', () => {
     const ready = page.getByTestId('connector-readiness')
     await expect(ready.getByTestId('connector-ready-token')).toContainText('Paste the token')
     await expect(ready.getByTestId('connector-ready-agent')).toContainText('Choose the agent')
-    await expect(ready.getByTestId('connector-ready-who')).toContainText('Nobody is allowed yet')
+    await expect(ready.getByTestId('connector-ready-who')).toContainText('Nobody is listed yet')
     await ready.getByTestId('connector-ready-token').getByRole('button', { name: 'Paste the token' }).click()
     await expect(page.getByLabel('Bot token')).toBeFocused()
     await page.getByLabel('Bot token').fill('555:secret-token')
     await expect(ready.getByTestId('connector-ready-token')).toHaveAttribute('data-state', 'after_save')
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
-    await page.getByRole('textbox', { name: 'Allowed senders +' }).fill('42')
-    await page.getByRole('textbox', { name: 'Allowed senders +' }).press('Enter')
+    await page.getByRole('textbox', { name: 'Add a person or channel' }).fill('42')
+    await page.getByRole('textbox', { name: 'Add a person or channel' }).press('Enter')
     await expect(ready.getByTestId('connector-ready-who')).toHaveAttribute('data-state', 'after_save')
     await expect.poll(() => a.s.previews.at(-1)?.body).toMatchObject({ kind: 'telegram', agent_id: 'a1', allow: ['42'] })
     expect(a.s.previews.at(-1).id).toBe('new')
-    // One list of senders: no member-of-a-channel choice.
-    await expect(page.getByTestId('connector-can-sender').locator('option')).toHaveText(['A person on the allowed list', 'A person you paired'])
+    // The columns of the matrix follow the subjects the host sends.
+    await expect(page.getByTestId('connector-matrix').locator('th[data-col="paired"], th[data-col="listed"]')).toContainText(['Verified person', 'Listed person'])
     expect(JSON.stringify(a.s.previews)).not.toContain('secret-token')
   })
 

@@ -83,6 +83,7 @@ require (
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
+	modernc.org/sqlite v1.23.1
 	oras.land/oras-go/v2 v2.6.0
 )
 
@@ -94,7 +95,6 @@ require (
 	modernc.org/libc v1.22.5 // indirect
 	modernc.org/mathutil v1.5.0 // indirect
 	modernc.org/memory v1.5.0 // indirect
-	modernc.org/sqlite v1.23.1 // indirect
 )
 
 require (

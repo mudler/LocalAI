@@ -204,7 +204,8 @@
       "personal": "개인",
       "shared": "공유",
       "folder": "작업 공간",
-      "addon": "{{name}}"
+      "addon": "{{name}}",
+      "addonFrom": "{{name}} 제공"
     },
     "replacedBy": "{{name}}(으)로 대체됨",
     "fallback_one": "기본 제공 {{skills}} 사용 중: {{name}} 애드온의 자체 스킬이 여기서 꺼져 있거나 실행 중이 아닙니다.",
@@ -697,6 +698,51 @@
       "job": "작업",
       "page": "페이지",
       "other": "다른 요소"
+    }
+  },
+  "connector": {
+    "header": "메시징 대화",
+    "unknownSender": "알 수 없는 발신자",
+    "people": "이 대화의 참여자",
+    "inThread": "스레드",
+    "openThread": "메시징 앱에서 열기",
+    "where": {
+      "direct": "다이렉트 메시지",
+      "channel": "채널 {{name}}",
+      "group": "채널 또는 그룹"
+    },
+    "standing": {
+      "owner": "소유자",
+      "verified": "역할이 있음",
+      "listed": "목록에 있는 사람",
+      "channel": "채널 멤버",
+      "anyone": "누구나"
+    },
+    "standingHelp": {
+      "owner": "검증된 사람: 소유자가 이 계정을 제어합니다.",
+      "verified": "소유자가 권한을 부여한 역할을 가지고 있습니다.",
+      "listed": "이 연결의 목록에 있습니다.",
+      "channel": "채널 또는 그룹이 목록에 있어 허용되었습니다.",
+      "anyone": "연결이 누구나 허용하므로 허용되었습니다."
+    },
+    "threadEarlier": "스레드 앞부분 ({{count}}개 메시지)",
+    "threadCut": "스레드의 이전 메시지는 표시되지 않습니다.",
+    "note": {
+      "paired": "이 봇과 검증됨",
+      "unsupported": "읽지 못한 메시지",
+      "too_long": "메시지가 너무 김",
+      "no_upload": "파일이 허용되지 않음",
+      "rate": "메시지가 너무 많음",
+      "held_back": "일부 도구가 이 발신자에게 제공되지 않았습니다",
+      "new_chat": "새 채팅 시작됨",
+      "refused": "메시지 거부됨",
+      "hold_waiting": "검증된 사람의 확인을 기다리는 중",
+      "hold_confirmed": "채팅에서 확인됨",
+      "hold_cancelled": "채팅에서 취소됨",
+      "hold_expired": "제때 확인되지 않음",
+      "hold_failed": "실행할 수 없었음",
+      "other": "메모",
+      "why": "이유"
     }
   }
 }

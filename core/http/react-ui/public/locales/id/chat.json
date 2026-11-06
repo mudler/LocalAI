@@ -252,7 +252,8 @@
       "personal": "Pribadi",
       "shared": "Bersama",
       "folder": "Ruang kerja",
-      "addon": "{{name}}"
+      "addon": "{{name}}",
+      "addonFrom": "dari {{name}}"
     },
     "replacedBy": "Digantikan oleh {{name}}",
     "fallback_one": "{{skills}} bawaan dipakai: skill milik add-on {{name}} mati atau tidak berjalan di sini.",
@@ -810,5 +811,50 @@
     "bodyMember": "Belum ada model obrolan yang terinstal di server ini. Hubungi administrator untuk menginstalnya.",
     "gallery": "Jelajahi galeri",
     "import": "Impor model"
+  },
+  "connector": {
+    "header": "Percakapan pesan",
+    "unknownSender": "Pengirim tidak dikenal",
+    "people": "Orang dalam percakapan ini",
+    "inThread": "Utas",
+    "openThread": "Buka di aplikasi pesan",
+    "where": {
+      "direct": "Pesan langsung",
+      "channel": "Kanal {{name}}",
+      "group": "Kanal atau grup"
+    },
+    "standing": {
+      "owner": "Pemilik",
+      "verified": "Punya peran",
+      "listed": "Orang yang terdaftar",
+      "channel": "Anggota kanal",
+      "anyone": "Siapa saja"
+    },
+    "standingHelp": {
+      "owner": "Orang terverifikasi: pemilik mengendalikan akun ini.",
+      "verified": "Memiliki peran yang diberi hak oleh pemilik.",
+      "listed": "Ada di daftar koneksi ini.",
+      "channel": "Diizinkan masuk karena kanal atau grup ada di daftar.",
+      "anyone": "Diizinkan karena koneksi menerima siapa saja."
+    },
+    "threadEarlier": "Sebelumnya di utas ({{count}} pesan)",
+    "threadCut": "Pesan yang lebih lama di utas tidak ditampilkan.",
+    "note": {
+      "paired": "Terverifikasi dengan bot ini",
+      "unsupported": "Pesan tidak dibaca",
+      "too_long": "Pesan terlalu panjang",
+      "no_upload": "File tidak diterima",
+      "rate": "Terlalu banyak pesan",
+      "held_back": "Beberapa alat tidak ditawarkan kepada pengirim ini",
+      "new_chat": "Chat baru dimulai",
+      "refused": "Pesan ditolak",
+      "hold_waiting": "Menunggu konfirmasi dari orang terverifikasi",
+      "hold_confirmed": "Dikonfirmasi di obrolan",
+      "hold_cancelled": "Dibatalkan di obrolan",
+      "hold_expired": "Tidak dikonfirmasi tepat waktu",
+      "hold_failed": "Tidak dapat dilakukan",
+      "other": "Catatan",
+      "why": "Mengapa"
+    }
   }
 }

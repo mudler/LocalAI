@@ -41,6 +41,11 @@
       "readsLabel": "Lê",
       "writesLabel": "Escreve",
       "costLabel": "Custo",
+      "deliveryLabel": "Os resultados vão para",
+      "deliveryInbox": "Sua caixa de entrada",
+      "deliveryChat": "Este chat",
+      "deliveryThread": "Este tópico",
+      "deliveryChannel": "{{channel}}, no nível principal do canal",
       "stopLabel": "Para parar",
       "when": "{{schedule}}, {{zone}}. Primeira execução {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -266,7 +271,12 @@
   "connectorsPage": {
     "loadFailed": "Não foi possível carregar seus conectores.",
     "waitingTitle": "Aguardando o complemento",
-    "waitingText": "Estes vínculos são mantidos, mas só funcionam quando o complemento deles estiver instalado e ligado."
+    "waitingText": "Estes vínculos são mantidos, mas só funcionam quando o complemento deles estiver instalado e ligado.",
+    "duplicate": {
+      "text": "Este bot também está conectado como {{name}}. As duas conexões vão responder à mesma mensagem.",
+      "turnOff": "Desativar esta",
+      "open": "Abrir {{name}}"
+    }
   },
   "tools": {
     "commands": {
@@ -861,7 +871,7 @@
       "mine": "Minhas",
       "deleted": "Agentes excluídos",
       "channels": "Conversas",
-      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "channelsNote": "Notas salvas de chats em apps de mensagens. Abra uma nota para lê-la ou exclua-a. Uma nota de um remetente que não está verificado com você sempre aguarda seu OK.",
       "export": "Exportar estas notas",
       "clearAgent": "Excluir as notas deste agente",
       "clearDeleted": "Excluir estas notas"
@@ -929,8 +939,8 @@
         "body": "O bot pergunta no chat: \"Responda sim para salvar.\" Um remetente da lista pode responder lá. Os outros esperam por você no app."
       },
       "paired_private": {
-        "title": "Salvar para um remetente pareado em chat privado",
-        "body": "Salva na hora só se o remetente estiver pareado e o chat for individual. A nota vai para essa conversa, com Desfazer. Uma nota que pareça um segredo continua esperando."
+        "title": "Salvar para uma pessoa verificada em chat privado",
+        "body": "Salva na hora só se o remetente for uma pessoa verificada e o chat for individual. A nota vai para essa conversa, com Desfazer. Uma nota que pareça um segredo continua aguardando."
       },
       "never": {
         "title": "Nunca",
@@ -987,15 +997,20 @@
       "title": "Como antes",
       "body": "Este agente foi salvo antes de existir esta escolha. Ele lê suas notas se a lista de complementos dele citar Memory, e o modelo escolhe onde salvar uma nota. Escolha uma das opções abaixo para mudar isso."
     },
-    "saveGrant": "Deixar salvar notas",
-    "saveGrantHelp": "Liga a permissão Lembrar coisas. Sem ela, o agente lê notas mas não consegue salvar nenhuma.",
     "copyNote": "Exportar um agente, ou importá-lo como novo, mantém esta escolha e nunca copia as notas dele.",
     "summary": {
       "mine_and_own": "Minhas e dele",
       "own": "Só dele",
       "mine": "Minhas",
       "none": "Nenhuma",
-      "asBefore": "Como antes"
+      "asBefore": "Como antes",
+      "withAuto": "{{choice}}, salva na hora",
+      "level": {
+        "off": "Desligada",
+        "reads": "Lê notas",
+        "saves": "Lê e salva notas"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "Excluir {{name}}?",
@@ -1020,7 +1035,11 @@
       "title": "Quando quer salvar uma nota",
       "use_mine": {
         "title": "Usar minha configuração",
-        "body": "Agora: {{level}}."
+        "body": "Sua configuração é <b>{{level}}</b>. <settings>Altere em Configurações > Memória.</settings>"
+      },
+      "auto": {
+        "title": "Salvar e me avisar",
+        "body": "Salva cada nota na hora e avisa você no chat, com Desfazer, mesmo que sua configuração seja Perguntar antes. Uma nota longa, ou que pareça um segredo, continua esperando."
       },
       "always": {
         "title": "Sempre confirmar",
@@ -1030,8 +1049,27 @@
         "title": "Nunca",
         "body": "Lê, nunca salva."
       },
-      "hint": "Um agente pode perguntar mais que a sua configuração, nunca menos. \"Salvar e me avisar\" não é oferecido aqui. Em um chat de mensagens, a nota vai primeiro para essa conversa e só chega às notas próprias deste agente vinda de um remetente pareado."
-    }
+      "hint": "Em um chat de mensagens, a nota vai primeiro para essa conversa e só chega às notas próprias deste agente vinda de uma pessoa verificada. Salvar na hora em um chat de mensagens vale só para uma pessoa verificada em um chat individual.",
+      "offReason": "O nível de salvamento não vale enquanto a memória está desligada.",
+      "readsReason": "O nível de salvamento não vale: este agente lê notas, mas não pode salvar nenhuma."
+    },
+    "level": {
+      "title": "O que faz com as notas",
+      "off": {
+        "title": "Desligada",
+        "body": "Não lê nem salva notas."
+      },
+      "reads": {
+        "title": "Lê notas",
+        "body": "Usa suas notas para responder. Nunca salva nenhuma."
+      },
+      "saves": {
+        "title": "Lê e salva notas",
+        "body": "Usa notas e salva novas, conforme o seu nível de salvamento."
+      }
+    },
+    "whose": "De quem são as notas",
+    "whoseOff": "A memória está desligada para este agente, então não há notas para escolher."
   },
   "providerPicker": {
     "title": "Provedor",

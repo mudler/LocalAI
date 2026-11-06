@@ -207,7 +207,8 @@
       "personal": "Pessoal",
       "shared": "Compartilhada",
       "folder": "Espaço de trabalho",
-      "addon": "{{name}}"
+      "addon": "{{name}}",
+      "addonFrom": "de {{name}}"
     },
     "replacedBy": "Substituída por {{name}}",
     "fallback_one": "{{skills}} integrada em uso: a habilidade própria do complemento {{name}} está desligada ou não está em execução aqui.",
@@ -700,6 +701,51 @@
       "job": "um job",
       "page": "uma página",
       "other": "outra coisa"
+    }
+  },
+  "connector": {
+    "header": "Conversa de mensagens",
+    "unknownSender": "Remetente desconhecido",
+    "people": "Pessoas nesta conversa",
+    "inThread": "Tópico",
+    "openThread": "Abrir no app de mensagens",
+    "where": {
+      "direct": "Mensagem direta",
+      "channel": "Canal {{name}}",
+      "group": "Canal ou grupo"
+    },
+    "standing": {
+      "owner": "Proprietário",
+      "verified": "Tem um papel",
+      "listed": "Pessoa listada",
+      "channel": "Membro do canal",
+      "anyone": "Qualquer pessoa"
+    },
+    "standingHelp": {
+      "owner": "Pessoa verificada: o proprietário controla esta conta.",
+      "verified": "Tem um papel ao qual o proprietário deu direitos.",
+      "listed": "Na lista desta conexão.",
+      "channel": "Admitido porque o canal ou o grupo está na lista.",
+      "anyone": "Admitido porque a conexão aceita qualquer pessoa."
+    },
+    "threadEarlier": "Antes no tópico ({{count}} mensagens)",
+    "threadCut": "As mensagens mais antigas do tópico não são mostradas.",
+    "note": {
+      "paired": "Verificado com este bot",
+      "unsupported": "Mensagem não lida",
+      "too_long": "Mensagem longa demais",
+      "no_upload": "Arquivos não aceitos",
+      "rate": "Mensagens demais",
+      "held_back": "Algumas ferramentas não foram oferecidas a este remetente",
+      "new_chat": "Novo chat iniciado",
+      "refused": "Mensagem recusada",
+      "hold_waiting": "Aguardando a confirmação de uma pessoa verificada",
+      "hold_confirmed": "Confirmada no chat",
+      "hold_cancelled": "Cancelada no chat",
+      "hold_expired": "Não confirmada a tempo",
+      "hold_failed": "Não foi possível fazer",
+      "other": "Nota",
+      "why": "Por quê"
     }
   }
 }

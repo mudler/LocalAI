@@ -72,8 +72,10 @@
 /* The memory choices sit two by two when there is room, so the section is half as tall. */
 .aed-card .am__cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .aed-card .am__card { padding: var(--sp-2) var(--sp-3); }
+/* The three memory levels are one row of three. */
+.aed-card .am__cards--levels { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 640px) {
-  .aed-card .am__cards { grid-template-columns: minmax(0, 1fr); }
+  .aed-card .am__cards, .aed-card .am__cards--levels { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* The Effective view: one row per thing the agent can or cannot do. */

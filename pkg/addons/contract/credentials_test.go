@@ -144,6 +144,40 @@ var _ = Describe("The credential slot of an add-on", func() {
 			m := manifest(func(m *Manifest) { m.Capabilities.ToolDefinitions[0].Approval = ApprovalAlways })
 			Expect(ValidateManifest(m, host())).NotTo(Succeed())
 		})
+		Describe("the approval the person may relax", func() {
+			relaxable := func(mod func(*Manifest)) Manifest {
+				m := withWrite(writeSchema, ApprovalAlways)
+				m.Capabilities.ToolDefinitions[len(m.Capabilities.ToolDefinitions)-1].ApprovalOverridable = true
+				m.Capabilities.UserSettings = append(m.Capabilities.UserSettings,
+					UserSetting{Key: ApprovalSettingKey("comment"), Values: []string{ApprovalAsk, ApprovalSkip}, Default: ApprovalAsk})
+				if mod != nil {
+					mod(&m)
+				}
+				return m
+			}
+			It("is accepted with its setting, the values ask and skip and the default ask", func() {
+				Expect(ValidateManifest(relaxable(nil), host())).To(Succeed())
+			})
+			DescribeTable("is refused",
+				func(mod func(*Manifest)) { Expect(ValidateManifest(relaxable(mod), host())).NotTo(Succeed()) },
+				Entry("without the setting", func(m *Manifest) { m.Capabilities.UserSettings = nil }),
+				Entry("when the setting starts at skip", func(m *Manifest) {
+					m.Capabilities.UserSettings[0].Default = ApprovalSkip
+				}),
+				Entry("when the setting has another value", func(m *Manifest) {
+					m.Capabilities.UserSettings[0].Values = []string{ApprovalAsk, ApprovalSkip, "maybe"}
+				}),
+				Entry("when the setting carries a host role", func(m *Manifest) {
+					m.Capabilities.UserSettings[0].Role = UserSettingRoleMemorySave
+				}),
+				Entry("on a tool without approval always", func(m *Manifest) {
+					m.Capabilities.ToolDefinitions[len(m.Capabilities.ToolDefinitions)-1].Approval = ""
+				}),
+				Entry("in an add-on without a credential", func(m *Manifest) {
+					m.Capabilities.Credentials = nil
+				}),
+			)
+		})
 		It("may be checked on their own with ValidateCredentialedToolSchema", func() {
 			Expect(ValidateCredentialedToolSchema(json.RawMessage(writeSchema), ToolKindWrite)).To(Succeed())
 			Expect(ValidateToolSchema(json.RawMessage(writeSchema), ToolKindWrite)).NotTo(Succeed())

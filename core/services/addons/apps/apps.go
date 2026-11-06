@@ -192,6 +192,10 @@ type App struct {
 	// work with a secret that the person keeps in a connector binding. A
 	// connector chat holds its write tools to contract.ToolPermission.
 	Credentialed bool `json:"credentialed,omitempty"`
+	// OwnerData is true when the manifest says the tools keep the owner's own
+	// data (capabilities.ownerData). Its writes need tools.write in a
+	// connector chat, like the writes of a credentialed add-on.
+	OwnerData bool `json:"ownerData,omitempty"`
 	// ResourceArgument and ResourceLabel come from the credential slot: the
 	// argument that names the resource of a call, and the word for it in the
 	// lines that say which connection acted. They are not part of the apps API.
@@ -200,6 +204,9 @@ type App struct {
 	// Resources is the resource mapping of the manifest, with the listing
 	// declaration the host acts on. It is not part of the apps API.
 	Resources *contract.ResourceTools `json:"-"`
+	// ResourceTexts are the translated nouns of the resources, by language
+	// tag (the i18n field of the manifest). Not part of the apps API.
+	ResourceTexts map[string]contract.ResourceText `json:"-"`
 	// Skills are the skills the package ships, from the verified manifest.
 	// The owner copies their files into the chats' skill layer.
 	Skills []contract.SkillDefinition `json:"skills,omitempty"`
@@ -356,10 +363,12 @@ func build(s Snapshot, admin bool) App {
 		a.ToolDefinitions = append(a.ToolDefinitions, d)
 	}
 	a.Credentialed = len(m.Capabilities.Credentials) > 0
+	a.OwnerData = m.Capabilities.OwnerData
 	if a.Credentialed {
 		a.ResourceArgument, a.ResourceLabel = m.Capabilities.Credentials[0].ResourceArgument, m.Capabilities.Credentials[0].ResourceLabel
 	}
 	a.Resources = resourceTools(m)
+	a.ResourceTexts = resourceTexts(m)
 	a.Skills = slices.Clone(m.Capabilities.SkillDefinitions)
 	a.SkillShadows = contract.ShadowedSkills(m.Capabilities.SkillDefinitions)
 	a.ContextFiles = slices.Clone(m.Capabilities.ContextFiles)
@@ -513,6 +522,21 @@ func contributions(u *contract.UI) ([]ChatActionView, []SlotView, []contract.Ren
 		slots = append(slots, SlotView{ID: s.ID, Slot: s.Slot, Component: s.Component, Extensions: slices.Clone(s.Extensions)})
 	}
 	return actions, slots, slices.Clone(u.Renderers)
+}
+
+// resourceTexts copies the translated resource nouns of the manifest.
+func resourceTexts(m contract.Manifest) map[string]contract.ResourceText {
+	var out map[string]contract.ResourceText
+	for tag, t := range m.I18n {
+		if t.Resources == nil {
+			continue
+		}
+		if out == nil {
+			out = map[string]contract.ResourceText{}
+		}
+		out[tag] = *t.Resources
+	}
+	return out
 }
 
 // resourceTools copies the resource mapping of the manifest.

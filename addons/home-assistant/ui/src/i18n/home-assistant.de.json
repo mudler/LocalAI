@@ -59,8 +59,8 @@
     "label": "Was der Agent in deinem Zuhause ändern darf",
     "hint": "Nur die Dienste auf der Zulassungsliste unten, bei Entitäten, die nicht ausgeschlossen sind.",
     "off": "Nur lesen",
-    "propose": "Fragt dich zuerst",
-    "auto": "Handelt ohne Rückfrage",
+    "propose": "Fragt zuerst",
+    "auto": "Läuft sofort",
     "line": {
       "off": "Er kann nichts schalten.",
       "propose": "Jede Änderung wartet auf dein OK.",
@@ -73,8 +73,8 @@
     },
     "row": {
       "off": "Nur lesen",
-      "propose": "Fragt dich zuerst",
-      "auto": "Handelt ohne Rückfrage"
+      "propose": "Fragt zuerst",
+      "auto": "Läuft sofort"
     }
   },
   "policy": {

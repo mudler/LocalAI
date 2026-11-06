@@ -141,7 +141,7 @@ var _ = Describe("talk-back from a connector chat", func() {
 			Expect(chatTools()).NotTo(ContainElement("send_message"))
 			l, _ := r.svc.List(ctx, alice, 10)
 			prompt := strings.Join(r.h.SentRaw(l[0].ID), "\n")
-			Expect(prompt).To(ContainSubstring("This bot can write to other channels only for people the owner added by name or paired"), "the model is told why")
+			Expect(prompt).To(ContainSubstring("This bot can write to other channels only for people the owner listed by name or verified"), "the model is told why")
 			Expect(prompt).To(ContainSubstring("never say it does not exist"))
 		})
 
@@ -169,7 +169,37 @@ var _ = Describe("talk-back from a connector chat", func() {
 		})
 	})
 
+	Describe("the description of the tool", func() {
+		It("lists the approved channels by name and ID, and says where each target writes", func() {
+			setup(nil)
+			turn("hello")
+			d := r.h.LastToolDescription("send_message")
+			Expect(d).To(ContainSubstring("General (" + general + ")"))
+			Expect(d).NotTo(ContainSubstring("Ops"), "a channel the owner did not approve is not offered")
+			Expect(d).To(ContainSubstring("not in this thread"))
+		})
+
+		It("says so in one sentence when no channel is approved", func() {
+			setup(nil)
+			update(func(in *studio.ConnectorInput) { in.Channels = []connectors.Channel{{ID: ops, Label: "Ops"}} })
+			turn("hello")
+			d := r.h.LastToolDescription("send_message")
+			Expect(d).To(ContainSubstring("approved no channel"))
+			Expect(d).NotTo(ContainSubstring("Ops"))
+		})
+	})
+
 	Describe("a message", func() {
+		It("to a channel named by its label, with a # or another case, goes to its ID", func() {
+			setup(nil)
+			args = `{"text":"by name","channel":"#general"}`
+			turn("send")
+			waitFor("the message", func() bool { return len(fake.texts(general, "")) == 1 })
+			args = `{"text":"by name again","channel":"GENERAL"}`
+			turn("send")
+			waitFor("the message", func() bool { return len(fake.texts(general, "")) == 2 })
+		})
+
 		It("without channel goes to the conversation chat and thread", func() {
 			setup(nil)
 			args = `{"text":"hello there"}`
@@ -395,10 +425,76 @@ var _ = Describe("talk-back from a connector chat", func() {
 		It("is refused at proposal time for a channel that is not listed or not approved", func() {
 			args = toChannel("SECRET")
 			turn("propose")
-			Expect(r.h.ResultsFor("propose_trigger")[0].Err).To(MatchError(ContainSubstring("not a channel the owner listed")))
+			err := r.h.ResultsFor("propose_trigger")[0].Err
+			Expect(err).To(MatchError(ContainSubstring("not a channel the owner approved")))
+			Expect(err).To(MatchError(ContainSubstring("General (" + general + ")")), "the approved channels are listed")
 			args = toChannel(ops)
 			turn("propose")
-			Expect(r.h.ResultsFor("propose_trigger")[1].Err).To(MatchError(ContainSubstring("not approved")))
+			err = r.h.ResultsFor("propose_trigger")[1].Err
+			Expect(err).To(MatchError(ContainSubstring("not a channel the owner approved")))
+			Expect(err).NotTo(MatchError(ContainSubstring("Ops")), "an unapproved channel is not offered")
+			args = toChannel("Ops")
+			turn("propose")
+			Expect(r.h.ResultsFor("propose_trigger")[2].Err).To(HaveOccurred(), "the label of an unapproved channel is refused too")
+			ps, _ := r.host.Proposals(ctx, alice)
+			Expect(ps).To(BeEmpty())
+		})
+
+		It("names the approved channels in the description of propose_trigger", func() {
+			turn("hello")
+			d := r.h.LastToolDescription("propose_trigger")
+			Expect(d).To(ContainSubstring("General (" + general + ")"))
+			Expect(d).NotTo(ContainSubstring("Ops"))
+			Expect(d).To(ContainSubstring("posts in the channel itself, at the top and not in a thread; origin posts in this thread"))
+		})
+
+		It("says in one sentence that channels are off when the sender may not write in them", func() {
+			update(func(in *studio.ConnectorInput) { in.Caps = []string{studio.CapTriggersPropose} })
+			turn("hello")
+			d := r.h.LastToolDescription("propose_trigger")
+			Expect(d).To(ContainSubstring("may not write in channels"))
+			Expect(d).NotTo(ContainSubstring("General"))
+		})
+
+		for _, name := range []string{"General", "#general", "GENERAL", general} {
+			It("takes the channel "+name+" and keeps its ID", func() {
+				t := confirmed(toChannel(name))
+				Expect(t.Route.Channel).To(Equal(general))
+			})
+		}
+
+		It("writes in the proposal where the results go, by the label of the channel", func() {
+			args = toChannel("#general")
+			turn("propose")
+			waitFor("the proposal text", func() bool {
+				for _, t := range fake.texts(chatID, thread) {
+					if strings.Contains(t, "Results go to General, at the top of the channel") {
+						return true
+					}
+				}
+				return false
+			})
+			args = `{"name":"Here","prompt":"RUN it","when":"daily 09:00","time_zone":"UTC","delivery":{"target":"origin"}}`
+			turn("propose")
+			waitFor("the proposal text", func() bool {
+				for _, t := range fake.texts(chatID, thread) {
+					if strings.Contains(t, "Results go to this thread") {
+						return true
+					}
+				}
+				return false
+			})
+		})
+
+		It("posts the report at the top of the channel and never in the thread of the chat", func() {
+			t := confirmed(toChannel("General"))
+			runOnce(t)
+			waitFor("the report", func() bool { return len(fake.texts(general, "")) == 1 })
+			Expect(fake.texts(general, thread)).To(BeEmpty())
+			for _, text := range fake.texts(chatID, thread) {
+				Expect(text).NotTo(ContainSubstring("result is 42"))
+			}
+			Expect(r.host.DeliveryOf(ctx, t)).To(Equal(studio.DeliveryView{Target: triggers.TargetChannel, ChannelLabel: "General"}))
 		})
 
 		It("goes to the Inbox when the capability is off at delivery time", func() {

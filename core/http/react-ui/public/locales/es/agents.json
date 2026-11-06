@@ -84,7 +84,8 @@
       "Tools": "Herramientas",
       "Notes": "Memoria",
       "Connections": "Conexiones",
-      "Effective": "Vista efectiva"
+      "Effective": "Vista efectiva",
+      "Uses": "Qué puede usar"
     },
     "name": "Name",
     "description": "Description",
@@ -260,12 +261,16 @@
       },
       "skills": {
         "some_one": "Puede usar {{count}} habilidad: {{names}}.",
-        "some_other": "Puede usar {{count}} habilidades: {{names}}."
+        "some_other": "Puede usar {{count}} habilidades: {{names}}.",
+        "withAddons_one": "Puede usar {{count}} habilidad que viene con un complemento: {{names}}.",
+        "withAddons_other": "Puede usar {{count}} habilidades que vienen con complementos: {{names}}.",
+        "addonOff": "La habilidad {{name}} está activa, pero su complemento {{addon}} está apagado, así que no hace nada. Activa el complemento."
       },
       "files": {
         "all": "Puede acceder a todos sus archivos.",
         "folders_one": "Solo puede acceder a la {{count}} carpeta elegida.",
-        "folders_other": "Solo puede acceder a las {{count}} carpetas elegidas."
+        "folders_other": "Solo puede acceder a las {{count}} carpetas elegidas.",
+        "none": "No puede acceder a ninguno de tus archivos."
       },
       "grants": {
         "parentOff": "{{name}} está permitido, pero no funciona mientras {{parent}} esté desactivado. Active {{parent}}.",
@@ -277,18 +282,20 @@
       },
       "memory": {
         "userOff": "La memoria está desactivada en sus ajustes, así que este agente no lee ni guarda notas, elija lo que elija aquí.",
-        "none": "No guarda ni lee notas.",
+        "none": "La memoria está desactivada para este agente. No lee ni guarda notas.",
         "mine_and_own": "Lee sus notas y las suyas, y guarda en las suyas.",
         "own": "Lee y guarda solo sus propias notas.",
         "mine": "Lee sus notas y guarda en ellas.",
         "asBefore": "La memoria funciona como antes: lee notas cuando un complemento nombra Memory.",
-        "noGrant": "Está configurado para guardar notas, pero el permiso de recordar cosas está desactivado, así que no guarda ninguna. Actívelo en Memoria.",
         "level": {
-          "auto": "Las notas se guardan al instante.",
-          "ask": "Cada nota espera su confirmación.",
-          "always": "Cada nota espera su confirmación y nada lo relaja.",
-          "never": "No guarda notas."
-        }
+          "auto": "Guarda las notas al instante.",
+          "ask": "Guarda notas (pregunta antes): cada nota espera tu confirmación.",
+          "always": "Guarda notas, pero cada nota espera tu confirmación y nada lo relaja.",
+          "never": "Lee notas pero no guarda ninguna: tu nivel de guardado es Nunca.",
+          "agentAuto": "Guarda las notas al momento y te avisa, con Deshacer. Es la elección propia del agente."
+        },
+        "readsOnly": "Lee notas pero no puede guardar.",
+        "connectionLimit": "No se guardan notas en estas conexiones de mensajería: {{names}}."
       },
       "knowledge": {
         "some_one": "Puede buscar en {{count}} colección: {{names}}.",
@@ -302,6 +309,18 @@
         "error": "No se pudo comprobar {{name}}. Ábrala para ver sus permisos.",
         "summary": "{{name}}: {{allowed}} permitidos, {{blocked}} no permitidos.",
         "blocked": "{{name}} no puede usar {{capability}}. {{message}}"
+      },
+      "addons": {
+        "noConnection": "{{name}} está activo pero ahora no puede funcionar: no tienes una cuenta para él. Añade una.",
+        "stale": "{{name}} está activo pero ahora no puede funcionar: las cuentas guardadas ya no existen. Elige una cuenta.",
+        "pick": "{{name}} está activo pero ahora no puede funcionar: no hay cuenta elegida. Una ejecución sin nadie presente no recibe sus herramientas.",
+        "resourcesNone": "{{name}} está activo pero ahora no puede funcionar: no hay ningún elemento ({{noun}}) marcado.",
+        "account": "{{name}} usa {{names}}.",
+        "resources": "{{name}} puede usar {{n}} ({{plural}}) y cambiar {{w}}.",
+        "resourcesRead": "{{name}} puede leer {{n}} ({{plural}}) y no cambiar ninguno."
+      },
+      "mcp": {
+        "ignored": "{{name}} está en los servidores MCP del agente, pero no existe nada con ese nombre, así que se ignora. Quítalo."
       }
     },
     "try": {
@@ -333,6 +352,106 @@
       "chatTitle": "Prueba de {{name}}",
       "failed": "La prueba falló: {{message}}",
       "slow": "El agente sigue trabajando. Deténgalo o cierre el panel."
+    },
+    "uses": {
+      "presetNote": "Un nivel solo ajusta las herramientas integradas y los permisos. Los complementos, las cuentas, los servidores MCP y las habilidades no cambian.",
+      "needsSummary_one": "{{count}} complemento aún no puede funcionar",
+      "needsSummary_other": "{{count}} complementos aún no pueden funcionar",
+      "builtins": {
+        "title": "Herramientas integradas",
+        "lead": "Los ofrece LocalAI. Las opciones están bajo su interruptor."
+      },
+      "addons": {
+        "title": "Complementos",
+        "lead": "Una fila cada uno: actívalo, elige la cuenta que usa y mira lo que ofrece.",
+        "none": "No hay ningún complemento instalado.",
+        "gone": "Concedido, pero no instalado o no disponible para ti. Desactívalo para quitarlo."
+      },
+      "mcp": {
+        "title": "Servidores MCP",
+        "lead": "Servidores fuera de LocalAI. Sus herramientas pueden costar dinero o llegar a otros sistemas.",
+        "search": "Buscar servidores MCP",
+        "none": "Aún no hay ningún conector MCP definido. Añade uno en la página de conectores MCP.",
+        "connector": "Un conector MCP que definiste.",
+        "server": "Un servidor MCP del modelo.",
+        "unknown": "No definido: no existe nada con este nombre, así que el agente lo ignora.",
+        "unverified": "El modelo se elige en cada chat, así que este nombre se comprueba allí.",
+        "remove": "Quitar {{name}}",
+        "noMatch": "Ningún servidor MCP coincide con «{{query}}».",
+        "removeShort": "Quitar"
+      },
+      "account": {
+        "label": "Cuenta que usa",
+        "group": "Cuentas para {{name}}",
+        "none": "Aún no hay cuenta.",
+        "add": "Añadir una cuenta",
+        "kept": "Guardado para después"
+      },
+      "meta": {
+        "account": "necesita una cuenta",
+        "resources": "limitado a: {{plural}} que marques"
+      },
+      "tools_one": "{{count}} herramienta",
+      "tools_other": "{{count}} herramientas",
+      "toolsSplit_one": "{{count}} herramienta ({{read}} de lectura, {{write}} cambian datos)",
+      "toolsSplit_other": "{{count}} herramientas ({{read}} de lectura, {{write}} cambian datos)",
+      "writes": "cambia datos",
+      "now": {
+        "label": "Ahora mismo:",
+        "off": "Apagado. No ofrece nada.",
+        "offKept": "Apagado. No ofrece nada. Cuentas guardadas para después: {{names}}.",
+        "noAccountNeeded": "Activo. Ofrece: {{tools}}. No necesita cuenta.",
+        "only": "Activo. Ofrece: {{tools}}, con {{names}}, tu única cuenta.",
+        "using": "Activo. Ofrece: {{tools}}, con {{names}}.",
+        "usingMany": "Activo. Ofrece: {{tools}}, con {{names}}. El modelo indica la cuenta en cada llamada.",
+        "pick": "Activo, pero no hay cuenta elegida. Un chat te pide elegir una antes de darle herramientas; una ejecución sin nadie presente no recibe ninguna. Marca arriba la cuenta que usar.",
+        "noConnection": "Activo, pero aún no tienes una cuenta para él, así que no se ofrece ninguna de sus herramientas. Añade una cuenta, arriba.",
+        "stale": "Activo, pero las cuentas guardadas ya no existen, así que no se ofrece ninguna de sus herramientas. Elige una cuenta. Marca una cuenta, arriba.",
+        "resourcesNone": "Activo, pero no hay ningún elemento ({{noun}}) marcado, así que no puede usar ninguno. Marca uno, arriba.",
+        "resourcesRead": "Activo. Ofrece: {{tools}}, sobre {{n}} marcados ({{plural}}), solo lectura. Las herramientas que cambian datos no pueden ejecutarse.",
+        "resources": "Activo. Ofrece: {{tools}}, sobre {{n}} marcados ({{plural}}); puede cambiar {{w}}."
+      },
+      "res": {
+        "heading": "Cuáles <n>{{plural}}</n> puede usar",
+        "headingPlain": "Cuáles {{plural}} puede usar",
+        "loading": "Cargando la lista.",
+        "error": "No se pudo leer la lista.",
+        "empty": "Aún no tienes <n>{{plural}}</n> que dar.",
+        "truncated": "La lista está recortada.",
+        "gone": "no disponible",
+        "access": "Acceso a {{name}}",
+        "read": "Lectura",
+        "write": "Leer y cambiar",
+        "none": "Ninguno marcado: no puede usar ningún elemento (<n>{{noun}}</n>).",
+        "some": "Solo los marcados. Aun así necesitas tu propio acceso a cada uno."
+      },
+      "skills": {
+        "summaryOff_one": "{{count}} habilidad se activa con él",
+        "summaryOff_other": "{{count}} habilidades se activan con él",
+        "summaryOn": "{{on}} de {{total}} habilidades activas"
+      },
+      "addonOn": {
+        "title": "{{name}} activado",
+        "body_one": "{{count}} habilidad activada con él: {{names}}. No se guarda nada hasta que guardes.",
+        "body_other": "{{count}} habilidades activadas con él: {{names}}. No se guarda nada hasta que guardes."
+      },
+      "skillAddonOff": "Su complemento está apagado, así que esta habilidad no hace nada.",
+      "memorySkills": {
+        "title": "Habilidades de memoria",
+        "from": "de {{slot}}",
+        "on": "Activada mientras la memoria está activada.",
+        "off": "Desactivada mientras la memoria de este agente está desactivada.",
+        "offUser": "Desactivada, porque la memoria está desactivada en tus Ajustes."
+      },
+      "slot": {
+        "memory": "Memoria"
+      }
+    },
+    "memoryLevelApplied": {
+      "title": "Memoria: {{name}}",
+      "off": "No lee ni guarda notas, y el permiso de recordar cosas está desactivado. No se guarda nada hasta que guardes.",
+      "reads": "El permiso de recordar cosas está desactivado, así que lee notas pero no puede guardar ninguna. No se guarda nada hasta que guardes.",
+      "saves": "El permiso de recordar cosas está activado. No se guarda nada hasta que guardes."
     }
   },
   "run": {
@@ -450,7 +569,8 @@
       "noChanges": "Nothing differs from the saved trigger.",
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
-      "changed_other": "{{count}} changes"
+      "changed_other": "{{count}} changes",
+      "watchNoFiles": "Este agente tiene «Sin archivos»: una ejecución de este disparador sabe que llegó un archivo, pero no puede abrirlo. Dale acceso a archivos en su editor o elige otro agente."
     },
     "subtitle": "Inicia un agente según un horario o cuando llega un archivo. Cada ejecución es un chat que puedes abrir."
   },
@@ -654,7 +774,7 @@
   },
   "folder": {
     "all": "Todos mis archivos",
-    "one": "Carpetas elegidas",
+    "one": "Solo estas carpetas",
     "scopeLabel": "Archivos que este agente puede alcanzar",
     "allHelp": "Los chats con este agente alcanzan todos tus archivos, como un chat sin agente.",
     "choose": "Elegir carpeta",
@@ -695,7 +815,9 @@
     "effectiveRead": "Está dentro de una carpeta de solo lectura, así que esta solo se puede leer.",
     "effectiveWrite": "Está dentro de una carpeta que se puede cambiar, así que esta también se puede cambiar.",
     "notMounted": "{{n}} carpetas compartidas no caben en el límite de acceso de un chat y no se montan.",
-    "exportNoteMany": "El archivo nombra {{n}} carpetas. Donde lo importes, el agente recibe las carpetas con esas rutas que existan y te pide elegir las demás."
+    "exportNoteMany": "El archivo nombra {{n}} carpetas. Donde lo importes, el agente recibe las carpetas con esas rutas que existan y te pide elegir las demás.",
+    "none": "Sin archivos",
+    "noneHelp": "Este agente no puede acceder a ninguno de tus archivos. Los archivos que adjuntas a un chat se quedan en ese chat. Vigilar una carpeta necesita acceso a archivos: un disparador que vigila una carpeta sigue iniciándose para este agente, pero no puede abrir los archivos que llegan."
   },
   "templates": {
     "researcher": {

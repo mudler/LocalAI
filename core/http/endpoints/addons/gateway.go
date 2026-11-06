@@ -2,6 +2,7 @@
 package addons
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,7 +64,21 @@ func failure(c echo.Context, code int, message string) error {
 // Option configures the deployment-level behaviour of a handler.
 type Option func(*settings)
 
-type settings struct{ mode string }
+type settings struct {
+	mode  string
+	guard SelectionGuard
+}
+
+// SelectionGuard says whether the person may select a resource for a
+// conversation. The chats service answers it for the add-ons whose resources
+// are scoped per agent: a chat of an agent selects only what the agent lists.
+// An error is an outage, never a yes.
+type SelectionGuard func(ctx context.Context, a contract.Actor, conversationID, addonID, resourceID string) (bool, error)
+
+// WithSelectionGuard sets the check of the conversation selection.
+func WithSelectionGuard(g SelectionGuard) Option {
+	return func(s *settings) { s.guard = g }
+}
 
 // WithOwnership selects the ownership mode the deployment configured. The
 // default is named-user; local-owner is never inferred from a request. The
@@ -215,6 +230,8 @@ func operationCauseMessage(code string) string {
 		return "This version of the add-on is installed already. Nothing was installed"
 	case managerpkg.CauseInstalledIncompatible:
 		return "This version of the add-on is not compatible with this server, so it cannot be turned on. Upgrade it to a newer version, then turn it on. Nothing was changed"
+	case managerpkg.CauseNeedsNewerHost:
+		return "This add-on needs a newer LocalAI. Update LocalAI, then try again. Nothing was installed"
 	case managerpkg.CauseDowngradeRefused:
 		return "The file holds an older version than the installed one. Confirm the downgrade to install it. Nothing was installed"
 	}

@@ -11,8 +11,10 @@ import { useMemorySettings } from '../hooks/useMemorySettings'
 import { useAgentAccess } from '../hooks/useAgentAccess'
 import { effectiveLines, flatRows, blockedCount } from '../utils/agentEffective'
 import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
-import { agentPayload, effectiveModes, emptyAgent, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, MEMORY_GRANT, memoryChoiceOf, memorySaveOf, missingConnectorGrants, newAgent, setGrant, withMemoryChoice } from '../utils/chatAgents'
+import { agentPayload, effectiveModes, emptyAgent, filesChoiceOf, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, withFilesChoice, memoryChoiceOf, memoryLevelOf, memorySaveOf, missingConnectorGrants, newAgent, setGrant, withMemoryChoice, withMemoryLevel } from '../utils/chatAgents'
 import { activePreset, PRESET_KEYS, presetPatch, snapshot, TEMPLATE_TEXT_KEYS } from '../utils/agentPresets'
+import { accountsAfter, addonNow, addonSkillState, addonSwitch, mcpRows, mcpUnknown, memorySkillsState, resourcesAfter } from '../utils/agentUses'
+import { skillKey } from '../utils/chatSkills'
 import { modelCaps } from '../utils/modelCaps'
 import { seesImages } from '../utils/chatVision'
 import { downloadAgentFile } from '../utils/agentFiles'
@@ -44,7 +46,13 @@ import AgentPresets, { AppliedNotice } from '../components/agents/AgentPresets'
 // eslint-disable-next-line no-unused-vars
 import AgentTemplates from '../components/agents/AgentTemplates'
 // eslint-disable-next-line no-unused-vars
-import AgentConnections from '../components/agents/AgentConnections'
+import AgentConnected from '../components/agents/AgentConnected'
+// eslint-disable-next-line no-unused-vars
+import AgentMcpPicker from '../components/agents/AgentMcpPicker'
+// eslint-disable-next-line no-unused-vars
+import AgentUses from '../components/agents/AgentUses'
+// eslint-disable-next-line no-unused-vars
+import AgentMemorySkills, { memorySkillFrom } from '../components/agents/AgentMemorySkills'
 // eslint-disable-next-line no-unused-vars
 import AgentEffective from '../components/agents/AgentEffective'
 // eslint-disable-next-line no-unused-vars
@@ -56,12 +64,11 @@ import { useSheetFocus } from '../components/agents/useSheetFocus'
 // The cards of the page, in order. `bare` parts have no heading of their own:
 // the card heading says what they are. `export` exists only for a saved agent.
 const GROUPS = [
-  { id: 'identity', icon: 'info', parts: ['BasicInfo', 'ModelSettings', 'PromptsGoals'], bare: true },
-  { id: 'capabilities', icon: 'plug', parts: ['Tools', 'Skills', 'Files'] },
+  { id: 'identity', icon: 'info', parts: ['BasicInfo', 'ModelSettings', 'PromptsGoals', 'Connected'], bare: true },
+  { id: 'capabilities', icon: 'plug', parts: ['Uses', 'Skills', 'Files'] },
   { id: 'memory', icon: 'memory', parts: ['Notes', 'MemorySettings'] },
-  { id: 'connections', icon: 'plug', parts: ['Connections'], bare: true },
   { id: 'effective', icon: 'eye', parts: ['Effective'], bare: true },
-  { id: 'advanced', icon: 'server', parts: ['MCP', 'export'], collapsible: true },
+  { id: 'advanced', icon: 'server', parts: ['export'], collapsible: true },
 ]
 const secDomId = (gid) => `aed-sec-${gid}`
 
@@ -116,6 +123,9 @@ export default function AgentCreate() {
   const [applied, setApplied] = useState(null)
   const [collapsed, setCollapsed] = useState(() => new Set())
   const formRef = useRef(null)
+  // The choice of whose notes the agent last had, for coming back from Off.
+  const lastWhose = useRef('')
+  if (form.memory && form.memory !== 'none') lastWhose.current = form.memory
 
   // Suggestions are best effort: a failure leaves the field free text.
   useEffect(() => {
@@ -182,7 +192,8 @@ export default function AgentCreate() {
   const initialFolders = useMemo(() => (isEdit ? folderRows(savedConfig) : []), [isEdit, savedConfig])
   const payload = useMemo(() => agentPayload(form, { initialFolders }), [form, initialFolders])
   // A folder row was added or changed and has no folder chosen.
-  const folderUnchosen = foldersUnchosen(initialFolders, form.folders)
+  // With No files the rows do not count: the server ignores them.
+  const folderUnchosen = filesChoiceOf(form) !== 'none' && foldersUnchosen(initialFolders, form.folders)
 
   // Adding the first grant to an agent that had none turns off what it did
   // by default on its messaging connections. Say so, and offer the fix.
@@ -268,6 +279,9 @@ export default function AgentCreate() {
   }, [loading, loadError])
 
   const mcp = splitAgentMCP(form.mcp_servers)
+  // The MCP servers: what the host defines, and what the agent holds that it does not.
+  const mcpList = mcpRows({ connectors: tools.connectors, servers: modelServers, stored: mcp.servers, checkable: !!form.model && modelServers.length > 0 })
+  const unknownMcp = mcpUnknown(mcpList)
   if (loading || loadError) {
     return (
       <Page className="ag-page" data-testid="agent-edit">
@@ -288,17 +302,24 @@ export default function AgentCreate() {
 
   // What each fold says about itself: ready mark, one line, and, when editing,
   // how many of its fields differ from the saved agent.
+  const memoryLevel = memoryLevelOf(form)
   const baseline = savedConfig ? agentPayload(savedConfig) : {}
   const diff = diffConfig(baseline, payload)
   const changedKeys = new Set(savedConfig ? diff.map(d => d.key) : [])
   const effective = effectiveLines({
     form,
     rows: flatRows(toolGroups),
-    skills: (tools.skills || []).filter(s => s.enabled && !s.gone).map(s => ({ on: true, id: s.name, label: s.name })),
+    skills: (tools.skills || []).filter(s => s.enabled && !s.gone && s.layer !== 'addon').map(s => ({ on: true, id: s.name, label: s.name })),
+    addons: tools.addons,
+    skillRows: tools.skills,
+    mcpUnknown: unknownMcp,
     memory: memoryUser.settings,
     access,
     isEdit,
   })
+  // The add-ons that are on and cannot work: the section says so, and so does
+  // the card on the nav.
+  const stuckAddons = tools.addons.filter(a => !a.gone && !a.off && addonNow(a).tone === 'warn').length + unknownMcp.length
   const countOf = (n, key) => (n ? t(key, { count: n }) : t('create.noneYet'))
 
   const foldInfo = (s) => {
@@ -307,31 +328,30 @@ export default function AgentCreate() {
     let keys = (SUMMARY_FIELDS[s.id] || []).map(f => f.name)
     if (s.id === 'Notes') {
       keys = ['memory']
-      summary = t(`chats:agentMemory.summary.${form.memory || 'asBefore'}`)
+      const lv = t(`chats:agentMemory.summary.level.${memoryLevel}`)
+      summary = memoryLevel === 'off' ? lv : t('chats:agentMemory.summary.combined', { level: lv, choice: t(`chats:agentMemory.summary.${form.memory || 'asBefore'}`) })
+      if (form.memory_save === 'auto' && memoryLevel === 'saves') summary = t('chats:agentMemory.summary.withAuto', { choice: summary })
       state = 'ready'
     }
     else if (s.id === 'MemorySettings') { keys = ['collections']; summary = countOf(form.collections.length, 'create.countCollections'); state = form.collections.length ? 'ready' : 'empty' }
     else if (s.id === 'Skills') { keys = ['skills']; summary = countOf(form.skills.length, 'create.countSkills'); state = form.skills.length ? 'ready' : 'empty' }
-    else if (s.id === 'Tools') {
-      keys = ['builtins_off', 'builtins_on', 'builtins', 'addons', 'mcp_servers', 'network', 'connections']
+    else if (s.id === 'Uses') {
+      keys = ['builtins_off', 'builtins_on', 'builtins', 'addons', 'mcp_servers', 'network', 'connections', 'resources']
       const { on, total } = switchCounts(switchRows(toolGroups))
       summary = total ? t('create.toolsSummary', { on, total }) : t('create.noneYet')
       state = on ? 'ready' : 'empty'
+      if (stuckAddons > 0) { summary = t('create.uses.needsSummary', { count: stuckAddons }); state = 'needs' }
     }
     else if (s.id === 'Files') { keys = ['folders']; ({ summary, state } = folderFold()) }
-    else if (s.id === 'Connections') {
-      keys = ['connections']
-      const named = tools.addons.filter(a => a.credentialed && !a.gone).reduce((n, a) => n + (a.enabled_connections || []).length, 0)
-      const n = named + tools.connections.length
-      summary = n ? t('create.connections.summary', { count: n }) : t('create.noneYet')
-      state = n ? 'ready' : 'empty'
+    else if (s.id === 'Connected') {
+      summary = tools.connections.length ? t('create.connections.summary', { count: tools.connections.length }) : t('create.noneYet')
+      state = 'ready'
     }
     else if (s.id === 'Effective') {
       const n = blockedCount(effective)
       summary = n ? t('create.eff.summaryBlocked', { count: n }) : t('create.eff.summaryOk')
       state = n ? 'needs' : 'ready'
     }
-    else if (s.id === 'MCP') { keys = ['mcp_servers']; summary = countOf(form.mcp_servers.length, 'create.countServers'); state = form.mcp_servers.length ? 'ready' : 'empty' }
     else {
       summary = summarise(SUMMARY_FIELDS[s.id], form)
       state = summary ? 'ready' : 'empty'
@@ -345,6 +365,7 @@ export default function AgentCreate() {
   // What the Files fold says when closed, and whether it needs the person.
   function folderFold() {
     const rows = form.folders || []
+    if (filesChoice === 'none') return { summary: t('folder.none'), state: 'ready' }
     if (!rows.length) return { summary: t('folder.all'), state: 'ready' }
     const open = rows.find(r => !r.path)
     if (open) {
@@ -359,11 +380,14 @@ export default function AgentCreate() {
   }
   function shownPath(path) { return path === '/' ? t('folder.home') : path }
 
-  // All my files, or chosen folders: back to the saved rows when there are some.
-  const setScope = (scope) => {
-    if (scope === 'all') updateField('folders', [])
-    else if (!(form.folders || []).length) updateField('folders', initialFolders.length ? initialFolders : [{ mode: 'read' }])
-  }
+  // The Files choice: No files, All my files or Only these folders. It sets
+  // the Files tool switch and the folder rows together (see withFilesChoice).
+  const filesChoice = filesChoiceOf(form)
+  const setScope = (choice) => setForm(prev => withFilesChoice(prev, choice, initialFolders))
+  // A level or template that leaves the Files tool off is No files: the folder
+  // rows go with it, so the choice reads the same everywhere. One that leaves
+  // it on keeps the rows (Full never wipes them).
+  const withPresetFiles = (next) => (filesChoiceOf(next) === 'none' ? { ...next, folders: [] } : next)
   const setRow = (i, patch) => updateField('folders', form.folders.map((r, j) => (j === i ? { ...r, ...patch } : r)))
   const removeRow = (i) => updateField('folders', form.folders.filter((_, j) => j !== i))
   const addRow = () => { updateField('folders', [...form.folders, { mode: 'read' }]); setChoosingFolder('new') }
@@ -377,19 +401,84 @@ export default function AgentCreate() {
   const applyLevel = (pid) => {
     const patch = presetPatch(pid, form, toolGroupsList, grantCatalog)
     if (!patch) return
-    setApplied({ kind: 'preset', id: pid, name: t(`create.preset.${pid}.title`), before: snapshot(form, PRESET_KEYS) })
-    setForm(prev => ({ ...prev, ...patch }))
+    setApplied({ kind: 'preset', id: pid, name: t(`create.preset.${pid}.title`), before: snapshot(form, [...PRESET_KEYS, 'folders']) })
+    setForm(prev => withPresetFiles({ ...prev, ...patch }))
+  }
+  // The memory level: it sets the choice and the grant together (see
+  // withMemoryLevel), with the same way back as a level. The choice of whose
+  // notes the agent had is kept for when it comes back from Off.
+  const setMemoryLevel = (lv) => {
+    if (lv === memoryLevel) return
+    setApplied({ kind: 'level', id: lv, name: t(`chats:agentMemory.level.${lv}.title`), before: snapshot(form, ['memory', 'builtins']) })
+    setForm(prev => withMemoryLevel(prev, lv, lastWhose.current))
   }
   const applyTemplate = (tpl) => {
     const patch = tpl.preset ? presetPatch(tpl.preset, form, toolGroupsList, grantCatalog) : null
-    const keys = patch ? [...TEMPLATE_TEXT_KEYS, ...PRESET_KEYS] : TEMPLATE_TEXT_KEYS
+    const keys = patch ? [...TEMPLATE_TEXT_KEYS, ...PRESET_KEYS, 'folders'] : TEMPLATE_TEXT_KEYS
     setApplied({ kind: 'template', id: tpl.id, name: t(`templates.${tpl.id}.label`), before: snapshot(form, keys) })
-    setForm(prev => ({ ...prev, name: tpl.name, description: tpl.description, instructions: tpl.instructions, ...(patch || {}) }))
+    setForm(prev => withPresetFiles({ ...prev, name: tpl.name, description: tpl.description, instructions: tpl.instructions, ...(patch || {}) }))
   }
   const undoApplied = () => {
     if (!applied) return
     setForm(prev => ({ ...prev, ...applied.before }))
     setApplied(null)
+  }
+  // An add-on switched on turns on the skills that come with it, with the same
+  // way back as a level. Switching it off turns off only those.
+  const titleOfAddon = (id) => tools.addons.find(a => a.id === id)?.title || id
+  const noteAddonOn = (id, turned, before) => {
+    if (!turned.length) return
+    setApplied({ kind: 'addon', id, name: titleOfAddon(id), count: turned.length, names: turned.join(', '), before: snapshot(before, ['addons', 'skills']) })
+  }
+  const switchAddon = (id, on) => {
+    const r = addonSwitch(form, id, on, tools.skillRows)
+    // Out of the box an add-on that scopes its resources per agent starts with
+    // all of yours ticked, to read: an empty list means none, and a row that is
+    // on and can do nothing is a trap. The ticks are in the row to untick.
+    const choice = tools.resourceChoices[id]
+    const fresh = on && tools.addons.find(a => a.id === id)?.resources && !(form.resources?.[id] || []).length && choice?.status === 'ready' && choice.items.length > 0
+    setForm(prev => ({
+      ...prev, addons: r.addons, skills: r.skills,
+      ...(fresh ? { resources: { ...(prev.resources || {}), [id]: choice.items.map(x => ({ id: x.id, mode: 'read' })) } } : {}),
+    }))
+    if (on) noteAddonOn(id, r.turned, form)
+    else if (applied?.kind === 'addon' && applied.id === id) setApplied(null)
+  }
+  // Ticking an account switches the add-on on, as the chat does.
+  const pickAccounts = (id, ids) => {
+    const r = accountsAfter(form, id, ids, tools.skillRows)
+    setForm(prev => ({ ...prev, connections: r.connections, ...(r.switchedOn ? { addons: r.addons, skills: r.skills } : {}) }))
+    if (r.switchedOn) noteAddonOn(id, r.turned, form)
+  }
+  const pickResource = (id, resId, mode) => {
+    const wasOff = !(form.addons || []).includes(id)
+    const resources = resourcesAfter(form, id, resId, mode)
+    if (mode && wasOff) {
+      const r = addonSwitch(form, id, true, tools.skillRows)
+      setForm(prev => ({ ...prev, resources, addons: r.addons, skills: r.skills }))
+      noteAddonOn(id, r.turned, form)
+    } else {
+      setForm(prev => ({ ...prev, resources }))
+    }
+  }
+  const appliedFor = (id) => (applied?.kind === 'addon' && applied.id === id
+    ? <AppliedNotice applied={applied} onUndo={undoApplied} onKeep={() => setApplied(null)} testId="agent-addon-applied" />
+    : null)
+  // The skills with an "its add-on is off" line, and the add-on's title as the source.
+  const skillRowsShown = tools.skills.map(sk => (sk.layer === 'addon' && !sk.gone && !(form.addons || []).includes(sk.addon)
+    ? { ...sk, unavailable: t('create.uses.skillAddonOff') } : sk))
+  // The skills the host grants with the notes are rows of their own: on while
+  // memory is on, off with the reason when it is not. They have no switch to flip.
+  const memSkillState = memorySkillsState(form, memoryUser.settings)
+  const grantedRowsShown = (tools.grantedSkills || []).map(sk => ({
+    ...sk, enabled: memSkillState === 'on', locked: true,
+    sourceLabel: memorySkillFrom(t, sk.provider), unavailable: t(`create.uses.memorySkills.${memSkillState}`),
+  }))
+  const allSkillRowsShown = [...skillRowsShown, ...grantedRowsShown]
+  const setMcp = (r, on) => {
+    if (r.ref.startsWith('connector:')) { tools.toggleMCP(r.ref, on); return }
+    const rest = mcp.servers.filter(x => x !== r.id)
+    updateField('mcp_servers', joinAgentMCP(on ? [...rest, r.id] : rest, mcp.connectors))
   }
   const chosenModel = chatModels.find(m => m.id === form.model)
   const describeModel = (name) => {
@@ -460,15 +549,20 @@ export default function AgentCreate() {
       case 'Notes':
         return (
           <AgentMemoryChoice
+            level={memoryLevel}
+            onLevel={setMemoryLevel}
             value={form.memory || ''}
             onChange={(c) => setForm(prev => withMemoryChoice(prev, c))}
-            saves={(form.builtins || []).includes(MEMORY_GRANT)}
-            onSaves={(on) => updateField('builtins', setGrant(form.builtins, MEMORY_GRANT, on))}
             userOff={memoryUser.settings?.enabled === false}
             saveRule={form.memory_save || ''}
             onSaveRule={(r) => updateField('memory_save', r || 'use_mine')}
             userLevel={memoryUser.settings?.save_mode}
-          />
+            notice={applied?.kind === 'level' && (
+              <AppliedNotice applied={applied} onUndo={undoApplied} onKeep={() => setApplied(null)} testId="agent-memory-applied" />
+            )}
+          >
+            <AgentMemorySkills rows={tools.grantedSkills} state={memorySkillsState(form, memoryUser.settings)} />
+          </AgentMemoryChoice>
         )
       case 'MemorySettings':
         return (
@@ -484,49 +578,69 @@ export default function AgentCreate() {
             <p className="ag-note">{t('create.skillsHelp')}</p>
             <div className="ag-switches" data-testid="agent-skills-panel">
               <SkillsPanel
-                skills={tools.skills} replaced={tools.replacedSkills} onSet={tools.setSkillsOn} error={tools.skillsError}
-                testId="agent-skills" heading={t('create.skillsHeading')} later={t('create.skillsLater')}
+ skills={allSkillRowsShown} replaced={tools.replacedSkills} onSet={tools.setSkillsOn} error={tools.skillsError}
+                testId="agent-skills" fromLabel heading={t('create.skillsHeading')} later={t('create.skillsLater')}
               />
             </div>
           </>
         )
       case 'Effective':
         return <AgentEffective lines={effective} dirty={dirty} isEdit={isEdit} hasConnections={access.length > 0} onGoTo={goTo} />
-      case 'Connections':
-        return <AgentConnections addons={tools.addons} bindings={tools.connections} onChange={tools.setConnections} />
-      case 'Tools':
+      case 'Connected':
+        return <AgentConnected bindings={tools.connections} />
+      case 'Uses':
         return (
           <>
-            <AgentPresets active={level} ready={levelReady} onPick={applyLevel} />
-            <AppliedNotice applied={applied?.kind === 'preset' ? applied : null} onUndo={undoApplied} onKeep={() => setApplied(null)} testId="agent-preset-applied" />
-            <p className="ag-note">{t('create.toolsHelp')}</p>
-            {memoryUser.settings && memoryUser.settings.enabled === false && (
-              <Callout tone="info" icon="eye-off" testId="agent-memory-off">
-                {t('create.memoryOffUser')}{' '}<Link className="cs-link" to="/app/account?tab=memory">{t('create.memoryOffFix')}</Link>
-              </Callout>
-            )}
-            {missingGrants.length > 0 && (
-              <Callout
-                tone="warn" testId="agent-grants-notice"
-                title={t('create.grantsNoticeTitle')}
-                actions={<Button size="sm" onClick={() => updateField('builtins', missingGrants.reduce((l, g) => setGrant(l, g, true), form.builtins || []))} data-testid="agent-grants-add-missing">{t('create.grantsAddMissing')}</Button>}
-              >
-                {t('create.grantsNotice', { grants: missingGrants.map(g => t(`create.grantNames.${g.replace(/\./g, '_')}`, { defaultValue: g })).join(', ') })}
-              </Callout>
-            )}
-            <div className="ag-switches" data-testid="agent-tools-panel">
-              <SwitchPanel
-                heading={t('create.toolsHeading')} groups={toolGroups} error={tools.error} testId="agent-tools"
-                footer={<Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/mcp-connectors" data-testid="agent-tools-manage">{t('create.manageConnectors')}</Button>}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="ag-network">{t('create.network')}</label>
-              <select id="ag-network" className="input" value={form.network || 'off'} onChange={(e) => updateField('network', e.target.value)} data-testid="agent-network">
-                {['off', 'registries', 'all'].map(p => <option key={p} value={p}>{t(`create.networkPresets.${p}`)}</option>)}
-              </select>
-              <p className="ag-note">{t('create.networkHelp')}</p>
-            </div>
+            <AgentUses
+              presets={<AgentPresets active={level} ready={levelReady} onPick={applyLevel} />}
+              presetNote={t('create.uses.presetNote')}
+              notices={(
+                <>
+                  <AppliedNotice applied={applied?.kind === 'preset' ? applied : null} onUndo={undoApplied} onKeep={() => setApplied(null)} testId="agent-preset-applied" />
+                  <p className="ag-note">{t('create.toolsHelp')}</p>
+                  {memoryUser.settings && memoryUser.settings.enabled === false && (
+                    <Callout tone="info" icon="eye-off" testId="agent-memory-off">
+                      {t('create.memoryOffUser')}{' '}<Link className="cs-link" to="/app/account?tab=memory">{t('create.memoryOffFix')}</Link>
+                    </Callout>
+                  )}
+                  {missingGrants.length > 0 && (
+                    <Callout
+                      tone="warn" testId="agent-grants-notice"
+                      title={t('create.grantsNoticeTitle')}
+                      actions={<Button size="sm" onClick={() => updateField('builtins', missingGrants.reduce((l, g) => setGrant(l, g, true), form.builtins || []))} data-testid="agent-grants-add-missing">{t('create.grantsAddMissing')}</Button>}
+                    >
+                      {t('create.grantsNotice', { grants: missingGrants.map(g => t(`create.grantNames.${g.replace(/\./g, '_')}`, { defaultValue: g })).join(', ') })}
+                    </Callout>
+                  )}
+                </>
+              )}
+              builtinGroups={toolGroups.filter(g => !['addons', 'servers', 'connectors'].includes(g.key))}
+              error={tools.error}
+              network={(
+                <div className="form-group">
+                  <label className="form-label" htmlFor="ag-network">{t('create.network')}</label>
+                  <select id="ag-network" className="input" value={form.network || 'off'} onChange={(e) => updateField('network', e.target.value)} data-testid="agent-network">
+                    {['off', 'registries', 'all'].map(p => <option key={p} value={p}>{t(`create.networkPresets.${p}`)}</option>)}
+                  </select>
+                  <p className="ag-note">{t('create.networkHelp')}</p>
+                </div>
+              )}
+              mcpNode={(
+                <>
+                  <p className="ag-note">{t('create.mcpHelp')}</p>
+                  <AgentMcpPicker rows={mcpList} onSet={setMcp} />
+                </>
+              )}
+              footer={<Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/mcp-connectors" data-testid="agent-tools-manage">{t('create.manageConnectors')}</Button>}
+              addons={tools.addons}
+              skillRows={tools.skills}
+              choices={tools.resourceChoices}
+              appliedFor={appliedFor}
+              onAddon={switchAddon}
+              onAccounts={pickAccounts}
+              onSkill={(sk, on) => tools.setSkillsOn(new Set([skillKey(sk)]), on)}
+              onResource={pickResource}
+            />
           </>
         )
       case 'Files': {
@@ -536,10 +650,11 @@ export default function AgentCreate() {
           <>
             <Segmented
               label={t('folder.scopeLabel')} testId="agent-folder-scope" itemTestId="agent-folder-scope-"
-              value={rows.length ? 'one' : 'all'} onChange={setScope}
-              options={[{ id: 'all', label: t('folder.all') }, { id: 'one', label: t('folder.one') }]}
+              value={filesChoice === 'folders' ? 'one' : filesChoice} onChange={(c) => setScope(c === 'one' ? 'folders' : c)}
+              options={[{ id: 'none', label: t('folder.none') }, { id: 'all', label: t('folder.all') }, { id: 'one', label: t('folder.one') }]}
             />
-            {rows.length > 0 && (
+            {filesChoice === 'none' && <p className="ag-note ag-note--gap" data-testid="agent-folder-none-help">{t('folder.noneHelp')}</p>}
+            {filesChoice === 'folders' && (
               <div className="ag-folder" data-testid="agent-folder">
                 {rows.map((f, i) => {
                   const st = f.path ? 'ok' : folderState({ folder: f })
@@ -594,18 +709,10 @@ export default function AgentCreate() {
                 {isEdit && <p className="ag-note">{t('folder.nextMessage')}</p>}
               </div>
             )}
-            {!rows.length && <p className="ag-note ag-note--gap">{t('folder.allHelp')}</p>}
+            {filesChoice === 'all' && <p className="ag-note ag-note--gap">{t('folder.allHelp')}</p>}
           </>
         )
       }
-      case 'MCP':
-        return (
-          <>
-            <p className="ag-note">{t('create.mcpHelp')}</p>
-            <NameList label={t('create.mcpServers')} hint={t('create.mcpHint')} value={mcp.servers} suggestions={modelServers}
-              onChange={(v) => updateField('mcp_servers', joinAgentMCP(v, mcp.connectors))} testId="agent-mcp" />
-          </>
-        )
       case 'export':
         return (
           <>
@@ -623,7 +730,8 @@ export default function AgentCreate() {
 
   const saveLabel = isEdit ? t('create.save') : imported ? t('create.titleImport') : t('create.titleCreate')
   const headName = (form.name || '').trim()
-  const visibleGroups = GROUPS.map(g => ({ ...g, parts: g.parts.filter(pid => pid !== 'export' || (isEdit && savedConfig)) }))
+  // A card with nothing in it (Advanced holds only the export of a saved agent) is not shown.
+  const visibleGroups = GROUPS.map(g => ({ ...g, parts: g.parts.filter(pid => pid !== 'export' || (isEdit && savedConfig)) })).filter(g => g.parts.length > 0)
 
   // A card needs the person when one of its parts does.
   const groupNeeds = (g) => g.parts.some(pid => pid !== 'export' && foldInfo({ id: pid }).state === 'needs')
@@ -643,7 +751,7 @@ export default function AgentCreate() {
   const status = dirty
     ? t('create.status.unsaved', { count: Math.max(diff.length, 1) })
     : t(isEdit ? 'create.status.clean' : 'create.status.new')
-  const toolsInfo = foldInfo({ id: 'Tools' })
+  const toolsInfo = foldInfo({ id: 'Uses' })
   const memoryInfo = foldInfo({ id: 'Notes' })
 
   return (
@@ -678,7 +786,7 @@ export default function AgentCreate() {
           </div>
           <ul className="aed-chips" aria-label={t('create.header.summary')}>
             <li className="aed-chip"><span className="aed-chip__k">{t('create.sections.ModelSettings')}</span><span className="aed-chip__v">{form.model || t('create.anyModel')}</span></li>
-            <li className="aed-chip"><span className="aed-chip__k">{t('create.sections.Tools')}</span><span className="aed-chip__v">{toolsInfo.summary}</span></li>
+            <li className="aed-chip"><span className="aed-chip__k">{t('create.sections.Uses')}</span><span className="aed-chip__v">{toolsInfo.summary}</span></li>
             <li className="aed-chip"><span className="aed-chip__k">{t('create.sections.Notes')}</span><span className="aed-chip__v">{memoryInfo.summary}</span></li>
           </ul>
         </header>

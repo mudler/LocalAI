@@ -103,6 +103,16 @@ That name is reserved: a Tables manifest cannot redefine it.
 Tool names use hyphens because LocalAI manifests accept only
 `[a-z][a-z0-9-]*` identifiers.
 
+### Databases of a saved agent
+
+Tables opts in to per-agent resources. A saved agent that names Tables lists the
+databases it may use, each as **Read** or **Read and change**; with none listed it
+uses none, and the list tool shows it only those databases. Creating a database is
+not limited, but a new database is on no list until you add it to the agent. See
+[Resources of an agent](/features/chats-agents/#resources-of-an-agent). This needs
+LocalAI with feature level 2 (see [Feature level](/features/addons/#feature-level)); an
+older LocalAI refuses this version of Tables when it installs it.
+
 ### Database discovery
 
 `addon__tables__databases-list` takes exactly `{}` and reads the host's resource

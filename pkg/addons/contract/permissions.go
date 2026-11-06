@@ -32,9 +32,10 @@ const (
 	// CapKnowledgeWrite lets a sender have the agent propose a text for the
 	// person's Knowledge. The owner still confirms each one.
 	CapKnowledgeWrite = "knowledge.write"
-	// CapToolsWrite lets a sender make an add-on tool change something outside
-	// LocalAI, such as a comment on an issue. It is for the tools of a kind
-	// whose binding holds a credential.
+	// CapToolsWrite lets a sender make an add-on tool change something, such
+	// as a comment on an issue outside LocalAI, or a table of the owner. It is
+	// for the tools of a kind whose binding holds a credential and for the
+	// tools of an add-on whose resources are scoped per agent.
 	CapToolsWrite = "tools.write"
 )
 
@@ -87,23 +88,23 @@ type CapabilityInfo struct {
 // capabilityText is the title and description of each capability. Titles are
 // short verbs; descriptions say what changes and who can cause it.
 var capabilityText = map[string][2]string{
-	CapProposalsConfirm: {"Confirm changes from the chat", "A sender can confirm a trigger or a change that the agent proposed (a memory note, the agent rules, a skill, a page, the dashboard or a text for Knowledge) by answering yes or no in the same chat. Every change except a memory note needs a paired sender."},
+	CapProposalsConfirm: {"Confirm changes from the chat", "A sender can confirm a trigger or a change that the agent proposed (a memory note, the agent rules, a skill, a page, the dashboard or a text for Knowledge) by answering yes or no in the same chat. Every change except a memory note needs a verified person."},
 	CapMemoryWrite:      {"Save to memory", "The agent may remember what a sender asks it to remember."},
 	CapFilesUpload:      {"Receive files", "The agent may read files that senders attach to a message."},
 	CapTriggersPropose:  {"Propose triggers", "The agent may propose a timer or an event trigger when a sender asks for one."},
 	CapTriggersRun:      {"Fire event triggers", "A message from a sender may start a run of an event trigger."},
-	CapTalkbackChannels: {"Post to approved channels", "The agent may write to the approved channels below when a sender asks, besides the chat it answers in."},
-	CapTalkbackNewChan:  {"Post to a new channel", "The agent may write to a channel that is not approved yet."},
+	CapTalkbackChannels: {"Post to other channels", "The agent may write to the channels listed under Place the bot may post when a sender asks, besides the chat it answers in. This does not decide whose messages the bot trusts."},
+	CapTalkbackNewChan:  {"Post to a new channel", "The agent may write to a place that is not on that list yet."},
 	CapProfileWrite:     {"Change the agent profile", "The agent may change its own profile."},
 	CapSkillsWrite:      {"Write skills", "The agent may write or change skills."},
 	CapPagesWrite:       {"Write pages", "The agent may write or change pages."},
 	CapDashboardWrite:   {"Write the dashboard", "The agent may change the dashboard."},
 	CapKnowledgeWrite:   {"Add to knowledge", "The agent may propose a text for a collection of the Knowledge. The owner confirms each one."},
-	CapToolsWrite:       {"Change things outside LocalAI", "An add-on tool may change something with the credential of the binding, such as a comment on an issue."},
+	CapToolsWrite:       {"Let people who are not verified change things with add-on tools", "An add-on tool may change something outside LocalAI or in your own data. Verified people already use the write tools of the add-ons the agent is connected to; the write mode of the connection still applies. Turn this on to let listed people who are not verified use them too, and to let verified people use the write tools of add-ons that have no connection. People let in only through a channel, or by a bot that accepts anyone, do not get them, unless a role grants it. The one exception is an add-on that keeps your own data, such as Calendar or Contacts: with this on, everyone the bot lets in can change that data."},
 }
 
 // usualCapabilities are what an owner normally allows on a new binding: the
-// everyday ones that stay inside LocalAI and the approved channels.
+// everyday ones that stay inside LocalAI and the channels it may post to.
 var usualCapabilities = map[string]bool{
 	CapProposalsConfirm: true, CapMemoryWrite: true, CapFilesUpload: true,
 	CapTriggersPropose: true, CapTriggersRun: true, CapTalkbackChannels: true,
@@ -140,7 +141,12 @@ func ConnectorCapabilities() []CapabilityInfo {
 // binding. The rule is by shape, so the host names no add-on: a tool that
 // writes, in an add-on that holds a credential for the person's binding,
 // changes something outside LocalAI with that person's token, and needs
-// CapToolsWrite. credentialed says that the manifest declares credentials.
+// CapToolsWrite. So does a tool that writes in an add-on whose resources are
+// scoped per agent, or in an add-on that declares ownerData: it changes the
+// owner's data on a sender's word, so a sender needs the capability, which
+// the owner and paired senders hold.
+// credentialed says that the manifest declares credentials or per-agent
+// resources.
 func ToolPermission(credentialed bool, d ToolDefinition) string {
 	if credentialed && d.Kind != ToolKindRead {
 		return CapToolsWrite

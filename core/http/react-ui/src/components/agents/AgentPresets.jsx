@@ -14,8 +14,8 @@ export function AppliedNotice({ applied, onUndo, onKeep, testId }) {
       severity="info"
       icon="check-circle"
       testId={testId}
-      title={applied.kind === 'template' ? t('create.tpl.applied', { name: applied.name }) : t('create.preset.applied', { name: applied.name })}
-      reason={applied.kind === 'template' ? t('create.tpl.appliedBody') : t('create.preset.appliedBody')}
+      title={applied.kind === 'template' ? t('create.tpl.applied', { name: applied.name }) : applied.kind === 'addon' ? t('create.uses.addonOn.title', { name: applied.name }) : applied.kind === 'level' ? t('create.memoryLevelApplied.title', { name: applied.name }) : t('create.preset.applied', { name: applied.name })}
+      reason={applied.kind === 'template' ? t('create.tpl.appliedBody') : applied.kind === 'addon' ? t('create.uses.addonOn.body', { count: applied.count, names: applied.names }) : applied.kind === 'level' ? t(`create.memoryLevelApplied.${applied.id}`) : t('create.preset.appliedBody')}
       fix={{ label: t('create.undo'), onClick: onUndo, testId: `${testId}-undo` }}
       secondary={{ label: t('create.keep'), onClick: onKeep, testId: `${testId}-keep` }}
     />

@@ -1,24 +1,27 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-// The readiness list at the top of the form: one row per thing that must agree
-// for the bot to work, each with a state, one sentence and at most one fix.
+// The status line at the top of the form: the token, the agent and who is let
+// in, each with a state, one sentence and at most one fix, and how many things
+// need the owner. What each kind of sender may do is in the matrix, not here.
 // The rows come from access.js; this file only draws them.
 import { useState } from 'react'
 import Icon from '../../host-compat/src/components/Icon'
-import { FixButton } from './CapabilitiesPanel'
-import { readinessRows, visibleRows } from './access'
+import { FixButton } from './accessHooks'
+import { readinessRows, statusRows, visibleRows } from './access'
 
 // The words of a row. A key with a count has plural forms (_one, _other, ...)
 // that the translator picks by the rules of the language.
 function sentence(row, s) {
   const params = row.params || {}
-  const { messageKey, ...rest } = params
-  return s(row.key, messageKey ? { ...rest, message: s(messageKey) } : rest)
+  const { messageKey, modeKey, ...rest } = params
+  const words = messageKey ? { ...rest, message: s(messageKey) } : rest
+  return s(row.key, modeKey ? { ...words, mode: s(modeKey) } : words)
 }
 
 const ICON = { ok: 'check-circle', attention: 'warning', off: 'minus', after_save: 'save', broken: 'alert-circle', checking: 'spinner', unknown: 'help-circle' }
 
 export default function ReadinessList({ rowsInput, s, ctx, onTest, onSave }) {
-  const rows = readinessRows(rowsInput)
+  // Only the token, the agent and who is let in: everything else is a cell of the matrix.
+  const rows = statusRows(readinessRows(rowsInput))
   const [expanded, setExpanded] = useState(false)
   const { shown, hidden } = visibleRows(rows, expanded)
   const problems = rows.length - rows.filter((r) => ['ok', 'off', 'checking'].includes(r.state)).length
@@ -26,7 +29,8 @@ export default function ReadinessList({ rowsInput, s, ctx, onTest, onSave }) {
     <section className="cn-ready" aria-labelledby="cn-ready-title" data-testid="connector-readiness">
       <div className="cn-ready__head">
         <h2 id="cn-ready-title" className="cn-sub__title">{s('ready.title')}</h2>
-        <span className="cn-muted" data-testid="connector-ready-summary">{problems > 0 ? s('ready.problems', { count: problems }) : rows.some((r) => r.state === 'checking') ? s('ready.checkingSummary') : s('ready.allGood')}</span>
+        <span className="cn-muted" data-testid="connector-ready-summary">{problems > 0 ? s('ready.notReady') : rows.some((r) => r.state === 'checking') ? s('ready.checkingSummary') : s('ready.allGood')}</span>
+        {problems > 0 && <span className="cn-pill" data-testid="connector-ready-pill">{s('ready.fixCount', { count: problems })}</span>}
       </div>
       <ul className="cn-ready__list" aria-label={s('ready.title')}>
         {shown.map((r) => (
@@ -36,7 +40,7 @@ export default function ReadinessList({ rowsInput, s, ctx, onTest, onSave }) {
               <span>{s(`ready.state.${r.state}`)}</span>
             </span>
             <div className="cn-ready__text">
-              <span className="cn-ready__label">{s(`ready.row.${r.id}`)}</span>
+              <span className="cn-ready__label">{s(r.labelKey || `ready.row.${r.id}`)}</span>
               <span className="cn-ready__sentence">{sentence(r, s)}</span>
             </div>
             {r.fix && <div className="cn-ready__fix"><FixButton fix={r.fix} ctx={ctx} s={s} onTest={onTest} onSave={onSave} /></div>}

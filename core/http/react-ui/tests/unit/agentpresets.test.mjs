@@ -82,3 +82,11 @@ test('model caps: flags and plain names read the same, chat and tokenize are lef
   assert.deepEqual(modelCaps({ capabilities: ['FLAG_CHAT', 'FLAG_VISION', 'vision', 'tokenize', 'FLAG_EMBEDDINGS'] }), ['vision', 'embeddings'])
   assert.deepEqual(modelCaps(undefined), [])
 })
+
+test('presets: Look only and Assistant mean No files, Full means All my files', async () => {
+  const { filesChoiceOf } = await import('../../src/utils/chatAgents.js')
+  assert.equal(filesChoiceOf(apply('readonly', newAgent())), 'none')
+  assert.equal(filesChoiceOf(apply('assistant', newAgent())), 'none')
+  assert.equal(filesChoiceOf(apply('full', apply('readonly', newAgent()))), 'all')
+  assert.equal(filesChoiceOf(newAgent()), 'all', 'a new agent keeps All my files')
+})

@@ -126,6 +126,7 @@ var chatRules = []errRule{
 	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrCommandBusy),
 	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", studiosvc.ErrNothingToCompact, studiosvc.ErrNothingToClear, studiosvc.ErrCannotCompact),
 	fixed(http.StatusNotFound, typeNotFound, "agent not found", agents.ErrNotFound),
+	fixed(http.StatusNotFound, typeNotFound, "this add-on has no resources to give to an agent", studiosvc.ErrNotScoped),
 	fixed(http.StatusConflict, typeConflict, "you already have an agent with this name", agents.ErrNameTaken),
 	verbatim(http.StatusBadRequest, typeInvalid, agents.ErrInvalid.Error()+": ", agents.ErrInvalid),
 	sentinelText(http.StatusBadRequest, typeInvalid, studiosvc.ErrAgentFolder),
@@ -193,6 +194,13 @@ func (h *Handlers) describe(c echo.Context, user string, rec session.ChatRecord)
 	}
 	conv := conversation(rec, info)
 	conv.Goal = h.goalJSON(rec.Goal)
+	if rec.Origin == session.OriginConnector {
+		if conns := h.svc.Connectors(); conns != nil {
+			if p, ok := conns.InfoOf(c.Request().Context(), rec.OriginID, rec.ID); ok {
+				conv.Place = &schema.ChatsPlace{Direct: p.Direct, Thread: p.Thread, Name: p.Name, Link: p.Link}
+			}
+		}
+	}
 	return conv, nil
 }
 
@@ -434,6 +442,20 @@ func messageList(principal string, entries []session.Entry) schema.ChatsMessageL
 		}
 		if e.Role == session.RoleGoal {
 			m.GoalEvent, m.GoalTurn = e.Note, e.Rev
+		}
+		if e.Sender != nil && e.Role == session.RoleUser {
+			m.Sender = &schema.ChatsSender{ID: e.Sender.ID, Name: e.Sender.Name, Username: e.Sender.Username, Standing: e.Sender.Standing}
+		}
+		if e.Role == session.RoleThread {
+			m.Text = ""
+			m.Thread = &schema.ChatsThread{Lines: append([]string{}, session.ThreadLines(e.Text)...), Cut: e.Note == session.ThreadCut}
+		}
+		if e.Role == session.RoleHostNote {
+			m.HostNote = &schema.ChatsHostNote{Code: e.Note}
+		}
+		if e.Role == session.RoleFailure {
+			f := session.ParseFailure(e)
+			m.Failure = &schema.ChatsFailure{Code: f.Code, Model: f.Model, RetryAfter: f.RetryAfter, Detail: f.Detail}
 		}
 		out.Messages = append(out.Messages, m)
 	}

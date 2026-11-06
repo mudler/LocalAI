@@ -60,13 +60,54 @@ test('effective: the save level is the stricter of the person and the agent', ()
   assert.equal(byId(lines, 'memory-level').text, 'memory.level.always')
   assert.equal(effectiveLines({ ...base({ memory_save: 'never' }) }).find((l) => l.id === 'memory-level').text, 'memory.level.never')
   assert.equal(byId(effectiveLines(base()), 'memory-level').text, 'memory.level.ask')
+  const loose = byId(effectiveLines({ ...base({ memory_save: 'auto' }), memory: { enabled: true, save_mode: 'ask' } }), 'memory-level')
+  assert.equal(loose.text, 'memory.level.agentAuto', 'the agent saves at once although the person asks')
+  assert.equal(loose.state, 'allowed')
+  assert.equal(byId(effectiveLines({ ...base({ memory_save: 'auto' }), memory: { enabled: true, save_mode: 'always' } }), 'memory-level').text, 'memory.level.always')
   assert.equal(byId(effectiveLines({ ...base(), memory: { enabled: true, save_mode: 'auto' } }), 'memory-level').state, 'allowed')
 })
 
-test('effective: a choice that saves without the right to remember is blocked', () => {
+test('effective: reads without the right to remember says it cannot save, and is not blocked', () => {
   const lines = effectiveLines(base({ builtins: [] }))
-  assert.equal(byId(lines, 'memory-grant').state, 'blocked')
-  assert.equal(effectiveLines(base({ memory: 'none' })).find((l) => l.id === 'memory').text, 'memory.none')
+  const l = byId(lines, 'memory-level')
+  assert.equal(l.text, 'memory.readsOnly')
+  assert.notEqual(l.state, 'blocked')
+  assert.equal(blockedCount(lines), blockedCount(effectiveLines(base())), 'it adds nothing blocked')
+  assert.equal(byId(lines, 'memory-grant'), undefined)
+})
+
+test('effective: Off says memory is off and has no save line, whatever the grant', () => {
+  const lines = effectiveLines(base({ memory: 'none' }))
+  assert.equal(byId(lines, 'memory').text, 'memory.none')
+  assert.equal(byId(lines, 'memory-level'), undefined)
+  assert.equal(byId(effectiveLines(base({ memory: 'none', builtins: ['memory.write'] })), 'memory-level'), undefined)
+})
+
+test('effective: an agent from before the choice has no save line unless it holds the right', () => {
+  assert.equal(byId(effectiveLines(base({ memory: '', builtins: [] })), 'memory-level'), undefined)
+  assert.equal(byId(effectiveLines(base({ memory: '', builtins: ['memory.write'] })), 'memory-level').text, 'memory.level.ask')
+})
+
+test('effective: Settings Off beats every level of the agent', () => {
+  for (const over of [{}, { builtins: [] }, { memory: 'none' }]) {
+    const lines = effectiveLines({ ...base(over), memory: { enabled: false, save_mode: 'auto' } })
+    assert.equal(byId(lines, 'memory-off').text, 'memory.userOff')
+    assert.equal(byId(lines, 'memory-level'), undefined)
+  }
+})
+
+const memView = (code) => ({ subjects: [{ id: 'anyone', decisions: [{ capability: 'memory.write', allowed: false, code, message: 'No.', fix: null }] }] })
+
+test('effective: a connection that lacks the memory permission is named, and an agent that only reads is not blamed on it', () => {
+  const conn = (view) => [{ id: 'b1', name: 'Team chat', to: '/x', status: 'ok', view }]
+  const cut = effectiveLines({ ...base(), isEdit: true, access: conn(memView('connection_permission_off')) })
+  assert.equal(byId(cut, 'memory-connection').vars.names, 'Team chat')
+  assert.equal(byId(cut, 'conn-b1-memory.write').state, 'blocked')
+  const reads = effectiveLines({ ...base({ builtins: [] }), isEdit: true, access: conn(memView('agent_permission_off')) })
+  assert.equal(byId(reads, 'memory-connection'), undefined)
+  assert.equal(byId(reads, 'conn-b1-memory.write'), undefined, 'the agent chose to only read')
+  const saves = effectiveLines({ ...base(), isEdit: true, access: conn(memView('agent_permission_off')) })
+  assert.equal(byId(saves, 'conn-b1-memory.write').state, 'blocked', 'the agent saves, so the missing right is a fault')
 })
 
 test('effective: knowledge collections and files scope', () => {
@@ -147,4 +188,19 @@ test('try it: names what the test does not use, and keeps only readable lines', 
   assert.deepEqual(notApplied({ ...newAgent(), collections: ['a'], folders: [{}] }), ['grants', 'memory', 'knowledge', 'folders'])
   const lines = tryLines([{ seq: 1, role: 'user', text: 'hi' }, { seq: 2, role: 'reasoning', text: 'x' }, { seq: 3, role: 'tool', text: 'web_search\n{...}' }, { seq: 4, role: 'assistant', text: ' ' }, { seq: 5, role: 'assistant', text: 'ok' }])
   assert.deepEqual(lines.map((l) => [l.role, l.text]), [['user', 'hi'], ['tool', 'web_search'], ['assistant', 'ok']])
+})
+
+test('effective: the Files line follows the three choices', () => {
+  assert.equal(byId(effectiveLines(base()), 'files').text, 'files.all')
+  assert.equal(byId(effectiveLines(base({ folders: [{ path: '/Work', mode: 'read' }] })), 'files').text, 'files.folders')
+  const none = byId(effectiveLines(base({ builtins_off: ['files'] })), 'files')
+  assert.equal(none.text, 'files.none')
+  assert.equal(none.state, 'off')
+  // No files wins over folders the form still holds
+  assert.equal(byId(effectiveLines(base({ builtins_off: ['files'], folders: [{ path: '/Work' }] })), 'files').text, 'files.none')
+})
+
+test('try it: folders are not listed as skipped when the agent has No files', () => {
+  assert.deepEqual(notApplied({ ...emptyAgent(), folders: [{ path: '/Work' }] }), ['folders'])
+  assert.deepEqual(notApplied({ ...emptyAgent(), builtins_off: ['files'], folders: [{ path: '/Work' }] }), [])
 })

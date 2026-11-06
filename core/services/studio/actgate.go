@@ -3,6 +3,7 @@ package studio
 import (
 	"context"
 	"encoding/json"
+	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"slices"
 	"strings"
 
@@ -137,6 +138,7 @@ func (s *Service) gateAct(rec session.ChatRecord, pol builtins.ActPolicy, t sess
 				"tool", req.Name, "allowed", v.Allowed, "reason", v.Reason, "missing", v.Missing)
 		}
 		if !v.Allowed {
+			addontools.OutcomeFrom(ctx).Deny("act_" + v.Reason)
 			return v.Sentence, nil
 		}
 		return run(ctx, args)

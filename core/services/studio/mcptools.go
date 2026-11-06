@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -20,34 +21,34 @@ var reservedToolNames = map[string]bool{"spawn_agent": true, proposeTriggerName:
 // gets only what the agent grants. The second result lists the grants that
 // could not be used, as phrases for a note to the model.
 func (s *Service) hostTools(ctx context.Context, a workspace.Actor) ([]session.Tool, error) {
-	tools, _, err := s.scopedHostTools(ctx, a)
+	tools, _, _, err := s.scopedHostTools(ctx, a)
 	return tools, err
 }
 
-func (s *Service) scopedHostTools(ctx context.Context, a workspace.Actor) ([]session.Tool, []string, error) {
+func (s *Service) scopedHostTools(ctx context.Context, a workspace.Actor) ([]session.Tool, []string, []builtins.Built, error) {
 	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	sc := s.scopeOf(ctx, rec)
 	var tools []session.Tool
 	if s.d.HostTools != nil {
 		ts, err := s.d.HostTools(ctx, a)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		tools = append(tools, ts...)
 	}
 	if sc != nil && sc.deleted {
-		return tools, []string{"the agent of this chat was deleted"}, nil
+		return tools, []string{"the agent of this chat was deleted"}, nil, nil
 	}
 	// The chat's switches of the built-in groups also take away the add-on
 	// tool that replaces bash, and the collection tools.
 	hidden := s.hiddenFor(ctx, rec)
 	var missing []string
-	t, m, err := s.addonTools(ctx, a, rec, sc)
+	t, m, held, err := s.addonToolsHeld(ctx, a, rec, sc)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	tools, missing = append(tools, dropHidden(t, hidden)...), append(missing, m...)
 	if !hidden[collectionToolNames[0]] {
@@ -57,7 +58,7 @@ func (s *Service) scopedHostTools(ctx context.Context, a workspace.Actor) ([]ses
 	t, m = s.mcpTools(ctx, a, rec, sc, tools)
 	// MCP tools are external: an unattended run needs act.spend for them.
 	t = s.gateExternalAct(ctx, rec, t)
-	return append(tools, t...), append(missing, m...), nil
+	return append(tools, t...), append(missing, m...), held, nil
 }
 
 // mcpTools gives the chat its MCP tools: those of the model's own servers and

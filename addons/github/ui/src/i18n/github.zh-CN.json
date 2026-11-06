@@ -80,8 +80,8 @@
     "label": "智能体可以在 GitHub 上更改什么",
     "hint": "评论、新建 issue、标签和关闭 issue。它绝不会合并、删除或推送代码。",
     "off": "只读",
-    "propose": "先问你",
-    "auto": "不经询问直接执行",
+    "propose": "先询问",
+    "auto": "立即执行",
     "line": {
       "off": "它不能在 GitHub 上更改任何内容。",
       "propose": "每项更改都等待你的确认。",
@@ -94,8 +94,8 @@
     },
     "row": {
       "off": "只读",
-      "propose": "先问你",
-      "auto": "不经询问直接执行"
+      "propose": "先询问",
+      "auto": "立即执行"
     }
   },
   "approval": {

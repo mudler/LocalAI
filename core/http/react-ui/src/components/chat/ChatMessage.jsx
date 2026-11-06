@@ -14,6 +14,8 @@ import MessageAttachments from './Attachments'
 import { ActivityGroup, ActivityProposals, StreamingActivity } from './ActivityFold'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
+import { SenderLine } from './ConnectorChat'
+// eslint-disable-next-line no-unused-vars
 import AddonSlot from '../../addons/AddonSlot'
 
 // Assistant prose. The HTML string is memoised, so React leaves the node alone
@@ -25,7 +27,8 @@ function Prose({ html, className = '' }) {
 }
 
 // A turn that failed: the reason in plain words, what to do about it, a Retry
-// that sends the last question again and, apart, the cleaned technical detail.
+// that goes on from where the turn stopped (the lines before it stay) and,
+// apart, the cleaned technical detail.
 // failure says why (see utils/chatFailure.js); without it the card still shows
 // that the turn failed and offers the Retry.
 export function ErrorCard({ failure, isAdmin, kept, onRetry, canRetry }) {
@@ -155,6 +158,7 @@ function ChatMessage({
         </div>
       ) : isUser ? (
         <>
+          {msg.sender && <SenderLine sender={msg.sender} at={msg.at} />}
           {msg.loop && (
             <span className="cx-msg__loop" data-testid="message-loop-label">
               <Icon name="repeat" /> {t('message.loopRun', { run: msg.loop.run })}

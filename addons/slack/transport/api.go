@@ -133,6 +133,9 @@ type Identity struct {
 	BotID  string `json:"bot_id"`
 	TeamID string `json:"team_id"`
 	Team   string `json:"team"`
+	// URL is the address of the workspace, such as https://name.slack.com/.
+	// auth.test returns it to any token, so it needs no extra scope.
+	URL string `json:"url"`
 }
 
 // AuthTest returns the bot of a bot token.
@@ -175,6 +178,11 @@ func (a *API) PostMessage(ctx context.Context, bot, channel, thread, text string
 // Update replaces the text of a message that the bot sent.
 func (a *API) Update(ctx context.Context, bot, channel, ts, text string) error {
 	return a.call(ctx, bot, "chat.update", url.Values{"channel": {channel}, "ts": {ts}, "text": {text}}, nil)
+}
+
+// Delete removes a message that the bot sent.
+func (a *API) Delete(ctx context.Context, bot, channel, ts string) error {
+	return a.call(ctx, bot, "chat.delete", url.Values{"channel": {channel}, "ts": {ts}}, nil)
 }
 
 // User is a person of the workspace.

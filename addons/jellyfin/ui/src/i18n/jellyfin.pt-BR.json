@@ -69,7 +69,7 @@
     "hint": "Controle remoto de players, marcas de assistido, favoritos e adição a playlists. Ele nunca exclui, escaneia nem edita a biblioteca.",
     "off": "Somente leitura",
     "propose": "Pergunta antes",
-    "auto": "Age sem perguntar",
+    "auto": "Age na hora",
     "line": {
       "off": "Ele não pode alterar nada.",
       "propose": "Cada alteração espera o seu OK.",
@@ -83,7 +83,7 @@
     "row": {
       "off": "Somente leitura",
       "propose": "Pergunta antes",
-      "auto": "Age sem perguntar"
+      "auto": "Age na hora"
     }
   },
   "approval": {

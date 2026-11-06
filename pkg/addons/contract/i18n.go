@@ -31,6 +31,16 @@ const maxAcceptLanguageBytes = 1024
 type Translation struct {
 	// Kinds translates connector kinds, by kind ID.
 	Kinds map[string]KindText `json:"kinds,omitempty"`
+	// Resources translates the noun of the resources (feature level 2).
+	Resources *ResourceText `json:"resources,omitempty"`
+}
+
+// ResourceText is the translated noun of the resources of an add-on, singular
+// and plural. A field left out is shown in the next fallback (see
+// Manifest.ResourceNouns).
+type ResourceText struct {
+	Noun       string `json:"noun,omitempty"`
+	NounPlural string `json:"nounPlural,omitempty"`
 }
 
 // KindText is the translated text of one connector kind. A field left out is
@@ -68,8 +78,20 @@ func validateI18n(m Manifest) error {
 			return fmt.Errorf("i18n language %q: English is the manifest itself", tag)
 		}
 		seen[key] = true
-		if len(t.Kinds) == 0 {
+		if len(t.Kinds) == 0 && t.Resources == nil {
 			return fmt.Errorf("i18n language %q translates nothing", tag)
+		}
+		if rt := t.Resources; rt != nil {
+			rs := m.Capabilities.Resources
+			if rs == nil || rs.Noun == "" || *rt == (ResourceText{}) {
+				return fmt.Errorf("i18n %q translates resources that the manifest does not name", tag)
+			}
+			for _, w := range []string{rt.Noun, rt.NounPlural} {
+				if w != "" && !plainText(w, 40) {
+					return fmt.Errorf("i18n %q: invalid resource noun", tag)
+				}
+				total += utf8.RuneCountInString(w)
+			}
 		}
 		for id, text := range t.Kinds {
 			k, ok := kinds[id]
@@ -167,6 +189,46 @@ func (m Manifest) KindText(kindID, tag string) (title, description string) {
 		return title, description
 	}
 	return "", ""
+}
+
+// ResourceNouns returns the singular and plural noun of the resources for a
+// language tag. A translation that gives only the singular is not mixed with
+// the English plural: the plural then equals its singular. Without a
+// matching translation the English plural is used, else the English noun.
+func (m Manifest) ResourceNouns(tag string) (noun, plural string) {
+	r := m.Capabilities.Resources
+	if r == nil {
+		return "", ""
+	}
+	texts := map[string]ResourceText{}
+	for t, v := range m.I18n {
+		if v.Resources != nil {
+			texts[t] = *v.Resources
+		}
+	}
+	return ResolveResourceNouns(r.Noun, r.NounPlural, texts, tag)
+}
+
+// ResolveResourceNouns is the rule of Manifest.ResourceNouns for a host that
+// holds the English nouns and the translations apart from the manifest.
+func ResolveResourceNouns(noun, plural string, translations map[string]ResourceText, tag string) (string, string) {
+	if plural == "" {
+		plural = noun
+	}
+	langs := make([]string, 0, len(translations))
+	for t := range translations {
+		langs = append(langs, t)
+	}
+	if got, ok := MatchLanguage(tag, langs); ok {
+		t := translations[got]
+		if t.Noun != "" {
+			noun, plural = t.Noun, t.Noun
+		}
+		if t.NounPlural != "" {
+			plural = t.NounPlural
+		}
+	}
+	return noun, plural
 }
 
 // ValidLanguageTag reports whether s is a language tag a manifest may use: a

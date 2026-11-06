@@ -475,6 +475,9 @@ own record of the grants.
   must not be the name of a tool, an admin tool or a tool definition of the
   manifest; the host refuses such a manifest.
 - `list.items` is the key of the result array. It defaults to `resources`.
+- `agentScoped: true` (feature level 2) lets a saved agent name the resources it may
+  use. It needs a `list`, because the host builds the choices from it. See
+  [Resource listing for agents](#resource-listing-for-agents).
 - The manifest `api` range must reach 2. A manifest that declares a listing with
   `api.max` 1 is refused.
 - The tool is a read tool that takes exactly `{}`. The result lists at most 100
@@ -1578,6 +1581,38 @@ parent traversal, backslashes, percent escapes or URL schemes. These checks do
 not substitute for safe extraction, symlink checks, executable mode validation,
 or checking declared files exist, which belong to package installation.
 
+### Feature level
+
+The four compatibility ranges above are integers that every published add-on states
+(`host`, `api`, `protocol`, `dataFormat`). A new optional manifest field cannot use them
+without making every published add-on incompatible, so the host also has a **feature
+level**: one integer that counts the additive manifest features it understands.
+
+- The host declares its level (`contract.HostFeatureLevel`). This version has level 3.
+  A host that predates the levels is level 1.
+- A manifest may set `featureLevel` (a positive integer, default 1). It states the level
+  the add-on needs. A manifest that uses a field of a higher level must say so: the
+  parser refuses a manifest that uses `capabilities.resources.agentScoped`,
+  `capabilities.resources.nounPlural` or `i18n.<language>.resources` and does not declare
+  `featureLevel: 2`. `capabilities.ownerData` is level 3.
+- A host with a lower level refuses the add-on with the plain reason **needs a newer
+  LocalAI**. The add-on is not installed and not upgraded. A failed install or upgrade has
+  the cause `needs_newer_host`, and an update check shows the add-on as incompatible with
+  the reason `feature-level`.
+  The Add-ons page and the install and upgrade dialogs show it as "This add-on needs a newer
+  LocalAI." in every language of the interface.
+- The library entry has the optional `requires.featureLevel`. The host reads it before it
+  downloads the package. If the entry says nothing, the manifest is checked when the
+  package is staged, with the same reason.
+
+An older host cannot read the new names. It refuses a manifest with an unknown field, and
+it also refuses a **library index** that has an unknown field, because the index reader is
+strict too. So one entry with `requires.featureLevel` makes the whole index unreadable
+for a host that predates the field. For that reason the `catalog` command of the packager
+writes the field only when it gets `--feature-level-in-index`, and the committed index
+does not have it. Without it an older host still lists the add-on and refuses it when it
+stages the package. Turn the flag on once no host without the field needs the library.
+
 Capabilities are independent: `service` is a boolean, `tools` is a unique list
 of namespace names, and optional `ui` contains required `entry` and `sdk` range,
 optional `css`, `pages`, `navigation`, and `chatActions` lists. Navigation names
@@ -2614,8 +2649,17 @@ with the same bearer credential and incarnation header as every other route and 
 [Moving a file by handle](#moving-a-file-by-handle)), `me` (who the bot
 is, for the token check on save and the Test button), `media` (`media`: one
 reference of a message's `media`, and a `transfer` handle; the answer is
-`{"received": {"name", "mime"}}`) and, for a kind that declares `drafts`, `draft`
-(`chat`, `thread`, `draftId`, `text`).
+`{"received": {"name", "mime"}}`), `delete` (`chat`, `messageId`: remove a message of
+the bot) and, for a kind that declares `drafts`, `draft` (`chat`, `thread`, `draftId`,
+`text`).
+
+- **One message per answer.** A `send` with `messageId` replaces that message (the
+  preview) with the first part of the text. The shared route tries the edit again after
+  each wait the platform asks for (up to 3 tries, none over 30 s). If the edit still
+  cannot be made, it sends the part as a new message and then deletes the preview with the
+  same op as `delete`, so a preview with a cursor never stays beside the answer. A
+  platform that cannot delete leaves it. The host never sends the reasoning of the model
+  in a preview.
 
 - **Options.** A `poll` carries `options`, a map from each declared option id to the
   value in effect (the owner's choice, or the default). The host sends it with every
@@ -2757,7 +2801,9 @@ calls. The limits come from the platforms' own documents: see the table in
 
 **Inbound.** A pull add-on answers `poll` with normalized messages (`cursor`, `chat`,
 `thread`, `direct`, `mention`, `messageId`, `replyTo`, `senderId`, `senderName`,
-`senderUsername`, `text`, `unsupported`, `media`, `skip`) and the next offset.
+`senderUsername`, `chatName`, `link`, `text`, `unsupported`, `media`, `skip`) and the next
+offset. `chatName` (the channel or group name) and `link` (an https address of the message or
+its thread) are optional and are only shown to the owner in the header of the chat.
 `messageId` is the platform's ID of the message and `replyTo` the message it answers;
 the thread conversation mode uses them. Core keeps the offset with the binding, passes it
 to the next `poll` and stores the offset the answer names, so a new leader continues
@@ -3341,6 +3387,7 @@ Two more optional capability fields describe the UI-only resource management (se
 | `capabilities.undo` | Boolean. The add-on keeps a change set for the writes a chat makes at once and answers the host's undo calls (see [Undoing a change a chat made](#undoing-a-change-a-chat-made)). It changes no tool and offers nothing to a model. |
 | `capabilities.adminTools` | At most 4 tool names that only the host's own UI-only endpoints may run. An admin tool is never in `tools`, never has a tool definition, is never offered to a model and is refused by every model, proposal and typed-read path: the declared-tool rule of those paths reads `tools` only. |
 | `capabilities.connector` | Optional. 1 to 4 `kinds` of messaging binding the add-on serves, each with an `id`, a `title`, a `delivery` (`pull` or `push`) and optional texts and a `page`. See [Connector add-ons](#connector-add-ons). |
+| `featureLevel` | Optional positive integer, default 1. The feature level the add-on needs from the host. See [Feature level](#feature-level). |
 | `capabilities.resources` | Maps the management operations to tools: `create` (a declared tool of kind `create`), `rename` (a declared tool of kind `schema`), `inspect` (a declared tool of kind `read` whose result is an object with a `name` and a `revision`), `delete` (the one admin tool) and a plain-text singular `noun`. Every field is optional. An admin tool must be the `delete` of the mapping, and a mapping must name tools that exist with the kind it needs. A mapping with `create` or `delete` must also declare the read tool `resource-exists` in `tools`, because the host settles interrupted creations and deletions only on its explicit answer. `list` asks the host for a listing tool; see [Resource listing](#resource-listing). |
 
 A tool definition names the resource it works on with a required `resourceId`
@@ -3360,6 +3407,171 @@ but never offers it to a model, a chat, an agent or a trigger, and a model that
 names it gets the unknown-tool answer. The Sandbox uses it for `set-backend` and
 `confirm-host`: they change a setting, and the add-on asks the host whether the
 caller is an administrator before it acts.
+
+### Add-ons that keep the owner's own data
+
+An add-on that keeps the data of one person and needs no credential and no resource list (the
+[Calendar](/features/calendar/) and [Contacts](/features/contacts/) add-ons) sets `capabilities.ownerData` to `true` and
+`featureLevel` to 3. Its tools name no resource: the add-on keys the data on the user in the
+authority of the call, never on an argument. Reads run at once for every sender a messaging
+bot lets in. A tool of another kind than `read` is held to `tools.write` in a messaging chat,
+like the writes of a credentialed add-on: the owner and the senders paired with the bot hold
+it without a tick on the bot, and every other sender (a listed person who is not paired, a
+channel, a bot that accepts anyone) can read but not change. To let everyone the bot lets in
+change the data, tick **Let people who are not verified change things with add-on tools**
+(`tools.write`) in the permissions of that bot. The tick covers every sender, including listed
+people and, for a bot that accepts anyone, any sender, and it applies to these add-ons only:
+for other add-ons `tools.write` still stops short of a sender who is only let in. A trigger or a job runs the writes
+only under the `act.addons` grant of the action policy, as for any action tool.
+
+### Resource listing for agents
+
+An add-on whose resources a person may want to hand out one by one can opt in to
+per-agent resources:
+
+```json
+{
+  "featureLevel": 2,
+  "capabilities": {
+    "resources": {
+      "noun": "database",
+      "nounPlural": "databases",
+      "agentScoped": true,
+      "list": {"tool": "databases-list", "items": "databases"}
+    }
+  },
+  "i18n": {"it": {"resources": {"noun": "database", "nounPlural": "database"}}}
+}
+```
+
+- `agentScoped`, `nounPlural` and `i18n.<language>.resources` need `featureLevel` 2
+  (see [Feature level](#feature-level)). `agentScoped` also needs a `list` mapping,
+  else the manifest is refused.
+- The host names the resources in the agent form with `noun` and `nounPlural`, or
+  their translation for the language of the page. `noun` is the singular fallback
+  when there is no plural. Main-app texts name no add-on and no noun.
+- The add-on is not told about the agent. The host checks the list of the agent
+  before it forwards a call that names a resource, and filters the listing and the
+  selection of a chat. See
+  [Resources of an agent](/features/chats-agents/#resources-of-an-agent).
+- A tool that writes in such an add-on needs `tools.write` in a messaging chat.
+
+### A confirmation the owner can relax
+
+A `write` tool with `"approval": "always"` always waits for a person. A tool can also
+declare `"approvalOverridable": true`, so that the owner can choose not to be asked for
+that one tool. It is the only way to relax `approval`, and it needs three things:
+
+- The add-on declares a credential. The choice belongs to the person who owns the
+  connection.
+- The manifest declares the [user setting](#user-settings) `approval-<tool>` with the
+  values `ask` and `skip`, the default `ask` and no `role`. A manifest with another
+  default, other values or no setting is refused at install.
+- The owner sets it to `skip` on the add-on's page. The write needs the owner's own
+  browser session, like every user setting, so no model, API key or tool call can do it.
+
+The host then runs the tool without a card only when the connection's write mode is
+**propose** or **auto** (never **off**) and the call comes from one of two places:
+
+- a chat that the owner has open themselves, or
+- a messaging chat in which every sender of the turn is paired with the bot.
+
+A sender who is only on the allowlist, a sender let in because the bot accepts anyone, a
+role, a trigger, an agent job, a page, a sub-agent, and any call with no chat still get a
+proposal that waits for a person. The setting is read again when the call is applied, so
+switching it back stops a call that was stored a moment earlier. A tool that is not
+marked `approvalOverridable` is never relaxed, whatever the setting holds. In a cluster
+the decision for a messaging chat needs the grant of the turn, which lives on the
+frontend that runs it; a call without it asks.
+
+Every call that runs without a card is logged with the add-on, the tool, the connection,
+the user and the outcome (`applied`, `rejected`, `unknown` or `not_run`), and never the
+arguments. The same line is added to the connection's latest decisions. The connection's
+access view and its access preview (`approvals` in the answer of
+`GET /api/chats/connectors/{id}/access` and of the preview route) list each relaxable tool
+with its setting and who it runs for without asking now.
+
+### What happened to a tool call
+
+Every call of an add-on tool from a chat writes one line to the host log when it ends,
+whatever the ending:
+
+```
+studio: addon tool addon=<id> tool=<name> kind=<read|write|schema|create|action|-> binding=<id|-> resource=<name|-> chat=<origin> sender=<kind> outcome=<ok|denied|held|error> reason=<code|-> status=<http status|-> ms=<n>
+```
+
+- `chat` is the origin of the chat: `studio` for the web UI, or `connector`, `trigger`,
+  `job` or `page`.
+- `sender` says who the call is for: `owner` in the web UI; `paired`, `listed`, `role`,
+  `channel`, `anyone` or `mixed` for a messaging turn (how the sender was let in);
+  `trigger` or `job` for an unattended run.
+- `outcome` is `ok`, `held` (a write that waits for a person), `denied` (a rule stopped it
+  before the service was called) or `error`. A write that waited in a messaging chat
+  later gets one more event in **Latest decisions**: `confirmed`, `cancelled` or
+  `expired` (see [Confirming a held write in the chat](#confirming-a-held-write-in-the-chat)).
+- `reason` is a stable code: a code of the permission chain (`sender_needs_pairing`,
+  `connection_permission_off`), `write_mode_off`, `write_mode_propose` or
+  `approval_always` for a write that waits (`waiting_in_chat` when the bot asked in the
+  chat), `chat_confirmed`, `chat_cancelled` or `hold_expired` for its end, `resource_not_allowed` or
+  `resource_not_in_agent_list`, `select_connection`, `act_read_only`, or
+  `upstream_<status>` when the service behind the add-on refused the call.
+- `status` is the HTTP status that service answered, when the add-on says so.
+
+The line holds names and codes. It never holds the arguments, the result, a token or the
+text of a note. An identical line is written once in 30 seconds; the next one says
+`repeated=<n>` for the ones it held back.
+
+The same event is kept in memory, at most 20 for each connection and each bot, and the
+connection page shows it under **Latest decisions** with the tool, the outcome, the reason
+in the language of the page and the time. `GET /api/chats/connectors/{id}/access` returns
+them as `tool_outcomes`. They reset when the server restarts.
+
+### Confirming a held write in the chat
+
+A write tool waits for a person when the write mode of its connection is **ask first**.
+In the web UI the owner confirms it on the Add-ons page. In a messaging chat the host
+now asks in the chat itself, when the bot has `proposals.confirm` enabled and at least one
+sender is paired with it.
+
+- **What is written.** The host writes one message in the chat and thread of the request:
+  the title of the tool in plain words, the resource, and the facts the tool definition
+  lists, then how to answer: `yes` or `no`, or `confirm CODE` or `cancel CODE` when
+  several wait. It never writes the words of the model, a token or a raw JSON dump, and
+  every fact is cut to 120 characters. A tool definition lists its facts with two optional
+  fields: `title` (at most 60 characters) and `summaryFields` (at most 6 keys of the
+  sample that the preview returns). A key that is not listed is never repeated in a chat.
+- **Who may answer.** Only a sender who is paired with the bot and holds
+  `proposals.confirm`. A sender on the allowlist who is not paired, a member of a listed
+  channel, and anyone on a bot that accepts anyone get one sentence and nothing runs. The
+  person who asked and the person who answers can differ; the audit line names both. The
+  owner can still confirm or cancel it in the web UI.
+- **What runs.** The call stored with the proposal, bound to its digest, exactly as
+  proposed. A code works once. The answer must come from the chat and thread where it was
+  asked. The result goes back as one short message: a link or number the tool returned
+  when it is safe to show (an https address without credentials), or the plain reason it
+  failed, such as a refusal of the service behind the add-on.
+- **Limits.** At most 5 writes wait in the chats of one bot, at most 10 are asked in an
+  hour, and a proposal expires after 24 hours. The records survive a restart. Above a
+  limit the write waits for the owner in the web UI and the model is told so.
+- **Not in the chat.** A tool that declares `approval: "always"` still waits for a person
+  at the web UI, whatever a chat says.
+- **The model.** The result of the tool says the write waits for confirmation in the chat,
+  with the code, so the model does not say it was done. The web chat shows status lines
+  for waiting, confirmed, cancelled, expired and failed.
+
+When the service behind an add-on refuses a call (a token without the permission, a name
+that does not exist, a value it does not accept), the add-on tells the host the status and
+one fixed sentence that names the fix. The model gets `code: upstream_refused`, the
+`upstream` status and that sentence as `message`, and tells the person plainly instead of
+reporting an outage. An add-on does this by returning `protocol.Upstream(status, hint,
+err)` from its runtime (the 400 answer carries the `X-Addon-Upstream-Status` and
+`X-Addon-Upstream-Hint` headers; a host that does not read them behaves as before). The
+sentence must hold no token and no text the service sent back.
+
+A write that waits for a person (the write mode of the connection is **propose**, or the
+tool always asks) says so in one sentence. In the web UI the user confirms or cancels it
+on the Add-ons page. In a messaging chat the model tells the sender that the change waits
+for the owner, who confirms it in the web UI: a chat turn never confirms a change.
 
 ### Tools that replace a built-in tool
 

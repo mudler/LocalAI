@@ -6,6 +6,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/resourcesets"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -157,5 +158,54 @@ func knowledgeSwitch(s *Service) CapabilitySwitch {
 			return Block{Code: code, Reason: reason, Fix: &Fix{Kind: FixOpenAgent, Target: b.AgentID, Field: "collections"}}
 		}
 		return Block{Code: code, Reason: reason}
+	}
+}
+
+// resourcesSwitch is the CapabilitySwitch of the changes that add-on tools
+// make: when every add-on of the agent that can change things works on
+// resources the agent lists, and the list holds none to change, the capability
+// is off for the binding. An agent that also names an add-on without such a
+// list keeps the capability, because that add-on's tools can still change
+// things. Other capabilities pass.
+func resourcesSwitch(s *Service) CapabilitySwitch {
+	return func(ctx context.Context, b connectors.Binding, capability string) Block {
+		if capability != contract.CapToolsWrite || b.AgentID == "" || s.d.Agents == nil || s.d.AddonTools == nil {
+			return Block{}
+		}
+		ag, err := s.d.Agents.Get(ctx, principal(b.Owner), b.AgentID)
+		if err != nil {
+			return Block{} // the grants switch reports an agent it cannot read
+		}
+		defs, err := s.d.AddonTools.Tools(ctx, principal(b.Owner))
+		if err != nil {
+			return Block{}
+		}
+		scopedWriters := map[string]bool{}
+		for _, d := range defs {
+			if !d.Action || !slices.Contains(ag.Addons, d.AddonID) {
+				continue
+			}
+			if !d.ResourceScoped {
+				return Block{} // an add-on without a resource list can change things
+			}
+			scopedWriters[d.AddonID] = true
+		}
+		if len(scopedWriters) == 0 {
+			return Block{}
+		}
+		listed := false
+		for addon := range scopedWriters {
+			for _, e := range ag.Resources[addon] {
+				listed = true
+				if e.Mode == resourcesets.ModeWrite {
+					return Block{}
+				}
+			}
+		}
+		fix := &Fix{Kind: FixOpenAgent, Target: b.AgentID, Field: "resources"}
+		if listed {
+			return Block{Code: CodeAgentResourcesReadOnly, Reason: "every resource on the list of the agent is read only", Fix: fix}
+		}
+		return Block{Code: CodeAgentResourcesNone, Reason: "no resource is on the list of the agent", Fix: fix}
 	}
 }

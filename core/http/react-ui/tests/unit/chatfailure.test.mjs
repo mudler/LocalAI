@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
-import { failureView, isStaleFailure, STALE_FAILURE_MS } from '../../src/utils/chatFailure.js'
+import { failureView, isStaleFailure, savedFailure, keptAbove, STALE_FAILURE_MS } from '../../src/utils/chatFailure.js'
 
 const locales = new URL('../../public/locales/', import.meta.url)
 const load = (lng) => JSON.parse(readFileSync(new URL(`${lng}/chat.json`, locales), 'utf8'))
@@ -81,4 +81,24 @@ test('chat failure: an old failure seen after a reload is stale, a recent one is
   assert.equal(isStaleFailure('2026-10-30T11:00:00Z', now), false)
   assert.equal(isStaleFailure(new Date(now - STALE_FAILURE_MS - 1000).toISOString(), now), true)
   assert.equal(isStaleFailure('', now), false)
+})
+
+test('chat failure: the reason the server keeps in the transcript is read back for a reload', () => {
+  const messages = [
+    { role: 'user', text: 'build the report' },
+    { role: 'assistant', text: 'step one' },
+    { role: 'failure', text: 'The provider failed.', failure: { code: 'upstream', model: 'm', retry_after: 3, detail: 'HTTP 502' } },
+    { role: 'checkpoint', text: '' },
+  ]
+  assert.deepEqual(savedFailure(messages), { code: 'upstream', model: 'm', retry: 3, detail: 'HTTP 502', text: 'The provider failed.' })
+  // A transcript that went on after the failure has no failure to show.
+  assert.equal(savedFailure([...messages, { role: 'user', text: 'again' }]), null)
+  assert.equal(savedFailure([]), null)
+  assert.equal(savedFailure(undefined), null)
+})
+
+test('chat failure: the banner says what stays only when the failed turn produced something', () => {
+  assert.equal(keptAbove([{ role: 'user' }, { role: 'failure' }]), false)
+  assert.equal(keptAbove([{ role: 'user' }, { role: 'assistant' }, { role: 'tool' }, { role: 'failure' }]), true)
+  assert.equal(keptAbove([{ role: 'assistant' }, { role: 'user' }, { role: 'failure' }]), false, 'only the last turn counts')
 })

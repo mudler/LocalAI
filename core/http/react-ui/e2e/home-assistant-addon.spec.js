@@ -57,7 +57,7 @@ test.describe('Home Assistant add-on', () => {
     const row = page.getByTestId('connector-row')
     await expect(row).toContainText('Home')
     await expect(row.getByTestId('home-assistant-row-address')).toContainText('https://ha.example.org:8123')
-    await expect(row.getByTestId('home-assistant-row-write')).toHaveText('Asks you first')
+    await expect(row.getByTestId('home-assistant-row-write')).toHaveText('Asks first')
     await expect(page.getByTestId('home-assistant-setup')).not.toHaveAttribute('open', '')
   })
 
@@ -84,7 +84,7 @@ test.describe('Home Assistant add-on', () => {
     await page.getByRole('button', { name: 'New Home Assistant connection' }).click()
     const group = page.getByRole('radiogroup', { name: 'What the agent may change in your home' })
     await expect(group.getByRole('radio', { name: /Read only/ })).toBeChecked()
-    await group.getByRole('radio', { name: /Acts without asking/ }).check()
+    await group.getByRole('radio', { name: /Runs at once/ }).check()
     await expect(page.getByTestId('home-assistant-write-note')).toContainText('still waits for your confirmation every time')
   })
 

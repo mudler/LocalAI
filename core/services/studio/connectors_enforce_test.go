@@ -3,6 +3,7 @@ package studio_test
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/addons/telegram/transport"
@@ -42,7 +43,7 @@ var _ = Describe("permissions in the turns of a connector chat", func() {
 	ask := func(sender string, roles []string, text string) {
 		n++
 		Expect(r.conns.Ingest(ctx, "telegram", contract.ConnectorInbound{BindingID: b.ID, ConnectorMessage: contract.ConnectorMessage{
-			Chat: sender, Direct: true, SenderID: sender, SenderName: "S", Text: text, Roles: roles}})).To(Succeed())
+			Chat: sender, ChatName: "Room " + sender, Direct: true, SenderID: sender, SenderName: "S", Text: text, Roles: roles}})).To(Succeed())
 		waitFor("the answer", func() bool { return len(r.bot.answers()) >= n })
 	}
 	// askMember sends a message from a person who is not on the allowlist
@@ -116,7 +117,7 @@ var _ = Describe("permissions in the turns of a connector chat", func() {
 		ask("11", []string{"admin"}, "profile")
 		res = r.h.ResultsFor("propose_change")
 		Expect(res).To(HaveLen(2))
-		Expect(res[1].Err).To(MatchError(ContainSubstring("not permitted: You need to be paired with this bot by the owner before it can change the agent's rules for you.")))
+		Expect(res[1].Err).To(MatchError(ContainSubstring("not permitted: You need to be verified with this bot by the owner before it can change the agent's rules for you.")))
 		list, _ := r.svc.Changes().List(ctx, alice)
 		Expect(list).To(HaveLen(1), "the refused change made no proposal")
 	})
@@ -147,6 +148,20 @@ var _ = Describe("permissions in the turns of a connector chat", func() {
 		Expect(strings.Contains(string(raw), "be brief")).To(BeFalse(), "no message content in the audit")
 	})
 
+	It("names the sender and the chat in the audit, next to their IDs", func() {
+		setup([]string{contract.CapMemoryWrite, contract.CapProfileWrite}, admin)
+		ask("11", []string{"admin"}, "profile")
+		view, err := r.conns.Access(ctx, alice, b.ID)
+		Expect(err).NotTo(HaveOccurred())
+		i := slices.IndexFunc(view.Recent, func(e studio.AccessEvent) bool { return e.Capability == contract.CapProfileWrite })
+		Expect(i).To(BeNumerically(">=", 0))
+		e := view.Recent[i]
+		Expect([]string{e.SenderName, e.Chat, e.ChatName}).To(Equal([]string{"S", "11", "Room 11"}))
+		Expect(e.Senders).To(Equal([]string{"11"}), "the ID is still there")
+		raw, _ := json.Marshal(e)
+		Expect(string(raw)).To(And(ContainSubstring(`"sender_name":"S"`), ContainSubstring(`"chat_name":"Room 11"`)))
+	})
+
 	It("shows what each kind of sender may do", func() {
 		setup([]string{contract.CapMemoryWrite, contract.CapProfileWrite}, admin)
 		view, err := r.conns.Access(ctx, alice, b.ID)
@@ -160,9 +175,10 @@ var _ = Describe("permissions in the turns of a connector chat", func() {
 			}
 		}
 		Expect(allowed).To(Equal(map[string][]string{
-			"listed":     {contract.CapMemoryWrite},
-			"paired":     {contract.CapMemoryWrite, contract.CapProfileWrite},
-			"role:admin": {contract.CapMemoryWrite},
+			"listed":       {contract.CapMemoryWrite},
+			"channel_acts": {contract.CapMemoryWrite},
+			"paired":       {contract.CapMemoryWrite, contract.CapProfileWrite},
+			"role:admin":   {contract.CapMemoryWrite},
 		}))
 	})
 
@@ -171,7 +187,7 @@ var _ = Describe("permissions in the turns of a connector chat", func() {
 		Expect(r.conns.Ingest(ctx, "telegram", contract.ConnectorInbound{BindingID: b.ID, ConnectorMessage: contract.ConnectorMessage{
 			Chat: "11", Direct: true, SenderID: "11", Media: []string{"m1"}}})).To(Succeed())
 		waitFor("the refusal", func() bool { return len(r.bot.answers()) == 1 })
-		Expect(r.bot.answers()[0]).To(Equal("You may not send files to this bot."))
+		Expect(r.bot.answers()[0]).To(Equal("The owner has not turned that on for this bot."))
 		chats, _ := r.svc.List(ctx, alice, 10)
 		Expect(chats).To(BeEmpty())
 	})

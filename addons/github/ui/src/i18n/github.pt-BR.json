@@ -81,7 +81,7 @@
     "hint": "Comentários, novas issues, labels e fechamento de issues. Ele nunca faz merge, exclui nem envia código.",
     "off": "Somente leitura",
     "propose": "Pergunta antes",
-    "auto": "Age sem perguntar",
+    "auto": "Age na hora",
     "line": {
       "off": "Ele não pode alterar nada no GitHub.",
       "propose": "Cada alteração espera o seu OK.",
@@ -95,7 +95,7 @@
     "row": {
       "off": "Somente leitura",
       "propose": "Pergunta antes",
-      "auto": "Age sem perguntar"
+      "auto": "Age na hora"
     }
   },
   "approval": {

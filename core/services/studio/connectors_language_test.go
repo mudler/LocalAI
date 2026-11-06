@@ -82,7 +82,9 @@ var _ = Describe("the language of the host sentences in a chat", func() {
 					return false
 				}
 			}
-			return true
+			// The chat is idle before the connector has let go of the reply;
+			// a command in that gap is refused as busy.
+			return !r.conns.RepliesActiveForTest()
 		})
 	}
 	// ask sends a direct message and returns what the bot wrote back last,
@@ -104,7 +106,7 @@ var _ = Describe("the language of the host sentences in a chat", func() {
 		Expect(ask("/new", 1)).To(Equal("Nuova chat avviata. Non vedrò più i nostri messaggi precedenti."))
 		ingest(contract.ConnectorMessage{Chat: chatID, Thread: thread, Mention: true, Text: "/new"})
 		waitFor("the refusal", func() bool { return len(fake.texts(chatID, thread)) >= 1 })
-		Expect(fake.texts(chatID, thread)[0]).To(Equal("Solo un account abbinato può avviare una nuova chat qui, perché tutti in questa conversazione la condividono."))
+		Expect(fake.texts(chatID, thread)[0]).To(Equal("Solo un account verificato può avviare una nuova chat qui, perché tutti in questa conversazione la condividono."))
 		ingest(contract.ConnectorMessage{Chat: "11", Direct: true, Unsupported: true})
 		waitFor("the refusal", func() bool { return len(fake.texts("11", "")) >= 2 })
 		Expect(fake.texts("11", "")[1]).To(Equal("Non riesco a leggere questo tipo di messaggio. Invia un testo, una foto, un file o un messaggio vocale."))

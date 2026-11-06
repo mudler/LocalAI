@@ -41,6 +41,11 @@
       "readsLabel": "Membaca",
       "writesLabel": "Menulis",
       "costLabel": "Biaya",
+      "deliveryLabel": "Hasil dikirim ke",
+      "deliveryInbox": "Kotak masuk Anda",
+      "deliveryChat": "Obrolan ini",
+      "deliveryThread": "Utas ini",
+      "deliveryChannel": "{{channel}}, di tingkat atas kanal",
       "stopLabel": "Untuk menghentikannya",
       "when": "{{schedule}}, {{zone}}. Jalan pertama {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -266,7 +271,12 @@
   "connectorsPage": {
     "loadFailed": "Konektor Anda tidak dapat dimuat.",
     "waitingTitle": "Menunggu add-on-nya",
-    "waitingText": "Tautan ini tetap disimpan, tetapi tidak berjalan sampai add-on-nya dipasang dan diaktifkan."
+    "waitingText": "Tautan ini tetap disimpan, tetapi tidak berjalan sampai add-on-nya dipasang dan diaktifkan.",
+    "duplicate": {
+      "text": "Bot ini juga terhubung sebagai {{name}}. Kedua koneksi akan menjawab pesan yang sama.",
+      "turnOff": "Matikan yang ini",
+      "open": "Buka {{name}}"
+    }
   },
   "tools": {
     "commands": {
@@ -861,7 +871,7 @@
       "mine": "Milik saya",
       "deleted": "Agen yang dihapus",
       "channels": "Percakapan",
-      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "channelsNote": "Catatan yang disimpan dari chat di aplikasi pesan. Buka catatan untuk membacanya, atau hapus. Catatan dari pengirim yang belum terverifikasi bersama Anda selalu menunggu OK Anda.",
       "export": "Ekspor catatan ini",
       "clearAgent": "Hapus catatan agen ini",
       "clearDeleted": "Hapus catatan ini"
@@ -929,8 +939,8 @@
         "body": "Bot bertanya di obrolan: \"Balas ya untuk menyimpan.\" Pengirim yang terdaftar bisa menjawab di sana. Yang lain menunggu Anda di aplikasi."
       },
       "paired_private": {
-        "title": "Simpan untuk pengirim yang dipasangkan di obrolan pribadi",
-        "body": "Langsung disimpan hanya jika pengirim dipasangkan dan obrolannya satu lawan satu. Catatan masuk ke percakapan itu, dengan Urungkan. Catatan yang mirip rahasia tetap menunggu."
+        "title": "Simpan untuk orang terverifikasi di obrolan pribadi",
+        "body": "Langsung disimpan hanya jika pengirim adalah orang terverifikasi dan obrolannya satu lawan satu. Catatan masuk ke percakapan itu, dengan Urungkan. Catatan yang mirip rahasia tetap menunggu."
       },
       "never": {
         "title": "Jangan pernah",
@@ -987,15 +997,20 @@
       "title": "Seperti sebelumnya",
       "body": "Agen ini disimpan sebelum pilihan ini ada. Ia membaca catatan Anda jika daftar add-on-nya menyebut Memory, dan model memilih tempat menyimpan catatan. Pilih salah satu opsi di bawah untuk mengubahnya."
     },
-    "saveGrant": "Izinkan menyimpan catatan",
-    "saveGrantHelp": "Menyalakan izin Mengingat hal. Tanpa izin ini agen membaca catatan tetapi tidak dapat menyimpan.",
     "copyNote": "Mengekspor agen, atau mengimpornya sebagai agen baru, mempertahankan pilihan ini dan tidak pernah menyalin catatannya.",
     "summary": {
       "mine_and_own": "Milik saya dan miliknya",
       "own": "Hanya miliknya",
       "mine": "Milik saya",
       "none": "Tidak ada",
-      "asBefore": "Seperti sebelumnya"
+      "asBefore": "Seperti sebelumnya",
+      "withAuto": "{{choice}}, menyimpan langsung",
+      "level": {
+        "off": "Mati",
+        "reads": "Membaca catatan",
+        "saves": "Membaca dan menyimpan catatan"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "Hapus {{name}}?",
@@ -1020,7 +1035,11 @@
       "title": "Saat ingin menyimpan catatan",
       "use_mine": {
         "title": "Pakai pengaturan saya",
-        "body": "Saat ini: {{level}}."
+        "body": "Pengaturan Anda adalah <b>{{level}}</b>. <settings>Ubah di Pengaturan > Memori.</settings>"
+      },
+      "auto": {
+        "title": "Simpan dan beri tahu saya",
+        "body": "Menyimpan setiap catatan langsung dan memberi tahu Anda di obrolan, dengan Urungkan, meski pengaturan Anda Tanya saya dulu. Catatan yang panjang, atau yang tampak seperti rahasia, tetap menunggu."
       },
       "always": {
         "title": "Selalu konfirmasi",
@@ -1030,8 +1049,27 @@
         "title": "Jangan pernah",
         "body": "Membaca, tidak pernah menyimpan."
       },
-      "hint": "Agen boleh bertanya lebih banyak dari pengaturan Anda, tidak pernah lebih sedikit. \"Simpan dan beri tahu saya\" tidak ditawarkan di sini. Di obrolan aplikasi pesan, catatan masuk ke percakapan itu dulu, dan sampai ke catatan milik agen ini hanya dari pengirim yang dipasangkan."
-    }
+      "hint": "Di obrolan aplikasi pesan, catatan masuk ke percakapan itu dulu, dan sampai ke catatan milik agen ini hanya dari orang terverifikasi. Menyimpan langsung di obrolan aplikasi pesan hanya berlaku untuk orang terverifikasi di obrolan satu lawan satu.",
+      "offReason": "Tingkat penyimpanan tidak berlaku selama memori mati.",
+      "readsReason": "Tingkat penyimpanan tidak berlaku: agen ini membaca catatan tetapi tidak bisa menyimpan."
+    },
+    "level": {
+      "title": "Apa yang dilakukannya dengan catatan",
+      "off": {
+        "title": "Mati",
+        "body": "Tidak membaca dan tidak menyimpan catatan."
+      },
+      "reads": {
+        "title": "Membaca catatan",
+        "body": "Memakai catatan Anda untuk menjawab. Tidak pernah menyimpan."
+      },
+      "saves": {
+        "title": "Membaca dan menyimpan catatan",
+        "body": "Memakai catatan dan menyimpan yang baru, sesuai tingkat penyimpanan Anda."
+      }
+    },
+    "whose": "Catatan milik siapa",
+    "whoseOff": "Memori mati untuk agen ini, jadi tidak ada catatan untuk dipilih."
   },
   "providerPicker": {
     "title": "Penyedia",

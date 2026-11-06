@@ -15,23 +15,16 @@
   "agent": "Agente",
   "agentNone": "Scegli un agente",
   "agentNoModel": "{{name}} (serve un modello)",
-  "who": "Chi può usarla",
-  "onlyListed": "Solo le persone e i canali che elenco",
-  "anyone": "Chiunque nel workspace possa scrivere all'app",
   "anyoneWarning": "Chiunque possa scrivere a questa app o menzionarla può usare gli strumenti di questo agente, come te. Ogni persona, e ogni thread, ha una conversazione a sé.",
   "anyoneConfirm": "Ho capito",
-  "allowUsers": "Persone consentite",
-  "allowUsersHint": "ID utente (U...) o @nome",
-  "allowChannels": "Canali consentiti",
-  "allowChannelsHint": "ID del canale (C...): chiunque ne faccia parte può menzionare l'app",
-  "notifyChat": "Invia le mie notifiche a questo ID di utente o canale",
+  "allowUsersHint": "ID utente (U...) o @username",
   "notifyHelp": "Facoltativo. Con il tuo ID utente (U...) le notifiche arrivano come messaggi diretti dall'app.",
   "test": "Prova",
   "testOk": "Connesso a {{bot}}.",
   "checkFailed": "Salvato. La verifica del token non è riuscita: {{reason}}",
   "senders": "Mittenti",
   "noSenders": "Nessuno ha ancora scritto a questa app.",
-  "allowButton": "Consenti",
+  "allowButton": "Metti in elenco questa persona",
   "ignored": "Ignorato",
   "accepted": "Accettato",
   "save": "Salva",
@@ -65,5 +58,5 @@
     "copied": "Copiato",
     "manifest": "Manifest dell'app Slack"
   },
-  "back": "Torna ai connettori"
+  "allowUsersHelp": "Un @username corrisponde allo username Slack (l'handle), non al nome visualizzato, e richiede lo scope users:read. Un ID utente (U...) corrisponde sempre. Quando una persona viene rifiutata, il registro accessi mostra il suo ID utente."
 }

@@ -1,0 +1,57 @@
+/* What it can use. Every class starts with au-. Grid children carry
+   min-width: 0 so a long name wraps and never widens the page. */
+.au { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-5); min-width: 0; }
+.au-src { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); min-width: 0; }
+.au-src__h { margin: 0; font-size: var(--fs-small); font-weight: 600; color: var(--dk-text); }
+.au-src__lead { margin: 0; font-size: var(--fs-small); color: var(--dk-muted); }
+.au-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); min-width: 0; }
+/* A long title or description wraps; the shared row does not break an unbroken word. */
+.au-list .swl-row__text, .au-list .swl-row__name, .au-list .swl-row__blurb, .au-list .swl-row__desc { min-width: 0; overflow-wrap: anywhere; }
+/* The note beside the switch ("needs an account") may be long when it holds an add-on's word: it shrinks and wraps. */
+.au-list .swl-row__src { flex: 0 1 auto; min-width: 0; max-width: 40%; white-space: normal; overflow-wrap: anywhere; text-align: end; }
+.au-list .swl-rowbox { border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--dk-edge); }
+.au-list .swl-row__extra { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); min-width: 0; }
+.au-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); min-width: 0; padding-bottom: var(--sp-2); }
+
+.au-field { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); min-width: 0; }
+.au-field__label { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--fs-meta); font-weight: 600; color: var(--dk-muted); }
+.au-field__label > *, .au-field__none > * { min-width: 0; overflow-wrap: anywhere; }
+.au-field__none { font-size: var(--fs-small); color: var(--dk-muted); overflow-wrap: anywhere; }
+.au-opts { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); min-width: 0; }
+.au-opt { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; font-size: var(--fs-small); color: var(--dk-text); cursor: pointer; overflow-wrap: anywhere; }
+.au-opt > span { min-width: 0; }
+.au-opt input { margin: 0; flex: none; accent-color: var(--dk-accent); }
+.au-tag { padding: 0 var(--sp-2); border-radius: var(--r-sm); background: var(--dk-hover); font-size: var(--fs-meta); font-weight: 500; color: var(--dk-muted); }
+
+.au-now {
+  display: flex; align-items: flex-start; gap: var(--sp-2); min-width: 0; margin: 0; padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md); background: var(--dk-inset); font-size: var(--fs-small); color: var(--dk-text); overflow-wrap: anywhere;
+}
+.au-now__icon { flex: none; margin-top: var(--sp-1); color: var(--dk-ok-text); }
+.au-now__k { font-weight: 600; }
+.au-now[data-tone="off"], .au-now[data-tone="off"] .au-now__icon { color: var(--dk-muted); }
+.au-now[data-tone="warn"] { background: var(--dk-warn-wash); box-shadow: inset 0 0 0 1px var(--dk-warn-text); }
+.au-now[data-tone="warn"] .au-now__icon { color: var(--dk-warn-text); }
+
+.au-details summary { width: max-content; max-width: 100%; font-size: var(--fs-small); color: var(--dk-accent-text); cursor: pointer; }
+.au-tools { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); margin: var(--sp-2) 0 0; padding: 0; list-style: none; }
+.au-tools li { display: inline-flex; align-items: center; gap: var(--sp-2); max-width: 100%; padding: 0 var(--sp-2); border-radius: var(--r-sm); background: var(--dk-hover); font-size: var(--fs-meta); }
+.au-tools code { min-width: 0; font-family: var(--font-mono); color: var(--dk-text); overflow-wrap: anywhere; }
+.au-write { padding: 0 var(--sp-1); border-radius: var(--r-sm); background: var(--dk-warn-wash); color: var(--dk-warn-text); font-weight: 600; }
+.au-skills { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); margin: var(--sp-2) 0 0; padding: 0; list-style: none; }
+.au-skills li { display: grid; min-width: 0; }
+.au-skills__d { padding-inline-start: var(--sp-6); font-size: var(--fs-meta); color: var(--dk-muted); overflow-wrap: anywhere; }
+
+.au-res { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-1) var(--sp-3); min-width: 0; }
+.au-res__mode {
+  min-width: 0; max-width: 100%; padding: 0 var(--sp-2); border: 1px solid var(--dk-control-edge); border-radius: var(--r-sm);
+  background: var(--dk-card); color: var(--dk-text); font-size: var(--fs-small);
+}
+.au-res__mode:disabled { opacity: .5; }
+
+.au-mem { display: grid; gap: var(--sp-1); min-width: 0; margin-top: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--dk-edge); }
+.au-mem__h { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); font-weight: 600; color: var(--dk-text); }
+.au-mem__from { font-size: var(--fs-meta); font-weight: 500; color: var(--dk-muted); }
+.au-mem__list { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.au-mem__list li { padding: 0 var(--sp-2); border-radius: var(--r-sm); background: var(--dk-hover); font-size: var(--fs-meta); overflow-wrap: anywhere; }
+.au-mem__state { margin: 0; font-size: var(--fs-small); color: var(--dk-muted); }

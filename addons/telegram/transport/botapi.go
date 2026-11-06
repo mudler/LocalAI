@@ -215,8 +215,9 @@ type tgMessage struct {
 	// only the start of a reply chain.
 	Topic bool `json:"is_topic_message"`
 	Chat  struct {
-		ID   int64  `json:"id"`
-		Type string `json:"type"`
+		ID    int64  `json:"id"`
+		Type  string `json:"type"`
+		Title string `json:"title"`
 	} `json:"chat"`
 	From struct {
 		ID        int64  `json:"id"`
@@ -312,6 +313,9 @@ func (t *API) updates(ctx context.Context, token string, offset int64, timeoutSe
 			m.Text, m.Entities = m.Caption, m.CaptionEntities
 		}
 		u.Chat, u.Direct = strconv.FormatInt(m.Chat.ID, 10), m.Chat.Type == "private"
+		if !u.Direct {
+			u.ChatName = m.Chat.Title // a group names itself in every update
+		}
 		u.SenderID = strconv.FormatInt(m.From.ID, 10)
 		u.SenderName = strings.TrimSpace(m.From.FirstName + " " + m.From.LastName)
 		u.SenderUsername, u.Text = m.From.Username, m.Text
@@ -549,6 +553,11 @@ func (t *API) edit(ctx context.Context, token string, chatID, messageID int64, t
 		return nil
 	}
 	return err
+}
+
+// Delete removes a message the bot sent.
+func (t *API) Delete(ctx context.Context, token string, chatID, messageID int64) error {
+	return t.call(ctx, token, "deleteMessage", map[string]any{"chat_id": chatID, "message_id": messageID}, 0, nil)
 }
 
 // Typing shows "typing" in a chat, or in a topic of it, for a few seconds.

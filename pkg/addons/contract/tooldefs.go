@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Tool kinds. The kind says which host authority an add-on tool runs under; it
@@ -36,6 +39,20 @@ const (
 // keep a proposal for a person to confirm, whatever the write mode of the
 // binding says.
 const ApprovalAlways = "always"
+
+// The two answers of the user setting that relaxes ApprovalAlways for a tool
+// that declares ApprovalOverridable (see ApprovalSettingKey).
+const (
+	// ApprovalAsk is the default: a person confirms every call.
+	ApprovalAsk = "ask"
+	// ApprovalSkip is the owner's choice to run the tool without a
+	// confirmation, where the host allows it (see ToolDefinition).
+	ApprovalSkip = "skip"
+)
+
+// ApprovalSettingKey is the key of the user setting that holds the person's
+// choice for an ApprovalOverridable tool: "approval-" and the tool name.
+func ApprovalSettingKey(tool string) string { return "approval-" + tool }
 
 // ResourceArgument is the tool argument that names the resource a tool works
 // on. The host takes it out of the arguments and binds it to the request, so
@@ -73,6 +90,17 @@ type ToolDefinition struct {
 	// never applies it, even when the person allowed writes without asking.
 	// Only a write tool may set it.
 	Approval string `json:"approval,omitempty"`
+	// ApprovalOverridable lets the person relax Approval to "ask never" for
+	// this tool, and nothing else. The choice is a user setting that the
+	// manifest declares under ApprovalSettingKey(Name), with the values
+	// ApprovalAsk and ApprovalSkip and the default ApprovalAsk, so the answer
+	// is the person's own, written from their own browser session only. The
+	// host honors ApprovalSkip only for a call that the person makes in their
+	// own chat, or that a sender paired with the person's bot makes in a
+	// messaging chat. Every other caller, and every call without a chat,
+	// still waits for a confirmation. Only a tool with Approval "always" may
+	// set it.
+	ApprovalOverridable bool `json:"approvalOverridable,omitempty"`
 	// UIOnly marks a tool that only the add-on's own page may call, such as a
 	// settings change that asks the host whether the caller is an
 	// administrator. It is never offered to a model, a chat or an agent. The
@@ -93,6 +121,18 @@ type ToolDefinition struct {
 	// Execution declares that this tool runs commands and what the host may
 	// say about the provider. Only a tool that shadows bash may declare it.
 	Execution *ExecutionDescriptor `json:"execution,omitempty"`
+	// Title is the name of the tool in plain words ("Open an issue"), for a
+	// person who reads that a call waits for them in a chat. Only a write,
+	// schema or create tool may set it. A tool without one is named by its
+	// tool name.
+	Title string `json:"title,omitempty"`
+	// SummaryFields name keys of the sample that the add-on's preview returns
+	// (the facts it shows the person who confirms). The host may repeat the
+	// scalar values of those keys, cut short, in the chat where a call waits
+	// for a confirmation. Only the add-on knows which facts are safe to show
+	// there; a key that is not listed is never shown in a chat. At most
+	// MaxSummaryFields keys.
+	SummaryFields []string `json:"summaryFields,omitempty"`
 }
 
 // ReplaceableTool says what a tool that shadows a built-in chat tool must look
@@ -248,6 +288,12 @@ func validateToolDefinitionsFor(defs []ToolDefinition, tools []string, credentia
 		}
 		if d.Approval != "" && (d.Approval != ApprovalAlways || d.Kind != ToolKindWrite) {
 			return fmt.Errorf("tool %s: approval is %q for a write tool only", d.Name, ApprovalAlways)
+		}
+		if err := d.validateDisplay(); err != nil {
+			return err
+		}
+		if d.ApprovalOverridable && d.Approval != ApprovalAlways {
+			return fmt.Errorf("tool %s: approvalOverridable needs approval %q", d.Name, ApprovalAlways)
 		}
 		check := ValidateToolSchema
 		if credentialed {
@@ -456,4 +502,113 @@ func ShadowedTools(defs []ToolDefinition) []string {
 		}
 	}
 	return out
+}
+
+// Bounds of the display fields of a tool definition.
+const (
+	MaxToolTitleLen = 60
+	// MaxSummaryFields bounds SummaryFields.
+	MaxSummaryFields = 6
+	// MaxFactRunes bounds one fact value that the host repeats in a chat.
+	MaxFactRunes = 120
+)
+
+var summaryFieldRE = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{0,31}$`)
+
+func (d ToolDefinition) validateDisplay() error {
+	if d.Title == "" && len(d.SummaryFields) == 0 {
+		return nil
+	}
+	if d.Kind != ToolKindWrite && d.Kind != ToolKindSchema && d.Kind != ToolKindCreate {
+		return fmt.Errorf("tool %s: title and summaryFields are for a write, schema or create tool", d.Name)
+	}
+	if d.Title != "" && !plainText(d.Title, MaxToolTitleLen) {
+		return fmt.Errorf("tool %s: invalid title", d.Name)
+	}
+	if len(d.SummaryFields) > MaxSummaryFields {
+		return fmt.Errorf("tool %s: at most %d summaryFields", d.Name, MaxSummaryFields)
+	}
+	seen := map[string]bool{}
+	for _, f := range d.SummaryFields {
+		if !summaryFieldRE.MatchString(f) || seen[f] {
+			return fmt.Errorf("tool %s: invalid or repeated summaryFields entry", d.Name)
+		}
+		seen[f] = true
+	}
+	return nil
+}
+
+// Fact is one line of what a call would do, for a person who reads it in a
+// chat: the name of the key of the preview and its value as short text.
+type Fact struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+// DisplayFacts picks, from the sample of a preview, the facts that the tool
+// definition lists in SummaryFields, in that order. Only a string, a number, a
+// boolean or a list of those is shown; an object, a null or an empty value is
+// skipped, so no raw JSON reaches a chat. Each value is one line of at most
+// MaxFactRunes runes, with the characters that the host never repeats
+// (controls, angle brackets) replaced by spaces.
+func DisplayFacts(d ToolDefinition, sample json.RawMessage) []Fact {
+	if len(d.SummaryFields) == 0 || len(sample) == 0 {
+		return nil
+	}
+	var m map[string]json.RawMessage
+	if json.Unmarshal(sample, &m) != nil {
+		return nil
+	}
+	var out []Fact
+	for _, k := range d.SummaryFields {
+		if v := factValue(m[k]); v != "" {
+			out = append(out, Fact{Key: k, Value: v})
+		}
+	}
+	return out
+}
+
+func factValue(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var one any
+	if json.Unmarshal(raw, &one) != nil {
+		return ""
+	}
+	var parts []string
+	scalar := func(v any) (string, bool) {
+		switch x := v.(type) {
+		case string:
+			return x, true
+		case float64:
+			return strconv.FormatFloat(x, 'f', -1, 64), true
+		case bool:
+			return strconv.FormatBool(x), true
+		}
+		return "", false
+	}
+	if list, ok := one.([]any); ok {
+		for _, e := range list {
+			s, ok := scalar(e)
+			if !ok {
+				return ""
+			}
+			parts = append(parts, s)
+		}
+	} else if s, ok := scalar(one); ok {
+		parts = []string{s}
+	}
+	text := strings.Join(parts, ", ")
+	text = strings.Map(func(r rune) rune {
+		if r == '<' || r == '>' || unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
+			return ' '
+		}
+		return r
+	}, text)
+	text = strings.Join(strings.Fields(text), " ")
+	if utf8.RuneCountInString(text) > MaxFactRunes {
+		text = string([]rune(text)[:MaxFactRunes]) + "…"
+	}
+	return text
 }

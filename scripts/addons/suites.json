@@ -515,7 +515,42 @@
           "limits the context files to the scopes the slot allows",
           "keeps api 2 as the only manifest api",
           "refuses a remote provider that does not declare its network access",
-          "keeps an alias of the built-in provider out of the providers and maps it to the built-in"
+          "keeps an alias of the built-in provider out of the providers and maps it to the built-in",
+          "is accepted with its setting, the values ask and skip and the default ask",
+          "without the setting",
+          "when the setting starts at skip",
+          "when the setting has another value",
+          "when the setting carries a host role",
+          "on a tool without approval always",
+          "in an add-on without a credential",
+          "lets a kind that declares them have a tool that enumerates",
+          "refuses an enumerating tool when the kind has no wildcards, or when it is not a plain read tool",
+          "refuses an enumerating tool that names a resource",
+          "name a prefix, an option of the kind and a value it offers",
+          "treats a manifest without featureLevel as level 1 and runs it on a level 1 host",
+          "refuses an add-on that needs a newer level with a plain reason",
+          "accepts it on a host that has the level, and the host of this build has it",
+          "parses a manifest of any level without a host, so the install can say it needs a newer host",
+          "requires the manifest to declare the level of the fields it uses",
+          "keeps the field out of an older strict reader: an unknown key is refused",
+          "needs a list mapping",
+          "accepts a plural and translated nouns, and falls back from the translation to English",
+          "refuses translated nouns the manifest does not name, empty ones and markup",
+          "accepts a title and summary fields on a write tool",
+          "refuses them on a read tool",
+          "refuses a bad title, a bad key, a repeated key and too many keys",
+          "shows only the listed scalar keys, in order, as short plain lines",
+          "cuts a long value and shows nothing without keys",
+          "is found in a wrapped error and keeps the cause",
+          "400",
+          "just below 400",
+          "success",
+          "zero",
+          "403",
+          "599",
+          "600",
+          "cleans a hint to printable ASCII on one line, cut at the limit",
+          "requires featureLevel 3 for ownerData, and a level 2 host refuses it"
         ]
       },
       {
@@ -543,7 +578,6 @@
           "lists every release platform with its runner",
           "lists every release platform with its runner",
           "lists every release platform with its runner",
-          "lists every release platform with its runner",
           "enables a platform exactly when its native check is recorded",
           "enables a platform exactly when its native check is recorded",
           "enables a platform exactly when its native check is recorded",
@@ -553,8 +587,6 @@
           "enables a platform exactly when its native check is recorded",
           "enables a platform exactly when its native check is recorded",
           "enables a platform exactly when its native check is recorded",
-          "enables a platform exactly when its native check is recorded",
-          "has a catalog template",
           "has a catalog template",
           "has a catalog template",
           "has a catalog template",
@@ -704,11 +736,15 @@
           "rejects a missing skill, mismatched frontmatter, and scripts",
           "has consistent package files for github",
           "has consistent package files for home-assistant",
+          "has consistent package files for calendar",
+          "has consistent package files for contacts",
           "has consistent package files for jellyfin",
           "has consistent package files for pikvm",
           "writes the zip of a verified layout with a digest manifest and a sha256 file",
           "audits actual host calls and strict package contract for github",
           "audits actual host calls and strict package contract for home-assistant",
+          "audits actual host calls and strict package contract for calendar",
+          "audits actual host calls and strict package contract for contacts",
           "audits actual host calls and strict package contract for jellyfin",
           "audits actual host calls and strict package contract for pikvm",
           "lists every release platform with its runner",
@@ -720,6 +756,8 @@
           "gives every translated connector kind of fine-tuning the fields of its English kind, and no others",
           "gives every translated connector kind of github the fields of its English kind, and no others",
           "gives every translated connector kind of home-assistant the fields of its English kind, and no others",
+          "gives every translated connector kind of calendar the fields of its English kind, and no others",
+          "gives every translated connector kind of contacts the fields of its English kind, and no others",
           "gives every translated connector kind of jellyfin the fields of its English kind, and no others",
           "gives every translated connector kind of office the fields of its English kind, and no others",
           "gives every translated connector kind of pikvm the fields of its English kind, and no others",
@@ -740,6 +778,8 @@
           "translates the title and the description of fine-tuning in every main language",
           "translates the title and the description of github in every main language",
           "translates the title and the description of home-assistant in every main language",
+          "translates the title and the description of calendar in every main language",
+          "translates the title and the description of contacts in every main language",
           "translates the title and the description of jellyfin in every main language",
           "translates the title and the description of office in every main language",
           "translates the title and the description of pikvm in every main language",
@@ -751,7 +791,11 @@
           "translates the title and the description of talk in every main language",
           "translates the title and the description of telegram in every main language",
           "translates the title and the description of voice in every main language",
-          "translates the title and the description of web in every main language"
+          "translates the title and the description of web in every main language",
+          "writes nothing for a manifest at the base level, with or without the flag",
+          "keeps the level out of the index by default, so a host that predates the field still reads it",
+          "keeps the level of Tables out of the committed index shape, and writes it on request",
+          "writes the level the manifest needs when asked to"
         ]
       },
       {
@@ -871,7 +915,8 @@
       "carries the translated title and description of an entry through the library",
       "finds an entry by its translated text as well as by the English text",
       "keeps a plain entry free of translation fields on the wire",
-      "rejects translations that the manifest would refuse"
+      "rejects translations that the manifest would refuse",
+      "reads the feature level an entry requires, and an entry without it needs none"
     ],
     "report": ".cache/addons/logs/catalog.json"
   },
@@ -966,7 +1011,8 @@
       "refuses a file that compresses like a bomb",
       "refuses more files than the limit",
       "refuses a path that is a file in one entry and a directory in another",
-      "does not read a path through a symbolic link planted in the staging area"
+      "does not read a path through a symbolic link planted in the staging area",
+      "refuses a package that needs a newer feature level, from the entry and from the manifest"
     ],
     "report": ".cache/addons/logs/packages.json"
   },
@@ -1111,7 +1157,8 @@
       "downloads and verifies the package once, so the next read of the same release is immediate",
       "reads again when the library lists another package for the same version",
       "does not wait behind a read of the same release that is in flight",
-      "is a recent check once the owner has refreshed in the background, not unknown"
+      "is a recent check once the owner has refreshed in the background, not unknown",
+      "refuses a candidate that needs a newer feature level, and offers one the host has"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -1213,7 +1260,18 @@
           "opens an endpoint for a declared operation that is not granted, and a later grant works with no restart",
           "types the add-on's own 429 answer with its wait, never as an outage",
           "keeps the wait between one second and the bound",
-          "leaves a 429 with another body an outage: only the add-on's own word counts"
+          "leaves a 429 with another body an outage: only the add-on's own word counts",
+          "keeps the short-call slots free while more polls than the concurrency limit are open",
+          "refuses a poll past the poll pool, and frees the slot when a poll is cancelled",
+          "refuses a poll after the client is withdrawn and waits for open polls to drain",
+          "carries the status of the service and the sentence of the add-on",
+          "above 599",
+          "below 400",
+          "empty",
+          "not a number",
+          "success",
+          "keeps a refusal with no header as it was",
+          "bounds the hint to printable ASCII"
         ]
       },
       {
@@ -1250,7 +1308,9 @@
           "exits when the owner closes the startup channel",
           "still exits when the runtime does not return in time",
           "exits at once for a runtime with nothing to close",
-          "answers 429 with the wait in Retry-After and a fixed body"
+          "answers 429 with the wait in Retry-After and a fixed body",
+          "tells the owner which status the service behind the add-on answered, and what to do",
+          "sends no status header for a status that is not a refusal of a service"
         ]
       }
     ]
@@ -1527,7 +1587,8 @@
           "answers unavailable when the owner has no file service",
           "returns a typed timeout in the read deadline, not after the client timeout",
           "never answers with an older list of its own: every frontend gives the same typed error",
-          "does not hide a denial"
+          "does not hide a denial",
+          "asks the source for the whole reach (*) for a tool that enumerates, and refuses it when the list is not *"
         ]
       },
       {
@@ -2035,7 +2096,30 @@
       "names the connection it was previewed with",
       "applies with that very connection, even if the chat selects another one meanwhile",
       "refuses the apply when that connection is gone, and sends nothing",
-      "refuses to propose when no connection is selected"
+      "refuses to propose when no connection is selected",
+      "the person said skip, the tool allows it, mode propose: no confirmation",
+      "the person said skip, the tool allows it, mode auto: no confirmation",
+      "the person said ask: confirmation, mode propose",
+      "the person said ask: confirmation, mode auto",
+      "the tool does not allow it: confirmation whatever the setting says",
+      "the tool does not allow it, mode propose",
+      "never relaxes a binding whose write mode is off",
+      "does not ask the setting for a tool that does not allow it",
+      "asks again at the apply: a setting switched back stops the chat turn, and a person can still confirm",
+      "stops a chat turn when the setting is switched back, even in auto mode",
+      "reports every run without a confirmation with the tool and the connection and never the arguments",
+      "does not report a run that a person confirmed after a proposal that awaited them",
+      "power-action, don't ask",
+      "power-action, ask each time",
+      "send-key, don't ask",
+      "send-key, ask each time",
+      "type-text, even when the host would say skip",
+      "type-text, ask each time",
+      "declares the setting of each relaxable tool with the default ask, and none for type-text",
+      "refuses the chat credential without the mark, runs it once with the mark, and does nothing on a replay",
+      "refuses a digest other than the one stored, even with the mark",
+      "does not let the mark lift a tool that always asks",
+      "does not let another user confirm with the mark"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -2224,7 +2308,30 @@
           "names the connection it was previewed with",
           "applies with that very connection, even if the chat selects another one meanwhile",
           "refuses the apply when that connection is gone, and sends nothing",
-          "refuses to propose when no connection is selected"
+          "refuses to propose when no connection is selected",
+          "the person said skip, the tool allows it, mode propose: no confirmation",
+          "the person said skip, the tool allows it, mode auto: no confirmation",
+          "the person said ask: confirmation, mode propose",
+          "the person said ask: confirmation, mode auto",
+          "the tool does not allow it: confirmation whatever the setting says",
+          "the tool does not allow it, mode propose",
+          "never relaxes a binding whose write mode is off",
+          "does not ask the setting for a tool that does not allow it",
+          "asks again at the apply: a setting switched back stops the chat turn, and a person can still confirm",
+          "stops a chat turn when the setting is switched back, even in auto mode",
+          "reports every run without a confirmation with the tool and the connection and never the arguments",
+          "does not report a run that a person confirmed after a proposal that awaited them",
+          "power-action, don't ask",
+          "power-action, ask each time",
+          "send-key, don't ask",
+          "send-key, ask each time",
+          "type-text, even when the host would say skip",
+          "type-text, ask each time",
+          "declares the setting of each relaxable tool with the default ask, and none for type-text",
+          "refuses the chat credential without the mark, runs it once with the mark, and does nothing on a replay",
+          "refuses a digest other than the one stored, even with the mark",
+          "does not let the mark lift a tool that always asks",
+          "does not let another user confirm with the mark"
         ]
       },
       {
@@ -2702,7 +2809,8 @@
           "answers unavailable when the owner has no file service",
           "returns a typed timeout in the read deadline, not after the client timeout",
           "never answers with an older list of its own: every frontend gives the same typed error",
-          "does not hide a denial"
+          "does not hide a denial",
+          "asks the source for the whole reach (*) for a tool that enumerates, and refuses it when the list is not *"
         ]
       },
       {
@@ -3083,7 +3191,8 @@
           "downloads and verifies the package once, so the next read of the same release is immediate",
           "reads again when the library lists another package for the same version",
           "does not wait behind a read of the same release that is in flight",
-          "is a recent check once the owner has refreshed in the background, not unknown"
+          "is a recent check once the owner has refreshed in the background, not unknown",
+          "refuses a candidate that needs a newer feature level, and offers one the host has"
         ]
       },
       {
@@ -3156,7 +3265,18 @@
           "opens an endpoint for a declared operation that is not granted, and a later grant works with no restart",
           "types the add-on's own 429 answer with its wait, never as an outage",
           "keeps the wait between one second and the bound",
-          "leaves a 429 with another body an outage: only the add-on's own word counts"
+          "leaves a 429 with another body an outage: only the add-on's own word counts",
+          "keeps the short-call slots free while more polls than the concurrency limit are open",
+          "refuses a poll past the poll pool, and frees the slot when a poll is cancelled",
+          "refuses a poll after the client is withdrawn and waits for open polls to drain",
+          "carries the status of the service and the sentence of the add-on",
+          "above 599",
+          "below 400",
+          "empty",
+          "not a number",
+          "success",
+          "keeps a refusal with no header as it was",
+          "bounds the hint to printable ASCII"
         ]
       },
       {
@@ -4179,6 +4299,30 @@
       "go: keeps declared uiOnly execution status tools out of generic adapters",
       "go: round trips valid components and enforces the callable length boundary",
       "go: rejects malformed qualified identities while reserving their namespace",
+      "go: no agent: not limited",
+      "go: no agent: a write is not limited either",
+      "go: the list is empty: a read is refused",
+      "go: the list is empty: a write is refused",
+      "go: listed read: a read goes through",
+      "go: listed read: a row change is refused",
+      "go: listed read: a schema change is refused",
+      "go: listed write: a read goes through",
+      "go: listed write: a row change goes through",
+      "go: listed write: a schema change goes through",
+      "go: not listed: a read is refused",
+      "go: not listed: a write is refused",
+      "go: a sub-agent: the narrower layer wins",
+      "go: a sub-agent: a resource only the parent lists is refused",
+      "go: does not touch a tool that names no resource",
+      "go: does not limit an add-on that does not opt in",
+      "go: applies the list to the resource the chat selected, not only to one the model named",
+      "go: names the allowed resources in the refusal, so the model can choose one",
+      "go: shows the whole list to a chat with no agent",
+      "go: shows an agent only its list, and a read resource as viewer",
+      "go: shows an agent with an empty list nothing",
+      "go: lists what the owner's listing returns, before any limit",
+      "go: is unknown for an add-on that does not opt in or does not exist",
+      "go: carries the label and the translations of the nouns in the listing",
       "go: forwards bindings only through an explicit binding backend",
       "go: keeps the id of the Tables add-on out of string literals, outside tests",
       "go: builds the same tool for a second add-on from its declaration alone",
@@ -4187,13 +4331,36 @@
       "go: offers nothing to an add-on that declares no listing, even with resources",
       "go: lets a manifest without the declaration keep the tool of the old name only through the apps list",
       "go: rejects a declared listing that collides with a tool of the manifest",
+      "go: a read that works",
+      "go: a write that is applied at once",
+      "go: a write held because the connection only proposes",
+      "go: a write held because the tool always asks",
+      "go: a write the connection does not allow (write mode off)",
+      "go: a call with no connection chosen",
+      "go: a resource that is not on the list of the connection",
+      "go: the person lacks a permission",
+      "go: the service refused the token (401)",
+      "go: the service refused the call for a missing permission (403)",
+      "go: the service could not find it (404)",
+      "go: the service did not accept the values (422)",
+      "go: the add-on refused as invalid, with no status from the service",
+      "go: the add-on is not running",
+      "go: an outage",
+      "go: hands the model the status and the sentence of the add-on when the service refused",
+      "go: falls back to the short reason when the add-on gave no sentence",
+      "go: reports a refusal at the confirm of an immediate write the same way",
+      "go: marks a write that a rule of the host holds",
+      "go: keeps the kind of the tool",
+      "go: records nothing and fails nothing for a call with no outcome in the context",
+      "go: classifies an error that is not a typed refusal as an error",
       "go: leaves a proposal that awaits a person for the person, even for the chat adapter",
       "go: stores the proposal and applies nothing when the host holds the call for a person",
       "go: tells the model that writes are off when the host refuses the call for that reason",
       "go: tells the model to wait when the service rate limits, and not to retry before then",
       "go: tells the model a resource is not on the list, with the allowed ones, and when no credential exists",
       "go: is tools.write for the tools that change things, in an add-on that holds a credential",
-      "go: is empty for every tool of an add-on without a credential",
+      "go: is empty for every tool of an add-on without a credential, when its resources are not scoped per agent",
+      "go: is tools.write for the tools that change things, in an add-on whose resources are scoped per agent",
       "go: reaches the chat as the add-on declared it",
       "go: falls back to the add-on's title for a manifest that declares none",
       "go: lists the skills that need isolation for the add-on that owns the commands tool",
@@ -4201,7 +4368,9 @@
       "go: states it on a refusal too, so the person sees whose list refused",
       "go: states it on a proposal card",
       "go: says nothing when the call carries no connection",
-      "go: turns a missing selection into a note the model can relay"
+      "go: turns a missing selection into a note the model can relay",
+      "go: is tools.write for the tools that change things, in an add-on that keeps the owner's own data",
+      "go: hands the host the held write with its digest and the facts the tool lets a chat repeat, never the arguments"
     ]
   },
   "tables-admin": {
@@ -4717,6 +4886,8 @@
       "go: audits actual host calls and strict package contract for fine-tuning",
       "go: audits actual host calls and strict package contract for github",
       "go: audits actual host calls and strict package contract for home-assistant",
+      "go: audits actual host calls and strict package contract for calendar",
+      "go: audits actual host calls and strict package contract for contacts",
       "go: audits actual host calls and strict package contract for jellyfin",
       "go: audits actual host calls and strict package contract for office",
       "go: audits actual host calls and strict package contract for pikvm",
@@ -4737,6 +4908,8 @@
       "go: has a catalog template",
       "go: has consistent package files for github",
       "go: has consistent package files for home-assistant",
+      "go: has consistent package files for calendar",
+      "go: has consistent package files for contacts",
       "go: has consistent package files for jellyfin",
       "go: has consistent package files for pikvm"
     ]
@@ -4758,6 +4931,7 @@
       "unit: updates: times are shown as the reader's own and a bad time as nothing",
       "unit: updates: the client sends check and upgrade as the administrator's own action and types the refusals",
       "unit: updates: every locale carries the same update keys as English, and words for every state, reason and refusal",
+      "unit: updates: a release that needs a newer LocalAI is incompatible with the reason feature-level, and an install that fails for it says so",
       "go: offers a digest-only change of the branch-fix-cache channel with an identical version label",
       "go: offers a digest-only change of the development channel with an identical version label",
       "go: offers a digest-only change of the latest channel with an identical version label",
@@ -4805,6 +4979,7 @@
       "go: refuses a candidate that is not the one the library resolves now",
       "go: refuses an upgrade to the digest that is already installed",
       "go: rechecks compatibility at execution and refuses an incompatible candidate",
+      "go: refuses a candidate that needs a newer feature level, and offers one the host has",
       "go: selects a newer immutable version and treats a rewritten version as an integrity error",
       "go: keeps the last good generation when the candidate cannot be staged",
       "go: never switches the library or channel, and a failed check is never up to date",

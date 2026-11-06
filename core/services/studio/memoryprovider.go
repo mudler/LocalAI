@@ -198,7 +198,7 @@ func (s *Service) gateMemoryWrite(rec session.ChatRecord, t session.Tool, ref pr
 	}
 	if rec.Origin == session.OriginConnector {
 		var ok bool
-		if t, ok = s.gateAddonTool(t, contract.CapMemoryWrite, rec.ID); !ok {
+		if t, ok, _ = s.gateAddonTool(t, contract.CapMemoryWrite, rec.ID, false); !ok {
 			return t, false
 		}
 	}

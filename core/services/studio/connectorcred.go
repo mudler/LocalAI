@@ -205,3 +205,18 @@ func (c *Connectors) CredentialFor(ctx context.Context, user, addonID, bindingID
 	c.log.Info("studio: connector credential audit", "binding", b.ID, "kind", b.Kind, "addon", b.AddonID, "resource", entry.Key)
 	return CredentialGrant{Secret: secret, Resource: entry, WriteMode: b.Writes(), BindingID: b.ID, BindingName: b.Name}, nil
 }
+
+// agentConnections describes the connections of a set that the agent selected,
+// with their write modes, for AuthorizeConnected. A connection that cannot be
+// read is left out.
+func (c *Connectors) agentConnections(ctx context.Context, user, addonID string, set ConnectionSet) []AgentConnection {
+	var out []AgentConnection
+	for _, x := range set.Items {
+		b, err := c.o.Store.GetBinding(ctx, x.ID)
+		if err != nil || b.Owner != principal(user) || b.AddonID != addonID {
+			continue
+		}
+		out = append(out, AgentConnection{Addon: addonID, Name: b.Name, WriteMode: b.Writes()})
+	}
+	return out
+}

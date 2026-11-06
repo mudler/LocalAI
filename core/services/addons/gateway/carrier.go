@@ -645,7 +645,7 @@ func operationCause(e error) string {
 func IsOperationCause(code string) bool {
 	switch code {
 	case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage,
-		addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible:
+		addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible, addons.CauseNeedsNewerHost:
 		return true
 	}
 	return false
@@ -852,7 +852,7 @@ func (c *Carrier) sendCtx(ctx context.Context, a contract.Actor, wire wireReques
 				case wirePackage:
 					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, packages.ErrPackage)
 				case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage,
-					addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible:
+					addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible, addons.CauseNeedsNewerHost:
 					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, &addons.FailureCause{Code: b.Type})
 				case wireNotPermitted:
 					return nil, ErrNotPermitted

@@ -1,6 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installAgents, AGENTS, SKILLS, DRAFT_TOOLS } from './agents-fixtures.js'
+import { installUses, USES_ADDONS, DATABASES } from './agents-uses-fixtures.js'
 import { mockHome, seedChats, sampleChats } from './home-fixtures.js'
 import { mockSettings } from './settings-fixtures.js'
 import { mockLibrary } from './library-fixtures.js'
@@ -223,4 +224,34 @@ for (const width of [1280, 1100, 390, 360, 320]) {
       }
     })
   }
+}
+
+// "What it can use" with every kind of row: add-ons with long titles and
+// accounts, a warning sentence, the tool and skill lists open, a resources list
+// with long names and the amber state. 320 is the narrowest phone.
+for (const width of [1280, 390, 360, 320]) {
+  test.describe(`What it can use at ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 } })
+    for (const theme of ['light', 'dark']) {
+      test(`add-on rows, lists open, long names (${theme})`, async ({ page }) => {
+        await page.addInitScript((t) => localStorage.setItem('localai-theme', t), theme)
+        const addons = USES_ADDONS.map((a) => ({
+          ...a, title: `${a.title} ${WORD}`, description: `${a.description} ${URL}`,
+          connections: a.connections?.map((c) => ({ ...c, name: `${c.name} ${WORD}` })),
+          resources: a.resources && { ...a.resources, noun_plural: `databases_${WORD}`, noun: `database_${WORD}` },
+          tool_list: a.tool_list?.map((x) => ({ ...x, name: `${x.name}_${WORD}` })),
+        }))
+        const databases = { ...DATABASES, items: DATABASES.items.map((x) => ({ ...x, name: `${x.name}_${WORD}` })) }
+        await installUses(page, { addons, databases, agents: [{ ...AGENTS[1], id: 'a2', addons: ['tracker', 'tables', 'office'], skills: ['pdf'] }] })
+        await page.goto('/app/agents/a2/edit')
+        await page.locator('[data-testid=agent-addon-box]').first().waitFor()
+        for (const d of await page.locator('[data-testid=agent-uses] details').all()) await d.evaluate((e) => { e.open = true })
+        await page.waitForTimeout(400)
+        const r = await overflow(page)
+        expect(r.bad, `elements past the right edge (document ${r.scrollWidth} in ${r.clientWidth})`).toEqual([])
+        expect(r.scrollWidth, 'document width').toBeLessThanOrEqual(r.clientWidth + 1)
+        expect(r.scrollers, 'boxes that scroll sideways and are not allowed').toEqual([])
+      })
+    }
+  })
 }

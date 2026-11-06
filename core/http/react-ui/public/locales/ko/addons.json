@@ -146,7 +146,8 @@
     "network": "서버에 연결할 수 없습니다. 연결을 확인하세요.",
     "unavailable": "지금은 애드온을 사용할 수 없습니다. 잠시 후 다시 시도하세요.",
     "unknownOutcome": "결과를 확인할 수 없습니다. 다시 시도하기 전에 상태를 확인하세요.",
-    "busy": "애드온 서버가 바빠서 제때 응답하지 못했습니다. 잠시 후 다시 시도하세요."
+    "busy": "애드온 서버가 바빠서 제때 응답하지 못했습니다. 잠시 후 다시 시도하세요.",
+    "needsNewerHost": "이 애드온에는 더 새로운 LocalAI가 필요합니다. LocalAI를 업데이트한 뒤 다시 시도하세요. 아무것도 설치되지 않았습니다."
   },
   "installed": {
     "disabled": "꺼짐",
@@ -569,7 +570,8 @@
       "protocol-version": "프로토콜 버전이 맞지 않음",
       "sdk-version": "인터페이스 SDK 버전이 맞지 않음",
       "data-format": "데이터 형식이 맞지 않음",
-      "digest-changed": "이 버전의 다이제스트가 바뀜"
+      "digest-changed": "이 버전의 다이제스트가 바뀜",
+      "feature-level": "이 애드온에는 더 새로운 LocalAI가 필요합니다."
     },
     "class": {
       "source-unavailable": "라이브러리에 연결할 수 없습니다.",

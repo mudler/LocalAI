@@ -20,6 +20,13 @@ you saved, never as instructions. The index is a list of lines
 such as `- home: lives in Rome -> home.md`. The model opens a topic with the `context_read`
 tool. Two built-in skills, `memory` and `memory-check-own-files`, tell the
 model to consult memory for almost every request and to say what it can and cannot read.
+The server grants these skills itself, in the same turns that read your notes. A saved
+agent does not list them in its Skills, and an agent saved before this existed gets them
+too. They are not granted when the agent's memory choice is **None**, when memory is off,
+when the chat is private, or to a sender in a messaging app who is not paired (that sender
+gets none of your personal notes). When an add-on serves the notes, the skills of that
+add-on are granted in their place. The skill list marks them with `provider: "memory"` and
+`locked: true`.
 While you have no notes, nothing is added to the prompt.
 
 There are three kinds of notes, each in the Memory folder of your files. The **Memory** tab
@@ -138,12 +145,12 @@ Several settings can have a say on one note. The strictest wins, in this order:
 | Rule | Who sets it | What it can do |
 |---|---|---|
 | Your level | You, on the **Memory** tab | Any of the four |
-| The agent's rule | The agent form: **When it wants to save a note** | **Always confirm** or **Never** only. It can ask more than you, never less, and it cannot choose "Save it and tell me" |
+| The agent's rule | The agent form: **When it wants to save a note** | **Always confirm** or **Never** ask more than you. **Save it and tell me** is the one choice that asks less: this agent saves at once even when your level is **Ask me first** |
 | The messaging row | You, on the **Memory** tab | **Ask me first**, **Save it for a paired sender in a private chat**, or **Never**. Only for chats from a messaging app |
 | The chat | The host | A sub-agent, a trigger or a job is never looser than ask; a chat from a messaging app asks unless the row says otherwise |
 
-If your level is **Always confirm** or **Never**, the messaging row cannot loosen it: a
-saved agent and a messaging chat get at most that. With **Ask me first** or **Save it and
+If your level is **Always confirm** or **Never**, nothing can loosen it: not the messaging
+row and not an agent that chose **Save it and tell me**. With **Ask me first** or **Save it and
 tell me**, the messaging row decides for messaging chats. When any of these cannot be read,
 the host asks.
 
@@ -204,6 +211,22 @@ A saved agent has its own choice of notes. You set it in the agent form, in the
 **Memory** section, when you make the agent and again later. The host enforces it: the
 model does not choose where a note goes.
 
+The section has two controls. The first says how much the agent does with notes:
+
+| Level | What the agent does | Saved fields |
+|---|---|---|
+| **Off** | Reads and saves no notes | `memory` is `none`, and the right to remember things is removed |
+| **Reads notes** | Reads notes, never saves | `memory` is not `none`, without the right `memory.write` |
+| **Reads and saves notes** (new agents) | Reads notes and saves new ones | `memory` is not `none`, with the right `memory.write` |
+
+No new field is stored: the form reads the level from `memory` and `memory.write`, so an
+agent keeps exactly what it has. Switching a level changes both fields together and offers
+an Undo. The second control, whose notes (the table below), shows while memory is not Off.
+The save level of your settings and the agent's own save rule apply only to an agent that
+saves notes. The memory skills show as locked rows, on while memory is on, in the Memory
+section and in the Skills list. An agent that reads but cannot save still gets the skills
+(they also teach how to read), and the model is told that saving is off.
+
 | Choice | The chat reads | A note is saved to |
 |---|---|---|
 | **Mine and its own** (new agents) | Your notes and the agent's own | The agent's own notes |
@@ -235,13 +258,22 @@ How it works:
   in [In messaging apps](#in-messaging-apps): the conversation first, the agent's own notes
   only after a paired sender confirms.
 - **The agent's save rule.** Under **When it wants to save a note** the form offers **Use my
-  setting** (the default), **Always confirm** and **Never**. The rule can only be stricter
-  than your level: "Save it and tell me" is not offered, and the API refuses `auto` and
-  `ask` there with a 400. A `PUT` that does not send `memory_save` keeps the stored rule,
-  so an older client cannot loosen an agent; `memory_save: "use_mine"` clears it.
+  setting** (the default, with your current level and a link to **Settings > Memory**),
+  **Save it and tell me**, **Always confirm** and **Never**. **Always confirm** and **Never**
+  are only ever stricter than your level. **Save it and tell me** (`auto`) makes this one
+  agent save each note at once and tell you in the chat, with an **Undo**, even when your
+  level is **Ask me first**. It does not loosen your own **Always confirm** or **Never**, and
+  every limit of an automatic save still holds: up to 5 notes a reply, a note over 4 KiB or
+  one that looks like a secret waits for you, a sub-agent, a trigger or a job never saves
+  by itself, and a knowledge change always asks. In a messaging chat it lifts the messaging
+  row for this agent only for a paired sender in a one-to-one chat; notes from other
+  senders still wait for you. The Effective view, the Notes chip and the access view of a
+  connection (including its preview) say "Saves notes at once and tells you". The API
+  refuses `ask` with a 400. A `PUT` that does not send `memory_save` keeps the stored rule,
+  so an older client cannot change an agent; `memory_save: "use_mine"` clears it.
 
 The API fields are `memory` on an agent (`own`, `mine_and_own`, `mine`, `none`; absent is as
-before) and `memory_save` (`always`, `never`; absent uses your setting). Both are part of an
+before) and `memory_save` (`always`, `auto`, `never`; absent uses your setting). Both are part of an
 agent export file and of an import. A new agent that a client
 writes without `memory` is "as before"; the interface sends `mine_and_own`.
 

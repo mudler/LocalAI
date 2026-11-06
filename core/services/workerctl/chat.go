@@ -14,6 +14,22 @@ type ChatStartRequest struct {
 	// only for the capabilities in it. A start without a grant for a connector
 	// chat gets none of the gated tools.
 	Grant *ChatGrant `json:"grant,omitempty"`
+	// Sender and the Thread fields are display data of a connector message:
+	// the transcript names the sender, and the first turn of a thread chat
+	// keeps the block of earlier messages the model read. They never change
+	// what the model gets.
+	Sender      *ChatSender `json:"sender,omitempty"`
+	Thread      string      `json:"thread,omitempty"`
+	ThreadLines int         `json:"thread_lines,omitempty"`
+	ThreadCut   bool        `json:"thread_cut,omitempty"`
+}
+
+// ChatSender is who wrote a connector message, as the transcript shows it.
+type ChatSender struct {
+	ID       string `json:"id,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Username string `json:"username,omitempty"`
+	Standing string `json:"standing,omitempty"`
 }
 
 // ChatGrant is the outcome of the permission check for the senders of one
@@ -32,6 +48,19 @@ type ChatGrant struct {
 	// a group chat and an unpaired sender.
 	Direct bool `json:"direct,omitempty"`
 	Paired bool `json:"paired,omitempty"`
+	// ImpliedWrite says the sender holds tools.write for the write tools of
+	// an add-on the agent is connected to without the ceiling listing it.
+	ImpliedWrite bool `json:"implied_write,omitempty"`
+	// EveryoneWrite says the ceiling holds tools.write and the sender was let
+	// in, so the write tools of an add-on that keeps the owner's own data are
+	// open to this sender, however they were let in.
+	EveryoneWrite bool `json:"everyone_write,omitempty"`
+	// Sender says how the sender was let in (paired, listed, role, channel,
+	// anyone, or mixed for several senders) and DeniedCodes the refusal code
+	// of each capability in Denied. Both are only for the host log and the
+	// latest decisions; an older frontend sends neither.
+	Sender      string            `json:"sender,omitempty"`
+	DeniedCodes map[string]string `json:"denied_codes,omitempty"`
 }
 
 // ChatStartReply is the worker's answer to a ChatStartRequest. With Error

@@ -146,7 +146,8 @@
     "network": "Server tidak dapat dijangkau. Periksa koneksi Anda.",
     "unavailable": "Add-on tidak tersedia saat ini. Coba lagi sebentar lagi.",
     "unknownOutcome": "Hasil tidak dapat dikonfirmasi. Periksa statusnya sebelum mencoba lagi.",
-    "busy": "Server add-on sedang sibuk dan tidak menjawab tepat waktu. Coba lagi sebentar lagi."
+    "busy": "Server add-on sedang sibuk dan tidak menjawab tepat waktu. Coba lagi sebentar lagi.",
+    "needsNewerHost": "Add-on ini membutuhkan LocalAI yang lebih baru. Perbarui LocalAI, lalu coba lagi. Tidak ada yang terpasang."
   },
   "installed": {
     "disabled": "Nonaktif",
@@ -569,7 +570,8 @@
       "protocol-version": "Versi protokol tidak cocok",
       "sdk-version": "Versi SDK antarmuka tidak cocok",
       "data-format": "Format data tidak cocok",
-      "digest-changed": "Digest versi ini berubah"
+      "digest-changed": "Digest versi ini berubah",
+      "feature-level": "Add-on ini membutuhkan LocalAI yang lebih baru."
     },
     "class": {
       "source-unavailable": "Pustaka tidak dapat dijangkau.",

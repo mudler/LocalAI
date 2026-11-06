@@ -8,6 +8,9 @@
 //   marker    where the person compacted (marker 'compacted', with before
 //             and after) or cleared (marker 'cleared') the model's context
 //   goal      a goal line: the goal changed, or the chat went on with it
+//   thread    the earlier messages of a messaging thread, before the message
+//             that addressed the bot (connector chats only)
+//   hostnote  something the host did on its own about a connector message
 //
 // A tool call with an app keeps the key chatLive gives it (tool-<seq>) in the
 // transcript and in the live turn, so its frame is not reloaded when the turn
@@ -61,6 +64,14 @@ export function threadRows(messages, live) {
     if (m.role === 'goal') {
       flush(m.seq)
       rows.push({ kind: 'goal', key: `g-${m.seq}`, msg: m })
+      continue
+    }
+    // Lines only a connector chat has, for the owner's eyes: the earlier
+    // messages of the thread that the model read, and what the host did on its
+    // own about a message. The model never gets either.
+    if (m.role === 'thread' || m.role === 'hostnote') {
+      flush(m.seq)
+      rows.push({ kind: m.role, key: `${m.role === 'thread' ? 'th' : 'hn'}-${m.seq}`, msg: m })
       continue
     }
     if (m.role === 'user') {

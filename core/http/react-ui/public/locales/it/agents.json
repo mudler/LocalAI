@@ -84,7 +84,8 @@
       "Tools": "Strumenti",
       "Notes": "Memoria",
       "Connections": "Connessioni",
-      "Effective": "Vista effettiva"
+      "Effective": "Vista effettiva",
+      "Uses": "Cosa può usare"
     },
     "name": "Name",
     "description": "Description",
@@ -260,12 +261,16 @@
       },
       "skills": {
         "some_one": "Può usare {{count}} competenza: {{names}}.",
-        "some_other": "Può usare {{count}} competenze: {{names}}."
+        "some_other": "Può usare {{count}} competenze: {{names}}.",
+        "withAddons_one": "Può usare {{count}} skill che arriva con un add-on: {{names}}.",
+        "withAddons_other": "Può usare {{count}} skill che arrivano con gli add-on: {{names}}.",
+        "addonOff": "La skill {{name}} è attiva, ma il suo add-on {{addon}} è spento, quindi non fa nulla. Attiva l'add-on."
       },
       "files": {
         "all": "Può raggiungere tutti i tuoi file.",
         "folders_one": "Può raggiungere solo la {{count}} cartella scelta.",
-        "folders_other": "Può raggiungere solo le {{count}} cartelle scelte."
+        "folders_other": "Può raggiungere solo le {{count}} cartelle scelte.",
+        "none": "Non può raggiungere nessuno dei tuoi file."
       },
       "grants": {
         "parentOff": "{{name}} è consentito, ma non funziona finché {{parent}} è disattivato. Attiva {{parent}}.",
@@ -277,18 +282,20 @@
       },
       "memory": {
         "userOff": "La memoria è disattivata nelle tue impostazioni, quindi questo agente non legge né salva note, qualunque cosa scelga qui.",
-        "none": "Non tiene e non legge note.",
+        "none": "La memoria è disattivata per questo agente. Non legge e non salva note.",
         "mine_and_own": "Legge le tue note e le sue, e salva nelle sue.",
         "own": "Legge e salva solo le proprie note.",
         "mine": "Legge le tue note e salva in esse.",
         "asBefore": "La memoria funziona come prima: legge le note quando un add-on nomina Memory.",
-        "noGrant": "È impostato per salvare note, ma il permesso di ricordare è disattivato, quindi non ne salva. Attivalo in Memoria.",
         "level": {
-          "auto": "Le note vengono salvate subito.",
-          "ask": "Ogni nota aspetta la tua conferma.",
-          "always": "Ogni nota aspetta te e nulla lo allenta.",
-          "never": "Non salva note."
-        }
+          "auto": "Salva le note subito.",
+          "ask": "Salva le note (prima chiede): ogni nota aspetta la tua conferma.",
+          "always": "Salva le note, ma ogni nota aspetta te e nulla lo allenta.",
+          "never": "Legge le note ma non ne salva: il tuo livello di salvataggio è Mai.",
+          "agentAuto": "Salva le note subito e te lo dice, con Annulla. È la scelta propria dell'agente."
+        },
+        "readsOnly": "Legge le note ma non può salvare.",
+        "connectionLimit": "Su queste connessioni di messaggistica le note non vengono salvate: {{names}}."
       },
       "knowledge": {
         "some_one": "Può cercare in {{count}} raccolta: {{names}}.",
@@ -302,6 +309,18 @@
         "error": "Impossibile controllare {{name}}. Aprila per vedere i suoi permessi.",
         "summary": "{{name}}: {{allowed}} consentiti, {{blocked}} non consentiti.",
         "blocked": "{{name}} non può usare {{capability}}. {{message}}"
+      },
+      "addons": {
+        "noConnection": "{{name}} è attivo ma ora non può funzionare: non hai un account per esso. Aggiungine uno.",
+        "stale": "{{name}} è attivo ma ora non può funzionare: gli account salvati non esistono più. Scegli un account.",
+        "pick": "{{name}} è attivo ma ora non può funzionare: nessun account è scelto. Un'esecuzione senza nessuno presente non ne riceve gli strumenti.",
+        "resourcesNone": "{{name}} è attivo ma ora non può funzionare: nessun elemento ({{noun}}) è selezionato.",
+        "account": "{{name}} usa {{names}}.",
+        "resources": "{{name}} può usare {{n}} ({{plural}}) e modificarne {{w}}.",
+        "resourcesRead": "{{name}} può leggere {{n}} ({{plural}}) e non modificarne nessuno."
+      },
+      "mcp": {
+        "ignored": "{{name}} è tra i server MCP dell'agente, ma non esiste nulla con questo nome, quindi è ignorato. Rimuovilo."
       }
     },
     "try": {
@@ -333,6 +352,106 @@
       "chatTitle": "Prova di {{name}}",
       "failed": "La prova non è riuscita: {{message}}",
       "slow": "L'agente sta ancora lavorando. Fermalo o chiudi il pannello."
+    },
+    "uses": {
+      "presetNote": "Un livello imposta solo gli strumenti integrati e i permessi. Add-on, account, server MCP e skill restano come sono.",
+      "needsSummary_one": "{{count}} add-on non può ancora funzionare",
+      "needsSummary_other": "{{count}} add-on non possono ancora funzionare",
+      "builtins": {
+        "title": "Strumenti integrati",
+        "lead": "Forniti da LocalAI. Le opzioni stanno sotto il loro interruttore."
+      },
+      "addons": {
+        "title": "Add-on",
+        "lead": "Una riga ciascuno: attivalo, scegli l'account che usa, guarda cosa offre.",
+        "none": "Nessun add-on installato.",
+        "gone": "Concesso, ma non installato o non disponibile per te. Disattivalo per rimuoverlo."
+      },
+      "mcp": {
+        "title": "Server MCP",
+        "lead": "Server esterni a LocalAI. I loro strumenti possono costare o raggiungere altri sistemi.",
+        "search": "Cerca server MCP",
+        "none": "Nessun connettore MCP definito. Aggiungine uno nella pagina dei connettori MCP.",
+        "connector": "Un connettore MCP che hai definito.",
+        "server": "Un server MCP del modello.",
+        "unknown": "Non definito: non esiste nulla con questo nome, quindi l'agente lo ignora.",
+        "unverified": "Il modello è scelto in ogni chat, quindi questo nome è verificato lì.",
+        "remove": "Rimuovi {{name}}",
+        "noMatch": "Nessun server MCP corrisponde a “{{query}}”.",
+        "removeShort": "Rimuovi"
+      },
+      "account": {
+        "label": "Account che usa",
+        "group": "Account per {{name}}",
+        "none": "Ancora nessun account.",
+        "add": "Aggiungi un account",
+        "kept": "Conservato per dopo"
+      },
+      "meta": {
+        "account": "richiede un account",
+        "resources": "limitato a: {{plural}} che selezioni"
+      },
+      "tools_one": "{{count}} strumento",
+      "tools_other": "{{count}} strumenti",
+      "toolsSplit_one": "{{count}} strumento ({{read}} in lettura, {{write}} modificano dati)",
+      "toolsSplit_other": "{{count}} strumenti ({{read}} in lettura, {{write}} modificano dati)",
+      "writes": "modifica dati",
+      "now": {
+        "label": "In questo momento:",
+        "off": "Spento. Non offre nulla.",
+        "offKept": "Spento. Non offre nulla. Account conservati per dopo: {{names}}.",
+        "noAccountNeeded": "Attivo. Offre: {{tools}}. Non richiede un account.",
+        "only": "Attivo. Offre: {{tools}}, con {{names}}, il tuo unico account.",
+        "using": "Attivo. Offre: {{tools}}, con {{names}}.",
+        "usingMany": "Attivo. Offre: {{tools}}, con {{names}}. Il modello indica l'account in ogni chiamata.",
+        "pick": "Attivo, ma nessun account è scelto. Una chat ti chiede di sceglierne uno prima di dare strumenti; un'esecuzione senza nessuno presente non ne riceve. Seleziona sopra l'account da usare.",
+        "noConnection": "Attivo, ma non hai ancora un account per questo, quindi nessuno dei suoi strumenti è offerto. Aggiungi un account, qui sopra.",
+        "stale": "Attivo, ma gli account salvati non esistono più, quindi nessuno dei suoi strumenti è offerto. Scegli un account. Seleziona un account, qui sopra.",
+        "resourcesNone": "Attivo, ma nessun elemento ({{noun}}) è selezionato, quindi non può usarne nessuno. Selezionane uno, qui sopra.",
+        "resourcesRead": "Attivo. Offre: {{tools}}, su {{n}} elementi selezionati ({{plural}}), solo lettura. Gli strumenti che modificano dati non possono girare.",
+        "resources": "Attivo. Offre: {{tools}}, su {{n}} elementi selezionati ({{plural}}); può modificarne {{w}}."
+      },
+      "res": {
+        "heading": "Quali <n>{{plural}}</n> può usare",
+        "headingPlain": "Quali {{plural}} può usare",
+        "loading": "Caricamento dell'elenco.",
+        "error": "Impossibile leggere l'elenco.",
+        "empty": "Non hai ancora <n>{{plural}}</n> da assegnare.",
+        "truncated": "L'elenco è troncato.",
+        "gone": "non disponibile",
+        "access": "Accesso a {{name}}",
+        "read": "Lettura",
+        "write": "Lettura e modifica",
+        "none": "Nessuno selezionato: non può usare alcun elemento (<n>{{noun}}</n>).",
+        "some": "Solo quelli selezionati. Ti serve comunque il tuo accesso a ciascuno."
+      },
+      "skills": {
+        "summaryOff_one": "{{count}} skill si attiva con esso",
+        "summaryOff_other": "{{count}} skill si attivano con esso",
+        "summaryOn": "{{on}} skill su {{total}} attive"
+      },
+      "addonOn": {
+        "title": "{{name}} attivato",
+        "body_one": "{{count}} skill attivata con esso: {{names}}. Nulla è salvato finché non salvi.",
+        "body_other": "{{count}} skill attivate con esso: {{names}}. Nulla è salvato finché non salvi."
+      },
+      "skillAddonOff": "Il suo add-on è spento, quindi questa skill non fa nulla.",
+      "memorySkills": {
+        "title": "Skill della memoria",
+        "from": "da {{slot}}",
+        "on": "Attive finché la memoria è attiva.",
+        "off": "Disattivate finché la memoria di questo agente è disattivata.",
+        "offUser": "Disattivate, perché la memoria è disattivata nelle tue Impostazioni."
+      },
+      "slot": {
+        "memory": "Memoria"
+      }
+    },
+    "memoryLevelApplied": {
+      "title": "Memoria: {{name}}",
+      "off": "Non legge e non salva note, e il permesso di ricordare è disattivato. Nulla viene salvato finché non salvi.",
+      "reads": "Il permesso di ricordare è disattivato, quindi legge le note ma non può salvarne. Nulla viene salvato finché non salvi.",
+      "saves": "Il permesso di ricordare è attivo. Nulla viene salvato finché non salvi."
     }
   },
   "run": {
@@ -450,7 +569,8 @@
       "noChanges": "Nothing differs from the saved trigger.",
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
-      "changed_other": "{{count}} changes"
+      "changed_other": "{{count}} changes",
+      "watchNoFiles": "Questo agente ha «Nessun file»: un’esecuzione di questo trigger sa che è arrivato un file, ma non può aprirlo. Dagli l’accesso ai file nel suo editor o scegli un altro agente."
     },
     "subtitle": "Avvia un agente secondo un orario o quando arriva un file. Ogni esecuzione è una chat che puoi aprire."
   },
@@ -654,7 +774,7 @@
   },
   "folder": {
     "all": "Tutti i miei file",
-    "one": "Cartelle scelte",
+    "one": "Solo queste cartelle",
     "scopeLabel": "File che questo agente può raggiungere",
     "allHelp": "Le chat con questo agente raggiungono tutti i tuoi file, come una chat senza agente.",
     "choose": "Scegli cartella",
@@ -695,7 +815,9 @@
     "effectiveRead": "È dentro una cartella di sola lettura, quindi questa si può solo leggere.",
     "effectiveWrite": "È dentro una cartella modificabile, quindi anche questa si può modificare.",
     "notMounted": "{{n}} cartelle condivise non rientrano nel limite di accesso di una chat e non sono montate.",
-    "exportNoteMany": "Il file nomina {{n}} cartelle. Dove lo importi, l'agente riceve le cartelle con quei percorsi che esistono e ti chiede di scegliere le altre."
+    "exportNoteMany": "Il file nomina {{n}} cartelle. Dove lo importi, l'agente riceve le cartelle con quei percorsi che esistono e ti chiede di scegliere le altre.",
+    "none": "Nessun file",
+    "noneHelp": "Questo agente non può raggiungere nessuno dei tuoi file. I file che alleghi a una chat restano in quella chat. Controllare una cartella richiede l’accesso ai file: un trigger che controlla una cartella parte comunque per questo agente, ma non può aprire i file in arrivo."
   },
   "templates": {
     "researcher": {

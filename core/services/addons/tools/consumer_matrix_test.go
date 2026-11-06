@@ -167,6 +167,9 @@ var _ = Describe("Tool consumer matrix", func() {
 		Expect(importers).To(ConsistOf(
 			"core/application/addon_gateway.go",      // builds the provider from the owner gateway
 			"core/application/execution_binding.go",  // validates the selected qualified identity
+			"core/services/studio/actgate.go",        // records a call the unattended-run policy stopped
+			"core/services/studio/addonholds.go",     // asks for a held write in a messaging chat
+			"core/services/studio/addonoutcome.go",   // logs how a call ended
 			"core/services/studio/addontools.go",     // formats unavailable stand-in identities
 			"core/services/studio/capabilities.go",   // parses stand-in identities without dispatch
 			"core/http/endpoints/mcp/addon_tools.go", // the one executor of the namespace

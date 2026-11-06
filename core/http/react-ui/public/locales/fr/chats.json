@@ -41,6 +41,11 @@
       "readsLabel": "Lit",
       "writesLabel": "Écrit",
       "costLabel": "Coût",
+      "deliveryLabel": "Les résultats vont dans",
+      "deliveryInbox": "Votre boîte de réception",
+      "deliveryChat": "Cette conversation",
+      "deliveryThread": "Ce fil",
+      "deliveryChannel": "{{channel}}, au premier niveau du canal",
       "stopLabel": "Pour l’arrêter",
       "when": "{{schedule}}, {{zone}}. Première exécution {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -266,7 +271,12 @@
   "connectorsPage": {
     "loadFailed": "Impossible de charger vos connecteurs.",
     "waitingTitle": "En attente de leur module",
-    "waitingText": "Ces liaisons sont conservées, mais elles ne fonctionnent qu'une fois leur module installé et activé."
+    "waitingText": "Ces liaisons sont conservées, mais elles ne fonctionnent qu'une fois leur module installé et activé.",
+    "duplicate": {
+      "text": "Ce bot est aussi connecté sous le nom {{name}}. Les deux connexions répondront au même message.",
+      "turnOff": "Désactiver celle-ci",
+      "open": "Ouvrir {{name}}"
+    }
   },
   "tools": {
     "commands": {
@@ -861,7 +871,7 @@
       "mine": "Les miennes",
       "deleted": "Agents supprimés",
       "channels": "Conversations",
-      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "channelsNote": "Notes enregistrées à partir des chats des applications de messagerie. Ouvrez une note pour la lire, ou supprimez-la. Une note d’un expéditeur qui n’est pas vérifié auprès de vous attend toujours votre accord.",
       "export": "Exporter ces notes",
       "clearAgent": "Supprimer les notes de cet agent",
       "clearDeleted": "Supprimer ces notes"
@@ -929,8 +939,8 @@
         "body": "Le bot demande dans la conversation : « Répondez oui pour l'enregistrer. » Un expéditeur de la liste peut y répondre. Les autres attendent votre réponse dans l'application."
       },
       "paired_private": {
-        "title": "Enregistrer pour un expéditeur associé dans une conversation privée",
-        "body": "Enregistrée tout de suite seulement si l'expéditeur est associé et la conversation en tête-à-tête. La note va dans cette conversation, avec Annuler. Une note qui ressemble à un secret attend toujours."
+        "title": "Enregistrer pour une personne vérifiée dans une conversation privée",
+        "body": "Enregistrée tout de suite seulement si l’expéditeur est une personne vérifiée et que la conversation est en tête-à-tête. La note va dans cette conversation, avec Annuler. Une note qui ressemble à un secret attend toujours."
       },
       "never": {
         "title": "Jamais",
@@ -987,15 +997,20 @@
       "title": "Comme avant",
       "body": "Cet agent a été enregistré avant que ce choix existe. Il lit vos notes si sa liste de modules nomme Memory, et le modèle choisit où une note est enregistrée. Choisissez une option ci-dessous pour changer cela."
     },
-    "saveGrant": "Autoriser l'enregistrement de notes",
-    "saveGrantHelp": "Active l'autorisation Retenir des choses. Sans elle, l'agent lit les notes mais ne peut pas en enregistrer.",
     "copyNote": "Exporter un agent, ou l'importer comme nouvel agent, garde ce choix et ne copie jamais ses notes.",
     "summary": {
       "mine_and_own": "Les miennes et les siennes",
       "own": "Les siennes seulement",
       "mine": "Les miennes",
       "none": "Aucune",
-      "asBefore": "Comme avant"
+      "asBefore": "Comme avant",
+      "withAuto": "{{choice}}, enregistre aussitôt",
+      "level": {
+        "off": "Désactivée",
+        "reads": "Lit les notes",
+        "saves": "Lit et enregistre les notes"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "Supprimer {{name}} ?",
@@ -1020,7 +1035,11 @@
       "title": "Quand il veut enregistrer une note",
       "use_mine": {
         "title": "Utiliser mon réglage",
-        "body": "Actuellement : {{level}}."
+        "body": "Votre réglage est <b>{{level}}</b>. <settings>Modifiez-le dans Réglages > Mémoire.</settings>"
+      },
+      "auto": {
+        "title": "Enregistrer et me prévenir",
+        "body": "Enregistre chaque note aussitôt et vous prévient dans la conversation, avec Annuler, même si votre réglage est Me demander d'abord. Une note longue, ou qui ressemble à un secret, attend toujours."
       },
       "always": {
         "title": "Toujours confirmer",
@@ -1030,8 +1049,27 @@
         "title": "Jamais",
         "body": "Il lit, n'enregistre jamais."
       },
-      "hint": "Un agent peut demander plus que votre réglage, jamais moins. « Enregistrer et me prévenir » n'est pas proposé ici. Dans une conversation de messagerie, la note va d'abord à cette conversation et n'atteint les notes propres de cet agent que depuis un expéditeur associé."
-    }
+      "hint": "Dans une conversation de messagerie, la note va d’abord à cette conversation et n’atteint les notes propres de cet agent que depuis une personne vérifiée. L’enregistrement immédiat dans une conversation de messagerie ne vaut que pour une personne vérifiée dans une conversation privée.",
+      "offReason": "Le niveau d'enregistrement ne s'applique pas tant que la mémoire est désactivée.",
+      "readsReason": "Le niveau d'enregistrement ne s'applique pas : cet agent lit les notes mais ne peut en enregistrer aucune."
+    },
+    "level": {
+      "title": "Ce qu'il fait des notes",
+      "off": {
+        "title": "Désactivée",
+        "body": "Ne lit ni n'enregistre de notes."
+      },
+      "reads": {
+        "title": "Lit les notes",
+        "body": "Utilise vos notes pour répondre. N'en enregistre jamais."
+      },
+      "saves": {
+        "title": "Lit et enregistre les notes",
+        "body": "Utilise les notes et en enregistre de nouvelles, selon votre niveau d'enregistrement."
+      }
+    },
+    "whose": "De qui sont les notes",
+    "whoseOff": "La mémoire est désactivée pour cet agent, il n'y a donc pas de notes à choisir."
   },
   "providerPicker": {
     "title": "Fournisseur",

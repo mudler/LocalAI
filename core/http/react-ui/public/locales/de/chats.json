@@ -41,6 +41,11 @@
       "readsLabel": "Liest",
       "writesLabel": "Schreibt",
       "costLabel": "Kosten",
+      "deliveryLabel": "Ergebnisse gehen an",
+      "deliveryInbox": "Dein Posteingang",
+      "deliveryChat": "Dieser Chat",
+      "deliveryThread": "Dieser Thread",
+      "deliveryChannel": "{{channel}}, oben im Kanal",
       "stopLabel": "Zum Beenden",
       "when": "{{schedule}}, {{zone}}. Erster Lauf {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -266,7 +271,12 @@
   "connectorsPage": {
     "loadFailed": "Ihre Konnektoren konnten nicht geladen werden.",
     "waitingTitle": "Warten auf ihr Add-on",
-    "waitingText": "Diese Verknüpfungen bleiben erhalten, laufen aber erst, wenn ihr Add-on installiert und eingeschaltet ist."
+    "waitingText": "Diese Verknüpfungen bleiben erhalten, laufen aber erst, wenn ihr Add-on installiert und eingeschaltet ist.",
+    "duplicate": {
+      "text": "Dieser Bot ist auch als {{name}} verbunden. Beide Verbindungen beantworten dieselbe Nachricht.",
+      "turnOff": "Diese ausschalten",
+      "open": "{{name}} öffnen"
+    }
   },
   "tools": {
     "commands": {
@@ -861,7 +871,7 @@
       "mine": "Meine",
       "deleted": "Gelöschte Agenten",
       "channels": "Unterhaltungen",
-      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not paired with you always waits for your approval.",
+      "channelsNote": "Notizen aus Chats in Messaging-Apps. Öffne eine Notiz, um sie zu lesen, oder lösche sie. Eine Notiz von einem Absender, der nicht mit dir verifiziert ist, wartet immer auf dein OK.",
       "export": "Diese Notizen exportieren",
       "clearAgent": "Die Notizen dieses Agenten löschen",
       "clearDeleted": "Diese Notizen löschen"
@@ -929,8 +939,8 @@
         "body": "Der Bot fragt im Chat: „Antworte mit Ja zum Speichern.“ Ein gelisteter Absender kann dort antworten. Andere warten auf dich in der App."
       },
       "paired_private": {
-        "title": "Für einen gekoppelten Absender im privaten Chat speichern",
-        "body": "Wird nur sofort gespeichert, wenn der Absender gekoppelt ist und der Chat ein Einzelchat ist. Die Notiz geht in diese Unterhaltung, mit Rückgängig. Eine Notiz, die wie ein Geheimnis aussieht, wartet weiter."
+        "title": "Für eine verifizierte Person im privaten Chat speichern",
+        "body": "Wird nur sofort gespeichert, wenn der Absender eine verifizierte Person ist und der Chat ein Einzelchat ist. Die Notiz geht in diese Unterhaltung, mit Rückgängig. Eine Notiz, die wie ein Geheimnis aussieht, wartet weiter."
       },
       "never": {
         "title": "Nie",
@@ -987,15 +997,20 @@
       "title": "Wie bisher",
       "body": "Dieser Agent wurde gespeichert, bevor es diese Auswahl gab. Er liest deine Notizen, wenn seine Add-on-Liste Memory nennt, und das Modell wählt, wohin eine Notiz gespeichert wird. Wähle unten eine der Optionen, um das zu ändern."
     },
-    "saveGrant": "Notizen speichern lassen",
-    "saveGrantHelp": "Schaltet die Berechtigung „Dinge merken“ ein. Ohne sie liest der Agent Notizen, kann aber keine speichern.",
     "copyNote": "Beim Exportieren eines Agenten oder beim Import als neuen Agenten bleibt diese Auswahl erhalten; seine Notizen werden nie kopiert.",
     "summary": {
       "mine_and_own": "Meine und eigene",
       "own": "Nur eigene",
       "mine": "Meine",
       "none": "Keine",
-      "asBefore": "Wie bisher"
+      "asBefore": "Wie bisher",
+      "withAuto": "{{choice}}, speichert sofort",
+      "level": {
+        "off": "Aus",
+        "reads": "Liest Notizen",
+        "saves": "Liest und speichert Notizen"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "{{name}} löschen?",
@@ -1020,7 +1035,11 @@
       "title": "Wenn er eine Notiz speichern will",
       "use_mine": {
         "title": "Meine Einstellung",
-        "body": "Aktuell: {{level}}."
+        "body": "Deine Einstellung ist <b>{{level}}</b>. <settings>Ändere sie unter Einstellungen > Gedächtnis.</settings>"
+      },
+      "auto": {
+        "title": "Speichern und Bescheid geben",
+        "body": "Speichert jede Notiz sofort und sagt dir im Chat Bescheid, mit Rückgängig, auch wenn deine Einstellung „Erst fragen“ ist. Eine lange Notiz oder eine, die wie ein Geheimnis aussieht, wartet trotzdem."
       },
       "always": {
         "title": "Immer bestätigen",
@@ -1030,8 +1049,27 @@
         "title": "Nie",
         "body": "Liest, speichert nie."
       },
-      "hint": "Ein Agent darf mehr fragen als deine Einstellung, aber nie weniger. „Speichern und Bescheid geben“ gibt es hier nicht. In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einem gekoppelten Absender."
-    }
+      "hint": "In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einer verifizierten Person. Sofortiges Speichern in einem Messaging-Chat gilt nur für eine verifizierte Person in einem Einzelchat.",
+      "offReason": "Die Speicherstufe gilt nicht, solange das Gedächtnis aus ist.",
+      "readsReason": "Die Speicherstufe gilt nicht: Dieser Agent liest Notizen, kann aber keine speichern."
+    },
+    "level": {
+      "title": "Wie viel er mit Notizen macht",
+      "off": {
+        "title": "Aus",
+        "body": "Liest und speichert keine Notizen."
+      },
+      "reads": {
+        "title": "Liest Notizen",
+        "body": "Nutzt deine Notizen für Antworten. Speichert nie welche."
+      },
+      "saves": {
+        "title": "Liest und speichert Notizen",
+        "body": "Nutzt Notizen und speichert neue, soweit deine Speicherstufe es erlaubt."
+      }
+    },
+    "whose": "Wessen Notizen",
+    "whoseOff": "Das Gedächtnis ist für diesen Agenten aus, es gibt also keine Notizen zur Auswahl."
   },
   "providerPicker": {
     "title": "Anbieter",

@@ -40,6 +40,10 @@ func (r *RetryAfter) Error() string {
 type Bot struct {
 	ID       string
 	Username string
+	// AccountID is a stable name of the upstream account that the token
+	// belongs to, equal for every token of that account (see
+	// contract.ConnectorResponse.AccountID). Empty when the platform cannot tell.
+	AccountID string
 }
 
 // Platform is the API of one messaging platform. The host passes the token in
@@ -91,6 +95,12 @@ type HistoryReader interface {
 	History(ctx context.Context, req contract.ConnectorRequest) ([]contract.ConnectorHistoryMessage, bool, error)
 }
 
+// Deleter is a Platform that deletes a message of the bot for the op delete:
+// the preview that an answer could not replace. req.MessageID is not empty.
+type Deleter interface {
+	Delete(ctx context.Context, req contract.ConnectorRequest) error
+}
+
 // Splitter is a Platform that cuts its texts itself; others use Split.
 type Splitter interface {
 	Split(text string) []string
@@ -139,12 +149,21 @@ func ServeWith(ctx context.Context, p Platform, host Host, req contract.Connecto
 		// Like an edit, a draft is a preview: it is not retried after a wait.
 		req.Text = parts[0]
 		err = d.Draft(ctx, req)
+	case contract.ConnectorOpDelete:
+		d, ok := p.(Deleter)
+		if !ok || req.MessageID == "" {
+			return contract.ConnectorResponse{}, fmt.Errorf("%w: no message, or a platform that cannot delete one", contract.ErrRefused)
+		}
+		err = Retry(ctx, func() error { return d.Delete(ctx, req) })
 	case contract.ConnectorOpTyping:
 		err = p.Typing(ctx, req)
 	case contract.ConnectorOpMe:
 		var bot Bot
 		if bot, err = p.Me(ctx, req.Token); err == nil {
 			out.BotID, out.BotUsername = bot.ID, bot.Username
+			if len(bot.AccountID) <= contract.MaxAccountIDBytes {
+				out.AccountID = bot.AccountID
+			}
 		}
 	case contract.ConnectorOpSendFile:
 		ss, ok := p.(StreamSender)
@@ -247,16 +266,26 @@ func parts(p Platform, text string) []string {
 	return Split(text, p.MaxRunes())
 }
 
+// editAttempts is how many times the answer tries to replace the working
+// message, and maxEditWait the longest wait it accepts between two tries.
+const (
+	editAttempts = 3
+	maxEditWait  = 30 * time.Second
+)
+
 // send sends the parts of a text in order and returns the ID of the last one.
-// When the request names a message, the first part replaces it; a message
-// that cannot be edited (deleted, too old) gets the part as a new message.
+// When the request names a message, the first part replaces it. The edit is
+// tried again after a wait the platform asks for. A message that cannot be
+// edited (deleted, too old, too long for an edit) gets the part as a new
+// message and is then deleted, when the platform can delete, so that the
+// preview, with its cursor, never stays beside the answer.
 func send(ctx context.Context, p Platform, req contract.ConnectorRequest) (string, error) {
 	sendPart, editPart := p.Send, p.Edit
 	if r, ok := p.(RichSender); ok {
 		sendPart, editPart = r.SendRich, r.EditRich
 	}
 	last := ""
-	replace := req.MessageID
+	replace, stale := req.MessageID, ""
 	req.MessageID = ""
 	for _, part := range parts(p, req.Text) {
 		r := req
@@ -265,12 +294,13 @@ func send(ctx context.Context, p Platform, req contract.ConnectorRequest) (strin
 			e := r
 			e.MessageID = replace
 			replace = ""
-			if err := Retry(ctx, func() error { return editPart(ctx, e) }); err == nil {
+			if err := retryN(ctx, editAttempts, maxEditWait, func() error { return editPart(ctx, e) }); err == nil {
 				last = e.MessageID
 				continue
 			} else if ctx.Err() != nil {
 				return "", ctx.Err()
 			}
+			stale = e.MessageID
 		}
 		err := Retry(ctx, func() error {
 			id, err := sendPart(ctx, r)
@@ -282,26 +312,66 @@ func send(ctx context.Context, p Platform, req contract.ConnectorRequest) (strin
 		if err != nil {
 			return "", err
 		}
+		if stale != "" {
+			removeStale(ctx, p, req, stale)
+			stale = ""
+		}
 	}
 	return last, nil
 }
 
-// Retry runs call, and runs it once more after the wait the platform asks
-// for. A second wait is the caller's: the error goes back.
-func Retry(ctx context.Context, call func() error) error {
-	err := call()
-	var ra *RetryAfter
-	if !errors.As(err, &ra) {
-		return err
+// removeStale deletes the preview that the answer could not replace. It is
+// best effort: a platform that cannot delete leaves the message.
+func removeStale(ctx context.Context, p Platform, req contract.ConnectorRequest, id string) {
+	d, ok := p.(Deleter)
+	if !ok {
+		return
 	}
-	timer := time.NewTimer(time.Duration(ra.Seconds) * time.Second)
+	req.MessageID, req.Text = id, ""
+	_ = retryN(ctx, 2, maxEditWait, func() error { return d.Delete(ctx, req) })
+}
+
+// Sleep waits d, or until ctx ends. Tests replace it to run without waiting.
+var Sleep = func(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
 	defer timer.Stop()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-timer.C:
+		return nil
 	}
-	return call()
+}
+
+// Retry runs call, and runs it once more after the wait the platform asks
+// for. A second wait is the caller's: the error goes back.
+func Retry(ctx context.Context, call func() error) error {
+	return retryN(ctx, 2, 0, call)
+}
+
+// retryN runs call up to attempts times. After a wait that the platform asks
+// for it runs again; any other error ends it. A wait over maxWait (when
+// maxWait is not zero) ends it too: the caller has a better way than waiting
+// that long.
+func retryN(ctx context.Context, attempts int, maxWait time.Duration, call func() error) error {
+	var err error
+	for i := 0; i < attempts; i++ {
+		if err = call(); err == nil {
+			return nil
+		}
+		var ra *RetryAfter
+		if !errors.As(err, &ra) || i == attempts-1 {
+			return err
+		}
+		d := time.Duration(ra.Seconds) * time.Second
+		if maxWait > 0 && d > maxWait {
+			return err
+		}
+		if werr := Sleep(ctx, d); werr != nil {
+			return werr
+		}
+	}
+	return err
 }
 
 // Typed maps an error of a Platform to the typed error of the contract.

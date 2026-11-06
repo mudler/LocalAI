@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/resourcesets"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 )
@@ -54,6 +55,9 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 	p := principal(user)
 	keepOff, keepOn, keepGrants := a.BuiltinsOff == nil, a.BuiltinsOn == nil, a.Builtins == nil
 	keepConnections := a.Connections == nil
+	// The resources are kept the same way: only a client that sends the field
+	// changes what the agent may use.
+	keepResources := a.Resources == nil
 	// A write without the memory choice keeps the stored one: a client that
 	// does not know the field cannot widen what the agent reads or saves.
 	keepMemory := a.Memory == ""
@@ -79,7 +83,11 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 	if err := agents.Validate(a); err != nil {
 		return agents.Agent{}, err
 	}
+	a.Resources = resourcesets.Normalize(a.Resources)
 	if err := s.checkConnections(ctx, p, a.Connections); err != nil {
+		return agents.Agent{}, err
+	}
+	if err := s.checkMCPServers(ctx, p, a); err != nil {
 		return agents.Agent{}, err
 	}
 	a.BuiltinsOff, a.BuiltinsOn = s.agentGroups(a.BuiltinsOff, false), s.agentGroups(a.BuiltinsOn, true)
@@ -117,6 +125,9 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 		// which credential the agent's chats use.
 		if keepConnections {
 			a.Connections = old.Connections
+		}
+		if keepResources {
+			a.Resources = old.Resources
 		}
 		if keepMemory {
 			a.Memory = old.Memory

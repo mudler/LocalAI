@@ -18,12 +18,22 @@ export function localizeAccess(view) {
   if (!view || !Array.isArray(view.subjects)) return view
   return {
     ...view,
+    tool_outcomes: (view.tool_outcomes || []).map((e) => (e.localized_message ? { ...e, message: e.localized_message } : e)),
     subjects: view.subjects.map((subject) => ({
       ...subject,
       decisions: (subject.decisions || []).map((d) => (d.localized_message ? { ...d, message: d.localized_message } : d)),
     })),
   }
 }
+
+// Two enabled connections that are the same bot answer every message twice.
+// The host marks each of them with `duplicate` ({ code, message, others }); the
+// page only shows it. Saving one such connection first gets a 409 of type
+// duplicate_connection, and the same request with the confirmation goes through.
+export const DUPLICATE_CONFIRMATION = 'answer twice'
+export const duplicateOther = (c) => c?.duplicate?.others?.[0] || null
+export const isDuplicateRefusal = (err) => err?.status === 409 && err.body?.error?.type === 'duplicate_connection'
+export const duplicateRefusalName = (err) => (typeof err?.body?.error?.param === 'string' ? err.body.error.param : '')
 
 export const MAX_WINDOW_MINUTES = 7 * 24 * 60
 
@@ -90,14 +100,7 @@ export const MAX_CHANNELS = 10
 export const MAX_CHANNEL_ID = 64
 export const MAX_CHANNEL_LABEL = 60
 
-// A binding with no caps denies every gated feature: files from senders,
-// triggers, memory writes and talk-back. A binding saved before the host
-// enforced permissions has none.
-export function hasNoCaps(c) {
-  return !(c?.caps || []).length
-}
-
-// The caps that the one-click preset turns on: the ones the host marks usual,
+// The caps of the usual set: the ones the host marks usual,
 // never a sensitive one, whatever the list says.
 export function usualCaps(capabilities) {
   return (capabilities || []).filter((c) => c.usual && !c.sensitive).map((c) => c.name)
@@ -129,52 +132,19 @@ export function agentHeld(agent) {
 // a grant of the agent is not gated. held is agentHeld(agent); null gates nothing.
 export const agentHas = (held, name) => held === null || !AGENT_GRANT_CAPS.includes(name) || held.includes(name)
 
-// Why a preset cannot be used: 'noAgent', 'unreadable', 'nothing' or ''.
-export function presetBlock(agentId, held, capabilities) {
-  if (!agentId) return 'noAgent'
-  if (held === null) return 'unreadable'
-  if (!(capabilities || []).some((c) => AGENT_GRANT_CAPS.includes(c.name) && held.includes(c.name))) return 'nothing'
-  return ''
-}
-
-// "Allow the usual set": the caps the host marks usual (never a sensitive one)
+// The usual set: the caps the host marks usual (never a sensitive one)
 // that the agent holds. skipped are the usual ones the agent does not hold.
 export function usualFor(capabilities, held) {
   const usual = usualCaps(capabilities)
   return { caps: usual.filter((n) => agentHas(held, n)), skipped: usual.filter((n) => !agentHas(held, n)) }
 }
 
-// "Same as the agent": every cap the agent holds that is a capability of the
-// host's list, sensitive ones too. sensitive names the ones that are.
-export function copyFromAgent(capabilities, held) {
-  const list = (capabilities || []).filter((c) => AGENT_GRANT_CAPS.includes(c.name) && (held || []).includes(c.name))
-  return { caps: list.map((c) => c.name), sensitive: list.filter((c) => c.sensitive).map((c) => c.name) }
-}
-
-// The form after the caps of the agent were copied in. The caps that are not
-// grants of an agent stay as they were; the others become exactly the copy, and
-// a role never keeps a cap the ceiling lost.
-export function withCopiedCaps(form, caps) {
-  const keep = (form.caps || []).filter((n) => !AGENT_GRANT_CAPS.includes(n))
-  const next = [...new Set([...keep, ...caps])]
-  const grants = (form.grants || []).map((g) => ({ ...g, caps: g.caps.filter((x) => next.includes(x)) })).filter((g) => g.caps.length > 0)
-  return { ...form, caps: next, grants }
-}
-
-// The form with these caps added to the ones it has.
-export function withAddedCaps(form, caps) {
-  return { ...form, caps: [...new Set([...(form.caps || []), ...caps])] }
-}
-
-// The ticked sensitive caps that nobody can use yet. A sender on the allowlist
-// may use the other ticked caps; a sensitive cap also needs a sender the owner
-// paired with the bot (see Authorize in core/services/studio/connectoraccess.go).
-// So with no live pairing, every ticked sensitive cap is dead. Returns names.
-export function unpairedSensitive(form, paired, capabilities, now = Date.now()) {
-  const active = (paired || []).some((p) => !p.expires_at || new Date(p.expires_at).getTime() > now)
-  if (active) return []
-  const sensitive = new Set((capabilities || []).filter((c) => c.sensitive).map((c) => c.name))
-  return (form?.caps || []).filter((c) => sensitive.has(c))
+// The form with the caps reset to the usual set for the agent, which is what a
+// new connection starts with. A role never keeps a cap the ceiling lost.
+export function withUsualCaps(form, capabilities, held) {
+  const caps = usualFor(capabilities, held).caps
+  const grants = (form.grants || []).map((g) => ({ ...g, caps: g.caps.filter((x) => caps.includes(x)) })).filter((g) => g.caps.length > 0)
+  return { ...form, caps, grants }
 }
 
 // Whether the allowlist holds channel entries only: members of a channel are not
@@ -183,7 +153,42 @@ export function unpairedSensitive(form, paired, capabilities, now = Date.now()) 
 export function channelOnly(form, lists) {
   if (!Array.isArray(lists) || lists.length < 2 || form?.accept_any) return false
   const allow = form?.allow || []
-  return allow.length > 0 && listEntries(allow, lists, 0).length === 0
+  return allow.length > 0 && listEntries(allow, lists, 0).length === 0 && !allow.some((x) => trustOf(form, x) === 'act')
+}
+
+// The trust level of an allowlist entry that is a channel: 'act' (everyone who
+// writes there may use the actions that are not sensitive) or 'answer' (the
+// bot answers there, but its members are not trusted one by one). An entry with
+// no level, such as one stored before the setting, is 'answer'.
+export function trustOf(form, entry) {
+  return form?.allow_trust?.[entry] === 'act' ? 'act' : 'answer'
+}
+
+// The levels the request carries: only for entries that are on the allowlist.
+function trustPayload(form) {
+  if (form.accept_any) return {}
+  const allow = new Set((form.allow || []).map((x) => x.trim()))
+  return Object.fromEntries(Object.entries(form.allow_trust || {}).filter(([k, v]) => allow.has(k) && (v === 'act' || v === 'answer')))
+}
+
+// The channel entries of the allowlist, in the order of the list. isChannel
+// tells whether an entry names a channel or group (a kind knows its IDs).
+export function channelEntries(form, isChannel) {
+  return (form?.allow || []).filter((x) => isChannel(x))
+}
+
+// The levels after the allowlist changed to allow: an entry that is new and is a
+// channel starts as 'act' (what the owner expects from allowing a channel), and
+// the level of an entry that left the list is dropped. The levels of the
+// entries that stayed do not change, so a channel stored before the setting
+// stays 'answer' until the owner changes it.
+export function trustAfter(form, allow, isChannel) {
+  const out = {}
+  for (const x of allow) {
+    if (form.allow_trust?.[x]) out[x] = form.allow_trust[x]
+    else if (!(form.allow || []).includes(x) && isChannel(x)) out[x] = 'act'
+  }
+  return out
 }
 
 // The form after cap name was turned on or off. Turning one off also takes it
@@ -233,14 +238,18 @@ export function channelsProblem(list) {
   return ''
 }
 
-export function emptyConnector() {
+// The form of a new binding. With the host's capability list it starts with the
+// usual permission set ticked for what the agent holds (held is agentHeld(agent),
+// null when no agent is chosen yet); without it, with no permission on. Only the
+// non-sensitive usual ones are ever ticked, and the restrictions stay off.
+export function emptyConnector(capabilities, held = null) {
   return {
-    id: '', name: '', token: '', agent_id: '', enabled: true, accept_any: false, allow: [], notify_chat: '',
+    id: '', name: '', token: '', agent_id: '', enabled: true, accept_any: false, allow: [], allow_trust: {}, notify_chat: '',
     reply_mode: 'progress', conversation: 'sender', window_minutes: 60, send_files: true, reply_language: 'auto',
     options: {},
     file_receive_mib: '', file_send_mib: '',
     approval: emptyApproval(),
-    caps: [], grants: [], channels: [],
+    caps: capabilities ? usualFor(capabilities, held).caps : [], grants: [], channels: [],
   }
 }
 
@@ -262,7 +271,7 @@ export function connectorForm(c) {
   return {
     ...emptyConnector(), ...c, token: '',
     file_receive_mib: bytesToMib(c.file_receive_max_bytes), file_send_mib: bytesToMib(c.file_send_max_bytes),
-    approval: approvalForm(c.approval),
+    approval: approvalForm(c.approval), allow_trust: { ...(c.allow_trust || {}) },
     caps: [...(c.caps || [])], grants: (c.grants || []).map((g) => ({ role: g.role, caps: [...g.caps] })),
     channels: (c.channels || []).map((x) => ({ id: x.id, label: x.label || '', approved: Boolean(x.approved) })),
   }
@@ -320,6 +329,7 @@ export function connectorPayload(form, kind, token = form.token, extra = {}) {
     enabled: Boolean(form.enabled),
     accept_any: Boolean(form.accept_any),
     allow: form.accept_any ? [] : (form.allow || []).map(x => x.trim()).filter((x, i, a) => x && a.indexOf(x) === i),
+    allow_trust: trustPayload(form),
     notify_chat: (form.notify_chat || '').trim(),
     reply_mode: form.reply_mode || 'progress',
     conversation: form.conversation || 'sender',
@@ -347,13 +357,6 @@ export function connectorPayload(form, kind, token = form.token, extra = {}) {
 export function pageLocale() {
   const lang = typeof document !== 'undefined' ? document.documentElement?.lang : ''
   return lang || []
-}
-
-// Who the binding accepts, in a few words.
-export function modeText(c) {
-  if (c.accept_any) return 'anyone'
-  const n = (c.allow || []).length
-  return n === 0 ? 'nobody yet' : `${n} listed sender${n === 1 ? '' : 's'}`
 }
 
 // A sender of the log as a short line: name, how many messages, and the id.
@@ -388,10 +391,4 @@ export function listEntries(allow, lists, index) {
     return first === -1 ? index === lists.length - 1 : first === index
   }
   return (allow || []).filter(own)
-}
-
-// The allowlist after list index changed to values.
-export function replaceList(allow, lists, index, values) {
-  const others = lists.flatMap((_, i) => (i === index ? [] : listEntries(allow, lists, i)))
-  return [...others, ...values]
 }

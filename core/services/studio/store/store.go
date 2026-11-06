@@ -39,6 +39,9 @@ type Pending struct {
 	// a message back.
 	Unconfirmed bool
 	At          time.Time
+	// Sender says who wrote the message when a messaging connection delivered
+	// it, so the line the turn records can name them (session.Entry.Sender).
+	Sender *session.Sender
 }
 
 // TurnStatus is how a turn ended.
@@ -81,6 +84,9 @@ type Store interface {
 
 	// AddPending queues text as the next message, after the pending ones.
 	AddPending(ctx context.Context, principal, chatID, text string) (Pending, error)
+	// AddPendingFrom is AddPending for a message with a known sender (nil:
+	// the same as AddPending).
+	AddPendingFrom(ctx context.Context, principal, chatID, text string, sender *session.Sender) (Pending, error)
 	// Pending returns the messages not yet delivered, in send order.
 	Pending(ctx context.Context, principal, chatID string) ([]Pending, error)
 	// EditPending changes the text of an undelivered message.

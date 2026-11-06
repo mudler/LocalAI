@@ -80,8 +80,8 @@
     "label": "What the agent may change on GitHub",
     "hint": "Comments, new issues, labels and closing issues. It never merges, deletes or pushes code.",
     "off": "Read only",
-    "propose": "Asks you first",
-    "auto": "Acts without asking",
+    "propose": "Asks first",
+    "auto": "Runs at once",
     "line": {
       "off": "It cannot change anything on GitHub.",
       "propose": "Each change waits for your OK.",
@@ -94,8 +94,8 @@
     },
     "row": {
       "off": "Read only",
-      "propose": "Asks you first",
-      "auto": "Acts without asking"
+      "propose": "Asks first",
+      "auto": "Runs at once"
     }
   },
   "approval": {

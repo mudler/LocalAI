@@ -171,7 +171,7 @@ var _ = Describe("connectors live", func() {
 		Expect(bot.draftsSent()).To(BeEmpty(), "a group has no drafts")
 	})
 
-	It("stream in a private chat shows the reasoning and then the answer in one draft, and sends the answer after it", func() {
+	It("stream in a private chat never shows the reasoning, shows the answer in one draft, and sends the answer after it", func() {
 		sh, bot := newShared(), newScriptedBot()
 		thought, half := make(chan struct{}), make(chan struct{})
 		script := func(workspace.Actor, string) []studiotest.ToolStep {
@@ -181,8 +181,10 @@ var _ = Describe("connectors live", func() {
 		r := newConnRig(sh, connStore(), bot, script, nil)
 		r.bind(studio.ConnectorInput{Allow: []string{"11"}, Reply: connectors.ReplyStream})
 		bot.say(1, 11, "Ada", "ada", "write")
-		waitFor("the reasoning in the draft", func() bool { return bot.lastDraft() == "checking the notes ▉" })
+		waitFor("the first draft", func() bool { return len(bot.draftsSent()) >= 1 })
+		time.Sleep(150 * time.Millisecond)
 		Expect(bot.draftsSent()[0].Text).To(Equal("Working… ▉"), "the first draft shows that the bot works")
+		Expect(bot.lastDraft()).To(Equal("Working… ▉"), "the reasoning is not shown")
 		Expect(bot.answers()).To(BeEmpty(), "no working message")
 		close(thought)
 		waitFor("the answer in the draft", func() bool { return bot.lastDraft() == "The first half ▉" })
@@ -293,7 +295,7 @@ var _ = Describe("connectors live", func() {
 		Expect(bot.answers()[0]).To(Equal("start" + long))
 	})
 
-	It("an edit that fails sends the answer as a new message", func() {
+	It("an edit that fails sends the answer as a new message and deletes the working message", func() {
 		sh, bot := newShared(), newScriptedBot()
 		bot.setFail("editMessageText", func() (int, string) {
 			return http.StatusBadRequest, `{"ok":false,"error_code":400,"description":"Bad Request: message to edit not found"}`
@@ -306,6 +308,8 @@ var _ = Describe("connectors live", func() {
 		close(release)
 		waitFor("the answer", func() bool { return len(bot.answers()) == 2 })
 		Expect(bot.answers()).To(Equal([]string{"Working…", "Still here."}))
+		waitFor("the working message is deleted", func() bool { return len(bot.deletes()) == 1 })
+		Expect(bot.deletes()[0]).To(Equal(bot.firstID()), "the answer stands alone")
 	})
 
 	It("typing shows at once for a short turn", func() {
@@ -464,6 +468,7 @@ var _ = Describe("connectors live", func() {
 		Expect(err).NotTo(HaveOccurred(), "an update that keeps the token does not ask the platform")
 		in.Token = "777:other"
 		bot.setFail("getMe", nil)
+		in.ConfirmDuplicate = studio.DuplicateConfirmation
 		info, err := r.conns.CreateConnector(ctx, alice, in)
 		Expect(err).NotTo(HaveOccurred())
 		Expect([]any{info.ReplyMode(), info.ConversationMode(), info.SendsFiles()}).To(Equal([]any{connectors.ReplyProgress, connectors.ConversationSender, true}), "the defaults")

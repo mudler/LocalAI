@@ -1006,7 +1006,7 @@ func (a *Application) startAddons() error {
 		}
 		host := c.Host
 		if host == (contract.HostCompatibility{}) {
-			host = contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH}
+			host = contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, FeatureLevel: contract.HostFeatureLevel, OS: runtime.GOOS, Arch: runtime.GOARCH}
 		}
 		cat = catalog.Catalog{Sources: sources, TargetOS: host.OS, TargetArch: host.Arch}
 		installer = &packages.Installer{Root: filepath.Join(c.Root, "packages"), Catalog: cat, Host: host}

@@ -27,3 +27,16 @@ export function acceptsOf(c) {
   const n = (c.allow || []).length
   return n === 0 ? { key: 'nobody' } : { key: 'listed', count: n }
 }
+
+// The other enabled binding of the same bot that the host names on a binding
+// (`duplicate`), or null. Both then answer the same message.
+export function duplicateOf(c) {
+  return c?.duplicate?.others?.[0] || null
+}
+
+// The page of the add-on that serves a binding, opened on one binding of it.
+// groups come from groupConnectors; '' when no running add-on serves the kind.
+export function bindingAddress(groups, c, id) {
+  const href = (groups || []).find((g) => g.kind === c.kind && g.addon === c.addon)?.href
+  return href ? `${href}${href.includes('?') ? '&' : '?'}binding=${encodeURIComponent(id)}` : ''
+}

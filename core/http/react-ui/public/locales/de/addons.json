@@ -146,7 +146,8 @@
     "network": "Der Server ist nicht erreichbar. Prüfe deine Verbindung.",
     "unavailable": "Add-ons sind gerade nicht verfügbar. Versuche es gleich noch einmal.",
     "unknownOutcome": "Das Ergebnis konnte nicht bestätigt werden. Prüfe den Status, bevor du es erneut versuchst.",
-    "busy": "Der Add-on-Server ist beschäftigt und hat nicht rechtzeitig geantwortet. Versuche es gleich noch einmal."
+    "busy": "Der Add-on-Server ist beschäftigt und hat nicht rechtzeitig geantwortet. Versuche es gleich noch einmal.",
+    "needsNewerHost": "Dieses Add-on braucht ein neueres LocalAI. Aktualisiere LocalAI und versuche es erneut. Es wurde nichts installiert."
   },
   "installed": {
     "disabled": "Aus",
@@ -569,7 +570,8 @@
       "protocol-version": "Die Protokollversion passt nicht",
       "sdk-version": "Die SDK-Version der Oberfläche passt nicht",
       "data-format": "Das Datenformat passt nicht",
-      "digest-changed": "Der Digest dieser Version hat sich geändert"
+      "digest-changed": "Der Digest dieser Version hat sich geändert",
+      "feature-level": "Dieses Add-on braucht ein neueres LocalAI."
     },
     "class": {
       "source-unavailable": "Die Bibliothek ist nicht erreichbar.",

@@ -84,7 +84,8 @@
       "Tools": "Werkzeuge",
       "Notes": "Gedächtnis",
       "Connections": "Verbindungen",
-      "Effective": "Wirksame Ansicht"
+      "Effective": "Wirksame Ansicht",
+      "Uses": "Was er nutzen kann"
     },
     "name": "Name",
     "description": "Description",
@@ -260,12 +261,16 @@
       },
       "skills": {
         "some_one": "Kann {{count}} Skill nutzen: {{names}}.",
-        "some_other": "Kann {{count}} Skills nutzen: {{names}}."
+        "some_other": "Kann {{count}} Skills nutzen: {{names}}.",
+        "withAddons_one": "Kann {{count}} Skill nutzen, der mit einem Add-on kommt: {{names}}.",
+        "withAddons_other": "Kann {{count}} Skills nutzen, die mit Add-ons kommen: {{names}}.",
+        "addonOff": "Der Skill {{name}} ist an, aber sein Add-on {{addon}} ist aus, daher bewirkt er nichts. Schalte das Add-on ein."
       },
       "files": {
         "all": "Kann alle Ihre Dateien erreichen.",
         "folders_one": "Kann nur den {{count}} gewählten Ordner erreichen.",
-        "folders_other": "Kann nur die {{count}} gewählten Ordner erreichen."
+        "folders_other": "Kann nur die {{count}} gewählten Ordner erreichen.",
+        "none": "Kann keine deiner Dateien erreichen."
       },
       "grants": {
         "parentOff": "{{name}} ist erlaubt, funktioniert aber nicht, solange {{parent}} aus ist. Schalten Sie {{parent}} ein.",
@@ -277,18 +282,20 @@
       },
       "memory": {
         "userOff": "Das Gedächtnis ist in Ihren Einstellungen aus. Dieser Agent liest und speichert daher keine Notizen, egal was er hier wählt.",
-        "none": "Behält und liest keine Notizen.",
+        "none": "Das Gedächtnis ist für diesen Agenten aus. Er liest und speichert keine Notizen.",
         "mine_and_own": "Liest Ihre Notizen und seine eigenen und speichert in seinen eigenen.",
         "own": "Liest und speichert nur seine eigenen Notizen.",
         "mine": "Liest Ihre Notizen und speichert darin.",
         "asBefore": "Das Gedächtnis arbeitet wie bisher: Er liest Notizen, wenn ein Add-on Memory nennt.",
-        "noGrant": "Er soll Notizen speichern, aber das Recht, sich Dinge zu merken, ist aus. Er speichert also nichts. Schalten Sie es unter Gedächtnis ein.",
         "level": {
-          "auto": "Notizen werden sofort gespeichert.",
-          "ask": "Jede Notiz wartet auf Ihre Bestätigung.",
-          "always": "Jede Notiz wartet auf Sie, und nichts lockert das.",
-          "never": "Er speichert keine Notizen."
-        }
+          "auto": "Speichert Notizen sofort.",
+          "ask": "Speichert Notizen (fragt zuerst): Jede Notiz wartet auf deine Bestätigung.",
+          "always": "Speichert Notizen, aber jede Notiz wartet auf dich, und nichts lockert das.",
+          "never": "Liest Notizen, speichert aber keine: Deine Speicherstufe ist Nie.",
+          "agentAuto": "Speichert Notizen sofort und sagt dir Bescheid, mit Rückgängig. Das ist die eigene Wahl des Agenten."
+        },
+        "readsOnly": "Liest Notizen, kann aber nicht speichern.",
+        "connectionLimit": "Auf diesen Messaging-Verbindungen werden keine Notizen gespeichert: {{names}}."
       },
       "knowledge": {
         "some_one": "Kann {{count}} Sammlung durchsuchen: {{names}}.",
@@ -302,6 +309,18 @@
         "error": "{{name}} konnte nicht geprüft werden. Öffnen Sie sie, um die Berechtigungen zu sehen.",
         "summary": "{{name}}: {{allowed}} erlaubt, {{blocked}} nicht erlaubt.",
         "blocked": "{{name}} kann {{capability}} nicht nutzen. {{message}}"
+      },
+      "addons": {
+        "noConnection": "{{name}} ist an, kann aber jetzt nicht arbeiten: Du hast kein Konto dafür. Füge eines hinzu.",
+        "stale": "{{name}} ist an, kann aber jetzt nicht arbeiten: Die gespeicherten Konten gibt es nicht mehr. Wähle ein Konto.",
+        "pick": "{{name}} ist an, kann aber jetzt nicht arbeiten: Es ist kein Konto gewählt. Ein Lauf ohne Anwesende bekommt keines seiner Werkzeuge.",
+        "resourcesNone": "{{name}} ist an, kann aber jetzt nicht arbeiten: Es ist nichts angekreuzt ({{noun}}).",
+        "account": "{{name}} nutzt {{names}}.",
+        "resources": "{{name}} darf {{n}} nutzen ({{plural}}) und {{w}} ändern.",
+        "resourcesRead": "{{name}} darf {{n}} lesen ({{plural}}) und keines ändern."
+      },
+      "mcp": {
+        "ignored": "{{name}} steht bei den MCP-Servern des Agenten, aber unter diesem Namen ist nichts definiert, daher wird es ignoriert. Entferne es."
       }
     },
     "try": {
@@ -333,6 +352,106 @@
       "chatTitle": "Test von {{name}}",
       "failed": "Der Test ist fehlgeschlagen: {{message}}",
       "slow": "Der Agent arbeitet noch. Stoppen Sie ihn oder schließen Sie das Fenster."
+    },
+    "uses": {
+      "presetNote": "Eine Stufe setzt nur die eingebauten Werkzeuge und Berechtigungen. Add-ons, Konten, MCP-Server und Skills bleiben unverändert.",
+      "needsSummary_one": "{{count}} Add-on kann noch nicht arbeiten",
+      "needsSummary_other": "{{count}} Add-ons können noch nicht arbeiten",
+      "builtins": {
+        "title": "Eingebaute Werkzeuge",
+        "lead": "Von LocalAI bereitgestellt. Optionen stehen unter ihrem Schalter."
+      },
+      "addons": {
+        "title": "Add-ons",
+        "lead": "Eine Zeile pro Add-on: einschalten, das Konto wählen, sehen, was es bietet.",
+        "none": "Es ist kein Add-on installiert.",
+        "gone": "Erlaubt, aber nicht installiert oder für dich nicht verfügbar. Schalte es aus, um es zu entfernen."
+      },
+      "mcp": {
+        "title": "MCP-Server",
+        "lead": "Server außerhalb von LocalAI. Ihre Werkzeuge können Geld kosten oder andere Systeme erreichen.",
+        "search": "MCP-Server suchen",
+        "none": "Es ist noch kein MCP-Connector definiert. Füge auf der Seite der MCP-Connectors einen hinzu.",
+        "connector": "Ein MCP-Connector, den du definiert hast.",
+        "server": "Ein MCP-Server des Modells.",
+        "unknown": "Nicht definiert: Unter diesem Namen gibt es nichts, daher ignoriert der Agent es.",
+        "unverified": "Das Modell wird in jedem Chat gewählt, daher wird dieser Name dort geprüft.",
+        "remove": "{{name}} entfernen",
+        "noMatch": "Kein MCP-Server passt zu „{{query}}“.",
+        "removeShort": "Entfernen"
+      },
+      "account": {
+        "label": "Verwendetes Konto",
+        "group": "Konten für {{name}}",
+        "none": "Noch kein Konto.",
+        "add": "Konto hinzufügen",
+        "kept": "Für später behalten"
+      },
+      "meta": {
+        "account": "braucht ein Konto",
+        "resources": "begrenzt auf die angekreuzten: {{plural}}"
+      },
+      "tools_one": "{{count}} Werkzeug",
+      "tools_other": "{{count}} Werkzeuge",
+      "toolsSplit_one": "{{count}} Werkzeug ({{read}} lesen, {{write}} ändern Daten)",
+      "toolsSplit_other": "{{count}} Werkzeuge ({{read}} lesen, {{write}} ändern Daten)",
+      "writes": "ändert Daten",
+      "now": {
+        "label": "Im Moment:",
+        "off": "Aus. Es wird nichts davon angeboten.",
+        "offKept": "Aus. Es wird nichts angeboten. Für später behaltene Konten: {{names}}.",
+        "noAccountNeeded": "An. Angeboten: {{tools}}. Es braucht kein Konto.",
+        "only": "An. Angeboten: {{tools}}, mit {{names}}, deinem einzigen Konto.",
+        "using": "An. Angeboten: {{tools}}, mit {{names}}.",
+        "usingMany": "An. Angeboten: {{tools}}, mit {{names}}. Das Modell nennt das Konto in jedem Aufruf.",
+        "pick": "An, aber es ist kein Konto gewählt. Ein Chat fragt dich nach einem Konto, bevor er Werkzeuge bekommt; ein Lauf ohne Anwesende bekommt keine. Hake oben das Konto an, das genutzt werden soll.",
+        "noConnection": "An, aber du hast noch kein Konto dafür, daher wird keines seiner Werkzeuge angeboten. Füge oben ein Konto hinzu.",
+        "stale": "An, aber die gespeicherten Konten gibt es nicht mehr, daher wird keines seiner Werkzeuge angeboten. Wähle ein Konto. Hake oben ein Konto an.",
+        "resourcesNone": "An, aber es ist nichts angekreuzt ({{noun}}), daher kann es keines verwenden. Hake oben eines an.",
+        "resourcesRead": "An. Angeboten: {{tools}}, für {{n}} angekreuzte ({{plural}}), nur Lesen. Werkzeuge, die Daten ändern, laufen nicht.",
+        "resources": "An. Angeboten: {{tools}}, für {{n}} angekreuzte ({{plural}}); {{w}} darf es ändern."
+      },
+      "res": {
+        "heading": "Welche <n>{{plural}}</n> es nutzen darf",
+        "headingPlain": "Welche {{plural}} es nutzen darf",
+        "loading": "Die Liste wird geladen.",
+        "error": "Die Liste konnte nicht gelesen werden.",
+        "empty": "Du hast noch keine <n>{{plural}}</n> zum Vergeben.",
+        "truncated": "Die Liste ist gekürzt.",
+        "gone": "nicht verfügbar",
+        "access": "Zugriff auf {{name}}",
+        "read": "Lesen",
+        "write": "Lesen und ändern",
+        "none": "Nichts angekreuzt: es kann kein Element nutzen (<n>{{noun}}</n>).",
+        "some": "Nur die angekreuzten. Du brauchst weiterhin deinen eigenen Zugriff auf jedes."
+      },
+      "skills": {
+        "summaryOff_one": "{{count}} Skill wird mit ihm eingeschaltet",
+        "summaryOff_other": "{{count}} Skills werden mit ihm eingeschaltet",
+        "summaryOn": "{{on}} von {{total}} Skills an"
+      },
+      "addonOn": {
+        "title": "{{name}} eingeschaltet",
+        "body_one": "{{count}} Skill wurde mit eingeschaltet: {{names}}. Gespeichert wird erst, wenn du speicherst.",
+        "body_other": "{{count}} Skills wurden mit eingeschaltet: {{names}}. Gespeichert wird erst, wenn du speicherst."
+      },
+      "skillAddonOff": "Das zugehörige Add-on ist aus, daher bewirkt dieser Skill nichts.",
+      "memorySkills": {
+        "title": "Gedächtnis-Skills",
+        "from": "von {{slot}}",
+        "on": "An, solange das Gedächtnis an ist.",
+        "off": "Aus, solange das Gedächtnis dieses Agenten aus ist.",
+        "offUser": "Aus, weil das Gedächtnis in deinen Einstellungen aus ist."
+      },
+      "slot": {
+        "memory": "Gedächtnis"
+      }
+    },
+    "memoryLevelApplied": {
+      "title": "Gedächtnis: {{name}}",
+      "off": "Er liest und speichert keine Notizen, und das Recht, sich Dinge zu merken, ist aus. Nichts ist gespeichert, bis du speicherst.",
+      "reads": "Das Recht, sich Dinge zu merken, ist aus. Er liest Notizen, kann aber keine speichern. Nichts ist gespeichert, bis du speicherst.",
+      "saves": "Das Recht, sich Dinge zu merken, ist an. Nichts ist gespeichert, bis du speicherst."
     }
   },
   "run": {
@@ -450,7 +569,8 @@
       "noChanges": "Nothing differs from the saved trigger.",
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
-      "changed_other": "{{count}} changes"
+      "changed_other": "{{count}} changes",
+      "watchNoFiles": "Dieser Agent hat „Keine Dateien“. Ein Lauf dieses Triggers erfährt, dass eine Datei eingegangen ist, kann sie aber nicht öffnen. Gib dem Agenten im Editor Dateizugriff oder wähle einen anderen Agenten."
     },
     "subtitle": "Starten Sie einen Agenten nach Zeitplan oder wenn eine Datei ankommt. Jeder Lauf ist ein Chat, den Sie öffnen können."
   },
@@ -654,7 +774,7 @@
   },
   "folder": {
     "all": "Alle meine Dateien",
-    "one": "Gewählte Ordner",
+    "one": "Nur diese Ordner",
     "scopeLabel": "Dateien, die dieser Agent erreicht",
     "allHelp": "Chats mit diesem Agenten erreichen alle deine Dateien, wie ein Chat ohne Agent.",
     "choose": "Ordner wählen",
@@ -695,7 +815,9 @@
     "effectiveRead": "Liegt in einem Ordner, der nur gelesen werden kann, daher kann dieser nur gelesen werden.",
     "effectiveWrite": "Liegt in einem Ordner, der geändert werden kann, daher kann auch dieser geändert werden.",
     "notMounted": "{{n}} geteilte Ordner passen nicht in das Zugriffslimit eines Chats und sind nicht eingebunden.",
-    "exportNoteMany": "Die Datei nennt {{n}} Ordner. Beim Import erhält der Agent die Ordner mit diesen Pfaden, die es gibt, und bittet dich, die anderen zu wählen."
+    "exportNoteMany": "Die Datei nennt {{n}} Ordner. Beim Import erhält der Agent die Ordner mit diesen Pfaden, die es gibt, und bittet dich, die anderen zu wählen.",
+    "none": "Keine Dateien",
+    "noneHelp": "Dieser Agent kann auf keine deiner Dateien zugreifen. Dateien, die du an einen Chat anhängst, bleiben in diesem Chat. Das Überwachen eines Ordners braucht Dateizugriff: Ein Trigger, der einen Ordner überwacht, startet für diesen Agenten zwar, kann die eingehenden Dateien aber nicht öffnen."
   },
   "templates": {
     "researcher": {

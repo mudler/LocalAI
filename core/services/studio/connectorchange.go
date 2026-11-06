@@ -258,7 +258,7 @@ func (c *Connectors) mayAnswerChange(ctx context.Context, b connectors.Binding, 
 		return false
 	}
 	return c.svc.allowCap(ctx, CapabilityRequest{Capability: CapProposalsConfirm, Binding: b.ID, Owner: b.Owner, Agent: b.AgentID,
-		Sender: m.SenderID, Username: m.SenderUsername, Roles: m.Roles, Kind: string(p.Kind), Sensitive: p.Kind != contract.ChangeMemory})
+		Sender: m.SenderID, Username: m.SenderUsername, Roles: m.Roles, Chat: m.Chat, Direct: m.Direct, Kind: string(p.Kind), Sensitive: p.Kind != contract.ChangeMemory})
 }
 
 // answerChange confirms or drops the waiting proposal p for the sender of m. A

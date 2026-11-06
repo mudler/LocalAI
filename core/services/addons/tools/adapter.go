@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -128,10 +129,28 @@ type ToolDefinition struct {
 	// run with the token of a connection that the person selects. A chat
 	// offers them only after a connection is selected.
 	Credentialed bool `json:"credentialed,omitempty"`
+	// OwnerData is true when the add-on keeps the owner's own data (see
+	// contract.Capabilities.OwnerData). Its write tools carry Permission
+	// tools.write; the owner and paired senders of a messaging chat hold it
+	// without a tick, as for an add-on the agent is connected to.
+	OwnerData bool `json:"ownerData,omitempty"`
+	// ApprovalOverridable is true for a write tool that declares approval
+	// "always" and lets the person relax it with their own setting (see
+	// contract.ToolDefinition). The chat consumer shows it; the broker decides.
+	ApprovalOverridable bool `json:"approvalOverridable,omitempty"`
 	// ResourceArgument and ResourceLabel come from the credential slot of the
 	// add-on. They only shape the line that says which connection acted.
 	ResourceArgument string `json:"-"`
 	ResourceLabel    string `json:"-"`
+	// ResourceScoped is true when the manifest opts in to per-agent resources
+	// (capabilities.resources.agentScoped). A chat of a saved agent then
+	// reaches only the resources on the list of the agent.
+	ResourceScoped bool `json:"-"`
+	// Title and SummaryFields come from the tool definition of the add-on
+	// (see contract.ToolDefinition). They shape what a chat repeats of a
+	// call that waits for a confirmation; the model never sees them.
+	Title         string   `json:"-"`
+	SummaryFields []string `json:"-"`
 }
 
 // ResultKind says what a ToolResult carries.
@@ -166,6 +185,15 @@ const InvalidNote = "The add-on refused this request as invalid. Nothing was cha
 
 // ReasonedNote is what the model is told when the add-on refused and said why.
 const ReasonedNote = "The add-on cannot do this now, and says why in message. Nothing was changed. Tell the person what it said in plain words; do not repeat the same call and do not report an outage."
+
+// CodeUpstreamRefused is the Code of a ResultError for a call that the service
+// behind the add-on refused (a permission its token lacks, a name that does
+// not exist, a value it does not accept). Upstream holds the status and Message
+// the sentence the add-on wrote for the person. Nothing was changed.
+const CodeUpstreamRefused = "upstream_refused"
+
+// UpstreamNote is what the model is told when the service behind the add-on refused.
+const UpstreamNote = "The service behind the add-on refused this call, and message says what to change. Nothing was changed. Tell the person what message says in plain words, with the status in upstream; do not repeat the same call and do not report an outage."
 
 // CodeNotRunning is the Code of a ResultError for a call that found the add-on
 // not running. Nothing was sent.
@@ -267,9 +295,18 @@ type ProposalRef struct {
 	Count      uint64          `json:"count"`
 	Summary    json.RawMessage `json:"summary,omitempty"`
 	ExpiresAt  time.Time       `json:"expiresAt"`
+	// Hold says why the proposal waits for a person: write_mode_propose (the
+	// connection only proposes), approval_always (the tool always asks) or
+	// held_by_host (a rule of the host).
+	Hold string `json:"hold,omitempty"`
 	// Connection names the connection the change will be made with, as
 	// "as Work, repository acme/widgets"; empty for an add-on with no credential.
 	Connection string `json:"connection,omitempty"`
+	// Title and Facts are what the tool definition lets a chat repeat of the
+	// call: the title of the tool and the listed keys of the preview. They
+	// are not sent to the model, which already wrote the call.
+	Title string          `json:"-"`
+	Facts []contract.Fact `json:"-"`
 }
 
 // AppliedRef is what a chat learns of a change it made. The person enabled the
@@ -334,6 +371,9 @@ type ToolResult struct {
 	ConnectionID string `json:"connectionId,omitempty"`
 	// RetryAfter is how many seconds to wait, for the code rate_limited.
 	RetryAfter int `json:"retryAfter,omitempty"`
+	// Upstream is the status that the service behind the add-on answered, for
+	// the code upstream_refused. Message says in a sentence what to change.
+	Upstream int `json:"upstream,omitempty"`
 }
 
 // ProposalNote is what the model is told after a proposal.
@@ -670,6 +710,16 @@ func (t *ToolAdapter) UserSettings(ctx context.Context, actor contract.Actor) ([
 // AddonListing is the title and description an add-on declares for people.
 type AddonListing struct {
 	AddonID, Title, Description string
+	// Resources is set for an add-on that scopes its resources per agent.
+	Resources *ResourceLabel
+}
+
+// ResourceLabel is the word an add-on uses for one of its resources, as its
+// manifest declares it.
+type ResourceLabel struct {
+	Noun, NounPlural string
+	// Translations are the translated nouns by language tag.
+	Translations map[string]contract.ResourceText
 }
 
 // Listings returns the title and description of every add-on the actor can
@@ -684,7 +734,11 @@ func (t *ToolAdapter) Listings(ctx context.Context, actor contract.Actor) ([]Add
 	}
 	out := make([]AddonListing, 0, len(list.Apps))
 	for _, a := range list.Apps {
-		out = append(out, AddonListing{AddonID: a.ID, Title: a.Title, Description: a.Description})
+		l := AddonListing{AddonID: a.ID, Title: a.Title, Description: a.Description}
+		if r := a.Resources; r != nil && r.AgentScoped {
+			l.Resources = &ResourceLabel{Noun: r.Noun, NounPlural: r.NounPlural, Translations: maps.Clone(a.ResourceTexts)}
+		}
+		out = append(out, l)
 	}
 	return out, nil
 }
@@ -750,8 +804,9 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	if json.Unmarshal(d.InputSchema, &params) != nil {
 		return ToolDefinition{}, false
 	}
-	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, Permission: contract.ToolPermission(a.Credentialed, d), Credentialed: a.Credentialed,
-		ResourceArgument: a.ResourceArgument, ResourceLabel: a.ResourceLabel}
+	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, OwnerData: a.OwnerData, Permission: contract.ToolPermission(a.Credentialed || a.OwnerData || (a.Resources != nil && a.Resources.AgentScoped), d), Credentialed: a.Credentialed, ApprovalOverridable: d.ApprovalOverridable && d.Approval == contract.ApprovalAlways,
+		ResourceArgument: a.ResourceArgument, ResourceLabel: a.ResourceLabel, ResourceScoped: a.Resources != nil && a.Resources.AgentScoped,
+		Title: d.Title, SummaryFields: slices.Clone(d.SummaryFields)}
 	// Checked again for the same reason as the schema: a manifest that names a
 	// tool outside the list, or a shadow of the wrong kind or schema, never
 	// shadows it.
@@ -851,6 +906,10 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, conversationID, name string, arguments json.RawMessage) (ToolResult, error) {
 	var acted connectionUse
 	res, err := t.executeTool(ctx, actor, conversationID, name, arguments, &acted)
+	if o := OutcomeFrom(ctx); o != nil {
+		result, reason, status := Classify(res, err)
+		o.Finish(result, reason, status)
+	}
 	if err == nil && acted.line != "" && res.Connection == "" {
 		res.Connection, res.ConnectionID = acted.line, acted.id
 		if res.Proposal != nil {
@@ -900,20 +959,28 @@ func (t *ToolAdapter) executeTool(ctx context.Context, actor contract.Actor, con
 	if !found {
 		return ToolResult{}, ErrUnknownTool
 	}
+	out := OutcomeFrom(ctx)
+	out.Call(def.Kind, "")
 	resource, body, err := toolargs.Bind(def.Tool, def.Parameters, arguments, conversationID != "")
 	if err != nil {
 		return ToolResult{}, err
 	}
-	if def.Credentialed && conversationID != "" && t.connection != nil {
-		if id := gateway.ConnectionOverride(ctx); id != "" {
-			cname := t.connection(ctx, conversationID, id)
-			key := ""
-			if def.ResourceArgument != "" {
-				var in map[string]json.RawMessage
-				if json.Unmarshal(body, &in) == nil {
-					_ = json.Unmarshal(in[def.ResourceArgument], &key)
-				}
+	out.Call("", resource)
+	if def.Credentialed {
+		id := gateway.ConnectionOverride(ctx)
+		key := ""
+		if id != "" && def.ResourceArgument != "" {
+			var in map[string]json.RawMessage
+			if json.Unmarshal(body, &in) == nil {
+				_ = json.Unmarshal(in[def.ResourceArgument], &key)
 			}
+		}
+		out.Connection(id)
+		// The name the person gave the resource of the connection (a
+		// repository), never the text of the call.
+		out.Call("", key)
+		if id != "" && conversationID != "" && t.connection != nil {
+			cname := t.connection(ctx, conversationID, id)
 			*acted = connectionUse{id: id, line: connectionLine(cname, def.ResourceLabel, key)}
 		}
 	}
@@ -936,6 +1003,11 @@ func (t *ToolAdapter) executeTool(ctx context.Context, actor contract.Actor, con
 			return ToolResult{}, gateway.ErrForbidden
 		}
 		resource = id
+	}
+	// The list of the agent of the chat, on top of what the person may use.
+	// It binds the resource the model named and the one the chat selected.
+	if res, refused := limitedResult(ctx, def, name, resource); refused {
+		return res, nil
 	}
 	op, err := t.newID()
 	if err != nil {
@@ -979,7 +1051,10 @@ func (t *ToolAdapter) executeTool(ctx context.Context, actor contract.Actor, con
 		return t.applyNow(ctx, actor, name, p)
 	}
 	ref := ProposalRef{ID: p.ID, AddonID: p.AddonID, ResourceID: p.ResourceID, Action: p.Action, Digest: p.Digest,
-		State: string(p.State), Count: p.Effects.Count, ExpiresAt: p.ExpiresAt}
+		State: string(p.State), Count: p.Effects.Count, ExpiresAt: p.ExpiresAt, Hold: p.Hold}
+	if ref.Hold == "" {
+		ref.Hold = HoldByHost
+	}
 	if p.ConnectionName != "" {
 		// What the owner stored, so the card says it on every frontend.
 		ref.Connection = "as " + p.ConnectionName
@@ -987,6 +1062,9 @@ func (t *ToolAdapter) executeTool(ctx context.Context, actor contract.Actor, con
 	if len(p.Effects.Sample) <= MaxSummaryBytes {
 		ref.Summary = p.Effects.Sample
 	}
+	ref.Title, ref.Facts = def.Title, contract.DisplayFacts(contract.ToolDefinition{SummaryFields: def.SummaryFields}, p.Effects.Sample)
+	out.Held(HeldProposal{ID: p.ID, Digest: p.Digest, AddonID: p.AddonID, Tool: name, Hold: ref.Hold, ExpiresAt: p.ExpiresAt,
+		Title: ref.Title, Facts: ref.Facts, Connection: p.ConnectionName, Resource: out.Data().Resource})
 	return ToolResult{Kind: ResultProposal, Tool: name, Proposal: &ref, Note: ProposalNote}, nil
 }
 
@@ -1063,6 +1141,14 @@ func refusedResult(name string, err error) (ToolResult, error) {
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNotRunning, Note: NotRunningNote}, nil
 	case errors.Is(err, gateway.ErrResourceUnreachable):
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceUnreachable, Note: ResourceUnreachableNote}, nil
+	}
+	var upstream *addonruntime.Refusal
+	if errors.As(err, &upstream) && upstream.Upstream != 0 {
+		msg := upstream.Hint
+		if msg == "" {
+			msg = refusalMessage(err)
+		}
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeUpstreamRefused, Note: UpstreamNote, Message: msg, Upstream: upstream.Upstream}, nil
 	}
 	if errors.Is(err, gateway.ErrInvalidRequest) || errors.Is(err, contract.ErrRefused) {
 		res := ToolResult{Kind: ResultError, Tool: name, Code: CodeInvalidRequest, Note: InvalidNote, Message: refusalMessage(err)}

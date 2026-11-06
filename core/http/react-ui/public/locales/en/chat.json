@@ -473,7 +473,8 @@
       "personal": "Personal",
       "shared": "Shared",
       "folder": "Workspace",
-      "addon": "{{name}}"
+      "addon": "{{name}}",
+      "addonFrom": "from {{name}}"
     },
     "replacedBy": "Replaced by {{name}}",
     "fallback_one": "Built-in {{skills}} in use: the {{name}} add-on's own skill is off or not running here.",
@@ -842,6 +843,51 @@
       "job": "a job",
       "page": "a page",
       "other": "something else"
+    }
+  },
+  "connector": {
+    "header": "Messaging conversation",
+    "unknownSender": "Unknown sender",
+    "people": "People in this conversation",
+    "inThread": "Thread",
+    "openThread": "Open in the messaging app",
+    "where": {
+      "direct": "Direct message",
+      "channel": "Channel {{name}}",
+      "group": "Channel or group"
+    },
+    "standing": {
+      "owner": "Owner",
+      "verified": "Has a role",
+      "listed": "Listed person",
+      "channel": "Channel member",
+      "anyone": "Anyone"
+    },
+    "standingHelp": {
+      "owner": "Verified person: the owner controls this account.",
+      "verified": "Holds a role the owner gave rights to.",
+      "listed": "On the list of this connection.",
+      "channel": "Let in because the channel or group is on the list.",
+      "anyone": "Let in because the connection accepts anyone."
+    },
+    "threadEarlier": "Earlier in the thread ({{count}} messages)",
+    "threadCut": "Older messages of the thread are not shown.",
+    "note": {
+      "paired": "Verified with this bot",
+      "unsupported": "Message not read",
+      "too_long": "Message too long",
+      "no_upload": "Files not accepted",
+      "rate": "Too many messages",
+      "held_back": "Some tools were not offered to this sender",
+      "new_chat": "New chat started",
+      "refused": "Message refused",
+      "hold_waiting": "Waiting for a verified person to confirm",
+      "hold_confirmed": "Confirmed in the chat",
+      "hold_cancelled": "Cancelled in the chat",
+      "hold_expired": "Not confirmed in time",
+      "hold_failed": "Could not be done",
+      "other": "Note",
+      "why": "Why"
     }
   }
 }

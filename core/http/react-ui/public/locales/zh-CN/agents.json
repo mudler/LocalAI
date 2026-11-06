@@ -197,7 +197,8 @@
       "Tools": "工具",
       "Notes": "记忆",
       "Connections": "连接",
-      "Effective": "生效视图"
+      "Effective": "生效视图",
+      "Uses": "可使用的内容"
     },
     "grantsNoticeTitle": "部分消息功能将被关闭。",
     "grantsNotice": "此智能体原本没有权限列表，因此在消息连接中保留了这些权限：{{grants}}。在此勾选之前，这些功能将不可用。",
@@ -219,7 +220,7 @@
     "manageSkills": "编写或管理技能",
     "addonsHelp": "与此智能体的聊天可以使用工具的附加组件。",
     "noAddons": "没有附加组件向模型提供工具。",
-    "mcpHelp": "与此智能体的聊天可以使用的固定模型 MCP 服务器和 MCP 连接器。",
+    "mcpHelp": "你定义的 MCP 连接器，以及固定模型的 MCP 服务器。请开启与此智能体的聊天可以使用的项目。",
     "mcpServers": "MCP 服务器",
     "mcpHint": "服务器名称",
     "mcpConnectors": "MCP 连接器",
@@ -249,7 +250,7 @@
       "all": "所有公共网站"
     },
     "toolsSummary": "{{total}} 项中开启 {{on}} 项",
-    "toolsHelp": "选择与此智能体的聊天可以使用什么。这些开关与聊天的工具菜单相同，每个开关的选项在其下方。关闭的工具不会提供给模型。未勾选任何选项时，智能体保留其消息连接的默认设置；一旦勾选任何一项，只有勾选的才生效。",
+    "toolsHelp": "选择与此智能体的聊天可以使用的内容，来源包括 LocalAI 提供的工具、附加组件和 MCP 服务器。关闭的工具不会提供给模型。未勾选任何选项时，智能体保留其消息连接的默认设置；一旦勾选任何一项，只有勾选的才生效。",
     "toolsHeading": "此智能体的工具",
     "skillsLater": "使用此智能体的聊天只会读取已开启的技能。",
     "skillsHeading": "此智能体的技能",
@@ -367,12 +368,16 @@
       },
       "skills": {
         "some_one": "可以使用 {{count}} 个技能：{{names}}。",
-        "some_other": "可以使用 {{count}} 个技能：{{names}}。"
+        "some_other": "可以使用 {{count}} 个技能：{{names}}。",
+        "withAddons_one": "可使用 {{count}} 个随插件而来的技能：{{names}}。",
+        "withAddons_other": "可使用 {{count}} 个随插件而来的技能：{{names}}。",
+        "addonOff": "技能 {{name}} 已开启，但它的插件 {{addon}} 已关闭，因此不起作用。请开启该插件。"
       },
       "files": {
         "all": "可以访问你的所有文件。",
         "folders_one": "只能访问你选择的 {{count}} 个文件夹。",
-        "folders_other": "只能访问你选择的 {{count}} 个文件夹。"
+        "folders_other": "只能访问你选择的 {{count}} 个文件夹。",
+        "none": "无法访问你的任何文件。"
       },
       "grants": {
         "parentOff": "{{name}} 已允许，但在 {{parent}} 关闭时无法工作。请打开 {{parent}}。",
@@ -384,18 +389,20 @@
       },
       "memory": {
         "userOff": "你的设置中记忆已关闭，因此无论在此选择什么，这个智能体都不会读取或保存笔记。",
-        "none": "不保存也不读取笔记。",
+        "none": "此智能体的记忆已关闭。它不读取也不保存笔记。",
         "mine_and_own": "读取你的笔记和它自己的笔记，并保存到它自己的笔记。",
         "own": "只读取并保存它自己的笔记。",
         "mine": "读取你的笔记并保存到其中。",
         "asBefore": "记忆照旧工作：当附加组件提到 Memory 时读取笔记。",
-        "noGrant": "它被设置为保存笔记，但“记住内容”的权限已关闭，所以什么都不会保存。请在记忆中打开。",
         "level": {
-          "auto": "笔记会立即保存。",
-          "ask": "每条笔记都等你确认。",
-          "always": "每条笔记都等你确认，没有任何放宽。",
-          "never": "它不保存笔记。"
-        }
+          "auto": "立即保存笔记。",
+          "ask": "保存笔记（先询问）：每条笔记都等你确认。",
+          "always": "保存笔记，但每条笔记都等你确认，任何设置都不会放宽。",
+          "never": "可读取笔记但不保存：你的保存级别是“从不”。",
+          "agentAuto": "立即保存笔记并告知你，可撤销。这是该智能体自己的选择。"
+        },
+        "readsOnly": "可读取笔记，但无法保存。",
+        "connectionLimit": "这些消息连接上不保存笔记：{{names}}。"
       },
       "knowledge": {
         "some_one": "可以搜索 {{count}} 个集合：{{names}}。",
@@ -409,6 +416,18 @@
         "error": "无法检查 {{name}}。打开它查看权限。",
         "summary": "{{name}}：允许 {{allowed}} 项，不允许 {{blocked}} 项。",
         "blocked": "{{name}} 无法使用 {{capability}}。{{message}}"
+      },
+      "addons": {
+        "noConnection": "{{name}} 已开启但目前无法工作：你没有对应的账户。请添加一个。",
+        "stale": "{{name}} 已开启但目前无法工作：保存的账户已不存在。请选择一个账户。",
+        "pick": "{{name}} 已开启但目前无法工作：没有选择账户。无人在场的运行得不到它的任何工具。",
+        "resourcesNone": "{{name}} 已开启但目前无法工作：没有勾选任何{{noun}}。",
+        "account": "{{name}} 使用 {{names}}。",
+        "resources": "{{name}} 可使用 {{n}} 个{{plural}}，其中可修改 {{w}} 个。",
+        "resourcesRead": "{{name}} 可读取 {{n}} 个{{plural}}，但不能修改任何一个。"
+      },
+      "mcp": {
+        "ignored": "{{name}} 在代理的 MCP 服务器中，但不存在此名称的内容，因此被忽略。请移除它。"
       }
     },
     "try": {
@@ -440,6 +459,106 @@
       "chatTitle": "{{name}} 的测试",
       "failed": "测试失败：{{message}}",
       "slow": "智能体仍在工作。请停止它或关闭面板。"
+    },
+    "uses": {
+      "presetNote": "级别只设置内置工具和权限。插件、账户、MCP 服务器和技能保持不变。",
+      "needsSummary_one": "{{count}} 个插件暂时无法工作",
+      "needsSummary_other": "{{count}} 个插件暂时无法工作",
+      "builtins": {
+        "title": "内置工具",
+        "lead": "由 LocalAI 提供。选项位于各自开关下方。"
+      },
+      "addons": {
+        "title": "插件",
+        "lead": "每个插件一行：打开它，选择它使用的账户，查看它提供的内容。",
+        "none": "没有安装插件。",
+        "gone": "已授权，但未安装或你无法使用。关闭即可移除。"
+      },
+      "mcp": {
+        "title": "MCP 服务器",
+        "lead": "LocalAI 之外的服务器。其工具可能产生费用或访问其他系统。",
+        "search": "搜索 MCP 服务器",
+        "none": "尚未定义 MCP 连接器。请在 MCP 连接器页面添加。",
+        "connector": "你定义的 MCP 连接器。",
+        "server": "模型的 MCP 服务器。",
+        "unknown": "未定义：不存在此名称的内容，因此代理会忽略它。",
+        "unverified": "模型在每次聊天中选择，因此该名称在那里检查。",
+        "remove": "移除 {{name}}",
+        "noMatch": "没有与“{{query}}”匹配的 MCP 服务器。",
+        "removeShort": "移除"
+      },
+      "account": {
+        "label": "使用的账户",
+        "group": "{{name}} 的账户",
+        "none": "还没有账户。",
+        "add": "添加账户",
+        "kept": "留待以后"
+      },
+      "meta": {
+        "account": "需要账户",
+        "resources": "仅限你勾选的{{plural}}"
+      },
+      "tools_one": "{{count}} 个工具",
+      "tools_other": "{{count}} 个工具",
+      "toolsSplit_one": "{{count}} 个工具（{{read}} 个读取，{{write}} 个修改数据）",
+      "toolsSplit_other": "{{count}} 个工具（{{read}} 个读取，{{write}} 个修改数据）",
+      "writes": "修改数据",
+      "now": {
+        "label": "当前：",
+        "off": "已关闭。不提供任何内容。",
+        "offKept": "已关闭。不提供任何内容。留待以后的账户：{{names}}。",
+        "noAccountNeeded": "已开启。提供：{{tools}}。不需要账户。",
+        "only": "已开启。提供：{{tools}}，使用 {{names}}，这是你唯一的账户。",
+        "using": "已开启。提供：{{tools}}，使用 {{names}}。",
+        "usingMany": "已开启。提供：{{tools}}，使用 {{names}}。模型在每次调用中指明账户。",
+        "pick": "已开启，但没有选择账户。聊天会先请你选择一个才提供工具；无人在场的运行得不到任何工具。请在上方勾选要使用的账户。",
+        "noConnection": "已开启，但你还没有对应的账户，因此不提供它的任何工具。请在上方添加账户。",
+        "stale": "已开启，但保存的账户已不存在，因此不提供它的任何工具。请选择一个账户。请在上方勾选一个账户。",
+        "resourcesNone": "已开启，但没有勾选任何{{noun}}，因此无法使用任何一个。请在上方勾选一个。",
+        "resourcesRead": "已开启。提供：{{tools}}，针对 {{n}} 个已勾选的{{plural}}，只读。修改数据的工具无法运行。",
+        "resources": "已开启。提供：{{tools}}，针对 {{n}} 个已勾选的{{plural}}；可修改其中 {{w}} 个。"
+      },
+      "res": {
+        "heading": "可使用哪些<n>{{plural}}</n>",
+        "headingPlain": "可使用哪些{{plural}}",
+        "loading": "正在加载列表。",
+        "error": "无法读取列表。",
+        "empty": "你还没有可授予的<n>{{plural}}</n>。",
+        "truncated": "列表已被截断。",
+        "gone": "不可用",
+        "access": "对 {{name}} 的权限",
+        "read": "读取",
+        "write": "读取和修改",
+        "none": "未勾选：无法使用任何<n>{{noun}}</n>。",
+        "some": "仅限已勾选的。你仍需对每一项拥有自己的权限。"
+      },
+      "skills": {
+        "summaryOff_one": "{{count}} 个技能随之开启",
+        "summaryOff_other": "{{count}} 个技能随之开启",
+        "summaryOn": "{{total}} 个技能中开启 {{on}} 个"
+      },
+      "addonOn": {
+        "title": "已开启 {{name}}",
+        "body_one": "随之开启了 {{count}} 个技能：{{names}}。保存之前不会存储任何内容。",
+        "body_other": "随之开启了 {{count}} 个技能：{{names}}。保存之前不会存储任何内容。"
+      },
+      "skillAddonOff": "它的插件已关闭，因此该技能不起作用。",
+      "memorySkills": {
+        "title": "记忆技能",
+        "from": "来自 {{slot}}",
+        "on": "记忆开启时开启。",
+        "off": "此智能体的记忆关闭时关闭。",
+        "offUser": "已关闭，因为你的设置中记忆已关闭。"
+      },
+      "slot": {
+        "memory": "记忆"
+      }
+    },
+    "memoryLevelApplied": {
+      "title": "记忆：{{name}}",
+      "off": "不读取也不保存笔记，“记住事情”的权限也已关闭。保存之前不会存储任何内容。",
+      "reads": "“记住事情”的权限已关闭，所以它只读取笔记，无法保存。保存之前不会存储任何内容。",
+      "saves": "“记住事情”的权限已开启。保存之前不会存储任何内容。"
     }
   },
   "status": {
@@ -673,7 +792,8 @@
       "loadingTask": "正在加载触发器",
       "promptRequired": "编写触发器要执行的任务",
       "noAgent": "不使用智能体",
-      "capHint": "此触发器每天最多可以发起的聊天数。留空使用默认值。"
+      "capHint": "此触发器每天最多可以发起的聊天数。留空使用默认值。",
+      "watchNoFiles": "此智能体设置为“无文件”，此触发器的运行只会得知有文件到达，却无法打开。请在其编辑器中授予文件访问权限，或选择其他智能体。"
     },
     "actionFailed": "操作失败：{{message}}",
     "subtitle": "按计划或在文件到达时启动智能体。每次运行都是一个可以打开的聊天。"
@@ -897,7 +1017,7 @@
   },
   "folder": {
     "all": "我的所有文件",
-    "one": "选定的文件夹",
+    "one": "仅这些文件夹",
     "scopeLabel": "此智能体可访问的文件",
     "allHelp": "与此智能体的对话可以访问你的所有文件，就像没有智能体的对话一样。",
     "choose": "选择文件夹",
@@ -938,6 +1058,8 @@
     "effectiveRead": "位于只读文件夹内，因此这个文件夹也只能读取。",
     "effectiveWrite": "位于可修改的文件夹内，因此这个文件夹也可以修改。",
     "notMounted": "有 {{n}} 个共享文件夹超出了聊天的访问上限，未挂载。",
-    "exportNoteMany": "文件列出了 {{n}} 个文件夹。导入时，智能体会使用这些路径中存在的文件夹，并请你为其余的重新选择。"
+    "exportNoteMany": "文件列出了 {{n}} 个文件夹。导入时，智能体会使用这些路径中存在的文件夹，并请你为其余的重新选择。",
+    "none": "无文件",
+    "noneHelp": "此智能体无法访问你的任何文件。你附加到聊天的文件只保留在该聊天中。监视文件夹需要文件访问权限：监视文件夹的触发器仍会为此智能体启动，但无法打开到达的文件。"
   }
 }
