@@ -206,6 +206,9 @@ type ConnectorInfo struct {
 	// same bot as this one, oldest first. It is empty unless this binding is
 	// enabled too. Both then answer the same message.
 	SameBotAs []DuplicateRef
+	// Share is the share of the binding, for its owner, once the owner made
+	// it shareable. Nil otherwise.
+	Share *ShareState
 }
 
 func info(b connectors.Binding) ConnectorInfo {
@@ -606,7 +609,7 @@ func (c *Connectors) ListConnectors(ctx context.Context, user string) ([]Connect
 	}
 	out := make([]ConnectorInfo, len(all))
 	for i, b := range all {
-		out[i] = c.withState(ctx, info(b))
+		out[i] = c.withShare(ctx, c.withState(ctx, info(b)))
 	}
 	markDuplicates(out, all)
 	return out, nil
@@ -617,9 +620,13 @@ func (c *Connectors) ListConnectors(ctx context.Context, user string) ([]Connect
 func (c *Connectors) DeleteConnector(ctx context.Context, user, id string) error {
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
-	if _, err := c.owned(ctx, user, id); err != nil {
+	b, err := c.owned(ctx, user, id)
+	if err != nil {
 		return err
 	}
+	// The grantees stop before the binding goes, so no call of theirs runs
+	// with a token that is being deleted.
+	c.forgetShare(ctx, b.Owner, id)
 	if err := c.o.Store.DeleteBinding(ctx, id); err != nil {
 		return err
 	}

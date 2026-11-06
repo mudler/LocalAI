@@ -21,12 +21,22 @@ type CredentialGrant struct {
 	// BindingID and BindingName say which connection acted. The tool result,
 	// the proposal card and the audit line carry them.
 	BindingID, BindingName string
+	// Hold is set for a binding of another person shared with the caller: the
+	// call that uses Secret runs inside it, as admitted work of the share.
+	Hold func(ctx context.Context, run func(context.Context) error) error
 }
 
 // Connection is a binding that a chat can enable for the tools of an add-on.
 // Handle is the name the model uses for it (see ConnectionHandle); it is unique
 // among the connections of one list.
-type Connection struct{ ID, Name, Handle string }
+//
+// Shared marks a binding of another person shared with the user, and Owner is
+// the display name of that person.
+type Connection struct {
+	ID, Name, Handle string
+	Shared           bool
+	Owner            string
+}
 
 // How a chat came to use its connections (see ConnectionsOf).
 const (
@@ -61,8 +71,33 @@ func (cs ConnectionSet) IDs() []string {
 }
 
 // Connections lists the connections of the user for an add-on: the bindings of
-// that add-on that hold a token, oldest first.
+// that add-on that hold a token, oldest first, then the bindings of other
+// people shared with the user. The user's own keep their handles; a shared one
+// takes the next free handle.
 func (c *Connectors) Connections(ctx context.Context, user, addonID string) ([]Connection, error) {
+	mine, err := c.ownConnections(ctx, user, addonID)
+	if err != nil {
+		return nil, err
+	}
+	var theirs []connectors.Binding
+	shared := c.sharedWith(ctx, user)
+	for id := range shared {
+		b, err := c.o.Store.GetBinding(ctx, id)
+		if err != nil || b.Owner == principal(user) || b.AddonID != addonID || len(b.Token) == 0 {
+			continue
+		}
+		theirs = append(theirs, b)
+	}
+	sortBindings(theirs)
+	out := slices.Clone(mine)
+	for _, b := range theirs {
+		out = append(out, Connection{ID: b.ID, Name: b.Name, Shared: true, Owner: shared[b.ID].OwnerName})
+	}
+	return assignHandles(out), nil
+}
+
+// ownConnections is Connections without the shared bindings.
+func (c *Connectors) ownConnections(ctx context.Context, user, addonID string) ([]Connection, error) {
 	all, err := c.o.Store.ListBindings(ctx, principal(user))
 	if err != nil {
 		return nil, err
@@ -73,17 +108,22 @@ func (c *Connectors) Connections(ctx context.Context, user, addonID string) ([]C
 			mine = append(mine, b)
 		}
 	}
-	slices.SortFunc(mine, func(a, b connectors.Binding) int {
-		if d := a.Created.Compare(b.Created); d != 0 {
-			return d
-		}
-		return cmpString(a.ID, b.ID)
-	})
+	sortBindings(mine)
 	out := make([]Connection, len(mine))
 	for i, b := range mine {
 		out[i] = Connection{ID: b.ID, Name: b.Name}
 	}
 	return assignHandles(out), nil
+}
+
+// sortBindings orders bindings oldest first.
+func sortBindings(list []connectors.Binding) {
+	slices.SortFunc(list, func(a, b connectors.Binding) int {
+		if d := a.Created.Compare(b.Created); d != 0 {
+			return d
+		}
+		return cmpString(a.ID, b.ID)
+	})
 }
 
 func cmpString(a, b string) int {
@@ -144,19 +184,36 @@ func (c *Connectors) ConnectionsOf(ctx context.Context, user string, rec session
 	if items := pick(rec.Connections[addonID]); len(items) > 0 {
 		return ConnectionSet{Items: items, By: ConnectionByChat}, nil
 	}
-	if len(list) == 1 {
-		return ConnectionSet{Items: list, By: ConnectionOnly}, nil
+	// A binding shared with the person is used only when a set names it: the
+	// host never picks another person's binding on its own.
+	if own := ownOnly(list); len(own) == 1 {
+		return ConnectionSet{Items: own, By: ConnectionOnly}, nil
 	}
 	return ConnectionSet{}, nil
 }
 
-// ConnectionName returns the display name of a binding of the user, or "".
+// ownOnly keeps the connections that are not shared with the person.
+func ownOnly(list []Connection) []Connection {
+	var out []Connection
+	for _, x := range list {
+		if !x.Shared {
+			out = append(out, x)
+		}
+	}
+	return out
+}
+
+// ConnectionName returns the display name of a binding of the user, or of a
+// binding shared with the user, or "".
 func (c *Connectors) ConnectionName(ctx context.Context, user, bindingID string) string {
 	b, err := c.o.Store.GetBinding(ctx, bindingID)
-	if err != nil || b.Owner != principal(user) {
-		return ""
+	if err == nil && b.Owner == principal(user) {
+		return b.Name
 	}
-	return b.Name
+	if b, _, ok := c.sharedBinding(ctx, user, bindingID); ok {
+		return b.Name
+	}
+	return ""
 }
 
 // SoleConnection returns the one connection of the user for the add-on, or the
@@ -164,7 +221,7 @@ func (c *Connectors) ConnectionName(ctx context.Context, user, bindingID string)
 // selection to read, so it may use a connection only when there is no choice
 // to make.
 func (c *Connectors) SoleConnection(ctx context.Context, user, addonID string) (Connection, error) {
-	list, err := c.Connections(ctx, user, addonID)
+	list, err := c.ownConnections(ctx, user, addonID)
 	if err != nil || len(list) != 1 {
 		return Connection{}, err
 	}
@@ -184,7 +241,14 @@ func (c *Connectors) CredentialFor(ctx context.Context, user, addonID, bindingID
 		return CredentialGrant{}, connectors.ErrNoConnection
 	}
 	b, err := c.o.Store.GetBinding(ctx, bindingID)
-	if err != nil || b.Owner != principal(user) || b.AddonID != addonID {
+	if err == nil && b.Owner != principal(user) {
+		// Another person's binding is usable only while it is shared with the
+		// user; else it is the answer of a binding that does not exist.
+		if _, _, ok := c.sharedBinding(ctx, user, bindingID); !ok {
+			err = connectors.ErrNoCredential
+		}
+	}
+	if err != nil || b.AddonID != addonID {
 		return CredentialGrant{}, connectors.ErrNoCredential
 	}
 	kind := c.kindOf(ctx, b)
@@ -202,8 +266,8 @@ func (c *Connectors) CredentialFor(ctx context.Context, user, addonID, bindingID
 	}
 	// Which connection acted: the binding, the add-on and the resource key (a
 	// name from the person's own list, never the token).
-	c.log.Info("studio: connector credential audit", "binding", b.ID, "kind", b.Kind, "addon", b.AddonID, "resource", entry.Key)
-	return CredentialGrant{Secret: secret, Resource: entry, WriteMode: b.Writes(), BindingID: b.ID, BindingName: b.Name}, nil
+	c.log.Info("studio: connector credential audit", "binding", b.ID, "kind", b.Kind, "addon", b.AddonID, "resource", entry.Key, "shared", b.Owner != principal(user))
+	return CredentialGrant{Secret: secret, Resource: entry, WriteMode: b.Writes(), BindingID: b.ID, BindingName: b.Name, Hold: c.holdFor(user, b)}, nil
 }
 
 // agentConnections describes the connections of a set that the agent selected,
@@ -213,7 +277,12 @@ func (c *Connectors) agentConnections(ctx context.Context, user, addonID string,
 	var out []AgentConnection
 	for _, x := range set.Items {
 		b, err := c.o.Store.GetBinding(ctx, x.ID)
-		if err != nil || b.Owner != principal(user) || b.AddonID != addonID {
+		if err == nil && b.Owner != principal(user) {
+			if _, _, ok := c.sharedBinding(ctx, user, x.ID); !ok {
+				continue
+			}
+		}
+		if err != nil || b.AddonID != addonID {
 			continue
 		}
 		out = append(out, AgentConnection{Addon: addonID, Name: b.Name, WriteMode: b.Writes()})
