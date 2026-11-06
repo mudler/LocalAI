@@ -691,6 +691,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 
 	// Chats
+	if r.RemovedAssistantOptions.DisableLocalAIAssistant {
+		opts = append(opts, config.DisableLocalAIAdminByDeprecatedOption)
+	}
 	if r.DisableChats {
 		opts = append(opts, config.DisableChats)
 	}

@@ -668,6 +668,10 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		xlog.Warn("failed to read runtime_settings.json", "error", err)
 		return
 	}
+	if settings.ChatsLocalAIAdmin != nil && options.AdminOffByDeprecatedOption {
+		// An explicit chats_localai_admin beats the deprecated option.
+		options.DisableChatsLocalAIAdmin = false
+	}
 	options.ApplyRuntimeSettingsAtStartup(&settings)
 	xlog.Debug("Runtime settings loaded from runtime_settings.json")
 }

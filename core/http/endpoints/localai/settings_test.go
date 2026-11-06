@@ -88,7 +88,7 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(settings).ToNot(BeEmpty())
 	})
 
-	It("does not return the removed localai_assistant_enabled and ignores a posted one", func() {
+	It("does not return the removed localai_assistant_enabled and maps a posted one to the admin group", func() {
 		req := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
@@ -98,7 +98,7 @@ var _ = Describe("Settings endpoints", func() {
 		cfg := app.ApplicationConfig()
 		rec = post(`{"localai_assistant_enabled":false}`)
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
-		Expect(cfg.DisableChatsLocalAIAdmin).To(BeFalse())
+		Expect(cfg.DisableChatsLocalAIAdmin).To(BeTrue())
 		Expect(cfg.DisableChatsLocalAIClient).To(BeFalse())
 	})
 

@@ -30,14 +30,14 @@ var _ = Describe("the removed LocalAI Assistant switch", Serial, func() {
 		return command.Run.RemovedAssistantOptions, err
 	}
 
-	It("starts with LOCALAI_DISABLE_ASSISTANT in the environment, accepts it and warns about it", func() {
+	It("starts with LOCALAI_DISABLE_ASSISTANT in the environment, maps it and warns about it", func() {
 		GinkgoT().Setenv("LOCALAI_DISABLE_ASSISTANT", "true")
 		o, err := parse()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(o.set()).To(Equal([]string{"LOCALAI_DISABLE_ASSISTANT"}))
 	})
 
-	It("accepts the --disable-local-ai-assistant flag, ignores it and warns about it", func() {
+	It("accepts the --disable-local-ai-assistant flag, maps it and warns about it", func() {
 		o, err := parse("--disable-local-ai-assistant")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(o.set()).To(Equal([]string{"LOCALAI_DISABLE_ASSISTANT"}))

@@ -472,6 +472,11 @@ type ApplicationConfig struct {
 	DisableChatsLocalAIClient bool
 	DisableChatsLocalAIAdmin  bool
 
+	// AdminOffByDeprecatedOption is true when the admin group was switched
+	// off by the deprecated --disable-local-ai-assistant option. A stored
+	// chats_localai_admin value overrides it at startup.
+	AdminOffByDeprecatedOption bool
+
 	// ChatsToolSearch is the setting chats_tool_search: whether the large
 	// LocalAI tool groups are replaced by the three tool-search tools. One of
 	// the ToolSearch* values; empty means auto. Read at each turn.
@@ -1441,6 +1446,12 @@ var (
 	DisableChats      = func(o *ApplicationConfig) { o.DisableChats = true }
 	DisableTriggers   = func(o *ApplicationConfig) { o.DisableTriggers = true }
 	DisableConnectors = func(o *ApplicationConfig) { o.DisableConnectors = true }
+	// DisableLocalAIAdminByDeprecatedOption is the option of the deprecated
+	// LOCALAI_DISABLE_ASSISTANT: it maps to chats_localai_admin=false.
+	DisableLocalAIAdminByDeprecatedOption = func(o *ApplicationConfig) {
+		o.DisableChatsLocalAIAdmin = true
+		o.AdminOffByDeprecatedOption = true
+	}
 	// DisableConnectorTalkback is the option of LOCALAI_DISABLE_CONNECTOR_TALKBACK.
 	DisableConnectorTalkback = func(o *ApplicationConfig) { o.DisableConnectorTalkback = true }
 	// SkipBindingCapsMigration is the option of LOCALAI_SKIP_BINDING_CAPS_MIGRATION.

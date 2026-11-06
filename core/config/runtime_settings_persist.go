@@ -34,12 +34,12 @@ func (o *ApplicationConfig) ReadPersistedSettings() (RuntimeSettings, error) {
 	if err := json.Unmarshal(data, &settings); err != nil {
 		return settings, err
 	}
-	WarnRemovedRuntimeSettings(data)
+	MapRemovedRuntimeSettings(data, &settings)
 	return settings, nil
 }
 
 // removedRuntimeSettings are the runtime setting keys that no longer exist.
-// A stored or posted value is accepted and ignored.
+// A stored or posted value is accepted; MapRemovedRuntimeSettings maps it.
 var removedRuntimeSettings = []string{"localai_assistant_enabled"}
 
 // RemovedRuntimeSettings returns the removed keys that data (a settings JSON
@@ -58,16 +58,29 @@ func RemovedRuntimeSettings(data []byte) []string {
 	return out
 }
 
-// WarnRemovedRuntimeSettings logs one warning when data holds a removed
-// setting, and returns the removed keys. The value is ignored: it does not
-// switch anything. OWNER DECISION PENDING: the old localai_assistant_enabled
-// value is not mapped to chats_localai_admin.
-func WarnRemovedRuntimeSettings(data []byte) []string {
+// MapRemovedRuntimeSettings maps the removed settings in data onto the current
+// ones, logs one warning when data holds a removed setting, and returns the
+// removed keys. A stored localai_assistant_enabled=false switches the admin
+// tool group off (chats_localai_admin=false), the same as the old setting did
+// for the assistant. An explicit chats_localai_admin in the same data wins, and
+// a stored true changes nothing, since the group is on by default.
+func MapRemovedRuntimeSettings(data []byte, settings *RuntimeSettings) []string {
 	removed := RemovedRuntimeSettings(data)
-	if len(removed) > 0 {
-		xlog.Warn("A runtime setting was removed and no longer disables anything; the admin tools are controlled by chats_localai_admin in Settings > Tools",
-			"settings", strings.Join(removed, ", "))
+	if len(removed) == 0 {
+		return nil
 	}
+	var old struct {
+		Enabled *bool `json:"localai_assistant_enabled"`
+	}
+	mapped := false
+	if json.Unmarshal(data, &old) == nil && old.Enabled != nil && !*old.Enabled &&
+		settings != nil && settings.ChatsLocalAIAdmin == nil {
+		off := false
+		settings.ChatsLocalAIAdmin = &off
+		mapped = true
+	}
+	xlog.Warn("The localai_assistant_enabled runtime setting is deprecated; the admin tools are controlled by chats_localai_admin in Settings > Tools",
+		"settings", strings.Join(removed, ", "), "mapped_to_chats_localai_admin", mapped)
 	return removed
 }
 

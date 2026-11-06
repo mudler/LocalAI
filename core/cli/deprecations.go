@@ -46,23 +46,18 @@ type RemovedAgentOptions struct {
 }
 
 // RemovedAssistantOptions are the flag and environment variable that used to
-// switch the LocalAI Assistant off. They disable nothing now, and a deployment
-// that sets them keeps starting, with a warning. The admin tools are controlled
-// by chats_localai_admin in Settings > Tools.
-//
-// OWNER DECISION PENDING: the old value is NOT mapped to chats_localai_admin.
-// An operator who set it expects the admin tools to stay off; ignoring it turns
-// them back on for administrators. Mapping it is a one-line change in
-// core/cli/run.go (config.WithDisableChatsLocalAIAdmin) once the owner decides.
+// switch the LocalAI Assistant off. They are deprecated: a true value is mapped
+// to chats_localai_admin=false (the admin tool group off), with a warning. An
+// explicit chats_localai_admin in the stored runtime settings wins.
 type RemovedAssistantOptions struct {
-	DisableLocalAIAssistant bool `name:"disable-local-ai-assistant" env:"LOCALAI_DISABLE_ASSISTANT" hidden:"" help:"Removed; ignored. Use chats_localai_admin in Settings > Tools"`
+	DisableLocalAIAssistant bool `name:"disable-local-ai-assistant" env:"LOCALAI_DISABLE_ASSISTANT" hidden:"" help:"Deprecated: maps to chats_localai_admin=false (Settings > Tools)"`
 }
 
 func (o RemovedAssistantOptions) set() []string { return setOptions(o) }
 
 func (o RemovedAssistantOptions) warn() {
 	if set := o.set(); len(set) > 0 {
-		xlog.Warn("The option to disable the LocalAI Assistant was removed and no longer disables anything; the admin tools are controlled by chats_localai_admin in Settings > Tools",
+		xlog.Warn("The option to disable the LocalAI Assistant is deprecated; it was mapped to chats_localai_admin=false. Set chats_localai_admin in Settings > Tools instead",
 			"options", strings.Join(set, ", "))
 	}
 }

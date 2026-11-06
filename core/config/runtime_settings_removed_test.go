@@ -13,9 +13,21 @@ var _ = Describe("removed runtime settings", func() {
 		Expect(config.RemovedRuntimeSettings([]byte(`not json`))).To(BeEmpty())
 	})
 
-	It("is ignored: the value switches nothing", func() {
-		o := &config.ApplicationConfig{}
-		Expect(config.WarnRemovedRuntimeSettings([]byte(`{"localai_assistant_enabled": false}`))).NotTo(BeEmpty())
-		Expect(o.DisableChatsLocalAIAdmin).To(BeFalse())
+	It("maps a stored localai_assistant_enabled=false to chats_localai_admin=false", func() {
+		var st config.RuntimeSettings
+		Expect(config.MapRemovedRuntimeSettings([]byte(`{"localai_assistant_enabled": false}`), &st)).NotTo(BeEmpty())
+		Expect(st.ChatsLocalAIAdmin).NotTo(BeNil())
+		Expect(*st.ChatsLocalAIAdmin).To(BeFalse())
+	})
+
+	It("does not map a true value, and an explicit chats_localai_admin wins", func() {
+		var st config.RuntimeSettings
+		config.MapRemovedRuntimeSettings([]byte(`{"localai_assistant_enabled": true}`), &st)
+		Expect(st.ChatsLocalAIAdmin).To(BeNil())
+
+		on := true
+		st = config.RuntimeSettings{ChatsLocalAIAdmin: &on}
+		config.MapRemovedRuntimeSettings([]byte(`{"localai_assistant_enabled": false, "chats_localai_admin": true}`), &st)
+		Expect(*st.ChatsLocalAIAdmin).To(BeTrue())
 	})
 })
