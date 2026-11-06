@@ -293,6 +293,9 @@ func (a *Application) Ready() bool {
 // requests while in-flight ones finish.
 func (a *Application) BeginDrain() { a.draining.Store(true) }
 
+// Draining reports whether shutdown has started.
+func (a *Application) Draining() bool { return a.draining.Load() }
+
 // AwaitCollections makes Ready wait until StartCollections has returned,
 // whether it started the service or failed. The process calls it before the
 // server listens, and only when it will start the collections.
