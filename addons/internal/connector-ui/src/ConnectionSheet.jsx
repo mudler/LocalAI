@@ -49,9 +49,9 @@ function Permissions({ p }) {
       <RadioCards name="cn-preset" legend={s('conn.preset.label')} value={preset} options={options} onChange={choose} testId="connector-preset" columns={3} />
       <p className="dk-hint" data-testid="connector-preset-note">{s('conn.preset.note')}</p>
       {preset === 'custom' && (
-        <AccessMatrix form={form} setForm={setForm} kindInfo={p.kindInfo} capabilities={capabilities} preview={p.preview} dirty={p.dirty} s={s} ctx={p.fixCtx}
+        <AccessMatrix form={form} setForm={(f) => { setPreset('custom'); setForm(f) }} kindInfo={p.kindInfo} capabilities={capabilities} preview={p.preview} dirty={p.dirty} s={s} ctx={p.fixCtx}
           agent={agent} paired={p.pairedList || form.paired || []}
-          onReset={() => setForm(applyPreset(form, 'standard', capabilities, agent))} />
+          onReset={() => { setPreset('custom'); setForm(applyPreset(form, 'standard', capabilities, agent)) }} />
       )}
     </>
   )

@@ -24,7 +24,7 @@ export function StateChip({ state, label, title }) {
 export default function ConnectionRow({ c, state, attention, fix, facts, line, selected, testing, busy, messaging, t, s, onOpen, onToggle, onTest, onFix, onEdit, onDelete }) {
   const stateText = s(`conn.state.${state}`)
   const items = [
-    { key: 'edit', icon: 'pencil', label: t('editButton'), onClick: () => onEdit(c) },
+    { key: 'edit', icon: 'pencil', label: t('editButton'), onClick: (trigger) => onEdit(c, trigger) },
     { divider: true, key: 'divider' },
     { key: 'delete', icon: 'trash', label: t('delete'), danger: true, onClick: () => onDelete(c) },
   ]

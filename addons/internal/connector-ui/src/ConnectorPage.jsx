@@ -179,6 +179,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const [pairedList, setPairedList] = useState(null)
   // The form as it was when the sheet opened, to ask before closing over a change.
   const startPrint = useRef('')
+  // The control that opened the sheet. A menu item is gone once the menu closes, so focus goes back to the menu button.
+  const openerRef = useRef(null)
   const kindFiles = kindInfo?.files || null
   // A kind that declares agent_optional lets a binding hold credentials only.
   const agentOptional = Boolean(kindInfo?.agent_optional)
@@ -234,6 +236,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   }
 
   const openForm = (f, opts = {}) => {
+    openerRef.current = opts.opener || document.activeElement
     setForm(f)
     startPrint.current = printOf(f)
     setConfirmed(Boolean(f.accept_any))
@@ -256,6 +259,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     openForm(picked ? { ...f, agent_id: picked.id } : f, { fixedAgent: Boolean(picked) })
   }
   const openEdit = (c, opts) => openForm(savedFormOf(c), opts)
+  // The menu of a row passes its button as the opener.
+  const editFromRow = (c, trigger) => openEdit(c, { opener: trigger instanceof HTMLElement ? trigger : null })
   const openById = (id) => {
     const c = items.find((x) => x.id === id)
     if (c) openEdit(c)
@@ -375,6 +380,16 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     else if (what === 'duplicate') act(() => connectorsApi.disable(c.id))
   }
 
+  // When the sheet closes, focus goes back to the control that opened it.
+  const wasOpen = useRef(false)
+  useEffect(() => {
+    if (wasOpen.current && !form) {
+      const el = openerRef.current
+      if (el && el.isConnected) requestAnimationFrame(() => el.focus?.())
+    }
+    wasOpen.current = Boolean(form)
+  }, [form])
+
   // Closing the sheet over a change asks first.
   const savedItem = form?.id ? items.find((x) => x.id === form.id) : null
   const savedForm = savedItem ? savedFormOf(savedItem) : null
@@ -481,7 +496,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
                 <ConnectionRow key={c.id} c={c} state={v.state} attention={v.attention} fix={v.fix} facts={factsOf(c)}
                   line={v.attention ? { text: reasonOf(v.attention), testId: v.attention.cause === 'inactive' ? 'connector-inactive' : 'connector-attention' } : null}
                   selected={c.id === detailId} testing={Boolean(testing[c.id])} busy={Boolean(rowBusy[c.id])} messaging={messaging} t={t} s={s}
-                  onOpen={setDetailId} onToggle={toggle} onTest={runTest} onFix={fixRow} onEdit={(x) => openEdit(x)} onDelete={setToDelete} />
+                  onOpen={setDetailId} onToggle={toggle} onTest={runTest} onFix={fixRow} onEdit={editFromRow} onDelete={setToDelete} />
               )
             })}
           </ul>
