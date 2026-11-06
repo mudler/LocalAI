@@ -8,7 +8,9 @@
 
 export const EVERYONE = '@everyone'
 export const REFERENCE_OPTIONS = Object.freeze(['view', 'use', 'none'])
-export const SEARCH_MIN = 2
+// The picker of a kind searches every account, so a query needs three
+// characters; the server refuses fewer.
+export const SEARCH_MIN = 3
 export const SEARCH_MAX = 64
 
 // describeShareError returns { kind, key, retry, lost } for what a client

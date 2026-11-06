@@ -184,7 +184,9 @@ func (s *Service) SearchShareUsers(ctx context.Context, actor contract.Actor, ki
 	if s.o.Users != nil {
 		find = s.o.Users.Accounts
 	}
-	return s.searchUsers(ctx, actor, ref, query, limit, find, func(id string) (bool, error) {
+	// It searches every active account, so a query needs three characters
+	// and each person has a bounded rate of searches.
+	return s.searchUsers(ctx, actor, ref, query, MinShareQueryRunes, limit, find, func(id string) (bool, error) {
 		return s.o.Policy.EligibleRef(ctx, actor, ref, id)
-	})
+	}, s.searches.allow)
 }

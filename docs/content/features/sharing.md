@@ -132,9 +132,17 @@ MCP marker. Any other call gets 403.
 `{principal}` is the account ID that the user picker returned, or `@everyone`.
 
 The user picker (`GET .../users?q=`) searches every active named account by a prefix
-of the display name or of the address, 2 to 64 characters, and keeps only the
-accounts that the kind accepts. It returns at most 20 people, each with the account
-ID and the display name only, and never the owner or the caller.
+of the display name, 3 to 64 characters, and keeps only the accounts that the kind
+accepts. A prefix of an address finds nobody, so the picker does not tell who has an
+account. An account without a display name is found only by its whole address and is
+returned with an empty display name; the Share dialog shows it as an unnamed person.
+The picker returns at most 20 people, each with the account ID and the display name
+only, and never the owner or the caller.
+
+Each person may search 20 times at once and then once every 2 seconds. A search over
+that rate gets 429 with type `rate_limited`. The add-on owner, the only process that
+answers the picker, keeps the count per person in memory, so the rate holds for the
+whole cluster and a restart of the owner resets it.
 
 ### List your resources of a kind
 
@@ -175,9 +183,10 @@ ID `@everyone` and no display name. The call is safe to repeat. If the answer is
 
 | Status | Type | Meaning |
 |--------|------|---------|
-| 400 | `invalid_request` | The kind does not grant the role, or the search text is not 2 to 64 characters. |
+| 400 | `invalid_request` | The kind does not grant the role, or the search text is not 3 to 64 characters. |
 | 403 | `addon_error` | Not the owner, not a browser session, a person the kind does not accept or whose account is not active, a feature the kind names and the caller does not hold, an unknown kind or an unknown resource. These get the same answer, so a caller cannot tell whether a resource exists. |
 | 409 | `sharing_disabled` | The installation runs in local-owner mode, which has no named accounts to share with. |
+| 429 | `rate_limited` | The person searched for people too often. Wait a moment and search again. |
 | 503 | `outcome_unknown` | A grant change may have run. Repeat the same call. |
 
 ## Kinds of LocalAI itself

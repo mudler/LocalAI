@@ -137,4 +137,19 @@ var _ = Describe("the generic sharing calls", func() {
 		_, err = front.Shares(ctx, frontActor, "example:note")
 		Expect(err).To(MatchError(ErrForbidden))
 	})
+
+	It("give a frontend the owner's typed refusal of a search that came too often", func() {
+		rec := &shareRecorder{err: ErrSearchLimited}
+		owner := &Gateway{Sharing: rec, Revalidate: allow, RevalidateAccount: allow}
+		env := carrierFixtureWith(RelayLimits{}, func(c *Carrier) http.Handler {
+			h, e := c.OwnerHandler(owner)
+			Expect(e).NotTo(HaveOccurred())
+			return h
+		})
+		front := &Gateway{Forward: env.carriers["front-a"], Revalidate: allow, RevalidateAccount: allow}
+		_, err := front.SearchShareUsers(context.Background(), frontActor, "example:note", "r1", "bob", 5)
+		Expect(err).To(MatchError(ErrSearchLimited))
+		Expect(errors.Is(err, ErrForbidden)).To(BeTrue())
+		Expect(errors.Is(err, ErrUnavailable)).To(BeFalse())
+	})
 })

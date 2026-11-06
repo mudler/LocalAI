@@ -49,6 +49,14 @@ const (
 	// MinQueryRunes and MaxQueryRunes bound the user picker query.
 	MinQueryRunes = 2
 	MaxQueryRunes = 64
+	// MinShareQueryRunes is the shortest query of the user picker of the
+	// kinds that are not add-ons, which searches every active account.
+	MinShareQueryRunes = 3
+	// DefaultUserSearchBurst and DefaultUserSearchEvery bound that picker per
+	// person: 20 searches at once, then one more every 2 seconds (30 a
+	// minute), enough for a person typing in the Share dialog.
+	DefaultUserSearchBurst = 20
+	DefaultUserSearchEvery = 2 * time.Second
 	// MaxGrants bounds the grants of one resource that are listed.
 	MaxGrants    = 256
 	maxNameInput = 256
@@ -106,6 +114,11 @@ type Options struct {
 	Now              func() time.Time
 	// NameTimeout bounds the display-name read of one resource.
 	NameTimeout time.Duration
+	// UserSearchBurst and UserSearchEvery bound the user picker of the
+	// kinds that are not add-ons, per person: a burst of searches, then one
+	// more each UserSearchEvery. Zero selects the defaults.
+	UserSearchBurst int
+	UserSearchEvery time.Duration
 }
 
 // Service implements gateway.ResourceManager.
@@ -117,6 +130,8 @@ type Service struct {
 	bindMu sync.Mutex
 	binds  map[string]binding
 	order  []string
+	// searches limits the user picker of the kinds per person.
+	searches *searchLimiter
 }
 
 // binding is the request an operation ID was first dispatched for.
@@ -197,7 +212,13 @@ func New(o Options) *Service {
 	if o.NameTimeout <= 0 {
 		o.NameTimeout = 3 * time.Second
 	}
-	return &Service{o: o}
+	if o.UserSearchBurst <= 0 {
+		o.UserSearchBurst = DefaultUserSearchBurst
+	}
+	if o.UserSearchEvery <= 0 {
+		o.UserSearchEvery = DefaultUserSearchEvery
+	}
+	return &Service{o: o, searches: newSearchLimiter(o.UserSearchBurst, o.UserSearchEvery, o.Now)}
 }
 
 var (
@@ -245,7 +266,7 @@ func classify(err error) error {
 		// denial, whichever layer made it, so that an unknown resource and a
 		// resource that is not the actor's cannot be told apart.
 		var blocked *gateway.OutcomeBlocked
-		for _, typed := range []error{gateway.ErrSharingDisabled, gateway.ErrStale, gateway.ErrOperationConflict, gateway.ErrInvalidRequest, gateway.ErrQuotaReached, gateway.ErrNotSelected} {
+		for _, typed := range []error{gateway.ErrSharingDisabled, gateway.ErrStale, gateway.ErrOperationConflict, gateway.ErrInvalidRequest, gateway.ErrQuotaReached, gateway.ErrNotSelected, gateway.ErrSearchLimited} {
 			if errors.Is(err, typed) {
 				return err
 			}
@@ -693,16 +714,21 @@ func (s *Service) SearchUsers(ctx context.Context, actor contract.Actor, resourc
 	if s.o.Users != nil {
 		find = s.o.Users.Search
 	}
-	return s.searchUsers(ctx, actor, policy.AddonRef(key), query, limit, find, nil)
+	return s.searchUsers(ctx, actor, policy.AddonRef(key), query, MinQueryRunes, limit, find, nil, nil)
 }
 
 // searchUsers runs the user picker for a resource whose owner role is
 // checked. find is the directory search, called with the number of rows to
 // read; keep, when set, leaves out the people a grant would refuse.
-func (s *Service) searchUsers(ctx context.Context, actor contract.Actor, ref policy.Ref, query string, limit int, find func(context.Context, string, int) ([]gateway.UserRef, error), keep func(id string) (bool, error)) (gateway.UserList, error) {
+// minRunes is the shortest query; allow, when set, takes one search from the
+// caller's budget and refuses the search when it is spent.
+func (s *Service) searchUsers(ctx context.Context, actor contract.Actor, ref policy.Ref, query string, minRunes, limit int, find func(context.Context, string, int) ([]gateway.UserRef, error), keep func(id string) (bool, error), allow func(user string) bool) (gateway.UserList, error) {
 	query = strings.TrimSpace(query)
-	if n := utf8.RuneCountInString(query); n < MinQueryRunes || n > MaxQueryRunes || strings.ContainsFunc(query, unicode.IsControl) {
+	if n := utf8.RuneCountInString(query); n < minRunes || n > MaxQueryRunes || strings.ContainsFunc(query, unicode.IsControl) {
 		return gateway.UserList{}, gateway.ErrInvalidRequest
+	}
+	if allow != nil && !allow(actor.UserID) {
+		return gateway.UserList{}, gateway.ErrSearchLimited
 	}
 	if limit <= 0 || limit > MaxUserResults {
 		limit = MaxUserResults

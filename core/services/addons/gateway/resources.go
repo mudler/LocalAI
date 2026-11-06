@@ -43,6 +43,9 @@ var (
 	ErrResourceUnreachable = fmt.Errorf("that resource does not exist or you have no access to it: %w", ErrForbidden)
 	// ErrNotSelected means no resource is selected for the conversation.
 	ErrNotSelected = fmt.Errorf("no resource is selected for the conversation: %w", ErrForbidden)
+	// ErrSearchLimited means the person searched for people too often. It is
+	// a denial of this search only; a later one is answered again.
+	ErrSearchLimited = fmt.Errorf("too many searches for people, wait a moment: %w", ErrForbidden)
 	// ErrQuotaReached means the person reached the resource limits.
 	ErrQuotaReached = fmt.Errorf("addon resource quota reached: %w", ErrForbidden)
 )
@@ -700,6 +703,7 @@ const (
 	wireInvalid         = "invalid_request"
 	wireQuota           = "quota_reached"
 	wireNotSelected     = "not_selected"
+	wireSearchLimited   = "rate_limited"
 	wireOpConflict      = "operation_conflict"
 	wireUndoRefused     = "undo_refused"
 )
@@ -732,6 +736,8 @@ func resourceFailure(w http.ResponseWriter, call ResourceCall, id string, e erro
 		status, body.Type = http.StatusForbidden, wireQuota
 	case errors.Is(e, ErrNotSelected):
 		status, body.Type = http.StatusNotFound, wireNotSelected
+	case errors.Is(e, ErrSearchLimited):
+		status, body.Type = http.StatusTooManyRequests, wireSearchLimited
 	case errors.Is(e, ErrNotPermitted) && !errors.Is(e, ErrUnavailable):
 		status, body.Type = http.StatusForbidden, wireNotPermitted
 	case errors.Is(e, ErrResourceUnreachable) && !errors.Is(e, ErrUnavailable):
@@ -788,6 +794,8 @@ func resourceReplyError(r io.Reader, status int, id string) error {
 			return ErrQuotaReached
 		case wireNotSelected:
 			return ErrNotSelected
+		case wireSearchLimited:
+			return ErrSearchLimited
 		}
 		if status == http.StatusForbidden {
 			// The owner names these denials, so a forwarding frontend tells

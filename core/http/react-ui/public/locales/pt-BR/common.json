@@ -140,7 +140,7 @@
     },
     "add": "Adicionar pessoas",
     "search": "Encontrar uma pessoa pelo nome",
-    "searchHint": "Digite pelo menos duas letras de um nome.",
+    "searchHint": "Digite pelo menos três letras de um nome.",
     "newRole": "Papel para as pessoas adicionadas",
     "searching": "Pesquisando",
     "noResults": "Ninguém corresponde.",

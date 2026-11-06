@@ -44,7 +44,10 @@ type shareRig struct {
 	actors   map[string]contract.Actor
 }
 
-func newShareRig() *shareRig {
+func newShareRig() *shareRig { return newShareRigWith(nil) }
+
+// newShareRigWith is newShareRig with options of the resource service.
+func newShareRigWith(opts func(*resources.Options)) *shareRig {
 	dir := GinkgoT().TempDir()
 	models, backends := filepath.Join(dir, "models"), filepath.Join(dir, "backends")
 	Expect(os.Mkdir(models, 0o750)).To(Succeed())
@@ -82,7 +85,11 @@ func newShareRig() *shareRig {
 		}
 		return users.Eligible(ctx, id)
 	}})).To(Succeed())
-	svc := resources.New(resources.Options{Policy: r.p, Users: users})
+	ro := resources.Options{Policy: r.p, Users: users}
+	if opts != nil {
+		opts(&ro)
+	}
+	svc := resources.New(ro)
 	gw := &gateway.Gateway{Resources: svc, Sharing: svc, Revalidate: revalidate, RevalidateAccount: func(ctx context.Context, a contract.Actor) error { return account(ctx, a, "") }}
 	r.e = echo.New()
 	r.e.Use(auth.Middleware(r.db, app.ApplicationConfig()))
@@ -203,9 +210,9 @@ var _ = Describe("generic sharing routes", Label("sharing"), func() {
 		Expect(grantedRoles(got)).To(Equal(map[string]string{"bob": "use"}))
 
 		// The picker lists only accounts the kind accepts, never the owner.
-		users := r.do("GET", "/api/shares/"+sharetest.Kind+"/"+ref.ResourceID+"/users?q=e", "", r.browser("owner", ref.ResourceID))
+		users := r.do("GET", "/api/shares/"+sharetest.Kind+"/"+ref.ResourceID+"/users?q=ca", "", r.browser("owner", ref.ResourceID))
 		Expect(users.code).To(Equal(400))
-		for q, want := range map[string][]string{"ca": {"carol"}, "ev": {}, "da": {}, "ol": {}} {
+		for q, want := range map[string][]string{"car": {"carol"}, "eve": {}, "dav": {}, "oli": {}} {
 			users = r.do("GET", "/api/shares/"+sharetest.Kind+"/"+ref.ResourceID+"/users?q="+q, "", r.browser("owner", ref.ResourceID))
 			Expect(users.code).To(Equal(200), string(users.body))
 			var found gateway.UserList
@@ -233,6 +240,40 @@ var _ = Describe("generic sharing routes", Label("sharing"), func() {
 		mine.json(&idx)
 		Expect(idx.Shared).To(BeEmpty())
 		Expect(r.p.AuthorizeRef(bg, r.actors["bob"], ref, policy.ActionRead)).To(MatchError(policy.ErrForbidden))
+	})
+
+	It("finds people for a kind by three characters of the display name, never by an address, at a bounded rate", func() {
+		r = newShareRigWith(func(o *resources.Options) { o.UserSearchBurst, o.UserSearchEvery = 3, time.Hour })
+		Expect(r.db.Create(&auth.User{ID: "nameless", Email: "ceo@example.test", Provider: auth.ProviderLocal, Role: auth.RoleUser, Status: auth.StatusActive}).Error).To(Succeed())
+		Expect(r.db.Create(&auth.UserPermission{ID: uuid.NewString(), UserID: "nameless", Permissions: auth.PermissionMap{auth.FeatureAddons: true}}).Error).To(Succeed())
+		ref := r.create("owner")
+		search := func(user, q string) (shareReply, []gateway.UserRef) {
+			got := r.do("GET", "/api/shares/"+sharetest.Kind+"/"+ref.ResourceID+"/users?q="+q, "", r.browser(user, ref.ResourceID))
+			var found gateway.UserList
+			if got.code == 200 {
+				got.json(&found)
+			}
+			return got, found.Users
+		}
+		got, _ := search("owner", "bo")
+		Expect(got.code).To(Equal(400), "two characters are too few")
+		got, found := search("owner", "ceo%40exa")
+		Expect(got.code).To(Equal(200), string(got.body))
+		Expect(found).To(BeEmpty(), "an address prefix is no oracle")
+		got, found = search("owner", "ceo%40example.test")
+		Expect(got.code).To(Equal(200), string(got.body))
+		Expect(found).To(Equal([]gateway.UserRef{{ID: "nameless", DisplayName: ""}}), "the whole address finds an account without a name, shown without one")
+		got, found = search("owner", "bob")
+		Expect(got.code).To(Equal(200))
+		Expect(found).To(Equal([]gateway.UserRef{{ID: "bob", DisplayName: "Bob"}}))
+		// The owner used the 3 searches of the burst; the 4th waits.
+		got, _ = search("owner", "car")
+		Expect(got.code).To(Equal(429), string(got.body))
+		Expect(got.errType()).To(Equal("rate_limited"))
+		// Another person has a bucket of their own.
+		theirs := r.create("carol")
+		got = r.do("GET", "/api/shares/"+sharetest.Kind+"/"+theirs.ResourceID+"/users?q=bob", "", r.browser("carol", theirs.ResourceID))
+		Expect(got.code).To(Equal(200), string(got.body))
 	})
 
 	It("shares with everyone beside a per-user grant, lowers it and revokes it", func() {

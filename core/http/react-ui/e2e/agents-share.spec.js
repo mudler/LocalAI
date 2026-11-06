@@ -85,7 +85,7 @@ test.describe('Shared agents', () => {
     await expect(dialog.getByTestId('share-ref')).toHaveCount(1)
     await expect(dialog.getByTestId('share-ref-own')).toHaveCount(3)
     await expect(dialog.getByTestId('share-ref-own').first()).toContainText('They need access of their own')
-    await dialog.getByTestId('share-search').fill('Bo')
+    await dialog.getByTestId('share-search').fill('Bob')
     const add = dialog.getByTestId('share-user').getByRole('button', { name: /Add/ })
     await expect(add).toBeDisabled()
     await expect(dialog.getByTestId('share-refs-pending')).toBeVisible()
