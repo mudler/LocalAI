@@ -5,7 +5,9 @@ import { installAgents, AGENTS } from './agents-fixtures.js'
 // Sharing a saved agent: the list with agents shared with you, the owner's
 // Share dialog with the things the agent uses, the read-only page of a
 // person the agent is shared with, and the notice of a chat with it. The
-// agents API and the sharing API are stubbed.
+// agents API and the sharing API are stubbed; starting the chat is not. The
+// grantee's own start of a chat, with accounts, is covered by the Go tests of
+// the route (core/http/agent_share_route_test.go).
 
 const SHARE_ID = 'r0123456789abcdef0123456789abcde'
 
@@ -124,19 +126,44 @@ test.describe('Shared agents', () => {
     await expect(needs.nth(2)).toContainText('Not available to you')
   })
 
-  test('a chat with a shared agent says what is missing before the first message', async ({ page }) => {
-    const s = await installSharing(page)
-    await page.goto('/app/agents')
-    await page.locator('[data-agent="release-notes"]').getByRole('button', { name: 'Chat' }).click()
-    await expect(page).toHaveURL(/\/app\/chats$/)
-    const notice = page.getByTestId('agent-needs-notice')
-    await expect(notice).toBeVisible()
-    await expect(notice).toContainText('This agent needs 2 things you do not have')
-    await expect(notice).toContainText('handbook, citations')
-    await page.getByTestId('chat-input').fill('hello')
-    await page.getByTestId('chat-send').click()
-    await expect.poll(() => s.createdChats.length).toBe(1)
-    expect(s.createdChats[0]).toMatchObject({ agent_id: 's1' })
+  test('a chat with a shared agent says what is missing and what it asks for, and starts on the real chat route', async ({ page, request }) => {
+    // The agent is a real one of the test server, so POST /api/chats runs
+    // the server's own handler and lookup; only the listing presents it as
+    // shared (the test server has no accounts to share it between).
+    const made = await request.post('/api/chats/agents', { data: { name: 'release-notes-real', model: 'mock-model', network: 'all', builtins_on: ['saved_agents'] } })
+    expect(made.status()).toBe(201)
+    const real = await made.json()
+    try {
+      const s = await installSharing(page, {
+        agents: [owned(AGENTS[0], 2), { ...SHARED, id: real.id, model: 'mock-model' }],
+        needs: [...NEEDS, { kind: 'network', label: 'all', state: 'ask' }, { kind: 'tool-group', label: 'saved_agents', state: 'ask' }],
+      })
+      // The chat-start route is not stubbed: it reaches the server.
+      await page.route(/\/api\/chats(\?.*)?$/, route => (route.request().method() === 'POST' ? route.continue() : route.fallback()))
+      await page.goto('/app/agents')
+      await page.locator('[data-agent="release-notes"]').getByRole('button', { name: 'Chat' }).click()
+      await expect(page).toHaveURL(/\/app\/chats$/)
+      const notice = page.getByTestId('agent-needs-notice')
+      await expect(notice).toBeVisible()
+      await expect(notice).toContainText('This agent needs 2 things you do not have')
+      await expect(notice).toContainText('handbook, citations')
+      const asks = page.getByTestId('agent-needs-asks')
+      await expect(asks).toContainText('This agent asks for 2 things your chat starts without')
+      await expect(asks).toContainText('Network: all')
+      await expect(asks).toContainText('Tool group: saved_agents')
+      const started = page.waitForResponse(r => new URL(r.url()).pathname === '/api/chats' && r.request().method() === 'POST')
+      await page.getByTestId('chat-input').fill('hello')
+      await page.getByTestId('chat-send').click()
+      const res = await started
+      expect(res.status(), await res.text()).toBe(201)
+      expect(res.request().postDataJSON()).toMatchObject({ agent_id: real.id })
+      const chat = await res.json()
+      expect(chat).toMatchObject({ agent_id: real.id, model: 'mock-model' })
+      expect(s.createdChats).toHaveLength(0)
+      await request.delete(`/api/chats/${chat.id}`)
+    } finally {
+      await request.delete(`/api/chats/agents/${real.id}`)
+    }
   })
 
   test('nothing is said when the person has everything, and no sharing shows without accounts', async ({ page }) => {
