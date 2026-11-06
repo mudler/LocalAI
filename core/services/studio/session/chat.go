@@ -904,6 +904,9 @@ func (c *Chat) loop(text string, refresh bool, media []Media, done chan struct{}
 		}
 		c.endMu.Lock()
 		c.mu.Unlock()
+		if f := c.m.beforeTurnEnd; f != nil {
+			f()
+		}
 		c.emit(Event{Kind: KindTurnEnd, Turn: n})
 		c.endMu.Unlock()
 		c.touch()
@@ -1118,6 +1121,12 @@ func (c *Chat) close(ctx context.Context) error {
 	if hs != nil {
 		err = hs.Close()
 	}
+	// A turn leaves the running state, which ends the wait in Stop, before it
+	// announces its end. Wait for the announcement: the bus drops what is
+	// pushed after it is closed, and a consumer that never sees the end of
+	// the turn leaves it claimed.
+	c.endMu.Lock()
+	c.endMu.Unlock() //nolint:staticcheck // an empty critical section is the wait
 	c.evMu.RLock()
 	b := c.bus
 	c.evMu.RUnlock()

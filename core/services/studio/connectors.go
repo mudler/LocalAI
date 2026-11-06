@@ -121,6 +121,10 @@ type Connectors struct {
 	o   ConnectorOptions
 	log *slog.Logger
 
+	// afterSettle runs in the reply after each check whether to give the chat
+	// up, with the outcome. Only the specs set it.
+	afterSettle func(settled bool)
+
 	// beforeJoin runs in deliver after a message has joined a running reply
 	// and before it reaches the chat. Only the specs set it, to hold a
 	// message in that gap.
@@ -1179,25 +1183,13 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 	var poll <-chan time.Time
 	errText := ""
 	l, since, turn := c.startLive(b, token, m, pace), time.Now(), 0
-	// settle gives the chat up when it is idle. It reports false when another
-	// turn runs or its events are queued. The check is under smu on purpose: a
-	// message that arrives now must see either the running turn or the cleared
-	// flag.
+	// settle gives the chat up when it is idle (see settled).
 	settle := func() bool {
-		c.smu.Lock()
-		tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
-		info, err := c.svc.Turn(tctx, b.Owner, chatID)
-		tcancel()
-		// A waiting message starts the next turn at once, and that turn may be
-		// over before this point; its events are then still queued.
-		if (err == nil && info.Running) || len(events) > 0 || st.joining > 0 {
-			c.smu.Unlock()
-			return false
+		ok := c.settled(b, st, chatID, events)
+		if c.afterSettle != nil {
+			c.afterSettle(ok)
 		}
-		st.active, st.grant = false, nil
-		c.smu.Unlock()
-		c.svc.access.clear(chatID)
-		return true
+		return ok
 	}
 	// quiet is set when settle saw a turn on its way and none of its events
 	// has come yet. The claim that starts a turn from the waiting messages is
@@ -1260,6 +1252,36 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 		// A waiting message started the next turn.
 		l, since, turn, quiet = c.startLive(b, token, m, pace), time.Now(), 0, true
 	}
+}
+
+// settled gives the chat up when it is idle. It reports false when another turn
+// runs, when its events are queued, or when one is on its way. The check is
+// under smu on purpose: a message that arrives now must see either the running
+// turn or the cleared flag.
+func (c *Connectors) settled(b connectors.Binding, st *senderState, chatID string, events <-chan session.Event) bool {
+	c.smu.Lock()
+	tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
+	info, err := c.svc.Turn(tctx, b.Owner, chatID)
+	tcancel()
+	// A waiting message starts the next turn at once, and that turn may be
+	// over before this point; its events are then still queued.
+	if (err == nil && info.Running) || len(events) > 0 || st.joining > 0 {
+		c.smu.Unlock()
+		return false
+	}
+	// A turn that finished starts the next one from the waiting messages
+	// after it has announced its end, so for a moment the chat is idle with a
+	// message waiting. That turn needs this reply.
+	if err == nil && info.Last.Finished() {
+		if wait, perr := c.svc.Pending(context.Background(), b.Owner, chatID); perr == nil && len(wait) > 0 {
+			c.smu.Unlock()
+			return false
+		}
+	}
+	st.active, st.grant = false, nil
+	c.smu.Unlock()
+	c.svc.access.clear(chatID)
+	return true
 }
 
 // remember keeps the chat of the messages that hold an answer, in the thread

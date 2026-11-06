@@ -333,8 +333,12 @@ type Service struct {
 	// outcomes limits the log lines of the add-on tool outcomes (see
 	// addonoutcome.go).
 	outcomes outcomeLimiter
-	bus    Bus
-	log    *slog.Logger
+	bus      Bus
+	log      *slog.Logger
+	// beforeNext runs before the next turn is started from the waiting
+	// messages, after the end of the last one is announced. Only the specs set
+	// it.
+	beforeNext func()
 
 	mu    sync.Mutex
 	runs  map[string]*run                 // the turn this process runs, by conversation
@@ -1400,6 +1404,9 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 	// that the new turn will produce.
 	return func() {
 		go func() {
+			if s.beforeNext != nil {
+				s.beforeNext()
+			}
 			unlock := s.lock(k)
 			defer unlock()
 			// The person's waiting messages go first; with none, an active
