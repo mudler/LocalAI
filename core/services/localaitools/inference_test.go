@@ -604,3 +604,111 @@ var _ = Describe("client tools parity and acting user", func() {
 		Expect(err).To(MatchError(ContainSubstring("not available")))
 	})
 })
+
+var _ = Describe("limits of the client tools", func() {
+	var (
+		srv   *localAIStandIn
+		cl    *httpapi.Client
+		ctx   = context.Background()
+		model = "m"
+	)
+	BeforeEach(func() {
+		srv = newStandIn()
+		DeferCleanup(srv.Close)
+		cl = httpapi.New(srv.URL, "secret")
+		cl.Files = newMemStore()
+	})
+
+	It("refuses numbers past the caps with a plain error and sends nothing", func() {
+		f32 := func(v float32) *float32 { return &v }
+		calls := map[string]func() error{
+			"steps": func() error {
+				_, e := cl.GenerateImage(ctx, localaitools.GenerateImageRequest{Prompt: "p", Model: model, Steps: 100000})
+				return e
+			},
+			"n": func() error {
+				_, e := cl.GenerateImage(ctx, localaitools.GenerateImageRequest{Prompt: "p", Model: model, N: 9})
+				return e
+			},
+			"seconds": func() error {
+				_, e := cl.GenerateVideo(ctx, localaitools.GenerateVideoRequest{Prompt: "p", Model: model, Seconds: "3600"})
+				return e
+			},
+			"fps": func() error {
+				_, e := cl.GenerateVideo(ctx, localaitools.GenerateVideoRequest{Prompt: "p", Model: model, FPS: 1000})
+				return e
+			},
+			"duration": func() error {
+				_, e := cl.GenerateSound(ctx, localaitools.GenerateSoundRequest{Text: "p", Model: model, Duration: f32(99999)})
+				return e
+			},
+			"top_k": func() error {
+				_, e := cl.IdentifyVoice(ctx, localaitools.IdentifyVoiceRequest{Audio: "data:audio/wav;base64,AAAA", Model: model, TopK: 100000})
+				return e
+			},
+			"documents": func() error {
+				_, e := cl.Rerank(ctx, localaitools.RerankRequest{Query: "q", Model: model, Documents: make([]string, 5000)})
+				return e
+			},
+			"input": func() error {
+				_, e := cl.Embed(ctx, localaitools.EmbedRequest{Model: model, Input: make([]string, 5000)})
+				return e
+			},
+			"weigh": func() error {
+				_, e := cl.Embed(ctx, localaitools.EmbedRequest{Model: model, Input: []string{strings.Repeat("x", 2<<20)}})
+				return e
+			},
+		}
+		for name, call := range calls {
+			Expect(call()).To(MatchError(ContainSubstring(name)), name)
+		}
+		for _, route := range []string{"/v1/images/generations", "/video", "/v1/sound-generation", "/v1/rerank", "/v1/embeddings", "/v1/voice/identify"} {
+			Expect(srv.body(route)).To(BeNil(), route)
+		}
+	})
+
+	It("accepts values inside the caps", func() {
+		_, err := cl.GenerateImage(ctx, localaitools.GenerateImageRequest{Prompt: "p", Model: model, Steps: 30, N: 2})
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("lets a user have two media calls running and answers busy to a third", func() {
+		started := make(chan struct{}, 2)
+		release := make(chan struct{})
+		blocked := httpapi.New("http://unused.invalid", "k")
+		blocked.Files = newMemStore()
+		blocked.InferenceHTTPClient = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			started <- struct{}{}
+			<-release
+			return nil, errors.New("stop")
+		})}
+		user := &auth.User{ID: "busy-user"}
+		uctx := localaitools.WithUser(ctx, user)
+		var wg sync.WaitGroup
+		for range 2 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_, _ = blocked.GenerateImage(uctx, localaitools.GenerateImageRequest{Prompt: "p", Model: model})
+			}()
+		}
+		Eventually(started).Should(Receive())
+		Eventually(started).Should(Receive())
+		_, err := blocked.GenerateImage(uctx, localaitools.GenerateImageRequest{Prompt: "p", Model: model})
+		Expect(err).To(MatchError(ContainSubstring("busy")))
+		// Another user is not held up by it.
+		_, err = blocked.GenerateImage(localaitools.WithUser(ctx, &auth.User{ID: "other"}), localaitools.GenerateImageRequest{Prompt: "p", Model: model, N: 9})
+		Expect(err).To(MatchError(ContainSubstring("n must")))
+		close(release)
+		wg.Wait()
+		// The places are free again.
+		Expect(func() error {
+			_, e := cl.GenerateImage(uctx, localaitools.GenerateImageRequest{Prompt: "p", Model: model})
+			return e
+		}()).To(Succeed())
+	})
+})
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }

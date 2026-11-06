@@ -92,6 +92,17 @@ type Inference struct {
 	Files FileStore
 }
 
+// gate takes one of the heavy-call places of the acting user. Without
+// accounts every call is the same user. The clients build an Inference for
+// each call, so the count lives in the package (heavyCalls).
+func (i *Inference) gate(ctx context.Context) (func(), error) {
+	user := ""
+	if u := UserFromContext(ctx); u != nil {
+		user = u.ID
+	}
+	return heavyCalls.enter(user)
+}
+
 func (i *Inference) files(ctx context.Context) (FileStore, error) {
 	if fs := filesFromContext(ctx); fs != nil {
 		return fs, nil
@@ -314,10 +325,18 @@ func (i *Inference) GenerateImage(ctx context.Context, req GenerateImageRequest)
 	if n < 1 || n > 4 {
 		return nil, errors.New("n must be from 1 to 4")
 	}
+	if err := checkSteps(req.Steps); err != nil {
+		return nil, err
+	}
 	model, err := i.pick(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
+	release, err := i.gate(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	body := map[string]any{"model": model, "prompt": req.Prompt, "n": n, "response_format": "b64_json"}
 	if req.Size != "" {
 		body["size"] = req.Size
@@ -361,6 +380,14 @@ func (i *Inference) EditImage(ctx context.Context, req EditImageRequest) (*Image
 	if strings.TrimSpace(req.Prompt) == "" {
 		return nil, errors.New("prompt is required")
 	}
+	if err := checkSteps(req.Steps); err != nil {
+		return nil, err
+	}
+	release, err := i.gate(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	img, err := i.readImage(ctx, req.Image, "image")
 	if err != nil {
 		return nil, err
@@ -450,6 +477,11 @@ func (i *Inference) Speak(ctx context.Context, req SpeakRequest) (*AudioResult, 
 	if err != nil {
 		return nil, err
 	}
+	release, err := i.gate(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	body := map[string]any{"model": model, "input": req.Text}
 	if req.Voice != "" {
 		body["voice"] = req.Voice
@@ -592,6 +624,9 @@ func (i *Inference) Embed(ctx context.Context, req EmbedRequest) (*EmbedResult, 
 	if len(req.Input) == 0 {
 		return nil, errors.New("input is required")
 	}
+	if err := checkTexts("input", req.Input, maxEmbedInputs); err != nil {
+		return nil, err
+	}
 	model, err := i.pick(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
@@ -670,6 +705,12 @@ func (i *Inference) Rerank(ctx context.Context, req RerankRequest) (*RerankResul
 	if strings.TrimSpace(req.Query) == "" || len(req.Documents) == 0 {
 		return nil, errors.New("query and documents are required")
 	}
+	if err := checkTexts("documents", req.Documents, maxRerankDocs); err != nil {
+		return nil, err
+	}
+	if req.TopN < 0 || req.TopN > maxRerankDocs {
+		return nil, fmt.Errorf("top_n must be from 1 to %d", maxRerankDocs)
+	}
 	model, err := i.pick(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
@@ -707,6 +748,14 @@ func (i *Inference) GenerateVideo(ctx context.Context, req GenerateVideoRequest)
 	if strings.TrimSpace(req.Prompt) == "" {
 		return nil, errors.New("prompt is required")
 	}
+	if err := checkVideoLength(req.Seconds, req.FPS); err != nil {
+		return nil, err
+	}
+	release, err := i.gate(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	body := map[string]any{"prompt": req.Prompt, "response_format": "b64_json"}
 	if req.StartImage != "" {
 		img, err := i.readImage(ctx, req.StartImage, "start_image")
@@ -762,10 +811,18 @@ func (i *Inference) GenerateSound(ctx context.Context, req GenerateSoundRequest)
 	if strings.TrimSpace(req.Text) == "" {
 		return nil, errors.New("text is required")
 	}
+	if err := checkSoundLength(req.Duration); err != nil {
+		return nil, err
+	}
 	model, err := i.pick(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
+	release, err := i.gate(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	body := map[string]any{"model_id": model, "text": req.Text}
 	if req.Duration != nil {
 		body["duration_seconds"] = *req.Duration
@@ -802,7 +859,13 @@ func (i *Inference) VerifyVoice(ctx context.Context, req VoiceVerifyRequest) (*V
 	if err != nil {
 		return nil, err
 	}
-	body := map[string]any{"model": model, "audio1": dataURL(a1), "audio2": dataURL(a2)}
+	// Each clip is read once. Drop the raw bytes as soon as the data URL
+	// holds them, so a pair of large clips is not kept three times.
+	d1 := dataURL(a1)
+	a1.Data = nil
+	d2 := dataURL(a2)
+	a2.Data = nil
+	body := map[string]any{"model": model, "audio1": d1, "audio2": d2}
 	if req.Threshold > 0 {
 		body["threshold"] = req.Threshold
 	}
@@ -824,7 +887,11 @@ func (i *Inference) VerifyFace(ctx context.Context, req VerifyFaceRequest) (*Ver
 	if err != nil {
 		return nil, err
 	}
-	body := map[string]any{"model": model, "img1": dataURL(i1), "img2": dataURL(i2)}
+	d1 := dataURL(i1)
+	i1.Data = nil
+	d2 := dataURL(i2)
+	i2.Data = nil
+	body := map[string]any{"model": model, "img1": d1, "img2": d2}
 	if req.Threshold > 0 {
 		body["threshold"] = req.Threshold
 	}
@@ -875,6 +942,9 @@ func (i *Inference) IdentifyFace(ctx context.Context, req IdentifyFaceRequest) (
 }
 
 func (i *Inference) identify(ctx context.Context, spec ClientToolSpec, model string, body map[string]any, topK int, threshold float32) (*IdentifyResult, error) {
+	if err := checkTopK(topK); err != nil {
+		return nil, err
+	}
 	if topK > 0 {
 		body["top_k"] = topK
 	}
