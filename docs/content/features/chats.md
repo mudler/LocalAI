@@ -413,7 +413,7 @@ curl -X PATCH .../api/chats/3f1c... -H 'Content-Type: application/json' -d '{
   The history stays when the model changes.
 
 In the web UI, the **Effort** chip in the message box (next to Tools and
-Skills) and the chat settings sheet (`/settings`, or the sliders icon in the
+Skills, on the chat page and on the Home page) and the chat settings sheet (`/settings`, or the sliders icon in the
 chat header) show and change the same `reasoning_effort`. The chip and the
 effort buttons in the sheet apply at once. In the sheet, temperature, top P and
 top K are sliders with a number box and a reset button; an empty value means
@@ -421,6 +421,9 @@ the model's own default. The sliders cover 0 to 2 (temperature), above 0 to 1
 (top P) and 0 to 200 (top K). You can type a larger top K in the box. These
 values and the system prompt and context size are sent when you press **Save
 settings**. `reasoning_effort` `none` asks the model not to think.
+
+A level picked on the Home page is saved to the new chat when it is created,
+before the first message is sent, and the chat page opens with it.
 
 ### Context meter and speed
 
