@@ -634,6 +634,7 @@
       "unpinned": "La biblioteca indica una actualización pero no nombra ninguna compilación para instalar, así que no se puede actualizar desde aquí. Vuelve a comprobarlo más tarde."
     },
     "checkAll": "Buscar actualizaciones",
+    "notCheckedYet": "Aún no se han buscado actualizaciones.",
     "checkingAll": "Comprobando...",
     "checkAllDone": "{{count}} complementos comprobados.",
     "checkAllFailed": "No se pudieron comprobar {{count}}.",

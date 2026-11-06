@@ -634,6 +634,7 @@
       "unpinned": "La libreria segnala un aggiornamento ma non indica quale build installare, quindi non è possibile aggiornarlo da qui. Ricontrolla più tardi."
     },
     "checkAll": "Cerca aggiornamenti",
+    "notCheckedYet": "Gli aggiornamenti non sono ancora stati controllati.",
     "checkingAll": "Controllo...",
     "checkAllDone": "Controllati {{count}} componenti.",
     "checkAllFailed": "{{count}} non controllabili.",

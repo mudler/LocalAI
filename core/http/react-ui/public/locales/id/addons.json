@@ -634,6 +634,7 @@
       "unpinned": "Pustaka melaporkan pembaruan tetapi tidak menyebutkan build yang akan dipasang, jadi tidak dapat ditingkatkan dari sini. Periksa lagi nanti."
     },
     "checkAll": "Periksa pembaruan",
+    "notCheckedYet": "Pembaruan belum diperiksa.",
     "checkingAll": "Memeriksa...",
     "checkAllDone": "{{count}} add-on diperiksa.",
     "checkAllFailed": "{{count}} tidak dapat diperiksa.",

@@ -634,6 +634,7 @@
       "unpinned": "库报告有更新，但没有指明要安装的构建，因此无法在此升级。请稍后再检查。"
     },
     "checkAll": "检查更新",
+    "notCheckedYet": "尚未检查更新。",
     "checkingAll": "正在检查...",
     "checkAllDone": "已检查 {{count}} 个插件。",
     "checkAllFailed": "{{count}} 个无法检查。",
