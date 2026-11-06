@@ -322,7 +322,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		// per-model MCP servers in the same chat session by design).
 		assistantMode := mcpTools.LocalAIAssistantFromMetadata(input.Metadata)
 		if assistantMode {
-			if err := requireAssistantAccess(c, startupOptions.Auth.Enabled); err != nil {
+			if err := requireAssistantOn(c, startupOptions.Auth.Enabled, startupOptions.DisableChatsLocalAIAdmin); err != nil {
 				return err
 			}
 			if assistantHolder == nil || !assistantHolder.HasTools() {

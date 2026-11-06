@@ -6,6 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
+
+	"github.com/mudler/xlog"
 )
 
 // runtimeSettingsFile is the on-disk filename inside DynamicConfigsDir.
@@ -31,7 +34,41 @@ func (o *ApplicationConfig) ReadPersistedSettings() (RuntimeSettings, error) {
 	if err := json.Unmarshal(data, &settings); err != nil {
 		return settings, err
 	}
+	WarnRemovedRuntimeSettings(data)
 	return settings, nil
+}
+
+// removedRuntimeSettings are the runtime setting keys that no longer exist.
+// A stored or posted value is accepted and ignored.
+var removedRuntimeSettings = []string{"localai_assistant_enabled"}
+
+// RemovedRuntimeSettings returns the removed keys that data (a settings JSON
+// object) contains.
+func RemovedRuntimeSettings(data []byte) []string {
+	var keys map[string]json.RawMessage
+	if json.Unmarshal(data, &keys) != nil {
+		return nil
+	}
+	var out []string
+	for _, k := range removedRuntimeSettings {
+		if _, ok := keys[k]; ok {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// WarnRemovedRuntimeSettings logs one warning when data holds a removed
+// setting, and returns the removed keys. The value is ignored: it does not
+// switch anything. OWNER DECISION PENDING: the old localai_assistant_enabled
+// value is not mapped to chats_localai_admin.
+func WarnRemovedRuntimeSettings(data []byte) []string {
+	removed := RemovedRuntimeSettings(data)
+	if len(removed) > 0 {
+		xlog.Warn("A runtime setting was removed and no longer disables anything; the admin tools are controlled by chats_localai_admin in Settings > Tools",
+			"settings", strings.Join(removed, ", "))
+	}
+	return removed
 }
 
 // MergeNonNil overlays every set (non-nil) field of overlay onto the

@@ -45,6 +45,28 @@ type RemovedAgentOptions struct {
 	AgentHubURL                    string `env:"LOCALAI_AGENT_HUB_URL" hidden:"" help:"Removed; ignored"`
 }
 
+// RemovedAssistantOptions are the flag and environment variable that used to
+// switch the LocalAI Assistant off. They disable nothing now, and a deployment
+// that sets them keeps starting, with a warning. The admin tools are controlled
+// by chats_localai_admin in Settings > Tools.
+//
+// OWNER DECISION PENDING: the old value is NOT mapped to chats_localai_admin.
+// An operator who set it expects the admin tools to stay off; ignoring it turns
+// them back on for administrators. Mapping it is a one-line change in
+// core/cli/run.go (config.WithDisableChatsLocalAIAdmin) once the owner decides.
+type RemovedAssistantOptions struct {
+	DisableLocalAIAssistant bool `name:"disable-local-ai-assistant" env:"LOCALAI_DISABLE_ASSISTANT" hidden:"" help:"Removed; ignored. Use chats_localai_admin in Settings > Tools"`
+}
+
+func (o RemovedAssistantOptions) set() []string { return setOptions(o) }
+
+func (o RemovedAssistantOptions) warn() {
+	if set := o.set(); len(set) > 0 {
+		xlog.Warn("The option to disable the LocalAI Assistant was removed and no longer disables anything; the admin tools are controlled by chats_localai_admin in Settings > Tools",
+			"options", strings.Join(set, ", "))
+	}
+}
+
 // RemovedAgentWorkerOptions are the flags and environment variables of the old
 // agent worker, which ran agents and jobs and called the HTTP API. They do
 // nothing now and are accepted so a deployment that sets them keeps starting.

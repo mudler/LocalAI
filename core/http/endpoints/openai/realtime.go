@@ -703,6 +703,20 @@ func prepareRealtimeConfig(cfg *config.ModelConfig) (errCode, errMsg string, ok 
 	return "", "", true
 }
 
+// realtimeAssistantRefusal says why a realtime session may not have the admin
+// tools, as an error code and message, or "" when it may. The admin role comes
+// first (so a non-admin learns nothing about the switch), then the instance
+// switch of the admin tool group (chats_localai_admin).
+func realtimeAssistantRefusal(opts RealtimeSessionOptions, switchedOff bool) (code, msg string) {
+	switch {
+	case !opts.IsAdmin:
+		return "forbidden", "localai_assistant requires admin"
+	case switchedOff:
+		return "unavailable", assistantSwitchedOffMessage
+	}
+	return "", ""
+}
+
 // runRealtimeSession runs the main event loop for a realtime session.
 // It is transport-agnostic and works with both WebSocket and WebRTC.
 func runRealtimeSession(application *application.Application, t Transport, model string, evaluator *templates.Evaluator, opts RealtimeSessionOptions) {
@@ -728,8 +742,8 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	var assistantSystemPrompt string
 	var assistantExecutor mcpTools.ToolExecutor
 	if opts.LocalAIAssistant {
-		if !opts.IsAdmin {
-			sendError(t, "forbidden", "localai_assistant requires admin", "", "")
+		if code, msg := realtimeAssistantRefusal(opts, application.ApplicationConfig().DisableChatsLocalAIAdmin); code != "" {
+			sendError(t, code, msg, "", "")
 			return
 		}
 		holder := application.LocalAIAssistant()

@@ -100,6 +100,7 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			}
 		}
 
+		config.WarnRemovedRuntimeSettings(body)
 		var settings config.RuntimeSettings
 		if err := json.Unmarshal(body, &settings); err != nil {
 			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{

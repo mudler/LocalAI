@@ -173,6 +173,8 @@ type RunCMD struct {
 
 	// Removed agent, job and skill options: accepted and ignored.
 	RemovedAgentOptions `embed:""`
+	// The removed LocalAI Assistant switch: accepted, ignored, and warned about.
+	RemovedAssistantOptions `embed:""`
 
 	// Chats: the chats API, saved agents, triggers, connectors and agent jobs
 	DisableChats             bool          `env:"LOCALAI_DISABLE_CHATS" default:"false" help:"Turn off the chats: the /api/chats API, saved agents, triggers, connectors and the agent tasks and jobs. Nothing of them starts" group:"chats"`
@@ -319,6 +321,7 @@ func (r *RunCMD) normalizeDataPath() {
 func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	warnDeprecatedFlags()
 	r.RemovedAgentOptions.warn()
+	r.RemovedAssistantOptions.warn()
 	r.resolveLegacyCollections()
 	r.normalizeDataPath()
 

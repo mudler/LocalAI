@@ -491,6 +491,19 @@ var _ = Describe("the LocalAI client and admin tool groups", func() {
 			Expect(g.Off).To(BeFalse())
 		})
 
+		It("refuses to create an assistant chat while the admin group is switched off for the instance", func() {
+			r := newLocalAIRig(sayOK)
+			r.set(func() { r.adminOn = false })
+			_, err := r.svc.Create(ctx, "root", studio.CreateInput{Model: "m", Assistant: true})
+			Expect(err).To(MatchError(studio.ErrAssistantOff))
+			// An administrator can still chat without assistant mode.
+			Expect(r.names("root")).NotTo(ContainElement("install_model"))
+			// Switching it on again works at once.
+			r.set(func() { r.adminOn = true })
+			_, err = r.svc.Create(ctx, "root", studio.CreateInput{Model: "m", Assistant: true})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		It("still refuses a user", func() {
 			r := newLocalAIRig(sayOK)
 			_, err := r.svc.Create(ctx, bob, studio.CreateInput{Model: "m", Assistant: true})

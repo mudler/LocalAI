@@ -28,7 +28,7 @@ curl -X POST http://localhost:8080/api/chats \
   -d '{"model": "my-chat-model", "title": "LocalAI Assistant", "assistant": true}'
 ```
 
-The server answers `403` to a user who is not an admin, `503` when the assistant is switched off, and `400` when the request also names a saved agent.
+The server answers `403` to a user who is not an admin, `503` when the admin tools are switched off for the instance (`chats_localai_admin`), and `400` when the request also names a saved agent.
 
 Once the chat is open, try:
 
@@ -38,7 +38,7 @@ The assistant searches the gallery, lists candidates, asks you to pick, summaris
 
 ## Turning the assistant on and off
 
-There is no separate switch for the assistant. The two [tool groups](#tool-groups) below decide what a chat has: switch off `chats_localai_admin` in **Settings → Tools** and Home hides `/assistant` and the library entry, and no chat gets the admin tools. The setting applies at the next turn. An assistant chat that already exists keeps its history. Earlier versions had a `localai_assistant_enabled` setting and a `LOCALAI_DISABLE_ASSISTANT` variable; both are gone and an old value is ignored.
+There is no separate switch for the assistant. The two [tool groups](#tool-groups) below decide what a chat has: switch off `chats_localai_admin` in **Settings → Tools** and Home hides `/assistant` and the library entry, and no chat gets the admin tools. The setting applies at the next turn. An assistant chat that already exists keeps its history. The setting also covers the OpenAI-compatible `metadata.localai_assistant` request and the realtime assistant session: both answer `503` ("the LocalAI assistant is switched off on this server") to an administrator while it is off, and `403` to anyone else. Creating an assistant chat in Studio is refused too. Earlier versions had a `localai_assistant_enabled` setting, a `LOCALAI_DISABLE_ASSISTANT` variable and a `--disable-local-ai-assistant` flag. They were removed. The server still accepts them and ignores them, and logs one warning: they no longer disable anything, so use `chats_localai_admin` instead.
 
 ## Tool groups
 

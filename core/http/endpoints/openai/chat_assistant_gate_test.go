@@ -80,3 +80,54 @@ var _ = Describe("requireAssistantAccess", func() {
 		})
 	})
 })
+
+var _ = Describe("requireAssistantOn", func() {
+	ctxFor := func(u *auth.User) echo.Context {
+		c := echo.New().NewContext(httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil), httptest.NewRecorder())
+		if u != nil {
+			c.Set("auth_user", u)
+		}
+		return c
+	}
+	code := func(err error) int {
+		GinkgoHelper()
+		httpErr, ok := err.(*echo.HTTPError)
+		Expect(ok).To(BeTrue(), "expected echo.HTTPError, got %T", err)
+		return httpErr.Code
+	}
+	admin := &auth.User{ID: "a", Role: auth.RoleAdmin}
+	user := &auth.User{ID: "u", Role: auth.RoleUser}
+
+	It("answers 503 to an administrator when the admin group is switched off", func() {
+		err := requireAssistantOn(ctxFor(admin), true, true)
+		Expect(code(err)).To(Equal(http.StatusServiceUnavailable))
+		Expect(err.(*echo.HTTPError).Message).To(ContainSubstring("switched off"))
+	})
+
+	It("answers 503 without accounts too, when the admin group is switched off", func() {
+		Expect(code(requireAssistantOn(ctxFor(nil), false, true))).To(Equal(http.StatusServiceUnavailable))
+	})
+
+	It("still answers 403 to a non-admin, whatever the switch says", func() {
+		Expect(code(requireAssistantOn(ctxFor(user), true, true))).To(Equal(http.StatusForbidden))
+		Expect(code(requireAssistantOn(ctxFor(user), true, false))).To(Equal(http.StatusForbidden))
+	})
+
+	It("lets an administrator through while the group is on", func() {
+		Expect(requireAssistantOn(ctxFor(admin), true, false)).To(Succeed())
+	})
+})
+
+var _ = Describe("realtimeAssistantRefusal", func() {
+	It("checks the admin role first, then the instance switch", func() {
+		code, _ := realtimeAssistantRefusal(RealtimeSessionOptions{IsAdmin: false}, true)
+		Expect(code).To(Equal("forbidden"))
+		code, _ = realtimeAssistantRefusal(RealtimeSessionOptions{IsAdmin: false}, false)
+		Expect(code).To(Equal("forbidden"))
+		code, msg := realtimeAssistantRefusal(RealtimeSessionOptions{IsAdmin: true}, true)
+		Expect(code).To(Equal("unavailable"))
+		Expect(msg).To(ContainSubstring("switched off"))
+		code, _ = realtimeAssistantRefusal(RealtimeSessionOptions{IsAdmin: true}, false)
+		Expect(code).To(BeEmpty())
+	})
+})

@@ -10,7 +10,8 @@ import (
 )
 
 var _ = Describe("the removed LocalAI Assistant switch", Serial, func() {
-	parse := func(args ...string) error {
+	// parse returns the removed option as parsed, and the parse error.
+	parse := func(args ...string) (RemovedAssistantOptions, error) {
 		command := struct {
 			cliContext.Context `embed:""`
 			Run                RunCMD `cmd:"" default:"withargs"`
@@ -23,18 +24,29 @@ var _ = Describe("the removed LocalAI Assistant switch", Serial, func() {
 			"backends":             config.DefaultBackendGalleriesJSON,
 		})
 		if err != nil {
-			return err
+			return RemovedAssistantOptions{}, err
 		}
 		_, err = p.Parse(args)
-		return err
+		return command.Run.RemovedAssistantOptions, err
 	}
 
-	It("starts with LOCALAI_DISABLE_ASSISTANT in the environment, which is no longer read", func() {
+	It("starts with LOCALAI_DISABLE_ASSISTANT in the environment, accepts it and warns about it", func() {
 		GinkgoT().Setenv("LOCALAI_DISABLE_ASSISTANT", "true")
-		Expect(parse()).To(Succeed())
+		o, err := parse()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(o.set()).To(Equal([]string{"LOCALAI_DISABLE_ASSISTANT"}))
 	})
 
-	It("no longer has the --disable-local-ai-assistant flag", func() {
-		Expect(parse("--disable-local-ai-assistant")).To(HaveOccurred())
+	It("accepts the --disable-local-ai-assistant flag, ignores it and warns about it", func() {
+		o, err := parse("--disable-local-ai-assistant")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(o.set()).To(Equal([]string{"LOCALAI_DISABLE_ASSISTANT"}))
+		Expect(func() { o.warn() }).NotTo(Panic())
+	})
+
+	It("warns about nothing when the option is not set", func() {
+		o, err := parse()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(o.set()).To(BeEmpty())
 	})
 })
