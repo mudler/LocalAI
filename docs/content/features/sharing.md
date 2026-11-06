@@ -289,6 +289,22 @@ const client = R.useMemo(() => sdk.resources.shareClient(db.id), [db.id])
 ) : null}
 ```
 
+The page of a connector add-on shares one of the person's bindings with
+`sdk.ui.ConnectionShareDialog`. It takes the binding ID (`binding`), its `name`, the
+words of the `use` role (`roleLabel`, `roleHelp`) and the props `intro`, `title`,
+`onChanged`, `onLost`, `close` and `testId` of the dialog. The host makes the binding
+shareable and calls the sharing routes itself; the page gets no client.
+
+```jsx
+const Dialog = sdk.ui.ConnectionShareDialog
+{open && Dialog ? <Dialog binding={c.id} name={c.name} close={() => setOpen(false)} /> : null}
+```
+
+An add-on's own code cannot reach the sharing routes: `sdk.core.fetch` refuses
+`/api/shares` and the `.../share` routes of agents, collections and bindings, and
+drops the `X-LocalAI-Confirm` header. Only the person's clicks in the host's dialog
+share or revoke.
+
 A host that is older than the dialog has no `sdk.ui.ShareDialog`. Check for it and
 hide the Share button when it is missing. The SDK version stays 2: the dialog, the
 badges and `shareClient` are additions to the SDK 2 surface.

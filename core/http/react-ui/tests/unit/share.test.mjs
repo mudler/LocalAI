@@ -3,6 +3,7 @@
 // /api/shares, the SDK binding for add-ons and the first render of the dialog
 // and of the sharing line of a list row.
 import test from 'node:test'
+import { connectionShareStart } from '../../src/components/share/connectionShare.js'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import ts from 'typescript'
@@ -263,4 +264,16 @@ test('share dialog: a reference that cannot be shared is a read-only row', () =>
   assert.match(html, /They need access of their own/)
   assert.doesNotMatch(html, /aria-label="Access to Projects"/)
   assert.doesNotMatch(html, /data-testid="share-refs-pending"/)
+})
+
+test('connection share: the host asks for the ID of the binding itself and refuses a bad binding', async () => {
+  const asked = []
+  const api = { share: async (id) => { asked.push(id); return { resource_id: 'r0123456789abcdef0123456789abcde', shared_with: 0 } } }
+  assert.equal(await connectionShareStart(api, 'b-1'), 'r0123456789abcdef0123456789abcde')
+  assert.deepEqual(asked, ['b-1'])
+  for (const bad of ['', '../x', 'a/b', null, 7]) {
+    await assert.rejects(() => connectionShareStart(api, bad), TypeError, String(bad))
+  }
+  assert.deepEqual(asked, ['b-1'])
+  await assert.rejects(() => connectionShareStart({ share: async () => ({}) }, 'b-2'), /cannot be shared/)
 })
