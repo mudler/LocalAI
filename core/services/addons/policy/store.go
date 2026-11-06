@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -270,9 +271,11 @@ func load(dir string) (*document, error) {
 	if len(d.Revoked) > MaxRevocations {
 		return nil, errors.New("addon policy store is corrupt")
 	}
-	d.migrateKinds()
+	if !d.migrateKinds() {
+		return nil, errors.New("addon policy store is corrupt")
+	}
 	for _, v := range d.Revoked {
-		if v.Kind == "" || v.ResourceID == "" || v.UserID == "" || (v.Ceiling != "" && v.Ceiling != RoleViewer && v.Ceiling != RoleEditor) {
+		if v.Kind == "" || !wellFormedKind(v.Kind) || v.ResourceID == "" || v.UserID == "" || (v.Ceiling != "" && v.Ceiling != RoleViewer && v.Ceiling != RoleEditor) {
 			return nil, errors.New("addon policy store is corrupt")
 		}
 	}
@@ -286,7 +289,7 @@ func load(dir string) (*document, error) {
 		}
 	}
 	for id, t := range d.Deleted {
-		if id == "" || t == nil || t.Kind == "" || t.Owner == "" || t.Op == "" {
+		if id == "" || t == nil || t.Kind == "" || !kindMatchesAddon(t.Kind, t.AddonID) || t.Owner == "" || t.Op == "" {
 			return nil, errors.New("addon policy store is corrupt")
 		}
 	}
@@ -311,8 +314,10 @@ func load(dir string) (*document, error) {
 // migrateKinds gives what a store written before kinds existed the kind of an
 // add-on resource. Every such entry names its add-on, and the add-on kind is
 // derived from it, so nothing a person was granted or lost changes. An entry
-// that has neither is left as it is and fails the check in load.
-func (d *document) migrateKinds() {
+// that has neither is left as it is and fails the check in load. It reports
+// false when a revocation names an add-on that its kind does not: that entry
+// is corrupt, and clearing the field would hide it.
+func (d *document) migrateKinds() bool {
 	for _, r := range d.Resources {
 		if r != nil && r.Kind == "" && r.AddonID != "" {
 			r.Kind = addonKind(r.AddonID)
@@ -334,10 +339,24 @@ func (d *document) migrateKinds() {
 		// The kind is the identity; keeping the old field too would give the
 		// entry two sources of truth.
 		if v.AddonID != "" {
+			if v.Kind != addonKind(v.AddonID) {
+				return false
+			}
 			v.AddonID = ""
 			d.migrated = true
 		}
 	}
+	return true
+}
+
+// wellFormedKind says whether a stored kind is usable: the add-on family needs
+// an add-on ID after the prefix.
+func wellFormedKind(kind string) bool {
+	if strings.HasPrefix(kind, addonKindPrefix) {
+		_, ok := addonOf(kind)
+		return ok
+	}
+	return kind != ""
 }
 
 // save reports renamed when the new file is already in place, so a failure

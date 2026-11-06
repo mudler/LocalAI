@@ -141,7 +141,9 @@ func (p *Policy) checkRef(a contract.Actor, ref Ref, action Action) error {
 	if !known || !ok || r.State != stateActive || r.Kind != ref.Kind {
 		return ErrForbidden
 	}
-	if p.role(a, r).rank() < spec.Roles(action).rank() {
+	// A required role of rank 0 would be met by a caller with no grant.
+	need := spec.Roles(action).rank()
+	if need == 0 || p.role(a, r).rank() < need {
 		return ErrForbidden
 	}
 	return nil
@@ -494,7 +496,9 @@ func (p *Policy) newPending(actor contract.Actor, kind, addonID string) (string,
 		for _, r := range d.Resources {
 			if r.Owner == owner {
 				owned++
-				if r.State == statePend {
+				// A record of a kind nobody registers now cannot be settled
+				// and stays pending, so it does not take the user's quota.
+				if _, known := p.spec(r.Kind); r.State == statePend && known {
 					pending++
 				}
 			}

@@ -119,7 +119,7 @@ func (s *Store) exportAddon(addonID string, now func() time.Time) addonSnapshot 
 	defer s.mu.Unlock()
 	out := addonSnapshot{Version: 1, AddonID: addonID, Mode: s.mode, Created: now(), Resources: map[string]snapshotResource{}}
 	for id, r := range s.doc.Resources {
-		if r.AddonID != addonID || r.State != stateActive {
+		if addonID == "" || r.Kind != addonKind(addonID) || r.State != stateActive {
 			continue
 		}
 		g := make(map[string]Role, len(r.Grants))
@@ -395,6 +395,9 @@ func (r *RecoveryPort) Hold(ctx context.Context, addonID string) (func(), error)
 
 // Export returns the access state and the proposals of the add-on.
 func (r *RecoveryPort) Export(_ context.Context, addonID string) (recovery.PolicyExport, error) {
+	if addonID == "" {
+		return recovery.PolicyExport{}, errors.New("addon policy: export needs an add-on ID")
+	}
 	pol, err := json.Marshal(r.Policy.store.exportAddon(addonID, r.now))
 	if err != nil {
 		return recovery.PolicyExport{}, err

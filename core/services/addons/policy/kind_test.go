@@ -34,6 +34,7 @@ var _ = Describe("Resource kinds", func() {
 		Expect(f.policy.RegisterKind(notesKind, KindSpec{
 			Roles:           notesRoles,
 			CreateAuthority: func(context.Context, contract.Actor) error { return nil },
+			Backing:         func(context.Context, Ref) (bool, error) { return true, nil },
 		})).To(Succeed())
 	}
 
@@ -120,12 +121,13 @@ var _ = Describe("Resource kinds", func() {
 
 	It("registers a kind once and refuses a kind without a table", func() {
 		f := newFixture(ModeNamedUser)
+		noBacking := func(context.Context, Ref) (bool, error) { return true, nil }
 		register(f)
-		Expect(f.policy.RegisterKind(notesKind, KindSpec{Roles: notesRoles})).NotTo(Succeed())
-		Expect(f.policy.RegisterKind("notes:other", KindSpec{})).NotTo(Succeed())
-		Expect(f.policy.RegisterKind("", KindSpec{Roles: notesRoles})).NotTo(Succeed())
+		Expect(f.policy.RegisterKind(notesKind, KindSpec{Roles: notesRoles, Backing: noBacking})).NotTo(Succeed())
+		Expect(f.policy.RegisterKind("notes:other", KindSpec{Backing: noBacking})).NotTo(Succeed())
+		Expect(f.policy.RegisterKind("", KindSpec{Roles: notesRoles, Backing: noBacking})).NotTo(Succeed())
 		// The add-on family is taken by the policy itself.
-		Expect(f.policy.RegisterKind("addon:x", KindSpec{Roles: notesRoles})).NotTo(Succeed())
+		Expect(f.policy.RegisterKind("addon:x", KindSpec{Roles: notesRoles, Backing: noBacking})).NotTo(Succeed())
 	})
 
 	It("settles a pending resource of the kind through its backing hook", func() {

@@ -56,9 +56,17 @@ type KindSpec struct {
 	// kind. Without it CreateRef denies.
 	CreateAuthority func(ctx context.Context, actor contract.Actor) error
 	// Backing says whether the backing of a pending resource exists, for
-	// Reconcile. Without it a pending resource of the kind stays pending.
+	// Reconcile. It is required: without it a record left pending by a crash
+	// could never be settled and would hold quota for good.
 	Backing func(ctx context.Context, ref Ref) (bool, error)
 }
+
+// allActions is every Action constant. RegisterKind probes a role table with
+// each of them.
+var allActions = []Action{ActionRead, ActionOutput, ActionWrite, ActionSchema, ActionShare, ActionDelete, ActionResolve, ActionUnknown}
+
+// validRole says whether a table may return the role: only the three real ones.
+func validRole(r Role) bool { return r.rank() > 0 }
 
 // addonSpec is the table of every add-on kind: the one Action.required has.
 var addonSpec = KindSpec{Roles: Action.required}
@@ -67,8 +75,15 @@ var addonSpec = KindSpec{Roles: Action.required}
 // registered by New. A kind registers once, and its name may not look like an
 // add-on kind.
 func (p *Policy) RegisterKind(kind string, spec KindSpec) error {
-	if kind == "" || len(kind) > 256 || strings.HasPrefix(kind, addonKindPrefix) || spec.Roles == nil {
+	if kind == "" || len(kind) > 256 || strings.HasPrefix(kind, addonKindPrefix) || spec.Roles == nil || spec.Backing == nil {
 		return errors.New("addon policy: invalid resource kind")
+	}
+	// A table that answers "" or an unknown role for an action would let a
+	// caller with no grant through, so every action must map to a real role.
+	for _, a := range allActions {
+		if !validRole(spec.Roles(a)) {
+			return errors.New("addon policy: resource kind has an incomplete role table")
+		}
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
