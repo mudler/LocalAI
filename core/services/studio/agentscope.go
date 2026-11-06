@@ -52,7 +52,7 @@ func (s *Service) scopeOf(ctx context.Context, rec session.ChatRecord) *scope {
 	if s.d.Agents == nil {
 		return &scope{deleted: true}
 	}
-	ag, err := s.d.Agents.Get(ctx, rec.Principal, rec.AgentID)
+	ag, err := s.chatAgent(ctx, rec.Principal, rec.AgentID)
 	if errors.Is(err, agents.ErrNotFound) {
 		return &scope{deleted: true}
 	}

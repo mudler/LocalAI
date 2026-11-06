@@ -129,30 +129,34 @@ func (a *Application) initStudioService() {
 		MCP:                a.studioMCP,
 		MCPServers:         a.studioModelMCPServers,
 		Agents:             a.studioAgents,
-		Notify:             inbox,
-		Push:               pusher,
-		AddonTools:         lateStudioAddons{a},
-		Assistant:          studioAssistant{a},
-		Collections:        studioCollections{a},
-		ContextTokens:      a.studioContextTokens,
-		RemoteModel:        a.studioRemoteModel,
-		PageConsents:       a.studioPageConsents(),
-		SharedFolderAudit:  a.studioSharedFolderAudit(),
-		Proposals:          a.studioProposalStore(),
-		UserSetting:        a.studioUserSetting,
-		SetUserSetting:     a.studioSetUserSetting,
-		EgressSettings:     a.studioEgressSettings,
-		EgressAudit:        a.studioEgressAudit(),
-		EgressAuditDays:    func() int { return a.applicationConfig.EffectiveChatsEgressAuditDays() },
-		FindUser:           a.studioFindUser(),
-		SharedPagesOn:      func() bool { return !a.applicationConfig.DisableSharedPages },
-		Modalities:         a.studioModalities,
-		MCPContent:         studioMCPContent{a: a},
-		AgentOptions:       a.studioAgentOptions,
-		Persistent:         a.studioStoreKind != "memory",
-		Files:              a.StudioFiles(),
-		Media:              media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel).WithVisionChooser(a.studioVisionModel),
-		Web:                a.studioWeb,
+		// Saved agents are shared through the policy of the add-on owner.
+		// Only the owner process holds it; elsewhere AddonPolicy is nil and
+		// no agent is shared through this process, which fails closed.
+		AgentShares:       studio.PolicyAgentShares{Policy: a.AddonPolicy},
+		Notify:            inbox,
+		Push:              pusher,
+		AddonTools:        lateStudioAddons{a},
+		Assistant:         studioAssistant{a},
+		Collections:       studioCollections{a},
+		ContextTokens:     a.studioContextTokens,
+		RemoteModel:       a.studioRemoteModel,
+		PageConsents:      a.studioPageConsents(),
+		SharedFolderAudit: a.studioSharedFolderAudit(),
+		Proposals:         a.studioProposalStore(),
+		UserSetting:       a.studioUserSetting,
+		SetUserSetting:    a.studioSetUserSetting,
+		EgressSettings:    a.studioEgressSettings,
+		EgressAudit:       a.studioEgressAudit(),
+		EgressAuditDays:   func() int { return a.applicationConfig.EffectiveChatsEgressAuditDays() },
+		FindUser:          a.studioFindUser(),
+		SharedPagesOn:     func() bool { return !a.applicationConfig.DisableSharedPages },
+		Modalities:        a.studioModalities,
+		MCPContent:        studioMCPContent{a: a},
+		AgentOptions:      a.studioAgentOptions,
+		Persistent:        a.studioStoreKind != "memory",
+		Files:             a.StudioFiles(),
+		Media:             media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel).WithVisionChooser(a.studioVisionModel),
+		Web:               a.studioWeb,
 	}
 	if a.studioMCPConns != nil {
 		deps.MCPConnectors = a.studioMCPConns
@@ -214,6 +218,11 @@ func (a *Application) initStudioService() {
 	}
 	a.studioService = svc
 	svcRef.Store(svc)
+	// The kind "agent" registers with the policy when the add-on owner opens
+	// it, or at once when it is already open.
+	if err := a.RegisterShareKinds(svc); err != nil {
+		xlog.Warn("Chats: saved agents cannot be shared", "error", err)
+	}
 	a.startStudioReaper(svc)
 	a.startStudioEgressPrune(svc)
 	if a.applicationConfig.Distributed.ChatWorker {

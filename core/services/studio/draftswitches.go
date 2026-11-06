@@ -68,7 +68,7 @@ func (s *Service) draftRecord(ctx context.Context, user, model, agentID string) 
 	if s.d.Agents == nil {
 		return rec, ErrAgentsOff
 	}
-	ag, err := s.d.Agents.Get(ctx, principal(user), agentID)
+	ag, err := s.chatAgent(ctx, principal(user), agentID)
 	if err != nil {
 		return rec, err
 	}

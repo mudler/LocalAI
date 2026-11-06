@@ -206,7 +206,7 @@ func (j *Jobs) buildTask(ctx context.Context, owner string, in TaskInput) (jobs.
 		return jobs.Task{}, err
 	}
 	if t.AgentID != "" {
-		ag, err := j.svc.Agent(ctx, owner, t.AgentID)
+		ag, err := j.svc.ownAgent(ctx, owner, t.AgentID)
 		if err != nil {
 			return jobs.Task{}, err
 		}

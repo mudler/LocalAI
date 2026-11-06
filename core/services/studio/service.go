@@ -104,6 +104,14 @@ type Deps struct {
 	MCPConnectors *mcpconns.Service
 	// Agents holds the saved agents. Nil: a chat cannot name an agent.
 	Agents agents.Store
+	// AgentShares is the sharing policy of saved agents (share kind
+	// "agent"). Nil, or not Available: agents are not shared, and a chat
+	// names only its owner's agents.
+	AgentShares AgentShares
+	// ReferenceShares maps the collections and connections an agent names
+	// to their IDs in the sharing API, so the owner can share them with the
+	// agent. Nil: they cannot be shared from the agent's Share dialog.
+	ReferenceShares ReferenceShareResolver
 	// Notify stores and delivers notifications. Nil: there is no inbox.
 	Notify *notify.Service
 	// Push sends notifications to browsers. Nil: browser push is off.
@@ -660,7 +668,9 @@ func (s *Service) Create(ctx context.Context, user string, in CreateInput) (sess
 
 // CreateAs creates a conversation of user that was started by origin: a person
 // (the zero Origin), a trigger or a connector. The agent, when named, must be
-// the user's own.
+// the user's own, or, for a chat a person starts, an agent shared with them:
+// the chat then runs as the user with the agent's definition. A trigger or a
+// connector runs only its owner's agents.
 func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, origin Origin) (session.ChatRecord, error) {
 	model := in.Model
 	scoped := false
@@ -680,7 +690,13 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		if s.d.Agents == nil {
 			return session.ChatRecord{}, ErrAgentsOff
 		}
-		ag, err := s.d.Agents.Get(ctx, principal(user), in.AgentID)
+		var ag agents.Agent
+		var err error
+		if origin.Kind == "" {
+			ag, err = s.chatAgent(ctx, principal(user), in.AgentID)
+		} else {
+			ag, err = s.ownAgent(ctx, user, in.AgentID)
+		}
 		if err != nil {
 			return session.ChatRecord{}, err
 		}
@@ -1169,8 +1185,16 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 
 // startTurn runs msg as a turn the claim runID already covers.
 func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg session.Message) error {
+	// A chat with an agent shared with its owner runs as admitted work of
+	// the agent's sharing record: a lowering or a revocation stops it.
+	release, err := s.admitAgentTurn(ctx, p, conv)
+	if err != nil {
+		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
+		return err
+	}
 	chat, err := s.chat(ctx, p, conv)
 	if err != nil {
+		release()
 		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
 		return err
 	}
@@ -1186,7 +1210,7 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg sess
 			}
 		}
 	})
-	end := func() { stopBeat(); stopListening() }
+	end := func() { stopBeat(); stopListening(); release() }
 	// The cards still pending in the record belong to an earlier turn, whose
 	// frontend may have died: nobody waits on them any more.
 	s.expireConsents(ctx, p, conv, "")

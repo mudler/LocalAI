@@ -79,7 +79,7 @@ func (s *Service) observeTurn(ctx context.Context, p, conv string, started time.
 	if rec, err := s.d.Store.GetChat(ctx, p, conv); err == nil {
 		origin = rec.Origin
 		if rec.AgentID != "" && s.d.Agents != nil {
-			if ag, err := s.d.Agents.Get(ctx, p, rec.AgentID); err == nil {
+			if ag, err := s.chatAgent(ctx, p, rec.AgentID); err == nil {
 				agent = ag.Name
 			}
 		}

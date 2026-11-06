@@ -386,7 +386,7 @@ func (s *Service) knowledgeOffered(ctx context.Context, c builtins.Chat) bool {
 	if c.AgentID == "" || s.d.Agents == nil {
 		return true
 	}
-	ag, err := s.d.Agents.Get(ctx, principal(c.Actor.Principal), c.AgentID)
+	ag, err := s.chatAgent(ctx, principal(c.Actor.Principal), c.AgentID)
 	return err == nil && len(ag.Collections) > 0
 }
 

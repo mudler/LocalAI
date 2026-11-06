@@ -126,7 +126,7 @@ func (s *Service) agentOff(ctx context.Context, rec session.ChatRecord) []string
 	if rec.AgentID == "" || s.d.Agents == nil {
 		return nil
 	}
-	ag, err := s.d.Agents.Get(ctx, rec.Principal, rec.AgentID)
+	ag, err := s.chatAgent(ctx, rec.Principal, rec.AgentID)
 	if err != nil {
 		return nil
 	}
