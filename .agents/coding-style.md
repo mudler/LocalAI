@@ -142,8 +142,9 @@ them. `/app/ui-catalog` shows each one with an example.
   Required fields come first.
 - `src/components/Toggle.jsx` is legacy. Do not import it in new code. Use
   `Switch` (applies at once) or a checkbox (applies on Save).
-- Button wording: "Create X" makes a new thing, "Add X" attaches an existing
-  one.
+- Button wording follows the product. "New X" starts making a new thing, "Add
+  X" attaches an existing one, and the primary button of the form says "Save"
+  or "Save and test". Do not write "Create X".
 
 A ratchet enforces the parts it can see:
 
