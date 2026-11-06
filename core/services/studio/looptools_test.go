@@ -9,7 +9,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/loops"
-	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -168,28 +167,7 @@ var _ = Describe("start_loop", func() {
 		Expect(l.Reason).To(ContainSubstring("2 runs"))
 	})
 
-	It("is not offered in a sub-agent chat, a trigger chat or without a loop host", func() {
-		r := newLoopRig(func(_ workspace.Actor, text string) []studiotest.ToolStep {
-			if text == "go" {
-				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"find it","wait":true}`}, {Say: "done"}}
-			}
-			return []studiotest.ToolStep{{Say: "ok"}}
-		}, studio.LoopOptions{})
-		chat := create(r.svc, alice)
-		sent(r.svc, alice, chat, "go")
-		idle(r.svc, alice, chat)
-		kids := childrenOf(r.svc, alice, chat)
-		Expect(kids).To(HaveLen(1))
-		Expect(r.h.ToolNames(kids[0].ID)).NotTo(BeEmpty())
-		Expect(r.h.ToolNames(kids[0].ID)).NotTo(ContainElement("start_loop"))
-
-		rec, err := r.svc.CreateAs(ctx, alice, studio.CreateInput{Model: "m"}, studio.Origin{Kind: session.OriginTrigger, ID: "t1"})
-		Expect(err).NotTo(HaveOccurred())
-		sent(r.svc, alice, rec.ID, "hello")
-		idle(r.svc, alice, rec.ID)
-		Expect(r.h.ToolNames(rec.ID)).NotTo(BeEmpty())
-		Expect(r.h.ToolNames(rec.ID)).NotTo(ContainElement("start_loop"))
-
+	It("is not offered without a loop host", func() {
 		svc, h := newToolService(say)
 		off := create(svc, alice)
 		sent(svc, alice, off, "hello")

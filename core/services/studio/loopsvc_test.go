@@ -38,13 +38,13 @@ type loopRig struct {
 	host *studio.Loops
 }
 
-func (sh *loopShared) rig(script func(workspace.Actor, string) []studiotest.ToolStep, o studio.LoopOptions) *loopRig {
-	svc, h := newToolService(script, func(d *studio.Deps) {
+func (sh *loopShared) rig(script func(workspace.Actor, string) []studiotest.ToolStep, o studio.LoopOptions, extra ...func(*studio.Deps)) *loopRig {
+	svc, h := newToolService(script, append([]func(*studio.Deps){func(d *studio.Deps) {
 		d.Store, d.Files = sh.chats, sh.files
 		if sh.users != nil {
 			d.Users = func(_ context.Context, id string) (*auth.User, error) { return &auth.User{ID: id}, sh.users(id) }
 		}
-	})
+	}}, extra...)...)
 	o.Store, o.Clock = sh.loops, sh.clock.Now
 	if o.Tick == 0 {
 		o.Tick = time.Hour // tests call Pass
@@ -56,8 +56,8 @@ func (sh *loopShared) rig(script func(workspace.Actor, string) []studiotest.Tool
 	return &loopRig{sh: sh, svc: svc, h: h, host: host}
 }
 
-func newLoopRig(script func(workspace.Actor, string) []studiotest.ToolStep, o studio.LoopOptions) *loopRig {
-	return newLoopShared().rig(script, o)
+func newLoopRig(script func(workspace.Actor, string) []studiotest.ToolStep, o studio.LoopOptions, extra ...func(*studio.Deps)) *loopRig {
+	return newLoopShared().rig(script, o, extra...)
 }
 
 // say answers every message with ok.

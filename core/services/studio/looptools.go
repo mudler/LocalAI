@@ -52,11 +52,12 @@ var errNoLoopRun = errors.New("no run of a self-paced loop goes on in this chat;
 
 // loopTools returns schedule_next and loop_done while the chat has a
 // self-paced loop that is active or running. A chat without a self-paced loop
-// gets start_loop instead, so that the model can arm one itself. A chat of a
-// sub-agent or of a trigger or connector gets neither.
+// gets start_loop instead, so that the model can arm one itself. The tools are
+// added after every selection of tools and groups, so a chat of a saved agent
+// has them whatever the agent restricts. A connector chat gets none.
 func (s *Service) loopTools(ctx context.Context, a workspace.Actor, rec session.ChatRecord) []session.Tool {
 	h := s.loops
-	if h == nil || rec.Kind == session.KindSubAgent || rec.Origin != "" {
+	if h == nil || !modelLoopOrigin(rec.Origin) {
 		return nil
 	}
 	list, err := h.o.Store.ListChat(ctx, a.Principal, a.ChatID)
@@ -87,6 +88,33 @@ func (s *Service) loopTools(ctx context.Context, a workspace.Actor, rec session.
 		{Name: loopDoneName, Description: loopDoneDescription, Schema: json.RawMessage(loopDoneSchema),
 			Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.loopDone(ctx, a, raw) }},
 	}
+}
+
+// modelLoopOrigin says whether the model of a chat with that origin may start
+// a loop. A person's chat, a trigger, a job and a page may: their prompts come
+// from the owner, or from a page that the owner allowed. A connector chat may
+// not, because the sender of its messages can be someone from outside, and a
+// message of theirs must not be able to make the server run work on a timer.
+func modelLoopOrigin(origin string) bool {
+	switch origin {
+	case "", session.OriginTrigger, session.OriginJob, session.OriginPage:
+		return true
+	}
+	return false
+}
+
+// systemRunMaxRuns is the run limit of a loop in a chat that the system
+// started (a trigger, a job or a page), as a share of the operator's limit: no
+// one watches such a chat, so its loops end sooner.
+const systemRunMaxRuns = 5
+
+// maxRunsFor is the number of runs a loop of the chat may make.
+func (h *Loops) maxRunsFor(ctx context.Context, owner, chatID string, lim LoopLimits) int {
+	rec, err := h.svc.d.Store.GetChat(ctx, owner, chatID)
+	if err != nil || rec.Origin == "" {
+		return lim.MaxRuns
+	}
+	return max(1, lim.MaxRuns/systemRunMaxRuns)
 }
 
 // runningPaced returns the self-paced loop of the chat whose run goes on.

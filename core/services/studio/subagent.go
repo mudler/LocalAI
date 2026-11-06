@@ -76,6 +76,9 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 			work = s.subWorkBlock(ctx, rec, x)
 		}
 		prompt = joinBlocks(prompt, webBlock(tools), work)
+		// The loop tools come last: a sub-agent may arm a loop of its own and
+		// wait, whatever tools its parent gave it.
+		tools = append(slices.Clone(tools), s.loopTools(ctx, a, rec)...)
 		return session.TurnTools{Tools: tools, Prompt: prompt}, nil
 	}
 	tools, missing, heldAddons, err := s.scopedHostTools(ctx, a)
@@ -439,15 +442,14 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		go s.reportBack(a, childID, title, done) // #nosec G118 -- a background sub-agent reports after the request ended
 		return fmt.Sprintf("Started sub-agent %s in the background. Its result will arrive as a message.", childID), nil
 	}
-	select {
-	case st := <-done:
-		s.forgetChild(parentKey, childID)
-		return s.childResult(ctx, a, childID, st)
-	case <-ctx.Done():
+	st, err := s.waitChild(ctx, a.Principal, childID, done)
+	if err != nil {
 		_ = s.Stop(context.WithoutCancel(ctx), a.Principal, childID)
 		s.forgetChild(parentKey, childID)
-		return "", ctx.Err()
+		return "", err
 	}
+	s.forgetChild(parentKey, childID)
+	return s.childResult(ctx, a, childID, st)
 }
 
 // agentFitsChat checks that a saved agent may run as a sub-agent of the
@@ -573,7 +575,8 @@ func (s *Service) registerChild(ctx context.Context, p, conv string, c *child) e
 }
 
 // runningChildren returns the sub-agent chats of a conversation whose turn
-// runs now, on any frontend.
+// runs now, on any frontend, and those that wait for their loop: a sub-agent
+// that is not done counts as running, and a Stop reaches it.
 func (s *Service) runningChildren(ctx context.Context, p, conv string) ([]session.ChatRecord, error) {
 	kids, err := s.d.Store.ListChildren(ctx, p, conv)
 	if err != nil {
@@ -588,7 +591,7 @@ func (s *Service) runningChildren(ctx context.Context, p, conv string) ([]sessio
 			}
 			return nil, err
 		}
-		if info.Running {
+		if info.Running || s.loopHolds(ctx, p, k.ID) {
 			out = append(out, k)
 		}
 	}
@@ -700,13 +703,11 @@ func pick(ofTurn, latest string) string {
 // one reaches the parent as a message, which starts a turn when the parent is
 // idle. One that was stopped or failed only raises the event.
 func (s *Service) reportBack(a workspace.Actor, childID, title string, done <-chan store.TurnStatus) {
-	var st store.TurnStatus
-	select {
-	case st = <-done:
-	case <-s.closed:
+	ctx := context.Background()
+	st, err := s.waitChild(ctx, a.Principal, childID, done)
+	if err != nil {
 		return
 	}
-	ctx := context.Background()
 	parentKey := key(a.Principal, a.ChatID)
 	s.forgetChild(parentKey, childID)
 	s.bus.Publish(parentKey, session.Event{Kind: session.KindSubAgentDone, IDs: []string{childID}, Text: title})

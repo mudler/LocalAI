@@ -34,6 +34,10 @@ func (s *Service) SubAgents(ctx context.Context, user, parent string) ([]SubAgen
 		if err != nil {
 			continue // deleted meanwhile
 		}
+		// A sub-agent that waits for its loop is not finished.
+		if !info.Running && s.loopHolds(ctx, p, k.ID) {
+			info.Running = true
+		}
 		out = append(out, SubAgent{Chat: k, Turn: info})
 	}
 	return out, nil

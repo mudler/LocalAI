@@ -1087,6 +1087,21 @@ func (s *Service) SendNow(ctx context.Context, user, conv string) error {
 // frontend, which then hears the request over the bus.
 func (s *Service) Stop(ctx context.Context, user, conv string) error {
 	p := principal(user)
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil {
+		return err
+	}
+	if rec.Kind == session.KindSubAgent {
+		// A sub-agent that waits for its loop is stopped for good: its loop
+		// ends, and the parent hears that the run was stopped.
+		s.endChildLoops(ctx, p, conv)
+	}
+	return s.stopTurn(ctx, user, conv)
+}
+
+// stopTurn is Stop without the end of the loops of a sub-agent chat.
+func (s *Service) stopTurn(ctx context.Context, user, conv string) error {
+	p := principal(user)
 	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
 		return err
 	}
@@ -1255,7 +1270,9 @@ func (s *Service) ReapStale(ctx context.Context, olderThan time.Duration) (int, 
 		s.bus.Publish(k, session.Event{Kind: session.KindError, Text: "The turn was interrupted."})
 		s.bus.Publish(k, session.Event{Kind: session.KindTurnEnd})
 		// A parent waits for a sub-agent whose turn ended this way too.
-		s.notifyWaiters(k, store.TurnInterrupted)
+		if !s.loopHolds(ctx, r.Principal, r.ChatID) {
+			s.notifyWaiters(k, store.TurnInterrupted)
+		}
 		// The goal of a turn that died does not go on by itself: the frontend
 		// that would have continued it is gone, and the person resumes it.
 		s.pauseGoal(ctx, r.Principal, r.ChatID, session.GoalPausedByInterrupted)
@@ -1393,7 +1410,9 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 	}
 	s.settleGoal(ctx, p, conv, status, r.steps)
 	s.observeTurn(ctx, p, conv, r.started, outcomeOf(r.stopped, r.failed || status == store.TurnInterrupted))
-	s.notifyWaiters(k, status)
+	if !s.holdForLoop(ctx, p, conv, status) {
+		s.notifyWaiters(k, status)
+	}
 	if !status.Finished() {
 		// A stopped or failed turn takes its running sub-agents with it, and the
 		// waiting messages stay for the user to decide.

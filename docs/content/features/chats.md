@@ -258,8 +258,19 @@ stop it. Type `/loop` in the message box, or use the API.
   reason. The loop starts at once and does not ask you first. You see it as a
   line above the message box with the reason, and you can pause or stop it.
   The limits below apply: the minimum wait, the loops per chat and per user,
-  and the run limit. The tool is not offered in sub-agent chats, in chats
-  started by a trigger or a connector, or when loops are off.
+  and the run limit. The tool is offered in your chats, in chats of a saved
+  agent (whatever tools the agent allows), in sub-agent chats, and in chats
+  that a trigger, a job or a page started. It is not offered in chats that a
+  connector started, because the sender can be someone from outside, or when
+  loops are off. A loop in a chat that a trigger, a job or a page started ends
+  after a fifth of the run limit (20 runs by default).
+- **Sub-agents.** A sub-agent can start a loop, end its turn and wait. The
+  parent is not told that the sub-agent finished until its loop ends: by
+  `loop_done`, the run limit, a pause after failed runs, or a stop. Then the
+  parent gets the last result. Meanwhile the sub-agent shows as running, and it
+  counts once against the limit of background sub-agents. Stopping the parent
+  or the sub-agent ends the loop. You cannot start a loop in a sub-agent chat
+  yourself.
 - **The prompt** is plain text, or a skill: `/<skill-name>` (or
   `/skill <name>`) and its words. Each run sends it as that skill command
   would: the transcript shows the words and the skill's chip. Other slash
