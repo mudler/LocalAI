@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/syncstate"
 	"github.com/mudler/xlog"
+	"gorm.io/gorm"
 )
 
 const (
@@ -61,6 +62,12 @@ type ResponseStore struct {
 	replicaID  string
 	lifeCtx    context.Context
 	lifeCancel context.CancelFunc
+	// syncedHasStore is true when the replicated map writes the table.
+	syncedHasStore bool
+
+	// dur is the table behind the store (see durable.go). nil means the store
+	// is the process-local map it always was. Guarded by mu.
+	dur *durableBackend
 }
 
 // StreamedEvent represents a buffered SSE event for streaming resume
@@ -108,6 +115,17 @@ type StoredResponse struct {
 	// against to detect a lost resume offset. Both are guarded by mu.
 	streamBytes    int
 	droppedThrough int
+
+	// Batched writes to the table (see durable.go). pending holds the events
+	// not yet written; flushMu keeps the writes of one response in order.
+	// fenced stops all writes: the sweeper ended this response while its owner
+	// was away. All but flushMu are guarded by mu.
+	pending          []StreamedEvent
+	flushMu          sync.Mutex
+	flushTimer       *time.Timer
+	lastFlush        time.Time
+	flushFailedSince time.Time
+	fenced           bool
 }
 
 var getGlobalStore = sync.OnceValue(func() *ResponseStore {
@@ -125,7 +143,6 @@ func (s *ResponseStore) SetTTL(ttl time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Stop existing cleanup loop if running
 	if s.cleanupCancel != nil {
 		s.cleanupCancel()
 		s.cleanupCancel = nil
@@ -133,14 +150,36 @@ func (s *ResponseStore) SetTTL(ttl time.Duration) {
 	}
 
 	s.ttl = ttl
+	s.startCleanupLocked()
 
-	// If TTL > 0, start cleanup loop
-	if ttl > 0 {
+	xlog.Debug("Updated Open Responses store TTL", "ttl", ttl, "cleanup_running", ttl > 0)
+}
+
+// restartCleanupLocked stops the cleanup loop and starts it again for the
+// effective TTL. The caller holds mu.
+func (s *ResponseStore) restartCleanupLocked() {
+	if s.cleanupCancel != nil {
+		s.cleanupCancel()
+		s.cleanupCancel = nil
+		s.cleanupCtx = nil
+	}
+	s.startCleanupLocked()
+}
+
+func (s *ResponseStore) startCleanupLocked() {
+	if s.effectiveTTLLocked() > 0 {
 		s.cleanupCtx, s.cleanupCancel = context.WithCancel(context.Background())
 		go s.cleanupLoop(s.cleanupCtx)
 	}
+}
 
-	xlog.Debug("Updated Open Responses store TTL", "ttl", ttl, "cleanup_running", ttl > 0)
+// effectiveTTLLocked is the TTL in force. A table does not end with the
+// process, so with a table and no configured TTL the default applies.
+func (s *ResponseStore) effectiveTTLLocked() time.Duration {
+	if s.ttl == 0 && s.dur != nil {
+		return defaultDurableTTL
+	}
+	return s.ttl
 }
 
 // NewResponseStore creates a new response store with optional TTL
@@ -188,12 +227,13 @@ func (s *ResponseStore) StoreOwned(responseID string, request *schema.OpenRespon
 		StoredAt:       time.Now(),
 		ExpiresAt:      nil,
 		droppedThrough: -1,
+		lastFlush:      time.Now(),
 		Owner:          owner,
 	}
 
 	// Set expiration if TTL is configured
-	if s.ttl > 0 {
-		expiresAt := time.Now().Add(s.ttl)
+	if ttl := s.effectiveTTLLocked(); ttl > 0 {
+		expiresAt := time.Now().Add(ttl)
 		stored.ExpiresAt = &expiresAt
 	}
 
@@ -202,6 +242,7 @@ func (s *ResponseStore) StoreOwned(responseID string, request *schema.OpenRespon
 
 	// Replicate outside the lock: the broadcast can be delivered synchronously
 	// and a subscriber re-enters the store.
+	s.persist(responseID, stored)
 	s.mirror(responseID, stored)
 	xlog.Debug("Stored Open Responses response", "response_id", responseID, "items_count", len(items))
 }
@@ -225,6 +266,19 @@ func (s *ResponseStore) Get(responseID string) (*StoredResponse, error) {
 			return nil, fmt.Errorf("response expired: %s", responseID)
 		}
 		return stored, nil
+	}
+
+	if d := s.durable(); d != nil {
+		row, err := d.getRow(context.Background(), responseID)
+		if err == nil {
+			if row.ExpiresAt > 0 && nowMs() > row.ExpiresAt {
+				return nil, fmt.Errorf("response expired: %s", responseID)
+			}
+			return rowToStored(row)
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			xlog.Warn("open responses: could not read a response", "response_id", responseID, "error", err)
+		}
 	}
 
 	if remote, ok := s.remoteGet(responseID); ok {
@@ -256,6 +310,12 @@ func (s *ResponseStore) FindItem(itemID string) (*schema.ORItemField, string, er
 
 	if item, responseID, found := s.findItemLocal(itemID, now); found {
 		return item, responseID, nil
+	}
+
+	if d := s.durable(); d != nil {
+		if item, responseID, ok := d.findItem(context.Background(), itemID); ok {
+			return item, responseID, nil
+		}
 	}
 
 	// An item referenced by ID can belong to a response created on any replica,
@@ -304,15 +364,24 @@ func (s *ResponseStore) findItemLocal(itemID string, now time.Time) (*schema.ORI
 func (s *ResponseStore) Delete(responseID string) {
 	s.mu.Lock()
 	delete(s.responses, responseID)
+	d := s.dur
 	s.mu.Unlock()
 
+	if d != nil && !s.metadataViaSync() {
+		if err := d.deleteResponse(context.Background(), responseID); err != nil {
+			xlog.Warn("open responses: could not delete a response", "response_id", responseID, "error", err)
+		}
+	}
 	s.unmirror(responseID)
 	xlog.Debug("Deleted Open Responses response", "response_id", responseID)
 }
 
 // Cleanup removes expired responses
 func (s *ResponseStore) Cleanup() int {
-	if s.ttl == 0 {
+	s.mu.Lock()
+	ttl := s.effectiveTTLLocked()
+	s.mu.Unlock()
+	if ttl == 0 {
 		return 0
 	}
 
@@ -348,11 +417,14 @@ func (s *ResponseStore) Cleanup() int {
 
 // cleanupLoop runs periodic cleanup of expired responses
 func (s *ResponseStore) cleanupLoop(ctx context.Context) {
-	if s.ttl == 0 {
+	s.mu.RLock()
+	ttl := s.effectiveTTLLocked()
+	s.mu.RUnlock()
+	if ttl == 0 {
 		return
 	}
 
-	ticker := time.NewTicker(s.ttl / 2) // Cleanup at half TTL interval
+	ticker := time.NewTicker(ttl / 2) // Cleanup at half TTL interval
 	defer ticker.Stop()
 
 	for {
@@ -404,12 +476,13 @@ func (s *ResponseStore) StoreBackgroundOwned(responseID string, request *schema.
 		IsBackground:   true,
 		EventsChan:     make(chan struct{}, 100), // Buffered channel for event notifications
 		droppedThrough: -1,
+		lastFlush:      time.Now(),
 		Owner:          owner,
 	}
 
 	// Set expiration if TTL is configured
-	if s.ttl > 0 {
-		expiresAt := time.Now().Add(s.ttl)
+	if ttl := s.effectiveTTLLocked(); ttl > 0 {
+		expiresAt := time.Now().Add(ttl)
 		stored.ExpiresAt = &expiresAt
 	}
 
@@ -418,6 +491,7 @@ func (s *ResponseStore) StoreBackgroundOwned(responseID string, request *schema.
 
 	// Only the metadata crosses the bus. CancelFunc and the resume buffer stay
 	// here, which is what makes this replica the owner for cancel and resume.
+	s.persist(responseID, stored)
 	s.mirror(responseID, stored)
 	xlog.Debug("Stored background Open Responses response", "response_id", responseID, "stream_enabled", streamEnabled)
 }
@@ -439,6 +513,7 @@ func (s *ResponseStore) UpdateStatus(responseID string, status string, completed
 
 	// Peers poll this response too, so every status transition has to be
 	// republished or their view stays stuck at "queued" forever.
+	s.persist(responseID, stored)
 	s.mirror(responseID, stored)
 
 	xlog.Debug("Updated response status", "response_id", responseID, "status", status)
@@ -471,6 +546,7 @@ func (s *ResponseStore) UpdateResponse(responseID string, response *schema.ORRes
 	stored.mu.Unlock()
 
 	// The final output is what a peer's poll must return, so replicate it.
+	s.persist(responseID, stored)
 	s.mirror(responseID, stored)
 
 	xlog.Debug("Updated response", "response_id", responseID, "status", response.Status, "items_count", len(items))
@@ -497,6 +573,10 @@ func (s *ResponseStore) appendEvent(responseID string, event *schema.ORStreamEve
 	if !exists {
 		return fmt.Errorf("response not found: %s", responseID)
 	}
+
+	s.mu.RLock()
+	d := s.dur
+	s.mu.RUnlock()
 
 	stored.mu.Lock()
 	defer stored.mu.Unlock()
@@ -546,6 +626,20 @@ func (s *ResponseStore) appendEvent(responseID string, event *schema.ORStreamEve
 		// Channel full, subscribers will catch up
 	}
 
+	flushNow := false
+	if d != nil && !stored.fenced {
+		flushNow = d.queueEvent(stored, stored.StreamEvents[len(stored.StreamEvents)-1])
+		if !flushNow {
+			s.armFlushTimer(d, responseID, stored)
+		}
+	}
+	if flushNow {
+		// Write outside the response lock: a slow database must not stall readers.
+		stored.mu.Unlock()
+		s.flushEvents(responseID, stored)
+		stored.mu.Lock()
+	}
+
 	return nil
 }
 
@@ -567,7 +661,16 @@ func (s *ResponseStore) ClearEvents(responseID string) error {
 	stored.StreamEvents = nil
 	stored.streamBytes = 0
 	stored.droppedThrough = -1
+	stored.pending = nil
 	stored.mu.Unlock()
+
+	if d := s.durable(); d != nil {
+		stored.flushMu.Lock()
+		defer stored.flushMu.Unlock()
+		if err := d.clearEvents(context.Background(), responseID); err != nil {
+			xlog.Warn("open responses: could not clear events", "response_id", responseID, "error", err)
+		}
+	}
 	return nil
 }
 
@@ -578,6 +681,10 @@ func (s *ResponseStore) GetEventsAfter(responseID string, startingAfter int) ([]
 	s.mu.RUnlock()
 
 	if !exists {
+		// Not ours: with a table, any replica can serve the events from it.
+		if events, found, err := s.eventsAfterDurable(responseID, startingAfter); found {
+			return events, err
+		}
 		// The response may be alive on a peer, whose resume buffer is not
 		// replicated. Say so explicitly instead of reporting "not found" (which
 		// invites the client to give up on a live stream) or an empty slice
@@ -627,14 +734,43 @@ func (s *ResponseStore) Cancel(responseID string) (*schema.ORResponseResource, e
 		if err != nil {
 			return nil, err
 		}
+		s.persist(responseID, stored)
 		s.mirror(responseID, stored)
 		return response, nil
+	}
+
+	// A response of another replica, or of a process that is gone: flag it in
+	// the table, so the owner stops it on its next lease tick even when the bus
+	// message below is lost.
+	var fromTable *StoredResponse
+	if d := s.durable(); d != nil {
+		if row, err := d.getRow(context.Background(), responseID); err == nil {
+			if v, err := rowToStored(row); err == nil {
+				fromTable = v
+			}
+			if _, err := d.requestCancel(context.Background(), responseID); err != nil {
+				xlog.Warn("open responses: could not flag a cancel", "response_id", responseID, "error", err)
+			}
+		}
 	}
 
 	if m := s.syncMap(); m != nil {
 		if v, ok := m.Get(responseID); ok && v != nil {
 			return s.delegateCancel(v)
 		}
+	}
+
+	if fromTable != nil && fromTable.Response != nil {
+		status := fromTable.Response.Status
+		if isNonTerminal(status) {
+			// The owner confirms on its next tick; report the state it will reach.
+			now := time.Now().Unix()
+			resp := *fromTable.Response
+			resp.Status = schema.ORStatusCancelled
+			resp.CompletedAt = &now
+			return &resp, nil
+		}
+		return fromTable.Response, nil
 	}
 
 	return nil, fmt.Errorf("response not found: %s", responseID)
@@ -696,6 +832,12 @@ func (s *ResponseStore) IsStreamEnabled(responseID string) (bool, error) {
 	if !exists {
 		// Stream-enabled is replicated metadata, so a peer can answer this one
 		// even though it cannot serve the buffer itself.
+		if d := s.durable(); d != nil {
+			var row responseRow
+			if err := d.db.Select("stream").Where("id = ?", responseID).Take(&row).Error; err == nil {
+				return row.Stream, nil
+			}
+		}
 		if remote, ok := s.remoteGet(responseID); ok {
 			return remote.StreamEnabled, nil
 		}
@@ -728,6 +870,7 @@ func (s *ResponseStore) SetOwner(responseID, owner string) {
 
 	// Owner is part of the replicated metadata: without it a peer would treat
 	// the response as ownerless and skip the access check in accessAllowed.
+	s.persist(responseID, stored)
 	s.mirror(responseID, stored)
 }
 

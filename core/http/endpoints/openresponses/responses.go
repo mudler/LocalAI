@@ -3137,15 +3137,24 @@ func GetResponseEndpoint() func(c echo.Context) error {
 
 // handleStreamResume handles resuming a streaming response from a specific sequence number
 func handleStreamResume(c echo.Context, store *ResponseStore, responseID string, stored *StoredResponse, startingAfter int) error {
-	// The resume buffer is process-local by design (see ErrResponseNotLocal), so
-	// a resume that the load balancer routed to a replica which is not
-	// generating this response cannot be served here. Say that plainly: a
-	// truthful error lets the caller retry against the right replica, whereas
-	// replaying an empty buffer would look like a stream that simply ended.
-	if stored.Remote {
+	// Without a database the resume buffer is process-local by design (see
+	// ErrResponseNotLocal), so a resume that the load balancer routed to a
+	// replica which is not generating this response cannot be served here. Say
+	// that plainly: a truthful error lets the caller retry against the right
+	// replica, whereas replaying an empty buffer would look like a stream that
+	// simply ended. With a database every replica reads the events from it.
+	if stored.Remote && !store.Durable() {
 		return sendOpenResponsesError(c, 409, "invalid_request_error",
 			fmt.Sprintf("response %s is being generated on another replica (%s) and its stream cannot be resumed here; poll GET /v1/responses/%s instead, or route the resume with session affinity", responseID, stored.OwnerReplica, responseID),
 			"stream")
+	}
+
+	// The status is read before the events: the producer writes the last event
+	// before it sets an end status, so an end status seen first means the
+	// events read next are complete.
+	status, err := store.statusOf(responseID)
+	if err != nil {
+		return sendOpenResponsesError(c, 404, "not_found", fmt.Sprintf("response not found: %s", responseID), "id")
 	}
 
 	// Fetch buffered events before committing to an SSE response so an
@@ -3169,21 +3178,16 @@ func handleStreamResume(c echo.Context, store *ResponseStore, responseID string,
 
 	// Send all buffered events
 	for _, event := range events {
-		fmt.Fprintf(c.Response().Writer, "event: %s\ndata: %s\n\n", event.EventType, string(event.Data))
+		_, _ = fmt.Fprintf(c.Response().Writer, "event: %s\ndata: %s\n\n", event.EventType, string(event.Data))
 		c.Response().Flush()
 	}
 
-	// Get the current status
-	stored.mu.RLock()
-	status := stored.Response.Status
-	stored.mu.RUnlock()
-
 	// If response is still in progress, subscribe to new events
 	if status == schema.ORStatusQueued || status == schema.ORStatusInProgress {
-		eventsChan, err := store.GetEventsChan(responseID)
+		eventsChan, err := store.SubscribeEvents(c.Request().Context(), responseID)
 		if err != nil {
 			// Response might have completed, just finish
-			fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+			_, _ = fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
 			c.Response().Flush()
 			return nil
 		}
@@ -3194,6 +3198,28 @@ func handleStreamResume(c echo.Context, store *ResponseStore, responseID string,
 			lastSeq = events[len(events)-1].SequenceNumber
 		}
 
+		// drain sends what is new and reports whether the response has ended.
+		drain := func() bool {
+			status, serr := store.statusOf(responseID)
+			newEvents, err := store.GetEventsAfter(responseID, lastSeq)
+			if err == nil {
+				for _, event := range newEvents {
+					_, _ = fmt.Fprintf(c.Response().Writer, "event: %s\ndata: %s\n\n", event.EventType, string(event.Data))
+					c.Response().Flush()
+					lastSeq = event.SequenceNumber
+				}
+			}
+			if serr != nil {
+				return true
+			}
+			if status != schema.ORStatusQueued && status != schema.ORStatusInProgress {
+				_, _ = fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+				c.Response().Flush()
+				return true
+			}
+			return false
+		}
+
 		// Wait for new events or completion
 		for {
 			select {
@@ -3201,36 +3227,12 @@ func handleStreamResume(c echo.Context, store *ResponseStore, responseID string,
 				// Client disconnected
 				return nil
 			case <-eventsChan:
-				// New events available
-				newEvents, err := store.GetEventsAfter(responseID, lastSeq)
-				if err != nil {
-					break
-				}
-				for _, event := range newEvents {
-					fmt.Fprintf(c.Response().Writer, "event: %s\ndata: %s\n\n", event.EventType, string(event.Data))
-					c.Response().Flush()
-					lastSeq = event.SequenceNumber
-				}
-
-				// Check if response is now complete
-				stored.mu.RLock()
-				status = stored.Response.Status
-				stored.mu.RUnlock()
-
-				if status != schema.ORStatusQueued && status != schema.ORStatusInProgress {
-					fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
-					c.Response().Flush()
+				if drain() {
 					return nil
 				}
 			case <-time.After(30 * time.Second):
-				// Timeout - send keepalive or check status
-				stored.mu.RLock()
-				status = stored.Response.Status
-				stored.mu.RUnlock()
-
-				if status != schema.ORStatusQueued && status != schema.ORStatusInProgress {
-					fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
-					c.Response().Flush()
+				// Timeout - check status
+				if drain() {
 					return nil
 				}
 			}
@@ -3238,7 +3240,7 @@ func handleStreamResume(c echo.Context, store *ResponseStore, responseID string,
 	}
 
 	// Response already complete
-	fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+	_, _ = fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
 	c.Response().Flush()
 	return nil
 }
