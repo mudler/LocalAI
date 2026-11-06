@@ -127,7 +127,7 @@ var _ = Describe("Quota of the records of shared kinds", func() {
 
 	It("does not let 16 accounts at their share cap block other people", func() {
 		// The defaults keep 16 owners at their own cap far below the total.
-		Expect(16*DefaultMaxSharesPerUser).To(BeNumerically("<", DefaultMaxShares))
+		Expect(16 * DefaultMaxSharesPerUser).To(BeNumerically("<", DefaultMaxShares))
 		Expect(DefaultMaxShares / DefaultMaxSharesPerUser).To(Equal(32))
 		// The same ratio with small numbers, so the store stays small. The
 		// add-on total is what the 16 owners create, so a share record that
