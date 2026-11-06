@@ -16,6 +16,11 @@ import { agentInfo } from '../utils/agentInfo'
 import { outcomeLine, recordStatus, runOfChat } from '../utils/agentRuns'
 import { AGENT_TEMPLATES } from '../utils/agentConfigTools'
 import { downloadAgentFile, importAgentFile } from '../utils/agentFiles'
+import { agentShareEntry, canShareAgent, isSharedWithMe } from '../utils/agentShare'
+// eslint-disable-next-line no-unused-vars
+import { SharedByBadge } from '../components/share/ShareBadges'
+// eslint-disable-next-line no-unused-vars
+import { AgentShareDialog } from '../components/agents/AgentShare'
 import './agents.css'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -30,6 +35,8 @@ export default function Agents() {
   const [error, setError] = useState(null)
   const [off, setOff] = useState('')
   const [search, setSearch] = useState('')
+  // The agent whose Share dialog is open, or null.
+  const [sharing, setSharing] = useState(null)
   const deleting = usePendingAgentDeletes()
   // The starter agents of the server; null until read, [] when it has none.
   const [templates, setTemplates] = useState(null)
@@ -235,7 +242,7 @@ export default function Agents() {
               />
             ) : (
               <ul className="ag-list" data-testid="agents-list">
-                {filtered.map(agent => <AgentRow key={agent.id} agent={agent} t={t} navigate={navigate} onExport={handleExport} onDelete={handleDelete} />)}
+                {filtered.map(agent => <AgentRow key={agent.id} agent={agent} t={t} navigate={navigate} onExport={handleExport} onDelete={handleDelete} onShare={setSharing} />)}
               </ul>
             )}
             <p className="ag-note ag-note--gap">{t('record.where')}</p>
@@ -243,23 +250,43 @@ export default function Agents() {
         </div>
       )}
       {agentDelete.dialog}
+      {sharing && <AgentShareDialog agent={sharing} close={() => setSharing(null)} onChanged={load} addToast={addToast} />}
     </Page>
   )
+}
+
+// The row menu: the owner may open, edit, share, export and delete; a person
+// the agent is shared with may only open it.
+function rowMenu(agent, { t, navigate, onExport, onDelete, onShare }) {
+  const open = { key: 'open', icon: 'eye', label: t('actions.open'), onClick: () => navigate(agentPath(agent.id)) }
+  if (isSharedWithMe(agent)) return [open]
+  return [
+    open,
+    { key: 'edit', icon: 'edit', label: t('actions.edit'), onClick: () => navigate(agentPath(agent.id, '/edit')) },
+    ...(canShareAgent(agent) ? [{ key: 'share', icon: 'share', label: t('share.action'), onClick: () => onShare(agent) }] : []),
+    { key: 'export', icon: 'download', label: t('actions.export'), onClick: () => onExport(agent) },
+    { divider: true },
+    { key: 'delete', icon: 'trash', label: t('actions.delete'), danger: true, onClick: () => onDelete(agent) },
+  ]
 }
 
 // One agent: a tile, its name and line, what it may use, how its runs went,
 // and Chat. The rest is in the menu.
 // eslint-disable-next-line no-unused-vars
-function AgentRow({ agent, t, navigate, onExport, onDelete }) {
+function AgentRow({ agent, t, navigate, onExport, onDelete, onShare }) {
   const { info, runs } = agent
+  const shareEntry = agentShareEntry(agent)
   const running = runs.some(r => recordStatus(r) === 'running')
   const lastFailed = !running && runs[0] && recordStatus(runs[0]) === 'failed'
   return (
-    <li className="ag-row" data-agent={agent.name}>
+    <li className="ag-row" data-agent={agent.name} data-role={agent.access?.role || 'owner'}>
       <span className="ag-tile" aria-hidden="true"><Icon name="robot" /></span>
       <div className="ag-row__main">
         <Link className="ag-row__name" to={agentPath(agent.id)}>{agent.name}</Link>
         {info.description && <span className="ag-row__desc">{info.description}</span>}
+        {shareEntry && (shareEntry.role !== 'owner' || shareEntry.sharedWith > 0) && (
+          <SharedByBadge entry={shareEntry} roleLabel={shareEntry.role === 'owner' ? undefined : t(`share.roles.${shareEntry.role}`)} hideRole={shareEntry.role === 'owner'} testId="agent-shared" />
+        )}
         <span className="ag-meta">
           {info.model
             ? <span className="ag-mono" title={t('facts.model')}>{info.model}</span>
@@ -288,13 +315,7 @@ function AgentRow({ agent, t, navigate, onExport, onDelete }) {
         </Button>
         <ActionMenu
           ariaLabel={t('actions.moreFor', { name: agent.name })}
-          items={[
-            { key: 'open', icon: 'eye', label: t('actions.open'), onClick: () => navigate(agentPath(agent.id)) },
-            { key: 'edit', icon: 'edit', label: t('actions.edit'), onClick: () => navigate(agentPath(agent.id, '/edit')) },
-            { key: 'export', icon: 'download', label: t('actions.export'), onClick: () => onExport(agent) },
-            { divider: true },
-            { key: 'delete', icon: 'trash', label: t('actions.delete'), danger: true, onClick: () => onDelete(agent) },
-          ]}
+          items={rowMenu(agent, { t, navigate, onExport, onDelete, onShare })}
         />
       </div>
     </li>

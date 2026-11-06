@@ -171,7 +171,8 @@
         "view": "Pode ver",
         "use": "Pode usar",
         "none": "Não compartilhar"
-      }
+      },
+      "own": "Precisam de acesso próprio"
     },
     "roles": {
       "owner": "Proprietário",

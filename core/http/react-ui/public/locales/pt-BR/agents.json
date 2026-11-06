@@ -843,5 +843,48 @@
     "blank": {
       "description": "Vazio. Comece do zero."
     }
+  },
+  "share": {
+    "action": "Compartilhar",
+    "intro": "As pessoas que você adicionar usam este agente como elas mesmas, com os próprios arquivos, coleções e conexões.",
+    "roles": {
+      "use": "Pode usar",
+      "useHelp": "Conversam com o agente nos próprios chats e veem do que ele precisa.",
+      "viewer": "Pode ver",
+      "viewerHelp": "Também podem ler as instruções e as ferramentas."
+    },
+    "kind": {
+      "addon": "Complemento",
+      "collection": "Coleção",
+      "skill": "Habilidade",
+      "folder": "Pasta",
+      "connection": "Conexão",
+      "addon-resource": "Recurso de complemento",
+      "mcp": "Servidor MCP",
+      "builtin": "Permissão integrada"
+    },
+    "ownAccess": "Precisam de acesso próprio",
+    "refsApplied_one": "Também foi compartilhado {{count}} item que ele usa.",
+    "refsApplied_other": "Também foram compartilhados {{count}} itens que ele usa.",
+    "refsFailed": "Não foi possível compartilhar: {{names}}.",
+    "refsSkipped": "Não compartilhado com todos: {{names}}. Compartilhe com cada pessoa.",
+    "failed": "Não foi possível abrir o compartilhamento. {{message}}"
+  },
+  "shared": {
+    "readOnly": "Você pode conversar com este agente. Só o dono pode alterá-lo."
+  },
+  "needs": {
+    "title": "Do que este agente precisa",
+    "intro": "O agente funciona como você, com o seu próprio acesso.",
+    "none": "Este agente não usa nada além do chat.",
+    "loadError": "Não foi possível verificar do que este agente precisa.",
+    "state": {
+      "ok": "Você tem",
+      "missing": "Não compartilhado com você",
+      "unavailable": "Indisponível para você"
+    },
+    "noticeTitle_one": "Este agente precisa de {{count}} item que você não tem:",
+    "noticeTitle_other": "Este agente precisa de {{count}} itens que você não tem:",
+    "noticeLink": "Ver do que ele precisa"
   }
 }

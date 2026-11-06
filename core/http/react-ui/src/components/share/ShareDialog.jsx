@@ -181,11 +181,16 @@ function SharePanel({ client, roles: rawRoles, allowEveryone, references: rawRef
           <p className="share-dlg__note">{t('share.refs.intro')}</p>
           <ul className="share-dlg__list">
             {refs.map(r => (
-              <li key={r.id} className="share-dlg__row" data-testid="share-ref" data-ref={r.id} data-choice={choices[r.id] || ''}>
+              <li key={r.id} className="share-dlg__row" data-testid={r.readOnly ? 'share-ref-own' : 'share-ref'} data-ref={r.id} data-choice={choices[r.id] || ''}>
                 <span className="share-dlg__who">
-                  <span className="share-dlg__name">{r.label}</span>
-                  {r.kind && <span className="share-dlg__meta">{r.kind}</span>}
+                  <span className="share-dlg__words">
+                    <span className="share-dlg__name">{r.label}</span>
+                    {r.kind && <span className="share-dlg__meta">{r.kind}</span>}
+                  </span>
                 </span>
+                {r.readOnly ? (
+                  <span className="share-dlg__own">{r.note || t('share.refs.own')}</span>
+                ) : (
                 <span className="dk-select-wrap share-dlg__role">
                   <select className="dk-select" value={choices[r.id] || ''} disabled={locked}
                     aria-label={t('share.refs.label', { name: r.label })}
@@ -194,6 +199,7 @@ function SharePanel({ client, roles: rawRoles, allowEveryone, references: rawRef
                     {r.options.map(o => <option key={o} value={o}>{t(`share.refs.option.${o}`)}</option>)}
                   </select>
                 </span>
+                )}
               </li>
             ))}
           </ul>

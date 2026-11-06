@@ -843,5 +843,48 @@
     "blank": {
       "description": "Vuoto. Parti da zero."
     }
+  },
+  "share": {
+    "action": "Condividi",
+    "intro": "Le persone che aggiungi usano questo agente come se stesse, con i propri file, raccolte e connessioni.",
+    "roles": {
+      "use": "Può usare",
+      "useHelp": "Usa l'agente nelle proprie chat e vede di cosa ha bisogno.",
+      "viewer": "Può vedere",
+      "viewerHelp": "Può anche leggere le istruzioni e gli strumenti."
+    },
+    "kind": {
+      "addon": "Componente aggiuntivo",
+      "collection": "Raccolta",
+      "skill": "Abilità",
+      "folder": "Cartella",
+      "connection": "Connessione",
+      "addon-resource": "Risorsa di un componente",
+      "mcp": "Server MCP",
+      "builtin": "Permesso integrato"
+    },
+    "ownAccess": "Serve un accesso proprio",
+    "refsApplied_one": "Condivisa anche {{count}} cosa che usa.",
+    "refsApplied_other": "Condivise anche {{count}} cose che usa.",
+    "refsFailed": "Impossibile condividere: {{names}}.",
+    "refsSkipped": "Non condivisi con tutti: {{names}}. Condividili con ogni persona.",
+    "failed": "Impossibile aprire la condivisione. {{message}}"
+  },
+  "shared": {
+    "readOnly": "Puoi usare questo agente in chat. Solo il proprietario può modificarlo."
+  },
+  "needs": {
+    "title": "Di cosa ha bisogno questo agente",
+    "intro": "L'agente lavora come te, con i tuoi accessi.",
+    "none": "Questo agente non usa nulla oltre alla chat.",
+    "loadError": "Impossibile verificare di cosa ha bisogno questo agente.",
+    "state": {
+      "ok": "Ce l'hai",
+      "missing": "Non condiviso con te",
+      "unavailable": "Non disponibile per te"
+    },
+    "noticeTitle_one": "Questo agente ha bisogno di {{count}} cosa che non hai:",
+    "noticeTitle_other": "Questo agente ha bisogno di {{count}} cose che non hai:",
+    "noticeLink": "Vedi di cosa ha bisogno"
   }
 }

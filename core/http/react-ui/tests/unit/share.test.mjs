@@ -147,6 +147,12 @@ test('share model: grants, search results, roles and references are cleaned for 
   assert.equal(referencesReady(refs, { c1: 'view', k1: 'none' }), true)
   assert.equal(referencesReady([], {}), true)
   assert.deepEqual(referenceChoices(refs, { c1: 'view', k1: 'none', other: 'use' }), { c1: 'view', k1: 'none' })
+  // A row the owner cannot share is shown read-only and asks nothing.
+  const withOwn = [...refs.slice(0, 2), { id: 'f1', label: 'Projects', kind: 'Folder', readOnly: true, note: 'needs their own' }]
+  assert.deepEqual(cleanReferences(withOwn).map(r => [r.id, r.readOnly, r.options]), [['c1', false, ['view', 'use', 'none']], ['k1', false, ['use', 'none']], ['f1', true, []]])
+  assert.equal(cleanReferences(withOwn)[2].note, 'needs their own')
+  assert.equal(referencesReady(withOwn, { c1: 'view', k1: 'none' }), true)
+  assert.deepEqual(referenceChoices(withOwn, { c1: 'view', k1: 'none', f1: 'use' }), { c1: 'view', k1: 'none' })
 })
 
 test('share model: a list row says who shared it, with everyone, with how many, or that it is private', () => {
@@ -240,4 +246,18 @@ test('share dialog: with references, the owner must decide each one before shari
   assert.match(html, /data-testid="share-refs-pending"/)
   assert.match(html, /aria-label="Role for people you add"/)
   assert.match(html, /aria-label="Find a person by name"|Find a person by name/)
+})
+
+test('share dialog: a reference that cannot be shared is a read-only row', () => {
+  const ShareDialog = dialog()
+  const client = { grants: () => new Promise(() => {}), searchUsers: async () => ({ users: [] }), setGrant: async () => ({}), revoke: async () => ({}) }
+  const html = renderToString(React.createElement(ShareDialog, {
+    client, resource: { id: 'r1', name: 'Helper' }, roles: [{ id: 'use', label: 'Can use' }],
+    references: [{ id: 'f1', label: 'Projects', kind: 'Folder', readOnly: true, note: 'They need access of their own' }],
+    close() {},
+  }))
+  assert.match(html, /data-testid="share-ref-own"/)
+  assert.match(html, /They need access of their own/)
+  assert.doesNotMatch(html, /aria-label="Access to Projects"/)
+  assert.doesNotMatch(html, /data-testid="share-refs-pending"/)
 })

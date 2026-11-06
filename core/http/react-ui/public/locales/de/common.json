@@ -170,7 +170,8 @@
         "view": "Darf ansehen",
         "use": "Darf nutzen",
         "none": "Nicht teilen"
-      }
+      },
+      "own": "Sie brauchen einen eigenen Zugang"
     },
     "roles": {
       "owner": "Besitzer",

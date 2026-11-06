@@ -843,5 +843,48 @@
     "blank": {
       "description": "비어 있음. 처음부터 시작합니다."
     }
+  },
+  "share": {
+    "action": "공유",
+    "intro": "추가한 사람은 자신의 파일, 컬렉션, 연결을 사용해 본인으로서 이 에이전트를 사용합니다.",
+    "roles": {
+      "use": "사용 가능",
+      "useHelp": "자신의 채팅에서 에이전트와 대화하고 필요한 항목을 봅니다.",
+      "viewer": "보기 가능",
+      "viewerHelp": "지침과 도구도 읽을 수 있습니다."
+    },
+    "kind": {
+      "addon": "애드온",
+      "collection": "컬렉션",
+      "skill": "스킬",
+      "folder": "폴더",
+      "connection": "연결",
+      "addon-resource": "애드온 리소스",
+      "mcp": "MCP 서버",
+      "builtin": "기본 제공 권한"
+    },
+    "ownAccess": "본인의 접근 권한이 필요합니다",
+    "refsApplied_one": "사용하는 항목 {{count}}개도 공유했습니다.",
+    "refsApplied_other": "사용하는 항목 {{count}}개도 공유했습니다.",
+    "refsFailed": "공유할 수 없음: {{names}}.",
+    "refsSkipped": "모든 사람과 공유되지 않음: {{names}}. 각 사람과 따로 공유하세요.",
+    "failed": "공유를 열 수 없습니다. {{message}}"
+  },
+  "shared": {
+    "readOnly": "이 에이전트와 대화할 수 있습니다. 소유자만 변경할 수 있습니다."
+  },
+  "needs": {
+    "title": "이 에이전트에 필요한 항목",
+    "intro": "에이전트는 본인의 접근 권한으로 본인으로서 실행됩니다.",
+    "none": "이 에이전트는 채팅 외에는 아무것도 사용하지 않습니다.",
+    "loadError": "이 에이전트에 필요한 항목을 확인할 수 없습니다.",
+    "state": {
+      "ok": "있음",
+      "missing": "공유되지 않음",
+      "unavailable": "사용할 수 없음"
+    },
+    "noticeTitle_one": "이 에이전트에 필요한 항목 중 {{count}}개가 없습니다:",
+    "noticeTitle_other": "이 에이전트에 필요한 항목 중 {{count}}개가 없습니다:",
+    "noticeLink": "필요한 항목 보기"
   }
 }

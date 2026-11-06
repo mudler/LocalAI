@@ -55,6 +55,9 @@ import SubAgentsMenu from '../components/chat/SubAgentsMenu'
 // eslint-disable-next-line no-unused-vars
 import { EmptyHead, EmptyUnder } from '../components/chat/EmptyChat'
 // eslint-disable-next-line no-unused-vars
+import { AgentNeedsNotice } from '../components/agents/AgentShare'
+import { isSharedWithMe } from '../utils/agentShare'
+// eslint-disable-next-line no-unused-vars
 import ShortcutsRow from '../components/wellknown/ShortcutsRow'
 import { isStaleFailure, keptAbove } from '../utils/chatFailure'
 import { isFolderMissingError } from '../utils/chatAgents'
@@ -872,6 +875,11 @@ function ChatPage() {
   const stepFind = (delta) => setFind(f => (f.count === 0 ? f : { ...f, index: (f.index + delta + f.count) % f.count }))
 
   const isEmpty = !activeId || (messages.length === 0 && !chat.running && !chat.loading)
+  // An agent shared with you runs with your own access: before the first
+  // message the chat says what of it you lack.
+  const emptyAgentId = isEmpty ? ((activeId ? activeChat?.agent_id : agentId) || '') : ''
+  const emptyAgent = emptyAgentId ? (composer.agents || []).find(a => a.id === emptyAgentId) : null
+  const needsAgent = emptyAgent && isSharedWithMe(emptyAgent) ? emptyAgent.id : ''
   const noModel = !activeId && !chatModelsLoading && chatModels.length === 0 && !pickedAgent?.model
   const conversations = isEmpty ? resumeItems(chat.chats.filter(c => c.id !== activeId && c.id !== pendingDelete?.id)).slice(0, 8) : []
   const manage = Boolean(activeChat?.assistant)
@@ -1135,6 +1143,7 @@ function ChatPage() {
         <div className="cx-stage">
           <div className="cx-body" ref={messagesRef}>
             {isEmpty && <EmptyHead name={activeId ? title : (pickedAgent?.name || '')} manage={manage} />}
+            {needsAgent && <div className="cx-agent-needs"><AgentNeedsNotice agentId={needsAgent} /></div>}
             <div className="cx-thread" data-testid="chat-thread" role="region" aria-label={tc('transcript')} hidden={isEmpty}>
               <EgressCardsContext.Provider value={egressCards}>
               <ChatSendContext.Provider value={sendLive}>

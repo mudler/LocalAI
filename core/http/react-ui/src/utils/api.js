@@ -498,6 +498,11 @@ export const chatAgentsApi = {
   templates: () => fetchJSON('/api/chats/agents/templates'),
   fromTemplate: (id, name) => postJSON(`/api/chats/agents/templates/${enc2(id)}/create`, name ? { name } : {}),
   runs: (id, limit) => fetchJSON(`/api/chats/agents/${enc2(id)}/runs${q({ limit })}`),
+  // Sharing (kind agent): the ID of your agent in /api/shares, made on the
+  // first call; what your agent uses; what an agent you may use needs.
+  shareRef: (id) => postJSON(`/api/chats/agents/${enc2(id)}/share`, {}),
+  references: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}/references`),
+  needs: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}/needs`),
 }
 
 // The administrator's view of every user's agents, triggers and connectors.

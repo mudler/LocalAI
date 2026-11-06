@@ -171,7 +171,8 @@
         "view": "Bisa melihat",
         "use": "Bisa memakai",
         "none": "Jangan bagikan"
-      }
+      },
+      "own": "Mereka perlu akses sendiri"
     },
     "roles": {
       "owner": "Pemilik",

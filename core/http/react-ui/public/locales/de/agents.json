@@ -843,5 +843,48 @@
     "blank": {
       "description": "Leer. Von Null beginnen."
     }
+  },
+  "share": {
+    "action": "Teilen",
+    "intro": "Personen, die Sie hinzufügen, nutzen diesen Agenten als sie selbst, mit ihren eigenen Dateien, Sammlungen und Verbindungen.",
+    "roles": {
+      "use": "Darf nutzen",
+      "useHelp": "Sie chatten in ihren eigenen Chats mit dem Agenten und sehen, was er braucht.",
+      "viewer": "Darf ansehen",
+      "viewerHelp": "Sie können auch seine Anweisungen und Werkzeuge lesen."
+    },
+    "kind": {
+      "addon": "Add-on",
+      "collection": "Sammlung",
+      "skill": "Skill",
+      "folder": "Ordner",
+      "connection": "Verbindung",
+      "addon-resource": "Add-on-Ressource",
+      "mcp": "MCP-Server",
+      "builtin": "Integrierte Berechtigung"
+    },
+    "ownAccess": "Sie brauchen einen eigenen Zugang",
+    "refsApplied_one": "Außerdem {{count}} Sache geteilt, die er nutzt.",
+    "refsApplied_other": "Außerdem {{count}} Sachen geteilt, die er nutzt.",
+    "refsFailed": "Konnte nicht geteilt werden: {{names}}.",
+    "refsSkipped": "Nicht mit allen geteilt: {{names}}. Teilen Sie diese mit jeder Person.",
+    "failed": "Das Teilen konnte nicht geöffnet werden. {{message}}"
+  },
+  "shared": {
+    "readOnly": "Sie können mit diesem Agenten chatten. Nur der Eigentümer kann ihn ändern."
+  },
+  "needs": {
+    "title": "Was dieser Agent braucht",
+    "intro": "Der Agent läuft als Sie, mit Ihrem eigenen Zugang.",
+    "none": "Dieser Agent nutzt nichts außer dem Chat.",
+    "loadError": "Es konnte nicht geprüft werden, was dieser Agent braucht.",
+    "state": {
+      "ok": "Vorhanden",
+      "missing": "Nicht mit Ihnen geteilt",
+      "unavailable": "Für Sie nicht verfügbar"
+    },
+    "noticeTitle_one": "Dieser Agent braucht {{count}} Sache, die Sie nicht haben:",
+    "noticeTitle_other": "Dieser Agent braucht {{count}} Sachen, die Sie nicht haben:",
+    "noticeLink": "Ansehen, was er braucht"
   }
 }

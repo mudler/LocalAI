@@ -1072,5 +1072,48 @@
     "exportNoteMany": "The file names {{n}} folders. Where you import it, the agent gets the folders with those paths that exist, and asks you to choose the others.",
     "none": "No files",
     "noneHelp": "This agent cannot reach any of your files. Files you attach to a chat stay in that chat. Watching a folder needs file access, so a trigger that watches a folder still starts for this agent but cannot open the files that arrive."
+  },
+  "share": {
+    "action": "Share",
+    "intro": "People you add chat with this agent as themselves, with their own files, collections and connections.",
+    "roles": {
+      "use": "Can use",
+      "useHelp": "They chat with the agent in their own chats and see what it needs.",
+      "viewer": "Can view",
+      "viewerHelp": "They can also read its instructions and tools."
+    },
+    "kind": {
+      "addon": "Add-on",
+      "collection": "Collection",
+      "skill": "Skill",
+      "folder": "Folder",
+      "connection": "Connection",
+      "addon-resource": "Add-on resource",
+      "mcp": "MCP server",
+      "builtin": "Built-in grant"
+    },
+    "ownAccess": "They need access of their own",
+    "refsApplied_one": "Also shared {{count}} thing it uses.",
+    "refsApplied_other": "Also shared {{count}} things it uses.",
+    "refsFailed": "Could not share: {{names}}.",
+    "refsSkipped": "Not shared with everyone: {{names}}. Share these with each person.",
+    "failed": "Sharing could not open. {{message}}"
+  },
+  "shared": {
+    "readOnly": "You can chat with this agent. Only its owner can change it."
+  },
+  "needs": {
+    "title": "What this agent needs",
+    "intro": "The agent runs as you, with your own access.",
+    "none": "This agent uses nothing beyond the chat.",
+    "loadError": "Could not check what this agent needs.",
+    "state": {
+      "ok": "You have it",
+      "missing": "Not shared with you",
+      "unavailable": "Not available to you"
+    },
+    "noticeTitle_one": "This agent needs {{count}} thing you do not have:",
+    "noticeTitle_other": "This agent needs {{count}} things you do not have:",
+    "noticeLink": "See what it needs"
   }
 }

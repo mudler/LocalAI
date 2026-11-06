@@ -29,6 +29,7 @@
 .share-dlg__role > .dk-select { width: auto; min-width: 7.5rem; height: var(--ctl-h-sm); font-size: var(--fs-small); }
 .share-dlg__add > .share-dlg__role > .dk-select { height: var(--ctl-h); }
 
+.share-dlg__own { flex: 0 1 auto; font-size: var(--fs-meta); color: var(--dk-muted); text-align: right; }
 .share-dlg__everyone { padding: var(--sp-2) var(--sp-3); border: 1px dashed var(--dk-edge); border-radius: var(--r-md); }
 
 /* A phone: the role and the remove button go under the name. */

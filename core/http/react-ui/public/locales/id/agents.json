@@ -843,5 +843,48 @@
     "blank": {
       "description": "Kosong. Mulai dari nol."
     }
+  },
+  "share": {
+    "action": "Bagikan",
+    "intro": "Orang yang Anda tambahkan memakai agen ini sebagai diri mereka sendiri, dengan file, koleksi, dan koneksi mereka sendiri.",
+    "roles": {
+      "use": "Dapat memakai",
+      "useHelp": "Mereka mengobrol dengan agen di obrolan mereka sendiri dan melihat apa yang dibutuhkannya.",
+      "viewer": "Dapat melihat",
+      "viewerHelp": "Mereka juga dapat membaca instruksi dan alatnya."
+    },
+    "kind": {
+      "addon": "Add-on",
+      "collection": "Koleksi",
+      "skill": "Keterampilan",
+      "folder": "Folder",
+      "connection": "Koneksi",
+      "addon-resource": "Sumber daya add-on",
+      "mcp": "Server MCP",
+      "builtin": "Izin bawaan"
+    },
+    "ownAccess": "Mereka perlu akses sendiri",
+    "refsApplied_one": "Juga dibagikan {{count}} hal yang dipakainya.",
+    "refsApplied_other": "Juga dibagikan {{count}} hal yang dipakainya.",
+    "refsFailed": "Tidak dapat dibagikan: {{names}}.",
+    "refsSkipped": "Tidak dibagikan kepada semua orang: {{names}}. Bagikan kepada setiap orang.",
+    "failed": "Berbagi tidak dapat dibuka. {{message}}"
+  },
+  "shared": {
+    "readOnly": "Anda dapat mengobrol dengan agen ini. Hanya pemiliknya yang dapat mengubahnya."
+  },
+  "needs": {
+    "title": "Yang dibutuhkan agen ini",
+    "intro": "Agen berjalan sebagai Anda, dengan akses Anda sendiri.",
+    "none": "Agen ini tidak memakai apa pun selain obrolan.",
+    "loadError": "Tidak dapat memeriksa apa yang dibutuhkan agen ini.",
+    "state": {
+      "ok": "Anda punya",
+      "missing": "Tidak dibagikan kepada Anda",
+      "unavailable": "Tidak tersedia untuk Anda"
+    },
+    "noticeTitle_one": "Agen ini butuh {{count}} hal yang tidak Anda miliki:",
+    "noticeTitle_other": "Agen ini butuh {{count}} hal yang tidak Anda miliki:",
+    "noticeLink": "Lihat yang dibutuhkan"
   }
 }

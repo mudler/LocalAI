@@ -82,29 +82,36 @@ export function shareRoles(ids, t) {
 }
 
 // The references step. Each row must have one of its own options before the
-// dialog shares anything.
+// dialog shares anything. A row marked readOnly cannot be shared from here:
+// it is shown with its note (the person needs access of their own) and asks
+// nothing.
 export function cleanReferences(references) {
   return (Array.isArray(references) ? references : [])
     .filter(r => r && typeof r.id === 'string' && r.id !== '')
-    .map(r => ({
-      id: r.id,
-      label: typeof r.label === 'string' && r.label ? r.label : r.id,
-      kind: typeof r.kind === 'string' ? r.kind : '',
-      options: (Array.isArray(r.options) ? r.options : REFERENCE_OPTIONS).filter(o => REFERENCE_OPTIONS.includes(o)),
-    }))
-    .filter(r => r.options.length > 0)
+    .map(r => {
+      const readOnly = r.readOnly === true
+      return {
+        id: r.id,
+        label: typeof r.label === 'string' && r.label ? r.label : r.id,
+        kind: typeof r.kind === 'string' ? r.kind : '',
+        readOnly,
+        note: readOnly && typeof r.note === 'string' ? r.note : '',
+        options: readOnly ? [] : (Array.isArray(r.options) ? r.options : REFERENCE_OPTIONS).filter(o => REFERENCE_OPTIONS.includes(o)),
+      }
+    })
+    .filter(r => r.readOnly || r.options.length > 0)
 }
 
 export function referencesReady(references, choices) {
   const c = choices || {}
-  return cleanReferences(references).every(r => r.options.includes(c[r.id]))
+  return cleanReferences(references).every(r => r.readOnly || r.options.includes(c[r.id]))
 }
 
 // The choices handed to onShare: only rows that exist, only valid options.
 export function referenceChoices(references, choices) {
   const out = {}
   for (const r of cleanReferences(references)) {
-    if (r.options.includes(choices?.[r.id])) out[r.id] = choices[r.id]
+    if (!r.readOnly && r.options.includes(choices?.[r.id])) out[r.id] = choices[r.id]
   }
   return out
 }
