@@ -192,7 +192,7 @@ answer-room limits of the server are not applied.
 - Protocol is unversioned (see above). `engine_args` is not validated.
 - The Python helper needs a Strata source tree and Python packages next to the backend image. The
   backend image alone is not enough to run a model, and it does not contain the engine.
-- No model gallery entry.
+- The gallery has entries for the two ready-made NVFP4 packs only (see the feature page). Models whose pack Strata builds from GGUF files are not in it.
 - CI builds Linux amd64 CUDA 12 and 13 images only. No CPU, ROCm, Darwin or arm64 build.
 - Split or multi-GPU layouts and the drafter options are reachable only through `engine_args`, untested.
 
