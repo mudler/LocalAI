@@ -30,6 +30,11 @@ import (
 // memory, so the host keeps the state in the loop (loops.Watch), where the next
 // leader of a cluster finds it, and uses watch.Compare for the comparison.
 
+// waitForName and waitAgentsName are the names of tools of nib. The harness
+// (nibharness) does not offer the tools below to the model: it switches on the
+// built-in of that name and answers its callbacks with their Run. The model
+// sees nib's schema; the Description and Schema of these tools are the
+// reference for what Run accepts.
 const waitForName = "wait_for"
 
 const waitForDescription = "Wait for something to happen without spending a model call on each check: the server checks for you and wakes you once. " +

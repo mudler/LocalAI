@@ -976,6 +976,12 @@ github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8 h1:Ry8RiWy8fZ6Ff4E7d
 github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8/go.mod h1:EA8Ashhd56o32qN7ouPKFSRUs/Z+LrRCF4v6R2Oarm8=
 github.com/mudler/nib v0.15.3-0.20261106162616-4825c9efabb3 h1:zObOHidBpX/Ay6mhtNyy8y1eTvm4asoJOuyTBCPCP70=
 github.com/mudler/nib v0.15.3-0.20261106162616-4825c9efabb3/go.mod h1:bxi5o61xeku4+7RjweM6Dlk5nkIWv9zLob6E2XxNJwQ=
+github.com/mudler/nib v0.15.3-0.20261106202525-c191dfc1ee67 h1:L9Lnnqc+GRi1HLkoQg3k9eokNrCYoLPY7Q/zRgT2Vxk=
+github.com/mudler/nib v0.15.3-0.20261106202525-c191dfc1ee67/go.mod h1:bxi5o61xeku4+7RjweM6Dlk5nkIWv9zLob6E2XxNJwQ=
+github.com/mudler/nib v0.15.3-0.20261106202829-4173baba37fe h1:OAbpxa/f8uYpkezYZArIdLNcsce3GkR7kDbovPzkSOE=
+github.com/mudler/nib v0.15.3-0.20261106202829-4173baba37fe/go.mod h1:bxi5o61xeku4+7RjweM6Dlk5nkIWv9zLob6E2XxNJwQ=
+github.com/mudler/nib v0.15.3-0.20261106203112-07e9832eaeba h1:nHJN0C+P1zsXF2WNUs9wArnZsR+BOhhKF8CzJE10R7M=
+github.com/mudler/nib v0.15.3-0.20261106203112-07e9832eaeba/go.mod h1:bxi5o61xeku4+7RjweM6Dlk5nkIWv9zLob6E2XxNJwQ=
 github.com/mudler/water v0.0.0-20250808092830-dd90dcf09025 h1:WFLP5FHInarYGXi6B/Ze204x7Xy6q/I4nCZnWEyPHK0=
 github.com/mudler/water v0.0.0-20250808092830-dd90dcf09025/go.mod h1:QuIFdRstyGJt+MTTkWY+mtD7U6xwjOR6SwKUjmLZtR4=
 github.com/mudler/xlog v0.0.6 h1:3nBV4THK8kY0Y8FDXXvWAnuAJoOyO7EAXteJeAoHUC0=

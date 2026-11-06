@@ -132,7 +132,6 @@ var allowed = []entry{
 	{locales + "de/pages.json", "Sie öffnen sich hier in einer Sandbox", "German for the isolated frame of a page: the ordinary noun"},
 	{"core/application/studio_service.go", `memory`, "the in-memory kind of the store"},
 	{"core/application/studio_store.go", `memory`, "the in-memory kind of the store"},
-	{"core/services/studio/nibharness/tools.go", `memory`, "the built-in memory tool of the agent engine"},
 	{"pkg/xsysinfo/gpu.go", `memory`, "a GPU memory counter"},
 	{"core/http/auth/usage.go", `web`, "usage source of a request from the web UI session"},
 	{"core/services/studio/builtins/builtins.go", `web`, "the id of the built-in Web tool group of chats"},

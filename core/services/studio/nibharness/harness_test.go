@@ -1,6 +1,7 @@
 package nibharness_test
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"strings"
@@ -97,6 +98,8 @@ func send(hs session.HarnessSession, text string) {
 type callingLLM struct {
 	recordingLLM
 	call string
+	// args are the arguments of the call; empty means {}.
+	args string
 }
 
 func (c *callingLLM) CreateChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (cogito.LLMReply, cogito.LLMUsage, error) {
@@ -107,7 +110,7 @@ func (c *callingLLM) CreateChatCompletion(ctx context.Context, req openai.ChatCo
 	msg := openai.ChatCompletionMessage{Role: "assistant", Content: "all done"}
 	if first {
 		msg = openai.ChatCompletionMessage{Role: "assistant", ToolCalls: []openai.ToolCall{{ID: "call-1", Type: "function",
-			Function: openai.FunctionCall{Name: c.call, Arguments: "{}"}}}}
+			Function: openai.FunctionCall{Name: c.call, Arguments: cmp.Or(c.args, "{}")}}}}
 	}
 	return cogito.LLMReply{ChatCompletionResponse: openai.ChatCompletionResponse{Choices: []openai.ChatCompletionChoice{{Message: msg}}}},
 		cogito.LLMUsage{PromptTokens: 10, TotalTokens: 11}, nil
@@ -372,6 +375,102 @@ var _ = Describe("the nib harness", func() {
 				Expect(tc.Function.Name).To(Equal("spawn_agent"), "the history names the call %q", tc.Function.Name)
 			}
 		}
+	})
+
+	// wait_for and wait_agents are nib's own tools, answered by the host through
+	// callbacks. The model is offered each once, by its own name, and the call
+	// reaches the host's handler with the arguments of the model.
+	for _, tc := range []struct{ name, args, want string }{
+		{"wait_for", `{"tool":"list_downloads","until":"json_equals","field":"a.b","equals":"done","then":"tell me","interval_seconds":30,"timeout_seconds":600}`,
+			`"field":"a.b"`},
+		{"wait_for", `{"url":"https://example.org/x","then":"tell me"}`, `"url":"https://example.org/x"`},
+		{"wait_agents", `{"ids":["a"],"mode":"any_failed_or_all","timeout_seconds":20}`, `"timeout":"20s"`},
+	} {
+		It("runs the host "+tc.name+" through nib's tool: "+tc.want, func() {
+			llm := &callingLLM{call: tc.name, args: tc.args}
+			var mu sync.Mutex
+			var got []string
+			mk := func(name string) session.Tool {
+				return session.Tool{Name: name, Description: "host " + name, Schema: json.RawMessage(`{"type":"object"}`),
+					Run: func(_ context.Context, raw json.RawMessage) (string, error) {
+						mu.Lock()
+						defer mu.Unlock()
+						got = append(got, name+" "+string(raw))
+						return "armed", nil
+					}}
+			}
+			hs := start(&llm.recordingLLM, session.HarnessEnv{
+				Tools: []session.Tool{mk("wait_for"), mk("wait_agents"), mk("list_downloads")},
+				Emit:  func(session.Event) {},
+			}, func(m *nibharness.Model) { m.LLM = llm })
+			send(hs, "hello")
+
+			Expect(llm.tools).ToNot(BeEmpty(), "the model got no request")
+			seen := map[string]int{}
+			for _, n := range llm.tools[0] {
+				seen[n]++
+			}
+			for n, c := range seen {
+				Expect(c).To(Equal(1), "tool %q is offered %d times: %v", n, c, llm.tools[0])
+				Expect(n).ToNot(HavePrefix("studio_"), "an alias leaks to the model: %v", llm.tools[0])
+			}
+			for _, name := range []string{"wait_for", "wait_agents", "list_downloads"} {
+				Expect(seen[name]).To(Equal(1), "the model is not offered %q exactly once: %v", name, llm.tools[0])
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			Expect(got).To(HaveLen(1), "the host's handler must run once: %v", got)
+			Expect(got[0]).To(HavePrefix(tc.name + " "))
+			Expect(got[0]).To(ContainSubstring(tc.want))
+		})
+	}
+
+	// A host tool named like any built-in of nib replaces it: the model is offered
+	// one tool per name, and the call reaches the host.
+	It("offers each host tool named like a nib built-in exactly once", func() {
+		names := []string{"cron", "cron_list", "cron_delete", "memory", "todo_write", "schedule_wakeup", "ask_user",
+			"spawn_agent", "check_agent", "get_agent_result", "send_agent_message", "agent_logs", "index", "repo_map",
+			"read_image", "transcribe_audio", "read_video", "lsp", "tree", "wait_for", "wait_agents"}
+		llm := &callingLLM{call: "cron"}
+		var mu sync.Mutex
+		ran := map[string]int{}
+		var tools []session.Tool
+		for _, n := range names {
+			tools = append(tools, session.Tool{Name: n, Description: "host " + n, Schema: json.RawMessage(`{"type":"object"}`),
+				Run: func(context.Context, json.RawMessage) (string, error) {
+					mu.Lock()
+					defer mu.Unlock()
+					ran[n]++
+					return "ok", nil
+				}})
+		}
+		hs := start(&llm.recordingLLM, session.HarnessEnv{Tools: tools, Emit: func(session.Event) {}},
+			func(m *nibharness.Model) { m.LLM = llm })
+		send(hs, "hello")
+		Expect(llm.tools).ToNot(BeEmpty())
+		seen := map[string]int{}
+		for _, n := range llm.tools[0] {
+			seen[n]++
+		}
+		for n, c := range seen {
+			Expect(c).To(Equal(1), "tool %q is offered %d times: %v", n, c, llm.tools[0])
+		}
+		Expect(seen).To(HaveLen(len(names)), "the model is offered %v", llm.tools[0])
+		mu.Lock()
+		defer mu.Unlock()
+		Expect(ran["cron"]).To(Equal(1), "the host's cron must run once")
+	})
+
+	It("offers no wait tool of nib when the host has none", func() {
+		llm := &callingLLM{call: "host_tool"}
+		hs := start(&llm.recordingLLM, session.HarnessEnv{
+			Tools: []session.Tool{{Name: "host_tool", Description: "x", Schema: json.RawMessage(`{"type":"object"}`),
+				Run: func(context.Context, json.RawMessage) (string, error) { return "ok", nil }}},
+			Emit: func(session.Event) {},
+		}, func(m *nibharness.Model) { m.LLM = llm })
+		send(hs, "hello")
+		Expect(llm.tools).ToNot(BeEmpty())
+		Expect(llm.tools[0]).To(ConsistOf("host_tool"))
 	})
 
 	// Stopping a turn, and deleting a running chat, must cancel the model request

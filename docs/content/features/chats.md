@@ -282,10 +282,11 @@ stop it. Type `/loop` in the message box, or use the API.
   `match` (a regular expression) or `json_equals` (a JSON field equals a
   value). The first check sets a baseline and never wakes the model; an error
   is not a change. The model wakes when the condition holds, when the source
-  fails `max_errors` checks in a row (3 by default), or at the `timeout` (1
+  fails `max_errors` checks in a row (3 by default), or at the timeout (`timeout_seconds`; 1
   hour by default, 24 hours at most). Failure and timeout wake it too, and the
   wake-up text says plainly that the condition was *not* met. The check
-  interval is at least the loop minimum. A wait is listed with the loops (the
+  interval (`interval_seconds`) is at least the loop minimum. The tool is nib's
+  own `wait_for`, answered by the server; it takes no `script`. A wait is listed with the loops (the
   API gives it `kind: "wait"`), counts against the same limits, and you stop it
   like a loop. A sub-agent that arms a wait stays running until it ends, as with
   a loop.
@@ -296,7 +297,7 @@ stop it. Type `/loop` in the message box, or use the API.
   removed with a short note to the model.
 - **Waiting for sub-agents: `wait_agents`.** A chat that started background
   sub-agents can wait for them with `ids` (empty: all that run now) and a mode,
-  `all` or `any_failed_or_all`. The wait is bounded by `timeout` (30 seconds by
+  `all` or `any_failed_or_all`. The wait is bounded by `timeout_seconds` (30 seconds by
   default, from 10 seconds to 10 minutes); at the timeout the tool returns the
   current statuses and the sub-agents keep running. An unknown id is reported
   at once. `spawn_agent` with `wait` set to true returns after at most two
