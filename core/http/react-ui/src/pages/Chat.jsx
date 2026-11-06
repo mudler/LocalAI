@@ -1059,6 +1059,9 @@ function ChatPage() {
     updated: chat.detail?.updated, resume: chat.resume,
     willResume: chat.willResume, resumeAttempts: chat.resumeAttempts, refresh: chat.refreshChat,
   })
+  // Once the page has given up resuming, the card says what to do; the notice
+  // that the stream reconnects would only repeat a problem the card covers.
+  const gaveUp = showInterrupted && autoResume.phase === 'exhausted'
   const failureShown = showInterrupted ? INTERRUPTED : (chat.failure || chat.failureSaved)
   // The one state of the status line, and whether the keyboard hint shows:
   // only while the composer has focus, is empty and the chat is idle.
@@ -1283,7 +1286,7 @@ function ChatPage() {
             )}
             {activeId && loopListFor === activeId && <LoopList loops={chat.loops} onClose={() => setLoopListFor('')} />}
             <LoopBar loops={chat.loops} chatId={activeId} chat={chat} />
-            {activeId && chat.reconnecting && (
+            {activeId && chat.reconnecting && !gaveUp && (
               <p className="cx-reconnect" role="status" data-testid="chat-reconnecting">
                 <Icon name="alert-circle" /> {t('connection.lost')}
               </p>

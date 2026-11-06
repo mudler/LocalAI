@@ -118,6 +118,9 @@ test.describe('Interrupted turn', () => {
     expect(api.state.calls).toHaveLength(3)
     await page.clock.fastForward(120_000)
     expect(api.state.calls).toHaveLength(3)
+    // The stream is still down, but the card is all the page shows: the
+    // reconnect notice would repeat it.
+    await expect(page.getByTestId('chat-reconnecting')).toHaveCount(0)
     await shot(page, 'exhausted')
   })
 
@@ -150,6 +153,7 @@ test.describe('Interrupted turn', () => {
     await expect(page.getByTestId('chat-error-resume')).toHaveText('It could not go on after 3 tries. Retry to try again.')
     await page.clock.fastForward(120_000)
     expect(api.state.calls).toEqual([])
+    await expect(page.getByTestId('chat-reconnecting')).toHaveCount(0)
     await card(page).getByRole('button', { name: 'Retry' }).click()
     await expect(page.getByText(FINISHED)).toBeVisible()
     expect(api.state.calls).toEqual(['resume'])
