@@ -15,6 +15,22 @@ Requests (one JSON object per line) and replies:
   {"op": "encode", "text": s, "parse_special": b} -> {"ok": true, "ids": [...]}
   {"op": "template", "messages": [...], "tools": [...]|null, "kwargs": {...}}
                                                   -> {"ok": true, "prompt": s}
+  {"op": "prompt", "request": {...}}              -> {"ok": true, "ids": [...], "images": [...], "thinking": b,
+                                                      "force": s, "tools": [...]|null}
+  {"op": "parser_new", "id": n, "thinking": b, "tools": [...], "opening": s}
+                                                  -> {"ok": true, "events": [...]}
+  {"op": "parser_feed", "id": n, "text": s}       -> {"ok": true, "events": [...]}
+  {"op": "parser_finish", "id": n, "reason": s}   -> {"ok": true, "events": [...]}
+  {"op": "parser_drop", "id": n}                  -> {"ok": true}
+
+"prompt" takes an OpenAI chat request (messages, tools, tool_choice, chat_template_kwargs,
+reasoning_effort) and does what the Strata server does before it talks to the engine: it converts the request
+(serve.frontend.openai_to_messages), keeps literal control and think tags in user text as text, renders the
+template and encodes the result. Image parts are returned as "images", in prompt order.
+
+The parser ops wrap serve.frontend.OutputParser, which splits the model's text into reasoning, content and
+tool calls. An event is {"kind": "reasoning"|"content"|"tool_call"|"tool_start"|"tool_args", "text": s,
+"call": {"id", "name", "arguments"}|null}.
 
 Any failure replies {"ok": false, "error": "..."}.
 """
@@ -22,6 +38,44 @@ import base64
 import json
 import pathlib
 import sys
+
+
+PARSERS = {}
+
+
+def event_json(ev):
+    out = {"kind": ev.kind, "text": ev.text or ""}
+    if ev.call is not None:
+        out["call"] = {"id": ev.call.id, "name": ev.call.name, "arguments": ev.call.arguments}
+    return out
+
+
+def build_prompt(tk, template, req):
+    from serve import frontend  # noqa: E402
+
+    body = {k: req.get(k) for k in ("messages", "tools", "chat_template_kwargs", "reasoning_effort") if req.get(k) is not None}
+    messages, tools, kwargs = frontend.openai_to_messages(body)
+    frontend.require_messages(messages)
+    choice = req.get("tool_choice")
+    kind, _ = frontend.tool_choice_of(choice)
+    if kind == "none":
+        tools = None
+    force = frontend.forced_call(choice, tools) if tools else None
+    if force:
+        # The engine has no grammar. A forced call is written into the prompt, which only works without thinking.
+        kwargs["enable_thinking"] = False
+    thinking = kwargs.get("enable_thinking", True) is not False
+    literals = frontend.literal_tags(getattr(tk, "control_tokens", ()))
+    marked, marked_tools, changed = frontend.mark_think_literals(messages, tools, literals)
+    prompt = template.render(marked, tools=marked_tools, **kwargs)
+    plain = ()
+    if changed:
+        prompt, plain = frontend.unmark_think_literals(prompt, literals)
+    ids = tk.encode(prompt, parse_special=True, plain=plain) if plain else tk.encode(prompt, parse_special=True)
+    if force:
+        ids = ids + tk.encode(force, parse_special=True)
+    return {"ids": ids, "images": frontend.images_of(messages), "thinking": thinking, "force": force or "",
+            "tools": tools}
 
 
 def load(strata_root, pack):
@@ -77,6 +131,25 @@ def main():
                 out = {"tokens": [base64.b64encode(tk.token_bytes(i)).decode("ascii") for i in range(len(tk.tokens))]}
             elif op == "encode":
                 out = {"ids": tk.encode(req["text"], parse_special=bool(req.get("parse_special", True)))}
+            elif op == "prompt":
+                if template is None:
+                    raise ValueError("the pack has no tokenizer/chat_template.jinja")
+                out = build_prompt(tk, template, req["request"])
+            elif op == "parser_new":
+                from serve import frontend  # noqa: E402
+
+                parser = frontend.OutputParser(thinking=bool(req.get("thinking", True)), tools=req.get("tools") or None,
+                                               stream_tools=True, recover=True)
+                PARSERS[req["id"]] = parser
+                opening = req.get("opening") or ""
+                out = {"events": [event_json(e) for e in (parser.feed(opening) if opening else [])]}
+            elif op == "parser_feed":
+                out = {"events": [event_json(e) for e in PARSERS[req["id"]].feed(req["text"])]}
+            elif op == "parser_finish":
+                out = {"events": [event_json(e) for e in PARSERS[req["id"]].finish(req.get("reason") or None)]}
+            elif op == "parser_drop":
+                PARSERS.pop(req["id"], None)
+                out = {}
             elif op == "template":
                 if template is None:
                     raise ValueError("the pack has no tokenizer/chat_template.jinja")

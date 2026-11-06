@@ -15,24 +15,54 @@ import (
 	_ "embed"
 )
 
-// ChatMessage is one turn handed to the chat template. The fields follow the
-// OpenAI message shape that Strata's template expects.
-type ChatMessage struct {
-	Role             string `json:"role"`
-	Content          string `json:"content"`
-	Name             string `json:"name,omitempty"`
-	ToolCallID       string `json:"tool_call_id,omitempty"`
-	ReasoningContent string `json:"reasoning_content,omitempty"`
-	ToolCalls        any    `json:"tool_calls,omitempty"`
+// promptRequest is an OpenAI chat request, as the Strata frontend reads it.
+// Image parts carry a placeholder URL; the helper returns the placeholders in
+// prompt order so the caller can match them to the decoded images.
+type promptRequest struct {
+	Messages           []map[string]any `json:"messages"`
+	Tools              any              `json:"tools,omitempty"`
+	ToolChoice         any              `json:"tool_choice,omitempty"`
+	ChatTemplateKwargs map[string]any   `json:"chat_template_kwargs,omitempty"`
+	ReasoningEffort    string           `json:"reasoning_effort,omitempty"`
 }
 
-// Tokenizer turns text into the token ids the engine takes, and back. The
+// promptResult is a rendered and tokenized request.
+type promptResult struct {
+	IDs      []int    `json:"ids"`
+	Images   []string `json:"images"`   // image sources, in prompt order
+	Thinking bool     `json:"thinking"` // the reply starts inside the model's reasoning
+	Force    string   `json:"force"`    // text already appended to the prompt to force a tool call
+	Tools    any      `json:"tools"`    // the tools as the output parser needs them
+}
+
+// parseEvent is one piece of classified model output.
+type parseEvent struct {
+	Kind string     `json:"kind"` // reasoning, content, tool_start, tool_args, tool_call
+	Text string     `json:"text"`
+	Call *parseCall `json:"call"`
+}
+
+type parseCall struct {
+	ID        string          `json:"id"`
+	Name      string          `json:"name"`
+	Arguments json.RawMessage `json:"arguments"`
+}
+
+// outputParser splits the model's text into reasoning, content and tool calls.
+type outputParser interface {
+	Feed(text string) ([]parseEvent, error)
+	// Finish flushes held text. reason is the engine's finish reason.
+	Finish(reason string) ([]parseEvent, error)
+	Close()
+}
+
+// Tokenizer turns requests into the token ids the engine takes, and back. The
 // engine itself only reads and writes ids.
 //
 // Two implementations exist: helperTokenizer (below) drives Strata's own
-// Python tokenizer and template; tests use an in-memory one. A native Go
-// implementation could replace the helper without touching the rest of the
-// backend; see the README for what that needs.
+// Python code; tests use an in-memory one. A native Go implementation could
+// replace the helper without touching the rest of the backend; see the README
+// for what that needs.
 type Tokenizer interface {
 	// Encode converts text to ids. parseSpecial makes control tokens such as
 	// <|im_start|> match as single tokens, which a rendered chat prompt needs.
@@ -40,9 +70,12 @@ type Tokenizer interface {
 	// TokenBytes returns the raw bytes of one token. A multi-byte character
 	// can be split across tokens, so callers join bytes before decoding.
 	TokenBytes(id int) ([]byte, bool)
-	// ApplyChatTemplate renders messages with the model's own template and
-	// appends the assistant generation prompt. tools is a JSON array or "".
-	ApplyChatTemplate(msgs []ChatMessage, tools string, kwargs map[string]any) (string, error)
+	// Prompt renders a chat request with the model's own template and encodes it.
+	Prompt(req promptRequest) (promptResult, error)
+	// NewParser starts an output parser for one reply. tools is what Prompt
+	// returned. opening is text the prompt already ended with, which the parser
+	// reads as if the model had written it.
+	NewParser(thinking bool, tools any, opening string) (outputParser, []parseEvent, error)
 	Close() error
 }
 
@@ -55,15 +88,22 @@ type helperTokenizer struct {
 	stdout *bufio.Reader
 	mu     sync.Mutex
 	vocab  [][]byte
+
+	nextParser int
 }
 
 type helperReply struct {
-	OK          bool     `json:"ok"`
-	Error       string   `json:"error"`
-	IDs         []int    `json:"ids"`
-	Prompt      string   `json:"prompt"`
-	Tokens      []string `json:"tokens"`
-	HasTemplate bool     `json:"has_template"`
+	OK          bool         `json:"ok"`
+	Error       string       `json:"error"`
+	IDs         []int        `json:"ids"`
+	Prompt      string       `json:"prompt"`
+	Tokens      []string     `json:"tokens"`
+	HasTemplate bool         `json:"has_template"`
+	Images      []string     `json:"images"`
+	Thinking    bool         `json:"thinking"`
+	Force       string       `json:"force"`
+	Tools       any          `json:"tools"`
+	Events      []parseEvent `json:"events"`
 }
 
 // newHelperTokenizer starts `python -c <helper> <strataRoot> <pack>` and
@@ -172,20 +212,51 @@ func (h *helperTokenizer) TokenBytes(id int) ([]byte, bool) {
 	return h.vocab[id], true
 }
 
-func (h *helperTokenizer) ApplyChatTemplate(msgs []ChatMessage, tools string, kwargs map[string]any) (string, error) {
-	req := map[string]any{"op": "template", "messages": msgs, "kwargs": kwargs}
-	if tools != "" {
-		var t any
-		if err := json.Unmarshal([]byte(tools), &t); err != nil {
-			return "", fmt.Errorf("tools is not valid JSON: %w", err)
-		}
-		req["tools"] = t
-	}
+func (h *helperTokenizer) Prompt(req promptRequest) (promptResult, error) {
 	var r helperReply
-	if err := h.call(req, &r); err != nil {
-		return "", err
+	if err := h.call(map[string]any{"op": "prompt", "request": req}, &r); err != nil {
+		return promptResult{}, err
 	}
-	return r.Prompt, nil
+	return promptResult{IDs: r.IDs, Images: r.Images, Thinking: r.Thinking, Force: r.Force, Tools: r.Tools}, nil
+}
+
+type helperParser struct {
+	h  *helperTokenizer
+	id int
+}
+
+func (h *helperTokenizer) NewParser(thinking bool, tools any, opening string) (outputParser, []parseEvent, error) {
+	h.mu.Lock()
+	h.nextParser++
+	id := h.nextParser
+	h.mu.Unlock()
+	var r helperReply
+	err := h.call(map[string]any{"op": "parser_new", "id": id, "thinking": thinking, "tools": tools, "opening": opening}, &r)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &helperParser{h: h, id: id}, r.Events, nil
+}
+
+func (p *helperParser) Feed(text string) ([]parseEvent, error) {
+	var r helperReply
+	if err := p.h.call(map[string]any{"op": "parser_feed", "id": p.id, "text": text}, &r); err != nil {
+		return nil, err
+	}
+	return r.Events, nil
+}
+
+func (p *helperParser) Finish(reason string) ([]parseEvent, error) {
+	var r helperReply
+	if err := p.h.call(map[string]any{"op": "parser_finish", "id": p.id, "reason": reason}, &r); err != nil {
+		return nil, err
+	}
+	return r.Events, nil
+}
+
+func (p *helperParser) Close() {
+	var r helperReply
+	_ = p.h.call(map[string]any{"op": "parser_drop", "id": p.id}, &r)
 }
 
 func (h *helperTokenizer) Close() error {

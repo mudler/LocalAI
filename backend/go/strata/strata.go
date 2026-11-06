@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,11 +18,14 @@ import (
 
 const backendName = "strata"
 
-// Default end-of-turn ids of the Qwen-family models Strata serves
-// (<|endoftext|>, <|im_end|>). The engine reports these as ordinary tokens
-// followed by a "stop" finish, so the backend drops them from the output.
-// Override with the eos_ids option for other families.
-var defaultEOSIDs = []int{248044, 248046}
+const (
+	imagePadText    = "<|image_pad|>"
+	visionStartText = "<|vision_start|>"
+	visionEndText   = "<|vision_end|>"
+	// defaultMediaMarker is the placeholder LocalAI writes into message text
+	// for each image.
+	defaultMediaMarker = "<__media__>"
+)
 
 // Strata is the LocalAI backend wrapping the Strata engine process.
 type Strata struct {
@@ -33,8 +34,13 @@ type Strata struct {
 	mu     sync.RWMutex
 	eng    *engine
 	tok    Tokenizer
+	vision *imageEncoder
+	cfg    loadConfig
 	eos    map[int]bool
 	ctxLen int
+
+	padID, startID int
+	padLiteral     []int
 
 	// Seams for tests.
 	startEngine  func(engineConfig) (*engine, error)
@@ -48,85 +54,6 @@ func NewStrata() *Strata {
 			return newHelperTokenizer(python, root, pack, timeout)
 		},
 	}
-}
-
-// loadConfig is the parsed form of ModelOptions.
-type loadConfig struct {
-	enginePath   string
-	pack         string
-	strataRoot   string
-	python       string
-	extraArgs    []string
-	readyTimeout time.Duration
-	stopTimeout  time.Duration
-	eos          []int
-	ctxSize      int
-}
-
-// parseLoad reads the model options and checks the files exist. Load must
-// refuse models it cannot serve: with no explicit backend, LocalAI probes
-// every backend with the model and binds to the first Load that succeeds.
-func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
-	c := loadConfig{eos: defaultEOSIDs, ctxSize: int(opts.GetContextSize())}
-	kv := map[string]string{}
-	for _, o := range opts.GetOptions() {
-		k, v, _ := strings.Cut(o, ":")
-		kv[strings.TrimSpace(k)] = strings.TrimSpace(v)
-	}
-	c.enginePath = kv["engine_path"]
-	if c.enginePath == "" {
-		c.enginePath = os.Getenv("STRATA_ENGINE_PATH")
-	}
-	if c.enginePath == "" {
-		return c, errors.New("strata: no engine executable configured; set the engine_path option (or STRATA_ENGINE_PATH)")
-	}
-	if st, err := os.Stat(c.enginePath); err != nil || st.IsDir() {
-		return c, fmt.Errorf("strata: engine_path %q is not an executable file", c.enginePath)
-	}
-
-	c.pack = opts.GetModelFile()
-	if c.pack == "" {
-		c.pack = filepath.Join(opts.GetModelPath(), opts.GetModel())
-	}
-	if _, err := os.Stat(filepath.Join(c.pack, "tokenizer", "vocab.json")); err != nil {
-		return c, fmt.Errorf("strata: %q is not a Strata pack directory (tokenizer/vocab.json missing)", c.pack)
-	}
-
-	c.strataRoot = kv["strata_root"]
-	if c.strataRoot == "" {
-		c.strataRoot = os.Getenv("STRATA_ROOT")
-	}
-	c.python = kv["python"]
-	if v := kv["engine_args"]; v != "" {
-		c.extraArgs = strings.Fields(v)
-	}
-	c.readyTimeout = 15 * time.Minute
-	if v := kv["ready_timeout"]; v != "" {
-		d, err := time.ParseDuration(v)
-		if err != nil || d <= 0 {
-			return c, fmt.Errorf("strata: bad ready_timeout %q", v)
-		}
-		c.readyTimeout = d
-	}
-	c.stopTimeout = 30 * time.Second
-	if v := kv["stop_timeout"]; v != "" {
-		d, err := time.ParseDuration(v)
-		if err != nil || d <= 0 {
-			return c, fmt.Errorf("strata: bad stop_timeout %q", v)
-		}
-		c.stopTimeout = d
-	}
-	if v := kv["eos_ids"]; v != "" {
-		c.eos = nil
-		for _, f := range strings.Split(v, ",") {
-			n, err := strconv.Atoi(strings.TrimSpace(f))
-			if err != nil {
-				return c, fmt.Errorf("strata: bad eos_ids entry %q", f)
-			}
-			c.eos = append(c.eos, n)
-		}
-	}
-	return c, nil
 }
 
 func (s *Strata) Load(opts *pb.ModelOptions) error {
@@ -146,14 +73,10 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 	if err != nil {
 		return fmt.Errorf("strata: %w", err)
 	}
-	args := []string{"--pack", c.pack}
-	if c.ctxSize > 0 {
-		args = append(args, "--max-context", strconv.Itoa(c.ctxSize))
-	}
-	args = append(args, c.extraArgs...)
 	eng, err := s.startEngine(engineConfig{
 		Path:         c.enginePath,
-		Args:         args,
+		Args:         c.engineArgs(),
+		Env:          c.env,
 		ReadyTimeout: c.readyTimeout,
 		StopTimeout:  c.stopTimeout,
 	})
@@ -161,19 +84,53 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 		_ = tok.Close()
 		return fmt.Errorf("strata: %w", err)
 	}
-	s.eng, s.tok, s.ctxLen = eng, tok, eng.ctxLen
+	s.eng, s.tok, s.ctxLen, s.cfg = eng, tok, eng.ctxLen, c
 	s.eos = map[int]bool{}
-	for _, id := range c.eos {
+	eosIDs := c.eos
+	if eosIDs == nil {
+		eosIDs = defaultEOS(tok)
+	}
+	for _, id := range eosIDs {
 		s.eos[id] = true
 	}
-	xlog.Info("strata: engine ready", "context", eng.ctxLen, "stop_supported", eng.canStop)
+	s.padID, s.startID, s.padLiteral = -1, -1, nil
+	if c.vision != nil {
+		s.vision = newImageEncoder(*c.vision)
+		if ids, err := tok.Encode(imagePadText, true); err == nil && len(ids) == 1 {
+			s.padID = ids[0]
+		}
+		if ids, err := tok.Encode(visionStartText, true); err == nil && len(ids) == 1 {
+			s.startID = ids[0]
+		}
+		s.padLiteral, _ = tok.Encode(imagePadText, false)
+	}
+	xlog.Info("strata: engine ready", "context", eng.ctxLen, "stop_supported", eng.canStop, "vision", c.vision != nil)
 	return nil
+}
+
+// defaultEOS finds the end-of-turn tokens of the Qwen family by name, and
+// falls back to their known ids.
+func defaultEOS(tok Tokenizer) []int {
+	var out []int
+	for _, t := range []string{"<|endoftext|>", "<|im_end|>"} {
+		if ids, err := tok.Encode(t, true); err == nil && len(ids) == 1 {
+			out = append(out, ids[0])
+		}
+	}
+	if len(out) == 0 {
+		return defaultEOSIDs
+	}
+	return out
 }
 
 func (s *Strata) freeLocked() {
 	if s.eng != nil {
 		s.eng.close()
 		s.eng = nil
+	}
+	if s.vision != nil {
+		s.vision.Close()
+		s.vision = nil
 	}
 	if s.tok != nil {
 		_ = s.tok.Close()
@@ -196,34 +153,61 @@ func (s *Strata) Status() (pb.StatusResponse, error) {
 		return pb.StatusResponse{State: pb.StatusResponse_UNINITIALIZED}, nil
 	case !s.eng.alive():
 		return pb.StatusResponse{State: pb.StatusResponse_ERROR}, nil
-	case s.eng.busy.Get():
-		return pb.StatusResponse{State: pb.StatusResponse_BUSY}, nil
 	}
-	return pb.StatusResponse{State: pb.StatusResponse_READY}, nil
+	// Resident memory of the child processes. On a machine with unified
+	// memory this includes what the GPU uses; with a discrete GPU it leaves
+	// VRAM out, which the engine does not report.
+	mem := &pb.MemoryUsageData{Breakdown: map[string]uint64{}}
+	if pid := s.eng.pid(); pid > 0 {
+		r := processRSS(pid)
+		mem.Breakdown["engine"] = r
+		mem.Total += r
+	}
+	if s.vision != nil {
+		if pid := s.vision.Pid(); pid > 0 {
+			r := processRSS(pid)
+			mem.Breakdown["vision"] = r
+			mem.Total += r
+		}
+	}
+	st := pb.StatusResponse_READY
+	if s.eng.busy.Get() {
+		st = pb.StatusResponse_BUSY
+	}
+	return pb.StatusResponse{State: st, Memory: mem}, nil
 }
 
 func (s *Strata) Embeddings(*pb.PredictOptions) ([]float32, error) {
 	return nil, errors.New("strata: embeddings are not supported: the engine serves text generation only")
 }
 
+func (s *Strata) state() (*engine, Tokenizer, *imageEncoder, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.eng == nil || s.tok == nil {
+		return nil, nil, nil, grpcerrors.ModelNotLoaded(backendName)
+	}
+	return s.eng, s.tok, s.vision, nil
+}
+
 func (s *Strata) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationResponse, error) {
-	_, tok, _, _, err := s.state()
+	_, tok, _, err := s.state()
 	if err != nil {
 		return pb.TokenizationResponse{}, err
 	}
-	ids, err := tok.Encode(opts.GetPrompt(), true)
+	p, err := s.preparePrompt(tok, opts)
 	if err != nil {
 		return pb.TokenizationResponse{}, err
 	}
-	out := make([]int32, len(ids))
-	for i, v := range ids {
+	out := make([]int32, len(p.IDs))
+	for i, v := range p.IDs {
 		out[i] = int32(v)
 	}
 	return pb.TokenizationResponse{Length: int32(len(out)), Tokens: out}, nil
 }
 
 func (s *Strata) Detokenize(req *pb.DetokenizeRequest) (pb.DetokenizeResponse, error) {
-	_, tok, _, _, err := s.state()
+	_, tok, _, err := s.state()
 	if err != nil {
 		return pb.DetokenizeResponse{}, err
 	}
@@ -240,44 +224,116 @@ func (s *Strata) Detokenize(req *pb.DetokenizeRequest) (pb.DetokenizeResponse, e
 	return pb.DetokenizeResponse{Content: sb.String()}, nil
 }
 
-func (s *Strata) state() (*engine, Tokenizer, map[int]bool, int, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if s.eng == nil || s.tok == nil {
-		return nil, nil, nil, 0, grpcerrors.ModelNotLoaded(backendName)
-	}
-	return s.eng, s.tok, s.eos, s.ctxLen, nil
+// preparedPrompt is a request turned into ids, before image rows are added.
+type preparedPrompt struct {
+	IDs      []int
+	Images   []string // decoded sources in prompt order
+	Thinking bool
+	Force    string
+	Tools    any
 }
 
-// buildPrompt renders chat messages with the model's template when the
-// request asks for it, and otherwise uses the prompt LocalAI already built.
-func buildPrompt(tok Tokenizer, opts *pb.PredictOptions) (string, error) {
-	if opts.GetUseTokenizerTemplate() && len(opts.GetMessages()) > 0 {
-		msgs := make([]ChatMessage, 0, len(opts.GetMessages()))
-		for _, m := range opts.GetMessages() {
-			cm := ChatMessage{
-				Role: m.GetRole(), Content: m.GetContent(), Name: m.GetName(),
-				ToolCallID: m.GetToolCallId(), ReasoningContent: m.GetReasoningContent(),
-			}
-			if tc := m.GetToolCalls(); tc != "" {
-				cm.ToolCalls = jsonRaw(tc)
-			}
-			msgs = append(msgs, cm)
-		}
-		kwargs := map[string]any{}
-		if v, ok := opts.GetMetadata()["enable_thinking"]; ok {
-			if b, err := strconv.ParseBool(v); err == nil {
-				kwargs["enable_thinking"] = b
-			}
-		}
-		return tok.ApplyChatTemplate(msgs, opts.GetTools(), kwargs)
+// preparePrompt renders the request. With UseTokenizerTemplate the model's own
+// chat template does it; otherwise LocalAI's prompt is encoded as it is.
+func (s *Strata) preparePrompt(tok Tokenizer, opts *pb.PredictOptions) (preparedPrompt, error) {
+	var p preparedPrompt
+	marker := s.cfg.mediaMarker
+	if marker == "" {
+		marker = defaultMediaMarker
 	}
-	return opts.GetPrompt(), nil
+	tools, err := parseJSONArg(opts.GetTools())
+	if err != nil {
+		return p, fmt.Errorf("tools is not valid JSON: %w", err)
+	}
+	if opts.GetUseTokenizerTemplate() && len(opts.GetMessages()) > 0 {
+		choice := parseToolChoice(opts.GetToolChoice())
+		req, err := buildPromptRequest(opts, marker, tools, choice)
+		if err != nil {
+			return p, err
+		}
+		r, err := tok.Prompt(req)
+		if err != nil {
+			return p, fmt.Errorf("chat template: %w", err)
+		}
+		p.IDs, p.Thinking, p.Force, p.Tools = r.IDs, r.Thinking, r.Force, r.Tools
+		for _, src := range r.Images {
+			n, ok := strings.CutPrefix(src, imagePlaceholder)
+			idx, err := strconv.Atoi(n)
+			if !ok || err != nil || idx < 0 || idx >= len(opts.GetImages()) {
+				return p, fmt.Errorf("the prompt refers to an image (%q) the request does not have", src)
+			}
+			p.Images = append(p.Images, opts.GetImages()[idx])
+		}
+		return p, nil
+	}
+	text := opts.GetPrompt()
+	if n := len(opts.GetImages()); n > 0 {
+		if got := strings.Count(text, marker); got != n {
+			return p, fmt.Errorf("the prompt has %d image markers (%s) for %d images", got, marker, n)
+		}
+		text = strings.ReplaceAll(text, marker, visionStartText+imagePadText+visionEndText)
+		p.Images = opts.GetImages()
+	}
+	ids, err := tok.Encode(text, true)
+	if err != nil {
+		return p, fmt.Errorf("tokenize: %w", err)
+	}
+	p.IDs = ids
+	p.Tools = flattenTools(tools)
+	return p, nil
+}
+
+// expandImages encodes the images and widens each image pad token to one per
+// image row. It returns the embeddings file for GENI and a release function.
+func (s *Strata) expandImages(vis *imageEncoder, p *preparedPrompt) (string, func(), error) {
+	if len(p.Images) == 0 {
+		return "", func() {}, nil
+	}
+	if vis == nil || s.padID < 0 || s.startID < 0 {
+		return "", nil, errors.New("strata: this model has no image support configured (set the mmproj and vision_exe options)")
+	}
+	file, counts, release, err := vis.EncodeAll(p.Images)
+	if err != nil {
+		return "", nil, fmt.Errorf("strata: %w", err)
+	}
+	out := make([]int, 0, len(p.IDs)+sum(counts))
+	k := 0
+	for j, t := range p.IDs {
+		switch {
+		case t == s.padID && j > 0 && p.IDs[j-1] == s.startID:
+			if k >= len(counts) {
+				release()
+				return "", nil, errors.New("strata: the prompt and its images do not match")
+			}
+			for range counts[k] {
+				out = append(out, s.padID)
+			}
+			k++
+		case t == s.padID:
+			out = append(out, s.padLiteral...)
+		default:
+			out = append(out, t)
+		}
+	}
+	if k != len(counts) {
+		release()
+		return "", nil, errors.New("strata: the prompt and its images do not match")
+	}
+	p.IDs = out
+	return file, release, nil
+}
+
+func sum(v []int) int {
+	t := 0
+	for _, x := range v {
+		t += x
+	}
+	return t
 }
 
 // samplingKeys maps the sampling fields the engine's GEN line accepts.
-// Fields the engine has no key for (mirostat, typical-p, tail-free, grammar,
-// logit bias in LocalAI's format) are ignored; a grammar is refused earlier.
+// Fields the engine has no key for (mirostat, typical-p, tail-free, grammar)
+// are ignored; a grammar is refused earlier.
 func samplingKeys(opts *pb.PredictOptions) []string {
 	var k []string
 	f := func(name string, v float32) { k = append(k, name+"="+strconv.FormatFloat(float64(v), 'g', -1, 32)) }
@@ -322,42 +378,58 @@ func samplingKeys(opts *pb.PredictOptions) []string {
 	return k
 }
 
+// logprobsK is the number of alternatives to ask the engine for, or -1.
+func logprobsK(opts *pb.PredictOptions) int {
+	if opts.GetLogprobs() <= 0 && opts.GetTopLogprobs() <= 0 {
+		return -1
+	}
+	return min(int(opts.GetTopLogprobs()), maxLogprobs)
+}
+
 type runResult struct {
 	completionTokens int
 	promptTokens     int
 	finish           string
+	timing           genResult
+	logprobs         []byte
 }
 
 var errStopString = errors.New("stop string reached")
 
-// run is the shared generation path. emit receives text chunks in order.
-func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(string) error) (runResult, error) {
+// run is the shared generation path. emit receives, in order, the raw text of
+// each token (cut at a stop string) and the parsed delta for it (either may be empty).
+func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw string, d *pb.ChatDelta) error) (runResult, error) {
 	var res runResult
-	eng, tok, eos, ctxLen, err := s.state()
+	eng, tok, vis, err := s.state()
 	if err != nil {
 		return res, err
 	}
+	s.mu.RLock()
+	eos, ctxLen := s.eos, s.ctxLen
+	s.mu.RUnlock()
 	if opts.GetGrammar() != "" {
 		return res, errors.New("strata: grammar-constrained generation is not supported")
 	}
-	if len(opts.GetImages()) > 0 || len(opts.GetVideos()) > 0 || len(opts.GetAudios()) > 0 {
-		return res, errors.New("strata: image, video and audio input are not supported (the engine's vision path, GENI, is not wired)")
+	if len(opts.GetVideos()) > 0 || len(opts.GetAudios()) > 0 {
+		return res, errors.New("strata: video and audio input are not supported")
 	}
 
-	prompt, err := buildPrompt(tok, opts)
+	p, err := s.preparePrompt(tok, opts)
 	if err != nil {
-		return res, fmt.Errorf("strata: chat template: %w", err)
+		return res, fmt.Errorf("strata: %w", err)
 	}
-	ids, err := tok.Encode(prompt, true)
-	if err != nil {
-		return res, fmt.Errorf("strata: tokenize: %w", err)
-	}
-	if len(ids) == 0 {
+	if len(p.IDs) == 0 {
 		return res, errors.New("strata: empty prompt")
 	}
+	embFile, release, err := s.expandImages(vis, &p)
+	if err != nil {
+		return res, err
+	}
+	defer release()
+	ids := p.IDs
 	res.promptTokens = len(ids)
 
-	room := ctxLen - len(ids)
+	room := ctxLen - len(ids) - 8
 	if room < 1 {
 		return res, fmt.Errorf("strata: prompt (%d tokens) does not fit the context (%d)", len(ids), ctxLen)
 	}
@@ -366,26 +438,52 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(str
 		maxNew = room
 	}
 
+	parser, opening, err := tok.NewParser(p.Thinking, p.Tools, p.Force)
+	if err != nil {
+		return res, fmt.Errorf("strata: output parser: %w", err)
+	}
+	defer parser.Close()
+
 	var (
 		j       utf8Joiner
 		matcher = newStopMatcher(opts.GetStopPrompts())
+		conv    = newDeltaBuilder()
+		lps     logprobCollector
+		k       = logprobsK(opts)
+		topN    = int(opts.GetTopLogprobs())
 	)
-	send := func(text string) error {
-		if text == "" {
+	send := func(raw string, evs []parseEvent) error {
+		d := conv.add(evs)
+		if raw == "" && d.empty() {
 			return nil
 		}
-		return emit(text)
+		return emit(raw, d.proto())
 	}
-	onToken := func(id int) error {
-		if eos[id] {
+	if err := send("", opening); err != nil {
+		return res, err
+	}
+	onToken := func(t genToken) error {
+		if eos[t.ID] {
 			return nil
 		}
-		b, ok := tok.TokenBytes(id)
+		b, ok := tok.TokenBytes(t.ID)
 		if !ok {
-			return fmt.Errorf("engine produced token id %d outside the vocabulary", id)
+			return fmt.Errorf("engine produced token id %d outside the vocabulary", t.ID)
 		}
 		res.completionTokens++
-		if err := send(matcher.push(j.write(b))); err != nil {
+		if k >= 0 && t.HasLP {
+			lps.add(tok, t, topN)
+		}
+		// Stop strings are matched on the raw text, before the parser sees it.
+		text := matcher.push(j.write(b))
+		var evs []parseEvent
+		if text != "" {
+			evs, err = parser.Feed(text)
+			if err != nil {
+				return fmt.Errorf("output parser: %w", err)
+			}
+		}
+		if err := send(text, evs); err != nil {
 			return err
 		}
 		if matcher.hit {
@@ -394,52 +492,103 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(str
 		return nil
 	}
 
-	finish, err := eng.generate(ctx, genRequest{MaxNew: maxNew, Keys: samplingKeys(opts), IDs: ids}, onToken)
-	res.finish = finish
-	if errors.Is(err, errStopString) {
-		res.finish = "stop"
-		return res, nil
+	greq := genRequest{MaxNew: maxNew, Keys: samplingKeys(opts), IDs: ids, Embeddings: embFile}
+	if k >= 0 {
+		greq.Logprobs = &k
+	}
+	dr, err := eng.generate(ctx, greq, onToken)
+	res.timing, res.finish = dr, dr.Finish
+	stoppedByString := errors.Is(err, errStopString)
+	if stoppedByString {
+		res.finish, err = "stop", nil
 	}
 	if err != nil {
 		return res, err
 	}
-	if err := send(matcher.push(j.flush())); err != nil {
+	tail := ""
+	if !stoppedByString {
+		tail = matcher.push(j.flush())
+		if !matcher.hit {
+			tail += matcher.flush()
+		} else {
+			res.finish = "stop"
+		}
+	}
+	var evs []parseEvent
+	if tail != "" {
+		if evs, err = parser.Feed(tail); err != nil {
+			return res, fmt.Errorf("strata: output parser: %w", err)
+		}
+	}
+	reason := res.finish
+	if reason == "" {
+		reason = "stop"
+	}
+	fin, err := parser.Finish(reason)
+	if err != nil {
+		return res, fmt.Errorf("strata: output parser: %w", err)
+	}
+	if err := send(tail, append(evs, fin...)); err != nil {
 		return res, err
 	}
-	if err := send(matcher.flush()); err != nil {
-		return res, err
-	}
+	res.logprobs = lps.json()
+	xlog.Debug("strata: request done", "finish", res.finish, "prompt", res.promptTokens, "completion", res.completionTokens,
+		"resumed", dr.Resumed, "prompt_ms", dr.PromptMS, "decode_ms", dr.DecodeMS)
 	return res, nil
 }
 
+func (r runResult) usage() *pb.Reply {
+	return &pb.Reply{
+		Tokens:                 int32(r.completionTokens),
+		PromptTokens:           int32(r.promptTokens),
+		TimingPromptProcessing: r.timing.PromptMS,
+		TimingTokenGeneration:  r.timing.DecodeMS,
+		Logprobs:               r.logprobs,
+	}
+}
+
 func (s *Strata) PredictRichContext(ctx context.Context, opts *pb.PredictOptions) (*pb.Reply, error) {
-	var sb strings.Builder
-	res, err := s.run(ctx, opts, func(t string) error { sb.WriteString(t); return nil })
+	var (
+		sb  strings.Builder
+		agg deltaAggregate
+	)
+	res, err := s.run(ctx, opts, func(raw string, d *pb.ChatDelta) error {
+		sb.WriteString(raw)
+		agg.add(d)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	return &pb.Reply{Message: []byte(sb.String()), Tokens: int32(res.completionTokens), PromptTokens: int32(res.promptTokens)}, nil
+	r := res.usage()
+	r.Message = []byte(sb.String())
+	if d := agg.delta(); d != nil {
+		r.ChatDeltas = []*pb.ChatDelta{d}
+	}
+	return r, nil
 }
 
 // PredictStreamRichContext sends replies into the channel and does not close it.
 func (s *Strata) PredictStreamRichContext(ctx context.Context, opts *pb.PredictOptions, out chan<- *pb.Reply) error {
-	res, err := s.run(ctx, opts, func(t string) error {
+	put := func(r *pb.Reply) error {
 		select {
-		case out <- &pb.Reply{Message: []byte(t)}:
+		case out <- r:
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()
 		}
+	}
+	res, err := s.run(ctx, opts, func(raw string, d *pb.ChatDelta) error {
+		r := &pb.Reply{Message: []byte(raw)}
+		if d != nil {
+			r.ChatDeltas = []*pb.ChatDelta{d}
+		}
+		return put(r)
 	})
 	if err != nil {
 		return err
 	}
-	select {
-	case out <- &pb.Reply{Tokens: int32(res.completionTokens), PromptTokens: int32(res.promptTokens)}:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-	return nil
+	return put(res.usage())
 }
 
 // Legacy entry points, for callers that do not use the rich interface.
@@ -453,6 +602,11 @@ func (s *Strata) Predict(opts *pb.PredictOptions) (string, error) {
 
 func (s *Strata) PredictStream(opts *pb.PredictOptions, results chan string) error {
 	defer close(results)
-	_, err := s.run(context.Background(), opts, func(t string) error { results <- t; return nil })
+	_, err := s.run(context.Background(), opts, func(raw string, _ *pb.ChatDelta) error {
+		if raw != "" {
+			results <- raw
+		}
+		return nil
+	})
 	return err
 }

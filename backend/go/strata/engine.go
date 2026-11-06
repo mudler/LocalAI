@@ -6,9 +6,10 @@ package main
 //
 //	engine -> client  READY <ctx> [stop] [multi=N]   once, when the model is loaded
 //	client -> engine  GEN <max_new> [key=value ...] <id,id,...>
+//	client -> engine  GENI <max_new> [key=value ...] <embeddings file> <id,id,...>   (images; needs --vision)
 //	engine -> client  T <id>                         one per generated token
-//	engine -> client  LP ...                         optional logprobs, ignored here
-//	engine -> client  DONE <produced> <prompt> <prompt_ms> <decode_ms> <finish> ...
+//	engine -> client  LP <logprob> [id:logprob ...]  after each T when logprobs=K was asked for
+//	engine -> client  DONE <produced> <prompt> <prompt_ms> <decode_ms> <finish> <accepted> <offered> <resumed> ...
 //	engine -> client  ERR <message>                  ends the request
 //	client -> engine  STOP                           cancel the request in flight
 //	client -> engine  QUIT                           leave the serve loop
@@ -208,6 +209,14 @@ func (e *engine) tailSuffix() string {
 	return ""
 }
 
+// pid returns the engine's process id, or 0.
+func (e *engine) pid() int {
+	if e.cmd != nil && e.cmd.Process != nil {
+		return e.cmd.Process.Pid
+	}
+	return 0
+}
+
 func (e *engine) alive() bool {
 	select {
 	case <-e.exited:
@@ -224,20 +233,34 @@ func (e *engine) send(line string) error {
 	return err
 }
 
-// genRequest is one GEN call.
+// genRequest is one GEN (or, with Embeddings set, GENI) call.
 type genRequest struct {
-	MaxNew int
-	Keys   []string // sampling keys, already formatted key=value
-	IDs    []int
+	MaxNew     int
+	Keys       []string // sampling keys, already formatted key=value
+	IDs        []int
+	Embeddings string // GENI: file of image embeddings, in prompt order. No spaces or '=' in the path.
+	Logprobs   *int   // top alternatives per token (0..20); nil: no LP lines
 }
 
 func (r genRequest) line() string {
 	var b strings.Builder
-	b.WriteString("GEN ")
+	if r.Embeddings != "" {
+		b.WriteString("GENI ")
+	} else {
+		b.WriteString("GEN ")
+	}
 	b.WriteString(strconv.Itoa(r.MaxNew))
 	for _, k := range r.Keys {
 		b.WriteByte(' ')
 		b.WriteString(k)
+	}
+	if r.Logprobs != nil {
+		b.WriteString(" logprobs=")
+		b.WriteString(strconv.Itoa(max(0, min(*r.Logprobs, maxLogprobs))))
+	}
+	if r.Embeddings != "" {
+		b.WriteByte(' ')
+		b.WriteString(r.Embeddings)
 	}
 	b.WriteByte(' ')
 	for i, id := range r.IDs {
@@ -249,18 +272,100 @@ func (r genRequest) line() string {
 	return b.String()
 }
 
+// maxLogprobs is the engine's limit for logprobs=K.
+const maxLogprobs = 20
+
+// lpAlt is one alternative token of an LP line.
+type lpAlt struct {
+	ID int
+	LP float64
+}
+
+// genToken is one generated token. When logprobs were asked for, LP is the
+// log probability of the token the engine chose and Top lists the K most
+// likely tokens (the chosen one may or may not be among them). It is the
+// model's own distribution, before sampling, penalties and temperature.
+type genToken struct {
+	ID    int
+	HasLP bool
+	LP    float64
+	Top   []lpAlt
+}
+
+// genResult is the DONE line of a request.
+type genResult struct {
+	Finish       string  // "stop", "length", "cancel"
+	Produced     int     // tokens the engine generated (including the end token)
+	PromptTokens int     // prompt length the engine saw
+	Resumed      int     // prompt tokens served from the engine's conversation cache
+	PromptMS     float64 // time to read the prompt
+	DecodeMS     float64 // time to generate
+}
+
+// parseDone reads: DONE <produced> <prompt> <prompt_ms> <decode_ms> <finish> <accepted> <offered> <resumed> ...
+func parseDone(l string) genResult {
+	f := strings.Fields(l)
+	var r genResult
+	atoi := func(i int) int {
+		if i < len(f) {
+			n, _ := strconv.Atoi(f[i])
+			return n
+		}
+		return 0
+	}
+	atof := func(i int) float64 {
+		if i < len(f) {
+			v, _ := strconv.ParseFloat(f[i], 64)
+			return v
+		}
+		return 0
+	}
+	r.Produced, r.PromptTokens = atoi(1), atoi(2)
+	r.PromptMS, r.DecodeMS = atof(3), atof(4)
+	if len(f) > 5 {
+		r.Finish = f[5]
+	}
+	r.Resumed = atoi(8)
+	return r
+}
+
+// parseLP reads: LP <logprob> [id:logprob ...] or LP nan.
+func parseLP(l string, t *genToken) {
+	f := strings.Fields(l)
+	t.HasLP, t.LP, t.Top = false, 0, nil
+	if len(f) < 2 || f[1] == "nan" {
+		return
+	}
+	v, err := strconv.ParseFloat(f[1], 64)
+	if err != nil {
+		return
+	}
+	t.HasLP, t.LP = true, v
+	for _, a := range f[2:] {
+		idStr, lpStr, ok := strings.Cut(a, ":")
+		if !ok {
+			continue
+		}
+		id, err1 := strconv.Atoi(idStr)
+		lp, err2 := strconv.ParseFloat(lpStr, 64)
+		if err1 == nil && err2 == nil {
+			t.Top = append(t.Top, lpAlt{ID: id, LP: lp})
+		}
+	}
+}
+
 // generate sends one request and calls onToken for each generated token. If
 // onToken returns an error, or ctx ends, the engine is asked to STOP and the
 // request is read to its end so the stream stays in step. It returns the
-// engine's finish reason ("stop", "length", "cancel").
-func (e *engine) generate(ctx context.Context, req genRequest, onToken func(id int) error) (string, error) {
+// engine's DONE line.
+func (e *engine) generate(ctx context.Context, req genRequest, onToken func(genToken) error) (genResult, error) {
 	e.reqMu.Lock()
 	defer e.reqMu.Unlock()
 	e.busy.Set(true)
 	defer e.busy.Set(false)
 
 	if !e.alive() {
-		return "", fmt.Errorf("%w%s", errEngineDied, e.tailSuffix())
+		return genResult{}, fmt.Errorf("%w%s", errEngineDied, e.tailSuffix())
 	}
 	// A previous request that was read to its end leaves nothing behind but
 	// diagnostics; drop them so they cannot be mistaken for this one's output.
@@ -272,13 +377,14 @@ func (e *engine) generate(ctx context.Context, req genRequest, onToken func(id i
 		}
 	}
 	if err := e.send(req.line()); err != nil {
-		return "", fmt.Errorf("write request: %w", err)
+		return genResult{}, fmt.Errorf("write request: %w", err)
 	}
 
 	var (
 		stopped bool
 		cbErr   error
 		stopBy  <-chan time.Time
+		pending *genToken // with logprobs, a token waits for its LP line
 	)
 	done := ctx.Done()
 	stop := func() {
@@ -295,6 +401,22 @@ func (e *engine) generate(ctx context.Context, req genRequest, onToken func(id i
 		stopBy = t.C
 		// timer is collected with the process if it fires
 	}
+	deliver := func(t genToken) {
+		if stopped || cbErr != nil {
+			return // late tokens of a cancelled request are discarded
+		}
+		if err := onToken(t); err != nil {
+			cbErr = err
+			stop()
+		}
+	}
+	flush := func() {
+		if pending != nil {
+			t := *pending
+			pending = nil
+			deliver(t)
+		}
+	}
 	for {
 		select {
 		case <-done:
@@ -303,53 +425,49 @@ func (e *engine) generate(ctx context.Context, req genRequest, onToken func(id i
 		case <-stopBy:
 			xlog.Warn("strata: engine did not finish after STOP, killing it")
 			e.kill()
-			return "", fmt.Errorf("strata engine did not finish within %s after STOP; it was killed", e.cfg.StopTimeout)
+			return genResult{}, fmt.Errorf("strata engine did not finish within %s after STOP; it was killed", e.cfg.StopTimeout)
 		case l, ok := <-e.lines:
 			if !ok {
 				<-e.exited
-				return "", fmt.Errorf("%w mid-request (%v)%s", errEngineDied, e.waitErr, e.tailSuffix())
+				return genResult{}, fmt.Errorf("%w mid-request (%v)%s", errEngineDied, e.waitErr, e.tailSuffix())
 			}
 			switch {
 			case strings.HasPrefix(l, "T "):
-				if stopped {
-					continue // late tokens of a cancelled request are discarded
-				}
+				flush()
 				id, err := strconv.Atoi(strings.TrimSpace(l[2:]))
 				if err != nil {
-					return "", fmt.Errorf("malformed token line %q", l)
+					return genResult{}, fmt.Errorf("malformed token line %q", l)
 				}
-				if err := onToken(id); err != nil {
-					cbErr = err
-					stop()
+				if req.Logprobs != nil {
+					pending = &genToken{ID: id}
+				} else {
+					deliver(genToken{ID: id})
+				}
+			case strings.HasPrefix(l, "LP"):
+				if pending != nil {
+					parseLP(l, pending)
+					flush()
 				}
 			case l == "DONE" || strings.HasPrefix(l, "DONE "):
-				finish := doneFinish(l)
+				flush()
+				res := parseDone(l)
 				if cbErr != nil {
-					return finish, cbErr
+					return res, cbErr
 				}
 				if err := ctx.Err(); err != nil && stopped {
-					return finish, err
+					return res, err
 				}
-				return finish, nil
+				return res, nil
 			case strings.HasPrefix(l, "ERR"):
 				msg := strings.TrimSpace(strings.TrimPrefix(l, "ERR"))
 				if cbErr != nil {
-					return "", cbErr
+					return genResult{}, cbErr
 				}
-				return "", fmt.Errorf("strata engine: %s", msg)
+				return genResult{}, fmt.Errorf("strata engine: %s", msg)
 			}
-			// LP, PP, INFO and anything unknown: skipped.
+			// PP, INFO and anything unknown: skipped.
 		}
 	}
-}
-
-// doneFinish extracts the finish reason: DONE <produced> <prompt> <prompt_ms> <decode_ms> <finish> ...
-func doneFinish(l string) string {
-	f := strings.Fields(l)
-	if len(f) > 5 {
-		return f[5]
-	}
-	return ""
 }
 
 // kill ends the engine at once and waits for it.

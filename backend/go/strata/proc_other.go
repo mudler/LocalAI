@@ -9,3 +9,5 @@ import "os/exec"
 func setChildAttrs(cmd *exec.Cmd) {}
 
 func lockThreadForChild() {}
+
+func processRSS(pid int) uint64 { return 0 }
