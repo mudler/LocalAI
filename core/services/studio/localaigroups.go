@@ -279,6 +279,10 @@ func (s *Service) ownerOf(ctx context.Context, principal string) (*auth.User, er
 // turned into chat tools. have are the tools the chat holds already: a name
 // taken by one of them is not offered again.
 //
+// The client tools read and write files only through the chat's fence: x is the
+// access of the chat, so an agent's folder bounds the references they accept and
+// the place where their results land.
+//
 // The tools act as the chat's owner. The user travels in the call to the MCP
 // server (mcpendpoint.AsUser), so the client tools reach the API as that user.
 //
@@ -286,7 +290,7 @@ func (s *Service) ownerOf(ctx context.Context, principal string) (*auth.User, er
 // come back in deferred instead of tools: the caller gates them and hides them
 // behind the bridge tools (toolSearchTools). deferredGroups names the groups
 // that have a tool there.
-func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, rec session.ChatRecord, have []session.Tool) (tools, deferred []session.Tool, deferredGroups []string, prompt, note string) {
+func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, x session.Access, rec session.ChatRecord, have []session.Tool) (tools, deferred []session.Tool, deferredGroups []string, prompt, note string) {
 	taken := map[string]bool{}
 	for _, t := range have {
 		taken[t.Name] = true
@@ -328,7 +332,9 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, rec sessio
 	if b, ok := s.builtins.BuildOne(ctx, builtins.GroupLocalAIClient, chat); ok && b.OK {
 		names, _ := s.clientToolNames(ctx, rec.Principal)
 		if len(names) > 0 {
-			exec := mcpendpoint.AsUser(mcpendpoint.Only(s.d.ClientTools.ClientExecutor(), func(n string) bool { return slices.Contains(names, n) }), owner)
+			// The client tools read and write files only through the chat's
+			// fence (clientFilesOf), for direct calls and the tool search.
+			exec := mcpendpoint.WithFiles(mcpendpoint.AsUser(mcpendpoint.Only(s.d.ClientTools.ClientExecutor(), func(n string) bool { return slices.Contains(names, n) }), owner), s.clientFilesOf(x))
 			if ts, err := s.toolsOf(ctx, rec.ID, exec); err != nil {
 				s.log.Warn("studio: the LocalAI client tools are unavailable", "chat", rec.ID, "error", err)
 			} else {

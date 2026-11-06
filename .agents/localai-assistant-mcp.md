@@ -146,7 +146,11 @@ any user, within their own permissions, in the same package. They differ from th
   needs a row and a tool. `ToolGroupOf` and `ToolGroups` tell the groups apart; the two groups are
   registered by separate functions (`registerClientTools` in `tools_client.go`).
 - Files are references that a `FileStore` resolves (`inproc`: the home folder of the acting user;
-  `httpapi`: `DirFileStore`). Never put file bytes in a tool argument or result.
+  `httpapi`: `DirFileStore`). The chats do not use the home folder: `localaiTurn` gives each chat a
+  fenced store (`clientFilesOf` in `core/services/studio/clientfiles.go`) through
+  `mcpendpoint.WithFiles`, so an agent's folder bounds reads and writes of the client tools like it
+  does for the chat's file tools. The store travels to the MCP server with the acting-user token.
+  Never run client tools in a chat without it. Never put file bytes in a tool argument or result.
 - Errors name the capability (`NoModelError`, `StatusError`), so the model can tell the person.
 - Client tools are not removed by `Options.DisableMutating`.
 - The group is sent on every turn, so it is small. Related operations that share state in one

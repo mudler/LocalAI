@@ -215,7 +215,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// the setting, the chat's switches and the agent's ceiling apply. They are
 	// not part of hostTools, so the admin tools never reach a sub-agent,
 	// whatever its parent names (the group refuses a sub-agent as well).
-	aTools, aDeferred, aDeferredGroups, aPrompt, aNote := s.localaiTurn(ctx, a, rec, tools)
+	aTools, aDeferred, aDeferredGroups, aPrompt, aNote := s.localaiTurn(ctx, a, x, rec, tools)
 	tools = append(tools, aTools...)
 	// The deferred tools are gated like the typed ones (the action policy of
 	// an unattended run), then hidden behind the three tool-search tools.

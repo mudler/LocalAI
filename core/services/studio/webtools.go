@@ -235,7 +235,7 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 	var deferredGroups []string
 	for _, g := range out {
 		if g.Group == builtins.GroupLocalAIClient || g.Group == builtins.GroupLocalAIAdmin {
-			_, _, deferredGroups, _, _ = s.localaiTurn(ctx, a, rec, nil)
+			_, _, deferredGroups, _, _ = s.localaiTurn(ctx, a, session.Access{}, rec, nil)
 			break
 		}
 	}

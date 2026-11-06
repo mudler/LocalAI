@@ -172,6 +172,26 @@ func (e userAppExecutor) ExecuteAppTool(ctx context.Context, server, tool string
 	return e.AppExecutor.ExecuteAppTool(localaitools.WithUser(ctx, e.user), server, tool, args)
 }
 
+// WithFiles returns an executor that runs every tool call with fs as the file
+// store of the LocalAI client tools: they then read and write files only
+// through fs. It is how a chat fences the client tools to the files the chat
+// itself may reach. A nil fs or exec returns exec unchanged.
+func WithFiles(exec ToolExecutor, fs localaitools.FileStore) ToolExecutor {
+	if exec == nil || fs == nil {
+		return exec
+	}
+	return filesExecutor{ToolExecutor: exec, fs: fs}
+}
+
+type filesExecutor struct {
+	ToolExecutor
+	fs localaitools.FileStore
+}
+
+func (e filesExecutor) ExecuteTool(ctx context.Context, name, args string) (string, error) {
+	return e.ToolExecutor.ExecuteTool(localaitools.WithFiles(ctx, e.fs), name, args)
+}
+
 // Only returns an executor that offers and runs the tools for which keep is
 // true. A call to another tool is refused, not passed on. It is how one MCP
 // server serves two groups of tools to different callers.

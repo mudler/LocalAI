@@ -31,6 +31,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"slices"
 	"strings"
 	"sync"
@@ -525,6 +526,74 @@ var _ = Describe("the LocalAI client tools of the chats, end to end", func() {
 			Expect(spoken[0].User).To(Equal(bob))
 			Expect(spoken[0].Voice).To(Equal(profile.Voice), "the API got the exact voice string")
 			Expect(r.api.backend.count()).To(Equal(1), "the profile resolved and the backend ran")
+		})
+	})
+
+	Describe("the folder of an agent", func() {
+		var r *e2eRig
+		BeforeEach(func() {
+			r = newE2ERig(scriptCall)
+			r.put(bob, "/Proj/in.wav", e2eWAV(2*time.Second))
+			r.put(bob, "/Outside/secret.wav", e2eWAV(2*time.Second))
+		})
+		// chatInFolder opens a chat of an agent that works in /Proj.
+		chatInFolder := func() string {
+			GinkgoHelper()
+			ag, err := r.svc.SaveAgentWithFolder(ctx, bob, agents.Agent{Name: "Scoped", Model: "m"}, &studio.AgentFolderWrite{Path: "/Proj", Mode: agents.FolderWrite})
+			Expect(err).NotTo(HaveOccurred())
+			rec, err := r.svc.Create(ctx, bob, studio.CreateInput{Model: "m", AgentID: ag.ID})
+			Expect(err).NotTo(HaveOccurred())
+			return rec.ID
+		}
+		clipArgs := func(ref string) string {
+			return `{"action":"create","name":"N","audio":"` + ref + `","transcript":"Hello there."}`
+		}
+
+		It("refuses a reference outside the folder, whatever way it is spelled", func() {
+			id := chatInFolder()
+			for _, ref := range []string{"/workspace/home/Outside/secret.wav", "Outside/secret.wav", "/Outside/secret.wav"} {
+				r.sayIn(bob, id, msg("voice_profile", clipArgs(ref)))
+			}
+			res := r.h.ResultsFor("voice_profile")
+			Expect(res).To(HaveLen(3))
+			for _, x := range res {
+				Expect(x.Err).To(HaveOccurred(), "a file outside the folder was read: %s", x.Out)
+			}
+			Expect(pending(r, bob)).To(BeZero(), "nothing outside the folder may be proposed")
+		})
+
+		It("reads a file inside the folder", func() {
+			id := chatInFolder()
+			r.sayIn(bob, id, msg("voice_profile", clipArgs("in.wav")))
+			res := r.result(id, "voice_profile")
+			Expect(res.Err).NotTo(HaveOccurred())
+			Expect(res.Out).To(ContainSubstring("Nothing is created yet"))
+		})
+
+		It("saves a result inside the folder, not in the rest of the home", func() {
+			id := chatInFolder()
+			r.sayIn(bob, id, msg("generate_image", `{"prompt":"a red fox"}`))
+			res := r.result(id, "generate_image")
+			Expect(res.Err).NotTo(HaveOccurred())
+			made := decode[localaitools.ImageResult](res.Out)
+			Expect(made.Images).To(HaveLen(1))
+			name := path.Base(made.Images[0].Ref)
+			data, err := r.read(bob, session.GuestRoot+"/"+session.GuestHome+"/Proj/generated/"+name)
+			Expect(err).NotTo(HaveOccurred(), "the result is in the agent's folder")
+			Expect(data).To(Equal(r.api.png))
+			_, err = r.read(bob, session.GuestRoot+"/"+session.GuestHome+"/generated/"+name)
+			Expect(err).To(HaveOccurred(), "nothing landed in the rest of the home")
+		})
+
+		It("leaves a chat without a folder reading and writing the home as before", func() {
+			r.sayIn(bob, create(r.svc, bob), msg("voice_profile", clipArgs("/workspace/home/Outside/secret.wav")))
+			Expect(r.h.ResultsFor("voice_profile")[0].Err).NotTo(HaveOccurred())
+			res := r.call(bob, "generate_image", `{"prompt":"a red fox"}`)
+			Expect(res.Err).NotTo(HaveOccurred())
+			made := decode[localaitools.ImageResult](res.Out)
+			Expect(made.Images[0].Ref).To(HavePrefix("/workspace/home/generated/"))
+			_, err := r.read(bob, made.Images[0].Ref)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 

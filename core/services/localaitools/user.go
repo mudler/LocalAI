@@ -81,6 +81,8 @@ func voiceGrantFrom(ctx context.Context) voiceGrant {
 type actingEntry struct {
 	user  *auth.User
 	grant voiceGrant
+	// files is the file store the caller fenced the call to (WithFiles), or nil.
+	files FileStore
 }
 
 // actingUsers maps live tokens to the user and grants of a call. A token exists only while the call
@@ -88,18 +90,19 @@ type actingEntry struct {
 // so a remote MCP client can neither create nor guess a token.
 var actingUsers sync.Map
 
-// ActingUserMeta registers the user of ctx, and the voice grants of ctx, for
+// ActingUserMeta registers the user of ctx, its voice grants and its file store (WithFiles), for
 // the duration of one tool call and returns the _meta to send with it. Call
 // release when the call is done. When ctx carries neither it returns nil and a
 // no-op release.
 func ActingUserMeta(ctx context.Context) (meta map[string]any, release func()) {
 	u := UserFromContext(ctx)
 	g := voiceGrantFrom(ctx)
-	if u == nil && g == (voiceGrant{}) {
+	fs := filesFromContext(ctx)
+	if u == nil && g == (voiceGrant{}) && fs == nil {
 		return nil, func() {}
 	}
 	token := uuid.NewString()
-	actingUsers.Store(token, actingEntry{user: u, grant: g})
+	actingUsers.Store(token, actingEntry{user: u, grant: g, files: fs})
 	return map[string]any{userTokenMeta: token}, func() { actingUsers.Delete(token) }
 }
 
@@ -126,6 +129,7 @@ func userFromToken(ctx context.Context, meta map[string]any) context.Context {
 	if v, ok := actingUsers.Load(token); ok {
 		e := v.(actingEntry)
 		ctx = WithUser(ctx, e.user)
+		ctx = WithFiles(ctx, e.files)
 		return context.WithValue(ctx, voiceGrantKey{}, e.grant)
 	}
 	return ctx
