@@ -43,6 +43,9 @@ test.describe('Sharing from a connector add-on', () => {
     await expect(shared.getByTestId('shared-by-line')).toHaveText('Shared by Alice Martin')
     await expect(shared.getByRole('button')).toHaveCount(0)
 
+    // Share is at the foot of the pane of the row (and in the row menu).
+    await page.getByTestId('connector-row').filter({ hasText: 'Support bot' }).getByTestId('connector-open').click()
+    await expect(page.getByTestId('connector-pane')).toBeVisible()
     await page.getByRole('button', { name: 'Share Support bot' }).click()
     const dialog = page.getByTestId('connector-share-dialog')
     await expect(dialog.getByRole('heading', { name: 'Share "Support bot"' })).toBeVisible()
@@ -56,6 +59,8 @@ test.describe('Sharing from a connector add-on', () => {
     await sharing(page, { on: false })
     await page.goto(PAGE)
     await expect(page.getByTestId('connector-row')).toContainText('Support bot')
+    await page.getByTestId('connector-row').getByTestId('connector-open').click()
+    await expect(page.getByTestId('connector-pane')).toBeVisible()
     await expect(page.getByTestId('connector-share')).toHaveCount(0)
     await expect(page.getByTestId('connector-shared')).toHaveCount(0)
   })
