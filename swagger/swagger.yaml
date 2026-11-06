@@ -386,6 +386,12 @@ definitions:
           upgrade, say). It is absent when none runs. The observation is
           separate from State: the process can run on while the owner stages
           the next generation.
+      ownerData:
+        description: |-
+          OwnerData is true when the manifest says the tools keep the owner's own
+          data (capabilities.ownerData). Its writes need tools.write in a
+          connector chat, like the writes of a credentialed add-on.
+        type: boolean
       shadows:
         description: Shadows lists the built-in chat tools the add-on replaces (bash,
           say).
@@ -6699,6 +6705,11 @@ definitions:
       interval_seconds:
         description: IntervalSeconds is Interval in seconds; 0 for a self-paced loop.
         type: integer
+      kind:
+        description: |-
+          Kind is "wait" for a wait (the server checks a source and wakes the
+          model once); empty for a loop.
+        type: string
       last_run:
         type: string
       next:
@@ -6722,6 +6733,11 @@ definitions:
       wait:
         description: Wait is what the model of a self-paced loop said it waits for.
         type: string
+      watch:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsWait'
+        description: 'Watch is set when Kind is "wait": what it watches and how the
+          checks go.'
     type: object
   schema.ChatsLoopList:
     properties:
@@ -7746,6 +7762,12 @@ definitions:
         type: string
       last_turn:
         type: string
+      loop:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsLoop'
+        description: |-
+          Loop is the loop or wait that keeps the run going, when it has one. The
+          run shows as running while it is set.
       running:
         description: |-
           Running is true while the run's turn is going. LastTurn is how its last
@@ -8338,6 +8360,61 @@ definitions:
       used:
         description: Used is the number of tokens in the context the request sent.
         type: integer
+    type: object
+  schema.ChatsWait:
+    properties:
+      checks:
+        description: |-
+          Checks is how many checks were made. LastCheck is when the last one
+          ended and Outcome what it found: unchanged, changed or error. LastError
+          is a short message with the URLs cut to host and path; it is set while
+          the source fails.
+        type: integer
+      condition:
+        type: string
+      deadline:
+        description: Deadline is when the wait times out.
+        type: string
+      end:
+        description: |-
+          End says how the wait ended: condition_met, source_failing, timed_out or
+          stopped. It is set when Phase is waking or ended, and absent before.
+        type: string
+      errors:
+        description: Errors is the number of failed checks in a row; MaxErrors ends
+          the wait.
+        type: integer
+      last_check:
+        type: string
+      last_error:
+        type: string
+      max_errors:
+        type: integer
+      mode:
+        description: Mode is change, match or json_equals; Condition says it in words.
+        type: string
+      next_check:
+        description: NextCheck is when the next check is due; absent unless Phase
+          is waiting.
+        type: string
+      outcome:
+        type: string
+      phase:
+        description: |-
+          Phase is pending (waits for your yes), waiting (the server checks the
+          source), waking (the condition is settled and the model is about to be
+          asked, or is being asked), paused, or ended.
+        type: string
+      reason:
+        description: Reason is the line the model gave for the wait.
+        type: string
+      source:
+        type: string
+      source_kind:
+        description: |-
+          SourceKind is "tool" or "url". Source is the name of the tool, or the
+          host and path of the URL without the query.
+        type: string
     type: object
   schema.ChatsWebProviderTest:
     properties:

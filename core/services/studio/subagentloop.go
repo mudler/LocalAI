@@ -26,20 +26,26 @@ var childPoll = 30 * time.Second
 // loopHolds says whether the chat has an active self-paced loop, so that the
 // chat is not done for a parent that waits for it.
 func (s *Service) loopHolds(ctx context.Context, p, conv string) bool {
+	return s.holdingLoop(ctx, p, conv) != nil
+}
+
+// holdingLoop returns the first active self-paced loop or wait of the chat,
+// the one that keeps it from being done, or nil.
+func (s *Service) holdingLoop(ctx context.Context, p, conv string) *loops.Loop {
 	h := s.loops
 	if h == nil {
-		return false
+		return nil
 	}
 	list, err := h.o.Store.ListChat(ctx, p, conv)
 	if err != nil {
-		return false
+		return nil
 	}
 	for _, l := range list {
 		if (l.SelfPaced() || l.Watch != nil) && l.State == loops.StateActive {
-			return true
+			return &l
 		}
 	}
-	return false
+	return nil
 }
 
 // holdForLoop says whether the end of a turn must not yet be told to the

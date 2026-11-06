@@ -129,6 +129,25 @@ const (
 	UntilJSONEquals = "json_equals"
 )
 
+// What the last check of a wait found.
+const (
+	OutcomeUnchanged = "unchanged"
+	OutcomeChanged   = "changed"
+	OutcomeError     = "error"
+)
+
+// How a wait ended.
+const (
+	// EndMet means the condition held.
+	EndMet = "condition_met"
+	// EndSourceFailing means the source failed MaxErrors checks in a row.
+	EndSourceFailing = "source_failing"
+	// EndTimedOut means the deadline or the most checks came first.
+	EndTimedOut = "timed_out"
+	// EndStopped is how a wait that ended without any of these reads.
+	EndStopped = "stopped"
+)
+
 // Bounds of a wait.
 const (
 	// DefaultWaitTimeout is how long a wait lasts when the model names none.
@@ -167,6 +186,13 @@ type Watch struct {
 	Checks  int    `json:"checks"`
 	Errors  int    `json:"errors"`
 	LastErr string `json:"last_err,omitempty"`
+	// LastCheck is when the last check ended; Outcome is what it found (one of
+	// the Outcome constants). Both are empty before the first check.
+	LastCheck time.Time `json:"last_check,omitzero"`
+	Outcome   string    `json:"outcome,omitempty"`
+	// End is how the wait ended (one of the End constants); empty while it goes
+	// on, and for a wait that ended some other way (the person's stop).
+	End string `json:"end,omitempty"`
 	// BaseHash and BaseOut are the first successful check, or the last one
 	// that differed (the hash is stored before the model is woken).
 	BaseHash string `json:"base_hash,omitempty"`

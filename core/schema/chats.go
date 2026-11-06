@@ -338,6 +338,44 @@ type ChatsLoop struct {
 	Kind    string     `json:"kind,omitempty"`
 	Created time.Time  `json:"created"`
 	LastRun *time.Time `json:"last_run,omitempty"`
+	// Watch is set when Kind is "wait": what it watches and how the checks go.
+	Watch *ChatsWait `json:"watch,omitempty"`
+}
+
+// ChatsWait is the state of a wait, in fields a client can show as they are.
+// It never carries tool arguments or the query string of a URL.
+type ChatsWait struct {
+	// Phase is pending (waits for your yes), waiting (the server checks the
+	// source), waking (the condition is settled and the model is about to be
+	// asked, or is being asked), paused, or ended.
+	Phase string `json:"phase"`
+	// Reason is the line the model gave for the wait.
+	Reason string `json:"reason,omitempty"`
+	// SourceKind is "tool" or "url". Source is the name of the tool, or the
+	// host and path of the URL without the query.
+	SourceKind string `json:"source_kind"`
+	Source     string `json:"source"`
+	// Mode is change, match or json_equals; Condition says it in words.
+	Mode      string `json:"mode"`
+	Condition string `json:"condition"`
+	// Checks is how many checks were made. LastCheck is when the last one
+	// ended and Outcome what it found: unchanged, changed or error. LastError
+	// is a short message with the URLs cut to host and path; it is set while
+	// the source fails.
+	Checks    int        `json:"checks"`
+	LastCheck *time.Time `json:"last_check,omitempty"`
+	Outcome   string     `json:"outcome,omitempty"`
+	LastError string     `json:"last_error,omitempty"`
+	// NextCheck is when the next check is due; absent unless Phase is waiting.
+	NextCheck *time.Time `json:"next_check,omitempty"`
+	// Deadline is when the wait times out.
+	Deadline time.Time `json:"deadline"`
+	// Errors is the number of failed checks in a row; MaxErrors ends the wait.
+	Errors    int `json:"errors"`
+	MaxErrors int `json:"max_errors"`
+	// End says how the wait ended: condition_met, source_failing, timed_out or
+	// stopped. It is set when Phase is waking or ended, and absent before.
+	End string `json:"end,omitempty"`
 }
 
 // ChatsLoopRequest starts a loop in a chat.

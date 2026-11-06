@@ -243,6 +243,31 @@ func jsonField(text, path string) (string, error) {
 // step feeds one check to the state of a wait. It changes w, which the caller
 // owns (a copy), and says whether the wait is over.
 func step(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, string) {
+	v, why := judge(w, res, now)
+	w.LastCheck = now.UTC()
+	switch {
+	case res.Err != nil || (w.LastErr != "" && !v.Done):
+		w.Outcome = loops.OutcomeError
+	case v.Done && v.Reason.Satisfied():
+		w.Outcome = loops.OutcomeChanged
+	default:
+		w.Outcome = loops.OutcomeUnchanged
+	}
+	if v.Done {
+		switch {
+		case v.Reason.Satisfied():
+			w.End = loops.EndMet
+		case v.Reason == watch.ReasonSourceFailing:
+			w.End = loops.EndSourceFailing
+		default:
+			w.End = loops.EndTimedOut
+		}
+	}
+	return v, why
+}
+
+// judge counts one check and says whether it ends the wait.
+func judge(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, string) {
 	w.Checks++
 	if res.Err != nil {
 		w.Errors++
