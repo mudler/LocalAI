@@ -275,6 +275,13 @@ function AgentEditor() {
     return () => ro.disconnect()
   }, [loading, loadError])
 
+  // An address with #aed-sec-<card> (the Finish setup card sends one) opens on that card.
+  const hashTarget = location.hash.startsWith('#aed-sec-') ? location.hash.slice('#aed-sec-'.length) : ''
+  useEffect(() => {
+    if (!hashTarget || loading || loadError) return
+    document.getElementById(secDomId(hashTarget))?.scrollIntoView({ block: 'start' })
+  }, [hashTarget, loading, loadError])
+
   if (loading || loadError) {
     return (
       <Page className="ag-page" data-testid="agent-edit">

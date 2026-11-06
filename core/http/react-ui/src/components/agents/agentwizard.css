@@ -54,7 +54,26 @@
 .aw-checks li { display: flex; align-items: center; gap: var(--sp-2); }
 .aw-checks__ok { color: var(--dk-ok-text); font-weight: 700; }
 
+/* Finish setup */
+.aw-setup { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; padding: var(--sp-4); border-radius: var(--r-lg); box-shadow: inset 0 0 0 1px var(--dk-edge); }
+.aw-setup__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.aw-setup__head .ag-h2 { margin-right: auto; }
+.aw-setup__count { font-size: var(--fs-small); color: var(--dk-muted); }
+.aw-progress {
+  appearance: none; -webkit-appearance: none; display: block; width: 100%; height: 6px; border: 0; border-radius: var(--radius-full);
+  background: var(--dk-hover); overflow: hidden;
+}
+.aw-progress::-webkit-progress-bar { background: var(--dk-hover); }
+.aw-progress::-webkit-progress-value { background: var(--dk-accent); border-radius: var(--radius-full); }
+.aw-progress::-moz-progress-bar { background: var(--dk-accent); border-radius: var(--radius-full); }
+.aw-todo { display: grid; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.aw-todo__row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: center; min-width: 0; }
+.aw-todo__text { display: grid; gap: 2px; min-width: 0; }
+.aw-todo__title { font-weight: 600; color: var(--dk-text); overflow-wrap: anywhere; }
+.aw-todo__needs { font-size: var(--fs-small); color: var(--dk-muted); overflow-wrap: anywhere; }
+
 @media (max-width: 860px) {
   .aw-layout { grid-template-columns: minmax(0, 1fr); }
   .aw-rail { position: static; }
+  .aw-todo__row { grid-template-columns: minmax(0, 1fr); }
 }
