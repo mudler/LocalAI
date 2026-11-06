@@ -304,6 +304,126 @@ var _ = Describe("ComputeChoices", func() {
 
 	})
 
+	Context("reasoning disabled in the model config", func() {
+		// Some templates (e.g. Gemma 4 after a tool result) still open a thought
+		// channel with enable_thinking=false. The C++ autoparser then files the
+		// whole reply under reasoning_content and leaves content empty. With
+		// reasoning disabled that text is the answer, so it must come back as
+		// content and must not be mistaken for an empty generation.
+		disabled := true
+		enabled := false
+
+		countingInference := func(calls *int, resp backend.LLMResponse, streamed []*pb.ChatDelta) {
+			backend.ModelInferenceFunc = func(
+				ctx context.Context, s string, messages schema.Messages,
+				images, videos, audios []string,
+				loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader,
+				o *config.ApplicationConfig,
+				tokenCallback func(string, backend.TokenUsage) bool,
+				tools, toolChoice string,
+				logprobs, topLogprobs *int,
+				logitBias map[string]float64,
+				metadata map[string]string,
+			) (func() (backend.LLMResponse, error), error) {
+				return func() (backend.LLMResponse, error) {
+					*calls++
+					if tokenCallback != nil {
+						for _, d := range streamed {
+							tokenCallback("", backend.TokenUsage{ChatDeltas: []*pb.ChatDelta{d}})
+						}
+					}
+					return resp, nil
+				}, nil
+			}
+		}
+
+		It("returns reasoning-only deltas as content and does not retry", func() {
+			cfg.ReasoningConfig.DisableReasoning = &disabled
+			calls := 0
+			countingInference(&calls, backend.LLMResponse{
+				Response:   "",
+				ChatDeltas: []*pb.ChatDelta{{ReasoningContent: "The answer is 42."}},
+			}, nil)
+
+			_, _, deltas, err := ComputeChoices(
+				makeReq(), "test", cfg, nil, appCfg, nil,
+				func(s string, c *[]schema.Choice) {
+					*c = append(*c, schema.Choice{Text: s})
+				},
+				nil,
+				func(attempt int) bool { return true },
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(calls).To(Equal(1))
+			Expect(deltas).To(HaveLen(1))
+			Expect(deltas[0].Content).To(Equal("The answer is 42."))
+			Expect(deltas[0].ReasoningContent).To(BeEmpty())
+		})
+
+		It("hands streamed reasoning-only chunks to the token callback as content", func() {
+			cfg.ReasoningConfig.DisableReasoning = &disabled
+			calls := 0
+			streamed := []*pb.ChatDelta{
+				{ReasoningContent: "The answer "},
+				{ReasoningContent: "is 42.", ToolCalls: []*pb.ToolCallDelta{{Name: "keep"}}},
+			}
+			countingInference(&calls, backend.LLMResponse{ChatDeltas: streamed}, streamed)
+
+			var content, reasoning string
+			var toolCalls int
+			_, _, deltas, err := ComputeChoices(
+				makeReq(), "test", cfg, nil, appCfg, nil,
+				func(s string, c *[]schema.Choice) {},
+				func(s string, usage backend.TokenUsage) bool {
+					r, c := usage.ChatDeltaReasoningAndContent()
+					reasoning += r
+					content += c
+					for _, d := range usage.ChatDeltas {
+						toolCalls += len(d.ToolCalls)
+					}
+					return true
+				},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(calls).To(Equal(1))
+			Expect(content).To(Equal("The answer is 42."))
+			Expect(reasoning).To(BeEmpty())
+			Expect(toolCalls).To(Equal(1))
+			Expect(deltas).To(HaveLen(2))
+			Expect(deltas[1].ToolCalls).To(HaveLen(1))
+			// The backend's own deltas are not rewritten in place.
+			Expect(streamed[0].ReasoningContent).To(Equal("The answer "))
+		})
+
+		It("keeps reasoning as reasoning when reasoning is not disabled", func() {
+			for _, setting := range []*bool{nil, &enabled} {
+				cfg.ReasoningConfig.DisableReasoning = setting
+				calls := 0
+				countingInference(&calls, backend.LLMResponse{
+					Response:   "",
+					ChatDeltas: []*pb.ChatDelta{{ReasoningContent: "thinking"}},
+				}, []*pb.ChatDelta{{ReasoningContent: "thinking"}})
+
+				var content, reasoning string
+				_, _, deltas, err := ComputeChoices(
+					makeReq(), "test", cfg, nil, appCfg, nil,
+					func(s string, c *[]schema.Choice) {},
+					func(s string, usage backend.TokenUsage) bool {
+						r, c := usage.ChatDeltaReasoningAndContent()
+						reasoning += r
+						content += c
+						return true
+					},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(deltas[0].ReasoningContent).To(Equal("thinking"))
+				Expect(deltas[0].Content).To(BeEmpty())
+				Expect(content).To(BeEmpty())
+				Expect(reasoning).ToNot(BeEmpty())
+			}
+		})
+	})
+
 	Context("result choices cleared on retry", func() {
 		It("should only contain choices from the final attempt", func() {
 			mockInference([]backend.LLMResponse{
