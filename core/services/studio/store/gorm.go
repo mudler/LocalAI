@@ -1198,7 +1198,7 @@ func (s *gormStore) ListResumable(ctx context.Context) ([]ResumableTurn, error) 
 	}
 	out := make([]ResumableTurn, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, ResumableTurn{Principal: r.Principal, ChatID: r.ID, Attempts: r.ResumeAttempts, InterruptedAt: r.InterruptedAt})
+		out = append(out, ResumableTurn{Principal: r.Principal, ChatID: r.ID, Attempts: r.ResumeAttempts, InterruptedAt: zeroTime(r.InterruptedAt)})
 	}
 	return out, nil
 }
@@ -1281,8 +1281,8 @@ func (s *gormStore) Turn(ctx context.Context, principal, id string) (TurnInfo, e
 	if err != nil {
 		return TurnInfo{}, err
 	}
-	info := TurnInfo{Running: row.RunID != "", RunID: row.RunID, Since: row.RunSince, Beat: row.RunBeat, Last: TurnStatus(row.LastTurn),
-		ResumeAttempts: row.ResumeAttempts, InterruptedAt: row.InterruptedAt, ResumeNotBefore: row.ResumeNotBefore,
+	info := TurnInfo{Running: row.RunID != "", RunID: row.RunID, Since: zeroTime(row.RunSince), Beat: zeroTime(row.RunBeat), Last: TurnStatus(row.LastTurn),
+		ResumeAttempts: row.ResumeAttempts, InterruptedAt: zeroTime(row.InterruptedAt), ResumeNotBefore: zeroTime(row.ResumeNotBefore),
 		Owner: row.OwnerInstance}
 	if !info.Running && info.Last == TurnInterrupted {
 		now, err := s.now(ctx)
@@ -1292,6 +1292,16 @@ func (s *gormStore) Turn(ctx context.Context, principal, id string) (TurnInfo, e
 		info.WillResume, _ = resumeOpen(info.ResumeAttempts, info.InterruptedAt, info.ResumeNotBefore, now)
 	}
 	return info, nil
+}
+
+// zeroTime gives the zero time.Time for a zero instant. PostgreSQL reads the
+// zero time back in UTC, which IsZero accepts but is not the zero value the
+// JSON store gives, so the two stores would answer differently.
+func zeroTime(t time.Time) time.Time {
+	if t.IsZero() {
+		return time.Time{}
+	}
+	return t
 }
 
 func (s *gormStore) SetTurnOwner(ctx context.Context, principal, id, runID, instance string) error {
