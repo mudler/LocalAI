@@ -1591,7 +1591,9 @@
           "asks the source for the whole reach (*) for a tool that enumerates, and refuses it when the list is not *",
           "reach the owner's ShareManager with the kind and are classified as reads or mutations",
           "are unavailable on an owner without a ShareManager",
-          "check the account alone, here and through the carrier, while the add-on calls keep the add-ons check"
+          "check the account alone, here and through the carrier, while the add-on calls keep the add-ons check",
+          "run the work under the owner's lease, stop it when the owner says the lease is lost, and release it",
+          "run nothing when the owner refuses the admission, and are unavailable on an owner without a ShareAuthority"
         ]
       },
       {
@@ -2178,7 +2180,14 @@
       "checks only the account for a kind that names no feature while the add-ons check refuses everyone",
       "asks the account check for the feature a kind names, for that kind only",
       "denies every kind that is not an add-on when the host gives no account check",
-      "refuses a feature name that is not the shape of a permission"
+      "refuses a feature name that is not the shape of a permission",
+      "looks a resource shared on the owner up from a second frontend, with its owner",
+      "stops a grantee's run on one frontend before a revoke through the other frontend answers",
+      "stops the work a lowering decided on the owner takes away, and keeps what the new role allows",
+      "answers ErrDrainPending when the frontend does not stop the run within the bound",
+      "expires the admission of a frontend that stopped renewing it",
+      "keeps a lease to the person who holds it and releases it once",
+      "fails closed with the typed unavailable answer when the owner is gone, and stops a running turn"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -2432,7 +2441,14 @@
           "checks only the account for a kind that names no feature while the add-ons check refuses everyone",
           "asks the account check for the feature a kind names, for that kind only",
           "denies every kind that is not an add-on when the host gives no account check",
-          "refuses a feature name that is not the shape of a permission"
+          "refuses a feature name that is not the shape of a permission",
+          "looks a resource shared on the owner up from a second frontend, with its owner",
+          "stops a grantee's run on one frontend before a revoke through the other frontend answers",
+          "stops the work a lowering decided on the owner takes away, and keeps what the new role allows",
+          "answers ErrDrainPending when the frontend does not stop the run within the bound",
+          "expires the admission of a frontend that stopped renewing it",
+          "keeps a lease to the person who holds it and releases it once",
+          "fails closed with the typed unavailable answer when the owner is gone, and stops a running turn"
         ]
       },
       {
@@ -2924,7 +2940,9 @@
           "asks the source for the whole reach (*) for a tool that enumerates, and refuses it when the list is not *",
           "reach the owner's ShareManager with the kind and are classified as reads or mutations",
           "are unavailable on an owner without a ShareManager",
-          "check the account alone, here and through the carrier, while the add-on calls keep the add-ons check"
+          "check the account alone, here and through the carrier, while the add-on calls keep the add-ons check",
+          "run the work under the owner's lease, stop it when the owner says the lease is lost, and release it",
+          "run nothing when the owner refuses the admission, and are unavailable on an owner without a ShareAuthority"
         ]
       },
       {
