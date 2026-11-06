@@ -32,15 +32,17 @@ renders the prompt with the model's own chat template.
 
 | Option | Required | Meaning |
 |---|---|---|
-| `engine_path` | no. Set by the image (env `STRATA_ENGINE_PATH`) | Path to the engine executable. |
+| `engine_path` | no. Set by the image (env `STRATA_ENGINE_PATH`; `STRATA_DSV41_ENGINE_PATH` for `family:deepseek41`) | Path to the engine executable. |
 | `strata_root` | no. Set by the image (env `STRATA_ROOT`) | Strata source checkout. Must contain `tools/strata_tokenizer.py` and `serve/frontend.py`. |
+| `family` | no | `qwen` (default) or `deepseek41`. `deepseek41` runs the DeepSeek V4.1-Flash engine. See "DeepSeek V4.1-Flash". |
 | `python` | no | Python executable. Default `python3`. |
 | `pack` | no | Pack directory, when it is not the model directory itself or its `pack/` subdirectory. |
 | `native`, `native_dense_gguf`, `ple_gguf`, `embd_gguf`, `expert_profile`, `mtp` | no | Files the engine reads next to the pack. Each becomes the engine flag of the same name (`--native`, `--native-dense-gguf`, `--ple-gguf`, `--embd-gguf`, `--expert-profile`, `--mtp`). A relative path is looked up in the pack directory, the models directory and the pack's parent. |
 | `pack_gguf` | no | The first GGUF shard (relative to the model directory). When the model directory has no finished `pack/`, `Load` builds it from these files with Strata's pack tool. See "Building the pack". |
-| `pack_tool` | no | `iq_pack` (default): `tools/iq_pack.py`, the index, dense weights and tokenizer. `tokenizer`: `tools/strata_tokenizer.py`, only the tokenizer, for models whose engine path reads the GGUF as it is (Qwen3.6-35B-A3B); `--pack` is then not passed to the engine. |
+| `pack_tool` | no | `dsv41` (the only choice for `family:deepseek41`, set by it). `iq_pack` (default): `tools/iq_pack.py`, the index, dense weights and tokenizer. `tokenizer`: `tools/strata_tokenizer.py`, only the tokenizer, for models whose engine path reads the GGUF as it is (Qwen3.6-35B-A3B); `--pack` is then not passed to the engine. |
 | `pack_args`, `pack_timeout`, `build_pack` | no | Extra arguments for the tool (split on spaces; `--compat-bf16` for the Unsloth and Gyro files), a Go duration (default `2h`), and `build_pack:false` to turn the build off. |
-| `ple_io`, `mmap_experts` | no | `--ple-io <mode>` and `--mmap-experts` (`true`). |
+| `ple_io`, `mmap_experts` | no | `--ple-io <mode>` and `--mmap-experts` (`true`). For DeepSeek, `mmap_experts` is `true`, `false` or `auto` and `ple_io` is refused. |
+| `dspark`, `experts` | no, DeepSeek only | `--dspark` (`auto`, `on`, `off`, `none`; default `auto`) and `--experts` (`auto`, `5` or `6`; not passed when unset). |
 | `engine_args` | no | Extra engine arguments, split on spaces. Placed last, so they can override the options above. |
 | `env` | no | `KEY=VALUE` for the engine process. Repeat the option for more. LocalAI's `environment` map is passed too. |
 | `mmproj`, `vision_exe` | no | Image support: the mmproj file and the `strata-vision` program. `vision_exe` defaults to `strata-vision` next to the engine, or env `STRATA_VISION_PATH`. Images also need `native`, because the encoder reads the text model's vocabulary. `vision: off` disables it. |
@@ -105,6 +107,71 @@ options:
   - vision_exe:/opt/strata/engine/strata-vision
   - mmap_experts:true
 ```
+
+## DeepSeek V4.1-Flash
+
+`family:deepseek41` runs DeepSeek-V4.1-Flash-1017 on Strata's second engine, `strata-dsv41`
+(source `src/dsv41` in the Strata repository). It speaks the same `--serve` line protocol, so the
+request path is the one described below. What differs:
+
+- **Engine.** The image carries it in `engines-dsv41/<name>/strata-dsv41`, started through the
+  launcher `strata-dsv41-engine` (`STRATA_DSV41_ENGINE_PATH`; `STRATA_ENGINE_PATH` is never used
+  for this family). Strata publishes the package for CUDA 13 (x86_64 and arm64), the RX 9070 and
+  R9700 family and Apple Silicon only. The other images have no such folder, and a DeepSeek model
+  fails to load there with that message. The ROCm launcher also checks that the card is a
+  `gfx1200` or `gfx1201`.
+- **Command line.** `<engine> --pack <pack> [--expert-profile F] [--max-context N] [--gpus G]
+  --vision off --dspark auto [--experts N] [--mmap-experts on|off|auto] [engine_args] --serve`.
+  `main_gpu` becomes `--gpus` (not `--gpu`). The Qwen file options (`native`, `ple_gguf`, ...),
+  `ple_io`, `mmproj` and `vision_exe` are refused. `--parallel` is not exposed: with it the
+  engine changes its protocol (`rid=`), which the backend does not speak.
+- **Pack.** `pack_tool:dsv41` runs `tools/dsv41/pack_gguf.py` in the model directory. The files
+  it reads are named in `pack_args`, relative to that directory: `--shards` (the five model
+  shards), `--engram` (the n-gram table, the sixth shard of the split), `--engram-meta` (a GGUF
+  with the table's hash parameters), `--dspark-gguf`, `--dspark-noise-token 128799` and
+  `--dspark-markov-rank 256` (the drafter geometry the ISTA-DAS files leave out, as Strata's setup
+  states it). Do not add `--skip-tensors` or `--dense-override`: Strata documents that this packs
+  without an error and gives garbage text. The tool writes the paths of those files into the pack,
+  relative to the model directory, so keep the files where they were when the pack was built or
+  delete `pack/` to build it again. The pack is finished when `ds4.txt`, `tensors.txt`,
+  `engram.bin` and the tokenizer files exist.
+- **Tokenizer, template, parser.** The helper gets the family and switches Strata's frontend to
+  it: the `deepseek3` pre-tokenizer named by the pack, the pack's own V4.1 chat template (replaced
+  by Strata's copy only when the pack has the older spelling of the tool-call block),
+  `reasoning_effort` as `low`, `medium`, `high`, `max` or a number from 1 to 100,
+  `enable_thinking:false`, a forced tool call written in DSML, and Strata's `DsmlOutputParser`
+  for the reply (reasoning, answer, streamed tool arguments; `string="true"` values stay
+  strings; a reply that ends without `</think>` is returned as the answer). Tools are passed to
+  the template in the order the client wrote their keys, because the template prints them with
+  `tojson` and the prompt bytes must match DeepSeek's encoder. The Qwen path still decodes them
+  into a Go map, which sorts the keys.
+- **End token.** The tokenizer's end id (1) is dropped from the output. The engine itself stops
+  on `--eos`, whose default is also 1.
+- **Not supported.** Images (the engine reads raw RGB through its own `GENI` format and vision
+  tower; the backend starts it with `--vision off` and refuses a request with images), logprobs
+  (the engine prints no `LP` lines), `--parallel`, and grammars.
+- **Memory.** 12 GB of VRAM or more and 46 to 64 GB of RAM is the class Strata measured; the
+  111 GB n-gram table stays on the SSD. The default context in the gallery is 8192 tokens, the size
+  Strata checked.
+
+Example, with the files of the 2.00 bpw set in `models/ds/` and the shared files in `models/shared/`:
+
+```yaml
+name: deepseek-v4.1-flash
+backend: strata
+parameters:
+  model: ds
+context_size: 8192
+template:
+  use_tokenizer_template: true
+options:
+  - family:deepseek41
+  - ready_timeout:1h
+  - pack_gguf:DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00001-of-00006.gguf
+  - pack_args:--shards DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00001-of-00006.gguf ... --engram ../shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf --engram-meta ../shared/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf --dspark-gguf ../shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf --dspark-noise-token 128799 --dspark-markov-rank 256
+```
+
+The gallery has the four ISTA-DAS sets (1.75, 2.00 and 2.25 bpw, and Coder); see the feature page.
 
 ## Features
 
@@ -214,8 +281,9 @@ answer-room limits of the server are not applied.
 
 - Protocol is unversioned (see above). `engine_args` is not validated.
 - The Python helper needs a Strata source tree and Python packages. The backend image has them; running outside the image needs them set up by hand.
-- The gallery has entries for the ready-made NVFP4 packs and for the GGUF models (see the feature page). Not in it: DeepSeek V4.1-Flash (a separate engine, `strata-dsv41`, and its own tokenizer), NVIDIA's FP4-QAD checkpoint (needs a conversion first) and OrcaRouter (manual).
-- The pack build and the GGUF entries have been tested with a stand-in interpreter and the real tool's imports only; no model has been packed and no real engine has run.
+- The gallery has entries for the ready-made NVFP4 packs and for the GGUF models (see the feature page). It also has the four ISTA-DAS DeepSeek V4.1-Flash sets. Not in it: NVIDIA's FP4-QAD checkpoint (needs a conversion first) and OrcaRouter (manual).
+- The pack build and the GGUF entries have been tested with a stand-in interpreter and the real tool's imports only; no model has been packed and no real engine has run. The DeepSeek pack tool was also run on the real headers of all four gallery sets (the first 8 MB of each file, the rest sparse), and the prompts were compared with Strata's golden token ids on the real vocabulary. The DeepSeek engine itself has never run here.
+- DeepSeek: no images, no logprobs, no `--parallel`; the engine package exists only for CUDA 13, the RX 9070 family and Apple Silicon. On Apple Silicon the Metal engine and the file layout are untested.
 - CI builds Linux amd64 CUDA 12 and 13 images only. No CPU, ROCm, Darwin or arm64 build.
 - Split or multi-GPU layouts and the drafter options are reachable only through `engine_args`, untested.
 
@@ -232,3 +300,9 @@ tool-call deltas (streaming and not), forced tool calls, logprobs, `GENI` with i
 mapping and the load checks. `TestHelperTokenizer` runs the real Python helper, with the real
 Strata parser, and is skipped unless `STRATA_ROOT` and `STRATA_TEST_PACK` (a directory with `tokenizer/`)
 are set.
+
+The DeepSeek specs in `deepseek_helper_test.go` also run the real helper. They need `STRATA_ROOT`
+(a Strata checkout at the pinned commit) and `STRATA_TEST_PYTHON` (a Python with `regex` and
+`jinja2`) and compare the rendered prompts with the golden file of that checkout. Set
+`STRATA_TEST_DS_PACK` to a pack made by `pack_gguf.py` as well to compare the token ids on the
+real vocabulary.

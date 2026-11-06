@@ -46,6 +46,15 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 		return false
 	}
 
+	isDeepSeek := func(e gallery.GalleryModel) bool {
+		for _, o := range optionList(e) {
+			if o == "family:deepseek41" {
+				return true
+			}
+		}
+		return false
+	}
+
 	It("pins every file to a commit and a SHA-256, inside the model directory", func() {
 		sha := regexp.MustCompile(`^[0-9a-f]{64}$`)
 		pinned := regexp.MustCompile(`^https://(huggingface\.co/[^/]+/[^/]+/resolve|raw\.githubusercontent\.com/[^/]+/[^/]+)/[0-9a-f]{40}/`)
@@ -57,8 +66,14 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 			for _, f := range e.AdditionalFiles {
 				Expect(f.SHA256).To(MatchRegexp(sha.String()), e.Name+" "+f.Filename)
 				Expect(f.URI).To(MatchRegexp(pinned.String()), "%s: %s is not pinned to a commit", e.Name, f.URI)
-				Expect(strings.HasPrefix(f.Filename, dir+"/")).To(BeTrue(),
-					"%s: %s is outside the model directory %s", e.Name, f.Filename, dir)
+				// The DeepSeek entries keep the files they share (the n-gram table, the
+				// draft model, the metadata shard) in one folder, so a second set does
+				// not download them again.
+				inside := strings.HasPrefix(f.Filename, dir+"/")
+				if isDeepSeek(e) && strings.HasPrefix(f.Filename, deepSeekSharedDir+"/") {
+					inside = true
+				}
+				Expect(inside).To(BeTrue(), "%s: %s is outside the model directory %s", e.Name, f.Filename, dir)
 				Expect(seen).ToNot(HaveKey(f.Filename), e.Name)
 				seen[f.Filename] = true
 			}
@@ -81,6 +96,9 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 					Expect(have).To(HaveKey(path.Clean(v)), "%s: option %s names %s, which the entry does not download", e.Name, k, v)
 				}
 			}
+			if isDeepSeek(e) {
+				continue // checked by its own spec below
+			}
 			Expect(seen).To(HaveKey("native"), e.Name)
 			if mm, ok := e.Overrides["mmproj"].(string); ok {
 				Expect(have).To(HaveKey(strings.TrimPrefix(mm, dir+"/")), e.Name+" mmproj")
@@ -93,6 +111,9 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 		shard := regexp.MustCompile(`^(.*)-(\d{5})-of-(\d{5})\.gguf$`)
 		for _, e := range strataEntries() {
 			have := downloaded(e)
+			if isDeepSeek(e) {
+				continue
+			}
 			if !isBuilt(e) {
 				for _, rel := range []string{
 					"pack/index.txt", "pack/native_experts.txt", "pack/dense.bin", "pack/experts.bin",
@@ -102,6 +123,9 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 					Expect(have).To(HaveKey(rel), "%s: pack file %s is missing", e.Name, rel)
 				}
 				continue
+			}
+			if isDeepSeek(e) {
+				continue // checked by its own spec below
 			}
 			// A GGUF set: the backend makes the pack, so none is downloaded,
 			// and the first shard must come with all of its siblings.
@@ -139,6 +163,7 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 			"qwen-community-1.0":        "Qwen Community License 1.0",
 			"nvidia-open-model-license": "NVIDIA Open Model License",
 			"apache-2.0":                "Apache License 2.0",
+			"mit":                       "MIT License",
 			"swift-open-license-1.0":    "Swift Open License 1.0",
 		}
 		for _, e := range strataEntries() {
@@ -155,6 +180,88 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 			Expect(e.Tags).To(ContainElement("experimental"), e.Name)
 			Expect(e.URLs).To(ContainElement("https://github.com/Niko1221/Strata"), e.Name)
 		}
+	})
+
+	It("builds the DeepSeek-V4.1 packs from files the entry downloads", func() {
+		shard := regexp.MustCompile(`^(.*)-(\d{5})-of-(\d{5})\.gguf$`)
+		type pin struct{ sha, uri string }
+		shared := map[string]pin{}
+		count := 0
+		for _, e := range strataEntries() {
+			if !isDeepSeek(e) {
+				continue
+			}
+			count++
+			dir := modelDir(e)
+			have := downloaded(e)
+			opts := map[string]string{}
+			for _, o := range optionList(e) {
+				k, v, _ := strings.Cut(o, ":")
+				Expect(opts).ToNot(HaveKey(k), "%s: option %s is set twice", e.Name, k)
+				opts[k] = v
+			}
+			for _, banned := range []string{"native", "ple_gguf", "mmproj", "vision_exe", "pack_tool"} {
+				Expect(opts).ToNot(HaveKey(banned), "%s: %s is a Qwen option", e.Name, banned)
+			}
+			Expect(e.Overrides).ToNot(HaveKey("mmproj"), e.Name)
+			Expect(opts).To(HaveKey("expert_profile"), e.Name)
+			Expect(have).To(HaveKey(opts["expert_profile"]), e.Name)
+			Expect(opts).To(HaveKey("ready_timeout"), e.Name)
+			Expect(e.Overrides["context_size"]).To(BeNumerically(">=", 8192), e.Name)
+
+			// pack_args names the model shards (in the model directory) and the
+			// shared files (beside it), and every one of them is downloaded.
+			args := strings.Fields(opts["pack_args"])
+			flags := map[string][]string{}
+			cur := ""
+			for _, a := range args {
+				if strings.HasPrefix(a, "--") {
+					cur = a
+					flags[cur] = nil
+					continue
+				}
+				flags[cur] = append(flags[cur], a)
+			}
+			Expect(flags).To(HaveKey("--shards"), e.Name)
+			Expect(flags["--shards"]).To(HaveLen(5), e.Name)
+			Expect(flags["--shards"][0]).To(Equal(opts["pack_gguf"]), e.Name)
+			m := shard.FindStringSubmatch(opts["pack_gguf"])
+			Expect(m).ToNot(BeNil(), e.Name)
+			Expect(m[2]).To(Equal("00001"), e.Name)
+			Expect(m[3]).To(Equal("00006"), e.Name+": the sixth shard of the split is the n-gram table")
+			for i, name := range flags["--shards"] {
+				Expect(name).To(Equal(fmt.Sprintf("%s-%05d-of-00006.gguf", m[1], i+1)), e.Name)
+				Expect(have).To(HaveKey(name), e.Name)
+			}
+			for _, flag := range []string{"--engram", "--engram-meta", "--dspark-gguf"} {
+				Expect(flags[flag]).To(HaveLen(1), "%s: %s", e.Name, flag)
+				rel := path.Clean(path.Join(dir, flags[flag][0]))
+				found := false
+				for _, f := range e.AdditionalFiles {
+					if f.Filename == rel {
+						found = true
+						// The same shared file must be the same download in every entry.
+						if prev, ok := shared[rel]; ok {
+							Expect(pin{f.SHA256, f.URI}).To(Equal(prev), "%s: %s differs from another entry", e.Name, rel)
+						}
+						shared[rel] = pin{f.SHA256, f.URI}
+					}
+				}
+				Expect(found).To(BeTrue(), "%s: %s names %s, which the entry does not download", e.Name, flag, rel)
+			}
+			// The geometry the ISTA-DAS files leave out, as Strata's setup states it.
+			Expect(flags["--dspark-noise-token"]).To(Equal([]string{"128799"}), e.Name)
+			Expect(flags["--dspark-markov-rank"]).To(Equal([]string{"256"}), e.Name)
+			// Text only, DeepSeek's sampling for local use, its own template.
+			Expect(e.Overrides["known_usecases"]).To(Equal([]any{"chat"}), e.Name)
+			params, _ := e.Overrides["parameters"].(map[string]any)
+			Expect(params["temperature"]).To(BeNumerically("==", 1.0), e.Name)
+			Expect(params["top_p"]).To(BeNumerically("==", 1.0), e.Name)
+			Expect(e.Description).To(ContainSubstring("ISTA-DAS"), e.Name)
+			Expect(e.Description).To(MatchRegexp(`(?i)free disk`), e.Name)
+			Expect(e.Description).To(ContainSubstring("CUDA 13"), e.Name)
+		}
+		Expect(count).To(Equal(4))
 	})
 
 	It("lists every model Strata documents as running on this backend", func() {
@@ -174,11 +281,17 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 			"swift-1.5-qwen3.8-flash-next-iq2_xs", "swift-1.5-qwen3.8-flash-next-iq3_xxs",
 			"swift-1.5-qwen3.8-flash-next-iq3_s",
 			"qwen3.6-35b-a3b-ud-q4_k_xl-strata", "qwen3.6-35b-a3b-ud-q6_k_xl-strata", "qwen3.6-35b-a3b-q8_0-strata",
+			"deepseek-v4.1-flash-ista-iq1_m", "deepseek-v4.1-flash-ista-iq2_xxs", "deepseek-v4.1-flash-ista-iq2_xs",
+			"deepseek-v4.1-flash-ista-coder-iq2_xxs",
 		} {
 			Expect(names).To(HaveKey(want))
 		}
 	})
 })
+
+// deepSeekSharedDir holds the files every DeepSeek-V4.1 entry uses: the
+// n-gram table, the draft model and the metadata shard.
+const deepSeekSharedDir = "strata/models/deepseek-v4.1-flash-shared"
 
 func optionList(e gallery.GalleryModel) []string {
 	var out []string
