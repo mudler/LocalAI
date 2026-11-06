@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -43,7 +44,25 @@ const proposeTriggerDescription = "Propose a trigger: a task that runs by itself
 	"Fill reads, writes, widget and estimated_tokens so the person sees what a run does and costs before they confirm: " +
 	"writes is the data file a run rewrites and widget the id of the Home widget in home.json that shows it. " +
 	"A run with nobody present only reads unless acts lists what it may also do; ask for the least it needs, and only for what the user's request needs. " +
-	"The proposal shows the acts to the user before they confirm."
+	"The proposal shows the acts to the user before they confirm. " + triggerFilesNote
+
+// triggerFilesNote ends the descriptions of propose_trigger and update_trigger.
+// It keeps a model from putting a script or a state file of a trigger in a
+// place that a run cannot see.
+const triggerFilesNote = "Files: " + workfiles.TriggerFileRule + " Name such a path in the prompt as it is under /workspace/home."
+
+// chatPathWarning is the warning for the model when the prompt or the plan of a
+// trigger names a path under /workspace/chat. A run starts a new chat, so the
+// path is empty there. It returns "" when no text names such a path.
+func chatPathWarning(texts ...string) string {
+	for _, t := range texts {
+		if strings.Contains(t, "/workspace/chat") {
+			return " Warning: the prompt or the plan names a path under /workspace/chat. Every run of a trigger starts a new chat with an empty /workspace/chat, " +
+				"so a file there is not found. Move the script and its state under /workspace/home and change the trigger to name those paths."
+		}
+	}
+	return ""
+}
 
 const proposeTriggerSchema = `{"type":"object","properties":{` +
 	`"name":{"type":"string","minLength":1,"maxLength":80,"description":"A short name for the trigger."},` +
@@ -108,7 +127,7 @@ const updateTriggerDescription = "Change a trigger of the user, named by its ref
 	"enabled false pauses the trigger and enabled true resumes it. " +
 	"A change that only pauses or resumes applies at once, and the user can undo it on the card in the chat: then say that it is paused or resumed. " +
 	"Any other change does nothing by itself: a card shows the user the fields before and after, and nothing changes until they press Apply, so never say that the change is made until they do. " +
-	"The same rules as propose_trigger apply: the prompt must stand alone and must not ask the run to print JSON; when is a schedule text or {\"file_arrives_in\": folder}; a schedule runs at most once an hour, and writes is a path inside the user's files."
+	"The same rules as propose_trigger apply: the prompt must stand alone and must not ask the run to print JSON; when is a schedule text or {\"file_arrives_in\": folder}; a schedule runs at most once an hour, and writes is a path inside the user's files. " + triggerFilesNote
 
 const updateTriggerSchema = `{"type":"object","properties":{` +
 	`"ref":{"type":"string","minLength":1,"description":"The ref of the trigger, from list_triggers."},` +
@@ -413,14 +432,16 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 	if err != nil {
 		return "", errors.New(strings.TrimPrefix(err.Error(), ErrBadTrigger.Error()+": "))
 	}
+	warn := chatPathWarning(in.Prompt, in.Reads, in.Writes)
 	if connector {
-		return h.afterPropose(ctx, a, t, fresh, in.Route, dropped, may)
+		out, err := h.afterPropose(ctx, a, t, fresh, in.Route, dropped, may)
+		return out + warn, err
 	}
 	// The card lets the interface show Create, Edit and Dismiss on this tool
 	// line, also after a reload; the event tells a client that is watching.
 	session.SetToolCard(ctx, session.ToolCard{Kind: ProposalCardKind, ID: t.ID})
 	h.svc.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindTriggerProposed, IDs: []string{t.ID}, Text: t.Name})
-	return fmt.Sprintf("Proposed %q (%s). It is not active: the user must confirm it in the chat or on the Triggers page. Do not say it will run until they do.", t.Name, h.summary(t)), nil
+	return fmt.Sprintf("Proposed %q (%s). It is not active: the user must confirm it in the chat or on the Triggers page. Do not say it will run until they do.%s", t.Name, h.summary(t), warn), nil
 }
 
 func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID string, onlyAgent bool, raw json.RawMessage) (string, error) {
@@ -570,8 +591,8 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, agentID st
 		}
 		return fmt.Sprintf("%q is %s. The user can undo this on the card in the chat.", target.Name, state), nil
 	}
-	return fmt.Sprintf("Asked to change %q (%s). Nothing is changed yet: the user must press Apply on the card in the chat. Do not say it changed until they do.",
-		target.Name, strings.Join(changedFields(target, asTrigger(rec)), ", ")), nil
+	return fmt.Sprintf("Asked to change %q (%s). Nothing is changed yet: the user must press Apply on the card in the chat. Do not say it changed until they do.%s",
+		target.Name, strings.Join(changedFields(target, asTrigger(rec)), ", "), chatPathWarning(rec.Prompt, rec.Reads, rec.Writes)), nil
 }
 
 func (h *Triggers) deleteTool(ctx context.Context, a workspace.Actor, agentID string, raw json.RawMessage) (string, error) {

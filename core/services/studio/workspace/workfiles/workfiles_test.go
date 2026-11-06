@@ -117,6 +117,22 @@ var _ = Describe("working files", func() {
 		Entry("a folder named chat in the home is no chat folder", "/workspace/home/chat/work/a.docx", workfiles.Deliverable, false),
 	)
 
+	It("never moves a file out of a hidden folder", func() {
+		Expect(workfiles.Stray("/workspace/home/.state/run.sh")).To(BeFalse())
+		Expect(workfiles.Stray("/workspace/home/jobs/.cache/run.py")).To(BeFalse())
+		Expect(workfiles.Stray("/workspace/home/run.py")).To(BeTrue())
+	})
+
+	It("tells a scoped chat that a file a trigger uses must stay in the home", func() {
+		n := workfiles.Nudge(workfiles.ChatGuestFolder, "/workspace/home/run.py")
+		Expect(n).To(ContainSubstring("Consider moving it"))
+		Expect(n).To(ContainSubstring("/workspace/home"))
+		Expect(n).To(ContainSubstring("trigger"))
+		Expect(n).To(ContainSubstring("never under /workspace/chat"))
+		// An unscoped chat's work folder is inside the home: nothing to warn about.
+		Expect(workfiles.Nudge("/workspace/home/Chats/x/work/", "/workspace/home/run.py")).NotTo(ContainSubstring("trigger"))
+	})
+
 	It("steers a scoped chat to its own work folder", func() {
 		Expect(workfiles.ChatGuestFolder).To(Equal("/workspace/chat/work/"))
 		p := workfiles.ScopedPrompt(true)
