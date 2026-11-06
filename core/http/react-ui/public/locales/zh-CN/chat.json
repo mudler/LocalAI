@@ -440,6 +440,7 @@
     "resume": {
       "waiting": "{{seconds}} 秒后继续（第 {{attempt}} 次，共 {{max}} 次）。",
       "resuming": "正在从中断处继续。",
+      "server": "服务器正在从中断处继续。",
       "exhausted": "尝试 {{max}} 次后仍无法继续。请重试。",
       "stop": "停止重试"
     }

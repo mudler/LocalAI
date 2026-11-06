@@ -522,6 +522,7 @@
     "resume": {
       "waiting": "Dilanjutkan dalam {{seconds}} detik (percobaan {{attempt}} dari {{max}}).",
       "resuming": "Dilanjutkan dari bagian yang terhenti.",
+      "server": "Server melanjutkan dari bagian yang terhenti.",
       "exhausted": "Tidak bisa dilanjutkan setelah {{max}} percobaan. Coba lagi.",
       "stop": "Berhenti mencoba"
     }

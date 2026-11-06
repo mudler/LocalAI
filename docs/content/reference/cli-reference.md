@@ -225,6 +225,7 @@ See [Authentication & Authorization]({{%relref "features/authentication" %}}) fo
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--disable-chats` | `false` | Turn off the chats: the `/api/chats` API, saved agents, triggers, connectors and the agent tasks and jobs. Nothing of them starts | `$LOCALAI_DISABLE_CHATS` |
+| `--chats-auto-resume` | `false` | Go on by itself with a chat turn that a restart interrupted: up to 3 tries, after 15 seconds, 1 minute and 5 minutes, within 30 minutes of the interruption. Off: a person, or the page, resumes it. See [If a frontend dies]({{% relref "features/chats#clusters" %}}) | `$LOCALAI_CHATS_AUTO_RESUME` |
 | `--disable-triggers` | `false` | Turn off the trigger runner and the triggers API; the rest of the chats stays on | `$LOCALAI_DISABLE_TRIGGERS` |
 | `--disable-connectors` | `false` | Turn off the connector bots (Telegram, Slack) and the connectors API; the rest of the chats stays on | `$LOCALAI_DISABLE_CONNECTORS` |
 | `--disable-connector-talkback` | `false` | Turn off the tool with which an agent writes to a chat of its connection, and the reports of triggers to a channel (the rest of the connectors stays on) | `$LOCALAI_DISABLE_CONNECTOR_TALKBACK` |

@@ -100,3 +100,52 @@ test('turn resume: a manual resume in flight shows as resuming and adds no timer
   assert.equal(r.view.phase, 'resuming')
   assert.equal(c.pending().length, 0)
 })
+
+test('turn resume: when the server resumes, the page runs no timer of its own', () => {
+  const c = clock()
+  const calls = []
+  const r = createResumer({ resume: (id) => { calls.push(id) }, refresh: () => {}, schedule: c.schedule, cancel: c.cancel, now: () => NOW })
+  r.observe(interrupted({ willResume: true, resumeAttempts: 1 }))
+  assert.equal(r.view.phase, 'server')
+  assert.equal(r.view.attempt, 2, 'the next try is number 2')
+  assert.deepEqual(c.pending().map(t => t.ms), [30000], 'only the slow re-read is scheduled, not a resume')
+  assert.deepEqual(calls, [])
+  // The server is done with the chat: the timer is gone and the turn runs.
+  r.observe(interrupted({ running: true, willResume: false }))
+  assert.equal(r.view.phase, 'idle')
+  assert.equal(c.pending().length, 0)
+})
+
+test('turn resume: a waiting page hands over to the server', () => {
+  const c = clock()
+  const r = createResumer({ resume: () => {}, schedule: c.schedule, cancel: c.cancel, now: () => NOW })
+  r.observe(interrupted())
+  assert.equal(r.view.phase, 'waiting')
+  r.observe(interrupted({ willResume: true }))
+  assert.equal(r.view.phase, 'server')
+  assert.deepEqual(c.pending().map(t => t.ms), [30000], 'its own resume timer is cancelled')
+})
+
+test('turn resume: a chat the server gave up on is not retried by the page', () => {
+  const c = clock()
+  const calls = []
+  const r = createResumer({ resume: (id) => { calls.push(id) }, schedule: c.schedule, cancel: c.cancel, now: () => NOW })
+  r.observe(interrupted({ willResume: false, resumeAttempts: 3 }))
+  assert.equal(r.view.phase, 'exhausted')
+  assert.equal(r.view.attempt, 3)
+  assert.equal(c.pending().length, 0)
+  assert.equal(nextResume({ lastTurn: 'interrupted', running: false, updated: fresh, now: NOW, serverTried: 1 }), 'exhausted')
+  assert.equal(nextResume({ lastTurn: 'interrupted', running: false, updated: fresh, now: NOW, willResume: true }), 'server')
+})
+
+test('turn resume: while the server resumes the page reads the chat again until it is done', () => {
+  const c = clock()
+  const reads = []
+  const r = createResumer({ resume: () => {}, refresh: (id) => { reads.push(id) }, schedule: c.schedule, cancel: c.cancel, now: () => NOW })
+  r.observe(interrupted({ willResume: true }))
+  c.fire()
+  assert.deepEqual(reads, ['c1'])
+  assert.equal(c.pending().length, 1, 'it reads again later')
+  r.dispose()
+  assert.equal(c.pending().length, 0)
+})

@@ -5864,6 +5864,8 @@ definitions:
         description: |-
           Place is set on a chat that a messaging connection started, when the
           connection kept where it lives.
+      resume_attempts:
+        type: integer
       running:
         description: |-
           Running is true while a turn runs. LastTurn is how the last finished turn
@@ -5878,6 +5880,12 @@ definitions:
         type: string
       updated:
         type: string
+      will_resume:
+        description: |-
+          WillResume is true while the chat is at an interrupted turn that the
+          server resumes by itself (LOCALAI_CHATS_AUTO_RESUME): a client waits and
+          does not resume it too. ResumeAttempts counts the tries made so far.
+        type: boolean
     type: object
   schema.ChatsConversationDetail:
     properties:
@@ -5933,6 +5941,8 @@ definitions:
         description: |-
           Place is set on a chat that a messaging connection started, when the
           connection kept where it lives.
+      resume_attempts:
+        type: integer
       running:
         description: |-
           Running is true while a turn runs. LastTurn is how the last finished turn
@@ -5947,6 +5957,12 @@ definitions:
         type: string
       updated:
         type: string
+      will_resume:
+        description: |-
+          WillResume is true while the chat is at an interrupted turn that the
+          server resumes by itself (LOCALAI_CHATS_AUTO_RESUME): a client waits and
+          does not resume it too. ResumeAttempts counts the tries made so far.
+        type: boolean
     type: object
   schema.ChatsConversationList:
     properties:
@@ -17006,12 +17022,13 @@ paths:
       - chats
   /api/chats/{id}/resume:
     post:
-      description: Starts a new turn that goes on from where the last one failed or was interrupted by a restart.
-        The transcript stays as it is, with the messages, tool calls and results of
-        the failed turn and the reason at its end; the model keeps its own state,
-        so a tool call that has its result is not made again. Messages that wait for
-        the chat go first. When the chat is not at a failed or interrupted turn, or a turn runs,
-        nothing starts and started is false, so a second click is harmless.
+      description: Starts a new turn that goes on from where the last one failed or
+        was interrupted by a restart. The transcript stays as it is, with the messages,
+        tool calls and results of the failed turn and the reason at its end; the model
+        keeps its own state, so a tool call that has its result is not made again.
+        Messages that wait for the chat go first. When the chat is not at a failed
+        or interrupted turn, or a turn runs, nothing starts and started is false,
+        so a second click is harmless.
       parameters:
       - description: conversation id
         in: path

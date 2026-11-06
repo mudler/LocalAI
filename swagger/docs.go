@@ -23278,6 +23278,9 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "resume_attempts": {
+                    "type": "integer"
+                },
                 "running": {
                     "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed, interrupted, or paused (the tool loop\nreached its step limit; send a message to go on).",
                     "type": "boolean"
@@ -23295,6 +23298,10 @@ const docTemplate = `{
                 },
                 "updated": {
                     "type": "string"
+                },
+                "will_resume": {
+                    "description": "WillResume is true while the chat is at an interrupted turn that the\nserver resumes by itself (LOCALAI_CHATS_AUTO_RESUME): a client waits and\ndoes not resume it too. ResumeAttempts counts the tries made so far.",
+                    "type": "boolean"
                 }
             }
         },
@@ -23371,6 +23378,9 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "resume_attempts": {
+                    "type": "integer"
+                },
                 "running": {
                     "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed, interrupted, or paused (the tool loop\nreached its step limit; send a message to go on).",
                     "type": "boolean"
@@ -23388,6 +23398,10 @@ const docTemplate = `{
                 },
                 "updated": {
                     "type": "string"
+                },
+                "will_resume": {
+                    "description": "WillResume is true while the chat is at an interrupted turn that the\nserver resumes by itself (LOCALAI_CHATS_AUTO_RESUME): a client waits and\ndoes not resume it too. ResumeAttempts counts the tries made so far.",
+                    "type": "boolean"
                 }
             }
         },

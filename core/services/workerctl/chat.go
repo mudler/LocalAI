@@ -9,6 +9,10 @@ type ChatStartRequest struct {
 	Principal string `json:"principal"`
 	ChatID    string `json:"chat_id"`
 	Text      string `json:"text"`
+	// Resume asks the worker to go on with the interrupted turn of the chat
+	// whose resume is due, instead of starting a turn from Text. The worker
+	// takes the claim in the store, so a repeated request starts nothing.
+	Resume bool `json:"resume,omitempty"`
 	// Grant is set for a connector message: what the sender of the turn may
 	// do. The worker keeps it for the turn, so a tool it builds is offered
 	// only for the capabilities in it. A start without a grant for a connector

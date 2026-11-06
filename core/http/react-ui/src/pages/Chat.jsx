@@ -1057,6 +1057,7 @@ function ChatPage() {
   const autoResume = useAutoResume({
     id: activeId, lastTurn: chat.lastTurn, running: chat.running, resuming: chat.resuming,
     updated: chat.detail?.updated, resume: chat.resume,
+    willResume: chat.willResume, resumeAttempts: chat.resumeAttempts, refresh: chat.refreshChat,
   })
   const failureShown = showInterrupted ? INTERRUPTED : (chat.failure || chat.failureSaved)
   // The one state of the status line, and whether the keyboard hint shows:

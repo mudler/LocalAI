@@ -438,6 +438,7 @@
     "resume": {
       "waiting": "Reprise dans {{seconds}} secondes (essai {{attempt}} sur {{max}}).",
       "resuming": "Reprise là où elle s'était arrêtée.",
+      "server": "Le serveur reprend là où elle s'était arrêtée.",
       "exhausted": "La reprise a échoué après {{max}} essais. Réessayez.",
       "stop": "Arrêter les essais"
     }

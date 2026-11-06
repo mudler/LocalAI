@@ -138,6 +138,9 @@ type Deps struct {
 	// more is refused with ErrWorkerFull; a start for a chat whose turn runs
 	// is taken, because its message only waits. Zero: no cap.
 	MaxWorkerTurns int
+	// AutoResume makes the server go on by itself with a turn that a restart
+	// interrupted (see resume.go). Off: the person, or the page, resumes it.
+	AutoResume bool
 	// HeartbeatEvery is how often a running turn tells the store it is alive.
 	// Zero means 15 seconds.
 	HeartbeatEvery time.Duration
@@ -764,8 +767,19 @@ func (s *Service) Messages(ctx context.Context, user, conv string, after int64, 
 }
 
 // Turn returns the turn state of a conversation.
+//
+// WillResume is true only when this server resumes the turn by itself, that
+// is when Deps.AutoResume is on and the chat may resume (see resume.go).
 func (s *Service) Turn(ctx context.Context, user, conv string) (store.TurnInfo, error) {
-	return s.d.Store.Turn(ctx, principal(user), conv)
+	p := principal(user)
+	info, err := s.d.Store.Turn(ctx, p, conv)
+	if err != nil || !info.WillResume {
+		return info, err
+	}
+	if rec, gerr := s.d.Store.GetChat(ctx, p, conv); gerr != nil || !s.resumeEligible(rec) {
+		info.WillResume = false
+	}
+	return info, nil
 }
 
 // Principal returns the owner ID the service uses for a user: the user's ID,
@@ -1275,6 +1289,11 @@ func (s *Service) ReapStale(ctx context.Context, olderThan time.Duration) (int, 
 		s.expireConsents(ctx, r.Principal, r.ChatID, r.RunID)
 		s.bus.Publish(k, session.Event{Kind: session.KindError, Text: "The turn was interrupted."})
 		s.bus.Publish(k, session.Event{Kind: session.KindTurnEnd})
+		if s.keepResume(ctx, r.Principal, r.ChatID) {
+			// The sweep goes on with the turn: what waits for its end (a run
+			// record, a goal, a parent) waits for the end of the whole chain.
+			continue
+		}
 		// A parent waits for a sub-agent whose turn ended this way too.
 		if !s.loopHolds(ctx, r.Principal, r.ChatID) {
 			s.notifyWaiters(k, store.TurnInterrupted)
@@ -1427,9 +1446,17 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 		s.guardRuns.Delete(k)
 		guarded = true
 	}
-	s.settleGoal(ctx, p, conv, status, r.steps)
+	// A turn that Close cut short may be resumed by the server after the
+	// restart. Then the goal, a parent and the run record wait for the end of
+	// the chain, not for this turn.
+	resumes := status == store.TurnInterrupted && s.keepResume(ctx, p, conv)
+	if resumes {
+		s.settleGoal(ctx, p, conv, store.TurnDone, r.steps) // counts the steps, pauses nothing
+	} else {
+		s.settleGoal(ctx, p, conv, status, r.steps)
+	}
 	s.observeTurn(ctx, p, conv, r.started, outcomeOf(r.stopped, r.failed || status == store.TurnInterrupted))
-	if !s.holdForLoop(ctx, p, conv, status) {
+	if !resumes && !s.holdForLoop(ctx, p, conv, status) {
 		s.notifyWaiters(k, status)
 	}
 	if !status.Finished() {

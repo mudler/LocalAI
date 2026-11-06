@@ -40,7 +40,7 @@ export function ErrorCard({ failure, isAdmin, kept, onRetry, canRetry, auto, onS
   const detail = view.detail && view.detail !== view.reason ? view.detail : ''
   const interrupted = failure?.code === 'interrupted'
   const phase = interrupted ? auto?.phase || 'idle' : 'idle'
-  const progress = phase === 'waiting' || phase === 'resuming' || phase === 'exhausted'
+  const progress = phase === 'waiting' || phase === 'resuming' || phase === 'server' || phase === 'exhausted'
     ? t(`error.resume.${phase}`, { seconds: auto.seconds, attempt: auto.attempt, max: auto.max })
     : ''
   return (

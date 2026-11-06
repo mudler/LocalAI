@@ -17,11 +17,12 @@ const CUT = [
 ]
 const FINISHED = 'The report is ready: revenue is up 12 percent.'
 
-function stubChat(page, { last = 'interrupted', resumeWorks = true } = {}) {
-  const state = { messages: [...CUT], running: false, last_turn: last, calls: [] }
+function stubChat(page, { last = 'interrupted', resumeWorks = true, willResume = false, tried = 0 } = {}) {
+  const state = { messages: [...CUT], running: false, last_turn: last, calls: [], will_resume: willResume, resume_attempts: tried }
   const detail = () => ({
     id: 'c1', title: 'Quarterly report', model: 'qwen3-8b', kind: 'chat', created: AT, updated: new Date().toISOString(),
     running: state.running, last_turn: state.last_turn, pending: [],
+    will_resume: state.will_resume || undefined, resume_attempts: state.resume_attempts || undefined,
   })
   return {
     state,
@@ -118,6 +119,40 @@ test.describe('Interrupted turn', () => {
     await page.clock.fastForward(120_000)
     expect(api.state.calls).toHaveLength(3)
     await shot(page, 'exhausted')
+  })
+
+  test('shows that the server goes on by itself and starts no resume of its own', async ({ page }) => {
+    const api = stubChat(page, { willResume: true, tried: 1 })
+    await api.install()
+    await page.goto('/app/chats/c1')
+    await expect(page.getByText('I will read the three source files first.')).toBeVisible()
+    await expect(card(page)).toHaveAttribute('data-phase', 'server')
+    await expect(page.getByTestId('chat-error-resume')).toHaveText('The server is going on from where it stopped.')
+    await expect(page.getByTestId('chat-error-stop')).toHaveCount(0)
+    await shot(page, 'server')
+    await page.clock.fastForward(20_000)
+    expect(api.state.calls).toEqual([])
+    // The server resumed and finished; the page finds out when it reads the chat again.
+    api.state.will_resume = false
+    api.state.last_turn = 'done'
+    api.state.messages = [...CUT.filter(m => m.role !== 'checkpoint'), line(5, 'assistant', FINISHED), line(6, 'checkpoint', '')]
+    await page.clock.fastForward(15_000)
+    await expect(page.getByText(FINISHED)).toBeVisible()
+    await expect(card(page)).toHaveCount(0)
+    expect(api.state.calls).toEqual([])
+  })
+
+  test('does not retry a chat that the server gave up on', async ({ page }) => {
+    const api = stubChat(page, { tried: 3 })
+    await api.install()
+    await page.goto('/app/chats/c1')
+    await expect(card(page)).toHaveAttribute('data-phase', 'exhausted')
+    await expect(page.getByTestId('chat-error-resume')).toHaveText('It could not go on after 3 tries. Retry to try again.')
+    await page.clock.fastForward(120_000)
+    expect(api.state.calls).toEqual([])
+    await card(page).getByRole('button', { name: 'Retry' }).click()
+    await expect(page.getByText(FINISHED)).toBeVisible()
+    expect(api.state.calls).toEqual(['resume'])
   })
 
   test('a failed turn is not resumed by the page', async ({ page }) => {

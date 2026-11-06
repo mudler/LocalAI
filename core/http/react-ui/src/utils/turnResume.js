@@ -5,6 +5,12 @@
 // resume by itself a few times, with a growing wait, so a rolling restart does
 // not leave a long chat stopped. Only an interrupted turn is resumed this way:
 // a turn that failed (a model error, a bad key) needs a person to look first.
+//
+// When the server resumes by itself (LOCALAI_CHATS_AUTO_RESUME) the chat says
+// so with will_resume, and the page does not run its own timer: two resumes
+// would race. The page only waits and reads the chat again now and then.
+// A chat that the server already tried to resume (resume_attempts) and gave up
+// on is not retried by the page either.
 import { retryDelay } from './streamRetry.js'
 
 // How many times the page resumes one interrupted turn by itself. Change it
@@ -15,6 +21,10 @@ export const RESUME_CAP_MS = 30000
 // An interruption older than this is news from the past (a chat opened later):
 // it waits for the person and is not resumed by the page.
 export const RESUME_WINDOW_MS = 10 * 60 * 1000
+// While the server resumes the turn, the page reads the chat again this often,
+// so a resume that never comes (the server was switched off) does not leave
+// the card waiting for good.
+export const SERVER_POLL_MS = 30000
 
 // The wait before automatic try number `attempt` (0 for the first).
 export function resumeWait(attempt) {
@@ -23,24 +33,29 @@ export function resumeWait(attempt) {
 
 // What to do about the chat as the page sees it now:
 //   'none'      nothing: not interrupted, running, stopped by the person, or old
+//   'server'    the server resumes it; the page waits
 //   'wait'      resume after the wait
 //   'exhausted' the tries are used; the person decides
-export function nextResume({ lastTurn, running, attempts = 0, stopped = false, updated, now = Date.now(), max = RESUME_MAX_ATTEMPTS }) {
+export function nextResume({ lastTurn, running, attempts = 0, stopped = false, updated, now = Date.now(), max = RESUME_MAX_ATTEMPTS, willResume = false, serverTried = 0 }) {
   if (lastTurn !== 'interrupted' || running || stopped) return 'none'
+  if (willResume) return 'server'
+  if (serverTried > 0) return 'exhausted'
   const at = Date.parse(updated || '')
   if (Number.isFinite(at) && now - at > RESUME_WINDOW_MS) return 'none'
   return attempts >= max ? 'exhausted' : 'wait'
 }
 
 // The state machine behind the hook. It holds the tries per chat, one timer,
-// and what the card shows: phase is 'idle', 'waiting', 'resuming' or
-// 'exhausted'. observe() is called each time the chat's state changes and is
+// and what the card shows: phase is 'idle', 'waiting', 'resuming', 'server'
+// or 'exhausted'. observe() is called each time the chat's state changes and is
 // safe to call again with the same state. stop() is the person saying no.
 export function createResumer({
   resume,
+  refresh = () => {},
   onChange = () => {},
   max = RESUME_MAX_ATTEMPTS,
   wait = resumeWait,
+  pollMs = SERVER_POLL_MS,
   schedule = setTimeout,
   cancel = clearTimeout,
   now = Date.now,
@@ -48,6 +63,7 @@ export function createResumer({
   const attempts = new Map()
   const stopped = new Set()
   let timer = null
+  let poll = null
   let chat = null
   let view = { phase: 'idle', attempt: 0, max, seconds: 0 }
 
@@ -60,12 +76,29 @@ export function createResumer({
     if (timer !== null) cancel(timer)
     timer = null
   }
+  const clearPoll = () => {
+    if (poll !== null) cancel(poll)
+    poll = null
+  }
+  // While the server resumes, read the chat again every SERVER_POLL_MS.
+  const armPoll = (id) => {
+    if (poll !== null) return
+    const tick = () => {
+      poll = schedule(() => {
+        poll = null
+        Promise.resolve(refresh(id)).catch(() => {})
+        if (chat === id && view.phase === 'server') tick()
+      }, pollMs)
+    }
+    tick()
+  }
 
   return {
     get view() { return view },
     observe(state) {
       if (state.id !== chat) {
         clear()
+        clearPoll()
         chat = state.id
         set({ phase: 'idle', attempt: 0, seconds: 0 })
       }
@@ -73,6 +106,7 @@ export function createResumer({
       if (!id) return
       if (state.running) {
         clear()
+        clearPoll()
         stopped.delete(id)
         set({ phase: 'idle', attempt: 0, seconds: 0 })
         return
@@ -85,10 +119,18 @@ export function createResumer({
       const tried = attempts.get(id) || 0
       const next = nextResume({
         lastTurn: state.lastTurn, running: false, attempts: tried, stopped: stopped.has(id), updated: state.updated, now: now(), max,
+        willResume: Boolean(state.willResume), serverTried: state.resumeAttempts || 0,
       })
+      if (next === 'server') {
+        clear()
+        set({ phase: 'server', attempt: (state.resumeAttempts || 0) + 1, seconds: 0 })
+        armPoll(id)
+        return
+      }
+      clearPoll()
       if (next === 'exhausted') {
         clear()
-        set({ phase: 'exhausted', attempt: tried, seconds: 0 })
+        set({ phase: 'exhausted', attempt: Math.max(tried, state.resumeAttempts || 0), seconds: 0 })
         return
       }
       if (next === 'none') {
@@ -108,6 +150,7 @@ export function createResumer({
     },
     stop() {
       clear()
+      clearPoll()
       if (chat) stopped.add(chat)
       set({ phase: 'idle', attempt: 0, seconds: 0 })
     },
@@ -117,6 +160,9 @@ export function createResumer({
       attempts.delete(chat)
       stopped.delete(chat)
     },
-    dispose: clear,
+    dispose() {
+      clear()
+      clearPoll()
+    },
   }
 }

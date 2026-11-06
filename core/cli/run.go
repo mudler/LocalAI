@@ -173,6 +173,7 @@ type RunCMD struct {
 	DisableLocalAIAssistant bool   `env:"LOCALAI_DISABLE_ASSISTANT" default:"false" help:"Disable the LocalAI Assistant chat modality (in-process admin MCP server)" group:"assistant"`
 	DisableSharedPages      bool   `env:"LOCALAI_DISABLE_SHARED_PAGES" default:"false" help:"Turn off the pages of shared folders (they can be switched on again in the runtime settings)" group:"assistant"`
 	ChatsHostExec           string `env:"LOCALAI_CHATS_HOST_EXEC" default:"" enum:",off,ask,on" help:"Who gets the chats' built-in bash, which runs commands on this machine with no isolation and with its network: off, ask (administrators, who allow each command) or on. Empty: off with accounts, ask without. An add-on that runs commands in isolation replaces it" group:"assistant"`
+	ChatsAutoResume         bool   `env:"LOCALAI_CHATS_AUTO_RESUME" default:"false" help:"Go on by itself with a chat turn that a restart interrupted: up to 3 tries, after 15 seconds, 1 minute and 5 minutes, and only within 30 minutes of the interruption. Off: a person, or the page, resumes it" group:"assistant"`
 
 	// Removed agent, job and skill options: accepted and ignored.
 	RemovedAgentOptions `embed:""`
@@ -733,6 +734,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	if r.ChatsHostExec != "" {
 		opts = append(opts, config.WithChatsHostExec(r.ChatsHostExec))
+	}
+	if r.ChatsAutoResume {
+		opts = append(opts, config.WithChatsAutoResume(true))
 	}
 	if r.CollectionsStateDir != "" {
 		opts = append(opts, config.WithCollectionsStateDir(r.CollectionsStateDir))

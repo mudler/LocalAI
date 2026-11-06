@@ -546,7 +546,7 @@ func (j *Jobs) info(ctx context.Context, rec jobs.Job, taskName string) JobInfo 
 		if out.Error == "" {
 			out.Error = "the chat of the job was deleted"
 		}
-	case turn.Running:
+	case turn.Running || turn.WillResume:
 		out.Status = JobRunning
 	case turn.Last == "":
 		out.Status = JobPending

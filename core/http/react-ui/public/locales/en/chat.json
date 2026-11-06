@@ -277,6 +277,7 @@
     "resume": {
       "waiting": "Going on in {{seconds}} seconds (try {{attempt}} of {{max}}).",
       "resuming": "Going on from where it stopped.",
+      "server": "The server is going on from where it stopped.",
       "exhausted": "It could not go on after {{max}} tries. Retry to try again.",
       "stop": "Stop trying"
     }

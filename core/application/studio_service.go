@@ -118,11 +118,12 @@ func (a *Application) initStudioService() {
 	a.initStudioMCPConnectors()
 	a.studioWeb = newStudioWeb(a.applicationConfig, a.serverSelf())
 	deps := studio.Deps{
-		Bus:      bus,
-		Store:    a.studioStore,
-		Provider: a.studioProvider,
-		Users:    a.studioUsers(),
-		Allowed:  a.studioFeatureAllowed,
+		AutoResume: a.applicationConfig.ChatsAutoResume,
+		Bus:        bus,
+		Store:      a.studioStore,
+		Provider:   a.studioProvider,
+		Users:      a.studioUsers(),
+		Allowed:    a.studioFeatureAllowed,
 		// Read at each turn, so the runtime setting applies at once.
 		SuggestionsDefault: func() bool { return !a.applicationConfig.DisableChatSuggestions },
 		StateDir:           stateDir,
@@ -267,16 +268,37 @@ func (a *Application) startStudioReaper(svc *studio.Service) {
 			xlog.Info("Chats: ended turns whose frontend stopped", "turns", n)
 		}
 	}
+	// The same tick resumes the interrupted turns that are due (see
+	// studio.Service.SweepResumes). The store's claim keeps two sweeps from
+	// starting one turn twice, and the lock keeps the work on one frontend.
+	sweep := func() {
+		n, err := svc.SweepResumes(ctx)
+		if err != nil {
+			xlog.Warn("Chats: could not resume interrupted turns", "error", err)
+		} else if n > 0 {
+			xlog.Info("Chats: resumed interrupted turns", "turns", n)
+		}
+	}
 	if a.authDB == nil {
-		// The JSON store settles its own claims when it loads.
+		// The JSON store settles its own claims when it loads, so nothing is
+		// left to reap; the turns it interrupted may still resume.
+		if a.applicationConfig.ChatsAutoResume {
+			a.everyStudioTick(ctx, sweep)
+		}
 		return
 	}
+	step := func() { reap(); sweep() }
 	if a.Distributed() != nil {
-		go advisorylock.RunLeaderLoop(ctx, a.authDB, advisorylock.KeyChatsReaper, studioReapEvery, reap)
+		go advisorylock.RunLeaderLoop(ctx, a.authDB, advisorylock.KeyChatsReaper, studioReapEvery, step)
 		return
 	}
 	// The conditional update of a reap is safe to race with another process.
-	reap()
+	step()
+	a.everyStudioTick(ctx, step)
+}
+
+// everyStudioTick runs f every studioReapEvery until ctx ends.
+func (a *Application) everyStudioTick(ctx context.Context, f func()) {
 	go func() {
 		tick := time.NewTicker(studioReapEvery)
 		defer tick.Stop()
@@ -285,7 +307,7 @@ func (a *Application) startStudioReaper(svc *studio.Service) {
 			case <-ctx.Done():
 				return
 			case <-tick.C:
-				reap()
+				f()
 			}
 		}
 	}()

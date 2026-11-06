@@ -183,6 +183,7 @@ func conversation(rec session.ChatRecord, info store.TurnInfo) schema.ChatsConve
 		ID: rec.ID, Title: rec.Title, Model: rec.Model, Kind: rec.Kind, ParentID: rec.ParentID,
 		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID, Assistant: rec.Assistant,
 		Created: rec.Created, Updated: rec.Updated, Running: info.Running, LastTurn: string(info.Last),
+		WillResume: info.WillResume, ResumeAttempts: info.ResumeAttempts,
 		Settings: settingsJSON(rec.Settings),
 	}
 }

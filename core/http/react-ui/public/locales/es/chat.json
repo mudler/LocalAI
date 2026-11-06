@@ -440,6 +440,7 @@
     "resume": {
       "waiting": "Continuará en {{seconds}} segundos (intento {{attempt}} de {{max}}).",
       "resuming": "Continúa desde donde se detuvo.",
+      "server": "El servidor continúa desde donde se detuvo.",
       "exhausted": "No pudo continuar tras {{max}} intentos. Reintenta.",
       "stop": "Dejar de intentar"
     }

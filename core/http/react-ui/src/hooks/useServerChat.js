@@ -496,6 +496,10 @@ export function useServerChat({ seed = null } = {}) {
     chats, persistent, imageModel, files, activeId, detail, messages, live, notes, error, failure, failureSaved, resuming, loading, usage, usageHistory, firstTokenMs, readPace, ticks, reconnecting, pausedSteps,
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
+    // The server resumes an interrupted turn by itself (see utils/turnResume.js).
+    willResume: Boolean(detail?.will_resume),
+    resumeAttempts: detail?.resume_attempts || 0,
+    refreshChat,
     pending: detail?.pending || [],
     goal: detail?.goal || null,
     // The loops of the chat, oldest first (pending, active, paused or ended).
