@@ -64,6 +64,12 @@ type chatRow struct {
 	// rows of chats made before, so AutoMigrate is their migration.
 	Goal    string `gorm:"type:text;not null;default:''"` // JSON of session.Goal; empty: no goal
 	GoalRev int64  `gorm:"not null;default:0"`            // bumped by UpdateGoal; its row lock
+	// The resume fields came after the table existed: the defaults read the
+	// rows of chats made before as having no resume, so AutoMigrate is their
+	// migration. ResumeNotBefore is the zero time while no resume is scheduled.
+	ResumeAttempts  int       `gorm:"not null;default:0"`
+	ResumeNotBefore time.Time `gorm:"index"`
+	InterruptedAt   time.Time
 }
 
 func (chatRow) TableName() string { return "studio_chats" }
@@ -1078,7 +1084,9 @@ func (s *gormStore) ClaimTurn(ctx context.Context, principal, id, runID string) 
 	}
 	db := s.db.WithContext(ctx)
 	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND (run_id = ? OR run_id IS NULL)", id, principal, "").
-		Updates(map[string]any{"run_id": runID, "run_since": now, "run_beat": now})
+		Updates(map[string]any{"run_id": runID, "run_since": now, "run_beat": now,
+			// A new turn starts the count of resumes again.
+			"resume_attempts": 0, "resume_not_before": time.Time{}, "interrupted_at": time.Time{}})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -1091,10 +1099,113 @@ func (s *gormStore) ClaimTurn(ctx context.Context, principal, id, runID string) 
 	return ErrTurnRunning
 }
 
-func (s *gormStore) ReleaseTurn(ctx context.Context, principal, id, runID string, status TurnStatus) error {
+func (s *gormStore) ClaimResume(ctx context.Context, principal, id, runID string) error {
+	now, err := s.now(ctx)
+	if err != nil {
+		return err
+	}
+	db := s.db.WithContext(ctx)
+	// The conditions and the count are one statement, so two sweepers cannot
+	// both win and a lost race does not spend an attempt.
+	res := db.Model(&chatRow{}).
+		Where("id = ? AND principal = ? AND (run_id = ? OR run_id IS NULL) AND last_turn = ? AND resume_attempts < ? AND resume_not_before > ? AND resume_not_before <= ? AND interrupted_at >= ?",
+			id, principal, "", string(TurnInterrupted), MaxResumeAttempts, time.Time{}, now, now.Add(-ResumeWindow)).
+		Updates(map[string]any{"run_id": runID, "run_since": now, "run_beat": now,
+			"resume_attempts": gorm.Expr("resume_attempts + 1"), "resume_not_before": time.Time{}})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 1 {
+		return nil
+	}
+	if err := s.owns(db, principal, id); err != nil {
+		return err
+	}
+	var row chatRow
+	if err := db.Select("run_id").Where("id = ?", id).Take(&row).Error; err == nil && row.RunID != "" {
+		return ErrTurnRunning
+	}
+	return ErrNotResumable
+}
+
+func (s *gormStore) ListResumable(ctx context.Context) ([]ResumableTurn, error) {
+	now, err := s.now(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []chatRow
+	err = s.db.WithContext(ctx).
+		Select("id", "principal", "resume_attempts", "interrupted_at", "resume_not_before").
+		Where("(run_id = ? OR run_id IS NULL) AND last_turn = ? AND resume_attempts < ? AND resume_not_before > ? AND resume_not_before <= ? AND interrupted_at >= ?",
+			"", string(TurnInterrupted), MaxResumeAttempts, time.Time{}, now, now.Add(-ResumeWindow)).
+		Order("resume_not_before").Limit(200).Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ResumableTurn, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, ResumableTurn{Principal: r.Principal, ChatID: r.ID, Attempts: r.ResumeAttempts, InterruptedAt: r.InterruptedAt})
+	}
+	return out, nil
+}
+
+func (s *gormStore) CancelResume(ctx context.Context, principal, id string) error {
+	db := s.db.WithContext(ctx)
+	res := db.Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).
+		Update("resume_not_before", time.Time{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 1 {
+		return nil
+	}
+	return s.owns(db, principal, id)
+}
+
+func (s *gormStore) MarkInterrupted(ctx context.Context, principal, id, runID string, delay time.Duration) error {
+	now, err := s.now(ctx)
+	if err != nil {
+		return err
+	}
 	db := s.db.WithContext(ctx)
 	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND run_id = ?", id, principal, runID).
-		Updates(map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{}, "last_turn": string(status)})
+		Updates(interruptedFields(now, delay))
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 1 {
+		return nil
+	}
+	if err := s.owns(db, principal, id); err != nil {
+		return err
+	}
+	return ErrNotClaimed
+}
+
+// interruptedFields is the update that ends a claim as interrupted at now and
+// schedules the resume after delay (none when delay is negative).
+func interruptedFields(now time.Time, delay time.Duration) map[string]any {
+	notBefore := time.Time{}
+	if delay >= 0 {
+		notBefore = now.Add(delay)
+	}
+	return map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{},
+		"last_turn": string(TurnInterrupted), "interrupted_at": now, "resume_not_before": notBefore}
+}
+
+func (s *gormStore) ReleaseTurn(ctx context.Context, principal, id, runID string, status TurnStatus) error {
+	if status == TurnInterrupted {
+		attempts := 0
+		var row chatRow
+		if err := s.db.WithContext(ctx).Select("resume_attempts").Where("id = ? AND principal = ?", id, principal).Take(&row).Error; err == nil {
+			attempts = row.ResumeAttempts
+		}
+		return s.MarkInterrupted(ctx, principal, id, runID, ResumeBackoff(attempts))
+	}
+	db := s.db.WithContext(ctx)
+	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND run_id = ?", id, principal, runID).
+		Updates(map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{}, "last_turn": string(status),
+			"resume_not_before": time.Time{}, "interrupted_at": time.Time{}})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -1116,7 +1227,16 @@ func (s *gormStore) Turn(ctx context.Context, principal, id string) (TurnInfo, e
 	if err != nil {
 		return TurnInfo{}, err
 	}
-	return TurnInfo{Running: row.RunID != "", RunID: row.RunID, Since: row.RunSince, Beat: row.RunBeat, Last: TurnStatus(row.LastTurn)}, nil
+	info := TurnInfo{Running: row.RunID != "", RunID: row.RunID, Since: row.RunSince, Beat: row.RunBeat, Last: TurnStatus(row.LastTurn),
+		ResumeAttempts: row.ResumeAttempts, InterruptedAt: row.InterruptedAt, ResumeNotBefore: row.ResumeNotBefore}
+	if !info.Running && info.Last == TurnInterrupted {
+		now, err := s.now(ctx)
+		if err != nil {
+			return TurnInfo{}, err
+		}
+		info.WillResume, _ = resumeOpen(info.ResumeAttempts, info.InterruptedAt, info.ResumeNotBefore, now)
+	}
+	return info, nil
 }
 
 func (s *gormStore) TouchTurn(ctx context.Context, principal, id, runID string) error {
@@ -1162,7 +1282,7 @@ func (s *gormStore) ReapTurns(ctx context.Context, idle time.Duration) ([]Reaped
 		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			res := tx.Model(&chatRow{}).
 				Where("id = ? AND run_id = ? AND run_beat < ?", r.ID, r.RunID, olderThan).
-				Updates(map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{}, "last_turn": string(TurnInterrupted)})
+				Updates(interruptedFields(now, ResumeBackoff(r.ResumeAttempts)))
 			if res.Error != nil {
 				return res.Error
 			}
