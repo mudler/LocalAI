@@ -214,6 +214,13 @@ export const FIELDS = [
   { key: 'chats_web_fetch', group: 'tools', was: 'chats', kind: 'bool', label: 'Read web pages',
     desc: 'Offer the chats the built-in web_fetch, which reads a public web page or file by its address.',
     default: true, fallback: true, apply: 'live', custom: 'tools' },
+  // The Tools tab draws these switches on the rows of the two LocalAI groups.
+  { key: 'chats_localai_client', group: 'tools', was: 'chats', kind: 'bool', label: 'LocalAI client tools',
+    desc: 'Offer the chats the LocalAI client tools: images, speech, sound, video, embeddings, detection and more, run with the models installed here. Each user needs the permission of the feature, and each chat can switch the group off.',
+    default: true, fallback: true, apply: 'live', custom: 'tools' },
+  { key: 'chats_localai_admin', group: 'tools', was: 'chats', kind: 'bool', label: 'LocalAI admin tools',
+    desc: 'Offer the chats of administrators the LocalAI admin tools, which manage this server: models, backends, settings and the state. Each chat, or saved agent, must switch the group on; a sub-agent and a run that starts by itself never has it.',
+    default: true, fallback: true, apply: 'live', custom: 'tools' },
   // The Tools tab draws this switch on the list_agents row.
   { key: 'chats_saved_agents', group: 'tools', was: 'chats', kind: 'bool', label: 'Saved agents in chats',
     desc: 'Let a chat list the user\'s saved agents and start one as a sub-agent. Each chat must still switch it on in its Tools menu, and the user needs the agents feature.',

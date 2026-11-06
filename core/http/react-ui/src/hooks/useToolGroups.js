@@ -26,7 +26,9 @@ export const SAVED_AGENTS = 'saved_agents'
 export const SHELL = 'shell'
 export const SUBAGENTS = 'subagents'
 export const MEMORY = 'memory'
-const BUILTIN_ORDER = [SHELL, 'files', 'web', 'media', 'collections', MEMORY, SUBAGENTS, SAVED_AGENTS, 'triggers', 'changes']
+export const LOCALAI_CLIENT = 'localai_client'
+export const LOCALAI_ADMIN = 'localai_admin'
+const BUILTIN_ORDER = [SHELL, 'files', 'web', 'media', LOCALAI_CLIENT, 'collections', MEMORY, SUBAGENTS, SAVED_AGENTS, 'triggers', 'changes', LOCALAI_ADMIN]
 export const builtinRank = (g) => {
   const i = BUILTIN_ORDER.indexOf(g)
   return i < 0 ? BUILTIN_ORDER.length : i

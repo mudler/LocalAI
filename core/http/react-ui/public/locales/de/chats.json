@@ -347,7 +347,9 @@
       "subagents": "Sub-Agenten",
       "changes": "Vorgeschlagene Änderungen",
       "memory": "Gedächtnis",
-      "history": "Frühere Chats"
+      "history": "Frühere Chats",
+      "localai_client": "LocalAI-Client",
+      "localai_admin": "LocalAI-Admin"
     },
     "builtinBy": "{{tools}} · eingebaut",
     "builtinByAddon": "{{tools}} · bedient von {{provider}}",
@@ -371,7 +373,9 @@
       "triggers": "Das Modell kann Trigger vorschlagen, auflisten, ändern und löschen. Du bestätigst jeden neuen Trigger und jede Änderung.",
       "changes": "Das Modell kann Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten und am Dashboard vorschlagen. Du bestätigst jede einzelne.",
       "memory": "Das Modell kann deine Notizen lesen, bevor es antwortet, und neue speichern. Schalte es aus, um den Chat privat zu machen: nichts wird aus deinen Notizen gelesen oder darin gespeichert. Deine anderen Chats bleiben unberührt.",
-      "history": "Erlaubt dem Modell, deine früheren Chats zu durchsuchen und zu lesen."
+      "history": "Erlaubt dem Modell, deine früheren Chats zu durchsuchen und zu lesen.",
+      "localai_client": "Erlaubt dem Modell, mit den hier installierten Modellen Bilder, Sprache, Klänge und Videos zu erzeugen sowie zu transkribieren, einzubetten, neu zu ordnen und zu erkennen.",
+      "localai_admin": "Erlaubt dem Modell, diesen Server zu verwalten: Modelle, Backends, Einstellungen und den Zustand. Nur für Administratoren; das Modell fragt dich, bevor es etwas ändert."
     },
     "whenOff": {
       "shell": "Das Modell kann Dateien schreiben, aber nichts ausführen.",
@@ -384,7 +388,9 @@
       "triggers": "Das Modell kann keine Trigger vorschlagen oder verwalten.",
       "changes": "Das Modell kann keine Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten oder am Dashboard vorschlagen.",
       "memory": "Das ist ein privater Chat. Das Modell liest und speichert deine Notizen nicht.",
-      "history": "Das Modell kann deine früheren Chats nicht sehen."
+      "history": "Das Modell kann deine früheren Chats nicht sehen.",
+      "localai_client": "Das Modell kann diese Modelle nicht selbst ausführen.",
+      "localai_admin": "Das Modell kann diesen Server nicht verwalten."
     },
     "addonDescribe_one": "Gibt dem Modell {{count}} Werkzeug dieses Add-ons.",
     "addonDescribe_other": "Gibt dem Modell {{count}} Werkzeuge dieses Add-ons.",

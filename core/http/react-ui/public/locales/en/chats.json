@@ -390,7 +390,9 @@
       "subagents": "Sub-agents",
       "changes": "Suggested changes",
       "memory": "Memory",
-      "history": "Past chats"
+      "history": "Past chats",
+      "localai_client": "LocalAI client",
+      "localai_admin": "LocalAI admin"
     },
     "builtinBy": "{{tools}} · built-in",
     "builtinByAddon": "{{tools}} · served by {{provider}}",
@@ -468,7 +470,9 @@
       "triggers": "Lets the model propose, list, change and delete triggers. You confirm each new trigger or change.",
       "changes": "Lets the model propose edits to your notes, its rules, skills, pages and dashboard. You confirm each one.",
       "memory": "The model can read your notes before it answers and save new ones. Turn it off to make this a private chat: nothing is read from your notes or saved to them. Your other chats are not affected.",
-      "history": "Lets the model search and read your earlier chats."
+      "history": "Lets the model search and read your earlier chats.",
+      "localai_client": "Lets the model make images, speech, sound and video, and transcribe, embed, rerank and detect, with the models installed here.",
+      "localai_admin": "Lets the model manage this server: models, backends, settings and the state. For administrators; it asks you before it changes anything."
     },
     "whenOff": {
       "shell": "The model can write files but cannot run anything.",
@@ -481,7 +485,9 @@
       "triggers": "The model cannot propose or manage triggers.",
       "changes": "The model cannot propose edits to your notes, its rules, skills, pages or dashboard.",
       "memory": "This is a private chat. The model neither reads nor saves your notes.",
-      "history": "The model cannot see your earlier chats."
+      "history": "The model cannot see your earlier chats.",
+      "localai_client": "The model cannot run these models itself.",
+      "localai_admin": "The model cannot manage this server."
     },
     "addonDescribe_one": "Gives the model {{count}} tool from this add-on.",
     "addonDescribe_other": "Gives the model {{count}} tools from this add-on.",

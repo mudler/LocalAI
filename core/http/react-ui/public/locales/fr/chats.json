@@ -347,7 +347,9 @@
       "subagents": "Sous-agents",
       "changes": "Modifications suggérées",
       "memory": "Mémoire",
-      "history": "Anciens chats"
+      "history": "Anciens chats",
+      "localai_client": "Client LocalAI",
+      "localai_admin": "Administration LocalAI"
     },
     "builtinBy": "{{tools}} · intégrés",
     "builtinByAddon": "{{tools}} · fournis par {{provider}}",
@@ -371,7 +373,9 @@
       "triggers": "Le modèle peut proposer, lister, modifier et supprimer des déclencheurs. Vous confirmez chaque nouveau déclencheur ou changement.",
       "changes": "Le modèle peut proposer des modifications de vos notes, de ses règles, des skills, des pages et du tableau de bord. Vous confirmez chacune.",
       "memory": "Le modèle peut lire vos notes avant de répondre et en enregistrer de nouvelles. Désactivez-la pour rendre cette conversation privée : rien n'est lu dans vos notes ni enregistré dedans. Vos autres conversations ne changent pas.",
-      "history": "Permet au modèle de rechercher et de lire tes anciens chats."
+      "history": "Permet au modèle de rechercher et de lire tes anciens chats.",
+      "localai_client": "Permet au modèle de créer des images, de la voix, du son et des vidéos, et de transcrire, de calculer des embeddings, de reclasser et de détecter, avec les modèles installés ici.",
+      "localai_admin": "Permet au modèle de gérer ce serveur : modèles, backends, réglages et état. Réservé aux administrateurs ; le modèle te demande avant de changer quoi que ce soit."
     },
     "whenOff": {
       "shell": "Le modèle peut écrire des fichiers mais ne peut rien exécuter.",
@@ -384,7 +388,9 @@
       "triggers": "Le modèle ne peut ni proposer ni gérer de déclencheurs.",
       "changes": "Le modèle ne peut pas proposer de modifications de vos notes, de ses règles, des skills, des pages ou du tableau de bord.",
       "memory": "C'est une conversation privée. Le modèle ne lit ni n'enregistre vos notes.",
-      "history": "Le modèle ne peut pas voir tes anciens chats."
+      "history": "Le modèle ne peut pas voir tes anciens chats.",
+      "localai_client": "Le modèle ne peut pas exécuter ces modèles lui-même.",
+      "localai_admin": "Le modèle ne peut pas gérer ce serveur."
     },
     "addonDescribe_one": "Donne au modèle {{count}} outil de cet add-on.",
     "addonDescribe_other": "Donne au modèle {{count}} outils de cet add-on.",

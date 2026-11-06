@@ -347,7 +347,9 @@
       "subagents": "Subagentes",
       "changes": "Alterações sugeridas",
       "memory": "Memória",
-      "history": "Chats anteriores"
+      "history": "Chats anteriores",
+      "localai_client": "Cliente LocalAI",
+      "localai_admin": "Administração do LocalAI"
     },
     "builtinBy": "{{tools}} · integradas",
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",
@@ -371,7 +373,9 @@
       "triggers": "O modelo pode propor, listar, alterar e excluir gatilhos. Você confirma cada novo gatilho ou alteração.",
       "changes": "O modelo pode propor alterações nas suas notas, nas regras dele, em skills, páginas e no painel. Você confirma cada uma.",
       "memory": "O modelo pode ler suas notas antes de responder e salvar novas. Desative para tornar este um chat privado: nada é lido das suas notas nem salvo nelas. Seus outros chats não mudam.",
-      "history": "Permite que o modelo pesquise e leia seus chats anteriores."
+      "history": "Permite que o modelo pesquise e leia seus chats anteriores.",
+      "localai_client": "Permite que o modelo crie imagens, voz, som e vídeo, e transcreva, gere embeddings, reordene e detecte, com os modelos instalados aqui.",
+      "localai_admin": "Permite que o modelo gerencie este servidor: modelos, backends, configurações e o estado. Só para administradores; o modelo pergunta a você antes de mudar qualquer coisa."
     },
     "whenOff": {
       "shell": "O modelo pode escrever arquivos, mas não pode executar nada.",
@@ -384,7 +388,9 @@
       "triggers": "O modelo não pode propor nem gerenciar gatilhos.",
       "changes": "O modelo não pode propor alterações nas suas notas, nas regras dele, em skills, páginas ou no painel.",
       "memory": "Este é um chat privado. O modelo não lê nem salva suas notas.",
-      "history": "O modelo não pode ver seus chats anteriores."
+      "history": "O modelo não pode ver seus chats anteriores.",
+      "localai_client": "O modelo não pode executar esses modelos por conta própria.",
+      "localai_admin": "O modelo não pode gerenciar este servidor."
     },
     "addonDescribe_one": "Dá ao modelo {{count}} ferramenta deste add-on.",
     "addonDescribe_other": "Dá ao modelo {{count}} ferramentas deste add-on.",
