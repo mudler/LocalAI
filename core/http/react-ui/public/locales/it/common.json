@@ -139,7 +139,7 @@
     },
     "add": "Aggiungi persone",
     "search": "Cerca una persona per nome",
-    "searchHint": "Scrivi almeno due lettere di un nome.",
+    "searchHint": "Scrivi almeno tre lettere di un nome.",
     "newRole": "Ruolo per le persone che aggiungi",
     "searching": "Ricerca in corso",
     "noResults": "Nessuna corrispondenza.",

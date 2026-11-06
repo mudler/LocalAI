@@ -50,19 +50,14 @@ func (p *Policy) EnsureRef(ctx context.Context, actor contract.Actor, kind, loca
 	owner := p.store.Mode().ownerOf(actor)
 	id := ""
 	err = p.store.mutate(func(d *document) error {
-		owned := 0
 		for rid, r := range d.Resources {
-			if r.Owner != owner {
-				continue
-			}
-			owned++
-			if r.Kind == kind && r.Local == local && r.State == stateActive {
+			if r.Owner == owner && r.Kind == kind && r.Local == local && r.State == stateActive {
 				id = rid
 				return nil
 			}
 		}
-		if owned >= p.opts.MaxResourcesPerUser || len(d.Resources) >= p.opts.MaxResources {
-			return ErrQuota
+		if err := p.room(d, owner, kind); err != nil {
+			return err
 		}
 		id = fresh
 		d.Resources[id] = &record{Kind: kind, Owner: owner, State: stateActive, Grants: map[string]Role{}, Local: local}

@@ -169,10 +169,14 @@ func (u *AddonUsers) Active(ctx context.Context, id string) error {
 const maxAccountScan = 100
 
 // Accounts is the directory search of the resource kinds that are not
-// add-ons: every active named account whose display name or address starts
-// with the query, at most limit of them, in a stable order. It does not ask
-// whether the account may use add-ons; the kind's own rule filters the
-// result. Like Search it returns an immutable ID and a display name only.
+// add-ons: every active named account whose display name starts with the
+// query, at most limit of them, in a stable order. An account without a
+// display name is found only by its whole address, compared without case,
+// and comes back with an empty display name, never a part of the address. An
+// address prefix finds nobody, so the search tells nobody which addresses
+// have an account. It does not ask whether the account may use add-ons; the
+// kind's own rule filters the result. Like Search it returns an immutable ID
+// and a display name only.
 func (u *AddonUsers) Accounts(ctx context.Context, query string, limit int) ([]gateway.UserRef, error) {
 	if err := u.check(); err != nil {
 		return nil, err
@@ -180,12 +184,13 @@ func (u *AddonUsers) Accounts(ctx context.Context, query string, limit int) ([]g
 	if limit <= 0 || limit > maxAccountScan {
 		limit = maxAccountScan
 	}
-	prefix := escapeLike(strings.ToLower(query)) + "%"
+	q := strings.ToLower(strings.TrimSpace(query))
+	prefix := escapeLike(q) + "%"
 	var rows []User
 	// The synthetic principals are left out after the read, so a few more
 	// rows than limit are read.
 	err := u.db.WithContext(ctx).
-		Where("status = ? AND (LOWER(name) LIKE ? ESCAPE '\\' OR LOWER(email) LIKE ? ESCAPE '\\')", StatusActive, prefix, prefix).
+		Where("status = ? AND ((TRIM(name) <> '' AND LOWER(TRIM(name)) LIKE ? ESCAPE '\\') OR (TRIM(COALESCE(name, '')) = '' AND LOWER(email) = ?))", StatusActive, prefix, q).
 		Order("name, id").Limit(limit + 2).Find(&rows).Error
 	if err != nil {
 		return nil, ErrAddonUnavailable
@@ -198,7 +203,7 @@ func (u *AddonUsers) Accounts(ctx context.Context, query string, limit int) ([]g
 		if r.ID == "" || r.ID == AddonLocalOwnerID || r.ID == "legacy-api-key" {
 			continue
 		}
-		out = append(out, gateway.UserRef{ID: r.ID, DisplayName: displayName(r)})
+		out = append(out, gateway.UserRef{ID: r.ID, DisplayName: strings.TrimSpace(r.Name)})
 	}
 	return out, nil
 }

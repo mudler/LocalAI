@@ -3,6 +3,7 @@
 // /api/shares, the SDK binding for add-ons and the first render of the dialog
 // and of the sharing line of a list row.
 import test from 'node:test'
+import { connectionShareStart } from '../../src/components/share/connectionShare.js'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import ts from 'typescript'
@@ -27,7 +28,7 @@ test('share requests: the path, the method and the confirmation header come from
     { method: 'PUT', path: `/api/shares/example:note/${id}/grants/@everyone`, headers: { 'X-LocalAI-Confirm': id }, body: { role: 'use', operationId: 'share-1' } })
   assert.deepEqual(shareRequest({ op: 'grant-revoke', kind: 'example:note', resourceId: id, principal: 'u-1', operationId: 'share-2' }),
     { method: 'DELETE', path: `/api/shares/example:note/${id}/grants/u-1?operationId=share-2`, headers: { 'X-LocalAI-Confirm': id } })
-  assert.equal(shareRequest({ op: 'users', kind: 'agent', resourceId: id, query: '  al ', limit: 50 }).path, `/api/shares/agent/${id}/users?q=al&limit=20`)
+  assert.equal(shareRequest({ op: 'users', kind: 'agent', resourceId: id, query: '  ali ', limit: 50 }).path, `/api/shares/agent/${id}/users?q=ali&limit=20`)
 })
 
 test('share requests: a malformed kind, resource, person, role or query is refused before it is sent', () => {
@@ -40,6 +41,8 @@ test('share requests: a malformed kind, resource, person, role or query is refus
     { op: 'grant-set', kind: 'agent', resourceId: id, principal: 'u1', role: 'owner' },
     { op: 'grant-set', kind: 'agent', resourceId: id, principal: 'u1', role: '' },
     { op: 'users', kind: 'agent', resourceId: id, query: 'a' },
+    // The picker of a kind searches every account: three characters at least.
+    { op: 'users', kind: 'agent', resourceId: id, query: 'al' },
     { op: 'users', kind: 'agent', resourceId: id, query: 'x'.repeat(65) },
     { op: 'other', kind: 'agent', resourceId: id },
   ]) assert.throws(() => shareRequest(call), TypeError, JSON.stringify(call))
@@ -50,12 +53,12 @@ test('shares api: every change carries an operation identifier and goes through 
   const api = createSharesApi({ call: async (path, opts) => { sent.push([path, opts]); return { grants: [] } } })
   await api.setGrant('agent', 'r1', 'u1', 'use')
   await api.revokeGrant('agent', 'r1', 'u1', { operationId: 'share-x' })
-  await api.searchUsers('agent', 'r1', 'bo', { limit: 5 })
+  await api.searchUsers('agent', 'r1', 'bob', { limit: 5 })
   assert.equal(sent[0][1].method, 'PUT')
   assert.match(sent[0][1].body.operationId, /^share-/)
   assert.equal(sent[0][1].headers['X-LocalAI-Confirm'], 'r1')
   assert.equal(sent[1][0], '/api/shares/agent/r1/grants/u1?operationId=share-x')
-  assert.equal(sent[2][0], '/api/shares/agent/r1/users?q=bo&limit=5')
+  assert.equal(sent[2][0], '/api/shares/agent/r1/users?q=bob&limit=5')
 })
 
 test('share clients: the generic and the add-on client give the dialog the same four calls', async () => {
@@ -135,7 +138,8 @@ test('share model: grants, search results, roles and references are cleaned for 
   assert.deepEqual(freshUsers({ users: [{ id: 'u1', displayName: 'A' }, { id: 'u3', displayName: 'C', email: 'c@x' }, { id: EVERYONE }] }, g.people),
     [{ id: 'u3', displayName: 'C' }])
   assert.equal(searchText(' a '), '')
-  assert.equal(searchText(' al '), 'al')
+  assert.equal(searchText(' al '), '')
+  assert.equal(searchText(' ali '), 'ali')
   assert.equal(searchText('x'.repeat(65)), '')
   assert.deepEqual(cleanRoles(['use', { id: 'manage', label: 'Manage', help: 'h' }, 'owner', 'use', {}]),
     [{ id: 'use', label: 'use', help: '' }, { id: 'manage', label: 'Manage', help: 'h' }])
@@ -260,4 +264,16 @@ test('share dialog: a reference that cannot be shared is a read-only row', () =>
   assert.match(html, /They need access of their own/)
   assert.doesNotMatch(html, /aria-label="Access to Projects"/)
   assert.doesNotMatch(html, /data-testid="share-refs-pending"/)
+})
+
+test('connection share: the host asks for the ID of the binding itself and refuses a bad binding', async () => {
+  const asked = []
+  const api = { share: async (id) => { asked.push(id); return { resource_id: 'r0123456789abcdef0123456789abcde', shared_with: 0 } } }
+  assert.equal(await connectionShareStart(api, 'b-1'), 'r0123456789abcdef0123456789abcde')
+  assert.deepEqual(asked, ['b-1'])
+  for (const bad of ['', '../x', 'a/b', null, 7]) {
+    await assert.rejects(() => connectionShareStart(api, bad), TypeError, String(bad))
+  }
+  assert.deepEqual(asked, ['b-1'])
+  await assert.rejects(() => connectionShareStart({ share: async () => ({}) }, 'b-2'), /cannot be shared/)
 })

@@ -20,8 +20,8 @@ import WhoFields from './WhoFields'
 import AccessMatrix from './AccessMatrix'
 import PermissionFields from './PermissionFields'
 import NotifyField from './NotifyField'
-import { agentsApi, connectorsApi, coreCall, setApiLanguage, triggersApi } from './api'
-import { connectionShareClient, sharedOfKind, shareAvailable } from './share'
+import { agentsApi, connectorsApi, setApiLanguage, triggersApi } from './api'
+import { sharedOfKind, shareAvailable } from './share'
 import { getSdk } from '../../host-compat/src/runtime.js'
 import { changedParts, droppedActs, removedActs } from './access'
 import { basePath } from '../../host-compat/src/utils/basePath.js'
@@ -147,17 +147,17 @@ function SharedConnections({ rows, s }) {
   )
 }
 
-// The host's Share dialog for one binding, over the sharing API of the host.
+// The host's Share dialog for one binding. The host makes the binding
+// shareable and calls the sharing routes; this page passes the binding only.
 function ShareConnection({ share, s, onChanged, close }) {
-  const Dialog = sdkOrNull()?.ui?.ShareDialog
-  const [client] = useState(() => connectionShareClient(coreCall, share.id))
+  const Dialog = sdkOrNull()?.ui?.ConnectionShareDialog
   if (!Dialog) return null
   return (
     <Dialog
-      client={client}
-      resource={{ id: share.id, name: share.name }}
-      roles={[{ id: 'use', label: s('share.roleUse'), help: s('share.roleUseHelp') }]}
-      allowEveryone={false}
+      binding={share.binding}
+      name={share.name}
+      roleLabel={s('share.roleUse')}
+      roleHelp={s('share.roleUseHelp')}
       intro={s('share.intro')}
       onChanged={onChanged}
       onLost={() => { close(); onChanged() }}
@@ -517,13 +517,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
               <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => open({ ...connectorForm(c), ...(extraForm ? extraForm(c) : {}) })}>{t('editButton')}</button>
               {canShare && (
                 <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="connector-share" aria-label={s('share.button', { name: c.name })}
-                  onClick={async () => {
-                    setError('')
-                    try {
-                      const r = c.share?.resource_id ? c.share : await connectorsApi.share(c.id)
-                      setShare({ id: r.resource_id, name: c.name })
-                    } catch (e) { fail(e) }
-                  }}>{s('share.label')}</button>
+                  onClick={() => { setError(''); setShare({ binding: c.id, name: c.name }) }}>{s('share.label')}</button>
               )}
               <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setToDelete(c)}>{t('delete')}</button>
             </span>

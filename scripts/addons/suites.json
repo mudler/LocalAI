@@ -1595,7 +1595,8 @@
           "run the work under the owner's lease, stop it when the owner says the lease is lost, and release it",
           "run nothing when the owner refuses the admission, and are unavailable on an owner without a ShareAuthority",
           "runs the call of a shared credential inside its hold, and never when the hold refuses",
-          "keep the record of a resource the service names through the owner, and are mutations"
+          "keep the record of a resource the service names through the owner, and are mutations",
+          "give a frontend the owner's typed refusal of a search that came too often"
         ]
       },
       {
@@ -1776,7 +1777,8 @@
           "lets people who may not use add-ons share a kind, find each other and be granted",
           "answers an unknown resource and a resource of someone else the same for a caller without add-ons",
           "keeps the add-on resource routes behind the add-ons feature",
-          "keeps the sharing routes out of the feature registry and open to accounts without the add-ons feature"
+          "keeps the sharing routes out of the feature registry and open to accounts without the add-ons feature",
+          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate"
         ]
       },
       {
@@ -2194,7 +2196,22 @@
       "refuses a name that is empty, too long or has control characters, an unknown kind and local-owner mode",
       "forgets a record for its owner only, after the work of every grantee stopped",
       "previews and applies the call of a shared binding inside its hold, and keeps the proposal pending when the hold refuses",
-      "keeps one record for a name through either frontend, lists it with the name, and forgets it after the grantee's run stopped"
+      "keeps one record for a name through either frontend, lists it with the name, and forgets it after the grantee's run stopped",
+      "drops an active record whose backing is gone, revokes its grants and keeps the rest",
+      "cancels the admitted work of a record it drops",
+      "keeps the running turn of a grantee lowered from viewer to use and stops the read",
+      "stops the running turn of a grantee whose grant is revoked",
+      "keeps a turn under everyone lowered from viewer to use and stops it when everyone is revoked",
+      "keeps a turn that the own grant allows when everyone is lowered or revoked",
+      "still stops work an owed revocation covers when a later lowering leaves the action",
+      "refuses a person over their lease cap and still admits another person",
+      "never counts a record of a shared kind against the add-on resource limits",
+      "does not let 16 accounts at their share cap block other people",
+      "keeps the add-on resource limits for add-on resources only",
+      "drops the record of a deleted resource so create, share and delete never fills the store",
+      "never moves the floor of the add-on log for lowerings of other kinds",
+      "moves the lowerings of other kinds out of a single log written before the split",
+      "refuses a store whose log of the other kinds holds an add-on lowering"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -2460,7 +2477,22 @@
           "refuses a name that is empty, too long or has control characters, an unknown kind and local-owner mode",
           "forgets a record for its owner only, after the work of every grantee stopped",
           "previews and applies the call of a shared binding inside its hold, and keeps the proposal pending when the hold refuses",
-          "keeps one record for a name through either frontend, lists it with the name, and forgets it after the grantee's run stopped"
+          "keeps one record for a name through either frontend, lists it with the name, and forgets it after the grantee's run stopped",
+          "drops an active record whose backing is gone, revokes its grants and keeps the rest",
+          "cancels the admitted work of a record it drops",
+          "keeps the running turn of a grantee lowered from viewer to use and stops the read",
+          "stops the running turn of a grantee whose grant is revoked",
+          "keeps a turn under everyone lowered from viewer to use and stops it when everyone is revoked",
+          "keeps a turn that the own grant allows when everyone is lowered or revoked",
+          "still stops work an owed revocation covers when a later lowering leaves the action",
+          "refuses a person over their lease cap and still admits another person",
+          "never counts a record of a shared kind against the add-on resource limits",
+          "does not let 16 accounts at their share cap block other people",
+          "keeps the add-on resource limits for add-on resources only",
+          "drops the record of a deleted resource so create, share and delete never fills the store",
+          "never moves the floor of the add-on log for lowerings of other kinds",
+          "moves the lowerings of other kinds out of a single log written before the split",
+          "refuses a store whose log of the other kinds holds an add-on lowering"
         ]
       },
       {
@@ -2641,7 +2673,8 @@
           "keeps the sharing routes out of the feature registry and open to accounts without the add-ons feature",
           "lets people who may not use add-ons share a kind, find each other and be granted",
           "answers an unknown resource and a resource of someone else the same for a caller without add-ons",
-          "keeps the add-on resource routes behind the add-ons feature"
+          "keeps the add-on resource routes behind the add-ons feature",
+          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate"
         ]
       }
     ]
@@ -2956,7 +2989,8 @@
           "run the work under the owner's lease, stop it when the owner says the lease is lost, and release it",
           "run nothing when the owner refuses the admission, and are unavailable on an owner without a ShareAuthority",
           "runs the call of a shared credential inside its hold, and never when the hold refuses",
-          "keep the record of a resource the service names through the owner, and are mutations"
+          "keep the record of a resource the service names through the owner, and are mutations",
+          "give a frontend the owner's typed refusal of a search that came too often"
         ]
       },
       {
@@ -3137,7 +3171,8 @@
           "keeps the sharing routes out of the feature registry and open to accounts without the add-ons feature",
           "lets people who may not use add-ons share a kind, find each other and be granted",
           "answers an unknown resource and a resource of someone else the same for a caller without add-ons",
-          "keeps the add-on resource routes behind the add-ons feature"
+          "keeps the add-on resource routes behind the add-ons feature",
+          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate"
         ]
       }
     ]
@@ -3609,8 +3644,12 @@
           "refuses a non-owner, an API key, a tool-marked call and a missing confirmation",
           "answers an unknown resource, a resource of someone else and an unknown kind the same",
           "cancels the grantee's admitted work before a revocation answers",
-          "lists every registered sharing route in the feature registry",
-          "answers sharing_disabled"
+          "answers sharing_disabled",
+          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate",
+          "lets people who may not use add-ons share a kind, find each other and be granted",
+          "answers an unknown resource and a resource of someone else the same for a caller without add-ons",
+          "keeps the add-on resource routes behind the add-ons feature",
+          "keeps the sharing routes out of the feature registry and open to accounts without the add-ons feature"
         ]
       }
     ]

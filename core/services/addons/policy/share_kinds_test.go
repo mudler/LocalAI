@@ -220,7 +220,7 @@ var _ = Describe("Grants to everyone", func() {
 		Expect(rec.Drain).To(BeEmpty())
 		Expect(rec.Grants).To(Equal(map[string]Role{"bob": RoleManage}))
 		f.store.mu.Lock()
-		log := append([]revocation(nil), f.store.doc.Revoked...)
+		log := append([]revocation(nil), f.store.doc.RevokedKinds...)
 		f.store.mu.Unlock()
 		Expect(log).To(HaveLen(1))
 		Expect(log[0].UserID).To(Equal(Everyone))

@@ -113,10 +113,19 @@ export function resolveSubpath(input, pages) {
 
 // Core routes an add-on page may call. The add-on calls them with the signed-in
 // user's own session, through the same authentication and authorization as any
-// browser request, so it can do nothing the user cannot. Two prefixes are
-// refused: the add-on gateway has its own identity-bound typed calls, and the
-// auth routes hold account credentials.
-const CORE_DENIED = ['/api/addons', '/api/auth']
+// browser request, so it can do nothing the user cannot. Three prefixes are
+// refused: the add-on gateway has its own identity-bound typed calls, the auth
+// routes hold account credentials, and the sharing routes change who may use a
+// resource, which only the person decides in the host's Share dialog.
+const CORE_DENIED = ['/api/addons', '/api/auth', '/api/shares']
+
+// sharingRoute says whether a decoded, lower-case API path makes a resource
+// shareable: the share action of an agent, a binding or a collection, whose
+// last segment is "share".
+function sharingRoute(segments) {
+  const parts = segments.filter((s, i) => i > 0 && s !== '')
+  return parts[0] === 'api' && parts.length >= 3 && parts[parts.length - 1] === 'share'
+}
 
 export function coreRequestUrl(path, basePath = '') {
   if (typeof path !== 'string' || path.length === 0 || path.length > 2048) return null
@@ -144,6 +153,7 @@ export function coreRequestUrl(path, basePath = '') {
   }
   const lower = decodedSegments.join('/').toLowerCase()
   if (CORE_DENIED.some(p => lower === p || lower.startsWith(`${p}/`))) return null
+  if (sharingRoute(lower.split('/'))) return null
   return `${basePath}${pathname}${search}`
 }
 
@@ -386,6 +396,9 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
       const headers = new Headers(init.headers || {})
       headers.delete('authorization')
       headers.delete('cookie')
+      // The confirmation header says that the person acts in their own tab.
+      // Add-on code is not the person, so it never carries one.
+      headers.delete('x-localai-confirm')
       return (host.fetch || globalThis.fetch)(url, {
         method: init.method,
         headers,

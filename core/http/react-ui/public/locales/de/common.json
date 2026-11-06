@@ -139,7 +139,7 @@
     },
     "add": "Personen hinzufügen",
     "search": "Person nach Namen suchen",
-    "searchHint": "Geben Sie mindestens zwei Buchstaben eines Namens ein.",
+    "searchHint": "Geben Sie mindestens drei Buchstaben eines Namens ein.",
     "newRole": "Rolle für hinzugefügte Personen",
     "searching": "Suche läuft",
     "noResults": "Niemand passt.",

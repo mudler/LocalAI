@@ -140,7 +140,7 @@
     },
     "add": "Add people",
     "search": "Find a person by name",
-    "searchHint": "Type at least two letters of a name.",
+    "searchHint": "Type at least three letters of a name.",
     "newRole": "Role for people you add",
     "searching": "Searching",
     "noResults": "Nobody matches.",

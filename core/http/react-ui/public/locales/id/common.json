@@ -140,7 +140,7 @@
     },
     "add": "Tambah orang",
     "search": "Cari orang berdasarkan nama",
-    "searchHint": "Ketik minimal dua huruf nama.",
+    "searchHint": "Ketik minimal tiga huruf nama.",
     "newRole": "Peran untuk orang yang ditambahkan",
     "searching": "Mencari",
     "noResults": "Tidak ada yang cocok.",

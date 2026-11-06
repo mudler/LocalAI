@@ -132,8 +132,11 @@ type revocation struct {
 	At         time.Time `json:"at"`
 }
 
-// MaxRevocations is a safety bound on the lowerings the store keeps. The log
-// is compacted as it grows: a lowering that a later and stricter or equal one
+// MaxRevocations is a safety bound on the lowerings each log of the store
+// keeps. There are two logs: one of the add-on resources, which a restore of
+// an add-on reads, and one of the other kinds, so that churn on shared agents,
+// bindings or collections can never push an add-on lowering out or move the
+// floor of the add-on log. Each log is compacted as it grows: a lowering that a later and stricter or equal one
 // of the same person on the same resource covers is dropped, so a person has
 // at most three entries and the bound is reached only by many distinct
 // people and resources. When it is reached, the oldest entries go and the
@@ -156,22 +159,50 @@ func (r revocation) covers(o revocation) bool {
 // time: a dropped entry is always covered by a later entry that is at least as
 // strict, so any restore that would have applied the first applies the second.
 func (d *document) addRevocation(v revocation) {
-	kept := d.Revoked[:0:0]
-	for _, o := range d.Revoked {
+	if shareKind(v.Kind) {
+		d.RevokedKinds, d.RevokedKindsFloor = appendRevocation(d.RevokedKinds, d.RevokedKindsFloor, v)
+		return
+	}
+	d.Revoked, d.RevokedFloor = appendRevocation(d.Revoked, d.RevokedFloor, v)
+}
+
+// appendRevocation adds v to one log and returns the log and its floor.
+func appendRevocation(log []revocation, floor time.Time, v revocation) ([]revocation, time.Time) {
+	kept := log[:0:0]
+	for _, o := range log {
 		if o.Kind == v.Kind && o.ResourceID == v.ResourceID && o.UserID == v.UserID && !o.At.After(v.At) && v.covers(o) {
 			continue
 		}
 		kept = append(kept, o)
 	}
-	d.Revoked = append(kept, v)
-	if over := len(d.Revoked) - revocationCap; over > 0 {
-		for _, o := range d.Revoked[:over] {
-			if o.At.After(d.RevokedFloor) {
-				d.RevokedFloor = o.At
+	log = append(kept, v)
+	if over := len(log) - revocationCap; over > 0 {
+		for _, o := range log[:over] {
+			if o.At.After(floor) {
+				floor = o.At
 			}
 		}
-		d.Revoked = append([]revocation(nil), d.Revoked[over:]...)
+		log = append([]revocation(nil), log[over:]...)
 	}
+	return log, floor
+}
+
+// splitRevocations moves the lowerings of the kinds that are not add-ons
+// out of the add-on log, where a store written before the two logs kept
+// them. The floor of the old log stays on the add-on log: it may have been
+// raised by any kind, and keeping it there can only make a restore stricter.
+func (d *document) splitRevocations() {
+	kept := d.Revoked[:0:0]
+	for _, v := range d.Revoked {
+		if shareKind(v.Kind) {
+			d.RevokedKinds = append(d.RevokedKinds, v)
+			d.migrated = true
+			continue
+		}
+		kept = append(kept, v)
+	}
+	d.Revoked = kept
+	sort.SliceStable(d.RevokedKinds, func(i, j int) bool { return d.RevokedKinds[i].At.Before(d.RevokedKinds[j].At) })
 }
 
 type document struct {
@@ -179,11 +210,16 @@ type document struct {
 	Mode      Mode                  `json:"mode"`
 	Resources map[string]*record    `json:"resources"`
 	Deleted   map[string]*tombstone `json:"deleted,omitempty"`
-	Revoked   []revocation          `json:"revoked,omitempty"`
+	// Revoked is the log of the lowerings of add-on resources.
+	Revoked []revocation `json:"revoked,omitempty"`
 	// RevokedFloor is the time up to which lowerings may have been dropped
 	// from Revoked for lack of room. A restore from a backup made before it
 	// cannot tell what was lowered since.
 	RevokedFloor time.Time `json:"revokedFloor,omitempty"`
+	// RevokedKinds and RevokedKindsFloor are the same for the kinds that are
+	// not add-ons. No lowering of those kinds can move RevokedFloor.
+	RevokedKinds      []revocation `json:"revokedKinds,omitempty"`
+	RevokedKindsFloor time.Time    `json:"revokedKindsFloor,omitempty"`
 	// migrated is set by load when it filled in kinds a store written before
 	// kinds existed did not have, so OpenStore writes the new form back.
 	migrated bool
@@ -203,6 +239,8 @@ func (d *document) clone() *document {
 	}
 	c.Revoked = append([]revocation(nil), d.Revoked...)
 	c.RevokedFloor = d.RevokedFloor
+	c.RevokedKinds = append([]revocation(nil), d.RevokedKinds...)
+	c.RevokedKindsFloor = d.RevokedKindsFloor
 	c.migrated = d.migrated
 	return c
 }
@@ -270,14 +308,23 @@ func load(dir string) (*document, error) {
 	if len(d.Deleted) > MaxTombstones {
 		return nil, errors.New("addon policy store is corrupt")
 	}
-	if len(d.Revoked) > MaxRevocations {
+	if len(d.Revoked) > MaxRevocations || len(d.RevokedKinds) > MaxRevocations {
 		return nil, errors.New("addon policy store is corrupt")
 	}
 	if !d.migrateKinds() {
 		return nil, errors.New("addon policy store is corrupt")
 	}
-	for _, v := range d.Revoked {
-		if v.Kind == "" || !wellFormedKind(v.Kind) || v.ResourceID == "" || v.UserID == "" || (v.Ceiling != "" && !grantRole(v.Ceiling)) {
+	for _, log := range [][]revocation{d.Revoked, d.RevokedKinds} {
+		for _, v := range log {
+			if v.Kind == "" || !wellFormedKind(v.Kind) || v.ResourceID == "" || v.UserID == "" || (v.Ceiling != "" && !grantRole(v.Ceiling)) {
+				return nil, errors.New("addon policy store is corrupt")
+			}
+		}
+	}
+	// The log of the other kinds is written by this version only, which
+	// never puts an add-on lowering there.
+	for _, v := range d.RevokedKinds {
+		if !shareKind(v.Kind) || v.AddonID != "" {
 			return nil, errors.New("addon policy store is corrupt")
 		}
 	}
@@ -289,6 +336,10 @@ func load(dir string) (*document, error) {
 				d.RevokedFloor = v.At
 			}
 		}
+	}
+	d.splitRevocations()
+	if len(d.RevokedKinds) > MaxRevocations {
+		return nil, errors.New("addon policy store is corrupt")
 	}
 	for id, t := range d.Deleted {
 		if id == "" || t == nil || t.Kind == "" || !kindMatchesAddon(t.Kind, t.AddonID) || t.Owner == "" || t.Op == "" {

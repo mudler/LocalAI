@@ -66,13 +66,48 @@ revoking a person leaves what `@everyone` holds.
 When the owner lowers or removes a grant, LocalAI:
 
 1. records the change and starts a new authority epoch for the resource,
-2. cancels the admitted work of the grantee that the change took away, for
-   `@everyone` the work of every person that their own grant does not allow,
+2. cancels the admitted work of the grantee whose action the new role no longer
+   allows, for `@everyone` the work of every person that their own grant does not
+   allow,
 3. waits for that work to stop, and only then answers.
+
+The cancel looks at what each piece of work does. Lowering an agent from `viewer`
+to `use` stops a read of the definition and keeps a running chat, because `use`
+still chats with the agent. Removing the grant stops both.
 
 If the work does not stop within 10 seconds, the answer is a 503 and the change is
 already in force for new work. Repeat the same call. LocalAI keeps the change in its
 revocation log, so restoring an older backup does not give the access back.
+
+There are two revocation logs of up to 4096 changes each: one for the add-on
+resources and one for the other kinds. Changes on agents, bindings and collections
+therefore never push a change of an add-on resource out of its log. A restore of an
+add-on reads only the add-on log. When that log is full, its oldest changes go, and
+a restore from a backup older than them gives back the data and no access at all.
+
+## Limits
+
+A shared resource of a kind that is not an add-on has one record in the policy
+store, made when its owner shares it the first time. These records have their own
+limits, apart from the add-on resources:
+
+| Records | Per owner | In total |
+|---------|-----------|----------|
+| Add-on resources | 256 | 4096 |
+| Share records (agents, bindings, collections, other kinds) | 256 | 8192 |
+
+An owner at the limit of share records cannot share one more resource for the first
+time until one of their records goes; resources that are already shared are not
+affected. Share records never take the room of add-on resources, and an owner reaches
+their own limit long before the total: 32 owners at their limit are needed to fill it.
+
+A record is dropped when its resource is deleted: deleting a saved agent or a
+binding revokes every grant and then drops the record. At startup the add-on owner
+also checks the share records of every kind against the kind's own check that the
+resource still exists, and drops the records of agents that are gone, for example
+an agent deleted while the owner could not be reached. A check that cannot answer
+keeps the record for the next start. A collection has no delete route; resetting a
+collection keeps its record and its grants.
 
 ## API
 
@@ -98,9 +133,17 @@ MCP marker. Any other call gets 403.
 `{principal}` is the account ID that the user picker returned, or `@everyone`.
 
 The user picker (`GET .../users?q=`) searches every active named account by a prefix
-of the display name or of the address, 2 to 64 characters, and keeps only the
-accounts that the kind accepts. It returns at most 20 people, each with the account
-ID and the display name only, and never the owner or the caller.
+of the display name, 3 to 64 characters, and keeps only the accounts that the kind
+accepts. A prefix of an address finds nobody, so the picker does not tell who has an
+account. An account without a display name is found only by its whole address and is
+returned with an empty display name; the Share dialog shows it as an unnamed person.
+The picker returns at most 20 people, each with the account ID and the display name
+only, and never the owner or the caller.
+
+Each person may search 20 times at once and then once every 2 seconds. A search over
+that rate gets 429 with type `rate_limited`. The add-on owner, the only process that
+answers the picker, keeps the count per person in memory, so the rate holds for the
+whole cluster and a restart of the owner resets it.
 
 ### List your resources of a kind
 
@@ -141,9 +184,10 @@ ID `@everyone` and no display name. The call is safe to repeat. If the answer is
 
 | Status | Type | Meaning |
 |--------|------|---------|
-| 400 | `invalid_request` | The kind does not grant the role, or the search text is not 2 to 64 characters. |
+| 400 | `invalid_request` | The kind does not grant the role, or the search text is not 3 to 64 characters. |
 | 403 | `addon_error` | Not the owner, not a browser session, a person the kind does not accept or whose account is not active, a feature the kind names and the caller does not hold, an unknown kind or an unknown resource. These get the same answer, so a caller cannot tell whether a resource exists. |
 | 409 | `sharing_disabled` | The installation runs in local-owner mode, which has no named accounts to share with. |
+| 429 | `rate_limited` | The person searched for people too often. Wait a moment and search again. |
 | 503 | `outcome_unknown` | A grant change may have run. Repeat the same call. |
 
 ## Kinds of LocalAI itself
@@ -246,6 +290,22 @@ const client = R.useMemo(() => sdk.resources.shareClient(db.id), [db.id])
 ) : null}
 ```
 
+The page of a connector add-on shares one of the person's bindings with
+`sdk.ui.ConnectionShareDialog`. It takes the binding ID (`binding`), its `name`, the
+words of the `use` role (`roleLabel`, `roleHelp`) and the props `intro`, `title`,
+`onChanged`, `onLost`, `close` and `testId` of the dialog. The host makes the binding
+shareable and calls the sharing routes itself; the page gets no client.
+
+```jsx
+const Dialog = sdk.ui.ConnectionShareDialog
+{open && Dialog ? <Dialog binding={c.id} name={c.name} close={() => setOpen(false)} /> : null}
+```
+
+An add-on's own code cannot reach the sharing routes: `sdk.core.fetch` refuses
+`/api/shares` and the `.../share` routes of agents, collections and bindings, and
+drops the `X-LocalAI-Confirm` header. Only the person's clicks in the host's dialog
+share or revoke.
+
 A host that is older than the dialog has no `sdk.ui.ShareDialog`. Check for it and
 hide the Share button when it is missing. The SDK version stays 2: the dialog, the
 badges and `shareClient` are additions to the SDK 2 surface.
@@ -329,8 +389,14 @@ frontend keeps the lease alive with a request that waits on the owner for up to
 - When the owner restarts, it knows no lease. Every frontend stops its admitted
   work at its next request.
 
-The leases are the only state of this feature that is not in the policy store.
-They are kept per instance, in the owner's memory. Only the owner holds the
+One person holds at most 512 leases at once and the owner at most 8192. A person
+at their limit gets a denial for the next piece of work until some of it ends; the
+work of other people is not affected.
+
+The leases and their counts are the only state of this feature that is not in the
+policy store. They are kept per instance, in the owner's memory. The limits of the
+records above are counted from the policy store itself, and the startup check runs
+on the owner only. Only the owner holds the
 policy, so there is no second copy to diverge from. When the owner cannot be
 reached, a frontend lists nothing that is shared with the person, creates nothing
 and admits nothing. Each call gets the same typed unavailable answer as the

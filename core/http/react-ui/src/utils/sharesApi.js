@@ -47,7 +47,7 @@ export function shareRequest(call) {
     }
     case 'users': {
       const q = typeof call.query === 'string' ? call.query.trim() : ''
-      need(q.length >= 2 && q.length <= 64, 'A query of 2 to 64 characters is required')
+      need(q.length >= 3 && q.length <= 64, 'A query of 3 to 64 characters is required')
       const limit = Number.isInteger(call.limit) && call.limit > 0 ? `&limit=${Math.min(call.limit, 20)}` : ''
       return { method: 'GET', path: `${at}/users?q=${encodeURIComponent(q)}${limit}`, headers: confirm }
     }

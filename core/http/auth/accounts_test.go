@@ -78,12 +78,13 @@ var _ = Describe("the account check of resource kinds that are not add-ons", fun
 		Expect(errors.Is(err, gateway.ErrUnavailable)).To(BeTrue(), "%v", err)
 	})
 
-	It("searches every active named account by name or address prefix, without the add-ons filter", func() {
+	It("searches every active named account by a prefix of the display name only, without the add-ons filter", func() {
 		db, e := auth.InitDB(filepath.Join(GinkgoT().TempDir(), "auth.db"))
 		Expect(e).NotTo(HaveOccurred())
 		for _, u := range []auth.User{
 			{ID: "frank", Name: "Frank", Email: "frank@example.test", Status: auth.StatusActive, Role: auth.RoleUser},
 			{ID: "fred", Name: "", Email: "fred@example.test", Status: auth.StatusActive, Role: auth.RoleUser},
+			{ID: "blank", Name: "   ", Email: "ceo@example.test", Status: auth.StatusActive, Role: auth.RoleUser},
 			{ID: "fay", Name: "Fay", Email: "fay@example.test", Status: auth.StatusDisabled, Role: auth.RoleUser},
 			{ID: "admin", Name: "Fiona Admin", Email: "root@example.test", Status: auth.StatusActive, Role: auth.RoleAdmin},
 			{ID: auth.AddonLocalOwnerID, Name: "Fake", Email: "f@example.test", Status: auth.StatusActive, Role: auth.RoleUser},
@@ -102,16 +103,23 @@ var _ = Describe("the account check of resource kinds that are not add-ons", fun
 			}
 			return out
 		}
-		Expect(ids("f", 20)).To(ConsistOf("frank", "fred", "admin", "pct"))
-		Expect(ids("FR", 20)).To(ConsistOf("frank", "fred"))
-		Expect(ids("fred@", 20)).To(Equal([]string{"fred"}))
+		Expect(ids("f", 20)).To(ConsistOf("frank", "admin", "pct"))
+		Expect(ids("FR", 20)).To(ConsistOf("frank"))
 		Expect(ids("f%", 20)).To(Equal([]string{"pct"}))
 		Expect(ids("f", 2)).To(HaveLen(2))
-		found, err := users.Accounts(bg, "fred", 20)
+		// An address prefix finds nobody, so the search is no oracle of who
+		// has an account.
+		for _, q := range []string{"fred", "fred@", "fred@example", "ceo@", "ceo@exam", "root", "frank@"} {
+			Expect(ids(q, 20)).To(BeEmpty(), q)
+		}
+		// An account without a display name is found by its whole address
+		// only, and shown with no name: the dialog gives it a neutral label.
+		found, err := users.Accounts(bg, "FRED@example.test", 20)
 		Expect(err).NotTo(HaveOccurred())
-		// The address is never returned: the part before the @ names an
-		// account without a display name.
-		Expect(found).To(Equal([]gateway.UserRef{{ID: "fred", DisplayName: "fred"}}))
+		Expect(found).To(Equal([]gateway.UserRef{{ID: "fred", DisplayName: ""}}))
+		Expect(ids("ceo@example.test", 20)).To(Equal([]string{"blank"}))
+		// An account with a name is not found by its address.
+		Expect(ids("frank@example.test", 20)).To(BeEmpty())
 		// None of them may use add-ons, so the add-on search finds only the
 		// administrator.
 		addon, err := users.Search(bg, "f", 20)

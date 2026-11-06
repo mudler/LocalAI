@@ -239,17 +239,8 @@ func (p *Policy) CreateWithID(ctx context.Context, actor contract.Actor, addonID
 			}
 			return nil
 		}
-		var pending, owned int
-		for _, r := range d.Resources {
-			if r.Owner == owner {
-				owned++
-				if r.State == statePend {
-					pending++
-				}
-			}
-		}
-		if pending >= p.opts.MaxPendingPerUser || owned >= p.opts.MaxResourcesPerUser || len(d.Resources) >= p.opts.MaxResources {
-			return ErrQuota
+		if err := p.room(d, owner, addonKind(addonID)); err != nil {
+			return err
 		}
 		d.Resources[id] = &record{Kind: addonKind(addonID), AddonID: addonID, Owner: owner, State: statePend, Grants: map[string]Role{}, CreateRef: ref}
 		state = statePend

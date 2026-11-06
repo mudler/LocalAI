@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -42,11 +43,17 @@ type Options struct {
 	CreateAuthority func(ctx context.Context, actor contract.Actor, addonID string) error
 	Proposals       ProposalInvalidator
 	DrainTimeout    time.Duration
-	// MaxPendingPerUser, MaxResourcesPerUser and MaxResources bound the store.
-	// Zero selects the finite defaults; a limit can never be disabled.
+	// MaxPendingPerUser, MaxResourcesPerUser and MaxResources bound the
+	// add-on resources of the store. MaxSharesPerUser and MaxShares bound the
+	// records of the kinds that are not add-ons (a shared agent, binding or
+	// collection) apart from them, so share records never take the room of
+	// add-on resources. Zero selects the finite defaults; a limit can never be
+	// disabled.
 	MaxPendingPerUser   int
 	MaxResourcesPerUser int
 	MaxResources        int
+	MaxSharesPerUser    int
+	MaxShares           int
 }
 
 // Default limits for registrations, per owner and in total.
@@ -54,6 +61,13 @@ const (
 	DefaultMaxPendingPerUser   = 8
 	DefaultMaxResourcesPerUser = 256
 	DefaultMaxResources        = 4096
+	// DefaultMaxSharesPerUser and DefaultMaxShares bound the share records.
+	// An owner gets as many as add-on resources. The total is 32 owners at
+	// their cap, so a few accounts that fill their own room leave room for
+	// everyone else; a record is made only on the first share and dropped
+	// when its resource is deleted.
+	DefaultMaxSharesPerUser = 256
+	DefaultMaxShares        = 8192
 )
 
 // Policy decides and serializes access. It keeps no per-user state besides
@@ -91,6 +105,12 @@ func New(store *Store, opts Options) *Policy {
 	}
 	if opts.MaxResources <= 0 {
 		opts.MaxResources = DefaultMaxResources
+	}
+	if opts.MaxSharesPerUser <= 0 {
+		opts.MaxSharesPerUser = DefaultMaxSharesPerUser
+	}
+	if opts.MaxShares <= 0 {
+		opts.MaxShares = DefaultMaxShares
 	}
 	return &Policy{store: store, opts: opts, gates: map[string]*gate{}, inflight: map[string]struct{}{}}
 }
@@ -496,15 +516,31 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Ref,
 	}
 	var victims []*admitted
 	if lowered {
+		// The role the principal holds after this change. A lowering stops
+		// only the work whose action that role no longer allows: lowering an
+		// agent from viewer to use takes the reads away and leaves the turn
+		// that use still runs.
+		after := role
+		if remove {
+			after = ""
+		}
 		for a := range g.active {
 			if !p.drains(spec, r, userID, a) {
 				continue
 			}
+			// A drain owed by an earlier call keeps its cutoff for every
+			// action: that call took the action away, and its answer waits
+			// for the work it admitted before.
+			owedCut := owed.Reads
 			cutoff := mark.Reads
 			if a.mutation {
-				cutoff = mark.Writes
+				owedCut, cutoff = owed.Writes, mark.Writes
 			}
-			if a.epoch < cutoff {
+			stop := isOwed && a.epoch < owedCut
+			if !stop && lowering && a.epoch < cutoff {
+				stop = !spec.allows(after, a.action)
+			}
+			if stop {
 				a.cancel()
 				victims = append(victims, a)
 			}
@@ -613,19 +649,8 @@ func (p *Policy) newPending(actor contract.Actor, kind, addonID string) (string,
 	release := p.track(id)
 	owner := p.store.Mode().ownerOf(actor)
 	err = p.store.mutate(func(d *document) error {
-		var pending, owned int
-		for _, r := range d.Resources {
-			if r.Owner == owner {
-				owned++
-				// A record of a kind nobody registers now cannot be settled
-				// and stays pending, so it does not take the user's quota.
-				if _, known := p.spec(r.Kind); r.State == statePend && known {
-					pending++
-				}
-			}
-		}
-		if pending >= p.opts.MaxPendingPerUser || owned >= p.opts.MaxResourcesPerUser || len(d.Resources) >= p.opts.MaxResources {
-			return ErrQuota
+		if err := p.room(d, owner, kind); err != nil {
+			return err
 		}
 		d.Resources[id] = &record{Kind: kind, AddonID: addonID, Owner: owner, State: statePend, Grants: map[string]Role{}}
 		return nil
@@ -635,6 +660,42 @@ func (p *Policy) newPending(actor contract.Actor, kind, addonID string) (string,
 		return "", nil, err
 	}
 	return id, release, nil
+}
+
+// shareKind says whether records of the kind are share records: the records
+// of a kind that is not an add-on. They have their own limits.
+func shareKind(kind string) bool { return !strings.HasPrefix(kind, addonKindPrefix) }
+
+// room says whether the owner may add one more record of the kind. The
+// add-on resources and the share records are counted apart, each against its
+// own limits per owner and in total, so neither class can fill the room of
+// the other. d is the document under the store lock.
+func (p *Policy) room(d *document, owner, kind string) error {
+	share := shareKind(kind)
+	perOwner, total := p.opts.MaxResourcesPerUser, p.opts.MaxResources
+	if share {
+		perOwner, total = p.opts.MaxSharesPerUser, p.opts.MaxShares
+	}
+	var pending, owned, all int
+	for _, r := range d.Resources {
+		if shareKind(r.Kind) != share {
+			continue
+		}
+		all++
+		if r.Owner != owner {
+			continue
+		}
+		owned++
+		// A record of a kind nobody registers now cannot be settled and
+		// stays pending, so it does not take the user's quota.
+		if _, known := p.spec(r.Kind); r.State == statePend && known {
+			pending++
+		}
+	}
+	if pending >= p.opts.MaxPendingPerUser || owned >= perOwner || all >= total {
+		return ErrQuota
+	}
+	return nil
 }
 
 // randomResourceID is a fresh resource ID. The ID space is shared by all

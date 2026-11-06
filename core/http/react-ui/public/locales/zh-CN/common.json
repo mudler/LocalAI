@@ -139,7 +139,7 @@
     },
     "add": "添加人员",
     "search": "按名称查找人员",
-    "searchHint": "请输入名称的至少两个字母。",
+    "searchHint": "请输入名称的至少三个字母。",
     "newRole": "所添加人员的角色",
     "searching": "正在搜索",
     "noResults": "没有匹配的人。",

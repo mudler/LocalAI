@@ -76,12 +76,12 @@ test.describe('Share dialog', () => {
     await expect(dialog.getByTestId('share-no-grants')).toHaveText('Only you have access.')
     // The search field has the focus when the dialog opens.
     await expect(dialog.getByLabel('Find a person by name')).toBeFocused()
-    // One letter is not a search.
-    await dialog.getByLabel('Find a person by name').fill('b')
+    // Two letters are not a search.
+    await dialog.getByLabel('Find a person by name').fill('bo')
     await page.waitForTimeout(400)
     expect(server.requests.filter(r => r.path.includes('/users'))).toHaveLength(0)
     await dialog.getByLabel('Role for people you add').selectOption('manage')
-    await dialog.getByLabel('Find a person by name').fill('bo')
+    await dialog.getByLabel('Find a person by name').fill('bob')
     const bob = dialog.getByTestId('share-user').filter({ hasText: 'Bob Okafor' })
     await expect(bob).toHaveCount(1)
     // Only an identifier and a name are shown, never an address.
@@ -96,9 +96,9 @@ test.describe('Share dialog', () => {
     expect(put.body.role).toBe('manage')
     expect(put.body.operationId).toMatch(/^share-/)
     // Someone who already has access is not offered again.
-    await dialog.getByLabel('Find a person by name').fill('bo')
+    await dialog.getByLabel('Find a person by name').fill('bob')
     await expect(dialog.getByTestId('share-no-users')).toHaveText('Everybody who matches already has access.')
-    await dialog.getByLabel('Find a person by name').fill('zz')
+    await dialog.getByLabel('Find a person by name').fill('zzz')
     await expect(dialog.getByTestId('share-no-users')).toHaveText('Nobody matches.')
   })
 
@@ -145,7 +145,7 @@ test.describe('Share dialog', () => {
     await stubShares(page, { searchDelay: 800, fail: { 'grants/u-alice': { status: 503, type: 'outcome_unknown' } } })
     await openCatalog(page)
     const dialog = await openShare(page)
-    await dialog.getByLabel('Find a person by name').fill('al')
+    await dialog.getByLabel('Find a person by name').fill('ali')
     await expect(dialog.getByTestId('share-searching')).toBeVisible()
     await dialog.getByTestId('share-user').filter({ hasText: 'Alice Martin' }).getByRole('button').click()
     await expect(dialog.getByTestId('share-error')).toHaveText('The change may not have been saved. Try again to be sure.')
@@ -193,7 +193,7 @@ test.describe('Share dialog', () => {
     await expect(dialog.getByTestId('share-ref')).toHaveCount(2)
     await expect(dialog.getByTestId('share-refs-pending')).toBeVisible()
     await expect(dialog.getByRole('button', { name: 'Share with everyone' })).toBeDisabled()
-    await dialog.getByLabel('Find a person by name').fill('ca')
+    await dialog.getByLabel('Find a person by name').fill('car')
     const add = dialog.getByTestId('share-user').filter({ hasText: 'Carla Rossi' }).getByRole('button')
     await expect(add).toBeDisabled()
     await dialog.getByLabel('Access to Product docs').selectOption('view')
@@ -262,7 +262,7 @@ test.describe('Share dialog', () => {
           await shot('revoke-confirm')
           await dialog.getByRole('button', { name: 'Cancel' }).click()
 
-          await dialog.getByLabel('Find a person by name').fill('ca')
+          await dialog.getByLabel('Find a person by name').fill('car')
           await expect(dialog.getByTestId('share-searching')).toBeVisible()
           await shot('searching')
           await page.keyboard.press('Escape')

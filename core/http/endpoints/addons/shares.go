@@ -106,18 +106,19 @@ func RevokeShareGrant(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.Hand
 
 // SearchShareUsers is the user picker of a resource of a kind.
 // @Summary Search the people a resource can be shared with (owner, UI only)
-// @Description Finds active named accounts by a prefix of the display name or of the address, 2 to 64 characters, at most 20 results, whether or not they may use add-ons, and keeps only those the kind accepts as grantees. Each result is an immutable account ID and a display name and nothing else. Only the owner of the resource may search; the owner and the caller are left out. Local-owner mode answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID, no API key, no tool, agent or MCP marker). No MCP tool maps to this route.
+// @Description Finds active named accounts by a prefix of the display name, 3 to 64 characters, at most 20 results, whether or not they may use add-ons, and keeps only those the kind accepts as grantees. A prefix of an address finds nobody; an account without a display name is found by its whole address only and comes back with an empty display name. Each result is an immutable account ID and a display name and nothing else. Each person may search 20 times at once and then once every 2 seconds; a search over that rate answers 429 rate_limited. Only the owner of the resource may search; the owner and the caller are left out. Local-owner mode answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID, no API key, no tool, agent or MCP marker). No MCP tool maps to this route.
 // @Tags Sharing
 // @Produce json
 // @Param kind path string true "Resource kind"
 // @Param resourceId path string true "Resource ID"
-// @Param q query string true "Name or address prefix"
+// @Param q query string true "Display name prefix, or a whole address"
 // @Param limit query int false "At most this many results, up to 20"
 // @Success 200 {object} gateway.UserList "Matching people"
 // @Failure 400 {object} AddonErrorResponse "Query too short or too long"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
 // @Failure 403 {object} AddonErrorResponse "Not a human surface, a feature the kind names denied, not the owner, unknown kind or unknown resource"
 // @Failure 409 {object} AddonErrorResponse "Type sharing_disabled"
+// @Failure 429 {object} AddonErrorResponse "Type rate_limited: too many searches"
 // @Failure 503 {object} AddonErrorResponse "The owner is unavailable"
 // @Router /api/shares/{kind}/{resourceId}/users [get]
 func SearchShareUsers(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {

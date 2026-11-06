@@ -482,6 +482,15 @@ func (a *Application) startAddonGateway() error {
 	if rep.Kept > 0 {
 		xlog.Warn("addons: pending resource registrations could not be settled yet and stay pending", "settled", rep.Settled, "kept", rep.Kept)
 	}
+	// Share records whose resource is gone (an agent deleted while the
+	// record could not be dropped) are dropped now, before anything is
+	// served, so they never hold quota for good. A failed check keeps the
+	// record for the next start.
+	if sweep, e := p.SweepOrphans(a.applicationConfig.Context); e != nil {
+		xlog.Warn("addons: the share records could not be checked", "error", e)
+	} else if sweep.Dropped > 0 || sweep.Kept > 0 {
+		xlog.Info("addons: share records of deleted resources dropped", "dropped", sweep.Dropped, "unchecked", sweep.Kept)
+	}
 	// The conversation selections and the UI-only resource management sit
 	// beside the policy store and are held only here.
 	selections, e = resources.OpenSelections(filepath.Join(cfg.Root, "selections"), resources.SelectionOptions{})

@@ -5423,8 +5423,10 @@ what the user may do.
 
 `sdk.core.fetch` is `fetch` with a fixed policy. It sends the cookies of the page
 (`credentials: 'same-origin'`), refuses other origins (`mode: 'same-origin'`),
-refuses redirects, and does not use the cache. It removes any `Authorization` and
-`Cookie` header that the add-on sets, and it stops when the add-on is withdrawn.
+refuses redirects, and does not use the cache. It removes any `Authorization`,
+`Cookie` and `X-LocalAI-Confirm` header that the add-on sets, and it stops when the
+add-on is withdrawn. `X-LocalAI-Confirm` marks a person's own action in their own tab,
+and add-on code is not the person.
 
 The path must be a same-origin path that starts with one `/`. These are refused with
 an `invalid_path` error before any request is made:
@@ -5434,6 +5436,12 @@ an `invalid_path` error before any request is made:
 - the add-on gateway (`/api/addons`) and the auth routes (`/api/auth`). The add-on
   gateway has its own typed calls, and the auth routes hold account credentials. The
   check uses the decoded path, so `/api/%61ddons/apps` is refused too;
+- the sharing routes: `/api/shares` and every API path whose last segment is `share`,
+  such as `/api/chats/agents/{id}/share`, `/api/collections/{name}/share` and
+  `/api/chats/connectors/{id}/share`. Only the person shares, in the host's Share
+  dialog: an add-on page renders `sdk.ui.ShareDialog` with
+  `sdk.resources.shareClient` for its own resources, or `sdk.ui.ConnectionShareDialog`
+  for a connector binding (see [Sharing resources]({{%relref "features/sharing#in-an-add-on" %}}));
 - an encoded `/` or `\` in the first two segments, because it can hide a segment
   boundary. In a later segment it is a normal identifier (`/api/voice-profiles/a%2Fb`).
 
