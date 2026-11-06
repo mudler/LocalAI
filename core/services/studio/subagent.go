@@ -64,9 +64,11 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	}
 	sub := rec.Kind == session.KindSubAgent
 	if sub && rec.AgentID == "" {
-		s.mu.Lock()
-		tools := s.allowed[key(a.Principal, a.ChatID)]
-		s.mu.Unlock()
+		px, err := x.ForChat(rec.ParentID)
+		if err != nil {
+			return session.TurnTools{}, err
+		}
+		tools := s.childAllowed(ctx, rec, &px)
 		var prompt, work string
 		cmds := s.withHostBash(s.commandsOf(ctx, a.Principal, tools, nil, nil), tools)
 		if cmds.State != CommandsAvailable {
@@ -75,7 +77,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		if canWriteFiles(tools, cmds) {
 			work = s.subWorkBlock(ctx, rec, x)
 		}
-		prompt = joinBlocks(prompt, webBlock(tools), work)
+		prompt = joinBlocks(prompt, webBlock(tools), work, droppedToolsNote(rec.AllowedTools, tools))
 		// The loop tools come last: a sub-agent may arm a loop of its own and
 		// wait, whatever tools its parent gave it.
 		tools = append(slices.Clone(tools), s.loopTools(ctx, a, rec)...)
@@ -415,6 +417,15 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		// The child is refused, never given the whole home, when the folder
 		// it works in can no longer be found (chatScopes).
 		ScopedAgent: parent.ScopedAgent || agent.HasFolder()}
+	if agent.ID == "" {
+		// The names the parent granted live with the chat, so the tools can be
+		// rebuilt after a restart or on another frontend (childAllowed).
+		granted := s.fitLoadSkill(a, subset)
+		rec.AllowedTools = make([]string, 0, len(granted))
+		for _, t := range granted {
+			rec.AllowedTools = append(rec.AllowedTools, t.Name)
+		}
+	}
 	if err := s.d.Store.CreateChat(ctx, rec); err != nil {
 		s.forgetChild(parentKey, childID)
 		return "", err
@@ -499,12 +510,11 @@ func (s *Service) agentFitsScope(ctx context.Context, p string, outer *folderSco
 	return true
 }
 
-// subset picks the tools a sub-agent gets from the parent's host tools and
-// file tools, built from x, the parent's access for this turn. Nil asks for
-// all of them but the named-only ones; a name the parent does not have is an
-// error.
-func (s *Service) subset(ctx context.Context, x session.Access, names *[]string) ([]session.Tool, error) {
-	a := x.Actor()
+// parentTools builds the tools a chat can hand to a sub-agent, as the chat has
+// them now: its host tools and, when x is given, its file tools. Without x the
+// file tools are left out, for a caller that only needs the host tools and
+// must not resolve session access. a is the actor of the chat.
+func (s *Service) parentTools(ctx context.Context, a workspace.Actor, x *session.Access) ([]session.Tool, error) {
 	have, err := s.hostTools(ctx, a)
 	if err != nil {
 		return nil, fmt.Errorf("could not list your tools: %w", err)
@@ -512,18 +522,32 @@ func (s *Service) subset(ctx context.Context, x session.Access, names *[]string)
 	// The built-in file tools act for the parent chat: what a sub-agent changes
 	// is an agent change of the parent, and the parent's Files pane refreshes.
 	parent, perr := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
-	fileTools := s.d.Files.Tools(x)
-	if perr == nil {
-		// A sub-agent never gets a tool its parent switched off.
-		fileTools = dropHidden(fileTools, s.hiddenFor(ctx, parent))
+	if x != nil {
+		fileTools := s.d.Files.Tools(*x)
+		if perr == nil {
+			// A sub-agent never gets a tool its parent switched off.
+			fileTools = dropHidden(fileTools, s.hiddenFor(ctx, parent))
+		}
+		have = append(have, s.fileNudgeTools(*x, s.announceFileChanges(a, s.skillHintTools(a, fileTools)))...)
 	}
-	have = append(have, s.fileNudgeTools(x, s.announceFileChanges(a, s.skillHintTools(a, fileTools)))...)
 	if perr == nil {
 		// Built for a sub-agent: bash on this machine only when no card is
 		// needed, since nobody watches the sub-agent's chat.
 		have = s.applyBuiltins(have, s.builtinsFor(ctx, a, parent, true))
 		// A sub-agent of a run that nobody watches has the rights of that run.
 		have = s.gateBuiltinActs(ctx, parent, have)
+	}
+	return have, nil
+}
+
+// subset picks the tools a sub-agent gets from the parent's host tools and
+// file tools, built from x, the parent's access for this turn. Nil asks for
+// all of them but the named-only ones; a name the parent does not have is an
+// error.
+func (s *Service) subset(ctx context.Context, x session.Access, names *[]string) ([]session.Tool, error) {
+	have, err := s.parentTools(ctx, x.Actor(), &x)
+	if err != nil {
+		return nil, err
 	}
 	if names == nil {
 		kept := have[:0:0]
@@ -607,6 +631,70 @@ func (s *Service) runningChildren(ctx context.Context, p, conv string) ([]sessio
 		}
 	}
 	return out, nil
+}
+
+// childAllowed returns the tools of an ad-hoc sub-agent (one that is not a
+// saved agent). While the process that started it runs, they are the list in
+// memory. Otherwise (after a restart, or on another frontend) they are rebuilt
+// from the names stored with the chat, and only the ones the parent chat may
+// give out now: a grant that shrank since removes the tool, and a stored name
+// that no longer exists is dropped. The child never gains a tool it did not
+// have. px is the access of the parent chat; nil leaves out the file tools,
+// for a caller that cannot resolve session access.
+func (s *Service) childAllowed(ctx context.Context, rec session.ChatRecord, px *session.Access) []session.Tool {
+	s.mu.Lock()
+	tools, ok := s.allowed[key(rec.Principal, rec.ID)]
+	s.mu.Unlock()
+	if ok {
+		return tools
+	}
+	if len(rec.AllowedTools) == 0 {
+		return nil
+	}
+	parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
+	if err != nil {
+		s.log.Warn("studio: could not read the parent of a sub-agent; it has no tools", "chat", rec.ID, "error", err)
+		return nil
+	}
+	var a workspace.Actor
+	if px != nil {
+		a = px.Actor()
+	} else {
+		a = s.chatActorFor(ctx, parent)
+	}
+	have, err := s.parentTools(ctx, a, px)
+	if err != nil {
+		s.log.Warn("studio: could not list the tools of the parent of a sub-agent; it has no tools", "chat", rec.ID, "error", err)
+		return nil
+	}
+	byName := make(map[string]session.Tool, len(have))
+	for _, t := range have {
+		if !namedOnlyTools[t.Name] || slices.Contains(rec.AllowedTools, t.Name) {
+			byName[t.Name] = t
+		}
+	}
+	out := make([]session.Tool, 0, len(rec.AllowedTools))
+	for _, n := range rec.AllowedTools {
+		if t, ok := byName[n]; ok {
+			out = append(out, t)
+		}
+	}
+	return s.fitLoadSkill(a, out)
+}
+
+// droppedToolsNote tells the model which granted tools it lost since the
+// sub-agent started. It is empty when it lost none.
+func droppedToolsNote(granted []string, have []session.Tool) string {
+	var gone []string
+	for _, n := range granted {
+		if !slices.ContainsFunc(have, func(t session.Tool) bool { return t.Name == n }) {
+			gone = append(gone, n)
+		}
+	}
+	if len(gone) == 0 {
+		return ""
+	}
+	return "These tools are no longer available to you and were removed: " + strings.Join(gone, ", ") + "."
 }
 
 func (s *Service) forgetChild(parentKey, id string) {

@@ -128,9 +128,13 @@ func (s *Service) pollTool(ctx context.Context, p, chat, name string) (session.T
 	}
 	var tools []session.Tool
 	if rec.Kind == session.KindSubAgent && rec.AgentID == "" {
-		s.mu.Lock()
-		tools = s.allowed[key(p, chat)]
-		s.mu.Unlock()
+		var px *session.Access
+		if x, err := s.chatAccess(ctx, rec); err == nil {
+			if pa, err := x.ForChat(rec.ParentID); err == nil {
+				px = &pa
+			}
+		}
+		tools = s.childAllowed(ctx, rec, px)
 	} else {
 		a := s.chatActorFor(ctx, rec)
 		if tools, err = s.hostTools(ctx, a); err != nil {

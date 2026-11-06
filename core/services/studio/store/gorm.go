@@ -54,9 +54,12 @@ type chatRow struct {
 	// chats made before as not scoped, so AutoMigrate is its migration.
 	ScopedAgent bool   `gorm:"not null;default:false"`
 	Settings    string `gorm:"type:text"` // JSON of session.ChatSettings
-	HostConsent string `gorm:"type:text"` // JSON of session.HostConsent while a card waits
-	Egress      string `gorm:"type:text"` // JSON of egress.ChatState
-	EgressRev   int64  // bumped by UpdateEgress and UpdateHostConsent; their row lock
+	// AllowedTools came after the table existed: it is a nullable text
+	// column, so AutoMigrate adds it and older rows read as no list.
+	AllowedTools string `gorm:"type:text"` // JSON list of the tool names of a sub-agent
+	HostConsent  string `gorm:"type:text"` // JSON of session.HostConsent while a card waits
+	Egress       string `gorm:"type:text"` // JSON of egress.ChatState
+	EgressRev    int64  // bumped by UpdateEgress and UpdateHostConsent; their row lock
 	// Goal and GoalRev came after the table existed: the defaults fill the
 	// rows of chats made before, so AutoMigrate is their migration.
 	Goal    string `gorm:"type:text;not null;default:''"` // JSON of session.Goal; empty: no goal
@@ -266,6 +269,11 @@ func (r chatRow) record() (session.ChatRecord, error) {
 			return rec, err
 		}
 	}
+	if r.AllowedTools != "" {
+		if err := json.Unmarshal([]byte(r.AllowedTools), &rec.AllowedTools); err != nil {
+			return rec, err
+		}
+	}
 	if r.Settings != "" {
 		if err := json.Unmarshal([]byte(r.Settings), &rec.Settings); err != nil {
 			return rec, err
@@ -334,6 +342,13 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 			return err
 		}
 		*l.to = string(raw)
+	}
+	if len(rec.AllowedTools) > 0 {
+		raw, err := json.Marshal(rec.AllowedTools)
+		if err != nil {
+			return err
+		}
+		row.AllowedTools = string(raw)
 	}
 	if len(rec.Connections) > 0 {
 		raw, err := json.Marshal(rec.Connections)

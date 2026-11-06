@@ -289,6 +289,11 @@ stop it. Type `/loop` in the message box, or use the API.
   API gives it `kind: "wait"`), counts against the same limits, and you stop it
   like a loop. A sub-agent that arms a wait stays running until it ends, as with
   a loop.
+- **Tools of a sub-agent.** The names of the tools the parent gave a sub-agent
+  are stored with its chat. After a restart, or when another frontend runs its
+  next loop run, the sub-agent gets back those tools, limited to what the
+  parent may use at that time: it never gains a tool, and a tool that is gone is
+  removed with a short note to the model.
 - **Waiting for sub-agents: `wait_agents`.** A chat that started background
   sub-agents can wait for them with `ids` (empty: all that run now) and a mode,
   `all` or `any_failed_or_all`. The wait is bounded by `timeout` (30 seconds by
