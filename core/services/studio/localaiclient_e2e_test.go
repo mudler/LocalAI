@@ -636,7 +636,7 @@ var _ = Describe("the LocalAI client tools of the chats, end to end", func() {
 			Expect(made[0].Name).To(Equal("Narrator"))
 
 			// list shows the exact voice string.
-			listed := decode[[]localaitools.VoiceProfileSummary](r.call(bob, "voice_profile", `{"action":"list"}`).Out)
+			listed := decode[localaitools.VoiceProfileList](r.call(bob, "voice_profile", `{"action":"list"}`).Out).Profiles
 			Expect(listed).To(HaveLen(1))
 			Expect(listed[0].Voice).To(Equal(voiceprofile.Reference(made[0].ID)))
 
@@ -649,7 +649,7 @@ var _ = Describe("the LocalAI client tools of the chats, end to end", func() {
 			other := r.call(alice, "speak", `{"text":"hello","voice":"`+listed[0].Voice+`"}`)
 			Expect(said(other)).To(ContainSubstring("no such voice profile (404)"))
 			Expect(r.api.backend.count()).To(Equal(1), "the backend did not run for the other user")
-			theirs := decode[[]localaitools.VoiceProfileSummary](r.call(alice, "voice_profile", `{"action":"list"}`).Out)
+			theirs := decode[localaitools.VoiceProfileList](r.call(alice, "voice_profile", `{"action":"list"}`).Out).Profiles
 			Expect(theirs).To(BeEmpty())
 
 			// The other user cannot delete it either: the same 404.
