@@ -68,7 +68,11 @@ test.describe('Slack add-on', () => {
     await page.getByLabel('App-level token').fill('xapp-2')
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
     await page.getByTestId('connector-save').click()
-    await expect(page.getByRole('alert')).toContainText('Saved. The token check failed: the platform refused the bot token')
+    // The sheet stays open with the reason, and says the connection is saved.
+    const failed = page.getByTestId('connector-test-failed')
+    await expect(failed).toContainText('The connection is saved, but the test failed.')
+    await expect(failed).toContainText('the platform refused the bot token')
+    await expect(page.getByTestId('connector-sheet')).toBeVisible()
     await expect(page.getByTestId('connector-row')).toHaveCount(1)
   })
 

@@ -62,6 +62,7 @@ export default function ConnectionSheet({ p }) {
   const editing = Boolean(form.id)
   const agent = agents.find((a) => a.id === form.agent_id)
   const bodyRef = useRef(null)
+  const failRef = useRef(null)
   const [moreOpen, setMoreOpen] = useState(false)
   const [checkOpen, setCheckOpen] = useState(Boolean(p.openCheck))
 
@@ -82,12 +83,16 @@ export default function ConnectionSheet({ p }) {
     return () => clearTimeout(id)
   }, [p.scrollToPermissions])
 
+  // A failed test moves focus to its message, which is an alert: it is read at once and the Test again button is next.
+  // The message sits at the end of the form and sticks above the buttons (the buttons are outside the add-on's styles).
+  useEffect(() => { if (p.testFail) failRef.current?.focus() }, [p.testFail])
+
   const submitDisabled = busy || !p.canSubmit
   const footer = (
     <>
       <button type="button" className="dk-btn dk-btn--ghost" data-testid="connector-cancel" onClick={p.onClose}>{t('cancel')}</button>
       <button type="submit" form="cn-sheet-form" className="dk-btn dk-btn--primary" data-testid="connector-save" aria-busy={busy ? 'true' : undefined} disabled={submitDisabled}>
-        {busy ? s('conn.sheet.saving') : s('conn.sheet.saveAndTest')}
+        {busy ? (p.testStep ? s('conn.pane.testing') : s('conn.sheet.saving')) : s('conn.sheet.saveAndTest')}
       </button>
     </>
   )
@@ -172,6 +177,20 @@ export default function ConnectionSheet({ p }) {
             </Section>
           )}
           {p.dupAsk}
+          {p.testFail && (
+            <div className="cn-sheet__fail" ref={failRef} tabIndex={-1} data-testid="connector-test-failed">
+              <Notice tone="error" role="alert">
+                <strong className="ui-callout__title">{s('conn.sheet.testFailed')}</strong>
+                <span className="cn-sheet__fail-reason">{p.testFail.reason || s('conn.sheet.testFailedNoReason')}</span>
+                <span className="cn-row__actions">
+                  <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="connector-test-again" disabled={busy} aria-busy={busy ? 'true' : undefined} onClick={p.onTestAgain}>
+                    {busy ? s('conn.pane.testing') : s('conn.sheet.testAgain')}
+                  </button>
+                </span>
+              </Notice>
+            </div>
+          )}
+          <span className="cn-vh" role="status">{busy && p.testStep ? s('conn.pane.testing') : ''}</span>
         </form>
       </AddonScope>
     </SideSheet>

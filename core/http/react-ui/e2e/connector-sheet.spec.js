@@ -300,4 +300,76 @@ test.describe('Connector rows, pane and sheet', () => {
     await expect(note).toContainText('on the agent, under "What it can use"')
   })
 
+  test('Save and test keeps the sheet open while it tests, and a failed test stays in the sheet with Test again', async ({ page }) => {
+    const a = connectorApi(page)
+    await a.install()
+    let tests = 0
+    let release
+    const gate = new Promise(r => { release = r })
+    await page.route(/\/api\/chats\/connectors\/[^/?]+\/test$/, async r => {
+      tests++
+      if (tests === 1) { await gate; return r.fulfill({ status: 400, json: { error: { message: 'Unauthorized: the token was refused' } } }) }
+      return r.fulfill({ json: { bot_id: 1, bot_username: 'support_bot' } })
+    })
+    await page.goto(PAGE)
+    await page.getByTestId('connector-new').click()
+    const sheet = page.getByTestId('connector-sheet')
+    await sheet.getByLabel('Name', { exact: true }).fill('Support bot')
+    await sheet.getByLabel('Bot token').fill('555:secret-token')
+    await sheet.getByLabel('Agent', { exact: true }).selectOption('a1')
+    await saveSheet(page)
+    // The test is running: the sheet stays, and the primary button is busy and disabled.
+    const save = sheet.getByTestId('connector-save')
+    await expect(save).toBeDisabled()
+    await expect(save).toHaveAttribute('aria-busy', 'true')
+    await expect(save).toHaveText('Testing...')
+    await expect(sheet).toBeVisible()
+    release()
+    // It failed: the sheet stays with the reason, near the buttons, and says the connection is saved.
+    const failed = sheet.getByTestId('connector-test-failed')
+    await expect(failed).toBeVisible()
+    await expect(failed).toContainText('The connection is saved, but the test failed.')
+    await expect(failed).toContainText('the token was refused')
+    await expect(failed.getByRole('alert')).toBeVisible()
+    await expect(failed).toBeFocused()
+    await expect(save).toBeEnabled()
+    await expect(save).toHaveText('Save and test')
+    // The token is saved and sealed: the form no longer holds it, so nothing offers to keep it.
+    await expect(sheet.getByLabel('Bot token')).toHaveValue('')
+    await expect(sheet.getByRole('button', { name: 'Keep these changes' })).toHaveCount(0)
+    expect(a.s.calls.filter(c => c.method === 'POST' && c.url === '/api/chats/connectors')).toHaveLength(1)
+    // The sheet is now the saved connection: the page keeps the failure of the test as it does for a row.
+    await expect(page.getByTestId('connector-row')).toContainText('Support bot')
+    await expect(sheet.locator('.dk-btn--primary')).toHaveCount(1)
+    // Test again passes: the sheet closes with the result on the page, and nothing was saved twice.
+    await failed.getByTestId('connector-test-again').click()
+    await expect(page.getByText('Connected to @support_bot.')).toBeVisible()
+    await expect(sheet).toHaveCount(0)
+    expect(tests).toBe(2)
+    expect(a.s.calls.filter(c => c.method === 'POST' && c.url === '/api/chats/connectors')).toHaveLength(1)
+    expect(a.s.calls.filter(c => c.method === 'PUT')).toHaveLength(0)
+  })
+
+  test('after a failed test, Save and test updates the saved connection instead of creating another, and closing asks nothing', async ({ page }) => {
+    const a = connectorApi(page)
+    await a.install()
+    await page.route(/\/api\/chats\/connectors\/[^/?]+\/test$/, r => r.fulfill({ status: 400, json: { error: { message: 'Unauthorized: the token was refused' } } }))
+    await page.goto(PAGE)
+    await page.getByTestId('connector-new').click()
+    const sheet = page.getByTestId('connector-sheet')
+    await sheet.getByLabel('Name', { exact: true }).fill('Support bot')
+    await sheet.getByLabel('Bot token').fill('555:secret-token')
+    await sheet.getByLabel('Agent', { exact: true }).selectOption('a1')
+    await saveSheet(page)
+    await expect(sheet.getByTestId('connector-test-failed')).toBeVisible()
+    await sheet.getByLabel('Bot token').fill('555:other-token')
+    await saveSheet(page)
+    await expect.poll(() => a.s.calls.filter(c => c.method === 'PUT').length).toBe(1)
+    expect(a.s.calls.filter(c => c.method === 'POST' && c.url === '/api/chats/connectors')).toHaveLength(1)
+    await expect(sheet.getByTestId('connector-test-failed')).toBeVisible()
+    await sheet.getByTestId('connector-cancel').click()
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
+    await expect(sheet).toHaveCount(0)
+    await expect(page.getByTestId('connector-state')).toHaveText('Needs attention')
+  })
 })

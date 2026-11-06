@@ -159,6 +159,9 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const [askDiscard, setAskDiscard] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
   const [busy, setBusy] = useState(false)
+  // True while the sheet tests a connection it has just saved, and the failure of that test: { reason }.
+  const [testStep, setTestStep] = useState(false)
+  const [testFail, setTestFail] = useState(null)
   const [toDelete, setToDelete] = useState(null)
   // The question after a save that would make this connection the same bot as another: { other }.
   const [dupAsk, setDupAsk] = useState(null)
@@ -179,6 +182,9 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const [pairedList, setPairedList] = useState(null)
   // The form as it was when the sheet opened, to ask before closing over a change.
   const startPrint = useRef('')
+  // The open form, for an answer that comes back after the person closed the sheet.
+  const formRef = useRef(null)
+  formRef.current = form
   // The control that opened the sheet. A menu item is gone once the menu closes, so focus goes back to the menu button.
   const openerRef = useRef(null)
   const kindFiles = kindInfo?.files || null
@@ -198,9 +204,11 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const load = useCallback(async () => {
     try {
       const res = await connectorsApi.list()
-      setItems((res.connectors || []).filter((c) => c.kind === kind))
+      const list = (res.connectors || []).filter((c) => c.kind === kind)
+      setItems(list)
       setOff('')
-    } catch (e) { fail(e) }
+      return list
+    } catch (e) { fail(e); return null }
   }, [fail, kind])
 
   useEffect(() => { load() }, [load])
@@ -243,6 +251,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     setNote('')
     setError('')
     setFormError('')
+    setTestFail(null)
+    setTestStep(false)
     setSaveNotice(null)
     setPairedList(null)
     setDupAsk(null)
@@ -327,6 +337,41 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     try { setNote(await check(c)) } catch (e) { fail(e) } finally { setTesting((m) => ({ ...m, [c.id]: false })) }
   }
 
+  // Tests a connection from the open sheet. The sheet stays open while the test
+  // runs: on success it closes, on failure it stays and says why, next to the
+  // buttons, so the person can test again or change the token. A sheet that the
+  // person closed meanwhile gets the answer on the page, as a row test does.
+  // fresh is the saved connection as the list now has it: the sheet shows that, without the token typed.
+  const testInSheet = async (c, fresh = null) => {
+    setTestStep(true)
+    setTesting((m) => ({ ...m, [c.id]: true }))
+    try {
+      const text = await check(c)
+      setTestFail(null)
+      setNote(text)
+      setForm(null)
+    } catch (err) {
+      const reason = err?.message || ''
+      if (formRef.current) {
+        // The connection is saved: the form now edits it, and nothing is left to discard.
+        // The token that was typed is saved and sealed; the form no longer holds it.
+        const next = fresh ? savedFormOf(fresh) : { ...formRef.current, id: c.id }
+        startPrint.current = printOf(next)
+        setForm(next)
+        setTestFail({ reason })
+      } else setError(t('checkFailed', { reason }))
+    } finally {
+      setTesting((m) => ({ ...m, [c.id]: false }))
+      setTestStep(false)
+    }
+  }
+  const testAgain = async () => {
+    const c = items.find((x) => x.id === form?.id)
+    if (!c) return
+    setBusy(true)
+    try { await testInSheet(c) } finally { setBusy(false) }
+  }
+
   // The server refuses a token that the platform refuses. After a save the
   // page tests the connection and names the bot the token belongs to.
   const save = (e) => { e.preventDefault(); return doSave(false) }
@@ -334,6 +379,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const doSave = async (confirmDuplicate) => {
     setBusy(true)
     setFormError('')
+    setTestFail(null)
     setNote('')
     setError('')
     setSaveNotice(null)
@@ -347,17 +393,12 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
       const saved = form.id ? await connectorsApi.update(form.id, body) : await connectorsApi.create(body)
       const wasNew = !form.id
       const snapshot = form
-      setForm(null)
-      await load()
+      const list = await load()
       // The triggers that held an act the connection no longer allows; a failed read only leaves the list out.
       const dropped = snapshot.id && removed.length > 0 ? droppedActs((await triggersApi.list().catch(() => null))?.triggers, snapshot.id, removed) : []
       setSaveNotice({ created: wasNew, parts: changedParts(snapshot, before), dropped })
-      if (saved?.id) {
-        setTesting((m) => ({ ...m, [saved.id]: true }))
-        try {
-          setNote(await check(saved))
-        } catch (err) { setError(t('checkFailed', { reason: err?.message || '' })) } finally { setTesting((m) => ({ ...m, [saved.id]: false })) }
-      }
+      if (saved?.id) await testInSheet(saved, list?.find((x) => x.id === saved.id) || null)
+      else setForm(null)
     } catch (err) {
       if (isDuplicateRefusal(err)) setDupAsk({ other: duplicateRefusalName(err) })
       else setFormError(err?.message || '')
@@ -457,6 +498,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
 
   const sheetProps = form && {
     t, s, form, setForm, messaging, capabilities, kindInfo, kindFiles, agents, agentOptional, TokenFields, ExtraFields, savedItem, busy, error: formError, fixedAgent,
+    testStep, testFail, onTestAgain: testAgain,
     onSubmit: save, onClose: closeSheet, canSubmit: canSave(form, confirmed, tokenTyped, kindFiles, agentOptional) && !(extraValid && !extraValid(form)),
     agentName, agentHref: savedItem ? `${basePath}/app/agents/${encodeURIComponent(savedItem.agent_id)}` : '', dirty,
     sameBot: messaging && form.id && savedItem ? <SameBotNotice c={savedItem} s={s} busy={busy} onOff={() => { setForm(null); act(() => connectorsApi.disable(form.id)) }} onOpen={openById} /> : null,

@@ -53,3 +53,14 @@ test('connector words: Answer only does not claim that the bot does nothing else
     if (lng !== 'en') assert.notEqual(b['conn.preset.answerHelp'], en['conn.preset.answerHelp'], `${lng} translates the Answer only help`)
   }
 })
+
+test('connector words: a failed test in the sheet says the connection is saved, gives the reason and offers Test again, in every language', () => {
+  const en = connector('en')
+  assert.match(en['conn.sheet.testFailed'], /is saved/)
+  assert.equal(en['conn.sheet.testAgain'], 'Test again')
+  for (const lng of LANGS) {
+    const b = connector(lng)
+    for (const key of ['conn.sheet.testFailed', 'conn.sheet.testFailedNoReason', 'conn.sheet.testAgain']) assert.ok(typeof b[key] === 'string' && b[key].trim() !== '', `${lng} has ${key}`)
+    if (lng !== 'en') assert.notEqual(b['conn.sheet.testAgain'], en['conn.sheet.testAgain'], `${lng} translates Test again`)
+  }
+})

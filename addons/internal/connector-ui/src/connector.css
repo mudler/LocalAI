@@ -72,6 +72,9 @@
 .cn-sheet { display: flex; flex-direction: column; gap: var(--dk-space-6); min-width: 0; }
 .cn-sheet__section { display: flex; flex-direction: column; gap: var(--dk-space-4); min-width: 0; }
 .cn-sheet__section + .cn-sheet__section { padding-top: var(--dk-space-5); border-top: 1px solid var(--dk-edge); }
+.cn-sheet__fail { position: sticky; bottom: 0; z-index: 1; min-width: 0; background: var(--dk-card); }
+.cn-sheet__fail:focus-visible { outline: 2px solid var(--dk-accent, currentColor); outline-offset: 2px; border-radius: var(--r-md); }
+.cn-sheet__fail-reason { display: block; overflow-wrap: anywhere; }
 .cn-fixed { margin: 0; font-size: var(--fs-body); }
 .cn-card__words { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cn-card__desc { font-size: var(--fs-meta); line-height: var(--lh-meta); color: var(--dk-muted); }
