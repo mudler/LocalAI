@@ -1090,7 +1090,9 @@
       "connection": "Connection",
       "addon-resource": "Add-on resource",
       "mcp": "MCP server",
-      "builtin": "Built-in grant"
+      "builtin": "Built-in grant",
+      "network": "Network",
+      "tool-group": "Tool group"
     },
     "ownAccess": "They need access of their own",
     "refsApplied_one": "Also shared {{count}} thing it uses.",
@@ -1110,10 +1112,14 @@
     "state": {
       "ok": "You have it",
       "missing": "Not shared with you",
-      "unavailable": "Not available to you"
+      "unavailable": "Not available to you",
+      "ask": "Starts off in your chat"
     },
     "noticeTitle_one": "This agent needs {{count}} thing you do not have:",
     "noticeTitle_other": "This agent needs {{count}} things you do not have:",
-    "noticeLink": "See what it needs"
+    "noticeLink": "See what it needs",
+    "asksTitle_one": "This agent asks for {{count}} thing your chat starts without:",
+    "asksTitle_other": "This agent asks for {{count}} things your chat starts without:",
+    "asksHelp": "It runs as you. Turn them on in the chat only if you trust the agent and the person who shared it."
   }
 }

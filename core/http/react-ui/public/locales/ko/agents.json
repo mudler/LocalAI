@@ -861,7 +861,9 @@
       "connection": "연결",
       "addon-resource": "애드온 리소스",
       "mcp": "MCP 서버",
-      "builtin": "기본 제공 권한"
+      "builtin": "기본 제공 권한",
+      "network": "네트워크",
+      "tool-group": "도구 그룹"
     },
     "ownAccess": "본인의 접근 권한이 필요합니다",
     "refsApplied_one": "사용하는 항목 {{count}}개도 공유했습니다.",
@@ -881,10 +883,14 @@
     "state": {
       "ok": "있음",
       "missing": "공유되지 않음",
-      "unavailable": "사용할 수 없음"
+      "unavailable": "사용할 수 없음",
+      "ask": "채팅 시작 시 꺼짐"
     },
     "noticeTitle_one": "이 에이전트에 필요한 항목 중 {{count}}개가 없습니다:",
     "noticeTitle_other": "이 에이전트에 필요한 항목 중 {{count}}개가 없습니다:",
-    "noticeLink": "필요한 항목 보기"
+    "noticeLink": "필요한 항목 보기",
+    "asksTitle_one": "이 에이전트가 요청하는 항목 중 {{count}}개는 채팅 시작 시 꺼져 있습니다:",
+    "asksTitle_other": "이 에이전트가 요청하는 항목 중 {{count}}개는 채팅 시작 시 꺼져 있습니다:",
+    "asksHelp": "에이전트는 내 권한으로 실행됩니다. 에이전트와 공유한 사람을 신뢰할 때만 채팅에서 켜세요."
   }
 }

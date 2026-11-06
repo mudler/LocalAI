@@ -137,7 +137,7 @@ function SharedConnections({ rows, s }) {
               <span className="cn-row__name">{c.name}</span>
               <span className="cn-muted">{c.enabled ? s('shared.on') : s('shared.off')}</span>
               {Badge
-                ? <Badge entry={{ role: c.role, owner: c.owner, everyone: c.everyone }} roleLabel={s('share.roleUse')} />
+                ? <Badge entry={{ role: c.role, owner: c.owner, everyone: false }} roleLabel={s('share.roleUse')} />
                 : <span className="cn-muted">{s('shared.by', { name: c.owner || '' })}</span>}
             </div>
           </li>

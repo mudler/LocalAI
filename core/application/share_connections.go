@@ -24,7 +24,7 @@ func (c connectionShares) Shared(ctx context.Context, user string) ([]studio.Sha
 	}
 	out := make([]studio.SharedBinding, 0, len(refs))
 	for _, r := range refs {
-		out = append(out, studio.SharedBinding{BindingID: r.Name, OwnerName: r.OwnerName, Everyone: r.Everyone})
+		out = append(out, studio.SharedBinding{BindingID: r.Name, OwnerName: r.OwnerName})
 	}
 	return out, nil
 }

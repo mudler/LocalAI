@@ -4425,7 +4425,7 @@ const docTemplate = `{
                 "summary": "Start a chat.",
                 "parameters": [
                     {
-                        "description": "model and optional title, agent and switches",
+                        "description": "model and optional title, agent (one of yours or one shared with you) and switches",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -5543,7 +5543,7 @@ const docTemplate = `{
         },
         "/api/chats/agents/{id}/needs": {
             "get": {
-                "description": "For your agent or an agent shared with you: each thing the agent uses, by label, with its state for you. ok: you have it. missing: it is not shared with you (ask the owner, or use your own). unavailable: this server or your account does not offer it. Nothing else about a thing you cannot see is returned.",
+                "description": "For your agent or an agent shared with you: each thing the agent uses, by label, with its state for you. ok: you have it. missing: it is not shared with you (ask the owner, or use your own). unavailable: this server or your account does not offer it. ask: the agent asks for a network (kind network) or a group of built-in tools (kind tool-group) that your chat starts without; you may turn it on in the chat. Nothing else about a thing you cannot see is returned.",
                 "tags": [
                     "chats"
                 ],
@@ -11103,7 +11103,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit)",
+                        "description": "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit), or the saved agent of another person is no longer shared with you (agent_not_shared)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -22150,12 +22150,13 @@ const docTemplate = `{
                     "example": "docs"
                 },
                 "state": {
-                    "description": "State is ok (you have it), missing (it is not shared with you) or\nunavailable (this server or your account does not offer it).",
+                    "description": "State is ok (you have it), missing (it is not shared with you),\nunavailable (this server or your account does not offer it) or ask (the\nagent asks for a network or a tool group that your chat starts without;\nyou may turn it on in the chat). Kind network is the agent's network\npreset, kind tool-group an opt-in group of built-in tools it turns on.",
                     "type": "string",
                     "enum": [
                         "ok",
                         "missing",
-                        "unavailable"
+                        "unavailable",
+                        "ask"
                     ],
                     "example": "missing"
                 }
@@ -22238,6 +22239,13 @@ const docTemplate = `{
                 },
                 "resource_id": {
                     "type": "string"
+                },
+                "roles": {
+                    "description": "Roles maps each option to the role the grant carries on the thing:\none of the roles its kind grants (viewer, editor or use).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -26523,10 +26531,6 @@ const docTemplate = `{
                     "description": "Enabled says whether the owner listens with it.",
                     "type": "boolean"
                 },
-                "everyone": {
-                    "description": "Everyone says that the share is the grant to every account.",
-                    "type": "boolean"
-                },
                 "id": {
                     "type": "string"
                 },
@@ -26544,7 +26548,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
-                    "description": "Role is always use.",
+                    "description": "Role is always use: a binding is never shared with everyone.",
                     "type": "string"
                 }
             }

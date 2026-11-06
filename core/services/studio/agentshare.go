@@ -5,11 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"slices"
 	"sort"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/egress"
 )
 
 // A saved agent can be shared with other people (share kind "agent"). The
@@ -292,10 +294,21 @@ func (s *Service) AgentsWithShared(ctx context.Context, user string) ([]AgentEnt
 	return append(out, shared...), nil
 }
 
-// agentShareLocks keeps two first shares of one agent from making two
-// records in one process. The store's first-wins update keeps a cluster
-// right; this only saves a record that would go unused.
-var agentShareLocks sync.Map
+// agentShareStripes is the number of locks that keep two first shares of one
+// agent from making two records in one process. The store's first-wins update
+// keeps a cluster right; the locks only save a record that would go unused.
+// The set is fixed, so it never grows with the number of agents: two agents
+// may share a lock, which only makes their first shares wait for each other.
+const agentShareStripes = 64
+
+var agentShareLocks [agentShareStripes]sync.Mutex
+
+// agentShareLock is the lock of the first share of the agent id.
+func agentShareLock(id string) *sync.Mutex {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(id))
+	return &agentShareLocks[h.Sum32()%agentShareStripes]
+}
 
 // AgentShareRef returns the sharing record of an agent of the user, making
 // it on the first share. Only the owner may call it.
@@ -312,9 +325,9 @@ func (s *Service) AgentShareRef(ctx context.Context, user, id string) (string, e
 	if ag.ShareRef != "" {
 		return ag.ShareRef, nil
 	}
-	mu, _ := agentShareLocks.LoadOrStore(id, &sync.Mutex{})
-	mu.(*sync.Mutex).Lock()
-	defer mu.(*sync.Mutex).Unlock()
+	mu := agentShareLock(id)
+	mu.Lock()
+	defer mu.Unlock()
 	if ag, err = s.d.Agents.Get(ctx, p, id); err != nil {
 		return "", err
 	}
@@ -451,13 +464,64 @@ type ReferenceShare struct {
 	// Options are the choices the owner has, out of view and use. none is
 	// always possible.
 	Options []string
+	// Roles maps each option to the role it grants on the thing, one of the
+	// roles its kind declares.
+	Roles map[string]string
 }
+
+// The choices of a reference in the Share dialog of an agent.
+const (
+	ReferenceChoiceView = "view"
+	ReferenceChoiceUse  = "use"
+)
+
+// ReferenceShareTarget is a reference of a share kind as its sharing API
+// knows it: its ID there and the roles its kind declares as grantable.
+type ReferenceShareTarget struct {
+	ResourceID string
+	Grantable  []string
+}
+
+// ReferenceChoices maps the roles a kind grants to the choices the owner gets
+// for a reference of that kind. view is the role viewer. use is the role use;
+// for a thing the agent writes (write is true: an add-on resource in write
+// mode) it is the role editor when the kind has no use. A kind that grants
+// neither offers nothing. A collection grants viewer and editor: the agent
+// only searches it, so it offers view alone, and editor stays a choice of the
+// collection's own Share dialog.
+func ReferenceChoices(grantable []string, write bool) (options []string, roles map[string]string) {
+	roles = map[string]string{}
+	if slices.Contains(grantable, "viewer") {
+		options = append(options, ReferenceChoiceView)
+		roles[ReferenceChoiceView] = "viewer"
+	}
+	switch {
+	case slices.Contains(grantable, "use"):
+		options = append(options, ReferenceChoiceUse)
+		roles[ReferenceChoiceUse] = "use"
+	case write && slices.Contains(grantable, "editor"):
+		options = append(options, ReferenceChoiceUse)
+		roles[ReferenceChoiceUse] = "editor"
+	}
+	if len(options) == 0 {
+		return nil, nil
+	}
+	return options, roles
+}
+
+// addonResourceRoles are the roles an add-on resource grants: the add-on
+// kinds of the sharing policy all have these two.
+var addonResourceRoles = []string{"viewer", "editor"}
 
 // The states of a reference for the caller.
 const (
 	ReferenceOK          = "ok"
 	ReferenceMissing     = "missing"
 	ReferenceUnavailable = "unavailable"
+	// ReferenceAsk is a network or a group of built-in tools that the agent
+	// asks for and that a chat of the caller does not start with: the caller
+	// may turn it on in the chat.
+	ReferenceAsk = "ask"
 )
 
 // AgentNeed is one reference of an agent and its state for the caller.
@@ -466,9 +530,11 @@ type AgentNeed struct {
 }
 
 // ReferenceShareResolver maps a reference of a share kind (collection,
-// connection) of the owner to its ID in the sharing API. ok is false when the
-// thing cannot be shared in this build.
-type ReferenceShareResolver func(ctx context.Context, user, kind, id string) (resourceID string, ok bool)
+// connection) of the owner to its ID in the sharing API, making its record as
+// the kind's own share route does, and gives the roles the kind grants. ok is
+// false when the thing cannot be shared here: the owner does not have it, or
+// this server does not share the kind.
+type ReferenceShareResolver func(ctx context.Context, user, kind, id string) (target ReferenceShareTarget, ok bool)
 
 // AgentReferences lists what an agent of the user uses. Only the owner may
 // read it: it names the owner's own collections, folders and connections.
@@ -488,15 +554,15 @@ func (s *Service) referencesOf(ctx context.Context, p string, ag agents.Agent, o
 		if !owner || s.d.ReferenceShares == nil {
 			return nil
 		}
-		rid, ok := s.d.ReferenceShares(ctx, p, kind, id)
-		if !ok || rid == "" {
+		t, ok := s.d.ReferenceShares(ctx, p, kind, id)
+		if !ok || t.ResourceID == "" {
 			return nil
 		}
-		opts := []string{"view", "use"}
-		if kind == "connection" {
-			opts = []string{"use"}
+		opts, roles := ReferenceChoices(t.Grantable, false)
+		if len(opts) == 0 {
+			return nil
 		}
-		return &ReferenceShare{Kind: kind, ResourceID: rid, Options: opts}
+		return &ReferenceShare{Kind: kind, ResourceID: t.ResourceID, Options: opts, Roles: roles}
 	}
 	for _, a := range ag.Addons {
 		out = append(out, AgentReference{Kind: "addon", ID: a, Label: a})
@@ -543,11 +609,8 @@ func (s *Service) referencesOf(ctx context.Context, p string, ag agents.Agent, o
 		for i, r := range ag.Resources[a] {
 			ref := AgentReference{Kind: "addon-resource", ID: r.ID, AddonID: a, Mode: r.Mode, Label: fmt.Sprintf("%s resource %d", a, i+1)}
 			if owner {
-				opts := []string{"view"}
-				if r.Mode == "write" {
-					opts = append(opts, "use")
-				}
-				ref.Share = &ReferenceShare{Kind: "addon", ResourceID: r.ID, Options: opts}
+				opts, roles := ReferenceChoices(addonResourceRoles, r.Mode == "write")
+				ref.Share = &ReferenceShare{Kind: "addon", ResourceID: r.ID, Options: opts, Roles: roles}
 			}
 			out = append(out, ref)
 		}
@@ -629,9 +692,9 @@ func (s *Service) AgentNeeds(ctx context.Context, user, id string) ([]AgentNeed,
 				state = ReferenceMissing
 			}
 		case "connection":
-			// A connection of the owner is never used on behalf of another
-			// person; only the owner's own chats have it.
-			if !acc.Owner() {
+			// The binding is the owner's. A grantee's chat uses it only while
+			// the owner shares it with them (see ConnectionsOf).
+			if !acc.Owner() && (s.connectors == nil || !s.connectors.sharedTo(ctx, user, r.ID)) {
 				state = ReferenceMissing
 			}
 		case "addon-resource":
@@ -643,5 +706,38 @@ func (s *Service) AgentNeeds(ctx context.Context, user, id string) ([]AgentNeed,
 		}
 		out = append(out, AgentNeed{Kind: r.Kind, Label: r.Label, State: state})
 	}
-	return out, nil
+	return append(out, s.askedAuthority(ctx, ag, acc.Owner())...), nil
+}
+
+// askedAuthority lists the network and the opt-in groups of built-in tools
+// that an agent asks for, with their state for the caller. For the owner they
+// are ok: the owner's chats start with them. A chat of another person starts
+// with the narrower network and with no opt-in group (see CreateAs), so each
+// is ok when that start already has it, ask when the person may turn it on in
+// the chat, and unavailable when this server does not allow it at all. A
+// shared agent with the role use hides its instructions; what it asks for is
+// shown so that the person who runs it knows.
+func (s *Service) askedAuthority(ctx context.Context, ag agents.Agent, owner bool) []AgentNeed {
+	var out []AgentNeed
+	if n := egress.Preset(ag.Network); n.Valid() && n != egress.PresetOff {
+		state := ReferenceOK
+		if !owner {
+			set, err := s.egressSettings(ctx)
+			switch {
+			case err != nil || n.Rank() > set.Ceiling.Rank():
+				state = ReferenceUnavailable
+			case egress.Min(n, set.DefaultPreset()) != n:
+				state = ReferenceAsk
+			}
+		}
+		out = append(out, AgentNeed{Kind: "network", Label: string(n), State: state})
+	}
+	for _, g := range ag.BuiltinsOn {
+		state := ReferenceOK
+		if !owner {
+			state = ReferenceAsk
+		}
+		out = append(out, AgentNeed{Kind: "tool-group", Label: g, State: state})
+	}
+	return out
 }

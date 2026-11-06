@@ -66,7 +66,7 @@ func shareOut(s *studiosvc.ShareState) *schema.ChatsConnectorShare {
 // built field by field from the safe view, never from the binding.
 func sharedConnectorOut(v studiosvc.SharedConnectorView) schema.ChatsSharedConnector {
 	return schema.ChatsSharedConnector{ID: v.ID, Name: v.Name, Kind: v.Kind, Addon: v.AddonID, Enabled: v.Enabled, Active: v.Active, Reason: v.Reason,
-		Owner: v.OwnerName, Role: v.Role, Everyone: v.Everyone}
+		Owner: v.OwnerName, Role: v.Role}
 }
 
 func approvalOut(a connectors.Approval) schema.ChatsConnectorApproval {

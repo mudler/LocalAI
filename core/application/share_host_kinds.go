@@ -4,6 +4,7 @@ package application
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
@@ -23,6 +24,13 @@ const (
 	KindConnection = "connection"
 	// KindCollection is the kind of a collection.
 	KindCollection = "collection"
+)
+
+// The roles each kind grants. The registration and the choices the Share
+// dialog of an agent offers for a reference of the kind both read them.
+var (
+	connectionGrantable = []policy.Role{policy.RoleUse}
+	collectionGrantable = []policy.Role{policy.RoleViewer, policy.RoleEditor}
 )
 
 // connectionRoles: use reads and runs the binding's add-on tools with its
@@ -59,7 +67,7 @@ func (k hostShareKinds) RegisterKinds(r policy.KindRegistrar) error {
 	exists := func(context.Context, policy.Ref) (bool, error) { return true, nil }
 	create := func(context.Context, contract.Actor) error { return nil }
 	err := r.RegisterKind(KindConnection, policy.KindSpec{
-		Grantable:       []policy.Role{policy.RoleUse},
+		Grantable:       slices.Clone(connectionGrantable),
 		Roles:           connectionRoles,
 		Everyone:        false,
 		Feature:         auth.FeatureConnectors,
@@ -71,7 +79,7 @@ func (k hostShareKinds) RegisterKinds(r policy.KindRegistrar) error {
 		return err
 	}
 	return r.RegisterKind(KindCollection, policy.KindSpec{
-		Grantable:       []policy.Role{policy.RoleViewer, policy.RoleEditor},
+		Grantable:       slices.Clone(collectionGrantable),
 		Roles:           collectionRoles,
 		Everyone:        true,
 		Feature:         auth.FeatureCollections,

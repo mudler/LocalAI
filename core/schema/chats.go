@@ -169,6 +169,9 @@ type ChatsAgentReferenceShare struct {
 	Kind       string   `json:"kind" example:"collection"`
 	ResourceID string   `json:"resource_id"`
 	Options    []string `json:"options" enums:"view,use"`
+	// Roles maps each option to the role the grant carries on the thing:
+	// one of the roles its kind grants (viewer, editor or use).
+	Roles map[string]string `json:"roles"`
 }
 
 // ChatsAgentReferenceList lists the references of an agent.
@@ -180,9 +183,12 @@ type ChatsAgentReferenceList struct {
 type ChatsAgentNeed struct {
 	Kind  string `json:"kind" example:"collection"`
 	Label string `json:"label" example:"docs"`
-	// State is ok (you have it), missing (it is not shared with you) or
-	// unavailable (this server or your account does not offer it).
-	State string `json:"state" enums:"ok,missing,unavailable" example:"missing"`
+	// State is ok (you have it), missing (it is not shared with you),
+	// unavailable (this server or your account does not offer it) or ask (the
+	// agent asks for a network or a tool group that your chat starts without;
+	// you may turn it on in the chat). Kind network is the agent's network
+	// preset, kind tool-group an opt-in group of built-in tools it turns on.
+	State string `json:"state" enums:"ok,missing,unavailable,ask" example:"missing"`
 }
 
 // ChatsAgentNeedList lists what an agent needs.
@@ -2151,10 +2157,8 @@ type ChatsSharedConnector struct {
 	Reason string `json:"reason,omitempty"`
 	// Owner is the display name of the person who shared it.
 	Owner string `json:"owner"`
-	// Role is always use.
+	// Role is always use: a binding is never shared with everyone.
 	Role string `json:"role"`
-	// Everyone says that the share is the grant to every account.
-	Everyone bool `json:"everyone,omitempty"`
 }
 
 // ChatsConnectorTest is the bot that a token belongs to.

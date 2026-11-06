@@ -206,7 +206,7 @@ func (h *Handlers) AgentReferences(c echo.Context) error {
 	for _, r := range refs {
 		o := schema.ChatsAgentReference{Kind: r.Kind, ID: r.ID, Label: r.Label, AddonID: r.AddonID, Mode: r.Mode}
 		if r.Share != nil {
-			o.Share = &schema.ChatsAgentReferenceShare{Kind: r.Share.Kind, ResourceID: r.Share.ResourceID, Options: r.Share.Options}
+			o.Share = &schema.ChatsAgentReferenceShare{Kind: r.Share.Kind, ResourceID: r.Share.ResourceID, Options: r.Share.Options, Roles: r.Share.Roles}
 		}
 		out.References = append(out.References, o)
 	}
@@ -215,7 +215,7 @@ func (h *Handlers) AgentReferences(c echo.Context) error {
 
 // AgentNeeds lists what an agent needs and whether you have it.
 // @Summary List what an agent needs and whether you have it.
-// @Description For your agent or an agent shared with you: each thing the agent uses, by label, with its state for you. ok: you have it. missing: it is not shared with you (ask the owner, or use your own). unavailable: this server or your account does not offer it. Nothing else about a thing you cannot see is returned.
+// @Description For your agent or an agent shared with you: each thing the agent uses, by label, with its state for you. ok: you have it. missing: it is not shared with you (ask the owner, or use your own). unavailable: this server or your account does not offer it. ask: the agent asks for a network (kind network) or a group of built-in tools (kind tool-group) that your chat starts without; you may turn it on in the chat. Nothing else about a thing you cannot see is returned.
 // @Tags chats
 // @Param id path string true "the agent's id"
 // @Success 200 {object} schema.ChatsAgentNeedList "What the agent needs"

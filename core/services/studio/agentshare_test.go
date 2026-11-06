@@ -40,7 +40,7 @@ type shareRig struct {
 
 var shareUsers = map[string]string{alice: "Alice", bob: "Bob", carol: "Carol"}
 
-func newShareRig(script func(workspace.Actor, string) []studiotest.ToolStep) *shareRig {
+func newShareRig(script func(workspace.Actor, string) []studiotest.ToolStep, opts ...func(*studio.Deps)) *shareRig {
 	r := &shareRig{off: map[string]bool{}}
 	st, err := policy.OpenStore(GinkgoT().TempDir(), policy.ModeNamedUser)
 	Expect(err).NotTo(HaveOccurred())
@@ -75,6 +75,9 @@ func newShareRig(script func(workspace.Actor, string) []studiotest.ToolStep) *sh
 			return &auth.User{ID: id, Name: name, Status: auth.StatusActive}, nil
 		}
 		d.AgentShares = studio.PolicyAgentShares{Policy: func() *policy.Policy { return r.pol }}
+		for _, o := range opts {
+			o(d)
+		}
 	})
 	Expect(policy.RegisterKinds(r.pol, r.svc)).To(Succeed())
 	return r
@@ -325,6 +328,31 @@ var _ = Describe("shared saved agents", func() {
 		ag, _, err := r.svc.SharedAgent(ctx, bob, "ag1")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ag.Name).To(Equal("Second"))
+	})
+
+	It("makes one record when the first shares of an agent race", func() {
+		r := newShareRig(sayOK)
+		a := agents.Agent{ID: "ag1", Name: "Racer", Principal: alice, Created: time.Now().UTC()}
+		Expect(r.agents.Put(ctx, a)).To(Succeed())
+		refs := make([]string, 16)
+		var wg sync.WaitGroup
+		for i := range refs {
+			wg.Add(1)
+			go func() {
+				defer GinkgoRecover()
+				defer wg.Done()
+				ref, err := r.svc.AgentShareRef(ctx, alice, "ag1")
+				Expect(err).NotTo(HaveOccurred())
+				refs[i] = ref
+			}()
+		}
+		wg.Wait()
+		for _, ref := range refs {
+			Expect(ref).To(Equal(refs[0]))
+		}
+		views, err := r.pol.ListingKind(ctx, ownerActor(alice), studio.AgentShareKind)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(views).To(HaveLen(1), "the first share wins; no unused record is left")
 	})
 
 	It("shares nothing without the policy", func() {

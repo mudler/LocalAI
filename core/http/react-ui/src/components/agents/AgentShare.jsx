@@ -97,7 +97,7 @@ function useAgentNeeds(agentId) {
   return s
 }
 
-const STATE_TONE = { ok: 'ok', missing: 'warn', unavailable: 'idle' }
+const STATE_TONE = { ok: 'ok', missing: 'warn', unavailable: 'idle', ask: 'warn' }
 
 // The list of what an agent needs, on its page.
 export function AgentNeedsList({ agentId }) {
@@ -130,21 +130,33 @@ export function AgentNeedsList({ agentId }) {
   )
 }
 
+// needLabel names one need with its kind, for a sentence: "Network: all".
+function needLabel(n, t) {
+  return `${t(`share.kind.${n.kind}`, { defaultValue: n.kind })}: ${n.label}`
+}
+
 // The notice a chat with an agent shows before the first message when the
-// person lacks something the agent needs.
+// person lacks something the agent needs, or when the agent asks for a
+// network or built-in tools that the chat does not start with.
 export function AgentNeedsNotice({ agentId }) {
   const { t } = useTranslation('agents')
   const { loaded, needs, error } = useAgentNeeds(agentId)
   const sum = needsSummary(needs)
-  if (!loaded || error || sum.lacking.length === 0) return null
+  if (!loaded || error || (sum.lacking.length === 0 && sum.asks.length === 0)) return null
+  const link = <Link className="cx-link" to={agentPath(agentId)}>{t('needs.noticeLink')}</Link>
   return (
-    <Callout
-      tone="warn"
-      testId="agent-needs-notice"
-      title={t('needs.noticeTitle', { count: sum.lacking.length })}
-      actions={<Link className="cx-link" to={agentPath(agentId)}>{t('needs.noticeLink')}</Link>}
-    >
-      {sum.lacking.map(n => n.label).join(', ')}
-    </Callout>
+    <div className="stack">
+      {sum.lacking.length > 0 && (
+        <Callout tone="warn" testId="agent-needs-notice" title={t('needs.noticeTitle', { count: sum.lacking.length })} actions={link}>
+          {sum.lacking.map(n => n.label).join(', ')}
+        </Callout>
+      )}
+      {sum.asks.length > 0 && (
+        <Callout tone="info" testId="agent-needs-asks" title={t('needs.asksTitle', { count: sum.asks.length })} actions={sum.lacking.length > 0 ? null : link}>
+          <p>{sum.asks.map(n => needLabel(n, t)).join(', ')}</p>
+          <p className="text-note">{t('needs.asksHelp')}</p>
+        </Callout>
+      )}
+    </div>
   )
 }

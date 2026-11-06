@@ -1441,6 +1441,8 @@ A person who holds **Can use**:
   connections of a saved agent. A call of those tools then uses the binding's
   credential and its list of resources, as for the owner. A shared binding is never
   picked by default: the rule "the only connection" counts the person's own bindings.
+  The one exception is a saved agent that the owner shared with the person and that
+  names the binding: see [Share an agent]({{%relref "features/chats-agents#share-an-agent" %}}).
 - never learns the list of resources. A call for a resource that is not on the list
   is refused and the tool result says only that it is not listed; the owner, and the
   owner's own calls, get the list so the model can pick from it.

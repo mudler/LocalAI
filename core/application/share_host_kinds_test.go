@@ -8,6 +8,7 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -15,7 +16,12 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 	"github.com/mudler/LocalAI/core/services/collections"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
+	"github.com/mudler/LocalAI/core/services/studio/provider"
+	"github.com/mudler/LocalAI/core/services/studio/store"
+	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -284,6 +290,54 @@ var _ = Describe("sharing connector bindings and collections", func() {
 		Expect(shares.Forget(ctx, alice, "binding-1")).To(Succeed())
 		_, ok = shares.ShareOf(ctx, alice, "binding-1")
 		Expect(ok).To(BeFalse())
+	})
+
+	It("offers, for each collection and connection an agent names, only the roles its kind grants, and every offer is accepted", func() {
+		agentStore, err := agents.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		chatStore, err := store.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		chats, err := studio.New(studio.Deps{Store: chatStore, Agents: agentStore, Provider: provider.New(), Harness: studiotest.NewGateHarness(),
+			StateDir: GinkgoT().TempDir(), ReferenceShares: a.studioReferenceShares})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(chats.Close(ctx)).To(Succeed()) })
+		bindings, err := connectors.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		conns, err := studio.NewConnectors(chats, studio.ConnectorOptions{Store: bindings, Transport: tokenTransport{}, Shares: connectionShares{a}})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(conns.Close)
+		chats.SetConnectors(conns)
+		a.studioService = chats
+		DeferCleanup(func() { a.studioService = nil })
+		b, err := conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: "tracker", Name: "Work", Token: "token-work", Resources: []string{"acme/widgets"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(agentStore.Put(ctx, agents.Agent{ID: "ag1", Principal: alice, Name: "Reader", Collections: []string{"manuals", "absent"},
+			Connections: connsets.Sets{"tracker": {b.ID}}, Created: time.Now()})).To(Succeed())
+
+		refs, err := chats.AgentReferences(ctx, alice, "ag1")
+		Expect(err).NotTo(HaveOccurred())
+		offered := map[string][]string{}
+		for _, r := range refs {
+			if r.Share == nil {
+				continue
+			}
+			offered[r.Kind+":"+r.ID] = r.Share.Options
+			for _, choice := range r.Share.Options {
+				role := r.Share.Roles[choice]
+				Expect(role).NotTo(BeEmpty(), "%s %s offers %s without a role", r.Kind, r.ID, choice)
+				ref := policy.Ref{Kind: r.Share.Kind, ResourceID: r.Share.ResourceID}
+				Expect(p.SetGrantRef(ctx, hostActor(alice), ref, bob, policy.Role(role))).To(Succeed(), "%s %s: the choice %s grants %s", r.Kind, r.ID, choice, role)
+				Expect(p.RevokeRef(ctx, hostActor(alice), ref, bob)).To(Succeed())
+			}
+		}
+		Expect(offered).To(Equal(map[string][]string{"collection:manuals": {"view"}, "connection:" + b.ID: {"use"}}),
+			"a collection the owner does not have is not offered")
+		// The references made the records and granted nothing.
+		Expect(connectionShares{a}.Shared(ctx, bob)).To(BeEmpty())
+		Expect(col.List(ctx, bob)).To(BeEmpty())
+		other, err := chats.AgentReferences(ctx, bob, "ag1")
+		Expect(err).To(HaveOccurred(), "only the owner reads the references")
+		Expect(other).To(BeNil())
 	})
 
 	It("shares nothing in local-owner mode", func() {

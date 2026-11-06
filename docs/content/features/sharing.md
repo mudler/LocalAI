@@ -192,16 +192,19 @@ ID `@everyone` and no display name. The call is safe to repeat. If the answer is
 
 ## Kinds of LocalAI itself
 
-LocalAI shares two kinds of its own resources with these routes. Their owners get
+LocalAI shares three kinds of its own resources with these routes. Their owners get
 the resource ID from the page of the resource, or from the route in the table.
 
 | Kind | What it is | Roles | `@everyone` | Feature | Resource ID from |
 |------|------------|-------|-------------|---------|------------------|
 | `connection` | A [connector binding]({{%relref "features/chats-connectors#sharing-a-connection" %}}) | `use` | No | `connectors` | `POST /api/chats/connectors/{id}/share` |
 | `collection` | A [collection]({{%relref "features/collections#sharing-a-collection" %}}) | `viewer`, `editor` | Yes | `collections` | `POST /api/collections/{name}/share` |
+| `agent` | A [saved agent]({{%relref "features/chats-agents#share-an-agent" %}}) | `use`, `viewer` | Yes | `agents` | `POST /api/chats/agents/{id}/share` |
 
 - **`connection`**: `use` lets the person's chats and agents run the tools of the
-  binding's add-on with its credential. The person sees the name and the state of
+  binding's add-on with its credential. A chat of the person with a shared agent
+  that names the binding uses it as described in
+  [Share an agent]({{%relref "features/chats-agents#share-an-agent" %}}). The person sees the name and the state of
   the binding and never its token or settings; every other operation stays with the
   owner and answers `404` to the person. Messages to the bot still reach the owner's
   agent.
@@ -209,6 +212,15 @@ the resource ID from the page of the resource, or from the route in the table.
   entries. Sources, reset and sharing stay with the owner. The person finds a shared
   collection by its name; their own collection of that name wins, and the shared one
   is then named `shared:<resource ID>`.
+
+- **`agent`**: `use` chats with the agent as yourself, `viewer` also reads its
+  definition. Only the owner edits, deletes, exports or shares it. Sharing the
+  agent shares nothing it uses. The owner reads what it uses with
+  `GET /api/chats/agents/{id}/references`: each collection, connection and add-on
+  resource carries `share` with the options its kind can grant and the role of each
+  option. A person who may use the agent reads
+  `GET /api/chats/agents/{id}/needs`: each thing it uses, its network preset and its
+  opt-in tool groups, with the state of each for them.
 
 The binding and the collection stay where they are. A share is one record of the
 policy that names the binding ID or the collection name of its owner, so nothing is
@@ -329,7 +341,7 @@ the badges are also in the UI catalog at `/app/ui-catalog`.
 | `allowEveryone` | `true` when the kind may be shared with `@everyone`. |
 | `resource` | `{ id, name }`. The name is in the title. |
 | `sharing` | `false` in local-owner mode. The dialog then shows that sharing is not available and makes no call. |
-| `references` | Optional. Other resources that this one uses, which the owner decides on before sharing: `[{ id, label, kind, options }]`, where `options` is a subset of `view`, `use` and `none`. The dialog does not add anyone until every row has a choice. |
+| `references` | Optional. Other resources that this one uses, which the owner decides on before sharing: `[{ id, label, kind, options }]`, where `options` is a subset of `view`, `use` and `none`. The dialog does not add anyone until every row has a choice. The agents page takes the options from the server, which offers only the choices the referenced kind can grant (see [Share an agent]({{%relref "features/chats-agents#share-an-agent" %}})). |
 | `onShare` | With `references` only: called after each new grant, in the same step, with `{ principal, role, choices }`, where `choices` maps each reference ID to the chosen option. The page shares the referenced resources from there. |
 
 A reference row with no `options` (or only `none`) is shown read-only with the

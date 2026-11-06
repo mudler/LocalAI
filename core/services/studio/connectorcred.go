@@ -143,15 +143,20 @@ func cmpString(a, b string) int {
 //
 //  1. A chat that a connector binding of this add-on started uses that binding
 //     alone.
-//  2. A chat that runs a saved agent with a set for the add-on uses it; the
-//     chat's own set is not read.
+//  2. A chat that runs a saved agent of the person with a set for the add-on
+//     uses it; the chat's own set is not read.
 //  3. Else the set the person enabled in the chat.
-//  4. Else, when the person has exactly one connection for the add-on, it.
-//  5. Else none: the tools of the add-on are not offered until the person picks.
+//  4. Else, for a saved agent another person shared with the person, with a
+//     set for the add-on: when the person has no connection of their own for
+//     the add-on and holds a grant on exactly one binding of the set, it.
+//  5. Else, when the person has exactly one connection for the add-on, it.
+//  6. Else none: the tools of the add-on are not offered until the person picks.
 //
 // An entry that names a binding the person no longer has counts for nothing.
 // The gap of an agent's set is not filled by the chat: the person fixes the
-// agent. A chat set that is left with nothing falls to rule 4.
+// agent. A chat set that is left with nothing falls to rule 4. The set of a
+// shared agent names the owner's bindings: it never locks the person's chat,
+// and it is used only for a binding the owner shared with the person.
 func (c *Connectors) ConnectionsOf(ctx context.Context, user string, rec session.ChatRecord, addonID string) (ConnectionSet, error) {
 	list, err := c.Connections(ctx, user, addonID)
 	if err != nil {
@@ -172,22 +177,35 @@ func (c *Connectors) ConnectionsOf(ctx context.Context, user string, rec session
 			return ConnectionSet{Items: items, By: ConnectionByBinding}, nil
 		}
 	}
+	var sharedSet []string
 	if rec.AgentID != "" {
-		if ag, err := c.svc.Agent(ctx, user, rec.AgentID); err == nil {
+		if ag, err := c.svc.chatAgent(ctx, principal(user), rec.AgentID); err == nil {
 			if ids := ag.Connections[addonID]; len(ids) > 0 {
-				if items := pick(ids); len(items) > 0 {
-					return ConnectionSet{Items: items, By: ConnectionByAgent}, nil
+				if ag.Principal != principal(user) {
+					sharedSet = ids
+				} else {
+					if items := pick(ids); len(items) > 0 {
+						return ConnectionSet{Items: items, By: ConnectionByAgent}, nil
+					}
+					return ConnectionSet{}, nil
 				}
-				return ConnectionSet{}, nil
 			}
 		}
 	}
 	if items := pick(rec.Connections[addonID]); len(items) > 0 {
 		return ConnectionSet{Items: items, By: ConnectionByChat}, nil
 	}
+	own := ownOnly(list)
+	if len(own) == 0 && len(sharedSet) > 0 {
+		// pick keeps only the bindings of the set that are shared with the
+		// person now. With several, the person chooses.
+		if items := pick(sharedSet); len(items) == 1 {
+			return ConnectionSet{Items: items, By: ConnectionByAgent}, nil
+		}
+	}
 	// A binding shared with the person is used only when a set names it: the
 	// host never picks another person's binding on its own.
-	if own := ownOnly(list); len(own) == 1 {
+	if len(own) == 1 {
 		return ConnectionSet{Items: own, By: ConnectionOnly}, nil
 	}
 	return ConnectionSet{}, nil

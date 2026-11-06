@@ -861,7 +861,9 @@
       "connection": "Koneksi",
       "addon-resource": "Sumber daya add-on",
       "mcp": "Server MCP",
-      "builtin": "Izin bawaan"
+      "builtin": "Izin bawaan",
+      "network": "Jaringan",
+      "tool-group": "Grup alat"
     },
     "ownAccess": "Mereka perlu akses sendiri",
     "refsApplied_one": "Juga dibagikan {{count}} hal yang dipakainya.",
@@ -881,10 +883,14 @@
     "state": {
       "ok": "Anda punya",
       "missing": "Tidak dibagikan kepada Anda",
-      "unavailable": "Tidak tersedia untuk Anda"
+      "unavailable": "Tidak tersedia untuk Anda",
+      "ask": "Mati saat chat dimulai"
     },
     "noticeTitle_one": "Agen ini butuh {{count}} hal yang tidak Anda miliki:",
     "noticeTitle_other": "Agen ini butuh {{count}} hal yang tidak Anda miliki:",
-    "noticeLink": "Lihat yang dibutuhkan"
+    "noticeLink": "Lihat yang dibutuhkan",
+    "asksTitle_one": "Agen ini meminta {{count}} hal yang tidak ada saat chat Anda dimulai:",
+    "asksTitle_other": "Agen ini meminta {{count}} hal yang tidak ada saat chat Anda dimulai:",
+    "asksHelp": "Agen berjalan sebagai Anda. Nyalakan di chat hanya jika Anda memercayai agen dan orang yang membagikannya."
   }
 }

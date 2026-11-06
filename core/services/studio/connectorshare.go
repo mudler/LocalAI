@@ -33,8 +33,6 @@ type SharedBinding struct {
 	BindingID string
 	// OwnerName is the display name of the owner, never the account ID.
 	OwnerName string
-	// Everyone says that the share is the grant to every account.
-	Everyone bool
 }
 
 // ShareState is what the owner of a binding sees about its share.
@@ -77,7 +75,6 @@ type SharedConnectorView struct {
 	Reason          string
 	OwnerName       string
 	Role            string
-	Everyone        bool
 }
 
 // SharingEnabled says whether bindings can be shared on this server now.
@@ -126,6 +123,13 @@ func (c *Connectors) sharedBinding(ctx context.Context, user, id string) (connec
 	return b, share, true
 }
 
+// sharedTo says whether the binding id of another person is shared with user
+// now.
+func (c *Connectors) sharedTo(ctx context.Context, user, id string) bool {
+	_, _, ok := c.sharedBinding(ctx, user, id)
+	return ok
+}
+
 // SharedConnectors lists the bindings of other people shared with user, by
 // name. A server without sharing lists none.
 func (c *Connectors) SharedConnectors(ctx context.Context, user string) ([]SharedConnectorView, error) {
@@ -138,7 +142,7 @@ func (c *Connectors) SharedConnectors(ctx context.Context, user string) ([]Share
 		}
 		state := c.withState(ctx, info(b))
 		out = append(out, SharedConnectorView{ID: b.ID, Name: b.Name, Kind: b.Kind, AddonID: b.AddonID, Enabled: b.Enabled,
-			Active: state.Active, Reason: state.Reason, OwnerName: share.OwnerName, Role: ShareRole, Everyone: share.Everyone})
+			Active: state.Active, Reason: state.Reason, OwnerName: share.OwnerName, Role: ShareRole})
 	}
 	slices.SortFunc(out, func(a, b SharedConnectorView) int {
 		if d := strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)); d != 0 {

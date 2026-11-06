@@ -134,6 +134,7 @@ func (a *Application) initStudioService() {
 		// add-on carrier (addonSharingForward). Without either no agent is
 		// shared through this process, which fails closed.
 		AgentShares:       studio.PolicyAgentShares{Policy: a.AddonPolicy, Forward: a.addonSharingForward},
+		ReferenceShares:   a.studioReferenceShares,
 		Notify:            inbox,
 		Push:              pusher,
 		AddonTools:        lateStudioAddons{a},
