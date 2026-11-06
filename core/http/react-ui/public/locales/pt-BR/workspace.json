@@ -369,7 +369,7 @@
     "adminTitle": "Pastas compartilhadas",
     "adminLede": "Pastas que várias pessoas usam. Os membros abrem as páginas delas, e os chats deles podem ler ou editar os arquivos.",
     "userTitle": "Compartilhado com você",
-    "userLede": "Pastas que um administrador compartilhou com você. As páginas estão em Páginas, e seus chats podem usar os arquivos.",
+    "userLede": "Pastas que um administrador ou outra pessoa compartilhou com você. Seus chats podem usar os arquivos.",
     "new": "Nova pasta compartilhada",
     "nameLabel": "Nome da pasta",
     "nameHint": "Até 64 letras, dígitos, espaços, pontos, hifens ou sublinhados. Comece com uma letra ou um dígito.",
@@ -421,7 +421,7 @@
     "factChats": "Os chats dos membros veem os arquivos da pasta",
     "factUndo": "Remover uma pasta pode ser desfeito",
     "emptyUserTitle": "Ainda não há nada compartilhado com você",
-    "emptyUserBody": "Quando um administrador compartilhar uma pasta com você, ela aparece aqui e as páginas dela em Páginas."
+    "emptyUserBody": "Quando alguém compartilhar uma pasta com você, ela aparece aqui."
   },
   "preview": {
     "label": "Pré-visualização",
@@ -536,7 +536,8 @@
     "moveMany_one": "Mover {{count}} item para…",
     "moveMany_other": "Mover {{count}} itens para…",
     "deleteMany_one": "Mover {{count}} item para a Lixeira",
-    "deleteMany_other": "Mover {{count}} itens para a Lixeira"
+    "deleteMany_other": "Mover {{count}} itens para a Lixeira",
+    "share": "Compartilhar…"
   },
   "keys": {
     "delete": "Del"
@@ -677,5 +678,12 @@
     "read": "{{name}} (pode ler)",
     "write": "{{name}} (pode ler e alterar)",
     "many": "{{count}} agentes"
+  },
+  "share": {
+    "intro": "As pessoas que você adicionar encontram esta pasta na aba Compartilhado, e os chats delas podem usar os arquivos.",
+    "readHelp": "Elas podem abrir e copiar os arquivos.",
+    "writeHelp": "Elas também podem adicionar, alterar e excluir arquivos aqui.",
+    "failed": "Não foi possível abrir o compartilhamento: {{message}}",
+    "lost": "Você não pode mais compartilhar esta pasta aqui."
   }
 }

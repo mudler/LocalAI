@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// The two transports of the share dialog. The dialog takes a client with four
+// The transports of the share dialog. The dialog takes a client with four
 // calls and does not know which routes are behind them:
 //
 //   grants()                 -> { grants: [{ userId, displayName, role }] }
@@ -19,6 +19,18 @@ export function kindShareClient(api, kind, resourceId) {
     setGrant: (principal, role, options) => api.setGrant(kind, resourceId, principal, role, options),
     revoke: (principal, options) => api.revokeGrant(kind, resourceId, principal, options),
     searchUsers: (query, options) => api.searchUsers(kind, resourceId, query, { limit: SEARCH_LIMIT, ...(options || {}) }),
+  })
+}
+
+// folderShareClient is the client of a folder of the person's home, over
+// /api/chats/files/shares (folderSharesApi in utils/api.js). Its roles are
+// read and write.
+export function folderShareClient(api, folderId) {
+  return Object.freeze({
+    grants: (options) => api.grants(folderId, options),
+    setGrant: (principal, role, options) => api.setGrant(folderId, principal, role, options),
+    revoke: (principal, options) => api.revokeGrant(folderId, principal, options),
+    searchUsers: (query, options) => api.searchUsers(folderId, query, { limit: SEARCH_LIMIT, ...(options || {}) }),
   })
 }
 

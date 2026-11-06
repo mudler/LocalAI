@@ -6867,6 +6867,265 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/files/shares": {
+            "get": {
+                "description": "sharing is false when folders cannot be shared on this server (local-owner mode, no accounts). Each folder has its path in your home, the number of grants and whether one of them is to every account. Read-only. No MCP tool maps to this route.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the folders of your home that you share.",
+                "responses": {
+                    "200": {
+                        "description": "Your shared folders, by path",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderShareList"
+                        }
+                    },
+                    "409": {
+                        "description": "Files are off on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Returns the folder's ID for the other sharing routes and how many it is shared with. A folder can be shared when it is inside your home, is not the home itself and is not LocalAI/ or Chats/ or inside them. Any other path gets 403, a missing one too. No MCP tool maps to this route.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Find a folder of your home to share it.",
+                "parameters": [
+                    {
+                        "description": "The folder's path in your home",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderSharePathRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderShare"
+                        }
+                    },
+                    "403": {
+                        "description": "A folder you cannot share, or no such folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled, or files are off",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/files/shares/{id}/grants": {
+            "get": {
+                "description": "Each grant has the account ID (or @everyone), the display name (empty for @everyone) and the role read or write. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP marker). A folder you cannot share and a missing one get the same 403. No MCP tool maps to this route.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List who a folder of your home is shared with (owner, UI only).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Folder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The grants",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderGrantList"
+                        }
+                    },
+                    "403": {
+                        "description": "Not your own browser session, a folder you cannot share, or no such folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/files/shares/{id}/grants/{principal}": {
+            "put": {
+                "description": "principal is the account ID that the user picker returned, an active named account, or @everyone for every account, the ones created later too. role is read or write; write lets them change and delete what is in the folder. Lowering write to read takes effect at their next file call, and their running chats that hold the folder are stopped before the answer. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP marker). Safe to repeat. No MCP tool maps to this route: sharing is never a tool.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Share a folder of your home, or change the role (owner, UI only).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Folder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Account ID, or @everyone",
+                        "name": "principal",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "The role",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderGrantRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The grants after the change",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderGrantList"
+                        }
+                    },
+                    "400": {
+                        "description": "A role that is not read or write, or a principal that is not an active account",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not your own browser session, a folder you cannot share, or no such folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled, or a limit",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes the grant of the principal, an account ID or @everyone. A person's own grant and the grant to everyone are separate. The grantee loses the folder at their next file call, and their running chats that hold it are stopped before the answer. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP marker). Safe to repeat. No MCP tool maps to this route.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Stop sharing a folder of your home (owner, UI only).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Folder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Account ID, or @everyone",
+                        "name": "principal",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The grants after the change",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderGrantList"
+                        }
+                    },
+                    "403": {
+                        "description": "Not your own browser session, a folder you cannot share, or no such folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/files/shares/{id}/users": {
+            "get": {
+                "description": "Finds active named accounts by a prefix of the display name or of the address, 2 to 64 characters, at most 20 results, never you. Each result is an account ID and a display name and nothing else. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP marker). No MCP tool maps to this route.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Search the people you can share a folder of your home with (owner, UI only).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Folder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name or address prefix",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "At most this many results, up to 20",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Matching people",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderShareUserList"
+                        }
+                    },
+                    "400": {
+                        "description": "The search text is not 2 to 64 characters",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not your own browser session, a folder you cannot share, or no such folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/files/trash": {
             "get": {
                 "tags": [
@@ -28861,6 +29120,117 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.FolderGrant": {
+            "type": "object",
+            "properties": {
+                "displayName": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FolderGrantList": {
+            "type": "object",
+            "properties": {
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.FolderGrant"
+                    }
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FolderGrantRequest": {
+            "type": "object",
+            "properties": {
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FolderShare": {
+            "type": "object",
+            "properties": {
+                "everyone": {
+                    "description": "Everyone is true when the folder is shared with every account.",
+                    "type": "boolean"
+                },
+                "id": {
+                    "description": "ID is the folder's stable ID in the sharing routes.",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "description": "Path is the folder's path in your home, for example /Projects.",
+                    "type": "string"
+                },
+                "sharedWith": {
+                    "description": "SharedWith counts the grants, the one to every account included.",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.FolderShareList": {
+            "type": "object",
+            "properties": {
+                "folders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.FolderShare"
+                    }
+                },
+                "sharing": {
+                    "description": "Sharing is false when folders cannot be shared on this server\n(local-owner mode, no accounts, files off).",
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.FolderSharePathRequest": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FolderShareUser": {
+            "type": "object",
+            "properties": {
+                "displayName": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FolderShareUserList": {
+            "type": "object",
+            "properties": {
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.FolderShareUser"
+                    }
+                }
+            }
+        },
         "schema.ForecastRequest": {
             "type": "object",
             "properties": {
@@ -31314,6 +31684,10 @@ const docTemplate = `{
         "schema.SharedFolder": {
             "type": "object",
             "properties": {
+                "everyone": {
+                    "description": "Everyone is true when you reach a folder of someone's home only\nthrough its grant to every account. Only in your own list.",
+                    "type": "boolean"
+                },
                 "id": {
                     "description": "ID is the folder's stable ID. The shared pages use it as folder_id.",
                     "type": "integer"
@@ -31330,6 +31704,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "owner": {
+                    "description": "Owner is the display name of the person who shared a folder of their\nown home with you. Such a folder has no path: it would name the\nowner's account. Only in your own list.",
                     "type": "string"
                 },
                 "pages": {

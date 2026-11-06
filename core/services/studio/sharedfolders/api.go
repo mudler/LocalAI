@@ -38,6 +38,7 @@ func ToSchema(f Folder, admin bool) schema.SharedFolder {
 	out := schema.SharedFolder{ID: f.ID, Name: f.Name, Path: f.Path, Pages: f.Pages}
 	if !admin {
 		out.Mode = ModeName(f.Mode)
+		out.Owner, out.Everyone = f.Owner, f.Everyone
 		return out
 	}
 	out.Members = make([]schema.SharedFolderMember, 0, len(f.Members))
@@ -57,6 +58,31 @@ func EventToSchema(e Event, name func(id string) string) schema.SharedFolderEven
 	}
 	if e.Action == ActionGrant {
 		out.Mode = ModeName(e.Mode)
+	}
+	return out
+}
+
+// ShareToSchema returns the owner's summary of a shared folder of their home.
+func ShareToSchema(f Folder) schema.FolderShare {
+	out := schema.FolderShare{ID: f.ID, Name: f.Name, Path: f.Path, SharedWith: len(f.Members)}
+	for _, m := range f.Members {
+		if m.Principal == Everyone {
+			out.Everyone = true
+		}
+	}
+	return out
+}
+
+// GrantsToSchema returns the grants of a folder of the owner's home in the
+// shape of the sharing routes.
+func GrantsToSchema(f Folder) schema.FolderGrantList {
+	out := schema.FolderGrantList{ID: f.ID, Name: f.Name, Path: f.Path, Grants: make([]schema.FolderGrant, 0, len(f.Members))}
+	for _, m := range f.Members {
+		name := m.Name
+		if m.Principal == Everyone {
+			name = ""
+		}
+		out.Grants = append(out.Grants, schema.FolderGrant{UserID: m.Principal, DisplayName: name, Role: ModeName(m.Mode)})
 	}
 	return out
 }

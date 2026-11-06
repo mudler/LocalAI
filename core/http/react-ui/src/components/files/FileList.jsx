@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from '../Icon'
 import ActionMenu from '../ActionMenu'
+import { SharedByBadge } from '../share/ShareBadges'
 import { filesApi } from '../../utils/api'
 import { fileSize } from '../../utils/fileInfo'
 import { KIND_ICON, extOf, findByPrefix, hasThumb, kindOf, nameProblem, nextIndex, relativeDate } from '../../utils/fileBrowser'
@@ -83,6 +84,7 @@ function Row({ entry, view, selected, cursor, dropping, previewing, renaming, ct
   const kind = kindOf(entry)
   const menu = ctx.menuItems(entry)
   const mark = isDir ? ctx.agentMark?.(entry.path) : null
+  const shared = isDir ? ctx.shareMark?.(entry.path) : null
   const nameEl = renaming ? (
     <NameField
       initial={entry.name} current={entry.name} label={t('rename')} taken={taken} t={t}
@@ -126,6 +128,7 @@ function Row({ entry, view, selected, cursor, dropping, previewing, renaming, ct
           <span className="ws-row__line">
             {nameEl}
             {isDir && entry.managed && <span className="ws-managed-tag" data-testid="ws-managed-tag">{t('managed.marker')}</span>}
+            {shared && <SharedByBadge entry={{ role: 'owner', sharedWith: shared.sharedWith }} hideRole testId="ws-shared-mark" />}
             {isDir && mark && <span className="ws-agent-tag" data-testid="ws-agent-tag" title={mark.title} aria-label={mark.title}><Icon name="robot" />{mark.label}</span>}
           </span>
           {about && <span className="ws-row__about">{about}</span>}

@@ -124,6 +124,13 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.DELETE(base+"/files/trash/:rev", h.PurgeTrashEntry)
 	e.POST(base+"/files/undo", h.UndoFiles)
 	e.GET(base+"/files/history", h.FileHistory)
+	// A person shares the folders of their own home (never a tool).
+	e.GET(base+"/files/shares", h.ListFolderShares)
+	e.POST(base+"/files/shares", h.FindFolderShare)
+	e.GET(base+"/files/shares/:id/grants", h.ListFolderGrants)
+	e.PUT(base+"/files/shares/:id/grants/:principal", h.SetFolderGrant)
+	e.DELETE(base+"/files/shares/:id/grants/:principal", h.RevokeFolderGrant)
+	e.GET(base+"/files/shares/:id/users", h.SearchFolderShareUsers)
 	e.GET(base+"/wellknown/:name", h.GetWellKnown)
 	e.PUT(base+"/wellknown/:name", h.PutWellKnown)
 	e.POST(base+"/wellknown/:name/revert", h.RevertWellKnown)
@@ -157,7 +164,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/pages/:name/chat", h.SendFromPage)
 	// The pages of the caller's shared folders, by folder id and name, and the
 	// caller's consent to the version that runs.
-	// The folders an administrator shared with the caller.
+	// The folders an administrator, or another person, shared with the caller.
 	e.GET(base+"/shared-folders", h.ListMySharedFolders)
 	e.GET(base+"/shared-folders/:id", h.GetMySharedFolder)
 	e.GET(base+"/shared-pages", h.ListSharedPages)
