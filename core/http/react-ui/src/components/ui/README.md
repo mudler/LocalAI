@@ -15,6 +15,26 @@ element still wins over a primitive's base rule.
 To see every component in every state, open `/app/ui-catalog` (admin only, not
 in the navigation). `e2e/ui-primitives.spec.js` checks the catalog.
 
+## Which control
+
+| Need | Use | When |
+|---|---|---|
+| An action | `Button` | `primary` for the one main action of a region; `secondary`, `ghost`, `danger` and `danger-ghost` for the rest. |
+| Text | `dk-input` | One line of text. |
+| A choice from a list | `dk-select` in `dk-select-wrap` | A native list of options. |
+| A setting that applies at once | `Switch` | On or off, no Save. |
+| A choice that applies on Save | `dk-check` | A yes or no inside a form. |
+| One choice of a few that filters | `Segmented` | A list filter with counts. |
+| A state | `StatusChip` | The state of one item. |
+| Something that needs attention | `Callout` | A warning, news or a result on this page. |
+| The detail of an item beside a list | `SidePane` | Read, act, close. |
+| A create or edit form | `SideSheet` | Blocks the page until saved or closed. |
+
+`npm run lint:ui-kit` (`scripts/ui-kit-gate.mjs`) fails on a new raw checkbox,
+an import of the legacy `Toggle`, `dk-sheet` markup in JSX, a CSS width on a
+sheet or pane, and a `btn` class. `ui-kit-baseline.txt` lists the old ones;
+it can only shrink (`npm run lint:ui-kit:write` after you fix some).
+
 ## Rules for every slice
 
 - Do not write a new button, empty state, error state, status label or toast.
@@ -303,5 +323,49 @@ The list toolbar: a search box that fills the row, and one choice of a few.
   that opened it.
 - It slides in with transform and opacity; the content width changes in one
   step.
-- For a modal form (create, edit), use `SideSheet` (`components/SideSheet.jsx`),
-  which also keeps Tab inside.
+- For a modal form (create, edit), use `SideSheet` (see below).
+
+## Input, select and checkbox
+
+These are classes of the vendored kit, not React components. Put them in a
+`dk-field` with a `dk-label` (and a `dk-hint` or `dk-field-error`):
+
+```jsx
+<div className="dk-field">
+  <label className="dk-label" htmlFor="name">Name</label>
+  <input id="name" className="dk-input" />
+  <p className="dk-hint">Shown in lists.</p>
+</div>
+<div className="dk-select-wrap">
+  <select className="dk-select" aria-label="Model">…</select>
+</div>
+<label><input type="checkbox" className="dk-check" /> Keep the run history</label>
+```
+
+- Inputs and selects have the height of a `md` button (`--ctl-h`, 36 px). Do not
+  set another height or a width on one; the field decides the width.
+- A checkbox applies when the person presses Save. For a choice that applies at
+  once, use `Switch`.
+- A raw `<input type="checkbox">` with no `dk-check` is a violation of
+  `lint:ui-kit`.
+
+## SideSheet
+
+```jsx
+{open && (
+  <SideSheet title="Create agent" description="Name it and pick a model."
+    footer={<><Button onClick={close}>Cancel</Button><Button variant="primary" onClick={save}>Create agent</Button></>}
+    onClose={close}>
+    …the form…
+  </SideSheet>
+)}
+```
+
+- `import SideSheet from '../components/SideSheet'` (it is not exported from
+  `components/ui`). 480 px, or 720 px with `wide`; a bottom sheet on a phone.
+- It draws the portal, the head, the scrolling body and the footer, moves focus
+  in, keeps Tab inside, and closes on Escape or a click on the veil.
+- Use it for a create or edit form. For a detail beside a list, use `SidePane`.
+- Never write `dk-sheet` markup in a page and never set a width on a sheet.
+- A form with more than about eight fields becomes steps or a disclosure, with
+  the required fields first.
