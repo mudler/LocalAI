@@ -89,12 +89,12 @@ function Diff({ before, after, target, t }) {
 // folder, so the card names it and does not play it.
 function VoiceProfilePreview({ p, t }) {
   const f = voiceProfileFields(p)
-  const rows = [['name', f.name], ['file', f.audio], ['language', f.language], ['transcript', f.transcript]].filter(([, v]) => v)
+  const rows = [['name', f.name], ['file', f.audio], ['clip', f.clip], ['language', f.language], ['transcript', f.transcript]].filter(([, v]) => v)
   return (
     <div className="cp-diff cp-knowledge" role="group" aria-label={t('changes.voice.label')} data-testid="change-voice-preview">
       <dl className="cx-plan">
         {rows.map(([key, value]) => (
-          <div className="cx-plan__row" key={key} data-row={`voice-${key}`}><dt>{t(`changes.voice.${key}`)}</dt><dd>{key === 'file' ? <code>{value}</code> : value}</dd></div>
+          <div className="cx-plan__row" key={key} data-row={`voice-${key}`}><dt>{t(`changes.voice.${key}`)}</dt><dd>{key === 'file' || key === 'clip' ? <code>{value}</code> : value}</dd></div>
         ))}
       </dl>
       <p className="cx-help" data-testid="change-voice-consent"><b>{t('changes.voice.consentTitle')}</b> {t('changes.voice.consent')}</p>

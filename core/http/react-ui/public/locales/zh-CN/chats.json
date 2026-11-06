@@ -897,6 +897,7 @@
       "label": "要克隆的声音",
       "name": "名称",
       "file": "录音",
+      "clip": "锁定的录音",
       "language": "语言",
       "transcript": "文字稿",
       "consentTitle": "仅在说话人同意时才确认。",

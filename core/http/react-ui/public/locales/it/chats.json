@@ -897,6 +897,7 @@
       "label": "Voce da clonare",
       "name": "Nome",
       "file": "Registrazione",
+      "clip": "Clip bloccato",
       "language": "Lingua",
       "transcript": "Trascrizione",
       "consentTitle": "Conferma solo se chi parla ha dato il consenso.",

@@ -2,7 +2,9 @@ package localaitools_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -19,7 +21,9 @@ import (
 // wavBytes is a small valid RIFF/WAVE header with silence.
 func wavBytes() []byte {
 	data := make([]byte, 16000*2)
-	b := []byte("RIFF\x00\x00\x00\x00WAVEfmt ")
+	b := []byte("RIFF")
+	b = binary.LittleEndian.AppendUint32(b, uint32(36+len(data)))
+	b = append(b, []byte("WAVEfmt ")...)
 	b = binary.LittleEndian.AppendUint32(b, 16)
 	b = binary.LittleEndian.AppendUint16(b, 1)
 	b = binary.LittleEndian.AppendUint16(b, 1)
@@ -121,6 +125,36 @@ var _ = Describe("Inference voice profiles", func() {
 		Expect(p.ID).To(BeEmpty())
 		_, err = create(localaitools.WithVoiceCheck(context.Background()), "/files/voice.mp3")
 		Expect(err).To(MatchError(localaitools.ErrNotWAV))
+		Expect(requests).To(BeEmpty())
+	})
+
+	It("reports the SHA-256, size and duration of the clip in check mode", func() {
+		p, err := create(localaitools.WithVoiceCheck(context.Background()), "/files/voice.wav")
+		Expect(err).NotTo(HaveOccurred())
+		sum := sha256.Sum256(wavBytes())
+		Expect(p.Audio.SHA256).To(Equal(hex.EncodeToString(sum[:])))
+		Expect(p.Audio.SizeBytes).To(Equal(int64(len(wavBytes()))))
+		Expect(p.Audio.DurationMilliseconds).To(BeNumerically(">", 0))
+	})
+
+	It("creates the profile only when the clip is the one the person confirmed", func() {
+		sum := sha256.Sum256(wavBytes())
+		pin := hex.EncodeToString(sum[:])
+		ctx := localaitools.WithVoiceClipPin(localaitools.WithVoiceConsent(context.Background()), pin, int64(len(wavBytes())))
+		_, err := create(ctx, "/files/voice.wav")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(requests).To(HaveLen(1))
+	})
+
+	It("refuses a clip that was swapped after the person confirmed, and sends no request", func() {
+		sum := sha256.Sum256(wavBytes())
+		pin := hex.EncodeToString(sum[:])
+		other := wavBytes()
+		other[len(other)-1] ^= 0xff // same size, other bytes
+		fs.files["/files/voice.wav"] = localaitools.File{Name: "voice.wav", MIME: "audio/wav", Data: other}
+		ctx := localaitools.WithVoiceClipPin(localaitools.WithVoiceConsent(context.Background()), pin, int64(len(wavBytes())))
+		_, err := create(ctx, "/files/voice.wav")
+		Expect(err).To(MatchError(localaitools.ErrClipChanged))
 		Expect(requests).To(BeEmpty())
 	})
 

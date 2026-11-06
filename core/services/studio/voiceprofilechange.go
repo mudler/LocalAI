@@ -34,14 +34,19 @@ type voiceProfileContent struct {
 	Audio      string `json:"audio"`
 	Transcript string `json:"transcript"`
 	Language   string `json:"language,omitempty"`
+	// AudioSHA256, AudioBytes and AudioMS pin the clip the person was shown at
+	// proposal time. The confirmation refuses a clip that differs.
+	AudioSHA256 string `json:"audio_sha256,omitempty"`
+	AudioBytes  int64  `json:"audio_bytes,omitempty"`
+	AudioMS     int64  `json:"audio_ms,omitempty"`
 }
 
 // voiceProfileTarget is the target of a voice_profile proposal; it names no
 // file, as the profile goes to the voice library.
 const voiceProfileTarget = "voice-profiles"
 
-// maxVoiceProfileContent bounds the content: a name, a path and a transcript of
-// at most 4000 characters.
+// maxVoiceProfileContent bounds the content: a name, a path, a transcript of
+// at most 4000 characters and the pin of the clip.
 const maxVoiceProfileContent = 24 << 10
 
 func (c *Changes) voiceProfileKind() proposals.Kind {
@@ -106,12 +111,15 @@ func (s *Service) applyVoiceProfile(ctx context.Context, in proposals.ApplyInput
 	if err != nil {
 		return fmt.Errorf("nothing was created: %w", err)
 	}
+	if c.AudioSHA256 == "" || c.AudioBytes <= 0 {
+		return errors.New("nothing was created: the proposal does not pin its recording; propose the profile again")
+	}
 	exec := mcpendpoint.AsUser(s.d.ClientTools.ClientExecutor(), owner)
 	if exec == nil {
 		return errors.New("the LocalAI client tools are not available on this server")
 	}
 	args, _ := json.Marshal(map[string]string{"action": localaitools.ActionCreate, "name": c.Name, "audio": c.Audio, "transcript": c.Transcript, "language": c.Language})
-	out, err := exec.ExecuteTool(localaitools.WithVoiceConsent(ctx), localaitools.ToolVoiceProfile, string(args))
+	out, err := exec.ExecuteTool(localaitools.WithVoiceClipPin(localaitools.WithVoiceConsent(ctx), c.AudioSHA256, c.AudioBytes), localaitools.ToolVoiceProfile, string(args))
 	if err != nil {
 		return err
 	}
@@ -158,14 +166,13 @@ func (s *Service) proposeVoiceProfile(ctx context.Context, chat builtins.Chat, e
 	if err != nil {
 		return "", err
 	}
-	var ok struct {
-		Checked bool `json:"checked"`
-	}
-	if json.Unmarshal([]byte(checked), &ok) != nil || !ok.Checked {
+	var ok localaitools.VoiceClipCheck
+	if json.Unmarshal([]byte(checked), &ok) != nil || !ok.Checked || ok.SHA256 == "" || ok.Bytes <= 0 {
 		return "", errors.New(strings.TrimSpace(checked))
 	}
 	content, _ := json.Marshal(voiceProfileContent{Name: strings.TrimSpace(in.Name), Audio: strings.TrimSpace(in.Audio),
-		Transcript: strings.TrimSpace(in.Transcript), Language: strings.TrimSpace(in.Language)})
+		Transcript: strings.TrimSpace(in.Transcript), Language: strings.TrimSpace(in.Language),
+		AudioSHA256: ok.SHA256, AudioBytes: ok.Bytes, AudioMS: ok.DurationMS})
 	p, err := s.changes.Propose(ctx, ProposeInput{User: chat.Actor.Principal, Agent: chat.AgentID,
 		Source: contract.ChangeSource{Chat: chat.Actor.ChatID}, Kind: string(contract.ChangeVoiceProfile), Scope: string(contract.ScopeUser),
 		Content: string(content), Summary: fmt.Sprintf("Clone a voice as %q from %s", in.Name, in.Audio)})

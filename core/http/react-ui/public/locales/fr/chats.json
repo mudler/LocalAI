@@ -897,6 +897,7 @@
       "label": "Voix à cloner",
       "name": "Nom",
       "file": "Enregistrement",
+      "clip": "Clip verrouillé",
       "language": "Langue",
       "transcript": "Transcription",
       "consentTitle": "Ne confirmez que si la personne qui parle a donné son accord.",

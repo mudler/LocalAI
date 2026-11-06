@@ -3,6 +3,8 @@ package localaitools
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +21,18 @@ import (
 var ErrConsentNeeded = errors.New("voice_profile: action \"create\" needs a person to confirm that the speaker agreed to the cloning of their voice; the chat asks them. It cannot be done from here")
 
 // ErrNotWAV means the clip of a profile is not a WAV file.
+// ErrClipChanged means the clip is not the one the person confirmed.
+var ErrClipChanged = errors.New("voice_profile: the clip changed after the person confirmed it (its SHA-256 or size differs); nothing was created. Propose the profile again")
+
+// VoiceClipCheck is the result of a check-only create call: what the person is
+// asked to confirm. SHA256 is the lowercase hex digest of the clip.
+type VoiceClipCheck struct {
+	Checked    bool   `json:"checked"`
+	SHA256     string `json:"sha256,omitempty"`
+	Bytes      int64  `json:"bytes,omitempty"`
+	DurationMS int64  `json:"duration_ms,omitempty"`
+}
+
 var ErrNotWAV = errors.New("voice_profile: the clip must be a WAV file (16-bit PCM, 1 to 120 seconds); this file is not WAV. Convert it to WAV first, for example with a command that runs ffmpeg")
 
 func voiceProfileAction(ctx context.Context, client LocalAIClient, in VoiceProfileToolInput) (any, error) {
@@ -36,7 +50,7 @@ func voiceProfileAction(ctx context.Context, client LocalAIClient, in VoiceProfi
 		}
 		if p == nil || p.ID == "" {
 			// A check-only call (see WithVoiceCheck) validated and created nothing.
-			return map[string]any{"checked": true}, nil
+			return VoiceClipCheck{Checked: true, SHA256: p.Audio.SHA256, Bytes: p.Audio.SizeBytes, DurationMS: p.Audio.DurationMilliseconds}, nil
 		}
 		return VoiceProfileCreated{ID: p.ID, Name: p.Name, Voice: p.Voice}, nil
 	case ActionList:
@@ -109,8 +123,18 @@ func (i *Inference) CreateVoiceProfile(ctx context.Context, req CreateVoiceProfi
 	if !isWAV(clip.Data) {
 		return nil, ErrNotWAV
 	}
+	sum := sha256.Sum256(clip.Data)
+	digest := hex.EncodeToString(sum[:])
+	if g.pinSHA256 != "" && (digest != g.pinSHA256 || int64(len(clip.Data)) != g.pinBytes) {
+		return nil, ErrClipChanged
+	}
 	if g.checkOnly && !g.consent {
-		return &VoiceProfile{}, nil
+		meta, err := voiceprofile.InspectWAV(clip.Data)
+		if err != nil {
+			return nil, fmt.Errorf("voice_profile: the clip is not usable: %w", err)
+		}
+		meta.SHA256 = digest
+		return &VoiceProfile{Audio: meta}, nil
 	}
 	m := newMultipart()
 	m.field("name", req.Name)

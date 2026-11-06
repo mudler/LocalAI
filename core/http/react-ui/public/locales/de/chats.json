@@ -897,6 +897,7 @@
       "label": "Zu klonende Stimme",
       "name": "Name",
       "file": "Aufnahme",
+      "clip": "Festgelegter Clip",
       "language": "Sprache",
       "transcript": "Transkript",
       "consentTitle": "Bestätige nur, wenn die sprechende Person zugestimmt hat.",

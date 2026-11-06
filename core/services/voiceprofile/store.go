@@ -4,6 +4,7 @@
 package voiceprofile
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -70,6 +71,9 @@ type AudioMetadata struct {
 	BitDepth             uint16 `json:"bit_depth"`
 	SizeBytes            int64  `json:"size_bytes"`
 	MIMEType             string `json:"mime_type"`
+	// SHA256 is set only by a check of a clip held in memory (the voice_profile
+	// tool before a person confirms); the store does not fill it.
+	SHA256 string `json:"sha256,omitempty"`
 }
 
 // ReferenceMetadata describes one ordered audio/transcript pair in a profile.
@@ -602,7 +606,14 @@ func validateID(id string) error {
 	return nil
 }
 
-func validateWAV(file *os.File, size int64) (AudioMetadata, error) {
+// InspectWAV validates a reference clip held in memory with the same rules as
+// the store applies at create time and returns its metadata. A caller uses it
+// to reject a bad clip before it asks a person to confirm.
+func InspectWAV(data []byte) (AudioMetadata, error) {
+	return validateWAV(bytes.NewReader(data), int64(len(data)))
+}
+
+func validateWAV(file io.ReadSeeker, size int64) (AudioMetadata, error) {
 	decoder := wav.NewDecoder(file)
 	if !decoder.IsValidFile() {
 		return AudioMetadata{}, ErrUnsupportedWAV

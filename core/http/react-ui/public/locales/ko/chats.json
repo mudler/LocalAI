@@ -897,6 +897,7 @@
       "label": "복제할 음성",
       "name": "이름",
       "file": "녹음",
+      "clip": "고정된 클립",
       "language": "언어",
       "transcript": "대본",
       "consentTitle": "말하는 사람이 동의한 경우에만 확인하세요.",

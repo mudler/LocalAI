@@ -897,6 +897,7 @@
       "label": "Suara yang akan dikloning",
       "name": "Nama",
       "file": "Rekaman",
+      "clip": "Klip terkunci",
       "language": "Bahasa",
       "transcript": "Transkrip",
       "consentTitle": "Konfirmasi hanya jika pembicara setuju.",

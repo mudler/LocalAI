@@ -45,10 +45,27 @@ export const isVoiceProfile = (p) => p?.kind === 'voice_profile'
 export function voiceProfileFields(p) {
   try {
     const c = JSON.parse(p?.content || '{}')
-    return { name: String(c.name || ''), audio: String(c.audio || ''), transcript: String(c.transcript || ''), language: String(c.language || '') }
+    return {
+      name: String(c.name || ''), audio: String(c.audio || ''), transcript: String(c.transcript || ''), language: String(c.language || ''),
+      clip: voiceClipText(c),
+    }
   } catch {
-    return { name: '', audio: '', transcript: '', language: '' }
+    return { name: '', audio: '', transcript: '', language: '', clip: '' }
   }
+}
+
+// The pin of the recording, as the server took it when the model asked: the
+// size, the duration and the first 8 hex characters of the SHA-256. The server
+// refuses the confirmation when the file no longer matches. An empty string for
+// a proposal that has no pin.
+export function voiceClipText(c) {
+  const sha = String(c?.audio_sha256 || '')
+  if (!sha) return ''
+  const parts = [byteText(Number(c.audio_bytes))]
+  const ms = Number(c.audio_ms)
+  if (Number.isFinite(ms) && ms > 0) parts.push(`${(ms / 1000).toFixed(1)} s`)
+  parts.push(`SHA-256 ${sha.slice(0, 8)}`)
+  return parts.filter(Boolean).join(' · ')
 }
 
 // The most a knowledge text may hold, as the server bounds it

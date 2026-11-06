@@ -84,13 +84,16 @@ func (f *fakeClientTools) ExecuteTool(ctx context.Context, name, args string) (s
 			return "[]", nil
 		case consent:
 			f.voice = append(f.voice, "consent")
+			if sha, size := localaitools.VoiceClipPin(ctx); sha == "" || size <= 0 {
+				return localaitools.ErrConsentNeeded.Error(), nil
+			}
 			return `{"id":"p1","name":"` + in.Name + `","voice":"localai://voice-profiles/p1"}`, nil
 		case check:
 			f.voice = append(f.voice, "check")
 			if strings.HasSuffix(in.Audio, ".mp3") {
 				return localaitools.ErrNotWAV.Error(), nil
 			}
-			return `{"checked":true}`, nil
+			return `{"checked":true,"sha256":"` + strings.Repeat("ab", 32) + `","bytes":64044,"duration_ms":2000}`, nil
 		}
 		f.voice = append(f.voice, "refused")
 		return localaitools.ErrConsentNeeded.Error(), nil

@@ -43,6 +43,10 @@ type voiceGrant struct {
 	// checkOnly: validate a create call and send nothing; the host does it to
 	// reject a bad clip before it asks the person.
 	checkOnly bool
+	// pinSHA256 and pinBytes: the clip the person confirmed. A create call
+	// that reads another clip is refused (WithVoiceClipPin).
+	pinSHA256 string
+	pinBytes  int64
 }
 
 type voiceGrantKey struct{}
@@ -64,12 +68,28 @@ func WithVoiceCheck(ctx context.Context) context.Context {
 	return context.WithValue(ctx, voiceGrantKey{}, g)
 }
 
+// WithVoiceClipPin returns a context in which a voice_profile create call
+// accepts only the clip with this SHA-256 (lowercase hex) and byte size: the
+// clip the person saw when they confirmed. A clip that changed since is refused.
+func WithVoiceClipPin(ctx context.Context, sha256Hex string, size int64) context.Context {
+	g := voiceGrantFrom(ctx)
+	g.pinSHA256, g.pinBytes = sha256Hex, size
+	return context.WithValue(ctx, voiceGrantKey{}, g)
+}
+
 // VoiceGrants reports what the host let this call do: the consent of a person,
 // and check-only mode. A stand-in for the tools in a test reads it to act as
 // the real tool does.
 func VoiceGrants(ctx context.Context) (consent, checkOnly bool) {
 	g := voiceGrantFrom(ctx)
 	return g.consent, g.checkOnly
+}
+
+// VoiceClipPin reports the clip pinned by WithVoiceClipPin, if any. A stand-in
+// for the tools in a test reads it to act as the real tool does.
+func VoiceClipPin(ctx context.Context) (sha256Hex string, size int64) {
+	g := voiceGrantFrom(ctx)
+	return g.pinSHA256, g.pinBytes
 }
 
 func voiceGrantFrom(ctx context.Context) voiceGrant {

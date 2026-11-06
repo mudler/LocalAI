@@ -3,6 +3,7 @@ package studio_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync/atomic"
 
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -70,6 +71,22 @@ var _ = Describe("the voice_profile tool and the consent of a person", func() {
 		Expect(done.Status).To(Equal(contract.ProposalApplied))
 		Expect(r.client.voiceCalls()).To(Equal([]string{"check", "consent"}))
 		Expect(r.client.users[len(r.client.users)-1]).To(Equal(bob))
+	})
+
+	It("pins the clip at proposal time and confirms with that pin", func() {
+		r := newRig(createVoiceArgs)
+		id := create(r.svc, bob)
+		sent(r.svc, bob, id, "clone me")
+		idle(r.svc, bob, id)
+		list, err := r.svc.Changes().List(ctx, bob, contract.ProposalPending)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1))
+		Expect(list[0].Content).To(ContainSubstring(`"audio_sha256":"` + strings.Repeat("ab", 32) + `"`))
+		Expect(list[0].Content).To(ContainSubstring(`"audio_bytes":64044`))
+		Expect(list[0].Content).To(ContainSubstring(`"audio_ms":2000`))
+		done, err := r.svc.Changes().Confirm(ctx, bob, list[0].ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(done.Status).To(Equal(contract.ProposalApplied))
 	})
 
 	It("does not create the profile when the person dismisses the proposal", func() {

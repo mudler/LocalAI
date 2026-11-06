@@ -1221,6 +1221,7 @@
       "label": "Voice to clone",
       "name": "Name",
       "file": "Recording",
+      "clip": "Pinned clip",
       "language": "Language",
       "transcript": "Transcript",
       "consentTitle": "Confirm only if the speaker agreed.",
