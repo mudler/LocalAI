@@ -104,6 +104,10 @@ var viewAllowlist = map[string]string{
 	// web interface) works on the whole home, as the Files page does. A
 	// chat's add-on call takes chatAccess.
 	"addonaccess.go:Service.AddonAccess": "the access of an add-on call that no chat made",
+	// A check, not an access: it asks the store which mode the running turn's
+	// own actor still has on each mount of the turn's view, to stop a turn
+	// that lost a folder. Nothing it builds is handed to a turn.
+	"folderaccess.go:Service.narrowed": "re-checks the mounts of a running turn after an owner revoked a folder",
 	// Not converted yet: each is the work of a later lane of the agent folder
 	// plan, and must take the chat's access there.
 }

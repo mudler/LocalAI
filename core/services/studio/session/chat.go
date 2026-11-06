@@ -210,6 +210,14 @@ func (c *Chat) access() (actor, user workspace.Actor, view workspace.View) {
 	return c.acc.Actor(), c.acc.Owner(), c.acc.View()
 }
 
+// TurnView is the view the chat holds now: the folders its turn and its
+// tools were given. The host compares it with the grants after an owner took
+// access away, to stop a turn that still holds a folder it lost.
+func (c *Chat) TurnView() workspace.View {
+	_, _, v := c.access()
+	return v
+}
+
 // place is the place of the chat's access: how its tools name its files.
 func (c *Chat) place() Place {
 	c.accMu.RLock()

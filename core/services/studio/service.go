@@ -172,6 +172,9 @@ type Deps struct {
 	// whatever their status, for the members of a shared folder. Nil: Users
 	// looks members up by ID, and with no Users any principal is a member.
 	FindUser func(ctx context.Context, ref string) (*auth.User, error)
+	// FolderDirectory is the account directory people pick from when they
+	// share a folder of their own home. Nil (no accounts): they cannot.
+	FolderDirectory sharedfolders.Directory
 	// Builtins is the registry of the built-in chat tools an add-on may
 	// replace. Nil: the service makes one. The service registers bash in it
 	// when HostExec is set.
@@ -343,6 +346,8 @@ type Service struct {
 	outcomes outcomeLimiter
 	bus      Bus
 	log      *slog.Logger
+	// stopFolderWatch ends the listener of folderAccessKey.
+	stopFolderWatch func()
 	// beforeNext runs before the next turn is started from the waiting
 	// messages, after the end of the last one is announced. Only the specs set
 	// it.
@@ -514,7 +519,9 @@ func New(d Deps) (*Service, error) {
 	s.providerHealth, s.providerTimings = newProviderHealth(), defaultProviderTimings()
 	s.registerMemorySlot()
 	s.ctxfiles = contextfiles.NewLoader(contextfiles.NewRegistry(), homeReader{f: d.Files}, log)
-	s.shared = sharedfolders.New(sharedfolders.Options{Files: d.Files, Consents: d.PageConsents, Audit: d.SharedFolderAudit, Users: s.folderUsers()})
+	s.shared = sharedfolders.New(sharedfolders.Options{Files: d.Files, Consents: d.PageConsents, Audit: d.SharedFolderAudit, Users: s.folderUsers(),
+		Directory: d.FolderDirectory, AccessLost: s.folderAccessLost})
+	s.stopFolderWatch = s.bus.OnControl(folderAccessKey, s.onFolderAccess)
 	// A chat mounts the shared folders of its owner at /workspace/shared-<name>.
 	mgr, err := session.New(session.Options{Store: d.Store, Workspace: d.Files.Store(), Harness: h, StateDir: d.StateDir, Inputs: s.inputs, ChatTools: s.chatTools,
 		Shared: s.shared.Roots, Resolve: s.resolveAccess, ProductScope: s.productScope, Logger: log})
@@ -580,6 +587,9 @@ func (s *Service) Close(ctx context.Context) error {
 	}
 	if s.feed != nil {
 		s.feed.Close()
+	}
+	if s.stopFolderWatch != nil {
+		s.stopFolderWatch()
 	}
 	return s.mgr.Close(ctx)
 }
