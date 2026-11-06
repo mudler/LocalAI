@@ -211,7 +211,7 @@ func (h *Handlers) describe(c echo.Context, user string, rec session.ChatRecord)
 // @Summary Start a chat.
 // @Tags chats
 // @Description With switches, the chat starts with those tools, add-ons and skills switched off (and those opt-in tools on), as GET /api/chats/draft/tools and GET /api/chats/skills list them for a chat that does not exist yet. A bad switch refuses the request and no chat is created.
-// @Param request body schema.ChatsCreateRequest true "model and optional title, agent and switches"
+// @Param request body schema.ChatsCreateRequest true "model and optional title, agent (one of yours or one shared with you) and switches"
 // @Success 201 {object} schema.ChatsConversation "The new conversation"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 403 {object} schema.ErrorResponse "Refused"
@@ -479,7 +479,7 @@ func messageList(principal string, entries []session.Entry) schema.ChatsMessageL
 // @Success 200 {object} schema.ChatsSendResponse "Whether a turn started, or the id of the waiting message"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
-// @Failure 409 {object} schema.ErrorResponse "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit)"
+// @Failure 409 {object} schema.ErrorResponse "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit), or the saved agent of another person is no longer shared with you (agent_not_shared)"
 // @Router /api/chats/{id}/messages [post]
 func (h *Handlers) Send(c echo.Context) error {
 	var (
