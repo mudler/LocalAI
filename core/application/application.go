@@ -242,15 +242,15 @@ type Application struct {
 	// Upgrade checker (background service for detecting backend upgrades)
 	upgradeChecker *UpgradeChecker
 
-	// LocalAI Assistant in-process MCP server. nil when DisableLocalAIAssistant
-	// is set; otherwise initialised in start() after galleryService.
+	// LocalAI Assistant in-process MCP server. nil until initialised in start() after galleryService, and
+	// when that initialisation fails.
 	localAIAssistant *mcpTools.LocalAIAssistantHolder
 
 	// assistantClient is the concrete inproc client backing localAIAssistant.
 	// start() constructs it before failoverManager exists (see New() in
 	// startup.go), so New() sets assistantClient.Failover once the manager
 	// is built, using this field to reach back into the already-registered
-	// MCP tool set. nil when DisableLocalAIAssistant is set.
+	// MCP tool set. nil until start() builds it.
 	assistantClient *localaiInproc.Client
 
 	// startupComplete flips to true once New() has finished its whole startup
@@ -826,83 +826,81 @@ func (a *Application) start() (startErr error) {
 
 	// LocalAI Assistant: in-process MCP server exposing admin tools. Initialised
 	// once at startup and reused across chat sessions that opt in via metadata.
-	if !a.applicationConfig.DisableLocalAIAssistant {
-		holder := mcpTools.NewLocalAIAssistantHolder()
-		var nodeRegistry *nodes.NodeRegistry
-		if a.distributed != nil {
-			nodeRegistry = a.distributed.Registry
+	holder := mcpTools.NewLocalAIAssistantHolder()
+	var nodeRegistry *nodes.NodeRegistry
+	if a.distributed != nil {
+		nodeRegistry = a.distributed.Registry
+	}
+	assistantClient := localaiInproc.New(
+		a.applicationConfig,
+		a.applicationConfig.SystemState,
+		a.backendLoader,
+		a.modelLoader,
+		a.galleryService,
+		nodeRegistry,
+	)
+	// Wire usage tracking so the assistant's get_usage_stats tool
+	// returns real data; nil values keep the tool returning a clear
+	// "unavailable" error if startup ran with --disable-stats.
+	assistantClient.StatsRecorder = a.statsRecorder
+	assistantClient.FallbackUser = a.fallbackUser
+	assistantClient.VoiceProfiles = a.voiceProfileStore
+	// The chats start after the assistant, so the shared folder tools
+	// look the service up at each call.
+	assistantClient.SharedFolders = func() *sharedfolders.Service {
+		if svc := a.StudioService(); svc != nil {
+			return svc.SharedFolders()
 		}
-		assistantClient := localaiInproc.New(
-			a.applicationConfig,
-			a.applicationConfig.SystemState,
-			a.backendLoader,
-			a.modelLoader,
-			a.galleryService,
-			nodeRegistry,
-		)
-		// Wire usage tracking so the assistant's get_usage_stats tool
-		// returns real data; nil values keep the tool returning a clear
-		// "unavailable" error if startup ran with --disable-stats.
-		assistantClient.StatsRecorder = a.statsRecorder
-		assistantClient.FallbackUser = a.fallbackUser
-		assistantClient.VoiceProfiles = a.voiceProfileStore
-		// The chats start after the assistant, so the shared folder tools
-		// look the service up at each call.
-		assistantClient.SharedFolders = func() *sharedfolders.Service {
-			if svc := a.StudioService(); svc != nil {
-				return svc.SharedFolders()
-			}
+		return nil
+	}
+	assistantClient.Chats = a.StudioService
+	// The client tools reach the API in memory, as the acting user, with
+	// the transport the chats use. The provider is built before the
+	// assistant but is read at each call.
+	assistantClient.Transport = func() *provider.Transport {
+		if a.studioProvider == nil {
 			return nil
 		}
-		assistantClient.Chats = a.StudioService
-		// The client tools reach the API in memory, as the acting user, with
-		// the transport the chats use. The provider is built before the
-		// assistant but is read at each call.
-		assistantClient.Transport = func() *provider.Transport {
-			if a.studioProvider == nil {
-				return nil
-			}
-			return a.studioProvider.Transport()
-		}
-		assistantClient.VisionModel = func(context.Context) (string, bool) {
-			return a.studioVisionModel("")
-		}
-		if a.backendLibrary != nil {
-			assistantClient.BackendLibrary = libraryInstallNoProgress{a.backendLibrary}
-		}
-		if a.distributed != nil && a.distributed.Unloader != nil {
-			assistantClient.LoadStopper = a.distributed.Unloader
-		}
-		// PII filter — same nil-or-real wiring.
-		assistantClient.PIIRedactor = a.piiRedactor
-		assistantClient.PIIEvents = a.piiEvents
-		assistantClient.RouterDecisions = a.routerDecisions
-		// Router corpus tools — same factories the RouteModel middleware
-		// uses, so the assistant and the request path agree on store
-		// namespaces and model resolution.
-		assistantClient.RouterCorpus = a.RouterCorpus()
-		assistantClient.RouterEmbedder = a.Embedder
-		assistantClient.RouterEmbedderFingerprint = a.EmbedderFingerprint
-		assistantClient.RouterVectorStore = a.VectorStore
-		// Failover chains: failoverManager does not exist yet at this point
-		// in startup (New() in startup.go builds it after start() returns),
-		// so it can't be wired here like the fields above. New() sets
-		// assistantClient.Failover directly once the manager is built;
-		// stash the client so it can reach back into it.
-		a.assistantClient = assistantClient
-		if err := holder.Initialize(a.applicationConfig.Context, assistantClient, localaitools.Options{}); err != nil {
-			// Why log+continue instead of fail: the assistant is an optional
-			// feature; a failure here must not take down the whole server.
-			xlog.Warn("LocalAI Assistant initialisation failed; feature unavailable", "error", err)
-		} else {
-			a.localAIAssistant = holder
-			// Tear the in-memory transport pair down on SIGINT/SIGTERM so the
-			// goroutine ends cleanly. Mirrors how core/http/endpoints/mcp/tools.go
-			// closes its per-model MCP sessions on graceful termination.
-			signals.RegisterGracefulTerminationHandler(func() {
-				_ = holder.Close()
-			})
-		}
+		return a.studioProvider.Transport()
+	}
+	assistantClient.VisionModel = func(context.Context) (string, bool) {
+		return a.studioVisionModel("")
+	}
+	if a.backendLibrary != nil {
+		assistantClient.BackendLibrary = libraryInstallNoProgress{a.backendLibrary}
+	}
+	if a.distributed != nil && a.distributed.Unloader != nil {
+		assistantClient.LoadStopper = a.distributed.Unloader
+	}
+	// PII filter — same nil-or-real wiring.
+	assistantClient.PIIRedactor = a.piiRedactor
+	assistantClient.PIIEvents = a.piiEvents
+	assistantClient.RouterDecisions = a.routerDecisions
+	// Router corpus tools — same factories the RouteModel middleware
+	// uses, so the assistant and the request path agree on store
+	// namespaces and model resolution.
+	assistantClient.RouterCorpus = a.RouterCorpus()
+	assistantClient.RouterEmbedder = a.Embedder
+	assistantClient.RouterEmbedderFingerprint = a.EmbedderFingerprint
+	assistantClient.RouterVectorStore = a.VectorStore
+	// Failover chains: failoverManager does not exist yet at this point
+	// in startup (New() in startup.go builds it after start() returns),
+	// so it can't be wired here like the fields above. New() sets
+	// assistantClient.Failover directly once the manager is built;
+	// stash the client so it can reach back into it.
+	a.assistantClient = assistantClient
+	if err := holder.Initialize(a.applicationConfig.Context, assistantClient, localaitools.Options{}); err != nil {
+		// Why log+continue instead of fail: the assistant is an optional
+		// feature; a failure here must not take down the whole server.
+		xlog.Warn("LocalAI Assistant initialisation failed; feature unavailable", "error", err)
+	} else {
+		a.localAIAssistant = holder
+		// Tear the in-memory transport pair down on SIGINT/SIGTERM so the
+		// goroutine ends cleanly. Mirrors how core/http/endpoints/mcp/tools.go
+		// closes its per-model MCP sessions on graceful termination.
+		signals.RegisterGracefulTerminationHandler(func() {
+			_ = holder.Close()
+		})
 	}
 
 	return nil

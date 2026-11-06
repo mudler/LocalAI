@@ -38,13 +38,7 @@ The assistant searches the gallery, lists candidates, asks you to pick, summaris
 
 ## Turning the assistant on and off
 
-The assistant is on by default. Either toggle it off in **Settings → Chats and collections → LocalAI Assistant** (the `localai_assistant_enabled` runtime setting; it takes effect without a restart), or hard-disable it at startup:
-
-```bash
-LOCALAI_DISABLE_ASSISTANT=true local-ai run
-```
-
-When it is off, Home hides `/assistant` and the library entry, and `POST /api/chats` refuses `assistant: true` with `503`. The setting is read on every turn: an assistant chat that already exists keeps its history, but its next turn has no admin tools and the model is told they are unavailable.
+There is no separate switch for the assistant. The two [tool groups](#tool-groups) below decide what a chat has: switch off `chats_localai_admin` in **Settings → Tools** and Home hides `/assistant` and the library entry, and no chat gets the admin tools. The setting applies at the next turn. An assistant chat that already exists keeps its history. Earlier versions had a `localai_assistant_enabled` setting and a `LOCALAI_DISABLE_ASSISTANT` variable; both are gone and an old value is ignored.
 
 ## Tool groups
 

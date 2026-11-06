@@ -715,11 +715,6 @@ func runRealtimeSession(application *application.Application, t Transport, model
 			sendError(t, "forbidden", "localai_assistant requires admin", "", "")
 			return
 		}
-		appCfg := application.ApplicationConfig()
-		if appCfg != nil && appCfg.DisableLocalAIAssistant {
-			sendError(t, "unavailable", "LocalAI Assistant is disabled on this server", "", "")
-			return
-		}
 		holder := application.LocalAIAssistant()
 		if holder == nil || !holder.HasTools() {
 			sendError(t, "unavailable", "LocalAI Assistant is not available on this server", "", "")

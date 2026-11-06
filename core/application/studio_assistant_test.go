@@ -11,7 +11,7 @@ import (
 )
 
 var _ = Describe("the studio assistant", func() {
-	It("is off without the server or with the setting off", func() {
+	It("is off without the server", func() {
 		cfg := config.NewApplicationConfig()
 		a := &Application{applicationConfig: cfg}
 		as := studioAssistant{a}
@@ -23,10 +23,8 @@ var _ = Describe("the studio assistant", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(model).To(BeEmpty(), "no model is chosen without the assistant's client")
 
-		// A holder that never initialised has no tools either, setting on or off.
+		// A holder that never initialised has no tools either, .
 		a.localAIAssistant = mcpTools.NewLocalAIAssistantHolder()
 		Expect(as.Enabled()).To(BeFalse(), "Enabled with a holder that has no tools")
-		cfg.DisableLocalAIAssistant = true
-		Expect(as.Enabled()).To(BeFalse(), "Enabled while the setting is off")
 	})
 })

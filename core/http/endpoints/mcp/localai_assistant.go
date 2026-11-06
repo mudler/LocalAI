@@ -23,8 +23,7 @@ import (
 //     no NATS, no subprocesses, no synthetic admin credential.
 //
 // The holder is initialised once during Application bootstrap and is safe for
-// concurrent use thereafter. If Initialize fails (or DisableLocalAIAssistant is
-// true), Executor() returns an empty LocalToolExecutor and HasTools() is false,
+// concurrent use thereafter. If Initialize fails, Executor() returns an empty LocalToolExecutor and HasTools() is false,
 // which the chat handler treats as "feature unavailable".
 type LocalAIAssistantHolder struct {
 	once    sync.Once

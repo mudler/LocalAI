@@ -80,10 +80,12 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 			Expect(cfg.PreferDevelopmentBackends).To(BeTrue())
 		})
 
-		It("disables the LocalAI Assistant when localai_assistant_enabled=false", func() {
-			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"localai_assistant_enabled": false}`)}
-			loadRuntimeSettingsFromFile(cfg)
-			Expect(cfg.DisableLocalAIAssistant).To(BeTrue())
+		It("ignores the removed localai_assistant_enabled setting", func() {
+			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"localai_assistant_enabled": false, "prefer_development_backends": true}`)}
+			Expect(func() { loadRuntimeSettingsFromFile(cfg) }).NotTo(Panic())
+			Expect(cfg.PreferDevelopmentBackends).To(BeTrue(), "the other settings of the file still load")
+			Expect(cfg.DisableChatsLocalAIAdmin).To(BeFalse(), "the old value switches nothing")
+			Expect(cfg.DisableChatsLocalAIClient).To(BeFalse(), "the old value switches nothing")
 		})
 
 		It("loads open_responses_store_ttl as a duration", func() {

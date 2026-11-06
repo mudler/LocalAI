@@ -88,6 +88,20 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(settings).ToNot(BeEmpty())
 	})
 
+	It("does not return the removed localai_assistant_enabled and ignores a posted one", func() {
+		req := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(rec.Body.String()).ToNot(ContainSubstring("localai_assistant_enabled"))
+
+		cfg := app.ApplicationConfig()
+		rec = post(`{"localai_assistant_enabled":false}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.DisableChatsLocalAIAdmin).To(BeFalse())
+		Expect(cfg.DisableChatsLocalAIClient).To(BeFalse())
+	})
+
 	It("rejects malformed JSON", func() {
 		rec := post("{not json")
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))

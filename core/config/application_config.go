@@ -339,10 +339,6 @@ type ApplicationConfig struct {
 	// observability and load-balancer attribution.
 	ExposeNodeHeader bool
 
-	// LocalAI Assistant chat modality. Hard-disable the in-process admin MCP
-	// server with this flag; runtime-toggleable via /api/settings.
-	DisableLocalAIAssistant bool
-
 	// DisableSharedPages turns off the pages of shared folders: they are not
 	// listed as runnable, do not open and their bridge refuses every call.
 	// Runtime-toggleable via /api/settings (shared_pages_enabled).
@@ -1479,15 +1475,6 @@ func WithChatsHostExec(mode string) AppOption {
 func WithDisableSharedPages(disabled bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.DisableSharedPages = disabled
-	}
-}
-
-// WithDisableLocalAIAssistant hard-disables the in-process admin MCP server.
-// When set, the chat-handler branch for metadata.localai_assistant=true
-// returns a "feature unavailable" error.
-func WithDisableLocalAIAssistant(disabled bool) AppOption {
-	return func(o *ApplicationConfig) {
-		o.DisableLocalAIAssistant = disabled
 	}
 }
 

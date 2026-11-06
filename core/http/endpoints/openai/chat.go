@@ -325,11 +325,6 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			if err := requireAssistantAccess(c, startupOptions.Auth.Enabled); err != nil {
 				return err
 			}
-			// Read the disable flag live: an admin can flip it via /api/settings
-			// and the next request must see the change without a restart.
-			if startupOptions.DisableLocalAIAssistant {
-				return echo.NewHTTPError(http.StatusServiceUnavailable, "LocalAI Assistant is disabled on this server")
-			}
 			if assistantHolder == nil || !assistantHolder.HasTools() {
 				return echo.NewHTTPError(http.StatusServiceUnavailable, "LocalAI Assistant is not available on this server")
 			}

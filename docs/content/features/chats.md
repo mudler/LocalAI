@@ -1977,8 +1977,8 @@ An admin can start a chat that has the tools to manage the instance (install
 models and backends, edit model configs, check status). It starts from the Home
 page with `/assistant`, or over the API with `assistant: true` in
 `POST /api/chats`. It is an ordinary chat in the list after that. Only that chat
-has the tools, never its sub-agents. The `localai_assistant_enabled` setting
-turns the feature on and off. See [LocalAI Assistant](/features/localai-assistant/).
+has the tools, never its sub-agents. The `chats_localai_admin` setting
+turns the admin tools off. See [LocalAI Assistant](/features/localai-assistant/).
 
 ## Chats in the web UI
 

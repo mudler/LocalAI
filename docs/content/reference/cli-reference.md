@@ -185,7 +185,6 @@ The collections service is the knowledge base that the chats search. The old
 | `--collections-max-chunking-size` | `400` | Maximum chunking size for documents | `$LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE` |
 | `--collections-chunk-overlap` | `0` | Chunk overlap for documents | `$LOCALAI_COLLECTIONS_CHUNK_OVERLAP` |
 | `--collections-db-path` | | Where the vector engine keeps its data | `$LOCALAI_COLLECTIONS_DB_PATH` |
-| `--disable-local-ai-assistant` | `false` | Turn the LocalAI Assistant chat modality off | `$LOCALAI_DISABLE_ASSISTANT` |
 
 `LOCALAI_DISABLE_AGENTS` is now a name for `LOCALAI_DISABLE_COLLECTIONS`; nothing
 switches the chats themselves off except the `chats` permission of each user.

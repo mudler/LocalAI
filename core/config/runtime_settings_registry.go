@@ -762,12 +762,6 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig) bool { return !o.DisableChatSuggestions },
 		func(o *ApplicationConfig, v bool) { o.DisableChatSuggestions = !v }),
 
-	// LocalAI Assistant: stored as the negation for UI clarity.
-	field("localai_assistant_enabled",
-		func(s *RuntimeSettings) **bool { return &s.LocalAIAssistantEnabled },
-		func(o *ApplicationConfig) bool { return !o.DisableLocalAIAssistant },
-		func(o *ApplicationConfig, v bool) { o.DisableLocalAIAssistant = !v }),
-
 	// Pages of shared folders: stored as the negation, like the assistant.
 	field("shared_pages_enabled",
 		func(s *RuntimeSettings) **bool { return &s.SharedPagesEnabled },
