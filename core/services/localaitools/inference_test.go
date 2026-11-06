@@ -493,8 +493,9 @@ var _ = Describe("client tools parity and acting user", func() {
 		tr := provider.NewTransport()
 		tr.SetHandler(srv.Config.Handler)
 		local = &inproc.Client{
-			Transport: func() *provider.Transport { return tr },
-			Files:     store,
+			SingleUser: true,
+			Transport:  func() *provider.Transport { return tr },
+			Files:      store,
 			Models: chooserFunc(func(use config.ModelConfigUsecase) string {
 				switch use {
 				case config.FLAG_IMAGE:
@@ -564,14 +565,21 @@ var _ = Describe("client tools parity and acting user", func() {
 		Expect(err).ToNot(HaveOccurred())
 		_, err = local.GenerateImage(bob, localaitools.GenerateImageRequest{Prompt: "a fox"})
 		Expect(err).To(MatchError(ContainSubstring("may not use image generation")))
-		// No user in the context, no fallback user: refused, and nothing
-		// carried over from the calls above.
+		// Single-user mode, no fallback user: refused, and nothing carried
+		// over from the calls above.
 		_, err = local.GenerateImage(ctx, localaitools.GenerateImageRequest{Prompt: "a fox"})
 		Expect(err).To(MatchError(ContainSubstring("may not use image generation")))
-		// The fallback user is the identity of a call with no context user.
+		// The fallback user is the identity of a call with no context user,
+		// in single-user mode only.
 		local.FallbackUser = &auth.User{ID: "alice", Status: auth.StatusActive}
 		_, err = local.GenerateImage(ctx, localaitools.GenerateImageRequest{Prompt: "a fox"})
 		Expect(err).ToNot(HaveOccurred())
+		// With authentication on, a call without a user fails before it
+		// reaches the API, whatever the fallback user is.
+		local.SingleUser = false
+		_, err = local.GenerateImage(ctx, localaitools.GenerateImageRequest{Prompt: "a fox"})
+		Expect(err).To(MatchError(ContainSubstring("no acting user")))
+		local.SingleUser = true
 		_, err = local.GenerateImage(bob, localaitools.GenerateImageRequest{Prompt: "a fox"})
 		Expect(err).To(HaveOccurred())
 	})

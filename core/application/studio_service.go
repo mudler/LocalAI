@@ -297,7 +297,7 @@ func (a *Application) startStudioReaper(svc *studio.Service) {
 
 // studioUsers returns the user lookup, or nil when auth is off.
 func (a *Application) studioUsers() studio.UserLookup {
-	if a.authDB == nil && len(a.applicationConfig.ApiKeys) == 0 {
+	if !a.AuthActive() {
 		return nil
 	}
 	return a.loadStudioUser

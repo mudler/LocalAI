@@ -2,6 +2,7 @@ package studio
 
 import (
 	"context"
+	"errors"
 	"slices"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -252,13 +253,23 @@ func (s *Service) clientToolNames(ctx context.Context, user string) ([]string, s
 	return nil, "no client tool is available"
 }
 
-// ownerOf returns the user a chat acts as, or nil without accounts.
-func (s *Service) ownerOf(ctx context.Context, principal string) *auth.User {
+// errOwnerLost means authentication is on and the account a chat acts as could
+// not be found or is not active. Nothing may run in its name, and nothing may
+// fall back to another identity.
+var errOwnerLost = errors.New("the account this chat acts as is not available")
+
+// ownerOf returns the user a chat acts as. Without accounts (authentication
+// off) it returns nil and no error. With accounts, a failed lookup or a missing
+// user is an error: the caller must not run anything on the user's behalf.
+func (s *Service) ownerOf(ctx context.Context, principal string) (*auth.User, error) {
 	if s.d.Users == nil {
-		return nil
+		return nil, nil
 	}
-	u, _ := s.d.Users(ctx, principal)
-	return u
+	u, err := s.d.Users(ctx, principal)
+	if err != nil || u == nil {
+		return nil, errOwnerLost
+	}
+	return u, nil
 }
 
 // localaiTurn returns the tools of the two LocalAI groups for one turn of a
@@ -303,10 +314,21 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, rec sessio
 		tools = groupTools
 	}
 	chat := s.builtinChat(ctx, a, rec, rec.Kind == session.KindSubAgent)
+	// The tools act as the owner. With authentication on, an owner that
+	// cannot be found means neither group is offered this turn: a tool
+	// without an acting user must never run as another identity.
+	owner, ownerErr := s.ownerOf(ctx, rec.Principal)
+	if ownerErr != nil {
+		s.log.Warn("studio: the LocalAI tools are not offered: the chat owner could not be found", "chat", rec.ID)
+		if rec.Assistant && rec.Kind != session.KindSubAgent {
+			note = assistantUnavailable(rec)
+		}
+		return nil, nil, nil, "", note
+	}
 	if b, ok := s.builtins.BuildOne(ctx, builtins.GroupLocalAIClient, chat); ok && b.OK {
 		names, _ := s.clientToolNames(ctx, rec.Principal)
 		if len(names) > 0 {
-			exec := mcpendpoint.AsUser(mcpendpoint.Only(s.d.ClientTools.ClientExecutor(), func(n string) bool { return slices.Contains(names, n) }), s.ownerOf(ctx, rec.Principal))
+			exec := mcpendpoint.AsUser(mcpendpoint.Only(s.d.ClientTools.ClientExecutor(), func(n string) bool { return slices.Contains(names, n) }), owner)
 			if ts, err := s.toolsOf(ctx, rec.ID, exec); err != nil {
 				s.log.Warn("studio: the LocalAI client tools are unavailable", "chat", rec.ID, "error", err)
 			} else {
@@ -319,7 +341,7 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, rec sessio
 	case ok && admin.OK:
 		exec := s.d.Assistant.Executor()
 		if exec != nil {
-			exec = mcpendpoint.AsUser(exec, s.ownerOf(ctx, rec.Principal))
+			exec = mcpendpoint.AsUser(exec, owner)
 		}
 		if exec == nil || !exec.HasTools() {
 			finish()

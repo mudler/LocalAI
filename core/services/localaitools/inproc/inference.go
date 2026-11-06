@@ -47,7 +47,11 @@ func (c *Client) doAsUser(ctx context.Context) func(*http.Request) (*http.Respon
 		if tr == nil {
 			return nil, errors.New("inference is not available on this server")
 		}
-		resp, err := tr.Client(c.actingUser(ctx)).Do(req)
+		user, err := c.requireActingUser(ctx)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := tr.Client(user).Do(req)
 		if err != nil {
 			switch msg := err.Error(); {
 			case strings.Contains(msg, session.MarkNotAllowed):
@@ -115,8 +119,12 @@ func (c *Client) userFiles(ctx context.Context) (*files.Service, string, error) 
 	if svc == nil || !svc.Files().Available() {
 		return nil, "", errors.New("the user's files are not available on this server")
 	}
+	u, err := c.requireActingUser(ctx)
+	if err != nil {
+		return nil, "", err
+	}
 	id := ""
-	if u := c.actingUser(ctx); u != nil {
+	if u != nil {
 		id = u.ID
 	}
 	return svc.Files(), svc.Principal(id), nil

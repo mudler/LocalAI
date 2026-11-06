@@ -62,13 +62,21 @@ type Client struct {
 	BackendLibrary LibraryBackendInstaller
 
 	// FallbackUser is the identity of a call whose context carries no user
-	// (see localaitools.WithUser). StatsRecorder and FallbackUser are optional — they back the
-	// get_usage_stats tool. nil StatsRecorder makes the tool return an
-	// "unavailable" error, which keeps the assistant responsive on
-	// deployments that ran with --disable-stats or where startup wired
-	// the inproc client before stats were ready.
+	// (see localaitools.WithUser), and only when SingleUser is set. With
+	// authentication on there is no such identity: a call without a user
+	// fails, it never runs as the local administrator. StatsRecorder and
+	// FallbackUser are optional — they back the get_usage_stats tool. nil
+	// StatsRecorder makes the tool return an "unavailable" error, which
+	// keeps the assistant responsive on deployments that ran with
+	// --disable-stats or where startup wired the inproc client before stats
+	// were ready.
 	StatsRecorder *billing.Recorder
 	FallbackUser  *auth.User
+	// SingleUser is true when authentication is off, so nobody is logged in
+	// and every call is the one local user (FallbackUser). It is set by the
+	// application from its configuration, never inferred. The zero value is
+	// the safe one: no fallback.
+	SingleUser bool
 
 	// PIIRedactor and PIIEvents back the list_pii_patterns,
 	// get_pii_events, and test_pii_redaction tools. nil values cause
@@ -866,14 +874,34 @@ func capabilityToFlag(capability localaitools.Capability) (config.ModelConfigUse
 }
 
 // actingUser returns the user a call acts for: the user of the context when
-// the caller supplied one, otherwise the FallbackUser, which may be nil. The
-// context wins so that two users sharing one client never see each other's
-// identity.
+// the caller supplied one, otherwise the FallbackUser when the server is
+// single-user (SingleUser), otherwise nil. The context wins so that two users
+// sharing one client never see each other's identity. With authentication on,
+// a call without a user has no identity, and a caller that needs one must
+// refuse (see requireActingUser).
 func (c *Client) actingUser(ctx context.Context) *auth.User {
 	if u := localaitools.UserFromContext(ctx); u != nil {
 		return u
 	}
-	return c.FallbackUser
+	if c.SingleUser {
+		return c.FallbackUser
+	}
+	return nil
+}
+
+// errNoActingUser is the refusal of a call that should act for a user but has
+// none, with authentication on.
+var errNoActingUser = errors.New("this call has no acting user: the account could not be identified, so nothing was run")
+
+// requireActingUser returns the acting user, or errNoActingUser when
+// authentication is on and the call carries none. Without authentication the
+// user may be nil (single-user mode with no stats).
+func (c *Client) requireActingUser(ctx context.Context) (*auth.User, error) {
+	u := c.actingUser(ctx)
+	if u == nil && !c.SingleUser {
+		return nil, errNoActingUser
+	}
+	return u, nil
 }
 
 // ---- Usage / billing ----

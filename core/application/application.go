@@ -460,10 +460,18 @@ func (a *Application) StatsRecorder() *billing.Recorder {
 	return a.statsRecorder
 }
 
-// FallbackUser is the synthetic "local" user that UsageMiddleware uses
-// to attribute requests when no authenticated user is on the context
-// (i.e., --auth is off). nil when auth is on, since real users are
-// always available there.
+// AuthActive says whether the server authenticates its users: an auth
+// database or API keys. When it is false, every request is the one local user.
+func (a *Application) AuthActive() bool {
+	return a.authDB != nil || len(a.applicationConfig.ApiKeys) > 0
+}
+
+// FallbackUser is the synthetic "local" user (role admin) that
+// UsageMiddleware uses to attribute requests when no authenticated user is on
+// the context. It is set whenever stats are on, also when authentication is on
+// (internal callers such as cron flushers have no user), and nil with
+// --disable-stats. It is an attribution identity only: code that acts for a
+// person must not use it when authentication is on (see AuthActive).
 func (a *Application) FallbackUser() *auth.User {
 	return a.fallbackUser
 }
@@ -844,6 +852,9 @@ func (a *Application) start() (startErr error) {
 	// "unavailable" error if startup ran with --disable-stats.
 	assistantClient.StatsRecorder = a.statsRecorder
 	assistantClient.FallbackUser = a.fallbackUser
+	// Only a server without authentication has a single local user. With
+	// authentication on, a client tool call without a user fails.
+	assistantClient.SingleUser = !a.AuthActive()
 	// The chats start after the assistant, so the shared folder tools
 	// look the service up at each call.
 	assistantClient.SharedFolders = func() *sharedfolders.Service {

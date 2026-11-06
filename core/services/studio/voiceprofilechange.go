@@ -102,7 +102,11 @@ func (s *Service) applyVoiceProfile(ctx context.Context, in proposals.ApplyInput
 	if err != nil {
 		return err
 	}
-	exec := mcpendpoint.AsUser(s.d.ClientTools.ClientExecutor(), s.ownerOf(ctx, in.Owner))
+	owner, err := s.ownerOf(ctx, in.Owner)
+	if err != nil {
+		return fmt.Errorf("nothing was created: %w", err)
+	}
+	exec := mcpendpoint.AsUser(s.d.ClientTools.ClientExecutor(), owner)
 	if exec == nil {
 		return errors.New("the LocalAI client tools are not available on this server")
 	}

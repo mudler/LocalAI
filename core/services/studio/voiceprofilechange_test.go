@@ -2,6 +2,10 @@ package studio_test
 
 import (
 	"context"
+	"errors"
+	"sync/atomic"
+
+	"github.com/mudler/LocalAI/core/http/auth"
 
 	"github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -143,5 +147,58 @@ var _ = Describe("the voice_profile tool and the consent of a person", func() {
 		idle(r.svc, bob, id)
 		Expect(pending(r, bob)).To(BeZero())
 		Expect(r.client.voiceCalls()).To(BeEmpty())
+	})
+
+	It("does not create the profile, and says why, when the owner cannot be found at confirmation", func() {
+		var lost atomic.Bool
+		r := newLocalAIRig(func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Tool: localaitools.ToolVoiceProfile, Args: createVoiceArgs}, {Say: "done"}}
+		}, func(d *studio.Deps) {
+			d.Files = newFiles()
+			d.Users = func(ctx context.Context, id string) (*auth.User, error) {
+				if lost.Load() {
+					return nil, errors.New("user database is down")
+				}
+				return assistantUsers(ctx, id)
+			}
+		})
+		id := create(r.svc, bob)
+		sent(r.svc, bob, id, "clone me")
+		idle(r.svc, bob, id)
+		list, err := r.svc.Changes().List(ctx, bob, contract.ProposalPending)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1))
+
+		lost.Store(true)
+		done, err := r.svc.Changes().Confirm(ctx, bob, list[0].ID)
+		if err == nil {
+			Expect(done.Status).NotTo(Equal(contract.ProposalApplied))
+		} else {
+			Expect(err.Error()).To(ContainSubstring("not available"))
+		}
+		Expect(r.client.voiceCalls()).To(Equal([]string{"check"}), "no profile may be created without an acting user")
+		for _, who := range r.client.users {
+			Expect(who).NotTo(BeEmpty(), "every call to the client tools carries the acting user")
+		}
+	})
+
+	It("offers no LocalAI tool, and sends no request, when the owner cannot be found for a turn", func() {
+		var lost atomic.Bool
+		r := newLocalAIRig(sayOK, func(d *studio.Deps) {
+			d.Users = func(ctx context.Context, id string) (*auth.User, error) {
+				if lost.Load() {
+					return nil, errors.New("user database is down")
+				}
+				return assistantUsers(ctx, id)
+			}
+		})
+		id := create(r.svc, "root")
+		r.adminOnFor("root")(id)
+		lost.Store(true)
+		names := r.turnNames("root", id)
+		for _, n := range append(clientNames(), "install_model") {
+			Expect(names).NotTo(ContainElement(n))
+		}
+		Expect(r.client.callCount()).To(BeZero())
 	})
 })
