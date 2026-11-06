@@ -4,6 +4,8 @@ package gateway
 import (
 	"context"
 	"errors"
+	"net/http"
+	"sync/atomic"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -48,7 +50,7 @@ var _ = Describe("the generic sharing calls", func() {
 
 	It("reach the owner's ShareManager with the kind and are classified as reads or mutations", func() {
 		rec := &shareRecorder{}
-		g := &Gateway{Sharing: rec, Revalidate: allow}
+		g := &Gateway{Sharing: rec, Revalidate: allow, RevalidateAccount: allow}
 		ctx := context.Background()
 		_, err := g.Shares(ctx, actor, "example:note")
 		Expect(err).NotTo(HaveOccurred())
@@ -88,8 +90,51 @@ var _ = Describe("the generic sharing calls", func() {
 	})
 
 	It("are unavailable on an owner without a ShareManager", func() {
-		g := &Gateway{Resources: nil, Revalidate: allow}
+		g := &Gateway{Resources: nil, Revalidate: allow, RevalidateAccount: allow}
 		_, err := g.Shares(context.Background(), actor, "example:note")
 		Expect(err).To(MatchError(ErrUnavailable))
+	})
+
+	It("check the account alone, here and through the carrier, while the add-on calls keep the add-ons check", func() {
+		addonsOff := func(context.Context, contract.Actor) error { return ErrForbidden }
+		ctx := context.Background()
+
+		// No account check at all denies the sharing calls.
+		_, err := (&Gateway{Sharing: &shareRecorder{}, Revalidate: allow}).Shares(ctx, actor, "example:note")
+		Expect(err).To(MatchError(ErrForbidden))
+
+		rec := &shareRecorder{}
+		local := &Gateway{Sharing: rec, Revalidate: addonsOff, RevalidateAccount: allow}
+		_, err = local.Shares(ctx, frontActor, "example:note")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = local.ResourceGrants(ctx, frontActor, "r1")
+		Expect(err).To(MatchError(ErrForbidden))
+
+		var refuse atomic.Bool
+		account := func(context.Context, contract.Actor) error {
+			if refuse.Load() {
+				return ErrForbidden
+			}
+			return nil
+		}
+		owner := &Gateway{Sharing: rec, Revalidate: addonsOff, RevalidateAccount: account}
+		env := carrierFixtureWith(RelayLimits{}, func(c *Carrier) http.Handler {
+			h, e := c.OwnerHandler(owner)
+			Expect(e).NotTo(HaveOccurred())
+			return h
+		})
+		front := &Gateway{Forward: env.carriers["front-a"], Revalidate: allow, RevalidateAccount: allow}
+		_, err = front.Shares(ctx, frontActor, "example:note")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = front.SetShare(ctx, frontActor, "op-3", "example:note", "r1", "bob", "use")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.calls).To(Equal([]string{"list example:note", "list example:note", "set example:note r1 bob use"}))
+		// The owner refuses an add-on resource call of the same caller.
+		_, err = front.ResourceGrants(ctx, frontActor, "r1")
+		Expect(err).To(MatchError(ErrForbidden))
+		// And the owner still checks the account of a sharing call.
+		refuse.Store(true)
+		_, err = front.Shares(ctx, frontActor, "example:note")
+		Expect(err).To(MatchError(ErrForbidden))
 	})
 })

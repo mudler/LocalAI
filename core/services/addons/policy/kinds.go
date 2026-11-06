@@ -76,6 +76,12 @@ type KindSpec struct {
 	// account at once. A grant to Everyone that is stored while the kind does
 	// not allow it is not honored.
 	Everyone bool
+	// Feature names the host feature (permission) a caller needs to use the
+	// resources of the kind, checked with the account on every call. Empty
+	// asks only for an active named account with a valid credential. The
+	// add-ons feature is never asked for a kind that is not an add-on unless
+	// the kind names it here.
+	Feature string
 }
 
 // KindRegistrar takes the registration of a kind. *Policy implements it.
@@ -113,6 +119,9 @@ var allActions = []Action{ActionRead, ActionOutput, ActionWrite, ActionSchema, A
 // kindName is the shape of a kind that is not an add-on: a family and an
 // optional subtype, so it can be part of a path.
 var kindName = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}(:[a-z0-9][a-z0-9-]{0,63})?$`)
+
+// featureName is the shape of a host feature name.
+var featureName = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 
 // ValidKind says whether a name has the shape of a kind that is not an
 // add-on. A request that names a kind of another shape names nothing.
@@ -176,6 +185,9 @@ func (s KindSpec) covers(a, b Role) bool {
 func (p *Policy) RegisterKind(kind string, spec KindSpec) error {
 	if !kindName.MatchString(kind) || strings.HasPrefix(kind, addonKindPrefix) || spec.Roles == nil || spec.Backing == nil || len(spec.Grantable) == 0 {
 		return errors.New("addon policy: invalid resource kind")
+	}
+	if spec.Feature != "" && !featureName.MatchString(spec.Feature) {
+		return errors.New("addon policy: resource kind names an invalid feature")
 	}
 	for i, r := range spec.Grantable {
 		if !grantRole(r) || slices.Contains(spec.Grantable[:i], r) {

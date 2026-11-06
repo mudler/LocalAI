@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 	"github.com/mudler/LocalAI/core/services/addons/policy/sharetest"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -60,6 +61,33 @@ var _ = Describe("share kind registration on the owner", func() {
 		Expect(ok).To(BeTrue())
 		Expect(a.RegisterShareKinds(&sharetest.Provider{})).NotTo(Succeed(), "a kind registers once")
 		Expect(a.RegisterShareKinds(nil)).NotTo(Succeed())
+	})
+
+	It("serves the kinds to an account without the add-ons feature and keeps the add-ons check for add-ons", func() {
+		requireAddonRuntime()
+		a, c := owner()
+		Expect(a.RegisterShareKinds(&sharetest.Provider{Eligible: func(context.Context, contract.Actor, string) (bool, error) { return true, nil }})).To(Succeed())
+		a.applicationConfig.Addons = c
+		Expect(a.startAddons()).To(Succeed())
+		DeferCleanup(a.Shutdown)
+		actors := map[string]contract.Actor{}
+		for _, id := range []string{"dave", "frank"} {
+			Expect(a.authDB.Create(&auth.User{ID: id, Name: id, Email: id + "@example.test", Role: auth.RoleUser, Status: auth.StatusActive}).Error).To(Succeed())
+			Expect(a.authDB.Create(&auth.UserPermission{ID: "perm-" + id, UserID: id, Permissions: auth.PermissionMap{auth.FeatureAddons: false}}).Error).To(Succeed())
+			_, key, err := auth.CreateAPIKey(a.authDB, id, "test", auth.RoleUser, "secret", nil)
+			Expect(err).NotTo(HaveOccurred())
+			actors[id] = contract.Actor{UserID: id, CredentialID: "key:" + key.ID, Mode: auth.AddonModeNamedUser}
+		}
+		ctx := context.Background()
+		p := a.AddonPolicy()
+		ref, err := p.CreateRef(ctx, actors["dave"], sharetest.Kind)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.SetGrantRef(ctx, actors["dave"], ref, "frank", policy.RoleUse)).To(Succeed())
+		idx, err := a.AddonGateway().Shares(ctx, actors["frank"], sharetest.Kind)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(idx.Shared).To(HaveLen(1))
+		_, err = p.Register(ctx, actors["dave"], "tables")
+		Expect(err).To(MatchError(policy.ErrForbidden))
 	})
 
 	It("does not start the owner when a provider fails", func() {

@@ -131,13 +131,14 @@ func registerAddonRoutes(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, ownersh
 }
 
 // registerShareRoutes registers the sharing of the resource kinds that are not
-// add-ons. The grants live in the add-on owner's policy store and every call
-// is revalidated there like an add-on call, so the routes sit behind the same
-// gates as the add-on routes. They are never tools and no MCP tool maps to
-// them; everything but the listing accepts only the owner's own browser
-// session.
+// add-ons. The grants live in the add-on owner's policy store, so the routes
+// sit behind the instance gate of the add-on routes. They do not need the
+// add-ons feature: every call is revalidated as an account, and the policy
+// checks the feature the kind names. They are never tools and no MCP tool
+// maps to them; everything but the listing accepts only the owner's own
+// browser session.
 func registerShareRoutes(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, mode endpoints.Option, gate ...echo.MiddlewareFunc) {
-	group := e.Group("/api/shares", append(gate, auth.RequireFeature(db, auth.FeatureAddons), auth.CSRFMiddleware(), endpoints.BrowserProtection())...)
+	group := e.Group("/api/shares", append(gate, auth.CSRFMiddleware(), endpoints.BrowserProtection())...)
 	group.GET("/:kind", endpoints.ListShares(gw, db, mode))
 	group.GET("/:kind/:resourceId/grants", endpoints.ListShareGrants(gw, db, mode))
 	group.PUT("/:kind/:resourceId/grants/:principal", endpoints.SetShareGrant(gw, db, mode))

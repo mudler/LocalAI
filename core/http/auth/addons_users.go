@@ -164,3 +164,41 @@ func (u *AddonUsers) Active(ctx context.Context, id string) error {
 	}
 	return nil
 }
+
+// maxAccountScan bounds one directory search of Accounts.
+const maxAccountScan = 100
+
+// Accounts is the directory search of the resource kinds that are not
+// add-ons: every active named account whose display name or address starts
+// with the query, at most limit of them, in a stable order. It does not ask
+// whether the account may use add-ons; the kind's own rule filters the
+// result. Like Search it returns an immutable ID and a display name only.
+func (u *AddonUsers) Accounts(ctx context.Context, query string, limit int) ([]gateway.UserRef, error) {
+	if err := u.check(); err != nil {
+		return nil, err
+	}
+	if limit <= 0 || limit > maxAccountScan {
+		limit = maxAccountScan
+	}
+	prefix := escapeLike(strings.ToLower(query)) + "%"
+	var rows []User
+	// The synthetic principals are left out after the read, so a few more
+	// rows than limit are read.
+	err := u.db.WithContext(ctx).
+		Where("status = ? AND (LOWER(name) LIKE ? ESCAPE '\\' OR LOWER(email) LIKE ? ESCAPE '\\')", StatusActive, prefix, prefix).
+		Order("name, id").Limit(limit + 2).Find(&rows).Error
+	if err != nil {
+		return nil, ErrAddonUnavailable
+	}
+	var out []gateway.UserRef
+	for _, r := range rows {
+		if len(out) >= limit {
+			break
+		}
+		if r.ID == "" || r.ID == AddonLocalOwnerID || r.ID == "legacy-api-key" {
+			continue
+		}
+		out = append(out, gateway.UserRef{ID: r.ID, DisplayName: displayName(r)})
+	}
+	return out, nil
+}

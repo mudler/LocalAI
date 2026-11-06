@@ -150,7 +150,7 @@ func (p *Policy) ListingKind(ctx context.Context, actor contract.Actor, kind str
 		return nil, ErrForbidden
 	}
 	spec, _ := p.spec(kind)
-	if err := p.current(ctx, actor); err != nil {
+	if err := p.currentKind(ctx, actor, kind); err != nil {
 		return nil, err
 	}
 	p.store.mu.Lock()

@@ -256,14 +256,8 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"PUT", "/api/addons/host-grants/deny", FeatureAddons},
 	{"PUT", "/api/addons/host-grants/:addonId", FeatureAddons},
 	{"DELETE", "/api/addons/host-grants/:addonId", FeatureAddons},
-	// Sharing of the resource kinds that are not add-ons. The grants live in
-	// the add-on owner's policy, which revalidates the addons feature on
-	// every call, so the routes need it too.
-	{"GET", "/api/shares/:kind", FeatureAddons},
-	{"GET", "/api/shares/:kind/:resourceId/grants", FeatureAddons},
-	{"PUT", "/api/shares/:kind/:resourceId/grants/:principal", FeatureAddons},
-	{"DELETE", "/api/shares/:kind/:resourceId/grants/:principal", FeatureAddons},
-	{"GET", "/api/shares/:kind/:resourceId/users", FeatureAddons},
+	// The sharing routes (/api/shares) have no row: a kind names the feature
+	// its resources need, and the owner's policy checks it on every call.
 	// Chat / Completions
 	{"POST", "/v1/chat/completions", FeatureChat},
 	{"POST", "/chat/completions", FeatureChat},

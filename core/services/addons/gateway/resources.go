@@ -432,7 +432,13 @@ func newResourceOperationID() (string, error) {
 // resourceCall runs one call on the owner, here or through the carrier. id is
 // the operation identifier of a mutation, or empty for a read.
 func (g *Gateway) resourceCall(ctx context.Context, a contract.Actor, id string, call ResourceCall) (json.RawMessage, error) {
-	if e := g.revalidate(ctx, a); e != nil {
+	// A sharing call of a kind that is not an add-on does not need the
+	// add-ons feature; the owner's policy checks what the kind names.
+	check := g.revalidate
+	if call.sharing() {
+		check = g.revalidateAccount
+	}
+	if e := check(ctx, a); e != nil {
 		return nil, e
 	}
 	if id == "" {

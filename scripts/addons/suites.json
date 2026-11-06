@@ -1590,7 +1590,8 @@
           "does not hide a denial",
           "asks the source for the whole reach (*) for a tool that enumerates, and refuses it when the list is not *",
           "reach the owner's ShareManager with the kind and are classified as reads or mutations",
-          "are unavailable on an owner without a ShareManager"
+          "are unavailable on an owner without a ShareManager",
+          "check the account alone, here and through the carrier, while the add-on calls keep the add-ons check"
         ]
       },
       {
@@ -1767,8 +1768,11 @@
           "refuses a non-owner, an API key, a tool-marked call and a missing confirmation",
           "answers an unknown resource, a resource of someone else and an unknown kind the same",
           "cancels the grantee's admitted work before a revocation answers",
-          "lists every registered sharing route in the feature registry",
-          "answers sharing_disabled"
+          "answers sharing_disabled",
+          "lets people who may not use add-ons share a kind, find each other and be granted",
+          "answers an unknown resource and a resource of someone else the same for a caller without add-ons",
+          "keeps the add-on resource routes behind the add-ons feature",
+          "keeps the sharing routes out of the feature registry and open to accounts without the add-ons feature"
         ]
       },
       {
@@ -2170,7 +2174,11 @@
       "no grantable role",
       "no table",
       "a kind name that cannot be part of a path",
-      "denies a stored role the kind does not grant, and a table injected to return an unknown role"
+      "denies a stored role the kind does not grant, and a table injected to return an unknown role",
+      "checks only the account for a kind that names no feature while the add-ons check refuses everyone",
+      "asks the account check for the feature a kind names, for that kind only",
+      "denies every kind that is not an add-on when the host gives no account check",
+      "refuses a feature name that is not the shape of a permission"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -2420,7 +2428,11 @@
           "no grantable role",
           "no table",
           "a kind name that cannot be part of a path",
-          "denies a stored role the kind does not grant, and a table injected to return an unknown role"
+          "denies a stored role the kind does not grant, and a table injected to return an unknown role",
+          "checks only the account for a kind that names no feature while the add-ons check refuses everyone",
+          "asks the account check for the feature a kind names, for that kind only",
+          "denies every kind that is not an add-on when the host gives no account check",
+          "refuses a feature name that is not the shape of a permission"
         ]
       },
       {
@@ -2597,8 +2609,11 @@
           "refuses a non-owner, an API key, a tool-marked call and a missing confirmation",
           "answers an unknown resource, a resource of someone else and an unknown kind the same",
           "cancels the grantee's admitted work before a revocation answers",
-          "lists every registered sharing route in the feature registry",
-          "answers sharing_disabled"
+          "answers sharing_disabled",
+          "keeps the sharing routes out of the feature registry and open to accounts without the add-ons feature",
+          "lets people who may not use add-ons share a kind, find each other and be granted",
+          "answers an unknown resource and a resource of someone else the same for a caller without add-ons",
+          "keeps the add-on resource routes behind the add-ons feature"
         ]
       }
     ]
@@ -2908,7 +2923,8 @@
           "does not hide a denial",
           "asks the source for the whole reach (*) for a tool that enumerates, and refuses it when the list is not *",
           "reach the owner's ShareManager with the kind and are classified as reads or mutations",
-          "are unavailable on an owner without a ShareManager"
+          "are unavailable on an owner without a ShareManager",
+          "check the account alone, here and through the carrier, while the add-on calls keep the add-ons check"
         ]
       },
       {
@@ -3085,8 +3101,11 @@
           "refuses a non-owner, an API key, a tool-marked call and a missing confirmation",
           "answers an unknown resource, a resource of someone else and an unknown kind the same",
           "cancels the grantee's admitted work before a revocation answers",
-          "lists every registered sharing route in the feature registry",
-          "answers sharing_disabled"
+          "answers sharing_disabled",
+          "keeps the sharing routes out of the feature registry and open to accounts without the add-ons feature",
+          "lets people who may not use add-ons share a kind, find each other and be granted",
+          "answers an unknown resource and a resource of someone else the same for a caller without add-ons",
+          "keeps the add-on resource routes behind the add-ons feature"
         ]
       }
     ]
