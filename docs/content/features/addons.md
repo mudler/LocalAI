@@ -37,6 +37,10 @@ Trust has three parts, and they are different:
 
 Every addon requires an executable; a UI bundle alone is not an addon.
 
+The owner's resource policy also serves the resource kinds that are not add-ons.
+[Sharing resources]({{%relref "features/sharing" %}}) describes their roles, the
+grant to `@everyone` and the `/api/shares` routes.
+
 ## Internal host policy store
 
 `core/services/addons/hostsettings` provides internal, host-owned durable policy

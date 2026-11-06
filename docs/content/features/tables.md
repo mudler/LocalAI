@@ -74,6 +74,8 @@ data directory or as a database file.
 Databases are private by default. A new database belongs to the person who
 created it and nobody else can list or open it until the owner shares it with
 a grant. Administrators who install the addon get no access to databases.
+[Sharing resources]({{%relref "features/sharing" %}}) describes the role model
+and the sharing API that other kinds of resources use with the same rules.
 
 ## Tools
 

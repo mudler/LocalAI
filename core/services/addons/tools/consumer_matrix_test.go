@@ -185,6 +185,8 @@ var _ = Describe("Tool consumer matrix", func() {
 			Expect(err).NotTo(HaveOccurred())
 			text := strings.ToLower(string(b))
 			Expect(text).NotTo(ContainSubstring("/api/addons"), path)
+			// Sharing of the other resource kinds is never a tool either.
+			Expect(text).NotTo(ContainSubstring("/api/shares"), path)
 			Expect(text).NotTo(ContainSubstring("addon__"), path)
 		}
 		// Tool constants hold no add-on lifecycle or approval name.

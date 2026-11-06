@@ -233,21 +233,40 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			Expect(get(path, bearer("granted"))).To(Equal(reached), path)
 		}
 	})
-	It("lists every registered addon route in the feature registry", func() {
+	// registryMatches checks that the registry rows of the feature under a
+	// prefix are exactly the routes registered under it.
+	registryMatches := func(prefix string) {
 		registered := map[string]bool{}
 		for _, entry := range auth.RouteFeatureRegistry {
-			if entry.Feature == auth.FeatureAddons {
+			if entry.Feature == auth.FeatureAddons && strings.HasPrefix(entry.Pattern, prefix) {
 				registered[entry.Method+" "+entry.Pattern] = true
 			}
 		}
 		count := 0
 		for _, r := range e.Routes() {
-			if strings.HasPrefix(r.Path, "/api/addons") && (r.Method == http.MethodGet || r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) {
+			if strings.HasPrefix(r.Path, prefix) && (r.Method == http.MethodGet || r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) {
 				count++
 				Expect(registered).To(HaveKey(r.Method+" "+r.Path), "an addon route without a feature registry entry")
 			}
 		}
 		Expect(count).To(Equal(len(registered)), "the registry holds exactly the registered addon routes")
+	}
+	It("lists every registered addon route in the feature registry", func() { registryMatches("/api/addons") })
+	It("lists every registered sharing route in the feature registry", func() {
+		registryMatches("/api/shares")
+		get := func(path string, mutate func(*http.Request)) int {
+			r := httptest.NewRequest(http.MethodGet, path, nil)
+			mutate(r)
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, r)
+			return w.Code
+		}
+		for _, path := range []string{"/api/shares/example:note", "/api/shares/example:note/r1/grants", "/api/shares/example:note/r1/users?q=ab"} {
+			Expect(get(path, forged)).To(Equal(http.StatusUnauthorized), path)
+			Expect(get(path, bearer("plain"))).To(Equal(http.StatusForbidden), "feature gate "+path)
+		}
+		// The listing accepts a key and reaches the handler, which has no gateway here.
+		Expect(get("/api/shares/example:note", bearer("granted"))).To(Equal(reached))
 	})
 	It("gates the apps routes by authentication, feature and administration", func() {
 		do := func(method, path, body string, mutate func(*http.Request)) int {
