@@ -29,7 +29,14 @@ const DefaultDrainTimeout = 10 * time.Second
 type Options struct {
 	// Revalidate checks the current account and credential. It is the host's
 	// authentication check and runs on every admission, not only at login.
+	// It is the check of the add-on resources: it includes the add-ons
+	// feature.
 	Revalidate func(context.Context, contract.Actor) error
+	// Account checks the current account and credential for a kind that is
+	// not an add-on, and the feature the kind names when it names one
+	// (KindSpec.Feature, empty for none). It never asks for the add-ons
+	// feature on its own. Without it every kind that is not an add-on denies.
+	Account func(ctx context.Context, actor contract.Actor, feature string) error
 	// CreateAuthority says whether the actor may create a resource for the addon.
 	// Without it no resource can be created.
 	CreateAuthority func(ctx context.Context, actor contract.Actor, addonID string) error
@@ -182,6 +189,31 @@ func (p *Policy) current(ctx context.Context, a contract.Actor) error {
 	return nil
 }
 
+// currentKind is current for a resource of the kind. An add-on kind keeps the
+// add-on check, the add-ons feature included. Any other kind is checked with
+// the account check and the feature it names; a kind nobody registered is
+// checked like one that names none, and is then denied like a resource that
+// is not there.
+func (p *Policy) currentKind(ctx context.Context, a contract.Actor, kind string) error {
+	if _, addon := addonOf(kind); addon {
+		return p.current(ctx, a)
+	}
+	if p.opts.Account == nil {
+		return ErrForbidden
+	}
+	if err := p.store.Mode().identity(a); err != nil {
+		return err
+	}
+	spec, _ := p.spec(kind)
+	if err := p.opts.Account(ctx, a, spec.Feature); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return p.classify(err)
+	}
+	return nil
+}
+
 // classify maps a host check error to the policy's own answers. Only a
 // definite denial is ErrForbidden; an unclassified error is ErrUnavailable.
 func (p *Policy) classify(err error) error {
@@ -199,7 +231,7 @@ func (p *Policy) Authorize(ctx context.Context, actor contract.Actor, resource R
 
 // AuthorizeRef is Authorize for a resource of any kind.
 func (p *Policy) AuthorizeRef(ctx context.Context, actor contract.Actor, ref Ref, action Action) error {
-	if err := p.current(ctx, actor); err != nil {
+	if err := p.currentKind(ctx, actor, ref.Kind); err != nil {
 		return err
 	}
 	if p.heldKind(ref.Kind) {
@@ -271,7 +303,7 @@ func (p *Policy) AdmitRef(ctx context.Context, actor contract.Actor, resource Re
 			return err
 		}
 	}
-	if err := p.current(runCtx, actor); err != nil {
+	if err := p.currentKind(runCtx, actor, resource.Kind); err != nil {
 		return err
 	}
 	// The host check may ignore cancellation. A revocation cancels admitted work
@@ -617,7 +649,7 @@ func (p *Policy) CreateRef(ctx context.Context, actor contract.Actor, kind strin
 	if _, addon := addonOf(kind); !ok || addon || spec.CreateAuthority == nil {
 		return Ref{}, ErrForbidden
 	}
-	if err := p.current(ctx, actor); err != nil {
+	if err := p.currentKind(ctx, actor, kind); err != nil {
 		return Ref{}, err
 	}
 	if err := spec.CreateAuthority(ctx, actor); err != nil {

@@ -141,6 +141,17 @@ func (s *Service) SetShare(ctx context.Context, actor contract.Actor, kind, reso
 	if principal == "" || len(principal) > 256 || (principal == policy.Everyone && !r.Everyone) {
 		return gateway.ShareList{}, gateway.ErrForbidden
 	}
+	// A user grant goes to an active named account only; the kind's rule
+	// then decides among them. The owner role is checked above, so nobody
+	// else learns which accounts exist.
+	if principal != policy.Everyone {
+		if s.o.Users == nil {
+			return gateway.ShareList{}, gateway.ErrUnavailable
+		}
+		if err = s.o.Users.Active(ctx, principal); err != nil {
+			return gateway.ShareList{}, classify(err)
+		}
+	}
 	if err = s.o.Policy.SetGrantRef(ctx, actor, ref, principal, policy.Role(role)); err != nil {
 		return gateway.ShareList{}, classify(err)
 	}
@@ -167,7 +178,13 @@ func (s *Service) SearchShareUsers(ctx context.Context, actor contract.Actor, ki
 	if err != nil {
 		return gateway.UserList{}, err
 	}
-	return s.searchUsers(ctx, actor, ref, query, limit, func(id string) (bool, error) {
+	// The directory of every active named account, not the add-on one: the
+	// kind decides who may receive a grant.
+	var find func(context.Context, string, int) ([]gateway.UserRef, error)
+	if s.o.Users != nil {
+		find = s.o.Users.Accounts
+	}
+	return s.searchUsers(ctx, actor, ref, query, limit, find, func(id string) (bool, error) {
 		return s.o.Policy.EligibleRef(ctx, actor, ref, id)
 	})
 }

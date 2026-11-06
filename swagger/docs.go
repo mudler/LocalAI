@@ -13251,7 +13251,7 @@ const docTemplate = `{
         },
         "/api/shares/{kind}": {
             "get": {
-                "description": "Returns the resources of one kind that the caller owns (owned) and those shared with the caller (shared), at most 100 of each (truncated says more exist). Each one has the caller's own role, which is owner or a role the kind grants; for a shared one the owner's display name, and everyone true when the role comes from a grant to every account; for an owned one the number of grants (sharedWith). The answer also carries the roles the kind grants and whether it may be shared with every account. Resources of other people that are not shared with the caller are never listed, whatever the caller's installation role. An unknown kind gets the same denial as a resource the caller may not see. Local-owner mode has no sharing and answers 409 sharing_disabled. Read-only. API keys may call it. No MCP tool maps to this route.",
+                "description": "Returns the resources of one kind that the caller owns (owned) and those shared with the caller (shared), at most 100 of each (truncated says more exist). Each one has the caller's own role, which is owner or a role the kind grants; for a shared one the owner's display name, and everyone true when the role comes from a grant to every account; for an owned one the number of grants (sharedWith). The answer also carries the roles the kind grants and whether it may be shared with every account. Resources of other people that are not shared with the caller are never listed, whatever the caller's installation role. An unknown kind gets the same denial as a resource the caller may not see. Local-owner mode has no sharing and answers 409 sharing_disabled. Needs a named account, not the addons feature; a kind may name a feature of its own. Read-only. API keys may call it. No MCP tool maps to this route.",
                 "produces": [
                     "application/json"
                 ],
@@ -13282,7 +13282,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Feature denied or unknown kind",
+                        "description": "A feature the kind names is denied, or unknown kind",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -13342,7 +13342,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Not a human surface, feature denied, not the owner, unknown kind or unknown resource",
+                        "description": "Not a human surface, a feature the kind names denied, not the owner, unknown kind or unknown resource",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -13364,7 +13364,7 @@ const docTemplate = `{
         },
         "/api/shares/{kind}/{resourceId}/grants/{principal}": {
             "put": {
-                "description": "Gives the principal one of the roles the kind grants (for example use or manage) on the whole resource. The principal is the immutable account ID the user picker returned, which the kind must accept as a grantee, or @everyone on a kind that allows it: every active named account, accounts created later included. The owner role cannot be granted. A user's own grant and the grant to everyone add up and are changed and revoked apart. Lowering a role stops the grantee's admitted work that the role no longer allows before it is acknowledged. Local-owner mode answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID, no API key, no tool, agent or MCP marker). Safe to repeat; after outcome_unknown repeat the same call. No MCP tool maps to this route: sharing is never a tool.",
+                "description": "Gives the principal one of the roles the kind grants (for example use or manage) on the whole resource. The principal is the immutable account ID the user picker returned, an active named account that the kind must accept as a grantee (it does not need the addons feature), or @everyone on a kind that allows it: every active named account, accounts created later included. The owner role cannot be granted. A user's own grant and the grant to everyone add up and are changed and revoked apart. Lowering a role stops the grantee's admitted work that the role no longer allows before it is acknowledged. Local-owner mode answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID, no API key, no tool, agent or MCP marker). Safe to repeat; after outcome_unknown repeat the same call. No MCP tool maps to this route: sharing is never a tool.",
                 "consumes": [
                     "application/json"
                 ],
@@ -13427,7 +13427,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Not a human surface, feature denied, not the owner, unknown kind or resource, or a principal that cannot be granted",
+                        "description": "Not a human surface, a feature the kind names denied, not the owner, unknown kind or resource, or a principal that cannot be granted",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -13498,7 +13498,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Not a human surface, feature denied, not the owner, unknown kind or unknown resource",
+                        "description": "Not a human surface, a feature the kind names denied, not the owner, unknown kind or unknown resource",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -13520,7 +13520,7 @@ const docTemplate = `{
         },
         "/api/shares/{kind}/{resourceId}/users": {
             "get": {
-                "description": "Finds active named accounts by a prefix of the display name or of the address, 2 to 64 characters, at most 20 results, and keeps only those the kind accepts as grantees. Each result is an immutable account ID and a display name and nothing else. Only the owner of the resource may search; the owner and the caller are left out. Local-owner mode answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID, no API key, no tool, agent or MCP marker). No MCP tool maps to this route.",
+                "description": "Finds active named accounts by a prefix of the display name or of the address, 2 to 64 characters, at most 20 results, whether or not they may use add-ons, and keeps only those the kind accepts as grantees. Each result is an immutable account ID and a display name and nothing else. Only the owner of the resource may search; the owner and the caller are left out. Local-owner mode answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID, no API key, no tool, agent or MCP marker). No MCP tool maps to this route.",
                 "produces": [
                     "application/json"
                 ],
@@ -13577,7 +13577,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Not a human surface, feature denied, not the owner, unknown kind or unknown resource",
+                        "description": "Not a human surface, a feature the kind names denied, not the owner, unknown kind or unknown resource",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }

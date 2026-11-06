@@ -33,8 +33,21 @@ A role is a set of actions, not a rank. LocalAI refuses to register a kind whose
 table names a role that the kind does not grant. A role that is stored but not
 listed for an action is denied, and so is any role that LocalAI does not know.
 
-A kind also decides who may receive a grant. A kind without that rule cannot be
-shared with a person at all.
+A kind also decides who may receive a grant. LocalAI asks that rule only about
+active named accounts, so a disabled or unknown account never receives a grant. A
+kind without the rule cannot be shared with a person at all. The add-on kinds keep
+their own rule: the person must be allowed to use add-ons.
+
+## Features
+
+A kind can name the feature (permission) that a person needs to use its resources,
+for example a feature that turns a part of LocalAI on or off per account. LocalAI
+checks it with the account on every call for a resource of the kind: listing,
+sharing, and the service's own work under the grant. A kind that names no feature
+needs only an active named account with a valid credential.
+
+Sharing a kind does not need the `addons` feature, unless the kind names it. Only
+the add-on resources and their routes under `/api/addons` need it.
 
 ## Sharing with everyone
 
@@ -62,11 +75,12 @@ revocation log, so restoring an older backup does not give the access back.
 
 ## API
 
-All routes need an authenticated named account with the `addons` feature. The
-grants live in the policy store of the add-on owner (see
+All routes need an authenticated named account. They do not need the `addons`
+feature; a kind that names a feature needs that one (see [Features](#features)).
+The grants live in the policy store of the add-on owner (see
 [Addon contracts]({{%relref "features/addons" %}})), so the routes exist only while
-add-ons are on, and a frontend of a distributed deployment forwards each call to the
-owner.
+the add-on owner runs (`--addons-enabled`, on by default), and a frontend of a
+distributed deployment forwards each call to the owner.
 
 | Method and path | Who may call it |
 |-----------------|-----------------|
@@ -81,6 +95,11 @@ A browser session call must be a same-origin `fetch`, carry the header
 MCP marker. Any other call gets 403.
 
 `{principal}` is the account ID that the user picker returned, or `@everyone`.
+
+The user picker (`GET .../users?q=`) searches every active named account by a prefix
+of the display name or of the address, 2 to 64 characters, and keeps only the
+accounts that the kind accepts. It returns at most 20 people, each with the account
+ID and the display name only, and never the owner or the caller.
 
 ### List your resources of a kind
 
@@ -122,7 +141,7 @@ ID `@everyone` and no display name. The call is safe to repeat. If the answer is
 | Status | Type | Meaning |
 |--------|------|---------|
 | 400 | `invalid_request` | The kind does not grant the role, or the search text is not 2 to 64 characters. |
-| 403 | `addon_error` | Not the owner, not a browser session, a person the kind does not accept, an unknown kind or an unknown resource. These get the same answer, so a caller cannot tell whether a resource exists. |
+| 403 | `addon_error` | Not the owner, not a browser session, a person the kind does not accept or whose account is not active, a feature the kind names and the caller does not hold, an unknown kind or an unknown resource. These get the same answer, so a caller cannot tell whether a resource exists. |
 | 409 | `sharing_disabled` | The installation runs in local-owner mode, which has no named accounts to share with. |
 | 503 | `outcome_unknown` | A grant change may have run. Repeat the same call. |
 
@@ -132,8 +151,9 @@ A service shares its resources by implementing `policy.KindProvider`
 (`core/services/addons/policy`) and passing it to
 `Application.RegisterShareKinds` before the add-on owner starts. The provider
 registers a `policy.KindSpec`: the grantable roles, the role table, the rule for who
-may receive a grant, whether `@everyone` is allowed, who may create a resource and
-how to check that the backing of a pending resource exists. The service then creates
+may receive a grant, whether `@everyone` is allowed, the feature a caller needs
+(`Feature`, empty for none), who may create a resource and how to check that the
+backing of a pending resource exists. The service then creates
 its resources with `Policy.CreateRef` and runs its work under `Policy.AdmitRef`, so
 that a lowering or a revocation cancels it. Package
 `core/services/addons/policy/sharetest` is a complete example that only the tests

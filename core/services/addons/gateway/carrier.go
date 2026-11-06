@@ -188,7 +188,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 	if c.config.InstanceID != c.config.OwnerID || g == nil {
 		return nil, ErrForbidden
 	}
-	v, e := NewForwardVerifier(VerifierConfig{Keys: c.config.VerificationKeys, Revalidate: g.Revalidate})
+	v, e := NewForwardVerifier(VerifierConfig{Keys: c.config.VerificationKeys, Revalidate: g.Revalidate, Account: g.revalidateAccount})
 	if e != nil {
 		return nil, e
 	}

@@ -352,7 +352,11 @@ func (a *Application) startAddonGateway() error {
 	if mode == auth.AddonModeLocalOwner {
 		xlog.Warn(localOwnerWarning)
 	}
-	g := &gateway.Gateway{Transfers: a.transfers(), Limits: c.Limits, Manager: a.addonManager, ConnectorAuthority: connectorAuthority{a}, Revalidate: auth.AddonRevalidate(a.authDB, mode)}
+	account := auth.AccountRevalidate(a.authDB, mode)
+	g := &gateway.Gateway{Transfers: a.transfers(), Limits: c.Limits, Manager: a.addonManager, ConnectorAuthority: connectorAuthority{a}, Revalidate: auth.AddonRevalidate(a.authDB, mode),
+		// The sharing calls of the kinds that are not add-ons check the
+		// account alone; the policy adds the feature the kind names.
+		RevalidateAccount: func(ctx context.Context, actor contract.Actor) error { return account(ctx, actor, "") }}
 	if cfg.InstanceID != cfg.OwnerID {
 		g.Forward = carrier
 		a.addonGateway = g
@@ -427,6 +431,7 @@ func (a *Application) startAddonGateway() error {
 	}
 	p := policy.New(store, policy.Options{
 		Revalidate:      g.Revalidate,
+		Account:         account,
 		CreateAuthority: addonCreateAuthority(a.addonManager, g.Revalidate),
 		Proposals:       broker,
 	})

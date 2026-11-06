@@ -72,6 +72,13 @@ type UserDirectory interface {
 	// Search finds eligible accounts by a prefix of the display name or of
 	// the address, at most limit of them.
 	Search(ctx context.Context, query string, limit int) ([]gateway.UserRef, error)
+	// Accounts finds active named accounts by the same prefix, whether or not
+	// they may use add-ons, at most limit of them. The kinds that are not
+	// add-ons filter it with their own rule.
+	Accounts(ctx context.Context, query string, limit int) ([]gateway.UserRef, error)
+	// Active says whether the ID is an existing, active named account:
+	// nil, gateway.ErrForbidden, or an outage.
+	Active(ctx context.Context, id string) error
 }
 
 // Options are the owner services the management needs. Missing ones make the
@@ -682,12 +689,17 @@ func (s *Service) SearchUsers(ctx context.Context, actor contract.Actor, resourc
 	if err != nil {
 		return gateway.UserList{}, err
 	}
-	return s.searchUsers(ctx, actor, policy.AddonRef(key), query, limit, nil)
+	var find func(context.Context, string, int) ([]gateway.UserRef, error)
+	if s.o.Users != nil {
+		find = s.o.Users.Search
+	}
+	return s.searchUsers(ctx, actor, policy.AddonRef(key), query, limit, find, nil)
 }
 
 // searchUsers runs the user picker for a resource whose owner role is
-// checked. keep, when set, leaves out the people a grant would refuse.
-func (s *Service) searchUsers(ctx context.Context, actor contract.Actor, ref policy.Ref, query string, limit int, keep func(id string) (bool, error)) (gateway.UserList, error) {
+// checked. find is the directory search, called with the number of rows to
+// read; keep, when set, leaves out the people a grant would refuse.
+func (s *Service) searchUsers(ctx context.Context, actor contract.Actor, ref policy.Ref, query string, limit int, find func(context.Context, string, int) ([]gateway.UserRef, error), keep func(id string) (bool, error)) (gateway.UserList, error) {
 	query = strings.TrimSpace(query)
 	if n := utf8.RuneCountInString(query); n < MinQueryRunes || n > MaxQueryRunes || strings.ContainsFunc(query, unicode.IsControl) {
 		return gateway.UserList{}, gateway.ErrInvalidRequest
@@ -695,11 +707,17 @@ func (s *Service) searchUsers(ctx context.Context, actor contract.Actor, ref pol
 	if limit <= 0 || limit > MaxUserResults {
 		limit = MaxUserResults
 	}
-	if s.o.Users == nil {
+	if find == nil {
 		return gateway.UserList{}, gateway.ErrUnavailable
 	}
+	// The owner and the caller are left out, and keep may drop more, so more
+	// rows than limit are read.
+	read := limit + 2
+	if keep != nil {
+		read = 4 * limit
+	}
 	owner, _ := s.o.Policy.OwnerOfRef(ref)
-	found, err := s.o.Users.Search(ctx, query, limit+2)
+	found, err := find(ctx, query, read)
 	if err != nil {
 		return gateway.UserList{}, classify(err)
 	}

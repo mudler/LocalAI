@@ -13,6 +13,7 @@
 //			Grantable: []policy.Role{policy.RoleUse, policy.RoleManage},
 //			Roles:     roles, // the roles that may run each action
 //			Everyone:  true,  // the owner may share a note with everyone
+//			Feature:   "",    // no feature needed beyond a named account
 //			Eligible:  n.mayReceive,
 //			Backing:   n.exists,
 //			CreateAuthority: n.mayCreate,
@@ -56,6 +57,8 @@ type Provider struct {
 	Eligible func(ctx context.Context, actor contract.Actor, userID string) (bool, error)
 	// NoEveryone turns the grant to everyone off.
 	NoEveryone bool
+	// Feature is the feature a caller needs, empty for none.
+	Feature string
 }
 
 var _ policy.KindProvider = (*Provider)(nil)
@@ -70,6 +73,7 @@ func (p *Provider) RegisterKinds(r policy.KindRegistrar) error {
 		Roles:           Roles,
 		Everyone:        !p.NoEveryone,
 		Eligible:        p.Eligible,
+		Feature:         p.Feature,
 		CreateAuthority: func(context.Context, contract.Actor) error { return nil },
 		Backing:         func(context.Context, policy.Ref) (bool, error) { return true, nil },
 	})

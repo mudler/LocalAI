@@ -73,7 +73,8 @@ func newShareRig() *shareRig {
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() { _ = store.Close() })
 	revalidate := auth.AddonRevalidate(r.db, auth.AddonModeNamedUser)
-	r.p = policy.New(store, policy.Options{Revalidate: revalidate, DrainTimeout: 5 * time.Second})
+	account := auth.AccountRevalidate(r.db, auth.AddonModeNamedUser)
+	r.p = policy.New(store, policy.Options{Revalidate: revalidate, Account: account, DrainTimeout: 5 * time.Second})
 	users := auth.NewAddonUsers(r.db)
 	Expect(policy.RegisterKinds(r.p, &sharetest.Provider{Eligible: func(ctx context.Context, _ contract.Actor, id string) (bool, error) {
 		if id == "eve" {
@@ -82,7 +83,7 @@ func newShareRig() *shareRig {
 		return users.Eligible(ctx, id)
 	}})).To(Succeed())
 	svc := resources.New(resources.Options{Policy: r.p, Users: users})
-	gw := &gateway.Gateway{Resources: svc, Sharing: svc, Revalidate: revalidate}
+	gw := &gateway.Gateway{Resources: svc, Sharing: svc, Revalidate: revalidate, RevalidateAccount: func(ctx context.Context, a contract.Actor) error { return account(ctx, a, "") }}
 	r.e = echo.New()
 	r.e.Use(auth.Middleware(r.db, app.ApplicationConfig()))
 	routes.RegisterAddonRoutesFor(r.e, gw, r.db, auth.AddonModeNamedUser)
@@ -283,9 +284,9 @@ var _ = Describe("generic sharing routes", Label("sharing"), func() {
 		}
 		Expect(r.p.AuthorizeRef(bg, r.actors["bob"], ref, policy.ActionWrite)).To(Succeed())
 		Expect(r.p.AuthorizeRef(bg, r.actors["carol"], ref, policy.ActionRead)).To(MatchError(policy.ErrForbidden))
-		// Without a credential, and without the addons feature.
+		// Without a credential. The addons feature is not needed: dave has none.
 		Expect(r.do("GET", "/api/shares/"+sharetest.Kind, "").code).To(Equal(401))
-		Expect(r.do("GET", "/api/shares/"+sharetest.Kind, "", r.bearer("dave")).code).To(Equal(403))
+		Expect(r.do("GET", "/api/shares/"+sharetest.Kind, "", r.bearer("dave")).code).To(Equal(200))
 	})
 
 	It("answers an unknown resource, a resource of someone else and an unknown kind the same", func() {
@@ -345,7 +346,8 @@ var _ = Describe("generic sharing routes in local-owner mode", Label("sharing"),
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = store.Close() })
 		revalidate := auth.AddonRevalidate(nil, auth.AddonModeLocalOwner)
-		p := policy.New(store, policy.Options{Revalidate: revalidate})
+		account := auth.AccountRevalidate(nil, auth.AddonModeLocalOwner)
+		p := policy.New(store, policy.Options{Revalidate: revalidate, Account: account})
 		Expect(policy.RegisterKinds(p, &sharetest.Provider{})).To(Succeed())
 		owner := contract.Actor{UserID: auth.AddonLocalOwnerID, CredentialID: auth.AddonLocalOwnerID, Mode: auth.AddonModeLocalOwner}
 		ref, err := p.CreateRef(context.Background(), owner, sharetest.Kind)
@@ -353,7 +355,7 @@ var _ = Describe("generic sharing routes in local-owner mode", Label("sharing"),
 		svc := resources.New(resources.Options{Policy: p})
 		e := echo.New()
 		e.Use(auth.Middleware(nil, &config.ApplicationConfig{}))
-		routes.RegisterAddonRoutesFor(e, &gateway.Gateway{Resources: svc, Sharing: svc, Revalidate: revalidate}, nil, auth.AddonModeLocalOwner)
+		routes.RegisterAddonRoutesFor(e, &gateway.Gateway{Resources: svc, Sharing: svc, Revalidate: revalidate, RevalidateAccount: func(ctx context.Context, a contract.Actor) error { return account(ctx, a, "") }}, nil, auth.AddonModeLocalOwner)
 		for _, q := range []struct{ method, path, body string }{
 			{"GET", "/api/shares/" + sharetest.Kind, ""},
 			{"GET", grantsPath(ref), ""},
