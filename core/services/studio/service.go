@@ -763,7 +763,35 @@ func (s *Service) Messages(ctx context.Context, user, conv string, after int64, 
 	if _, err := s.Get(ctx, user, conv); err != nil {
 		return nil, err
 	}
-	return s.d.Store.Entries(ctx, conv, after, limit)
+	return s.visibleEntries(ctx, conv, after, limit)
+}
+
+// visibleEntries is Store.Entries without the lines that are for the server
+// only (RoleToolIntent). A page still holds limit lines when the transcript has
+// them, so that a client that reads page by page does not stop early.
+func (s *Service) visibleEntries(ctx context.Context, conv string, after int64, limit int) ([]session.Entry, error) {
+	var out []session.Entry
+	for {
+		want := limit
+		if limit > 0 {
+			want = limit - len(out)
+		}
+		page, err := s.d.Store.Entries(ctx, conv, after, want)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range page {
+			if e.Role != session.RoleToolIntent {
+				out = append(out, e)
+			}
+		}
+		if len(page) > 0 {
+			after = page[len(page)-1].Seq
+		}
+		if limit <= 0 || len(out) >= limit || len(page) < want {
+			return out, nil
+		}
+	}
 }
 
 // Turn returns the turn state of a conversation.

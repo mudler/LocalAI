@@ -318,6 +318,14 @@ const (
 	// code (HostNote*) and Text is the plain sentence the sender was told, if
 	// any. It is for display: the model never sees it.
 	RoleHostNote = "hostnote"
+	// RoleToolIntent marks that a tool that may change something was about to
+	// run: Text is the tool's name and Note the start of its arguments. The
+	// result line of the call comes after it. A turn that dies in between leaves
+	// the intent without a result, and the turn that resumes it tells the model
+	// that the outcome of that call is not known (see UnresolvedIntents). It is
+	// internal: the interface never gets it, and the model never reads it as a
+	// message.
+	RoleToolIntent = "tool_intent"
 )
 
 // ThreadCut is the Note of a RoleThread entry whose block left out older

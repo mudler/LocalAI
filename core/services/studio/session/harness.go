@@ -80,6 +80,12 @@ type Tool struct {
 	// say): "builtin" or the add-on's ID. It is empty for every other tool.
 	// The harness does not read it.
 	Provider string
+	// ReadOnly says that the tool only reads, so a call that a restart cuts
+	// short can be made again without a check. The chat records every other call
+	// before it runs (RoleToolIntent). False, the default, is the safe side:
+	// a tool nobody classified is treated as one that may change something. The
+	// harness does not read it.
+	ReadOnly bool
 	// Execution is what the add-on that serves a command tool declares about
 	// itself, or nil. The harness does not read it.
 	Execution *contract.ExecutionDescriptor

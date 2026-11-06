@@ -74,9 +74,12 @@ type Message struct {
 
 // ResumePrompt is what the model gets when a failed turn goes on. The model
 // has the transcript of the failed turn, with the failure noted at its end.
-const ResumePrompt = "(System note: your last request stopped on an error before it finished. " +
-	"Go on from where you stopped. Keep what you already did and do not repeat a tool call that has a result. " +
+const ResumePrompt = resumeHead +
 	"If the last step did not finish, do that step again, then finish the request.)"
+
+// resumeHead starts every note that makes a failed or interrupted turn go on.
+const resumeHead = "(System note: your last request stopped on an error before it finished. " +
+	"Go on from where you stopped. Keep what you already did and do not repeat a tool call that has a result. "
 
 // withDirective puts the directive of a message before the text the model gets.
 func withDirective(directive, text string) string {
@@ -795,7 +798,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 		if text == "" && msg.Note == "" && len(msg.Attachments) == 0 && len(saved) == 0 {
 			parts = carried // no words of the person; only the note below
 		}
-		parts = append(parts, ResumePrompt)
+		parts = append(parts, c.resumeNote(ctx))
 	}
 	if msg.HostNote != "" {
 		if text == "" && msg.Note == "" && len(msg.Attachments) == 0 && len(saved) == 0 {
@@ -1052,7 +1055,7 @@ func (c *Chat) checkpoint(n int, text string) ChangeEvent {
 		return ChangeEvent{}
 	}
 	first := strings.SplitN(text, "\n", 2)[0]
-	if strings.HasPrefix(text, ResumePrompt) {
+	if strings.HasPrefix(text, resumeHead) {
 		first = "go on after an error"
 	}
 	title := fmt.Sprintf("Turn %d: %s", n, CapText(first, 60))
@@ -1462,7 +1465,7 @@ func (c *Chat) guardTools(tools []Tool) []Tool {
 	out := make([]Tool, len(tools))
 	for i, tool := range tools {
 		run := tool.Run
-		name := tool.Name
+		name, readOnly := tool.Name, tool.ReadOnly || ReadOnlyTool(tool.Name)
 		tool.Run = func(ctx context.Context, args json.RawMessage) (res string, err error) {
 			defer func() {
 				if r := recover(); r != nil {
@@ -1485,6 +1488,11 @@ func (c *Chat) guardTools(tools []Tool) []Tool {
 			rctx, cancel := context.WithCancel(turnValues{Context: ctx, turn: tctx})
 			defer cancel()
 			defer context.AfterFunc(tctx, cancel)()
+			if !readOnly {
+				// Before the call: a restart that cuts it leaves this line without a
+				// result, and the resume says the outcome is not known.
+				c.noteIntent(rctx, name, args)
+			}
 			return run(rctx, args)
 		}
 		out[i] = tool

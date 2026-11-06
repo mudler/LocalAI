@@ -444,6 +444,9 @@ func (r *Registry) Build(ctx context.Context, c Chat) []Built {
 		tool, ok, reason := t.Build(ctx, c)
 		if ok {
 			tool.Name, tool.Provider = t.ID, BuiltinProvider
+			// What the registry declares read only needs no intent line before a
+			// call (see session.Tool.ReadOnly).
+			tool.ReadOnly = tool.ReadOnly || t.ReadOnly
 			tool = gateCall(tool, t, c)
 		}
 		out = append(out, Built{ID: t.ID, Tool: tool, OK: ok, Reason: reason})
