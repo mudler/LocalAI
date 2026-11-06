@@ -396,6 +396,11 @@ When adding a new endpoint:
 - [ ] Swagger regenerated (`make swagger`) if you changed any `@Router`/`@Tags`/`@Param` annotation
 - [ ] Stateful feature: distributed mode chosen and documented (see [distributed-state.md](distributed-state.md))
 
+**LocalAI client (inference routes and API changes an agent could use)**
+- [ ] New inference route, or a changed or removed parameter or response: the client in `core/services/localaitools/` follows in the same change (`LocalAIClient` method, `inproc` and `httpapi` implementations, tool schema and DTOs, row in `ClientTools`)
+- [ ] The built-in `localai` skill (`core/services/studio/builtinskills/tree/localai/SKILL.md`) and the docs describe the change
+- [ ] Not a client tool: entry with a reason in `clientToolExemptions` (`core/services/localaitools/clientcoverage_test.go`); `go test ./core/services/localaitools/...` shows what is missing
+
 ## Companion: MCP admin tool surface
 
 **Required for admin endpoints.** Every new admin endpoint MUST be considered for the MCP admin tool surface — the REST API and the MCP tool catalog can drift silently otherwise, and both the LocalAI Assistant chat modality and the standalone `local-ai mcp-server` rely on `core/services/localaitools/` to mirror REST.

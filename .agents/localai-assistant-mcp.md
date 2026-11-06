@@ -166,6 +166,33 @@ any user, within their own permissions, in the same package. They differ from th
 - Add a method to `LocalAIClient`, the DTOs to `dto_client.go`, and a dispatch case to
   `server_test.go`. The route goes in `toolToHTTPRoute` automatically from `ClientTools`.
 
+### Keeping the client in step with the API
+
+The client must follow the API. `clientcoverage_test.go` reads `auth.RouteFeatureRegistry` and
+fails when a route of an inference feature (chat, images, audio, video, 3d, sound, embeddings,
+rerank, detection, face and voice recognition, stores and the others in `clientCoveredFeatures`)
+is neither a row of `ClientTools` nor a key of `clientToolExemptions`. It also fails on a stale
+row or exemption, and on a route that is both. Its failure message says which route and what to do.
+
+To add a client tool for a new route:
+
+1. Add a method to `LocalAIClient` (`client.go`) and the DTOs (`dto_client.go`).
+2. Implement it in `inference.go` (shared code) and in both `inproc` and `httpapi`.
+3. Register the tool and its schema in `tools_client.go`; add the name constant and a row (route,
+   feature, model flag) to `ClientTools`. If the route belongs to an existing tool, add an `action`
+   and a row instead of a new tool (see the size rule above).
+4. Add a dispatch case to `server_test.go` and update the `localai` built-in skill
+   (`core/services/studio/builtinskills/tree/localai/SKILL.md`, its drift test names what is
+   missing) and the docs.
+5. Remove the route from `clientToolExemptions` if it was listed there.
+
+To change or remove a parameter or response of a route a tool wraps, change the DTOs, both
+implementations, the schema and the skill in the same change.
+
+To leave a route without a tool, add `"METHOD /pattern": "reason"` to `clientToolExemptions`. Start
+the reason with "not built yet" when a tool is wanted but missing (this is the visible backlog);
+otherwise say why an agent should not or need not call it.
+
 ## The two groups in the chats
 
 The studio chats offer the two groups as built-in tool groups of the registry
