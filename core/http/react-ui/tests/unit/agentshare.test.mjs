@@ -118,5 +118,19 @@ test('agent share: the needs summary counts what is missing', () => {
   assert.equal(s.total, 3)
   assert.equal(s.ok, 1)
   assert.deepEqual(s.lacking.map(n => n.label), ['docs', 'mail'])
+  assert.deepEqual(s.asks, [])
   assert.equal(needsSummary(undefined).total, 0)
+})
+
+test('agent share: what the agent asks for and the chat does not start with is listed apart', () => {
+  const s = needsSummary([
+    { kind: 'network', label: 'all', state: 'ask' },
+    { kind: 'tool-group', label: 'history', state: 'ask' },
+    { kind: 'collection', label: 'docs', state: 'missing' },
+    { kind: 'network', label: 'registries', state: 'ok' },
+  ])
+  assert.equal(s.total, 4)
+  assert.equal(s.ok, 1)
+  assert.deepEqual(s.lacking.map(n => n.label), ['docs'], 'an ask is not a thing the person lacks')
+  assert.deepEqual(s.asks.map(n => `${n.kind}:${n.label}`), ['network:all', 'tool-group:history'])
 })

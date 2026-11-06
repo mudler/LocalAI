@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/egress"
 )
 
 // A saved agent can be shared with other people (share kind "agent"). The
@@ -505,6 +506,10 @@ const (
 	ReferenceOK          = "ok"
 	ReferenceMissing     = "missing"
 	ReferenceUnavailable = "unavailable"
+	// ReferenceAsk is a network or a group of built-in tools that the agent
+	// asks for and that a chat of the caller does not start with: the caller
+	// may turn it on in the chat.
+	ReferenceAsk = "ask"
 )
 
 // AgentNeed is one reference of an agent and its state for the caller.
@@ -689,5 +694,38 @@ func (s *Service) AgentNeeds(ctx context.Context, user, id string) ([]AgentNeed,
 		}
 		out = append(out, AgentNeed{Kind: r.Kind, Label: r.Label, State: state})
 	}
-	return out, nil
+	return append(out, s.askedAuthority(ctx, ag, acc.Owner())...), nil
+}
+
+// askedAuthority lists the network and the opt-in groups of built-in tools
+// that an agent asks for, with their state for the caller. For the owner they
+// are ok: the owner's chats start with them. A chat of another person starts
+// with the narrower network and with no opt-in group (see CreateAs), so each
+// is ok when that start already has it, ask when the person may turn it on in
+// the chat, and unavailable when this server does not allow it at all. A
+// shared agent with the role use hides its instructions; what it asks for is
+// shown so that the person who runs it knows.
+func (s *Service) askedAuthority(ctx context.Context, ag agents.Agent, owner bool) []AgentNeed {
+	var out []AgentNeed
+	if n := egress.Preset(ag.Network); n.Valid() && n != egress.PresetOff {
+		state := ReferenceOK
+		if !owner {
+			set, err := s.egressSettings(ctx)
+			switch {
+			case err != nil || n.Rank() > set.Ceiling.Rank():
+				state = ReferenceUnavailable
+			case egress.Min(n, set.DefaultPreset()) != n:
+				state = ReferenceAsk
+			}
+		}
+		out = append(out, AgentNeed{Kind: "network", Label: string(n), State: state})
+	}
+	for _, g := range ag.BuiltinsOn {
+		state := ReferenceOK
+		if !owner {
+			state = ReferenceAsk
+		}
+		out = append(out, AgentNeed{Kind: "tool-group", Label: g, State: state})
+	}
+	return out
 }

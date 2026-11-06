@@ -504,6 +504,18 @@ are theirs, exactly as for their own agent. Only the definition comes from you.
 Your files are never used for them, and no answer to them carries a token, a
 secret or the ID of your connection.
 
+The agent never runs with more than the person's own chats start with. With the
+role `use` the person does not read your instructions, so what the agent asks for
+is narrowed to what their own new chat gets:
+
+- **Network.** Their chat starts with the narrower of the agent's network preset and
+  the instance default for a new chat, never with your preset above it. The person
+  can widen the network of the chat themselves, up to the instance limit.
+- **Opt-in tool groups.** The groups the agent turns on (its saved agents, the
+  earlier chats) start off in their chat. The person can turn them on in the chat.
+- **Built-in grants.** The agent holds a grant only when the person may use it, as
+  for their own agent.
+
 The connections the agent names are yours. A chat of the person uses one of them
 only while you share that connection with them (role `use`), and only when it is
 not a choice:
@@ -535,8 +547,10 @@ choice as a grant on that thing, for the same person.
 The agent page of a person tells them what they are missing: each thing the agent
 names is **ok**, **missing** (not shared with them) or **unavailable** (the server
 or their account does not offer it). A connection of yours is **ok** while you
-share it with them and **missing** otherwise. A chat with the agent shows the same
-notice before the first message.
+share it with them and **missing** otherwise. The list also shows the network
+preset and the opt-in tool groups the agent asks for: **ask** when their chat
+starts without it and they can turn it on, **unavailable** when the instance does
+not allow it. A chat with the agent shows the same notice before the first message.
 
 When you lower the role or remove the person, a run of the agent in one of their
 chats stops, and the chat takes no new message with the agent. Their past chats
@@ -549,7 +563,7 @@ The API:
 | `GET /api/chats/agents` | Your agents, then the agents shared with you. `access.role` is `owner`, `use` or `viewer`; `access.owner` names the person who shared it; your own agents carry `access.sharedWith` and `access.share_id`. |
 | `POST /api/chats/agents/{id}/share` | The ID of your agent in the sharing API, made on the first call. Owner only. |
 | `GET /api/chats/agents/{id}/references` | What your agent uses, and how each thing can be shared: `share.kind`, `share.resource_id`, `share.options` and, for each option, the role it grants in `share.roles`. For a collection or a connection that you own, the call makes its record in the sharing API, as `POST /api/collections/{name}/share` and `POST /api/chats/connectors/{id}/share` do; nothing is granted. Owner only. |
-| `GET /api/chats/agents/{id}/needs` | What an agent you may use needs, and the state of each thing for you. |
+| `GET /api/chats/agents/{id}/needs` | What an agent you may use needs, and the state of each thing for you: `ok`, `missing`, `unavailable` or `ask`. Kind `network` is the agent's network preset and kind `tool-group` an opt-in group it turns on. |
 
 Share with the [sharing API](/features/sharing/#api), kind `agent`, the ID from
 `POST .../share`, roles `use` and `viewer`:

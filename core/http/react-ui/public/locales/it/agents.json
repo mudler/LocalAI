@@ -861,7 +861,9 @@
       "connection": "Connessione",
       "addon-resource": "Risorsa di un componente",
       "mcp": "Server MCP",
-      "builtin": "Permesso integrato"
+      "builtin": "Permesso integrato",
+      "network": "Rete",
+      "tool-group": "Gruppo di strumenti"
     },
     "ownAccess": "Serve un accesso proprio",
     "refsApplied_one": "Condivisa anche {{count}} cosa che usa.",
@@ -881,10 +883,14 @@
     "state": {
       "ok": "Ce l'hai",
       "missing": "Non condiviso con te",
-      "unavailable": "Non disponibile per te"
+      "unavailable": "Non disponibile per te",
+      "ask": "Spento all’avvio della chat"
     },
     "noticeTitle_one": "Questo agente ha bisogno di {{count}} cosa che non hai:",
     "noticeTitle_other": "Questo agente ha bisogno di {{count}} cose che non hai:",
-    "noticeLink": "Vedi di cosa ha bisogno"
+    "noticeLink": "Vedi di cosa ha bisogno",
+    "asksTitle_one": "Questo agente chiede {{count}} cosa che la tua chat non ha all’avvio:",
+    "asksTitle_other": "Questo agente chiede {{count}} cose che la tua chat non ha all’avvio:",
+    "asksHelp": "Funziona come te. Attivale nella chat solo se ti fidi dell’agente e della persona che lo ha condiviso."
   }
 }

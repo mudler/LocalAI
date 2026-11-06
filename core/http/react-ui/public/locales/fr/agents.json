@@ -861,7 +861,9 @@
       "connection": "Connexion",
       "addon-resource": "Ressource de module",
       "mcp": "Serveur MCP",
-      "builtin": "Autorisation intégrée"
+      "builtin": "Autorisation intégrée",
+      "network": "Réseau",
+      "tool-group": "Groupe d'outils"
     },
     "ownAccess": "Ils ont besoin de leur propre accès",
     "refsApplied_one": "{{count}} élément qu'il utilise a aussi été partagé.",
@@ -881,10 +883,14 @@
     "state": {
       "ok": "Vous l'avez",
       "missing": "Non partagé avec vous",
-      "unavailable": "Non disponible pour vous"
+      "unavailable": "Non disponible pour vous",
+      "ask": "Désactivé au départ dans votre chat"
     },
     "noticeTitle_one": "Cet agent a besoin de {{count}} élément que vous n'avez pas :",
     "noticeTitle_other": "Cet agent a besoin de {{count}} éléments que vous n'avez pas :",
-    "noticeLink": "Voir ce dont il a besoin"
+    "noticeLink": "Voir ce dont il a besoin",
+    "asksTitle_one": "Cet agent demande {{count}} élément que votre chat n'a pas au départ :",
+    "asksTitle_other": "Cet agent demande {{count}} éléments que votre chat n'a pas au départ :",
+    "asksHelp": "Il s'exécute en votre nom. Activez-les dans le chat seulement si vous faites confiance à l'agent et à la personne qui l'a partagé."
   }
 }

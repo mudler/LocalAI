@@ -674,6 +674,8 @@ func (s *Service) Create(ctx context.Context, user string, in CreateInput) (sess
 func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, origin Origin) (session.ChatRecord, error) {
 	model := in.Model
 	scoped := false
+	// shared says the agent is another person's, shared with user.
+	shared := false
 	var agentOn []string
 	if in.Assistant {
 		if in.AgentID != "" {
@@ -703,7 +705,8 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		if ag.Model != "" {
 			model = ag.Model
 		}
-		agentOn = ag.BuiltinsOn
+		shared = ag.Principal != principal(user)
+		agentOn = grantedOn(ag, shared)
 		if ag.HasFolder() {
 			// A chat never starts on the whole home in place of a folder
 			// that is missing or not chosen.
@@ -743,6 +746,8 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		// A chat a person starts gets the instance default, or the network
 		// of its saved agent when the agent sets one, under the ceiling. An
 		// unattended run follows its agent's network field at each check.
+		// An agent of another person never widens the person's own default:
+		// its owner's choice runs with the person's authority.
 		set, err := s.egressSettings(ctx)
 		if err != nil {
 			return session.ChatRecord{}, err
@@ -750,7 +755,7 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		rec.Egress = egress.ChatState{Preset: set.DefaultPreset()}
 		if in.AgentID != "" {
 			if n := s.agentNetwork(ctx, rec); n != egress.PresetOff {
-				rec.Egress.Preset = egress.Min(n, set.Ceiling)
+				rec.Egress.Preset = egress.Min(n, startLimit(set, shared))
 			}
 		}
 	}
@@ -758,6 +763,26 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		return session.ChatRecord{}, err
 	}
 	return rec, nil
+}
+
+// startLimit is the widest network a chat a person starts may get from its
+// saved agent: the ceiling for the person's own agent, the person's own
+// default for an agent shared with them.
+func startLimit(set egress.Settings, shared bool) egress.Preset {
+	if shared {
+		return set.DefaultPreset()
+	}
+	return set.Ceiling
+}
+
+// grantedOn are the opt-in groups of built-in tools that a new chat of the
+// agent starts with. A chat of the person's own starts with none of them, so
+// an agent shared with the person turns none on: the person turns them on.
+func grantedOn(ag agents.Agent, shared bool) []string {
+	if shared {
+		return nil
+	}
+	return ag.BuiltinsOn
 }
 
 // Get returns a conversation the user owns.

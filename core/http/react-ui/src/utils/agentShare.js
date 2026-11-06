@@ -95,11 +95,19 @@ export async function applyReferenceChoices({ principal, references, choices, sh
   return out
 }
 
-const STATES = new Set(['ok', 'missing', 'unavailable'])
+const STATES = new Set(['ok', 'missing', 'unavailable', 'ask'])
 
-// needsSummary counts the needs of an agent for the caller and lists the
-// ones the caller lacks, in the server's order.
+// needsSummary counts the needs of an agent for the caller and lists, in the
+// server's order, the ones the caller lacks (missing, unavailable) and the
+// ones the agent asks for that a chat of the caller does not start with (ask:
+// a network or a group of built-in tools the caller may turn on).
 export function needsSummary(needs) {
   const list = (Array.isArray(needs) ? needs : []).filter(n => n && STATES.has(n.state))
-  return { total: list.length, ok: list.filter(n => n.state === 'ok').length, lacking: list.filter(n => n.state !== 'ok'), all: list }
+  return {
+    total: list.length,
+    ok: list.filter(n => n.state === 'ok').length,
+    lacking: list.filter(n => n.state === 'missing' || n.state === 'unavailable'),
+    asks: list.filter(n => n.state === 'ask'),
+    all: list,
+  }
 }

@@ -183,9 +183,12 @@ type ChatsAgentReferenceList struct {
 type ChatsAgentNeed struct {
 	Kind  string `json:"kind" example:"collection"`
 	Label string `json:"label" example:"docs"`
-	// State is ok (you have it), missing (it is not shared with you) or
-	// unavailable (this server or your account does not offer it).
-	State string `json:"state" enums:"ok,missing,unavailable" example:"missing"`
+	// State is ok (you have it), missing (it is not shared with you),
+	// unavailable (this server or your account does not offer it) or ask (the
+	// agent asks for a network or a tool group that your chat starts without;
+	// you may turn it on in the chat). Kind network is the agent's network
+	// preset, kind tool-group an opt-in group of built-in tools it turns on.
+	State string `json:"state" enums:"ok,missing,unavailable,ask" example:"missing"`
 }
 
 // ChatsAgentNeedList lists what an agent needs.

@@ -40,7 +40,7 @@ type shareRig struct {
 
 var shareUsers = map[string]string{alice: "Alice", bob: "Bob", carol: "Carol"}
 
-func newShareRig(script func(workspace.Actor, string) []studiotest.ToolStep) *shareRig {
+func newShareRig(script func(workspace.Actor, string) []studiotest.ToolStep, opts ...func(*studio.Deps)) *shareRig {
 	r := &shareRig{off: map[string]bool{}}
 	st, err := policy.OpenStore(GinkgoT().TempDir(), policy.ModeNamedUser)
 	Expect(err).NotTo(HaveOccurred())
@@ -75,6 +75,9 @@ func newShareRig(script func(workspace.Actor, string) []studiotest.ToolStep) *sh
 			return &auth.User{ID: id, Name: name, Status: auth.StatusActive}, nil
 		}
 		d.AgentShares = studio.PolicyAgentShares{Policy: func() *policy.Policy { return r.pol }}
+		for _, o := range opts {
+			o(d)
+		}
 	})
 	Expect(policy.RegisterKinds(r.pol, r.svc)).To(Succeed())
 	return r

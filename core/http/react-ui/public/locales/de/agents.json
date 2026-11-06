@@ -861,7 +861,9 @@
       "connection": "Verbindung",
       "addon-resource": "Add-on-Ressource",
       "mcp": "MCP-Server",
-      "builtin": "Integrierte Berechtigung"
+      "builtin": "Integrierte Berechtigung",
+      "network": "Netzwerk",
+      "tool-group": "Werkzeuggruppe"
     },
     "ownAccess": "Sie brauchen einen eigenen Zugang",
     "refsApplied_one": "Außerdem {{count}} Sache geteilt, die er nutzt.",
@@ -881,10 +883,14 @@
     "state": {
       "ok": "Vorhanden",
       "missing": "Nicht mit Ihnen geteilt",
-      "unavailable": "Für Sie nicht verfügbar"
+      "unavailable": "Für Sie nicht verfügbar",
+      "ask": "Im Chat zuerst aus"
     },
     "noticeTitle_one": "Dieser Agent braucht {{count}} Sache, die Sie nicht haben:",
     "noticeTitle_other": "Dieser Agent braucht {{count}} Sachen, die Sie nicht haben:",
-    "noticeLink": "Ansehen, was er braucht"
+    "noticeLink": "Ansehen, was er braucht",
+    "asksTitle_one": "Dieser Agent verlangt {{count}} Sache, ohne die Ihr Chat startet:",
+    "asksTitle_other": "Dieser Agent verlangt {{count}} Sachen, ohne die Ihr Chat startet:",
+    "asksHelp": "Er läuft als Sie. Schalten Sie sie im Chat nur ein, wenn Sie dem Agenten und der Person vertrauen, die ihn geteilt hat."
   }
 }
