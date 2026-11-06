@@ -129,5 +129,78 @@
     "updateAvailable": "Atualização disponível",
     "ready": "Pronto",
     "noRunsYet": "Nenhuma execução"
+  },
+  "share": {
+    "title": "Compartilhar \"{{name}}\"",
+    "untitled": "Sem nome",
+    "intro": "As pessoas que você adicionar verão isso na própria lista.",
+    "disabled": {
+      "title": "O compartilhamento não está disponível",
+      "text": "Este LocalAI funciona para um único proprietário local, então não há outras contas para compartilhar."
+    },
+    "add": "Adicionar pessoas",
+    "search": "Encontrar uma pessoa pelo nome",
+    "searchHint": "Digite pelo menos duas letras de um nome.",
+    "newRole": "Papel para as pessoas adicionadas",
+    "searching": "Pesquisando",
+    "noResults": "Ninguém corresponde.",
+    "alreadyShared": "Todos os resultados já têm acesso.",
+    "results": "Pessoas encontradas",
+    "addPerson": "Adicionar {{name}} como {{role}}",
+    "granted": "{{name}} agora tem acesso.",
+    "changed": "{{name}} agora é {{role}}.",
+    "everyone": "Todos",
+    "everyoneHelp": "Todas as contas deste LocalAI, incluindo as novas.",
+    "everyoneAdd": "Compartilhar com todos",
+    "people": "Pessoas com acesso",
+    "loading": "Carregando quem tem acesso",
+    "none": "Só você tem acesso.",
+    "unnamed": "Conta sem nome",
+    "roleOf": "Papel de {{name}}",
+    "revoke": "Parar de compartilhar",
+    "revokeAria": "Parar de compartilhar com {{name}}",
+    "revokeConfirm": "Parar de compartilhar com {{name}}? O trabalho em andamento dessa pessoa é interrompido.",
+    "revoked": "Compartilhamento com {{name}} encerrado.",
+    "refs": {
+      "title": "Antes de compartilhar",
+      "intro": "Isto usa outros recursos. Escolha o que as pessoas adicionadas recebem em cada um.",
+      "label": "Acesso a {{name}}",
+      "choose": "Escolher",
+      "pending": "Escolha uma opção para cada item acima para compartilhar.",
+      "option": {
+        "view": "Pode ver",
+        "use": "Pode usar",
+        "none": "Não compartilhar"
+      }
+    },
+    "roles": {
+      "owner": "Proprietário",
+      "use": "Pode usar",
+      "manage": "Pode gerenciar",
+      "viewer": "Leitor",
+      "editor": "Editor"
+    },
+    "roleHelp": {
+      "use": "Pode abrir e executar.",
+      "manage": "Também pode alterar.",
+      "viewer": "Pode ler.",
+      "editor": "Pode ler e alterar."
+    },
+    "line": {
+      "sharedBy": "Compartilhado por {{name}}",
+      "sharedEveryone": "Compartilhado com todos por {{name}}",
+      "sharedWith": "Compartilhado com {{count}}",
+      "private": "Privado"
+    },
+    "error": {
+      "withdrawn": "Esta página foi fechada.",
+      "auth": "Entre novamente para compartilhar.",
+      "denied": "Você não pode mais compartilhar isto. Talvez tenha sido excluído.",
+      "unknown": "A alteração pode não ter sido salva. Tente de novo para ter certeza.",
+      "invalid": "O servidor recusou esta alteração.",
+      "network": "Não foi possível acessar o servidor.",
+      "unavailable": "O compartilhamento não respondeu. Tente de novo em instantes.",
+      "generic": "Algo deu errado."
+    }
   }
 }

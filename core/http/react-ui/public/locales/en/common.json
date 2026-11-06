@@ -129,5 +129,78 @@
     "updateAvailable": "Update available",
     "ready": "Ready",
     "noRunsYet": "No runs yet"
+  },
+  "share": {
+    "title": "Share \"{{name}}\"",
+    "untitled": "Untitled",
+    "intro": "People you add see it in their own list.",
+    "disabled": {
+      "title": "Sharing is not available",
+      "text": "This LocalAI runs for one local owner, so there are no other accounts to share with."
+    },
+    "add": "Add people",
+    "search": "Find a person by name",
+    "searchHint": "Type at least two letters of a name.",
+    "newRole": "Role for people you add",
+    "searching": "Searching",
+    "noResults": "Nobody matches.",
+    "alreadyShared": "Everybody who matches already has access.",
+    "results": "People found",
+    "addPerson": "Add {{name}} as {{role}}",
+    "granted": "{{name}} now has access.",
+    "changed": "{{name}} is now {{role}}.",
+    "everyone": "Everyone",
+    "everyoneHelp": "Every account on this LocalAI, including new ones.",
+    "everyoneAdd": "Share with everyone",
+    "people": "People with access",
+    "loading": "Loading who has access",
+    "none": "Only you have access.",
+    "unnamed": "Unnamed account",
+    "roleOf": "Role of {{name}}",
+    "revoke": "Stop sharing",
+    "revokeAria": "Stop sharing with {{name}}",
+    "revokeConfirm": "Stop sharing with {{name}}? Their running work on it stops.",
+    "revoked": "Stopped sharing with {{name}}.",
+    "refs": {
+      "title": "Before you share",
+      "intro": "This uses other resources. Choose what the people you add get for each one.",
+      "label": "Access to {{name}}",
+      "choose": "Choose",
+      "pending": "Choose an option for every item above to share.",
+      "option": {
+        "view": "Can view",
+        "use": "Can use",
+        "none": "Do not share"
+      }
+    },
+    "roles": {
+      "owner": "Owner",
+      "use": "Can use",
+      "manage": "Can manage",
+      "viewer": "Viewer",
+      "editor": "Editor"
+    },
+    "roleHelp": {
+      "use": "Can open and run it.",
+      "manage": "Can also change it.",
+      "viewer": "Can read it.",
+      "editor": "Can read and change it."
+    },
+    "line": {
+      "sharedBy": "Shared by {{name}}",
+      "sharedEveryone": "Shared with everyone by {{name}}",
+      "sharedWith": "Shared with {{count}}",
+      "private": "Private"
+    },
+    "error": {
+      "withdrawn": "This page was closed.",
+      "auth": "Sign in again to share.",
+      "denied": "You can no longer share this. It may have been deleted.",
+      "unknown": "The change may not have been saved. Try again to be sure.",
+      "invalid": "The server refused this change.",
+      "network": "The server could not be reached.",
+      "unavailable": "Sharing did not answer. Try again in a moment.",
+      "generic": "Something went wrong."
+    }
   }
 }

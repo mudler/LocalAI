@@ -1,6 +1,8 @@
 import { API_CONFIG } from './config'
 import { apiUrl } from './basePath'
 import { chatsListPath } from './chatsQuery'
+import { addonsApi } from './addonsClient'
+import { createSharesApi } from './sharesApi'
 
 const enc = encodeURIComponent
 const userQ = (userId) => userId ? `?user_id=${enc(userId)}` : ''
@@ -1126,3 +1128,9 @@ export const diarizationApi = {
     return handleResponse(await fetch(apiUrl('/v1/audio/diarization'), { method: 'POST', body }))
   },
 }
+
+// Sharing of the resource kinds that are not add-ons (/api/shares). It goes
+// through the add-on client, so its errors have the same kinds as an add-on
+// grant call and the share dialog reads both alike. Pair it with
+// kindShareClient (components/share/shareClients.js) for the dialog.
+export const sharesApi = createSharesApi(addonsApi)

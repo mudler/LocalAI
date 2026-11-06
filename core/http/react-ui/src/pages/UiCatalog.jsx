@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import {
   Button, Callout, EmptyState, Notice, LoadError, Page, PageHeader, PaneLayout, SidePane,
@@ -6,6 +6,10 @@ import {
 } from '../components/ui'
 import { useToastAnchor } from '../components/Toast'
 import StatusPill from '../components/StatusPill'
+import ShareDialog from '../components/share/ShareDialog'
+import { SharedByBadge } from '../components/share/ShareBadges'
+import { kindShareClient } from '../components/share/shareClients'
+import { sharesApi } from '../utils/api'
 import './ui-catalog.css'
 
 // Every UI primitive in every state, on one page. It is the reference for
@@ -281,6 +285,54 @@ function Pane() {
   )
 }
 
+// The share dialog over the generic sharing routes, for a sample kind. The
+// e2e spec answers those routes itself (e2e/share-dialog.spec.js).
+const SHARE_KIND = 'example:note'
+const SHARE_RESOURCE = 'r0123456789abcdef0123456789abcde'
+const SHARE_ROLES = [
+  { id: 'use', label: 'Can use', help: 'People you add can open and run the note.' },
+  { id: 'manage', label: 'Can manage', help: 'People you add can also change the note.' },
+]
+const SHARE_REFS = [
+  { id: 'c1', label: 'Product docs', kind: 'Collection' },
+  { id: 'k1', label: 'Team chat', kind: 'Connection', options: ['use', 'none'] },
+]
+
+function Share() {
+  const [open, setOpen] = useState('')
+  const [choices, setChoices] = useState(null)
+  const client = useMemo(() => kindShareClient(sharesApi, SHARE_KIND, SHARE_RESOURCE), [])
+  return (
+    <Section id="share" title="Share dialog" note="One dialog for every shareable resource. The transport is a client of four calls; the dialog never names a route.">
+      <div className="ui-cat__cell">
+        <Button icon="users" onClick={() => setOpen('plain')} data-testid="cat-share-open">Share</Button>
+        <Button onClick={() => setOpen('local')} data-testid="cat-share-local">Local-owner mode</Button>
+        <Button onClick={() => setOpen('refs')} data-testid="cat-share-refs">With references</Button>
+      </div>
+      <h3 className="ui-cat__sub">The sharing line of a list row</h3>
+      <div className="ui-cat__cell" data-testid="cat-share-badges">
+        <SharedByBadge entry={{ role: 'owner', sharedWith: 2 }} testId="cat-shared-owned" />
+        <SharedByBadge entry={{ role: 'owner', sharedWith: 0 }} testId="cat-shared-private" />
+        <SharedByBadge entry={{ role: 'use', owner: 'Alice' }} testId="cat-shared-by" />
+        <SharedByBadge entry={{ role: 'manage', owner: 'Alice', everyone: true }} testId="cat-shared-everyone" />
+      </div>
+      {choices && <p className="ui-cat__note" data-testid="cat-share-choices">{JSON.stringify(choices)}</p>}
+      {open && (
+        <ShareDialog
+          client={client}
+          resource={{ id: SHARE_RESOURCE, name: 'Release notes' }}
+          roles={SHARE_ROLES}
+          allowEveryone
+          sharing={open !== 'local'}
+          references={open === 'refs' ? SHARE_REFS : undefined}
+          onShare={(c) => setChoices(c)}
+          close={() => setOpen('')}
+        />
+      )}
+    </Section>
+  )
+}
+
 export default function UiCatalog() {
   return (
     <Page className="ui-cat">
@@ -296,6 +348,7 @@ export default function UiCatalog() {
       <Loading />
       <Toasts />
       <Pane />
+      <Share />
     </Page>
   )
 }

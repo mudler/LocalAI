@@ -128,5 +128,78 @@
     "updateAvailable": "Update verfügbar",
     "ready": "Bereit",
     "noRunsYet": "Noch keine Läufe"
+  },
+  "share": {
+    "title": "„{{name}}“ teilen",
+    "untitled": "Ohne Namen",
+    "intro": "Personen, die Sie hinzufügen, sehen es in ihrer eigenen Liste.",
+    "disabled": {
+      "title": "Teilen ist nicht verfügbar",
+      "text": "Dieses LocalAI läuft für einen lokalen Besitzer, daher gibt es keine anderen Konten zum Teilen."
+    },
+    "add": "Personen hinzufügen",
+    "search": "Person nach Namen suchen",
+    "searchHint": "Geben Sie mindestens zwei Buchstaben eines Namens ein.",
+    "newRole": "Rolle für hinzugefügte Personen",
+    "searching": "Suche läuft",
+    "noResults": "Niemand passt.",
+    "alreadyShared": "Alle Treffer haben bereits Zugriff.",
+    "results": "Gefundene Personen",
+    "addPerson": "{{name}} als {{role}} hinzufügen",
+    "granted": "{{name}} hat jetzt Zugriff.",
+    "changed": "{{name}} ist jetzt {{role}}.",
+    "everyone": "Alle",
+    "everyoneHelp": "Jedes Konto dieses LocalAI, auch neue.",
+    "everyoneAdd": "Mit allen teilen",
+    "people": "Personen mit Zugriff",
+    "loading": "Zugriff wird geladen",
+    "none": "Nur Sie haben Zugriff.",
+    "unnamed": "Konto ohne Namen",
+    "roleOf": "Rolle von {{name}}",
+    "revoke": "Nicht mehr teilen",
+    "revokeAria": "Nicht mehr mit {{name}} teilen",
+    "revokeConfirm": "Nicht mehr mit {{name}} teilen? Laufende Arbeit daran wird beendet.",
+    "revoked": "Teilen mit {{name}} beendet.",
+    "refs": {
+      "title": "Vor dem Teilen",
+      "intro": "Dies nutzt andere Ressourcen. Wählen Sie für jede, was hinzugefügte Personen erhalten.",
+      "label": "Zugriff auf {{name}}",
+      "choose": "Auswählen",
+      "pending": "Wählen Sie für jeden Eintrag oben eine Option, um zu teilen.",
+      "option": {
+        "view": "Darf ansehen",
+        "use": "Darf nutzen",
+        "none": "Nicht teilen"
+      }
+    },
+    "roles": {
+      "owner": "Besitzer",
+      "use": "Darf nutzen",
+      "manage": "Darf verwalten",
+      "viewer": "Leser",
+      "editor": "Bearbeiter"
+    },
+    "roleHelp": {
+      "use": "Darf es öffnen und ausführen.",
+      "manage": "Darf es auch ändern.",
+      "viewer": "Darf es lesen.",
+      "editor": "Darf es lesen und ändern."
+    },
+    "line": {
+      "sharedBy": "Geteilt von {{name}}",
+      "sharedEveryone": "Von {{name}} mit allen geteilt",
+      "sharedWith": "Geteilt mit {{count}}",
+      "private": "Privat"
+    },
+    "error": {
+      "withdrawn": "Diese Seite wurde geschlossen.",
+      "auth": "Melden Sie sich erneut an, um zu teilen.",
+      "denied": "Sie können dies nicht mehr teilen. Es wurde eventuell gelöscht.",
+      "unknown": "Die Änderung wurde eventuell nicht gespeichert. Versuchen Sie es erneut, um sicherzugehen.",
+      "invalid": "Der Server hat diese Änderung abgelehnt.",
+      "network": "Der Server ist nicht erreichbar.",
+      "unavailable": "Teilen hat nicht geantwortet. Versuchen Sie es gleich noch einmal.",
+      "generic": "Etwas ist schiefgelaufen."
+    }
   }
 }

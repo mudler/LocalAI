@@ -128,5 +128,78 @@
     "updateAvailable": "Actualización disponible",
     "ready": "Listo",
     "noRunsYet": "Sin ejecuciones"
+  },
+  "share": {
+    "title": "Compartir \"{{name}}\"",
+    "untitled": "Sin nombre",
+    "intro": "Las personas que añadas lo verán en su propia lista.",
+    "disabled": {
+      "title": "Compartir no está disponible",
+      "text": "Este LocalAI funciona para un único propietario local, así que no hay otras cuentas con las que compartir."
+    },
+    "add": "Añadir personas",
+    "search": "Buscar una persona por nombre",
+    "searchHint": "Escribe al menos dos letras de un nombre.",
+    "newRole": "Rol para las personas que añadas",
+    "searching": "Buscando",
+    "noResults": "Nadie coincide.",
+    "alreadyShared": "Todas las coincidencias ya tienen acceso.",
+    "results": "Personas encontradas",
+    "addPerson": "Añadir a {{name}} como {{role}}",
+    "granted": "{{name}} ya tiene acceso.",
+    "changed": "{{name}} ahora es {{role}}.",
+    "everyone": "Todos",
+    "everyoneHelp": "Todas las cuentas de este LocalAI, incluidas las nuevas.",
+    "everyoneAdd": "Compartir con todos",
+    "people": "Personas con acceso",
+    "loading": "Cargando quién tiene acceso",
+    "none": "Solo tú tienes acceso.",
+    "unnamed": "Cuenta sin nombre",
+    "roleOf": "Rol de {{name}}",
+    "revoke": "Dejar de compartir",
+    "revokeAria": "Dejar de compartir con {{name}}",
+    "revokeConfirm": "¿Dejar de compartir con {{name}}? Su trabajo en curso se detiene.",
+    "revoked": "Se dejó de compartir con {{name}}.",
+    "refs": {
+      "title": "Antes de compartir",
+      "intro": "Esto usa otros recursos. Elige qué reciben las personas que añadas en cada uno.",
+      "label": "Acceso a {{name}}",
+      "choose": "Elegir",
+      "pending": "Elige una opción para cada elemento de arriba para compartir.",
+      "option": {
+        "view": "Puede ver",
+        "use": "Puede usar",
+        "none": "No compartir"
+      }
+    },
+    "roles": {
+      "owner": "Propietario",
+      "use": "Puede usar",
+      "manage": "Puede gestionar",
+      "viewer": "Lector",
+      "editor": "Editor"
+    },
+    "roleHelp": {
+      "use": "Puede abrirlo y ejecutarlo.",
+      "manage": "También puede cambiarlo.",
+      "viewer": "Puede leerlo.",
+      "editor": "Puede leerlo y cambiarlo."
+    },
+    "line": {
+      "sharedBy": "Compartido por {{name}}",
+      "sharedEveryone": "Compartido con todos por {{name}}",
+      "sharedWith": "Compartido con {{count}}",
+      "private": "Privado"
+    },
+    "error": {
+      "withdrawn": "Esta página se cerró.",
+      "auth": "Inicia sesión de nuevo para compartir.",
+      "denied": "Ya no puedes compartir esto. Puede que se haya eliminado.",
+      "unknown": "Puede que el cambio no se haya guardado. Inténtalo de nuevo para asegurarte.",
+      "invalid": "El servidor rechazó este cambio.",
+      "network": "No se pudo contactar con el servidor.",
+      "unavailable": "Compartir no respondió. Inténtalo de nuevo en un momento.",
+      "generic": "Algo salió mal."
+    }
   }
 }

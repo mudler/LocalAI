@@ -128,5 +128,78 @@
     "updateAvailable": "업데이트 있음",
     "ready": "준비됨",
     "noRunsYet": "실행 기록 없음"
+  },
+  "share": {
+    "title": "\"{{name}}\" 공유",
+    "untitled": "이름 없음",
+    "intro": "추가한 사람은 자신의 목록에서 볼 수 있습니다.",
+    "disabled": {
+      "title": "공유를 사용할 수 없습니다",
+      "text": "이 LocalAI는 로컬 소유자 한 명만 사용하므로 공유할 다른 계정이 없습니다."
+    },
+    "add": "사람 추가",
+    "search": "이름으로 사람 찾기",
+    "searchHint": "이름을 두 글자 이상 입력하세요.",
+    "newRole": "추가할 사람의 역할",
+    "searching": "검색 중",
+    "noResults": "일치하는 사람이 없습니다.",
+    "alreadyShared": "일치하는 모든 사람이 이미 액세스할 수 있습니다.",
+    "results": "찾은 사람",
+    "addPerson": "{{name}}을(를) {{role}}(으)로 추가",
+    "granted": "이제 {{name}}이(가) 액세스할 수 있습니다.",
+    "changed": "{{name}}은(는) 이제 {{role}}입니다.",
+    "everyone": "모든 사람",
+    "everyoneHelp": "새 계정을 포함한 이 LocalAI의 모든 계정입니다.",
+    "everyoneAdd": "모든 사람과 공유",
+    "people": "액세스 권한이 있는 사람",
+    "loading": "액세스 권한을 불러오는 중",
+    "none": "나만 액세스할 수 있습니다.",
+    "unnamed": "이름 없는 계정",
+    "roleOf": "{{name}}의 역할",
+    "revoke": "공유 중지",
+    "revokeAria": "{{name}}과(와) 공유 중지",
+    "revokeConfirm": "{{name}}과(와) 공유를 중지할까요? 진행 중인 작업이 멈춥니다.",
+    "revoked": "{{name}}과(와) 공유를 중지했습니다.",
+    "refs": {
+      "title": "공유하기 전에",
+      "intro": "다른 리소스를 사용합니다. 각 리소스에 대해 추가한 사람이 받을 권한을 선택하세요.",
+      "label": "{{name}}에 대한 액세스",
+      "choose": "선택",
+      "pending": "공유하려면 위의 모든 항목에 대해 옵션을 선택하세요.",
+      "option": {
+        "view": "보기 가능",
+        "use": "사용 가능",
+        "none": "공유 안 함"
+      }
+    },
+    "roles": {
+      "owner": "소유자",
+      "use": "사용 가능",
+      "manage": "관리 가능",
+      "viewer": "뷰어",
+      "editor": "편집자"
+    },
+    "roleHelp": {
+      "use": "열고 실행할 수 있습니다.",
+      "manage": "변경도 할 수 있습니다.",
+      "viewer": "읽을 수 있습니다.",
+      "editor": "읽고 변경할 수 있습니다."
+    },
+    "line": {
+      "sharedBy": "{{name}}님이 공유함",
+      "sharedEveryone": "{{name}}님이 모든 사람과 공유함",
+      "sharedWith": "{{count}}명과 공유됨",
+      "private": "비공개"
+    },
+    "error": {
+      "withdrawn": "이 페이지가 닫혔습니다.",
+      "auth": "공유하려면 다시 로그인하세요.",
+      "denied": "더 이상 공유할 수 없습니다. 삭제되었을 수 있습니다.",
+      "unknown": "변경 사항이 저장되지 않았을 수 있습니다. 확인하려면 다시 시도하세요.",
+      "invalid": "서버가 이 변경을 거부했습니다.",
+      "network": "서버에 연결할 수 없습니다.",
+      "unavailable": "공유가 응답하지 않았습니다. 잠시 후 다시 시도하세요.",
+      "generic": "문제가 발생했습니다."
+    }
   }
 }

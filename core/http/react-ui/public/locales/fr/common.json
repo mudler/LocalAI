@@ -129,5 +129,78 @@
     "updateAvailable": "Mise à jour disponible",
     "ready": "Prêt",
     "noRunsYet": "Aucune exécution"
+  },
+  "share": {
+    "title": "Partager « {{name}} »",
+    "untitled": "Sans nom",
+    "intro": "Les personnes que vous ajoutez le voient dans leur propre liste.",
+    "disabled": {
+      "title": "Le partage n'est pas disponible",
+      "text": "Ce LocalAI fonctionne pour un seul propriétaire local : il n'y a pas d'autres comptes avec qui partager."
+    },
+    "add": "Ajouter des personnes",
+    "search": "Chercher une personne par son nom",
+    "searchHint": "Saisissez au moins deux lettres d'un nom.",
+    "newRole": "Rôle des personnes ajoutées",
+    "searching": "Recherche en cours",
+    "noResults": "Personne ne correspond.",
+    "alreadyShared": "Toutes les personnes trouvées ont déjà accès.",
+    "results": "Personnes trouvées",
+    "addPerson": "Ajouter {{name}} comme {{role}}",
+    "granted": "{{name}} a maintenant accès.",
+    "changed": "{{name}} est maintenant {{role}}.",
+    "everyone": "Tout le monde",
+    "everyoneHelp": "Tous les comptes de ce LocalAI, y compris les nouveaux.",
+    "everyoneAdd": "Partager avec tout le monde",
+    "people": "Personnes ayant accès",
+    "loading": "Chargement des accès",
+    "none": "Vous seul y avez accès.",
+    "unnamed": "Compte sans nom",
+    "roleOf": "Rôle de {{name}}",
+    "revoke": "Arrêter le partage",
+    "revokeAria": "Arrêter le partage avec {{name}}",
+    "revokeConfirm": "Arrêter le partage avec {{name}} ? Son travail en cours s'arrête.",
+    "revoked": "Partage avec {{name}} arrêté.",
+    "refs": {
+      "title": "Avant de partager",
+      "intro": "Ceci utilise d'autres ressources. Choisissez ce que reçoivent les personnes ajoutées pour chacune.",
+      "label": "Accès à {{name}}",
+      "choose": "Choisir",
+      "pending": "Choisissez une option pour chaque élément ci-dessus pour partager.",
+      "option": {
+        "view": "Peut voir",
+        "use": "Peut utiliser",
+        "none": "Ne pas partager"
+      }
+    },
+    "roles": {
+      "owner": "Propriétaire",
+      "use": "Peut utiliser",
+      "manage": "Peut gérer",
+      "viewer": "Lecteur",
+      "editor": "Éditeur"
+    },
+    "roleHelp": {
+      "use": "Peut l'ouvrir et l'exécuter.",
+      "manage": "Peut aussi le modifier.",
+      "viewer": "Peut le lire.",
+      "editor": "Peut le lire et le modifier."
+    },
+    "line": {
+      "sharedBy": "Partagé par {{name}}",
+      "sharedEveryone": "Partagé avec tout le monde par {{name}}",
+      "sharedWith": "Partagé avec {{count}}",
+      "private": "Privé"
+    },
+    "error": {
+      "withdrawn": "Cette page a été fermée.",
+      "auth": "Reconnectez-vous pour partager.",
+      "denied": "Vous ne pouvez plus partager ceci. Il a peut-être été supprimé.",
+      "unknown": "La modification n'a peut-être pas été enregistrée. Réessayez pour en être sûr.",
+      "invalid": "Le serveur a refusé cette modification.",
+      "network": "Impossible de joindre le serveur.",
+      "unavailable": "Le partage n'a pas répondu. Réessayez dans un instant.",
+      "generic": "Une erreur s'est produite."
+    }
   }
 }

@@ -128,5 +128,78 @@
     "updateAvailable": "有可用更新",
     "ready": "就绪",
     "noRunsYet": "尚无运行"
+  },
+  "share": {
+    "title": "共享“{{name}}”",
+    "untitled": "未命名",
+    "intro": "你添加的人会在自己的列表中看到它。",
+    "disabled": {
+      "title": "无法共享",
+      "text": "此 LocalAI 只供一位本地所有者使用，因此没有其他账户可以共享。"
+    },
+    "add": "添加人员",
+    "search": "按名称查找人员",
+    "searchHint": "请输入名称的至少两个字母。",
+    "newRole": "所添加人员的角色",
+    "searching": "正在搜索",
+    "noResults": "没有匹配的人。",
+    "alreadyShared": "所有匹配的人都已有访问权限。",
+    "results": "找到的人员",
+    "addPerson": "将 {{name}} 添加为 {{role}}",
+    "granted": "{{name}} 现在可以访问。",
+    "changed": "{{name}} 现在是 {{role}}。",
+    "everyone": "所有人",
+    "everyoneHelp": "此 LocalAI 上的每个账户，包括新账户。",
+    "everyoneAdd": "与所有人共享",
+    "people": "有访问权限的人员",
+    "loading": "正在加载访问权限",
+    "none": "只有你可以访问。",
+    "unnamed": "未命名账户",
+    "roleOf": "{{name}} 的角色",
+    "revoke": "停止共享",
+    "revokeAria": "停止与 {{name}} 共享",
+    "revokeConfirm": "停止与 {{name}} 共享？其正在进行的工作会停止。",
+    "revoked": "已停止与 {{name}} 共享。",
+    "refs": {
+      "title": "共享之前",
+      "intro": "这会用到其他资源。请为每个资源选择所添加人员获得的权限。",
+      "label": "对 {{name}} 的访问",
+      "choose": "请选择",
+      "pending": "请为上面的每一项选择一个选项后再共享。",
+      "option": {
+        "view": "可以查看",
+        "use": "可以使用",
+        "none": "不共享"
+      }
+    },
+    "roles": {
+      "owner": "所有者",
+      "use": "可以使用",
+      "manage": "可以管理",
+      "viewer": "查看者",
+      "editor": "编辑者"
+    },
+    "roleHelp": {
+      "use": "可以打开并运行。",
+      "manage": "还可以修改。",
+      "viewer": "可以读取。",
+      "editor": "可以读取和修改。"
+    },
+    "line": {
+      "sharedBy": "由 {{name}} 共享",
+      "sharedEveryone": "由 {{name}} 与所有人共享",
+      "sharedWith": "已与 {{count}} 人共享",
+      "private": "私有"
+    },
+    "error": {
+      "withdrawn": "此页面已关闭。",
+      "auth": "请重新登录后再共享。",
+      "denied": "你已无法共享此项。它可能已被删除。",
+      "unknown": "更改可能未保存。请重试以确认。",
+      "invalid": "服务器拒绝了此更改。",
+      "network": "无法连接到服务器。",
+      "unavailable": "共享没有响应。请稍后重试。",
+      "generic": "出现问题。"
+    }
   }
 }
