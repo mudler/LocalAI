@@ -3985,7 +3985,7 @@ Mutation MCP tools remain deliberately unavailable. The later MCP integration de
 safe listing/status tools for proposals; prompt text cannot authorize mutation and no tool
 confirms a proposal. For that reason `/api/addons/dispatch`, `/api/addons/relay` and the
 proposal routes are deliberately not mapped in the LocalAI Assistant tool catalog
-(`pkg/mcp/localaitools`) yet. The route map test only
+(`core/services/localaitools`) yet. The route map test only
 requires an entry for each registered tool, so no test is weakened. The routes are described
 in the generated Swagger document under the `Addons` tag.
 

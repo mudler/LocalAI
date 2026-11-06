@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/schema"
-	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
+	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 )
 
 // fakeLocalAI is a minimal HTTP server that mimics the relevant LocalAI

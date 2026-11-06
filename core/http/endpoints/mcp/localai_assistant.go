@@ -8,7 +8,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/mudler/xlog"
 
-	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
+	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 )
 
 // LocalAIAssistantHolder owns the process-wide in-memory MCP server that

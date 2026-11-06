@@ -10,8 +10,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
-	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
-	"github.com/mudler/LocalAI/pkg/mcp/localaitools/httpapi"
+	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
+	"github.com/mudler/LocalAI/core/services/localaitools/httpapi"
 )
 
 // MCPServerCMD runs the LocalAI admin tool surface as a stdio MCP server,
