@@ -130,11 +130,6 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 			return nil, fmt.Errorf("nib: model client: %w", err)
 		}
 		llm, model, agentOpts = m.LLM, m.Name, m.Agent
-		hostNames := make([]string, len(hostTools))
-		for i, t := range hostTools {
-			hostNames[i] = t.Name
-		}
-		llm = withAliases(llm, hostNames)
 		if m.ContextTokens > 0 {
 			ctxTokens = m.ContextTokens
 		}
@@ -300,12 +295,12 @@ func (h *hsession) baseCallbacks() chat.Callbacks {
 		},
 		OnToolStart: func(ts chat.ToolStart) {
 			h.emit(session.Event{Kind: session.KindToolStart, Tool: &session.ToolEvent{
-				Name: hostName(ts.Name), Summary: session.Summarize(json.RawMessage(ts.Arguments)),
+				Name: ts.Name, Summary: session.Summarize(json.RawMessage(ts.Arguments)),
 			}})
 		},
 		OnToolResult: func(r chat.ToolResult) {
 			h.emit(session.Event{Kind: session.KindToolEnd, Tool: &session.ToolEvent{
-				Name: hostName(r.Name), Summary: session.Summarize(json.RawMessage(r.Arguments)),
+				Name: r.Name, Summary: session.Summarize(json.RawMessage(r.Arguments)),
 				OK: toolOK(r), Output: session.CapText(r.Result, 2048),
 			}})
 		},

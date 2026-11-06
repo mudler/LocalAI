@@ -962,8 +962,8 @@ github.com/msuozzo/bonsai/bonsai-typescript v0.4.0 h1:BD6JHfCs3rGNUttL+tMnz/iav1
 github.com/msuozzo/bonsai/bonsai-typescript v0.4.0/go.mod h1:DElq3FKqbTkJXcat1o8m98ijL3wUf+jW+DNInzh5Mgo=
 github.com/msuozzo/bonsai/bonsai-yaml v0.4.0 h1:PJfyfjMQrcWU5e3ib0xGsVuOafNuimf5fK0NhTk8olU=
 github.com/msuozzo/bonsai/bonsai-yaml v0.4.0/go.mod h1:z8jc0tjXDSOQRKRG0G3uymvVxHdBbrVsWd149nPOyHE=
-github.com/mudler/cogito v0.11.1-0.20261102210640-d6e79113568b h1:b0+kDvBnDrqvLw56zgiM3YT+cqFtTNJWyhuSFQR7eBc=
-github.com/mudler/cogito v0.11.1-0.20261102210640-d6e79113568b/go.mod h1:UxGNMBRakV0A2uVHv2JQIHjpnVPkEWFaS7SDhyynZqQ=
+github.com/mudler/cogito v0.11.1-0.20261106211749-0fc4e5761794 h1:4UEk4FZl8SaXfh9gG+484sING9K6Ex4cCN+q/VaeEMg=
+github.com/mudler/cogito v0.11.1-0.20261106211749-0fc4e5761794/go.mod h1:UxGNMBRakV0A2uVHv2JQIHjpnVPkEWFaS7SDhyynZqQ=
 github.com/mudler/edgevpn v0.34.0 h1:qDrD/rCPFY/FdURbXudIZWihVKY4VOX3nMn3CcbeQEU=
 github.com/mudler/edgevpn v0.34.0/go.mod h1:yki7uMi5LR9gSMrw8PdPieuxsrk8BLV2Ui7VBEmbbIA=
 github.com/mudler/go-piper v0.0.0-20241023091659-2494246fd9fc h1:RxwneJl1VgvikiX28EkpdAyL4yQVnJMrbquKospjHyA=
@@ -974,14 +974,8 @@ github.com/mudler/localrecall v0.6.7-0.20261012155221-88432ad54488 h1:GJaZ5gmSuR
 github.com/mudler/localrecall v0.6.7-0.20261012155221-88432ad54488/go.mod h1:MRyhZMDZOBn1zmTmpVNB0F4Qjjx1tn9fK5CIWH6PyEA=
 github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8 h1:Ry8RiWy8fZ6Ff4E7dPmjRsBrnHOnPeOOj2LhCgyjQu0=
 github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8/go.mod h1:EA8Ashhd56o32qN7ouPKFSRUs/Z+LrRCF4v6R2Oarm8=
-github.com/mudler/nib v0.15.3-0.20261106162616-4825c9efabb3 h1:zObOHidBpX/Ay6mhtNyy8y1eTvm4asoJOuyTBCPCP70=
-github.com/mudler/nib v0.15.3-0.20261106162616-4825c9efabb3/go.mod h1:bxi5o61xeku4+7RjweM6Dlk5nkIWv9zLob6E2XxNJwQ=
-github.com/mudler/nib v0.15.3-0.20261106202525-c191dfc1ee67 h1:L9Lnnqc+GRi1HLkoQg3k9eokNrCYoLPY7Q/zRgT2Vxk=
-github.com/mudler/nib v0.15.3-0.20261106202525-c191dfc1ee67/go.mod h1:bxi5o61xeku4+7RjweM6Dlk5nkIWv9zLob6E2XxNJwQ=
-github.com/mudler/nib v0.15.3-0.20261106202829-4173baba37fe h1:OAbpxa/f8uYpkezYZArIdLNcsce3GkR7kDbovPzkSOE=
-github.com/mudler/nib v0.15.3-0.20261106202829-4173baba37fe/go.mod h1:bxi5o61xeku4+7RjweM6Dlk5nkIWv9zLob6E2XxNJwQ=
-github.com/mudler/nib v0.15.3-0.20261106203112-07e9832eaeba h1:nHJN0C+P1zsXF2WNUs9wArnZsR+BOhhKF8CzJE10R7M=
-github.com/mudler/nib v0.15.3-0.20261106203112-07e9832eaeba/go.mod h1:bxi5o61xeku4+7RjweM6Dlk5nkIWv9zLob6E2XxNJwQ=
+github.com/mudler/nib v0.15.3-0.20261106212148-c41fec8c69b8 h1:xU2dtGIT4/RfqW21lZixhK21b8k2ERAnxawcj+xCu8Y=
+github.com/mudler/nib v0.15.3-0.20261106212148-c41fec8c69b8/go.mod h1:2uI8jTciHysI7SyJLITnCxC101dffJFeZwxJzV1JBBo=
 github.com/mudler/water v0.0.0-20250808092830-dd90dcf09025 h1:WFLP5FHInarYGXi6B/Ze204x7Xy6q/I4nCZnWEyPHK0=
 github.com/mudler/water v0.0.0-20250808092830-dd90dcf09025/go.mod h1:QuIFdRstyGJt+MTTkWY+mtD7U6xwjOR6SwKUjmLZtR4=
 github.com/mudler/xlog v0.0.6 h1:3nBV4THK8kY0Y8FDXXvWAnuAJoOyO7EAXteJeAoHUC0=

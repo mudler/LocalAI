@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -13,35 +12,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
-
-// cogitoAgentTools are the names of the agent tools of the tool loop library
-// under nib. It reserves them: an MCP tool of one of these names is not offered
-// to the model, even when nib's own agent tool is off. A host tool of such a
-// name is therefore served as "studio_<name>" (see wireName), hidden from the
-// model by the alias layer, and called by its own name. The other built-ins of
-// nib need no alias: a tool of the host replaces a built-in (chat.HostTransport).
-var cogitoAgentTools = map[string]bool{
-	"spawn_agent": true, "check_agent": true, "get_agent_result": true, "send_agent_message": true,
-}
-
-// wireNamePrefix marks a host tool whose name the tool loop reserves.
-const wireNamePrefix = "studio_"
-
-// wireName is the name of a host tool as nib sees it.
-func wireName(name string) string {
-	if cogitoAgentTools[name] {
-		return wireNamePrefix + name
-	}
-	return name
-}
-
-// hostName is the inverse of wireName, for the events of a finished call.
-func hostName(wire string) string {
-	if orig := wire[min(len(wireNamePrefix), len(wire)):]; strings.HasPrefix(wire, wireNamePrefix) && cogitoAgentTools[orig] {
-		return orig
-	}
-	return wire
-}
 
 // toolServer serves the session's tools over an in-memory MCP transport.
 type toolServer struct {
@@ -64,7 +34,7 @@ func newToolServer(tools []session.Tool) (*toolServer, mcp.Transport, error) {
 			return nil, nil, fmt.Errorf("nib: tool %q: bad schema: %w", tl.Name, err)
 		}
 		run := tl.Run
-		srv.AddTool(&mcp.Tool{Name: wireName(tl.Name), Description: tl.Description, InputSchema: schema},
+		srv.AddTool(&mcp.Tool{Name: tl.Name, Description: tl.Description, InputSchema: schema},
 			func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 				out, err := run(ctx, req.Params.Arguments)
 				if err != nil {
