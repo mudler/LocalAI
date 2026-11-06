@@ -51,6 +51,9 @@ codesign --verify --deep --strict --verbose=2 /Applications/LocalAI.app
 
 ## Next Steps
 
+For Linux containers on Apple Silicon, see the [experimental VirtGPU build guide]({{% relref "getting-started/virtgpu" %}}).
+It covers the APIR host requirements and a custom LocalAI guest image.
+
 After installing LocalAI, you can:
 
 - Access the WebUI at `http://localhost:8080`
