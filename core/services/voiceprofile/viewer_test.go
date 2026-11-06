@@ -86,7 +86,7 @@ var _ = Describe("Viewer", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(paths).To(HaveLen(1))
 		release()
-		_, paths, release, err = store.LeaseAudiosFor(ctx, admin, theirs.ID)
+		_, _, release, err = store.LeaseAudiosFor(ctx, admin, theirs.ID)
 		Expect(err).NotTo(HaveOccurred())
 		release()
 	})
