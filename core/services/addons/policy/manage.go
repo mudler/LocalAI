@@ -40,7 +40,7 @@ func (p *Policy) Listing(ctx context.Context, actor contract.Actor, addonID stri
 	defer p.store.mu.Unlock()
 	var out []ResourceView
 	for id, r := range p.store.doc.Resources {
-		if r.State != stateActive || r.AddonID != addonID {
+		if r.State != stateActive || r.Kind != addonKind(addonID) {
 			continue
 		}
 		role := p.role(actor, *r)
@@ -65,7 +65,7 @@ func (p *Policy) RoleOf(ctx context.Context, actor contract.Actor, key ResourceK
 		return "", err
 	}
 	r, ok := p.store.get(key.ResourceID)
-	if !ok || r.State != stateActive || r.AddonID != key.AddonID || key.AddonID == "" {
+	if !ok || r.State != stateActive || r.Kind != addonKind(key.AddonID) || key.AddonID == "" {
 		return "", ErrForbidden
 	}
 	role := p.role(actor, r)
@@ -100,7 +100,7 @@ func (p *Policy) Grants(ctx context.Context, actor contract.Actor, key ResourceK
 // missing resource and a forbidden one have the same answer there.
 func (p *Policy) Key(resourceID string) (ResourceKey, bool) {
 	r, ok := p.store.get(resourceID)
-	if !ok || resourceID == "" {
+	if _, addon := addonOf(r.Kind); !ok || resourceID == "" || !addon {
 		return ResourceKey{}, false
 	}
 	return ResourceKey{AddonID: r.AddonID, ResourceID: resourceID}, true
@@ -110,7 +110,7 @@ func (p *Policy) Key(resourceID string) (ResourceKey, bool) {
 // own listing. It denies like RoleOf.
 func (p *Policy) OwnerOf(key ResourceKey) (string, bool) {
 	r, ok := p.store.get(key.ResourceID)
-	if !ok || r.AddonID != key.AddonID {
+	if !ok || r.Kind != addonKind(key.AddonID) {
 		return "", false
 	}
 	return r.Owner, true
@@ -155,7 +155,7 @@ func (p *Policy) CreateWithID(ctx context.Context, actor contract.Actor, addonID
 	state := ""
 	err := p.store.mutate(func(d *document) error {
 		if r := d.Resources[id]; r != nil {
-			if r.AddonID != addonID || r.Owner != owner || r.CreateRef != ref {
+			if r.Kind != addonKind(addonID) || r.Owner != owner || r.CreateRef != ref {
 				return ErrForbidden
 			}
 			state = r.State
@@ -176,7 +176,7 @@ func (p *Policy) CreateWithID(ctx context.Context, actor contract.Actor, addonID
 		if pending >= p.opts.MaxPendingPerUser || owned >= p.opts.MaxResourcesPerUser || len(d.Resources) >= p.opts.MaxResources {
 			return ErrQuota
 		}
-		d.Resources[id] = &record{AddonID: addonID, Owner: owner, State: statePend, Grants: map[string]Role{}, CreateRef: ref}
+		d.Resources[id] = &record{Kind: addonKind(addonID), AddonID: addonID, Owner: owner, State: statePend, Grants: map[string]Role{}, CreateRef: ref}
 		state = statePend
 		return nil
 	})
@@ -256,7 +256,7 @@ func (p *Policy) BeginDelete(ctx context.Context, actor contract.Actor, key Reso
 	g := p.gate(key.ResourceID)
 	g.mu.Lock()
 	r, ok := p.store.get(key.ResourceID)
-	if !ok || r.AddonID != key.AddonID || key.AddonID == "" || (r.State != stateActive && r.State != stateDeleting) {
+	if !ok || r.Kind != addonKind(key.AddonID) || key.AddonID == "" || (r.State != stateActive && r.State != stateDeleting) {
 		g.mu.Unlock()
 		return ErrForbidden
 	}
@@ -303,7 +303,7 @@ func (p *Policy) BeginDelete(ctx context.Context, actor contract.Actor, key Reso
 func (p *Policy) ConfirmDelete(key ResourceKey) error {
 	return p.store.mutate(func(d *document) error {
 		r := d.Resources[key.ResourceID]
-		if r == nil || r.State != stateDeleting || r.AddonID != key.AddonID || r.Delete == nil {
+		if r == nil || r.State != stateDeleting || r.Kind != addonKind(key.AddonID) || r.Delete == nil {
 			return ErrForbidden
 		}
 		r.Delete.Confirmed = true
@@ -317,7 +317,7 @@ func (p *Policy) ConfirmDelete(key ResourceKey) error {
 func (p *Policy) AbortDelete(key ResourceKey) error {
 	return p.store.mutate(func(d *document) error {
 		r := d.Resources[key.ResourceID]
-		if r == nil || r.State != stateDeleting || r.AddonID != key.AddonID || r.Delete == nil {
+		if r == nil || r.State != stateDeleting || r.Kind != addonKind(key.AddonID) || r.Delete == nil {
 			return ErrForbidden
 		}
 		r.State = stateActive
@@ -335,7 +335,7 @@ func (p *Policy) FinishDelete(key ResourceKey) error {
 		if r == nil {
 			return nil
 		}
-		if r.State != stateDeleting || r.AddonID != key.AddonID || r.Delete == nil || !r.Delete.Confirmed {
+		if r.State != stateDeleting || r.Kind != addonKind(key.AddonID) || r.Delete == nil || !r.Delete.Confirmed {
 			return ErrForbidden
 		}
 		if d.Deleted == nil {
@@ -350,7 +350,7 @@ func (p *Policy) FinishDelete(key ResourceKey) error {
 			}
 			delete(d.Deleted, oldest)
 		}
-		d.Deleted[key.ResourceID] = &tombstone{AddonID: r.AddonID, Owner: r.Owner, Op: r.Delete.Op, At: time.Now().UTC()}
+		d.Deleted[key.ResourceID] = &tombstone{Kind: r.Kind, AddonID: r.AddonID, Owner: r.Owner, Op: r.Delete.Op, At: time.Now().UTC()}
 		delete(d.Resources, key.ResourceID)
 		return nil
 	})

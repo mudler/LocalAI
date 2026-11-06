@@ -26,10 +26,14 @@ const (
 	stateDeleting = "deleting"
 )
 
-// record is the host's binding of an opaque resource ID to the trusted addon
-// identity and the immutable owner. Grants never include the owner.
+// record is the host's binding of an opaque resource ID to a resource kind and
+// the immutable owner. Grants never include the owner. For an add-on kind the
+// trusted add-on identity is also kept in AddonID; other kinds leave it empty.
 type record struct {
-	AddonID string          `json:"addonId"`
+	// Kind names what the resource is. It selects the role table, see
+	// RegisterKind. An add-on resource has the kind "addon:<addonID>".
+	Kind    string          `json:"kind"`
+	AddonID string          `json:"addonId,omitempty"`
 	Owner   string          `json:"owner"`
 	State   string          `json:"state"`
 	Grants  map[string]Role `json:"grants,omitempty"`
@@ -97,7 +101,8 @@ func (r *record) copy() *record {
 // its owner to learn that a deletion that was reported as unknown did happen.
 // It names no data and grants nothing. The newest MaxTombstones are kept.
 type tombstone struct {
-	AddonID string    `json:"addonId"`
+	Kind    string    `json:"kind"`
+	AddonID string    `json:"addonId,omitempty"`
 	Owner   string    `json:"owner"`
 	Op      string    `json:"op"`
 	At      time.Time `json:"at"`
@@ -111,7 +116,10 @@ const MaxTombstones = 1024
 // from a backup older than the lowering applies it again, so restoring never
 // gives back access that was taken away.
 type revocation struct {
-	AddonID    string    `json:"addonId"`
+	Kind string `json:"kind"`
+	// AddonID is read only from a log written before kinds existed. Load moves
+	// it into Kind and clears it.
+	AddonID    string    `json:"addonId,omitempty"`
 	ResourceID string    `json:"resourceId"`
 	UserID     string    `json:"userId"`
 	Ceiling    Role      `json:"ceiling,omitempty"`
@@ -147,7 +155,7 @@ func (r revocation) rank() int {
 func (d *document) addRevocation(v revocation) {
 	kept := d.Revoked[:0:0]
 	for _, o := range d.Revoked {
-		if o.AddonID == v.AddonID && o.ResourceID == v.ResourceID && o.UserID == v.UserID && !o.At.After(v.At) && v.rank() <= o.rank() {
+		if o.Kind == v.Kind && o.ResourceID == v.ResourceID && o.UserID == v.UserID && !o.At.After(v.At) && v.rank() <= o.rank() {
 			continue
 		}
 		kept = append(kept, o)
@@ -173,6 +181,9 @@ type document struct {
 	// from Revoked for lack of room. A restore from a backup made before it
 	// cannot tell what was lowered since.
 	RevokedFloor time.Time `json:"revokedFloor,omitempty"`
+	// migrated is set by load when it filled in kinds a store written before
+	// kinds existed did not have, so OpenStore writes the new form back.
+	migrated bool
 }
 
 func (d *document) clone() *document {
@@ -189,6 +200,7 @@ func (d *document) clone() *document {
 	}
 	c.Revoked = append([]revocation(nil), d.Revoked...)
 	c.RevokedFloor = d.RevokedFloor
+	c.migrated = d.migrated
 	return c
 }
 
@@ -258,8 +270,9 @@ func load(dir string) (*document, error) {
 	if len(d.Revoked) > MaxRevocations {
 		return nil, errors.New("addon policy store is corrupt")
 	}
+	d.migrateKinds()
 	for _, v := range d.Revoked {
-		if v.AddonID == "" || v.ResourceID == "" || v.UserID == "" || (v.Ceiling != "" && v.Ceiling != RoleViewer && v.Ceiling != RoleEditor) {
+		if v.Kind == "" || v.ResourceID == "" || v.UserID == "" || (v.Ceiling != "" && v.Ceiling != RoleViewer && v.Ceiling != RoleEditor) {
 			return nil, errors.New("addon policy store is corrupt")
 		}
 	}
@@ -273,12 +286,12 @@ func load(dir string) (*document, error) {
 		}
 	}
 	for id, t := range d.Deleted {
-		if id == "" || t == nil || t.AddonID == "" || t.Owner == "" || t.Op == "" {
+		if id == "" || t == nil || t.Kind == "" || t.Owner == "" || t.Op == "" {
 			return nil, errors.New("addon policy store is corrupt")
 		}
 	}
 	for _, r := range d.Resources {
-		if r == nil || r.AddonID == "" || r.Owner == "" || (r.State != stateActive && r.State != statePend && r.State != stateDeleting) || (r.State == stateDeleting) != (r.Delete != nil) {
+		if r == nil || r.Kind == "" || r.Owner == "" || !kindMatchesAddon(r.Kind, r.AddonID) || (r.State != stateActive && r.State != statePend && r.State != stateDeleting) || (r.State == stateDeleting) != (r.Delete != nil) {
 			return nil, errors.New("addon policy store is corrupt")
 		}
 		for u, role := range r.Grants {
@@ -293,6 +306,38 @@ func load(dir string) (*document, error) {
 		}
 	}
 	return d, nil
+}
+
+// migrateKinds gives what a store written before kinds existed the kind of an
+// add-on resource. Every such entry names its add-on, and the add-on kind is
+// derived from it, so nothing a person was granted or lost changes. An entry
+// that has neither is left as it is and fails the check in load.
+func (d *document) migrateKinds() {
+	for _, r := range d.Resources {
+		if r != nil && r.Kind == "" && r.AddonID != "" {
+			r.Kind = addonKind(r.AddonID)
+			d.migrated = true
+		}
+	}
+	for _, t := range d.Deleted {
+		if t != nil && t.Kind == "" && t.AddonID != "" {
+			t.Kind = addonKind(t.AddonID)
+			d.migrated = true
+		}
+	}
+	for i := range d.Revoked {
+		v := &d.Revoked[i]
+		if v.Kind == "" && v.AddonID != "" {
+			v.Kind = addonKind(v.AddonID)
+			d.migrated = true
+		}
+		// The kind is the identity; keeping the old field too would give the
+		// entry two sources of truth.
+		if v.AddonID != "" {
+			v.AddonID = ""
+			d.migrated = true
+		}
+	}
 }
 
 // save reports renamed when the new file is already in place, so a failure
@@ -332,8 +377,12 @@ func OpenStore(dir string, mode Mode) (*Store, error) {
 			err = ErrMigrationRequired
 		} else {
 			d.Mode = mode
-			_, err = save(dir, d)
+			d.migrated = true
 		}
+	}
+	if err == nil && d.migrated {
+		_, err = save(dir, d)
+		d.migrated = false
 	}
 	if err != nil {
 		_ = lock.Close()
