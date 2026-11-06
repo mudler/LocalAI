@@ -65,6 +65,21 @@ func say(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.To
 
 func (r *loopRig) pass() { Expect(r.host.Pass(context.Background())).To(Succeed()) }
 
+// fire moves the clock on by d and passes until the host has taken the next
+// run of the loop, then waits for that run to end. A pass can skip a due loop
+// whose chat is not free at that moment, and the host tries again at the next
+// pass; a loop that is skipped looks the same as one whose run has ended, so a
+// test that expects a run waits for the run to start, not for a quiet loop.
+func (r *loopRig) fire(id string, d time.Duration) loops.Loop {
+	before := r.get(id).Runs
+	r.sh.clock.Advance(d)
+	until("the host to take a run of the loop", func() bool {
+		r.pass()
+		return r.get(id).Runs > before
+	})
+	return r.settled(id)
+}
+
 // start starts a loop and confirms it when it waits for a yes.
 func (r *loopRig) start(chat, interval, prompt string) loops.Loop {
 	l, err := r.host.Start(context.Background(), alice, chat, studio.LoopInput{Interval: interval, Prompt: prompt})

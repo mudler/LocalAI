@@ -49,9 +49,7 @@ var _ = Describe("a foreground sub-agent that arms a loop", func() {
 		Expect(list).To(HaveLen(1))
 
 		// The loop runs, the child ends, and the parent hears of it.
-		r.sh.clock.Advance(2 * time.Minute)
-		r.pass()
-		r.settled(list[0].ID)
+		r.fire(list[0].ID, 2*time.Minute)
 		Expect(r.get(list[0].ID).State).To(Equal(loops.StateEnded))
 		until("the result to reach the parent", func() bool {
 			for _, t := range r.h.Sent(parent) {

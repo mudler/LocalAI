@@ -69,9 +69,7 @@ var _ = Describe("loops of agents and sub-agents", func() {
 
 			// The run of the loop has the other two tools.
 			list, _ := r.host.List(ctx, alice, rec.ID)
-			r.sh.clock.Advance(2 * time.Minute)
-			r.pass()
-			r.settled(list[0].ID)
+			r.fire(list[0].ID, 2*time.Minute)
 			Expect(r.h.ToolNames(rec.ID)).To(ContainElements("schedule_next", "loop_done"))
 		})
 
@@ -93,9 +91,7 @@ var _ = Describe("loops of agents and sub-agents", func() {
 				Expect(err).To(MatchError(studio.ErrLoopChat))
 
 				id := list[0].ID
-				r.sh.clock.Advance(time.Minute * 2)
-				r.pass()
-				Expect(r.settled(id).Runs).To(Equal(1), "the loop of a system run runs")
+				Expect(r.fire(id, 2*time.Minute).Runs).To(Equal(1), "the loop of a system run runs")
 			})
 		}
 
@@ -170,6 +166,9 @@ var _ = Describe("loops of agents and sub-agents", func() {
 				list, _ := r.host.List(ctx, alice, subs[0].Chat.ID)
 				return len(list) == 1
 			})
+			// The loop is armed inside the child's first turn. Wait for that
+			// turn to end: a loop whose chat still runs a turn is skipped.
+			idle(r.svc, alice, child().Chat.ID)
 			list, err := r.host.List(ctx, alice, child().Chat.ID)
 			Expect(err).NotTo(HaveOccurred())
 			return list[0]
@@ -188,18 +187,14 @@ var _ = Describe("loops of agents and sub-agents", func() {
 			Consistently(reported, 300*time.Millisecond).Should(BeFalse())
 
 			// First run: it asks for another, the child is still not done.
-			r.sh.clock.Advance(time.Minute)
-			r.pass()
-			r.settled(l.ID)
+			r.fire(l.ID, time.Minute)
 			Expect(r.h.ToolNames(child().Chat.ID)).To(ContainElements("schedule_next", "loop_done"))
 			Expect(r.h.ToolNames(child().Chat.ID)).NotTo(ContainElement("start_loop"))
 			Expect(child().Turn.Running).To(BeTrue())
 			Consistently(reported, 300*time.Millisecond).Should(BeFalse())
 
 			// Second run: loop_done. The parent gets the last result.
-			r.sh.clock.Advance(time.Minute)
-			r.pass()
-			r.settled(l.ID)
+			r.fire(l.ID, time.Minute)
 			Eventually(reported, 10*time.Second, 10*time.Millisecond).Should(BeTrue())
 			Expect(child().Turn.Running).To(BeFalse())
 			var msg string
@@ -220,9 +215,7 @@ var _ = Describe("loops of agents and sub-agents", func() {
 			}, studio.LoopOptions{Limits: func() studio.LoopLimits { return studio.LoopLimits{MaxRuns: 2} }})
 			l := armed()
 			for range 2 {
-				r.sh.clock.Advance(time.Minute)
-				r.pass()
-				r.settled(l.ID)
+				r.fire(l.ID, time.Minute)
 			}
 			Eventually(reported, 10*time.Second, 10*time.Millisecond).Should(BeTrue())
 			Expect(r.get(l.ID).Reason).To(ContainSubstring("2 runs"))
@@ -307,7 +300,7 @@ var _ = Describe("loops of agents and sub-agents", func() {
 				return n == 4
 			})
 			for _, s := range subs {
-				Expect(turn(r.svc, alice, s.Chat.ID).Last).NotTo(BeEmpty())
+				idle(r.svc, alice, s.Chat.ID)
 			}
 			subs, _ = r.svc.SubAgents(ctx, alice, parent)
 			for _, s := range subs {
@@ -355,9 +348,7 @@ var _ = Describe("loops of agents and sub-agents", func() {
 			}, studio.LoopOptions{})
 			l := armed()
 			for range 3 {
-				r.sh.clock.Advance(time.Minute)
-				r.pass()
-				l = r.settled(l.ID)
+				l = r.fire(l.ID, time.Minute)
 				Expect(child().Turn.Running).To(Equal(l.State == loops.StateActive), "the child is running while its loop goes on")
 			}
 			Expect(l.State).To(Equal(loops.StatePaused))
