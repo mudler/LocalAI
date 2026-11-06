@@ -1588,7 +1588,9 @@
           "returns a typed timeout in the read deadline, not after the client timeout",
           "never answers with an older list of its own: every frontend gives the same typed error",
           "does not hide a denial",
-          "asks the source for the whole reach (*) for a tool that enumerates, and refuses it when the list is not *"
+          "asks the source for the whole reach (*) for a tool that enumerates, and refuses it when the list is not *",
+          "reach the owner's ShareManager with the kind and are classified as reads or mutations",
+          "are unavailable on an owner without a ShareManager"
         ]
       },
       {
@@ -1759,7 +1761,14 @@
           "is a typed owner_busy 503 when the owner timed out",
           "keeps the plain unavailable answer for an owner that cannot be reached",
           "tells the pins routes apart too",
-          "adds the text in the negotiated language beside the English fields and changes none of them"
+          "adds the text in the negotiated language beside the English fields and changes none of them",
+          "lists, shares, lowers, revokes and searches a kind that is not an add-on",
+          "shares with everyone beside a per-user grant, lowers it and revokes it",
+          "refuses a non-owner, an API key, a tool-marked call and a missing confirmation",
+          "answers an unknown resource, a resource of someone else and an unknown kind the same",
+          "cancels the grantee's admitted work before a revocation answers",
+          "lists every registered sharing route in the feature registry",
+          "answers sharing_disabled"
         ]
       },
       {
@@ -2141,7 +2150,27 @@
       "a tombstone whose kind and add-on disagree",
       "a tombstone of the kind addon: with no ID",
       "a record of the kind addon: with no ID",
-      "accepts a well-formed new revocation and tombstone"
+      "accepts a well-formed new revocation and tombstone",
+      "asks the kind about the actor and the target and denies without a rule",
+      "runs each action only for the roles the table of the kind lists",
+      "cancels the work a lowering takes away and keeps the reads it leaves",
+      "keeps the add-on roles: viewer and editor only, as before",
+      "registers the kinds of every provider and stops at the first error",
+      "lists what the actor owns and what was shared, with the actor's role",
+      "loads use, manage and everyone on a kind and refuses them on an add-on",
+      "reaches every named account, later ones included, and lowers and revokes with a drain",
+      "keeps a per-user grant and the grant to everyone apart",
+      "is refused on a kind that does not allow it, and is no account",
+      "a table that gives a role the kind does not grant",
+      "a table that gives the empty role",
+      "a table that gives an unknown role",
+      "a table that lists the owner, who is implicit",
+      "a grantable owner role",
+      "a grantable unknown role",
+      "no grantable role",
+      "no table",
+      "a kind name that cannot be part of a path",
+      "denies a stored role the kind does not grant, and a table injected to return an unknown role"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -2371,7 +2400,27 @@
           "a tombstone whose kind and add-on disagree",
           "a tombstone of the kind addon: with no ID",
           "a record of the kind addon: with no ID",
-          "accepts a well-formed new revocation and tombstone"
+          "accepts a well-formed new revocation and tombstone",
+          "asks the kind about the actor and the target and denies without a rule",
+          "runs each action only for the roles the table of the kind lists",
+          "cancels the work a lowering takes away and keeps the reads it leaves",
+          "keeps the add-on roles: viewer and editor only, as before",
+          "registers the kinds of every provider and stops at the first error",
+          "lists what the actor owns and what was shared, with the actor's role",
+          "loads use, manage and everyone on a kind and refuses them on an add-on",
+          "reaches every named account, later ones included, and lowers and revokes with a drain",
+          "keeps a per-user grant and the grant to everyone apart",
+          "is refused on a kind that does not allow it, and is no account",
+          "a table that gives a role the kind does not grant",
+          "a table that gives the empty role",
+          "a table that gives an unknown role",
+          "a table that lists the owner, who is implicit",
+          "a grantable owner role",
+          "a grantable unknown role",
+          "no grantable role",
+          "no table",
+          "a kind name that cannot be part of a path",
+          "denies a stored role the kind does not grant, and a table injected to return an unknown role"
         ]
       },
       {
@@ -2542,7 +2591,14 @@
           "is a typed owner_busy 503 when the owner timed out",
           "keeps the plain unavailable answer for an owner that cannot be reached",
           "tells the pins routes apart too",
-          "adds the text in the negotiated language beside the English fields and changes none of them"
+          "adds the text in the negotiated language beside the English fields and changes none of them",
+          "lists, shares, lowers, revokes and searches a kind that is not an add-on",
+          "shares with everyone beside a per-user grant, lowers it and revokes it",
+          "refuses a non-owner, an API key, a tool-marked call and a missing confirmation",
+          "answers an unknown resource, a resource of someone else and an unknown kind the same",
+          "cancels the grantee's admitted work before a revocation answers",
+          "lists every registered sharing route in the feature registry",
+          "answers sharing_disabled"
         ]
       }
     ]
@@ -2850,7 +2906,9 @@
           "returns a typed timeout in the read deadline, not after the client timeout",
           "never answers with an older list of its own: every frontend gives the same typed error",
           "does not hide a denial",
-          "asks the source for the whole reach (*) for a tool that enumerates, and refuses it when the list is not *"
+          "asks the source for the whole reach (*) for a tool that enumerates, and refuses it when the list is not *",
+          "reach the owner's ShareManager with the kind and are classified as reads or mutations",
+          "are unavailable on an owner without a ShareManager"
         ]
       },
       {
@@ -3021,7 +3079,14 @@
           "is a typed owner_busy 503 when the owner timed out",
           "keeps the plain unavailable answer for an owner that cannot be reached",
           "tells the pins routes apart too",
-          "adds the text in the negotiated language beside the English fields and changes none of them"
+          "adds the text in the negotiated language beside the English fields and changes none of them",
+          "lists, shares, lowers, revokes and searches a kind that is not an add-on",
+          "shares with everyone beside a per-user grant, lowers it and revokes it",
+          "refuses a non-owner, an API key, a tool-marked call and a missing confirmation",
+          "answers an unknown resource, a resource of someone else and an unknown kind the same",
+          "cancels the grantee's admitted work before a revocation answers",
+          "lists every registered sharing route in the feature registry",
+          "answers sharing_disabled"
         ]
       }
     ]
@@ -3487,7 +3552,14 @@
           "is a typed owner_busy 503 when the owner timed out",
           "keeps the plain unavailable answer for an owner that cannot be reached",
           "tells the pins routes apart too",
-          "adds the text in the negotiated language beside the English fields and changes none of them"
+          "adds the text in the negotiated language beside the English fields and changes none of them",
+          "lists, shares, lowers, revokes and searches a kind that is not an add-on",
+          "shares with everyone beside a per-user grant, lowers it and revokes it",
+          "refuses a non-owner, an API key, a tool-marked call and a missing confirmation",
+          "answers an unknown resource, a resource of someone else and an unknown kind the same",
+          "cancels the grantee's admitted work before a revocation answers",
+          "lists every registered sharing route in the feature registry",
+          "answers sharing_disabled"
         ]
       }
     ]
