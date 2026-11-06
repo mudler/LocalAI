@@ -16218,13 +16218,26 @@ paths:
         paused (the tool loop reached its step limit, chats_max_iterations; steps
         is the limit), goal (the chat''s goal changed; text is its state, empty when
         cleared: read the chat again), files and loops (the loops of the chat changed;
-        read GET /api/chats/{id}/loops). Events are live only; read the transcript
-        for what came before.'
+        read GET /api/chats/{id}/loops). The events of a running turn carry an id
+        ("<run>.<n>"). Send the last id back as the Last-Event-ID header or the after
+        query parameter to get the events you missed, then the live ones. A "resync"
+        event means the server cannot give them (the id is of another run, is too
+        old, or the frontend that answers does not run the turn): read the transcript,
+        and go on from the id of the resync event. Without an id the stream starts
+        from now; read the transcript for what came before.'
       parameters:
       - description: conversation id
         in: path
         name: id
         required: true
+        type: string
+      - description: resume after this event id
+        in: query
+        name: after
+        type: string
+      - description: resume after this event id (sent by a browser when it reconnects)
+        in: header
+        name: Last-Event-ID
         type: string
       produces:
       - text/event-stream
