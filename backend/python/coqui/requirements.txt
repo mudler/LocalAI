@@ -1,4 +1,4 @@
-grpcio==1.85.0
+grpcio==1.85.1
 protobuf
 certifi
 packaging==26.3
