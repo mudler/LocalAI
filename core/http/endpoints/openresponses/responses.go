@@ -1091,9 +1091,10 @@ func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, respon
 
 		now := time.Now().Unix()
 		return buildORResponse(responseID, createdAt, &now, schema.ORStatusCompleted, input, allOutputItems, &schema.ORUsage{
-			InputTokens:  tokenUsage.Prompt,
-			OutputTokens: tokenUsage.Completion,
-			TotalTokens:  tokenUsage.Prompt + tokenUsage.Completion,
+			InputTokens:        tokenUsage.Prompt,
+			OutputTokens:       tokenUsage.Completion,
+			TotalTokens:        tokenUsage.Prompt + tokenUsage.Completion,
+			InputTokensDetails: &schema.ORInputTokensDetails{CachedTokens: tokenUsage.CachedTokens},
 		}, true), nil
 	} // end MCP iteration loop
 
@@ -1383,9 +1384,10 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 	// Build final response
 	now := time.Now().Unix()
 	response := buildORResponse(responseID, createdAt, &now, schema.ORStatusCompleted, input, collectedOutputItems, &schema.ORUsage{
-		InputTokens:  lastTokenUsage.Prompt,
-		OutputTokens: lastTokenUsage.Completion,
-		TotalTokens:  lastTokenUsage.Prompt + lastTokenUsage.Completion,
+		InputTokens:        lastTokenUsage.Prompt,
+		OutputTokens:       lastTokenUsage.Completion,
+		TotalTokens:        lastTokenUsage.Prompt + lastTokenUsage.Completion,
+		InputTokensDetails: &schema.ORInputTokensDetails{CachedTokens: lastTokenUsage.CachedTokens},
 	}, shouldStore)
 
 	// Emit response.completed
@@ -1676,9 +1678,10 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	// Build response with all required fields
 	now := time.Now().Unix()
 	response := buildORResponse(responseID, createdAt, &now, "completed", input, outputItems, &schema.ORUsage{
-		InputTokens:  tokenUsage.Prompt,
-		OutputTokens: tokenUsage.Completion,
-		TotalTokens:  tokenUsage.Prompt + tokenUsage.Completion,
+		InputTokens:        tokenUsage.Prompt,
+		OutputTokens:       tokenUsage.Completion,
+		TotalTokens:        tokenUsage.Prompt + tokenUsage.Completion,
+		InputTokensDetails: &schema.ORInputTokensDetails{CachedTokens: tokenUsage.CachedTokens},
 		OutputTokensDetails: &schema.OROutputTokensDetails{
 			ReasoningTokens: reasoningTokens,
 		},
@@ -2420,9 +2423,10 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		// Emit response.completed
 		now := time.Now().Unix()
 		responseCompleted := buildORResponse(responseID, createdAt, &now, "completed", input, allOutputItems, &schema.ORUsage{
-			InputTokens:  lastStreamTokenUsage.Prompt,
-			OutputTokens: lastStreamTokenUsage.Completion,
-			TotalTokens:  lastStreamTokenUsage.Prompt + lastStreamTokenUsage.Completion,
+			InputTokens:        lastStreamTokenUsage.Prompt,
+			OutputTokens:       lastStreamTokenUsage.Completion,
+			TotalTokens:        lastStreamTokenUsage.Prompt + lastStreamTokenUsage.Completion,
+			InputTokensDetails: &schema.ORInputTokensDetails{CachedTokens: lastStreamTokenUsage.CachedTokens},
 			OutputTokensDetails: &schema.OROutputTokensDetails{
 				ReasoningTokens: reasoningTokens,
 			},
@@ -2754,9 +2758,10 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	// The message is opened first, followed by reasoning and fallback calls.
 	finalOutputItems := append([]schema.ORItemField{*messageItem}, collectedOutputItems...)
 	responseCompleted := buildORResponse(responseID, createdAt, &now, "completed", input, finalOutputItems, &schema.ORUsage{
-		InputTokens:  noToolTokenUsage.Prompt,
-		OutputTokens: noToolTokenUsage.Completion,
-		TotalTokens:  noToolTokenUsage.Prompt + noToolTokenUsage.Completion,
+		InputTokens:        noToolTokenUsage.Prompt,
+		OutputTokens:       noToolTokenUsage.Completion,
+		TotalTokens:        noToolTokenUsage.Prompt + noToolTokenUsage.Completion,
+		InputTokensDetails: &schema.ORInputTokensDetails{CachedTokens: noToolTokenUsage.CachedTokens},
 		OutputTokensDetails: &schema.OROutputTokensDetails{
 			ReasoningTokens: reasoningTokens,
 		},

@@ -152,6 +152,7 @@ func ComputeChoices(
 
 			tokenUsage.Prompt = prediction.Usage.Prompt
 			tokenUsage.Completion = prediction.Usage.Completion
+			tokenUsage.CachedTokens = prediction.Usage.CachedTokens
 			tokenUsage.TimingPromptProcessing = prediction.Usage.TimingPromptProcessing
 			tokenUsage.TimingTokenGeneration = prediction.Usage.TimingTokenGeneration
 

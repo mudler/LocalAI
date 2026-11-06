@@ -242,6 +242,8 @@ You can use 'Extra-Usage' request header key presence ('Extra-Usage: true') to r
     "prompt_tokens": ...,
     "completion_tokens": ...,
     "total_tokens": ...,
+    // Present when the backend reports a prompt-cache hit (e.g. llama.cpp):
+    "prompt_tokens_details": { "cached_tokens": ... },
     // Extra-Usage header key will include these two float fields:
     "timing_prompt_processing: ...,
     "timing_token_generation": ...,

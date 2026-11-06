@@ -42,15 +42,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 		tokenCallback := func(s string, tokenUsage backend.TokenUsage) bool {
 			created := int(time.Now().Unix())
 
-			usage := schema.OpenAIUsage{
-				PromptTokens:     tokenUsage.Prompt,
-				CompletionTokens: tokenUsage.Completion,
-				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
-			}
-			if extraUsage {
-				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
-				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
-			}
+			usage := streamUsageFromTokenUsage(tokenUsage, extraUsage)
 			// Usage rides on the struct for the consumer to track the
 			// running cumulative; the consumer strips it before marshalling
 			// so intermediate chunks stay OpenAI-spec compliant.
@@ -275,20 +267,15 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 				return err
 			}
 
+			totalTokenUsage.Prompt += tokenUsage.Prompt
+			totalTokenUsage.Completion += tokenUsage.Completion
+			totalTokenUsage.CachedTokens += tokenUsage.CachedTokens
 			totalTokenUsage.TimingTokenGeneration += tokenUsage.TimingTokenGeneration
 			totalTokenUsage.TimingPromptProcessing += tokenUsage.TimingPromptProcessing
 
 			result = append(result, r...)
 		}
-		usage := schema.OpenAIUsage{
-			PromptTokens:     totalTokenUsage.Prompt,
-			CompletionTokens: totalTokenUsage.Completion,
-			TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
-		}
-		if extraUsage {
-			usage.TimingTokenGeneration = totalTokenUsage.TimingTokenGeneration
-			usage.TimingPromptProcessing = totalTokenUsage.TimingPromptProcessing
-		}
+		usage := streamUsageFromTokenUsage(totalTokenUsage, extraUsage)
 
 		resp := &schema.OpenAIResponse{
 			ID:      id,
