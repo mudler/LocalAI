@@ -28991,3 +28991,117 @@
   uri: quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-timestral-cpp
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-timestral-cpp
+- name: strata
+  alias: strata
+  license: mit
+  description: |
+    EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
+    speaks its stdin/stdout protocol. Text generation only. You supply the engine executable, a Strata
+    source checkout for its tokenizer, and a model pack; see backend/go/strata/README.md. NVIDIA CUDA only.
+  urls:
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
+  tags:
+    - text-to-text
+    - experimental
+    - CUDA
+  capabilities:
+    nvidia: cuda12-strata
+    nvidia-cuda-12: cuda12-strata
+    nvidia-cuda-13: cuda13-strata
+- name: cuda12-strata
+  alias: strata
+  license: mit
+  description: |
+    EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
+    speaks its stdin/stdout protocol. Text generation only. You supply the engine executable, a Strata
+    source checkout for its tokenizer, and a model pack; see backend/go/strata/README.md. NVIDIA CUDA only.
+  urls:
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
+  tags:
+    - text-to-text
+    - experimental
+    - CUDA
+  capabilities:
+    nvidia: cuda12-strata
+    nvidia-cuda-12: cuda12-strata
+    nvidia-cuda-13: cuda13-strata
+  uri: quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-strata
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-strata
+- name: cuda13-strata
+  alias: strata
+  license: mit
+  description: |
+    EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
+    speaks its stdin/stdout protocol. Text generation only. You supply the engine executable, a Strata
+    source checkout for its tokenizer, and a model pack; see backend/go/strata/README.md. NVIDIA CUDA only.
+  urls:
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
+  tags:
+    - text-to-text
+    - experimental
+    - CUDA
+  capabilities:
+    nvidia: cuda12-strata
+    nvidia-cuda-12: cuda12-strata
+    nvidia-cuda-13: cuda13-strata
+  uri: quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-strata
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-strata
+- name: strata-development
+  alias: strata
+  license: mit
+  description: |
+    EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
+    speaks its stdin/stdout protocol. Text generation only. You supply the engine executable, a Strata
+    source checkout for its tokenizer, and a model pack; see backend/go/strata/README.md. NVIDIA CUDA only.
+  urls:
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
+  tags:
+    - text-to-text
+    - experimental
+    - CUDA
+  capabilities:
+    nvidia: cuda12-strata-development
+    nvidia-cuda-12: cuda12-strata-development
+    nvidia-cuda-13: cuda13-strata-development
+- name: cuda12-strata-development
+  alias: strata
+  license: mit
+  description: |
+    EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
+    speaks its stdin/stdout protocol. Text generation only. You supply the engine executable, a Strata
+    source checkout for its tokenizer, and a model pack; see backend/go/strata/README.md. NVIDIA CUDA only.
+  urls:
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
+  tags:
+    - text-to-text
+    - experimental
+    - CUDA
+  capabilities:
+    nvidia: cuda12-strata-development
+    nvidia-cuda-12: cuda12-strata-development
+    nvidia-cuda-13: cuda13-strata-development
+  uri: quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-strata
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-strata
+- name: cuda13-strata-development
+  alias: strata
+  license: mit
+  description: |
+    EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
+    speaks its stdin/stdout protocol. Text generation only. You supply the engine executable, a Strata
+    source checkout for its tokenizer, and a model pack; see backend/go/strata/README.md. NVIDIA CUDA only.
+  urls:
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
+  tags:
+    - text-to-text
+    - experimental
+    - CUDA
+  capabilities:
+    nvidia: cuda12-strata-development
+    nvidia-cuda-12: cuda12-strata-development
+    nvidia-cuda-13: cuda13-strata-development
+  uri: quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-strata
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-strata
