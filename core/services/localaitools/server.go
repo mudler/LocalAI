@@ -61,5 +61,9 @@ func NewServer(client LocalAIClient, opts Options) *mcp.Server {
 	registerMiddlewareTools(srv, client, opts)
 	registerFailoverTools(srv, client, opts)
 
+	// The second group: inference for any user. Kept apart so a caller can
+	// register or filter the two groups separately.
+	registerClientTools(srv, client, opts)
+
 	return srv
 }

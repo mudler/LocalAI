@@ -96,6 +96,15 @@ var toolToHTTPRoute = map[string]string{
 	// reason.
 }
 
+// The client tools wrap the inference routes. Their routes come from
+// ClientTools, which clienttools_test.go checks against the API's own route
+// and feature table, so the two cannot drift.
+func init() {
+	for _, s := range ClientTools {
+		toolToHTTPRoute[s.Tool] = s.Method + " " + s.Route
+	}
+}
+
 // adminRoutesWithoutTool lists the administrator routes and settings that
 // deliberately have no MCP tool, each with the reason. A route listed here
 // must not be wrapped by a tool too (the spec below checks it); to add a tool

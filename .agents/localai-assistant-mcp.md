@@ -125,6 +125,26 @@ tool, for the reason above.
 
 Do not rewrite the unrelated assistant tools to match this rule.
 
+## The client tools (second group)
+
+`generate_image`, `speak`, `transcribe_audio` and the other inference tools are the **client** group:
+any user, within their own permissions, in the same package. They differ from the manage group:
+
+- One shared implementation. `inference.go` builds the requests and reads the answers; `inproc`
+  and `httpapi` only supply how a request is sent (in memory as the acting user, or over HTTP) and
+  how files are stored. Do not call a backend from a client tool: the call goes through the API
+  route so the feature gate, the model allow-list, the quota and the usage log apply.
+- The table `ClientTools` (`clienttools.go`) lists tool, route, feature permission and model flag.
+  `clienttools_test.go` checks each row against `auth.RouteFeatureRegistry`. A new inference route
+  needs a row and a tool. `ToolGroupOf` and `ToolGroups` tell the groups apart; the two groups are
+  registered by separate functions (`registerClientTools` in `tools_client.go`).
+- Files are references that a `FileStore` resolves (`inproc`: the home folder of the acting user;
+  `httpapi`: `DirFileStore`). Never put file bytes in a tool argument or result.
+- Errors name the capability (`NoModelError`, `StatusError`), so the model can tell the person.
+- Client tools are not removed by `Options.DisableMutating`.
+- Add a method to `LocalAIClient`, the DTOs to `dto_client.go`, and a dispatch case to
+  `server_test.go`. The route goes in `toolToHTTPRoute` automatically from `ClientTools`.
+
 ## The acting user
 
 A tool call can name the user it acts for. `localaitools.WithUser(ctx, user)` puts the user in a

@@ -100,6 +100,11 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolSystemInfo,
 	ToolVRAMEstimate,
 	ToolListFailoverChains,
+	// The client group is not about changing the instance, so the read-only
+	// flavour keeps it.
+	ToolGenerateImage, ToolEditImage, ToolSpeak, ToolTranscribeAudio, ToolDescribeImage, ToolEmbed,
+	ToolDetect, ToolRerank, ToolGenerateVideo, ToolGenerateSound,
+	ToolVerifyVoice, ToolIdentifyVoice, ToolVerifyFace, ToolIdentifyFace,
 )
 
 // expectedFullCatalog derives from the read-only catalog plus the canonical
@@ -182,6 +187,20 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolListFailoverChains, map[string]any{}, "ListFailoverChains"},
 		{ToolPinFailoverTarget, map[string]any{"chain": "c", "target": "b"}, "PinFailoverTarget"},
 		{ToolUnpinFailoverTarget, map[string]any{"chain": "c"}, "UnpinFailoverTarget"},
+		{ToolGenerateImage, GenerateImageRequest{Prompt: "a fox"}, "GenerateImage"},
+		{ToolEditImage, EditImageRequest{Prompt: "a hat", Image: "a.png", Mask: "m.png"}, "EditImage"},
+		{ToolSpeak, SpeakRequest{Text: "hello"}, "Speak"},
+		{ToolTranscribeAudio, TranscribeAudioRequest{Audio: "a.wav"}, "TranscribeAudio"},
+		{ToolDescribeImage, DescribeImageRequest{Image: "a.png"}, "DescribeImage"},
+		{ToolEmbed, EmbedRequest{Input: []string{"x"}}, "Embed"},
+		{ToolDetect, DetectRequest{Image: "a.png"}, "Detect"},
+		{ToolRerank, RerankRequest{Query: "q", Documents: []string{"d"}}, "Rerank"},
+		{ToolGenerateVideo, GenerateVideoRequest{Prompt: "waves"}, "GenerateVideo"},
+		{ToolGenerateSound, GenerateSoundRequest{Text: "rain"}, "GenerateSound"},
+		{ToolVerifyVoice, VoiceVerifyRequest{Audio1: "a.wav", Audio2: "b.wav"}, "VerifyVoice"},
+		{ToolIdentifyVoice, IdentifyVoiceRequest{Audio: "a.wav"}, "IdentifyVoice"},
+		{ToolVerifyFace, VerifyFaceRequest{Image1: "a.png", Image2: "b.png"}, "VerifyFace"},
+		{ToolIdentifyFace, IdentifyFaceRequest{Image: "a.png"}, "IdentifyFace"},
 	}
 
 	for _, c := range cases {

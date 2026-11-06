@@ -33,6 +33,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
+	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/internal"
@@ -107,6 +108,22 @@ type Client struct {
 	// Chats backs the built-in chat tools (list_chat_tools,
 	// list_host_exec_events). It is read at each call, like SharedFolders.
 	Chats func() *studio.Service
+
+	// Transport answers the client tools' requests in memory, as the acting
+	// user. It is read at each call, because the chats start after the
+	// assistant. Nil, or a nil transport, makes the client tools report that
+	// inference is unavailable.
+	Transport func() *provider.Transport
+	// Models chooses the model of a client tool when the caller names none.
+	// Nil: the first installed model with the use case.
+	Models localaitools.ModelChooser
+	// VisionModel chooses the model of describe_image when the caller names
+	// none; guess is true for a model that may not take images. Nil: the first
+	// installed model that can look at images.
+	VisionModel func(ctx context.Context) (model string, guess bool)
+	// Files reads the input files of the client tools and stores their
+	// results. Nil: the home folder of the acting user in the chats' workspace.
+	Files localaitools.FileStore
 
 	modelAdmin *modeladmin.ConfigService
 }

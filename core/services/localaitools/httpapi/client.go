@@ -34,6 +34,13 @@ type Client struct {
 	APIKey  string
 
 	HTTPClient *http.Client
+	// InferenceHTTPClient sends the client tools' requests, which can run for
+	// minutes. Nil: a client with a ten-minute timeout, made by New.
+	InferenceHTTPClient *http.Client
+	// Files reads the input files of the client tools and stores their results
+	// on this machine. Nil: the tools that need a file report that no store is
+	// configured.
+	Files localaitools.FileStore
 }
 
 // New returns a Client targeting baseURL with an optional bearer token.
@@ -42,6 +49,8 @@ func New(baseURL, apiKey string) *Client {
 		BaseURL:    strings.TrimRight(baseURL, "/"),
 		APIKey:     apiKey,
 		HTTPClient: httpclient.NewWithTimeout(60 * time.Second),
+
+		InferenceHTTPClient: httpclient.NewWithTimeout(10 * time.Minute),
 	}
 }
 

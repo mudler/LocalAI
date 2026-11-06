@@ -855,6 +855,18 @@ func (a *Application) start() (startErr error) {
 			return nil
 		}
 		assistantClient.Chats = a.StudioService
+		// The client tools reach the API in memory, as the acting user, with
+		// the transport the chats use. The provider is built before the
+		// assistant but is read at each call.
+		assistantClient.Transport = func() *provider.Transport {
+			if a.studioProvider == nil {
+				return nil
+			}
+			return a.studioProvider.Transport()
+		}
+		assistantClient.VisionModel = func(context.Context) (string, bool) {
+			return a.studioVisionModel("")
+		}
 		if a.backendLibrary != nil {
 			assistantClient.BackendLibrary = libraryInstallNoProgress{a.backendLibrary}
 		}

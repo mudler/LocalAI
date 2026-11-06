@@ -190,4 +190,23 @@ type LocalAIClient interface {
 	// UnpinFailoverTarget removes chain's pin so health decides the
 	// active target again.
 	UnpinFailoverTarget(ctx context.Context, chain string) error
+
+	// ---- Client (inference) ----
+	// These run inference through the LocalAI API as the acting user, so the
+	// route's permission, the model allow-list and the quota apply. Files
+	// are references that a FileStore resolves; results are written there.
+	GenerateImage(ctx context.Context, req GenerateImageRequest) (*ImageResult, error)
+	EditImage(ctx context.Context, req EditImageRequest) (*ImageResult, error)
+	Speak(ctx context.Context, req SpeakRequest) (*AudioResult, error)
+	TranscribeAudio(ctx context.Context, req TranscribeAudioRequest) (*TranscriptResult, error)
+	DescribeImage(ctx context.Context, req DescribeImageRequest) (*DescribeImageResult, error)
+	Embed(ctx context.Context, req EmbedRequest) (*EmbedResult, error)
+	Detect(ctx context.Context, req DetectRequest) (*DetectResult, error)
+	Rerank(ctx context.Context, req RerankRequest) (*RerankResult, error)
+	GenerateVideo(ctx context.Context, req GenerateVideoRequest) (*VideoResult, error)
+	GenerateSound(ctx context.Context, req GenerateSoundRequest) (*AudioResult, error)
+	VerifyVoice(ctx context.Context, req VoiceVerifyRequest) (*VerifyResult, error)
+	IdentifyVoice(ctx context.Context, req IdentifyVoiceRequest) (*IdentifyResult, error)
+	VerifyFace(ctx context.Context, req VerifyFaceRequest) (*VerifyResult, error)
+	IdentifyFace(ctx context.Context, req IdentifyFaceRequest) (*IdentifyResult, error)
 }
