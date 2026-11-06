@@ -3,10 +3,13 @@ package studio_test
 import (
 	"context"
 
+	"github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/studiotest"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -82,5 +85,47 @@ var _ = Describe("the LocalAI groups in a messaging chat", func() {
 		Expect(names).To(ContainElements(clientNames()))
 		Expect(names).NotTo(ContainElement("install_model"))
 		Expect(r.names("root", r.adminOnFor("root"))).To(ContainElement("install_model"))
+	})
+
+	// run scripts one tool call in a chat of the given origin and returns the
+	// result of that call and the calls that reached the client tools.
+	run := func(origin, tool, args string) (studiotest.ToolResult, int) {
+		GinkgoHelper()
+		r := newLocalAIRig(func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Tool: tool, Args: args}, {Say: "done"}}
+		})
+		saved, err := r.svc.SaveAgent(ctx, "root", agents.Agent{Name: "Bot", Model: "m"})
+		Expect(err).NotTo(HaveOccurred())
+		rec, err := r.svc.CreateAs(ctx, "root", studio.CreateInput{Model: "m", AgentID: saved.ID}, studio.Origin{Kind: origin, ID: "binding"})
+		Expect(err).NotTo(HaveOccurred())
+		r.turnNames("root", rec.ID)
+		res := r.h.ResultsFor(tool)
+		Expect(res).To(HaveLen(1))
+		return res[0], r.client.callCount()
+	}
+
+	It("refuses voice_profile delete and the identify action in a messaging chat, with a plain error", func() {
+		for _, c := range []struct{ tool, args, want string }{
+			{localaitools.ToolVoiceProfile, `{"action":"delete","id":"p1"}`, "delete is not available in a messaging chat"},
+			{localaitools.ToolVoice, `{"action":"identify","audio":"a.wav"}`, "not available in a messaging chat"},
+			{localaitools.ToolFace, `{"action":"identify","image":"a.png"}`, "not available in a messaging chat"},
+		} {
+			res, calls := run(session.OriginConnector, c.tool, c.args)
+			Expect(res.Err).To(MatchError(ContainSubstring(c.want)), c.args)
+			Expect(calls).To(BeZero(), c.args)
+		}
+	})
+
+	It("leaves verify, list and the other client tools available in a messaging chat", func() {
+		for _, c := range []struct{ tool, args string }{
+			{localaitools.ToolVoice, `{"action":"verify","audio":"a.wav","audio2":"b.wav"}`},
+			{localaitools.ToolFace, `{"action":"verify","image":"a.png","image2":"b.png"}`},
+			{localaitools.ToolVoiceProfile, `{"action":"list"}`},
+			{"generate_image", `{"prompt":"a cat"}`},
+		} {
+			res, calls := run(session.OriginConnector, c.tool, c.args)
+			Expect(res.Err).NotTo(HaveOccurred(), c.args)
+			Expect(calls).To(Equal(1), c.args)
+		}
 	})
 })

@@ -338,7 +338,7 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, x session.
 			if ts, err := s.toolsOf(ctx, rec.ID, exec); err != nil {
 				s.log.Warn("studio: the LocalAI client tools are unavailable", "chat", rec.ID, "error", err)
 			} else {
-				add(builtins.GroupLocalAIClient, s.guardVoiceProfile(ts, chat, exec))
+				add(builtins.GroupLocalAIClient, guardMessagingRegistry(s.guardVoiceProfile(ts, chat, exec), chat))
 			}
 		}
 	}

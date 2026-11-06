@@ -131,6 +131,37 @@ func (s *Service) applyVoiceProfile(ctx context.Context, in proposals.ApplyInput
 	return nil
 }
 
+var (
+	errMessagingVoiceDelete = errors.New("voice_profile delete is not available in a messaging chat: the person writing may not be the owner; delete the profile in Studio")
+	errMessagingIdentify    = errors.New("identify reads the registry of known people and is not available in a messaging chat: the person writing may not be the owner")
+)
+
+// guardMessagingRegistry makes the identify action of voice and face fail in a
+// messaging chat. Identify searches the registry of people of the whole
+// server, and whoever writes in a messaging chat may not be the owner. verify
+// compares two inputs the person gave and stays available.
+func guardMessagingRegistry(tools []session.Tool, chat builtins.Chat) []session.Tool {
+	if chat.Origin != session.OriginConnector {
+		return tools
+	}
+	for i, t := range tools {
+		if t.Name != localaitools.ToolVoice && t.Name != localaitools.ToolFace {
+			continue
+		}
+		run := t.Run
+		tools[i].Run = func(ctx context.Context, args json.RawMessage) (string, error) {
+			var in struct {
+				Action string `json:"action"`
+			}
+			if json.Unmarshal(args, &in) == nil && in.Action == localaitools.ActionIdentify {
+				return "", errMessagingIdentify
+			}
+			return run(ctx, args)
+		}
+	}
+	return tools
+}
+
 // guardVoiceProfile replaces the Run of the voice_profile tool so that its
 // create action goes through a confirmation. The other actions run as they are,
 // within the rights of the user. exec runs the tool as the owner of the chat.
@@ -142,6 +173,11 @@ func (s *Service) guardVoiceProfile(tools []session.Tool, chat builtins.Chat, ex
 		run := t.Run
 		tools[i].Run = func(ctx context.Context, args json.RawMessage) (string, error) {
 			var in localaitools.VoiceProfileToolInput
+			if json.Unmarshal(args, &in) == nil && in.Action == localaitools.ActionDelete && chat.Origin == session.OriginConnector {
+				// The person who writes in a messaging chat may not be the
+				// owner of the voice library, and nobody can confirm there.
+				return "", errMessagingVoiceDelete
+			}
 			if json.Unmarshal(args, &in) != nil || in.Action != localaitools.ActionCreate {
 				return run(ctx, args)
 			}
