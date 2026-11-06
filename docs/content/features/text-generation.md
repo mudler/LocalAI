@@ -444,11 +444,20 @@ regardless of which replica the load balancer picks:
 - `POST /v1/responses/{id}/cancel` is delegated over NATS to the replica that is
   actually generating, so generation really stops. If that replica is gone, the
   response is reported as `cancelled` without blocking.
-- **Streaming resume (`?stream=true`) is served only by the replica that created
-  the response.** The event buffer lives in that process's memory and is not
-  replicated. A resume request that reaches another replica returns HTTP 409
-  naming the owning replica instead of silently returning a truncated stream.
-  Poll the response instead, or route resume requests with session affinity.
+- **Streaming resume (`?stream=true&starting_after=N`) works on any replica**,
+  because the event buffer is read from the database (see Durable Storage
+  below). Without a database (it always exists in distributed mode, so this only
+  concerns a build that cannot reach it) the buffer is in the memory of the
+  replica that generates, and a resume that reaches another replica returns
+  HTTP 409 naming the owning replica.
+
+State mode (see the distributed-state rules): the response metadata is
+**shared** state, a `SyncedMap` with a database `Store`. The table is the source
+of truth, a replica that starts later loads the newest rows (up to 10000), and
+changes reach the other replicas as deltas over NATS. The events are not sent
+over NATS: every replica reads them from the table. The generation itself, and
+its cancel function, live on one replica, the owner of the response; a cancel
+reaches it over NATS and through the `cancel_requested` flag.
 
 #### Durable Storage
 

@@ -422,6 +422,73 @@ func tableSpecs(openDB func() *gorm.DB) {
 		})
 	})
 
+	Describe("with replicated metadata", func() {
+		var bus *testutil.FakeBus
+
+		replica := func(id string) *ResponseStore {
+			s := newStore(id)
+			Expect(s.EnableDistributed(context.Background(), bus, id)).To(Succeed())
+			return s
+		}
+
+		BeforeEach(func() {
+			bus = testutil.NewFakeBus()
+		})
+
+		It("writes the table through the replicated map, once", func() {
+			a := replica("a")
+			startRunning(a, "r1", "alice")
+			Expect(a.metadataViaSync()).To(BeTrue())
+			Expect(a.AppendEvent("r1", durableEvent(1, "response.output_text.delta"))).To(Succeed())
+			Expect(a.UpdateResponse("r1", durableResponse("r1", schema.ORStatusCompleted))).To(Succeed())
+			row := rowOf(db, "r1")
+			Expect(row.Status).To(Equal(schema.ORStatusCompleted))
+			Expect(row.OwnerInstance).To(Equal("a"))
+			Expect(row.Owner).To(Equal("alice"))
+			// The waiting delta was written before the end state.
+			Expect(eventCount(db, "r1")).To(Equal(1))
+		})
+
+		It("starts a late replica with the rows of the table", func() {
+			a := replica("a")
+			a.StoreOwned("r1", &schema.OpenResponsesRequest{Model: "m"}, durableResponse("r1", schema.ORStatusCompleted), "alice")
+			late := replica("late")
+			v, ok := late.syncMap().Get("r1")
+			Expect(ok).To(BeTrue())
+			Expect(v.Owner).To(Equal("alice"))
+			Expect(v.OwnerReplica).To(Equal("a"))
+		})
+
+		It("lets replica B resume and cancel a response that replica A runs", func() {
+			a := replica("a")
+			b := replica("b")
+			cancelled := startRunning(a, "r1", "alice")
+			Expect(a.AppendEvent("r1", durableEvent(1, "response.created"))).To(Succeed())
+
+			got, err := b.GetEventsAfter("r1", 0)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got).To(HaveLen(1))
+			stored, err := b.Get("r1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(accessAllowed(stored, "bob")).To(BeFalse())
+
+			resp, err := b.Cancel("r1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Status).To(Equal(schema.ORStatusCancelled))
+			Expect(cancelled.Load()).To(BeTrue())
+			Expect(rowOf(db, "r1").Status).To(Equal(schema.ORStatusCancelled))
+		})
+
+		It("removes the row when a response is deleted", func() {
+			a := replica("a")
+			a.StoreOwned("r1", &schema.OpenResponsesRequest{}, durableResponse("r1", schema.ORStatusCompleted), "")
+			a.Delete("r1")
+			var n int64
+			Expect(db.Model(&responseRow{}).Where("id = ?", "r1").Count(&n).Error).To(Succeed())
+			Expect(n).To(BeZero())
+		})
+	})
+
 	It("finds an item of a stored response after a restart", func() {
 		a := newStore("a")
 		a.StoreOwned("r1", &schema.OpenResponsesRequest{}, durableResponse("r1", schema.ORStatusCompleted), "")

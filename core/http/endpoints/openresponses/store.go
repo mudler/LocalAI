@@ -62,6 +62,8 @@ type ResponseStore struct {
 	replicaID  string
 	lifeCtx    context.Context
 	lifeCancel context.CancelFunc
+	// syncedHasStore is true when the replicated map writes the table.
+	syncedHasStore bool
 
 	// dur is the table behind the store (see durable.go). nil means the store
 	// is the process-local map it always was. Guarded by mu.
