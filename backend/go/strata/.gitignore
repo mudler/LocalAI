@@ -1,0 +1,8 @@
+engines/
+python/
+strata-src/
+sources/
+downloads/
+package/
+strata
+package-stub/

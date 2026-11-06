@@ -4,6 +4,225 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.8-flash-next-nvfp4-gptq
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, with
+    every routed expert quantized to NVFP4 by GPTQ and packed for the Strata
+    inference engine (a Strata pack plus GGUF side files, about 129 GB to
+    download). It reads images through the vision projector published by
+    ISTA-DASLab for the original model, and the Strata backend parses its
+    reasoning and tool calls.
+    Needs an NVIDIA GPU with 12 GB of VRAM or more (RTX 20 series or newer, or a
+    DGX Spark) and about 80 GB of RAM (about 69 GiB of expert weights are kept in
+    memory), plus fast SSD storage for the 48 GiB n-gram table. Runs only on the
+    NVIDIA builds of the experimental strata backend.
+    The weights are the Strata NVFP4 conversion by Maximilian228 of
+    Qwen/Qwen3.8-Flash-Next, licensed under the Qwen Community License 1.0. The
+    MTP draft layer shipped in the repository is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVFP4-GPTQ-Strata
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - nvfp4
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  files:
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-gptq/pack/index.txt
+      sha256: f62dc71e1c74a72794db54d3917bc71131cc6eae6f3dcdc3fdada48ff70f93ab
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVFP4-GPTQ-Strata/resolve/640a1db97446ddd5e89d2b70ecd0297987192c93/pack/index.txt
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-gptq/pack/native_experts.txt
+      sha256: 615f655fb28bf60b243664860b135710bf4177b111c6be89073e780a35de1018
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVFP4-GPTQ-Strata/resolve/640a1db97446ddd5e89d2b70ecd0297987192c93/pack/native_experts.txt
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-gptq/pack/dense.bin
+      sha256: 974df6dcefcae85e3fd2c19fcc12eeaacaadde8261ab732d5af5af6ce2e25a7a
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVFP4-GPTQ-Strata/resolve/640a1db97446ddd5e89d2b70ecd0297987192c93/pack/dense.bin
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-gptq/pack/experts.bin
+      sha256: 325e5e0d85c262a8d8278daf73b20696ec877d9a3ff584e57391fa69ad10bc64
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVFP4-GPTQ-Strata/resolve/640a1db97446ddd5e89d2b70ecd0297987192c93/pack/experts.bin
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-gptq/pack/tokenizer/chat_template.jinja
+      sha256: c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVFP4-GPTQ-Strata/resolve/640a1db97446ddd5e89d2b70ecd0297987192c93/pack/tokenizer/chat_template.jinja
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-gptq/pack/tokenizer/merges.txt
+      sha256: 080cf95432173729d160346b7882bd2a644b07f7a3813a3eb73f4e66787bfde9
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVFP4-GPTQ-Strata/resolve/640a1db97446ddd5e89d2b70ecd0297987192c93/pack/tokenizer/merges.txt
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-gptq/pack/tokenizer/token_type.json
+      sha256: 5088c8c298fc06af8382ddb3b76c888703ac2634e82263b97eedcc2ad202738b
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVFP4-GPTQ-Strata/resolve/640a1db97446ddd5e89d2b70ecd0297987192c93/pack/tokenizer/token_type.json
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-gptq/pack/tokenizer/tokenizer.json
+      sha256: 87be2ac47d8bc7393b7435df6ccd276740019a393941a2585d5edce59f450c54
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVFP4-GPTQ-Strata/resolve/640a1db97446ddd5e89d2b70ecd0297987192c93/pack/tokenizer/tokenizer.json
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-gptq/pack/tokenizer/vocab.json
+      sha256: 4ba64f0332abcfb0b600b7df1537d1e836e68009d5fb7cdb77339738dc6365c4
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVFP4-GPTQ-Strata/resolve/640a1db97446ddd5e89d2b70ecd0297987192c93/pack/tokenizer/vocab.json
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-gptq/qwen-nvfp4-gptq-dense.gguf
+      sha256: abdf74336b53d8f7ca3d99947f1eac8f19b8a544966750127cb61e561b127e3b
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVFP4-GPTQ-Strata/resolve/640a1db97446ddd5e89d2b70ecd0297987192c93/qwen-nvfp4-gptq-dense.gguf
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-gptq/ple-fp8.gguf
+      sha256: 37f89b8ce5a3425932763257c40229ec02723ad2ab14b4bbfc26a486f4725c9c
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVFP4-GPTQ-Strata/resolve/640a1db97446ddd5e89d2b70ecd0297987192c93/ple-fp8.gguf
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-gptq/token-embd-bf16.gguf
+      sha256: 386203af9070c7b43acb24ded8922876721d97bbad1a709b25cb49d694a7f51d
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVFP4-GPTQ-Strata/resolve/640a1db97446ddd5e89d2b70ecd0297987192c93/token-embd-bf16.gguf
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-gptq/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+      uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-gptq/expert-profile.bin
+      sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+      uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: strata/models/qwen3.8-flash-next-nvfp4-gptq/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - native:qwen-nvfp4-gptq-dense.gguf
+      - native_dense_gguf:qwen-nvfp4-gptq-dense.gguf
+      - ple_gguf:ple-fp8.gguf
+      - embd_gguf:token-embd-bf16.gguf
+      - expert_profile:expert-profile.bin
+      - engine_args:--expert-cache auto --prefill auto
+    parameters:
+      min_p: 0
+      model: strata/models/qwen3.8-flash-next-nvfp4-gptq
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.8-flash-next-nvfp4-nvidia
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    NVIDIA's NVFP4 quantization (nvidia/Qwen3.8-Flash-Next-NVFP4), converted to a
+    Strata pack with GGUF side files (about 129 GB to download). It reads images
+    through the vision projector published by ISTA-DASLab for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs an NVIDIA GPU with 12 GB of VRAM or more (RTX 20 series or newer, or a
+    DGX Spark) and about 80 GB of RAM (about 69 GiB of expert weights are kept in
+    memory), plus fast SSD storage for the 48 GiB n-gram table. Runs only on the
+    NVIDIA builds of the experimental strata backend.
+    Two licences apply: the NVIDIA Open Model License Agreement (NVIDIA's
+    quantization) and the Qwen Community License 1.0 (the base model). The
+    conversion to the Strata format is by Maximilian228. The MTP draft layer
+    shipped in the repository is not configured here.
+  license: nvidia-open-model-license
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://huggingface.co/nvidia/Qwen3.8-Flash-Next-NVFP4
+    - https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVIDIA-NVFP4-Strata
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - nvfp4
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  files:
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-nvidia/pack/index.txt
+      sha256: 17793d1c5b187a73d3c1dc1677af4d4c9b23845394dd7e88bfa53396b41b77e3
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVIDIA-NVFP4-Strata/resolve/cca8f7fee5ce0af932097340a75e06df25c4e57d/pack/index.txt
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-nvidia/pack/native_experts.txt
+      sha256: d7f8b4372bb122f3d711030e5d522bff1c8746ac7d133a59a2cc7277283e59b6
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVIDIA-NVFP4-Strata/resolve/cca8f7fee5ce0af932097340a75e06df25c4e57d/pack/native_experts.txt
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-nvidia/pack/dense.bin
+      sha256: 1f1c2422069de292673ae6cee7d69f7090732dec69f3f125612a0de456279714
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVIDIA-NVFP4-Strata/resolve/cca8f7fee5ce0af932097340a75e06df25c4e57d/pack/dense.bin
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-nvidia/pack/experts.bin
+      sha256: bb42080bb7585505b64d091d5a734c05376bbd6171406fa9688a46fbc261b957
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVIDIA-NVFP4-Strata/resolve/cca8f7fee5ce0af932097340a75e06df25c4e57d/pack/experts.bin
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-nvidia/pack/tokenizer/chat_template.jinja
+      sha256: c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVIDIA-NVFP4-Strata/resolve/cca8f7fee5ce0af932097340a75e06df25c4e57d/pack/tokenizer/chat_template.jinja
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-nvidia/pack/tokenizer/merges.txt
+      sha256: 080cf95432173729d160346b7882bd2a644b07f7a3813a3eb73f4e66787bfde9
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVIDIA-NVFP4-Strata/resolve/cca8f7fee5ce0af932097340a75e06df25c4e57d/pack/tokenizer/merges.txt
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-nvidia/pack/tokenizer/token_type.json
+      sha256: 5088c8c298fc06af8382ddb3b76c888703ac2634e82263b97eedcc2ad202738b
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVIDIA-NVFP4-Strata/resolve/cca8f7fee5ce0af932097340a75e06df25c4e57d/pack/tokenizer/token_type.json
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-nvidia/pack/tokenizer/tokenizer.json
+      sha256: 87be2ac47d8bc7393b7435df6ccd276740019a393941a2585d5edce59f450c54
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVIDIA-NVFP4-Strata/resolve/cca8f7fee5ce0af932097340a75e06df25c4e57d/pack/tokenizer/tokenizer.json
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-nvidia/pack/tokenizer/vocab.json
+      sha256: 4ba64f0332abcfb0b600b7df1537d1e836e68009d5fb7cdb77339738dc6365c4
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVIDIA-NVFP4-Strata/resolve/cca8f7fee5ce0af932097340a75e06df25c4e57d/pack/tokenizer/vocab.json
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-nvidia/qwen-nvidia-nvfp4-dense.gguf
+      sha256: 0f795ca0cbb908e0cf2b894b30103e21455b5a05346a7ef79da208540cfd2be3
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVIDIA-NVFP4-Strata/resolve/cca8f7fee5ce0af932097340a75e06df25c4e57d/qwen-nvidia-nvfp4-dense.gguf
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-nvidia/ple-fp8.gguf
+      sha256: 37f89b8ce5a3425932763257c40229ec02723ad2ab14b4bbfc26a486f4725c9c
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVIDIA-NVFP4-Strata/resolve/cca8f7fee5ce0af932097340a75e06df25c4e57d/ple-fp8.gguf
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-nvidia/token-embd-bf16.gguf
+      sha256: 386203af9070c7b43acb24ded8922876721d97bbad1a709b25cb49d694a7f51d
+      uri: https://huggingface.co/Maximilian228/Qwen3.8-Flash-Next-NVIDIA-NVFP4-Strata/resolve/cca8f7fee5ce0af932097340a75e06df25c4e57d/token-embd-bf16.gguf
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-nvidia/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+      uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    - filename: strata/models/qwen3.8-flash-next-nvfp4-nvidia/expert-profile.bin
+      sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+      uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: strata/models/qwen3.8-flash-next-nvfp4-nvidia/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - native:qwen-nvidia-nvfp4-dense.gguf
+      - native_dense_gguf:qwen-nvidia-nvfp4-dense.gguf
+      - ple_gguf:ple-fp8.gguf
+      - embd_gguf:token-embd-bf16.gguf
+      - expert_profile:expert-profile.bin
+      - engine_args:--expert-cache auto --prefill auto
+    parameters:
+      min_p: 0
+      model: strata/models/qwen3.8-flash-next-nvfp4-nvidia
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: qwen3.5-4b-3d-coder-q8
   description: |
     CCORE's early preview fine-tune of Qwen3.5-4B for coding and Three.js
