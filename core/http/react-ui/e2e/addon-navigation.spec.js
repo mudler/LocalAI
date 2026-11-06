@@ -382,7 +382,7 @@ test.describe('Add-on navigation', () => {
     expect(Math.abs(offsets.dx)).toBeLessThan(1)
     expect(Math.abs(offsets.dy)).toBeLessThan(1)
     expect(offsets.width).toBeGreaterThan(16)
-    expect(offsets.box).toBe(36)
+    expect(offsets.box).toBe(44)
   })
 
   test('member without the add-ons feature and with no built-in tile goes home, and Studio and Talk are not built in', async ({ page }) => {

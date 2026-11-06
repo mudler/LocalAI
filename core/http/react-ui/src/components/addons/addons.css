@@ -79,10 +79,21 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ---- Installed: attention, toolbar, rows ---------------------------------- */
+/* ---- Installed: attention, toolbar, groups, rows ---------------------------- */
 
 .ad-apps { display: flex; flex-direction: column; gap: var(--sp-4); }
 .ad-attention { display: grid; gap: var(--sp-2); }
+.ad-strip { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; gap: var(--sp-2); }
+.ad-strip__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ad-strip__text { min-width: 0; overflow-wrap: anywhere; }
+.ad-groups { display: flex; flex-direction: column; gap: var(--sp-5); }
+.ad-group { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.ad-group__title { margin: 0; font-size: var(--fs-meta); line-height: var(--lh-meta); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--dk-muted); }
+.ad-conns { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.ad-conn { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); }
+.ad-conn__text { display: flex; flex-direction: column; min-width: 0; }
+.ad-conn__name { font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 600; overflow-wrap: anywhere; }
+.ad-conn__facts { font-size: var(--fs-meta); line-height: var(--lh-meta); color: var(--dk-muted); overflow-wrap: anywhere; }
 .ad-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
 /* The search box and the state filter are the kit's SearchField and Segmented. */
 
@@ -129,14 +140,12 @@
 .ad-tile[data-state="stopped"]:not([data-attention]) .ad-icon { opacity: 0.6; }
 .ad-tile__side { display: flex; align-items: center; gap: var(--sp-1); }
 .ad-tile__act { display: inline-flex; }
-.ad-tile__side > .ad-tile__pin { margin-left: var(--sp-1); }
-.ad-tile__pin[aria-pressed="true"] { color: var(--dk-accent-text); }
 .ad-tile__side .action-menu__trigger,
 .ui-pane__head .action-menu__trigger { width: var(--ctl-h-sm); height: var(--ctl-h-sm); }
 .ad-tile:hover .action-menu__trigger,
 .ad-tile:focus-within .action-menu__trigger,
 .ui-pane__head .action-menu__trigger { opacity: 1; }
-.ad-tile__upgrade { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: 0 0 14px calc(var(--sp-4) + 36px + var(--sp-3)); }
+.ad-tile__upgrade { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: 0 0 14px calc(var(--sp-4) + 44px + var(--sp-3)); }
 .ad-tile__upgrade:empty { display: none; }
 .ad-nav-slot { margin-top: var(--sp-4); }
 .nav-item--muted { opacity: 0.55; }
@@ -159,33 +168,43 @@
    The add-on's own icon, or its first letter on a hue from its id. Built-in
    pages keep a neutral tile with their glyph. */
 
-.ad-icon { flex: none; width: 36px; height: 36px; border-radius: var(--r-md); object-fit: cover; background: var(--dk-inset); }
-.ad-icon[data-size="44"] { width: 44px; height: 44px; border-radius: var(--r-lg); }
-.ad-icon--glyph,
-.ad-icon--mark { display: inline-grid; place-items: center; color: var(--dk-muted); }
+.ad-icon { flex: none; width: 36px; height: 36px; border-radius: 22%; object-fit: cover; background: var(--dk-inset); }
+.ad-icon[data-size="32"] { width: 32px; height: 32px; }
+.ad-icon[data-size="40"] { width: 40px; height: 40px; }
+.ad-icon[data-size="44"] { width: 44px; height: 44px; }
+.ad-icon[data-size="48"] { width: 48px; height: 48px; }
+.ad-icon[data-size="56"] { width: 56px; height: 56px; }
+.ad-icon--glyph { display: inline-grid; place-items: center; color: var(--dk-muted); }
 .ad-icon--glyph .lai-icon { width: 18px; height: 18px; }
+/* The drawn tile: a colour of its own with a white glyph or letter, like the
+   icon files of the add-ons, so both kinds sit side by side. */
 .ad-icon--mark {
   --ad-h: 180;
-  background: oklch(0.93 0.035 var(--ad-h));
-  color: oklch(0.42 0.08 var(--ad-h));
+  display: inline-grid;
+  place-items: center;
+  background: oklch(0.5 0.1 var(--ad-h));
+  color: #fff;
   font-size: var(--fs-body);
   font-weight: 600;
   line-height: 1;
 }
-.ad-icon--mark[data-size="44"] { font-size: var(--fs-lead); }
+.ad-icon--mark .lai-icon { width: 52%; height: 52%; }
+.ad-icon--mark[data-size="32"] { font-size: var(--fs-small); }
+.ad-icon--mark[data-size="44"],
+.ad-icon--mark[data-size="48"] { font-size: var(--fs-lead); }
+.ad-icon--mark[data-size="56"] { font-size: var(--fs-lead); }
 .ad-icon--mark[data-hue="0"] { --ad-h: 20; }
 .ad-icon--mark[data-hue="1"] { --ad-h: 50; }
 .ad-icon--mark[data-hue="2"] { --ad-h: 80; }
-.ad-icon--mark[data-hue="3"] { --ad-h: 110; }
-.ad-icon--mark[data-hue="4"] { --ad-h: 140; }
-.ad-icon--mark[data-hue="5"] { --ad-h: 170; }
-.ad-icon--mark[data-hue="6"] { --ad-h: 200; }
-.ad-icon--mark[data-hue="7"] { --ad-h: 230; }
-.ad-icon--mark[data-hue="8"] { --ad-h: 260; }
-.ad-icon--mark[data-hue="9"] { --ad-h: 290; }
-.ad-icon--mark[data-hue="10"] { --ad-h: 320; }
-.ad-icon--mark[data-hue="11"] { --ad-h: 350; }
-:root[data-theme="dark"] .ad-icon--mark { background: oklch(0.32 0.045 var(--ad-h)); color: oklch(0.88 0.06 var(--ad-h)); }
+.ad-icon--mark[data-hue="3"] { --ad-h: 125; }
+.ad-icon--mark[data-hue="4"] { --ad-h: 150; }
+.ad-icon--mark[data-hue="5"] { --ad-h: 185; }
+.ad-icon--mark[data-hue="6"] { --ad-h: 215; }
+.ad-icon--mark[data-hue="7"] { --ad-h: 245; }
+.ad-icon--mark[data-hue="8"] { --ad-h: 270; }
+.ad-icon--mark[data-hue="9"] { --ad-h: 300; }
+.ad-icon--mark[data-hue="10"] { --ad-h: 335; }
+.ad-icon--mark[data-hue="11"] { --ad-h: 5; }
 
 /* ---- Details pane ---------------------------------------------------------
    Docked beside the list from 1280 px (400 px, sticky); an overlay from the
@@ -273,6 +292,32 @@
   align-items: start;
   padding: 14px var(--sp-4);
 }
+/* The library as a grid of cards: icon and name, what it does, one control. */
+.cat-list.ad-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--sp-3);
+  border-top: 0;
+}
+.ad-cards .cat-item { border-bottom: 0; }
+.ad-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  height: 100%;
+  padding: var(--sp-4);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-lg);
+  background: var(--dk-card);
+}
+.ad-card__head { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.ad-card__id { min-width: 0; }
+.ad-card__by { display: flex; align-items: center; gap: var(--sp-1); margin: 0; font-size: var(--fs-meta); line-height: var(--lh-meta); color: var(--dk-muted); }
+.ad-card__by .lai-icon { width: 13px; height: 13px; flex: none; }
+.ad-card .ad-entry__text { margin: 0; -webkit-line-clamp: 3; line-clamp: 3; }
+.ad-card__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-top: auto; padding-top: var(--sp-2); }
+.ad-card .ad-entry__acts { margin-left: auto; align-items: center; }
+.ad-card .ad-disclosure { margin-top: 0; }
 .ad-entry__body { min-width: 0; }
 .ad-entry__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .ad-entry__title { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; overflow-wrap: anywhere; }
@@ -388,7 +433,7 @@
   .ad-tile__open { padding-right: var(--sp-4); }
   .ad-tile__desc { white-space: normal; }
   .ad-tile__side { padding: 0 var(--sp-4) 14px calc(var(--sp-4) + 36px + var(--sp-3)); margin-top: -6px; }
-  .ad-tile__upgrade { padding-left: calc(var(--sp-4) + 36px + var(--sp-3)); }
+  .ad-tile__upgrade { padding-left: calc(var(--sp-4) + 44px + var(--sp-3)); }
   .ad-entry { grid-template-columns: 36px minmax(0, 1fr); }
   .ad-entry__acts { grid-column: 2; justify-content: flex-start; }
   .cat-source { grid-template-columns: minmax(0, 1fr); }

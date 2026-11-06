@@ -100,7 +100,15 @@
     "alias": "Alias",
     "kindLabel": "Kind",
     "installedOn": "{{name}} is installed and on.",
-    "installedChip": "Instalado"
+    "installedChip": "Instalado",
+    "category": {
+      "label": "Categoria",
+      "all": "Todos",
+      "chat": "Apps de chat",
+      "tools": "Ferramentas",
+      "home": "Casa",
+      "models": "Modelos"
+    }
   },
   "catalog": {
     "allLibraries": "Todas as bibliotecas",
@@ -360,7 +368,8 @@
     "starting": "Iniciando",
     "stopped": "Desativado",
     "update-pending": "Atualização pendente",
-    "updateTo": "Atualização {{version}}"
+    "updateTo": "Atualização {{version}}",
+    "needsSetup": "Precisa de configuração"
   },
   "supporting": "Software que você instala para dar ao LocalAI novas páginas e ferramentas de chat. Cada um roda separado e só pede o que declara.",
   "tabs": {
@@ -673,7 +682,12 @@
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
     "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
-    "removeNamed": "Remover {{name}}…"
+    "removeNamed": "Remover {{name}}…",
+    "setUp": "Configurar",
+    "setUpNamed": "Configurar {{name}}",
+    "review": "Revisar",
+    "reviewNamed": "Revisar {{name}}",
+    "updateTo": "Atualizar para {{version}}"
   },
   "preview": {
     "screenshots": "Screenshots",
@@ -732,7 +746,11 @@
     "toolsOff_other": "Suas {{count}} ferramentas de chat ficam desligadas até ele rodar de novo.",
     "pageOff": "A página dele fica indisponível até ele rodar de novo.",
     "updateTitle": "{{name}} {{version}} está disponível.",
-    "updateBody": "Você tem {{current}}. Você vê o que muda e confirma antes de qualquer substituição."
+    "updateBody": "Você tem {{current}}. Você vê o que muda e confirma antes de qualquer substituição.",
+    "title_one": "{{count}} complemento precisa de configuração",
+    "title_other": "{{count}} complementos precisam de configuração",
+    "connectionBody_one": "tem {{count}} conexão que ainda não consegue responder. {{reason}}",
+    "connectionBody_other": "tem {{count}} conexões que ainda não conseguem responder. {{reason}}"
   },
   "meta": {
     "builtin": "Integrado",
@@ -965,6 +983,30 @@
       "migrating": "migrando os dados",
       "starting": "iniciando",
       "working": "em andamento"
+    }
+  },
+  "groups": {
+    "chat": "Apps de chat",
+    "tools": "Ferramentas e serviços",
+    "models": "Mídia e modelos",
+    "builtin": "Integrado"
+  },
+  "connection": {
+    "title": "Conexões",
+    "none": "Ainda não há conexões.",
+    "answersAs": "Responde como {{name}}",
+    "noAgent": "Nenhum agente escolhido",
+    "manage": "Gerenciar conexões",
+    "acceptsListed_one": "Aceita {{count}} pessoa",
+    "acceptsListed_other": "Aceita {{count}} pessoas",
+    "accepts": {
+      "anyone": "Aceita qualquer pessoa",
+      "nobody": "Ainda não aceita ninguém"
+    },
+    "state": {
+      "running": "Em execução",
+      "off": "Desligada",
+      "attention": "Precisa de configuração"
     }
   }
 }

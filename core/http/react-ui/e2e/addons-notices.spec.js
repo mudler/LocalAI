@@ -52,10 +52,9 @@ test.describe('Add-ons: notices', () => {
     await expect(note('mail')).toContainText('This add-on is up to date.')
     await expect(note('mail')).not.toHaveClass(/ui-notice/)
 
-    // An update is a notice with the Upgrade fix, which opens the confirmation.
+    // An update is the one control of the card, which opens the confirmation.
     const update = entry(page, 'wiki').getByTestId('entry-upgrade')
-    await expect(update).toHaveClass(/ui-notice/)
-    await expect(update).toContainText('Version 1.3.0 is available.')
+    await expect(update.getByTestId('update-upgrade-card')).toHaveText('Update to 1.3.0')
     await shoot(page, 'library')
     await update.getByTestId('update-upgrade-card').click()
     await expect(page.getByTestId('upgrade-confirm')).toContainText('1.3.0')

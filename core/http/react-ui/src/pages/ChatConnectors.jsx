@@ -7,7 +7,8 @@ import ActionMenu from '../components/ActionMenu'
 import { AppIcon } from '../components/addons/AddonBits'
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, StatusChip, Switch } from '../components/ui'
 import { chatAgentsApi, chatConnectorsApi } from '../utils/api'
-import { acceptsOf, bindingAddress, duplicateOf, groupConnectors, rowState } from '../utils/chatConnectors'
+import { bindingAddress, connectionLine, duplicateOf, groupConnectors, rowState } from '../utils/chatConnectors'
+import { useAddonIcons } from '../hooks/useAddonIcons'
 import '../components/addons/addons.css'
 import './connectors.css'
 
@@ -17,6 +18,8 @@ import './connectors.css'
 // missing.
 export default function ChatConnectors() {
   const { t } = useTranslation('chats')
+  const { t: ta } = useTranslation('addons')
+  const icons = useAddonIcons()
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const [menuAt, setMenuAt] = useState(null)
@@ -64,22 +67,21 @@ export default function ChatConnectors() {
 
   const STATE_CHIP = { running: { status: 'running' }, off: { tone: 'idle' }, attention: { tone: 'warn' } }
   const row = (c) => {
-    const a = acceptsOf(c)
     const other = duplicateOf(c)
     const otherHref = other ? bindingAddress(groups, c, other.id) : ''
     const state = rowState(c)
     const chip = STATE_CHIP[state]
     return (
       <li key={c.id} className="cn-row" data-testid="connector-row" data-on={c.enabled ? 'true' : 'false'} data-state={state}>
-        <AppIcon id={c.id} name={c.name} size={36} />
+        <AppIcon src={icons[c.addon] || ''} id={c.addon || c.kind} name={c.name} size={40} />
         <div className="cn-row__main">
           <span className="cn-row__head">
             <span className="cn-row__name">{c.name}</span>
             <StatusChip status={chip.status} tone={chip.tone} label={t(`connectorsPage.state.${state}`)} testId="connector-state" />
           </span>
           <span className="cn-row__meta">
-            <span>{t('connectorsPage.agentOf', { name: agentName(c.agent_id) })}</span>
-            <span>{t('connectorsPage.accepts', { who: a.key === 'listed' ? t('connectorsPage.modes.listed', { count: a.count }) : t(`connectorsPage.modes.${a.key}`) })}</span>
+            <span>{ta('connection.answersAs', { name: agentName(c.agent_id) })}</span>
+            <span>{connectionLine(c, agents, ta).who}</span>
           </span>
           {other && (
             <span className="cn-result cn-result--warn" data-testid="connector-duplicate">

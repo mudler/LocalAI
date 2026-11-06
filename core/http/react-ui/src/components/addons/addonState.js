@@ -349,3 +349,64 @@ export function loadLastKnown(storage, actor, maxAgeMs = 24 * 3600 * 1000, now =
     return null
   }
 }
+
+// ---- Icons, groups and categories ---------------------------------------------
+
+// The glyph of the identity tile of an add-on whose icon file the host cannot
+// serve (it is not installed yet, so the host has no verified package, or the
+// file failed to load). The names are those of the host's icon set. The first
+// party add-ons are known by id; any other add-on has no entry and keeps the
+// first letter of its name on the same tile.
+const GLYPHS = {
+  slack: 'chat', telegram: 'send', discord: 'chat', github: 'git-branch', 'home-assistant': 'home', jellyfin: 'play',
+  pikvm: 'monitor', mail: 'mail', memory: 'memory', calendar: 'calendar', contacts: 'id-card', web: 'globe',
+  voice: 'waveform', face: 'user', office: 'file-text', tables: 'database', talk: 'mic', studio: 'palette',
+  sandbox: 'cube', 'fine-tuning': 'sliders', quantization: 'layers',
+}
+
+export function glyphOf(id) {
+  return Object.hasOwn(GLYPHS, id) ? GLYPHS[id] : ''
+}
+
+// The category of an add-on, for the groups of the installed list and the
+// filter of the library. The host sends no category, so it is read from what
+// it does send: an add-on that serves a connector kind is a chat app; one that
+// gives chat tools is a tool; the first party ids that name a home or media
+// service or a model page are placed by id; anything else with a page only is
+// a "models" page, and one with neither is a tool.
+const BY_ID = {
+  slack: 'chat', telegram: 'chat', discord: 'chat',
+  'home-assistant': 'home', jellyfin: 'home', pikvm: 'home',
+  voice: 'models', face: 'models', talk: 'models', studio: 'models', 'fine-tuning': 'models', quantization: 'models',
+}
+
+export const CATEGORIES = ['chat', 'tools', 'home', 'models']
+
+export function categoryOf(item, { connector = false } = {}) {
+  if (connector) return 'chat'
+  const id = item && item.id
+  if (id && Object.hasOwn(BY_ID, id)) return BY_ID[id]
+  // A library entry names its page under ui; an installed add-on says hasUI.
+  const added = item && item.ui ? addedByEntry(item) : addedByAddon(item || {})
+  if (added.tools > 0) return 'tools'
+  return added.page ? 'models' : 'tools'
+}
+
+// The groups of the installed list, in the order they are drawn. Built-in pages
+// of the host have their own group, last. A category maps to a group: home
+// services read as tools and services.
+export const GROUPS = ['chat', 'tools', 'models', 'builtin']
+
+export function groupOf(tile, { connectorAddons } = {}) {
+  if (tile.source === 'builtin') return 'builtin'
+  const category = categoryOf(tile.app || { id: tile.id }, { connector: Boolean(connectorAddons && connectorAddons.has(tile.id)) })
+  return category === 'home' ? 'tools' : category
+}
+
+// The rows split into the groups, empty groups left out, each row in the order
+// it came in.
+export function groupTiles(tiles, opts) {
+  const out = GROUPS.map(id => ({ id, tiles: [] }))
+  for (const tile of tiles) out.find(g => g.id === groupOf(tile, opts)).tiles.push(tile)
+  return out.filter(g => g.tiles.length > 0)
+}

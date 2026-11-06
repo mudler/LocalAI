@@ -1,8 +1,9 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import StatusChip from '../ui/StatusChip'
 import Button from '../ui/Button'
-import { addedByEntry, hueOf, monogram, operationOf, stateChip, versionLabel } from './addonState'
+import { addedByEntry, glyphOf, hueOf, monogram, operationOf, stateChip, versionLabel } from './addonState'
 import { installSteps } from './installSteps'
 import './addons.css'
 
@@ -62,17 +63,21 @@ export function ApprovalChip() {
   )
 }
 
-// The identity tile of an add-on: its icon from the host's own icon route, or
-// its first letter on a colour of its own (a hue from its id), so two add-ons
-// in the sidebar or the list never look the same. Never a remote address: the
-// server sends only a same-origin path.
+// The identity tile of an add-on: its icon from the host's own icon route. When
+// the host has no file to serve (the add-on is not installed yet, or the file
+// does not load) the tile is drawn here: a colour from the id and a glyph of
+// the host's icon set for the add-ons it knows, else the first letter of the
+// name. The same rounded tile either way, so a list never mixes shapes. Never
+// a remote address: the server sends only a same-origin path.
 export function AppIcon({ src, id, name, size = 36 }) {
-  if (src && src.startsWith('/')) {
-    return <img className="ad-icon" data-size={size} src={src} alt="" width={size} height={size} loading="lazy" decoding="async" />
+  const [failed, setFailed] = useState(false)
+  if (src && src.startsWith('/') && !failed) {
+    return <img className="ad-icon" data-size={size} src={src} alt="" width={size} height={size} loading="lazy" decoding="async" onError={() => setFailed(true)} />
   }
+  const glyph = glyphOf(id)
   return (
-    <span className="ad-icon ad-icon--mark" data-size={size} data-hue={hueOf(id || name)} aria-hidden="true">
-      {monogram(name || id)}
+    <span className="ad-icon ad-icon--mark" data-size={size} data-hue={hueOf(id || name)} data-glyph={glyph || undefined} aria-hidden="true">
+      {glyph ? <Icon name={glyph} /> : monogram(name || id)}
     </span>
   )
 }

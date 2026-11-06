@@ -100,7 +100,15 @@
     "alias": "Alias",
     "kindLabel": "Kind",
     "installedOn": "{{name}} is installed and on.",
-    "installedChip": "Installed"
+    "installedChip": "Installed",
+    "category": {
+      "label": "Category",
+      "all": "All",
+      "chat": "Chat apps",
+      "tools": "Tools",
+      "home": "Home",
+      "models": "Models"
+    }
   },
   "catalog": {
     "allLibraries": "All libraries",
@@ -360,7 +368,8 @@
     "starting": "Starting",
     "stopped": "Off",
     "update-pending": "Update pending",
-    "updateTo": "Update {{version}}"
+    "updateTo": "Update {{version}}",
+    "needsSetup": "Needs setup"
   },
   "supporting": "Software you install to give LocalAI new pages and chat tools. Each one runs on its own and asks only for what it lists.",
   "tabs": {
@@ -673,7 +682,12 @@
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
     "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
-    "removeNamed": "Remove {{name}}…"
+    "removeNamed": "Remove {{name}}…",
+    "setUp": "Set up",
+    "setUpNamed": "Set up {{name}}",
+    "review": "Review",
+    "reviewNamed": "Review {{name}}",
+    "updateTo": "Update to {{version}}"
   },
   "preview": {
     "screenshots": "Screenshots",
@@ -732,7 +746,11 @@
     "toolsOff_other": "Its {{count}} chat tools are off until it runs again.",
     "pageOff": "Its page is not available until it runs again.",
     "updateTitle": "{{name}} {{version}} is available.",
-    "updateBody": "You have {{current}}. You see what changes and confirm before anything is replaced."
+    "updateBody": "You have {{current}}. You see what changes and confirm before anything is replaced.",
+    "title_one": "{{count}} add-on needs setup",
+    "title_other": "{{count}} add-ons need setup",
+    "connectionBody_one": "has {{count}} connection that cannot answer yet. {{reason}}",
+    "connectionBody_other": "has {{count}} connections that cannot answer yet. {{reason}}"
   },
   "meta": {
     "builtin": "Built in",
@@ -965,6 +983,30 @@
       "migrating": "migrating data",
       "starting": "starting",
       "working": "working"
+    }
+  },
+  "groups": {
+    "chat": "Chat apps",
+    "tools": "Tools and services",
+    "models": "Media and models",
+    "builtin": "Built in"
+  },
+  "connection": {
+    "title": "Connections",
+    "none": "No connections yet.",
+    "answersAs": "Answers as {{name}}",
+    "noAgent": "No agent chosen",
+    "manage": "Manage connections",
+    "acceptsListed_one": "Accepts {{count}} person",
+    "acceptsListed_other": "Accepts {{count}} people",
+    "accepts": {
+      "anyone": "Accepts anyone",
+      "nobody": "Accepts nobody yet"
+    },
+    "state": {
+      "running": "Running",
+      "off": "Off",
+      "attention": "Needs setup"
     }
   }
 }

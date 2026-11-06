@@ -36,8 +36,8 @@ test.describe('Chat connectors', () => {
     await expect(group.getByRole('heading', { name: 'Telegram' })).toBeVisible()
     await expect(group.getByRole('link', { name: 'Add or change bindings' })).toHaveAttribute('href', '/app/addons/telegram/bots')
     await expect(group.getByTestId('connector-row')).toContainText('Support bot')
-    await expect(group.getByTestId('connector-row')).toContainText('Agent: Support')
-    await expect(group.getByTestId('connector-row')).toContainText('Accepts: 1 listed sender')
+    await expect(group.getByTestId('connector-row')).toContainText('Answers as Support')
+    await expect(group.getByTestId('connector-row')).toContainText('Accepts 1 person')
   })
 
   test('has no form, no kind switch and no Telegram fields', async ({ page }) => {

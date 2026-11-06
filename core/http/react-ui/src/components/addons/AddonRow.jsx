@@ -2,27 +2,53 @@
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import Button from '../ui/Button'
+import StatusChip from '../ui/StatusChip'
 import { apiUrl } from '../../utils/basePath'
 import { AppIcon, ApprovalChip, BuiltinIcon, OperationChip, StateChip, UpdateChip, VersionText } from './AddonBits'
 import AddonMenu from './AddonMenu'
-import { isLocalFile } from './fileInstall'
 import { addedByAddon, stateChip } from './addonState'
 
-// One installed add-on as a row: identity tile, name and state, one line of
-// what it does, and a meta line (page, tools, where it came from, version).
-// The row body selects the add-on (its details open beside the list). On the
-// right: the actions that fit its state (Upgrade, Open), Pin, and the overflow
-// menu with reordering, Details and Remove.
-export default function AddonRow({ tile, pinned, selected = false, attention = '', source, updateVersion = '', waitingApproval = false, onPin, onMove, onOpenDetail, onRemove, upgrade, upgradeInline = false }) {
+// One installed add-on as a row: its icon, its name with one plain state, one
+// line of what it does, and a quiet line of facts (page, tools, version). The
+// row body selects the add-on (its details open beside the list). On the right
+// is the one action that fits the state, and the overflow menu with Pin,
+// reordering, Details and Remove. The state is one chip: a running operation,
+// a decision waiting for an administrator, an update, a connection that needs
+// setup, else the process state.
+export default function AddonRow({ tile, pinned, selected = false, attention = '', needsSetup = false, updateVersion = '', waitingApproval = false, onPin, onMove, onOpenDetail, onRemove, upgrade, upgradeInline = false }) {
   const { t } = useTranslation('addons')
   const { t: tn } = useTranslation('nav')
   const title = tile.titleKey ? tn(tile.titleKey) : tile.title
   const app = tile.app
-  const stateText = app ? t(`state.${stateChip(app).key}`) : t('meta.builtin')
   const added = app ? addedByAddon(app) : { page: tile.source === 'builtin', tools: 0 }
-  const signed = source && source.verification === 'sha256+sigstore'
+  const updating = Boolean(app && !app.operation && !waitingApproval && (app.update === 'update-pending' || updateVersion))
+  const setup = Boolean(app && needsSetup && !app.operation && !waitingApproval && attention !== 'failed')
+  const stateText = !app ? t('meta.builtin') : setup ? t('state.needsSetup') : t(`state.${stateChip(app).key}`)
+
+  let chip = null
+  if (app) {
+    if (app.operation) chip = <OperationChip app={app} className="ad-tile__state" />
+    else if (waitingApproval) chip = <ApprovalChip />
+    else if (attention === 'failed') chip = <StateChip app={app} className="ad-tile__state" />
+    else if (setup) chip = <span className="ad-state ad-tile__state" data-state="needs-setup" data-testid="needs-setup-chip"><StatusChip tone="warn" label={t("state.needsSetup")} /></span>
+    else if (updating) chip = <UpdateChip version={updateVersion} />
+    else chip = <StateChip app={app} className="ad-tile__state" />
+  }
+
+  // The one action. A failure or a missing setup leads to the details; an
+  // update the administrator can start is the upgrade control; a running page
+  // opens.
+  let action = null
+  if (attention === 'failed' || setup) {
+    action = <Button size="sm" onClick={() => onOpenDetail(tile.id)} aria-label={t(setup ? 'card.setUpNamed' : 'card.reviewNamed', { name: title })} data-testid="tile-fix">{t(setup ? 'card.setUp' : 'card.review')}</Button>
+  } else if (upgrade && upgradeInline) {
+    action = <span className="ad-tile__act" data-testid="tile-upgrade">{upgrade}</span>
+  } else if (tile.target) {
+    action = <Button size="sm" to={tile.target} aria-label={t('card.openNamed', { name: title })}>{t('apps.open')}</Button>
+  }
+
   return (
-    <li className="ad-tile" data-testid="addon-tile" data-app={tile.id} data-state={tile.state} data-attention={attention || undefined} data-selected={selected ? 'true' : undefined}>
+    <li className="ad-tile" data-testid="addon-tile" data-app={tile.id} data-state={tile.state} data-attention={attention || (setup ? 'setup' : undefined)} data-selected={selected ? 'true' : undefined}>
       <button
         type="button"
         className="ad-tile__open"
@@ -31,15 +57,12 @@ export default function AddonRow({ tile, pinned, selected = false, attention = '
         onClick={() => onOpenDetail(tile.id)}
       >
         {tile.source === 'builtin'
-          ? <BuiltinIcon name={tile.iconName} />
-          : <AppIcon src={tile.icon ? apiUrl(tile.icon) : ''} id={tile.id} name={title} />}
+          ? <BuiltinIcon name={tile.iconName} size={44} />
+          : <AppIcon src={tile.icon ? apiUrl(tile.icon) : ''} id={tile.id} name={title} size={44} />}
         <span className="ad-tile__text">
           <span className="ad-tile__head">
             <span className="ad-tile__title">{title}</span>
-            {app && <StateChip app={app} className="ad-tile__state" />}
-            {app && <OperationChip app={app} className="ad-tile__state" />}
-            {app && !app.operation && !waitingApproval && (app.update === 'update-pending' || updateVersion) && <UpdateChip version={updateVersion} />}
-            {app && waitingApproval && <ApprovalChip />}
+            {chip}
           </span>
           {tile.description && <span className="ad-tile__desc">{tile.description}</span>}
           <span className="ad-meta">
@@ -50,28 +73,12 @@ export default function AddonRow({ tile, pinned, selected = false, attention = '
               </span>
             )}
             {!app && <span className="ad-meta__item">{t('meta.builtinLong')}</span>}
-            {source && source.sourceId && (
-              <span className="ad-meta__item" data-source={source.sourceId}><Icon name="shield" aria-hidden="true" /> {isLocalFile(source.sourceId) ? t('file.badge') : t(signed ? 'meta.signed' : 'meta.checked', { library: source.sourceId })}</span>
-            )}
             {app && <span className="ad-meta__item"><VersionText version={app.version} /></span>}
           </span>
         </span>
       </button>
       <div className="ad-tile__side">
-        {upgrade && upgradeInline && <span className="ad-tile__act" data-testid="tile-upgrade">{upgrade}</span>}
-        {tile.target && (
-          <Button size="sm" to={tile.target} aria-label={t('card.openNamed', { name: title })}>{t('apps.open')}</Button>
-        )}
-        <Button
-          size="sm"
-          variant="ghost"
-          icon="pin"
-          className="ad-tile__pin"
-          aria-pressed={pinned}
-          aria-label={pinned ? t('drawer.unpin', { name: title }) : t('drawer.pin', { name: title })}
-          title={pinned ? t('card.hideFromSidebar') : t('card.showInSidebar')}
-          onClick={() => onPin(tile.id)}
-        />
+        {action}
         <AddonMenu
           name={title}
           pinned={pinned}
@@ -85,4 +92,3 @@ export default function AddonRow({ tile, pinned, selected = false, attention = '
     </li>
   )
 }
-

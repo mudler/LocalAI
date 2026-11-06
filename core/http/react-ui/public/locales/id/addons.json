@@ -100,7 +100,15 @@
     "alias": "Alias",
     "kindLabel": "Kind",
     "installedOn": "{{name}} is installed and on.",
-    "installedChip": "Terpasang"
+    "installedChip": "Terpasang",
+    "category": {
+      "label": "Kategori",
+      "all": "Semua",
+      "chat": "Aplikasi obrolan",
+      "tools": "Alat",
+      "home": "Rumah",
+      "models": "Model"
+    }
   },
   "catalog": {
     "allLibraries": "Semua pustaka",
@@ -360,7 +368,8 @@
     "starting": "Memulai",
     "stopped": "Nonaktif",
     "update-pending": "Pembaruan tertunda",
-    "updateTo": "Pembaruan {{version}}"
+    "updateTo": "Pembaruan {{version}}",
+    "needsSetup": "Perlu disiapkan"
   },
   "supporting": "Perangkat lunak yang Anda pasang untuk memberi LocalAI halaman dan alat chat baru. Masing-masing berjalan sendiri dan hanya meminta yang dicantumkannya.",
   "tabs": {
@@ -673,7 +682,12 @@
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
     "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
-    "removeNamed": "Hapus {{name}}…"
+    "removeNamed": "Hapus {{name}}…",
+    "setUp": "Siapkan",
+    "setUpNamed": "Siapkan {{name}}",
+    "review": "Tinjau",
+    "reviewNamed": "Tinjau {{name}}",
+    "updateTo": "Perbarui ke {{version}}"
   },
   "preview": {
     "screenshots": "Screenshots",
@@ -732,7 +746,11 @@
     "toolsOff_other": "{{count}} alat chat-nya mati sampai add-on berjalan lagi.",
     "pageOff": "Halamannya tidak tersedia sampai add-on berjalan lagi.",
     "updateTitle": "{{name}} {{version}} tersedia.",
-    "updateBody": "Anda memakai {{current}}. Anda melihat perubahannya dan mengonfirmasi sebelum ada yang diganti."
+    "updateBody": "Anda memakai {{current}}. Anda melihat perubahannya dan mengonfirmasi sebelum ada yang diganti.",
+    "title_one": "{{count}} add-on perlu disiapkan",
+    "title_other": "{{count}} add-on perlu disiapkan",
+    "connectionBody_one": "memiliki {{count}} koneksi yang belum bisa menjawab. {{reason}}",
+    "connectionBody_other": "memiliki {{count}} koneksi yang belum bisa menjawab. {{reason}}"
   },
   "meta": {
     "builtin": "Bawaan",
@@ -965,6 +983,30 @@
       "migrating": "memigrasi data",
       "starting": "memulai",
       "working": "bekerja"
+    }
+  },
+  "groups": {
+    "chat": "Aplikasi obrolan",
+    "tools": "Alat dan layanan",
+    "models": "Media dan model",
+    "builtin": "Bawaan"
+  },
+  "connection": {
+    "title": "Koneksi",
+    "none": "Belum ada koneksi.",
+    "answersAs": "Menjawab sebagai {{name}}",
+    "noAgent": "Belum ada agen dipilih",
+    "manage": "Kelola koneksi",
+    "acceptsListed_one": "Menerima {{count}} orang",
+    "acceptsListed_other": "Menerima {{count}} orang",
+    "accepts": {
+      "anyone": "Menerima siapa saja",
+      "nobody": "Belum menerima siapa pun"
+    },
+    "state": {
+      "running": "Berjalan",
+      "off": "Mati",
+      "attention": "Perlu disiapkan"
     }
   }
 }

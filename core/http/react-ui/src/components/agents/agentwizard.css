@@ -67,7 +67,7 @@
 .aw-progress::-webkit-progress-value { background: var(--dk-accent); border-radius: var(--radius-full); }
 .aw-progress::-moz-progress-bar { background: var(--dk-accent); border-radius: var(--radius-full); }
 .aw-todo { display: grid; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
-.aw-todo__row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: center; min-width: 0; }
+.aw-todo__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: center; min-width: 0; }
 .aw-todo__text { display: grid; gap: 2px; min-width: 0; }
 .aw-todo__title { font-weight: 600; color: var(--dk-text); overflow-wrap: anywhere; }
 .aw-todo__needs { font-size: var(--fs-small); color: var(--dk-muted); overflow-wrap: anywhere; }
@@ -75,5 +75,6 @@
 @media (max-width: 860px) {
   .aw-layout { grid-template-columns: minmax(0, 1fr); }
   .aw-rail { position: static; }
-  .aw-todo__row { grid-template-columns: minmax(0, 1fr); }
+  .aw-todo__row { grid-template-columns: auto minmax(0, 1fr); }
+  .aw-todo__row > :last-child { grid-column: 1 / -1; justify-self: start; }
 }

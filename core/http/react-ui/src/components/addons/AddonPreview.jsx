@@ -9,6 +9,7 @@ import AddonSkills from './AddonSkills'
 import AddonSettings from './AddonSettings'
 import { addedByAddon, appActions, attentionOf, localizedText, screenshotsOf } from './addonState'
 import { updateView, upgradeAvailability } from './updateState'
+import ConnectionList from './ConnectionList'
 import { describeOutcome } from './errors'
 
 // The details of one add-on, beside the list. From the top: who it is and its
@@ -16,7 +17,7 @@ import { describeOutcome } from './errors'
 // (Open, Turn on or off, Pin); what it can do; then, for an administrator, the
 // operator facts in `children` (trust, health, updates, compatibility, storage
 // and data). Remove sits last, apart from everything else.
-export default function AddonPreview({ tile, language, title, pinned, onPin, onMove, onClose, actions, onStartStop, onRemove, isAdmin, source, links = [], upgrade, hasSettings = false, view = 'overview', onView, children }) {
+export default function AddonPreview({ tile, language, title, pinned, onPin, onMove, onClose, actions, onStartStop, onRemove, isAdmin, source, links = [], upgrade, hasSettings = false, view = 'overview', onView, connections = [], agents = [], kinds = [], children }) {
   const { t } = useTranslation('addons')
   const app = tile.app
   const update = isAdmin && source ? updateView(source.update) : null
@@ -81,10 +82,10 @@ export default function AddonPreview({ tile, language, title, pinned, onPin, onM
         )}
         {app && hasSettings && view !== 'settings' && (
           <div role="tabpanel" id="ad-pane-panel" aria-labelledby="ad-pane-tab-overview">
-            <PreviewBody app={app} title={title} language={language} pinned={pinned} onPin={onPin} actions={actions} onStartStop={onStartStop} onRemove={onRemove} isAdmin={isAdmin} source={source} update={update} upgrade={upgrade} links={links}>{children}</PreviewBody>
+            <PreviewBody app={app} title={title} language={language} pinned={pinned} onPin={onPin} actions={actions} onStartStop={onStartStop} onRemove={onRemove} isAdmin={isAdmin} source={source} update={update} upgrade={upgrade} links={links} connections={connections} agents={agents} kinds={kinds}>{children}</PreviewBody>
           </div>
         )}
-        {app && !hasSettings && <PreviewBody app={app} title={title} language={language} pinned={pinned} onPin={onPin} actions={actions} onStartStop={onStartStop} onRemove={onRemove} isAdmin={isAdmin} source={source} update={update} upgrade={upgrade} links={links}>{children}</PreviewBody>}
+        {app && !hasSettings && <PreviewBody app={app} title={title} language={language} pinned={pinned} onPin={onPin} actions={actions} onStartStop={onStartStop} onRemove={onRemove} isAdmin={isAdmin} source={source} update={update} upgrade={upgrade} links={links} connections={connections} agents={agents} kinds={kinds}>{children}</PreviewBody>}
         {!app && <p className="ad-pane__text ad-pane__text--pad">{t('drawer.builtinDetail')}</p>}
       </div>
     </SidePane>
@@ -113,7 +114,7 @@ function EnableFailed({ title, outcome, reason, fix }) {
   )
 }
 
-function PreviewBody({ app, title, language, pinned, onPin, actions, onStartStop, onRemove, isAdmin, source, update, upgrade, links, children }) {
+function PreviewBody({ app, title, language, pinned, onPin, actions, onStartStop, onRemove, isAdmin, source, update, upgrade, links, connections, agents, kinds, children }) {
   const { t } = useTranslation('addons')
   const description = localizedText(app, 'description', language)
   const added = addedByAddon(app)
@@ -206,6 +207,7 @@ function PreviewBody({ app, title, language, pinned, onPin, actions, onStartStop
           </div>
         )}
       </section>
+      <ConnectionList app={app} connections={connections} agents={agents} kinds={kinds} />
       <AddonSkills app={app} isAdmin={isAdmin} />
       <dl className="dk-kv ad-kv ad-pane__facts" data-testid="preview-facts">
         <dt>{t('preview.version')}</dt><dd>{app.version}</dd>

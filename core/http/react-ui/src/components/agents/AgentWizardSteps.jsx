@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import ModelPicker from '../ModelPicker'
 import { AppIcon } from '../addons/AddonBits'
+import { apiUrl } from '../../utils/basePath'
 import { Button, Callout, StatusChip, Switch } from '../ui'
 import AgentTemplates from './AgentTemplates'
 import AgentPresets, { AppliedNotice } from './AgentPresets'
@@ -104,7 +105,7 @@ function AppRow({ item, checked, onChange, icon }) {
   const { t } = useTranslation('agents')
   return (
     <li className="aw-app" data-app={item.key} data-installed={item.installed || undefined}>
-      <AppIcon src={icon || ''} id={item.addon} name={item.title} size={32} />
+      <AppIcon src={icon ? apiUrl(icon) : ''} id={item.addon} name={item.title} size={32} />
       <div className="aw-app__text">
         <span className="aw-app__title" id={`aw-app-${item.key}`}>
           {item.title}

@@ -102,7 +102,15 @@
     "alias": "Alias",
     "kindLabel": "Kind",
     "installedOn": "{{name}} is installed and on.",
-    "installedChip": "Installé"
+    "installedChip": "Installé",
+    "category": {
+      "label": "Catégorie",
+      "all": "Tous",
+      "chat": "Messagerie",
+      "tools": "Outils",
+      "home": "Maison",
+      "models": "Modèles"
+    }
   },
   "catalog": {
     "allLibraries": "Toutes les bibliothèques",
@@ -364,7 +372,8 @@
     "starting": "Démarrage",
     "stopped": "Désactivé",
     "update-pending": "Mise à jour en attente",
-    "updateTo": "Mise à jour {{version}}"
+    "updateTo": "Mise à jour {{version}}",
+    "needsSetup": "À configurer"
   },
   "supporting": "Des logiciels que vous installez pour donner à LocalAI de nouvelles pages et des outils de chat. Chacun s’exécute seul et ne demande que ce qu’il déclare.",
   "tabs": {
@@ -677,7 +686,12 @@
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
     "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
-    "removeNamed": "Retirer {{name}}…"
+    "removeNamed": "Retirer {{name}}…",
+    "setUp": "Configurer",
+    "setUpNamed": "Configurer {{name}}",
+    "review": "Examiner",
+    "reviewNamed": "Examiner {{name}}",
+    "updateTo": "Mettre à jour vers {{version}}"
   },
   "preview": {
     "screenshots": "Screenshots",
@@ -736,7 +750,11 @@
     "toolsOff_other": "Ses {{count}} outils de chat sont désactivés jusqu’à ce qu’il redémarre.",
     "pageOff": "Sa page n’est pas disponible jusqu’à ce qu’il redémarre.",
     "updateTitle": "{{name}} {{version}} est disponible.",
-    "updateBody": "Vous avez {{current}}. Vous voyez ce qui change et confirmez avant tout remplacement."
+    "updateBody": "Vous avez {{current}}. Vous voyez ce qui change et confirmez avant tout remplacement.",
+    "title_one": "{{count}} module complémentaire à configurer",
+    "title_other": "{{count}} modules complémentaires à configurer",
+    "connectionBody_one": "a {{count}} connexion qui ne peut pas encore répondre. {{reason}}",
+    "connectionBody_other": "a {{count}} connexions qui ne peuvent pas encore répondre. {{reason}}"
   },
   "meta": {
     "builtin": "Intégré",
@@ -969,6 +987,30 @@
       "migrating": "migration des données",
       "starting": "démarrage",
       "working": "en cours"
+    }
+  },
+  "groups": {
+    "chat": "Applications de messagerie",
+    "tools": "Outils et services",
+    "models": "Médias et modèles",
+    "builtin": "Intégré"
+  },
+  "connection": {
+    "title": "Connexions",
+    "none": "Aucune connexion pour l’instant.",
+    "answersAs": "Répond en tant que {{name}}",
+    "noAgent": "Aucun agent choisi",
+    "manage": "Gérer les connexions",
+    "acceptsListed_one": "Accepte {{count}} personne",
+    "acceptsListed_other": "Accepte {{count}} personnes",
+    "accepts": {
+      "anyone": "Accepte tout le monde",
+      "nobody": "N’accepte personne pour l’instant"
+    },
+    "state": {
+      "running": "En marche",
+      "off": "Désactivée",
+      "attention": "À configurer"
     }
   }
 }

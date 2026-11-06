@@ -981,6 +981,59 @@ busy. Showing the last known state.", and asks again with a growing delay. It
 only says that no add-ons are installed when the owner answered with an empty
 list.
 
+## The Add-ons page
+
+**Installed** lists the add-ons you installed in groups: chat apps, tools and
+services, and media and models. The group comes from what the add-on gives
+LocalAI. An add-on that serves a messaging connection is a chat app. One that
+gives chat tools is a tool. One that has only a page is under media and models.
+Each row shows the icon, the name, one state, one line of what the add-on does
+and the one action that fits the state: **Open**, **Update** or **Set up**.
+**Pin**, **Details** and **Remove** are in the menu of the row.
+
+When something needs setup, one strip above the list says so. It names each
+add-on that failed to start and each add-on with a connection that cannot answer
+yet, for example because no token is saved. **Set up** opens the details of that
+add-on.
+
+The details open beside the list. They show what the add-on can do, its
+connections, who made it and how it was checked. **Remove** is the last item.
+The connections show the agent that answers and who it accepts, in words.
+
+**Find add-ons** shows the library as cards, with a search field and a category
+filter. Each card has one control: **Install**, **Installed** or **Update to**
+a version. The category comes from what the library says the add-on gives:
+tools, a page, or the id of a first-party add-on. The filter narrows the page
+of results that is on screen.
+
+### Add-on icons
+
+Every add-on has an icon. The page picks it in this order:
+
+1. **The icon file of the add-on.** Set `ui.icon` in the manifest to a path in
+   the package. The file is a PNG, WebP or JPEG of at most 256 KB, never an
+   SVG. Make it 256 by 256 pixels, a rounded tile with the mark drawn on it, so
+   that it reads on a light page and on a dark page. First-party add-ons commit
+   this file as `ui/icon.png`.
+2. **A generated tile.** An add-on built with the shared builder
+   (`addons/internal/uibuild`) and without an icon file gets a tile of its own
+   colour with a white line glyph. Pass `glyph` to the builder to choose one of
+   the glyphs in `addons/internal/uibuild/glyphs.mjs`.
+3. **A drawn tile in the page.** The host serves an icon file only for an
+   installed package. For an add-on that is not installed, or whose file does
+   not load, the page draws a tile with a glyph of its own icon set for the
+   first-party add-ons it knows, and the first letter of the name for any other.
+
+The page never loads an icon from another host.
+
+Do not put the logo of a company or a product on an add-on icon unless you
+have the right to. Take the official mark from the company's own brand page,
+read its usage terms, and record the source URL and the terms in
+`ui/ICON-SOURCE.md` next to the icon. If the terms forbid the use or are not
+clear, ship a generated tile with a generic glyph. The first-party add-ons for
+services (Slack, Telegram, Discord, GitHub, Home Assistant, Jellyfin, PiKVM) use
+generated tiles for this reason.
+
 ## The official library
 
 On the first start, when the owner has no `sources.json` in the `addons` folder yet,

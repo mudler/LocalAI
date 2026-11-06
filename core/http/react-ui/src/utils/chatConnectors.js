@@ -3,7 +3,7 @@ import { addonPageAddress } from '../addons/addresses.js'
 
 // The page where a kind is managed: the page its add-on declares, else the
 // add-on's entry in the gallery.
-function kindPageHref(k) {
+export function kindPageHref(k) {
   return k.page ? addonPageAddress({ addon: k.addon, page: k.page }) : `/app/addons?detail=${encodeURIComponent(k.addon)}`
 }
 
@@ -102,4 +102,20 @@ export function rowState(c) {
   if (c.enabled === false) return 'off'
   if (c.has_token === false || duplicateOf(c)) return 'attention'
   return 'running'
+}
+
+// The facts of a connection a person reads in a list or a pane: the agent that
+// answers, and who it accepts, as keys and counts for the translator. Nothing
+// here shows the raw kind or a raw id.
+export function connectionFacts(c, agents) {
+  const agent = (agents || []).find((a) => a.id === c.agent_id)
+  return { agentName: agent ? agent.name : '', accepts: acceptsOf(c) }
+}
+
+// The agent that answers and who it accepts, as words, for a connection row.
+// `t` is the translator of the add-ons namespace. Never the raw kind or an id.
+export function connectionLine(c, agents, t) {
+  const { agentName, accepts } = connectionFacts(c, agents)
+  const who = accepts.key === 'listed' ? t('connection.acceptsListed', { count: accepts.count }) : t(`connection.accepts.${accepts.key}`)
+  return { agentName, who }
 }
