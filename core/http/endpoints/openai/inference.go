@@ -99,9 +99,16 @@ func ComputeChoices(
 		logitBias = req.LogitBias
 	}
 
+	// Native chat templates must receive roles and messages, not a flattened
+	// prompt: Python backends treat a nonempty prompt as a completion request.
+	backendInput := predInput
+	if config.TemplateConfig.UseTokenizerTemplate && len(req.Messages) > 0 {
+		backendInput = ""
+	}
+
 	// get the model function to call for the result
 	predFunc, err := backend.ModelInferenceFunc(
-		req.Context, predInput, req.Messages, images, videos, audios, loader, config, bcl, o, tokenCallback, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias, req.Metadata)
+		req.Context, backendInput, req.Messages, images, videos, audios, loader, config, bcl, o, tokenCallback, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias, req.Metadata)
 	if err != nil {
 		return result, backend.TokenUsage{}, nil, err
 	}
