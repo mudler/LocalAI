@@ -262,13 +262,9 @@ func (s *Service) Transcribe(ctx context.Context, principal, name string, audio 
 	return s.transcribe(ctx, principal, model, held(name, data), name)
 }
 
-var audioExts = map[string]bool{".wav": true, ".mp3": true, ".m4a": true, ".ogg": true, ".oga": true, ".opus": true, ".flac": true, ".webm": true, ".aac": true, ".weba": true}
-
-func isAudioName(name string) bool { return audioExts[strings.ToLower(path.Ext(name))] }
-
 // IsAudio tells whether a file is a recording by its name, as PrepareUploads
 // and transcribe_audio decide.
-func IsAudio(name string) bool { return isAudioName(name) }
+func IsAudio(name string) bool { return localaitools.IsAudioName(name) }
 
 // CanTranscribe tells whether a transcription model is set in the settings
 // or installed. It is false on a nil Service.
@@ -286,7 +282,7 @@ func (s *Service) PrepareUploads(ctx context.Context, principal, text string, up
 	var notes strings.Builder
 	for i, u := range up {
 		out[i] = u
-		if !isAudioName(u.Name) || u.Body == nil {
+		if !localaitools.IsAudioName(u.Name) || u.Body == nil {
 			continue
 		}
 		data, err := io.ReadAll(io.LimitReader(u.Body, maxVoiceNote+1))

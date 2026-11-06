@@ -712,3 +712,14 @@ var _ = Describe("limits of the client tools", func() {
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+var _ = Describe("IsAudioName", func() {
+	It("knows the recordings by extension, whatever the case", func() {
+		for _, n := range []string{"a.wav", "B.MP3", "c.m4a", "d.ogg", "e.opus", "f.flac", "g.webm", "h.aac", "i.weba", "j.oga"} {
+			Expect(localaitools.IsAudioName(n)).To(BeTrue(), n)
+		}
+		for _, n := range []string{"a.png", "b.txt", "wav", ""} {
+			Expect(localaitools.IsAudioName(n)).To(BeFalse(), n)
+		}
+	})
+})

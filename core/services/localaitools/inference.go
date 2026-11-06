@@ -165,13 +165,15 @@ func (i *Inference) readAudio(ctx context.Context, ref, what string) (File, erro
 	if err != nil {
 		return f, err
 	}
-	if ct := http.DetectContentType(f.Data); strings.HasPrefix(ct, "audio/") || strings.HasPrefix(f.MIME, "audio/") || extForMIME(f.MIME) != "" || audioName(f.Name) {
+	if ct := http.DetectContentType(f.Data); strings.HasPrefix(ct, "audio/") || strings.HasPrefix(f.MIME, "audio/") || extForMIME(f.MIME) != "" || IsAudioName(f.Name) {
 		return f, nil
 	}
 	return f, &WrongKindError{What: what, Kind: "audio"}
 }
 
-func audioName(name string) bool {
+// IsAudioName tells whether a file name has the extension of a recording. The
+// chats use it too, to decide which attachments to transcribe.
+func IsAudioName(name string) bool {
 	switch strings.ToLower(path.Ext(name)) {
 	case ".wav", ".mp3", ".m4a", ".ogg", ".oga", ".opus", ".flac", ".webm", ".aac", ".weba":
 		return true
