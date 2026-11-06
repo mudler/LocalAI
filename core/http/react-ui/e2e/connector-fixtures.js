@@ -229,6 +229,12 @@ export async function clippedOptions(select, { all = true } = {}) {
 
 // Opens everything the sheet keeps folded: the Custom preset (the matrix), the
 // replies and the check. Only what the open sheet has is touched.
+// A new connection starts with the status as one quiet line; this opens the list.
+export async function openReadiness(page) {
+  const quiet = page.getByTestId('connector-ready-quiet')
+  if (await quiet.count() > 0 && (await quiet.getAttribute('aria-expanded')) !== 'true') await quiet.click()
+}
+
 export async function expandAll(page) {
   const custom = page.getByTestId('connector-preset-custom')
   if (await custom.count() > 0) await custom.check()

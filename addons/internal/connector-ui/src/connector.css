@@ -244,6 +244,8 @@ fieldset.cn-group {
 .cn-fix { white-space: nowrap; text-decoration: none; }
 .cn-fix__text { max-width: 12rem; text-align: right; }
 .cn-ready__toggle { align-self: flex-start; }
+.cn-ready-quiet { display: flex; flex-direction: column; gap: var(--dk-space-2); align-items: flex-start; }
+.cn-ready-quiet > .cn-ready { align-self: stretch; }
 .cn-can__live:empty { display: none; }
 [data-jumped="true"] { outline: 2px solid var(--dk-accent); outline-offset: 3px; border-radius: var(--r-sm); }
 @media (max-width: 700px) {

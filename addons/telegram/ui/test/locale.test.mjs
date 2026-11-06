@@ -27,3 +27,13 @@ test('connector words: Italian wins, plural forms follow the language, and a mis
   assert.ok(zh('ready.who.listed', { count: 1 }).includes('1'), 'a language with one plural form still gets the count')
   assert.equal(translator('sv', ['connector'])('matrix.title'), 'Who can do what', 'a language without a bundle reads in English')
 })
+
+const LANGS = ['en', 'it', 'es', 'de', 'fr', 'zh-CN', 'id', 'ko', 'pt-BR']
+
+test('connector words: the quiet line of a new connection counts the things to set, in every language', () => {
+  for (const lng of LANGS) {
+    const b = connector(lng)
+    for (const key of ['ready.quiet_one', 'ready.quiet_other', 'ready.quietDone']) assert.ok(typeof b[key] === 'string' && b[key].trim() !== '', `${lng} has ${key}`)
+    assert.ok(b['ready.quiet_other'].includes('{{count}}'), `${lng} keeps the count`)
+  }
+})

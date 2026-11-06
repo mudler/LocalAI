@@ -107,7 +107,7 @@ export default function ConnectionSheet({ p }) {
           {p.sameBot}
 
           <Section id="cn-sec-connection" title={s('conn.sheet.connection')}>
-            {messaging && capabilities.length > 0 && <ReadinessList s={s} ctx={p.fixCtx} rowsInput={p.readyInput} />}
+            {messaging && capabilities.length > 0 && <ReadinessList s={s} ctx={p.fixCtx} rowsInput={p.readyInput} isNew={!editing} />}
             <Field label={t('name')}>
               {(f) => <TextInput {...f} value={form.name} required maxLength={80} onChange={(e) => setForm({ ...form, name: e.target.value })} />}
             </Field>

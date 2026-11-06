@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi, ROLES_KIND, openEdit, rowMenu, expandAll, openPane } from './connector-fixtures.js'
+import { connectorApi, ROLES_KIND, openEdit, rowMenu, expandAll, openPane, openReadiness } from './connector-fixtures.js'
 
 // The pages of the add-ons follow the language of the web UI. The words of the
 // shared connector page and of each add-on page are bundles of the add-on, in
@@ -126,6 +126,8 @@ test.describe('Add-on pages in Italian', () => {
     await connectorApi(page, [], 'slack', [], undefined, { kindExtra: ROLES_KIND }).install()
     await page.goto(SLACK)
     await page.getByRole('button', { name: 'Nuova app Slack' }).click()
+    await expect(page.getByTestId('connector-ready-quiet')).toHaveText(/cose da impostare/)
+    await openReadiness(page)
     await expect(page.getByTestId('connector-ready-token')).toContainText('Richiede attenzione')
     await expect(page.getByTestId('connector-ready-agent')).toContainText('Scegli l\'agente che risponde.')
     await shots(page, 'it-readiness-new', page.getByTestId('connector-readiness'))

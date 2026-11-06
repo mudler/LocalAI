@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi as api, DECLARED, openAnswerMore, openEdit, expandAll, rowMenu, openPane } from './connector-fixtures.js'
+import { connectorApi as api, DECLARED, openAnswerMore, openEdit, expandAll, rowMenu, openPane, openReadiness } from './connector-fixtures.js'
 
 // The page of the Telegram add-on (the real built bundle, inside the add-on
 // shell) with the core API stubbed: the token only goes in, "anyone"
@@ -242,6 +242,9 @@ test.describe('Telegram add-on', () => {
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New Telegram bot' }).click()
     await expandAll(page)
+    // A new bot starts with one quiet line; open it and show every row.
+    await expect(page.getByTestId('connector-readiness')).toHaveCount(0)
+    await openReadiness(page)
     const ready = page.getByTestId('connector-readiness')
     await expect(ready.getByTestId('connector-ready-token')).toContainText('Paste the token')
     await expect(ready.getByTestId('connector-ready-agent')).toContainText('Choose the agent')
@@ -249,6 +252,9 @@ test.describe('Telegram add-on', () => {
     await ready.getByTestId('connector-ready-token').getByRole('button', { name: 'Paste the token' }).click()
     await expect(page.getByLabel('Bot token')).toBeFocused()
     await page.getByLabel('Bot token').fill('555:secret-token')
+    // A row that only waits for the save is not a thing to set, so the list shows it with "Show all".
+    await expect(ready.getByTestId('connector-ready-token')).toHaveCount(0)
+    await ready.getByTestId('connector-ready-toggle').click()
     await expect(ready.getByTestId('connector-ready-token')).toHaveAttribute('data-state', 'after_save')
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
     await page.getByRole('textbox', { name: 'Add a person or channel' }).fill('42')
