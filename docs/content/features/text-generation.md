@@ -478,7 +478,8 @@ With the tables:
   response, oldest first). A resume below the oldest kept event returns HTTP 409
   (`ErrOffsetLost`).
 - Every read still checks the owner of the response: a caller who did not create
-  it gets 404.
+  it gets 404. An `item_reference` finds only an item of a response the caller
+  created; the item of another user's response is "not found".
 - Rows expire after `OPEN_RESPONSES_STORE_TTL`. With the TTL at 0 a database
   store applies a default of 7 days, because a table does not end with the
   process.

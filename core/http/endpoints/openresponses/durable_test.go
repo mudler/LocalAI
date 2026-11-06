@@ -492,7 +492,7 @@ func tableSpecs(openDB func() *gorm.DB) {
 	It("finds an item of a stored response after a restart", func() {
 		a := newStore("a")
 		a.StoreOwned("r1", &schema.OpenResponsesRequest{}, durableResponse("r1", schema.ORStatusCompleted), "")
-		item, id, err := newStore("b").FindItem("msg_r1")
+		item, id, err := newStore("b").FindItem("msg_r1", "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(id).To(Equal("r1"))
 		Expect(item.ID).To(Equal("msg_r1"))
@@ -551,6 +551,27 @@ func tableSpecs(openDB func() *gorm.DB) {
 		It("cancels only for the owner", func() {
 			Expect(call(CancelResponseEndpoint(), http.MethodPost, "/v1/responses/r1/cancel", "bob").Code).To(Equal(404))
 			Expect(rowOf(db, "r1").CancelRequested).To(BeFalse())
+		})
+
+		It("resolves an item reference only for the owner", func() {
+			_, _, err := global.FindItem("msg_r1", "bob")
+			Expect(err).To(HaveOccurred(), "bob read an item of alice's response")
+			item, id, err := global.FindItem("msg_r1", "alice")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(id).To(Equal("r1"))
+			Expect(item.ID).To(Equal("msg_r1"))
+			ref := []any{map[string]any{"type": "item_reference", "id": "msg_r1"}}
+			_, err = convertORInputToMessages(ref, &config.ModelConfig{}, "bob")
+			Expect(err).To(HaveOccurred())
+			_, err = convertORInputToMessages(ref, &config.ModelConfig{}, "alice")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("treats the item id as text, not as a pattern", func() {
+			_, _, err := global.FindItem("msg_r%", "alice")
+			Expect(err).To(HaveOccurred())
+			_, _, err = global.FindItem("msg__1", "alice")
+			Expect(err).To(HaveOccurred())
 		})
 
 		It("refuses previous_response_id to a caller who is not the owner", func() {

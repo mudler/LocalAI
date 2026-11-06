@@ -303,17 +303,19 @@ func (s *ResponseStore) GetItem(responseID, itemID string) (*schema.ORItemField,
 	return item, nil
 }
 
-// FindItem searches for an item across all stored responses
-// Returns the item and the response ID it was found in
-func (s *ResponseStore) FindItem(itemID string) (*schema.ORItemField, string, error) {
+// FindItem searches for an item across the stored responses that callerID may
+// read (accessAllowed), and returns the item and the ID of its response. An item
+// of another user's response is not found: an item_reference would otherwise
+// copy that user's text into the caller's prompt.
+func (s *ResponseStore) FindItem(itemID, callerID string) (*schema.ORItemField, string, error) {
 	now := time.Now()
 
-	if item, responseID, found := s.findItemLocal(itemID, now); found {
+	if item, responseID, found := s.findItemLocal(itemID, callerID, now); found {
 		return item, responseID, nil
 	}
 
 	if d := s.durable(); d != nil {
-		if item, responseID, ok := d.findItem(context.Background(), itemID); ok {
+		if item, responseID, ok := d.findItem(context.Background(), itemID, callerID); ok {
 			return item, responseID, nil
 		}
 	}
@@ -327,6 +329,9 @@ func (s *ResponseStore) FindItem(itemID string) (*schema.ORItemField, string, er
 				continue
 			}
 			if v.ExpiresAt != nil && now.After(*v.ExpiresAt) {
+				continue
+			}
+			if v.Owner != "" && v.Owner != callerID {
 				continue
 			}
 			for i := range v.Response.Output {
@@ -343,13 +348,16 @@ func (s *ResponseStore) FindItem(itemID string) (*schema.ORItemField, string, er
 // findItemLocal sweeps only this process's own responses. Split out so the
 // replicated sweep in FindItem runs with s.mu released - the SyncedMap is a
 // separate component with its own lock and must not be entered under ours.
-func (s *ResponseStore) findItemLocal(itemID string, now time.Time) (*schema.ORItemField, string, bool) {
+func (s *ResponseStore) findItemLocal(itemID, callerID string, now time.Time) (*schema.ORItemField, string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	for responseID, stored := range s.responses {
 		// Skip expired responses
 		if stored.ExpiresAt != nil && now.After(*stored.ExpiresAt) {
+			continue
+		}
+		if !accessAllowed(stored, callerID) {
 			continue
 		}
 

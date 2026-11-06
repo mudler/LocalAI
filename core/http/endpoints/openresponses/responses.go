@@ -72,7 +72,7 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 		}
 
 		// Convert Open Responses input to internal Messages
-		newMessages, err := convertORInputToMessages(input.Input, cfg)
+		newMessages, err := convertORInputToMessages(input.Input, cfg, ownerFromContext(c))
 		if err != nil {
 			return sendOpenResponsesError(c, 400, "invalid_request", fmt.Sprintf("failed to parse input: %v", err), "")
 		}
@@ -286,8 +286,9 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 	}
 }
 
-// convertORInputToMessages converts Open Responses input to internal Messages
-func convertORInputToMessages(input any, cfg *config.ModelConfig) ([]schema.Message, error) {
+// convertORInputToMessages converts Open Responses input to internal Messages.
+// An item_reference resolves only to an item of a response callerID may read.
+func convertORInputToMessages(input any, cfg *config.ModelConfig, callerID string) ([]schema.Message, error) {
 	var messages []schema.Message
 
 	switch v := input.(type) {
@@ -360,7 +361,7 @@ func convertORInputToMessages(input any, cfg *config.ModelConfig) ([]schema.Mess
 				}
 
 				store := GetGlobalStore()
-				item, responseID, err := store.FindItem(itemID)
+				item, responseID, err := store.FindItem(itemID, callerID)
 				if err != nil {
 					return nil, fmt.Errorf("item not found: %s (from response %s): %w", itemID, responseID, err)
 				}
@@ -588,7 +589,7 @@ func resolvePreviousResponseMessagesFromSources(sources []previousResponseStoreS
 	var messages []schema.Message
 	for i := len(chain) - 1; i >= 0; i-- {
 		entry := chain[i]
-		inputMessages, err := convertORInputToMessages(entry.request.Input, cfg)
+		inputMessages, err := convertORInputToMessages(entry.request.Input, cfg, callerID)
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to convert previous input for %s: %w", entry.id, err)
 		}

@@ -375,10 +375,16 @@ func rowToStored(row *responseRow) (*StoredResponse, error) {
 
 // findItem looks for an item ID in the stored outputs. The ID is random, so a
 // substring match narrows the rows and the decode confirms the hit.
-func (d *durableBackend) findItem(ctx context.Context, itemID string) (*schema.ORItemField, string, bool) {
+// findItem looks for an item in the rows that callerID may read (the
+// accessAllowed rule, in the query, so other users' rows neither match nor take
+// a place under the limit). The id is matched as text: its LIKE wildcards are
+// escaped.
+func (d *durableBackend) findItem(ctx context.Context, itemID, callerID string) (*schema.ORItemField, string, bool) {
 	var rows []responseRow
-	needle := "%\"id\":" + jsonString(itemID) + "%"
-	if err := d.db.WithContext(ctx).Where("response LIKE ? AND (expires_at = 0 OR expires_at > ?)", needle, nowMs()).Limit(20).Find(&rows).Error; err != nil {
+	needle := "%" + likeEscaper.Replace("\"id\":"+jsonString(itemID)) + "%"
+	if err := d.db.WithContext(ctx).
+		Where("response LIKE ? ESCAPE '\\' AND (expires_at = 0 OR expires_at > ?) AND (owner = '' OR owner = ?)", needle, nowMs(), callerID).
+		Limit(20).Find(&rows).Error; err != nil {
 		return nil, "", false
 	}
 	for i := range rows {
@@ -392,6 +398,9 @@ func (d *durableBackend) findItem(ctx context.Context, itemID string) (*schema.O
 	}
 	return nil, "", false
 }
+
+// likeEscaper escapes the LIKE wildcards and the escape character itself.
+var likeEscaper = strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_")
 
 func jsonString(s string) string {
 	b, _ := json.Marshal(s)
