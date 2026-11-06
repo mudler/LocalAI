@@ -10,6 +10,8 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/gateway/carriertest"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 	"github.com/mudler/LocalAI/core/services/addons/policy/sharetest"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -98,5 +100,31 @@ var _ = Describe("share kind registration on the owner", func() {
 		Expect(a.startAddons()).To(MatchError(ContainSubstring("kind refused")))
 		DeferCleanup(a.Shutdown)
 		Expect(a.AddonPolicy()).To(BeNil())
+	})
+
+	It("gives the owner the leases of its policy and a frontend the owner's policy through the carrier", func() {
+		requireAddonRuntime()
+		a, c := owner()
+		Expect(a.RegisterShareKinds(&sharetest.Provider{})).To(Succeed())
+		a.applicationConfig.Addons = c
+		Expect(a.startAddons()).To(Succeed())
+		DeferCleanup(a.Shutdown)
+		Expect(a.AddonGateway().ShareAuthority).NotTo(BeNil())
+		Expect(a.addonSharingForward()).To(BeNil(), "the owner uses its own policy")
+
+		net, err := carriertest.New(func() *gateway.Gateway {
+			return &gateway.Gateway{Revalidate: func(context.Context, contract.Actor) error { return nil }}
+		})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(net.Close)
+		front := &Application{applicationConfig: &config.ApplicationConfig{Context: context.Background()}}
+		// A frontend keeps the providers it is given and never asks them.
+		Expect(front.RegisterShareKinds(&sharetest.Provider{})).To(Succeed())
+		Expect(front.shareKinds).To(HaveLen(1))
+		Expect(front.addonSharingForward()).To(BeNil(), "no carrier, no owner")
+		front.addonGateway = net.Frontend(carriertest.FrontA)
+		Expect(front.addonSharingForward()).To(Equal(policy.Forwarded{Gateway: front.addonGateway}))
+		front.applicationConfig.Addons.OwnershipMode = auth.AddonModeLocalOwner
+		Expect(front.addonSharingForward()).To(BeNil(), "local-owner mode shares nothing")
 	})
 })

@@ -69,6 +69,10 @@ type Gateway struct {
 	// add-ons: the /api/shares routes. Frontends leave it nil and forward
 	// through Forward.
 	Sharing ShareManager
+	// ShareAuthority is the owner's lookup, creation and admission of the
+	// resources of those kinds for the services that run their work on any
+	// frontend (see RunShared). Frontends leave it nil and forward.
+	ShareAuthority ShareAuthority
 	// Libraries is the owner's library administration. Frontends leave it nil
 	// and forward through Forward.
 	Libraries LibraryAdmin

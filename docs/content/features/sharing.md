@@ -156,7 +156,9 @@ may receive a grant, whether `@everyone` is allowed, the feature a caller needs
 (`Feature`, empty for none), who may create a resource and how to check that the
 backing of a pending resource exists. The service then creates
 its resources with `Policy.CreateRef` and runs its work under `Policy.AdmitRef`, so
-that a lowering or a revocation cancels it. Package
+that a lowering or a revocation cancels it. In a process that does not hold the
+policy, the service uses `policy.Forwarded` (the same calls, `policy.Sharing`),
+which asks the owner through the add-on gateway. Package
 `core/services/addons/policy/sharetest` is a complete example that only the tests
 use.
 
@@ -255,5 +257,39 @@ and `everyone`.
 
 The grants are stored only in the policy store of the add-on owner, the single
 process that writes them. Frontends hold no copy and forward every call, so no
-frontend answers from stale state, and there is no per-instance behavior to
-configure. The kinds register on the owner when its policy opens.
+frontend answers from stale state. The kinds register on the owner when its
+policy opens. Each frontend registers its kinds too, but keeps them and does
+not use them: the owner decides.
+
+This applies to the `/api/shares` routes and to the services that use a shared
+resource. A frontend that serves a person asks the owner, over the add-on
+carrier, to list the resources of a kind that are shared with that person, to
+create a resource, and to admit a piece of work, such as a chat turn with a
+shared agent. The work runs on the frontend.
+
+### Admitted work on a frontend
+
+The owner holds the admission of work that runs on a frontend under a lease. The
+frontend keeps the lease alive with a request that waits on the owner for up to
+15 seconds and then starts again.
+
+- When the owner lowers or revokes a grant, the waiting request answers at once.
+  The frontend stops the work and keeps the lease alive until the work has
+  stopped, then releases it. Only then does the owner's call answer. If that
+  takes more than 10 seconds, the answer is the 503 described in
+  [Lowering and revoking](#lowering-and-revoking), and the change is in force for
+  new work.
+- When a frontend stops renewing a lease (it stopped, crashed or lost the
+  network), the owner ends the admission 10 seconds after the last request. A
+  revocation never waits longer than that for a frontend that is gone.
+- When the frontend cannot reach the owner, it stops the work at once. The owner
+  could no longer stop it.
+- When the owner restarts, it knows no lease. Every frontend stops its admitted
+  work at its next request.
+
+The leases are the only state of this feature that is not in the policy store.
+They are kept per instance, in the owner's memory. Only the owner holds the
+policy, so there is no second copy to diverge from. When the owner cannot be
+reached, a frontend lists nothing that is shared with the person, creates nothing
+and admits nothing. Each call gets the same typed unavailable answer as the
+add-on calls, never a grant.

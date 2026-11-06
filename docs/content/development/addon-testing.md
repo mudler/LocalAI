@@ -197,6 +197,22 @@ Leaving that body unread prevents the HTTP/1 server from observing disconnect wh
 its handler waits, which can strand test-server cleanup. Production owner handlers decode
 the bounded envelope before starting a relay.
 
+### Sharing across frontends
+
+The policy package runs the owner's sharing policy behind the real carrier, and
+two frontends forward to it (`gateway/carriertest`). The specs cover these cases.
+A resource of a kind that the owner shares is listed from the second frontend.
+A grantee's work on one frontend stops before a revoke through the other
+frontend answers. A lowering decided on the owner stops the work it takes away.
+The work that the new role still allows keeps running. A frontend that does not
+stop in time gives `ErrDrainPending`. A lease that nobody renews expires. A lease
+is honored only for the person who holds it. When the owner is gone, every call
+gives the typed unavailable answer, and the running work stops. The chats
+package runs the same rig with two chat services. The owner shares a saved agent
+on frontend A, and the grantee lists it and chats with it on frontend B. A revoke
+on A stops the turn on B before it answers. While the owner is gone, B lists and
+runs no shared agent.
+
 ## Data recovery suite
 
 ```sh

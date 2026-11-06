@@ -496,6 +496,9 @@ func (a *Application) startAddonGateway() error {
 	manage := resources.New(resourceOpts)
 	g.Resources = manage
 	g.Sharing = manage
+	// The services of the frontends look up, create and run the resources
+	// of their kinds through the leases of the owner.
+	g.ShareAuthority = policy.NewShareHost(a.applicationConfig.Context, p)
 	// The owner serves the library calls of the frontends. A node with no
 	// source store (no catalog) has nothing to serve.
 	if a.addonSources != nil {

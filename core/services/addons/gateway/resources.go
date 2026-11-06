@@ -392,6 +392,13 @@ type ResourceCall struct {
 	ChangeID       string            `json:"changeId,omitempty"`
 	// ShareKind is the resource kind of a call of the generic sharing API.
 	ShareKind string `json:"shareKind,omitempty"`
+	// Action is what a share-admit call asks to run (output, read, write).
+	Action string `json:"action,omitempty"`
+	// Lease names the admission of a share-watch or share-release call.
+	Lease string `json:"lease,omitempty"`
+	// Stopping says a share-watch only keeps the lease alive while the work
+	// stops.
+	Stopping bool `json:"stopping,omitempty"`
 }
 
 // mutating says whether the call can change state that has an operation
@@ -403,6 +410,10 @@ type ResourceCall struct {
 func (c ResourceCall) mutating() bool {
 	switch c.Op {
 	case resourceList, resourceGrants, resourceUsers, resourceStatus, resourceSelGet, resourceSelResolve, resourceSelPut, resourceSelClear, shareList, shareGrants, shareUsers:
+		return false
+	case shareViews, shareWatch, shareRelease:
+		// A watch changes only when the lease expires and a release is safe
+		// to repeat, so a lost answer is plain unavailability.
 		return false
 	}
 	return true
@@ -463,6 +474,10 @@ func (g *Gateway) resourceLocal(ctx context.Context, a contract.Actor, request c
 	}
 	var out any
 	var err error
+	if call.leased() {
+		out, err = g.shareLocal(ctx, a, call)
+		return encodeResource(out, err)
+	}
 	if call.sharing() {
 		if g.Sharing == nil {
 			return nil, ErrUnavailable
@@ -532,7 +547,7 @@ func (c ResourceCall) sharing() bool {
 	case shareList, shareGrants, shareSet, shareRevoke, shareUsers:
 		return true
 	}
-	return false
+	return c.leased()
 }
 
 func encodeResource(out any, err error) (json.RawMessage, error) {

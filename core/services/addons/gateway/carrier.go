@@ -963,7 +963,8 @@ var readManagement = map[string]bool{"catalog-search": true, "catalog-details": 
 // resourceRead are the resource management calls that have no operation with
 // an outcome to report: the reads and the two idempotent selection calls.
 var resourceRead = map[string]bool{"resource-list": true, "resource-grants": true, "resource-users": true, "resource-status": true, "resource-selection-get": true, "resource-selection-resolve": true, "resource-selection-put": true, "resource-selection-clear": true,
-	"resource-share-list": true, "resource-share-grants": true, "resource-share-users": true}
+	"resource-share-list": true, "resource-share-grants": true, "resource-share-users": true,
+	"resource-share-views": true, "resource-share-watch": true, "resource-share-release": true}
 
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.

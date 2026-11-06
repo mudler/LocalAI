@@ -2,6 +2,7 @@
 package application
 
 import (
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 )
 
@@ -34,4 +35,20 @@ func (a *Application) registerShareKinds(p *policy.Policy) error {
 	}
 	a.shareKindsPolicy = p
 	return nil
+}
+
+// addonSharingForward is the owner's sharing policy for the services of this
+// process when it holds none: a frontend with the add-on carrier in
+// named-user mode. The owner decides every call, and an owner that cannot be
+// reached gives a typed unavailable answer and never a grant. It is nil on
+// the owner, which uses its own policy, and where there is no carrier.
+func (a *Application) addonSharingForward() policy.Sharing {
+	if a.addonPolicy != nil || a.AddonOwnershipMode() != auth.AddonModeNamedUser {
+		return nil
+	}
+	g := a.addonGateway
+	if g == nil || g.Forward == nil {
+		return nil
+	}
+	return policy.Forwarded{Gateway: g}
 }
