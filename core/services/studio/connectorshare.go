@@ -80,6 +80,9 @@ type SharedConnectorView struct {
 	Everyone        bool
 }
 
+// SharingEnabled says whether bindings can be shared on this server now.
+func (c *Connectors) SharingEnabled() bool { return c.shares() != nil }
+
 func (c *Connectors) shares() ConnectionShares {
 	if c.o.Shares == nil || !c.o.Shares.Enabled() {
 		return nil

@@ -1,17 +1,22 @@
 package localai
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/addons/policy"
+	lagi "github.com/mudler/LocalAI/core/services/collections/backend"
 )
 
 // ListCollectionsEndpoint handles /api/collections (GET).
 // @Summary List your collections.
-// @Description The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. search_mode says how a search finds passages: semantic (by meaning only) or hybrid (by meaning and by keyword). max_chunk_size and chunk_overlap are the chunking of a text in characters: a text of N characters becomes about N / (max_chunk_size - chunk_overlap) passages, and each passage is embedded once. Needs the collections feature.
+// @Description The knowledge-base collections of the caller. shared lists the collections other people shared with the caller: name is the name to use in the other calls (the collection's own name, or shared:<id> when the caller has a collection of that name or two people share one under it), title its own name, owner the display name of the person who shared it and role viewer (search and read) or editor (also add and remove entries). shares gives, for each of the caller's own collections that was made shareable, its resource_id in /api/shares/collection and shared_with, the number of grants. sharing is false when this server cannot share collections (no named accounts). An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. search_mode says how a search finds passages: semantic (by meaning only) or hybrid (by meaning and by keyword). max_chunk_size and chunk_overlap are the chunking of a text in characters: a text of N characters becomes about N / (max_chunk_size - chunk_overlap) passages, and each passage is embedded once. Needs the collections feature.
 // @Tags collections
 // @Success 200 {object} schema.CollectionList "The collections"
 // @Router /api/collections [get]
@@ -25,9 +30,21 @@ func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 		}
 
 		model := app.ApplicationConfig().Collections.EmbeddingModel
+		ctx := c.Request().Context()
+		shared := []schema.SharedCollection{}
+		for _, s := range app.SharedCollections(ctx, userID, cols) {
+			shared = append(shared, schema.SharedCollection{Name: s.Address, Title: s.Name, Owner: s.OwnerName, Role: s.Role, Everyone: s.Everyone})
+		}
+		shares := map[string]schema.CollectionShare{}
+		for name, s := range app.CollectionShares(ctx, userID, cols) {
+			shares[name] = schema.CollectionShare{ResourceID: s.ID, SharedWith: s.SharedWith}
+		}
 		resp := map[string]any{
 			"collections":               cols,
 			"count":                     len(cols),
+			"shared":                    shared,
+			"shares":                    shares,
+			"sharing":                   userID != "" && app.CollectionSharing(),
 			"embedding_model":           model,
 			"embedding_model_installed": embeddingModelInstalled(app, model),
 			"search_mode":               collectionSearchMode(app.ApplicationConfig().Collections.VectorEngine),
@@ -118,10 +135,15 @@ func UploadToCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
 		defer src.Close()
-		key, err := svc.UploadForUser(c.Request().Context(), userID, name, file.Filename, src)
+		var key string
+		err = app.WithCollection(c.Request().Context(), userID, name, policy.ActionWrite, func(ctx context.Context, owner, coll string) error {
+			var err error
+			key, err = svc.UploadForUser(ctx, owner, coll, file.Filename, src)
+			return err
+		})
 		if err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+			if handled, herr := collectionDenied(c, err); handled {
+				return herr
 			}
 			if isEmbeddingDimensionMismatch(err) {
 				return c.JSON(http.StatusConflict, map[string]string{
@@ -161,10 +183,15 @@ func ListCollectionEntriesEndpoint(app *application.Application) echo.HandlerFun
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
-		entries, err := svc.ListEntriesForUser(userID, decodedParam(c, "name"))
+		var entries []string
+		err := app.WithCollection(c.Request().Context(), userID, decodedParam(c, "name"), policy.ActionRead, func(_ context.Context, owner, coll string) error {
+			var err error
+			entries, err = svc.ListEntriesForUser(owner, coll)
+			return err
+		})
 		if err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+			if handled, herr := collectionDenied(c, err); handled {
+				return herr
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
@@ -192,10 +219,16 @@ func GetCollectionEntryContentEndpoint(app *application.Application) echo.Handle
 		if err != nil {
 			entry = entryParam
 		}
-		content, chunkCount, err := svc.EntryContentForUser(userID, decodedParam(c, "name"), entry)
+		var content string
+		var chunkCount int
+		err = app.WithCollection(c.Request().Context(), userID, decodedParam(c, "name"), policy.ActionRead, func(_ context.Context, owner, coll string) error {
+			var err error
+			content, chunkCount, err = svc.EntryContentForUser(owner, coll, entry)
+			return err
+		})
 		if err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+			if handled, herr := collectionDenied(c, err); handled {
+				return herr
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
@@ -226,10 +259,15 @@ func SearchCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		results, err := svc.SearchForUser(c.Request().Context(), userID, decodedParam(c, "name"), payload.Query, payload.MaxResults)
+		var results []lagi.SearchResult
+		err := app.WithCollection(c.Request().Context(), userID, decodedParam(c, "name"), policy.ActionRead, func(ctx context.Context, owner, coll string) error {
+			var err error
+			results, err = svc.SearchForUser(ctx, owner, coll, payload.Query, payload.MaxResults)
+			return err
+		})
 		if err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+			if handled, herr := collectionDenied(c, err); handled {
+				return herr
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
@@ -252,9 +290,12 @@ func ResetCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
-		if err := svc.ResetForUser(userID, decodedParam(c, "name")); err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+		err := app.WithCollection(c.Request().Context(), userID, decodedParam(c, "name"), policy.ActionSchema, func(_ context.Context, owner, coll string) error {
+			return svc.ResetForUser(owner, coll)
+		})
+		if err != nil {
+			if handled, herr := collectionDenied(c, err); handled {
+				return herr
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
@@ -280,10 +321,15 @@ func DeleteCollectionEntryEndpoint(app *application.Application) echo.HandlerFun
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		remaining, err := svc.DeleteEntryForUser(userID, decodedParam(c, "name"), payload.Entry)
+		var remaining []string
+		err := app.WithCollection(c.Request().Context(), userID, decodedParam(c, "name"), policy.ActionWrite, func(_ context.Context, owner, coll string) error {
+			var err error
+			remaining, err = svc.DeleteEntryForUser(owner, coll, payload.Entry)
+			return err
+		})
 		if err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+			if handled, herr := collectionDenied(c, err); handled {
+				return herr
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
@@ -317,9 +363,12 @@ func AddCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc 
 		if payload.UpdateInterval < 1 {
 			payload.UpdateInterval = 60
 		}
-		if err := svc.AddSourceForUser(userID, decodedParam(c, "name"), payload.URL, payload.UpdateInterval); err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+		err := app.WithCollection(c.Request().Context(), userID, decodedParam(c, "name"), policy.ActionSchema, func(_ context.Context, owner, coll string) error {
+			return svc.AddSourceForUser(owner, coll, payload.URL, payload.UpdateInterval)
+		})
+		if err != nil {
+			if handled, herr := collectionDenied(c, err); handled {
+				return herr
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
@@ -345,7 +394,13 @@ func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFu
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		if err := svc.RemoveSourceForUser(userID, decodedParam(c, "name"), payload.URL); err != nil {
+		err := app.WithCollection(c.Request().Context(), userID, decodedParam(c, "name"), policy.ActionSchema, func(_ context.Context, owner, coll string) error {
+			return svc.RemoveSourceForUser(owner, coll, payload.URL)
+		})
+		if err != nil {
+			if handled, herr := collectionDenied(c, err); handled {
+				return herr
+			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
@@ -370,10 +425,15 @@ func GetCollectionEntryRawFileEndpoint(app *application.Application) echo.Handle
 		if err != nil {
 			entry = entryParam
 		}
-		fpath, err := svc.EntryFilePathForUser(userID, decodedParam(c, "name"), entry)
+		var fpath string
+		err = app.WithCollection(c.Request().Context(), userID, decodedParam(c, "name"), policy.ActionRead, func(_ context.Context, owner, coll string) error {
+			var err error
+			fpath, err = svc.EntryFilePathForUser(owner, coll, entry)
+			return err
+		})
 		if err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+			if handled, herr := collectionDenied(c, err); handled {
+				return herr
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
@@ -392,10 +452,15 @@ func ListCollectionSourcesEndpoint(app *application.Application) echo.HandlerFun
 	return func(c echo.Context) error {
 		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
-		sources, err := svc.ListSourcesForUser(userID, decodedParam(c, "name"))
+		var sources []lagi.SourceInfo
+		err := app.WithCollection(c.Request().Context(), userID, decodedParam(c, "name"), policy.ActionRead, func(_ context.Context, owner, coll string) error {
+			var err error
+			sources, err = svc.ListSourcesForUser(owner, coll)
+			return err
+		})
 		if err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+			if handled, herr := collectionDenied(c, err); handled {
+				return herr
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
@@ -412,4 +477,49 @@ func ListCollectionSourcesEndpoint(app *application.Application) echo.HandlerFun
 // answers 404 for a model it does not have.
 func embeddingModelInstalled(app *application.Application, name string) bool {
 	return app.EmbeddingModelInstalled(name)
+}
+
+// collectionDenied answers the errors that say the caller may not reach the
+// collection: 404 for one that does not exist or is not shared with the
+// caller (the two look the same), 403 for a shared one whose role does not
+// allow the call. handled is false for any other error.
+func collectionDenied(c echo.Context, err error) (bool, error) {
+	switch {
+	case errors.Is(err, application.ErrCollectionRole):
+		return true, c.JSON(http.StatusForbidden, map[string]string{"error": err.Error()})
+	case errors.Is(err, application.ErrCollectionNotFound), strings.Contains(err.Error(), "not found"):
+		return true, c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+	}
+	return false, nil
+}
+
+// ShareCollectionEndpoint handles /api/collections/{name}/share (POST).
+// @Summary Make a collection shareable.
+// @Description Returns the ID of the collection in the sharing API: the owner then lists, grants and revokes access with /api/shares/collection/{resource_id}/grants. The roles are viewer (search and read the entries) and editor (also add and remove entries); a collection may be shared with @everyone. Only the owner may call it: another caller gets 404, as for a collection that does not exist. 409 sharing_disabled when this server cannot share collections (no named accounts).
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Success 200 {object} schema.CollectionShare "The share of the collection"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Failure 409 {object} map[string]string "Sharing is not available on this server"
+// @Router /api/collections/{name}/share [post]
+func ShareCollectionEndpoint(app *application.Application) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID := getUserID(c)
+		name := decodedParam(c, "name")
+		id, err := app.EnsureCollectionShare(c.Request().Context(), userID, name)
+		switch {
+		case errors.Is(err, application.ErrSharingOff):
+			return c.JSON(http.StatusConflict, map[string]string{"error": err.Error(), "type": "sharing_disabled"})
+		case err != nil:
+			if handled, herr := collectionDenied(c, err); handled {
+				return herr
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		n := 0
+		if s, ok := app.CollectionShares(c.Request().Context(), userID, []string{name})[name]; ok {
+			n = s.SharedWith
+		}
+		return c.JSON(http.StatusOK, schema.CollectionShare{ResourceID: id, SharedWith: n})
+	}
 }

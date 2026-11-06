@@ -587,7 +587,7 @@ func (c *Connectors) GetConnector(ctx context.Context, user, id string) (Connect
 	if err != nil {
 		return ConnectorInfo{}, err
 	}
-	return c.withDuplicates(ctx, c.withState(ctx, info(b))), nil
+	return c.withShare(ctx, c.withDuplicates(ctx, c.withState(ctx, info(b)))), nil
 }
 
 // withDuplicates fills SameBotAs of one binding. A store that fails leaves it empty.
