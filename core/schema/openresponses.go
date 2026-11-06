@@ -79,6 +79,9 @@ type ORFunctionTool struct {
 	Description string         `json:"description,omitempty"`
 	Parameters  map[string]any `json:"parameters,omitempty"`
 	Strict      bool           `json:"strict"` // Always include in response
+	// Tools holds the member tools of a type "namespace" entry (Codex sends
+	// each MCP server's tools this way).
+	Tools []ORFunctionTool `json:"tools,omitempty"`
 }
 
 // ORReasoningParam represents reasoning configuration
@@ -100,6 +103,7 @@ type ORItemParam struct {
 	// Function call fields
 	CallID    string `json:"call_id,omitempty"`
 	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"` // set when Name belongs to a namespace tool
 	Arguments string `json:"arguments"`
 
 	// Function call output fields

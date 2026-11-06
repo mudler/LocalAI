@@ -10136,6 +10136,13 @@ definitions:
       strict:
         description: Always include in response
         type: boolean
+      tools:
+        description: |-
+          Tools holds the member tools of a type "namespace" entry (Codex sends
+          each MCP server's tools this way).
+        items:
+          $ref: '#/definitions/schema.ORFunctionTool'
+        type: array
       type:
         type: string
     type: object
@@ -10166,6 +10173,9 @@ definitions:
         description: Present for all output items
         type: string
       name:
+        type: string
+      namespace:
+        description: set when Name belongs to a namespace tool
         type: string
       output:
         description: Function call output fields
