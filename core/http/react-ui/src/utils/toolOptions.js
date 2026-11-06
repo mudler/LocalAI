@@ -1,4 +1,5 @@
 import { addonPageAddress } from '../addons/addresses.js'
+import { bindingsWithKind } from './chatConnectors.js'
 // The options of the Tools list. A saved agent stores a capability twice: as a
 // switch of a built-in group (builtins_off, builtins_on) and as a list of
 // grants (builtins). The Tools list shows one switch per capability, and the
@@ -77,22 +78,17 @@ export function savedAgentsOn(form) {
 // name of the kind and the page that edits them. kinds is the list the
 // connectors call returns ({ kind, addon, title }).
 export function agentConnections(bindings, kinds, agentId) {
-  if (!agentId) return []
-  const byKind = new Map(list(kinds).map((k) => [k.kind, k]))
-  return list(bindings)
-    .filter((b) => b.agent_id === agentId)
-    .map((b) => {
-      const k = byKind.get(b.kind)
-      const title = k?.title || b.kind || ''
-      return {
-        id: b.id,
-        name: [title, b.name].filter(Boolean).join(' '),
-        caps: list(b.caps),
-        // The page the add-on declares for the kind opens the binding and shows
-        // its permissions; a kind that declares none keeps the usual "apps" page.
-        to: k?.addon ? addonPageAddress({ addon: k.addon, page: k.page || 'apps', search: `binding=${encodeURIComponent(b.id)}` }) : '/app/chats/connectors',
-      }
-    })
+  return bindingsWithKind(agentId, kinds, bindings).map(({ c: b, kind: k }) => {
+    const title = k?.title || b.kind || ''
+    return {
+      id: b.id,
+      name: [title, b.name].filter(Boolean).join(' '),
+      caps: list(b.caps),
+      // The page the add-on declares for the kind opens the binding and shows
+      // its permissions; a kind that declares none keeps the usual "apps" page.
+      to: k?.addon ? addonPageAddress({ addon: k.addon, page: k.page || 'apps', search: `binding=${encodeURIComponent(b.id)}` }) : '/app/chats/connectors',
+    }
+  })
 }
 
 // The connections that do not allow a grant yet. Only for a grant the agent
