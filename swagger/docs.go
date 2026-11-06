@@ -5197,13 +5197,14 @@ const docTemplate = `{
         },
         "/api/chats/agents": {
             "get": {
+                "description": "Your own agents come first, then the agents other people shared with you. access says which is which: role owner for yours (with sharedWith, the number of grants), use or viewer for a shared one (with owner, the name of the person who shared it). A shared agent carries its full definition only for viewer, and never the owner's connections, resources or folders: you run it with your own.",
                 "tags": [
                     "chats"
                 ],
-                "summary": "List your saved agents.",
+                "summary": "List your saved agents and the agents shared with you.",
                 "responses": {
                     "200": {
-                        "description": "Your agents, sorted by name",
+                        "description": "Your agents, sorted by name, then the shared ones",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsAgentList"
                         }
@@ -5388,10 +5389,11 @@ const docTemplate = `{
         },
         "/api/chats/agents/{id}": {
             "get": {
+                "description": "An agent shared with you carries its full definition only for the role viewer, and never the owner's connections, resources or folders.",
                 "tags": [
                     "chats"
                 ],
-                "summary": "Read a saved agent.",
+                "summary": "Read a saved agent of yours or one shared with you.",
                 "parameters": [
                     {
                         "type": "string",
@@ -5409,7 +5411,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "No such conversation, or it is another user's",
+                        "description": "No such agent, or it is another user's and not shared with you",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -5539,6 +5541,76 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/agents/{id}/needs": {
+            "get": {
+                "description": "For your agent or an agent shared with you: each thing the agent uses, by label, with its state for you. ok: you have it. missing: it is not shared with you (ask the owner, or use your own). unavailable: this server or your account does not offer it. Nothing else about a thing you cannot see is returned.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List what an agent needs and whether you have it.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the agent's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "What the agent needs",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentNeedList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such agent, or it is not shared with you",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/agents/{id}/references": {
+            "get": {
+                "description": "The add-ons, collections, skills, folders, connections, add-on resources, MCP servers and built-in grants the agent names, with a label each. share says how a reference can be shared with a person you share the agent with; without it the person needs access of their own. Only the owner may call it.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List what your agent uses.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the agent's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The references",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentReferenceList"
+                        }
+                    },
+                    "403": {
+                        "description": "The agent is shared with you, not yours",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/agents/{id}/runs": {
             "get": {
                 "description": "Lists your chats that ran with the agent, newest first: the ones you had, the ones its triggers started and the ones its connectors started, with how each ended. Open one with GET /api/chats/{chat_id}.",
@@ -5566,6 +5638,50 @@ const docTemplate = `{
                         "description": "The runs and the counts",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsAgentHistory"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/agents/{id}/share": {
+            "post": {
+                "description": "Makes the agent's record in the sharing API on the first call and returns it on every call. Share the agent with /api/shares/agent/{id}/grants/{principal}, roles use and viewer, or @everyone. Sharing the agent does not share what it uses: share each collection or connection by itself. Only the owner may call it.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Get the sharing ID of your agent.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the agent's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The sharing ID",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentShareRef"
+                        }
+                    },
+                    "403": {
+                        "description": "The agent is shared with you, not yours",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Agents cannot be shared on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -16827,6 +16943,10 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "ownerData": {
+                    "description": "OwnerData is true when the manifest says the tools keep the owner's own\ndata (capabilities.ownerData). Its writes need tools.write in a\nconnector chat, like the writes of a credentialed add-on.",
+                    "type": "boolean"
+                },
                 "shadows": {
                     "description": "Shadows lists the built-in chat tools the add-on replaces (bash, say).",
                     "type": "array",
@@ -21630,6 +21750,14 @@ const docTemplate = `{
         "schema.ChatsAgent": {
             "type": "object",
             "properties": {
+                "access": {
+                    "description": "Access is how you hold the agent: your own, or shared with you and by\nwhom. It is absent when the server does not share agents.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAgentAccess"
+                        }
+                    ]
+                },
                 "addons": {
                     "type": "array",
                     "items": {
@@ -21761,6 +21889,43 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsAgentAccess": {
+            "type": "object",
+            "properties": {
+                "everyone": {
+                    "description": "Everyone says the agent is shared with every account.",
+                    "type": "boolean"
+                },
+                "owner": {
+                    "description": "Owner is the display name of the person who shared the agent with\nyou. Absent for your own agents.",
+                    "type": "string",
+                    "example": "Alice"
+                },
+                "role": {
+                    "description": "Role is owner for your own agent, use or viewer for an agent shared\nwith you. use runs it in your own chats; viewer also reads its full\ndefinition. Only the owner edits, deletes, exports or shares it.",
+                    "type": "string",
+                    "enum": [
+                        "owner",
+                        "use",
+                        "viewer"
+                    ],
+                    "example": "use"
+                },
+                "share_id": {
+                    "description": "ShareID is the ID of your own agent in the sharing API\n(/api/shares/agent/{ShareID}/...). Absent until it is first shared and\nfor agents shared with you.",
+                    "type": "string"
+                },
+                "sharedWith": {
+                    "description": "SharedWith is the number of grants of your own agent.",
+                    "type": "integer",
+                    "example": 2
+                },
+                "sharing": {
+                    "description": "Sharing says whether you can share the agent on this server.",
+                    "type": "boolean"
+                }
+            }
+        },
         "schema.ChatsAgentExport": {
             "type": "object",
             "properties": {
@@ -21871,6 +22036,109 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsAgentNeed": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "example": "collection"
+                },
+                "label": {
+                    "type": "string",
+                    "example": "docs"
+                },
+                "state": {
+                    "description": "State is ok (you have it), missing (it is not shared with you) or\nunavailable (this server or your account does not offer it).",
+                    "type": "string",
+                    "enum": [
+                        "ok",
+                        "missing",
+                        "unavailable"
+                    ],
+                    "example": "missing"
+                }
+            }
+        },
+        "schema.ChatsAgentNeedList": {
+            "type": "object",
+            "properties": {
+                "needs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgentNeed"
+                    }
+                }
+            }
+        },
+        "schema.ChatsAgentReference": {
+            "type": "object",
+            "properties": {
+                "addon_id": {
+                    "description": "AddonID is the add-on of a connection or an add-on resource.",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID names the thing for its kind.",
+                    "type": "string",
+                    "example": "docs"
+                },
+                "kind": {
+                    "description": "Kind is addon, collection, skill, folder, connection, addon-resource,\nmcp or builtin.",
+                    "type": "string",
+                    "example": "collection"
+                },
+                "label": {
+                    "type": "string",
+                    "example": "docs"
+                },
+                "mode": {
+                    "description": "Mode is read or write for a folder or an add-on resource.",
+                    "type": "string"
+                },
+                "share": {
+                    "description": "Share is how the thing can be shared with the same person, absent when\nthe person needs access of their own.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAgentReferenceShare"
+                        }
+                    ]
+                }
+            }
+        },
+        "schema.ChatsAgentReferenceList": {
+            "type": "object",
+            "properties": {
+                "references": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgentReference"
+                    }
+                }
+            }
+        },
+        "schema.ChatsAgentReferenceShare": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "description": "Kind is the share kind (collection, connection), or addon for an\nadd-on resource, which is shared through /api/addons/resources.",
+                    "type": "string",
+                    "example": "collection"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "view",
+                            "use"
+                        ]
+                    }
+                },
+                "resource_id": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsAgentResourceChoice": {
             "type": "object",
             "properties": {
@@ -21950,6 +22218,20 @@ const docTemplate = `{
                 },
                 "updated": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsAgentShareRef": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID is the resource ID to use with /api/shares/agent/{id}/...",
+                    "type": "string",
+                    "example": "r0123456789abcdef0123456789abcde"
+                },
+                "kind": {
+                    "type": "string",
+                    "example": "agent"
                 }
             }
         },

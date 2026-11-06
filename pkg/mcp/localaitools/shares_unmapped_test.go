@@ -21,6 +21,16 @@ var _ = Describe("sharing and the MCP tools", func() {
 		}
 	})
 
+	It("maps no tool to the share, references or needs routes of a saved agent", func() {
+		for tool, route := range toolToHTTPRoute {
+			if !strings.Contains(route, "/api/chats/agents") {
+				continue
+			}
+			last := route[strings.LastIndex(route, "/"):]
+			Expect([]string{"/share", "/references", "/needs"}).NotTo(ContainElement(last), tool+": sharing an agent is never a tool")
+		}
+	})
+
 	It("never names the routes in the code of the MCP server, its clients or its prompts", func() {
 		var hits []string
 		Expect(filepath.Walk(".", func(path string, info os.FileInfo, err error) error {

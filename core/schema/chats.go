@@ -110,8 +110,84 @@ type ChatsAgent struct {
 	// FolderNotice is set when shared folders do not fit the access limit of
 	// a chat of this agent and are left out.
 	FolderNotice *ChatsAgentFolderNotice `json:"folder_notice,omitempty"`
-	Created      time.Time               `json:"created"`
-	Updated      time.Time               `json:"updated"`
+	// Access is how you hold the agent: your own, or shared with you and by
+	// whom. It is absent when the server does not share agents.
+	Access  *ChatsAgentAccess `json:"access,omitempty"`
+	Created time.Time         `json:"created"`
+	Updated time.Time         `json:"updated"`
+}
+
+// ChatsAgentAccess is your access to a saved agent.
+type ChatsAgentAccess struct {
+	// Role is owner for your own agent, use or viewer for an agent shared
+	// with you. use runs it in your own chats; viewer also reads its full
+	// definition. Only the owner edits, deletes, exports or shares it.
+	Role string `json:"role" enums:"owner,use,viewer" example:"use"`
+	// Owner is the display name of the person who shared the agent with
+	// you. Absent for your own agents.
+	Owner string `json:"owner,omitempty" example:"Alice"`
+	// Everyone says the agent is shared with every account.
+	Everyone bool `json:"everyone,omitempty"`
+	// SharedWith is the number of grants of your own agent.
+	SharedWith *int `json:"sharedWith,omitempty" example:"2"`
+	// ShareID is the ID of your own agent in the sharing API
+	// (/api/shares/agent/{ShareID}/...). Absent until it is first shared and
+	// for agents shared with you.
+	ShareID string `json:"share_id,omitempty"`
+	// Sharing says whether you can share the agent on this server.
+	Sharing bool `json:"sharing"`
+}
+
+// ChatsAgentShareRef is the ID of an agent in the sharing API.
+type ChatsAgentShareRef struct {
+	Kind string `json:"kind" example:"agent"`
+	// ID is the resource ID to use with /api/shares/agent/{id}/...
+	ID string `json:"id" example:"r0123456789abcdef0123456789abcde"`
+}
+
+// ChatsAgentReference is one thing a saved agent uses, as its owner sees it.
+type ChatsAgentReference struct {
+	// Kind is addon, collection, skill, folder, connection, addon-resource,
+	// mcp or builtin.
+	Kind string `json:"kind" example:"collection"`
+	// ID names the thing for its kind.
+	ID    string `json:"id" example:"docs"`
+	Label string `json:"label" example:"docs"`
+	// AddonID is the add-on of a connection or an add-on resource.
+	AddonID string `json:"addon_id,omitempty"`
+	// Mode is read or write for a folder or an add-on resource.
+	Mode string `json:"mode,omitempty"`
+	// Share is how the thing can be shared with the same person, absent when
+	// the person needs access of their own.
+	Share *ChatsAgentReferenceShare `json:"share,omitempty"`
+}
+
+// ChatsAgentReferenceShare is the grant a reference can get.
+type ChatsAgentReferenceShare struct {
+	// Kind is the share kind (collection, connection), or addon for an
+	// add-on resource, which is shared through /api/addons/resources.
+	Kind       string   `json:"kind" example:"collection"`
+	ResourceID string   `json:"resource_id"`
+	Options    []string `json:"options" enums:"view,use"`
+}
+
+// ChatsAgentReferenceList lists the references of an agent.
+type ChatsAgentReferenceList struct {
+	References []ChatsAgentReference `json:"references"`
+}
+
+// ChatsAgentNeed is one thing an agent needs, and its state for you.
+type ChatsAgentNeed struct {
+	Kind  string `json:"kind" example:"collection"`
+	Label string `json:"label" example:"docs"`
+	// State is ok (you have it), missing (it is not shared with you) or
+	// unavailable (this server or your account does not offer it).
+	State string `json:"state" enums:"ok,missing,unavailable" example:"missing"`
+}
+
+// ChatsAgentNeedList lists what an agent needs.
+type ChatsAgentNeedList struct {
+	Needs []ChatsAgentNeed `json:"needs"`
 }
 
 // ChatsAgentFolderNotice says how many shared folders a chat of the agent

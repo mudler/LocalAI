@@ -105,7 +105,9 @@ curl -X POST .../api/chats -d '{"agent_id": "<id>", "model": "my-model"}'
 
 `GET`, `PUT` and `DELETE /api/chats/agents/{id}` read, replace and delete one.
 A `PUT` replaces every field except `folders` (see below), the tool switches `builtins_off` and `builtins_on` and the [connections](#connections-of-an-agent), which it keeps when the body does not name them (an empty list or object clears them). Chats that already run with the agent use the new
-definition from their next turn. Another user's agent is always `404`.
+definition from their next turn. Another user's agent is `404`, unless it is
+[shared with you](#share-an-agent): then you may read it and chat with it, and
+an edit, a delete or an export is `403`.
 
 Agents need the `agents` feature, which is off by default for a user (see
 [Chats permissions](/features/chats/#permissions)). They have no administration
@@ -478,6 +480,80 @@ newest first: the ones you had with it, the ones its triggers started
 (`origin: trigger`) and the ones its connectors started (`origin: connector`),
 each with `running` and `last_turn`. `total`, `failed` and `running` count every
 run among your newest 5,000 chats. Open a run with `GET /api/chats/{chat_id}`.
+For an agent shared with you, the runs are your own chats with it.
+
+### Share an agent
+
+You can share a saved agent with other people on the server, or with everyone.
+Use **Share** in the row menu of the agent or in the header of its page. The
+[Share dialog](/features/sharing/#the-share-dialog) finds people by name and
+gives each one a role:
+
+| Role | What the person can do |
+|------|------------------------|
+| `use` | Chat with the agent in their own chats. They see its name, its description and what it needs. |
+| `viewer` | The same, and they read the full definition: instructions, tools and the things it names. |
+
+Only you edit, delete, export or share the agent. The person can not make a
+trigger, a task or a connector with it, and your own triggers and connectors
+keep running as you.
+
+A person who chats with a shared agent runs it as themselves. The chat, the
+memory, the files, the folders, the add-ons, the collections and the connections
+are theirs, exactly as for their own agent. Only the definition comes from you.
+Your connections and your files are never used for them, and no answer to them
+carries a token, a secret or the ID of your connection.
+
+Sharing the agent does not share what it uses. Before the dialog adds a person,
+it lists what the agent names and asks you, for each thing that can be shared,
+to choose **View**, **Use** or **Not shared**. A connection can only be **Use**.
+A folder, a skill, an add-on, an MCP server and a built-in grant can not be
+shared this way: the person needs access of their own. The dialog applies each
+choice as a grant on that thing, for the same person.
+
+The agent page of a person tells them what they are missing: each thing the agent
+names is **ok**, **missing** (not shared with them) or **unavailable** (the server
+or their account does not offer it). A chat with the agent shows the same notice
+before the first message.
+
+When you lower the role or remove the person, a run of the agent in one of their
+chats stops, and the chat takes no new message with the agent. Their past chats
+stay readable. When you delete the agent, every grant on it is removed.
+
+The API:
+
+| Method and path | What it does |
+|-----------------|--------------|
+| `GET /api/chats/agents` | Your agents, then the agents shared with you. `access.role` is `owner`, `use` or `viewer`; `access.owner` names the person who shared it; your own agents carry `access.sharedWith` and `access.share_id`. |
+| `POST /api/chats/agents/{id}/share` | The ID of your agent in the sharing API, made on the first call. Owner only. |
+| `GET /api/chats/agents/{id}/references` | What your agent uses, and how each thing can be shared. Owner only. |
+| `GET /api/chats/agents/{id}/needs` | What an agent you may use needs, and the state of each thing for you. |
+
+Share with the [sharing API](/features/sharing/#api), kind `agent`, the ID from
+`POST .../share`, roles `use` and `viewer`:
+
+```bash
+curl -X PUT -b session=... \
+  -H 'Content-Type: application/json' \
+  -H 'X-LocalAI-Confirm: r0123456789abcdef0123456789abcde' \
+  -H 'Sec-Fetch-Site: same-origin' -H 'Sec-Fetch-Mode: cors' -H 'Sec-Fetch-Dest: empty' \
+  -d '{"role":"use"}' \
+  http://localhost:8080/api/shares/agent/r0123456789abcdef0123456789abcde/grants/@everyone
+```
+
+Errors: `403` with `authorization_error` for an action that is the owner's
+alone; `404` for an agent that does not exist or is not shared with you (the two
+are one answer); `409` with `agent_not_shared` for a new message in a chat whose
+agent is no longer shared with you; `409` with `sharing_disabled` when the server
+does not share agents.
+
+Sharing needs named accounts. In local-owner mode, with no accounts, the agents
+show no sharing. The grants live in the sharing policy of the add-on owner (see
+[Sharing resources](/features/sharing/#distributed-mode)). The agent keeps only
+the ID of its sharing record, in the agents table, so every frontend reads the
+same one. A shared agent is used through the process that holds the policy: in
+a deployment whose add-on owner is a separate process (`--addons-role=owner`),
+or with add-ons off, no agent is shared and the agents list shows your own only.
 
 ## Connectors
 

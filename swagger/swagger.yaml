@@ -386,6 +386,12 @@ definitions:
           upgrade, say). It is absent when none runs. The observation is
           separate from State: the process can run on while the owner stages
           the next generation.
+      ownerData:
+        description: |-
+          OwnerData is true when the manifest says the tools keep the owner's own
+          data (capabilities.ownerData). Its writes need tools.write in a
+          connector chat, like the writes of a credentialed add-on.
+        type: boolean
       shadows:
         description: Shadows lists the built-in chat tools the add-on replaces (bash,
           say).
@@ -4119,6 +4125,12 @@ definitions:
     type: object
   schema.ChatsAgent:
     properties:
+      access:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsAgentAccess'
+        description: |-
+          Access is how you hold the agent: your own, or shared with you and by
+          whom. It is absent when the server does not share agents.
       addons:
         items:
           type: string
@@ -4248,6 +4260,42 @@ definitions:
       updated:
         type: string
     type: object
+  schema.ChatsAgentAccess:
+    properties:
+      everyone:
+        description: Everyone says the agent is shared with every account.
+        type: boolean
+      owner:
+        description: |-
+          Owner is the display name of the person who shared the agent with
+          you. Absent for your own agents.
+        example: Alice
+        type: string
+      role:
+        description: |-
+          Role is owner for your own agent, use or viewer for an agent shared
+          with you. use runs it in your own chats; viewer also reads its full
+          definition. Only the owner edits, deletes, exports or shares it.
+        enum:
+        - owner
+        - use
+        - viewer
+        example: use
+        type: string
+      share_id:
+        description: |-
+          ShareID is the ID of your own agent in the sharing API
+          (/api/shares/agent/{ShareID}/...). Absent until it is first shared and
+          for agents shared with you.
+        type: string
+      sharedWith:
+        description: SharedWith is the number of grants of your own agent.
+        example: 2
+        type: integer
+      sharing:
+        description: Sharing says whether you can share the agent on this server.
+        type: boolean
+    type: object
   schema.ChatsAgentExport:
     properties:
       agent:
@@ -4344,6 +4392,85 @@ definitions:
           $ref: '#/definitions/schema.ChatsAgent'
         type: array
     type: object
+  schema.ChatsAgentNeed:
+    properties:
+      kind:
+        example: collection
+        type: string
+      label:
+        example: docs
+        type: string
+      state:
+        description: |-
+          State is ok (you have it), missing (it is not shared with you) or
+          unavailable (this server or your account does not offer it).
+        enum:
+        - ok
+        - missing
+        - unavailable
+        example: missing
+        type: string
+    type: object
+  schema.ChatsAgentNeedList:
+    properties:
+      needs:
+        items:
+          $ref: '#/definitions/schema.ChatsAgentNeed'
+        type: array
+    type: object
+  schema.ChatsAgentReference:
+    properties:
+      addon_id:
+        description: AddonID is the add-on of a connection or an add-on resource.
+        type: string
+      id:
+        description: ID names the thing for its kind.
+        example: docs
+        type: string
+      kind:
+        description: |-
+          Kind is addon, collection, skill, folder, connection, addon-resource,
+          mcp or builtin.
+        example: collection
+        type: string
+      label:
+        example: docs
+        type: string
+      mode:
+        description: Mode is read or write for a folder or an add-on resource.
+        type: string
+      share:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsAgentReferenceShare'
+        description: |-
+          Share is how the thing can be shared with the same person, absent when
+          the person needs access of their own.
+    type: object
+  schema.ChatsAgentReferenceList:
+    properties:
+      references:
+        items:
+          $ref: '#/definitions/schema.ChatsAgentReference'
+        type: array
+    type: object
+  schema.ChatsAgentReferenceShare:
+    properties:
+      kind:
+        description: |-
+          Kind is the share kind (collection, connection), or addon for an
+          add-on resource, which is shared through /api/addons/resources.
+        example: collection
+        type: string
+      options:
+        items:
+          enum:
+          - view
+          - use
+          type: string
+        type: array
+      resource_id:
+        type: string
+    type: object
   schema.ChatsAgentResourceChoice:
     properties:
       id:
@@ -4404,6 +4531,16 @@ definitions:
       title:
         type: string
       updated:
+        type: string
+    type: object
+  schema.ChatsAgentShareRef:
+    properties:
+      id:
+        description: ID is the resource ID to use with /api/shares/agent/{id}/...
+        example: r0123456789abcdef0123456789abcde
+        type: string
+      kind:
+        example: agent
         type: string
     type: object
   schema.ChatsAgentTemplate:
@@ -17680,12 +17817,18 @@ paths:
       - chats
   /api/chats/agents:
     get:
+      description: 'Your own agents come first, then the agents other people shared
+        with you. access says which is which: role owner for yours (with sharedWith,
+        the number of grants), use or viewer for a shared one (with owner, the name
+        of the person who shared it). A shared agent carries its full definition only
+        for viewer, and never the owner''s connections, resources or folders: you
+        run it with your own.'
       responses:
         "200":
-          description: Your agents, sorted by name
+          description: Your agents, sorted by name, then the shared ones
           schema:
             $ref: '#/definitions/schema.ChatsAgentList'
-      summary: List your saved agents.
+      summary: List your saved agents and the agents shared with you.
       tags:
       - chats
     post:
@@ -17758,6 +17901,8 @@ paths:
       tags:
       - chats
     get:
+      description: An agent shared with you carries its full definition only for the
+        role viewer, and never the owner's connections, resources or folders.
       parameters:
       - description: the agent's id
         in: path
@@ -17770,10 +17915,11 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsAgent'
         "404":
-          description: No such conversation, or it is another user's
+          description: No such agent, or it is another user's and not shared with
+            you
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
-      summary: Read a saved agent.
+      summary: Read a saved agent of yours or one shared with you.
       tags:
       - chats
     put:
@@ -17838,6 +17984,60 @@ paths:
       summary: Export a saved agent.
       tags:
       - chats
+  /api/chats/agents/{id}/needs:
+    get:
+      description: 'For your agent or an agent shared with you: each thing the agent
+        uses, by label, with its state for you. ok: you have it. missing: it is not
+        shared with you (ask the owner, or use your own). unavailable: this server
+        or your account does not offer it. Nothing else about a thing you cannot see
+        is returned.'
+      parameters:
+      - description: the agent's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: What the agent needs
+          schema:
+            $ref: '#/definitions/schema.ChatsAgentNeedList'
+        "404":
+          description: No such agent, or it is not shared with you
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List what an agent needs and whether you have it.
+      tags:
+      - chats
+  /api/chats/agents/{id}/references:
+    get:
+      description: The add-ons, collections, skills, folders, connections, add-on
+        resources, MCP servers and built-in grants the agent names, with a label each.
+        share says how a reference can be shared with a person you share the agent
+        with; without it the person needs access of their own. Only the owner may
+        call it.
+      parameters:
+      - description: the agent's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The references
+          schema:
+            $ref: '#/definitions/schema.ChatsAgentReferenceList'
+        "403":
+          description: The agent is shared with you, not yours
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such agent
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List what your agent uses.
+      tags:
+      - chats
   /api/chats/agents/{id}/runs:
     get:
       description: 'Lists your chats that ran with the agent, newest first: the ones
@@ -17859,6 +18059,39 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsAgentHistory'
       summary: Show what an agent has run.
+      tags:
+      - chats
+  /api/chats/agents/{id}/share:
+    post:
+      description: 'Makes the agent''s record in the sharing API on the first call
+        and returns it on every call. Share the agent with /api/shares/agent/{id}/grants/{principal},
+        roles use and viewer, or @everyone. Sharing the agent does not share what
+        it uses: share each collection or connection by itself. Only the owner may
+        call it.'
+      parameters:
+      - description: the agent's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The sharing ID
+          schema:
+            $ref: '#/definitions/schema.ChatsAgentShareRef'
+        "403":
+          description: The agent is shared with you, not yours
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such agent
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Agents cannot be shared on this server
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get the sharing ID of your agent.
       tags:
       - chats
   /api/chats/agents/addons/{addon}/resources:

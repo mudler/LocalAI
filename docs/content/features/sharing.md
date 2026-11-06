@@ -27,6 +27,7 @@ kind declares which roles it grants and, for each action, which roles may run it
 | Kind | Roles | What a role may do |
 |------|-------|--------------------|
 | Add-on resources | `viewer`, `editor` | `viewer` reads. `editor` reads and writes rows. Only the owner changes the schema, shares or deletes. |
+| Saved agents (`agent`) | `use`, `viewer` | `use` chats with the agent as yourself. `viewer` also reads the definition. Only the owner edits, deletes, exports or shares. See [Share an agent]({{%relref "features/chats-agents#share-an-agent" %}}). |
 | Other kinds | `use`, `manage` (or the subset the kind declares) | The kind decides. Usually `use` reads and runs the resource and `manage` also changes it. |
 
 A role is a set of actions, not a rank. LocalAI refuses to register a kind whose
@@ -230,6 +231,12 @@ the badges are also in the UI catalog at `/app/ui-catalog`.
 | `sharing` | `false` in local-owner mode. The dialog then shows that sharing is not available and makes no call. |
 | `references` | Optional. Other resources that this one uses, which the owner decides on before sharing: `[{ id, label, kind, options }]`, where `options` is a subset of `view`, `use` and `none`. The dialog does not add anyone until every row has a choice. |
 | `onShare` | With `references` only: called after each new grant, in the same step, with `{ principal, role, choices }`, where `choices` maps each reference ID to the chosen option. The page shares the referenced resources from there. |
+
+A reference row with no `options` (or only `none`) is shown read-only with the
+line "They need access of their own": the dialog asks nothing for it. The agents
+page passes such rows for the folders, skills, add-ons, MCP servers and built-in
+grants of an agent, and for collections and connections that cannot be shared
+in the build.
 | `onChanged` | Called after every change. |
 | `onLost` | Called when the answer says that the person can no longer share the resource here (403, 401, or the add-on was withdrawn). |
 | `close` | Closes the dialog. |
