@@ -27,6 +27,9 @@ const (
 	// SettingsDir is the folder of a home folder that holds the settings
 	// files LocalAI reads (persona, profile, shortcuts, Home, look).
 	SettingsDir = workfiles.SettingsDir
+	// MemoryDir is the folder of a home folder that holds the memory notes
+	// (Memory/index.md and the notes of agents and channels).
+	MemoryDir = "Memory"
 	// GuestRoot is the working directory of every tool in the guest.
 	GuestRoot = "/workspace"
 	// GuestHome is the mount name of the home folder: /workspace/home.

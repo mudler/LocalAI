@@ -746,7 +746,9 @@ type ChatsFile struct {
 	// caller asked for, and Path is where the new content went.
 	ConflictOf string `json:"conflict_of,omitempty"`
 	// Managed is set on a path LocalAI manages: "localai" for the LocalAI
-	// folder and the settings files in it, "chats" for the Chats folder.
+	// folder and the settings files in it, and for the folders LocalAI creates
+	// itself "chats" (Chats), "memory" (Memory), "pages" (pages) and "skills"
+	// (.skills). Other values may be added; a client treats any value as managed.
 	Managed string `json:"managed,omitempty"`
 	// Modified is when the entry last changed. A folder listing sets it.
 	Modified *time.Time `json:"modified,omitempty"`

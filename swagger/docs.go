@@ -24031,7 +24031,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "managed": {
-                    "description": "Managed is set on a path LocalAI manages: \"localai\" for the LocalAI\nfolder and the settings files in it, \"chats\" for the Chats folder.",
+                    "description": "Managed is set on a path LocalAI manages: \"localai\" for the LocalAI\nfolder and the settings files in it, and for the folders LocalAI creates\nitself \"chats\" (Chats), \"memory\" (Memory), \"pages\" (pages) and \"skills\"\n(.skills). Other values may be added; a client treats any value as managed.",
                     "type": "string"
                 },
                 "modified": {
