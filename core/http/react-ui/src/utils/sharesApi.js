@@ -10,6 +10,8 @@
 //
 // No React and no network of its own: the node unit tests drive it directly.
 
+import { SEARCH_MAX, SEARCH_MIN } from '../components/share/shareModel.js'
+
 const KIND = /^[a-z][a-z0-9-]{0,63}(:[a-z0-9][a-z0-9-]{0,63})?$/
 const RESOURCE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
 const PRINCIPAL = /^(@everyone|[A-Za-z0-9][A-Za-z0-9._:@-]{0,255})$/
@@ -47,7 +49,7 @@ export function shareRequest(call) {
     }
     case 'users': {
       const q = typeof call.query === 'string' ? call.query.trim() : ''
-      need(q.length >= 3 && q.length <= 64, 'A query of 3 to 64 characters is required')
+      need(q.length >= SEARCH_MIN && q.length <= SEARCH_MAX, `A query of ${SEARCH_MIN} to ${SEARCH_MAX} characters is required`)
       const limit = Number.isInteger(call.limit) && call.limit > 0 ? `&limit=${Math.min(call.limit, 20)}` : ''
       return { method: 'GET', path: `${at}/users?q=${encodeURIComponent(q)}${limit}`, headers: confirm }
     }

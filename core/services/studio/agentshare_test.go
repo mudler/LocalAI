@@ -300,21 +300,53 @@ var _ = Describe("shared saved agents", func() {
 		Expect(entries).NotTo(BeEmpty())
 	})
 
-	It("stops the grantee's run when the owner lowers the role", func() {
-		stopsRun(func(r *shareRig, ref string) {
-			r.grant(ref, bob, policy.RoleUse)
+	It("keeps the grantee's run when the owner lowers the role from viewer to use", func() {
+		release := make(chan struct{})
+		r := newShareRig(func(_ workspace.Actor, text string) []studiotest.ToolStep {
+			if text == "long" {
+				return []studiotest.ToolStep{{Block: release}, {Say: "late"}}
+			}
+			return []studiotest.ToolStep{{Say: "ok"}}
 		})
+		ref := r.share(agents.Agent{ID: "ag1", Name: "Worker"}, bob, policy.RoleViewer)
+		rec, err := r.svc.Create(ctx, bob, studio.CreateInput{Model: "m", AgentID: "ag1"})
+		Expect(err).NotTo(HaveOccurred())
+		sent(r.svc, bob, rec.ID, "long")
+		until("the turn to run", func() bool { return turn(r.svc, bob, rec.ID).Running })
+		// use still chats with the agent: the lowering takes away only the
+		// read of the definition, so the drain leaves the turn.
+		r.grant(ref, bob, policy.RoleUse)
+		Expect(turn(r.svc, bob, rec.ID).Running).To(BeTrue())
+		close(release)
+		until("the turn to finish", func() bool { return !turn(r.svc, bob, rec.ID).Running })
+		Expect(turn(r.svc, bob, rec.ID).Last).To(Equal(store.TurnDone))
+		_, acc, err := r.svc.SharedAgent(ctx, bob, "ag1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(acc.Role).To(Equal(studio.AgentRoleUse))
 	})
 
-	It("removes the grants when the owner deletes the agent", func() {
+	It("stops the grantee's run when the owner lowers the role from viewer to nothing", func() {
+		var r2 *shareRig
+		stopsRun(func(r *shareRig, ref string) {
+			Expect(r.revoke(ref, bob)).To(Succeed())
+			r2 = r
+		})
+		_, _, err := r2.svc.SharedAgent(ctx, bob, "ag1")
+		Expect(err).To(MatchError(agents.ErrNotFound))
+	})
+
+	It("drops the record and its grants when the owner deletes the agent", func() {
 		r := newShareRig(sayOK)
 		ref := r.share(agents.Agent{ID: "ag1", Name: "Gone"}, bob, policy.RoleUse)
 		Expect(r.svc.DeleteAgent(ctx, alice, "ag1")).To(Succeed())
-		grants, err := r.pol.GrantsRef(ctx, ownerActor(alice), policy.Ref{Kind: studio.AgentShareKind, ResourceID: ref})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(grants).To(BeEmpty())
+		_, ok := r.pol.OwnerOfRef(policy.Ref{Kind: studio.AgentShareKind, ResourceID: ref})
+		Expect(ok).To(BeFalse(), "the record of a deleted agent is gone")
+		_, err := r.pol.GrantsRef(ctx, ownerActor(alice), policy.Ref{Kind: studio.AgentShareKind, ResourceID: ref})
+		Expect(err).To(MatchError(policy.ErrForbidden), "no grant of the record is left to list")
 		list, _ := r.svc.AgentsWithShared(ctx, bob)
 		Expect(list).To(BeEmpty())
+		_, _, err = r.svc.SharedAgent(ctx, bob, "ag1")
+		Expect(err).To(MatchError(agents.ErrNotFound))
 	})
 
 	It("keeps the share record across an edit by the owner", func() {

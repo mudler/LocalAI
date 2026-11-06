@@ -267,7 +267,9 @@ file store checks on every file call, so they stay in the workspace database,
 and the routes are under `/api/chats/files/shares` (see [Share a folder of your
 home]({{%relref "features/chats#share-a-folder-of-your-home" %}})). Moving them
 into the policy store would put the add-on owner on the path of every file
-call.
+call. The user picker of a folder is the picker described in [API](#api), with the
+same rules and limits, but it answers on the frontend that serves the call, so its
+count of searches is kept per frontend.
 
 ## The Share dialog
 
@@ -329,8 +331,9 @@ const Dialog = sdk.ui.ConnectionShareDialog
 ```
 
 An add-on's own code cannot reach the sharing routes: `sdk.core.fetch` refuses
-`/api/shares` and the `.../share` routes of agents, collections and bindings, and
-drops the `X-LocalAI-Confirm` header. Only the person's clicks in the host's dialog
+`/api/shares`, the `.../share` routes of agents, collections and bindings and the
+folder routes under `/api/chats/files/shares`, and drops the `X-LocalAI-Confirm`
+header. Only the person's clicks in the host's dialog
 share or revoke.
 
 A host that is older than the dialog has no `sdk.ui.ShareDialog`. Check for it and

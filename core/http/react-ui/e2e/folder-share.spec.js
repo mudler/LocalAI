@@ -101,8 +101,15 @@ test('marks a shared folder and shares a folder of the home from its menu', asyn
   await expect(dialog.getByTestId('share-grant')).toHaveCount(1)
   await expect(dialog.getByTestId('share-grant').first()).toContainText('Bob')
 
+  // Two characters are too few: the dialog asks the server nothing, as for
+  // every kind of sharing.
   await dialog.getByTestId('share-search').fill('ca')
+  await page.waitForTimeout(600)
+  expect(state.seen.filter(r => r.path === `/${FOLDER_ID}/users`)).toHaveLength(0)
+  await expect(dialog.getByTestId('share-user')).toHaveCount(0)
+  await dialog.getByTestId('share-search').fill('car')
   await expect(dialog.getByTestId('share-user')).toHaveCount(1, { timeout: 5000 })
+  expect(state.seen.filter(r => r.path === `/${FOLDER_ID}/users`).length).toBeGreaterThan(0)
   await dialog.getByTestId('share-new-role').selectOption('write')
   await dialog.getByTestId('share-user').getByRole('button', { name: /Carol/ }).click()
   await expect(dialog.getByTestId('share-grant')).toHaveCount(2)
@@ -206,7 +213,7 @@ test.describe('screenshots', () => {
         const dialog = page.getByTestId('ws-share-dialog')
         await expect(dialog.getByTestId('share-grant')).toHaveCount(2)
         await shot('dialog')
-        await dialog.getByTestId('share-search').fill('bo')
+        await dialog.getByTestId('share-search').fill('bob')
         await expect(dialog.getByTestId('share-user')).toHaveCount(1)
         await shot('dialog-search')
         await page.keyboard.press('Escape')

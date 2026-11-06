@@ -42,6 +42,35 @@ var _ = Describe("the share record of a deleted agent", func() {
 		Expect(ok).To(BeFalse())
 	})
 
+	It("is dropped by the orphan sweep when its agent is gone from the store", func() {
+		r := newShareRig(sayOK)
+		ref := r.share(agents.Agent{ID: "ag3", Name: "Lost"}, bob, policy.RoleUse)
+		// Deleted behind the service, as a version that did not drop the
+		// record would have done.
+		Expect(r.agents.Delete(ctx, alice, "ag3")).To(Succeed())
+		rep, err := r.pol.SweepOrphans(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rep.Dropped).To(Equal(1))
+		_, ok := r.pol.OwnerOfRef(policy.Ref{Kind: studio.AgentShareKind, ResourceID: ref})
+		Expect(ok).To(BeFalse())
+	})
+
+	It("is kept by the orphan sweep when the agent store is missing", func() {
+		r := newShareRig(sayOK, func(d *studio.Deps) { d.Agents = nil })
+		ref, err := r.pol.CreateRef(ctx, ownerActor(alice), studio.AgentShareKind)
+		Expect(err).NotTo(HaveOccurred())
+		r.grant(ref.ResourceID, bob, policy.RoleUse)
+		rep, err := r.pol.SweepOrphans(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rep.Dropped).To(BeZero())
+		Expect(rep.Kept).To(Equal(1))
+		_, ok := r.pol.OwnerOfRef(ref)
+		Expect(ok).To(BeTrue(), "a missing store is not proof that the agent is gone")
+		grants, err := r.pol.GrantsRef(ctx, ownerActor(alice), ref)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(grants).To(HaveKeyWithValue(bob, policy.RoleUse))
+	})
+
 	It("never accumulates over 256 rounds of create, share and delete", func() {
 		r := newShareRig(sayOK)
 		for i := 0; i < policy.DefaultMaxSharesPerUser; i++ {

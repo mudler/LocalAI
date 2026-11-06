@@ -5436,7 +5436,8 @@ an `invalid_path` error before any request is made:
 - the add-on gateway (`/api/addons`) and the auth routes (`/api/auth`). The add-on
   gateway has its own typed calls, and the auth routes hold account credentials. The
   check uses the decoded path, so `/api/%61ddons/apps` is refused too;
-- the sharing routes: `/api/shares` and every API path whose last segment is `share`,
+- the sharing routes: `/api/shares`, the folder sharing routes under
+  `/api/chats/files/shares`, and every API path whose last segment is `share`,
   such as `/api/chats/agents/{id}/share`, `/api/collections/{name}/share` and
   `/api/chats/connectors/{id}/share`. Only the person shares, in the host's Share
   dialog: an add-on page renders `sdk.ui.ShareDialog` with

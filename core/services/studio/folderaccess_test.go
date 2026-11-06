@@ -18,7 +18,7 @@ import (
 // folderPeople is an account directory of alice, bob and carol.
 type folderPeople struct{}
 
-func (folderPeople) Accounts(context.Context, string, int) ([]sharedfolders.User, error) {
+func (folderPeople) Accounts(context.Context, string, string, int) ([]sharedfolders.User, error) {
 	return nil, nil
 }
 

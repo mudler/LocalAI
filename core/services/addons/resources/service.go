@@ -130,8 +130,8 @@ type Service struct {
 	bindMu sync.Mutex
 	binds  map[string]binding
 	order  []string
-	// searches limits the user picker of the kinds per person.
-	searches *searchLimiter
+	// accounts is the user picker of the kinds, limited per person.
+	accounts *AccountPicker
 }
 
 // binding is the request an operation ID was first dispatched for.
@@ -212,13 +212,16 @@ func New(o Options) *Service {
 	if o.NameTimeout <= 0 {
 		o.NameTimeout = 3 * time.Second
 	}
-	if o.UserSearchBurst <= 0 {
-		o.UserSearchBurst = DefaultUserSearchBurst
-	}
-	if o.UserSearchEvery <= 0 {
-		o.UserSearchEvery = DefaultUserSearchEvery
-	}
-	return &Service{o: o, searches: newSearchLimiter(o.UserSearchBurst, o.UserSearchEvery, o.Now)}
+	s := &Service{o: o}
+	// The directory of every active named account, not the add-on one: the
+	// kind decides who may receive a grant.
+	s.accounts = NewAccountPicker(func() AccountFinder {
+		if s.o.Users == nil {
+			return nil
+		}
+		return s.o.Users.Accounts
+	}, o.UserSearchBurst, o.UserSearchEvery, o.Now)
+	return s
 }
 
 var (
@@ -714,56 +717,8 @@ func (s *Service) SearchUsers(ctx context.Context, actor contract.Actor, resourc
 	if s.o.Users != nil {
 		find = s.o.Users.Search
 	}
-	return s.searchUsers(ctx, actor, policy.AddonRef(key), query, MinQueryRunes, limit, find, nil, nil)
-}
-
-// searchUsers runs the user picker for a resource whose owner role is
-// checked. find is the directory search, called with the number of rows to
-// read; keep, when set, leaves out the people a grant would refuse.
-// minRunes is the shortest query; allow, when set, takes one search from the
-// caller's budget and refuses the search when it is spent.
-func (s *Service) searchUsers(ctx context.Context, actor contract.Actor, ref policy.Ref, query string, minRunes, limit int, find func(context.Context, string, int) ([]gateway.UserRef, error), keep func(id string) (bool, error), allow func(user string) bool) (gateway.UserList, error) {
-	query = strings.TrimSpace(query)
-	if n := utf8.RuneCountInString(query); n < minRunes || n > MaxQueryRunes || strings.ContainsFunc(query, unicode.IsControl) {
-		return gateway.UserList{}, gateway.ErrInvalidRequest
-	}
-	if allow != nil && !allow(actor.UserID) {
-		return gateway.UserList{}, gateway.ErrSearchLimited
-	}
-	if limit <= 0 || limit > MaxUserResults {
-		limit = MaxUserResults
-	}
-	if find == nil {
-		return gateway.UserList{}, gateway.ErrUnavailable
-	}
-	// The owner and the caller are left out, and keep may drop more, so more
-	// rows than limit are read.
-	read := limit + 2
-	if keep != nil {
-		read = 4 * limit
-	}
-	owner, _ := s.o.Policy.OwnerOfRef(ref)
-	found, err := find(ctx, query, read)
-	if err != nil {
-		return gateway.UserList{}, classify(err)
-	}
-	out := gateway.UserList{Users: []gateway.UserRef{}}
-	for _, u := range found {
-		if u.ID == actor.UserID || u.ID == owner || u.ID == "" || len(out.Users) >= limit {
-			continue
-		}
-		if keep != nil {
-			ok, err := keep(u.ID)
-			if err != nil {
-				return gateway.UserList{}, classify(err)
-			}
-			if !ok {
-				continue
-			}
-		}
-		out.Users = append(out.Users, gateway.UserRef{ID: u.ID, DisplayName: cleanName(u.DisplayName)})
-	}
-	return out, nil
+	owner, _ := s.o.Policy.OwnerOfRef(policy.AddonRef(key))
+	return pickUsers(ctx, actor.UserID, owner, query, MinQueryRunes, limit, find, nil, nil)
 }
 
 // Rename renames a resource through the add-on's rename tool, as the owner's

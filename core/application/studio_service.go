@@ -20,6 +20,7 @@ import (
 	endpointsaddons "github.com/mudler/LocalAI/core/http/endpoints/addons"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/resources"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -680,25 +681,34 @@ func (a *Application) studioFindUser() func(ctx context.Context, ref string) (*a
 }
 
 // studioFolderDirectory is the account directory people pick from when they
-// share a folder of their own home: the generic directory of the sharing
-// routes. Without an account database there is none and folders are not
-// shared by their owners.
+// share a folder of their own home: the user picker of the sharing routes,
+// with its rules and its own rate per person. Without an account database
+// there is none and folders are not shared by their owners.
 func (a *Application) studioFolderDirectory() sharedfolders.Directory {
 	if a.authDB == nil {
 		return nil
 	}
-	return folderDirectory{u: auth.NewAddonUsers(a.authDB)}
+	u := auth.NewAddonUsers(a.authDB)
+	return folderDirectory{u: u, picker: resources.NewAccountPicker(func() resources.AccountFinder { return u.Accounts }, 0, 0, nil)}
 }
 
-type folderDirectory struct{ u *auth.AddonUsers }
+type folderDirectory struct {
+	u      *auth.AddonUsers
+	picker *resources.AccountPicker
+}
 
-func (d folderDirectory) Accounts(ctx context.Context, query string, limit int) ([]sharedfolders.User, error) {
-	refs, err := d.u.Accounts(ctx, query, limit)
-	if err != nil {
+func (d folderDirectory) Accounts(ctx context.Context, caller, query string, limit int) ([]sharedfolders.User, error) {
+	list, err := d.picker.Search(ctx, caller, "", query, limit, nil)
+	switch {
+	case errors.Is(err, gateway.ErrSearchLimited):
+		return nil, sharedfolders.ErrSearchLimited
+	case errors.Is(err, gateway.ErrInvalidRequest):
+		return nil, sharedfolders.ErrBadQuery
+	case err != nil:
 		return nil, err
 	}
-	out := make([]sharedfolders.User, 0, len(refs))
-	for _, r := range refs {
+	out := make([]sharedfolders.User, 0, len(list.Users))
+	for _, r := range list.Users {
 		out = append(out, sharedfolders.User{ID: r.ID, Name: r.DisplayName})
 	}
 	return out, nil

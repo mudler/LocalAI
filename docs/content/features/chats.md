@@ -1824,9 +1824,13 @@ same Share dialog as for agents and the other things you can share (see
   not `LocalAI/` or `Chats/` or a folder inside them. You cannot share a folder
   that someone shared with you or an administrator's shared folder. A person
   shares at most 100 folders, each with at most 200 grants.
-- **Who.** An active account that the search finds by name or address, or
-  **Everyone** (every account, also the ones created later). The search shows a
-  name and nothing else.
+- **Who.** An active account that the search finds, or **Everyone** (every
+  account, also the ones created later). The search is the user picker of the
+  other kinds of sharing (see
+  [Sharing resources]({{%relref "features/sharing#api" %}})): it starts at three
+  characters of the display name, a part of an address finds nobody, and an
+  account without a name is found by its whole address only. It shows a name and
+  nothing else.
 - **What they see.** The folder is in their **Shared** tab with your name and
   their access, and their chats see it at `/workspace/shared-<name>` like an
   administrator's shared folder (`shared-<name> 2` when two have the same name).
@@ -1852,7 +1856,7 @@ same Share dialog as for agents and the other things you can share (see
 | `GET /api/chats/files/shares/{id}/grants` | you, browser only | `{grants: [{userId, displayName, role}]}`; `role` is `read` or `write`. |
 | `PUT /api/chats/files/shares/{id}/grants/{principal}` | you, browser only | Body `{role}`. `principal` is an account ID from the search, or `@everyone`. |
 | `DELETE /api/chats/files/shares/{id}/grants/{principal}` | you, browser only | Remove a grant. |
-| `GET /api/chats/files/shares/{id}/users?q=` | you, browser only | Search accounts by a name or address prefix of 2 to 64 characters, at most 20, never you. |
+| `GET /api/chats/files/shares/{id}/users?q=` | you, browser only | Search accounts by a display-name prefix of 3 to 64 characters, or an account without a name by its whole address, at most 20, never you. `429` with type `rate_limited` after 20 searches at once, then one every 2 seconds. |
 
 "Browser only" means a same-origin `fetch` with the header `X-LocalAI-Confirm`
 equal to the folder ID, no API key and no tool, agent or MCP marker; anything
@@ -1863,7 +1867,12 @@ The grants are the same workspace grants as an administrator's, in the
 workspace database, and nothing else keeps a copy: every frontend reads them on
 every call, so a change made through one frontend holds at once on all of
 them. A frontend stops its own running chats, and sends the request to stop on
-the chat bus to the other frontends and chat workers, which stop theirs.
+the chat bus to the other frontends and chat workers, which stop theirs. The
+search answers on the frontend that serves the call and keeps the count of
+searches of each person in the memory of that frontend (per instance): with
+several frontends a person may search at that rate on each of them, and a
+restart resets the count. The count only slows down a person who tries many
+names; it decides no access.
 
 Files need a place to live. The choice is made at start and is explicit: with a
 database the tree goes there, and without one it goes in a JSON index.

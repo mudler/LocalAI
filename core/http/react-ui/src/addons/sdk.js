@@ -113,11 +113,12 @@ export function resolveSubpath(input, pages) {
 
 // Core routes an add-on page may call. The add-on calls them with the signed-in
 // user's own session, through the same authentication and authorization as any
-// browser request, so it can do nothing the user cannot. Three prefixes are
+// browser request, so it can do nothing the user cannot. These prefixes are
 // refused: the add-on gateway has its own identity-bound typed calls, the auth
-// routes hold account credentials, and the sharing routes change who may use a
-// resource, which only the person decides in the host's Share dialog.
-const CORE_DENIED = ['/api/addons', '/api/auth', '/api/shares']
+// routes hold account credentials, and the sharing routes (of the kinds, and of
+// the folders of a home) change who may use a resource, which only the person
+// decides in the host's Share dialog.
+const CORE_DENIED = ['/api/addons', '/api/auth', '/api/shares', '/api/chats/files/shares']
 
 // sharingRoute says whether a decoded, lower-case API path makes a resource
 // shareable: the share action of an agent, a binding or a collection, whose

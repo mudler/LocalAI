@@ -22,6 +22,7 @@ var folderShareRules = []errRule{
 	fixed(http.StatusForbidden, typeAuthz, "you cannot share this folder", sharedfolders.ErrNotShareable),
 	fixed(http.StatusConflict, "sharing_disabled", "folders cannot be shared on this server", sharedfolders.ErrSharingOff),
 	verbatim(http.StatusBadRequest, typeInvalid, "shared folders: ", sharedfolders.ErrBadQuery),
+	fixed(http.StatusTooManyRequests, "rate_limited", "Too many searches for people; wait a moment and search again", sharedfolders.ErrSearchLimited),
 }
 
 func failFolderShare(c echo.Context, err error) error {
@@ -181,15 +182,16 @@ func (h *Handlers) RevokeFolderGrant(c echo.Context) error {
 
 // SearchFolderShareUsers is the user picker of a folder of your home.
 // @Summary Search the people you can share a folder of your home with (owner, UI only).
-// @Description Finds active named accounts by a prefix of the display name or of the address, 2 to 64 characters, at most 20 results, never you. Each result is an account ID and a display name and nothing else. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP marker). No MCP tool maps to this route.
+// @Description The same picker as the other kinds of sharing: active named accounts by a prefix of the display name, 3 to 64 characters, at most 20 results, never you. A prefix of an address finds nobody; an account without a display name is found by its whole address only and comes back with an empty display name. Each result is an account ID and a display name and nothing else. Each person may search 20 times at once and then once every 2 seconds; a search over that rate answers 429 rate_limited. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP marker). No MCP tool maps to this route.
 // @Tags chats
 // @Param id path integer true "Folder ID"
-// @Param q query string true "Name or address prefix"
+// @Param q query string true "Display name prefix, or a whole address"
 // @Param limit query int false "At most this many results, up to 20"
 // @Success 200 {object} schema.FolderShareUserList "Matching people"
-// @Failure 400 {object} schema.ErrorResponse "The search text is not 2 to 64 characters"
+// @Failure 400 {object} schema.ErrorResponse "The search text is not 3 to 64 characters"
 // @Failure 403 {object} schema.ErrorResponse "Not your own browser session, a folder you cannot share, or no such folder"
 // @Failure 409 {object} schema.ErrorResponse "Type sharing_disabled"
+// @Failure 429 {object} schema.ErrorResponse "Type rate_limited: too many searches"
 // @Router /api/chats/files/shares/{id}/users [get]
 func (h *Handlers) SearchFolderShareUsers(c echo.Context) error {
 	fc, ok := h.shareCall(c, true)

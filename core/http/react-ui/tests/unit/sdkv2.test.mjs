@@ -90,11 +90,13 @@ test('coreRequestUrl refuses the sharing routes: an add-on shares through the ho
     '/api/shares/collection/r1/users?q=bob', '/API/SHARES/agent/r1/grants', '/api/%73hares/agent/r1/grants', '/api/shares%2Fagent',
     '/api/chats/agents/a1/share', '/api/collections/docs/share', '/api/agents/collections/docs/share',
     '/api/chats/connectors/c1/share', '/api/chats/connectors/c1/share/', '/api/chats/connectors/c1/%73hare', '/api/chats/connectors/c1/SHARE?x=1',
+    '/api/chats/files/shares', '/api/chats/files/shares/42/grants', '/api/chats/files/shares/42/grants/@everyone',
+    '/api/chats/files/shares/42/users?q=bob', '/API/CHATS/FILES/SHARES/42/grants', '/api/chats/files/%73hares/42/grants',
   ]) {
     assert.equal(coreRequestUrl(bad), null, bad)
   }
   // Paths that only look alike stay reachable.
-  for (const ok of ['/api/chats/connectors', '/api/chats/shared-pages', '/api/collections/share/entries', '/api/collections', '/api/sharesx']) {
+  for (const ok of ['/api/chats/connectors', '/api/chats/shared-pages', '/api/chats/shared-folders', '/api/chats/files', '/api/chats/files/sharesx', '/api/collections/share/entries', '/api/collections', '/api/sharesx']) {
     assert.equal(coreRequestUrl(ok), ok, ok)
   }
 })

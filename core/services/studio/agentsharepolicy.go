@@ -51,8 +51,11 @@ func (s *Service) RegisterKinds(r policy.KindRegistrar) error {
 		// for a record (AgentShareRef).
 		CreateAuthority: func(context.Context, contract.Actor) error { return nil },
 		Backing: func(ctx context.Context, ref policy.Ref) (bool, error) {
+			// Without a store nothing can say the agent is gone. An error
+			// keeps the record, so the orphan sweep never drops a share
+			// because this process has no agents.
 			if s.d.Agents == nil {
-				return false, nil
+				return false, errNoAgentStore
 			}
 			list, err := s.d.Agents.ListShared(ctx, []string{ref.ResourceID})
 			return len(list) > 0, err
@@ -102,6 +105,10 @@ func agentActor(user string) contract.Actor {
 }
 
 var errNoAgentPolicy = errors.New("studio: agent sharing is not available")
+
+// errNoAgentStore is the answer of the backing check of an agent record in a
+// process that has no agent store.
+var errNoAgentStore = errors.New("studio: the agent store is not available")
 
 func (p PolicyAgentShares) Available() bool { return p.policy() != nil }
 

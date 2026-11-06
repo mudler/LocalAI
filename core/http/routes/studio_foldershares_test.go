@@ -19,10 +19,18 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
-// accounts is the account directory of the test server's users.
+// accounts is the account directory of the test server's users. Like the
+// picker of the sharing routes it takes three characters or more and refuses
+// a search of "slow", as over the rate.
 type accounts map[string]string
 
-func (a accounts) Accounts(_ context.Context, q string, limit int) ([]sharedfolders.User, error) {
+func (a accounts) Accounts(_ context.Context, _, q string, limit int) ([]sharedfolders.User, error) {
+	switch {
+	case len([]rune(q)) < 3:
+		return nil, sharedfolders.ErrBadQuery
+	case q == "slow":
+		return nil, sharedfolders.ErrSearchLimited
+	}
 	out := []sharedfolders.User{}
 	for _, id := range []string{"alice", "bob", "carol", "dave", "root"} {
 		if strings.HasPrefix(strings.ToLower(a[id]), strings.ToLower(q)) && len(out) < limit {
@@ -122,7 +130,7 @@ var _ = Describe("Chats folder sharing endpoints", func() {
 			{http.MethodGet, base + "/" + id + "/grants", nil},
 			{http.MethodPut, base + "/" + id + "/grants/bob", map[string]any{"role": "read"}},
 			{http.MethodDelete, base + "/" + id + "/grants/bob", nil},
-			{http.MethodGet, base + "/" + id + "/users?q=bo", nil},
+			{http.MethodGet, base + "/" + id + "/users?q=bob", nil},
 		}
 		for _, c := range calls {
 			name := c.method + " " + c.path
@@ -139,12 +147,16 @@ var _ = Describe("Chats folder sharing endpoints", func() {
 			}
 			Expect(human("", c.method, c.path, id, c.body).Code).To(Equal(http.StatusUnauthorized), name)
 		}
-		users := decodeJSON(human("alice", http.MethodGet, base+"/"+id+"/users?q=a", id, nil))
-		Expect(users).To(HaveKey("error"), "one character is too short")
-		users = decodeJSON(human("alice", http.MethodGet, base+"/"+id+"/users?q=al", id, nil))
+		short := human("alice", http.MethodGet, base+"/"+id+"/users?q=bo", id, nil)
+		Expect(short.Code).To(Equal(http.StatusBadRequest), "two characters are too short")
+		Expect(decodeJSON(short)).To(HaveKey("error"))
+		users := decodeJSON(human("alice", http.MethodGet, base+"/"+id+"/users?q=ali", id, nil))
 		Expect(users["users"]).To(BeEmpty(), "never the owner")
-		users = decodeJSON(human("alice", http.MethodGet, base+"/"+id+"/users?q=bo", id, nil))
+		users = decodeJSON(human("alice", http.MethodGet, base+"/"+id+"/users?q=bob", id, nil))
 		Expect(users["users"]).To(ConsistOf(map[string]any{"id": "bob", "displayName": "Bob"}))
+		limited := human("alice", http.MethodGet, base+"/"+id+"/users?q=slow", id, nil)
+		Expect(limited.Code).To(Equal(http.StatusTooManyRequests))
+		Expect(limited.Body.String()).To(ContainSubstring("rate_limited"))
 	})
 
 	It("gives an unknown folder, another person's folder, an administrator's folder and a managed folder the same answer", func() {

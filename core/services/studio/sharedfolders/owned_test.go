@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,7 +28,13 @@ type directory struct {
 	off map[string]bool
 }
 
-func (d directory) Accounts(_ context.Context, query string, limit int) ([]sharedfolders.User, error) {
+// Accounts takes three characters or more, as the picker of the sharing
+// routes does, and leaves the caller in so that the service's own filter is
+// checked.
+func (d directory) Accounts(_ context.Context, _, query string, limit int) ([]sharedfolders.User, error) {
+	if utf8.RuneCountInString(query) < 3 {
+		return nil, sharedfolders.ErrBadQuery
+	}
 	var out []sharedfolders.User
 	for _, u := range d.users {
 		if !d.off[u.ID] && strings.HasPrefix(strings.ToLower(u.Name), strings.ToLower(query)) {
@@ -255,16 +262,16 @@ var _ = Describe("folders an owner shares from their home", func() {
 
 	It("finds people by name for the picker, without the owner", func() {
 		id := mkdir("u-marta", "/users/u-marta/Projects")
-		got, err := svc.SearchAccounts(ctx, marta, id, "ma", 10)
+		got, err := svc.SearchAccounts(ctx, marta, id, "mar", 10)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got).To(BeEmpty(), "the owner is left out")
-		got, err = svc.SearchAccounts(ctx, marta, id, "sa", 10)
+		got, err = svc.SearchAccounts(ctx, marta, id, "sar", 10)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got).To(Equal([]sharedfolders.User{{ID: "u-sara", Name: "Sara"}}))
-		_, err = svc.SearchAccounts(ctx, marta, 987654, "sa", 10)
+		_, err = svc.SearchAccounts(ctx, marta, 987654, "sar", 10)
 		Expect(err).To(MatchError(sharedfolders.ErrNotShareable))
-		_, err = svc.SearchAccounts(ctx, marta, id, "s", 10)
-		Expect(err).To(MatchError(sharedfolders.ErrBadQuery))
+		_, err = svc.SearchAccounts(ctx, marta, id, "sa", 10)
+		Expect(err).To(MatchError(sharedfolders.ErrBadQuery), "the answer of the picker reaches the caller")
 	})
 
 	It("writes the audit with the owner as the actor", func() {

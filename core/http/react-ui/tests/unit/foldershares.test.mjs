@@ -16,7 +16,7 @@ test('folder share requests: the path, the method and the confirmation header co
     { method: 'PUT', path: '/api/chats/files/shares/42/grants/@everyone', headers: { 'X-LocalAI-Confirm': '42' }, body: { role: 'read' } })
   assert.deepEqual(folderShareRequest({ op: 'grant-revoke', id: '42', principal: 'u-1' }),
     { method: 'DELETE', path: '/api/chats/files/shares/42/grants/u-1', headers: { 'X-LocalAI-Confirm': '42' } })
-  assert.equal(folderShareRequest({ op: 'users', id: 42, query: '  al ', limit: 50 }).path, '/api/chats/files/shares/42/users?q=al&limit=20')
+  assert.equal(folderShareRequest({ op: 'users', id: 42, query: '  ali ', limit: 50 }).path, '/api/chats/files/shares/42/users?q=ali&limit=20')
 })
 
 test('folder share requests: a bad folder, person, role or query is refused before it is sent', () => {
@@ -27,6 +27,7 @@ test('folder share requests: a bad folder, person, role or query is refused befo
     { op: 'grant-set', id: 1, principal: 'a/b', role: 'read' },
     { op: 'grant-set', id: 1, principal: 'u1', role: 'use' },
     { op: 'users', id: 1, query: 'a' },
+    { op: 'users', id: 1, query: 'al' },
     { op: 'nope' },
   ]) {
     assert.throws(() => folderShareRequest(call), TypeError, JSON.stringify(call))
@@ -40,12 +41,12 @@ test('folder share client: the dialog gets its four calls over the folder routes
   await client.grants()
   await client.setGrant('u-2', 'write')
   await client.revoke('@everyone')
-  await client.searchUsers('bo')
+  await client.searchUsers('bob')
   assert.deepEqual(sent.map(s => `${s.method} ${s.path}`), [
     'GET /api/chats/files/shares/7/grants',
     'PUT /api/chats/files/shares/7/grants/u-2',
     'DELETE /api/chats/files/shares/7/grants/@everyone',
-    `GET /api/chats/files/shares/7/users?q=bo&limit=${SEARCH_LIMIT}`,
+    `GET /api/chats/files/shares/7/users?q=bob&limit=${SEARCH_LIMIT}`,
   ])
   assert.ok(sent.every(s => s.headers['X-LocalAI-Confirm'] === '7'))
 })

@@ -8,7 +8,6 @@ import (
 	"path"
 	"slices"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -31,22 +30,24 @@ import (
 var (
 	ErrNotShareable = errors.New("shared folders: you cannot share this folder")
 	ErrSharingOff   = errors.New("shared folders: folders cannot be shared on this server")
-	ErrBadQuery     = errors.New("shared folders: the search text is 2 to 64 characters")
+	ErrBadQuery     = errors.New("shared folders: the search text is 3 to 64 characters")
+	// ErrSearchLimited means the person searched for people too often.
+	ErrSearchLimited = errors.New("shared folders: too many searches for people, wait a moment")
 )
 
-// Search limits of the user picker.
-const (
-	minQueryRunes = 2
-	maxQueryRunes = 64
-	maxSearch     = 20
-)
+// maxSearch is the most people one search of the user picker returns.
+const maxSearch = 20
 
 // Directory is the account directory of the user picker. Without one (no
 // accounts, local-owner mode) folders cannot be shared by their owners.
 type Directory interface {
-	// Accounts returns active named accounts whose name or address starts
-	// with query, at most limit of them: an ID and a display name only.
-	Accounts(ctx context.Context, query string, limit int) ([]User, error)
+	// Accounts is the user picker of the sharing routes, the one of every
+	// kind: active named accounts whose display name starts with query, or
+	// the account without a display name whose whole address is query, at
+	// most limit of them, never caller, as an ID and a display name only. It
+	// answers ErrBadQuery for a query it does not take and ErrSearchLimited
+	// when caller has searched too often.
+	Accounts(ctx context.Context, caller, query string, limit int) ([]User, error)
 	// Active returns the active named account id, and ErrUnknownUser for an
 	// account that does not exist or is not active.
 	Active(ctx context.Context, id string) (User, error)
@@ -323,8 +324,9 @@ func (s *Service) OwnRemoveMember(ctx context.Context, a workspace.Actor, id int
 	return s.describeOwned(ctx, st, a.Principal, n)
 }
 
-// SearchAccounts is the user picker of a folder of the person's home: active
-// named accounts by a prefix of the name or the address, never the owner.
+// SearchAccounts is the user picker of a folder of the person's home. Only
+// the owner of a folder that can be shared searches, with the picker of the
+// directory (see Directory.Accounts), which never returns the owner.
 func (s *Service) SearchAccounts(ctx context.Context, a workspace.Actor, id int64, query string, limit int) ([]User, error) {
 	st, err := s.ownerStore()
 	if err != nil {
@@ -333,14 +335,10 @@ func (s *Service) SearchAccounts(ctx context.Context, a workspace.Actor, id int6
 	if _, err := s.shareable(ctx, st, a, id); err != nil {
 		return nil, err
 	}
-	q := strings.TrimSpace(query)
-	if n := utf8.RuneCountInString(q); n < minQueryRunes || n > maxQueryRunes {
-		return nil, ErrBadQuery
-	}
 	if limit <= 0 || limit > maxSearch {
 		limit = maxSearch
 	}
-	found, err := s.o.Directory.Accounts(ctx, q, limit+1)
+	found, err := s.o.Directory.Accounts(ctx, a.Principal, query, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -350,9 +348,6 @@ func (s *Service) SearchAccounts(ctx context.Context, a workspace.Actor, id int6
 			continue
 		}
 		out = append(out, User{ID: u.ID, Name: u.Name})
-		if len(out) == limit {
-			break
-		}
 	}
 	return out, nil
 }

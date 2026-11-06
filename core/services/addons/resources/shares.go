@@ -178,15 +178,10 @@ func (s *Service) SearchShareUsers(ctx context.Context, actor contract.Actor, ki
 	if err != nil {
 		return gateway.UserList{}, err
 	}
-	// The directory of every active named account, not the add-on one: the
-	// kind decides who may receive a grant.
-	var find func(context.Context, string, int) ([]gateway.UserRef, error)
-	if s.o.Users != nil {
-		find = s.o.Users.Accounts
-	}
 	// It searches every active account, so a query needs three characters
 	// and each person has a bounded rate of searches.
-	return s.searchUsers(ctx, actor, ref, query, MinShareQueryRunes, limit, find, func(id string) (bool, error) {
+	owner, _ := s.o.Policy.OwnerOfRef(ref)
+	return s.accounts.Search(ctx, actor.UserID, owner, query, limit, func(id string) (bool, error) {
 		return s.o.Policy.EligibleRef(ctx, actor, ref, id)
-	}, s.searches.allow)
+	})
 }
