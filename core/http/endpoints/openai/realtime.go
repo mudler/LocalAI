@@ -562,6 +562,9 @@ type RealtimeSessionOptions struct {
 	// saved voice profiles a session may speak with. The zero value sees only
 	// the instance-wide profiles.
 	VoiceViewer voiceprofile.Viewer
+	// User is the authenticated user of the handshake, nil when the server has
+	// no accounts. The admin tools act as this user, as they do in a chat.
+	User *auth.User
 }
 
 // realtimeVoiceViewer is the voice profile viewer of a handshake: the
@@ -592,6 +595,7 @@ func Realtime(application *application.Application) echo.HandlerFunc {
 			LocalAIAssistant: assistantFlag,
 			IsAdmin:          isCurrentUserAdmin(c, application),
 			VoiceViewer:      realtimeVoiceViewer(c),
+			User:             auth.GetUser(c),
 		}
 
 		registerRealtime(application, model, opts)(ws)
@@ -703,6 +707,59 @@ func prepareRealtimeConfig(cfg *config.ModelConfig) (errCode, errMsg string, ok 
 	return "", "", true
 }
 
+// stillAllowedExecutor refuses a tool call when check fails. The checks at the
+// start of a realtime session do not hold for its whole life: an administrator
+// can switch the admin tools off, or take the role away, while it runs.
+type stillAllowedExecutor struct {
+	mcpTools.ToolExecutor
+	check func() error
+}
+
+func (e *stillAllowedExecutor) ExecuteTool(ctx context.Context, name, args string) (string, error) {
+	if err := e.check(); err != nil {
+		return "", err
+	}
+	return e.ToolExecutor.ExecuteTool(ctx, name, args)
+}
+
+// assistantStillAllowed returns the per-call check of a realtime session with
+// the admin tools. Without accounts only the instance switch applies.
+func assistantStillAllowed(application *application.Application, u *auth.User) func() error {
+	var lookup func() (*auth.User, error)
+	if u != nil {
+		lookup = func() (*auth.User, error) {
+			db := application.AuthDB()
+			if db == nil {
+				return nil, errors.New("accounts are not available")
+			}
+			var cur auth.User
+			if err := db.First(&cur, "id = ?", u.ID).Error; err != nil {
+				return nil, err
+			}
+			return &cur, nil
+		}
+	}
+	return assistantAllowedNow(func() bool { return application.ApplicationConfig().DisableChatsLocalAIAdmin }, lookup)
+}
+
+// assistantAllowedNow builds the check from the instance switch and a lookup
+// of the user as stored now (nil: no accounts).
+func assistantAllowedNow(switchedOff func() bool, lookup func() (*auth.User, error)) func() error {
+	return func() error {
+		if switchedOff() {
+			return errors.New(assistantSwitchedOffMessage)
+		}
+		if lookup == nil {
+			return nil
+		}
+		cur, err := lookup()
+		if err != nil || cur == nil || cur.Role != auth.RoleAdmin || (cur.Status != "" && cur.Status != auth.StatusActive) {
+			return errors.New("the admin tools need an active administrator account")
+		}
+		return nil
+	}
+}
+
 // realtimeAssistantRefusal says why a realtime session may not have the admin
 // tools, as an error code and message, or "" when it may. The admin role comes
 // first (so a non-admin learns nothing about the switch), then the instance
@@ -751,7 +808,14 @@ func runRealtimeSession(application *application.Application, t Transport, model
 			sendError(t, "unavailable", "LocalAI Assistant is not available on this server", "", "")
 			return
 		}
-		exec := holder.Executor()
+		// The tools act as the person on the session, so user-scoped tools
+		// work with authentication on. A session lasts long: every call checks
+		// again that the switch is still on and the user is still an active
+		// administrator.
+		exec := &stillAllowedExecutor{
+			ToolExecutor: mcpTools.AsUser(holder.Executor(), opts.User),
+			check:        assistantStillAllowed(application, opts.User),
+		}
 		fns, discErr := exec.DiscoverTools(context.Background())
 		if discErr != nil {
 			xlog.Error("realtime: failed to discover LocalAI Assistant tools", "error", discErr)

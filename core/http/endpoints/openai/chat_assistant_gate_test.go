@@ -1,6 +1,9 @@
 package openai
 
 import (
+	"context"
+	"errors"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"net/http"
 	"net/http/httptest"
 
@@ -131,3 +134,45 @@ var _ = Describe("realtimeAssistantRefusal", func() {
 		Expect(code).To(BeEmpty())
 	})
 })
+
+var _ = Describe("assistantAllowedNow", func() {
+	admin := &auth.User{ID: "a", Role: auth.RoleAdmin, Status: auth.StatusActive}
+	user := func(u *auth.User) func() (*auth.User, error) {
+		return func() (*auth.User, error) { return u, nil }
+	}
+	off := func(v bool) func() bool { return func() bool { return v } }
+
+	It("allows an active administrator while the switch is on, and a server without accounts", func() {
+		Expect(assistantAllowedNow(off(false), user(admin))()).To(Succeed())
+		Expect(assistantAllowedNow(off(false), nil)()).To(Succeed())
+	})
+
+	It("refuses when the switch is turned off during the session", func() {
+		Expect(assistantAllowedNow(off(true), user(admin))()).To(MatchError(ContainSubstring("switched off")))
+		Expect(assistantAllowedNow(off(true), nil)()).To(MatchError(ContainSubstring("switched off")))
+	})
+
+	It("refuses when the role was revoked, the account is not active or it is gone", func() {
+		Expect(assistantAllowedNow(off(false), user(&auth.User{ID: "a", Role: auth.RoleUser, Status: auth.StatusActive}))()).To(HaveOccurred())
+		Expect(assistantAllowedNow(off(false), user(&auth.User{ID: "a", Role: auth.RoleAdmin, Status: "pending"}))()).To(HaveOccurred())
+		Expect(assistantAllowedNow(off(false), func() (*auth.User, error) { return nil, errors.New("gone") })()).To(HaveOccurred())
+	})
+
+	It("stops a tool call at the executor when the check fails", func() {
+		inner := &countingExec{}
+		e := &stillAllowedExecutor{ToolExecutor: inner, check: assistantAllowedNow(off(true), nil)}
+		_, err := e.ExecuteTool(context.Background(), "t", "{}")
+		Expect(err).To(HaveOccurred())
+		Expect(inner.n).To(BeZero())
+	})
+})
+
+type countingExec struct {
+	mcpTools.ToolExecutor
+	n int
+}
+
+func (c *countingExec) ExecuteTool(context.Context, string, string) (string, error) {
+	c.n++
+	return "ok", nil
+}

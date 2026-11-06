@@ -9,6 +9,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/http/auth"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 	"github.com/pion/webrtc/v4"
@@ -242,6 +243,7 @@ func RealtimeCalls(application *application.Application) echo.HandlerFunc {
 			LocalAIAssistant: req.LocalAIAssistant,
 			IsAdmin:          isCurrentUserAdmin(c, application),
 			VoiceViewer:      realtimeVoiceViewer(c),
+			User:             auth.GetUser(c),
 		}
 		go func() {
 			defer transport.Close()
