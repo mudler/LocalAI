@@ -145,11 +145,12 @@ if [ "$(uname -s)" = "Darwin" ]; then
     _vllm_src=$(mktemp -d)
     trap 'rm -rf "${_vllm_src}"' EXIT
     pushd "${_vllm_src}"
-        # 1) Build vLLM ${VLLM_VERSION} from the release source tarball against
-        #    the CPU requirements. vllm-metal layers its MLX platform plugin on
-        #    top of this exact build.
+        # 1) Build vLLM ${VLLM_VERSION} from the tag source archive against
+        #    the CPU requirements. Not every tag has a release asset, so use the
+        #    tag archive. vllm-metal layers its MLX platform plugin on top of
+        #    this exact build.
         curl -fsSL -o "vllm-${VLLM_VERSION}.tar.gz" \
-            "https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}.tar.gz"
+            "https://github.com/vllm-project/vllm/archive/refs/tags/v${VLLM_VERSION}.tar.gz"
         tar -xzf "vllm-${VLLM_VERSION}.tar.gz"
         pushd "vllm-${VLLM_VERSION}"
             uv pip install -r requirements/cpu.txt --index-strategy unsafe-best-match
