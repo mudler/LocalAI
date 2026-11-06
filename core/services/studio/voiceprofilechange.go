@@ -114,7 +114,15 @@ func (s *Service) applyVoiceProfile(ctx context.Context, in proposals.ApplyInput
 	if c.AudioSHA256 == "" || c.AudioBytes <= 0 {
 		return errors.New("nothing was created: the proposal does not pin its recording; propose the profile again")
 	}
-	exec := mcpendpoint.AsUser(s.d.ClientTools.ClientExecutor(), owner)
+	// Read the clip through the fence of the chat that made the proposal, as
+	// the proposal did: an executor without a file store would fall back to
+	// the whole home of the owner. A chat that is gone, or whose agent folder
+	// is missing, means nothing is read.
+	x, err := s.ChatAccess(ctx, in.Owner, in.Proposal.Source.Chat)
+	if err != nil {
+		return fmt.Errorf("nothing was created: the chat that proposed the profile is not available (%v); propose the profile again", err)
+	}
+	exec := mcpendpoint.WithFiles(mcpendpoint.AsUser(s.d.ClientTools.ClientExecutor(), owner), s.clientFilesOf(x))
 	if exec == nil {
 		return errors.New("the LocalAI client tools are not available on this server")
 	}

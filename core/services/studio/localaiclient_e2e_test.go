@@ -570,6 +570,37 @@ var _ = Describe("the LocalAI client tools of the chats, end to end", func() {
 			Expect(res.Out).To(ContainSubstring("Nothing is created yet"))
 		})
 
+		It("clones a voice from a clip in the folder: the confirmation reads it through the same fence as the proposal", func() {
+			id := chatInFolder()
+			r.sayIn(bob, id, msg("voice_profile", clipArgs("in.wav")))
+			Expect(r.result(id, "voice_profile").Err).NotTo(HaveOccurred())
+			list, err := r.svc.Changes().List(ctx, bob, "pending")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list).To(HaveLen(1))
+			done, err := r.svc.Changes().Confirm(ctx, bob, list[0].ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(done.Status)).To(Equal("applied"))
+			ps, err := r.api.store.List(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ps).To(HaveLen(1))
+			Expect(ps[0].OwnerID).To(Equal(bob))
+		})
+
+		It("creates nothing at the confirmation when the chat that proposed the profile is gone", func() {
+			id := chatInFolder()
+			r.sayIn(bob, id, msg("voice_profile", clipArgs("in.wav")))
+			Expect(r.result(id, "voice_profile").Err).NotTo(HaveOccurred())
+			list, err := r.svc.Changes().List(ctx, bob, "pending")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list).To(HaveLen(1))
+			Expect(r.svc.Delete(ctx, bob, id)).To(Succeed())
+			_, err = r.svc.Changes().Confirm(ctx, bob, list[0].ID)
+			Expect(err).To(HaveOccurred())
+			ps, perr := r.api.store.List(ctx)
+			Expect(perr).NotTo(HaveOccurred())
+			Expect(ps).To(BeEmpty())
+		})
+
 		It("saves a result inside the folder, not in the rest of the home", func() {
 			id := chatInFolder()
 			r.sayIn(bob, id, msg("generate_image", `{"prompt":"a red fox"}`))
