@@ -38,16 +38,18 @@ def is_int(s):
     except ValueError:
         return False
 
-def coerce_param_value(value):
+def coerce_param_value(value, key=None):
     """Coerce a TTSRequest.params value (string on the wire) to the type the
     Chatterbox generate() kwargs expect (float/int/bool), matching how static
     YAML options are coerced at load time. Non-string values pass through."""
     if not isinstance(value, str):
         return value
+    # Transformers requires top_k to be an int, but float controls such as
+    # temperature must remain floats even when written without a decimal point.
+    if key == "top_k" and is_int(value):
+        return int(value)
     if is_float(value):
         return float(value)
-    if is_int(value):
-        return int(value)
     if value.lower() in ["true", "false"]:
         return value.lower() == "true"
     return value
@@ -157,14 +159,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if ":" not in opt:
                 continue
             key, value = opt.split(":")
-            # if value is a number, convert it to the appropriate type
-            if is_float(value):
-                value = float(value)
-            elif is_int(value):
-                value = int(value)
-            elif value.lower() in ["true", "false"]:
-                value = value.lower() == "true"
-            self.options[key] = value
+            self.options[key] = coerce_param_value(value, key)
 
         self.AudioPath = None
 
@@ -177,9 +172,23 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             self.AudioPath = os.path.join(modelFileBase, request.AudioPath)
         try:
             print("Preparing models, please wait", file=sys.stderr)
-            if "multilingual" in self.options:
-                # remove key from options
-                del self.options["multilingual"]
+            selectors = {}
+            for name in ("multilingual", "turbo", "nano"):
+                value = self.options.pop(name, False)
+                if not isinstance(value, bool):
+                    raise ValueError(f"{name} must be true or false")
+                selectors[name] = value
+            if sum(selectors.values()) > 1:
+                raise ValueError("Only one of multilingual, turbo, or nano can be true")
+            self.variant = next((name for name, enabled in selectors.items() if enabled), "original")
+            if self.variant in ("turbo", "nano"):
+                # Older installations can still load the original models.
+                from chatterbox.tts_turbo import ChatterboxTurboTTS
+                if self.variant == "nano":
+                    self.model = ChatterboxTurboTTS.from_pretrained(device=device, nano=True)
+                else:
+                    self.model = ChatterboxTurboTTS.from_pretrained(device=device)
+            elif self.variant == "multilingual":
                 self.model = ChatterboxMultilingualTTS.from_pretrained(device=device)
             else:
                 self.model = ChatterboxTTS.from_pretrained(device=device)
@@ -211,7 +220,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 for key, value in request.params.items():
                     if key == "ref_text":
                         continue
-                    kwargs[key] = coerce_param_value(value)
+                    kwargs[key] = coerce_param_value(value, key)
+
+            # Selectors apply only at load time, including when supplied in params.
+            for name in ("multilingual", "turbo", "nano"):
+                kwargs.pop(name, None)
+            if self.variant in ("turbo", "nano"):
+                # These controls belong to the original model's sampler.
+                for name in ("cfg_weight", "exaggeration", "min_p"):
+                    kwargs.pop(name, None)
 
             # Check if text exceeds 250 characters
             # (chatterbox does not support long text)

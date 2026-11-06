@@ -287,6 +287,57 @@ You can use the env variable COQUI_LANGUAGE to set the language used by the coqu
 
 You can also use config files to configure tts models (see section below on how to use config files).
 
+### Chatterbox
+
+The `chatterbox` backend supports the original, multilingual, Turbo, and Nano
+variants. Select a variant with a model configuration option:
+
+| Variant | Option |
+| --- | --- |
+| Original | No selector |
+| Multilingual | `multilingual:true` |
+| Turbo | `turbo:true` |
+| Nano | `nano:true` |
+
+Enable only one selector. A selector set to `false` does not select that variant.
+The backend downloads the selected variant's weights when it first loads the model.
+Changing `parameters.model` alone does not select a variant.
+
+Save this configuration in your models directory to use Nano:
+
+```yaml
+name: chatterbox-nano
+backend: chatterbox
+parameters:
+  model: ResembleAI/chatterbox-nano
+options:
+  - nano:true
+  - temperature:0.8
+tts:
+  audio_path: /models/reference.wav
+```
+
+Use a reference recording longer than five seconds for Turbo or Nano voice cloning.
+The reference path must be accessible to the backend.
+For Turbo, change the name and model to `chatterbox-turbo` and
+`ResembleAI/chatterbox-turbo`, then replace `nano:true` with `turbo:true`.
+
+```sh
+curl http://localhost:8080/v1/audio/speech \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "chatterbox-nano",
+    "input": "Hello! This is a voice cloning test.",
+    "response_format": "wav",
+    "params": {"temperature": "0.8"}
+  }' --output speech.wav
+```
+
+Turbo and Nano ignore `cfg_weight`, `exaggeration`, and `min_p`, including values
+in per-request `params`. Other supported generation options, such as
+`temperature`, remain available. Request parameters cannot change the loaded
+variant; use separate model configurations to serve multiple variants.
+
 ### Fish Speech
 
 Fish Speech models accept the `compile` backend option. Enabling it can improve

@@ -1,7 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/cu130
 torch
 torchaudio
-transformers
+transformers==4.46.3
 numpy>=1.24.0,<1.26.0
 # chatterbox-tts itself is installed with --no-deps in install.sh.
 # These are its real runtime deps, mirroring upstream's pyproject.toml

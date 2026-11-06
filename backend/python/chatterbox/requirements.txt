@@ -4,3 +4,5 @@ certifi
 packaging
 setuptools<81
 poetry
+# Turbo and Nano normalize reference audio before cloning.
+pyloudnorm
