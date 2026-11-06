@@ -11,12 +11,13 @@ import AgentUsesPanel from './AgentUsesPanel'
 import { AGENT_TEMPLATES } from '../../utils/agentConfigTools'
 import { CAP_CHAT } from '../../utils/capabilities'
 import { needsLine } from '../../utils/agentWizard'
+import { describeChatModel } from '../../utils/describeModel'
 
 // The four steps of the new-agent wizard. Each is a plain section: the page
 // owns the form, the step and the apps that were wanted.
 
 export function PurposeStep({ form, updateField, picked, onTemplate, models, modelsLoading }) {
-  const { t } = useTranslation('agents')
+  const { t } = useTranslation(['agents', 'home'])
   const [choosing, setChoosing] = useState(Boolean(form.model))
   return (
     <>
@@ -47,6 +48,7 @@ export function PurposeStep({ form, updateField, picked, onTemplate, models, mod
               capability={CAP_CHAT}
               models={models}
               loading={modelsLoading}
+              describe={(name) => describeChatModel(models, name, (c) => t(`home:picker.cap.${c}`, { defaultValue: c }))}
               variant="field"
               searchable
               placeholder={t('create.modelPlaceholder')}
@@ -135,7 +137,9 @@ export function WhereStep({ groups, icons, ready, wanted, onToggle }) {
       {section('tools', groups.tools)}
       {none && <p className="ag-note" data-testid="wizard-where-empty">{t('wizard.where.empty')}</p>}
       <Callout tone="info" testId="wizard-where-note">{t('wizard.where.note')}</Callout>
-      <Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/addons?tab=browse" target="_blank" rel="noreferrer" data-testid="wizard-find-addons">{t('wizard.where.find')}</Button>
+      <div>
+        <Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/addons?tab=browse" target="_blank" rel="noreferrer" data-testid="wizard-find-addons">{t('wizard.where.find')}</Button>
+      </div>
     </>
   )
 }

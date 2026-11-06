@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 // eslint-disable-next-line no-unused-vars
-import { Link, useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { agentCollectionsApi, chatAgentsApi } from '../utils/api'
 import { useAgentTools } from '../hooks/useAgentTools'
@@ -10,12 +10,12 @@ import { useToolGroups } from '../hooks/useToolGroups'
 import { useMemorySettings } from '../hooks/useMemorySettings'
 import { useAgentAccess } from '../hooks/useAgentAccess'
 import { effectiveLines, flatRows, blockedCount } from '../utils/agentEffective'
-import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
+import { diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
 import { agentPayload, emptyAgent, filesChoiceOf, folderRows, folderState, foldersUnchosen, memoryChoiceOf, memoryLevelOf, memorySaveOf, missingConnectorGrants, newAgent, setGrant, withMemoryChoice, withMemoryLevel } from '../utils/chatAgents'
-import { PRESET_KEYS, presetPatch, snapshot, TEMPLATE_TEXT_KEYS } from '../utils/agentPresets'
+import { snapshot } from '../utils/agentPresets'
 import { addonNow, memorySkillsState } from '../utils/agentUses'
 import { modelCaps } from '../utils/modelCaps'
-import { seesImages } from '../utils/chatVision'
+import { describeChatModel } from '../utils/describeModel'
 import { downloadAgentFile } from '../utils/agentFiles'
 import './agents.css'
 import './library.css'
@@ -42,13 +42,12 @@ import { SkillsPanel } from '../components/chat/SkillsMenu'
 // eslint-disable-next-line no-unused-vars
 import AgentPresets, { AppliedNotice } from '../components/agents/AgentPresets'
 // eslint-disable-next-line no-unused-vars
-import AgentTemplates from '../components/agents/AgentTemplates'
-// eslint-disable-next-line no-unused-vars
 import AgentConnected from '../components/agents/AgentConnected'
 // eslint-disable-next-line no-unused-vars
 import AgentUsesPanel from '../components/agents/AgentUsesPanel'
 // eslint-disable-next-line no-unused-vars
 import AgentFiles from '../components/agents/AgentFiles'
+// eslint-disable-next-line no-unused-vars
 import AgentWizard from './AgentWizard'
 import { useAgentAbilities } from '../hooks/useAgentAbilities'
 // eslint-disable-next-line no-unused-vars
@@ -98,14 +97,13 @@ export default function AgentCreate() {
   return <AgentEditor />
 }
 
+// eslint-disable-next-line no-unused-vars
 function AgentEditor() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
   const { addToast } = useOutletContext()
   const { t } = useTranslation(['agents', 'library', 'chats', 'home'])
-  const [searchParams] = useSearchParams()
-  const templateId = searchParams.get('template') || ''
   const isEdit = !!id
   const imported = location.state?.importedConfig || null
 
@@ -151,10 +149,6 @@ function AgentEditor() {
           setSavedConfig(agent)
         } else if (imported) {
           initialForm = { ...emptyAgent(), ...imported.agent, memory: memoryChoiceOf(imported.agent), memory_save: memorySaveOf(imported.agent), folders: folderRows(imported.agent) }
-        } else if (templateId) {
-          // A starting point fills the form; nothing is saved until the person saves.
-          const tpl = AGENT_TEMPLATES.find(x => x.id === templateId)
-          if (tpl) initialForm = { ...initialForm, name: tpl.name, description: tpl.description, instructions: tpl.instructions }
         }
         initialFormRef.current = initialForm
         setForm(initialForm)
@@ -167,7 +161,7 @@ function AgentEditor() {
       }
     }
     init()
-  }, [id, isEdit, imported, templateId, attempt])
+  }, [id, isEdit, imported, attempt])
 
   const updateField = useCallback((name, value) => setForm(prev => ({ ...prev, [name]: value })), [])
 
@@ -186,7 +180,7 @@ function AgentEditor() {
   // them, so untouched folders are kept, also a missing one.
   const initialFolders = useMemo(() => (isEdit ? folderRows(savedConfig) : []), [isEdit, savedConfig])
   const ab = useAgentAbilities({ form, setForm, updateField, tools, initialFolders })
-  const { applied, setApplied, undoApplied, filesChoice, withPresetFiles, toolGroupsList, grantCatalog } = ab
+  const { applied, setApplied, undoApplied, filesChoice } = ab
   const payload = useMemo(() => agentPayload(form, { initialFolders }), [form, initialFolders])
   // A folder row was added or changed and has no folder chosen.
   // With No files the rows do not count: the server ignores them.
@@ -393,12 +387,6 @@ function AgentEditor() {
     setApplied({ kind: 'level', id: lv, name: t(`chats:agentMemory.level.${lv}.title`), before: snapshot(form, ['memory', 'builtins']) })
     setForm(prev => withMemoryLevel(prev, lv, lastWhose.current))
   }
-  const applyTemplate = (tpl) => {
-    const patch = tpl.preset ? presetPatch(tpl.preset, form, toolGroupsList, grantCatalog) : null
-    const keys = patch ? [...TEMPLATE_TEXT_KEYS, ...PRESET_KEYS, 'folders'] : TEMPLATE_TEXT_KEYS
-    setApplied({ kind: 'template', id: tpl.id, name: t(`templates.${tpl.id}.label`), before: snapshot(form, keys) })
-    setForm(prev => withPresetFiles({ ...prev, name: tpl.name, description: tpl.description, instructions: tpl.instructions, ...(patch || {}) }))
-  }
   // The skills with an "its add-on is off" line, and the add-on's title as the source.
   const skillRowsShown = tools.skills.map(sk => (sk.layer === 'addon' && !sk.gone && !(form.addons || []).includes(sk.addon)
     ? { ...sk, unavailable: t('create.uses.skillAddonOff') } : sk))
@@ -411,10 +399,7 @@ function AgentEditor() {
   }))
   const allSkillRowsShown = [...skillRowsShown, ...grantedRowsShown]
   const chosenModel = chatModels.find(m => m.id === form.model)
-  const describeModel = (name) => {
-    const m = chatModels.find(x => x.id === name)
-    return { vision: seesImages(m), caps: modelCaps(m).filter(c => c !== 'vision').map(c => t(`home:picker.cap.${c}`, { defaultValue: c })) }
-  }
+  const describeModel = (name) => describeChatModel(chatModels, name, c => t(`home:picker.cap.${c}`, { defaultValue: c }))
 
   const renderSection = (sid) => {
     switch (sid) {
@@ -650,14 +635,6 @@ function AgentEditor() {
                 <p>{imported.legacy ? t('create.importLegacy') : t('create.importNew')}</p>
                 {imported.dropped.length > 0 && <p>{t('create.importDropped', { keys: imported.dropped.join(', ') })}</p>}
               </div>
-            )}
-
-            {!isEdit && !imported && (
-              <section className="ag-start" aria-labelledby="ag-start-h" data-testid="agent-start">
-                <h2 id="ag-start-h" className="ag-h3">{t('create.startFrom')}</h2>
-                <AgentTemplates templates={AGENT_TEMPLATES} picked={applied?.kind === 'template' ? applied.id : ''} onPick={applyTemplate} />
-                <AppliedNotice applied={applied?.kind === 'template' ? applied : null} onUndo={undoApplied} onKeep={() => setApplied(null)} testId="agent-template-applied" />
-              </section>
             )}
 
             {visibleGroups.map(g => {
