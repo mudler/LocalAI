@@ -1,3 +1,6 @@
+---
+description: Install a backend from the add-on library by source, name and version.
+---
 # Skill: Install a backend from the add-on library
 
 1. The user names a library backend, or asks for one that the backend gallery does not have. You need the `source_id` (the library), the backend `name` and the `version` or channel, as the Add-ons library list shows them. Ask the user for any of the three that is missing. Do not guess them.

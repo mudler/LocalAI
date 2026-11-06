@@ -39,13 +39,20 @@ If you ship a REST endpoint without (2) and (3), conversational admins won't see
 
 ## Adding a new skill recipe (no new tool)
 
-Sometimes you want to teach the LLM a new pattern that uses existing tools. Drop a markdown file under `core/services/localaitools/prompts/skills/<verb>_<noun>.md`. The file is automatically embedded by `//go:embed` and assembled into the system prompt in lexicographic order. No Go changes needed.
+Sometimes you want to teach the LLM a new pattern that uses existing tools. Drop a markdown file under `core/services/localaitools/prompts/skills/<verb>_<noun>.md`. The file is embedded by `//go:embed`. No Go changes needed. It is the **one source** of the recipe, and it reaches the model in two forms:
+
+- **Inline** for the standalone `local-ai mcp-server` and any caller without a skills layer: `SystemPrompt(opts)` assembles the role, the safety rules, the tool catalog (`20_tools.md`) and every recipe in lexicographic order.
+- **As a skill** in the studio chats: `Recipes()` returns `(Name, Description, Body)` for each file, `adminskills.With(builtinskills.FS())` (`core/services/studio/adminskills`, used when the server syncs the built-in layer) adds a `localai-admin-<file name, kebab case>/SKILL.md` for each, and `CompactSystemPrompt(opts)` is the prompt the chats send on every turn: the role (`00_role.md`), the safety rules (`10_safety.md`) and a list of the recipe names with their description. The model loads a recipe with `load_skill`. The chats list these skills only when they have the admin group (`groupSkillsOff` in `core/services/studio/localaigroups.go`), so a non-admin never sees them. Do not copy a recipe into `builtinskills/tree/`; a test fails when you do.
 
 Conventions:
-- Filename: `<verb>_<noun>.md` (e.g. `install_chat_model.md`, `upgrade_backend.md`).
-- First line: `# Skill: <Title Case description>`.
+- Filename: `<verb>_<noun>.md` (e.g. `install_chat_model.md`, `upgrade_backend.md`). The skill name is `localai-admin-` plus the name with dashes.
+- Front matter, three lines: `---`, `description: <one line, up to 120 characters, says when to use the recipe>`, `---`. The loader strips it from the inline prompt.
+- Then `# Skill: <Title Case description>` on the first line of the text.
 - Number the steps. Reference exact tool names in backticks.
 - If the skill mutates state, remind the LLM to confirm with the user.
+- The compact prompt is paid on every turn of every admin chat. `compactBudgetBytes` in `prompts_test.go` and `adminTurnPromptBudget` in `core/services/studio/localaiskills_test.go` cap it. Put new text in a recipe, not in `00_role.md` or `10_safety.md`, and raise a budget only with a reason in the commit. Safety rules stay always-on.
+
+The skill `localai` (`core/services/studio/builtinskills/tree/localai/SKILL.md`) is the same idea for the client tools. `localaiskill_test.go` checks every tool and parameter in it against the schemas that `tools/list` serves, so update the skill when you change a client tool.
 
 ## Code conventions
 
@@ -73,10 +80,10 @@ core/services/localaitools/
   tools_config.go
   tools_system.go
   tools_state.go
-  prompts.go             # //go:embed loader + SystemPrompt(opts)
+  prompts.go             # //go:embed loader: SystemPrompt (full), CompactSystemPrompt, Recipes
   prompts/00_role.md
   prompts/10_safety.md   # SAFETY RULES — change with care
-  prompts/20_tools.md    # curated tool catalog with one-liners
+  prompts/20_tools.md    # curated tool catalog with one-liners (full prompt only)
   prompts/skills/*.md
   inproc/client.go       # in-process LocalAIClient (services-direct)
   httpapi/client.go      # REST LocalAIClient (for standalone CLI / remote)

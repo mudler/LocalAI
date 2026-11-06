@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/core/services/studio/adminskills"
 	"github.com/mudler/LocalAI/core/services/studio/builtinskills"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/textindex"
@@ -122,7 +123,7 @@ func (a *Application) initStudioFilesWithS3(newS3 func(context.Context, storage.
 	}
 	// The office skills ship with the server. A copy that fails leaves the
 	// chats as they are: the skills are help, not a need.
-	if err := f.SyncBuiltin(context.Background(), builtinskills.FS()); err != nil {
+	if err := f.SyncBuiltin(context.Background(), adminskills.With(builtinskills.FS())); err != nil {
 		xlog.Warn("Could not write the built-in skills", "error", err)
 	}
 	a.studioFiles, a.studioFilesIndex = f, closer

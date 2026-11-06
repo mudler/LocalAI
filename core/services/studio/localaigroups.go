@@ -122,6 +122,17 @@ func (s *Service) registerLocalAIGroups() error {
 // ClientSkill is the built-in skill that teaches the model the client tools.
 const ClientSkill = "localai"
 
+// adminSkillNames are the built-in skills of the admin recipes
+// (localaitools.Recipes): the step-by-step text that used to be in the prompt
+// of every admin chat. Only a chat that has the admin tools lists them.
+var adminSkillNames = func() []string {
+	var out []string
+	for _, r := range localaitools.Recipes() {
+		out = append(out, r.Name)
+	}
+	return out
+}()
+
 // groupSkillNames are the built-in skills that belong to a LocalAI tool group:
 // the chat lists and loads them only while it has the group. They cost
 // nothing when the group is off, and a user who cannot have the group never
@@ -130,6 +141,8 @@ func groupSkillNames(group string) []string {
 	switch group {
 	case builtins.GroupLocalAIClient:
 		return []string{ClientSkill}
+	case builtins.GroupLocalAIAdmin:
+		return adminSkillNames
 	}
 	return nil
 }
@@ -321,7 +334,7 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, rec sessio
 		add(builtins.GroupLocalAIAdmin, ts)
 		// The prompt carries the safety rules (confirm before changing
 		// anything), so the tools never come without it.
-		prompt = s.d.Assistant.SystemPrompt()
+		prompt = s.adminPrompt()
 	case rec.Assistant && rec.Kind != session.KindSubAgent:
 		// An assistant chat that cannot have its tools this turn (the setting
 		// was switched off, the user lost the role): say so once.
@@ -329,6 +342,26 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, rec sessio
 	}
 	finish()
 	return tools, deferred, deferredGroups, prompt, note
+}
+
+// CompactAssistant is an Assistant that also has the short prompt for chats
+// with skills: the role, the safety rules and the names of the recipes, which
+// the model loads as skills (localai-admin-*). An Assistant without it gets
+// the full prompt.
+type CompactAssistant interface {
+	CompactSystemPrompt() string
+}
+
+// adminPrompt is the prompt of a chat that has the admin tools. The chats that
+// can load skills get the compact prompt, because every turn pays for it; a
+// chat without the skills layer gets the full prompt, with every recipe inline.
+func (s *Service) adminPrompt() string {
+	if c, ok := s.d.Assistant.(CompactAssistant); ok && s.d.Files.Available() {
+		if p := c.CompactSystemPrompt(); p != "" {
+			return p
+		}
+	}
+	return s.d.Assistant.SystemPrompt()
 }
 
 func assistantUnavailable(rec session.ChatRecord) string {

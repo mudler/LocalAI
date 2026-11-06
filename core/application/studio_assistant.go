@@ -27,6 +27,12 @@ func (s studioAssistant) Executor() mcpTools.ToolExecutor {
 // SystemPrompt is the prompt of the assistant.
 func (s studioAssistant) SystemPrompt() string { return s.a.localAIAssistant.SystemPrompt() }
 
+// CompactSystemPrompt is the short prompt for chats that load the recipes as
+// skills.
+func (s studioAssistant) CompactSystemPrompt() string {
+	return s.a.localAIAssistant.CompactSystemPrompt()
+}
+
 // ClientExecutor runs the client tools (inference). It has none when the
 // assistant is absent.
 func (s studioAssistant) ClientExecutor() mcpTools.ToolExecutor {

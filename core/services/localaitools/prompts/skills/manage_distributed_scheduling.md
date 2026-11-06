@@ -1,3 +1,6 @@
+---
+description: Inspect, set or remove the per-model scheduling rules of a distributed setup.
+---
 # Skill: Manage distributed scheduling
 
 Use this when the user asks to inspect, set, or remove distributed per-model scheduling rules.

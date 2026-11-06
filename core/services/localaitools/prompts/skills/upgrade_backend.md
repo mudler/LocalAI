@@ -1,3 +1,6 @@
+---
+description: Upgrade, refresh or update an installed backend.
+---
 # Skill: Upgrade a backend
 
 Use this when the user asks to upgrade, refresh, or update a backend.

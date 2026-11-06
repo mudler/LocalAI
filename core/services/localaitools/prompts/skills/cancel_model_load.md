@@ -1,3 +1,6 @@
+---
+description: Cancel a stuck or unwanted distributed model load by its job id.
+---
 # Skill: Cancel a Distributed Load
 
 1. Read the model's load-status (`GET /api/models/{id}/load-status`) and take the exact `job_id` from it. Never guess a job id.

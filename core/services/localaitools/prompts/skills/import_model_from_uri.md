@@ -1,3 +1,6 @@
+---
+description: Install a model from a HuggingFace link, an OCI reference, a file path or an HTTP URL.
+---
 # Skill: Import a model from a URI
 
 Use this when the user wants to install a model from a source LocalAI doesn't already curate — a HuggingFace link, an OCI image reference, a `file://` path, or a generic HTTP URL. Prefer `gallery_search` + `install_model` first if the model is in a configured gallery; only fall back to import when it isn't.

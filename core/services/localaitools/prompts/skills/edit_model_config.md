@@ -1,3 +1,6 @@
+---
+description: Change a setting of an installed model, such as context size or parameters.
+---
 # Skill: Safely edit a model config
 
 Use this when the user wants to change a setting on an installed model (context size, parameters, prompt template, etc.).

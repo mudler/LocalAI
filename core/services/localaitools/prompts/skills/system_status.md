@@ -1,3 +1,6 @@
+---
+description: Report what is installed and running: version, models, backends, workers.
+---
 # Skill: System status
 
 Use this when the user asks "what's installed?", "what's running?", "show status", or anything similar.

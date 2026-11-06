@@ -253,6 +253,12 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 		return nil, nil, err
 	}
 	ad.markFallbacks(list)
+	if s.assistantAllowed(ctx, p) != nil {
+		// A user who cannot have the admin tools never sees the recipes.
+		list = slices.DeleteFunc(list, func(sk skills.Skill) bool {
+			return sk.Layer == skills.LayerBuiltin && slices.Contains(adminSkillNames, sk.Name)
+		})
+	}
 	names, addon := s.memoryProviderSkills(ctx, p)
 	for i := range list {
 		sk := &list[i]

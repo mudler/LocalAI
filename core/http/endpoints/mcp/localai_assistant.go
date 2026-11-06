@@ -125,6 +125,15 @@ func (h *LocalAIAssistantHolder) SystemPrompt() string {
 	return localaitools.SystemPrompt(h.opts)
 }
 
+// CompactSystemPrompt is the short prompt for the chats, which load the admin
+// recipes as skills: the role, the safety rules and the recipe names.
+func (h *LocalAIAssistantHolder) CompactSystemPrompt() string {
+	if h == nil || h.initErr != nil {
+		return ""
+	}
+	return localaitools.CompactSystemPrompt(h.opts)
+}
+
 // HasTools reports whether the holder is initialised and has tools available.
 func (h *LocalAIAssistantHolder) HasTools() bool {
 	return h != nil && h.initErr == nil && h.Executor().HasTools()

@@ -1,3 +1,6 @@
+---
+description: Install a chat model, also when none is installed yet.
+---
 # Skill: Install a chat model
 
 Use this when the user wants to install a chat-capable model — including the case where there are no chat models installed at all and they ask you to bootstrap one.

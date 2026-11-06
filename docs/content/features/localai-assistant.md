@@ -121,6 +121,14 @@ Some administrator actions have no tool on purpose, and stay a person's act in t
 
 The shared folder tools manage the [shared folders]({{% relref "features/chats#shared-folders" %}}). The assistant has no user of its own, so a folder it creates has no member until you add one, and the audit names its changes `@assistant`.
 
+## The prompt and the recipes
+
+The admin tools come with a system prompt: the role, the safety rules (confirm before changing anything) and, for the tasks that have steps, a set of recipes such as "install a chat model", "upgrade a backend" or "manage shared folders". The chats send this prompt on every turn, so it is short. It holds the role, the safety rules and a list of the recipe names with one line each. The text of each recipe is a built-in [skill]({{% relref "features/chats#skills" %}}) named `localai-admin-<recipe>` (for example `localai-admin-install-chat-model`) that the model loads by name when a task matches. The skills are listed only in a chat that has the admin tools: an administrator's chat with the **LocalAI admin** group on. A user who is not an administrator, a sub-agent, a messaging chat, a run that starts by itself and a chat with the group off never see their names or text. An add-on cannot replace them.
+
+The safety rules never move into a skill. Measured on the shipped recipes, the prompt of an administrator's chat is about 4,300 bytes instead of 25,000 (about 1,070 tokens instead of 6,250), and the full recipe text costs tokens only on the turns that load it.
+
+The standalone `local-ai mcp-server` has no skills layer, so it sends the full prompt: the role, the safety rules, the tool catalog and every recipe inline. Both forms come from the same files.
+
 ## Client tools
 
 Besides the management tools above, the server registers a second group, the client tools. They run inference, so a person can ask for a picture, a recording or a ranking in a chat. The management tools are for administrators. A client tool acts as the user who calls it, like any other API request: the route checks the account's permission for the feature, the model allow-list and the quota apply, and the usage is logged for that user. When the server refuses, the tool tells the person which capability the account may not use.
@@ -166,4 +174,4 @@ A user's API key is enough for the client tools. The management tools still need
 
 ## Adding new tools or skills
 
-The MCP server lives at `core/services/localaitools/`. Tools are registered in `tools_*.go`; skill prompts (the markdown the LLM sees) are embedded from `prompts/`. To add a new admin tool, add a method to the `LocalAIClient` interface plus implementations in `inproc/` and `httpapi/`, then register the tool and add or update a skill prompt. See `.agents/localai-assistant-mcp.md` for the full contributor checklist.
+The MCP server lives at `core/services/localaitools/`. Tools are registered in `tools_*.go`; skill prompts (the markdown the LLM sees) are embedded from `prompts/`: one file per recipe under `prompts/skills/`, sent inline by the standalone server and offered as a skill by the chats. To add a new admin tool, add a method to the `LocalAIClient` interface plus implementations in `inproc/` and `httpapi/`, then register the tool and add or update a skill prompt. See `.agents/localai-assistant-mcp.md` for the full contributor checklist.

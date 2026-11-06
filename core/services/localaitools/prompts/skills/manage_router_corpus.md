@@ -1,3 +1,6 @@
+---
+description: Inspect, seed or clear the labelled examples behind a knn router.
+---
 # Skill: Manage a router corpus
 
 Use this when the user wants to inspect, seed, repair, or clear the labelled exemplar corpus behind a `knn` router.

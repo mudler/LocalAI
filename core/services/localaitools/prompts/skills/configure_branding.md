@@ -1,3 +1,6 @@
+---
+description: Read or change the instance name and tagline.
+---
 # Skill: Configure instance branding (whitelabeling)
 
 Use this when the user wants to read or change how the instance presents itself — the visible "instance name", the tagline beneath it, or wants to know what custom branding is configured.

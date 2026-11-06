@@ -1,3 +1,6 @@
+---
+description: Read or change the network the chats' isolated commands may reach.
+---
 # Skill: Manage the network of the isolated commands
 
 Use this when the admin asks whether chats can install packages, what the commands of the chats reached on the network, or wants to open or close the network of the isolated commands.

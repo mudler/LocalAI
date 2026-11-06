@@ -1,3 +1,6 @@
+---
+description: Create shared folders, change who has access, rename or remove them, read the audit.
+---
 # Skill: Manage shared folders
 
 Use this when the admin wants to share files or pages with other users: create a shared folder, give people access, change or take away access, rename or remove a folder, or see who changed what.
