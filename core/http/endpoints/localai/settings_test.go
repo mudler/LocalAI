@@ -126,6 +126,34 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(cfg.ChatsWebSearchProviders).To(Equal("searxng,brave_html"))
 	})
 
+	It("switches the two LocalAI tool groups of the chats, each on its own, and keeps them on by default", func() {
+		cfg := app.ApplicationConfig()
+		get := func() map[string]any {
+			req := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			var settings map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &settings)).To(Succeed())
+			return settings
+		}
+		Expect(cfg.DisableChatsLocalAIClient || cfg.DisableChatsLocalAIAdmin).To(BeFalse())
+		Expect(get()).To(HaveKeyWithValue("chats_localai_client", true))
+		Expect(get()).To(HaveKeyWithValue("chats_localai_admin", true))
+
+		rec := post(`{"chats_localai_admin":false}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.DisableChatsLocalAIAdmin).To(BeTrue())
+		Expect(cfg.DisableChatsLocalAIClient).To(BeFalse())
+		Expect(get()).To(HaveKeyWithValue("chats_localai_admin", false))
+		Expect(get()).To(HaveKeyWithValue("chats_localai_client", true))
+
+		rec = post(`{"chats_localai_client":false,"chats_localai_admin":true}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.DisableChatsLocalAIClient).To(BeTrue())
+		Expect(cfg.DisableChatsLocalAIAdmin).To(BeFalse())
+	})
+
 	It("rejects a host-commands mode and pins the chats do not understand", func() {
 		rec := post(`{"chats_host_exec":"always"}`)
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))

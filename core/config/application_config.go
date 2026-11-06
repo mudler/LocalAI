@@ -468,6 +468,14 @@ type ApplicationConfig struct {
 	// each chat still has to switch it on. Read at each turn.
 	DisableChatsSavedAgents bool
 
+	// DisableChatsLocalAIClient and DisableChatsLocalAIAdmin switch off, for
+	// every chat, the two built-in groups of LocalAI tools: the client tools
+	// (inference) and the admin tools (the LocalAI Assistant's management
+	// tools). Stored as the negation (chats_localai_client,
+	// chats_localai_admin), so both are on by default. Read at each turn.
+	DisableChatsLocalAIClient bool
+	DisableChatsLocalAIAdmin  bool
+
 	// DisableChatsWorkFolder stops the steering of the chats' working files:
 	// the prompt no longer names the chat's work folder (Chats/<chat>/work)
 	// for scripts, logs and drafts, and a helper file saved elsewhere gets no

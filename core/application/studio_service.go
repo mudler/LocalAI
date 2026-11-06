@@ -133,6 +133,7 @@ func (a *Application) initStudioService() {
 		Push:               pusher,
 		AddonTools:         lateStudioAddons{a},
 		Assistant:          studioAssistant{a},
+		ClientTools:        studioAssistant{a},
 		Collections:        studioCollections{a},
 		ContextTokens:      a.studioContextTokens,
 		RemoteModel:        a.studioRemoteModel,
@@ -194,6 +195,8 @@ func (a *Application) initStudioService() {
 	}
 	deps.HostExecMode = a.studioHostExecMode
 	deps.SavedAgentsOn = func() bool { return !a.applicationConfig.DisableChatsSavedAgents }
+	deps.LocalAIClientOn = func() bool { return !a.applicationConfig.DisableChatsLocalAIClient }
+	deps.LocalAIAdminOn = func() bool { return !a.applicationConfig.DisableChatsLocalAIAdmin }
 	deps.WorkFolderOn = func() bool { return !a.applicationConfig.DisableChatsWorkFolder }
 	deps.GoalLimits = func() (int, int) {
 		return a.applicationConfig.EffectiveChatsGoalMaxTurns(), a.applicationConfig.EffectiveChatsGoalMaxSteps()

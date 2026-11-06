@@ -491,6 +491,16 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.ChatsWebFetch },
 		func(o *ApplicationConfig) bool { return !o.DisableChatsWebFetch },
 		func(o *ApplicationConfig, v bool) { o.DisableChatsWebFetch = !v }),
+	// The two built-in groups of LocalAI tools of the chats: read at each
+	// turn, so no restart. Stored as the negation, so both are on by default.
+	field("chats_localai_client",
+		func(s *RuntimeSettings) **bool { return &s.ChatsLocalAIClient },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsLocalAIClient },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsLocalAIClient = !v }),
+	field("chats_localai_admin",
+		func(s *RuntimeSettings) **bool { return &s.ChatsLocalAIAdmin },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsLocalAIAdmin },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsLocalAIAdmin = !v }),
 	// The saved agents as sub-agents of a chat: read at each turn, so no
 	// restart. Stored as the negation, so it is on by default.
 	field("chats_saved_agents",

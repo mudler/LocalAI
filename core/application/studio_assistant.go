@@ -1,6 +1,9 @@
 package application
 
 import (
+	"context"
+
+	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 )
 
@@ -28,3 +31,21 @@ func (s studioAssistant) Executor() mcpTools.ToolExecutor {
 
 // SystemPrompt is the prompt of the assistant.
 func (s studioAssistant) SystemPrompt() string { return s.a.localAIAssistant.SystemPrompt() }
+
+// ClientExecutor runs the client tools (inference). It has none when the
+// assistant is absent.
+func (s studioAssistant) ClientExecutor() mcpTools.ToolExecutor {
+	if s.a.localAIAssistant == nil {
+		return &mcpTools.LocalToolExecutor{}
+	}
+	return s.a.localAIAssistant.ClientExecutor()
+}
+
+// FirstModel chooses the model of a client tool: the first installed model with
+// the use case, as the tool itself does when the model names none.
+func (s studioAssistant) FirstModel(ctx context.Context, use config.ModelConfigUsecase) (string, error) {
+	if s.a.assistantClient == nil {
+		return "", nil
+	}
+	return s.a.assistantClient.FirstModel(ctx, use)
+}

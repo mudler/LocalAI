@@ -57,6 +57,15 @@ const (
 	// read the person's earlier chats. It is opt-in: off until the chat, or the
 	// saved agent that holds the grant history.read, switches it on.
 	GroupHistory = "history"
+	// GroupLocalAIClient holds the LocalAI client tools: inference (images,
+	// speech, text analysis) within the user's own permissions. Each tool is
+	// offered only when the user holds its feature and a model can serve it.
+	GroupLocalAIClient = "localai_client"
+	// GroupLocalAIAdmin holds the tools that manage this instance (the LocalAI
+	// Assistant's tools). It is for administrators and opt-in: off until the
+	// chat, or the saved agent, switches it on. A chat in assistant mode has
+	// it on.
+	GroupLocalAIAdmin = "localai_admin"
 )
 
 // The runtime settings of the built-in tools.
@@ -69,6 +78,8 @@ const (
 	SettingWebAllowPrivate    = "chats_web_allow_private"
 	SettingWebPorts           = "chats_web_ports"
 	SettingSavedAgents        = "chats_saved_agents"
+	SettingLocalAIClient      = "chats_localai_client"
+	SettingLocalAIAdmin       = "chats_localai_admin"
 )
 
 // Chat is what a built-in tool knows of the chat it is built for.
@@ -411,42 +422,62 @@ type Built struct {
 
 // Build builds every registered tool for one chat, but the External ones.
 func (r *Registry) Build(ctx context.Context, c Chat) []Built {
-	off, on := map[string]bool{}, map[string]bool{}
+	off, on := switchSets(c)
+	var out []Built
+	for _, t := range r.Tools() {
+		if t.External {
+			continue
+		}
+		out = append(out, buildTool(ctx, t, c, off, on))
+	}
+	return out
+}
+
+// BuildOne builds the registered tool of an ID for one chat, External or not,
+// with the same checks as Build: the setting, the chat's switches, the opt-in
+// group and the capabilities. It is for a group whose tools come from one
+// source that the chats expand themselves (the LocalAI groups): the registry
+// entry decides whether the chat has the group, the caller supplies the tools.
+// ok is false when no tool has that ID.
+func (r *Registry) BuildOne(ctx context.Context, id string, c Chat) (b Built, ok bool) {
+	t, found := r.Lookup(id)
+	if !found {
+		return Built{}, false
+	}
+	off, on := switchSets(c)
+	return buildTool(ctx, t, c, off, on), true
+}
+
+func switchSets(c Chat) (off, on map[string]bool) {
+	off, on = map[string]bool{}, map[string]bool{}
 	for _, g := range c.GroupsOff {
 		off[g] = true
 	}
 	for _, g := range c.GroupsOn {
 		on[g] = true
 	}
-	var out []Built
-	for _, t := range r.Tools() {
-		if t.External {
-			continue
-		}
-		if !t.On() {
-			out = append(out, Built{ID: t.ID, Reason: ReasonOff})
-			continue
-		}
-		if t.Group != "" && off[t.Group] {
-			out = append(out, Built{ID: t.ID, Reason: ReasonChatOff})
-			continue
-		}
-		if t.OptIn && !on[t.Group] {
-			out = append(out, Built{ID: t.ID, Reason: ReasonNotOn})
-			continue
-		}
-		if len(t.Capabilities) > 0 {
-			if held, why := c.Holds(t.Capabilities...); !held {
-				out = append(out, Built{ID: t.ID, Reason: ReasonNotPermitted + ": " + why})
-				continue
-			}
-		}
-		tool, ok, reason := t.Build(ctx, c)
-		if ok {
-			tool.Name, tool.Provider = t.ID, BuiltinProvider
-			tool = gateCall(tool, t, c)
-		}
-		out = append(out, Built{ID: t.ID, Tool: tool, OK: ok, Reason: reason})
+	return off, on
+}
+
+func buildTool(ctx context.Context, t Tool, c Chat, off, on map[string]bool) Built {
+	if !t.On() {
+		return Built{ID: t.ID, Reason: ReasonOff}
 	}
-	return out
+	if t.Group != "" && off[t.Group] {
+		return Built{ID: t.ID, Reason: ReasonChatOff}
+	}
+	if t.OptIn && !on[t.Group] {
+		return Built{ID: t.ID, Reason: ReasonNotOn}
+	}
+	if len(t.Capabilities) > 0 {
+		if held, why := c.Holds(t.Capabilities...); !held {
+			return Built{ID: t.ID, Reason: ReasonNotPermitted + ": " + why}
+		}
+	}
+	tool, ok, reason := t.Build(ctx, c)
+	if ok {
+		tool.Name, tool.Provider = t.ID, BuiltinProvider
+		tool = gateCall(tool, t, c)
+	}
+	return Built{ID: t.ID, Tool: tool, OK: ok, Reason: reason}
 }

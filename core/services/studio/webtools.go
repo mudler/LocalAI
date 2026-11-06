@@ -227,6 +227,17 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 	}
 	byAgent := set(s.agentOff(ctx, rec))
 	for i := range out {
+		if out[i].Group == builtins.GroupLocalAIClient || out[i].Group == builtins.GroupLocalAIAdmin {
+			// The group is one entry of the registry; the menu lists the
+			// tools the model would get.
+			if names := s.localaiNames(ctx, out[i].Group, rec.Principal); len(names) > 0 {
+				out[i].Tools = names
+				out[i].Providers = map[string]string{}
+				for _, n := range names {
+					out[i].Providers[n] = BuiltinProvider
+				}
+			}
+		}
 		if byAgent[out[i].Group] {
 			// The agent's ceiling: the chat cannot switch the group on.
 			out[i].Usable, out[i].Reason = false, ReasonOffForAgent

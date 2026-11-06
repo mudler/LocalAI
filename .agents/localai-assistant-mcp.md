@@ -145,6 +145,34 @@ any user, within their own permissions, in the same package. They differ from th
 - Add a method to `LocalAIClient`, the DTOs to `dto_client.go`, and a dispatch case to
   `server_test.go`. The route goes in `toolToHTTPRoute` automatically from `ClientTools`.
 
+## The two groups in the chats
+
+The studio chats offer the two groups as built-in tool groups of the registry
+(`core/services/studio/localaigroups.go`), so the chat's switches, the saved
+agent's ceiling, `dropHidden` and the runtime settings apply to them like to any
+group:
+
+- Group `localai_client`, setting `chats_localai_client`: on by default in a chat.
+  Each tool is offered when the user holds its `Feature` (`ClientTools`) and the
+  `ModelChooser` finds an installed model. `describe_image` and `transcribe_audio`
+  are left to the `media` group (`clientSkipped`).
+- Group `localai_admin`, setting `chats_localai_admin`: opt-in (`OptIn`), so off
+  until the chat or the saved agent (`builtins_on`) switches it on. Assistant mode
+  adds it to the chat's switches (`switchesOf`). It needs `assistantAllowed` (the
+  admin role), and never goes to a sub-agent, a trigger or job run, or a
+  messaging chat.
+- Each group is one registry entry (`External`), because the registry builds one
+  tool per entry and the tools come from the MCP server. `Registry.BuildOne`
+  decides whether the chat has the group; `localaiTurn` turns the MCP tools into
+  chat tools and wraps the executor with `mcp.AsUser`, so the acting user token
+  below works in both groups.
+- The holder serves the groups apart: `Executor()` has the manage tools (the
+  OpenAI-compatible path uses it and does not offer the client tools) and
+  `ClientExecutor()` the client tools. A tool name in both groups is a bug.
+- Do not mark the entries replaceable: an add-on cannot shadow a group.
+- In a run nobody watches, a client tool goes through `act.spend`
+  (`gateBuiltinActs`).
+
 ## The acting user
 
 A tool call can name the user it acts for. `localaitools.WithUser(ctx, user)` puts the user in a

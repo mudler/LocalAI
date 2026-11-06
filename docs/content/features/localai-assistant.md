@@ -18,7 +18,7 @@ The assistant starts from the **Home** page, not from the chats page. Sign in as
 - Type `/assistant` in the command bar.
 - Click **Manage LocalAI by chatting** in the library row.
 
-Home creates a new chat named "LocalAI Assistant" and opens it. It then appears in the chats list like any other chat, and you can come back to it later. Only the chat that was started this way has the admin tools; other chats never get them, and neither do the sub-agents it starts.
+Home creates a new chat named "LocalAI Assistant" and opens it. It then appears in the chats list like any other chat, and you can come back to it later. Assistant mode is a shortcut: it switches the **LocalAI admin** tool group on for that chat and adds the assistant's system prompt. The admin tools are a built-in tool group like the others (see [Tool groups](#tool-groups)), so any chat of an administrator can switch them on in its Tools menu. Sub-agents never get them.
 
 Over the API, create the chat with `assistant: true`:
 
@@ -46,9 +46,34 @@ LOCALAI_DISABLE_ASSISTANT=true local-ai run
 
 When it is off, Home hides `/assistant` and the library entry, and `POST /api/chats` refuses `assistant: true` with `503`. The setting is read on every turn: an assistant chat that already exists keeps its history, but its next turn has no admin tools and the model is told they are unavailable.
 
+## Tool groups
+
+The assistant's tools are two built-in tool groups of the chats, listed in the Tools menu of a chat and in **Settings → Tools**:
+
+| Group | Group name | Tools | Who | In a chat |
+|---|---|---|---|---|
+| **LocalAI client** | `localai_client` | The [client tools](#client-tools) | Every user, within the permissions of the account | On |
+| **LocalAI admin** | `localai_admin` | The management tools | Administrators only | Off until the chat switches it on (assistant mode does) |
+
+Each group has an instance setting that an administrator changes in **Settings → Tools**, or with `POST /api/settings`. Both are on by default and apply at the next turn:
+
+| Setting | Effect |
+|---|---|
+| `chats_localai_client` | Offer the client tools to the chats. |
+| `chats_localai_admin` | Offer the admin tools to the chats of administrators. |
+
+Each chat has the usual switches (`PUT /api/chats/{id}/builtins`). A saved agent has the client group unless its `builtins_off` lists `localai_client`, and has the admin group only when its `builtins_on` lists `localai_admin` and its owner is an administrator. The tools the model sees are only the ones it can call:
+
+- The admin group is for administrators. For any other user the group is listed as not usable, and the model has none of its tools.
+- A client tool is offered when the account holds the feature permission in the table below and an installed model has the use case. A user with none of the features sees no client tool.
+- A sub-agent never has the admin group. A run that starts by itself (a trigger or a job) and a messaging chat do not have it either. The client tools in a run that starts by itself need the `act.spend` grant, like other tools that spend compute.
+- `describe_image` and `transcribe_audio` stay in the **Images and audio** group of the chat, so a chat never has the same tool name twice.
+
+The OpenAI-compatible API is not changed: `metadata.localai_assistant` still gives an administrator the admin tools there, and the client tools are not offered.
+
 ## Security model
 
-- Only an admin can start an assistant chat, and the server checks the role again on every turn (defense in depth). A user who loses the admin role also loses the tools in their existing assistant chats.
+- Only an admin can start an assistant chat or have the admin tools in any chat, and the server checks the role again on every turn (defense in depth). A user who loses the admin role also loses the tools in their existing chats.
 - The Home entry is hidden for non-admin users and while the setting is off.
 - The tool server is in-process - there is no localhost loopback, no synthetic API key, and no extra TCP socket.
 - Mutating tools (`install_model`, `delete_model`, `edit_model_config`, `upgrade_backend`, …) are guarded by a system-prompt rule that requires the LLM to confirm the action with the user before calling them. There is no separate code-side preview/apply step.
@@ -104,7 +129,7 @@ Every tool takes an optional `model`. When you leave it out, the tool uses the f
 
 `speak` does not take an uploaded reference recording, because the speech route does not. To speak in a cloned voice, pass a saved voice profile URI from `list_voice_profiles` as `voice`.
 
-`describe_image` and `transcribe_audio` also exist as built-in chat tools that read the user's files. A chat sends the model one tool of each name.
+`describe_image` and `transcribe_audio` also exist as built-in chat tools that read the user's files. A chat sends the model one tool of each name: in a chat, the **Images and audio** group serves these two, and the **LocalAI client** group serves the others.
 
 The client tools are not turned off by `--read-only`, which is about changing the instance. In the standalone server, files are read from and written to the folder of `--files-dir` (default: the current folder), and a file argument must lie inside it:
 

@@ -211,9 +211,11 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		// switched the saved agents on and its user may use them.
 		tools = append(tools, s.spawnTool(x, hasTool(tools, listAgentsName)), s.waitAgentsTool(a))
 	}
-	// The assistant tools are not part of hostTools, so a sub-agent never gets
-	// them, whatever its parent names.
-	aTools, aPrompt, aNote := s.assistantTurn(ctx, rec)
+	// The two LocalAI groups go through the registry like every built-in group:
+	// the setting, the chat's switches and the agent's ceiling apply. They are
+	// not part of hostTools, so the admin tools never reach a sub-agent,
+	// whatever its parent names (the group refuses a sub-agent as well).
+	aTools, aPrompt, aNote := s.localaiTurn(ctx, a, rec, tools)
 	tools = append(tools, aTools...)
 	// The tools of a self-paced loop, while the chat has one.
 	tools = append(tools, s.loopTools(ctx, a, rec)...)

@@ -87,14 +87,33 @@ func (h *LocalAIAssistantHolder) Initialize(ctx context.Context, client localait
 	return h.initErr
 }
 
-// Executor returns a tool executor backed by the holder's cached tools.
-// When the holder failed to initialise (or was never initialised), the
-// returned executor is empty — HasTools() is false.
+// Executor returns a tool executor backed by the holder's cached manage
+// tools: the admin group, which is what an administrator opts in to. The
+// client (inference) tools are not in it; see ClientExecutor. When the holder
+// failed to initialise (or was never initialised), the returned executor is
+// empty — HasTools() is false.
 func (h *LocalAIAssistantHolder) Executor() ToolExecutor {
+	return h.executorOf(localaitools.GroupManage)
+}
+
+// ClientExecutor returns the executor of the client tools: inference that any
+// user may run within their own permissions. It is empty like Executor when
+// the holder is not available.
+func (h *LocalAIAssistantHolder) ClientExecutor() ToolExecutor {
+	return h.executorOf(localaitools.GroupClient)
+}
+
+func (h *LocalAIAssistantHolder) executorOf(group localaitools.ToolGroup) ToolExecutor {
 	if h == nil || h.initErr != nil {
 		return &LocalToolExecutor{}
 	}
-	return &LocalToolExecutor{tools: h.tools}
+	var tools []MCPToolInfo
+	for _, t := range h.tools {
+		if localaitools.ToolGroupOf(t.Function.Name) == group {
+			tools = append(tools, t)
+		}
+	}
+	return &LocalToolExecutor{tools: tools}
 }
 
 // SystemPrompt returns the assembled embedded system prompt, freshly
@@ -109,7 +128,7 @@ func (h *LocalAIAssistantHolder) SystemPrompt() string {
 
 // HasTools reports whether the holder is initialised and has tools available.
 func (h *LocalAIAssistantHolder) HasTools() bool {
-	return h != nil && h.initErr == nil && len(h.tools) > 0
+	return h != nil && h.initErr == nil && h.Executor().HasTools()
 }
 
 // Close tears down the in-memory transport pair. Safe to call multiple times.

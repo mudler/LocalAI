@@ -52,38 +52,6 @@ func (s *Service) assistantAllowed(ctx context.Context, user string) error {
 	return nil
 }
 
-// assistantTurn returns the tools and the prompt an assistant chat has this
-// turn, and a note for the model when it cannot have them. Another chat gets
-// nothing. The check is made every turn, not only when the chat starts: the
-// setting can be switched off and the user can lose the role.
-func (s *Service) assistantTurn(ctx context.Context, rec session.ChatRecord) (tools []session.Tool, prompt, note string) {
-	if !rec.Assistant || rec.Kind == session.KindSubAgent {
-		return nil, "", ""
-	}
-	if err := s.assistantAllowed(ctx, rec.Principal); err != nil {
-		return nil, "", "unavailable this turn: the LocalAI assistant"
-	}
-	exec := s.d.Assistant.Executor()
-	if exec != nil {
-		// The tools act as the chat's owner. With authentication off there is
-		// no user to name, and the tools use the server's default identity.
-		var owner *auth.User
-		if s.d.Users != nil {
-			owner, _ = s.d.Users(ctx, rec.Principal)
-		}
-		exec = mcpendpoint.AsUser(exec, owner)
-	}
-	if exec == nil || !exec.HasTools() {
-		return nil, "", "unavailable this turn: the LocalAI assistant"
-	}
-	tools, err := s.toolsOf(ctx, rec.ID, exec)
-	if err != nil {
-		s.log.Warn("studio: assistant tools unavailable", "chat", rec.ID, "error", err)
-		return nil, "", "unavailable this turn: the LocalAI assistant"
-	}
-	return tools, s.d.Assistant.SystemPrompt(), ""
-}
-
 // toolsOf turns the tools of an executor into chat tools. A tool in the add-on
 // namespace or with the name of a built-in is dropped.
 func (s *Service) toolsOf(ctx context.Context, chat string, exec mcpendpoint.ToolExecutor) ([]session.Tool, error) {

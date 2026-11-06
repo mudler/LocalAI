@@ -182,6 +182,9 @@ func (s *Service) gateBuiltinActs(ctx context.Context, rec session.ChatRecord, t
 	for i, t := range tools {
 		out[i] = t
 		switch {
+		case clientToolNames[t.Name]:
+			// The LocalAI client tools run models: they spend compute.
+			out[i] = s.gateAct(rec, pol, t, builtins.ActTool{Name: t.Name, Class: builtins.ClassSpend})
 		case fileWriteTools[t.Name]:
 			out[i] = s.gateAct(rec, pol, t, builtins.ActTool{Name: t.Name, Class: builtins.ClassFiles})
 		case t.Name == commandTool && t.Provider == BuiltinProvider:

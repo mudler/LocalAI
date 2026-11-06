@@ -15960,7 +15960,9 @@ paths:
         and search_collection), subagents (spawn_agent), triggers (propose_trigger,
         list_triggers, update_trigger and delete_trigger), memory (your notes: off
         makes the chat a private chat that neither reads nor saves memory) saved_agents
-        and history (search_chats and read_chat). A sub-agent follows the switches
+        and history (search_chats and read_chat), localai_client (the LocalAI client
+        tools) and localai_admin (the LocalAI admin tools: opt-in, administrators
+        only). A sub-agent follows the switches
         of its parent chat. An opt-in group (opt_in in the list, such as saved_agents:
         list_agents and the agent argument of spawn_agent) is off until on names it;
         on replaces the earlier list of opt-in groups that are on, and an opt-in group
@@ -17560,6 +17562,7 @@ paths:
   /api/chats/admin/tools:
     get:
       description: 'The built-in tools of the chats (bash, web_search, web_fetch,
+        list_agents and the two LocalAI groups localai_client and localai_admin,
         as this server registers them): label, the per-chat switch group, the runtime
         setting that switches each off and the ones that configure it, whether it
         is on, whether it only reads and whether an add-on may replace it, who serves

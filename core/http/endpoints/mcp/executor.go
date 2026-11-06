@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"slices"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -169,4 +170,43 @@ func (e userAppExecutor) ExecuteTool(ctx context.Context, name, args string) (st
 
 func (e userAppExecutor) ExecuteAppTool(ctx context.Context, server, tool string, args json.RawMessage) (mcpapps.CallResult, error) {
 	return e.AppExecutor.ExecuteAppTool(localaitools.WithUser(ctx, e.user), server, tool, args)
+}
+
+// Only returns an executor that offers and runs the tools for which keep is
+// true. A call to another tool is refused, not passed on. It is how one MCP
+// server serves two groups of tools to different callers.
+func Only(exec ToolExecutor, keep func(name string) bool) ToolExecutor {
+	if exec == nil || keep == nil {
+		return exec
+	}
+	return filteredExecutor{ToolExecutor: exec, keep: keep}
+}
+
+type filteredExecutor struct {
+	ToolExecutor
+	keep func(name string) bool
+}
+
+func (e filteredExecutor) DiscoverTools(ctx context.Context) ([]functions.Function, error) {
+	fns, err := e.ToolExecutor.DiscoverTools(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return slices.DeleteFunc(slices.Clone(fns), func(f functions.Function) bool { return !e.keep(f.Name) }), nil
+}
+
+func (e filteredExecutor) IsTool(name string) bool {
+	return e.keep(name) && e.ToolExecutor.IsTool(name)
+}
+
+func (e filteredExecutor) ExecuteTool(ctx context.Context, name, args string) (string, error) {
+	if !e.keep(name) {
+		return "", fmt.Errorf("the tool %q is not offered here", name)
+	}
+	return e.ToolExecutor.ExecuteTool(ctx, name, args)
+}
+
+func (e filteredExecutor) HasTools() bool {
+	fns, err := e.DiscoverTools(context.Background())
+	return err == nil && len(fns) > 0
 }

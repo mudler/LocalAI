@@ -203,6 +203,44 @@ var _ = Describe("LocalAIAssistantHolder", func() {
 		Expect(h.HasTools()).To(BeTrue())
 	})
 
+	It("serves the two groups apart: the admin tools never carry an inference tool and the other way round", func() {
+		h := NewLocalAIAssistantHolder()
+		Expect(h.Initialize(ctx, stubClient{}, localaitools.Options{})).To(Succeed())
+		names := func(e ToolExecutor) []string {
+			fns, err := e.DiscoverTools(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			var out []string
+			for _, f := range fns {
+				out = append(out, f.Name)
+			}
+			return out
+		}
+		manage, client := names(h.Executor()), names(h.ClientExecutor())
+		Expect(manage).To(ContainElement("list_installed_models"))
+		Expect(manage).ToNot(ContainElement("generate_image"), "the OpenAI-compatible path gets the admin tools only")
+		Expect(client).To(ContainElements("generate_image", "speak"))
+		Expect(client).ToNot(ContainElement("list_installed_models"))
+		Expect(h.Executor().IsTool("generate_image")).To(BeFalse())
+		Expect(h.ClientExecutor().IsTool("generate_image")).To(BeTrue())
+		for _, n := range client {
+			Expect(manage).ToNot(ContainElement(n), "a tool name in both groups")
+		}
+	})
+
+	It("Only offers and runs the named tools", func() {
+		h := NewLocalAIAssistantHolder()
+		Expect(h.Initialize(ctx, stubClient{}, localaitools.Options{})).To(Succeed())
+		only := Only(h.ClientExecutor(), func(n string) bool { return n == "speak" })
+		fns, err := only.DiscoverTools(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(fns).To(HaveLen(1))
+		Expect(fns[0].Name).To(Equal("speak"))
+		Expect(only.IsTool("generate_image")).To(BeFalse())
+		_, err = only.ExecuteTool(ctx, "generate_image", `{}`)
+		Expect(err).To(HaveOccurred())
+		Expect(Only(h.ClientExecutor(), func(string) bool { return false }).HasTools()).To(BeFalse())
+	})
+
 	It("methods are nil-safe on a nil holder", func() {
 		var h *LocalAIAssistantHolder
 		Expect(h.HasTools()).To(BeFalse())
@@ -211,6 +249,7 @@ var _ = Describe("LocalAIAssistantHolder", func() {
 		// Nil-receiver Executor returns an empty LocalToolExecutor.
 		Expect(exec).ToNot(BeNil())
 		Expect(exec.HasTools()).To(BeFalse())
+		Expect(h.ClientExecutor().HasTools()).To(BeFalse())
 	})
 })
 

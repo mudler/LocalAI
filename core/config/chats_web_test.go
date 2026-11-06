@@ -65,6 +65,17 @@ var _ = Describe("the chats' web tool settings", func() {
 		Expect(o.ToRuntimeSettings().ChatsSavedAgents).To(HaveValue(BeFalse()))
 	})
 
+	It("keeps the two LocalAI tool groups of the chats on until an administrator switches one off", func() {
+		o := &config.ApplicationConfig{}
+		Expect(o.ToRuntimeSettings().ChatsLocalAIClient).To(HaveValue(BeTrue()))
+		Expect(o.ToRuntimeSettings().ChatsLocalAIAdmin).To(HaveValue(BeTrue()))
+		off := false
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsLocalAIAdmin: &off})
+		Expect(o.DisableChatsLocalAIAdmin).To(BeTrue())
+		Expect(o.DisableChatsLocalAIClient).To(BeFalse())
+		Expect(o.ToRuntimeSettings().ChatsLocalAIAdmin).To(HaveValue(BeFalse()))
+	})
+
 	It("keeps the work folder of the chats on until an administrator turns it off", func() {
 		o := &config.ApplicationConfig{}
 		Expect(o.ToRuntimeSettings().ChatsWorkFolder).To(HaveValue(BeTrue()))
