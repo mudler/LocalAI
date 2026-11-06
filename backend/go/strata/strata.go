@@ -201,9 +201,9 @@ func (s *Strata) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationRespons
 	}
 	out := make([]int32, len(p.IDs))
 	for i, v := range p.IDs {
-		out[i] = int32(v)
+		out[i] = int32(v) // #nosec G115 -- token ids and counts are far below the int32 range
 	}
-	return pb.TokenizationResponse{Length: int32(len(out)), Tokens: out}, nil
+	return pb.TokenizationResponse{Length: int32(len(out)), Tokens: out}, nil // #nosec G115 -- token ids and counts are far below the int32 range
 }
 
 func (s *Strata) Detokenize(req *pb.DetokenizeRequest) (pb.DetokenizeResponse, error) {
@@ -539,8 +539,8 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw
 
 func (r runResult) usage() *pb.Reply {
 	return &pb.Reply{
-		Tokens:                 int32(r.completionTokens),
-		PromptTokens:           int32(r.promptTokens),
+		Tokens:                 int32(r.completionTokens), // #nosec G115 -- token ids and counts are far below the int32 range
+		PromptTokens:           int32(r.promptTokens),     // #nosec G115 -- token ids and counts are far below the int32 range
 		TimingPromptProcessing: r.timing.PromptMS,
 		TimingTokenGeneration:  r.timing.DecodeMS,
 		Logprobs:               r.logprobs,

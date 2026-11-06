@@ -28,6 +28,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	. "github.com/onsi/gomega"
 )
 
 func TestMain(m *testing.M) {
@@ -45,8 +47,8 @@ func TestMain(m *testing.M) {
 func runStub(mode string) {
 	out := bufio.NewWriter(os.Stdout)
 	say := func(f string, a ...any) {
-		fmt.Fprintf(out, f+"\n", a...)
-		out.Flush()
+		_, _ = fmt.Fprintf(out, f+"\n", a...)
+		_ = out.Flush()
 	}
 	switch mode {
 	case "noready":
@@ -87,8 +89,8 @@ func runStub(mode string) {
 		}
 		if p := os.Getenv("STRATA_STUB_LOG"); p != "" {
 			f, _ := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-			fmt.Fprintln(f, l)
-			f.Close()
+			_, _ = fmt.Fprintln(f, l)
+			_ = f.Close()
 		}
 		if !strings.HasPrefix(l, "GEN ") && !strings.HasPrefix(l, "GENI ") {
 			say("ERR expected: GEN <max_new> <id,id,...> or GENI <max_new> <file> <id,id,...>")
@@ -170,12 +172,9 @@ func runStub(mode string) {
 }
 
 // stubConfig returns an engineConfig that runs this test binary as the engine.
-func stubConfig(t *testing.T, mode string, env ...string) engineConfig {
-	t.Helper()
+func stubConfig(mode string, env ...string) engineConfig {
 	exe, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 	return engineConfig{
 		Path:         exe,
 		Env:          append([]string{"STRATA_STUB_MODE=" + mode}, env...),

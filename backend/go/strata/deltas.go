@@ -42,7 +42,7 @@ func (b *deltaBuilder) add(evs []parseEvent) deltaOut {
 			if ev.Call == nil {
 				continue
 			}
-			i := int32(len(b.index))
+			i := int32(len(b.index)) // #nosec G115 -- token ids and list indexes are far below the int32 range
 			b.index[ev.Call.ID] = i
 			b.started[ev.Call.ID] = true
 			d.calls = append(d.calls, &pb.ToolCallDelta{Index: i, Id: ev.Call.ID, Name: ev.Call.Name})
@@ -63,7 +63,7 @@ func (b *deltaBuilder) add(evs []parseEvent) deltaOut {
 			if ev.Call == nil || b.started[ev.Call.ID] {
 				continue // its arguments were streamed already
 			}
-			i := int32(len(b.index))
+			i := int32(len(b.index)) // #nosec G115 -- token ids and list indexes are far below the int32 range
 			b.index[ev.Call.ID] = i
 			b.started[ev.Call.ID] = true
 			args := string(ev.Call.Arguments)
@@ -90,7 +90,7 @@ func (a *deltaAggregate) add(d *pb.ChatDelta) {
 	a.reasoning += d.ReasoningContent
 	for _, c := range d.ToolCalls {
 		for int(c.Index) >= len(a.calls) {
-			a.calls = append(a.calls, &pb.ToolCallDelta{Index: int32(len(a.calls))})
+			a.calls = append(a.calls, &pb.ToolCallDelta{Index: int32(len(a.calls))}) // #nosec G115 -- token ids and list indexes are far below the int32 range
 		}
 		t := a.calls[c.Index]
 		if c.Id != "" {
@@ -125,7 +125,7 @@ type logprobEntry struct {
 }
 
 func newLogprobEntry(tok Tokenizer, id int, lp float64) logprobEntry {
-	e := logprobEntry{ID: int32(id), Logprob: lp}
+	e := logprobEntry{ID: int32(id), Logprob: lp} // #nosec G115 -- token ids and list indexes are far below the int32 range
 	if b, ok := tok.TokenBytes(id); ok {
 		e.Token = string(b)
 		e.Bytes = make([]int, len(b))

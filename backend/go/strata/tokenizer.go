@@ -109,10 +109,11 @@ type helperReply struct {
 // newHelperTokenizer starts `python -c <helper> <strataRoot> <pack>` and
 // loads the vocabulary table. Python needs the `regex` and `jinja2` packages.
 func newHelperTokenizer(python, strataRoot, pack string, timeout time.Duration) (*helperTokenizer, error) {
-	if python == "" {
-		python = "python3"
+	python, err := resolveInterpreter(python)
+	if err != nil {
+		return nil, fmt.Errorf("tokenizer helper: python: %w", err)
 	}
-	cmd := exec.Command(python, "-c", helperScript, strataRoot, pack)
+	cmd := exec.Command(python, "-c", helperScript, strataRoot, pack) // #nosec G204 -- interpreter is a PATH name or an absolute file, no shell, script and paths passed as argv
 	cmd.Stderr = os.Stderr
 	setChildAttrs(cmd)
 	in, err := cmd.StdinPipe()
@@ -141,28 +142,28 @@ func newHelperTokenizer(python, strataRoot, pack string, timeout time.Duration) 
 	select {
 	case r := <-ch:
 		if r.err != nil {
-			h.Close()
+			_ = h.Close()
 			return nil, fmt.Errorf("tokenizer helper: %w", r.err)
 		}
 		if !r.r.OK {
-			h.Close()
+			_ = h.Close()
 			return nil, fmt.Errorf("tokenizer helper: %s", r.r.Error)
 		}
 	case <-time.After(timeout):
-		h.Close()
+		_ = h.Close()
 		return nil, fmt.Errorf("tokenizer helper did not start within %s", timeout)
 	}
 
 	var vr helperReply
 	if err := h.call(map[string]any{"op": "vocab"}, &vr); err != nil {
-		h.Close()
+		_ = h.Close()
 		return nil, err
 	}
 	h.vocab = make([][]byte, len(vr.Tokens))
 	for i, s := range vr.Tokens {
 		b, err := base64.StdEncoding.DecodeString(s)
 		if err != nil {
-			h.Close()
+			_ = h.Close()
 			return nil, fmt.Errorf("tokenizer helper: bad vocab entry %d: %w", i, err)
 		}
 		h.vocab[i] = b

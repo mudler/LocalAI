@@ -135,7 +135,11 @@ func (v *imageEncoder) startLocked() error {
 	if v.cfg.MaxTokens > 0 {
 		args = append(args, "--max-tokens", strconv.Itoa(v.cfg.MaxTokens))
 	}
-	cmd := exec.Command(v.cfg.Exe, args...)
+	exe, err := cleanExecutable(v.cfg.Exe)
+	if err != nil {
+		return fmt.Errorf("image encoder: %w", err)
+	}
+	cmd := exec.Command(exe, args...) // #nosec G204 -- absolute regular file from the vision_exe option, no shell, arguments passed as argv
 	cmd.Dir = v.dir
 	setChildAttrs(cmd)
 	in, err := cmd.StdinPipe()
@@ -297,7 +301,13 @@ func (v *imageEncoder) EncodeAll(sources []string) (file string, counts []int, r
 		return "", nil, nil, err
 	}
 	for _, p := range parts {
-		f, err := os.Open(p)
+		var f *os.File
+		var err error
+		if filepath.Dir(filepath.Clean(p)) != v.dir {
+			err = fmt.Errorf("%q is outside the encoder directory", p)
+		} else {
+			f, err = os.Open(filepath.Clean(p)) // #nosec G304 -- checked above to be a file inside the encoder's own directory
+		}
 		if err == nil {
 			_, err = io.Copy(combined, f)
 			_ = f.Close()
@@ -352,7 +362,7 @@ func (v *imageEncoder) encodeLocked(key string, data []byte) (encodedImage, erro
 	if err := os.WriteFile(img, data, 0o600); err != nil {
 		return encodedImage{}, err
 	}
-	defer os.Remove(img)
+	defer func() { _ = os.Remove(img) }()
 	if _, err := io.WriteString(v.stdin, "ENC "+filepath.Base(img)+" "+filepath.Base(out)+"\n"); err != nil {
 		v.stopLocked()
 		return encodedImage{}, fmt.Errorf("image encoder: %w", err)
@@ -436,7 +446,7 @@ func downloadImage(url string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("the image URL could not be read: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("the image URL answered %s", resp.Status)
 	}

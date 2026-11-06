@@ -77,8 +77,12 @@ func startEngine(cfg engineConfig) (*engine, error) {
 	if cfg.StopTimeout <= 0 {
 		cfg.StopTimeout = 30 * time.Second
 	}
+	path, err := cleanExecutable(cfg.Path)
+	if err != nil {
+		return nil, fmt.Errorf("start %s: %w", cfg.Path, err)
+	}
 	args := append(append([]string{}, cfg.Args...), "--serve")
-	cmd := exec.Command(cfg.Path, args...)
+	cmd := exec.Command(path, args...) // #nosec G204 -- absolute regular file from the model's engine_path option, no shell, arguments passed as argv
 	cmd.Env = append(os.Environ(), cfg.Env...)
 	setChildAttrs(cmd)
 

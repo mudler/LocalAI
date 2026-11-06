@@ -74,7 +74,7 @@ func (c loadConfig) engineArgs() []string {
 // directory, the models directory, or the pack's parent.
 func resolve(p string, dirs ...string) (string, error) {
 	if filepath.IsAbs(p) {
-		if _, err := os.Stat(p); err != nil {
+		if _, err := os.Stat(p); err != nil { // #nosec G703 -- existence check of a path from the model config; nothing is read or written
 			return "", err
 		}
 		return p, nil
@@ -84,7 +84,7 @@ func resolve(p string, dirs ...string) (string, error) {
 			continue
 		}
 		c := filepath.Join(d, p)
-		if _, err := os.Stat(c); err == nil {
+		if _, err := os.Stat(c); err == nil { // #nosec G703 -- existence check under the pack and models directories; nothing is read or written
 			return c, nil
 		}
 	}
@@ -143,9 +143,11 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 	if c.enginePath == "" {
 		return c, errors.New("strata: no engine executable configured; set the engine_path option (or STRATA_ENGINE_PATH)")
 	}
-	if st, err := os.Stat(c.enginePath); err != nil || st.IsDir() {
-		return c, fmt.Errorf("strata: engine_path %q is not an executable file", c.enginePath)
+	enginePath, err := cleanExecutable(c.enginePath)
+	if err != nil {
+		return c, fmt.Errorf("strata: engine_path %q is not an absolute path to an executable file", c.enginePath)
 	}
+	c.enginePath = enginePath
 
 	pack, dirs, err := findPack(opts, kv)
 	if err != nil {
