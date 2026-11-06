@@ -7,7 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 export async function build() {
   // The page keeps the host module names it was written with; the compat
   // directory answers them through the SDK (addons/internal/host-compat).
-  return buildAddonUI({ root: here, name: 'mail', rgb: [52, 99, 160], compat: resolve(here, '../../internal/host-compat/src') })
+  return buildAddonUI({ root: here, name: 'mail', rgb: [52, 99, 160], glyph: 'mail', compat: resolve(here, '../../internal/host-compat/src') })
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
