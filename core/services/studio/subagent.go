@@ -126,7 +126,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// tools it has now: a chat with the file tools switched off hears of none.
 	canRead, canWrite := canReadFiles(tools, cmds), canWriteFiles(tools, cmds)
 	skillsOff := 0
-	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, s.memorySkillsOff(ctx, rec, sc, rec.SkillsOff), rec.AddonsOff, sc, cmds, execGate(cmds, &skillsOff))
+	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, s.skillsOffOf(ctx, rec, sc), rec.AddonsOff, sc, cmds, execGate(cmds, &skillsOff))
 	if err != nil {
 		return session.TurnTools{}, err
 	}

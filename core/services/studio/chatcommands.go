@@ -71,7 +71,7 @@ func (s *Service) chatSkills(ctx context.Context, p string, rec session.ChatReco
 		return nil, nil
 	}
 	sc := s.scopeOf(ctx, rec)
-	skip := skillOff(s.memorySkillsOff(ctx, rec, sc, rec.SkillsOff))
+	skip := skillOff(s.skillsOffOf(ctx, rec, sc))
 	command, err := s.addonCommandDescriptor(ctx, p, rec, sc)
 	if err != nil {
 		return nil, err

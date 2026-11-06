@@ -1617,7 +1617,8 @@ The **Skills** page lists them by layer and edits personal skills, and the **Ski
 
 A chat stores the skills that are **off**, not the skills that are on. So **Select all** sends an empty list, **Disable all** sends the ids of every skill in the list, and a skill you add later is on in every chat, also in a chat where you chose **Disable all**. The menu says so under its title.
 
-The server ships three built-in skills: `writing-skills`, `localai-workspace`, and `localai-apps`.
+The server ships these built-in skills: `writing-skills`, `localai-workspace`, `localai-apps` and `localai`.
+`localai` teaches the model the [LocalAI client tools]({{% relref "features/localai-assistant#client-tools" %}}): when to use each one, how to clone a voice and what to say when a model is missing or a permission is refused. A chat lists it only while it has the **LocalAI client** group, so it costs nothing when the group is off. An add-on cannot replace it, as for the other skills that describe LocalAI itself.
 `localai-workspace` describes changes to your persona, profile, shortcuts, Home widgets, and theme;
 see [Make LocalAI yours](/features/make-localai-yours/).
 `localai-apps` describes how to build an app, tracker, or tool as a [Page]({{%relref "features/pages" %}}).

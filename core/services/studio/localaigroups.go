@@ -119,6 +119,59 @@ func (s *Service) registerLocalAIGroups() error {
 	})
 }
 
+// ClientSkill is the built-in skill that teaches the model the client tools.
+const ClientSkill = "localai"
+
+// groupSkillNames are the built-in skills that belong to a LocalAI tool group:
+// the chat lists and loads them only while it has the group. They cost
+// nothing when the group is off, and a user who cannot have the group never
+// sees their names.
+func groupSkillNames(group string) []string {
+	switch group {
+	case builtins.GroupLocalAIClient:
+		return []string{ClientSkill}
+	}
+	return nil
+}
+
+// skillsOffOf returns the skills a chat has switched off, plus those the chat
+// does not read: the memory skills (memorySkillsOff) and the skills of a tool
+// group the chat does not have (groupSkillsOff).
+func (s *Service) skillsOffOf(ctx context.Context, rec session.ChatRecord, sc *scope) []string {
+	return s.groupSkillsOff(ctx, rec, sc, s.memorySkillsOff(ctx, rec, sc, rec.SkillsOff))
+}
+
+// groupSkillsOff adds the skills of each LocalAI tool group the chat does not
+// have to off. It asks the registry, so the answer is the one the tools get:
+// the setting, the chat's switches, the agent's ceiling, the role and the
+// origin. For a chat that has a group, it records on the scope of a saved
+// agent that the host grants those skills (a built-in skill is otherwise off
+// for an agent unless it was granted). The scope is built for this call, so a
+// caller must call this before it resolves the skills.
+func (s *Service) groupSkillsOff(ctx context.Context, rec session.ChatRecord, sc *scope, off []string) []string {
+	chat := s.builtinChat(ctx, userChatActor(rec.Principal, rec.ID), rec, rec.Kind == session.KindSubAgent)
+	out := slices.Clone(off)
+	for _, g := range []string{builtins.GroupLocalAIClient, builtins.GroupLocalAIAdmin} {
+		names := groupSkillNames(g)
+		if len(names) == 0 {
+			continue
+		}
+		if b, ok := s.builtins.BuildOne(ctx, g, chat); ok && b.OK {
+			if sc != nil {
+				if sc.groupSkills == nil {
+					sc.groupSkills = map[string]bool{}
+				}
+				for _, n := range names {
+					sc.groupSkills[n] = true
+				}
+			}
+			continue
+		}
+		out = append(out, names...)
+	}
+	return out
+}
+
 // clientToolNames returns the client tools this user can call now, and the
 // reason when there are none. A tool needs the feature permission of its route
 // and an installed model that has the use case.
