@@ -185,6 +185,9 @@ func (i *Inference) store(ctx context.Context, name string, data []byte, mimeTyp
 	if err != nil {
 		return OutputFile{}, err
 	}
+	if int64(len(data)) > maxResultBytes {
+		return OutputFile{}, fmt.Errorf("store the result: %w: %d bytes, the limit is %d", ErrFileTooLarge, len(data), maxResultBytes)
+	}
 	if mimeType == "" {
 		mimeType = http.DetectContentType(data)
 	}

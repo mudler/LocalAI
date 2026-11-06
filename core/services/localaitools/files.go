@@ -14,6 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 // Size limits for the files that the client tools read. A tool refuses a
@@ -22,6 +23,11 @@ const (
 	MaxImageBytes = 20 << 20
 	MaxAudioBytes = 100 << 20
 )
+
+// maxResultBytes bounds one result file that a tool stores. It is the same as
+// the answer a model may send back, so a result that fitted in memory is
+// saved, and nothing larger is.
+var maxResultBytes int64 = maxAnswerBytes
 
 // Errors of a FileStore.
 var (
@@ -110,13 +116,17 @@ func (d DirFileStore) Read(_ context.Context, ref string, max int64) (File, erro
 			return File{}, fmt.Errorf("%w: %s", ErrFileNotFound, ref)
 		}
 	}
-	f, err := root.Open(rel)
+	// O_NONBLOCK: opening a FIFO for reading would otherwise wait for a
+	// writer that may never come. The file is checked on the open handle, not
+	// by name, so it cannot change between the check and the read.
+	f, err := root.OpenFile(rel, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return File{}, fmt.Errorf("%w: %s", ErrFileNotFound, ref)
 	}
 	defer func() { _ = f.Close() }()
 	st, err := f.Stat()
-	if err != nil || st.IsDir() {
+	if err != nil || !st.Mode().IsRegular() {
+		// A directory, a FIFO, a device or a socket is not a file to read.
 		return File{}, fmt.Errorf("%w: %s", ErrFileNotFound, ref)
 	}
 	if st.Size() > max {
@@ -131,6 +141,9 @@ func (d DirFileStore) Read(_ context.Context, ref string, max int64) (File, erro
 
 // Write implements FileStore.
 func (d DirFileStore) Write(_ context.Context, name string, data []byte, _ string) (string, error) {
+	if int64(len(data)) > maxResultBytes {
+		return "", fmt.Errorf("%w: the result is %d bytes, the limit is %d", ErrFileTooLarge, len(data), maxResultBytes)
+	}
 	dir, err := filepath.Abs(d.dir())
 	if err != nil {
 		return "", err
