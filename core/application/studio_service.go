@@ -130,9 +130,10 @@ func (a *Application) initStudioService() {
 		MCPServers:         a.studioModelMCPServers,
 		Agents:             a.studioAgents,
 		// Saved agents are shared through the policy of the add-on owner.
-		// Only the owner process holds it; elsewhere AddonPolicy is nil and
-		// no agent is shared through this process, which fails closed.
-		AgentShares:       studio.PolicyAgentShares{Policy: a.AddonPolicy},
+		// The owner process holds it; a frontend reaches it through the
+		// add-on carrier (addonSharingForward). Without either no agent is
+		// shared through this process, which fails closed.
+		AgentShares:       studio.PolicyAgentShares{Policy: a.AddonPolicy, Forward: a.addonSharingForward},
 		Notify:            inbox,
 		Push:              pusher,
 		AddonTools:        lateStudioAddons{a},

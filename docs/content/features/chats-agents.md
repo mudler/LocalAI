@@ -551,9 +551,12 @@ Sharing needs named accounts. In local-owner mode, with no accounts, the agents
 show no sharing. The grants live in the sharing policy of the add-on owner (see
 [Sharing resources](/features/sharing/#distributed-mode)). The agent keeps only
 the ID of its sharing record, in the agents table, so every frontend reads the
-same one. A shared agent is used through the process that holds the policy: in
-a deployment whose add-on owner is a separate process (`--addons-role=owner`),
-or with add-ons off, no agent is shared and the agents list shows your own only.
+same one. A frontend that is not the add-on owner asks the owner for every
+sharing decision, so a shared agent works on every frontend, also when the
+add-on owner is a separate process (`--addons-role=owner`). When the owner
+cannot be reached, no shared agent is listed or run: the agents list shows your
+own only, a new message in a chat with a shared agent is refused, and a running
+turn of a shared agent stops. With add-ons off, no agent is shared.
 
 ## Connectors
 

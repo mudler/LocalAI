@@ -61,27 +61,38 @@ func (s *Service) RegisterKinds(r policy.KindRegistrar) error {
 }
 
 // PolicyAgentShares is AgentShares over the sharing policy of the add-on
-// owner. Policy returns the policy of this process, nil when it holds none
-// (a frontend that is not the add-on owner, or add-ons off): then agents
-// are not shared here, which fails closed.
+// owner. Policy returns the policy of this process, nil when it holds none.
+// Forward is that policy reached through the add-on carrier, for a process
+// that holds none (a frontend of a cluster); nil, or a nil answer, means the
+// owner cannot be reached from here. With neither, agents are not shared
+// here, which fails closed.
 type PolicyAgentShares struct {
-	Policy func() *policy.Policy
+	Policy  func() *policy.Policy
+	Forward func() policy.Sharing
 }
 
 var _ AgentShares = PolicyAgentShares{}
 
-func (p PolicyAgentShares) policy() *policy.Policy {
-	if p.Policy == nil {
-		return nil
+func (p PolicyAgentShares) policy() policy.Sharing {
+	if p.Policy != nil {
+		if pol := p.Policy(); pol != nil {
+			if pol.Mode() != policy.ModeNamedUser {
+				return nil
+			}
+			if _, ok := pol.Shareable(AgentShareKind); !ok {
+				return nil
+			}
+			return pol
+		}
 	}
-	pol := p.Policy()
-	if pol == nil || pol.Mode() != policy.ModeNamedUser {
-		return nil
+	if p.Forward != nil {
+		// The owner decides whether the kind is registered and sharing
+		// runs; every call it refuses fails closed.
+		if f := p.Forward(); f != nil {
+			return f
+		}
 	}
-	if _, ok := pol.Shareable(AgentShareKind); !ok {
-		return nil
-	}
-	return pol
+	return nil
 }
 
 // actor is the identity of a call made for a person from the chats: the
@@ -157,18 +168,31 @@ func (p PolicyAgentShares) RevokeAll(ctx context.Context, user, ref string) erro
 		return errNoAgentPolicy
 	}
 	r := policy.Ref{Kind: AgentShareKind, ResourceID: ref}
-	grants, err := pol.GrantsRef(ctx, agentActor(user), r)
-	if err != nil {
-		return err
-	}
-	var first error
-	for principal := range grants {
-		if err := pol.RevokeRef(ctx, agentActor(user), r, principal); err != nil && first == nil {
-			first = err
+	// A listing through the owner is bounded, so the grants are read again
+	// until none is left or a round removes nothing.
+	for range maxRevokeRounds {
+		grants, err := pol.GrantsRef(ctx, agentActor(user), r)
+		if err != nil {
+			return err
+		}
+		if len(grants) == 0 {
+			return nil
+		}
+		var first error
+		for principal := range grants {
+			if err := pol.RevokeRef(ctx, agentActor(user), r, principal); err != nil && first == nil {
+				first = err
+			}
+		}
+		if first != nil {
+			return first
 		}
 	}
-	return first
+	return nil
 }
+
+// maxRevokeRounds bounds the rounds of RevokeAll.
+const maxRevokeRounds = 16
 
 func (p PolicyAgentShares) AddonResourceReadable(ctx context.Context, user, addonID, resourceID string) bool {
 	pol := p.policy()
