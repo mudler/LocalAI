@@ -8,6 +8,8 @@ import { paramsToQuery, queryToParams } from '../catalog/catalogState'
 import { AppIcon, UnknownNotice, VersionText } from './AddonBits'
 import { Button, Notice, Segmented, StatusChip } from '../ui'
 import { apiUrl } from '../../utils/basePath'
+import { useAuth } from '../../context/AuthContext'
+import { useAddonConnections } from '../../hooks/useAddonConnections'
 import FlowStatus from './InstallFlow'
 import InstallDialog from './InstallDialog'
 import { CATEGORIES, addedByEntry, categoryOf, localizeEntry, localizeRecord, sortEntriesByTitle } from './addonState'
@@ -29,6 +31,9 @@ export default function BrowseView({ api, adapter }) {
   const [reload, setReload] = useState(0)
   const [dialog, setDialog] = useState(null)
   const [category, setCategory] = useState('all')
+  const { hasFeature } = useAuth()
+  // The connector kinds the host serves make an installed add-on a chat app.
+  const conns = useAddonConnections({ enabled: hasFeature('chats') })
   const query = paramsToQuery(k => params.get(k))
 
   const onQueryChange = useCallback((next) => {
@@ -123,7 +128,7 @@ export default function BrowseView({ api, adapter }) {
       label={t('browse.category.label')}
     />
   )
-  const inCategory = (entries) => (category === 'all' ? entries : entries.filter(e => categoryOf(e) === category))
+  const inCategory = (entries) => (category === 'all' ? entries : entries.filter(e => categoryOf(e, { connector: conns.addonIds.has(e.id) }) === category))
 
   return (
     <>

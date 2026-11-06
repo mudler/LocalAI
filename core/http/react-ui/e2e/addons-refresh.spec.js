@@ -90,20 +90,18 @@ test.describe('Add-ons: installed', () => {
 })
 
 test.describe('Add-ons: icons', () => {
-  test('an add-on with an icon file draws it; one without draws a tile with a glyph, or its letter', async ({ page }) => {
+  test('an add-on with an icon file draws it; one without draws a tile with its letter', async ({ page }) => {
     await addonsScene(page)
     await page.goto('/app/addons')
     await expect(tile(page, 'slack').locator('img.ad-icon')).toHaveAttribute('src', /\/api\/addons\/apps\/slack\/icon/)
-    // Calendar has no icon: the host's calendar glyph on a tile of its own colour.
+    // Calendar has no icon file: its first letter on a tile of its own colour.
     const calendar = tile(page, 'calendar').locator('.ad-icon')
     await expect(calendar).toHaveClass(/ad-icon--mark/)
-    await expect(calendar).toHaveAttribute('data-glyph', 'calendar')
-    await expect(calendar.locator('svg')).toHaveCount(1)
-    // A third-party add-on with no glyph of its own keeps its first letter on the same tile.
+    await expect(calendar).toHaveText('C')
+    // So has a third-party add-on, on the same tile.
     const acme = tile(page, 'acme-crm').locator('.ad-icon')
     await expect(acme).toHaveClass(/ad-icon--mark/)
     await expect(acme).toHaveText('A')
-    await expect(acme).not.toHaveAttribute('data-glyph', /.+/)
   })
 
   test('an icon file that does not load falls back to the drawn tile', async ({ page }) => {
@@ -112,7 +110,7 @@ test.describe('Add-ons: icons', () => {
     await page.goto('/app/addons')
     const icon = tile(page, 'github').locator('.ad-icon')
     await expect(icon).toHaveClass(/ad-icon--mark/)
-    await expect(icon).toHaveAttribute('data-glyph', 'git-branch')
+    await expect(icon).toHaveText('G')
   })
 
   test('a drawn tile has the same size and rounded shape as an icon file', async ({ page }) => {
@@ -136,17 +134,17 @@ test.describe('Add-ons: find', () => {
     }
     const discord = page.locator('article.ad-card[data-addon="discord"]')
     await expect(discord.getByRole('button', { name: 'Install Discord' })).toBeVisible()
-    await expect(discord.locator('.ad-icon')).toHaveAttribute('data-glyph', 'chat')
+    await expect(discord.locator('.ad-icon')).toHaveText('D')
     await expect(page.locator('article.ad-card[data-addon="slack"]').getByTestId('entry-installed')).toBeVisible()
     await expect(page.locator('article.ad-card[data-addon="sandbox"]').getByTestId('update-upgrade-card')).toHaveText('Update to 0.7.0')
-    // Category: Chat apps keeps Discord, Slack and Telegram.
+    // Category: Chat apps keeps what serves a connector kind (Slack, Telegram).
+    // Discord is not installed, so the host tells nothing that makes it a chat app.
     await page.getByRole('button', { name: 'Chat apps', exact: true }).click()
-    await expect(cards).toHaveCount(3)
-    await expect(discord).toBeVisible()
+    await expect(cards).toHaveCount(2)
+    await expect(page.locator('article.ad-card[data-addon="slack"]')).toBeVisible()
+    await expect(discord).toHaveCount(0)
     await expect(page.locator('article.ad-card[data-addon="github"]')).toHaveCount(0)
-    await page.getByRole('button', { name: 'Home', exact: true }).click()
-    await expect(cards).toHaveCount(3)
-    await expect(page.locator('article.ad-card[data-addon="jellyfin"]')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Home', exact: true })).toHaveCount(0)
     await page.getByRole('button', { name: 'All', exact: true }).click()
     await expect(cards.first()).toBeVisible()
   })
