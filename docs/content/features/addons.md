@@ -1033,13 +1033,15 @@ Every add-on has an icon. The page picks it in this order:
 
 The page never loads an icon from another host.
 
-Do not put the logo of a company or a product on an add-on icon unless you
-have the right to. Take the official mark from the company's own brand page,
-read its usage terms, and record the source URL and the terms in
-`ui/ICON-SOURCE.md` next to the icon. If the terms forbid the use or are not
-clear, ship a generated tile with a generic glyph. The first-party add-ons for
-services (Slack, Telegram, Discord, GitHub, Home Assistant, Jellyfin, PiKVM) use
-generated tiles for this reason.
+The first-party add-ons for services (Slack, Telegram, Discord, GitHub, Home
+Assistant and Jellyfin) use the logo mark of the service on their tile, taken
+from [Simple Icons](https://simpleicons.org) (CC0 data) and drawn in white on
+the add-on colour. The mark identifies the service the add-on connects to. The
+trademark stays with its owner, and the mark does not mean that the owner made
+or endorses the add-on. Record the source and version in `ui/ICON-SOURCE.md`
+next to the icon. When no mark is available, as for PiKVM, ship a generated
+tile with a generic glyph. For a third-party add-on, use a company mark only
+when you have the right to.
 
 ## The official library
 
