@@ -1595,6 +1595,9 @@ type ChatsConnector struct {
 	// same bot (the add-on reported the same upstream account for both) and
 	// this one is enabled too: both then answer the same message.
 	Duplicate *ChatsConnectorDuplicate `json:"duplicate,omitempty"`
+	// Share is the share of the binding, once its owner made it shareable.
+	// Only the owner reads it.
+	Share *ChatsConnectorShare `json:"share,omitempty"`
 	// FileReceiveMaxBytes and FileSendMaxBytes are your limits for this bot;
 	// zero means you set none and the limit of the kind applies.
 	FileReceiveMaxBytes int64 `json:"file_receive_max_bytes"`
@@ -2116,6 +2119,42 @@ type ChatsConnectorChannel struct {
 // ChatsConnectorList is the response of the connector list endpoint.
 type ChatsConnectorList struct {
 	Connectors []ChatsConnector `json:"connectors"`
+	// Shared are the bindings of other people shared with the caller, with
+	// their name and state only.
+	Shared []ChatsSharedConnector `json:"shared"`
+	// Sharing says whether bindings can be shared on this server: false with
+	// no named accounts (local-owner mode) or when the sharing policy does not
+	// run.
+	Sharing bool `json:"sharing"`
+}
+
+// ChatsConnectorShare is the share of a binding, for its owner.
+type ChatsConnectorShare struct {
+	// ResourceID names the binding in /api/shares/connection.
+	ResourceID string `json:"resource_id"`
+	// SharedWith counts the grants, the one to everyone included.
+	SharedWith int `json:"shared_with"`
+}
+
+// ChatsSharedConnector is a binding of another person shared with the caller.
+// It carries the name and the state only: never the token or another setting.
+type ChatsSharedConnector struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Kind  string `json:"kind"`
+	Addon string `json:"addon"`
+	// Enabled says whether the owner listens with it.
+	Enabled bool `json:"enabled"`
+	// Active is false when the add-on that serves it does not run; Reason
+	// then says so.
+	Active bool   `json:"active"`
+	Reason string `json:"reason,omitempty"`
+	// Owner is the display name of the person who shared it.
+	Owner string `json:"owner"`
+	// Role is always use.
+	Role string `json:"role"`
+	// Everyone says that the share is the grant to every account.
+	Everyone bool `json:"everyone,omitempty"`
 }
 
 // ChatsConnectorTest is the bot that a token belongs to.

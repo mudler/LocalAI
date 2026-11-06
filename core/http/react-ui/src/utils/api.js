@@ -544,6 +544,9 @@ export const chatConnectorsApi = {
   // What each kind of sender may do on a connection, for the state in the body
   // (agent_id, caps, allow...). Writes nothing; fields left out keep the saved value.
   accessPreview: (id, body) => postJSON(`/api/chats/connectors/${enc2(id)}/access/preview`, body || {}),
+  // Makes a binding of the caller shareable: { resource_id, shared_with }, the
+  // ID of the binding in /api/shares/connection (sharesApi).
+  share: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/share`, {}),
 }
 
 // Triggers: work that starts by itself, as the user, in a new chat.
@@ -913,6 +916,9 @@ export const agentCollectionsApi = {
     update_interval: interval === undefined ? undefined : Number(interval),
   }),
   removeSource: (name, url, userId) => fetchJSON(`/api/collections/${enc(name)}/sources${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ url }), headers: { 'Content-Type': 'application/json' } }),
+  // Makes a collection of the caller shareable: { resource_id, shared_with },
+  // the ID of the collection in /api/shares/collection (sharesApi).
+  share: (name) => postJSON(`/api/collections/${enc(name)}/share`, {}),
 }
 
 // Usage API

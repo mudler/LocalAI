@@ -101,6 +101,8 @@ type Application struct {
 	shareKindsMu     sync.Mutex
 	shareKinds       []policy.KindProvider
 	shareKindsPolicy *policy.Policy
+	// hostKindsOnce registers the host's own kinds (connection, collection).
+	hostKindsOnce sync.Once
 
 	addonPolicy         *policy.Policy
 	addonStore          *policy.Store
@@ -1104,6 +1106,9 @@ func (a *Application) startAddons() error {
 	a.addonManager = m
 	if c.InstanceID == c.OwnerID {
 		go a.runAddonAutoUpgrade(a.applicationConfig.Context, upgradeInitialDelay, upgradeCheckInterval)
+	}
+	if err := a.registerHostShareKinds(); err != nil {
+		return err
 	}
 	if err := a.startAddonGateway(); err != nil {
 		return err

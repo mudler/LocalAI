@@ -39,6 +39,9 @@ async function call(path, init = {}) {
   return response.json()
 }
 
+// coreCall is the page's core call, for the client of the Share dialog.
+export const coreCall = (path, init) => call(path, init)
+
 const send = (method, path, body, signal) => call(path, { method, body: body === undefined ? undefined : JSON.stringify(body), signal })
 
 export const agentsApi = { list: () => call('/api/chats/agents') }
@@ -57,6 +60,8 @@ export const connectorsApi = {
   test: (id) => send('POST', `/api/chats/connectors/${enc(id)}/test`, {}),
   senders: (id) => call(`/api/chats/connectors/${enc(id)}/senders`),
   allow: (id, sender) => send('POST', `/api/chats/connectors/${enc(id)}/senders/${enc(sender)}/allow`, {}),
+  // The ID of a binding of the person in the sharing API: { resource_id, shared_with }.
+  share: (id) => send('POST', `/api/chats/connectors/${enc(id)}/share`, {}),
   // Pairing proves that the owner controls a platform account: the code is sent
   // to the bot as a direct message from that account.
   pair: (id) => send('POST', `/api/chats/connectors/${enc(id)}/pairing`, {}),

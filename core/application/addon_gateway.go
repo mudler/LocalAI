@@ -1320,7 +1320,7 @@ func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, 
 	switch {
 	case err == nil:
 		return gateway.CredentialGrant{Credential: grant.Secret, ResourceKey: grant.Resource.Key, ResourceID: grant.Resource.ID, WriteMode: grant.WriteMode,
-			BindingID: grant.BindingID, BindingName: grant.BindingName}, nil
+			BindingID: grant.BindingID, BindingName: grant.BindingName, Hold: sharedHold(grant.Hold)}, nil
 	case errors.Is(err, connectors.ErrNoConnection):
 		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeSelectConnection}
 	case errors.Is(err, connectors.ErrNoCredential), errors.Is(err, studio.ErrTokenGuarded):
@@ -1331,6 +1331,22 @@ func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, 
 	// The cause may name a binding; it stays out of the error that travels.
 	xlog.Warn("addons: the credential of a binding could not be read", "addon", addonID)
 	return gateway.CredentialGrant{}, gateway.ErrUnavailable
+}
+
+// sharedHold turns the hold of a binding shared with the caller into the hold
+// of the gateway. A share that is gone gives the refusal of a binding the
+// person does not have, the answer of an unknown binding.
+func sharedHold(hold func(context.Context, func(context.Context) error) error) func(context.Context, func(context.Context) error) error {
+	if hold == nil {
+		return nil
+	}
+	return func(ctx context.Context, run func(context.Context) error) error {
+		err := hold(ctx, run)
+		if errors.Is(err, connectors.ErrNoCredential) {
+			return &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
+		}
+		return err
+	}
 }
 
 // connectionFor names the binding a credentialed call uses. The host never

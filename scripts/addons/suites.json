@@ -1593,7 +1593,8 @@
           "are unavailable on an owner without a ShareManager",
           "check the account alone, here and through the carrier, while the add-on calls keep the add-ons check",
           "run the work under the owner's lease, stop it when the owner says the lease is lost, and release it",
-          "run nothing when the owner refuses the admission, and are unavailable on an owner without a ShareAuthority"
+          "run nothing when the owner refuses the admission, and are unavailable on an owner without a ShareAuthority",
+          "runs the call of a shared credential inside its hold, and never when the hold refuses"
         ]
       },
       {
@@ -2187,7 +2188,11 @@
       "answers ErrDrainPending when the frontend does not stop the run within the bound",
       "expires the admission of a frontend that stopped renewing it",
       "keeps a lease to the person who holds it and releases it once",
-      "fails closed with the typed unavailable answer when the owner is gone, and stops a running turn"
+      "fails closed with the typed unavailable answer when the owner is gone, and stops a running turn",
+      "keeps one record for each name of an owner and finds it from either side",
+      "refuses a name that is empty, too long or has control characters, an unknown kind and local-owner mode",
+      "forgets a record for its owner only, after the work of every grantee stopped",
+      "previews and applies the call of a shared binding inside its hold, and keeps the proposal pending when the hold refuses"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -2448,7 +2453,11 @@
           "answers ErrDrainPending when the frontend does not stop the run within the bound",
           "expires the admission of a frontend that stopped renewing it",
           "keeps a lease to the person who holds it and releases it once",
-          "fails closed with the typed unavailable answer when the owner is gone, and stops a running turn"
+          "fails closed with the typed unavailable answer when the owner is gone, and stops a running turn",
+          "keeps one record for each name of an owner and finds it from either side",
+          "refuses a name that is empty, too long or has control characters, an unknown kind and local-owner mode",
+          "forgets a record for its owner only, after the work of every grantee stopped",
+          "previews and applies the call of a shared binding inside its hold, and keeps the proposal pending when the hold refuses"
         ]
       },
       {
@@ -2942,7 +2951,8 @@
           "are unavailable on an owner without a ShareManager",
           "check the account alone, here and through the carrier, while the add-on calls keep the add-ons check",
           "run the work under the owner's lease, stop it when the owner says the lease is lost, and release it",
-          "run nothing when the owner refuses the admission, and are unavailable on an owner without a ShareAuthority"
+          "run nothing when the owner refuses the admission, and are unavailable on an owner without a ShareAuthority",
+          "runs the call of a shared credential inside its hold, and never when the hold refuses"
         ]
       },
       {

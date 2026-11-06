@@ -15,7 +15,8 @@
   },
   "sections": {
     "yourCollections": "Your collections",
-    "otherUsersCollections": "Other users' collections"
+    "otherUsersCollections": "Other users' collections",
+    "sharedWithYou": "Shared with you"
   },
   "empty": {
     "title": "Knowledge holds documents an agent can search",
@@ -70,7 +71,8 @@
     "pick": "Pick a collection to search it, add to it, or see who uses it.",
     "counts": "{{files}} files, {{sources}} web sources",
     "failed": "{{count}} failed",
-    "addSource": "Add source"
+    "addSource": "Add source",
+    "addFile": "Add file"
   },
   "add": {
     "file": "A file",
@@ -100,7 +102,8 @@
     "never": "not fetched yet",
     "remove": "Remove {{url}}",
     "removeTitle": "Remove source",
-    "loadFailed": "Could not load the web sources."
+    "loadFailed": "Could not load the web sources.",
+    "noneShared": "No web sources."
   },
   "entries": {
     "title": "Files",
@@ -153,5 +156,19 @@
     "hybrid": "hybrid",
     "semanticHint": "It finds passages by meaning, not by exact words or codes.",
     "hybridHint": "It finds passages by meaning and by exact words."
+  },
+  "share": {
+    "label": "Share",
+    "button": "Share {{name}}",
+    "intro": "People you add find this collection in their list and their agents can search it by name.",
+    "failed": "Could not share the collection: {{message}}",
+    "roles": {
+      "viewer": "Can view",
+      "viewerHelp": "Can search it and read its files.",
+      "editor": "Can edit",
+      "editorHelp": "Can also add and remove files."
+    },
+    "noteViewer": "You can search it and read its files.",
+    "noteEditor": "You can search it and add or remove files."
   }
 }

@@ -5895,7 +5895,7 @@ const docTemplate = `{
         },
         "/api/chats/connectors": {
             "get": {
-                "description": "A binding connects a bot of a messaging platform (served by a connector add-on, such as Telegram) to one of your saved agents. A person who messages the bot talks to that agent, in a conversation of their own, as you: your quota, your model allowlist and only the agent's grants apply.",
+                "description": "A binding connects a bot of a messaging platform (served by a connector add-on, such as Telegram) to one of your saved agents. A person who messages the bot talks to that agent, in a conversation of their own, as you: your quota, your model allowlist and only the agent's grants apply. shared lists the bindings that other people shared with you, with their name, state and owner only: you may use them in your chats and agents and nothing else. sharing is false when this server cannot share bindings (no named accounts). A binding you shared carries share, with its ID in /api/shares/connection.",
                 "tags": [
                     "chats"
                 ],
@@ -6306,6 +6306,44 @@ const docTemplate = `{
                         "description": "The binding",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConnector"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/{id}/share": {
+            "post": {
+                "description": "Returns the ID of the binding in the sharing API: the owner then lists, grants and revokes access with /api/shares/connection/{resource_id}/grants. The only role is use, and a binding is never shared with @everyone. A grantee may use the binding in their chats and agents, and never reads its token or its settings. Only the owner may call it: any other caller gets 404, as for a binding that does not exist. 409 sharing_disabled when this server cannot share bindings.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Make a connector binding shareable.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The share of the binding",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorShare"
+                        }
+                    },
+                    "404": {
+                        "description": "Not your binding",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Sharing is not available on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -11418,7 +11456,7 @@ const docTemplate = `{
         },
         "/api/collections": {
             "get": {
-                "description": "The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. search_mode says how a search finds passages: semantic (by meaning only) or hybrid (by meaning and by keyword). max_chunk_size and chunk_overlap are the chunking of a text in characters: a text of N characters becomes about N / (max_chunk_size - chunk_overlap) passages, and each passage is embedded once. Needs the collections feature.",
+                "description": "The knowledge-base collections of the caller. shared lists the collections other people shared with the caller: name is the name to use in the other calls (the collection's own name, or shared:\u003cid\u003e when the caller has a collection of that name or two people share one under it), title its own name, owner the display name of the person who shared it and role viewer (search and read) or editor (also add and remove entries). shares gives, for each of the caller's own collections that was made shareable, its resource_id in /api/shares/collection and shared_with, the number of grants. sharing is false when this server cannot share collections (no named accounts). An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. search_mode says how a search finds passages: semantic (by meaning only) or hybrid (by meaning and by keyword). max_chunk_size and chunk_overlap are the chunking of a text in characters: a text of N characters becomes about N / (max_chunk_size - chunk_overlap) passages, and each passage is embedded once. Needs the collections feature.",
                 "tags": [
                     "collections"
                 ],
@@ -11688,6 +11726,50 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Collection not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/collections/{name}/share": {
+            "post": {
+                "description": "Returns the ID of the collection in the sharing API: the owner then lists, grants and revokes access with /api/shares/collection/{resource_id}/grants. The roles are viewer (search and read the entries) and editor (also add and remove entries); a collection may be shared with @everyone. Only the owner may call it: another caller gets 404, as for a collection that does not exist. 409 sharing_disabled when this server cannot share collections (no named accounts).",
+                "tags": [
+                    "collections"
+                ],
+                "summary": "Make a collection shareable.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Collection name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The share of the collection",
+                        "schema": {
+                            "$ref": "#/definitions/schema.CollectionShare"
+                        }
+                    },
+                    "404": {
+                        "description": "Collection not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Sharing is not available on this server",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -21591,6 +21673,14 @@ const docTemplate = `{
                     "description": "SendFiles sends the files that a turn makes to the sender, after the\nanswer.",
                     "type": "boolean"
                 },
+                "share": {
+                    "description": "Share is the share of the binding, once its owner made it shareable.\nOnly the owner reads it.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorShare"
+                        }
+                    ]
+                },
                 "ui_language": {
                     "description": "UILanguage is the interface language the owner's page last sent, such as\nit or pt-BR. With reply_language auto, the bot speaks in it before it\nreads the language of the sender. Absent when the server was not told.",
                     "type": "string"
@@ -22997,6 +23087,14 @@ const docTemplate = `{
                     "description": "SendFiles sends the files that a turn makes to the sender, after the\nanswer.",
                     "type": "boolean"
                 },
+                "share": {
+                    "description": "Share is the share of the binding, once its owner made it shareable.\nOnly the owner reads it.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorShare"
+                        }
+                    ]
+                },
                 "ui_language": {
                     "description": "UILanguage is the interface language the owner's page last sent, such as\nit or pt-BR. With reply_language auto, the bot speaks in it before it\nreads the language of the sender. Absent when the server was not told.",
                     "type": "string"
@@ -23613,6 +23711,17 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsConnector"
                     }
+                },
+                "shared": {
+                    "description": "Shared are the bindings of other people shared with the caller, with\ntheir name and state only.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSharedConnector"
+                    }
+                },
+                "sharing": {
+                    "description": "Sharing says whether bindings can be shared on this server: false with\nno named accounts (local-owner mode) or when the sharing policy does not\nrun.",
+                    "type": "boolean"
                 }
             }
         },
@@ -23755,6 +23864,19 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsConnectorSender"
                     }
+                }
+            }
+        },
+        "schema.ChatsConnectorShare": {
+            "type": "object",
+            "properties": {
+                "resource_id": {
+                    "description": "ResourceID names the binding in /api/shares/connection.",
+                    "type": "string"
+                },
+                "shared_with": {
+                    "description": "SharedWith counts the grants, the one to everyone included.",
+                    "type": "integer"
                 }
             }
         },
@@ -26371,6 +26493,46 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsSharedConnector": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "description": "Active is false when the add-on that serves it does not run; Reason\nthen says so.",
+                    "type": "boolean"
+                },
+                "addon": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "description": "Enabled says whether the owner listens with it.",
+                    "type": "boolean"
+                },
+                "everyone": {
+                    "description": "Everyone says that the share is the grant to every account.",
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "owner": {
+                    "description": "Owner is the display name of the person who shared it.",
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "role": {
+                    "description": "Role is always use.",
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsSkill": {
             "type": "object",
             "properties": {
@@ -27676,6 +27838,24 @@ const docTemplate = `{
                     "description": "SearchMode is how a search finds passages: \"semantic\" (by meaning only)\nor \"hybrid\" (by meaning and by keyword).",
                     "type": "string"
                 },
+                "shared": {
+                    "description": "Shared are the collections of other people shared with the caller.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SharedCollection"
+                    }
+                },
+                "shares": {
+                    "description": "Shares are the shares of the caller's own collections, by name, for\nthose that were made shareable.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/schema.CollectionShare"
+                    }
+                },
+                "sharing": {
+                    "description": "Sharing is false when this server cannot share collections.",
+                    "type": "boolean"
+                },
                 "user_groups": {
                     "description": "UserGroups holds the collections of the other users. Only an administrator\nwho asks for all users gets it.",
                     "type": "object",
@@ -27708,6 +27888,19 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.CollectionHit"
                     }
+                }
+            }
+        },
+        "schema.CollectionShare": {
+            "type": "object",
+            "properties": {
+                "resource_id": {
+                    "description": "ResourceID names the collection in /api/shares/collection.",
+                    "type": "string"
+                },
+                "shared_with": {
+                    "description": "SharedWith counts the grants, the one to everyone included.",
+                    "type": "integer"
                 }
             }
         },
@@ -31070,6 +31263,31 @@ const docTemplate = `{
                 "score": {
                     "description": "Score is the top label's softmax probability (the\nclassifier-side confidence signal).",
                     "type": "number"
+                }
+            }
+        },
+        "schema.SharedCollection": {
+            "type": "object",
+            "properties": {
+                "everyone": {
+                    "description": "Everyone says that the role comes from the grant to every account.",
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "Name is the name to use in the other calls: the collection's own name,\nor shared:\u003cid\u003e when that name is taken.",
+                    "type": "string"
+                },
+                "owner": {
+                    "description": "Owner is the display name of the person who shared it.",
+                    "type": "string"
+                },
+                "role": {
+                    "description": "Role is viewer (search and read) or editor (also add and remove entries).",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "Title is the collection's own name.",
+                    "type": "string"
                 }
             }
         },

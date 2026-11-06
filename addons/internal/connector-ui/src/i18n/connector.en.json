@@ -398,5 +398,15 @@
   "saved.part.files": "file settings",
   "saved.part.notify": "notifications",
   "saved.dropped.title": "This connection no longer allows these acts, so the runs of these triggers lose them:",
-  "saved.dropped.item": "{{name}}: {{acts}}"
+  "saved.dropped.item": "{{name}}: {{acts}}",
+  "share.label": "Share",
+  "share.button": "Share {{name}}",
+  "share.intro": "People you add can use this connection in their own chats and agents. They see its name and state, never its token or its settings. Messages to the bot still reach your agent.",
+  "share.roleUse": "Can use",
+  "share.roleUseHelp": "Can use it in their chats and agents. Cannot see the token, change it or share it.",
+  "shared.title": "Shared with you",
+  "shared.text": "Other people let you use these connections in your chats and agents. Only their owner can change them.",
+  "shared.on": "Listening",
+  "shared.off": "Off",
+  "shared.by": "Shared by {{name}}"
 }

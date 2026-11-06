@@ -65,6 +65,8 @@ type bindingSource struct {
 	mode  string
 	repos []string
 	token string
+	// hold stands for a binding shared with the caller: the call runs inside it.
+	hold func(context.Context, func(context.Context) error) error
 }
 
 func (b *bindingSource) set(mode string) { b.mu.Lock(); b.mode = mode; b.mu.Unlock() }
@@ -74,7 +76,7 @@ func (b *bindingSource) Credential(_ context.Context, _ contract.Actor, _ string
 	defer b.mu.Unlock()
 	for _, r := range b.repos {
 		if strings.EqualFold(r, key) {
-			return gateway.CredentialGrant{Credential: b.token, ResourceKey: r, ResourceID: "r-0123456789", WriteMode: b.mode}, nil
+			return gateway.CredentialGrant{Credential: b.token, ResourceKey: r, ResourceID: "r-0123456789", WriteMode: b.mode, Hold: b.hold}, nil
 		}
 	}
 	return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeResourceNotAllowed, Allowed: b.repos}
@@ -159,6 +161,46 @@ var _ = Describe("the write tools of an add-on with a credential", Label("propos
 			receipt, err := f.broker.Confirm(ctx, who, "op-1")
 			Expect(err).NotTo(HaveOccurred(), "the same proposal is still pending for the browser")
 			Expect(receipt.State).To(Equal(contract.ReceiptCommitted))
+		})
+		It("previews and applies the call of a shared binding inside its hold, and keeps the proposal pending when the hold refuses", func() {
+			var mu sync.Mutex
+			held, refuse := 0, false
+			binding.hold = func(ctx context.Context, run func(context.Context) error) error {
+				mu.Lock()
+				held++
+				no := refuse
+				mu.Unlock()
+				if no {
+					return ErrForbidden
+				}
+				return run(ctx)
+			}
+			_, err := f.broker.Propose(ctx, who, request("op-1", "acme/widgets"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(spy.previews).To(HaveLen(1))
+			mu.Lock()
+			Expect(held).To(Equal(1), "the preview ran inside the hold")
+			refuse = true
+			mu.Unlock()
+
+			// The share was revoked after the preview: nothing is sent.
+			_, err = f.broker.Confirm(ctx, session("owner"), "op-1")
+			Expect(err).To(MatchError(ErrForbidden))
+			Expect(spy.applies).To(BeEmpty())
+			p, err := f.broker.Get(ctx, who, "op-1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p.State).To(Equal(gateway.ProposalPending))
+
+			mu.Lock()
+			refuse = false
+			mu.Unlock()
+			receipt, err := f.broker.Confirm(ctx, session("owner"), "op-1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(receipt.State).To(Equal(contract.ReceiptCommitted))
+			Expect(spy.applies).To(HaveLen(1))
+			mu.Lock()
+			Expect(held).To(Equal(3), "the apply ran inside the hold")
+			mu.Unlock()
 		})
 		It("refuses a repository that is not on the list before the add-on is called", func() {
 			_, err := f.broker.Propose(ctx, who, request("op-1", "acme/secret"))

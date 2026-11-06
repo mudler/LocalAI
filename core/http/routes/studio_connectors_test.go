@@ -59,6 +59,7 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Entry("access preview", http.MethodPost, "/api/chats/connectors/c1/access/preview"),
 		Entry("pairing", http.MethodPost, "/api/chats/connectors/c1/pairing"),
 		Entry("unpair", http.MethodDelete, "/api/chats/connectors/c1/paired/42"),
+		Entry("share", http.MethodPost, "/api/chats/connectors/c1/share"),
 	)
 
 	It("is refused to a user without the chats feature", func() {
@@ -76,6 +77,21 @@ var _ = Describe("Chats connectors endpoints", func() {
 		}
 		return s.do(user, http.MethodPost, "/api/chats/connectors", body)
 	}
+
+	It("lists no shared binding and no sharing without the sharing policy, and lets only the owner ask to share", func() {
+		ag := agent("alice", "Support", "test-model")
+		id := decodeJSON(create("alice", map[string]any{"name": "B", "token": specToken, "agent_id": ag}))["id"].(string)
+		list := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/connectors", nil))
+		Expect(list).To(HaveKeyWithValue("shared", BeEmpty()))
+		Expect(list).To(HaveKeyWithValue("sharing", false))
+		Expect(list["connectors"].([]any)[0]).NotTo(HaveKey("share"))
+
+		rec := s.do("alice", http.MethodPost, "/api/chats/connectors/"+id+"/share", nil)
+		Expect(rec.Code).To(Equal(http.StatusConflict), rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring("sharing_disabled"))
+		Expect(s.do("bob", http.MethodPost, "/api/chats/connectors/"+id+"/share", nil).Code).To(Equal(http.StatusNotFound), "another person's binding is a missing one")
+		Expect(s.do("alice", http.MethodPost, "/api/chats/connectors/missing/share", nil).Code).To(Equal(http.StatusNotFound))
+	})
 
 	It("creates, reads, lists, switches, replaces and deletes a binding, and never returns the token", func() {
 		ag := agent("alice", "Support", "test-model")

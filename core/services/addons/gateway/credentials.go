@@ -67,6 +67,21 @@ type CredentialGrant struct {
 	// BindingID and BindingName say which connection the credential comes
 	// from. The proposal, the result of the call and the audit line carry them.
 	BindingID, BindingName string
+	// Hold, when set, runs the call that uses the credential as admitted work
+	// of its source: the binding is another person's, shared with the caller,
+	// and a lowering or a revocation of that share cancels the context it gives
+	// run and waits for it. It returns without calling run when the caller no
+	// longer holds the share. Nil for the caller's own binding. It never
+	// leaves the process.
+	Hold func(ctx context.Context, run func(context.Context) error) error `json:"-"`
+}
+
+// Use runs run inside the hold of the grant, or directly when it has none.
+func (g CredentialGrant) Use(ctx context.Context, run func(context.Context) error) error {
+	if g.Hold == nil {
+		return run(ctx)
+	}
+	return g.Hold(ctx, run)
 }
 
 // CredentialSource finds the credential and the allowed resource for a call.
@@ -106,30 +121,33 @@ func scrub(r *contract.Request) {
 // the add-on declares credentials. A tool of such an add-on never runs without
 // them: a gateway with no source refuses it as unavailable. Anything else
 // leaves r as it is.
-func (g *Gateway) credentialize(ctx context.Context, a contract.Actor, r *contract.Request) error {
+//
+// The grant it returns carries the hold of a shared binding: the caller runs
+// the add-on call inside grant.Use.
+func (g *Gateway) credentialize(ctx context.Context, a contract.Actor, r *contract.Request) (CredentialGrant, error) {
 	src, ok := g.toolSource().(CapabilitySource)
 	if !ok {
-		return nil
+		return CredentialGrant{}, nil
 	}
 	caps, err := src.DeclaredCapabilities(ctx, r.AddonID, r.Generation)
 	if err != nil {
 		// Not knowing whether the add-on declares credentials is not a reason
 		// to run its tool without the check. A stale generation is a denial,
 		// not an outage of the owner.
-		return toolSourceError(err)
+		return CredentialGrant{}, toolSourceError(err)
 	}
 	if len(caps.Credentials) == 0 {
-		return nil
+		return CredentialGrant{}, nil
 	}
 	if r.ResourceID != "" {
-		return ErrForbidden
+		return CredentialGrant{}, ErrForbidden
 	}
 	if g.Credentials == nil {
-		return ErrUnavailable
+		return CredentialGrant{}, ErrUnavailable
 	}
 	tool, named := NamedTool(r.Arguments)
 	if !named {
-		return ErrForbidden
+		return CredentialGrant{}, ErrForbidden
 	}
 	slot := caps.Credentials[0]
 	key := ""
@@ -142,11 +160,11 @@ func (g *Gateway) credentialize(ctx context.Context, a contract.Actor, r *contra
 			// answers for the add-on, not for a service account of the person.
 			// It gets no credential, so the page works with no connection or
 			// with several.
-			return nil
+			return CredentialGrant{}, nil
 		}
 		k, _, err := slot.CredentialResource(d, r.Arguments)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrInvalidRequest, contract.ErrRefused)
+			return CredentialGrant{}, fmt.Errorf("%w: %w", ErrInvalidRequest, contract.ErrRefused)
 		}
 		key = k
 		if d.Enumerates {
@@ -159,13 +177,13 @@ func (g *Gateway) credentialize(ctx context.Context, a contract.Actor, r *contra
 	if err != nil {
 		var refusal *CredentialRefusal
 		if errors.As(err, &refusal) {
-			return refusal
+			return CredentialGrant{}, refusal
 		}
-		return ClassifyCheck(err)
+		return CredentialGrant{}, ClassifyCheck(err)
 	}
 	r.Credential, r.ResourceKey = grant.Credential, grant.ResourceKey
 	if grant.ResourceID != "" {
 		r.ResourceID = grant.ResourceID
 	}
-	return nil
+	return grant, nil
 }

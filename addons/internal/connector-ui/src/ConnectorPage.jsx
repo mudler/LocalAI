@@ -20,7 +20,9 @@ import WhoFields from './WhoFields'
 import AccessMatrix from './AccessMatrix'
 import PermissionFields from './PermissionFields'
 import NotifyField from './NotifyField'
-import { agentsApi, connectorsApi, setApiLanguage, triggersApi } from './api'
+import { agentsApi, connectorsApi, coreCall, setApiLanguage, triggersApi } from './api'
+import { connectionShareClient, sharedOfKind, shareAvailable } from './share'
+import { getSdk } from '../../host-compat/src/runtime.js'
 import { changedParts, droppedActs, removedActs } from './access'
 import { basePath } from '../../host-compat/src/utils/basePath.js'
 import { DUPLICATE_CONFIRMATION, canSave, channelOnly, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, connectorPayload, emptyConnector, agentHeld, usualFor, listEntries, listeningChannels, senderLine, withUsualCaps } from './connector'
@@ -31,6 +33,11 @@ import './connector.css'
 
 // The shared words, in every language of the web UI, under the namespace "connector".
 registerConnectorLocales()
+
+// The SDK of the running add-on, or null when the page runs without one.
+function sdkOrNull() {
+  try { return getSdk() } catch { return null }
+}
 
 function Senders({ id, onAllowed, t }) {
   const [list, setList] = useState(null)
@@ -115,6 +122,51 @@ export function SaveNotice({ notice, s }) {
 
 const ONE_LIST = [{ key: 'allow', hint: 'allowHint', testId: 'connector-allow' }]
 
+// The bindings that other people shared with the person: the name, the state
+// and who shared it. There is nothing to change here: only their owner can.
+function SharedConnections({ rows, s }) {
+  const Badge = sdkOrNull()?.ui?.SharedByBadge
+  return (
+    <section className="cn-shared" aria-labelledby="cn-shared-title" data-testid="connector-shared">
+      <h2 className="cn-section__title" id="cn-shared-title">{s('shared.title')}</h2>
+      <p className="cn-muted">{s('shared.text')}</p>
+      <ul className="cn-list">
+        {rows.map((c) => (
+          <li key={c.id} className="cn-row" data-testid="connector-shared-row">
+            <div className="cn-row__text">
+              <span className="cn-row__name">{c.name}</span>
+              <span className="cn-muted">{c.enabled ? s('shared.on') : s('shared.off')}</span>
+              {Badge
+                ? <Badge entry={{ role: c.role, owner: c.owner, everyone: c.everyone }} roleLabel={s('share.roleUse')} />
+                : <span className="cn-muted">{s('shared.by', { name: c.owner || '' })}</span>}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+// The host's Share dialog for one binding, over the sharing API of the host.
+function ShareConnection({ share, s, onChanged, close }) {
+  const Dialog = sdkOrNull()?.ui?.ShareDialog
+  const [client] = useState(() => connectionShareClient(coreCall, share.id))
+  if (!Dialog) return null
+  return (
+    <Dialog
+      client={client}
+      resource={{ id: share.id, name: share.name }}
+      roles={[{ id: 'use', label: s('share.roleUse'), help: s('share.roleUseHelp') }]}
+      allowEveryone={false}
+      intro={s('share.intro')}
+      onChanged={onChanged}
+      onLost={() => { close(); onChanged() }}
+      close={close}
+      testId="connector-share-dialog"
+    />
+  )
+}
+
 /**
  * @param {object} props
  * @param {string} props.kind          the kind of the bindings, such as telegram
@@ -144,6 +196,11 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const uiLanguage = i18n?.resolvedLanguage || i18n?.language || ''
   setApiLanguage(uiLanguage)
   const [items, setItems] = useState([])
+  // The bindings of this kind that other people shared with the person (name,
+  // state and owner only), whether the host shares here, and the open dialog.
+  const [shared, setShared] = useState([])
+  const [canShare, setCanShare] = useState(false)
+  const [share, setShare] = useState(null)
   const [agents, setAgents] = useState([])
   const [off, setOff] = useState('')
   const [error, setError] = useState('')
@@ -186,6 +243,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     try {
       const res = await connectorsApi.list()
       setItems((res.connectors || []).filter((c) => c.kind === kind))
+      setShared(sharedOfKind(res, kind))
+      setCanShare(shareAvailable(sdkOrNull(), res))
       setOff('')
     } catch (e) { fail(e) }
   }, [fail, kind])
@@ -456,12 +515,24 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
               </button>
               {messaging && <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setOpenSenders(openSenders === c.id ? '' : c.id)}>{t('senders')}</button>}
               <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => open({ ...connectorForm(c), ...(extraForm ? extraForm(c) : {}) })}>{t('editButton')}</button>
+              {canShare && (
+                <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="connector-share" aria-label={s('share.button', { name: c.name })}
+                  onClick={async () => {
+                    setError('')
+                    try {
+                      const r = c.share?.resource_id ? c.share : await connectorsApi.share(c.id)
+                      setShare({ id: r.resource_id, name: c.name })
+                    } catch (e) { fail(e) }
+                  }}>{s('share.label')}</button>
+              )}
               <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setToDelete(c)}>{t('delete')}</button>
             </span>
           </li>
         ))}
       </ul>
       {items.length === 0 && !form && <p className="cn-muted">{t('empty')}</p>}
+      {canShare && shared.length > 0 && <SharedConnections rows={shared} s={s} />}
+      {share && canShare && <ShareConnection share={share} s={s} onChanged={load} close={() => setShare(null)} />}
       <ConfirmDialog
         open={Boolean(toDelete)}
         title={t('confirmDelete.title', { name: toDelete?.name || '' })}

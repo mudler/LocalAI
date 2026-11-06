@@ -46,7 +46,35 @@ text in characters.
 
 - With authentication off, there is one set of collections.
 - With authentication on, each user has their own collections. A user needs the `collections` feature. Admins always have it.
-- A name that is not yours answers `404`. Nobody sees another user's collections, with two exceptions for admins below.
+- A name that is not yours answers `404`. Nobody sees another user's collections, with two exceptions for admins below, and the collections other people share with you.
+
+## Sharing a collection
+
+With accounts, the owner of a collection can share it. Open **Knowledge**, open the
+collection and choose **Share**. The [Share dialog]({{%relref "features/sharing" %}})
+finds people by name and can share with **Everyone**, every account of the server.
+A person can receive it when their account may use collections.
+
+| Role | What the person may do |
+|---|---|
+| **Can view** (`viewer`) | Search it and read its entries and files. |
+| **Can edit** (`editor`) | Also add and remove entries. |
+
+Sources, reset and sharing stay with the owner. A shared collection is listed under
+**Shared with you** with the owner's name and the role.
+
+The agents and the chats of the person find a shared collection by its name, like
+their own. The person's own collection wins a name. When the person has a collection
+of the same name, or two people share collections under one name, the shared one is
+named `shared:<id>`, where `<id>` is its ID in the sharing API. That name works in
+every path below and in the collections of a saved agent. `GET /api/collections`
+gives the name to use.
+
+Nothing is copied: a shared collection stays in its owner's store, and an entry that
+an editor adds is in the owner's collection. When the owner lowers or removes a
+share, LocalAI cancels the person's running searches and writes on it before it
+answers, and the next call answers `404`, as for a collection that does not exist. A
+call that the role does not allow answers `403`.
 
 ## API
 
@@ -56,7 +84,7 @@ When collections are off, the paths do not exist.
 
 | Method and path | Body | Result |
 |---|---|---|
-| `GET /` | | `{"collections": [...], "count": n}` |
+| `GET /` | | `{"collections": [...], "count": n, "shared": [...], "shares": {...}, "sharing": true}`. `shared` are the collections shared with you, each with `name` (the name to use), `title` (its own name), `owner` and `role`. `shares` maps each of your collections that you made shareable to `resource_id` and `shared_with`. `sharing` is `false` when this server cannot share. |
 | `POST /` | `{"name": "docs"}` | `201` with `{"status": "ok", "name": "docs"}` |
 | `POST /{name}/upload` | multipart form, field `file` | `{"status": "ok", "filename": "...", "key": "..."}` |
 | `GET /{name}/entries` | | `{"entries": [...], "count": n}` |
@@ -68,6 +96,7 @@ When collections are off, the paths do not exist.
 | `GET /{name}/sources` | | `{"sources": [...], "count": n}` |
 | `POST /{name}/sources` | `{"url": "https://...", "update_interval": 60}` | Follows the URL. `{"status": "ok"}` |
 | `DELETE /{name}/sources` | `{"url": "https://..."}` | Stops following the URL |
+| `POST /{name}/share` | | Only the owner. `{"resource_id": "...", "shared_with": n}`, the ID of the collection in `/api/shares/collection`. `409` with type `sharing_disabled` when this server cannot share. |
 
 Example:
 
@@ -130,6 +159,15 @@ The `docker-compose.yaml` of the project has a commented example with a
 PostgreSQL service. With several frontends in
 [distributed mode](/features/distributed-mode/), use the `postgres` engine, so
 that all frontends share the same collections.
+
+The shares of the collections are records in the policy store of the add-on owner,
+keyed by the owner and the name of the collection. A search or a write on a shared
+collection runs as admitted work of that policy, which only the owner process holds.
+So, with several frontends, a shared collection is reached only through the owner
+process. Every other frontend answers as for a collection that does not exist,
+lists no collection under `shared` and reports `sharing: false`; a person's own
+collections are not affected. The Share dialog itself works from every frontend,
+because the sharing routes forward to the owner.
 
 ## Use a collection in an agent
 

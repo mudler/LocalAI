@@ -276,6 +276,19 @@
       "text": "Este bot também está conectado como {{name}}. As duas conexões vão responder à mesma mensagem.",
       "turnOff": "Desativar esta",
       "open": "Abrir {{name}}"
+    },
+    "share": {
+      "label": "Compartilhar",
+      "button": "Compartilhar {{name}}",
+      "intro": "As pessoas que você adicionar podem usar esta conexão nos próprios chats e agentes. Elas veem o nome e o estado, nunca o token nem as configurações. As mensagens para o bot continuam chegando ao seu agente.",
+      "roleUse": "Pode usar",
+      "roleUseHelp": "Pode usá-la nos próprios chats e agentes. Não pode ver o token, alterá-la nem compartilhá-la."
+    },
+    "shared": {
+      "title": "Compartilhadas com você",
+      "text": "Outras pessoas deixam você usar estas conexões nos seus chats e agentes. Só o dono pode alterá-las.",
+      "on": "Ouvindo",
+      "off": "Desligada"
     }
   },
   "tools": {

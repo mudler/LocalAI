@@ -398,5 +398,15 @@
   "saved.part.files": "pengaturan berkas",
   "saved.part.notify": "notifikasi",
   "saved.dropped.title": "Koneksi ini tidak lagi mengizinkan tindakan ini, sehingga eksekusi pemicu berikut kehilangannya:",
-  "saved.dropped.item": "{{name}}: {{acts}}"
+  "saved.dropped.item": "{{name}}: {{acts}}",
+  "share.label": "Bagikan",
+  "share.button": "Bagikan {{name}}",
+  "share.intro": "Orang yang Anda tambahkan dapat memakai koneksi ini di obrolan dan agen mereka sendiri. Mereka melihat nama dan statusnya, tidak pernah tokennya atau pengaturannya. Pesan ke bot tetap sampai ke agen Anda.",
+  "share.roleUse": "Dapat memakai",
+  "share.roleUseHelp": "Dapat memakainya di obrolan dan agen mereka. Tidak dapat melihat token, mengubah, atau membagikannya.",
+  "shared.title": "Dibagikan kepada Anda",
+  "shared.text": "Orang lain mengizinkan Anda memakai koneksi ini di obrolan dan agen Anda. Hanya pemiliknya yang dapat mengubahnya.",
+  "shared.on": "Mendengarkan",
+  "shared.off": "Mati",
+  "shared.by": "Dibagikan oleh {{name}}"
 }

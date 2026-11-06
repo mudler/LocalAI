@@ -151,6 +151,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/chats/connectors/:id", FeatureConnectors},
 	{"PUT", "/api/chats/connectors/:id", FeatureConnectors},
 	{"DELETE", "/api/chats/connectors/:id", FeatureConnectors},
+	{"POST", "/api/chats/connectors/:id/share", FeatureConnectors},
 	{"POST", "/api/chats/connectors/:id/enable", FeatureConnectors},
 	{"POST", "/api/chats/connectors/:id/disable", FeatureConnectors},
 	{"POST", "/api/chats/connectors/:id/test", FeatureConnectors},
