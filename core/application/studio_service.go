@@ -95,9 +95,15 @@ func (a *Application) initStudioService() {
 	}
 	var bus studio.Bus
 	var fan notify.Fanout
+	var replay studio.ReplayCarrier
+	instance := ""
 	if d := a.Distributed(); d != nil && d.Nats != nil {
 		bus = studio.NewBroadcastBus(d.Nats, nil)
 		fan = notify.NewBroadcastFanout(d.Nats, nil)
+		// A client whose event stream reconnects to another frontend gets the
+		// events it missed from the process that runs the turn.
+		replay = studio.NewReplayCarrier(d.Nats, nil)
+		instance = a.applicationConfig.Distributed.InstanceID
 	}
 	inbox := notify.NewService(notify.Options{Store: a.studioNotify, Fanout: fan})
 	a.studioInbox = inbox
@@ -122,6 +128,8 @@ func (a *Application) initStudioService() {
 		AutoResume:   a.applicationConfig.ChatsAutoResume,
 		CloseTimeout: studioCloseTimeout,
 		Bus:          bus,
+		Replay:       replay,
+		Instance:     instance,
 		Store:        a.studioStore,
 		Provider:     a.studioProvider,
 		Users:        a.studioUsers(),

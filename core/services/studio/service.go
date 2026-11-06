@@ -150,6 +150,13 @@ type Deps struct {
 	// HeartbeatEvery is how often a running turn tells the store it is alive.
 	// Zero means 15 seconds.
 	HeartbeatEvery time.Duration
+	// Instance names this process among the frontends and workers of a
+	// cluster. A turn records it as its owner, so a client that reconnects to
+	// another frontend can be given the events it missed (eventremote.go).
+	// Empty: no owner is recorded and no replay is asked of another process.
+	Instance string
+	// Replay carries those asks between processes. Nil in one process.
+	Replay ReplayCarrier
 	// Files is the workspace of the chats. Nil or disabled: the chats have no
 	// files, and everything else works.
 	Files *files.Service
@@ -356,7 +363,11 @@ type Service struct {
 	// eventRing). Per instance on purpose: it is a cache of the tail, and the
 	// transcript is the record.
 	rings map[string]*eventRing
-	locks map[string]*keyLock
+	// streams counts the open event streams of each chat (see openStream).
+	streams map[string]int
+	// stopServing ends the answers to replay asks (Deps.Replay); nil without.
+	stopServing func()
+	locks       map[string]*keyLock
 
 	// heldNotes is the last held-back line this process noted in each connector
 	// chat (see noteHeldBack). State mode: per-instance on purpose. It only
@@ -460,7 +471,7 @@ func New(d Deps) (*Service, error) {
 	if bus == nil {
 		bus = NewLocalBus()
 	}
-	s := &Service{d: d, bus: bus, log: log, runs: map[string]*run{}, pumps: map[string]<-chan session.Event{}, rings: map[string]*eventRing{}, locks: map[string]*keyLock{},
+	s := &Service{d: d, bus: bus, log: log, runs: map[string]*run{}, pumps: map[string]<-chan session.Event{}, rings: map[string]*eventRing{}, streams: map[string]int{}, locks: map[string]*keyLock{},
 		videos: map[string][]string{}, children: map[string]map[string]*child{}, allowed: map[string][]session.Tool{}, waiters: map[string][]chan store.TurnStatus{}, closed: make(chan struct{})}
 	s.egressAuditStore = d.EgressAudit
 	if s.egressAuditStore == nil {
@@ -537,6 +548,9 @@ func New(d Deps) (*Service, error) {
 	if d.Files.Available() {
 		s.feed = wsfeed.New(wsfeed.Options{Store: d.Files.Store(), Admin: s.admin, Logger: log})
 	}
+	if err := s.serveReplay(); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
@@ -604,6 +618,9 @@ func (s *Service) Close(ctx context.Context) error {
 	}
 	if s.feed != nil {
 		s.feed.Close()
+	}
+	if s.stopServing != nil {
+		s.stopServing()
 	}
 	limit := s.d.CloseTimeout
 	if limit < 0 {
@@ -1331,6 +1348,7 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg sess
 	s.runs[k] = &run{id: runID, started: time.Now(), end: end, chat: chat}
 	s.rings[k] = newEventRing(runID, ringMaxEvents, ringMaxBytes)
 	s.mu.Unlock()
+	s.recordOwner(ctx, p, conv, runID)
 	msg.Media = s.keepVideos(k, msg.Media)
 	if err := chat.Send(context.WithoutCancel(ctx), msg); err != nil {
 		s.mu.Lock()

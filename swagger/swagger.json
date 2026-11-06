@@ -10040,7 +10040,7 @@
         },
         "/api/chats/{id}/events": {
             "get": {
-                "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). The events of a running turn carry an id (\"\u003crun\u003e.\u003cn\u003e\"). Send the last id back as the Last-Event-ID header or the after query parameter to get the events you missed, then the live ones. A \"resync\" event means the server cannot give them (the id is of another run, is too old, or the frontend that answers does not run the turn): read the transcript, and go on from the id of the resync event. Without an id the stream starts from now; read the transcript for what came before.",
+                "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). The events of a running turn carry an id (\"\u003crun\u003e.\u003cn\u003e\"). Send the last id back as the Last-Event-ID header or the after query parameter to get the events you missed, then the live ones. A \"resync\" event means the server cannot give them (the id is of another run, is too old, or the server that runs the turn is gone or does not answer): read the transcript, and go on from the id of the resync event. Without an id the stream starts from now; read the transcript for what came before.",
                 "produces": [
                     "text/event-stream"
                 ],
@@ -10078,6 +10078,12 @@
                     },
                     "404": {
                         "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "The user has 8 event streams open on this chat on this server",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }

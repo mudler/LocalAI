@@ -126,4 +126,21 @@ var _ = Describe("the events endpoint of a chat", func() {
 		_ = h.Events(c)
 		Expect(rec.Code).To(Equal(http.StatusNotFound))
 	})
+
+	It("answers 429 past the cap of open streams on one chat", func() {
+		ctx := context.Background()
+		for range 8 {
+			_, cancel, err := svc.EventsAfter(ctx, "alice", chat, "")
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(cancel)
+		}
+		req := httptest.NewRequest(http.MethodGet, "/api/chats/x/events", nil)
+		rec := httptest.NewRecorder()
+		c := echo.New().NewContext(req, rec)
+		c.Set("auth_user", &auth.User{ID: "alice", Role: auth.RoleUser})
+		c.SetParamNames("id")
+		c.SetParamValues(chat)
+		_ = h.Events(c)
+		Expect(rec.Code).To(Equal(http.StatusTooManyRequests))
+	})
 })

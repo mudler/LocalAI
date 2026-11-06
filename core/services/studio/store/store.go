@@ -120,6 +120,14 @@ type TurnInfo struct {
 	// server will resume it by itself: a resume is scheduled, tries are left
 	// and the window has not passed. It is read on the clock of the store.
 	WillResume bool
+	// Owner is the instance of the process that runs, or last ran, a turn of
+	// the chat, as SetTurnOwner recorded it. It stays after the turn ends, so
+	// another frontend can still ask that process for the last events, and
+	// until the next turn records its own. A claim does not clear it: a claim
+	// that runs no turn (a command, a check) leaves it to the last turn, and
+	// a process asked about a run it does not hold answers with a resync.
+	// Empty when unknown.
+	Owner string
 }
 
 // ResumableTurn is a chat whose interrupted turn is due to resume.
@@ -235,6 +243,11 @@ type Store interface {
 	// TouchTurn records that the run holding the chat is still alive. The
 	// frontend that runs a turn calls it on a timer.
 	TouchTurn(ctx context.Context, principal, chatID, runID string) error
+	// SetTurnOwner records the instance of the process that runs the turn
+	// runID, so another frontend can ask it for the events a client missed.
+	// It changes nothing (and returns ErrNotClaimed) when runID no longer
+	// holds the chat.
+	SetTurnOwner(ctx context.Context, principal, chatID, runID, instance string) error
 	// ReapTurns ends every running turn that has not beaten for idle, measured
 	// on the clock of the store, so that frontends with different clocks agree:
 	// the chat is free again, its last outcome is interrupted, a resume

@@ -615,6 +615,30 @@ func Run(newStore New) {
 		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r2")).To(Succeed(), "claim after release")
 	})
 
+	It("records the owner of a turn until the next turn records its own", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		chat(s, "c2", "alice")
+		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r1")).To(Succeed())
+		Expect(s.SetTurnOwner(ctx(), "alice", "c1", "other", "a")).To(MatchError(store.ErrNotClaimed), "an owner for a run that does not hold the chat")
+		Expect(s.SetTurnOwner(ctx(), "alice", "c2", "r1", "a")).To(MatchError(store.ErrNotClaimed), "an owner for an idle chat")
+		Expect(s.SetTurnOwner(ctx(), "bob", "c1", "r1", "a")).To(MatchError(session.ErrNotFound), "another user's chat")
+		Expect(s.SetTurnOwner(ctx(), "alice", "c1", "r1", "instance-a")).To(Succeed())
+		info, _ := s.Turn(ctx(), "alice", "c1")
+		Expect(info.Owner).To(Equal("instance-a"))
+		// The owner stays after the end: its last events may still be asked for.
+		Expect(s.ReleaseTurn(ctx(), "alice", "c1", "r1", store.TurnDone)).To(Succeed())
+		info, _ = s.Turn(ctx(), "alice", "c1")
+		Expect(info.Owner).To(Equal("instance-a"), "after the end")
+		// A claim alone keeps it; the turn that runs records its own.
+		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r2")).To(Succeed())
+		info, _ = s.Turn(ctx(), "alice", "c1")
+		Expect(info.Owner).To(Equal("instance-a"), "after a claim")
+		Expect(s.SetTurnOwner(ctx(), "alice", "c1", "r2", "instance-b")).To(Succeed())
+		info, _ = s.Turn(ctx(), "alice", "c1")
+		Expect(info.Owner).To(Equal("instance-b"))
+	})
+
 	It("a turn that stops beating is reaped, one that keeps beating is not", func() {
 		// The margin is wide: on a loaded runner under -race a few store calls
 		// can take longer than a tight threshold.

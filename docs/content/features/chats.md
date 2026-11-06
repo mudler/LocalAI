@@ -143,10 +143,19 @@ the client to read the record again.
 
 When the server cannot give what was missed, the stream starts with a `resync`
 event. This happens when the id is of another turn, is older than the ring
-holds, is not an id of this server, or comes to a frontend that does not run
-the turn. Read the transcript, then go on: the `resync` event carries the id of
-the newest event known, when there is one, and the live events follow it. A gap
-in the numbers of the live events is filled from the ring in the same way.
+holds, or is not an id of this server, and in a cluster when the server that
+runs the turn is gone or does not answer in 2 seconds. Read the transcript, then
+go on: the `resync` event carries the id of the newest event known, when there
+is one, and the live events follow it. A gap in the numbers of the live events
+is filled from the ring in the same way.
+
+A user can have 8 event streams open on one chat on one server; one more gets
+HTTP 429 until one closes. The counter `localai_chat_event_resyncs_total` counts
+the reconnects that got a `resync`, by `reason`: `local` (the ring of this server
+did not have the events), `owner` (the ring of the server that runs the turn did
+not have them), `unreachable` (that server did not answer) and `no_owner` (no
+other server is known to run the turn). A steady rate of `local` or `owner`
+says that the ring is too small for your clients' gaps.
 
 The transcript lists messages, tool lines and one checkpoint line per turn.
 Undo works per tool call, not per turn: each `write_file`, `edit_file` or
@@ -1958,7 +1967,7 @@ The JSON files are for one LocalAI process. A cluster needs PostgreSQL, as
 
 In [distributed mode]({{% relref "features/distributed-mode" %}}) any frontend can serve any request about any chat.
 
-**State mode: shared.** Chats, their messages, the waiting messages and the claim that lets one turn run at a time live in PostgreSQL. Live events travel over the message bus, so a client connected to one frontend sees a turn that another frontend runs. Events are delivered at most once. The ring of recent events that serves a reconnect is per instance, on purpose: it is a cache of the live tail on the frontend that runs the turn, and the transcript is the record. A reconnect that reaches another frontend gets a `resync` and reads the transcript.
+**State mode: shared.** Chats, their messages, the waiting messages and the claim that lets one turn run at a time live in PostgreSQL. Live events travel over the message bus, so a client connected to one frontend sees a turn that another frontend runs. Events are delivered at most once. The ring of recent events that serves a reconnect is per instance, on purpose: it is a cache of the live tail on the frontend or chat worker that runs the turn, and the transcript is the record. The process that runs a turn records its instance id (`LOCALAI_INSTANCE_ID`) on the chat. A reconnect that reaches another frontend asks that process for the missed events over the message bus (request and reply on `chats.replay.<instance>`), in replies of at most 512 KiB. When that process is gone, does not answer in 2 seconds, or no longer has the events, the client gets a `resync` and reads the transcript. The cap of 8 event streams per chat and user is per frontend.
 
 **Sub-agents.** The runs are chats in the shared store, linked to their parent. The background limit, the list of runs and "stopping a chat stops its sub-agents" all read the store, so they hold when the turns of one chat run on different frontends. A stop reaches a run on another frontend over the bus. The tool subset of a running sub-agent is kept in the memory of the frontend that runs it, which is where it runs. A sub-agent started from a saved agent keeps nothing in memory (stateless): the agent is named on its chat record, and its tools are read from the store at each turn, as for any chat with an agent. The chat's saved agents switch is stored with the chat, and the permission is checked again at each call, so every frontend gives the same answer.
 

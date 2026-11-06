@@ -16238,9 +16238,9 @@ paths:
         ("<run>.<n>"). Send the last id back as the Last-Event-ID header or the after
         query parameter to get the events you missed, then the live ones. A "resync"
         event means the server cannot give them (the id is of another run, is too
-        old, or the frontend that answers does not run the turn): read the transcript,
-        and go on from the id of the resync event. Without an id the stream starts
-        from now; read the transcript for what came before.'
+        old, or the server that runs the turn is gone or does not answer): read the
+        transcript, and go on from the id of the resync event. Without an id the stream
+        starts from now; read the transcript for what came before.'
       parameters:
       - description: conversation id
         in: path
@@ -16264,6 +16264,10 @@ paths:
             $ref: '#/definitions/schema.ChatsEvent'
         "404":
           description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "429":
+          description: The user has 8 event streams open on this chat on this server
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Stream a chat's events.

@@ -67,6 +67,9 @@ type chatState struct {
 	// The text of the assistant message being written (session.PartialStore).
 	PartialText string `json:"partial_text,omitempty"`
 	PartialTurn int    `json:"partial_turn,omitempty"`
+	// Owner is the instance that runs the turn (SetTurnOwner). It is kept in
+	// memory only (see SetTurnOwner).
+	Owner string `json:"-"`
 
 	entries []session.Entry
 }
@@ -1139,6 +1142,21 @@ func (s *jsonStore) MarkInterrupted(_ context.Context, principal, id, runID stri
 	return nil
 }
 
+func (s *jsonStore) SetTurnOwner(_ context.Context, principal, id, runID, instance string) error {
+	c, unlock, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if c.Run == "" || c.Run != runID {
+		return ErrNotClaimed
+	}
+	// Not persisted, like the beat: the JSON store serves one process, and a
+	// restart of it interrupts every running turn anyway.
+	c.Owner = instance
+	return nil
+}
+
 func (s *jsonStore) TouchTurn(_ context.Context, principal, id, runID string) error {
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
@@ -1229,7 +1247,8 @@ func (s *jsonStore) Turn(_ context.Context, principal, id string) (TurnInfo, err
 	}
 	defer unlock()
 	info := TurnInfo{Running: c.Run != "", RunID: c.Run, Since: c.RunSince, Beat: c.RunBeat, Last: c.Last,
-		ResumeAttempts: c.ResumeAttempts, InterruptedAt: c.InterruptedAt, ResumeNotBefore: c.ResumeNotBefore}
+		ResumeAttempts: c.ResumeAttempts, InterruptedAt: c.InterruptedAt, ResumeNotBefore: c.ResumeNotBefore,
+		Owner: c.Owner}
 	if !info.Running && info.Last == TurnInterrupted {
 		info.WillResume, _ = resumeOpen(info.ResumeAttempts, info.InterruptedAt, info.ResumeNotBefore, time.Now().UTC())
 	}

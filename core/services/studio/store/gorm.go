@@ -74,6 +74,10 @@ type chatRow struct {
 	// and PartialTurn its turn. Empty while no message is streaming.
 	PartialText string `gorm:"type:text"`
 	PartialTurn int
+	// OwnerInstance came after the table existed: a nullable column, so
+	// AutoMigrate adds it and older rows read as an unknown owner. It names
+	// the process that ran the last turn (SetTurnOwner).
+	OwnerInstance string `gorm:"size:128"`
 }
 
 func (chatRow) TableName() string { return "studio_chats" }
@@ -1278,7 +1282,8 @@ func (s *gormStore) Turn(ctx context.Context, principal, id string) (TurnInfo, e
 		return TurnInfo{}, err
 	}
 	info := TurnInfo{Running: row.RunID != "", RunID: row.RunID, Since: row.RunSince, Beat: row.RunBeat, Last: TurnStatus(row.LastTurn),
-		ResumeAttempts: row.ResumeAttempts, InterruptedAt: row.InterruptedAt, ResumeNotBefore: row.ResumeNotBefore}
+		ResumeAttempts: row.ResumeAttempts, InterruptedAt: row.InterruptedAt, ResumeNotBefore: row.ResumeNotBefore,
+		Owner: row.OwnerInstance}
 	if !info.Running && info.Last == TurnInterrupted {
 		now, err := s.now(ctx)
 		if err != nil {
@@ -1287,6 +1292,22 @@ func (s *gormStore) Turn(ctx context.Context, principal, id string) (TurnInfo, e
 		info.WillResume, _ = resumeOpen(info.ResumeAttempts, info.InterruptedAt, info.ResumeNotBefore, now)
 	}
 	return info, nil
+}
+
+func (s *gormStore) SetTurnOwner(ctx context.Context, principal, id, runID, instance string) error {
+	db := s.db.WithContext(ctx)
+	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND run_id = ?", id, principal, runID).
+		Update("owner_instance", instance)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 1 {
+		return nil
+	}
+	if err := s.owns(db, principal, id); err != nil {
+		return err
+	}
+	return ErrNotClaimed
 }
 
 func (s *gormStore) TouchTurn(ctx context.Context, principal, id, runID string) error {
