@@ -74,6 +74,11 @@ var allowed = []entry{
 	{ui + "components/MemorySettings.jsx", "memory", "the provider slot of the built-in memory, drawn by the generic provider chooser"},
 	{ui + "pages/AgentCreate.jsx", "memory", "the memory choice of the agent form and the icon of its section: the built-in memory"},
 	{"core/http/endpoints/studio/agents.go", "memory", "the memory query of the agent delete: what to do with the notes of the built-in memory"},
+	// The word mail in plain text: an example of what a run reads and the
+	// envelope glyph of an empty list. Neither names the Mail add-on.
+	{"core/services/studio/triggertools.go", "Mail from the last 24 hours", "an example of what a scheduled run reads"},
+	{ui + "components/users/InvitesPanel.jsx", `name="mail"`, "the envelope glyph of the empty invitations list"},
+
 	// Memory is built into the host. The add-on of that name is the alias of
 	// the built-in: its index files and skills are the host's now, and the
 	// host ignores its copies.
