@@ -34,4 +34,44 @@ var _ = Describe("approved channels for a tool", func() {
 		_, ok = MatchChannel(b, "")
 		Expect(ok).To(BeFalse())
 	})
+
+	Describe("approvedChannel", func() {
+		two := connectors.Binding{Channels: []connectors.Channel{
+			{ID: "C1", Label: "#team-general", Approved: true}, {ID: "C2", Label: "team-ops", Approved: true}, {ID: "C3", Label: "alerts"}}}
+		one := connectors.Binding{Channels: []connectors.Channel{{ID: "C1", Label: "General", Approved: true}, {ID: "C3", Label: "alerts"}}}
+
+		It("takes the only approved channel when no name is given", func() {
+			ch, err := approvedChannel(one, "")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ch.ID).To(Equal("C1"))
+		})
+
+		It("asks for a name, listing the approved channels, when several are approved and none is named", func() {
+			_, err := approvedChannel(two, " ")
+			Expect(err).To(MatchError(ContainSubstring("team-general (C1)")))
+			Expect(err).To(MatchError(ContainSubstring("team-ops (C2)")))
+			Expect(err.Error()).NotTo(ContainSubstring("alerts"))
+		})
+
+		It("keeps the ID, and finds a label without case or by a part only one approved label has", func() {
+			for name, id := range map[string]string{"C2": "C2", "TEAM-OPS": "C2", "#team-general": "C1", "general": "C1", "ops": "C2"} {
+				ch, err := approvedChannel(two, name)
+				Expect(err).NotTo(HaveOccurred(), name)
+				Expect(ch.ID).To(Equal(id), name)
+			}
+		})
+
+		It("does not guess when a part fits several approved labels, or none", func() {
+			_, err := approvedChannel(two, "team")
+			Expect(err).To(MatchError(ContainSubstring("more than one")))
+			_, err = approvedChannel(two, "nothing")
+			Expect(err).To(MatchError(ContainSubstring("team-ops (C2)")))
+		})
+
+		It("does not take a listed channel that is not approved because a longer label is", func() {
+			b := connectors.Binding{Channels: []connectors.Channel{{ID: "C1", Label: "ops"}, {ID: "C2", Label: "ops-team", Approved: true}}}
+			_, err := approvedChannel(b, "ops")
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })

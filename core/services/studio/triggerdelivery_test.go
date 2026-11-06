@@ -130,4 +130,19 @@ var _ = Describe("changing the delivery and the acts of a trigger", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got.Acts).To(BeEmpty())
 	})
+
+	It("uses the one approved channel when none is named, and asks for a name when there are several", func() {
+		setup([]connectors.Channel{{ID: "G1", Label: "General", Approved: true}, {ID: "G9", Label: "Quiet"}})
+		res := c.call(r.trigRig, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"delivery":{"target":"channel"}}`, ref))
+		Expect(res.Err).To(BeNil(), "%+v", res)
+		got, err := r.host.ApplyChange(ctx, alice, lastCard(r.trigRig, chat).ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Route.Channel).To(Equal("G1"))
+
+		setup(two)
+		res = c.call(r.trigRig, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"delivery":{"target":"channel"}}`, ref))
+		Expect(res.Err).To(MatchError(ContainSubstring("General (G1), Ops (G2)")))
+		res = c.call(r.trigRig, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"delivery":{"target":"channel","channel":"gen"}}`, ref))
+		Expect(res.Err).To(BeNil(), "a unique part of a label: %+v", res)
+	})
 })

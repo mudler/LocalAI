@@ -146,17 +146,64 @@ func approvedChannelNames(b connectors.Binding) []string {
 	return out
 }
 
-// approvedChannel finds the approved channel that a model names by ID or
-// label. Any other channel is refused with the list of the approved ones.
+// approvedChannel finds the approved channel that a model names. It takes the
+// ID, the label without case and without a leading "#", or a part of a label
+// that only one approved channel has. An empty name takes the one approved
+// channel, and with several asks for a name. Any other channel is refused with
+// the list of the approved ones.
 func approvedChannel(b connectors.Binding, name string) (connectors.Channel, error) {
-	if ch, ok := MatchChannel(b, name); ok && ch.Approved {
-		return ch, nil
-	}
 	list := approvedChannelNames(b)
+	var approved []connectors.Channel
+	for _, c := range b.Channels {
+		if c.Approved && len(approved) < connectors.MaxChannels {
+			approved = append(approved, c)
+		}
+	}
+	want := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(name), "#")))
+	switch {
+	case want == "" && len(approved) == 1:
+		return approved[0], nil
+	case want == "" && len(approved) > 1:
+		return connectors.Channel{}, fmt.Errorf("name the channel; the approved channels are %s", strings.Join(list, ", "))
+	}
+	if ch, ok := MatchChannel(b, name); ok {
+		if ch.Approved {
+			return ch, nil
+		}
+		// The channel is listed and exact, so a longer label is not the one meant.
+		return connectors.Channel{}, fmt.Errorf("%q is not a channel the owner approved for this bot%s", name, approvedList(list))
+	}
+	if want != "" {
+		var found []connectors.Channel
+		for _, c := range approved {
+			if strings.Contains(strings.ToLower(strings.TrimPrefix(strings.TrimSpace(c.Label), "#")), want) {
+				found = append(found, c)
+			}
+		}
+		switch len(found) {
+		case 1:
+			return found[0], nil
+		case 0:
+		default:
+			names := make([]string, len(found))
+			for i, c := range found {
+				names[i] = channelName(c)
+			}
+			return connectors.Channel{}, fmt.Errorf("%q matches more than one approved channel: %s", name, strings.Join(names, ", "))
+		}
+	}
 	if len(list) == 0 {
 		return connectors.Channel{}, fmt.Errorf("%q is not a channel the owner approved for this bot; the owner approved none", name)
 	}
-	return connectors.Channel{}, fmt.Errorf("%q is not a channel the owner approved for this bot; the approved channels are %s", name, strings.Join(list, ", "))
+	return connectors.Channel{}, fmt.Errorf("%q is not a channel the owner approved for this bot%s", name, approvedList(list))
+}
+
+// approvedList words the approved channels for an error, or "".
+func approvedList(list []string) string {
+	if len(list) == 0 {
+		return "; the owner approved none"
+	}
+	return "; the approved channels are " + strings.Join(list, ", ")
 }
 
 // channelsNote is added to the description of a tool that can write in a
