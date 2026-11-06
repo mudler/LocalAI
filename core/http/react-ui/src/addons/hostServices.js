@@ -8,7 +8,7 @@ import { userSettingsRequest } from './userSettingsCalls'
 import {
   Button, Spinner, EmptyState, Badge, Stack, Text,
   Section, Field, Select, TextInput, Switch, Choice, Callout, Notice, StatusChip, List, ListRow, Code, Actions, Table, ExternalLink,
-  PageHeader, ConfirmDialog, ErrorWithTraceLink, ModelSelector, MediaInput, WaveformPlayer,
+  PageHeader, ConfirmDialog, SideSheet, SidePane, PaneLayout, ActionMenu, ErrorWithTraceLink, ModelSelector, MediaInput, WaveformPlayer,
   DistributionBars, EmbeddingInspector, TabSwitch,
 } from './hostComponents'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -75,7 +75,7 @@ export const host = Object.freeze({
   components: {
     Button, Spinner, EmptyState, Badge, Stack, Text, ArtifactCard,
     Section, Field, Select, TextInput, Switch, Choice, Callout, Notice, StatusChip, List, ListRow, Code, Actions, Table, ExternalLink,
-    PageHeader, ConfirmDialog, ErrorWithTraceLink, ModelSelector, MediaInput, WaveformPlayer,
+    PageHeader, ConfirmDialog, SideSheet, SidePane, PaneLayout, ActionMenu, ErrorWithTraceLink, ModelSelector, MediaInput, WaveformPlayer,
     DistributionBars, EmbeddingInspector, TabSwitch,
     LoadingSpinner, Modal, Lightbox, ModelPicker, HomeModelPicker: ModelPicker,
   },

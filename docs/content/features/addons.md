@@ -1860,7 +1860,8 @@ the components are the ones the core pages use, so an add-on page and a core pag
 draw the same thing.
 
 - `sdk.ui`: `Button`, `Text`, `Stack`, `Badge`, `Spinner`, `EmptyState`, and the
-  shared `PageHeader`, `ConfirmDialog`, `ErrorWithTraceLink`, `ModelSelector`,
+  shared `PageHeader`, `ConfirmDialog`, `SideSheet`, `SidePane`, `PaneLayout`,
+  `ActionMenu`, `ErrorWithTraceLink`, `ModelSelector`,
   `MediaInput`, `WaveformPlayer`, `DistributionBars`, `EmbeddingInspector`,
   `TabSwitch`, `LoadingSpinner`, `Modal`, `Lightbox` and `ModelPicker`. A `ref`
   reaches the host component, so `ModelPicker` keeps its handle (`open()` and
@@ -1911,6 +1912,22 @@ that declares only `"max": 1` is refused by a version 2 host. Before you raise
 `max` to 2, check the add-on against the SDK 2 surface. A range that is
 malformed (for example `min` above `max`) keeps the generic `invalid or
 incompatible UI` error.
+
+### Panels: a sheet, a pane and a row menu
+
+`sdk.ui` also carries the three parts of a list with a detail and a form, the way the host's
+Add-ons and MCP connectors pages draw them. Use them instead of a panel of your own: Escape,
+focus, the scrim and the phone layout are the host's.
+
+| Component | Props | What it draws |
+|---|---|---|
+| `SideSheet` | `title`, `description`, `footer`, `headActions`, `onClose`, `wide`, `closeLabel`, `testId`, `labelId` | A create or edit form over the page: a head, one scrolling body and a footer for the buttons, with the primary action last. It is a dialog: focus moves in, Tab stays inside, Escape and a click on the scrim call `onClose`. Do not set a width on it; `wide` is the only other size. |
+| `SidePane` | `open`, `title`, `meta`, `actions`, `footer`, `onClose`, `wide`, `testId` | The details of one item beside a list. Put it in a `PaneLayout` next to the list. From 1280 px it docks and pushes the list; below that it overlays the page, and on a phone it is a bottom sheet. Escape closes it and focus returns to the control that opened it. |
+| `PaneLayout` | none | The row that holds the list column and a docked `SidePane`. |
+| `ActionMenu` | `items: [{key, label, icon, onClick, danger, disabled, hidden}]` (a `{divider: true}` item separates), `ariaLabel`, `compact` | The three-dot menu of a row. |
+
+The connector pages (`addons/internal/connector-ui`) are the reference: a row list, a docked
+pane and a sheet.
 
 ## Runtime wire version 1
 
