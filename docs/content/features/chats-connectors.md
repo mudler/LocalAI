@@ -20,7 +20,9 @@ platform's API is spoken by an add-on that declares the `connector` capability (
 from the add-on gallery, and its page adds and edits the bindings of its platform.
 
 The Connectors page groups your bindings by add-on and links each group to the
-add-on's own page. With no connector add-on installed, the page says so and links
+add-on's own page. Each row has a state chip (**Running**, **Off** or **Needs attention**), the
+agent and who may write to it, and a switch that applies at once. **New connection** lists the installed
+platforms and opens the add form of the one you pick. With no connector add-on installed, the page says so and links
 to the gallery. `GET /api/chats/connectors/kinds` lists the platforms that a running
 add-on serves.
 
@@ -67,6 +69,16 @@ a transport failure, since the platform may already have received it.
 
 Telegram's legacy binding resolution remains compatible with existing bindings.
 It is not a fallback for discovering other connector kinds or for owner outages.
+
+### The page of a connector add-on
+
+The page of a connector add-on (Telegram, Slack, Discord, GitHub and the others) looks like the MCP connectors page:
+
+- A **row** for each connection has a letter tile, the name, a state chip, one line of facts (the service, the agent and who may write to it), a **Test** button, a switch that turns it on or off at once, and a menu with **Edit** and **Delete**. A row that **Needs attention** shows why (no token saved, the add-on is not running, the same bot as another connection, or a failed test) and, when the cause is the token, a **Fix token** button in place of **Test**.
+- A click on a row opens a **pane** beside the list with the facts, the last test (kept in this browser, so it says "Not tested in this browser yet" until you test), the recent refusals and the senders of the bot, and **Remove**, **Edit** and **Test connection** at the foot.
+- **New** and **Edit** open a **side sheet** with one form in three sections: **Connection** (the name, the token, the agent and the fields of the add-on), **Who can talk to it** and **What it may do**. **Save and test** saves the connection and tests it at once. Closing the sheet over a change asks first.
+- **What it may do** has three presets. **Answer only** ticks no permission: the bot replies and nothing else. **Standard** ticks the usual set that the agent holds (what **Reset to the usual set** ticks) and never a sensitive permission. **Custom** shows the whole matrix of who can do what. A preset never turns on a sensitive permission. The replies, the files and the places the bot may post are behind **Replies, files and places**, and the check of what the form will do is behind **Check what it will do**.
+- The address `?new=1&agent=<agent id>` opens the add form at once, with that agent chosen and shown as fixed text. `?binding=<id>` opens the settings of that connection with its permissions in view.
 
 ## Telegram
 
@@ -839,8 +851,8 @@ nobody. List chat IDs, user IDs or `@usernames`: numbers for Telegram, IDs such 
 addresses the bot in it.
 
 A message from anyone else is ignored: it is not answered, and the sender goes
-in the sender log with a count. Open **Senders** on the binding to see who tried,
-and use **Allow** to add a person to the allowlist.
+in the sender log with a count. Open the binding in the list: its pane shows **Senders**, who tried,
+and **Allow** adds a person to the allowlist.
 
 "Anyone who can message the bot" (`accept_any`) lets everyone use the agent. The
 server asks you to confirm it, because anyone who can find the bot can then use
