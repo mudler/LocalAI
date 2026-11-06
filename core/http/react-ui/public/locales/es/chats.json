@@ -730,6 +730,64 @@
       "noChat": "Envía un primer mensaje y luego inicia un bucle en este chat.",
       "stopped_one": "Se detuvo {{count}} bucle.",
       "stopped_other": "Se detuvieron {{count}} bucles."
+    },
+    "wait": {
+      "name": "Esperando",
+      "kind": "Espera",
+      "pending": "Espera tu confirmación",
+      "paused": "Espera en pausa",
+      "stop": "Detener espera",
+      "details": "Detalles de la espera",
+      "watching": "Vigila {{source}}",
+      "until": "Hasta que {{condition}}",
+      "notChecked": "Aún sin comprobar",
+      "checked_one": "Comprobado {{count}} vez",
+      "checked_other": "Comprobado {{count}} veces",
+      "checkedAgo_one": "Comprobado {{count}} vez, la última {{ago}}",
+      "checkedAgo_other": "Comprobado {{count}} veces, la última {{ago}}",
+      "outcome": {
+        "unchanged": "sin cambios",
+        "changed": "cambió",
+        "error": "falló"
+      },
+      "ago": "hace {{span}}",
+      "justNow": "ahora mismo",
+      "in": "en {{span}}",
+      "now": "ahora",
+      "next": "Próxima comprobación {{when}}",
+      "deadline": "Se rinde a las {{time}} ({{when}})",
+      "errorStreak": "La última comprobación falló ({{count}} de {{max}} seguidas)",
+      "errorStreakMsg": "La última comprobación falló ({{count}} de {{max}} seguidas): {{message}}",
+      "lastError": "Último error: {{message}}",
+      "sources": {
+        "tool": "herramienta {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "Hecho: se cumplió la condición",
+        "failing_one": "Detenida: la fuente falló {{count}} vez seguida",
+        "failing_other": "Detenida: la fuente falló {{count}} veces seguidas",
+        "timedOut": "Tiempo agotado, la condición no se cumplió",
+        "stopped": "Espera detenida"
+      },
+      "waking": {
+        "met": "Se cumplió la condición. Preguntando al modelo qué hacer.",
+        "failing": "La fuente falló. Preguntando al modelo qué hacer.",
+        "timedOut": "Tiempo agotado, la condición no se cumplió. Preguntando al modelo qué hacer."
+      },
+      "phase": {
+        "waiting": "esperando",
+        "waking": "despertando al modelo",
+        "paused": "en pausa",
+        "ended": "terminada",
+        "pending": "espera tu confirmación"
+      },
+      "endShort": {
+        "condition_met": "condición cumplida",
+        "source_failing": "la fuente falló",
+        "timed_out": "tiempo agotado",
+        "stopped": "detenida"
+      }
     }
   },
   "changes": {
@@ -1110,5 +1168,9 @@
       "waiting": "El cambio espera tu confirmación en la página de Add-ons",
       "failed": "El proveedor no pudo olvidar: {{message}}"
     }
+  },
+  "subAgents": {
+    "waiting": "Esperando: {{what}}",
+    "looping": "En bucle"
   }
 }

@@ -730,6 +730,64 @@
       "noChat": "Invia un primo messaggio, poi avvia un ciclo in questa chat.",
       "stopped_one": "Fermato {{count}} ciclo.",
       "stopped_other": "Fermati {{count}} cicli."
+    },
+    "wait": {
+      "name": "In attesa di",
+      "kind": "Attesa",
+      "pending": "Attende il tuo sì",
+      "paused": "Attesa in pausa",
+      "stop": "Ferma l'attesa",
+      "details": "Dettagli dell'attesa",
+      "watching": "Controlla {{source}}",
+      "until": "Finché {{condition}}",
+      "notChecked": "Non ancora controllato",
+      "checked_one": "Controllato {{count}} volta",
+      "checked_other": "Controllato {{count}} volte",
+      "checkedAgo_one": "Controllato {{count}} volta, l'ultima {{ago}}",
+      "checkedAgo_other": "Controllato {{count}} volte, l'ultima {{ago}}",
+      "outcome": {
+        "unchanged": "nessun cambiamento",
+        "changed": "cambiato",
+        "error": "fallito"
+      },
+      "ago": "{{span}} fa",
+      "justNow": "proprio ora",
+      "in": "tra {{span}}",
+      "now": "adesso",
+      "next": "Prossimo controllo {{when}}",
+      "deadline": "Rinuncia alle {{time}} ({{when}})",
+      "errorStreak": "L'ultimo controllo è fallito ({{count}} di {{max}} di fila)",
+      "errorStreakMsg": "L'ultimo controllo è fallito ({{count}} di {{max}} di fila): {{message}}",
+      "lastError": "Ultimo errore: {{message}}",
+      "sources": {
+        "tool": "strumento {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "Fatto: la condizione è soddisfatta",
+        "failing_one": "Fermata: la fonte è fallita {{count}} volta di fila",
+        "failing_other": "Fermata: la fonte è fallita {{count}} volte di fila",
+        "timedOut": "Tempo scaduto, la condizione non è stata soddisfatta",
+        "stopped": "Attesa fermata"
+      },
+      "waking": {
+        "met": "La condizione è soddisfatta. Chiedo al modello cosa fare.",
+        "failing": "La fonte è fallita. Chiedo al modello cosa fare.",
+        "timedOut": "Tempo scaduto, la condizione non è stata soddisfatta. Chiedo al modello cosa fare."
+      },
+      "phase": {
+        "waiting": "in attesa",
+        "waking": "sveglia il modello",
+        "paused": "in pausa",
+        "ended": "terminata",
+        "pending": "attende il tuo sì"
+      },
+      "endShort": {
+        "condition_met": "condizione soddisfatta",
+        "source_failing": "fonte fallita",
+        "timed_out": "tempo scaduto",
+        "stopped": "fermata"
+      }
     }
   },
   "changes": {
@@ -1110,5 +1168,9 @@
       "waiting": "La modifica attende la tua conferma nella pagina Add-ons",
       "failed": "Il fornitore non ha potuto dimenticare: {{message}}"
     }
+  },
+  "subAgents": {
+    "waiting": "In attesa di: {{what}}",
+    "looping": "In ciclo"
   }
 }

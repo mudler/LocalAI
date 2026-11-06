@@ -730,6 +730,64 @@
       "noChat": "Envoyez un premier message, puis démarrez une boucle dans ce chat.",
       "stopped_one": "{{count}} boucle arrêtée.",
       "stopped_other": "{{count}} boucles arrêtées."
+    },
+    "wait": {
+      "name": "En attente de",
+      "kind": "Attente",
+      "pending": "Attend votre accord",
+      "paused": "Attente en pause",
+      "stop": "Arrêter l'attente",
+      "details": "Détails de l'attente",
+      "watching": "Surveille {{source}}",
+      "until": "Jusqu'à ce que {{condition}}",
+      "notChecked": "Pas encore vérifié",
+      "checked_one": "Vérifié {{count}} fois",
+      "checked_other": "Vérifié {{count}} fois",
+      "checkedAgo_one": "Vérifié {{count}} fois, dernière {{ago}}",
+      "checkedAgo_other": "Vérifié {{count}} fois, dernière {{ago}}",
+      "outcome": {
+        "unchanged": "aucun changement",
+        "changed": "changé",
+        "error": "échec"
+      },
+      "ago": "il y a {{span}}",
+      "justNow": "à l'instant",
+      "in": "dans {{span}}",
+      "now": "maintenant",
+      "next": "Prochaine vérification {{when}}",
+      "deadline": "Abandonne à {{time}} ({{when}})",
+      "errorStreak": "La dernière vérification a échoué ({{count}} sur {{max}} de suite)",
+      "errorStreakMsg": "La dernière vérification a échoué ({{count}} sur {{max}} de suite) : {{message}}",
+      "lastError": "Dernière erreur : {{message}}",
+      "sources": {
+        "tool": "outil {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "Terminé : la condition est remplie",
+        "failing_one": "Arrêtée : la source a échoué {{count}} fois de suite",
+        "failing_other": "Arrêtée : la source a échoué {{count}} fois de suite",
+        "timedOut": "Délai dépassé, la condition n'a pas été remplie",
+        "stopped": "Attente arrêtée"
+      },
+      "waking": {
+        "met": "La condition est remplie. Le modèle est sollicité pour la suite.",
+        "failing": "La source a échoué. Le modèle est sollicité pour la suite.",
+        "timedOut": "Délai dépassé, la condition n'a pas été remplie. Le modèle est sollicité pour la suite."
+      },
+      "phase": {
+        "waiting": "en attente",
+        "waking": "réveille le modèle",
+        "paused": "en pause",
+        "ended": "terminée",
+        "pending": "attend votre accord"
+      },
+      "endShort": {
+        "condition_met": "condition remplie",
+        "source_failing": "source en échec",
+        "timed_out": "délai dépassé",
+        "stopped": "arrêtée"
+      }
     }
   },
   "changes": {
@@ -1110,5 +1168,9 @@
       "waiting": "Le changement attend votre confirmation sur la page Add-ons",
       "failed": "Le fournisseur n'a pas pu oublier : {{message}}"
     }
+  },
+  "subAgents": {
+    "waiting": "En attente de : {{what}}",
+    "looping": "En boucle"
   }
 }

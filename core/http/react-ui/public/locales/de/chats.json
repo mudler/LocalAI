@@ -730,6 +730,64 @@
       "noChat": "Sende zuerst eine Nachricht und starte dann eine Schleife in diesem Chat.",
       "stopped_one": "{{count}} Schleife gestoppt.",
       "stopped_other": "{{count}} Schleifen gestoppt."
+    },
+    "wait": {
+      "name": "Wartet auf",
+      "kind": "Warten",
+      "pending": "Wartet auf dein Ja",
+      "paused": "Warten pausiert",
+      "stop": "Warten beenden",
+      "details": "Details des Wartens",
+      "watching": "Überwacht {{source}}",
+      "until": "Bis {{condition}}",
+      "notChecked": "Noch nicht geprüft",
+      "checked_one": "{{count}} Mal geprüft",
+      "checked_other": "{{count}} Mal geprüft",
+      "checkedAgo_one": "{{count}} Mal geprüft, zuletzt {{ago}}",
+      "checkedAgo_other": "{{count}} Mal geprüft, zuletzt {{ago}}",
+      "outcome": {
+        "unchanged": "keine Änderung",
+        "changed": "geändert",
+        "error": "fehlgeschlagen"
+      },
+      "ago": "vor {{span}}",
+      "justNow": "gerade eben",
+      "in": "in {{span}}",
+      "now": "jetzt",
+      "next": "Nächste Prüfung {{when}}",
+      "deadline": "Gibt um {{time}} auf ({{when}})",
+      "errorStreak": "Letzte Prüfung fehlgeschlagen ({{count}} von {{max}} in Folge)",
+      "errorStreakMsg": "Letzte Prüfung fehlgeschlagen ({{count}} von {{max}} in Folge): {{message}}",
+      "lastError": "Letzter Fehler: {{message}}",
+      "sources": {
+        "tool": "Tool {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "Fertig: Die Bedingung ist erfüllt",
+        "failing_one": "Beendet: Die Quelle ist {{count}} Mal in Folge ausgefallen",
+        "failing_other": "Beendet: Die Quelle ist {{count}} Mal in Folge ausgefallen",
+        "timedOut": "Zeit abgelaufen, die Bedingung wurde nicht erfüllt",
+        "stopped": "Warten beendet"
+      },
+      "waking": {
+        "met": "Die Bedingung ist erfüllt. Das Modell wird gefragt, was zu tun ist.",
+        "failing": "Die Quelle ist ausgefallen. Das Modell wird gefragt, was zu tun ist.",
+        "timedOut": "Zeit abgelaufen, die Bedingung wurde nicht erfüllt. Das Modell wird gefragt, was zu tun ist."
+      },
+      "phase": {
+        "waiting": "wartet",
+        "waking": "weckt das Modell",
+        "paused": "pausiert",
+        "ended": "beendet",
+        "pending": "wartet auf dein Ja"
+      },
+      "endShort": {
+        "condition_met": "Bedingung erfüllt",
+        "source_failing": "Quelle ausgefallen",
+        "timed_out": "Zeit abgelaufen",
+        "stopped": "beendet"
+      }
     }
   },
   "changes": {
@@ -1110,5 +1168,9 @@
       "waiting": "Die Änderung wartet auf deine Bestätigung auf der Seite Add-ons",
       "failed": "Der Anbieter konnte nicht vergessen: {{message}}"
     }
+  },
+  "subAgents": {
+    "waiting": "Wartet auf: {{what}}",
+    "looping": "In Schleife"
   }
 }

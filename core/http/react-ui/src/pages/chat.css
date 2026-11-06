@@ -1417,6 +1417,37 @@ button.cx-step__head:hover,
 .cx-loop__meta { min-width: 0; overflow: hidden; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
 .cx-loop__why { flex: 1 1 100%; order: 3; color: var(--dk-muted); }
 .cx-loop__acts { display: flex; flex: none; gap: var(--sp-3); }
+/* A wait: a loop whose check is code. Same card as a loop chip, but it says
+   what it waits for, how the checks go and, when it ends, how. The tone only
+   backs the words and the icon up: mint while it waits, amber for a stalled
+   check, a pause or a timeout, red for a failing source, green when done. */
+.cx-wait {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  box-shadow: inset 0 0 0 1px var(--color-border-divider);
+  background: var(--color-bg-secondary);
+  font-size: var(--fs-small);
+}
+.cx-wait--warn { box-shadow: inset 0 0 0 1px var(--dk-warn); background: var(--dk-warn-wash); }
+.cx-wait--error { box-shadow: inset 0 0 0 1px var(--dk-error); background: var(--dk-error-wash); }
+.cx-wait--ok { box-shadow: inset 0 0 0 1px var(--dk-ok); background: var(--dk-ok-wash); }
+.cx-wait__head { display: flex; align-items: flex-start; gap: var(--sp-2); min-width: 0; }
+.cx-wait__icon { flex: none; margin-top: 2px; color: var(--dk-ok-text); }
+.cx-wait--warn .cx-wait__icon { color: var(--dk-warn-text); }
+.cx-wait--error .cx-wait__icon { color: var(--dk-error-text); }
+.cx-wait--idle .cx-wait__icon { color: var(--dk-muted); }
+.cx-wait__title { display: flex; flex: 1 1 auto; flex-wrap: wrap; gap: 0 var(--sp-2); min-width: 0; color: var(--dk-text); overflow-wrap: anywhere; }
+.cx-wait__reason { color: var(--dk-text); }
+.cx-wait__acts { display: flex; flex: none; gap: var(--sp-3); }
+.cx-wait__facts { display: flex; flex-wrap: wrap; gap: 0 var(--sp-4); margin: 0; padding: 0 0 0 calc(1em + var(--sp-2)); list-style: none; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+.cx-wait__fact { min-width: 0; overflow-wrap: anywhere; }
+.cx-wait__fact--error { flex: 1 1 100%; color: var(--dk-error-text); }
+@media (max-width: 640px) {
+  .cx-wait__facts { flex-direction: column; }
+}
 /* The answer to /loop list. */
 .cx-loop-list {
   margin: 0 0 var(--sp-2);

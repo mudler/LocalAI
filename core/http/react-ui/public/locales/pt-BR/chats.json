@@ -730,6 +730,64 @@
       "noChat": "Envie uma primeira mensagem e depois inicie um loop neste chat.",
       "stopped_one": "{{count}} loop parado.",
       "stopped_other": "{{count}} loops parados."
+    },
+    "wait": {
+      "name": "Aguardando",
+      "kind": "Espera",
+      "pending": "Aguarda o seu sim",
+      "paused": "Espera pausada",
+      "stop": "Parar espera",
+      "details": "Detalhes da espera",
+      "watching": "Vigia {{source}}",
+      "until": "Até {{condition}}",
+      "notChecked": "Ainda não verificado",
+      "checked_one": "Verificado {{count}} vez",
+      "checked_other": "Verificado {{count}} vezes",
+      "checkedAgo_one": "Verificado {{count}} vez, a última {{ago}}",
+      "checkedAgo_other": "Verificado {{count}} vezes, a última {{ago}}",
+      "outcome": {
+        "unchanged": "sem mudança",
+        "changed": "mudou",
+        "error": "falhou"
+      },
+      "ago": "há {{span}}",
+      "justNow": "agora mesmo",
+      "in": "em {{span}}",
+      "now": "agora",
+      "next": "Próxima verificação {{when}}",
+      "deadline": "Desiste às {{time}} ({{when}})",
+      "errorStreak": "A última verificação falhou ({{count}} de {{max}} seguidas)",
+      "errorStreakMsg": "A última verificação falhou ({{count}} de {{max}} seguidas): {{message}}",
+      "lastError": "Último erro: {{message}}",
+      "sources": {
+        "tool": "ferramenta {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "Concluída: a condição foi atendida",
+        "failing_one": "Parada: a fonte falhou {{count}} vez seguida",
+        "failing_other": "Parada: a fonte falhou {{count}} vezes seguidas",
+        "timedOut": "Tempo esgotado, a condição não foi atendida",
+        "stopped": "Espera parada"
+      },
+      "waking": {
+        "met": "A condição foi atendida. Perguntando ao modelo o que fazer.",
+        "failing": "A fonte falhou. Perguntando ao modelo o que fazer.",
+        "timedOut": "Tempo esgotado, a condição não foi atendida. Perguntando ao modelo o que fazer."
+      },
+      "phase": {
+        "waiting": "aguardando",
+        "waking": "acordando o modelo",
+        "paused": "em pausa",
+        "ended": "encerrada",
+        "pending": "aguarda o seu sim"
+      },
+      "endShort": {
+        "condition_met": "condição atendida",
+        "source_failing": "fonte falhou",
+        "timed_out": "tempo esgotado",
+        "stopped": "parada"
+      }
     }
   },
   "changes": {
@@ -1110,5 +1168,9 @@
       "waiting": "A mudança aguarda sua confirmação na página de Add-ons",
       "failed": "O provedor não conseguiu esquecer: {{message}}"
     }
+  },
+  "subAgents": {
+    "waiting": "Aguardando: {{what}}",
+    "looping": "Em loop"
   }
 }

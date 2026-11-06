@@ -730,6 +730,64 @@
       "noChat": "Kirim pesan pertama, lalu mulai perulangan di obrolan ini.",
       "stopped_one": "{{count}} perulangan dihentikan.",
       "stopped_other": "{{count}} perulangan dihentikan."
+    },
+    "wait": {
+      "name": "Menunggu",
+      "kind": "Tunggu",
+      "pending": "Menunggu persetujuan Anda",
+      "paused": "Tunggu dijeda",
+      "stop": "Hentikan tunggu",
+      "details": "Rincian tunggu",
+      "watching": "Memantau {{source}}",
+      "until": "Sampai {{condition}}",
+      "notChecked": "Belum diperiksa",
+      "checked_one": "Diperiksa {{count}} kali",
+      "checked_other": "Diperiksa {{count}} kali",
+      "checkedAgo_one": "Diperiksa {{count}} kali, terakhir {{ago}}",
+      "checkedAgo_other": "Diperiksa {{count}} kali, terakhir {{ago}}",
+      "outcome": {
+        "unchanged": "tidak ada perubahan",
+        "changed": "berubah",
+        "error": "gagal"
+      },
+      "ago": "{{span}} lalu",
+      "justNow": "baru saja",
+      "in": "dalam {{span}}",
+      "now": "sekarang",
+      "next": "Pemeriksaan berikutnya {{when}}",
+      "deadline": "Menyerah pukul {{time}} ({{when}})",
+      "errorStreak": "Pemeriksaan terakhir gagal ({{count}} dari {{max}} berturut-turut)",
+      "errorStreakMsg": "Pemeriksaan terakhir gagal ({{count}} dari {{max}} berturut-turut): {{message}}",
+      "lastError": "Kesalahan terakhir: {{message}}",
+      "sources": {
+        "tool": "alat {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "Selesai: kondisi terpenuhi",
+        "failing_one": "Dihentikan: sumber gagal {{count}} kali berturut-turut",
+        "failing_other": "Dihentikan: sumber gagal {{count}} kali berturut-turut",
+        "timedOut": "Waktu habis, kondisi tidak terpenuhi",
+        "stopped": "Tunggu dihentikan"
+      },
+      "waking": {
+        "met": "Kondisi terpenuhi. Menanyakan ke model apa yang harus dilakukan.",
+        "failing": "Sumber gagal. Menanyakan ke model apa yang harus dilakukan.",
+        "timedOut": "Waktu habis, kondisi tidak terpenuhi. Menanyakan ke model apa yang harus dilakukan."
+      },
+      "phase": {
+        "waiting": "menunggu",
+        "waking": "membangunkan model",
+        "paused": "dijeda",
+        "ended": "berakhir",
+        "pending": "menunggu persetujuan Anda"
+      },
+      "endShort": {
+        "condition_met": "kondisi terpenuhi",
+        "source_failing": "sumber gagal",
+        "timed_out": "waktu habis",
+        "stopped": "dihentikan"
+      }
     }
   },
   "changes": {
@@ -1110,5 +1168,9 @@
       "waiting": "Perubahan menunggu konfirmasi Anda di halaman Add-ons",
       "failed": "Penyedia tidak dapat melupakan: {{message}}"
     }
+  },
+  "subAgents": {
+    "waiting": "Menunggu: {{what}}",
+    "looping": "Berulang"
   }
 }

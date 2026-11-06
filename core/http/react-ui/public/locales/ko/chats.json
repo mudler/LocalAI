@@ -730,6 +730,64 @@
       "noChat": "먼저 메시지를 보낸 다음 이 채팅에서 반복을 시작하세요.",
       "stopped_one": "반복 {{count}}개를 멈췄습니다.",
       "stopped_other": "반복 {{count}}개를 멈췄습니다."
+    },
+    "wait": {
+      "name": "대기 중",
+      "kind": "대기",
+      "pending": "확인을 기다리는 중",
+      "paused": "대기 일시 중지됨",
+      "stop": "대기 중지",
+      "details": "대기 세부 정보",
+      "watching": "{{source}} 감시 중",
+      "until": "{{condition}}까지",
+      "notChecked": "아직 확인하지 않음",
+      "checked_one": "{{count}}번 확인함",
+      "checked_other": "{{count}}번 확인함",
+      "checkedAgo_one": "{{count}}번 확인함, 마지막 {{ago}}",
+      "checkedAgo_other": "{{count}}번 확인함, 마지막 {{ago}}",
+      "outcome": {
+        "unchanged": "변화 없음",
+        "changed": "변경됨",
+        "error": "실패"
+      },
+      "ago": "{{span}} 전",
+      "justNow": "방금",
+      "in": "{{span}} 후",
+      "now": "지금",
+      "next": "다음 확인 {{when}}",
+      "deadline": "{{time}}에 포기 ({{when}})",
+      "errorStreak": "마지막 확인 실패 (연속 {{max}}회 중 {{count}}회)",
+      "errorStreakMsg": "마지막 확인 실패 (연속 {{max}}회 중 {{count}}회): {{message}}",
+      "lastError": "마지막 오류: {{message}}",
+      "sources": {
+        "tool": "도구 {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "완료: 조건이 충족되었습니다",
+        "failing_one": "중지됨: 소스가 연속 {{count}}번 실패했습니다",
+        "failing_other": "중지됨: 소스가 연속 {{count}}번 실패했습니다",
+        "timedOut": "시간 초과, 조건이 충족되지 않았습니다",
+        "stopped": "대기 중지됨"
+      },
+      "waking": {
+        "met": "조건이 충족되었습니다. 모델에게 다음 작업을 묻는 중입니다.",
+        "failing": "소스가 실패했습니다. 모델에게 다음 작업을 묻는 중입니다.",
+        "timedOut": "시간 초과, 조건이 충족되지 않았습니다. 모델에게 다음 작업을 묻는 중입니다."
+      },
+      "phase": {
+        "waiting": "대기 중",
+        "waking": "모델 깨우는 중",
+        "paused": "일시 중지됨",
+        "ended": "종료됨",
+        "pending": "확인 대기 중"
+      },
+      "endShort": {
+        "condition_met": "조건 충족",
+        "source_failing": "소스 실패",
+        "timed_out": "시간 초과",
+        "stopped": "중지됨"
+      }
     }
   },
   "changes": {
@@ -1110,5 +1168,9 @@
       "waiting": "변경은 Add-ons 페이지에서 확인할 때까지 대기합니다",
       "failed": "제공자가 지우지 못했습니다: {{message}}"
     }
+  },
+  "subAgents": {
+    "waiting": "기다리는 중: {{what}}",
+    "looping": "반복 중"
   }
 }

@@ -855,7 +855,9 @@
     "loading": "Reading...",
     "empty": "Nothing yet.",
     "task": "Task",
-    "answer": "Answer"
+    "answer": "Answer",
+    "waiting": "Waiting for: {{what}}",
+    "looping": "Looping"
   },
   "vision": {
     "describedBy": "This model can't look at images. Pick another model, or the image will be described by {{model}}.",
@@ -1052,6 +1054,64 @@
       "noChat": "Send a first message, then start a loop in this chat.",
       "stopped_one": "Stopped {{count}} loop.",
       "stopped_other": "Stopped {{count}} loops."
+    },
+    "wait": {
+      "name": "Waiting for",
+      "kind": "Wait",
+      "pending": "Waiting for your yes",
+      "paused": "Wait paused",
+      "stop": "Stop wait",
+      "details": "Details of the wait",
+      "watching": "Watching {{source}}",
+      "until": "Until {{condition}}",
+      "notChecked": "Not checked yet",
+      "checked_one": "Checked {{count}} time",
+      "checked_other": "Checked {{count}} times",
+      "checkedAgo_one": "Checked {{count}} time, last {{ago}}",
+      "checkedAgo_other": "Checked {{count}} times, last {{ago}}",
+      "outcome": {
+        "unchanged": "no change",
+        "changed": "changed",
+        "error": "failed"
+      },
+      "ago": "{{span}} ago",
+      "justNow": "just now",
+      "in": "in {{span}}",
+      "now": "now",
+      "next": "Next check {{when}}",
+      "deadline": "Gives up at {{time}} ({{when}})",
+      "errorStreak": "Last check failed ({{count}} of {{max}} in a row)",
+      "errorStreakMsg": "Last check failed ({{count}} of {{max}} in a row): {{message}}",
+      "lastError": "Last error: {{message}}",
+      "sources": {
+        "tool": "tool {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "Done: the condition was met",
+        "failing_one": "Stopped: the source failed {{count}} time in a row",
+        "failing_other": "Stopped: the source failed {{count}} times in a row",
+        "timedOut": "Timed out, the condition was not met",
+        "stopped": "Wait stopped"
+      },
+      "waking": {
+        "met": "The condition was met. Asking the model what to do.",
+        "failing": "The source failed. Asking the model what to do.",
+        "timedOut": "Timed out, the condition was not met. Asking the model what to do."
+      },
+      "phase": {
+        "waiting": "waiting",
+        "waking": "waking the model",
+        "paused": "paused",
+        "ended": "ended",
+        "pending": "waits for your yes"
+      },
+      "endShort": {
+        "condition_met": "condition met",
+        "source_failing": "source failed",
+        "timed_out": "timed out",
+        "stopped": "stopped"
+      }
     }
   },
   "changes": {
