@@ -268,6 +268,88 @@ test.describe('Connector permissions', () => {
     await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.channels).toEqual([{ id: 'C0123', label: 'ops', approved: false }])
   })
 
+  // Listening and posting are two settings; the page puts them side by side.
+  // C0789 is heard and is no place, C0123 is a place for a verified person
+  // only, C0456 is a place for any allowed person, and C0999 is a place the bot
+  // does not listen in.
+  const PAIRED = {
+    ...SET,
+    allow: ['U001', 'C0123', 'C0456', 'C0789'],
+    channels: [
+      { id: 'C0123', label: 'ops', approved: false },
+      { id: 'C0456', label: 'alerts', approved: true },
+      { id: 'C0999', label: 'reports', approved: true },
+    ],
+  }
+
+  test('the listening list says whether the bot may post in each channel, and a button makes a channel a place the safe way', async ({ page }) => {
+    const a = api(page, [PAIRED])
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const list = page.getByTestId('connector-who-channels')
+    const status = (id) => list.locator(`[data-testid="connector-trust-row"][data-channel="${id}"]`).getByTestId('connector-post-status')
+    await expect(status('C0123')).toHaveAttribute('data-post', 'verified')
+    await expect(status('C0123')).toContainText('only when a verified person asks')
+    await expect(status('C0456')).toHaveAttribute('data-post', 'any')
+    await expect(status('C0789')).toHaveAttribute('data-post', 'none')
+    await expect(status('C0789')).toContainText('cannot post here')
+    await status('C0789').getByTestId('connector-post-add').click()
+    await expect(status('C0789')).toHaveAttribute('data-post', 'verified')
+    const row = page.getByTestId('connector-channels').locator('[data-testid="connector-channel"][data-id="C0789"]')
+    await expect(row.getByTestId('connector-channel-approved')).toHaveValue('verified')
+    await status('C0123').getByTestId('connector-post-show').click()
+    await expect(page.getByTestId('connector-channels').locator('[data-id="C0123"]').getByTestId('connector-channel-approved')).toBeFocused()
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.channels.map(c => [c.id, c.approved])).toEqual(
+      [['C0123', false], ['C0456', true], ['C0999', true], ['C0789', false]])
+  })
+
+  test('the picker offers the listening channels that are no place yet, and Other types an ID', async ({ page }) => {
+    await api(page, [PAIRED]).install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const box = page.getByTestId('connector-channels')
+    const pick = box.getByTestId('connector-channel-pick')
+    await expect(pick.locator('option')).toHaveText(['Add a place', 'C0789', 'Other: type an ID'])
+    await pick.selectOption('C0789')
+    await expect(box.getByTestId('connector-channel')).toHaveCount(4)
+    await expect(box.locator('[data-id="C0789"]').getByTestId('connector-channel-approved')).toHaveValue('verified')
+    await expect(pick).toHaveCount(0)
+    await expect(box.getByTestId('connector-channel-add')).toBeVisible()
+    await box.getByTestId('connector-channel-add').click()
+    await expect(box.getByTestId('connector-channel-id').nth(4)).toHaveValue('')
+  })
+
+  test('each place says whether scheduled runs can post there, and a place the bot does not hear says so', async ({ page }) => {
+    await api(page, [PAIRED]).install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const hint = (id) => page.getByTestId('connector-channels').locator(`[data-id="${id}"]`).getByTestId('connector-channel-hint')
+    await expect(hint('C0123')).toContainText('Scheduled runs cannot post here. Choose "When any allowed person asks" to let them.')
+    await expect(hint('C0456')).toHaveText('Scheduled runs can post here.')
+    const row = (id) => page.getByTestId('connector-channels').locator(`[data-id="${id}"]`)
+    await expect(row('C0999').getByTestId('connector-channel-nolisten')).toContainText('does not listen in this channel')
+    await expect(row('C0456').getByTestId('connector-channel-nolisten')).toHaveCount(0)
+    await row('C0123').getByTestId('connector-channel-approved').selectOption('any')
+    await expect(hint('C0123')).toHaveText('Scheduled runs can post here.')
+  })
+
+  for (const width of [1280, 390]) {
+    for (const theme of ['light', 'dark']) {
+      test(`shots: listening and places side by side at ${width} wide, ${theme}`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 1000 })
+        await api(page, [PAIRED]).install()
+        await page.goto(PAGE)
+        await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme)
+        await page.getByRole('button', { name: 'Edit' }).click()
+        await expect(page.getByTestId('connector-channels')).toBeVisible()
+        await shotOf(page.getByTestId('connector-who-channels'), `listening-${width}-${theme}`)
+        await shotOf(page.getByTestId('connector-channels'), `places-${width}-${theme}`)
+      })
+    }
+  }
+
   test('reminders go to a person or channel the page knows, or to a saved ID it does not', async ({ page }) => {
     const a = connectorApi(page, [{ ...SET, allow: ['U001', 'C0123'], notify_chat: 'U9999' }], 'slack', [{ id: 'U001', name: 'Ada Example', count: 2, allowed: true }], undefined, { kindExtra: ROLES_KIND, access: ACCESS })
     await a.install()

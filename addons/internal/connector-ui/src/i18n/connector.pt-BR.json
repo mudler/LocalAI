@@ -374,5 +374,16 @@
   "refusals.action": "pediu: {{action}}",
   "refusals.talk": "escreveu ao bot",
   "refusals.allow": "Permitir {{name}}",
-  "refusals.act": "Permitir que membros de {{channel}} ajam"
+  "refusals.act": "Permitir que membros de {{channel}} ajam",
+  "perm.channelPickOther": "Outro: digitar um ID",
+  "perm.channelHint.verified": "Execuções agendadas não podem postar aqui. Escolha \"Quando qualquer pessoa permitida pede\" para permitir.",
+  "perm.channelHint.any": "Execuções agendadas podem postar aqui.",
+  "perm.channelNoListen": "O bot não escuta neste canal, então só vai postar lá.",
+  "who.post.none": "O bot não pode postar aqui.",
+  "who.post.add": "Deixar o bot postar aqui também",
+  "who.post.addFor": "Deixar o bot postar também em {{name}}",
+  "who.post.verified": "Posta aqui só quando uma pessoa verificada pede.",
+  "who.post.any": "Posta aqui quando qualquer pessoa permitida pede.",
+  "who.post.show": "Mostrar o lugar",
+  "who.post.showFor": "Mostrar o lugar de {{name}}"
 }

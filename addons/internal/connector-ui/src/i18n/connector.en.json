@@ -374,5 +374,16 @@
   "refusals.action": "asked for: {{action}}",
   "refusals.talk": "wrote to the bot",
   "refusals.allow": "Allow {{name}}",
-  "refusals.act": "Let {{channel}} members act"
+  "refusals.act": "Let {{channel}} members act",
+  "perm.channelPickOther": "Other: type an ID",
+  "perm.channelHint.verified": "Scheduled runs cannot post here. Choose \"When any allowed person asks\" to let them.",
+  "perm.channelHint.any": "Scheduled runs can post here.",
+  "perm.channelNoListen": "The bot does not listen in this channel, so it will only post there.",
+  "who.post.none": "The bot cannot post here.",
+  "who.post.add": "Let the bot post here too",
+  "who.post.addFor": "Let the bot post in {{name}} too",
+  "who.post.verified": "Posts here only when a verified person asks.",
+  "who.post.any": "Posts here when any allowed person asks.",
+  "who.post.show": "Show the place",
+  "who.post.showFor": "Show the place for {{name}}"
 }
