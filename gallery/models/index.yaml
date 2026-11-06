@@ -5,6 +5,1693 @@
 # master reads it as the default model source; a tagged build reads the gallery
 # until the release cutover.
 - kind: model
+  id: qwen3.8-flash-next-ista-q2_0
+  name: qwen3.8-flash-next-ista-q2_0
+  version: 0.0.0-gallery.720a688a473a
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    ISTA-DASLab's 2-bit GSQ-RCO quantization (Q2_0), the fastest size (about 67 GB
+    to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 38 GB of RAM and VRAM together for the model (34 GB of experts in
+    RAM plus about 10 GB for the system), and fast SSD storage: the 29 GB n-gram
+    table stays on disk. Needs a GPU the strata backend supports; NVIDIA with 12
+    GB of VRAM or more is the class Strata tests. Runs only on the experimental
+    strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the GSQ-RCO quantization by ISTA-DASLab; Strata is by
+    Niko1221. The MTP draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/qwen3.8-flash-next-ista-q2_0/Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00001-of-00002.gguf
+        sha256: 69820c02ec7d0b45ef2ebb19d6620299db749fe2aded7f39f93c6b88b199b720
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/Q2_0/Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00001-of-00002.gguf
+      - filename: strata/models/qwen3.8-flash-next-ista-q2_0/Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00002-of-00002.gguf
+        sha256: 316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/Q2_0/Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00002-of-00002.gguf
+      - filename: strata/models/qwen3.8-flash-next-ista-q2_0/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      - filename: strata/models/qwen3.8-flash-next-ista-q2_0/expert-profile.bin
+        sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/qwen3.8-flash-next-ista-q2_0/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - native:Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00001-of-00002.gguf
+        - ple_gguf:Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00002-of-00002.gguf
+        - expert_profile:expert-profile.bin
+        - pack_gguf:Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00001-of-00002.gguf
+        - mmap_experts:true
+        - engine_args:--expert-cache auto --prefill auto
+      parameters:
+        min_p: 0
+        model: strata/models/qwen3.8-flash-next-ista-q2_0
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: qwen3.8-flash-next-ista-iq2_xs
+  name: qwen3.8-flash-next-ista-iq2_xs
+  version: 0.0.0-gallery.26a4213b8a2c
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    ISTA-DASLab's 2-bit i-quant GSQ-RCO quantization (IQ2_XS), a little better
+    than Q2_0 at close speed (about 69 GB to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 39 GB of RAM and VRAM together for the model (35.5 GB of experts
+    in RAM plus about 10 GB for the system), and fast SSD storage: the 29 GB
+    n-gram table stays on disk. Needs a GPU the strata backend supports; NVIDIA
+    with 12 GB of VRAM or more is the class Strata tests. Runs only on the
+    experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the GSQ-RCO quantization by ISTA-DASLab; Strata is by
+    Niko1221. The MTP draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/qwen3.8-flash-next-ista-iq2_xs/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf
+        sha256: 92cee27ae5bbadcd732416a0f7a7f0acc092399dbbe8f5a5efa707c2ec0a49d7
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/IQ2_XS/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf
+      - filename: strata/models/qwen3.8-flash-next-ista-iq2_xs/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00002-of-00002.gguf
+        sha256: 316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/IQ2_XS/Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00002-of-00002.gguf
+      - filename: strata/models/qwen3.8-flash-next-ista-iq2_xs/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      - filename: strata/models/qwen3.8-flash-next-ista-iq2_xs/expert-profile.bin
+        sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/qwen3.8-flash-next-ista-iq2_xs/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - native:Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf
+        - ple_gguf:Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00002-of-00002.gguf
+        - expert_profile:expert-profile.bin
+        - pack_gguf:Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf
+        - mmap_experts:true
+        - engine_args:--expert-cache auto --prefill auto
+      parameters:
+        min_p: 0
+        model: strata/models/qwen3.8-flash-next-ista-iq2_xs
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: qwen3.8-flash-next-ista-iq3_xxs
+  name: qwen3.8-flash-next-ista-iq3_xxs
+  version: 0.0.0-gallery.b9300fd9e4e6
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    ISTA-DASLab's 3-bit i-quant GSQ-RCO quantization (IQ3_XXS), better quality and
+    slower (about 77 GB to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 47 GB of RAM and VRAM together for the model (43 GB of experts in
+    RAM plus about 10 GB for the system), and fast SSD storage: the 29 GB n-gram
+    table stays on disk. Needs a GPU the strata backend supports; NVIDIA with 12
+    GB of VRAM or more is the class Strata tests. Runs only on the experimental
+    strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the GSQ-RCO quantization by ISTA-DASLab; Strata is by
+    Niko1221. The MTP draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/qwen3.8-flash-next-ista-iq3_xxs/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf
+        sha256: 219ea929900dfa9ef091f3aa473fdba6874b65fcb36526d7d851ac9e95856d15
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/IQ3_XXS/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf
+      - filename: strata/models/qwen3.8-flash-next-ista-iq3_xxs/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00002-of-00002.gguf
+        sha256: 316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/IQ3_XXS/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00002-of-00002.gguf
+      - filename: strata/models/qwen3.8-flash-next-ista-iq3_xxs/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      - filename: strata/models/qwen3.8-flash-next-ista-iq3_xxs/expert-profile.bin
+        sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/qwen3.8-flash-next-ista-iq3_xxs/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - native:Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf
+        - ple_gguf:Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00002-of-00002.gguf
+        - expert_profile:expert-profile.bin
+        - pack_gguf:Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf
+        - mmap_experts:true
+        - engine_args:--expert-cache auto --prefill auto
+      parameters:
+        min_p: 0
+        model: strata/models/qwen3.8-flash-next-ista-iq3_xxs
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: qwen3.8-flash-next-ista-iq3_s
+  name: qwen3.8-flash-next-ista-iq3_s
+  version: 0.0.0-gallery.536e9bf6478a
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    ISTA-DASLab's 3.5-bit i-quant GSQ-RCO quantization (IQ3_S), the best quality
+    of the four, matching the full model on the published tests, and the slowest
+    (about 85 GB to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 55 GB of RAM and VRAM together for the model (50 GB of experts in
+    RAM plus about 10 GB for the system; a 64 GB machine with little else
+    running), and fast SSD storage: the 29 GB n-gram table stays on disk. Needs a
+    GPU the strata backend supports; NVIDIA with 12 GB of VRAM or more is the
+    class Strata tests. Runs only on the experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the GSQ-RCO quantization by ISTA-DASLab; Strata is by
+    Niko1221. The MTP draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/qwen3.8-flash-next-ista-iq3_s/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf
+        sha256: 4c1eb2ceb4915e1192f4f386021897bde56a97f40a0bb78bb86465e0f7d2aca3
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/IQ3_S/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf
+      - filename: strata/models/qwen3.8-flash-next-ista-iq3_s/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf
+        sha256: 316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/IQ3_S/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf
+      - filename: strata/models/qwen3.8-flash-next-ista-iq3_s/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      - filename: strata/models/qwen3.8-flash-next-ista-iq3_s/expert-profile.bin
+        sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/qwen3.8-flash-next-ista-iq3_s/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - native:Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf
+        - ple_gguf:Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf
+        - expert_profile:expert-profile.bin
+        - pack_gguf:Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf
+        - mmap_experts:true
+        - engine_args:--expert-cache auto --prefill auto
+      parameters:
+        min_p: 0
+        model: strata/models/qwen3.8-flash-next-ista-iq3_s
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: qwen3.8-flash-next-coder-iq1_m
+  name: qwen3.8-flash-next-coder-iq1_m
+  version: 0.0.0-gallery.5db30d18ecf5
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    ISTA-DASLab's Coder release (IQ1_M): half of the experts (256 of 512 per
+    layer) are kept, chosen on code, agent and image data, so it is smaller and
+    faster but weaker outside code and in languages other than English (Chinese
+    and other CJK text included) (about 59 GB to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 32 GB of RAM (23 GB of experts in RAM) with a suitable GPU, and
+    fast SSD storage: the 29 GB n-gram table stays on disk. Needs a GPU the strata
+    backend supports; NVIDIA with 12 GB of VRAM or more is the class Strata tests.
+    Runs only on the experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the Coder GSQ-RCO quantization by ISTA-DASLab; Strata is by
+    Niko1221. The MTP draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-Coder-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/qwen3.8-flash-next-coder-iq1_m/Qwen3.8-Flash-Next-GSQ-RCO-IQ1_M-00001-of-00002.gguf
+        sha256: e11083ba855e7666b48ea3f2db6a9c3a20c18751a012cc24f948de91b7087fad
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-Coder-GGUF/resolve/5348543e0147355ac9cbcb031184a3546350988e/IQ1_M/Qwen3.8-Flash-Next-GSQ-RCO-IQ1_M-00001-of-00002.gguf
+      - filename: strata/models/qwen3.8-flash-next-coder-iq1_m/Qwen3.8-Flash-Next-GSQ-RCO-IQ1_M-00002-of-00002.gguf
+        sha256: 316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-Coder-GGUF/resolve/5348543e0147355ac9cbcb031184a3546350988e/IQ1_M/Qwen3.8-Flash-Next-GSQ-RCO-IQ1_M-00002-of-00002.gguf
+      - filename: strata/models/qwen3.8-flash-next-coder-iq1_m/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-Coder-GGUF/resolve/5348543e0147355ac9cbcb031184a3546350988e/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      - filename: strata/models/qwen3.8-flash-next-coder-iq1_m/expert-profile-coder.bin
+        sha256: a514661124d5305effe9c1bcecff7dc069af398b2b19ff9d11628a2cad0a8915
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile-coder.bin
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/qwen3.8-flash-next-coder-iq1_m/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - native:Qwen3.8-Flash-Next-GSQ-RCO-IQ1_M-00001-of-00002.gguf
+        - ple_gguf:Qwen3.8-Flash-Next-GSQ-RCO-IQ1_M-00002-of-00002.gguf
+        - expert_profile:expert-profile-coder.bin
+        - pack_gguf:Qwen3.8-Flash-Next-GSQ-RCO-IQ1_M-00001-of-00002.gguf
+        - mmap_experts:true
+        - engine_args:--expert-cache auto --prefill auto
+      parameters:
+        min_p: 0
+        model: strata/models/qwen3.8-flash-next-coder-iq1_m
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: swift-1.5-qwen3.8-flash-next-iq2_xs
+  name: swift-1.5-qwen3.8-flash-next-iq2_xs
+  version: 0.0.0-gallery.1ef4b1e03f39
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    UkisAI's Swift 1.5 fine-tune, which thinks much shorter before it answers, at
+    2-bit i-quant (IQ2_XS) (about 69 GB to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 39 GB of RAM and VRAM together for the model (the same as the same
+    size of the original), and fast SSD storage for the n-gram table. Needs a GPU
+    the strata backend supports; NVIDIA with 12 GB of VRAM or more is the class
+    Strata tests. Runs only on the experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Two licences apply: UkisAI's Swift Open License 1.0 for the fine-tune, and the
+    Qwen Community License 1.0 for the Qwen3.8-Flash-Next parts it is built from.
+    Read both before you offer the model to other people.
+    The GGUF files are the quantization by UkisAI of its Swift 1.5 fine-tune;
+    Strata is by Niko1221. The MTP draft layer is not configured here.
+  license: swift-open-license-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/swift-1.5-qwen3.8-flash-next-iq2_xs/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf
+        sha256: ca3b302d3d1eb6eddce3ea4acc79854e6cc5fdc0583e374a6a8b6bb67327743b
+        uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/99bb8f7f95c7aa7b24a36a7786a4f657b30f5d3d/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf
+      - filename: strata/models/swift-1.5-qwen3.8-flash-next-iq2_xs/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00002-of-00002.gguf
+        sha256: e4996a6de18fd49c58d9a0040fcfd73787db6407c51973f29884bee7b14c9dbb
+        uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/99bb8f7f95c7aa7b24a36a7786a4f657b30f5d3d/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00002-of-00002.gguf
+      - filename: strata/models/swift-1.5-qwen3.8-flash-next-iq2_xs/mmproj-Swift-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: cd1140f4abba943ce8d9fa92fed8407e389954d26907efde7b72153c75bd8a60
+        uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/99bb8f7f95c7aa7b24a36a7786a4f657b30f5d3d/mmproj-Swift-Qwen3.8-Flash-Next-BF16.gguf
+      - filename: strata/models/swift-1.5-qwen3.8-flash-next-iq2_xs/expert-profile.bin
+        sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/swift-1.5-qwen3.8-flash-next-iq2_xs/mmproj-Swift-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - native:Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf
+        - ple_gguf:Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf
+        - expert_profile:expert-profile.bin
+        - pack_gguf:Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf
+        - mmap_experts:true
+        - engine_args:--expert-cache auto --prefill auto
+      parameters:
+        min_p: 0
+        model: strata/models/swift-1.5-qwen3.8-flash-next-iq2_xs
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: swift-1.5-qwen3.8-flash-next-iq3_xxs
+  name: swift-1.5-qwen3.8-flash-next-iq3_xxs
+  version: 0.0.0-gallery.bb12194ae877
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    UkisAI's Swift 1.5 fine-tune, which thinks much shorter before it answers, at
+    3-bit i-quant (IQ3_XXS) (about 77 GB to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 47 GB of RAM and VRAM together for the model (the same as the same
+    size of the original), and fast SSD storage for the n-gram table. Needs a GPU
+    the strata backend supports; NVIDIA with 12 GB of VRAM or more is the class
+    Strata tests. Runs only on the experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Two licences apply: UkisAI's Swift Open License 1.0 for the fine-tune, and the
+    Qwen Community License 1.0 for the Qwen3.8-Flash-Next parts it is built from.
+    Read both before you offer the model to other people.
+    The GGUF files are the quantization by UkisAI of its Swift 1.5 fine-tune;
+    Strata is by Niko1221. The MTP draft layer is not configured here.
+  license: swift-open-license-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/swift-1.5-qwen3.8-flash-next-iq3_xxs/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf
+        sha256: 3bddaa667c750f63baca766df9433e1afd35a139f401c5ca5e7ff560ceff3d23
+        uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/99bb8f7f95c7aa7b24a36a7786a4f657b30f5d3d/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf
+      - filename: strata/models/swift-1.5-qwen3.8-flash-next-iq3_xxs/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00002-of-00002.gguf
+        sha256: b0b15f782af71eb471909d2f3313b2927c324962f86c084325c247cd411a0160
+        uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/99bb8f7f95c7aa7b24a36a7786a4f657b30f5d3d/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00002-of-00002.gguf
+      - filename: strata/models/swift-1.5-qwen3.8-flash-next-iq3_xxs/mmproj-Swift-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: cd1140f4abba943ce8d9fa92fed8407e389954d26907efde7b72153c75bd8a60
+        uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/99bb8f7f95c7aa7b24a36a7786a4f657b30f5d3d/mmproj-Swift-Qwen3.8-Flash-Next-BF16.gguf
+      - filename: strata/models/swift-1.5-qwen3.8-flash-next-iq3_xxs/expert-profile.bin
+        sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/swift-1.5-qwen3.8-flash-next-iq3_xxs/mmproj-Swift-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - native:Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf
+        - ple_gguf:Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf
+        - expert_profile:expert-profile.bin
+        - pack_gguf:Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_XXS-00001-of-00002.gguf
+        - mmap_experts:true
+        - engine_args:--expert-cache auto --prefill auto
+      parameters:
+        min_p: 0
+        model: strata/models/swift-1.5-qwen3.8-flash-next-iq3_xxs
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: swift-1.5-qwen3.8-flash-next-iq3_s
+  name: swift-1.5-qwen3.8-flash-next-iq3_s
+  version: 0.0.0-gallery.bdb0843cedfe
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    UkisAI's Swift 1.5 fine-tune, which thinks much shorter before it answers, at
+    3.5-bit i-quant (IQ3_S) (about 85 GB to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 55 GB of RAM and VRAM together for the model (the same as the same
+    size of the original), and fast SSD storage for the n-gram table. Needs a GPU
+    the strata backend supports; NVIDIA with 12 GB of VRAM or more is the class
+    Strata tests. Runs only on the experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Two licences apply: UkisAI's Swift Open License 1.0 for the fine-tune, and the
+    Qwen Community License 1.0 for the Qwen3.8-Flash-Next parts it is built from.
+    Read both before you offer the model to other people.
+    The GGUF files are the quantization by UkisAI of its Swift 1.5 fine-tune;
+    Strata is by Niko1221. The MTP draft layer is not configured here.
+  license: swift-open-license-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/swift-1.5-qwen3.8-flash-next-iq3_s/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf
+        sha256: 46cb3996cd1a17fe8bc5ae1f9bb16869480de5a03f17f868d6047a20a46edd3b
+        uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/99bb8f7f95c7aa7b24a36a7786a4f657b30f5d3d/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf
+      - filename: strata/models/swift-1.5-qwen3.8-flash-next-iq3_s/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf
+        sha256: 70ce6fb48a94fe34bd7e9a53a526be68066c64b5a5077cdc82fb31350b66b608
+        uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/99bb8f7f95c7aa7b24a36a7786a4f657b30f5d3d/Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf
+      - filename: strata/models/swift-1.5-qwen3.8-flash-next-iq3_s/mmproj-Swift-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: cd1140f4abba943ce8d9fa92fed8407e389954d26907efde7b72153c75bd8a60
+        uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/99bb8f7f95c7aa7b24a36a7786a4f657b30f5d3d/mmproj-Swift-Qwen3.8-Flash-Next-BF16.gguf
+      - filename: strata/models/swift-1.5-qwen3.8-flash-next-iq3_s/expert-profile.bin
+        sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/swift-1.5-qwen3.8-flash-next-iq3_s/mmproj-Swift-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - native:Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf
+        - ple_gguf:Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf
+        - expert_profile:expert-profile.bin
+        - pack_gguf:Swift-Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf
+        - mmap_experts:true
+        - engine_args:--expert-cache auto --prefill auto
+      parameters:
+        min_p: 0
+        model: strata/models/swift-1.5-qwen3.8-flash-next-iq3_s
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: qwen3.8-flash-next-unsloth-ud-iq4_xs
+  name: qwen3.8-flash-next-unsloth-ud-iq4_xs
+  version: 0.0.0-gallery.3c4ae864275b
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    Unsloth's Dynamic quantization (UD-IQ4_XS, about 4-bit i-quant) (about 95 GB
+    to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 72 GB of RAM to keep every expert in memory; with less, the mapped
+    experts are read from the SSD while it answers, which works and is much
+    slower. Keep the files on an SSD. Needs a GPU the strata backend supports;
+    NVIDIA with 12 GB of VRAM or more is the class Strata tests. Runs only on the
+    experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the Unsloth quantization; the vision projector is
+    ISTA-DASLab's file for the original model; Strata is by Niko1221. The MTP
+    draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq4_xs/Qwen3.8-Flash-Next-UD-IQ4_XS-00001-of-00003.gguf
+        sha256: 5ce89370720f8bf90890f439361282104c1aa1482d4013bb9a50923e758e71a4
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-IQ4_XS/Qwen3.8-Flash-Next-UD-IQ4_XS-00001-of-00003.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq4_xs/Qwen3.8-Flash-Next-UD-IQ4_XS-00002-of-00003.gguf
+        sha256: 577a38a2392b40ca2193cea502e1d92f60b8cd370675d308e0ec21885d9daaa7
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-IQ4_XS/Qwen3.8-Flash-Next-UD-IQ4_XS-00002-of-00003.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq4_xs/Qwen3.8-Flash-Next-UD-IQ4_XS-00003-of-00003.gguf
+        sha256: d4634e6d84f0ebb0940be15c90d3790bf6464e3dea3a1cddc567dc0e83ad8833
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-IQ4_XS/Qwen3.8-Flash-Next-UD-IQ4_XS-00003-of-00003.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq4_xs/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq4_xs/expert-profile.bin
+        sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/qwen3.8-flash-next-unsloth-ud-iq4_xs/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - native:Qwen3.8-Flash-Next-UD-IQ4_XS-00001-of-00003.gguf
+        - expert_profile:expert-profile.bin
+        - pack_gguf:Qwen3.8-Flash-Next-UD-IQ4_XS-00001-of-00003.gguf
+        - pack_args:--compat-bf16
+        - mmap_experts:true
+        - engine_args:--expert-cache auto --prefill auto
+      parameters:
+        min_p: 0
+        model: strata/models/qwen3.8-flash-next-unsloth-ud-iq4_xs
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: qwen3.8-flash-next-unsloth-ud-q4_k_xl
+  name: qwen3.8-flash-next-unsloth-ud-q4_k_xl
+  version: 0.0.0-gallery.6c58c94abf86
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    Unsloth's Dynamic quantization (UD-Q4_K_XL, 4-bit) (about 112 GB to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 88 GB of RAM to keep every expert in memory; with less, the mapped
+    experts are read from the SSD while it answers, which works and is much
+    slower. Keep the files on an SSD. Needs a GPU the strata backend supports;
+    NVIDIA with 12 GB of VRAM or more is the class Strata tests. Runs only on the
+    experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the Unsloth quantization; the vision projector is
+    ISTA-DASLab's file for the original model; Strata is by Niko1221. The MTP
+    draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q4_k_xl/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+        sha256: 4448186216b3af4cc558bbce2c3213f01608f8f8b2e5267a9767971dd3ec8082
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q4_k_xl/Qwen3.8-Flash-Next-UD-Q4_K_XL-00002-of-00004.gguf
+        sha256: 3f342f1c1580473f1ee94ddd5b28206e8c07a70fa1a366f59d1d6c922919a6c9
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00002-of-00004.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q4_k_xl/Qwen3.8-Flash-Next-UD-Q4_K_XL-00003-of-00004.gguf
+        sha256: 56758f40269cad5cd9b0d3d6fbae0f40f6d5be6de49e4ab392dbe83157d9cbd3
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00003-of-00004.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q4_k_xl/Qwen3.8-Flash-Next-UD-Q4_K_XL-00004-of-00004.gguf
+        sha256: 753bda48b98ba4f1636134a90a967de1b2d3908a236c026e464777342e53510a
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00004-of-00004.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q4_k_xl/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q4_k_xl/expert-profile.bin
+        sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/qwen3.8-flash-next-unsloth-ud-q4_k_xl/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - native:Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+        - expert_profile:expert-profile.bin
+        - pack_gguf:Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+        - pack_args:--compat-bf16
+        - mmap_experts:true
+        - engine_args:--expert-cache auto --prefill auto
+      parameters:
+        min_p: 0
+        model: strata/models/qwen3.8-flash-next-unsloth-ud-q4_k_xl
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: qwen3.8-flash-next-unsloth-ud-q5_k_xl
+  name: qwen3.8-flash-next-unsloth-ud-q5_k_xl
+  version: 0.0.0-gallery.2a2755b003c5
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    Unsloth's Dynamic quantization (UD-Q5_K_XL, 5-bit, close to Q8_0) (about 159
+    GB to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 108 GB of RAM to keep every expert in memory; with less, the
+    mapped experts are read from the SSD while it answers, which works and is much
+    slower. Keep the files on an SSD. Needs a GPU the strata backend supports;
+    NVIDIA with 12 GB of VRAM or more is the class Strata tests. Runs only on the
+    experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the Unsloth quantization; the vision projector is
+    ISTA-DASLab's file for the original model; Strata is by Niko1221. The MTP
+    draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q5_k_xl/Qwen3.8-Flash-Next-UD-Q5_K_XL-00001-of-00006.gguf
+        sha256: 610922cdb1afe1094e95d7a3e86b12ee33317ebbf7320ac9344e21b6ae4bb69f
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q5_K_XL/Qwen3.8-Flash-Next-UD-Q5_K_XL-00001-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q5_k_xl/Qwen3.8-Flash-Next-UD-Q5_K_XL-00002-of-00006.gguf
+        sha256: 494ca4ed3dbf97bc28da88af3890b8877b9032f909812d00c0526a9ca5e91d2e
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q5_K_XL/Qwen3.8-Flash-Next-UD-Q5_K_XL-00002-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q5_k_xl/Qwen3.8-Flash-Next-UD-Q5_K_XL-00003-of-00006.gguf
+        sha256: 34efd79a80a1ce540a517a5d56171924b66ce1c38b04c904f17ad6d8ef17cf20
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q5_K_XL/Qwen3.8-Flash-Next-UD-Q5_K_XL-00003-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q5_k_xl/Qwen3.8-Flash-Next-UD-Q5_K_XL-00004-of-00006.gguf
+        sha256: 9ee6bbe462e6830864382d629101490625b1c95afa15492b7ad550c7bed2dd13
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q5_K_XL/Qwen3.8-Flash-Next-UD-Q5_K_XL-00004-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q5_k_xl/Qwen3.8-Flash-Next-UD-Q5_K_XL-00005-of-00006.gguf
+        sha256: 0b2437f661f584030cb5aeb8fb1bb70f6422518a6746bfcc0304167c7b6b8beb
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q5_K_XL/Qwen3.8-Flash-Next-UD-Q5_K_XL-00005-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q5_k_xl/Qwen3.8-Flash-Next-UD-Q5_K_XL-00006-of-00006.gguf
+        sha256: 55dd96c5ad0863b06b6393151b9ad0ac727b8d58a62e02a296ca5d5ddbfee4a3
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q5_K_XL/Qwen3.8-Flash-Next-UD-Q5_K_XL-00006-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q5_k_xl/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q5_k_xl/expert-profile.bin
+        sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/qwen3.8-flash-next-unsloth-ud-q5_k_xl/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - native:Qwen3.8-Flash-Next-UD-Q5_K_XL-00001-of-00006.gguf
+        - expert_profile:expert-profile.bin
+        - pack_gguf:Qwen3.8-Flash-Next-UD-Q5_K_XL-00001-of-00006.gguf
+        - pack_args:--compat-bf16
+        - mmap_experts:true
+        - engine_args:--expert-cache auto --prefill auto
+      parameters:
+        min_p: 0
+        model: strata/models/qwen3.8-flash-next-unsloth-ud-q5_k_xl
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: qwen3.8-flash-next-unsloth-ud-q6_k_xl
+  name: qwen3.8-flash-next-unsloth-ud-q6_k_xl
+  version: 0.0.0-gallery.ab5afe7ea8b3
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    Unsloth's Dynamic quantization (UD-Q6_K_XL, 6-bit) (about 170 GB to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 118 GB of RAM to keep every expert in memory; with less, the
+    mapped experts are read from the SSD while it answers, which works and is much
+    slower. Keep the files on an SSD. Needs a GPU the strata backend supports;
+    NVIDIA with 12 GB of VRAM or more is the class Strata tests. Runs only on the
+    experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the Unsloth quantization; the vision projector is
+    ISTA-DASLab's file for the original model; Strata is by Niko1221. The MTP
+    draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q6_k_xl/Qwen3.8-Flash-Next-UD-Q6_K_XL-00001-of-00006.gguf
+        sha256: 8bdc6bad55b6699f46f60708829932ff4018d7ac9bd309c388534fa31753bdb7
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q6_K_XL/Qwen3.8-Flash-Next-UD-Q6_K_XL-00001-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q6_k_xl/Qwen3.8-Flash-Next-UD-Q6_K_XL-00002-of-00006.gguf
+        sha256: 494ca4ed3dbf97bc28da88af3890b8877b9032f909812d00c0526a9ca5e91d2e
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q6_K_XL/Qwen3.8-Flash-Next-UD-Q6_K_XL-00002-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q6_k_xl/Qwen3.8-Flash-Next-UD-Q6_K_XL-00003-of-00006.gguf
+        sha256: 34efd79a80a1ce540a517a5d56171924b66ce1c38b04c904f17ad6d8ef17cf20
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q6_K_XL/Qwen3.8-Flash-Next-UD-Q6_K_XL-00003-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q6_k_xl/Qwen3.8-Flash-Next-UD-Q6_K_XL-00004-of-00006.gguf
+        sha256: 0ea4b599880a5a52fcd9c188ba1443f646c69c96571904ddbd6a79246a01a997
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q6_K_XL/Qwen3.8-Flash-Next-UD-Q6_K_XL-00004-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q6_k_xl/Qwen3.8-Flash-Next-UD-Q6_K_XL-00005-of-00006.gguf
+        sha256: 9948e81ae8368144b135a7403d8c0f2cf9a6c2f9f692313865855b2832e696c9
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q6_K_XL/Qwen3.8-Flash-Next-UD-Q6_K_XL-00005-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q6_k_xl/Qwen3.8-Flash-Next-UD-Q6_K_XL-00006-of-00006.gguf
+        sha256: e4ae255234f42b18012f6d6eec5bf615b57479b7e0a0233c47436a321ffeec3f
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/UD-Q6_K_XL/Qwen3.8-Flash-Next-UD-Q6_K_XL-00006-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q6_k_xl/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q6_k_xl/expert-profile.bin
+        sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/qwen3.8-flash-next-unsloth-ud-q6_k_xl/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - native:Qwen3.8-Flash-Next-UD-Q6_K_XL-00001-of-00006.gguf
+        - expert_profile:expert-profile.bin
+        - pack_gguf:Qwen3.8-Flash-Next-UD-Q6_K_XL-00001-of-00006.gguf
+        - pack_args:--compat-bf16
+        - mmap_experts:true
+        - engine_args:--expert-cache auto --prefill auto
+      parameters:
+        min_p: 0
+        model: strata/models/qwen3.8-flash-next-unsloth-ud-q6_k_xl
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: qwen3.8-flash-next-unsloth-q8_0
+  name: qwen3.8-flash-next-unsloth-q8_0
+  version: 0.0.0-gallery.304111152c63
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    Unsloth's Dynamic quantization (Q8_0, 8-bit, the reference quality) (about 189
+    GB to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 136 GB of RAM to keep every expert in memory; with less, the
+    mapped experts are read from the SSD while it answers, which works and is much
+    slower. Keep the files on an SSD. Needs a GPU the strata backend supports;
+    NVIDIA with 12 GB of VRAM or more is the class Strata tests. Runs only on the
+    experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the Unsloth quantization; the vision projector is
+    ISTA-DASLab's file for the original model; Strata is by Niko1221. The MTP
+    draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/qwen3.8-flash-next-unsloth-q8_0/Qwen3.8-Flash-Next-Q8_0-00001-of-00006.gguf
+        sha256: 2dabcbb53ca537a7947bc7d20414fd464eeaf4d66d43021b5b2556cc87544ad2
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/Q8_0/Qwen3.8-Flash-Next-Q8_0-00001-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-q8_0/Qwen3.8-Flash-Next-Q8_0-00002-of-00006.gguf
+        sha256: 494ca4ed3dbf97bc28da88af3890b8877b9032f909812d00c0526a9ca5e91d2e
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/Q8_0/Qwen3.8-Flash-Next-Q8_0-00002-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-q8_0/Qwen3.8-Flash-Next-Q8_0-00003-of-00006.gguf
+        sha256: 34efd79a80a1ce540a517a5d56171924b66ce1c38b04c904f17ad6d8ef17cf20
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/Q8_0/Qwen3.8-Flash-Next-Q8_0-00003-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-q8_0/Qwen3.8-Flash-Next-Q8_0-00004-of-00006.gguf
+        sha256: bfa634025fabbd2658bf7694bc80b90e571699c768723f844c934c7ef06c691a
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/Q8_0/Qwen3.8-Flash-Next-Q8_0-00004-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-q8_0/Qwen3.8-Flash-Next-Q8_0-00005-of-00006.gguf
+        sha256: 232a8f14cc0fa4262e7efe8593774b136fe40909e39c7a020342ddaa27259a97
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/Q8_0/Qwen3.8-Flash-Next-Q8_0-00005-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-q8_0/Qwen3.8-Flash-Next-Q8_0-00006-of-00006.gguf
+        sha256: 538a93bca918064983409a41187ad4c68640f9aced6f29564da8f551bf86d7a5
+        uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/38bb39ee97821de2c9009abb7e93950eec396e66/Q8_0/Qwen3.8-Flash-Next-Q8_0-00006-of-00006.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-q8_0/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      - filename: strata/models/qwen3.8-flash-next-unsloth-q8_0/expert-profile.bin
+        sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/qwen3.8-flash-next-unsloth-q8_0/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - native:Qwen3.8-Flash-Next-Q8_0-00001-of-00006.gguf
+        - expert_profile:expert-profile.bin
+        - pack_gguf:Qwen3.8-Flash-Next-Q8_0-00001-of-00006.gguf
+        - pack_args:--compat-bf16
+        - mmap_experts:true
+        - engine_args:--expert-cache auto --prefill auto
+      parameters:
+        min_p: 0
+        model: strata/models/qwen3.8-flash-next-unsloth-q8_0
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: qwen3.8-flash-next-gyro-s
+  name: qwen3.8-flash-next-gyro-s
+  version: 0.0.0-gallery.d8d6880678b5
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    agentionai's Gyro-S quantization (trellis-coded experts), the smallest option,
+    for machines with little memory and lower in quality (about 59 GB to
+    download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 28 GB of VRAM and RAM together for the weights. Half of the file
+    is the n-gram table, which stays on disk and is read for every token, so keep
+    it on a fast local SSD. Needs a GPU the strata backend supports; NVIDIA with
+    12 GB of VRAM or more is the class Strata tests. Runs only on the experimental
+    strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF file is the Gyro quantization by agentionai; the vision projector is
+    ISTA-DASLab's file for the original model; Strata is by Niko1221. The MTP
+    draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/agentionai/Qwen3.8-Flash-Next-Gyro-GGUF
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/qwen3.8-flash-next-gyro-s/Qwen3.8-Flash-Next-Gyro-S-TQ1_0.gguf
+        sha256: c6ea1b08ca312f99095b27588ba35976b53f948268e7f91e7761926aa01d9c87
+        uri: https://huggingface.co/agentionai/Qwen3.8-Flash-Next-Gyro-GGUF/resolve/1ada08422e404aca51ab9df665f089f34c419c6b/Qwen3.8-Flash-Next-Gyro-S-TQ1_0.gguf
+      - filename: strata/models/qwen3.8-flash-next-gyro-s/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      - filename: strata/models/qwen3.8-flash-next-gyro-s/expert-profile.bin
+        sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/qwen3.8-flash-next-gyro-s/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - native:Qwen3.8-Flash-Next-Gyro-S-TQ1_0.gguf
+        - ple_gguf:Qwen3.8-Flash-Next-Gyro-S-TQ1_0.gguf
+        - expert_profile:expert-profile.bin
+        - pack_gguf:Qwen3.8-Flash-Next-Gyro-S-TQ1_0.gguf
+        - pack_args:--compat-bf16
+        - mmap_experts:true
+        - engine_args:--expert-cache auto --prefill auto
+      parameters:
+        min_p: 0
+        model: strata/models/qwen3.8-flash-next-gyro-s
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: qwen3.8-flash-next-gyro-m
+  name: qwen3.8-flash-next-gyro-m
+  version: 0.0.0-gallery.6f1efd8c2e75
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    agentionai's Gyro-M quantization (trellis-coded experts), about IQ3_XXS
+    quality with about 20% less GPU memory, 16 to 21% slower than Q2_0 (about 93
+    GB to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 35 GB of VRAM and RAM together for the weights. Half of the file
+    is the n-gram table, which stays on disk and is read for every token, so keep
+    it on a fast local SSD. Needs a GPU the strata backend supports; NVIDIA with
+    12 GB of VRAM or more is the class Strata tests. Runs only on the experimental
+    strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF file is the Gyro quantization by agentionai; the vision projector is
+    ISTA-DASLab's file for the original model; Strata is by Niko1221. The MTP
+    draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/agentionai/Qwen3.8-Flash-Next-Gyro-GGUF
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/qwen3.8-flash-next-gyro-m/Qwen3.8-Flash-Next-Gyro-M-TQ2_0.gguf
+        sha256: 7aa36d15131d255179ab6c87fa9c9f81a0b541fc9e81e959d4c3e29eb20feb5f
+        uri: https://huggingface.co/agentionai/Qwen3.8-Flash-Next-Gyro-GGUF/resolve/1ada08422e404aca51ab9df665f089f34c419c6b/Qwen3.8-Flash-Next-Gyro-M-TQ2_0.gguf
+      - filename: strata/models/qwen3.8-flash-next-gyro-m/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+        sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+        uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      - filename: strata/models/qwen3.8-flash-next-gyro-m/expert-profile.bin
+        sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/qwen3.8-flash-next-gyro-m/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      options:
+        - native:Qwen3.8-Flash-Next-Gyro-M-TQ2_0.gguf
+        - ple_gguf:Qwen3.8-Flash-Next-Gyro-M-TQ2_0.gguf
+        - expert_profile:expert-profile.bin
+        - pack_gguf:Qwen3.8-Flash-Next-Gyro-M-TQ2_0.gguf
+        - pack_args:--compat-bf16
+        - mmap_experts:true
+        - engine_args:--expert-cache auto --prefill auto
+      parameters:
+        min_p: 0
+        model: strata/models/qwen3.8-flash-next-gyro-m
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: qwen3.6-35b-a3b-ud-q4_k_xl-strata
+  name: qwen3.6-35b-a3b-ud-q4_k_xl-strata
+  version: 0.0.0-gallery.4c694e7d282f
+  description: |
+    Qwen3.6-35B-A3B, a 35B-parameter mixture-of-experts model with 3B active
+    parameters, in Unsloth's 4-bit (Unsloth Dynamic), the smallest GGUF with the
+    MTP layer (about 24 GB to download). It reads images through Unsloth's vision
+    projector, and the Strata backend parses its reasoning and tool calls.
+    Needs an NVIDIA or AMD GPU (the Intel Arc and Apple builds of Strata do not
+    run this model) and about 32 GB of RAM: the engine keeps every expert it can
+    in VRAM and computes the rest on the CPU. Runs only on the experimental strata
+    backend.
+    On the first load the strata backend exports the tokenizer and chat template
+    from the GGUF file (seconds); the engine reads the GGUF as it is. The MTP
+    draft layer inside the file is used for speculative decoding.
+    Licensed under the Apache License 2.0 (Qwen/Qwen3.6-35B-A3B). The GGUF files
+    are the Unsloth quantization; Strata is by Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.6-35B-A3B
+    - https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF
+    - https://github.com/Niko1221/Strata
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+    - qwen3.6
+    - rocm
+    - amd
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/qwen3.6-35b-a3b-ud-q4_k_xl-strata/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf
+        sha256: 55983c5a75a1ab969824077b3bb3de4146e82a9234072b48ad4e8f92ad3fe9f1
+        uri: https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/5bc3e238d916f48a861bac2f8a1990a0e9b7e98d/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf
+      - filename: strata/models/qwen3.6-35b-a3b-ud-q4_k_xl-strata/mmproj-F16.gguf
+        sha256: 71f3cbc1f7cc0f30d09d41cfa924c0060827ebc33bf15ace7e86661e856f0160
+        uri: https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/5bc3e238d916f48a861bac2f8a1990a0e9b7e98d/mmproj-F16.gguf
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/qwen3.6-35b-a3b-ud-q4_k_xl-strata/mmproj-F16.gguf
+      options:
+        - native:Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf
+        - pack_gguf:Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf
+        - pack_tool:tokenizer
+        - engine_args:--prefill auto --mtp 2
+      parameters:
+        min_p: 0
+        model: strata/models/qwen3.6-35b-a3b-ud-q4_k_xl-strata
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: qwen3.6-35b-a3b-ud-q6_k_xl-strata
+  name: qwen3.6-35b-a3b-ud-q6_k_xl-strata
+  version: 0.0.0-gallery.eedcaad53002
+  description: |
+    Qwen3.6-35B-A3B, a 35B-parameter mixture-of-experts model with 3B active
+    parameters, in Unsloth's 6-bit (Unsloth Dynamic), closer to the full model
+    GGUF with the MTP layer (about 34 GB to download). It reads images through
+    Unsloth's vision projector, and the Strata backend parses its reasoning and
+    tool calls.
+    Needs an NVIDIA or AMD GPU (the Intel Arc and Apple builds of Strata do not
+    run this model) and about 44 GB of RAM: the engine keeps every expert it can
+    in VRAM and computes the rest on the CPU. Runs only on the experimental strata
+    backend.
+    On the first load the strata backend exports the tokenizer and chat template
+    from the GGUF file (seconds); the engine reads the GGUF as it is. The MTP
+    draft layer inside the file is used for speculative decoding.
+    Licensed under the Apache License 2.0 (Qwen/Qwen3.6-35B-A3B). The GGUF files
+    are the Unsloth quantization; Strata is by Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.6-35B-A3B
+    - https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF
+    - https://github.com/Niko1221/Strata
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+    - qwen3.6
+    - rocm
+    - amd
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/qwen3.6-35b-a3b-ud-q6_k_xl-strata/Qwen3.6-35B-A3B-UD-Q6_K_XL.gguf
+        sha256: 35fce994cd36104a7dc1bd8a4bdf13778145664c00fdef6773aebc9246e5019c
+        uri: https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/5bc3e238d916f48a861bac2f8a1990a0e9b7e98d/Qwen3.6-35B-A3B-UD-Q6_K_XL.gguf
+      - filename: strata/models/qwen3.6-35b-a3b-ud-q6_k_xl-strata/mmproj-F16.gguf
+        sha256: 71f3cbc1f7cc0f30d09d41cfa924c0060827ebc33bf15ace7e86661e856f0160
+        uri: https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/5bc3e238d916f48a861bac2f8a1990a0e9b7e98d/mmproj-F16.gguf
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/qwen3.6-35b-a3b-ud-q6_k_xl-strata/mmproj-F16.gguf
+      options:
+        - native:Qwen3.6-35B-A3B-UD-Q6_K_XL.gguf
+        - pack_gguf:Qwen3.6-35B-A3B-UD-Q6_K_XL.gguf
+        - pack_tool:tokenizer
+        - engine_args:--prefill auto --mtp 2
+      parameters:
+        min_p: 0
+        model: strata/models/qwen3.6-35b-a3b-ud-q6_k_xl-strata
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: qwen3.6-35b-a3b-q8_0-strata
+  name: qwen3.6-35b-a3b-q8_0-strata
+  version: 0.0.0-gallery.5bcc05e04409
+  description: |
+    Qwen3.6-35B-A3B, a 35B-parameter mixture-of-experts model with 3B active
+    parameters, in Unsloth's 8-bit, the closest to the full model GGUF with the
+    MTP layer (about 39 GB to download). It reads images through Unsloth's vision
+    projector, and the Strata backend parses its reasoning and tool calls.
+    Needs an NVIDIA or AMD GPU (the Intel Arc and Apple builds of Strata do not
+    run this model) and about 52 GB of RAM: the engine keeps every expert it can
+    in VRAM and computes the rest on the CPU. Runs only on the experimental strata
+    backend.
+    On the first load the strata backend exports the tokenizer and chat template
+    from the GGUF file (seconds); the engine reads the GGUF as it is. The MTP
+    draft layer inside the file is used for speculative decoding.
+    Licensed under the Apache License 2.0 (Qwen/Qwen3.6-35B-A3B). The GGUF files
+    are the Unsloth quantization; Strata is by Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.6-35B-A3B
+    - https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF
+    - https://github.com/Niko1221/Strata
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+    - qwen3.6
+    - rocm
+    - amd
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/qwen3.6-35b-a3b-q8_0-strata/Qwen3.6-35B-A3B-Q8_0.gguf
+        sha256: c1283d8b80c3e38b2735ddbc9766d3b3126f44d6c484be419d4e101d09a76131
+        uri: https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/5bc3e238d916f48a861bac2f8a1990a0e9b7e98d/Qwen3.6-35B-A3B-Q8_0.gguf
+      - filename: strata/models/qwen3.6-35b-a3b-q8_0-strata/mmproj-F16.gguf
+        sha256: 71f3cbc1f7cc0f30d09d41cfa924c0060827ebc33bf15ace7e86661e856f0160
+        uri: https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/5bc3e238d916f48a861bac2f8a1990a0e9b7e98d/mmproj-F16.gguf
+    overrides:
+      backend: strata
+      context_size: 32768
+      function:
+        grammar:
+          disable: true
+      known_input_modalities:
+        - text
+        - image
+      known_usecases:
+        - chat
+        - vision
+      mmproj: strata/models/qwen3.6-35b-a3b-q8_0-strata/mmproj-F16.gguf
+      options:
+        - native:Qwen3.6-35B-A3B-Q8_0.gguf
+        - pack_gguf:Qwen3.6-35B-A3B-Q8_0.gguf
+        - pack_tool:tokenizer
+        - engine_args:--prefill auto --mtp 2
+      parameters:
+        min_p: 0
+        model: strata/models/qwen3.6-35b-a3b-q8_0-strata
+        temperature: 1.0
+        top_k: 20
+        top_p: 0.95
+      template:
+        use_tokenizer_template: true
+- kind: model
   id: qwen3.8-flash-next-nvfp4-gptq
   name: qwen3.8-flash-next-nvfp4-gptq
   version: 0.0.0-gallery.96123793bca6

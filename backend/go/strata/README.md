@@ -37,6 +37,9 @@ renders the prompt with the model's own chat template.
 | `python` | no | Python executable. Default `python3`. |
 | `pack` | no | Pack directory, when it is not the model directory itself or its `pack/` subdirectory. |
 | `native`, `native_dense_gguf`, `ple_gguf`, `embd_gguf`, `expert_profile`, `mtp` | no | Files the engine reads next to the pack. Each becomes the engine flag of the same name (`--native`, `--native-dense-gguf`, `--ple-gguf`, `--embd-gguf`, `--expert-profile`, `--mtp`). A relative path is looked up in the pack directory, the models directory and the pack's parent. |
+| `pack_gguf` | no | The first GGUF shard (relative to the model directory). When the model directory has no finished `pack/`, `Load` builds it from these files with Strata's pack tool. See "Building the pack". |
+| `pack_tool` | no | `iq_pack` (default): `tools/iq_pack.py`, the index, dense weights and tokenizer. `tokenizer`: `tools/strata_tokenizer.py`, only the tokenizer, for models whose engine path reads the GGUF as it is (Qwen3.6-35B-A3B); `--pack` is then not passed to the engine. |
+| `pack_args`, `pack_timeout`, `build_pack` | no | Extra arguments for the tool (split on spaces; `--compat-bf16` for the Unsloth and Gyro files), a Go duration (default `2h`), and `build_pack:false` to turn the build off. |
 | `ple_io`, `mmap_experts` | no | `--ple-io <mode>` and `--mmap-experts` (`true`). |
 | `engine_args` | no | Extra engine arguments, split on spaces. Placed last, so they can override the options above. |
 | `env` | no | `KEY=VALUE` for the engine process. Repeat the option for more. LocalAI's `environment` map is passed too. |
@@ -67,6 +70,21 @@ A Strata model is not one file. The directory LocalAI points at holds, or the op
 
 `Load` fails when no `tokenizer/vocab.json` is found, so the backend does not capture unrelated models
 during backend probing.
+
+### Building the pack
+
+With `pack_gguf` set, `Load` checks `<model dir>/pack`. A pack is finished when it has
+`native_experts.txt`, `index.txt` and `tokenizer/vocab.json` (for `pack_tool:tokenizer`:
+`tokenizer/vocab.json` and `tokenizer/chat_template.jinja`). A finished pack is used as it is and never
+rebuilt. Otherwise the backend runs `python <strata_root>/tools/<tool> --gguf <shard> --out pack.partial`,
+streams the tool's output to the log, and renames `pack.partial` to `pack` when the tool succeeds. A
+failure or the `pack_timeout` removes `pack.partial` and fails the load with the last lines of the
+tool. A `pack/` directory that exists but is not finished is not touched: the load fails and asks you to
+remove it. The tool reads the experts from the GGUF files in place, so the pack is a few GB. Builds of
+one model directory must not run at the same time. The tool needs numpy, and gguf-py (for
+`--compat-bf16`). The image carries both, under `strata-src/third_party/llama.cpp/gguf-py`.
+
+The gallery entries for the GGUF models set `pack_gguf`, so they download only the GGUF files.
 
 Example:
 
@@ -195,9 +213,9 @@ answer-room limits of the server are not applied.
 ## Known gaps
 
 - Protocol is unversioned (see above). `engine_args` is not validated.
-- The Python helper needs a Strata source tree and Python packages next to the backend image. The
-  backend image alone is not enough to run a model, and it does not contain the engine.
-- The gallery has entries for the two ready-made NVFP4 packs only (see the feature page). Models whose pack Strata builds from GGUF files are not in it.
+- The Python helper needs a Strata source tree and Python packages. The backend image has them; running outside the image needs them set up by hand.
+- The gallery has entries for the ready-made NVFP4 packs and for the GGUF models (see the feature page). Not in it: DeepSeek V4.1-Flash (a separate engine, `strata-dsv41`, and its own tokenizer), NVIDIA's FP4-QAD checkpoint (needs a conversion first) and OrcaRouter (manual).
+- The pack build and the GGUF entries have been tested with a stand-in interpreter and the real tool's imports only; no model has been packed and no real engine has run.
 - CI builds Linux amd64 CUDA 12 and 13 images only. No CPU, ROCm, Darwin or arm64 build.
 - Split or multi-GPU layouts and the drafter options are reachable only through `engine_args`, untested.
 
