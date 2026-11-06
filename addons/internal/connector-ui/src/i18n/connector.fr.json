@@ -374,5 +374,16 @@
   "refusals.action": "a demandé : {{action}}",
   "refusals.talk": "a écrit au bot",
   "refusals.allow": "Autoriser {{name}}",
-  "refusals.act": "Laisser les membres de {{channel}} agir"
+  "refusals.act": "Laisser les membres de {{channel}} agir",
+  "perm.channelPickOther": "Autre : saisir un ID",
+  "perm.channelHint.verified": "Les exécutions planifiées ne peuvent pas publier ici. Choisissez \"Quand une personne autorisée le demande\" pour le leur permettre.",
+  "perm.channelHint.any": "Les exécutions planifiées peuvent publier ici.",
+  "perm.channelNoListen": "Le bot n'écoute pas dans ce canal, il y publiera seulement.",
+  "who.post.none": "Le bot ne peut pas publier ici.",
+  "who.post.add": "Laisser aussi le bot publier ici",
+  "who.post.addFor": "Laisser aussi le bot publier dans {{name}}",
+  "who.post.verified": "Publie ici seulement quand une personne vérifiée le demande.",
+  "who.post.any": "Publie ici quand une personne autorisée le demande.",
+  "who.post.show": "Afficher le lieu",
+  "who.post.showFor": "Afficher le lieu de {{name}}"
 }

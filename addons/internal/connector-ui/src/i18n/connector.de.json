@@ -374,5 +374,16 @@
   "refusals.action": "wollte: {{action}}",
   "refusals.talk": "hat dem Bot geschrieben",
   "refusals.allow": "{{name}} erlauben",
-  "refusals.act": "Mitgliedern von {{channel}} Aktionen erlauben"
+  "refusals.act": "Mitgliedern von {{channel}} Aktionen erlauben",
+  "perm.channelPickOther": "Andere: ID eingeben",
+  "perm.channelHint.verified": "Geplante Läufe können hier nicht schreiben. Wähle \"Wenn eine erlaubte Person darum bittet\", damit sie es können.",
+  "perm.channelHint.any": "Geplante Läufe können hier schreiben.",
+  "perm.channelNoListen": "Der Bot hört in diesem Kanal nicht zu und schreibt dort nur.",
+  "who.post.none": "Der Bot kann hier nicht schreiben.",
+  "who.post.add": "Bot darf hier auch schreiben",
+  "who.post.addFor": "Bot darf auch in {{name}} schreiben",
+  "who.post.verified": "Schreibt hier nur, wenn eine verifizierte Person darum bittet.",
+  "who.post.any": "Schreibt hier, wenn eine erlaubte Person darum bittet.",
+  "who.post.show": "Ort anzeigen",
+  "who.post.showFor": "Ort für {{name}} anzeigen"
 }

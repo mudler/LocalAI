@@ -1401,7 +1401,8 @@ type ChatsTriggerList struct {
 }
 
 // ChatsTriggerRun is one start of a trigger. Status is queued, running, done,
-// failed or skipped; reason says why for the last two.
+// failed, blocked or skipped; reason says why for the last three. Blocked means
+// the run ended after an action it tried was refused for a missing grant.
 type ChatsTriggerRun struct {
 	ID      string     `json:"id"`
 	Status  string     `json:"status"`

@@ -374,5 +374,16 @@
   "refusals.action": "meminta: {{action}}",
   "refusals.talk": "menulis ke bot",
   "refusals.allow": "Izinkan {{name}}",
-  "refusals.act": "Izinkan anggota {{channel}} bertindak"
+  "refusals.act": "Izinkan anggota {{channel}} bertindak",
+  "perm.channelPickOther": "Lainnya: ketik ID",
+  "perm.channelHint.verified": "Jalan terjadwal tidak bisa memposting di sini. Pilih \"Saat orang yang diizinkan meminta\" agar bisa.",
+  "perm.channelHint.any": "Jalan terjadwal bisa memposting di sini.",
+  "perm.channelNoListen": "Bot tidak mendengarkan di kanal ini, jadi hanya akan memposting di sana.",
+  "who.post.none": "Bot tidak bisa memposting di sini.",
+  "who.post.add": "Izinkan bot memposting di sini juga",
+  "who.post.addFor": "Izinkan bot memposting juga di {{name}}",
+  "who.post.verified": "Memposting di sini hanya saat orang terverifikasi meminta.",
+  "who.post.any": "Memposting di sini saat orang yang diizinkan meminta.",
+  "who.post.show": "Tampilkan tempatnya",
+  "who.post.showFor": "Tampilkan tempat untuk {{name}}"
 }

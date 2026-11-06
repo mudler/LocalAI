@@ -374,5 +374,16 @@
   "refusals.action": "pidió: {{action}}",
   "refusals.talk": "escribió al bot",
   "refusals.allow": "Permitir a {{name}}",
-  "refusals.act": "Permitir que los miembros de {{channel}} actúen"
+  "refusals.act": "Permitir que los miembros de {{channel}} actúen",
+  "perm.channelPickOther": "Otro: escribir un ID",
+  "perm.channelHint.verified": "Las ejecuciones programadas no pueden publicar aquí. Elige \"Cuando cualquier persona permitida lo pide\" para permitírselo.",
+  "perm.channelHint.any": "Las ejecuciones programadas pueden publicar aquí.",
+  "perm.channelNoListen": "El bot no escucha en este canal, así que solo publicará allí.",
+  "who.post.none": "El bot no puede publicar aquí.",
+  "who.post.add": "Que el bot también publique aquí",
+  "who.post.addFor": "Que el bot también publique en {{name}}",
+  "who.post.verified": "Publica aquí solo cuando lo pide una persona verificada.",
+  "who.post.any": "Publica aquí cuando lo pide cualquier persona permitida.",
+  "who.post.show": "Mostrar el lugar",
+  "who.post.showFor": "Mostrar el lugar de {{name}}"
 }

@@ -374,5 +374,16 @@
   "refusals.action": "请求：{{action}}",
   "refusals.talk": "给机器人发了消息",
   "refusals.allow": "允许 {{name}}",
-  "refusals.act": "让 {{channel}} 的成员可以操作"
+  "refusals.act": "让 {{channel}} 的成员可以操作",
+  "perm.channelPickOther": "其他：输入 ID",
+  "perm.channelHint.verified": "定时运行无法在此发帖。选择“任何被允许的人请求时”即可允许。",
+  "perm.channelHint.any": "定时运行可以在此发帖。",
+  "perm.channelNoListen": "机器人不在此频道监听，只会在此发帖。",
+  "who.post.none": "机器人无法在此发帖。",
+  "who.post.add": "也让机器人在此发帖",
+  "who.post.addFor": "也让机器人在 {{name}} 发帖",
+  "who.post.verified": "仅在已验证的人请求时在此发帖。",
+  "who.post.any": "在任何被允许的人请求时在此发帖。",
+  "who.post.show": "显示该位置",
+  "who.post.showFor": "显示 {{name}} 的位置"
 }

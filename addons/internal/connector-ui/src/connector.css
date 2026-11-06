@@ -181,9 +181,12 @@ fieldset.cn-group {
 .cn-channel__cell { min-width: 0; }
 .cn-channel__cell::before { display: block; content: attr(data-label); font-size: var(--fs-meta); color: var(--color-text-muted); margin-bottom: 2px; }
 .cn-channel__cell--who { grid-column: 1 / -1; grid-row: 2; }
+.cn-channel__notes { grid-column: 1 / -1; grid-row: 3; display: flex; flex-direction: column; gap: 2px; }
+.cn-channel__notes .dk-hint { margin: 0; }
 @media (max-width: 700px) {
   .cn-channel { grid-template-columns: minmax(0, 1fr); }
   .cn-channel__cell--who { grid-row: auto; }
+  .cn-channel__notes { grid-row: auto; }
   .cn-channel > .dk-btn { justify-self: start; }
 }
 .cn-more { border-top: 1px solid var(--color-border-subtle); padding-top: var(--dk-space-2); }
@@ -294,6 +297,7 @@ fieldset.cn-group {
 .cn-who__id { color: var(--color-text-muted); }
 .cn-who__badges { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .cn-who__ends { font-size: var(--fs-meta); }
+.cn-who__post { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2) var(--dk-space-3); font-size: var(--fs-small); }
 .cn-who__actions { display: flex; flex-wrap: wrap; gap: var(--dk-space-1); justify-content: flex-end; }
 .cn-who__row .dk-select-wrap { min-width: 11rem; }
 .cn-badge--ok { color: var(--color-success, var(--color-text-secondary)); border: 1px solid currentColor; background: none; }

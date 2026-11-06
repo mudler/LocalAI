@@ -374,5 +374,16 @@
   "refusals.action": "ha chiesto: {{action}}",
   "refusals.talk": "ha scritto al bot",
   "refusals.allow": "Consenti {{name}}",
-  "refusals.act": "Consenti ai membri di {{channel}} di agire"
+  "refusals.act": "Consenti ai membri di {{channel}} di agire",
+  "perm.channelPickOther": "Altro: scrivi un ID",
+  "perm.channelHint.verified": "Le esecuzioni programmate non possono scrivere qui. Scegli \"Quando una persona consentita lo chiede\" per permetterlo.",
+  "perm.channelHint.any": "Le esecuzioni programmate possono scrivere qui.",
+  "perm.channelNoListen": "Il bot non ascolta in questo canale, quindi ci scriverà soltanto.",
+  "who.post.none": "Il bot non può scrivere qui.",
+  "who.post.add": "Lascia scrivere qui anche il bot",
+  "who.post.addFor": "Lascia scrivere anche in {{name}} il bot",
+  "who.post.verified": "Scrive qui solo quando lo chiede una persona verificata.",
+  "who.post.any": "Scrive qui quando lo chiede una persona consentita.",
+  "who.post.show": "Mostra il posto",
+  "who.post.showFor": "Mostra il posto di {{name}}"
 }

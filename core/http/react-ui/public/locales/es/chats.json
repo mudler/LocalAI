@@ -639,6 +639,8 @@
       "writes": "Escribe",
       "widget": "Widget de Inicio",
       "estimated_tokens": "Tokens por ejecución",
+      "acts": "Lo que puede hacer una ejecución",
+      "delivery": "Adónde van las respuestas",
       "agent": "Agente",
       "model": "Modelo"
     },

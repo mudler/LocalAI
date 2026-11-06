@@ -639,6 +639,8 @@
       "writes": "写入",
       "widget": "主页小组件",
       "estimated_tokens": "每次运行的令牌数",
+      "acts": "运行可以做的事",
+      "delivery": "回复发送到哪里",
       "agent": "智能体",
       "model": "模型"
     },

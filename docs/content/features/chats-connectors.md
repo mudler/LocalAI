@@ -1127,7 +1127,14 @@ The `channels` list (capability `talkback.channels`) is a table of **Place the b
 name, an ID and one choice that maps to `approved`. **When any allowed person asks** is
 `approved: true`, and **Only when a verified person asks** is `approved: false`. The table
 shows only while the permission **Post to other channels** is on; otherwise the page says so and
-links to the switch. At most 10 places are kept, as before. **Send my reminders and run results to**
+links to the switch. At most 10 places are kept, as before. Listening and posting stay two settings,
+but the page shows them together. **Add a place** offers the channels of the listening list that
+are not a place yet, and **Other: type an ID**. Each channel of the listening list says whether the
+bot may post there, with **Let the bot post here too** to make it a place set to **Only when a
+verified person asks**. Under each place a line says whether scheduled runs can post there: they
+can only when the place is set to **When any allowed person asks**, because nobody is there to
+verify at run time. A place the bot does not listen in is allowed, and the page says the bot will
+only post there. **Send my reminders and run results to**
 (`notify_chat`) is a choice among the people and channels the page already knows (the allowed
 people, the people and chats of the sender log, the places above), with a saved ID that the page
 does not know shown as it is and **Another ID...** for a new one. It saves the same ID as before.
@@ -1383,7 +1390,13 @@ agent does not guess an ID. The report is a new message at the top of the channe
 in the thread of the chat where the trigger was proposed; `delivery.target` `origin` writes
 in that thread. The proposal text in the chat and the card in Studio say where the results
 go, with the label of the channel. The proposal is refused if the channel is not listed
-and approved, and the error lists the approved ones. When a run ends, LocalAI
+and approved, and the error lists the approved ones. A channel set to **Only when a verified person
+asks** is named in the description as listed but not approved for scheduled runs, and the refusal says
+why, so the agent can tell the person that the owner must change that choice. When no channel is
+named, the one approved channel is used; with several, the error lists them. The name matches without
+case, or by a part of the label that only one approved channel has. `update_trigger` takes `delivery`
+and `acts` too, for a trigger that a messaging app proposed, with the same checks; the change waits
+for the person on its card. When a run ends, LocalAI
 checks again that the binding is on, the capability is on and the channel is still listed
 and approved; if not, the Inbox gets the notice.
 

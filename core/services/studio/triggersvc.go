@@ -606,6 +606,11 @@ func (h *Triggers) supervise(run triggers.Run, t triggers.Trigger, chatID string
 		h.finishRun(run, t, chatID, triggers.StatusFailed, "took longer than "+limitText(h.o.RunLimit), end.Tokens)
 	default:
 		status, reason := outcome(end.Info.Last, end.ErrText)
+		if missing, ok := h.svc.refusedActs.LoadAndDelete(chatID); ok && status == triggers.StatusDone && reason == "" {
+			// The run ended, but an action it tried was refused: the owner has
+			// to grant it before the run can do its job.
+			status, reason = triggers.StatusBlocked, "needs "+missing.(string)+", which this trigger does not have"
+		}
 		h.finishRun(run, t, chatID, status, reason, end.Tokens)
 	}
 }
@@ -668,8 +673,11 @@ func (h *Triggers) finishRun(run triggers.Run, t triggers.Trigger, chatID string
 		return
 	}
 	body := reason
-	if body == "" {
-		body = h.svc.finalText(ctx, chatID)
+	if body == "" || status == triggers.StatusBlocked {
+		// A blocked run's reason is for the record; the answer is what the run said.
+		if body = h.svc.finalText(ctx, chatID); body == "" {
+			body = reason
+		}
 	}
 	if !h.report(ctx, t, cur, body) {
 		h.tell(ctx, t, chatID, notify.KindRunEnded, notify.StatusOK, t.Name+" finished", body)

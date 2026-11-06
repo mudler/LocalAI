@@ -21,7 +21,7 @@ import AccessMatrix from './AccessMatrix'
 import PermissionFields from './PermissionFields'
 import NotifyField from './NotifyField'
 import { agentsApi, connectorsApi, setApiLanguage } from './api'
-import { DUPLICATE_CONFIRMATION, canSave, channelOnly, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, connectorPayload, emptyConnector, agentHeld, usualFor, listEntries, senderLine, withUsualCaps } from './connector'
+import { DUPLICATE_CONFIRMATION, canSave, channelOnly, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, connectorPayload, emptyConnector, agentHeld, usualFor, listEntries, listeningChannels, senderLine, withUsualCaps } from './connector'
 import { registerConnectorLocales } from './i18n'
 import { chatNamesFrom, chatText, knownTargets, peopleFrom, recentPeople } from './people'
 import { PeopleContext } from './Person'
@@ -342,6 +342,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             <AnswerFields key={form.id || 'new'} form={form} setForm={setForm} t={t} kindInfo={kindInfo}
               places={capabilities.length > 0 && (
                 <PermissionFields form={form} setForm={setForm} s={s} chatNames={chatNamesFrom(senderLog)}
+                  listening={listeningChannels(form, isChannelEntry, mixedList)} hearsAll={Boolean(form.accept_any) || mixedList}
                   onSwitchOn={() => jumpTo(['[data-testid="connector-cap-switch-talkback.channels"]', '[data-testid="connector-matrix"]'])} />
               )}
               notify={<NotifyField form={form} setForm={setForm} s={s} label={s('notify.label')} hint={t('notifyHelp')} inputMode={notifyMode}

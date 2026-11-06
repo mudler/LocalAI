@@ -961,6 +961,8 @@
       "writes": "Writes",
       "widget": "Home widget",
       "estimated_tokens": "Tokens a run",
+      "acts": "What a run may do",
+      "delivery": "Where answers go",
       "agent": "Agent",
       "model": "Model"
     },

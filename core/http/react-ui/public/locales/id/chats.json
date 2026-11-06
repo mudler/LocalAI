@@ -639,6 +639,8 @@
       "writes": "Menulis",
       "widget": "Widget Beranda",
       "estimated_tokens": "Token per jalan",
+      "acts": "Yang boleh dilakukan satu jalan",
+      "delivery": "Ke mana jawaban dikirim",
       "agent": "Agen",
       "model": "Model"
     },
