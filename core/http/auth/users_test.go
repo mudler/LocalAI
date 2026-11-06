@@ -31,7 +31,7 @@ var _ = Describe("DeleteUserCascade", Label("auth"), func() {
 		target := createTestUser(db, "author@test.com", auth.RoleAdmin, auth.ProviderLocal)
 		Expect(db.Create(&auth.InviteCode{
 			ID: uuid.New().String(), Code: "code-author-1", CodePrefix: "code-aut",
-			CreatedBy: target.ID, ExpiresAt: time.Now().Add(time.Hour),
+			CreatedBy: &target.ID, ExpiresAt: time.Now().Add(time.Hour),
 		}).Error).ToNot(HaveOccurred())
 
 		Expect(auth.DeleteUserCascade(db, target.ID)).ToNot(HaveOccurred())
@@ -49,7 +49,7 @@ var _ = Describe("DeleteUserCascade", Label("auth"), func() {
 		now := time.Now()
 		invite := &auth.InviteCode{
 			ID: uuid.New().String(), Code: "code-used-1", CodePrefix: "code-use",
-			CreatedBy: admin.ID, UsedBy: &usedBy, UsedAt: &now,
+			CreatedBy: &admin.ID, UsedBy: &usedBy, UsedAt: &now,
 			ExpiresAt: now.Add(time.Hour),
 		}
 		Expect(db.Create(invite).Error).ToNot(HaveOccurred())
@@ -102,7 +102,7 @@ var _ = Describe("DeleteUserCascade", Label("auth"), func() {
 		target := createTestUser(db, "fk-author@test.com", auth.RoleAdmin, auth.ProviderLocal)
 		Expect(db.Create(&auth.InviteCode{
 			ID: uuid.New().String(), Code: "code-fk-1", CodePrefix: "code-fk1",
-			CreatedBy: target.ID, ExpiresAt: time.Now().Add(time.Hour),
+			CreatedBy: &target.ID, ExpiresAt: time.Now().Add(time.Hour),
 		}).Error).ToNot(HaveOccurred())
 
 		Expect(auth.DeleteUserCascade(db, target.ID)).ToNot(HaveOccurred())
