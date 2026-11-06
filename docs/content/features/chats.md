@@ -34,7 +34,7 @@ administrator always has all of them:
 | `chats` | on | Chats, files, skills, notifications, push, your MCP connectors. A chat needs no more. |
 | `agents` | off | Saved agents (`/api/chats/agents`) and starting a chat with one. |
 | `triggers` | off | Scheduled and file triggers (`/api/chats/triggers`): runs that start by themselves. |
-| `connectors` | off | Telegram and Slack bindings (`/api/chats/connectors`): a public door to one of your agents. |
+| `connectors` | off | Telegram, Slack and Discord bindings (`/api/chats/connectors`): a public door to one of your agents. |
 | `mcp_jobs` | off | The agent tasks and jobs API (`/api/agent/...`). |
 | `pages` | off | The pages of the workspace (`/api/chats/pages...`): HTML pages in `pages/` of the home, shown in a sandboxed frame. See [Pages]({{%relref "features/pages" %}}). |
 
@@ -962,7 +962,8 @@ access]({{%relref "features/addons#network-access" %}})). Each chat has a
 - **Off**: commands reach nothing.
 - **Package registries**: commands reach the package registries only (PyPI,
   npm, Go modules, crates.io, RubyGems, Maven Central and GitHub releases), so
-  `pip install`, `npm install`, `go get` and `cargo build` work.
+  `pip install` and `git clone` work. The Sandbox image has no Node.js, Go or
+  Rust toolchain, so these registries matter mostly for Python packages.
 - **All public sites**: commands reach every public host.
 
 The highlighted choice is what applies: the lower of the choice of the chat and

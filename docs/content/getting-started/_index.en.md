@@ -17,6 +17,8 @@ See the [Installation guide]({{% relref "getting-started/install" %}}) first. **
 
 ## The path
 
+In a hurry? [Getting started in 5 minutes]({{% relref "getting-started/five-minutes" %}}) is the short version.
+
 1. **Install** LocalAI (see the [Installation guide]({{% relref "getting-started/install" %}})).
 2. **[Quickstart]({{% relref "getting-started/quickstart" %}})** - start LocalAI, install your first model, and get your first chat reply from both the web interface and the API.
 3. **[Install and run models]({{% relref "getting-started/models" %}})** - the different ways to install models (gallery, Hugging Face, OCI, local files) and run them.
@@ -24,4 +26,4 @@ See the [Installation guide]({{% relref "getting-started/install" %}}) first. **
 5. **[Customize models]({{% relref "getting-started/customize-model" %}})** - edit model configuration and prompt templates to tune behavior.
 6. **[Troubleshooting]({{% relref "getting-started/troubleshooting" %}})** - fixes for the most common install and startup problems.
 
-Once you have a model answering, the [Build your first agent]({{% relref "getting-started/first-agent" %}}) walkthrough shows how to turn that model into a saved agent that a chat, a schedule or a Telegram bot can use.
+Once you have a model answering, the [Build your first agent]({{% relref "getting-started/first-agent" %}}) walkthrough shows how to turn that model into a saved agent that a chat, a schedule or a Slack, Telegram or Discord bot can use.

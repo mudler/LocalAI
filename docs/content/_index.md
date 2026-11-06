@@ -11,7 +11,7 @@ It runs text, vision, speech, sound, images, video, embeddings, reranking, and
 autonomous agents on hardware you control, from a CPU laptop to a distributed
 GPU cluster.
 
-New here? Read the [Overview]({{% relref "overview" %}}) for what LocalAI is
+New here? Start with [Getting started in 5 minutes]({{% relref "getting-started/five-minutes" %}}), or find a page by goal in [What do you want to do?]({{% relref "features/by-goal" %}}). To understand the whole, read the [Overview]({{% relref "overview" %}}) for what LocalAI is
 and how the pieces fit together, then follow the
 [Quickstart]({{% relref "getting-started/quickstart" %}}).
 
