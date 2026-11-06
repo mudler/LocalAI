@@ -1565,7 +1565,12 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 			if explicitVoice {
 				configuredVoice = string(rt.Audio.Output.Voice)
 			}
-			candidateVoice, candidateParams, candidateRelease, err = resolveRealtimeVoice(
+			resolve := resolveRealtimeVoice
+			if explicitVoice {
+				// The client chose this voice: it must not be a path.
+				resolve = resolveClientRealtimeVoice
+			}
+			candidateVoice, candidateParams, candidateRelease, err = resolve(
 				context.Background(), configuredVoice, wrapped.TTSConfig, profiles, session.voiceViewer,
 			)
 			if err != nil {

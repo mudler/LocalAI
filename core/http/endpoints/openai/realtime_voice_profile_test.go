@@ -369,3 +369,30 @@ var _ = Describe("realtime session voice switching", func() {
 })
 
 func ptrTo[T any](value T) *T { return &value }
+
+var _ = Describe("a voice chosen by the client in session.update", func() {
+	cfg := &config.ModelConfig{}
+
+	It("refuses a path from a user who is not an administrator", func() {
+		for _, v := range []string{"/etc/passwd", "../x.wav", `a\b.wav`} {
+			_, _, _, err := resolveClientRealtimeVoice(context.Background(), v, cfg, nil, voiceprofile.Viewer{UserID: "bob"})
+			Expect(err).To(MatchError(ContainSubstring("not a path")), v)
+		}
+	})
+
+	It("lets an administrator, a server without accounts and a plain voice through", func() {
+		for _, c := range []struct {
+			v      string
+			viewer voiceprofile.Viewer
+		}{
+			{"/voices/a.wav", voiceprofile.Viewer{UserID: "root", Admin: true}},
+			{"/voices/a.wav", voiceprofile.AdminViewer()},
+			{"speaker-7", voiceprofile.Viewer{UserID: "bob"}},
+		} {
+			voice, _, release, err := resolveClientRealtimeVoice(context.Background(), c.v, cfg, nil, c.viewer)
+			Expect(err).NotTo(HaveOccurred(), c.v)
+			Expect(voice).To(Equal(c.v))
+			release()
+		}
+	})
+})
