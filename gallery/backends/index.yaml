@@ -42631,14 +42631,21 @@
   version: 0.0.0-development
 - alias: strata
   capabilities:
+    amd: rocm-strata
+    intel: intel-strata
+    metal: metal-strata
+    metal-darwin-arm64: metal-strata
     nvidia: cuda12-strata
     nvidia-cuda-12: cuda12-strata
     nvidia-cuda-13: cuda13-strata
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-strata
   channel: latest
   description: |
     EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
-    speaks its stdin/stdout protocol. Text generation only. You supply the engine executable, a Strata
-    source checkout for its tokenizer, and a model pack; see backend/go/strata/README.md. NVIDIA CUDA only.
+    speaks its stdin/stdout protocol. Text generation only. The image ships a pinned, checksum-verified
+    Strata engine package for the GPU, so no engine build is needed; models are Strata packs. Targets:
+    NVIDIA CUDA 12 and 13 (x86_64), NVIDIA DGX Spark (arm64, CUDA 13), AMD Radeon (RDNA2, RDNA3, RDNA4,
+    Strix Halo), Intel Arc (Linux, SYCL) and Apple Silicon (Metal). No CPU or Vulkan build.
   id: strata
   kind: backend
   license: mit
@@ -42648,21 +42655,32 @@
     - text-to-text
     - experimental
     - CUDA
+    - HIP
+    - SYCL
+    - Metal
   urls:
+    - https://github.com/Niko1221/Strata
     - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
   version: 0.0.0-latest
 - alias: strata
   arch: amd64
   artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-strata
   capabilities:
+    amd: rocm-strata
+    intel: intel-strata
+    metal: metal-strata
+    metal-darwin-arm64: metal-strata
     nvidia: cuda12-strata
     nvidia-cuda-12: cuda12-strata
     nvidia-cuda-13: cuda13-strata
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-strata
   channel: latest
   description: |
     EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
-    speaks its stdin/stdout protocol. Text generation only. You supply the engine executable, a Strata
-    source checkout for its tokenizer, and a model pack; see backend/go/strata/README.md. NVIDIA CUDA only.
+    speaks its stdin/stdout protocol. Text generation only. The image ships a pinned, checksum-verified
+    Strata engine package for the GPU, so no engine build is needed; models are Strata packs. Targets:
+    NVIDIA CUDA 12 and 13 (x86_64), NVIDIA DGX Spark (arm64, CUDA 13), AMD Radeon (RDNA2, RDNA3, RDNA4,
+    Strix Halo), Intel Arc (Linux, SYCL) and Apple Silicon (Metal). No CPU or Vulkan build.
   id: cuda12-strata
   kind: backend
   license: mit
@@ -42675,22 +42693,29 @@
   tags:
     - text-to-text
     - experimental
-    - CUDA
   urls:
+    - https://github.com/Niko1221/Strata
     - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
   version: 0.0.0-latest
 - alias: strata
   arch: amd64
   artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-strata
   capabilities:
+    amd: rocm-strata
+    intel: intel-strata
+    metal: metal-strata
+    metal-darwin-arm64: metal-strata
     nvidia: cuda12-strata
     nvidia-cuda-12: cuda12-strata
     nvidia-cuda-13: cuda13-strata
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-strata
   channel: latest
   description: |
     EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
-    speaks its stdin/stdout protocol. Text generation only. You supply the engine executable, a Strata
-    source checkout for its tokenizer, and a model pack; see backend/go/strata/README.md. NVIDIA CUDA only.
+    speaks its stdin/stdout protocol. Text generation only. The image ships a pinned, checksum-verified
+    Strata engine package for the GPU, so no engine build is needed; models are Strata packs. Targets:
+    NVIDIA CUDA 12 and 13 (x86_64), NVIDIA DGX Spark (arm64, CUDA 13), AMD Radeon (RDNA2, RDNA3, RDNA4,
+    Strix Halo), Intel Arc (Linux, SYCL) and Apple Silicon (Metal). No CPU or Vulkan build.
   id: cuda13-strata
   kind: backend
   license: mit
@@ -42703,20 +42728,27 @@
   tags:
     - text-to-text
     - experimental
-    - CUDA
   urls:
+    - https://github.com/Niko1221/Strata
     - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
   version: 0.0.0-latest
 - alias: strata
   capabilities:
+    amd: rocm-strata-development
+    intel: intel-strata-development
+    metal: metal-strata-development
+    metal-darwin-arm64: metal-strata-development
     nvidia: cuda12-strata-development
     nvidia-cuda-12: cuda12-strata-development
     nvidia-cuda-13: cuda13-strata-development
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-strata-development
   channel: development
   description: |
     EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
-    speaks its stdin/stdout protocol. Text generation only. You supply the engine executable, a Strata
-    source checkout for its tokenizer, and a model pack; see backend/go/strata/README.md. NVIDIA CUDA only.
+    speaks its stdin/stdout protocol. Text generation only. The image ships a pinned, checksum-verified
+    Strata engine package for the GPU, so no engine build is needed; models are Strata packs. Targets:
+    NVIDIA CUDA 12 and 13 (x86_64), NVIDIA DGX Spark (arm64, CUDA 13), AMD Radeon (RDNA2, RDNA3, RDNA4,
+    Strix Halo), Intel Arc (Linux, SYCL) and Apple Silicon (Metal). No CPU or Vulkan build.
   id: strata-development
   kind: backend
   license: mit
@@ -42726,21 +42758,32 @@
     - text-to-text
     - experimental
     - CUDA
+    - HIP
+    - SYCL
+    - Metal
   urls:
+    - https://github.com/Niko1221/Strata
     - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
   version: 0.0.0-development
 - alias: strata
   arch: amd64
   artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-strata
   capabilities:
+    amd: rocm-strata-development
+    intel: intel-strata-development
+    metal: metal-strata-development
+    metal-darwin-arm64: metal-strata-development
     nvidia: cuda12-strata-development
     nvidia-cuda-12: cuda12-strata-development
     nvidia-cuda-13: cuda13-strata-development
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-strata-development
   channel: development
   description: |
     EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
-    speaks its stdin/stdout protocol. Text generation only. You supply the engine executable, a Strata
-    source checkout for its tokenizer, and a model pack; see backend/go/strata/README.md. NVIDIA CUDA only.
+    speaks its stdin/stdout protocol. Text generation only. The image ships a pinned, checksum-verified
+    Strata engine package for the GPU, so no engine build is needed; models are Strata packs. Targets:
+    NVIDIA CUDA 12 and 13 (x86_64), NVIDIA DGX Spark (arm64, CUDA 13), AMD Radeon (RDNA2, RDNA3, RDNA4,
+    Strix Halo), Intel Arc (Linux, SYCL) and Apple Silicon (Metal). No CPU or Vulkan build.
   id: cuda12-strata-development
   kind: backend
   license: mit
@@ -42753,22 +42796,29 @@
   tags:
     - text-to-text
     - experimental
-    - CUDA
   urls:
+    - https://github.com/Niko1221/Strata
     - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
   version: 0.0.0-development
 - alias: strata
   arch: amd64
   artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-strata
   capabilities:
+    amd: rocm-strata-development
+    intel: intel-strata-development
+    metal: metal-strata-development
+    metal-darwin-arm64: metal-strata-development
     nvidia: cuda12-strata-development
     nvidia-cuda-12: cuda12-strata-development
     nvidia-cuda-13: cuda13-strata-development
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-strata-development
   channel: development
   description: |
     EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
-    speaks its stdin/stdout protocol. Text generation only. You supply the engine executable, a Strata
-    source checkout for its tokenizer, and a model pack; see backend/go/strata/README.md. NVIDIA CUDA only.
+    speaks its stdin/stdout protocol. Text generation only. The image ships a pinned, checksum-verified
+    Strata engine package for the GPU, so no engine build is needed; models are Strata packs. Targets:
+    NVIDIA CUDA 12 and 13 (x86_64), NVIDIA DGX Spark (arm64, CUDA 13), AMD Radeon (RDNA2, RDNA3, RDNA4,
+    Strix Halo), Intel Arc (Linux, SYCL) and Apple Silicon (Metal). No CPU or Vulkan build.
   id: cuda13-strata-development
   kind: backend
   license: mit
@@ -42781,7 +42831,287 @@
   tags:
     - text-to-text
     - experimental
-    - CUDA
   urls:
+    - https://github.com/Niko1221/Strata
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
+  version: 0.0.0-development
+- alias: strata
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-strata
+  capabilities:
+    amd: rocm-strata
+    intel: intel-strata
+    metal: metal-strata
+    metal-darwin-arm64: metal-strata
+    nvidia: cuda12-strata
+    nvidia-cuda-12: cuda12-strata
+    nvidia-cuda-13: cuda13-strata
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-strata
+  channel: latest
+  description: |
+    EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
+    speaks its stdin/stdout protocol. Text generation only. The image ships a pinned, checksum-verified
+    Strata engine package for the GPU, so no engine build is needed; models are Strata packs. Targets:
+    NVIDIA CUDA 12 and 13 (x86_64), NVIDIA DGX Spark (arm64, CUDA 13), AMD Radeon (RDNA2, RDNA3, RDNA4,
+    Strix Halo), Intel Arc (Linux, SYCL) and Apple Silicon (Metal). No CPU or Vulkan build.
+  id: cuda13-nvidia-l4t-arm64-strata
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-strata
+  mutable: true
+  name: cuda13-nvidia-l4t-arm64-strata
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+  urls:
+    - https://github.com/Niko1221/Strata
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
+  version: 0.0.0-latest
+- alias: strata
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-strata
+  capabilities:
+    amd: rocm-strata
+    intel: intel-strata
+    metal: metal-strata
+    metal-darwin-arm64: metal-strata
+    nvidia: cuda12-strata
+    nvidia-cuda-12: cuda12-strata
+    nvidia-cuda-13: cuda13-strata
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-strata
+  channel: latest
+  description: |
+    EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
+    speaks its stdin/stdout protocol. Text generation only. The image ships a pinned, checksum-verified
+    Strata engine package for the GPU, so no engine build is needed; models are Strata packs. Targets:
+    NVIDIA CUDA 12 and 13 (x86_64), NVIDIA DGX Spark (arm64, CUDA 13), AMD Radeon (RDNA2, RDNA3, RDNA4,
+    Strix Halo), Intel Arc (Linux, SYCL) and Apple Silicon (Metal). No CPU or Vulkan build.
+  id: rocm-strata
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-gpu-rocm-hipblas-strata
+  mutable: true
+  name: rocm-strata
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+  urls:
+    - https://github.com/Niko1221/Strata
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
+  version: 0.0.0-latest
+- alias: strata
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-intel-strata
+  capabilities:
+    amd: rocm-strata
+    intel: intel-strata
+    metal: metal-strata
+    metal-darwin-arm64: metal-strata
+    nvidia: cuda12-strata
+    nvidia-cuda-12: cuda12-strata
+    nvidia-cuda-13: cuda13-strata
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-strata
+  channel: latest
+  description: |
+    EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
+    speaks its stdin/stdout protocol. Text generation only. The image ships a pinned, checksum-verified
+    Strata engine package for the GPU, so no engine build is needed; models are Strata packs. Targets:
+    NVIDIA CUDA 12 and 13 (x86_64), NVIDIA DGX Spark (arm64, CUDA 13), AMD Radeon (RDNA2, RDNA3, RDNA4,
+    Strix Halo), Intel Arc (Linux, SYCL) and Apple Silicon (Metal). No CPU or Vulkan build.
+  id: intel-strata
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-gpu-intel-strata
+  mutable: true
+  name: intel-strata
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+  urls:
+    - https://github.com/Niko1221/Strata
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
+  version: 0.0.0-latest
+- alias: strata
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-strata
+  capabilities:
+    amd: rocm-strata
+    intel: intel-strata
+    metal: metal-strata
+    metal-darwin-arm64: metal-strata
+    nvidia: cuda12-strata
+    nvidia-cuda-12: cuda12-strata
+    nvidia-cuda-13: cuda13-strata
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-strata
+  channel: latest
+  description: |
+    EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
+    speaks its stdin/stdout protocol. Text generation only. The image ships a pinned, checksum-verified
+    Strata engine package for the GPU, so no engine build is needed; models are Strata packs. Targets:
+    NVIDIA CUDA 12 and 13 (x86_64), NVIDIA DGX Spark (arm64, CUDA 13), AMD Radeon (RDNA2, RDNA3, RDNA4,
+    Strix Halo), Intel Arc (Linux, SYCL) and Apple Silicon (Metal). No CPU or Vulkan build.
+  id: metal-strata
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-metal-darwin-arm64-strata
+  mutable: true
+  name: metal-strata
+  os: darwin
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+  urls:
+    - https://github.com/Niko1221/Strata
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
+  version: 0.0.0-latest
+- alias: strata
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-strata
+  capabilities:
+    amd: rocm-strata-development
+    intel: intel-strata-development
+    metal: metal-strata-development
+    metal-darwin-arm64: metal-strata-development
+    nvidia: cuda12-strata-development
+    nvidia-cuda-12: cuda12-strata-development
+    nvidia-cuda-13: cuda13-strata-development
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-strata-development
+  channel: development
+  description: |
+    EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
+    speaks its stdin/stdout protocol. Text generation only. The image ships a pinned, checksum-verified
+    Strata engine package for the GPU, so no engine build is needed; models are Strata packs. Targets:
+    NVIDIA CUDA 12 and 13 (x86_64), NVIDIA DGX Spark (arm64, CUDA 13), AMD Radeon (RDNA2, RDNA3, RDNA4,
+    Strix Halo), Intel Arc (Linux, SYCL) and Apple Silicon (Metal). No CPU or Vulkan build.
+  id: cuda13-nvidia-l4t-arm64-strata-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-strata
+  mutable: true
+  name: cuda13-nvidia-l4t-arm64-strata-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+  urls:
+    - https://github.com/Niko1221/Strata
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
+  version: 0.0.0-development
+- alias: strata
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-strata
+  capabilities:
+    amd: rocm-strata-development
+    intel: intel-strata-development
+    metal: metal-strata-development
+    metal-darwin-arm64: metal-strata-development
+    nvidia: cuda12-strata-development
+    nvidia-cuda-12: cuda12-strata-development
+    nvidia-cuda-13: cuda13-strata-development
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-strata-development
+  channel: development
+  description: |
+    EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
+    speaks its stdin/stdout protocol. Text generation only. The image ships a pinned, checksum-verified
+    Strata engine package for the GPU, so no engine build is needed; models are Strata packs. Targets:
+    NVIDIA CUDA 12 and 13 (x86_64), NVIDIA DGX Spark (arm64, CUDA 13), AMD Radeon (RDNA2, RDNA3, RDNA4,
+    Strix Halo), Intel Arc (Linux, SYCL) and Apple Silicon (Metal). No CPU or Vulkan build.
+  id: rocm-strata-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-gpu-rocm-hipblas-strata
+  mutable: true
+  name: rocm-strata-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+  urls:
+    - https://github.com/Niko1221/Strata
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
+  version: 0.0.0-development
+- alias: strata
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-intel-strata
+  capabilities:
+    amd: rocm-strata-development
+    intel: intel-strata-development
+    metal: metal-strata-development
+    metal-darwin-arm64: metal-strata-development
+    nvidia: cuda12-strata-development
+    nvidia-cuda-12: cuda12-strata-development
+    nvidia-cuda-13: cuda13-strata-development
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-strata-development
+  channel: development
+  description: |
+    EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
+    speaks its stdin/stdout protocol. Text generation only. The image ships a pinned, checksum-verified
+    Strata engine package for the GPU, so no engine build is needed; models are Strata packs. Targets:
+    NVIDIA CUDA 12 and 13 (x86_64), NVIDIA DGX Spark (arm64, CUDA 13), AMD Radeon (RDNA2, RDNA3, RDNA4,
+    Strix Halo), Intel Arc (Linux, SYCL) and Apple Silicon (Metal). No CPU or Vulkan build.
+  id: intel-strata-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-gpu-intel-strata
+  mutable: true
+  name: intel-strata-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+  urls:
+    - https://github.com/Niko1221/Strata
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
+  version: 0.0.0-development
+- alias: strata
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-strata
+  capabilities:
+    amd: rocm-strata-development
+    intel: intel-strata-development
+    metal: metal-strata-development
+    metal-darwin-arm64: metal-strata-development
+    nvidia: cuda12-strata-development
+    nvidia-cuda-12: cuda12-strata-development
+    nvidia-cuda-13: cuda13-strata-development
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-strata-development
+  channel: development
+  description: |
+    EXPERIMENTAL. Runs the Strata engine (https://github.com/Niko1221/Strata) as a child process and
+    speaks its stdin/stdout protocol. Text generation only. The image ships a pinned, checksum-verified
+    Strata engine package for the GPU, so no engine build is needed; models are Strata packs. Targets:
+    NVIDIA CUDA 12 and 13 (x86_64), NVIDIA DGX Spark (arm64, CUDA 13), AMD Radeon (RDNA2, RDNA3, RDNA4,
+    Strix Halo), Intel Arc (Linux, SYCL) and Apple Silicon (Metal). No CPU or Vulkan build.
+  id: metal-strata-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-metal-darwin-arm64-strata
+  mutable: true
+  name: metal-strata-development
+  os: darwin
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - experimental
+  urls:
+    - https://github.com/Niko1221/Strata
     - https://github.com/mudler/LocalAI/tree/master/backend/go/strata
   version: 0.0.0-development

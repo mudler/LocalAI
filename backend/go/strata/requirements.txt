@@ -1,0 +1,16 @@
+# Python packages the tokenizer helper imports (Strata's tokenizer needs
+# `regex`, its chat template needs `jinja2`, which needs `markupsafe`).
+# Installed into the bundled Python with --require-hashes. Versions match
+# Strata's own requirements.txt at the pinned release. The hashes are those of
+# the wheels published on PyPI for CPython 3.12 on linux x86_64, linux aarch64
+# and macOS arm64 (pip takes the one that fits the platform).
+jinja2==3.1.6 \
+    --hash=sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67
+markupsafe==3.0.3 \
+    --hash=sha256:1872df69a4de6aead3491198eaf13810b565bdbeec3ae2dc8780f14458ec73ce \
+    --hash=sha256:3a7e8ae81ae39e62a41ec302f972ba6ae23a5c5396c8e60113e9066ef893da0d \
+    --hash=sha256:d6dd0be5b5b189d31db7cda48b91d7e0a9795f31430b7f271219ab30f1d3ac9d
+regex==2026.9.10 \
+    --hash=sha256:866de9f98df0611d7b62b3a8729d3284a64c0cc6edd90bb95a533e443a4939cb \
+    --hash=sha256:4c66d54042a14a503907d81861b8a5235e6d1f03d4fbc1d8767f652eaf957ac1 \
+    --hash=sha256:2e67f8843f0e4b931f1fa860bf3bbe4134b714c0155cc5c7c0d7ea450230aae0
