@@ -36,9 +36,9 @@ var _ = Describe("waits and sub-agents, internal", func() {
 
 	Describe("the childPoll safeguard", func() {
 		BeforeEach(func() {
-			old := childPoll
-			childPoll = 10 * time.Millisecond
-			DeferCleanup(func() { childPoll = old })
+			old := childPoll.get()
+			childPoll.set(10 * time.Millisecond)
+			DeferCleanup(func() { childPoll.set(old) })
 		})
 
 		It("counts an idle sub-agent with no active loop as done after two checks in a row", func() {

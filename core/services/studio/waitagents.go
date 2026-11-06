@@ -22,11 +22,11 @@ const (
 )
 
 // waitAgentsMin is the shortest timeout. A test shortens it.
-var waitAgentsMin = 10 * time.Second
+var waitAgentsMin = newWaitKnob(10 * time.Second)
 
 // waitAgentsPoll is how often wait_agents reads the statuses of the
 // sub-agents from the store. A test shortens it.
-var waitAgentsPoll = 2 * time.Second
+var waitAgentsPoll = newWaitKnob(2 * time.Second)
 
 const waitAgentsDescription = "Wait for background sub-agents (spawn_agent with wait=false) and see how they stand. " +
 	"ids are the sub-agents to wait for; omit them to wait for all that run now. " +
@@ -89,7 +89,7 @@ func (s *Service) waitAgents(ctx context.Context, a workspace.Actor, raw json.Ra
 		}
 		timeout = d
 	}
-	timeout = min(max(timeout, waitAgentsMin), waitAgentsMax)
+	timeout = min(max(timeout, waitAgentsMin.get()), waitAgentsMax)
 
 	all, err := s.SubAgents(ctx, a.Principal, a.ChatID)
 	if err != nil {
@@ -122,7 +122,7 @@ func (s *Service) waitAgents(ctx context.Context, a workspace.Actor, raw json.Ra
 
 	deadline := time.NewTimer(timeout)
 	defer deadline.Stop()
-	tick := time.NewTicker(waitAgentsPoll)
+	tick := time.NewTicker(waitAgentsPoll.get())
 	defer tick.Stop()
 	for {
 		cur, err := s.SubAgents(ctx, a.Principal, a.ChatID)

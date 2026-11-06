@@ -3,6 +3,7 @@ package studio
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/loops"
@@ -17,11 +18,24 @@ import (
 // for the limit of background sub-agents, for the parent's Stop and for the
 // list the person sees.
 
+// waitKnob is a duration that a test shortens while goroutines of earlier
+// specs may still read it, so it is read and written atomically.
+type waitKnob struct{ n atomic.Int64 }
+
+func newWaitKnob(d time.Duration) *waitKnob {
+	k := &waitKnob{}
+	k.n.Store(int64(d))
+	return k
+}
+
+func (k *waitKnob) get() time.Duration  { return time.Duration(k.n.Load()) }
+func (k *waitKnob) set(d time.Duration) { k.n.Store(int64(d)) }
+
 // childPoll is how often a parent that waits for a sub-agent checks the store
 // when no word has reached it. The word reaches the frontend that started the
 // sub-agent only if the loop host of that frontend ends the loop; with several
 // frontends another one may, and this check finds out.
-var childPoll = 30 * time.Second
+var childPoll = newWaitKnob(30 * time.Second)
 
 // loopHolds says whether the chat has an active self-paced loop, so that the
 // chat is not done for a parent that waits for it.
@@ -90,7 +104,7 @@ var errChildHeld = errors.New("studio: the sub-agent waits for its loop")
 // returns and the sub-agent goes on as a background one: its result arrives as
 // a message. Work that is running is never cut: only the time a sub-agent
 // spends waiting for its loop counts. A test shortens it.
-var foregroundLoopWait = 2 * time.Minute
+var foregroundLoopWait = newWaitKnob(2 * time.Minute)
 
 // waitChild waits until the turn of a sub-agent ends for good. done is the
 // channel of waitFor. It gives up with ctx's error, or when the service
@@ -102,7 +116,7 @@ var foregroundLoopWait = 2 * time.Minute
 func (s *Service) waitChild(ctx context.Context, p, id string, done <-chan store.TurnStatus, heldMax time.Duration) (store.TurnStatus, error) {
 	var tick <-chan time.Time
 	if s.loops != nil {
-		t := time.NewTicker(childPoll)
+		t := time.NewTicker(childPoll.get())
 		defer t.Stop()
 		tick = t.C
 	}

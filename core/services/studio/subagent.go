@@ -453,7 +453,7 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		go s.reportBack(a, childID, title, done) // #nosec G118 -- a background sub-agent reports after the request ended
 		return fmt.Sprintf("Started sub-agent %s in the background. Its result will arrive as a message.", childID), nil
 	}
-	st, err := s.waitChild(ctx, a.Principal, childID, done, foregroundLoopWait)
+	st, err := s.waitChild(ctx, a.Principal, childID, done, foregroundLoopWait.get())
 	if errors.Is(err, errChildHeld) {
 		// The sub-agent armed a loop or a wait and waits for it. Do not hold
 		// this call open: it goes on as a background sub-agent.
