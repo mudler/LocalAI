@@ -607,21 +607,31 @@ func (h *Handlers) Stop(c echo.Context) error {
 
 // Events streams the conversation's live events.
 // @Summary Stream a chat's events.
-// @Description Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). Events are live only; read the transcript for what came before.
+// @Description Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). The events of a running turn carry an id ("<run>.<n>"). Send the last id back as the Last-Event-ID header or the after query parameter to get the events you missed, then the live ones. A "resync" event means the server cannot give them (the id is of another run, is too old, or the frontend that answers does not run the turn): read the transcript, and go on from the id of the resync event. Without an id the stream starts from now; read the transcript for what came before.
 // @Tags chats
 // @Param id path string true "conversation id"
+// @Param after query string false "resume after this event id"
+// @Param Last-Event-ID header string false "resume after this event id (sent by a browser when it reconnects)"
 // @Produce text/event-stream
 // @Success 200 {object} schema.ChatsEvent "An event stream"
 // @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/events [get]
 func (h *Handlers) Events(c echo.Context) error {
-	events, cancel, err := h.svc.Events(c.Request().Context(), userID(c), c.Param("id"))
+	// The header is what a browser sends when it reconnects by itself; the
+	// query is for a client that opens a new stream, as the interface does.
+	after := c.Request().Header.Get("Last-Event-ID")
+	if after == "" {
+		after = c.QueryParam("after")
+	}
+	events, cancel, err := h.svc.EventsAfter(c.Request().Context(), userID(c), c.Param("id"), after)
 	if err != nil {
 		return failFor(c, err)
 	}
 	defer cancel()
 
-	return streamSSE(c, events, func(ev session.Event) (string, any) { return string(ev.Kind), eventJSON(ev) })
+	return streamSSEWithIDs(c, events, heartbeat, func(ev session.Event) (string, string, any) {
+		return ev.ID, string(ev.Kind), eventJSON(ev)
+	})
 }
 
 func eventJSON(ev session.Event) schema.ChatsEvent {
