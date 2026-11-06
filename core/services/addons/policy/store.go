@@ -140,14 +140,11 @@ const MaxRevocations = 4096
 // revocationCap is MaxRevocations; a test lowers it.
 var revocationCap = MaxRevocations
 
-func (r revocation) rank() int {
-	switch r.Ceiling {
-	case RoleViewer:
-		return 1
-	case RoleEditor:
-		return 2
-	}
-	return 0
+// covers says whether the lowering r is at least as strict as o: a removal,
+// the same ceiling, or viewer after editor. The roles of other kinds are not
+// ordered, so only the same ceiling or a removal covers one of them.
+func (r revocation) covers(o revocation) bool {
+	return r.Ceiling == "" || r.Ceiling == o.Ceiling || (r.Ceiling == RoleViewer && o.Ceiling == RoleEditor)
 }
 
 // addRevocation records a lowering. It keeps the log exact for every restore
@@ -156,7 +153,7 @@ func (r revocation) rank() int {
 func (d *document) addRevocation(v revocation) {
 	kept := d.Revoked[:0:0]
 	for _, o := range d.Revoked {
-		if o.Kind == v.Kind && o.ResourceID == v.ResourceID && o.UserID == v.UserID && !o.At.After(v.At) && v.rank() <= o.rank() {
+		if o.Kind == v.Kind && o.ResourceID == v.ResourceID && o.UserID == v.UserID && !o.At.After(v.At) && v.covers(o) {
 			continue
 		}
 		kept = append(kept, o)
@@ -275,7 +272,7 @@ func load(dir string) (*document, error) {
 		return nil, errors.New("addon policy store is corrupt")
 	}
 	for _, v := range d.Revoked {
-		if v.Kind == "" || !wellFormedKind(v.Kind) || v.ResourceID == "" || v.UserID == "" || (v.Ceiling != "" && v.Ceiling != RoleViewer && v.Ceiling != RoleEditor) {
+		if v.Kind == "" || !wellFormedKind(v.Kind) || v.ResourceID == "" || v.UserID == "" || (v.Ceiling != "" && !grantRole(v.Ceiling)) {
 			return nil, errors.New("addon policy store is corrupt")
 		}
 	}
@@ -298,7 +295,7 @@ func load(dir string) (*document, error) {
 			return nil, errors.New("addon policy store is corrupt")
 		}
 		for u, role := range r.Grants {
-			if u == "" || u == r.Owner || (role != RoleViewer && role != RoleEditor) {
+			if u == "" || u == r.Owner || !storedRole(r.Kind, role) {
 				return nil, errors.New("addon policy store is corrupt")
 			}
 		}
@@ -347,6 +344,17 @@ func (d *document) migrateKinds() bool {
 		}
 	}
 	return true
+}
+
+// storedRole says whether a grant of the role can be on a record of the kind.
+// An add-on grants viewer and editor only. Whether another kind grants the role
+// is known only once it registers, so the store accepts every grant role and
+// the check denies a role the kind does not grant.
+func storedRole(kind string, role Role) bool {
+	if _, addon := addonOf(kind); addon {
+		return role == RoleViewer || role == RoleEditor
+	}
+	return grantRole(role)
 }
 
 // wellFormedKind says whether a stored kind is usable: the add-on family needs

@@ -91,6 +91,9 @@ func New(store *Store, opts Options) *Policy {
 type admitted struct {
 	user     string
 	mutation bool
+	// action is what the work was admitted for. A lowering that another
+	// grant still covers for this action leaves the work running.
+	action Action
 	// epoch is the resource's authority epoch when the work was admitted.
 	epoch  uint64
 	cancel context.CancelFunc
@@ -141,12 +144,26 @@ func (p *Policy) checkRef(a contract.Actor, ref Ref, action Action) error {
 	if !known || !ok || r.State != stateActive || r.Kind != ref.Kind {
 		return ErrForbidden
 	}
-	// A required role of rank 0 would be met by a caller with no grant.
-	need := spec.Roles(action).rank()
-	if need == 0 || p.role(a, r).rank() < need {
+	if !p.may(spec, a, r, action) {
 		return ErrForbidden
 	}
 	return nil
+}
+
+// may is the role decision: the owner, the actor's own grant or, on a kind
+// that allows it, the grant to everyone. The grants add up, so the higher of
+// the two wins. A role the table of the kind does not list denies.
+func (p *Policy) may(spec KindSpec, a contract.Actor, r record, action Action) bool {
+	if spec.allows(p.role(a, r), action) {
+		return true
+	}
+	return p.everyone(spec, r, action)
+}
+
+// everyone says whether the grant to everyone on the record allows the
+// action. Only a named-user store with a kind that allows it has one.
+func (p *Policy) everyone(spec KindSpec, r record, action Action) bool {
+	return spec.Everyone && p.store.Mode() == ModeNamedUser && spec.allows(r.Grants[Everyone], action)
 }
 
 func (p *Policy) current(ctx context.Context, a contract.Actor) error {
@@ -209,7 +226,7 @@ func (p *Policy) AdmitRef(ctx context.Context, actor contract.Actor, resource Re
 	}
 	g := p.gate(resource.ResourceID)
 	runCtx, cancel := context.WithCancel(ctx)
-	adm := &admitted{user: actor.UserID, mutation: action.Mutation(), cancel: cancel, done: make(chan struct{})}
+	adm := &admitted{user: actor.UserID, mutation: action.Mutation(), action: action, cancel: cancel, done: make(chan struct{})}
 	g.mu.Lock()
 	// The hold is read under the gate that HoldAddon cancels work under, so
 	// an admission is either listed there or refused here.
@@ -283,12 +300,66 @@ func (p *Policy) SetGrant(ctx context.Context, actor contract.Actor, resource Re
 	return p.SetGrantRef(ctx, actor, refOf(resource), userID, role)
 }
 
-// SetGrantRef is SetGrant for a resource of any kind.
+// SetGrantRef is SetGrant for a resource of any kind. The role must be one the
+// kind grants. userID is an account the kind's Eligible rule accepts, or
+// Everyone on a kind that allows it.
 func (p *Policy) SetGrantRef(ctx context.Context, actor contract.Actor, resource Ref, userID string, role Role) error {
-	if role != RoleViewer && role != RoleEditor {
+	spec, ok := p.spec(resource.Kind)
+	if !ok || !spec.grantable(role) {
 		return ErrForbidden
 	}
+	_, addon := addonOf(resource.Kind)
+	switch {
+	case userID == Everyone:
+		if !spec.Everyone {
+			return ErrForbidden
+		}
+	case !addon:
+		// The rule is asked only for the owner role, so nobody else learns
+		// who may receive a grant.
+		if err := p.AuthorizeRef(ctx, actor, resource, ActionShare); err != nil {
+			return err
+		}
+		if err := p.eligible(ctx, actor, spec, userID); err != nil {
+			return err
+		}
+	}
 	return p.change(ctx, actor, resource, userID, role, false)
+}
+
+// eligible asks the kind whether the user may receive a grant from the actor.
+func (p *Policy) eligible(ctx context.Context, actor contract.Actor, spec KindSpec, userID string) error {
+	if spec.Eligible == nil || !validUserID(userID) {
+		return ErrForbidden
+	}
+	ok, err := spec.Eligible(ctx, actor, userID)
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return p.classify(err)
+	}
+	if !ok {
+		return ErrForbidden
+	}
+	return nil
+}
+
+// EligibleRef says whether the kind of the resource lets the actor grant it to
+// the user. It decides nothing about the actor's own role. The user picker
+// uses it to leave out the people a grant would refuse.
+func (p *Policy) EligibleRef(ctx context.Context, actor contract.Actor, resource Ref, userID string) (bool, error) {
+	spec, ok := p.spec(resource.Kind)
+	if !ok {
+		return false, ErrForbidden
+	}
+	if err := p.eligible(ctx, actor, spec, userID); err != nil {
+		if errors.Is(err, ErrForbidden) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 // Revoke removes userID's grant. It returns only after the user's pending
@@ -304,7 +375,9 @@ func (p *Policy) RevokeRef(ctx context.Context, actor contract.Actor, resource R
 }
 
 func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Ref, userID string, role Role, remove bool) error {
-	if p.store.Mode() != ModeNamedUser || !validUserID(userID) {
+	// Everyone is a principal, never an account. A removal of it is accepted
+	// on every kind, as it was before it was a principal: it takes nothing.
+	if p.store.Mode() != ModeNamedUser || (!validUserID(userID) && userID != Everyone) {
 		return ErrForbidden
 	}
 	if err := p.AuthorizeRef(ctx, actor, resource, ActionShare); err != nil {
@@ -331,19 +404,22 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Ref,
 		g.mu.Unlock()
 		return ErrForbidden
 	}
+	spec, _ := p.spec(resource.Kind)
 	prev := r.Grants[userID]
 	owed, isOwed := r.Drain[userID]
-	// Only a change that takes authority away starts a new epoch. A retry of
+	// Only a change that takes authority away starts a new epoch: one that
+	// leaves the grantee without an action the old role allowed. A retry of
 	// that change, or a regrant while its drain is still owed, keeps the mark
 	// as it is: the cutoff must stay at the lowering that created it, or the
 	// retry would stop work admitted under the later grant.
-	lowering := (prev != "" && (remove || role.rank() < prev.rank())) || (remove && !isOwed)
+	lost, lostRead := spec.loses(prev, role)
+	lowering := (prev != "" && (remove || lost)) || (remove && !isOwed)
 	// A removal after a downgrade keeps the older read cutoff, which the copy
 	// of the owed mark carries; a newer lowering only ever raises a cutoff.
 	mark := owed
 	if lowering {
 		mark.Writes = r.Epoch + 1
-		if remove {
+		if remove || lostRead {
 			mark.Reads = r.Epoch + 1
 		}
 	}
@@ -389,7 +465,7 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Ref,
 	var victims []*admitted
 	if lowered {
 		for a := range g.active {
-			if a.user != userID {
+			if !p.drains(spec, r, userID, a) {
 				continue
 			}
 			cutoff := mark.Reads
@@ -434,6 +510,23 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Ref,
 		}
 		return nil
 	})
+}
+
+// drains says whether a lowering of the principal's grant reaches the admitted
+// work. A lowering of a user reaches that user's work; a lowering of the grant
+// to everyone reaches the work of every user but the owner. Work the other
+// grant still allows for its action keeps running: revoking one of the two
+// grants never revokes the other. r is the record as it was before the change;
+// the change does not touch the other grant.
+func (p *Policy) drains(spec KindSpec, r record, principal string, a *admitted) bool {
+	if principal != Everyone {
+		return a.user == principal && !p.everyone(spec, r, a.action)
+	}
+	// A kind that does not allow it has no grant to everyone to lower.
+	if !spec.Everyone || a.user == r.Owner {
+		return false
+	}
+	return !spec.allows(r.Grants[a.user], a.action)
 }
 
 // Register records a new resource as pending, owned by the creating actor. A

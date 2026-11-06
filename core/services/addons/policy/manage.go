@@ -78,13 +78,19 @@ func (p *Policy) RoleOf(ctx context.Context, actor contract.Actor, key ResourceK
 // Grants lists the grants of a resource for its owner role. Local-owner mode
 // has no sharing and reports ErrForbidden.
 func (p *Policy) Grants(ctx context.Context, actor contract.Actor, key ResourceKey) (map[string]Role, error) {
+	return p.GrantsRef(ctx, actor, refOf(key))
+}
+
+// GrantsRef is Grants for a resource of any kind. A grant to everyone is
+// listed under the key Everyone.
+func (p *Policy) GrantsRef(ctx context.Context, actor contract.Actor, ref Ref) (map[string]Role, error) {
 	if p.store.Mode() != ModeNamedUser {
 		return nil, ErrForbidden
 	}
-	if err := p.Authorize(ctx, actor, key, ActionShare); err != nil {
+	if err := p.AuthorizeRef(ctx, actor, ref, ActionShare); err != nil {
 		return nil, err
 	}
-	r, ok := p.store.get(key.ResourceID)
+	r, ok := p.store.get(ref.ResourceID)
 	if !ok {
 		return nil, ErrForbidden
 	}
@@ -108,12 +114,78 @@ func (p *Policy) Key(resourceID string) (ResourceKey, bool) {
 
 // OwnerOf returns the immutable owner of an active resource for the actor's
 // own listing. It denies like RoleOf.
-func (p *Policy) OwnerOf(key ResourceKey) (string, bool) {
-	r, ok := p.store.get(key.ResourceID)
-	if !ok || r.Kind != addonKind(key.AddonID) {
+func (p *Policy) OwnerOf(key ResourceKey) (string, bool) { return p.OwnerOfRef(refOf(key)) }
+
+// OwnerOfRef is OwnerOf for a resource of any kind.
+func (p *Policy) OwnerOfRef(ref Ref) (string, bool) {
+	r, ok := p.store.get(ref.ResourceID)
+	if !ok || r.Kind != ref.Kind {
 		return "", false
 	}
 	return r.Owner, true
+}
+
+// ShareView is one active resource of a kind as an actor sees it in the
+// sharing listing.
+type ShareView struct {
+	Ref Ref
+	// Role is the actor's role: owner, the actor's own grant, or the grant
+	// to everyone when that one may do more.
+	Role Role
+	// Everyone says that Role comes from the grant to everyone.
+	Everyone bool
+	// OwnerID is the immutable owner. A caller shows a display name, never
+	// the identifier, to anyone who is not the owner.
+	OwnerID string
+	// Shared is the number of grants, the one to everyone included. It is
+	// set only when Role is owner.
+	Shared int
+}
+
+// ListingKind lists the active resources of a kind that is not an add-on
+// which the actor owns or holds a grant on, in ID order. An unknown kind and
+// an add-on kind are denied: add-on resources have their own listing.
+func (p *Policy) ListingKind(ctx context.Context, actor contract.Actor, kind string) ([]ShareView, error) {
+	if _, ok := p.Shareable(kind); !ok {
+		return nil, ErrForbidden
+	}
+	spec, _ := p.spec(kind)
+	if err := p.current(ctx, actor); err != nil {
+		return nil, err
+	}
+	p.store.mu.Lock()
+	defer p.store.mu.Unlock()
+	var out []ShareView
+	for id, r := range p.store.doc.Resources {
+		if r.State != stateActive || r.Kind != kind {
+			continue
+		}
+		v := ShareView{Ref: Ref{Kind: kind, ResourceID: id}, OwnerID: r.Owner}
+		if p.role(actor, *r) == RoleOwner {
+			v.Role, v.Shared = RoleOwner, len(r.Grants)
+			out = append(out, v)
+			continue
+		}
+		own := r.Grants[actor.UserID]
+		if !spec.grantable(own) {
+			own = ""
+		}
+		all := Role("")
+		if spec.Everyone && spec.grantable(r.Grants[Everyone]) {
+			all = r.Grants[Everyone]
+		}
+		switch {
+		case own != "" && (all == "" || spec.covers(own, all)):
+			v.Role = own
+		case all != "":
+			v.Role, v.Everyone = all, true
+		default:
+			continue
+		}
+		out = append(out, v)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Ref.ResourceID < out[j].Ref.ResourceID })
+	return out, nil
 }
 
 var uiResourceID = regexp.MustCompile(`^r[0-9a-f]{31}$`)

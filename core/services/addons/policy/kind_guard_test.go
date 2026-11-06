@@ -22,23 +22,25 @@ var _ = Describe("Kind role tables", func() {
 		for _, hole := range guardActions {
 			f := newFixture(ModeNamedUser)
 			err := f.policy.RegisterKind("notes:holey", KindSpec{
-				Backing: noBacking,
-				Roles: func(a Action) Role {
+				Backing:   noBacking,
+				Grantable: notesGrantable,
+				Roles: func(a Action) []Role {
 					if a == hole {
-						return ""
+						return []Role{""}
 					}
-					return RoleOwner
+					return notesRoles(a)
 				},
 			})
 			Expect(err).To(HaveOccurred(), "hole at %q", hole)
 		}
 		f := newFixture(ModeNamedUser)
-		Expect(f.policy.RegisterKind("notes:odd", KindSpec{Backing: noBacking, Roles: func(Action) Role { return "admin" }})).NotTo(Succeed())
+		Expect(f.policy.RegisterKind("notes:odd", KindSpec{Backing: noBacking, Grantable: notesGrantable, Roles: func(Action) []Role { return []Role{"admin"} }})).NotTo(Succeed())
 	})
 
 	It("denies a caller with no grant even if a table that returns no role is injected", func() {
 		f := newFixture(ModeNamedUser)
 		Expect(f.policy.RegisterKind(notesKind, KindSpec{
+			Grantable:       notesGrantable,
 			Roles:           notesRoles,
 			Backing:         noBacking,
 			CreateAuthority: func(context.Context, contract.Actor) error { return nil },
@@ -46,7 +48,7 @@ var _ = Describe("Kind role tables", func() {
 		ref, err := f.policy.CreateRef(bg, named("owner"), notesKind)
 		Expect(err).NotTo(HaveOccurred())
 		f.policy.mu.Lock()
-		f.policy.kinds[notesKind] = KindSpec{Roles: func(Action) Role { return "" }}
+		f.policy.kinds[notesKind] = KindSpec{Grantable: notesGrantable, Roles: func(Action) []Role { return []Role{""} }}
 		f.policy.mu.Unlock()
 		Expect(f.policy.AuthorizeRef(bg, named("stranger"), ref, ActionRead)).To(MatchError(ErrForbidden))
 		Expect(f.policy.AuthorizeRef(bg, named("stranger"), ref, ActionUnknown)).To(MatchError(ErrForbidden))
@@ -54,7 +56,7 @@ var _ = Describe("Kind role tables", func() {
 
 	It("refuses a kind without a backing check", func() {
 		f := newFixture(ModeNamedUser)
-		Expect(f.policy.RegisterKind(notesKind, KindSpec{Roles: notesRoles})).NotTo(Succeed())
+		Expect(f.policy.RegisterKind(notesKind, KindSpec{Grantable: notesGrantable, Roles: notesRoles})).NotTo(Succeed())
 	})
 
 	It("does not count a pending record of an unregistered kind against the quota", func() {
@@ -76,6 +78,7 @@ var _ = Describe("Export of an add-on", func() {
 	It("never reports a resource that is not of the add-on", func() {
 		f := newFixture(ModeNamedUser)
 		Expect(f.policy.RegisterKind(notesKind, KindSpec{
+			Grantable:       notesGrantable,
 			Roles:           notesRoles,
 			Backing:         func(context.Context, Ref) (bool, error) { return true, nil },
 			CreateAuthority: func(context.Context, contract.Actor) error { return nil },
