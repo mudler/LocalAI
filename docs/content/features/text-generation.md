@@ -37,6 +37,25 @@ Reasoning models return their thinking in the `reasoning` field. When a model re
 
 When `stream: true` is set and the llama.cpp backend fails before the first chunk, for example because the prompt exceeds the context size, the request fails with an HTTP error. The error message is not streamed as assistant content. An error after streaming has started is reported inside the stream.
 
+### Responses
+
+`POST /v1/responses` accepts a string `input` as a user chat message, rather
+than as a raw text-completion prefix. For example:
+
+```bash
+curl http://localhost:8080/v1/responses -H "Content-Type: application/json" -d '{
+  "model": "your-chat-model",
+  "input": "Hello",
+  "max_output_tokens": 128
+}'
+```
+
+For models configured with `template.use_tokenizer_template: true`, LocalAI
+passes the user message, instructions, history, and tools to the backend's
+native chat template. This applies to both buffered and streaming responses;
+flattening these messages into a plain prompt would make the model continue
+the input text instead of answering it.
+
 ### Edit completions
 
 https://platform.openai.com/docs/api-reference/edits
