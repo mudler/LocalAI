@@ -13,7 +13,7 @@ import (
 // ask the host to do. They accept only the administrator's own browser
 // session, so an agent or an MCP client, which holds a key or a tool session,
 // can never grant, revoke, deny or turn the blanket approval on. This spec
-// keeps that true: no tool maps to them, and nothing under pkg/mcp calls them.
+// keeps that true: no tool maps to them, and no source file of this package names them.
 var _ = Describe("host access and the MCP tools", func() {
 	It("maps no tool to any /api/addons/host-grants route", func() {
 		for tool, route := range toolToHTTPRoute {

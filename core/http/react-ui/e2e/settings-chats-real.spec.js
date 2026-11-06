@@ -20,15 +20,22 @@ test.describe('Chat settings against the real server', () => {
     await expect(row(page, 'mcp_connectors_allow_private')).toBeVisible()
   })
 
-  test('the LocalAI admin tools switch is stored and the assistant feature follows it', async ({ page }) => {
+  test('the LocalAI admin tools switch waits for Apply, is stored, and the assistant feature follows it', async ({ page }) => {
     const before = (await stored(page)).chats_localai_admin
     try {
-      const off = await page.request.post('/api/settings', { data: { chats_localai_admin: false } })
-      expect(off.ok()).toBe(true)
-      expect((await stored(page)).chats_localai_admin).toBe(false)
-      expect((await (await page.request.get('/api/features')).json()).localai_assistant).toBe(false)
-      await page.request.post('/api/settings', { data: { chats_localai_admin: true } })
-      expect((await (await page.request.get('/api/features')).json()).localai_assistant).toBe(true)
+      await page.goto('/app/settings')
+      await page.getByRole('button', { name: /^Tools/ }).click()
+      const toggle = page.getByTestId('settings-tools-localai_admin-switch')
+      const wasOn = (await toggle.getAttribute('aria-checked')) === 'true'
+      await toggle.click()
+      await expect(page.getByTestId('settings-pending')).toContainText('1 pending')
+      // Nothing is stored until Apply.
+      expect((await stored(page)).chats_localai_admin).toBe(before)
+      await page.getByRole('button', { name: 'Apply' }).click()
+      await expect(page.getByTestId('settings-undo-toast')).toBeVisible()
+      await expect.poll(async () => (await stored(page)).chats_localai_admin).toBe(!wasOn)
+      const features = await (await page.request.get('/api/features')).json()
+      expect(features.localai_assistant).toBe(!wasOn)
     } finally {
       await page.request.post('/api/settings', { data: { chats_localai_admin: before } })
     }
