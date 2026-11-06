@@ -17006,11 +17006,11 @@ paths:
       - chats
   /api/chats/{id}/resume:
     post:
-      description: Starts a new turn that goes on from where the last one failed.
+      description: Starts a new turn that goes on from where the last one failed or was interrupted by a restart.
         The transcript stays as it is, with the messages, tool calls and results of
         the failed turn and the reason at its end; the model keeps its own state,
         so a tool call that has its result is not made again. Messages that wait for
-        the chat go first. When the chat is not at a failed turn, or a turn runs,
+        the chat go first. When the chat is not at a failed or interrupted turn, or a turn runs,
         nothing starts and started is false, so a second click is harmless.
       parameters:
       - description: conversation id
