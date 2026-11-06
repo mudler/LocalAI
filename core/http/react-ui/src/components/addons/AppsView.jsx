@@ -435,6 +435,7 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
                           needsSetup={setupIds.has(tile.id)}
                           updateVersion={uv && uv.state === 'update-available' ? uv.version : ''}
                           waitingApproval={waitingIds.has(tile.id)}
+                          sourceId={rec ? rec.sourceId : ''}
                           onPin={onPin}
                           onMove={nav.move}
                           onOpenDetail={openDetail}
