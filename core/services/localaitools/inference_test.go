@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"image"
 	"image/color"
 	"image/png"
@@ -259,6 +260,21 @@ var _ = Describe("client tools over the REST client", func() {
 		store.files["/files/note.txt"] = localaitools.File{Name: "note.txt", Data: []byte("just text")}
 		_, err := cl.DescribeImage(ctx, localaitools.DescribeImageRequest{Image: "/files/note.txt", Model: "v"})
 		Expect(err).To(MatchError(ContainSubstring("not an image")))
+	})
+
+	It("reads the file from the store of the context when the caller sets one, and types a wrong kind", func() {
+		other := newMemStore()
+		other.files["/mine/a.png"] = localaitools.File{Name: "a.png", Data: pngBytes(2, 2)}
+		other.files["/mine/n.txt"] = localaitools.File{Name: "n.txt", Data: []byte("words")}
+		octx := localaitools.WithFiles(ctx, other)
+		res, err := cl.DescribeImage(octx, localaitools.DescribeImageRequest{Image: "/mine/a.png", Model: "vl"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res.Description).To(Equal("a red square"))
+		_, err = cl.DescribeImage(octx, localaitools.DescribeImageRequest{Image: "/mine/n.txt", Model: "vl"})
+		var kind *localaitools.WrongKindError
+		Expect(errors.As(err, &kind)).To(BeTrue())
+		Expect(err).To(MatchError("image is not an image"))
+		Expect(localaitools.WithFiles(ctx, nil)).To(Equal(ctx))
 	})
 
 	It("describes an image with a chat completion that carries the image as a data URL", func() {

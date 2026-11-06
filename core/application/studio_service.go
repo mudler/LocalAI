@@ -152,7 +152,7 @@ func (a *Application) initStudioService() {
 		AgentOptions:       a.studioAgentOptions,
 		Persistent:         a.studioStoreKind != "memory",
 		Files:              a.StudioFiles(),
-		Media:              media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel).WithVisionChooser(a.studioVisionModel),
+		Media:              media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel).WithVisionChooser(a.studioVisionModel).WithClient(a.studioMediaClient),
 		Web:                a.studioWeb,
 	}
 	if a.studioMCPConns != nil {

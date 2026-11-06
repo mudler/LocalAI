@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/addons/telegram/transport"
 	"github.com/mudler/LocalAI/addons/testhost"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/localaitools/inproc"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
@@ -40,7 +41,8 @@ func transcriber(model, text string, status int) (*media.Service, *atomic.Int32)
 	users := func(_ context.Context, id string) (*auth.User, error) {
 		return &auth.User{ID: id, Status: auth.StatusActive}, nil
 	}
-	return media.New(p, users, func(media.Capability) string { return model }), &calls
+	return media.New(p, users, func(media.Capability) string { return model }).
+		WithClient(func() media.Client { return &inproc.Client{Transport: p.Transport} }), &calls
 }
 
 // mediaRig is a Telegram rig whose chats see images and transcribe with m.

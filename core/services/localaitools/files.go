@@ -31,6 +31,34 @@ var (
 	ErrFileTooLarge = errors.New("file too large")
 )
 
+type filesCtxKey struct{}
+
+// WithFiles returns a context whose client tool calls read their input files
+// from fs instead of the file store of the client. The caller is code in this
+// process that already knows what the user may read, for example the chats,
+// whose files are fenced to a folder. A nil fs returns ctx unchanged.
+func WithFiles(ctx context.Context, fs FileStore) context.Context {
+	if fs == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, filesCtxKey{}, fs)
+}
+
+func filesFromContext(ctx context.Context) FileStore {
+	fs, _ := ctx.Value(filesCtxKey{}).(FileStore)
+	return fs
+}
+
+// WrongKindError means a file is not of the kind the tool needs.
+type WrongKindError struct {
+	// What names the file; a caller that knows the file's real name may set it.
+	What string
+	// Kind is the text after "is not", for example "an image".
+	Kind string
+}
+
+func (e *WrongKindError) Error() string { return e.What + " is not " + e.Kind }
+
 // File is a file that a FileStore read.
 type File struct {
 	Name string

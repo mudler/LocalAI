@@ -61,7 +61,7 @@ Each chat has the usual switches (`PUT /api/chats/{id}/builtins`). A saved agent
 - The admin group is for administrators. For any other user the group is listed as not usable, and the model has none of its tools.
 - A client tool is offered when the account holds the feature permission in the table below and an installed model has the use case. A user with none of the features sees no client tool.
 - A sub-agent never has the admin group. A run that starts by itself (a trigger or a job) and a messaging chat do not have it either. The client tools in a run that starts by itself need the `act.spend` grant, like other tools that spend compute.
-- `describe_image` and `transcribe_audio` stay in the **Images and audio** group of the chat, so a chat never has the same tool name twice.
+- `describe_image` and `transcribe_audio` stay in the **Images and audio** group of the chat, so a chat never has the same tool name twice. There they are aliases of the client tools of the same name: they use the helper models of **Chat image model** and **Chat transcription model** and read the files the chat can see, then run the same code as the client tools, as the person who is chatting.
 
 The OpenAI-compatible API is not changed: `metadata.localai_assistant` still gives an administrator the admin tools there, and the client tools are not offered.
 

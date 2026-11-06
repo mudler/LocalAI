@@ -90,7 +90,10 @@ type Inference struct {
 	Files FileStore
 }
 
-func (i *Inference) files() (FileStore, error) {
+func (i *Inference) files(ctx context.Context) (FileStore, error) {
+	if fs := filesFromContext(ctx); fs != nil {
+		return fs, nil
+	}
 	if i == nil || i.Files == nil {
 		return nil, errors.New("file input and output are not available here: no file store is configured")
 	}
@@ -115,7 +118,7 @@ func (i *Inference) pick(ctx context.Context, given string, spec ClientToolSpec)
 }
 
 func (i *Inference) read(ctx context.Context, ref string, max int64, what string) (File, error) {
-	fs, err := i.files()
+	fs, err := i.files(ctx)
 	if err != nil {
 		return File{}, err
 	}
@@ -138,7 +141,7 @@ func (i *Inference) readImage(ctx context.Context, ref, what string) (File, erro
 		return f, err
 	}
 	if !strings.HasPrefix(http.DetectContentType(f.Data), "image/") {
-		return f, fmt.Errorf("%s is not an image", what)
+		return f, &WrongKindError{What: what, Kind: "an image"}
 	}
 	f.MIME = http.DetectContentType(f.Data)
 	return f, nil
@@ -152,7 +155,7 @@ func (i *Inference) readAudio(ctx context.Context, ref, what string) (File, erro
 	if ct := http.DetectContentType(f.Data); strings.HasPrefix(ct, "audio/") || strings.HasPrefix(f.MIME, "audio/") || extForMIME(f.MIME) != "" || audioName(f.Name) {
 		return f, nil
 	}
-	return f, fmt.Errorf("%s is not audio", what)
+	return f, &WrongKindError{What: what, Kind: "audio"}
 }
 
 func audioName(name string) bool {
@@ -165,7 +168,7 @@ func audioName(name string) bool {
 
 // store writes a result file and describes it.
 func (i *Inference) store(ctx context.Context, name string, data []byte, mimeType string) (OutputFile, error) {
-	fs, err := i.files()
+	fs, err := i.files(ctx)
 	if err != nil {
 		return OutputFile{}, err
 	}
