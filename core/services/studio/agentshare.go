@@ -341,39 +341,56 @@ func (s *Service) revokeAgentShares(ctx context.Context, p string, ag agents.Age
 }
 
 // admitAgentTurn admits a turn of a chat whose agent is shared with its
-// owner p. It returns the release to call when the turn ends. A chat with
-// the user's own agent, with no agent or with an agent that was deleted
-// needs no admission. A chat whose agent is no longer shared is refused with
-// ErrAgentNotShared. A lowering or a revocation during the turn stops it.
-func (s *Service) admitAgentTurn(ctx context.Context, p, conv string) (func(), error) {
+// owner p. It returns the release to call when the turn ends, and the check
+// to call once the turn is registered: a lowering or a revocation that came
+// before the turn could be stopped stops it then. A chat with the user's own
+// agent, with no agent or with an agent that was deleted needs no admission.
+// A chat whose agent is no longer shared is refused with ErrAgentNotShared.
+// A lowering or a revocation during the turn stops it.
+func (s *Service) admitAgentTurn(ctx context.Context, p, conv string) (release, recheck func(), err error) {
+	noop := func() {}
+	release, recheck, err = s.admitShared(ctx, p, conv)
+	if release == nil {
+		release = noop
+	}
+	if recheck == nil {
+		recheck = noop
+	}
+	return release, recheck, err
+}
+
+func (s *Service) admitShared(ctx context.Context, p, conv string) (func(), func(), error) {
 	noop := func() {}
 	rec, err := s.d.Store.GetChat(ctx, p, conv)
 	if err != nil || rec.AgentID == "" || s.d.Agents == nil {
-		return noop, nil
+		return noop, noop, nil
 	}
 	if _, err := s.d.Agents.Get(ctx, p, rec.AgentID); err == nil || !errors.Is(err, agents.ErrNotFound) {
-		return noop, nil
+		return noop, noop, nil
 	}
 	ag, err := s.d.Agents.GetShared(ctx, rec.AgentID)
 	if errors.Is(err, agents.ErrNotFound) {
 		// A deleted agent: the turn runs as for any chat whose agent is gone.
-		return noop, nil
+		return noop, noop, nil
 	}
 	if err != nil {
-		return noop, err
+		return noop, noop, err
 	}
 	sh := s.shares()
 	if sh == nil || ag.Principal == p {
-		return noop, ErrAgentNotShared
+		return noop, noop, ErrAgentNotShared
 	}
 	admitted := make(chan error, 1)
 	done := make(chan struct{})
+	// lost is closed when the grant no longer allows the run.
+	lost := make(chan struct{})
 	go func() { // #nosec G118 -- the admission lives as long as the turn and ends with release
 		err := sh.Admit(context.Background(), p, ag.ShareRef, func(run context.Context) error {
 			admitted <- nil
 			select {
 			case <-done:
 			case <-run.Done():
+				close(lost)
 				// The grant was lowered or revoked: stop the turn and hold
 				// the admission until it has ended, so the owner's change
 				// answers only once nothing runs under the old grant.
@@ -389,10 +406,19 @@ func (s *Service) admitAgentTurn(ctx context.Context, p, conv string) (func(), e
 		}
 	}()
 	if err := <-admitted; err != nil {
-		return noop, ErrAgentNotShared
+		return noop, noop, ErrAgentNotShared
 	}
 	var once sync.Once
-	return func() { once.Do(func() { close(done) }) }, nil
+	recheck := func() {
+		select {
+		case <-lost:
+			if err := s.stopLocal(context.Background(), p, conv); err != nil {
+				s.log.Warn("studio: could not stop a turn of an agent that is no longer shared", "chat", conv, "error", err)
+			}
+		default:
+		}
+	}
+	return func() { once.Do(func() { close(done) }) }, recheck, nil
 }
 
 // AgentReference is one thing a saved agent uses.

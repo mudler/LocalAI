@@ -1187,7 +1187,7 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg session.Message) error {
 	// A chat with an agent shared with its owner runs as admitted work of
 	// the agent's sharing record: a lowering or a revocation stops it.
-	release, err := s.admitAgentTurn(ctx, p, conv)
+	release, recheck, err := s.admitAgentTurn(ctx, p, conv)
 	if err != nil {
 		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
 		return err
@@ -1217,6 +1217,7 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg sess
 	s.mu.Lock()
 	s.runs[k] = &run{id: runID, started: time.Now(), end: end, chat: chat}
 	s.mu.Unlock()
+	recheck()
 	msg.Media = s.keepVideos(k, msg.Media)
 	if err := chat.Send(context.WithoutCancel(ctx), msg); err != nil {
 		s.mu.Lock()
