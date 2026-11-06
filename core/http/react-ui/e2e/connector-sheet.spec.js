@@ -288,4 +288,16 @@ test.describe('Connector rows, pane and sheet', () => {
     await expect(sheet.getByTestId('connector-ready-token').getByRole('button', { name: 'Keep these changes' })).toBeVisible()
   })
 
+  test('Answer only says it adds no permission, and the note says where the agent side is set', async ({ page }) => {
+    await connectorApi(page, [RUNNING]).install()
+    await page.goto(PAGE)
+    await openEdit(page)
+    const presets = page.getByTestId('connector-preset')
+    await expect(presets).toContainText('This connection adds no permission of its own')
+    await expect(presets).not.toContainText('does nothing else')
+    const note = page.getByTestId('connector-preset-note')
+    await expect(note).toContainText('verified people can still use their write tools')
+    await expect(note).toContainText('on the agent, under "What it can use"')
+  })
+
 })

@@ -37,3 +37,19 @@ test('connector words: the quiet line of a new connection counts the things to s
     assert.ok(b['ready.quiet_other'].includes('{{count}}'), `${lng} keeps the count`)
   }
 })
+
+test('connector words: Answer only does not claim that the bot does nothing else, and the note says where the agent side is set', () => {
+  const en = connector('en')
+  // The facts: a connection with no permission ticked still lets a verified sender use the
+  // write tools of the add-on connections the agent holds. The words must not say otherwise.
+  assert.doesNotMatch(en['conn.preset.answerHelp'], /nothing else|only/i)
+  assert.match(en['conn.preset.answerHelp'], /no permission of its own/)
+  assert.match(en['conn.preset.note'], /add-on connections/)
+  assert.match(en['conn.preset.note'], /verified people can still use their write tools/)
+  assert.match(en['conn.preset.note'], /"What it can use"/, 'the note names the place where the agent side is changed')
+  for (const lng of LANGS) {
+    const b = connector(lng)
+    for (const key of ['conn.preset.answerHelp', 'conn.preset.note']) assert.ok(typeof b[key] === 'string' && b[key].trim() !== '', `${lng} has ${key}`)
+    if (lng !== 'en') assert.notEqual(b['conn.preset.answerHelp'], en['conn.preset.answerHelp'], `${lng} translates the Answer only help`)
+  }
+})
