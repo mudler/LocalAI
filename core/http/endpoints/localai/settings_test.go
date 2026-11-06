@@ -168,6 +168,19 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(cfg.DisableChatsLocalAIAdmin).To(BeFalse())
 	})
 
+	It("takes auto, on and off for the tool search of the chats and rejects another value", func() {
+		cfg := app.ApplicationConfig()
+		rec := post(`{"chats_tool_search":"on"}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.EffectiveChatsToolSearch()).To(Equal("on"))
+		rec = post(`{"chats_tool_search":"sometimes"}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(cfg.EffectiveChatsToolSearch()).To(Equal("on"), "the bad value changed nothing")
+		rec = post(`{"chats_tool_search":"auto"}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.EffectiveChatsToolSearch()).To(Equal("auto"))
+	})
+
 	It("rejects a host-commands mode and pins the chats do not understand", func() {
 		rec := post(`{"chats_host_exec":"always"}`)
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))

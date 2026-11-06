@@ -2259,6 +2259,10 @@ type ChatsBuiltinGroup struct {
 	Provider string `json:"provider" example:"builtin"`
 	// Providers says who serves each tool, by tool name.
 	Providers map[string]string `json:"providers" example:"web_search:builtin"`
+	// Deferred is true when the chat loads the tools of the group on demand:
+	// the model sees tool_search, tool_describe and tool_call in their place
+	// (see the setting chats_tool_search).
+	Deferred bool `json:"deferred,omitempty"`
 	// Title and Description say what the group is and what the model can do
 	// when its switch is on; WhenOff says what it cannot do when it is off.
 	// They are English; the interface may translate them by group.

@@ -106,8 +106,9 @@ type RuntimeSettings struct {
 	ChatsWebAllowPrivate    *bool   `json:"chats_web_allow_private,omitempty"` // let web_fetch reach private network addresses (default: false)
 	ChatsWebPorts           *string `json:"chats_web_ports,omitempty"`         // ports web_fetch may use, comma separated (default: 80,443)
 	// The two built-in groups of LocalAI tools of the chats. Read at each turn.
-	ChatsLocalAIClient *bool `json:"chats_localai_client,omitempty"` // offer the LocalAI client (inference) tools (default: true)
-	ChatsLocalAIAdmin  *bool `json:"chats_localai_admin,omitempty"`  // offer the LocalAI admin tools to administrators (default: true)
+	ChatsLocalAIClient *bool   `json:"chats_localai_client,omitempty"` // offer the LocalAI client (inference) tools (default: true)
+	ChatsLocalAIAdmin  *bool   `json:"chats_localai_admin,omitempty"`  // offer the LocalAI admin tools to administrators (default: true)
+	ChatsToolSearch    *string `json:"chats_tool_search,omitempty"`    // load the large LocalAI tool groups on demand: auto, on or off (default: auto)
 	// The network of the commands the chats run in the Sandbox. Read at each
 	// check of the host proxy, so a change applies at once (a cached allow
 	// lives at most 30 seconds).

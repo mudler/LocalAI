@@ -472,6 +472,11 @@ type ApplicationConfig struct {
 	DisableChatsLocalAIClient bool
 	DisableChatsLocalAIAdmin  bool
 
+	// ChatsToolSearch is the setting chats_tool_search: whether the large
+	// LocalAI tool groups are replaced by the three tool-search tools. One of
+	// the ToolSearch* values; empty means auto. Read at each turn.
+	ChatsToolSearch string
+
 	// DisableChatsWorkFolder stops the steering of the chats' working files:
 	// the prompt no longer names the chat's work folder (Chats/<chat>/work)
 	// for scripts, logs and drafts, and a helper file saved elsewhere gets no

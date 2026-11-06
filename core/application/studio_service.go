@@ -197,6 +197,7 @@ func (a *Application) initStudioService() {
 	deps.SavedAgentsOn = func() bool { return !a.applicationConfig.DisableChatsSavedAgents }
 	deps.LocalAIClientOn = func() bool { return !a.applicationConfig.DisableChatsLocalAIClient }
 	deps.LocalAIAdminOn = func() bool { return !a.applicationConfig.DisableChatsLocalAIAdmin }
+	deps.ToolSearchMode = a.applicationConfig.EffectiveChatsToolSearch
 	deps.WorkFolderOn = func() bool { return !a.applicationConfig.DisableChatsWorkFolder }
 	deps.GoalLimits = func() (int, int) {
 		return a.applicationConfig.EffectiveChatsGoalMaxTurns(), a.applicationConfig.EffectiveChatsGoalMaxSteps()

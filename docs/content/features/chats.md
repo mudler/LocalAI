@@ -1450,6 +1450,13 @@ it off, so a chat that never touches the menu works as before:
 curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web","files"]}'
 ```
 
+The two LocalAI groups are large, so on a small context window a chat may not send
+them in full: it sends `tool_search`, `tool_describe` and `tool_call` instead, and the
+model finds and runs their tools through them, under the same permissions. The setting
+`chats_tool_search` (`auto`, `on` or `off`) decides; see
+[Tool search]({{% relref "features/localai-assistant#tool-search" %}}). The tools panel marks
+such a group with `"deferred":true`.
+
 `off` replaces the earlier list, and a name that is not a group is refused
 (400). A group the server does not offer is not listed: **Your files** and
 **Images and audio** need the files, **Images and audio** the helper models,

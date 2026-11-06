@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
@@ -151,6 +152,10 @@ type BuiltinGroup struct {
 	Provider string
 	// Providers says who serves each tool of the group, by tool name.
 	Providers map[string]string
+	// Deferred says that the chat loads the tools of the group on demand,
+	// behind tool_search, tool_describe and tool_call, instead of sending
+	// every schema each turn (see shouldDefer).
+	Deferred bool
 	// Title, Description and WhenOff are what a person reads next to the
 	// switch (see builtins.GroupInfo).
 	Title, Description, WhenOff string
@@ -226,7 +231,16 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 		}
 	}
 	byAgent := set(s.agentOff(ctx, rec))
+	// The groups the chat loads on demand: what the next turn would decide.
+	var deferredGroups []string
+	for _, g := range out {
+		if g.Group == builtins.GroupLocalAIClient || g.Group == builtins.GroupLocalAIAdmin {
+			_, _, deferredGroups, _, _ = s.localaiTurn(ctx, a, rec, nil)
+			break
+		}
+	}
 	for i := range out {
+		out[i].Deferred = slices.Contains(deferredGroups, out[i].Group)
 		if out[i].Group == builtins.GroupLocalAIClient || out[i].Group == builtins.GroupLocalAIAdmin {
 			// The group is one entry of the registry; the menu lists the
 			// tools the model would get.

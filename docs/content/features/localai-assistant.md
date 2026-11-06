@@ -55,6 +55,7 @@ Each group has an instance setting that an administrator changes in **Settings â
 |---|---|
 | `chats_localai_client` | Offer the client tools to the chats. |
 | `chats_localai_admin` | Offer the admin tools to the chats of administrators. |
+| `chats_tool_search` | `auto` (default), `on` or `off`: whether the two groups are [loaded on demand](#tool-search). |
 
 Each chat has the usual switches (`PUT /api/chats/{id}/builtins`). A saved agent has the client group unless its `builtins_off` lists `localai_client`, and has the admin group only when its `builtins_on` lists `localai_admin` and its owner is an administrator. The tools the model sees are only the ones it can call:
 
@@ -62,6 +63,26 @@ Each chat has the usual switches (`PUT /api/chats/{id}/builtins`). A saved agent
 - A client tool is offered when the account holds the feature permission in the table below and an installed model has the use case. A user with none of the features sees no client tool.
 - A sub-agent never has the admin group. A run that starts by itself (a trigger or a job) and a messaging chat do not have it either. The client tools in a run that starts by itself need the `act.spend` grant, like other tools that spend compute.
 - `describe_image` and `transcribe_audio` stay in the **Images and audio** group of the chat, so a chat never has the same tool name twice. There they are aliases of the client tools of the same name: they use the helper models of **Chat image model** and **Chat transcription model** and read the files the chat can see, then run the same code as the client tools, as the person who is chatting.
+
+### Tool search
+
+Every tool the model is offered is sent to it again on every turn, and the two groups are large: together about 9,000 tokens. On a model with a small context window that leaves little room for the conversation. So a chat can send three small tools in place of the two groups, and the model finds and runs the group tools through them:
+
+| Tool | What it does |
+|---|---|
+| `tool_search` | Takes a few words (`query`, and `limit`, default 5, at most 20) and returns the best matching tools, each with a one-line description. |
+| `tool_describe` | Takes a tool name and returns its full description and parameters. |
+| `tool_call` | Takes a tool name and its `arguments` and runs the tool. |
+
+The three together are under 400 tokens. The setting `chats_tool_search` decides when a chat uses them:
+
+- `auto` (default): when the schemas of the tools of both groups that the chat would send reach a tenth of the context window of the chat's model. The window is the chat's own context size setting, or else the context size of the model. If the window is not known, the groups are sent in full.
+- `on`: always, when the chat has at least one tool in the groups.
+- `off`: never. Every tool is sent in full.
+
+The decision uses only the tools the chat would send and the window, so a chat gets the same answer on every turn. It changes only when you change the switches of the chat or the model.
+
+Permissions do not change. `tool_call` runs the same tool a direct call would, with the same checks: the role, the switches of the chat, the ceiling of a saved agent, the `act.spend` rule of a run that starts by itself, and the account of the person who is chatting. `tool_search` and `tool_describe` list and describe only tools the chat could call. Any other name, whether the tool exists or not, gets the same answer: `no such tool`. The tools of other groups, like the file and web tools, are always sent in full. The tools panel (`GET /api/chats/{id}/tools`) marks a group that loads on demand with `deferred: true`, and the Tools menu shows it as "Loaded on demand".
 
 The OpenAI-compatible API is not changed: `metadata.localai_assistant` still gives an administrator the admin tools there, and the client tools are not offered.
 

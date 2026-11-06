@@ -214,7 +214,7 @@ func writeToolsPanel(c echo.Context, p studiosvc.ToolsPanel) error {
 		Connectors: make([]schema.ChatsMCPConnectorSwitch, 0, len(p.Connectors)), Off: p.Off}
 	for _, g := range p.Builtins {
 		out.Builtins = append(out.Builtins, schema.ChatsBuiltinGroup{Group: g.Group, Tools: g.Tools, Off: g.Off, OptIn: g.OptIn,
-			Usable: g.Usable, Reason: g.Reason, Provider: g.Provider, Providers: g.Providers,
+			Usable: g.Usable, Reason: g.Reason, Provider: g.Provider, Providers: g.Providers, Deferred: g.Deferred,
 			Title: g.Title, Description: g.Description, WhenOff: g.WhenOff})
 	}
 	out.Memory = memoryStateOut(p.Memory)
@@ -235,7 +235,7 @@ func writeToolsPanel(c echo.Context, p studiosvc.ToolsPanel) error {
 
 // ListChatTools lists what a chat can use besides its built-in tools.
 // @Summary List the tools a chat can switch on and off.
-// @Description The groups of built-in tools (shell, web, files, media, collections, subagents, triggers, memory, saved_agents and history; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants. memory says whether memory works in the chat and, when it does not, the level that turned it off (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.
+// @Description The groups of built-in tools (shell, web, files, media, collections, subagents, triggers, memory, saved_agents and history; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). deferred is true on a group whose tools the chat loads on demand behind tool_search, tool_describe and tool_call (the localai_client and localai_admin groups, see the setting chats_tool_search). A chat with a saved agent lists only what the agent grants. memory says whether memory works in the chat and, when it does not, the level that turned it off (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} schema.ChatsToolsPanel "The tools and their switches"

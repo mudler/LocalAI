@@ -192,18 +192,37 @@ func (s *Service) ownerOf(ctx context.Context, principal string) *auth.User {
 //
 // The tools act as the chat's owner. The user travels in the call to the MCP
 // server (mcpendpoint.AsUser), so the client tools reach the API as that user.
-func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, rec session.ChatRecord, have []session.Tool) (tools []session.Tool, prompt, note string) {
+//
+// When the tool search applies (see shouldDefer), the tools of the two groups
+// come back in deferred instead of tools: the caller gates them and hides them
+// behind the bridge tools (toolSearchTools). deferredGroups names the groups
+// that have a tool there.
+func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, rec session.ChatRecord, have []session.Tool) (tools, deferred []session.Tool, deferredGroups []string, prompt, note string) {
 	taken := map[string]bool{}
 	for _, t := range have {
 		taken[t.Name] = true
 	}
-	add := func(ts []session.Tool) {
+	var groupTools []session.Tool
+	var groups []string
+	add := func(group string, ts []session.Tool) {
 		for _, t := range ts {
 			if !taken[t.Name] {
 				taken[t.Name] = true
-				tools = append(tools, t)
+				groupTools = append(groupTools, t)
+				if !slices.Contains(groups, group) {
+					groups = append(groups, group)
+				}
 			}
 		}
+	}
+	// finish decides, from the tools of both groups and the chat's window,
+	// whether they go in front of the model or behind the tool search.
+	finish := func() {
+		if shouldDefer(s.toolSearchMode(), groupTools, s.windowOf(rec)) {
+			deferred, deferredGroups = groupTools, groups
+			return
+		}
+		tools = groupTools
 	}
 	chat := s.builtinChat(ctx, a, rec, rec.Kind == session.KindSubAgent)
 	if b, ok := s.builtins.BuildOne(ctx, builtins.GroupLocalAIClient, chat); ok && b.OK {
@@ -213,7 +232,7 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, rec sessio
 			if ts, err := s.toolsOf(ctx, rec.ID, exec); err != nil {
 				s.log.Warn("studio: the LocalAI client tools are unavailable", "chat", rec.ID, "error", err)
 			} else {
-				add(ts)
+				add(builtins.GroupLocalAIClient, ts)
 			}
 		}
 	}
@@ -225,14 +244,16 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, rec sessio
 			exec = mcpendpoint.AsUser(exec, s.ownerOf(ctx, rec.Principal))
 		}
 		if exec == nil || !exec.HasTools() {
-			return tools, "", assistantUnavailable(rec)
+			finish()
+			return tools, deferred, deferredGroups, "", assistantUnavailable(rec)
 		}
 		ts, err := s.toolsOf(ctx, rec.ID, exec)
 		if err != nil {
 			s.log.Warn("studio: assistant tools unavailable", "chat", rec.ID, "error", err)
-			return tools, "", assistantUnavailable(rec)
+			finish()
+			return tools, deferred, deferredGroups, "", assistantUnavailable(rec)
 		}
-		add(ts)
+		add(builtins.GroupLocalAIAdmin, ts)
 		// The prompt carries the safety rules (confirm before changing
 		// anything), so the tools never come without it.
 		prompt = s.d.Assistant.SystemPrompt()
@@ -241,7 +262,8 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, rec sessio
 		// was switched off, the user lost the role): say so once.
 		note = assistantUnavailable(rec)
 	}
-	return tools, prompt, note
+	finish()
+	return tools, deferred, deferredGroups, prompt, note
 }
 
 func assistantUnavailable(rec session.ChatRecord) string {
