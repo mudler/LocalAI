@@ -96,10 +96,11 @@ var _ = Describe("Resource kinds", func() {
 		rec, _ = f.store.get(ref.ResourceID)
 		Expect(rec.Epoch).To(Equal(uint64(2)))
 
-		// The revocation log carries the kind, and the add-on proposal
-		// broker is never asked about a kind that has no proposals.
+		// The revocation log of the kinds carries the kind, and the add-on
+		// proposal broker is never asked about a kind that has no proposals.
 		f.store.mu.Lock()
-		log := append([]revocation(nil), f.store.doc.Revoked...)
+		log := append([]revocation(nil), f.store.doc.RevokedKinds...)
+		Expect(f.store.doc.Revoked).To(BeEmpty())
 		f.store.mu.Unlock()
 		Expect(log).To(HaveLen(1))
 		Expect(log[0].Kind).To(Equal(notesKind))

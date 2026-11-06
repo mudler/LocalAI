@@ -66,13 +66,47 @@ revoking a person leaves what `@everyone` holds.
 When the owner lowers or removes a grant, LocalAI:
 
 1. records the change and starts a new authority epoch for the resource,
-2. cancels the admitted work of the grantee that the change took away, for
-   `@everyone` the work of every person that their own grant does not allow,
+2. cancels the admitted work of the grantee whose action the new role no longer
+   allows, for `@everyone` the work of every person that their own grant does not
+   allow,
 3. waits for that work to stop, and only then answers.
+
+The cancel looks at what each piece of work does. Lowering an agent from `viewer`
+to `use` stops a read of the definition and keeps a running chat, because `use`
+still chats with the agent. Removing the grant stops both.
 
 If the work does not stop within 10 seconds, the answer is a 503 and the change is
 already in force for new work. Repeat the same call. LocalAI keeps the change in its
 revocation log, so restoring an older backup does not give the access back.
+
+There are two revocation logs of up to 4096 changes each: one for the add-on
+resources and one for the other kinds. Changes on agents, bindings and collections
+therefore never push a change of an add-on resource out of its log. A restore of an
+add-on reads only the add-on log. When that log is full, its oldest changes go, and
+a restore from a backup older than them gives back the data and no access at all.
+
+## Limits
+
+A shared resource of a kind that is not an add-on has one record in the policy
+store, made when its owner shares it the first time. These records have their own
+limits, apart from the add-on resources:
+
+| Records | Per owner | In total |
+|---------|-----------|----------|
+| Add-on resources | 256 | 4096 |
+| Share records (agents, bindings, collections, other kinds) | 256 | 8192 |
+
+A person at a limit gets 403 with type `quota_reached`. Share records never take
+the room of add-on resources, and an owner reaches their own limit long before the
+total: 32 owners at their limit are needed to fill it.
+
+A record is dropped when its resource is deleted: deleting a saved agent or a
+binding revokes every grant and then drops the record. At startup the add-on owner
+also checks the share records of every kind against the kind's own check that the
+resource still exists, and drops the records of agents that are gone, for example
+an agent deleted while the owner could not be reached. A check that cannot answer
+keeps the record for the next start. A collection has no delete route; resetting a
+collection keeps its record and its grants.
 
 ## API
 
@@ -329,8 +363,14 @@ frontend keeps the lease alive with a request that waits on the owner for up to
 - When the owner restarts, it knows no lease. Every frontend stops its admitted
   work at its next request.
 
-The leases are the only state of this feature that is not in the policy store.
-They are kept per instance, in the owner's memory. Only the owner holds the
+One person holds at most 512 leases at once and the owner at most 8192. A person
+at their limit gets a denial for the next piece of work until some of it ends; the
+work of other people is not affected.
+
+The leases and their counts are the only state of this feature that is not in the
+policy store. They are kept per instance, in the owner's memory. The limits of the
+records above are counted from the policy store itself, and the startup check runs
+on the owner only. Only the owner holds the
 policy, so there is no second copy to diverge from. When the owner cannot be
 reached, a frontend lists nothing that is shared with the person, creates nothing
 and admits nothing. Each call gets the same typed unavailable answer as the

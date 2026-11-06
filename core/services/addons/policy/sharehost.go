@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"sync"
 	"time"
 
@@ -23,7 +24,19 @@ const (
 	// MaxShareLeases bounds the leases held at once. The policy's own limit
 	// on resources keeps one lease per running piece of work well below it.
 	MaxShareLeases = 8192
+	// MaxShareLeasesPerUser bounds the leases of one person, so that one
+	// person who holds many admissions cannot fill MaxShareLeases and make
+	// every other admission fail. 16 people at their cap fill the total.
+	MaxShareLeasesPerUser = 512
 )
+
+// shareLeasesPerUser is MaxShareLeasesPerUser; a test lowers it.
+var shareLeasesPerUser = MaxShareLeasesPerUser
+
+// ErrShareLeaseQuota means the person holds as many admissions on other
+// frontends as one person may. It is a denial; the person's running work
+// must end first.
+var ErrShareLeaseQuota = fmt.Errorf("too many running admissions of one person: %w", ErrQuota)
 
 // ShareHost is the owner's half of the lookup, creation and admission of the
 // resources of the kinds that are not add-ons, for the services that run
@@ -45,6 +58,8 @@ type ShareHost struct {
 	ctx    context.Context
 	mu     sync.Mutex
 	leases map[string]*shareLease
+	// perUser counts the leases of each person in leases.
+	perUser map[string]int
 }
 
 var _ gateway.ShareAuthority = (*ShareHost)(nil)
@@ -52,7 +67,7 @@ var _ gateway.ShareAuthority = (*ShareHost)(nil)
 // NewShareHost serves the leases of p. The admissions end with ctx, the life
 // of the owner.
 func NewShareHost(ctx context.Context, p *Policy) *ShareHost {
-	return &ShareHost{p: p, ctx: ctx, leases: map[string]*shareLease{}}
+	return &ShareHost{p: p, ctx: ctx, leases: map[string]*shareLease{}, perUser: map[string]int{}}
 }
 
 type shareLease struct {
@@ -204,11 +219,17 @@ func (h *ShareHost) AdmitShare(ctx context.Context, actor contract.Actor, kind, 
 func (h *ShareHost) add(id string, l *shareLease) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	// The cap of one person comes first: a person at it is refused even
+	// while the host has room, and so cannot take the room of the others.
+	if h.perUser[l.user] >= shareLeasesPerUser {
+		return ErrShareLeaseQuota
+	}
 	if len(h.leases) >= MaxShareLeases {
 		return ErrUnavailable
 	}
 	l.expiry = time.AfterFunc(h.grace(), l.close)
 	h.leases[id] = l
+	h.perUser[l.user]++
 	return nil
 }
 
@@ -218,6 +239,9 @@ func (h *ShareHost) remove(id string) {
 	if l := h.leases[id]; l != nil {
 		l.expiry.Stop()
 		delete(h.leases, id)
+		if h.perUser[l.user]--; h.perUser[l.user] <= 0 {
+			delete(h.perUser, l.user)
+		}
 	}
 }
 
