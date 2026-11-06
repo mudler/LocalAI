@@ -243,6 +243,19 @@ func (h *Loops) List(ctx context.Context, user, conv string) ([]loops.Loop, erro
 // Start starts a loop in a chat. The first loop of a chat waits for the
 // person's yes (StatePending); later ones are active at once and run now.
 func (h *Loops) Start(ctx context.Context, user, conv string, in LoopInput) (loops.Loop, error) {
+	return h.begin(ctx, user, conv, in, nil)
+}
+
+// modelStart says that the model started a loop with start_loop: the loop is
+// active at once, with no yes from the person, and its first run is due after
+// the wait, for the reason.
+type modelStart struct {
+	wait   time.Duration
+	reason string
+}
+
+// begin is Start. A non-nil by makes it the start of a model.
+func (h *Loops) begin(ctx context.Context, user, conv string, in LoopInput, by *modelStart) (loops.Loop, error) {
 	p := principal(user)
 	rec, err := h.chatOf(ctx, user, conv)
 	if err != nil {
@@ -274,7 +287,10 @@ func (h *Loops) Start(ctx context.Context, user, conv string, in LoopInput) (loo
 	now := h.o.Clock().UTC()
 	l := loops.Loop{ID: newID(), Owner: p, ChatID: conv, Prompt: prompt, Interval: interval,
 		State: loops.StatePending, Created: now, Updated: now}
-	if ok {
+	switch {
+	case by != nil:
+		l.State, l.Next, l.Scheduled, l.Wait = loops.StateActive, now.Add(by.wait), true, loops.Cut(by.reason)
+	case ok:
 		l.State, l.Next = loops.StateActive, now
 	}
 	if err := h.o.Store.Add(ctx, l, loops.Limits{PerChat: lim.PerChat, PerUser: lim.PerUser}); err != nil {

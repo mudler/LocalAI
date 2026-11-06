@@ -251,6 +251,15 @@ stop it. Type `/loop` in the message box, or use the API.
   run in which the model calls neither ends the loop with a note, so a loop
   never goes on silently. The chat has these two tools only while it has a
   self-paced loop.
+- **Started by the model.** A chat without a self-paced loop gives the model
+  the `start_loop` tool. When the model tells you that it will check, wait or
+  retry later, it calls `start_loop` with the prompt of each run, how long to
+  wait before the first run (`first_run_after`, such as `2m`) and a short
+  reason. The loop starts at once and does not ask you first. You see it as a
+  line above the message box with the reason, and you can pause or stop it.
+  The limits below apply: the minimum wait, the loops per chat and per user,
+  and the run limit. The tool is not offered in sub-agent chats, in chats
+  started by a trigger or a connector, or when loops are off.
 - **The prompt** is plain text, or a skill: `/<skill-name>` (or
   `/skill <name>`) and its words. Each run sends it as that skill command
   would: the transcript shows the words and the skill's chip. Other slash
