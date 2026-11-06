@@ -116,6 +116,8 @@ test.describe('Connector rows, pane and sheet', () => {
     await expect(sheet.getByTestId('connector-save')).toHaveText('Save and test')
     await expect(sheet.getByTestId('connector-cancel')).toHaveText('Cancel')
     await expect(sheet.locator('.dk-btn--primary')).toHaveCount(1)
+    // It opens on its first field.
+    await expect(sheet.getByLabel('Name', { exact: true })).toBeFocused()
     await expect(sheet.getByTestId('connector-preset-standard')).toBeChecked()
     await expect(sheet.getByTestId('connector-matrix')).toHaveCount(0)
     await sheet.getByLabel('Name', { exact: true }).fill('Support bot')
