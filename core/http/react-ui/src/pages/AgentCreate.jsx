@@ -49,6 +49,7 @@ import AgentConnected from '../components/agents/AgentConnected'
 import AgentUsesPanel from '../components/agents/AgentUsesPanel'
 // eslint-disable-next-line no-unused-vars
 import AgentFiles from '../components/agents/AgentFiles'
+import AgentWizard from './AgentWizard'
 import { useAgentAbilities } from '../hooks/useAgentAbilities'
 // eslint-disable-next-line no-unused-vars
 import AgentMemorySkills, { memorySkillFrom } from '../components/agents/AgentMemorySkills'
@@ -88,7 +89,16 @@ const SUMMARY_FIELDS = {
 
 // --- Main component ---
 
+// The new-agent route is the wizard. A saved agent, and an agent read from a
+// file (it arrives with its fields in the router state), keep the full editor.
 export default function AgentCreate() {
+  const { id } = useParams()
+  const location = useLocation()
+  if (!id && !location.state?.importedConfig) return <AgentWizard />
+  return <AgentEditor />
+}
+
+function AgentEditor() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()

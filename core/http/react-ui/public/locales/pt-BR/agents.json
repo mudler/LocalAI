@@ -843,5 +843,86 @@
     "blank": {
       "description": "Vazio. Comece do zero."
     }
+  },
+  "wizard": {
+    "title": "Novo agente",
+    "supporting": "Quatro passos curtos. Só nome e instruções são obrigatórios.",
+    "stepsLabel": "Passos",
+    "back": "Voltar",
+    "next": "Continuar",
+    "defaultTools": "Ferramentas padrão",
+    "step": {
+      "purpose": "Finalidade",
+      "abilities": "Capacidades",
+      "where": "Onde ele trabalha",
+      "review": "Revisão"
+    },
+    "purpose": {
+      "title": "Para que serve este agente?",
+      "lead": "Comece com um modelo ou escreva o seu. Você pode mudar tudo depois.",
+      "needs": "São necessários nome e instruções para continuar.",
+      "modelLine": "Modelo: o que você escolhe em cada chat.",
+      "modelChoose": "Escolher um modelo fixo",
+      "modelEach": "O que eu escolho em cada chat"
+    },
+    "abilities": {
+      "title": "Quanto ele pode fazer sozinho?",
+      "lead": "Não tem certeza? Deixe assim: o agente começa com as ferramentas padrão. Ou escolha um nível, que as substitui.",
+      "defaultNote": "Nenhum nível escolhido. O agente começa com as ferramentas padrão.",
+      "files": "Quais dos seus arquivos ele pode ver?",
+      "fine": "Ajustar ferramentas uma a uma",
+      "templateHint": "Este modelo sugere o nível {{level}}.",
+      "templateUse": "Usar {{level}}"
+    },
+    "where": {
+      "title": "Onde ele deve trabalhar?",
+      "lead": "Opcional. Escolha onde este agente deve trabalhar. Nada está conectado ainda.",
+      "chat": "Apps de chat",
+      "chatLead": "Apps em que as pessoas podem falar com este agente.",
+      "tools": "Ferramentas e serviços",
+      "toolsLead": "Add-ons que dão novas capacidades a ele.",
+      "notInstalled": "Não instalado",
+      "generic": "Termine de configurar {{title}}",
+      "loading": "Procurando apps",
+      "empty": "Ainda não há apps disponíveis.",
+      "note": "Escolher um app não o conecta. Depois de criar o agente, uma lista curta guia você na configuração de cada um.",
+      "find": "Encontrar add-ons"
+    },
+    "review": {
+      "title": "Pronto para criar",
+      "lead": "Confira o resumo. Você pode mudar tudo depois.",
+      "named": "Tem nome e instruções",
+      "tools": "Ferramentas: {{level}}",
+      "modelFixed": "Modelo: {{model}}",
+      "modelEach": "Modelo: o que você escolhe em cada chat",
+      "apps": "Apps para configurar depois de criar: {{count}}",
+      "filesTitle": "Ele pode ver todos os seus arquivos.",
+      "filesBody": "Tudo o que você pode abrir em Arquivos, este agente pode ler. Você pode limitá-lo a pastas.",
+      "limit": "Limitar a pastas",
+      "setupNext": "Depois de criar o agente, a página dele lista os passos de configuração dos apps escolhidos."
+    },
+    "rail": {
+      "title": "Seu agente",
+      "unnamed": "Sem nome",
+      "abilities": "Capacidades",
+      "modelEach": "Escolhido em cada chat",
+      "files": "Arquivos",
+      "folders": "Só pastas escolhidas ({{count}})",
+      "works": "Trabalha em",
+      "thisApp": "Este app"
+    }
+  },
+  "setup": {
+    "title": "Concluir a configuração",
+    "count": "{{done}} de {{total}} concluídos",
+    "dismiss": "Ocultar",
+    "progress": "Andamento da configuração",
+    "done": "Concluído",
+    "stays": "A lista fica nesta página até todos os apps estarem prontos, ou até você ocultá-la.",
+    "connect": "Nova conexão",
+    "account": "Escolher conta",
+    "turnOn": "Ativar",
+    "find": "Ver nos add-ons",
+    "actionFor": "{{action}}: {{title}}"
   }
 }
