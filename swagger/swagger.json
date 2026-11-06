@@ -119,7 +119,7 @@
         },
         "/api/addons/apps": {
             "get": {
-                "description": "Returns the installed addons that are enabled, for every authenticated caller who holds the addons feature. The owner decides what a caller sees; hiding an entry is never the control, because every call the entry leads to is authorized again. Each app has its title, description, icon URL, version and installed generation, a process state (running, starting, failed or stopped; the state is an observation, separate from the enabled flag), the path of its main page when its manifest declares a valid one, and a bounded tool summary. A headless addon is listed without a main page. Administrators additionally see installed addons that are disabled and, per app, the start and stop controls and the management link. An app carries update update-pending, separate from state, only when the owner's cached update check says an update is available for the installed package; the list never evaluates a check and never reaches a library. Text that the manifest translates (ui.title and ui.description language maps) is returned in all languages in titles and descriptions. When the request names a language, each app that translates it also carries language, localizedTitle and localizedDescription, resolved per field with English as the fallback; title and description never change.",
+                "description": "Returns the installed addons that are enabled, for every authenticated caller who holds the addons feature. The owner decides what a caller sees; hiding an entry is never the control, because every call the entry leads to is authorized again. Each app has its title, description, icon URL, version and installed generation, a process state (running, starting, failed or stopped; the state is an observation, separate from the enabled flag), the path of its main page when its manifest declares a valid one, and a bounded tool summary. A headless addon is listed without a main page. Administrators additionally see installed addons that are disabled and, per app, the start and stop controls and the management link. An app carries update update-pending, separate from state, only when the owner's cached update check says an update is available for the installed package; the list never evaluates a check and never reaches a library. Text that the manifest translates (ui.title and ui.description language maps) is returned in all languages in titles and descriptions. When the request names a language, each app that translates it also carries language, localizedTitle and localizedDescription, resolved per field with English as the fallback; title and description never change. An add-on that declares a setup text (what the person needs before it works) has setup, setups by language and, with a language, localizedSetup.",
                 "produces": [
                     "application/json"
                 ],
@@ -5831,7 +5831,7 @@
         },
         "/api/chats/connectors/kinds": {
             "get": {
-                "description": "The messaging platforms that a running connector add-on serves, with the add-on page that adds and edits their bindings. Empty when no connector add-on is installed. A kind whose manifest translates its text carries titles and descriptions by language and, when the request names a language it translates (lang, else Accept-Language), language, localized_title and localized_description with English as the fallback for each field; title and description stay English.",
+                "description": "The messaging platforms that a running connector add-on serves, with the add-on page that adds and edits their bindings. Empty when no connector add-on is installed. A kind whose manifest translates its text carries titles and descriptions by language and, when the request names a language it translates (lang, else Accept-Language), language, localized_title, localized_description and localized_setup with English as the fallback for each field; title, description and setup stay English. A kind that declares a setup text (what the person needs before a binding works) also has setup, and setups by language.",
                 "tags": [
                     "chats"
                 ],
@@ -16447,6 +16447,10 @@
                     "type": "string",
                     "example": "Tieni degli appunti."
                 },
+                "localizedSetup": {
+                    "type": "string",
+                    "example": "un token di accesso"
+                },
                 "localizedTitle": {
                     "type": "string",
                     "example": "Appunti"
@@ -16479,6 +16483,17 @@
                 "ownerData": {
                     "description": "OwnerData is true when the manifest says the tools keep the owner's own\ndata (capabilities.ownerData). Its writes need tools.write in a\nconnector chat, like the writes of a credentialed add-on.",
                     "type": "boolean"
+                },
+                "setup": {
+                    "description": "Setup says in one short phrase what the person needs before the add-on\nworks, such as \"an access token\". It is English plain text, absent when\nthe manifest declares none. Setups carries the translations by BCP 47\ntag and LocalizedSetup follows the rule of LocalizedTitle; it is absent\nwhen the add-on has no setup text.",
+                    "type": "string",
+                    "example": "an access token"
+                },
+                "setups": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "shadows": {
                     "description": "Shadows lists the built-in chat tools the add-on replaces (bash, say).",
@@ -22787,6 +22802,9 @@
                 "localized_description": {
                     "type": "string"
                 },
+                "localized_setup": {
+                    "type": "string"
+                },
                 "localized_title": {
                     "type": "string"
                 },
@@ -22816,6 +22834,16 @@
                 },
                 "sender_hint": {
                     "type": "string"
+                },
+                "setup": {
+                    "description": "Setup says in one short phrase what a binding of this kind needs from\nthe person before it works, such as \"a bot token from @BotFather\". It\nis English plain text and absent when the add-on declares none. Setups\ncarries the translations by language tag; LocalizedSetup follows the\nrule of LocalizedTitle and is absent when the kind has no setup text.",
+                    "type": "string"
+                },
+                "setups": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "thread_history": {
                     "description": "ThreadHistory is true when the platform can give the earlier messages\nof a thread. The host then reads them whenever the bot is mentioned in a\nthread.",

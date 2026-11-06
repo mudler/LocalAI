@@ -359,6 +359,9 @@ definitions:
       localizedDescription:
         example: Tieni degli appunti.
         type: string
+      localizedSetup:
+        example: un token di accesso
+        type: string
       localizedTitle:
         example: Appunti
         type: string
@@ -392,6 +395,19 @@ definitions:
           data (capabilities.ownerData). Its writes need tools.write in a
           connector chat, like the writes of a credentialed add-on.
         type: boolean
+      setup:
+        description: |-
+          Setup says in one short phrase what the person needs before the add-on
+          works, such as "an access token". It is English plain text, absent when
+          the manifest declares none. Setups carries the translations by BCP 47
+          tag and LocalizedSetup follows the rule of LocalizedTitle; it is absent
+          when the add-on has no setup text.
+        example: an access token
+        type: string
+      setups:
+        additionalProperties:
+          type: string
+        type: object
       shadows:
         description: Shadows lists the built-in chat tools the add-on replaces (bash,
           say).
@@ -5450,6 +5466,8 @@ definitions:
         type: string
       localized_description:
         type: string
+      localized_setup:
+        type: string
       localized_title:
         type: string
       options:
@@ -5476,6 +5494,18 @@ definitions:
         type: array
       sender_hint:
         type: string
+      setup:
+        description: |-
+          Setup says in one short phrase what a binding of this kind needs from
+          the person before it works, such as "a bot token from @BotFather". It
+          is English plain text and absent when the add-on declares none. Setups
+          carries the translations by language tag; LocalizedSetup follows the
+          rule of LocalizedTitle and is absent when the kind has no setup text.
+        type: string
+      setups:
+        additionalProperties:
+          type: string
+        type: object
       thread_history:
         description: |-
           ThreadHistory is true when the platform can give the earlier messages
@@ -12931,7 +12961,9 @@ paths:
         language maps) is returned in all languages in titles and descriptions. When
         the request names a language, each app that translates it also carries language,
         localizedTitle and localizedDescription, resolved per field with English as
-        the fallback; title and description never change.
+        the fallback; title and description never change. An add-on that declares
+        a setup text (what the person needs before it works) has setup, setups by
+        language and, with a language, localizedSetup.
       parameters:
       - description: Language tag to resolve the text for, such as it or pt-BR. Wins
           over Accept-Language. An unknown language gives the English text.
@@ -18430,8 +18462,10 @@ paths:
         with the add-on page that adds and edits their bindings. Empty when no connector
         add-on is installed. A kind whose manifest translates its text carries titles
         and descriptions by language and, when the request names a language it translates
-        (lang, else Accept-Language), language, localized_title and localized_description
-        with English as the fallback for each field; title and description stay English.
+        (lang, else Accept-Language), language, localized_title, localized_description
+        and localized_setup with English as the fallback for each field; title, description
+        and setup stay English. A kind that declares a setup text (what the person
+        needs before a binding works) also has setup, and setups by language.
       parameters:
       - description: Language tag to resolve the kind text and the capability text
           for, such as it or pt-BR. Wins over Accept-Language. An unknown language

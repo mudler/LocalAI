@@ -1902,7 +1902,15 @@ type ChatsConnectorKind struct {
 	Language             string `json:"language,omitempty"`
 	LocalizedTitle       string `json:"localized_title,omitempty"`
 	LocalizedDescription string `json:"localized_description,omitempty"`
-	SenderHint           string `json:"sender_hint,omitempty"`
+	// Setup says in one short phrase what a binding of this kind needs from
+	// the person before it works, such as "a bot token from @BotFather". It
+	// is English plain text and absent when the add-on declares none. Setups
+	// carries the translations by language tag; LocalizedSetup follows the
+	// rule of LocalizedTitle and is absent when the kind has no setup text.
+	Setup          string            `json:"setup,omitempty"`
+	Setups         map[string]string `json:"setups,omitempty"`
+	LocalizedSetup string            `json:"localized_setup,omitempty"`
+	SenderHint     string            `json:"sender_hint,omitempty"`
 	// Page is the add-on page that adds and edits bindings of this kind.
 	Page string `json:"page,omitempty"`
 	// AgentOptional is true when a binding of this kind may have no agent. It
