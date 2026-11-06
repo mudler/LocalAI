@@ -59,7 +59,7 @@ func packModel() (dir, root string) {
 
 func loadPackModel(s *Strata, dir, root string, opts ...string) error {
 	exe, _ := os.Executable()
-	s.newTokenizer = func(string, string, string, time.Duration) (Tokenizer, error) { return &fakeTokenizer{}, nil }
+	s.newTokenizer = func(string, string, string, string, time.Duration) (Tokenizer, error) { return &fakeTokenizer{}, nil }
 	s.startEngine = func(c engineConfig) (*engine, error) {
 		c.Env = append(c.Env, "STRATA_STUB_MODE=ok")
 		return startEngine(c)
@@ -163,7 +163,7 @@ var _ = Describe("pack build", func() {
 		var args []string
 		DeferCleanup(func() { _ = s.Free() })
 		exe, _ := os.Executable()
-		s.newTokenizer = func(string, string, string, time.Duration) (Tokenizer, error) { return &fakeTokenizer{}, nil }
+		s.newTokenizer = func(string, string, string, string, time.Duration) (Tokenizer, error) { return &fakeTokenizer{}, nil }
 		s.startEngine = func(c engineConfig) (*engine, error) {
 			args = c.Args
 			c.Env = append(c.Env, "STRATA_STUB_MODE=ok")

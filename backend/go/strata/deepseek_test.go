@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -130,7 +131,7 @@ var _ = Describe("deepseek41 family", func() {
 		py, record := fakeDSPython(GinkgoT().TempDir())
 		s := NewStrata()
 		var gotArgs []string
-		s.newTokenizer = func(string, string, string, time.Duration) (Tokenizer, error) { return &fakeTokenizer{}, nil }
+		s.newTokenizer = func(string, string, string, string, time.Duration) (Tokenizer, error) { return &fakeTokenizer{}, nil }
 		s.startEngine = func(c engineConfig) (*engine, error) {
 			gotArgs = c.Args
 			c.Env = append(c.Env, "STRATA_STUB_MODE=ok")
@@ -168,7 +169,7 @@ var _ = Describe("deepseek41 family", func() {
 		Expect(os.MkdirAll(filepath.Join(pack, "tokenizer"), 0o755)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(pack, "tokenizer", "vocab.json"), []byte("{}"), 0o644)).To(Succeed())
 		s := NewStrata()
-		s.newTokenizer = func(string, string, string, time.Duration) (Tokenizer, error) { return &fakeTokenizer{}, nil }
+		s.newTokenizer = func(string, string, string, string, time.Duration) (Tokenizer, error) { return &fakeTokenizer{}, nil }
 		s.startEngine = func(c engineConfig) (*engine, error) {
 			c.Env = append(c.Env, "STRATA_STUB_MODE=ok", "STRATA_STUB_TOKENS=104,105,1")
 			return startEngine(c)
@@ -181,4 +182,40 @@ var _ = Describe("deepseek41 family", func() {
 		_, err = s.PredictRichContext(context.Background(), &pb.PredictOptions{Prompt: defaultMediaMarker, Images: []string{"x"}, Tokens: 4})
 		Expect(err).To(MatchError(ContainSubstring("deepseek41")))
 	})
+
+	It("passes the family to the tokenizer, takes its end id and keeps the tools' key order", func() {
+		dir, _ := dsModel()
+		pack := filepath.Join(dir, "pack")
+		Expect(os.MkdirAll(filepath.Join(pack, "tokenizer"), 0o755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(pack, "tokenizer", "vocab.json"), []byte("{}"), 0o644)).To(Succeed())
+		ft := &eosTokenizer{id: 104}
+		var family string
+		s := NewStrata()
+		s.newTokenizer = func(_, _, _, f string, _ time.Duration) (Tokenizer, error) { family = f; return ft, nil }
+		s.startEngine = func(c engineConfig) (*engine, error) {
+			c.Env = append(c.Env, "STRATA_STUB_MODE=ok", "STRATA_STUB_TOKENS=105,104")
+			return startEngine(c)
+		}
+		DeferCleanup(func() { _ = s.Free() })
+		Expect(s.Load(loadOpts(dir, "strata_root:/unused"))).To(Succeed())
+		Expect(family).To(Equal(familyDeepSeek41))
+		Expect(s.eos).To(Equal(map[int]bool{104: true}))
+
+		tools := `[{"type":"function","function":{"name":"f","parameters":{"type":"object","required":["a"],"properties":{"a":{"type":"string"}}}}}]`
+		reply, err := s.PredictRichContext(context.Background(), &pb.PredictOptions{
+			UseTokenizerTemplate: true, Tokens: 8, Tools: tools,
+			Messages: []*pb.Message{{Role: "user", Content: "q"}}})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(reply.Message)).To(Equal("i"))
+		// "required" comes before "properties": a decoded map would put it after.
+		Expect(ft.lastReq.Tools).To(Equal(json.RawMessage(tools)))
+	})
 })
+
+// eosTokenizer is the fake tokenizer with an end id, as the helper reports it.
+type eosTokenizer struct {
+	fakeTokenizer
+	id int
+}
+
+func (e *eosTokenizer) EOSID() (int, bool) { return e.id, true }
