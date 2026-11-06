@@ -165,6 +165,16 @@ var _ = Describe("a binding shared with another person", func() {
 		Expect(own.Hold).To(BeNil(), "the owner's own call has no share to hold")
 	})
 
+	It("refuses the grantee a resource off the list without the owner's list, and gives the owner the list", func() {
+		_, err := r.conns.CredentialFor(ctx, bob, "telegram", b.ID, "acme/secret-plans")
+		var refused *connectors.NotAllowedError
+		Expect(errors.As(err, &refused)).To(BeTrue(), "the refusal stays a refusal of the resource")
+		Expect(refused.Allowed).To(BeEmpty(), "the grantee never learns the owner's allowlist")
+		_, err = r.conns.CredentialFor(ctx, alice, "telegram", b.ID, "acme/secret-plans")
+		Expect(errors.As(err, &refused)).To(BeTrue())
+		Expect(refused.Allowed).To(Equal([]string{"acme/widgets"}), "the owner may pick one from the list")
+	})
+
 	It("refuses the grantee every operation that is not a send, as for a binding that does not exist", func() {
 		in := studio.ConnectorInput{Name: "Mine now", Kind: "telegram"}
 		_, err := r.conns.GetConnector(ctx, bob, b.ID)

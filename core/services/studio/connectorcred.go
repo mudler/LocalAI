@@ -2,6 +2,7 @@ package studio
 
 import (
 	"context"
+	"errors"
 	"slices"
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
@@ -253,6 +254,12 @@ func (c *Connectors) CredentialFor(ctx context.Context, user, addonID, bindingID
 	}
 	kind := c.kindOf(ctx, b)
 	entry, err := connectors.EntryFor(b, key, kind != nil && kind.WildcardResources)
+	var notAllowed *connectors.NotAllowedError
+	if errors.As(err, &notAllowed) && b.Owner != principal(user) {
+		// The list of a binding is a setting of its owner. A grantee learns
+		// that the resource is not on it, never what is.
+		return CredentialGrant{}, &connectors.NotAllowedError{}
+	}
 	if err != nil {
 		return CredentialGrant{}, err
 	}
