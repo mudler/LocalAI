@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,37 +13,181 @@ import (
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
-// fakeTokenizer maps each byte to the id of the same value.
-type fakeTokenizer struct{ lastMsgs []ChatMessage }
+// Fake vocabulary: ids 0..255 are bytes; these three are the vision markers.
+const (
+	fakeStart = 1000
+	fakePad   = 1001
+	fakeEnd   = 1002
+)
 
-func (f *fakeTokenizer) Encode(text string, _ bool) ([]int, error) {
-	ids := make([]int, 0, len(text))
-	for _, b := range []byte(text) {
-		ids = append(ids, int(b))
+// fakeTokenizer maps each byte to the id of the same value and the vision
+// markers to ids 1000..1002. Prompt renders "role:content;" for each message.
+type fakeTokenizer struct {
+	lastReq    promptRequest
+	newParsers int
+}
+
+func (f *fakeTokenizer) Encode(text string, parseSpecial bool) ([]int, error) {
+	var ids []int
+	for len(text) > 0 {
+		matched := false
+		if parseSpecial {
+			for id, lit := range map[int]string{fakeStart: visionStartText, fakePad: imagePadText, fakeEnd: visionEndText} {
+				if strings.HasPrefix(text, lit) {
+					ids = append(ids, id)
+					text = text[len(lit):]
+					matched = true
+					break
+				}
+			}
+		}
+		if !matched {
+			ids = append(ids, int(text[0]))
+			text = text[1:]
+		}
 	}
 	return ids, nil
 }
 
 func (f *fakeTokenizer) TokenBytes(id int) ([]byte, bool) {
-	if id < 0 || id > 255 {
-		return nil, false
+	switch {
+	case id >= 0 && id <= 255:
+		return []byte{byte(id)}, true
+	case id == fakeStart:
+		return []byte(visionStartText), true
+	case id == fakePad:
+		return []byte(imagePadText), true
+	case id == fakeEnd:
+		return []byte(visionEndText), true
 	}
-	return []byte{byte(id)}, true
+	return nil, false
 }
 
-func (f *fakeTokenizer) ApplyChatTemplate(msgs []ChatMessage, _ string, _ map[string]any) (string, error) {
-	f.lastMsgs = msgs
+func (f *fakeTokenizer) Prompt(req promptRequest) (promptResult, error) {
+	f.lastReq = req
 	var sb strings.Builder
-	for _, m := range msgs {
-		sb.WriteString(m.Role + ":" + m.Content + ";")
+	var images []string
+	for _, m := range req.Messages {
+		fmt.Fprintf(&sb, "%v:", m["role"])
+		switch c := m["content"].(type) {
+		case string:
+			sb.WriteString(c)
+		case []map[string]any:
+			for _, p := range c {
+				if p["type"] == "text" {
+					sb.WriteString(p["text"].(string))
+				} else {
+					sb.WriteString(visionStartText + imagePadText + visionEndText)
+					images = append(images, p["image_url"].(map[string]any)["url"].(string))
+				}
+			}
+		}
+		sb.WriteString(";")
 	}
-	return sb.String(), nil
+	res := promptResult{Images: images, Thinking: true, Tools: flattenTools(req.Tools)}
+	if v, ok := req.ChatTemplateKwargs["enable_thinking"].(bool); ok {
+		res.Thinking = v
+	}
+	if req.ToolChoice == "required" {
+		res.Thinking, res.Force = false, "<call:"
+	}
+	text := sb.String() + res.Force
+	res.IDs, _ = f.Encode(text, true)
+	return res, nil
+}
+
+func (f *fakeTokenizer) NewParser(thinking bool, tools any, opening string) (outputParser, []parseEvent, error) {
+	f.newParsers++
+	p := &fakeParser{thinking: thinking}
+	evs, _ := p.Feed(opening)
+	return p, evs, nil
 }
 
 func (f *fakeTokenizer) Close() error { return nil }
 
+// fakeParser is a tiny stand-in for Strata's output parser: "</think>" ends
+// the reasoning, "<call:NAME:ARGS>" is a tool call.
+type fakeParser struct {
+	thinking bool
+	buf      string
+	inCall   bool
+	n        int
+	id       string
+}
+
+func (p *fakeParser) Close() {}
+
+func (p *fakeParser) Feed(text string) ([]parseEvent, error) {
+	p.buf += text
+	var out []parseEvent
+	for {
+		switch {
+		case p.inCall:
+			i := strings.Index(p.buf, ">")
+			if i < 0 {
+				return out, nil
+			}
+			body := p.buf[:i]
+			p.buf = p.buf[i+1:]
+			p.inCall = false
+			name, args, _ := strings.Cut(body, ":")
+			p.n++
+			p.id = fmt.Sprintf("call_%d", p.n)
+			call := &parseCall{ID: p.id, Name: name}
+			out = append(out, parseEvent{Kind: "tool_start", Call: call})
+			for _, ch := range []string{args[:len(args)/2], args[len(args)/2:]} {
+				out = append(out, parseEvent{Kind: "tool_args", Text: ch, Call: call})
+			}
+			out = append(out, parseEvent{Kind: "tool_call", Call: &parseCall{ID: p.id, Name: name, Arguments: []byte(args)}})
+		case p.thinking:
+			if i := strings.Index(p.buf, "</think>"); i >= 0 {
+				if i > 0 {
+					out = append(out, parseEvent{Kind: "reasoning", Text: p.buf[:i]})
+				}
+				p.buf, p.thinking = p.buf[i+len("</think>"):], false
+				continue
+			}
+			if n := len(p.buf) - 8; n > 0 {
+				out = append(out, parseEvent{Kind: "reasoning", Text: p.buf[:n]})
+				p.buf = p.buf[n:]
+			}
+			return out, nil
+		default:
+			if i := strings.Index(p.buf, "<call:"); i >= 0 {
+				if i > 0 {
+					out = append(out, parseEvent{Kind: "content", Text: p.buf[:i]})
+				}
+				p.buf, p.inCall = p.buf[i+len("<call:"):], true
+				continue
+			}
+			if n := len(p.buf) - 5; n > 0 {
+				out = append(out, parseEvent{Kind: "content", Text: p.buf[:n]})
+				p.buf = p.buf[n:]
+			}
+			return out, nil
+		}
+	}
+}
+
+func (p *fakeParser) Finish(string) ([]parseEvent, error) {
+	if p.buf == "" {
+		return nil, nil
+	}
+	kind := "content"
+	if p.thinking {
+		kind = "reasoning"
+	}
+	text := p.buf
+	p.buf = ""
+	return []parseEvent{{Kind: kind, Text: text}}, nil
+}
+
 // loaded returns a Strata whose engine is the stub, loaded through Load.
 func loaded(t *testing.T, mode string, env ...string) (*Strata, *fakeTokenizer) {
+	return loadedWith(t, mode, nil, env...)
+}
+
+func loadedWith(t *testing.T, mode string, extra []string, env ...string) (*Strata, *fakeTokenizer) {
 	t.Helper()
 	dir := t.TempDir()
 	pack := filepath.Join(dir, "pack")
@@ -51,6 +196,11 @@ func loaded(t *testing.T, mode string, env ...string) (*Strata, *fakeTokenizer) 
 	}
 	if err := os.WriteFile(filepath.Join(pack, "tokenizer", "vocab.json"), []byte("{}"), 0o644); err != nil {
 		t.Fatal(err)
+	}
+	for _, f := range []string{"model-00001.gguf", "mmproj.gguf"} {
+		if err := os.WriteFile(filepath.Join(pack, f), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 	exe, _ := os.Executable()
 	ft := &fakeTokenizer{}
@@ -64,7 +214,7 @@ func loaded(t *testing.T, mode string, env ...string) (*Strata, *fakeTokenizer) 
 	err := s.Load(&pb.ModelOptions{
 		ModelFile:   pack,
 		ContextSize: 2048,
-		Options:     []string{"engine_path:" + exe, "strata_root:/unused", "ready_timeout:5s"},
+		Options:     append([]string{"engine_path:" + exe, "strata_root:/unused", "ready_timeout:5s"}, extra...),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -126,8 +276,8 @@ func TestPredictAndEOS(t *testing.T) {
 	if r.Tokens != 2 || r.PromptTokens != int32(len("user:hello;")) {
 		t.Fatalf("usage: %d completion, %d prompt", r.Tokens, r.PromptTokens)
 	}
-	if len(ft.lastMsgs) != 1 || ft.lastMsgs[0].Role != "user" {
-		t.Fatalf("template got %+v", ft.lastMsgs)
+	if len(ft.lastReq.Messages) != 1 || ft.lastReq.Messages[0]["role"] != "user" {
+		t.Fatalf("template got %+v", ft.lastReq.Messages)
 	}
 	// The legacy entry point works too.
 	if out, err := s.Predict(&pb.PredictOptions{Prompt: "x", Tokens: 20}); err != nil || out != "Hi" {
@@ -238,7 +388,7 @@ func TestSamplingKeysAndLimits(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, _ = os.ReadFile(log)
-	if strings.TrimSpace(string(b)) != "GEN 4094 97,98" {
+	if strings.TrimSpace(string(b)) != "GEN 4086 97,98" {
 		t.Fatalf("greedy line %q", b)
 	}
 }
@@ -255,8 +405,11 @@ func TestUnsupportedAndNotLoaded(t *testing.T) {
 	if _, err := s2.Predict(&pb.PredictOptions{Prompt: "x", Grammar: "root ::= x"}); err == nil || !strings.Contains(err.Error(), "grammar") {
 		t.Fatalf("grammar: %v", err)
 	}
-	if _, err := s2.Predict(&pb.PredictOptions{Prompt: "x", Images: []string{"abc"}}); err == nil || !strings.Contains(err.Error(), "not supported") {
+	if _, err := s2.Predict(&pb.PredictOptions{Prompt: "<__media__>x", Images: []string{"abc"}}); err == nil || !strings.Contains(err.Error(), "image support") {
 		t.Fatalf("images: %v", err)
+	}
+	if _, err := s2.Predict(&pb.PredictOptions{Prompt: "x", Videos: []string{"abc"}}); err == nil || !strings.Contains(err.Error(), "not supported") {
+		t.Fatalf("videos: %v", err)
 	}
 	if _, err := s2.Predict(&pb.PredictOptions{Prompt: strings.Repeat("a", 5000)}); err == nil || !strings.Contains(err.Error(), "context") {
 		t.Fatalf("long prompt: %v", err)

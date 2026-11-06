@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-func collect(ids *[]int) func(int) error {
-	return func(id int) error { *ids = append(*ids, id); return nil }
+func collect(ids *[]int) func(genToken) error {
+	return func(t genToken) error { *ids = append(*ids, t.ID); return nil }
 }
 
 func TestReadyTimeout(t *testing.T) {
@@ -72,13 +72,13 @@ func TestStreamAndRequestLine(t *testing.T) {
 	}
 	defer e.close()
 	var got []int
-	finish, err := e.generate(context.Background(),
+	dr, err := e.generate(context.Background(),
 		genRequest{MaxNew: 10, Keys: []string{"temperature=0.5", "top_k=40"}, IDs: []int{1, 2, 3}}, collect(&got))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 3 || got[0] != 72 || got[2] != 33 || finish != "stop" {
-		t.Fatalf("got %v finish %q", got, finish)
+	if len(got) != 3 || got[0] != 72 || got[2] != 33 || dr.Finish != "stop" {
+		t.Fatalf("got %v finish %q", got, dr.Finish)
 	}
 	b, _ := os.ReadFile(log)
 	if strings.TrimSpace(string(b)) != "GEN 10 temperature=0.5 top_k=40 1,2,3" {
@@ -100,7 +100,7 @@ func TestCancelSendsStop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	n := 0
 	start := time.Now()
-	finish, err := e.generate(ctx, genRequest{MaxNew: 100000, IDs: []int{1}}, func(int) error {
+	dr, err := e.generate(ctx, genRequest{MaxNew: 100000, IDs: []int{1}}, func(genToken) error {
 		n++
 		if n == 3 {
 			cancel()
@@ -110,8 +110,8 @@ func TestCancelSendsStop(t *testing.T) {
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("want context.Canceled, got %v", err)
 	}
-	if finish != "cancel" {
-		t.Fatalf("engine finish reason %q, want cancel", finish)
+	if dr.Finish != "cancel" {
+		t.Fatalf("engine finish reason %q, want cancel", dr.Finish)
 	}
 	if n > 10 || time.Since(start) > 3*time.Second {
 		t.Fatalf("STOP was not honoured promptly: %d tokens in %s", n, time.Since(start))
@@ -131,7 +131,7 @@ func TestCallbackErrorStopsEngine(t *testing.T) {
 	defer e.close()
 	boom := errors.New("client went away")
 	n := 0
-	_, err = e.generate(context.Background(), genRequest{MaxNew: 100000, IDs: []int{1}}, func(int) error {
+	_, err = e.generate(context.Background(), genRequest{MaxNew: 100000, IDs: []int{1}}, func(genToken) error {
 		n++
 		if n == 2 {
 			return boom
@@ -152,7 +152,7 @@ func TestStopIgnoredByEngineIsKilled(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	n := 0
-	_, err = e.generate(ctx, genRequest{MaxNew: 1 << 30, IDs: []int{1}}, func(int) error {
+	_, err = e.generate(ctx, genRequest{MaxNew: 1 << 30, IDs: []int{1}}, func(genToken) error {
 		if n++; n == 2 {
 			cancel()
 		}
@@ -164,7 +164,7 @@ func TestStopIgnoredByEngineIsKilled(t *testing.T) {
 	if e.alive() {
 		t.Fatal("engine should be dead")
 	}
-	if _, err := e.generate(context.Background(), genRequest{MaxNew: 1, IDs: []int{1}}, func(int) error { return nil }); !errors.Is(err, errEngineDied) {
+	if _, err := e.generate(context.Background(), genRequest{MaxNew: 1, IDs: []int{1}}, func(genToken) error { return nil }); !errors.Is(err, errEngineDied) {
 		t.Fatalf("want errEngineDied after the kill, got %v", err)
 	}
 }
@@ -197,7 +197,7 @@ func TestERRLine(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer e.close()
-	_, err = e.generate(context.Background(), genRequest{MaxNew: 5, IDs: []int{1}}, func(int) error { return nil })
+	_, err = e.generate(context.Background(), genRequest{MaxNew: 5, IDs: []int{1}}, func(genToken) error { return nil })
 	if err == nil || !strings.Contains(err.Error(), "outside the vocabulary") {
 		t.Fatalf("want the engine's message, got %v", err)
 	}

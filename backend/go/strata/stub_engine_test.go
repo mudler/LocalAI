@@ -12,6 +12,10 @@ package main
 //	err         answers every GEN with an ERR line
 //	hangstop    like ok, but ignores STOP and never ends a request
 //
+// GENI is answered like GEN when the embeddings file exists and has a header;
+// STRATA_STUB_NOVISION makes it an ERR. LP lines follow each T only when the
+// request has logprobs=K, with K alternatives.
+//
 // STRATA_STUB_DELAY_MS sets the pause before each token, STRATA_STUB_LOG names
 // a file that receives every GEN line, STRATA_STUB_NOSTOP omits "stop" from READY.
 
@@ -29,6 +33,10 @@ import (
 func TestMain(m *testing.M) {
 	if mode := os.Getenv("STRATA_STUB_MODE"); mode != "" {
 		runStub(mode)
+		return
+	}
+	if os.Getenv("STRATA_STUB_VISION") == "1" && len(os.Args) > 1 && os.Args[1] == "--mmproj" {
+		runVisionStub()
 		return
 	}
 	os.Exit(m.Run())
@@ -82,9 +90,35 @@ func runStub(mode string) {
 			fmt.Fprintln(f, l)
 			f.Close()
 		}
-		if !strings.HasPrefix(l, "GEN ") {
-			say("ERR expected: GEN <max_new> <id,id,...>")
+		if !strings.HasPrefix(l, "GEN ") && !strings.HasPrefix(l, "GENI ") {
+			say("ERR expected: GEN <max_new> <id,id,...> or GENI <max_new> <file> <id,id,...>")
 			continue
+		}
+		fields := strings.Fields(l)
+		lpK := -1
+		geni := fields[0] == "GENI"
+		for _, f := range fields[2:] {
+			if v, ok := strings.CutPrefix(f, "logprobs="); ok {
+				lpK, _ = strconv.Atoi(v)
+			}
+		}
+		if geni {
+			// like the real engine: the first word without '=' after the keys is the embeddings file
+			path := ""
+			for _, f := range fields[2:] {
+				if !strings.Contains(f, "=") {
+					path = f
+					break
+				}
+			}
+			if os.Getenv("STRATA_STUB_NOVISION") != "" {
+				say("ERR this engine was started without --vision")
+				continue
+			}
+			if st, err := os.Stat(path); err != nil || st.Size() < 20 {
+				say("ERR cannot open %s", path)
+				continue
+			}
 		}
 		if mode == "err" {
 			say("ERR a token id is outside the vocabulary")
@@ -109,7 +143,19 @@ func runStub(mode string) {
 				id = toks[n%len(toks)]
 			}
 			say("T %s", id)
-			say("LP -0.5 %s:-0.5", id)
+			if lpK >= 0 {
+				// the chosen token, then the K best: the chosen one first, then id+1, id+2, ...
+				alt := fmt.Sprintf("LP -0.5")
+				base, _ := strconv.Atoi(id)
+				for a := 0; a < lpK; a++ {
+					if a == 0 {
+						alt += fmt.Sprintf(" %d:-0.5", base)
+					} else {
+						alt += fmt.Sprintf(" %d:-%d.25", base+a, a+1)
+					}
+				}
+				say("%s", alt)
+			}
 			n++
 			if mode == "crash" && n == 2 {
 				os.Exit(3)
