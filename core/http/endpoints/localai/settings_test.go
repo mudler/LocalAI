@@ -188,7 +188,7 @@ var _ = Describe("Settings endpoints", func() {
 			`{"chats_egress_ports":"443,25"}`:                                          "Invalid chats_egress_ports",
 			`{"chats_egress_extra_registries":"*.example.com"}`:                        "Invalid chats_egress_extra_registries",
 			`{"chats_egress_extra_registries":"0x7f.1"}`:                               "Invalid chats_egress_extra_registries",
-			`{"chats_egress_allowed_hosts":"api.*.example.com"}`:                           "Invalid chats_egress_allowed_hosts",
+			`{"chats_egress_allowed_hosts":"api.*.example.com"}`:                       "Invalid chats_egress_allowed_hosts",
 			`{"chats_egress_allowed_hosts":"https://example.com"}`:                     "Invalid chats_egress_allowed_hosts",
 			`{"chats_egress_allowed_hosts":"example.com:22"}`:                          "Invalid chats_egress_allowed_hosts",
 			`{"chats_egress_allowed_hosts":"10.0.0.5"}`:                                "Invalid chats_egress_allowed_hosts",
