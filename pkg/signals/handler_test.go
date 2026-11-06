@@ -43,4 +43,27 @@ var _ = Describe("terminate", func() {
 		terminate(nil, []func(){func() { <-release }}, 0, 100*time.Millisecond)
 		Expect(time.Since(start)).To(BeNumerically("<", time.Second))
 	})
+
+	It("takes no longer than WorstCase with handlers that never return", func() {
+		release := make(chan struct{})
+		defer close(release)
+		stuck := func(context.Context) { <-release }
+		start := time.Now()
+		// The same phases as a shutdown, scaled down: drain, slack, hooks.
+		terminate([]func(context.Context){stuck}, []func(){func() { <-release }}, 50*time.Millisecond, 100*time.Millisecond)
+		Expect(time.Since(start)).To(BeNumerically("<", 50*time.Millisecond+drainSlack+100*time.Millisecond+500*time.Millisecond))
+	})
+})
+
+var _ = Describe("the shutdown budget", func() {
+	It("fits a 60 s grace period with a 10 s preStop hook, with a margin", func() {
+		const afterSigterm = 60*time.Second - 10*time.Second
+		Expect(WorstCase(DefaultDrainTimeout)).To(Equal(41 * time.Second))
+		Expect(WorstCase(DefaultDrainTimeout)).To(BeNumerically("<=", afterSigterm-5*time.Second))
+	})
+
+	It("counts a drain of zero as no wait", func() {
+		Expect(WorstCase(0)).To(Equal(drainSlack + DefaultHookTimeout))
+		Expect(WorstCase(-time.Second)).To(Equal(WorstCase(0)))
+	})
 })

@@ -9,9 +9,32 @@ import (
 	"time"
 )
 
-// DefaultHookTimeout bounds how long the termination hooks may run. A hook
-// that blocks must not keep the process alive past a pod's grace period.
-const DefaultHookTimeout = 20 * time.Second
+// The shutdown budget. On SIGTERM the process drains for at most the drain
+// timeout (the --shutdown-timeout flag, DefaultDrainTimeout by default) and
+// drainSlack more for a handler that ignores its context, then runs the
+// termination hooks for at most DefaultHookTimeout, then exits. WorstCase is the
+// sum. The defaults give 41 s, which fits a pod grace period of 60 s with a
+// 10 s preStop hook (50 s after SIGTERM) with 9 s to spare. The chats close
+// inside the hooks, in DefaultHookTimeout less 5 s (see
+// core/application/studio_service.go). The user documentation of these numbers
+// is the "Restarts and long chats" section of the troubleshooting page: change
+// both together.
+const (
+	// DefaultDrainTimeout is the default wait for in-flight requests.
+	DefaultDrainTimeout = 20 * time.Second
+	// DefaultHookTimeout bounds how long the termination hooks may run. A hook
+	// that blocks must not keep the process alive past a pod's grace period.
+	DefaultHookTimeout = 20 * time.Second
+	// drainSlack is how long the drain phase waits past its timeout for the
+	// drain handlers to return.
+	drainSlack = time.Second
+)
+
+// WorstCase is the longest a shutdown takes after SIGTERM with a drain timeout
+// of drain.
+func WorstCase(drain time.Duration) time.Duration {
+	return max(drain, 0) + drainSlack + DefaultHookTimeout
+}
 
 var (
 	signalHandlers      []func()
@@ -88,7 +111,7 @@ func terminate(drains []func(context.Context), hooks []func(), drainFor, hooksFo
 				fn(ctx)
 			}()
 		}
-		waitOrTimeout(&wg, drainFor+time.Second)
+		waitOrTimeout(&wg, max(drainFor, 0)+drainSlack)
 		cancel()
 	}
 

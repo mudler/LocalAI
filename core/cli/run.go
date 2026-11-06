@@ -114,7 +114,7 @@ type RunCMD struct {
 	ContextSize int  `env:"LOCALAI_CONTEXT_SIZE,CONTEXT_SIZE" help:"Default context size for models" group:"performance"`
 
 	Address                            string        `env:"LOCALAI_ADDRESS,ADDRESS" default:":8080" help:"Bind address for the API server" group:"api"`
-	ShutdownTimeout                    time.Duration `name:"shutdown-timeout" env:"LOCALAI_SHUTDOWN_TIMEOUT" default:"25s" help:"On SIGTERM or SIGINT, stop accepting requests and wait this long for in-flight requests to finish before exit. Keep it below the termination grace period of the platform (example: 25s). 0 exits without waiting" group:"api"`
+	ShutdownTimeout                    time.Duration `name:"shutdown-timeout" env:"LOCALAI_SHUTDOWN_TIMEOUT" default:"20s" help:"On SIGTERM or SIGINT, stop accepting requests and wait this long for in-flight requests to finish, then close the chats and exit. The whole stop takes up to this plus 21s, so keep the sum below the termination grace period of the platform (the default 20s needs a grace period of at least 41s). 0 exits without waiting" group:"api"`
 	CORS                               bool          `env:"LOCALAI_CORS,CORS" help:"" group:"api"`
 	CORSAllowOrigins                   string        `env:"LOCALAI_CORS_ALLOW_ORIGINS,CORS_ALLOW_ORIGINS" group:"api"`
 	DisableCSRF                        bool          `env:"LOCALAI_DISABLE_CSRF" help:"Disable CSRF middleware (enabled by default)" group:"api"`

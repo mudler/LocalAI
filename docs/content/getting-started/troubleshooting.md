@@ -30,7 +30,15 @@ local-ai run --log-level=debug
 
 ### Restarts and long chats
 
-When LocalAI gets `SIGTERM` or `SIGINT` (a rolling update, `docker stop`), it stops accepting new requests, makes `/readyz` answer `503` and waits for in-flight requests to finish. The wait is set by `--shutdown-timeout` (`LOCALAI_SHUTDOWN_TIMEOUT`, default `25s`). Keep it below the termination grace period of your platform, for example the Kubernetes default of 30 seconds. A reply that is still streaming after the timeout is cut. The chat then shows the turn as interrupted and resumes it by itself (see [Chats]({{%relref "features/chats" %}})). After the drain, closing the chats is bounded too (15 seconds in the server): a turn that does not stop in that time, for example a tool that ignores the stop, is marked interrupted in the database by the closing process itself, so that it can resume, and the process exits. The termination hooks have 20 seconds in all, so the drain and this wait together can pass a 30 second grace period; lower `--shutdown-timeout` if you see turns left running until the stale-turn check (one minute) ends them.
+When LocalAI gets `SIGTERM` or `SIGINT` (a rolling update, `docker stop`), it stops in three steps, each with a limit:
+
+| Step | What happens | Limit |
+|---|---|---|
+| Drain | It stops accepting new requests, makes `/readyz` answer `503` and waits for in-flight requests (chat streams included) to finish. A reply that still streams at the end is cut. | `--shutdown-timeout` (`LOCALAI_SHUTDOWN_TIMEOUT`), default `20s`, plus 1 second for a request that does not stop |
+| Close the chats | The chat turns that still run are stopped and stored. A turn that does not stop in time, for example a tool that ignores the stop, is marked interrupted in the database by the closing process itself, so that it can resume. | 15 seconds |
+| Other hooks | The rest of the process closes. The chats close inside this step. | 20 seconds in all |
+
+The whole stop takes at most `--shutdown-timeout` plus 21 seconds: 41 seconds with the default. Give the platform a longer termination grace period than that. In Kubernetes the grace period also counts the `preStop` hook, so with `terminationGracePeriodSeconds: 60` and a `preStop` of 10 seconds, 50 seconds are left after `SIGTERM`, and the default leaves 9 to spare. With the Kubernetes default of 30 seconds and no `preStop`, set `--shutdown-timeout` to `5s` or less, or raise the grace period. A process that is killed before it ends leaves its turns running until the stale-turn check (one minute) marks them interrupted. Either way, the chat shows the turn as interrupted and resumes it by itself (see [Chats]({{%relref "features/chats" %}})).
 
 For Docker deployments:
 
