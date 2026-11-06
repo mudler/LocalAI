@@ -452,6 +452,7 @@ type proposalWire struct {
 	Type        string `json:"type"`
 	OperationID string `json:"operationId"`
 	BlockedBy   string `json:"blockedBy,omitempty"`
+	refusalWire
 }
 
 const (
@@ -476,7 +477,7 @@ func proposalFailure(w http.ResponseWriter, call ProposalCall, id string, e erro
 		// outage, and the proposal ID is not an unknown outcome.
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(proposalWire{Type: wireInvalid, OperationID: id})
+		_ = json.NewEncoder(w).Encode(proposalWire{Type: wireInvalid, OperationID: id, refusalWire: refusalWireOf(e)})
 		return
 	}
 	if errors.As(e, &blocked) && blocked.BlockedBy != "" && StatusFor(e) == http.StatusForbidden {
@@ -521,7 +522,7 @@ func proposalReplyError(r io.Reader, call ProposalCall, id string) error {
 		case wireProposalUnavailable:
 			return &ProposalUnavailable{ProposalID: id}
 		case wireInvalid:
-			return ErrInvalidRequest
+			return b.refusalWire.err()
 		}
 	}
 	return uncertainProposal(call, id)
