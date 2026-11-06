@@ -639,6 +639,8 @@
       "writes": "Schreibt",
       "widget": "Home-Widget",
       "estimated_tokens": "Tokens pro Lauf",
+      "acts": "Was ein Lauf tun darf",
+      "delivery": "Wohin Antworten gehen",
       "agent": "Agent",
       "model": "Modell"
     },

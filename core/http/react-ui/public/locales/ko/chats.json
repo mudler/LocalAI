@@ -639,6 +639,8 @@
       "writes": "쓰는 파일",
       "widget": "홈 위젯",
       "estimated_tokens": "실행당 토큰",
+      "acts": "실행이 할 수 있는 일",
+      "delivery": "답변이 가는 곳",
       "agent": "에이전트",
       "model": "모델"
     },

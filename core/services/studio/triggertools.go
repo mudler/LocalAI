@@ -127,6 +127,8 @@ const updateTriggerDescription = "Change a trigger of the user, named by its ref
 	"enabled false pauses the trigger and enabled true resumes it. " +
 	"A change that only pauses or resumes applies at once, and the user can undo it on the card in the chat: then say that it is paused or resumed. " +
 	"Any other change does nothing by itself: a card shows the user the fields before and after, and nothing changes until they press Apply, so never say that the change is made until they do. " +
+	"This holds for acts and delivery too: a change that widens acts, or moves the answers to another place, is applied only when the user presses Apply on the card. " +
+	"acts is the whole list that the trigger should have, within what the agent holds; delivery is only for a trigger that was proposed in a messaging app. " +
 	"The same rules as propose_trigger apply: the prompt must stand alone and must not ask the run to print JSON; when is a schedule text or {\"file_arrives_in\": folder}; a schedule runs at most once an hour, and writes is a path inside the user's files. " + triggerFilesNote
 
 const updateTriggerSchema = `{"type":"object","properties":{` +
@@ -142,6 +144,11 @@ const updateTriggerSchema = `{"type":"object","properties":{` +
 	`"reads":{"type":"string","maxLength":200},` +
 	`"writes":{"type":"string","maxLength":256,"description":"The file in the user's home that a run rewrites."},` +
 	`"widget":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,39}$"},` +
+	`"acts":{"type":"array","maxItems":8,"items":{"type":"string","enum":["act.files","act.addons","act.send","act.spend"]},"description":"The full list of what a run may do when nobody is present; it replaces the list the trigger has, and [] takes every act away. Only what the agent holds, and for a trigger from a messaging app only what the owner allows for that connection. The change waits for the person on the card."},` +
+	`"delivery":{"type":"object","description":"Where the answer of each run goes. Only for a trigger that was proposed in a messaging app.","properties":{` +
+	`"target":{"type":"string","enum":["inbox","origin","channel"],"description":"origin writes the answer in the chat and thread where the trigger was proposed, inbox in the owner's Inbox, channel in an approved channel itself, at the top and not in a thread."},` +
+	`"channel":{"type":"string","description":"With target channel: the name or the ID of one of the approved channels."},` +
+	`"mode":{"type":"string","enum":["always","on_change","on_problem"],"description":"always: every run. on_change: only when the answer differs from the run before. on_problem: only when a run fails."}}},` +
 	`"estimated_tokens":{"type":"integer","minimum":0,"maximum":10000000}},` +
 	`"required":["ref"]}`
 
@@ -179,7 +186,7 @@ func (s *Service) registerTriggerTools() error {
 		{updateTriggerName, "Change a trigger", updateTriggerDescription, updateTriggerSchema, false,
 			func(h *Triggers, a workspace.Actor, c builtins.Chat) func(context.Context, json.RawMessage) (string, error) {
 				return func(ctx context.Context, raw json.RawMessage) (string, error) {
-					return h.updateTool(ctx, a, c.AgentID, raw)
+					return h.updateTool(ctx, a, c, raw)
 				}
 			}},
 		{deleteTriggerName, "Delete a trigger", deleteTriggerDescription, deleteTriggerSchema, false,
@@ -228,6 +235,8 @@ func (s *Service) registerTriggerTools() error {
 					if d.id == proposeTriggerName {
 						desc, schema = desc+connectorProposeNote+h.actsNote(ctx, c)+h.channelsNote(ctx, c), proposeTriggerConnectorSchema
 					}
+				} else if d.id == updateTriggerName {
+					desc += h.updateChannelsNote(ctx, c)
 				}
 				return session.Tool{Description: desc, Schema: json.RawMessage(schema), Run: d.run(h, c.Actor, c)}, true, ""
 			},
@@ -534,7 +543,8 @@ func toolErr(err error) error {
 	return errors.New(msg)
 }
 
-func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, agentID string, raw json.RawMessage) (string, error) {
+func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, c builtins.Chat, raw json.RawMessage) (string, error) {
+	agentID := c.AgentID
 	var args struct {
 		Ref      string          `json:"ref"`
 		Name     *string         `json:"name"`
@@ -547,6 +557,12 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, agentID st
 		Writes   *string         `json:"writes"`
 		Widget   *string         `json:"widget"`
 		Tokens   *int            `json:"estimated_tokens"`
+		Acts     *[]string       `json:"acts"`
+		Delivery *struct {
+			Target  string `json:"target"`
+			Mode    string `json:"mode"`
+			Channel string `json:"channel"`
+		} `json:"delivery"`
 	}
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return "", fmt.Errorf("bad arguments: %w", err)
@@ -561,6 +577,18 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, agentID st
 	}
 	p := TriggerPatch{Name: args.Name, Prompt: args.Prompt, TZ: args.TimeZone, DailyCap: args.DailyCap, Enabled: args.Enabled,
 		Reads: args.Reads, Writes: args.Writes, Widget: args.Widget, EstTokens: args.Tokens}
+	if args.Acts != nil {
+		acts, err := h.checkChangedActs(ctx, target, *args.Acts)
+		if err != nil {
+			return "", toolErr(err)
+		}
+		p.Acts = &acts
+	}
+	if d := args.Delivery; d != nil {
+		if p.Delivery, err = h.checkChangedDelivery(ctx, c, target, d.Target, d.Mode, d.Channel); err != nil {
+			return "", toolErr(err)
+		}
+	}
 	if len(args.When) > 0 && string(args.When) != "null" {
 		var text string
 		var obj struct {

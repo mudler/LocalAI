@@ -102,6 +102,10 @@ test('trigger changes: the card reads the state the server keeps and the cards k
   assert.equal(changeValue('writes', { plan: { writes: 'data/a.json' } }), 'data/a.json')
   assert.equal(changeValue('estimated_tokens', { cost: {} }), '')
   assert.equal(changeValue('name', { name: 'X' }), 'X')
+  assert.equal(changeValue('acts', { acts: ['act.files', 'act.spend'] }), 'act.files, act.spend')
+  assert.equal(changeValue('acts', {}), '')
+  assert.equal(changeValue('delivery', { delivery: { target: 'channel', channel_label: 'General' } }), 'channel General')
+  assert.equal(changeValue('delivery', { delivery: { target: 'inbox' } }), 'inbox')
   assert.deepEqual(triggerCards([
     { role: 'tool', card: { kind: 'trigger_change', id: 'c1' } },
     { role: 'tool', card: { kind: 'mcp_app', id: 'x' } },
