@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -44,12 +45,14 @@ type Strata struct {
 
 	// Seams for tests.
 	startEngine  func(engineConfig) (*engine, error)
+	buildPack    func(packBuild) error
 	newTokenizer func(python, strataRoot, pack string, timeout time.Duration) (Tokenizer, error)
 }
 
 func NewStrata() *Strata {
 	return &Strata{
 		startEngine: startEngine,
+		buildPack:   runPackBuild,
 		newTokenizer: func(python, root, pack string, timeout time.Duration) (Tokenizer, error) {
 			return newHelperTokenizer(python, root, pack, timeout)
 		},
@@ -68,6 +71,14 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.freeLocked()
+
+	if c.build != nil {
+		b := *c.build
+		b.script = filepath.Join(c.strataRoot, packScript(b.tool))
+		if err := s.buildPack(b); err != nil {
+			return fmt.Errorf("strata: cannot build the pack from %s: %w", filepath.Base(b.gguf), err)
+		}
+	}
 
 	tok, err := s.newTokenizer(c.python, c.strataRoot, c.pack, c.readyTimeout)
 	if err != nil {

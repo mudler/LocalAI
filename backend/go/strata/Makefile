@@ -40,6 +40,11 @@ STRATA_SHA256_macos_arm64_metal?=c79551c0f346be0204a277000821c45cd9f557881b7baaf
 
 STRATA_REPO?=https://github.com/Niko1221/Strata
 
+# llama.cpp, for its gguf-py folder only (the pack tool dequantizes with it).
+# The commit is the one Strata's setup.py pins as LLAMA_CPP_COMMIT.
+LLAMA_CPP_REPO?=https://github.com/ggml-org/llama.cpp
+LLAMA_CPP_COMMIT?=3cf03257f219afbe7334045ff7c6a06ac68c627d
+
 # Portable CPython for the tokenizer helper (python-build-standalone). The
 # backend image is built FROM scratch, so the host's Python cannot be assumed.
 # Pinned by release date and SHA-256, one per platform. The Python packages the
@@ -109,6 +114,7 @@ PBS_TRIPLE_macos_arm64=aarch64-apple-darwin
 PBS_FILE=cpython-$(PBS_PYTHON)+$(PBS_RELEASE)-$(PBS_TRIPLE_$(PBS_PLATFORM))-install_only_stripped.tar.gz
 
 SRC_DIR=sources/strata
+LLAMA_DIR=sources/llama.cpp
 STAMP=.stamp
 
 .PHONY: strata package-stub engine engine-packages engine-python engine-source build package test clean purge print-packages print-asset check-pins
@@ -130,6 +136,7 @@ check-pins:
 	@fail=0; \
 	$(foreach v,$(filter STRATA_SHA256_% PBS_SHA256_%,$(.VARIABLES)),echo '$($(v))' | grep -Eq '^[0-9a-f]{64}$$' || { echo 'bad pin $(v)' >&2; fail=1; }; ) \
 	echo "$(STRATA_COMMIT)" | grep -Eq '^[0-9a-f]{40}$$' || { echo "bad STRATA_COMMIT" >&2; fail=1; }; \
+	echo "$(LLAMA_CPP_COMMIT)" | grep -Eq '^[0-9a-f]{40}$$' || { echo "bad LLAMA_CPP_COMMIT" >&2; fail=1; }; \
 	exit $$fail
 
 engine: engine-packages engine-python engine-source
@@ -156,25 +163,38 @@ engine-python:
 	tar -xzf "downloads/$(PBS_FILE)" -C .; \
 	rm -f "downloads/$(PBS_FILE)"; \
 	./python/bin/python3 -m pip install --no-cache-dir --disable-pip-version-check --require-hashes --only-binary=:all: --no-deps -r requirements.txt; \
-	./python/bin/python3 -I -c "import regex, jinja2; print('==> python ok: regex', regex.__version__, 'jinja2', jinja2.__version__)"; \
+	./python/bin/python3 -I -c "import regex, jinja2, numpy, yaml, tqdm; print('==> python ok: regex', regex.__version__, 'jinja2', jinja2.__version__, 'numpy', numpy.__version__)"; \
 	touch python/$(STAMP)-$(PBS_RELEASE)-$(PBS_PYTHON)
 
-# The three Strata files the helper imports (tools/strata_tokenizer.py,
-# serve/frontend.py and the serve package marker) and the licence, fetched at the
-# pinned commit. The commit hash is the integrity check.
+# The Strata files the backend uses, fetched at the pinned commit (the commit
+# hash is the integrity check): the three the tokenizer helper imports
+# (tools/strata_tokenizer.py, serve/frontend.py and the serve package marker),
+# the pack tools that build a model's pack from its GGUF files on the first
+# load (tools/iq_pack.py with gguf_reader.py and _paths.py), and the licence.
+# iq_pack.py reads gguf-py from third_party/llama.cpp/gguf-py under the Strata
+# tree, so that folder is fetched from llama.cpp at the commit Strata pins.
 engine-source:
 	@set -e; \
 	if [ -f strata-src/$(STAMP)-$(STRATA_COMMIT) ]; then echo "==> strata-src is up to date"; exit 0; fi; \
 	rm -rf $(SRC_DIR) strata-src; mkdir -p $(SRC_DIR) strata-src; \
 	cd $(SRC_DIR) && git init -q && git remote add origin $(STRATA_REPO) && \
 	git sparse-checkout init --no-cone && \
-	git sparse-checkout set /LICENSE /tools/strata_tokenizer.py /serve/__init__.py /serve/frontend.py && \
+	git sparse-checkout set /LICENSE /tools/strata_tokenizer.py /tools/iq_pack.py /tools/gguf_reader.py /tools/_paths.py /serve/__init__.py /serve/frontend.py && \
 	git fetch -q --depth 1 --filter=blob:none origin $(STRATA_COMMIT) && \
 	git checkout -q FETCH_HEAD; \
 	cd "$(CURDIR)"; \
-	mkdir -p strata-src/tools strata-src/serve; \
+	rm -rf $(LLAMA_DIR); mkdir -p $(LLAMA_DIR); \
+	cd $(LLAMA_DIR) && git init -q && git remote add origin $(LLAMA_CPP_REPO) && \
+	git sparse-checkout init --no-cone && \
+	git sparse-checkout set /gguf-py/gguf /LICENSE && \
+	git fetch -q --depth 1 --filter=blob:none origin $(LLAMA_CPP_COMMIT) && \
+	git checkout -q FETCH_HEAD; \
+	cd "$(CURDIR)"; \
+	mkdir -p strata-src/tools strata-src/serve strata-src/third_party/llama.cpp; \
 	cp $(SRC_DIR)/LICENSE strata-src/LICENSE; \
-	cp $(SRC_DIR)/tools/strata_tokenizer.py strata-src/tools/; \
+	cp $(SRC_DIR)/tools/strata_tokenizer.py $(SRC_DIR)/tools/iq_pack.py $(SRC_DIR)/tools/gguf_reader.py $(SRC_DIR)/tools/_paths.py strata-src/tools/; \
+	cp -r $(LLAMA_DIR)/gguf-py strata-src/third_party/llama.cpp/gguf-py; \
+	cp $(LLAMA_DIR)/LICENSE strata-src/third_party/llama.cpp/LICENSE; \
 	cp $(SRC_DIR)/serve/__init__.py $(SRC_DIR)/serve/frontend.py strata-src/serve/; \
 	touch strata-src/$(STAMP)-$(STRATA_COMMIT)
 

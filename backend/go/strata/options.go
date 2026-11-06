@@ -37,6 +37,13 @@ type loadConfig struct {
 	files []engineFile
 	// vision is nil when the model has no image support configured.
 	vision *visionConfig
+
+	// build is set when the pack does not exist yet and must be made from the
+	// GGUF files before the engine starts (the pack_gguf option).
+	build *packBuild
+	// noPackFlag leaves --pack off the engine command line: the engine path
+	// of this model reads the GGUF as it is and takes only the tokenizer.
+	noPackFlag bool
 }
 
 type engineFile struct{ flag, path string }
@@ -54,7 +61,10 @@ var fileOptions = []struct{ option, flag string }{
 // engineArgs is the command line before --serve. User arguments come last so
 // they can override what the options chose.
 func (c loadConfig) engineArgs() []string {
-	args := []string{"--pack", c.pack}
+	var args []string
+	if !c.noPackFlag {
+		args = append(args, "--pack", c.pack)
+	}
 	for _, f := range c.files {
 		args = append(args, f.flag, f.path)
 	}
@@ -115,6 +125,55 @@ func findPack(opts *pb.ModelOptions, kv map[string]string) (pack string, dirs []
 	return "", nil, fmt.Errorf("strata: %q is not a Strata pack directory (tokenizer/vocab.json missing)", dir)
 }
 
+// planPack finds the pack, or plans its build when the model config names the
+// GGUF files to build it from (pack_gguf) and no finished pack exists. The
+// build itself runs in Load. build_pack:false turns the build off.
+func planPack(c *loadConfig, opts *pb.ModelOptions, kv map[string]string) (string, []string, error) {
+	src := kv["pack_gguf"]
+	if src == "" || kv["build_pack"] == "false" {
+		return findPack(opts, kv)
+	}
+	if kv["pack"] != "" {
+		return "", nil, errors.New("strata: pack_gguf builds the pack in the model directory; do not set the pack option with it")
+	}
+	tool := kv["pack_tool"]
+	switch tool {
+	case "":
+		tool = packToolIQ
+	case packToolIQ, packToolTokenizer:
+	default:
+		return "", nil, fmt.Errorf("strata: pack_tool %q must be %s or %s", tool, packToolIQ, packToolTokenizer)
+	}
+	c.noPackFlag = tool == packToolTokenizer
+
+	dir := opts.GetModelFile()
+	if dir == "" {
+		dir = filepath.Join(opts.GetModelPath(), opts.GetModel())
+	}
+	dirs := []string{dir, opts.GetModelPath(), filepath.Dir(dir)}
+	dest := filepath.Join(dir, "pack")
+	if packComplete(dest, tool) {
+		return dest, dirs, nil
+	}
+	gguf, err := resolve(src, dirs...)
+	if err != nil {
+		return "", nil, fmt.Errorf("strata: pack_gguf option: %w", err)
+	}
+	b := &packBuild{tool: tool, gguf: gguf, dest: dest, python: kv["python"], args: strings.Fields(kv["pack_args"]), timeout: defaultPackTimeout}
+	if b.python == "" {
+		b.python = "python3"
+	}
+	if v := kv["pack_timeout"]; v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 {
+			return "", nil, fmt.Errorf("strata: bad pack_timeout %q", v)
+		}
+		b.timeout = d
+	}
+	c.build = b
+	return dest, dirs, nil
+}
+
 // parseLoad reads the model options and checks the files exist. Load must
 // refuse models it cannot serve: with no explicit backend, LocalAI probes
 // every backend with the model and binds to the first Load that succeeds.
@@ -149,7 +208,7 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 	}
 	c.enginePath = enginePath
 
-	pack, dirs, err := findPack(opts, kv)
+	pack, dirs, err := planPack(&c, opts, kv)
 	if err != nil {
 		return c, err
 	}
