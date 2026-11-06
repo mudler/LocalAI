@@ -12,6 +12,10 @@ function withBinding(href, id) {
   return `${href}${href.includes('?') ? '&' : '?'}binding=${encodeURIComponent(id)}`
 }
 
+function withQuery(href, query) {
+  return `${href}${href.includes('?') ? '&' : '?'}${query}`
+}
+
 // Groups the bindings of the user by the connector add-on that serves them. A
 // kind that a running add-on serves gets a group with the address of the
 // add-on's own page, where bindings are added and edited. A binding whose kind
@@ -21,6 +25,8 @@ export function groupConnectors(kinds, items) {
   const groups = (kinds || []).map((k) => ({
     key: `${k.addon}/${k.kind}`, addon: k.addon, kind: k.kind, title: k.title, description: k.description || '',
     href: kindPageHref(k),
+    // The page of the kind opened on its add sheet.
+    newHref: k.page ? withQuery(kindPageHref(k), 'new=1') : '',
     items: [],
   }))
   const waiting = []
@@ -85,4 +91,15 @@ export function bindingsOfAgent(agentId, kinds, items) {
       href: kind ? withBinding(kindPageHref(kind), c.id) : `/app/addons?detail=${encodeURIComponent(c.addon || c.kind)}`,
     }
   })
+}
+
+// The state of a binding in a list row: 'attention' when the host says its
+// add-on does not run, no token is saved, or it answers the same bot as another
+// connection; 'off' when the owner switched it off; else 'running'. A switched
+// off binding is off, except that one whose add-on does not run still says so.
+export function rowState(c) {
+  if (c.active === false) return 'attention'
+  if (c.enabled === false) return 'off'
+  if (c.has_token === false || duplicateOf(c)) return 'attention'
+  return 'running'
 }

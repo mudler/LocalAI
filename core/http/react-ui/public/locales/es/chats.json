@@ -276,6 +276,13 @@
       "text": "Este bot también está conectado como {{name}}. Ambas conexiones responderán al mismo mensaje.",
       "turnOff": "Desactivar esta",
       "open": "Abrir {{name}}"
+    },
+    "new": "Nueva conexión",
+    "newMenu": "Elige la plataforma de la nueva conexión",
+    "state": {
+      "running": "En marcha",
+      "off": "Apagada",
+      "attention": "Requiere atención"
     }
   },
   "tools": {

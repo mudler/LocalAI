@@ -337,6 +337,13 @@
       "text": "This bot is also connected as {{name}}. Both connections will answer the same message.",
       "turnOff": "Turn this one off",
       "open": "Open {{name}}"
+    },
+    "new": "New connection",
+    "newMenu": "Choose the platform of the new connection",
+    "state": {
+      "running": "Running",
+      "off": "Off",
+      "attention": "Needs attention"
     }
   },
   "conversionPage": {

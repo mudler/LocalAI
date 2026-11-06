@@ -276,6 +276,13 @@
       "text": "Bot ini juga terhubung sebagai {{name}}. Kedua koneksi akan menjawab pesan yang sama.",
       "turnOff": "Matikan yang ini",
       "open": "Buka {{name}}"
+    },
+    "new": "Koneksi baru",
+    "newMenu": "Pilih platform untuk koneksi baru",
+    "state": {
+      "running": "Berjalan",
+      "off": "Mati",
+      "attention": "Perlu perhatian"
     }
   },
   "tools": {

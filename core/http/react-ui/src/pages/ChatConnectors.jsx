@@ -1,11 +1,14 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
-import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
+import ActionMenu from '../components/ActionMenu'
+import { AppIcon } from '../components/addons/AddonBits'
+import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, StatusChip, Switch } from '../components/ui'
 import { chatAgentsApi, chatConnectorsApi } from '../utils/api'
-import { acceptsOf, bindingAddress, duplicateOf, groupConnectors } from '../utils/chatConnectors'
+import { acceptsOf, bindingAddress, duplicateOf, groupConnectors, rowState } from '../utils/chatConnectors'
+import '../components/addons/addons.css'
 import './connectors.css'
 
 // The messaging connectors of the user. A platform comes from a connector
@@ -15,6 +18,8 @@ import './connectors.css'
 export default function ChatConnectors() {
   const { t } = useTranslation('chats')
   const [params] = useSearchParams()
+  const navigate = useNavigate()
+  const [menuAt, setMenuAt] = useState(null)
   const [kinds, setKinds] = useState(null)
   const [items, setItems] = useState([])
   const [agents, setAgents] = useState([])
@@ -57,15 +62,21 @@ export default function ChatConnectors() {
   const { groups, waiting } = groupConnectors(kinds, items)
   const loading = kinds === null && !off && !loadError
 
+  const STATE_CHIP = { running: { status: 'running' }, off: { tone: 'idle' }, attention: { tone: 'warn' } }
   const row = (c) => {
     const a = acceptsOf(c)
     const other = duplicateOf(c)
     const otherHref = other ? bindingAddress(groups, c, other.id) : ''
+    const state = rowState(c)
+    const chip = STATE_CHIP[state]
     return (
-      <li key={c.id} className="cn-row" data-testid="connector-row" data-on={c.enabled ? 'true' : 'false'}>
-        <span className="cn-row__lead" aria-hidden="true"><Icon name="chat" /></span>
+      <li key={c.id} className="cn-row" data-testid="connector-row" data-on={c.enabled ? 'true' : 'false'} data-state={state}>
+        <AppIcon id={c.id} name={c.name} size={36} />
         <div className="cn-row__main">
-          <span className="cn-row__name">{c.name}</span>
+          <span className="cn-row__head">
+            <span className="cn-row__name">{c.name}</span>
+            <StatusChip status={chip.status} tone={chip.tone} label={t(`connectorsPage.state.${state}`)} testId="connector-state" />
+          </span>
           <span className="cn-row__meta">
             <span>{t('connectorsPage.agentOf', { name: agentName(c.agent_id) })}</span>
             <span>{t('connectorsPage.accepts', { who: a.key === 'listed' ? t('connectorsPage.modes.listed', { count: a.count }) : t(`connectorsPage.modes.${a.key}`) })}</span>
@@ -92,15 +103,11 @@ export default function ChatConnectors() {
           )}
         </div>
         <span className="cn-row__actions">
-          <label className="dk-choice cn-choice">
-            <input type="checkbox" className="dk-check" checked={c.enabled} aria-label={t('connectorsPage.onFor', { name: c.name })}
-              onChange={(e) => {
-                const on = e.target.checked
-                setItems((list) => list.map((x) => (x.id === c.id ? { ...x, enabled: on } : x)))
-                act(() => (on ? chatConnectorsApi.enable(c.id) : chatConnectorsApi.disable(c.id)))
-              }} />
-            <span>{t('connectorsPage.on')}</span>
-          </label>
+          <Switch checked={c.enabled} label={t('connectorsPage.onFor', { name: c.name })} testId="connector-switch"
+            onChange={(on) => {
+              setItems((list) => list.map((x) => (x.id === c.id ? { ...x, enabled: on } : x)))
+              act(() => (on ? chatConnectorsApi.enable(c.id) : chatConnectorsApi.disable(c.id)))
+            }} />
         </span>
       </li>
     )
@@ -108,7 +115,20 @@ export default function ChatConnectors() {
 
   return (
     <Page className="cn-page" data-testid="chat-connectors-page">
-      <PageHeader title={t('connectorsPage.title')} supporting={t('connectorsPage.intro')} />
+      <PageHeader
+        title={t('connectorsPage.title')}
+        supporting={t('connectorsPage.intro')}
+        actions={groups.some((g) => g.newHref) && !off && !loadError ? (
+          <>
+            <Button variant="primary" icon="plus" iconEnd="chevron-down" aria-haspopup="menu" aria-expanded={Boolean(menuAt)} data-testid="connector-new"
+              onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenuAt({ x: r.left, y: r.bottom + 4, returnFocus: e.currentTarget }) }}>
+              {t('connectorsPage.new')}
+            </Button>
+            <ActionMenu at={menuAt} onClose={() => setMenuAt(null)} ariaLabel={t('connectorsPage.newMenu')}
+              items={groups.filter((g) => g.newHref).map((g) => ({ key: g.key, icon: 'plus', label: g.title, onClick: () => navigate(g.newHref) }))} />
+          </>
+        ) : null}
+      />
 
       {error && (
         <Callout tone="error" role="alert" className="cn-gap"
