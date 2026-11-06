@@ -25,13 +25,17 @@ var _ = Describe("Client tool table", func() {
 		want := []string{
 			ToolGenerateImage, ToolSpeak, ToolTranscribeAudio, ToolDescribeImage, ToolEmbed,
 			ToolDetect, ToolRerank, ToolGenerateVideo, ToolGenerateSound,
-			ToolVoice, ToolFace,
+			ToolVoice, ToolFace, ToolVoiceProfile,
 		}
 		Expect(clientToolNames()).To(ConsistOf(want))
 		for _, s := range ClientTools {
 			Expect(s.Route).To(HavePrefix("/"), s.Tool)
-			Expect(s.Method).To(Equal("POST"), s.Tool)
-			Expect(s.Flag).ToNot(BeZero(), s.Tool)
+			Expect(s.Method).To(BeElementOf("GET", "POST", "DELETE"), s.Tool)
+			if s.Tool != ToolVoiceProfile {
+				// voice_profile manages data and needs no model.
+				Expect(s.Method).To(Equal("POST"), s.Tool)
+				Expect(s.Flag).ToNot(BeZero(), s.Tool)
+			}
 			Expect(s.Capability).ToNot(BeEmpty(), s.Tool)
 		}
 	})

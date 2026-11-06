@@ -814,7 +814,8 @@
       "skill": "Skill",
       "page": "Halaman",
       "dashboard": "Dasbor",
-      "knowledge": "Pengetahuan"
+      "knowledge": "Pengetahuan",
+      "voice_profile": "Profil suara"
     },
     "scope": {
       "user": "Semua obrolan Anda",
@@ -891,6 +892,16 @@
       "title": "Periksa teks ini sebelum Anda mengonfirmasi.",
       "secret": "Teks ini tampak berisi rahasia, seperti kunci, token, atau kata sandi. Setelah ditambahkan, setiap obrolan yang mencari di koleksi ini dapat membacanya. Obrolan pesan tidak dapat mengonfirmasinya; hanya Anda, di sini.",
       "other": "Server menandai teks ini berisiko. Obrolan pesan tidak dapat mengonfirmasinya; hanya Anda, di sini."
+    },
+    "voice": {
+      "label": "Suara yang akan dikloning",
+      "name": "Nama",
+      "file": "Rekaman",
+      "language": "Bahasa",
+      "transcript": "Transkrip",
+      "consentTitle": "Konfirmasi hanya jika pembicara setuju.",
+      "consent": "Rekaman disimpan sebagai profil suara yang dapat dipakai chat Anda untuk berbicara. Anda dapat menghapusnya di pustaka Suara.",
+      "confirm": "Pembicara setuju: simpan suara"
     }
   },
   "proposalsPage": {

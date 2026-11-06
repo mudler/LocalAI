@@ -1436,7 +1436,7 @@ it off, so a chat that never touches the menu works as before:
 | **Your files** | `files` | `list_files`, `read_file`, `write_file`, `edit_file`, `move_file`, `delete_file`, `search_files` and `read_document` |
 | **Web** | `web` | `web_search` and `web_fetch` |
 | **Images and audio** | `media` | `describe_image` and `transcribe_audio` |
-| **LocalAI client** | `localai_client` | The inference tools of the [LocalAI Assistant]({{% relref "features/localai-assistant#tool-groups" %}}): `generate_image`, `speak`, `embed` and more. Each one is offered only when your account has its feature and an installed model can serve it |
+| **LocalAI client** | `localai_client` | The inference tools of the [LocalAI Assistant]({{% relref "features/localai-assistant#tool-groups" %}}): `generate_image`, `speak`, `embed`, `voice_profile` and more. Each one is offered only when your account has its feature and an installed model can serve it. Saving a voice with `voice_profile` shows a card where you confirm that the speaker agreed; nothing is saved before |
 | **Knowledge** | `collections` | `list_collections` and `search_collection` |
 | **Sub-agents** | `subagents` | `spawn_agent` |
 | **Saved agents** | `saved_agents` | `list_agents` and the `agent` argument of `spawn_agent` (opt-in) |

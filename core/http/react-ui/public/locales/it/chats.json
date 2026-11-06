@@ -814,7 +814,8 @@
       "skill": "Skill",
       "page": "Pagina",
       "dashboard": "Dashboard",
-      "knowledge": "Conoscenza"
+      "knowledge": "Conoscenza",
+      "voice_profile": "Profilo vocale"
     },
     "scope": {
       "user": "Tutte le tue chat",
@@ -891,6 +892,16 @@
       "title": "Controlla questo testo prima di confermare.",
       "secret": "Sembra contenere un segreto, come una chiave, un token o una password. Una volta aggiunto, ogni chat che cerca in questa raccolta può leggerlo. Una chat di messaggistica non può confermarlo; solo tu, qui.",
       "other": "Il server ha segnalato questo testo come rischioso. Una chat di messaggistica non può confermarlo; solo tu, qui."
+    },
+    "voice": {
+      "label": "Voce da clonare",
+      "name": "Nome",
+      "file": "Registrazione",
+      "language": "Lingua",
+      "transcript": "Trascrizione",
+      "consentTitle": "Conferma solo se chi parla ha dato il consenso.",
+      "consent": "La registrazione viene salvata come profilo vocale con cui le tue chat possono parlare. Puoi eliminarla nella libreria Voce.",
+      "confirm": "Chi parla ha acconsentito: salva la voce"
     }
   },
   "proposalsPage": {

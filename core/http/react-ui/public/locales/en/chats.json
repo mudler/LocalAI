@@ -1138,7 +1138,8 @@
       "skill": "Skill",
       "page": "Page",
       "dashboard": "Dashboard",
-      "knowledge": "Knowledge"
+      "knowledge": "Knowledge",
+      "voice_profile": "Voice profile"
     },
     "scope": {
       "user": "All your chats",
@@ -1215,6 +1216,16 @@
       "title": "Check this text before you confirm.",
       "secret": "It looks like it holds a secret, such as a key, a token or a password. Once it is added, every chat that searches this collection can read it. A messaging chat cannot confirm it; only you can, here.",
       "other": "The server flagged this text as risky. A messaging chat cannot confirm it; only you can, here."
+    },
+    "voice": {
+      "label": "Voice to clone",
+      "name": "Name",
+      "file": "Recording",
+      "language": "Language",
+      "transcript": "Transcript",
+      "consentTitle": "Confirm only if the speaker agreed.",
+      "consent": "The recording is saved as a voice profile that your chats can speak with. You can delete it in the Voice library.",
+      "confirm": "The speaker agreed: save the voice"
     }
   },
   "proposalsPage": {

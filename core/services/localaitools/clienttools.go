@@ -30,6 +30,7 @@ const (
 	ToolGenerateSound   = "generate_sound"
 	ToolVoice           = "voice"
 	ToolFace            = "face"
+	ToolVoiceProfile    = "voice_profile"
 )
 
 // ClientToolSpec is what a client tool needs from the API: the route it
@@ -38,7 +39,7 @@ const (
 // call reaches it as the acting user; this table is for tests and for the
 // coverage check "every inference route has a tool".
 //
-// A tool with an action parameter (voice, face) or an optional input that
+// A tool with an action parameter (voice, face, voice_profile) or an optional input that
 // picks another route (generate_image with an image) has one row per route:
 // Action tells them apart. The first row of a tool is its default.
 type ClientToolSpec struct {
@@ -49,7 +50,9 @@ type ClientToolSpec struct {
 	Method  string
 	Route   string
 	Feature string
-	Flag    config.ModelConfigUsecase
+	// Flag is the use case an installed model must have. FLAG_ANY (zero): the
+	// tool needs no model, as voice_profile, which only manages data.
+	Flag config.ModelConfigUsecase
 	// Capability names the use case in messages, for example "image".
 	Capability string
 }
@@ -70,6 +73,9 @@ var ClientTools = []ClientToolSpec{
 	{ToolVoice, ActionIdentify, "POST", "/v1/voice/identify", auth.FeatureVoiceRecognition, config.FLAG_SPEAKER_RECOGNITION, "speaker recognition"},
 	{ToolFace, ActionVerify, "POST", "/v1/face/verify", auth.FeatureFaceRecognition, config.FLAG_FACE_RECOGNITION, "face recognition"},
 	{ToolFace, ActionIdentify, "POST", "/v1/face/identify", auth.FeatureFaceRecognition, config.FLAG_FACE_RECOGNITION, "face recognition"},
+	{ToolVoiceProfile, ActionCreate, "POST", "/api/voice-profiles", auth.FeatureAudioSpeech, config.FLAG_ANY, "voice profiles"},
+	{ToolVoiceProfile, ActionList, "GET", "/api/voice-profiles", auth.FeatureAudioSpeech, config.FLAG_ANY, "voice profiles"},
+	{ToolVoiceProfile, ActionDelete, "DELETE", "/api/voice-profiles/:id", auth.FeatureAudioSpeech, config.FLAG_ANY, "voice profiles"},
 }
 
 // ActionEdit is the Action of the generate_image row that repaints an image.

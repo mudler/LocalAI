@@ -233,28 +233,14 @@ type SetBrandingRequest struct {
 // Keeping the service type avoids REST/MCP field drift.
 type VoiceProfile = voiceprofile.Profile
 
-// CreateVoiceProfileRequest is the MCP/JSON form of profile creation. Audio
-// must be a base64-encoded 16-bit PCM WAV (mono 24 kHz is recommended for
-// portability); the service enforces the same 50 MiB and duration limits as
-// the browser upload route.
+// CreateVoiceProfileRequest is the input of the voice_profile tool with the
+// action create. Audio is a file reference of the FileStore, never bytes.
 type CreateVoiceProfileRequest struct {
-	Name             string                               `json:"name"              jsonschema:"Display name for the reusable voice profile."`
-	Description      string                               `json:"description,omitempty" jsonschema:"Optional note describing tone, source, or intended use."`
-	Language         string                               `json:"language,omitempty" jsonschema:"Optional BCP-47-style language tag such as en-US."`
-	Transcript       string                               `json:"transcript"        jsonschema:"Exact transcript of the words spoken in the reference clip."`
-	AudioBase64      string                               `json:"audio_base64"      jsonschema:"Base64-encoded 16-bit PCM WAV reference, preferably mono 24 kHz, 1-120 seconds and at most 50 MiB decoded."`
-	ConsentConfirmed bool                                 `json:"consent_confirmed" jsonschema:"Must be true to confirm authorization to clone this voice."`
-	References       []CreateVoiceProfileReferenceRequest `json:"references,omitempty" jsonschema:"Optional ordered audio/transcript pairs. When set, these replace the legacy audio_base64 and transcript fields."`
-}
-
-type CreateVoiceProfileReferenceRequest struct {
-	Transcript  string `json:"transcript" jsonschema:"Exact transcript of this reference clip."`
-	AudioBase64 string `json:"audio_base64" jsonschema:"Base64-encoded 16-bit PCM WAV reference."`
-}
-
-// DeleteVoiceProfileRequest identifies the profile to remove.
-type DeleteVoiceProfileRequest struct {
-	ID string `json:"id" jsonschema:"Opaque voice profile UUID returned by list_voice_profiles."`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Language    string `json:"language,omitempty"`
+	Transcript  string `json:"transcript"`
+	Audio       string `json:"audio"`
 }
 
 // UsageStatsQuery is the input for get_usage_stats. UserID is optional;

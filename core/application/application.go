@@ -844,7 +844,6 @@ func (a *Application) start() (startErr error) {
 	// "unavailable" error if startup ran with --disable-stats.
 	assistantClient.StatsRecorder = a.statsRecorder
 	assistantClient.FallbackUser = a.fallbackUser
-	assistantClient.VoiceProfiles = a.voiceProfileStore
 	// The chats start after the assistant, so the shared folder tools
 	// look the service up at each call.
 	assistantClient.SharedFolders = func() *sharedfolders.Service {

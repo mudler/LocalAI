@@ -3,8 +3,8 @@ import { useCallback, useContext, useEffect, useId, useMemo, useState } from 're
 import { Link } from 'react-router-dom'
 import { agentCollectionsApi, chatChangesApi, filesApi } from '../../utils/api'
 import {
-  appliedReceiptKey, byteText, CHANGES_EVENT, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, KNOWN_KINDS, KNOWN_SCOPES, previewLines, scopeOfProposal, sourceOfProposal,
-  targetPath, timeLeft, writesElsewhere,
+  appliedReceiptKey, byteText, CHANGES_EVENT, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, isVoiceProfile, KNOWN_KINDS, KNOWN_SCOPES, previewLines, scopeOfProposal, sourceOfProposal,
+  targetPath, timeLeft, voiceProfileFields, writesElsewhere,
 } from '../../utils/changeProposal'
 import { diffLines, diffStats, withContext } from '../../utils/lineDiff'
 import Icon from '../Icon'
@@ -84,6 +84,24 @@ function Diff({ before, after, target, t }) {
 // The text a knowledge change would add to a collection: its first lines, how
 // big it is against the cap, and what happens when it is confirmed. There is no
 // file to compare it with, so no diff is drawn.
+// The voice a proposal would clone, and the question the person answers by
+// confirming: the speaker agreed. The recording is a file of the person's own
+// folder, so the card names it and does not play it.
+function VoiceProfilePreview({ p, t }) {
+  const f = voiceProfileFields(p)
+  const rows = [['name', f.name], ['file', f.audio], ['language', f.language], ['transcript', f.transcript]].filter(([, v]) => v)
+  return (
+    <div className="cp-diff cp-knowledge" role="group" aria-label={t('changes.voice.label')} data-testid="change-voice-preview">
+      <dl className="cx-plan">
+        {rows.map(([key, value]) => (
+          <div className="cx-plan__row" key={key} data-row={`voice-${key}`}><dt>{t(`changes.voice.${key}`)}</dt><dd>{key === 'file' ? <code>{value}</code> : value}</dd></div>
+        ))}
+      </dl>
+      <p className="cx-help" data-testid="change-voice-consent"><b>{t('changes.voice.consentTitle')}</b> {t('changes.voice.consent')}</p>
+    </div>
+  )
+}
+
 function KnowledgePreview({ p, t, chunking }) {
   const text = p.content || ''
   const passages = estimatePassages(knowledgeEntryText(p), chunking.size, chunking.overlap)
@@ -147,7 +165,7 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
     return v
   }, [id])
   useEffect(() => { load() }, [load, tick])
-  const waitingKnowledge = view.kind === 'pending' && writesElsewhere(view.proposal)
+  const waitingKnowledge = view.kind === 'pending' && view.proposal?.kind === 'knowledge'
   useEffect(() => {
     if (!waitingKnowledge) return undefined
     let live = true
@@ -199,9 +217,13 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
 
   const p = view.proposal
   const target = p.target || ''
-  const knowledge = writesElsewhere(p)
+  const voice = isVoiceProfile(p)
+  const knowledge = writesElsewhere(p) && !voice
   // A knowledge change belongs to the person and names a collection, not a file.
-  const meta = knowledge ? [
+  const meta = voice ? [
+    ['kind', t('changes.row.kind'), kindName(p, t)],
+    ['source', t('changes.row.source'), sourceName(p, t)],
+  ] : knowledge ? [
     ['kind', t('changes.row.kind'), kindName(p, t)],
     ['target', t('changes.row.collection'), <code key="c">{target}</code>],
     ['source', t('changes.row.source'), sourceName(p, t)],
@@ -217,7 +239,7 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
         <Icon name="check-circle" className="cx-receipt__icon" />
         <div className="cx-receipt__main">
           <p className="cx-receipt__line"><b>{t(appliedReceiptKey(p))}</b> <span data-testid="change-summary">{p.summary}</span></p>
-          <p className="cx-receipt__sub"><span>{knowledge ? kindName(p, t) : `${kindName(p, t)} · ${scopeName(p, t)}`}</span><code>{target}</code></p>
+          <p className="cx-receipt__sub"><span>{knowledge || voice ? kindName(p, t) : `${kindName(p, t)} · ${scopeName(p, t)}`}</span>{!voice && <code>{target}</code>}</p>
           {alert}
         </div>
         <span className="cx-receipt__acts">
@@ -274,8 +296,9 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
         </p>
       )}
       {knowledge && edit === null && <KnowledgePreview p={p} t={t} chunking={chunking} />}
-      {!knowledge && current !== undefined && edit === null && <Diff before={current ?? ''} after={p.content || ''} target={target} t={t} />}
-      {!knowledge && current === null && <p className="cx-help">{t('changes.unreadFile')}</p>}
+      {voice && <VoiceProfilePreview p={p} t={t} />}
+      {!knowledge && !voice && current !== undefined && edit === null && <Diff before={current ?? ''} after={p.content || ''} target={target} t={t} />}
+      {!knowledge && !voice && current === null && <p className="cx-help">{t('changes.unreadFile')}</p>}
       {edit !== null ? (
         <form
           className="cx-proposal__edit cp-edit"
@@ -299,8 +322,8 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
         <span className="cx-pending__acts">
           <button type="button" className="cx-btn cx-btn--primary" disabled={!!busy}
             onClick={() => act('confirm', () => chatChangesApi.confirm(p.id), t('changes.announce.applied'))}
-          >{t('changes.confirm')}</button>
-          <button type="button" className="cx-btn" disabled={!!busy} onClick={() => setEdit(p.content || '')}>{t('changes.edit')}</button>
+          >{t(voice ? 'changes.voice.confirm' : 'changes.confirm')}</button>
+          {!voice && <button type="button" className="cx-btn" disabled={!!busy} onClick={() => setEdit(p.content || '')}>{t('changes.edit')}</button>}
           <button type="button" className="cx-btn" disabled={!!busy}
             onClick={() => act('dismiss', () => chatChangesApi.dismiss(p.id), t('changes.announce.dismissed'))}
           >{t('proposal.dismiss')}</button>

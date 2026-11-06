@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  appliedReceiptKey, byteText, changeProposalIds, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, KNOWN_KINDS, previewLines, sourceOfProposal, targetPath, timeLeft,
+  appliedReceiptKey, byteText, changeProposalIds, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, isVoiceProfile, KNOWN_KINDS, previewLines, sourceOfProposal, targetPath, timeLeft, voiceProfileFields,
 } from '../../src/utils/changeProposal.js'
 import { diffLines, diffStats, splitLines, withContext } from '../../src/utils/lineDiff.js'
 import { allFiles, groupKind, indexFits, indexUse } from '../../src/utils/memoryFiles.js'
@@ -177,4 +177,17 @@ test('change proposals: the passages of a knowledge text follow the chunking of 
 test('change proposals: the stored knowledge text is the summary as a title, then the text', () => {
   assert.equal(knowledgeEntryText({ summary: 'Reset', content: '  steps \n\n' }), '# Reset\n\nsteps\n')
   assert.equal(knowledgeEntryText(null), '# \n\n\n')
+})
+
+test('change proposals: a voice profile proposal reads its fields, has no Undo and is a kind the card knows', () => {
+  const p = proposal({
+    kind: 'voice_profile', target: 'voice-profiles', summary: 'Clone a voice',
+    content: JSON.stringify({ name: 'Narrator', audio: '/workspace/home/clip.wav', transcript: 'Hello.', language: 'en' }),
+  })
+  assert.ok(KNOWN_KINDS.includes('voice_profile'))
+  assert.equal(isVoiceProfile(p), true)
+  assert.equal(isVoiceProfile(proposal()), false)
+  assert.deepEqual(voiceProfileFields(p), { name: 'Narrator', audio: '/workspace/home/clip.wav', transcript: 'Hello.', language: 'en' })
+  assert.deepEqual(voiceProfileFields({ content: 'not json' }), { name: '', audio: '', transcript: '', language: '' })
+  assert.equal(changeProposalView({ ...p, status: 'applied' }, null, NOW).canUndo, false)
 })

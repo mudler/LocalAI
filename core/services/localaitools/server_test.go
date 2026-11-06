@@ -90,7 +90,6 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolListNodes,
 	ToolListScheduling,
 	ToolGetScheduling,
-	ToolListVoiceProfiles,
 	ToolListSharedFolders,
 	ToolListSharedFolderEvents,
 	ToolListChatTools,
@@ -104,7 +103,7 @@ var expectedReadOnlyCatalog = sortedStrings(
 	// flavour keeps it.
 	ToolGenerateImage, ToolSpeak, ToolTranscribeAudio, ToolDescribeImage, ToolEmbed,
 	ToolDetect, ToolRerank, ToolGenerateVideo, ToolGenerateSound,
-	ToolVoice, ToolFace,
+	ToolVoice, ToolFace, ToolVoiceProfile,
 )
 
 // expectedFullCatalog derives from the read-only catalog plus the canonical
@@ -154,7 +153,6 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolGetScheduling, DeleteSchedulingRequest{ModelName: "qwen"}, "GetScheduling"},
 		{ToolSetScheduling, SetSchedulingRequest{ModelName: "qwen", MinReplicas: 1, MaxReplicas: 2}, "SetScheduling"},
 		{ToolDeleteScheduling, DeleteSchedulingRequest{ModelName: "qwen"}, "DeleteScheduling"},
-		{ToolListVoiceProfiles, struct{}{}, "ListVoiceProfiles"},
 		{ToolInstallModel, InstallModelRequest{ModelName: "test/foo"}, "InstallModel"},
 		{ToolImportModelURI, ImportModelURIRequest{URI: "Qwen/Qwen3-4B-GGUF"}, "ImportModelURI"},
 		{ToolDeleteModel, map[string]any{"name": "foo"}, "DeleteModel"},
@@ -169,8 +167,6 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolToggleModelPinned, map[string]any{"name": "foo", "action": "pin"}, "ToggleModelPinned"},
 		{ToolSetAlias, map[string]any{"name": "gpt-4", "target": "real"}, "SetAlias"},
 		{ToolListAliases, struct{}{}, "ListAliases"},
-		{ToolCreateVoiceProfile, CreateVoiceProfileRequest{Name: "Narrator", Transcript: "Reference words", AudioBase64: "UklGRg==", ConsentConfirmed: true}, "CreateVoiceProfile"},
-		{ToolDeleteVoiceProfile, DeleteVoiceProfileRequest{ID: "00000000-0000-0000-0000-000000000001"}, "DeleteVoiceProfile"},
 		{ToolListSharedFolders, struct{}{}, "ListSharedFolders"},
 		{ToolListSharedFolderEvents, SharedFolderEventsQuery{Limit: 10}, "ListSharedFolderEvents"},
 		{ToolListChatTools, struct{}{}, "ListChatTools"},
@@ -292,7 +288,6 @@ var _ = Describe("Argument validation", func() {
 		{"delete_model rejects missing name (schema)", ToolDeleteModel, map[string]any{}, "missing properties"},
 		{"toggle_model_state rejects unknown action", ToolToggleModelState, map[string]any{"name": "foo", "action": "noop"}, "action must be one of"},
 		{"edit_model_config rejects empty patch", ToolEditModelConfig, map[string]any{"name": "foo", "patch": map[string]any{}}, "patch is required"},
-		{"create_voice_profile requires consent", ToolCreateVoiceProfile, CreateVoiceProfileRequest{Name: "Voice", Transcript: "words", AudioBase64: "UklGRg=="}, "consent_confirmed must be true"},
 		{"set_scheduling requires model_name", ToolSetScheduling, SetSchedulingRequest{}, "model_name is required"},
 		{"set_scheduling rejects invalid replica range", ToolSetScheduling, SetSchedulingRequest{ModelName: "qwen", MinReplicas: 3, MaxReplicas: 1}, "min_replicas must be <= max_replicas"},
 		{"delete_scheduling requires model_name", ToolDeleteScheduling, DeleteSchedulingRequest{}, "model_name is required"},

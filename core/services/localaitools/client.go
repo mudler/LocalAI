@@ -98,11 +98,6 @@ type LocalAIClient interface {
 	// exposed over MCP — admins use the Settings UI for binary files.
 	SetBranding(ctx context.Context, req SetBrandingRequest) (*Branding, error)
 
-	// ---- Voice profile library ----
-	ListVoiceProfiles(ctx context.Context) ([]VoiceProfile, error)
-	CreateVoiceProfile(ctx context.Context, req CreateVoiceProfileRequest) (*VoiceProfile, error)
-	DeleteVoiceProfile(ctx context.Context, id string) error
-
 	// ---- Shared folders ----
 	// ListSharedFolders returns every shared folder with its members.
 	ListSharedFolders(ctx context.Context) ([]SharedFolder, error)
@@ -209,4 +204,14 @@ type LocalAIClient interface {
 	IdentifyVoice(ctx context.Context, req IdentifyVoiceRequest) (*IdentifyResult, error)
 	VerifyFace(ctx context.Context, req VerifyFaceRequest) (*VerifyResult, error)
 	IdentifyFace(ctx context.Context, req IdentifyFaceRequest) (*IdentifyResult, error)
+
+	// The voice profiles of the acting user (the voice_profile tool). They
+	// go through the profile routes as that user, so the ownership rules of
+	// the API apply: a user lists, uses and deletes their own profiles and
+	// the instance-wide ones an administrator holds. CreateVoiceProfile
+	// refuses unless the context carries the consent of a person
+	// (WithVoiceConsent).
+	ListVoiceProfiles(ctx context.Context) ([]VoiceProfile, error)
+	CreateVoiceProfile(ctx context.Context, req CreateVoiceProfileRequest) (*VoiceProfile, error)
+	DeleteVoiceProfile(ctx context.Context, id string) error
 }

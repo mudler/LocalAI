@@ -17,7 +17,6 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `list_nodes` — List federated worker nodes (only useful in distributed mode).
 - `list_scheduling` — List distributed per-model scheduling configs.
 - `get_scheduling` — Read the distributed scheduling config for one model.
-- `list_voice_profiles` — List reusable voice-cloning profiles and their stable TTS voice URIs.
 - `list_shared_folders` — List the shared folders with their id, page count and members (a user or `@everyone`, mode `read` or `write`).
 - `list_shared_folder_events` — Read the audit of the shared folders, newest first.
 - `list_chat_tools` — List the built-in chat tools (bash on this machine, the web tools): on or off, who serves each, and the host-commands mode.
@@ -52,8 +51,6 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `set_alias` — Create, update, or remove a model alias.
 - `seed_router_corpus` — Add validated labelled exemplars to a KNN router corpus.
 - `clear_router_corpus` — Permanently clear a KNN router corpus and its live index entries.
-- `create_voice_profile` — Save a consent-confirmed base64 PCM-WAV reference and exact transcript for reuse in TTS.
-- `delete_voice_profile` — Permanently delete a saved voice profile by UUID.
 - `create_shared_folder` — Create the shared folder `/shared/<name>` with no members.
 - `rename_shared_folder` — Rename a shared folder by id; its members and pages stay.
 - `delete_shared_folder` — Move a shared folder to the trash. Returns `undo_rev`; drops every user's consent to its pages.

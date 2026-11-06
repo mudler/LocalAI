@@ -21,7 +21,7 @@ func registerClientTools(s *mcp.Server, client LocalAIClient, _ Options) {
 			return generateImage(ctx, client, in)
 		})
 	addClientTool(s, ToolSpeak,
-		"Turn text into speech. Saves an audio file.",
+		"Turn text into speech. voice can be a profile from voice_profile. Saves an audio file.",
 		client.Speak)
 	addClientTool(s, ToolTranscribeAudio,
 		"Turn a recording into text.",
@@ -46,10 +46,18 @@ func registerClientTools(s *mcp.Server, client LocalAIClient, _ Options) {
 		client.GenerateSound)
 	addActionTool(s, ToolVoice,
 		"Speaker recognition: verify two recordings, or identify a speaker.",
-		func(ctx context.Context, in VoiceToolInput) (any, error) { return voiceAction(ctx, client, in) })
+		func(ctx context.Context, in VoiceToolInput) (any, error) { return voiceAction(ctx, client, in) },
+		ActionVerify, ActionIdentify)
 	addActionTool(s, ToolFace,
 		"Face recognition: verify two images, or identify a face.",
-		func(ctx context.Context, in FaceToolInput) (any, error) { return faceAction(ctx, client, in) })
+		func(ctx context.Context, in FaceToolInput) (any, error) { return faceAction(ctx, client, in) },
+		ActionVerify, ActionIdentify)
+	addActionTool(s, ToolVoiceProfile,
+		"Voices to clone with speak. create saves a WAV clip; the person must confirm the speaker agreed.",
+		func(ctx context.Context, in VoiceProfileToolInput) (any, error) {
+			return voiceProfileAction(ctx, client, in)
+		},
+		ActionCreate, ActionList, ActionDelete)
 }
 
 // generateImage serves generate_image: the inpainting route when the call
@@ -139,13 +147,15 @@ func addClientTool[In, Out any](s *mcp.Server, name, description string, call fu
 // one flat object (many MCP clients and model APIs reject a top-level
 // oneOf/anyOf), with the action as an enum; the handler checks the fields
 // each action needs.
-func addActionTool[In any](s *mcp.Server, name, description string, call func(context.Context, In) (any, error)) {
+func addActionTool[In any](s *mcp.Server, name, description string, call func(context.Context, In) (any, error), actions ...string) {
 	schema, err := jsonschema.For[In](nil)
 	if err != nil {
 		panic(fmt.Sprintf("localaitools: schema of %s: %v", name, err))
 	}
 	if a := schema.Properties["action"]; a != nil {
-		a.Enum = []any{ActionVerify, ActionIdentify}
+		for _, name := range actions {
+			a.Enum = append(a.Enum, name)
+		}
 	}
 	mcp.AddTool(s, &mcp.Tool{Name: name, Description: description, InputSchema: schema},
 		func(ctx context.Context, _ *mcp.CallToolRequest, args In) (*mcp.CallToolResult, any, error) {

@@ -814,7 +814,8 @@
       "skill": "Skill",
       "page": "Seite",
       "dashboard": "Dashboard",
-      "knowledge": "Wissen"
+      "knowledge": "Wissen",
+      "voice_profile": "Stimmprofil"
     },
     "scope": {
       "user": "Alle deine Chats",
@@ -891,6 +892,16 @@
       "title": "Prüfe diesen Text, bevor du bestätigst.",
       "secret": "Er enthält möglicherweise ein Geheimnis, etwa einen Schlüssel, ein Token oder ein Passwort. Nach dem Hinzufügen kann jeder Chat, der diese Sammlung durchsucht, es lesen. Ein Messaging-Chat kann ihn nicht bestätigen; nur du, hier.",
       "other": "Der Server hat diesen Text als riskant markiert. Ein Messaging-Chat kann ihn nicht bestätigen; nur du, hier."
+    },
+    "voice": {
+      "label": "Zu klonende Stimme",
+      "name": "Name",
+      "file": "Aufnahme",
+      "language": "Sprache",
+      "transcript": "Transkript",
+      "consentTitle": "Bestätige nur, wenn die sprechende Person zugestimmt hat.",
+      "consent": "Die Aufnahme wird als Stimmprofil gespeichert, mit dem deine Chats sprechen können. Du kannst sie in der Stimmbibliothek löschen.",
+      "confirm": "Die Person hat zugestimmt: Stimme speichern"
     }
   },
   "proposalsPage": {

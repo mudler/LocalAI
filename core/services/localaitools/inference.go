@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/voiceprofile"
 )
 
 // PlaceholderHost is the host of the requests that Inference builds. The
@@ -462,6 +463,11 @@ func (i *Inference) Speak(ctx context.Context, req SpeakRequest) (*AudioResult, 
 	}
 	data, hdr, err := i.postJSON(ctx, spec, model, body)
 	if err != nil {
+		var se *StatusError
+		if errors.As(err, &se) && se.Status == http.StatusNotFound && voiceprofile.IsReference(req.Voice) {
+			// The model exists: it is the profile that this account cannot see.
+			return nil, errors.New("speak: no such voice profile (404). voice_profile with action list shows the voices of this account")
+		}
 		return nil, err
 	}
 	f, err := i.store(ctx, "speech", data, audioMIME(hdr, data))

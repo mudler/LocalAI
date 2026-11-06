@@ -814,7 +814,8 @@
       "skill": "Skill",
       "page": "Page",
       "dashboard": "Tableau de bord",
-      "knowledge": "Connaissance"
+      "knowledge": "Connaissance",
+      "voice_profile": "Profil vocal"
     },
     "scope": {
       "user": "Toutes vos conversations",
@@ -891,6 +892,16 @@
       "title": "Vérifiez ce texte avant de confirmer.",
       "secret": "Il semble contenir un secret, comme une clé, un jeton ou un mot de passe. Une fois ajouté, tout chat qui interroge cette collection peut le lire. Un chat de messagerie ne peut pas le confirmer ; vous seul le pouvez, ici.",
       "other": "Le serveur a signalé ce texte comme risqué. Un chat de messagerie ne peut pas le confirmer ; vous seul le pouvez, ici."
+    },
+    "voice": {
+      "label": "Voix à cloner",
+      "name": "Nom",
+      "file": "Enregistrement",
+      "language": "Langue",
+      "transcript": "Transcription",
+      "consentTitle": "Ne confirmez que si la personne qui parle a donné son accord.",
+      "consent": "L'enregistrement est conservé comme profil vocal avec lequel vos conversations peuvent parler. Vous pouvez le supprimer dans la bibliothèque Voix.",
+      "confirm": "La personne a donné son accord : enregistrer la voix"
     }
   },
   "proposalsPage": {

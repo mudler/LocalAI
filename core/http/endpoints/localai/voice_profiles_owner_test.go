@@ -14,6 +14,7 @@ import (
 	. "github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -249,4 +250,73 @@ var _ = Describe("Voice profile ownership over HTTP", func() {
 			Expect(speak(serverFor(userB), shared.Voice).Code).To(Equal(http.StatusOK))
 		})
 	})
+
+	Describe("the voice_profile tool code, as each user", func() {
+		// asInference sends the requests of the shared client-tool code
+		// through the real handlers, as the given user.
+		asInference := func(u *auth.User) (*localaitools.Inference, *voiceFiles) {
+			e := serverFor(u)
+			fs := &voiceFiles{files: map[string]localaitools.File{"/clip.wav": {Name: "clip.wav", MIME: "audio/wav", Data: voiceProfileWAV(2e9)}}}
+			return &localaitools.Inference{
+				Files: fs,
+				Do: func(req *http.Request) (*http.Response, error) {
+					rec := httptest.NewRecorder()
+					e.ServeHTTP(rec, req)
+					return rec.Result(), nil
+				},
+			}, fs
+		}
+
+		It("creates for user A with a person's consent, lets A speak with the returned voice, and gives B a not found", func() {
+			a, _ := asInference(userA)
+			consent := localaitools.WithVoiceConsent(context.Background())
+			made, err := a.CreateVoiceProfile(consent, localaitools.CreateVoiceProfileRequest{Name: "Narrator", Transcript: "Words.", Audio: "/clip.wav"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(made.OwnerID).To(Equal("user-a"))
+
+			_, err = a.Speak(context.Background(), localaitools.SpeakRequest{Text: "hello", Model: "clone-tts", Voice: made.Voice})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(backend.requests).To(HaveLen(1))
+
+			b, _ := asInference(userB)
+			_, err = b.Speak(context.Background(), localaitools.SpeakRequest{Text: "hello", Model: "clone-tts", Voice: made.Voice})
+			Expect(err).To(MatchError(ContainSubstring("no such voice profile")))
+			Expect(backend.requests).To(HaveLen(1))
+
+			listB, err := b.ListVoiceProfiles(context.Background())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(listB).To(BeEmpty())
+			Expect(b.DeleteVoiceProfile(context.Background(), made.ID)).To(MatchError(ContainSubstring("no such profile")))
+			listA, err := a.ListVoiceProfiles(context.Background())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(listA).To(HaveLen(1))
+			Expect(a.DeleteVoiceProfile(context.Background(), made.ID)).To(Succeed())
+		})
+
+		It("creates nothing without the consent of a person", func() {
+			a, _ := asInference(userA)
+			_, err := a.CreateVoiceProfile(context.Background(), localaitools.CreateVoiceProfileRequest{Name: "Narrator", Transcript: "Words.", Audio: "/clip.wav"})
+			Expect(err).To(MatchError(localaitools.ErrConsentNeeded))
+			Expect(profilesOf(serverFor(admin))).To(BeEmpty())
+		})
+	})
 })
+
+// voiceFiles is a file store in memory for the tool code.
+type voiceFiles struct {
+	files map[string]localaitools.File
+}
+
+func (f *voiceFiles) Read(_ context.Context, ref string, _ int64) (localaitools.File, error) {
+	file, ok := f.files[ref]
+	if !ok {
+		return localaitools.File{}, localaitools.ErrFileNotFound
+	}
+	return file, nil
+}
+
+func (f *voiceFiles) Write(_ context.Context, name string, data []byte, mime string) (string, error) {
+	ref := "/out/" + name
+	f.files[ref] = localaitools.File{Name: name, MIME: mime, Data: data}
+	return ref, nil
+}

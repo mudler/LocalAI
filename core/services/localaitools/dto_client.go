@@ -44,7 +44,7 @@ type EditImageRequest struct {
 type SpeakRequest struct {
 	Text         string   `json:"text"`
 	Model        string   `json:"model,omitempty"        jsonschema:"Model; default first installed."`
-	Voice        string   `json:"voice,omitempty"        jsonschema:"Speaker id, or a profile URI from list_voice_profiles."`
+	Voice        string   `json:"voice,omitempty"        jsonschema:"Speaker id, or the voice of a voice_profile."`
 	Language     string   `json:"language,omitempty"`
 	Format       string   `json:"format,omitempty"       jsonschema:"wav, mp3, opus or flac."`
 	Speed        *float32 `json:"speed,omitempty"        jsonschema:"0.25 to 4.0."`
@@ -246,10 +246,13 @@ type GenerateImageToolInput struct {
 	Mask           string `json:"mask,omitempty"            jsonschema:"Mask; white is repainted."`
 }
 
-// Actions of the voice and face tools.
+// Actions of the voice, face and voice_profile tools.
 const (
 	ActionVerify   = "verify"
 	ActionIdentify = "identify"
+	ActionCreate   = "create"
+	ActionList     = "list"
+	ActionDelete   = "delete"
 )
 
 // VoiceToolInput is the input of the voice tool. One flat object: the action
@@ -271,4 +274,33 @@ type FaceToolInput struct {
 	Model     string  `json:"model,omitempty"     jsonschema:"Model; default first installed."`
 	TopK      int     `json:"top_k,omitempty"     jsonschema:"Matches to return; identify."`
 	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
+}
+
+// VoiceProfileToolInput is the input of the voice_profile tool. One flat
+// object: the action says which fields count, and the handler checks them.
+type VoiceProfileToolInput struct {
+	Action     string `json:"action"               jsonschema:"create needs name, audio, transcript; delete needs id."`
+	Name       string `json:"name,omitempty"`
+	Audio      string `json:"audio,omitempty"      jsonschema:"WAV file, 1 to 120 s."`
+	Transcript string `json:"transcript,omitempty" jsonschema:"Exact words in the clip."`
+	Language   string `json:"language,omitempty"`
+	ID         string `json:"id,omitempty"`
+}
+
+// VoiceProfileSummary is what list shows of a profile.
+type VoiceProfileSummary struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Language   string `json:"language,omitempty"`
+	Voice      string `json:"voice"`
+	Shared     bool   `json:"shared,omitempty"`
+	DurationMS int64  `json:"duration_ms"`
+}
+
+// VoiceProfileCreated is the result of create: the id, and the exact voice
+// value to give to speak.
+type VoiceProfileCreated struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Voice string `json:"voice"`
 }

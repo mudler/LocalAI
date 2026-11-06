@@ -814,7 +814,8 @@
       "skill": "Habilidad",
       "page": "Página",
       "dashboard": "Panel",
-      "knowledge": "Conocimiento"
+      "knowledge": "Conocimiento",
+      "voice_profile": "Perfil de voz"
     },
     "scope": {
       "user": "Todos tus chats",
@@ -891,6 +892,16 @@
       "title": "Revisa este texto antes de confirmar.",
       "secret": "Parece contener un secreto, como una clave, un token o una contraseña. Una vez añadido, cualquier chat que busque en esta colección podrá leerlo. Un chat de mensajería no puede confirmarlo; solo tú, aquí.",
       "other": "El servidor marcó este texto como arriesgado. Un chat de mensajería no puede confirmarlo; solo tú, aquí."
+    },
+    "voice": {
+      "label": "Voz a clonar",
+      "name": "Nombre",
+      "file": "Grabación",
+      "language": "Idioma",
+      "transcript": "Transcripción",
+      "consentTitle": "Confirma solo si la persona que habla dio su consentimiento.",
+      "consent": "La grabación se guarda como un perfil de voz con el que tus chats pueden hablar. Puedes borrarla en la biblioteca de Voz.",
+      "confirm": "La persona dio su consentimiento: guardar la voz"
     }
   },
   "proposalsPage": {

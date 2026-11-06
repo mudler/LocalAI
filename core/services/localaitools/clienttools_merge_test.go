@@ -14,12 +14,12 @@ import (
 // Every tool of an always-sent group is paid on every turn of every chat, by
 // every user, whether or not the turn needs it. On a small context window
 // that cost decides whether the chat fits at all. The value is the measured
-// size after the merges and trims (5,910 bytes, about 1,500 tokens) plus
-// about 10%. Raise it only with a
-// reason in the commit message: a new tool must justify its place first, and
+// size after the merges and trims (6,523 bytes, about 1,650 tokens) plus
+// about 1%: the voice_profile tool took 613 bytes of the 5,910 before it. Raise
+// it only with a reason in the commit message: a new tool must justify its place first, and
 // an operation that shares state with an existing tool belongs in that tool
 // as an action (see .agents/localai-assistant-mcp.md).
-const clientBudgetBytes = 6500
+const clientBudgetBytes = 6600
 
 var _ = Describe("Client tool surface", func() {
 	It("stays inside the byte budget of an always-sent group", func() {
@@ -48,7 +48,7 @@ var _ = Describe("Client tool surface", func() {
 		Expect(err).ToNot(HaveOccurred())
 		seen := 0
 		for _, t := range res.Tools {
-			if t.Name != ToolVoice && t.Name != ToolFace {
+			if t.Name != ToolVoice && t.Name != ToolFace && t.Name != ToolVoiceProfile {
 				continue
 			}
 			seen++
@@ -59,10 +59,14 @@ var _ = Describe("Client tool surface", func() {
 			Expect(m).ToNot(HaveKey("anyOf"), t.Name)
 			Expect(m["type"]).To(Equal("object"))
 			action := m["properties"].(map[string]any)["action"].(map[string]any)
-			Expect(action["enum"]).To(ConsistOf("verify", "identify"))
+			if t.Name == ToolVoiceProfile {
+				Expect(action["enum"]).To(ConsistOf("create", "list", "delete"))
+			} else {
+				Expect(action["enum"]).To(ConsistOf("verify", "identify"))
+			}
 			Expect(m["required"]).To(ContainElement("action"))
 		}
-		Expect(seen).To(Equal(2))
+		Expect(seen).To(Equal(3))
 	})
 
 	It("has no edit_image, verify_* or identify_* tool any more", func() {
@@ -138,6 +142,14 @@ var _ = Describe("Client tool surface", func() {
 		Entry("face verify", ToolFace, map[string]any{"action": "verify", "image": "a.png", "image2": "b.png"}, "VerifyFace", ""),
 		Entry("face identify", ToolFace, map[string]any{"action": "identify", "image": "a.png"}, "IdentifyFace", ""),
 		Entry("face verify without image2", ToolFace, map[string]any{"action": "verify", "image": "a.png"}, "", `face: action "verify" needs image2`),
+		Entry("voice_profile create without a name", ToolVoiceProfile, map[string]any{"action": "create", "audio": "a.wav", "transcript": "x"}, "", `voice_profile: action "create" needs name`),
+		Entry("voice_profile create without audio", ToolVoiceProfile, map[string]any{"action": "create", "name": "n", "transcript": "x"}, "", `voice_profile: action "create" needs audio`),
+		Entry("voice_profile create without a transcript", ToolVoiceProfile, map[string]any{"action": "create", "name": "n", "audio": "a.wav"}, "", `voice_profile: action "create" needs transcript`),
+		Entry("voice_profile create", ToolVoiceProfile, map[string]any{"action": "create", "name": "n", "audio": "a.wav", "transcript": "x"}, "CreateVoiceProfile", ""),
+		Entry("voice_profile list", ToolVoiceProfile, map[string]any{"action": "list"}, "ListVoiceProfiles", ""),
+		Entry("voice_profile delete without id", ToolVoiceProfile, map[string]any{"action": "delete"}, "", `voice_profile: action "delete" needs id`),
+		Entry("voice_profile delete", ToolVoiceProfile, map[string]any{"action": "delete", "id": "abc"}, "DeleteVoiceProfile", ""),
+		Entry("voice_profile with a bad action", ToolVoiceProfile, map[string]any{"action": "update"}, "", "does not equal any of"),
 		Entry("face with a bad action", ToolFace, map[string]any{"action": "x", "image": "a.png"}, "", "does not equal any of"),
 	)
 })

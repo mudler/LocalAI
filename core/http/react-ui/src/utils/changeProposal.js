@@ -27,13 +27,29 @@ export function changeProposalView(p, err, now = Date.now()) {
   if (!known.includes(p?.status)) return { kind: 'error', message: `unknown change state ${p?.status}` }
   let kind = p.status
   if (kind === 'pending' && p.expires && Date.parse(p.expires) <= now) kind = 'expired'
-  return { kind, proposal: p, canUndo: kind === 'applied' && (!!p.rev || writesElsewhere(p)) }
+  return { kind, proposal: p, canUndo: kind === 'applied' && (!!p.rev || p?.kind === 'knowledge') }
 }
 
 // A knowledge change adds an entry to a collection instead of writing a file of
 // the home, so it has no change set (rev stays 0) and its target is the name
 // of the collection, not a path. Undo removes the entry.
-export const writesElsewhere = (p) => p?.kind === 'knowledge'
+export const writesElsewhere = (p) => p?.kind === 'knowledge' || isVoiceProfile(p)
+
+// A voice profile proposal saves a recording as a voice-cloning profile. The
+// person confirms that the speaker agreed; there is nothing to edit, and Undo is
+// the delete button of the Voice library.
+export const isVoiceProfile = (p) => p?.kind === 'voice_profile'
+
+// What the card shows of a voice profile proposal: the arguments of the create
+// call, kept as the JSON content of the proposal.
+export function voiceProfileFields(p) {
+  try {
+    const c = JSON.parse(p?.content || '{}')
+    return { name: String(c.name || ''), audio: String(c.audio || ''), transcript: String(c.transcript || ''), language: String(c.language || '') }
+  } catch {
+    return { name: '', audio: '', transcript: '', language: '' }
+  }
+}
 
 // The most a knowledge text may hold, as the server bounds it
 // (contract.MaxKnowledgeBytes).
@@ -101,7 +117,7 @@ export function timeLeft(p, now = Date.now()) {
 }
 
 // A kind the card has no wording for is shown by its raw name.
-export const KNOWN_KINDS = ['memory', 'profile', 'skill', 'page', 'dashboard', 'knowledge']
+export const KNOWN_KINDS = ['memory', 'profile', 'skill', 'page', 'dashboard', 'knowledge', 'voice_profile']
 export const KNOWN_SCOPES = ['user', 'agent', 'channel']
 
 // A short, readable size.

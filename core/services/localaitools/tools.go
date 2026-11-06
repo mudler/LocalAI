@@ -27,7 +27,6 @@ const (
 	ToolGetMiddlewareStatus       = "get_middleware_status"
 	ToolGetRouterDecisions        = "get_router_decisions"
 	ToolGetRouterCorpusStats      = "get_router_corpus_stats"
-	ToolListVoiceProfiles         = "list_voice_profiles"
 	ToolListSharedFolders         = "list_shared_folders"
 	ToolListSharedFolderEvents    = "list_shared_folder_events"
 	ToolListChatTools             = "list_chat_tools"
@@ -53,8 +52,6 @@ const (
 	ToolSetAlias                 = "set_alias"
 	ToolSeedRouterCorpus         = "seed_router_corpus"
 	ToolClearRouterCorpus        = "clear_router_corpus"
-	ToolCreateVoiceProfile       = "create_voice_profile"
-	ToolDeleteVoiceProfile       = "delete_voice_profile"
 	ToolCreateSharedFolder       = "create_shared_folder"
 	ToolRenameSharedFolder       = "rename_shared_folder"
 	ToolDeleteSharedFolder       = "delete_shared_folder"
@@ -105,8 +102,6 @@ var mutatingToolNames = []string{
 	ToolSetAlias,
 	ToolSeedRouterCorpus,
 	ToolClearRouterCorpus,
-	ToolCreateVoiceProfile,
-	ToolDeleteVoiceProfile,
 	ToolCreateSharedFolder,
 	ToolRenameSharedFolder,
 	ToolDeleteSharedFolder,

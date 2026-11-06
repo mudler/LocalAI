@@ -242,3 +242,15 @@ func (c *Client) VerifyFace(ctx context.Context, req localaitools.VerifyFaceRequ
 func (c *Client) IdentifyFace(ctx context.Context, req localaitools.IdentifyFaceRequest) (*localaitools.IdentifyResult, error) {
 	return c.inference(ctx).IdentifyFace(ctx, req)
 }
+
+func (c *Client) ListVoiceProfiles(ctx context.Context) ([]localaitools.VoiceProfile, error) {
+	return c.inference(ctx).ListVoiceProfiles(ctx)
+}
+
+func (c *Client) CreateVoiceProfile(ctx context.Context, req localaitools.CreateVoiceProfileRequest) (*localaitools.VoiceProfile, error) {
+	return c.inference(ctx).CreateVoiceProfile(ctx, req)
+}
+
+func (c *Client) DeleteVoiceProfile(ctx context.Context, id string) error {
+	return c.inference(ctx).DeleteVoiceProfile(ctx, id)
+}

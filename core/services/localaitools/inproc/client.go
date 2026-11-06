@@ -6,7 +6,6 @@ package inproc
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,7 +34,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
-	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -58,8 +56,7 @@ type Client struct {
 	NodeRegistry *nodes.NodeRegistry
 	// LoadStopper stops the remote work of a cancelled load. It is the same
 	// stopper the HTTP endpoint uses, so both paths stop work the same way.
-	LoadStopper   nodes.LoadAttemptStopper
-	VoiceProfiles *voiceprofile.Store
+	LoadStopper nodes.LoadAttemptStopper
 	// BackendLibrary backs install_library_backend. nil when the add-on
 	// library is off; the tool then reports it is not enabled.
 	BackendLibrary LibraryBackendInstaller
@@ -138,14 +135,13 @@ func New(appConfig *config.ApplicationConfig, systemState *system.SystemState, c
 		registry = registries[0]
 	}
 	return &Client{
-		AppConfig:     appConfig,
-		SystemState:   systemState,
-		ConfigLoader:  cl,
-		ModelLoader:   ml,
-		Gallery:       gs,
-		NodeRegistry:  registry,
-		VoiceProfiles: voiceprofile.NewStore(appConfig.DataPath),
-		modelAdmin:    modeladmin.NewConfigService(cl, appConfig),
+		AppConfig:    appConfig,
+		SystemState:  systemState,
+		ConfigLoader: cl,
+		ModelLoader:  ml,
+		Gallery:      gs,
+		NodeRegistry: registry,
+		modelAdmin:   modeladmin.NewConfigService(cl, appConfig),
 	}
 }
 
@@ -805,66 +801,6 @@ func (c *Client) SetBranding(_ context.Context, req localaitools.SetBrandingRequ
 		return nil, err
 	}
 	return c.currentBranding(), nil
-}
-
-// ---- Voice profile library ----
-
-func (c *Client) voiceProfileStore() (*voiceprofile.Store, error) {
-	if c.VoiceProfiles != nil {
-		return c.VoiceProfiles, nil
-	}
-	if c.AppConfig == nil {
-		return nil, errors.New("voice profile store is unavailable")
-	}
-	c.VoiceProfiles = voiceprofile.NewStore(c.AppConfig.DataPath)
-	return c.VoiceProfiles, nil
-}
-
-func (c *Client) ListVoiceProfiles(ctx context.Context) ([]localaitools.VoiceProfile, error) {
-	store, err := c.voiceProfileStore()
-	if err != nil {
-		return nil, err
-	}
-	return store.List(ctx)
-}
-
-func (c *Client) CreateVoiceProfile(ctx context.Context, req localaitools.CreateVoiceProfileRequest) (*localaitools.VoiceProfile, error) {
-	referenceRequests := req.References
-	if len(referenceRequests) == 0 {
-		referenceRequests = []localaitools.CreateVoiceProfileReferenceRequest{{Transcript: req.Transcript, AudioBase64: req.AudioBase64}}
-	}
-	references := make([]voiceprofile.ReferenceInput, 0, len(referenceRequests))
-	for _, reference := range referenceRequests {
-		if reference.AudioBase64 == "" {
-			return nil, errors.New("audio_base64 is required")
-		}
-		if base64.StdEncoding.DecodedLen(len(reference.AudioBase64)) > int(voiceprofile.MaxAudioBytes) {
-			return nil, voiceprofile.ErrAudioTooLarge
-		}
-		references = append(references, voiceprofile.ReferenceInput{Transcript: reference.Transcript, Audio: base64.NewDecoder(base64.StdEncoding, strings.NewReader(reference.AudioBase64))})
-	}
-	store, err := c.voiceProfileStore()
-	if err != nil {
-		return nil, err
-	}
-	profile, err := store.CreateWithReferences(ctx, voiceprofile.CreateInput{
-		Name:             req.Name,
-		Description:      req.Description,
-		Language:         req.Language,
-		ConsentConfirmed: req.ConsentConfirmed,
-	}, references)
-	if err != nil {
-		return nil, err
-	}
-	return &profile, nil
-}
-
-func (c *Client) DeleteVoiceProfile(ctx context.Context, id string) error {
-	store, err := c.voiceProfileStore()
-	if err != nil {
-		return err
-	}
-	return store.Delete(ctx, id)
 }
 
 // ---- helpers ----

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -29,6 +30,8 @@ type fakeClientTools struct {
 	models map[config.ModelConfigUsecase]string
 	users  []string // the acting user of each call
 	calls  []string
+	// voice records the voice_profile calls: "check", "consent" or "plain".
+	voice []string
 }
 
 func newFakeClientTools() *fakeClientTools {
@@ -70,7 +73,34 @@ func (f *fakeClientTools) ExecuteTool(ctx context.Context, name, args string) (s
 	}
 	f.users = append(f.users, who)
 	f.calls = append(f.calls, name)
+	if name == localaitools.ToolVoiceProfile {
+		// Act as the real tool does with the grants of the host.
+		var in localaitools.VoiceProfileToolInput
+		_ = json.Unmarshal([]byte(args), &in)
+		consent, check := localaitools.VoiceGrants(ctx)
+		switch {
+		case in.Action != localaitools.ActionCreate:
+			f.voice = append(f.voice, "plain-"+in.Action)
+			return "[]", nil
+		case consent:
+			f.voice = append(f.voice, "consent")
+			return `{"id":"p1","name":"` + in.Name + `","voice":"localai://voice-profiles/p1"}`, nil
+		case check:
+			f.voice = append(f.voice, "check")
+			if strings.HasSuffix(in.Audio, ".mp3") {
+				return localaitools.ErrNotWAV.Error(), nil
+			}
+			return `{"checked":true}`, nil
+		}
+		f.voice = append(f.voice, "refused")
+		return localaitools.ErrConsentNeeded.Error(), nil
+	}
 	return "made", nil
+}
+func (f *fakeClientTools) voiceCalls() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.voice)
 }
 func (f *fakeClientTools) callCount() int {
 	f.mu.Lock()

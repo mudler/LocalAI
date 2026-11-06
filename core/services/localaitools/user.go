@@ -34,21 +34,72 @@ func UserFromContext(ctx context.Context) *auth.User {
 // so the caller registers the user here and sends only the token.
 const userTokenMeta = "localai.io/acting-user"
 
-// actingUsers maps live tokens to users. A token exists only while the call
+// voiceGrant is what the host lets one voice_profile call do. The model never
+// holds it: only code of this process that has asked a person puts it in a
+// context.
+type voiceGrant struct {
+	// consent: a person confirmed that the speaker agreed to the cloning.
+	consent bool
+	// checkOnly: validate a create call and send nothing; the host does it to
+	// reject a bad clip before it asks the person.
+	checkOnly bool
+}
+
+type voiceGrantKey struct{}
+
+// WithVoiceConsent returns a context in which voice_profile may create a
+// profile. Call it only after a person confirmed, in a chat they watch, that
+// the speaker agreed to the cloning of their voice.
+func WithVoiceConsent(ctx context.Context) context.Context {
+	g := voiceGrantFrom(ctx)
+	g.consent = true
+	return context.WithValue(ctx, voiceGrantKey{}, g)
+}
+
+// WithVoiceCheck returns a context in which a voice_profile create call
+// validates its input and the clip and then stops, creating nothing.
+func WithVoiceCheck(ctx context.Context) context.Context {
+	g := voiceGrantFrom(ctx)
+	g.checkOnly = true
+	return context.WithValue(ctx, voiceGrantKey{}, g)
+}
+
+// VoiceGrants reports what the host let this call do: the consent of a person,
+// and check-only mode. A stand-in for the tools in a test reads it to act as
+// the real tool does.
+func VoiceGrants(ctx context.Context) (consent, checkOnly bool) {
+	g := voiceGrantFrom(ctx)
+	return g.consent, g.checkOnly
+}
+
+func voiceGrantFrom(ctx context.Context) voiceGrant {
+	g, _ := ctx.Value(voiceGrantKey{}).(voiceGrant)
+	return g
+}
+
+// actingEntry is what a token stands for.
+type actingEntry struct {
+	user  *auth.User
+	grant voiceGrant
+}
+
+// actingUsers maps live tokens to the user and grants of a call. A token exists only while the call
 // that registered it runs, and only a caller in this process can register one,
 // so a remote MCP client can neither create nor guess a token.
 var actingUsers sync.Map
 
-// ActingUserMeta registers the user of ctx for the duration of one tool call
-// and returns the _meta to send with it. Call release when the call is done.
-// When ctx carries no user it returns nil and a no-op release.
+// ActingUserMeta registers the user of ctx, and the voice grants of ctx, for
+// the duration of one tool call and returns the _meta to send with it. Call
+// release when the call is done. When ctx carries neither it returns nil and a
+// no-op release.
 func ActingUserMeta(ctx context.Context) (meta map[string]any, release func()) {
 	u := UserFromContext(ctx)
-	if u == nil {
+	g := voiceGrantFrom(ctx)
+	if u == nil && g == (voiceGrant{}) {
 		return nil, func() {}
 	}
 	token := uuid.NewString()
-	actingUsers.Store(token, u)
+	actingUsers.Store(token, actingEntry{user: u, grant: g})
 	return map[string]any{userTokenMeta: token}, func() { actingUsers.Delete(token) }
 }
 
@@ -73,7 +124,9 @@ func userFromToken(ctx context.Context, meta map[string]any) context.Context {
 		return ctx
 	}
 	if v, ok := actingUsers.Load(token); ok {
-		return WithUser(ctx, v.(*auth.User))
+		e := v.(actingEntry)
+		ctx = WithUser(ctx, e.user)
+		return context.WithValue(ctx, voiceGrantKey{}, e.grant)
 	}
 	return ctx
 }

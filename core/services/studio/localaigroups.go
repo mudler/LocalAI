@@ -151,6 +151,11 @@ func (s *Service) clientToolNames(ctx context.Context, user string) ([]string, s
 			missingFeature = true
 			continue
 		}
+		if spec.Flag == config.FLAG_ANY {
+			// A tool that only manages data needs no model.
+			out = append(out, spec.Tool)
+			continue
+		}
 		ok, seen := hasModel[spec.Flag]
 		if !seen {
 			m, merr := ct.FirstModel(ctx, spec.Flag)
@@ -232,7 +237,7 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, rec sessio
 			if ts, err := s.toolsOf(ctx, rec.ID, exec); err != nil {
 				s.log.Warn("studio: the LocalAI client tools are unavailable", "chat", rec.ID, "error", err)
 			} else {
-				add(builtins.GroupLocalAIClient, ts)
+				add(builtins.GroupLocalAIClient, s.guardVoiceProfile(ts, chat, exec))
 			}
 		}
 	}

@@ -35,7 +35,6 @@ const (
 	routePIIEvents              = "/api/pii/events"
 	routeMiddleware             = "/api/middleware/status"
 	routeRouterDecisions        = "/api/router/decisions"
-	routeVoiceProfiles          = "/api/voice-profiles"
 	routeModelsCapabilities     = "/api/models/capabilities"
 	routeVersion                = "/version"
 	routeSystem                 = "/system"
@@ -79,10 +78,6 @@ func routeToggleModelState(name, action string) string {
 
 func routeToggleModelPinned(name, action string) string {
 	return fmt.Sprintf("/models/toggle-pinned/%s/%s", url.PathEscape(name), url.PathEscape(action))
-}
-
-func routeVoiceProfileDelete(id string) string {
-	return "/api/voice-profiles/" + url.PathEscape(id)
 }
 
 func routeNodeVRAMBudget(id string) string {
