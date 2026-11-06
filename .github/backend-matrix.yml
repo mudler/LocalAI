@@ -6621,7 +6621,7 @@ include:
     tag-suffix: '-nvidia-l4t-cuda-13-arm64-strata'
     runs-on: 'ubuntu-24.04-arm'
     base-image: "ubuntu:24.04"
-    skip-drivers: 'true'
+    skip-drivers: 'false'
     backend: "strata"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
