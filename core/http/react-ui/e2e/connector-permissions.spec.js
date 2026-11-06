@@ -829,6 +829,22 @@ test.describe('Connector permissions', () => {
     await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.approval).toEqual({ mode: 'ask', acts: [], max_pending: 0, min_gap_minutes: 0, max_runs_per_day: 0, max_lifetime_days: 0 })
   })
 
+  test('a saved connection links back to its agent, and a connection with no agent shows no link', async ({ page }) => {
+    await api(page, [{ ...LEGACY, agent_id: 'a1' }]).install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const link = page.getByTestId('connector-agent-link')
+    await expect(link).toHaveText('Open the agent Support')
+    await expect(link).toHaveAttribute('href', '/app/agents/a1')
+    await shot(page, 'agent-link')
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    await api(page, [{ ...LEGACY, agent_id: '' }]).install()
+    await page.reload()
+    await page.getByRole('button', { name: 'Edit' }).click()
+    await expect(page.getByTestId('connector-form')).toBeVisible()
+    await expect(page.getByTestId('connector-agent-link')).toHaveCount(0)
+  })
+
   test('Runs may act is greyed with the reason while Propose triggers is off', async ({ page }) => {
     await api(page, [{ ...LEGACY, agent_id: 'a4', caps: ['memory.write'], approval: { mode: 'ask', acts: ['act.files'] } }]).install()
     await page.goto(PAGE)

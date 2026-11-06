@@ -21,6 +21,7 @@ import AccessMatrix from './AccessMatrix'
 import PermissionFields from './PermissionFields'
 import NotifyField from './NotifyField'
 import { agentsApi, connectorsApi, setApiLanguage } from './api'
+import { basePath } from '../../host-compat/src/utils/basePath.js'
 import { DUPLICATE_CONFIRMATION, canSave, channelOnly, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, connectorPayload, emptyConnector, agentHeld, usualFor, listEntries, listeningChannels, senderLine, withUsualCaps } from './connector'
 import { registerConnectorLocales } from './i18n'
 import { chatNamesFrom, chatText, knownTargets, peopleFrom, recentPeople } from './people'
@@ -309,6 +310,13 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
       {form && (
         <div className="cn-formgrid">
           <form className="cn-form" onSubmit={save} aria-label={form.id ? t('edit') : t('new')} data-testid="connector-form">
+            {savedItem?.agent_id && (
+              <p className="cn-muted cn-agentlink">
+                <a href={`${basePath}/app/agents/${encodeURIComponent(savedItem.agent_id)}`} target={dirty ? '_blank' : undefined} rel={dirty ? 'noopener noreferrer' : undefined} data-testid="connector-agent-link">
+                  {s('agentLink', { name: agentName(savedItem.agent_id) })}
+                </a>
+              </p>
+            )}
             {messaging && form.id && (
               <SameBotNotice c={savedItem} s={s} busy={busy} onOff={() => { setForm(null); act(() => connectorsApi.disable(form.id)) }} onOpen={openById} />
             )}

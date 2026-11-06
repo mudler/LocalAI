@@ -385,5 +385,6 @@
   "who.post.verified": "Scrive qui solo quando lo chiede una persona verificata.",
   "who.post.any": "Scrive qui quando lo chiede una persona consentita.",
   "who.post.show": "Mostra il posto",
-  "who.post.showFor": "Mostra il posto di {{name}}"
+  "who.post.showFor": "Mostra il posto di {{name}}",
+  "agentLink": "Apri l'agente {{name}}"
 }

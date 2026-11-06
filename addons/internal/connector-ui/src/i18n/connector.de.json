@@ -385,5 +385,6 @@
   "who.post.verified": "Schreibt hier nur, wenn eine verifizierte Person darum bittet.",
   "who.post.any": "Schreibt hier, wenn eine erlaubte Person darum bittet.",
   "who.post.show": "Ort anzeigen",
-  "who.post.showFor": "Ort für {{name}} anzeigen"
+  "who.post.showFor": "Ort für {{name}} anzeigen",
+  "agentLink": "Den Agenten {{name}} öffnen"
 }

@@ -385,5 +385,6 @@
   "who.post.verified": "확인된 사람이 요청할 때만 여기에 게시합니다.",
   "who.post.any": "허용된 사람이 요청하면 여기에 게시합니다.",
   "who.post.show": "장소 보기",
-  "who.post.showFor": "{{name}}의 장소 보기"
+  "who.post.showFor": "{{name}}의 장소 보기",
+  "agentLink": "에이전트 {{name}} 열기"
 }

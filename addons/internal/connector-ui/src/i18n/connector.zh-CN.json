@@ -385,5 +385,6 @@
   "who.post.verified": "仅在已验证的人请求时在此发帖。",
   "who.post.any": "在任何被允许的人请求时在此发帖。",
   "who.post.show": "显示该位置",
-  "who.post.showFor": "显示 {{name}} 的位置"
+  "who.post.showFor": "显示 {{name}} 的位置",
+  "agentLink": "打开智能体 {{name}}"
 }

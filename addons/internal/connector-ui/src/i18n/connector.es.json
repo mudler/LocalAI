@@ -385,5 +385,6 @@
   "who.post.verified": "Publica aquí solo cuando lo pide una persona verificada.",
   "who.post.any": "Publica aquí cuando lo pide cualquier persona permitida.",
   "who.post.show": "Mostrar el lugar",
-  "who.post.showFor": "Mostrar el lugar de {{name}}"
+  "who.post.showFor": "Mostrar el lugar de {{name}}",
+  "agentLink": "Abrir el agente {{name}}"
 }
