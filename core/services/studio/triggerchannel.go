@@ -137,11 +137,14 @@ func (h *Triggers) updateChannelsNote(ctx context.Context, c builtins.Chat) stri
 	holds, _ := c.Holds(contract.CapTalkbackChannels)
 	note := ""
 	for _, b := range all {
-		if len(approvedChannelNames(b)) == 0 {
+		if len(approvedChannelNames(b)) == 0 && len(unapprovedNames(b)) == 0 {
 			continue
 		}
 		note += " For a trigger proposed through the bot " + strconv.Quote(b.Name) + ":" + channelsNote(b, holds,
 			"Name the channel in delivery.channel by its name or its ID.")
+		if holds {
+			note += notApprovedText(b)
+		}
 	}
 	if note == "" {
 		return ""

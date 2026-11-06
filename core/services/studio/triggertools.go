@@ -730,8 +730,12 @@ func (h *Triggers) channelsNote(ctx context.Context, c builtins.Chat) string {
 		return ""
 	}
 	holds, _ := c.Holds(contract.CapTalkbackChannels)
-	return channelsNote(b, holds, "delivery.target channel posts in the channel itself, at the top and not in a thread; origin posts in this thread. "+
+	note := channelsNote(b, holds, "delivery.target channel posts in the channel itself, at the top and not in a thread; origin posts in this thread. "+
 		"Name the channel in delivery.channel by its name or its ID, and use channel only when the person asks for the results there.")
+	if holds {
+		note += notApprovedText(b)
+	}
+	return note
 }
 
 // actsNote tells the model which acts it may ask for from this connection, and

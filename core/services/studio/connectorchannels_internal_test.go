@@ -74,4 +74,34 @@ var _ = Describe("approved channels for a tool", func() {
 			Expect(err).To(HaveOccurred())
 		})
 	})
+
+	Describe("a listed channel that is not approved", func() {
+		b := connectors.Binding{Channels: []connectors.Channel{{ID: "C1", Label: "Ops"}, {ID: "C2"}}}
+
+		It("is named in the note, with the reason it cannot be a target", func() {
+			note := channelsNote(b, true, "rule") + notApprovedText(b)
+			Expect(note).To(ContainSubstring("approved no channel"))
+			Expect(note).To(ContainSubstring("Ops, C2"))
+			Expect(note).To(ContainSubstring("any allowed person"))
+			Expect(note).To(ContainSubstring("tell them"))
+		})
+
+		It("is named next to the approved ones", func() {
+			b2 := connectors.Binding{Channels: []connectors.Channel{{ID: "C1", Label: "Ops"}, {ID: "C3", Label: "General", Approved: true}}}
+			note := channelsNote(b2, true, "rule") + notApprovedText(b2)
+			Expect(note).To(ContainSubstring("General (C3)"))
+			Expect(note).To(ContainSubstring("Listed but not approved for scheduled runs: Ops."))
+		})
+
+		It("says nothing when every listed channel is approved", func() {
+			b3 := connectors.Binding{Channels: []connectors.Channel{{ID: "C3", Label: "General", Approved: true}}}
+			Expect(channelsNote(b3, true, "rule")).NotTo(ContainSubstring("not approved"))
+		})
+
+		It("is refused with the reason, not the generic refusal", func() {
+			_, err := approvedChannel(b, "ops")
+			Expect(err).To(MatchError(ContainSubstring("verified person")))
+			Expect(err).To(MatchError(ContainSubstring("any allowed person")))
+		})
+	})
 })

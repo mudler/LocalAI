@@ -171,7 +171,8 @@ func approvedChannel(b connectors.Binding, name string) (connectors.Channel, err
 			return ch, nil
 		}
 		// The channel is listed and exact, so a longer label is not the one meant.
-		return connectors.Channel{}, fmt.Errorf("%q is not a channel the owner approved for this bot%s", name, approvedList(list))
+		return connectors.Channel{}, fmt.Errorf("%q is a channel the owner listed, but the bot posts there only when a verified person asks, "+
+			"so a scheduled run cannot post there. It can be a trigger target once the owner lets any allowed person post there; tell the person%s", name, approvedList(list))
 	}
 	if want != "" {
 		var found []connectors.Channel
@@ -206,10 +207,41 @@ func approvedList(list []string) string {
 	return "; the approved channels are " + strings.Join(list, ", ")
 }
 
+// unapprovedNames lists the labels (else the IDs) of the channels the owner
+// listed but did not approve: the bot posts there only when a verified person
+// asks, so a trigger run, which has nobody to ask, cannot.
+func unapprovedNames(b connectors.Binding) []string {
+	var out []string
+	for _, c := range b.Channels {
+		if c.Approved {
+			continue
+		}
+		if c.Label != "" {
+			out = append(out, c.Label)
+		} else {
+			out = append(out, c.ID)
+		}
+	}
+	return out
+}
+
+// notApprovedText says why a listed channel cannot be the target of a trigger
+// and what the person can do. It is empty when every listed channel is approved.
+func notApprovedText(b connectors.Binding) string {
+	names := unapprovedNames(b)
+	if len(names) == 0 {
+		return ""
+	}
+	return " Listed but not approved for scheduled runs: " + strings.Join(names, ", ") +
+		". The bot posts there only when a verified person asks, so a trigger cannot deliver there until the owner lets any allowed person post there; " +
+		"if the person wants one of these, tell them so and do not offer it as a target."
+}
+
 // channelsNote is added to the description of a tool that can write in a
 // channel. It names the approved channels of the binding, so a model never
 // guesses an ID, and says where each target writes. holds says whether the
 // sender may write in channels; without it the note says so in one sentence.
+// A tool for triggers adds notApprovedText to it.
 func channelsNote(b connectors.Binding, holds bool, rule string) string {
 	list := approvedChannelNames(b)
 	switch {

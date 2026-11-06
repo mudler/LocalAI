@@ -145,4 +145,14 @@ var _ = Describe("changing the delivery and the acts of a trigger", func() {
 		res = c.call(r.trigRig, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"delivery":{"target":"channel","channel":"gen"}}`, ref))
 		Expect(res.Err).To(BeNil(), "a unique part of a label: %+v", res)
 	})
+
+	It("names a listed channel that is not approved in the description, and refuses it with the reason", func() {
+		setup([]connectors.Channel{{ID: "G9", Label: "Quiet"}})
+		c.call(r.trigRig, chat, "list_triggers", `{}`)
+		d := r.h.LastToolDescription("update_trigger")
+		Expect(d).To(ContainSubstring("Quiet"))
+		Expect(d).To(ContainSubstring("any allowed person"))
+		res := c.call(r.trigRig, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"delivery":{"target":"channel","channel":"quiet"}}`, ref))
+		Expect(res.Err).To(MatchError(ContainSubstring("verified person")))
+	})
 })
