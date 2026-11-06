@@ -29,6 +29,7 @@ kind declares which roles it grants and, for each action, which roles may run it
 | Add-on resources | `viewer`, `editor` | `viewer` reads. `editor` reads and writes rows. Only the owner changes the schema, shares or deletes. |
 | Saved agents (`agent`) | `use`, `viewer` | `use` chats with the agent as yourself. `viewer` also reads the definition. Only the owner edits, deletes, exports or shares. See [Share an agent]({{%relref "features/chats-agents#share-an-agent" %}}). |
 | Other kinds | `use`, `manage` (or the subset the kind declares) | The kind decides. Usually `use` reads and runs the resource and `manage` also changes it. |
+| Folders of your home | `read`, `write` | `read` reads the folder and everything in it. `write` also changes and deletes there. Only the owner shares. See [Share a folder of your home]({{%relref "features/chats#share-a-folder-of-your-home" %}}). |
 
 A role is a set of actions, not a rank. LocalAI refuses to register a kind whose
 table names a role that the kind does not grant. A role that is stored but not
@@ -162,6 +163,18 @@ which asks the owner through the add-on gateway. Package
 `core/services/addons/policy/sharetest` is a complete example that only the tests
 use.
 
+## Folders
+
+A folder of a person's home is shared with the same dialog and the same rules
+(the owner only, the owner's own browser session, never a tool, `@everyone`
+allowed, a lowering or a revoke stops the work that used it before it answers),
+but not through `/api/shares`. Its grants are the workspace grants that the
+file store checks on every file call, so they stay in the workspace database,
+and the routes are under `/api/chats/files/shares` (see [Share a folder of your
+home]({{%relref "features/chats#share-a-folder-of-your-home" %}})). Moving them
+into the policy store would put the add-on owner on the path of every file
+call.
+
 ## The Share dialog
 
 The web UI has one Share dialog for every resource that can be shared. It shows
@@ -170,7 +183,9 @@ kind allows it, asks before it revokes a grant, and says so in local-owner mode.
 A search result is only an account ID and a display name: an address is never
 shown.
 
-The dialog does not know the routes. It takes a client with four calls:
+The dialog does not know the routes. It takes a client with four calls (the
+Files page passes `folderShareClient(folderSharesApi, id)` for a folder of the
+home, with the roles `read` and `write`):
 
 | Call | Answer |
 |------|--------|

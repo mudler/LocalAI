@@ -374,3 +374,27 @@ func homeOwner(p string) string {
 	owner, _, _ := strings.Cut(rest, "/")
 	return owner
 }
+
+// OwnFolderAt returns the folder at rel, a path of the person's home ("/" is
+// the home), with its members, when the person may share it.
+func (s *Service) OwnFolderAt(ctx context.Context, a workspace.Actor, rel string) (Folder, error) {
+	st, err := s.ownerStore()
+	if err != nil {
+		return Folder{}, err
+	}
+	if !isPerson(a) {
+		return Folder{}, ErrNotShareable
+	}
+	abs, err := s.o.Files.Abs(a.Principal, rel)
+	if err != nil {
+		return Folder{}, ErrNotShareable
+	}
+	n, err := st.Stat(ctx, a, abs)
+	if err != nil {
+		if errors.Is(err, workspace.ErrNotFound) || errors.Is(err, workspace.ErrInvalid) {
+			return Folder{}, ErrNotShareable
+		}
+		return Folder{}, err
+	}
+	return s.OwnGrants(ctx, a, n.ID)
+}

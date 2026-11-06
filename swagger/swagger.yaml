@@ -386,6 +386,12 @@ definitions:
           upgrade, say). It is absent when none runs. The observation is
           separate from State: the process can run on while the owner stages
           the next generation.
+      ownerData:
+        description: |-
+          OwnerData is true when the manifest says the tools keep the owner's own
+          data (capabilities.ownerData). Its writes need tools.write in a
+          connector chat, like the writes of a credentialed add-on.
+        type: boolean
       shadows:
         description: Shadows lists the built-in chat tools the add-on replaces (bash,
           say).
@@ -9491,6 +9497,81 @@ definitions:
       "y":
         type: number
     type: object
+  schema.FolderGrant:
+    properties:
+      displayName:
+        type: string
+      role:
+        type: string
+      userId:
+        type: string
+    type: object
+  schema.FolderGrantList:
+    properties:
+      grants:
+        items:
+          $ref: '#/definitions/schema.FolderGrant'
+        type: array
+      id:
+        type: integer
+      name:
+        type: string
+      path:
+        type: string
+    type: object
+  schema.FolderGrantRequest:
+    properties:
+      role:
+        type: string
+    type: object
+  schema.FolderShare:
+    properties:
+      everyone:
+        description: Everyone is true when the folder is shared with every account.
+        type: boolean
+      id:
+        description: ID is the folder's stable ID in the sharing routes.
+        type: integer
+      name:
+        type: string
+      path:
+        description: Path is the folder's path in your home, for example /Projects.
+        type: string
+      sharedWith:
+        description: SharedWith counts the grants, the one to every account included.
+        type: integer
+    type: object
+  schema.FolderShareList:
+    properties:
+      folders:
+        items:
+          $ref: '#/definitions/schema.FolderShare'
+        type: array
+      sharing:
+        description: |-
+          Sharing is false when folders cannot be shared on this server
+          (local-owner mode, no accounts, files off).
+        type: boolean
+    type: object
+  schema.FolderSharePathRequest:
+    properties:
+      path:
+        type: string
+    type: object
+  schema.FolderShareUser:
+    properties:
+      displayName:
+        type: string
+      id:
+        type: string
+    type: object
+  schema.FolderShareUserList:
+    properties:
+      users:
+        items:
+          $ref: '#/definitions/schema.FolderShareUser'
+        type: array
+    type: object
   schema.ForecastRequest:
     properties:
       clip_nonnegative:
@@ -11266,6 +11347,11 @@ definitions:
     type: object
   schema.SharedFolder:
     properties:
+      everyone:
+        description: |-
+          Everyone is true when you reach a folder of someone's home only
+          through its grant to every account. Only in your own list.
+        type: boolean
       id:
         description: ID is the folder's stable ID. The shared pages use it as folder_id.
         type: integer
@@ -11281,6 +11367,12 @@ definitions:
           own list.
         type: string
       name:
+        type: string
+      owner:
+        description: |-
+          Owner is the display name of the person who shared a folder of their
+          own home with you. Such a folder has no path: it would name the
+          owner's account. Only in your own list.
         type: string
       pages:
         description: Pages is how many pages (pages/<name>/index.html) the folder
@@ -19045,6 +19137,210 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Search your files.
+      tags:
+      - chats
+  /api/chats/files/shares:
+    get:
+      description: sharing is false when folders cannot be shared on this server (local-owner
+        mode, no accounts). Each folder has its path in your home, the number of grants
+        and whether one of them is to every account. Read-only. No MCP tool maps to
+        this route.
+      responses:
+        "200":
+          description: Your shared folders, by path
+          schema:
+            $ref: '#/definitions/schema.FolderShareList'
+        "409":
+          description: Files are off on this server
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the folders of your home that you share.
+      tags:
+      - chats
+    post:
+      description: Returns the folder's ID for the other sharing routes and how many
+        it is shared with. A folder can be shared when it is inside your home, is
+        not the home itself and is not LocalAI/ or Chats/ or inside them. Any other
+        path gets 403, a missing one too. No MCP tool maps to this route.
+      parameters:
+      - description: The folder's path in your home
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FolderSharePathRequest'
+      responses:
+        "200":
+          description: The folder
+          schema:
+            $ref: '#/definitions/schema.FolderShare'
+        "403":
+          description: A folder you cannot share, or no such folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Type sharing_disabled, or files are off
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Find a folder of your home to share it.
+      tags:
+      - chats
+  /api/chats/files/shares/{id}/grants:
+    get:
+      description: Each grant has the account ID (or @everyone), the display name
+        (empty for @everyone) and the role read or write. Accepted only from your
+        own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder
+        ID, no API key, no tool, agent or MCP marker). A folder you cannot share and
+        a missing one get the same 403. No MCP tool maps to this route.
+      parameters:
+      - description: Folder ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: The grants
+          schema:
+            $ref: '#/definitions/schema.FolderGrantList'
+        "403":
+          description: Not your own browser session, a folder you cannot share, or
+            no such folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Type sharing_disabled
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List who a folder of your home is shared with (owner, UI only).
+      tags:
+      - chats
+  /api/chats/files/shares/{id}/grants/{principal}:
+    delete:
+      description: Removes the grant of the principal, an account ID or @everyone.
+        A person's own grant and the grant to everyone are separate. The grantee loses
+        the folder at their next file call, and their running chats that hold it are
+        stopped before the answer. Accepted only from your own browser session (same-origin
+        fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent
+        or MCP marker). Safe to repeat. No MCP tool maps to this route.
+      parameters:
+      - description: Folder ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Account ID, or @everyone
+        in: path
+        name: principal
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The grants after the change
+          schema:
+            $ref: '#/definitions/schema.FolderGrantList'
+        "403":
+          description: Not your own browser session, a folder you cannot share, or
+            no such folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Type sharing_disabled
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Stop sharing a folder of your home (owner, UI only).
+      tags:
+      - chats
+    put:
+      description: 'principal is the account ID that the user picker returned, an
+        active named account, or @everyone for every account, the ones created later
+        too. role is read or write; write lets them change and delete what is in the
+        folder. Lowering write to read takes effect at their next file call, and their
+        running chats that hold the folder are stopped before the answer. Accepted
+        only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal
+        to the folder ID, no API key, no tool, agent or MCP marker). Safe to repeat.
+        No MCP tool maps to this route: sharing is never a tool.'
+      parameters:
+      - description: Folder ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Account ID, or @everyone
+        in: path
+        name: principal
+        required: true
+        type: string
+      - description: The role
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FolderGrantRequest'
+      responses:
+        "200":
+          description: The grants after the change
+          schema:
+            $ref: '#/definitions/schema.FolderGrantList'
+        "400":
+          description: A role that is not read or write, or a principal that is not
+            an active account
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Not your own browser session, a folder you cannot share, or
+            no such folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Type sharing_disabled, or a limit
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Share a folder of your home, or change the role (owner, UI only).
+      tags:
+      - chats
+  /api/chats/files/shares/{id}/users:
+    get:
+      description: Finds active named accounts by a prefix of the display name or
+        of the address, 2 to 64 characters, at most 20 results, never you. Each result
+        is an account ID and a display name and nothing else. Accepted only from your
+        own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder
+        ID, no API key, no tool, agent or MCP marker). No MCP tool maps to this route.
+      parameters:
+      - description: Folder ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Name or address prefix
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: At most this many results, up to 20
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: Matching people
+          schema:
+            $ref: '#/definitions/schema.FolderShareUserList'
+        "400":
+          description: The search text is not 2 to 64 characters
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Not your own browser session, a folder you cannot share, or
+            no such folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Type sharing_disabled
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Search the people you can share a folder of your home with (owner,
+        UI only).
       tags:
       - chats
   /api/chats/files/trash:

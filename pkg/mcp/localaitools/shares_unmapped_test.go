@@ -31,6 +31,12 @@ var _ = Describe("sharing and the MCP tools", func() {
 		}
 	})
 
+	It("maps no tool to the routes that share a folder of a person's home", func() {
+		for tool, route := range toolToHTTPRoute {
+			Expect(route).NotTo(ContainSubstring("/api/chats/files/shares"), tool+": sharing a folder is never a tool")
+		}
+	})
+
 	It("never names the routes in the code of the MCP server, its clients or its prompts", func() {
 		var hits []string
 		Expect(filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
@@ -41,7 +47,7 @@ var _ = Describe("sharing and the MCP tools", func() {
 			if rerr != nil {
 				return rerr
 			}
-			if strings.Contains(strings.ToLower(string(b)), "/api/shares") {
+			if low := strings.ToLower(string(b)); strings.Contains(low, "/api/shares") || strings.Contains(low, "/files/shares") {
 				hits = append(hits, path)
 			}
 			return nil

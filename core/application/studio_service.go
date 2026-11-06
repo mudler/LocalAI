@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	endpointsaddons "github.com/mudler/LocalAI/core/http/endpoints/addons"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -150,6 +151,7 @@ func (a *Application) initStudioService() {
 		EgressAudit:       a.studioEgressAudit(),
 		EgressAuditDays:   func() int { return a.applicationConfig.EffectiveChatsEgressAuditDays() },
 		FindUser:          a.studioFindUser(),
+		FolderDirectory:   a.studioFolderDirectory(),
 		SharedPagesOn:     func() bool { return !a.applicationConfig.DisableSharedPages },
 		Modalities:        a.studioModalities,
 		MCPContent:        studioMCPContent{a: a},
@@ -674,6 +676,45 @@ func (a *Application) studioFindUser() func(ctx context.Context, ref string) (*a
 		}
 		return nil, studio.ErrNoUser
 	}
+}
+
+// studioFolderDirectory is the account directory people pick from when they
+// share a folder of their own home: the generic directory of the sharing
+// routes. Without an account database there is none and folders are not
+// shared by their owners.
+func (a *Application) studioFolderDirectory() sharedfolders.Directory {
+	if a.authDB == nil {
+		return nil
+	}
+	return folderDirectory{u: auth.NewAddonUsers(a.authDB)}
+}
+
+type folderDirectory struct{ u *auth.AddonUsers }
+
+func (d folderDirectory) Accounts(ctx context.Context, query string, limit int) ([]sharedfolders.User, error) {
+	refs, err := d.u.Accounts(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]sharedfolders.User, 0, len(refs))
+	for _, r := range refs {
+		out = append(out, sharedfolders.User{ID: r.ID, Name: r.DisplayName})
+	}
+	return out, nil
+}
+
+func (d folderDirectory) Active(ctx context.Context, id string) (sharedfolders.User, error) {
+	if err := d.u.Active(ctx, id); err != nil {
+		if errors.Is(err, gateway.ErrForbidden) {
+			return sharedfolders.User{}, sharedfolders.ErrUnknownUser
+		}
+		return sharedfolders.User{}, err
+	}
+	names, err := d.u.Lookup(ctx, []string{id})
+	if err != nil {
+		return sharedfolders.User{}, err
+	}
+	return sharedfolders.User{ID: id, Name: names[id]}, nil
 }
 
 // studioPageConsents opens the store of the consents to shared pages, beside
