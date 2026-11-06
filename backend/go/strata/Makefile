@@ -111,7 +111,7 @@ PBS_FILE=cpython-$(PBS_PYTHON)+$(PBS_RELEASE)-$(PBS_TRIPLE_$(PBS_PLATFORM))-inst
 SRC_DIR=sources/strata
 STAMP=.stamp
 
-.PHONY: strata engine engine-packages engine-python engine-source build package test clean purge print-packages print-asset check-pins
+.PHONY: strata package-stub engine engine-packages engine-python engine-source build package test clean purge print-packages print-asset check-pins
 
 strata:
 	CGO_ENABLED=0 $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o strata ./
@@ -181,13 +181,19 @@ engine-source:
 package:
 	bash package.sh
 
+# The backend with a stub engine and a synthetic tokenizer pack, for the
+# tests/e2e-backends suite. Needs no engine package and no GPU, but the
+# Python on PATH needs regex and jinja2.
+package-stub: strata engine-source
+	bash e2e/package-stub.sh
+
 build: engine strata package
 
 test:
 	CGO_ENABLED=0 $(GOCMD) test ./...
 
 clean:
-	rm -rf strata package
+	rm -rf strata package package-stub
 
 # Also drops everything fetched: engines, Python, sources and downloads.
 purge: clean

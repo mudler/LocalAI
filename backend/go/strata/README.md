@@ -10,6 +10,11 @@ Status: experimental. The unit tests run against a stub engine that speaks the s
 including `LP` lines and `GENI`. The backend has not yet been run against a real engine and model;
 that check is still open.
 
+`make test-extra-backend-strata` runs the shared gRPC suite (`tests/e2e-backends`) against the built backend with a stub engine
+(`e2e/stub_engine.py`) and a synthetic tokenizer pack (`e2e/make_pack.py`). It needs Python 3 with `regex` and `jinja2`.
+It covers the gRPC surface, the tokenizer helper, the chat template, tool-call extraction and the context check. It does not
+run the real engine.
+
 ## What you need
 
 - The backend image for your accelerator. It contains the engine, `strata-vision`, the Strata Python

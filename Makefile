@@ -782,8 +782,10 @@ BACKEND_TEST_TIMEOUT?=30m
 ## Generic target — runs the suite against whatever BACKEND_IMAGE points at.
 ## Depends on protogen-go so pkg/grpc/proto is generated before `go test`.
 test-extra-backend: protogen-go
-	@test -n "$$BACKEND_IMAGE" || { echo "BACKEND_IMAGE must be set" >&2; exit 1; }
+	@test -n "$$BACKEND_IMAGE" || test -n "$$BACKEND_BINARY" || { echo "BACKEND_IMAGE or BACKEND_BINARY must be set" >&2; exit 1; }
 	BACKEND_IMAGE="$$BACKEND_IMAGE" \
+	BACKEND_BINARY="$$BACKEND_BINARY" \
+	BACKEND_TEST_CTX_SIZE="$$BACKEND_TEST_CTX_SIZE" \
 	BACKEND_TEST_MODEL_URL="$${BACKEND_TEST_MODEL_URL:-$(BACKEND_TEST_MODEL_URL)}" \
 	BACKEND_TEST_MODEL_FILE="$$BACKEND_TEST_MODEL_FILE" \
 	BACKEND_TEST_MODEL_NAME="$$BACKEND_TEST_MODEL_NAME" \
@@ -809,6 +811,22 @@ test-extra-backend: protogen-go
 	go test -v -timeout $(BACKEND_TEST_TIMEOUT) ./tests/e2e-backends/...
 
 ## Convenience wrappers: build the image, then exercise it.
+## strata runs against a STUB engine, not the real one. `package-stub` builds
+## the real backend binary and run.sh, and a stand-in engine (a Python script)
+## and a synthetic tokenizer pack replace the engine package and the model. So
+## this checks the gRPC surface, the tokenizer helper, the chat template, the
+## tool-call and reasoning parsers and the context checks, and says nothing
+## about the real engine or its output. Needs Python 3 with regex and jinja2.
+## The context is 4096 tokens because the pack has one token per byte, so the
+## long_prefill prompt is about 2750 tokens.
+test-extra-backend-strata:
+	$(MAKE) -C backend/go/strata package-stub
+	BACKEND_BINARY=$(abspath backend/go/strata/package-stub/run.sh) \
+	BACKEND_TEST_MODEL_FILE=$(abspath backend/go/strata/package-stub/pack) \
+	BACKEND_TEST_CTX_SIZE=4096 \
+	BACKEND_TEST_CAPS=health,load,predict,stream,tools,logprobs,logit_bias,tokenize,long_prefill,context_overflow \
+	$(MAKE) test-extra-backend
+
 test-extra-backend-llama-cpp: docker-build-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:llama-cpp \
 	BACKEND_TEST_CAPS=health,load,predict,stream,logprobs,logit_bias,context_overflow \
