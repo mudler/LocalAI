@@ -101,7 +101,7 @@ You can run the same admin tool surface as a stdio MCP server pointed at any Loc
 
 ```bash
 local-ai mcp-server --target http://remote.localai:8080 --api-key <admin-key>
-# read-only mode - skips registration of every mutating tool
+# read-only mode - skips registration of every mutating tool and of the client tools that write files or make content
 local-ai mcp-server --target http://remote.localai:8080 --read-only
 ```
 
@@ -164,7 +164,7 @@ Cloning a voice without the consent of the speaker is abuse, so a model cannot c
 
 `describe_image` and `transcribe_audio` also exist as built-in chat tools that read the user's files. A chat sends the model one tool of each name: in a chat, the **Images and audio** group serves these two, and the **LocalAI client** group serves the others.
 
-The client tools are not turned off by `--read-only`, which is about changing the instance. In the standalone server, files are read from and written to the folder of `--files-dir` (default: the current folder), and a file argument must lie inside it:
+`--read-only` also leaves out the client tools that write files or make new content: `generate_image`, `generate_video`, `generate_sound`, `speak`, `embed`, and the `create` and `delete` actions of `voice_profile`. The analysis tools (`transcribe_audio`, `describe_image`, `detect`, `rerank`, `voice`, `face`) and `voice_profile` `list` stay. In the standalone server, files are read from and written to the folder of `--files-dir`, and a file argument must lie inside it. There is no default folder: without `--files-dir` (or `LOCALAI_MCP_FILES_DIR`) the client tools that read or write files are not registered, and only `rerank` and `voice_profile` `list` and `delete` remain:
 
 ```bash
 local-ai mcp-server --target http://remote.localai:8080 --api-key <key> --files-dir ./media

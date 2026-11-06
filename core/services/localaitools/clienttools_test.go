@@ -1,6 +1,7 @@
 package localaitools
 
 import (
+	"encoding/json"
 	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -65,14 +66,43 @@ var _ = Describe("Client tool table", func() {
 		Expect(ToolGroupOf(ToolListNodes)).To(Equal(GroupManage))
 	})
 
-	It("registers every client tool, even in the read-only flavour", func() {
-		for _, opts := range []Options{{}, {DisableMutating: true}} {
-			ctx, sess, done := connectInMemory(&fakeClient{}, opts)
-			names := listToolNames(ctx, sess)
-			done()
-			for _, n := range clientToolNames() {
-				Expect(slices.Contains(names, n)).To(BeTrue(), "%s missing with %+v", n, opts)
+	It("registers every client tool by default", func() {
+		ctx, sess, done := connectInMemory(&fakeClient{}, Options{})
+		defer done()
+		names := listToolNames(ctx, sess)
+		for _, n := range clientToolNames() {
+			Expect(slices.Contains(names, n)).To(BeTrue(), "%s missing", n)
+		}
+	})
+
+	It("registers no client tool that writes files or makes content in the read-only flavour", func() {
+		ctx, sess, done := connectInMemory(&fakeClient{}, Options{DisableMutating: true})
+		defer done()
+		names := listToolNames(ctx, sess)
+		for _, n := range []string{ToolGenerateImage, ToolSpeak, ToolEmbed, ToolGenerateVideo, ToolGenerateSound} {
+			Expect(names).NotTo(ContainElement(n))
+		}
+		Expect(names).To(ContainElements(ToolTranscribeAudio, ToolDescribeImage, ToolRerank, ToolVoiceProfile))
+		// voice_profile keeps only list.
+		res, err := sess.ListTools(ctx, nil)
+		Expect(err).NotTo(HaveOccurred())
+		for _, t := range res.Tools {
+			if t.Name == ToolVoiceProfile {
+				schema, _ := json.Marshal(t.InputSchema)
+				Expect(string(schema)).To(ContainSubstring(`"list"`))
+				Expect(string(schema)).NotTo(ContainSubstring(`"create"`))
+				Expect(string(schema)).NotTo(ContainSubstring(`"delete"`))
 			}
 		}
+	})
+
+	It("registers no client tool that needs files when there is no files folder", func() {
+		ctx, sess, done := connectInMemory(&fakeClient{}, Options{DisableClientFiles: true})
+		defer done()
+		names := listToolNames(ctx, sess)
+		for n := range clientToolFiles {
+			Expect(names).NotTo(ContainElement(n))
+		}
+		Expect(names).To(ContainElements(ToolRerank, ToolVoiceProfile))
 	})
 })

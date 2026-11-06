@@ -99,17 +99,19 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolSystemInfo,
 	ToolVRAMEstimate,
 	ToolListFailoverChains,
-	// The client group is not about changing the instance, so the read-only
-	// flavour keeps it.
-	ToolGenerateImage, ToolSpeak, ToolTranscribeAudio, ToolDescribeImage, ToolEmbed,
-	ToolDetect, ToolRerank, ToolGenerateVideo, ToolGenerateSound,
+	// The read-only flavour keeps the client tools that only analyse or list.
+	ToolTranscribeAudio, ToolDescribeImage, ToolDetect, ToolRerank,
 	ToolVoice, ToolFace, ToolVoiceProfile,
 )
+
+// clientWriterTools are the client tools the read-only flavour leaves out: they
+// write files or make new content.
+var clientWriterTools = []string{ToolGenerateImage, ToolSpeak, ToolEmbed, ToolGenerateVideo, ToolGenerateSound}
 
 // expectedFullCatalog derives from the read-only catalog plus the canonical
 // mutating list used by the safety-prompt coverage test. Registering a new
 // mutator now fails both catalog and prompt coverage until that list is updated.
-var expectedFullCatalog = sortedStrings(append(append([]string(nil), expectedReadOnlyCatalog...), mutatingToolNames...)...)
+var expectedFullCatalog = sortedStrings(append(append(append([]string(nil), expectedReadOnlyCatalog...), mutatingToolNames...), clientWriterTools...)...)
 
 func sortedStrings(in ...string) []string {
 	out := append([]string(nil), in...)

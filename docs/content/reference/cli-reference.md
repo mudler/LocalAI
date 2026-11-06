@@ -357,7 +357,7 @@ LocalAI supports several subcommands beyond `run`:
 - `local-ai tts` - Convert text to speech
 - `local-ai sound-generation` - Generate audio files from text or audio
 - `local-ai transcript` - Convert audio to text
-- `local-ai mcp-server` - Run the LocalAI admin and client tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP). `--files-dir` (`LOCALAI_MCP_FILES_DIR`) is the folder where the client tools read and write files
+- `local-ai mcp-server` - Run the LocalAI admin and client tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP). `--files-dir` (`LOCALAI_MCP_FILES_DIR`) is the folder where the client tools read and write files; it has no default, and without it the client tools that read or write files are not registered. `--read-only` also leaves out the client tools that write files or make content (`generate_*`, `speak`, `embed`, `voice_profile` create and delete)
 - `local-ai worker` - Start a worker for distributed mode (generic, backend-agnostic)
 - `local-ai p2p-worker` - Run workers to distribute workload via p2p (llama.cpp-only)
 - `local-ai agent-worker` - Start a worker for distributed mode (serves MCP tool calls via NATS)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -12,52 +13,109 @@ import (
 
 // registerClientTools wires the client tools: inference that any user may run
 // within their own permissions. They are a separate group from the manage
-// tools (see ToolGroupOf) and are never gated by Options.DisableMutating,
-// which is about changing the instance.
-func registerClientTools(s *mcp.Server, client LocalAIClient, _ Options) {
-	addClientTool(s, ToolGenerateImage,
-		"Make images from a prompt, or with image and mask repaint the masked area. Saves files.",
-		func(ctx context.Context, in GenerateImageToolInput) (*ImageResult, error) {
-			return generateImage(ctx, client, in)
-		})
-	addClientTool(s, ToolSpeak,
-		"Turn text into speech. voice can be a profile from voice_profile. Saves an audio file.",
-		client.Speak)
-	addClientTool(s, ToolTranscribeAudio,
-		"Turn a recording into text.",
-		client.TranscribeAudio)
-	addClientTool(s, ToolDescribeImage,
-		"Describe an image or answer a question about it, including text in it.",
-		client.DescribeImage)
-	addClientTool(s, ToolEmbed,
-		"Turn texts into embedding vectors. Saves them as a JSON file.",
-		client.Embed)
-	addClientTool(s, ToolDetect,
-		"Find objects in an image: boxes, classes, confidence.",
-		client.Detect)
-	addClientTool(s, ToolRerank,
-		"Rank documents by how well they answer a query.",
-		client.Rerank)
-	addClientTool(s, ToolGenerateVideo,
-		"Generate a video from a prompt, optionally from an image. Can take minutes. Saves a file.",
-		client.GenerateVideo)
-	addClientTool(s, ToolGenerateSound,
-		"Generate a sound effect or music from a description. Saves an audio file.",
-		client.GenerateSound)
-	addActionTool(s, ToolVoice,
-		"Speaker recognition: verify two recordings, or identify a speaker.",
-		func(ctx context.Context, in VoiceToolInput) (any, error) { return voiceAction(ctx, client, in) },
-		ActionVerify, ActionIdentify)
-	addActionTool(s, ToolFace,
-		"Face recognition: verify two images, or identify a face.",
-		func(ctx context.Context, in FaceToolInput) (any, error) { return faceAction(ctx, client, in) },
-		ActionVerify, ActionIdentify)
+// tools (see ToolGroupOf) and are not gated by Options.DisableMutating as a
+// group, which is about changing the instance. The read-only flavour of the server
+// still drops the ones that write files or make content (clientToolWrites).
+func registerClientTools(s *mcp.Server, client LocalAIClient, opts Options) {
+	// Which tools a flavour of the server keeps: the read-only one drops every
+	// tool that writes a file, makes new content or changes the voice
+	// library; a server without a files folder drops the ones that need files.
+	keep := func(tool string) bool {
+		if opts.DisableMutating && clientToolWrites[tool] {
+			return false
+		}
+		return !(opts.DisableClientFiles && clientToolFiles[tool])
+	}
+	if keep(ToolGenerateImage) {
+		addClientTool(s, ToolGenerateImage,
+			"Make images from a prompt, or with image and mask repaint the masked area. Saves files.",
+			func(ctx context.Context, in GenerateImageToolInput) (*ImageResult, error) {
+				return generateImage(ctx, client, in)
+			})
+	}
+	if keep(ToolSpeak) {
+		addClientTool(s, ToolSpeak,
+			"Turn text into speech. voice can be a profile from voice_profile. Saves an audio file.",
+			client.Speak)
+	}
+	if keep(ToolTranscribeAudio) {
+		addClientTool(s, ToolTranscribeAudio,
+			"Turn a recording into text.",
+			client.TranscribeAudio)
+	}
+	if keep(ToolDescribeImage) {
+		addClientTool(s, ToolDescribeImage,
+			"Describe an image or answer a question about it, including text in it.",
+			client.DescribeImage)
+	}
+	if keep(ToolEmbed) {
+		addClientTool(s, ToolEmbed,
+			"Turn texts into embedding vectors. Saves them as a JSON file.",
+			client.Embed)
+	}
+	if keep(ToolDetect) {
+		addClientTool(s, ToolDetect,
+			"Find objects in an image: boxes, classes, confidence.",
+			client.Detect)
+	}
+	if keep(ToolRerank) {
+		addClientTool(s, ToolRerank,
+			"Rank documents by how well they answer a query.",
+			client.Rerank)
+	}
+	if keep(ToolGenerateVideo) {
+		addClientTool(s, ToolGenerateVideo,
+			"Generate a video from a prompt, optionally from an image. Can take minutes. Saves a file.",
+			client.GenerateVideo)
+	}
+	if keep(ToolGenerateSound) {
+		addClientTool(s, ToolGenerateSound,
+			"Generate a sound effect or music from a description. Saves an audio file.",
+			client.GenerateSound)
+	}
+	if keep(ToolVoice) {
+		addActionTool(s, ToolVoice,
+			"Speaker recognition: verify two recordings, or identify a speaker.",
+			func(ctx context.Context, in VoiceToolInput) (any, error) { return voiceAction(ctx, client, in) },
+			ActionVerify, ActionIdentify)
+	}
+	if keep(ToolFace) {
+		addActionTool(s, ToolFace,
+			"Face recognition: verify two images, or identify a face.",
+			func(ctx context.Context, in FaceToolInput) (any, error) { return faceAction(ctx, client, in) },
+			ActionVerify, ActionIdentify)
+	}
+	// voice_profile keeps only the actions the flavour allows: create needs a
+	// file and writes data, delete changes data, list is always safe.
+	actions := []string{ActionList}
+	if !opts.DisableMutating {
+		if !opts.DisableClientFiles {
+			actions = append([]string{ActionCreate}, actions...)
+		}
+		actions = append(actions, ActionDelete)
+	}
 	addActionTool(s, ToolVoiceProfile,
-		"Voices to clone with speak. create saves a WAV clip; the person must confirm the speaker agreed.",
+		"Voices to clone with speak. create saves a WAV clip; the person must confirm the speaker agreed. Profiles made by an administrator are visible to all users.",
 		func(ctx context.Context, in VoiceProfileToolInput) (any, error) {
+			if !slices.Contains(actions, in.Action) {
+				return nil, fmt.Errorf("voice_profile: action %q is not available on this server (use %s)", in.Action, strings.Join(actions, ", "))
+			}
 			return voiceProfileAction(ctx, client, in)
 		},
-		ActionCreate, ActionList, ActionDelete)
+		actions...)
+}
+
+// clientToolWrites lists the client tools the read-only server leaves out: they
+// write a file or spend compute to make new content.
+var clientToolWrites = map[string]bool{
+	ToolGenerateImage: true, ToolSpeak: true, ToolEmbed: true, ToolGenerateVideo: true, ToolGenerateSound: true,
+}
+
+// clientToolFiles lists the client tools that read or write files, so they need
+// a files folder.
+var clientToolFiles = map[string]bool{
+	ToolGenerateImage: true, ToolSpeak: true, ToolTranscribeAudio: true, ToolDescribeImage: true, ToolEmbed: true,
+	ToolDetect: true, ToolGenerateVideo: true, ToolGenerateSound: true, ToolVoice: true, ToolFace: true,
 }
 
 // generateImage serves generate_image: the inpainting route when the call

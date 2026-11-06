@@ -21,8 +21,8 @@ import (
 type MCPServerCMD struct {
 	Target   string `env:"LOCALAI_MCP_TARGET" default:"http://localhost:8080" help:"LocalAI base URL"`
 	APIKey   string `env:"LOCALAI_API_KEY" help:"Bearer API key for the target LocalAI"`
-	FilesDir string `env:"LOCALAI_MCP_FILES_DIR" default:"." help:"Folder where the client tools (generate_image, speak, transcribe_audio, ...) read input files from and write results to. A file argument must lie inside it, or be a data URL"`
-	ReadOnly bool   `help:"Skip registration of mutating tools (install/delete/edit/upgrade/etc.) so the assistant can browse without changing remote state"`
+	FilesDir string `env:"LOCALAI_MCP_FILES_DIR" help:"Folder where the client tools (generate_image, speak, transcribe_audio, ...) read input files from and write results to. A file argument must lie inside it, or be a data URL. There is no default: without it, the client tools that read or write files are not registered"`
+	ReadOnly bool   `help:"Skip registration of mutating tools (install/delete/edit/upgrade/etc.), and of the client tools that write files or make new content (generate_*, speak, embed, voice_profile create and delete), so the assistant can browse without changing remote state or spending compute"`
 }
 
 func (m *MCPServerCMD) Run(_ *cliContext.Context) error {
@@ -31,9 +31,12 @@ func (m *MCPServerCMD) Run(_ *cliContext.Context) error {
 	}
 
 	client := httpapi.New(m.Target, m.APIKey)
-	client.Files = localaitools.DirFileStore{Dir: m.FilesDir}
+	if m.FilesDir != "" {
+		client.Files = localaitools.DirFileStore{Dir: m.FilesDir}
+	}
 	srv := localaitools.NewServer(client, localaitools.Options{
-		DisableMutating: m.ReadOnly,
+		DisableMutating:    m.ReadOnly,
+		DisableClientFiles: m.FilesDir == "",
 	})
 
 	// Stdio: the host (e.g. Claude Desktop, Cursor, mcphost) talks JSON-RPC

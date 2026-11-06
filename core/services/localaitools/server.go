@@ -10,8 +10,15 @@ import (
 // skill prompts are surfaced.
 type Options struct {
 	// DisableMutating omits all tools that change server state. Used by the
-	// "--read-only" flavour of the standalone stdio CLI.
+	// "--read-only" flavour of the standalone stdio CLI. It also omits the client
+	// tools that write files, spend compute to make something, or create or
+	// delete data (generate_*, speak, embed, voice_profile create and delete).
 	DisableMutating bool
+
+	// DisableClientFiles omits the client tools that read or write files
+	// (everything but rerank and the list and delete actions of voice_profile).
+	// The standalone server sets it when it has no files folder.
+	DisableClientFiles bool
 
 	// ServerName overrides the MCP server's advertised Implementation.Name.
 	// Defaults to "localai-admin".
