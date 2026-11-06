@@ -3,6 +3,7 @@ package voiceprofile
 import (
 	"context"
 	"os"
+	"strings"
 )
 
 // Viewer is the user a call acts for. Every entry point that resolves a
@@ -23,6 +24,14 @@ type Viewer struct {
 	// Admin is true for an administrator, and for every caller of a server
 	// without accounts.
 	Admin bool
+}
+
+// UnsafeVoice reports whether a voice value that is not a profile reference
+// looks like a path: it has a path separator or "..". The TTS backends that
+// clone from a reference clip take a voice value as a file name, so a user who
+// is not an administrator must not choose one.
+func UnsafeVoice(voice string) bool {
+	return strings.ContainsAny(voice, `/\`) || strings.Contains(voice, "..")
 }
 
 // AdminViewer is the viewer of a server without accounts.

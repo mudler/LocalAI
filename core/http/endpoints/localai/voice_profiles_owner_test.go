@@ -193,6 +193,18 @@ var _ = Describe("Voice profile ownership over HTTP", func() {
 		Expect(profilesOf(serverFor(admin))).To(BeEmpty())
 	})
 
+	It("refuses a path as the voice of a user, and lets an administrator and a voice name through", func() {
+		for _, v := range []string{"/etc/passwd", "../clip.wav", `dir\clip.wav`} {
+			rec := speak(serverFor(userA), v)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), v)
+			Expect(rec.Body.String()).To(ContainSubstring("not a path"))
+		}
+		Expect(backend.requests).To(BeEmpty(), "a refused voice never reaches the backend")
+		Expect(speak(serverFor(userA), "alloy").Code).To(Equal(http.StatusOK))
+		Expect(speak(serverFor(admin), "/srv/voices/clip.wav").Code).To(Equal(http.StatusOK))
+		Expect(speak(serverFor(nil), "/srv/voices/clip.wav").Code).To(Equal(http.StatusOK), "a server without accounts acts as the administrator")
+	})
+
 	It("lets only an administrator delete an instance-wide profile", func() {
 		shared := createdBy(admin)
 		Expect(call(serverFor(userA), http.MethodDelete, "/api/voice-profiles/"+shared.ID).Code).To(Equal(http.StatusForbidden))

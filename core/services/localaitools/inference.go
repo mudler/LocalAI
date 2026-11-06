@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 )
 
@@ -437,6 +438,10 @@ func (i *Inference) Speak(ctx context.Context, req SpeakRequest) (*AudioResult, 
 	spec := clientSpec(ToolSpeak)
 	if strings.TrimSpace(req.Text) == "" {
 		return nil, errors.New("text is required")
+	}
+	if u := UserFromContext(ctx); u != nil && u.Role != auth.RoleAdmin && !voiceprofile.IsReference(req.Voice) && voiceprofile.UnsafeVoice(req.Voice) {
+		// The TTS API refuses it too; refusing here tells the model why.
+		return nil, errors.New("speak: voice must be a voice of the model or a voice from voice_profile, not a file path")
 	}
 	if req.Speed != nil && (*req.Speed < 0.25 || *req.Speed > 4) {
 		return nil, errors.New("speed must be from 0.25 to 4.0")

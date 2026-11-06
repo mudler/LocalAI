@@ -361,6 +361,20 @@ var _ = Describe("client tools over the REST client", func() {
 		Expect(srv.seen).To(BeEmpty())
 	})
 
+	It("refuses a file path as the voice of a user who is not an administrator", func() {
+		srv.installed["tts"] = []string{"FLAG_TTS"}
+		user := &auth.User{ID: "u", Role: auth.RoleUser}
+		for _, v := range []string{"/etc/passwd", "../clip.wav", `a\b.wav`} {
+			_, err := cl.Speak(localaitools.WithUser(ctx, user), localaitools.SpeakRequest{Text: "hi", Voice: v})
+			Expect(err).To(MatchError(ContainSubstring("not a file path")), v)
+		}
+		Expect(srv.seen).To(BeEmpty())
+		_, err := cl.Speak(localaitools.WithUser(ctx, user), localaitools.SpeakRequest{Text: "hi", Voice: "alloy"})
+		Expect(err).ToNot(HaveOccurred())
+		_, err = cl.Speak(localaitools.WithUser(ctx, &auth.User{ID: "a", Role: auth.RoleAdmin}), localaitools.SpeakRequest{Text: "hi", Voice: "/srv/clip.wav"})
+		Expect(err).ToNot(HaveOccurred())
+	})
+
 	// The end-to-end case: the MCP tools, the REST client, and a stand-in for
 	// the server. generate_image writes a file, speak uses a saved voice.
 	It("serves generate_image and speak through the MCP server", func() {

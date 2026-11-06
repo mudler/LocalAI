@@ -159,4 +159,13 @@ var _ = Describe("Viewer", func() {
 			Expect(err).NotTo(HaveOccurred())
 		}
 	})
+
+	It("tells a path from a voice name", func() {
+		for _, v := range []string{"/etc/passwd", "../x.wav", "a/b.wav", `a\b.wav`, "..", "x..y"} {
+			Expect(UnsafeVoice(v)).To(BeTrue(), v)
+		}
+		for _, v := range []string{"alloy", "en_US-lessac-medium", "af_heart", ""} {
+			Expect(UnsafeVoice(v)).To(BeFalse(), v)
+		}
+	})
 })
