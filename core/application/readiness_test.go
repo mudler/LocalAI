@@ -120,6 +120,22 @@ parameters: {model: owner/repo}
 		Expect(app.Ready()).To(BeTrue())
 	})
 
+	It("stops being ready as soon as the drain begins", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+
+		app, err := New(
+			config.WithContext(ctx),
+			config.WithSystemState(state),
+		)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = app.Shutdown() })
+
+		Expect(app.Ready()).To(BeTrue())
+		app.BeginDrain()
+		Expect(app.Ready()).To(BeFalse(), "/readyz must tell the load balancer to stop sending requests")
+	})
+
 	It("waits for the collections when the process says they are coming", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		DeferCleanup(cancel)

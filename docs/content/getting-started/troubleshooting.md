@@ -28,6 +28,10 @@ DEBUG=true local-ai run
 local-ai run --log-level=debug
 ```
 
+### Restarts and long chats
+
+When LocalAI gets `SIGTERM` or `SIGINT` (a rolling update, `docker stop`), it stops accepting new requests, makes `/readyz` answer `503` and waits for in-flight requests to finish. The wait is set by `--shutdown-timeout` (`LOCALAI_SHUTDOWN_TIMEOUT`, default `25s`). Keep it below the termination grace period of your platform, for example the Kubernetes default of 30 seconds. A reply that is still streaming after the timeout is cut.
+
 For Docker deployments:
 
 ```bash
