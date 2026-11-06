@@ -20,7 +20,8 @@ import WhoFields from './WhoFields'
 import AccessMatrix from './AccessMatrix'
 import PermissionFields from './PermissionFields'
 import NotifyField from './NotifyField'
-import { agentsApi, connectorsApi, setApiLanguage } from './api'
+import { agentsApi, connectorsApi, setApiLanguage, triggersApi } from './api'
+import { changedParts, droppedActs, removedActs } from './access'
 import { basePath } from '../../host-compat/src/utils/basePath.js'
 import { DUPLICATE_CONFIRMATION, canSave, channelOnly, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, connectorPayload, emptyConnector, agentHeld, usualFor, listEntries, listeningChannels, senderLine, withUsualCaps } from './connector'
 import { registerConnectorLocales } from './i18n'
@@ -91,6 +92,27 @@ function SameBotNotice({ c, s, busy, onOff, onOpen }) {
   )
 }
 
+// What a save did, in words: the parts it changed, and the triggers that lost an act because the connection no longer allows it.
+export function SaveNotice({ notice, s }) {
+  const { created, parts, dropped } = notice
+  const what = created ? s('saved.created') : parts.length === 0 ? s('saved.nothing') : s('saved.changed', { what: parts.map((p) => s(`saved.part.${p}`)).join(', ') })
+  return (
+    <>
+      <Notice tone="ok" role="status" testId="connector-saved">{what}</Notice>
+      {dropped.length > 0 && (
+        <Notice tone="warn" role="status" testId="connector-acts-dropped">
+          <p className="cn-notice__text">{s('saved.dropped.title')}</p>
+          <ul>
+            {dropped.map((d) => (
+              <li key={d.id} data-testid="connector-acts-dropped-item">{s('saved.dropped.item', { name: d.name, acts: d.acts.map((n) => s(`approval.actShort.${n}`)).join(', ') })}</li>
+            ))}
+          </ul>
+        </Notice>
+      )}
+    </>
+  )
+}
+
 const ONE_LIST = [{ key: 'allow', hint: 'allowHint', testId: 'connector-allow' }]
 
 /**
@@ -126,6 +148,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const [off, setOff] = useState('')
   const [error, setError] = useState('')
   const [note, setNote] = useState('')
+  // What the last save changed: { created, parts, dropped }. Cleared when a form opens or a save starts.
+  const [saveNotice, setSaveNotice] = useState(null)
   const [form, setForm] = useState(null)
   const [confirmed, setConfirmed] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -213,7 +237,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     return () => { live = false }
   }, [openId, messaging, accessVersion])
   const agentName = (id) => agents.find((a) => a.id === id)?.name || id
-  const open = (c) => { setForm(c); setConfirmed(Boolean(c.accept_any)); setNote(''); setPairedList(null); setDupAsk(null) }
+  const open = (c) => { setForm(c); setConfirmed(Boolean(c.accept_any)); setNote(''); setSaveNotice(null); setPairedList(null); setDupAsk(null) }
   // The question sits by the Save button, at the end of a long form: bring it into view.
   useEffect(() => {
     if (dupAsk) document.querySelector('[data-testid="duplicate-confirm"]')?.scrollIntoView?.({ block: 'nearest' })
@@ -244,13 +268,20 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     setBusy(true)
     setError('')
     setNote('')
+    setSaveNotice(null)
     setDupAsk(null)
     try {
       const token = tokenOf(form).trim()
       const body = connectorPayload(form, kind, token, { ...extra(form), ...(confirmDuplicate ? { confirm_duplicate: DUPLICATE_CONFIRMATION } : {}) })
+      // What the save changes, read from the form and the binding as they are now.
+      const before = form.id ? savedForm : null
+      const removed = removedActs(before, form)
       const saved = form.id ? await connectorsApi.update(form.id, body) : await connectorsApi.create(body)
       setForm(null)
       await load()
+      // The triggers that held an act the connection no longer allows; a failed read only leaves the list out.
+      const dropped = form.id && removed.length > 0 ? droppedActs((await triggersApi.list().catch(() => null))?.triggers, form.id, removed) : []
+      setSaveNotice({ created: !form.id, parts: changedParts(form, before), dropped })
       if (token && saved?.id) {
         try {
           setNote(await check(saved))
@@ -305,6 +336,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
           <button type="button" className="cn-link" aria-label={answerT(t)('dismiss')} onClick={() => setError('')}>×</button>
         </Notice>
       )}
+      {saveNotice && <SaveNotice notice={saveNotice} s={s} />}
       {note && <Notice tone="ok" role="status">{note}</Notice>}
 
       {form && (

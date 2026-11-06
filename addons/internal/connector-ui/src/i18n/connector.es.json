@@ -386,5 +386,17 @@
   "who.post.any": "Publica aquí cuando lo pide cualquier persona permitida.",
   "who.post.show": "Mostrar el lugar",
   "who.post.showFor": "Mostrar el lugar de {{name}}",
-  "agentLink": "Abrir el agente {{name}}"
+  "agentLink": "Abrir el agente {{name}}",
+  "saved.created": "Conexión añadida.",
+  "saved.nothing": "Guardado. Sin cambios.",
+  "saved.changed": "Guardado. Cambiado: {{what}}.",
+  "saved.part.name": "nombre",
+  "saved.part.agent": "agente",
+  "saved.part.who": "a quién acepta",
+  "saved.part.permissions": "permisos",
+  "saved.part.approval": "aprobación y acciones de los triggers",
+  "saved.part.files": "ajustes de archivos",
+  "saved.part.notify": "notificaciones",
+  "saved.dropped.title": "Esta conexión ya no permite estas acciones, así que las ejecuciones de estos triggers las pierden:",
+  "saved.dropped.item": "{{name}}: {{acts}}"
 }

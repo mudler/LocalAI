@@ -386,5 +386,17 @@
   "who.post.any": "허용된 사람이 요청하면 여기에 게시합니다.",
   "who.post.show": "장소 보기",
   "who.post.showFor": "{{name}}의 장소 보기",
-  "agentLink": "에이전트 {{name}} 열기"
+  "agentLink": "에이전트 {{name}} 열기",
+  "saved.created": "연결이 추가되었습니다.",
+  "saved.nothing": "저장되었습니다. 변경 사항이 없습니다.",
+  "saved.changed": "저장되었습니다. 변경됨: {{what}}.",
+  "saved.part.name": "이름",
+  "saved.part.agent": "에이전트",
+  "saved.part.who": "수락 대상",
+  "saved.part.permissions": "권한",
+  "saved.part.approval": "트리거 승인 및 동작",
+  "saved.part.files": "파일 설정",
+  "saved.part.notify": "알림",
+  "saved.dropped.title": "이 연결은 더 이상 이러한 동작을 허용하지 않으므로, 다음 트리거의 실행에서 해당 동작이 빠집니다:",
+  "saved.dropped.item": "{{name}}: {{acts}}"
 }

@@ -1285,6 +1285,10 @@ type ChatsTrigger struct {
 	ActsHeld    []string `json:"acts_held,omitempty"`
 	ReadOnly    bool     `json:"read_only"`
 	ReadOnlyWhy string   `json:"read_only_why,omitempty"`
+	// Binding is the ID of the messaging connection that a trigger belongs to
+	// when it was made without asking under that connection's approval. Such a
+	// trigger stays within the acts the connection allows. Empty otherwise.
+	Binding string `json:"binding,omitempty"`
 	// Delivery says where the answer of each run goes.
 	Delivery ChatsTriggerDelivery `json:"delivery"`
 }

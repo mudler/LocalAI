@@ -613,7 +613,7 @@ agent, plus `act.files` for a plan that writes a file), `read_only` whether a ru
 can only read and `read_only_why` why: `no_acts` (it holds none), `agent` (its
 agent holds none of them), `declared` (the proposal said `read_only`) or `binding`
 (a connection in `auto_readonly` mode made it). A trigger that a connection made
-without asking also holds only the acts that its binding allows now. The Triggers page shows the same:
+without asking also holds only the acts that its binding allows now, and `binding` gives the ID of that connection (it is left out for other triggers). The Triggers page shows the same:
 a "Read only" mark on each row, and the reason on the trigger.
 
 A refused tool stays in the tool list and answers with one plain sentence instead

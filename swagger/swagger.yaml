@@ -3948,6 +3948,12 @@ definitions:
         type: array
       agent_id:
         type: string
+      binding:
+        description: |-
+          Binding is the ID of the messaging connection that a trigger belongs to
+          when it was made without asking under that connection's approval. Such a
+          trigger stays within the acts the connection allows. Empty otherwise.
+        type: string
       cost:
         $ref: '#/definitions/schema.ChatsTriggerCost'
       daily_cap:
@@ -8021,6 +8027,12 @@ definitions:
           type: string
         type: array
       agent_id:
+        type: string
+      binding:
+        description: |-
+          Binding is the ID of the messaging connection that a trigger belongs to
+          when it was made without asking under that connection's approval. Such a
+          trigger stays within the acts the connection allows. Empty otherwise.
         type: string
       cost:
         $ref: '#/definitions/schema.ChatsTriggerCost'

@@ -386,5 +386,17 @@
   "who.post.any": "Schreibt hier, wenn eine erlaubte Person darum bittet.",
   "who.post.show": "Ort anzeigen",
   "who.post.showFor": "Ort für {{name}} anzeigen",
-  "agentLink": "Den Agenten {{name}} öffnen"
+  "agentLink": "Den Agenten {{name}} öffnen",
+  "saved.created": "Verbindung hinzugefügt.",
+  "saved.nothing": "Gespeichert. Nichts geändert.",
+  "saved.changed": "Gespeichert. Geändert: {{what}}.",
+  "saved.part.name": "Name",
+  "saved.part.agent": "Agent",
+  "saved.part.who": "wen sie annimmt",
+  "saved.part.permissions": "Berechtigungen",
+  "saved.part.approval": "Freigabe und Aktionen der Trigger",
+  "saved.part.files": "Dateieinstellungen",
+  "saved.part.notify": "Benachrichtigungen",
+  "saved.dropped.title": "Diese Verbindung erlaubt diese Aktionen nicht mehr, deshalb verlieren die Läufe dieser Trigger sie:",
+  "saved.dropped.item": "{{name}}: {{acts}}"
 }

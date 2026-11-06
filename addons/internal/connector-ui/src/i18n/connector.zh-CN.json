@@ -386,5 +386,17 @@
   "who.post.any": "在任何被允许的人请求时在此发帖。",
   "who.post.show": "显示该位置",
   "who.post.showFor": "显示 {{name}} 的位置",
-  "agentLink": "打开智能体 {{name}}"
+  "agentLink": "打开智能体 {{name}}",
+  "saved.created": "已添加连接。",
+  "saved.nothing": "已保存。没有更改。",
+  "saved.changed": "已保存。已更改：{{what}}。",
+  "saved.part.name": "名称",
+  "saved.part.agent": "智能体",
+  "saved.part.who": "接受的对象",
+  "saved.part.permissions": "权限",
+  "saved.part.approval": "触发器的审批和操作",
+  "saved.part.files": "文件设置",
+  "saved.part.notify": "通知",
+  "saved.dropped.title": "此连接不再允许这些操作，因此这些触发器的运行会失去它们：",
+  "saved.dropped.item": "{{name}}：{{acts}}"
 }

@@ -386,5 +386,17 @@
   "who.post.any": "Publie ici quand une personne autorisée le demande.",
   "who.post.show": "Afficher le lieu",
   "who.post.showFor": "Afficher le lieu de {{name}}",
-  "agentLink": "Ouvrir l'agent {{name}}"
+  "agentLink": "Ouvrir l'agent {{name}}",
+  "saved.created": "Connexion ajoutée.",
+  "saved.nothing": "Enregistré. Rien n'a changé.",
+  "saved.changed": "Enregistré. Modifié : {{what}}.",
+  "saved.part.name": "nom",
+  "saved.part.agent": "agent",
+  "saved.part.who": "qui elle accepte",
+  "saved.part.permissions": "permissions",
+  "saved.part.approval": "approbation et actions des déclencheurs",
+  "saved.part.files": "réglages des fichiers",
+  "saved.part.notify": "notifications",
+  "saved.dropped.title": "Cette connexion n'autorise plus ces actions, donc les exécutions de ces déclencheurs les perdent :",
+  "saved.dropped.item": "{{name}} : {{acts}}"
 }
