@@ -1441,6 +1441,9 @@ A person who holds **Can use**:
   connections of a saved agent. A call of those tools then uses the binding's
   credential and its list of resources, as for the owner. A shared binding is never
   picked by default: the rule "the only connection" counts the person's own bindings.
+- never learns the list of resources. A call for a resource that is not on the list
+  is refused and the tool result says only that it is not listed; the owner, and the
+  owner's own calls, get the list so the model can pick from it.
 - never reads the token or any setting. Reading, changing, switching on or off,
   testing, the sender log, pairing, deleting and sharing it again stay with the
   owner. For the person, each of these answers `404`, as for a binding that does not

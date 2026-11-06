@@ -30,6 +30,18 @@ func (otherKind) RegisterKinds(r policy.KindRegistrar) error {
 	})
 }
 
+// goneKind is a kind whose Backing says that every resource is gone.
+type goneKind struct{}
+
+func (goneKind) RegisterKinds(r policy.KindRegistrar) error {
+	return r.RegisterKind("example:gone", policy.KindSpec{
+		Grantable:       []policy.Role{policy.RoleUse},
+		Roles:           func(policy.Action) []policy.Role { return nil },
+		CreateAuthority: func(context.Context, contract.Actor) error { return nil },
+		Backing:         func(context.Context, policy.Ref) (bool, error) { return false, nil },
+	})
+}
+
 type failingKind struct{}
 
 func (failingKind) RegisterKinds(policy.KindRegistrar) error { return errors.New("kind refused") }
@@ -90,6 +102,36 @@ var _ = Describe("share kind registration on the owner", func() {
 		Expect(idx.Shared).To(HaveLen(1))
 		_, err = p.Register(ctx, actors["dave"], "tables")
 		Expect(err).To(MatchError(policy.ErrForbidden))
+	})
+
+	It("drops at startup the share records whose resource is gone and keeps the others", func() {
+		requireAddonRuntime()
+		a, c := owner()
+		// A store left by an earlier run: one record of a kind whose
+		// resources are gone, one of a kind whose resources exist.
+		dir := filepath.Join(c.Root, "policy")
+		store, err := policy.OpenStore(dir, policy.ModeNamedUser)
+		Expect(err).NotTo(HaveOccurred())
+		allow := func(context.Context, contract.Actor, string) error { return nil }
+		earlier := policy.New(store, policy.Options{Account: allow})
+		Expect(policy.RegisterKinds(earlier, goneKind{}, &sharetest.Provider{})).To(Succeed())
+		dave := contract.Actor{UserID: "dave", CredentialID: "key:dave", Mode: auth.AddonModeNamedUser}
+		gone, err := earlier.CreateRef(context.Background(), dave, "example:gone")
+		Expect(err).NotTo(HaveOccurred())
+		kept, err := earlier.CreateRef(context.Background(), dave, sharetest.Kind)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(store.Close()).To(Succeed())
+
+		Expect(a.RegisterShareKinds(goneKind{}, &sharetest.Provider{})).To(Succeed())
+		a.applicationConfig.Addons = c
+		Expect(a.startAddons()).To(Succeed())
+		DeferCleanup(a.Shutdown)
+		p := a.AddonPolicy()
+		_, ok := p.OwnerOfRef(gone)
+		Expect(ok).To(BeFalse(), "the record of a resource that is gone is dropped")
+		owner, ok := p.OwnerOfRef(kept)
+		Expect(ok).To(BeTrue())
+		Expect(owner).To(Equal("dave"))
 	})
 
 	It("does not start the owner when a provider fails", func() {
