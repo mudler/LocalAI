@@ -72,6 +72,10 @@ func (h *LocalAIAssistantHolder) Initialize(ctx context.Context, client localait
 			h.initErr = fmt.Errorf("discover localai-assistant tools: %w", err)
 			return
 		}
+		// The server is ours, so it may be told who is calling.
+		for i := range tools {
+			tools[i].ActAsUser = true
+		}
 		h.tools = tools
 		h.opts = opts
 

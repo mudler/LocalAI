@@ -42,6 +42,8 @@ func NewServer(client LocalAIClient, opts Options) *mcp.Server {
 		Instructions: SystemPrompt(opts),
 	})
 
+	srv.AddReceivingMiddleware(actingUserMiddleware)
+
 	registerModelTools(srv, client, opts)
 	registerAliasTools(srv, client, opts)
 	registerBackendTools(srv, client, opts)

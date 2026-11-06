@@ -333,7 +333,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			if assistantHolder == nil || !assistantHolder.HasTools() {
 				return echo.NewHTTPError(http.StatusServiceUnavailable, "LocalAI Assistant is not available on this server")
 			}
-			mcpExecutor = assistantHolder.Executor()
+			// The tools act as the person who asked: a request that the
+			// person may not make fails the same way as it does over the API.
+			mcpExecutor = mcpTools.AsUser(assistantHolder.Executor(), auth.GetUser(c))
 			mcpFuncs, discErr := mcpExecutor.DiscoverTools(c.Request().Context())
 			if discErr != nil {
 				xlog.Error("Failed to discover LocalAI Assistant tools", "error", discErr)

@@ -2,11 +2,15 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
+	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/mcpapps"
 	"github.com/mudler/xlog"
 )
 
@@ -129,4 +133,40 @@ func NewToolExecutor(ctx context.Context, agentControl AgentControl, modelName s
 		return &LocalToolExecutor{} // empty, HasTools() returns false
 	}
 	return NewLocalToolExecutor(ctx, sessions)
+}
+
+// AsUser returns an executor that runs every tool call with the rights of u:
+// the user travels in the context of the call to the LocalAI Assistant
+// server, whose inference tools then reach the API as that user. A nil user or
+// nil executor returns exec unchanged.
+func AsUser(exec ToolExecutor, u *auth.User) ToolExecutor {
+	if exec == nil || u == nil {
+		return exec
+	}
+	if ae, ok := exec.(AppExecutor); ok {
+		return userAppExecutor{AppExecutor: ae, user: u}
+	}
+	return userExecutor{ToolExecutor: exec, user: u}
+}
+
+type userExecutor struct {
+	ToolExecutor
+	user *auth.User
+}
+
+func (e userExecutor) ExecuteTool(ctx context.Context, name, args string) (string, error) {
+	return e.ToolExecutor.ExecuteTool(localaitools.WithUser(ctx, e.user), name, args)
+}
+
+type userAppExecutor struct {
+	AppExecutor
+	user *auth.User
+}
+
+func (e userAppExecutor) ExecuteTool(ctx context.Context, name, args string) (string, error) {
+	return e.AppExecutor.ExecuteTool(localaitools.WithUser(ctx, e.user), name, args)
+}
+
+func (e userAppExecutor) ExecuteAppTool(ctx context.Context, server, tool string, args json.RawMessage) (mcpapps.CallResult, error) {
+	return e.AppExecutor.ExecuteAppTool(localaitools.WithUser(ctx, e.user), server, tool, args)
 }

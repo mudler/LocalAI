@@ -63,7 +63,8 @@ type Client struct {
 	// library is off; the tool then reports it is not enabled.
 	BackendLibrary LibraryBackendInstaller
 
-	// StatsRecorder and FallbackUser are optional — they back the
+	// FallbackUser is the identity of a call whose context carries no user
+	// (see localaitools.WithUser). StatsRecorder and FallbackUser are optional — they back the
 	// get_usage_stats tool. nil StatsRecorder makes the tool return an
 	// "unavailable" error, which keeps the assistant responsive on
 	// deployments that ran with --disable-stats or where startup wired
@@ -911,6 +912,17 @@ func capabilityToFlag(capability localaitools.Capability) (config.ModelConfigUse
 	return 0, false
 }
 
+// actingUser returns the user a call acts for: the user of the context when
+// the caller supplied one, otherwise the FallbackUser, which may be nil. The
+// context wins so that two users sharing one client never see each other's
+// identity.
+func (c *Client) actingUser(ctx context.Context) *auth.User {
+	if u := localaitools.UserFromContext(ctx); u != nil {
+		return u
+	}
+	return c.FallbackUser
+}
+
 // ---- Usage / billing ----
 
 func (c *Client) GetUsageStats(ctx context.Context, q localaitools.UsageStatsQuery) (*localaitools.UsageStats, error) {
@@ -922,20 +934,22 @@ func (c *Client) GetUsageStats(ctx context.Context, q localaitools.UsageStatsQue
 		period = "month"
 	}
 
-	// Resolve which user this is. In single-user no-auth mode the
-	// inproc client doesn't have an echo context to read auth.GetUser
-	// from, so the FallbackUser is the only available identity. When
-	// auth IS on, the assistant runs under a privileged session and the
-	// caller can pass q.UserID; we don't enforce admin here because the
-	// MCP server itself is gated on admin (see prompts/10_safety.md).
+	// Resolve which user this is: the user of the call's context when there
+	// is one, otherwise the FallbackUser (single-user no-auth mode, where
+	// nobody is logged in). An explicit q.UserID names another user and is
+	// the admin's to ask; the assistant itself is admin-gated.
 	var viewerID, viewerName, viewerRole string
+	who := c.actingUser(ctx)
+	if who != nil && who.Role != auth.RoleAdmin && (q.All || (q.UserID != "" && q.UserID != who.ID)) {
+		return nil, errors.New("only an administrator can read the usage of other users")
+	}
 	switch {
 	case q.UserID != "":
 		viewerID = q.UserID
-	case c.FallbackUser != nil:
-		viewerID = c.FallbackUser.ID
-		viewerName = c.FallbackUser.Name
-		viewerRole = c.FallbackUser.Role
+	case who != nil:
+		viewerID = who.ID
+		viewerName = who.Name
+		viewerRole = who.Role
 	default:
 		return nil, errors.New("no user context for usage query (auth is on but no user id was provided)")
 	}

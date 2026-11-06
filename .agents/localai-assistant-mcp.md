@@ -125,6 +125,19 @@ tool, for the reason above.
 
 Do not rewrite the unrelated assistant tools to match this rule.
 
+## The acting user
+
+A tool call can name the user it acts for. `localaitools.WithUser(ctx, user)` puts the user in a
+context and `localaitools.UserFromContext(ctx)` reads it. `inproc.Client` uses the context user and
+falls back to `FallbackUser` only when the context has none.
+
+Context values do not cross the MCP session between the chat and the in-process server, so the
+executor sends a one-use token in the `_meta` of the call (`localaitools.ActingUserMeta`) and the
+server middleware turns it back into a context user. Only the in-process holder sets
+`MCPToolInfo.ActAsUser`; a remote MCP server never gets a token. Wrap the holder's executor with
+`mcp.AsUser(exec, user)` where a chat runs the tools: the studio chat does it in `assistantTurn`
+with the chat owner, and the OpenAI-compatible chat endpoint does it with `auth.GetUser(c)`.
+
 ## Distributed mode
 
 The in-memory MCP server runs only on the head node (where the chat handler runs). `inproc.Client` wraps services that are already distributed-aware (`GalleryService` coordinates with workers; `ListNodes` reads the NATS-populated registry). No NATS routing of MCP tools — the admin surface lives on the head, period.
