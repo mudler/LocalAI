@@ -141,6 +141,9 @@ func (s *ResponseStore) Close() error {
 	if cancel != nil {
 		cancel()
 	}
+	if s.durable() != nil {
+		s.flushAll()
+	}
 	if sub != nil {
 		if err := sub.Unsubscribe(); err != nil {
 			return err
@@ -342,3 +345,7 @@ func (s *ResponseStore) applyRemoteCancel(evt responseCancelEvent) {
 	}
 	xlog.Debug("Applied delegated Open Responses cancel", "response_id", evt.ResponseID, "origin", evt.Origin)
 }
+
+// metadataViaSync reports whether the replicated metadata map writes the
+// table itself, so a direct write would only repeat it.
+func (s *ResponseStore) metadataViaSync() bool { return false }

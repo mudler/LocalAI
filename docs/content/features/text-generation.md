@@ -450,6 +450,30 @@ regardless of which replica the load balancer picks:
   naming the owning replica instead of silently returning a truncated stream.
   Poll the response instead, or route resume requests with session affinity.
 
+#### Durable Storage
+
+When LocalAI has a database (authentication enabled, or distributed mode),
+stored responses and the events of a background run are kept in two tables,
+`open_responses` and `open_response_events`. Without a database the store stays
+in memory, as before, and ends with the process.
+
+With the tables:
+
+- A response and its event buffer outlive a restart. `GET /v1/responses/{id}`,
+  `previous_response_id` chaining and `?stream=true&starting_after=N` read the
+  tables, so any replica serves them and they work after a restart.
+- The owner writes events in batches: at once for any event that is not a
+  `.delta` event, and for deltas every 250 ms or 64 events. If the process dies,
+  the deltas of the last 250 ms are lost.
+- The buffer keeps the same caps as the memory store (8192 events and 64 MiB per
+  response, oldest first). A resume below the oldest kept event returns HTTP 409
+  (`ErrOffsetLost`).
+- Every read still checks the owner of the response: a caller who did not create
+  it gets 404.
+- Rows expire after `OPEN_RESPONSES_STORE_TTL`. With the TTL at 0 a database
+  store applies a default of 7 days, because a table does not end with the
+  process.
+
 #### Tool Calling
 
 Open Responses API supports function calling with tools:
