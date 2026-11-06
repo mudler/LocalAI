@@ -42,7 +42,11 @@ func (e *HostRequirementsRefusal) Code() string {
 	return "approval_required"
 }
 func (m *Manager) requests(r packages.PackageReceipt) hostops.RequestSummary {
-	return hostops.RequestsFor(r.Manifest.Capabilities.HostOperations, hostops.SupportedOperations(), m.pendingFor(r.Manifest.ID), r.Manifest.ID)
+	prefixes := m.hostOps[r.Manifest.ID]
+	if prefixes == nil {
+		prefixes = m.hostOps["*"]
+	}
+	return hostops.Requests(r.Manifest.Capabilities.HostOperations, hostops.SupportedOperations(), prefixes)
 }
 func (m *Manager) admit(r packages.PackageReceipt) error {
 	s := m.requests(r)

@@ -1,6 +1,8 @@
 package gallery_test
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -8,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -114,5 +117,51 @@ var _ = Describe("Backend versioning", func() {
 		// omitempty should exclude the version key entirely
 		_, hasVersion := metadata["version"]
 		Expect(hasVersion).To(BeFalse())
+	})
+
+	It("installs a backend from an ocifile tar without recording a digest", func() {
+		// Build a minimal OCI image tar the way `local-ai util
+		// create-oci-image` does, with run.sh at the layer root (the layout of
+		// the shipped backend-image tars).
+		archivePath := filepath.Join(tempDir, "archive.tar")
+		archiveFile, err := os.Create(archivePath)
+		Expect(err).NotTo(HaveOccurred())
+		runSh := []byte("#!/bin/sh\necho ok\n")
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		Expect(tw.WriteHeader(&tar.Header{Name: "run.sh", Mode: 0755, Size: int64(len(runSh))})).To(Succeed())
+		_, err = tw.Write(runSh)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(tw.Close()).To(Succeed())
+		_, err = archiveFile.Write(buf.Bytes())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(archiveFile.Close()).To(Succeed())
+
+		imageTar := filepath.Join(tempDir, "image.tar")
+		Expect(oci.CreateTar(archivePath, imageTar, "localai/test:latest", "amd64", "windows")).To(Succeed())
+
+		backend := &gallery.GalleryBackend{}
+		backend.Name = "test-ocifile"
+		backend.URI = "ocifile://" + imageTar
+
+		// The whole point of the ocifile scheme is a local stream: no
+		// registry digest exists to record, and the installer must not fail
+		// (or warn) trying to resolve one for a path that cannot be parsed as
+		// a registry reference.
+		err = gallery.InstallBackend(context.Background(), systemState, modelLoader, backend, nil, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		metadataPath := filepath.Join(tempDir, "test-ocifile", "metadata.json")
+		data, err := os.ReadFile(metadataPath)
+		Expect(err).NotTo(HaveOccurred())
+
+		var metadata map[string]any
+		Expect(json.Unmarshal(data, &metadata)).To(Succeed())
+		_, hasDigest := metadata["digest"]
+		Expect(hasDigest).To(BeFalse())
+
+		// The staged run.sh must have landed through the tar extraction.
+		_, err = os.Stat(filepath.Join(tempDir, "test-ocifile", "run.sh"))
+		Expect(err).NotTo(HaveOccurred())
 	})
 })

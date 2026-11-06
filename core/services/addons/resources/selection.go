@@ -10,8 +10,9 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
-	"syscall"
 	"time"
+
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 const (
@@ -94,18 +95,14 @@ func OpenSelections(dir string, o SelectionOptions) (*SelectionStore, error) {
 		o.Now = time.Now
 	}
 	if o.SyncDirectory == nil {
-		o.SyncDirectory = func(d *os.File) error { return d.Sync() }
+		o.SyncDirectory = atomicfile.SyncDirTolerant
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
-	lock, err := os.OpenFile(filepath.Join(dir, selectionLock), os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
+	lock, err := lockSelections(dir)
 	if err != nil {
 		return nil, err
-	}
-	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		_ = lock.Close()
-		return nil, ErrSelectionStore
 	}
 	s := &SelectionStore{dir: dir, opts: o, lock: lock, entries: map[[3]string]selectionEntry{}}
 	matches, _ := filepath.Glob(filepath.Join(dir, ".selections-*"))

@@ -359,7 +359,7 @@ func (b *Broker) serveInbound(w http.ResponseWriter, r *http.Request, spec Spec,
 
 func hasPrefix(allowed []string, op string) bool {
 	for _, p := range allowed {
-		if p != "" && strings.HasPrefix(op, p) {
+		if p == "*" || (p != "" && strings.HasPrefix(op, p)) {
 			return true
 		}
 	}

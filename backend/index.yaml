@@ -23,6 +23,7 @@
     - CUDA
     - HIP
   capabilities:
+
     amd: rocm-llama-cpp
     default: cpu-llama-cpp
     intel: intel-sycl-f16-llama-cpp
@@ -34,8 +35,10 @@
     nvidia-l4t-cuda-12: nvidia-l4t-arm64-llama-cpp
     nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-llama-cpp
     vulkan: vulkan-llama-cpp
+    windows: windows-llama-cpp
 - name: ik-llama-cpp
   alias: ik-llama-cpp
+
   license: mit
   description: |
     Fork of llama.cpp optimized for CPU performance by ikawrakow
@@ -3116,6 +3119,7 @@
     - CUDA
     - HIP
   capabilities:
+
     amd: rocm-llama-cpp-development
     default: cpu-llama-cpp-development
     intel: intel-sycl-f16-llama-cpp-development
@@ -3126,7 +3130,8 @@
     nvidia-l4t: nvidia-l4t-arm64-llama-cpp-development
     nvidia-l4t-cuda-12: nvidia-l4t-arm64-llama-cpp-development
     nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-llama-cpp-development
-    vulkan: vulkan-llama-cpp-development
+    vulkan: vulkan-llama-cpp
+    windows: windows-llama-cpp-development
 - name: ik-llama-cpp-development
   alias: ik-llama-cpp
   license: mit
@@ -3138,6 +3143,7 @@
     - text-to-text
     - LLM
     - CPU
+
   capabilities:
     default: cpu-ik-llama-cpp-development
 - name: turboquant-development
@@ -5938,6 +5944,7 @@
   uri: quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-llama-cpp
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-llama-cpp
+
 - name: cuda12-llama-cpp-development
   alias: llama-cpp
   license: mit
@@ -5968,7 +5975,9 @@
     nvidia-l4t-cuda-12: nvidia-l4t-arm64-llama-cpp
     nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-llama-cpp
     vulkan: vulkan-llama-cpp
+    windows: windows-llama-cpp
   uri: quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-llama-cpp
+
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-12-llama-cpp
 - name: rocm-llama-cpp-development

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -29,6 +30,17 @@ var (
 	// requests were still in flight.
 	ErrModelBusy = errors.New("model is still busy")
 )
+
+// processLauncher starts a backend process and tracks it in the process tree.
+// Implementations are selected by build tag: processLauncherWindows on
+// Windows, processLauncherOther everywhere else.
+type processLauncher interface {
+	launch(proc *process.Process, runtime *backendProcessRuntime, processName string, processArgs []string, workDir string, env []string) error
+}
+
+// backendProcessLauncher is the platform-specific process launcher. It is
+// initialized by the platform-specific newLauncher() function.
+var backendProcessLauncher processLauncher = newLauncher()
 
 const (
 	gracefulShutdownTimeout = 30 * time.Second
@@ -176,17 +188,32 @@ func (ml *ModelLoader) deleteProcess(ctx context.Context, s string, force bool) 
 	// expected stop, not a crash (signal-terminated children report -1).
 	ml.stoppingProcs.Store(process, struct{}{})
 	var localErr error
-	if err := process.Stop(); err != nil {
+	if runtime.GOOS == "windows" {
+		// On Windows, go-processmanager's Stop() waits up to 15s because
+		// IsAlive() uses Signal(0) which is unreliable on Windows.
+		// Instead, terminate the process tree directly via the job object
+		// that was assigned at launch time, then clean up the pidfile.
+		ml.terminateProcessTreeForProcess(process)
+		if err := os.Remove(filepath.Join(process.StateDir(), "pid")); err != nil && !os.IsNotExist(err) {
+			xlog.Debug("failed to remove pidfile", "error", err)
+		}
+		store.Delete(s)
+		ml.cleanupProcessRuntime(process)
+	} else if err := process.Stop(); err != nil {
 		xlog.Error("(deleteProcess) error while deleting process", "error", err, "model", s)
 		if !process.IsAlive() {
 			// A concurrently crashed/already-reaped process can no longer own
 			// resources even if Stop could not read or signal its PID.
+			ml.terminateProcessTreeForProcess(process)
 			store.Delete(s)
 			ml.cleanupProcessRuntime(process)
 		} else {
 			localErr = err
 		}
 	} else {
+		// Stop kills the launcher; the process-tree tracker reaps any backend
+		// child it spawned so the tree cannot outlive a deliberate unload.
+		ml.terminateProcessTreeForProcess(process)
 		store.Delete(s)
 		ml.cleanupProcessRuntime(process)
 	}
@@ -270,6 +297,22 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		return nil, err
 	}
 
+	// Include --addr in processArgs so the launcher passes it to the backend
+	// process. On Linux proc.Run() uses the stored args from
+	// grpcControlProcess; on Windows startProcessWindows uses processArgs
+	// directly and also converts --addr <addr> to --addr=<addr>.
+	processArgs := append(args, []string{"--addr", serverAddress}...)
+
+	// The gallery contract names a run.sh stub as the backend entrypoint. On a
+	// Windows host that stub cannot run (no POSIX shell), so resolveLauncher
+	// substitutes the bundled run.ps1 through the system PowerShell; elsewhere
+	// it returns the stub and its arguments unchanged. See
+	// process_launcher_windows.go / process_launcher_other.go.
+	processName, processArgs, err := resolveLauncher(grpcProcess, workDir, processArgs)
+	if err != nil {
+		return nil, err
+	}
+
 	runtime, err := newBackendProcessRuntime()
 	if err != nil {
 		return nil, err
@@ -303,8 +346,8 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 
 	grpcControlProcess := process.New(
 		process.WithStateDir(stateDir),
-		process.WithName(filepath.Base(grpcProcess)),
-		process.WithArgs(append(args, []string{"--addr", serverAddress}...)...),
+		process.WithName(processName),
+		process.WithArgs(processArgs...),
 		process.WithEnvironment(env...),
 		process.WithWorkDir(workDir),
 	)
@@ -314,7 +357,13 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		ml.wd.AddAddressModelMap(serverAddress, id)
 	}
 
-	if err := grpcControlProcess.Run(); err != nil {
+	// On Windows, start the process suspended, assign it to the job object,
+	// then resume it — this prevents child processes (e.g. a backend spawned
+	// by run.ps1) from escaping the job tree before assignment. On other
+	// platforms, Run() starts the process and trackProcessTree is called
+	// immediately after; the race window is negligible because child
+	// processes inherit the job/cgroup of their parent.
+	if err := backendProcessLauncher.launch(grpcControlProcess, runtime, processName, processArgs, workDir, env); err != nil {
 		ml.untrackProcess(grpcControlProcess)
 		runtime.cleanup()
 		return grpcControlProcess, err
@@ -336,6 +385,10 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		if err := grpcControlProcess.Stop(); err != nil {
 			xlog.Error("error while shutting down grpc process", "error", err)
 		}
+		// The wrapper's Stop only kills the launcher; reaping the backend it
+		// spawned needs the process-tree tracker. Idempotent for processes
+		// StopAllGRPC already stopped (their runtime is gone from the map).
+		ml.terminateProcessTreeForProcess(grpcControlProcess)
 	})
 
 	go func() {
@@ -437,6 +490,19 @@ func (ml *ModelLoader) forgetExitedProcess(id string, p *process.Process) {
 	}
 	store.Delete(id)
 	ml.cleanupProcessRuntime(p)
+}
+
+// terminateProcessTreeForProcess kills the backend's full process tree using
+// the tracker created at launch (see createProcess). Idempotent: the tracker
+// makes a concurrent stop racing with this one safe, and the map lookup is a
+// no-op once the runtime has been cleaned up.
+func (ml *ModelLoader) terminateProcessTreeForProcess(process *process.Process) {
+	if process == nil {
+		return
+	}
+	if value, ok := ml.processRuntimes.Load(process); ok {
+		value.(*backendProcessRuntime).terminateProcessTree()
+	}
 }
 
 func (ml *ModelLoader) cleanupProcessRuntime(process *process.Process) {

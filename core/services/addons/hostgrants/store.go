@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 package hostgrants
 
 import (
@@ -8,12 +9,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
-	"syscall"
 )
 
 // Store serializes the owner's grant transactions. The parent directory is
@@ -40,74 +39,7 @@ type Result struct {
 	Replayed bool
 }
 
-// Open loads the document at path. A missing file is an empty document at
-// revision 0 and is not created until the first Update. A corrupt or
-// unreadable file is an error: it is never replaced by a default.
-func Open(path string) (*Store, error) {
-	path, err := filepath.Abs(path)
-	if err != nil {
-		return nil, err
-	}
-	if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return nil, err
-	}
-	lock, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0600) // #nosec G304 -- caller supplies a fixed file in the guarded owner root, never a request path; reject symlinks.
-	if err != nil {
-		return nil, err
-	}
-	s := &Store{lock: lock, persist: func(d document) (bool, error) { return persistFile(path, d) }}
-	fail := func(e error) (*Store, error) { _ = s.Close(); return nil, fmt.Errorf("%w: %w", ErrUnavailable, e) }
-	if err = lock.Chmod(0600); err != nil {
-		return fail(err)
-	}
-	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		return fail(err)
-	}
-	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0) // #nosec G304 -- same trusted owner-root file; NOFOLLOW plus mode/type checks below prevent file substitution.
-	if os.IsNotExist(err) {
-		s.doc = document{Snapshot: emptySnapshot(), Receipts: map[string]receipt{}}
-		return s, nil
-	}
-	if err != nil {
-		return fail(err)
-	}
-	info, statErr := f.Stat()
-	if statErr != nil {
-		_ = f.Close()
-		return fail(statErr)
-	}
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() > maxDocumentBytes {
-		_ = f.Close()
-		return fail(ErrInvalid)
-	}
-	b, readErr := io.ReadAll(io.LimitReader(f, maxDocumentBytes+1))
-	closeErr := f.Close()
-	if err = errors.Join(readErr, closeErr); err != nil {
-		return fail(err)
-	}
-	var d document
-	if len(b) > maxDocumentBytes || strictJSON(b, &d) != nil {
-		return fail(ErrInvalid)
-	}
-	if d.Receipts == nil {
-		d.Receipts = map[string]receipt{}
-	}
-	if d.Grants == nil {
-		d.Grants = map[string]AddonGrants{}
-	}
-	if d.Deny == nil {
-		d.Deny = map[string][]string{}
-	}
-	if d.Hints == nil {
-		d.Hints = map[string][]string{}
-	}
-	if err = validateDocument(d); err != nil {
-		return fail(err)
-	}
-	s.doc = d
-	return s, nil
-}
-
+// strictJSON decodes JSON with no unknown fields and no trailing data.
 func strictJSON(b []byte, v any) error {
 	d := json.NewDecoder(bytes.NewReader(b))
 	d.DisallowUnknownFields()
@@ -256,7 +188,7 @@ func (s *Store) Close() error {
 	if s.lock == nil {
 		return nil
 	}
-	err := errors.Join(syscall.Flock(int(s.lock.Fd()), syscall.LOCK_UN), s.lock.Close())
+	err := errors.Join(unlockFile(s.lock), s.lock.Close())
 	s.lock = nil
 	return err
 }
