@@ -30,7 +30,7 @@ local-ai run --log-level=debug
 
 ### Restarts and long chats
 
-When LocalAI gets `SIGTERM` or `SIGINT` (a rolling update, `docker stop`), it stops accepting new requests, makes `/readyz` answer `503` and waits for in-flight requests to finish. The wait is set by `--shutdown-timeout` (`LOCALAI_SHUTDOWN_TIMEOUT`, default `25s`). Keep it below the termination grace period of your platform, for example the Kubernetes default of 30 seconds. A reply that is still streaming after the timeout is cut. The chat then shows the turn as interrupted and resumes it by itself (see [Chats]({{%relref "features/chats" %}})).
+When LocalAI gets `SIGTERM` or `SIGINT` (a rolling update, `docker stop`), it stops accepting new requests, makes `/readyz` answer `503` and waits for in-flight requests to finish. The wait is set by `--shutdown-timeout` (`LOCALAI_SHUTDOWN_TIMEOUT`, default `25s`). Keep it below the termination grace period of your platform, for example the Kubernetes default of 30 seconds. A reply that is still streaming after the timeout is cut. The chat then shows the turn as interrupted and resumes it by itself (see [Chats]({{%relref "features/chats" %}})). After the drain, closing the chats is bounded too (15 seconds in the server): a turn that does not stop in that time, for example a tool that ignores the stop, is marked interrupted in the database by the closing process itself, so that it can resume, and the process exits. The termination hooks have 20 seconds in all, so the drain and this wait together can pass a 30 second grace period; lower `--shutdown-timeout` if you see turns left running until the stale-turn check (one minute) ends them.
 
 For Docker deployments:
 

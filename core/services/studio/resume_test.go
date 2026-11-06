@@ -2,6 +2,7 @@ package studio_test
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -361,5 +362,69 @@ var _ = Describe("the text of an answer that a death cut off", func() {
 			}
 		}
 		Expect(seen).To(Equal([]string{"user: first question", "assistant: an answer that stopped mid", "user: second question", "assistant: ok"}))
+	})
+})
+
+var _ = Describe("Close with a limit", func() {
+	ctx := context.Background()
+
+	// stuckTool is a tool that ignores its context: it holds the turn until the
+	// test lets go.
+	stuckTool := func(release <-chan struct{}) session.Tool {
+		return session.Tool{
+			Name: "deploy", Description: "deploy", Schema: json.RawMessage(`{"type":"object"}`),
+			Run: func(context.Context, json.RawMessage) (string, error) { <-release; return "done", nil },
+		}
+	}
+
+	It("returns in time, marks the turn that does not stop as interrupted, and the turn can resume", func() {
+		release := make(chan struct{})
+		DeferCleanup(func() { close(release) })
+		st, err := store.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		svc, _ := newToolService(func(_ workspace.Actor, text string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Tool: "deploy", Args: `{}`}, {Say: "done"}}
+		}, func(d *studio.Deps) {
+			d.Store, d.AutoResume, d.CloseTimeout = st, true, 300*time.Millisecond
+			d.HostTools = func(context.Context, workspace.Actor) ([]session.Tool, error) {
+				return []session.Tool{stuckTool(release)}, nil
+			}
+		})
+		id := create(svc, alice)
+		Expect(st.UpdateGoal(ctx, alice, id, func(*session.Goal) (*session.Goal, error) {
+			return &session.Goal{Text: "ship", State: session.GoalActive}, nil
+		})).To(Succeed())
+		sent(svc, alice, id, "ship it")
+		until("the tool to run", func() bool {
+			es, _ := st.Entries(ctx, id, 0, 0)
+			for _, e := range es {
+				if e.Role == session.RoleToolIntent {
+					return true
+				}
+			}
+			return false
+		})
+
+		began := time.Now()
+		err = svc.Close(ctx)
+		Expect(err).To(MatchError(studio.ErrCloseTimedOut))
+		Expect(time.Since(began)).To(BeNumerically("<", 3*time.Second), "Close did not wait for the stuck tool")
+		info, err := st.Turn(ctx, alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(info.Running).To(BeFalse())
+		Expect(info.Last).To(Equal(store.TurnInterrupted))
+		Expect(info.WillResume).To(BeTrue(), "a turn that Close cut is resumable")
+		Expect(goalOf(svc, id).State).To(Equal(session.GoalActive), "the goal waits for the resume")
+	})
+
+	It("does not mark anything when the turns stop in time", func() {
+		svc, _ := newToolService(func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Say: "ok"}}
+		}, func(d *studio.Deps) { d.CloseTimeout = 5 * time.Second })
+		id := create(svc, alice)
+		sent(svc, alice, id, "go")
+		idle(svc, alice, id)
+		Expect(svc.Close(ctx)).To(Succeed())
+		Expect(turn(svc, alice, id).Last).To(Equal(store.TurnDone))
 	})
 })

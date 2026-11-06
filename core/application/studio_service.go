@@ -34,6 +34,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/signals"
 )
 
 // legacyAPIKeyUserID is the synthetic user the auth middleware gives a request
@@ -118,12 +119,13 @@ func (a *Application) initStudioService() {
 	a.initStudioMCPConnectors()
 	a.studioWeb = newStudioWeb(a.applicationConfig, a.serverSelf())
 	deps := studio.Deps{
-		AutoResume: a.applicationConfig.ChatsAutoResume,
-		Bus:        bus,
-		Store:      a.studioStore,
-		Provider:   a.studioProvider,
-		Users:      a.studioUsers(),
-		Allowed:    a.studioFeatureAllowed,
+		AutoResume:   a.applicationConfig.ChatsAutoResume,
+		CloseTimeout: studioCloseTimeout,
+		Bus:          bus,
+		Store:        a.studioStore,
+		Provider:     a.studioProvider,
+		Users:        a.studioUsers(),
+		Allowed:      a.studioFeatureAllowed,
 		// Read at each turn, so the runtime setting applies at once.
 		SuggestionsDefault: func() bool { return !a.applicationConfig.DisableChatSuggestions },
 		StateDir:           stateDir,
@@ -244,6 +246,14 @@ func (a *Application) ownsAddonsOnly() bool {
 // errStudioStarting is the error of a command hook called before the chat
 // service is up. No chat turn runs then, so it is not expected.
 var errStudioStarting = errors.New("chats: the service is starting")
+
+// studioCloseTimeout bounds studio.Service.Close in this process. The
+// termination hooks, Close among them, are cut off after
+// signals.DefaultHookTimeout, so a bound of the service's own default (25
+// seconds) would never fire here: the process would exit first and leave its
+// turns claimed until the reaper finds them. Marking them interrupted needs a
+// few seconds of the budget as well.
+const studioCloseTimeout = signals.DefaultHookTimeout - 5*time.Second
 
 // A turn beats every 15 seconds; one that has not beaten for this long belongs
 // to a frontend that died.
