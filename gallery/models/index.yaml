@@ -1692,6 +1692,430 @@
       template:
         use_tokenizer_template: true
 - kind: model
+  id: deepseek-v4.1-flash-ista-iq1_m
+  name: deepseek-v4.1-flash-ista-iq1_m
+  version: 0.0.0-gallery.b1e17d1926ca
+  description: |
+    DeepSeek-V4.1-Flash-1017, a 763B-parameter mixture-of-experts model (384 experts
+    per layer, 6 used per token), in ISTA-DAS's 1.75 bits per weight GSQ-RCO
+    quantization (IQ1_M), the smallest size of the three (about 239 GB to download).
+    It writes a reasoning trace before the answer, and the Strata backend splits it
+    from the reply and parses the model's DSML tool calls. Text only: images are not
+    supported by this backend.
+    Needs a GPU with 12 GB of VRAM or more and about 34 GB of RAM at the least
+    (Strata's figure; its measurements use 46 to 64 GB: an RTX 5070 with 64 GB
+    answered at about 5 tokens per second, an RTX 3060 with 46 GB at 8 to 10). Less
+    RAM still runs, slowly. Slightly lower quality than 2.00 bpw, and noticeably
+    weaker on plain English prose; ISTA-DASLab measured 98.7% of the base model on
+    its task average (AIME25, GPQA-Diamond, LiveCodeBench v6).
+    Needs about 240 GB of free disk, on a fast NVMe drive: the 111 GB n-gram table
+    (Engram) stays on disk and is read for every token. The Engram table and the 8
+    GB DSpark draft model are shared by all DeepSeek-V4.1 entries and downloaded
+    once into strata/models/deepseek-v4.1-flash-shared.
+    Runs only on the experimental strata backend, on NVIDIA CUDA 13 (x86_64 and
+    arm64), AMD Radeon RX 9070 and R9700 (ROCm) and Apple Silicon (Metal). Strata
+    ships no DeepSeek engine for CUDA 12, Intel or other AMD cards.
+    On the first load the strata backend builds the Strata pack from the GGUF files
+    (under a minute, a few MB of extra disk); loading the model afterwards takes a
+    few minutes. The default context is 8192 tokens, the size Strata checked; raise
+    context_size if the GPU has room.
+    Licensed under the MIT License (DeepSeek-V4.1-Flash-1017 and the quantized
+    files). The GGUF files are the GSQ-RCO quantization by ISTA-DAS (ISTA-DASLab);
+    the DSpark draft model is Unsloth's; Strata is by Niko1221.
+  license: mit
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF
+    - https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF
+  tags:
+    - llm
+    - chat
+    - reasoning
+    - function-calling
+    - moe
+    - deepseek
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - metal
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq1_m/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00001-of-00006.gguf
+        sha256: 3e8ddd11441edd4bc19bacaef5dbe38818af2cbdf0820fb70f1d2d851fcc192a
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00001-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq1_m/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00002-of-00006.gguf
+        sha256: be4ceb1caf1bed28e886860cf6a52adc8f5ca9eb0d2098ade39bb4179d48b323
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00002-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq1_m/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00003-of-00006.gguf
+        sha256: 758c66ba65236e8ce0820c21a7b6f9b2947681df8cc509f672a77722e8191b9a
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00003-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq1_m/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00004-of-00006.gguf
+        sha256: 04a5bea2b38eb576f49efc19c0a677768d6e2a8ea5772d72fb6cb79e1733a212
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00004-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq1_m/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00005-of-00006.gguf
+        sha256: 7c8dbee99890f05dbc420eba6f44393f5228d06248fe61e1ae8ed002449c7549
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00005-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq1_m/expert-profile.bin
+        sha256: 8db93e483b34b15dbf63a0826601f1db2107a8cfea73774e7d21d8559e0a9568
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/dsv41/profile-2.00.bin
+      - filename: strata/models/deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+        sha256: 3dac4c54893ad7aa89103c0028500eadc78e74112cef3a2930a97e67dc9fb4f3
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+      - filename: strata/models/deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+        sha256: 6ba6ac1b331c540691a209e7fc97dec2a24e295acb1e755c84c7d24a4373927a
+        uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/8a6ec9cf118e785a362ea94ee123c61c70553be6/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+      - filename: strata/models/deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf
+        sha256: cc15d470afcb030558bbc4d8e2ccd840182e2e95de1a95198138efe63a5fd99f
+        uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/8a6ec9cf118e785a362ea94ee123c61c70553be6/UD-Q8_K_XL/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf
+    overrides:
+      backend: strata
+      context_size: 8192
+      function:
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+      options:
+        - family:deepseek41
+        - ready_timeout:1h
+        - expert_profile:expert-profile.bin
+        - pack_gguf:DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00001-of-00006.gguf
+        - pack_args:--shards DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00001-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00002-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00003-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00004-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00005-of-00006.gguf --engram ../deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf --engram-meta ../deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf --dspark-gguf ../deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf --dspark-noise-token 128799 --dspark-markov-rank 256
+      parameters:
+        min_p: 0
+        model: strata/models/deepseek-v4.1-flash-ista-iq1_m
+        temperature: 1.0
+        top_p: 1.0
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: deepseek-v4.1-flash-ista-iq2_xxs
+  name: deepseek-v4.1-flash-ista-iq2_xxs
+  version: 0.0.0-gallery.aa4563847365
+  description: |
+    DeepSeek-V4.1-Flash-1017, a 763B-parameter mixture-of-experts model (384 experts
+    per layer, 6 used per token), in ISTA-DAS's 2.00 bits per weight GSQ-RCO
+    quantization (IQ2_XXS), the middle size of the three (about 257 GB to download).
+    It writes a reasoning trace before the answer, and the Strata backend splits it
+    from the reply and parses the model's DSML tool calls. Text only: images are not
+    supported by this backend.
+    Needs a GPU with 12 GB of VRAM or more and about 40 GB of RAM at the least
+    (Strata's figure; its measurements use 46 to 64 GB: an RTX 5070 with 64 GB
+    answered at about 5 tokens per second, an RTX 3060 with 46 GB at 8 to 10). Less
+    RAM still runs, slowly. Strata measured a perplexity 15.5% above the original
+    model on 4,995 positions (code 8.6%, agent work 5.3%).
+    Needs about 258 GB of free disk, on a fast NVMe drive: the 111 GB n-gram table
+    (Engram) stays on disk and is read for every token. The Engram table and the 8
+    GB DSpark draft model are shared by all DeepSeek-V4.1 entries and downloaded
+    once into strata/models/deepseek-v4.1-flash-shared.
+    Runs only on the experimental strata backend, on NVIDIA CUDA 13 (x86_64 and
+    arm64), AMD Radeon RX 9070 and R9700 (ROCm) and Apple Silicon (Metal). Strata
+    ships no DeepSeek engine for CUDA 12, Intel or other AMD cards.
+    On the first load the strata backend builds the Strata pack from the GGUF files
+    (under a minute, a few MB of extra disk); loading the model afterwards takes a
+    few minutes. The default context is 8192 tokens, the size Strata checked; raise
+    context_size if the GPU has room.
+    Licensed under the MIT License (DeepSeek-V4.1-Flash-1017 and the quantized
+    files). The GGUF files are the GSQ-RCO quantization by ISTA-DAS (ISTA-DASLab);
+    the DSpark draft model is Unsloth's; Strata is by Niko1221.
+  license: mit
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF
+    - https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF
+  tags:
+    - llm
+    - chat
+    - reasoning
+    - function-calling
+    - moe
+    - deepseek
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - metal
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00001-of-00006.gguf
+        sha256: f356f198561f56df36f7ab92d7238a926646d76de992c34f15bcb939a5f529b9
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00001-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00002-of-00006.gguf
+        sha256: 25af3785ccf925f54137e1ead4c481a8952315dc0b1af6519a99407f67bce8f3
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00002-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00003-of-00006.gguf
+        sha256: 8168d0998fc494def2e1952d83c131425a108660aae9d29190f5a8670ab62b48
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00003-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00004-of-00006.gguf
+        sha256: 9eb9b4de1968f150dfc207eb31c27be9cd9b5666a9a6246bde8a22b184b4bee0
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00004-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00005-of-00006.gguf
+        sha256: 7e35f6b4e6fc46f6c4b152b593d84d683c5ece695ae6ad734f556198c041bec1
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00005-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xxs/expert-profile.bin
+        sha256: 8db93e483b34b15dbf63a0826601f1db2107a8cfea73774e7d21d8559e0a9568
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/dsv41/profile-2.00.bin
+      - filename: strata/models/deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+        sha256: 3dac4c54893ad7aa89103c0028500eadc78e74112cef3a2930a97e67dc9fb4f3
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+      - filename: strata/models/deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+        sha256: 6ba6ac1b331c540691a209e7fc97dec2a24e295acb1e755c84c7d24a4373927a
+        uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/8a6ec9cf118e785a362ea94ee123c61c70553be6/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+      - filename: strata/models/deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf
+        sha256: cc15d470afcb030558bbc4d8e2ccd840182e2e95de1a95198138efe63a5fd99f
+        uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/8a6ec9cf118e785a362ea94ee123c61c70553be6/UD-Q8_K_XL/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf
+    overrides:
+      backend: strata
+      context_size: 8192
+      function:
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+      options:
+        - family:deepseek41
+        - ready_timeout:1h
+        - expert_profile:expert-profile.bin
+        - pack_gguf:DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00001-of-00006.gguf
+        - pack_args:--shards DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00001-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00002-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00003-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00004-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00005-of-00006.gguf --engram ../deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf --engram-meta ../deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf --dspark-gguf ../deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf --dspark-noise-token 128799 --dspark-markov-rank 256
+      parameters:
+        min_p: 0
+        model: strata/models/deepseek-v4.1-flash-ista-iq2_xxs
+        temperature: 1.0
+        top_p: 1.0
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: deepseek-v4.1-flash-ista-iq2_xs
+  name: deepseek-v4.1-flash-ista-iq2_xs
+  version: 0.0.0-gallery.c480523a5bee
+  description: |
+    DeepSeek-V4.1-Flash-1017, a 763B-parameter mixture-of-experts model (384 experts
+    per layer, 6 used per token), in ISTA-DAS's 2.25 bits per weight GSQ-RCO
+    quantization (IQ2_XS), the largest size of the three (about 274 GB to download).
+    It writes a reasoning trace before the answer, and the Strata backend splits it
+    from the reply and parses the model's DSML tool calls. Text only: images are not
+    supported by this backend.
+    Needs a GPU with 12 GB of VRAM or more and about 44 GB of RAM at the least
+    (Strata's figure; its measurements use 46 to 64 GB: an RTX 5070 with 64 GB
+    answered at about 5 tokens per second, an RTX 3060 with 46 GB at 8 to 10). Less
+    RAM still runs, slowly. Strata measured a perplexity 7.3% above the original
+    model on 4,995 positions (code 3.2%, agent work 2.2%).
+    Needs about 275 GB of free disk, on a fast NVMe drive: the 111 GB n-gram table
+    (Engram) stays on disk and is read for every token. The Engram table and the 8
+    GB DSpark draft model are shared by all DeepSeek-V4.1 entries and downloaded
+    once into strata/models/deepseek-v4.1-flash-shared.
+    Runs only on the experimental strata backend, on NVIDIA CUDA 13 (x86_64 and
+    arm64), AMD Radeon RX 9070 and R9700 (ROCm) and Apple Silicon (Metal). Strata
+    ships no DeepSeek engine for CUDA 12, Intel or other AMD cards.
+    On the first load the strata backend builds the Strata pack from the GGUF files
+    (under a minute, a few MB of extra disk); loading the model afterwards takes a
+    few minutes. The default context is 8192 tokens, the size Strata checked; raise
+    context_size if the GPU has room.
+    Licensed under the MIT License (DeepSeek-V4.1-Flash-1017 and the quantized
+    files). The GGUF files are the GSQ-RCO quantization by ISTA-DAS (ISTA-DASLab);
+    the DSpark draft model is Unsloth's; Strata is by Niko1221.
+  license: mit
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF
+    - https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF
+  tags:
+    - llm
+    - chat
+    - reasoning
+    - function-calling
+    - moe
+    - deepseek
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - metal
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00001-of-00006.gguf
+        sha256: 0182a2a1f42d319a0dbc6e34aa82a063880c069fe3aafbbea86018f386e64e5f
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00001-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00002-of-00006.gguf
+        sha256: 5c88039fa640460a9fc3465a6dfcd162a4083dd738d55e5b52e025be14555a08
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00002-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00003-of-00006.gguf
+        sha256: 0fddebfd05f0a36cfd107ba5dfd2547e64df61adbab39560a5a5f5521ca099a5
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00003-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00004-of-00006.gguf
+        sha256: c577a43c6e6e615838a1655a0b162541edeac6f36542f08c4a9593a70dcaf500
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00004-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00005-of-00006.gguf
+        sha256: 851d8605bf504962054d17ea8a0d9e2e0a228d085d396bd865a4de9f16d90fbd
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00005-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xs/expert-profile.bin
+        sha256: c8de062c5f3c71725ecf5328bd4ee02c71dca88478bf7f6b0f2ec258567ac6b6
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/dsv41/profile-2.25.bin
+      - filename: strata/models/deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+        sha256: 3dac4c54893ad7aa89103c0028500eadc78e74112cef3a2930a97e67dc9fb4f3
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+      - filename: strata/models/deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+        sha256: 6ba6ac1b331c540691a209e7fc97dec2a24e295acb1e755c84c7d24a4373927a
+        uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/8a6ec9cf118e785a362ea94ee123c61c70553be6/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+      - filename: strata/models/deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf
+        sha256: cc15d470afcb030558bbc4d8e2ccd840182e2e95de1a95198138efe63a5fd99f
+        uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/8a6ec9cf118e785a362ea94ee123c61c70553be6/UD-Q8_K_XL/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf
+    overrides:
+      backend: strata
+      context_size: 8192
+      function:
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+      options:
+        - family:deepseek41
+        - ready_timeout:1h
+        - expert_profile:expert-profile.bin
+        - pack_gguf:DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00001-of-00006.gguf
+        - pack_args:--shards DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00001-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00002-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00003-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00004-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00005-of-00006.gguf --engram ../deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf --engram-meta ../deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf --dspark-gguf ../deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf --dspark-noise-token 128799 --dspark-markov-rank 256
+      parameters:
+        min_p: 0
+        model: strata/models/deepseek-v4.1-flash-ista-iq2_xs
+        temperature: 1.0
+        top_p: 1.0
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: deepseek-v4.1-flash-ista-coder-iq2_xxs
+  name: deepseek-v4.1-flash-ista-coder-iq2_xxs
+  version: 0.0.0-gallery.048f3fd2383b
+  description: |
+    ISTA-DAS's coding version of DeepSeek-V4.1-Flash-1017: in every layer 192 of the
+    384 routed experts are kept and the other 192 removed, stored in the 2.00 bpw
+    (IQ2_XXS) layout. It is the smallest DeepSeek-V4.1 set here (about 191 GB to
+    download).
+    It writes a reasoning trace before the answer, and the Strata backend splits it
+    from the reply and parses the model's DSML tool calls. Text only: images are not
+    supported by this backend.
+    Needs a GPU with 12 GB of VRAM or more and about 24 GB of RAM at the least
+    (Strata's figure; its measurements use 46 to 64 GB: an RTX 5070 with 64 GB
+    answered at about 5 tokens per second, an RTX 3060 with 46 GB at 8 to 10). Less
+    RAM still runs, slowly. Strata measured a perplexity 48% above the original
+    model on its test set (KL 0.40), so it is weaker than the full sets on prose and
+    general knowledge; it is meant for code and agent work.
+    Needs about 192 GB of free disk, on a fast NVMe drive: the 111 GB n-gram table
+    (Engram) stays on disk and is read for every token. The Engram table and the 8
+    GB DSpark draft model are shared by all DeepSeek-V4.1 entries and downloaded
+    once into strata/models/deepseek-v4.1-flash-shared.
+    Runs only on the experimental strata backend, on NVIDIA CUDA 13 (x86_64 and
+    arm64), AMD Radeon RX 9070 and R9700 (ROCm) and Apple Silicon (Metal). Strata
+    ships no DeepSeek engine for CUDA 12, Intel or other AMD cards.
+    On the first load the strata backend builds the Strata pack from the GGUF files
+    (under a minute, a few MB of extra disk); loading the model afterwards takes a
+    few minutes. The default context is 8192 tokens, the size Strata checked; raise
+    context_size if the GPU has room.
+    Licensed under the MIT License (DeepSeek-V4.1-Flash-1017 and the quantized
+    files). The GGUF files are the GSQ-RCO quantization by ISTA-DAS (ISTA-DASLab);
+    the DSpark draft model is Unsloth's; Strata is by Niko1221.
+  license: mit
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-GGUF
+    - https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - reasoning
+    - function-calling
+    - moe
+    - deepseek
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - metal
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/deepseek-v4.1-flash-ista-coder-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00001-of-00006.gguf
+        sha256: 108e63d27240da2d99846250727a7b282e05a7fdf2448435e81904b9a98d8a4a
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-GGUF/resolve/0b1d5da5734d76375bdad4e72af85a420fde7af7/IQ2_XXS/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00001-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-coder-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00002-of-00006.gguf
+        sha256: 75079999eb3a492ad695f3466fd6a068a1cf1920980eac1c7f51406363fadf7a
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-GGUF/resolve/0b1d5da5734d76375bdad4e72af85a420fde7af7/IQ2_XXS/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00002-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-coder-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00003-of-00006.gguf
+        sha256: ea964e525922f36d3b984299c1a5bb8d896f50b9c2942364cd221c37863331f2
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-GGUF/resolve/0b1d5da5734d76375bdad4e72af85a420fde7af7/IQ2_XXS/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00003-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-coder-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00004-of-00006.gguf
+        sha256: 2d95806d186597cb0ea32635c92f0b66a9a6afae1a399ff74b13aebaa4ac7a52
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-GGUF/resolve/0b1d5da5734d76375bdad4e72af85a420fde7af7/IQ2_XXS/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00004-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-coder-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00005-of-00006.gguf
+        sha256: 3665b48c3bd46330780caf286ee40a087ac11499e5b7df8c943b098d10f426d4
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-GGUF/resolve/0b1d5da5734d76375bdad4e72af85a420fde7af7/IQ2_XXS/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00005-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-coder-iq2_xxs/expert-profile.bin
+        sha256: 92860ca14abbb3319a773aa237a4007898a8eb35edaff50d65073843b33c8904
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/dsv41/profile-coder.bin
+      - filename: strata/models/deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+        sha256: 3dac4c54893ad7aa89103c0028500eadc78e74112cef3a2930a97e67dc9fb4f3
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+      - filename: strata/models/deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+        sha256: 6ba6ac1b331c540691a209e7fc97dec2a24e295acb1e755c84c7d24a4373927a
+        uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/8a6ec9cf118e785a362ea94ee123c61c70553be6/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+    overrides:
+      backend: strata
+      context_size: 8192
+      function:
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+      options:
+        - family:deepseek41
+        - ready_timeout:1h
+        - expert_profile:expert-profile.bin
+        - pack_gguf:DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00001-of-00006.gguf
+        - pack_args:--shards DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00001-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00002-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00003-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00004-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00005-of-00006.gguf --engram ../deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf --engram-meta DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00001-of-00006.gguf --dspark-gguf ../deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf --dspark-noise-token 128799 --dspark-markov-rank 256
+      parameters:
+        min_p: 0
+        model: strata/models/deepseek-v4.1-flash-ista-coder-iq2_xxs
+        temperature: 1.0
+        top_p: 1.0
+      template:
+        use_tokenizer_template: true
+- kind: model
   id: qwen3.8-flash-next-nvfp4-gptq
   name: qwen3.8-flash-next-nvfp4-gptq
   version: 0.0.0-gallery.96123793bca6
