@@ -474,6 +474,21 @@ With the tables:
   store applies a default of 7 days, because a table does not end with the
   process.
 
+A running background response holds a lease in its row, which its owner renews
+every 15 seconds (the lease lasts 45 seconds). When the owner dies, for example
+because the pod is replaced, the lease runs out and the response is ended as
+`failed` with the error code `server_restarted`. A final `response.failed` event
+is added, so a client that resumes the stream gets every kept event and then
+the end. LocalAI does not run the request again: a generation cannot continue
+from a cut point, and tools may have had effects. Send the request again, with
+`previous_response_id` to keep the context. A standalone server ends the runs a
+previous process left when it starts. In distributed mode one frontend at a time
+runs the sweep.
+
+`POST /v1/responses/{id}/cancel` sets a `cancel_requested` flag in the row. The
+owner checks it on every lease renewal, so a cancel works even if the bus message
+is lost. If the owner died before it could stop, the response ends as `cancelled`.
+
 #### Tool Calling
 
 Open Responses API supports function calling with tools:

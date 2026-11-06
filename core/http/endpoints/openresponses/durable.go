@@ -44,10 +44,15 @@ const (
 	// pollEvery is how often a reader that does not own a response looks for
 	// new events in the table.
 	pollEvery = 250 * time.Millisecond
+
+	// ErrorCodeServerRestarted is the error code of a response whose owner died
+	// before it finished.
+	ErrorCodeServerRestarted = "server_restarted"
 )
 
 var (
-	terminalStatuses = []string{schema.ORStatusCompleted, schema.ORStatusFailed, schema.ORStatusIncomplete, schema.ORStatusCancelled}
+	nonTerminalStatuses = []string{schema.ORStatusQueued, schema.ORStatusInProgress}
+	terminalStatuses    = []string{schema.ORStatusCompleted, schema.ORStatusFailed, schema.ORStatusIncomplete, schema.ORStatusCancelled}
 )
 
 func isNonTerminal(status string) bool {
@@ -298,6 +303,42 @@ func (d *durableBackend) deleteResponse(ctx context.Context, id string) error {
 	})
 }
 
+// renewLeases extends the lease of the given responses, only while they are
+// running and still ours.
+func (d *durableBackend) renewLeases(ctx context.Context, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return d.db.WithContext(ctx).Model(&responseRow{}).
+		Where("id IN ? AND owner_instance = ? AND status IN ?", ids, d.token, nonTerminalStatuses).
+		Update("lease_until", nowMs()+d.leaseTTL.Milliseconds()).Error
+}
+
+type rowState struct {
+	ID              string
+	Status          string
+	CancelRequested bool
+}
+
+func (d *durableBackend) states(ctx context.Context, ids []string) ([]rowState, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var out []rowState
+	err := d.db.WithContext(ctx).Model(&responseRow{}).Select("id", "status", "cancel_requested").Where("id IN ?", ids).Find(&out).Error
+	return out, err
+}
+
+// requestCancel flags a running response, so its owner stops it on the next
+// lease tick even if the bus message is lost. It reports whether a running row
+// was flagged.
+func (d *durableBackend) requestCancel(ctx context.Context, id string) (bool, error) {
+	res := d.db.WithContext(ctx).Model(&responseRow{}).
+		Where("id = ? AND status IN ?", id, nonTerminalStatuses).
+		Update("cancel_requested", true)
+	return res.RowsAffected > 0, res.Error
+}
+
 // rowToStored materialises a read-only view of a row. Remote is true, since
 // this process holds no CancelFunc and no live channel for it.
 func rowToStored(row *responseRow) (*StoredResponse, error) {
@@ -355,6 +396,120 @@ func (d *durableBackend) findItem(ctx context.Context, itemID string) (*schema.O
 func jsonString(s string) string {
 	b, _ := json.Marshal(s)
 	return string(b)
+}
+
+// sweepDead ends the running responses whose owner is gone. A row is dead when
+// its lease ran out. With orphansOf set (a standalone start, where one process
+// owns the database) every running row of another process is dead at once.
+func (d *durableBackend) sweepDead(ctx context.Context, orphansOf string) (int, error) {
+	q := d.db.WithContext(ctx).Model(&responseRow{}).Where("status IN ?", nonTerminalStatuses)
+	if orphansOf != "" {
+		q = q.Where("owner_instance <> ?", orphansOf)
+	} else {
+		q = q.Where("lease_until < ?", nowMs())
+	}
+	var ids []string
+	if err := q.Pluck("id", &ids).Error; err != nil {
+		return 0, err
+	}
+	ended := 0
+	for _, id := range ids {
+		ok, err := d.endDead(ctx, id, orphansOf)
+		if err != nil {
+			xlog.Warn("open responses: could not end a dead response", "response_id", id, "error", err)
+			continue
+		}
+		if ok {
+			ended++
+		}
+	}
+	return ended, nil
+}
+
+// endDead moves one dead row to its end state. The update is conditional on the
+// state that was read, so two sweepers, or a sweeper and a late renewal, cannot
+// both win.
+func (d *durableBackend) endDead(ctx context.Context, id, orphansOf string) (bool, error) {
+	won := false
+	err := d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var row responseRow
+		if err := tx.Where("id = ?", id).Take(&row).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			return err
+		}
+		if !isNonTerminal(row.Status) {
+			return nil
+		}
+		var resp schema.ORResponseResource
+		if err := json.Unmarshal([]byte(row.Response), &resp); err != nil {
+			return fmt.Errorf("decode response: %w", err)
+		}
+		now := time.Now().Unix()
+		resp.CompletedAt = &now
+		status := schema.ORStatusFailed
+		var apiErr *schema.ORError
+		if row.CancelRequested {
+			// The client asked to stop it; the owner died before it did.
+			status = schema.ORStatusCancelled
+		} else {
+			apiErr = &schema.ORError{Type: "server_error", Code: ErrorCodeServerRestarted, Message: "The server restarted while this response was running. Send the request again."}
+		}
+		resp.Status = status
+		resp.Error = apiErr
+		body, err := json.Marshal(&resp)
+		if err != nil {
+			return err
+		}
+
+		cond := tx.Model(&responseRow{}).Where("id = ? AND status = ?", id, row.Status)
+		if orphansOf != "" {
+			cond = cond.Where("owner_instance <> ?", orphansOf)
+		} else {
+			cond = cond.Where("lease_until < ?", nowMs())
+		}
+		res := cond.Updates(map[string]any{"status": status, "response": string(body), "lease_until": 0})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return nil
+		}
+		won = true
+
+		if status == schema.ORStatusFailed {
+			// A client that tails the response ends on this event.
+			var maxSeq *int
+			if err := tx.Model(&responseEventRow{}).Select("MAX(seq)").Where("response_id = ?", id).Scan(&maxSeq).Error; err != nil {
+				return err
+			}
+			seq := row.LastSeq
+			if maxSeq != nil && *maxSeq > seq {
+				seq = *maxSeq
+			}
+			if row.DroppedThrough > seq {
+				seq = row.DroppedThrough
+			}
+			seq++
+			ev := schema.ORStreamEvent{
+				Type:           "response.failed",
+				SequenceNumber: seq,
+				Response:       &resp,
+				Error:          &schema.ORErrorPayload{Type: apiErr.Type, Code: apiErr.Code, Message: apiErr.Message},
+			}
+			data, err := json.Marshal(&ev)
+			if err != nil {
+				return err
+			}
+			if err := tx.Create(&responseEventRow{ResponseID: id, Seq: seq, EventType: ev.Type, Data: data, Bytes: len(data)}).Error; err != nil {
+				return err
+			}
+			return tx.Model(&responseRow{}).Where("id = ?", id).Update("last_seq", seq).Error
+		}
+		return nil
+	})
+	return won && err == nil, err
 }
 
 // deleteExpired removes finished rows past their expiry, with their events.
@@ -596,12 +751,80 @@ func (s *ResponseStore) SubscribeEvents(ctx context.Context, id string) (<-chan 
 	return ch, nil
 }
 
-// SweepOnce deletes the expired rows. Any replica may run it; the delete is
-// idempotent.
+// leaseTick renews the leases of the running responses this process owns and
+// applies the cancels and fences the table holds for them.
+func (s *ResponseStore) leaseTick(ctx context.Context) {
+	d := s.durable()
+	if d == nil {
+		return
+	}
+	s.mu.RLock()
+	owned := make(map[string]*StoredResponse)
+	for id, st := range s.responses {
+		if !st.IsBackground {
+			continue
+		}
+		st.mu.RLock()
+		running := st.Response != nil && isNonTerminal(st.Response.Status)
+		st.mu.RUnlock()
+		if running {
+			owned[id] = st
+		}
+	}
+	s.mu.RUnlock()
+	if len(owned) == 0 {
+		return
+	}
+	ids := make([]string, 0, len(owned))
+	for id := range owned {
+		ids = append(ids, id)
+	}
+	if err := d.renewLeases(ctx, ids); err != nil {
+		xlog.Warn("open responses: could not renew leases", "error", err)
+		return
+	}
+	states, err := d.states(ctx, ids)
+	if err != nil {
+		xlog.Warn("open responses: could not read the state of running responses", "error", err)
+		return
+	}
+	for _, st := range states {
+		stored := owned[st.ID]
+		switch {
+		case st.CancelRequested && isNonTerminal(st.Status):
+			if _, err := s.cancelLocal(st.ID, stored); err != nil {
+				xlog.Warn("open responses: could not apply a cancel request", "response_id", st.ID, "error", err)
+				continue
+			}
+			s.persist(st.ID, stored)
+			s.mirror(st.ID, stored)
+		case !isNonTerminal(st.Status):
+			// The sweeper ended this run while we were away. Stop it and stop
+			// writing, so the table keeps the one end state.
+			stored.mu.Lock()
+			stored.fenced = true
+			if stored.CancelFunc != nil {
+				stored.CancelFunc()
+			}
+			if stored.Response != nil && isNonTerminal(stored.Response.Status) {
+				stored.Response.Status = st.Status
+			}
+			stored.mu.Unlock()
+		}
+	}
+}
+
+// SweepOnce ends the dead runs and deletes the expired rows. Any replica may
+// run it; the writes are conditional.
 func (s *ResponseStore) SweepOnce(ctx context.Context) {
 	d := s.durable()
 	if d == nil {
 		return
+	}
+	if n, err := d.sweepDead(ctx, ""); err != nil {
+		xlog.Warn("open responses: sweep failed", "error", err)
+	} else if n > 0 {
+		xlog.Info("Open Responses: ended responses whose server stopped", "responses", n)
 	}
 	if n, err := d.deleteExpired(ctx); err != nil {
 		xlog.Warn("open responses: expiry sweep failed", "error", err)
@@ -610,16 +833,46 @@ func (s *ResponseStore) SweepOnce(ctx context.Context) {
 	}
 }
 
-// StartMaintenance runs the expiry sweep until ctx ends. In a cluster one
-// frontend at a time sweeps, the one that holds the advisory lock.
+// SweepOrphans ends every running response of another process. It is for a
+// standalone start, where one process owns the database and so any row that is
+// still running belongs to a process that is gone.
+func (s *ResponseStore) SweepOrphans(ctx context.Context) (int, error) {
+	d := s.durable()
+	if d == nil {
+		return 0, nil
+	}
+	return d.sweepDead(ctx, d.token)
+}
+
+// StartMaintenance runs the lease renewal and the sweeper until ctx ends. In a
+// cluster one frontend at a time sweeps, the one that holds the advisory lock;
+// standalone, this process sweeps once at start (for the runs a previous
+// process left) and then on a timer.
 func (s *ResponseStore) StartMaintenance(ctx context.Context, distributed bool) {
 	d := s.durable()
 	if d == nil {
 		return
 	}
+	go func() {
+		t := time.NewTicker(d.leaseEvery)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				s.leaseTick(ctx)
+			}
+		}
+	}()
 	if distributed {
 		go advisorylock.RunLeaderLoop(ctx, d.db, advisorylock.KeyOpenResponsesSweep, sweepEvery, func() { s.SweepOnce(ctx) })
 		return
+	}
+	if n, err := s.SweepOrphans(ctx); err != nil {
+		xlog.Warn("open responses: start sweep failed", "error", err)
+	} else if n > 0 {
+		xlog.Info("Open Responses: ended responses a previous process left running", "responses", n)
 	}
 	go func() {
 		t := time.NewTicker(sweepEvery)

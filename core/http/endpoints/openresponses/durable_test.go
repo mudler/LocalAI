@@ -291,6 +291,96 @@ func tableSpecs(openDB func() *gorm.DB) {
 		})
 	})
 
+	Describe("the lease", func() {
+		It("is renewed by the owner on its tick", func() {
+			a := newStore("a")
+			startRunning(a, "r1", "")
+			Expect(db.Model(&responseRow{}).Where("id = ?", "r1").Update("lease_until", 1).Error).To(Succeed())
+			a.leaseTick(context.Background())
+			Expect(rowOf(db, "r1").LeaseUntil).To(BeNumerically(">", nowMs()))
+		})
+
+		It("ends a run whose lease ran out as failed with server_restarted, and tells a tailing client", func() {
+			a := newStore("a")
+			b := newStore("b")
+			startRunning(a, "dead", "alice")
+			startRunning(a, "alive", "alice")
+			Expect(a.AppendEvent("dead", durableEvent(1, "response.created"))).To(Succeed())
+			Expect(db.Model(&responseRow{}).Where("id = ?", "dead").Update("lease_until", 1).Error).To(Succeed())
+
+			b.SweepOnce(context.Background())
+
+			got, err := b.Get("dead")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Response.Status).To(Equal(schema.ORStatusFailed))
+			Expect(got.Response.Error).NotTo(BeNil())
+			Expect(got.Response.Error.Code).To(Equal(ErrorCodeServerRestarted))
+			events, err := b.GetEventsAfter("dead", 1)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(events).To(HaveLen(1))
+			Expect(events[0].EventType).To(Equal("response.failed"))
+			Expect(events[0].SequenceNumber).To(Equal(2))
+			Expect(rowOf(db, "alive").Status).To(Equal(schema.ORStatusInProgress))
+
+			// A second sweep has nothing to do.
+			n, err := b.db().sweepDead(context.Background(), "")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(BeZero())
+		})
+
+		It("ends a run as cancelled when a cancel was requested before the owner died", func() {
+			a := newStore("a")
+			b := newStore("b")
+			startRunning(a, "r1", "")
+			_, err := b.Cancel("r1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(db.Model(&responseRow{}).Where("id = ?", "r1").Update("lease_until", 1).Error).To(Succeed())
+			b.SweepOnce(context.Background())
+			Expect(rowOf(db, "r1").Status).To(Equal(schema.ORStatusCancelled))
+		})
+
+		It("ends every run of another process at a standalone start, and none of its own", func() {
+			old := newStore("old")
+			startRunning(old, "left-behind", "")
+			fresh := newStore("fresh")
+			startRunning(fresh, "mine", "")
+			n, err := fresh.SweepOrphans(context.Background())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(Equal(1))
+			Expect(rowOf(db, "left-behind").Status).To(Equal(schema.ORStatusFailed))
+			Expect(rowOf(db, "mine").Status).To(Equal(schema.ORStatusInProgress))
+		})
+
+		It("stops the generation of a run the sweeper ended, and writes no more for it", func() {
+			a := newStore("a")
+			b := newStore("b")
+			cancelled := startRunning(a, "r1", "")
+			Expect(db.Model(&responseRow{}).Where("id = ?", "r1").Update("lease_until", 1).Error).To(Succeed())
+			b.SweepOnce(context.Background())
+			a.leaseTick(context.Background())
+			Expect(cancelled.Load()).To(BeTrue())
+			Expect(a.UpdateResponse("r1", durableResponse("r1", schema.ORStatusCompleted))).To(Succeed())
+			Expect(rowOf(db, "r1").Status).To(Equal(schema.ORStatusFailed))
+		})
+	})
+
+	Describe("cancel_requested", func() {
+		It("reaches the owner through the table when the bus message is lost", func() {
+			a := newStore("a")
+			b := newStore("b")
+			cancelled := startRunning(a, "r1", "alice")
+			got, err := b.Cancel("r1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Status).To(Equal(schema.ORStatusCancelled))
+			Expect(rowOf(db, "r1").CancelRequested).To(BeTrue())
+			Expect(cancelled.Load()).To(BeFalse())
+
+			a.leaseTick(context.Background())
+			Expect(cancelled.Load()).To(BeTrue())
+			Expect(rowOf(db, "r1").Status).To(Equal(schema.ORStatusCancelled))
+		})
+	})
+
 	Describe("expiry", func() {
 		It("gives a row the default 7 days when no TTL is set", func() {
 			a := newStore("a")
@@ -431,6 +521,8 @@ func tableSpecs(openDB func() *gorm.DB) {
 		})
 	})
 }
+
+func (s *ResponseStore) db() *durableBackend { return s.durable() }
 
 var _ = Describe("ResponseStore contract on the memory store", func() {
 	storeContract(func() *ResponseStore { return NewResponseStore(0) }, func(s *ResponseStore) *ResponseStore { return s })

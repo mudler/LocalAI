@@ -737,12 +737,17 @@ func (s *ResponseStore) Cancel(responseID string) (*schema.ORResponseResource, e
 		return response, nil
 	}
 
-	// A response of another replica, or of a process that is gone.
+	// A response of another replica, or of a process that is gone: flag it in
+	// the table, so the owner stops it on its next lease tick even when the bus
+	// message below is lost.
 	var fromTable *StoredResponse
 	if d := s.durable(); d != nil {
 		if row, err := d.getRow(context.Background(), responseID); err == nil {
 			if v, err := rowToStored(row); err == nil {
 				fromTable = v
+			}
+			if _, err := d.requestCancel(context.Background(), responseID); err != nil {
+				xlog.Warn("open responses: could not flag a cancel", "response_id", responseID, "error", err)
 			}
 		}
 	}
