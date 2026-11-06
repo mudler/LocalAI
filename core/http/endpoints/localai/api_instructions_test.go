@@ -130,6 +130,24 @@ var _ = Describe("API Instructions Endpoints", func() {
 			Expect(md).To(MatchRegexp(`## (GET|POST|PUT|PATCH|DELETE) /`))
 		})
 
+		It("describes sharing a saved agent in the sharing and the chats instructions", func() {
+			for _, name := range []string{"sharing", "chats"} {
+				req := httptest.NewRequest(http.MethodGet, "/api/instructions/"+name, nil)
+				rec := httptest.NewRecorder()
+				app.ServeHTTP(rec, req)
+				Expect(rec.Code).To(Equal(http.StatusOK))
+				body, _ := io.ReadAll(rec.Body)
+				for _, want := range []string{"POST /api/chats/agents/{id}/share", "GET /api/chats/agents/{id}/references", "GET /api/chats/agents/{id}/needs"} {
+					Expect(string(body)).To(ContainSubstring(want), name)
+				}
+			}
+			req := httptest.NewRequest(http.MethodGet, "/api/instructions/sharing", nil)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+			body, _ := io.ReadAll(rec.Body)
+			Expect(string(body)).To(ContainSubstring("agent, a saved agent"))
+		})
+
 		It("should include intro text for instructions that have one", func() {
 			req := httptest.NewRequest(http.MethodGet, "/api/instructions/chat-inference", nil)
 			rec := httptest.NewRecorder()

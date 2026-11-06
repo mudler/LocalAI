@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"slices"
 	"sort"
 	"sync"
@@ -293,10 +294,21 @@ func (s *Service) AgentsWithShared(ctx context.Context, user string) ([]AgentEnt
 	return append(out, shared...), nil
 }
 
-// agentShareLocks keeps two first shares of one agent from making two
-// records in one process. The store's first-wins update keeps a cluster
-// right; this only saves a record that would go unused.
-var agentShareLocks sync.Map
+// agentShareStripes is the number of locks that keep two first shares of one
+// agent from making two records in one process. The store's first-wins update
+// keeps a cluster right; the locks only save a record that would go unused.
+// The set is fixed, so it never grows with the number of agents: two agents
+// may share a lock, which only makes their first shares wait for each other.
+const agentShareStripes = 64
+
+var agentShareLocks [agentShareStripes]sync.Mutex
+
+// agentShareLock is the lock of the first share of the agent id.
+func agentShareLock(id string) *sync.Mutex {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(id))
+	return &agentShareLocks[h.Sum32()%agentShareStripes]
+}
 
 // AgentShareRef returns the sharing record of an agent of the user, making
 // it on the first share. Only the owner may call it.
@@ -313,9 +325,9 @@ func (s *Service) AgentShareRef(ctx context.Context, user, id string) (string, e
 	if ag.ShareRef != "" {
 		return ag.ShareRef, nil
 	}
-	mu, _ := agentShareLocks.LoadOrStore(id, &sync.Mutex{})
-	mu.(*sync.Mutex).Lock()
-	defer mu.(*sync.Mutex).Unlock()
+	mu := agentShareLock(id)
+	mu.Lock()
+	defer mu.Unlock()
 	if ag, err = s.d.Agents.Get(ctx, p, id); err != nil {
 		return "", err
 	}

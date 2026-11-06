@@ -3,6 +3,7 @@ package localaitools
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -14,6 +15,10 @@ import (
 // agent or an MCP client, which holds a key or a tool session, can never
 // share, lower or revoke. REST-to-MCP parity is intentionally absent here:
 // no tool maps to them, and nothing under pkg/mcp calls them.
+// shareRoute matches the share route of a connection, a collection or a saved
+// agent as code would build it.
+var shareRoute = regexp.MustCompile(`/api/(chats/connectors|collections|chats/agents)/[^"/\s]*/share\b`)
+
 var _ = Describe("sharing and the MCP tools", func() {
 	It("maps no tool to any /api/shares route", func() {
 		for tool, route := range toolToHTTPRoute {
@@ -31,6 +36,18 @@ var _ = Describe("sharing and the MCP tools", func() {
 		}
 	})
 
+	It("maps no tool to the share routes of a connection or a collection", func() {
+		// The routes give the ID of an owner's binding or collection in the
+		// sharing API; with it a caller could only go on to /api/shares.
+		share := regexp.MustCompile(`^POST /api/(chats/connectors|collections)/[^/ ]+/share$`)
+		for tool, route := range toolToHTTPRoute {
+			for _, part := range strings.Split(route, " + ") {
+				Expect(share.MatchString(strings.TrimSpace(part))).To(BeFalse(), tool+": sharing a connection or a collection is never a tool")
+			}
+			Expect(route).NotTo(MatchRegexp(`/api/(chats/connectors|collections)/[^/ ]+/share\b`), tool)
+		}
+	})
+
 	It("never names the routes in the code of the MCP server, its clients or its prompts", func() {
 		var hits []string
 		Expect(filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
@@ -41,7 +58,7 @@ var _ = Describe("sharing and the MCP tools", func() {
 			if rerr != nil {
 				return rerr
 			}
-			if strings.Contains(strings.ToLower(string(b)), "/api/shares") {
+			if low := strings.ToLower(string(b)); strings.Contains(low, "/api/shares") || shareRoute.MatchString(low) {
 				hits = append(hits, path)
 			}
 			return nil

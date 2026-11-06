@@ -148,13 +148,14 @@ ID `@everyone` and no display name. The call is safe to repeat. If the answer is
 
 ## Kinds of LocalAI itself
 
-LocalAI shares two kinds of its own resources with these routes. Their owners get
+LocalAI shares three kinds of its own resources with these routes. Their owners get
 the resource ID from the page of the resource, or from the route in the table.
 
 | Kind | What it is | Roles | `@everyone` | Feature | Resource ID from |
 |------|------------|-------|-------------|---------|------------------|
 | `connection` | A [connector binding]({{%relref "features/chats-connectors#sharing-a-connection" %}}) | `use` | No | `connectors` | `POST /api/chats/connectors/{id}/share` |
 | `collection` | A [collection]({{%relref "features/collections#sharing-a-collection" %}}) | `viewer`, `editor` | Yes | `collections` | `POST /api/collections/{name}/share` |
+| `agent` | A [saved agent]({{%relref "features/chats-agents#share-an-agent" %}}) | `use`, `viewer` | Yes | `agents` | `POST /api/chats/agents/{id}/share` |
 
 - **`connection`**: `use` lets the person's chats and agents run the tools of the
   binding's add-on with its credential. A chat of the person with a shared agent
@@ -167,6 +168,15 @@ the resource ID from the page of the resource, or from the route in the table.
   entries. Sources, reset and sharing stay with the owner. The person finds a shared
   collection by its name; their own collection of that name wins, and the shared one
   is then named `shared:<resource ID>`.
+
+- **`agent`**: `use` chats with the agent as yourself, `viewer` also reads its
+  definition. Only the owner edits, deletes, exports or shares it. Sharing the
+  agent shares nothing it uses. The owner reads what it uses with
+  `GET /api/chats/agents/{id}/references`: each collection, connection and add-on
+  resource carries `share` with the options its kind can grant and the role of each
+  option. A person who may use the agent reads
+  `GET /api/chats/agents/{id}/needs`: each thing it uses, its network preset and its
+  opt-in tool groups, with the state of each for them.
 
 The binding and the collection stay where they are. A share is one record of the
 policy that names the binding ID or the collection name of its owner, so nothing is

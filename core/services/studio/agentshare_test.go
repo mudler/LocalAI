@@ -330,6 +330,31 @@ var _ = Describe("shared saved agents", func() {
 		Expect(ag.Name).To(Equal("Second"))
 	})
 
+	It("makes one record when the first shares of an agent race", func() {
+		r := newShareRig(sayOK)
+		a := agents.Agent{ID: "ag1", Name: "Racer", Principal: alice, Created: time.Now().UTC()}
+		Expect(r.agents.Put(ctx, a)).To(Succeed())
+		refs := make([]string, 16)
+		var wg sync.WaitGroup
+		for i := range refs {
+			wg.Add(1)
+			go func() {
+				defer GinkgoRecover()
+				defer wg.Done()
+				ref, err := r.svc.AgentShareRef(ctx, alice, "ag1")
+				Expect(err).NotTo(HaveOccurred())
+				refs[i] = ref
+			}()
+		}
+		wg.Wait()
+		for _, ref := range refs {
+			Expect(ref).To(Equal(refs[0]))
+		}
+		views, err := r.pol.ListingKind(ctx, ownerActor(alice), studio.AgentShareKind)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(views).To(HaveLen(1), "the first share wins; no unused record is left")
+	})
+
 	It("shares nothing without the policy", func() {
 		r := newAgentRig(sayOK)
 		r.save(agents.Agent{ID: "ag1", Name: "Mine"})
