@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi, ROLES_KIND, clippedOptions } from './connector-fixtures.js'
+import { connectorApi, ROLES_KIND, clippedOptions, openEdit, expandAll } from './connector-fixtures.js'
 
 // "Check it" on the shared connection page (drawn here by the Slack add-on):
 // Try it asks the preview of the host what a kind of sender may do and says
@@ -29,7 +29,8 @@ test.describe('Check it', () => {
     const a = connectorApi(page, [binding], 'slack', SENDERS, undefined, { kindExtra: ROLES_KIND, access: ACCESS })
     await a.install()
     await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Edit' }).click()
+    await openEdit(page)
+    await expandAll(page)
     await expect(page.getByTestId('connector-try')).toBeVisible()
     return a
   }

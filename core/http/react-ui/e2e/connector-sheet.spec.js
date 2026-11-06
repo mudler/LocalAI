@@ -1,0 +1,246 @@
+import { test, expect } from './coverage-fixtures.js'
+import { mockChat } from './chat-fixtures.js'
+import { installStudioAddons } from './studio-addon.js'
+import { connectorApi, openEdit, openMatrix, openPane, saveSheet } from './connector-fixtures.js'
+
+// The page of a connector add-on (drawn here by Telegram): rows with a state
+// chip, a pane beside the list, and a side sheet for add and edit with three
+// permission presets. The core API is stubbed.
+
+const PAGE = '/app/addons/telegram/bots'
+const USUAL = ['files.upload', 'memory.write', 'proposals.confirm', 'talkback.channels', 'triggers.propose', 'triggers.run']
+const RUNNING = { id: 'b1', name: 'Support bot', kind: 'telegram', addon: 'telegram', active: true, agent_id: 'a1', enabled: true, accept_any: false, allow: ['42', '77'], has_token: true, caps: ['memory.write'], grants: [], channels: [], paired: [] }
+const OFF = { ...RUNNING, id: 'b2', name: 'Night desk', enabled: false, allow: [], caps: [] }
+const NO_TOKEN = { ...RUNNING, id: 'b3', name: 'Field team', accept_any: true, allow: [], has_token: false }
+
+test.describe('Connector rows, pane and sheet', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockChat(page)
+    await installStudioAddons(page, { ids: ['telegram'] })
+  })
+
+  test('a row says Running, Off or Needs attention, with the facts the API returns and no activity figures', async ({ page }) => {
+    await connectorApi(page, [RUNNING, OFF, NO_TOKEN]).install()
+    await page.goto(PAGE)
+    const rows = page.getByTestId('connector-row')
+    await expect(rows).toHaveCount(3)
+    await expect(rows.nth(0).getByTestId('connector-state')).toHaveText('Running')
+    await expect(rows.nth(1).getByTestId('connector-state')).toHaveText('Off')
+    await expect(rows.nth(2).getByTestId('connector-state')).toHaveText('Needs attention')
+    await expect(rows.nth(0).getByTestId('connector-facts')).toHaveText('telegram · Agent: Support · Accepts: 2 listed senders')
+    await expect(rows.nth(2).getByTestId('connector-facts')).toContainText('Accepts: anyone')
+    // The fix of a missing token is the main button of the row, in place of Test.
+    await expect(rows.nth(2).getByTestId('connector-attention')).toHaveText('No token is saved.')
+    await expect(rows.nth(2).getByRole('button', { name: 'Fix token' })).toBeVisible()
+    await expect(rows.nth(2).getByTestId('connector-test')).toHaveCount(0)
+    await expect(rows.nth(0).getByTestId('connector-test')).toBeVisible()
+    await expect(rows.nth(0)).not.toContainText(/today|last reply|messages/i)
+  })
+
+  test('the switch of a row applies at once with no Save', async ({ page }) => {
+    const a = connectorApi(page, [RUNNING])
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('switch', { name: 'Support bot on' }).click()
+    await expect.poll(() => a.s.calls.some(c => c.url.endsWith('/disable'))).toBe(true)
+    await expect(page.getByTestId('connector-state')).toHaveText('Off')
+    await expect(page.getByTestId('connector-sheet')).toHaveCount(0)
+  })
+
+  test('a click on a row opens the pane, which keeps the last test in the browser, and Escape closes it', async ({ page }) => {
+    const a = connectorApi(page, [RUNNING])
+    await a.install()
+    await page.goto(PAGE)
+    await openPane(page)
+    const pane = page.getByTestId('connector-pane')
+    await expect(pane).toBeVisible()
+    await expect(pane.getByTestId('connector-pane-never')).toHaveText('Not tested in this browser yet.')
+    await expect(pane.getByTestId('connector-pane-facts')).toContainText('2 listed senders')
+    // The sender the bot ignored is a refusal.
+    await expect(pane.getByTestId('connector-pane-refusals')).toContainText('Newcomer')
+    await pane.getByTestId('connector-pane-test').click()
+    await expect(pane.getByTestId('connector-pane-ok')).toContainText('Passed')
+    // The result stays after a reload.
+    await page.reload()
+    await openPane(page)
+    await expect(page.getByTestId('connector-pane-ok')).toContainText('Passed')
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('connector-pane')).toHaveCount(0)
+    await expect(page.getByTestId('connector-open')).toBeFocused()
+  })
+
+  test('a failed test shows in the pane, and a rejected token turns the row into Fix token', async ({ page }) => {
+    await connectorApi(page, [RUNNING]).install()
+    await page.route(/\/api\/chats\/connectors\/b1\/test$/, r => r.fulfill({ status: 400, json: { error: { message: 'Unauthorized: the token was refused' } } }))
+    await page.goto(PAGE)
+    await page.getByTestId('connector-test').click()
+    await expect(page.getByTestId('connector-state')).toHaveText('Needs attention')
+    await expect(page.getByTestId('connector-fix-token')).toBeVisible()
+    await openPane(page)
+    await expect(page.getByTestId('connector-pane-failed')).toContainText('token was refused')
+  })
+
+  test('Fix token opens the edit sheet on the token field', async ({ page }) => {
+    await connectorApi(page, [NO_TOKEN]).install()
+    await page.goto(PAGE)
+    await page.getByTestId('connector-fix-token').click()
+    await expect(page.getByTestId('connector-sheet')).toBeVisible()
+    await expect(page.getByLabel('Bot token')).toBeFocused()
+  })
+
+  test('the pane footer has Remove, Edit and Test connection, and Remove asks first', async ({ page }) => {
+    const a = connectorApi(page, [RUNNING])
+    await a.install()
+    await page.goto(PAGE)
+    await openPane(page)
+    const pane = page.getByTestId('connector-pane')
+    await expect(pane.getByTestId('connector-pane-delete')).toHaveText('Remove')
+    await expect(pane.getByTestId('connector-pane-edit')).toHaveText('Edit')
+    await expect(pane.getByTestId('connector-pane-test')).toHaveText('Test connection')
+    await pane.getByTestId('connector-pane-delete').click()
+    await expect(page.getByRole('alertdialog')).toContainText('Delete Support bot?')
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click()
+    expect(a.s.calls.some(c => c.method === 'DELETE')).toBe(false)
+    await pane.getByTestId('connector-pane-edit').click()
+    await expect(page.getByTestId('connector-sheet')).toBeVisible()
+  })
+
+  test('the sheet has three sections, a primary Save and test, and a new connection starts on Standard', async ({ page }) => {
+    const a = connectorApi(page)
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByTestId('connector-new').click()
+    const sheet = page.getByTestId('connector-sheet')
+    await expect(sheet).toBeVisible()
+    await expect(sheet.locator('.cn-sheet__label')).toHaveText(['Connection', 'Who can talk to it', 'What it may do'])
+    await expect(sheet.getByTestId('connector-save')).toHaveText('Save and test')
+    await expect(sheet.getByTestId('connector-cancel')).toHaveText('Cancel')
+    await expect(sheet.locator('.dk-btn--primary')).toHaveCount(1)
+    await expect(sheet.getByTestId('connector-preset-standard')).toBeChecked()
+    await expect(sheet.getByTestId('connector-matrix')).toHaveCount(0)
+    await sheet.getByLabel('Name', { exact: true }).fill('Support bot')
+    await sheet.getByLabel('Bot token').fill('555:secret-token')
+    await sheet.getByLabel('Agent', { exact: true }).selectOption('a1')
+    await saveSheet(page)
+    // Save, then test with what was saved.
+    await expect(page.getByText('Connected to @support_bot.')).toBeVisible()
+    const body = a.s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/connectors').body
+    expect(body.caps.slice().sort()).toEqual(USUAL.slice().sort())
+    await expect(page.getByTestId('connector-sheet')).toHaveCount(0)
+  })
+
+  test('Answer only saves no permission, and Standard never ticks a sensitive one', async ({ page }) => {
+    const a = connectorApi(page, [{ ...RUNNING, caps: [...USUAL, 'tools.write'] }])
+    await a.install()
+    await page.goto(PAGE)
+    await openEdit(page)
+    await expect(page.getByTestId('connector-preset-custom')).toBeChecked()
+    await page.getByTestId('connector-preset-answer').check()
+    await expect(page.getByTestId('connector-matrix')).toHaveCount(0)
+    await saveSheet(page)
+    await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.caps).toEqual([])
+    await openEdit(page)
+    await expect(page.getByTestId('connector-preset-answer')).toBeChecked()
+    await page.getByTestId('connector-preset-standard').check()
+    await saveSheet(page)
+    await expect.poll(() => a.s.calls.filter(c => c.method === 'PUT').at(-1)?.body.caps.length).toBeGreaterThan(0)
+    const caps = a.s.calls.filter(c => c.method === 'PUT').at(-1).body.caps
+    expect(caps).not.toContain('talkback.new_channel')
+    expect(caps).not.toContain('tools.write')
+  })
+
+  test('Custom opens the whole matrix, and the matrix keeps its Reset to the usual set', async ({ page }) => {
+    await connectorApi(page, [RUNNING]).install()
+    await page.goto(PAGE)
+    await openEdit(page)
+    const matrix = await openMatrix(page)
+    await expect(matrix).toBeVisible()
+    await expect(page.getByTestId('connector-cap-switch-memory.write')).toHaveAttribute('aria-checked', 'true')
+    await page.getByTestId('connector-usual').click()
+    await expect(page.getByTestId('connector-cap-switch-files.upload')).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByTestId('connector-cap-switch-talkback.new_channel')).toHaveAttribute('aria-checked', 'false')
+  })
+
+  test('a kind with no capabilities shows no presets', async ({ page }) => {
+    await connectorApi(page, [], 'telegram', [], undefined, { capabilities: [] }).install()
+    await page.goto(PAGE)
+    await page.getByTestId('connector-new').click()
+    await expect(page.getByTestId('connector-sheet')).toBeVisible()
+    await expect(page.getByTestId('connector-preset')).toHaveCount(0)
+  })
+
+  test('?new=1&agent= opens the add sheet at once with the agent fixed', async ({ page }) => {
+    const a = connectorApi(page)
+    await a.install()
+    await page.goto(`${PAGE}?new=1&agent=a1`)
+    const sheet = page.getByTestId('connector-sheet')
+    await expect(sheet).toBeVisible()
+    await expect(sheet.getByTestId('connector-agent-fixed')).toContainText('Answers with agent Support')
+    await expect(sheet.getByTestId('connector-agent')).toHaveCount(0)
+    await sheet.getByLabel('Name', { exact: true }).fill('Support bot')
+    await sheet.getByLabel('Bot token').fill('1:x')
+    await saveSheet(page)
+    await expect.poll(() => a.s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/connectors')?.body.agent_id).toBe('a1')
+  })
+
+  test('?new=1 with an unknown agent or an agent with no model opens the sheet with the agent to choose', async ({ page }) => {
+    await connectorApi(page).install()
+    await page.goto(`${PAGE}?new=1&agent=a2`)
+    await expect(page.getByTestId('connector-sheet')).toBeVisible()
+    await expect(page.getByTestId('connector-agent-fixed')).toHaveCount(0)
+    await expect(page.getByTestId('connector-agent')).toHaveValue('')
+  })
+
+  test('?binding= opens the settings of that connection with its permissions in view', async ({ page }) => {
+    await connectorApi(page, [RUNNING]).install()
+    await page.goto(`${PAGE}?binding=b1`)
+    await expect(page.getByTestId('connector-sheet')).toBeVisible()
+    await expect(page.getByTestId('connector-matrix')).toBeVisible()
+    await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Support bot')
+  })
+
+  test('closing the sheet over a change asks first, and an untouched sheet closes at once', async ({ page }) => {
+    await connectorApi(page, [RUNNING]).install()
+    await page.goto(PAGE)
+    await openEdit(page)
+    const sheet = page.getByTestId('connector-sheet')
+    await expect(sheet).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(sheet).toHaveCount(0)
+    // The menu of the row that opened it has the focus back.
+    await expect(page.locator('.action-menu__trigger')).toBeFocused()
+
+    await openEdit(page)
+    await page.getByLabel('Name', { exact: true }).fill('Renamed')
+    await page.keyboard.press('Escape')
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toContainText('Discard your changes?')
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(sheet).toBeVisible()
+    await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Renamed')
+    await sheet.getByTestId('connector-cancel').click()
+    await dialog.getByRole('button', { name: 'Discard changes' }).click()
+    await expect(sheet).toHaveCount(0)
+  })
+
+  test('Tab stays inside the sheet', async ({ page }) => {
+    await connectorApi(page, [RUNNING]).install()
+    await page.goto(PAGE)
+    await openEdit(page)
+    for (let i = 0; i < 60; i++) {
+      await page.keyboard.press('Tab')
+      expect(await page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]')))).toBe(true)
+    }
+  })
+
+  test('a save the server refuses keeps the sheet open and shows the reason inside it', async ({ page }) => {
+    await connectorApi(page, [RUNNING]).install()
+    await page.route(/\/api\/chats\/connectors\/b1$/, r => (r.request().method() === 'PUT' ? r.fulfill({ status: 400, json: { error: { message: 'the platform refused the bot token' } } }) : r.fallback()))
+    await page.goto(PAGE)
+    await openEdit(page)
+    await page.getByLabel('Name', { exact: true }).fill('Renamed')
+    await saveSheet(page)
+    await expect(page.getByTestId('connector-sheet-error')).toContainText('the platform refused the bot token')
+    await expect(page.getByTestId('connector-sheet')).toBeVisible()
+  })
+})

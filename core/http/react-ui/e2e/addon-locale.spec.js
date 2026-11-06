@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi, ROLES_KIND } from './connector-fixtures.js'
+import { connectorApi, ROLES_KIND, openEdit, rowMenu, expandAll, openPane } from './connector-fixtures.js'
 
 // The pages of the add-ons follow the language of the web UI. The words of the
 // shared connector page and of each add-on page are bundles of the add-on, in
@@ -74,7 +74,8 @@ test.describe('Add-on pages in Italian', () => {
     await page.goto(SLACK)
     // The words of the add-on itself.
     await expect(page.getByRole('button', { name: 'Nuova app Slack' })).toBeVisible()
-    await page.getByRole('button', { name: 'Modifica', exact: true }).click()
+    await rowMenu(page, 'Modifica')
+    await expandAll(page)
     await expect(page.getByLabel('Token del bot')).toBeVisible()
     // The shared words: readiness, what the bot can do, permissions, approval, pairing.
     await expect(page.getByTestId('connector-readiness')).toContainText('Stato')
@@ -98,7 +99,8 @@ test.describe('Add-on pages in Italian', () => {
     const a = connectorApi(page, [{ ...SAVED, allow: ['U001', 'U002'] }], 'slack', [], undefined, { kindExtra: ROLES_KIND })
     await a.install()
     await page.goto(SLACK)
-    await page.getByRole('button', { name: 'Modifica', exact: true }).click()
+    await rowMenu(page, 'Modifica')
+    await expandAll(page)
     await page.getByTestId('connector-ready-toggle').click()
     await expect(page.getByTestId('connector-ready-who')).toContainText('2 persone o chat sono in elenco.')
   })
@@ -107,7 +109,8 @@ test.describe('Add-on pages in Italian', () => {
     const a = connectorApi(page, [SAVED], 'slack', [], undefined, { kindExtra: ROLES_KIND })
     await a.install()
     await page.goto(SLACK)
-    await page.getByRole('button', { name: 'Modifica', exact: true }).click()
+    await rowMenu(page, 'Modifica')
+    await expandAll(page)
     await page.getByTestId('connector-ready-toggle').click()
     await expect(page.getByTestId('connector-ready-who')).toBeVisible()
     await expect(page.getByTestId('connector-matrix-row-memory.write')).toBeVisible()
@@ -139,7 +142,7 @@ test.describe('Add-on pages follow the language', () => {
       await connectorApi(page, [SAVED], 'slack', [], undefined, { kindExtra: ROLES_KIND }).install()
       await page.setViewportSize({ width: 390, height: 844 })
       await page.goto(SLACK)
-      await page.locator('.cn-row__actions .dk-btn').nth(2).click()
+      await openEdit(page)
       await page.getByTestId('connector-ready-toggle').click()
       await expect(page.getByTestId('connector-pairing')).toBeVisible()
       expect(await overflowing(page.getByTestId('connector-form')), lng).toEqual([])
@@ -184,7 +187,8 @@ test.describe('Jellyfin and Home Assistant in Italian', () => {
     await expect(page.getByTestId('connector-row')).toContainText('Solo credenziali')
     await expect(page.locator('.cn-page')).toContainText('Come creare la chiave')
     await shots(page, 'it-jellyfin', page.locator('.cn-page'))
-    await page.getByRole('button', { name: 'Modifica', exact: true }).click()
+    await rowMenu(page, 'Modifica')
+    await expandAll(page)
     await expect(page.getByLabel('Chiave API')).toBeVisible()
     await shots(page, 'it-jellyfin-form', page.getByTestId('connector-form'))
   })
@@ -194,11 +198,16 @@ test.describe('Jellyfin and Home Assistant in Italian', () => {
     await connectorApi(page, [CREDENTIALS('home-assistant', 'https://ha.example.org:8123')], 'home-assistant', [], undefined, { capabilities: [], kindExtra: { title: 'Home Assistant', ...ADDRESS_ONLY } }).install()
     await page.goto('/app/addons/home-assistant/apps')
     await expect(page.getByRole('button', { name: 'Nuova connessione Home Assistant' })).toBeVisible()
-    await page.getByRole('button', { name: 'Prova' }).click()
+    await page.getByTestId('connector-test').click()
+    await openPane(page)
     await expect(page.getByTestId('home-assistant-checks')).toContainText('Raggiungibile. Home Assistant 2026.11.0, 12 integrazioni.')
+    // The pane narrows the list, whose one-line facts then end in an ellipsis on purpose; the page is measured without it.
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('connector-pane')).toHaveCount(0)
     await expect(page.getByTestId('home-assistant-policy')).toContainText('Cosa possono fare le chat nella tua casa')
     await shots(page, 'it-home-assistant', page.locator('.cn-page'))
-    await page.getByRole('button', { name: 'Modifica', exact: true }).click()
+    await rowMenu(page, 'Modifica')
+    await expandAll(page)
     await shots(page, 'it-home-assistant-form', page.getByTestId('connector-form'))
   })
 })
