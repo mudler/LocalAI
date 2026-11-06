@@ -163,11 +163,12 @@ that all frontends share the same collections.
 The shares of the collections are records in the policy store of the add-on owner,
 keyed by the owner and the name of the collection. A search or a write on a shared
 collection runs as admitted work of that policy, which only the owner process holds.
-So, with several frontends, a shared collection is reached only through the owner
-process. Every other frontend answers as for a collection that does not exist,
-lists no collection under `shared` and reports `sharing: false`; a person's own
-collections are not affected. The Share dialog itself works from every frontend,
-because the sharing routes forward to the owner.
+With several frontends, a frontend asks the owner over the add-on carrier: it lists
+the shared collections, makes a collection shareable and has each search or write
+admitted by the owner, then runs it itself. A revocation on any frontend stops that
+work before it answers. When a frontend cannot reach the owner, it stops the work
+on shared collections, lists none under `shared` and answers as for a collection
+that does not exist; a person's own collections are not affected.
 
 ## Use a collection in an agent
 

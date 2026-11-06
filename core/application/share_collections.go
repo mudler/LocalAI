@@ -88,9 +88,10 @@ func (a *Application) CollectionShares(ctx context.Context, user string, own []s
 	if user == "" {
 		return out
 	}
+	records := a.ownedRefs(ctx, KindCollection, user)
 	for _, name := range own {
-		if id, n, ok := a.shareCount(ctx, KindCollection, user, name); ok {
-			out[name] = CollectionShare{ID: id, SharedWith: n}
+		if v, ok := records[name]; ok {
+			out[name] = CollectionShare{ID: v.Ref.ResourceID, SharedWith: v.Shared}
 		}
 	}
 	return out
@@ -161,7 +162,7 @@ func (a *Application) WithCollection(ctx context.Context, user, name string, act
 	err = p.AdmitRef(ctx, hostActor(user), target.ref, action, func(ctx context.Context) error {
 		return run(ctx, target.owner, target.Name)
 	})
-	if errors.Is(err, policy.ErrForbidden) {
+	if denied(err) {
 		return ErrCollectionNotFound
 	}
 	return err

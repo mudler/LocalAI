@@ -3,7 +3,6 @@ package application
 
 import (
 	"context"
-	"errors"
 
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -30,17 +29,19 @@ func (c connectionShares) Shared(ctx context.Context, user string) ([]studio.Sha
 	return out, nil
 }
 
+// Admit runs where the credential is used, the add-on owner, so its admission
+// is the owner's own. It is the same call through the carrier.
 func (c connectionShares) Admit(ctx context.Context, user, owner, bindingID string, run func(context.Context) error) error {
 	p := c.a.hostSharing()
 	if p == nil {
 		return connectors.ErrNoCredential
 	}
-	ref, ok := p.FindRef(KindConnection, owner, bindingID)
+	ref, ok := c.a.sharedRefOf(ctx, KindConnection, user, owner, bindingID)
 	if !ok {
 		return connectors.ErrNoCredential
 	}
 	err := p.AdmitRef(ctx, hostActor(user), ref, policy.ActionRead, run)
-	if errors.Is(err, policy.ErrForbidden) {
+	if denied(err) {
 		// A revoked share is the answer of a binding that does not exist.
 		return connectors.ErrNoCredential
 	}
@@ -48,8 +49,8 @@ func (c connectionShares) Admit(ctx context.Context, user, owner, bindingID stri
 }
 
 func (c connectionShares) ShareOf(ctx context.Context, owner, bindingID string) (studio.ShareState, bool) {
-	id, n, ok := c.a.shareCount(ctx, KindConnection, owner, bindingID)
-	return studio.ShareState{ResourceID: id, SharedWith: n}, ok
+	v, ok := c.a.ownedRefs(ctx, KindConnection, owner)[bindingID]
+	return studio.ShareState{ResourceID: v.Ref.ResourceID, SharedWith: v.Shared}, ok
 }
 
 func (c connectionShares) Ensure(ctx context.Context, owner, bindingID string) (string, error) {
@@ -69,9 +70,9 @@ func (c connectionShares) Forget(ctx context.Context, owner, bindingID string) e
 	if p == nil {
 		return nil
 	}
-	ref, ok := p.FindRef(KindConnection, owner, bindingID)
+	v, ok := c.a.ownedRefs(ctx, KindConnection, owner)[bindingID]
 	if !ok {
 		return nil
 	}
-	return p.ForgetRef(ctx, hostActor(owner), ref)
+	return p.ForgetRef(ctx, hostActor(owner), v.Ref)
 }

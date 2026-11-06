@@ -140,6 +140,9 @@ type ShareView struct {
 	// Shared is the number of grants, the one to everyone included. It is
 	// set only when Role is owner.
 	Shared int
+	// Local is the service's own name of the resource (see EnsureRef),
+	// empty for a resource made by CreateRef.
+	Local string
 }
 
 // ListingKind lists the active resources of a kind that is not an add-on
@@ -160,7 +163,7 @@ func (p *Policy) ListingKind(ctx context.Context, actor contract.Actor, kind str
 		if r.State != stateActive || r.Kind != kind {
 			continue
 		}
-		v := ShareView{Ref: Ref{Kind: kind, ResourceID: id}, OwnerID: r.Owner}
+		v := ShareView{Ref: Ref{Kind: kind, ResourceID: id}, OwnerID: r.Owner, Local: r.Local}
 		if p.role(actor, *r) == RoleOwner {
 			v.Role, v.Shared = RoleOwner, len(r.Grants)
 			out = append(out, v)

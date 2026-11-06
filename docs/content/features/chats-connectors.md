@@ -1464,10 +1464,12 @@ The grants are then listed and changed with
 `/api/shares/connection/{resource_id}/grants`, see
 [Sharing resources]({{%relref "features/sharing" %}}).
 
-The shares live with the add-on owner. With several frontends, only the owner
-process lists the shared bindings and the shares (`sharing` is `false` on the
-others); the calls through a shared binding always run on the owner, where the
-tokens are.
+The shares live with the add-on owner. With several frontends, every frontend
+lists the shared bindings and the shares, and makes a binding shareable, by asking
+the owner. The calls through a shared binding always run on the owner, where the
+tokens are, so a frontend never holds a token of a binding it does not own. When a
+frontend cannot reach the owner, it lists no shared binding and no share; your own
+bindings are not affected.
 
 ## When a binding switches itself off
 
@@ -1525,7 +1527,7 @@ restart). The JSON store is for one process.
 | The chats of the answers (thread mode) | Shared | Each answer's message IDs are stored with the chat of each sender, so a reply finds its chat on any frontend. |
 | Slack Socket Mode links and their queues | Per instance | The Slack add-on process keeps one link per polled binding, acknowledges each event at once and queues it until the next poll. An event that is queued when the process stops is lost. The followed threads and the "Working…" messages are kept there too. |
 | The language of each sender | Per instance | With `reply_language` set to `auto`, the frontend that takes a message keeps the last clear language of the sender and of the chat in memory for 24 hours. A trigger that runs on another frontend does not know it and uses English. The interface language of the owner is stored with the binding, so it is the same on every frontend. A fixed language is stored with the binding and works everywhere. |
-| Shares of a binding | Single runner | The grants are records in the policy store of the add-on owner, the one process that writes them, keyed by the binding ID; the binding itself is not copied. A call through a shared binding is admitted on the owner, which is also the only process that opens the sealed tokens, so a revocation cancels it there. Other frontends forward the sharing calls to the owner. |
+| Shares of a binding | Single runner | The grants are records in the policy store of the add-on owner, the one process that writes them, keyed by the binding ID; the binding itself is not copied. A call through a shared binding is admitted on the owner, which is also the only process that opens the sealed tokens, so a revocation cancels it there. Other frontends ask the owner for the listing, the record of a binding and its removal. |
 | Files marked by `attach_file` | Per instance | The marks live in the process that runs the turn and are sent by the process that sends the replies. A turn that ends on another frontend than the one that sends the answer loses its marks; the agent then sees no error, and the person asks again. |
 
 ### For add-on authors: sending files

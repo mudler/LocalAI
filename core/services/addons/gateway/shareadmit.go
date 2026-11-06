@@ -22,6 +22,11 @@ import (
 // the work returned, and releases it. Only then does the owner's admission
 // end, so the owner's grant change answers after the work stopped, as it does
 // for work in its own process. A lease nobody watches expires on the owner.
+//
+// A service that already names its resources (a connector binding has an ID,
+// a collection a name) keeps one record for each name: share-ensure makes or
+// finds the record of a name of the caller, share-forget drops it after every
+// grant was revoked, and share-views gives the name of each record.
 
 const (
 	shareViews   = "share-views"
@@ -29,7 +34,12 @@ const (
 	shareAdmit   = "share-admit"
 	shareWatch   = "share-watch"
 	shareRelease = "share-release"
+	shareEnsure  = "share-ensure"
+	shareForget  = "share-forget"
 )
+
+// maxShareLocal bounds the service's name of a resource in a call.
+const maxShareLocal = 256
 
 // ShareView is one resource of a kind as the caller sees it. OwnerID is the
 // owner's account ID: the frontend uses it to match the resource to its own
@@ -41,6 +51,9 @@ type ShareView struct {
 	OwnerID  string `json:"ownerId"`
 	// Shared is the number of grants, for the owner only.
 	Shared int `json:"shared,omitempty"`
+	// Local is the service's own name of the resource (see share-ensure),
+	// empty for a resource made by share-create.
+	Local string `json:"local,omitempty"`
 }
 
 // ShareViews is the answer of share-views: every resource of the kind the
@@ -84,12 +97,17 @@ type ShareAuthority interface {
 	WatchShare(ctx context.Context, actor contract.Actor, lease string, stopping bool) (ShareLeaseState, error)
 	// ReleaseShare ends the admission of the lease. It is safe to repeat.
 	ReleaseShare(ctx context.Context, actor contract.Actor, lease string) error
+	// EnsureShare returns the record the actor keeps under the name local in
+	// the kind, and makes it when there is none.
+	EnsureShare(ctx context.Context, actor contract.Actor, kind, local string) (ShareRef, error)
+	// ForgetShare revokes every grant of a record of the actor and drops it.
+	ForgetShare(ctx context.Context, actor contract.Actor, kind, resourceID string) error
 }
 
 // leased says whether the call is one of the lease calls above.
 func (c ResourceCall) leased() bool {
 	switch c.Op {
-	case shareViews, shareCreate, shareAdmit, shareWatch, shareRelease:
+	case shareViews, shareCreate, shareAdmit, shareWatch, shareRelease, shareEnsure, shareForget:
 		return true
 	}
 	return false
@@ -100,7 +118,7 @@ func (g *Gateway) shareLocal(ctx context.Context, a contract.Actor, call Resourc
 	if g.ShareAuthority == nil {
 		return nil, ErrUnavailable
 	}
-	if len(call.Lease) > 64 || len(call.ResourceID) > 256 || len(call.Action) > 32 {
+	if len(call.Lease) > 64 || len(call.ResourceID) > 256 || len(call.Action) > 32 || len(call.Local) > maxShareLocal {
 		return nil, ErrInvalidRequest
 	}
 	switch call.Op {
@@ -114,6 +132,10 @@ func (g *Gateway) shareLocal(ctx context.Context, a contract.Actor, call Resourc
 		return g.ShareAuthority.WatchShare(ctx, a, call.Lease, call.Stopping)
 	case shareRelease:
 		return struct{}{}, g.ShareAuthority.ReleaseShare(ctx, a, call.Lease)
+	case shareEnsure:
+		return g.ShareAuthority.EnsureShare(ctx, a, call.ShareKind, call.Local)
+	case shareForget:
+		return struct{}{}, g.ShareAuthority.ForgetShare(ctx, a, call.ShareKind, call.ResourceID)
 	}
 	return nil, ErrForbidden
 }
@@ -128,6 +150,20 @@ func (g *Gateway) ShareViews(ctx context.Context, a contract.Actor, kind string)
 // is an unknown outcome: the owner may have made a record nobody uses.
 func (g *Gateway) CreateShare(ctx context.Context, a contract.Actor, kind string) (ShareRef, error) {
 	return decodeResource[ShareRef](g.resourceCall(ctx, a, "", ResourceCall{Op: shareCreate, ShareKind: kind}))
+}
+
+// EnsureShare returns the record the caller keeps under the name local in the
+// kind, and makes it when there is none. Repeating it is safe: a lost answer
+// is an unknown outcome that the same call settles.
+func (g *Gateway) EnsureShare(ctx context.Context, a contract.Actor, kind, local string) (ShareRef, error) {
+	return decodeResource[ShareRef](g.resourceCall(ctx, a, "", ResourceCall{Op: shareEnsure, ShareKind: kind, Local: local}))
+}
+
+// ForgetShare revokes every grant of a record of the caller and drops it.
+// The owner answers after the work of every grantee stopped.
+func (g *Gateway) ForgetShare(ctx context.Context, a contract.Actor, kind, resourceID string) error {
+	_, err := g.resourceCall(ctx, a, "", ResourceCall{Op: shareForget, ShareKind: kind, ResourceID: resourceID})
+	return err
 }
 
 // Bounds of the frontend half of a lease.

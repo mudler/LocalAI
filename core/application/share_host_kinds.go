@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -113,14 +114,25 @@ func hostActor(userID string) contract.Actor {
 	return contract.Actor{UserID: userID, CredentialID: auth.AddonChatsCredential, Mode: auth.AddonModeNamedUser}
 }
 
-// hostSharing returns the policy when this process can share the host's
-// resources: named accounts and the policy of the add-on owner here.
-func (a *Application) hostSharing() *policy.Policy {
-	p := a.AddonPolicy()
-	if p == nil || a.authDB == nil || p.Mode() != policy.ModeNamedUser {
+// hostSharing returns the sharing policy of the host's resources when this
+// process can share them: named accounts and the policy of the add-on owner,
+// held here (the owner, combined mode included) or reached through the add-on
+// carrier (a frontend, see addonSharingForward). The owner decides every call
+// of a frontend, and an owner that cannot be reached shares nothing.
+func (a *Application) hostSharing() policy.Sharing {
+	if a.authDB == nil {
 		return nil
 	}
-	return p
+	if p := a.AddonPolicy(); p != nil {
+		if p.Mode() != policy.ModeNamedUser {
+			return nil
+		}
+		return p
+	}
+	if f := a.addonSharingForward(); f != nil {
+		return f
+	}
+	return nil
 }
 
 // ownerNames returns the display names of the owners of shared resources. A
@@ -136,8 +148,8 @@ func (a *Application) ownerNames(ctx context.Context, ids []string) map[string]s
 	return names
 }
 
-// sharedRefs lists the resources of the kind shared with user, with the
-// service's name of each and the display name of its owner.
+// sharedRef is a resource of a kind shared with a person, with the service's
+// name of it and the display name of its owner.
 type sharedRef struct {
 	Ref                    policy.Ref
 	Owner, OwnerName, Name string
@@ -145,6 +157,9 @@ type sharedRef struct {
 	Everyone               bool
 }
 
+// sharedRefs lists the resources of the kind shared with user. The listing
+// carries the owner and the name of each record, so it reads the same on the
+// owner and through the carrier.
 func (a *Application) sharedRefs(ctx context.Context, kind, user string) ([]sharedRef, error) {
 	p := a.hostSharing()
 	if p == nil {
@@ -157,15 +172,11 @@ func (a *Application) sharedRefs(ctx context.Context, kind, user string) ([]shar
 	var out []sharedRef
 	var owners []string
 	for _, v := range views {
-		if v.Role == policy.RoleOwner {
+		if v.Role == policy.RoleOwner || v.Local == "" || v.OwnerID == "" {
 			continue
 		}
-		owner, name, ok := p.LocalOf(v.Ref)
-		if !ok {
-			continue
-		}
-		out = append(out, sharedRef{Ref: v.Ref, Owner: owner, Name: name, Role: v.Role, Everyone: v.Everyone})
-		owners = append(owners, owner)
+		out = append(out, sharedRef{Ref: v.Ref, Owner: v.OwnerID, Name: v.Local, Role: v.Role, Everyone: v.Everyone})
+		owners = append(owners, v.OwnerID)
 	}
 	names := a.ownerNames(ctx, owners)
 	for i := range out {
@@ -174,20 +185,44 @@ func (a *Application) sharedRefs(ctx context.Context, kind, user string) ([]shar
 	return out, nil
 }
 
-// shareCount is the number of grants of an owner's named resource, and its
-// ID in the sharing API. ok is false when it was never made shareable.
-func (a *Application) shareCount(ctx context.Context, kind, owner, name string) (string, int, bool) {
+// ownedRefs lists the owner's records of the kind by the service's name of
+// each, with the number of grants. A name that was never made shareable has
+// no entry; a listing that fails gives none.
+func (a *Application) ownedRefs(ctx context.Context, kind, owner string) map[string]policy.ShareView {
+	out := map[string]policy.ShareView{}
 	p := a.hostSharing()
-	if p == nil {
-		return "", 0, false
+	if p == nil || owner == "" {
+		return out
 	}
-	ref, ok := p.FindRef(kind, owner, name)
-	if !ok {
-		return "", 0, false
-	}
-	grants, err := p.GrantsRef(ctx, hostActor(owner), ref)
+	views, err := p.ListingKind(ctx, hostActor(owner), kind)
 	if err != nil {
-		return ref.ResourceID, 0, true
+		return out
 	}
-	return ref.ResourceID, len(grants), true
+	for _, v := range views {
+		if v.Role == policy.RoleOwner && v.OwnerID == owner && v.Local != "" {
+			out[v.Local] = v
+		}
+	}
+	return out
+}
+
+// sharedRefOf finds the record that user holds a grant on for the resource
+// that owner names local. ok is false when user holds none now.
+func (a *Application) sharedRefOf(ctx context.Context, kind, user, owner, local string) (policy.Ref, bool) {
+	refs, err := a.sharedRefs(ctx, kind, user)
+	if err != nil {
+		return policy.Ref{}, false
+	}
+	for _, r := range refs {
+		if r.Owner == owner && r.Name == local {
+			return r.Ref, true
+		}
+	}
+	return policy.Ref{}, false
+}
+
+// denied says whether err is a refusal of the policy, here or through the
+// carrier, rather than an owner that could not decide.
+func denied(err error) bool {
+	return errors.Is(err, gateway.ErrForbidden) && !errors.Is(err, gateway.ErrUnavailable)
 }

@@ -213,6 +213,17 @@ on frontend A, and the grantee lists it and chats with it on frontend B. A revok
 on A stops the turn on B before it answers. While the owner is gone, B lists and
 runs no shared agent.
 
+The application package runs a real add-on owner behind the same carrier, with two
+frontends that hold no policy, for the connector bindings and the collections. A
+name keeps one record from either frontend, and the policy specs forget it only
+after the grantee's run stopped. The owner makes a collection shareable on A, and
+the grantee lists, searches and writes it on B. A revoke on A stops a write on B
+before it answers, and a lowering stops only the work the new role takes away. A
+binding shared on A is listed on B with its name and owner and no credential, and a
+revoke through B stops a call that uses the credential on the owner. While the
+owner is gone, B stops the work on a shared collection and lists, shares and admits
+nothing, and the person's own collections still work.
+
 ## Data recovery suite
 
 ```sh

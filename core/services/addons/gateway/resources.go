@@ -399,6 +399,8 @@ type ResourceCall struct {
 	// Stopping says a share-watch only keeps the lease alive while the work
 	// stops.
 	Stopping bool `json:"stopping,omitempty"`
+	// Local is the service's own name of a resource in a share-ensure call.
+	Local string `json:"local,omitempty"`
 }
 
 // mutating says whether the call can change state that has an operation

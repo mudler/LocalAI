@@ -109,7 +109,7 @@ func (h *ShareHost) ShareViews(ctx context.Context, actor contract.Actor, kind s
 	}
 	out := gateway.ShareViews{Kind: kind, Views: make([]gateway.ShareView, 0, len(views))}
 	for _, v := range views {
-		out.Views = append(out.Views, gateway.ShareView{ID: v.Ref.ResourceID, Role: string(v.Role), Everyone: v.Everyone, OwnerID: v.OwnerID, Shared: v.Shared})
+		out.Views = append(out.Views, gateway.ShareView{ID: v.Ref.ResourceID, Role: string(v.Role), Everyone: v.Everyone, OwnerID: v.OwnerID, Shared: v.Shared, Local: v.Local})
 	}
 	return out, nil
 }
@@ -124,6 +124,29 @@ func (h *ShareHost) CreateShare(ctx context.Context, actor contract.Actor, kind 
 		return gateway.ShareRef{}, err
 	}
 	return gateway.ShareRef{ResourceID: ref.ResourceID}, nil
+}
+
+// EnsureShare is EnsureRef.
+func (h *ShareHost) EnsureShare(ctx context.Context, actor contract.Actor, kind, local string) (gateway.ShareRef, error) {
+	if err := h.kind(kind); err != nil {
+		return gateway.ShareRef{}, err
+	}
+	ref, err := h.p.EnsureRef(ctx, actor, kind, local)
+	if err != nil {
+		return gateway.ShareRef{}, err
+	}
+	return gateway.ShareRef{ResourceID: ref.ResourceID}, nil
+}
+
+// ForgetShare is ForgetRef.
+func (h *ShareHost) ForgetShare(ctx context.Context, actor contract.Actor, kind, resourceID string) error {
+	if err := h.kind(kind); err != nil {
+		return err
+	}
+	if resourceID == "" || len(resourceID) > 256 {
+		return ErrForbidden
+	}
+	return h.p.ForgetRef(ctx, actor, Ref{Kind: kind, ResourceID: resourceID})
 }
 
 // AdmitShare admits the actor and holds the admission under a new lease. The

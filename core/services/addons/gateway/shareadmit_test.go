@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -75,6 +76,16 @@ func (l *leaseRecorder) ReleaseShare(_ context.Context, _ contract.Actor, lease 
 	return nil
 }
 
+func (l *leaseRecorder) EnsureShare(_ context.Context, _ contract.Actor, kind, local string) (ShareRef, error) {
+	l.record("ensure " + kind + " " + local)
+	return ShareRef{ResourceID: "r2"}, l.err
+}
+
+func (l *leaseRecorder) ForgetShare(_ context.Context, _ contract.Actor, kind, id string) error {
+	l.record("forget " + kind + " " + id)
+	return l.err
+}
+
 var _ = Describe("the lease calls of a kind that is not an add-on", func() {
 	actor := contract.Actor{UserID: "bob", CredentialID: "chats", Mode: "named-user"}
 	allow := func(context.Context, contract.Actor) error { return nil }
@@ -132,6 +143,24 @@ var _ = Describe("the lease calls of a kind that is not an add-on", func() {
 			Expect(ResourceCall{Op: op}.sharing()).To(BeTrue(), op)
 		}
 		for _, op := range []string{shareCreate, shareAdmit} {
+			Expect(mutation(ResourceCall{Op: op}.wireAction())).To(BeTrue(), op)
+			Expect(ResourceCall{Op: op}.sharing()).To(BeTrue(), op)
+		}
+	})
+
+	It("keep the record of a resource the service names through the owner, and are mutations", func() {
+		rec := &leaseRecorder{lost: make(chan struct{})}
+		g := &Gateway{ShareAuthority: rec, Revalidate: allow, RevalidateAccount: allow}
+		ref, err := g.EnsureShare(ctx, actor, "connection", "binding-1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ref.ResourceID).To(Equal("r2"))
+		Expect(g.ForgetShare(ctx, actor, "connection", "r2")).To(Succeed())
+		Expect(rec.seen()).To(Equal([]string{"ensure connection binding-1", "forget connection r2"}))
+
+		_, err = g.EnsureShare(ctx, actor, "connection", strings.Repeat("x", 257))
+		Expect(errors.Is(err, ErrInvalidRequest)).To(BeTrue(), "a name longer than a record keeps is refused before the policy is asked")
+		Expect(rec.seen()).To(HaveLen(2))
+		for _, op := range []string{shareEnsure, shareForget} {
 			Expect(mutation(ResourceCall{Op: op}.wireAction())).To(BeTrue(), op)
 			Expect(ResourceCall{Op: op}.sharing()).To(BeTrue(), op)
 		}

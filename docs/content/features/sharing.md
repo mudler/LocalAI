@@ -173,10 +173,12 @@ record: lowering or revoking cancels it as described above, and the next call ge
 the answer of a resource that does not exist. Deleting a binding drops its record
 after it revoked every grant.
 
-Admission needs the policy, which only the add-on owner holds. With several
-frontends, the shared bindings and collections are listed and used only through the
-owner process; the other frontends list none and report `sharing: false`. The calls
-through a shared binding always run on the owner, which holds the tokens.
+With several frontends, every frontend lists, shares and uses the bindings and
+collections through the policy of the add-on owner (see
+[Distributed mode](#distributed-mode)). A search or a write on a shared collection
+runs on the frontend that serves the person, under an admission that the owner
+holds. The calls through a shared binding always run on the owner, which is the
+only process that holds the tokens.
 
 ## For service authors
 
@@ -190,10 +192,10 @@ backing of a pending resource exists. The service then creates
 its resources with `Policy.CreateRef` and runs its work under `Policy.AdmitRef`, so
 that a lowering or a revocation cancels it. A service that already names its
 resources keeps its names: `Policy.EnsureRef` makes the record of a name on its
-first share, `Policy.FindRef` and `Policy.LocalOf` look it up from either side, and
-`Policy.ForgetRef` drops it, after it revoked every grant, when the resource is
-deleted. In a process that does not hold the policy, the service uses
-`policy.Forwarded` (the same calls, `policy.Sharing`), which asks the owner
+first share, `Policy.ListingKind` gives the name of each record (`ShareView.Local`)
+with its owner, and `Policy.ForgetRef` drops it, after it revoked every grant, when
+the resource is deleted. In a process that does not hold the policy, the service
+uses `policy.Forwarded` (the same calls, `policy.Sharing`), which asks the owner
 through the add-on gateway. Package
 `core/services/addons/policy/sharetest` is a complete example that only the tests
 use.
@@ -301,8 +303,11 @@ not use them: the owner decides.
 This applies to the `/api/shares` routes and to the services that use a shared
 resource. A frontend that serves a person asks the owner, over the add-on
 carrier, to list the resources of a kind that are shared with that person, to
-create a resource, and to admit a piece of work, such as a chat turn with a
-shared agent. The work runs on the frontend.
+create a resource or the record of a binding or a collection, to drop that record
+when the binding is deleted, and to admit a piece of work, such as a chat turn with
+a shared agent or a search on a shared collection. The work runs on the frontend.
+A call through a shared binding is the exception: it runs on the owner, which holds
+the tokens, so a credential never reaches a frontend.
 
 ### Admitted work on a frontend
 

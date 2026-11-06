@@ -19,6 +19,10 @@ type Sharing interface {
 	AdmitRef(ctx context.Context, actor contract.Actor, resource Ref, action Action, run func(context.Context) error) error
 	GrantsRef(ctx context.Context, actor contract.Actor, ref Ref) (map[string]Role, error)
 	RevokeRef(ctx context.Context, actor contract.Actor, resource Ref, userID string) error
+	// EnsureRef and ForgetRef keep the record of a resource that its service
+	// names itself; ListingKind gives that name in ShareView.Local.
+	EnsureRef(ctx context.Context, actor contract.Actor, kind, local string) (Ref, error)
+	ForgetRef(ctx context.Context, actor contract.Actor, ref Ref) error
 	Authorize(ctx context.Context, actor contract.Actor, resource ResourceKey, action Action) error
 }
 
@@ -70,7 +74,7 @@ func (f Forwarded) ListingKind(ctx context.Context, actor contract.Actor, kind s
 	}
 	views := make([]ShareView, 0, len(out.Views))
 	for _, v := range out.Views {
-		views = append(views, ShareView{Ref: Ref{Kind: kind, ResourceID: v.ID}, Role: Role(v.Role), Everyone: v.Everyone, OwnerID: v.OwnerID, Shared: v.Shared})
+		views = append(views, ShareView{Ref: Ref{Kind: kind, ResourceID: v.ID}, Role: Role(v.Role), Everyone: v.Everyone, OwnerID: v.OwnerID, Shared: v.Shared, Local: v.Local})
 	}
 	return views, nil
 }
@@ -110,6 +114,32 @@ func (f Forwarded) RevokeRef(ctx context.Context, actor contract.Actor, resource
 	}
 	_, err = g.RevokeShare(ctx, actor, "", resource.Kind, resource.ResourceID, userID)
 	return err
+}
+
+// EnsureRef asks the owner for the record of the actor's resource named
+// local, made when there is none.
+func (f Forwarded) EnsureRef(ctx context.Context, actor contract.Actor, kind, local string) (Ref, error) {
+	g, err := f.gw()
+	if err != nil {
+		return Ref{}, err
+	}
+	out, err := g.EnsureShare(ctx, actor, kind, local)
+	if err != nil {
+		return Ref{}, err
+	}
+	if out.ResourceID == "" {
+		return Ref{}, ErrUnavailable
+	}
+	return Ref{Kind: kind, ResourceID: out.ResourceID}, nil
+}
+
+// ForgetRef asks the owner to revoke every grant of the record and drop it.
+func (f Forwarded) ForgetRef(ctx context.Context, actor contract.Actor, ref Ref) error {
+	g, err := f.gw()
+	if err != nil {
+		return err
+	}
+	return g.ForgetShare(ctx, actor, ref.Kind, ref.ResourceID)
 }
 
 // Authorize answers a read of an add-on resource from the owner's listing of
