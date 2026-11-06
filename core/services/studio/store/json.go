@@ -64,6 +64,9 @@ type chatState struct {
 	ResumeAttempts  int       `json:"resume_attempts,omitempty"`
 	InterruptedAt   time.Time `json:"interrupted_at,omitempty"`
 	ResumeNotBefore time.Time `json:"resume_not_before,omitempty"`
+	// The text of the assistant message being written (session.PartialStore).
+	PartialText string `json:"partial_text,omitempty"`
+	PartialTurn int    `json:"partial_turn,omitempty"`
 
 	entries []session.Entry
 }
@@ -685,12 +688,55 @@ func (s *jsonStore) SetChatMeta(_ context.Context, principal, id string, m sessi
 	})
 }
 
+func (s *jsonStore) SavePartial(_ context.Context, id string, turn int, text string) error {
+	c, unlock, err := s.lock(id)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	next := c.chatState
+	next.PartialText, next.PartialTurn = session.CapPartial(text), turn
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	c.PartialText, c.PartialTurn = next.PartialText, next.PartialTurn
+	return nil
+}
+
+func (s *jsonStore) TakePartial(_ context.Context, id string) (int, string, error) {
+	c, unlock, err := s.lock(id)
+	if err != nil {
+		return 0, "", err
+	}
+	defer unlock()
+	if c.PartialText == "" {
+		return 0, "", nil
+	}
+	next := c.chatState
+	next.PartialText, next.PartialTurn = "", 0
+	if err := s.save(&next); err != nil {
+		return 0, "", err
+	}
+	turn, text := c.PartialTurn, c.PartialText
+	c.PartialText, c.PartialTurn = "", 0
+	return turn, text, nil
+}
+
 func (s *jsonStore) TruncateEntries(_ context.Context, principal, id string, keep int64) error {
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
 	}
 	defer unlock()
+	// The text of an answer that was cut belongs to the lines that are gone.
+	if c.PartialText != "" {
+		next := c.chatState
+		next.PartialText, next.PartialTurn = "", 0
+		if err := s.save(&next); err != nil {
+			return err
+		}
+		c.PartialText, c.PartialTurn = "", 0
+	}
 	var kept []session.Entry
 	for _, e := range c.entries {
 		if e.Seq <= keep {

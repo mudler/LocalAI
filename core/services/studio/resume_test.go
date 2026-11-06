@@ -2,6 +2,7 @@ package studio_test
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -246,5 +247,119 @@ var _ = Describe("a trigger run across a resume", func() {
 			return got.Status == triggers.StatusDone
 		})
 		Expect(got.Reason).To(BeEmpty())
+	})
+})
+
+var _ = Describe("the text of an answer that a death cut off", func() {
+	ctx := context.Background()
+
+	// A service on a shared store; script is what its model does.
+	type node struct {
+		svc   *studio.Service
+		calls *[]string
+	}
+	mk := func(st store.Store, auto bool, script func(text string) []studiotest.ToolStep) node {
+		var calls []string
+		var mu sync.Mutex
+		svc, _ := newToolService(func(_ workspace.Actor, text string) []studiotest.ToolStep {
+			mu.Lock()
+			calls = append(calls, text)
+			mu.Unlock()
+			return script(text)
+		}, func(d *studio.Deps) { d.Store, d.AutoResume = st, auto })
+		return node{svc: svc, calls: &calls}
+	}
+
+	It("is saved while it streams, becomes a line on resume and the model is told where it stopped", func() {
+		st, err := store.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		gate1, gate2 := make(chan struct{}), make(chan struct{})
+		DeferCleanup(func() { close(gate2) })
+		long := strings.Repeat("The quarterly totals are ", 100) // about 2.5 KiB
+		a := mk(st, false, func(text string) []studiotest.ToolStep {
+			if text == "write the report" {
+				// Two pieces with a gap: the second one makes 5 KiB, past the
+				// size that is saved without waiting two seconds.
+				return []studiotest.ToolStep{{Say: long}, {Block: gate1}, {Say: long + "and the last words"}, {Block: gate2}}
+			}
+			return []studiotest.ToolStep{{Say: "finished"}}
+		})
+		b := mk(st, true, func(string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "finished"}} })
+		id := create(a.svc, alice)
+		sent(a.svc, alice, id, "write the report")
+		time.Sleep(400 * time.Millisecond) // past the floor between two saves
+		close(gate1)
+		saved := func() string {
+			// Peek without taking: the store gives the text only through Take, so
+			// take it and put it back.
+			turn, text, err := st.TakePartial(ctx, id)
+			Expect(err).NotTo(HaveOccurred())
+			if text != "" {
+				Expect(st.SavePartial(ctx, id, turn, text)).To(Succeed())
+			}
+			return text
+		}
+		until("the text so far to be saved", func() bool { return strings.HasSuffix(saved(), "and the last words") })
+
+		// The frontend dies: another one resumes the turn at once.
+		info := turn(a.svc, alice, id)
+		Expect(st.MarkInterrupted(ctx, alice, id, info.RunID, 0)).To(Succeed())
+		started, err := b.svc.SweepResumes(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(started).To(Equal(1))
+		idle(b.svc, alice, id)
+
+		var cut []session.Entry
+		for _, e := range transcript(b.svc, alice, id) {
+			if e.Role == session.RoleAssistant && e.Note == session.NoteCut {
+				cut = append(cut, e)
+			}
+		}
+		Expect(cut).To(HaveLen(1), "the text that was written is in the transcript, once")
+		Expect(cut[0].Text).To(HaveSuffix("and the last words"))
+		Expect(*b.calls).To(HaveLen(1))
+		Expect((*b.calls)[0]).To(ContainSubstring("Your last message was cut off"))
+		Expect((*b.calls)[0]).To(ContainSubstring("and the last words"))
+		Expect(st.TakePartial(ctx, id)).Error().NotTo(HaveOccurred())
+		_, left, _ := st.TakePartial(ctx, id)
+		Expect(left).To(BeEmpty())
+	})
+
+	It("writes nothing for a message that ends quickly, and nothing is left after a finished turn", func() {
+		st, err := store.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		n := mk(st, false, func(string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Say: strings.Repeat("a long answer ", 400)}}
+		})
+		id := create(n.svc, alice)
+		sent(n.svc, alice, id, "go")
+		idle(n.svc, alice, id)
+		_, text, err := st.TakePartial(ctx, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(text).To(BeEmpty())
+		for _, e := range transcript(n.svc, alice, id) {
+			Expect(e.Note).NotTo(Equal(session.NoteCut))
+		}
+	})
+
+	It("keeps what a person's new message follows: the cut text goes in before it", func() {
+		st, err := store.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		n := mk(st, false, func(string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} })
+		id := create(n.svc, alice)
+		_, err = st.AppendEntry(ctx, id, session.Entry{Turn: 1, Role: session.RoleUser, Text: "first question"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(st.SavePartial(ctx, id, 1, "an answer that stopped mid")).To(Succeed())
+		Expect(st.ClaimTurn(ctx, alice, id, "dead")).To(Succeed())
+		Expect(st.MarkInterrupted(ctx, alice, id, "dead", -1)).To(Succeed())
+		sent(n.svc, alice, id, "second question")
+		idle(n.svc, alice, id)
+		var seen []string
+		for _, e := range transcript(n.svc, alice, id) {
+			if e.Role == session.RoleUser || e.Role == session.RoleAssistant {
+				seen = append(seen, e.Role+": "+e.Text)
+			}
+		}
+		Expect(seen).To(Equal([]string{"user: first question", "assistant: an answer that stopped mid", "user: second question", "assistant: ok"}))
 	})
 })

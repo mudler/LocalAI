@@ -7,9 +7,11 @@ package storetest
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -788,6 +790,77 @@ func Run(newStore New) {
 			info, _ := s.Turn(ctx(), "alice", "c1")
 			Expect(info.ResumeAttempts).To(Equal(1))
 			Expect(info.ResumeNotBefore).To(BeTemporally("~", info.InterruptedAt.Add(store.ResumeBackoff(1)), 2*time.Second))
+		})
+	})
+
+	Describe("the text of an answer being written", func() {
+		It("keeps it for the next turn, which takes it once", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			turn, text, err := s.TakePartial(ctx(), "c1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(turn).To(BeZero())
+			Expect(text).To(BeEmpty(), "nothing saved yet")
+
+			Expect(s.SavePartial(ctx(), "c1", 3, "The report starts with")).To(Succeed())
+			Expect(s.SavePartial(ctx(), "c1", 3, "The report starts with the totals")).To(Succeed(), "a later save replaces the earlier one")
+			turn, text, err = s.TakePartial(ctx(), "c1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(turn).To(Equal(3))
+			Expect(text).To(Equal("The report starts with the totals"))
+			_, text, _ = s.TakePartial(ctx(), "c1")
+			Expect(text).To(BeEmpty(), "taken once")
+		})
+
+		It("is cleared by an empty save, and one caller wins a race to take it", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			Expect(s.SavePartial(ctx(), "c1", 1, "half an answer")).To(Succeed())
+			Expect(s.SavePartial(ctx(), "c1", 0, "")).To(Succeed())
+			_, text, _ := s.TakePartial(ctx(), "c1")
+			Expect(text).To(BeEmpty())
+
+			Expect(s.SavePartial(ctx(), "c1", 2, "half an answer")).To(Succeed())
+			c := ctx()
+			var got int32
+			var wg sync.WaitGroup
+			for range 6 {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					defer GinkgoRecover()
+					if _, text, err := s.TakePartial(c, "c1"); err == nil && text != "" {
+						atomic.AddInt32(&got, 1)
+					}
+				}()
+			}
+			wg.Wait()
+			Expect(got).To(BeEquivalentTo(1))
+		})
+
+		It("is cut at the limit, on a character boundary", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			Expect(s.SavePartial(ctx(), "c1", 1, strings.Repeat("é", session.MaxPartialBytes))).To(Succeed())
+			_, text, _ := s.TakePartial(ctx(), "c1")
+			Expect(len(text)).To(BeNumerically("<=", session.MaxPartialBytes))
+			Expect(utf8.ValidString(text)).To(BeTrue())
+			Expect(text).NotTo(BeEmpty())
+		})
+
+		It("goes with the lines that a truncate removes, and for a chat that is not there is not found", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			_, err := s.AppendEntry(ctx(), "c1", session.Entry{Role: session.RoleUser, Text: "q"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(s.SavePartial(ctx(), "c1", 1, "half an answer")).To(Succeed())
+			Expect(s.TruncateEntries(ctx(), "alice", "c1", 0)).To(Succeed())
+			_, text, _ := s.TakePartial(ctx(), "c1")
+			Expect(text).To(BeEmpty())
+
+			Expect(s.SavePartial(ctx(), "nope", 1, "x")).To(MatchError(session.ErrNotFound))
+			_, _, err = s.TakePartial(ctx(), "nope")
+			Expect(err).To(MatchError(session.ErrNotFound))
 		})
 	})
 

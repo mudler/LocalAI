@@ -70,6 +70,10 @@ type chatRow struct {
 	ResumeAttempts  int       `gorm:"not null;default:0"`
 	ResumeNotBefore time.Time `gorm:"index"`
 	InterruptedAt   time.Time
+	// PartialText is the assistant text being written (session.PartialStore),
+	// and PartialTurn its turn. Empty while no message is streaming.
+	PartialText string `gorm:"type:text"`
+	PartialTurn int
 }
 
 func (chatRow) TableName() string { return "studio_chats" }
@@ -718,9 +722,55 @@ func (s *gormStore) UpdateGoal(ctx context.Context, principal, id string, change
 	})
 }
 
+func (s *gormStore) SavePartial(ctx context.Context, id string, turn int, text string) error {
+	text = session.CapPartial(text)
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ?", id).
+		Updates(map[string]any{"partial_text": text, "partial_turn": turn})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return session.ErrNotFound
+	}
+	return nil
+}
+
+func (s *gormStore) TakePartial(ctx context.Context, id string) (int, string, error) {
+	var turn int
+	var text string
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var row chatRow
+		if err := tx.Select("partial_text", "partial_turn").Where("id = ?", id).Take(&row).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return session.ErrNotFound
+			}
+			return err
+		}
+		if row.PartialText == "" {
+			return nil
+		}
+		// Conditional on the text read, so a second caller that read the same
+		// text finds it gone and gets none.
+		res := tx.Model(&chatRow{}).Where("id = ? AND partial_text = ?", id, row.PartialText).
+			Updates(map[string]any{"partial_text": "", "partial_turn": 0})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 1 {
+			turn, text = row.PartialTurn, row.PartialText
+		}
+		return nil
+	})
+	return turn, text, err
+}
+
 func (s *gormStore) TruncateEntries(ctx context.Context, principal, id string, keep int64) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if _, err := lock(tx, principal, id, "next_entry"); err != nil {
+			return err
+		}
+		// The text of an answer that was cut belongs to the lines that are gone.
+		if err := tx.Model(&chatRow{}).Where("id = ?", id).Updates(map[string]any{"partial_text": "", "partial_turn": 0}).Error; err != nil {
 			return err
 		}
 		if err := tx.Where("chat_id = ? AND seq > ?", id, keep).Delete(&entryRow{}).Error; err != nil {

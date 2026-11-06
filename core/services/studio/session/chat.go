@@ -146,6 +146,11 @@ type Chat struct {
 	injectMu sync.RWMutex
 	turn     int
 	text     strings.Builder // assistant text of the turn, not yet stored
+	// The text is saved while it streams (see partial.go): when it was last
+	// saved, how long it was then, and whether the store holds a copy now.
+	partialAt    time.Time
+	partialLen   int
+	partialSaved bool
 	// The reasoning of the current step, not yet stored. It stops growing at
 	// MaxReasoningBytes (reasonCut). reasonFirst is the time of its first
 	// delta.
@@ -477,7 +482,11 @@ func (c *Chat) onHarnessEvent(e Event) {
 		c.flushReasoning(ctx, turn)
 		c.mu.Lock()
 		c.text.WriteString(e.Text)
+		save, partial := c.partialDueLocked(time.Now())
 		c.mu.Unlock()
+		if save {
+			c.savePartial(ctx, turn, partial)
+		}
 	case KindToolStart:
 		e.Tool = capTool(e.Tool)
 		c.flushReasoning(ctx, turn)
@@ -663,6 +672,7 @@ func (c *Chat) flushText(ctx context.Context, turn int) {
 	if strings.TrimSpace(t) != "" {
 		c.appendEntry(ctx, Entry{Turn: turn, Role: RoleAssistant, Text: t})
 	}
+	c.clearPartial(ctx)
 }
 
 // History returns the whole transcript.
@@ -793,12 +803,15 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	// The transcript keeps the words and the files apart; the model gets
 	// them together, as it always has.
 	entry.Attachments = append(slices.Clip(entry.Attachments), saved...)
+	// The text that a death cut off goes into the transcript first, before the
+	// message of this turn (or, for a resume, before the model goes on).
+	cut, history := c.settleCut(ctx, msg.Resume)
 	parts := append(carried, withDirective(msg.Directive, c.modelText(entry)))
 	if msg.Resume {
 		if text == "" && msg.Note == "" && len(msg.Attachments) == 0 && len(saved) == 0 {
 			parts = carried // no words of the person; only the note below
 		}
-		parts = append(parts, c.resumeNote(ctx))
+		parts = append(parts, resumeText(UnresolvedIntents(history), cut))
 	}
 	if msg.HostNote != "" {
 		if text == "" && msg.Note == "" && len(msg.Attachments) == 0 && len(saved) == 0 {

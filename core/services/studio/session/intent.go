@@ -100,21 +100,17 @@ const ResumePromptUnknown = resumeHead +
 	"These calls started, but their results were lost, so it is not known whether they took effect: %s. " +
 	"Check the current state first. Repeat a call only when it did not take effect, then finish the request.)"
 
-// resumeNote is what the model gets when a turn goes on after an error: the plain
-// note, or the one that names the calls whose outcome is not known. A transcript
-// that cannot be read gives the plain note.
-func (c *Chat) resumeNote(ctx context.Context) string {
-	entries, err := c.History(ctx)
-	if err != nil {
-		c.m.log.Warn("session: could not read the transcript for the resume note", "chat", c.id, "error", err)
-		return ResumePrompt
-	}
-	return resumeText(UnresolvedIntents(entries))
-}
-
 // resumeText is what the model gets when a turn goes on after an error: the
 // plain note, or the one that names the calls whose outcome is not known.
-func resumeText(open []Intent) string {
+func resumeText(open []Intent, cut string) string {
+	note := resumeTextIntents(open)
+	if cut == "" {
+		return note
+	}
+	return note + "\n\n" + cutNote(cut)
+}
+
+func resumeTextIntents(open []Intent) string {
 	if len(open) == 0 {
 		return ResumePrompt
 	}

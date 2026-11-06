@@ -132,6 +132,8 @@ type ResumableTurn struct {
 // Store is the studio loop's storage.
 type Store interface {
 	session.Store
+	// PartialStore keeps the text of the answer being written.
+	session.PartialStore
 
 	// AddPending queues text as the next message, after the pending ones.
 	AddPending(ctx context.Context, principal, chatID, text string) (Pending, error)
