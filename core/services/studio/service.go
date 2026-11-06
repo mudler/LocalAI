@@ -343,6 +343,10 @@ type Service struct {
 	mu    sync.Mutex
 	runs  map[string]*run                 // the turn this process runs, by conversation
 	pumps map[string]<-chan session.Event // the event channel read for each conversation
+	// rings holds the live tail of the chats this process runs a turn for (see
+	// eventRing). Per instance on purpose: it is a cache of the tail, and the
+	// transcript is the record.
+	rings map[string]*eventRing
 	locks map[string]*keyLock
 
 	// heldNotes is the last held-back line this process noted in each connector
@@ -447,7 +451,7 @@ func New(d Deps) (*Service, error) {
 	if bus == nil {
 		bus = NewLocalBus()
 	}
-	s := &Service{d: d, bus: bus, log: log, runs: map[string]*run{}, pumps: map[string]<-chan session.Event{}, locks: map[string]*keyLock{},
+	s := &Service{d: d, bus: bus, log: log, runs: map[string]*run{}, pumps: map[string]<-chan session.Event{}, rings: map[string]*eventRing{}, locks: map[string]*keyLock{},
 		videos: map[string][]string{}, children: map[string]map[string]*child{}, allowed: map[string][]session.Tool{}, waiters: map[string][]chan store.TurnStatus{}, closed: make(chan struct{})}
 	s.egressAuditStore = d.EgressAudit
 	if s.egressAuditStore == nil {
@@ -1213,11 +1217,13 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg sess
 	s.expireConsents(ctx, p, conv, "")
 	s.mu.Lock()
 	s.runs[k] = &run{id: runID, started: time.Now(), end: end, chat: chat}
+	s.rings[k] = newEventRing(runID, ringMaxEvents, ringMaxBytes)
 	s.mu.Unlock()
 	msg.Media = s.keepVideos(k, msg.Media)
 	if err := chat.Send(context.WithoutCancel(ctx), msg); err != nil {
 		s.mu.Lock()
 		delete(s.runs, k)
+		delete(s.rings, k)
 		s.mu.Unlock()
 		end()
 		// s.chat opened the chat; with no turn running nothing else will close it.
@@ -1339,10 +1345,12 @@ func (s *Service) pump(chat *session.Chat, evs <-chan session.Event, p, conv str
 			// The end is recorded before it is announced: a client that reads
 			// the chat when it sees turn_end must not find it still running.
 			next := s.finishTurn(chat, p, conv)
-			s.bus.Publish(k, ev)
+			s.bus.Publish(k, s.stamp(k, ev))
+			s.expireRing(k)
 			next()
 			continue
 		}
+		ev = s.stamp(k, ev)
 		s.bus.Publish(k, ev)
 		if ev.Kind == session.KindText || ev.Kind == session.KindToolStart {
 			s.mu.Lock()
