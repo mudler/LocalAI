@@ -2,20 +2,22 @@
 
 A LocalAI backend for the [Strata](https://github.com/Niko1221/Strata) inference engine (MIT).
 It starts the engine in `--serve` mode as a child process and speaks its stdin/stdout line
-protocol. The backend is pure Go (`CGO_ENABLED=0`). It does not build or ship the engine.
+protocol. The backend is pure Go (`CGO_ENABLED=0`). The backend image also carries the engine for
+the target accelerator, the Strata Python files the backend uses, and a Python runtime (see
+[Strata backend](../../../docs/content/features/strata.md) for the build targets and pins).
 
 Status: experimental. The unit tests run against a stub engine that speaks the same line protocol,
-including `LP` lines and `GENI`. The notes under "Verified on hardware" say what was run on a real engine.
+including `LP` lines and `GENI`. The backend has not yet been run against a real engine and model;
+that check is still open.
 
 ## What you need
 
-- A Strata engine executable (`strata`) built for your GPU, from a Strata release or a source build.
-- For images: the `strata-vision` program from the same engine package, and the model's mmproj file.
-- A Strata source checkout. The backend uses three of its Python files for tokenization, the chat
-  template and output parsing (see "Tokenizer, template and parser").
-- Python 3 with the `regex` and `jinja2` packages (and `pillow` and `numpy` if the Strata modules you
-  use import them).
+- The backend image for your accelerator. It contains the engine, `strata-vision`, the Strata Python
+  files and Python with `regex` and `jinja2`, so `engine_path` and `strata_root` need no setting.
+- For images: the model's mmproj file.
 - A Strata model directory. See "Model files".
+- To run outside the image: a Strata engine executable, a Strata source checkout and Python 3 with
+  `regex` and `jinja2`, set through `engine_path` and `strata_root`.
 
 ## Configuration
 
@@ -25,8 +27,8 @@ renders the prompt with the model's own chat template.
 
 | Option | Required | Meaning |
 |---|---|---|
-| `engine_path` | yes (or env `STRATA_ENGINE_PATH`) | Path to the engine executable. |
-| `strata_root` | yes (or env `STRATA_ROOT`) | Strata source checkout. Must contain `tools/strata_tokenizer.py` and `serve/frontend.py`. |
+| `engine_path` | no. Set by the image (env `STRATA_ENGINE_PATH`) | Path to the engine executable. |
+| `strata_root` | no. Set by the image (env `STRATA_ROOT`) | Strata source checkout. Must contain `tools/strata_tokenizer.py` and `serve/frontend.py`. |
 | `python` | no | Python executable. Default `python3`. |
 | `pack` | no | Pack directory, when it is not the model directory itself or its `pack/` subdirectory. |
 | `native`, `native_dense_gguf`, `ple_gguf`, `embd_gguf`, `expert_profile`, `mtp` | no | Files the engine reads next to the pack. Each becomes the engine flag of the same name (`--native`, `--native-dense-gguf`, `--ple-gguf`, `--embd-gguf`, `--expert-profile`, `--mtp`). A relative path is looked up in the pack directory, the models directory and the pack's parent. |
