@@ -122,7 +122,7 @@ const docTemplate = `{
         },
         "/api/addons/apps": {
             "get": {
-                "description": "Returns the installed addons that are enabled, for every authenticated caller who holds the addons feature. The owner decides what a caller sees; hiding an entry is never the control, because every call the entry leads to is authorized again. Each app has its title, description, icon URL, version and installed generation, a process state (running, starting, failed or stopped; the state is an observation, separate from the enabled flag), the path of its main page when its manifest declares a valid one, and a bounded tool summary. A headless addon is listed without a main page. Administrators additionally see installed addons that are disabled and, per app, the start and stop controls and the management link. An app carries update update-pending, separate from state, only when the owner's cached update check says an update is available for the installed package; the list never evaluates a check and never reaches a library. Text that the manifest translates (ui.title and ui.description language maps) is returned in all languages in titles and descriptions. When the request names a language, each app that translates it also carries language, localizedTitle and localizedDescription, resolved per field with English as the fallback; title and description never change.",
+                "description": "Returns the installed addons that are enabled, for every authenticated caller who holds the addons feature. The owner decides what a caller sees; hiding an entry is never the control, because every call the entry leads to is authorized again. Each app has its title, description, icon URL, version and installed generation, a process state (running, starting, failed or stopped; the state is an observation, separate from the enabled flag), the path of its main page when its manifest declares a valid one, and a bounded tool summary. A headless addon is listed without a main page. Administrators additionally see installed addons that are disabled and, per app, the start and stop controls and the management link. An app carries update update-pending, separate from state, only when the owner's cached update check says an update is available for the installed package; the list never evaluates a check and never reaches a library. Text that the manifest translates (ui.title and ui.description language maps) is returned in all languages in titles and descriptions. When the request names a language, each app that translates it also carries language, localizedTitle and localizedDescription, resolved per field with English as the fallback; title and description never change. An add-on that declares a setup text (what the person needs before it works) has setup, setups by language and, with a language, localizedSetup.",
                 "produces": [
                     "application/json"
                 ],
@@ -5015,7 +5015,7 @@ const docTemplate = `{
         },
         "/api/chats/admin/tools": {
             "get": {
-                "description": "The built-in tools of the chats (bash, web_search, web_fetch, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it (oldest install first, with their install times in installed_at), the default one that serves with no pin (default: the oldest running install) and the one pinned with chats_tool_providers, the titles of the candidates, the candidates that are installed but stopped (stopped), a note \"not running\" when an installed add-on replaces the tool but none serves, and for bash the mode of chats_host_exec and why this server cannot run it, if so. skills lists the built-in skills (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each now, the add-ons that replace it (the same order, default and installed_at) and the one pinned in the same chats_tool_providers map. Change them with POST /api/settings.",
+                "description": "The built-in tools of the chats (bash, web_search, web_fetch, list_agents and the two LocalAI groups localai_client and localai_admin, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it (oldest install first, with their install times in installed_at), the default one that serves with no pin (default: the oldest running install) and the one pinned with chats_tool_providers, the titles of the candidates, the candidates that are installed but stopped (stopped), a note \"not running\" when an installed add-on replaces the tool but none serves, and for bash the mode of chats_host_exec and why this server cannot run it, if so. skills lists the built-in skills (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each now, the add-ons that replace it (the same order, default and installed_at) and the one pinned in the same chats_tool_providers map. Change them with POST /api/settings.",
                 "tags": [
                     "chats"
                 ],
@@ -5950,7 +5950,7 @@ const docTemplate = `{
         },
         "/api/chats/connectors/kinds": {
             "get": {
-                "description": "The messaging platforms that a running connector add-on serves, with the add-on page that adds and edits their bindings. Empty when no connector add-on is installed. A kind whose manifest translates its text carries titles and descriptions by language and, when the request names a language it translates (lang, else Accept-Language), language, localized_title and localized_description with English as the fallback for each field; title and description stay English.",
+                "description": "The messaging platforms that a running connector add-on serves, with the add-on page that adds and edits their bindings. Empty when no connector add-on is installed. A kind whose manifest translates its text carries titles and descriptions by language and, when the request names a language it translates (lang, else Accept-Language), language, localized_title, localized_description and localized_setup with English as the fallback for each field; title, description and setup stay English. A kind that declares a setup text (what the person needs before a binding works) also has setup, and setups by language.",
                 "tags": [
                     "chats"
                 ],
@@ -10101,7 +10101,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/builtins": {
             "put": {
-                "description": "off replaces the earlier list of groups that are off. The groups are shell (bash, whether the Sandbox add-on or the built-in bash on this machine serves it), web (web_search and web_fetch), files (list_files, read_file, write_file, edit_file, move_file, delete_file, search_files and read_document), media (describe_image and transcribe_audio), collections (list_collections and search_collection), subagents (spawn_agent), triggers (propose_trigger, list_triggers, update_trigger and delete_trigger), memory (your notes: off makes the chat a private chat that neither reads nor saves memory) saved_agents and history (search_chats and read_chat). A sub-agent follows the switches of its parent chat. An opt-in group (opt_in in the list, such as saved_agents: list_agents and the agent argument of spawn_agent) is off until on names it; on replaces the earlier list of opt-in groups that are on, and an opt-in group in off is ignored. Omit on to keep it. A switch never adds what the administrator has off or the user may not use. The next turn of the chat gets the tools that are on.",
+                "description": "off replaces the earlier list of groups that are off. The groups are shell (bash, whether the Sandbox add-on or the built-in bash on this machine serves it), web (web_search and web_fetch), files (list_files, read_file, write_file, edit_file, move_file, delete_file, search_files and read_document), media (describe_image and transcribe_audio), collections (list_collections and search_collection), subagents (spawn_agent), triggers (propose_trigger, list_triggers, update_trigger and delete_trigger), memory (your notes: off makes the chat a private chat that neither reads nor saves memory) saved_agents and history (search_chats and read_chat), localai_client (the LocalAI client tools) and localai_admin (the LocalAI admin tools: opt-in, administrators only). A sub-agent follows the switches of its parent chat. An opt-in group (opt_in in the list, such as saved_agents: list_agents and the agent argument of spawn_agent) is off until on names it; on replaces the earlier list of opt-in groups that are on, and an opt-in group in off is ignored. Omit on to keep it. A switch never adds what the administrator has off or the user may not use. The next turn of the chat gets the tools that are on.",
                 "tags": [
                     "chats"
                 ],
@@ -11683,7 +11683,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/tools": {
             "get": {
-                "description": "The groups of built-in tools (shell, web, files, media, collections, subagents, triggers, memory, saved_agents and history; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants. memory says whether memory works in the chat and, when it does not, the level that turned it off (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.",
+                "description": "The groups of built-in tools (shell, web, files, media, collections, subagents, triggers, memory, saved_agents and history; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). deferred is true on a group whose tools the chat loads on demand behind tool_search, tool_describe and tool_call (the localai_client and localai_admin groups, see the setting chats_tool_search). A chat with a saved agent lists only what the agent grants. memory says whether memory works in the chat and, when it does not, the level that turned it off (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.",
                 "tags": [
                     "chats"
                 ],
@@ -14197,7 +14197,7 @@ const docTemplate = `{
         },
         "/api/voice-profiles": {
             "get": {
-                "description": "List saved voice-cloning references without exposing filesystem paths.",
+                "description": "List the saved voice-cloning references the caller may use (their own and the instance-wide ones; an administrator sees all), without exposing filesystem paths.",
                 "produces": [
                     "application/json"
                 ],
@@ -14222,7 +14222,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Save a consent-confirmed PCM WAV reference clip and exact transcript for voice cloning. Admin-only.",
+                "description": "Save a consent-confirmed PCM WAV reference clip and exact transcript for voice cloning. Needs the audio speech feature. The profile belongs to the caller (an administrator creates instance-wide profiles); a user who is not an administrator may own at most 20.",
                 "consumes": [
                     "multipart/form-data",
                     "application/json"
@@ -14290,6 +14290,18 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The per-user profile limit is reached",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
                     "413": {
                         "description": "Request Entity Too Large",
                         "schema": {
@@ -14301,7 +14313,7 @@ const docTemplate = `{
         },
         "/api/voice-profiles/{id}": {
             "delete": {
-                "description": "Permanently remove a saved voice-cloning profile. Admin-only.",
+                "description": "Permanently remove a saved voice-cloning profile. The owner or an administrator may delete it; an instance-wide profile only an administrator. The profile of another user answers 404.",
                 "tags": [
                     "audio",
                     "voice-profiles"
@@ -14319,6 +14331,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     },
                     "404": {
                         "description": "Not Found",
@@ -17277,6 +17295,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Tieni degli appunti."
                 },
+                "localizedSetup": {
+                    "type": "string",
+                    "example": "un token di accesso"
+                },
                 "localizedTitle": {
                     "type": "string",
                     "example": "Appunti"
@@ -17305,6 +17327,21 @@ const docTemplate = `{
                             "$ref": "#/definitions/apps.Operation"
                         }
                     ]
+                },
+                "ownerData": {
+                    "description": "OwnerData is true when the manifest says the tools keep the owner's own\ndata (capabilities.ownerData). Its writes need tools.write in a\nconnector chat, like the writes of a credentialed add-on.",
+                    "type": "boolean"
+                },
+                "setup": {
+                    "description": "Setup says in one short phrase what the person needs before the add-on\nworks, such as \"an access token\". It is English plain text, absent when\nthe manifest declares none. Setups carries the translations by BCP 47\ntag and LocalizedSetup follows the rule of LocalizedTitle; it is absent\nwhen the add-on has no setup text.",
+                    "type": "string",
+                    "example": "an access token"
+                },
+                "setups": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "shadows": {
                     "description": "Shadows lists the built-in chat tools the add-on replaces (bash, say).",
@@ -17913,7 +17950,8 @@ const docTemplate = `{
                 "skill",
                 "page",
                 "dashboard",
-                "knowledge"
+                "knowledge",
+                "voice_profile"
             ],
             "x-enum-varnames": [
                 "ChangeMemory",
@@ -17921,7 +17959,8 @@ const docTemplate = `{
                 "ChangeSkill",
                 "ChangePage",
                 "ChangeDashboard",
-                "ChangeKnowledge"
+                "ChangeKnowledge",
+                "ChangeVoiceProfile"
             ]
         },
         "contract.ChangeProposal": {
@@ -22838,6 +22877,10 @@ const docTemplate = `{
         "schema.ChatsBuiltinGroup": {
             "type": "object",
             "properties": {
+                "deferred": {
+                    "description": "Deferred is true when the chat loads the tools of the group on demand:\nthe model sees tool_search, tool_describe and tool_call in their place\n(see the setting chats_tool_search).",
+                    "type": "boolean"
+                },
                 "description": {
                     "type": "string",
                     "example": "The model can search the web and read a public page by its address."
@@ -23917,6 +23960,9 @@ const docTemplate = `{
                 "localized_description": {
                     "type": "string"
                 },
+                "localized_setup": {
+                    "type": "string"
+                },
                 "localized_title": {
                     "type": "string"
                 },
@@ -23946,6 +23992,16 @@ const docTemplate = `{
                 },
                 "sender_hint": {
                     "type": "string"
+                },
+                "setup": {
+                    "description": "Setup says in one short phrase what a binding of this kind needs from\nthe person before it works, such as \"a bot token from @BotFather\". It\nis English plain text and absent when the add-on declares none. Setups\ncarries the translations by language tag; LocalizedSetup follows the\nrule of LocalizedTitle and is absent when the kind has no setup text.",
+                    "type": "string"
+                },
+                "setups": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "thread_history": {
                     "description": "ThreadHistory is true when the platform can give the earlier messages\nof a thread. The host then reads them whenever the bot is mentioned in a\nthread.",
@@ -25154,7 +25210,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "managed": {
-                    "description": "Managed is set on a path LocalAI manages: \"localai\" for the LocalAI\nfolder and the settings files in it, \"chats\" for the Chats folder.",
+                    "description": "Managed is set on a path LocalAI manages: \"localai\" for the LocalAI\nfolder and the settings files in it, and for the folders LocalAI creates\nitself \"chats\" (Chats), \"memory\" (Memory), \"pages\" (pages) and \"skills\"\n(.skills). Other values may be added; a client treats any value as managed.",
                     "type": "string"
                 },
                 "modified": {
@@ -25571,6 +25627,10 @@ const docTemplate = `{
                     "description": "IntervalSeconds is Interval in seconds; 0 for a self-paced loop.",
                     "type": "integer"
                 },
+                "kind": {
+                    "description": "Kind is \"wait\" for a wait (the server checks a source and wakes the\nmodel once); empty for a loop.",
+                    "type": "string"
+                },
                 "last_run": {
                     "type": "string"
                 },
@@ -25599,6 +25659,14 @@ const docTemplate = `{
                 "wait": {
                     "description": "Wait is what the model of a self-paced loop said it waits for.",
                     "type": "string"
+                },
+                "watch": {
+                    "description": "Watch is set when Kind is \"wait\": what it watches and how the checks go.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsWait"
+                        }
+                    ]
                 }
             }
         },
@@ -26980,6 +27048,14 @@ const docTemplate = `{
                 "last_turn": {
                     "type": "string"
                 },
+                "loop": {
+                    "description": "Loop is the loop or wait that keeps the run going, when it has one. The\nrun shows as running while it is set.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsLoop"
+                        }
+                    ]
+                },
                 "running": {
                     "description": "Running is true while the run's turn is going. LastTurn is how its last\nturn ended: done, stopped, failed, interrupted or paused.",
                     "type": "boolean"
@@ -27769,6 +27845,65 @@ const docTemplate = `{
                 "used": {
                     "description": "Used is the number of tokens in the context the request sent.",
                     "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsWait": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "description": "Checks is how many checks were made. LastCheck is when the last one\nended and Outcome what it found: unchanged, changed or error. LastError\nis a short message with the URLs cut to host and path; it is set while\nthe source fails.",
+                    "type": "integer"
+                },
+                "condition": {
+                    "type": "string"
+                },
+                "deadline": {
+                    "description": "Deadline is when the wait times out.",
+                    "type": "string"
+                },
+                "end": {
+                    "description": "End says how the wait ended: condition_met, source_failing, timed_out or\nstopped. It is set when Phase is waking or ended, and absent before.",
+                    "type": "string"
+                },
+                "errors": {
+                    "description": "Errors is the number of failed checks in a row; MaxErrors ends the wait.",
+                    "type": "integer"
+                },
+                "last_check": {
+                    "type": "string"
+                },
+                "last_error": {
+                    "type": "string"
+                },
+                "max_errors": {
+                    "type": "integer"
+                },
+                "mode": {
+                    "description": "Mode is change, match or json_equals; Condition says it in words.",
+                    "type": "string"
+                },
+                "next_check": {
+                    "description": "NextCheck is when the next check is due; absent unless Phase is waiting.",
+                    "type": "string"
+                },
+                "outcome": {
+                    "type": "string"
+                },
+                "phase": {
+                    "description": "Phase is pending (waits for your yes), waiting (the server checks the\nsource), waking (the condition is settled and the model is about to be\nasked, or is being asked), paused, or ended.",
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason is the line the model gave for the wait.",
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "source_kind": {
+                    "description": "SourceKind is \"tool\" or \"url\". Source is the name of the tool, or the\nhost and path of the URL without the query.",
+                    "type": "string"
                 }
             }
         },
@@ -33100,6 +33235,10 @@ const docTemplate = `{
                 "sample_rate": {
                     "type": "integer"
                 },
+                "sha256": {
+                    "description": "SHA256 is set only by a check of a clip held in memory (the voice_profile\ntool before a person confirms); the store does not fill it.",
+                    "type": "string"
+                },
                 "size_bytes": {
                     "type": "integer"
                 }
@@ -33110,6 +33249,10 @@ const docTemplate = `{
             "properties": {
                 "audio": {
                     "$ref": "#/definitions/voiceprofile.AudioMetadata"
+                },
+                "can_delete": {
+                    "description": "CanDelete tells the caller whether it may delete the profile. It is\nworked out for each caller (see Viewer) and never stored.",
+                    "type": "boolean"
                 },
                 "consent_confirmed_at": {
                     "type": "string"
@@ -33127,6 +33270,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "owner_id": {
+                    "description": "OwnerID is the user who created the profile. Empty means the profile\nbelongs to the instance: every user may use it and only an\nadministrator may delete it. Profiles stored before ownership existed\nhave no owner, so they stay instance-wide.",
                     "type": "string"
                 },
                 "references": {

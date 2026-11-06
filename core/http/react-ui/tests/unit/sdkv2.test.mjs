@@ -5,7 +5,7 @@ import { renderToString } from 'react-dom/server'
 import { createHostSDK, appAddress, coreRequestUrl, ICON_NAMES, SDK_VERSION } from '../../src/addons/sdk.js'
 
 const C = (tag) => (p) => React.createElement(tag, { 'data-props': JSON.stringify(Object.keys(p).sort()) }, p.children)
-const NAMES = ['PageHeader', 'ConfirmDialog', 'ErrorWithTraceLink', 'ModelSelector', 'MediaInput', 'WaveformPlayer', 'DistributionBars', 'EmbeddingInspector', 'TabSwitch']
+const NAMES = ['PageHeader', 'ConfirmDialog', 'SideSheet', 'SidePane', 'PaneLayout', 'ActionMenu', 'ErrorWithTraceLink', 'ModelSelector', 'MediaInput', 'WaveformPlayer', 'DistributionBars', 'EmbeddingInspector', 'TabSwitch']
 
 function make(host = {}) {
   const controller = new AbortController()

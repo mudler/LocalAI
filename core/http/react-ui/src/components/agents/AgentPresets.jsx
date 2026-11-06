@@ -25,7 +25,7 @@ export function AppliedNotice({ applied, onUndo, onKeep, testId }) {
 // The capability levels: one choice that sets the tool switches and the
 // grants in the form. Nothing is saved until the person saves. When the
 // switches match none of the levels the group says it is a custom mix.
-export default function AgentPresets({ active, ready, onPick }) {
+export default function AgentPresets({ active, ready, onPick, customText }) {
   const { t } = useTranslation('agents')
   const labelId = useId()
   return (
@@ -46,7 +46,7 @@ export default function AgentPresets({ active, ready, onPick }) {
         ))}
       </div>
       <p className="aed-preset__state" data-testid="agent-preset-state" role="status">
-        {ready ? (active ? t('create.preset.current', { name: t(`create.preset.${active}.title`) }) : t('create.preset.custom')) : t('create.preset.loading')}
+        {ready ? (active ? t('create.preset.current', { name: t(`create.preset.${active}.title`) }) : customText || t('create.preset.custom')) : t('create.preset.loading')}
       </p>
     </div>
   )

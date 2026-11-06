@@ -460,7 +460,16 @@
     "marker": "géré par LocalAI",
     "about": {
       "localai": "Réglages que LocalAI lit : persona, profil, raccourcis, Accueil, thème.",
-      "chats": "Un dossier par discussion, avec les fichiers de la discussion."
+      "chats": "Un dossier par discussion, avec les fichiers de la discussion.",
+      "memory": "Les notes que l'assistant garde sur vous.",
+      "pages": "Les pages de votre espace de travail.",
+      "skills": "Les skills que les agents utilisent.",
+      "other": "Créé et utilisé par LocalAI."
+    },
+    "open": {
+      "memory": "Ouvrir la Mémoire",
+      "pages": "Ouvrir les Pages",
+      "skills": "Ouvrir les Skills"
     },
     "confirm": {
       "deleteTitle": "Mettre {{name}} à la corbeille ?",

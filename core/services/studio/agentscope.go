@@ -34,6 +34,9 @@ type scope struct {
 	// ships them when the provider is an add-on.
 	hostSkills     map[string]bool
 	hostSkillAddon string
+	// groupSkills are the built-in skills of the LocalAI tool groups that the
+	// chat has now (groupSkillsOff sets them): the skills that teach the tools.
+	groupSkills map[string]bool
 }
 
 func set(l []string) map[string]bool {

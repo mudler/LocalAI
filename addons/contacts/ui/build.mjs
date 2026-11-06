@@ -5,7 +5,7 @@ import { buildAddonUI } from '../../internal/uibuild/uibuild.mjs'
 const here = dirname(fileURLToPath(import.meta.url))
 
 export async function build() {
-  return buildAddonUI({ root: here, name: 'contacts', rgb: [196, 106, 46] })
+  return buildAddonUI({ root: here, name: 'contacts', rgb: [196, 106, 46], glyph: 'contacts' })
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

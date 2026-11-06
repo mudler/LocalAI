@@ -414,9 +414,50 @@ type ChatsLoop struct {
 	// Running is true while a run of the loop goes on in the chat.
 	Running bool `json:"running"`
 	// Wait is what the model of a self-paced loop said it waits for.
-	Wait    string     `json:"wait,omitempty"`
+	Wait string `json:"wait,omitempty"`
+	// Kind is "wait" for a wait (the server checks a source and wakes the
+	// model once); empty for a loop.
+	Kind    string     `json:"kind,omitempty"`
 	Created time.Time  `json:"created"`
 	LastRun *time.Time `json:"last_run,omitempty"`
+	// Watch is set when Kind is "wait": what it watches and how the checks go.
+	Watch *ChatsWait `json:"watch,omitempty"`
+}
+
+// ChatsWait is the state of a wait, in fields a client can show as they are.
+// It never carries tool arguments or the query string of a URL.
+type ChatsWait struct {
+	// Phase is pending (waits for your yes), waiting (the server checks the
+	// source), waking (the condition is settled and the model is about to be
+	// asked, or is being asked), paused, or ended.
+	Phase string `json:"phase"`
+	// Reason is the line the model gave for the wait.
+	Reason string `json:"reason,omitempty"`
+	// SourceKind is "tool" or "url". Source is the name of the tool, or the
+	// host and path of the URL without the query.
+	SourceKind string `json:"source_kind"`
+	Source     string `json:"source"`
+	// Mode is change, match or json_equals; Condition says it in words.
+	Mode      string `json:"mode"`
+	Condition string `json:"condition"`
+	// Checks is how many checks were made. LastCheck is when the last one
+	// ended and Outcome what it found: unchanged, changed or error. LastError
+	// is a short message with the URLs cut to host and path; it is set while
+	// the source fails.
+	Checks    int        `json:"checks"`
+	LastCheck *time.Time `json:"last_check,omitempty"`
+	Outcome   string     `json:"outcome,omitempty"`
+	LastError string     `json:"last_error,omitempty"`
+	// NextCheck is when the next check is due; absent unless Phase is waiting.
+	NextCheck *time.Time `json:"next_check,omitempty"`
+	// Deadline is when the wait times out.
+	Deadline time.Time `json:"deadline"`
+	// Errors is the number of failed checks in a row; MaxErrors ends the wait.
+	Errors    int `json:"errors"`
+	MaxErrors int `json:"max_errors"`
+	// End says how the wait ended: condition_met, source_failing, timed_out or
+	// stopped. It is set when Phase is waking or ended, and absent before.
+	End string `json:"end,omitempty"`
 }
 
 // ChatsLoopRequest starts a loop in a chat.
@@ -787,7 +828,9 @@ type ChatsFile struct {
 	// caller asked for, and Path is where the new content went.
 	ConflictOf string `json:"conflict_of,omitempty"`
 	// Managed is set on a path LocalAI manages: "localai" for the LocalAI
-	// folder and the settings files in it, "chats" for the Chats folder.
+	// folder and the settings files in it, and for the folders LocalAI creates
+	// itself "chats" (Chats), "memory" (Memory), "pages" (pages) and "skills"
+	// (.skills). Other values may be added; a client treats any value as managed.
 	Managed string `json:"managed,omitempty"`
 	// Modified is when the entry last changed. A folder listing sets it.
 	Modified *time.Time `json:"modified,omitempty"`
@@ -1946,7 +1989,15 @@ type ChatsConnectorKind struct {
 	Language             string `json:"language,omitempty"`
 	LocalizedTitle       string `json:"localized_title,omitempty"`
 	LocalizedDescription string `json:"localized_description,omitempty"`
-	SenderHint           string `json:"sender_hint,omitempty"`
+	// Setup says in one short phrase what a binding of this kind needs from
+	// the person before it works, such as "a bot token from @BotFather". It
+	// is English plain text and absent when the add-on declares none. Setups
+	// carries the translations by language tag; LocalizedSetup follows the
+	// rule of LocalizedTitle and is absent when the kind has no setup text.
+	Setup          string            `json:"setup,omitempty"`
+	Setups         map[string]string `json:"setups,omitempty"`
+	LocalizedSetup string            `json:"localized_setup,omitempty"`
+	SenderHint     string            `json:"sender_hint,omitempty"`
 	// Page is the add-on page that adds and edits bindings of this kind.
 	Page string `json:"page,omitempty"`
 	// AgentOptional is true when a binding of this kind may have no agent. It
@@ -2327,6 +2378,10 @@ type ChatsBuiltinGroup struct {
 	Provider string `json:"provider" example:"builtin"`
 	// Providers says who serves each tool, by tool name.
 	Providers map[string]string `json:"providers" example:"web_search:builtin"`
+	// Deferred is true when the chat loads the tools of the group on demand:
+	// the model sees tool_search, tool_describe and tool_call in their place
+	// (see the setting chats_tool_search).
+	Deferred bool `json:"deferred,omitempty"`
 	// Title and Description say what the group is and what the model can do
 	// when its switch is on; WhenOff says what it cannot do when it is off.
 	// They are English; the interface may translate them by group.

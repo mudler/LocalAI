@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useOutletContext, useSearchParams } from 'react-router-dom'
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import Button from '../components/ui/Button'
 import Callout from '../components/ui/Callout'
@@ -16,7 +16,7 @@ import { uploads, useUploads } from '../hooks/useUploads'
 import { chatAgentsApi, filesApi, folderSharesApi } from '../utils/api'
 import { agentFolderMarks } from '../utils/chatAgents'
 import { fileSize } from '../utils/fileInfo'
-import { splitEntries, isSettingsFolder, guardOf } from '../utils/managedFiles'
+import { splitEntries, isSettingsFolder, guardOf, pageOf } from '../utils/managedFiles'
 import {
   DRAG_TYPE, filterEntries, parseViewPrefs, pastedName, rangeOf, sortEntries, uniqueName,
 } from '../utils/fileBrowser'
@@ -240,7 +240,8 @@ function SearchHits({ hits, indexing, limited, query, onOpenHit, onClear, t }) {
 export default function Workspace() {
   const { t, i18n } = useTranslation('workspace')
   const { addToast = noop } = useOutletContext() || {}
-  const { user, authEnabled } = useAuth()
+  const { user, authEnabled, hasFeature } = useAuth()
+  const navigate = useNavigate()
   // ?path= opens a folder, for example from "Show its files" of a page.
   const [params, setParams] = useSearchParams()
   const urlPath = params.get('path') || '/'
@@ -568,9 +569,14 @@ export default function Workspace() {
     const many = selected.has(entry.path) && selected.size > 1
     const list = many ? picked : [entry]
     const shareable = isDir && authEnabled && owned.sharing && !MANAGED_PATH.test(entry.path)
+    // A folder LocalAI manages may have its own page; offer it when the
+    // person has the features for it.
+    const own = pageOf(entry)
+    const ownPage = own && own.features.every(f => hasFeature(f)) ? own : null
     return [
       { key: 'select', icon: 'check', label: t('select.start'), onClick: () => ctx.onToggle(entry), hidden: !touch || selected.has(entry.path) },
       { key: 'open', icon: isDir ? 'folder' : 'eye', label: isDir ? t('menu.openFolder') : t('menu.preview'), onClick: () => openEntry(entry), hidden: many },
+      { key: 'own-page', icon: 'external-link', label: t(`managed.open.${entry.managed}`, { defaultValue: '' }), onClick: () => navigate(ownPage.to), hidden: many || !ownPage },
       { key: 'download', icon: 'download', label: many ? t('menu.downloadMany', { count: list.filter(e => e.kind === 'file').length }) : t('download'), onClick: () => download(list), hidden: !list.some(e => e.kind === 'file') },
       { key: 'rename', icon: 'pencil', label: t('rename'), shortcut: 'F2', onClick: () => { setCreating(null); afterMenu(() => setRenaming(entry.path)) }, hidden: many },
       { key: 'move', icon: 'arrow-right', label: many ? t('menu.moveMany', { count: list.length }) : t('moveTo'), onClick: () => setMoving(list) },

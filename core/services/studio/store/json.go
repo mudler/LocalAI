@@ -471,6 +471,7 @@ func cloneRec(r session.ChatRecord) session.ChatRecord {
 	r.McpOff = append([]string(nil), r.McpOff...)
 	r.BuiltinsOff = append([]string(nil), r.BuiltinsOff...)
 	r.BuiltinsOn = append([]string(nil), r.BuiltinsOn...)
+	r.AllowedTools = append([]string(nil), r.AllowedTools...)
 	r.Connections = connsets.Clone(r.Connections)
 	if r.HostConsent != nil {
 		cp := *r.HostConsent

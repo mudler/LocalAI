@@ -16,6 +16,8 @@ import Icon from '../components/Icon'
 import StatusChip from '../components/ui/StatusChip'
 // eslint-disable-next-line no-unused-vars
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
+// eslint-disable-next-line no-unused-vars
+import AgentSetupCard from '../components/agents/AgentSetupCard'
 import { useAgentDelete } from '../components/agents/useAgentDelete'
 import { firstLine } from '../utils/agentRuns'
 import { filesOff, folderState } from '../utils/chatAgents'
@@ -44,6 +46,8 @@ export default function AgentPage() {
   // The bindings of messaging apps that answer as this agent; null while unknown
   // or when the server has connectors off, so the section is left out.
   const [bindings, setBindings] = useState(null)
+  // What the server says about connectors, for the Finish setup card.
+  const [connectorData, setConnectorData] = useState({ kinds: [], items: null })
   const [missing, setMissing] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -69,6 +73,7 @@ export default function AgentPage() {
         shared ? null : chatConnectorsApi.kinds().catch(() => null),
         shared ? null : chatConnectorsApi.list().catch(() => null),
       ])
+      setConnectorData({ kinds: kinds?.kinds || [], items: conns ? (conns.connectors || []) : null })
       setBindings(conns ? bindingsOfAgent(found.id, kinds?.kinds || [], conns.connectors || []) : null)
       setChats((hist.runs || []).map(r => ({ ...r, id: r.chat_id })))
       setTriggers((trig.triggers || []).filter(x => x.agent_id === found.id))
@@ -166,6 +171,7 @@ export default function AgentPage() {
           </div>
         )}
 
+        <AgentSetupCard agent={agent} kinds={connectorData.kinds} bindings={connectorData.items} />
         {error && <LoadError title={t('load.agentStale')} error={error} onRetry={load} />}
         {!guest && !filesOff(agent) && (folderState(agent) === 'missing' || folderState(agent) === 'unset') && (
           <Callout

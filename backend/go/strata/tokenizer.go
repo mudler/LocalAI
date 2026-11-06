@@ -88,32 +88,41 @@ type helperTokenizer struct {
 	stdout *bufio.Reader
 	mu     sync.Mutex
 	vocab  [][]byte
+	eos    int
+	hasEOS bool
 
 	nextParser int
 }
 
 type helperReply struct {
-	OK          bool         `json:"ok"`
-	Error       string       `json:"error"`
-	IDs         []int        `json:"ids"`
-	Prompt      string       `json:"prompt"`
-	Tokens      []string     `json:"tokens"`
-	HasTemplate bool         `json:"has_template"`
-	Images      []string     `json:"images"`
-	Thinking    bool         `json:"thinking"`
-	Force       string       `json:"force"`
-	Tools       any          `json:"tools"`
-	Events      []parseEvent `json:"events"`
+	OK          bool           `json:"ok"`
+	Error       string         `json:"error"`
+	IDs         []int          `json:"ids"`
+	Prompt      string         `json:"prompt"`
+	Tokens      []string       `json:"tokens"`
+	HasTemplate bool           `json:"has_template"`
+	Images      []string       `json:"images"`
+	Thinking    bool           `json:"thinking"`
+	Force       string         `json:"force"`
+	Tools       any            `json:"tools"`
+	Events      []parseEvent   `json:"events"`
+	SpecialIDs  map[string]int `json:"special_ids"`
 }
 
-// newHelperTokenizer starts `python -c <helper> <strataRoot> <pack>` and
-// loads the vocabulary table. Python needs the `regex` and `jinja2` packages.
-func newHelperTokenizer(python, strataRoot, pack string, timeout time.Duration) (*helperTokenizer, error) {
+// newHelperTokenizer starts `python -c <helper> <strataRoot> <pack> [family]`
+// and loads the vocabulary table. Python needs the `regex` and `jinja2`
+// packages. The family selects the chat template rules and the output parser
+// of that model family in Strata's code (see the helper).
+func newHelperTokenizer(python, strataRoot, pack, family string, timeout time.Duration) (*helperTokenizer, error) {
 	python, err := resolveInterpreter(python)
 	if err != nil {
 		return nil, fmt.Errorf("tokenizer helper: python: %w", err)
 	}
-	cmd := exec.Command(python, "-c", helperScript, strataRoot, pack) // #nosec G204 -- interpreter is a PATH name or an absolute file, no shell, script and paths passed as argv
+	argv := []string{"-c", helperScript, strataRoot, pack}
+	if family == familyDeepSeek41 {
+		argv = append(argv, family)
+	}
+	cmd := exec.Command(python, argv...) // #nosec G204 -- interpreter is a PATH name or an absolute file, no shell, script and paths passed as argv
 	cmd.Stderr = os.Stderr
 	setChildAttrs(cmd)
 	in, err := cmd.StdinPipe()
@@ -168,8 +177,17 @@ func newHelperTokenizer(python, strataRoot, pack string, timeout time.Duration) 
 		}
 		h.vocab[i] = b
 	}
+	var ir helperReply
+	if err := h.call(map[string]any{"op": "info"}, &ir); err != nil {
+		_ = h.Close()
+		return nil, err
+	}
+	h.eos, h.hasEOS = ir.SpecialIDs["eos"]
 	return h, nil
 }
+
+// EOSID is the end-of-sentence id the pack's tokenizer names, if it names one.
+func (h *helperTokenizer) EOSID() (int, bool) { return h.eos, h.hasEOS }
 
 func (h *helperTokenizer) readJSON(v any) error {
 	line, err := h.stdout.ReadBytes('\n')

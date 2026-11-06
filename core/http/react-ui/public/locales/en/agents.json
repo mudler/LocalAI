@@ -1073,6 +1073,87 @@
     "none": "No files",
     "noneHelp": "This agent cannot reach any of your files. Files you attach to a chat stay in that chat. Watching a folder needs file access, so a trigger that watches a folder still starts for this agent but cannot open the files that arrive."
   },
+  "wizard": {
+    "title": "New agent",
+    "supporting": "Four short steps. Only a name and instructions are required.",
+    "stepsLabel": "Steps",
+    "back": "Back",
+    "next": "Continue",
+    "defaultTools": "Default tools",
+    "step": {
+      "purpose": "Purpose",
+      "abilities": "Abilities",
+      "where": "Where it works",
+      "review": "Review"
+    },
+    "purpose": {
+      "title": "What is this agent for?",
+      "lead": "Start from a template or write your own. You can change everything later.",
+      "needs": "A name and instructions are needed to continue.",
+      "modelLine": "Model: the one you pick in each chat.",
+      "modelChoose": "Choose a fixed model",
+      "modelEach": "The one I pick in each chat"
+    },
+    "abilities": {
+      "title": "How much may it do on its own?",
+      "lead": "Not sure? Leave it: the agent starts with the default tools. Or pick a level, which replaces them.",
+      "defaultNote": "No level is picked. The agent starts with the default tools.",
+      "files": "Which of your files can it see?",
+      "fine": "Fine-tune individual tools",
+      "templateHint": "This template suggests the level {{level}}.",
+      "templateUse": "Use {{level}}"
+    },
+    "where": {
+      "title": "Where should it work?",
+      "lead": "Optional. Pick the places this agent should work. Nothing is connected yet.",
+      "chat": "Chat apps",
+      "chatLead": "Apps where people can talk to this agent.",
+      "tools": "Tools and services",
+      "toolsLead": "Add-ons that give it new abilities.",
+      "notInstalled": "Not installed",
+      "generic": "Finish setting up {{title}}",
+      "loading": "Looking for apps",
+      "empty": "No apps are available yet.",
+      "note": "Choosing an app does not connect it. After you create the agent, a short checklist walks you through the setup of each one.",
+      "find": "Find add-ons"
+    },
+    "review": {
+      "title": "Ready to create",
+      "lead": "Check the summary. You can change all of this later.",
+      "named": "Has a name and instructions",
+      "tools": "Tools: {{level}}",
+      "modelFixed": "Model: {{model}}",
+      "modelEach": "Model: the one you pick in each chat",
+      "apps": "Apps to finish setting up after creating: {{count}}",
+      "filesTitle": "It can see all your files.",
+      "filesBody": "Anything you can open in Files, this agent can read. You can limit it to folders.",
+      "limit": "Limit to folders",
+      "setupNext": "After you create the agent, its page lists the setup steps for the apps you chose."
+    },
+    "rail": {
+      "title": "Your agent",
+      "unnamed": "Unnamed",
+      "abilities": "Abilities",
+      "modelEach": "Chosen in each chat",
+      "files": "Files",
+      "folders": "Only chosen folders ({{count}})",
+      "works": "Works in",
+      "thisApp": "This app"
+    }
+  },
+  "setup": {
+    "title": "Finish setup",
+    "count": "{{done}} of {{total}} done",
+    "dismiss": "Hide",
+    "progress": "Setup progress",
+    "done": "Done",
+    "stays": "The list stays on this page until every app is done, or until you hide it.",
+    "connect": "New connection",
+    "account": "Choose account",
+    "turnOn": "Turn on",
+    "find": "View in add-ons",
+    "actionFor": "{{action}}: {{title}}"
+  },
   "share": {
     "action": "Share",
     "intro": "People you add chat with this agent as themselves, with their own files, collections and connections.",

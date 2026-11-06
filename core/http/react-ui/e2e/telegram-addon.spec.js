@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi as api, DECLARED, openAnswerMore } from './connector-fixtures.js'
+import { connectorApi as api, DECLARED, openAnswerMore, openEdit, expandAll, rowMenu, openPane, openReadiness } from './connector-fixtures.js'
 
 // The page of the Telegram add-on (the real built bundle, inside the add-on
 // shell) with the core API stubbed: the token only goes in, "anyone"
@@ -22,13 +22,14 @@ test.describe('Telegram add-on', () => {
 
     await expect(page.getByText('No Telegram bots yet.')).toBeVisible()
     await page.getByRole('button', { name: 'New Telegram bot' }).click()
+    await expandAll(page)
     await expect(page.getByRole('option', { name: 'No model (needs a model)' })).toHaveAttribute('disabled', '')
     await page.getByLabel('Name', { exact: true }).fill('Support bot')
     await page.getByLabel('Bot token').fill('555:secret-token')
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
     await page.getByRole('textbox', { name: 'Add a person or channel' }).fill('42')
     await page.getByRole('textbox', { name: 'Add a person or channel' }).press('Enter')
-    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByTestId('connector-save').click()
 
     await expect(page.getByTestId('connector-row')).toContainText('Support bot')
     await expect(page.getByTestId('connector-row')).toContainText('Agent: Support')
@@ -43,11 +44,12 @@ test.describe('Telegram add-on', () => {
     const a = api(page, [{ id: 'b1', name: 'Support bot', kind: 'telegram', agent_id: 'a1', enabled: true, accept_any: false, allow: ['42'], has_token: true }])
     await a.install()
     await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Edit' }).click()
+    await openEdit(page)
+    await expandAll(page)
     await expect(page.getByLabel('Bot token')).toHaveValue('')
     await expect(page.getByLabel('Bot token')).toHaveAttribute('placeholder', /Saved/)
     await page.getByLabel('Name', { exact: true }).fill('Renamed')
-    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByTestId('connector-save').click()
     const put = a.s.calls.find(c => c.method === 'PUT')
     expect(put.url).toBe('/api/chats/connectors/b1')
     expect('token' in put.body).toBe(false)
@@ -57,14 +59,15 @@ test.describe('Telegram add-on', () => {
     await api(page).install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New Telegram bot' }).click()
+    await expandAll(page)
     await page.getByLabel('Name', { exact: true }).fill('Public bot')
     await page.getByLabel('Bot token').fill('1:x')
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
     await page.getByRole('radio', { name: 'Anyone who can message it' }).check()
     await expect(page.getByTestId('anyone-warning')).toContainText("can use this agent's tools")
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
+    await expect(page.getByTestId('connector-save')).toBeDisabled()
     await page.getByRole('checkbox', { name: 'I understand' }).check()
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
+    await expect(page.getByTestId('connector-save')).toBeEnabled()
   })
 
   test('tests the token, shows the sender log and allows a sender', async ({ page }) => {
@@ -73,7 +76,7 @@ test.describe('Telegram add-on', () => {
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Test' }).click()
     await expect(page.getByText('Connected to @support_bot.')).toBeVisible()
-    await page.getByRole('button', { name: 'Senders' }).click()
+    await openPane(page)
     await expect(page.getByTestId('sender-log')).toContainText('Newcomer · 2 messages · 42')
     await expect(page.getByTestId('sender-log')).toContainText('Ignored')
     await page.getByRole('button', { name: 'List this person', exact: true }).click()
@@ -88,7 +91,7 @@ test.describe('Telegram add-on', () => {
     await page.getByRole('switch', { name: 'Support bot on' }).uncheck()
     await expect.poll(() => a.s.calls.some(c => c.url.endsWith('/disable'))).toBe(true)
     // Deleting asks first, and says the bot token goes with it.
-    await page.getByTestId('connector-row').getByRole('button', { name: 'Delete' }).click()
+    await rowMenu(page, 'Delete')
     const dialog = page.getByRole('alertdialog')
     await expect(dialog).toContainText('Delete Support bot?')
     await expect(dialog).toContainText('bot token')
@@ -96,7 +99,7 @@ test.describe('Telegram add-on', () => {
     await expect(page.getByTestId('connector-row')).toHaveCount(1)
     expect(a.s.calls.some(c => c.method === 'DELETE')).toBe(false)
 
-    await page.getByTestId('connector-row').getByRole('button', { name: 'Delete' }).click()
+    await rowMenu(page, 'Delete')
     await dialog.getByRole('button', { name: 'Delete' }).click()
     await expect(page.getByTestId('connector-row')).toHaveCount(0)
   })
@@ -106,7 +109,7 @@ test.describe('Telegram add-on', () => {
     await a.install()
     await page.route(/\/api\/chats\/connectors\/b1$/, r => r.fulfill({ status: 500, json: { error: { message: 'the store is read-only' } } }))
     await page.goto(PAGE)
-    await page.getByTestId('connector-row').getByRole('button', { name: 'Delete' }).click()
+    await rowMenu(page, 'Delete')
     await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
     await expect(page.getByRole('alert')).toContainText('the store is read-only')
     await expect(page.getByTestId('connector-row')).toHaveCount(1)
@@ -117,6 +120,7 @@ test.describe('Telegram add-on', () => {
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New Telegram bot' }).click()
+    await expandAll(page)
     // A new binding shows progress, one chat per person, and sends files.
     await expect(page.getByTestId('connector-reply')).toHaveValue('progress')
     await expect(page.getByTestId('connector-conversation')).toHaveValue('sender')
@@ -135,15 +139,17 @@ test.describe('Telegram add-on', () => {
     await page.getByTestId('connector-window').fill('45')
     await page.getByTestId('connector-files').uncheck()
     await page.getByTestId('connector-reply-language').selectOption('it')
-    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByTestId('connector-save').click()
 
+    await openPane(page)
     await expect(page.getByTestId('connector-answer-summary')).toHaveText('Answers: live answer · new chat after 45 min')
     const post = a.s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/connectors').body
     expect(post).toMatchObject({ reply_mode: 'stream', conversation: 'window', window_minutes: 45, send_files: false, reply_language: 'it' })
     expect(a.s.items[0]).toMatchObject({ reply_mode: 'stream', conversation: 'window', window_minutes: 45, send_files: false })
 
     // Edit: the form shows what the API holds; the thread mode drops the window.
-    await page.getByRole('button', { name: 'Edit' }).click()
+    await openEdit(page)
+    await expandAll(page)
     await expect(page.getByTestId('connector-reply')).toHaveValue('stream')
     await expect(page.getByTestId('connector-conversation')).toHaveValue('window')
     await expect(page.getByTestId('connector-window')).toHaveValue('45')
@@ -153,7 +159,8 @@ test.describe('Telegram add-on', () => {
     await page.getByTestId('connector-reply').selectOption('off')
     await page.getByTestId('connector-conversation').selectOption('thread')
     await page.getByTestId('connector-files').check()
-    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByTestId('connector-save').click()
+    await openPane(page)
     await expect(page.getByTestId('connector-answer-summary')).toHaveText('Answers: typing · a chat per message')
     const put = a.s.calls.filter(c => c.method === 'PUT').at(-1).body
     expect(put).toMatchObject({ reply_mode: 'off', conversation: 'thread', send_files: true, reply_language: 'pt-BR' })
@@ -165,14 +172,15 @@ test.describe('Telegram add-on', () => {
     await api(page).install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New Telegram bot' }).click()
+    await expandAll(page)
     await page.getByLabel('Name', { exact: true }).fill('Window bot')
     await page.getByLabel('Bot token').fill('1:x')
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
     await page.getByTestId('connector-conversation').selectOption('window')
     await page.getByTestId('connector-window').fill('0')
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
+    await expect(page.getByTestId('connector-save')).toBeDisabled()
     await page.getByTestId('connector-window').fill('30')
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
+    await expect(page.getByTestId('connector-save')).toBeEnabled()
   })
 
   test('the Files section says which limit applies', async ({ page }) => {
@@ -180,6 +188,7 @@ test.describe('Telegram add-on', () => {
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New Telegram bot' }).click()
+    await expandAll(page)
     await openAnswerMore(page)
     const files = page.getByTestId('connector-filelimits')
     await expect(files).toContainText('Now: 1 MiB (limit of the add-on).')
@@ -189,10 +198,10 @@ test.describe('Telegram add-on', () => {
     await page.getByLabel('Name', { exact: true }).fill('Files bot')
     await page.getByLabel('Bot token').fill('555:secret-token')
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
+    await expect(page.getByTestId('connector-save')).toBeDisabled()
     await page.getByTestId('connector-file-send').fill('0.25')
     await expect(files).toContainText('Now: 256 KiB (limit set for this bot).')
-    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByTestId('connector-save').click()
     const post = a.s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/connectors').body
     expect(post).toMatchObject({ file_send_max_bytes: 256 * 1024, file_receive_max_bytes: 0 })
   })
@@ -202,6 +211,7 @@ test.describe('Telegram add-on', () => {
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New Telegram bot' }).click()
+    await expandAll(page)
     await openAnswerMore(page)
     const files = page.getByTestId('connector-filelimits')
     await expect(files).toContainText('Now: 20 MiB (limit of the add-on).')
@@ -216,11 +226,12 @@ test.describe('Telegram add-on', () => {
     const a = api(page, [{ id: 'b1', name: 'Support bot', kind: 'telegram', agent_id: 'a1', enabled: true, accept_any: false, allow: ['42'], has_token: true, file_send_max_bytes: 100 * 1024 }])
     await a.install()
     await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Edit' }).click()
+    await openEdit(page)
+    await expandAll(page)
     await expect(page.getByTestId('connector-file-send')).toHaveValue('0.09765625')
     await expect(page.getByTestId('connector-file-receive')).toHaveValue('')
     await page.getByTestId('connector-file-send').fill('')
-    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByTestId('connector-save').click()
     const put = a.s.calls.find(c => c.method === 'PUT').body
     expect(put).toMatchObject({ file_send_max_bytes: 0, file_receive_max_bytes: 0 })
   })
@@ -230,6 +241,10 @@ test.describe('Telegram add-on', () => {
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New Telegram bot' }).click()
+    await expandAll(page)
+    // A new bot starts with one quiet line; open it and show every row.
+    await expect(page.getByTestId('connector-readiness')).toHaveCount(0)
+    await openReadiness(page)
     const ready = page.getByTestId('connector-readiness')
     await expect(ready.getByTestId('connector-ready-token')).toContainText('Paste the token')
     await expect(ready.getByTestId('connector-ready-agent')).toContainText('Choose the agent')
@@ -237,6 +252,9 @@ test.describe('Telegram add-on', () => {
     await ready.getByTestId('connector-ready-token').getByRole('button', { name: 'Paste the token' }).click()
     await expect(page.getByLabel('Bot token')).toBeFocused()
     await page.getByLabel('Bot token').fill('555:secret-token')
+    // A row that only waits for the save is not a thing to set, so the list shows it with "Show all".
+    await expect(ready.getByTestId('connector-ready-token')).toHaveCount(0)
+    await ready.getByTestId('connector-ready-toggle').click()
     await expect(ready.getByTestId('connector-ready-token')).toHaveAttribute('data-state', 'after_save')
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
     await page.getByRole('textbox', { name: 'Add a person or channel' }).fill('42')
@@ -255,7 +273,8 @@ test.describe('Telegram add-on', () => {
     await page.route(/\/api\/chats\/connectors\/[^/?]+\/test$/, r => r.fulfill({ status: 502, json: { error: { message: 'Unauthorized' } } }))
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Test' }).click()
-    await page.getByRole('button', { name: 'Edit' }).click()
+    await openEdit(page)
+    await expandAll(page)
     const token = page.getByTestId('connector-ready-token')
     await expect(token).toHaveAttribute('data-state', 'broken')
     await expect(token).toContainText('The platform refused the token: Unauthorized')

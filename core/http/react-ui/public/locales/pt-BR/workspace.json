@@ -460,7 +460,16 @@
     "marker": "gerenciado pelo LocalAI",
     "about": {
       "localai": "Configurações que o LocalAI lê: persona, perfil, atalhos, Início, tema.",
-      "chats": "Uma pasta por chat, com os arquivos do chat."
+      "chats": "Uma pasta por chat, com os arquivos do chat.",
+      "memory": "As notas que o assistente guarda sobre você.",
+      "pages": "As páginas do seu espaço de trabalho.",
+      "skills": "As skills que os agentes usam.",
+      "other": "Criada e usada pelo LocalAI."
+    },
+    "open": {
+      "memory": "Abrir Memória",
+      "pages": "Abrir Páginas",
+      "skills": "Abrir Skills"
     },
     "confirm": {
       "deleteTitle": "Mover {{name}} para a Lixeira?",

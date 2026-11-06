@@ -98,13 +98,16 @@ export function Switch({ checked, onChange, label, children, testId, disabled, d
 
 // One choice out of a few, as cards with a real radio inside: the arrow keys,
 // the group name and the form all work as for a native radio.
-export function RadioCards({ name, legend, value, options, onChange }) {
+export function RadioCards({ name, legend, value, options, onChange, testId, columns }) {
   return (
-    <div className="cn-cards" role="radiogroup" aria-label={legend}>
+    <div className={`cn-cards${columns === 3 ? ' cn-cards--three' : ''}`} role="radiogroup" aria-label={legend} data-testid={testId}>
       {options.map((o) => (
         <label key={String(o.value)} className={`cn-card${value === o.value ? ' is-on' : ''}`}>
-          <input type="radio" className="dk-radio" name={name} checked={value === o.value} onChange={() => onChange(o.value)} />
-          <span>{o.label}</span>
+          <input type="radio" className="dk-radio" name={name} data-testid={testId ? `${testId}-${o.value}` : undefined} checked={value === o.value} onChange={() => onChange(o.value)} />
+          <span className="cn-card__words">
+            <span>{o.label}</span>
+            {o.description && <span className="cn-card__desc">{o.description}</span>}
+          </span>
         </label>
       ))}
     </div>

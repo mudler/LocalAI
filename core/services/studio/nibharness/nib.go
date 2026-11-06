@@ -102,14 +102,25 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 	names := []string{noBuiltinTools}
 	var srv *toolServer
 	var transports []mcp.Transport
-	if len(env.Tools) > 0 {
+	// wait_for and wait_agents are nib's own tools, wired to the host through
+	// callbacks: the host's tools of those names are the handlers, and are not
+	// offered to the model a second time.
+	var waits hostWaits
+	var hostTools []session.Tool
+	for _, t := range env.Tools {
+		if !waits.take(t) {
+			hostTools = append(hostTools, t)
+		}
+	}
+	if len(hostTools) > 0 {
 		var tr mcp.Transport
 		var err error
-		if srv, tr, names, err = newToolServer(env.Tools); err != nil {
+		if srv, tr, err = newToolServer(hostTools); err != nil {
 			return nil, err
 		}
 		transports = append(transports, tr)
 	}
+	names = append(names, waits.builtins()...)
 	model, ctxTokens, effort := h.cfg.Model, h.cfg.ContextTokens, h.cfg.ReasoningEffort
 	var agentOpts AgentOptions
 	var llm cogito.LLM
@@ -119,11 +130,6 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 			return nil, fmt.Errorf("nib: model client: %w", err)
 		}
 		llm, model, agentOpts = m.LLM, m.Name, m.Agent
-		hostNames := make([]string, len(env.Tools))
-		for i, t := range env.Tools {
-			hostNames[i] = t.Name
-		}
-		llm = withAliases(llm, hostNames)
 		if m.ContextTokens > 0 {
 			ctxTokens = m.ContextTokens
 		}
@@ -177,12 +183,13 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 		cfg.InitialHistory, cfg.InitialContext = st.History, st.Context
 		cfg.InitialArtifacts, cfg.InitialPruning = st.Artifacts, st.Pruning
 	}
-	hs := &hsession{emit: env.Emit, stop: func() {}, steps: cfg.AgentOptions.Iterations}
+	hs := &hsession{emit: env.Emit, stop: func() {}, steps: cfg.AgentOptions.Iterations, waits: waits}
 	if srv != nil {
 		hs.stop = srv.stop
 	}
 	sctx, cancel := context.WithCancel(context.Background())
 	hs.cancel = cancel
+	hs.ctx = sctx
 	if srv != nil {
 		srv.start(sctx)
 	}
@@ -210,6 +217,8 @@ func applyAgentOptions(cfg *types.Config, o AgentOptions) {
 }
 
 type hsession struct {
+	ctx    context.Context
+	waits  hostWaits
 	sess   *chat.Session
 	emit   func(session.Event)
 	stop   func()
@@ -258,6 +267,12 @@ func (h *hsession) emitPieces(pieces []piece) {
 }
 
 func (h *hsession) callbacks() chat.Callbacks {
+	cb := h.baseCallbacks()
+	h.waits.wire(h.ctx, &cb)
+	return cb
+}
+
+func (h *hsession) baseCallbacks() chat.Callbacks {
 	return chat.Callbacks{
 		OnStatus: func(status string) {
 			if strings.HasPrefix(status, capStatus) {
@@ -280,12 +295,12 @@ func (h *hsession) callbacks() chat.Callbacks {
 		},
 		OnToolStart: func(ts chat.ToolStart) {
 			h.emit(session.Event{Kind: session.KindToolStart, Tool: &session.ToolEvent{
-				Name: hostName(ts.Name), Summary: session.Summarize(json.RawMessage(ts.Arguments)),
+				Name: ts.Name, Summary: session.Summarize(json.RawMessage(ts.Arguments)),
 			}})
 		},
 		OnToolResult: func(r chat.ToolResult) {
 			h.emit(session.Event{Kind: session.KindToolEnd, Tool: &session.ToolEvent{
-				Name: hostName(r.Name), Summary: session.Summarize(json.RawMessage(r.Arguments)),
+				Name: r.Name, Summary: session.Summarize(json.RawMessage(r.Arguments)),
 				OK: toolOK(r), Output: session.CapText(r.Result, 2048),
 			}})
 		},

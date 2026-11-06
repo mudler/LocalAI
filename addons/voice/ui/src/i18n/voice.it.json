@@ -1,6 +1,6 @@
 {
-  "voice.adminOnly.title": "Solo per amministratori",
-  "voice.adminOnly.text": "Le voci salvate possono essere gestite da un amministratore di questo server. Chiedine uno se devi aggiungere o rimuovere una voce.",
+  "voice.noSpeech.title": "Voce non disponibile",
+  "voice.noSpeech.text": "Il tuo account non può usare la sintesi vocale, quindi non può gestire voci salvate. Chiedi a un amministratore di attivarla.",
   "speech.title": "Pronuncia un testo",
   "speech.lede": "Trasforma un testo in voce con un modello vocale di questo server.",
   "speech.model": "Model",
@@ -226,7 +226,7 @@
   "voiceCreate.sections.reference.title": "Audio di riferimento",
   "voiceCreate.sections.reference.body": "Registra nel browser o carica una clip esistente. La voce deve essere pulita, naturale e di un solo parlante.",
   "voiceCreate.sections.details.title": "Identità e trascrizione",
-  "voiceCreate.sections.details.body": "Dai agli amministratori un nome riconoscibile e trascrivi la clip esattamente, con intercalari e punteggiatura.",
+  "voiceCreate.sections.details.body": "Dai alla voce un nome riconoscibile e trascrivi la clip esattamente, con intercalari e punteggiatura.",
   "voiceCreate.sections.consent.title": "Autorizzazione",
   "voiceCreate.sections.consent.body": "La clonazione vocale può essere delicata. Conferma di avere il permesso prima di salvare questo riferimento.",
   "voiceCreate.audio.label": "Riferimento vocale",

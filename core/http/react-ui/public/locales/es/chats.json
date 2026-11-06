@@ -277,6 +277,13 @@
       "turnOff": "Desactivar esta",
       "open": "Abrir {{name}}"
     },
+    "new": "Nueva conexión",
+    "newMenu": "Elige la plataforma de la nueva conexión",
+    "state": {
+      "running": "En marcha",
+      "off": "Apagada",
+      "attention": "Requiere atención"
+    },
     "share": {
       "label": "Compartir",
       "button": "Compartir {{name}}",
@@ -353,9 +360,12 @@
       "subagents": "Subagentes",
       "changes": "Cambios sugeridos",
       "memory": "Memoria",
-      "history": "Chats anteriores"
+      "history": "Chats anteriores",
+      "localai_client": "Cliente de LocalAI",
+      "localai_admin": "Administración de LocalAI"
     },
     "builtinBy": "{{tools}} · integradas",
+    "onDemand": "Se carga bajo demanda",
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",
     "servedBy": "Servido por el complemento {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
@@ -377,7 +387,9 @@
       "triggers": "El modelo puede proponer, listar, cambiar y borrar disparadores. Tú confirmas cada disparador nuevo o cambio.",
       "changes": "El modelo puede proponer cambios en tus notas, sus reglas, skills, páginas y el panel. Tú confirmas cada uno.",
       "memory": "El modelo puede leer tus notas antes de responder y guardar otras nuevas. Desactívala para hacer de este un chat privado: no se lee nada de tus notas ni se guarda nada en ellas. Tus otros chats no cambian.",
-      "history": "Permite que el modelo busque y lea tus chats anteriores."
+      "history": "Permite que el modelo busque y lea tus chats anteriores.",
+      "localai_client": "Permite al modelo crear imágenes, voz, sonido y vídeo, y transcribir, generar embeddings, reordenar y detectar, con los modelos instalados aquí.",
+      "localai_admin": "Permite al modelo gestionar este servidor: modelos, backends, ajustes y el estado. Solo para administradores; el modelo te pregunta antes de cambiar nada."
     },
     "whenOff": {
       "shell": "El modelo puede escribir archivos pero no puede ejecutar nada.",
@@ -390,7 +402,9 @@
       "triggers": "El modelo no puede proponer ni gestionar disparadores.",
       "changes": "El modelo no puede proponer cambios en tus notas, sus reglas, skills, páginas ni el panel.",
       "memory": "Es un chat privado. El modelo ni lee ni guarda tus notas.",
-      "history": "El modelo no puede ver tus chats anteriores."
+      "history": "El modelo no puede ver tus chats anteriores.",
+      "localai_client": "El modelo no puede ejecutar estos modelos por sí mismo.",
+      "localai_admin": "El modelo no puede gestionar este servidor."
     },
     "addonDescribe_one": "Da al modelo {{count}} herramienta de este add-on.",
     "addonDescribe_other": "Da al modelo {{count}} herramientas de este add-on.",
@@ -743,6 +757,64 @@
       "noChat": "Envía un primer mensaje y luego inicia un bucle en este chat.",
       "stopped_one": "Se detuvo {{count}} bucle.",
       "stopped_other": "Se detuvieron {{count}} bucles."
+    },
+    "wait": {
+      "name": "Esperando",
+      "kind": "Espera",
+      "pending": "Espera tu confirmación",
+      "paused": "Espera en pausa",
+      "stop": "Detener espera",
+      "details": "Detalles de la espera",
+      "watching": "Vigila {{source}}",
+      "until": "Hasta que {{condition}}",
+      "notChecked": "Aún sin comprobar",
+      "checked_one": "Comprobado {{count}} vez",
+      "checked_other": "Comprobado {{count}} veces",
+      "checkedAgo_one": "Comprobado {{count}} vez, la última {{ago}}",
+      "checkedAgo_other": "Comprobado {{count}} veces, la última {{ago}}",
+      "outcome": {
+        "unchanged": "sin cambios",
+        "changed": "cambió",
+        "error": "falló"
+      },
+      "ago": "hace {{span}}",
+      "justNow": "ahora mismo",
+      "in": "en {{span}}",
+      "now": "ahora",
+      "next": "Próxima comprobación {{when}}",
+      "deadline": "Se rinde a las {{time}} ({{when}})",
+      "errorStreak": "La última comprobación falló ({{count}} de {{max}} seguidas)",
+      "errorStreakMsg": "La última comprobación falló ({{count}} de {{max}} seguidas): {{message}}",
+      "lastError": "Último error: {{message}}",
+      "sources": {
+        "tool": "herramienta {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "Hecho: se cumplió la condición",
+        "failing_one": "Detenida: la fuente falló {{count}} vez seguida",
+        "failing_other": "Detenida: la fuente falló {{count}} veces seguidas",
+        "timedOut": "Tiempo agotado, la condición no se cumplió",
+        "stopped": "Espera detenida"
+      },
+      "waking": {
+        "met": "Se cumplió la condición. Preguntando al modelo qué hacer.",
+        "failing": "La fuente falló. Preguntando al modelo qué hacer.",
+        "timedOut": "Tiempo agotado, la condición no se cumplió. Preguntando al modelo qué hacer."
+      },
+      "phase": {
+        "waiting": "esperando",
+        "waking": "despertando al modelo",
+        "paused": "en pausa",
+        "ended": "terminada",
+        "pending": "espera tu confirmación"
+      },
+      "endShort": {
+        "condition_met": "condición cumplida",
+        "source_failing": "la fuente falló",
+        "timed_out": "tiempo agotado",
+        "stopped": "detenida"
+      }
     }
   },
   "changes": {
@@ -755,7 +827,8 @@
       "skill": "Habilidad",
       "page": "Página",
       "dashboard": "Panel",
-      "knowledge": "Conocimiento"
+      "knowledge": "Conocimiento",
+      "voice_profile": "Perfil de voz"
     },
     "scope": {
       "user": "Todos tus chats",
@@ -832,6 +905,18 @@
       "title": "Revisa este texto antes de confirmar.",
       "secret": "Parece contener un secreto, como una clave, un token o una contraseña. Una vez añadido, cualquier chat que busque en esta colección podrá leerlo. Un chat de mensajería no puede confirmarlo; solo tú, aquí.",
       "other": "El servidor marcó este texto como arriesgado. Un chat de mensajería no puede confirmarlo; solo tú, aquí."
+    },
+    "voice": {
+      "label": "Voz a clonar",
+      "name": "Nombre",
+      "file": "Grabación",
+      "clip": "Clip fijado",
+      "language": "Idioma",
+      "transcript": "Transcripción",
+      "consentTitle": "Confirma solo si la persona que habla dio su consentimiento.",
+      "consent": "La grabación se guarda como un perfil de voz con el que tus chats pueden hablar. Puedes borrarla en la biblioteca de Voz.",
+      "consentAdmin": "Eres administrador, así que esta voz queda disponible para todos los usuarios de este servidor.",
+      "confirm": "La persona dio su consentimiento: guardar la voz"
     }
   },
   "proposalsPage": {
@@ -1123,5 +1208,9 @@
       "waiting": "El cambio espera tu confirmación en la página de Add-ons",
       "failed": "El proveedor no pudo olvidar: {{message}}"
     }
+  },
+  "subAgents": {
+    "waiting": "Esperando: {{what}}",
+    "looping": "En bucle"
   }
 }

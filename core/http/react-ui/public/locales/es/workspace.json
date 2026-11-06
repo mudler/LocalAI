@@ -460,7 +460,16 @@
     "marker": "gestionado por LocalAI",
     "about": {
       "localai": "Ajustes que LocalAI lee: persona, perfil, atajos, Inicio, tema.",
-      "chats": "Una carpeta por chat, con los archivos del chat."
+      "chats": "Una carpeta por chat, con los archivos del chat.",
+      "memory": "Las notas que el asistente guarda sobre ti.",
+      "pages": "Las páginas de tu espacio de trabajo.",
+      "skills": "Las skills que usan los agentes.",
+      "other": "Creada y usada por LocalAI."
+    },
+    "open": {
+      "memory": "Abrir Memoria",
+      "pages": "Abrir Páginas",
+      "skills": "Abrir Skills"
     },
     "confirm": {
       "deleteTitle": "¿Mover {{name}} a la Papelera?",

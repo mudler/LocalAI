@@ -28,7 +28,7 @@ var _ = Describe("conversion of old data as the previous release wrote it", func
 		sys, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()), system.WithBackendPath(GinkgoT().TempDir()))
 		Expect(err).NotTo(HaveOccurred())
 		opts := []config.AppOption{config.WithContext(ctx), config.WithSystemState(sys), config.DisableMetricsEndpoint,
-			config.WithDisableLocalAIAssistant(true), config.WithDisableStats(true), config.WithDataPath(data),
+			config.WithDisableStats(true), config.WithDataPath(data),
 			config.WithAuthEnabled(true), config.WithAuthDatabaseURL(dbFile), config.WithAuthAPIKeyHMACSecret("convert-old-data-secret")}
 		if stateDir != "" {
 			opts = append(opts, config.WithCollectionsStateDir(stateDir))

@@ -256,6 +256,22 @@ func (c *Connectors) SoleConnection(ctx context.Context, user, addonID string) (
 // *connectors.NotAllowedError, listing this binding's resources, when the list
 // does not hold the key.
 func (c *Connectors) CredentialFor(ctx context.Context, user, addonID, bindingID, key string) (CredentialGrant, error) {
+	return c.credentialFor(ctx, user, addonID, bindingID, func(b connectors.Binding) (connectors.ResourceEntry, error) {
+		kind := c.kindOf(ctx, b)
+		return connectors.EntryFor(b, key, kind != nil && kind.WildcardResources)
+	})
+}
+
+// DefaultCredentialFor is CredentialFor for a call that left out an optional
+// resource argument: the connection is the only source of the target, so it
+// gives the one resource the binding lists. A binding that lists none or
+// several is a *connectors.NotAllowedError that lists them, and the model
+// picks one.
+func (c *Connectors) DefaultCredentialFor(ctx context.Context, user, addonID, bindingID string) (CredentialGrant, error) {
+	return c.credentialFor(ctx, user, addonID, bindingID, connectors.OnlyEntry)
+}
+
+func (c *Connectors) credentialFor(ctx context.Context, user, addonID, bindingID string, pick func(connectors.Binding) (connectors.ResourceEntry, error)) (CredentialGrant, error) {
 	if bindingID == "" {
 		return CredentialGrant{}, connectors.ErrNoConnection
 	}
@@ -270,8 +286,7 @@ func (c *Connectors) CredentialFor(ctx context.Context, user, addonID, bindingID
 	if err != nil || b.AddonID != addonID {
 		return CredentialGrant{}, connectors.ErrNoCredential
 	}
-	kind := c.kindOf(ctx, b)
-	entry, err := connectors.EntryFor(b, key, kind != nil && kind.WildcardResources)
+	entry, err := pick(b)
 	var notAllowed *connectors.NotAllowedError
 	if errors.As(err, &notAllowed) && b.Owner != principal(user) {
 		// The list of a binding is a setting of its owner. A grantee learns

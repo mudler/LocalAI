@@ -127,6 +127,9 @@ var _ = Describe("Chats files endpoints", func() {
 	It("marks the folders LocalAI manages, and moves old settings files into LocalAI/ before listing the home", func() {
 		Expect(s.putFile("alice", "/ui.json", `{"theme":"light"}`).Code).To(Equal(http.StatusOK))
 		Expect(s.putFile("alice", "/Notes/a.txt", "mine").Code).To(Equal(http.StatusOK))
+		Expect(s.putFile("alice", "/Memory/index.md", "- home: Rome\n").Code).To(Equal(http.StatusOK))
+		Expect(s.putFile("alice", "/pages/demo/index.html", "<p>hi</p>").Code).To(Equal(http.StatusOK))
+		Expect(s.putFile("alice", "/.skills/greet/SKILL.md", "---\nname: greet\ndescription: d\n---\n").Code).To(Equal(http.StatusOK))
 		managed := func(dir string) map[string]string {
 			rec := s.do("alice", http.MethodGet, "/api/chats/files?path="+q(dir), nil)
 			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
@@ -138,7 +141,11 @@ var _ = Describe("Chats files endpoints", func() {
 			}
 			return out
 		}
-		Expect(managed("/")).To(Equal(map[string]string{"Chats": "chats", "LocalAI": "localai", "Notes": ""}))
+		Expect(managed("/")).To(Equal(map[string]string{
+			"Chats": "chats", "LocalAI": "localai", "Notes": "",
+			"Memory": "memory", "pages": "pages", ".skills": "skills",
+		}))
+		Expect(managed("/Memory")).To(Equal(map[string]string{"index.md": ""}))
 		Expect(managed("/LocalAI")).To(Equal(map[string]string{"ui.json": "localai"}))
 		Expect(managed("/Notes")).To(Equal(map[string]string{"a.txt": ""}))
 	})

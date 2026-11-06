@@ -1502,6 +1502,190 @@
     - "mark-played"
     - "set-favorite"
     - "add-to-playlist"
+- id: "mail"
+  name: Mail
+  description: "Let your agents read your mailbox over IMAP, and write mail over SMTP if you allow it. Works with any provider."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:mail-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Mail"
+    description: "Let your agents read your mailbox over IMAP, and write mail over SMTP if you allow it. Works with any provider."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Mail"
+      "es": "Correo"
+      "fr": "Courrier"
+      "id": "Email"
+      "it": "Posta"
+      "ko": "메일"
+      "pt-BR": "E-mail"
+      "zh-CN": "邮件"
+    descriptions:
+      "de": "Lassen Sie Ihre Agenten Ihr Postfach über IMAP lesen und, wenn Sie es erlauben, Mails über SMTP schreiben. Funktioniert mit jedem Anbieter."
+      "es": "Permite que tus agentes lean tu buzón por IMAP y escriban correos por SMTP si lo autorizas. Funciona con cualquier proveedor."
+      "fr": "Laissez vos agents lire votre boîte aux lettres en IMAP et écrire des courriels en SMTP si vous l'autorisez. Fonctionne avec tout fournisseur."
+      "id": "Izinkan agen Anda membaca kotak surat Anda lewat IMAP dan menulis email lewat SMTP jika Anda mengizinkan. Berfungsi dengan penyedia mana pun."
+      "it": "Lascia che i tuoi agenti leggano la tua casella di posta via IMAP e scrivano email via SMTP se lo permetti. Funziona con qualsiasi provider."
+      "ko": "에이전트가 IMAP으로 사서함을 읽고, 허용하면 SMTP로 메일을 쓸 수 있게 합니다. 모든 제공업체에서 작동합니다."
+      "pt-BR": "Deixe seus agentes lerem sua caixa de e-mail por IMAP e escreverem e-mails por SMTP se você permitir. Funciona com qualquer provedor."
+      "zh-CN": "让你的智能体通过 IMAP 读取你的邮箱，并在你允许时通过 SMTP 写邮件。适用于任何服务商。"
+  toolCount: 8
+  tools:
+    - "list-folders"
+    - "search-messages"
+    - "get-message"
+    - "get-thread"
+    - "read-attachment"
+    - "check"
+    - "send-message"
+    - "save-draft"
+- id: "mail"
+  name: Mail
+  description: "Let your agents read your mailbox over IMAP, and write mail over SMTP if you allow it. Works with any provider."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:mail-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Mail"
+    description: "Let your agents read your mailbox over IMAP, and write mail over SMTP if you allow it. Works with any provider."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Mail"
+      "es": "Correo"
+      "fr": "Courrier"
+      "id": "Email"
+      "it": "Posta"
+      "ko": "메일"
+      "pt-BR": "E-mail"
+      "zh-CN": "邮件"
+    descriptions:
+      "de": "Lassen Sie Ihre Agenten Ihr Postfach über IMAP lesen und, wenn Sie es erlauben, Mails über SMTP schreiben. Funktioniert mit jedem Anbieter."
+      "es": "Permite que tus agentes lean tu buzón por IMAP y escriban correos por SMTP si lo autorizas. Funciona con cualquier proveedor."
+      "fr": "Laissez vos agents lire votre boîte aux lettres en IMAP et écrire des courriels en SMTP si vous l'autorisez. Fonctionne avec tout fournisseur."
+      "id": "Izinkan agen Anda membaca kotak surat Anda lewat IMAP dan menulis email lewat SMTP jika Anda mengizinkan. Berfungsi dengan penyedia mana pun."
+      "it": "Lascia che i tuoi agenti leggano la tua casella di posta via IMAP e scrivano email via SMTP se lo permetti. Funziona con qualsiasi provider."
+      "ko": "에이전트가 IMAP으로 사서함을 읽고, 허용하면 SMTP로 메일을 쓸 수 있게 합니다. 모든 제공업체에서 작동합니다."
+      "pt-BR": "Deixe seus agentes lerem sua caixa de e-mail por IMAP e escreverem e-mails por SMTP se você permitir. Funciona com qualquer provedor."
+      "zh-CN": "让你的智能体通过 IMAP 读取你的邮箱，并在你允许时通过 SMTP 写邮件。适用于任何服务商。"
+  toolCount: 8
+  tools:
+    - "list-folders"
+    - "search-messages"
+    - "get-message"
+    - "get-thread"
+    - "read-attachment"
+    - "check"
+    - "send-message"
+    - "save-draft"
+- id: "mail"
+  name: Mail
+  description: "Let your agents read your mailbox over IMAP, and write mail over SMTP if you allow it. Works with any provider."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:mail-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Mail"
+    description: "Let your agents read your mailbox over IMAP, and write mail over SMTP if you allow it. Works with any provider."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Mail"
+      "es": "Correo"
+      "fr": "Courrier"
+      "id": "Email"
+      "it": "Posta"
+      "ko": "메일"
+      "pt-BR": "E-mail"
+      "zh-CN": "邮件"
+    descriptions:
+      "de": "Lassen Sie Ihre Agenten Ihr Postfach über IMAP lesen und, wenn Sie es erlauben, Mails über SMTP schreiben. Funktioniert mit jedem Anbieter."
+      "es": "Permite que tus agentes lean tu buzón por IMAP y escriban correos por SMTP si lo autorizas. Funciona con cualquier proveedor."
+      "fr": "Laissez vos agents lire votre boîte aux lettres en IMAP et écrire des courriels en SMTP si vous l'autorisez. Fonctionne avec tout fournisseur."
+      "id": "Izinkan agen Anda membaca kotak surat Anda lewat IMAP dan menulis email lewat SMTP jika Anda mengizinkan. Berfungsi dengan penyedia mana pun."
+      "it": "Lascia che i tuoi agenti leggano la tua casella di posta via IMAP e scrivano email via SMTP se lo permetti. Funziona con qualsiasi provider."
+      "ko": "에이전트가 IMAP으로 사서함을 읽고, 허용하면 SMTP로 메일을 쓸 수 있게 합니다. 모든 제공업체에서 작동합니다."
+      "pt-BR": "Deixe seus agentes lerem sua caixa de e-mail por IMAP e escreverem e-mails por SMTP se você permitir. Funciona com qualquer provedor."
+      "zh-CN": "让你的智能体通过 IMAP 读取你的邮箱，并在你允许时通过 SMTP 写邮件。适用于任何服务商。"
+  toolCount: 8
+  tools:
+    - "list-folders"
+    - "search-messages"
+    - "get-message"
+    - "get-thread"
+    - "read-attachment"
+    - "check"
+    - "send-message"
+    - "save-draft"
+- id: "mail"
+  name: Mail
+  description: "Let your agents read your mailbox over IMAP, and write mail over SMTP if you allow it. Works with any provider."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:mail-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Mail"
+    description: "Let your agents read your mailbox over IMAP, and write mail over SMTP if you allow it. Works with any provider."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Mail"
+      "es": "Correo"
+      "fr": "Courrier"
+      "id": "Email"
+      "it": "Posta"
+      "ko": "메일"
+      "pt-BR": "E-mail"
+      "zh-CN": "邮件"
+    descriptions:
+      "de": "Lassen Sie Ihre Agenten Ihr Postfach über IMAP lesen und, wenn Sie es erlauben, Mails über SMTP schreiben. Funktioniert mit jedem Anbieter."
+      "es": "Permite que tus agentes lean tu buzón por IMAP y escriban correos por SMTP si lo autorizas. Funciona con cualquier proveedor."
+      "fr": "Laissez vos agents lire votre boîte aux lettres en IMAP et écrire des courriels en SMTP si vous l'autorisez. Fonctionne avec tout fournisseur."
+      "id": "Izinkan agen Anda membaca kotak surat Anda lewat IMAP dan menulis email lewat SMTP jika Anda mengizinkan. Berfungsi dengan penyedia mana pun."
+      "it": "Lascia che i tuoi agenti leggano la tua casella di posta via IMAP e scrivano email via SMTP se lo permetti. Funziona con qualsiasi provider."
+      "ko": "에이전트가 IMAP으로 사서함을 읽고, 허용하면 SMTP로 메일을 쓸 수 있게 합니다. 모든 제공업체에서 작동합니다."
+      "pt-BR": "Deixe seus agentes lerem sua caixa de e-mail por IMAP e escreverem e-mails por SMTP se você permitir. Funciona com qualquer provedor."
+      "zh-CN": "让你的智能体通过 IMAP 读取你的邮箱，并在你允许时通过 SMTP 写邮件。适用于任何服务商。"
+  toolCount: 8
+  tools:
+    - "list-folders"
+    - "search-messages"
+    - "get-message"
+    - "get-thread"
+    - "read-attachment"
+    - "check"
+    - "send-message"
+    - "save-draft"
 - id: "office"
   name: Simple Office
   description: "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox."

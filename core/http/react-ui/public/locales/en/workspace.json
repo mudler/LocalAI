@@ -499,7 +499,16 @@
     "marker": "managed by LocalAI",
     "about": {
       "localai": "Settings LocalAI reads: persona, profile, shortcuts, Home, theme.",
-      "chats": "One folder per chat, with the files of the chat."
+      "chats": "One folder per chat, with the files of the chat.",
+      "memory": "The notes the assistant keeps about you.",
+      "pages": "The pages in your workspace.",
+      "skills": "The skills the agents use.",
+      "other": "Created and used by LocalAI."
+    },
+    "open": {
+      "memory": "Open Memory",
+      "pages": "Open Pages",
+      "skills": "Open Skills"
     },
     "confirm": {
       "deleteTitle": "Move {{name}} to the Trash?",

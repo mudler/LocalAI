@@ -844,6 +844,87 @@
       "description": "Kosong. Mulai dari nol."
     }
   },
+  "wizard": {
+    "title": "Agen baru",
+    "supporting": "Empat langkah singkat. Hanya nama dan instruksi yang wajib.",
+    "stepsLabel": "Langkah",
+    "back": "Kembali",
+    "next": "Lanjut",
+    "defaultTools": "Alat bawaan",
+    "step": {
+      "purpose": "Tujuan",
+      "abilities": "Kemampuan",
+      "where": "Tempat bekerja",
+      "review": "Tinjau"
+    },
+    "purpose": {
+      "title": "Untuk apa agen ini?",
+      "lead": "Mulai dari templat atau tulis sendiri. Semuanya bisa diubah nanti.",
+      "needs": "Nama dan instruksi diperlukan untuk lanjut.",
+      "modelLine": "Model: yang Anda pilih di setiap chat.",
+      "modelChoose": "Pilih model tetap",
+      "modelEach": "Yang saya pilih di setiap chat"
+    },
+    "abilities": {
+      "title": "Seberapa banyak yang boleh dilakukan sendiri?",
+      "lead": "Tidak yakin? Biarkan: agen mulai dengan alat bawaan. Atau pilih satu tingkat, yang menggantikannya.",
+      "defaultNote": "Belum ada tingkat dipilih. Agen mulai dengan alat bawaan.",
+      "files": "File Anda yang mana yang boleh dilihat?",
+      "fine": "Atur alat satu per satu",
+      "templateHint": "Templat ini menyarankan tingkat {{level}}.",
+      "templateUse": "Pakai {{level}}"
+    },
+    "where": {
+      "title": "Di mana agen ini bekerja?",
+      "lead": "Opsional. Pilih tempat agen ini bekerja. Belum ada yang terhubung.",
+      "chat": "Aplikasi chat",
+      "chatLead": "Aplikasi tempat orang dapat berbicara dengan agen ini.",
+      "tools": "Alat dan layanan",
+      "toolsLead": "Add-on yang memberinya kemampuan baru.",
+      "notInstalled": "Belum terpasang",
+      "generic": "Selesaikan penyiapan {{title}}",
+      "loading": "Mencari aplikasi",
+      "empty": "Belum ada aplikasi yang tersedia.",
+      "note": "Memilih aplikasi tidak menghubungkannya. Setelah agen dibuat, daftar singkat memandu Anda menyiapkan masing-masing.",
+      "find": "Cari add-on"
+    },
+    "review": {
+      "title": "Siap dibuat",
+      "lead": "Periksa ringkasan. Semuanya bisa diubah nanti.",
+      "named": "Punya nama dan instruksi",
+      "tools": "Alat: {{level}}",
+      "modelFixed": "Model: {{model}}",
+      "modelEach": "Model: yang Anda pilih di setiap chat",
+      "apps": "Aplikasi yang perlu disiapkan setelah dibuat: {{count}}",
+      "filesTitle": "Agen dapat melihat semua file Anda.",
+      "filesBody": "Semua yang bisa Anda buka di File dapat dibaca agen ini. Anda bisa membatasinya ke folder.",
+      "limit": "Batasi ke folder",
+      "setupNext": "Setelah agen dibuat, halamannya mencantumkan langkah penyiapan untuk aplikasi yang Anda pilih."
+    },
+    "rail": {
+      "title": "Agen Anda",
+      "unnamed": "Tanpa nama",
+      "abilities": "Kemampuan",
+      "modelEach": "Dipilih di setiap chat",
+      "files": "File",
+      "folders": "Hanya folder terpilih ({{count}})",
+      "works": "Bekerja di",
+      "thisApp": "Aplikasi ini"
+    }
+  },
+  "setup": {
+    "title": "Selesaikan penyiapan",
+    "count": "{{done}} dari {{total}} selesai",
+    "dismiss": "Sembunyikan",
+    "progress": "Kemajuan penyiapan",
+    "done": "Selesai",
+    "stays": "Daftar tetap di halaman ini sampai semua aplikasi selesai, atau sampai Anda menyembunyikannya.",
+    "connect": "Koneksi baru",
+    "account": "Pilih akun",
+    "turnOn": "Aktifkan",
+    "find": "Lihat di add-on",
+    "actionFor": "{{action}}: {{title}}"
+  },
   "share": {
     "action": "Bagikan",
     "intro": "Orang yang Anda tambahkan memakai agen ini sebagai diri mereka sendiri, dengan file, koleksi, dan koneksi mereka sendiri.",

@@ -48,6 +48,9 @@ type ResourceText struct {
 type KindText struct {
 	Title       string `json:"title,omitempty"`
 	Description string `json:"description,omitempty"`
+	// Setup translates ConnectorKind.Setup (feature level 4). It can be set
+	// only when the English kind has a setup.
+	Setup string `json:"setup,omitempty"`
 }
 
 // validateI18n checks the translations against the manifest.
@@ -107,7 +110,10 @@ func validateI18n(m Manifest) error {
 			if text.Description != "" && (k.Description == "" || !plainText(text.Description, MaxDescriptionChars)) {
 				return fmt.Errorf("i18n %q kind %q: invalid description", tag, id)
 			}
-			total += utf8.RuneCountInString(text.Title) + utf8.RuneCountInString(text.Description)
+			if text.Setup != "" && (k.Setup == "" || !plainText(text.Setup, MaxSetupChars)) {
+				return fmt.Errorf("i18n %q kind %q: invalid setup", tag, id)
+			}
+			total += utf8.RuneCountInString(text.Title) + utf8.RuneCountInString(text.Description) + utf8.RuneCountInString(text.Setup)
 		}
 	}
 	if total > MaxI18nChars {
@@ -328,6 +334,50 @@ func NegotiateLanguage(explicit, acceptLanguage string, available []string) stri
 		if got, ok := MatchLanguage(c.tag, available); ok {
 			return got
 		}
+	}
+	return ""
+}
+
+// usesSetup reports whether the manifest uses the setup text at any place:
+// the add-on, a connector kind or a translation of a kind.
+func (m Manifest) usesSetup() bool {
+	if m.Setup != nil {
+		return true
+	}
+	if c := m.Capabilities.Connector; c != nil {
+		for _, k := range c.Kinds {
+			if k.Setup != "" {
+				return true
+			}
+		}
+	}
+	for _, t := range m.I18n {
+		for _, k := range t.Kinds {
+			if k.Setup != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// KindSetup returns the setup text of a connector kind for a language tag:
+// the translation when the kind has one in that language, else the English
+// text. It is empty when the kind declares none.
+func (m Manifest) KindSetup(kindID, tag string) string {
+	if m.Capabilities.Connector == nil {
+		return ""
+	}
+	for _, k := range m.Capabilities.Connector.Kinds {
+		if k.ID != kindID {
+			continue
+		}
+		if got, ok := MatchLanguage(tag, m.KindLanguages()); ok {
+			if t := m.I18n[got].Kinds[kindID].Setup; t != "" {
+				return t
+			}
+		}
+		return k.Setup
 	}
 	return ""
 }

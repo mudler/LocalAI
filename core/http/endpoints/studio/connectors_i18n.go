@@ -24,6 +24,12 @@ func translateKind(out *schema.ChatsConnectorKind, tr map[string]contract.KindTe
 			}
 			out.Titles[tag] = t.Title
 		}
+		if t.Setup != "" {
+			if out.Setups == nil {
+				out.Setups = map[string]string{}
+			}
+			out.Setups[tag] = t.Setup
+		}
 		if t.Description != "" {
 			if out.Descriptions == nil {
 				out.Descriptions = map[string]string{}
@@ -42,5 +48,11 @@ func translateKind(out *schema.ChatsConnectorKind, tr map[string]contract.KindTe
 	}
 	if t := tr[tag]; t.Description != "" {
 		out.LocalizedDescription = t.Description
+	}
+	if out.Setup != "" {
+		out.LocalizedSetup = out.Setup
+		if t := tr[tag]; t.Setup != "" {
+			out.LocalizedSetup = t.Setup
+		}
 	}
 }

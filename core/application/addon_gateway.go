@@ -1312,6 +1312,22 @@ func (c connectorAuthority) AuthorizeConnector(ctx context.Context, scope studio
 type credentialSource struct{ a *Application }
 
 func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, addonID, key string) (gateway.CredentialGrant, error) {
+	return c.grant(ctx, actor, addonID, func(user, bindingID string) (studio.CredentialGrant, error) {
+		return c.a.studioConnectors.CredentialFor(ctx, user, addonID, bindingID, key)
+	})
+}
+
+// DefaultCredential serves a call that left out an optional resource argument:
+// the one resource of the connection the call uses.
+func (c credentialSource) DefaultCredential(ctx context.Context, actor contract.Actor, addonID string) (gateway.CredentialGrant, error) {
+	return c.grant(ctx, actor, addonID, func(user, bindingID string) (studio.CredentialGrant, error) {
+		return c.a.studioConnectors.DefaultCredentialFor(ctx, user, addonID, bindingID)
+	})
+}
+
+var _ gateway.DefaultCredentialSource = credentialSource{}
+
+func (c credentialSource) grant(ctx context.Context, actor contract.Actor, addonID string, open func(user, bindingID string) (studio.CredentialGrant, error)) (gateway.CredentialGrant, error) {
 	if c.a.studioConnectors == nil {
 		return gateway.CredentialGrant{}, gateway.ErrUnavailable
 	}
@@ -1324,7 +1340,7 @@ func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, 
 	if err != nil {
 		return gateway.CredentialGrant{}, err
 	}
-	grant, err := c.a.studioConnectors.CredentialFor(ctx, user, addonID, bindingID, key)
+	grant, err := open(user, bindingID)
 	var notAllowed *connectors.NotAllowedError
 	switch {
 	case err == nil:

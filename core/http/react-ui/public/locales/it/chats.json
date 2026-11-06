@@ -277,6 +277,13 @@
       "turnOff": "Disattiva questa",
       "open": "Apri {{name}}"
     },
+    "new": "Nuova connessione",
+    "newMenu": "Scegli la piattaforma della nuova connessione",
+    "state": {
+      "running": "Attiva",
+      "off": "Spenta",
+      "attention": "Richiede attenzione"
+    },
     "share": {
       "label": "Condividi",
       "button": "Condividi {{name}}",
@@ -353,9 +360,12 @@
       "subagents": "Sotto-agenti",
       "changes": "Modifiche suggerite",
       "memory": "Memoria",
-      "history": "Chat precedenti"
+      "history": "Chat precedenti",
+      "localai_client": "Client LocalAI",
+      "localai_admin": "Amministrazione LocalAI"
     },
     "builtinBy": "{{tools}} · integrati",
+    "onDemand": "Caricato su richiesta",
     "builtinByAddon": "{{tools}} · servito da {{provider}}",
     "servedBy": "Servito dal componente aggiuntivo {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
@@ -377,7 +387,9 @@
       "triggers": "Il modello può proporre, elencare, modificare ed eliminare trigger. Confermi tu ogni nuovo trigger o modifica.",
       "changes": "Il modello può proporre modifiche alle tue note, alle sue regole, alle skill, alle pagine e alla dashboard. Confermi tu ognuna.",
       "memory": "Il modello può leggere le tue note prima di rispondere e salvarne di nuove. Disattivala per rendere questa una chat privata: non si legge nulla dalle tue note e non si salva nulla in esse. Le altre chat non cambiano.",
-      "history": "Permette al modello di cercare e leggere le tue chat precedenti."
+      "history": "Permette al modello di cercare e leggere le tue chat precedenti.",
+      "localai_client": "Permette al modello di creare immagini, voce, suoni e video, e di trascrivere, calcolare embedding, riordinare e rilevare, con i modelli installati qui.",
+      "localai_admin": "Permette al modello di gestire questo server: modelli, backend, impostazioni e stato. Solo per gli amministratori; il modello ti chiede prima di cambiare qualcosa."
     },
     "whenOff": {
       "shell": "Il modello può scrivere file ma non può eseguire nulla.",
@@ -390,7 +402,9 @@
       "triggers": "Il modello non può proporre né gestire trigger.",
       "changes": "Il modello non può proporre modifiche alle tue note, alle sue regole, alle skill, alle pagine o alla dashboard.",
       "memory": "È una chat privata. Il modello non legge né salva le tue note.",
-      "history": "Il modello non può vedere le tue chat precedenti."
+      "history": "Il modello non può vedere le tue chat precedenti.",
+      "localai_client": "Il modello non può eseguire questi modelli da solo.",
+      "localai_admin": "Il modello non può gestire questo server."
     },
     "addonDescribe_one": "Dà al modello {{count}} strumento di questo add-on.",
     "addonDescribe_other": "Dà al modello {{count}} strumenti di questo add-on.",
@@ -743,6 +757,64 @@
       "noChat": "Invia un primo messaggio, poi avvia un ciclo in questa chat.",
       "stopped_one": "Fermato {{count}} ciclo.",
       "stopped_other": "Fermati {{count}} cicli."
+    },
+    "wait": {
+      "name": "In attesa di",
+      "kind": "Attesa",
+      "pending": "Attende il tuo sì",
+      "paused": "Attesa in pausa",
+      "stop": "Ferma l'attesa",
+      "details": "Dettagli dell'attesa",
+      "watching": "Controlla {{source}}",
+      "until": "Finché {{condition}}",
+      "notChecked": "Non ancora controllato",
+      "checked_one": "Controllato {{count}} volta",
+      "checked_other": "Controllato {{count}} volte",
+      "checkedAgo_one": "Controllato {{count}} volta, l'ultima {{ago}}",
+      "checkedAgo_other": "Controllato {{count}} volte, l'ultima {{ago}}",
+      "outcome": {
+        "unchanged": "nessun cambiamento",
+        "changed": "cambiato",
+        "error": "fallito"
+      },
+      "ago": "{{span}} fa",
+      "justNow": "proprio ora",
+      "in": "tra {{span}}",
+      "now": "adesso",
+      "next": "Prossimo controllo {{when}}",
+      "deadline": "Rinuncia alle {{time}} ({{when}})",
+      "errorStreak": "L'ultimo controllo è fallito ({{count}} di {{max}} di fila)",
+      "errorStreakMsg": "L'ultimo controllo è fallito ({{count}} di {{max}} di fila): {{message}}",
+      "lastError": "Ultimo errore: {{message}}",
+      "sources": {
+        "tool": "strumento {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "Fatto: la condizione è soddisfatta",
+        "failing_one": "Fermata: la fonte è fallita {{count}} volta di fila",
+        "failing_other": "Fermata: la fonte è fallita {{count}} volte di fila",
+        "timedOut": "Tempo scaduto, la condizione non è stata soddisfatta",
+        "stopped": "Attesa fermata"
+      },
+      "waking": {
+        "met": "La condizione è soddisfatta. Chiedo al modello cosa fare.",
+        "failing": "La fonte è fallita. Chiedo al modello cosa fare.",
+        "timedOut": "Tempo scaduto, la condizione non è stata soddisfatta. Chiedo al modello cosa fare."
+      },
+      "phase": {
+        "waiting": "in attesa",
+        "waking": "sveglia il modello",
+        "paused": "in pausa",
+        "ended": "terminata",
+        "pending": "attende il tuo sì"
+      },
+      "endShort": {
+        "condition_met": "condizione soddisfatta",
+        "source_failing": "fonte fallita",
+        "timed_out": "tempo scaduto",
+        "stopped": "fermata"
+      }
     }
   },
   "changes": {
@@ -755,7 +827,8 @@
       "skill": "Skill",
       "page": "Pagina",
       "dashboard": "Dashboard",
-      "knowledge": "Conoscenza"
+      "knowledge": "Conoscenza",
+      "voice_profile": "Profilo vocale"
     },
     "scope": {
       "user": "Tutte le tue chat",
@@ -832,6 +905,18 @@
       "title": "Controlla questo testo prima di confermare.",
       "secret": "Sembra contenere un segreto, come una chiave, un token o una password. Una volta aggiunto, ogni chat che cerca in questa raccolta può leggerlo. Una chat di messaggistica non può confermarlo; solo tu, qui.",
       "other": "Il server ha segnalato questo testo come rischioso. Una chat di messaggistica non può confermarlo; solo tu, qui."
+    },
+    "voice": {
+      "label": "Voce da clonare",
+      "name": "Nome",
+      "file": "Registrazione",
+      "clip": "Clip bloccato",
+      "language": "Lingua",
+      "transcript": "Trascrizione",
+      "consentTitle": "Conferma solo se chi parla ha dato il consenso.",
+      "consent": "La registrazione viene salvata come profilo vocale con cui le tue chat possono parlare. Puoi eliminarla nella libreria Voce.",
+      "consentAdmin": "Sei un amministratore: questa voce sarà disponibile a tutti gli utenti di questo server.",
+      "confirm": "Chi parla ha acconsentito: salva la voce"
     }
   },
   "proposalsPage": {
@@ -1123,5 +1208,9 @@
       "waiting": "La modifica attende la tua conferma nella pagina Add-ons",
       "failed": "Il fornitore non ha potuto dimenticare: {{message}}"
     }
+  },
+  "subAgents": {
+    "waiting": "In attesa di: {{what}}",
+    "looping": "In ciclo"
   }
 }

@@ -460,7 +460,16 @@
     "marker": "gestita da LocalAI",
     "about": {
       "localai": "Impostazioni che LocalAI legge: persona, profilo, scorciatoie, Home, tema.",
-      "chats": "Una cartella per chat, con i file della chat."
+      "chats": "Una cartella per chat, con i file della chat.",
+      "memory": "Le note che l'assistente conserva su di te.",
+      "pages": "Le pagine del tuo spazio di lavoro.",
+      "skills": "Le skill che gli agenti usano.",
+      "other": "Creata e usata da LocalAI."
+    },
+    "open": {
+      "memory": "Apri Memoria",
+      "pages": "Apri Pagine",
+      "skills": "Apri Skill"
     },
     "confirm": {
       "deleteTitle": "Spostare {{name}} nel Cestino?",

@@ -185,6 +185,23 @@ func ValidateWildcards(entries []ResourceEntry, wildcards bool) error {
 // binding without a token is no credential: ErrNoCredential.
 func Entry(b Binding, key string) (ResourceEntry, error) { return EntryFor(b, key, false) }
 
+// OnlyEntry returns the entry of a binding that lists exactly one resource. It
+// is the target of a call that names none: the connection is then the only
+// source of it. A binding without a token is ErrNoCredential. One that lists
+// none or several gets a *NotAllowedError that lists them, so the caller can
+// name one.
+func OnlyEntry(b Binding) (ResourceEntry, error) {
+	if len(b.Token) == 0 {
+		return ResourceEntry{}, ErrNoCredential
+	}
+	if len(b.Resources) == 1 && !IsWildcard(b.Resources[0].Key) {
+		return b.Resources[0], nil
+	}
+	allowed := ResourceKeys(b.Resources)
+	slices.Sort(allowed)
+	return ResourceEntry{}, &NotAllowedError{Allowed: allowed}
+}
+
 // EntryFor is Entry for a kind that may declare wildcardResources. With
 // wildcards the list may hold owner/* and *, and a key they cover gets an
 // entry made for that key: the key as sent and its own host ID, so the

@@ -739,6 +739,7 @@
           "has consistent package files for calendar",
           "has consistent package files for contacts",
           "has consistent package files for jellyfin",
+          "has consistent package files for mail",
           "has consistent package files for pikvm",
           "writes the zip of a verified layout with a digest manifest and a sha256 file",
           "audits actual host calls and strict package contract for github",
@@ -746,6 +747,7 @@
           "audits actual host calls and strict package contract for calendar",
           "audits actual host calls and strict package contract for contacts",
           "audits actual host calls and strict package contract for jellyfin",
+          "audits actual host calls and strict package contract for mail",
           "audits actual host calls and strict package contract for pikvm",
           "lists every release platform with its runner",
           "enables a platform exactly when its native check is recorded",
@@ -795,7 +797,9 @@
           "writes nothing for a manifest at the base level, with or without the flag",
           "keeps the level out of the index by default, so a host that predates the field still reads it",
           "keeps the level of Tables out of the committed index shape, and writes it on request",
-          "writes the level the manifest needs when asked to"
+          "writes the level the manifest needs when asked to",
+          "translates the title and the description of mail in every main language",
+          "gives every translated connector kind of mail the fields of its English kind, and no others"
         ]
       },
       {
@@ -5078,6 +5082,7 @@
       "package.sh refuses a foreign platform without an executable: office",
       "package.sh refuses a foreign platform without an executable: sandbox",
       "package.sh refuses a foreign platform without an executable: web",
+      "package.sh refuses a foreign platform without an executable: mail",
       "package.sh refuses a guest image that is not by digest",
       "package.sh refuses a sandbox release build without SANDBOX_GUEST_IMAGE",
       "package.sh stamps the sandbox executable with a guest image in a local check",
@@ -5091,6 +5096,7 @@
       "go: audits actual host calls and strict package contract for calendar",
       "go: audits actual host calls and strict package contract for contacts",
       "go: audits actual host calls and strict package contract for jellyfin",
+      "go: audits actual host calls and strict package contract for mail",
       "go: audits actual host calls and strict package contract for office",
       "go: audits actual host calls and strict package contract for pikvm",
       "go: audits actual host calls and strict package contract for quantization",
@@ -5113,7 +5119,48 @@
       "go: has consistent package files for calendar",
       "go: has consistent package files for contacts",
       "go: has consistent package files for jellyfin",
-      "go: has consistent package files for pikvm"
+      "go: has consistent package files for mail",
+      "go: has consistent package files for pikvm",
+      "go: changes the package digest when a translation changes, and the package still verifies",
+      "go: refuses to build a package whose translation the host would refuse",
+      "go: renders the translated title and description of every add-on into its library entry",
+      "go: translates the title and the description of discord in every main language",
+      "go: translates the title and the description of face in every main language",
+      "go: translates the title and the description of fine-tuning in every main language",
+      "go: translates the title and the description of github in every main language",
+      "go: translates the title and the description of home-assistant in every main language",
+      "go: translates the title and the description of jellyfin in every main language",
+      "go: translates the title and the description of mail in every main language",
+      "go: translates the title and the description of office in every main language",
+      "go: translates the title and the description of pikvm in every main language",
+      "go: translates the title and the description of quantization in every main language",
+      "go: translates the title and the description of sandbox in every main language",
+      "go: translates the title and the description of slack in every main language",
+      "go: translates the title and the description of studio in every main language",
+      "go: translates the title and the description of tables in every main language",
+      "go: translates the title and the description of talk in every main language",
+      "go: translates the title and the description of telegram in every main language",
+      "go: translates the title and the description of voice in every main language",
+      "go: translates the title and the description of web in every main language",
+      "go: gives every translated connector kind of discord the fields of its English kind, and no others",
+      "go: gives every translated connector kind of face the fields of its English kind, and no others",
+      "go: gives every translated connector kind of fine-tuning the fields of its English kind, and no others",
+      "go: gives every translated connector kind of github the fields of its English kind, and no others",
+      "go: gives every translated connector kind of home-assistant the fields of its English kind, and no others",
+      "go: gives every translated connector kind of jellyfin the fields of its English kind, and no others",
+      "go: gives every translated connector kind of mail the fields of its English kind, and no others",
+      "go: gives every translated connector kind of office the fields of its English kind, and no others",
+      "go: gives every translated connector kind of pikvm the fields of its English kind, and no others",
+      "go: gives every translated connector kind of quantization the fields of its English kind, and no others",
+      "go: gives every translated connector kind of sandbox the fields of its English kind, and no others",
+      "go: gives every translated connector kind of slack the fields of its English kind, and no others",
+      "go: gives every translated connector kind of studio the fields of its English kind, and no others",
+      "go: gives every translated connector kind of tables the fields of its English kind, and no others",
+      "go: gives every translated connector kind of talk the fields of its English kind, and no others",
+      "go: gives every translated connector kind of telegram the fields of its English kind, and no others",
+      "go: gives every translated connector kind of voice the fields of its English kind, and no others",
+      "go: gives every translated connector kind of web the fields of its English kind, and no others",
+      "go: lists every add-on directory that has a manifest"
     ]
   },
   "updates": {
@@ -5450,5 +5497,29 @@
       "refuses an outbound handle whose content changed size and an offset past the end"
     ],
     "report": ".cache/addons/logs/host-admission.json"
+  },
+  "mail-addon": {
+    "kind": "ginkgo",
+    "commands": [
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./tests/addons/mail",
+        "-ginkgo.json-report=../../../.cache/addons/logs/mail-addon.json"
+      ]
+    ],
+    "report": ".cache/addons/logs/mail-addon.json",
+    "cases": [
+      "lists folders, searches and reads mail with the credential the host hands over, and leaves it unseen",
+      "returns hostile mail as untrusted data",
+      "refuses a mailbox the host did not allow, and a bad password with a fixed sentence",
+      "previews, sends and saves a draft only through the write path, once for each operation",
+      "answers the connector check by logging in to both servers"
+    ]
   }
 }

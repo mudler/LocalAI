@@ -12,6 +12,15 @@ import { KIND_ICON, extOf, findByPrefix, hasThumb, kindOf, nameProblem, nextInde
 export function EntryIcon({ entry, big = false }) {
   const [broken, setBroken] = useState(false)
   const kind = kindOf(entry)
+  // A folder LocalAI manages has its own icon and a quiet look, so it does not
+  // read as one of the person's folders.
+  if (kind === 'folder' && entry.managed) {
+    return (
+      <span className={`ws-glyph ws-glyph--managed${big ? ' ws-glyph--big' : ''}`} aria-hidden="true" data-testid="ws-managed-glyph">
+        <Icon name="settings" />
+      </span>
+    )
+  }
   if (hasThumb(entry) && !broken) {
     return (
       <span className={`ws-thumb${big ? ' ws-thumb--big' : ''}`} aria-hidden="true">
@@ -79,7 +88,7 @@ export function NameField({ initial, label, taken, current = '', onCommit, onCan
 function Row({ entry, view, selected, cursor, dropping, previewing, renaming, ctx }) {
   const { t, locale, now, taken, anySelected } = ctx
   const isDir = entry.kind === 'dir'
-  const about = isDir && entry.managed ? t(`managed.about.${entry.managed}`, { defaultValue: '' }) : ''
+  const about = isDir && entry.managed ? t(`managed.about.${entry.managed}`, { defaultValue: t('managed.about.other') }) : ''
   const when = relativeDate(entry.modified, { now, locale })
   const kind = kindOf(entry)
   const menu = ctx.menuItems(entry)

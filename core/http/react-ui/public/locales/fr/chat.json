@@ -35,7 +35,16 @@
     "agent": "Agent",
     "agentHelp": "Ce chat utilise l'agent {{name}} : ses instructions et seulement les outils qu'il accorde.",
     "editAgent": "Modifier l'agent",
-    "deleteHelp": "Supprimer définitivement ce chat et ses messages."
+    "deleteHelp": "Supprimer définitivement ce chat et ses messages.",
+    "sliderOf": "Curseur {{name}}",
+    "reset": "Utiliser la valeur du modèle pour {{name}}",
+    "hint": {
+      "temperature": "Des valeurs plus hautes donnent des réponses plus variées. De 0 à 2.",
+      "topP": "Choisit parmi les mots les plus probables dont la somme atteint cette part. Supérieur à 0, jusqu'à 1.",
+      "topK": "Choisit parmi ce nombre de mots les plus probables. Un entier, 0 ou plus.",
+      "contextSize": "De 512 à 4194304 jetons.",
+      "effort": "S'applique tout de suite, dès le prochain tour."
+    }
   },
   "empty": {
     "manageTitle": "Gérez LocalAI par la conversation",
@@ -309,6 +318,10 @@
       "desc": "Fixer un objectif sur lequel le chat continue de travailler tout seul",
       "clearDesc": "Retirer l'objectif",
       "resumeDesc": "Continuer vers l'objectif"
+    },
+    "effort": {
+      "label": "Effort de raisonnement",
+      "desc": "Choisir à quel point le modèle réfléchit"
     }
   },
   "shortcuts": {
@@ -742,5 +755,10 @@
       "other": "Note",
       "why": "Pourquoi"
     }
+  },
+  "reasoning": {
+    "chip": "Effort",
+    "title": "Effort de raisonnement de ce chat",
+    "note": "S'applique dès le prochain tour. Aucun demande au modèle de ne pas réfléchir."
   }
 }

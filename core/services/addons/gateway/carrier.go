@@ -557,7 +557,7 @@ func typedError(w http.ResponseWriter, e error) {
 		// decodes the body back to the same typed error.
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(resourceWire{Type: wireInvalid})
+		_ = json.NewEncoder(w).Encode(resourceWire{Type: wireInvalid, refusalWire: refusalWireOf(e)})
 		return
 	}
 	var limited *contract.ErrRateLimited
@@ -883,7 +883,7 @@ func (c *Carrier) sendCtx(ctx context.Context, a contract.Actor, wire wireReques
 			// was applied and the same call is refused again.
 			var b resourceWire
 			if decode(io.LimitReader(resp.Body, 32768), &b) == nil && b.Type == wireInvalid {
-				return nil, ErrInvalidRequest
+				return nil, b.refusalWire.err()
 			}
 		}
 		// Any other status, including a typed 503, leaves a mutation uncertain:

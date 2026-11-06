@@ -206,7 +206,7 @@ func loadedWith(mode string, extra []string, env ...string) (*Strata, *fakeToken
 	exe, _ := os.Executable()
 	ft := &fakeTokenizer{}
 	s := NewStrata()
-	s.newTokenizer = func(string, string, string, time.Duration) (Tokenizer, error) { return ft, nil }
+	s.newTokenizer = func(string, string, string, string, time.Duration) (Tokenizer, error) { return ft, nil }
 	s.startEngine = func(c engineConfig) (*engine, error) {
 		c.Env = append(c.Env, "STRATA_STUB_MODE="+mode)
 		c.Env = append(c.Env, env...)

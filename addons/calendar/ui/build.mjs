@@ -5,7 +5,7 @@ import { buildAddonUI } from '../../internal/uibuild/uibuild.mjs'
 const here = dirname(fileURLToPath(import.meta.url))
 
 export async function build() {
-  return buildAddonUI({ root: here, name: 'calendar', rgb: [46, 125, 110] })
+  return buildAddonUI({ root: here, name: 'calendar', rgb: [46, 125, 110], glyph: 'calendar' })
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

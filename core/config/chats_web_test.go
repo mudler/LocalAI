@@ -65,6 +65,35 @@ var _ = Describe("the chats' web tool settings", func() {
 		Expect(o.ToRuntimeSettings().ChatsSavedAgents).To(HaveValue(BeFalse()))
 	})
 
+	It("keeps the two LocalAI tool groups of the chats on until an administrator switches one off", func() {
+		o := &config.ApplicationConfig{}
+		Expect(o.ToRuntimeSettings().ChatsLocalAIClient).To(HaveValue(BeTrue()))
+		Expect(o.ToRuntimeSettings().ChatsLocalAIAdmin).To(HaveValue(BeTrue()))
+		off := false
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsLocalAIAdmin: &off})
+		Expect(o.DisableChatsLocalAIAdmin).To(BeTrue())
+		Expect(o.DisableChatsLocalAIClient).To(BeFalse())
+		Expect(o.ToRuntimeSettings().ChatsLocalAIAdmin).To(HaveValue(BeFalse()))
+	})
+
+	It("defers the large LocalAI tool groups of the chats in auto mode until an administrator says on or off", func() {
+		o := &config.ApplicationConfig{}
+		Expect(o.ToRuntimeSettings().ChatsToolSearch).To(HaveValue(Equal("auto")))
+		on := "on"
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsToolSearch: &on})
+		Expect(o.EffectiveChatsToolSearch()).To(Equal("on"))
+		Expect(o.ToRuntimeSettings().ChatsToolSearch).To(HaveValue(Equal("on")))
+		bad := "sometimes"
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsToolSearch: &bad})
+		Expect(o.EffectiveChatsToolSearch()).To(Equal("on"), "a value that is not a mode is refused")
+		off := " OFF "
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsToolSearch: &off})
+		Expect(o.EffectiveChatsToolSearch()).To(Equal("off"))
+		empty := ""
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsToolSearch: &empty})
+		Expect(o.EffectiveChatsToolSearch()).To(Equal("auto"))
+	})
+
 	It("keeps the work folder of the chats on until an administrator turns it off", func() {
 		o := &config.ApplicationConfig{}
 		Expect(o.ToRuntimeSettings().ChatsWorkFolder).To(HaveValue(BeTrue()))

@@ -34,7 +34,7 @@ var mediaToolNames = []string{"describe_image", "transcribe_audio"}
 // The collection tools, in the group GroupCollections.
 var collectionToolNames = []string{"list_collections", "search_collection"}
 
-// spawnAgentName is the tool that starts a sub-agent, in GroupSubAgents.
+// spawnAgentName is the tool that starts a sub-agent, in GroupSubAgents. wait_agents follows its switch.
 const spawnAgentName = "spawn_agent"
 
 // ErrSubAgentsOff means the chat switched the sub-agents off.
@@ -116,7 +116,13 @@ func (s *Service) switchesOf(ctx context.Context, rec session.ChatRecord) (off, 
 		s.log.Warn("studio: the parent of a sub-agent is gone; it keeps every group off", "chat", rec.ID, "error", err)
 		return s.builtins.Groups(), nil
 	}
-	return mergeGroups(slices.Clone(rec.BuiltinsOff), s.agentOff(ctx, rec)), rec.BuiltinsOn
+	on = rec.BuiltinsOn
+	if rec.Assistant {
+		// Assistant mode is a convenience: it switches the admin group on for
+		// this chat. The chat's own switch and the agent's ceiling still win.
+		on = mergeGroups(slices.Clone(on), []string{builtins.GroupLocalAIAdmin})
+	}
+	return mergeGroups(slices.Clone(rec.BuiltinsOff), s.agentOff(ctx, rec)), on
 }
 
 // agentOff are the groups of built-in tools the saved agent of the chat turns

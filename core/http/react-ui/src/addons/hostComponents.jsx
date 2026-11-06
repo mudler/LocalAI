@@ -245,6 +245,13 @@ export function ExternalLink({ href, children, testId }) {
 // add-on page draw the same thing.
 export { default as PageHeader } from '../components/PageHeader'
 export { default as ConfirmDialog } from '../components/ConfirmDialog'
+// The side sheet (a create or edit form), the docked pane (a detail beside a
+// list, with PaneLayout as the row that holds both) and the row menu. They are
+// the very components of the core pages: Escape, focus and the phone layout
+// are the host's, so an add-on draws no panel of its own.
+export { default as SideSheet } from '../components/SideSheet'
+export { default as SidePane, PaneLayout } from '../components/ui/SidePane'
+export { default as ActionMenu } from '../components/ActionMenu'
 export { default as ErrorWithTraceLink } from '../components/ErrorWithTraceLink'
 export { default as ModelSelector } from '../components/ModelSelector'
 export { default as ModelPicker } from '../components/ModelPicker'

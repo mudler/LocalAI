@@ -277,6 +277,13 @@
       "turnOff": "关闭这个连接",
       "open": "打开 {{name}}"
     },
+    "new": "新建连接",
+    "newMenu": "选择新连接的平台",
+    "state": {
+      "running": "运行中",
+      "off": "已关闭",
+      "attention": "需要处理"
+    },
     "share": {
       "label": "共享",
       "button": "共享 {{name}}",
@@ -353,9 +360,12 @@
       "subagents": "子代理",
       "changes": "建议的更改",
       "memory": "记忆",
-      "history": "以前的对话"
+      "history": "以前的对话",
+      "localai_client": "LocalAI 客户端",
+      "localai_admin": "LocalAI 管理"
     },
     "builtinBy": "{{tools}} · 内置",
+    "onDemand": "按需加载",
     "builtinByAddon": "{{tools}} · 由 {{provider}} 提供",
     "servedBy": "由附加组件 {{provider}} 提供",
     "servedByTool": "{{tool}}: {{provider}}",
@@ -377,7 +387,9 @@
       "triggers": "模型可以提议、列出、修改和删除触发器。每个新触发器或修改都由你确认。",
       "changes": "模型可以提议修改你的笔记、它自己的规则、技能、页面和仪表板。每一项都由你确认。",
       "memory": "模型可以在回答前读取你的笔记并保存新的笔记。关闭后此聊天为私密聊天：不读取也不保存你的笔记。你的其他聊天不受影响。",
-      "history": "允许模型搜索并读取你以前的对话。"
+      "history": "允许模型搜索并读取你以前的对话。",
+      "localai_client": "允许模型使用此处安装的模型生成图像、语音、声音和视频，并进行转写、嵌入、重排序和检测。",
+      "localai_admin": "允许模型管理此服务器：模型、后端、设置和状态。仅限管理员；模型在更改任何内容之前会先询问你。"
     },
     "whenOff": {
       "shell": "模型可以写文件,但不能运行任何东西。",
@@ -390,7 +402,9 @@
       "triggers": "模型无法提议或管理触发器。",
       "changes": "模型无法提议修改你的笔记、它自己的规则、技能、页面或仪表板。",
       "memory": "这是私密聊天。模型不会读取或保存你的笔记。",
-      "history": "模型看不到你以前的对话。"
+      "history": "模型看不到你以前的对话。",
+      "localai_client": "模型无法自行运行这些模型。",
+      "localai_admin": "模型无法管理此服务器。"
     },
     "addonDescribe_one": "向模型提供此附加组件的 {{count}} 个工具。",
     "addonDescribe_other": "向模型提供此附加组件的 {{count}} 个工具。",
@@ -743,6 +757,64 @@
       "noChat": "先发送第一条消息，然后在此聊天中启动循环。",
       "stopped_one": "已停止 {{count}} 个循环。",
       "stopped_other": "已停止 {{count}} 个循环。"
+    },
+    "wait": {
+      "name": "正在等待",
+      "kind": "等待",
+      "pending": "等待你确认",
+      "paused": "等待已暂停",
+      "stop": "停止等待",
+      "details": "等待详情",
+      "watching": "正在监视 {{source}}",
+      "until": "直到 {{condition}}",
+      "notChecked": "尚未检查",
+      "checked_one": "已检查 {{count}} 次",
+      "checked_other": "已检查 {{count}} 次",
+      "checkedAgo_one": "已检查 {{count}} 次，最近一次在 {{ago}}",
+      "checkedAgo_other": "已检查 {{count}} 次，最近一次在 {{ago}}",
+      "outcome": {
+        "unchanged": "无变化",
+        "changed": "已变化",
+        "error": "失败"
+      },
+      "ago": "{{span}}前",
+      "justNow": "刚刚",
+      "in": "{{span}}后",
+      "now": "现在",
+      "next": "下次检查 {{when}}",
+      "deadline": "将在 {{time}} 放弃（{{when}}）",
+      "errorStreak": "最近一次检查失败（连续 {{count}}/{{max}} 次）",
+      "errorStreakMsg": "最近一次检查失败（连续 {{count}}/{{max}} 次）：{{message}}",
+      "lastError": "最近的错误：{{message}}",
+      "sources": {
+        "tool": "工具 {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "完成：条件已满足",
+        "failing_one": "已停止：数据源连续失败 {{count}} 次",
+        "failing_other": "已停止：数据源连续失败 {{count}} 次",
+        "timedOut": "已超时，条件未满足",
+        "stopped": "等待已停止"
+      },
+      "waking": {
+        "met": "条件已满足。正在询问模型下一步做什么。",
+        "failing": "数据源失败。正在询问模型下一步做什么。",
+        "timedOut": "已超时，条件未满足。正在询问模型下一步做什么。"
+      },
+      "phase": {
+        "waiting": "等待中",
+        "waking": "正在唤醒模型",
+        "paused": "已暂停",
+        "ended": "已结束",
+        "pending": "等待你确认"
+      },
+      "endShort": {
+        "condition_met": "条件已满足",
+        "source_failing": "数据源失败",
+        "timed_out": "已超时",
+        "stopped": "已停止"
+      }
     }
   },
   "changes": {
@@ -755,7 +827,8 @@
       "skill": "技能",
       "page": "页面",
       "dashboard": "仪表板",
-      "knowledge": "知识库"
+      "knowledge": "知识库",
+      "voice_profile": "语音档案"
     },
     "scope": {
       "user": "你的所有聊天",
@@ -832,6 +905,18 @@
       "title": "确认之前请检查这段文字。",
       "secret": "它看起来包含密钥、令牌或密码之类的机密。添加之后，搜索这个集合的每个聊天都能读到它。消息聊天无法确认它，只有你能在这里确认。",
       "other": "服务器将这段文字标记为有风险。消息聊天无法确认它，只有你能在这里确认。"
+    },
+    "voice": {
+      "label": "要克隆的声音",
+      "name": "名称",
+      "file": "录音",
+      "clip": "锁定的录音",
+      "language": "语言",
+      "transcript": "文字稿",
+      "consentTitle": "仅在说话人同意时才确认。",
+      "consent": "录音将保存为语音档案，供你的聊天用来说话。你可以在语音库中删除它。",
+      "consentAdmin": "你是管理员，因此该语音将对此服务器的所有用户可用。",
+      "confirm": "说话人已同意：保存声音"
     }
   },
   "proposalsPage": {
@@ -1123,5 +1208,9 @@
       "waiting": "该更改正等待你在 Add-ons 页面确认",
       "failed": "提供方无法忘记：{{message}}"
     }
+  },
+  "subAgents": {
+    "waiting": "正在等待：{{what}}",
+    "looping": "循环中"
   }
 }

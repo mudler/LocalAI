@@ -99,6 +99,12 @@ type ChatRecord struct {
 	// it alone, like the switches, so a stale copy of the record cannot clear
 	// it. Chats stored before the field read as false.
 	ScopedAgent bool
+	// AllowedTools holds the names of the tools the parent gave a sub-agent
+	// that is not a saved agent. It is set by CreateChat and does not change.
+	// The tools are rebuilt from the names at each turn, limited to what the
+	// parent may use then, so the list survives a restart and works on
+	// every frontend. It is empty for any other chat.
+	AllowedTools []string
 	// Settings are the per-chat model settings. SetChatMeta sets them;
 	// UpdateChat leaves them alone, like the switches above.
 	Settings ChatSettings

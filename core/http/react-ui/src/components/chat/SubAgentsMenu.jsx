@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { chatsApi } from '../../utils/api'
 import Icon from '../Icon'
+import { isWait, loopSummary } from '../../utils/chatLoops'
 
 // The sub-agents a chat started: each is its own conversation that the server
 // keeps and runs, also in the background while the parent goes on. The list
@@ -98,6 +99,17 @@ export default function SubAgentsMenu({ chatId, tick = 0 }) {
                   )}
                 </span>
                 <span className="cx-subagents__state">{state(r)}</span>
+                {r.loop && (
+                  <span className="cx-subagents__loop" data-testid="chat-subagent-loop">
+                    <Icon name={isWait(r.loop) ? 'hourglass' : 'repeat'} className="cx-subagents__loop-icon" />
+                    <span>
+                      {isWait(r.loop)
+                        ? t('subAgents.waiting', { what: r.loop.watch.reason || r.loop.watch.condition })
+                        : t('subAgents.looping')}
+                      {' · '}{loopSummary(t, r.loop, Date.now(), false)}
+                    </span>
+                  </span>
+                )}
                 {shown[r.id] && (
                   <div className="cx-subagents__log" data-testid="chat-subagent-log">
                     {shown[r.id] === 'loading'

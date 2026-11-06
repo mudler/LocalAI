@@ -1,14 +1,18 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
+import ActionMenu from '../components/ActionMenu'
+import { AppIcon } from '../components/addons/AddonBits'
 import ShareDialog from '../components/share/ShareDialog'
 import { SharedByBadge } from '../components/share/ShareBadges'
 import { kindShareClient } from '../components/share/shareClients'
-import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, StatusChip, Switch } from '../components/ui'
 import { chatAgentsApi, chatConnectorsApi, sharesApi } from '../utils/api'
-import { acceptsOf, bindingAddress, duplicateOf, groupConnectors } from '../utils/chatConnectors'
+import { bindingAddress, connectionLine, duplicateOf, groupConnectors, rowState } from '../utils/chatConnectors'
+import { useAddonIcons } from '../hooks/useAddonIcons'
+import '../components/addons/addons.css'
 import './connectors.css'
 
 // The kind of a binding in the sharing API.
@@ -21,7 +25,11 @@ const SHARE_KIND = 'connection'
 // people shared with the user are listed apart, read only.
 export default function ChatConnectors() {
   const { t } = useTranslation('chats')
+  const { t: ta } = useTranslation('addons')
+  const icons = useAddonIcons()
   const [params] = useSearchParams()
+  const navigate = useNavigate()
+  const [menuAt, setMenuAt] = useState(null)
   const [kinds, setKinds] = useState(null)
   const [items, setItems] = useState([])
   const [shared, setShared] = useState([])
@@ -78,18 +86,23 @@ export default function ChatConnectors() {
     } catch (e) { fail(e) }
   }
 
+  const STATE_CHIP = { running: { status: 'running' }, off: { tone: 'idle' }, attention: { tone: 'warn' } }
   const row = (c) => {
-    const a = acceptsOf(c)
     const other = duplicateOf(c)
     const otherHref = other ? bindingAddress(groups, c, other.id) : ''
+    const state = rowState(c)
+    const chip = STATE_CHIP[state]
     return (
-      <li key={c.id} className="cn-row" data-testid="connector-row" data-on={c.enabled ? 'true' : 'false'}>
-        <span className="cn-row__lead" aria-hidden="true"><Icon name="chat" /></span>
+      <li key={c.id} className="cn-row" data-testid="connector-row" data-on={c.enabled ? 'true' : 'false'} data-state={state}>
+        <AppIcon src={icons[c.addon] || ''} id={c.addon || c.kind} name={c.name} size={40} />
         <div className="cn-row__main">
-          <span className="cn-row__name">{c.name}</span>
+          <span className="cn-row__head">
+            <span className="cn-row__name">{c.name}</span>
+            <StatusChip status={chip.status} tone={chip.tone} label={t(`connectorsPage.state.${state}`)} testId="connector-state" />
+          </span>
           <span className="cn-row__meta">
-            <span>{t('connectorsPage.agentOf', { name: agentName(c.agent_id) })}</span>
-            <span>{t('connectorsPage.accepts', { who: a.key === 'listed' ? t('connectorsPage.modes.listed', { count: a.count }) : t(`connectorsPage.modes.${a.key}`) })}</span>
+            <span>{ta('connection.answersAs', { name: agentName(c.agent_id) })}</span>
+            <span>{connectionLine(c, agents, ta).who}</span>
           </span>
           {other && (
             <span className="cn-result cn-result--warn" data-testid="connector-duplicate">
@@ -119,15 +132,11 @@ export default function ChatConnectors() {
               {t('connectorsPage.share.label')}
             </Button>
           )}
-          <label className="dk-choice cn-choice">
-            <input type="checkbox" className="dk-check" checked={c.enabled} aria-label={t('connectorsPage.onFor', { name: c.name })}
-              onChange={(e) => {
-                const on = e.target.checked
-                setItems((list) => list.map((x) => (x.id === c.id ? { ...x, enabled: on } : x)))
-                act(() => (on ? chatConnectorsApi.enable(c.id) : chatConnectorsApi.disable(c.id)))
-              }} />
-            <span>{t('connectorsPage.on')}</span>
-          </label>
+          <Switch checked={c.enabled} label={t('connectorsPage.onFor', { name: c.name })} testId="connector-switch"
+            onChange={(on) => {
+              setItems((list) => list.map((x) => (x.id === c.id ? { ...x, enabled: on } : x)))
+              act(() => (on ? chatConnectorsApi.enable(c.id) : chatConnectorsApi.disable(c.id)))
+            }} />
         </span>
       </li>
     )
@@ -135,7 +144,20 @@ export default function ChatConnectors() {
 
   return (
     <Page className="cn-page" data-testid="chat-connectors-page">
-      <PageHeader title={t('connectorsPage.title')} supporting={t('connectorsPage.intro')} />
+      <PageHeader
+        title={t('connectorsPage.title')}
+        supporting={t('connectorsPage.intro')}
+        actions={groups.some((g) => g.newHref) && !off && !loadError ? (
+          <>
+            <Button variant="primary" icon="plus" iconEnd="chevron-down" aria-haspopup="menu" aria-expanded={Boolean(menuAt)} data-testid="connector-new"
+              onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenuAt({ x: r.left, y: r.bottom + 4, returnFocus: e.currentTarget }) }}>
+              {t('connectorsPage.new')}
+            </Button>
+            <ActionMenu at={menuAt} onClose={() => setMenuAt(null)} ariaLabel={t('connectorsPage.newMenu')}
+              items={groups.filter((g) => g.newHref).map((g) => ({ key: g.key, icon: 'plus', label: g.title, onClick: () => navigate(g.newHref) }))} />
+          </>
+        ) : null}
+      />
 
       {error && (
         <Callout tone="error" role="alert" className="cn-gap"
@@ -183,7 +205,7 @@ export default function ChatConnectors() {
           <ul className="cn-list">
             {shared.map((c) => (
               <li key={c.id} className="cn-row" data-testid="connector-shared-row" data-on={c.enabled ? 'true' : 'false'}>
-                <span className="cn-row__lead" aria-hidden="true"><Icon name="users" /></span>
+                <AppIcon src={icons[c.addon] || ''} id={c.addon || c.kind} name={c.name} size={40} />
                 <div className="cn-row__main">
                   <span className="cn-row__name">{c.name}</span>
                   <span className="cn-row__meta">

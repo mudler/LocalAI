@@ -33,7 +33,16 @@
     "agent": "Agente",
     "agentHelp": "Este chat usa el agente {{name}}: sus instrucciones y solo las herramientas que concede.",
     "editAgent": "Editar agente",
-    "deleteHelp": "Elimina este chat y sus mensajes para siempre."
+    "deleteHelp": "Elimina este chat y sus mensajes para siempre.",
+    "sliderOf": "Control deslizante de {{name}}",
+    "reset": "Usar el valor del modelo para {{name}}",
+    "hint": {
+      "temperature": "Los valores altos dan respuestas más variadas. De 0 a 2.",
+      "topP": "Elige entre las palabras más probables que suman esta proporción. Mayor que 0, hasta 1.",
+      "topK": "Elige entre este número de las palabras más probables. Un entero, 0 o más.",
+      "contextSize": "De 512 a 4194304 tokens.",
+      "effort": "Se aplica al instante, desde el siguiente turno."
+    }
   },
   "empty": {
     "manageTitle": "Administra LocalAI chateando",
@@ -311,6 +320,10 @@
       "desc": "Fija un objetivo en el que el chat sigue trabajando por su cuenta",
       "clearDesc": "Quitar el objetivo",
       "resumeDesc": "Continuar con el objetivo"
+    },
+    "effort": {
+      "label": "Esfuerzo de razonamiento",
+      "desc": "Cuánto piensa el modelo"
     }
   },
   "shortcuts": {
@@ -744,5 +757,10 @@
       "other": "Nota",
       "why": "Por qué"
     }
+  },
+  "reasoning": {
+    "chip": "Esfuerzo",
+    "title": "Esfuerzo de razonamiento de este chat",
+    "note": "Se aplica desde el siguiente turno. Ninguno pide al modelo que no piense."
   }
 }
