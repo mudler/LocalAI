@@ -61,7 +61,9 @@ Each chat has the usual switches (`PUT /api/chats/{id}/builtins`). A saved agent
 
 - The admin group is for administrators. For any other user the group is listed as not usable, and the model has none of its tools.
 - A client tool is offered when the account holds the feature permission in the table below and an installed model has the use case. A user with none of the features sees no client tool.
-- A sub-agent never has the admin group. A run that starts by itself (a trigger or a job) and a messaging chat do not have it either. The client tools in a run that starts by itself need the `act.spend` grant, like other tools that spend compute.
+- A sub-agent never has the admin group. A run that starts by itself (a trigger or a job) does not have it either.
+- **Messaging chats.** A chat that comes from a messaging app (Telegram, Slack and so on) has the client group like any other chat, so a person can ask the bot for a picture, a sound or speech. The tools act as the owner of the chat, within the owner's permissions and installed models, and an agent that should not spend the owner's compute there switches the group off with `builtins_off`. The admin group is never offered in a messaging chat, whatever the chat or the agent switches on: the person writing may not be the owner, and the admin tools change the server. The Tools menu and `GET /api/chats/{id}/tools` give that as the reason. Saving a voice with `voice_profile` is refused there too, because the confirmation of the speaker's consent is given in Studio.
+- The client tools in a run that starts by itself need the `act.spend` grant, like other tools that spend compute.
 - `describe_image` and `transcribe_audio` stay in the **Images and audio** group of the chat, so a chat never has the same tool name twice. There they are aliases of the client tools of the same name: they use the helper models of **Chat image model** and **Chat transcription model** and read the files the chat can see, then run the same code as the client tools, as the person who is chatting.
 
 ### Tool search

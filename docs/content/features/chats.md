@@ -1443,7 +1443,7 @@ it off, so a chat that never touches the menu works as before:
 | **Past chats** | `history` | `search_chats` and `read_chat` (opt-in; see [Past chats](#past-chats)) |
 | **Triggers** | `triggers` | `propose_trigger`, `list_triggers`, `update_trigger` and `delete_trigger` |
 | **Memory** | `memory` | Your notes: the model reads them before it answers and may save new ones (see [Memory](/features/short-memory/)). Switch it off to make the chat private: it neither reads nor saves memory |
-| **LocalAI admin** | `localai_admin` | The tools that manage this server (administrators only, opt-in; see [LocalAI Assistant]({{% relref "features/localai-assistant#tool-groups" %}})). A chat in assistant mode has it on |
+| **LocalAI admin** | `localai_admin` | The tools that manage this server (administrators only, opt-in; see [LocalAI Assistant]({{% relref "features/localai-assistant#tool-groups" %}})). A chat in assistant mode has it on. It is never offered in a messaging chat or a run that starts by itself, whatever the agent switches on |
 | **Suggested changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your notes, an agent profile, a skill, a page or the dashboard, and you confirm (see [change proposals](/features/addons/#change-proposals-from-chats)); for memory notes only, you can choose in your account settings to have them saved at once with an Undo, or never (see [Memory](/features/short-memory/#choose-how-a-note-is-saved)) |
 
 ```bash

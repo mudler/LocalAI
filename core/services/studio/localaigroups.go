@@ -18,6 +18,9 @@ import (
 //   - LocalAI client (builtins.GroupLocalAIClient): inference for any user.
 //     Each tool is offered when the user holds its feature permission and an
 //     installed model has the use case, so the model sees only what it can call.
+//     It has no special case for the origin of a chat: a messaging chat gets
+//     it like a Studio chat, for the owner's permissions, and an agent switches
+//     it off with builtins_off. Unattended runs go through act.spend.
 //   - LocalAI admin (builtins.GroupLocalAIAdmin): the tools that manage this
 //     instance. For administrators, opt-in per chat or per saved agent, and
 //     never for a sub-agent or a run that nobody watches.
@@ -99,10 +102,14 @@ func (s *Service) registerLocalAIGroups() error {
 				// A sub-agent works on a task of its parent and nobody
 				// watches it: it never manages the server.
 				return session.Tool{}, false, "a sub-agent never has the admin tools"
+			case c.Origin == session.OriginConnector:
+				// The person who writes in a messaging chat may not be the
+				// owner, and these tools change the server: no switch of the
+				// chat or the agent changes that.
+				return session.Tool{}, false, "the admin tools are never offered in a messaging chat: the person writing may not be the owner, and these tools change the server"
 			case c.Origin != "":
-				// A trigger or a job runs with no person to confirm, and a
-				// connector turn comes from a sender who is not the owner.
-				return session.Tool{}, false, "the admin tools are for chats you watch, not for runs that start by themselves or messaging chats"
+				// A trigger or a job runs with no person to confirm.
+				return session.Tool{}, false, "the admin tools are for chats you watch, not for runs that start by themselves"
 			}
 			if err := s.assistantAllowed(ctx, c.Actor.Principal); err != nil {
 				return session.Tool{}, false, err.Error()
