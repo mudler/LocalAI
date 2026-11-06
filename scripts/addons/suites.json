@@ -1591,7 +1591,8 @@
           "asks the source for the whole reach (*) for a tool that enumerates, and refuses it when the list is not *",
           "reach the owner's ShareManager with the kind and are classified as reads or mutations",
           "are unavailable on an owner without a ShareManager",
-          "check the account alone, here and through the carrier, while the add-on calls keep the add-ons check"
+          "check the account alone, here and through the carrier, while the add-on calls keep the add-ons check",
+          "runs the call of a shared credential inside its hold, and never when the hold refuses"
         ]
       },
       {
@@ -2178,7 +2179,11 @@
       "checks only the account for a kind that names no feature while the add-ons check refuses everyone",
       "asks the account check for the feature a kind names, for that kind only",
       "denies every kind that is not an add-on when the host gives no account check",
-      "refuses a feature name that is not the shape of a permission"
+      "refuses a feature name that is not the shape of a permission",
+      "keeps one record for each name of an owner and finds it from either side",
+      "refuses a name that is empty, too long or has control characters, an unknown kind and local-owner mode",
+      "forgets a record for its owner only, after the work of every grantee stopped",
+      "previews and applies the call of a shared binding inside its hold, and keeps the proposal pending when the hold refuses"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -2432,7 +2437,11 @@
           "checks only the account for a kind that names no feature while the add-ons check refuses everyone",
           "asks the account check for the feature a kind names, for that kind only",
           "denies every kind that is not an add-on when the host gives no account check",
-          "refuses a feature name that is not the shape of a permission"
+          "refuses a feature name that is not the shape of a permission",
+          "keeps one record for each name of an owner and finds it from either side",
+          "refuses a name that is empty, too long or has control characters, an unknown kind and local-owner mode",
+          "forgets a record for its owner only, after the work of every grantee stopped",
+          "previews and applies the call of a shared binding inside its hold, and keeps the proposal pending when the hold refuses"
         ]
       },
       {
@@ -2924,7 +2933,8 @@
           "asks the source for the whole reach (*) for a tool that enumerates, and refuses it when the list is not *",
           "reach the owner's ShareManager with the kind and are classified as reads or mutations",
           "are unavailable on an owner without a ShareManager",
-          "check the account alone, here and through the carrier, while the add-on calls keep the add-ons check"
+          "check the account alone, here and through the carrier, while the add-on calls keep the add-ons check",
+          "runs the call of a shared credential inside its hold, and never when the hold refuses"
         ]
       },
       {
