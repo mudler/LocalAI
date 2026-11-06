@@ -152,4 +152,12 @@ var _ = Describe("Client tool surface", func() {
 		Entry("voice_profile with a bad action", ToolVoiceProfile, map[string]any{"action": "update"}, "", "does not equal any of"),
 		Entry("face with a bad action", ToolFace, map[string]any{"action": "x", "image": "a.png"}, "", "does not equal any of"),
 	)
+
+	It("tells the model that a profile of an administrator is visible to all", func() {
+		ctx, sess, done := connectInMemory(&fakeClient{}, Options{})
+		DeferCleanup(done)
+		res := callTool(ctx, sess, ToolVoiceProfile, map[string]any{"action": "list"})
+		Expect(res.IsError).To(BeFalse(), resultText(res))
+		Expect(resultText(res)).To(ContainSubstring("created by an administrator are visible to all users"))
+	})
 })

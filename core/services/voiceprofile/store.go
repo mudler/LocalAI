@@ -62,6 +62,11 @@ var (
 // clip), and an administrator who needs more owns the profiles instance-wide.
 const MaxProfilesPerUser = 20
 
+// MaxBytesPerUser is the total size of the reference audio one non-administrator
+// may keep. The count limit alone allows 20 profiles of 10 clips of 50 MiB each,
+// so this caps the disk one account can fill.
+const MaxBytesPerUser int64 = 100 * 1024 * 1024
+
 // AudioMetadata describes the validated reference clip without exposing its
 // filesystem location.
 type AudioMetadata struct {
@@ -117,6 +122,9 @@ type CreateInput struct {
 	// MaxOwned, when positive, refuses the profile if OwnerID already owns
 	// that many. The count and the write happen under one lock.
 	MaxOwned int
+	// MaxOwnedBytes, when positive, refuses the profile if the audio of the
+	// profiles OwnerID already owns, plus this profile's, exceeds it.
+	MaxOwnedBytes int64
 }
 
 // ReferenceInput contains one reference clip and its exact transcript.
@@ -254,14 +262,16 @@ func (s *Store) CreateWithReferences(ctx context.Context, input CreateInput, ref
 	}
 	defer func() { _ = root.Close() }()
 
-	if input.OwnerID != "" && input.MaxOwned > 0 {
-		owned, err := countOwned(root, input.OwnerID)
+	var ownedBytes int64
+	if input.OwnerID != "" && (input.MaxOwned > 0 || input.MaxOwnedBytes > 0) {
+		owned, bytesUsed, err := countOwned(root, input.OwnerID)
 		if err != nil {
 			return Profile{}, err
 		}
-		if owned >= input.MaxOwned {
+		if input.MaxOwned > 0 && owned >= input.MaxOwned {
 			return Profile{}, fmt.Errorf("%w: at most %d profiles per user", ErrQuotaExceeded, input.MaxOwned)
 		}
+		ownedBytes = bytesUsed
 	}
 
 	id := uuid.NewString()
@@ -295,6 +305,12 @@ func (s *Store) CreateWithReferences(ctx context.Context, input CreateInput, ref
 		}
 		if written > MaxAudioBytes {
 			return Profile{}, ErrAudioTooLarge
+		}
+		if input.OwnerID != "" && input.MaxOwnedBytes > 0 {
+			ownedBytes += written
+			if ownedBytes > input.MaxOwnedBytes {
+				return Profile{}, fmt.Errorf("%w: at most %d MiB of audio per user", ErrQuotaExceeded, input.MaxOwnedBytes>>20)
+			}
 		}
 		storedAudio, err := root.Open(audioPath)
 		if err != nil {
@@ -546,23 +562,31 @@ func (s *Store) Close() error {
 	return nil
 }
 
-// countOwned counts the profiles of one owner. An unreadable entry is not
-// counted, as List skips it.
-func countOwned(root *os.Root, owner string) (int, error) {
+// countOwned counts the profiles of one owner and the bytes of their audio. An
+// unreadable entry is not counted, as List skips it.
+func countOwned(root *os.Root, owner string) (int, int64, error) {
 	entries, err := fs.ReadDir(root.FS(), ".")
 	if err != nil {
-		return 0, fmt.Errorf("voiceprofile: list store: %w", err)
+		return 0, 0, fmt.Errorf("voiceprofile: list store: %w", err)
 	}
 	n := 0
+	var total int64
 	for _, entry := range entries {
 		if !entry.IsDir() || validateID(entry.Name()) != nil {
 			continue
 		}
 		if p, err := readProfile(root, entry.Name()); err == nil && p.OwnerID == owner {
 			n++
+			if len(p.References) > 0 {
+				for _, r := range p.References {
+					total += r.Audio.SizeBytes
+				}
+			} else {
+				total += p.Audio.SizeBytes
+			}
 		}
 	}
-	return n, nil
+	return n, total, nil
 }
 
 func normalizeInput(input CreateInput) CreateInput {

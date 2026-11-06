@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"time"
 
 	. "github.com/mudler/LocalAI/core/services/voiceprofile"
 	. "github.com/onsi/ginkgo/v2"
@@ -132,5 +133,30 @@ var _ = Describe("Viewer", func() {
 		}
 		Expect(store.DeleteFor(ctx, alice, mine)).To(Succeed())
 		create(alice)
+	})
+
+	It("limits the total audio of a user, not of an administrator", func() {
+		big := func(v Viewer) (Profile, error) {
+			refs := make([]ReferenceInput, MaxReferences)
+			for i := range refs {
+				refs[i] = ReferenceInput{Transcript: "words", Audio: bytes.NewReader(pcmWAV(110 * time.Second))}
+			}
+			return store.CreateFor(ctx, v, inputForAnyone, refs)
+		}
+		for i := 0; i < 2; i++ {
+			_, err := big(alice)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		_, err := big(alice)
+		Expect(err).To(MatchError(ErrQuotaExceeded))
+		Expect(err.Error()).To(ContainSubstring("audio per user"))
+		ps, _ := store.ListFor(ctx, alice)
+		Expect(ps).To(HaveLen(2), "a refused profile leaves nothing behind")
+		_, err = big(bob)
+		Expect(err).NotTo(HaveOccurred())
+		for i := 0; i < 3; i++ {
+			_, err = big(admin)
+			Expect(err).NotTo(HaveOccurred())
+		}
 	})
 })

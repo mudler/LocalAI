@@ -303,4 +303,15 @@ type VoiceProfileCreated struct {
 	ID    string `json:"id"`
 	Name  string `json:"name"`
 	Voice string `json:"voice"`
+	Note  string `json:"note,omitempty"`
+}
+
+// VoiceProfileVisibilityNote tells the model who sees a profile. The model
+// must not promise privacy for a profile an administrator creates.
+const VoiceProfileVisibilityNote = "Profiles created by an administrator are visible to all users."
+
+// VoiceProfileList is the result of list: the profiles and the visibility note.
+type VoiceProfileList struct {
+	Profiles []VoiceProfileSummary `json:"profiles"`
+	Note     string                `json:"note,omitempty"`
 }

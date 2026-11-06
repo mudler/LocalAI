@@ -24,7 +24,7 @@ A file argument is a reference: a path in the user's files, or the `ref` that an
 - `rerank` (`query`, `documents`, `top_n`): documents ordered by how well they answer the query.
 - `voice` (`action`, `audio`, `audio2`, `top_k`, `threshold`): `verify` compares `audio` and `audio2`; `identify` finds who speaks in `audio`.
 - `face` (`action`, `image`, `image2`, `top_k`, `threshold`): `verify` compares `image` and `image2`; `identify` finds whose face is in `image`.
-- `voice_profile` (`action`, `name`, `audio`, `transcript`, `language`, `id`): voices that `speak` can clone. Actions: `create`, `list`, `delete`.
+- `voice_profile` (`action`, `name`, `audio`, `transcript`, `language`, `id`): voices that `speak` can clone. Actions: `create`, `list`, `delete`. Profiles created by an administrator are visible to all users.
 
 ## Clone a voice
 

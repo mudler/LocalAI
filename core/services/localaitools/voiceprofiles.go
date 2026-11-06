@@ -52,7 +52,7 @@ func voiceProfileAction(ctx context.Context, client LocalAIClient, in VoiceProfi
 			// A check-only call (see WithVoiceCheck) validated and created nothing.
 			return VoiceClipCheck{Checked: true, SHA256: p.Audio.SHA256, Bytes: p.Audio.SizeBytes, DurationMS: p.Audio.DurationMilliseconds}, nil
 		}
-		return VoiceProfileCreated{ID: p.ID, Name: p.Name, Voice: p.Voice}, nil
+		return VoiceProfileCreated{ID: p.ID, Name: p.Name, Voice: p.Voice, Note: VoiceProfileVisibilityNote}, nil
 	case ActionList:
 		ps, err := client.ListVoiceProfiles(ctx)
 		if err != nil {
@@ -63,7 +63,7 @@ func voiceProfileAction(ctx context.Context, client LocalAIClient, in VoiceProfi
 			out = append(out, VoiceProfileSummary{ID: p.ID, Name: p.Name, Language: p.Language, Voice: p.Voice,
 				Shared: p.OwnerID == "", DurationMS: p.Audio.DurationMilliseconds})
 		}
-		return out, nil
+		return VoiceProfileList{Profiles: out, Note: VoiceProfileVisibilityNote}, nil
 	case ActionDelete:
 		if err := need(ToolVoiceProfile, in.Action, [2]string{"id", in.ID}); err != nil {
 			return nil, err

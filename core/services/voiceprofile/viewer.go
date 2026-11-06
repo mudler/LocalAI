@@ -79,12 +79,13 @@ func (s *Store) GetFor(ctx context.Context, v Viewer, id string) (Profile, error
 }
 
 // CreateFor stores a profile owned by the viewer (see Viewer.NewOwner). A user
-// who is not an administrator may own at most MaxProfilesPerUser profiles.
+// who is not an administrator may own at most MaxProfilesPerUser profiles and MaxBytesPerUser bytes of audio.
 func (s *Store) CreateFor(ctx context.Context, v Viewer, input CreateInput, references []ReferenceInput) (Profile, error) {
 	input.OwnerID = v.NewOwner()
-	input.MaxOwned = 0
+	input.MaxOwned, input.MaxOwnedBytes = 0, 0
 	if input.OwnerID != "" {
 		input.MaxOwned = MaxProfilesPerUser
+		input.MaxOwnedBytes = MaxBytesPerUser
 	}
 	p, err := s.CreateWithReferences(ctx, input, references)
 	if err != nil {
