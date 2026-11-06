@@ -419,7 +419,8 @@
       "upstream_unreachable": "업스트림 주소에 연결할 수 없습니다.",
       "upstream": "모델 뒤의 제공자가 오류를 반환했습니다.",
       "timeout": "모델이 응답하는 데 너무 오래 걸렸습니다.",
-      "cancelled": "모델이 응답하기 전에 턴이 취소되었습니다."
+      "cancelled": "모델이 응답하기 전에 턴이 취소되었습니다.",
+      "interrupted": "답변하는 동안 서버가 다시 시작되었습니다."
     },
     "hint": {
       "model_backend_missing": "다른 모델을 고르거나 관리자에게 백엔드 설치를 요청하세요.",
@@ -434,7 +435,14 @@
       "timeout": "다시 시도하거나 더 작거나 빠른 모델을 사용하세요.",
       "cancelled": "준비되면 다시 시도하세요."
     },
-    "openBackends": "백엔드 열기"
+    "openBackends": "백엔드 열기",
+    "titleInterrupted": "답변이 중단되었습니다",
+    "resume": {
+      "waiting": "{{seconds}}초 후에 이어갑니다 ({{max}}회 중 {{attempt}}번째 시도).",
+      "resuming": "멈춘 곳에서 이어가는 중입니다.",
+      "exhausted": "{{max}}번 시도했지만 이어가지 못했습니다. 다시 시도하세요.",
+      "stop": "재시도 중지"
+    }
   },
   "allChats": {
     "title": "모든 채팅",
@@ -744,5 +752,8 @@
       "other": "메모",
       "why": "이유"
     }
+  },
+  "connection": {
+    "lost": "연결이 끊어졌습니다. 다시 연결하는 중입니다."
   }
 }

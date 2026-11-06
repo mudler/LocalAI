@@ -17,6 +17,7 @@ const EVENT_KINDS = [
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
 const SETTLE_READS = 8
 const SETTLE_MS = 250
+const LOST_AFTER_MS = 2000 // a stream down this long shows as reconnecting
 
 // State of the chats the server keeps: the list, one open chat with its
 // transcript and waiting messages, and the live events of a running turn.
@@ -76,6 +77,10 @@ export function useServerChat({ seed = null } = {}) {
 
   const sourceRef = useRef(null)
   const reconnectRef = useRef(null)
+  // True while the event stream has been down for more than a moment. A short
+  // break (the browser reconnects at once) does not show.
+  const [reconnecting, setReconnecting] = useState(false)
+  const lostRef = useRef(null)
   const activeRef = useRef(seed?.id ?? null)
   const seedRef = useRef(seed)
   // Whether the last read of the open chat said a turn runs.
@@ -275,13 +280,19 @@ export function useServerChat({ seed = null } = {}) {
         if (payload) on[kind]?.(payload)
       })
     }
-    source.onopen = () => { attemptRef.current = 0 }
+    source.onopen = () => {
+      attemptRef.current = 0
+      clearTimeout(lostRef.current)
+      lostRef.current = null
+      setReconnecting(false)
+    }
     source.onerror = () => {
       // The stream carries only what happens after it connects, so a reconnect
       // reads the transcript again to close the gap.
       source.close()
       if (sourceRef.current === source) sourceRef.current = null
       if (activeRef.current !== id) return
+      if (lostRef.current === null) lostRef.current = setTimeout(() => setReconnecting(true), LOST_AFTER_MS)
       reconnectRef.current = setTimeout(async () => {
         if (activeRef.current !== id) return
         // Read first: a chat deleted in another tab answers 404 and the stream stops.
@@ -295,6 +306,9 @@ export function useServerChat({ seed = null } = {}) {
   const readPace = useCallback(() => ({ ...paceRef.current }), [])
 
   const select = useCallback(async (id) => {
+    clearTimeout(lostRef.current)
+    lostRef.current = null
+    setReconnecting(false)
     activeRef.current = id
     setActiveId(id)
     epochRef.current++
@@ -329,6 +343,7 @@ export function useServerChat({ seed = null } = {}) {
     }
     return () => {
       activeRef.current = null
+      clearTimeout(lostRef.current)
       closeStream()
     }
   }, [refreshList, closeStream, connect, refreshChat])
@@ -478,7 +493,7 @@ export function useServerChat({ seed = null } = {}) {
   }, [refreshList, select])
 
   return {
-    chats, persistent, imageModel, files, activeId, detail, messages, live, notes, error, failure, failureSaved, resuming, loading, usage, usageHistory, firstTokenMs, readPace, ticks, pausedSteps,
+    chats, persistent, imageModel, files, activeId, detail, messages, live, notes, error, failure, failureSaved, resuming, loading, usage, usageHistory, firstTokenMs, readPace, ticks, reconnecting, pausedSteps,
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     pending: detail?.pending || [],

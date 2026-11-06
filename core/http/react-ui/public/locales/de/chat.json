@@ -419,7 +419,8 @@
       "upstream_unreachable": "Die Upstream-Adresse ist nicht erreichbar.",
       "upstream": "Der Anbieter hinter dem Modell hat einen Fehler zurückgegeben.",
       "timeout": "Das Modell hat zu lange für die Antwort gebraucht.",
-      "cancelled": "Der Zug wurde abgebrochen, bevor das Modell geantwortet hat."
+      "cancelled": "Der Zug wurde abgebrochen, bevor das Modell geantwortet hat.",
+      "interrupted": "Der Server wurde neu gestartet, während er antwortete."
     },
     "hint": {
       "model_backend_missing": "Wähle ein anderes Modell oder bitte eine Administratorin bzw. einen Administrator, das Backend zu installieren.",
@@ -434,7 +435,14 @@
       "timeout": "Versuche es erneut oder nutze ein kleineres oder schnelleres Modell.",
       "cancelled": "Versuche es erneut, wenn du bereit bist."
     },
-    "openBackends": "Backends öffnen"
+    "openBackends": "Backends öffnen",
+    "titleInterrupted": "Die Antwort wurde unterbrochen",
+    "resume": {
+      "waiting": "Weiter in {{seconds}} Sekunden (Versuch {{attempt}} von {{max}}).",
+      "resuming": "Es geht dort weiter, wo es aufgehört hat.",
+      "exhausted": "Nach {{max}} Versuchen ging es nicht weiter. Versuchen Sie es erneut.",
+      "stop": "Nicht mehr versuchen"
+    }
   },
   "allChats": {
     "title": "Alle Chats",
@@ -744,5 +752,8 @@
       "other": "Hinweis",
       "why": "Warum"
     }
+  },
+  "connection": {
+    "lost": "Verbindung verloren. Verbindung wird neu aufgebaut."
   }
 }

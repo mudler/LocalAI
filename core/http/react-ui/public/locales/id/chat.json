@@ -501,7 +501,8 @@
       "upstream_unreachable": "Alamat upstream tidak dapat dijangkau.",
       "upstream": "Penyedia di balik model mengembalikan kesalahan.",
       "timeout": "Model terlalu lama menjawab.",
-      "cancelled": "Giliran dibatalkan sebelum model menjawab."
+      "cancelled": "Giliran dibatalkan sebelum model menjawab.",
+      "interrupted": "Server dimulai ulang saat sedang menjawab."
     },
     "hint": {
       "model_backend_missing": "Pilih model lain, atau minta administrator memasang backend.",
@@ -516,7 +517,14 @@
       "timeout": "Coba lagi, atau gunakan model yang lebih kecil atau lebih cepat.",
       "cancelled": "Coba lagi saat Anda siap."
     },
-    "openBackends": "Buka Backend"
+    "openBackends": "Buka Backend",
+    "titleInterrupted": "Balasan terputus",
+    "resume": {
+      "waiting": "Dilanjutkan dalam {{seconds}} detik (percobaan {{attempt}} dari {{max}}).",
+      "resuming": "Dilanjutkan dari bagian yang terhenti.",
+      "exhausted": "Tidak bisa dilanjutkan setelah {{max}} percobaan. Coba lagi.",
+      "stop": "Berhenti mencoba"
+    }
   },
   "allChats": {
     "title": "Semua obrolan",
@@ -856,5 +864,8 @@
       "other": "Catatan",
       "why": "Mengapa"
     }
+  },
+  "connection": {
+    "lost": "Koneksi terputus. Menyambung kembali."
   }
 }
