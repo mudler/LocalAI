@@ -19,7 +19,8 @@ const SHARED = {
 }
 
 const REFERENCES = [
-  { kind: 'collection', id: 'handbook', label: 'handbook', share: { kind: 'collection', resource_id: 'rcoll000000000000000000000000001', options: ['view', 'use'] } },
+  { kind: 'collection', id: 'handbook', label: 'handbook', share: { kind: 'collection', resource_id: 'rcoll000000000000000000000000001', options: ['view'], roles: { view: 'viewer' } } },
+  { kind: 'connection', id: 'b-alice', addon_id: 'mail', label: 'mail connection 1', share: { kind: 'connection', resource_id: 'rconn000000000000000000000000001', options: ['use'], roles: { use: 'use' } } },
   { kind: 'addon', id: 'office', label: 'office' },
   { kind: 'skill', id: 'citations', label: 'citations' },
   { kind: 'folder', id: '12', label: 'Projects', mode: 'read' },
@@ -82,20 +83,27 @@ test.describe('Shared agents', () => {
     await page.getByRole('menuitem', { name: 'Share' }).click()
     const dialog = page.getByTestId('agent-share-dialog')
     await expect(dialog).toBeVisible()
-    await expect(dialog.getByTestId('share-ref')).toHaveCount(1)
+    await expect(dialog.getByTestId('share-ref')).toHaveCount(2)
     await expect(dialog.getByTestId('share-ref-own')).toHaveCount(3)
     await expect(dialog.getByTestId('share-ref-own').first()).toContainText('They need access of their own')
     await dialog.getByTestId('share-search').fill('Bo')
     const add = dialog.getByTestId('share-user').getByRole('button', { name: /Add/ })
     await expect(add).toBeDisabled()
     await expect(dialog.getByTestId('share-refs-pending')).toBeVisible()
+    // The choices are the ones the server offers for each thing: a
+    // collection is view, a connection is use.
+    await expect(dialog.getByLabel('Access to handbook').locator('option')).toHaveCount(3)
+    await expect(dialog.getByLabel('Access to handbook').locator('option[value="use"]')).toHaveCount(0)
     await dialog.getByLabel('Access to handbook').selectOption('view')
+    await expect(add).toBeDisabled()
+    await dialog.getByLabel('Access to mail connection 1').selectOption('use')
     await expect(add).toBeEnabled()
     await add.click()
     await expect(dialog.getByTestId('share-grant')).toHaveCount(1)
     await expect.poll(() => s.shareCalls.filter(c => c.method === 'PUT').map(c => [c.url, c.body.role, c.confirm])).toEqual([
       [`/api/shares/agent/${SHARE_ID}/grants/u-bob`, 'use', SHARE_ID],
       ['/api/shares/collection/rcoll000000000000000000000000001/grants/u-bob', 'viewer', 'rcoll000000000000000000000000001'],
+      ['/api/shares/connection/rconn000000000000000000000000001/grants/u-bob', 'use', 'rconn000000000000000000000000001'],
     ])
   })
 

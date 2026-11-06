@@ -269,7 +269,7 @@ the badges are also in the UI catalog at `/app/ui-catalog`.
 | `allowEveryone` | `true` when the kind may be shared with `@everyone`. |
 | `resource` | `{ id, name }`. The name is in the title. |
 | `sharing` | `false` in local-owner mode. The dialog then shows that sharing is not available and makes no call. |
-| `references` | Optional. Other resources that this one uses, which the owner decides on before sharing: `[{ id, label, kind, options }]`, where `options` is a subset of `view`, `use` and `none`. The dialog does not add anyone until every row has a choice. |
+| `references` | Optional. Other resources that this one uses, which the owner decides on before sharing: `[{ id, label, kind, options }]`, where `options` is a subset of `view`, `use` and `none`. The dialog does not add anyone until every row has a choice. The agents page takes the options from the server, which offers only the choices the referenced kind can grant (see [Share an agent]({{%relref "features/chats-agents#share-an-agent" %}})). |
 | `onShare` | With `references` only: called after each new grant, in the same step, with `{ principal, role, choices }`, where `choices` maps each reference ID to the chosen option. The page shares the referenced resources from there. |
 
 A reference row with no `options` (or only `none`) is shown read-only with the

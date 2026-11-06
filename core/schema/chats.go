@@ -169,6 +169,9 @@ type ChatsAgentReferenceShare struct {
 	Kind       string   `json:"kind" example:"collection"`
 	ResourceID string   `json:"resource_id"`
 	Options    []string `json:"options" enums:"view,use"`
+	// Roles maps each option to the role the grant carries on the thing:
+	// one of the roles its kind grants (viewer, editor or use).
+	Roles map[string]string `json:"roles"`
 }
 
 // ChatsAgentReferenceList lists the references of an agent.

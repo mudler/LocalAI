@@ -241,6 +241,7 @@ var _ = Describe("the shared agents API", func() {
 		Expect(kinds["addon-resource"].Share).NotTo(BeNil())
 		Expect(kinds["addon-resource"].Share.Kind).To(Equal("addon"))
 		Expect(kinds["addon-resource"].Share.Options).To(Equal([]string{"view", "use"}))
+		Expect(kinds["addon-resource"].Share.Roles).To(Equal(map[string]string{"view": "viewer", "use": "editor"}), "each option names the role it grants")
 	})
 
 	It("lets a grantee start a chat with a shared agent and run it as themselves, until the owner revokes", func() {

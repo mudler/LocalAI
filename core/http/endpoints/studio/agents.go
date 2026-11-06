@@ -206,7 +206,7 @@ func (h *Handlers) AgentReferences(c echo.Context) error {
 	for _, r := range refs {
 		o := schema.ChatsAgentReference{Kind: r.Kind, ID: r.ID, Label: r.Label, AddonID: r.AddonID, Mode: r.Mode}
 		if r.Share != nil {
-			o.Share = &schema.ChatsAgentReferenceShare{Kind: r.Share.Kind, ResourceID: r.Share.ResourceID, Options: r.Share.Options}
+			o.Share = &schema.ChatsAgentReferenceShare{Kind: r.Share.Kind, ResourceID: r.Share.ResourceID, Options: r.Share.Options, Roles: r.Share.Roles}
 		}
 		out.References = append(out.References, o)
 	}

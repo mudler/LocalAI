@@ -44,38 +44,42 @@ export function referenceRowId(r) {
 
 const KINDS = new Set(['addon', 'collection', 'skill', 'folder', 'connection', 'addon-resource', 'mcp', 'builtin'])
 
+// grantRole is the role a choice grants on a referenced thing, as the server
+// named it from the roles the thing's kind declares, or '' when the server
+// offered no such choice. The client keeps no table of its own: a kind that
+// grants viewer and editor (a collection) and one that grants use (a
+// connection) answer differently, and only the server knows.
+function grantRole(share, choice) {
+  if (!share || (choice !== 'view' && choice !== 'use') || !(share.options || []).includes(choice)) return ''
+  const role = share.roles?.[choice]
+  return typeof role === 'string' ? role : ''
+}
+
 // referenceRows turns GET /api/chats/agents/{id}/references into the
 // `references` of the Share dialog. A thing that can be shared asks for one of
-// its options or none; any other thing is a read-only row that says the person
-// needs access of their own.
+// the options the server offers for it, or none; any other thing is a
+// read-only row that says the person needs access of their own.
 export function referenceRows(references, t) {
   return (Array.isArray(references) ? references : [])
     .filter(r => r && typeof r.id === 'string' && r.id !== '' && KINDS.has(r.kind))
     .map(r => {
       const row = { id: referenceRowId(r), label: r.label || r.id, kind: t(`agents:share.kind.${r.kind}`) }
-      const opts = (r.share?.options || []).filter(o => o === 'view' || o === 'use')
-      if (r.share && opts.length > 0) return { ...row, options: [...opts, 'none'] }
+      const opts = (r.share?.options || []).filter(o => grantRole(r.share, o) !== '')
+      if (opts.length > 0) return { ...row, options: [...opts, 'none'] }
       return { ...row, readOnly: true, note: t('agents:share.ownAccess') }
     })
 }
 
-// The role a choice grants on each kind of thing.
-function grantRole(shareKind, choice) {
-  if (shareKind === 'addon') return choice === 'use' ? 'editor' : 'viewer'
-  return choice === 'use' ? 'use' : 'viewer'
-}
-
 // applyReferenceChoices shares each referenced thing the owner chose with the
-// same principal: collections and connections through the sharing API,
+// same principal, with the role the server named for the choice: collections and connections through the sharing API,
 // add-on resources through the add-on routes (addonGrant). An add-on resource
 // cannot be granted to every account, so it is skipped for @everyone. It
 // returns what was applied, what failed and what was skipped, by label.
 export async function applyReferenceChoices({ principal, references, choices, sharesApi, addonGrant }) {
   const out = { applied: 0, failed: [], skipped: [] }
   for (const r of Array.isArray(references) ? references : []) {
-    const choice = choices?.[referenceRowId(r)]
-    if (!r?.share || (choice !== 'view' && choice !== 'use') || !(r.share.options || []).includes(choice)) continue
-    const role = grantRole(r.share.kind, choice)
+    const role = grantRole(r?.share, choices?.[referenceRowId(r)])
+    if (!role) continue
     try {
       if (r.share.kind === 'addon') {
         if (principal === '@everyone') { out.skipped.push(r.label); continue }

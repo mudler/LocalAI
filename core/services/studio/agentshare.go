@@ -451,7 +451,54 @@ type ReferenceShare struct {
 	// Options are the choices the owner has, out of view and use. none is
 	// always possible.
 	Options []string
+	// Roles maps each option to the role it grants on the thing, one of the
+	// roles its kind declares.
+	Roles map[string]string
 }
+
+// The choices of a reference in the Share dialog of an agent.
+const (
+	ReferenceChoiceView = "view"
+	ReferenceChoiceUse  = "use"
+)
+
+// ReferenceShareTarget is a reference of a share kind as its sharing API
+// knows it: its ID there and the roles its kind declares as grantable.
+type ReferenceShareTarget struct {
+	ResourceID string
+	Grantable  []string
+}
+
+// ReferenceChoices maps the roles a kind grants to the choices the owner gets
+// for a reference of that kind. view is the role viewer. use is the role use;
+// for a thing the agent writes (write is true: an add-on resource in write
+// mode) it is the role editor when the kind has no use. A kind that grants
+// neither offers nothing. A collection grants viewer and editor: the agent
+// only searches it, so it offers view alone, and editor stays a choice of the
+// collection's own Share dialog.
+func ReferenceChoices(grantable []string, write bool) (options []string, roles map[string]string) {
+	roles = map[string]string{}
+	if slices.Contains(grantable, "viewer") {
+		options = append(options, ReferenceChoiceView)
+		roles[ReferenceChoiceView] = "viewer"
+	}
+	switch {
+	case slices.Contains(grantable, "use"):
+		options = append(options, ReferenceChoiceUse)
+		roles[ReferenceChoiceUse] = "use"
+	case write && slices.Contains(grantable, "editor"):
+		options = append(options, ReferenceChoiceUse)
+		roles[ReferenceChoiceUse] = "editor"
+	}
+	if len(options) == 0 {
+		return nil, nil
+	}
+	return options, roles
+}
+
+// addonResourceRoles are the roles an add-on resource grants: the add-on
+// kinds of the sharing policy all have these two.
+var addonResourceRoles = []string{"viewer", "editor"}
 
 // The states of a reference for the caller.
 const (
@@ -466,9 +513,11 @@ type AgentNeed struct {
 }
 
 // ReferenceShareResolver maps a reference of a share kind (collection,
-// connection) of the owner to its ID in the sharing API. ok is false when the
-// thing cannot be shared in this build.
-type ReferenceShareResolver func(ctx context.Context, user, kind, id string) (resourceID string, ok bool)
+// connection) of the owner to its ID in the sharing API, making its record as
+// the kind's own share route does, and gives the roles the kind grants. ok is
+// false when the thing cannot be shared here: the owner does not have it, or
+// this server does not share the kind.
+type ReferenceShareResolver func(ctx context.Context, user, kind, id string) (target ReferenceShareTarget, ok bool)
 
 // AgentReferences lists what an agent of the user uses. Only the owner may
 // read it: it names the owner's own collections, folders and connections.
@@ -488,15 +537,15 @@ func (s *Service) referencesOf(ctx context.Context, p string, ag agents.Agent, o
 		if !owner || s.d.ReferenceShares == nil {
 			return nil
 		}
-		rid, ok := s.d.ReferenceShares(ctx, p, kind, id)
-		if !ok || rid == "" {
+		t, ok := s.d.ReferenceShares(ctx, p, kind, id)
+		if !ok || t.ResourceID == "" {
 			return nil
 		}
-		opts := []string{"view", "use"}
-		if kind == "connection" {
-			opts = []string{"use"}
+		opts, roles := ReferenceChoices(t.Grantable, false)
+		if len(opts) == 0 {
+			return nil
 		}
-		return &ReferenceShare{Kind: kind, ResourceID: rid, Options: opts}
+		return &ReferenceShare{Kind: kind, ResourceID: t.ResourceID, Options: opts, Roles: roles}
 	}
 	for _, a := range ag.Addons {
 		out = append(out, AgentReference{Kind: "addon", ID: a, Label: a})
@@ -543,11 +592,8 @@ func (s *Service) referencesOf(ctx context.Context, p string, ag agents.Agent, o
 		for i, r := range ag.Resources[a] {
 			ref := AgentReference{Kind: "addon-resource", ID: r.ID, AddonID: a, Mode: r.Mode, Label: fmt.Sprintf("%s resource %d", a, i+1)}
 			if owner {
-				opts := []string{"view"}
-				if r.Mode == "write" {
-					opts = append(opts, "use")
-				}
-				ref.Share = &ReferenceShare{Kind: "addon", ResourceID: r.ID, Options: opts}
+				opts, roles := ReferenceChoices(addonResourceRoles, r.Mode == "write")
+				ref.Share = &ReferenceShare{Kind: "addon", ResourceID: r.ID, Options: opts, Roles: roles}
 			}
 			out = append(out, ref)
 		}

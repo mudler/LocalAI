@@ -506,7 +506,15 @@ carries a token, a secret or the ID of your connection.
 
 Sharing the agent does not share what it uses. Before the dialog adds a person,
 it lists what the agent names and asks you, for each thing that can be shared,
-to choose **View**, **Use** or **Not shared**. A connection can only be **Use**.
+to choose one of the options the server offers for it, or **Not shared**. The
+options come from the roles the kind of the thing grants:
+
+| Thing | Options | Role of the grant |
+|-------|---------|-------------------|
+| Collection | **View** | `viewer`: search and read. To let the person add entries, give `editor` from the collection's own Share dialog. |
+| Connection | **Use** | `use` |
+| Add-on resource | **View**, and **Use** when the agent writes it | `viewer`, and `editor` for **Use** |
+
 A folder, a skill, an add-on, an MCP server and a built-in grant can not be
 shared this way: the person needs access of their own. The dialog applies each
 choice as a grant on that thing, for the same person.
@@ -526,7 +534,7 @@ The API:
 |-----------------|--------------|
 | `GET /api/chats/agents` | Your agents, then the agents shared with you. `access.role` is `owner`, `use` or `viewer`; `access.owner` names the person who shared it; your own agents carry `access.sharedWith` and `access.share_id`. |
 | `POST /api/chats/agents/{id}/share` | The ID of your agent in the sharing API, made on the first call. Owner only. |
-| `GET /api/chats/agents/{id}/references` | What your agent uses, and how each thing can be shared. Owner only. |
+| `GET /api/chats/agents/{id}/references` | What your agent uses, and how each thing can be shared: `share.kind`, `share.resource_id`, `share.options` and, for each option, the role it grants in `share.roles`. For a collection or a connection that you own, the call makes its record in the sharing API, as `POST /api/collections/{name}/share` and `POST /api/chats/connectors/{id}/share` do; nothing is granted. Owner only. |
 | `GET /api/chats/agents/{id}/needs` | What an agent you may use needs, and the state of each thing for you. |
 
 Share with the [sharing API](/features/sharing/#api), kind `agent`, the ID from
