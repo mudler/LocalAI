@@ -33,6 +33,8 @@ A file argument is a reference: a path in the user's files, or the `ref` that an
 3. After they confirm, call `voice_profile` with `action` `list` and copy the exact `voice` string of the profile.
 4. Call `speak` with `text` and that `voice`.
 
+Creating a voice profile is refused in messaging chats and in runs that start by themselves, because nobody can confirm there. Say that the person must do it in a Studio chat.
+
 Never clone a voice without that confirmation, and do not try to get around it. Use `delete` with the `id` when the person asks to remove a voice.
 
 ## Chains

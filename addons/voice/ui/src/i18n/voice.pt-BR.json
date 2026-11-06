@@ -226,7 +226,7 @@
   "voiceCreate.sections.reference.title": "Áudio de referência",
   "voiceCreate.sections.reference.body": "Grave no navegador ou envie um clipe existente. A fala deve ser limpa, natural e de um único falante.",
   "voiceCreate.sections.details.title": "Identidade e transcrição",
-  "voiceCreate.sections.details.body": "Dê aos administradores um nome reconhecível e transcreva o clipe exatamente, incluindo hesitações e pontuação.",
+  "voiceCreate.sections.details.body": "Dê à voz um nome reconhecível e transcreva o clipe exatamente, incluindo hesitações e pontuação.",
   "voiceCreate.sections.consent.title": "Autorização",
   "voiceCreate.sections.consent.body": "A clonagem de voz pode ser sensível. Confirme a permissão antes que esta referência seja salva.",
   "voiceCreate.audio.label": "Referência de voz",

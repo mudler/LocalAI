@@ -902,6 +902,7 @@
       "transcript": "Trascrizione",
       "consentTitle": "Conferma solo se chi parla ha dato il consenso.",
       "consent": "La registrazione viene salvata come profilo vocale con cui le tue chat possono parlare. Puoi eliminarla nella libreria Voce.",
+      "consentAdmin": "Sei un amministratore: questa voce sarà disponibile a tutti gli utenti di questo server.",
       "confirm": "Chi parla ha acconsentito: salva la voce"
     }
   },

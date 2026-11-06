@@ -191,3 +191,23 @@ test('change proposals: a voice profile proposal reads its fields, has no Undo a
   assert.deepEqual(voiceProfileFields({ content: 'not json' }), { name: '', audio: '', transcript: '', language: '', clip: '' })
   assert.equal(changeProposalView({ ...p, status: 'applied' }, null, NOW).canUndo, false)
 })
+
+test('voice profile card: every locale tells an administrator the voice becomes available to all users', async () => {
+  const { readFileSync } = await import('node:fs')
+  for (const l of ['en', 'de', 'es', 'fr', 'id', 'it', 'ko', 'pt-BR', 'zh-CN']) {
+    const chats = JSON.parse(readFileSync(new URL(`../../public/locales/${l}/chats.json`, import.meta.url), 'utf8'))
+    assert.ok(chats.changes.voice.consentAdmin, `${l}: changes.voice.consentAdmin`)
+    assert.notEqual(chats.changes.voice.consentAdmin, chats.changes.voice.consent, l)
+  }
+})
+
+test('voice library: the name hint no longer says only admins make profiles', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs')
+  const dir = new URL('../../../../../addons/voice/ui/src/i18n/', import.meta.url)
+  const files = readdirSync(dir).filter(f => f.startsWith('voice.') && f.endsWith('.json'))
+  assert.equal(files.length, 9)
+  for (const f of files) {
+    const body = JSON.parse(readFileSync(new URL(f, dir), 'utf8'))['voiceCreate.sections.details.body']
+    assert.ok(body && !/admins|administrators|amministratori|administradores|administrateurs/i.test(body), f)
+  }
+})

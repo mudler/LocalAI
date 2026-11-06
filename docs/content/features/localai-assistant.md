@@ -119,7 +119,7 @@ For a remote instance, `list_installed_models` returns model names, backends, ca
 
 Some administrator actions have no tool on purpose, and stay a person's act in the web interface: the oversight of other users' saved agents, triggers and connectors (list, runs, disable, delete), the **Test search** button of the web tools, and the settings `chats_host_exec`, `chats_tool_providers`, `chats_egress_allow_private` and the `chats_web_*` settings. The list with the reasons is `adminRoutesWithoutTool` in `core/services/localaitools/coverage_test.go`.
 
-The shared folder tools manage the [shared folders]({{% relref "features/chats#shared-folders" %}}). The assistant has no user of its own, so a folder it creates has no member until you add one, and the audit names its changes `@assistant`.
+The shared folder tools manage the [shared folders]({{% relref "features/chats#shared-folders" %}}). These tools do not carry a user into the shared folder service: a folder the assistant creates has no member until you add one, and the audit names its changes `@assistant`, not the administrator who asked. The other admin tools that depend on the caller, such as the usage tools, act as the administrator whose chat (or realtime session) runs them, so they see what that person may see. In a realtime session the switch `chats_localai_admin` and the administrator role are checked again before every tool call.
 
 ## The prompt and the recipes
 

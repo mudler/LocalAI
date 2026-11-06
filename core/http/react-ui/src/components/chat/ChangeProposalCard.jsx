@@ -9,6 +9,7 @@ import {
 import { diffLines, diffStats, withContext } from '../../utils/lineDiff'
 import Icon from '../Icon'
 import { Button } from '../ui'
+import { useAuth } from '../../context/AuthContext'
 import { ChatSendContext } from './chatSendContext'
 import './changeproposal.css'
 
@@ -87,7 +88,7 @@ function Diff({ before, after, target, t }) {
 // The voice a proposal would clone, and the question the person answers by
 // confirming: the speaker agreed. The recording is a file of the person's own
 // folder, so the card names it and does not play it.
-function VoiceProfilePreview({ p, t }) {
+function VoiceProfilePreview({ p, t, admin }) {
   const f = voiceProfileFields(p)
   const rows = [['name', f.name], ['file', f.audio], ['clip', f.clip], ['language', f.language], ['transcript', f.transcript]].filter(([, v]) => v)
   return (
@@ -97,7 +98,7 @@ function VoiceProfilePreview({ p, t }) {
           <div className="cx-plan__row" key={key} data-row={`voice-${key}`}><dt>{t(`changes.voice.${key}`)}</dt><dd>{key === 'file' || key === 'clip' ? <code>{value}</code> : value}</dd></div>
         ))}
       </dl>
-      <p className="cx-help" data-testid="change-voice-consent"><b>{t('changes.voice.consentTitle')}</b> {t('changes.voice.consent')}</p>
+      <p className="cx-help" data-testid="change-voice-consent"><b>{t('changes.voice.consentTitle')}</b> {t('changes.voice.consent')}{admin && <> {t('changes.voice.consentAdmin')}</>}</p>
     </div>
   )
 }
@@ -133,6 +134,7 @@ function KnowledgePreview({ p, t, chunking }) {
 // Undo), undone, dismissed, expired or stale. Nothing is written until the
 // person confirms.
 export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
+  const { isAdmin } = useAuth()
   const uid = useId()
   const sendToChat = useContext(ChatSendContext)
   const [view, setView] = useState(() => (initial ? changeProposalView(initial) : { kind: 'loading' }))
@@ -296,7 +298,7 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
         </p>
       )}
       {knowledge && edit === null && <KnowledgePreview p={p} t={t} chunking={chunking} />}
-      {voice && <VoiceProfilePreview p={p} t={t} />}
+      {voice && <VoiceProfilePreview p={p} t={t} admin={isAdmin} />}
       {!knowledge && !voice && current !== undefined && edit === null && <Diff before={current ?? ''} after={p.content || ''} target={target} t={t} />}
       {!knowledge && !voice && current === null && <p className="cx-help">{t('changes.unreadFile')}</p>}
       {edit !== null ? (

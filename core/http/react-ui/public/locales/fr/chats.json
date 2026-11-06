@@ -902,6 +902,7 @@
       "transcript": "Transcription",
       "consentTitle": "Ne confirmez que si la personne qui parle a donné son accord.",
       "consent": "L'enregistrement est conservé comme profil vocal avec lequel vos conversations peuvent parler. Vous pouvez le supprimer dans la bibliothèque Voix.",
+      "consentAdmin": "Vous êtes administrateur : cette voix sera disponible pour tous les utilisateurs de ce serveur.",
       "confirm": "La personne a donné son accord : enregistrer la voix"
     }
   },

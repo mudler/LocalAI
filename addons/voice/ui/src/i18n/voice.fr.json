@@ -226,7 +226,7 @@
   "voiceCreate.sections.reference.title": "Audio de référence",
   "voiceCreate.sections.reference.body": "Enregistrez dans le navigateur ou importez un extrait existant. La parole doit être propre, naturelle et provenir d'un seul locuteur.",
   "voiceCreate.sections.details.title": "Identité et transcription",
-  "voiceCreate.sections.details.body": "Donnez un nom reconnaissable aux administrateurs et transcrivez l'extrait exactement, hésitations et ponctuation comprises.",
+  "voiceCreate.sections.details.body": "Donnez à la voix un nom reconnaissable et transcrivez l'extrait exactement, hésitations et ponctuation comprises.",
   "voiceCreate.sections.consent.title": "Autorisation",
   "voiceCreate.sections.consent.body": "Le clonage de voix peut être sensible. Confirmez l'autorisation avant d'enregistrer cette référence.",
   "voiceCreate.audio.label": "Référence vocale",

@@ -902,6 +902,7 @@
       "transcript": "Transkript",
       "consentTitle": "Bestätige nur, wenn die sprechende Person zugestimmt hat.",
       "consent": "Die Aufnahme wird als Stimmprofil gespeichert, mit dem deine Chats sprechen können. Du kannst sie in der Stimmbibliothek löschen.",
+      "consentAdmin": "Du bist Administrator, daher steht diese Stimme allen Nutzern dieses Servers zur Verfügung.",
       "confirm": "Die Person hat zugestimmt: Stimme speichern"
     }
   },

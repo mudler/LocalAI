@@ -1226,6 +1226,7 @@
       "transcript": "Transcript",
       "consentTitle": "Confirm only if the speaker agreed.",
       "consent": "The recording is saved as a voice profile that your chats can speak with. You can delete it in the Voice library.",
+      "consentAdmin": "You are an administrator, so this voice becomes available to all users of this server.",
       "confirm": "The speaker agreed: save the voice"
     }
   },

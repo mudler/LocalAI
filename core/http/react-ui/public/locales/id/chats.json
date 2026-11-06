@@ -902,6 +902,7 @@
       "transcript": "Transkrip",
       "consentTitle": "Konfirmasi hanya jika pembicara setuju.",
       "consent": "Rekaman disimpan sebagai profil suara yang dapat dipakai chat Anda untuk berbicara. Anda dapat menghapusnya di pustaka Suara.",
+      "consentAdmin": "Anda administrator, jadi suara ini tersedia untuk semua pengguna server ini.",
       "confirm": "Pembicara setuju: simpan suara"
     }
   },
