@@ -52,7 +52,7 @@ func connectorOut(i studiosvc.ConnectorInfo, lang string) schema.ChatsConnector 
 		Allow: allow, AllowTrust: i.AllowTrust, NotifyChat: i.NotifyChat, HasToken: i.HasToken, Created: i.Created,
 		ReplyMode: i.ReplyMode(), Conversation: i.ConversationMode(), WindowMinutes: i.WindowMinutes, SendFiles: i.SendsFiles(), ReplyLanguage: i.ReplyLang(), UILanguage: i.UILanguage, Options: i.Options,
 		Files: filesOut(i.Files), FileReceiveMaxBytes: i.FileReceiveMax, FileSendMaxBytes: i.FileSendMax, Resources: connectors.ResourceKeys(i.Resources), Channels: channelsOut(i.Channels), WriteMode: i.Writes(), Approval: approvalOut(i.Approval), Duplicate: duplicateOut(i, lang),
-		Share: shareOut(i.Share)}
+		Share: shareOut(i.Share), UsedBy: i.UsedBy}
 }
 
 func shareOut(s *studiosvc.ShareState) *schema.ChatsConnectorShare {
@@ -292,7 +292,7 @@ func (h *Handlers) ConnectorKinds(c echo.Context) error {
 	out := schema.ChatsConnectorKindList{Kinds: make([]schema.ChatsConnectorKind, 0, len(kinds))}
 	explicit, accept := c.QueryParam("lang"), c.Request().Header.Get("Accept-Language")
 	for _, k := range kinds {
-		view := schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, Setup: k.Setup, SenderHint: k.SenderHint, Page: k.Page, AgentOptional: k.AgentOptional, WildcardResources: k.WildcardResources, TokenGuards: tokenGuardsOut(k.TokenGuards), ThreadHistory: k.ServesThreadHistory(), Options: optionsOut(k.Options),
+		view := schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, Setup: k.Setup, SenderHint: k.SenderHint, Page: k.Page, AgentOptional: k.NoAgentAllowed(), ToolOnly: k.ToolOnly, WildcardResources: k.WildcardResources, TokenGuards: tokenGuardsOut(k.TokenGuards), ThreadHistory: k.ServesThreadHistory(), Options: optionsOut(k.Options),
 			Files: filesOut(host.KindFileLimits(c.Request().Context(), k)), Roles: rolesOut(k.ConnectorKind), Permissions: permissionsOut(k.ConnectorKind)}
 		translateKind(&view, k.Translations, explicit, accept)
 		out.Kinds = append(out.Kinds, view)

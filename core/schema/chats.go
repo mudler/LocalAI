@@ -1693,6 +1693,9 @@ type ChatsConnector struct {
 	// Share is the share of the binding, once its owner made it shareable.
 	// Only the owner reads it.
 	Share *ChatsConnectorShare `json:"share,omitempty"`
+	// UsedBy is how many of your saved agents have this connection in their
+	// connections. Present only for a binding of a tool_only kind.
+	UsedBy *int `json:"used_by,omitempty"`
 	// FileReceiveMaxBytes and FileSendMaxBytes are your limits for this bot;
 	// zero means you set none and the limit of the kind applies.
 	FileReceiveMaxBytes int64 `json:"file_receive_max_bytes"`
@@ -2049,6 +2052,11 @@ type ChatsConnectorKind struct {
 	// AgentOptional is true when a binding of this kind may have no agent. It
 	// then only holds credentials (token, resource list, write mode).
 	AgentOptional bool `json:"agent_optional,omitempty"`
+	// ToolOnly is true for a kind whose bindings only serve tools. A binding
+	// has no agent, never listens and never accepts senders; the server clears
+	// agent_id, enabled and accept_any. Many agents can use one binding
+	// through their connections. It implies agent_optional.
+	ToolOnly bool `json:"tool_only,omitempty"`
 	// WildcardResources is true when a binding of this kind may list owner/*
 	// or * as resources; * needs confirm_any_resource.
 	WildcardResources bool `json:"wildcard_resources,omitempty"`

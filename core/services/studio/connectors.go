@@ -319,7 +319,8 @@ func (c *Connectors) Sync(ctx context.Context) {
 		if b.CredentialsOnly() {
 			continue
 		}
-		if k, ok := kindFor(kinds, b); ok && k.Delivery == contract.DeliveryPull {
+		// A tool-only kind never listens, whatever an older row says.
+		if k, ok := kindFor(kinds, b); ok && !k.ToolOnly && k.Delivery == contract.DeliveryPull {
 			want[b.ID] = b
 		}
 	}

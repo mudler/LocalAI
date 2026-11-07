@@ -22081,6 +22081,10 @@ const docTemplate = `{
                     "description": "UILanguage is the interface language the owner's page last sent, such as\nit or pt-BR. With reply_language auto, the bot speaks in it before it\nreads the language of the sender. Absent when the server was not told.",
                     "type": "string"
                 },
+                "used_by": {
+                    "description": "UsedBy is how many of your saved agents have this connection in their\nconnections. Present only for a binding of a tool_only kind.",
+                    "type": "integer"
+                },
                 "window_minutes": {
                     "type": "integer"
                 },
@@ -23507,6 +23511,10 @@ const docTemplate = `{
                     "description": "UILanguage is the interface language the owner's page last sent, such as\nit or pt-BR. With reply_language auto, the bot speaks in it before it\nreads the language of the sender. Absent when the server was not told.",
                     "type": "string"
                 },
+                "used_by": {
+                    "description": "UsedBy is how many of your saved agents have this connection in their\nconnections. Present only for a binding of a tool_only kind.",
+                    "type": "integer"
+                },
                 "window_minutes": {
                     "type": "integer"
                 },
@@ -24099,6 +24107,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsConnectorTokenGuard"
                     }
+                },
+                "tool_only": {
+                    "description": "ToolOnly is true for a kind whose bindings only serve tools. A binding\nhas no agent, never listens and never accepts senders; the server clears\nagent_id, enabled and accept_any. Many agents can use one binding\nthrough their connections. It implies agent_optional.",
+                    "type": "boolean"
                 },
                 "wildcard_resources": {
                     "description": "WildcardResources is true when a binding of this kind may list owner/*\nor * as resources; * needs confirm_any_resource.",
