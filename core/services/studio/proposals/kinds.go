@@ -30,6 +30,10 @@ type Kind struct {
 	// Sensitive kinds are never confirmed from a chat that is not Studio; the
 	// gate and the confirm lanes read it.
 	Sensitive bool
+	// Internal kinds are proposed by a tool of the host that has its own
+	// checks, never by a model through propose_change: the generic tool does
+	// not offer them and refuses their name.
+	Internal bool
 	// MaxBytes bounds the content; zero means contract.MaxChangeBytes.
 	MaxBytes int
 	// Path returns the file inside the home that the change writes. For a kind

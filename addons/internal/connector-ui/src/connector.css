@@ -18,6 +18,10 @@
 
 .cn-muted { margin: 0; color: var(--color-text-muted); font-size: var(--fs-small); line-height: var(--lh-small); }
 
+/* The connections other people shared with the person, read only. */
+.cn-shared { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-section__title { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--font-weight-semibold); }
+
 /* The list of connections: rows like the MCP connectors page, a docked pane
    beside them. The kit draws the switch, the chip, the menu, the pane and the
    sheet; this sheet only lays the row out. */
@@ -39,8 +43,12 @@
 .cn-conn__line { color: var(--dk-warn-text, var(--dk-text)); }
 .cn-conn[data-state="off"] .cn-tile { opacity: 0.6; }
 .cn-conn__side { display: flex; align-items: center; gap: var(--dk-space-2); }
+/* A connection other people shared with the person: the same row, read only,
+   with nothing to open or change. */
+.cn-conn__body { min-width: 0; display: flex; gap: var(--dk-space-3); align-items: flex-start; padding: 14px 0 14px var(--dk-space-4); }
 @media (max-width: 640px) {
   .cn-conn { grid-template-columns: minmax(0, 1fr); padding-right: 0; }
+  .cn-conn__body { padding-right: var(--dk-space-4); }
   .cn-conn__side { padding: 0 var(--dk-space-4) var(--dk-space-3) calc(var(--dk-space-4) + 36px + var(--dk-space-3)); }
   .cn-conn__facts, .cn-conn__line { white-space: normal; }
 }

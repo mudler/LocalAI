@@ -432,7 +432,8 @@
       "upstream_unreachable": "无法连接到上游地址。",
       "upstream": "模型背后的提供方返回了错误。",
       "timeout": "模型响应时间过长。",
-      "cancelled": "在模型回答之前,该轮已被取消。"
+      "cancelled": "在模型回答之前,该轮已被取消。",
+      "interrupted": "服务器在回复时重新启动了。"
     },
     "hint": {
       "model_backend_missing": "请选择其他模型,或请管理员安装该后端。",
@@ -447,7 +448,15 @@
       "timeout": "请重试,或使用更小或更快的模型。",
       "cancelled": "准备好后请重试。"
     },
-    "openBackends": "打开后端"
+    "openBackends": "打开后端",
+    "titleInterrupted": "回复被中断",
+    "resume": {
+      "waiting": "{{seconds}} 秒后继续（第 {{attempt}} 次，共 {{max}} 次）。",
+      "resuming": "正在从中断处继续。",
+      "server": "服务器正在从中断处继续。",
+      "exhausted": "尝试 {{max}} 次后仍无法继续。请重试。",
+      "stop": "停止重试"
+    }
   },
   "allChats": {
     "title": "全部对话",
@@ -757,6 +766,9 @@
       "other": "备注",
       "why": "原因"
     }
+  },
+  "connection": {
+    "lost": "连接已断开，正在重新连接。"
   },
   "reasoning": {
     "chip": "推理强度",

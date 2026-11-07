@@ -60,6 +60,16 @@ type chatState struct {
 	RunSince    time.Time          `json:"run_since,omitempty"`
 	RunBeat     time.Time          `json:"run_beat,omitempty"`
 	Last        TurnStatus         `json:"last,omitempty"`
+	// The resume fields of an interrupted turn (see TurnInfo).
+	ResumeAttempts  int       `json:"resume_attempts,omitempty"`
+	InterruptedAt   time.Time `json:"interrupted_at,omitempty"`
+	ResumeNotBefore time.Time `json:"resume_not_before,omitempty"`
+	// The text of the assistant message being written (session.PartialStore).
+	PartialText string `json:"partial_text,omitempty"`
+	PartialTurn int    `json:"partial_turn,omitempty"`
+	// Owner is the instance that runs the turn (SetTurnOwner). It is kept in
+	// memory only (see SetTurnOwner).
+	Owner string `json:"-"`
 
 	entries []session.Entry
 }
@@ -99,6 +109,7 @@ func NewJSON(dir string) (Store, error) {
 		if c.Run != "" {
 			// The process that held the claim is gone; the turn did not finish.
 			c.Run, c.Last = "", TurnInterrupted
+			c.markInterrupted(time.Now().UTC(), ResumeBackoff(c.ResumeAttempts))
 			// Nothing goes on with the goal of that turn by itself: the
 			// person sees it paused and resumes it.
 			if g := c.Rec.Goal; g != nil && g.State == session.GoalActive {
@@ -680,12 +691,55 @@ func (s *jsonStore) SetChatMeta(_ context.Context, principal, id string, m sessi
 	})
 }
 
+func (s *jsonStore) SavePartial(_ context.Context, id string, turn int, text string) error {
+	c, unlock, err := s.lock(id)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	next := c.chatState
+	next.PartialText, next.PartialTurn = session.CapPartial(text), turn
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	c.PartialText, c.PartialTurn = next.PartialText, next.PartialTurn
+	return nil
+}
+
+func (s *jsonStore) TakePartial(_ context.Context, id string) (int, string, error) {
+	c, unlock, err := s.lock(id)
+	if err != nil {
+		return 0, "", err
+	}
+	defer unlock()
+	if c.PartialText == "" {
+		return 0, "", nil
+	}
+	next := c.chatState
+	next.PartialText, next.PartialTurn = "", 0
+	if err := s.save(&next); err != nil {
+		return 0, "", err
+	}
+	turn, text := c.PartialTurn, c.PartialText
+	c.PartialText, c.PartialTurn = "", 0
+	return turn, text, nil
+}
+
 func (s *jsonStore) TruncateEntries(_ context.Context, principal, id string, keep int64) error {
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
 	}
 	defer unlock()
+	// The text of an answer that was cut belongs to the lines that are gone.
+	if c.PartialText != "" {
+		next := c.chatState
+		next.PartialText, next.PartialTurn = "", 0
+		if err := s.save(&next); err != nil {
+			return err
+		}
+		c.PartialText, c.PartialTurn = "", 0
+	}
 	var kept []session.Entry
 	for _, e := range c.entries {
 		if e.Seq <= keep {
@@ -993,10 +1047,113 @@ func (s *jsonStore) ClaimTurn(_ context.Context, principal, id, runID string) er
 	next := c.chatState
 	next.Run, next.RunSince = runID, time.Now().UTC()
 	next.RunBeat = next.RunSince
+	// A new turn starts the count of resumes again.
+	next.ResumeAttempts, next.InterruptedAt, next.ResumeNotBefore = 0, time.Time{}, time.Time{}
 	if err := s.save(&next); err != nil {
 		return err
 	}
 	c.Run, c.RunSince, c.RunBeat = next.Run, next.RunSince, next.RunBeat
+	c.ResumeAttempts, c.InterruptedAt, c.ResumeNotBefore = next.ResumeAttempts, next.InterruptedAt, next.ResumeNotBefore
+	return nil
+}
+
+// markInterrupted sets the resume fields of a chat that was just interrupted at
+// now; a negative delay schedules no resume.
+func (c *chatState) markInterrupted(now time.Time, delay time.Duration) {
+	c.InterruptedAt, c.ResumeNotBefore = now, time.Time{}
+	if delay >= 0 {
+		c.ResumeNotBefore = now.Add(delay)
+	}
+}
+
+func (s *jsonStore) ClaimResume(_ context.Context, principal, id, runID string) error {
+	c, unlock, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if c.Run != "" {
+		return ErrTurnRunning
+	}
+	now := time.Now().UTC()
+	if open, due := resumeOpen(c.ResumeAttempts, c.InterruptedAt, c.ResumeNotBefore, now); c.Last != TurnInterrupted || !open || !due {
+		return ErrNotResumable
+	}
+	next := c.chatState
+	next.Run, next.RunSince, next.RunBeat = runID, now, now
+	next.ResumeAttempts++
+	next.ResumeNotBefore = time.Time{}
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	c.Run, c.RunSince, c.RunBeat = next.Run, next.RunSince, next.RunBeat
+	c.ResumeAttempts, c.ResumeNotBefore = next.ResumeAttempts, next.ResumeNotBefore
+	return nil
+}
+
+func (s *jsonStore) ListResumable(_ context.Context) ([]ResumableTurn, error) {
+	now := time.Now().UTC()
+	var out []ResumableTurn
+	for _, c := range s.slots() {
+		c.mu.Lock()
+		if open, due := resumeOpen(c.ResumeAttempts, c.InterruptedAt, c.ResumeNotBefore, now); !c.gone && c.Run == "" && c.Last == TurnInterrupted && open && due {
+			out = append(out, ResumableTurn{Principal: c.Rec.Principal, ChatID: c.Rec.ID, Attempts: c.ResumeAttempts, InterruptedAt: c.InterruptedAt})
+		}
+		c.mu.Unlock()
+	}
+	return out, nil
+}
+
+func (s *jsonStore) CancelResume(_ context.Context, principal, id string) error {
+	c, unlock, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if c.ResumeNotBefore.IsZero() {
+		return nil
+	}
+	next := c.chatState
+	next.ResumeNotBefore = time.Time{}
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	c.ResumeNotBefore = next.ResumeNotBefore
+	return nil
+}
+
+func (s *jsonStore) MarkInterrupted(_ context.Context, principal, id, runID string, delay time.Duration) error {
+	c, unlock, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if c.Run == "" || c.Run != runID {
+		return ErrNotClaimed
+	}
+	next := c.chatState
+	next.Run, next.RunSince, next.RunBeat, next.Last = "", time.Time{}, time.Time{}, TurnInterrupted
+	next.markInterrupted(time.Now().UTC(), delay)
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	c.Run, c.RunSince, c.RunBeat, c.Last = next.Run, next.RunSince, next.RunBeat, next.Last
+	c.InterruptedAt, c.ResumeNotBefore = next.InterruptedAt, next.ResumeNotBefore
+	return nil
+}
+
+func (s *jsonStore) SetTurnOwner(_ context.Context, principal, id, runID, instance string) error {
+	c, unlock, err := s.get(principal, id)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if c.Run == "" || c.Run != runID {
+		return ErrNotClaimed
+	}
+	// Not persisted, like the beat: the JSON store serves one process, and a
+	// restart of it interrupts every running turn anyway.
+	c.Owner = instance
 	return nil
 }
 
@@ -1042,6 +1199,7 @@ func (s *jsonStore) reapTurn(c *chatSlot, olderThan time.Time) (*ReapedTurn, err
 	}
 	next := c.chatState
 	next.Run, next.RunSince, next.RunBeat, next.Last = "", time.Time{}, time.Time{}, TurnInterrupted
+	next.markInterrupted(time.Now().UTC(), ResumeBackoff(c.ResumeAttempts))
 	// What a request took and nobody confirmed was lost with the frontend.
 	next.Pending = append([]Pending(nil), c.Pending...)
 	for i := range next.Pending {
@@ -1054,6 +1212,7 @@ func (s *jsonStore) reapTurn(c *chatSlot, olderThan time.Time) (*ReapedTurn, err
 	}
 	reaped := &ReapedTurn{Principal: c.Rec.Principal, ChatID: c.Rec.ID, RunID: c.Run}
 	c.Run, c.RunSince, c.RunBeat, c.Last, c.Pending = next.Run, next.RunSince, next.RunBeat, next.Last, next.Pending
+	c.InterruptedAt, c.ResumeNotBefore = next.InterruptedAt, next.ResumeNotBefore
 	return reaped, nil
 }
 
@@ -1068,10 +1227,16 @@ func (s *jsonStore) ReleaseTurn(_ context.Context, principal, id, runID string, 
 	}
 	next := c.chatState
 	next.Run, next.RunSince, next.RunBeat, next.Last = "", time.Time{}, time.Time{}, status
+	if status == TurnInterrupted {
+		next.markInterrupted(time.Now().UTC(), ResumeBackoff(c.ResumeAttempts))
+	} else {
+		next.InterruptedAt, next.ResumeNotBefore = time.Time{}, time.Time{}
+	}
 	if err := s.save(&next); err != nil {
 		return err
 	}
 	c.Run, c.RunSince, c.RunBeat, c.Last = next.Run, next.RunSince, next.RunBeat, next.Last
+	c.InterruptedAt, c.ResumeNotBefore = next.InterruptedAt, next.ResumeNotBefore
 	return nil
 }
 
@@ -1081,5 +1246,11 @@ func (s *jsonStore) Turn(_ context.Context, principal, id string) (TurnInfo, err
 		return TurnInfo{}, err
 	}
 	defer unlock()
-	return TurnInfo{Running: c.Run != "", RunID: c.Run, Since: c.RunSince, Beat: c.RunBeat, Last: c.Last}, nil
+	info := TurnInfo{Running: c.Run != "", RunID: c.Run, Since: c.RunSince, Beat: c.RunBeat, Last: c.Last,
+		ResumeAttempts: c.ResumeAttempts, InterruptedAt: c.InterruptedAt, ResumeNotBefore: c.ResumeNotBefore,
+		Owner: c.Owner}
+	if !info.Running && info.Last == TurnInterrupted {
+		info.WillResume, _ = resumeOpen(info.ResumeAttempts, info.InterruptedAt, info.ResumeNotBefore, time.Now().UTC())
+	}
+	return info, nil
 }

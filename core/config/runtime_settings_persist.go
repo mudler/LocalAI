@@ -6,6 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
+
+	"github.com/mudler/xlog"
 )
 
 // runtimeSettingsFile is the on-disk filename inside DynamicConfigsDir.
@@ -31,7 +34,54 @@ func (o *ApplicationConfig) ReadPersistedSettings() (RuntimeSettings, error) {
 	if err := json.Unmarshal(data, &settings); err != nil {
 		return settings, err
 	}
+	MapRemovedRuntimeSettings(data, &settings)
 	return settings, nil
+}
+
+// removedRuntimeSettings are the runtime setting keys that no longer exist.
+// A stored or posted value is accepted; MapRemovedRuntimeSettings maps it.
+var removedRuntimeSettings = []string{"localai_assistant_enabled"}
+
+// RemovedRuntimeSettings returns the removed keys that data (a settings JSON
+// object) contains.
+func RemovedRuntimeSettings(data []byte) []string {
+	var keys map[string]json.RawMessage
+	if json.Unmarshal(data, &keys) != nil {
+		return nil
+	}
+	var out []string
+	for _, k := range removedRuntimeSettings {
+		if _, ok := keys[k]; ok {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// MapRemovedRuntimeSettings maps the removed settings in data onto the current
+// ones, logs one warning when data holds a removed setting, and returns the
+// removed keys. A stored localai_assistant_enabled=false switches the admin
+// tool group off (chats_localai_admin=false), the same as the old setting did
+// for the assistant. An explicit chats_localai_admin in the same data wins, and
+// a stored true changes nothing, since the group is on by default.
+func MapRemovedRuntimeSettings(data []byte, settings *RuntimeSettings) []string {
+	removed := RemovedRuntimeSettings(data)
+	if len(removed) == 0 {
+		return nil
+	}
+	var old struct {
+		Enabled *bool `json:"localai_assistant_enabled"`
+	}
+	mapped := false
+	if json.Unmarshal(data, &old) == nil && old.Enabled != nil && !*old.Enabled &&
+		settings != nil && settings.ChatsLocalAIAdmin == nil {
+		off := false
+		settings.ChatsLocalAIAdmin = &off
+		mapped = true
+	}
+	xlog.Warn("The localai_assistant_enabled runtime setting is deprecated; the admin tools are controlled by chats_localai_admin in Settings > Tools",
+		"settings", strings.Join(removed, ", "), "mapped_to_chats_localai_admin", mapped)
+	return removed
 }
 
 // MergeNonNil overlays every set (non-nil) field of overlay onto the

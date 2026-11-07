@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  appliedReceiptKey, byteText, changeProposalIds, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, KNOWN_KINDS, previewLines, sourceOfProposal, targetPath, timeLeft,
+  appliedReceiptKey, byteText, changeProposalIds, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, isVoiceProfile, KNOWN_KINDS, previewLines, sourceOfProposal, targetPath, timeLeft, voiceProfileFields,
 } from '../../src/utils/changeProposal.js'
 import { diffLines, diffStats, splitLines, withContext } from '../../src/utils/lineDiff.js'
 import { allFiles, groupKind, indexFits, indexUse } from '../../src/utils/memoryFiles.js'
@@ -177,4 +177,37 @@ test('change proposals: the passages of a knowledge text follow the chunking of 
 test('change proposals: the stored knowledge text is the summary as a title, then the text', () => {
   assert.equal(knowledgeEntryText({ summary: 'Reset', content: '  steps \n\n' }), '# Reset\n\nsteps\n')
   assert.equal(knowledgeEntryText(null), '# \n\n\n')
+})
+
+test('change proposals: a voice profile proposal reads its fields, has no Undo and is a kind the card knows', () => {
+  const p = proposal({
+    kind: 'voice_profile', target: 'voice-profiles', summary: 'Clone a voice',
+    content: JSON.stringify({ name: 'Narrator', audio: '/workspace/home/clip.wav', transcript: 'Hello.', language: 'en' }),
+  })
+  assert.ok(KNOWN_KINDS.includes('voice_profile'))
+  assert.equal(isVoiceProfile(p), true)
+  assert.equal(isVoiceProfile(proposal()), false)
+  assert.deepEqual(voiceProfileFields(p), { name: 'Narrator', audio: '/workspace/home/clip.wav', transcript: 'Hello.', language: 'en', clip: '' })
+  assert.deepEqual(voiceProfileFields({ content: 'not json' }), { name: '', audio: '', transcript: '', language: '', clip: '' })
+  assert.equal(changeProposalView({ ...p, status: 'applied' }, null, NOW).canUndo, false)
+})
+
+test('voice profile card: every locale tells an administrator the voice becomes available to all users', async () => {
+  const { readFileSync } = await import('node:fs')
+  for (const l of ['en', 'de', 'es', 'fr', 'id', 'it', 'ko', 'pt-BR', 'zh-CN']) {
+    const chats = JSON.parse(readFileSync(new URL(`../../public/locales/${l}/chats.json`, import.meta.url), 'utf8'))
+    assert.ok(chats.changes.voice.consentAdmin, `${l}: changes.voice.consentAdmin`)
+    assert.notEqual(chats.changes.voice.consentAdmin, chats.changes.voice.consent, l)
+  }
+})
+
+test('voice library: the name hint no longer says only admins make profiles', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs')
+  const dir = new URL('../../../../../addons/voice/ui/src/i18n/', import.meta.url)
+  const files = readdirSync(dir).filter(f => f.startsWith('voice.') && f.endsWith('.json'))
+  assert.equal(files.length, 9)
+  for (const f of files) {
+    const body = JSON.parse(readFileSync(new URL(f, dir), 'utf8'))['voiceCreate.sections.details.body']
+    assert.ok(body && !/admins|administrators|amministratori|administradores|administrateurs/i.test(body), f)
+  }
 })

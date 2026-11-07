@@ -8,6 +8,8 @@ import { paramsToQuery, queryToParams } from '../catalog/catalogState'
 import { AppIcon, UnknownNotice, VersionText } from './AddonBits'
 import { Button, Notice, Segmented, StatusChip } from '../ui'
 import { apiUrl } from '../../utils/basePath'
+import { useAuth } from '../../context/AuthContext'
+import { useAddonConnections } from '../../hooks/useAddonConnections'
 import FlowStatus from './InstallFlow'
 import InstallDialog from './InstallDialog'
 import { CATEGORIES, addedByEntry, categoryOf, localizeEntry, localizeRecord, sortEntriesByTitle } from './addonState'
@@ -29,6 +31,9 @@ export default function BrowseView({ api, adapter }) {
   const [reload, setReload] = useState(0)
   const [dialog, setDialog] = useState(null)
   const [category, setCategory] = useState('all')
+  const { hasFeature, isAdmin } = useAuth()
+  // The connector kinds the host serves make an installed add-on a chat app.
+  const conns = useAddonConnections({ enabled: hasFeature('chats') })
   const query = paramsToQuery(k => params.get(k))
 
   const onQueryChange = useCallback((next) => {
@@ -53,6 +58,18 @@ export default function BrowseView({ api, adapter }) {
 
   const upgrade = useAddonUpgrade(api, { onChanged: () => setReload(n => n + 1) })
 
+  // Installed add-ons whose update status was never asked of the library.
+  const unchecked = Object.values(installed).filter(a => updateView(a.update).state === 'unknown')
+  const [checkingAll, setCheckingAll] = useState(false)
+  const checkUnchecked = async () => {
+    setCheckingAll(true)
+    try {
+      for (const addon of unchecked) await upgrade.check(addon)
+    } finally {
+      setCheckingAll(false)
+    }
+  }
+
   const openInstall = (entry) => setDialog(entry)
 
   const renderEntry = (raw) => {
@@ -65,7 +82,8 @@ export default function BrowseView({ api, adapter }) {
     const off = have && have.enabled === false
     const updatable = have && updateView(have.update).state === 'update-available'
     const checked = have && !updatable && entryUpdateNote(have.update)
-    const found = checked ? { ...checked, severity: updateNoticeSeverity(checked.state) } : null
+    // An add-on never checked is said once above the grid, not on every card.
+    const found = checked && checked.state !== 'unknown' ? { ...checked, severity: updateNoticeSeverity(checked.state) } : null
     const note = found
     const availability = updatable ? upgradeAvailability(have, { isAdmin: true, pending: true, checked: upgrade.checks[have.id]?.phase === 'done' }) : null
     const upgrading = updatable && (pending || upgrade.working(have.id))
@@ -123,10 +141,19 @@ export default function BrowseView({ api, adapter }) {
       label={t('browse.category.label')}
     />
   )
-  const inCategory = (entries) => (category === 'all' ? entries : entries.filter(e => categoryOf(e) === category))
+  const inCategory = (entries) => (category === 'all' ? entries : entries.filter(e => categoryOf(e, { connector: conns.addonIds.has(e.id) }) === category))
 
   return (
     <>
+      {unchecked.length > 0 && (
+        <Notice
+          className="ad-unchecked"
+          severity="info"
+          title={t('updates.notCheckedYet')}
+          fix={isAdmin ? { label: checkingAll ? t('updates.checkingAll') : t('updates.checkAll'), busy: checkingAll, disabled: checkingAll, onClick: checkUnchecked, testId: 'browse-check-all' } : undefined}
+          testId="browse-unchecked"
+        />
+      )}
       <CatalogView
         adapter={adapter}
         query={query}

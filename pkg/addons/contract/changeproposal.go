@@ -32,11 +32,15 @@ const (
 	// ChangeKnowledge adds a text to a collection of the person's Knowledge.
 	// It is never applied unasked.
 	ChangeKnowledge ChangeKind = "knowledge"
+	// ChangeVoiceProfile saves a voice-cloning profile from a recording. Only
+	// the voice_profile tool of the chats proposes it, never a model through
+	// propose_change, and the person confirms that the speaker agreed.
+	ChangeVoiceProfile ChangeKind = "voice_profile"
 )
 
 // ChangeKinds lists every kind in a stable order.
 func ChangeKinds() []ChangeKind {
-	return []ChangeKind{ChangeMemory, ChangeProfile, ChangeSkill, ChangePage, ChangeDashboard, ChangeKnowledge}
+	return []ChangeKind{ChangeMemory, ChangeProfile, ChangeSkill, ChangePage, ChangeDashboard, ChangeKnowledge, ChangeVoiceProfile}
 }
 
 // ValidChangeKind reports whether s names a kind.

@@ -446,5 +446,15 @@
   "conn.preset.note": "A preset never turns on a sensitive permission. Use Custom for those. The add-on connections that the agent holds have their own rules: verified people can still use their write tools. Change that on the agent, under \"What it can use\".",
   "conn.discard.title": "Discard your changes?",
   "conn.discard.message": "You changed this connection and did not save it.",
-  "conn.discard.confirm": "Discard changes"
+  "conn.discard.confirm": "Discard changes",
+  "share.label": "Share",
+  "share.button": "Share {{name}}",
+  "share.intro": "People you add can use this connection in their own chats and agents. They see its name and state, never its token or its settings. Messages to the bot still reach your agent.",
+  "share.roleUse": "Can use",
+  "share.roleUseHelp": "Can use it in their chats and agents. Cannot see the token, change it or share it.",
+  "shared.title": "Shared with you",
+  "shared.text": "Other people let you use these connections in your chats and agents. Only their owner can change them.",
+  "shared.on": "Listening",
+  "shared.off": "Off",
+  "shared.by": "Shared by {{name}}"
 }

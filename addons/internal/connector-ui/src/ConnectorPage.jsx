@@ -13,11 +13,13 @@ import { useAccessPreview, useIsAdmin } from './accessHooks'
 import { useAuth } from '../../host-compat/src/context/AuthContext'
 import { Field, HintLabels, Notice, TextInput } from './controls'
 import { PaneLayout } from '../../host-compat/src/components/ui/SidePane'
-import ConnectionRow from './ConnectionRow'
+import ConnectionRow, { Tile } from './ConnectionRow'
 import ConnectionPane from './ConnectionPane'
 import ConnectionSheet from './ConnectionSheet'
 import { applyPreset, checkRecord, connectionState, dropCheck, fixOf, presetOf, readChecks, writeChecks } from './connection'
 import { agentsApi, connectorsApi, setApiLanguage, triggersApi } from './api'
+import { sharedOfKind, shareAvailable } from './share'
+import { getSdk } from '../../host-compat/src/runtime.js'
 import { changedParts, droppedActs, removedActs } from './access'
 import { basePath } from '../../host-compat/src/utils/basePath.js'
 import { DUPLICATE_CONFIRMATION, canSave, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, connectorPayload, emptyConnector, agentHeld, listEntries, senderLine } from './connector'
@@ -28,6 +30,11 @@ import './connector.css'
 
 // The shared words, in every language of the web UI, under the namespace "connector".
 registerConnectorLocales()
+
+// The SDK of the running add-on, or null when the page runs without one.
+function sdkOrNull() {
+  try { return getSdk() } catch { return null }
+}
 
 function Senders({ id, onAllowed, t }) {
   const [list, setList] = useState(null)
@@ -112,6 +119,54 @@ export function SaveNotice({ notice, s }) {
 
 const ONE_LIST = [{ key: 'allow', hint: 'allowHint', testId: 'connector-allow' }]
 
+// The bindings that other people shared with the person: the name, the state
+// and who shared it. There is nothing to change here: only their owner can.
+function SharedConnections({ rows, s }) {
+  const Badge = sdkOrNull()?.ui?.SharedByBadge
+  return (
+    <section className="cn-shared" aria-labelledby="cn-shared-title" data-testid="connector-shared">
+      <h2 className="cn-section__title" id="cn-shared-title">{s('shared.title')}</h2>
+      <p className="cn-muted">{s('shared.text')}</p>
+      <ul className="cn-conns">
+        {rows.map((c) => (
+          <li key={c.id} className="cn-conn" data-testid="connector-shared-row" data-state={c.enabled ? 'running' : 'off'}>
+            <div className="cn-conn__body">
+              <Tile c={c} />
+              <span className="cn-conn__text">
+                <span className="cn-conn__name">{c.name}</span>
+                <span className="cn-conn__facts">{c.enabled ? s('shared.on') : s('shared.off')}</span>
+                {Badge
+                  ? <Badge entry={{ role: c.role, owner: c.owner, everyone: false }} roleLabel={s('share.roleUse')} />
+                  : <span className="cn-muted">{s('shared.by', { name: c.owner || '' })}</span>}
+              </span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+// The host's Share dialog for one binding. The host makes the binding
+// shareable and calls the sharing routes; this page passes the binding only.
+function ShareConnection({ share, s, onChanged, close }) {
+  const Dialog = sdkOrNull()?.ui?.ConnectionShareDialog
+  if (!Dialog) return null
+  return (
+    <Dialog
+      binding={share.binding}
+      name={share.name}
+      roleLabel={s('share.roleUse')}
+      roleHelp={s('share.roleUseHelp')}
+      intro={s('share.intro')}
+      onChanged={onChanged}
+      onLost={() => { close(); onChanged() }}
+      close={close}
+      testId="connector-share-dialog"
+    />
+  )
+}
+
 /**
  * @param {object} props
  * @param {string} props.kind          the kind of the bindings, such as telegram
@@ -141,6 +196,11 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const uiLanguage = i18n?.resolvedLanguage || i18n?.language || ''
   setApiLanguage(uiLanguage)
   const [items, setItems] = useState([])
+  // The bindings of this kind that other people shared with the person (name,
+  // state and owner only), whether the host shares here, and the open dialog.
+  const [shared, setShared] = useState([])
+  const [canShare, setCanShare] = useState(false)
+  const [share, setShare] = useState(null)
   const [agents, setAgents] = useState([])
   const [agentsReady, setAgentsReady] = useState(false)
   const [off, setOff] = useState('')
@@ -206,12 +266,17 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
       const res = await connectorsApi.list()
       const list = (res.connectors || []).filter((c) => c.kind === kind)
       setItems(list)
+      setShared(sharedOfKind(res, kind))
+      setCanShare(shareAvailable(sdkOrNull(), res))
       setOff('')
       return list
     } catch (e) { fail(e); return null }
   }, [fail, kind])
 
   useEffect(() => { load() }, [load])
+  // Share is offered only where the host draws the dialog and the server
+  // shares; the row menu and the pane then open the host's dialog.
+  const shareOf = canShare ? (c) => { setError(''); setShare({ binding: c.id, name: c.name }) } : undefined
   // What the add-on of this kind offers: the choices of its options.
   useEffect(() => {
     connectorsApi.kinds().then((r) => {
@@ -538,7 +603,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
                 <ConnectionRow key={c.id} c={c} state={v.state} attention={v.attention} fix={v.fix} facts={factsOf(c)}
                   line={v.attention ? { text: reasonOf(v.attention), testId: v.attention.cause === 'inactive' ? 'connector-inactive' : 'connector-attention' } : null}
                   selected={c.id === detailId} testing={Boolean(testing[c.id])} busy={Boolean(rowBusy[c.id])} messaging={messaging} t={t} s={s}
-                  onOpen={setDetailId} onToggle={toggle} onTest={runTest} onFix={fixRow} onEdit={editFromRow} onDelete={setToDelete} />
+                  onOpen={setDetailId} onToggle={toggle} onTest={runTest} onFix={fixRow} onEdit={editFromRow} onDelete={setToDelete} onShare={shareOf} />
               )
             })}
           </ul>
@@ -550,11 +615,13 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             <ConnectionPane key={detail.id} c={detail} state={v.state} attention={v.attention} fix={v.fix} check={checks[detail.id]} testing={Boolean(testing[detail.id])}
               busy={Boolean(rowBusy[detail.id])} messaging={messaging} facts={paneFacts(detail)} RowInfo={RowInfo} t={t} s={s}
               Senders={<Senders id={detail.id} onAllowed={load} t={t} />}
-              onClose={() => setDetailId('')} onToggle={toggle} onTest={runTest} onFix={fixRow} onEdit={(x) => openEdit(x)} onDelete={setToDelete} />
+              onClose={() => setDetailId('')} onToggle={toggle} onTest={runTest} onFix={fixRow} onEdit={(x) => openEdit(x)} onDelete={setToDelete} onShare={shareOf} />
           )
         })()}
       </PaneLayout>
 
+      {canShare && shared.length > 0 && <SharedConnections rows={shared} s={s} />}
+      {share && canShare && <ShareConnection share={share} s={s} onChanged={load} close={() => setShare(null)} />}
       {form && <ConnectionSheet p={sheetProps} />}
       <ConfirmDialog
         open={askDiscard}

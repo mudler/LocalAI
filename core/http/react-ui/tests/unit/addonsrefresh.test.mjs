@@ -1,35 +1,29 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { CATEGORIES, GROUPS, categoryOf, glyphOf, groupOf, groupTiles } from '../../src/components/addons/addonState.js'
+import { CATEGORIES, GROUPS, categoryOf, groupOf, groupTiles } from '../../src/components/addons/addonState.js'
 import { connectionFacts, connectionLine, rowState } from '../../src/utils/chatConnectors.js'
 
 // The refreshed Add-ons page: icons for add-ons the host has no file for,
 // the groups of the installed list, the categories of the library and the
 // words of a connection row.
 
-test('icons: a known first party id has a glyph of the host set, any other id has none', () => {
-  assert.equal(glyphOf('telegram'), 'send')
-  assert.equal(glyphOf('calendar'), 'calendar')
-  assert.equal(glyphOf('acme-crm'), '')
-  assert.equal(glyphOf('constructor'), '', 'an inherited property is not a glyph')
-})
-
 test('categories: a connector kind makes a chat app, whatever the id', () => {
   assert.equal(categoryOf({ id: 'wave', toolCount: 3 }, { connector: true }), 'chat')
-  assert.equal(categoryOf({ id: 'slack' }), 'chat')
+  assert.equal(categoryOf({ id: 'slack' }), 'tools', 'an id alone says nothing about the category')
 })
 
 test('categories: tools make a tool, a page alone a models page, nothing at all a tool', () => {
   assert.equal(categoryOf({ id: 'acme', toolCount: 2, tools: ['a', 'b'] }), 'tools')
   assert.equal(categoryOf({ id: 'acme', hasUI: true }), 'models')
   assert.equal(categoryOf({ id: 'acme' }), 'tools')
-  assert.equal(categoryOf({ id: 'home-assistant', toolCount: 8 }), 'home')
+  assert.equal(categoryOf({ id: 'home-assistant', toolCount: 8 }), 'tools')
 })
 
 test('categories: a library entry is read from its ui and tool hints', () => {
   assert.equal(categoryOf({ id: 'acme', ui: { mainPage: 'home' }, toolCount: 0 }), 'models')
   assert.equal(categoryOf({ id: 'acme', ui: { mainPage: 'home' }, toolCount: 2, tools: ['a'] }), 'tools')
   assert.ok(CATEGORIES.includes(categoryOf({ id: 'face' })))
+  assert.deepEqual(CATEGORIES, ['chat', 'tools', 'models'])
 })
 
 const tile = (id, over = {}) => ({ id, source: 'app', app: { id, hasUI: false, toolCount: 0, tools: [] }, ...over })

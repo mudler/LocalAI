@@ -247,6 +247,9 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return "", fmt.Errorf("bad arguments: %w", err)
 	}
+	if k, ok := h.kinds.Lookup(args.Kind); ok && k.Internal {
+		return "", fmt.Errorf("kind must be one of %v", h.kindsHeld(c))
+	}
 	if err := c.Require(changeCapability(args.Kind)); err != nil {
 		return "", err
 	}
@@ -386,7 +389,7 @@ func (s *Service) knowledgeOffered(ctx context.Context, c builtins.Chat) bool {
 	if c.AgentID == "" || s.d.Agents == nil {
 		return true
 	}
-	ag, err := s.d.Agents.Get(ctx, principal(c.Actor.Principal), c.AgentID)
+	ag, err := s.chatAgent(ctx, principal(c.Actor.Principal), c.AgentID)
 	return err == nil && len(ag.Collections) > 0
 }
 

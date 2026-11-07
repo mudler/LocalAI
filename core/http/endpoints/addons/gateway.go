@@ -67,6 +67,9 @@ type Option func(*settings)
 type settings struct {
 	mode  string
 	guard SelectionGuard
+	// account checks the caller with the account check of the kinds that are
+	// not add-ons instead of the add-on check: the sharing routes.
+	account bool
 }
 
 // SelectionGuard says whether the person may select a resource for a
@@ -99,6 +102,9 @@ func actor(c echo.Context, db *gorm.DB, s settings) (contract.Actor, error) {
 	a, e := auth.AddonActorForMode(c, s.mode)
 	if e != nil {
 		return a, e
+	}
+	if s.account {
+		return a, auth.AccountRevalidate(db, s.mode)(c.Request().Context(), a, "")
 	}
 	e = auth.AddonRevalidate(db, s.mode)(c.Request().Context(), a)
 	return a, e
@@ -306,6 +312,7 @@ func resultError(c echo.Context, e error) error {
 		{gateway.ErrInvalidRequest, 400, "invalid_request", "The request cannot be carried out as given"},
 		{gateway.ErrQuotaReached, 403, "quota_reached", "The resource limit is reached"},
 		{gateway.ErrNotSelected, 404, "not_selected", "No resource is selected for the conversation"},
+		{gateway.ErrSearchLimited, 429, "rate_limited", "Too many searches for people; wait a moment and search again"},
 	} {
 		if errors.Is(e, t.err) {
 			return c.JSON(t.status, AddonErrorResponse{Error: AddonError{Type: t.kind, Code: t.status, Message: t.message}})

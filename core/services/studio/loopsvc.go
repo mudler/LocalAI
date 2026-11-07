@@ -691,11 +691,13 @@ func (h *Loops) reconcile(ctx context.Context, l loops.Loop, _ LoopLimits) {
 	if mine {
 		return
 	}
-	info, err := h.svc.d.Store.Turn(ctx, l.Owner, l.ChatID)
+	info, err := h.svc.Turn(ctx, l.Owner, l.ChatID) // not the store: WillResume depends on the service's settings
 	switch {
 	case errors.Is(err, session.ErrNotFound):
 		h.drop(ctx, l, "the chat was deleted")
 	case err != nil:
+	case info.WillResume:
+		// The server resumes the turn; the run ends with it.
 	case !info.Running && h.o.Clock().Sub(l.LastRun) < loopStartGrace:
 		// Another frontend may have claimed the run and not yet the chat.
 	case !info.Running:

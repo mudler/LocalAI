@@ -44,8 +44,25 @@ test.describe('Chats on a phone', () => {
     await expect(menu.getByText('Release notes')).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
+    // The search box takes the focus a moment after the menu opens; Escape is
+    // pressed once it has, as a person types it.
+    await expect(menu.getByRole('combobox')).toBeFocused()
     await page.keyboard.press('Escape')
     await expect(menu).toBeHidden()
+  })
+
+  test('Escape closes the conversations menu while the focus is still on the opener', async ({ page }) => {
+    await page.goto('/app/chats/c1')
+    const trigger = page.getByTestId('chats-trigger')
+    const menu = page.getByTestId('chats-menu')
+    await trigger.click()
+    await expect(menu).toBeVisible()
+    // Put the focus outside the dialog, as it is before the search box takes it.
+    await trigger.focus()
+    await page.keyboard.press('Escape')
+    await expect(menu).toBeHidden()
+    await expect(trigger).toBeFocused()
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
 
   test('choosing a chat opens it and closes the menu', async ({ page }) => {

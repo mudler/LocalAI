@@ -1,6 +1,6 @@
 {
-  "voice.adminOnly.title": "Administrators only",
-  "voice.adminOnly.text": "Saved voices can be managed by an administrator of this server. Ask one if you need a voice added or removed.",
+  "voice.noSpeech.title": "Speech is not available",
+  "voice.noSpeech.text": "Your account cannot use speech, so it cannot manage saved voices. Ask an administrator to turn it on.",
   "speech.title": "Speak text",
   "speech.lede": "Turn text into speech with a voice model of this server.",
   "speech.model": "Model",
@@ -226,7 +226,7 @@
   "voiceCreate.sections.reference.title": "Audio de référence",
   "voiceCreate.sections.reference.body": "Enregistrez dans le navigateur ou importez un extrait existant. La parole doit être propre, naturelle et provenir d'un seul locuteur.",
   "voiceCreate.sections.details.title": "Identité et transcription",
-  "voiceCreate.sections.details.body": "Donnez un nom reconnaissable aux administrateurs et transcrivez l'extrait exactement, hésitations et ponctuation comprises.",
+  "voiceCreate.sections.details.body": "Donnez à la voix un nom reconnaissable et transcrivez l'extrait exactement, hésitations et ponctuation comprises.",
   "voiceCreate.sections.consent.title": "Autorisation",
   "voiceCreate.sections.consent.body": "Le clonage de voix peut être sensible. Confirmez l'autorisation avant d'enregistrer cette référence.",
   "voiceCreate.audio.label": "Référence vocale",
