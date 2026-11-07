@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -14,11 +12,12 @@ import (
 	"net/textproto"
 	"net/url"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/addons/gdrive/internal/driveapi"
+	"github.com/mudler/LocalAI/addons/internal/argutil"
+	"github.com/mudler/LocalAI/addons/internal/writeflow"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -81,7 +80,7 @@ func checkContent(s *string, token string) error {
 	if s == nil {
 		return nil
 	}
-	if len(*s) > MaxWriteBody || !plain(*s) {
+	if len(*s) > MaxWriteBody || !argutil.Plain(*s) {
 		return bad("content is not text or is longer than %d bytes", MaxWriteBody)
 	}
 	if token != "" && strings.Contains(*s, token) {
@@ -94,7 +93,7 @@ func checkContent(s *string, token string) error {
 func (c *call) parseWrite(tool string, raw map[string]json.RawMessage) (write, error) {
 	var a writeArgs
 	w := write{tool: tool}
-	if err := decodeArgs(raw, &a); err != nil {
+	if err := argutil.DecodeArgs(raw, &a); err != nil {
 		return w, err
 	}
 	w.writeArgs = a
@@ -122,7 +121,7 @@ func (c *call) parseWrite(tool string, raw map[string]json.RawMessage) (write, e
 		if err := only("parent", "name", "content", "mimeType"); err != nil {
 			return w, err
 		}
-		if err := checkLine("name", a.Name, maxNameRunes, true); err != nil {
+		if err := argutil.CheckLine("name", a.Name, maxNameRunes, true); err != nil {
 			return w, err
 		}
 		if a.MimeType != "" && !slices.Contains(writeTypes, a.MimeType) {
@@ -139,7 +138,7 @@ func (c *call) parseWrite(tool string, raw map[string]json.RawMessage) (write, e
 		if a.Name == "" && a.Content == nil {
 			return w, bad("give a new name or new content or both")
 		}
-		if err := checkLine("name", a.Name, maxNameRunes, false); err != nil {
+		if err := argutil.CheckLine("name", a.Name, maxNameRunes, false); err != nil {
 			return w, err
 		}
 		return w, checkContent(a.Content, c.token)
@@ -161,17 +160,6 @@ func (c *call) parseWrite(tool string, raw map[string]json.RawMessage) (write, e
 		return w, bad("unknown tool")
 	}
 	return w, nil
-}
-
-func sum64(parts ...string) uint64 {
-	h := sha256.New()
-	for _, p := range parts {
-		// The length is written as text, so each part is delimited and no
-		// integer conversion is needed.
-		h.Write([]byte(strconv.Itoa(len(p)) + ":"))
-		h.Write([]byte(p))
-	}
-	return binary.BigEndian.Uint64(h.Sum(nil)[:8]) | 1
 }
 
 // target is what a write works on, as it is now.
@@ -205,7 +193,7 @@ func (c *call) inspect(w write) (target, uint64, error) {
 		if t.parent.Trashed {
 			return t, 0, bad("the folder is in the trash")
 		}
-		return t, sum64("create", t.parent.ID, t.parent.ModifiedTime), nil
+		return t, argutil.Sum64("create", t.parent.ID, t.parent.ModifiedTime), nil
 	}
 	if t.file, err = c.inside(w.FileID); err != nil {
 		return t, 0, err
@@ -251,19 +239,11 @@ func (c *call) inspect(w write) (target, uint64, error) {
 			return t, 0, bad("the file is already in the trash")
 		}
 	}
-	rev := sum64(w.tool, f.ID, f.Version, f.ModifiedTime, f.Name, strings.Join(f.Parents, ","))
+	rev := argutil.Sum64(w.tool, f.ID, f.Version, f.ModifiedTime, f.Name, strings.Join(f.Parents, ","))
 	if t.parent != nil {
-		rev = sum64(w.tool, f.ID, f.Version, f.ModifiedTime, f.Name, strings.Join(f.Parents, ","), t.parent.ID)
+		rev = argutil.Sum64(w.tool, f.ID, f.Version, f.ModifiedTime, f.Name, strings.Join(f.Parents, ","), t.parent.ID)
 	}
 	return t, rev, nil
-}
-
-func plainJSON(v any) json.RawMessage {
-	var b bytes.Buffer
-	e := json.NewEncoder(&b)
-	e.SetEscapeHTML(false)
-	_ = e.Encode(v)
-	return bytes.TrimSpace(b.Bytes())
 }
 
 // sample is what the person sees before a change: facts built from the
@@ -282,14 +262,14 @@ func sample(w write, t target) map[string]any {
 		s["action"] = "Move a file to the trash"
 	}
 	if t.file != nil {
-		name, cutName := runes(t.file.Name, previewRunes/4)
+		name, cutName := argutil.Runes(t.file.Name, previewRunes/4)
 		s["fileId"], s["targetName"], s["targetType"] = t.file.ID, name, t.file.MimeType
 		if cutName {
 			s["targetNameCut"] = true
 		}
 	}
 	if t.parent != nil {
-		pname, _ := runes(t.parent.Name, previewRunes/4)
+		pname, _ := argutil.Runes(t.parent.Name, previewRunes/4)
 		if w.tool == ToolMoveFile {
 			s["newParent"], s["newParentName"] = t.parent.ID, pname
 		} else {
@@ -307,7 +287,7 @@ func sample(w write, t target) map[string]any {
 		s["mimeType"] = mt
 	}
 	if w.Content != nil {
-		b, cutB := runes(*w.Content, previewRunes)
+		b, cutB := argutil.Runes(*w.Content, previewRunes)
 		s["content"], s["contentBytes"] = b, len(*w.Content)
 		if cutB {
 			s["contentCut"] = true
@@ -318,7 +298,7 @@ func sample(w write, t target) map[string]any {
 
 // prepare reads the call of a write envelope.
 func (r *Runtime) prepare(ctx context.Context, env contract.Envelope) (write, *call, error) {
-	tool, raw, err := splitArgs(env.Request.Arguments)
+	tool, raw, err := argutil.SplitArgs(env.Request.Arguments)
 	if err != nil || !isWrite(tool) {
 		return write{}, nil, bad("unknown tool")
 	}
@@ -343,23 +323,14 @@ func (r *Runtime) Preview(ctx context.Context, env contract.Envelope) (contract.
 	}
 	t, rev, err := c.inspect(w)
 	if err != nil {
-		return contract.Preview{}, translateWrite(err, false)
+		return contract.Preview{}, r.translateWrite(err, false)
 	}
-	summary := plainJSON(map[string]any{"count": 1, "sample": sample(w, t)})
+	summary := argutil.PlainJSON(map[string]any{"count": 1, "sample": sample(w, t)})
 	if len(summary) > 3<<10 {
 		return contract.Preview{}, bad("the preview is too large")
 	}
 	return contract.Preview{OperationID: env.Request.OperationID, Revision: contract.Revision{Schema: 1, Data: rev},
-		ExpiresAt: r.now().Add(24 * time.Hour), Summary: summary}, nil
-}
-
-// Receipt answers from the journal. An operation that was started and not
-// finished is unknown: the add-on cannot tell whether Google Drive got it.
-func (r *Runtime) Receipt(_ context.Context, op string) (contract.Receipt, error) {
-	if rc, ok := r.journal().Receipt(op); ok {
-		return rc, nil
-	}
-	return contract.Receipt{OperationID: op, State: contract.ReceiptUnknown}, nil
+		ExpiresAt: r.Time().Add(24 * time.Hour), Summary: summary}, nil
 }
 
 // Apply makes the change once. Renaming, replacing content, moving and
@@ -368,73 +339,46 @@ func (r *Runtime) Receipt(_ context.Context, op string) (contract.Receipt, error
 // operation, and a second attempt looks for it first.
 func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract.Revision) (contract.Receipt, error) {
 	op := env.Request.OperationID
-	r.applyMu.Lock()
-	defer r.applyMu.Unlock()
-	j := r.journal()
-	if rc, ok := j.Receipt(op); ok {
-		return rc, nil
-	}
-	w, c, err := r.prepare(ctx, env)
-	if err != nil {
-		return contract.Receipt{}, err
-	}
-	t, now, err := c.inspect(w)
-	if err != nil {
-		// Nothing was sent yet, so a limit is a refusal here, not an unknown.
-		return contract.Receipt{}, translateWrite(err, false)
-	}
-	if now != rev.Data {
-		rc := contract.Receipt{OperationID: op, State: contract.ReceiptRejected, Revision: rev,
-			Result: contract.Result{Payload: smallResult(map[string]any{"stale": true, "note": "The file changed after the preview. Nothing was sent."})}}
-		return rc, j.Commit(rc)
-	}
-	if _, started := j.Started(op); started && w.tool == ToolCreateFile {
-		if found, ok := c.find(op); ok {
-			rc := committed(op, rev, found)
-			return rc, j.Commit(rc)
+	return r.Runtime.Apply(op, rev, func() (writeflow.Session, error) {
+		w, c, err := r.prepare(ctx, env)
+		if err != nil {
+			return nil, err
+		}
+		return &session{c: c, w: w, op: op}, nil
+	})
+}
+
+// session is one checked write of the Drive add-on.
+type session struct {
+	writeflow.NoRecovery
+	c  *call
+	w  write
+	t  target
+	op string
+}
+
+func (s *session) Inspect() (uint64, error) {
+	t, rev, err := s.c.inspect(s.w)
+	s.t = t
+	return rev, err
+}
+
+// Resume looks for the file that an earlier attempt of a create made.
+func (s *session) Resume(started bool) (map[string]any, bool, error) {
+	if started && s.w.tool == ToolCreateFile {
+		if found, ok := s.c.find(s.op); ok {
+			return found, true, nil
 		}
 	}
-	if err := j.Begin(op, r.now()); err != nil {
-		return contract.Receipt{}, err
-	}
-	out, err := c.send(w, t, op)
-	switch {
-	case err == nil:
-	case errors.Is(err, driveapi.ErrUnreadable):
-		out = map[string]any{"note": "sent; the answer of Google Drive was not readable"}
-	case definite(err):
-		j.Forget(op)
-		return contract.Receipt{}, translateWrite(err, true)
-	default:
-		// The request may or may not have arrived. The host will ask for the
-		// receipt, get "unknown", and leave the decision to the person.
-		return contract.Receipt{}, err
-	}
-	rc := committed(op, rev, out)
-	return rc, j.Commit(rc)
+	return nil, false, nil
 }
 
-func committed(op string, rev contract.Revision, out map[string]any) contract.Receipt {
-	return contract.Receipt{OperationID: op, State: contract.ReceiptCommitted, Revision: rev, Result: contract.Result{Payload: smallResult(out)}}
-}
-
-// smallResult wraps what the receipt echoes. The host copies only a short
-// result into a chat, so it holds a link and an ID, no file text.
-func smallResult(data map[string]any) json.RawMessage {
-	return plainJSON(map[string]any{"source": "google-drive", "untrusted": true, "data": data})
-}
-
-// definite reports an error that proves the change was not made.
-func definite(err error) bool {
-	var limited *contract.ErrRateLimited
-	return errors.As(err, &limited) || errors.Is(err, driveapi.ErrUnauthorized) || errors.Is(err, driveapi.ErrForbidden) ||
-		errors.Is(err, driveapi.ErrScope) || errors.Is(err, driveapi.ErrNotFound) || errors.Is(err, driveapi.ErrInvalid)
-}
+func (s *session) Send() (map[string]any, error) { return s.c.send(s.w, s.t, s.op) }
 
 // translateWrite is translate for a definite failure of a write: a limit
 // becomes a refusal that says when to try again, since nothing was changed. A
 // refusal of a change on a file that the narrow scope does not reach says so.
-func translateWrite(err error, sent bool) error {
+func (r *Runtime) translateWrite(err error, sent bool) error {
 	var limited *contract.ErrRateLimited
 	var server *driveapi.ServerError
 	if errors.As(err, &limited) {
@@ -446,7 +390,7 @@ func translateWrite(err error, sent bool) error {
 	if sent && (errors.Is(err, driveapi.ErrNotFound) || errors.Is(err, driveapi.ErrForbidden) || errors.Is(err, driveapi.ErrScope)) {
 		return bad("Drive refused it. %s reaches only files made here", ScopeWriteName)
 	}
-	return translate(err)
+	return r.Translate(err)
 }
 
 func driveLink(u string) string {
@@ -529,23 +473,23 @@ func (c *call) send(w write, t target, op string) (map[string]any, error) {
 	case ToolUpdateFile:
 		if w.Content != nil {
 			mq := url.Values{"supportsAllDrives": {"true"}, "uploadType": {"media"}, "fields": {"id,name,webViewLink"}}
-			if err := api.SendRaw(c.ctx, "PATCH", c.token, "/upload/drive/v3/files/"+idPath(t.file.ID), mq, t.file.MimeType, []byte(*w.Content), &cr); err != nil {
+			if err := api.SendRaw(c.ctx, "PATCH", c.token, "/upload/drive/v3/files/"+argutil.IDPath(t.file.ID), mq, t.file.MimeType, []byte(*w.Content), &cr); err != nil {
 				return nil, err
 			}
 		}
 		if w.Name != "" {
-			if err := api.SendJSON(c.ctx, "PATCH", c.token, "/drive/v3/files/"+idPath(t.file.ID), q, map[string]any{"name": w.Name}, &cr); err != nil {
+			if err := api.SendJSON(c.ctx, "PATCH", c.token, "/drive/v3/files/"+argutil.IDPath(t.file.ID), q, map[string]any{"name": w.Name}, &cr); err != nil {
 				return nil, err
 			}
 		}
 	case ToolMoveFile:
 		q.Set("addParents", t.parent.ID)
 		q.Set("removeParents", strings.Join(t.file.Parents, ","))
-		if err := api.SendJSON(c.ctx, "PATCH", c.token, "/drive/v3/files/"+idPath(t.file.ID), q, map[string]any{}, &cr); err != nil {
+		if err := api.SendJSON(c.ctx, "PATCH", c.token, "/drive/v3/files/"+argutil.IDPath(t.file.ID), q, map[string]any{}, &cr); err != nil {
 			return nil, err
 		}
 	case ToolTrashFile:
-		if err := api.SendJSON(c.ctx, "PATCH", c.token, "/drive/v3/files/"+idPath(t.file.ID), q, map[string]any{"trashed": true}, &cr); err != nil {
+		if err := api.SendJSON(c.ctx, "PATCH", c.token, "/drive/v3/files/"+argutil.IDPath(t.file.ID), q, map[string]any{"trashed": true}, &cr); err != nil {
 			return nil, err
 		}
 	}

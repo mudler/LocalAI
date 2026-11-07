@@ -4,9 +4,7 @@ package tools
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,12 +13,13 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/addons/gmail/internal/gmailapi"
+	"github.com/mudler/LocalAI/addons/internal/argutil"
+	"github.com/mudler/LocalAI/addons/internal/writeflow"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -109,7 +108,7 @@ func checkBody(s *string, token string) error {
 	if s == nil || strings.TrimSpace(*s) == "" {
 		return bad("body is required")
 	}
-	if len(*s) > MaxWriteBody || !plain(*s) {
+	if len(*s) > MaxWriteBody || !argutil.Plain(*s) {
 		return bad("body is not text or is longer than %d bytes", MaxWriteBody)
 	}
 	if token != "" && strings.Contains(*s, token) {
@@ -121,7 +120,7 @@ func checkBody(s *string, token string) error {
 func (c *call) parseWrite(tool string, raw map[string]json.RawMessage) (write, error) {
 	var a writeArgs
 	w := write{tool: tool}
-	if err := decodeArgs(raw, &a); err != nil {
+	if err := argutil.DecodeArgs(raw, &a); err != nil {
 		return w, err
 	}
 	w.writeArgs = a
@@ -136,7 +135,7 @@ func (c *call) parseWrite(tool string, raw map[string]json.RawMessage) (write, e
 		if err := checkRecipients(a.To, a.Cc, true); err != nil {
 			return w, err
 		}
-		if err := checkLine("subject", a.Subject, maxSubject, a.ReplyToMessageID == ""); err != nil {
+		if err := argutil.CheckLine("subject", a.Subject, maxSubject, a.ReplyToMessageID == ""); err != nil {
 			return w, err
 		}
 		if a.ReplyToMessageID != "" {
@@ -152,25 +151,6 @@ func (c *call) parseWrite(tool string, raw map[string]json.RawMessage) (write, e
 		return w, checkID("draftId", a.DraftID)
 	}
 	return w, bad("unknown tool")
-}
-
-func sum64(parts ...string) uint64 {
-	h := sha256.New()
-	for _, p := range parts {
-		// The length is written as text, so each part is delimited and no
-		// integer conversion is needed.
-		h.Write([]byte(strconv.Itoa(len(p)) + ":"))
-		h.Write([]byte(p))
-	}
-	return binary.BigEndian.Uint64(h.Sum(nil)[:8]) | 1
-}
-
-func plainJSON(v any) json.RawMessage {
-	var b bytes.Buffer
-	e := json.NewEncoder(&b)
-	e.SetEscapeHTML(false)
-	_ = e.Encode(v)
-	return bytes.TrimSpace(b.Bytes())
 }
 
 // target is what a write works on, as it is now.
@@ -212,10 +192,10 @@ func (c *call) inspect(w write) (target, uint64, error) {
 			t.reply = m
 			rev = append(rev, m.ThreadID, m.Payload.header("Message-ID"))
 		}
-		return t, sum64(rev...), nil
+		return t, argutil.Sum64(rev...), nil
 	case ToolSendDraft:
 		var d gDraft
-		if err := c.r.API.GetJSON(c.ctx, c.token, "/gmail/v1/users/me/drafts/"+idPath(w.DraftID), url.Values{"format": {"full"}}, &d); err != nil {
+		if err := c.r.API.GetJSON(c.ctx, c.token, "/gmail/v1/users/me/drafts/"+argutil.IDPath(w.DraftID), url.Values{"format": {"full"}}, &d); err != nil {
 			return t, 0, err
 		}
 		t.draft = &d
@@ -241,7 +221,7 @@ func (c *call) inspect(w write) (target, uint64, error) {
 		for _, a := range t.text.Attachments {
 			names = append(names, a.Filename)
 		}
-		return t, sum64("send", d.ID, d.Message.ID, h.header("To"), h.header("Cc"), h.header("Bcc"), h.header("Subject"), t.text.Text, strings.Join(names, ",")), nil
+		return t, argutil.Sum64("send", d.ID, d.Message.ID, h.header("To"), h.header("Cc"), h.header("Bcc"), h.header("Subject"), t.text.Text, strings.Join(names, ",")), nil
 	}
 	return t, 0, bad("unknown tool")
 }
@@ -264,7 +244,7 @@ func sample(w write, t target) map[string]any {
 				s["subject"] = replySubject(headerText(t.reply.Payload.header("Subject"), maxSubject))
 			}
 		}
-		b, cutB := runes(*w.Body, previewRunes)
+		b, cutB := argutil.Runes(*w.Body, previewRunes)
 		s["body"], s["bodyBytes"] = b, len(*w.Body)
 		if cutB {
 			s["bodyCut"] = true
@@ -276,7 +256,7 @@ func sample(w write, t target) map[string]any {
 		s["draftId"] = t.draft.ID
 		s["to"], s["cc"], s["bcc"] = headerText(p.header("To"), 600), headerText(p.header("Cc"), 600), headerText(p.header("Bcc"), 600)
 		s["subject"] = headerText(p.header("Subject"), maxSubject)
-		b, cutB := runes(t.text.Text, previewRunes)
+		b, cutB := argutil.Runes(t.text.Text, previewRunes)
 		s["body"], s["bodyBytes"] = b, len(t.text.Text)
 		if cutB {
 			s["bodyCut"] = true
@@ -302,7 +282,7 @@ func replySubject(orig string) string {
 
 // prepare reads the call of a write envelope.
 func (r *Runtime) prepare(ctx context.Context, env contract.Envelope) (write, *call, error) {
-	tool, raw, err := splitArgs(env.Request.Arguments)
+	tool, raw, err := argutil.SplitArgs(env.Request.Arguments)
 	if err != nil || !isWrite(tool) {
 		return write{}, nil, bad("unknown tool")
 	}
@@ -327,31 +307,22 @@ func (r *Runtime) Preview(ctx context.Context, env contract.Envelope) (contract.
 	}
 	t, rev, err := c.inspect(w)
 	if err != nil {
-		return contract.Preview{}, translateWrite(err, false)
+		return contract.Preview{}, r.translateWrite(err, false)
 	}
-	summary := plainJSON(map[string]any{"count": 1, "sample": sample(w, t)})
+	summary := argutil.PlainJSON(map[string]any{"count": 1, "sample": sample(w, t)})
 	if len(summary) > 3<<10 {
 		// The summary must stay small. Cut the text, which the stored
 		// arguments hold whole for a draft; a draft that is sent shows less.
 		s := sample(w, t)
-		s["body"], _ = runes(fmt.Sprint(s["body"]), 300)
+		s["body"], _ = argutil.Runes(fmt.Sprint(s["body"]), 300)
 		s["bodyCut"] = true
-		summary = plainJSON(map[string]any{"count": 1, "sample": s})
+		summary = argutil.PlainJSON(map[string]any{"count": 1, "sample": s})
 		if len(summary) > 3<<10 {
 			return contract.Preview{}, bad("the preview is too large")
 		}
 	}
 	return contract.Preview{OperationID: env.Request.OperationID, Revision: contract.Revision{Schema: 1, Data: rev},
-		ExpiresAt: r.now().Add(24 * time.Hour), Summary: summary}, nil
-}
-
-// Receipt answers from the journal. An operation that was started and not
-// finished is unknown: the add-on cannot tell whether Gmail got it.
-func (r *Runtime) Receipt(_ context.Context, op string) (contract.Receipt, error) {
-	if rc, ok := r.journal().Receipt(op); ok {
-		return rc, nil
-	}
-	return contract.Receipt{OperationID: op, State: contract.ReceiptUnknown}, nil
+		ExpiresAt: r.Time().Add(24 * time.Hour), Summary: summary}, nil
 }
 
 // errMaybeSent is what a retry of an operation answers when an earlier try
@@ -366,75 +337,49 @@ var errMaybeSent = errors.New("an earlier attempt may have gone through. Check D
 // gone after an unknown attempt: sending a draft removes it, so the draft is
 // the evidence that the attempt went through.
 func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract.Revision) (contract.Receipt, error) {
-	op := env.Request.OperationID
-	r.applyMu.Lock()
-	defer r.applyMu.Unlock()
-	j := r.journal()
-	if rc, ok := j.Receipt(op); ok {
-		return rc, nil
-	}
-	w, c, err := r.prepare(ctx, env)
-	if err != nil {
-		return contract.Receipt{}, err
-	}
-	_, started := j.Started(op)
-	t, now, err := c.inspect(w)
-	if err != nil {
-		if started && w.tool == ToolSendDraft && errors.Is(err, gmailapi.ErrNotFound) {
-			rc := committed(op, rev, map[string]any{"note": "The draft is gone, so an earlier attempt sent it."})
-			return rc, j.Commit(rc)
+	return r.Runtime.Apply(env.Request.OperationID, rev, func() (writeflow.Session, error) {
+		w, c, err := r.prepare(ctx, env)
+		if err != nil {
+			return nil, err
 		}
-		// Nothing was sent yet, so a limit is a refusal here, not an unknown.
-		return contract.Receipt{}, translateWrite(err, false)
+		return &session{c: c, w: w}, nil
+	})
+}
+
+// session is one checked write of the Gmail add-on.
+type session struct {
+	c *call
+	w write
+	t target
+}
+
+func (s *session) Inspect() (uint64, error) {
+	t, rev, err := s.c.inspect(s.w)
+	s.t = t
+	return rev, err
+}
+
+// InspectFailed settles a send whose draft is gone after an earlier attempt.
+func (s *session) InspectFailed(started bool, err error) (map[string]any, bool) {
+	if started && s.w.tool == ToolSendDraft && errors.Is(err, gmailapi.ErrNotFound) {
+		return map[string]any{"note": "The draft is gone, so an earlier attempt sent it."}, true
 	}
-	if now != rev.Data {
-		rc := contract.Receipt{OperationID: op, State: contract.ReceiptRejected, Revision: rev,
-			Result: contract.Result{Payload: smallResult(map[string]any{"stale": true, "note": "The mail changed after the preview. Nothing was sent."})}}
-		return rc, j.Commit(rc)
-	}
+	return nil, false
+}
+
+// Resume refuses to go on after an attempt of unknown outcome.
+func (s *session) Resume(started bool) (map[string]any, bool, error) {
 	if started {
-		return contract.Receipt{}, errMaybeSent
+		return nil, false, errMaybeSent
 	}
-	if err := j.Begin(op, r.now()); err != nil {
-		return contract.Receipt{}, err
-	}
-	out, err := c.send(w, t)
-	switch {
-	case err == nil:
-	case errors.Is(err, gmailapi.ErrUnreadable):
-		out = map[string]any{"note": "done; the answer of Gmail was not readable"}
-	case definite(err):
-		j.Forget(op)
-		return contract.Receipt{}, translateWrite(err, true)
-	default:
-		// The request may or may not have arrived. The host will ask for the
-		// receipt, get "unknown", and leave the decision to the person.
-		return contract.Receipt{}, err
-	}
-	rc := committed(op, rev, out)
-	return rc, j.Commit(rc)
+	return nil, false, nil
 }
 
-func committed(op string, rev contract.Revision, out map[string]any) contract.Receipt {
-	return contract.Receipt{OperationID: op, State: contract.ReceiptCommitted, Revision: rev, Result: contract.Result{Payload: smallResult(out)}}
-}
-
-// smallResult wraps what the receipt echoes. The host copies only a short
-// result into a chat, so it holds IDs and no mail text.
-func smallResult(data map[string]any) json.RawMessage {
-	return plainJSON(map[string]any{"source": "gmail", "untrusted": true, "data": data})
-}
-
-// definite reports an error that proves the change was not made.
-func definite(err error) bool {
-	var limited *contract.ErrRateLimited
-	return errors.As(err, &limited) || errors.Is(err, gmailapi.ErrUnauthorized) || errors.Is(err, gmailapi.ErrForbidden) ||
-		errors.Is(err, gmailapi.ErrScope) || errors.Is(err, gmailapi.ErrNotFound) || errors.Is(err, gmailapi.ErrInvalid)
-}
+func (s *session) Send() (map[string]any, error) { return s.c.send(s.w, s.t) }
 
 // translateWrite is translate for a definite failure of a write: a limit
 // becomes a refusal that says when to try again, since nothing was changed.
-func translateWrite(err error, sent bool) error {
+func (r *Runtime) translateWrite(err error, sent bool) error {
 	var limited *contract.ErrRateLimited
 	var server *gmailapi.ServerError
 	if errors.As(err, &limited) {
@@ -449,7 +394,7 @@ func translateWrite(err error, sent bool) error {
 	if sent && (errors.Is(err, gmailapi.ErrForbidden) || errors.Is(err, gmailapi.ErrScope)) {
 		return bad("Gmail refused it. Reconnect and allow %s", ScopeWriteName)
 	}
-	return translate(err)
+	return r.Translate(err)
 }
 
 // rfc822 builds the message of a draft. Every header value was checked: an

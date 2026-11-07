@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/addons/gdrive/internal/driveapi"
+	"github.com/mudler/LocalAI/addons/internal/argutil"
 )
 
 // Media types the add-on treats on their own.
@@ -89,7 +90,7 @@ func (c *call) fileMeta(id string) (*fileMeta, error) {
 	c.lookups++
 	var m fileMeta
 	q := url.Values{"fields": {metaFields}, "supportsAllDrives": {"true"}}
-	if err := c.r.API.GetJSON(c.ctx, c.token, "/drive/v3/files/"+idPath(id), q, &m); err != nil {
+	if err := c.r.API.GetJSON(c.ctx, c.token, "/drive/v3/files/"+argutil.IDPath(id), q, &m); err != nil {
 		if errors.Is(err, driveapi.ErrNotFound) {
 			c.absent[id] = true
 		}
@@ -179,7 +180,7 @@ func link(u string) string {
 }
 
 func (m *fileMeta) item() item {
-	name, cutName := runes(m.Name, MaxNameRunes)
+	name, cutName := argutil.Runes(m.Name, MaxNameRunes)
 	it := item{ID: m.ID, Name: name, NameCut: cutName, Kind: "file", MimeType: m.MimeType, Modified: m.ModifiedTime, Trashed: m.Trashed, Link: link(m.WebViewLink)}
 	if m.isFolder() {
 		it.Kind = "folder"

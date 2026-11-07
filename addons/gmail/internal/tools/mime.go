@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/mudler/LocalAI/addons/internal/argutil"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/charset"
 )
@@ -243,7 +244,7 @@ func cleanLine(s string, n int) string {
 		return r
 	}, strings.ToValidUTF8(s, "�"))
 	s = strings.Join(strings.Fields(s), " ")
-	out, _ := runes(s, n)
+	out, _ := argutil.Runes(s, n)
 	return out
 }
 

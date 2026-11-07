@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/addons/gdrive/internal/driveapi"
+	"github.com/mudler/LocalAI/addons/internal/argutil"
 	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -79,7 +80,7 @@ func (c *call) folderOf(parent string) (*fileMeta, error) {
 
 func (c *call) search(raw map[string]json.RawMessage) (any, error) {
 	var a searchArgs
-	if err := decodeArgs(raw, &a); err != nil {
+	if err := argutil.DecodeArgs(raw, &a); err != nil {
 		return nil, err
 	}
 	if err := c.checkFolder(a.Folder); err != nil {
@@ -93,7 +94,7 @@ func (c *call) search(raw map[string]json.RawMessage) (any, error) {
 		if f.v == "" {
 			continue
 		}
-		if err := checkLine(f.what, f.v, 200, true); err != nil {
+		if err := argutil.CheckLine(f.what, f.v, 200, true); err != nil {
 			return nil, err
 		}
 		cond.add(f.format, f.v)
@@ -117,7 +118,7 @@ func (c *call) search(raw map[string]json.RawMessage) (any, error) {
 		}
 		cond.add(t.format, lit)
 	}
-	if err := checkCursor(a.Cursor); err != nil {
+	if err := argutil.CheckCursor(a.Cursor); err != nil {
 		return nil, err
 	}
 	filters := len(cond)
@@ -201,13 +202,13 @@ func (c *call) listFolder(raw map[string]json.RawMessage) (any, error) {
 		Cursor   string `json:"cursor"`
 		PageSize int    `json:"pageSize"`
 	}
-	if err := decodeArgs(raw, &a); err != nil {
+	if err := argutil.DecodeArgs(raw, &a); err != nil {
 		return nil, err
 	}
 	if err := c.checkFolder(a.Folder); err != nil {
 		return nil, err
 	}
-	if err := checkCursor(a.Cursor); err != nil {
+	if err := argutil.CheckCursor(a.Cursor); err != nil {
 		return nil, err
 	}
 	parent := a.Parent
@@ -244,7 +245,7 @@ func (c *call) getMetadata(raw map[string]json.RawMessage) (any, error) {
 		Folder string `json:"folder"`
 		FileID string `json:"fileId"`
 	}
-	if err := decodeArgs(raw, &a); err != nil {
+	if err := argutil.DecodeArgs(raw, &a); err != nil {
 		return nil, err
 	}
 	if err := c.checkFolder(a.Folder); err != nil {
@@ -294,7 +295,7 @@ type readArgs struct {
 
 func (c *call) readArgs(raw map[string]json.RawMessage) (readArgs, *fileMeta, error) {
 	var a readArgs
-	if err := decodeArgs(raw, &a); err != nil {
+	if err := argutil.DecodeArgs(raw, &a); err != nil {
 		return a, nil, err
 	}
 	if err := c.checkFolder(a.Folder); err != nil {
@@ -350,7 +351,7 @@ func (c *call) fetch(m *fileMeta, s source, offset int64, max int) ([]byte, int6
 
 func (c *call) export(m *fileMeta, format string) ([]byte, error) {
 	q := url.Values{"mimeType": {format}, "supportsAllDrives": {"true"}}
-	r, err := c.r.API.Do(c.ctx, c.token, driveapi.Request{Path: "/drive/v3/files/" + idPath(m.ID) + "/export", Query: q}, driveapi.MaxBody)
+	r, err := c.r.API.Do(c.ctx, c.token, driveapi.Request{Path: "/drive/v3/files/" + argutil.IDPath(m.ID) + "/export", Query: q}, driveapi.MaxBody)
 	return r.Body, err
 }
 
@@ -364,7 +365,7 @@ func (c *call) download(m *fileMeta, offset int64, max int) ([]byte, int64, erro
 	}
 	q := url.Values{"alt": {"media"}, "supportsAllDrives": {"true"}}
 	h := http.Header{"Range": {"bytes=" + strconv.FormatInt(offset, 10) + "-" + strconv.FormatInt(offset+int64(max)-1, 10)}}
-	r, err := c.r.API.Do(c.ctx, c.token, driveapi.Request{Path: "/drive/v3/files/" + idPath(m.ID), Query: q, Header: h}, driveapi.MaxBody)
+	r, err := c.r.API.Do(c.ctx, c.token, driveapi.Request{Path: "/drive/v3/files/" + argutil.IDPath(m.ID), Query: q, Header: h}, driveapi.MaxBody)
 	if err != nil {
 		if errors.Is(err, driveapi.ErrRange) {
 			return nil, size, nil
@@ -429,7 +430,7 @@ func (c *call) readFile(raw map[string]json.RawMessage) (any, error) {
 	// Shrink the window until the whole result fits what the host takes.
 	limit := len(data)
 	for {
-		window, _ := cut(string(data), limit)
+		window, _ := argutil.Cut(string(data), limit)
 		// Offsets count the bytes of the file, so they come from the window
 		// as it is; the text the model reads may differ if the file is not UTF-8.
 		next := start + int64(len(window))
@@ -442,7 +443,7 @@ func (c *call) readFile(raw map[string]json.RawMessage) (any, error) {
 			res["truncated"] = true
 			res["nextOffset"] = next
 		}
-		payload, err := encode(res)
+		payload, err := c.r.Encode(res)
 		if err != nil {
 			return nil, err
 		}

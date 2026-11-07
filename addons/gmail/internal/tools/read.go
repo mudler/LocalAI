@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/addons/gmail/internal/gmailapi"
+	"github.com/mudler/LocalAI/addons/internal/argutil"
 )
 
 const messagesPath = "/gmail/v1/users/me/messages"
@@ -55,7 +56,7 @@ func (c *call) rawMessage(id, format string, headers ...string) (*gMessage, erro
 		q["metadataHeaders"] = headers
 	}
 	var m gMessage
-	if err := c.r.API.GetJSON(c.ctx, c.token, messagesPath+"/"+idPath(id), q, &m); err != nil {
+	if err := c.r.API.GetJSON(c.ctx, c.token, messagesPath+"/"+argutil.IDPath(id), q, &m); err != nil {
 		return nil, err
 	}
 	return &m, nil
@@ -96,7 +97,7 @@ type summary struct {
 func summarize(m *gMessage) summary {
 	s := summary{ID: m.ID, ThreadID: m.ThreadID, From: headerText(headerOf(m, "From"), 200), To: headerText(headerOf(m, "To"), 300),
 		Subject: headerText(headerOf(m, "Subject"), 200), Date: headerText(headerOf(m, "Date"), 64)}
-	s.Snippet, _ = runes(cleanLine(m.Snippet, 200), 200)
+	s.Snippet, _ = argutil.Runes(cleanLine(m.Snippet, 200), 200)
 	for _, l := range m.LabelIDs {
 		if l == "UNREAD" {
 			s.Unread = true
@@ -111,13 +112,13 @@ func summarize(m *gMessage) summary {
 
 func (c *call) search(raw map[string]json.RawMessage) (any, error) {
 	var a searchArgs
-	if err := decodeArgs(raw, &a); err != nil {
+	if err := argutil.DecodeArgs(raw, &a); err != nil {
 		return nil, err
 	}
 	if err := c.checkLabel(a.Label); err != nil {
 		return nil, err
 	}
-	if err := checkCursor(a.Cursor); err != nil {
+	if err := argutil.CheckCursor(a.Cursor); err != nil {
 		return nil, err
 	}
 	q, err := buildQuery(queryFilters{From: a.From, To: a.To, Subject: a.Subject, Text: a.Text, After: a.After, Before: a.Before,
@@ -137,7 +138,7 @@ func (c *call) search(raw map[string]json.RawMessage) (any, error) {
 		v.Add("labelIds", scope)
 	}
 	if a.HasLabel != "" {
-		if err := checkLine("hasLabel", a.HasLabel, 100, true); err != nil {
+		if err := argutil.CheckLine("hasLabel", a.HasLabel, 100, true); err != nil {
 			return nil, err
 		}
 		l, ok, err := c.find(strings.ReplaceAll(a.HasLabel, " ", "-"))
@@ -233,7 +234,7 @@ func window(text string, offset, limit int) (out string, start, next int) {
 		offset++
 	}
 	rest := text[offset:]
-	piece, left := cut(rest, limit)
+	piece, left := argutil.Cut(rest, limit)
 	if left == 0 {
 		return piece, offset, -1
 	}
@@ -254,7 +255,7 @@ func (c *call) getMessage(raw map[string]json.RawMessage) (any, error) {
 		MessageID string `json:"messageId"`
 		Offset    int    `json:"offset"`
 	}
-	if err := decodeArgs(raw, &a); err != nil {
+	if err := argutil.DecodeArgs(raw, &a); err != nil {
 		return nil, err
 	}
 	if err := c.checkLabel(a.Label); err != nil {
@@ -308,7 +309,7 @@ func (c *call) getThread(raw map[string]json.RawMessage) (any, error) {
 		Label    string `json:"label"`
 		ThreadID string `json:"threadId"`
 	}
-	if err := decodeArgs(raw, &a); err != nil {
+	if err := argutil.DecodeArgs(raw, &a); err != nil {
 		return nil, err
 	}
 	if err := c.checkLabel(a.Label); err != nil {
@@ -321,7 +322,7 @@ func (c *call) getThread(raw map[string]json.RawMessage) (any, error) {
 		ID       string     `json:"id"`
 		Messages []gMessage `json:"messages"`
 	}
-	if err := c.r.API.GetJSON(c.ctx, c.token, "/gmail/v1/users/me/threads/"+idPath(a.ThreadID), url.Values{"format": {"full"}}, &th); err != nil {
+	if err := c.r.API.GetJSON(c.ctx, c.token, "/gmail/v1/users/me/threads/"+argutil.IDPath(a.ThreadID), url.Values{"format": {"full"}}, &th); err != nil {
 		return nil, err
 	}
 	var kept []gMessage
@@ -353,7 +354,7 @@ func (c *call) getThread(raw map[string]json.RawMessage) (any, error) {
 	for {
 		msgs := make([]threadMessage, 0, len(kept))
 		for i := range kept {
-			text, left := cut(bodies[i].Text, limit)
+			text, left := argutil.Cut(bodies[i].Text, limit)
 			atts := bodies[i].Attachments
 			if len(atts) > 10 {
 				atts = atts[:10]
@@ -377,7 +378,7 @@ func (c *call) getThread(raw map[string]json.RawMessage) (any, error) {
 			note += " Messages outside the allowed label are left out."
 		}
 		out["note"] = note
-		payload, err := encode(out)
+		payload, err := c.r.Encode(out)
 		if err != nil {
 			return nil, err
 		}
@@ -392,7 +393,7 @@ func (c *call) listLabels(raw map[string]json.RawMessage) (any, error) {
 	var a struct {
 		Label string `json:"label"`
 	}
-	if err := decodeArgs(raw, &a); err != nil {
+	if err := argutil.DecodeArgs(raw, &a); err != nil {
 		return nil, err
 	}
 	if err := c.checkLabel(a.Label); err != nil {
@@ -411,7 +412,7 @@ func (c *call) listLabels(raw map[string]json.RawMessage) (any, error) {
 		if scope != "" && l.ID != scope {
 			continue
 		}
-		l.Name, _ = runes(cleanLine(l.Name, 100), 100)
+		l.Name, _ = argutil.Runes(cleanLine(l.Name, 100), 100)
 		out = append(out, l)
 		if len(out) >= 200 {
 			break
@@ -448,7 +449,7 @@ func (c *call) readAttachment(raw map[string]json.RawMessage) (any, error) {
 		AttachmentID string `json:"attachmentId"`
 		Offset       int    `json:"offset"`
 	}
-	if err := decodeArgs(raw, &a); err != nil {
+	if err := argutil.DecodeArgs(raw, &a); err != nil {
 		return nil, err
 	}
 	if err := c.checkLabel(a.Label); err != nil {
@@ -489,7 +490,7 @@ func (c *call) readAttachment(raw map[string]json.RawMessage) (any, error) {
 	var res struct {
 		Data string `json:"data"`
 	}
-	p := messagesPath + "/" + idPath(m.ID) + "/attachments/" + idPath(a.AttachmentID)
+	p := messagesPath + "/" + argutil.IDPath(m.ID) + "/attachments/" + argutil.IDPath(a.AttachmentID)
 	if err := c.r.API.GetJSON(c.ctx, c.token, p, nil, &res); err != nil {
 		return nil, err
 	}
@@ -522,7 +523,7 @@ func (c *call) readAttachment(raw map[string]json.RawMessage) (any, error) {
 			res["nextOffset"] = next
 			res["note"] = "Only part of the text is shown. Read the rest with offset set to nextOffset."
 		}
-		payload, err := encode(res)
+		payload, err := c.r.Encode(res)
 		if err != nil {
 			return nil, err
 		}
