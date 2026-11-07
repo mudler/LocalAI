@@ -2,12 +2,8 @@
 package gateway
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"time"
@@ -176,7 +172,18 @@ type oauthReply struct {
 	Error *OAuthError `json:"error,omitempty"`
 }
 
-var oauthRead = map[string]bool{"oauth-" + OAuthClientGet: true}
+// open needs exactly one of data and error.
+func (r *oauthReply) open() (OAuthReply, bool, error) {
+	if (r.Data == nil) == (r.Error == nil) {
+		return OAuthReply{}, false, nil
+	}
+	if r.Error != nil {
+		return OAuthReply{}, true, r.Error
+	}
+	return *r.Data, true, nil
+}
+
+func init() { markRead("oauth-" + OAuthClientGet) }
 
 // OAuth runs one OAuth call: on the owner itself, or through the carrier. A
 // frontend never answers from its own service.
@@ -204,17 +211,7 @@ func (g *Gateway) oauthLocal(ctx context.Context, a contract.Actor, call OAuthCa
 // envelope.
 func (g *Gateway) oauthLocalReply(ctx context.Context, w http.ResponseWriter, a contract.Actor, call OAuthCall) {
 	r, e := g.oauthLocal(ctx, a, call)
-	var oe *OAuthError
-	switch {
-	case e == nil:
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(oauthReply{Data: &r})
-	case errors.As(e, &oe):
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(oauthReply{Error: oe})
-	default:
-		typedError(w, e)
-	}
+	writeReply(w, e, oauthReply{Data: &r}, decided(func(oe *OAuthError) any { return oauthReply{Error: oe} }))
 }
 
 // OAuth forwards one OAuth call to the owner. A refusal the owner decided is
@@ -223,32 +220,6 @@ func (c *Carrier) OAuth(ctx context.Context, a contract.Actor, call OAuthCall) (
 	if !call.valid() {
 		return OAuthReply{}, ErrForbidden
 	}
-	caps, e := c.Capabilities(ctx)
-	if e != nil {
-		return OAuthReply{}, e
-	}
-	if !caps.Supports(callOAuth) {
-		return OAuthReply{}, &UnavailableError{Reason: reasonOAuthUnsupported}
-	}
-	id, e := newResourceOperationID()
-	if e != nil {
-		return OAuthReply{}, ErrUnavailable
-	}
-	resp, e := c.send(ctx, a, wireRequest{Request: contract.Request{OperationID: id, Action: call.wireAction()}, OAuth: &call})
-	if e != nil {
-		return OAuthReply{}, e
-	}
-	defer func() { _ = resp.Body.Close() }()
-	raw, e := io.ReadAll(io.LimitReader(resp.Body, 1<<20+1))
-	var reply oauthReply
-	if e != nil || len(raw) > 1<<20 || decode(bytes.NewReader(raw), &reply) != nil || (reply.Data == nil) == (reply.Error == nil) {
-		if mutation(call.wireAction()) {
-			return OAuthReply{}, &OutcomeUnknown{OperationID: id}
-		}
-		return OAuthReply{}, ErrUnavailable
-	}
-	if reply.Error != nil {
-		return OAuthReply{}, reply.Error
-	}
-	return *reply.Data, nil
+	oc := ownerCall{need: callOAuth, reason: reasonOAuthUnsupported, action: call.wireAction(), limit: 1 << 20}
+	return forward[OAuthReply, oauthReply](ctx, c, a, oc, wireRequest{OAuth: &call})
 }

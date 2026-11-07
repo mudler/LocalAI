@@ -51,7 +51,7 @@ func isFileOp(op string) bool {
 func init() {
 	// A lost answer to a file call is a plain failure: the upload starts again.
 	for _, op := range []string{HostGrantsFileBegin, HostGrantsFileChunk, HostGrantsFileFinish, HostGrantsFileAbort, HostGrantsFileDrop, HostGrantsFileDescribe} {
-		hostGrantsRead["hostgrants-"+op] = true
+		markRead("hostgrants-" + op)
 	}
 }
 

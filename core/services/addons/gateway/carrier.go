@@ -968,23 +968,20 @@ func mutationOutcome(r contract.Request, e error) error {
 	return &OutcomeUnknown{OperationID: r.OperationID}
 }
 
-// readManagement are the management reads of the typed dispatch. They change
-// nothing, so a lost answer is plainly unavailable.
-var readManagement = map[string]bool{"catalog-search": true, "catalog-details": true, "catalog-sources": true, "addons-installed": true, ActionRecoveryStatus: true,
-	// The update reads change no state: the check fetches a library and applies nothing.
-	ActionUpdateStatus: true, ActionUpdateCheck: true}
-
-// resourceRead are the resource management calls that have no operation with
-// an outcome to report: the reads and the two idempotent selection calls.
-var resourceRead = map[string]bool{"resource-list": true, "resource-grants": true, "resource-users": true, "resource-status": true, "resource-selection-get": true, "resource-selection-resolve": true, "resource-selection-put": true, "resource-selection-clear": true,
-	"resource-share-list": true, "resource-share-grants": true, "resource-share-users": true,
-	"resource-share-views": true, "resource-share-watch": true, "resource-share-release": true}
-
-// mutation fails closed: only the known read actions are exempt, so an action
-// added later is reported as an unknown outcome until it is classified.
-func mutation(action string) bool {
-	return action != ActionHostSettingsRead && action != executionBindingAction && action != executionStatusAction && action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action] && !hostGrantsRead[action] && !oauthRead[action]
+func init() {
+	// The management reads of the typed dispatch change nothing, so a lost
+	// answer is plainly unavailable. The update reads fetch a library and
+	// apply nothing.
+	markRead("catalog-search", "catalog-details", "catalog-sources", "addons-installed", ActionRecoveryStatus, ActionUpdateStatus, ActionUpdateCheck)
+	// The resource management calls that have no operation with an outcome to
+	// report: the reads and the two idempotent selection calls.
+	markRead("resource-list", "resource-grants", "resource-users", "resource-status", "resource-selection-get", "resource-selection-resolve", "resource-selection-put", "resource-selection-clear",
+		"resource-share-list", "resource-share-grants", "resource-share-users", "resource-share-views", "resource-share-watch", "resource-share-release")
 }
+
+// mutation fails closed: only the actions marked as reads are exempt, so an
+// action added later is reported as an unknown outcome until it is classified.
+func mutation(action string) bool { return !readActions[action] }
 
 // Act forwards an action call to the owner and waits for its answer, up to the
 // act timeout. A lost answer is an unknown outcome: the tool may have run.

@@ -72,8 +72,8 @@ func (c HostGrantsCall) valid() bool {
 }
 
 // hostGrantsRead are the host grants actions that change nothing durable.
-var hostGrantsRead = map[string]bool{
-	"hostgrants-" + HostGrantsRead: true, "hostgrants-" + HostGrantsPreview: true, "hostgrants-" + HostGrantsDenyPreview: true,
+func init() {
+	markRead("hostgrants-"+HostGrantsRead, "hostgrants-"+HostGrantsPreview, "hostgrants-"+HostGrantsDenyPreview)
 }
 
 // The error types of a HostGrantsError. They are the wire types, so every
@@ -122,6 +122,13 @@ func hgErr(status int, kind, msg string) *HostGrantsError {
 type hostGrantsReply struct {
 	Data  json.RawMessage  `json:"data,omitempty"`
 	Error *HostGrantsError `json:"error,omitempty"`
+}
+
+func (r *hostGrantsReply) open() (json.RawMessage, bool, error) {
+	if r.Error != nil {
+		return nil, true, r.Error
+	}
+	return r.Data, true, nil
 }
 
 type humanSurfaceKey struct{}
@@ -498,17 +505,7 @@ type HostGrantsRevision struct {
 // hostGrantsLocalReply runs a call on the owner and writes the reply envelope.
 func (g *Gateway) hostGrantsLocalReply(ctx context.Context, w http.ResponseWriter, a contract.Actor, call HostGrantsCall) {
 	raw, e := g.hostGrantsLocal(ctx, a, call)
-	var he *HostGrantsError
-	switch {
-	case e == nil:
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(hostGrantsReply{Data: raw})
-	case errors.As(e, &he):
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(hostGrantsReply{Error: he})
-	default:
-		typedError(w, e)
-	}
+	writeReply(w, e, hostGrantsReply{Data: raw}, decided(func(he *HostGrantsError) any { return hostGrantsReply{Error: he} }))
 }
 
 // HostGrants forwards one host access call to the owner and returns the data
@@ -519,36 +516,8 @@ func (c *Carrier) HostGrants(ctx context.Context, a contract.Actor, call HostGra
 	if !call.valid() {
 		return nil, ErrForbidden
 	}
-	caps, e := c.Capabilities(ctx)
-	if e != nil {
-		return nil, e
-	}
-	if !caps.Supports(CallHostGrants) {
-		return nil, &UnavailableError{Reason: ReasonHostGrantsUnsupported}
-	}
-	id := call.OperationID
-	if id == "" {
-		if id, e = newResourceOperationID(); e != nil {
-			return nil, ErrUnavailable
-		}
-	}
-	resp, e := c.send(ctx, a, wireRequest{Request: contract.Request{OperationID: id, Action: call.wireAction()}, HostGrants: &call})
-	if e != nil {
-		return nil, e
-	}
-	defer func() { _ = resp.Body.Close() }()
-	raw, e := io.ReadAll(io.LimitReader(resp.Body, 2<<20+1))
-	var reply hostGrantsReply
-	if e != nil || len(raw) > 2<<20 || decode(bytes.NewReader(raw), &reply) != nil {
-		if mutation(call.wireAction()) {
-			return nil, &OutcomeUnknown{OperationID: id}
-		}
-		return nil, ErrUnavailable
-	}
-	if reply.Error != nil {
-		return nil, reply.Error
-	}
-	return reply.Data, nil
+	oc := ownerCall{need: CallHostGrants, reason: ReasonHostGrantsUnsupported, id: call.OperationID, action: call.wireAction(), limit: 2 << 20}
+	return forward[json.RawMessage, hostGrantsReply](ctx, c, a, oc, wireRequest{HostGrants: &call})
 }
 
 // Reasons the UI grants are locked.
