@@ -1,16 +1,60 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { checkFailure, checkItem, checkLine, defaultName, extraBody, extraForm, extraValid, followName, githubSecret, parseRepos, PERMISSIONS, reposIssue, reposProblem, tokenProblem, WRITE_MODES, writeModeOf } from '../src/repos.js'
+import { allowsClassic, ANY_RESOURCE_CONFIRM, checkFailure, checkItem, checkLine, defaultName, extraBody, extraForm, extraValid, followName, githubSecret, hasAnyRepo, parseRepos, PERMISSIONS, reposIssue, reposProblem, tokenProblem, WIDER_TOKEN_CONFIRM, WRITE_MODES, writeModeOf } from '../src/repos.js'
 import { canSave, connectorPayload, emptyConnector } from '../../../internal/connector-ui/src/connector.js'
 import en from '../src/i18n/github.en.json' with { type: 'json' }
 
-test('github: only a fine-grained token is taken, and nothing typed keeps the saved one', () => {
+test('github: a fine-grained token is taken, a classic one only when allowed, and nothing typed keeps the saved one', () => {
   assert.equal(tokenProblem({}), '')
   assert.equal(tokenProblem({ token: 'github_pat_abc' }), '')
-  assert.equal(tokenProblem({ token: 'ghp_classic' }), 'tokenShape')
+  assert.equal(tokenProblem({ token: 'ghp_classic' }), 'tokenClassic')
+  assert.equal(tokenProblem({ token: 'ghp_classic', classic_token: true }), '')
+  assert.equal(tokenProblem({ token: 'gho_other' }), 'tokenShape', 'only the two shapes are known')
+  assert.equal(tokenProblem({ token: 'gho_other', classic_token: true }), 'tokenShape')
   assert.equal(tokenProblem({ token: 'github_pat_a b' }), 'tokenSpace')
   assert.equal(githubSecret({ token: ' github_pat_abc ' }), 'github_pat_abc')
   assert.equal(githubSecret({ token: 'ghp_classic' }), '')
+  assert.equal(githubSecret({ token: ' ghp_classic ', classic_token: true }), 'ghp_classic')
+})
+
+test('github: the classic token choice rides as an option and needs its tick only when it is new', () => {
+  assert.equal(allowsClassic({ options: { classicToken: 'allow' } }), true)
+  assert.equal(allowsClassic({ options: { classicToken: 'refuse' } }), false)
+  assert.equal(allowsClassic({}), false)
+  const fresh = extraForm({})
+  assert.deepEqual(extraBody(fresh).options, { classicToken: 'refuse' })
+  assert.equal('confirm_wider_token' in extraBody(fresh), false)
+  const on = { ...fresh, classic_token: true }
+  assert.equal(extraValid(on), false, 'a new choice needs the tick')
+  assert.deepEqual(extraBody({ ...on, classic_ack: true }).options, { classicToken: 'allow' })
+  assert.equal(extraBody({ ...on, classic_ack: true }).confirm_wider_token, WIDER_TOKEN_CONFIRM)
+  assert.equal(extraValid({ ...on, classic_ack: true }), true)
+  const saved = extraForm({ options: { classicToken: 'allow' } })
+  assert.equal(saved.classic_token, true)
+  assert.equal(extraValid(saved), true, 'a saved choice is not asked again')
+  assert.equal('confirm_wider_token' in extraBody(saved), false)
+  assert.deepEqual(extraBody({ ...saved, classic_token: false }).options, { classicToken: 'refuse' }, 'switching it off needs no tick')
+})
+
+test('github: owner/* and a lone * are valid entries, * needs its tick, and partial stars are refused', () => {
+  assert.equal(reposProblem('acme/*'), '')
+  assert.equal(reposProblem('acme/*\nother/widgets'), '')
+  assert.equal(reposProblem('*'), '')
+  assert.equal(reposProblem('*/widgets'), 'reposShape')
+  assert.equal(reposProblem('acme/wid*'), 'reposShape')
+  assert.equal(reposProblem('a/*/b'), 'reposShape')
+  assert.equal(reposProblem('**'), 'reposShape')
+  assert.equal(reposProblem('*\nacme/widgets'), 'reposAnyAlone')
+  assert.equal(hasAnyRepo('acme/*'), false)
+  assert.equal(hasAnyRepo('x/y\n*'), true)
+  const f = { ...extraForm({}), repos_text: '*' }
+  assert.equal(extraValid(f), false)
+  assert.equal(extraBody({ ...f, any_ack: true }).confirm_any_resource, ANY_RESOURCE_CONFIRM)
+  assert.equal(extraValid({ ...f, any_ack: true }), true)
+  assert.equal(extraValid({ ...extraForm({ resources: ['*'] }) }), true, 'a saved * is not asked again')
+  assert.equal('confirm_any_resource' in extraBody({ ...extraForm({ resources: ['*'] }) }), false)
+  assert.equal(extraValid({ ...extraForm({}), repos_text: 'acme/*' }), true, 'owner/* needs no tick')
+  assert.equal(defaultName('acme/*'), 'GitHub: acme/*')
 })
 
 test('github: the repository list is read from lines and commas, never from spaces, without repeats', () => {
@@ -52,6 +96,13 @@ test('github: the list rides in the request, a binding is never switched on, and
   assert.deepEqual(update.resources, [], 'an empty list clears the list')
   assert.equal(canSave(form, false, Boolean(githubSecret(form))), true)
   assert.equal(extraValid({ repos_text: 'nope' }), false)
+})
+
+test('github: the Test words for a wildcard', () => {
+  const t = (key, o = {}) => key.split('.').reduce((n, k) => n[k], en).replace(/\{\{(\w+)\}\}/g, (_, k) => o[k])
+  assert.match(checkLine({ repo: 'acme/*', wildcard: 'owner' }, t), /every repository of this owner/)
+  assert.equal(checkLine({ repo: '*', wildcard: 'any', count: 3 }, t), 'Any repository: the token reaches 3 repositories.')
+  assert.match(checkLine({ repo: '*', wildcard: 'any', count: 100, more: true }, t), /at least 100/)
 })
 
 test('github: the Test says reachable, read only, not reachable, refused or unfinished, each with a tone', () => {

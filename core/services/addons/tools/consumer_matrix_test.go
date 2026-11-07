@@ -167,6 +167,9 @@ var _ = Describe("Tool consumer matrix", func() {
 		Expect(importers).To(ConsistOf(
 			"core/application/addon_gateway.go",      // builds the provider from the owner gateway
 			"core/application/execution_binding.go",  // validates the selected qualified identity
+			"core/services/studio/actgate.go",        // records a call the unattended-run policy stopped
+			"core/services/studio/addonholds.go",     // asks for a held write in a messaging chat
+			"core/services/studio/addonoutcome.go",   // logs how a call ended
 			"core/services/studio/addontools.go",     // formats unavailable stand-in identities
 			"core/services/studio/capabilities.go",   // parses stand-in identities without dispatch
 			"core/http/endpoints/mcp/addon_tools.go", // the one executor of the namespace
@@ -175,17 +178,19 @@ var _ = Describe("Tool consumer matrix", func() {
 	})
 
 	It("has no add-on tool and no add-on route in the admin assistant catalog", func() {
-		files := sourceFiles(root, func(path, _ string) bool { return strings.HasPrefix(path, "pkg/mcp/localaitools/") })
+		files := sourceFiles(root, func(path, _ string) bool { return strings.HasPrefix(path, "core/services/localaitools/") })
 		Expect(files).NotTo(BeEmpty())
 		for _, path := range files {
 			b, err := os.ReadFile(filepath.Join(root, path))
 			Expect(err).NotTo(HaveOccurred())
 			text := strings.ToLower(string(b))
 			Expect(text).NotTo(ContainSubstring("/api/addons"), path)
+			// Sharing of the other resource kinds is never a tool either.
+			Expect(text).NotTo(ContainSubstring("/api/shares"), path)
 			Expect(text).NotTo(ContainSubstring("addon__"), path)
 		}
 		// Tool constants hold no add-on lifecycle or approval name.
-		b, err := os.ReadFile(filepath.Join(root, "pkg/mcp/localaitools/tools.go"))
+		b, err := os.ReadFile(filepath.Join(root, "core/services/localaitools/tools.go"))
 		Expect(err).NotTo(HaveOccurred())
 		constant := regexp.MustCompile(`Tool\w+\s*=\s*"([a-z_]+)"`)
 		for _, m := range constant.FindAllStringSubmatch(string(b), -1) {

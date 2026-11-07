@@ -28,16 +28,6 @@ export function createHooks(ctx) {
     return { ...view, reload: () => run(false), refresh: () => run(true) }
   }
 
-  // useDebounced returns `value` once it stopped changing for `ms`.
-  function useDebounced(value, ms) {
-    const [out, setOut] = R.useState(value)
-    R.useEffect(() => {
-      const id = setTimeout(() => setOut(value), ms)
-      return () => clearTimeout(id)
-    }, [value, ms])
-    return out
-  }
-
   // useOperation keeps one operation identifier across the retries of one
   // submission, so a lost answer is repeated, never applied twice, and takes
   // a new one after a definite outcome.
@@ -52,5 +42,5 @@ export function createHooks(ctx) {
     }
   }
 
-  return { useLoader, useDebounced, useOperation }
+  return { useLoader, useOperation }
 }

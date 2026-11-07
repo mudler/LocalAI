@@ -6,6 +6,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/resourcesets"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -105,6 +106,14 @@ var toolGroupOf = map[string]string{
 	contract.CapSkillsWrite:     builtins.GroupChanges,
 	contract.CapPagesWrite:      builtins.GroupChanges,
 	contract.CapDashboardWrite:  builtins.GroupChanges,
+	contract.CapKnowledgeWrite:  builtins.GroupChanges,
+}
+
+// extraToolGroupOf names a second group that a capability also needs: a
+// knowledge text is proposed with the change tools but searched and indexed
+// through the Knowledge group, and the tool picker nests the grant under it.
+var extraToolGroupOf = map[string]string{
+	contract.CapKnowledgeWrite: builtins.GroupCollections,
 }
 
 // toolsSwitch is the CapabilitySwitch of the Tools switch: a capability whose
@@ -120,10 +129,83 @@ func toolsSwitch(s *Service) CapabilitySwitch {
 		if err != nil {
 			return Block{} // the grants switch reports an agent it cannot read
 		}
-		if slices.Contains(ag.BuiltinsOff, group) || (s.builtins.IsOptIn(group) && !slices.Contains(ag.BuiltinsOn, group)) {
-			return Block{Code: CodeToolsSwitchOff, Reason: "the " + group + " tools are switched off for the agent of this bot",
-				Fix: &Fix{Kind: FixOpenAgent, Target: b.AgentID, Field: "tools:" + group}}
+		for _, g := range []string{group, extraToolGroupOf[capability]} {
+			if g == "" {
+				continue
+			}
+			if slices.Contains(ag.BuiltinsOff, g) || (s.builtins.IsOptIn(g) && !slices.Contains(ag.BuiltinsOn, g)) {
+				return Block{Code: CodeToolsSwitchOff, Reason: "the " + g + " tools are switched off for the agent of this bot",
+					Fix: &Fix{Kind: FixOpenAgent, Target: b.AgentID, Field: "tools:" + g}}
+			}
 		}
 		return Block{}
+	}
+}
+
+// knowledgeSwitch is the CapabilitySwitch of adding to Knowledge: the server
+// must be able to index a text, and the agent of the binding needs a
+// collection on its list. Other capabilities pass.
+func knowledgeSwitch(s *Service) CapabilitySwitch {
+	return func(ctx context.Context, b connectors.Binding, capability string) Block {
+		if capability != contract.CapKnowledgeWrite {
+			return Block{}
+		}
+		code, reason := s.knowledgeBlock(ctx, b.Owner, b.AgentID)
+		switch code {
+		case "":
+			return Block{}
+		case CodeKnowledgeNone:
+			return Block{Code: code, Reason: reason, Fix: &Fix{Kind: FixOpenAgent, Target: b.AgentID, Field: "collections"}}
+		}
+		return Block{Code: code, Reason: reason}
+	}
+}
+
+// resourcesSwitch is the CapabilitySwitch of the changes that add-on tools
+// make: when every add-on of the agent that can change things works on
+// resources the agent lists, and the list holds none to change, the capability
+// is off for the binding. An agent that also names an add-on without such a
+// list keeps the capability, because that add-on's tools can still change
+// things. Other capabilities pass.
+func resourcesSwitch(s *Service) CapabilitySwitch {
+	return func(ctx context.Context, b connectors.Binding, capability string) Block {
+		if capability != contract.CapToolsWrite || b.AgentID == "" || s.d.Agents == nil || s.d.AddonTools == nil {
+			return Block{}
+		}
+		ag, err := s.d.Agents.Get(ctx, principal(b.Owner), b.AgentID)
+		if err != nil {
+			return Block{} // the grants switch reports an agent it cannot read
+		}
+		defs, err := s.d.AddonTools.Tools(ctx, principal(b.Owner))
+		if err != nil {
+			return Block{}
+		}
+		scopedWriters := map[string]bool{}
+		for _, d := range defs {
+			if !d.Action || !slices.Contains(ag.Addons, d.AddonID) {
+				continue
+			}
+			if !d.ResourceScoped {
+				return Block{} // an add-on without a resource list can change things
+			}
+			scopedWriters[d.AddonID] = true
+		}
+		if len(scopedWriters) == 0 {
+			return Block{}
+		}
+		listed := false
+		for addon := range scopedWriters {
+			for _, e := range ag.Resources[addon] {
+				listed = true
+				if e.Mode == resourcesets.ModeWrite {
+					return Block{}
+				}
+			}
+		}
+		fix := &Fix{Kind: FixOpenAgent, Target: b.AgentID, Field: "resources"}
+		if listed {
+			return Block{Code: CodeAgentResourcesReadOnly, Reason: "every resource on the list of the agent is read only", Fix: fix}
+		}
+		return Block{Code: CodeAgentResourcesNone, Reason: "no resource is on the list of the agent", Fix: fix}
 	}
 }

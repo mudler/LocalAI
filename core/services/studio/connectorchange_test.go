@@ -69,9 +69,9 @@ var _ = Describe("change proposals in a connector chat", func() {
 		}
 		switch text {
 		case "note":
-			return []studiotest.ToolStep{{Tool: "propose_change", Args: proposeArgs("memory", "user", "index.md", "- standup at 09:30\n", "Standup time")}, {Say: "I asked."}}
+			return []studiotest.ToolStep{{Tool: "propose_change", Args: proposeArgs("memory", "channel", "index.md", "- standup at 09:30\n", "Standup time")}, {Say: "I asked."}}
 		case "note two":
-			return []studiotest.ToolStep{{Tool: "propose_change", Args: proposeArgs("memory", "user", "food.md", "- likes tea @channel\n", "Drinks")}, {Say: "I asked."}}
+			return []studiotest.ToolStep{{Tool: "propose_change", Args: proposeArgs("memory", "channel", "food.md", "- likes tea @channel\n", "Drinks")}, {Say: "I asked."}}
 		case "profile", "skill", "page", "dashboard":
 			return kind(text)
 		}
@@ -155,7 +155,7 @@ var _ = Describe("change proposals in a connector chat", func() {
 		It("is shown with what will be saved, confirmed by yes without a model turn, and undone by undo", func() {
 			setup()
 			out := say(r, listed, "note", 2)
-			Expect(out[0]).To(ContainSubstring("I can save a note in the memory (every chat of the owner): Standup time"))
+			Expect(out[0]).To(ContainSubstring("I can save a note in the memory (this conversation only): Standup time"))
 			Expect(out[0]).To(ContainSubstring("+ - standup at 09:30"))
 			Expect(out[0]).To(ContainSubstring(`Reply "yes" to save it or "no" to drop it`))
 			p := only()

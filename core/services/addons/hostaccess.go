@@ -3,8 +3,11 @@ package addons
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"sort"
+	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
@@ -119,14 +122,41 @@ type HostAccessRelease struct {
 	Required, Optional              []string
 }
 
+// previewKeep is how long the verified answer for one release is reused. The
+// key holds the digest the library pins, so a changed package is a new key;
+// the time only bounds how long an answer outlives a withdrawn release.
+const previewKeep = 10 * time.Minute
+
+// previewMax bounds the answers kept.
+const previewMax = 32
+
+type previewKey struct{ source, addon, version, digest, artifact string }
+
+type previewEntry struct {
+	rel  HostAccessRelease
+	at   time.Time
+	done chan struct{}
+	err  error
+}
+
+// previewCache keeps the answer of the staged, verified package of a release,
+// and lets concurrent reads of one release share a single download. It holds
+// only what the verified manifest says; whether the add-on is installed is
+// read again on every call.
+type previewCache struct {
+	mu      sync.Mutex
+	entries map[previewKey]*previewEntry
+}
+
 // PreviewRelease resolves and stages a release, reads its verified manifest
-// and discards the stage. It changes no state of the add-ons.
+// and discards the stage. It changes no state of the add-ons. A release the
+// library pins by digest is staged once: the digest fixes the bytes, so the
+// verified answer holds for the same key, and a second read (a retry, the
+// upgrade approval, another administrator) does not download it again.
 func (m *Manager) PreviewRelease(ctx context.Context, sourceID, addonID, version string) (HostAccessRelease, error) {
 	if m.installer == nil {
 		return HostAccessRelease{}, ErrForbidden
 	}
-	m.opMu.Lock()
-	defer m.opMu.Unlock()
 	m.mu.Lock()
 	if e := m.check(ctx); e != nil {
 		m.mu.Unlock()
@@ -136,12 +166,110 @@ func (m *Manager) PreviewRelease(ctx context.Context, sourceID, addonID, version
 	m.mu.Unlock()
 	if sourceID == zipformat.SourceID {
 		// A local file: the version field names the staged file.
+		m.opMu.Lock()
+		defer m.opMu.Unlock()
 		return m.previewFile(ctx, version)
 	}
 	r, e := m.resolveRelease(ctx, LifecycleCommand{SourceID: sourceID, AddonID: addonID, Version: version})
 	if e != nil {
 		return HostAccessRelease{}, e
 	}
+	var out HostAccessRelease
+	if r.Mutable || r.Digest == "" {
+		// A moving tag names no fixed bytes: always read it.
+		out, e = m.stagePreview(ctx, r)
+	} else {
+		out, e = m.previews.get(ctx, previewKey{sourceID, addonID, version, r.Digest, r.Artifact}, func() (HostAccessRelease, error) { return m.stagePreview(ctx, r) })
+	}
+	if e != nil {
+		return HostAccessRelease{}, e
+	}
+	out.Installed = installed
+	return out, nil
+}
+
+func (c *previewCache) get(ctx context.Context, k previewKey, load func() (HostAccessRelease, error)) (HostAccessRelease, error) {
+	for {
+		c.mu.Lock()
+		if c.entries == nil {
+			c.entries = map[previewKey]*previewEntry{}
+		}
+		e, ok := c.entries[k]
+		if ok {
+			select {
+			case <-e.done:
+				if e.err == nil && time.Since(e.at) < previewKeep {
+					c.mu.Unlock()
+					return e.rel, nil
+				}
+				delete(c.entries, k)
+				ok = false
+			default:
+			}
+		}
+		if !ok {
+			e = &previewEntry{done: make(chan struct{})}
+			c.entries[k] = e
+			c.prune()
+			c.mu.Unlock()
+			e.rel, e.err = load()
+			e.at = time.Now()
+			c.mu.Lock()
+			if e.err != nil && c.entries[k] == e {
+				delete(c.entries, k)
+			}
+			c.mu.Unlock()
+			close(e.done)
+			return e.rel, e.err
+		}
+		c.mu.Unlock()
+		select {
+		case <-e.done:
+			if e.err == nil {
+				return e.rel, nil
+			}
+			// The reader ahead failed, maybe because its caller left: try on our own.
+			if ctx.Err() != nil {
+				return HostAccessRelease{}, ctx.Err()
+			}
+			if !errors.Is(e.err, context.Canceled) && !errors.Is(e.err, context.DeadlineExceeded) {
+				return HostAccessRelease{}, e.err
+			}
+		case <-ctx.Done():
+			return HostAccessRelease{}, ctx.Err()
+		}
+	}
+}
+
+// prune drops the oldest finished answers over the bound. The caller holds mu.
+func (c *previewCache) prune() {
+	for len(c.entries) > previewMax {
+		var oldest previewKey
+		var at time.Time
+		found := false
+		for k, e := range c.entries {
+			select {
+			case <-e.done:
+			default:
+				continue
+			}
+			if !found || e.at.Before(at) {
+				oldest, at, found = k, e.at, true
+			}
+		}
+		if !found {
+			return
+		}
+		delete(c.entries, oldest)
+	}
+}
+
+// stagePreview downloads and verifies the package of a release, reads its
+// manifest and discards the stage. It holds the operation lock for the stage
+// only, so the stage folder is not cleaned under it.
+func (m *Manager) stagePreview(ctx context.Context, r catalog.Release) (HostAccessRelease, error) {
+	m.opMu.Lock()
+	defer m.opMu.Unlock()
 	staged, e := m.installer.Stage(ctx, r, nil)
 	if e != nil {
 		return HostAccessRelease{}, e
@@ -151,7 +279,7 @@ func (m *Manager) PreviewRelease(ctx context.Context, sourceID, addonID, version
 		return HostAccessRelease{}, e
 	}
 	out := HostAccessRelease{AddonID: rc.Manifest.ID, Title: rc.Manifest.ID, Version: rc.Manifest.Version, Digest: rc.Digest,
-		Official: OfficialReceipt(rc), Installed: installed}
+		Official: OfficialReceipt(rc)}
 	if u := rc.Manifest.Capabilities.UI; u != nil && u.Title != nil && u.Title.Default() != "" {
 		out.Title = u.Title.Default()
 	}

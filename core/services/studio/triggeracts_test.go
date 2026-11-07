@@ -130,8 +130,8 @@ var _ = Describe("the acts of a proposed trigger in a Studio chat", func() {
 	})
 })
 
-var _ = Describe("a model cannot change the acts of a trigger", func() {
-	It("ignores acts in update_trigger and keeps them through an applied change", func() {
+var _ = Describe("a model changes the acts of a trigger", func() {
+	It("refuses an act the agent does not hold, and widens the acts only when the person applies the change", func() {
 		ctx := context.Background()
 		c := &callScript{}
 		r := newTrigRig(c.script)
@@ -142,12 +142,31 @@ var _ = Describe("a model cannot change the acts of a trigger", func() {
 		Expect(err).NotTo(HaveOccurred())
 		ref := studio.TriggerRef(tr.ID)
 		res := c.call(r, rec.ID, "update_trigger", fmt.Sprintf(`{"ref":%q,"name":"Renamed","acts":["act.files","act.spend","act.send"]}`, ref))
+		Expect(res.Err).To(MatchError(ContainSubstring("act.send")))
+		res = c.call(r, rec.ID, "update_trigger", fmt.Sprintf(`{"ref":%q,"name":"Renamed","acts":["act.files","act.spend"]}`, ref))
 		Expect(res.Err).To(BeNil(), "%+v", res)
+		live, _ := r.host.GetTrigger(ctx, alice, tr.ID)
+		Expect(live.Acts).To(Equal([]string{"act.files"}), "the acts widened before the person pressed Apply")
 		card := lastCard(r, rec.ID)
 		Expect(card).NotTo(BeNil())
 		got, err := r.host.ApplyChange(ctx, alice, card.ID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got.Name).To(Equal("Renamed"))
+		Expect(got.Acts).To(Equal([]string{"act.files", "act.spend"}))
+	})
+
+	It("keeps the acts through an applied change that does not name them", func() {
+		ctx := context.Background()
+		c := &callScript{}
+		r := newTrigRig(c.script)
+		ag, err := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "Worker", Model: "m", Builtins: []string{"act.files"}})
+		Expect(err).NotTo(HaveOccurred())
+		tr := r.schedule(studio.TriggerInput{Name: "Nightly", Prompt: "p", AgentID: ag.ID, Acts: []string{"act.files"}})
+		rec, err := r.svc.Create(ctx, alice, studio.CreateInput{AgentID: ag.ID})
+		Expect(err).NotTo(HaveOccurred())
+		c.call(r, rec.ID, "update_trigger", fmt.Sprintf(`{"ref":%q,"name":"Renamed"}`, studio.TriggerRef(tr.ID)))
+		got, err := r.host.ApplyChange(ctx, alice, lastCard(r, rec.ID).ID)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(got.Acts).To(Equal([]string{"act.files"}))
 	})
 })
@@ -373,7 +392,7 @@ var _ = Describe("the acts of a trigger proposed in a connector chat", func() {
 			list, _ := r.host.ListTriggers(ctx, alice)
 			Expect(list).To(BeEmpty())
 			Expect(proposals()).To(HaveLen(1))
-			Expect(fake.texts(chatID, thread)[0]).To(ContainSubstring("paired"))
+			Expect(fake.texts(chatID, thread)[0]).To(ContainSubstring("verified"))
 		})
 
 		It("asks in the auto mode when the plan writes a file and act.files is not allowed", func() {

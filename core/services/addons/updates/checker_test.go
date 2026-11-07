@@ -351,11 +351,12 @@ var _ = Describe("Update detection", func() {
 	Context("compatibility", func() {
 		It("names the host, SDK and data format ranges a candidate does not fit", func() {
 			for reason, requires := range map[string]catalog.Requirements{
-				updates.ReasonHost:       {Host: contract.VersionRange{Min: 2, Max: 3}},
-				updates.ReasonAPI:        {API: contract.VersionRange{Min: 3, Max: 3}},
-				updates.ReasonProtocol:   {Protocol: contract.VersionRange{Min: 2, Max: 2}},
-				updates.ReasonSDK:        {SDK: contract.VersionRange{Min: 2, Max: 2}},
-				updates.ReasonDataFormat: {DataFormat: contract.VersionRange{Min: 2, Max: 3}},
+				updates.ReasonHost:         {Host: contract.VersionRange{Min: 2, Max: 3}},
+				updates.ReasonAPI:          {API: contract.VersionRange{Min: 3, Max: 3}},
+				updates.ReasonProtocol:     {Protocol: contract.VersionRange{Min: 2, Max: 2}},
+				updates.ReasonSDK:          {SDK: contract.VersionRange{Min: 2, Max: 2}},
+				updates.ReasonDataFormat:   {DataFormat: contract.VersionRange{Min: 2, Max: 3}},
+				updates.ReasonFeatureLevel: {FeatureLevel: 2},
 			} {
 				next := rel("1.0.0", "development", digestB)
 				next.Requires = requires

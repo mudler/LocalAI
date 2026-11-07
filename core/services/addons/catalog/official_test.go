@@ -92,7 +92,7 @@ var _ = Describe("official library index", func() {
 			Expect(versionPattern.MatchString(r.Version)).To(BeTrue(), r.ID)
 			Expect(r.Artifact).To(HavePrefix("oci://"), r.ID)
 		}
-		Expect(slices.Compact(slices.Sorted(slices.Values(ids)))).To(ConsistOf("fine-tuning", "quantization", "voice", "face", "studio", "talk", "telegram", "slack", "discord", "github", "home-assistant", "jellyfin", "pikvm", "tables", "office", "sandbox", "web", "memory"))
+		Expect(slices.Compact(slices.Sorted(slices.Values(ids)))).To(ConsistOf("fine-tuning", "quantization", "voice", "face", "studio", "talk", "telegram", "slack", "discord", "github", "home-assistant", "jellyfin", "calendar", "contacts", "mail", "pikvm", "tables", "office", "sandbox", "web"))
 	})
 })
 

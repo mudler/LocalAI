@@ -71,7 +71,7 @@ func (s *Service) chatSkills(ctx context.Context, p string, rec session.ChatReco
 		return nil, nil
 	}
 	sc := s.scopeOf(ctx, rec)
-	skip := skillOff(s.memorySkillsOff(ctx, rec, sc, rec.SkillsOff))
+	skip := skillOff(s.skillsOffOf(ctx, rec, sc))
 	command, err := s.addonCommandDescriptor(ctx, p, rec, sc)
 	if err != nil {
 		return nil, err
@@ -80,8 +80,10 @@ func (s *Service) chatSkills(ctx context.Context, p string, rec session.ChatReco
 	if err != nil {
 		return nil, err
 	}
-	list, _, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, ad.roots()...), ad.options(skills.Options{
-		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.skills[sk.Name]) },
+	list, _, err := s.d.Files.ResolveSkills(ctx, p, s.d.Files.SkillRoots(p, ad.roots()...), ad.options(skills.Options{
+		Off: func(sk skills.Skill) bool {
+			return skip(sk) || (sc != nil && !sc.skills[sk.Name] && !sc.hostGrants(sk))
+		},
 		Logger: s.log,
 	}))
 	if err != nil {

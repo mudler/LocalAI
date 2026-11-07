@@ -33,6 +33,11 @@
 .lib-create { display: flex; gap: var(--dk-space-2); }
 .lib-create .dk-input { flex: 1 1 auto; min-width: 0; }
 .lib-others { margin-top: var(--dk-space-2); }
+/* The collections that other people shared with the user, under the user's own. */
+.lib-shared { margin-top: var(--dk-space-3); padding-top: var(--dk-space-3); border-top: 1px solid var(--dk-edge); }
+.lib-shared .lib-section__title { padding: 0 var(--dk-space-3); margin: 0 0 var(--dk-space-2); }
+.lib-rows .dk-row .share-badge { margin-top: 2px; }
+.lib-pane__title .share-badge { margin-top: var(--dk-space-1); }
 .lib-pane { padding: var(--dk-space-5); min-width: 0; display: flex; flex-direction: column; gap: var(--dk-space-4); }
 .lib-pane__empty { padding: var(--dk-space-7) var(--dk-space-4); text-align: center; color: var(--dk-muted); }
 .lib-back { display: none; }
@@ -197,6 +202,8 @@ a.lib-chip__link:hover { text-decoration: underline; text-underline-offset: 3px;
 .lib-kv__pair { display: contents; }
 .lib-gap { margin-left: var(--dk-space-2); }
 .lib-fine { margin: 0; font-size: var(--fs-meta); }
+.lib-mode { margin: 0 0 var(--dk-space-3); font-size: var(--fs-small); color: var(--dk-muted); overflow-wrap: anywhere; }
+.lib-mode strong { color: var(--dk-text); font-weight: 600; }
 .lib-create--page { margin-bottom: var(--dk-space-4); max-width: 520px; }
 .lib-more { align-self: flex-start; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; color: var(--dk-accent-text); text-decoration: underline; text-underline-offset: 3px; }
 

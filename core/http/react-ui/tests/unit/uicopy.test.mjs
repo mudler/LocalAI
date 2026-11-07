@@ -72,11 +72,12 @@ function settingsStrings() {
 // The English text of the add-ons that carry their own (an en.js module or
 // an English JSON bundle), as addon:<add-on>:<key>.
 const ADDON_BUNDLES = [
-  ['face', 'ui/src/i18n/en.js', 'default'],
-  ['fine-tuning', 'ui/src/i18n/en.js', 'default'],
-  ['quantization', 'ui/src/i18n/en.js', 'default'],
+  ['face', 'ui/src/i18n/face.en.json'],
+  ['fine-tuning', 'ui/src/i18n/fine-tuning.en.json'],
+  ['quantization', 'ui/src/i18n/quantization.en.json'],
   ['tables', 'ui/src/i18n/en.js', 'EN'],
-  ['voice', 'ui/src/i18n/en.js', 'default'],
+  ['voice', 'ui/src/i18n/voice.en.json'],
+  ['memory', 'ui/src/i18n/memory.en.json'],
   ['slack', 'ui/src/i18n/slack.en.json'],
   ['talk', 'ui/src/i18n/talk.en.json'],
   ['telegram', 'ui/src/i18n/telegram.en.json'],

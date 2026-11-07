@@ -8,6 +8,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
+	"github.com/mudler/LocalAI/core/services/studio/resourcesets"
 )
 
 var _ = Describe("agent validation", func() {
@@ -19,6 +20,9 @@ var _ = Describe("agent validation", func() {
 		}
 		for _, m := range []string{"", "own", "mine_and_own", "mine", "none"} {
 			Expect(agents.Validate(agents.Agent{Name: "a", Memory: m})).To(Succeed(), m)
+		}
+		for _, m := range []string{"", "always", "auto", "never"} {
+			Expect(agents.Validate(agents.Agent{Name: "a", MemorySave: m})).To(Succeed(), m)
 		}
 		for _, f := range []agents.Agent{
 			{Name: "a"},
@@ -33,19 +37,21 @@ var _ = Describe("agent validation", func() {
 			many[i] = "x"
 		}
 		for name, a := range map[string]agents.Agent{
-			"empty name":       {Name: "  "},
-			"long name":        {Name: strings.Repeat("n", agents.MaxNameRunes+1)},
-			"long desc":        {Name: "a", Description: strings.Repeat("d", agents.MaxDescription+1)},
-			"instructions":     {Name: "a", Instructions: strings.Repeat("i", agents.MaxInstructions+1)},
-			"model":            {Name: "a", Model: strings.Repeat("m", agents.MaxModelRunes+1)},
-			"too many":         {Name: "a", Skills: many},
-			"bad addon":        {Name: "a", Addons: []string{"Office Tools"}},
-			"empty collection": {Name: "a", Collections: []string{" "}},
-			"long entry":       {Name: "a", MCPServers: []string{strings.Repeat("s", agents.MaxEntryRunes+1)}},
-			"bad network":      {Name: "a", Network: "everything"},
-			"bad memory":       {Name: "a", Memory: "everything"},
-			"folder, no mode":  {Name: "a", FolderID: 7},
-			"bad folder mode":  {Name: "a", FolderID: 7, FolderMode: "admin"},
+			"empty name":         {Name: "  "},
+			"long name":          {Name: strings.Repeat("n", agents.MaxNameRunes+1)},
+			"long desc":          {Name: "a", Description: strings.Repeat("d", agents.MaxDescription+1)},
+			"instructions":       {Name: "a", Instructions: strings.Repeat("i", agents.MaxInstructions+1)},
+			"model":              {Name: "a", Model: strings.Repeat("m", agents.MaxModelRunes+1)},
+			"too many":           {Name: "a", Skills: many},
+			"bad addon":          {Name: "a", Addons: []string{"Office Tools"}},
+			"empty collection":   {Name: "a", Collections: []string{" "}},
+			"long entry":         {Name: "a", MCPServers: []string{strings.Repeat("s", agents.MaxEntryRunes+1)}},
+			"bad network":        {Name: "a", Network: "everything"},
+			"bad memory":         {Name: "a", Memory: "everything"},
+			"a made-up rule":     {Name: "a", MemorySave: "sometimes"},
+			"ask is not offered": {Name: "a", MemorySave: "ask"},
+			"folder, no mode":    {Name: "a", FolderID: 7},
+			"bad folder mode":    {Name: "a", FolderID: 7, FolderMode: "admin"},
 		} {
 			Expect(agents.Validate(a)).To(MatchError(agents.ErrInvalid), name)
 		}
@@ -89,5 +95,27 @@ var _ = Describe("the connections of an agent", func() {
 		Entry("an add-on ID that is not one", connsets.Sets{"Not An Id": {"b1"}}),
 		Entry("an empty binding ID", connsets.Sets{"tracker": {" "}}),
 		Entry("an add-on with no binding", connsets.Sets{"tracker": {}}),
+	)
+})
+
+var _ = Describe("the resources of an agent", func() {
+	base := func() agents.Agent { return agents.Agent{Name: "A", Model: "m"} }
+	It("accepts a list with the two modes, and none", func() {
+		a := base()
+		Expect(agents.Validate(a)).To(Succeed())
+		a.Resources = resourcesets.Sets{"tables": {{ID: "db-a", Mode: "read"}, {ID: "db-b", Mode: "write"}}}
+		Expect(agents.Validate(a)).To(Succeed())
+	})
+	DescribeTable("refuses",
+		func(m resourcesets.Sets) {
+			a := base()
+			a.Resources = m
+			Expect(agents.Validate(a)).To(MatchError(agents.ErrInvalid))
+		},
+		Entry("an add-on ID that is not one", resourcesets.Sets{"Not An Id": {{ID: "db-a", Mode: "read"}}}),
+		Entry("a mode that is not read or write", resourcesets.Sets{"tables": {{ID: "db-a", Mode: "own"}}}),
+		Entry("no mode", resourcesets.Sets{"tables": {{ID: "db-a"}}}),
+		Entry("an ID that is not a resource ID", resourcesets.Sets{"tables": {{ID: "../x", Mode: "read"}}}),
+		Entry("the same resource twice", resourcesets.Sets{"tables": {{ID: "db-a", Mode: "read"}, {ID: "db-a", Mode: "write"}}}),
 	)
 })

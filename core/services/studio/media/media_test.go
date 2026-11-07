@@ -18,6 +18,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/localaitools/inproc"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
@@ -108,6 +109,8 @@ func newFixture(vision, transcription string) *fixture {
 			return vision
 		}
 		return transcription
+	}).WithClient(func() media.Client {
+		return &inproc.Client{Transport: p.Transport}
 	})
 	Expect(fx.f.EnsureHome(context.Background(), "alice")).To(Succeed())
 	return fx
@@ -306,6 +309,48 @@ var _ = Describe("media tools", func() {
 		_, err := run(fx.tool("describe_image"), map[string]any{"path": "/a.png"})
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("not allowed"))
+	})
+
+	It("the aliases say the same as before when the model refuses, the quota is used up or the file is too large", func() {
+		fx := newFixture("vl", "whisper")
+		fx.put("/a.png", png)
+		fx.put("/a.wav", "RIFFdata")
+		fx.reply = func(string) (int, string) { return 403, `{"error":{"message":"no"}}` }
+		_, err := run(fx.tool("describe_image"), map[string]any{"path": "/a.png"})
+		Expect(err).To(MatchError("you are not allowed to use the model vl"))
+		_, err = run(fx.tool("transcribe_audio"), map[string]any{"path": "/a.wav"})
+		Expect(err).To(MatchError("you are not allowed to use the model whisper"))
+		fx.reply = func(string) (int, string) { return 429, `{}` }
+		_, err = run(fx.tool("transcribe_audio"), map[string]any{"path": "/a.wav"})
+		Expect(err).To(MatchError("the model refused the request: your quota is used up or the server is busy"))
+		fx.reply = func(string) (int, string) { return 500, `{"error":{"message":"boom"}}` }
+		_, err = run(fx.tool("describe_image"), map[string]any{"path": "/a.png"})
+		Expect(err).To(MatchError("the model vl answered with an error (500)"))
+
+		fx.put("/big.png", png+strings.Repeat("x", 21<<20))
+		n := len(fx.calls)
+		_, err = run(fx.tool("describe_image"), map[string]any{"path": "/big.png"})
+		Expect(err).To(MatchError(MatchRegexp(`^big\.png is \d+ bytes, which is too large$`)))
+		_, err = run(fx.tool("describe_image"), map[string]any{"path": "/missing.png"})
+		Expect(err).To(MatchError("not found"))
+		Expect(fx.calls).To(HaveLen(n), "a request went out for a file that was refused")
+	})
+
+	It("names the file when it is not the right kind", func() {
+		fx := newFixture("vl", "whisper")
+		fx.put("/notes.txt", "just words")
+		_, err := run(fx.tool("describe_image"), map[string]any{"path": "/notes.txt"})
+		Expect(err).To(MatchError("notes.txt is not an image"))
+		_, err = run(fx.tool("transcribe_audio"), map[string]any{"path": "/notes.txt"})
+		Expect(err).To(MatchError("notes.txt is not audio"))
+	})
+
+	It("says so when the server has no client to run the tools", func() {
+		fx := newFixture("vl", "")
+		fx.svc.WithClient(func() media.Client { return nil })
+		fx.put("/a.png", png)
+		_, err := run(fx.tool("describe_image"), map[string]any{"path": "/a.png"})
+		Expect(err).To(MatchError("inference is not available on this server"))
 	})
 
 	It("a voice note is transcribed on upload", func() {

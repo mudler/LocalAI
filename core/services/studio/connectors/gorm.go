@@ -12,15 +12,17 @@ import (
 )
 
 type bindingRow struct {
-	ID         string `gorm:"primaryKey;size:64"`
-	Owner      string `gorm:"index;size:255;not null"`
-	Kind       string `gorm:"size:32"`
-	AddonID    string `gorm:"size:64"`
-	Name       string `gorm:"size:255"`
-	AgentID    string `gorm:"size:128"`
-	Enabled    bool   `gorm:"index"`
-	AcceptAny  bool
-	Allow      string
+	ID        string `gorm:"primaryKey;size:64"`
+	Owner     string `gorm:"index;size:255;not null"`
+	Kind      string `gorm:"size:32"`
+	AddonID   string `gorm:"size:64"`
+	Name      string `gorm:"size:255"`
+	AgentID   string `gorm:"size:128"`
+	Enabled   bool   `gorm:"index"`
+	AcceptAny bool
+	Allow     string
+	// AllowTrust is JSON, added by AutoMigrate; a row stored before it trusts no chat.
+	AllowTrust string
 	NotifyChat string `gorm:"size:64"`
 	// The columns of the reply and conversation modes are added by
 	// AutoMigrate; a row stored before them reads as the defaults.
@@ -30,6 +32,8 @@ type bindingRow struct {
 	FilesOff      bool
 	// ReplyLanguage is added by AutoMigrate; a row stored before it reads as auto.
 	ReplyLanguage string `gorm:"size:8"`
+	// UILanguage is added by AutoMigrate; a row stored before it reads as unknown.
+	UILanguage string `gorm:"size:35"`
 	// A thread_context_off column that an earlier build added stays in the
 	// table, unread and unwritten: AutoMigrate never drops a column, and the
 	// column accepts NULL, so an insert without it works.
@@ -49,12 +53,16 @@ type bindingRow struct {
 	FileSendMax    int64
 	// Caps, Grants and Paired are JSON, added by AutoMigrate; a row stored
 	// before them has none.
-	Caps    string
-	Grants  string
-	Paired  string
-	Token   []byte
-	Created time.Time
-	Updated time.Time
+	Caps   string
+	Grants string
+	Paired string
+	// WriteTickRemoved is added by AutoMigrate; a row stored before it reads as false.
+	WriteTickRemoved bool
+	// AccountID is added by AutoMigrate; a row stored before it has none.
+	AccountID string `gorm:"size:128"`
+	Token     []byte
+	Created   time.Time
+	Updated   time.Time
 }
 
 func (bindingRow) TableName() string { return "studio_connectors" }
@@ -74,6 +82,10 @@ type senderRow struct {
 	First   time.Time
 	Last    time.Time `gorm:"index"`
 	Allowed bool
+	// Chat, ChatName and Reason are optional notes of the last message (see SenderNote).
+	Chat     string `gorm:"size:128"`
+	ChatName string `gorm:"size:255"`
+	Reason   string `gorm:"size:32"`
 }
 
 func (senderRow) TableName() string { return "studio_connector_senders" }
@@ -127,7 +139,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 
 func (r bindingRow) binding() (Binding, error) {
 	b := Binding{ID: r.ID, Owner: r.Owner, Kind: r.Kind, AddonID: r.AddonID, Name: r.Name, AgentID: r.AgentID, Enabled: r.Enabled, AcceptAny: r.AcceptAny,
-		NotifyChat: r.NotifyChat, Reply: r.Reply, Conversation: r.Conversation, WindowMinutes: r.WindowMinutes, FilesOff: r.FilesOff, ReplyLanguage: r.ReplyLanguage, WriteMode: r.WriteMode,
+		NotifyChat: r.NotifyChat, Reply: r.Reply, Conversation: r.Conversation, WindowMinutes: r.WindowMinutes, FilesOff: r.FilesOff, ReplyLanguage: r.ReplyLanguage, UILanguage: r.UILanguage, WriteMode: r.WriteMode, AccountID: r.AccountID, WriteTickRemoved: r.WriteTickRemoved,
 		FileReceiveMax: r.FileReceiveMax, FileSendMax: r.FileSendMax,
 		Token: append([]byte(nil), r.Token...), Created: r.Created.UTC(), Updated: r.Updated.UTC()}
 	if r.Allow != "" {
@@ -143,7 +155,7 @@ func (r bindingRow) binding() (Binding, error) {
 	for _, f := range []struct {
 		raw string
 		dst any
-	}{{r.Caps, &b.Caps}, {r.Grants, &b.Grants}, {r.Paired, &b.Paired}, {r.Resources, &b.Resources}, {r.Channels, &b.Channels}, {r.Approval, &b.Approval}} {
+	}{{r.Caps, &b.Caps}, {r.AllowTrust, &b.AllowTrust}, {r.Grants, &b.Grants}, {r.Paired, &b.Paired}, {r.Resources, &b.Resources}, {r.Channels, &b.Channels}, {r.Approval, &b.Approval}} {
 		if f.raw == "" {
 			continue
 		}
@@ -172,9 +184,9 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 		raw, _ := json.Marshal(v)
 		return string(raw)
 	}
-	return s.db.WithContext(ctx).Save(&bindingRow{Approval: enc(b.Approval, b.Approval.IsZero()), WriteMode: b.WriteMode, Resources: enc(b.Resources, len(b.Resources) == 0), Channels: enc(b.Channels, len(b.Channels) == 0), Caps: enc(b.Caps, len(b.Caps) == 0), Grants: enc(b.Grants, len(b.Grants) == 0), Paired: enc(b.Paired, len(b.Paired) == 0), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
+	return s.db.WithContext(ctx).Save(&bindingRow{AllowTrust: enc(b.AllowTrust, len(b.AllowTrust) == 0), Approval: enc(b.Approval, b.Approval.IsZero()), WriteMode: b.WriteMode, Resources: enc(b.Resources, len(b.Resources) == 0), Channels: enc(b.Channels, len(b.Channels) == 0), Caps: enc(b.Caps, len(b.Caps) == 0), WriteTickRemoved: b.WriteTickRemoved, Grants: enc(b.Grants, len(b.Grants) == 0), Paired: enc(b.Paired, len(b.Paired) == 0), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
 		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Reply: b.Reply, Conversation: b.Conversation, WindowMinutes: b.WindowMinutes,
-		FilesOff: b.FilesOff, ReplyLanguage: b.ReplyLanguage, Options: options, FileReceiveMax: b.FileReceiveMax, FileSendMax: b.FileSendMax,
+		FilesOff: b.FilesOff, ReplyLanguage: b.ReplyLanguage, UILanguage: b.UILanguage, AccountID: b.AccountID, Options: options, FileReceiveMax: b.FileReceiveMax, FileSendMax: b.FileSendMax,
 		Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
 }
 
@@ -242,6 +254,13 @@ func (s *gormStore) SetOffset(ctx context.Context, id string, offset int64) erro
 	return s.db.WithContext(ctx).Save(&stateRow{Binding: id, Offset: offset}).Error
 }
 
+// NoteSender keeps the chat of the last message of a sender and the reason it
+// was ignored, on the row that RecordSender made.
+func (s *gormStore) NoteSender(ctx context.Context, binding, senderID string, n SenderNote) error {
+	return s.db.WithContext(ctx).Model(&senderRow{}).Where("binding = ? AND id = ?", binding, senderID).
+		Updates(map[string]any{"chat": n.Chat, "chat_name": n.ChatName, "reason": n.Reason}).Error
+}
+
 func (s *gormStore) RecordSender(ctx context.Context, binding, senderID, name string, allowed bool, at time.Time) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var r senderRow
@@ -280,7 +299,8 @@ func (s *gormStore) Senders(ctx context.Context, binding string, limit int) ([]S
 	}
 	out := make([]Sender, len(rows))
 	for i, r := range rows {
-		out[i] = Sender{Binding: r.Binding, ID: r.ID, Name: r.Name, Count: r.Count, First: r.First.UTC(), Last: r.Last.UTC(), Allowed: r.Allowed}
+		out[i] = Sender{Binding: r.Binding, ID: r.ID, Name: r.Name, Count: r.Count, First: r.First.UTC(), Last: r.Last.UTC(), Allowed: r.Allowed,
+			Chat: r.Chat, ChatName: r.ChatName, Reason: r.Reason}
 	}
 	return out, nil
 }
@@ -354,6 +374,10 @@ func (s *gormStore) SetCapsIfEmpty(ctx context.Context, id string, caps []string
 		Where("id = ? AND (caps IS NULL OR caps = '' OR caps = '[]' OR caps = 'null')", id).
 		Update("caps", string(raw))
 	return res.RowsAffected == 1, res.Error
+}
+
+func (s *gormStore) SetAccountID(ctx context.Context, id, accountID string) error {
+	return s.db.WithContext(ctx).Model(&bindingRow{}).Where("id = ?", id).Update("account_id", accountID).Error
 }
 
 func (s *gormStore) ClaimMigration(ctx context.Context, name string, now time.Time, lease time.Duration) (bool, error) {

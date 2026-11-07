@@ -2,7 +2,7 @@
 // React, so a node test drives it. Three jobs: the request of the preview for
 // the form as it is now, the one fix button of a blocked capability, and the
 // rows of the readiness list.
-import { approvalPayload, channelOnly, listEntries } from './connector.js'
+import { approvalPayload, channelEntries, channelOnly, listEntries, trustOf } from './connector.js'
 
 const enc = encodeURIComponent
 
@@ -16,9 +16,13 @@ export function previewBody(form, kind) {
     agent_id: form.agent_id || '',
     accept_any: Boolean(form.accept_any),
     allow: form.accept_any ? [] : (form.allow || []).map((x) => x.trim()).filter((x, i, a) => x && a.indexOf(x) === i),
+    allow_trust: form.accept_any ? {} : Object.fromEntries((form.allow || []).map((x) => x.trim()).filter((x) => form.allow_trust?.[x]).map((x) => [x, form.allow_trust[x]])),
     caps: [...(form.caps || [])],
     grants: (form.grants || []).map((g) => ({ role: g.role, caps: [...g.caps] })),
+    // Places the bot may post, and the choice for proposed triggers: the host shows them in its answer.
+    channels: (form.channels || []).map((c) => ({ id: (c.id || '').trim(), label: (c.label || '').trim(), approved: Boolean(c.approved) })),
   }
+  if (form.approval?.mode) body.approval_mode = form.approval.mode
   if (!form.id) body.kind = kind
   return body
 }
@@ -30,41 +34,49 @@ export const previewKey = (form, kind) => JSON.stringify([previewId(form), previ
 
 // The form fields that differ from the saved binding, as a set of names.
 // With no saved binding, every field counts as changed.
-const WATCHED = ['agent_id', 'accept_any', 'allow', 'caps', 'grants', 'approval', 'send_files', 'file_receive_mib', 'file_send_mib', 'notify_chat']
+const WATCHED = ['agent_id', 'accept_any', 'allow', 'allow_trust', 'caps', 'grants', 'approval', 'send_files', 'file_receive_mib', 'file_send_mib', 'notify_chat']
 export function changedFields(form, saved) {
   if (!saved) return new Set(WATCHED)
   const norm = (f, k) => JSON.stringify(k === 'approval' ? approvalPayload(f.approval) : k === 'send_files' ? f.send_files !== false : (f[k] ?? ''))
-  const sorted = (f, k) => (k === 'allow' || k === 'caps' ? JSON.stringify([...(f[k] || [])].sort()) : norm(f, k))
+  const sorted = (f, k) => (k === 'allow_trust' ? JSON.stringify(Object.entries(f[k] || {}).sort()) : k === 'allow' || k === 'caps' ? JSON.stringify([...(f[k] || [])].sort()) : norm(f, k))
   return new Set(WATCHED.filter((k) => sorted(form, k) !== sorted(saved, k)))
 }
 
-// ---- The senders ---------------------------------------------------------
+// ---- What a save changed -------------------------------------------------
 
-// The kinds of sender the selector offers. "listed" is a person on the
-// allowlist, "channel_member" someone let in through a listed channel (only
-// when the kind has channels), "anyone" is offered when the bot accepts
-// anyone. Each role the kind declares follows.
-export function senderOptions(form, kindInfo, lists) {
-  const out = []
-  if (form.accept_any) {
-    out.push({ id: 'anyone', key: 'anyone' })
-  } else {
-    out.push({ id: 'listed', key: 'listed' })
-    if (Array.isArray(lists) && lists.length > 1) out.push({ id: 'channel_member', key: 'channel_member' })
-  }
-  out.push({ id: 'paired', key: 'paired' })
-  for (const r of kindInfo?.roles || []) out.push({ id: `role:${r.id}`, key: 'role', title: r.title })
-  return out
+// The parts of the form that a person knows by name, for the notice after a
+// save. Several fields can belong to one part.
+const CHANGE_PART = {
+  name: 'name', agent_id: 'agent', accept_any: 'who', allow: 'who', allow_trust: 'who', caps: 'permissions', grants: 'permissions',
+  approval: 'approval', send_files: 'files', file_receive_mib: 'files', file_send_mib: 'files', notify_chat: 'notify',
 }
 
-// The id of the subject in the reply for a choice of the selector: a member
-// of a channel and "anyone" are one subject.
-export const subjectId = (option) => (option === 'channel_member' ? 'anyone' : option)
+// The parts that a save changed, in a fixed order, as keys of saved.part.*.
+// With no saved binding (a new connection) the list is empty.
+export function changedParts(form, saved) {
+  if (!saved) return []
+  const fields = changedFields(form, saved)
+  if ((form.name || '').trim() !== (saved.name || '')) fields.add('name')
+  const parts = new Set([...fields].map((f) => CHANGE_PART[f]).filter(Boolean))
+  return Object.values(CHANGE_PART).filter((p, i, all) => all.indexOf(p) === i && parts.has(p))
+}
 
-// The subject of the reply for the selected choice; the first when it is gone.
-export function pickSubject(view, option) {
-  const subjects = view?.subjects || []
-  return subjects.find((s) => s.id === subjectId(option)) || null
+// The acts that the approval of the saved binding allowed and the form no longer does.
+export function removedActs(saved, form) {
+  const now = form?.approval?.acts || []
+  return (saved?.approval?.acts || []).filter((n) => !now.includes(n))
+}
+
+// The triggers that a save leaves with fewer acts. A trigger made without
+// asking under a connection stays within the acts the connection allows (the
+// host decides this at each run), so a removed act that the trigger holds is
+// dropped from its runs. Gives [{ id, name, acts }] for the connection id.
+export function droppedActs(triggers, bindingId, removed) {
+  if (!bindingId || !removed?.length) return []
+  return (Array.isArray(triggers) ? triggers : [])
+    .filter((t) => t && t.binding === bindingId)
+    .map((t) => ({ id: t.id, name: t.name || t.id, acts: (t.acts || []).filter((n) => removed.includes(n)) }))
+    .filter((t) => t.acts.length > 0)
 }
 
 // ---- Fix routing ---------------------------------------------------------
@@ -80,25 +92,27 @@ export function connectionTargets(fix, lists = [], form = {}) {
   const field = fix.field || ''
   switch (fix.target) {
     case 'caps':
-      return field ? [sel(`connector-cap-switch-${field}`), sel(`connector-cap-${field}`)] : [sel('connector-permissions')]
+      return field ? [sel(`connector-cap-switch-${field}`), sel(`connector-cap-${field}`)] : [sel('connector-matrix')]
     case 'grants':
-      return [sel('connector-roles'), sel('connector-permissions')]
+      return [sel('connector-matrix')]
     case 'agent_id':
       return [sel('connector-agent')]
     case 'allow':
       return allowTargets(lists, form)
+    case 'trust':
+      return [sel('connector-trust-level'), sel('connector-who-channels'), sel('connector-who')]
     case 'token':
       return ['[data-testid="connector-form"] input[type="password"]', sel('connector-form')]
     case 'save':
       return [sel('connector-save')]
     case 'usual':
-      return [`${sel('connector-presets')} ${sel('connector-usual')}`, sel('connector-permissions')]
+      return [sel('connector-usual'), sel('connector-matrix')]
     case 'notify':
       return [sel('connector-notify')]
     case 'files':
       return [sel('connector-files')]
     case 'approval':
-      return [sel('connector-cap-switch-triggers.propose'), sel('connector-permissions')]
+      return [sel('connector-cap-switch-triggers.propose'), sel('connector-matrix')]
     default:
       return []
   }
@@ -194,6 +208,7 @@ export function reachable(form, lists, view) {
   const out = []
   if (people) out.push('listed', 'paired')
   if (channels) out.push('anyone')
+  if ((form.allow || []).some((x) => trustOf(form, x) === 'act')) out.push('channel_acts')
   if (people || channels) out.push(...roles)
   return out
 }
@@ -212,7 +227,7 @@ export function unusable(cap, view, form, lists, paired, now) {
   const usable = decisions.filter((d) => d.allowed)
   if (usable.length > 0) {
     // A capability that only a paired sender holds is dead until somebody is paired.
-    if (usable.every((d) => d.via === 'paired') && !hasPairing(paired, now)) {
+    if (usable.every((d) => d.via === 'paired' || d.via === 'agent-connection') && !hasPairing(paired, now)) {
       return { capability: cap, allowed: false, code: 'nobody_paired', blocked_by: 'sender', fix: { kind: 'pair_sender', target: 'pairing' } }
     }
     return null
@@ -221,8 +236,6 @@ export function unusable(cap, view, form, lists, paired, now) {
 }
 
 // ---- The readiness rows --------------------------------------------------
-
-export const ROW_STATES = ['ok', 'attention', 'off', 'after_save', 'broken', 'checking', 'unknown']
 
 // A row that needs the owner: shown even when the list is collapsed.
 export const isProblem = (state) => state === 'attention' || state === 'broken' || state === 'after_save' || state === 'unknown'
@@ -237,7 +250,7 @@ const jump = (target, field, label) => ({ kind: 'open_connection', target, field
 // Every row is { id, state, key, params, fix } with the sentence as a key of
 // the page's words. A row that works only after the form is saved says so.
 export function readinessRows(ctx) {
-  const { form, saved, kindInfo, agents = [], lists = [], tokenTyped, token, preview = {}, paired, agentOptional = false, now = Date.now(), capabilities = [] } = ctx
+  const { form, saved, kindInfo, agents = [], lists = [], tokenTyped, token, preview = {}, paired, agentOptional = false, now = Date.now(), capabilities = [], isChannel = () => false } = ctx
   const changed = changedFields(form, saved)
   const caps = form.caps || []
   const on = (n) => caps.includes(n)
@@ -290,6 +303,22 @@ export function readinessRows(ctx) {
     rows.push(afterSave({ id: 'who', state: 'ok', key: multi && entries.length > people ? 'ready.who.mixed' : 'ready.who.listed', params: { count: entries.length } }, 'accept_any', 'allow'))
   }
 
+  // The channels where the bot listens: one sentence on what the people in them
+  // may do, and one on where it may post, which is another list.
+  const listening = form.accept_any ? [] : channelEntries(form, isChannel)
+  const acting = listening.filter((x) => trustOf(form, x) === 'act')
+  const answering = listening.filter((x) => trustOf(form, x) !== 'act')
+  if (answering.length > 0) {
+    rows.push({ id: 'channelTrust', state: 'attention', key: 'ready.channelTrust.answer', params: { channels: answering.join(', ') }, fix: jump('trust', '', 'fix.trust') })
+  } else if (acting.length > 0 && caps.length === 0) {
+    rows.push({ id: 'channelTrust', state: 'attention', key: 'ready.channelTrust.noCaps', fix: jump('usual', '', 'fix.usual') })
+  } else if (acting.length > 0) {
+    rows.push(afterSave({ id: 'channelTrust', state: 'ok', key: 'ready.channelTrust.act', params: { channels: acting.join(', ') } }, 'allow', 'allow_trust', 'caps'))
+  }
+  if (on('talkback.channels') && (form.channels || []).length > 0) {
+    rows.push({ id: 'postTo', state: 'ok', key: 'ready.postTo', params: { count: form.channels.length } })
+  }
+
   // Permissions (all ticked ones except the two with a row of their own)
   const others = caps.filter((n) => n !== 'triggers.propose' && n !== 'files.upload')
   if (caps.length === 0) {
@@ -309,6 +338,52 @@ export function readinessRows(ctx) {
       })
     } else {
       rows.push(afterSave({ id: 'permissions', state: 'ok', key: 'ready.perm.ok', params: { count: others.length } }, 'caps', 'grants', 'allow', 'accept_any'))
+    }
+  }
+
+  // Tools of the add-ons the agent uses that a permission of this connection
+  // decides: without the tick the agent has them in no messaging chat, and
+  // nothing else on the page says so.
+  for (const hold of view?.addon_tools || []) {
+    const names = (hold.tools || []).join(', ')
+    const params = { addon: hold.addon, tools: names, permission: titleOf(hold.capability) }
+    const id = `addons:${hold.addon}`
+    if (!on(hold.capability)) {
+      // Not ticked. A paired person still has the write tools when the agent is
+      // connected to a connection of the add-on that is not in write mode off:
+      // the connection already says what the owner wants. The tick is for the
+      // people who are not paired.
+      const conns = hold.connections || []
+      const live = conns.find((c) => c.write_mode && c.write_mode !== 'off')
+      if ((hold.without_tick || []).includes('paired') && live) {
+        const p = { ...params, connection: live.name, modeKey: `ready.addons.mode.${live.write_mode}` }
+        if (!hasPairing(paired, now)) {
+          const d = { capability: hold.capability, code: 'nobody_paired', fix: { kind: 'pair_sender', target: 'pairing' } }
+          rows.push({ id, labelKey: 'ready.row.addons', state: 'attention', key: 'ready.addons.blocked', params: { ...params, message: messageOf(d), messageKey: messageKey(d) }, fix: d.fix })
+        } else {
+          rows.push(afterSave({ id, labelKey: 'ready.row.addons', state: 'ok', key: 'ready.addons.paired', params: p }, 'caps', 'agent_id'))
+          // A connection that asks first: the bot writes the proposal in the
+          // chat and a paired person answers it there.
+          if (conns.some((c) => c.write_mode === 'propose') && on('proposals.confirm')) {
+            rows.push(afterSave({ id: `${id}:confirm`, labelKey: 'ready.row.addons', state: 'ok', key: 'ready.addons.confirmChat', params: { addon: hold.addon } }, 'caps', 'agent_id'))
+          }
+        }
+      } else if (hold.tick_removed) {
+        rows.push({ id, labelKey: 'ready.row.addons', state: 'attention', key: 'ready.addons.removed', params, fix: jump('caps', hold.capability, 'fix.turnOn') })
+      } else if (conns.length > 0 && !live) {
+        rows.push({ id, labelKey: 'ready.row.addons', state: 'attention', key: 'ready.addons.modeOff', params: { ...params, connection: conns.map((c) => c.name).join(', ') } })
+      } else {
+        rows.push({ id, labelKey: 'ready.row.addons', state: 'attention', key: 'ready.addons.off', params, fix: jump('caps', hold.capability, 'fix.turnOn') })
+      }
+      continue
+    }
+    const d = unusable(hold.capability, view, form, lists, paired, now)
+    if (d) rows.push({ id, labelKey: 'ready.row.addons', state: 'attention', key: 'ready.addons.blocked', params: { ...params, message: messageOf(d), messageKey: messageKey(d) }, fix: d.fix })
+    else {
+      rows.push(afterSave({ id, labelKey: 'ready.row.addons', state: 'ok', key: 'ready.addons.ok', params }, 'caps', 'grants', 'allow', 'accept_any', 'agent_id'))
+      if ((hold.connections || []).some((c) => c.write_mode === 'propose') && on('proposals.confirm') && hasPairing(paired, now)) {
+        rows.push(afterSave({ id: `${id}:confirm`, labelKey: 'ready.row.addons', state: 'ok', key: 'ready.addons.confirmChat', params: { addon: hold.addon } }, 'caps', 'agent_id'))
+      }
     }
   }
 
@@ -354,7 +429,7 @@ export function readinessRows(ctx) {
 export function messageOf(d) {
   if (d.message) return d.message
   if (d.code === 'nobody_let_in') return 'Nobody is let in yet.'
-  if (d.code === 'nobody_paired') return 'This needs a person you paired with the bot, and nobody is paired yet.'
+  if (d.code === 'nobody_paired') return 'This needs a verified person, and nobody is verified yet.'
   return d.reason || ''
 }
 
@@ -367,10 +442,48 @@ export function messageKey(d) {
   return ''
 }
 
+// The rows of the status line: the connection itself (token, agent) and who is
+// let in. The other rows say what a kind of sender may do, which the matrix
+// shows cell by cell.
+export const STATUS_ROW_IDS = ['token', 'agent', 'who']
+export const statusRows = (rows) => rows.filter((r) => STATUS_ROW_IDS.includes(r.id))
+
 // The rows to show, and how many are hidden, in collapsed mode: only the
 // rows that need the owner.
 export function visibleRows(rows, expanded) {
   if (expanded) return { shown: rows, hidden: 0 }
   const shown = rows.filter((r) => isProblem(r.state))
   return { shown, hidden: rows.length - shown.length }
+}
+
+// The rows of a connection that is not saved yet. "Keep these changes" has no
+// meaning there, so a row loses its save fix. A row that only waits for the
+// save is not a thing to set, so it is not a problem here.
+export const forNewConnection = (rows) => rows.map((r) => (r.fix?.kind === 'save' ? { ...r, fix: undefined } : r))
+export const isThingToSet = (state) => isProblem(state) && state !== 'after_save'
+
+// How many things a new connection still needs from the person.
+export const thingsToSet = (rows) => rows.filter((r) => isThingToSet(r.state)).length
+
+// OUTCOME_TONES maps how an add-on tool call ended to the look of its badge:
+// a held call waits for a person, a refused or failed one needs a fix.
+const OUTCOME_TONES = { ok: 'done', held: 'skipped', denied: 'failed', error: 'failed', confirmed: 'done', cancelled: 'skipped', expired: 'skipped' }
+
+// toolOutcomeRows lists the latest add-on tool calls of a binding for the access
+// view, newest first and at most `limit`. A row names the tool and says how the
+// call ended and why; the host sends names and codes, never arguments or results.
+export function toolOutcomeRows(view, limit = 20) {
+  return (view?.tool_outcomes || []).slice(0, limit).map((e, i) => ({
+    key: `${e.at}-${e.tool}-${i}`,
+    tool: e.addon ? `${e.addon} / ${e.tool}` : e.tool,
+    outcome: Object.hasOwn(OUTCOME_TONES, e.outcome) ? e.outcome : 'error',
+    tone: OUTCOME_TONES[e.outcome] || 'failed',
+    at: e.at,
+    code: e.code || '',
+    message: e.message || '',
+    status: e.status || 0,
+    senders: e.senders || [],
+    asker: e.asker || '',
+    senderName: e.sender_name || '',
+  }))
 }

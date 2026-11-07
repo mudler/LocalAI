@@ -117,17 +117,12 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
       async list(signal) {
         return (await api.apps.read(signal)).apps
       },
-      // The list with the marks the server puts on it: stale is true when the
-      // server answers with the last list it got from the owner (the owner is
-      // busy or not reachable), so a page can say so and keep showing it.
+      // The server fails closed: when the owner does not answer it sends a
+      // typed 503, never an older list. A page that wants to keep showing its
+      // last list keeps it in its own memory.
       async read(signal) {
         const out = await call('/api/addons/apps', { signal })
-        return {
-          apps: Array.isArray(out?.apps) ? out.apps : [],
-          stale: out?.stale === true,
-          staleReason: typeof out?.staleReason === 'string' ? out.staleReason : '',
-          staleSince: typeof out?.staleSince === 'string' ? out.staleSince : '',
-        }
+        return { apps: Array.isArray(out?.apps) ? out.apps : [] }
       },
       async start(id, { operationId, generation }, signal) {
         const out = await call(`/api/addons/apps/${encodeURIComponent(id)}/start`, { method: 'POST', body: { operationId, generation }, signal })
@@ -288,6 +283,8 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
     // The kind of the entry: addon when the library does not say.
     kind: release.kind || 'addon',
     alias: release.alias || '',
+    // A short text from the add-on: what it needs before it works.
+    setup: typeof release.setup === 'string' ? release.setup : '',
     channel: release.channel || '',
     digest: release.digest || '',
     platform: { os: release.os, arch: release.arch },

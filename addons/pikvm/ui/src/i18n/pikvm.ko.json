@@ -14,8 +14,8 @@
   "agentOf": "에이전트: {{name}}",
   "inactive": "실행 중이 아님: {{reason}}.",
   "title": "PiKVM",
-  "intro": "채팅과 에이전트가 PiKVM과 그것이 제어하는 기기를 확인할 수 있게 합니다. 허용하면 전원 버튼을 누르고 키보드를 사용할 수도 있으며, 그런 동작은 모두 사람이 확인해야 실행됩니다.",
-  "limits": "실제 기기의 전원 버튼을 누르거나 입력할 수 있는 에이전트는 작업을 잃거나 명령을 실행할 수 있습니다. 모든 동작은 내 확인을 기다립니다. 입력과 강제 전원 동작은 관리자가 아래에서 켜기 전까지 꺼져 있습니다. PiKVM에는 사용자 권한이 없습니다. 아는 사용자는 누구나 모든 것을 할 수 있으므로, 이 애드온의 한도가 유일한 한도입니다.",
+  "intro": "채팅과 에이전트가 PiKVM과 그것이 제어하는 기기를 확인할 수 있게 합니다. 허용하면 전원 버튼을 누르고 키보드를 사용할 수도 있으며, 아래에서 달리 정하지 않는 한 그런 동작은 사람이 확인해야 실행됩니다.",
+  "limits": "실제 기기의 전원 버튼을 누르거나 입력할 수 있는 에이전트는 작업을 잃거나 명령을 실행할 수 있습니다. 기본적으로 모든 동작은 내 확인을 기다립니다. 전원 동작과 키 입력은 아래에서 확인을 끌 수 있지만, 입력하는 텍스트는 끌 수 없습니다. 입력과 강제 전원 동작은 관리자가 아래에서 켜기 전까지 꺼져 있습니다. PiKVM에는 사용자 권한이 없습니다. 아는 사용자는 누구나 모든 것을 할 수 있으므로, 이 애드온의 한도가 유일한 한도입니다.",
   "new": "새 PiKVM 연결",
   "edit": "PiKVM 연결 편집",
   "user": "PiKVM 사용자 이름",
@@ -67,16 +67,16 @@
   },
   "writeMode": {
     "label": "에이전트가 이 기기에서 할 수 있는 것",
-    "hint": "상태 읽기는 항상 허용됩니다. 어떤 것을 고르든 모든 동작은 내가 확인합니다.",
+    "hint": "상태 읽기는 항상 허용됩니다. 아래 섹션에서 도구별로 달리 정하지 않는 한 모든 동작은 내가 확인합니다.",
     "off": "읽기 전용",
     "propose": "먼저 묻기",
     "line": {
       "off": "읽기만 할 수 있습니다.",
-      "propose": "동작마다 내 승인을 기다립니다."
+      "propose": "동작마다 내 승인을 기다립니다. 끄지 않는 한 그렇습니다."
     },
     "note": {
       "off": "쓰기 접근이 꺼져 있습니다. 이 연결은 상태만 읽습니다.",
-      "propose": "전원 동작, 텍스트, 키 입력은 내가 확인할 때까지 승인 대기열에서 기다립니다. 입력과 강제 전원 동작에는 아래 스위치도 필요합니다."
+      "propose": "전원 동작, 텍스트, 키 입력은 내가 확인할 때까지 승인 대기열에서 기다립니다. 해당 도구의 확인을 끄지 않은 경우입니다. 입력과 강제 전원 동작에는 아래 스위치도 필요합니다."
     },
     "row": {
       "off": "읽기 전용",
@@ -90,17 +90,17 @@
     "saveFailed": "스위치를 저장할 수 없습니다.",
     "intro": "이 스위치는 기기별로 보관되며 이 서버의 모든 사용자에게 적용됩니다. 관리자가 바꾸기 전까지 꺼져 있습니다.",
     "physicalTitle": "물리적 영향.",
-    "physical": "전원 동작은 저장하지 않은 작업을 잃게 할 수 있습니다. 입력과 키 입력은 기기에서 포커스를 가진 곳으로 전달됩니다. 셸, BIOS 메뉴, 로그인 화면 등이 해당합니다. 각 동작은 사람이 확인하며 정확한 텍스트나 키를 볼 수 있습니다.",
+    "physical": "전원 동작은 저장하지 않은 작업을 잃게 할 수 있습니다. 입력과 키 입력은 기기에서 포커스를 가진 곳으로 전달됩니다. 셸, BIOS 메뉴, 로그인 화면 등이 해당합니다. 전원 동작이나 키 입력의 확인을 끄지 않은 한, 각 동작은 사람이 확인하며 정확한 텍스트나 키를 볼 수 있습니다.",
     "readOnly": "관리자만 이 스위치를 바꿀 수 있습니다.",
     "broken": "저장된 스위치를 읽을 수 없어서 모두 꺼진 것으로 처리합니다. 스위치를 다시 저장해 복구하세요.",
     "none": "스위치를 설정하려면 PiKVM 연결을 추가하세요.",
     "typing": "입력과 키 입력 허용",
-    "typingHint": "채팅이 텍스트 입력과 키 누르기를 요청할 수 있게 합니다. 각 요청은 여전히 내 확인을 기다립니다.",
+    "typingHint": "채팅이 텍스트 입력과 키 누르기를 요청할 수 있게 합니다. 입력하는 텍스트는 항상 내 확인을 기다립니다. 키 입력도 확인을 끄지 않은 한 기다립니다.",
     "maxChars": "최대 텍스트 길이",
     "maxCharsHint": "한 번에 입력하는 텍스트의 글자 수입니다. 기본값 {{default}}, 최대 1000.",
     "maxCharsShape": "1부터 1000까지의 정수를 입력하세요.",
     "hard": "강제 전원 동작 허용",
-    "hardHint": "채팅이 강제 전원 끄기, 하드웨어 리셋, 전원 버튼 길게 누르기를 요청할 수 있게 합니다. 각 요청은 여전히 내 확인을 기다립니다.",
+    "hardHint": "채팅이 강제 전원 끄기, 하드웨어 리셋, 전원 버튼 길게 누르기를 요청할 수 있게 합니다. 전원 동작의 확인을 끄지 않은 한, 각 요청은 내 확인을 기다립니다.",
     "save": "스위치 저장",
     "saved": "저장했습니다. 다음 호출부터 새 스위치가 적용됩니다.",
     "neverTitle": "사용할 수 없는 항목",
@@ -129,6 +129,31 @@
     "counts": "{{chars}}자, {{lines}}줄",
     "typeEffect": "텍스트가 기기의 키보드로, 포커스를 가진 곳에 입력됩니다. 줄바꿈은 Enter를 누릅니다.",
     "keys": "키 (누르는 순서)",
-    "keysEffect": "키가 기기의 키보드에서 이 순서대로 눌립니다."
+    "keysEffect": "키가 기기의 키보드에서 이 순서대로 눌립니다.",
+    "title": "Ask before acting",
+    "intro": "By default a power action, a key press or a typed text waits for your confirmation. For the two kinds of action below you can choose not to be asked. The choice is yours alone, it applies to all your PiKVM connections, and only this page can change it.",
+    "tool": {
+      "power-action": "Power actions (on, off, reset)",
+      "send-key": "Key presses"
+    },
+    "ask": "Ask each time",
+    "skip": "Don't ask",
+    "line": {
+      "ask": "A card waits for your OK.",
+      "skip": "It runs at once."
+    },
+    "warnTitle": "Read this before you choose Don't ask.",
+    "warn": {
+      "power-action": "A chat can then switch this machine off or reset it at once, with no card to confirm, and unsaved work on it is lost. If an administrator allowed hard power actions, those run without asking too.",
+      "send-key": "A chat can then press keys such as Ctrl+Alt+Delete, Escape or Enter on this machine at once, with no card to confirm."
+    },
+    "textAlways": "Typed text always asks. It can enter a password or a command, so it has no Don't ask.",
+    "who": "Don't ask holds for your own chats and for messaging senders you paired with the bot. Everyone else is still asked: senders only on the allowlist, senders let in because the bot accepts anyone, scheduled runs and sub-agents.",
+    "needsWrite": "A connection set to Read only runs nothing, whatever you choose here.",
+    "audit": "Every run without asking is written to the log with the tool, the connection and the result. The typed text and the keys are not.",
+    "loading": "Reading your choice...",
+    "loadFailed": "Your choice could not be read. Reload the page to try again.",
+    "saveFailed": "Your choice could not be saved. The earlier choice is still in force.",
+    "saved": "Saved. The next call follows it."
   }
 }

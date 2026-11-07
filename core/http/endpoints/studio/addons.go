@@ -6,6 +6,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/schema"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 func addonList(c echo.Context, h *Handlers) error {
@@ -28,14 +29,14 @@ func writeAddonList(c echo.Context, h *Handlers, list []studiosvc.AddonInfo, cmd
 		out.ExecutionStatus = &schema.ChatsExecutionStatus{Readiness: v.Readiness, Isolation: v.Isolation, Explanation: v.Explanation, UnknownReason: v.UnknownReason, Generation: v.Generation, Incarnation: v.Incarnation}
 	}
 	for _, a := range list {
-		out.Addons = append(out.Addons, addonOut(a))
+		out.Addons = append(out.Addons, addonOut(c, a))
 	}
 	return c.JSON(http.StatusOK, out)
 }
 
 // addonOut is one add-on row with its switch and, for an add-on that runs
 // with a credential, the connections and the ones this chat may use.
-func addonOut(a studiosvc.AddonInfo) schema.ChatsAddon {
+func addonOut(c echo.Context, a studiosvc.AddonInfo) schema.ChatsAddon {
 	row := schema.ChatsAddon{ID: a.ID, Tools: a.Tools, Off: a.Off, Title: a.Title, Description: a.Description, Credentialed: a.Credentialed,
 		Enabled: a.Enabled.IDs(), ConnectionBy: a.Enabled.By, NeedsConnection: a.Credentialed && len(a.Enabled.Items) == 0}
 	if len(row.Enabled) == 0 {
@@ -44,7 +45,60 @@ func addonOut(a studiosvc.AddonInfo) schema.ChatsAddon {
 	for _, x := range a.Connections {
 		row.Connections = append(row.Connections, schema.ChatsConnection{ID: x.ID, Name: x.Name, Handle: x.Handle})
 	}
+	for _, t := range a.ToolList {
+		kind := "read"
+		if t.Write {
+			kind = "write"
+		}
+		row.ToolList = append(row.ToolList, schema.ChatsAddonTool{Name: t.Name, Kind: kind})
+	}
+	if a.Resources != nil {
+		noun, plural, lang := resourceNouns(c, *a.Resources)
+		row.Resources = &schema.ChatsAddonResources{Noun: noun, NounPlural: plural, Language: lang}
+	}
 	return row
+}
+
+// resourceNouns resolves the word for the resources of an add-on in the
+// language of the request (lang, else Accept-Language) among the languages the
+// manifest translates. The language is empty when the English words are used.
+func resourceNouns(c echo.Context, r studiosvc.ResourceLabel) (noun, plural, lang string) {
+	available := make([]string, 0, len(r.Translations))
+	for tag := range r.Translations {
+		available = append(available, tag)
+	}
+	lang = contract.NegotiateLanguage(c.QueryParam("lang"), c.Request().Header.Get("Accept-Language"), available)
+	noun, plural = contract.ResolveResourceNouns(r.Noun, r.NounPlural, r.Translations, lang)
+	if lang != "" {
+		if _, ok := r.Translations[lang]; !ok {
+			lang = ""
+		}
+	}
+	return noun, plural, lang
+}
+
+// ListAgentResourceChoices lists the resources of an add-on you can give an agent.
+// @Summary List the resources of an add-on that you can give a saved agent.
+// @Description For an add-on whose manifest scopes its resources per agent, returns what the add-on's declared listing gives you now, ordered by ID: the resources you own or were granted, with your role on each, and the add-on's word for them (noun, noun_plural; lang or Accept-Language picks a translation the manifest has). The list is the choice for the agent field resources; a chat of the agent still reaches only what you may use at that moment. An add-on that does not scope its resources per agent, or is not there for you, is 404.
+// @Tags chats
+// @Param addon path string true "the add-on's id"
+// @Param lang query string false "Language tag for the nouns, such as it or pt-BR. Wins over Accept-Language. A language the manifest does not translate gives English."
+// @Success 200 {object} schema.ChatsAgentResourceChoices "The resources you can give an agent"
+// @Failure 404 {object} schema.ErrorResponse "No such add-on, or it has no resources to give to an agent"
+// @Router /api/chats/agents/addons/{addon}/resources [get]
+func (h *Handlers) ListAgentResourceChoices(c echo.Context) error {
+	choices, err := h.svc.AgentResourceChoices(c.Request().Context(), userID(c), c.Param("addon"))
+	if err != nil {
+		return failFor(c, err)
+	}
+	out := schema.ChatsAgentResourceChoices{AddonID: c.Param("addon"), Items: make([]schema.ChatsAgentResourceChoice, 0, len(choices.Items)), Truncated: choices.Truncated}
+	if choices.Label != nil {
+		out.Noun, out.NounPlural, out.Language = resourceNouns(c, *choices.Label)
+	}
+	for _, it := range choices.Items {
+		out.Items = append(out.Items, schema.ChatsAgentResourceChoice{ID: it.ID, Name: it.Name, Role: it.Role})
+	}
+	return c.JSON(http.StatusOK, out)
 }
 
 // ListChatAddons lists the add-ons a chat can use.

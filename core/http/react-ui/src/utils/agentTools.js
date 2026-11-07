@@ -65,9 +65,11 @@ export function agentAddons(addons, form) {
   // names, not the ones a new chat would use; an ID that is not one of the
   // person's connections is left out.
   const withConnection = (a) => (a.credentialed
-    ? { ...a, enabled_connections: list(a.connections).map((c) => c.id).filter((id) => connectionIds(named[a.id]).includes(id)), connection_by: '', needs_connection: false }
+    ? { ...a, enabled_connections: list(a.connections).map((c) => c.id).filter((id) => connectionIds(named[a.id]).includes(id)), stored_connections: connectionIds(named[a.id]).length, connection_by: '', needs_connection: false }
     : a)
-  return [...list(addons).map((a) => ({ ...withConnection(a), off: !granted.has(a.id) })), ...gone.map((a) => ({ ...a, off: false }))]
+  // The resources the agent names for an add-on that scopes them per agent.
+  const withResources = (a) => ({ ...a, agent_resources: list(form.resources?.[a.id]) })
+  return [...list(addons).map((a) => ({ ...withResources(withConnection(a)), off: !granted.has(a.id) })), ...gone.map((a) => ({ ...a, off: false }))]
 }
 
 // The binding IDs of one entry of a connections object. A server older than

@@ -319,13 +319,11 @@ export function upgradingTitles(apps) {
 }
 
 // Why the list on screen may be out of date: 'busy' (the owner did not answer
-// in time or the server sent its last copy), 'unreachable' or '' when it is
-// current.
-export function staleKind({ error, stale, staleReason }) {
+// in time), 'unreachable' or '' when it is current.
+export function staleKind({ error, stale }) {
   if (!stale) return ''
   if (error && error.kind === 'busy') return 'busy'
-  if (staleReason === 'owner_busy') return 'busy'
-  if (error || staleReason === 'owner_unavailable') return 'unreachable'
+  if (error) return 'unreachable'
   return 'busy'
 }
 
@@ -350,4 +348,38 @@ export function loadLastKnown(storage, actor, maxAgeMs = 24 * 3600 * 1000, now =
   } catch {
     return null
   }
+}
+
+// ---- Icons, groups and categories ---------------------------------------------
+
+// The category of an add-on, for the groups of the installed list and the
+// filter of the library. The host sends no category, so it is read from what
+// it does send, never from an id: an add-on that serves a connector kind is a
+// chat app; one that gives chat tools is a tool; one with a page only is a
+// "models" page; anything else is a tool.
+export const CATEGORIES = ['chat', 'tools', 'models']
+
+export function categoryOf(item, { connector = false } = {}) {
+  if (connector) return 'chat'
+  // A library entry names its page under ui; an installed add-on says hasUI.
+  const added = item && item.ui ? addedByEntry(item) : addedByAddon(item || {})
+  if (added.tools > 0) return 'tools'
+  return added.page ? 'models' : 'tools'
+}
+
+// The groups of the installed list, in the order they are drawn. Built-in pages
+// of the host have their own group, last.
+export const GROUPS = ['chat', 'tools', 'models', 'builtin']
+
+export function groupOf(tile, { connectorAddons } = {}) {
+  if (tile.source === 'builtin') return 'builtin'
+  return categoryOf(tile.app || { id: tile.id }, { connector: Boolean(connectorAddons && connectorAddons.has(tile.id)) })
+}
+
+// The rows split into the groups, empty groups left out, each row in the order
+// it came in.
+export function groupTiles(tiles, opts) {
+  const out = GROUPS.map(id => ({ id, tiles: [] }))
+  for (const tile of tiles) out.find(g => g.id === groupOf(tile, opts)).tiles.push(tile)
+  return out.filter(g => g.tiles.length > 0)
 }

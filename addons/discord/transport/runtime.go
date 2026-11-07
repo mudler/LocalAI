@@ -128,6 +128,15 @@ func (p platform) Edit(ctx context.Context, req contract.ConnectorRequest) error
 	return p.r.API.EditMessage(ctx, req.Token, ch, req.MessageID, req.Text)
 }
 
+// Delete removes the preview that an answer could not replace.
+func (p platform) Delete(ctx context.Context, req contract.ConnectorRequest) error {
+	ch, err := p.r.channel(ctx, req)
+	if err != nil {
+		return err
+	}
+	return p.r.API.DeleteMessage(ctx, req.Token, ch, req.MessageID)
+}
+
 // Typing does nothing. The typing indicator of Discord lasts ten seconds and
 // its documentation discourages it for bots; the host shows its own working
 // message and edits it.
@@ -141,10 +150,18 @@ func (p platform) Me(ctx context.Context, token string) (connector.Bot, error) {
 		return connector.Bot{}, err
 	}
 	name := u.Username
-	if on, ok := p.r.API.MessageContentOn(ctx, token); ok && !on {
-		name += " (warning: the Message Content intent is off, so the bot cannot read messages in servers; turn it on in the developer portal)"
+	// The application is the account: a second token of the same application
+	// is the same bot. The bot user is the fallback when it cannot be read.
+	account := u.ID
+	if app, ok := p.r.API.Application(ctx, token); ok {
+		if app.ID != "" {
+			account = app.ID
+		}
+		if app.Flags&(flagMessageContent|flagMessageContentLimited) == 0 {
+			name += " (warning: the Message Content intent is off, so the bot cannot read messages in servers; turn it on in the developer portal)"
+		}
 	}
-	return connector.Bot{ID: u.ID, Username: name}, nil
+	return connector.Bot{ID: u.ID, Username: name, AccountID: account}, nil
 }
 
 // MediaStream streams a file of a message to the host. The reference holds

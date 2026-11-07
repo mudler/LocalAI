@@ -128,6 +128,27 @@ var _ = Describe("immutable packages", func() {
 		Expect(e).To(HaveOccurred())
 		Expect(filepath.Join(receipt.Directory, "bin/sample")).To(BeAnExistingFile())
 	})
+	It("refuses a package that needs a newer feature level, from the entry and from the manifest", func() {
+		i, r := fixture(archive(nil, m), func(r *catalog.Release, _ *catalog.Source) { r.Requires.FeatureLevel = 2 })
+		_, e := i.Stage(context.Background(), r, nil)
+		var refusal *contract.FeatureLevelRefusal
+		Expect(errors.As(e, &refusal)).To(BeTrue())
+		Expect(e).To(MatchError("needs a newer LocalAI"))
+		// The same entry installs on a host that has the level.
+		i.Host.FeatureLevel = 2
+		_, e = i.Stage(context.Background(), r, nil)
+		Expect(errors.As(e, &refusal)).To(BeFalse())
+
+		// The manifest decides when the entry says nothing.
+		needy := bytes.Replace(m, []byte("{"), []byte(`{"featureLevel": 2,`), 1)
+		i, r = fixture(archive(nil, needy))
+		_, e = i.Stage(context.Background(), r, nil)
+		Expect(errors.As(e, &refusal)).To(BeTrue())
+		i.Host.FeatureLevel = 2
+		s, e := i.Stage(context.Background(), r, nil)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(i.Discard(s)).To(Succeed())
+	})
 	It("rejects untrusted integrity forged releases and digest mismatches", func() {
 		i, r := fixture(archive(nil, m))
 		r.Digest = ""

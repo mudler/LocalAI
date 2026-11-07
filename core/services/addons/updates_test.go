@@ -45,6 +45,8 @@ type updateLibrary struct {
 	sources  *catalog.Sources
 	// transform lets lifecycle specs publish real typed executable packages.
 	transform func(map[string]any) map[string][]byte
+	// archiveDelay slows every package download, as a large package on a slow link does.
+	archiveDelay time.Duration
 }
 
 func (l *updateLibrary) publish(version, channel, content string, requires catalog.Requirements) catalog.Release {
@@ -120,6 +122,7 @@ func newUpdateRig(withUpdates bool) *updateRig {
 			return
 		}
 		if data, ok := lib.archives[r.URL.Path]; ok {
+			time.Sleep(lib.archiveDelay)
 			_, _ = w.Write(data)
 			return
 		}
@@ -381,6 +384,19 @@ var _ = Describe("explicit upgrade from an authoritative update check", func() {
 		Expect(e).To(MatchError(ErrIncompatible))
 		s, _ = r.m.Status(ctx, "sample")
 		Expect(s.Generation).To(Equal(uint64(1)))
+	})
+
+	It("refuses a candidate that needs a newer feature level, and offers one the host has", func() {
+		r := newUpdateRig(true)
+		s := r.installChannel()
+		installed := s.Generations[0].Receipt
+		next := r.lib.publish("1.2.3-dev", "development", "build-2", catalog.Requirements{FeatureLevel: contract.HostFeatureLevel + 1})
+		st, e := r.m.CheckUpdates(ctx, actor, "sample")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(st.State).To(Equal(updates.Incompatible))
+		Expect(st.Reasons).To(ConsistOf(updates.ReasonFeatureLevel))
+		_, e = r.m.Submit(ctx, actor, upgrade("lvl", installed.Digest, next.Digest))
+		Expect(e).To(MatchError(ErrIncompatible))
 	})
 
 	It("selects a newer immutable version and treats a rewritten version as an integrity error", func() {

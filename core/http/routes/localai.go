@@ -255,10 +255,13 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	router.DELETE("/api/failover/:chain/pin", localai.UnpinFailoverTargetEndpoint(fm), adminMiddleware)
 
 	voiceProfiles := app.VoiceProfileStore()
+	// Every user with the audio speech feature creates and deletes their own
+	// profiles; the handlers apply the ownership rules (voiceprofile.Viewer),
+	// and the feature itself is checked by the RouteFeatureRegistry.
 	router.GET("/api/voice-profiles", localai.ListVoiceProfilesEndpoint(voiceProfiles))
 	router.GET("/api/voice-profiles/:id/audio", localai.ServeVoiceProfileAudioEndpoint(voiceProfiles))
-	router.POST("/api/voice-profiles", localai.CreateVoiceProfileEndpoint(voiceProfiles), adminMiddleware)
-	router.DELETE("/api/voice-profiles/:id", localai.DeleteVoiceProfileEndpoint(voiceProfiles), adminMiddleware)
+	router.POST("/api/voice-profiles", localai.CreateVoiceProfileEndpoint(voiceProfiles))
+	router.DELETE("/api/voice-profiles/:id", localai.DeleteVoiceProfileEndpoint(voiceProfiles))
 
 	ttsHandler := localai.TTSEndpoint(cl, ml, appConfig, voiceProfiles)
 	router.POST("/tts",

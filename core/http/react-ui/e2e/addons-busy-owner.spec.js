@@ -3,7 +3,7 @@ import { ADMIN, app, installedAddon, sessionFor, mockAddons, fail } from './addo
 
 // The owner is busy with an upgrade. The routes are stand-ins
 // (addons-fixtures.js); the owner's own behaviour is covered by the Go specs
-// "reads during a long upgrade" and "apps list while the owner is busy".
+// "reads during a long upgrade" and "apps list while the owner is busy". The server fails closed (a typed 503 on a timeout, never an older list); the page keeps its own last list..
 
 const shots = process.env.BUSY_SHOTS
 const theme = process.env.BUSY_THEME
@@ -58,17 +58,20 @@ test.describe('Add-ons: the owner is busy', () => {
     await expect(page.getByText('No add-ons yet')).toHaveCount(0)
   })
 
-  test('a stale list from the server keeps the rows, names what is upgrading and shows the phase of each row', async ({ page }) => {
+  test('a timeout after a list with upgrades in flight keeps the rows, names what is upgrading and shows the phase of each row', async ({ page }) => {
     await signIn(page)
+    let busy = false
     await mockAddons(page, {
       apps: [notes(), sandbox(), tables()],
       installed: [installedAddon({ id: 'notes' })],
-      appsList: () => body({
-        apps: [notes({ operation: upgrading('downloading') }), sandbox({ operation: upgrading('starting') }), tables()],
-        stale: true, staleReason: 'owner_busy', staleSince: '2026-11-04T17:18:30Z',
-      }),
+      appsList: () => (busy
+        ? fail(503, 'owner_busy', { message: 'busy', code: 503 })
+        : body({ apps: [notes({ operation: upgrading('downloading') }), sandbox({ operation: upgrading('starting') }), tables()] })),
     })
     await page.goto('/app/addons')
+    await expect(tile(page, 'notes').getByTestId('operation-chip')).toBeVisible()
+    busy = true
+    await page.reload()
     const banner = page.getByTestId('addons-stale')
     await expect(banner).toBeVisible()
     await expect(banner).toContainText('The add-on server is busy (upgrading Notes, Sandbox)')
@@ -122,10 +125,14 @@ test.describe('Add-ons: the owner is busy', () => {
     await expect(page.getByTestId('addons-load-error')).toHaveCount(0)
   })
 
-  test('a stale copy of an empty list is not the empty state either', async ({ page }) => {
+  test('a remembered empty list shown during a timeout is not the empty state either', async ({ page }) => {
     await signIn(page)
-    await mockAddons(page, { apps: [], appsList: () => body({ apps: [], stale: true, staleReason: 'owner_busy' }) })
+    let busy = false
+    await mockAddons(page, { apps: [], appsList: () => (busy ? fail(503, 'owner_busy', { message: 'busy', code: 503 }) : null) })
     await page.goto('/app/addons')
+    await expect(page.getByText('No add-ons yet').first()).toBeVisible()
+    busy = true
+    await page.reload()
     await expect(page.getByTestId('addons-load-error')).toBeVisible()
     await expect(page.getByText('No add-ons yet')).toHaveCount(0)
   })

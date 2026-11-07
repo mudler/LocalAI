@@ -13,7 +13,7 @@ import zh from './i18n/discord.zh-CN.json'
 import id from './i18n/discord.id.json'
 import ko from './i18n/discord.ko.json'
 import pt from './i18n/discord.pt-BR.json'
-import { DISCORD_LISTS, PERMISSIONS, PERMISSION_INTEGER, badEntries, discordSecret, inviteUrl, tokenProblem } from './ids'
+import { DISCORD_LISTS, PERMISSIONS, isChannelId, PERMISSION_INTEGER, badEntries, discordSecret, inviteUrl, tokenProblem } from './ids'
 
 // The words of the page, in every language of the web UI; a key a language lacks reads in English.
 registerLocales({ discord: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
@@ -96,7 +96,7 @@ export function createDiscord() {
     return (
       <RouteProvider value={{ page, path: path || '', search: search || '' }}>
         <ConnectorPage kind="discord" ns="discord" testId="discord-page" TokenFields={DiscordToken} tokenOf={discordSecret}
-          lists={DISCORD_LISTS} Help={DiscordHelp} notifyMode="text"
+          lists={DISCORD_LISTS} isChannelEntry={isChannelId} mixedList Help={DiscordHelp} notifyMode="text"
           ExtraFields={DiscordRules} extraValid={(form) => badEntries(form).length === 0 && !tokenProblem(form)} />
       </RouteProvider>
     )

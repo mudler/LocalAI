@@ -35,7 +35,7 @@ type call struct {
 // The client takes its pins from the same policy.
 func (r *Runtime) newCall(ctx context.Context, env contract.Envelope) (*call, error) {
 	if env.Request.ResourceKey == "" {
-		return nil, bad("instance is not the one the host allowed")
+		return nil, bad("the connection has no address")
 	}
 	t, err := haapi.ParseBase(env.Request.ResourceKey)
 	if err != nil {
@@ -52,9 +52,11 @@ func (r *Runtime) newCall(ctx context.Context, env contract.Envelope) (*call, er
 	return &call{r: r, ctx: ctx, token: env.Request.Credential, key: env.Request.ResourceKey, target: t, pol: cp, raw: p}, nil
 }
 
-// instance checks the argument against the address the host allowed.
+// instance checks the argument against the address the host allowed. The
+// connection is the only source of the target: a call that leaves instance out
+// uses it, and one that names an address must name that one.
 func (c *call) instance(arg string) error {
-	if arg == "" || !strings.EqualFold(arg, c.key) {
+	if arg != "" && !strings.EqualFold(arg, c.key) {
 		return bad("instance is not the one the host allowed")
 	}
 	return nil

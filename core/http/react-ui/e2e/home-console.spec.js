@@ -40,7 +40,7 @@ test.describe('Home slash menu', () => {
       '/model', '/new', '/chat', '/assistant', '/models',
       '/gallery', '/installed', '/import', '/stop',
       // No installation advice for a particular provider.
-      '/agents', '/mcp', '/memory', '/apps', '/settings', '/docs',
+      '/agents', '/mcp', '/knowledge', '/apps', '/settings', '/docs',
     ])
     // The test server always keeps built-in skills, so /skill is offered.
     expect(names.slice(15, 18)).toEqual(['/attach', '/skill', '/skills'])
@@ -60,6 +60,17 @@ test.describe('Home slash menu', () => {
       await page.getByTestId(`home-slash-${cmd}`).click()
       await expect(page).toHaveURL(url)
     }
+  })
+
+  test('/knowledge is the name and /memory still finds the same command', async ({ page }) => {
+    await ready(page)
+    for (const typed of ['/knowl', '/memory']) {
+      await page.locator('.home-textarea').fill(typed)
+      await expect(page.getByTestId('home-slash-memory')).toBeVisible()
+      await expect(page.getByTestId('home-slash-memory')).toContainText('/knowledge')
+    }
+    await page.getByTestId('home-slash-memory').click()
+    await expect(page).toHaveURL(/\/app\/collections$/)
   })
 
   test('the /skills command opens the Skills page', async ({ page }) => {

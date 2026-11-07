@@ -118,6 +118,11 @@ type Skill struct {
 	// Off is true when Options.Off turned the skill off. An off skill takes
 	// no part in the precedence rule and is not in the index.
 	Off bool
+	// Provider names the provider slot that grants the skill to every chat
+	// that uses the slot ("memory"), and Locked is true then: the person does
+	// not grant it in an agent, the host does. Set by the product.
+	Provider string
+	Locked   bool
 	// Requires are the capabilities the skill needs (the "requires" key of
 	// its frontmatter), for example RequireExec.
 	Requires []string
@@ -160,6 +165,11 @@ type Options struct {
 	// layer in the same call is Invalid. Nil: no add-on skill may replace a
 	// built-in one.
 	Replaceable func(name string) bool
+	// Ignore reports a workspace folder whose skills Resolve leaves out, as
+	// if it did not exist: a folder of skills, or the folder of one skill.
+	// The host passes the folders that another person may write, so their
+	// text never becomes the owner's skill. Nil leaves nothing out.
+	Ignore func(folder string) bool
 }
 
 // ErrNotReplaceable is the reason of an add-on skill that has the name of a
@@ -241,6 +251,9 @@ func Resolve(ctx context.Context, s workspace.Store, a workspace.Actor, roots []
 	reads, probes := 0, 0
 scan:
 	for _, b := range boxes {
+		if o.Ignore != nil && o.Ignore(b.path) {
+			continue
+		}
 		kids, err := s.List(ctx, a, b.path)
 		if err != nil {
 			// ErrInvalid: the layer folder is a file, for example a user wrote
@@ -259,6 +272,9 @@ scan:
 				break scan
 			}
 			probes++
+			if o.Ignore != nil && o.Ignore(skillDir(b, k)) {
+				continue
+			}
 			sk, ok, err := readSkill(ctx, s, a, b, k)
 			if err != nil {
 				return nil, nil, err
@@ -384,13 +400,18 @@ func walk(ctx context.Context, s workspace.Store, a workspace.Actor, r Root, ski
 	return found, cut, nil
 }
 
+// skillDir is the workspace path of the skill folder dir of the container b.
+func skillDir(b container, dir workspace.Node) string {
+	if dir.Path != "" {
+		return dir.Path
+	}
+	return path.Join(b.path, dir.Name)
+}
+
 // readSkill reads <container>/<dir>/SKILL.md. ok is false when the folder has
 // no SKILL.md, which is not an error.
 func readSkill(ctx context.Context, s workspace.Store, a workspace.Actor, b container, dir workspace.Node) (Skill, bool, error) {
-	dp := dir.Path
-	if dp == "" {
-		dp = path.Join(b.path, dir.Name)
-	}
+	dp := skillDir(b, dir)
 	sk := Skill{
 		Name:       dir.Name,
 		Layer:      b.layer,

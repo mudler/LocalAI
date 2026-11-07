@@ -92,9 +92,10 @@
       },
       {
         "name": "power-action",
-        "description": "Press a power button of the machine the PiKVM controls: on, off (short press, soft power off) or reset. off_hard, reset_hard and long_press force the machine and are refused unless an administrator allowed hard power actions for this device. A person confirms every call and sees the power state. Do not say it was done until the result says so.",
+        "description": "Press a power button of the machine the PiKVM controls: on, off (short press, soft power off) or reset. off_hard, reset_hard and long_press force the machine and are refused unless an administrator allowed hard power actions for this device. A person confirms each call and sees the power state, unless the owner chose to skip that for this tool. Do not say it was done until the result says so.",
         "kind": "write",
         "approval": "always",
+        "approvalOverridable": true,
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -152,9 +153,10 @@
       },
       {
         "name": "send-key",
-        "description": "Press single keys or the chords ctrl+alt+delete, ctrl+c and ctrl+z on the machine the PiKVM controls, in order. Allowed keys: a-z, 0-9, up, down, left, right, enter, escape, tab, f1 to f12. Nothing else, no Windows or Meta chords. Off until an administrator switches on typing for this device. A person confirms every call.",
+        "description": "Press single keys or the chords ctrl+alt+delete, ctrl+c and ctrl+z on the machine the PiKVM controls, in order. Allowed keys: a-z, 0-9, up, down, left, right, enter, escape, tab, f1 to f12. Nothing else, no Windows or Meta chords. Off until an administrator switches on typing for this device. A person confirms each call, unless the owner chose to skip that for this tool.",
         "kind": "write",
         "approval": "always",
+        "approvalOverridable": true,
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -226,6 +228,10 @@
           ]
         }
       }
+    ],
+    "userSettings": [
+      { "key": "approval-power-action", "values": ["ask", "skip"], "default": "ask" },
+      { "key": "approval-send-key", "values": ["ask", "skip"], "default": "ask" }
     ],
     "credentials": [
       {
@@ -301,15 +307,15 @@
         "id": "PiKVM"
       },
       "description": {
-        "en": "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time.",
-        "it": "Lascia che le tue chat e i tuoi agenti controllino un PiKVM e, se lo permetti, premano i pulsanti di accensione e scrivano sulla macchina che governa, con una conferma ogni volta.",
-        "de": "Lassen Sie Ihre Chats und Agenten einen PiKVM prüfen und, wenn Sie es erlauben, Einschalttasten drücken und auf dem gesteuerten Rechner tippen, jedes Mal mit einer Bestätigung.",
-        "es": "Permite que tus chats y agentes revisen un PiKVM y, si lo autorizas, pulsen los botones de encendido y escriban en la máquina que controla, con una confirmación cada vez.",
-        "fr": "Laissez vos conversations et vos agents consulter un PiKVM et, si vous l'autorisez, appuyer sur les boutons d'alimentation et taper sur la machine qu'il pilote, avec une confirmation à chaque fois.",
-        "pt-BR": "Deixe seus chats e agentes verificarem um PiKVM e, se você permitir, pressionarem os botões de energia e digitarem na máquina que ele controla, com uma confirmação a cada vez.",
-        "zh-CN": "让你的聊天和智能体查看 PiKVM，并在你允许时按下电源按钮、在它所控制的机器上输入内容，每次都需要确认。",
-        "ko": "채팅과 에이전트가 PiKVM을 확인하고, 허용하면 전원 버튼을 누르고 PiKVM이 제어하는 기기에 입력할 수 있게 합니다. 매번 확인을 거칩니다.",
-        "id": "Izinkan obrolan dan agen Anda memeriksa PiKVM dan, jika Anda mengizinkan, menekan tombol daya dan mengetik di mesin yang dikendalikannya, dengan konfirmasi setiap kali."
+        "en": "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, asking you to confirm each time unless you say otherwise.",
+        "it": "Lascia che le tue chat e i tuoi agenti controllino un PiKVM e, se lo permetti, premano i pulsanti di accensione e scrivano sulla macchina che governa, chiedendo conferma ogni volta, salvo che tu decida diversamente.",
+        "de": "Lassen Sie Ihre Chats und Agenten einen PiKVM prüfen und, wenn Sie es erlauben, Einschalttasten drücken und auf dem gesteuerten Rechner tippen, mit einer Bestätigung bei jedem Mal, sofern Sie nichts anderes festlegen.",
+        "es": "Permite que tus chats y agentes revisen un PiKVM y, si lo autorizas, pulsen los botones de encendido y escriban en la máquina que controla, pidiendo confirmación cada vez, salvo que decidas otra cosa.",
+        "fr": "Laissez vos conversations et vos agents consulter un PiKVM et, si vous l'autorisez, appuyer sur les boutons d'alimentation et taper sur la machine qu'il pilote, en demandant une confirmation à chaque fois, sauf si vous en décidez autrement.",
+        "pt-BR": "Deixe seus chats e agentes verificarem um PiKVM e, se você permitir, pressionarem os botões de energia e digitarem na máquina que ele controla, pedindo confirmação a cada vez, a menos que você decida o contrário.",
+        "zh-CN": "让你的聊天和智能体查看 PiKVM，并在你允许时按下电源按钮、在它所控制的机器上输入内容，每次都需要确认，除非你另行设置。",
+        "ko": "채팅과 에이전트가 PiKVM을 확인하고, 허용하면 전원 버튼을 누르고 PiKVM이 제어하는 기기에 입력할 수 있게 합니다. 별도로 설정하지 않으면 매번 확인을 거칩니다.",
+        "id": "Izinkan obrolan dan agen Anda memeriksa PiKVM dan, jika Anda mengizinkan, menekan tombol daya dan mengetik di mesin yang dikendalikannya, dengan meminta konfirmasi setiap kali kecuali Anda menentukan lain."
       }
     }
   },

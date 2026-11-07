@@ -25,7 +25,7 @@ var _ = Describe("generic host policy architecture", func() {
 	It("keeps official addon identities out of generic CLI and config policy code", func() {
 		// Tests may retain historical fixtures. Deployment policy is deliberately
 		// outside these packages; unrelated model fields (e.g. quantization) are not IDs.
-		ids := []string{"fine-tuning", "quantization", "sandbox", "office", "web", "telegram"}
+		ids := []string{"fine-tuning", "quantization", "sandbox", "office", "web", "telegram", "mail"}
 		for _, root := range []string{"core/cli", "core/config"} {
 			err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 				if walkErr != nil {

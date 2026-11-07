@@ -290,6 +290,15 @@ var _ = Describe("Addon tool adapter", func() {
 			Expect(e).NotTo(HaveOccurred())
 			Expect(res.Code).To(Equal(tools.CodeNoCredential))
 		})
+		It("tells the model of a shared connection that the resource is not listed, without a list", func() {
+			f.readErr = &gateway.CredentialRefusal{Code: gateway.CodeResourceNotAllowed}
+			res, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(res.Code).To(Equal(tools.CodeResourceNotAllowed))
+			Expect(res.Allowed).To(BeEmpty())
+			Expect(res.Note).To(Equal(tools.ResourceNotListedNote))
+			Expect(res.Note).NotTo(ContainSubstring("in allowed"))
+		})
 		It("keeps an outage an error, never the refused result", func() {
 			f.readErr = gateway.ErrUnavailable
 			_, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))

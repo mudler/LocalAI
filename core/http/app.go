@@ -379,7 +379,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 
 	// Health Checks should always be exempt from auth, so register these first
-	routes.HealthRoutes(e, application.Ready)
+	routes.HealthRoutes(e, application.Ready, application.Draining)
 
 	// Build auth middleware: use the new auth.Middleware when auth is enabled or
 	// as a unified replacement for the legacy key-auth middleware.
@@ -512,6 +512,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 		}
 	} else {
 		routes.RegisterAddonsUnavailable(e, "/api/addons")
+		// Sharing lives in the add-on owner's policy store, so it is off too.
+		routes.RegisterAddonsUnavailable(e, "/api/shares")
 	}
 
 	// Register routing-module usage endpoints. Unlike /api/auth/usage

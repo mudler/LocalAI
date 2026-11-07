@@ -53,12 +53,12 @@ func agentFileVersion(folders int, hasSwitches bool) int {
 // @Success 200 {object} schema.ChatsAgentExport "The agent file"
 // @Router /api/chats/agents/{id}/export [get]
 func (h *Handlers) ExportAgent(c echo.Context) error {
-	a, err := h.svc.Agent(c.Request().Context(), userID(c), c.Param("id"))
+	a, err := h.svc.OwnAgent(c.Request().Context(), userID(c), c.Param("id"))
 	if err != nil {
 		return failFor(c, err)
 	}
 	w := schema.ChatsAgentWrite{Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
-		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, Skills: a.Skills, Network: a.Network, Memory: a.Memory,
+		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, Skills: a.Skills, Network: a.Network, Memory: a.Memory, MemorySave: a.MemorySave,
 		BuiltinsOff: a.BuiltinsOff, BuiltinsOn: a.BuiltinsOn, Builtins: a.Builtins}
 	rows := h.svc.AgentFolderRows(c.Request().Context(), userID(c), []agents.Agent{a})[a.ID]
 	for i, f := range a.FolderList() {
@@ -147,7 +147,7 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 		}
 	}
 	a := agents.Agent{Name: def.Name, Description: def.Description, Instructions: def.Instructions, Model: def.Model,
-		MCPServers: def.MCPServers, Addons: def.Addons, Collections: def.Collections, Skills: def.Skills, Network: def.Network, Memory: def.Memory,
+		MCPServers: def.MCPServers, Addons: def.Addons, Collections: def.Collections, Skills: def.Skills, Network: def.Network, Memory: def.Memory, MemorySave: def.MemorySave,
 		BuiltinsOff: def.BuiltinsOff, BuiltinsOn: def.BuiltinsOn, Builtins: def.Builtins}
 	var rowsIn []studiosvc.AgentFolderWrite
 	switch {
@@ -157,6 +157,9 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 		}
 	case def.Folder != nil:
 		rowsIn = []studiosvc.AgentFolderWrite{{Path: def.Folder.Path, Mode: def.Folder.Mode}}
+	}
+	if len(def.Resources) > 0 {
+		warnings = append(warnings, "The resources the file lists belong to the server it came from, so the agent has none. Choose them in the agent.")
 	}
 	saved, err := h.svc.ImportAgentFolders(c.Request().Context(), userID(c), a, rowsIn)
 	if err != nil {

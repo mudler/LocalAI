@@ -13,7 +13,7 @@ import zh from './i18n/slack.zh-CN.json'
 import id from './i18n/slack.id.json'
 import ko from './i18n/slack.ko.json'
 import pt from './i18n/slack.pt-BR.json'
-import { APP_MANIFEST, SLACK_LISTS, slackSecret, tokenProblem } from './tokens'
+import { APP_MANIFEST, SLACK_LISTS, isTrustChannel, slackSecret, tokenProblem } from './tokens'
 
 // The words of the page, in every language of the web UI; a key a language lacks reads in English.
 registerLocales({ slack: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
@@ -70,7 +70,7 @@ export function createSlack() {
     return (
       <RouteProvider value={{ page, path: path || '', search: search || '' }}>
         <ConnectorPage kind="slack" ns="slack" testId="slack-page" TokenFields={SlackTokens} tokenOf={slackSecret}
-          lists={SLACK_LISTS} Help={SlackHelp} />
+          lists={SLACK_LISTS} isChannelEntry={isTrustChannel} Help={SlackHelp} />
       </RouteProvider>
     )
   }

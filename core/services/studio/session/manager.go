@@ -88,6 +88,10 @@ type Manager struct {
 	quitMu sync.Once
 	jwg    sync.WaitGroup // the janitor
 
+	// beforeTurnEnd runs in a chat's loop before it announces the end of a
+	// turn. Only the specs set it.
+	beforeTurnEnd func()
+
 	openMu   sync.Mutex // serializes Open and Delete
 	layoutMu sync.Mutex // chat folder names
 	// capMu serializes the creates and resumes of sandboxes under the cap.

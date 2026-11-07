@@ -47,7 +47,7 @@ var _ = Describe("the texts of a refusal", func() {
 	It("renders a whole, plain sentence for every code and capability", func() {
 		for _, code := range BlockCodes() {
 			for _, name := range names {
-				for kind, text := range map[string]string{"message": blockMessage(code, name), "say": BlockSay(code, name)} {
+				for kind, text := range map[string]string{"message": sampleOther(blockMessage(code, name)), "say": BlockSay(code, name)} {
 					where := code + "/" + name + "/" + kind + ": " + text
 					Expect(text).NotTo(BeEmpty(), where)
 					Expect(text).To(HaveSuffix("."), where)
@@ -111,11 +111,11 @@ var _ = Describe("the texts of a refusal", func() {
 			"The agent is not allowed to save notes to memory. Turn on the matching permission in the agent.",
 			"The owner has not allowed the agent to save notes to memory."},
 		{CodeSenderNeedsPairing, contract.CapTalkbackNewChan,
-			"This person needs to be paired with this bot before the bot can start conversations in new channels for them.",
-			"You need to be paired with this bot by the owner before it can start conversations in new channels for you."},
+			"This person needs to be verified with this bot before the bot can start conversations in new channels for them.",
+			"You need to be verified with this bot by the owner before it can start conversations in new channels for you."},
 		{CodeChannelNotTrusted, contract.CapMemoryWrite,
-			"People in a channel are not trusted one by one, so the bot cannot save notes to memory for them. Add the person to the allowed people.",
-			"This bot can save notes to memory only for people the owner added by name or paired, and you are not one of them."},
+			"This channel is set to Answer only, so the bot cannot save notes to memory for its members. List the person, or set it to Let everyone here ask for actions.",
+			"This bot can save notes to memory only for people the owner listed by name or verified, and you are not one of them."},
 		{CodeRoleNotGranted, contract.CapTalkbackChannels,
 			"The role of this person does not let the bot write to other channels. Allow it for that role on the connection.",
 			"The owner has not allowed this bot to write to other channels for your role."},
@@ -130,3 +130,6 @@ var _ = Describe("the texts of a refusal", func() {
 		})
 	}
 })
+
+// sampleOther fills {other} of a sentence with a name, so the sentence is read as a person reads it.
+func sampleOther(text string) string { return strings.ReplaceAll(text, "{other}", "Alpha") }

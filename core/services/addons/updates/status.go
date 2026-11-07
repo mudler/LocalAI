@@ -40,6 +40,8 @@ const (
 	ReasonProtocol   = "protocol-version"
 	ReasonSDK        = "sdk-version"
 	ReasonDataFormat = "data-format"
+	// ReasonFeatureLevel: the release needs a newer LocalAI.
+	ReasonFeatureLevel = "feature-level"
 	// ReasonDigestChanged is the reason of an IntegrityError.
 	ReasonDigestChanged = "digest-changed"
 )

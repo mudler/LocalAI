@@ -243,14 +243,14 @@ test.describe('Add-ons: apps', () => {
     await page.clock.runFor(200)
     await expect.poll(() => state.log.appsList).toBe(2)
     // The failure doubles the wait, and the old list stays visible and flagged.
-    await expect(page.getByText('may be out of date')).toBeVisible()
+    await expect(page.getByTestId('addons-stale')).toBeVisible()
     await page.clock.runFor(9_000)
     expect(state.log.appsList).toBe(2)
     await page.clock.runFor(1_500)
     await expect.poll(() => state.log.appsList).toBe(3)
     await page.clock.runFor(21_000)
     await expect.poll(() => state.log.appsList).toBe(4)
-    await expect(page.getByText('may be out of date')).toHaveCount(0)
+    await expect(page.getByTestId('addons-stale')).toHaveCount(0)
     // Leave for a route without a mounted add-on consumer (Home keeps commands current).
     await page.evaluate(() => { window.history.pushState({}, '', '/app/polling-left'); window.dispatchEvent(new PopStateEvent('popstate')) })
     // The route loads lazily and the page clock is paused: let the transition

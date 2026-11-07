@@ -2,15 +2,26 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMemorySettings } from '../hooks/useMemorySettings'
+import { chatMemoryApi } from '../utils/api'
 import Icon from './Icon'
+import ProviderPicker from './ProviderPicker'
 import { Callout, LoadError, SkeletonRows, Switch } from './ui'
 import './memorysettings.css'
 
 // The ways a note is saved, in the order they are listed. The value is what the
 // server stores; the default is the one a person who never chose gets.
 export const SAVE_LEVELS = [
-  { value: 'ask', isDefault: true },
   { value: 'auto' },
+  { value: 'ask', isDefault: true },
+  { value: 'always' },
+  { value: 'never' },
+]
+
+// The rows for a note proposed in a messaging app. The row can never be looser
+// than the level above when that is Always confirm or Never.
+export const MESSAGING_LEVELS = [
+  { value: 'ask', isDefault: true },
+  { value: 'paired_private' },
   { value: 'never' },
 ]
 
@@ -25,6 +36,7 @@ export default function MemorySettings({ addToast, children }) {
   const titleId = useId()
   const ledeId = useId()
   const saveId = useId()
+  const messagingId = useId()
   const notesId = useId()
 
   const notes = (
@@ -40,6 +52,8 @@ export default function MemorySettings({ addToast, children }) {
   if (!settings) return <div className="ms-page" data-testid="memory-settings"><SkeletonRows count={2} />{notes}</div>
 
   const on = settings.enabled
+  // Always confirm and Never hold in messaging apps too: the row cannot loosen them.
+  const lockedBy = settings.save_mode === 'always' || settings.save_mode === 'never' ? settings.save_mode : ''
   const store = async (body) => {
     if (!(await change(body))) addToast?.(t('memorySettings.saveFailed'), 'error')
   }
@@ -60,6 +74,11 @@ export default function MemorySettings({ addToast, children }) {
       </section>
       {error && <Callout tone="error" role="alert" testId="memory-settings-save-error">{error.message}</Callout>}
 
+      {/* The providers come from the slot list: the built-in one, Off and every
+          add-on that says it can serve memory. The switch above and the Off
+          choice here are one answer, so each reads the other again. */}
+      <ProviderPicker slot="memory" version={`${settings.provider}:${on}`} onChange={reload} addToast={addToast} forget={() => chatMemoryApi.forget()} />
+
       <section className="ms-card" aria-labelledby={saveId} data-testid="memory-save-card">
         <h3 className="ms-h" id={saveId}>{t('memorySettings.saveTitle')}</h3>
         <p className="ms-p">{t('memorySettings.saveLede')}</p>
@@ -77,6 +96,27 @@ export default function MemorySettings({ addToast, children }) {
             )
           })}
         </div>
+
+        <h4 className="ms-sub" id={messagingId}>{t('memorySettings.messaging.title')}</h4>
+        <p className="ms-p">{t('memorySettings.messaging.lede')}</p>
+        <div className="ms-levels" role="radiogroup" aria-labelledby={messagingId} data-testid="memory-messaging">
+          {MESSAGING_LEVELS.map((lv) => {
+            const checked = (settings.messaging_save || 'ask') === lv.value
+            return (
+              <label key={lv.value} className={`ms-level${checked ? ' ms-level--on' : ''}`} data-testid={`memory-messaging-${lv.value}`}>
+                <input type="radio" name="memory-messaging-save" value={lv.value} checked={checked} disabled={saving} onChange={() => store({ messaging_save: lv.value })} />
+                <span className="ms-level__text">
+                  <span className="ms-level__title">{t(`memorySettings.messaging.${lv.value}.title`)}{lv.isDefault && <span className="ms-tag">{t('memorySettings.default')}</span>}</span>
+                  <span className="ms-level__body">{t(`memorySettings.messaging.${lv.value}.body`)}</span>
+                  {lv.value === 'paired_private' && <span className="ms-level__fine">{t('memorySettings.messaging.limit')}</span>}
+                </span>
+              </label>
+            )
+          })}
+        </div>
+        {lockedBy && (
+          <p className="ms-p ms-p--note" data-testid="memory-messaging-locked" role="note"><Icon name="info" />{' '}{t(lockedBy === 'always' ? 'memorySettings.messaging.lockedAlways' : 'memorySettings.messaging.lockedNever')}</p>
+        )}
         <p className="ms-p ms-p--note"><Icon name="info" />{' '}{t('memorySettings.saveNote')}</p>
       </section>
       {notes}

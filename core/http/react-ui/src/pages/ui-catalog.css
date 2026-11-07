@@ -33,3 +33,6 @@
 @media (max-width: 639px) {
   .ui-cat__row { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
 }
+
+.ui-cat__form { max-width: 360px; }
+.ui-cat__check { display: inline-flex; align-items: center; gap: var(--sp-2); }

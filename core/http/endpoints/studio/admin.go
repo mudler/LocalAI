@@ -154,7 +154,7 @@ func (h *Handlers) AdminListConnectors(c echo.Context) error {
 	}
 	out := schema.ChatsAdminConnectorList{Connectors: make([]schema.ChatsAdminConnector, 0, len(list))}
 	for _, b := range list {
-		out.Connectors = append(out.Connectors, schema.ChatsAdminConnector{Owner: b.Owner, ChatsConnector: connectorOut(b.ConnectorInfo)})
+		out.Connectors = append(out.Connectors, schema.ChatsAdminConnector{Owner: b.Owner, ChatsConnector: connectorOut(b.ConnectorInfo, connectorLang(c))})
 	}
 	return c.JSON(http.StatusOK, out)
 }
@@ -175,7 +175,7 @@ func (h *Handlers) AdminDisableConnector(c echo.Context) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusOK, connectorOut(b))
+	return c.JSON(http.StatusOK, connectorOut(b, connectorLang(c)))
 }
 
 // AdminDeleteConnector deletes a connector binding of any user.

@@ -7,6 +7,7 @@ The typed declarations remain additive strict v1 fields, not a new protocol vers
 - `capabilities.ui.homeCommands` names installed pages, never tools or install actions.
 - `capabilities.executionProvider` names execution tools and one declared UI-only read status tool.
 - `capabilities.hostOperations.required` and `.optional` request exact operation names, never grants.
+- `capabilities.provides` says which provider slots of the host the add-on serves (`providerslots.go`, `provider-slots.json`). A slot is a job the host does itself and lets an add-on do in its place; the person picks one provider. The manifest names the slot, the version it was written for, tools for the roles of the slot and typed properties. It is an optional key under `api` 2.
 - `capabilities.network` declares the egress policy of the commands an add-on runs (kind `egress-check`, a title, preset titles). It attaches the `network-policy` host control.
 
 `ValidHostOp` validates syntax only. The host's registered vocabulary determines support.

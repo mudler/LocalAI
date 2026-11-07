@@ -8,7 +8,7 @@
 //
 // What the device returns is data. Every result says so. The write tools have
 // physical effects: all of them wait for a person's confirmation on every
-// call, and the typing and hard power actions are off until an administrator
+// call (the owner can relax that for power-action and send-key, in the host), and the typing and hard power actions are off until an administrator
 // switches them on for the device (package settings).
 package tools
 
@@ -48,7 +48,8 @@ const (
 // ReadTools lists the tools any chat may call to read.
 func ReadTools() []string { return []string{ToolGetInfo, ToolPowerState, ToolKeyboard} }
 
-// WriteTools lists the write tools. Every one needs a confirmation each time.
+// WriteTools lists the write tools. Each one needs a confirmation each time,
+// unless the owner relaxed it for a tool the manifest marks overridable.
 func WriteTools() []string { return []string{ToolPowerAction, ToolTypeText, ToolSendKey} }
 
 // PageTools lists the tools only the add-on's page calls.

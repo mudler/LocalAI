@@ -1,0 +1,587 @@
+{
+  "schemaVersion": 1,
+  "id": "calendar",
+  "version": "0.1.0",
+  "executable": "calendar",
+  "os": "linux",
+  "arch": "amd64",
+  "host": {
+    "min": 1,
+    "max": 1
+  },
+  "api": {
+    "min": 2,
+    "max": 2
+  },
+  "protocol": {
+    "min": 1,
+    "max": 1
+  },
+  "dataFormat": {
+    "min": 1,
+    "max": 1
+  },
+  "featureLevel": 3,
+  "capabilities": {
+    "actions": true,
+    "ownerData": true,
+    "tools": [
+      "events-list",
+      "events-search",
+      "event-get",
+      "event-create",
+      "event-update",
+      "event-delete",
+      "settings-get",
+      "settings-set",
+      "ui-event-create",
+      "ui-event-update",
+      "ui-event-delete",
+      "events-export"
+    ],
+    "toolDefinitions": [
+      {
+        "name": "events-list",
+        "description": "List what is on the calendar between two days, repeats included, in time order. With no arguments: today and the next six days. The answer also gives today's date and the zone, so use it to resolve words like Thursday.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "First day, YYYY-MM-DD. Default today.",
+              "maxLength": 10
+            },
+            "to": {
+              "type": "string",
+              "description": "Last day, YYYY-MM-DD, included. At most 400 days from from.",
+              "maxLength": 10
+            },
+            "zone": {
+              "type": "string",
+              "description": "IANA zone for the day boundaries. Default: the zone set on the add-on page.",
+              "maxLength": 64
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "events-search",
+        "description": "Find events by words in the title, notes, place or attendees. Every word must match. Gives each event once, with the start of its next occurrence.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Words to look for.",
+              "maxLength": 200
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "event-get",
+        "description": "Read one event in full, with the dates taken out of a repeat.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The event ID."
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "event-create",
+        "description": "Add an event to the calendar at once. Needs a title and a start. Give the local time the person said and leave zone out unless they named another place.",
+        "kind": "action",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "What the event is, for example Dinner with Sam.",
+              "maxLength": 200
+            },
+            "start": {
+              "type": "string",
+              "description": "Local start: YYYY-MM-DDTHH:MM, or YYYY-MM-DD for an all-day event.",
+              "maxLength": 20
+            },
+            "end": {
+              "type": "string",
+              "description": "Local end, same shape as start. For an all-day event it is the last day. Default: one hour after start.",
+              "maxLength": 20
+            },
+            "allDay": {
+              "type": "boolean",
+              "description": "True for an event that lasts whole days."
+            },
+            "zone": {
+              "type": "string",
+              "description": "IANA zone name of start and end, such as Europe/Rome. Default: the zone set on the add-on page.",
+              "maxLength": 64
+            },
+            "notes": {
+              "type": "string",
+              "description": "Free text notes.",
+              "maxLength": 4000
+            },
+            "place": {
+              "type": "string",
+              "description": "Where it takes place, free text.",
+              "maxLength": 200
+            },
+            "attendees": {
+              "type": "string",
+              "description": "Who comes, free text, such as Sam and Lea.",
+              "maxLength": 500
+            },
+            "repeat": {
+              "type": "object",
+              "description": "How the event comes again. freq daily, weekly, monthly or yearly; interval counts days, weeks, months or years (default 1); until is the last day, YYYY-MM-DD. freq none takes the repeat away.",
+              "properties": {
+                "freq": {
+                  "type": "string",
+                  "enum": [
+                    "daily",
+                    "weekly",
+                    "monthly",
+                    "yearly",
+                    "none"
+                  ]
+                },
+                "interval": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 366
+                },
+                "until": {
+                  "type": "string",
+                  "description": "Last day, YYYY-MM-DD."
+                }
+              },
+              "required": [
+                "freq"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "title",
+            "start"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "event-update",
+        "description": "Change an event. Name only what changes. On a repeating event it changes the whole series; to drop one day use event-delete with occurrence.",
+        "kind": "action",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The event ID from events-list or event-get."
+            },
+            "title": {
+              "type": "string",
+              "description": "What the event is, for example Dinner with Sam.",
+              "maxLength": 200
+            },
+            "start": {
+              "type": "string",
+              "description": "Local start: YYYY-MM-DDTHH:MM, or YYYY-MM-DD for an all-day event.",
+              "maxLength": 20
+            },
+            "end": {
+              "type": "string",
+              "description": "Local end, same shape as start. For an all-day event it is the last day. Default: one hour after start.",
+              "maxLength": 20
+            },
+            "allDay": {
+              "type": "boolean",
+              "description": "True for an event that lasts whole days."
+            },
+            "zone": {
+              "type": "string",
+              "description": "IANA zone name of start and end, such as Europe/Rome. Default: the zone set on the add-on page.",
+              "maxLength": 64
+            },
+            "notes": {
+              "type": "string",
+              "description": "Free text notes.",
+              "maxLength": 4000
+            },
+            "place": {
+              "type": "string",
+              "description": "Where it takes place, free text.",
+              "maxLength": 200
+            },
+            "attendees": {
+              "type": "string",
+              "description": "Who comes, free text, such as Sam and Lea.",
+              "maxLength": 500
+            },
+            "repeat": {
+              "type": "object",
+              "description": "How the event comes again. freq daily, weekly, monthly or yearly; interval counts days, weeks, months or years (default 1); until is the last day, YYYY-MM-DD. freq none takes the repeat away.",
+              "properties": {
+                "freq": {
+                  "type": "string",
+                  "enum": [
+                    "daily",
+                    "weekly",
+                    "monthly",
+                    "yearly",
+                    "none"
+                  ]
+                },
+                "interval": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 366
+                },
+                "until": {
+                  "type": "string",
+                  "description": "Last day, YYYY-MM-DD."
+                }
+              },
+              "required": [
+                "freq"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "event-delete",
+        "description": "Delete an event. For a repeating event, give occurrence (the date of one occurrence, YYYY-MM-DD) to skip only that day, or leave it out to delete the whole series.",
+        "kind": "action",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The event ID."
+            },
+            "occurrence": {
+              "type": "string",
+              "description": "Date of the one occurrence to skip, YYYY-MM-DD.",
+              "maxLength": 10
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "settings-get",
+        "description": "Read the default zone of the calendar. For the add-on page.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "settings-set",
+        "description": "Set the default zone of the calendar. For the add-on page; no model calls it.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "zone": {
+              "type": "string",
+              "description": "IANA zone name.",
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "zone"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "ui-event-create",
+        "description": "Add an event. For the add-on page; no model calls it.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "What the event is, for example Dinner with Sam.",
+              "maxLength": 200
+            },
+            "start": {
+              "type": "string",
+              "description": "Local start: YYYY-MM-DDTHH:MM, or YYYY-MM-DD for an all-day event.",
+              "maxLength": 20
+            },
+            "end": {
+              "type": "string",
+              "description": "Local end, same shape as start. For an all-day event it is the last day. Default: one hour after start.",
+              "maxLength": 20
+            },
+            "allDay": {
+              "type": "boolean",
+              "description": "True for an event that lasts whole days."
+            },
+            "zone": {
+              "type": "string",
+              "description": "IANA zone name of start and end, such as Europe/Rome. Default: the zone set on the add-on page.",
+              "maxLength": 64
+            },
+            "notes": {
+              "type": "string",
+              "description": "Free text notes.",
+              "maxLength": 4000
+            },
+            "place": {
+              "type": "string",
+              "description": "Where it takes place, free text.",
+              "maxLength": 200
+            },
+            "attendees": {
+              "type": "string",
+              "description": "Who comes, free text, such as Sam and Lea.",
+              "maxLength": 500
+            },
+            "repeat": {
+              "type": "object",
+              "description": "How the event comes again. freq daily, weekly, monthly or yearly; interval counts days, weeks, months or years (default 1); until is the last day, YYYY-MM-DD. freq none takes the repeat away.",
+              "properties": {
+                "freq": {
+                  "type": "string",
+                  "enum": [
+                    "daily",
+                    "weekly",
+                    "monthly",
+                    "yearly",
+                    "none"
+                  ]
+                },
+                "interval": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 366
+                },
+                "until": {
+                  "type": "string",
+                  "description": "Last day, YYYY-MM-DD."
+                }
+              },
+              "required": [
+                "freq"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "title",
+            "start"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "ui-event-update",
+        "description": "Change an event. For the add-on page; no model calls it.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The event ID from events-list or event-get."
+            },
+            "title": {
+              "type": "string",
+              "description": "What the event is, for example Dinner with Sam.",
+              "maxLength": 200
+            },
+            "start": {
+              "type": "string",
+              "description": "Local start: YYYY-MM-DDTHH:MM, or YYYY-MM-DD for an all-day event.",
+              "maxLength": 20
+            },
+            "end": {
+              "type": "string",
+              "description": "Local end, same shape as start. For an all-day event it is the last day. Default: one hour after start.",
+              "maxLength": 20
+            },
+            "allDay": {
+              "type": "boolean",
+              "description": "True for an event that lasts whole days."
+            },
+            "zone": {
+              "type": "string",
+              "description": "IANA zone name of start and end, such as Europe/Rome. Default: the zone set on the add-on page.",
+              "maxLength": 64
+            },
+            "notes": {
+              "type": "string",
+              "description": "Free text notes.",
+              "maxLength": 4000
+            },
+            "place": {
+              "type": "string",
+              "description": "Where it takes place, free text.",
+              "maxLength": 200
+            },
+            "attendees": {
+              "type": "string",
+              "description": "Who comes, free text, such as Sam and Lea.",
+              "maxLength": 500
+            },
+            "repeat": {
+              "type": "object",
+              "description": "How the event comes again. freq daily, weekly, monthly or yearly; interval counts days, weeks, months or years (default 1); until is the last day, YYYY-MM-DD. freq none takes the repeat away.",
+              "properties": {
+                "freq": {
+                  "type": "string",
+                  "enum": [
+                    "daily",
+                    "weekly",
+                    "monthly",
+                    "yearly",
+                    "none"
+                  ]
+                },
+                "interval": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 366
+                },
+                "until": {
+                  "type": "string",
+                  "description": "Last day, YYYY-MM-DD."
+                }
+              },
+              "required": [
+                "freq"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "ui-event-delete",
+        "description": "Delete an event or skip one occurrence. For the add-on page; no model calls it.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The event ID."
+            },
+            "occurrence": {
+              "type": "string",
+              "description": "Date to skip.",
+              "maxLength": 10
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "events-export",
+        "description": "Write the whole calendar as one ICS file. For the add-on page; no model calls it.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      }
+    ],
+    "skillDefinitions": [
+      {
+        "name": "calendar"
+      }
+    ],
+    "ui": {
+      "entry": "ui/calendar.js",
+      "css": [
+        "ui/calendar.css"
+      ],
+      "sdk": {
+        "min": 2,
+        "max": 2
+      },
+      "pages": [
+        "calendar"
+      ],
+      "mainPage": "calendar",
+      "icon": "ui/icon.png",
+      "title": {
+        "en": "Calendar",
+        "it": "Calendario",
+        "de": "Kalender",
+        "es": "Calendario",
+        "fr": "Agenda",
+        "pt-BR": "Calendário",
+        "zh-CN": "日历",
+        "ko": "캘린더",
+        "id": "Kalender"
+      },
+      "description": {
+        "en": "Your agents read and keep your calendar: what is on Thursday, dinner at 8, a weekly repeat. It lives inside LocalAI, with no account to connect.",
+        "it": "I tuoi agenti leggono e tengono il tuo calendario: cosa c'è giovedì, una cena alle 8, una ripetizione settimanale. Vive dentro LocalAI, senza nessun account da collegare.",
+        "de": "Ihre Agenten lesen und führen Ihren Kalender: was am Donnerstag ansteht, Abendessen um 8, eine wöchentliche Wiederholung. Er lebt in LocalAI, ohne Konto, das verbunden werden muss.",
+        "es": "Tus agentes leen y llevan tu calendario: qué hay el jueves, una cena a las 8, una repetición semanal. Vive dentro de LocalAI, sin ninguna cuenta que conectar.",
+        "fr": "Vos agents lisent et tiennent votre agenda : ce qui est prévu jeudi, un dîner à 20 h, une répétition hebdomadaire. Il vit dans LocalAI, sans compte à connecter.",
+        "pt-BR": "Seus agentes leem e mantêm sua agenda: o que há na quinta, um jantar às 8, uma repetição semanal. Ela vive dentro do LocalAI, sem nenhuma conta para conectar.",
+        "zh-CN": "你的智能体可以查看并维护你的日历：周四有什么安排、晚上 8 点的晚餐、每周重复的事项。日历保存在 LocalAI 内部，无需连接任何账户。",
+        "ko": "에이전트가 일정을 읽고 관리합니다. 목요일 일정, 8시 저녁 식사, 매주 반복되는 일정까지. 일정은 LocalAI 안에 저장되며 연결할 계정이 필요 없습니다.",
+        "id": "Agen Anda membaca dan mengelola kalender Anda: apa yang ada hari Kamis, makan malam jam 8, pengulangan mingguan. Kalender ini tersimpan di dalam LocalAI, tanpa akun yang perlu dihubungkan."
+      }
+    }
+  }
+}

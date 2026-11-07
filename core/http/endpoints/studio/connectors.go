@@ -2,6 +2,7 @@ package studio
 
 import (
 	"errors"
+	"github.com/mudler/LocalAI/core/services/studio/connectortext"
 	"net/http"
 	"slices"
 
@@ -18,15 +19,54 @@ func (h *Handlers) connectorHost(c echo.Context) (*studiosvc.Connectors, bool) {
 	return feature(c, h.svc.Connectors(), func(c echo.Context) error { return failFor(c, studiosvc.ErrConnectorsOff) })
 }
 
-func connectorOut(i studiosvc.ConnectorInfo) schema.ChatsConnector {
+// connectorLang is the language of the texts for the owner in a request.
+func connectorLang(c echo.Context) string {
+	return connectortext.Negotiate(c.QueryParam("lang"), c.Request().Header.Get("Accept-Language"))
+}
+
+// duplicateOut says that a connection is the same bot as others, in lang.
+func duplicateOut(i studiosvc.ConnectorInfo, lang string) *schema.ChatsConnectorDuplicate {
+	if len(i.SameBotAs) == 0 {
+		return nil
+	}
+	others := make([]schema.ChatsConnectorDuplicateRef, len(i.SameBotAs))
+	for n, o := range i.SameBotAs {
+		others[n] = schema.ChatsConnectorDuplicateRef{ID: o.ID, Name: o.Name}
+	}
+	return &schema.ChatsConnectorDuplicate{Code: studiosvc.CodeDuplicateConnection, Message: duplicateText(lang, others[0].Name), Others: others}
+}
+
+func duplicateText(lang, other string) string {
+	if t, ok := connectortext.Duplicate(lang, other); ok {
+		return t
+	}
+	return studiosvc.DuplicateMessage(other)
+}
+
+func connectorOut(i studiosvc.ConnectorInfo, lang string) schema.ChatsConnector {
 	allow := i.Allow
 	if allow == nil {
 		allow = []string{}
 	}
 	return schema.ChatsConnector{Caps: capsOut(i.Caps), Grants: grantsOut(i.Grants), Paired: pairedOut(i.Paired), ID: i.ID, Name: i.Name, Kind: i.Kind, Addon: i.AddonID, Active: i.Active, Reason: i.Reason, AgentID: i.AgentID, CredentialsOnly: i.CredentialsOnly(), Enabled: i.Enabled, AcceptAny: i.AcceptAny,
-		Allow: allow, NotifyChat: i.NotifyChat, HasToken: i.HasToken, Created: i.Created,
-		ReplyMode: i.ReplyMode(), Conversation: i.ConversationMode(), WindowMinutes: i.WindowMinutes, SendFiles: i.SendsFiles(), ReplyLanguage: i.ReplyLang(), Options: i.Options,
-		Files: filesOut(i.Files), FileReceiveMaxBytes: i.FileReceiveMax, FileSendMaxBytes: i.FileSendMax, Resources: connectors.ResourceKeys(i.Resources), Channels: channelsOut(i.Channels), WriteMode: i.Writes(), Approval: approvalOut(i.Approval)}
+		Allow: allow, AllowTrust: i.AllowTrust, NotifyChat: i.NotifyChat, HasToken: i.HasToken, Created: i.Created,
+		ReplyMode: i.ReplyMode(), Conversation: i.ConversationMode(), WindowMinutes: i.WindowMinutes, SendFiles: i.SendsFiles(), ReplyLanguage: i.ReplyLang(), UILanguage: i.UILanguage, Options: i.Options,
+		Files: filesOut(i.Files), FileReceiveMaxBytes: i.FileReceiveMax, FileSendMaxBytes: i.FileSendMax, Resources: connectors.ResourceKeys(i.Resources), Channels: channelsOut(i.Channels), WriteMode: i.Writes(), Approval: approvalOut(i.Approval), Duplicate: duplicateOut(i, lang),
+		Share: shareOut(i.Share)}
+}
+
+func shareOut(s *studiosvc.ShareState) *schema.ChatsConnectorShare {
+	if s == nil {
+		return nil
+	}
+	return &schema.ChatsConnectorShare{ResourceID: s.ResourceID, SharedWith: s.SharedWith}
+}
+
+// sharedConnectorOut is the only view of a binding that a grantee gets: it is
+// built field by field from the safe view, never from the binding.
+func sharedConnectorOut(v studiosvc.SharedConnectorView) schema.ChatsSharedConnector {
+	return schema.ChatsSharedConnector{ID: v.ID, Name: v.Name, Kind: v.Kind, Addon: v.AddonID, Enabled: v.Enabled, Active: v.Active, Reason: v.Reason,
+		Owner: v.OwnerName, Role: v.Role}
 }
 
 func approvalOut(a connectors.Approval) schema.ChatsConnectorApproval {
@@ -103,6 +143,14 @@ func rolesOut(k contract.ConnectorKind) []schema.ChatsConnectorRole {
 	return out
 }
 
+func tokenGuardsOut(gs []contract.TokenGuard) []schema.ChatsConnectorTokenGuard {
+	var out []schema.ChatsConnectorTokenGuard
+	for _, g := range gs {
+		out = append(out, schema.ChatsConnectorTokenGuard{Prefix: g.Prefix, Option: g.Option, Allow: g.Allow})
+	}
+	return out
+}
+
 func permissionsOut(k contract.ConnectorKind) []schema.ChatsConnectorPermission {
 	var out []schema.ChatsConnectorPermission
 	for _, p := range k.Permissions {
@@ -128,18 +176,33 @@ func failAcceptAny(c echo.Context) error {
 
 func connectorIn(req schema.ChatsConnectorWrite) studiosvc.ConnectorInput {
 	return studiosvc.ConnectorInput{Kind: req.Kind, Name: req.Name, Token: req.Token, AgentID: req.AgentID, Enabled: req.Enabled,
-		AcceptAny: req.AcceptAny, Allow: req.Allow, NotifyChat: req.NotifyChat,
-		Reply: req.ReplyMode, Conversation: req.Conversation, WindowMinutes: req.WindowMinutes, SendFiles: req.SendFiles, ReplyLanguage: req.ReplyLanguage, Options: req.Options,
-		FileReceiveMax: req.FileReceiveMaxBytes, FileSendMax: req.FileSendMaxBytes, Caps: req.Caps, Grants: grantsIn(req.Grants), Resources: req.Resources, Channels: channelsIn(req.Channels), WriteMode: req.WriteMode, Approval: approvalIn(req.Approval)}
+		AcceptAny: req.AcceptAny, Allow: req.Allow, AllowTrust: req.AllowTrust, NotifyChat: req.NotifyChat,
+		Reply: req.ReplyMode, Conversation: req.Conversation, WindowMinutes: req.WindowMinutes, SendFiles: req.SendFiles, ReplyLanguage: req.ReplyLanguage, UILanguage: req.UILanguage, Options: req.Options,
+		FileReceiveMax: req.FileReceiveMaxBytes, FileSendMax: req.FileSendMaxBytes, Caps: req.Caps, Grants: grantsIn(req.Grants), Resources: req.Resources, ConfirmAnyResource: req.ConfirmAnyResource, ConfirmWiderToken: req.ConfirmWiderToken, ConfirmDuplicate: req.ConfirmDuplicate, Channels: channelsIn(req.Channels), WriteMode: req.WriteMode, Approval: approvalIn(req.Approval)}
 }
 
 var connectorRules = []errRule{
 	fixed(http.StatusNotFound, typeNotFound, "connector not found", connectors.ErrNotFound),
 	verbatim(http.StatusBadRequest, typeInvalid, connectors.ErrInvalid.Error()+": ", connectors.ErrInvalid),
 	verbatim(http.StatusConflict, typeConnectorOff, "", studiosvc.ErrConnectorsOff),
+	// A host denial is not a failure of the server. The text names no part of the
+	// check (the add-on, the agent, the token), so it tells a caller nothing to probe.
+	fixed(http.StatusForbidden, typeAuthz, "you are not allowed to do this with this connector", connectors.ErrForbidden),
+	fixed(http.StatusConflict, typeSharingDisabled, "sharing is not available on this server", studiosvc.ErrSharingOff),
 }
 
+// typeSharingDisabled is the error type of /api/shares for the same answer.
+const typeSharingDisabled = "sharing_disabled"
+
 func failConnector(c echo.Context, err error) error {
+	var dup *studiosvc.DuplicateError
+	if errors.As(err, &dup) {
+		// Nothing was saved. The owner reads the sentence in their language and
+		// may save again with confirm_duplicate.
+		// param is the name of the connection it repeats, for a client that words the question itself.
+		other := dup.Other.Name
+		return c.JSON(http.StatusConflict, schema.ErrorResponse{Error: &schema.APIError{Message: duplicateText(connectorLang(c), other), Code: http.StatusConflict, Type: typeDuplicateConnection, Param: &other}})
+	}
 	return mapErr(c, err, connectorRules, func(c echo.Context, err error) error {
 		var ce *contract.ConnectorError
 		if errors.As(err, &ce) && ce.Code == contract.ConnectorUnauthorized {
@@ -154,7 +217,7 @@ func failConnector(c echo.Context, err error) error {
 
 // ListConnectors lists the bindings.
 // @Summary List your connector bindings.
-// @Description A binding connects a bot of a messaging platform (served by a connector add-on, such as Telegram) to one of your saved agents. A person who messages the bot talks to that agent, in a conversation of their own, as you: your quota, your model allowlist and only the agent's grants apply.
+// @Description A binding connects a bot of a messaging platform (served by a connector add-on, such as Telegram) to one of your saved agents. A person who messages the bot talks to that agent, in a conversation of their own, as you: your quota, your model allowlist and only the agent's grants apply. shared lists the bindings that other people shared with you, with their name, state and owner only: you may use them in your chats and agents and nothing else. sharing is false when this server cannot share bindings (no named accounts). A binding you shared carries share, with its ID in /api/shares/connection.
 // @Tags chats
 // @Success 200 {object} schema.ChatsConnectorList "Your bindings, sorted by name"
 // @Router /api/chats/connectors [get]
@@ -163,22 +226,58 @@ func (h *Handlers) ListConnectors(c echo.Context) error {
 	if !ok {
 		return nil
 	}
-	list, err := host.ListConnectors(c.Request().Context(), userID(c))
+	ctx := c.Request().Context()
+	list, err := host.ListConnectors(ctx, userID(c))
 	if err != nil {
 		return failConnector(c, err)
 	}
-	out := schema.ChatsConnectorList{Connectors: make([]schema.ChatsConnector, 0, len(list))}
+	out := schema.ChatsConnectorList{Connectors: make([]schema.ChatsConnector, 0, len(list)), Shared: []schema.ChatsSharedConnector{}, Sharing: host.SharingEnabled()}
 	for _, i := range list {
-		out.Connectors = append(out.Connectors, connectorOut(i))
+		out.Connectors = append(out.Connectors, connectorOut(i, connectorLang(c)))
+	}
+	shared, err := host.SharedConnectors(ctx, userID(c))
+	if err != nil {
+		return failConnector(c, err)
+	}
+	for _, v := range shared {
+		out.Shared = append(out.Shared, sharedConnectorOut(v))
 	}
 	return c.JSON(http.StatusOK, out)
 }
 
+// ShareConnector makes a binding shareable.
+// @Summary Make a connector binding shareable.
+// @Description Returns the ID of the binding in the sharing API: the owner then lists, grants and revokes access with /api/shares/connection/{resource_id}/grants. The only role is use, and a binding is never shared with @everyone. A grantee may use the binding in their chats and agents, and never reads its token or its settings. Only the owner may call it: any other caller gets 404, as for a binding that does not exist. 409 sharing_disabled when this server cannot share bindings.
+// @Tags chats
+// @Param id path string true "the binding's id"
+// @Success 200 {object} schema.ChatsConnectorShare "The share of the binding"
+// @Failure 404 {object} schema.ErrorResponse "Not your binding"
+// @Failure 409 {object} schema.ErrorResponse "Sharing is not available on this server"
+// @Router /api/chats/connectors/{id}/share [post]
+func (h *Handlers) ShareConnector(c echo.Context) error {
+	host, ok := h.connectorHost(c)
+	if !ok {
+		return nil
+	}
+	ctx := c.Request().Context()
+	if _, err := host.EnsureShare(ctx, userID(c), c.Param("id")); err != nil {
+		return failConnector(c, err)
+	}
+	i, err := host.GetConnector(ctx, userID(c), c.Param("id"))
+	if err != nil {
+		return failConnector(c, err)
+	}
+	if i.Share == nil {
+		return failConnector(c, studiosvc.ErrSharingOff)
+	}
+	return c.JSON(http.StatusOK, shareOut(i.Share))
+}
+
 // ConnectorKinds lists the kinds of binding that installed add-ons serve.
 // @Summary List the connector kinds you can bind.
-// @Description The messaging platforms that a running connector add-on serves, with the add-on page that adds and edits their bindings. Empty when no connector add-on is installed. A kind whose manifest translates its text carries titles and descriptions by language and, when the request names a language it translates (lang, else Accept-Language), language, localized_title and localized_description with English as the fallback for each field; title and description stay English.
+// @Description The messaging platforms that a running connector add-on serves, with the add-on page that adds and edits their bindings. Empty when no connector add-on is installed. A kind whose manifest translates its text carries titles and descriptions by language and, when the request names a language it translates (lang, else Accept-Language), language, localized_title, localized_description and localized_setup with English as the fallback for each field; title, description and setup stay English. A kind that declares a setup text (what the person needs before a binding works) also has setup, and setups by language.
 // @Tags chats
-// @Param lang query string false "Language tag to resolve the kind text for, such as it or pt-BR. Wins over Accept-Language. An unknown language gives the English text."
+// @Param lang query string false "Language tag to resolve the kind text and the capability text for, such as it or pt-BR. Wins over Accept-Language. An unknown language gives the English text."
 // @Success 200 {object} schema.ChatsConnectorKindList "The kinds"
 // @Router /api/chats/connectors/kinds [get]
 func (h *Handlers) ConnectorKinds(c echo.Context) error {
@@ -193,24 +292,26 @@ func (h *Handlers) ConnectorKinds(c echo.Context) error {
 	out := schema.ChatsConnectorKindList{Kinds: make([]schema.ChatsConnectorKind, 0, len(kinds))}
 	explicit, accept := c.QueryParam("lang"), c.Request().Header.Get("Accept-Language")
 	for _, k := range kinds {
-		view := schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, SenderHint: k.SenderHint, Page: k.Page, AgentOptional: k.AgentOptional, ThreadHistory: k.ServesThreadHistory(), Options: optionsOut(k.Options),
+		view := schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, Setup: k.Setup, SenderHint: k.SenderHint, Page: k.Page, AgentOptional: k.AgentOptional, WildcardResources: k.WildcardResources, TokenGuards: tokenGuardsOut(k.TokenGuards), ThreadHistory: k.ServesThreadHistory(), Options: optionsOut(k.Options),
 			Files: filesOut(host.KindFileLimits(c.Request().Context(), k)), Roles: rolesOut(k.ConnectorKind), Permissions: permissionsOut(k.ConnectorKind)}
 		translateKind(&view, k.Translations, explicit, accept)
 		out.Kinds = append(out.Kinds, view)
 	}
+	lang := connectortext.Negotiate(explicit, accept)
 	for _, ci := range contract.ConnectorCapabilities() {
-		out.Capabilities = append(out.Capabilities, schema.ChatsConnectorCapability(ci))
+		out.Capabilities = append(out.Capabilities, capabilityOut(ci, lang))
 	}
 	return c.JSON(http.StatusOK, out)
 }
 
 // CreateConnector creates a binding.
 // @Summary Create a connector binding.
-// @Description Needs the kind (the platform), the bot token (kept sealed, never returned) and an agent of yours that names a model. The token is checked with the platform when its add-on runs: a token that the platform refuses is a 400. reply_mode (off, progress, stream; default progress), conversation (sender, chat, window with window_minutes, thread; default sender), send_files (default true) and reply_language (auto, en, it, de, es, fr, pt-BR; default auto, the language of the sentences the bot writes itself) say how the bot answers. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to "accept any message", or it is a 400). At most 10 bindings.
+// @Description // @Description For a kind that lists wildcard_resources, resources may hold owner/* (every resource of one owner) and * (every resource the token reaches); the request that adds * must also carry confirm_any_resource set to "allow any resource". A kind that lists token_guards refuses a token with a guarded prefix (a classic GitHub token) unless options sets the guarded option to its allow value in a request that also carries confirm_wider_token set to "accept wider token". Needs the kind (the platform), the bot token (kept sealed, never returned) and an agent of yours that names a model. The token is checked with the platform when its add-on runs: a token that the platform refuses is a 400. reply_mode (off, progress, stream; default progress), conversation (sender, chat, window with window_minutes, thread; default sender), send_files (default true) and reply_language (auto, en, it, de, es, fr, pt-BR; default auto, the language of the sentences the bot writes itself) say how the bot answers. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to "accept any message", or it is a 400). At most 50 bindings.
 // @Tags chats
 // @Param request body schema.ChatsConnectorWrite true "the binding"
 // @Success 201 {object} schema.ChatsConnector "The binding"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 409 {object} schema.ErrorResponse "The binding is enabled and is the same bot as another enabled binding of yours (type duplicate_connection, param the name of the other); send confirm_duplicate set to \"answer twice\" to save it anyway"
 // @Router /api/chats/connectors [post]
 func (h *Handlers) CreateConnector(c echo.Context) error {
 	host, ok := h.connectorHost(c)
@@ -228,7 +329,7 @@ func (h *Handlers) CreateConnector(c echo.Context) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusCreated, connectorOut(i))
+	return c.JSON(http.StatusCreated, connectorOut(i, connectorLang(c)))
 }
 
 // GetConnector reads a binding.
@@ -246,7 +347,7 @@ func (h *Handlers) GetConnector(c echo.Context) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusOK, connectorOut(i))
+	return c.JSON(http.StatusOK, connectorOut(i, connectorLang(c)))
 }
 
 // UpdateConnector replaces a binding.
@@ -257,6 +358,7 @@ func (h *Handlers) GetConnector(c echo.Context) error {
 // @Param request body schema.ChatsConnectorWrite true "the binding"
 // @Success 200 {object} schema.ChatsConnector "The binding"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 409 {object} schema.ErrorResponse "The binding would be the same bot as another enabled binding of yours (type duplicate_connection); see the create endpoint"
 // @Router /api/chats/connectors/{id} [put]
 func (h *Handlers) UpdateConnector(c echo.Context) error {
 	host, ok := h.connectorHost(c)
@@ -281,7 +383,7 @@ func (h *Handlers) UpdateConnector(c echo.Context) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusOK, connectorOut(i))
+	return c.JSON(http.StatusOK, connectorOut(i, connectorLang(c)))
 }
 
 // DeleteConnector deletes a binding.
@@ -311,7 +413,7 @@ func (h *Handlers) setConnectorEnabled(c echo.Context, on bool) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusOK, connectorOut(i))
+	return c.JSON(http.StatusOK, connectorOut(i, connectorLang(c)))
 }
 
 // EnableConnector switches a binding on.
@@ -367,7 +469,8 @@ func (h *Handlers) ConnectorSenders(c echo.Context) error {
 	}
 	out := schema.ChatsConnectorSenderList{Senders: make([]schema.ChatsConnectorSender, 0, len(list))}
 	for _, s := range list {
-		out.Senders = append(out.Senders, schema.ChatsConnectorSender{ID: s.ID, Name: s.Name, Count: s.Count, First: s.First, Last: s.Last, Allowed: s.Allowed})
+		out.Senders = append(out.Senders, schema.ChatsConnectorSender{ID: s.ID, Name: s.Name, Count: s.Count, First: s.First, Last: s.Last, Allowed: s.Allowed,
+			Chat: s.Chat, ChatName: s.ChatName, Reason: s.Reason})
 	}
 	return c.JSON(http.StatusOK, out)
 }
@@ -389,7 +492,7 @@ func (h *Handlers) AllowConnectorSender(c echo.Context) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusOK, connectorOut(i))
+	return c.JSON(http.StatusOK, connectorOut(i, connectorLang(c)))
 }
 
 // StartConnectorPairing makes a pairing code for a binding.
@@ -416,6 +519,7 @@ func (h *Handlers) StartConnectorPairing(c echo.Context) error {
 // @Description Runs the permission check the host uses for each turn, for a sender on the allowlist by ID or name (trusted with every capability that is not sensitive), a sender let in only through a listed channel, a paired sender and a sender of each role the kind declares, and lists the latest decisions. A settings page of the add-on can show it.
 // @Tags chats
 // @Param id path string true "the binding's id"
+// @Param lang query string false "Language tag for localized_message, such as it or pt-BR. Wins over Accept-Language. English or an unknown language adds no localized field."
 // @Success 200 {object} schema.ChatsConnectorAccess "The effective permissions"
 // @Router /api/chats/connectors/{id}/access [get]
 func (h *Handlers) ConnectorAccess(c echo.Context) error {
@@ -427,16 +531,21 @@ func (h *Handlers) ConnectorAccess(c echo.Context) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusOK, accessOut(v))
+	return c.JSON(http.StatusOK, accessOut(v, connectortext.Negotiate(c.QueryParam("lang"), c.Request().Header.Get("Accept-Language"))))
 }
 
-func accessOut(v studiosvc.AccessView) schema.ChatsConnectorAccess {
-	out := schema.ChatsConnectorAccess{Binding: v.Binding, Subjects: []schema.ChatsConnectorAccessSubject{}, Recent: []schema.ChatsConnectorAccessEvent{}, Preview: v.Preview}
+func accessOut(v studiosvc.AccessView, lang string) schema.ChatsConnectorAccess {
+	out := schema.ChatsConnectorAccess{ProposalMode: v.ProposalMode, Binding: v.Binding, Subjects: []schema.ChatsConnectorAccessSubject{}, Recent: []schema.ChatsConnectorAccessEvent{}, Preview: v.Preview, Language: lang}
 	for _, s := range v.Subjects {
-		o := schema.ChatsConnectorAccessSubject{ID: s.ID, Title: s.Title, Decisions: []schema.ChatsConnectorAccessDecision{}}
+		o := schema.ChatsConnectorAccessSubject{ID: s.ID, Title: s.Title, NoteSave: s.NoteSave, Decisions: []schema.ChatsConnectorAccessDecision{}}
 		for _, d := range s.Decisions {
 			od := schema.ChatsConnectorAccessDecision{Capability: d.Capability, Allowed: d.Allowed, Via: d.Via, Reason: d.Reason,
 				Code: d.Code, BlockedBy: d.BlockedBy, Message: d.Message, ThenCheck: d.ThenCheck}
+			if lang != "" && d.Code != "" {
+				if m, ok := connectortext.Block(lang, d.Code, d.Capability); ok {
+					od.LocalizedMessage = m
+				}
+			}
 			if d.Fix != nil {
 				od.Fix = &schema.ChatsConnectorAccessFix{Kind: d.Fix.Kind, Target: d.Fix.Target, Field: d.Fix.Field}
 			}
@@ -444,8 +553,31 @@ func accessOut(v studiosvc.AccessView) schema.ChatsConnectorAccess {
 		}
 		out.Subjects = append(out.Subjects, o)
 	}
+	for _, h := range v.AddonTools {
+		o := schema.ChatsConnectorAddonTools{Addon: h.Addon, Capability: h.Capability, Tools: h.Tools, WithoutTick: h.WithoutTick, TickRemoved: h.TickRemoved}
+		for _, x := range h.Connections {
+			o.Connections = append(o.Connections, schema.ChatsConnectorAddonConnection{Name: x.Name, WriteMode: x.WriteMode})
+		}
+		out.AddonTools = append(out.AddonTools, o)
+	}
+	for _, a := range v.Approvals {
+		out.Approvals = append(out.Approvals, schema.ChatsConnectorToolApproval{Tool: a.Tool, Skip: a.Skip, RunsWithoutAsking: a.RunsWithoutAsking})
+	}
 	for _, e := range v.Recent {
-		out.Recent = append(out.Recent, schema.ChatsConnectorAccessEvent{At: e.At, Senders: e.Senders, Roles: e.Roles, Capability: e.Capability, Allowed: e.Allowed, Via: e.Via, Reason: e.Reason, Code: e.Code})
+		out.Recent = append(out.Recent, schema.ChatsConnectorAccessEvent{At: e.At, Senders: e.Senders, Roles: e.Roles, SenderName: e.SenderName, Chat: e.Chat, ChatName: e.ChatName, Capability: e.Capability, Allowed: e.Allowed, Via: e.Via, Reason: e.Reason, Code: e.Code})
+	}
+	for _, e := range v.ToolOutcomes {
+		o := schema.ChatsConnectorAccessEvent{At: e.At, Senders: e.Senders, Roles: e.Roles, SenderName: e.SenderName, Chat: e.Chat, ChatName: e.ChatName, Addon: e.Addon, Tool: e.Tool, Outcome: e.Outcome, Asker: e.Asker,
+			Status: e.Status, Code: e.Reason, Message: studiosvc.ToolReasonMessage(e.Reason, e.Status)}
+		if lang != "" && e.Reason != "" {
+			key := studiosvc.ToolReasonKey(e.Reason)
+			if slices.Contains(studiosvc.BlockCodes(), key) {
+				o.LocalizedMessage, _ = connectortext.Block(lang, key, contract.CapToolsWrite)
+			} else {
+				o.LocalizedMessage, _ = connectortext.ToolReason(lang, key, e.Status)
+			}
+		}
+		out.ToolOutcomes = append(out.ToolOutcomes, o)
 	}
 	return out
 }
@@ -456,6 +588,7 @@ func accessOut(v studiosvc.AccessView) schema.ChatsConnectorAccess {
 // @Description Runs the same permission chain as the access view on the state in the request: the server setting, the Tools switch of the agent, the agent permission, the permission of the connection and the trust of the sender, in that order, and reports the first problem of each capability with a code, a plain message, one fix and the links not yet checked. Fields that are absent keep the saved value. Use the id "new" with a kind for a connection that is not saved yet. It writes nothing, records no decision, and neither takes nor returns the token. Same sign-in and Connectors feature as the other connector routes.
 // @Tags chats
 // @Param id path string true "the binding's id, or new"
+// @Param lang query string false "Language tag for localized_message, such as it or pt-BR. Wins over Accept-Language. English or an unknown language adds no localized field."
 // @Param request body schema.ChatsConnectorAccessPreviewRequest true "the form state to check"
 // @Success 200 {object} schema.ChatsConnectorAccess "The effective permissions of that state"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
@@ -470,11 +603,11 @@ func (h *Handlers) ConnectorAccessPreview(c echo.Context) error {
 		return nil
 	}
 	v, err := host.AccessPreview(c.Request().Context(), userID(c), c.Param("id"), studiosvc.AccessDraft{
-		Kind: req.Kind, AgentID: req.AgentID, AcceptAny: req.AcceptAny, Allow: req.Allow, Caps: req.Caps, Grants: grantsIn(req.Grants), Sender: req.Sender})
+		Kind: req.Kind, AgentID: req.AgentID, AcceptAny: req.AcceptAny, Allow: req.Allow, AllowTrust: req.AllowTrust, Channels: channelsIn(req.Channels), ApprovalMode: req.ApprovalMode, Caps: req.Caps, Grants: grantsIn(req.Grants), Sender: req.Sender})
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusOK, accessOut(v))
+	return c.JSON(http.StatusOK, accessOut(v, connectortext.Negotiate(c.QueryParam("lang"), c.Request().Header.Get("Accept-Language"))))
 }
 
 // RemoveConnectorPaired ends the pairing of a sender.
@@ -494,7 +627,20 @@ func (h *Handlers) RemoveConnectorPaired(c echo.Context) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	return c.JSON(http.StatusOK, connectorOut(i))
+	return c.JSON(http.StatusOK, connectorOut(i, connectorLang(c)))
+}
+
+// capabilityOut adds the title and description in the negotiated language
+// beside the English ones.
+func capabilityOut(ci contract.CapabilityInfo, lang string) schema.ChatsConnectorCapability {
+	out := schema.ChatsConnectorCapability{Name: ci.Name, Title: ci.Title, Description: ci.Description, Sensitive: ci.Sensitive, Usual: ci.Usual}
+	if lang == "" {
+		return out
+	}
+	if t, d, ok := connectortext.Capability(lang, ci.Name); ok {
+		out.Language, out.LocalizedTitle, out.LocalizedDescription = lang, t, d
+	}
+	return out
 }
 
 func optionsOut(in []contract.ConnectorOption) []schema.ChatsConnectorOption {

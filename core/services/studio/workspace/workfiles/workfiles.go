@@ -132,8 +132,19 @@ func Kind(p string) string {
 
 // Stray reports whether a file looks like a helper (Kind is Working) but is
 // not in a work folder: the chat left a script next to the user's files.
+//
+// A file in a hidden folder (a name that starts with a dot) is never stray:
+// such a folder is where a tool keeps its state, and a script or state file
+// that a trigger reads must stay where it was put.
 func Stray(p string) bool {
 	segs, _ := segments(p)
+	if len(segs) > 1 {
+		for _, d := range segs[:len(segs)-1] {
+			if strings.HasPrefix(d, ".") {
+				return false
+			}
+		}
+	}
 	return Kind(p) == Working && !inWorkFolder(segs)
 }
 
@@ -169,6 +180,20 @@ func ScopedPrompt(homeWritable bool) string {
 
 // Nudge is the line a tool result gets when the call left a helper file
 // outside the work folder (guest path, ending in "/").
+//
+// The work folder of a scoped chat is /workspace/chat/work, and every
+// trigger run starts a new chat with an empty /workspace/chat. The line says
+// so, so that a script or a state file that a trigger will use is not moved
+// out of reach.
 func Nudge(guestFolder, file string) string {
-	return "Note: " + file + " looks like a helper file; helper files belong in " + guestFolder + ". Consider moving it there unless the user asked for it here."
+	line := "Note: " + file + " looks like a helper file; helper files belong in " + guestFolder + ". Consider moving it there unless the user asked for it here."
+	if strings.HasPrefix(guestFolder, guestChat+"/") {
+		line += " Exception: " + TriggerFileRule
+	}
+	return line
 }
+
+// TriggerFileRule tells the model where a file that a trigger uses must live.
+// The trigger tool descriptions and the helper-file note share it.
+const TriggerFileRule = "a script or a state file that a trigger will run or keep state in must live under " + guestHome +
+	", never under " + guestChat + ": every trigger run starts a new chat with its own empty " + guestChat + "."

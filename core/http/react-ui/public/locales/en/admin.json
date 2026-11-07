@@ -188,13 +188,17 @@
       "bash": "Commands (bash)",
       "web_search": "Web search",
       "web_fetch": "Read web pages",
-      "list_agents": "Saved agents"
+      "list_agents": "Saved agents",
+      "localai_client": "LocalAI client tools",
+      "localai_admin": "LocalAI admin tools"
     },
     "descriptions": {
       "bash": "Runs commands and code for the chats directly on this machine when no add-on serves bash. An add-on that runs commands in isolation replaces it.",
       "web_search": "Searches the web for the chats without a key (DuckDuckGo, then Brave Search, then Bing), or with your SearXNG instance when one is set.",
       "web_fetch": "Reads a public web page or file by its address for the chats. Addresses inside your network are refused unless you allow them.",
-      "list_agents": "Lets a chat list the user's saved agents and start one as a sub-agent. Each chat switches it on in its Tools menu."
+      "list_agents": "Lets a chat list the user's saved agents and start one as a sub-agent. Each chat switches it on in its Tools menu.",
+      "localai_client": "Lets the chats run the models installed here for images, speech, sound, video, embeddings and detection, within each user's permissions.",
+      "localai_admin": "Lets the chats of administrators manage this server: models, backends, settings and the state. Each chat, or saved agent, switches it on."
     },
     "bash": {
       "switch": "Let chats run commands on this machine",

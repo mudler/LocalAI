@@ -4,6 +4,7 @@ package addons
 import (
 	"context"
 	"errors"
+	"sort"
 	"github.com/mudler/LocalAI/pkg/addons/zipformat"
 	"time"
 
@@ -101,6 +102,39 @@ func (m *Manager) checkPins(ctx context.Context, cmd LifecycleCommand, st Status
 		return catalog.Release{}, ErrCandidateChanged
 	}
 	return catalog.Release{}, ErrCheckFailed
+}
+
+// RefreshUpdates asks the libraries about every installed add-on that has one,
+// so the answer the pages read is a recent check and not an empty cache. It is
+// the owner's own background work: it reads libraries and applies nothing. It
+// returns the number of add-ons checked. An add-on whose check fails keeps a
+// check-failed status with its time, never a missing one.
+func (m *Manager) RefreshUpdates(ctx context.Context) int {
+	if m.updates == nil {
+		return 0
+	}
+	m.mu.Lock()
+	var ids []string
+	for id, st := range m.journal.Addons {
+		if !st.Installed {
+			continue
+		}
+		if receipt, ok := currentReceipt(st); ok && receipt.SourceID != zipformat.SourceID {
+			ids = append(ids, id)
+		}
+	}
+	m.mu.Unlock()
+	sort.Strings(ids)
+	n := 0
+	for _, id := range ids {
+		if ctx.Err() != nil {
+			break
+		}
+		if _, e := m.updates.Check(ctx, id, true); e == nil {
+			n++
+		}
+	}
+	return n
 }
 
 // visibleTo reports whether the actor may read update status of an add-on: an

@@ -28,6 +28,9 @@ type App struct {
 	UserID, User  string
 	BotID, Team   string
 	TeamID        string
+	// URL is the workspace address that auth.test returns, such as
+	// https://acme.slack.com/. Empty: auth.test returns none.
+	URL string
 }
 
 // Post is a message that a bot posted or edited.
@@ -35,6 +38,8 @@ type Post struct {
 	Token, Channel, Thread, Text, TS string
 	// Edited is set for chat.update.
 	Edited bool
+	// Deleted is set for chat.delete: the message TS is gone.
+	Deleted bool
 }
 
 // Server is the fake. Its zero value is not usable: call New.
@@ -60,6 +65,7 @@ type Server struct {
 	calls    map[string]int
 	thread   map[string][]map[string]any // by channel and thread: the messages conversations.replies returns
 	failing  map[string]string           // method -> error code, once
+	failN    map[string]failure          // method -> error code, a number of times
 	seq      int
 	links    int
 	upgrader websocket.Upgrader
@@ -95,7 +101,7 @@ func (c *conn) send(v any) error {
 // New starts a fake Slack. Close it when the test ends.
 func New() *Server {
 	s := &Server{apps: map[string]*App{}, tickets: map[string]string{}, conns: map[string][]*conn{}, pending: map[string][]any{},
-		users: map[string]map[string]any{}, files: map[string]file{}, uploads: map[string]*Upload{}, refuse: map[string]string{}, limit: map[string]int{}, calls: map[string]int{}, thread: map[string][]map[string]any{}, failing: map[string]string{}}
+		users: map[string]map[string]any{}, files: map[string]file{}, uploads: map[string]*Upload{}, refuse: map[string]string{}, limit: map[string]int{}, calls: map[string]int{}, thread: map[string][]map[string]any{}, failing: map[string]string{}, failN: map[string]failure{}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/", s.api)
 	mux.HandleFunc("/link", s.link)
@@ -166,6 +172,19 @@ func (s *Server) FailOnce(method, code string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.failing[method] = code
+}
+
+type failure struct {
+	code string
+	n    int
+}
+
+// FailTimes makes the next n calls of a method answer ok:false with code. A
+// call that FailOnce or a refusal already fails does not count.
+func (s *Server) FailTimes(method, code string, n int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.failN[method] = failure{code, n}
 }
 
 // AddFile registers a file that a message can carry.
@@ -339,6 +358,10 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 	if once, ok := s.failing[method]; ok {
 		delete(s.failing, method)
 		code = once
+	} else if f, ok := s.failN[method]; ok && f.n > 0 && code == "" {
+		f.n--
+		s.failN[method] = f
+		code = f.code
 	}
 	app := s.apps[token]
 	s.mu.Unlock()
@@ -360,7 +383,7 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 	}
 	switch method {
 	case "auth.test":
-		s.reply(w, map[string]any{"ok": true, "user_id": app.UserID, "user": app.User, "bot_id": app.BotID, "team_id": app.TeamID, "team": app.Team})
+		s.reply(w, map[string]any{"ok": true, "user_id": app.UserID, "user": app.User, "bot_id": app.BotID, "team_id": app.TeamID, "team": app.Team, "url": app.URL})
 	case "apps.connections.open":
 		s.mu.Lock()
 		s.seq++
@@ -391,6 +414,24 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 		}
 		s.posts = append(s.posts, Post{Token: token, Channel: channel, Thread: thread, Text: text, TS: ts, Edited: method == "chat.update"})
 		s.mu.Unlock()
+		s.reply(w, map[string]any{"ok": true, "channel": channel, "ts": ts})
+	case "chat.delete":
+		channel, ts := r.Form.Get("channel"), r.Form.Get("ts")
+		s.mu.Lock()
+		found := false
+		for _, p := range s.posts {
+			if p.TS == ts && p.Channel == channel && p.Token == token && !p.Deleted {
+				found = true
+			}
+		}
+		if found {
+			s.posts = append(s.posts, Post{Token: token, Channel: channel, TS: ts, Deleted: true})
+		}
+		s.mu.Unlock()
+		if !found {
+			s.reply(w, map[string]any{"ok": false, "error": "message_not_found"})
+			return
+		}
 		s.reply(w, map[string]any{"ok": true, "channel": channel, "ts": ts})
 	case "conversations.replies":
 		s.replies(w, r)

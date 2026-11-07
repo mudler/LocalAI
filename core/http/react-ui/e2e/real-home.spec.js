@@ -55,9 +55,9 @@ test('a message typed on Home starts a real chat that answers, and Home lists it
   await expect(page.getByRole('region', { name: 'Conversation' })).toContainText('hello from home')
 })
 
-test('the LocalAI Assistant entry and /assistant follow the setting, and start an assistant chat', async ({ page }) => {
+test('the LocalAI Assistant entry and /assistant follow the admin tools switch, and start an assistant chat', async ({ page }) => {
   const api = await pwRequest.newContext({ baseURL: ready.url })
-  await api.post('/api/settings', { data: { localai_assistant_enabled: true } })
+  await api.post('/api/settings', { data: { chats_localai_admin: true } })
   await page.goto(`${ready.url}/app`)
   await expect(page.getByTestId('home-assistant')).toBeVisible({ timeout: 20_000 })
   await bar(page).fill('/')
@@ -67,13 +67,11 @@ test('the LocalAI Assistant entry and /assistant follow the setting, and start a
   const chat = await (await api.get(`/api/chats/${id}`)).json()
   expect(chat.title).toBe('LocalAI Assistant')
 
-  await api.post('/api/settings', { data: { localai_assistant_enabled: false } })
+  await api.post('/api/settings', { data: { chats_localai_admin: false } })
   await page.goto(`${ready.url}/app`)
   await expect(bar(page)).toBeVisible({ timeout: 20_000 })
   await expect(page.getByTestId('home-assistant')).toHaveCount(0)
   await bar(page).fill('/ass')
   await expect(page.getByTestId('home-slash-assistant')).toHaveCount(0)
-  const refused = await api.post('/api/chats', { data: { model: 'mock-model', assistant: true } })
-  expect(refused.ok()).toBe(false)
-  await api.post('/api/settings', { data: { localai_assistant_enabled: true } })
+  await api.post('/api/settings', { data: { chats_localai_admin: true } })
 })

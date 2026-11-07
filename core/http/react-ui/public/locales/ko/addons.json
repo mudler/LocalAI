@@ -100,7 +100,14 @@
     "alias": "Alias",
     "kindLabel": "Kind",
     "installedOn": "{{name}} is installed and on.",
-    "installedChip": "설치됨"
+    "installedChip": "설치됨",
+    "category": {
+      "label": "카테고리",
+      "all": "전체",
+      "chat": "채팅 앱",
+      "tools": "도구",
+      "models": "모델"
+    }
   },
   "catalog": {
     "allLibraries": "모든 라이브러리",
@@ -146,7 +153,8 @@
     "network": "서버에 연결할 수 없습니다. 연결을 확인하세요.",
     "unavailable": "지금은 애드온을 사용할 수 없습니다. 잠시 후 다시 시도하세요.",
     "unknownOutcome": "결과를 확인할 수 없습니다. 다시 시도하기 전에 상태를 확인하세요.",
-    "busy": "애드온 서버가 바빠서 제때 응답하지 못했습니다. 잠시 후 다시 시도하세요."
+    "busy": "애드온 서버가 바빠서 제때 응답하지 못했습니다. 잠시 후 다시 시도하세요.",
+    "needsNewerHost": "이 애드온에는 더 새로운 LocalAI가 필요합니다. LocalAI를 업데이트한 뒤 다시 시도하세요. 아무것도 설치되지 않았습니다."
   },
   "installed": {
     "disabled": "꺼짐",
@@ -359,7 +367,8 @@
     "starting": "시작 중",
     "stopped": "꺼짐",
     "update-pending": "업데이트 대기 중",
-    "updateTo": "업데이트 {{version}}"
+    "updateTo": "업데이트 {{version}}",
+    "needsSetup": "설정 필요"
   },
   "supporting": "LocalAI에 새 페이지와 채팅 도구를 더하려고 설치하는 소프트웨어입니다. 각각 따로 실행되며 명시한 것만 요청합니다.",
   "tabs": {
@@ -569,7 +578,8 @@
       "protocol-version": "프로토콜 버전이 맞지 않음",
       "sdk-version": "인터페이스 SDK 버전이 맞지 않음",
       "data-format": "데이터 형식이 맞지 않음",
-      "digest-changed": "이 버전의 다이제스트가 바뀜"
+      "digest-changed": "이 버전의 다이제스트가 바뀜",
+      "feature-level": "이 애드온에는 더 새로운 LocalAI가 필요합니다."
     },
     "class": {
       "source-unavailable": "라이브러리에 연결할 수 없습니다.",
@@ -624,6 +634,7 @@
       "unpinned": "라이브러리가 업데이트를 알리지만 설치할 빌드를 지정하지 않아 여기서 업그레이드할 수 없습니다. 나중에 다시 확인하세요."
     },
     "checkAll": "업데이트 확인",
+    "notCheckedYet": "업데이트를 아직 확인하지 않았습니다.",
     "checkingAll": "확인 중...",
     "checkAllDone": "애드온 {{count}}개를 확인했습니다.",
     "checkAllFailed": "{{count}}개는 확인할 수 없었습니다.",
@@ -671,7 +682,12 @@
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
     "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
-    "removeNamed": "{{name}} 제거…"
+    "removeNamed": "{{name}} 제거…",
+    "setUp": "설정",
+    "setUpNamed": "{{name}} 설정",
+    "review": "검토",
+    "reviewNamed": "{{name}} 검토",
+    "updateTo": "{{version}}(으)로 업데이트"
   },
   "preview": {
     "screenshots": "Screenshots",
@@ -730,7 +746,11 @@
     "toolsOff_other": "다시 실행될 때까지 채팅 도구 {{count}}개가 꺼져 있습니다.",
     "pageOff": "다시 실행될 때까지 페이지를 사용할 수 없습니다.",
     "updateTitle": "{{name}} {{version}}을(를) 사용할 수 있습니다.",
-    "updateBody": "현재 {{current}}입니다. 무엇이 바뀌는지 보고 확인한 뒤에만 교체됩니다."
+    "updateBody": "현재 {{current}}입니다. 무엇이 바뀌는지 보고 확인한 뒤에만 교체됩니다.",
+    "title_one": "추가 기능 {{count}}개 설정 필요",
+    "title_other": "추가 기능 {{count}}개 설정 필요",
+    "connectionBody_one": "아직 응답할 수 없는 연결이 {{count}}개 있습니다. {{reason}}",
+    "connectionBody_other": "아직 응답할 수 없는 연결이 {{count}}개 있습니다. {{reason}}"
   },
   "meta": {
     "builtin": "기본 제공",
@@ -864,6 +884,7 @@
     "keepOwnNamed": "{{name}}의 일괄 허용을 내 허용으로 유지",
     "loadError": "호스트 접근을 불러오지 못했습니다",
     "loading": "이 애드온이 요청하는 내용을 읽는 중...",
+    "loadingSlow": "아직 진행 중입니다. 권한을 보여 주기 전에 패키지를 내려받고 서명을 확인하고 있습니다. 큰 애드온은 시간이 걸릴 수 있습니다.",
     "loadingPage": "호스트 접근을 불러오는 중",
     "locked": "배포 설정이 호스트 접근 변경을 꺼 두었습니다. 이 페이지는 읽을 수만 있습니다.",
     "lockedNoAuth": "로그인이 꺼져 있어 이 서버에 접근할 수 있는 누구나 이를 바꿀 수 있습니다. 관리자가 정책 파일에서 설정합니다.",
@@ -962,6 +983,30 @@
       "migrating": "데이터 마이그레이션",
       "starting": "시작",
       "working": "작업 중"
+    }
+  },
+  "groups": {
+    "chat": "채팅 앱",
+    "tools": "도구 및 서비스",
+    "models": "미디어 및 모델",
+    "builtin": "내장"
+  },
+  "connection": {
+    "title": "연결",
+    "none": "아직 연결이 없습니다.",
+    "answersAs": "{{name}}(으)로 응답",
+    "noAgent": "선택된 에이전트 없음",
+    "manage": "연결 관리",
+    "acceptsListed_one": "{{count}}명 허용",
+    "acceptsListed_other": "{{count}}명 허용",
+    "accepts": {
+      "anyone": "누구나 허용",
+      "nobody": "아직 아무도 허용하지 않음"
+    },
+    "state": {
+      "running": "실행 중",
+      "off": "꺼짐",
+      "attention": "설정 필요"
     }
   }
 }

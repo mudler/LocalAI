@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -43,6 +44,9 @@ var (
 	ErrResourceUnreachable = fmt.Errorf("that resource does not exist or you have no access to it: %w", ErrForbidden)
 	// ErrNotSelected means no resource is selected for the conversation.
 	ErrNotSelected = fmt.Errorf("no resource is selected for the conversation: %w", ErrForbidden)
+	// ErrSearchLimited means the person searched for people too often. It is
+	// a denial of this search only; a later one is answered again.
+	ErrSearchLimited = fmt.Errorf("too many searches for people, wait a moment: %w", ErrForbidden)
 	// ErrQuotaReached means the person reached the resource limits.
 	ErrQuotaReached = fmt.Errorf("addon resource quota reached: %w", ErrForbidden)
 )
@@ -227,6 +231,68 @@ type SetGrantRequest struct {
 	OperationID string `json:"operationId,omitempty" example:"grant-1"`
 }
 
+// SetShareRequest is the body of a grant change on the generic sharing API.
+type SetShareRequest struct {
+	// Role is one of the roles the kind grants, for example use or manage.
+	// The owner role cannot be granted.
+	Role string `json:"role" example:"use"`
+	// OperationID is optional. It is returned with outcome_unknown, and the
+	// change is safe to repeat.
+	OperationID string `json:"operationId,omitempty" example:"share-1"`
+}
+
+// ShareList is the answer of the grant listing and of a grant change of the
+// generic sharing API.
+type ShareList struct {
+	Kind       string `json:"kind" example:"example:note"`
+	ResourceID string `json:"resourceId" example:"r0123456789abcdef0123456789abcde"`
+	// Roles are the roles the kind grants, in the order the kind declares.
+	Roles []string `json:"roles" example:"use,manage"`
+	// Everyone says whether the kind may be shared with every account.
+	Everyone bool `json:"everyone"`
+	// Grants lists the grants. A grant to every account has the user ID
+	// @everyone and no display name.
+	Grants []Grant `json:"grants"`
+}
+
+// SharedResource is one resource of a kind in the sharing listing.
+type SharedResource struct {
+	ID string `json:"id" example:"r0123456789abcdef0123456789abcde"`
+	// Role is the caller's own role: owner or a role the kind grants.
+	Role string `json:"role" example:"use"`
+	// Everyone says that the role comes from a grant to every account.
+	Everyone bool `json:"everyone,omitempty"`
+	// Owner is the display name of the owner. It is absent for the owner.
+	Owner string `json:"owner,omitempty" example:"Alice"`
+	// SharedWith is the number of grants, the grant to every account
+	// included. It is present for the owner only.
+	SharedWith *int `json:"sharedWith,omitempty" example:"2"`
+}
+
+// ShareIndex is the answer of the sharing listing of one kind.
+type ShareIndex struct {
+	Kind     string   `json:"kind" example:"example:note"`
+	Roles    []string `json:"roles" example:"use,manage"`
+	Everyone bool     `json:"everyone"`
+	// Owned lists the resources the caller owns, at most 100.
+	Owned []SharedResource `json:"owned"`
+	// Shared lists the resources shared with the caller, at most 100.
+	Shared []SharedResource `json:"shared"`
+	// Truncated says that one of the lists has more than it shows.
+	Truncated bool `json:"truncated,omitempty"`
+}
+
+// ShareManager is the owner-held sharing of the resource kinds that are not
+// add-ons. Like ResourceManager it has no relation to the tool adapter or
+// to the proposal broker: sharing is never a tool.
+type ShareManager interface {
+	Shares(ctx context.Context, actor contract.Actor, kind string) (ShareIndex, error)
+	ShareGrants(ctx context.Context, actor contract.Actor, kind, resourceID string) (ShareList, error)
+	SetShare(ctx context.Context, actor contract.Actor, kind, resourceID, principal, role string) (ShareList, error)
+	RevokeShare(ctx context.Context, actor contract.Actor, kind, resourceID, principal string) (ShareList, error)
+	SearchShareUsers(ctx context.Context, actor contract.Actor, kind, resourceID, query string, limit int) (UserList, error)
+}
+
 // OperationStatus is the read-only receipt lookup of a UI mutation.
 type OperationStatus struct {
 	OperationID string `json:"operationId"`
@@ -302,6 +368,11 @@ const (
 	resourceSelPut     = "selection-put"
 	resourceSelClear   = "selection-clear"
 	resourceSelResolve = "selection-resolve"
+	shareList          = "share-list"
+	shareGrants        = "share-grants"
+	shareSet           = "share-set"
+	shareRevoke        = "share-revoke"
+	shareUsers         = "share-users"
 )
 
 // ResourceCall is the body a frontend forwards to the owner.
@@ -323,6 +394,17 @@ type ResourceCall struct {
 	Tool           string            `json:"tool,omitempty"`
 	RequestHash    string            `json:"requestHash,omitempty"`
 	ChangeID       string            `json:"changeId,omitempty"`
+	// ShareKind is the resource kind of a call of the generic sharing API.
+	ShareKind string `json:"shareKind,omitempty"`
+	// Action is what a share-admit call asks to run (output, read, write).
+	Action string `json:"action,omitempty"`
+	// Lease names the admission of a share-watch or share-release call.
+	Lease string `json:"lease,omitempty"`
+	// Stopping says a share-watch only keeps the lease alive while the work
+	// stops.
+	Stopping bool `json:"stopping,omitempty"`
+	// Local is the service's own name of a resource in a share-ensure call.
+	Local string `json:"local,omitempty"`
 }
 
 // mutating says whether the call can change state that has an operation
@@ -333,7 +415,11 @@ type ResourceCall struct {
 // unavailability.
 func (c ResourceCall) mutating() bool {
 	switch c.Op {
-	case resourceList, resourceGrants, resourceUsers, resourceStatus, resourceSelGet, resourceSelResolve, resourceSelPut, resourceSelClear:
+	case resourceList, resourceGrants, resourceUsers, resourceStatus, resourceSelGet, resourceSelResolve, resourceSelPut, resourceSelClear, shareList, shareGrants, shareUsers:
+		return false
+	case shareViews, shareWatch, shareRelease:
+		// A watch changes only when the lease expires and a release is safe
+		// to repeat, so a lost answer is plain unavailability.
 		return false
 	}
 	return true
@@ -363,7 +449,13 @@ func newResourceOperationID() (string, error) {
 // resourceCall runs one call on the owner, here or through the carrier. id is
 // the operation identifier of a mutation, or empty for a read.
 func (g *Gateway) resourceCall(ctx context.Context, a contract.Actor, id string, call ResourceCall) (json.RawMessage, error) {
-	if e := g.revalidate(ctx, a); e != nil {
+	// A sharing call of a kind that is not an add-on does not need the
+	// add-ons feature; the owner's policy checks what the kind names.
+	check := g.revalidate
+	if call.sharing() {
+		check = g.revalidateAccount
+	}
+	if e := check(ctx, a); e != nil {
 		return nil, e
 	}
 	if id == "" {
@@ -383,14 +475,36 @@ func (g *Gateway) resourceCall(ctx context.Context, a contract.Actor, id string,
 
 // resourceLocal serves a resource call on the owner itself.
 func (g *Gateway) resourceLocal(ctx context.Context, a contract.Actor, request contract.Request, call ResourceCall) (json.RawMessage, error) {
-	if g.Resources == nil {
-		return nil, ErrUnavailable
-	}
 	if request.Action != call.wireAction() {
 		return nil, ErrForbidden
 	}
 	var out any
 	var err error
+	if call.leased() {
+		out, err = g.shareLocal(ctx, a, call)
+		return encodeResource(out, err)
+	}
+	if call.sharing() {
+		if g.Sharing == nil {
+			return nil, ErrUnavailable
+		}
+		switch call.Op {
+		case shareList:
+			out, err = g.Sharing.Shares(ctx, a, call.ShareKind)
+		case shareGrants:
+			out, err = g.Sharing.ShareGrants(ctx, a, call.ShareKind, call.ResourceID)
+		case shareSet:
+			out, err = g.Sharing.SetShare(ctx, a, call.ShareKind, call.ResourceID, call.UserID, call.Role)
+		case shareRevoke:
+			out, err = g.Sharing.RevokeShare(ctx, a, call.ShareKind, call.ResourceID, call.UserID)
+		case shareUsers:
+			out, err = g.Sharing.SearchShareUsers(ctx, a, call.ShareKind, call.ResourceID, call.Query, call.Limit)
+		}
+		return encodeResource(out, err)
+	}
+	if g.Resources == nil {
+		return nil, ErrUnavailable
+	}
 	switch call.Op {
 	case resourceList:
 		out, err = g.Resources.List(ctx, a, call.AddonID)
@@ -430,6 +544,19 @@ func (g *Gateway) resourceLocal(ctx context.Context, a contract.Actor, request c
 	default:
 		return nil, ErrForbidden
 	}
+	return encodeResource(out, err)
+}
+
+// sharing says whether the call is one of the generic sharing API.
+func (c ResourceCall) sharing() bool {
+	switch c.Op {
+	case shareList, shareGrants, shareSet, shareRevoke, shareUsers:
+		return true
+	}
+	return c.leased()
+}
+
+func encodeResource(out any, err error) (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
@@ -482,6 +609,32 @@ func (g *Gateway) RevokeResourceGrant(ctx context.Context, a contract.Actor, ope
 // SearchResourceUsers is the user picker of a resource's owner.
 func (g *Gateway) SearchResourceUsers(ctx context.Context, a contract.Actor, resourceID, query string, limit int) (UserList, error) {
 	return decodeResource[UserList](g.resourceCall(ctx, a, "", ResourceCall{Op: resourceUsers, ResourceID: resourceID, Query: query, Limit: limit}))
+}
+
+// Shares lists the resources of a kind the caller owns or that were shared
+// with the caller.
+func (g *Gateway) Shares(ctx context.Context, a contract.Actor, kind string) (ShareIndex, error) {
+	return decodeResource[ShareIndex](g.resourceCall(ctx, a, "", ResourceCall{Op: shareList, ShareKind: kind}))
+}
+
+// ShareGrants lists the grants of a resource of a kind for its owner.
+func (g *Gateway) ShareGrants(ctx context.Context, a contract.Actor, kind, resourceID string) (ShareList, error) {
+	return decodeResource[ShareList](g.resourceCall(ctx, a, "", ResourceCall{Op: shareGrants, ShareKind: kind, ResourceID: resourceID}))
+}
+
+// SetShare gives a user, or every account, a role on a resource of a kind.
+func (g *Gateway) SetShare(ctx context.Context, a contract.Actor, operationID, kind, resourceID, principal, role string) (ShareList, error) {
+	return decodeResource[ShareList](g.resourceCall(ctx, a, operationID, ResourceCall{Op: shareSet, ShareKind: kind, ResourceID: resourceID, UserID: principal, Role: role}))
+}
+
+// RevokeShare removes a grant on a resource of a kind.
+func (g *Gateway) RevokeShare(ctx context.Context, a contract.Actor, operationID, kind, resourceID, principal string) (ShareList, error) {
+	return decodeResource[ShareList](g.resourceCall(ctx, a, operationID, ResourceCall{Op: shareRevoke, ShareKind: kind, ResourceID: resourceID, UserID: principal}))
+}
+
+// SearchShareUsers is the user picker of the owner of a resource of a kind.
+func (g *Gateway) SearchShareUsers(ctx context.Context, a contract.Actor, kind, resourceID, query string, limit int) (UserList, error) {
+	return decodeResource[UserList](g.resourceCall(ctx, a, "", ResourceCall{Op: shareUsers, ShareKind: kind, ResourceID: resourceID, Query: query, Limit: limit}))
 }
 
 // RenameResource renames a resource through the add-on, as the owner's
@@ -543,6 +696,44 @@ type resourceWire struct {
 	// Code and Detail type a refused undo.
 	Code   string `json:"code,omitempty"`
 	Detail string `json:"detail,omitempty"`
+	refusalWire
+}
+
+// refusalWire carries what the add-on said about an invalid-request refusal,
+// so a frontend that forwards the call to the owner shows the model the same
+// reason as the owner does. Reason is the short, printable class the owner
+// already bounded; Upstream and Hint are set when the service behind the
+// add-on refused. None holds a token or text the service sent.
+type refusalWire struct {
+	Reason   string `json:"reason,omitempty"`
+	Upstream int    `json:"upstream,omitempty"`
+	Hint     string `json:"hint,omitempty"`
+}
+
+// refusalWireOf reads the reason and the upstream refusal out of e.
+func refusalWireOf(e error) refusalWire {
+	var r *addonruntime.Refusal
+	if !errors.As(e, &r) {
+		return refusalWire{}
+	}
+	w := refusalWire{Reason: r.Reason}
+	if contract.ValidUpstreamStatus(r.Upstream) {
+		w.Upstream, w.Hint = r.Upstream, contract.CleanHint(r.Hint)
+	}
+	return w
+}
+
+// err is the invalid-request error that a frontend returns for w. The text is
+// bounded again here, because it crossed a wire.
+func (w refusalWire) err() error {
+	r := &addonruntime.Refusal{Status: http.StatusBadRequest, Reason: contract.CleanHint(w.Reason)}
+	if len(r.Reason) > 64 {
+		r.Reason = r.Reason[:64]
+	}
+	if contract.ValidUpstreamStatus(w.Upstream) {
+		r.Upstream, r.Hint = w.Upstream, contract.CleanHint(w.Hint)
+	}
+	return fmt.Errorf("%w: %w", ErrInvalidRequest, r)
 }
 
 const (
@@ -551,6 +742,7 @@ const (
 	wireInvalid         = "invalid_request"
 	wireQuota           = "quota_reached"
 	wireNotSelected     = "not_selected"
+	wireSearchLimited   = "rate_limited"
 	wireOpConflict      = "operation_conflict"
 	wireUndoRefused     = "undo_refused"
 )
@@ -578,11 +770,13 @@ func resourceFailure(w http.ResponseWriter, call ResourceCall, id string, e erro
 	case errors.Is(e, ErrOperationConflict):
 		status, body.Type = http.StatusConflict, wireOpConflict
 	case errors.Is(e, ErrInvalidRequest):
-		status, body.Type = http.StatusBadRequest, wireInvalid
+		status, body.Type, body.refusalWire = http.StatusBadRequest, wireInvalid, refusalWireOf(e)
 	case errors.Is(e, ErrQuotaReached):
 		status, body.Type = http.StatusForbidden, wireQuota
 	case errors.Is(e, ErrNotSelected):
 		status, body.Type = http.StatusNotFound, wireNotSelected
+	case errors.Is(e, ErrSearchLimited):
+		status, body.Type = http.StatusTooManyRequests, wireSearchLimited
 	case errors.Is(e, ErrNotPermitted) && !errors.Is(e, ErrUnavailable):
 		status, body.Type = http.StatusForbidden, wireNotPermitted
 	case errors.Is(e, ErrResourceUnreachable) && !errors.Is(e, ErrUnavailable):
@@ -634,11 +828,13 @@ func resourceReplyError(r io.Reader, status int, id string) error {
 		case wireOpConflict:
 			return ErrOperationConflict
 		case wireInvalid:
-			return ErrInvalidRequest
+			return b.refusalWire.err()
 		case wireQuota:
 			return ErrQuotaReached
 		case wireNotSelected:
 			return ErrNotSelected
+		case wireSearchLimited:
+			return ErrSearchLimited
 		}
 		if status == http.StatusForbidden {
 			// The owner names these denials, so a forwarding frontend tells
