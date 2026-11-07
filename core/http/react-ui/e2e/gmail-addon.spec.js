@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi } from './connector-fixtures.js'
+import { connectorApi, openEdit, openPane, saveSheet } from './connector-fixtures.js'
 
 // The page of the Gmail add-on (the real built bundle, inside the add-on
 // shell) with the core API stubbed. A person signs in on the Connectors page,
@@ -25,6 +25,7 @@ test.describe('Gmail add-on', () => {
     await page.goto(PAGE)
     await expect(page.getByTestId('gmail-limits')).toContainText('Connectors page')
     await expect(page.getByTestId('connector-row')).toContainText('Mail')
+    await openPane(page)
     await expect(page.getByTestId('gmail-row-labels')).toContainText('2 labels: Work, INBOX')
     await expect(page.getByTestId('gmail-row-write')).toHaveText('Asks you first')
     await expect(page.getByTestId('gmail-page').getByRole('button', { name: /New/ })).toHaveCount(0)
@@ -34,6 +35,7 @@ test.describe('Gmail add-on', () => {
     await install(page)
     await api(page, [{ ...BINDING, resources: ['ALL'] }]).install()
     await page.goto(PAGE)
+    await openPane(page)
     await expect(page.getByTestId('gmail-row-labels')).toHaveText('The whole mailbox')
   })
 
@@ -49,17 +51,18 @@ test.describe('Gmail add-on', () => {
     const a = api(page, [BINDING])
     await a.install()
     await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Edit', exact: true }).click()
+    await openEdit(page)
     const labels = page.getByLabel('Labels the agent may use')
     await labels.fill('Work\nbad<label')
     await expect(labels).toHaveAccessibleDescription(/"bad<label" is not a label/)
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
+    await expect(page.getByTestId('connector-save')).toBeDisabled()
     await labels.fill('Private notes\nWork')
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
+    await expect(page.getByTestId('connector-save')).toBeEnabled()
     await expect(page.getByTestId('gmail-all-note')).toHaveCount(0)
     await labels.fill('Private notes\nall')
     await expect(page.getByTestId('gmail-all-note')).toContainText('every mail this account can read')
-    await page.getByRole('button', { name: 'Save' }).click()
+    await saveSheet(page)
+    if (!(await page.getByTestId('connector-pane').isVisible())) await openPane(page)
     await expect(page.getByTestId('gmail-row-labels')).toHaveText('The whole mailbox')
     const put = a.s.calls.find(c => c.method === 'PUT')
     expect(put.body.resources).toEqual(['Private-notes', 'all'])
@@ -72,13 +75,13 @@ test.describe('Gmail add-on', () => {
     const a = api(page, [{ ...BINDING, write_mode: 'off' }])
     await a.install()
     await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Edit', exact: true }).click()
+    await openEdit(page)
     const group = page.getByRole('radiogroup', { name: 'What the agent may do with your mail' })
     await expect(group.getByRole('radio', { name: /Read only/ })).toBeChecked()
     await expect(group.getByRole('radio', { name: /Acts without asking/ })).toHaveCount(0)
     await group.getByRole('radio', { name: /Asks you first/ }).check()
     await expect(page.getByTestId('gmail-write-note')).toContainText('optional write access')
-    await page.getByRole('button', { name: 'Save' }).click()
+    await saveSheet(page)
     expect(a.s.calls.find(c => c.method === 'PUT').body.write_mode).toBe('propose')
   })
 })

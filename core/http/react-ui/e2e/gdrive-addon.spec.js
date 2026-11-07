@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi } from './connector-fixtures.js'
+import { connectorApi, openEdit, openPane, saveSheet } from './connector-fixtures.js'
 
 // The page of the Google Drive add-on (the real built bundle, inside the
 // add-on shell) with the core API stubbed. A person signs in on the Connectors
@@ -25,6 +25,7 @@ test.describe('Google Drive add-on', () => {
     await page.goto(PAGE)
     await expect(page.getByTestId('gdrive-limits')).toContainText('Connectors page')
     await expect(page.getByTestId('connector-row')).toContainText('Work')
+    await openPane(page)
     await expect(page.getByTestId('gdrive-row-folders')).toContainText('2 folders: 1AbC_d, root')
     await expect(page.getByTestId('gdrive-row-write')).toHaveText('Asks you first')
     await expect(page.getByTestId('gdrive-page').getByRole('button', { name: /New/ })).toHaveCount(0)
@@ -42,14 +43,15 @@ test.describe('Google Drive add-on', () => {
     const a = api(page, [BINDING])
     await a.install()
     await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Edit', exact: true }).click()
+    await openEdit(page)
     const folders = page.getByLabel('Folders the agent may use')
     await folders.fill('1AbC_d\nnot a folder')
     await expect(folders).toHaveAccessibleDescription(/"not a folder" is not a folder ID/)
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
+    await expect(page.getByTestId('connector-save')).toBeDisabled()
     await folders.fill('https://drive.google.com/drive/folders/1XyZ_9?usp=sharing\n1AbC_d')
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
-    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByTestId('connector-save')).toBeEnabled()
+    await saveSheet(page)
+    if (!(await page.getByTestId('connector-pane').isVisible())) await openPane(page)
     await expect(page.getByTestId('gdrive-row-folders')).toContainText('1XyZ_9, 1AbC_d')
     const put = a.s.calls.find(c => c.method === 'PUT')
     expect(put.body.resources).toEqual(['1XyZ_9', '1AbC_d'])
@@ -62,13 +64,13 @@ test.describe('Google Drive add-on', () => {
     const a = api(page, [{ ...BINDING, write_mode: 'off' }])
     await a.install()
     await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Edit', exact: true }).click()
+    await openEdit(page)
     const group = page.getByRole('radiogroup', { name: 'What the agent may change in Drive' })
     await expect(group.getByRole('radio', { name: /Read only/ })).toBeChecked()
     await expect(group.getByRole('radio', { name: /Acts without asking/ })).toHaveCount(0)
     await group.getByRole('radio', { name: /Asks you first/ }).check()
     await expect(page.getByTestId('gdrive-write-note')).toContainText('optional write access')
-    await page.getByRole('button', { name: 'Save' }).click()
+    await saveSheet(page)
     expect(a.s.calls.find(c => c.method === 'PUT').body.write_mode).toBe('propose')
   })
 })
