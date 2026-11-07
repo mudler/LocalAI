@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localai.io/schemas/workspace/setups.json",
+  "title": "LocalAI/setups.json",
+  "description": "Named setups for a new chat: the model, the tool switches and the reasoning effort. A setup holds no prompt and no files. Without this file a new chat starts from the defaults.",
+  "type": "object",
+  "properties": {
+    "default": { "type": "string", "title": "Default setup", "description": "The id of the setup a new chat starts with." },
+    "setups": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "title": "Id", "minLength": 1, "maxLength": 40, "pattern": "^[a-z0-9-]+$" },
+          "name": { "type": "string", "title": "Name", "minLength": 1, "maxLength": 60 },
+          "model": { "type": "string", "title": "Model" },
+          "effort": { "type": "string", "title": "Effort", "description": "The reasoning effort. An empty string leaves it to the model.", "enum": ["", "none", "minimal", "low", "medium", "high"] },
+          "tools": {
+            "type": "object",
+            "title": "Tools",
+            "properties": {
+              "builtins_off": { "type": "array", "title": "Built-in tools switched off", "maxItems": 200, "items": { "type": "string" } },
+              "builtins_on": { "type": "array", "title": "Built-in tools switched on", "maxItems": 200, "items": { "type": "string" } },
+              "addons_off": { "type": "array", "title": "Add-ons switched off", "maxItems": 200, "items": { "type": "string" } },
+              "mcp_off": { "type": "array", "title": "MCP servers switched off", "maxItems": 200, "items": { "type": "string" } },
+              "skills_off": { "type": "array", "title": "Skills switched off", "maxItems": 200, "items": { "type": "string" } }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": ["id", "name"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["setups"],
+  "additionalProperties": false
+}

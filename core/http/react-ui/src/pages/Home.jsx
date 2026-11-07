@@ -20,6 +20,15 @@ import ShortcutsRow from '../components/wellknown/ShortcutsRow'
 // eslint-disable-next-line no-unused-vars
 import ReasoningChips from '../components/chat/ReasoningChips'
 import { settingsWithEffort } from '../utils/chatSettings'
+import { useSetups } from '../hooks/useSetups'
+import { captureSetup, cleanName, isEdited } from '../utils/setups'
+import { toolsOnLabels } from '../utils/setupSummary'
+// eslint-disable-next-line no-unused-vars
+import SetupChip from '../components/chat/SetupChip'
+// eslint-disable-next-line no-unused-vars
+import SetupStatusLine, { SetupReason } from '../components/chat/SetupStatusLine'
+// eslint-disable-next-line no-unused-vars
+import ManageSetups from '../components/chat/ManageSetups'
 import { useChatComposer } from '../hooks/useChatComposer'
 import { useComposerDeparture } from '../hooks/useComposerTransition'
 // eslint-disable-next-line no-unused-vars
@@ -103,6 +112,147 @@ export default function Home() {
   // The reasoning effort picked before the chat exists; the new chat gets it
   // as a setting before the first message goes.
   const [draftEffort, setDraftEffort] = useState('')
+
+  // Setups (LocalAI/setups.json): a named model, tool switches and effort that
+  // a new chat starts from. The default one is applied once when the list is
+  // read; the one the last message was sent with becomes the default. A saved
+  // agent decides the chat, so then no setup is applied and the chip is off.
+  const setupsOn = hasFeature('chats')
+  const setups = useSetups({ enabled: setupsOn })
+  const [activeSetupId, setActiveSetupId] = useState('')
+  const [missingModel, setMissingModel] = useState(null)
+  const [naming, setNaming] = useState(false)
+  const [manageOpen, setManageOpen] = useState(false)
+  const [settling, setSettling] = useState(false)
+  // The switches as the composer showed them once the setup was loaded. A tool
+  // the setup names but this server does not list is not in them, so comparing
+  // with this (not with the setup's lists) keeps such a setup from being "edited".
+  const [baseTools, setBaseTools] = useState(null)
+  const setupsRef = useRef(setups)
+  setupsRef.current = setups
+  const agentPicked = !!composer.pickedAgent
+  const activeSetup = !agentPicked ? setups.list.find((s) => s.id === activeSetupId) : undefined
+
+  const applySetup = useCallback((s) => {
+    const installed = composer.models.some((m) => m.id === s.model)
+    if (installed) {
+      composer.setDraftModel(s.model)
+      setMissingModel(null)
+    } else {
+      setMissingModel(s.model ? { model: s.model, kept: selectedModel } : null)
+    }
+    setDraftEffort(s.effort || '')
+    // The lists of the switches are read again after this; until they are, the
+    // composer still shows the old ones and must not be called edited.
+    setBaseTools(null)
+    if (switches.draft) setSettling(true)
+    switches.applyDraftTools(s.tools || null)
+    setActiveSetupId(s.id)
+  }, [composer, selectedModel, switches])
+
+  // The lists answer the load of a setup (switches.listsReady, errors count);
+  // the switches they show then are the base of "edited".
+  useEffect(() => {
+    if (!settling || !switches.listsReady) return
+    // A switch changed by hand while the lists were being read is in the
+    // choices already: the base is then the setup's own tools, so that change
+    // shows as an edit instead of being taken as part of the setup.
+    setBaseTools(switches.editsSinceApply() > 0 ? null : { tools: switches.draftSwitches() })
+    setSettling(false)
+  }, [settling, switches])
+
+  // The model in use when the setup's own is missing may still be chosen (the
+  // picker picks one once the list is read): it is the one that stays.
+  useEffect(() => {
+    if (missingModel && !missingModel.kept && selectedModel) setMissingModel({ ...missingModel, kept: selectedModel })
+  }, [missingModel, selectedModel])
+
+  const setupsApplied = useRef(false)
+  useEffect(() => {
+    if (setupsApplied.current || !setups.available || composer.modelsLoading || composer.models.length === 0) return
+    setupsApplied.current = true
+    if (searchParams.get('model') || agentPicked) return
+    const s = setups.list.find((x) => x.id === setups.defaultId)
+    if (s) applySetup(s)
+  }, [setups.available, setups.list, setups.defaultId, composer.modelsLoading, composer.models.length, searchParams, agentPicked, applySetup])
+
+  // A kept model that is missing from the installed ones stands for the setup's
+  // own while it is still the one in use, so the line is not called edited.
+  const keptMissing = !!missingModel && selectedModel === missingModel.kept
+  const setupModel = keptMissing ? missingModel.model : selectedModel
+  const setupEdited = !!activeSetup && !settling
+    && isEdited({ ...activeSetup, tools: baseTools ? baseTools.tools : activeSetup.tools }, { model: setupModel, tools: switches.draftSwitches(), effort: draftEffort })
+  // A saved agent decides the tools and the effort of its chat: the switches
+  // and the effort a setup put in the draft must not go with it. Edits the
+  // person made themselves stay. When the agent is dropped the setup comes back.
+  const wasEdited = useRef(false)
+  if (!agentPicked) wasEdited.current = setupEdited
+  const agentReset = useRef(false)
+  const agentBefore = useRef(false)
+  useEffect(() => {
+    const before = agentBefore.current
+    agentBefore.current = agentPicked
+    if (agentPicked === before) return
+    const own = setups.list.find((x) => x.id === activeSetupId)
+    if (agentPicked) {
+      // wasEdited is the last value from before the agent: the render of the
+      // agent pick does not touch it.
+      agentReset.current = !!own && !wasEdited.current
+      if (agentReset.current) {
+        switches.applyDraftTools(null)
+        setDraftEffort('')
+      }
+    } else if (agentReset.current && own) {
+      agentReset.current = false
+      applySetup(own)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only a pick or a drop of the agent runs it
+  }, [agentPicked])
+
+  const captureNow = (name) => captureSetup({ name, model: setupModel, tools: switches.draftSwitches(), effort: draftEffort })
+  // What the Tools badge counts: built-ins, add-ons, servers and connectors
+  // that are on and usable, named as the Tools menu names them.
+  const toolLabels = toolsOnLabels(switches, (b) => tc(`tools.builtin.${b.group}`, { defaultValue: b.title || b.group }))
+
+  useEffect(() => {
+    if (!setups.error) return
+    addToast(setups.error === 'limit' ? tch('setup.limit') : setups.error, 'error')
+  }, [setups.error, addToast, tch])
+
+  const updateSetup = async () => {
+    if (!activeSetup) return
+    const tools = switches.draftSwitches()
+    if (await setups.update(activeSetup.id, captureNow(activeSetup.name))) setBaseTools({ tools })
+  }
+  const saveSetupAs = async (name) => {
+    const saved = await setups.add(captureNow(name))
+    if (!saved) return false
+    setNaming(false)
+    setMissingModel(null)
+    setBaseTools({ tools: switches.draftSwitches() })
+    setActiveSetupId(saved.id)
+    return true
+  }
+  // After a message went: the first one saves the composer as "My default";
+  // later ones make the setup in use the default.
+  const rememberRef = useRef(null)
+  const rememberSetup = async () => {
+    const s = setupsRef.current
+    if (!s.available || agentPicked) return
+    if (!s.exists) {
+      // Only while there is no file: a person who deleted every setup, or an
+      // invalid file, is left as it is. The check is made again on the file the
+      // write goes on, so a second tab does not add a second one.
+      const saved = await s.addFirst(captureNow(tch('setup.defaultName')))
+      if (!saved) return
+      addToast(tch('setup.savedToast', { name: saved.name }), 'success', undefined, {
+        action: { label: tch('setup.rename'), onClick: () => navigate('/app', { state: { manageSetups: true } }) },
+      })
+    } else if (activeSetup && activeSetup.id !== s.defaultId) {
+      await s.setDefault(activeSetup.id)
+    }
+  }
+  rememberRef.current = rememberSetup
   const [sending, setSending] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [distributedMode, setDistributedMode] = useState(false)
@@ -118,6 +268,13 @@ export default function Home() {
   const pickerRef = useRef(null)
   const stripRef = useRef(null)
   const location = useLocation()
+  // The Rename action of the toast lands on Home with the sheet open.
+  useEffect(() => {
+    if (location.state?.manageSetups && setups.available) {
+      setManageOpen(true)
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [location, navigate, setups.available])
   // An add-on address opened while add-ons are off on the server lands here
   // (see AddonsShell). The notice
   // says why, and how to get the add-on.
@@ -282,6 +439,7 @@ export default function Home() {
         }
       }
       const res = await chatsApi.send(id, text, attached, command)
+      rememberRef.current?.().catch(() => {})
       // The chat page draws the message from what is known here, so it opens
       // with the message in it. The draft goes when Home closes: emptied
       // earlier, the box would show its placeholder for a frame on the way.
@@ -412,6 +570,7 @@ export default function Home() {
   const modelsLoading = configuredModels === null && !modelsFailed
   const hasModels = configuredModels === null || configuredModels.length > 0
   const firstRun = configuredModels !== null && configuredModels.length === 0
+  const setupsShown = setupsOn && !firstRun && setups.available
   const examplesOn = chatsOn && configuredModels !== null && !firstRun
   const examplesGone = useExamplesGone(examplesOn)
   const loadedCount = loadedModels.length
@@ -544,6 +703,18 @@ export default function Home() {
             loadedIds={loadedIds}
             imageModel={chatServer.imageModel}
             pickerRef={pickerRef}
+            lead={setupsShown && (
+              <SetupChip
+                list={setups.list}
+                activeId={activeSetup?.id || ''}
+                edited={setupEdited}
+                inactiveReason={agentPicked ? tch('setup.agentReason') : ''}
+                reasonId="setup-chip-reason"
+                onPick={(s) => { setNaming(false); applySetup(s) }}
+                onSaveAs={() => setNaming(true)}
+                onManage={() => setManageOpen(true)}
+              />
+            )}
             chips={<ReasoningChips effort={draftEffort} onEffort={setDraftEffort} />}
             pickerDisabled={firstRun}
             pickerPlaceholder={firstRun ? t('picker.noneSelected') : undefined}
@@ -569,7 +740,39 @@ export default function Home() {
           )}
           {addonUnavailable && <Callout tone="info" role="status">{t('notice.appUnavailable')}</Callout>}
           {help && <SlashHelpCard entries={help.entries} skills={help.skills} onClose={() => setHelp(null)} />}
-          {!firstRun && <ReadyLine model={selectedModel} warm={loadedIds.has(selectedModel)} />}
+          {setupsShown && !agentPicked && (activeSetup || naming) ? (
+            <SetupStatusLine
+              active={activeSetup || null}
+              edited={setupEdited}
+              model={selectedModel}
+              toolLabels={toolLabels}
+              effort={draftEffort}
+              warm={loadedIds.has(selectedModel)}
+              warning={keptMissing ? tch('setup.modelMissing', { model: missingModel.model }) : ''}
+              naming={naming}
+              onUpdate={updateSetup}
+              onStartNaming={() => setNaming(true)}
+              onCancelNaming={() => setNaming(false)}
+              onSaveAs={(name) => saveSetupAs(cleanName(name))}
+              onReset={() => activeSetup && applySetup(activeSetup)}
+            />
+          ) : (!firstRun && <ReadyLine model={selectedModel} warm={loadedIds.has(selectedModel)} />)}
+          {setupsShown && agentPicked && <SetupReason id="setup-chip-reason" text={tch('setup.agentReason')} />}
+          {manageOpen && setupsShown && (
+            <ManageSetups
+              list={setups.list}
+              defaultId={setups.defaultId}
+              onClose={() => setManageOpen(false)}
+              onRename={setups.rename}
+              onRemove={async (id) => {
+                const res = await setups.remove(id)
+                if (res && id === activeSetupId) setActiveSetupId('')
+                return res
+              }}
+              onMove={setups.move}
+              onSetDefault={setups.setDefault}
+            />
+          )}
           {examplePicked && (
             <p className="wk-ex__hint" data-testid="home-example-hint">
               <Icon name="info" /> {tw('discovery.ex.inComposer')}

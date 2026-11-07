@@ -2858,7 +2858,7 @@ type ChatsAdminConnectorList struct {
 }
 
 // ChatsWellKnownFile is a well-known file of the home (persona.json,
-// user.json, shortcuts.json, home.json, ui.json, or the data file of a Home
+// user.json, shortcuts.json, setups.json, home.json, ui.json, or the data file of a Home
 // widget), validated against its JSON Schema.
 type ChatsWellKnownFile struct {
 	Name   string `json:"name"`

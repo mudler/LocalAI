@@ -36,6 +36,7 @@ function Marked({ text, upto }) {
 //
 // Home uses it as is. Chat uses the same bar and adds what a conversation
 // needs, all optional:
+//   lead         a chip drawn before the model picker (Home's Setup chip)
 //   chips        more chips after the MCP chip (the agent picker and the files chip)
 //   slash        { actions, groups, label, desc, groupLabel, ctx, argsLabel,
 //                argLabel, badgeLabel, noteLabel } for a menu of registry
@@ -59,7 +60,7 @@ function Marked({ text, upto }) {
 //   extras       a node drawn after the attach buttons (the add-on slot)
 export default function HomeComposer({
   message, onMessage, onSubmit, canSend, sending, sendTitle, textareaRef,
-  picker, mcp, chips, files = [], onRemoveFile, onAttach,
+  lead, picker, mcp, chips, files = [], onRemoveFile, onAttach,
   placeholder, slashContext, onRunAction, slash,
   streaming = false, onStop, stopTitle, onPaste, onKeyDownExtra,
   rows = 3, strictEnter = false, testId = 'home-composer',
@@ -214,6 +215,7 @@ export default function HomeComposer({
       )}
       <span className="sr-only" role="status">{dragging ? t('input.dropFilesNote') : ''}</span>
       <div className="home-cmd__top">
+        {lead}
         {picker}
         {mcp}
         {chips}
