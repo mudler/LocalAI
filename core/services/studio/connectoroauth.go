@@ -58,7 +58,7 @@ const (
 	// grant is held (connectors.GrantNeedsApproval) with its tokens.
 	ReasonNeedsApproval GrantReason = "needs_approval"
 	// ReasonCredentialRejected: the add-on rejected a fresh token too.
-	ReasonCredentialRejected GrantReason = "credential_rejected"
+	ReasonCredentialRejected GrantReason = "credential_rejected" // #nosec G101 -- a reason label, not a credential
 	// ReasonExpired: the access token ended and there is no refresh token.
 	ReasonExpired GrantReason = "expired"
 	// ReasonWriteFailed: the service rotated the refresh token and the host

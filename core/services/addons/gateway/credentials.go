@@ -17,7 +17,7 @@ const (
 	CodeResourceNotAllowed = "resource_not_allowed"
 	// CodeNoCredential means the person has no binding that holds a
 	// credential for the add-on.
-	CodeNoCredential = "no_credential"
+	CodeNoCredential = "no_credential" // #nosec G101 -- an error code, not a credential
 	// CodeWriteNotAllowed means the binding that holds the credential has its
 	// write mode off, so a write tool does not run.
 	CodeWriteNotAllowed = "write_not_allowed"
