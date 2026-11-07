@@ -288,3 +288,24 @@
 .home-menu__tag[data-kind="alias"] { background: var(--dk-accent-wash); color: var(--dk-accent-text); }
 .home-menu__tag[data-kind="broken"] { color: var(--color-error, #c0392b); }
 .home-menu__item[data-blocked="true"] { opacity: .55; cursor: not-allowed; }
+
+/* The drop state: files are dragged over the page. A dashed accent frame and a
+   label cover the card; the card keeps its size and nothing moves. The layer
+   takes no pointer events, so the page underneath receives the drop. */
+.home-cmd[data-dragging="true"] { box-shadow: inset 0 0 0 1px var(--dk-accent-text), 0 0 0 3px color-mix(in srgb, var(--dk-accent) 22%, transparent); }
+.home-drop {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  border: 2px dashed var(--dk-accent-text);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--dk-card) 88%, var(--dk-accent) 12%);
+  color: var(--dk-accent-text);
+  font-weight: 600;
+  pointer-events: none;
+}
+.home-drop .dk-icon { width: 18px; height: 18px; }

@@ -287,6 +287,33 @@ test.describe('Chats page with a stubbed API', () => {
       await expect(page.getByTestId('attachment')).toContainText('notes.txt')
     })
 
+    // Files dragged over the chat page are staged like the picker's, also
+    // while a turn runs. Text drags are ignored.
+    test('files dropped on the chat are staged, images and audio too', async ({ page }) => {
+      const api = newChatsApi(page, { running: true })
+      await api.install()
+      await page.goto('/app/chats/c1')
+      await expect(page.getByRole('button', { name: 'Attach file' })).toBeEnabled()
+      const drag = async (type, files, text) => {
+        const dt = await page.evaluateHandle(({ files, text }) => {
+          const d = new DataTransfer()
+          for (const f of files) d.items.add(new File([f.body], f.name, { type: f.mime }))
+          if (text) d.setData('text/plain', text)
+          return d
+        }, { files, text })
+        await page.dispatchEvent('body', type, { dataTransfer: dt })
+      }
+      const files = [{ name: 'photo.png', mime: 'image/png', body: 'png' }, { name: 'voice.mp3', mime: 'audio/mpeg', body: 'mp3' }]
+      await drag('dragenter', [], 'just text')
+      await expect(page.getByTestId('composer-drop')).toHaveCount(0)
+      await drag('dragenter', files)
+      await expect(page.getByTestId('composer-drop')).toBeVisible()
+      await drag('drop', files)
+      await expect(page.getByTestId('composer-drop')).toHaveCount(0)
+      await expect(page.getByTestId('chat-composer').getByTestId('attachment')).toHaveCount(2)
+      await expect(page.getByTestId('chat-composer').getByText('voice.mp3')).toBeVisible()
+    })
+
     test('with files off there is no attach control, and the reason is shown', async ({ page }) => {
       const api = newChatsApi(page, { running: false, pending: [], files: false, filesReason: 'There is no data path, so files are off.' })
       await api.install()

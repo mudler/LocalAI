@@ -269,3 +269,65 @@ test.describe('Home composer', () => {
     expect(seen.sent[0].body).toContain('filename="q1.csv"')
   })
 })
+
+// Files dragged over the page. The events carry a real DataTransfer, as a
+// browser sends them; a text drag has no 'Files' type.
+async function drag(page, type, { files = [], text = '' } = {}) {
+  const dt = await page.evaluateHandle(({ files, text }) => {
+    const d = new DataTransfer()
+    for (const f of files) d.items.add(new File([f.body], f.name, { type: f.mime }))
+    if (text) d.setData('text/plain', text)
+    return d
+  }, { files, text })
+  await page.dispatchEvent('body', type, { dataTransfer: dt })
+}
+
+const DROP = [
+  { name: 'photo.png', mime: 'image/png', body: 'png' },
+  { name: 'voice.mp3', mime: 'audio/mpeg', body: 'mp3' },
+  { name: 'site.zip', mime: 'application/zip', body: 'PK' },
+]
+
+test.describe('Home composer: drop files', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockHome(page)
+    await server(page)
+    await ready(page)
+  })
+
+  test('there is one attach button and it takes any file type', async ({ page }) => {
+    const card = page.getByTestId('home-composer')
+    await expect(card.getByRole('button', { name: 'Attach file' })).toHaveCount(1)
+    await expect(card.getByRole('button', { name: 'Attach image' })).toHaveCount(0)
+    await expect(card.getByRole('button', { name: 'Attach audio' })).toHaveCount(0)
+    expect(await page.getByTestId('chat-file-input').getAttribute('accept')).toBeNull()
+  })
+
+  test('dragging files over the page shows the drop state, leaving hides it', async ({ page }) => {
+    const card = page.getByTestId('home-composer')
+    await expect(page.getByTestId('composer-drop')).toHaveCount(0)
+    await drag(page, 'dragenter', { files: DROP })
+    await expect(page.getByTestId('composer-drop')).toBeVisible()
+    await expect(card).toHaveAttribute('data-dragging', 'true')
+    await expect(card.getByRole('status')).toContainText('Drop the files')
+    await drag(page, 'dragleave', { files: DROP })
+    await expect(page.getByTestId('composer-drop')).toHaveCount(0)
+    await expect(card).not.toHaveAttribute('data-dragging', 'true')
+  })
+
+  test('dropped files are staged like the picker stages them, images and audio too', async ({ page }) => {
+    await drag(page, 'dragenter', { files: DROP })
+    await drag(page, 'drop', { files: DROP })
+    const card = page.getByTestId('home-composer')
+    await expect(page.getByTestId('composer-drop')).toHaveCount(0)
+    await expect(card.getByTestId('attachment')).toHaveCount(3)
+    for (const f of DROP) await expect(card.getByText(f.name)).toBeVisible()
+  })
+
+  test('a drag of text is ignored', async ({ page }) => {
+    await drag(page, 'dragenter', { text: 'hello' })
+    await expect(page.getByTestId('composer-drop')).toHaveCount(0)
+    await drag(page, 'drop', { text: 'hello' })
+    await expect(page.getByTestId('home-composer').getByTestId('attachment')).toHaveCount(0)
+  })
+})

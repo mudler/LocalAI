@@ -643,7 +643,8 @@ curl -X POST .../api/chats/import -d "{\"chat\": $(cat chat.json)}"
 Attach files with `multipart/form-data` on `POST /api/chats/{id}/messages`
 (see above). In the chat page, one **Attach file** button takes files of any
 type (images, audio, documents, archives such as `.zip`); you can also paste an
-image or drop files on the chat. What the model gets depends on the file and
+image, or drag files over the page and drop them. The same works on Home. A
+drag of text is ignored, and with files off nothing is staged. What the model gets depends on the file and
 the model:
 
 - **Images.** When the chat's model can look at images (a multimodal

@@ -247,7 +247,6 @@ export default function ChatComposer({
         fileTestId="chat-file-input"
         placeholder={effectivePlaceholder}
         onPaste={paste}
-        anyFile
         slash={slash}
         onRunAction={runSlash}
         onClearFiles={() => setFiles([])}
