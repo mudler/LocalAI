@@ -3,7 +3,6 @@ package studio
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
@@ -19,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/oauthtoken"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/randtoken"
 )
 
 // Outcomes of a login callback. They are a closed list: the callback puts one
@@ -92,7 +92,8 @@ func (c *Connectors) allowLoginStart(owner string) bool {
 }
 
 const (
-	maxReturnToBytes = 2048
+	// MaxReturnToBytes bounds the path a login returns to.
+	MaxReturnToBytes = 2048
 	maxClientIDBytes = 512
 	maxSecretBytes   = 4096
 )
@@ -117,13 +118,7 @@ type LoginResult struct {
 	BindingID string
 }
 
-func randomToken() (string, error) {
-	var b [32]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(b[:]), nil
-}
+func randomToken() (string, error) { return randtoken.Base64URL(32) }
 
 func hashHex(s string) string {
 	sum := sha256.Sum256([]byte(s))
@@ -136,16 +131,16 @@ func hashHex(s string) string {
 // state, which is no secret: the state itself is in the callback address.
 func LoginCookieSuffix(state string) string { return hashHex(state)[:8] }
 
-// validReturnTo is an absolute path on this host: it starts with one slash and
-// names no other host.
-func validReturnTo(p string) bool {
-	return p != "" && len(p) <= maxReturnToBytes && strings.HasPrefix(p, "/") && !strings.HasPrefix(p, "//") &&
+// ValidReturnTo is an absolute path on this host: it starts with one slash and
+// names no other host. The HTTP layer adds the rules of the web app to it.
+func ValidReturnTo(p string) bool {
+	return p != "" && len(p) <= MaxReturnToBytes && strings.HasPrefix(p, "/") && !strings.HasPrefix(p, "//") &&
 		!strings.ContainsAny(p, "\\\r\n\t ") && utf8.ValidString(p)
 }
 
 func validRedirectURI(s string) bool {
 	u, err := url.Parse(s)
-	return err == nil && (u.Scheme == "https" || u.Scheme == "http") && u.Host != "" && u.User == nil && u.Fragment == "" && len(s) <= maxReturnToBytes
+	return err == nil && (u.Scheme == "https" || u.Scheme == "http") && u.Host != "" && u.User == nil && u.Fragment == "" && len(s) <= MaxReturnToBytes
 }
 
 // oauthBinding returns an OAuth binding of the user.
@@ -180,7 +175,7 @@ func (c *Connectors) StartLogin(ctx context.Context, user, bindingID string, opt
 	if !validRedirectURI(redirectURI) {
 		return LoginStart{}, connectorBad("the redirect address is not valid")
 	}
-	if !validReturnTo(returnTo) {
+	if !ValidReturnTo(returnTo) {
 		return LoginStart{}, connectorBad("the return path must be a path on this host")
 	}
 	a, err := c.approval(ctx, b.AddonID)

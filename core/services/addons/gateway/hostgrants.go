@@ -4,8 +4,6 @@ package gateway
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -183,14 +181,6 @@ func strictBody(raw json.RawMessage, dst any) bool {
 	}
 	_, err := d.Token()
 	return err == io.EOF
-}
-
-func randomHex(n int) (string, error) {
-	b := make([]byte, n)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b), nil
 }
 
 // HostApproval is what the administrator approved in the install dialog. The

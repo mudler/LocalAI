@@ -67,22 +67,22 @@ var _ = Describe("the OAuth records", func() {
 	It("asks for a usable credential of the binding's kind before it matches a resource", func() {
 		res := connectors.NewResources([]string{"acme/widgets"})
 		tok := connectors.Binding{ID: "t", Token: []byte("sealed"), Resources: res}
-		_, err := connectors.Entry(tok, "acme/widgets")
+		_, err := entryOf(tok, "acme/widgets")
 		Expect(err).NotTo(HaveOccurred())
 		tok.Token = nil
-		_, err = connectors.Entry(tok, "acme/widgets")
+		_, err = entryOf(tok, "acme/widgets")
 		Expect(errors.Is(err, connectors.ErrNoCredential)).To(BeTrue())
 
 		oauth := connectors.Binding{ID: "o", AuthKind: connectors.AuthOAuth2, Resources: res}
-		_, err = connectors.Entry(oauth, "acme/widgets")
+		_, err = entryOf(oauth, "acme/widgets")
 		Expect(errors.Is(err, connectors.ErrNoCredential)).To(BeTrue(), "an oauth2 binding is usable only with its grant")
-		e, err := connectors.EntryWith(oauth, true, "ACME/widgets")
+		e, err := connectors.EntryUsable(oauth, true, "ACME/widgets", false)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(e.Key).To(Equal("acme/widgets"))
-		_, err = connectors.EntryWith(oauth, false, "")
+		_, err = connectors.EntryUsable(oauth, false, "", false)
 		Expect(errors.Is(err, connectors.ErrNoCredential)).To(BeTrue())
 		var na *connectors.NotAllowedError
-		_, err = connectors.EntryWith(oauth, true, "other/repo")
+		_, err = connectors.EntryUsable(oauth, true, "other/repo", false)
 		Expect(errors.As(err, &na)).To(BeTrue())
 	})
 })

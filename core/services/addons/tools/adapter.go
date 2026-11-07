@@ -1140,6 +1140,17 @@ func receiptPayload(p gateway.Proposal) json.RawMessage {
 	return p.Receipt.Result.Payload
 }
 
+// refusalNotes is what the model is told for each refusal code of the host
+// that needs no more than a note. The code of the result is the code of the
+// refusal.
+var refusalNotes = map[string]string{
+	gateway.CodeWriteNotAllowed:      WriteNotAllowedNote,
+	gateway.CodeSelectConnection:     SelectConnectionNote,
+	gateway.CodeReconnectNeeded:      ReconnectNeededNote,
+	gateway.CodeOwnerReconnectNeeded: OwnerReconnectNeededNote,
+	gateway.CodeNoCredential:         NoCredentialNote,
+}
+
 // refusedResult turns the add-on's own refusal, a missing permission and an
 // unreachable resource into a result the model can act
 // on. Every other error, an outage and an unknown outcome included, passes
@@ -1155,16 +1166,9 @@ func refusedResult(name string, err error) (ToolResult, error) {
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceNotAllowed, Note: ResourceNotListedNote}, nil
 	case errors.As(err, &refusal) && refusal.Code == gateway.CodeResourceNotAllowed:
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceNotAllowed, Note: ResourceNotAllowedNote, Allowed: refusal.Allowed}, nil
-	case errors.As(err, &refusal) && refusal.Code == gateway.CodeWriteNotAllowed:
-		return ToolResult{Kind: ResultError, Tool: name, Code: CodeWriteNotAllowed, Note: WriteNotAllowedNote}, nil
-	case errors.As(err, &refusal) && refusal.Code == gateway.CodeSelectConnection:
-		return ToolResult{Kind: ResultError, Tool: name, Code: CodeSelectConnection, Note: SelectConnectionNote}, nil
-	case errors.As(err, &refusal) && refusal.Code == gateway.CodeReconnectNeeded:
-		return ToolResult{Kind: ResultError, Tool: name, Code: CodeReconnectNeeded, Note: ReconnectNeededNote}, nil
-	case errors.As(err, &refusal) && refusal.Code == gateway.CodeOwnerReconnectNeeded:
-		return ToolResult{Kind: ResultError, Tool: name, Code: CodeOwnerReconnectNeeded, Note: OwnerReconnectNeededNote}, nil
-	case errors.As(err, &refusal) && refusal.Code == gateway.CodeNoCredential:
-		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNoCredential, Note: NoCredentialNote}, nil
+	case errors.As(err, &refusal) && refusalNotes[refusal.Code] != "":
+		// The result carries the code of the refusal and the note for it.
+		return ToolResult{Kind: ResultError, Tool: name, Code: refusal.Code, Note: refusalNotes[refusal.Code]}, nil
 	case errors.Is(err, gateway.ErrNotPermitted):
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNotPermitted, Note: NotPermittedNote}, nil
 	case errors.Is(err, gateway.ErrNotSent):

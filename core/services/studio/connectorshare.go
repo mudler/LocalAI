@@ -123,6 +123,23 @@ func (c *Connectors) sharedBinding(ctx context.Context, user, id string) (connec
 	return b, share, true
 }
 
+// bindingFor returns the binding id when user may use it: it is the user's
+// own, or another person's and shared with the user now. Any other binding is
+// the answer of one that does not exist, so a caller learns nothing of it.
+func (c *Connectors) bindingFor(ctx context.Context, user, id string) (connectors.Binding, error) {
+	b, err := c.o.Store.GetBinding(ctx, id)
+	if err != nil {
+		return connectors.Binding{}, err
+	}
+	if b.Owner == principal(user) {
+		return b, nil
+	}
+	if _, _, ok := c.sharedBinding(ctx, user, id); ok {
+		return b, nil
+	}
+	return connectors.Binding{}, connectors.ErrNoCredential
+}
+
 // sharedTo says whether the binding id of another person is shared with user
 // now.
 func (c *Connectors) sharedTo(ctx context.Context, user, id string) bool {

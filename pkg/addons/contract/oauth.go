@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/netip"
 	"net/url"
@@ -127,7 +128,7 @@ func (d OAuthDescriptor) Validate() error {
 	}
 	for i, h := range d.Hosts {
 		if !validOAuthHostPattern(h) || slices.Contains(d.Hosts[:i], h) {
-			return fmt.Errorf("oauth: invalid or repeated host pattern")
+			return errors.New("oauth: invalid or repeated host pattern")
 		}
 	}
 	for _, u := range []struct{ name, value string }{{"authorizeUrl", d.AuthorizeURL}, {"tokenUrl", d.TokenURL}} {
@@ -149,7 +150,7 @@ func (d OAuthDescriptor) Validate() error {
 	switch d.ClientAuth {
 	case OAuthClientAuthBasic, OAuthClientAuthPost, OAuthClientAuthNone:
 	default:
-		return fmt.Errorf("oauth: clientAuth must be basic, post or none")
+		return errors.New("oauth: clientAuth must be basic, post or none")
 	}
 	return validateOAuthParams(d.AuthorizeParams)
 }
@@ -159,7 +160,7 @@ func (d OAuthDescriptor) validURL(field, s string) error {
 	if s == "" || len(s) > maxOAuthURLBytes || strings.ContainsAny(s, "?#\\ ") {
 		return bad()
 	}
-	if !graphicASCII(s) {
+	if !GraphicASCII(s) {
 		return bad()
 	}
 	u, err := url.Parse(s)
@@ -170,7 +171,7 @@ func (d OAuthDescriptor) validURL(field, s string) error {
 		return bad()
 	}
 	host := u.Hostname()
-	if host == "" || host != strings.ToLower(host) || !validDNSName(host, 2) {
+	if host == "" || host != strings.ToLower(host) || !validDNSName(host) {
 		return bad()
 	}
 	if !slices.ContainsFunc(d.Hosts, func(p string) bool { return oauthHostMatches(p, host) }) {
@@ -179,14 +180,14 @@ func (d OAuthDescriptor) validURL(field, s string) error {
 	return nil
 }
 
-// validDNSName reports a plain lower-case DNS name of at least minLabels
-// labels (two at the least) that a browser cannot read as an address or as
+// validDNSName reports a plain lower-case DNS name of at least two labels
+// that a browser cannot read as an address or as
 // this machine. The WHATWG URL parser reads a host such as 0x7f000001,
 // 2130706433 or 127.1 as an IPv4 address, and any name under localhost as the
 // loopback host, so a label that is a decimal, octal or hex number is refused
 // wherever it is, the top-level label must be letters (or punycode), and
 // localhost is no top-level label.
-func validDNSName(h string, minLabels int) bool {
+func validDNSName(h string) bool {
 	if h == "" || len(h) > maxOAuthHostBytes {
 		return false
 	}
@@ -194,7 +195,7 @@ func validDNSName(h string, minLabels int) bool {
 		return false
 	}
 	labels := strings.Split(h, ".")
-	if len(labels) < max(minLabels, 2) {
+	if len(labels) < 2 {
 		return false
 	}
 	for _, l := range labels {
@@ -217,9 +218,9 @@ func numericLabel(l string) bool {
 
 func validOAuthHostPattern(p string) bool {
 	if rest, ok := strings.CutPrefix(p, "*."); ok {
-		return validDNSName(rest, 2)
+		return validDNSName(rest)
 	}
-	return validDNSName(p, 2)
+	return validDNSName(p)
 }
 
 func oauthHostMatches(pattern, host string) bool {
@@ -239,7 +240,7 @@ func (s OAuthScopes) validate() error {
 	for _, list := range [][]string{s.Required, s.Optional} {
 		for _, sc := range list {
 			if !ValidScopeToken(sc) || seen[sc] {
-				return fmt.Errorf("oauth: invalid, repeated or overlapping scope")
+				return errors.New("oauth: invalid, repeated or overlapping scope")
 			}
 			seen[sc] = true
 		}
@@ -256,11 +257,12 @@ func ValidScopeToken(s string) bool {
 	if s == "" || len(s) > MaxOAuthScopeBytes {
 		return false
 	}
-	return graphicASCII(s) && !strings.ContainsAny(s, `"\`)
+	return GraphicASCII(s) && !strings.ContainsAny(s, `"\`)
 }
 
-// graphicASCII reports printable ASCII without space (0x21 to 0x7e).
-func graphicASCII(s string) bool {
+// GraphicASCII reports printable ASCII without space (0x21 to 0x7e), the
+// characters that fit a header value or a token.
+func GraphicASCII(s string) bool {
 	for i := 0; i < len(s); i++ {
 		if c := s[i]; c < 0x21 || c > 0x7e {
 			return false
@@ -277,7 +279,7 @@ func validateOAuthParams(params []OAuthParam) error {
 	for _, p := range params {
 		i := slices.IndexFunc(OAuthAuthorizeParams, func(s OAuthParamSpec) bool { return s.Name == p.Name })
 		if i < 0 || oauthProtocolParam(p.Name) || seen[p.Name] {
-			return fmt.Errorf("oauth: unknown, protocol or repeated authorize parameter")
+			return errors.New("oauth: unknown, protocol or repeated authorize parameter")
 		}
 		seen[p.Name] = true
 		spec := OAuthAuthorizeParams[i]

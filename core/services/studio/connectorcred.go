@@ -156,7 +156,7 @@ func (c *Connectors) ownConnections(ctx context.Context, user, addonID string) (
 // needs a reconnect or an approval.
 func (c *Connectors) loginState(ctx context.Context, b connectors.Binding) (string, bool, error) {
 	if !b.UsesOAuth() {
-		return "", len(b.Token) > 0, nil
+		return "", b.HasTokenCredential(), nil
 	}
 	g, err := c.o.Store.GetGrant(ctx, b.ID)
 	if errors.Is(err, connectors.ErrNotFound) {
@@ -303,11 +303,7 @@ func ownOnly(list []Connection) []Connection {
 // ConnectionName returns the display name of a binding of the user, or of a
 // binding shared with the user, or "".
 func (c *Connectors) ConnectionName(ctx context.Context, user, bindingID string) string {
-	b, err := c.o.Store.GetBinding(ctx, bindingID)
-	if err == nil && b.Owner == principal(user) {
-		return b.Name
-	}
-	if b, _, ok := c.sharedBinding(ctx, user, bindingID); ok {
+	if b, err := c.bindingFor(ctx, user, bindingID); err == nil {
 		return b.Name
 	}
 	return ""
@@ -350,25 +346,20 @@ func (c *Connectors) CredentialFor(ctx context.Context, user, addonID, bindingID
 // several is a *connectors.NotAllowedError that lists them, and the model
 // picks one.
 func (c *Connectors) DefaultCredentialFor(ctx context.Context, user, addonID, bindingID string) (CredentialGrant, error) {
-	return c.credentialFor(ctx, user, addonID, bindingID, connectors.OnlyEntryWith)
+	return c.credentialFor(ctx, user, addonID, bindingID, connectors.OnlyEntryUsable)
 }
 
 func (c *Connectors) credentialFor(ctx context.Context, user, addonID, bindingID string, pick func(connectors.Binding, bool) (connectors.ResourceEntry, error)) (CredentialGrant, error) {
 	if bindingID == "" {
 		return CredentialGrant{}, connectors.ErrNoConnection
 	}
-	b, err := c.o.Store.GetBinding(ctx, bindingID)
-	if err == nil && b.Owner != principal(user) {
-		// Another person's binding is usable only while it is shared with the
-		// user; else it is the answer of a binding that does not exist.
-		if _, _, ok := c.sharedBinding(ctx, user, bindingID); !ok {
-			err = connectors.ErrNoCredential
-		}
-	}
+	// Another person's binding is usable only while it is shared with the
+	// user; else it is the answer of a binding that does not exist.
+	b, err := c.bindingFor(ctx, user, bindingID)
 	if err != nil || b.AddonID != addonID {
 		return CredentialGrant{}, connectors.ErrNoCredential
 	}
-	usable := len(b.Token) > 0
+	usable := b.HasTokenCredential()
 	if b.UsesOAuth() {
 		if usable, err = c.hasGrant(ctx, b); err != nil {
 			return CredentialGrant{}, c.unavailable(b, causeStore)

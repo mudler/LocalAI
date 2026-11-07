@@ -182,14 +182,7 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 		raw, _ := json.Marshal(b.Options)
 		options = string(raw)
 	}
-	enc := func(v any, empty bool) string {
-		if empty {
-			return ""
-		}
-		raw, _ := json.Marshal(v)
-		return string(raw)
-	}
-	return s.db.WithContext(ctx).Save(&bindingRow{AllowTrust: enc(b.AllowTrust, len(b.AllowTrust) == 0), Approval: enc(b.Approval, b.Approval.IsZero()), WriteMode: b.WriteMode, Resources: enc(b.Resources, len(b.Resources) == 0), Channels: enc(b.Channels, len(b.Channels) == 0), Caps: enc(b.Caps, len(b.Caps) == 0), WriteTickRemoved: b.WriteTickRemoved, Grants: enc(b.Grants, len(b.Grants) == 0), Paired: enc(b.Paired, len(b.Paired) == 0), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
+	return s.db.WithContext(ctx).Save(&bindingRow{AllowTrust: encJSON(b.AllowTrust, len(b.AllowTrust) == 0), Approval: encJSON(b.Approval, b.Approval.IsZero()), WriteMode: b.WriteMode, Resources: encList(b.Resources), Channels: encList(b.Channels), Caps: encList(b.Caps), WriteTickRemoved: b.WriteTickRemoved, Grants: encList(b.Grants), Paired: encList(b.Paired), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
 		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Reply: b.Reply, Conversation: b.Conversation, WindowMinutes: b.WindowMinutes,
 		FilesOff: b.FilesOff, ReplyLanguage: b.ReplyLanguage, UILanguage: b.UILanguage, AccountID: b.AccountID, Options: options, FileReceiveMax: b.FileReceiveMax, FileSendMax: b.FileSendMax,
 		AuthKind: b.AuthKind, Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
@@ -446,6 +439,9 @@ func (s *gormStore) FinishMigration(ctx context.Context, name string, now time.T
 func (s *gormStore) ReleaseMigration(ctx context.Context, name string) error {
 	return s.db.WithContext(ctx).Where("name = ? AND done = ?", name, false).Delete(&migrationRow{}).Error
 }
+
+// encList encodes a list for a JSON text column; an empty list is stored as "".
+func encList[S ~[]E, E any](v S) string { return encJSON(v, len(v) == 0) }
 
 // encJSON encodes v for a JSON text column; an empty value is stored as "".
 func encJSON(v any, empty bool) string {

@@ -177,35 +177,13 @@ func ValidateWildcards(entries []ResourceEntry, wildcards bool) error {
 	return nil
 }
 
-// Entry returns the entry of the binding that the call names. It is the only
-// resource check: the host uses the one binding the person selected and holds
-// the call to its list. A call that names no resource (key is empty) gets no
-// entry. A key on the list is matched without regard to case. Any other key
-// gets a *NotAllowedError that lists the keys of this binding, sorted. A
-// binding without a usable credential of its kind is no credential:
-// ErrNoCredential. A token binding is usable when it holds its token; an
-// OAuth binding is never usable from the binding alone, so its caller looks at
-// the grant and uses EntryWith.
-func Entry(b Binding, key string) (ResourceEntry, error) { return EntryFor(b, key, false) }
-
-// EntryWith is Entry with the caller's answer to whether the binding holds a
-// usable credential of its kind.
-func EntryWith(b Binding, usable bool, key string) (ResourceEntry, error) {
-	return EntryUsable(b, usable, key, false)
-}
-
-// OnlyEntry returns the entry of a binding that lists exactly one resource. It
-// is the target of a call that names none: the connection is then the only
-// source of it. A binding without a usable credential is ErrNoCredential. One
-// that lists none or several gets a *NotAllowedError that lists them, so the
-// caller can name one.
-func OnlyEntry(b Binding) (ResourceEntry, error) {
-	return OnlyEntryWith(b, !b.UsesOAuth() && len(b.Token) > 0)
-}
-
-// OnlyEntryWith is OnlyEntry with the caller's answer to whether the binding
-// holds a usable credential of its kind.
-func OnlyEntryWith(b Binding, usable bool) (ResourceEntry, error) {
+// OnlyEntryUsable returns the entry of a binding that lists exactly one
+// resource. It is the target of a call that names none: the connection is
+// then the only source of it. usable is the caller's answer to whether the
+// binding holds a usable credential of its kind; without one the result is
+// ErrNoCredential. A binding that lists none or several gets a
+// *NotAllowedError that lists them, so the caller can name one.
+func OnlyEntryUsable(b Binding, usable bool) (ResourceEntry, error) {
 	if !usable {
 		return ResourceEntry{}, ErrNoCredential
 	}
@@ -217,19 +195,22 @@ func OnlyEntryWith(b Binding, usable bool) (ResourceEntry, error) {
 	return ResourceEntry{}, &NotAllowedError{Allowed: allowed}
 }
 
-// EntryFor is Entry for a kind that may declare wildcardResources. With
-// wildcards the list may hold owner/* and *, and a key they cover gets an
-// entry made for that key: the key as sent and its own host ID, so the
-// add-on and the audit line see the real resource and never the wildcard.
-// The key * alone names no resource but the whole reach of the credential;
-// only the entry * covers it, for the tools that enumerate (see
+// EntryUsable returns the entry of the binding that the call names. It is the
+// only resource check: the host uses the one binding the person selected and
+// holds the call to its list. A call that names no resource (key is empty)
+// gets no entry. A key on the list is matched without regard to case. Any
+// other key gets a *NotAllowedError that lists the keys of this binding,
+// sorted. usable is the caller's answer to whether the binding holds a usable
+// credential of its kind (a token binding holds its token, see
+// HasTokenCredential; an OAuth binding is usable when its grant is); without
+// one the result is ErrNoCredential.
+//
+// With wildcards the list may hold owner/* and *, and a key they cover gets an
+// entry made for that key: the key as sent and its own host ID, so the add-on
+// and the audit line see the real resource and never the wildcard. The key *
+// alone names no resource but the whole reach of the credential; only the
+// entry * covers it, for the tools that enumerate (see
 // contract.ToolDefinition.Enumerates).
-func EntryFor(b Binding, key string, wildcards bool) (ResourceEntry, error) {
-	return EntryUsable(b, !b.UsesOAuth() && len(b.Token) > 0, key, wildcards)
-}
-
-// EntryUsable is EntryFor with the caller's answer to whether the binding
-// holds a usable credential of its kind.
 func EntryUsable(b Binding, usable bool, key string, wildcards bool) (ResourceEntry, error) {
 	if !usable {
 		return ResourceEntry{}, ErrNoCredential

@@ -231,7 +231,7 @@ func (c *Client) token(ctx context.Context, d contract.OAuthDescriptor, cred Cre
 	if len(a.AccessToken) > contract.MaxCredentialBytes {
 		return Tokens{}, ErrTokenTooLarge
 	}
-	if a.AccessToken == "" || !headerSafe(a.AccessToken) ||
+	if a.AccessToken == "" || !contract.GraphicASCII(a.AccessToken) ||
 		!strings.EqualFold(a.TokenType, "bearer") || len(a.RefreshToken) > maxRefreshBytes {
 		return Tokens{}, ErrBadResponse
 	}
@@ -274,14 +274,4 @@ func clampExpiry(secs int64) time.Duration {
 		return maxExpiry
 	}
 	return time.Duration(secs) * time.Second
-}
-
-// headerSafe is printable ASCII without space, so the value fits a header.
-func headerSafe(s string) bool {
-	for i := 0; i < len(s); i++ {
-		if c := s[i]; c < 0x21 || c > 0x7e {
-			return false
-		}
-	}
-	return true
 }

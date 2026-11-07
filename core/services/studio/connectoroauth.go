@@ -616,15 +616,10 @@ func (c *Connectors) writeBack(ctx context.Context, b connectors.Binding, g, nex
 // changed meanwhile (ErrCredentialUnavailable then). A token binding cannot
 // be renewed: ErrNoCredential.
 func (c *Connectors) RenewCredential(ctx context.Context, user, addonID, bindingID, key string, version int64, final bool) (CredentialGrant, error) {
-	b, err := c.o.Store.GetBinding(ctx, bindingID)
-	if err == nil && b.Owner != principal(user) {
-		// The renewal is the host's work on the login of the owner, not an act
-		// of the person: it is open to a person the binding is shared with,
-		// and to nobody else. The tokens stay on the host.
-		if _, _, ok := c.sharedBinding(ctx, user, bindingID); !ok {
-			err = connectors.ErrNoCredential
-		}
-	}
+	// The renewal is the host's work on the login of the owner, not an act of
+	// the person: it is open to a person the binding is shared with, and to
+	// nobody else. The tokens stay on the host.
+	b, err := c.bindingFor(ctx, user, bindingID)
 	if err != nil || b.AddonID != addonID || !b.UsesOAuth() {
 		return CredentialGrant{}, connectors.ErrNoCredential
 	}

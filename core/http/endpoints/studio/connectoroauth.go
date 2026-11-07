@@ -18,6 +18,7 @@ import (
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/xslices"
 )
 
 // The OAuth routes of the connections. Only the process that runs the
@@ -70,7 +71,6 @@ const (
 	// defaultOAuthReturn is the page the callback goes back to when the login
 	// named none it can use.
 	defaultOAuthReturn = "/app/chats/connectors"
-	maxReturnTo        = 2048
 	maxAppQuery        = 1024
 )
 
@@ -92,10 +92,11 @@ var (
 	appQuery = regexp.MustCompile(`^[A-Za-z0-9._~%&=+,:@/-]*$`)
 )
 
-// validReturnTo says whether s is an address of the web app: /app and its
-// pages, an optional query, no fragment, no dot segment once decoded.
+// validReturnTo says whether s is an address of the web app: a path on this
+// host (studiosvc.ValidReturnTo) that is /app or one of its pages, with an
+// optional query, no fragment and no dot segment once decoded.
 func validReturnTo(s string) bool {
-	if s == "" || len(s) > maxReturnTo || strings.Contains(s, "#") {
+	if !studiosvc.ValidReturnTo(s) || strings.Contains(s, "#") {
 		return false
 	}
 	path, query, hasQuery := strings.Cut(s, "?")
@@ -419,8 +420,8 @@ func oauthClientOut(addonID string, v gateway.OAuthClientView) schema.ChatsOAuth
 	d := v.Descriptor
 	out := schema.ChatsOAuthClient{Addon: addonID, Configured: v.Configured, ClientID: v.ClientID, HasSecret: v.HasSecret, Approved: v.Approved,
 		ApprovedDigest: v.ApprovedDigest, CurrentDigest: v.CurrentDigest, ApprovedBy: v.ApprovedBy,
-		Descriptor: schema.ChatsOAuthDescriptor{AuthorizeURL: d.AuthorizeURL, TokenURL: d.TokenURL, RevokeURL: d.RevokeURL, Hosts: orEmpty(d.Hosts),
-			RequiredScopes: orEmpty(d.Scopes.Required), OptionalScopes: orEmpty(d.Scopes.Optional), PKCE: d.PKCE, ClientAuth: d.ClientAuth,
+		Descriptor: schema.ChatsOAuthDescriptor{AuthorizeURL: d.AuthorizeURL, TokenURL: d.TokenURL, RevokeURL: d.RevokeURL, Hosts: xslices.NonNil(d.Hosts),
+			RequiredScopes: xslices.NonNil(d.Scopes.Required), OptionalScopes: xslices.NonNil(d.Scopes.Optional), PKCE: d.PKCE, ClientAuth: d.ClientAuth,
 			AuthorizeParams: []schema.ChatsOAuthParam{}}}
 	for _, p := range d.AuthorizeParams {
 		out.Descriptor.AuthorizeParams = append(out.Descriptor.AuthorizeParams, schema.ChatsOAuthParam{Name: p.Name, Value: p.Value})
@@ -432,19 +433,12 @@ func oauthClientOut(addonID string, v gateway.OAuthClientView) schema.ChatsOAuth
 	return out
 }
 
-func orEmpty(in []string) []string {
-	if in == nil {
-		return []string{}
-	}
-	return in
-}
-
 // oauthOut is the login state of an oauth2 binding in the connector JSON.
 func oauthOut(v *studiosvc.OAuthView) *schema.ChatsConnectorOAuth {
 	if v == nil {
 		return nil
 	}
-	out := &schema.ChatsConnectorOAuth{State: v.State, Reason: v.Reason, AccountLabel: v.AccountLabel, Scopes: orEmpty(v.Scopes), HasClient: v.HasClient}
+	out := &schema.ChatsConnectorOAuth{State: v.State, Reason: v.Reason, AccountLabel: v.AccountLabel, Scopes: xslices.NonNil(v.Scopes), HasClient: v.HasClient}
 	if !v.ExpiresAt.IsZero() {
 		t := v.ExpiresAt
 		out.ExpiresAt = &t

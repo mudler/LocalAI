@@ -1375,21 +1375,32 @@ func (c credentialSource) RenewCredential(ctx context.Context, actor contract.Ac
 	return c.answer(addonID, grant, err)
 }
 
+// credentialRefusals maps an error of the credential store to the refusal code
+// the add-on runtime reports. The first match wins.
+var credentialRefusals = []struct {
+	errs []error
+	code string
+}{
+	{[]error{connectors.ErrNoConnection}, gateway.CodeSelectConnection},
+	{[]error{connectors.ErrNoCredential, studio.ErrTokenGuarded}, gateway.CodeNoCredential},
+	{[]error{studio.ErrOwnerReconnectNeeded}, gateway.CodeOwnerReconnectNeeded},
+	{[]error{studio.ErrReconnectNeeded}, gateway.CodeReconnectNeeded},
+}
+
 func (c credentialSource) answer(addonID string, grant studio.CredentialGrant, err error) (gateway.CredentialGrant, error) {
 	var notAllowed *connectors.NotAllowedError
 	var limited *contract.ErrRateLimited
+	for _, r := range credentialRefusals {
+		for _, target := range r.errs {
+			if errors.Is(err, target) {
+				return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: r.code}
+			}
+		}
+	}
 	switch {
 	case err == nil:
 		return gateway.CredentialGrant{Credential: grant.Secret, ResourceKey: grant.Resource.Key, ResourceID: grant.Resource.ID, WriteMode: grant.WriteMode,
 			GrantedScopes: grant.Scopes, Version: grant.Version, BindingID: grant.BindingID, BindingName: grant.BindingName, Hold: sharedHold(grant.Hold)}, nil
-	case errors.Is(err, connectors.ErrNoConnection):
-		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeSelectConnection}
-	case errors.Is(err, connectors.ErrNoCredential), errors.Is(err, studio.ErrTokenGuarded):
-		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
-	case errors.Is(err, studio.ErrOwnerReconnectNeeded):
-		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeOwnerReconnectNeeded}
-	case errors.Is(err, studio.ErrReconnectNeeded):
-		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeReconnectNeeded}
 	case errors.As(err, &notAllowed):
 		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeResourceNotAllowed, Allowed: notAllowed.Allowed}
 	case errors.As(err, &limited):

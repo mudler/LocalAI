@@ -62,7 +62,7 @@ var _ = Describe("GORM on SQLite", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(b.AuthKind).To(BeEmpty())
 		Expect(b.Token).To(Equal([]byte("sealed-bytes-seed")))
-		_, err = connectors.Entry(b, "")
+		_, err = entryOf(b, "")
 		Expect(err).NotTo(HaveOccurred(), "an old token binding is still a credential")
 		_, err = second.GetGrant(context.Background(), "seed")
 		Expect(err).To(MatchError(connectors.ErrNotFound))

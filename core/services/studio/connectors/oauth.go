@@ -23,6 +23,10 @@ const (
 // UsesOAuth reports whether the credential of the binding is an OAuth grant.
 func (b Binding) UsesOAuth() bool { return b.AuthKind == AuthOAuth2 }
 
+// HasTokenCredential reports whether a token binding holds its token. An OAuth
+// binding never does: its credential is the grant.
+func (b Binding) HasTokenCredential() bool { return !b.UsesOAuth() && len(b.Token) > 0 }
+
 func validAuthKind(b Binding) error {
 	switch b.AuthKind {
 	case "", AuthToken:

@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/xslices"
 )
 
 // Snapshot is one addon as the owner knows it. It is input to Build and never
@@ -404,7 +405,7 @@ func build(s Snapshot, admin bool) App {
 		slot := m.Capabilities.Credentials[0]
 		a.ResourceArgument, a.ResourceLabel = slot.ResourceArgument, slot.ResourceLabel
 		if slot.Kind == contract.CredentialKindOAuth2 && slot.OAuth != nil {
-			a.OAuth = &OAuthView{RequiredScopes: nonNil(slot.OAuth.Scopes.Required), OptionalScopes: nonNil(slot.OAuth.Scopes.Optional)}
+			a.OAuth = &OAuthView{RequiredScopes: slices.Clone(xslices.NonNil(slot.OAuth.Scopes.Required)), OptionalScopes: slices.Clone(xslices.NonNil(slot.OAuth.Scopes.Optional))}
 		}
 	}
 	a.Resources = resourceTools(m)
@@ -594,12 +595,4 @@ func resourceTools(m contract.Manifest) *contract.ResourceTools {
 		r.List = &l
 	}
 	return &r
-}
-
-// nonNil is a copy of the list that is never nil, so the JSON has [].
-func nonNil(in []string) []string {
-	if in == nil {
-		return []string{}
-	}
-	return slices.Clone(in)
 }

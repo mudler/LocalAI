@@ -144,7 +144,7 @@ func (v Envelope) Validate(now time.Time, l Limits) error {
 		return fmt.Errorf("invalid request resource key or credential")
 	}
 	if !ValidGrantedScopes(r.GrantedScopes) {
-		return fmt.Errorf("invalid granted scopes")
+		return errors.New("invalid granted scopes")
 	}
 	// Principal identifiers are opaque authentication-system IDs, not filesystem paths.
 	if strings.TrimSpace(a.Actor.UserID) == "" || strings.TrimSpace(a.Actor.CredentialID) == "" || len(a.Actor.UserID) > 256 || len(a.Actor.CredentialID) > 256 || (a.Actor.Mode != "named-user" && a.Actor.Mode != "local-owner") || !a.ExpiresAt.After(now) {

@@ -117,7 +117,7 @@ func (s *gormStore) PutGrant(ctx context.Context, g Grant) (int64, error) {
 			version = old[0] + 1
 		}
 		return tx.Save(&grantRow{Binding: g.Binding, Owner: g.Owner, AddonID: g.AddonID, Sealed: g.Sealed, ExpiresAt: g.ExpiresAt.UTC(),
-			Scopes: encJSON(g.Scopes, len(g.Scopes) == 0), AccountLabel: g.AccountLabel, State: g.State, Reason: g.Reason, DescriptorDigest: g.DescriptorDigest,
+			Scopes: encList(g.Scopes), AccountLabel: g.AccountLabel, State: g.State, Reason: g.Reason, DescriptorDigest: g.DescriptorDigest,
 			TokenURL: g.TokenURL, RevokeURL: g.RevokeURL, Version: version, Updated: g.Updated.UTC()}).Error
 	})
 	return version, err
@@ -126,7 +126,7 @@ func (s *gormStore) PutGrant(ctx context.Context, g Grant) (int64, error) {
 func (s *gormStore) UpdateGrant(ctx context.Context, g Grant, version int64) (int64, error) {
 	// A map writes the zero values too: an empty secret or a cleared reason.
 	res := s.db.WithContext(ctx).Model(&grantRow{}).Where("binding = ? AND version = ?", g.Binding, version).Updates(map[string]any{
-		"sealed": g.Sealed, "expires_at": g.ExpiresAt.UTC(), "scopes": encJSON(g.Scopes, len(g.Scopes) == 0), "account_label": g.AccountLabel,
+		"sealed": g.Sealed, "expires_at": g.ExpiresAt.UTC(), "scopes": encList(g.Scopes), "account_label": g.AccountLabel,
 		"state": g.State, "reason": g.Reason, "descriptor_digest": g.DescriptorDigest, "token_url": g.TokenURL, "revoke_url": g.RevokeURL, "version": version + 1,
 		"lease_owner": "", "lease_until": time.Time{}, "updated": g.Updated.UTC(),
 	})
@@ -193,7 +193,7 @@ func (s *gormStore) PutLoginState(ctx context.Context, st LoginState, now time.T
 			return ErrTooManyLogins
 		}
 		return tx.Create(&loginStateRow{Hash: st.Hash, Binding: st.Binding, Owner: st.Owner, AddonID: st.AddonID, DescriptorDigest: st.DescriptorDigest,
-			Verifier: st.Verifier, RedirectURI: st.RedirectURI, Scopes: encJSON(st.Scopes, len(st.Scopes) == 0), ReturnTo: st.ReturnTo, NonceHash: st.NonceHash,
+			Verifier: st.Verifier, RedirectURI: st.RedirectURI, Scopes: encList(st.Scopes), ReturnTo: st.ReturnTo, NonceHash: st.NonceHash,
 			Expires: st.Expires.UTC()}).Error
 	})
 }
