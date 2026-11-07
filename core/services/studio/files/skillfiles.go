@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -218,32 +219,31 @@ func yamlQuote(s string) string {
 // replaces a skill.
 var ErrSkillExists = errors.New("files: a skill of that name exists already")
 
-// ImportSkills stores skills that skills.ReadPacks has checked, as one change
-// set (one Undo takes all of them back). The files are only stored: nothing in
-// a pack is run. For the shared layer principal must be AdminPrincipal.
+// ImportSkills stores skills that skills.ReadPacks has checked in the personal
+// layer of principal, as one change set (one Undo takes all of them back). The
+// files are only stored: nothing in a pack is run. Each skill gets the
+// skills.NewMarker file, which says it was imported and has not been used yet.
 //
 // It refuses the whole import, before it writes anything, when one name is
 // taken in the layer, and when reserved says a name belongs to the product.
-func (s *Service) ImportSkills(ctx context.Context, principal string, layer skills.Layer, packs []skills.Pack, reserved func(string) bool) (int64, error) {
+func (s *Service) ImportSkills(ctx context.Context, principal string, packs []skills.Pack, reserved func(string) bool) (int64, error) {
 	if !s.Available() {
 		return 0, ErrUnavailable
 	}
 	dirs := make([]string, len(packs))
 	var actor workspace.Actor
 	for i, p := range packs {
-		dir, a, err := s.skillDir(principal, layer, p.Name, true)
+		dir, a, err := s.skillDir(principal, skills.LayerPersonal, p.Name, true)
 		if err != nil {
 			return 0, err
 		}
 		if reserved != nil && reserved(p.Name) {
-			return 0, fmt.Errorf("%w: %q is the name of a skill that ships with LocalAI", ErrBadSkill, p.Name)
+			return 0, fmt.Errorf("%w: %q is the name of a skill that ships with LocalAI; rename the skill and import it again", ErrBadSkill, p.Name)
 		}
 		dirs[i], actor = dir, a
 	}
-	if layer == skills.LayerPersonal {
-		if err := s.EnsureHome(ctx, principal); err != nil {
-			return 0, err
-		}
+	if err := s.EnsureHome(ctx, principal); err != nil {
+		return 0, err
 	}
 	for i, p := range packs {
 		if _, err := s.ws.Stat(ctx, actor, dirs[i]); err == nil {
@@ -267,10 +267,111 @@ func (s *Service) ImportSkills(ctx context.Context, principal string, layer skil
 				return 0, err
 			}
 		}
+		if _, err := tx.Put(ctx, dirs[i]+"/"+skills.NewMarker, bytes.NewReader(nil), workspace.PutOptions{MaxSize: 1, Title: title}); err != nil {
+			_ = tx.Rollback()
+			return 0, err
+		}
 	}
 	cs, err := tx.Commit()
 	if err != nil && !errors.Is(err, workspace.ErrCommitted) {
 		return 0, err
 	}
 	return cs.Rev, nil
+}
+
+// SkillIsNew reports whether the personal skill name was imported and no chat
+// has used it yet.
+func (s *Service) SkillIsNew(ctx context.Context, principal, name string) bool {
+	if !s.Available() {
+		return false
+	}
+	dir, actor, err := s.skillDir(principal, skills.LayerPersonal, name, false)
+	if err != nil {
+		return false
+	}
+	_, err = s.ws.Stat(ctx, actor, dir+"/"+skills.NewMarker)
+	return err == nil
+}
+
+// ClearSkillNew removes the mark of an imported skill that a chat used for the
+// first time. It does nothing for a skill without the mark.
+func (s *Service) ClearSkillNew(ctx context.Context, principal, name string) {
+	if !s.SkillIsNew(ctx, principal, name) {
+		return
+	}
+	dir, actor, err := s.skillDir(principal, skills.LayerPersonal, name, true)
+	if err != nil {
+		return
+	}
+	_ = s.ws.Delete(ctx, actor, dir+"/"+skills.NewMarker)
+}
+
+// exportMaxFolders bounds the folders an export walks.
+const exportMaxFolders = 200
+
+// ReadSkillPack reads every file of a personal skill, except the mark of a new
+// import, so that skills.WriteZip can make an archive. A skill over the import
+// limits is refused, because it could not be imported again.
+func (s *Service) ReadSkillPack(ctx context.Context, principal, name string) (skills.Pack, error) {
+	if !s.Available() {
+		return skills.Pack{}, ErrUnavailable
+	}
+	dir, actor, err := s.skillDir(principal, skills.LayerPersonal, name, false)
+	if err != nil {
+		return skills.Pack{}, err
+	}
+	maxFiles, maxFile, maxTotal := skills.DefaultPackEntries, int64(skills.DefaultPackFileBytes), int64(skills.DefaultPackBytes)
+	pack := skills.Pack{Name: name}
+	var total int64
+	folders := []string{""}
+	for n := 0; len(folders) > 0; n++ {
+		if n >= exportMaxFolders {
+			return skills.Pack{}, fmt.Errorf("%w: the skill has too many folders to export", ErrBadSkill)
+		}
+		rel := folders[0]
+		folders = folders[1:]
+		kids, err := s.ws.List(ctx, actor, strings.TrimSuffix(dir+"/"+rel, "/"))
+		if err != nil {
+			return skills.Pack{}, err
+		}
+		for _, k := range kids {
+			krel := k.Name
+			if rel != "" {
+				krel = rel + "/" + k.Name
+			}
+			if k.Kind == workspace.KindDir {
+				folders = append(folders, krel)
+				continue
+			}
+			if krel == skills.NewMarker {
+				continue
+			}
+			if len(pack.Files) >= maxFiles || k.Size > maxFile || total+k.Size > maxTotal {
+				return skills.Pack{}, fmt.Errorf("%w: the skill is larger than an archive may be (%d files, %d MiB a file, %d MiB in all)", ErrBadSkill, maxFiles, maxFile>>20, maxTotal>>20)
+			}
+			r, _, err := s.ws.Open(ctx, actor, dir+"/"+krel)
+			if err != nil {
+				return skills.Pack{}, err
+			}
+			data, err := io.ReadAll(io.LimitReader(r, maxFile+1))
+			_ = r.Close()
+			if err != nil {
+				return skills.Pack{}, err
+			}
+			total += int64(len(data))
+			pack.Files = append(pack.Files, skills.PackFile{Path: krel, Data: data})
+		}
+	}
+	var text []byte
+	for _, f := range pack.Files {
+		if f.Path == skills.SkillFile {
+			text = f.Data
+		}
+	}
+	if text == nil {
+		return skills.Pack{}, workspace.ErrNotFound
+	}
+	_, pack.Description, _ = skills.Parse(text)
+	sort.Slice(pack.Files, func(i, j int) bool { return pack.Files[i].Path < pack.Files[j].Path })
+	return pack, nil
 }

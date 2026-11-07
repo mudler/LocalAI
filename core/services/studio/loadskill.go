@@ -241,6 +241,10 @@ func (s *Service) loadSkill(ctx context.Context, p string, list []skills.Skill, 
 		return "", fmt.Errorf("the skill %s is too large to load (more than %d KiB)", sk.Name, skills.MaxFileSize>>10)
 	}
 	body := skills.Body(data)
+	// The first use of an imported skill clears its "new" mark.
+	if sk.Layer == skills.LayerPersonal {
+		s.d.Files.ClearSkillNew(ctx, p, sk.Name)
+	}
 	if !o.files || sk.GuestPath == "" {
 		return body, nil
 	}
@@ -292,7 +296,7 @@ func (s *Service) skillFiles(ctx context.Context, a workspace.Actor, dir string)
 				}
 				continue
 			}
-			if it.rel == "" && k.Name == skills.SkillFile {
+			if it.rel == "" && (k.Name == skills.SkillFile || k.Name == skills.NewMarker) {
 				continue
 			}
 			if len(names) == maxSkillFilesListed {

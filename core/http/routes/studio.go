@@ -140,6 +140,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/skills", h.ListSkills)
 	e.POST(base+"/skills", h.CreateSkill)
 	e.POST(base+"/skills/import", h.ImportSkills)
+	e.GET(base+"/skills/personal/:name/export", h.ExportSkill)
 	e.GET(base+"/skills/:layer/:name", h.GetSkill)
 	e.PUT(base+"/skills/:layer/:name", h.UpdateSkill)
 	e.DELETE(base+"/skills/:layer/:name", h.DeleteSkill)

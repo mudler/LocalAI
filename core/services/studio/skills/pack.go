@@ -2,6 +2,7 @@ package skills
 
 import (
 	"archive/zip"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -401,4 +402,37 @@ func packPath(name string) (p string, skip bool, err error) {
 		return "", true, nil
 	}
 	return strings.Join(segs, "/"), false, nil
+}
+
+// NewMarker is the name of an empty file that an import puts in the folder of
+// a skill. It marks the skill as imported and not yet used by a chat: the host
+// removes it when a chat loads the skill for the first time. It is not a part
+// of the skill and an export leaves it out.
+const NewMarker = ".localai-new"
+
+// WriteZip writes a pack as a zip archive in the Agent Skills layout: one
+// folder named after the skill, with SKILL.md and the other files below it.
+// ReadPacks reads the result back to the same pack. Entry times are fixed, so
+// the same pack gives the same bytes.
+func WriteZip(p Pack) ([]byte, error) {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, f := range p.Files {
+		if f.Path == NewMarker {
+			continue
+		}
+		h := &zip.FileHeader{Name: p.Name + "/" + f.Path, Method: zip.Deflate}
+		h.SetMode(0o644)
+		w, err := zw.CreateHeader(h)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := w.Write(f.Data); err != nil {
+			return nil, err
+		}
+	}
+	if err := zw.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }

@@ -1107,6 +1107,9 @@ type ChatsSkill struct {
 	// skill.
 	Provider string `json:"provider,omitempty"`
 	Locked   bool   `json:"locked,omitempty"`
+	// New is true for a personal skill that was imported and that no chat has
+	// used yet. The first use clears it.
+	New bool `json:"new,omitempty"`
 }
 
 // ChatsSkillList is the skills a user has.
@@ -1152,7 +1155,6 @@ type ChatsSkillImported struct {
 
 // ChatsSkillImportResult is the answer of a skill import.
 type ChatsSkillImportResult struct {
-	Layer  string               `json:"layer"`
 	Skills []ChatsSkillImported `json:"skills"`
 	// Rev is the revision of the change set; undo it from the file history.
 	Rev int64 `json:"rev"`
