@@ -32,12 +32,12 @@ func (r *runtime) undoer() *jobundo.Undoer[job] {
 		Entry: func(j job, known bool) jobundo.Entry {
 			return jobundo.Entry{Known: known && !j.Dataset, Name: j.Name, JobID: j.JobID, Revision: j.Revision, StartOp: j.StartOp, Started: j.startedAt(), UndoneBy: j.UndoneBy}
 		},
-		Receipt: r.j.receipt,
+		Receipt: r.j.Receipt,
 		Commit: func(resource string, j job, undoneBy string, rec contract.Receipt) error {
 			next := j
 			next.Revision++
 			next.UndoneBy = undoneBy
-			return r.j.commit(resource, &next, rec)
+			return r.j.CommitJob(rec, resource, &next)
 		},
 		MapErr: protocol.FromHostError, Payload: protocol.Payload,
 	}

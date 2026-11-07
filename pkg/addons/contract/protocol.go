@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"slices"
 	"strings"
 	"time"
 )
@@ -22,6 +23,12 @@ var ErrRefused = errors.New("addon refused the request as invalid")
 // them. Nothing was changed and repeating the call cannot succeed. It is not an
 // outage and not an unknown outcome.
 var ErrDenied = errors.New("addon denied the request for this person")
+
+// ErrCredentialRejected is the add-on's own answer that the service behind it
+// refused the credential of the request, for example an access token that
+// expired or was revoked. Nothing was changed. The host may get a new
+// credential and call again. It is not an outage and not an unknown outcome.
+var ErrCredentialRejected = errors.New("addon reported the credential as rejected")
 
 type Actor struct {
 	UserID       string `json:"userId"`
@@ -44,6 +51,11 @@ type Request struct {
 	// caller sends.
 	ResourceKey string `json:"resourceKey,omitempty"`
 	Credential  string `json:"credential,omitempty" swaggerignore:"true"`
+	// GrantedScopes are the OAuth scopes the host holds for the person's
+	// login, so a tool can tell whether an optional scope was granted. It is
+	// not a secret. Like Credential, the host sets it alone and drops it from
+	// every request that a caller sends.
+	GrantedScopes []string `json:"grantedScopes,omitempty" swaggerignore:"true"`
 }
 type Authority struct {
 	Actor     Actor     `json:"actor"`
@@ -130,6 +142,9 @@ func (v Envelope) Validate(now time.Time, l Limits) error {
 	}
 	if (r.ResourceKey != "" && !validResourceKey(r.ResourceKey)) || len(r.Credential) > MaxCredentialBytes {
 		return fmt.Errorf("invalid request resource key or credential")
+	}
+	if !ValidGrantedScopes(r.GrantedScopes) {
+		return errors.New("invalid granted scopes")
 	}
 	// Principal identifiers are opaque authentication-system IDs, not filesystem paths.
 	if strings.TrimSpace(a.Actor.UserID) == "" || strings.TrimSpace(a.Actor.CredentialID) == "" || len(a.Actor.UserID) > 256 || len(a.Actor.CredentialID) > 256 || (a.Actor.Mode != "named-user" && a.Actor.Mode != "local-owner") || !a.ExpiresAt.After(now) {
@@ -249,4 +264,22 @@ func (v *Receipt) UnmarshalJSON(b []byte) error {
 	}
 	*v = candidate
 	return nil
+}
+
+// MaxGrantedScopes bounds Request.GrantedScopes: the scopes a descriptor can
+// name, required and optional together.
+const MaxGrantedScopes = 2 * MaxOAuthScopes
+
+// ValidGrantedScopes reports a list the host could have made from a granted
+// scope response: bounded, each a scope token (ValidScopeToken), no repeat.
+func ValidGrantedScopes(scopes []string) bool {
+	if len(scopes) > MaxGrantedScopes {
+		return false
+	}
+	for i, s := range scopes {
+		if !ValidScopeToken(s) || slices.Contains(scopes[:i], s) {
+			return false
+		}
+	}
+	return true
 }

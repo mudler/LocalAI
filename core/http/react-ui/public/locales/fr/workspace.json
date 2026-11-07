@@ -546,7 +546,8 @@
     "moveMany_other": "Déplacer {{count}} éléments vers…",
     "deleteMany_one": "Déplacer {{count}} élément vers la Corbeille",
     "deleteMany_other": "Déplacer {{count}} éléments vers la Corbeille",
-    "share": "Partager…"
+    "share": "Partager…",
+    "extract": "Extraire ici"
   },
   "keys": {
     "delete": "Suppr"
@@ -570,7 +571,14 @@
     "movedOne": "{{name}} a été déplacé vers {{folder}}.",
     "moved_one": "{{count}} élément a été déplacé vers {{folder}}.",
     "moved_other": "{{count}} éléments ont été déplacés vers {{folder}}.",
-    "moveUndone": "Remis à sa place."
+    "moveUndone": "Remis à sa place.",
+    "extractSkipped_one": "{{count}} entrée a été ignorée (liens, périphériques ou noms non valides).",
+    "extractSkipped_other": "{{count}} entrées ont été ignorées (liens, périphériques ou noms non valides).",
+    "extractConflicts_one": "{{count}} nom était déjà pris : le nouveau fichier est enregistré comme copie.",
+    "extractConflicts_other": "{{count}} noms étaient déjà pris : les nouveaux fichiers sont enregistrés comme copies.",
+    "extractUndone": "Extraction annulée.",
+    "extracted_one": "{{count}} fichier extrait dans {{folder}}.",
+    "extracted_other": "{{count}} fichiers extraits dans {{folder}}."
   },
   "search": {
     "placeholder": "Filtrer ce dossier",

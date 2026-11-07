@@ -546,7 +546,8 @@
     "moveMany_other": "Mover {{count}} elementos a…",
     "deleteMany_one": "Mover {{count}} elemento a la papelera",
     "deleteMany_other": "Mover {{count}} elementos a la papelera",
-    "share": "Compartir…"
+    "share": "Compartir…",
+    "extract": "Extraer aquí"
   },
   "keys": {
     "delete": "Supr"
@@ -570,7 +571,14 @@
     "movedOne": "{{name}} se movió a {{folder}}.",
     "moved_one": "{{count}} elemento se movió a {{folder}}.",
     "moved_other": "{{count}} elementos se movieron a {{folder}}.",
-    "moveUndone": "Devuelto a su sitio."
+    "moveUndone": "Devuelto a su sitio.",
+    "extractSkipped_one": "Se omitió {{count}} entrada (enlaces, dispositivos o nombres no válidos).",
+    "extractSkipped_other": "Se omitieron {{count}} entradas (enlaces, dispositivos o nombres no válidos).",
+    "extractConflicts_one": "{{count}} nombre ya estaba en uso: el archivo nuevo se guarda como copia.",
+    "extractConflicts_other": "{{count}} nombres ya estaban en uso: los archivos nuevos se guardan como copias.",
+    "extractUndone": "Extracción deshecha.",
+    "extracted_one": "Se extrajo {{count}} archivo en {{folder}}.",
+    "extracted_other": "Se extrajeron {{count}} archivos en {{folder}}."
   },
   "search": {
     "placeholder": "Filtrar esta carpeta",

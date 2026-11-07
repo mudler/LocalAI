@@ -10,7 +10,17 @@ For typed extensions, run `contracts`, `apps`, `runtime`, `gateway`, and `host-s
 The `contracts` suite includes all official package manifests and generic architecture guards. It runs `./pkg/addons/contract`,
 `./pkg/addons/packaging`, and the root architecture suite, each with an exact
 Ginkgo report inventory (including twelve official manifest audits, two policy
-packaging checks, and two architecture guards). `apps` inventories the generic
+packaging checks, and six architecture guards). The OAuth guard parses the
+files of the OAuth logins (the contract descriptor, the token client, the
+connector service and stores, the gateway, the routes and the application
+wiring), their React sources (the Connectors page included) and their locale
+strings. It finds the files by name patterns, so a new OAuth file next to the
+others is checked without a change to the guard, and a pattern that matches
+no file fails it, so a move is noticed. It fails on a string that names an identity or cloud
+service or one of its hosts, from a deny list kept in the test; on an authorize
+parameter in the contract registry that is not on the reviewed list of the
+test; and on an import of an OAuth library or a service SDK. A second case
+feeds it synthetic files to prove each check fails. `apps` inventories the generic
 UI fixtures; `gateway` inventories the real application owner binding fixture.
 The latter installs two differently named packages through the actual catalog
 and Manager, uses JSON chat/agent stores, selects the oldest provider, then pins
@@ -223,6 +233,44 @@ binding shared on A is listed on B with its name and owner and no credential, an
 revoke through B stops a call that uses the credential on the owner. While the
 owner is gone, B stops the work on a shared collection and lists, shares and admits
 nothing, and the person's own collections still work.
+
+## OAuth conformance suite
+
+```sh
+sh scripts/addons/verify.sh oauth
+```
+
+The `oauth` suite (`tests/addons/oauth`) proves that the OAuth logins of
+add-ons need no code for one service. It runs the real application: accounts
+on a SQLite database, the add-on owner, the library, the supervisor, the
+connectors and the HTTP routes. One test-only executable
+(`addons/internal/oauthfixture`, built on the Go protocol package) is packaged
+three times through the library, as `provider-a`, `provider-b` and
+`provider-c`. The manifests differ in the ID, the title, the connector kind,
+the authorize, token and revocation addresses, the host patterns, the scopes,
+the authorize parameters and the client authentication (`basic`, `post` and
+`none`). Each table of the suite runs the same steps for all three, so a host
+that treated one service in a special way fails for the others.
+
+The services are fakes from `core/services/studio/oauthtoken/oauthtest`: TLS
+servers on loopback with an authorize, a token and a revocation endpoint. They
+check PKCE, the redirect address and the client authentication the client was
+registered with, and record each call. The host's guarded client refuses
+loopback addresses, so the suite gives the connectors a token client whose
+dialer reaches the fakes by host name, through
+`application.UseConnectorOptionsForTests`. TLS is still verified, and the
+descriptor checks of the host stay in place.
+
+| Table | Proves |
+| --- | --- |
+| login | The administrator approves the digest; a login starts, the service redirects, the callback trades the code once and the binding shows the account. A tool call gets the access token and the granted scopes and no refresh token, client secret, code or verifier. When the token ends, twelve calls at once make one token call, and the rotated refresh token is stored. A `credential_rejected` answer gives one renewal and a retry; a second one gives `reconnect_needed` and the note for the model. `invalid_grant` gives `reconnect_needed`. A person who declines leaves the login as it was. Disconnect revokes at the service and deletes the login. Every call authenticates the client as the descriptor says, on the wire. No answer and no log line carries a secret. |
+| failures | A login with fewer than the required scopes fails with `scopes_missing`; fewer optional scopes are kept as granted. A 5xx of the token endpoint is an outage and a 429 is `rate_limited` with its wait; neither ends the login. |
+| short token | A token that lives one minute is used for half of its life before it is renewed. |
+| upgrade | An upgrade that moves the token endpoint ends the approval. The next call gets `reconnect_needed` with the reason `needs_approval`, and no refresh token is sent anywhere. After a new approval the login uses the new address. |
+| two frontends | A second application runs as a frontend on the same account database and carrier keys. A callback that reaches it is finished by the owner, tool calls through it are served and renewed on the owner, a state works once on either node, and a disconnect through it revokes. The frontend's token client reaches no service, so a token call made on the frontend would fail. |
+
+The suite runs in seconds. It needs `pkg/grpc/proto` and the React
+distribution, like the other suites that build the HTTP server.
 
 ## Data recovery suite
 

@@ -894,7 +894,7 @@
     "lockedNoAuth": "La connexion est désactivée, donc toute personne qui atteint ce serveur pourrait modifier ceci ; l'administrateur le définit dans le fichier de politique.",
     "newOptional": "La nouvelle version demande aussi {{ops}}. Elles sont facultatives et non autorisées.",
     "noLongerRequested": "Cette version ne le demande plus. Vous pouvez le désactiver.",
-    "notOfficial": "Ce module vient de {{library}}, pas de la bibliothèque officielle.",
+    "notOfficialWarning": "Ce module vient de {{library}}, pas de la bibliothèque officielle. Il s'exécute comme du code de confiance sur ce serveur et peut utiliser les identifiants qui lui sont confiés. Ne l'installez que si vous faites confiance à son auteur.",
     "op": {
       "alreadyAllowed": "Déjà autorisé",
       "blocked": "Bloqué par la politique de l'administrateur",
@@ -930,6 +930,56 @@
       "reviewNamed": "Examiner et approuver l'accès à l'hôte de {{name}}",
       "title": "{{name}} {{version}} attend votre approbation"
     }
+  },
+  "oauthClient": {
+    "title": "Connexion au compte",
+    "intro": "Les personnes relient ce module à leur propre compte sur un service. Enregistrez l'adresse de retour ci-dessous auprès du service, saisissez le client qu'il vous donne et approuvez la connexion. Personne ne peut se connecter avant.",
+    "status": {
+      "unconfigured": "Pas encore approuvé. Personne ne peut se connecter.",
+      "changed": "La connexion de ce module a changé depuis son approbation. Personne ne peut se connecter ni renouveler une connexion tant que vous ne l'avez pas approuvée à nouveau.",
+      "approved": "Approuvé le {{when}}.",
+      "approvedBy": "Approuvé par {{who}} le {{when}}."
+    },
+    "sentTo": "Les personnes se connectent sur",
+    "hosts": "Hôtes autorisés",
+    "required": "Toujours demandés",
+    "optional": "Les personnes peuvent ajouter",
+    "none": "Aucun",
+    "tokens": "Les jetons viennent de",
+    "revoke": "La déconnexion révoque sur",
+    "noRevoke": "Pas d'adresse : la déconnexion oublie seulement la connexion ici",
+    "clientAuth": "Authentification du client",
+    "auth": {
+      "basic": "ID et secret du client, envoyés dans l'en-tête de la requête",
+      "post": "ID et secret du client, envoyés dans le corps de la requête",
+      "none": "Pas de secret (client public)",
+      "other": "Autre"
+    },
+    "params": "Paramètres de connexion supplémentaires",
+    "callback": "Adresse de retour",
+    "callbackHint": "Enregistrez cette adresse auprès du service comme adresse de redirection du client.",
+    "copy": "Copier",
+    "copied": "Copié",
+    "baseUrlRequired": "Ce serveur ne connaît pas son adresse publique : il n'y a donc pas d'adresse de retour et personne ne peut se connecter. Définissez l'URL de base externe du serveur, puis rechargez cette page.",
+    "clientId": "ID client",
+    "clientSecret": "Secret du client",
+    "secretHint": "Écriture seule : il est stocké scellé et n'est plus jamais affiché.",
+    "secretSaved": "Un secret est enregistré. Laissez le champ vide pour le garder.",
+    "secretKeepPlaceholder": "Enregistré (masqué)",
+    "noSecret": "Cette connexion n'utilise pas de secret client.",
+    "approve": "Approuver et enregistrer",
+    "saved": "Enregistré. La connexion est approuvée.",
+    "stale": "La connexion de ce module a changé pendant votre vérification. Rien n'a été enregistré.",
+    "refresh": "Afficher la nouvelle connexion",
+    "loadFailed": "La connexion de ce module n'a pas pu être lue",
+    "errors": {
+      "unavailable": "Le module n'a pas pu être joint. Réessayez plus tard.",
+      "needsApproval": "Le module n'est pas approuvé.",
+      "baseUrlRequired": "Ce serveur ne connaît pas son adresse publique. Définissez l'URL de base externe du serveur.",
+      "approvalStale": "La connexion de ce module a changé. Affichez la nouvelle connexion.",
+      "save": "Le client n'a pas pu être enregistré."
+    },
+    "unknownLibrary": "source inconnue"
   },
   "file": {
     "button": "Installer depuis un fichier",

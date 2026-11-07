@@ -17,6 +17,7 @@
 @media (prefers-reduced-motion: reduce) { .home-cmd { transition: none; } }
 .home-cmd__top {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2);
   min-width: 0;

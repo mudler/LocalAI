@@ -252,6 +252,50 @@ var _ = Describe("Denials of the add-on", func() {
 	})
 })
 
+var _ = Describe("Rejected credentials", func() {
+	answering := func(status int, body string) *Client {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, body, status)
+		}))
+		DeferCleanup(srv.Close)
+		c, e := newClient(Registration{AddonID: "sample", Generation: 1, Endpoint: srv.URL}, strings.Repeat("a", 64), contract.DefaultLimits())
+		Expect(e).NotTo(HaveOccurred())
+		c.accept = true
+		return c
+	}
+	It("types a 401 credential_rejected answer, never as an outage", func() {
+		c := answering(http.StatusUnauthorized, "credential_rejected")
+		for name, call := range map[string]func() error{
+			"read":    func() error { _, e := c.Read(context.Background(), envelope("read")); return e },
+			"preview": func() error { _, e := c.Preview(context.Background(), envelope("preview")); return e },
+			"apply": func() error {
+				_, e := c.Apply(context.Background(), envelope("apply"), contract.Revision{Schema: 1})
+				return e
+			},
+			"output": func() error { _, e := c.OpenOutput(context.Background(), envelope("output"), "h"); return e },
+		} {
+			e := call()
+			Expect(errors.Is(e, ErrCredentialRejected)).To(BeTrue(), name)
+			Expect(errors.Is(e, contract.ErrCredentialRejected)).To(BeTrue(), name)
+			Expect(errors.Is(e, ErrRuntime)).To(BeFalse(), name)
+			Expect(errors.Is(e, ErrDenied)).To(BeFalse(), name)
+		}
+	})
+	It("keeps a 401 with another reason, or none, an outage", func() {
+		for _, body := range []string{"unauthorized", "invalid bearer", "", "credential_rejected_by_proxy"} {
+			_, e := answering(http.StatusUnauthorized, body).Read(context.Background(), envelope("read"))
+			Expect(e).To(MatchError(ErrRuntime), body)
+			Expect(errors.Is(e, ErrCredentialRejected)).To(BeFalse(), body)
+		}
+	})
+	It("does not read the reason on another status as a rejection", func() {
+		for _, status := range []int{http.StatusForbidden, http.StatusBadRequest, http.StatusInternalServerError} {
+			_, e := answering(status, "credential_rejected").Read(context.Background(), envelope("read"))
+			Expect(errors.Is(e, ErrCredentialRejected)).To(BeFalse(), http.StatusText(status))
+		}
+	})
+})
+
 var _ = Describe("Rate limits of the service behind the add-on", func() {
 	limited := func(status int, body, wait string) *Client {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

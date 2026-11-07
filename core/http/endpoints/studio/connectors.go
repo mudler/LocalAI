@@ -5,10 +5,12 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/connectortext"
 	"net/http"
 	"slices"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
@@ -52,7 +54,7 @@ func connectorOut(i studiosvc.ConnectorInfo, lang string) schema.ChatsConnector 
 		Allow: allow, AllowTrust: i.AllowTrust, NotifyChat: i.NotifyChat, HasToken: i.HasToken, Created: i.Created,
 		ReplyMode: i.ReplyMode(), Conversation: i.ConversationMode(), WindowMinutes: i.WindowMinutes, SendFiles: i.SendsFiles(), ReplyLanguage: i.ReplyLang(), UILanguage: i.UILanguage, Options: i.Options,
 		Files: filesOut(i.Files), FileReceiveMaxBytes: i.FileReceiveMax, FileSendMaxBytes: i.FileSendMax, Resources: connectors.ResourceKeys(i.Resources), Channels: channelsOut(i.Channels), WriteMode: i.Writes(), Approval: approvalOut(i.Approval), Duplicate: duplicateOut(i, lang),
-		Share: shareOut(i.Share), UsedBy: i.UsedBy}
+		Share: shareOut(i.Share), AuthKind: authKindOut(i.AuthKind), OAuth: oauthOut(i.OAuth), UsedBy: i.UsedBy}
 }
 
 func shareOut(s *studiosvc.ShareState) *schema.ChatsConnectorShare {
@@ -175,7 +177,7 @@ func failAcceptAny(c echo.Context) error {
 }
 
 func connectorIn(req schema.ChatsConnectorWrite) studiosvc.ConnectorInput {
-	return studiosvc.ConnectorInput{Kind: req.Kind, Name: req.Name, Token: req.Token, AgentID: req.AgentID, Enabled: req.Enabled,
+	return studiosvc.ConnectorInput{Kind: req.Kind, Name: req.Name, Token: req.Token, AuthKind: req.AuthKind, AgentID: req.AgentID, Enabled: req.Enabled,
 		AcceptAny: req.AcceptAny, Allow: req.Allow, AllowTrust: req.AllowTrust, NotifyChat: req.NotifyChat,
 		Reply: req.ReplyMode, Conversation: req.Conversation, WindowMinutes: req.WindowMinutes, SendFiles: req.SendFiles, ReplyLanguage: req.ReplyLanguage, UILanguage: req.UILanguage, Options: req.Options,
 		FileReceiveMax: req.FileReceiveMaxBytes, FileSendMax: req.FileSendMaxBytes, Caps: req.Caps, Grants: grantsIn(req.Grants), Resources: req.Resources, ConfirmAnyResource: req.ConfirmAnyResource, ConfirmWiderToken: req.ConfirmWiderToken, ConfirmDuplicate: req.ConfirmDuplicate, Channels: channelsIn(req.Channels), WriteMode: req.WriteMode, Approval: approvalIn(req.Approval)}
@@ -185,6 +187,11 @@ var connectorRules = []errRule{
 	fixed(http.StatusNotFound, typeNotFound, "connector not found", connectors.ErrNotFound),
 	verbatim(http.StatusBadRequest, typeInvalid, connectors.ErrInvalid.Error()+": ", connectors.ErrInvalid),
 	verbatim(http.StatusConflict, typeConnectorOff, "", studiosvc.ErrConnectorsOff),
+	// The login of an OAuth binding, with the types of the login routes.
+	fixed(http.StatusConflict, typeNotConnected, "this connection is not connected yet; connect it on the Connectors page", connectors.ErrNoCredential),
+	fixed(http.StatusConflict, typeReconnectNeeded, "the login of this connection ended; connect it again on the Connectors page", studiosvc.ErrReconnectNeeded),
+	fixed(http.StatusConflict, gateway.OAuthNeedsApproval, "an administrator must approve this add-on first", studiosvc.ErrNeedsApproval),
+	fixed(http.StatusServiceUnavailable, gateway.OAuthUnavailable, "the login of this connection cannot be checked now; try again later", studiosvc.ErrCredentialUnavailable, studiosvc.ErrOAuthUnavailable),
 	// A host denial is not a failure of the server. The text names no part of the
 	// check (the add-on, the agent, the token), so it tells a caller nothing to probe.
 	fixed(http.StatusForbidden, typeAuthz, "you are not allowed to do this with this connector", connectors.ErrForbidden),
@@ -204,6 +211,11 @@ func failConnector(c echo.Context, err error) error {
 		return c.JSON(http.StatusConflict, schema.ErrorResponse{Error: &schema.APIError{Message: duplicateText(connectorLang(c), other), Code: http.StatusConflict, Type: typeDuplicateConnection, Param: &other}})
 	}
 	return mapErr(c, err, connectorRules, func(c echo.Context, err error) error {
+		var limited *contract.ErrRateLimited
+		if errors.As(err, &limited) {
+			c.Response().Header().Set("Retry-After", strconv.Itoa(limited.Seconds()))
+			return fail(c, http.StatusTooManyRequests, "rate_limited", "the service asked to wait before the login is renewed; try again later")
+		}
 		var ce *contract.ConnectorError
 		if errors.As(err, &ce) && ce.Code == contract.ConnectorUnauthorized {
 			return fail(c, http.StatusBadGateway, typeUpstream, "the platform refused the bot token")
@@ -292,7 +304,7 @@ func (h *Handlers) ConnectorKinds(c echo.Context) error {
 	out := schema.ChatsConnectorKindList{Kinds: make([]schema.ChatsConnectorKind, 0, len(kinds))}
 	explicit, accept := c.QueryParam("lang"), c.Request().Header.Get("Accept-Language")
 	for _, k := range kinds {
-		view := schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, Setup: k.Setup, SenderHint: k.SenderHint, Page: k.Page, AgentOptional: k.NoAgentAllowed(), ToolOnly: k.ToolOnly, WildcardResources: k.WildcardResources, TokenGuards: tokenGuardsOut(k.TokenGuards), ThreadHistory: k.ServesThreadHistory(), Options: optionsOut(k.Options),
+		view := schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, Setup: k.Setup, SenderHint: k.SenderHint, Page: k.Page, AuthKind: k.AuthKind, AgentOptional: k.NoAgentAllowed(), ToolOnly: k.ToolOnly, WildcardResources: k.WildcardResources, TokenGuards: tokenGuardsOut(k.TokenGuards), ThreadHistory: k.ServesThreadHistory(), Options: optionsOut(k.Options),
 			Files: filesOut(host.KindFileLimits(c.Request().Context(), k)), Roles: rolesOut(k.ConnectorKind), Permissions: permissionsOut(k.ConnectorKind)}
 		translateKind(&view, k.Translations, explicit, accept)
 		out.Kinds = append(out.Kinds, view)
@@ -388,7 +400,7 @@ func (h *Handlers) UpdateConnector(c echo.Context) error {
 
 // DeleteConnector deletes a binding.
 // @Summary Delete a connector binding.
-// @Description Its offset, sender log and sender-to-chat map go; the chats it made stay.
+// @Description Its offset, sender log and sender-to-chat map go; the chats it made stay. A connection that logs in with OAuth asks the service to revoke its login first, as a disconnect does, and is deleted even when the service does not answer.
 // @Tags chats
 // @Param id path string true "the binding's id"
 // @Success 204 "Deleted"
@@ -398,6 +410,7 @@ func (h *Handlers) DeleteConnector(c echo.Context) error {
 	if !ok {
 		return nil
 	}
+	h.revokeBeforeDelete(c, host)
 	if err := host.DeleteConnector(c.Request().Context(), userID(c), c.Param("id")); err != nil {
 		return failConnector(c, err)
 	}
@@ -434,10 +447,12 @@ func (h *Handlers) DisableConnector(c echo.Context) error { return h.setConnecto
 
 // TestConnector asks the platform who the bot is.
 // @Summary Test a connector binding.
-// @Description Asks the platform, through its add-on, for the bot of the stored token. 502 when the platform refuses the token, the add-on does not run or the platform cannot be reached.
+// @Description Asks the platform, through its add-on, for the bot of the stored token. 502 when the platform refuses the token, the add-on does not run or the platform cannot be reached. A connection that logs in with OAuth uses its access token, renewed first when it ends soon: 409 not_connected before its login, 409 reconnect_needed when the login ended, 409 needs_approval when an administrator must approve the add-on, 429 rate_limited when the service asked to wait, and 503 unavailable when the login cannot be checked now (also on a frontend, which does not read the add-on's login).
 // @Tags chats
 // @Param id path string true "the binding's id"
 // @Success 200 {object} schema.ChatsConnectorTest "The bot"
+// @Failure 409 {object} schema.ErrorResponse "An OAuth connection that is not connected, must reconnect or waits for an approval"
+// @Failure 503 {object} schema.ErrorResponse "The login of an OAuth connection cannot be checked now"
 // @Router /api/chats/connectors/{id}/test [post]
 func (h *Handlers) TestConnector(c echo.Context) error {
 	host, ok := h.connectorHost(c)

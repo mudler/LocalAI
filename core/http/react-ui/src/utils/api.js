@@ -551,6 +551,7 @@ export const agentJobsApi = {
 export const chatConnectorsApi = {
   list: () => fetchJSON('/api/chats/connectors'),
   kinds: () => fetchJSON('/api/chats/connectors/kinds'),
+  create: (body) => postJSON('/api/chats/connectors', body),
   enable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/enable`, {}),
   disable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/disable`, {}),
   // What each kind of sender may do on a connection, for the state in the body
@@ -559,6 +560,19 @@ export const chatConnectorsApi = {
   // Makes a binding of the caller shareable: { resource_id, shared_with }, the
   // ID of the binding in /api/shares/connection (sharesApi).
   share: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/share`, {}),
+  // The login of a binding that uses OAuth: start gives { authorize_url,
+  // expires } to send the browser to; disconnect gives { revoked }, false when
+  // the service did not confirm the revocation.
+  oauthStart: (id, body) => postJSON(`/api/chats/connectors/${enc2(id)}/oauth/start`, body || {}),
+  oauthDisconnect: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/oauth/disconnect`, {}),
+}
+
+// The OAuth client of an add-on (administrators). Saving approves the login
+// the add-on declares, for the digest the form showed; the secret is
+// write-only and no answer carries it.
+export const chatOAuthClientsApi = {
+  get: (addonId) => fetchJSON(`/api/chats/admin/oauth-clients/${enc2(addonId)}`),
+  save: (addonId, body) => fetchJSON(`/api/chats/admin/oauth-clients/${enc2(addonId)}`, { method: 'PUT', body: JSON.stringify(body) }),
 }
 
 // Triggers: work that starts by itself, as the user, in a new chat.

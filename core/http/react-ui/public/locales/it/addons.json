@@ -890,7 +890,7 @@
     "lockedNoAuth": "L'accesso è disattivato, quindi chiunque raggiunga questo server potrebbe modificarlo; l'amministratore lo imposta nel file di policy.",
     "newOptional": "La nuova versione chiede anche {{ops}}. Sono facoltative e non consentite.",
     "noLongerRequested": "Questa versione non lo chiede più. Puoi spegnerlo.",
-    "notOfficial": "Questo add-on viene da {{library}}, non dalla libreria ufficiale.",
+    "notOfficialWarning": "Questo add-on viene da {{library}}, non dalla libreria ufficiale. Gira come codice fidato su questo server e può usare le credenziali che gli vengono date. Installalo solo se ti fidi di chi lo ha scritto.",
     "op": {
       "alreadyAllowed": "Già consentito",
       "blocked": "Bloccato dalla politica dell'amministratore",
@@ -926,6 +926,56 @@
       "reviewNamed": "Controlla e approva l'accesso all'host di {{name}}",
       "title": "{{name}} {{version}} aspetta la tua approvazione"
     }
+  },
+  "oauthClient": {
+    "title": "Accesso all'account",
+    "intro": "Le persone collegano questo add-on al proprio account su un servizio. Registra presso il servizio l'indirizzo di ritorno qui sotto, inserisci il client che ti fornisce e approva l'accesso. Prima di allora nessuno può connettersi.",
+    "status": {
+      "unconfigured": "Non ancora approvato. Nessuno può connettersi.",
+      "changed": "L'accesso di questo add-on è cambiato dopo l'approvazione. Nessuno può connettersi o rinnovare un accesso finché non lo approvi di nuovo.",
+      "approved": "Approvato il {{when}}.",
+      "approvedBy": "Approvato da {{who}} il {{when}}."
+    },
+    "sentTo": "Le persone accedono su",
+    "hosts": "Host consentiti",
+    "required": "Richiesti sempre",
+    "optional": "Le persone possono aggiungere",
+    "none": "Nessuno",
+    "tokens": "I token arrivano da",
+    "revoke": "La disconnessione revoca su",
+    "noRevoke": "Nessun indirizzo: la disconnessione dimentica l'accesso solo qui",
+    "clientAuth": "Autenticazione del client",
+    "auth": {
+      "basic": "ID e segreto del client, inviati nell'intestazione della richiesta",
+      "post": "ID e segreto del client, inviati nel corpo della richiesta",
+      "none": "Nessun segreto (client pubblico)",
+      "other": "Altro"
+    },
+    "params": "Parametri di accesso aggiuntivi",
+    "callback": "Indirizzo di ritorno",
+    "callbackHint": "Registra questo indirizzo presso il servizio come indirizzo di reindirizzamento del client.",
+    "copy": "Copia",
+    "copied": "Copiato",
+    "baseUrlRequired": "Questo server non conosce il proprio indirizzo pubblico, quindi non c'è un indirizzo di ritorno e nessuno può connettersi. Imposta l'URL di base esterno del server, poi ricarica la pagina.",
+    "clientId": "ID client",
+    "clientSecret": "Segreto del client",
+    "secretHint": "Solo scrittura: viene conservato sigillato e non viene più mostrato.",
+    "secretSaved": "Un segreto è salvato. Lascia il campo vuoto per mantenerlo.",
+    "secretKeepPlaceholder": "Salvato (nascosto)",
+    "noSecret": "Questo accesso non usa un segreto del client.",
+    "approve": "Approva e salva",
+    "saved": "Salvato. L'accesso è approvato.",
+    "stale": "L'accesso di questo add-on è cambiato mentre lo controllavi. Non è stato salvato nulla.",
+    "refresh": "Mostra il nuovo accesso",
+    "loadFailed": "Non è stato possibile leggere l'accesso di questo add-on",
+    "errors": {
+      "unavailable": "Non è stato possibile raggiungere l'add-on. Riprova più tardi.",
+      "needsApproval": "L'add-on non è approvato.",
+      "baseUrlRequired": "Questo server non conosce il proprio indirizzo pubblico. Imposta l'URL di base esterno del server.",
+      "approvalStale": "L'accesso di questo add-on è cambiato. Mostra il nuovo accesso.",
+      "save": "Non è stato possibile salvare il client."
+    },
+    "unknownLibrary": "una libreria sconosciuta"
   },
   "file": {
     "button": "Installa da file",

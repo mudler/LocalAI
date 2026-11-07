@@ -1193,6 +1193,10 @@ type ChatsAddon struct {
 	Enabled         []string          `json:"enabled_connections,omitempty"`
 	ConnectionBy    string            `json:"connection_by,omitempty"`
 	NeedsConnection bool              `json:"needs_connection,omitempty"`
+	// ConnectionState is reconnect_needed when an enabled connection that
+	// uses a login must be connected again, connected when the enabled ones
+	// that use a login work, and empty when none uses a login.
+	ConnectionState string `json:"connection_state,omitempty" enums:"connected,reconnect_needed"`
 	// ToolList names the tools of the add-on you may use, by the name the
 	// add-on declares, with kind read or write. Sorted by name.
 	ToolList []ChatsAddonTool `json:"tool_list,omitempty"`
@@ -1248,6 +1252,14 @@ type ChatsConnection struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
 	Handle string `json:"handle,omitempty"`
+	// ConnectionState is the state of the login of a connection that uses
+	// one (connected or reconnect_needed); empty for a token.
+	ConnectionState string `json:"connection_state,omitempty" enums:"connected,reconnect_needed"`
+	// Shared is true for a connection that another person shared with you;
+	// Owner is that person's name. Its login is theirs: only they can connect
+	// it again.
+	Shared bool   `json:"shared,omitempty"`
+	Owner  string `json:"owner,omitempty"`
 }
 
 // ChatsConnectionSwitch sets the connections a chat may use for an add-on.
@@ -1672,6 +1684,13 @@ type ChatsConnector struct {
 	NotifyChat string            `json:"notify_chat,omitempty"`
 	HasToken   bool              `json:"has_token"`
 	Created    time.Time         `json:"created"`
+	// AuthKind is oauth2 for a binding whose credential comes from a login
+	// at the service (see oauth). Absent for a binding that holds a token
+	// you gave.
+	AuthKind string `json:"auth_kind,omitempty" enums:"oauth2"`
+	// OAuth is the state of the login of an oauth2 binding; absent for a
+	// token binding. It never holds a token or a secret.
+	OAuth *ChatsConnectorOAuth `json:"oauth,omitempty"`
 	// ReplyMode is what a sender sees while a turn runs: off (typing, then
 	// the answer), progress (a working message that names the tools as they
 	// start) or stream (a working message that shows the answer as it is
@@ -2073,6 +2092,10 @@ type ChatsConnectorKind struct {
 	// AgentOptional is true when a binding of this kind may have no agent. It
 	// then only holds credentials (token, resource list, write mode).
 	AgentOptional bool `json:"agent_optional,omitempty"`
+	// AuthKind is oauth2 when the add-on logs people in with OAuth: create
+	// its bindings with auth_kind oauth2 and no token. Absent for a kind
+	// whose bindings hold a token.
+	AuthKind string `json:"auth_kind,omitempty"`
 	// ToolOnly is true for a kind whose bindings only serve tools. A binding
 	// has no agent, never listens and never accepts senders; the server clears
 	// agent_id, enabled and accept_any. Many agents can use one binding
@@ -2137,9 +2160,13 @@ type ChatsConnectorKindList struct {
 type ChatsConnectorWrite struct {
 	// Kind is the platform, as a connector add-on declares it (see the kinds
 	// call). It is required to create a binding and ignored by an update.
-	Kind      string `json:"kind,omitempty"`
-	Name      string `json:"name"`
-	Token     string `json:"token,omitempty"`
+	Kind  string `json:"kind,omitempty"`
+	Name  string `json:"name"`
+	Token string `json:"token,omitempty"`
+	// AuthKind is token (the default) or oauth2. An oauth2 binding takes no
+	// token: it gets its credential from a login (see the oauth/start call).
+	// It is set at create and ignored by an update.
+	AuthKind  string `json:"auth_kind,omitempty" enums:"token,oauth2"`
 	AgentID   string `json:"agent_id"`
 	Enabled   bool   `json:"enabled"`
 	AcceptAny bool   `json:"accept_any"`
@@ -2246,6 +2273,117 @@ type ChatsConnectorChannel struct {
 	ID       string `json:"id"`
 	Label    string `json:"label,omitempty"`
 	Approved bool   `json:"approved,omitempty"`
+}
+
+// ChatsConnectorOAuth is the state of the login of an oauth2 binding.
+type ChatsConnectorOAuth struct {
+	// State is connected, reconnect_needed (the login ended; reason says
+	// why), not_connected (nobody logged in yet) or needs_approval (an
+	// administrator must save the add-on's client first, or approve it again
+	// after its login changed; a login that exists keeps its tokens until
+	// then). It is read from the shared store: a changed login of the add-on
+	// shows as needs_approval once a call or a refresh found it.
+	State string `json:"state" enums:"connected,reconnect_needed,not_connected,needs_approval"`
+	// Reason is a fixed code: revoked, client_rejected, refused,
+	// needs_approval, credential_rejected, expired, write_failed, unreadable,
+	// scopes_missing, endpoint_changed or token_too_large.
+	Reason string `json:"reason,omitempty"`
+	// AccountLabel is who the login is at the service, as the add-on says.
+	AccountLabel string `json:"account_label,omitempty"`
+	// Scopes are the scopes the service granted.
+	Scopes []string `json:"scopes"`
+	// ExpiresAt is when the access token ends; the host renews it before.
+	// Absent when the service gave no end.
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	// HasClient is true when an administrator saved a client for the add-on.
+	HasClient bool `json:"has_client"`
+}
+
+// ChatsConnectorOAuthStart starts the login of an oauth2 binding.
+type ChatsConnectorOAuthStart struct {
+	// Scopes are the optional scopes of the add-on that you ticked. The
+	// required ones are always asked for.
+	Scopes []string `json:"scopes,omitempty"`
+	// ReturnTo is the page of the web app you come back to, a path under
+	// /app with an optional query and no fragment. Empty means the
+	// Connectors page.
+	ReturnTo string `json:"return_to,omitempty"`
+}
+
+// ChatsConnectorOAuthStarted is where to send the browser for the login.
+type ChatsConnectorOAuthStarted struct {
+	AuthorizeURL string    `json:"authorize_url"`
+	Expires      time.Time `json:"expires"`
+}
+
+// ChatsConnectorOAuthDisconnected answers a disconnect.
+type ChatsConnectorOAuthDisconnected struct {
+	// Revoked is true when the service confirmed that it revoked the login.
+	// The login is removed here in any case.
+	Revoked bool `json:"revoked"`
+}
+
+// ChatsOAuthClientWrite is the OAuth client of an add-on that an
+// administrator saves. Saving it approves the login the add-on declares.
+type ChatsOAuthClientWrite struct {
+	ClientID string `json:"client_id"`
+	// ClientSecret is write-only. Absent keeps the stored secret; a public
+	// client (client_auth none) has none.
+	ClientSecret *string `json:"client_secret,omitempty"`
+	// DescriptorDigest is the current_digest the form showed. When the
+	// add-on's login changed since, the save is a 409 with the new digest.
+	DescriptorDigest string `json:"descriptor_digest"`
+}
+
+// ChatsOAuthClient is the OAuth client of an add-on. It never holds the
+// secret.
+type ChatsOAuthClient struct {
+	Addon string `json:"addon"`
+	// Configured is true when a client is stored; Approved when its approval
+	// is for the login the add-on declares now.
+	Configured bool   `json:"configured"`
+	ClientID   string `json:"client_id"`
+	HasSecret  bool   `json:"has_secret"`
+	Approved   bool   `json:"approved"`
+	// ApprovedDigest is the digest the stored approval is for;
+	// CurrentDigest the digest of the login the add-on declares now. Send
+	// current_digest back to save.
+	ApprovedDigest string     `json:"approved_digest,omitempty"`
+	CurrentDigest  string     `json:"current_digest"`
+	ApprovedBy     string     `json:"approved_by,omitempty"`
+	ApprovedAt     *time.Time `json:"approved_at,omitempty"`
+	// Descriptor is the login the add-on declares, for the form to show.
+	Descriptor ChatsOAuthDescriptor `json:"descriptor"`
+	// CallbackURL is the address to register with the service, as this
+	// request reaches the server. Empty when the server cannot tell it (set
+	// LOCALAI_BASE_URL).
+	CallbackURL string `json:"callback_url,omitempty"`
+}
+
+// ChatsOAuthDescriptor is the OAuth login an add-on declares, in plain fields.
+type ChatsOAuthDescriptor struct {
+	AuthorizeURL    string            `json:"authorize_url"`
+	TokenURL        string            `json:"token_url"`
+	RevokeURL       string            `json:"revoke_url,omitempty"`
+	Hosts           []string          `json:"hosts"`
+	RequiredScopes  []string          `json:"required_scopes"`
+	OptionalScopes  []string          `json:"optional_scopes"`
+	PKCE            string            `json:"pkce"`
+	ClientAuth      string            `json:"client_auth" enums:"basic,post,none"`
+	AuthorizeParams []ChatsOAuthParam `json:"authorize_params"`
+}
+
+// ChatsOAuthParam is a fixed parameter of the authorize address.
+type ChatsOAuthParam struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// ChatsOAuthClientConflict is the 409 of a save whose digest is not the
+// current one.
+type ChatsOAuthClientConflict struct {
+	Error         *APIError `json:"error"`
+	CurrentDigest string    `json:"current_digest"`
 }
 
 // ChatsConnectorList is the response of the connector list endpoint.

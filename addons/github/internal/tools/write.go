@@ -416,7 +416,7 @@ func (r *Runtime) now() time.Time {
 // Receipt answers from the journal. An operation that was started and not
 // finished is unknown: the add-on cannot tell whether GitHub got it.
 func (r *Runtime) Receipt(_ context.Context, op string) (contract.Receipt, error) {
-	if rc, ok := r.journal().receipt(op); ok {
+	if rc, ok := r.journal().Receipt(op); ok {
 		return rc, nil
 	}
 	return contract.Receipt{OperationID: op, State: contract.ReceiptUnknown}, nil
@@ -430,7 +430,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	r.applyMu.Lock()
 	defer r.applyMu.Unlock()
 	j := r.journal()
-	if rc, ok := j.receipt(op); ok {
+	if rc, ok := j.Receipt(op); ok {
 		return rc, nil
 	}
 	w, c, err := r.prepare(ctx, env)
@@ -445,17 +445,17 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	if now != rev.Data {
 		rc := contract.Receipt{OperationID: op, State: contract.ReceiptRejected, Revision: rev,
 			Result: contract.Result{Payload: smallResult(map[string]any{"stale": true, "note": "The target changed after the preview. Nothing was sent."})}}
-		return rc, j.commit(rc)
+		return rc, j.Commit(rc)
 	}
-	if at, started := j.started(op); started {
+	if at, started := j.Started(op); started {
 		// An earlier attempt may have reached GitHub. Look for its marker
 		// before sending anything again.
 		if found, ok := c.find(w, op, at); ok {
 			rc := committed(op, rev, found)
-			return rc, j.commit(rc)
+			return rc, j.Commit(rc)
 		}
 	}
-	if err := j.begin(op, r.now()); err != nil {
+	if err := j.Begin(op, r.now()); err != nil {
 		return contract.Receipt{}, err
 	}
 	out, err := c.send(w, op)
@@ -465,7 +465,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 		// GitHub took the change; only its answer is lost.
 		out = map[string]any{"note": "sent; GitHub's answer was not readable"}
 	case definite(err):
-		j.forget(op)
+		j.Forget(op)
 		return contract.Receipt{}, translateWrite(w.tool, err)
 	default:
 		// The request may or may not have arrived. The host will ask for the
@@ -473,7 +473,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 		return contract.Receipt{}, err
 	}
 	rc := committed(op, rev, out)
-	return rc, j.commit(rc)
+	return rc, j.Commit(rc)
 }
 
 func committed(op string, rev contract.Revision, out map[string]any) contract.Receipt {

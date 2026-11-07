@@ -141,7 +141,8 @@ test.describe('Host access: install dialog', () => {
     await expect(row('quantize.start').getByRole('switch')).toBeDisabled()
     await expect(row('quantize.start')).toContainText('Blocked by the administrator policy')
     await expect(step).not.toContainText('denied_by_admin')
-    await expect(step.getByTestId('hostaccess-not-official')).toHaveCount(0)
+    // The host-access step itself never repeats the source warning.
+    await expect(step).not.toContainText('not the official library')
     await shoot(page, 'install-dialog')
     await row('egress.check').getByRole('switch').click()
     await dialog.getByTestId('install-confirm').click()
@@ -175,7 +176,32 @@ test.describe('Host access: install dialog', () => {
     await open(page, { installed: [], releases: [release('notes', { name: 'Notes' })], hostgrants: { preview: { ...PREVIEW, official: false } } })
     await page.goto('/app/addons?tab=browse')
     await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
-    await expect(page.getByTestId('hostaccess-not-official')).toContainText('not the official library')
+    const dialog = page.getByTestId('install-dialog')
+    await expect(dialog.getByTestId('install-host-access')).toBeVisible()
+    // One warning: the callout, with no quieter line that repeats its first sentence.
+    await expect(dialog.getByTestId('untrusted-source')).toContainText('runs as trusted code on this server')
+    await expect(dialog.getByText('not the official library')).toHaveCount(1)
+    await shoot(page, 'install-host-access-not-official')
+  })
+
+  test('warns in the first step of an add-on from another library that asks for no host operation', async ({ page }) => {
+    const none = { ...PREVIEW, official: false, requested: { required: [], optional: [] }, ops: [] }
+    await open(page, { installed: [], releases: [release('notes', { name: 'Notes', sourceId: 'community', official: false })], hostgrants: { preview: none } })
+    await page.goto('/app/addons?tab=browse')
+    await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+    const dialog = page.getByTestId('install-dialog')
+    await expect(dialog.getByTestId('untrusted-source')).toContainText('This add-on comes from community, not the official library. It runs as trusted code on this server and can use the credentials it is given. Install it only if you trust its author.')
+    await expect(dialog.getByTestId('install-host-access')).toHaveCount(0)
+    await expect(dialog.getByTestId('install-confirm')).toBeEnabled()
+    await shoot(page, 'install-untrusted')
+  })
+
+  test('does not warn about the source for an entry and a preview that are both official', async ({ page }) => {
+    await open(page, { installed: [], releases: [release('notes', { name: 'Notes', sourceId: 'official', official: true })], hostgrants: { preview: PREVIEW } })
+    await page.goto('/app/addons?tab=browse')
+    await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+    await expect(page.getByTestId('install-dialog').getByTestId('install-host-access')).toBeVisible()
+    await expect(page.getByTestId('untrusted-source')).toHaveCount(0)
   })
 
   test('blocks the install when a required operation is blocked by the administrator policy', async ({ page }) => {
@@ -223,6 +249,15 @@ test.describe('Host access: held upgrade', () => {
     ],
   }
 
+  test('warns above the approval form when the package is not from the official library', async ({ page }) => {
+    await open(page, { hostgrants: { overview: waiting(), preview: { ...upgradePreview, official: false } } })
+    await page.goto('/app/addons')
+    await page.getByTestId('host-waiting').getByRole('button', { name: /Review and approve/ }).click()
+    const dialog = page.getByTestId('approve-dialog')
+    await expect(dialog.getByTestId('approve-untrusted-source')).toContainText('runs as trusted code on this server')
+    await expect(dialog.getByTestId('approve-confirm')).toBeEnabled()
+  })
+
   test('shows a banner and a chip, keeps the old version, and approves with the upgrade action', async ({ page }) => {
     const { state, host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview } })
     await page.goto('/app/addons')
@@ -236,6 +271,7 @@ test.describe('Host access: held upgrade', () => {
     const dialog = page.getByTestId('approve-dialog')
     await expect(dialog.locator('[data-op="workspace.export"]')).toHaveAttribute('data-added', 'true')
     await expect(dialog.locator('[data-op="workspace.materialize"]')).not.toHaveAttribute('data-added', 'true')
+    await expect(dialog.getByTestId('approve-untrusted-source')).toHaveCount(0)
     await shoot(page, 'upgrade-approve')
     await dialog.getByTestId('approve-confirm').click()
     await expect.poll(() => host.log.filter(l => l.path === '/install').length).toBe(1)
@@ -244,6 +280,31 @@ test.describe('Host access: held upgrade', () => {
     await expect(page.getByTestId('host-waiting')).toHaveCount(0)
     expect(state.installed.find(a => a.id === 'notes').version).toBe('1.3.0')
   })
+})
+
+// Screenshots of the source warning, saved only when UI_SHOTS_DIR is set: the
+// first step of the dialog in both themes, on a desktop and on a phone.
+test.describe('Host access: source warning screenshots', () => {
+  test.skip(!shots, 'set UI_SHOTS_DIR to save screenshots')
+  const sizes = { desktop: { width: 1280, height: 800 }, phone: { width: 390, height: 844 } }
+  const none = { ...PREVIEW, official: false, requested: { required: [], optional: [] }, ops: [] }
+  for (const theme of ['light', 'dark']) {
+    for (const [size, viewport] of Object.entries(sizes)) {
+      for (const [name, preview] of [['no-ops', none], ['host-ops', { ...PREVIEW, official: false }]]) {
+        test(`install dialog, other library, ${name}, ${theme}, ${size}`, async ({ page }) => {
+          await page.setViewportSize(viewport)
+          await page.addInitScript((t) => localStorage.setItem('localai-theme', t), theme)
+          await open(page, { installed: [], releases: [release('notes', { name: 'Notes', sourceId: 'community-library', official: false })], hostgrants: { preview } })
+          await page.goto('/app/addons?tab=browse')
+          await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+          const dialog = page.getByTestId('install-dialog')
+          await expect(dialog.getByTestId('untrusted-source')).toBeVisible()
+          if (name === 'host-ops') await expect(dialog.getByTestId('install-host-access')).toBeVisible()
+          await shoot(page, `install-untrusted-${name}-${theme}-${size}`, false)
+        })
+      }
+    }
+  }
 })
 
 test.describe('Host access: page', () => {

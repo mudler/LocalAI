@@ -272,6 +272,74 @@
     "loadFailed": "无法加载你的连接器。",
     "waitingTitle": "等待对应的插件",
     "waitingText": "这些绑定会被保留，但要等对应插件安装并开启后才会运行。",
+    "oauth": {
+      "connected": "已连接",
+      "connectedAs": "已以 {{account}} 连接",
+      "access": "权限：{{scopes}}",
+      "expires": "到期：{{time}}",
+      "disconnect": "断开连接",
+      "disconnecting": "正在断开…",
+      "disconnectTitle": "断开 {{name}}？",
+      "disconnectText": "LocalAI 会请求服务撤销此登录，然后忘记它。在你重新连接之前，使用此连接的工具将停止工作。",
+      "disconnected": "{{name}} 已断开。服务已撤销登录。",
+      "disconnectedNotTold": "{{name}} 已在此处断开，但服务没有确认已撤销登录。请也在你的服务账户中移除此访问权限。",
+      "notConnected": "尚未连接。",
+      "connect": "连接",
+      "alsoAllow": "同时允许：",
+      "reconnectTitle": "请重新连接。",
+      "reconnect": "重新连接",
+      "reason": {
+        "revoked": "服务结束了登录，或访问权限已被撤销。",
+        "client_rejected": "服务不再接受此服务器的客户端。可能需要管理员更新它。",
+        "refused": "服务拒绝续期登录。",
+        "needs_approval": "此插件的登录已更改，需要重新批准。",
+        "credential_rejected": "即使续期之后，服务仍拒绝了访问。",
+        "expired": "登录已过期，无法续期。",
+        "write_failed": "无法保存续期后的登录。",
+        "unreadable": "无法读取已保存的登录。",
+        "unknown": "登录已不再有效。",
+        "scopes_missing": "服务不再授予此插件所需的全部权限。请重新连接并允许。",
+        "endpoint_changed": "该插件现在将登录发送到服务的另一个地址，因此此登录无法随之迁移。请重新连接。",
+        "token_too_large": "服务续期登录时签发的访问令牌超过了 LocalAI 可使用的大小（4096 字节）。"
+      },
+      "approvalUser": "必须先由管理员批准此插件。",
+      "approvalUserChanged": "此插件的登录已更改。必须由管理员重新批准。",
+      "approvalAdmin": "在你批准此插件的登录之前，任何人都无法连接。",
+      "approvalAdminChanged": "此插件的登录在批准后已更改。请检查并重新批准。",
+      "review": "检查并批准",
+      "returned": {
+        "ok": "已连接。此连接现在可以使用。",
+        "denied": "你在服务上拒绝了。没有任何更改。",
+        "error": {
+          "invalid_state": "无法完成登录：登录已过期，或此浏览器中开始了另一次登录。请重新连接。",
+          "provider_error": "服务报告了错误。请稍后再试。",
+          "exchange_failed": "服务没有完成登录。请重新连接。",
+          "scopes_missing": "服务没有授予此插件所需的全部权限。请重新连接并允许。",
+          "unavailable": "无法访问该插件。请稍后再试。",
+          "unknown": "无法完成登录。请重新连接。",
+          "token_too_large": "服务签发的访问令牌超过了 LocalAI 可使用的大小（4096 字节），因此未保存此登录。管理员可能需要更改服务为此客户端签发令牌的方式。"
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "此服务器不知道自己的公开地址，因此无法将你转到服务。请让管理员设置服务器的外部基础 URL。",
+        "needsApproval": "必须先由管理员批准此插件。",
+        "approvalStale": "此插件的登录已更改。请重新加载页面。",
+        "unavailable": "无法访问该插件。请稍后再试。",
+        "tooManyLogins": "启动的登录过多。请完成另一个标签页中的登录，或等待几分钟后重试。"
+      },
+      "add": {
+        "open": "添加连接",
+        "title": "新的 {{name}} 连接",
+        "name": "名称",
+        "hint": "一个便于识别的名称，例如“工作”或“个人”。添加连接后，选择“连接”登录你的账户。",
+        "cancel": "取消",
+        "submit": "添加",
+        "failed": "无法添加连接。请重试。",
+        "added": "已添加 {{name}}。选择“连接”登录你的账户。",
+        "empty": "还没有连接。请添加一个，然后连接你的账户。",
+        "manage": "编辑连接"
+      }
+    },
     "duplicate": {
       "text": "这个机器人也以 {{name}} 的名称连接。两个连接都会回复同一条消息。",
       "turnOff": "关闭这个连接",
@@ -424,7 +492,10 @@
       "byAgent": "此聊天的智能体决定连接。请在智能体上更改。",
       "agentLabel": "此智能体的聊天可用的连接",
       "agentHelp": "此智能体的聊天只能使用这些连接，且不能更改。",
-      "perChatHelp": "未选择：每个聊天自行选择。"
+      "perChatHelp": "未选择：每个聊天自行选择。",
+      "reconnectNeeded": "需要重新连接：{{names}}",
+      "ownerReconnectNeeded": "需要所有者重新连接：{{names}}",
+      "reconnect": "重新连接"
     },
     "optionNeeds": "打开“{{name}}”才能使用此项。",
     "connectionMissing": "{{name}} 尚未允许此项。",

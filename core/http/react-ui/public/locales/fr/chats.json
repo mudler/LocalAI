@@ -272,6 +272,74 @@
     "loadFailed": "Impossible de charger vos connecteurs.",
     "waitingTitle": "En attente de leur module",
     "waitingText": "Ces liaisons sont conservées, mais elles ne fonctionnent qu'une fois leur module installé et activé.",
+    "oauth": {
+      "connected": "Connecté",
+      "connectedAs": "Connecté en tant que {{account}}",
+      "access": "Accès : {{scopes}}",
+      "expires": "Expire {{time}}",
+      "disconnect": "Déconnecter",
+      "disconnecting": "Déconnexion…",
+      "disconnectTitle": "Déconnecter {{name}} ?",
+      "disconnectText": "LocalAI demande au service de révoquer cette connexion, puis l'oublie. Les outils qui utilisent cette connexion cessent de fonctionner jusqu'à ce que vous vous reconnectiez.",
+      "disconnected": "{{name}} est déconnecté. Le service a révoqué la connexion.",
+      "disconnectedNotTold": "{{name}} est déconnecté ici, mais le service n'a pas confirmé la révocation de la connexion. Retirez aussi l'accès dans votre compte sur le service.",
+      "notConnected": "Pas encore connecté.",
+      "connect": "Connecter",
+      "alsoAllow": "Autoriser aussi :",
+      "reconnectTitle": "Reconnectez-vous.",
+      "reconnect": "Reconnecter",
+      "reason": {
+        "revoked": "Le service a mis fin à la connexion, ou l'accès a été révoqué.",
+        "client_rejected": "Le service n'accepte plus le client de ce serveur. Un administrateur devra peut-être le mettre à jour.",
+        "refused": "Le service a refusé de renouveler la connexion.",
+        "needs_approval": "La connexion de ce module a changé et doit être approuvée à nouveau.",
+        "credential_rejected": "Le service a refusé l'accès, même après un renouvellement.",
+        "expired": "La connexion a expiré et ne peut pas être renouvelée.",
+        "write_failed": "La connexion renouvelée n'a pas pu être enregistrée.",
+        "unreadable": "La connexion enregistrée n'a pas pu être lue.",
+        "unknown": "La connexion ne fonctionne plus.",
+        "scopes_missing": "Le service n'accorde plus tout l'accès dont ce module a besoin. Reconnectez-vous et autorisez-le.",
+        "endpoint_changed": "Le module envoie maintenant les connexions à une autre adresse du service, donc cette connexion ne peut pas le suivre. Reconnectez-vous.",
+        "token_too_large": "Le service a renouvelé la connexion avec un jeton d'accès plus grand que ce que LocalAI peut utiliser (4096 octets)."
+      },
+      "approvalUser": "Un administrateur doit d'abord approuver ce module.",
+      "approvalUserChanged": "La connexion de ce module a changé. Un administrateur doit l'approuver à nouveau.",
+      "approvalAdmin": "Personne ne peut se connecter tant que vous n'avez pas approuvé la connexion de ce module.",
+      "approvalAdminChanged": "La connexion de ce module a changé depuis son approbation. Vérifiez-la et approuvez-la à nouveau.",
+      "review": "Vérifier et approuver",
+      "returned": {
+        "ok": "Connecté. La connexion fonctionne maintenant.",
+        "denied": "Vous avez refusé sur le service. Rien n'a changé.",
+        "error": {
+          "invalid_state": "La connexion n'a pas pu aboutir : elle a expiré, ou une autre connexion a démarré dans ce navigateur. Reconnectez-vous.",
+          "provider_error": "Le service a signalé une erreur. Réessayez plus tard.",
+          "exchange_failed": "Le service n'a pas terminé la connexion. Reconnectez-vous.",
+          "scopes_missing": "Le service n'a pas accordé tout l'accès dont ce module a besoin. Reconnectez-vous et autorisez-le.",
+          "unavailable": "Le module n'a pas pu être joint. Réessayez plus tard.",
+          "unknown": "La connexion n'a pas pu aboutir. Reconnectez-vous.",
+          "token_too_large": "Le service a émis un jeton d'accès plus grand que ce que LocalAI peut utiliser (4096 octets), donc la connexion n'a pas été enregistrée. Un administrateur devra peut-être changer la façon dont le service émet les jetons pour ce client."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "Ce serveur ne connaît pas son adresse publique et ne peut donc pas vous envoyer vers le service. Demandez à un administrateur de définir l'URL de base externe du serveur.",
+        "needsApproval": "Un administrateur doit d'abord approuver ce module.",
+        "approvalStale": "La connexion de ce module a changé. Rechargez la page.",
+        "unavailable": "Le module n'a pas pu être joint. Réessayez plus tard.",
+        "tooManyLogins": "Trop de connexions ont été lancées. Terminez celle de l'autre onglet, ou attendez quelques minutes et réessayez."
+      },
+      "add": {
+        "open": "Ajouter une connexion",
+        "title": "Nouvelle connexion {{name}}",
+        "name": "Nom",
+        "hint": "Un nom que vous reconnaissez, comme Travail ou Personnel. Après l'ajout, sélectionnez Connecter pour vous connecter à votre compte.",
+        "cancel": "Annuler",
+        "submit": "Ajouter",
+        "failed": "La connexion n'a pas pu être ajoutée. Réessayez.",
+        "added": "{{name}} est ajoutée. Sélectionnez Connecter pour vous connecter à votre compte.",
+        "empty": "Aucune connexion pour l'instant. Ajoutez-en une, puis connectez votre compte.",
+        "manage": "Modifier les connexions"
+      }
+    },
     "duplicate": {
       "text": "Ce bot est aussi connecté sous le nom {{name}}. Les deux connexions répondront au même message.",
       "turnOff": "Désactiver celle-ci",
@@ -424,7 +492,10 @@
       "byAgent": "L'agent de ce chat fixe les connexions. Modifiez-les sur l'agent.",
       "agentLabel": "Connexions pour les chats de cet agent",
       "agentHelp": "Les chats de cet agent ne peuvent utiliser que ces connexions et ne peuvent pas les changer.",
-      "perChatHelp": "Aucune choisie : chaque chat choisit les siennes."
+      "perChatHelp": "Aucune choisie : chaque chat choisit les siennes.",
+      "reconnectNeeded": "À reconnecter : {{names}}",
+      "ownerReconnectNeeded": "Le propriétaire doit reconnecter : {{names}}",
+      "reconnect": "Reconnecter"
     },
     "optionNeeds": "Activez « {{name}} » pour l'utiliser.",
     "connectionMissing": "{{name}} ne l'autorise pas encore.",

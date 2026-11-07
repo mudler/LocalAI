@@ -2,9 +2,7 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/subtle"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,6 +19,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/pkg/httpclient"
+	"github.com/mudler/LocalAI/pkg/randtoken"
 )
 
 // oidcSupportedSigningAlgs is the set of ID-token signature algorithms the OIDC
@@ -144,7 +143,7 @@ func (m *OAuthManager) LoginHandler(providerName string) echo.HandlerFunc {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "unknown provider"})
 		}
 
-		state, err := generateState()
+		state, err := randtoken.Hex(16)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to generate state"})
 		}
@@ -487,12 +486,4 @@ func fetchGitHubPrimaryEmail(ctx context.Context, accessToken string) (string, e
 	}
 
 	return "", fmt.Errorf("no verified email found")
-}
-
-func generateState() (string, error) {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b), nil
 }

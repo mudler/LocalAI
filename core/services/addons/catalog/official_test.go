@@ -2,6 +2,7 @@
 package catalog
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
@@ -92,7 +93,7 @@ var _ = Describe("official library index", func() {
 			Expect(versionPattern.MatchString(r.Version)).To(BeTrue(), r.ID)
 			Expect(r.Artifact).To(HavePrefix("oci://"), r.ID)
 		}
-		Expect(slices.Compact(slices.Sorted(slices.Values(ids)))).To(ConsistOf("fine-tuning", "quantization", "voice", "face", "studio", "talk", "telegram", "slack", "discord", "github", "home-assistant", "jellyfin", "calendar", "contacts", "mail", "pikvm", "tables", "office", "sandbox", "web"))
+		Expect(slices.Compact(slices.Sorted(slices.Values(ids)))).To(ConsistOf("fine-tuning", "quantization", "voice", "face", "studio", "talk", "telegram", "slack", "discord", "github", "gdrive", "gmail", "home-assistant", "jellyfin", "calendar", "contacts", "mail", "pikvm", "tables", "office", "sandbox", "web"))
 	})
 })
 
@@ -170,5 +171,28 @@ var _ = Describe("official library index platforms", func() {
 			}
 		}
 		Expect(have).To(Equal(want), "regenerate with scripts/addons/catalog.sh")
+	})
+})
+
+var _ = Describe("official flag of an entry", func() {
+	It("is true only for the official ID at an address the shipped library has used", func() {
+		Expect(IsOfficialSource(OfficialLibraryID, OfficialLibraryURL)).To(BeTrue())
+		Expect(IsOfficialSource(OfficialLibraryID, OfficialLibrary().URL)).To(BeTrue())
+		Expect(IsOfficialSource(OfficialLibraryID, "https://example.org/index.yaml")).To(BeFalse())
+		Expect(IsOfficialSource("mine", OfficialLibraryURL)).To(BeFalse())
+		Expect(IsOfficialSource("", "")).To(BeFalse())
+	})
+	It("is false for an entry of another library, even when the index claims otherwise", func() {
+		// The reader is strict, so the field is accepted; the stamp then
+		// overwrites whatever the remote index said.
+		r, e, s := refreshBody(yamlEntry + "  official: true\n")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(r.Count).To(Equal(1))
+		got, e := (Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}).Resolve(ctx, "lib", "tables", "1.0.0")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(got.Official).To(BeFalse())
+		raw, e := json.Marshal(got)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"official":false`))
 	})
 })

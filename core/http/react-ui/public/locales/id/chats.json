@@ -272,6 +272,74 @@
     "loadFailed": "Konektor Anda tidak dapat dimuat.",
     "waitingTitle": "Menunggu add-on-nya",
     "waitingText": "Tautan ini tetap disimpan, tetapi tidak berjalan sampai add-on-nya dipasang dan diaktifkan.",
+    "oauth": {
+      "connected": "Terhubung",
+      "connectedAs": "Terhubung sebagai {{account}}",
+      "access": "Akses: {{scopes}}",
+      "expires": "Kedaluwarsa {{time}}",
+      "disconnect": "Putuskan",
+      "disconnecting": "Memutuskan…",
+      "disconnectTitle": "Putuskan {{name}}?",
+      "disconnectText": "LocalAI meminta layanan mencabut login ini, lalu melupakannya. Alat yang memakai koneksi ini berhenti bekerja sampai Anda terhubung lagi.",
+      "disconnected": "{{name}} sudah diputus. Layanan mencabut login.",
+      "disconnectedNotTold": "{{name}} sudah diputus di sini, tetapi layanan tidak mengonfirmasi bahwa login dicabut. Hapus juga akses di akun Anda pada layanan.",
+      "notConnected": "Belum terhubung.",
+      "connect": "Hubungkan",
+      "alsoAllow": "Izinkan juga:",
+      "reconnectTitle": "Hubungkan lagi.",
+      "reconnect": "Hubungkan ulang",
+      "reason": {
+        "revoked": "Layanan mengakhiri login, atau akses dicabut.",
+        "client_rejected": "Layanan tidak lagi menerima klien server ini. Administrator mungkin perlu memperbaruinya.",
+        "refused": "Layanan menolak memperbarui login.",
+        "needs_approval": "Login add-on ini berubah dan harus disetujui lagi.",
+        "credential_rejected": "Layanan menolak akses, bahkan setelah pembaruan.",
+        "expired": "Login kedaluwarsa dan tidak dapat diperbarui.",
+        "write_failed": "Login yang diperbarui tidak dapat disimpan.",
+        "unreadable": "Login yang tersimpan tidak dapat dibaca.",
+        "unknown": "Login tidak berfungsi lagi.",
+        "scopes_missing": "Layanan tidak lagi memberikan semua akses yang diperlukan add-on ini. Hubungkan lagi dan izinkan.",
+        "endpoint_changed": "Add-on ini sekarang mengirim login ke alamat lain dari layanan, jadi login ini tidak bisa ikut pindah. Hubungkan lagi.",
+        "token_too_large": "Layanan memperbarui login dengan token akses yang lebih besar dari yang bisa dipakai LocalAI (4096 byte)."
+      },
+      "approvalUser": "Administrator harus menyetujui add-on ini terlebih dahulu.",
+      "approvalUserChanged": "Login add-on ini berubah. Administrator harus menyetujuinya lagi.",
+      "approvalAdmin": "Tidak ada yang dapat terhubung sampai Anda menyetujui login add-on ini.",
+      "approvalAdminChanged": "Login add-on ini berubah sejak disetujui. Tinjau dan setujui lagi.",
+      "review": "Tinjau dan setujui",
+      "returned": {
+        "ok": "Terhubung. Koneksi sekarang berfungsi.",
+        "denied": "Anda menolak di layanan. Tidak ada yang berubah.",
+        "error": {
+          "invalid_state": "Login tidak dapat diselesaikan: login kedaluwarsa, atau login lain dimulai di peramban ini. Hubungkan lagi.",
+          "provider_error": "Layanan melaporkan kesalahan. Coba lagi nanti.",
+          "exchange_failed": "Layanan tidak menyelesaikan login. Hubungkan lagi.",
+          "scopes_missing": "Layanan tidak memberikan semua akses yang diperlukan add-on ini. Hubungkan lagi dan izinkan.",
+          "unavailable": "Add-on tidak dapat dijangkau. Coba lagi nanti.",
+          "unknown": "Login tidak dapat diselesaikan. Hubungkan lagi.",
+          "token_too_large": "Layanan menerbitkan token akses yang lebih besar dari yang bisa dipakai LocalAI (4096 byte), jadi login tidak disimpan. Administrator mungkin perlu mengubah cara layanan menerbitkan token untuk klien ini."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "Server ini tidak tahu alamat publiknya, jadi tidak dapat mengarahkan Anda ke layanan. Minta administrator mengatur URL dasar eksternal server.",
+        "needsApproval": "Administrator harus menyetujui add-on ini terlebih dahulu.",
+        "approvalStale": "Login add-on ini berubah. Muat ulang halaman.",
+        "unavailable": "Add-on tidak dapat dijangkau. Coba lagi nanti.",
+        "tooManyLogins": "Terlalu banyak login yang dimulai. Selesaikan login di tab lain, atau tunggu beberapa menit lalu coba lagi."
+      },
+      "add": {
+        "open": "Tambah koneksi",
+        "title": "Koneksi {{name}} baru",
+        "name": "Nama",
+        "hint": "Nama yang mudah Anda kenali, misalnya Kerja atau Pribadi. Setelah koneksi ditambahkan, pilih Hubungkan untuk masuk ke akun Anda.",
+        "cancel": "Batal",
+        "submit": "Tambah",
+        "failed": "Koneksi tidak dapat ditambahkan. Coba lagi.",
+        "added": "{{name}} ditambahkan. Pilih Hubungkan untuk masuk ke akun Anda.",
+        "empty": "Belum ada koneksi. Tambahkan satu, lalu hubungkan akun Anda.",
+        "manage": "Ubah koneksi"
+      }
+    },
     "duplicate": {
       "text": "Bot ini juga terhubung sebagai {{name}}. Kedua koneksi akan menjawab pesan yang sama.",
       "turnOff": "Matikan yang ini",
@@ -424,7 +492,10 @@
       "byAgent": "Agen chat ini menetapkan koneksi. Ubah di agen.",
       "agentLabel": "Koneksi untuk chat agen ini",
       "agentHelp": "Chat agen ini hanya boleh memakai koneksi ini dan tidak bisa mengubahnya.",
-      "perChatHelp": "Belum dipilih: setiap chat memilih sendiri."
+      "perChatHelp": "Belum dipilih: setiap chat memilih sendiri.",
+      "reconnectNeeded": "Hubungkan lagi: {{names}}",
+      "ownerReconnectNeeded": "Pemilik harus menghubungkan lagi: {{names}}",
+      "reconnect": "Hubungkan ulang"
     },
     "optionNeeds": "Aktifkan “{{name}}” untuk menggunakannya.",
     "connectionMissing": "{{name}} belum mengizinkan ini.",

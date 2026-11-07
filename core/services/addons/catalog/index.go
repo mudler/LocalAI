@@ -116,6 +116,14 @@ func EncodeIndex(releases []Release) ([]byte, error) {
 	if err := yaml.Unmarshal(b, &plain); err != nil {
 		return nil, err
 	}
+	list, _ := plain.([]any)
+	for _, r := range list {
+		// The host stamps Official when it reads a source and never trusts
+		// it from an index, so an index does not carry it.
+		if m, ok := r.(map[string]any); ok {
+			delete(m, "official")
+		}
+	}
 	return yaml.Marshal(plain)
 }
 

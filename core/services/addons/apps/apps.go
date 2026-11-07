@@ -14,8 +14,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/xslices"
 )
 
 // Snapshot is one addon as the owner knows it. It is input to Build and never
@@ -207,6 +209,13 @@ type App struct {
 	// work with a secret that the person keeps in a connector binding. A
 	// connector chat holds its write tools to contract.ToolPermission.
 	Credentialed bool `json:"credentialed,omitempty"`
+	// OAuth is present when the credential slot is of kind oauth2: the host
+	// logs the person in to the service. It names the scopes, so the person
+	// can choose the optional ones when they connect, and tells the
+	// administrator's Settings tab to draw the form that approves the login.
+	// The addresses of the login are not here: an administrator reads them
+	// with the OAuth client.
+	OAuth *OAuthView `json:"oauth,omitempty"`
 	// OwnerData is true when the manifest says the tools keep the owner's own
 	// data (capabilities.ownerData). Its writes need tools.write in a
 	// connector chat, like the writes of a credentialed add-on.
@@ -246,6 +255,13 @@ type App struct {
 	Network *NetworkView `json:"network,omitempty"`
 	// Admin is present only for administrators.
 	Admin *AdminView `json:"admin,omitempty"`
+}
+
+// OAuthView is the OAuth login of an add-on as a person sees it: the scopes
+// the host always asks for and the ones the person may add.
+type OAuthView struct {
+	RequiredScopes []string `json:"requiredScopes" example:"read"`
+	OptionalScopes []string `json:"optionalScopes" example:"write"`
 }
 
 // NetworkView is the network of the commands an add-on runs, as the host
@@ -346,6 +362,12 @@ type AdminView struct {
 	CanStop        bool                    `json:"canStop"`
 	// ManagementURL opens the management view of the addon.
 	ManagementURL string `json:"managementUrl" example:"/app/addons?manage=notes"`
+	// SourceID is the library the package came from, and Official is true
+	// when that is the official library and the signature was checked. An
+	// administrator who approves something for the add-on, such as its OAuth
+	// login, is warned when it is not.
+	SourceID string `json:"sourceId,omitempty" example:"official"`
+	Official bool   `json:"official"`
 }
 
 // Build returns the apps a caller may see, sorted by identifier. An uninstalled
@@ -380,7 +402,11 @@ func build(s Snapshot, admin bool) App {
 	a.Credentialed = len(m.Capabilities.Credentials) > 0
 	a.OwnerData = m.Capabilities.OwnerData
 	if a.Credentialed {
-		a.ResourceArgument, a.ResourceLabel = m.Capabilities.Credentials[0].ResourceArgument, m.Capabilities.Credentials[0].ResourceLabel
+		slot := m.Capabilities.Credentials[0]
+		a.ResourceArgument, a.ResourceLabel = slot.ResourceArgument, slot.ResourceLabel
+		if slot.Kind == contract.CredentialKindOAuth2 && slot.OAuth != nil {
+			a.OAuth = &OAuthView{RequiredScopes: slices.Clone(xslices.NonNil(slot.OAuth.Scopes.Required)), OptionalScopes: slices.Clone(xslices.NonNil(slot.OAuth.Scopes.Optional))}
+		}
 	}
 	a.Resources = resourceTools(m)
 	a.ResourceTexts = resourceTexts(m)
@@ -428,7 +454,8 @@ func build(s Snapshot, admin bool) App {
 		a.Operation = &op
 	}
 	if admin {
-		a.Admin = &AdminView{CanStart: !s.Enabled && !s.Unavailable, HostOperations: s.HostOperations, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id)}
+		a.Admin = &AdminView{CanStart: !s.Enabled && !s.Unavailable, HostOperations: s.HostOperations, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id),
+			SourceID: s.Receipt.SourceID, Official: catalog.IsOfficialPackage(s.Receipt.SourceID, s.Receipt.SourceURL, s.Receipt.Verification)}
 	}
 	return a
 }

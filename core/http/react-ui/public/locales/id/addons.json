@@ -890,7 +890,7 @@
     "lockedNoAuth": "Login dimatikan, sehingga siapa pun yang dapat menjangkau server ini dapat mengubahnya; administrator mengaturnya di berkas kebijakan.",
     "newOptional": "Versi baru juga meminta {{ops}}. Ini opsional dan tidak diizinkan.",
     "noLongerRequested": "Versi ini tidak lagi memintanya. Anda dapat mematikannya.",
-    "notOfficial": "Add-on ini berasal dari {{library}}, bukan pustaka resmi.",
+    "notOfficialWarning": "Add-on ini berasal dari {{library}}, bukan pustaka resmi. Add-on berjalan sebagai kode tepercaya di server ini dan dapat memakai kredensial yang diberikan kepadanya. Pasang hanya jika Anda memercayai penulisnya.",
     "op": {
       "alreadyAllowed": "Sudah diizinkan",
       "blocked": "Diblokir oleh kebijakan administrator",
@@ -926,6 +926,56 @@
       "reviewNamed": "Tinjau dan setujui akses host {{name}}",
       "title": "{{name}} {{version}} menunggu persetujuan Anda"
     }
+  },
+  "oauthClient": {
+    "title": "Login akun",
+    "intro": "Orang menghubungkan add-on ini ke akun mereka sendiri di sebuah layanan. Daftarkan alamat balik di bawah ke layanan, masukkan klien yang diberikan layanan, lalu setujui login. Sebelum itu tidak ada yang dapat terhubung.",
+    "status": {
+      "unconfigured": "Belum disetujui. Tidak ada yang dapat terhubung.",
+      "changed": "Login add-on ini berubah sejak disetujui. Tidak ada yang dapat terhubung atau memperbarui login sampai Anda menyetujuinya lagi.",
+      "approved": "Disetujui pada {{when}}.",
+      "approvedBy": "Disetujui oleh {{who}} pada {{when}}."
+    },
+    "sentTo": "Orang masuk di",
+    "hosts": "Host yang diizinkan",
+    "required": "Selalu diminta",
+    "optional": "Orang dapat menambahkan",
+    "none": "Tidak ada",
+    "tokens": "Token berasal dari",
+    "revoke": "Pemutusan mencabut di",
+    "noRevoke": "Tidak ada alamat: pemutusan hanya melupakan login di sini",
+    "clientAuth": "Autentikasi klien",
+    "auth": {
+      "basic": "ID dan rahasia klien, dikirim di header permintaan",
+      "post": "ID dan rahasia klien, dikirim di isi permintaan",
+      "none": "Tanpa rahasia (klien publik)",
+      "other": "Lainnya"
+    },
+    "params": "Parameter login tambahan",
+    "callback": "Alamat balik",
+    "callbackHint": "Daftarkan alamat ini ke layanan sebagai alamat pengalihan klien.",
+    "copy": "Salin",
+    "copied": "Tersalin",
+    "baseUrlRequired": "Server ini tidak tahu alamat publiknya, jadi tidak ada alamat balik dan tidak ada yang dapat terhubung. Atur URL dasar eksternal server, lalu muat ulang halaman ini.",
+    "clientId": "ID klien",
+    "clientSecret": "Rahasia klien",
+    "secretHint": "Hanya tulis: disimpan tersegel dan tidak pernah ditampilkan lagi.",
+    "secretSaved": "Rahasia sudah tersimpan. Biarkan kolom kosong untuk menyimpannya.",
+    "secretKeepPlaceholder": "Tersimpan (tersembunyi)",
+    "noSecret": "Login ini tidak memakai rahasia klien.",
+    "approve": "Setujui dan simpan",
+    "saved": "Tersimpan. Login disetujui.",
+    "stale": "Login add-on ini berubah saat Anda meninjaunya. Tidak ada yang disimpan.",
+    "refresh": "Tampilkan login baru",
+    "loadFailed": "Login add-on ini tidak dapat dibaca",
+    "errors": {
+      "unavailable": "Add-on tidak dapat dijangkau. Coba lagi nanti.",
+      "needsApproval": "Add-on belum disetujui.",
+      "baseUrlRequired": "Server ini tidak tahu alamat publiknya. Atur URL dasar eksternal server.",
+      "approvalStale": "Login add-on ini berubah. Tampilkan login baru.",
+      "save": "Klien tidak dapat disimpan."
+    },
+    "unknownLibrary": "pustaka yang tidak dikenal"
   },
   "file": {
     "button": "Pasang dari berkas",

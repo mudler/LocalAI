@@ -356,3 +356,31 @@ fieldset.cn-group {
 .cn-try__verdict--allowed, .cn-try__verdict--asks { color: var(--color-success, var(--color-text-primary)); }
 .cn-refusals li { overflow-wrap: anywhere; }
 .cn-refusals__reason { flex-basis: 100%; }
+
+/* Styles of the approval card and the write mode of the connector add-ons. Tokens only. */
+.cn-prop { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.cn-prop__title { margin: 0; font-size: var(--fs-body); font-weight: var(--font-weight-semibold); }
+.cn-prop__facts { margin: 0; display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-prop__row { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: var(--dk-space-2); }
+.cn-prop__row dt { color: var(--color-text-muted); font-size: var(--fs-small); }
+.cn-prop__row dd { margin: 0; overflow-wrap: anywhere; }
+.cn-prop__label { margin: 0; color: var(--color-text-muted); font-size: var(--fs-small); }
+.cn-prop__text {
+  margin: 0; padding: var(--dk-space-3); border-left: 3px solid var(--color-border-subtle); border-radius: var(--r-sm);
+  background: var(--color-bg-secondary); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto;
+}
+@media (max-width: 480px) { .cn-prop__row { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+
+.cn-addon-help { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-addon-help .cn-help { max-width: 640px; }
+.cn-addon-help details[open] { padding: var(--dk-space-3); border: 1px solid var(--color-border-subtle); border-radius: var(--r-md); }
+.cn-modeblock { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.cn-modeblock .cn-cards { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.cn-modecard { display: flex; flex-direction: column; gap: 2px; }
+.cn-modecard__title { font-weight: var(--font-weight-semibold); }
+.cn-modecard__line { color: var(--color-text-muted); font-size: var(--fs-small); }
+.cn-note { margin-top: var(--dk-space-1); }
+.cn-chip { display: inline-block; font-size: var(--fs-meta); padding: 0 var(--dk-space-2); border-radius: var(--r-sm); background: var(--color-bg-secondary); color: var(--color-text-secondary); }
+.cn-chip--off { color: var(--dk-ok-text, var(--color-text-secondary)); background: var(--dk-ok-wash, var(--color-bg-secondary)); }
+.cn-chip--propose, .cn-chip--auto { color: var(--dk-warn-text, var(--color-text-secondary)); background: var(--dk-warn-wash, var(--color-bg-secondary)); }
+.cn-warn { color: var(--dk-warn-text, var(--color-text-secondary)); }
