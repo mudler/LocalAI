@@ -36826,6 +36826,9 @@
       known_usecases:
         - tts
       name: moss-tts-cpp-v1_5-q8_0
+      options:
+        - codec:moss-audio-tokenizer-v2-f32.gguf
+        - tokenizer:moss-tokenizer-v1_5.gguf
       parameters:
         model: moss-tts-cpp-v1_5-q8_0/moss-tts-local-v1_5-q8_0.gguf
     variants:
@@ -36872,6 +36875,9 @@
       known_usecases:
         - tts
       name: moss-tts-cpp-v1_5-f16
+      options:
+        - codec:moss-audio-tokenizer-v2-f32.gguf
+        - tokenizer:moss-tokenizer-v1_5.gguf
       parameters:
         model: moss-tts-cpp-v1_5-f16/moss-tts-local-v1_5-f16.gguf
     variants: []
