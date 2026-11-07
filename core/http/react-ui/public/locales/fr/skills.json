@@ -8,7 +8,9 @@
     "newSkill": "Nouvelle compétence",
     "createSkill": "Créer une compétence",
     "edit": "Modifier",
-    "delete": "Supprimer"
+    "delete": "Supprimer",
+    "import": "Importer",
+    "export": "Exporter"
   },
   "search": {
     "placeholder": "Rechercher des compétences..."
@@ -27,7 +29,11 @@
     "notActive": "Inactive : la compétence intégrée est utilisée",
     "notActiveBy": "Inactive : {{name}} la fournit",
     "fallback": "Utilisée car la compétence du module {{name}} est désactivée ou ne tourne pas",
-    "proposedBy": "Proposé par {{name}} et confirmé par vous. Seul cet agent l'utilise."
+    "proposedBy": "Proposé par {{name}} et confirmé par vous. Seul cet agent l'utilise.",
+    "new": "Nouvelle",
+    "newTitle": "Importée et pas encore utilisée",
+    "newLong": "Importée et pas encore utilisée. Lisez-la avant de l'ajouter à un agent. La première utilisation dans un chat retire cette marque.",
+    "exportTitle": "Télécharger cette skill en fichier zip"
   },
   "empty": {
     "title": "Aucune compétence trouvée",
@@ -39,7 +45,8 @@
   "toasts": {
     "loadFailed": "Échec du chargement des compétences",
     "deleted": "Compétence « {{name}} » supprimée",
-    "deleteFailed": "Échec de la suppression de la compétence"
+    "deleteFailed": "Échec de la suppression de la compétence",
+    "exportFailed": "Échec de l'export : {{message}}"
   },
   "layers": {
     "label": "Layer",
@@ -81,5 +88,14 @@
   },
   "load": {
     "title": "Impossible de charger vos compétences."
+  },
+  "import": {
+    "failedTitle": "Impossible d'importer les skills",
+    "failed": "L'import a échoué.",
+    "dismiss": "Fermer",
+    "done_one": "{{count}} skill importée",
+    "done_other": "{{count}} skills importées",
+    "scriptsStored": "Les scripts et les autres fichiers sont enregistrés tels quels. Les scripts sont enregistrés, jamais exécutés par l'import.",
+    "newNote": "Elle reste marquée Nouvelle jusqu'à ce qu'un chat l'utilise."
   }
 }

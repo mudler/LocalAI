@@ -8,7 +8,9 @@
     "newSkill": "Nuova competenza",
     "createSkill": "Crea competenza",
     "edit": "Modifica",
-    "delete": "Elimina"
+    "delete": "Elimina",
+    "import": "Importa",
+    "export": "Esporta"
   },
   "search": {
     "placeholder": "Cerca competenze..."
@@ -27,7 +29,11 @@
     "notActive": "Non attiva: si usa la skill integrata",
     "notActiveBy": "Non attiva: la fornisce {{name}}",
     "fallback": "In uso perché la skill del componente {{name}} è disattivata o non in esecuzione",
-    "proposedBy": "Proposto da {{name}} e confermato da te. Lo usa solo quell'agente."
+    "proposedBy": "Proposto da {{name}} e confermato da te. Lo usa solo quell'agente.",
+    "new": "Nuova",
+    "newTitle": "Importata e non ancora usata",
+    "newLong": "Importata e non ancora usata. Leggila prima di aggiungerla a un agente. Il primo uso in una chat toglie questo segno.",
+    "exportTitle": "Scarica questa skill come file zip"
   },
   "empty": {
     "title": "Nessuna competenza trovata",
@@ -39,7 +45,8 @@
   "toasts": {
     "loadFailed": "Caricamento competenze fallito",
     "deleted": "Competenza \"{{name}}\" eliminata",
-    "deleteFailed": "Eliminazione competenza fallita"
+    "deleteFailed": "Eliminazione competenza fallita",
+    "exportFailed": "Esportazione non riuscita: {{message}}"
   },
   "layers": {
     "label": "Layer",
@@ -81,5 +88,14 @@
   },
   "load": {
     "title": "Impossibile caricare le tue skill."
+  },
+  "import": {
+    "failedTitle": "Impossibile importare le skill",
+    "failed": "Importazione non riuscita.",
+    "dismiss": "Chiudi",
+    "done_one": "{{count}} skill importata",
+    "done_other": "{{count}} skill importate",
+    "scriptsStored": "Gli script e gli altri file sono salvati così come sono. Gli script sono solo salvati, mai eseguiti dall'importazione.",
+    "newNote": "Resta segnata Nuova finché una chat non la usa."
   }
 }

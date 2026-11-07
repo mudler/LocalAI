@@ -8,7 +8,9 @@
     "newSkill": "New skill",
     "createSkill": "Create skill",
     "edit": "Edit",
-    "delete": "Delete"
+    "delete": "Delete",
+    "import": "Import",
+    "export": "Export"
   },
   "search": {
     "placeholder": "Search skills",
@@ -28,7 +30,11 @@
     "replacedBy": "Replaced by {{name}}",
     "notActive": "Not active: the built-in skill serves",
     "notActiveBy": "Not active: {{name}} provides it",
-    "fallback": "In use because the {{name}} add-on's own skill is off or not running"
+    "fallback": "In use because the {{name}} add-on's own skill is off or not running",
+    "new": "New",
+    "newTitle": "Imported and not used yet",
+    "newLong": "Imported and not used yet. Read it before you add it to an agent. A chat's first use clears this mark.",
+    "exportTitle": "Download this skill as a zip file"
   },
   "empty": {
     "title": "Skills are instructions an agent can follow",
@@ -40,7 +46,8 @@
   "toasts": {
     "loadFailed": "Failed to load skills",
     "deleted": "Skill \"{{name}}\" deleted",
-    "deleteFailed": "Failed to delete skill"
+    "deleteFailed": "Failed to delete skill",
+    "exportFailed": "Export failed: {{message}}"
   },
   "filters": {
     "label": "Show",
@@ -104,5 +111,14 @@
   },
   "load": {
     "title": "Could not load your skills."
+  },
+  "import": {
+    "failedTitle": "Could not import the skills",
+    "failed": "The import failed.",
+    "dismiss": "Dismiss",
+    "done_one": "Imported {{count}} skill",
+    "done_other": "Imported {{count}} skills",
+    "scriptsStored": "Scripts and other files are stored as they are. Scripts are stored, never run by the import.",
+    "newNote": "It is marked New until a chat uses it."
   }
 }

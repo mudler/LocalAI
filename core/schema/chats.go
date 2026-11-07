@@ -1107,6 +1107,9 @@ type ChatsSkill struct {
 	// skill.
 	Provider string `json:"provider,omitempty"`
 	Locked   bool   `json:"locked,omitempty"`
+	// New is true for a personal skill that was imported and that no chat has
+	// used yet. The first use clears it.
+	New bool `json:"new,omitempty"`
 }
 
 // ChatsSkillList is the skills a user has.
@@ -1137,6 +1140,24 @@ type ChatsSkillDetail struct {
 	Description string `json:"description"`
 	Body        string `json:"body"`
 	Editable    bool   `json:"editable"`
+}
+
+// ChatsSkillImported is one skill stored by an import.
+type ChatsSkillImported struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Files       int    `json:"files"`
+	Bytes       int64  `json:"bytes"`
+	// Scripts counts the files below scripts/. They are stored, never run by
+	// the import.
+	Scripts int `json:"scripts"`
+}
+
+// ChatsSkillImportResult is the answer of a skill import.
+type ChatsSkillImportResult struct {
+	Skills []ChatsSkillImported `json:"skills"`
+	// Rev is the revision of the change set; undo it from the file history.
+	Rev int64 `json:"rev"`
 }
 
 // ChatsSkillSwitches sets the skills a chat has switched off.

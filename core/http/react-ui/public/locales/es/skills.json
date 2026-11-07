@@ -8,7 +8,9 @@
     "newSkill": "Nueva habilidad",
     "createSkill": "Crear habilidad",
     "edit": "Editar",
-    "delete": "Eliminar"
+    "delete": "Eliminar",
+    "import": "Importar",
+    "export": "Exportar"
   },
   "search": {
     "placeholder": "Buscar habilidades..."
@@ -27,7 +29,11 @@
     "notActive": "No activa: se usa la habilidad integrada",
     "notActiveBy": "No activa: la proporciona {{name}}",
     "fallback": "En uso porque la habilidad del complemento {{name}} está desactivada o no se ejecuta",
-    "proposedBy": "Propuesto por {{name}} y confirmado por ti. Solo ese agente lo usa."
+    "proposedBy": "Propuesto por {{name}} y confirmado por ti. Solo ese agente lo usa.",
+    "new": "Nueva",
+    "newTitle": "Importada y aún sin usar",
+    "newLong": "Importada y aún sin usar. Léela antes de añadirla a un agente. El primer uso en un chat quita esta marca.",
+    "exportTitle": "Descargar esta skill como archivo zip"
   },
   "empty": {
     "title": "No se encontraron habilidades",
@@ -39,7 +45,8 @@
   "toasts": {
     "loadFailed": "Error al cargar habilidades",
     "deleted": "Habilidad \"{{name}}\" eliminada",
-    "deleteFailed": "Error al eliminar habilidad"
+    "deleteFailed": "Error al eliminar habilidad",
+    "exportFailed": "Error al exportar: {{message}}"
   },
   "layers": {
     "label": "Layer",
@@ -81,5 +88,14 @@
   },
   "load": {
     "title": "No se pudieron cargar tus habilidades."
+  },
+  "import": {
+    "failedTitle": "No se pudieron importar las skills",
+    "failed": "La importación falló.",
+    "dismiss": "Descartar",
+    "done_one": "Se importó {{count}} skill",
+    "done_other": "Se importaron {{count}} skills",
+    "scriptsStored": "Los scripts y otros archivos se guardan tal cual. Los scripts se guardan, nunca los ejecuta la importación.",
+    "newNote": "Se marca como nueva hasta que un chat la use."
   }
 }
