@@ -251,7 +251,8 @@ func (h *Triggers) live(chatID string) bool {
 		return false
 	}
 	info, err := h.svc.Turn(ctx, t.Owner, chatID)
-	return err == nil && info.Running
+	// A turn that the server will resume by itself still goes on.
+	return err == nil && (info.Running || info.WillResume)
 }
 
 // stopRun is Options.Stop: it stops the chat of a run. It works across the
@@ -725,6 +726,8 @@ func (h *Triggers) reconcile(ctx context.Context) {
 			h.finish(run, t, run.ChatID, triggers.StatusFailed, "the chat was deleted")
 		case err != nil:
 			continue
+		case info.WillResume:
+			// The server resumes the turn; the run ends with it.
 		case !info.Running:
 			status, reason := outcome(info.Last, "")
 			h.finish(run, t, run.ChatID, status, reason)

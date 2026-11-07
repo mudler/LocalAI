@@ -21,6 +21,11 @@ import AgentSetupCard from '../components/agents/AgentSetupCard'
 import { useAgentDelete } from '../components/agents/useAgentDelete'
 import { firstLine } from '../utils/agentRuns'
 import { filesOff, folderState } from '../utils/chatAgents'
+import { agentShareEntry, canShareAgent, isSharedWithMe } from '../utils/agentShare'
+// eslint-disable-next-line no-unused-vars
+import { SharedByBadge } from '../components/share/ShareBadges'
+// eslint-disable-next-line no-unused-vars
+import { AgentNeedsList, AgentShareDialog } from '../components/agents/AgentShare'
 import './agents.css'
 
 // The chip tone of each state of a binding.
@@ -47,6 +52,7 @@ export default function AgentPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showAll, setShowAll] = useState(false)
+  const [sharing, setSharing] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -58,11 +64,14 @@ export default function AgentPage() {
       setMissing(false)
       // The server's run history holds the chats you had with the agent and
       // the ones its triggers and connectors started.
+      // The triggers and connectors of an agent shared with you are the
+      // owner's: none of yours can run it, so they are not read.
+      const shared = isSharedWithMe(found)
       const [hist, trig, kinds, conns] = await Promise.all([
         chatAgentsApi.runs(found.id, 200).catch(() => ({ runs: [] })),
-        chatTriggersApi.list().catch(() => ({ triggers: [] })),
-        chatConnectorsApi.kinds().catch(() => null),
-        chatConnectorsApi.list().catch(() => null),
+        shared ? { triggers: [] } : chatTriggersApi.list().catch(() => ({ triggers: [] })),
+        shared ? null : chatConnectorsApi.kinds().catch(() => null),
+        shared ? null : chatConnectorsApi.list().catch(() => null),
       ])
       setConnectorData({ kinds: kinds?.kinds || [], items: conns ? (conns.connectors || []) : null })
       setBindings(conns ? bindingsOfAgent(found.id, kinds?.kinds || [], conns.connectors || []) : null)
@@ -121,6 +130,11 @@ export default function AgentPage() {
 
   const shown = showAll ? runs : runs.slice(0, STRIP_LENGTH)
   const hasTools = info.tools.length + info.mcp.length + info.connectors.length > 0
+  // A person the agent is shared with reads it and chats with it; only the
+  // owner edits, shares, exports or deletes it.
+  const guest = isSharedWithMe(agent)
+  const definition = !guest || agent.access?.role === 'viewer'
+  const shareEntry = agentShareEntry(agent)
 
   return (
     <Page className="ag-page" data-testid="agent-page">
@@ -135,22 +149,31 @@ export default function AgentPage() {
               <Button variant="primary" icon="chat" onClick={() => navigate('/app/chats', { state: { agentId: agent.id } })} data-testid="agent-chat">
                 {t('actions.chat')}
               </Button>
-              <Button icon="edit" to={agentPath(agent.id, '/edit')}>{t('actions.edit')}</Button>
-              <ActionMenu
-                ariaLabel={t('actions.moreFor', { name: agent.name })}
-                items={[
-                  { key: 'export', icon: 'download', label: t('actions.export'), onClick: () => downloadAgentFile(agent, addToast, t) },
-                  { divider: true },
-                  { key: 'delete', icon: 'trash', label: t('actions.delete'), danger: true, onClick: () => remove(agent) },
-                ]}
-              />
+              {!guest && <Button icon="edit" to={agentPath(agent.id, '/edit')}>{t('actions.edit')}</Button>}
+              {canShareAgent(agent) && <Button icon="share" onClick={() => setSharing(true)} data-testid="agent-share">{t('share.action')}</Button>}
+              {!guest && (
+                <ActionMenu
+                  ariaLabel={t('actions.moreFor', { name: agent.name })}
+                  items={[
+                    { key: 'export', icon: 'download', label: t('actions.export'), onClick: () => downloadAgentFile(agent, addToast, t) },
+                    { divider: true },
+                    { key: 'delete', icon: 'trash', label: t('actions.delete'), danger: true, onClick: () => remove(agent) },
+                  ]}
+                />
+              )}
             </div>
           )}
         />
+        {shareEntry && (guest || shareEntry.sharedWith > 0) && (
+          <div className="ag-shared-line" data-testid="agent-page-shared">
+            <SharedByBadge entry={shareEntry} roleLabel={guest ? t(`share.roles.${shareEntry.role}`) : undefined} hideRole={!guest} testId="agent-page-shared-by" />
+            {guest && <span className="ag-note">{t('shared.readOnly')}</span>}
+          </div>
+        )}
 
         <AgentSetupCard agent={agent} kinds={connectorData.kinds} bindings={connectorData.items} />
         {error && <LoadError title={t('load.agentStale')} error={error} onRetry={load} />}
-        {!filesOff(agent) && (folderState(agent) === 'missing' || folderState(agent) === 'unset') && (
+        {!guest && !filesOff(agent) && (folderState(agent) === 'missing' || folderState(agent) === 'unset') && (
           <Callout
             tone="warn" testId="agent-folder-warning"
             actions={<Button size="sm" icon="folder" to={agentPath(agent.id, '/edit')}>{t('folder.chooseOther')}</Button>}
@@ -162,8 +185,16 @@ export default function AgentPage() {
         <dl className="ag-facts" data-testid="agent-facts">
           <dt>{t('facts.model')}</dt>
           <dd className="ag-facts__model">{info.model || <span className="ag-muted">{t('facts.noModel')}</span>}</dd>
-          <dt>{t('facts.folder')}</dt>
-          <dd><FolderChip agent={agent} all /></dd>
+          {!guest && (
+            <>
+              <dt>{t('facts.folder')}</dt>
+              <dd><FolderChip agent={agent} all /></dd>
+            </>
+          )}
+          {/* With the role use the definition is not shared: what the agent
+              uses is in What this agent needs below. */}
+          {definition && (
+          <>
           <dt>{t('facts.tools')}</dt>
           <dd>
             {hasTools
@@ -178,6 +209,8 @@ export default function AgentPage() {
           <dd><LibraryChips info={info} kind="memory" /></dd>
           <dt>{t('facts.skills')}</dt>
           <dd><LibraryChips info={info} kind="skills" /></dd>
+          </>
+          )}
           {info.instructions && (
             <>
               <dt>{t('facts.instructions')}</dt>
@@ -188,6 +221,9 @@ export default function AgentPage() {
           <dd><span className="ag-record"><RunStrip runs={runs} /><RecordLine runs={runs} /></span></dd>
         </dl>
 
+        {guest && <AgentNeedsList agentId={agent.id} />}
+
+        {!guest && (
         <section className="ag-group" aria-labelledby="ag-triggers-h" data-testid="agent-triggers">
           <div className="ag-section-head">
             <h2 className="ag-h2" id="ag-triggers-h">{t('agent.triggers')}</h2>
@@ -211,6 +247,7 @@ export default function AgentPage() {
             </div>
           )}
         </section>
+        )}
 
         {bindings && (
           <section className="ag-group" aria-labelledby="ag-bindings-h" data-testid="agent-bindings">
@@ -275,6 +312,7 @@ export default function AgentPage() {
       </div>
 
       {agentDelete.dialog}
+      {sharing && <AgentShareDialog agent={agent} close={() => setSharing(false)} onChanged={load} addToast={addToast} />}
     </Page>
   )
 }

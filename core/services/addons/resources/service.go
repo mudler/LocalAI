@@ -49,6 +49,14 @@ const (
 	// MinQueryRunes and MaxQueryRunes bound the user picker query.
 	MinQueryRunes = 2
 	MaxQueryRunes = 64
+	// MinShareQueryRunes is the shortest query of the user picker of the
+	// kinds that are not add-ons, which searches every active account.
+	MinShareQueryRunes = 3
+	// DefaultUserSearchBurst and DefaultUserSearchEvery bound that picker per
+	// person: 20 searches at once, then one more every 2 seconds (30 a
+	// minute), enough for a person typing in the Share dialog.
+	DefaultUserSearchBurst = 20
+	DefaultUserSearchEvery = 2 * time.Second
 	// MaxGrants bounds the grants of one resource that are listed.
 	MaxGrants    = 256
 	maxNameInput = 256
@@ -72,6 +80,13 @@ type UserDirectory interface {
 	// Search finds eligible accounts by a prefix of the display name or of
 	// the address, at most limit of them.
 	Search(ctx context.Context, query string, limit int) ([]gateway.UserRef, error)
+	// Accounts finds active named accounts by the same prefix, whether or not
+	// they may use add-ons, at most limit of them. The kinds that are not
+	// add-ons filter it with their own rule.
+	Accounts(ctx context.Context, query string, limit int) ([]gateway.UserRef, error)
+	// Active says whether the ID is an existing, active named account:
+	// nil, gateway.ErrForbidden, or an outage.
+	Active(ctx context.Context, id string) error
 }
 
 // Options are the owner services the management needs. Missing ones make the
@@ -99,6 +114,11 @@ type Options struct {
 	Now              func() time.Time
 	// NameTimeout bounds the display-name read of one resource.
 	NameTimeout time.Duration
+	// UserSearchBurst and UserSearchEvery bound the user picker of the
+	// kinds that are not add-ons, per person: a burst of searches, then one
+	// more each UserSearchEvery. Zero selects the defaults.
+	UserSearchBurst int
+	UserSearchEvery time.Duration
 }
 
 // Service implements gateway.ResourceManager.
@@ -110,6 +130,8 @@ type Service struct {
 	bindMu sync.Mutex
 	binds  map[string]binding
 	order  []string
+	// accounts is the user picker of the kinds, limited per person.
+	accounts *AccountPicker
 }
 
 // binding is the request an operation ID was first dispatched for.
@@ -190,7 +212,16 @@ func New(o Options) *Service {
 	if o.NameTimeout <= 0 {
 		o.NameTimeout = 3 * time.Second
 	}
-	return &Service{o: o}
+	s := &Service{o: o}
+	// The directory of every active named account, not the add-on one: the
+	// kind decides who may receive a grant.
+	s.accounts = NewAccountPicker(func() AccountFinder {
+		if s.o.Users == nil {
+			return nil
+		}
+		return s.o.Users.Accounts
+	}, o.UserSearchBurst, o.UserSearchEvery, o.Now)
+	return s
 }
 
 var (
@@ -238,7 +269,7 @@ func classify(err error) error {
 		// denial, whichever layer made it, so that an unknown resource and a
 		// resource that is not the actor's cannot be told apart.
 		var blocked *gateway.OutcomeBlocked
-		for _, typed := range []error{gateway.ErrSharingDisabled, gateway.ErrStale, gateway.ErrOperationConflict, gateway.ErrInvalidRequest, gateway.ErrQuotaReached, gateway.ErrNotSelected} {
+		for _, typed := range []error{gateway.ErrSharingDisabled, gateway.ErrStale, gateway.ErrOperationConflict, gateway.ErrInvalidRequest, gateway.ErrQuotaReached, gateway.ErrNotSelected, gateway.ErrSearchLimited} {
 			if errors.Is(err, typed) {
 				return err
 			}
@@ -542,10 +573,16 @@ func (s *Service) owned(ctx context.Context, actor contract.Actor, resourceID st
 	// denies like a resource that is not the actor's.
 	key, _ := s.o.Policy.Key(resourceID)
 	key.ResourceID = resourceID
-	if err := s.o.Policy.Authorize(ctx, actor, key, policy.ActionShare); err != nil {
-		return policy.ResourceKey{}, classify(err)
+	if err := s.ownedRef(ctx, actor, policy.AddonRef(key)); err != nil {
+		return policy.ResourceKey{}, err
 	}
 	return key, nil
+}
+
+// ownedRef checks that the actor holds the owner role of a resource of any
+// kind, with the same denial for a resource that does not exist.
+func (s *Service) ownedRef(ctx context.Context, actor contract.Actor, ref policy.Ref) error {
+	return classify(s.o.Policy.AuthorizeRef(ctx, actor, ref, policy.ActionShare))
 }
 
 func (s *Service) sharing() error {
@@ -571,9 +608,19 @@ func (s *Service) Grants(ctx context.Context, actor contract.Actor, resourceID s
 }
 
 func (s *Service) grantList(ctx context.Context, actor contract.Actor, key policy.ResourceKey) (gateway.GrantList, error) {
-	m, err := s.o.Policy.Grants(ctx, actor, key)
+	grants, err := s.grants(ctx, actor, policy.AddonRef(key))
 	if err != nil {
-		return gateway.GrantList{}, classify(err)
+		return gateway.GrantList{}, err
+	}
+	return gateway.GrantList{ResourceID: key.ResourceID, Grants: grants}, nil
+}
+
+// grants lists the grants of a resource of any kind in ID order, with the
+// display names, bounded by MaxGrants. A grant to everyone has no name.
+func (s *Service) grants(ctx context.Context, actor contract.Actor, ref policy.Ref) ([]gateway.Grant, error) {
+	m, err := s.o.Policy.GrantsRef(ctx, actor, ref)
+	if err != nil {
+		return nil, classify(err)
 	}
 	ids := make([]string, 0, len(m))
 	for u := range m {
@@ -587,9 +634,13 @@ func (s *Service) grantList(ctx context.Context, actor contract.Actor, key polic
 	if s.o.Users != nil && len(ids) > 0 {
 		names, _ = s.o.Users.Lookup(ctx, ids)
 	}
-	out := gateway.GrantList{ResourceID: key.ResourceID, Grants: []gateway.Grant{}}
+	out := []gateway.Grant{}
 	for _, u := range ids {
-		out.Grants = append(out.Grants, gateway.Grant{UserID: u, DisplayName: cleanName(names[u]), Role: string(m[u])})
+		name := ""
+		if u != policy.Everyone {
+			name = cleanName(names[u])
+		}
+		out = append(out, gateway.Grant{UserID: u, DisplayName: name, Role: string(m[u])})
 	}
 	return out, nil
 }
@@ -609,6 +660,8 @@ func (s *Service) SetGrant(ctx context.Context, actor contract.Actor, resourceID
 	if userID == "" || len(userID) > 256 || s.o.Users == nil {
 		return gateway.GrantList{}, gateway.ErrForbidden
 	}
+	// The add-on kinds keep their account rule here: an active named account
+	// that may use add-ons. Other kinds bring their own rule to the policy.
 	ok, err := s.o.Users.Eligible(ctx, userID)
 	if err != nil {
 		return gateway.GrantList{}, classify(err)
@@ -632,15 +685,21 @@ func (s *Service) RevokeGrant(ctx context.Context, actor contract.Actor, resourc
 	if err != nil {
 		return gateway.GrantList{}, err
 	}
-	if userID == "" || len(userID) > 256 {
-		return gateway.GrantList{}, gateway.ErrInvalidRequest
-	}
-	if err = s.o.Policy.Revoke(ctx, actor, key, userID); err != nil {
-		return gateway.GrantList{}, classify(err)
+	if err = s.revoke(ctx, actor, policy.AddonRef(key), userID); err != nil {
+		return gateway.GrantList{}, err
 	}
 	// Selections of the revoked user are left alone on purpose: the reference
 	// is no authority, so it is denied at its next use like an unknown one.
 	return s.grantList(ctx, actor, key)
+}
+
+// revoke removes a grant on a resource of any kind once the owner role is
+// checked.
+func (s *Service) revoke(ctx context.Context, actor contract.Actor, ref policy.Ref, principal string) error {
+	if principal == "" || len(principal) > 256 {
+		return gateway.ErrInvalidRequest
+	}
+	return classify(s.o.Policy.RevokeRef(ctx, actor, ref, principal))
 }
 
 // SearchUsers is the user picker behind a resource's share dialog. It is
@@ -654,29 +713,12 @@ func (s *Service) SearchUsers(ctx context.Context, actor contract.Actor, resourc
 	if err != nil {
 		return gateway.UserList{}, err
 	}
-	query = strings.TrimSpace(query)
-	if n := utf8.RuneCountInString(query); n < MinQueryRunes || n > MaxQueryRunes || strings.ContainsFunc(query, unicode.IsControl) {
-		return gateway.UserList{}, gateway.ErrInvalidRequest
+	var find func(context.Context, string, int) ([]gateway.UserRef, error)
+	if s.o.Users != nil {
+		find = s.o.Users.Search
 	}
-	if limit <= 0 || limit > MaxUserResults {
-		limit = MaxUserResults
-	}
-	if s.o.Users == nil {
-		return gateway.UserList{}, gateway.ErrUnavailable
-	}
-	owner, _ := s.o.Policy.OwnerOf(key)
-	found, err := s.o.Users.Search(ctx, query, limit+2)
-	if err != nil {
-		return gateway.UserList{}, classify(err)
-	}
-	out := gateway.UserList{Users: []gateway.UserRef{}}
-	for _, u := range found {
-		if u.ID == actor.UserID || u.ID == owner || u.ID == "" || len(out.Users) >= limit {
-			continue
-		}
-		out.Users = append(out.Users, gateway.UserRef{ID: u.ID, DisplayName: cleanName(u.DisplayName)})
-	}
-	return out, nil
+	owner, _ := s.o.Policy.OwnerOfRef(policy.AddonRef(key))
+	return pickUsers(ctx, actor.UserID, owner, query, MinQueryRunes, limit, find, nil, nil)
 }
 
 // Rename renames a resource through the add-on's rename tool, as the owner's

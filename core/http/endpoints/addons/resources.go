@@ -141,6 +141,16 @@ func ListResourceGrants(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.Ha
 // @Failure 503 {object} AddonErrorResponse "Unavailable, or type outcome_unknown (with operationId)"
 // @Router /api/addons/resources/{resourceId}/grants/{userId} [put]
 func SetResourceGrant(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
+	return grantChange(g, db, opts, func(r gateway.SetGrantRequest) bool { return r.Role != "" },
+		func(c echo.Context, g *gateway.Gateway, a contract.Actor, r gateway.SetGrantRequest) (any, error) {
+			return g.SetResourceGrant(c.Request().Context(), a, r.OperationID, c.Param("resourceId"), c.Param("userId"), r.Role)
+		})
+}
+
+// grantChange is the shared shape of a grant change: the owner's own browser
+// session, a strict body, then the call. The add-on and the generic sharing
+// routes differ only in the body and the call.
+func grantChange[T any](g *gateway.Gateway, db *gorm.DB, opts []Option, valid func(T) bool, call func(echo.Context, *gateway.Gateway, contract.Actor, T) (any, error)) echo.HandlerFunc {
 	s := resolve(opts)
 	return func(c echo.Context) error {
 		a, e := actor(c, db, s)
@@ -150,14 +160,14 @@ func SetResourceGrant(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.Hand
 		if !humanSurface(c, s, a, c.Param("resourceId")) {
 			return failure(c, 403, "Sharing requires the owner's own browser session")
 		}
-		var r gateway.SetGrantRequest
-		if decode(c, &r) != nil || r.Role == "" {
+		var r T
+		if decode(c, &r) != nil || !valid(r) {
 			return failure(c, 400, "Invalid grant")
 		}
 		if g == nil {
 			return failure(c, 503, "Addons unavailable")
 		}
-		out, e := g.SetResourceGrant(c.Request().Context(), a, r.OperationID, c.Param("resourceId"), c.Param("userId"), r.Role)
+		out, e := call(c, g, a, r)
 		if e != nil {
 			return resultError(c, e)
 		}

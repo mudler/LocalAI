@@ -124,7 +124,38 @@ curl -N localhost:8080/api/chats/3f1c.../events
 # The transcript, in order. Read it first, then open the event stream: the
 # stream carries only what happens after you connect.
 curl -s 'localhost:8080/api/chats/3f1c.../messages?after=0'
+
+# After a dropped connection, send the id of the last event you got.
+curl -N 'localhost:8080/api/chats/3f1c.../events?after=9d2e41.57'
 ```
+
+The events of a running turn have an id, `<run>.<n>`, sent as the SSE `id` field.
+A client that lost its connection sends the last id back in the `after` query
+parameter, or in the `Last-Event-ID` header (a browser sends that header when it
+reconnects by itself; the header wins). The server first sends the events it
+missed, then the live ones. Deltas of text and reasoning that came one after the
+other are not sent again, and the ones the client had are cut off. The server
+keeps the last 2048 events or 4 MiB of each running chat, and the ring stays
+for 30 seconds after the turn ends, so a client that reconnects at once also
+gets `turn_end`. Events that do not come from the turn itself (`files`, `goal`,
+`loops`, `cleared` and the cards) have no id and are not replayed: they tell
+the client to read the record again.
+
+When the server cannot give what was missed, the stream starts with a `resync`
+event. This happens when the id is of another turn, is older than the ring
+holds, or is not an id of this server, and in a cluster when the server that
+runs the turn is gone or does not answer in 2 seconds. Read the transcript, then
+go on: the `resync` event carries the id of the newest event known, when there
+is one, and the live events follow it. A gap in the numbers of the live events
+is filled from the ring in the same way.
+
+A user can have 8 event streams open on one chat on one server; one more gets
+HTTP 429 until one closes. The counter `localai_chat_event_resyncs_total` counts
+the reconnects that got a `resync`, by `reason`: `local` (the ring of this server
+did not have the events), `owner` (the ring of the server that runs the turn did
+not have them), `unreachable` (that server did not answer) and `no_owner` (no
+other server is known to run the turn). A steady rate of `local` or `owner`
+says that the ring is too small for your clients' gaps.
 
 The transcript lists messages, tool lines and one checkpoint line per turn.
 Undo works per tool call, not per turn: each `write_file`, `edit_file` or
@@ -413,7 +444,7 @@ curl -X PATCH .../api/chats/3f1c... -H 'Content-Type: application/json' -d '{
   The history stays when the model changes.
 
 In the web UI, the **Effort** chip in the message box (next to Tools and
-Skills) and the chat settings sheet (`/settings`, or the sliders icon in the
+Skills, on the chat page and on the Home page) and the chat settings sheet (`/settings`, or the sliders icon in the
 chat header) show and change the same `reasoning_effort`. The chip and the
 effort buttons in the sheet apply at once. In the sheet, temperature, top P and
 top K are sliders with a number box and a reset button; an empty value means
@@ -421,6 +452,9 @@ the model's own default. The sliders cover 0 to 2 (temperature), above 0 to 1
 (top P) and 0 to 200 (top K). You can type a larger top K in the box. These
 values and the system prompt and context size are sent when you press **Save
 settings**. `reasoning_effort` `none` asks the model not to think.
+
+A level picked on the Home page is saved to the new chat when it is created,
+before the first message is sent, and the chat page opens with it.
 
 ### Context meter and speed
 
@@ -1436,17 +1470,26 @@ it off, so a chat that never touches the menu works as before:
 | **Your files** | `files` | `list_files`, `read_file`, `write_file`, `edit_file`, `move_file`, `delete_file`, `search_files` and `read_document` |
 | **Web** | `web` | `web_search` and `web_fetch` |
 | **Images and audio** | `media` | `describe_image` and `transcribe_audio` |
+| **LocalAI client** | `localai_client` | The inference tools of the [LocalAI Assistant]({{% relref "features/localai-assistant#tool-groups" %}}): `generate_image`, `speak`, `embed`, `voice_profile` and more. Each one is offered only when your account has its feature and an installed model can serve it. Saving a voice with `voice_profile` shows a card where you confirm that the speaker agreed; nothing is saved before |
 | **Knowledge** | `collections` | `list_collections` and `search_collection` |
 | **Sub-agents** | `subagents` | `spawn_agent` |
 | **Saved agents** | `saved_agents` | `list_agents` and the `agent` argument of `spawn_agent` (opt-in) |
 | **Past chats** | `history` | `search_chats` and `read_chat` (opt-in; see [Past chats](#past-chats)) |
 | **Triggers** | `triggers` | `propose_trigger`, `list_triggers`, `update_trigger` and `delete_trigger` |
 | **Memory** | `memory` | Your notes: the model reads them before it answers and may save new ones (see [Memory](/features/short-memory/)). Switch it off to make the chat private: it neither reads nor saves memory |
+| **LocalAI admin** | `localai_admin` | The tools that manage this server (administrators only, opt-in; see [LocalAI Assistant]({{% relref "features/localai-assistant#tool-groups" %}})). A chat in assistant mode has it on. It is never offered in a messaging chat or a run that starts by itself, whatever the agent switches on |
 | **Suggested changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your notes, an agent profile, a skill, a page or the dashboard, and you confirm (see [change proposals](/features/addons/#change-proposals-from-chats)); for memory notes only, you can choose in your account settings to have them saved at once with an Undo, or never (see [Memory](/features/short-memory/#choose-how-a-note-is-saved)) |
 
 ```bash
 curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web","files"]}'
 ```
+
+The two LocalAI groups are large, so on a small context window a chat may not send
+them in full: it sends `tool_search`, `tool_describe` and `tool_call` instead, and the
+model finds and runs their tools through them, under the same permissions. The setting
+`chats_tool_search` (`auto`, `on` or `off`) decides; see
+[Tool search]({{% relref "features/localai-assistant#tool-search" %}}). The tools panel marks
+such a group with `"deferred":true`.
 
 `off` replaces the earlier list, and a name that is not a group is refused
 (400). A group the server does not offer is not listed: **Your files** and
@@ -1608,7 +1651,9 @@ The **Skills** page lists them by layer and edits personal skills, and the **Ski
 
 A chat stores the skills that are **off**, not the skills that are on. So **Select all** sends an empty list, **Disable all** sends the ids of every skill in the list, and a skill you add later is on in every chat, also in a chat where you chose **Disable all**. The menu says so under its title.
 
-The server ships three built-in skills: `writing-skills`, `localai-workspace`, and `localai-apps`.
+The server ships these built-in skills: `writing-skills`, `localai-workspace`, `localai-apps` and `localai`.
+`localai` teaches the model the [LocalAI client tools]({{% relref "features/localai-assistant#client-tools" %}}): when to use each one, how to clone a voice and what to say when a model is missing or a permission is refused. A chat lists it only while it has the **LocalAI client** group, so it costs nothing when the group is off. An add-on cannot replace it, as for the other skills that describe LocalAI itself.
+An administrator's chat that has the **LocalAI admin** group also lists one skill per admin recipe, named `localai-admin-<recipe>`, such as `localai-admin-install-chat-model`. Nobody else sees them. See [the prompt and the recipes]({{% relref "features/localai-assistant#the-prompt-and-the-recipes" %}}).
 `localai-workspace` describes changes to your persona, profile, shortcuts, Home widgets, and theme;
 see [Make LocalAI yours](/features/make-localai-yours/).
 `localai-apps` describes how to build an app, tracker, or tool as a [Page]({{%relref "features/pages" %}}).
@@ -1776,7 +1821,7 @@ The **Files** page in the sidebar is a file browser for all of this.
 - **Filter and search.** Typing in the box filters the open folder by name. Press Enter, or choose **Search all files**, to search the names and the text of every file.
 - **Upload.** Use **Upload** (its arrow also uploads a whole folder), drop files or folders anywhere on the page, or paste with Ctrl+V; a pasted screenshot gets the date and time as its name. A drop on a folder row, or on a folder of the breadcrumb, uploads into that folder. The upload panel at the bottom right shows each file with its progress, speed and time left, and the total for all of them. You can cancel a file, try a failed one again (the panel says why it failed), and keep working: an upload keeps going when you open another folder or another page of the app, and the browser asks before you close the tab while files are still on their way. A file over the server's limit is refused before it is sent. When an upload has the name of a file that is in the folder already, the page asks: **Replace** it, **Keep both** (the new one gets a new name) or **Skip** it.
 - **Select.** Click a row to select it, Ctrl-click (Cmd on a Mac) to add one, Shift-click for a range, or use the boxes. The bar above the list then offers **Download**, **Move to…** and **Move to Trash** for the selection.
-- **Act.** Each row has a menu (⋮, or a right click): **Preview** or **Open**, **Download**, **Rename**, **Move to…** and **Move to Trash**. Drag rows onto a folder to move them there. **New folder** and **New file** add one in place, with a name you can type over. A move, a rename and a delete show a message with **Undo**.
+- **Act.** Each row has a menu (⋮, or a right click): **Preview** or **Open**, **Download**, **Rename**, **Move to…** and **Move to Trash**. A folder of your own also has **Share…** when the server has accounts (see [Share a folder of your home](#share-a-folder-of-your-home)). Drag rows onto a folder to move them there. **New folder** and **New file** add one in place, with a name you can type over. A move, a rename and a delete show a message with **Undo**.
 - **Keyboard.** Arrows move between rows (and tiles), Shift+arrows extend the selection, Space selects, Enter opens, F2 renames, Delete moves to the Trash, Ctrl+A selects all, Escape clears the selection, Backspace opens the parent folder, and typing the start of a name jumps to it.
 - **Preview.** Opening a file shows it in a side pane, the same views as the preview pane of a chat, with **Download**, **Rename**, **Move to…** and **Move to Trash**. On a phone it is a sheet from the bottom. Escape closes it.
 - **Trash and History.** The **Trash** tab restores what you deleted, deletes one item for good, or empties the Trash; each of those asks first and says how many files and how much space it removes, and **Empty Trash** is off while the Trash is empty. The **History** tab undoes a change of the open folder.
@@ -1859,7 +1904,7 @@ folders shared with them and their access.
 
 | Route | Who | Use |
 |---|---|---|
-| `GET /api/chats/shared-folders` | any user | The folders shared with you: `id`, `name`, `path`, `pages`, `mode` (`read` or `write`). |
+| `GET /api/chats/shared-folders` | any user | The folders shared with you: `id`, `name`, `path`, `pages`, `mode` (`read` or `write`). A folder a person shared from their home has `owner` (their name), `everyone` when you have it only through **Everyone**, and an empty `path`. |
 | `GET /api/chats/shared-folders/{id}` | any user | One of them; `404` when it is not shared with you. |
 | `GET /api/chats/admin/shared-folders` | administrator | Every shared folder with its `members` (`principal`, `name`, `everyone`, `mode`). |
 | `POST /api/chats/admin/shared-folders` | administrator | Create one, body `{name}`. `409` when the name is taken or the limit is reached. |
@@ -1885,6 +1930,87 @@ The LocalAI Assistant has the same operations as tools (see [LocalAI
 Assistant]({{%relref "features/localai-assistant" %}})). In a cluster the
 folders and the grants live in the shared workspace database and the audit in
 the auth database, so every frontend sees the same state.
+
+### Share a folder of your home
+
+You can share a folder of your own home with other people, without an
+administrator. Open **Files**, choose **Share…** in the menu of a folder, and
+add a person or **Everyone**, with **Can read** or **Can edit**. This is the
+same Share dialog as for agents and the other things you can share (see
+[Sharing resources]({{%relref "features/sharing" %}})).
+
+- **What you can share.** A folder inside your home: not the home itself, and
+  not a folder that LocalAI keeps or reads as your own words: `LocalAI/`,
+  `Chats/`, `Memory/`, `pages/`, a `.skills` folder anywhere, or a folder
+  inside one of them. You cannot share a folder that someone shared with you or
+  an administrator's shared folder. A person shares at most 100 folders, each
+  with at most 200 grants.
+- **What your chats use.** Your chats load your skills, your notes, your agent
+  profiles and your persona, and **Pages** runs your pages, with your own
+  rights. LocalAI leaves out anything in a folder on which another person, or
+  **Everyone**, can edit: a `.skills` folder inside a folder you share with
+  **Can edit** gives your chats no skill, and a page or a note there is not
+  yours. What you share with **Can read** stays in use. The others still see and
+  change those files as files.
+- **Who.** An active account that the search finds, or **Everyone** (every
+  account, also the ones created later). The search is the user picker of the
+  other kinds of sharing (see
+  [Sharing resources]({{%relref "features/sharing#api" %}})): it starts at three
+  characters of the display name, a part of an address finds nobody, and an
+  account without a name is found by its whole address only. It shows a name and
+  nothing else.
+- **What they see.** The folder is in their **Shared** tab with your name and
+  their access, and their chats see it at `/workspace/shared-<name>` like an
+  administrator's shared folder (`shared-<name> 2` when two have the same name).
+  Its path in your home is not shown to them. Its `pages/` are not shared pages:
+  a page runs in the browser of the person who opens it, so only an
+  administrator's shared folder can share one.
+- **Taking it back.** A lower access or a removed grant holds from their next
+  file call, on every frontend. Their chats that run with the folder on the
+  frontend that serves your change are stopped before the change answers; the
+  other frontends get the request on the chat bus and stop theirs within
+  seconds. A grant follows the folder: when you rename or move it inside your
+  home, it stays shared; when you move it to the Trash, nobody else can open
+  it, and restoring it from the Trash shares it again.
+- **Moves that keep a share where it does not belong.** A folder that is
+  shared, or that has a shared folder inside it, cannot move into another
+  person's home (also not by someone who can edit there), out of a home, or
+  into `LocalAI/`, `Chats/`, `Memory/`, `pages/` or a `.skills` folder. The
+  move is refused with `409` and type `folder_shared`, and nothing moves: stop
+  sharing it first. A folder of your home that still has a grant from before,
+  wherever it is, is in your list of shared folders and you can remove its
+  grants.
+- **Only from your browser.** Changing who has a folder, listing it and the
+  search accept only your own signed-in browser tab. An API key, an agent, a
+  tool and an MCP client cannot share anything. In local-owner mode (no
+  accounts) folders cannot be shared.
+- **Audit.** Each grant and revoke is a line of the shared folders audit, with
+  you as the one who made it.
+
+| Route | Who | Use |
+|---|---|---|
+| `GET /api/chats/files/shares` | you | The folders of your home that are shared: `id`, `name`, `path` (in your home), `sharedWith`, `everyone`; `sharing` is `false` when folders cannot be shared here. |
+| `POST /api/chats/files/shares` | you | Body `{path}`: the folder's `id` for the routes below. `403` for a folder you cannot share, and for one that does not exist. |
+| `GET /api/chats/files/shares/{id}/grants` | you, browser only | `{grants: [{userId, displayName, role}]}`; `role` is `read` or `write`. |
+| `PUT /api/chats/files/shares/{id}/grants/{principal}` | you, browser only | Body `{role}`. `principal` is an account ID from the search, or `@everyone`. |
+| `DELETE /api/chats/files/shares/{id}/grants/{principal}` | you, browser only | Remove a grant. |
+| `GET /api/chats/files/shares/{id}/users?q=` | you, browser only | Search accounts by a display-name prefix of 3 to 64 characters, or an account without a name by its whole address, at most 20, never you. `429` with type `rate_limited` after 20 searches at once, then one every 2 seconds. |
+
+"Browser only" means a same-origin `fetch` with the header `X-LocalAI-Confirm`
+equal to the folder ID, no API key and no tool, agent or MCP marker; anything
+else gets `403`. A folder you cannot share, one that does not exist and one of
+someone else get the same `403`, so a call cannot tell them apart.
+
+The grants are the same workspace grants as an administrator's, in the
+workspace database, and nothing else keeps a copy: every frontend reads them on
+every call, so a change made through one frontend holds at once on all of
+them. A frontend stops its own running chats, and sends the request to stop on
+the chat bus to the other frontends and chat workers, which stop theirs. The
+search answers on the frontend that serves the call and keeps the count of
+searches of each person in the memory of that frontend (per instance): with
+several frontends a person may search at that rate on each of them, and a
+restart resets the count. The count only slows down a person who tries many
+names; it decides no access.
 
 Files need a place to live. The choice is made at start and is explicit: with a
 database the tree goes there, and without one it goes in a JSON index.
@@ -1948,7 +2074,7 @@ The JSON files are for one LocalAI process. A cluster needs PostgreSQL, as
 
 In [distributed mode]({{% relref "features/distributed-mode" %}}) any frontend can serve any request about any chat.
 
-**State mode: shared.** Chats, their messages, the waiting messages and the claim that lets one turn run at a time live in PostgreSQL. Live events travel over the message bus, so a client connected to one frontend sees a turn that another frontend runs. Events are delivered at most once: a client that missed some reads the transcript.
+**State mode: shared.** Chats, their messages, the waiting messages and the claim that lets one turn run at a time live in PostgreSQL. Live events travel over the message bus, so a client connected to one frontend sees a turn that another frontend runs. Events are delivered at most once. The ring of recent events that serves a reconnect is per instance, on purpose: it is a cache of the live tail on the frontend or chat worker that runs the turn, and the transcript is the record. The process that runs a turn records its instance id (`LOCALAI_INSTANCE_ID`) on the chat. A reconnect that reaches another frontend asks that process for the missed events over the message bus (request and reply on `chats.replay.<instance>`), in replies of at most 512 KiB. When that process is gone, does not answer in 2 seconds, or no longer has the events, the client gets a `resync` and reads the transcript. The cap of 8 event streams per chat and user is per frontend.
 
 **Sub-agents.** The runs are chats in the shared store, linked to their parent. The background limit, the list of runs and "stopping a chat stops its sub-agents" all read the store, so they hold when the turns of one chat run on different frontends. A stop reaches a run on another frontend over the bus. The tool subset of a running sub-agent is kept in the memory of the frontend that runs it, which is where it runs. A sub-agent started from a saved agent keeps nothing in memory (stateless): the agent is named on its chat record, and its tools are read from the store at each turn, as for any chat with an agent. The chat's saved agents switch is stored with the chat, and the permission is checked again at each call, so every frontend gives the same answer.
 
@@ -1960,7 +2086,15 @@ In [distributed mode]({{% relref "features/distributed-mode" %}}) any frontend c
 
 **From any frontend** you can send a message, edit or cancel a waiting message, read the transcript, stop the turn and stream events. A stop travels over the bus to the frontend that runs the turn.
 
-**If a frontend dies.** A running turn records a heartbeat every 15 seconds. One frontend, chosen by a PostgreSQL advisory lock, ends turns that have not beaten for a minute. Such a turn ends as `interrupted`, its waiting messages stay, and `send-now` starts them. A standalone process with a database does the same once at startup, for turns its previous run left behind.
+**If a frontend dies.** A running turn records a heartbeat every 15 seconds. One frontend, chosen by a PostgreSQL advisory lock, ends turns that have not beaten for a minute. Such a turn ends as `interrupted`, its waiting messages stay, and `send-now` starts them. A standalone process with a database does the same once at startup, for turns its previous run left behind. On a normal stop the server marks the turns it cuts short as interrupted itself, and it does not wait for them for good: closing the chats is bounded (15 seconds), and a turn that does not stop in time is marked interrupted in the database before the process exits, with its resume scheduled like a turn that died.
+
+**Resuming by itself.** With `--chats-auto-resume` (`LOCALAI_CHATS_AUTO_RESUME`, off by default) the server goes on with an interrupted turn without anyone pressing Retry. The state lives in the chat's row, so it survives a restart of any process: a count of tries, the time of the interruption and the time of the next try. The same frontend that ends stale turns checks for due resumes at each tick (30 seconds), and a chat worker takes the start when workers are on. The claim on the chat decides when two frontends race, or when a person presses Retry at the same moment: one turn starts. A turn is resumed at most 3 times, after 15 seconds, 1 minute and 5 minutes, and only within 30 minutes of the interruption. A new message from you starts a normal turn and the count begins again. While a resume is scheduled the chat reads `will_resume: true` (with `resume_attempts`) and the page waits instead of resuming too. A run of a trigger, a job or a loop stays running until the resumed turn ends, a goal stays active, and a failed run is reported only when the last try is spent. A chat that a messaging connection started is not resumed by the server: its reply is sent by the process that died, so the sender is told the turn was interrupted. A sub-agent chat is not resumed either; its parent decides.
+
+**Calls that a restart cut in two.** The transcript is the checkpoint: each finished message and tool result is a line of its own. A call in flight has no result line, and running it again could do its work twice. So a call of a tool that may change something leaves an internal line before it runs (`tool_intent`: the tool name and the start of its arguments; the API never returns it). If the turn is resumed and an intent has no result after it, the model is told that those calls started, that it is not known whether they took effect, and to check the state before it repeats one. Only tools that only read skip the line: the add-on tools of kind read, the built-in tools declared read only, and a fixed list (the file, search, collection and web tools). A tool that nobody classified, such as an MCP tool, counts as one that may change something. A result is matched to an intent by the tool name, so two parallel calls of one tool can hide one unknown outcome. The effects that the host sends itself (the webhooks of a job, the notification of a run, the report of a trigger) do not repeat: each is sent when the run ends, behind its own once-only record, and the run ends only after the last try.
+
+**The answer that was being written.** A message is stored as a line when it ends, so a process that is killed in the middle of a long answer would lose it. While a message streams, the server saves its text so far into the chat record every 2 seconds, or when 4 KiB of new text have come (not more than four times a second), and clears it when the line is stored. A message that ends in under 2 seconds writes nothing. When the next turn starts (a resume, or a new message of yours) a text that is still there becomes an assistant line, kept as it was when last saved, up to 128 KiB. A resume also tells the model where its message stopped, so that it goes on from there. A graceful stop does not need this: the turn that Close cuts short stores its text as it ends.
+
+In terms of the [distributed state rule]({{% relref "features/distributed-mode" %}}): the resume state is shared (it is in the chat row), and the sweep is single-runner (the advisory lock of the reaper).
 
 The JSON files are not supported in a cluster, as the Storage table says.
 
@@ -1975,8 +2109,8 @@ An admin can start a chat that has the tools to manage the instance (install
 models and backends, edit model configs, check status). It starts from the Home
 page with `/assistant`, or over the API with `assistant: true` in
 `POST /api/chats`. It is an ordinary chat in the list after that. Only that chat
-has the tools, never its sub-agents. The `localai_assistant_enabled` setting
-turns the feature on and off. See [LocalAI Assistant](/features/localai-assistant/).
+has the tools, never its sub-agents. The `chats_localai_admin` setting
+turns the admin tools off. See [LocalAI Assistant](/features/localai-assistant/).
 
 ## Chats in the web UI
 
@@ -2153,7 +2287,7 @@ When a turn fails, the thread shows one banner: "The reply failed", the reason i
 | The provider behind the model returned an error | The provider or a proxy answered with a server error several times in a row. | Retry in a moment, then check the provider. |
 | The model took too long to answer / The turn was cancelled | A timeout, or the turn was stopped. | Retry, or use a smaller or faster model. |
 
-The banner stands after the messages, tool calls and results that the turn produced before it failed: nothing of them is removed. **Retry** goes on from where the turn stopped (`POST /api/chats/{id}/resume`). The model keeps its own state, so a tool call that already has a result is not made again, a step that did not finish is done again, the messages you sent while the turn ran stay, and a summary made by a compaction stays as it is. A second click, or a click in another window, starts nothing. To answer your last message again from the start, use **Regenerate** on the message.
+The banner stands after the messages, tool calls and results that the turn produced before it failed: nothing of them is removed. **Retry** goes on from where the turn stopped (`POST /api/chats/{id}/resume`). The model keeps its own state, so a tool call that already has a result is not made again, a step that did not finish is done again, the messages you sent while the turn ran stay, and a summary made by a compaction stays as it is. A turn that a restart of the server interrupted can be resumed the same way. With `--chats-auto-resume` the server does it, and the card says that the server is going on by itself while it waits. The chat shows such a turn as **The reply was interrupted**, keeps everything written so far, and resumes it by itself after a short wait: up to 3 tries, with a wait that doubles from 3 seconds up to 30 seconds. **Stop trying** cancels the wait, and **Retry** resumes at once and starts the count again. Only an interrupted turn is resumed this way; a turn that failed (a model error, a refused key) waits for you, and so does an interruption older than 10 minutes. When the connection to the server is lost for more than two seconds, the chat says "Connection lost. Reconnecting." until it is back. A second click, or a click in another window, starts nothing. To answer your last message again from the start, use **Regenerate** on the message.
 
 The reason is stored with the chat, so a reload shows the same banner as the live page, for a day after the turn. A new turn clears the banner.
 

@@ -1153,5 +1153,54 @@
     "turnOn": "Turn on",
     "find": "View in add-ons",
     "actionFor": "{{action}}: {{title}}"
+  },
+  "share": {
+    "action": "Share",
+    "intro": "People you add chat with this agent as themselves, with their own files, collections and connections.",
+    "roles": {
+      "use": "Can use",
+      "useHelp": "They chat with the agent in their own chats and see what it needs.",
+      "viewer": "Can view",
+      "viewerHelp": "They can also read its instructions and tools."
+    },
+    "kind": {
+      "addon": "Add-on",
+      "collection": "Collection",
+      "skill": "Skill",
+      "folder": "Folder",
+      "connection": "Connection",
+      "addon-resource": "Add-on resource",
+      "mcp": "MCP server",
+      "builtin": "Built-in grant",
+      "network": "Network",
+      "tool-group": "Tool group"
+    },
+    "ownAccess": "They need access of their own",
+    "refsApplied_one": "Also shared {{count}} thing it uses.",
+    "refsApplied_other": "Also shared {{count}} things it uses.",
+    "refsFailed": "Could not share: {{names}}.",
+    "refsSkipped": "Not shared with everyone: {{names}}. Share these with each person.",
+    "failed": "Sharing could not open. {{message}}"
+  },
+  "shared": {
+    "readOnly": "You can chat with this agent. Only its owner can change it."
+  },
+  "needs": {
+    "title": "What this agent needs",
+    "intro": "The agent runs as you, with your own access.",
+    "none": "This agent uses nothing beyond the chat.",
+    "loadError": "Could not check what this agent needs.",
+    "state": {
+      "ok": "You have it",
+      "missing": "Not shared with you",
+      "unavailable": "Not available to you",
+      "ask": "Starts off in your chat"
+    },
+    "noticeTitle_one": "This agent needs {{count}} thing you do not have:",
+    "noticeTitle_other": "This agent needs {{count}} things you do not have:",
+    "noticeLink": "See what it needs",
+    "asksTitle_one": "This agent asks for {{count}} thing your chat starts without:",
+    "asksTitle_other": "This agent asks for {{count}} things your chat starts without:",
+    "asksHelp": "It runs as you. Turn them on in the chat only if you trust the agent and the person who shared it."
   }
 }

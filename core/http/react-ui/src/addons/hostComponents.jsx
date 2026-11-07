@@ -260,3 +260,11 @@ export { default as WaveformPlayer } from '../components/audio/WaveformPlayer'
 export { default as DistributionBars } from '../components/biometrics/DistributionBars'
 export { default as EmbeddingInspector } from '../components/biometrics/EmbeddingInspector'
 export { default as TabSwitch } from '../components/biometrics/TabSwitch'
+// The Share dialog and the sharing line of a list row. An add-on passes the
+// client of sdk.resources.shareClient(resourceId); see sharing.md.
+export { default as ShareDialog } from '../components/share/ShareDialog'
+// The Share dialog of one connector binding of the person. The host makes the
+// binding shareable and calls the sharing routes; the add-on passes the
+// binding ID only (sdk.core.fetch refuses the sharing routes).
+export { default as ConnectionShareDialog } from '../components/share/ConnectionShareDialog'
+export { RoleBadge, SharedByBadge } from '../components/share/ShareBadges'

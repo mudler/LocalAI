@@ -57,6 +57,9 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 
 		if input.Voice != "" {
 			cfg.Voice = input.Voice
+			if !voiceprofile.IsReference(input.Voice) && !VoiceViewer(c).Admin && voiceprofile.UnsafeVoice(input.Voice) {
+				return echo.NewHTTPError(http.StatusBadRequest, "voice must be a voice profile or a voice of the model, not a path")
+			}
 			if voiceprofile.IsReference(input.Voice) {
 				profileID, valid := voiceprofile.ParseReference(input.Voice)
 				if !valid {
@@ -68,7 +71,7 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 				if profiles == nil {
 					return echo.NewHTTPError(http.StatusInternalServerError, "voice profile store is unavailable")
 				}
-				profile, referencePaths, release, err := profiles.LeaseAudios(c.Request().Context(), profileID)
+				profile, referencePaths, release, err := profiles.LeaseAudiosFor(c.Request().Context(), VoiceViewer(c), profileID)
 				if err != nil {
 					if errors.Is(err, voiceprofile.ErrNotFound) {
 						return echo.NewHTTPError(http.StatusNotFound, "voice profile not found")

@@ -8,6 +8,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/pages"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
@@ -21,6 +22,35 @@ var _ = Describe("working files", func() {
 		Expect(workfiles.ChatsDir).To(Equal(session.ChatsDir))
 		Expect(workfiles.SettingsDir).To(Equal(session.SettingsDir))
 		Expect(workfiles.PagesDir).To(Equal(pages.Dir))
+		Expect(workfiles.UsersRoot).To(Equal(session.UsersRoot))
+		Expect(workfiles.SkillsDir).To(Equal(skills.SkillsDir))
+	})
+
+	It("names the folders of a home that nobody else may get a grant on", func() {
+		for p, want := range map[string]bool{
+			"/LocalAI": true, "/LocalAI/agents/a": true, "/Chats/x": true, "/Memory": true, "/memory/notes": true,
+			"/pages": true, "/pages/home": true, "/.skills": true, "/Work/.skills/report": true, "/Work/.SKILLS": true,
+			"/": false, "/Projects": false, "/Projects/pages": false, "/Projects/Memory": false, "/Work/skills": false,
+		} {
+			Expect(workfiles.Managed(p)).To(Equal(want), p)
+		}
+	})
+
+	It("lets a grant move inside one home only, and never into a managed folder", func() {
+		for _, c := range []struct {
+			from, to string
+			want     bool
+		}{
+			{"/users/a/X", "/users/a/Archive/X", true},
+			{"/shared/x/A", "/shared/y/A", true},
+			{"/users/a/X", "/users/b/X", false},
+			{"/users/a/X", "/shared/X", false},
+			{"/shared/X", "/users/a/X", false},
+			{"/users/a/X", "/users/a/LocalAI/X", false},
+			{"/users/a/X", "/users/a/Projects/.skills", false},
+		} {
+			Expect(workfiles.GrantsMayMove(c.from, c.to)).To(Equal(c.want), c.from+" -> "+c.to)
+		}
 	})
 
 	DescribeTable("tells a working file from a deliverable by its path",

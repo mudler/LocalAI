@@ -106,7 +106,6 @@
       "all": "Todos",
       "chat": "Apps de chat",
       "tools": "Ferramentas",
-      "home": "Casa",
       "models": "Modelos"
     }
   },
@@ -635,6 +634,7 @@
       "unpinned": "A biblioteca informa uma atualização, mas não indica qual build instalar, então não é possível atualizar daqui. Verifique novamente mais tarde."
     },
     "checkAll": "Verificar atualizações",
+    "notCheckedYet": "As atualizações ainda não foram verificadas.",
     "checkingAll": "Verificando...",
     "checkAllDone": "{{count}} complementos verificados.",
     "checkAllFailed": "{{count}} não puderam ser verificados.",

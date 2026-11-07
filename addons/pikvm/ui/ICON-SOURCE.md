@@ -1,5 +1,5 @@
 # Icon source
 
-Not an official logo. `icon.png` is a generated tile: a screen glyph from the add-on icon set (`addons/internal/uibuild/glyphs.mjs`) on the add-on colour.
+Not a logo. `icon.png` is a generated tile: a screen glyph from the add-on icon set (`addons/internal/uibuild/glyphs.mjs`) on the add-on colour.
 
-Why no official mark: https://pikvm.org and https://github.com/pikvm/pikvm publish no brand kit or logo usage terms that could be read. The project owner decides.
+Why no brand mark: Simple Icons (https://simpleicons.org, version 16.35.0) has no PiKVM mark, and no other source with usage terms was found. The generic glyph stays until one is available.

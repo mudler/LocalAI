@@ -141,17 +141,8 @@ var _ = Describe("Options and removed routes", func() {
 		for _, gone := range []string{"--agent-pool-api-url", "--disable-agents", "--agent-hub-url"} {
 			Expect(string(help)).ToNot(ContainSubstring(gone))
 		}
-		for _, there := range []string{"--disable-collections", "--collections-state-dir", "--disable-local-ai-assistant", "--disable-chats", "--agent-job-retention-days"} {
+		for _, there := range []string{"--disable-collections", "--collections-state-dir", "--disable-chats", "--agent-job-retention-days"} {
 			Expect(string(help)).To(ContainSubstring(there))
 		}
-	})
-
-	It("switches the LocalAI assistant off with the flag", func() {
-		in = newInstance()
-		in.Start("--disable-local-ai-assistant")
-		c := &client{base: in.URL()}
-		code, raw := c.do(http.MethodPost, "/api/chats", map[string]any{"model": "fake", "assistant": true})
-		Expect(code).To(Equal(http.StatusServiceUnavailable), string(raw))
-		Expect(errType(raw)).To(Equal("assistant_off"))
 	})
 })

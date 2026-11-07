@@ -1,5 +1,7 @@
 # Icon source
 
-Not an official logo. `icon.png` is a generated tile: a house glyph from the add-on icon set (`addons/internal/uibuild/glyphs.mjs`) on the add-on colour.
+`icon.png` is the Home Assistant logo mark from Simple Icons (https://simpleicons.org), version 16.35.0, file `icons/homeassistant.svg` (https://www.npmjs.com/package/simple-icons/v/16.35.0). The Simple Icons data is CC0 1.0.
 
-Why no official mark: no public brand page with usage terms was found (https://www.home-assistant.io/brand/ answers 404; the logo files live in https://github.com/home-assistant/brands and https://github.com/home-assistant/assets, whose licence terms were not confirmed). The project owner decides.
+The Home Assistant name and logo are trademarks of their owner. The mark is used only to identify the service this add-on connects to. It does not say that Home Assistant made, endorses or supports the add-on.
+
+How the tile was made: a 256 by 256 PNG with the same rounded tile (corner radius 56) as the other add-on icons, filled with the add-on colour #03a9f4. The mark is a single white shape, 132 pixels wide, centred on the tile. The mark was not changed except for colour and size.

@@ -7,9 +7,11 @@ package storetest
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -613,6 +615,30 @@ func Run(newStore New) {
 		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r2")).To(Succeed(), "claim after release")
 	})
 
+	It("records the owner of a turn until the next turn records its own", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		chat(s, "c2", "alice")
+		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r1")).To(Succeed())
+		Expect(s.SetTurnOwner(ctx(), "alice", "c1", "other", "a")).To(MatchError(store.ErrNotClaimed), "an owner for a run that does not hold the chat")
+		Expect(s.SetTurnOwner(ctx(), "alice", "c2", "r1", "a")).To(MatchError(store.ErrNotClaimed), "an owner for an idle chat")
+		Expect(s.SetTurnOwner(ctx(), "bob", "c1", "r1", "a")).To(MatchError(session.ErrNotFound), "another user's chat")
+		Expect(s.SetTurnOwner(ctx(), "alice", "c1", "r1", "instance-a")).To(Succeed())
+		info, _ := s.Turn(ctx(), "alice", "c1")
+		Expect(info.Owner).To(Equal("instance-a"))
+		// The owner stays after the end: its last events may still be asked for.
+		Expect(s.ReleaseTurn(ctx(), "alice", "c1", "r1", store.TurnDone)).To(Succeed())
+		info, _ = s.Turn(ctx(), "alice", "c1")
+		Expect(info.Owner).To(Equal("instance-a"), "after the end")
+		// A claim alone keeps it; the turn that runs records its own.
+		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r2")).To(Succeed())
+		info, _ = s.Turn(ctx(), "alice", "c1")
+		Expect(info.Owner).To(Equal("instance-a"), "after a claim")
+		Expect(s.SetTurnOwner(ctx(), "alice", "c1", "r2", "instance-b")).To(Succeed())
+		info, _ = s.Turn(ctx(), "alice", "c1")
+		Expect(info.Owner).To(Equal("instance-b"))
+	})
+
 	It("a turn that stops beating is reaped, one that keeps beating is not", func() {
 		// The margin is wide: on a loaded runner under -race a few store calls
 		// can take longer than a tight threshold.
@@ -642,6 +668,224 @@ func Run(newStore New) {
 		Expect(s.TouchTurn(ctx(), "alice", "alive", "r-alive")).To(Succeed())
 		again, _ := s.ReapTurns(ctx(), stale)
 		Expect(again).To(BeEmpty(), "a second reap found %+v", again)
+	})
+
+	Describe("resume of an interrupted turn", func() {
+		// interrupt runs a turn on a new chat and ends it as interrupted with delay.
+		interrupt := func(s store.Store, id string, delay time.Duration) {
+			GinkgoHelper()
+			Expect(s.ClaimTurn(ctx(), "alice", id, "r-"+id)).To(Succeed())
+			Expect(s.MarkInterrupted(ctx(), "alice", id, "r-"+id, delay)).To(Succeed())
+		}
+
+		It("the reaper schedules the first resume after the default wait", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			Expect(s.ClaimTurn(ctx(), "alice", "c1", "r1")).To(Succeed())
+			Expect(s.ReapTurns(ctx(), -time.Hour)).To(HaveLen(1))
+			info, err := s.Turn(ctx(), "alice", "c1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(info.Last).To(Equal(store.TurnInterrupted))
+			Expect(info.ResumeAttempts).To(BeZero())
+			Expect(info.InterruptedAt).NotTo(BeZero())
+			Expect(info.ResumeNotBefore).To(BeTemporally("~", info.InterruptedAt.Add(store.ResumeBackoff(0)), 2*time.Second))
+			Expect(info.WillResume).To(BeTrue(), "a resume is scheduled, though not due")
+			Expect(s.ListResumable(ctx())).To(BeEmpty())
+			Expect(s.ClaimResume(ctx(), "alice", "c1", "r2")).To(MatchError(store.ErrNotResumable), "the wait is not over yet")
+		})
+
+		It("a resume that is due is listed, and exactly one claim wins it", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			interrupt(s, "c1", 0)
+			info, _ := s.Turn(ctx(), "alice", "c1")
+			Expect(info.WillResume).To(BeTrue())
+			Expect(info.Running).To(BeFalse())
+			list, err := s.ListResumable(ctx())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list).To(ConsistOf(MatchFields(IgnoreExtras, Fields{"Principal": Equal("alice"), "ChatID": Equal("c1"), "Attempts": BeZero()})))
+
+			c := ctx()
+			var wins, busy int32
+			var wg sync.WaitGroup
+			for i := range 6 {
+				wg.Add(1)
+				go func(i int) {
+					defer wg.Done()
+					defer GinkgoRecover()
+					switch err := s.ClaimResume(c, "alice", "c1", string(rune('a'+i))); { // #nosec G115 -- i counts a few test runs
+					case err == nil:
+						atomic.AddInt32(&wins, 1)
+					case isTurnRunning(err) || errors.Is(err, store.ErrNotResumable):
+						atomic.AddInt32(&busy, 1)
+					default:
+						Fail("ClaimResume: " + err.Error())
+					}
+				}(i)
+			}
+			wg.Wait()
+			Expect(wins).To(BeEquivalentTo(1))
+			Expect(busy).To(BeEquivalentTo(5))
+			info, _ = s.Turn(ctx(), "alice", "c1")
+			Expect(info.Running).To(BeTrue())
+			Expect(info.ResumeAttempts).To(Equal(1), "a lost race spends no attempt")
+			Expect(info.WillResume).To(BeFalse())
+			Expect(s.ListResumable(ctx())).To(BeEmpty(), "a running turn is not resumable")
+		})
+
+		It("waits longer after each attempt, and a new turn starts the count again", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			interrupt(s, "c1", 0)
+			Expect(s.ClaimResume(ctx(), "alice", "c1", "resume")).To(Succeed())
+			// The resumed turn dies too: ReleaseTurn records it with the default wait.
+			Expect(s.ReleaseTurn(ctx(), "alice", "c1", "resume", store.TurnInterrupted)).To(Succeed())
+			info, _ := s.Turn(ctx(), "alice", "c1")
+			Expect(info.ResumeAttempts).To(Equal(1))
+			Expect(info.ResumeNotBefore).To(BeTemporally("~", info.InterruptedAt.Add(store.ResumeBackoff(1)), 2*time.Second))
+			Expect(store.ResumeBackoff(1)).To(BeNumerically(">", store.ResumeBackoff(0)))
+
+			// A person's turn resets the count, and ending it cancels the resume.
+			Expect(s.ClaimTurn(ctx(), "alice", "c1", "person")).To(Succeed())
+			Expect(s.ReleaseTurn(ctx(), "alice", "c1", "person", store.TurnDone)).To(Succeed())
+			info, _ = s.Turn(ctx(), "alice", "c1")
+			Expect(info.ResumeAttempts).To(BeZero())
+			Expect(info.WillResume).To(BeFalse())
+		})
+
+		It("stops resuming by itself when the tries are used", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			interrupt(s, "c1", 0)
+			for attempt := 1; attempt <= store.MaxResumeAttempts; attempt++ {
+				Expect(s.ClaimResume(ctx(), "alice", "c1", "resume")).To(Succeed(), "attempt %d", attempt)
+				Expect(s.MarkInterrupted(ctx(), "alice", "c1", "resume", 0)).To(Succeed())
+			}
+			info, _ := s.Turn(ctx(), "alice", "c1")
+			Expect(info.Last).To(Equal(store.TurnInterrupted))
+			Expect(info.ResumeAttempts).To(Equal(store.MaxResumeAttempts))
+			Expect(info.WillResume).To(BeFalse())
+			Expect(s.ListResumable(ctx())).To(BeEmpty())
+			Expect(s.ClaimResume(ctx(), "alice", "c1", "late")).To(MatchError(store.ErrNotResumable))
+			// A person can still resume it: the plain claim works.
+			Expect(s.ClaimTurn(ctx(), "alice", "c1", "person")).To(Succeed())
+		})
+
+		It("a negative delay, a cancel and any other outcome leave nothing to resume", func() {
+			s := newStore()
+			chat(s, "none", "alice")
+			chat(s, "cancel", "alice")
+			chat(s, "done", "alice")
+			interrupt(s, "none", -1)
+			info, _ := s.Turn(ctx(), "alice", "none")
+			Expect(info.Last).To(Equal(store.TurnInterrupted))
+			Expect(info.ResumeNotBefore).To(BeZero())
+			Expect(info.WillResume).To(BeFalse())
+
+			interrupt(s, "cancel", 0)
+			Expect(s.CancelResume(ctx(), "alice", "cancel")).To(Succeed())
+			Expect(s.CancelResume(ctx(), "alice", "cancel")).To(Succeed(), "a second cancel does nothing")
+			info, _ = s.Turn(ctx(), "alice", "cancel")
+			Expect(info.WillResume).To(BeFalse())
+
+			Expect(s.ClaimTurn(ctx(), "alice", "done", "r1")).To(Succeed())
+			Expect(s.ReleaseTurn(ctx(), "alice", "done", "r1", store.TurnFailed)).To(Succeed())
+			Expect(s.ClaimResume(ctx(), "alice", "done", "r2")).To(MatchError(store.ErrNotResumable), "a failed turn is not resumed by itself")
+			Expect(s.ListResumable(ctx())).To(BeEmpty())
+		})
+
+		It("a turn that holds the chat cannot be marked by another run, and other principals see nothing", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			Expect(s.MarkInterrupted(ctx(), "alice", "c1", "r1", 0)).To(MatchError(store.ErrNotClaimed), "no turn runs")
+			Expect(s.ClaimTurn(ctx(), "alice", "c1", "r1")).To(Succeed())
+			Expect(s.MarkInterrupted(ctx(), "alice", "c1", "other", 0)).To(MatchError(store.ErrNotClaimed))
+			Expect(s.MarkInterrupted(ctx(), "bob", "c1", "r1", 0)).To(MatchError(session.ErrNotFound))
+			Expect(s.ClaimResume(ctx(), "bob", "c1", "r2")).To(MatchError(session.ErrNotFound))
+			Expect(s.CancelResume(ctx(), "bob", "c1")).To(MatchError(session.ErrNotFound))
+		})
+
+		It("a new interruption of a resumed turn keeps the count", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			interrupt(s, "c1", 0)
+			Expect(s.ClaimResume(ctx(), "alice", "c1", "resume")).To(Succeed())
+			Expect(s.ReapTurns(ctx(), -time.Hour)).To(HaveLen(1))
+			info, _ := s.Turn(ctx(), "alice", "c1")
+			Expect(info.ResumeAttempts).To(Equal(1))
+			Expect(info.ResumeNotBefore).To(BeTemporally("~", info.InterruptedAt.Add(store.ResumeBackoff(1)), 2*time.Second))
+		})
+	})
+
+	Describe("the text of an answer being written", func() {
+		It("keeps it for the next turn, which takes it once", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			turn, text, err := s.TakePartial(ctx(), "c1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(turn).To(BeZero())
+			Expect(text).To(BeEmpty(), "nothing saved yet")
+
+			Expect(s.SavePartial(ctx(), "c1", 3, "The report starts with")).To(Succeed())
+			Expect(s.SavePartial(ctx(), "c1", 3, "The report starts with the totals")).To(Succeed(), "a later save replaces the earlier one")
+			turn, text, err = s.TakePartial(ctx(), "c1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(turn).To(Equal(3))
+			Expect(text).To(Equal("The report starts with the totals"))
+			_, text, _ = s.TakePartial(ctx(), "c1")
+			Expect(text).To(BeEmpty(), "taken once")
+		})
+
+		It("is cleared by an empty save, and one caller wins a race to take it", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			Expect(s.SavePartial(ctx(), "c1", 1, "half an answer")).To(Succeed())
+			Expect(s.SavePartial(ctx(), "c1", 0, "")).To(Succeed())
+			_, text, _ := s.TakePartial(ctx(), "c1")
+			Expect(text).To(BeEmpty())
+
+			Expect(s.SavePartial(ctx(), "c1", 2, "half an answer")).To(Succeed())
+			c := ctx()
+			var got int32
+			var wg sync.WaitGroup
+			for range 6 {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					defer GinkgoRecover()
+					if _, text, err := s.TakePartial(c, "c1"); err == nil && text != "" {
+						atomic.AddInt32(&got, 1)
+					}
+				}()
+			}
+			wg.Wait()
+			Expect(got).To(BeEquivalentTo(1))
+		})
+
+		It("is cut at the limit, on a character boundary", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			Expect(s.SavePartial(ctx(), "c1", 1, strings.Repeat("é", session.MaxPartialBytes))).To(Succeed())
+			_, text, _ := s.TakePartial(ctx(), "c1")
+			Expect(len(text)).To(BeNumerically("<=", session.MaxPartialBytes))
+			Expect(utf8.ValidString(text)).To(BeTrue())
+			Expect(text).NotTo(BeEmpty())
+		})
+
+		It("goes with the lines that a truncate removes, and for a chat that is not there is not found", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			_, err := s.AppendEntry(ctx(), "c1", session.Entry{Role: session.RoleUser, Text: "q"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(s.SavePartial(ctx(), "c1", 1, "half an answer")).To(Succeed())
+			Expect(s.TruncateEntries(ctx(), "alice", "c1", 0)).To(Succeed())
+			_, text, _ := s.TakePartial(ctx(), "c1")
+			Expect(text).To(BeEmpty())
+
+			Expect(s.SavePartial(ctx(), "nope", 1, "x")).To(MatchError(session.ErrNotFound))
+			_, _, err = s.TakePartial(ctx(), "nope")
+			Expect(err).To(MatchError(session.ErrNotFound))
+		})
 	})
 
 	It("a reaped turn gives back the messages its model request took but never confirmed", func() {

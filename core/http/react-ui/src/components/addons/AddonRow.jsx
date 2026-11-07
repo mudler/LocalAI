@@ -7,6 +7,7 @@ import { apiUrl } from '../../utils/basePath'
 import { AppIcon, ApprovalChip, BuiltinIcon, OperationChip, StateChip, UpdateChip, VersionText } from './AddonBits'
 import AddonMenu from './AddonMenu'
 import { addedByAddon, stateChip } from './addonState'
+import { isLocalFile } from './fileInstall'
 
 // One installed add-on as a row: its icon, its name with one plain state, one
 // line of what it does, and a quiet line of facts (page, tools, version). The
@@ -15,7 +16,7 @@ import { addedByAddon, stateChip } from './addonState'
 // reordering, Details and Remove. The state is one chip: a running operation,
 // a decision waiting for an administrator, an update, a connection that needs
 // setup, else the process state.
-export default function AddonRow({ tile, pinned, selected = false, attention = '', needsSetup = false, updateVersion = '', waitingApproval = false, onPin, onMove, onOpenDetail, onRemove, upgrade, upgradeInline = false }) {
+export default function AddonRow({ tile, pinned, selected = false, attention = '', needsSetup = false, updateVersion = '', waitingApproval = false, sourceId = '', onPin, onMove, onOpenDetail, onRemove, upgrade, upgradeInline = false }) {
   const { t } = useTranslation('addons')
   const { t: tn } = useTranslation('nav')
   const title = tile.titleKey ? tn(tile.titleKey) : tile.title
@@ -74,6 +75,7 @@ export default function AddonRow({ tile, pinned, selected = false, attention = '
             )}
             {!app && <span className="ad-meta__item">{t('meta.builtinLong')}</span>}
             {app && <span className="ad-meta__item"><VersionText version={app.version} /></span>}
+            {app && isLocalFile(sourceId) && <span className="ad-meta__item" data-source={sourceId}><Icon name="shield" aria-hidden="true" /> {t('file.badge')}</span>}
           </span>
         </span>
       </button>

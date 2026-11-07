@@ -56,10 +56,13 @@ export function createUi(ctx) {
     return <div ref={box}><Banner tone="error" testid="tbl-error" actions={action}>{t(d.key)}</Banner></div>
   }
 
+  // The host's role badge, so a role looks the same on every page; a host
+  // without it gets the plain badge.
   function RoleBadge({ role }) {
-    const tone = role === 'owner' ? 'healthy' : role === 'editor' ? 'loading' : 'idle'
     const label = t(`role.${role === 'owner' || role === 'editor' ? role : 'viewer'}`)
-    return <span className="tbl-role" data-role={role} data-testid="tbl-role"><Badge tone={tone}>{label}</Badge></span>
+    const HostRole = sdk.ui.RoleBadge
+    if (HostRole) return <span className="tbl-role" data-role={role} data-testid="tbl-role"><HostRole role={role} label={label} /></span>
+    return <span className="tbl-role" data-role={role} data-testid="tbl-role"><Badge tone={role === 'owner' ? 'healthy' : 'idle'}>{label}</Badge></span>
   }
 
   function Loading({ label }) {

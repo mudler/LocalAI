@@ -190,7 +190,6 @@ export function createVoiceLibrary(ctx, api) {
     const { cloningModels, modelsLoading, installableModels } = setup
     const [confirmDelete, setConfirmDelete] = useState(false)
     const [deleting, setDeleting] = useState(false)
-    const admin = viewer.isAdmin()
     const dateFmt = (value, dateStyle) => new Intl.DateTimeFormat(language(), { dateStyle }).format(new Date(value))
     const exampleModel = cloningModels[0]?.id || installableModels[0]?.name || '<voice-cloning-model>'
     const apiExample = `curl -X POST "$LOCALAI_URL/v1/audio/speech" \\
@@ -286,7 +285,7 @@ JSON`
         </details>
 
         <div className="voice-detail__actions">
-          {admin && (
+          {profile.can_delete && (
             <button type="button" className="dk-btn dk-btn--ghost dk-btn--danger voice-delete" onClick={() => setConfirmDelete(true)}>
               <Icon name="trash" /> {t('voiceLibrary.actions.delete')}
             </button>
@@ -322,7 +321,6 @@ JSON`
     const { cloningModels, modelsLoading } = setup
     const [search, setSearch] = useState('')
     const [languageFilter, setLanguageFilter] = useState('all')
-    const admin = viewer.isAdmin()
     const selectedParam = ctx.useSearch().get('selected') || ''
     const opened = useRef('')
 
@@ -357,7 +355,7 @@ JSON`
       openProfile(profile)
     }, [selectedParam, profiles, openProfile])
 
-    const newButton = (className) => admin && (
+    const newButton = (className) => (
       <ctx.Link page="voice/library/new" className={className} data-testid="voice-library-new">
         <Icon name="plus" /> {t('voiceLibrary.actions.create')}
       </ctx.Link>

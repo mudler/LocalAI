@@ -1,5 +1,7 @@
 # Icon source
 
-Not an official logo. `icon.png` is a generated tile: a branch glyph from the add-on icon set (`addons/internal/uibuild/glyphs.mjs`) on the add-on colour.
+`icon.png` is the GitHub logo mark from Simple Icons (https://simpleicons.org), version 16.35.0, file `icons/github.svg` (https://www.npmjs.com/package/simple-icons/v/16.35.0). The Simple Icons data is CC0 1.0.
 
-Why no official mark: https://docs.github.com/en/site-policy/other-site-policies/github-logo-policy says logos may be used by third parties "in some scenarios" and points to https://github.com/logos for the rules, which do not say whether a third-party add-on icon is one of them. The project owner decides.
+The GitHub name and logo are trademarks of their owner. The mark is used only to identify the service this add-on connects to. It does not say that GitHub made, endorses or supports the add-on.
+
+How the tile was made: a 256 by 256 PNG with the same rounded tile (corner radius 56) as the other add-on icons, filled with the add-on colour #24292f. The mark is a single white shape, 132 pixels wide, centred on the tile. The mark was not changed except for colour and size.

@@ -14,7 +14,8 @@
   },
   "sections": {
     "yourCollections": "Vos collections",
-    "otherUsersCollections": "Collections des autres utilisateurs"
+    "otherUsersCollections": "Collections des autres utilisateurs",
+    "sharedWithYou": "Partagées avec vous"
   },
   "empty": {
     "title": "Aucune collection pour l'instant",
@@ -42,7 +43,8 @@
   },
   "loadFailed": "Impossible de charger vos collections.",
   "sources": {
-    "loadFailed": "Impossible de charger les sources web."
+    "loadFailed": "Impossible de charger les sources web.",
+    "noneShared": "Aucune source web."
   },
   "entries": {
     "loadFailed": "Impossible de charger les fichiers."
@@ -64,5 +66,22 @@
     "hybrid": "hybride",
     "semanticHint": "Elle trouve des passages par le sens, pas par des mots ou des codes exacts.",
     "hybridHint": "Elle trouve des passages par le sens et par des mots exacts."
+  },
+  "pane": {
+    "addFile": "Ajouter un fichier"
+  },
+  "share": {
+    "label": "Partager",
+    "button": "Partager {{name}}",
+    "intro": "Les personnes que vous ajoutez trouvent cette collection dans leur liste, et leurs agents peuvent la rechercher par son nom.",
+    "failed": "Impossible de partager la collection : {{message}}",
+    "roles": {
+      "viewer": "Peut voir",
+      "viewerHelp": "Peut la rechercher et lire ses fichiers.",
+      "editor": "Peut modifier",
+      "editorHelp": "Peut aussi ajouter et retirer des fichiers."
+    },
+    "noteViewer": "Vous pouvez la rechercher et lire ses fichiers.",
+    "noteEditor": "Vous pouvez la rechercher et ajouter ou retirer des fichiers."
   }
 }

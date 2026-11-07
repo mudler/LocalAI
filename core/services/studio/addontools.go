@@ -405,6 +405,9 @@ func (s *Service) addonToolsHeld(ctx context.Context, a workspace.Actor, rec ses
 			// The user and the conversation come from the chat, never from the
 			// arguments the model wrote.
 			Run: run,
+			// The add-on declares the kind of each tool: only a read tool is
+			// safe to run again after a restart (see session.Tool.ReadOnly).
+			ReadOnly: !d.Action,
 		}
 		// A write of the provider that serves the notes follows the save
 		// level, the grants and the messaging rules of the host.
@@ -717,7 +720,7 @@ func (s *Service) agentResourceLayers(ctx context.Context, user, chatID string) 
 		if rec.AgentID != "" {
 			var layer addontools.ResourceLimit
 			if s.d.Agents != nil {
-				if ag, aerr := s.d.Agents.Get(ctx, rec.Principal, rec.AgentID); aerr == nil {
+				if ag, aerr := s.chatAgent(ctx, rec.Principal, rec.AgentID); aerr == nil {
 					layer = limitOf(ag.Resources)
 				} else if !errors.Is(aerr, agents.ErrNotFound) {
 					s.log.Warn("studio: agent resources unavailable", "chat", rec.ID, "agent", rec.AgentID, "error", aerr)

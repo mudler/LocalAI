@@ -65,6 +65,14 @@ type Gateway struct {
 	// creation, grants, rename, deletion and conversation selections.
 	// Frontends leave it nil and forward through Forward.
 	Resources ResourceManager
+	// Shares is the owner's sharing of the resource kinds that are not
+	// add-ons: the /api/shares routes. Frontends leave it nil and forward
+	// through Forward.
+	Sharing ShareManager
+	// ShareAuthority is the owner's lookup, creation and admission of the
+	// resources of those kinds for the services that run their work on any
+	// frontend (see RunShared). Frontends leave it nil and forward.
+	ShareAuthority ShareAuthority
 	// Libraries is the owner's library administration. Frontends leave it nil
 	// and forward through Forward.
 	Libraries LibraryAdmin
@@ -77,10 +85,17 @@ type Gateway struct {
 	ModelsProbe func() (modelsprobe.Probe, bool)
 	// OS and Arch are the platform the owner resolves libraries for. Empty
 	// means the platform of this process.
-	OS, Arch   string
-	streamsMu  sync.Mutex
-	streams    int
+	OS, Arch  string
+	streamsMu sync.Mutex
+	streams   int
+	// Revalidate is the host's account check of add-on calls. It includes
+	// the add-ons feature.
 	Revalidate func(context.Context, contract.Actor) error
+	// RevalidateAccount is the host's account check of the sharing calls of
+	// the kinds that are not add-ons: the account and the credential, never
+	// the add-ons feature. The owner's policy then checks the feature the
+	// kind names. Without it the sharing calls are denied.
+	RevalidateAccount func(context.Context, contract.Actor) error
 }
 
 // ClassifyCheck maps an error from a host-supplied account or authority check
@@ -108,6 +123,14 @@ func (g *Gateway) revalidate(ctx context.Context, a contract.Actor) error {
 		return ErrForbidden
 	}
 	return ClassifyCheck(g.Revalidate(ctx, a))
+}
+
+// revalidateAccount runs the host's account check of a sharing call.
+func (g *Gateway) revalidateAccount(ctx context.Context, a contract.Actor) error {
+	if g.RevalidateAccount == nil {
+		return ErrForbidden
+	}
+	return ClassifyCheck(g.RevalidateAccount(ctx, a))
 }
 
 type RelayRequest struct {

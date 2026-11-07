@@ -924,5 +924,54 @@
     "turnOn": "Activer",
     "find": "Voir dans les add-ons",
     "actionFor": "{{action}} : {{title}}"
+  },
+  "share": {
+    "action": "Partager",
+    "intro": "Les personnes que vous ajoutez utilisent cet agent en leur nom, avec leurs propres fichiers, collections et connexions.",
+    "roles": {
+      "use": "Peut utiliser",
+      "useHelp": "Elles discutent avec l'agent dans leurs propres conversations et voient ce dont il a besoin.",
+      "viewer": "Peut voir",
+      "viewerHelp": "Elles peuvent aussi lire ses instructions et ses outils."
+    },
+    "kind": {
+      "addon": "Module",
+      "collection": "Collection",
+      "skill": "Compétence",
+      "folder": "Dossier",
+      "connection": "Connexion",
+      "addon-resource": "Ressource de module",
+      "mcp": "Serveur MCP",
+      "builtin": "Autorisation intégrée",
+      "network": "Réseau",
+      "tool-group": "Groupe d'outils"
+    },
+    "ownAccess": "Ils ont besoin de leur propre accès",
+    "refsApplied_one": "{{count}} élément qu'il utilise a aussi été partagé.",
+    "refsApplied_other": "{{count}} éléments qu'il utilise ont aussi été partagés.",
+    "refsFailed": "Partage impossible : {{names}}.",
+    "refsSkipped": "Non partagé avec tout le monde : {{names}}. Partagez-les avec chaque personne.",
+    "failed": "Impossible d'ouvrir le partage. {{message}}"
+  },
+  "shared": {
+    "readOnly": "Vous pouvez discuter avec cet agent. Seul son propriétaire peut le modifier."
+  },
+  "needs": {
+    "title": "Ce dont cet agent a besoin",
+    "intro": "L'agent fonctionne en votre nom, avec votre propre accès.",
+    "none": "Cet agent n'utilise rien d'autre que la conversation.",
+    "loadError": "Impossible de vérifier ce dont cet agent a besoin.",
+    "state": {
+      "ok": "Vous l'avez",
+      "missing": "Non partagé avec vous",
+      "unavailable": "Non disponible pour vous",
+      "ask": "Désactivé au départ dans votre chat"
+    },
+    "noticeTitle_one": "Cet agent a besoin de {{count}} élément que vous n'avez pas :",
+    "noticeTitle_other": "Cet agent a besoin de {{count}} éléments que vous n'avez pas :",
+    "noticeLink": "Voir ce dont il a besoin",
+    "asksTitle_one": "Cet agent demande {{count}} élément que votre chat n'a pas au départ :",
+    "asksTitle_other": "Cet agent demande {{count}} éléments que votre chat n'a pas au départ :",
+    "asksHelp": "Il s'exécute en votre nom. Activez-les dans le chat seulement si vous faites confiance à l'agent et à la personne qui l'a partagé."
   }
 }

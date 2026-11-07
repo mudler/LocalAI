@@ -265,7 +265,8 @@
       "upstream_unreachable": "The upstream address could not be reached.",
       "upstream": "The provider behind the model returned an error.",
       "timeout": "The model took too long to answer.",
-      "cancelled": "The turn was cancelled before the model answered."
+      "cancelled": "The turn was cancelled before the model answered.",
+      "interrupted": "The server restarted while it was answering."
     },
     "hint": {
       "model_backend_missing": "Pick another model, or ask an administrator to install the backend.",
@@ -280,7 +281,15 @@
       "timeout": "Retry, or use a smaller or faster model.",
       "cancelled": "Retry when you are ready."
     },
-    "openBackends": "Open Backends"
+    "openBackends": "Open Backends",
+    "titleInterrupted": "The reply was interrupted",
+    "resume": {
+      "waiting": "Going on in {{seconds}} seconds (try {{attempt}} of {{max}}).",
+      "resuming": "Going on from where it stopped.",
+      "server": "The server is going on from where it stopped.",
+      "exhausted": "It could not go on after {{max}} tries. Retry to try again.",
+      "stop": "Stop trying"
+    }
   },
   "slash": {
     "group": {
@@ -902,6 +911,9 @@
       "other": "Note",
       "why": "Why"
     }
+  },
+  "connection": {
+    "lost": "Connection lost. Reconnecting."
   },
   "reasoning": {
     "chip": "Effort",

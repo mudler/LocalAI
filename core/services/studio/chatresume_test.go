@@ -136,6 +136,46 @@ var _ = Describe("retry of a failed turn", func() {
 		Expect(calls).To(HaveLen(2), "one run for the failure")
 	})
 
+	It("goes on from a turn that a restart interrupted", func() {
+		gate := make(chan struct{})
+		var calls []string
+		first := true
+		svc, _ := newToolService(func(_ workspace.Actor, text string) []studiotest.ToolStep {
+			calls = append(calls, text)
+			if first {
+				first = false
+				return []studiotest.ToolStep{{Say: "step one"}, {Tool: "search", Args: `{}`}, {Block: gate}, {Say: "lost"}}
+			}
+			return []studiotest.ToolStep{{Say: "all done"}}
+		})
+		id := create(svc, alice)
+		sent(svc, alice, id, "build the report")
+		until("the turn to reach its tool", func() bool { return len(transcript(svc, alice, id)) >= 3 })
+		// The process that ran the turn is gone: its claim is reaped.
+		n, err := svc.ReapStale(ctx, 0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(1))
+		close(gate)
+		idle(svc, alice, id)
+		Expect(turn(svc, alice, id).Last).To(Equal(store.TurnInterrupted))
+
+		// This test process still holds the loop of the reaped turn, which a real
+		// restart would have killed. Go on once that loop has ended.
+		var res studio.SendResult
+		Eventually(func() bool {
+			res, _ = svc.Resume(ctx, alice, id)
+			return res.Started
+		}, "5s", "20ms").Should(BeTrue(), "an interrupted turn can be gone on with")
+		idle(svc, alice, id)
+		Expect(turn(svc, alice, id).Last).To(Equal(store.TurnDone))
+		Expect(calls).To(HaveLen(2))
+		Expect(shape(transcript(svc, alice, id))[:3]).To(Equal([]string{"user: build the report", "assistant: step one", "tool: search: \nfound"}))
+
+		again, err := svc.Resume(ctx, alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(again.Started).To(BeFalse())
+	})
+
 	It("keeps what the person typed during the run and delivers it with the retry", func() {
 		gate := make(chan struct{})
 		var calls []string

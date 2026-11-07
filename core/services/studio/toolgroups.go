@@ -116,7 +116,13 @@ func (s *Service) switchesOf(ctx context.Context, rec session.ChatRecord) (off, 
 		s.log.Warn("studio: the parent of a sub-agent is gone; it keeps every group off", "chat", rec.ID, "error", err)
 		return s.builtins.Groups(), nil
 	}
-	return mergeGroups(slices.Clone(rec.BuiltinsOff), s.agentOff(ctx, rec)), rec.BuiltinsOn
+	on = rec.BuiltinsOn
+	if rec.Assistant {
+		// Assistant mode is a convenience: it switches the admin group on for
+		// this chat. The chat's own switch and the agent's ceiling still win.
+		on = mergeGroups(slices.Clone(on), []string{builtins.GroupLocalAIAdmin})
+	}
+	return mergeGroups(slices.Clone(rec.BuiltinsOff), s.agentOff(ctx, rec)), on
 }
 
 // agentOff are the groups of built-in tools the saved agent of the chat turns
@@ -126,7 +132,7 @@ func (s *Service) agentOff(ctx context.Context, rec session.ChatRecord) []string
 	if rec.AgentID == "" || s.d.Agents == nil {
 		return nil
 	}
-	ag, err := s.d.Agents.Get(ctx, rec.Principal, rec.AgentID)
+	ag, err := s.chatAgent(ctx, rec.Principal, rec.AgentID)
 	if err != nil {
 		return nil
 	}

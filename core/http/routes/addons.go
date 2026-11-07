@@ -127,6 +127,23 @@ func registerAddonRoutes(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, ownersh
 	// read for every caller with the feature; the owner serves only declared
 	// files of the current package. No MCP tool maps to it.
 	group.GET("/:id/assets/:digest/*", endpoints.GetAsset(gw, db, mode))
+	registerShareRoutes(e, gw, db, mode, gate...)
+}
+
+// registerShareRoutes registers the sharing of the resource kinds that are not
+// add-ons. The grants live in the add-on owner's policy store, so the routes
+// sit behind the instance gate of the add-on routes. They do not need the
+// add-ons feature: every call is revalidated as an account, and the policy
+// checks the feature the kind names. They are never tools and no MCP tool
+// maps to them; everything but the listing accepts only the owner's own
+// browser session.
+func registerShareRoutes(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, mode endpoints.Option, gate ...echo.MiddlewareFunc) {
+	group := e.Group("/api/shares", append(gate, auth.CSRFMiddleware(), endpoints.BrowserProtection())...)
+	group.GET("/:kind", endpoints.ListShares(gw, db, mode))
+	group.GET("/:kind/:resourceId/grants", endpoints.ListShareGrants(gw, db, mode))
+	group.PUT("/:kind/:resourceId/grants/:principal", endpoints.SetShareGrant(gw, db, mode))
+	group.DELETE("/:kind/:resourceId/grants/:principal", endpoints.RevokeShareGrant(gw, db, mode))
+	group.GET("/:kind/:resourceId/users", endpoints.SearchShareUsers(gw, db, mode))
 }
 
 // RegisterAddonsUnavailable answers every method on a prefix and below it with

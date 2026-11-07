@@ -181,6 +181,55 @@ export function waitView(t, loop, now = Date.now()) {
   return { phase, tone, icon, title, reason, facts, end: w.end || '' }
 }
 
+// From this many waits that still wait, the page folds them into one chip.
+export const WAIT_GROUP_MIN = 3
+
+// A wait that still waits: it checks, or it is paused. One that woke the model
+// or ended has a result of its own to show, so it never hides in a group.
+export function isLiveWait(loop) {
+  if (!isWait(loop)) return false
+  const phase = loop.watch.phase || 'waiting'
+  return loop.state !== 'ended' && (phase === 'waiting' || phase === 'paused')
+}
+
+// barItems turns the chips of a chat into what the bar draws, in order:
+//   { kind: 'loop' | 'wait', loop }       one chip
+//   { kind: 'group', waits: [loop, ...] } the live waits, when there are
+//                                          WAIT_GROUP_MIN or more of them; the
+//                                          group sits where the first one was
+export function barItems(loops, min = WAIT_GROUP_MIN) {
+  const chips = chipLoops(loops)
+  const live = chips.filter(isLiveWait)
+  const fold = live.length >= min
+  const items = []
+  for (const l of chips) {
+    if (fold && isLiveWait(l)) {
+      if (!items.some(i => i.kind === 'group')) items.push({ kind: 'group', waits: live })
+    } else {
+      items.push({ kind: isWait(l) ? 'wait' : 'loop', loop: l })
+    }
+  }
+  return items
+}
+
+// groupView is the line of a folded group: how many wait and the soonest time
+// that matters: the nearest deadline, else the latest check.
+//   { count, paused, facts: [{ key, text }] }
+export function groupView(t, waits, now = Date.now()) {
+  const list = Array.isArray(waits) ? waits : []
+  const time = iso => { const n = Date.parse(iso); return Number.isNaN(n) ? null : n }
+  const facts = []
+  const deadlines = list.map(l => l.watch.deadline).filter(d => time(d) !== null).sort((a, b) => time(a) - time(b))
+  const checks = list.map(l => l.watch.last_check).filter(d => time(d) !== null).sort((a, b) => time(b) - time(a))
+  const paused = list.filter(l => (l.watch.phase || 'waiting') === 'paused').length
+  if (paused > 0) facts.push({ key: 'paused', text: t('loops.wait.group.paused', { count: paused }) })
+  if (deadlines.length > 0) {
+    facts.push({ key: 'deadline', text: t('loops.wait.group.deadline', { time: hhmm(deadlines[0]), when: inSpan(t, deadlines[0], now) }) })
+  }
+  if (checks.length > 0) facts.push({ key: 'checked', text: t('loops.wait.group.lastCheck', { ago: ago(t, checks[0], now) }) })
+  return { count: list.length, paused, facts }
+}
+
 // A short line for a list: a looping sub-agent's row, the answer to /loop list.
 export function loopSummary(t, loop, now = Date.now(), withPhase = true) {
   if (isWait(loop)) {

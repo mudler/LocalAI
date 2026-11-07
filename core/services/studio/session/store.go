@@ -40,6 +40,24 @@ type Store interface {
 	Entries(ctx context.Context, chatID string, after int64, limit int) ([]Entry, error)
 }
 
+// PartialStore is implemented by a Store that keeps the text of the assistant
+// message that is being written, so that a process that dies in the middle of
+// a long answer does not lose it. A Store without it loses that text, as it
+// always has. The text is cleared when the message is stored as a line.
+type PartialStore interface {
+	// SavePartial replaces the saved text of the chat. Empty text clears it. turn
+	// is the turn that writes it.
+	SavePartial(ctx context.Context, chatID string, turn int, text string) error
+	// TakePartial returns the saved text and its turn and clears them in one
+	// step, so two callers never both get it. It returns empty text when there
+	// is none.
+	TakePartial(ctx context.Context, chatID string) (turn int, text string, err error)
+}
+
+// MaxPartialBytes bounds the saved text of one message. Longer text is cut at
+// the end; the part that was saved is still a valid start of the answer.
+const MaxPartialBytes = 128 << 10
+
 // ChatRecord is the stored state of one chat.
 type ChatRecord struct {
 	ID, Principal, Title string
@@ -318,6 +336,14 @@ const (
 	// code (HostNote*) and Text is the plain sentence the sender was told, if
 	// any. It is for display: the model never sees it.
 	RoleHostNote = "hostnote"
+	// RoleToolIntent marks that a tool that may change something was about to
+	// run: Text is the tool's name and Note the start of its arguments. The
+	// result line of the call comes after it. A turn that dies in between leaves
+	// the intent without a result, and the turn that resumes it tells the model
+	// that the outcome of that call is not known (see UnresolvedIntents). It is
+	// internal: the interface never gets it, and the model never reads it as a
+	// message.
+	RoleToolIntent = "tool_intent"
 )
 
 // ThreadCut is the Note of a RoleThread entry whose block left out older

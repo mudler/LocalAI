@@ -224,6 +224,11 @@ const CodeResourceNotAllowed = gateway.CodeResourceNotAllowed
 // ResourceNotAllowedNote is what the model is told for a resource that is not on the list.
 const ResourceNotAllowedNote = "That resource is not on the list the person allowed for this add-on, so nothing was sent to it. Use one of the resources in allowed, or tell the person to add it to the list on the add-on page. Do not repeat the call and do not report an outage."
 
+// ResourceNotListedNote is the Note of a ResultError for a resource that is
+// not on the list of a connection another person shared, whose list is not
+// shown to the caller.
+const ResourceNotListedNote = "That resource is not on the list of this connection, so nothing was sent to it. The connection was shared by another person, who keeps its list; tell the person to ask its owner to add the resource. Do not repeat the call and do not report an outage."
+
 // CodeNoCredential is the Code of a ResultError for an add-on that needs a
 // credential the person has not given.
 const CodeNoCredential = gateway.CodeNoCredential
@@ -1127,6 +1132,9 @@ func refusedResult(name string, err error) (ToolResult, error) {
 	switch {
 	case errors.As(err, &limited):
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeRateLimited, Note: RateLimitedNote, RetryAfter: limited.Seconds()}, nil
+	case errors.As(err, &refusal) && refusal.Code == gateway.CodeResourceNotAllowed && len(refusal.Allowed) == 0:
+		// The host shows the list only to the owner of the connection.
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceNotAllowed, Note: ResourceNotListedNote}, nil
 	case errors.As(err, &refusal) && refusal.Code == gateway.CodeResourceNotAllowed:
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceNotAllowed, Note: ResourceNotAllowedNote, Allowed: refusal.Allowed}, nil
 	case errors.As(err, &refusal) && refusal.Code == gateway.CodeWriteNotAllowed:
