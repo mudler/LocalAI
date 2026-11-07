@@ -14,8 +14,9 @@ import './setups.css'
 //   edited           the composer differs from the active setup
 //   inactiveReason   when set the chip is off and this is why (a saved agent
 //                    decides the chat)
+//   reasonId         the id of the visible text that gives inactiveReason
 //   onPick(setup), onSaveAs(), onManage()
-export default function SetupChip({ list, activeId, edited, inactiveReason = '', onPick, onSaveAs, onManage }) {
+export default function SetupChip({ list, activeId, edited, inactiveReason = '', reasonId, onPick, onSaveAs, onManage }) {
   const { t } = useTranslation('chat')
   const active = list.find((s) => s.id === activeId)
   const label = (
@@ -34,18 +35,18 @@ export default function SetupChip({ list, activeId, edited, inactiveReason = '',
       testId="setup-chip"
       menuClassName="swl-menu--wide"
       disabled={!!inactiveReason}
+      describedBy={inactiveReason ? reasonId : undefined}
     >
       {(close) => (
         <>
           <SwitchHead title={t('setup.menuTitle')} />
-          <div className="swl-list" role="listbox" aria-label={t('setup.menuTitle')}>
+          <div className="swl-list">
             {list.length === 0 && <p className="setup-empty">{t('setup.empty')}</p>}
             {list.map((s) => (
               <button
                 key={s.id}
                 type="button"
-                role="option"
-                aria-selected={s.id === activeId}
+                aria-current={s.id === activeId ? 'true' : undefined}
                 className="swl-row swl-row--stacked setup-row"
                 data-testid={`setup-option-${s.id}`}
                 onClick={() => { onPick(s); close() }}

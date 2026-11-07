@@ -22,10 +22,11 @@ import ReasoningChips from '../components/chat/ReasoningChips'
 import { settingsWithEffort } from '../utils/chatSettings'
 import { useSetups } from '../hooks/useSetups'
 import { captureSetup, cleanName, isEdited } from '../utils/setups'
+import { toolsOnLabels } from '../utils/setupSummary'
 // eslint-disable-next-line no-unused-vars
 import SetupChip from '../components/chat/SetupChip'
 // eslint-disable-next-line no-unused-vars
-import SetupStatusLine from '../components/chat/SetupStatusLine'
+import SetupStatusLine, { SetupReason } from '../components/chat/SetupStatusLine'
 // eslint-disable-next-line no-unused-vars
 import ManageSetups from '../components/chat/ManageSetups'
 import { useChatComposer } from '../hooks/useChatComposer'
@@ -122,7 +123,7 @@ export default function Home() {
   const [missingModel, setMissingModel] = useState(null)
   const [naming, setNaming] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
-  const [settling, setSettling] = useState(null)
+  const [settling, setSettling] = useState(false)
   // The switches as the composer showed them once the setup was loaded. A tool
   // the setup names but this server does not list is not in them, so comparing
   // with this (not with the setup's lists) keeps such a setup from being "edited".
@@ -131,7 +132,6 @@ export default function Home() {
   setupsRef.current = setups
   const agentPicked = !!composer.pickedAgent
   const activeSetup = !agentPicked ? setups.list.find((s) => s.id === activeSetupId) : undefined
-  const { builtins: draftBuiltins, skills: draftSkills, addons: draftAddons } = switches
 
   const applySetup = useCallback((s) => {
     const installed = composer.models.some((m) => m.id === s.model)
@@ -145,21 +145,19 @@ export default function Home() {
     // The lists of the switches are read again after this; until they are, the
     // composer still shows the old ones and must not be called edited.
     setBaseTools(null)
-    if (switches.draft) setSettling({ builtins: draftBuiltins, skills: draftSkills, addons: draftAddons })
+    if (switches.draft) setSettling(true)
     switches.applyDraftTools(s.tools || null)
     setActiveSetupId(s.id)
-  }, [composer, selectedModel, switches, draftBuiltins, draftSkills, draftAddons])
+  }, [composer, selectedModel, switches])
 
+  // The lists answer the load of a setup (switches.listsReady, errors count);
+  // the switches they show then are the base of "edited". An edit is only
+  // possible after that answer, so none is taken into the base.
   useEffect(() => {
-    if (!settling) return undefined
-    const settle = () => { setBaseTools({ tools: switches.draftSwitches() }); setSettling(null) }
-    if (draftBuiltins !== settling.builtins && draftSkills !== settling.skills && draftAddons !== settling.addons) {
-      settle()
-      return undefined
-    }
-    const timer = setTimeout(settle, 4000)
-    return () => clearTimeout(timer)
-  }, [settling, draftBuiltins, draftSkills, draftAddons, switches])
+    if (!settling || !switches.listsReady) return
+    setBaseTools({ tools: switches.draftSwitches() })
+    setSettling(false)
+  }, [settling, switches])
 
   // The model in use when the setup's own is missing may still be chosen (the
   // picker picks one once the list is read): it is the one that stays.
@@ -183,8 +181,9 @@ export default function Home() {
   const setupEdited = !!activeSetup && !settling
     && isEdited({ ...activeSetup, tools: baseTools ? baseTools.tools : activeSetup.tools }, { model: setupModel, tools: switches.draftSwitches(), effort: draftEffort })
   const captureNow = (name) => captureSetup({ name, model: setupModel, tools: switches.draftSwitches(), effort: draftEffort })
-  const toolLabels = (draftBuiltins || []).filter((b) => !b.off && b.usable !== false)
-    .map((b) => tc(`tools.builtin.${b.group}`, { defaultValue: b.title || b.group }))
+  // What the Tools badge counts: built-ins, add-ons, servers and connectors
+  // that are on and usable, named as the Tools menu names them.
+  const toolLabels = toolsOnLabels(switches, (b) => tc(`tools.builtin.${b.group}`, { defaultValue: b.title || b.group }))
 
   useEffect(() => {
     if (!setups.error) return
@@ -678,6 +677,7 @@ export default function Home() {
                 activeId={activeSetup?.id || ''}
                 edited={setupEdited}
                 inactiveReason={agentPicked ? tch('setup.agentReason') : ''}
+                reasonId="setup-chip-reason"
                 onPick={(s) => { setNaming(false); applySetup(s) }}
                 onSaveAs={() => setNaming(true)}
                 onManage={() => setManageOpen(true)}
@@ -725,6 +725,7 @@ export default function Home() {
               onReset={() => activeSetup && applySetup(activeSetup)}
             />
           ) : (!firstRun && <ReadyLine model={selectedModel} warm={loadedIds.has(selectedModel)} />)}
+          {setupsShown && agentPicked && <SetupReason id="setup-chip-reason" text={tch('setup.agentReason')} />}
           {manageOpen && setupsShown && (
             <ManageSetups
               list={setups.list}

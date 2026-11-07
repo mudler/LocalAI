@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import Icon from '../Icon'
 import { Button, Callout } from '../ui'
 import { MAX_NAME } from '../../utils/setups'
 import './setups.css'
@@ -23,7 +24,10 @@ export default function SetupStatusLine({
   const { t } = useTranslation('chat')
   const [name, setName] = useState('')
   const level = t(`settings.effort.${effort || 'default'}`)
-  const tools = toolLabels.length > 0 ? toolLabels.join(', ') : t('setup.line.noTools')
+  // Up to three names; more than that is a count. Never "No tools" when
+  // the Tools badge counts something: both read the same list.
+  const tools = toolLabels.length === 0 ? t('setup.line.noTools')
+    : toolLabels.length <= 3 ? toolLabels.join(', ') : t('setup.line.toolCount', { count: toolLabels.length })
   const submit = (e) => {
     e.preventDefault()
     if (!name.trim()) return
@@ -32,7 +36,7 @@ export default function SetupStatusLine({
   }
   return (
     <>
-      <p className="cx-ready setup-line" data-testid="setup-line">
+      <div className="cx-ready setup-line" data-testid="setup-line">
         {active && (
           <span className="setup-line__what">
             <span className={`home-dot${warm ? '' : ' home-dot--cold'}`} aria-hidden="true" />
@@ -65,8 +69,19 @@ export default function SetupStatusLine({
             <Button size="sm" variant="ghost" onClick={onReset} data-testid="setup-reset">{t('setup.reset')}</Button>
           </span>
         ))}
-      </p>
+      </div>
       {warning && <Callout tone="warn" className="setup-warning" testId="setup-warning" role="status">{warning}</Callout>}
     </>
+  )
+}
+
+// Why the Setup chip is off, as text next to the composer (the chip points at
+// it with aria-describedby).
+export function SetupReason({ id, text }) {
+  return (
+    <p className="cx-ready setup-reason" id={id} data-testid="setup-reason">
+      <Icon name="info" />
+      <span>{text}</span>
+    </p>
   )
 }

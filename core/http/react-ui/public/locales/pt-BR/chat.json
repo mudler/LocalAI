@@ -797,7 +797,9 @@
     "agentReason": "A saved agent decides the model and tools of this chat.",
     "modelMissing": "The model “{{model}}” of this setup is not installed. The current model stays.",
     "line": {
-      "noTools": "No tools"
+      "noTools": "No tools",
+      "toolCount_one": "{{count}} tool",
+      "toolCount_other": "{{count}} tools"
     },
     "update": "Update “{{name}}”",
     "saveNew": "Save as new…",

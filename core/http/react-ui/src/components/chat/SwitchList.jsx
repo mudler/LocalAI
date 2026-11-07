@@ -65,7 +65,7 @@ export function SwitchPopover({ icon, label, title, count, describedBy, testId, 
         title={title}
         aria-haspopup="true"
         aria-expanded={open}
-        aria-describedby={open ? describedBy : undefined}
+        aria-describedby={open || disabled ? describedBy : undefined}
         data-testid={`${testId}-button`}
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}

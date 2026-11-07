@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import SideSheet from '../SideSheet'
 import { Button, StatusChip } from '../ui'
@@ -55,9 +55,41 @@ function Row({ setup, index, count, isDefault, onRename, onRemove, onMove, onSet
 }
 
 // The Manage sheet: rename, reorder, delete and choose the default setup.
-// Every change saves at once.
+// Every change saves at once. A button that goes away or turns disabled by
+// its own action hands the focus on (see `after`).
 export default function ManageSetups({ list, defaultId, onClose, onRename, onRemove, onMove, onSetDefault }) {
   const { t } = useTranslation('chat')
+  const box = useRef(null)
+  const done = useRef(null)
+  // Where the focus goes once the list shows the change: { id, to } with to
+  // 'name', 'up' or 'down'.
+  const after = useRef(null)
+  const find = (id, kind) => box.current?.querySelector(`[data-testid="setup-manage-${kind}-${id}"]`)
+  useEffect(() => {
+    const a = after.current
+    if (!a) return
+    after.current = null
+    const idx = list.findIndex((s) => s.id === a.id)
+    if (idx < 0) { done.current?.focus(); return }
+    let el = a.to === 'name' ? null : find(a.id, a.to)
+    if (!el || el.disabled) el = find(a.id, 'name')
+    el?.focus()
+  }, [list])
+
+  const run = (focus, fn) => async (...args) => {
+    after.current = focus(...args)
+    const res = await fn(...args)
+    if (res === null) after.current = null
+    return res
+  }
+  const remove = run((id) => {
+    const i = list.findIndex((s) => s.id === id)
+    const next = list[i + 1] || list[i - 1]
+    return next ? { id: next.id, to: 'name' } : { id: '', to: 'name' }
+  }, onRemove)
+  const move = run((id, d) => ({ id, to: d < 0 ? 'up' : 'down' }), onMove)
+  const makeDefault = run((id) => ({ id, to: 'name' }), onSetDefault)
+
   return (
     <SideSheet
       title={t('setup.manageTitle')}
@@ -66,14 +98,14 @@ export default function ManageSetups({ list, defaultId, onClose, onRename, onRem
       testId="setup-manage-sheet"
       labelId="setup-manage-title"
       onClose={onClose}
-      footer={<Button variant="primary" onClick={onClose} data-testid="setup-manage-done">{t('setup.done')}</Button>}
+      footer={<Button ref={done} variant="primary" onClick={onClose} data-testid="setup-manage-done">{t('setup.done')}</Button>}
     >
-      <div className="setup-manage">
+      <div className="setup-manage" ref={box}>
         {list.length === 0 && <p className="setup-manage__note">{t('setup.manageEmpty')}</p>}
         {list.map((s, i) => (
           <Row
             key={s.id} setup={s} index={i} count={list.length} isDefault={s.id === defaultId}
-            onRename={onRename} onRemove={onRemove} onMove={onMove} onSetDefault={onSetDefault}
+            onRename={onRename} onRemove={remove} onMove={move} onSetDefault={makeDefault}
           />
         ))}
       </div>
