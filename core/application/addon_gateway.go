@@ -458,7 +458,10 @@ func (a *Application) startAddonGateway() error {
 	// that needs recovery stays unavailable until an administrator acts.
 	if a.addonManager != nil {
 		if rec := a.addonManager.DataRecovery(); rec != nil {
-			rec.SetPolicy(&policy.RecoveryPort{Policy: p, Broker: broker})
+			rec.SetPolicy(oauthPurgePort{
+				PolicyPort: &policy.RecoveryPort{Policy: p, Broker: broker},
+				store:      func() connectors.Store { return a.studioConnStore },
+			})
 			if e = rec.Reconcile(a.applicationConfig.Context); e != nil {
 				xlog.Warn("addons: a data recovery journal could not be finished yet", "error", e)
 			}
