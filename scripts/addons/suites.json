@@ -5415,10 +5415,8 @@
       "go: audits actual host calls and strict package contract for gmail",
       "go: translates the title and the description of gdrive in every main language",
       "go: translates the title and the description of gmail in every main language",
-      "go: translates the title and the description of memory in every main language",
       "go: gives every translated connector kind of gdrive the fields of its English kind, and no others",
       "go: gives every translated connector kind of gmail the fields of its English kind, and no others",
-      "go: gives every translated connector kind of memory the fields of its English kind, and no others",
       "go: has consistent package files for gdrive",
       "go: has consistent package files for gmail"
     ]
