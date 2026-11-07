@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -451,6 +452,12 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 	w.Deadline = now.Add(timeout)
 	w.Note = loops.Cut(args.Reason)
 
+	if dup, err := h.sameWait(ctx, a, w); err != nil {
+		return "", fmt.Errorf("no wait was started: %w", err)
+	} else if dup {
+		return "", fmt.Errorf("no wait was started: this chat already waits for %s. One wait wakes you once, so do not arm it again", w.Describe())
+	}
+
 	_, err := h.begin(ctx, a.Principal, a.ChatID, LoopInput{Prompt: "Wait for " + loops.Cut(w.Describe())}, &modelStart{wait: every, reason: w.Note, watch: w})
 	switch {
 	case errors.Is(err, loops.ErrTooManyInChat):
@@ -468,6 +475,36 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 		out += fmt.Sprintf(" The interval was set to %s: it must be from %s to 24h.", loops.ShortDuration(every), loops.ShortDuration(lim.MinInterval))
 	}
 	return out, nil
+}
+
+// sameWait reports whether the chat already has a wait that checks the same
+// source for the same condition and has not ended its checks. Arming it twice
+// would show the person one card per copy and wake the model once per copy. A
+// wait that already has its wake-up is not counted: the model that it woke may
+// arm the next one.
+func (h *Loops) sameWait(ctx context.Context, a workspace.Actor, w *loops.Watch) (bool, error) {
+	list, err := h.o.Store.ListChat(ctx, principal(a.Principal), a.ChatID)
+	if err != nil {
+		return false, err
+	}
+	same := func(x, y json.RawMessage) bool {
+		var xv, yv any
+		if json.Unmarshal(x, &xv) != nil || json.Unmarshal(y, &yv) != nil {
+			return string(x) == string(y)
+		}
+		return reflect.DeepEqual(xv, yv)
+	}
+	for _, l := range list {
+		o := l.Watch
+		if o == nil || !l.State.Live() || o.Wake != "" {
+			continue
+		}
+		if o.Tool == w.Tool && o.URL == w.URL && o.Mode == w.Mode && o.Pattern == w.Pattern &&
+			o.Field == w.Field && o.Equals == w.Equals && same(o.Args, w.Args) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // --- The checks of the loop host --------------------------------------------
