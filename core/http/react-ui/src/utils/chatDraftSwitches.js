@@ -83,3 +83,18 @@ export function draftListSwitches(choices, builtins = []) {
   if (Object.keys(connections).length) out.connections = connections
   return Object.keys(out).length ? out : null
 }
+
+// The choices that give back the switches of a draft: the inverse of
+// draftSwitches for the lists it keeps (a saved setup holds that object).
+// Opt-in groups are stored as builtins_on and become "not off" (false).
+// Names the lists do not have are harmless: applyChoices skips them.
+export function choicesFromTools(tools) {
+  let c = emptyChoices()
+  const t = tools || {}
+  for (const g of t.builtins_off || []) c = withChoice(c, 'builtins', g, true)
+  for (const g of t.builtins_on || []) c = withChoice(c, 'builtins', g, false)
+  for (const id of t.addons_off || []) c = withChoice(c, 'addons', id, true)
+  for (const n of t.mcp_off || []) c = withChoice(c, 'mcp', n, true)
+  for (const k of t.skills_off || []) c = withChoice(c, 'skills', k, false)
+  return c
+}

@@ -16,6 +16,7 @@ export const WELL_KNOWN_FILES = {
   shortcuts: `${SETTINGS_DIR}/shortcuts.json`,
   home: `${SETTINGS_DIR}/home.json`,
   ui: `${SETTINGS_DIR}/ui.json`,
+  setups: `${SETTINGS_DIR}/setups.json`,
 }
 
 export class WellKnownError extends Error {
