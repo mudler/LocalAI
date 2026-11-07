@@ -181,6 +181,10 @@ test.describe('Add-ons: connections elsewhere', () => {
     await page.route(/\/api\/chats\/connectors\/kinds$/, r => r.fulfill({ json: { kinds: KINDS, capabilities: [] } }))
     await page.route('**/api/addons/apps', r => r.fulfill({ json: { apps: APPS } }))
     await page.route('**/api/addons/dispatch', r => r.fulfill({ json: { payload: { releases: [], total: 0 } } }))
+    // The icon route answers a picture. Without it the server says 404, the
+    // image fails and the row falls back to its letter tile, so the src
+    // attribute exists only for the moment between the request and the answer.
+    await page.route(/\/api\/addons\/apps\/[^/]+\/icon/, route => route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64') }))
     await page.goto('/app/agents/new')
     await page.getByLabel('Name', { exact: false }).first().fill('helper')
     await page.getByLabel('Instructions', { exact: false }).first().fill('Be brief.')
