@@ -142,9 +142,11 @@ The picker returns at most 20 people, each with the account ID and the display n
 only, and never the owner or the caller.
 
 Each person may search 20 times at once and then once every 2 seconds. A search over
-that rate gets 429 with type `rate_limited`. The add-on owner, the only process that
-answers the picker, keeps the count per person in memory, so the rate holds for the
-whole cluster and a restart of the owner resets it.
+that rate gets 429 with type `rate_limited`. For the kinds on this page, the add-on
+owner, the only process that answers the picker, keeps the count per person in memory,
+so the rate holds for the whole cluster and a restart of the owner resets it. The
+picker of a folder of a home keeps its own count on each frontend (see
+[Folders](#folders)).
 
 ### List your resources of a kind
 
@@ -215,11 +217,13 @@ the resource ID from the page of the resource, or from the route in the table.
   is then named `shared:<resource ID>`.
 
 - **`agent`**: `use` chats with the agent as yourself, `viewer` also reads its
-  definition. Only the owner edits, deletes, exports or shares it. Sharing the
-  agent shares nothing it uses. The owner reads what it uses with
-  `GET /api/chats/agents/{id}/references`: each collection, connection and add-on
-  resource carries `share` with the options its kind can grant and the role of each
-  option. A person who may use the agent reads
+  definition. `use` hides the instructions from the UI and the API only: a
+  person who runs the agent can ask the model to repeat its instructions, so
+  they are not a secret from that person. Only the owner edits, deletes,
+  exports or shares it. Sharing the agent shares nothing it uses. The owner
+  reads what it uses with `GET /api/chats/agents/{id}/references`: each
+  collection, connection and add-on resource carries `share` with the options
+  its kind can grant and the role of each option. A person who may use the agent reads
   `GET /api/chats/agents/{id}/needs`: each thing it uses, its network preset and its
   opt-in tool groups, with the state of each for them.
 
@@ -261,15 +265,39 @@ use.
 
 A folder of a person's home is shared with the same dialog and the same rules
 (the owner only, the owner's own browser session, never a tool, `@everyone`
-allowed, a lowering or a revoke stops the work that used it before it answers),
-but not through `/api/shares`. Its grants are the workspace grants that the
-file store checks on every file call, so they stay in the workspace database,
-and the routes are under `/api/chats/files/shares` (see [Share a folder of your
+allowed), but not through `/api/shares`. A lowering or a revoke holds from the
+grantee's next file call on every frontend, because the file store checks the
+grants on every call. The chats of the grantee that run with the folder on the
+frontend that serves the change are stopped before the change answers; the other
+frontends get the request on the chat bus and stop theirs within seconds. Its
+grants are the workspace grants that the file store checks on every file call,
+so they stay in the workspace database, and the routes are under
+`/api/chats/files/shares` (see [Share a folder of your
 home]({{%relref "features/chats#share-a-folder-of-your-home" %}})). Moving them
 into the policy store would put the add-on owner on the path of every file
 call. The user picker of a folder is the picker described in [API](#api), with the
 same rules and limits, but it answers on the frontend that serves the call, so its
 count of searches is kept per frontend.
+
+LocalAI reads some folders of a home with the owner's own authority: the skills
+(the `.skills` folder at the top of the home and every `.skills` folder below it),
+the notes in `Memory/` and the context files of add-ons, the agent profiles and
+the persona in `LocalAI/`, and the pages in `pages/`. Two rules keep a grantee
+from writing the owner's instructions:
+
+- A person cannot share `LocalAI/`, `Chats/`, `Memory/`, `pages/` or a `.skills`
+  folder, or a folder inside one. A folder that holds a grant, on itself or on a
+  folder below it, cannot move into another home, out of a home, or into one of
+  these folders: the move is refused with type `folder_shared`, also in an undo.
+  A grant therefore never reaches another home, where its giver could not take
+  it back. An administrator is not held by this rule.
+- When LocalAI loads that content, it leaves out every file in a folder on which
+  another principal than the owner, `@everyone` included, holds write access
+  through the folder or a folder above it. A read grant does not hide anything.
+
+The owner's list of shared folders shows every grant on a folder strictly inside
+the home, whoever made it, managed folders included, and the owner can revoke
+each one.
 
 ## The Share dialog
 

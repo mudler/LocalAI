@@ -686,8 +686,10 @@ func (a *Application) studioFindUser() func(ctx context.Context, ref string) (*a
 
 // studioFolderDirectory is the account directory people pick from when they
 // share a folder of their own home: the user picker of the sharing routes,
-// with its rules and its own rate per person. Without an account database
-// there is none and folders are not shared by their owners.
+// with its rules and its own rate per person. The picker is this frontend's
+// own, so the rate is counted per frontend, not for the whole cluster.
+// Without an account database there is none and folders are not shared by
+// their owners.
 func (a *Application) studioFolderDirectory() sharedfolders.Directory {
 	if a.authDB == nil {
 		return nil

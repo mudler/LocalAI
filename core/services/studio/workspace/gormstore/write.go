@@ -156,6 +156,9 @@ func (w *writer) apply(id int64, kind Kind, op OpKind, ns state) (nodeRow, error
 		if beforePath, err = pathOf(ctx, q, id); err != nil {
 			return nodeRow{}, err
 		}
+		if err := w.checkGrantsMove(id, kind, cur.state, ns, beforePath); err != nil {
+			return nodeRow{}, err
+		}
 	}
 	if id == 0 {
 		if err := q.QueryRowContext(ctx, `INSERT INTO studio_ws_nodes (parent_id, name, name_fold, kind, blob, size, version, rev, deleted) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?) RETURNING id`,

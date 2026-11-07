@@ -206,7 +206,7 @@ func (s *Service) chatSkillSet(ctx context.Context, p string, off, addonsOff []s
 	if err != nil {
 		return nil, nil, "", err
 	}
-	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, append(ad.roots(), agentSkillRoots(p, sc)...)...), ad.options(skills.Options{
+	list, notes, err := s.d.Files.ResolveSkills(ctx, p, s.d.Files.SkillRoots(p, append(ad.roots(), agentSkillRoots(p, sc)...)...), ad.options(skills.Options{
 		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.grantsSkill(sk)) },
 		Logger: s.log,
 	}))
@@ -245,7 +245,7 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 	if err != nil {
 		return nil, nil, err
 	}
-	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, append(ad.roots(), agentSkillRoots(p, sc)...)...), ad.options(skills.Options{
+	list, notes, err := s.d.Files.ResolveSkills(ctx, p, s.d.Files.SkillRoots(p, append(ad.roots(), agentSkillRoots(p, sc)...)...), ad.options(skills.Options{
 		Off:    skillOff(off),
 		Logger: s.log,
 	}))
@@ -290,7 +290,7 @@ func (s *Service) AgentSkills(ctx context.Context, user string) ([]skills.Skill,
 		if !files.ValidAgentID(ag.ID) {
 			continue
 		}
-		list, _, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p),
+		list, _, err := s.d.Files.ResolveSkills(ctx, p,
 			[]skills.Root{files.AgentSkillsRoot(p, ag.ID, ag.Name)}, skills.Options{Logger: s.log})
 		if err != nil {
 			return nil, err

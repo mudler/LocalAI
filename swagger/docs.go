@@ -6760,6 +6760,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
+                    },
+                    "409": {
+                        "description": "A shared folder, or a folder with a shared folder in it, would move into another home or into a folder that LocalAI manages (LocalAI, Chats, Memory, pages or a .skills folder). Stop sharing it first.",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -6968,7 +6974,7 @@ const docTemplate = `{
         },
         "/api/chats/files/shares/{id}/grants/{principal}": {
             "put": {
-                "description": "principal is the account ID that the user picker returned, an active named account, or @everyone for every account, the ones created later too. role is read or write; write lets them change and delete what is in the folder. Lowering write to read takes effect at their next file call, and their running chats that hold the folder are stopped before the answer. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP marker). Safe to repeat. No MCP tool maps to this route: sharing is never a tool.",
+                "description": "principal is the account ID that the user picker returned, an active named account, or @everyone for every account, the ones created later too. role is read or write; write lets them change and delete what is in the folder. Lowering write to read takes effect at their next file call on every frontend. Their running chats that hold the folder on the frontend that serves this call are stopped before the answer; the other frontends get the request on the chat bus and stop theirs within seconds. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP marker). Safe to repeat. No MCP tool maps to this route: sharing is never a tool.",
                 "tags": [
                     "chats"
                 ],
@@ -7026,7 +7032,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Removes the grant of the principal, an account ID or @everyone. A person's own grant and the grant to everyone are separate. The grantee loses the folder at their next file call, and their running chats that hold it are stopped before the answer. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP marker). Safe to repeat. No MCP tool maps to this route.",
+                "description": "Removes the grant of the principal, an account ID or @everyone. A person's own grant and the grant to everyone are separate. The grantee loses the folder at their next file call on every frontend. Their running chats that hold it on the frontend that serves this call are stopped before the answer; the other frontends get the request on the chat bus and stop theirs within seconds. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP marker). Safe to repeat. No MCP tool maps to this route.",
                 "tags": [
                     "chats"
                 ],

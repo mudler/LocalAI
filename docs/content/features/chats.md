@@ -1909,9 +1909,18 @@ same Share dialog as for agents and the other things you can share (see
 [Sharing resources]({{%relref "features/sharing" %}})).
 
 - **What you can share.** A folder inside your home: not the home itself, and
-  not `LocalAI/` or `Chats/` or a folder inside them. You cannot share a folder
-  that someone shared with you or an administrator's shared folder. A person
-  shares at most 100 folders, each with at most 200 grants.
+  not a folder that LocalAI keeps or reads as your own words: `LocalAI/`,
+  `Chats/`, `Memory/`, `pages/`, a `.skills` folder anywhere, or a folder
+  inside one of them. You cannot share a folder that someone shared with you or
+  an administrator's shared folder. A person shares at most 100 folders, each
+  with at most 200 grants.
+- **What your chats use.** Your chats load your skills, your notes, your agent
+  profiles and your persona, and **Pages** runs your pages, with your own
+  rights. LocalAI leaves out anything in a folder on which another person, or
+  **Everyone**, can edit: a `.skills` folder inside a folder you share with
+  **Can edit** gives your chats no skill, and a page or a note there is not
+  yours. What you share with **Can read** stays in use. The others still see and
+  change those files as files.
 - **Who.** An active account that the search finds, or **Everyone** (every
   account, also the ones created later). The search is the user picker of the
   other kinds of sharing (see
@@ -1926,10 +1935,20 @@ same Share dialog as for agents and the other things you can share (see
   a page runs in the browser of the person who opens it, so only an
   administrator's shared folder can share one.
 - **Taking it back.** A lower access or a removed grant holds from their next
-  file call. Their chats that are running with the folder are stopped before
-  the change answers. A grant follows the folder: when you rename or move it,
-  it stays shared; when you move it to the Trash, nobody else can open it, and
-  restoring it from the Trash shares it again.
+  file call, on every frontend. Their chats that run with the folder on the
+  frontend that serves your change are stopped before the change answers; the
+  other frontends get the request on the chat bus and stop theirs within
+  seconds. A grant follows the folder: when you rename or move it inside your
+  home, it stays shared; when you move it to the Trash, nobody else can open
+  it, and restoring it from the Trash shares it again.
+- **Moves that keep a share where it does not belong.** A folder that is
+  shared, or that has a shared folder inside it, cannot move into another
+  person's home (also not by someone who can edit there), out of a home, or
+  into `LocalAI/`, `Chats/`, `Memory/`, `pages/` or a `.skills` folder. The
+  move is refused with `409` and type `folder_shared`, and nothing moves: stop
+  sharing it first. A folder of your home that still has a grant from before,
+  wherever it is, is in your list of shared folders and you can remove its
+  grants.
 - **Only from your browser.** Changing who has a folder, listing it and the
   search accept only your own signed-in browser tab. An API key, an agent, a
   tool and an MCP client cannot share anything. In local-owner mode (no
