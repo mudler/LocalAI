@@ -44,14 +44,14 @@ type OAuthConfig struct {
 	Mode string
 }
 
-// Option changes the handlers.
-type Option func(*Handlers)
+// HandlerOption changes the handlers.
+type HandlerOption func(*Handlers)
 
 // WithOAuth wires the OAuth routes. Without it they answer 503.
-func WithOAuth(cfg OAuthConfig) Option { return func(h *Handlers) { h.oauth = cfg } }
+func WithOAuth(cfg OAuthConfig) HandlerOption { return func(h *Handlers) { h.oauth = cfg } }
 
 // Apply applies options to the handlers.
-func (h *Handlers) Apply(opts ...Option) *Handlers {
+func (h *Handlers) Apply(opts ...HandlerOption) *Handlers {
 	for _, o := range opts {
 		o(h)
 	}
@@ -103,7 +103,7 @@ func validReturnTo(s string) bool {
 	if !appPath.MatchString(path) || (hasQuery && (len(query) > maxAppQuery || !appQuery.MatchString(query))) {
 		return false
 	}
-	for _, seg := range strings.Split(path, "/") {
+	for seg := range strings.SplitSeq(path, "/") {
 		d, err := url.PathUnescape(seg)
 		if err != nil || d == "." || d == ".." || strings.ContainsAny(d, "/\\") {
 			return false
@@ -182,16 +182,16 @@ func failOAuth(c echo.Context, err error) error {
 	return fail(c, http.StatusServiceUnavailable, gateway.OAuthUnavailable, "the add-on owner is not reachable; try again")
 }
 
-// setNonceCookie sets the nonce cookie of the login with this state for as
+// setNonceCookie sets the nonce cookie of the login with this suffix for as
 // long as a login may take, or clears it when value is empty. The age is
 // fixed, not taken from the owner's clock, so a clock skew between hosts
 // cannot end it early.
-func setNonceCookie(c echo.Context, state, value string) {
+func setNonceCookie(c echo.Context, suffix, value string) {
 	maxAge := int(connectors.LoginStateTTL.Seconds())
 	if value == "" {
 		maxAge = -1
 	}
-	c.SetCookie(&http.Cookie{Name: oauthNonceCookie + studiosvc.LoginCookieSuffix(state), Value: value, Path: "/", HttpOnly: true, Secure: c.Scheme() == "https", SameSite: http.SameSiteLaxMode, MaxAge: maxAge})
+	c.SetCookie(&http.Cookie{Name: oauthNonceCookie + suffix, Value: value, Path: "/", HttpOnly: true, Secure: c.Scheme() == "https", SameSite: http.SameSiteLaxMode, MaxAge: maxAge})
 }
 
 // StartConnectorOAuth starts the login of an oauth2 binding.
@@ -233,15 +233,10 @@ func (h *Handlers) StartConnectorOAuth(c echo.Context) error {
 	if err != nil {
 		return failOAuth(c, err)
 	}
-	u, err := url.Parse(r.AuthorizeURL)
-	state := ""
-	if err == nil {
-		state = u.Query().Get("state")
-	}
-	if state == "" || r.Nonce == "" {
+	if r.CookieSuffix == "" || r.Nonce == "" {
 		return failOAuth(c, gateway.ErrUnavailable)
 	}
-	setNonceCookie(c, state, r.Nonce)
+	setNonceCookie(c, r.CookieSuffix, r.Nonce)
 	c.Response().Header().Set("Cache-Control", "no-store")
 	return c.JSON(http.StatusOK, schema.ChatsConnectorOAuthStarted{AuthorizeURL: r.AuthorizeURL, Expires: r.Expires})
 }
@@ -264,7 +259,7 @@ func (h *Handlers) ConnectorOAuthCallback(c echo.Context) error {
 	if state := c.QueryParam("state"); state != "" {
 		if ck, err := c.Cookie(oauthNonceCookie + studiosvc.LoginCookieSuffix(state)); err == nil {
 			nonce = ck.Value
-			setNonceCookie(c, state, "")
+			setNonceCookie(c, studiosvc.LoginCookieSuffix(state), "")
 		}
 	}
 	outcome, returnTo := h.completeOAuth(c, nonce)

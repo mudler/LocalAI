@@ -1011,7 +1011,7 @@ type AccessDraft struct {
 }
 
 // ErrBadSender means a preview asked for a kind of sender that does not exist.
-var ErrBadSender = fmt.Errorf("%w: sender must be listed, paired, channel_member, channel_acts, anyone or role:<id>", connectors.ErrInvalid)
+var ErrBadSender error = &connectors.InvalidError{Reason: "sender must be listed, paired, channel_member, channel_acts, anyone or role:<id>"}
 
 // NewConnectionID is the id under which a preview describes a connection that
 // is not saved yet.

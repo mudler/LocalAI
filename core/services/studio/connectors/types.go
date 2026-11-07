@@ -115,6 +115,24 @@ const (
 	PairingCodeTTL = 10 * time.Minute
 )
 
+// InvalidError is ErrInvalid with a reason written for the person. errors.Is
+// finds ErrInvalid in it, and a caller that shows the reason reads it with
+// errors.As, not from the text of the error.
+type InvalidError struct{ Reason string }
+
+func (e *InvalidError) Error() string { return ErrInvalid.Error() + ": " + e.Reason }
+
+// Unwrap makes errors.Is(err, ErrInvalid) true.
+func (e *InvalidError) Unwrap() error { return ErrInvalid }
+
+// Invalidf is an *InvalidError with a formatted reason.
+func Invalidf(format string, a ...any) error {
+	return &InvalidError{Reason: fmt.Sprintf(format, a...)}
+}
+
+// bad is how this package refuses an invalid binding.
+var bad = Invalidf
+
 // Errors.
 var (
 	ErrNotFound = errors.New("connectors: not found")
@@ -435,9 +453,6 @@ func Validate(b Binding) error { return ValidateKind(b, false) }
 // binding that listens, accepts senders, notifies, talks back or carries
 // permissions must name an agent.
 func ValidateKind(b Binding, agentOptional bool) error {
-	bad := func(format string, a ...any) error {
-		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
-	}
 	if n := utf8.RuneCountInString(strings.TrimSpace(b.Name)); n == 0 || n > MaxNameRunes {
 		return bad("the name must have 1 to %d characters", MaxNameRunes)
 	}
@@ -649,9 +664,6 @@ func (b Binding) clone() Binding {
 }
 
 func validateChannels(list []Channel) error {
-	bad := func(format string, a ...any) error {
-		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
-	}
 	if len(list) > MaxChannels {
 		return bad("a binding lists at most %d channels", MaxChannels)
 	}

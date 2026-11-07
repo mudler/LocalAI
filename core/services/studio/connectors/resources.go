@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"slices"
 	"strings"
 	"unicode"
@@ -57,9 +56,6 @@ func ResourceKeys(entries []ResourceEntry) []string {
 }
 
 func validateResources(entries []ResourceEntry) error {
-	bad := func(format string, a ...any) error {
-		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
-	}
 	if len(entries) > MaxResources {
 		return bad("a binding lists at most %d resources", MaxResources)
 	}
@@ -162,9 +158,6 @@ func MatchResource(entry, key string) bool {
 func ValidateWildcards(entries []ResourceEntry, wildcards bool) error {
 	if !wildcards {
 		return nil
-	}
-	bad := func(format string, a ...any) error {
-		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
 	}
 	for _, e := range entries {
 		if strings.Contains(e.Key, "*") && !IsWildcard(e.Key) {

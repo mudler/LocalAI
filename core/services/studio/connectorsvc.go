@@ -3,7 +3,6 @@ package studio
 import (
 	"context"
 	"errors"
-	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -157,7 +156,7 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 }
 
 // ErrTokenRefused means the platform refused the bot token of a binding.
-var ErrTokenRefused = fmt.Errorf("%w: the platform refused the bot token", connectors.ErrInvalid)
+var ErrTokenRefused error = &connectors.InvalidError{Reason: "the platform refused the bot token"}
 
 // VerifyTokenWithMe returns a token check for ConnectorOptions.VerifyToken
 // that asks the platform, through the binding's add-on, who the bot of the
@@ -336,7 +335,7 @@ func (c *Connectors) checkPermissions(ctx context.Context, b connectors.Binding)
 }
 
 func connectorBad(format string, a ...any) error {
-	return fmt.Errorf("%w: %s", connectors.ErrInvalid, fmt.Sprintf(format, a...))
+	return connectors.Invalidf(format, a...)
 }
 
 // Connectors returns the connector manager of the service, or nil.

@@ -108,9 +108,11 @@ func (c OAuthCall) LogValue() slog.Value {
 // OAuthReply is the answer of an OAuth call. Only the fields of its op are
 // set.
 type OAuthReply struct {
-	// AuthorizeURL, Nonce and Expires answer a start. The nonce goes in the
-	// browser's HttpOnly cookie and nowhere else.
+	// AuthorizeURL, CookieSuffix, Nonce and Expires answer a start. The nonce
+	// goes in the browser's HttpOnly cookie and nowhere else; CookieSuffix
+	// ends the name of that cookie.
 	AuthorizeURL string    `json:"authorizeUrl,omitempty"`
+	CookieSuffix string    `json:"cookieSuffix,omitempty"`
 	Nonce        string    `json:"nonce,omitempty"`
 	Expires      time.Time `json:"expires,omitzero"`
 	// Outcome, ReturnTo and BindingID answer a callback. Outcome is a fixed

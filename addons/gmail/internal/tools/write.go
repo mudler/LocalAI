@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"mime"
+	"net/http"
 	"net/mail"
 	"net/url"
 	"regexp"
@@ -461,7 +462,7 @@ func (c *call) send(w write, t target) (map[string]any, error) {
 			msg["threadId"] = t.reply.ThreadID
 		}
 		var d gDraft
-		if err := api.SendJSON(c.ctx, "POST", c.token, "/gmail/v1/users/me/drafts", nil, map[string]any{"message": msg}, &d); err != nil {
+		if err := api.SendJSON(c.ctx, http.MethodPost, c.token, "/gmail/v1/users/me/drafts", nil, map[string]any{"message": msg}, &d); err != nil {
 			return nil, err
 		}
 		out := map[string]any{"draftId": d.ID}
@@ -474,7 +475,7 @@ func (c *call) send(w write, t target) (map[string]any, error) {
 		return out, nil
 	case ToolSendDraft:
 		var m gMessage
-		if err := api.SendJSON(c.ctx, "POST", c.token, "/gmail/v1/users/me/drafts/send", nil, map[string]any{"id": t.draft.ID}, &m); err != nil {
+		if err := api.SendJSON(c.ctx, http.MethodPost, c.token, "/gmail/v1/users/me/drafts/send", nil, map[string]any{"id": t.draft.ID}, &m); err != nil {
 			return nil, err
 		}
 		out := map[string]any{"sent": true}

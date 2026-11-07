@@ -153,8 +153,8 @@ func dispatchTo(g *gateway.Gateway) studioendpoint.OAuthDispatcher { return g }
 // OAuth routes use.
 func (env *oauthEnv) build(owner bool, gw func(*studioServer) *gateway.Gateway) *studioServer {
 	studioConnectorOptions = env.connectorOptions(owner)
-	studioRouteOptions = func(s *studioServer) []studioendpoint.Option {
-		return []studioendpoint.Option{studioendpoint.WithOAuth(studioendpoint.OAuthConfig{Mode: auth.AddonModeNamedUser,
+	studioRouteOptions = func(s *studioServer) []studioendpoint.HandlerOption {
+		return []studioendpoint.HandlerOption{studioendpoint.WithOAuth(studioendpoint.OAuthConfig{Mode: auth.AddonModeNamedUser,
 			Dispatcher: func() studioendpoint.OAuthDispatcher { return dispatchTo(gw(s)) }})}
 	}
 	DeferCleanup(func() { studioConnectorOptions, studioRouteOptions = nil, nil })
@@ -673,8 +673,8 @@ var _ = Describe("OAuth routes of the connections", func() {
 
 	It("answers unavailable when no add-on gateway runs", func() {
 		studioConnectorOptions = env.connectorOptions(true)
-		studioRouteOptions = func(*studioServer) []studioendpoint.Option {
-			return []studioendpoint.Option{studioendpoint.WithOAuth(studioendpoint.OAuthConfig{Mode: auth.AddonModeNamedUser, Dispatcher: func() studioendpoint.OAuthDispatcher { return nil }})}
+		studioRouteOptions = func(*studioServer) []studioendpoint.HandlerOption {
+			return []studioendpoint.HandlerOption{studioendpoint.WithOAuth(studioendpoint.OAuthConfig{Mode: auth.AddonModeNamedUser, Dispatcher: func() studioendpoint.OAuthDispatcher { return nil }})}
 		}
 		off := newStudioServer()
 		Expect(auth.UpdateUserPermissions(off.db, "alice", auth.PermissionMap{auth.FeatureConnectors: true, auth.FeatureAddons: true})).To(Succeed())

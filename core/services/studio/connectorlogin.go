@@ -102,6 +102,10 @@ const (
 // service. The state is in AuthorizeURL only; the host keeps its hash.
 type LoginStart struct {
 	AuthorizeURL string
+	// CookieSuffix ends the name of the nonce cookie of this login
+	// (LoginCookieSuffix of its state), so the caller need not read the state
+	// out of AuthorizeURL.
+	CookieSuffix string
 	// Nonce goes in an HttpOnly cookie of the browser that started the login;
 	// the callback must bring it back.
 	Nonce   string
@@ -235,7 +239,7 @@ func (c *Connectors) StartLogin(ctx context.Context, user, bindingID string, opt
 	q.Set("state", state)
 	q.Set("code_challenge", base64.RawURLEncoding.EncodeToString(challenge[:]))
 	q.Set("code_challenge_method", contract.OAuthPKCES256)
-	return LoginStart{AuthorizeURL: d.AuthorizeURL + "?" + q.Encode(), Nonce: nonce, Expires: expires}, nil
+	return LoginStart{AuthorizeURL: d.AuthorizeURL + "?" + q.Encode(), CookieSuffix: LoginCookieSuffix(state), Nonce: nonce, Expires: expires}, nil
 }
 
 // CompleteLogin finishes a login at its callback. user is the person of the

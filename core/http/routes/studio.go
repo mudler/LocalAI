@@ -35,7 +35,7 @@ func NewStudioModelChecker(app *application.Application) studioendpoint.ModelChe
 // NewStudioOAuth wires the OAuth routes of the connections to the add-on
 // gateway of app: the owner serves them, in this process or through the
 // carrier. Without a gateway they answer 503.
-func NewStudioOAuth(app *application.Application) studioendpoint.Option {
+func NewStudioOAuth(app *application.Application) studioendpoint.HandlerOption {
 	return studioendpoint.WithOAuth(studioendpoint.OAuthConfig{Mode: app.AddonOwnershipMode(), Dispatcher: func() studioendpoint.OAuthDispatcher {
 		if g := app.AddonGateway(); g != nil {
 			return g
@@ -63,7 +63,7 @@ func checkStudioModelResolves(cl *config.ModelConfigLoader, model string) error 
 // /api/agent path answers 404 with the reason, so a client sees "off" and not a missing route. Authentication and
 // the feature gates come from the global middleware and the route-feature
 // registry, so no route carries its own; the administrator routes take adminMw.
-func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioendpoint.ModelChecker, adminMw echo.MiddlewareFunc, opts ...studioendpoint.Option) {
+func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioendpoint.ModelChecker, adminMw echo.MiddlewareFunc, opts ...studioendpoint.HandlerOption) {
 	if svc == nil {
 		off := func(c echo.Context) error {
 			return c.JSON(http.StatusNotFound, schema.ErrorResponse{Error: &schema.APIError{

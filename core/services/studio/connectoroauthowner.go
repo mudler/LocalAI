@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
@@ -53,7 +52,7 @@ func (o OAuthOwner) ServeOAuth(ctx context.Context, a contract.Actor, call gatew
 		if err != nil {
 			return gateway.OAuthReply{}, oauthFailure(err)
 		}
-		return gateway.OAuthReply{AuthorizeURL: ls.AuthorizeURL, Nonce: ls.Nonce, Expires: ls.Expires}, nil
+		return gateway.OAuthReply{AuthorizeURL: ls.AuthorizeURL, CookieSuffix: ls.CookieSuffix, Nonce: ls.Nonce, Expires: ls.Expires}, nil
 	case gateway.OAuthComplete:
 		// The outcome is the answer, also when the store failed: the
 		// callback redirects with the class and the person may try again.
@@ -97,7 +96,7 @@ func clientView(s OAuthClientStatus) *gateway.OAuthClientView {
 }
 
 // oauthRule maps the errors that match is (errors.Is) to a refusal. An empty
-// msg means the text of the error after its sentinel.
+// msg means the reason the error carries (connectors.InvalidError).
 type oauthRule struct {
 	is     error
 	status int
@@ -108,8 +107,8 @@ type oauthRule struct {
 // oauthRules are tried in order. Only host text goes in a refusal.
 var oauthRules = []oauthRule{
 	{connectors.ErrNotFound, http.StatusNotFound, gateway.OAuthNotFound, "connector not found"},
-	// The reason of an invalid input is written for the person; many
-	// producers wrap the sentinel, so its text is the part after it.
+	// The reason of an invalid input is written for the person and travels
+	// in the error.
 	{connectors.ErrInvalid, http.StatusBadRequest, gateway.OAuthInvalid, ""},
 	{ErrNeedsApproval, http.StatusConflict, gateway.OAuthNeedsApproval, msgNeedsApproval},
 	{ErrApprovalStale, http.StatusConflict, gateway.OAuthApprovalStale, msgApprovalStale},
@@ -127,11 +126,21 @@ func oauthRefusal(err error) (*gateway.OAuthError, bool) {
 		}
 		msg := r.msg
 		if msg == "" {
-			msg = strings.TrimPrefix(err.Error(), r.is.Error()+": ")
+			msg = invalidReason(err)
 		}
 		return &gateway.OAuthError{Status: r.status, Type: r.typ, Message: msg}, true
 	}
 	return nil, false
+}
+
+// invalidReason is the reason an invalid input carries, or the text of the
+// sentinel when the input was refused without one.
+func invalidReason(err error) string {
+	var invalid *connectors.InvalidError
+	if errors.As(err, &invalid) {
+		return invalid.Reason
+	}
+	return connectors.ErrInvalid.Error()
 }
 
 // oauthFailure is oauthRefusal as an error: gateway.ErrUnavailable for an

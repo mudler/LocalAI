@@ -67,7 +67,7 @@ var (
 // the spec.
 var (
 	studioConnectorOptions func(*studio.ConnectorOptions)
-	studioRouteOptions     func(*studioServer) []studioendpoint.Option
+	studioRouteOptions     func(*studioServer) []studioendpoint.HandlerOption
 )
 
 // studioTriggerOptions lets a spec set the clock or the limits of the trigger
@@ -196,7 +196,7 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 		}
 		return nil
 	})
-	var ropts []studioendpoint.Option
+	var ropts []studioendpoint.HandlerOption
 	if studioRouteOptions != nil {
 		ropts = studioRouteOptions(s)
 	}

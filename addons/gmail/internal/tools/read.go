@@ -9,11 +9,11 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/addons/gmail/internal/gmailapi"
 	"github.com/mudler/LocalAI/addons/internal/argutil"
+	"golang.org/x/sync/errgroup"
 )
 
 const messagesPath = "/gmail/v1/users/me/messages"
@@ -174,32 +174,28 @@ func (c *call) search(raw map[string]json.RawMessage) (any, error) {
 // order of the list. A message that is gone by now is left out.
 func (c *call) summaries(ids []struct{ ID, ThreadID string }) ([]summary, error) {
 	got := make([]*gMessage, len(ids))
-	errs := make([]error, len(ids))
-	sem := make(chan struct{}, fetchWorkers)
-	var wg sync.WaitGroup
+	var group errgroup.Group
+	group.SetLimit(fetchWorkers)
 	for i := range ids {
 		if !idShape.MatchString(ids[i].ID) {
 			continue
 		}
-		wg.Add(1)
-		sem <- struct{}{}
-		go func() {
-			defer wg.Done()
-			defer func() { <-sem }()
-			got[i], errs[i] = c.rawMessage(ids[i].ID, "metadata", summaryHeaders...)
-		}()
-	}
-	wg.Wait()
-	items := []summary{}
-	for i := range ids {
-		if errs[i] != nil {
-			if errors.Is(errs[i], gmailapi.ErrNotFound) {
-				continue
+		group.Go(func() error {
+			m, err := c.rawMessage(ids[i].ID, "metadata", summaryHeaders...)
+			if errors.Is(err, gmailapi.ErrNotFound) {
+				return nil
 			}
-			return nil, errs[i]
-		}
-		if got[i] != nil {
-			items = append(items, summarize(got[i]))
+			got[i] = m
+			return err
+		})
+	}
+	if err := group.Wait(); err != nil {
+		return nil, err
+	}
+	items := []summary{}
+	for _, m := range got {
+		if m != nil {
+			items = append(items, summarize(m))
 		}
 	}
 	return items, nil
