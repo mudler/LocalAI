@@ -122,6 +122,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/files/trash", h.Trash)
 	e.DELETE(base+"/files/trash", h.EmptyTrash)
 	e.DELETE(base+"/files/trash/:rev", h.PurgeTrashEntry)
+	e.POST(base+"/files/extract", h.ExtractFile)
 	e.POST(base+"/files/undo", h.UndoFiles)
 	e.GET(base+"/files/history", h.FileHistory)
 	// A person shares the folders of their own home (never a tool).

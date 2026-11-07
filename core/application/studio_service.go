@@ -27,6 +27,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
+	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
@@ -218,6 +219,13 @@ func (a *Application) initStudioService() {
 	deps.LocalAIClientOn = func() bool { return !a.applicationConfig.DisableChatsLocalAIClient }
 	deps.LocalAIAdminOn = func() bool { return !a.applicationConfig.DisableChatsLocalAIAdmin }
 	deps.ToolSearchMode = a.applicationConfig.EffectiveChatsToolSearch
+	deps.ExtractLimits = func() files.ExtractLimits {
+		c := a.applicationConfig
+		return files.ExtractLimits{
+			MaxBytes: c.EffectiveChatsExtractMaxBytes(), MaxEntries: c.EffectiveChatsExtractMaxEntries(),
+			MaxFileBytes: studioMaxFileSize, SevenZipRar: c.ChatsExtractSevenZipRar,
+		}
+	}
 	deps.WorkFolderOn = func() bool { return !a.applicationConfig.DisableChatsWorkFolder }
 	deps.GoalLimits = func() (int, int) {
 		return a.applicationConfig.EffectiveChatsGoalMaxTurns(), a.applicationConfig.EffectiveChatsGoalMaxSteps()

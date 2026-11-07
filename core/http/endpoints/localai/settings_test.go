@@ -223,6 +223,9 @@ var _ = Describe("Settings endpoints", func() {
 			`{"chats_egress_audit_days":366}`:                                          "Invalid chats_egress_audit_days",
 			`{"chats_index_max_text_bytes":1024}`:                                      "Invalid chats_index_max_text_bytes",
 			`{"chats_index_max_text_bytes":33554432}`:                                  "Invalid chats_index_max_text_bytes",
+			`{"chats_extract_max_bytes":1024}`:                                         "Invalid chats_extract_max_bytes",
+			`{"chats_extract_max_entries":0}`:                                          "Invalid chats_extract_max_entries",
+			`{"chats_extract_max_entries":2000000}`:                                    "Invalid chats_extract_max_entries",
 			`{"chats_egress_allow_private":true}`:                                      "chats_egress_private_confirm",
 			`{"chats_egress_allow_private":true,"chats_egress_private_confirm":"yes"}`: "chats_egress_private_confirm",
 		} {

@@ -306,6 +306,9 @@ export const filesApi = {
   // Neither can be undone. Both answer { files, folders, bytes }.
   emptyTrash: () => fetchJSON(API_CONFIG.endpoints.filesTrash, { method: 'DELETE' }),
   purgeTrash: (rev) => fetchJSON(`${API_CONFIG.endpoints.filesTrash}/${enc(rev)}`, { method: 'DELETE' }),
+  // Extracts an archive of the files into dest, or into a new folder next to it.
+  // Answers { dest, rev, files, folders, bytes, skipped, skipped_count, conflicts }.
+  extract: (path, dest) => postJSON(API_CONFIG.endpoints.filesExtract, dest ? { path, dest } : { path }),
   undo: (rev, skipConflicts = false) => postJSON(API_CONFIG.endpoints.filesUndo, { rev, skip_conflicts: skipConflicts }),
   history: (path = '/') => fetchJSON(API_CONFIG.endpoints.filesHistory + q({ path })),
   search: (query, path = '/') => fetchJSON(API_CONFIG.endpoints.filesSearch + q({ q: query, path })),

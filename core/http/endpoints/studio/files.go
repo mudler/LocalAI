@@ -58,6 +58,10 @@ var fileRules = []errRule{
 	fixed(http.StatusBadRequest, typeInvalid, "that cannot be done to this path", workspace.ErrInvalid),
 	fixed(http.StatusConflict, typeConflict, "later changes conflict with this undo", workspace.ErrConflict),
 	fixed(http.StatusConflict, "folder_shared", "this folder or a folder in it is shared; stop sharing it before you move it there", workspace.ErrSharedMove),
+	sentinelText(http.StatusRequestEntityTooLarge, typeInvalid, files.ErrArchiveLimit),
+	sentinelText(http.StatusBadRequest, typeInvalid, files.ErrArchiveBad),
+	sentinelText(http.StatusBadRequest, typeInvalid, files.ErrArchiveUnsupported),
+	sentinelText(http.StatusRequestTimeout, typeInvalid, files.ErrArchiveTimeout),
 	verbatim(http.StatusConflict, typeFilesOff, "", files.ErrUnavailable),
 	verbatim(http.StatusConflict, typeFilesOff, "", files.ErrNoPurge),
 }
@@ -400,6 +404,43 @@ func (h *Handlers) PurgeTrashEntry(c echo.Context) error {
 		return failFile(c, err)
 	}
 	return c.JSON(http.StatusOK, trashTotals(t))
+}
+
+// ExtractFile extracts an archive of your files.
+// @Summary Extract an archive into a folder of your files.
+// @Description Reads a zip, tar (also tar.gz, tar.bz2, tar.xz, tar.zst and others) or, when an administrator allows it, 7z or RAR archive from your files and writes its files into a folder, as one change set that undo takes back whole. Without dest the folder is new, next to the archive, named like it without the extension ("name 2" when taken). A name that is taken in dest keeps the existing file; the new content is saved next to it as a copy and listed in conflicts. Symbolic links, hard links and devices are skipped and listed. Nested archives are written as plain files. The limits (bytes, entries, size of one file, time) are counted on what is really read, and an archive over a limit writes nothing: 413, or 408 for the time limit. A path that leaves the destination refuses the archive (400).
+// @Tags chats
+// @Param request body schema.ChatsExtractRequest true "the archive and, optionally, the folder"
+// @Success 200 {object} schema.ChatsExtractResponse "The folder, the change set and what was skipped"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid, or the archive is damaged or not supported"
+// @Failure 409 {object} schema.ErrorResponse "dest is a file, or files are off"
+// @Failure 413 {object} schema.ErrorResponse "The archive expands past a limit"
+// @Failure 408 {object} schema.ErrorResponse "The extraction ran past its time limit"
+// @Router /api/chats/files/extract [post]
+func (h *Handlers) ExtractFile(c echo.Context) error {
+	fc, ok := h.files(c)
+	if !ok {
+		return nil
+	}
+	var req schema.ChatsExtractRequest
+	if err := c.Bind(&req); err != nil || req.Path == "" {
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "path is required")
+	}
+	if _, err := fc.abs(req.Path, false); err != nil {
+		return failFile(c, err)
+	}
+	res, err := fc.f.Extract(c.Request().Context(), fc.p, req.Path, req.Dest, h.svc.ExtractLimits())
+	if err != nil {
+		return failFile(c, err)
+	}
+	out := schema.ChatsExtractResponse{Dest: res.Dest, Rev: res.Rev, Files: res.Files, Folders: res.Folders, Bytes: res.Bytes, SkippedCount: res.SkippedCount}
+	for _, s := range res.Skipped {
+		out.Skipped = append(out.Skipped, schema.ChatsExtractSkipped{Path: s.Path, Reason: s.Reason})
+	}
+	for _, k := range res.Conflicts {
+		out.Conflicts = append(out.Conflicts, schema.ChatsExtractConflict{Path: k.Path, Reason: k.Reason, Kept: k.Kept})
+	}
+	return c.JSON(http.StatusOK, out)
 }
 
 // UndoFiles undoes a change set.

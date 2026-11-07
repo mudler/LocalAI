@@ -6668,6 +6668,58 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/files/extract": {
+            "post": {
+                "description": "Reads a zip, tar (also tar.gz, tar.bz2, tar.xz, tar.zst and others) or, when an administrator allows it, 7z or RAR archive from your files and writes its files into a folder, as one change set that undo takes back whole. Without dest the folder is new, next to the archive, named like it without the extension (\"name 2\" when taken). A name that is taken in dest keeps the existing file; the new content is saved next to it as a copy and listed in conflicts. Symbolic links, hard links and devices are skipped and listed. Nested archives are written as plain files. The limits (bytes, entries, size of one file, time) are counted on what is really read, and an archive over a limit writes nothing: 413, or 408 for the time limit. A path that leaves the destination refuses the archive (400).",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Extract an archive into a folder of your files.",
+                "parameters": [
+                    {
+                        "description": "the archive and, optionally, the folder",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsExtractRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The folder, the change set and what was skipped",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsExtractResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid, or the archive is damaged or not supported",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "408": {
+                        "description": "The extraction ran past its time limit",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "dest is a file, or files are off",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "The archive expands past a limit",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/files/folders": {
             "post": {
                 "tags": [
@@ -25211,6 +25263,84 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsExtractConflict": {
+            "type": "object",
+            "properties": {
+                "kept": {
+                    "description": "Kept is where the new content went; empty when it was dropped.",
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsExtractRequest": {
+            "type": "object",
+            "properties": {
+                "dest": {
+                    "description": "Dest is the folder to extract into. Empty: a new folder next to the\narchive, named like it without the extension.",
+                    "type": "string"
+                },
+                "path": {
+                    "description": "Path is the archive, inside your home.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsExtractResponse": {
+            "type": "object",
+            "properties": {
+                "bytes": {
+                    "type": "integer"
+                },
+                "conflicts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsExtractConflict"
+                    }
+                },
+                "dest": {
+                    "description": "Dest is the folder that holds the files.",
+                    "type": "string"
+                },
+                "files": {
+                    "type": "integer"
+                },
+                "folders": {
+                    "type": "integer"
+                },
+                "rev": {
+                    "description": "Rev is the change set; POST /api/chats/files/undo with it takes it all back.",
+                    "type": "integer"
+                },
+                "skipped": {
+                    "description": "Skipped lists up to 200 entries that were not extracted;\nskipped_count counts all of them.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsExtractSkipped"
+                    }
+                },
+                "skipped_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsExtractSkipped": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason is symlink, hard_link, special, bad_name, not_utf8, too_deep,\ntoo_large, duplicate, encrypted, managed or unreadable.",
                     "type": "string"
                 }
             }

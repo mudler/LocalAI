@@ -9,7 +9,7 @@ These tools run the models installed here, as the user, within the user's own pe
 
 ## Files
 
-A file argument is a reference: a path in the user's files, or the `ref` that an earlier tool returned. A tool that makes a file returns its `ref`; give the user that file and pass the `ref` to the next tool. Never put file bytes, base64 or long vectors in a call or in your answer.
+A file argument is a reference: a path in the user's files, or the `ref` that an earlier tool returned. A tool that makes a file returns its `ref`; give the user that file and pass the `ref` to the next tool. Never put file bytes, base64 or long vectors in a call or in your answer. For a large archive, tell the user to choose Extract here in the Files page menu; it unpacks on the server as one change that Undo takes back.
 
 ## Tools
 

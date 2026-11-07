@@ -18,7 +18,7 @@ import { agentFolderMarks } from '../utils/chatAgents'
 import { fileSize } from '../utils/fileInfo'
 import { splitEntries, isSettingsFolder, guardOf, pageOf } from '../utils/managedFiles'
 import {
-  DRAG_TYPE, filterEntries, parseViewPrefs, pastedName, rangeOf, sortEntries, uniqueName,
+  DRAG_TYPE, filterEntries, parseViewPrefs, pastedName, rangeOf, sortEntries, uniqueName, isArchive,
 } from '../utils/fileBrowser'
 import { filesOfDrop, hasFiles } from '../utils/dropFiles'
 import FilePreview from '../components/files/FilePreview'
@@ -486,6 +486,15 @@ export default function Workspace() {
     if (guards.length) setGuarded({ entries: list, action: 'delete', guard: guards[0] })
     else doDelete(list)
   }
+  const doExtract = async (entry) => {
+    const res = await ws.extract(entry)
+    if (!res) return // the error shows on the page
+    const folder = res.dest.split('/').pop()
+    const notes = []
+    if (res.skipped_count) notes.push(t('toast.extractSkipped', { count: res.skipped_count }))
+    if (res.conflicts?.length) notes.push(t('toast.extractConflicts', { count: res.conflicts.length }))
+    undoToast([t('toast.extracted', { count: res.files, folder }), ...notes].join(' '), res.rev ? [res.rev] : [], t('toast.extractUndone'))
+  }
   const doRename = async (entry, name) => {
     const node = await ws.rename(entry, name)
     if (!node) return
@@ -579,6 +588,7 @@ export default function Workspace() {
       { key: 'own-page', icon: 'external-link', label: t(`managed.open.${entry.managed}`, { defaultValue: '' }), onClick: () => navigate(ownPage.to), hidden: many || !ownPage },
       { key: 'download', icon: 'download', label: many ? t('menu.downloadMany', { count: list.filter(e => e.kind === 'file').length }) : t('download'), onClick: () => download(list), hidden: !list.some(e => e.kind === 'file') },
       { key: 'rename', icon: 'pencil', label: t('rename'), shortcut: 'F2', onClick: () => { setCreating(null); afterMenu(() => setRenaming(entry.path)) }, hidden: many },
+      { key: 'extract', icon: 'boxes', label: t('menu.extract'), onClick: () => doExtract(entry), hidden: many || !isArchive(entry) },
       { key: 'move', icon: 'arrow-right', label: many ? t('menu.moveMany', { count: list.length }) : t('moveTo'), onClick: () => setMoving(list) },
       { key: 'share', icon: 'users', label: t('menu.share'), onClick: () => openShare(entry), hidden: many || !shareable },
       { divider: true },

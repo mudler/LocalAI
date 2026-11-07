@@ -149,6 +149,13 @@ type RuntimeSettings struct {
 	ChatsIndexFiles        *bool `json:"chats_index_files,omitempty"`
 	ChatsIndexMaxTextBytes *int  `json:"chats_index_max_text_bytes,omitempty"`
 
+	// Limits of "Extract here" on the Files page: the most bytes (default:
+	// 1 GiB) and entries (default: 20000) one archive may expand to, and
+	// whether 7z and RAR archives are read at all (default: false).
+	ChatsExtractMaxBytes    *int64 `json:"chats_extract_max_bytes,omitempty"`
+	ChatsExtractMaxEntries  *int   `json:"chats_extract_max_entries,omitempty"`
+	ChatsExtractSevenZipRar *bool  `json:"chats_extract_7z_rar,omitempty"`
+
 	// Offers from the assistant in the chats, for users who did not choose.
 	// Read at each turn, so a change applies at once.
 	ChatsSuggestions *bool `json:"chats_suggestions,omitempty"` // negation of DisableChatSuggestions (default: true)

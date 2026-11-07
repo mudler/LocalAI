@@ -923,6 +923,47 @@ type ChatsMoveRequest struct {
 	To   string `json:"to"`
 }
 
+// ChatsExtractRequest extracts an archive of your files.
+type ChatsExtractRequest struct {
+	// Path is the archive, inside your home.
+	Path string `json:"path"`
+	// Dest is the folder to extract into. Empty: a new folder next to the
+	// archive, named like it without the extension.
+	Dest string `json:"dest,omitempty"`
+}
+
+// ChatsExtractSkipped is an archive entry that was not extracted.
+type ChatsExtractSkipped struct {
+	Path string `json:"path"`
+	// Reason is symlink, hard_link, special, bad_name, not_utf8, too_deep,
+	// too_large, duplicate, encrypted, managed or unreadable.
+	Reason string `json:"reason"`
+}
+
+// ChatsExtractConflict is a file whose name was taken in the destination.
+type ChatsExtractConflict struct {
+	Path   string `json:"path"`
+	Reason string `json:"reason"`
+	// Kept is where the new content went; empty when it was dropped.
+	Kept string `json:"kept,omitempty"`
+}
+
+// ChatsExtractResponse says what an extraction did.
+type ChatsExtractResponse struct {
+	// Dest is the folder that holds the files.
+	Dest string `json:"dest"`
+	// Rev is the change set; POST /api/chats/files/undo with it takes it all back.
+	Rev     int64 `json:"rev"`
+	Files   int   `json:"files"`
+	Folders int   `json:"folders"`
+	Bytes   int64 `json:"bytes"`
+	// Skipped lists up to 200 entries that were not extracted;
+	// skipped_count counts all of them.
+	Skipped      []ChatsExtractSkipped  `json:"skipped,omitempty"`
+	SkippedCount int                    `json:"skipped_count"`
+	Conflicts    []ChatsExtractConflict `json:"conflicts,omitempty"`
+}
+
 // ChatsUndoRequest undoes one change set.
 type ChatsUndoRequest struct {
 	Rev           int64 `json:"rev"`

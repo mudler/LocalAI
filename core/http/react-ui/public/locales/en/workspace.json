@@ -585,7 +585,8 @@
     "moveMany_other": "Move {{count}} items to…",
     "deleteMany_one": "Move {{count}} item to Trash",
     "deleteMany_other": "Move {{count}} items to Trash",
-    "share": "Share…"
+    "share": "Share…",
+    "extract": "Extract here"
   },
   "keys": {
     "delete": "Del"
@@ -609,7 +610,14 @@
     "movedOne": "{{name}} moved to {{folder}}.",
     "moved_one": "{{count}} item moved to {{folder}}.",
     "moved_other": "{{count}} items moved to {{folder}}.",
-    "moveUndone": "Moved back."
+    "moveUndone": "Moved back.",
+    "extracted_one": "Extracted {{count}} file into {{folder}}.",
+    "extracted_other": "Extracted {{count}} files into {{folder}}.",
+    "extractSkipped_one": "{{count}} entry was skipped (links, devices or bad names).",
+    "extractSkipped_other": "{{count}} entries were skipped (links, devices or bad names).",
+    "extractConflicts_one": "{{count}} name was taken: the new file is saved as a copy.",
+    "extractConflicts_other": "{{count}} names were taken: the new files are saved as copies.",
+    "extractUndone": "Extraction undone."
   },
   "emptyHome": {
     "title": "Your files live here"
