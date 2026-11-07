@@ -8,9 +8,13 @@ export const MAX_NAME = 60
 const MAX_ID = 40
 const LISTS = ['builtins_off', 'builtins_on', 'addons_off', 'mcp_off', 'skills_off']
 
+// The first MAX_NAME code points: a cut at 60 UTF-16 units could split an
+// emoji, and the server stores a lone half as U+FFFD.
+const clipName = (s, max = MAX_NAME) => Array.from(s).slice(0, max).join('')
+
 // A name as the person typed it: trimmed, inner spaces collapsed, capped.
 export function cleanName(name) {
-  return String(name ?? '').trim().replace(/\s+/g, ' ').slice(0, MAX_NAME).trim()
+  return clipName(String(name ?? '').trim().replace(/\s+/g, ' ')).trim()
 }
 
 // An id from a name: a lowercase slug, unique among taken (-2, -3, ...).
@@ -46,7 +50,8 @@ const sameSet = (a = [], b = []) => {
 
 // Whether the composer differs from the setup it started from.
 export function isEdited(setup, { model, tools, effort }) {
-  if ((setup?.model || '') !== (model || '')) return true
+  // A setup saved before any model was known has no model to differ from.
+  if (setup?.model && setup.model !== (model || '')) return true
   if ((setup?.effort || '') !== (effort || '')) return true
   return !LISTS.every((k) => sameSet(setup?.tools?.[k], tools?.[k]))
 }
@@ -59,7 +64,7 @@ export function withAdded(data, setup) {
   let name = base
   for (let n = 2; names.has(name.toLowerCase()); n++) {
     const suffix = ` ${n}`
-    name = `${base.slice(0, MAX_NAME - suffix.length).trim()}${suffix}`
+    name = `${clipName(base, MAX_NAME - suffix.length).trim()}${suffix}`
   }
   const id = setupId(name, data.setups.map((s) => s.id))
   return { ...data, setups: [...data.setups, { ...setup, id, name }] }

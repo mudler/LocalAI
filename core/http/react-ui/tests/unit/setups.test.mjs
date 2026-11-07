@@ -124,3 +124,24 @@ test('choicesFromTools ignores names the lists do not have', () => {
   assert.equal(out, null)
   assert.equal(applied.builtins.find((b) => b.group === 'files').off, undefined)
 })
+
+test('cleanName cuts by code points, so an emoji at the end is not split', () => {
+  const name = `${'a'.repeat(MAX_NAME - 1)}😀😀`
+  const out = cleanName(name)
+  assert.equal(Array.from(out).length, MAX_NAME)
+  assert.ok(out.endsWith('😀'))
+  assert.doesNotMatch(out, /[\ud800-\udbff](?![\udc00-\udfff])/)
+  assert.equal(Array.from(cleanName('😀'.repeat(70))).length, MAX_NAME)
+})
+
+test('withAdded keeps an emoji whole when a duplicate name gets a suffix', () => {
+  const base = `${'a'.repeat(MAX_NAME - 3)}😀`
+  const d = withAdded(withAdded({ default: '', setups: [] }, { id: '', name: base }), { id: '', name: base })
+  assert.doesNotMatch(d.setups[1].name, /[\ud800-\udbff](?![\udc00-\udfff])/)
+  assert.ok(Array.from(d.setups[1].name).length <= MAX_NAME)
+})
+
+test('isEdited does not compare the model of a setup that has none', () => {
+  assert.equal(isEdited({ model: '', effort: '', tools: {} }, { model: 'm1', effort: '', tools: {} }), false)
+  assert.equal(isEdited({ model: 'm0', effort: '', tools: {} }, { model: 'm1', effort: '', tools: {} }), true)
+})
