@@ -100,8 +100,9 @@ type Provider struct {
 	Fail       string
 	FailStatus int
 	RetryAfter string
-	// Delay holds every token answer this long.
-	Delay time.Duration
+	// Gate, when set, holds every token answer until it is closed or the
+	// request ends. A test closes it when it has seen what it wanted to see.
+	Gate chan struct{}
 
 	// Tokens counts the calls of the token endpoint.
 	Tokens atomic.Int32
@@ -266,10 +267,14 @@ func (p *Provider) record(endpoint string, r *http.Request) (string, bool) {
 func (p *Provider) token(w http.ResponseWriter, r *http.Request) {
 	p.Tokens.Add(1)
 	p.mu.Lock()
-	delay := p.Delay
+	gate := p.Gate
 	p.mu.Unlock()
-	if delay > 0 {
-		time.Sleep(delay)
+	if gate != nil {
+		select {
+		case <-gate:
+		case <-r.Context().Done():
+			return
+		}
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()

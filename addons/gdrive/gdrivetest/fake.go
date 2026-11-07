@@ -11,9 +11,9 @@
 package gdrivetest
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/mudler/LocalAI/addons/internal/googletest"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -22,7 +22,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -62,54 +61,32 @@ type File struct {
 	AppProperties map[string]string
 }
 
-// Call is one request the fake served.
-type Call struct {
-	Method, Path, Query, Token, Range, ContentType string
-	// Body is the request body, cut at 64 KiB.
-	Body string
-}
-
-type principal struct {
-	email  string
-	scopes map[string]bool
-}
-
-type injected struct {
-	status     int
-	reason     string
-	retryAfter string
-	times      int // 0: always
-	pathPrefix string
-	method     string // empty: any
-}
-
 // Server is a fake API.
+// Call is one request the fake received.
+type Call = googletest.Call
+
 type Server struct {
 	*httptest.Server
+	googletest.Core
 
-	mu     sync.Mutex
-	tokens map[string]*principal
 	// auth, when set, decides for a token that AddToken did not register. A
 	// suite that runs a fake login service uses it, so the tokens that service
 	// issues are the ones this one accepts.
-	auth   func(token string) (email string, scopes []string, ok bool)
-	files  map[string]*File
-	order  []string
-	calls  []Call
-	inject []*injected
-	seq    int
+	files map[string]*File
+	order []string
+	seq   int
 	// NoMarkdown makes an export of a document as markdown fail, as an older
 	// service does.
 	noMarkdown bool
 	// dropWrites makes the fake apply a change and then cut the connection
 	// before it answers, as a network failure does.
-	dropWrites bool
-	now        func() time.Time
+	now func() time.Time
 }
 
 // New starts a fake API.
 func New() *Server {
-	s := &Server{tokens: map[string]*principal{}, files: map[string]*File{}, now: time.Now}
+	s := &Server{files: map[string]*File{}, now: time.Now}
+	s.Init(func(method string) bool { return method == http.MethodPost || method == http.MethodPatch })
 	s.Server = httptest.NewServer(http.HandlerFunc(s.serve))
 	s.files["root-id"] = &File{ID: "root-id", Name: "My Drive", MimeType: FolderType, Modified: s.now()}
 	return s
@@ -119,60 +96,29 @@ func New() *Server {
 // and the injected answers, and restores the defaults, so one server can serve
 // many specs.
 func (s *Server) Reset() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 	root := s.files["root-id"]
 	s.files = map[string]*File{"root-id": root}
-	s.order, s.calls, s.inject, s.seq = nil, nil, nil, 0
-	s.tokens = map[string]*principal{}
-	s.auth, s.noMarkdown, s.dropWrites = nil, false, false
+	s.order, s.seq = nil, 0
+	s.ResetCore()
+	s.noMarkdown = false
 }
+
+func (s *Server) serve(w http.ResponseWriter, r *http.Request) { s.Serve(w, r, s.route) }
 
 // SetNoMarkdown makes the export as markdown fail with a 400.
 func (s *Server) SetNoMarkdown(on bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 	s.noMarkdown = on
-}
-
-// DropWrites makes the fake apply each change and then cut the connection
-// without an answer.
-func (s *Server) DropWrites(on bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.dropWrites = on
-}
-
-// SetAuthenticator makes the fake ask f about a token it does not know.
-func (s *Server) SetAuthenticator(f func(token string) (email string, scopes []string, ok bool)) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.auth = f
-}
-
-// AddToken makes a token valid for an account with the scopes.
-func (s *Server) AddToken(token, email string, scopes ...string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	p := &principal{email: email, scopes: map[string]bool{}}
-	for _, sc := range scopes {
-		p.scopes[sc] = true
-	}
-	s.tokens[token] = p
-}
-
-// RevokeToken makes a token unknown, as the service does once it is revoked.
-func (s *Server) RevokeToken(token string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.tokens, token)
 }
 
 // AddFile adds f. A missing ID is made; a missing parent is the root of My
 // Drive.
 func (s *Server) AddFile(f File) *File {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 	return s.add(f)
 }
 
@@ -210,8 +156,8 @@ func (s *Server) AddFolder(id, name, parent string) *File {
 
 // File returns a copy of the file with the ID, or nil.
 func (s *Server) File(id string) *File {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 	if f, ok := s.files[id]; ok {
 		c := *f
 		return &c
@@ -221,8 +167,8 @@ func (s *Server) File(id string) *File {
 
 // Find returns copies of the files named name.
 func (s *Server) Find(name string) []File {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 	var out []File
 	for _, id := range s.order {
 		if f := s.files[id]; f.Name == name {
@@ -232,107 +178,7 @@ func (s *Server) Find(name string) []File {
 	return out
 }
 
-// Calls returns the requests served so far.
-func (s *Server) Calls() []Call {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return append([]Call(nil), s.calls...)
-}
-
-// Inject makes the next times calls under pathPrefix ("" for any) answer with
-// status and the error reason. retryAfter, when not empty, is sent in the
-// Retry-After header. times 0 means every call.
-func (s *Server) Inject(pathPrefix string, status int, reason, retryAfter string, times int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.inject = append(s.inject, &injected{status: status, reason: reason, retryAfter: retryAfter, times: times, pathPrefix: pathPrefix})
-}
-
-// InjectMethod is Inject for the calls with one HTTP method only, so a test
-// can refuse a change and let the reads before it through.
-func (s *Server) InjectMethod(method, pathPrefix string, status int, reason string, times int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.inject = append(s.inject, &injected{status: status, reason: reason, times: times, pathPrefix: pathPrefix, method: method})
-}
-
-// ClearInjected removes every injected answer.
-func (s *Server) ClearInjected() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.inject = nil
-}
-
-func reply(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func fail(w http.ResponseWriter, status int, reason, message string) {
-	reply(w, status, map[string]any{"error": map[string]any{
-		"code": status, "message": message,
-		"errors": []map[string]string{{"reason": reason, "message": message}},
-	}})
-}
-
-func (s *Server) record(r *http.Request, token string) {
-	body, _ := io.ReadAll(io.LimitReader(r.Body, 64<<10+1))
-	if len(body) > 64<<10 {
-		body = body[:64<<10]
-	}
-	r.Body = io.NopCloser(bytes.NewReader(body))
-	s.calls = append(s.calls, Call{Method: r.Method, Path: r.URL.Path, Query: r.URL.RawQuery, Token: token, Range: r.Header.Get("Range"),
-		ContentType: r.Header.Get("Content-Type"), Body: string(body)})
-}
-
-func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	s.record(r, token)
-	for i, in := range s.inject {
-		if !strings.HasPrefix(r.URL.Path, in.pathPrefix) || (in.method != "" && in.method != r.Method) {
-			continue
-		}
-		if in.times > 0 {
-			in.times--
-			if in.times == 0 {
-				s.inject = append(s.inject[:i], s.inject[i+1:]...)
-			}
-		}
-		if in.retryAfter != "" {
-			w.Header().Set("Retry-After", in.retryAfter)
-		}
-		fail(w, in.status, in.reason, "injected")
-		return
-	}
-	p, ok := s.tokens[token]
-	if !ok && s.auth != nil {
-		if email, scopes, valid := s.auth(token); valid {
-			p, ok = &principal{email: email, scopes: map[string]bool{}}, true
-			for _, sc := range scopes {
-				p.scopes[sc] = true
-			}
-		}
-	}
-	if !ok {
-		fail(w, http.StatusUnauthorized, "authError", "Invalid Credentials")
-		return
-	}
-	if s.dropWrites && (r.Method == http.MethodPost || r.Method == http.MethodPatch) {
-		s.route(httptest.NewRecorder(), r, p)
-		if hj, ok := w.(http.Hijacker); ok {
-			if conn, _, err := hj.Hijack(); err == nil {
-				_ = conn.Close()
-			}
-		}
-		return
-	}
-	s.route(w, r, p)
-}
-
-func (s *Server) route(w http.ResponseWriter, r *http.Request, p *principal) {
+func (s *Server) route(w http.ResponseWriter, r *http.Request, p *googletest.Principal) {
 	path := r.URL.Path
 	switch {
 	case path == "/drive/v3/about" && r.Method == http.MethodGet:
@@ -361,25 +207,25 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request, p *principal) {
 	}
 }
 
-func (p *principal) canRead() bool { return p.scopes[ScopeReadonly] || p.scopes[ScopeFile] }
+func canRead(p *googletest.Principal) bool { return p.Scopes[ScopeReadonly] || p.Scopes[ScopeFile] }
 
 // canSee says whether the token reaches f at all: the narrow scope reaches
 // only the files the add-on created.
-func (p *principal) canSee(f *File) bool {
-	if p.scopes[ScopeReadonly] {
+func canSee(p *googletest.Principal, f *File) bool {
+	if p.Scopes[ScopeReadonly] {
 		return true
 	}
-	return p.scopes[ScopeFile] && f.CreatedByApp
+	return p.Scopes[ScopeFile] && f.CreatedByApp
 }
 
 func allDrives(r *http.Request) bool { return r.URL.Query().Get("supportsAllDrives") == "true" }
 
-func (s *Server) about(w http.ResponseWriter, p *principal) {
-	if !p.canRead() {
-		fail(w, http.StatusForbidden, "insufficientPermissions", "scope")
+func (s *Server) about(w http.ResponseWriter, p *googletest.Principal) {
+	if !canRead(p) {
+		googletest.Fail(w, http.StatusForbidden, "insufficientPermissions", "scope")
 		return
 	}
-	reply(w, 200, map[string]any{"user": map[string]string{"permissionId": "perm-" + p.email, "emailAddress": p.email, "displayName": "Person"}})
+	googletest.Reply(w, 200, map[string]any{"user": map[string]string{"permissionId": "perm-" + p.Email, "emailAddress": p.Email, "displayName": "Person"}})
 }
 
 func (f *File) json() map[string]any {
@@ -396,33 +242,33 @@ func (f *File) json() map[string]any {
 }
 
 // lookup finds a file the call may see.
-func (s *Server) lookup(w http.ResponseWriter, r *http.Request, p *principal, id string) *File {
-	if !p.canRead() {
-		fail(w, http.StatusForbidden, "insufficientPermissions", "scope")
+func (s *Server) lookup(w http.ResponseWriter, r *http.Request, p *googletest.Principal, id string) *File {
+	if !canRead(p) {
+		googletest.Fail(w, http.StatusForbidden, "insufficientPermissions", "scope")
 		return nil
 	}
 	if id == "root" {
 		id = "root-id"
 	}
 	f, ok := s.files[id]
-	if !ok || (f.DriveID != "" && !allDrives(r)) || !p.canSee(f) {
-		fail(w, http.StatusNotFound, "notFound", "File not found")
+	if !ok || (f.DriveID != "" && !allDrives(r)) || !canSee(p, f) {
+		googletest.Fail(w, http.StatusNotFound, "notFound", "File not found")
 		return nil
 	}
 	return f
 }
 
-func (s *Server) get(w http.ResponseWriter, r *http.Request, p *principal, id string) {
+func (s *Server) get(w http.ResponseWriter, r *http.Request, p *googletest.Principal, id string) {
 	f := s.lookup(w, r, p, id)
 	if f == nil {
 		return
 	}
 	if r.URL.Query().Get("alt") != "media" {
-		reply(w, 200, f.json())
+		googletest.Reply(w, 200, f.json())
 		return
 	}
 	if strings.HasPrefix(f.MimeType, "application/vnd.google-apps.") {
-		fail(w, http.StatusForbidden, "fileNotDownloadable", "Only files with binary content can be downloaded")
+		googletest.Fail(w, http.StatusForbidden, "fileNotDownloadable", "Only files with binary content can be downloaded")
 		return
 	}
 	data := f.Content
@@ -432,11 +278,11 @@ func (s *Server) get(w http.ResponseWriter, r *http.Request, p *principal, id st
 		start, err1 := strconv.Atoi(a)
 		end, err2 := strconv.Atoi(b)
 		if !ok || !found || err1 != nil || err2 != nil || start > end {
-			fail(w, http.StatusBadRequest, "badRequest", "range")
+			googletest.Fail(w, http.StatusBadRequest, "badRequest", "range")
 			return
 		}
 		if start >= len(data) {
-			fail(w, http.StatusRequestedRangeNotSatisfiable, "requestedRangeNotSatisfiable", "range")
+			googletest.Fail(w, http.StatusRequestedRangeNotSatisfiable, "requestedRangeNotSatisfiable", "range")
 			return
 		}
 		end = min(end, len(data)-1)
@@ -456,7 +302,7 @@ var exports = map[string][]string{
 	DrawingType:      {"image/png", "application/pdf"},
 }
 
-func (s *Server) export(w http.ResponseWriter, r *http.Request, p *principal, id string) {
+func (s *Server) export(w http.ResponseWriter, r *http.Request, p *googletest.Principal, id string) {
 	f := s.lookup(w, r, p, id)
 	if f == nil {
 		return
@@ -471,29 +317,29 @@ func (s *Server) export(w http.ResponseWriter, r *http.Request, p *principal, id
 		ok = false
 	}
 	if !ok {
-		fail(w, http.StatusBadRequest, "badRequest", "Export format not supported")
+		googletest.Fail(w, http.StatusBadRequest, "badRequest", "Export format not supported")
 		return
 	}
 	w.Header().Set("Content-Type", want)
 	_, _ = w.Write(f.Content)
 }
 
-func (s *Server) list(w http.ResponseWriter, r *http.Request, p *principal) {
-	if !p.canRead() {
-		fail(w, http.StatusForbidden, "insufficientPermissions", "scope")
+func (s *Server) list(w http.ResponseWriter, r *http.Request, p *googletest.Principal) {
+	if !canRead(p) {
+		googletest.Fail(w, http.StatusForbidden, "insufficientPermissions", "scope")
 		return
 	}
 	q := r.URL.Query()
 	conds, err := parseQuery(q.Get("q"))
 	if err != nil {
-		fail(w, http.StatusBadRequest, "invalidQuery", "Invalid Value")
+		googletest.Fail(w, http.StatusBadRequest, "invalidQuery", "Invalid Value")
 		return
 	}
 	showAll := allDrives(r) && q.Get("includeItemsFromAllDrives") == "true"
 	var hits []*File
 	for _, id := range s.order {
 		f := s.files[id]
-		if f.ID == "root-id" || (f.DriveID != "" && !showAll) || !p.canSee(f) {
+		if f.ID == "root-id" || (f.DriveID != "" && !showAll) || !canSee(p, f) {
 			continue
 		}
 		match := true
@@ -516,7 +362,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, p *principal) {
 	if t := q.Get("pageToken"); t != "" {
 		n, err := strconv.Atoi(strings.TrimPrefix(t, "page-"))
 		if err != nil || !strings.HasPrefix(t, "page-") || n < 0 {
-			fail(w, http.StatusBadRequest, "badRequest", "Invalid Value")
+			googletest.Fail(w, http.StatusBadRequest, "badRequest", "Invalid Value")
 			return
 		}
 		start = n
@@ -532,7 +378,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, p *principal) {
 	if end < len(hits) {
 		out["nextPageToken"] = "page-" + strconv.Itoa(end)
 	}
-	reply(w, 200, out)
+	googletest.Reply(w, 200, out)
 }
 
 type fileInput struct {
@@ -544,21 +390,21 @@ type fileInput struct {
 }
 
 // writable checks the scope for a change.
-func (p *principal) writable(w http.ResponseWriter) bool {
-	if !p.scopes[ScopeFile] {
-		fail(w, http.StatusForbidden, "insufficientPermissions", "scope")
+func writable(p *googletest.Principal, w http.ResponseWriter) bool {
+	if !p.Scopes[ScopeFile] {
+		googletest.Fail(w, http.StatusForbidden, "insufficientPermissions", "scope")
 		return false
 	}
 	return true
 }
 
-func (s *Server) upload(w http.ResponseWriter, r *http.Request, p *principal) {
-	if !p.writable(w) {
+func (s *Server) upload(w http.ResponseWriter, r *http.Request, p *googletest.Principal) {
+	if !writable(p, w) {
 		return
 	}
 	typ, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || typ != "multipart/related" || r.URL.Query().Get("uploadType") != "multipart" || !allDrives(r) {
-		fail(w, http.StatusBadRequest, "badRequest", "upload")
+		googletest.Fail(w, http.StatusBadRequest, "badRequest", "upload")
 		return
 	}
 	mr := multipart.NewReader(r.Body, params["boundary"])
@@ -572,7 +418,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request, p *principal) {
 		b, _ := io.ReadAll(part)
 		if i == 0 {
 			if json.Unmarshal(b, &meta) != nil {
-				fail(w, http.StatusBadRequest, "badRequest", "metadata")
+				googletest.Fail(w, http.StatusBadRequest, "badRequest", "metadata")
 				return
 			}
 		} else {
@@ -580,45 +426,45 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request, p *principal) {
 		}
 	}
 	if meta.Name == nil || len(meta.Parents) != 1 {
-		fail(w, http.StatusBadRequest, "badRequest", "metadata")
+		googletest.Fail(w, http.StatusBadRequest, "badRequest", "metadata")
 		return
 	}
 	par, ok := s.files[meta.Parents[0]]
-	if !ok || par.MimeType != FolderType || !p.canSee(par) && par.ID != "root-id" && !p.scopes[ScopeReadonly] {
-		fail(w, http.StatusNotFound, "notFound", "Parent not found")
+	if !ok || par.MimeType != FolderType || !canSee(p, par) && par.ID != "root-id" && !p.Scopes[ScopeReadonly] {
+		googletest.Fail(w, http.StatusNotFound, "notFound", "Parent not found")
 		return
 	}
 	f := s.add(File{Name: *meta.Name, MimeType: meta.MimeType, Parents: meta.Parents, Content: content, CreatedByApp: true, AppProperties: meta.AppProperties, DriveID: par.DriveID})
-	reply(w, 200, f.json())
+	googletest.Reply(w, 200, f.json())
 }
 
-func (s *Server) updateMedia(w http.ResponseWriter, r *http.Request, p *principal, id string) {
-	if !p.writable(w) {
+func (s *Server) updateMedia(w http.ResponseWriter, r *http.Request, p *googletest.Principal, id string) {
+	if !writable(p, w) {
 		return
 	}
 	f, ok := s.files[id]
 	if !ok || !f.CreatedByApp || r.URL.Query().Get("uploadType") != "media" || !allDrives(r) {
-		fail(w, http.StatusNotFound, "notFound", "File not found")
+		googletest.Fail(w, http.StatusNotFound, "notFound", "File not found")
 		return
 	}
 	f.Content, _ = io.ReadAll(r.Body)
 	f.Version++
 	f.Modified = s.now().UTC().Truncate(time.Second)
-	reply(w, 200, f.json())
+	googletest.Reply(w, 200, f.json())
 }
 
-func (s *Server) patch(w http.ResponseWriter, r *http.Request, p *principal, id string) {
-	if !p.writable(w) {
+func (s *Server) patch(w http.ResponseWriter, r *http.Request, p *googletest.Principal, id string) {
+	if !writable(p, w) {
 		return
 	}
 	f, ok := s.files[id]
 	if !ok || !f.CreatedByApp || !allDrives(r) {
-		fail(w, http.StatusNotFound, "notFound", "File not found")
+		googletest.Fail(w, http.StatusNotFound, "notFound", "File not found")
 		return
 	}
 	var in fileInput
 	if json.NewDecoder(r.Body).Decode(&in) != nil {
-		fail(w, http.StatusBadRequest, "badRequest", "body")
+		googletest.Fail(w, http.StatusBadRequest, "badRequest", "body")
 		return
 	}
 	q := r.URL.Query()
@@ -641,7 +487,7 @@ func (s *Server) patch(w http.ResponseWriter, r *http.Request, p *principal, id 
 		for _, a := range strings.Split(add, ",") {
 			par, ok := s.files[a]
 			if !ok || par.MimeType != FolderType {
-				fail(w, http.StatusNotFound, "notFound", "Parent not found")
+				googletest.Fail(w, http.StatusNotFound, "notFound", "Parent not found")
 				return
 			}
 			f.Parents = append(f.Parents, a)
@@ -649,5 +495,5 @@ func (s *Server) patch(w http.ResponseWriter, r *http.Request, p *principal, id 
 	}
 	f.Version++
 	f.Modified = s.now().UTC().Truncate(time.Second)
-	reply(w, 200, f.json())
+	googletest.Reply(w, 200, f.json())
 }

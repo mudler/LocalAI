@@ -83,6 +83,8 @@ type oauthRig struct {
 	tr    *meTransport
 	logs  *syncBuffer
 	conns *studio.Connectors
+	// waits counts the waits of callers that lost the refresh lease.
+	waits atomic.Int32
 
 	dmu  sync.Mutex
 	desc contract.OAuthDescriptor
@@ -117,6 +119,17 @@ func (r *oauthRig) instanceOn(name string, st connectors.Store) *studio.Connecto
 			return r.desc, nil
 		},
 		Logger: slog.New(slog.NewTextHandler(r.logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		// A caller that lost the refresh lease counts its wait here, so a test
+		// knows the caller is waiting without guessing a time.
+		LeaseWait: func(ctx context.Context, d time.Duration) error {
+			r.waits.Add(1)
+			select {
+			case <-time.After(d):
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		},
 	})
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(c.Close)
@@ -510,7 +523,8 @@ var _ = Describe("OAuth connections", func() {
 				It("makes one token call for 50 concurrent calls", func() {
 					b := r.connect()
 					r.sh.clock.Advance(time.Hour)
-					r.srv.Set(func(s *oauthtokentest.Server) { s.Rotate, s.Delay = true, 100*time.Millisecond })
+					gate := make(chan struct{})
+					r.srv.Set(func(s *oauthtokentest.Server) { s.Rotate, s.Gate = true, gate })
 					secrets := make(chan string, 50)
 					var wg sync.WaitGroup
 					for range 50 {
@@ -521,6 +535,9 @@ var _ = Describe("OAuth connections", func() {
 							secrets <- g.Secret
 						})
 					}
+					// The one refresh waits at the service while the others join it.
+					Eventually(r.srv.Tokens.Load).Should(BeEquivalentTo(2))
+					close(gate)
 					wg.Wait()
 					close(secrets)
 					Expect(r.srv.Tokens.Load()).To(BeEquivalentTo(2), "the exchange and one refresh")
@@ -535,7 +552,8 @@ var _ = Describe("OAuth connections", func() {
 					b := r.connect()
 					other := r.instance("front-b")
 					r.sh.clock.Advance(time.Hour)
-					r.srv.Set(func(s *oauthtokentest.Server) { s.Rotate, s.Delay = true, 300*time.Millisecond })
+					gate := make(chan struct{})
+					r.srv.Set(func(s *oauthtokentest.Server) { s.Rotate, s.Gate = true, gate })
 					var wg sync.WaitGroup
 					errs := make(chan error, 40)
 					for i := range 40 {
@@ -548,6 +566,9 @@ var _ = Describe("OAuth connections", func() {
 							errs <- err
 						})
 					}
+					Eventually(r.srv.Tokens.Load).Should(BeEquivalentTo(2))
+					Eventually(r.waits.Load).Should(BeNumerically(">", 0), "the other callers wait for the refresh")
+					close(gate)
 					wg.Wait()
 					close(errs)
 					for err := range errs {
@@ -561,7 +582,8 @@ var _ = Describe("OAuth connections", func() {
 					b := r.connect()
 					other := r.instance("front-b")
 					r.sh.clock.Advance(time.Hour)
-					r.srv.Set(func(s *oauthtokentest.Server) { s.Rotate, s.Delay = true, time.Second })
+					gate := make(chan struct{})
+					r.srv.Set(func(s *oauthtokentest.Server) { s.Rotate, s.Gate = true, gate })
 					first := make(chan error, 1)
 					go func() {
 						_, err := r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
@@ -572,7 +594,21 @@ var _ = Describe("OAuth connections", func() {
 					// front-a must still hold, or front-b, renewing after a
 					// rejection, would send the same refresh token again.
 					r.sh.clock.Advance(45 * time.Second)
-					renewed, err := other.RenewCredential(ctx, alice, oauthAddon, b.ID, "", 1, false)
+					type renewal struct {
+						grant studio.CredentialGrant
+						err   error
+					}
+					second := make(chan renewal, 1)
+					go func() {
+						g, err := other.RenewCredential(ctx, alice, oauthAddon, b.ID, "", 1, false)
+						second <- renewal{g, err}
+					}()
+					// front-b found the lease held and waits; only now does the
+					// service answer front-a.
+					Eventually(r.waits.Load).Should(BeNumerically(">", 0))
+					close(gate)
+					got := <-second
+					renewed, err := got.grant, got.err
 					Expect(err).NotTo(HaveOccurred())
 					Expect(<-first).NotTo(HaveOccurred())
 					Expect(renewed.Version).To(BeEquivalentTo(2), "front-b uses the token front-a wrote")
@@ -910,7 +946,8 @@ var _ = Describe("OAuth connections", func() {
 					r.approve()
 					b := r.binding()
 					ls, state := r.start(b)
-					r.srv.Set(func(s *oauthtokentest.Server) { s.Delay = 500 * time.Millisecond })
+					gate := make(chan struct{})
+					r.srv.Set(func(s *oauthtokentest.Server) { s.Gate = gate })
 					done := make(chan studio.LoginResult, 1)
 					go func() {
 						res, _ := r.conns.CompleteLogin(ctx, alice, ls.Nonce, state, oauthCode, "")
@@ -918,6 +955,7 @@ var _ = Describe("OAuth connections", func() {
 					}()
 					Eventually(r.srv.Tokens.Load).Should(BeEquivalentTo(1), "the exchange is at the service")
 					Expect(r.st.DeleteBinding(ctx, b.ID)).To(Succeed())
+					close(gate)
 					res := <-done
 					Expect(res.Outcome).NotTo(Equal(studio.LoginOK))
 					_, err := r.st.GetGrant(ctx, b.ID)

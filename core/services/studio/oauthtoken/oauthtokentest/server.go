@@ -19,7 +19,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/oauthtoken"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -49,8 +48,9 @@ type Server struct {
 	FailStatus int
 	// RetryAfter is the Retry-After header of a 429 answer.
 	RetryAfter string
-	// Delay holds every token answer this long.
-	Delay time.Duration
+	// Gate, when set, holds every token answer until it is closed or the
+	// request ends. A test closes it when it has seen what it wanted to see.
+	Gate chan struct{}
 	// Body, when set, replaces the body of a successful token answer.
 	Body string
 	// RevokeStatus is the status of a revocation answer; zero means 200.
@@ -136,10 +136,14 @@ func (s *Server) token(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.forms = append(s.forms, r.PostForm)
 	s.auths = append(s.auths, r.Header.Get("Authorization"))
-	delay := s.Delay
+	gate := s.Gate
 	s.mu.Unlock()
-	if delay > 0 {
-		time.Sleep(delay)
+	if gate != nil {
+		select {
+		case <-gate:
+		case <-r.Context().Done():
+			return
+		}
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()

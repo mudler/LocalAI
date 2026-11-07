@@ -303,8 +303,10 @@ var _ = Describe("OAuth logins of add-ons, the same for every service", func() {
 		Expect(firstRefresh).To(BeEmpty(), "the login traded a code")
 		before := len(u.p.Calls())
 		c.clock.Advance(time.Hour)
-		// The slow answer keeps every caller waiting on the one refresh.
-		u.p.Set(func(p *oauthtest.Provider) { p.Delay = 300 * time.Millisecond })
+		// The held answer keeps every caller waiting on the one refresh.
+		gate := make(chan struct{})
+		tokensBefore := u.p.Tokens.Load()
+		u.p.Set(func(p *oauthtest.Provider) { p.Gate = gate })
 		var wg sync.WaitGroup
 		answers := make([]answer, 12)
 		errs := make([]error, len(answers))
@@ -314,8 +316,10 @@ var _ = Describe("OAuth logins of add-ons, the same for every service", func() {
 				answers[i], errs[i] = u.try(c.owner)
 			})
 		}
+		Eventually(u.p.Tokens.Load).Should(Equal(tokensBefore+1), "the one refresh is at the provider")
+		close(gate)
 		wg.Wait()
-		u.p.Set(func(p *oauthtest.Provider) { p.Delay = 0 })
+		u.p.Set(func(p *oauthtest.Provider) { p.Gate = nil })
 		Expect(u.tokenCalls(before)).To(HaveLen(1), "one refresh for every call that found the token ended")
 		served := 0
 		for i, a := range answers {

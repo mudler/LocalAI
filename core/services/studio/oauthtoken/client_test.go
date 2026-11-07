@@ -154,7 +154,8 @@ var _ = Describe("the token client", func() {
 	})
 
 	It("reports a timeout or a network failure as unavailable", func() {
-		srv.Set(func(s *oauthtokentest.Server) { s.Delay = 300 * time.Millisecond })
+		// The server holds its answer until the request ends.
+		srv.Set(func(s *oauthtokentest.Server) { s.Gate = make(chan struct{}) })
 		tctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
 		_, err := c.Refresh(tctx, srv.Descriptor(contract.OAuthClientAuthBasic), creds, srv.Issue())

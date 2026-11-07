@@ -12,10 +12,10 @@
 package gmailtest
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/mudler/LocalAI/addons/internal/googletest"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -23,7 +23,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -70,114 +69,62 @@ type Draft struct {
 	Raw string
 }
 
-// Call is one request the fake served.
-type Call struct {
-	Method, Path, Query, Token, ContentType string
-	// Body is the request body, cut at 64 KiB.
-	Body string
-}
-
-type principal struct {
-	email  string
-	scopes map[string]bool
-}
-
-type injected struct {
-	status     int
-	reason     string
-	retryAfter string
-	times      int // 0: always
-	pathPrefix string
-}
-
 // Server is a fake API.
+// Call is one request the fake received.
+type Call = googletest.Call
+
 type Server struct {
 	*httptest.Server
+	googletest.Core
 
-	mu         sync.Mutex
-	tokens     map[string]*principal
-	auth       func(token string) (email string, scopes []string, ok bool)
-	messages   map[string]*Message
-	order      []string
-	labels     []Label
-	drafts     map[string]*Draft
-	sent       []Draft
-	calls      []Call
-	inject     []*injected
-	seq        int
-	dropWrites bool
-	now        func() time.Time
+	messages map[string]*Message
+	order    []string
+	labels   []Label
+	drafts   map[string]*Draft
+	sent     []Draft
+	seq      int
+	now      func() time.Time
 }
 
 // New starts a fake API.
 func New() *Server {
 	s := &Server{now: time.Now}
+	s.Init(func(method string) bool { return method == http.MethodPost })
 	s.Server = httptest.NewServer(http.HandlerFunc(s.serve))
 	s.reset()
 	return s
 }
 
 func (s *Server) reset() {
-	s.tokens, s.messages, s.drafts = map[string]*principal{}, map[string]*Message{}, map[string]*Draft{}
-	s.order, s.sent, s.calls, s.inject, s.seq = nil, nil, nil, nil, 0
-	s.auth, s.dropWrites = nil, false
+	s.ResetCore()
+	s.messages, s.drafts = map[string]*Message{}, map[string]*Draft{}
+	s.order, s.sent, s.seq = nil, nil, 0
 	s.labels = []Label{{"INBOX", "INBOX", "system"}, {"SENT", "SENT", "system"}, {"DRAFT", "DRAFT", "system"}, {"SPAM", "SPAM", "system"},
 		{"TRASH", "TRASH", "system"}, {"UNREAD", "UNREAD", "system"}, {"STARRED", "STARRED", "system"}}
 }
 
+func (s *Server) serve(w http.ResponseWriter, r *http.Request) { s.Serve(w, r, s.route) }
+
 // Reset removes every message, label, draft, token, call and injected answer,
 // so one server can serve many specs.
 func (s *Server) Reset() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 	s.reset()
-}
-
-// DropWrites makes the fake apply each change and then cut the connection
-// without an answer.
-func (s *Server) DropWrites(on bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.dropWrites = on
-}
-
-// SetAuthenticator makes the fake ask f about a token it does not know.
-func (s *Server) SetAuthenticator(f func(token string) (email string, scopes []string, ok bool)) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.auth = f
-}
-
-// AddToken makes a token valid for an account with the scopes.
-func (s *Server) AddToken(token, email string, scopes ...string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	p := &principal{email: email, scopes: map[string]bool{}}
-	for _, sc := range scopes {
-		p.scopes[sc] = true
-	}
-	s.tokens[token] = p
-}
-
-// RevokeToken makes a token unknown, as the service does once it is revoked.
-func (s *Server) RevokeToken(token string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.tokens, token)
 }
 
 // AddLabel adds a user label.
 func (s *Server) AddLabel(id, name string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 	s.labels = append(s.labels, Label{id, name, "user"})
 }
 
 // AddMessage adds m. A missing ID, thread or time is made; a message with no
 // labels is in the inbox.
 func (s *Server) AddMessage(m Message) *Message {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 	return s.add(m)
 }
 
@@ -201,17 +148,10 @@ func (s *Server) add(m Message) *Message {
 	return &c
 }
 
-// Calls returns the requests served so far.
-func (s *Server) Calls() []Call {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return append([]Call(nil), s.calls...)
-}
-
 // Drafts returns the drafts that exist.
 func (s *Server) Drafts() []Draft {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 	var out []Draft
 	for _, d := range s.drafts {
 		out = append(out, *d)
@@ -222,112 +162,35 @@ func (s *Server) Drafts() []Draft {
 
 // AddDraft adds a draft that a person wrote, with the raw text of its message.
 func (s *Server) AddDraft(id, raw string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 	s.putDraft(id, "", raw)
 }
 
 // Sent returns the messages that were sent.
 func (s *Server) Sent() []Draft {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 	return append([]Draft(nil), s.sent...)
-}
-
-// Inject makes the next times calls under pathPrefix ("" for any) answer with
-// status and the error reason. retryAfter, when not empty, is sent in the
-// Retry-After header. times 0 means every call.
-func (s *Server) Inject(pathPrefix string, status int, reason, retryAfter string, times int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.inject = append(s.inject, &injected{status: status, reason: reason, retryAfter: retryAfter, times: times, pathPrefix: pathPrefix})
-}
-
-func reply(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func fail(w http.ResponseWriter, status int, reason, message string) {
-	reply(w, status, map[string]any{"error": map[string]any{
-		"code": status, "message": message,
-		"errors": []map[string]string{{"reason": reason, "message": message}},
-	}})
-}
-
-func (s *Server) record(r *http.Request, token string) {
-	body, _ := io.ReadAll(io.LimitReader(r.Body, 64<<10+1))
-	if len(body) > 64<<10 {
-		body = body[:64<<10]
-	}
-	r.Body = io.NopCloser(bytes.NewReader(body))
-	s.calls = append(s.calls, Call{Method: r.Method, Path: r.URL.Path, Query: r.URL.RawQuery, Token: token, ContentType: r.Header.Get("Content-Type"), Body: string(body)})
-}
-
-func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	s.record(r, token)
-	for i, in := range s.inject {
-		if !strings.HasPrefix(r.URL.Path, in.pathPrefix) {
-			continue
-		}
-		if in.times > 0 {
-			in.times--
-			if in.times == 0 {
-				s.inject = append(s.inject[:i], s.inject[i+1:]...)
-			}
-		}
-		if in.retryAfter != "" {
-			w.Header().Set("Retry-After", in.retryAfter)
-		}
-		fail(w, in.status, in.reason, "injected")
-		return
-	}
-	p, ok := s.tokens[token]
-	if !ok && s.auth != nil {
-		if email, scopes, valid := s.auth(token); valid {
-			p, ok = &principal{email: email, scopes: map[string]bool{}}, true
-			for _, sc := range scopes {
-				p.scopes[sc] = true
-			}
-		}
-	}
-	if !ok {
-		fail(w, http.StatusUnauthorized, "authError", "Invalid Credentials")
-		return
-	}
-	if s.dropWrites && r.Method == http.MethodPost {
-		s.route(httptest.NewRecorder(), r, p)
-		if hj, ok := w.(http.Hijacker); ok {
-			if conn, _, err := hj.Hijack(); err == nil {
-				_ = conn.Close()
-			}
-		}
-		return
-	}
-	s.route(w, r, p)
 }
 
 const base = "/gmail/v1/users/me"
 
-func (s *Server) route(w http.ResponseWriter, r *http.Request, p *principal) {
+func (s *Server) route(w http.ResponseWriter, r *http.Request, p *googletest.Principal) {
 	path := strings.TrimPrefix(r.URL.Path, base)
 	if path == r.URL.Path {
-		fail(w, http.StatusNotFound, "notFound", "no such path")
+		googletest.Fail(w, http.StatusNotFound, "notFound", "no such path")
 		return
 	}
 	seg := strings.Split(strings.Trim(path, "/"), "/")
-	read := p.scopes[ScopeReadonly] || p.scopes[ScopeCompose]
+	read := p.Scopes[ScopeReadonly] || p.Scopes[ScopeCompose]
 	switch {
 	case path == "/profile" && r.Method == http.MethodGet:
 		if !read {
-			fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
+			googletest.Fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
 			return
 		}
-		reply(w, 200, map[string]any{"emailAddress": p.email, "messagesTotal": len(s.messages), "threadsTotal": len(s.messages), "historyId": "1"})
+		googletest.Reply(w, 200, map[string]any{"emailAddress": p.Email, "messagesTotal": len(s.messages), "threadsTotal": len(s.messages), "historyId": "1"})
 	case path == "/messages" && r.Method == http.MethodGet:
 		s.list(w, r, p)
 	case len(seg) == 2 && seg[0] == "messages" && r.Method == http.MethodGet:
@@ -337,11 +200,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request, p *principal) {
 	case len(seg) == 2 && seg[0] == "threads" && r.Method == http.MethodGet:
 		s.thread(w, r, p, seg[1])
 	case path == "/labels" && r.Method == http.MethodGet:
-		if !p.scopes[ScopeReadonly] {
-			fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
+		if !p.Scopes[ScopeReadonly] {
+			googletest.Fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
 			return
 		}
-		reply(w, 200, map[string]any{"labels": s.labels})
+		googletest.Reply(w, 200, map[string]any{"labels": s.labels})
 	case path == "/drafts" && r.Method == http.MethodPost:
 		s.createDraft(w, r, p)
 	case path == "/drafts/send" && r.Method == http.MethodPost:
@@ -349,7 +212,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request, p *principal) {
 	case len(seg) == 2 && seg[0] == "drafts" && r.Method == http.MethodGet:
 		s.getDraft(w, r, p, seg[1])
 	default:
-		fail(w, http.StatusNotFound, "notFound", "no such path")
+		googletest.Fail(w, http.StatusNotFound, "notFound", "no such path")
 	}
 }
 
@@ -362,9 +225,9 @@ func hasLabel(m *Message, l string) bool {
 	return false
 }
 
-func (s *Server) list(w http.ResponseWriter, r *http.Request, p *principal) {
-	if !p.scopes[ScopeReadonly] {
-		fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
+func (s *Server) list(w http.ResponseWriter, r *http.Request, p *googletest.Principal) {
+	if !p.Scopes[ScopeReadonly] {
+		googletest.Fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
 		return
 	}
 	q := r.URL.Query()
@@ -377,7 +240,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, p *principal) {
 	if t := q.Get("pageToken"); t != "" {
 		n, err := strconv.Atoi(strings.TrimPrefix(t, "p"))
 		if err != nil || !strings.HasPrefix(t, "p") {
-			fail(w, http.StatusBadRequest, "invalidArgument", "Invalid pageToken")
+			googletest.Fail(w, http.StatusBadRequest, "invalidArgument", "Invalid pageToken")
 			return
 		}
 		start = n
@@ -412,25 +275,25 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, p *principal) {
 	if start+max < len(hits) {
 		out["nextPageToken"] = "p" + strconv.Itoa(start+max)
 	}
-	reply(w, 200, out)
+	googletest.Reply(w, 200, out)
 }
 
-func (s *Server) getMessage(w http.ResponseWriter, r *http.Request, p *principal, id string) {
-	if !p.scopes[ScopeReadonly] {
-		fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
+func (s *Server) getMessage(w http.ResponseWriter, r *http.Request, p *googletest.Principal, id string) {
+	if !p.Scopes[ScopeReadonly] {
+		googletest.Fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
 		return
 	}
 	m, ok := s.messages[id]
 	if !ok {
-		fail(w, http.StatusNotFound, "notFound", "Requested entity was not found.")
+		googletest.Fail(w, http.StatusNotFound, "notFound", "Requested entity was not found.")
 		return
 	}
-	reply(w, 200, render(m, r.URL.Query().Get("format"), r.URL.Query()["metadataHeaders"]))
+	googletest.Reply(w, 200, render(m, r.URL.Query().Get("format"), r.URL.Query()["metadataHeaders"]))
 }
 
-func (s *Server) thread(w http.ResponseWriter, r *http.Request, p *principal, id string) {
-	if !p.scopes[ScopeReadonly] {
-		fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
+func (s *Server) thread(w http.ResponseWriter, r *http.Request, p *googletest.Principal, id string) {
+	if !p.Scopes[ScopeReadonly] {
+		googletest.Fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
 		return
 	}
 	var msgs []any
@@ -440,10 +303,10 @@ func (s *Server) thread(w http.ResponseWriter, r *http.Request, p *principal, id
 		}
 	}
 	if msgs == nil {
-		fail(w, http.StatusNotFound, "notFound", "Requested entity was not found.")
+		googletest.Fail(w, http.StatusNotFound, "notFound", "Requested entity was not found.")
 		return
 	}
-	reply(w, 200, map[string]any{"id": id, "messages": msgs})
+	googletest.Reply(w, 200, map[string]any{"id": id, "messages": msgs})
 }
 
 func findAttachment(pt *Part, id string) *Part {
@@ -461,22 +324,22 @@ func findAttachment(pt *Part, id string) *Part {
 	return nil
 }
 
-func (s *Server) attachment(w http.ResponseWriter, p *principal, mid, aid string) {
-	if !p.scopes[ScopeReadonly] {
-		fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
+func (s *Server) attachment(w http.ResponseWriter, p *googletest.Principal, mid, aid string) {
+	if !p.Scopes[ScopeReadonly] {
+		googletest.Fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
 		return
 	}
 	m, ok := s.messages[mid]
 	if !ok {
-		fail(w, http.StatusNotFound, "notFound", "Requested entity was not found.")
+		googletest.Fail(w, http.StatusNotFound, "notFound", "Requested entity was not found.")
 		return
 	}
 	pt := findAttachment(m.Payload, aid)
 	if pt == nil {
-		fail(w, http.StatusNotFound, "notFound", "Invalid attachment token")
+		googletest.Fail(w, http.StatusNotFound, "notFound", "Invalid attachment token")
 		return
 	}
-	reply(w, 200, map[string]any{"size": len(pt.Data), "data": enc(pt.Data)})
+	googletest.Reply(w, 200, map[string]any{"size": len(pt.Data), "data": enc(pt.Data)})
 }
 
 func enc(b []byte) string { return base64.URLEncoding.EncodeToString(b) }
@@ -574,9 +437,9 @@ func (s *Server) putDraft(id, threadID, raw string) *Draft {
 	return d
 }
 
-func (s *Server) createDraft(w http.ResponseWriter, r *http.Request, p *principal) {
-	if !p.scopes[ScopeCompose] {
-		fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
+func (s *Server) createDraft(w http.ResponseWriter, r *http.Request, p *googletest.Principal) {
+	if !p.Scopes[ScopeCompose] {
+		googletest.Fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
 		return
 	}
 	var body struct {
@@ -586,16 +449,16 @@ func (s *Server) createDraft(w http.ResponseWriter, r *http.Request, p *principa
 		} `json:"message"`
 	}
 	if json.Unmarshal(readBody(r), &body) != nil {
-		fail(w, http.StatusBadRequest, "invalidArgument", "bad json")
+		googletest.Fail(w, http.StatusBadRequest, "invalidArgument", "bad json")
 		return
 	}
 	raw, err := base64.URLEncoding.DecodeString(padded(body.Message.Raw))
 	if err != nil || body.Message.Raw == "" {
-		fail(w, http.StatusBadRequest, "invalidArgument", "Invalid raw")
+		googletest.Fail(w, http.StatusBadRequest, "invalidArgument", "Invalid raw")
 		return
 	}
 	d := s.putDraft("", body.Message.ThreadID, string(raw))
-	reply(w, 200, map[string]any{"id": d.ID, "message": map[string]any{"id": d.Message.ID, "threadId": d.Message.ThreadID}})
+	googletest.Reply(w, 200, map[string]any{"id": d.ID, "message": map[string]any{"id": d.Message.ID, "threadId": d.Message.ThreadID}})
 }
 
 func padded(s string) string {
@@ -610,35 +473,35 @@ func readBody(r *http.Request) []byte {
 	return b
 }
 
-func (s *Server) getDraft(w http.ResponseWriter, r *http.Request, p *principal, id string) {
-	if !p.scopes[ScopeReadonly] && !p.scopes[ScopeCompose] {
-		fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
+func (s *Server) getDraft(w http.ResponseWriter, r *http.Request, p *googletest.Principal, id string) {
+	if !p.Scopes[ScopeReadonly] && !p.Scopes[ScopeCompose] {
+		googletest.Fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
 		return
 	}
 	d, ok := s.drafts[id]
 	if !ok {
-		fail(w, http.StatusNotFound, "notFound", "Requested entity was not found.")
+		googletest.Fail(w, http.StatusNotFound, "notFound", "Requested entity was not found.")
 		return
 	}
 	m := s.messages[d.Message.ID]
-	reply(w, 200, map[string]any{"id": d.ID, "message": render(m, r.URL.Query().Get("format"), nil)})
+	googletest.Reply(w, 200, map[string]any{"id": d.ID, "message": render(m, r.URL.Query().Get("format"), nil)})
 }
 
-func (s *Server) sendDraft(w http.ResponseWriter, r *http.Request, p *principal) {
-	if !p.scopes[ScopeCompose] {
-		fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
+func (s *Server) sendDraft(w http.ResponseWriter, r *http.Request, p *googletest.Principal) {
+	if !p.Scopes[ScopeCompose] {
+		googletest.Fail(w, http.StatusForbidden, "insufficientPermissions", "Insufficient Permission")
 		return
 	}
 	var body struct {
 		ID string `json:"id"`
 	}
 	if json.Unmarshal(readBody(r), &body) != nil {
-		fail(w, http.StatusBadRequest, "invalidArgument", "bad json")
+		googletest.Fail(w, http.StatusBadRequest, "invalidArgument", "bad json")
 		return
 	}
 	d, ok := s.drafts[body.ID]
 	if !ok {
-		fail(w, http.StatusNotFound, "notFound", "Requested entity was not found.")
+		googletest.Fail(w, http.StatusNotFound, "notFound", "Requested entity was not found.")
 		return
 	}
 	m := s.messages[d.Message.ID]
@@ -646,5 +509,5 @@ func (s *Server) sendDraft(w http.ResponseWriter, r *http.Request, p *principal)
 	delete(s.drafts, body.ID)
 	d.Message = *m
 	s.sent = append(s.sent, *d)
-	reply(w, 200, map[string]any{"id": m.ID, "threadId": m.ThreadID, "labelIds": m.Labels})
+	googletest.Reply(w, 200, map[string]any{"id": m.ID, "threadId": m.ThreadID, "labelIds": m.Labels})
 }
