@@ -20,8 +20,9 @@ import './switchlist.css'
 //   describedBy          the id of a note of the open menu, for the chip
 //   openRef              a ref that gets { open() }, for a slash command
 //   onOpen(menu)         called with the menu element once it is open
+//   disabled             the chip cannot open the menu (title says why)
 //   children(close)      the menu content
-export function SwitchPopover({ icon, label, title, count, describedBy, testId, menuClassName = '', openRef, onOpen, children }) {
+export function SwitchPopover({ icon, label, title, count, describedBy, testId, menuClassName = '', openRef, onOpen, disabled = false, children }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const buttonRef = useRef(null)
@@ -66,12 +67,13 @@ export function SwitchPopover({ icon, label, title, count, describedBy, testId, 
         aria-expanded={open}
         aria-describedby={open ? describedBy : undefined}
         data-testid={`${testId}-button`}
+        disabled={disabled}
         onClick={() => setOpen((v) => !v)}
       >
         <Icon name={icon} /> {label}
         {count > 0 && <span className="chat-mcp-badge" data-testid={`${testId}-count`}>{count}</span>}
       </button>
-      {open && (
+      {open && !disabled && (
         <div ref={menuRef} className={`chat-mcp-dropdown-menu swl-menu ${menuClassName}`.trim()} role="group" aria-label={title} data-testid={`${testId}-menu`}>
           {typeof children === 'function' ? children(() => { setOpen(false); buttonRef.current?.focus() }) : children}
         </div>
