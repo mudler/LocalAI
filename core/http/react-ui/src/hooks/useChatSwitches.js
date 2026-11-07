@@ -29,7 +29,11 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
   const draftModel = draft?.model || ''
   const draftAgent = draft?.agentId || ''
   const choicesRef = useRef(emptyChoices())
-  const choose = useCallback((kind, key, value) => { choicesRef.current = withChoice(choicesRef.current, kind, key, value) }, [])
+  // The changes made by hand since the last applyDraftTools: a caller that
+  // loaded a setup reads it to know whether the person edited the draft while
+  // the lists were still being read.
+  const editsRef = useRef(0)
+  const choose = useCallback((kind, key, value) => { editsRef.current++; choicesRef.current = withChoice(choicesRef.current, kind, key, value) }, [])
   const [addons, setAddons] = useState([])
   // Whether the chat can run commands, from the same list (see utils/chatCommands.js).
   const commandEpoch = useRef(0)
@@ -80,8 +84,14 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     // A draft list keeps the choices made so far for the rows it still has.
     const chosen = (lists) => (draftOn ? applyChoices(lists, choicesRef.current, connectorRef) : lists)
     ;(draftOn ? chatAddonsApi.draft(draftModel, draftAgent, draftListSwitches(choicesRef.current, builtinsRef.current)) : chatAddonsApi.list(chatId))
-      .then((res) => { if (live && epoch === commandEpoch.current) { setAddons(chosen({ addons: res.addons || [] }).addons); setCommands(commandsOf(res)) } })
-      .catch(() => { if (live && epoch === commandEpoch.current) { setAddons([]); setCommands(noCommands) } })
+      .then((res) => {
+        if (!live) return
+        // The add-on rows count even when a later switch asked for the commands
+        // state again (which makes this answer's commands state old).
+        setAddons(chosen({ addons: res.addons || [] }).addons)
+        if (epoch === commandEpoch.current) setCommands(commandsOf(res))
+      })
+      .catch(() => { if (live) { setAddons([]); if (epoch === commandEpoch.current) setCommands(noCommands) } })
       .finally(() => { if (live) mark('addons', rev) })
     ;(draftOn ? chatToolsApi.draft(draftModel, draftAgent) : chatToolsApi.list(chatId))
       .then((res) => {
@@ -328,6 +338,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
   const applyDraftTools = useCallback((tools) => {
     if (!draftOn) return
     choicesRef.current = choicesFromTools(tools)
+    editsRef.current = 0
     setDraftRev((n) => n + 1)
     setSkillsRev((n) => n + 1)
     refreshDraftCommands()
@@ -335,6 +346,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
 
   return {
     draftSwitches, resetDraft, applyDraftTools, draft: draftOn, commandsRev,
+    editsSinceApply: () => editsRef.current,
     // The draft lists have answered the last applyDraftTools (see answered).
     listsReady: answered.tools >= draftRev && answered.addons >= draftRev && answered.skills >= skillsRev,
     addons, builtins, fallbacks, memory, commands: commands.context === context ? commands : noCommands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,

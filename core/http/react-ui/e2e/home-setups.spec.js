@@ -14,7 +14,7 @@ const WRITING = { id: 'writing', name: 'Writing', model: 'qwen3-32b-instruct', e
 const wk = (data, version) => ({ name: 'setups', path: '/LocalAI/setups.json', exists: !!version, version, data, valid: true, errors: [] })
 
 // The chat and tools stubs of home-composer.spec.js, and the setups file.
-async function server(page, { setups = null, agents = [], missingApi = false, servers = [], failSend = false } = {}) {
+async function server(page, { hold = {}, setups = null, agents = [], missingApi = false, servers = [], failSend = false } = {}) {
   const seen = { created: [], puts: [] }
   let doc = setups ? wk(setups, 3) : wk({}, 0)
   await page.route('**/api/chats/wellknown/setups', async route => {
@@ -43,15 +43,15 @@ async function server(page, { setups = null, agents = [], missingApi = false, se
   })
   await page.route('**/api/chats/n1/events', route => route.abort())
   await page.route('**/api/chats/n1', route => route.fulfill({ json: { ...CONV, pending: [] } }))
-  await page.route(/\/api\/chats\/draft\/tools(\?.*)?$/, route => route.fulfill({ json: {
+  await page.route(/\/api\/chats\/draft\/tools(\?.*)?$/, async route => { if (hold.p) await hold.p; return route.fulfill({ json: {
     builtins: [
       { group: 'web', tools: ['web_search'], off: false, usable: true, provider: 'builtin', providers: {} },
       { group: 'files', tools: ['read_file'], off: false, usable: true, provider: 'builtin', providers: {} },
     ],
     addons: [{ id: 'office', tools: 4, off: false }], servers, connectors: [], off: [],
-  } }))
-  await page.route(/\/api\/chats\/draft\/addons(\?.*)?$/, route => route.fulfill({ json: { addons: [{ id: 'office', tools: 4, off: false }], commands: 'none' } }))
-  await page.route(/\/api\/chats\/skills(\?.*)?$/, route => route.fulfill({ json: { skills: [] } }))
+  } }) })
+  await page.route(/\/api\/chats\/draft\/addons(\?.*)?$/, async route => { if (hold.p) await hold.p; return route.fulfill({ json: { addons: [{ id: 'office', tools: 4, off: false }], commands: 'none' } }) })
+  await page.route(/\/api\/chats\/skills(\?.*)?$/, async route => { if (hold.p) await hold.p; return route.fulfill({ json: { skills: [] } }) })
   await page.route('**/api/chats/agents', route => route.fulfill({ json: { agents } }))
   return seen
 }
@@ -379,5 +379,42 @@ test.describe('Home setups', () => {
     await expect(page.getByTestId('home-model-chip')).toContainText('gemma-4-e4b')
     await expect(page.getByTestId('setup-warning')).toHaveCount(0)
     await expect(page.getByTestId('setup-chip-edited')).toBeVisible()
+  })
+
+  test('a switch clicked while the lists of a setup are still loading stays an edit', async ({ page }) => {
+    const hold = {}
+    await server(page, { hold, setups: { default: 'coding', setups: [CODING, WRITING] } })
+    await open(page)
+    await expect(chipName(page)).toHaveText('Coding')
+    // The lists of the first setup are shown; from here they answer only when released.
+    await expect(page.getByTestId('chat-tools-count')).toBeVisible()
+    let release
+    hold.p = new Promise((r) => { release = r })
+    await pick(page, 'writing')
+    // The old lists are still shown: switch one while the new ones load.
+    const files = await toolSwitch(page, 'Your files')
+    await expect(files).toHaveAttribute('aria-checked', 'true')
+    await files.click()
+    await page.keyboard.press('Escape')
+    release()
+    await expect(chipName(page)).toHaveText('Writing')
+    await expect(page.getByTestId('setup-chip-edited')).toBeVisible()
+    await page.waitForTimeout(500)
+    await expect(page.getByTestId('setup-chip-edited')).toBeVisible()
+    await expect(await toolSwitch(page, 'Your files')).toHaveAttribute('aria-checked', 'false')
+    // The setup's own switch (the add-on is off) was loaded as well.
+    await expect(page.getByTestId('chat-tools-menu').getByRole('switch', { name: 'office', exact: true })).toHaveAttribute('aria-checked', 'false')
+  })
+
+  test('deleting the only setup in Manage moves the focus to Done', async ({ page }) => {
+    await server(page, { setups: { default: 'coding', setups: [CODING] } })
+    await open(page)
+    await page.getByTestId('setup-chip-button').click()
+    await page.getByTestId('setup-manage').click()
+    await expect(page.getByTestId('setup-manage-up-coding')).toBeDisabled()
+    await page.getByTestId('setup-manage-remove-coding').click()
+    await page.getByTestId('setup-manage-remove-yes-coding').click()
+    await expect(page.getByTestId('setup-manage-row-coding')).toHaveCount(0)
+    await expect(page.getByTestId('setup-manage-done')).toBeFocused()
   })
 })

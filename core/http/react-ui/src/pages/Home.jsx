@@ -151,11 +151,13 @@ export default function Home() {
   }, [composer, selectedModel, switches])
 
   // The lists answer the load of a setup (switches.listsReady, errors count);
-  // the switches they show then are the base of "edited". An edit is only
-  // possible after that answer, so none is taken into the base.
+  // the switches they show then are the base of "edited".
   useEffect(() => {
     if (!settling || !switches.listsReady) return
-    setBaseTools({ tools: switches.draftSwitches() })
+    // A switch changed by hand while the lists were being read is in the
+    // choices already: the base is then the setup's own tools, so that change
+    // shows as an edit instead of being taken as part of the setup.
+    setBaseTools(switches.editsSinceApply() > 0 ? null : { tools: switches.draftSwitches() })
     setSettling(false)
   }, [settling, switches])
 
