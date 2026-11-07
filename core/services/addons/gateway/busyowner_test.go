@@ -14,7 +14,6 @@ import (
 
 var _ = Describe("apps list while the owner is busy", func() {
 	alice := contract.Actor{UserID: "alice", CredentialID: "key:alice", Mode: "named-user"}
-	bob := contract.Actor{UserID: "bob", CredentialID: "key:bob", Mode: "named-user"}
 	allow := func(context.Context, contract.Actor) error { return nil }
 
 	// busyOwner serves the apps list until stall is set, then holds every
@@ -53,43 +52,28 @@ var _ = Describe("apps list while the owner is busy", func() {
 		Expect(e).To(MatchError(ErrUnavailable))
 	})
 
-	It("answers with the last good list marked stale, and only for the same person", func() {
+	It("never answers with an older list of its own: every frontend gives the same typed error", func() {
 		front, _, stall := busyOwner()
 		fresh, e := front.Apps(context.Background(), alice)
 		Expect(e).NotTo(HaveOccurred())
-		Expect(fresh.Stale).To(BeFalse())
 		Expect(fresh.Apps).NotTo(BeEmpty())
 
+		// This frontend has a good list of alice. A frontend that never read
+		// one must not differ from it, so the first one gives no list either.
 		stall.Store(true)
 		list, e := front.Apps(context.Background(), alice)
-		Expect(e).NotTo(HaveOccurred())
-		Expect(list.Stale).To(BeTrue())
-		Expect(list.StaleReason).To(Equal("owner_busy"))
-		Expect(list.StaleSince).NotTo(BeEmpty())
-		Expect(list.Apps).To(HaveLen(len(fresh.Apps)))
-
-		_, e = front.Apps(context.Background(), bob)
-		Expect(e).To(HaveOccurred(), "another person never gets alice's list")
+		Expect(e).To(HaveOccurred())
+		Expect(list.Apps).To(BeEmpty())
+		var timeout *OwnerTimeout
+		Expect(e).To(BeAssignableToTypeOf(timeout))
 
 		stall.Store(false)
 		again, e := front.Apps(context.Background(), alice)
 		Expect(e).NotTo(HaveOccurred())
-		Expect(again.Stale).To(BeFalse())
+		Expect(again.Apps).To(HaveLen(len(fresh.Apps)))
 	})
 
-	It("lets a cached list expire", func() {
-		front, _, stall := busyOwner()
-		now := time.Now()
-		front.appsCache.now = func() time.Time { return now }
-		_, e := front.Apps(context.Background(), alice)
-		Expect(e).NotTo(HaveOccurred())
-		stall.Store(true)
-		now = now.Add(AppsStaleTTL + time.Second)
-		_, e = front.Apps(context.Background(), alice)
-		Expect(e).To(HaveOccurred())
-	})
-
-	It("does not hide a denial behind the cache", func() {
+	It("does not hide a denial", func() {
 		front, _, _ := busyOwner()
 		_, e := front.Apps(context.Background(), alice)
 		Expect(e).NotTo(HaveOccurred())

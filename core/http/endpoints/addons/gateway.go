@@ -2,6 +2,7 @@
 package addons
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,7 +64,24 @@ func failure(c echo.Context, code int, message string) error {
 // Option configures the deployment-level behaviour of a handler.
 type Option func(*settings)
 
-type settings struct{ mode string }
+type settings struct {
+	mode  string
+	guard SelectionGuard
+	// account checks the caller with the account check of the kinds that are
+	// not add-ons instead of the add-on check: the sharing routes.
+	account bool
+}
+
+// SelectionGuard says whether the person may select a resource for a
+// conversation. The chats service answers it for the add-ons whose resources
+// are scoped per agent: a chat of an agent selects only what the agent lists.
+// An error is an outage, never a yes.
+type SelectionGuard func(ctx context.Context, a contract.Actor, conversationID, addonID, resourceID string) (bool, error)
+
+// WithSelectionGuard sets the check of the conversation selection.
+func WithSelectionGuard(g SelectionGuard) Option {
+	return func(s *settings) { s.guard = g }
+}
 
 // WithOwnership selects the ownership mode the deployment configured. The
 // default is named-user; local-owner is never inferred from a request. The
@@ -84,6 +102,9 @@ func actor(c echo.Context, db *gorm.DB, s settings) (contract.Actor, error) {
 	a, e := auth.AddonActorForMode(c, s.mode)
 	if e != nil {
 		return a, e
+	}
+	if s.account {
+		return a, auth.AccountRevalidate(db, s.mode)(c.Request().Context(), a, "")
 	}
 	e = auth.AddonRevalidate(db, s.mode)(c.Request().Context(), a)
 	return a, e
@@ -215,6 +236,8 @@ func operationCauseMessage(code string) string {
 		return "This version of the add-on is installed already. Nothing was installed"
 	case managerpkg.CauseInstalledIncompatible:
 		return "This version of the add-on is not compatible with this server, so it cannot be turned on. Upgrade it to a newer version, then turn it on. Nothing was changed"
+	case managerpkg.CauseNeedsNewerHost:
+		return "This add-on needs a newer LocalAI. Update LocalAI, then try again. Nothing was installed"
 	case managerpkg.CauseDowngradeRefused:
 		return "The file holds an older version than the installed one. Confirm the downgrade to install it. Nothing was installed"
 	}
@@ -289,6 +312,7 @@ func resultError(c echo.Context, e error) error {
 		{gateway.ErrInvalidRequest, 400, "invalid_request", "The request cannot be carried out as given"},
 		{gateway.ErrQuotaReached, 403, "quota_reached", "The resource limit is reached"},
 		{gateway.ErrNotSelected, 404, "not_selected", "No resource is selected for the conversation"},
+		{gateway.ErrSearchLimited, 429, "rate_limited", "Too many searches for people; wait a moment and search again"},
 	} {
 		if errors.Is(e, t.err) {
 			return c.JSON(t.status, AddonErrorResponse{Error: AddonError{Type: t.kind, Code: t.status, Message: t.message}})

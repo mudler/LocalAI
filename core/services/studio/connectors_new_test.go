@@ -29,7 +29,7 @@ var _ = Describe("the new chat command of a connector", func() {
 	const (
 		done     = "Started a new chat. I will not see our earlier messages."
 		each     = "Every message here already starts a new chat."
-		sharedNo = "Only a paired account can start a new chat here, because everyone in this conversation shares it."
+		sharedNo = "Only a verified account can start a new chat here, because everyone in this conversation shares it."
 		busy     = "I am still answering. Send the command again when I am done."
 	)
 	setup := func(in studio.ConnectorInput) {
@@ -48,12 +48,20 @@ var _ = Describe("the new chat command of a connector", func() {
 		m.Thread = thread
 		return m
 	}
-	// send ingests a message on a frontend and waits for the next answer of the bot.
-	send := func(via *connRig, m contract.ConnectorMessage) {
+	// ingest sends a message on a frontend and waits for the next answer of
+	// the bot.
+	ingest := func(via *connRig, m contract.ConnectorMessage) {
 		n := len(bot.answers())
 		Expect(via.conns.Ingest(ctx, "telegram", contract.ConnectorInbound{BindingID: b.ID, ConnectorMessage: m})).To(Succeed())
 		Eventually(func() int { return len(bot.answers()) }, "10s").Should(Equal(n + 1))
 		sh.clock.Advance(20 * time.Second) // stays inside the rate limit of the sender
+	}
+	// send is ingest, then waits for the frontend to let go of the reply. The
+	// answer is out before the reply loop has seen the turn end, and a command
+	// in that gap is refused as busy.
+	send := func(via *connRig, m contract.ConnectorMessage) {
+		ingest(via, m)
+		Eventually(func() bool { return via.conns.RepliesActiveForTest() }, "10s", "5ms").Should(BeFalse())
 	}
 	last := func() string { a := bot.answers(); return a[len(a)-1] }
 	chats := func() []session.ChatRecord {
@@ -199,7 +207,7 @@ var _ = Describe("the new chat command of a connector", func() {
 		Expect(r.conns.Ingest(ctx, "telegram", contract.ConnectorInbound{BindingID: b.ID, ConnectorMessage: dm("11", "go")})).To(Succeed())
 		Eventually(func() int { return len(chats()) }, "10s").Should(Equal(1))
 		sh.clock.Advance(20 * time.Second)
-		send(r, dm("11", "/new"))
+		ingest(r, dm("11", "/new")) // the turn runs, so the reply is held on purpose
 		Expect(last()).To(Equal(busy))
 		close(release)
 		Eventually(func() string { a := bot.answers(); return a[len(a)-1] }, "10s").Should(Equal("Half done."))

@@ -226,3 +226,53 @@ func (s *Workspace) Grants(ctx context.Context, admin Actor, p string) ([]Grant,
 	}
 	return out, rows.Err()
 }
+
+// GrantsBelow returns the grants on the live folders strictly below the live
+// folder p, sorted by path and principal.
+func (s *Workspace) GrantsBelow(ctx context.Context, admin Actor, p string) ([]NodeGrant, error) {
+	if !s.isAdmin(admin) {
+		return nil, ErrNotAdmin
+	}
+	top, err := lookupPath(ctx, s.db, p)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.db.QueryContext(ctx, `WITH RECURSIVE sub(id) AS (
+			SELECT id FROM studio_ws_nodes WHERE id = ?
+			UNION ALL
+			SELECT n.id FROM studio_ws_nodes n JOIN sub ON n.parent_id = sub.id WHERE n.deleted = 0)
+		SELECT g.node_id, g.principal, g.mode FROM studio_ws_grants g JOIN sub ON g.node_id = sub.id
+		JOIN studio_ws_nodes n ON n.id = g.node_id
+		WHERE g.node_id <> ? AND n.kind = 'dir' AND n.deleted = 0`, top.id, top.id)
+	if err != nil {
+		return nil, err
+	}
+	var out []NodeGrant
+	for rows.Next() {
+		var g NodeGrant
+		var m int
+		if err := rows.Scan(&g.NodeID, &g.Principal, &m); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		g.Mode = Mode(m)
+		out = append(out, g)
+	}
+	err = rows.Err()
+	_ = rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		if out[i].Path, err = pathOf(ctx, s.db, out[i].NodeID); err != nil {
+			return nil, err
+		}
+	}
+	slices.SortFunc(out, func(a, b NodeGrant) int {
+		if c := strings.Compare(a.Path, b.Path); c != 0 {
+			return c
+		}
+		return strings.Compare(a.Principal, b.Principal)
+	})
+	return out, nil
+}

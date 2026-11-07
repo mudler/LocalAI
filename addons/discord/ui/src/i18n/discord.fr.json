@@ -12,23 +12,18 @@
   "agent": "Agent",
   "agentNone": "Choisir un agent",
   "agentNoModel": "{{name}} (a besoin d’un modèle)",
-  "who": "Qui peut l’utiliser",
-  "onlyListed": "Seulement les personnes et canaux que j’indique",
-  "anyone": "Toute personne pouvant écrire au bot, ou le mentionner dans un canal qu’il peut lire",
   "anyoneWarning": "Ceci est pour les canaux publics et les agents qui ne font que lire. Toute personne pouvant joindre le bot peut parler à cet agent : en message privé si elle partage un serveur avec le bot, et dans chaque canal où le bot peut lire et où elle le mentionne. Les personnes absentes d’une liste n’ont aucune autorisation propre : l’agent ne peut pas enregistrer en mémoire, proposer des déclencheurs ni prendre leurs fichiers pour elles, et les actions sensibles restent fermées. Les autres outils de l’agent fonctionnent pour tout le monde. Ce que les gens écrivent dans un canal public est un texte non fiable, qui peut tenter de détourner l’agent (injection de prompt). Donnez à l’agent des outils en lecture seule pour cette connexion, et aucun qui envoie des messages, dépense de l’argent ou modifie des fichiers. Chaque personne a son propre chat, et le nombre de messages qu’une personne peut envoyer par minute est limité.",
   "anyoneConfirm": "Je comprends que n’importe qui peut utiliser cet agent, et que ses outils doivent être en lecture seule",
-  "allowIds": "Personnes et canaux autorisés",
   "allowIdsHint": "Un ID d’utilisateur ou un ID de canal (des chiffres)",
   "rules": "Les personnes de la liste peuvent écrire en message privé et mentionner le bot dans n’importe quel canal. Un canal de la liste permet à tous ses membres d’y mentionner le bot, mais ils n’ont aucune autorisation propre. Sur un serveur, le bot ne répond que lorsqu’on le mentionne ou qu’on lui répond, ou dans un fil où il a été mentionné. Il ne répond jamais aux bots ni aux webhooks, et ses messages ne notifient personne. Utilisez des ID de canal : un ID de serveur (guild) ne correspond à rien. Des ID uniquement, pas de noms : dans Discord, activez le mode développeur (Paramètres, Avancé), puis faites un clic droit sur une personne ou un canal et choisissez Copier l’ID.",
   "badIds": "Ce ne sont pas des ID Discord : {{list}}. Utilisez le nombre obtenu avec Copier l’ID (17 à 20 chiffres). Les noms ne sont pas acceptés.",
-  "notifyChat": "Envoyer mes notifications à ce canal ou à cette personne",
   "notifyHelp": "Facultatif. Un ID de canal, ou user: suivi de votre ID d’utilisateur pour les recevoir en messages privés.",
   "test": "Tester",
   "testOk": "Connecté à {{bot}}.",
   "checkFailed": "Enregistré. La vérification du jeton a échoué : {{reason}}",
   "senders": "Expéditeurs",
   "noSenders": "Personne n’a encore écrit à ce bot.",
-  "allowButton": "Autoriser",
+  "allowButton": "Ajouter cette personne à la liste",
   "ignored": "Ignoré",
   "accepted": "Accepté",
   "save": "Enregistrer",
@@ -76,7 +71,6 @@
     },
     "never": "Ne donnez jamais au bot Administrator, Manage Messages ni Mention Everyone. Il n’en a besoin d’aucune."
   },
-  "back": "Retour aux connecteurs",
   "answer": {
     "reply": {
       "off": "La réponse seulement (Discord n’a pas d’indicateur de saisie ici)"

@@ -36,6 +36,10 @@ type Package struct {
 	// Executable is the package path of the executable. The default is
 	// bin/fixture, which holds the protocol fixture.
 	Executable string
+	// FeatureLevel is the feature level the package needs from the host. When
+	// it is zero, the level is taken from the fields of the capabilities that
+	// need more than the base level (agent scoped resources).
+	FeatureLevel uint64
 	// Binary replaces the library's executable for this package, for a real
 	// add-on built by the test.
 	Binary []byte
@@ -111,6 +115,15 @@ func (l *Library) Add(p Package, effectsDir string) error {
 		"host": map[string]int{"min": 1, "max": 2}, "api": map[string]int{"min": 2, "max": 2},
 		"protocol": map[string]int{"min": 1, "max": 1}, "dataFormat": map[string]int{"min": 1, "max": 2},
 		"launchMode": "always", "capabilities": p.Capabilities,
+	}
+	level := p.FeatureLevel
+	if r, ok := p.Capabilities["resources"].(map[string]any); ok && level == 0 {
+		if scoped, _ := r["agentScoped"].(bool); scoped || r["nounPlural"] != nil {
+			level = 2
+		}
+	}
+	if level > 1 {
+		manifest["featureLevel"] = level
 	}
 	raw, err := json.Marshal(manifest)
 	if err != nil {

@@ -204,7 +204,7 @@ var _ = Describe("subagent", func() {
 		got := h.ToolNames(kids[0].ID)
 		Expect(got).To(Equal([]string{"search"}), "a sub-agent that was not narrowed has tools %v, want only search (never spawn_agent)", got)
 		got = h.ToolNames(id)
-		Expect(got).To(Equal([]string{"search", "spawn_agent"}), "the parent has tools %v, want search and spawn_agent", got)
+		Expect(got).To(Equal([]string{"search", "spawn_agent", "wait_agents"}), "the parent has tools %v, want search, spawn_agent and wait_agents", got)
 
 		sent(svc, alice, id, "none")
 		idle(svc, alice, id)

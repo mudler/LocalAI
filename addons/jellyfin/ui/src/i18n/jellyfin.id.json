@@ -68,8 +68,8 @@
     "label": "Apa yang boleh diubah agen di Jellyfin",
     "hint": "Kendali jarak jauh pemutar, tanda sudah ditonton, favorit, dan menambah ke playlist. Agen tidak pernah menghapus, memindai, atau mengubah pustaka.",
     "off": "Hanya baca",
-    "propose": "Tanya Anda dulu",
-    "auto": "Bertindak tanpa bertanya",
+    "propose": "Tanya dulu",
+    "auto": "Langsung dijalankan",
     "line": {
       "off": "Agen tidak dapat mengubah apa pun.",
       "propose": "Setiap perubahan menunggu persetujuan Anda.",
@@ -82,8 +82,8 @@
     },
     "row": {
       "off": "Hanya baca",
-      "propose": "Tanya Anda dulu",
-      "auto": "Bertindak tanpa bertanya"
+      "propose": "Tanya dulu",
+      "auto": "Langsung dijalankan"
     }
   },
   "approval": {

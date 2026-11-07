@@ -35,3 +35,16 @@ test('page: the button opens the Memory tab of the account', async () => {
   find(tree).props.onClick()
   assert.deepEqual(opened, [mod.NOTES_ADDRESS || '/app/account?tab=memory'])
 })
+
+test('page: it reads in the language of the web UI, and in English for a language it has no text for', async () => {
+  const it = await load({ language: () => 'it' })
+  const italian = draw(it.mod.createAddon(it.sdk), { page: 'memory' })
+  assert.match(italian, /Memoria breve/)
+  assert.match(italian, /Apri le mie note/)
+  assert.doesNotMatch(italian, /Short memory/)
+  const de = await load({ language: () => 'de' })
+  const german = draw(de.mod.createAddon(de.sdk), { page: 'memory' })
+  assert.match(german, /Short memory/, 'German repeats the English title until it is translated')
+  const unknown = await load({ language: () => 'xx' })
+  assert.match(draw(unknown.mod.createAddon(unknown.sdk), { page: 'memory' }), /Short memory/)
+})

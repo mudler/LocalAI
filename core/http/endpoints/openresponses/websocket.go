@@ -323,7 +323,7 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, connectio
 	}
 
 	// Convert current input to messages
-	newMessages, err := convertORInputToMessages(input.Input, cfg)
+	newMessages, err := convertORInputToMessages(input.Input, cfg, owner)
 	if err != nil {
 		fail("invalid_request", fmt.Sprintf("failed to parse input: %v", err), "")
 		return

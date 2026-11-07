@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -150,15 +151,37 @@ func stamp(t triggers.Trigger) string {
 	h := sha256.New()
 	_, _ = fmt.Fprintf(h, "%q|%q|%t|%s|%q|%q|%q|%d|%d|%q|%q|%d|%q|%q|%q|%d", t.Name, t.Prompt, t.Enabled, t.Kind, t.Schedule, t.TZ,
 		t.Folder, t.Quiet, t.DailyCap, t.AgentID, t.Model, t.MinGap, t.Reads, t.Writes, t.Widget, t.EstTokens)
+	// The acts and the delivery are in the fingerprint only when they are not
+	// the default, so a fingerprint taken before they were part of it holds.
+	if acts := slices.Sorted(slices.Values(t.Acts)); len(acts) > 0 {
+		_, _ = fmt.Fprintf(h, "|acts:%q", acts)
+	}
+	if d := deliveryKey(t); d != defaultDeliveryKey {
+		_, _ = fmt.Fprintf(h, "|delivery:%q", d)
+	}
 	return hex.EncodeToString(h.Sum(nil))[:16]
 }
 
+// defaultDeliveryKey is the deliveryKey of a trigger that reports to the Inbox.
+const defaultDeliveryKey = triggers.TargetInbox + "|" + triggers.ModeAlways + "|"
+
+// deliveryKey is where the runs of a trigger report, as one comparable text.
+func deliveryKey(t triggers.Trigger) string {
+	return t.Route.TargetOrDefault() + "|" + t.Route.ModeOrDefault() + "|" + t.Route.Channel
+}
+
 // withDefinition returns dst with the definition of src: what a run does and
-// when. The ID, owner, state and source chat of dst stay.
+// when, the acts and the delivery. The ID, owner, state and source chat of dst
+// stay. A change record made before the acts and the delivery were part of the
+// definition has no connector place in its route and leaves the route of dst.
 func withDefinition(dst, src triggers.Trigger) triggers.Trigger {
 	dst.Name, dst.Prompt, dst.Kind, dst.Schedule, dst.TZ = src.Name, src.Prompt, src.Kind, src.Schedule, src.TZ
 	dst.Folder, dst.Quiet, dst.DailyCap, dst.AgentID, dst.Model = src.Folder, src.Quiet, src.DailyCap, src.AgentID, src.Model
 	dst.MinGap, dst.Reads, dst.Writes, dst.Widget, dst.EstTokens = src.MinGap, src.Reads, src.Writes, src.Widget, src.EstTokens
+	dst.Acts = src.Acts
+	if src.Route.FromConnector() {
+		dst.Route = src.Route
+	}
 	return dst
 }
 
@@ -181,6 +204,8 @@ func changedFields(a, b triggers.Trigger) []string {
 	add("writes", a.Writes != b.Writes)
 	add("widget", a.Widget != b.Widget)
 	add("estimated_tokens", a.EstTokens != b.EstTokens)
+	add("acts", !sameActs(a.Acts, b.Acts))
+	add("delivery", deliveryKey(a) != deliveryKey(b))
 	add("agent", a.AgentID != b.AgentID)
 	add("model", a.Model != b.Model)
 	return out
@@ -191,7 +216,7 @@ func changedFields(a, b triggers.Trigger) []string {
 func (h *Triggers) inputOf(t triggers.Trigger) TriggerInput {
 	return TriggerInput{Name: t.Name, Prompt: t.Prompt, Kind: t.Kind, Schedule: t.Schedule, TZ: t.TZ, Folder: h.RelFolder(t),
 		Quiet: t.Quiet, DailyCap: t.DailyCap, AgentID: t.AgentID, Model: t.Model, SourceChatID: t.SourceChatID, Enabled: t.Enabled,
-		MinGap: t.MinGap, Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens, Acts: t.Acts}
+		MinGap: t.MinGap, Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens, Acts: t.Acts, Route: t.Route}
 }
 
 // TriggerPatch is what a model asks to change in a trigger. A nil field, and
@@ -208,6 +233,19 @@ type TriggerPatch struct {
 	Reads, Writes    *string
 	Widget           *string
 	EstTokens        *int
+	// Acts replaces the acts of the trigger; an empty list takes them all
+	// away, nil leaves them. The caller has checked them as a proposal's.
+	Acts *[]string
+	// Delivery changes where the runs report; the caller has checked it as a
+	// proposal's.
+	Delivery *DeliveryPatch
+}
+
+// DeliveryPatch is a change of the delivery of a trigger that a messaging app
+// proposed. An empty Target or Mode stays as it is; Channel is the ID of an
+// approved channel and is set with the target channel.
+type DeliveryPatch struct {
+	Target, Mode, Channel string
 }
 
 func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput {
@@ -239,6 +277,26 @@ func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput
 	}
 	if p.Enabled != nil {
 		in.Enabled = *p.Enabled
+	}
+	if p.Acts != nil {
+		in.Acts = slices.Clone(*p.Acts)
+		if in.Acts == nil {
+			in.Acts = []string{}
+		}
+	}
+	if d := p.Delivery; d != nil {
+		if d.Target != "" {
+			in.Route.Target = d.Target
+			if d.Target != triggers.TargetChannel {
+				in.Route.Channel = ""
+			}
+		}
+		if d.Mode != "" {
+			in.Route.Mode = d.Mode
+		}
+		if d.Channel != "" {
+			in.Route.Channel = d.Channel
+		}
 	}
 	return in
 }
@@ -548,6 +606,13 @@ func (h *Triggers) ApplyChange(ctx context.Context, user, id string) (triggers.T
 	defer h.wmu.Unlock()
 	in := h.inputOf(rec)
 	in.Enabled, in.SourceChatID = rec.Change.On, live.SourceChatID
+	// The connector place stays the trigger's own; the delivery is the one the
+	// change holds. A record made before the delivery was part of a change has
+	// no connector place and leaves the delivery as it is.
+	in.Route = live.Route
+	if rec.Route.FromConnector() {
+		in.Route.Target, in.Route.Mode, in.Route.Channel = rec.Route.Target, rec.Route.Mode, rec.Route.Channel
+	}
 	t, err := h.build(ctx, live.Owner, in)
 	if err != nil {
 		h.releaseChange(ctx, rec, triggers.OutcomeAccepted)

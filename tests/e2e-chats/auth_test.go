@@ -177,14 +177,6 @@ var _ = Describe("Chats with authentication", Ordered, func() {
 
 		code, raw = admin.do(http.MethodPost, "/api/chats", map[string]any{"model": "fake", "assistant": true, "agent_id": "some-agent"})
 		Expect(code).To(Equal(http.StatusBadRequest), string(raw))
-
-		code, raw = admin.do(http.MethodPost, "/api/settings", map[string]any{"localai_assistant_enabled": false})
-		Expect(code).To(Equal(http.StatusOK), string(raw))
-		code, raw = admin.do(http.MethodPost, "/api/chats", map[string]any{"model": "fake", "assistant": true})
-		Expect(code).To(Equal(http.StatusServiceUnavailable), string(raw))
-		Expect(errType(raw)).To(Equal("assistant_off"))
-		code, _ = admin.do(http.MethodPost, "/api/settings", map[string]any{"localai_assistant_enabled": true})
-		Expect(code).To(Equal(http.StatusOK))
 	})
 
 	It("keeps chats, transcripts and the owner after a restart on the SQLite database", func() {

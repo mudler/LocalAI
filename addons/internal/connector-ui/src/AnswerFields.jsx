@@ -3,6 +3,7 @@
 // while the agent works, which chat a message belongs to, and whether the
 // files of a turn go out. The words are the same on every platform, so they
 // live here as defaults; an add-on can still change one in its namespace.
+import { useState } from 'react'
 import { Field, Hint, Select, Switch, TextInput } from './controls'
 import EN from './i18n/connector.en.json'
 import { CONVERSATIONS, MAX_WINDOW_MINUTES, REPLY_LANGUAGES, REPLY_MODES } from './connector'
@@ -24,13 +25,34 @@ export function answerSummary(c, t) {
   })
 }
 
-export default function AnswerFields({ form, setForm, t, kindInfo }) {
+// Whether the least-used fields hold a value that is not the default, so the
+// group that holds them opens by itself and nothing set stays out of sight.
+function sizesSet(form) {
+  const has = (v) => v !== undefined && v !== null && v !== ''
+  return has(form.file_receive_mib) || has(form.file_send_mib) || (form.reply_language || 'auto') !== 'auto'
+}
+
+/**
+ * @param {object} props
+ * @param {object} props.form
+ * @param {Function} props.setForm
+ * @param {Function} props.t
+ * @param {object} [props.kindInfo]
+ * @param {object} [props.places]  the places the bot may post, above the reply fields
+ * @param {object} [props.notify]  where reminders and run results go
+ * @param {object} [props.sizes]   the file size limits, in the group of the least used
+ */
+export default function AnswerFields({ form, setForm, t, kindInfo, places, notify, sizes }) {
   const s = answerT(t)
+  // Open at the start when something in it is set; after that the person decides.
+  const [moreOpen, setMoreOpen] = useState(() => sizesSet(form))
   const m = Number(form.window_minutes)
   const windowBad = form.conversation === 'window' && (!Number.isInteger(m) || m < 1 || m > MAX_WINDOW_MINUTES)
   return (
     <fieldset className="cn-group" data-testid="connector-answer">
       <legend>{s('answer.title')}</legend>
+      {places}
+      {notify}
       <Field label={s('answer.replyLabel')} hint={s('answer.replyHelp')}>
         {(p) => (
           <Select {...p} data-testid="connector-reply" value={form.reply_mode || 'progress'}
@@ -56,14 +78,6 @@ export default function AnswerFields({ form, setForm, t, kindInfo }) {
           )}
         </Field>
       )}
-      <Field label={s('answer.languageLabel')} hint={s('answer.languageHelp')}>
-        {(p) => (
-          <Select {...p} data-testid="connector-reply-language" value={form.reply_language || 'auto'}
-            onChange={(e) => setForm({ ...form, reply_language: e.target.value })}>
-            {REPLY_LANGUAGES.map((x) => <option key={x} value={x}>{s(`answer.language.${x}`)}</option>)}
-          </Select>
-        )}
-      </Field>
       <div className="cn-switchfield">
         <Switch testId="connector-files" checked={form.send_files !== false} onChange={(on) => setForm({ ...form, send_files: on })}>
           {s('answer.files')}
@@ -80,6 +94,20 @@ export default function AnswerFields({ form, setForm, t, kindInfo }) {
           )}
         </Field>
       ))}
+      <details className="cn-more" data-testid="connector-answer-more" open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)}>
+        <summary>{s('answer.more')}</summary>
+        <div className="cn-more__body">
+          <Field label={s('answer.languageLabel')} hint={s('answer.languageHelp')}>
+            {(p) => (
+              <Select {...p} data-testid="connector-reply-language" value={form.reply_language || 'auto'}
+                onChange={(e) => setForm({ ...form, reply_language: e.target.value })}>
+                {REPLY_LANGUAGES.map((x) => <option key={x} value={x}>{s(`answer.language.${x}`)}</option>)}
+              </Select>
+            )}
+          </Field>
+          {sizes}
+        </div>
+      </details>
     </fieldset>
   )
 }

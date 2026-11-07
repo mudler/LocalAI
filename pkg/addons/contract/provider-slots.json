@@ -1,0 +1,37 @@
+[
+  {
+    "id": "memory",
+    "version": 1,
+    "minVersion": 1,
+    "title": "Memory",
+    "description": "Short notes the assistant reads before it answers and may save.",
+    "selection": {
+      "scope": "user",
+      "default": "builtin",
+      "offAllowed": true,
+      "offMeans": "Nothing is read, offered, saved or sent. Existing notes are kept."
+    },
+    "builtin": {
+      "id": "builtin",
+      "title": "Built-in",
+      "description": "Plain files in your Memory folder. Nothing leaves this machine."
+    },
+    "aliases": ["memory"],
+    "roles": {
+      "context": {"kinds": ["read"], "max": 1},
+      "read": {"kinds": ["read"], "max": 8},
+      "write": {"kinds": ["write"], "max": 4},
+      "export": {"kinds": ["read"], "max": 1},
+      "forget": {"kinds": ["write"], "max": 1}
+    },
+    "contributions": {
+      "contextFiles": ["user", "agent", "channel"],
+      "skillDefinitions": true
+    },
+    "properties": {
+      "remote": {"type": "bool"},
+      "undo": {"type": "enum", "values": ["host", "provider", "none"]}
+    },
+    "policy": ["confirm-writes", "save-levels", "messaging-trust", "no-background-writes", "prompt-budget", "untrusted-wrap", "audit", "off-precedence", "remote-disclosure"]
+  }
+]

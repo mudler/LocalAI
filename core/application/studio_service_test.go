@@ -25,7 +25,7 @@ var _ = Describe("studio service at startup", func() {
 		state, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()), system.WithBackendPath(GinkgoT().TempDir()))
 		Expect(err).NotTo(HaveOccurred())
 		base := []config.AppOption{config.WithContext(ctx), config.WithSystemState(state), config.DisableMetricsEndpoint,
-			config.WithDisableLocalAIAssistant(true), config.WithDisableStats(true), config.WithDataPath(GinkgoT().TempDir())}
+			config.WithDisableStats(true), config.WithDataPath(GinkgoT().TempDir())}
 		app, err := New(append(base, opts...)...)
 		if app != nil {
 			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })

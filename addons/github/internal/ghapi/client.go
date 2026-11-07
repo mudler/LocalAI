@@ -58,6 +58,27 @@ var (
 	ErrTooLarge = errors.New("the answer of github is too large")
 )
 
+// StatusError is a refusal of GitHub with the status it answered. It wraps one
+// of the errors above, so errors.Is keeps working, and holds no text of the
+// answer.
+type StatusError struct {
+	Status int
+	Err    error
+}
+
+func (e *StatusError) Error() string { return e.Err.Error() }
+func (e *StatusError) Unwrap() error { return e.Err }
+
+// StatusOf returns the HTTP status that GitHub answered for err, or 0 when err
+// is not a refusal of GitHub (a transport failure, a limit).
+func StatusOf(err error) int {
+	var se *StatusError
+	if errors.As(err, &se) {
+		return se.Status
+	}
+	return 0
+}
+
 // Client calls the API. The zero value is not ready; use New.
 type Client struct {
 	// Base is the address of the API without a trailing slash.
@@ -188,19 +209,19 @@ func (c *Client) GetJSON(ctx context.Context, token, path string, query url.Valu
 func (c *Client) failure(status int, h http.Header, body []byte) error {
 	switch status {
 	case http.StatusUnauthorized:
-		return ErrUnauthorized
+		return &StatusError{Status: status, Err: ErrUnauthorized}
 	case http.StatusForbidden, http.StatusTooManyRequests:
 		if wait, limited := c.limitWait(status, h, body); limited {
 			return &contract.ErrRateLimited{RetryAfter: wait}
 		}
-		return ErrForbidden
+		return &StatusError{Status: status, Err: ErrForbidden}
 	case http.StatusNotFound, http.StatusGone:
-		return ErrNotFound
+		return &StatusError{Status: status, Err: ErrNotFound}
 	}
 	if status >= 500 {
 		return ErrUnavailable
 	}
-	return ErrInvalid
+	return &StatusError{Status: status, Err: ErrInvalid}
 }
 
 func (c *Client) limitWait(status int, h http.Header, body []byte) (int, bool) {

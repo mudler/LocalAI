@@ -97,6 +97,8 @@ export function changeValue(field, t) {
     case 'writes': return t.plan?.writes || ''
     case 'widget': return t.plan?.widget || ''
     case 'estimated_tokens': return t.cost?.estimated_tokens ? String(t.cost.estimated_tokens) : ''
+    case 'acts': return (t.acts || []).join(', ')
+    case 'delivery': return t.delivery ? [t.delivery.target, t.delivery.channel_label].filter(Boolean).join(' ') : ''
     case 'agent': return t.agent_id || ''
     case 'daily_cap': return t.daily_cap ? String(t.daily_cap) : ''
     default: return t[field] == null ? '' : String(t[field])

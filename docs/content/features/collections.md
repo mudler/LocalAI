@@ -36,11 +36,49 @@ and names the model; an administrator gets a button that opens the Models
 page with a search for it. `GET /api/collections` reports the same in
 `embedding_model` and `embedding_model_installed`.
 
+The Knowledge page also shows how a search finds passages, for example
+*Search: semantic*. `GET /api/collections` reports it in `search_mode`: `semantic`
+for the `chromem` engine, and `hybrid` for the `postgres` engine.
+The same answer gives `max_chunk_size` and `chunk_overlap`, the chunking of a
+text in characters.
+
 ## Who sees a collection
 
 - With authentication off, there is one set of collections.
 - With authentication on, each user has their own collections. A user needs the `collections` feature. Admins always have it.
-- A name that is not yours answers `404`. Nobody sees another user's collections, with two exceptions for admins below.
+- A name that is not yours answers `404`. Nobody sees another user's collections, with two exceptions for admins below, and the collections other people share with you.
+
+## Sharing a collection
+
+With accounts, the owner of a collection can share it. Open **Knowledge**, open the
+collection and choose **Share**. The [Share dialog]({{%relref "features/sharing" %}})
+finds people by name and can share with **Everyone**, every account of the server.
+A person can receive it when their account may use collections.
+
+| Role | What the person may do |
+|---|---|
+| **Can view** (`viewer`) | Search it and read its entries and files. |
+| **Can edit** (`editor`) | Also add and remove entries. |
+
+Sources, reset and sharing stay with the owner. A person with either role cannot
+list the sources either (`GET /{name}/sources` answers `403`): a source URL can
+carry a credential. A shared collection is listed under **Shared with you** with the
+owner's name and the role.
+
+The agents and the chats of the person find a shared collection by its name, like
+their own. The person's own collection wins a name. When the person has a collection
+of the same name, or two people share collections under one name, the shared one is
+named `shared:<id>`, where `<id>` is its ID in the sharing API. That name works in
+every path below and in the collections of a saved agent. `GET /api/collections`
+gives the name to use.
+
+Nothing is copied: a shared collection stays in its owner's store, and an entry that
+an editor adds is in the owner's collection. When the owner lowers or removes a
+share, LocalAI cancels the person's running searches and writes on it before it
+answers, and the next call answers `404`, as for a collection that does not exist. A
+download of an entry file (`GET /{name}/entries-raw/{entry}`) runs under the share
+too: a lowering or a revocation stops it, and answers only once no more bytes of the
+file are sent. A call that the role does not allow answers `403`.
 
 ## API
 
@@ -50,7 +88,7 @@ When collections are off, the paths do not exist.
 
 | Method and path | Body | Result |
 |---|---|---|
-| `GET /` | | `{"collections": [...], "count": n}` |
+| `GET /` | | `{"collections": [...], "count": n, "shared": [...], "shares": {...}, "sharing": true}`. `shared` are the collections shared with you, each with `name` (the name to use), `title` (its own name), `owner` and `role`. `shares` maps each of your collections that you made shareable to `resource_id` and `shared_with`. `sharing` is `false` when this server cannot share. |
 | `POST /` | `{"name": "docs"}` | `201` with `{"status": "ok", "name": "docs"}` |
 | `POST /{name}/upload` | multipart form, field `file` | `{"status": "ok", "filename": "...", "key": "..."}` |
 | `GET /{name}/entries` | | `{"entries": [...], "count": n}` |
@@ -62,6 +100,7 @@ When collections are off, the paths do not exist.
 | `GET /{name}/sources` | | `{"sources": [...], "count": n}` |
 | `POST /{name}/sources` | `{"url": "https://...", "update_interval": 60}` | Follows the URL. `{"status": "ok"}` |
 | `DELETE /{name}/sources` | `{"url": "https://..."}` | Stops following the URL |
+| `POST /{name}/share` | | Only the owner. `{"resource_id": "...", "shared_with": n}`, the ID of the collection in `/api/shares/collection`. `409` with type `sharing_disabled` when this server cannot share. |
 
 Example:
 
@@ -125,9 +164,66 @@ PostgreSQL service. With several frontends in
 [distributed mode](/features/distributed-mode/), use the `postgres` engine, so
 that all frontends share the same collections.
 
+The shares of the collections are records in the policy store of the add-on owner,
+keyed by the owner and the name of the collection. A search or a write on a shared
+collection runs as admitted work of that policy, which only the owner process holds.
+With several frontends, a frontend asks the owner over the add-on carrier: it lists
+the shared collections, makes a collection shareable and has each search or write
+admitted by the owner, then runs it itself. A revocation on any frontend stops that
+work before it answers. When a frontend cannot reach the owner, it stops the work
+on shared collections, lists none under `shared` and answers as for a collection
+that does not exist; a person's own collections are not affected.
+
 ## Use a collection in an agent
 
 Add the names of your collections to the `collections` list of a
 [saved agent](/features/chats-agents/). A chat with that agent can then search
 only those collections. If a listed collection is deleted, the chat still starts
 and the model is told that it is not available.
+
+## Let an agent propose a text for a collection
+
+A model can ask to add a text to a collection, for example a procedure that you
+pasted in the chat, with the `propose_change` tool and the kind `knowledge`. It
+works like any other [suggested change]({{%relref "features/chats-agents#builtin-grants" %}}),
+with these rules:
+
+- **A grant.** The agent needs the grant `knowledge.write` (**Add to knowledge**
+  in the Tools list, under **Knowledge**). It is sensitive and off by default. A
+  plain chat can propose to any of your collections; a saved agent only to the
+  collections on its own list.
+- **Always your decision.** The text is never added by the model alone, and never
+  at once, whatever your memory save level is: **Ask**, **Auto** and **Always
+  confirm** all wait for your **Confirm**. The level **Never** takes the kind
+  away. A wrong text would feed the answers of every chat that searches the
+  collection, and indexing costs compute, so there is no "save and tell me" for
+  Knowledge.
+- **What you see.** The card in **Suggested changes** names the collection and
+  shows the first 20 lines of the text and its size against the limit of 64 KiB.
+  It also says how many passages will be embedded and with which model, for
+  example "About 4 passages will be embedded with granite-embedding-107m-multilingual".
+  The count is an estimate from the size of the text and the chunking settings
+  (`max_chunk_size` and `chunk_overlap` in `GET /api/collections`).
+  You can edit the text before you confirm. A change waits 24 hours, and you can
+  have 10 waiting and an agent can make 5 an hour, as for the other kinds.
+- **A scan for secrets.** Before a text is shown, LocalAI checks it with the same
+  patterns that keep a memory note from being saved at once (private keys, access
+  tokens, `password: ...` lines). A text that matches is not refused: it shows
+  with a warning in the card, and you can still confirm it in the web interface.
+  A messaging chat cannot confirm it. The bot writes nothing about it in the
+  chat, a `yes` there does not confirm it, and a `no` still drops it. The proposal
+  carries the code in `warning` (`secret`).
+- **What happens.** **Confirm** stores the text as one entry of the collection,
+  titled with the summary, and the server splits it into passages and embeds it.
+  **Undo** deletes that entry again. The embedding model must be installed;
+  without it the kind is not offered.
+- **Messaging apps.** `knowledge.write` is also a permission of a connection. It
+  is sensitive: only a sender you paired can use it, never a sender who is only
+  on the allowlist or in a listed channel. The bot writes the proposal in the
+  chat with the collection and the first lines of the text, and the paired sender
+  answers `yes`, `no` or `undo` there. The connection page explains a block with
+  the usual reasons, plus `knowledge_none` (the agent has no collection) and
+  `knowledge_no_embedding` (the embedding model is not installed).
+
+This first version takes a text. Following a URL or adding a file of your Files
+folder by proposal is not available yet; add those yourself on the Knowledge page.

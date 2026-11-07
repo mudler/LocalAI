@@ -79,6 +79,21 @@ var _ = Describe("builtin grants in the turns of a connector chat", func() {
 		before := len(fake.texts(chatID, thread))
 		say("11", text)
 		waitFor("the answer", func() bool { return len(fake.texts(chatID, thread)) > before })
+		// The answer is out before the turn and the reply are over. A change of
+		// grants or a message in that gap meets the turn that still runs, and the
+		// tools of the next turn would not be the ones this spec reads.
+		waitFor("the reply to end", func() bool {
+			l, err := r.svc.List(ctx, alice, 10)
+			Expect(err).NotTo(HaveOccurred())
+			for _, c := range l {
+				info, err := r.svc.Turn(ctx, alice, c.ID)
+				Expect(err).NotTo(HaveOccurred())
+				if info.Running {
+					return false
+				}
+			}
+			return !r.conns.RepliesActiveForTest()
+		})
 	}
 	tools := func() []string {
 		l, err := r.svc.List(ctx, alice, 10)
@@ -175,7 +190,9 @@ var _ = Describe("builtin grants in the turns of a connector chat", func() {
 			setup()
 			grants(contract.CapTalkbackChannels)
 			say("11", "here", "file-1")
-			waitFor("the refusal", func() bool { return slices.Contains(fake.texts(chatID, thread), "You may not send files to this bot.") })
+			waitFor("the refusal", func() bool {
+				return slices.Contains(fake.texts(chatID, thread), "The owner has not turned that on for this bot.")
+			})
 			Expect(denied(contract.CapFilesUpload)).To(BeTrue())
 		})
 

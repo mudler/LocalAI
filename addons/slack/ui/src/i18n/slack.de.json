@@ -15,23 +15,16 @@
   "agent": "Agent",
   "agentNone": "Agent wählen",
   "agentNoModel": "{{name}} (braucht ein Modell)",
-  "who": "Wer sie nutzen darf",
-  "onlyListed": "Nur die Personen und Kanäle, die ich aufführe",
-  "anyone": "Alle im Workspace, die der App schreiben können",
   "anyoneWarning": "Wer dieser App schreiben oder sie erwähnen kann, kann die Werkzeuge dieses Agenten nutzen, als wärst du es. Jede Person und jeder Thread bekommt eine eigene Unterhaltung.",
   "anyoneConfirm": "Verstanden",
-  "allowUsers": "Erlaubte Personen",
-  "allowUsersHint": "Nutzer-ID (U...) oder @name",
-  "allowChannels": "Erlaubte Kanäle",
-  "allowChannelsHint": "Kanal-ID (C...): Alle darin dürfen die App erwähnen",
-  "notifyChat": "Meine Benachrichtigungen an diese Nutzer- oder Kanal-ID senden",
+  "allowUsersHint": "Nutzer-ID (U...) oder @Benutzername",
   "notifyHelp": "Optional. Mit deiner Nutzer-ID (U...) kommen sie als Direktnachrichten von der App.",
   "test": "Test",
   "testOk": "Mit {{bot}} verbunden.",
   "checkFailed": "Gespeichert. Die Prüfung des Tokens ist fehlgeschlagen: {{reason}}",
   "senders": "Absender",
   "noSenders": "Noch hat niemand dieser App geschrieben.",
-  "allowButton": "Erlauben",
+  "allowButton": "Diese Person auflisten",
   "ignored": "Ignoriert",
   "accepted": "Akzeptiert",
   "save": "Speichern",
@@ -65,5 +58,5 @@
     "copied": "Kopiert",
     "manifest": "Slack-App-Manifest"
   },
-  "back": "Zurück zu den Konnektoren"
+  "allowUsersHelp": "Ein @Benutzername passt zum Slack-Benutzernamen (dem Kürzel), nicht zum Anzeigenamen, und braucht den Scope users:read. Eine Nutzer-ID (U...) passt immer. Wird eine Person abgelehnt, nennt das Zugriffsprotokoll ihre Nutzer-ID."
 }

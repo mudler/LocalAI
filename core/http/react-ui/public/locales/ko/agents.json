@@ -64,7 +64,18 @@
     },
     "noRunsText": "Press Chat to start a conversation with this agent. Chats that ran with it, and the ones its triggers start, are listed here.",
     "missingText": "It may have been deleted, or it belongs to another user.",
-    "backToList": "에이전트로 돌아가기"
+    "backToList": "에이전트로 돌아가기",
+    "bindings": "연결",
+    "bindingsAll": "모든 연결",
+    "noBindings": "이 에이전트에 연결된 메시징 앱이 없습니다.",
+    "noBindingsLink": "애드온에서 추가하세요.",
+    "bindingState": {
+      "ok": "실행 중",
+      "off": "꺼짐",
+      "attention": "확인 필요"
+    },
+    "openSettings": "설정 열기",
+    "openSettingsFor": "{{name}} 설정 열기"
   },
   "record": {
     "where": "A run is a chat that ran with the agent, including the ones its triggers and connectors started.",
@@ -82,7 +93,10 @@
       "export": "Export",
       "Files": "파일",
       "Tools": "도구",
-      "Notes": "메모리"
+      "Notes": "메모리",
+      "Connections": "연결",
+      "Effective": "유효 보기",
+      "Uses": "사용할 수 있는 것"
     },
     "name": "Name",
     "description": "Description",
@@ -151,7 +165,305 @@
       "files_upload": "메신저 앱에서 파일 받기"
     },
     "memoryOffUser": "설정에서 메모리가 꺼져 있어 여기서 어떻게 정하든 이 에이전트는 메모를 읽거나 저장하지 않습니다.",
-    "memoryOffFix": "설정, 메모리"
+    "memoryOffFix": "설정, 메모리",
+    "nav": {
+      "label": "섹션",
+      "identity": "정체성",
+      "capabilities": "기능",
+      "memory": "메모리와 지식",
+      "advanced": "고급",
+      "connections": "연결",
+      "effective": "유효 보기"
+    },
+    "lead": {
+      "identity": "에이전트가 누구이고 어떻게 행동하는지 정합니다.",
+      "capabilities": "에이전트가 사용하고 접근할 수 있는 것을 정합니다.",
+      "memory": "에이전트가 기억하는 것과 찾아볼 수 있는 것을 정합니다.",
+      "advanced": "추가 서버와 내보내기.",
+      "connections": "이 에이전트가 사용할 수 있는 연결입니다.",
+      "effective": "이 에이전트가 지금 할 수 있는 일입니다."
+    },
+    "header": {
+      "unnamed": "이름 없는 에이전트",
+      "modeEdit": "에이전트 편집",
+      "modeCreate": "새 에이전트",
+      "summary": "이 에이전트 요약"
+    },
+    "status": {
+      "clean": "저장하지 않은 변경 사항 없음",
+      "new": "아직 만들지 않음",
+      "unsaved": "저장하지 않은 변경 사항 ({{count}})"
+    },
+    "preset": {
+      "label": "도구 수준",
+      "loading": "도구 목록을 불러오는 중",
+      "current": "수준: {{name}}. 아래 스위치를 바꾸면 사용자 지정 조합이 됩니다.",
+      "custom": "사용자 지정 스위치 조합입니다. 수준을 고르면 바뀝니다.",
+      "applied": "{{name}} 수준을 적용했습니다",
+      "appliedBody": "아래 스위치가 바뀌었습니다. 저장하기 전에는 아무것도 저장되지 않습니다.",
+      "readonly": {
+        "title": "보기만",
+        "body": "웹과 컬렉션을 검색합니다. 파일, 명령, 트리거는 없습니다."
+      },
+      "assistant": {
+        "title": "어시스턴트",
+        "body": "저장된 에이전트, 트리거, 제안된 변경을 더합니다. 파일과 명령은 없습니다."
+      },
+      "full": {
+        "title": "전체",
+        "body": "서버가 나열하는 모든 도구입니다. 민감한 권한은 꺼진 채로 둡니다."
+      }
+    },
+    "tpl": {
+      "applied": "{{name}}에서 시작함",
+      "appliedBody": "이름, 설명, 지침, 도구가 바뀌었습니다. 저장하기 전에는 아무것도 저장되지 않습니다.",
+      "tools": "도구: {{level}}",
+      "noTools": "도구: 그대로"
+    },
+    "undo": "실행 취소",
+    "keep": "유지",
+    "modelCaps": "이 모델이 할 수 있는 일",
+    "modelChat": "채팅",
+    "connections": {
+      "addonsTitle": "연결을 쓰는 애드온",
+      "addonsNone": "연결이 필요한 애드온이 없습니다.",
+      "messagingTitle": "이 에이전트가 연결된 곳",
+      "messagingNone": "이 에이전트를 쓰는 메시징 연결이 아직 없습니다. 에이전트를 저장한 뒤 추가하세요.",
+      "messagingHelp": "메시징 연결은 해당 페이지에서 설정합니다.",
+      "allows_one": "권한 {{count}}개 허용",
+      "allows_other": "권한 {{count}}개 허용",
+      "open": "열기",
+      "addonOff": "꺼짐",
+      "noneYet": "아직 연결이 없습니다.",
+      "add": "연결 추가",
+      "groupLabel": "{{name}}의 연결",
+      "chosenHelp": "이 에이전트의 채팅은 선택한 연결만 쓸 수 있습니다.",
+      "perChat": "선택 없음: 채팅마다 직접 고릅니다.",
+      "summary_one": "연결 {{count}}개",
+      "summary_other": "연결 {{count}}개"
+    },
+    "more": "더 많은 작업",
+    "eff": {
+      "summaryOk": "막힌 것이 없습니다.",
+      "summaryBlocked_one": "{{count}}개가 막혀 있습니다.",
+      "summaryBlocked_other": "{{count}}개가 막혀 있습니다.",
+      "unsaved": "이 목록은 저장하지 않은 변경을 포함해 지금의 양식을 따릅니다.",
+      "unsavedConn": "도구, 메모리, 지식은 지금의 양식을 따릅니다. 연결 줄은 저장된 에이전트와 저장된 연결에서 옵니다.",
+      "state": {
+        "allowed": "가능",
+        "asks": "먼저 물어봄",
+        "off": "꺼짐",
+        "blocked": "막힘",
+        "info": "참고"
+      },
+      "more_one": "외 {{count}}개",
+      "more_other": "외 {{count}}개",
+      "fixHere": "여기서 고치기",
+      "fixOpen": "고칠 수 있는 페이지 열기",
+      "model": {
+        "fixed": "{{model}}로 실행됩니다.",
+        "any": "채팅마다 고른 모델을 씁니다."
+      },
+      "tools": {
+        "none": "켜진 도구가 없습니다. 아는 것만으로 답할 수 있습니다.",
+        "some_one": "도구 {{count}}개를 쓸 수 있습니다: {{names}}.",
+        "some_other": "도구 {{count}}개를 쓸 수 있습니다: {{names}}.",
+        "blocked": "{{name}}은(는) 켜져 있지만 지금은 동작하지 않습니다. {{reason}}"
+      },
+      "skills": {
+        "some_one": "스킬 {{count}}개를 쓸 수 있습니다: {{names}}.",
+        "some_other": "스킬 {{count}}개를 쓸 수 있습니다: {{names}}.",
+        "withAddons_one": "애드온과 함께 제공되는 스킬 {{count}}개를 사용할 수 있습니다: {{names}}.",
+        "withAddons_other": "애드온과 함께 제공되는 스킬 {{count}}개를 사용할 수 있습니다: {{names}}.",
+        "addonOff": "스킬 {{name}}은(는) 켜져 있지만 애드온 {{addon}}이(가) 꺼져 있어 작동하지 않습니다. 애드온을 켜세요."
+      },
+      "files": {
+        "all": "내 파일 전체에 접근할 수 있습니다.",
+        "folders_one": "고른 폴더 {{count}}개에만 접근할 수 있습니다.",
+        "folders_other": "고른 폴더 {{count}}개에만 접근할 수 있습니다.",
+        "none": "내 파일에 접근할 수 없습니다."
+      },
+      "grants": {
+        "parentOff": "{{name}}은(는) 허용되지만 {{parent}}이(가) 꺼져 있는 동안은 동작하지 않습니다. {{parent}}을(를) 켜세요.",
+        "connection": "{{name}}은(는) 에이전트에는 허용되지만 이 연결에서는 아닙니다: {{connection}}",
+        "some_one": "추가 권한 {{count}}개가 있습니다: {{names}}.",
+        "some_other": "추가 권한 {{count}}개가 있습니다: {{names}}.",
+        "unattended_one": "아무도 보지 않을 때 권한 {{count}}개를 스스로 쓸 수 있습니다: {{names}}.",
+        "unattended_other": "아무도 보지 않을 때 권한 {{count}}개를 스스로 쓸 수 있습니다: {{names}}."
+      },
+      "memory": {
+        "userOff": "설정에서 메모리가 꺼져 있어, 여기서 무엇을 고르든 이 에이전트는 메모를 읽거나 저장하지 않습니다.",
+        "none": "이 에이전트는 메모리가 꺼져 있습니다. 메모를 읽거나 저장하지 않습니다.",
+        "mine_and_own": "내 메모와 자기 메모를 읽고 자기 메모에 저장합니다.",
+        "own": "자기 메모만 읽고 저장합니다.",
+        "mine": "내 메모를 읽고 거기에 저장합니다.",
+        "asBefore": "메모리는 이전처럼 동작합니다. 애드온이 Memory를 지정하면 메모를 읽습니다.",
+        "level": {
+          "auto": "메모를 바로 저장합니다.",
+          "ask": "메모를 저장합니다(먼저 묻습니다). 각 메모는 확인을 기다립니다.",
+          "always": "메모를 저장하지만 모든 메모가 확인을 기다리며, 이를 완화하는 것은 없습니다.",
+          "never": "메모를 읽지만 저장하지 않습니다. 저장 수준이 '저장 안 함'입니다.",
+          "agentAuto": "메모를 바로 저장하고 되돌리기와 함께 알려줍니다. 에이전트 자체의 선택입니다."
+        },
+        "readsOnly": "메모를 읽지만 저장할 수 없습니다.",
+        "connectionLimit": "다음 메시징 연결에서는 메모를 저장하지 않습니다: {{names}}."
+      },
+      "knowledge": {
+        "some_one": "컬렉션 {{count}}개를 검색할 수 있습니다: {{names}}.",
+        "some_other": "컬렉션 {{count}}개를 검색할 수 있습니다: {{names}}.",
+        "none": "검색할 지식 컬렉션이 없습니다."
+      },
+      "connections": {
+        "unsaved": "아직 메시징 앱에서 쓰이지 않습니다. 에이전트를 저장한 뒤 연결을 추가하세요.",
+        "none": "어떤 메시징 앱에서도 쓰이지 않습니다.",
+        "loading": "{{name}} 확인 중...",
+        "error": "{{name}}을(를) 확인할 수 없습니다. 열어서 권한을 확인하세요.",
+        "summary": "{{name}}: 허용 {{allowed}}개, 불허 {{blocked}}개.",
+        "blocked": "{{name}}은(는) {{capability}}을(를) 쓸 수 없습니다. {{message}}"
+      },
+      "addons": {
+        "noConnection": "{{name}}이(가) 켜져 있지만 지금은 작동할 수 없습니다: 계정이 없습니다. 계정을 추가하세요.",
+        "stale": "{{name}}이(가) 켜져 있지만 지금은 작동할 수 없습니다: 저장된 계정이 사라졌습니다. 계정을 고르세요.",
+        "pick": "{{name}}이(가) 켜져 있지만 지금은 작동할 수 없습니다: 계정이 선택되지 않았습니다. 아무도 없는 실행은 도구를 받지 못합니다.",
+        "resourcesNone": "{{name}}이(가) 켜져 있지만 지금은 작동할 수 없습니다: 선택된 {{noun}}이(가) 없습니다.",
+        "account": "{{name}}은(는) {{names}}을(를) 사용합니다.",
+        "resources": "{{name}}은(는) {{plural}} {{n}}개를 사용할 수 있고 {{w}}개를 변경할 수 있습니다.",
+        "resourcesRead": "{{name}}은(는) {{plural}} {{n}}개를 읽을 수 있지만 변경할 수는 없습니다."
+      },
+      "mcp": {
+        "ignored": "{{name}}은(는) 에이전트의 MCP 서버에 있지만 해당 이름이 정의되어 있지 않아 무시됩니다. 제거하세요."
+      }
+    },
+    "try": {
+      "open": "체험",
+      "title": "이 에이전트 체험",
+      "desc": "이 양식의 설정을 쓰는 테스트 채팅에 메시지를 보냅니다. 아무것도 저장되지 않습니다.",
+      "noModel": "설치된 채팅 모델이 없습니다. 먼저 모델을 설치하거나 고르세요.",
+      "defaultModel": "모델이 정해지지 않아 테스트는 {{model}}을(를) 씁니다.",
+      "skipped": "테스트는 {{what}}을(를) 쓰지 않습니다. 저장된 에이전트의 것입니다.",
+      "skip": {
+        "grants": "권한",
+        "memory": "메모리",
+        "knowledge": "지식 컬렉션",
+        "folders": "공유 폴더"
+      },
+      "empty": "메시지를 보내 시작하세요.",
+      "role": {
+        "user": "나",
+        "assistant": "에이전트",
+        "tool": "도구"
+      },
+      "toolRan": "도구 사용: {{name}}",
+      "working": "작업 중...",
+      "label": "에이전트에게 보낼 메시지",
+      "placeholder": "이 에이전트가 처리해야 할 것을 물어보세요",
+      "send": "보내기",
+      "stop": "중지",
+      "deleted": "이 패널을 닫으면 테스트 채팅이 삭제됩니다.",
+      "chatTitle": "{{name}} 테스트",
+      "failed": "테스트 실패: {{message}}",
+      "slow": "에이전트가 아직 작업 중입니다. 중지하거나 패널을 닫으세요."
+    },
+    "uses": {
+      "presetNote": "수준은 내장 도구와 권한만 설정합니다. 애드온, 계정, MCP 서버, 스킬은 그대로 유지됩니다.",
+      "needsSummary_one": "애드온 {{count}}개가 아직 작동할 수 없음",
+      "needsSummary_other": "애드온 {{count}}개가 아직 작동할 수 없음",
+      "builtins": {
+        "title": "내장 도구",
+        "lead": "LocalAI가 제공합니다. 옵션은 각 스위치 아래에 있습니다."
+      },
+      "addons": {
+        "title": "애드온",
+        "lead": "애드온마다 한 줄: 켜고, 사용할 계정을 고르고, 제공하는 것을 확인합니다.",
+        "none": "설치된 애드온이 없습니다.",
+        "gone": "허용되었지만 설치되어 있지 않거나 사용할 수 없습니다. 끄면 제거됩니다."
+      },
+      "mcp": {
+        "title": "MCP 서버",
+        "lead": "LocalAI 외부의 서버입니다. 이 도구는 비용이 들거나 다른 시스템에 접근할 수 있습니다.",
+        "search": "MCP 서버 검색",
+        "none": "정의된 MCP 커넥터가 없습니다. MCP 커넥터 페이지에서 추가하세요.",
+        "connector": "직접 정의한 MCP 커넥터입니다.",
+        "server": "모델의 MCP 서버입니다.",
+        "unknown": "정의되지 않음: 이 이름의 항목이 없어 에이전트가 무시합니다.",
+        "unverified": "모델은 채팅마다 선택되므로 이 이름은 거기서 확인됩니다.",
+        "remove": "{{name}} 제거",
+        "noMatch": "“{{query}}”와 일치하는 MCP 서버가 없습니다.",
+        "removeShort": "제거"
+      },
+      "account": {
+        "label": "사용하는 계정",
+        "group": "{{name}}의 계정",
+        "none": "아직 계정이 없습니다.",
+        "add": "계정 추가",
+        "kept": "나중을 위해 유지됨"
+      },
+      "meta": {
+        "account": "계정 필요",
+        "resources": "선택한 {{plural}}만"
+      },
+      "tools_one": "도구 {{count}}개",
+      "tools_other": "도구 {{count}}개",
+      "toolsSplit_one": "도구 {{count}}개 (읽기 {{read}}, 데이터 변경 {{write}})",
+      "toolsSplit_other": "도구 {{count}}개 (읽기 {{read}}, 데이터 변경 {{write}})",
+      "writes": "데이터 변경",
+      "now": {
+        "label": "현재:",
+        "off": "꺼짐. 제공되는 것이 없습니다.",
+        "offKept": "꺼짐. 제공되는 것이 없습니다. 나중을 위해 유지된 계정: {{names}}.",
+        "noAccountNeeded": "켜짐. 제공: {{tools}}. 계정이 필요 없습니다.",
+        "only": "켜짐. 제공: {{tools}}, {{names}} 사용 (유일한 계정).",
+        "using": "켜짐. 제공: {{tools}}, {{names}} 사용.",
+        "usingMany": "켜짐. 제공: {{tools}}, {{names}} 사용. 모델이 호출마다 계정을 지정합니다.",
+        "pick": "켜졌지만 계정이 선택되지 않았습니다. 채팅은 도구를 받기 전에 계정을 고르라고 요청하며, 아무도 없는 실행은 도구를 받지 못합니다. 위에서 사용할 계정을 선택하세요.",
+        "noConnection": "켜졌지만 이 애드온용 계정이 아직 없어 도구가 제공되지 않습니다. 위에서 계정을 추가하세요.",
+        "stale": "켜졌지만 저장된 계정이 사라져 도구가 제공되지 않습니다. 계정을 고르세요. 위에서 계정을 선택하세요.",
+        "resourcesNone": "켜졌지만 선택된 {{noun}}이(가) 없어 사용할 수 없습니다. 위에서 하나를 선택하세요.",
+        "resourcesRead": "켜짐. 제공: {{tools}}, 선택한 {{plural}} {{n}}개, 읽기 전용. 데이터를 바꾸는 도구는 실행되지 않습니다.",
+        "resources": "켜짐. 제공: {{tools}}, 선택한 {{plural}} {{n}}개, 그중 {{w}}개는 변경 가능."
+      },
+      "res": {
+        "heading": "사용할 수 있는 <n>{{plural}}</n>",
+        "headingPlain": "사용할 수 있는 {{plural}}",
+        "loading": "목록을 불러오는 중입니다.",
+        "error": "목록을 읽을 수 없습니다.",
+        "empty": "아직 줄 수 있는 <n>{{plural}}</n>이(가) 없습니다.",
+        "truncated": "목록이 잘렸습니다.",
+        "gone": "사용할 수 없음",
+        "access": "{{name}} 접근 권한",
+        "read": "읽기",
+        "write": "읽기 및 변경",
+        "none": "선택 없음: 사용할 수 있는 <n>{{noun}}</n>이(가) 없습니다.",
+        "some": "선택한 항목만 해당됩니다. 각 항목에 대한 본인의 접근 권한도 필요합니다."
+      },
+      "skills": {
+        "summaryOff_one": "스킬 {{count}}개가 함께 켜짐",
+        "summaryOff_other": "스킬 {{count}}개가 함께 켜짐",
+        "summaryOn": "스킬 {{total}}개 중 {{on}}개 켜짐"
+      },
+      "addonOn": {
+        "title": "{{name}} 켜짐",
+        "body_one": "스킬 {{count}}개가 함께 켜졌습니다: {{names}}. 저장하기 전에는 아무것도 저장되지 않습니다.",
+        "body_other": "스킬 {{count}}개가 함께 켜졌습니다: {{names}}. 저장하기 전에는 아무것도 저장되지 않습니다."
+      },
+      "skillAddonOff": "해당 애드온이 꺼져 있어 이 스킬은 아무 작동도 하지 않습니다.",
+      "memorySkills": {
+        "title": "메모리 스킬",
+        "from": "{{slot}} 제공",
+        "on": "메모리가 켜져 있는 동안 켜집니다.",
+        "off": "이 에이전트의 메모리가 꺼져 있는 동안 꺼집니다.",
+        "offUser": "설정에서 메모리가 꺼져 있어 꺼집니다."
+      },
+      "slot": {
+        "memory": "메모리"
+      }
+    },
+    "memoryLevelApplied": {
+      "title": "메모리: {{name}}",
+      "off": "메모를 읽거나 저장하지 않으며, 기억 권한도 꺼집니다. 저장하기 전에는 아무것도 저장되지 않습니다.",
+      "reads": "기억 권한이 꺼져 있어 메모를 읽지만 저장할 수 없습니다. 저장하기 전에는 아무것도 저장되지 않습니다.",
+      "saves": "기억 권한이 켜져 있습니다. 저장하기 전에는 아무것도 저장되지 않습니다."
+    }
   },
   "run": {
     "workingLine": "Working"
@@ -268,7 +580,8 @@
       "noChanges": "Nothing differs from the saved trigger.",
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
-      "changed_other": "{{count}} changes"
+      "changed_other": "{{count}} changes",
+      "watchNoFiles": "이 에이전트는 \"파일 없음\"이라서, 이 트리거의 실행은 파일이 도착했다는 것만 알 뿐 열 수 없습니다. 에디터에서 파일 접근을 허용하거나 다른 에이전트를 선택하세요."
     },
     "subtitle": "일정에 따라 또는 파일이 도착하면 에이전트를 시작합니다. 각 실행은 열어 볼 수 있는 채팅입니다."
   },
@@ -472,7 +785,7 @@
   },
   "folder": {
     "all": "내 모든 파일",
-    "one": "선택한 폴더",
+    "one": "이 폴더만",
     "scopeLabel": "이 에이전트가 접근할 수 있는 파일",
     "allHelp": "이 에이전트와의 채팅은 에이전트 없는 채팅처럼 모든 파일에 접근합니다.",
     "choose": "폴더 선택",
@@ -513,6 +826,152 @@
     "effectiveRead": "읽기 전용 폴더 안에 있어서 이 폴더도 읽기만 할 수 있습니다.",
     "effectiveWrite": "변경할 수 있는 폴더 안에 있어서 이 폴더도 변경할 수 있습니다.",
     "notMounted": "공유 폴더 {{n}}개가 채팅의 접근 한도에 맞지 않아 마운트되지 않았습니다.",
-    "exportNoteMany": "이 파일에는 폴더 {{n}}개가 적혀 있습니다. 가져오는 곳에서는 해당 경로에 실제로 있는 폴더가 에이전트에 지정되고, 나머지는 직접 고르라고 안내합니다."
+    "exportNoteMany": "이 파일에는 폴더 {{n}}개가 적혀 있습니다. 가져오는 곳에서는 해당 경로에 실제로 있는 폴더가 에이전트에 지정되고, 나머지는 직접 고르라고 안내합니다.",
+    "none": "파일 없음",
+    "noneHelp": "이 에이전트는 내 파일에 접근할 수 없습니다. 채팅에 첨부한 파일은 그 채팅에만 남습니다. 폴더를 감시하려면 파일 접근이 필요합니다. 폴더를 감시하는 트리거는 이 에이전트에서 시작은 되지만 도착한 파일을 열 수 없습니다."
+  },
+  "templates": {
+    "researcher": {
+      "description": "검색하고 출처를 읽어 짧은 요약을 씁니다."
+    },
+    "reviewer": {
+      "description": "변경 사항을 검토하고 먼저 고칠 것을 나열합니다."
+    },
+    "digest": {
+      "description": "주제의 새 소식을 모아 요약합니다."
+    },
+    "blank": {
+      "description": "비어 있음. 처음부터 시작합니다."
+    }
+  },
+  "wizard": {
+    "title": "새 에이전트",
+    "supporting": "네 단계로 간단히 진행합니다. 이름과 지침만 필수입니다.",
+    "stepsLabel": "단계",
+    "back": "뒤로",
+    "next": "계속",
+    "defaultTools": "기본 도구",
+    "step": {
+      "purpose": "목적",
+      "abilities": "기능",
+      "where": "작동 위치",
+      "review": "검토"
+    },
+    "purpose": {
+      "title": "이 에이전트는 무엇에 쓰나요?",
+      "lead": "템플릿으로 시작하거나 직접 작성하세요. 나중에 모두 바꿀 수 있습니다.",
+      "needs": "계속하려면 이름과 지침이 필요합니다.",
+      "modelLine": "모델: 채팅마다 직접 고르는 모델.",
+      "modelChoose": "고정 모델 선택",
+      "modelEach": "채팅마다 내가 고르는 모델"
+    },
+    "abilities": {
+      "title": "스스로 얼마나 할 수 있나요?",
+      "lead": "잘 모르겠다면 그대로 두세요. 에이전트는 기본 도구로 시작합니다. 또는 기본 도구를 대체하는 수준을 고르세요.",
+      "defaultNote": "선택한 수준이 없습니다. 에이전트는 기본 도구로 시작합니다.",
+      "files": "어떤 파일을 볼 수 있나요?",
+      "fine": "개별 도구 세부 조정",
+      "templateHint": "이 템플릿은 {{level}} 수준을 권장합니다.",
+      "templateUse": "{{level}} 사용"
+    },
+    "where": {
+      "title": "어디에서 작동하나요?",
+      "lead": "선택 사항입니다. 이 에이전트가 일할 곳을 고르세요. 아직 아무것도 연결되지 않습니다.",
+      "chat": "채팅 앱",
+      "chatLead": "사람들이 이 에이전트와 대화할 수 있는 앱.",
+      "tools": "도구와 서비스",
+      "toolsLead": "새 기능을 더해 주는 애드온.",
+      "notInstalled": "설치되지 않음",
+      "generic": "{{title}} 설정 마무리",
+      "loading": "앱을 찾는 중",
+      "empty": "아직 사용할 수 있는 앱이 없습니다.",
+      "note": "앱을 선택해도 연결되지는 않습니다. 에이전트를 만든 뒤 짧은 체크리스트가 각 앱의 설정을 안내합니다.",
+      "find": "애드온 찾기"
+    },
+    "review": {
+      "title": "만들 준비가 되었습니다",
+      "lead": "요약을 확인하세요. 나중에 모두 바꿀 수 있습니다.",
+      "named": "이름과 지침이 있음",
+      "tools": "도구: {{level}}",
+      "modelFixed": "모델: {{model}}",
+      "modelEach": "모델: 채팅마다 직접 고르는 모델",
+      "apps": "만든 뒤 설정할 앱: {{count}}",
+      "filesTitle": "모든 파일을 볼 수 있습니다.",
+      "filesBody": "파일에서 열 수 있는 모든 것을 이 에이전트가 읽을 수 있습니다. 폴더로 제한할 수 있습니다.",
+      "limit": "폴더로 제한",
+      "setupNext": "에이전트를 만들면 에이전트 페이지에 선택한 앱의 설정 단계가 표시됩니다."
+    },
+    "rail": {
+      "title": "내 에이전트",
+      "unnamed": "이름 없음",
+      "abilities": "기능",
+      "modelEach": "채팅마다 선택",
+      "files": "파일",
+      "folders": "선택한 폴더만 ({{count}})",
+      "works": "작동 위치",
+      "thisApp": "이 앱"
+    }
+  },
+  "setup": {
+    "title": "설정 마무리",
+    "count": "{{total}}개 중 {{done}}개 완료",
+    "dismiss": "숨기기",
+    "progress": "설정 진행률",
+    "done": "완료",
+    "stays": "모든 앱이 끝나거나 숨길 때까지 이 목록이 이 페이지에 남습니다.",
+    "connect": "새 연결",
+    "account": "계정 선택",
+    "turnOn": "켜기",
+    "find": "애드온에서 보기",
+    "actionFor": "{{action}}: {{title}}"
+  },
+  "share": {
+    "action": "공유",
+    "intro": "추가한 사람은 자신의 파일, 컬렉션, 연결을 사용해 본인으로서 이 에이전트를 사용합니다.",
+    "roles": {
+      "use": "사용 가능",
+      "useHelp": "자신의 채팅에서 에이전트와 대화하고 필요한 항목을 봅니다.",
+      "viewer": "보기 가능",
+      "viewerHelp": "지침과 도구도 읽을 수 있습니다."
+    },
+    "kind": {
+      "addon": "애드온",
+      "collection": "컬렉션",
+      "skill": "스킬",
+      "folder": "폴더",
+      "connection": "연결",
+      "addon-resource": "애드온 리소스",
+      "mcp": "MCP 서버",
+      "builtin": "기본 제공 권한",
+      "network": "네트워크",
+      "tool-group": "도구 그룹"
+    },
+    "ownAccess": "본인의 접근 권한이 필요합니다",
+    "refsApplied_one": "사용하는 항목 {{count}}개도 공유했습니다.",
+    "refsApplied_other": "사용하는 항목 {{count}}개도 공유했습니다.",
+    "refsFailed": "공유할 수 없음: {{names}}.",
+    "refsSkipped": "모든 사람과 공유되지 않음: {{names}}. 각 사람과 따로 공유하세요.",
+    "failed": "공유를 열 수 없습니다. {{message}}"
+  },
+  "shared": {
+    "readOnly": "이 에이전트와 대화할 수 있습니다. 소유자만 변경할 수 있습니다."
+  },
+  "needs": {
+    "title": "이 에이전트에 필요한 항목",
+    "intro": "에이전트는 본인의 접근 권한으로 본인으로서 실행됩니다.",
+    "none": "이 에이전트는 채팅 외에는 아무것도 사용하지 않습니다.",
+    "loadError": "이 에이전트에 필요한 항목을 확인할 수 없습니다.",
+    "state": {
+      "ok": "있음",
+      "missing": "공유되지 않음",
+      "unavailable": "사용할 수 없음",
+      "ask": "채팅 시작 시 꺼짐"
+    },
+    "noticeTitle_one": "이 에이전트에 필요한 항목 중 {{count}}개가 없습니다:",
+    "noticeTitle_other": "이 에이전트에 필요한 항목 중 {{count}}개가 없습니다:",
+    "noticeLink": "필요한 항목 보기",
+    "asksTitle_one": "이 에이전트가 요청하는 항목 중 {{count}}개는 채팅 시작 시 꺼져 있습니다:",
+    "asksTitle_other": "이 에이전트가 요청하는 항목 중 {{count}}개는 채팅 시작 시 꺼져 있습니다:",
+    "asksHelp": "에이전트는 내 권한으로 실행됩니다. 에이전트와 공유한 사람을 신뢰할 때만 채팅에서 켜세요."
   }
 }

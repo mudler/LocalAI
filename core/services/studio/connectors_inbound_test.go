@@ -152,6 +152,10 @@ var _ = Describe("a connector add-on pushing a message", func() {
 		Expect(byID["99"].Allowed).To(BeFalse())
 		Expect(byID["99"].Name).To(Equal("S99"))
 		Expect(byID["11"].Allowed).To(BeFalse(), "a group message is never accepted")
+		// An ignored message keeps where it came from and a reason code.
+		Expect(byID["99"].Chat).To(Equal("99"))
+		Expect(byID["99"].Reason).To(Equal(connectors.ReasonNotListed))
+		Expect(byID["11"].Reason).To(Equal(connectors.ReasonNotAddressed), "a group message that does not name the bot")
 		Expect(chatsOf(alice)).To(BeZero())
 		Expect(r.bot.answers()).To(BeEmpty())
 	})

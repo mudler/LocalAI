@@ -50,7 +50,16 @@
     "topP": "Top P",
     "topK": "Top K",
     "contextSize": "Ukuran Konteks",
-    "modelDefault": "model bawaan"
+    "modelDefault": "model bawaan",
+    "sliderOf": "Penggeser {{name}}",
+    "reset": "Pakai nilai bawaan model untuk {{name}}",
+    "hint": {
+      "temperature": "Nilai lebih tinggi memberi jawaban yang lebih beragam. Dari 0 sampai 2.",
+      "topP": "Memilih dari kata paling mungkin yang jumlahnya mencapai porsi ini. Di atas 0, sampai 1.",
+      "topK": "Memilih dari sebanyak ini kata paling mungkin. Bilangan bulat, 0 atau lebih.",
+      "contextSize": "Dari 512 sampai 4194304 token.",
+      "effort": "Berlaku langsung, mulai giliran berikutnya."
+    }
   },
   "empty": {
     "manageTitle": "Kelola LocalAI dengan obrolan",
@@ -252,7 +261,8 @@
       "personal": "Pribadi",
       "shared": "Bersama",
       "folder": "Ruang kerja",
-      "addon": "{{name}}"
+      "addon": "{{name}}",
+      "addonFrom": "dari {{name}}"
     },
     "replacedBy": "Digantikan oleh {{name}}",
     "fallback_one": "{{skills}} bawaan dipakai: skill milik add-on {{name}} mati atau tidak berjalan di sini.",
@@ -382,6 +392,10 @@
     "export": {
       "label": "Ekspor sebagai Markdown",
       "desc": "Unduh percakapan ini"
+    },
+    "effort": {
+      "label": "Upaya penalaran",
+      "desc": "Pilih seberapa keras model berpikir"
     }
   },
   "shortcuts": {
@@ -500,7 +514,8 @@
       "upstream_unreachable": "Alamat upstream tidak dapat dijangkau.",
       "upstream": "Penyedia di balik model mengembalikan kesalahan.",
       "timeout": "Model terlalu lama menjawab.",
-      "cancelled": "Giliran dibatalkan sebelum model menjawab."
+      "cancelled": "Giliran dibatalkan sebelum model menjawab.",
+      "interrupted": "Server dimulai ulang saat sedang menjawab."
     },
     "hint": {
       "model_backend_missing": "Pilih model lain, atau minta administrator memasang backend.",
@@ -515,7 +530,15 @@
       "timeout": "Coba lagi, atau gunakan model yang lebih kecil atau lebih cepat.",
       "cancelled": "Coba lagi saat Anda siap."
     },
-    "openBackends": "Buka Backend"
+    "openBackends": "Buka Backend",
+    "titleInterrupted": "Balasan terputus",
+    "resume": {
+      "waiting": "Dilanjutkan dalam {{seconds}} detik (percobaan {{attempt}} dari {{max}}).",
+      "resuming": "Dilanjutkan dari bagian yang terhenti.",
+      "server": "Server melanjutkan dari bagian yang terhenti.",
+      "exhausted": "Tidak bisa dilanjutkan setelah {{max}} percobaan. Coba lagi.",
+      "stop": "Berhenti mencoba"
+    }
   },
   "allChats": {
     "title": "Semua obrolan",
@@ -810,5 +833,58 @@
     "bodyMember": "Belum ada model obrolan yang terinstal di server ini. Hubungi administrator untuk menginstalnya.",
     "gallery": "Jelajahi galeri",
     "import": "Impor model"
+  },
+  "connector": {
+    "header": "Percakapan pesan",
+    "unknownSender": "Pengirim tidak dikenal",
+    "people": "Orang dalam percakapan ini",
+    "inThread": "Utas",
+    "openThread": "Buka di aplikasi pesan",
+    "where": {
+      "direct": "Pesan langsung",
+      "channel": "Kanal {{name}}",
+      "group": "Kanal atau grup"
+    },
+    "standing": {
+      "owner": "Pemilik",
+      "verified": "Punya peran",
+      "listed": "Orang yang terdaftar",
+      "channel": "Anggota kanal",
+      "anyone": "Siapa saja"
+    },
+    "standingHelp": {
+      "owner": "Orang terverifikasi: pemilik mengendalikan akun ini.",
+      "verified": "Memiliki peran yang diberi hak oleh pemilik.",
+      "listed": "Ada di daftar koneksi ini.",
+      "channel": "Diizinkan masuk karena kanal atau grup ada di daftar.",
+      "anyone": "Diizinkan karena koneksi menerima siapa saja."
+    },
+    "threadEarlier": "Sebelumnya di utas ({{count}} pesan)",
+    "threadCut": "Pesan yang lebih lama di utas tidak ditampilkan.",
+    "note": {
+      "paired": "Terverifikasi dengan bot ini",
+      "unsupported": "Pesan tidak dibaca",
+      "too_long": "Pesan terlalu panjang",
+      "no_upload": "File tidak diterima",
+      "rate": "Terlalu banyak pesan",
+      "held_back": "Beberapa alat tidak ditawarkan kepada pengirim ini",
+      "new_chat": "Chat baru dimulai",
+      "refused": "Pesan ditolak",
+      "hold_waiting": "Menunggu konfirmasi dari orang terverifikasi",
+      "hold_confirmed": "Dikonfirmasi di obrolan",
+      "hold_cancelled": "Dibatalkan di obrolan",
+      "hold_expired": "Tidak dikonfirmasi tepat waktu",
+      "hold_failed": "Tidak dapat dilakukan",
+      "other": "Catatan",
+      "why": "Mengapa"
+    }
+  },
+  "connection": {
+    "lost": "Koneksi terputus. Menyambung kembali."
+  },
+  "reasoning": {
+    "chip": "Upaya",
+    "title": "Upaya penalaran untuk obrolan ini",
+    "note": "Berlaku mulai giliran berikutnya. Tidak ada meminta model untuk tidak berpikir."
   }
 }

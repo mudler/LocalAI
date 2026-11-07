@@ -369,7 +369,7 @@
     "adminTitle": "Dossiers partagés",
     "adminLede": "Des dossiers que plusieurs personnes utilisent. Les membres ouvrent leurs pages, et leurs discussions peuvent lire ou modifier les fichiers.",
     "userTitle": "Partagé avec vous",
-    "userLede": "Les dossiers qu’un administrateur a partagés avec vous. Leurs pages sont dans Pages, et vos discussions peuvent utiliser les fichiers.",
+    "userLede": "Dossiers qu’un administrateur ou une autre personne a partagés avec vous. Vos conversations peuvent utiliser les fichiers.",
     "new": "Nouveau dossier partagé",
     "nameLabel": "Nom du dossier",
     "nameHint": "Jusqu’à 64 lettres, chiffres, espaces, points, tirets ou soulignés. Commencez par une lettre ou un chiffre.",
@@ -421,7 +421,7 @@
     "factChats": "Les discussions des membres voient les fichiers du dossier",
     "factUndo": "Le retrait d’un dossier peut être annulé",
     "emptyUserTitle": "Rien n’est encore partagé avec vous",
-    "emptyUserBody": "Quand un administrateur partage un dossier avec vous, il apparaît ici et ses pages dans Pages."
+    "emptyUserBody": "Quand quelqu’un partage un dossier avec vous, il apparaît ici."
   },
   "preview": {
     "label": "Aperçu",
@@ -460,7 +460,16 @@
     "marker": "géré par LocalAI",
     "about": {
       "localai": "Réglages que LocalAI lit : persona, profil, raccourcis, Accueil, thème.",
-      "chats": "Un dossier par discussion, avec les fichiers de la discussion."
+      "chats": "Un dossier par discussion, avec les fichiers de la discussion.",
+      "memory": "Les notes que l'assistant garde sur vous.",
+      "pages": "Les pages de votre espace de travail.",
+      "skills": "Les skills que les agents utilisent.",
+      "other": "Créé et utilisé par LocalAI."
+    },
+    "open": {
+      "memory": "Ouvrir la Mémoire",
+      "pages": "Ouvrir les Pages",
+      "skills": "Ouvrir les Skills"
     },
     "confirm": {
       "deleteTitle": "Mettre {{name}} à la corbeille ?",
@@ -536,7 +545,8 @@
     "moveMany_one": "Déplacer {{count}} élément vers…",
     "moveMany_other": "Déplacer {{count}} éléments vers…",
     "deleteMany_one": "Déplacer {{count}} élément vers la Corbeille",
-    "deleteMany_other": "Déplacer {{count}} éléments vers la Corbeille"
+    "deleteMany_other": "Déplacer {{count}} éléments vers la Corbeille",
+    "share": "Partager…"
   },
   "keys": {
     "delete": "Suppr"
@@ -677,5 +687,12 @@
     "read": "{{name}} (peut lire)",
     "write": "{{name}} (peut lire et modifier)",
     "many": "{{count}} agents"
+  },
+  "share": {
+    "intro": "Les personnes que vous ajoutez trouvent ce dossier dans leur onglet Partagé, et leurs conversations peuvent utiliser ses fichiers.",
+    "readHelp": "Elles peuvent ouvrir et copier les fichiers.",
+    "writeHelp": "Elles peuvent aussi ajouter, modifier et supprimer des fichiers ici.",
+    "failed": "Impossible d’ouvrir le partage : {{message}}",
+    "lost": "Vous ne pouvez plus partager ce dossier ici."
   }
 }

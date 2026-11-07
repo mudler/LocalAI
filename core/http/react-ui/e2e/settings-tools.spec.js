@@ -69,6 +69,25 @@ test.describe('Settings > Tools', () => {
     await expect(page.getByTestId('settings-tools-web-test-summary')).toContainText('No provider answered. no search provider works. Tried duckduckgo')
   })
 
+  test('the LocalAI client and admin groups are rows with their own settings, switched like the web tools', async ({ page }) => {
+    const group = (id, label, setting, enabled = true) => ({
+      id, label, description: 'x', group: id, setting, enabled, provider: enabled ? 'builtin' : '', candidates: [], options: [],
+    })
+    const state = await openTools(page, [
+      group('localai_client', 'LocalAI client', 'chats_localai_client'),
+      group('localai_admin', 'LocalAI admin', 'chats_localai_admin'),
+    ])
+    const client = page.getByTestId('settings-tools-row-localai_client')
+    const admin = page.getByTestId('settings-tools-row-localai_admin')
+    await expect(client).toContainText('LocalAI client tools')
+    await expect(client).toContainText('chats_localai_client')
+    await expect(admin).toContainText('LocalAI admin tools')
+    await expect(admin).toContainText('chats_localai_admin')
+    await page.getByTestId('settings-tools-localai_admin-switch').click()
+    await page.getByRole('button', { name: 'Apply' }).click()
+    await expect.poll(() => state.posts).toEqual([{ chats_localai_admin: false }])
+  })
+
   test('switching bash off saves off', async ({ page }) => {
     const state = await openTools(page, [bash()])
     await page.getByTestId('settings-tools-bash-switch').click()

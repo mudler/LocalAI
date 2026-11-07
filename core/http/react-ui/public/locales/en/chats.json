@@ -332,7 +332,32 @@
     "bindingsOf": "Bindings of {{name}}",
     "loadFailed": "Could not load your connectors.",
     "waitingTitle": "Waiting for their add-on",
-    "waitingText": "These bindings are kept, but they do not run until their add-on is installed and turned on."
+    "waitingText": "These bindings are kept, but they do not run until their add-on is installed and turned on.",
+    "duplicate": {
+      "text": "This bot is also connected as {{name}}. Both connections will answer the same message.",
+      "turnOff": "Turn this one off",
+      "open": "Open {{name}}"
+    },
+    "new": "New connection",
+    "newMenu": "Choose the platform of the new connection",
+    "state": {
+      "running": "Running",
+      "off": "Off",
+      "attention": "Needs attention"
+    },
+    "share": {
+      "label": "Share",
+      "button": "Share {{name}}",
+      "intro": "People you add can use this connection in their own chats and agents. They see its name and state, never its token or its settings. Messages to the bot still reach your agent.",
+      "roleUse": "Can use",
+      "roleUseHelp": "Can use it in their chats and agents. Cannot see the token, change it or share it."
+    },
+    "shared": {
+      "title": "Shared with you",
+      "text": "Other people let you use these connections in your chats and agents. Only their owner can change them.",
+      "on": "Listening",
+      "off": "Off"
+    }
   },
   "conversionPage": {
     "title": "Converted from the old chat",
@@ -378,9 +403,12 @@
       "subagents": "Sub-agents",
       "changes": "Suggested changes",
       "memory": "Memory",
-      "history": "Past chats"
+      "history": "Past chats",
+      "localai_client": "LocalAI client",
+      "localai_admin": "LocalAI admin"
     },
     "builtinBy": "{{tools}} · built-in",
+    "onDemand": "Loaded on demand",
     "builtinByAddon": "{{tools}} · served by {{provider}}",
     "servedBy": "Served by add-on {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
@@ -456,7 +484,9 @@
       "triggers": "Lets the model propose, list, change and delete triggers. You confirm each new trigger or change.",
       "changes": "Lets the model propose edits to your notes, its rules, skills, pages and dashboard. You confirm each one.",
       "memory": "The model can read your notes before it answers and save new ones. Turn it off to make this a private chat: nothing is read from your notes or saved to them. Your other chats are not affected.",
-      "history": "Lets the model search and read your earlier chats."
+      "history": "Lets the model search and read your earlier chats.",
+      "localai_client": "Lets the model make images, speech, sound and video, and transcribe, embed, rerank and detect, with the models installed here.",
+      "localai_admin": "Lets the model manage this server: models, backends, settings and the state. For administrators; it asks you before it changes anything."
     },
     "whenOff": {
       "shell": "The model can write files but cannot run anything.",
@@ -469,7 +499,9 @@
       "triggers": "The model cannot propose or manage triggers.",
       "changes": "The model cannot propose edits to your notes, its rules, skills, pages or dashboard.",
       "memory": "This is a private chat. The model neither reads nor saves your notes.",
-      "history": "The model cannot see your earlier chats."
+      "history": "The model cannot see your earlier chats.",
+      "localai_client": "The model cannot run these models itself.",
+      "localai_admin": "The model cannot manage this server."
     },
     "addonDescribe_one": "Gives the model {{count}} tool from this add-on.",
     "addonDescribe_other": "Gives the model {{count}} tools from this add-on.",
@@ -522,6 +554,10 @@
       "dashboard_write": {
         "title": "Change the dashboard",
         "description": "Lets the model propose a new layout for your Home dashboard. You confirm each change."
+      },
+      "knowledge_write": {
+        "title": "Add to knowledge",
+        "description": "Lets the model propose a text for a collection of your Knowledge. You confirm each one; it is never added at once."
       },
       "triggers_propose": {
         "title": "Also propose from messaging apps",
@@ -810,6 +846,11 @@
       "readsLabel": "Reads",
       "writesLabel": "Writes",
       "costLabel": "Cost",
+      "deliveryLabel": "Results go to",
+      "deliveryInbox": "Your Inbox",
+      "deliveryChat": "This chat",
+      "deliveryThread": "This thread",
+      "deliveryChannel": "{{channel}}, at the top of the channel",
       "stopLabel": "To stop it",
       "when": "{{schedule}}, {{zone}}. First run {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -841,7 +882,9 @@
     "loading": "Reading...",
     "empty": "Nothing yet.",
     "task": "Task",
-    "answer": "Answer"
+    "answer": "Answer",
+    "waiting": "Waiting for: {{what}}",
+    "looping": "Looping"
   },
   "vision": {
     "describedBy": "This model can't look at images. Pick another model, or the image will be described by {{model}}.",
@@ -947,6 +990,8 @@
       "writes": "Writes",
       "widget": "Home widget",
       "estimated_tokens": "Tokens a run",
+      "acts": "What a run may do",
+      "delivery": "Where answers go",
       "agent": "Agent",
       "model": "Model"
     },
@@ -1036,6 +1081,64 @@
       "noChat": "Send a first message, then start a loop in this chat.",
       "stopped_one": "Stopped {{count}} loop.",
       "stopped_other": "Stopped {{count}} loops."
+    },
+    "wait": {
+      "name": "Waiting for",
+      "kind": "Wait",
+      "pending": "Waiting for your yes",
+      "paused": "Wait paused",
+      "stop": "Stop wait",
+      "details": "Details of the wait",
+      "watching": "Watching {{source}}",
+      "until": "Until {{condition}}",
+      "notChecked": "Not checked yet",
+      "checked_one": "Checked {{count}} time",
+      "checked_other": "Checked {{count}} times",
+      "checkedAgo_one": "Checked {{count}} time, last {{ago}}",
+      "checkedAgo_other": "Checked {{count}} times, last {{ago}}",
+      "outcome": {
+        "unchanged": "no change",
+        "changed": "changed",
+        "error": "failed"
+      },
+      "ago": "{{span}} ago",
+      "justNow": "just now",
+      "in": "in {{span}}",
+      "now": "now",
+      "next": "Next check {{when}}",
+      "deadline": "Gives up at {{time}} ({{when}})",
+      "errorStreak": "Last check failed ({{count}} of {{max}} in a row)",
+      "errorStreakMsg": "Last check failed ({{count}} of {{max}} in a row): {{message}}",
+      "lastError": "Last error: {{message}}",
+      "sources": {
+        "tool": "tool {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "Done: the condition was met",
+        "failing_one": "Stopped: the source failed {{count}} time in a row",
+        "failing_other": "Stopped: the source failed {{count}} times in a row",
+        "timedOut": "Timed out, the condition was not met",
+        "stopped": "Wait stopped"
+      },
+      "waking": {
+        "met": "The condition was met. Asking the model what to do.",
+        "failing": "The source failed. Asking the model what to do.",
+        "timedOut": "Timed out, the condition was not met. Asking the model what to do."
+      },
+      "phase": {
+        "waiting": "waiting",
+        "waking": "waking the model",
+        "paused": "paused",
+        "ended": "ended",
+        "pending": "waits for your yes"
+      },
+      "endShort": {
+        "condition_met": "condition met",
+        "source_failing": "source failed",
+        "timed_out": "timed out",
+        "stopped": "stopped"
+      }
     }
   },
   "changes": {
@@ -1047,7 +1150,9 @@
       "profile": "Profile",
       "skill": "Skill",
       "page": "Page",
-      "dashboard": "Dashboard"
+      "dashboard": "Dashboard",
+      "knowledge": "Knowledge",
+      "voice_profile": "Voice profile"
     },
     "scope": {
       "user": "All your chats",
@@ -1060,7 +1165,8 @@
       "kind": "Kind",
       "target": "File",
       "source": "From",
-      "expires": "Expires in"
+      "expires": "Expires in",
+      "collection": "Collection"
     },
     "source": {
       "chat": "A chat",
@@ -1109,6 +1215,32 @@
       "dismissed": "Change dismissed.",
       "undone": "Change undone.",
       "asked": "Asked the assistant to propose it again."
+    },
+    "knowledge": {
+      "label": "Text to add to {{collection}}",
+      "size": "{{size}} of at most {{max}}",
+      "note": "Nothing is added until you confirm. The text is then split into passages and indexed, and every chat that searches this collection can use it.",
+      "editLabel": "Text to add to {{target}}",
+      "embed_one": "1 passage will be embedded with {{model}}.",
+      "embed_other": "About {{count}} passages will be embedded with {{model}}.",
+      "serverModel": "the server's embedding model"
+    },
+    "warning": {
+      "title": "Check this text before you confirm.",
+      "secret": "It looks like it holds a secret, such as a key, a token or a password. Once it is added, every chat that searches this collection can read it. A messaging chat cannot confirm it; only you can, here.",
+      "other": "The server flagged this text as risky. A messaging chat cannot confirm it; only you can, here."
+    },
+    "voice": {
+      "label": "Voice to clone",
+      "name": "Name",
+      "file": "Recording",
+      "clip": "Pinned clip",
+      "language": "Language",
+      "transcript": "Transcript",
+      "consentTitle": "Confirm only if the speaker agreed.",
+      "consent": "The recording is saved as a voice profile that your chats can speak with. You can delete it in the Voice library.",
+      "consentAdmin": "You are an administrator, so this voice becomes available to all users of this server.",
+      "confirm": "The speaker agreed: save the voice"
     }
   },
   "proposalsPage": {
@@ -1163,6 +1295,7 @@
       "mine": "Mine",
       "deleted": "Deleted agents",
       "channels": "Conversations",
+      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not verified with you always waits for your OK.",
       "export": "Export these notes",
       "clearAgent": "Delete the notes of this agent",
       "clearDeleted": "Delete these notes"
@@ -1211,13 +1344,36 @@
         "title": "Save it and tell me",
         "body": "In your own chats the note is saved at once. The chat shows \"Saved to memory\" with an Undo. Up to 5 notes a reply. A long note, or one that looks like a secret, still waits for you."
       },
+      "always": {
+        "title": "Always confirm",
+        "body": "Like Ask me first, and nothing can loosen it. Undo and forget also wait for you. No agent or messaging setting can override it."
+      },
       "never": {
         "title": "Never",
         "body": "The assistant cannot save notes. It tells you that saving is off."
       }
     },
     "default": "Default",
-    "saveNote": "Chats from messaging apps always ask first. Background runs and triggers never save a note. A saved agent can ask more, never less, than you chose here.",
+    "saveNote": "Background runs and triggers never save a note. A saved agent can ask more, never less, than you chose here.",
+    "messaging": {
+      "title": "In messaging apps",
+      "lede": "What happens when a note is proposed in a chat from a messaging app, where the sender may not be you.",
+      "ask": {
+        "title": "Ask me first",
+        "body": "The bot asks in the chat: \"Reply yes to save it.\" A listed sender can answer there. Others wait for you in the app."
+      },
+      "paired_private": {
+        "title": "Save it for a verified person in a private chat",
+        "body": "Saved at once only when the sender is a verified person and the chat is one-to-one. The note goes to that conversation, with an Undo. A note that looks like a secret still waits."
+      },
+      "never": {
+        "title": "Never",
+        "body": "No notes are saved from messaging apps."
+      },
+      "limit": "Never looser than the setting above.",
+      "lockedAlways": "Your setting above is Always confirm, so this row cannot save a note at once.",
+      "lockedNever": "Your setting above is Never, so no note is saved from a messaging app."
+    },
     "saveFailed": "Could not store your choice.",
     "loadError": "Could not load your memory settings.",
     "notesTitle": "Manage your notes",
@@ -1230,7 +1386,8 @@
       "chat": "This is a private chat: nothing is read or saved. Your notes are untouched. Turn it on in the Tools menu.",
       "user": "No chat or agent reads or saves notes, and your notes are untouched.",
       "agent": "The agent of this chat has memory switched off.",
-      "files": "Notes are files, and files are off on this server."
+      "files": "Notes are files, and files are off on this server.",
+      "provider": "The add-on that serves memory is not available, so nothing is read or saved. Pick a provider in Settings, Memory."
     },
     "chip": "Memory off",
     "chipPrivate": "Private chat",
@@ -1264,15 +1421,20 @@
       "title": "As before",
       "body": "This agent was saved before this choice existed. It reads your notes when its add-ons list names Memory, and the model picks where a note is saved. Pick one of the choices below to change that."
     },
-    "saveGrant": "Let it save notes",
-    "saveGrantHelp": "Turns on the permission Remember things. Without it the agent reads notes but cannot save any.",
     "copyNote": "Exporting an agent, or importing it as a new one, keeps this choice and never copies its notes.",
     "summary": {
       "mine_and_own": "Mine and its own",
       "own": "Its own only",
       "mine": "Mine",
       "none": "None",
-      "asBefore": "As before"
+      "asBefore": "As before",
+      "withAuto": "{{choice}}, saves at once",
+      "level": {
+        "off": "Off",
+        "reads": "Reads notes",
+        "saves": "Reads and saves notes"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "Delete {{name}}?",
@@ -1292,6 +1454,83 @@
         "title": "Delete the notes too",
         "body": "They move to the Trash and you can restore them from Files."
       }
+    },
+    "rule": {
+      "title": "When it wants to save a note",
+      "use_mine": {
+        "title": "Use my setting",
+        "body": "Your setting is <b>{{level}}</b>. <settings>Change it in Settings > Memory.</settings>"
+      },
+      "auto": {
+        "title": "Save it and tell me",
+        "body": "Saves each note at once and tells you in the chat, with an Undo, even when your setting is Ask me first. A long note, or one that looks like a secret, still waits."
+      },
+      "always": {
+        "title": "Always confirm",
+        "body": "Stricter than my setting."
+      },
+      "never": {
+        "title": "Never",
+        "body": "It reads, never saves."
+      },
+      "hint": "In a messaging chat a note goes to that conversation first, and reaches this agent's own notes only from a verified person. Saving at once in a messaging chat applies only to a verified person in a one-to-one chat.",
+      "offReason": "The save level does not apply while memory is off.",
+      "readsReason": "The save level does not apply: this agent reads notes but cannot save any."
+    },
+    "level": {
+      "title": "How much it does with notes",
+      "off": {
+        "title": "Off",
+        "body": "Reads and saves no notes."
+      },
+      "reads": {
+        "title": "Reads notes",
+        "body": "Uses your notes to answer. Never saves any."
+      },
+      "saves": {
+        "title": "Reads and saves notes",
+        "body": "Uses notes and saves new ones, as your save level allows."
+      }
+    },
+    "whose": "Whose notes",
+    "whoseOff": "Memory is off for this agent, so there are no notes to choose from."
+  },
+  "providerPicker": {
+    "title": "Provider",
+    "lede": "One provider serves at a time. Your existing data stays where it is when you switch.",
+    "off": "Off",
+    "unavailable": "Not available",
+    "loadError": "The providers could not be loaded",
+    "saveFailed": "The provider could not be changed",
+    "failedTitle": "{{name}} is not available",
+    "failedReason": "This stays off until you pick a provider. Nothing moved to the built-in provider, so nothing is saved where you did not choose.",
+    "useBuiltin": "Use the built-in provider",
+    "facts": {
+      "local": "Local",
+      "remote": "Remote",
+      "undoHost": "Undo here",
+      "undoProvider": "Undo by the service",
+      "undoNone": "Cannot be undone"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Built-in",
+        "builtinBody": "Plain files in your Memory folder. Nothing leaves this machine.",
+        "offBody": "Nothing is read, offered, saved or sent. Existing notes are kept."
+      }
+    },
+    "healthTitle": "The provider is paused",
+    "forget": {
+      "lede": "Ask {{name}} to forget the notes it keeps for you. Your files in the Memory folder are not touched.",
+      "action": "Forget everything from this provider",
+      "confirmTitle": "Forget everything from {{name}}?",
+      "confirmBody": "{{name}} will be asked to forget every note it keeps for you. It may hold the change until you confirm it on the Add-ons page.",
+      "confirmBodyFinal": "{{name}} will be asked to forget every note it keeps for you. This cannot be undone.",
+      "confirm": "Forget everything",
+      "pending": "Forgetting...",
+      "done": "{{name}} forgot its notes",
+      "waiting": "The change waits for your confirmation on the Add-ons page",
+      "failed": "The provider could not forget: {{message}}"
     }
   }
 }

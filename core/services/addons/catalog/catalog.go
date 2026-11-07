@@ -104,6 +104,12 @@ type Requirements struct {
 	Protocol   contract.VersionRange `json:"protocol,omitzero"`
 	DataFormat contract.VersionRange `json:"dataFormat,omitzero"`
 	SDK        contract.VersionRange `json:"sdk,omitzero"`
+	// FeatureLevel is the feature level the package needs (see
+	// contract.HostFeatureLevel). Zero means no claim, the base level. A host
+	// older than this field refuses an index that carries it, because the
+	// index reader is strict; the generator writes it only for a package that
+	// needs more than the base level.
+	FeatureLevel uint64 `json:"featureLevel,omitempty"`
 }
 
 type Release struct {

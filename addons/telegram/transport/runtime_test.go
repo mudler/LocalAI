@@ -72,6 +72,7 @@ var _ = Describe("the connector route", func() {
 		me, err := r.Connector(ctx, contract.ConnectorRequest{Op: "me", Kind: "telegram", Token: secretToken})
 		Expect(err).NotTo(HaveOccurred())
 		Expect([]string{me.BotID, me.BotUsername}).To(Equal([]string{"99", "helper_bot"}))
+		Expect(me.AccountID).To(Equal("99"))
 		for _, req := range []contract.ConnectorRequest{{Op: "typing", Chat: "5"}, {Op: "edit", Chat: "5", MessageID: "6", Text: "x"}} {
 			req.Kind, req.Token = "telegram", secretToken
 			out, err := r.Connector(ctx, req)

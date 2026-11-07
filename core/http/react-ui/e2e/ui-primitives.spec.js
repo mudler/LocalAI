@@ -101,6 +101,29 @@ test.describe('UI primitives', () => {
     expect((await first.boundingBox()).height).toBe(26)
   })
 
+  test('slider: the range and the box agree, keys move a step, reset clears, the bad value is flagged', async ({ page }) => {
+    await openCatalog(page)
+    const set = page.getByTestId('cat-slider')
+    const box = set.getByTestId('cat-slider-input')
+    const range = set.getByTestId('cat-slider-range')
+    await expect(box).toHaveValue('0.7')
+    await expect(range).toHaveValue('0.7')
+    await range.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(box).toHaveValue('0.75')
+    await box.fill('1.5')
+    await expect(range).toHaveValue('1.5')
+    await set.getByTestId('cat-slider-reset').click()
+    await expect(box).toHaveValue('')
+    await expect(box).toHaveAttribute('placeholder', 'Model default')
+    await expect(set.getByTestId('cat-slider-reset')).toBeDisabled()
+    const bad = page.getByRole('textbox', { name: 'Out of range' })
+    await expect(bad).toHaveAttribute('aria-invalid', 'true')
+    // The box and the reset button share the control height.
+    expect((await box.boundingBox()).height).toBe(36)
+    expect((await set.getByTestId('cat-slider-reset').boundingBox()).height).toBe(36)
+  })
+
   for (const theme of ['light', 'dark']) {
     test(`status chips: words, an icon and 4.5:1 text in ${theme}`, async ({ page }) => {
       await openCatalog(page, { theme })

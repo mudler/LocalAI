@@ -64,7 +64,18 @@
     },
     "noRunsText": "Press Chat to start a conversation with this agent. Chats that ran with it, and the ones its triggers start, are listed here.",
     "missingText": "It may have been deleted, or it belongs to another user.",
-    "backToList": "返回智能体"
+    "backToList": "返回智能体",
+    "bindings": "连接",
+    "bindingsAll": "所有连接",
+    "noBindings": "没有消息应用连接到此智能体。",
+    "noBindingsLink": "请在附加组件中添加。",
+    "bindingState": {
+      "ok": "运行中",
+      "off": "已关闭",
+      "attention": "需要处理"
+    },
+    "openSettings": "打开设置",
+    "openSettingsFor": "打开 {{name}} 的设置"
   },
   "record": {
     "where": "A run is a chat that ran with the agent, including the ones its triggers and connectors started.",
@@ -82,7 +93,10 @@
       "export": "Export",
       "Files": "文件",
       "Tools": "工具",
-      "Notes": "记忆"
+      "Notes": "记忆",
+      "Connections": "连接",
+      "Effective": "生效视图",
+      "Uses": "可使用的内容"
     },
     "name": "Name",
     "description": "Description",
@@ -151,7 +165,305 @@
       "files_upload": "从消息应用接收文件"
     },
     "memoryOffUser": "你的设置中记忆已关闭，因此无论这里如何设置，此智能体都不会读取或保存笔记。",
-    "memoryOffFix": "设置，记忆"
+    "memoryOffFix": "设置，记忆",
+    "nav": {
+      "label": "分区",
+      "identity": "身份",
+      "capabilities": "能力",
+      "memory": "记忆与知识",
+      "advanced": "高级",
+      "connections": "连接",
+      "effective": "生效视图"
+    },
+    "lead": {
+      "identity": "智能体是谁,以及它如何行事。",
+      "capabilities": "智能体可以使用和访问的内容。",
+      "memory": "智能体记住什么,以及可以查找什么。",
+      "advanced": "额外的服务器和导出。",
+      "connections": "此代理可以使用哪些连接。",
+      "effective": "这个智能体现在能做什么。"
+    },
+    "header": {
+      "unnamed": "未命名的智能体",
+      "modeEdit": "编辑智能体",
+      "modeCreate": "新智能体",
+      "summary": "此智能体的摘要"
+    },
+    "status": {
+      "clean": "没有未保存的更改",
+      "new": "尚未创建",
+      "unsaved": "未保存的更改({{count}})"
+    },
+    "preset": {
+      "label": "工具级别",
+      "loading": "正在加载工具列表",
+      "current": "级别：{{name}}。更改下方任一开关后，它就成为自定义组合。",
+      "custom": "自定义开关组合。选择一个级别可替换它。",
+      "applied": "已应用{{name}}级别",
+      "appliedBody": "下方的开关已更改。保存之前不会存储任何内容。",
+      "readonly": {
+        "title": "仅查看",
+        "body": "搜索网页和你的集合。没有文件、命令和触发器。"
+      },
+      "assistant": {
+        "title": "助手",
+        "body": "加入已保存的代理、触发器和建议的更改。没有文件和命令。"
+      },
+      "full": {
+        "title": "完整",
+        "body": "服务器列出的所有工具。敏感权限保持关闭。"
+      }
+    },
+    "tpl": {
+      "applied": "从{{name}}开始",
+      "appliedBody": "名称、描述、指令和工具已更改。保存之前不会存储任何内容。",
+      "tools": "工具：{{level}}",
+      "noTools": "工具：保持不变"
+    },
+    "undo": "撤销",
+    "keep": "保留",
+    "modelCaps": "此模型能做什么",
+    "modelChat": "聊天",
+    "connections": {
+      "addonsTitle": "使用连接的附加组件",
+      "addonsNone": "没有附加组件需要连接。",
+      "messagingTitle": "此代理连接到哪里",
+      "messagingNone": "还没有消息连接使用此代理。请先保存代理，再添加连接。",
+      "messagingHelp": "消息连接在各自的页面中设置。",
+      "allows_one": "允许 {{count}} 项权限",
+      "allows_other": "允许 {{count}} 项权限",
+      "open": "打开",
+      "addonOff": "已关闭",
+      "noneYet": "还没有连接。",
+      "add": "添加连接",
+      "groupLabel": "{{name}}的连接",
+      "chosenHelp": "此代理的聊天只能使用已勾选的连接。",
+      "perChat": "未勾选：每个聊天自行选择。",
+      "summary_one": "{{count}} 个连接",
+      "summary_other": "{{count}} 个连接"
+    },
+    "more": "更多操作",
+    "eff": {
+      "summaryOk": "没有被阻止的内容。",
+      "summaryBlocked_one": "{{count}} 项被阻止。",
+      "summaryBlocked_other": "{{count}} 项被阻止。",
+      "unsaved": "此列表按表单当前的样子生成，包括尚未保存的更改。",
+      "unsavedConn": "工具、记忆和知识按表单当前的样子生成。连接行来自已保存的智能体和已保存的连接。",
+      "state": {
+        "allowed": "可以",
+        "asks": "先询问",
+        "off": "关闭",
+        "blocked": "已阻止",
+        "info": "说明"
+      },
+      "more_one": "以及另外 {{count}} 项",
+      "more_other": "以及另外 {{count}} 项",
+      "fixHere": "在此修复",
+      "fixOpen": "打开可修复它的页面",
+      "model": {
+        "fixed": "使用 {{model}} 运行。",
+        "any": "使用每次聊天中选择的模型。"
+      },
+      "tools": {
+        "none": "没有开启任何工具。它只能凭已有知识回答。",
+        "some_one": "可以使用 {{count}} 个工具：{{names}}。",
+        "some_other": "可以使用 {{count}} 个工具：{{names}}。",
+        "blocked": "{{name}} 已开启，但现在无法工作。{{reason}}"
+      },
+      "skills": {
+        "some_one": "可以使用 {{count}} 个技能：{{names}}。",
+        "some_other": "可以使用 {{count}} 个技能：{{names}}。",
+        "withAddons_one": "可使用 {{count}} 个随插件而来的技能：{{names}}。",
+        "withAddons_other": "可使用 {{count}} 个随插件而来的技能：{{names}}。",
+        "addonOff": "技能 {{name}} 已开启，但它的插件 {{addon}} 已关闭，因此不起作用。请开启该插件。"
+      },
+      "files": {
+        "all": "可以访问你的所有文件。",
+        "folders_one": "只能访问你选择的 {{count}} 个文件夹。",
+        "folders_other": "只能访问你选择的 {{count}} 个文件夹。",
+        "none": "无法访问你的任何文件。"
+      },
+      "grants": {
+        "parentOff": "{{name}} 已允许，但在 {{parent}} 关闭时无法工作。请打开 {{parent}}。",
+        "connection": "{{name}} 对智能体已允许，但在此连接上不行：{{connection}}",
+        "some_one": "另有 {{count}} 项权限：{{names}}。",
+        "some_other": "另有 {{count}} 项权限：{{names}}。",
+        "unattended_one": "无人看管时，它可以自行使用 {{count}} 项权限：{{names}}。",
+        "unattended_other": "无人看管时，它可以自行使用 {{count}} 项权限：{{names}}。"
+      },
+      "memory": {
+        "userOff": "你的设置中记忆已关闭，因此无论在此选择什么，这个智能体都不会读取或保存笔记。",
+        "none": "此智能体的记忆已关闭。它不读取也不保存笔记。",
+        "mine_and_own": "读取你的笔记和它自己的笔记，并保存到它自己的笔记。",
+        "own": "只读取并保存它自己的笔记。",
+        "mine": "读取你的笔记并保存到其中。",
+        "asBefore": "记忆照旧工作：当附加组件提到 Memory 时读取笔记。",
+        "level": {
+          "auto": "立即保存笔记。",
+          "ask": "保存笔记（先询问）：每条笔记都等你确认。",
+          "always": "保存笔记，但每条笔记都等你确认，任何设置都不会放宽。",
+          "never": "可读取笔记但不保存：你的保存级别是“从不”。",
+          "agentAuto": "立即保存笔记并告知你，可撤销。这是该智能体自己的选择。"
+        },
+        "readsOnly": "可读取笔记，但无法保存。",
+        "connectionLimit": "这些消息连接上不保存笔记：{{names}}。"
+      },
+      "knowledge": {
+        "some_one": "可以搜索 {{count}} 个集合：{{names}}。",
+        "some_other": "可以搜索 {{count}} 个集合：{{names}}。",
+        "none": "没有可搜索的知识集合。"
+      },
+      "connections": {
+        "unsaved": "尚未用于消息应用。请先保存智能体，再添加连接。",
+        "none": "未用于任何消息应用。",
+        "loading": "正在检查 {{name}}...",
+        "error": "无法检查 {{name}}。打开它查看权限。",
+        "summary": "{{name}}：允许 {{allowed}} 项，不允许 {{blocked}} 项。",
+        "blocked": "{{name}} 无法使用 {{capability}}。{{message}}"
+      },
+      "addons": {
+        "noConnection": "{{name}} 已开启但目前无法工作：你没有对应的账户。请添加一个。",
+        "stale": "{{name}} 已开启但目前无法工作：保存的账户已不存在。请选择一个账户。",
+        "pick": "{{name}} 已开启但目前无法工作：没有选择账户。无人在场的运行得不到它的任何工具。",
+        "resourcesNone": "{{name}} 已开启但目前无法工作：没有勾选任何{{noun}}。",
+        "account": "{{name}} 使用 {{names}}。",
+        "resources": "{{name}} 可使用 {{n}} 个{{plural}}，其中可修改 {{w}} 个。",
+        "resourcesRead": "{{name}} 可读取 {{n}} 个{{plural}}，但不能修改任何一个。"
+      },
+      "mcp": {
+        "ignored": "{{name}} 在代理的 MCP 服务器中，但不存在此名称的内容，因此被忽略。请移除它。"
+      }
+    },
+    "try": {
+      "open": "试用",
+      "title": "试用这个智能体",
+      "desc": "向使用此表单设置的测试聊天发送一条消息。不会保存任何内容。",
+      "noModel": "尚未安装聊天模型。请先安装或选择一个模型。",
+      "defaultModel": "未设置模型，因此测试使用 {{model}}。",
+      "skipped": "测试不使用：{{what}}。这些属于已保存的智能体。",
+      "skip": {
+        "grants": "权限",
+        "memory": "记忆",
+        "knowledge": "知识集合",
+        "folders": "共享文件夹"
+      },
+      "empty": "发送一条消息开始。",
+      "role": {
+        "user": "你",
+        "assistant": "智能体",
+        "tool": "工具"
+      },
+      "toolRan": "使用了工具：{{name}}",
+      "working": "处理中...",
+      "label": "给智能体的消息",
+      "placeholder": "问一件这个智能体应能处理的事",
+      "send": "发送",
+      "stop": "停止",
+      "deleted": "关闭此面板时，测试聊天会被删除。",
+      "chatTitle": "{{name}} 的测试",
+      "failed": "测试失败：{{message}}",
+      "slow": "智能体仍在工作。请停止它或关闭面板。"
+    },
+    "uses": {
+      "presetNote": "级别只设置内置工具和权限。插件、账户、MCP 服务器和技能保持不变。",
+      "needsSummary_one": "{{count}} 个插件暂时无法工作",
+      "needsSummary_other": "{{count}} 个插件暂时无法工作",
+      "builtins": {
+        "title": "内置工具",
+        "lead": "由 LocalAI 提供。选项位于各自开关下方。"
+      },
+      "addons": {
+        "title": "插件",
+        "lead": "每个插件一行：打开它，选择它使用的账户，查看它提供的内容。",
+        "none": "没有安装插件。",
+        "gone": "已授权，但未安装或你无法使用。关闭即可移除。"
+      },
+      "mcp": {
+        "title": "MCP 服务器",
+        "lead": "LocalAI 之外的服务器。其工具可能产生费用或访问其他系统。",
+        "search": "搜索 MCP 服务器",
+        "none": "尚未定义 MCP 连接器。请在 MCP 连接器页面添加。",
+        "connector": "你定义的 MCP 连接器。",
+        "server": "模型的 MCP 服务器。",
+        "unknown": "未定义：不存在此名称的内容，因此代理会忽略它。",
+        "unverified": "模型在每次聊天中选择，因此该名称在那里检查。",
+        "remove": "移除 {{name}}",
+        "noMatch": "没有与“{{query}}”匹配的 MCP 服务器。",
+        "removeShort": "移除"
+      },
+      "account": {
+        "label": "使用的账户",
+        "group": "{{name}} 的账户",
+        "none": "还没有账户。",
+        "add": "添加账户",
+        "kept": "留待以后"
+      },
+      "meta": {
+        "account": "需要账户",
+        "resources": "仅限你勾选的{{plural}}"
+      },
+      "tools_one": "{{count}} 个工具",
+      "tools_other": "{{count}} 个工具",
+      "toolsSplit_one": "{{count}} 个工具（{{read}} 个读取，{{write}} 个修改数据）",
+      "toolsSplit_other": "{{count}} 个工具（{{read}} 个读取，{{write}} 个修改数据）",
+      "writes": "修改数据",
+      "now": {
+        "label": "当前：",
+        "off": "已关闭。不提供任何内容。",
+        "offKept": "已关闭。不提供任何内容。留待以后的账户：{{names}}。",
+        "noAccountNeeded": "已开启。提供：{{tools}}。不需要账户。",
+        "only": "已开启。提供：{{tools}}，使用 {{names}}，这是你唯一的账户。",
+        "using": "已开启。提供：{{tools}}，使用 {{names}}。",
+        "usingMany": "已开启。提供：{{tools}}，使用 {{names}}。模型在每次调用中指明账户。",
+        "pick": "已开启，但没有选择账户。聊天会先请你选择一个才提供工具；无人在场的运行得不到任何工具。请在上方勾选要使用的账户。",
+        "noConnection": "已开启，但你还没有对应的账户，因此不提供它的任何工具。请在上方添加账户。",
+        "stale": "已开启，但保存的账户已不存在，因此不提供它的任何工具。请选择一个账户。请在上方勾选一个账户。",
+        "resourcesNone": "已开启，但没有勾选任何{{noun}}，因此无法使用任何一个。请在上方勾选一个。",
+        "resourcesRead": "已开启。提供：{{tools}}，针对 {{n}} 个已勾选的{{plural}}，只读。修改数据的工具无法运行。",
+        "resources": "已开启。提供：{{tools}}，针对 {{n}} 个已勾选的{{plural}}；可修改其中 {{w}} 个。"
+      },
+      "res": {
+        "heading": "可使用哪些<n>{{plural}}</n>",
+        "headingPlain": "可使用哪些{{plural}}",
+        "loading": "正在加载列表。",
+        "error": "无法读取列表。",
+        "empty": "你还没有可授予的<n>{{plural}}</n>。",
+        "truncated": "列表已被截断。",
+        "gone": "不可用",
+        "access": "对 {{name}} 的权限",
+        "read": "读取",
+        "write": "读取和修改",
+        "none": "未勾选：无法使用任何<n>{{noun}}</n>。",
+        "some": "仅限已勾选的。你仍需对每一项拥有自己的权限。"
+      },
+      "skills": {
+        "summaryOff_one": "{{count}} 个技能随之开启",
+        "summaryOff_other": "{{count}} 个技能随之开启",
+        "summaryOn": "{{total}} 个技能中开启 {{on}} 个"
+      },
+      "addonOn": {
+        "title": "已开启 {{name}}",
+        "body_one": "随之开启了 {{count}} 个技能：{{names}}。保存之前不会存储任何内容。",
+        "body_other": "随之开启了 {{count}} 个技能：{{names}}。保存之前不会存储任何内容。"
+      },
+      "skillAddonOff": "它的插件已关闭，因此该技能不起作用。",
+      "memorySkills": {
+        "title": "记忆技能",
+        "from": "来自 {{slot}}",
+        "on": "记忆开启时开启。",
+        "off": "此智能体的记忆关闭时关闭。",
+        "offUser": "已关闭，因为你的设置中记忆已关闭。"
+      },
+      "slot": {
+        "memory": "记忆"
+      }
+    },
+    "memoryLevelApplied": {
+      "title": "记忆：{{name}}",
+      "off": "不读取也不保存笔记，“记住事情”的权限也已关闭。保存之前不会存储任何内容。",
+      "reads": "“记住事情”的权限已关闭，所以它只读取笔记，无法保存。保存之前不会存储任何内容。",
+      "saves": "“记住事情”的权限已开启。保存之前不会存储任何内容。"
+    }
   },
   "run": {
     "workingLine": "Working"
@@ -268,7 +580,8 @@
       "noChanges": "Nothing differs from the saved trigger.",
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
-      "changed_other": "{{count}} changes"
+      "changed_other": "{{count}} changes",
+      "watchNoFiles": "此智能体设置为“无文件”，此触发器的运行只会得知有文件到达，却无法打开。请在其编辑器中授予文件访问权限，或选择其他智能体。"
     },
     "subtitle": "按计划或在文件到达时启动智能体。每次运行都是一个可以打开的聊天。"
   },
@@ -472,7 +785,7 @@
   },
   "folder": {
     "all": "我的所有文件",
-    "one": "选定的文件夹",
+    "one": "仅这些文件夹",
     "scopeLabel": "此智能体可访问的文件",
     "allHelp": "与此智能体的对话可以访问你的所有文件，就像没有智能体的对话一样。",
     "choose": "选择文件夹",
@@ -513,6 +826,152 @@
     "effectiveRead": "位于只读文件夹内，因此这个文件夹也只能读取。",
     "effectiveWrite": "位于可修改的文件夹内，因此这个文件夹也可以修改。",
     "notMounted": "有 {{n}} 个共享文件夹超出了聊天的访问上限，未挂载。",
-    "exportNoteMany": "文件列出了 {{n}} 个文件夹。导入时，智能体会使用这些路径中存在的文件夹，并请你为其余的重新选择。"
+    "exportNoteMany": "文件列出了 {{n}} 个文件夹。导入时，智能体会使用这些路径中存在的文件夹，并请你为其余的重新选择。",
+    "none": "无文件",
+    "noneHelp": "此智能体无法访问你的任何文件。你附加到聊天的文件只保留在该聊天中。监视文件夹需要文件访问权限：监视文件夹的触发器仍会为此智能体启动，但无法打开到达的文件。"
+  },
+  "templates": {
+    "researcher": {
+      "description": "搜索、阅读来源并撰写简短摘要。"
+    },
+    "reviewer": {
+      "description": "审阅一项更改，并先列出需要修复的内容。"
+    },
+    "digest": {
+      "description": "收集某个主题的新内容并加以总结。"
+    },
+    "blank": {
+      "description": "空白。从头开始。"
+    }
+  },
+  "wizard": {
+    "title": "新建智能体",
+    "supporting": "四个简短步骤。只需填写名称和指令。",
+    "stepsLabel": "步骤",
+    "back": "返回",
+    "next": "继续",
+    "defaultTools": "默认工具",
+    "step": {
+      "purpose": "用途",
+      "abilities": "能力",
+      "where": "工作位置",
+      "review": "检查"
+    },
+    "purpose": {
+      "title": "这个智能体用来做什么？",
+      "lead": "从模板开始，或自己写。之后都可以修改。",
+      "needs": "需要名称和指令才能继续。",
+      "modelLine": "模型：每次聊天时由你选择。",
+      "modelChoose": "选择固定模型",
+      "modelEach": "每次聊天时由我选择"
+    },
+    "abilities": {
+      "title": "它可以自主做多少事？",
+      "lead": "不确定？保持原样：智能体使用默认工具。或者选择一个级别来替换它们。",
+      "defaultNote": "尚未选择级别。智能体使用默认工具。",
+      "files": "它可以查看你的哪些文件？",
+      "fine": "逐项调整工具",
+      "templateHint": "此模板建议使用“{{level}}”级别。",
+      "templateUse": "使用{{level}}"
+    },
+    "where": {
+      "title": "它应该在哪里工作？",
+      "lead": "可选。选择这个智能体工作的地方。目前不会连接任何应用。",
+      "chat": "聊天应用",
+      "chatLead": "人们可以与此智能体对话的应用。",
+      "tools": "工具与服务",
+      "toolsLead": "为它增加新能力的插件。",
+      "notInstalled": "未安装",
+      "generic": "完成 {{title}} 的设置",
+      "loading": "正在查找应用",
+      "empty": "暂时没有可用的应用。",
+      "note": "选择应用不会连接它。创建智能体后，一份简短清单会带你完成每个应用的设置。",
+      "find": "查找插件"
+    },
+    "review": {
+      "title": "可以创建了",
+      "lead": "检查摘要。之后都可以修改。",
+      "named": "已有名称和指令",
+      "tools": "工具：{{level}}",
+      "modelFixed": "模型：{{model}}",
+      "modelEach": "模型：每次聊天时由你选择",
+      "apps": "创建后需要完成设置的应用：{{count}}",
+      "filesTitle": "它可以查看你的所有文件。",
+      "filesBody": "你在“文件”中能打开的内容，此智能体都能读取。你可以将其限制在某些文件夹。",
+      "limit": "限制为文件夹",
+      "setupNext": "创建智能体后，其页面会列出所选应用的设置步骤。"
+    },
+    "rail": {
+      "title": "你的智能体",
+      "unnamed": "未命名",
+      "abilities": "能力",
+      "modelEach": "每次聊天时选择",
+      "files": "文件",
+      "folders": "仅所选文件夹（{{count}}）",
+      "works": "工作位置",
+      "thisApp": "此应用"
+    }
+  },
+  "setup": {
+    "title": "完成设置",
+    "count": "已完成 {{done}}/{{total}}",
+    "dismiss": "隐藏",
+    "progress": "设置进度",
+    "done": "完成",
+    "stays": "在所有应用完成或你将其隐藏之前，此清单会一直显示在本页。",
+    "connect": "新建连接",
+    "account": "选择账户",
+    "turnOn": "开启",
+    "find": "在插件中查看",
+    "actionFor": "{{action}}：{{title}}"
+  },
+  "share": {
+    "action": "共享",
+    "intro": "你添加的人以自己的身份使用此智能体，使用他们自己的文件、集合和连接。",
+    "roles": {
+      "use": "可以使用",
+      "useHelp": "他们在自己的聊天中与智能体对话，并能看到它需要什么。",
+      "viewer": "可以查看",
+      "viewerHelp": "他们还可以阅读它的指令和工具。"
+    },
+    "kind": {
+      "addon": "附加组件",
+      "collection": "集合",
+      "skill": "技能",
+      "folder": "文件夹",
+      "connection": "连接",
+      "addon-resource": "附加组件资源",
+      "mcp": "MCP 服务器",
+      "builtin": "内置权限",
+      "network": "网络",
+      "tool-group": "工具组"
+    },
+    "ownAccess": "他们需要自己的访问权限",
+    "refsApplied_one": "还共享了它使用的 {{count}} 项内容。",
+    "refsApplied_other": "还共享了它使用的 {{count}} 项内容。",
+    "refsFailed": "无法共享：{{names}}。",
+    "refsSkipped": "未与所有人共享：{{names}}。请分别与每个人共享。",
+    "failed": "无法打开共享。{{message}}"
+  },
+  "shared": {
+    "readOnly": "你可以与此智能体聊天。只有所有者可以修改它。"
+  },
+  "needs": {
+    "title": "此智能体需要的内容",
+    "intro": "智能体以你的身份、用你自己的访问权限运行。",
+    "none": "此智能体除了聊天外不使用任何内容。",
+    "loadError": "无法检查此智能体需要的内容。",
+    "state": {
+      "ok": "已拥有",
+      "missing": "未与你共享",
+      "unavailable": "对你不可用",
+      "ask": "聊天开始时关闭"
+    },
+    "noticeTitle_one": "此智能体需要 {{count}} 项你没有的内容：",
+    "noticeTitle_other": "此智能体需要 {{count}} 项你没有的内容：",
+    "noticeLink": "查看它需要的内容",
+    "asksTitle_one": "此智能体请求 {{count}} 项你的聊天开始时没有的内容：",
+    "asksTitle_other": "此智能体请求 {{count}} 项你的聊天开始时没有的内容：",
+    "asksHelp": "它以你的身份运行。只有在你信任此智能体和分享它的人时，才在聊天中打开它们。"
   }
 }

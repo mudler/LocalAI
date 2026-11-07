@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // Errors of the context commands.
@@ -30,6 +31,14 @@ type Compactor interface {
 // markers of the context commands are for display only.
 func ModelRole(role string) bool {
 	return role == RoleUser || role == RoleAssistant || role == RoleTool
+}
+
+// DisplayOnly says that a transcript line of this role is not a message: a
+// thread block or a note of the host about a connector message (for the owner's
+// eyes only), or the record of a tool call that was about to run (internal). A
+// fork, an export and a compaction leave it out and the model never gets it.
+func DisplayOnly(role string) bool {
+	return role == RoleThread || role == RoleHostNote || role == RoleToolIntent
 }
 
 // SinceCleared returns the entries after the last RoleCleared entry: the part
@@ -108,4 +117,26 @@ func (c *Chat) Compact(ctx context.Context) (before, after int, err error) {
 	c.appendEntry(ctx, Entry{Turn: turn, Role: RoleCompacted, Text: CompactedText(before, after)})
 	c.emit(Event{Kind: KindCompacted, Turn: turn, Before: before, After: after})
 	return before, after, nil
+}
+
+// Markers of the block of earlier thread messages (see the studio package's
+// thread block): the lines of the thread sit between them.
+const (
+	threadOpen  = "<thread-messages>\n"
+	threadClose = "\n</thread-messages>"
+)
+
+// ThreadLines returns the lines of a RoleThread entry's block: one string per
+// message, "Author: text", exactly as the model got them. A text that holds no
+// block gives nil.
+func ThreadLines(block string) []string {
+	_, rest, ok := strings.Cut(block, threadOpen)
+	if !ok {
+		return nil
+	}
+	body, _, ok := strings.Cut(rest, threadClose)
+	if !ok {
+		return nil
+	}
+	return strings.Split(strings.TrimRight(body, "\n"), "\n")
 }

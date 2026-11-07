@@ -16,7 +16,7 @@ import (
 )
 
 func host() contract.HostCompatibility {
-	return contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}
+	return contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, FeatureLevel: contract.HostFeatureLevel, OS: "linux", Arch: "amd64"}
 }
 
 // manifest builds a manifest with the given ui object. Tools are ping and list.

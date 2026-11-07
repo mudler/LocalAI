@@ -239,22 +239,36 @@ var _ = Describe("ResponseStore", func() {
 			})
 
 			// Find item from first response
-			item, foundResponseID, err := store.FindItem(itemID1)
+			item, foundResponseID, err := store.FindItem(itemID1, "")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(item).ToNot(BeNil())
 			Expect(item.ID).To(Equal(itemID1))
 			Expect(foundResponseID).To(Equal(responseID1))
 
 			// Find item from second response
-			item, foundResponseID, err = store.FindItem(itemID2)
+			item, foundResponseID, err = store.FindItem(itemID2, "")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(item).ToNot(BeNil())
 			Expect(item.ID).To(Equal(itemID2))
 			Expect(foundResponseID).To(Equal(responseID2))
 		})
 
+		It("finds an item only in the caller's own responses", func() {
+			store.StoreOwned("resp_owned", &schema.OpenResponsesRequest{Model: "test"}, &schema.ORResponseResource{
+				ID: "resp_owned", Object: "response",
+				Output: []schema.ORItemField{{Type: "message", ID: "msg_owned", Status: "completed"}},
+			}, "alice")
+			_, _, err := store.FindItem("msg_owned", "bob")
+			Expect(err).To(HaveOccurred())
+			_, _, err = store.FindItem("msg_owned", "")
+			Expect(err).To(HaveOccurred(), "a caller with no identity reads no owned response")
+			_, id, err := store.FindItem("msg_owned", "alice")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(id).To(Equal("resp_owned"))
+		})
+
 		It("should return error when item not found in any response", func() {
-			_, _, err := store.FindItem("nonexistent_item")
+			_, _, err := store.FindItem("nonexistent_item", "")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("item not found in any stored response"))
 		})

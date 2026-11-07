@@ -5,7 +5,9 @@ import (
 	"regexp"
 	"sync/atomic"
 
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -17,14 +19,31 @@ import (
 //	ask    the model proposes, the person confirms (default)
 //	auto   the host applies a note from the person's own chat at once, as a
 //	       change set the person can undo, and the chat shows a note with Undo
+//	always like ask, and nothing can loosen it: no agent or messaging setting
+//	       overrides it, and the model cannot undo or forget by itself either
 //	never  the model gets no way to propose a memory note
+//
+// Strictness runs auto < ask < always < never. The level that applies to a
+// write is the strictest among the person's setting, the saved agent's own
+// rule (always or never), the messaging row (connector chats) and the rules of
+// the chat. effectiveSaveLevel is that one function.
+//
+// One explicit choice goes the other way: a saved agent whose rule is auto
+// saves its notes at once even when the person's level is ask. It loosens the
+// person's ask and auto for that agent, and the messaging row ask and
+// paired_private (not never). It does not loosen the person's always or never,
+// a sub-agent, an unattended run, or a sender that is not paired in a
+// one-to-one chat; the limits of an automatic write (autoFits) still hold.
 //
 // The setting only ever narrows or keeps the confirmation for anything that is
 // not the person's own chat. The rules, in one place:
 //
-//   - A connector chat keeps ask whatever the setting says: the sender of a
-//     message is not necessarily the person, and a stranger's message must
-//     never write memory unconfirmed.
+//   - A connector chat asks whatever the person's setting says, unless the
+//     person chose "Save it for a paired sender in a private chat" in the
+//     messaging row and the sender is paired and the chat is one-to-one. The
+//     sender of a message is not necessarily the person, so a stranger's
+//     message never writes memory unconfirmed. The row cannot loosen always
+//     or never.
 //   - An unattended run (a trigger or a job) has no propose tool at all.
 //   - A saved agent cannot widen the choice of the person: the agent's grants
 //     decide whether it may propose, the person's setting decides how the
@@ -32,8 +51,10 @@ import (
 //     when the person said ask.
 //   - never applies to every origin: it is the person's choice, and refusing is
 //     the narrow side.
-//   - Only the memory kind reads the setting. Profile, skill, page and
-//     dashboard changes always ask.
+//   - Only the memory kind reads the setting to decide how it is saved.
+//     Profile, skill, page, dashboard and knowledge changes always ask.
+//     Never also takes the knowledge kind away; Always confirm changes
+//     nothing for it, since it always asks.
 //
 // The setting belongs to an add-on, not to the host: an add-on declares a user
 // setting with the role contract.UserSettingRoleMemorySave in its manifest,
@@ -45,10 +66,28 @@ import (
 
 // The values of the setting.
 const (
-	SaveAsk   = "ask"
-	SaveAuto  = "auto"
-	SaveNever = "never"
+	SaveAsk    = "ask"
+	SaveAuto   = "auto"
+	SaveAlways = "always"
+	SaveNever  = "never"
 )
+
+// The values of the messaging row: how a note proposed in a messaging chat is
+// saved. The default is ask.
+const (
+	// MessagingAsk: the bot asks in the chat and a listed sender answers there.
+	MessagingAsk = "ask"
+	// MessagingPairedPrivate: saved at once, to the conversation, when the
+	// sender is paired and the chat is one-to-one.
+	MessagingPairedPrivate = "paired_private"
+	// MessagingNever: no memory note is saved from a messaging app.
+	MessagingNever = "never"
+)
+
+// ValidMessagingSave reports whether v is a value of the messaging row.
+func ValidMessagingSave(v string) bool {
+	return v == MessagingAsk || v == MessagingPairedPrivate || v == MessagingNever
+}
 
 // The limits of an automatic write. A write over a limit is not lost: it
 // becomes a normal proposal that the person confirms.
@@ -59,19 +98,87 @@ const (
 	MaxAutoWriteBytes = 4 << 10
 )
 
-// EffectiveSaveMode is the mode that applies to a write, from the stored
-// choice of the person and the origin of the chat (contract.ChangeSource.Kind:
-// "" for a chat the person watches). An unknown stored value counts as ask.
-func EffectiveSaveMode(stored, origin string, subAgent bool) string {
-	switch stored {
-	case SaveNever:
-		return SaveNever
-	case SaveAuto:
-		if origin == "" && !subAgent {
-			return SaveAuto
-		}
+// SaveInputs is everything that decides how a memory note is saved.
+type SaveInputs struct {
+	// User is the person's own level (ask, auto, always or never). An unknown
+	// value counts as ask.
+	User string
+	// Agent is the saved agent's rule: agents.MemorySaveAlways,
+	// agents.MemorySaveAuto, agents.MemorySaveNever or empty for the person's
+	// setting. An unknown value counts as always, because it can only be a rule
+	// that was meant to be strict.
+	Agent string
+	// Messaging is the messaging row. It matters only for a connector chat. An
+	// unknown value counts as ask.
+	Messaging string
+	// Origin is contract.ChangeSource.Kind: "" for a chat the person watches.
+	Origin   string
+	SubAgent bool
+	// Direct says the messaging chat is one-to-one. Paired says the sender of
+	// the turn is paired with the bot. Both are false when unknown.
+	Direct, Paired bool
+}
+
+// effectiveSaveLevel is the level that applies to a memory write. It is the
+// strictest of every rule that has a say, and the only place that combines
+// them:
+//
+//   - the person's level, and the agent's rule (always or never; an explicit
+//     auto loosens ask and auto, see above);
+//   - a sub-agent and an unattended run are not the person: at least ask;
+//   - a connector chat is at least ask, because the sender is not necessarily
+//     the person, except when the messaging row is paired_private and the
+//     sender is paired and the chat is one-to-one. The row never loosens the
+//     person's always or never, and its never makes the answer never.
+func effectiveSaveLevel(in SaveInputs) string {
+	level := levelRank(normalSaveMode(in.User))
+	agent := 0
+	agentAuto := false
+	switch in.Agent {
+	case "":
+	case agents.MemorySaveAuto:
+		agentAuto = true
+	case agents.MemorySaveNever:
+		agent = levelRank(SaveNever)
+	default:
+		agent = levelRank(SaveAlways)
 	}
-	return SaveAsk
+	switch {
+	case in.Origin == "":
+		if agentAuto && level < levelRank(SaveAlways) {
+			level = levelRank(SaveAuto)
+		}
+		if in.SubAgent {
+			level = max(level, levelRank(SaveAsk))
+		}
+	case in.Origin == session.OriginConnector:
+		// Only always and never of the person's level hold in a messaging
+		// chat; the row decides between ask, auto and never for the rest.
+		floor := 0
+		if level >= levelRank(SaveAlways) {
+			floor = level
+		}
+		row := levelRank(SaveAsk)
+		messaging := in.Messaging
+		if agentAuto && messaging != MessagingNever {
+			messaging = MessagingPairedPrivate
+		}
+		switch messaging {
+		case MessagingNever:
+			row = levelRank(SaveNever)
+		case MessagingPairedPrivate:
+			if in.Direct && in.Paired && !in.SubAgent {
+				row = levelRank(SaveAuto)
+			}
+		}
+		level = max(floor, row)
+		if in.SubAgent {
+			level = max(level, levelRank(SaveAsk))
+		}
+	default:
+		level = max(level, levelRank(SaveAsk))
+	}
+	return levelName(max(level, agent))
 }
 
 // AddonUserSettingSet is the per-person settings one add-on declares, as the
@@ -92,10 +199,12 @@ type AddonUserSettingsLister interface {
 	AddonUserSettings(ctx context.Context, user string) ([]AddonUserSettingSet, error)
 }
 
-// strictness orders the modes: the larger one wins when add-ons disagree.
-func strictness(mode string) int {
+// levelRank orders the levels: the larger one wins when rules disagree.
+func levelRank(mode string) int {
 	switch mode {
 	case SaveNever:
+		return 3
+	case SaveAlways:
 		return 2
 	case SaveAsk:
 		return 1
@@ -103,8 +212,17 @@ func strictness(mode string) int {
 	return 0
 }
 
+func levelName(rank int) string {
+	return [...]string{SaveAuto, SaveAsk, SaveAlways, SaveNever}[rank]
+}
+
+// strictness is levelRank under the name the add-on code uses.
+func strictness(mode string) int { return levelRank(mode) }
+
 // ValidSaveMode reports whether v is a value of the save level.
-func ValidSaveMode(v string) bool { return v == SaveAsk || v == SaveAuto || v == SaveNever }
+func ValidSaveMode(v string) bool {
+	return v == SaveAsk || v == SaveAuto || v == SaveAlways || v == SaveNever
+}
 
 // legacySaveKey is the setting of the Memory add-on, read when the person has
 // not chosen a level in the host's own setting.
@@ -194,15 +312,45 @@ func (c *Changes) storedSaveMode(ctx context.Context, user string) string {
 
 func normalSaveMode(m string) string {
 	switch m {
-	case SaveAuto, SaveNever:
+	case SaveAuto, SaveAlways, SaveNever:
 		return m
 	}
 	return SaveAsk
 }
 
-// saveModeOf is the mode of a memory write made in the chat.
+// storedMessagingSave reads the messaging row of the person. Anything that
+// goes wrong reads as ask.
+func (c *Changes) storedMessagingSave(ctx context.Context, user string) string {
+	if c.s.d.UserSetting == nil {
+		return MessagingAsk
+	}
+	v, ok, err := c.s.d.UserSetting(ctx, principal(user), HostSettingsID, MemorySaveMessagingKey)
+	switch {
+	case err != nil:
+		c.s.log.Warn("studio: the messaging save setting could not be read, asking for confirmation", "error", err)
+		return MessagingAsk
+	case ok && ValidMessagingSave(v):
+		return v
+	}
+	return MessagingAsk
+}
+
+// saveInputsOf gathers what decides how a note of the chat is saved. The
+// messaging facts come from the grant of the turn, read now, so a turn whose
+// grant is gone counts as a group chat and an unpaired sender.
+func (c *Changes) saveInputsOf(ctx context.Context, ch builtins.Chat) SaveInputs {
+	in := SaveInputs{User: c.storedSaveMode(ctx, ch.Actor.Principal), Messaging: MessagingAsk,
+		Agent: c.s.agentMemorySave(ctx, ch.Actor.Principal, ch.AgentID), Origin: ch.Origin, SubAgent: ch.SubAgent}
+	if ch.Origin == session.OriginConnector {
+		in.Messaging = c.storedMessagingSave(ctx, ch.Actor.Principal)
+		in.Direct, in.Paired = c.s.messagingFacts(ch.Actor.ChatID)
+	}
+	return in
+}
+
+// saveModeOf is the level of a memory write made in the chat.
 func (c *Changes) saveModeOf(ctx context.Context, ch builtins.Chat) string {
-	return EffectiveSaveMode(c.storedSaveMode(ctx, ch.Actor.Principal), ch.Origin, ch.SubAgent)
+	return effectiveSaveLevel(c.saveInputsOf(ctx, ch))
 }
 
 // autoTurn counts the automatic writes of one turn.
@@ -255,9 +403,14 @@ func memoryKindOf(kind string) bool { return kind == string(contract.ChangeMemor
 
 // withoutMemory removes the memory kind from a list.
 func withoutMemory(kinds []contract.ChangeKind) []contract.ChangeKind {
+	return withoutKind(kinds, contract.ChangeMemory)
+}
+
+// withoutKind returns the kinds without one.
+func withoutKind(kinds []contract.ChangeKind, drop contract.ChangeKind) []contract.ChangeKind {
 	out := make([]contract.ChangeKind, 0, len(kinds))
 	for _, k := range kinds {
-		if k != contract.ChangeMemory {
+		if k != drop {
 			out = append(out, k)
 		}
 	}

@@ -1,13 +1,16 @@
 package elevenlabs
 
 import (
+	"net/http"
 	"path/filepath"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
@@ -24,6 +27,12 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 	return func(c echo.Context) error {
 
 		voiceID := c.Param("voice-id")
+		// The TTS backends that clone from a reference clip take the voice as
+		// a file name: only an administrator, or a server without accounts,
+		// may pass a path.
+		if u := auth.GetUser(c); u != nil && u.Role != auth.RoleAdmin && !voiceprofile.IsReference(voiceID) && voiceprofile.UnsafeVoice(voiceID) {
+			return echo.NewHTTPError(http.StatusBadRequest, "voice must be a voice profile or a voice of the model, not a path")
+		}
 
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.ElevenLabsTTSRequest)
 		if !ok || input.ModelID == "" {

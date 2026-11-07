@@ -106,29 +106,7 @@
 .sw-name:hover { text-decoration: underline; }
 .sw-name:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; border-radius: var(--dk-radius-1); }
 .sw-table .dk-table-sub { font-size: var(--dk-text-12); }
-.sw-table tr[data-row][data-clickable] { cursor: pointer; }
-.sw-role { font-family: var(--dk-font-mono); }
-.sw-approve { margin-left: var(--dk-space-2); }
-.sw-reason { display: block; margin-top: 2px; font-size: var(--dk-text-12); color: var(--dk-warn-text); }
-.sw-seen[data-late] { color: var(--dk-error-text); }
-.sw-chev { color: var(--dk-muted); }
-.sw-table tr[data-row]:hover .sw-chev { color: var(--dk-text); }
-.sw-group th {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3);
-  padding: var(--dk-space-2) var(--dk-space-3);
-  background: var(--dk-inset);
-  font-size: var(--dk-text-12);
-  font-weight: var(--dk-weight-semibold);
-  text-align: left;
-}
-.sw-group label { display: inline-flex; align-items: center; gap: var(--dk-space-2); }
-.sw-group__count { font-weight: 400; color: var(--dk-muted); }
 
-.sw-mem { display: flex; flex-direction: column; gap: 4px; min-width: 150px; max-width: 260px; }
-.sw-mem__top { display: flex; align-items: center; gap: var(--dk-space-3); }
-.sw-mem__bar.dk-meter { flex: 1; height: 8px; min-width: 60px; }
-.sw-mem__fig { font-size: var(--dk-text-12); white-space: nowrap; }
-.sw-mem__sub { font-size: var(--dk-text-12); color: var(--dk-muted); }
 
 /* ---- Nodes: map ------------------------------------------------------------ */
 
@@ -366,16 +344,6 @@
   .sw-step__n { width: 24px; height: 24px; }
   .sw-cmd__text { padding-right: var(--dk-space-4); padding-top: 48px; }
   .sw-cmd__copy { top: var(--dk-space-2); }
-  /* A node is a two-line card on a phone: the name and state, its figures
-     under. Columns at 390 px would only be clipped. */
-  .sw-table--nodes thead { display: none; }
-  .sw-table--nodes tbody tr[data-row]:not(.dk-table-detail) { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; column-gap: var(--dk-space-3); padding: var(--dk-space-3); border-bottom: 1px solid var(--dk-edge); }
-  .sw-table--nodes tbody tr[data-row] > td { display: block; height: auto; padding: 0; border: 0; background: transparent; }
-  .sw-table--nodes tbody tr[data-row] > td.dk-table-select { grid-column: 1; }
-  .sw-table--nodes tbody tr[data-row] > td.dk-table-actions { grid-column: 3; grid-row: 1 / span 2; width: auto; }
-  .sw-table--nodes tbody tr[data-row] > td:nth-child(2) { grid-column: 2; }
-  .sw-table--nodes tbody tr[data-row] > td:nth-child(4) { grid-column: 2; padding-top: 4px; }
-  .sw-table--nodes tbody tr.dk-table-detail, .sw-table--nodes tbody tr.dk-table-detail > td { display: block; }
 }
 
 @media (max-width: 640px) {

@@ -1,3 +1,5 @@
+import { addonPageAddress } from '../addons/addresses.js'
+import { bindingsWithKind } from './chatConnectors.js'
 // The options of the Tools list. A saved agent stores a capability twice: as a
 // switch of a built-in group (builtins_off, builtins_on) and as a list of
 // grants (builtins). The Tools list shows one switch per capability, and the
@@ -11,6 +13,9 @@ export const SAVED_AGENTS_GROUP = 'saved_agents'
 export const GROUP_OPTIONS = {
   triggers: ['triggers.propose', 'triggers.run'],
   changes: ['memory.write', 'profile.write', 'skills.write', 'pages.write', 'dashboard.write'],
+  // The grant to add a text to a collection sits under the Knowledge switch,
+  // where the collections are.
+  collections: ['knowledge.write'],
   files: ['files.upload', 'act.files'],
 }
 
@@ -24,7 +29,7 @@ export const GRANT_SECTIONS = [
 // The grants a messaging connection also has to allow on its own permissions
 // page (the capabilities of a binding). The act.* grants are the agent's alone.
 export const BINDING_CAPS = new Set([
-  'memory.write', 'profile.write', 'skills.write', 'pages.write', 'dashboard.write',
+  'memory.write', 'profile.write', 'skills.write', 'pages.write', 'dashboard.write', 'knowledge.write',
   'files.upload', 'triggers.propose', 'triggers.run', 'talkback.channels', 'talkback.new_channel',
 ])
 
@@ -73,21 +78,18 @@ export function savedAgentsOn(form) {
 // name of the kind and the page that edits them. kinds is the list the
 // connectors call returns ({ kind, addon, title }).
 export function agentConnections(bindings, kinds, agentId) {
-  if (!agentId) return []
-  const byKind = new Map(list(kinds).map((k) => [k.kind, k]))
-  return list(bindings)
-    .filter((b) => b.agent_id === agentId)
-    .map((b) => {
-      const k = byKind.get(b.kind)
-      const title = k?.title || b.kind || ''
-      return {
-        id: b.id,
-        name: [title, b.name].filter(Boolean).join(' '),
-        caps: list(b.caps),
-        // The page of the kind opens the binding and shows its permissions.
-        to: k?.addon ? `/app/addons/${encodeURIComponent(k.addon)}/apps?binding=${encodeURIComponent(b.id)}` : '/app/chats/connectors',
-      }
-    })
+  return bindingsWithKind(agentId, kinds, bindings).map(({ c: b, kind: k }) => {
+    const title = k?.title || b.kind || ''
+    return {
+      id: b.id,
+      addon: k?.addon || b.addon || '',
+      name: [title, b.name].filter(Boolean).join(' '),
+      caps: list(b.caps),
+      // The page the add-on declares for the kind opens the binding and shows
+      // its permissions; a kind that declares none keeps the usual "apps" page.
+      to: k?.addon ? addonPageAddress({ addon: k.addon, page: k.page || 'apps', search: `binding=${encodeURIComponent(b.id)}` }) : '/app/chats/connectors',
+    }
+  })
 }
 
 // The connections that do not allow a grant yet. Only for a grant the agent

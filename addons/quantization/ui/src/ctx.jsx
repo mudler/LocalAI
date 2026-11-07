@@ -1,4 +1,4 @@
-import en from './i18n/en.js'
+import { locales } from './i18n/index.js'
 import { modelFrom as pickModel } from './lib/model.js'
 
 // The one object every factory of the quantization add-on receives. It binds the
@@ -10,7 +10,9 @@ export function createContext(sdk) {
   const { React } = sdk
   const h = React.createElement
   const Fragment = React.Fragment
-  sdk.locale.define('en', Object.fromEntries(Object.entries(en).filter(([, v]) => typeof v === 'string')))
+  // Every language of the page; a key a language lacks reads in English.
+  for (const [language, bundle] of Object.entries(locales)) sdk.locale.define(language, bundle)
+  const en = locales.en
 
   const t = (key, vars) => sdk.locale.t(key, key, vars)
   // The text of a key, or the fallback when the bundle has none.

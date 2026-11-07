@@ -197,13 +197,24 @@ const (
 // Content intent. Without it the Gateway hands over no text from servers. A
 // failed call gives ok false: the answer is not known.
 func (a *API) MessageContentOn(ctx context.Context, token string) (on, ok bool) {
-	var app struct {
-		Flags int64 `json:"flags"`
-	}
+	app, ok := a.Application(ctx, token)
+	return app.Flags&(flagMessageContent|flagMessageContentLimited) != 0, ok
+}
+
+// Application is the part of the application of a bot token that the add-on
+// reads. ID names the application, which is the same for every token of it.
+type Application struct {
+	ID    string `json:"id"`
+	Flags int64  `json:"flags"`
+}
+
+// Application reads the application of the token. A failed call gives ok
+// false: the answer is not known.
+func (a *API) Application(ctx context.Context, token string) (app Application, ok bool) {
 	if a.do(ctx, token, http.MethodGet, "/applications/@me", nil, "", &app) != nil {
-		return false, false
+		return Application{}, false
 	}
-	return app.Flags&(flagMessageContent|flagMessageContentLimited) != 0, true
+	return app, true
 }
 
 // Channel is the part of a channel the add-on reads.
@@ -284,6 +295,14 @@ func (a *API) EditMessage(ctx context.Context, token, channel, id, text string) 
 	}
 	raw, _ := json.Marshal(messageBody{Content: text, AllowedMentions: allowedMentions})
 	return a.do(ctx, token, http.MethodPatch, "/channels/"+channel+"/messages/"+id, strings.NewReader(string(raw)), "application/json", nil)
+}
+
+// DeleteMessage removes a message the bot sent.
+func (a *API) DeleteMessage(ctx context.Context, token, channel, id string) error {
+	if !isSnowflake(channel) || !isSnowflake(id) {
+		return errors.New("discord: not a channel or message ID")
+	}
+	return a.do(ctx, token, http.MethodDelete, "/channels/"+channel+"/messages/"+id, nil, "", nil)
 }
 
 // DMChannel opens (or returns) the direct conversation with a user.

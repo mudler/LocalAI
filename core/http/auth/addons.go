@@ -107,6 +107,15 @@ func AddonActor(c echo.Context) (contract.Actor, error) {
 // ValidateAddonActor always queries current storage, never the frontend's cached
 // User. Storage errors deny access, including permissions-query failures.
 func ValidateAddonActor(ctx context.Context, db *gorm.DB, a contract.Actor, admin bool) error {
+	return validateActor(ctx, db, a, admin, FeatureAddons, true)
+}
+
+// validateActor checks the account and the credential against current
+// storage, then the feature unless it is empty. strict refuses an account
+// without a permission row and reads an absent key as off, which is the
+// add-on rule; otherwise the feature's own default applies, as the feature
+// middleware reads it. An administrator holds every feature.
+func validateActor(ctx context.Context, db *gorm.DB, a contract.Actor, admin bool, feature string, strict bool) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -142,14 +151,44 @@ func ValidateAddonActor(ctx context.Context, db *gorm.DB, a contract.Actor, admi
 	if admin && role != RoleAdmin {
 		return errAddonIdentity
 	}
-	if role != RoleAdmin {
-		var p UserPermission
-		if err := db.Where("user_id = ?", u.ID).First(&p).Error; err != nil {
+	if role == RoleAdmin || feature == "" {
+		return nil
+	}
+	var p UserPermission
+	if err := db.Where("user_id = ?", u.ID).First(&p).Error; err != nil {
+		if strict || !errors.Is(err, gorm.ErrRecordNotFound) {
 			return storeError(err)
 		}
-		if !p.Permissions[FeatureAddons] {
-			return errAddonIdentity
-		}
+	}
+	on, set := p.Permissions[feature]
+	if !set && !strict {
+		on = isDefaultOnFeature(feature)
+	}
+	if !on {
+		return errAddonIdentity
 	}
 	return nil
+}
+
+// AccountRevalidate returns the host's account check for the resource kinds
+// that are not add-ons: the account and the credential, as AddonRevalidate
+// checks them, and the feature the kind names when it names one. It does not
+// ask for the add-ons feature, so sharing a kind does not need add-ons. An
+// unknown mode denies everything.
+func AccountRevalidate(db *gorm.DB, mode string) func(context.Context, contract.Actor, string) error {
+	switch mode {
+	case AddonModeNamedUser:
+		return func(ctx context.Context, a contract.Actor, feature string) error {
+			return validateActor(ctx, db, a, false, feature, false)
+		}
+	case AddonModeLocalOwner:
+		// Every caller is the one local owner, who holds every feature.
+		return func(ctx context.Context, a contract.Actor, _ string) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			return ValidateLocalOwnerActor(a)
+		}
+	}
+	return func(context.Context, contract.Actor, string) error { return errAddonIdentity }
 }

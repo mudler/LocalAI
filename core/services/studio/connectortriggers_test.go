@@ -248,7 +248,7 @@ var _ = Describe("triggers proposed from a connector chat", func() {
 			texts := fake.texts(chatID, thread)
 			Expect(texts[0]).To(ContainSubstring("Proposal " + p.Route.Code))
 			Expect(texts[0]).To(ContainSubstring(`confirm ` + p.Route.Code))
-			Expect(texts[0]).To(ContainSubstring("this chat"))
+			Expect(texts[0]).To(ContainSubstring("this thread"))
 			Expect(texts[0]).To(ContainSubstring("RUN do the thing"), "the person reads what the run will do")
 			res := r.h.ResultsFor("propose_trigger")
 			Expect(res).To(HaveLen(1))
@@ -336,7 +336,10 @@ var _ = Describe("triggers proposed from a connector chat", func() {
 			Expect(list[0].Route.Target).To(Equal(triggers.TargetOrigin))
 			asked := gate.asked(studio.CapProposalsConfirm)
 			Expect(asked).NotTo(BeEmpty())
-			Expect(asked[0]).To(Equal(studio.CapabilityRequest{Capability: studio.CapProposalsConfirm, Binding: b.ID, Owner: alice, Agent: r.agent.ID, Sender: "11", Kind: "trigger"}))
+			want := studio.CapabilityRequest{Capability: studio.CapProposalsConfirm, Binding: b.ID, Owner: alice, Agent: r.agent.ID, Sender: "11", Kind: "trigger"}
+			Expect(asked[0].Chat).NotTo(BeEmpty(), "the gate is told where the phrase was written")
+			want.Chat, want.Direct = asked[0].Chat, asked[0].Direct
+			Expect(asked[0]).To(Equal(want))
 			// Single use: the code is spent.
 			n = len(fake.texts(chatID, thread))
 			say("confirm " + p.Route.Code)

@@ -42,6 +42,10 @@ function Plan({ p, t }) {
     ? t(cost.remote ? 'proposal.plan.costRemote' : 'proposal.plan.costLocal', { tokens: fmt(tokens), model: p.model, count: runs })
     : t('proposal.plan.costUnknown', { count: runs })
   if (cost.remote && tokens === 0) costText = `${costText} ${t('proposal.plan.remoteNote', { model: p.model })}`
+  const d = p.delivery || { target: 'inbox' }
+  let delivery = t('proposal.plan.deliveryInbox')
+  if (d.target === 'origin') delivery = t(d.in_thread ? 'proposal.plan.deliveryThread' : 'proposal.plan.deliveryChat')
+  else if (d.target === 'channel') delivery = t('proposal.plan.deliveryChannel', { channel: d.channel_label })
   const rows = [
     ['when', when],
     ['runsAs', p.model ? t('proposal.plan.runsAsModel', { model: p.model }) : t('proposal.plan.runsAs')],
@@ -49,6 +53,7 @@ function Plan({ p, t }) {
     p.plan?.writes && ['writes', widget
       ? <><code>{p.plan.writes}</code>{t('proposal.plan.writesWidget', { widget: widget.title })}</>
       : <code>{p.plan.writes}</code>],
+    ['delivery', delivery],
     ['cost', costText],
     ['acts', <ActsSummary key="acts" trigger={p} compact />],
     ['stop', t(widget ? 'proposal.plan.stopWidget' : 'proposal.plan.stop')],

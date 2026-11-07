@@ -338,13 +338,17 @@
       "bash": "命令（bash）",
       "web_search": "网页搜索",
       "web_fetch": "读取网页",
-      "list_agents": "已保存的智能体"
+      "list_agents": "已保存的智能体",
+      "localai_client": "LocalAI 客户端工具",
+      "localai_admin": "LocalAI 管理工具"
     },
     "descriptions": {
       "bash": "当没有插件提供 bash 时，直接在这台机器上为聊天运行命令和代码。可隔离运行命令的插件会将其替换。",
       "web_search": "无需密钥为聊天搜索网页（依次使用 DuckDuckGo、Brave Search、Bing），设置了 SearXNG 实例时则使用该实例。",
       "web_fetch": "按地址为聊天读取公开的网页或文件。除非您允许，否则内部网络地址会被拒绝。",
-      "list_agents": "允许聊天列出用户已保存的智能体，并将其中一个作为子智能体启动。每个聊天需在其工具菜单中开启。"
+      "list_agents": "允许聊天列出用户已保存的智能体，并将其中一个作为子智能体启动。每个聊天需在其工具菜单中开启。",
+      "localai_client": "允许聊天使用此处安装的模型生成图像、语音、声音、视频、嵌入并进行检测，且受每位用户的权限限制。",
+      "localai_admin": "允许管理员的聊天管理此服务器：模型、后端、设置和状态。每个聊天或已保存的智能体需自行开启。"
     },
     "bash": {
       "switch": "允许聊天在这台机器上运行命令",

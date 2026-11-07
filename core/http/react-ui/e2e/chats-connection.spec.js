@@ -129,7 +129,7 @@ test.describe('The connections of an add-on in the Tools menu', () => {
 })
 
 test.describe('The connections an agent names', () => {
-  test('the agent form names a set per add-on, and shows that none means each chat chooses', async ({ page }) => {
+  test('the add-on row names a set, ticking switches it on, and none ticked says what happens in a chat and in a run', async ({ page }) => {
     const s = await installAgents(page)
     // Later routes win: the draft list now has an add-on with a credential.
     await page.route('**/api/chats/draft/tools*', route => route.fulfill({
@@ -138,20 +138,31 @@ test.describe('The connections an agent names', () => {
         addons: [{ id: 'tracker', tools: 14, off: false, title: 'Tracker', credentialed: true, connections: [WORK, HOME, PLAY], enabled_connections: [], needs_connection: true }],
       },
     }))
-    await page.goto('/app/agents/new')
+    await page.goto('/app/agents/a2/edit')
     await page.getByLabel('Name', { exact: false }).first().fill('Reviewer')
-    await page.locator('[data-section="Tools"] .ag-fold__button').click()
-    const panel = page.getByTestId('agent-tools-panel')
-    const group = panel.getByRole('group', { name: 'Connections for chats of this agent' })
+    // The account sits in the row of the add-on (it was a Connections card).
+    const row = page.getByTestId('agent-addon-box').filter({ hasText: 'Tracker' })
+    const group = row.getByRole('group', { name: 'Accounts for Tracker' })
     await expect(group).toBeVisible()
-    await expect(panel.getByTestId('agent-tools-pick-hint')).toContainText('each chat chooses its own')
+    // Off, nothing ticked: nothing is offered, and the sentence says it is off.
+    await expect(row.getByTestId('agent-addon-now')).toContainText('Off')
+    await expect(row.getByRole('switch', { name: 'Tracker' })).not.toBeChecked()
     await group.getByLabel('Home').check()
     await group.getByLabel('Play').check()
-    await expect(panel.getByTestId('agent-tools-pick-hint')).toContainText('cannot change them')
-    await panel.getByRole('switch', { name: /Tracker/ }).click()
-    await page.getByRole('button', { name: 'Create Agent' }).first().click()
+    // Ticking an account switched the add-on on.
+    await expect(row.getByRole('switch', { name: 'Tracker' })).toBeChecked()
+    await expect(row.getByTestId('agent-addon-now')).toContainText('using Home, Play')
+    await expect(row.getByTestId('agent-addon-now')).toHaveAttribute('data-tone', 'ok')
+    // Unticking all accounts leaves the add-on on with two accounts and none chosen: amber.
+    await group.getByLabel('Home').uncheck()
+    await group.getByLabel('Play').uncheck()
+    await expect(row.getByTestId('agent-addon-now')).toHaveAttribute('data-tone', 'warn')
+    await expect(row.getByTestId('agent-addon-now')).toContainText('a run with nobody there gets none')
+    await group.getByLabel('Home').check()
+    await group.getByLabel('Play').check()
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
-    const body = s.calls.find(c => c.method === 'POST').body
+    const body = s.calls.find(c => c.method === 'PUT').body
     expect(body.connections).toEqual({ tracker: ['b2', 'b3'] })
     expect(body.addons).toEqual(['tracker'])
   })

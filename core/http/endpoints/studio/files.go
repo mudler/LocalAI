@@ -57,6 +57,7 @@ var fileRules = []errRule{
 	fixed(http.StatusRequestEntityTooLarge, typeInvalid, "the file is too large", workspace.ErrTooLarge),
 	fixed(http.StatusBadRequest, typeInvalid, "that cannot be done to this path", workspace.ErrInvalid),
 	fixed(http.StatusConflict, typeConflict, "later changes conflict with this undo", workspace.ErrConflict),
+	fixed(http.StatusConflict, "folder_shared", "this folder or a folder in it is shared; stop sharing it before you move it there", workspace.ErrSharedMove),
 	verbatim(http.StatusConflict, typeFilesOff, "", files.ErrUnavailable),
 	verbatim(http.StatusConflict, typeFilesOff, "", files.ErrNoPurge),
 }
@@ -281,6 +282,7 @@ func (h *Handlers) CreateFolder(c echo.Context) error {
 // @Param request body schema.ChatsMoveRequest true "from and to"
 // @Success 200 {object} schema.ChatsFile "The moved entry"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 409 {object} schema.ErrorResponse "A shared folder, or a folder with a shared folder in it, would move into another home or into a folder that LocalAI manages (LocalAI, Chats, Memory, pages or a .skills folder). Stop sharing it first."
 // @Router /api/chats/files/move [post]
 func (h *Handlers) MoveFile(c echo.Context) error {
 	fc, ok := h.files(c)

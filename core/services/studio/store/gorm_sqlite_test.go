@@ -49,6 +49,31 @@ var _ = Describe("the GORM store on SQLite", func() {
 		Expect(got.ScopedAgent).To(BeFalse())
 	})
 
+	It("keeps the tool names of a sub-agent, and reads a chat stored before the column as having none", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "studio.db")
+		db := openSQLite(path)
+		first, err := store.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		ctx := context.Background()
+		Expect(first.CreateChat(ctx, session.ChatRecord{ID: "kid", Principal: "alice", Kind: session.KindSubAgent, ParentID: "p",
+			AllowedTools: []string{"get_status", "search_all"}, Created: time.Now(), Updated: time.Now()})).To(Succeed())
+		got, err := first.GetChat(ctx, "alice", "kid")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.AllowedTools).To(Equal([]string{"get_status", "search_all"}))
+		// UpdateChat leaves the list alone.
+		got.Title = "later"
+		Expect(first.UpdateChat(ctx, got)).To(Succeed())
+		got, _ = first.GetChat(ctx, "alice", "kid")
+		Expect(got.AllowedTools).To(Equal([]string{"get_status", "search_all"}))
+		// The table as it was before the column.
+		Expect(db.Exec("ALTER TABLE studio_chats DROP COLUMN allowed_tools").Error).To(Succeed())
+		second, err := store.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		got, err = second.GetChat(ctx, "alice", "kid")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.AllowedTools).To(BeEmpty())
+	})
+
 	It("reads the single connection stored before sets as a set of one, and writes the list", func() {
 		db := openSQLite(filepath.Join(GinkgoT().TempDir(), "studio.db"))
 		s, err := store.NewGORM(db)

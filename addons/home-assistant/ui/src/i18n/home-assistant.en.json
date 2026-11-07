@@ -59,8 +59,8 @@
     "label": "What the agent may change in your home",
     "hint": "Only the services on the allowlist below, on entities that are not excluded.",
     "off": "Read only",
-    "propose": "Asks you first",
-    "auto": "Acts without asking",
+    "propose": "Asks first",
+    "auto": "Runs at once",
     "line": {
       "off": "It cannot switch anything.",
       "propose": "Each change waits for your OK.",
@@ -73,8 +73,8 @@
     },
     "row": {
       "off": "Read only",
-      "propose": "Asks you first",
-      "auto": "Acts without asking"
+      "propose": "Asks first",
+      "auto": "Runs at once"
     }
   },
   "policy": {

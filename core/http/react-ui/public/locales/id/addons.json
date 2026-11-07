@@ -100,7 +100,14 @@
     "alias": "Alias",
     "kindLabel": "Kind",
     "installedOn": "{{name}} is installed and on.",
-    "installedChip": "Terpasang"
+    "installedChip": "Terpasang",
+    "category": {
+      "label": "Kategori",
+      "all": "Semua",
+      "chat": "Aplikasi obrolan",
+      "tools": "Alat",
+      "models": "Model"
+    }
   },
   "catalog": {
     "allLibraries": "Semua pustaka",
@@ -146,7 +153,8 @@
     "network": "Server tidak dapat dijangkau. Periksa koneksi Anda.",
     "unavailable": "Add-on tidak tersedia saat ini. Coba lagi sebentar lagi.",
     "unknownOutcome": "Hasil tidak dapat dikonfirmasi. Periksa statusnya sebelum mencoba lagi.",
-    "busy": "Server add-on sedang sibuk dan tidak menjawab tepat waktu. Coba lagi sebentar lagi."
+    "busy": "Server add-on sedang sibuk dan tidak menjawab tepat waktu. Coba lagi sebentar lagi.",
+    "needsNewerHost": "Add-on ini membutuhkan LocalAI yang lebih baru. Perbarui LocalAI, lalu coba lagi. Tidak ada yang terpasang."
   },
   "installed": {
     "disabled": "Nonaktif",
@@ -359,7 +367,8 @@
     "starting": "Memulai",
     "stopped": "Nonaktif",
     "update-pending": "Pembaruan tertunda",
-    "updateTo": "Pembaruan {{version}}"
+    "updateTo": "Pembaruan {{version}}",
+    "needsSetup": "Perlu disiapkan"
   },
   "supporting": "Perangkat lunak yang Anda pasang untuk memberi LocalAI halaman dan alat chat baru. Masing-masing berjalan sendiri dan hanya meminta yang dicantumkannya.",
   "tabs": {
@@ -569,7 +578,8 @@
       "protocol-version": "Versi protokol tidak cocok",
       "sdk-version": "Versi SDK antarmuka tidak cocok",
       "data-format": "Format data tidak cocok",
-      "digest-changed": "Digest versi ini berubah"
+      "digest-changed": "Digest versi ini berubah",
+      "feature-level": "Add-on ini membutuhkan LocalAI yang lebih baru."
     },
     "class": {
       "source-unavailable": "Pustaka tidak dapat dijangkau.",
@@ -624,6 +634,7 @@
       "unpinned": "Pustaka melaporkan pembaruan tetapi tidak menyebutkan build yang akan dipasang, jadi tidak dapat ditingkatkan dari sini. Periksa lagi nanti."
     },
     "checkAll": "Periksa pembaruan",
+    "notCheckedYet": "Pembaruan belum diperiksa.",
     "checkingAll": "Memeriksa...",
     "checkAllDone": "{{count}} add-on diperiksa.",
     "checkAllFailed": "{{count}} tidak dapat diperiksa.",
@@ -671,7 +682,12 @@
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
     "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
-    "removeNamed": "Hapus {{name}}…"
+    "removeNamed": "Hapus {{name}}…",
+    "setUp": "Siapkan",
+    "setUpNamed": "Siapkan {{name}}",
+    "review": "Tinjau",
+    "reviewNamed": "Tinjau {{name}}",
+    "updateTo": "Perbarui ke {{version}}"
   },
   "preview": {
     "screenshots": "Screenshots",
@@ -730,7 +746,11 @@
     "toolsOff_other": "{{count}} alat chat-nya mati sampai add-on berjalan lagi.",
     "pageOff": "Halamannya tidak tersedia sampai add-on berjalan lagi.",
     "updateTitle": "{{name}} {{version}} tersedia.",
-    "updateBody": "Anda memakai {{current}}. Anda melihat perubahannya dan mengonfirmasi sebelum ada yang diganti."
+    "updateBody": "Anda memakai {{current}}. Anda melihat perubahannya dan mengonfirmasi sebelum ada yang diganti.",
+    "title_one": "{{count}} add-on perlu disiapkan",
+    "title_other": "{{count}} add-on perlu disiapkan",
+    "connectionBody_one": "memiliki {{count}} koneksi yang belum bisa menjawab. {{reason}}",
+    "connectionBody_other": "memiliki {{count}} koneksi yang belum bisa menjawab. {{reason}}"
   },
   "meta": {
     "builtin": "Bawaan",
@@ -864,6 +884,7 @@
     "keepOwnNamed": "Jadikan izin umum {{name}} sebagai milik saya",
     "loadError": "Akses host tidak termuat",
     "loading": "Membaca apa yang diminta add-on ini...",
+    "loadingSlow": "Masih berjalan. Paket sedang diunduh dan tanda tangannya diperiksa sebelum izin dapat ditampilkan. Add-on yang besar dapat memakan waktu.",
     "loadingPage": "Memuat akses host",
     "locked": "Deployment mematikan perubahan akses host. Anda dapat membaca halaman ini tetapi tidak mengubahnya.",
     "lockedNoAuth": "Login dimatikan, sehingga siapa pun yang dapat menjangkau server ini dapat mengubahnya; administrator mengaturnya di berkas kebijakan.",
@@ -962,6 +983,30 @@
       "migrating": "memigrasi data",
       "starting": "memulai",
       "working": "bekerja"
+    }
+  },
+  "groups": {
+    "chat": "Aplikasi obrolan",
+    "tools": "Alat dan layanan",
+    "models": "Media dan model",
+    "builtin": "Bawaan"
+  },
+  "connection": {
+    "title": "Koneksi",
+    "none": "Belum ada koneksi.",
+    "answersAs": "Menjawab sebagai {{name}}",
+    "noAgent": "Belum ada agen dipilih",
+    "manage": "Kelola koneksi",
+    "acceptsListed_one": "Menerima {{count}} orang",
+    "acceptsListed_other": "Menerima {{count}} orang",
+    "accepts": {
+      "anyone": "Menerima siapa saja",
+      "nobody": "Belum menerima siapa pun"
+    },
+    "state": {
+      "running": "Berjalan",
+      "off": "Mati",
+      "attention": "Perlu disiapkan"
     }
   }
 }

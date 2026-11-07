@@ -83,7 +83,7 @@ var _ = Describe("Files upload limit", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		DeferCleanup(cancel)
 		base := []config.AppOption{config.WithContext(ctx), config.WithSystemState(state), config.WithDataPath(filepath.Join(dir, "data")),
-			config.DisableMetricsEndpoint, config.WithDisableLocalAIAssistant(true), config.WithDisableStats(true)}
+			config.DisableMetricsEndpoint, config.WithDisableStats(true)}
 		localApp, err := application.New(append(base, opts...)...)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { Expect(localApp.Shutdown()).To(Succeed()) })

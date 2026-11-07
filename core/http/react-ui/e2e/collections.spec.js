@@ -27,6 +27,30 @@ test.describe('Collections page', () => {
     await expect(page.getByRole('button', { name: 'New collection' }).first()).toBeVisible()
   })
 
+  test('says how a search finds passages, in plain words', async ({ page }) => {
+    const list = mode => route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ collections: ['docs'], search_mode: mode, embedding_model_installed: true }) })
+    await page.route(/\/api\/collections(\?.*)?$/, list('semantic'))
+    await page.goto('/app/collections')
+    await expect(page.getByTestId('search-mode')).toContainText('Search: semantic.')
+    await expect(page.getByTestId('search-mode')).toContainText('by meaning, not by exact words or codes')
+
+    await page.unroute(/\/api\/collections(\?.*)?$/)
+    await page.route(/\/api\/collections(\?.*)?$/, list('hybrid'))
+    await page.goto('/app/collections')
+    await expect(page.getByTestId('search-mode')).toContainText('Search: hybrid.')
+    await expect(page.getByTestId('search-mode')).toContainText('by meaning and by exact words')
+
+    await page.setViewportSize({ width: 360, height: 740 })
+    await expect(page.getByTestId('search-mode')).toBeVisible()
+    // The page animates in; wait for the layout to settle before measuring.
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+  })
+
+  test('says nothing about the search mode when the server does not report it', async ({ page }) => {
+    await expect(page.getByTestId('memory-empty')).toBeVisible()
+    await expect(page.getByTestId('search-mode')).toHaveCount(0)
+  })
+
   test('new-collection name field accepts input', async ({ page }) => {
     await page.getByRole('button', { name: 'New collection' }).first().click()
     const input = page.getByLabel('New collection name')

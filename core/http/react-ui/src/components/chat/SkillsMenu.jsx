@@ -37,21 +37,24 @@ export default function SkillsMenu({ skills, replaced = [], onSet, error, testId
 // The body of the skills list, without the chip: the header, the search, one
 // row per skill and the status line. The agent form draws it inline.
 // `heading` replaces the title of the list; `later` is the note under the header (what a skill added later does).
-export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'chat-skills', heading, later, manage = true }) {
+export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'chat-skills', heading, later, manage = true, fromLabel = false }) {
   const { t } = useTranslation('chat')
   const [query, setQuery] = useState('')
   const noteId = useId()
 
-  const { on, total } = skillCounts(skills)
+  // A locked row is one the host grants (its source says who): it shows its
+  // state and takes no part in the count or the bulk actions.
+  const free = skills.filter((s) => !s.locked)
+  const { on, total } = skillCounts(free)
   const searchable = total >= SEARCH_MIN
   const q = searchable ? query : ''
   const shown = filterSkills(skills, q)
   const filtering = q.trim() !== ''
-  const shownIds = new Set(shown.map(skillKey))
-  const allIds = new Set(skills.map(skillKey))
+  const shownIds = new Set(shown.filter((s) => !s.locked).map(skillKey))
+  const allIds = new Set(free.map(skillKey))
   const target = filtering ? shownIds : allIds
-  const nothingToEnable = !skills.some((s) => target.has(skillKey(s)) && !s.enabled)
-  const nothingToDisable = !skills.some((s) => target.has(skillKey(s)) && s.enabled)
+  const nothingToEnable = !free.some((s) => target.has(skillKey(s)) && !s.enabled)
+  const nothingToDisable = !free.some((s) => target.has(skillKey(s)) && s.enabled)
   const fallback = fallbackNotice(skills)
   // The title of the add-on that replaces a built-in skill, from the add-on
   // skill of the same name in the list.
@@ -98,7 +101,7 @@ export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'cha
         )}
       </SwitchHead>
       <div className="swl-list" data-testid={`${testId}-list`}>
-        {shown.map((s) => <SkillRow key={skillKey(s)} skill={s} onSet={onSet} testId={testId} />)}
+        {shown.map((s) => <SkillRow key={skillKey(s)} skill={s} onSet={onSet} testId={testId} fromLabel={fromLabel} />)}
         {shownReplaced.map((s) => (
           <SwitchRowStatic
             key={`replaced:${s.name}`}
@@ -117,19 +120,22 @@ export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'cha
   )
 }
 
-function SkillRow({ skill, onSet, testId }) {
+function SkillRow({ skill, onSet, testId, fromLabel }) {
   const { t } = useTranslation('chat')
   const desc = (skill.description || '').trim()
   const src = skillSource(skill)
-  const source = src.kind === 'addon' ? t('skills.source.addon', { name: src.name }) : src.kind ? t(`skills.source.${src.kind}`, { defaultValue: '' }) : ''
+  const source = src.kind === 'addon' ? t(fromLabel ? 'skills.source.addonFrom' : 'skills.source.addon', { name: src.name }) : src.kind ? t(`skills.source.${src.kind}`, { defaultValue: '' }) : ''
   return (
     <SwitchRow
       name={skill.name}
       desc={skill.unavailable || (desc ? skill.description : '')}
-      meta={source}
+      meta={skill.locked && skill.sourceLabel ? skill.sourceLabel : source}
       metaTestId={`${testId}-source`}
-      metaKind={src.kind}
+      metaKind={skill.locked ? 'provider' : src.kind}
       checked={skill.enabled}
+      disabled={Boolean(skill.locked)}
+      stacked={Boolean(skill.locked)}
+      data={skill.locked ? { locked: 'true' } : undefined}
       onChange={(next) => onSet(new Set([skillKey(skill)]), next)}
       testId={`${testId}-item`}
     />

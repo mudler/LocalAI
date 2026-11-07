@@ -68,7 +68,7 @@ func (s *Service) Export(ctx context.Context, user, conv string) (ChatExport, er
 	out := ChatExport{Version: ExportVersion, ExportedAt: time.Now().UTC(), Title: rec.Title, Model: rec.Model,
 		Settings: rec.Settings, Created: rec.Created, Updated: rec.Updated, Messages: []ChatExportMessage{}}
 	for _, e := range entries {
-		if e.Role == session.RoleCheckpoint || e.Role == session.RoleGoal {
+		if e.Role == session.RoleCheckpoint || e.Role == session.RoleGoal || session.DisplayOnly(e.Role) {
 			continue
 		}
 		d := session.DisplayEntry(e)

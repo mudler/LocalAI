@@ -32,3 +32,6 @@
 .pp-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; max-width: 720px; }
 .pp-item .cx-proposal,
 .pp-item .cx-receipt { margin-top: 0; }
+
+/* The warning of the threat scan on a knowledge text: it stays inside the card at any width. */
+.cp-warning { margin: var(--dk-space-2) 0; padding: var(--dk-space-2) var(--dk-space-3); overflow-wrap: anywhere; color: var(--dk-warn-text); background: var(--dk-warn-wash); border-left: 3px solid var(--dk-warn); border-radius: var(--radius-sm); }

@@ -124,3 +124,13 @@ test('settings: the page reads the setting and does not guess before it arrives'
   assert.match(html, /data-testid="memory-save-loading"/)
   assert.doesNotMatch(html, /type="radio"/)
 })
+
+test('settings: the page says memory is built in and links to Settings > Memory', async () => {
+  const p = await mount(async () => view('ask'))
+  await settle()
+  const n = p.q('[data-testid="memory-builtin-notice"]')
+  assert.ok(n, 'the notice is on the page')
+  assert.match(n.textContent, /Memory is built in/)
+  assert.match(n.textContent, /Settings > Memory/)
+  await p.close()
+})

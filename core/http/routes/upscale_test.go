@@ -24,7 +24,7 @@ import (
 var _ = Describe("Upscale route model selection", func() {
 	It("uses upscale-only models on both aliases without admitting generation models", func() {
 		root := GinkgoT().TempDir()
-		app, err := application.New(config.WithDataPath(root), config.WithGeneratedContentDir(root), config.WithDisableLocalAIAssistant(true), config.WithSystemState(&system.SystemState{Model: system.Model{ModelsPath: root}, Backend: system.Backend{BackendsPath: root}}))
+		app, err := application.New(config.WithDataPath(root), config.WithGeneratedContentDir(root), config.WithSystemState(&system.SystemState{Model: system.Model{ModelsPath: root}, Backend: system.Backend{BackendsPath: root}}))
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 		upscale, image := config.FLAG_UPSCALE, config.FLAG_IMAGE

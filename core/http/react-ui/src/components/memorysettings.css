@@ -19,9 +19,12 @@
 .ms-level__title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-weight: 600; color: var(--dk-text); }
 .ms-level__body { font-size: var(--text-sm); color: var(--dk-muted); overflow-wrap: anywhere; }
 .ms-tag { padding: 0 6px; border-radius: var(--dk-radius-3); background: var(--dk-inset); color: var(--dk-muted); font-size: var(--text-xs); font-weight: 400; }
+.ms-sub { margin: var(--sp-3) 0 0; font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--dk-muted); }
+.ms-level__fine { font-size: var(--text-xs); color: var(--dk-muted); }
 .ms-notes { display: grid; gap: var(--sp-3); }
 .ms-notes-head { display: grid; gap: var(--sp-1); }
 @media (max-width: 560px) {
   .ms-switch { grid-template-columns: minmax(0, 1fr); }
   .ms-switch__ctl { justify-self: start; }
 }
+.ms-forget { display: grid; gap: var(--sp-2); justify-items: start; padding-top: var(--sp-3); border-top: 1px solid var(--dk-edge); }

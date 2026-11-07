@@ -187,6 +187,11 @@ func (r *racyStore) AddPending(ctx context.Context, principal, chatID, text stri
 	return r.Store.AddPending(ctx, principal, chatID, text)
 }
 
+func (r *racyStore) AddPendingFrom(ctx context.Context, principal, chatID, text string, sender *session.Sender) (store.Pending, error) {
+	r.once.Do(func() { r.release(ctx, principal, chatID) })
+	return r.Store.AddPendingFrom(ctx, principal, chatID, text, sender)
+}
+
 // A message that is queued just after the turn ended elsewhere must not wait
 // for a turn that will never come.
 var _ = Describe("cluster", func() {

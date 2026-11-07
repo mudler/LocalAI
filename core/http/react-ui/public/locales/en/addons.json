@@ -100,7 +100,14 @@
     "alias": "Alias",
     "kindLabel": "Kind",
     "installedOn": "{{name}} is installed and on.",
-    "installedChip": "Installed"
+    "installedChip": "Installed",
+    "category": {
+      "label": "Category",
+      "all": "All",
+      "chat": "Chat apps",
+      "tools": "Tools",
+      "models": "Models"
+    }
   },
   "catalog": {
     "allLibraries": "All libraries",
@@ -146,7 +153,8 @@
     "network": "The server could not be reached. Check your connection.",
     "unavailable": "Add-ons are not available right now. Try again in a moment.",
     "unknownOutcome": "The result could not be confirmed. Check the status before you try again.",
-    "busy": "The add-on server is busy and did not answer in time. Try again in a moment."
+    "busy": "The add-on server is busy and did not answer in time. Try again in a moment.",
+    "needsNewerHost": "This add-on needs a newer LocalAI. Update LocalAI, then try again. Nothing was installed."
   },
   "installed": {
     "disabled": "Off",
@@ -359,7 +367,8 @@
     "starting": "Starting",
     "stopped": "Off",
     "update-pending": "Update pending",
-    "updateTo": "Update {{version}}"
+    "updateTo": "Update {{version}}",
+    "needsSetup": "Needs setup"
   },
   "supporting": "Software you install to give LocalAI new pages and chat tools. Each one runs on its own and asks only for what it lists.",
   "tabs": {
@@ -569,7 +578,8 @@
       "protocol-version": "The protocol version does not fit",
       "sdk-version": "The interface SDK version does not fit",
       "data-format": "The data format does not fit",
-      "digest-changed": "The digest of this version changed"
+      "digest-changed": "The digest of this version changed",
+      "feature-level": "This add-on needs a newer LocalAI."
     },
     "class": {
       "source-unavailable": "The library cannot be reached.",
@@ -624,6 +634,7 @@
       "unpinned": "The library reports an update but names no build to install, so it cannot be upgraded from here. Check again later."
     },
     "checkAll": "Check for updates",
+    "notCheckedYet": "Updates have not been checked yet.",
     "checkingAll": "Checking...",
     "checkAllDone": "Checked {{count}} add-ons.",
     "checkAllFailed": "{{count}} could not be checked.",
@@ -671,7 +682,12 @@
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
     "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
-    "removeNamed": "Remove {{name}}…"
+    "removeNamed": "Remove {{name}}…",
+    "setUp": "Set up",
+    "setUpNamed": "Set up {{name}}",
+    "review": "Review",
+    "reviewNamed": "Review {{name}}",
+    "updateTo": "Update to {{version}}"
   },
   "preview": {
     "screenshots": "Screenshots",
@@ -730,7 +746,11 @@
     "toolsOff_other": "Its {{count}} chat tools are off until it runs again.",
     "pageOff": "Its page is not available until it runs again.",
     "updateTitle": "{{name}} {{version}} is available.",
-    "updateBody": "You have {{current}}. You see what changes and confirm before anything is replaced."
+    "updateBody": "You have {{current}}. You see what changes and confirm before anything is replaced.",
+    "title_one": "{{count}} add-on needs setup",
+    "title_other": "{{count}} add-ons need setup",
+    "connectionBody_one": "has {{count}} connection that cannot answer yet. {{reason}}",
+    "connectionBody_other": "has {{count}} connections that cannot answer yet. {{reason}}"
   },
   "meta": {
     "builtin": "Built in",
@@ -864,6 +884,7 @@
     "keepOwnNamed": "Keep the blanket grants of {{name}} as my own",
     "loadError": "Host access did not load",
     "loading": "Reading what this add-on asks for...",
+    "loadingSlow": "Still working. The package is being downloaded and its signature checked before the permissions can be shown. A large add-on can take a while.",
     "loadingPage": "Loading host access",
     "locked": "The deployment turned off changes to host access. You can read this page but not change it.",
     "lockedNoAuth": "Sign-in is off, so anyone who can reach this server could change these; they are set by the administrator in the policy file.",
@@ -962,6 +983,30 @@
       "migrating": "migrating data",
       "starting": "starting",
       "working": "working"
+    }
+  },
+  "groups": {
+    "chat": "Chat apps",
+    "tools": "Tools and services",
+    "models": "Media and models",
+    "builtin": "Built in"
+  },
+  "connection": {
+    "title": "Connections",
+    "none": "No connections yet.",
+    "answersAs": "Answers as {{name}}",
+    "noAgent": "No agent chosen",
+    "manage": "Manage connections",
+    "acceptsListed_one": "Accepts {{count}} person",
+    "acceptsListed_other": "Accepts {{count}} people",
+    "accepts": {
+      "anyone": "Accepts anyone",
+      "nobody": "Accepts nobody yet"
+    },
+    "state": {
+      "running": "Running",
+      "off": "Off",
+      "attention": "Needs setup"
     }
   }
 }

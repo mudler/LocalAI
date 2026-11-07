@@ -432,7 +432,7 @@ var _ = Describe("memory served by the host", func() {
 		It("stores the switch and the save level with the person's settings", func() {
 			m, err := svc.MemorySettings(ctx, "alice")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(m).To(Equal(MemorySettings{Enabled: true, SaveMode: SaveAsk, Provider: "builtin", Available: true}))
+			Expect(m).To(Equal(MemorySettings{Enabled: true, SaveMode: SaveAsk, MessagingSave: MessagingAsk, Provider: "builtin", Available: true}))
 			off, auto := false, SaveAuto
 			m, err = svc.SetMemory(ctx, "alice", MemoryUpdate{Enabled: &off, SaveMode: &auto})
 			Expect(err).NotTo(HaveOccurred())
@@ -440,9 +440,29 @@ var _ = Describe("memory served by the host", func() {
 			Expect(m.EnabledSet).To(BeTrue())
 			Expect(m.SaveMode).To(Equal(SaveAuto))
 			Expect(m.SaveModeSet).To(BeTrue())
-			bad := "always"
+			bad := "everything"
 			_, err = svc.SetMemory(ctx, "alice", MemoryUpdate{SaveMode: &bad})
 			Expect(err).To(MatchError(ErrInvalidSettings))
+		})
+
+		It("stores Always confirm and the messaging row, and refuses a value that is not one", func() {
+			always, row := SaveAlways, MessagingPairedPrivate
+			m, err := svc.SetMemory(ctx, "alice", MemoryUpdate{SaveMode: &always, MessagingSave: &row})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(m.SaveMode).To(Equal(SaveAlways))
+			Expect(m.MessagingSave).To(Equal(MessagingPairedPrivate))
+			// A field left out stays as it is.
+			never := SaveNever
+			m, err = svc.SetMemory(ctx, "alice", MemoryUpdate{SaveMode: &never})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(m.MessagingSave).To(Equal(MessagingPairedPrivate))
+			for _, bad := range []string{"", "auto", "anyone", "paired"} {
+				_, err = svc.SetMemory(ctx, "alice", MemoryUpdate{MessagingSave: &bad})
+				Expect(err).To(MatchError(ErrInvalidSettings), bad)
+			}
+			m, err = svc.MemorySettings(ctx, "alice")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(m.MessagingSave).To(Equal(MessagingPairedPrivate), "a refused value changes nothing")
 		})
 	})
 })

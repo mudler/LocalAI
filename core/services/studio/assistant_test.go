@@ -6,6 +6,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -19,6 +20,7 @@ type fakeAssistant struct {
 	mu      sync.Mutex
 	enabled bool
 	calls   []string
+	users   []string // the acting user of each call, "" when none
 }
 
 func (f *fakeAssistant) Enabled() bool {
@@ -37,9 +39,14 @@ func (f *fakeAssistant) DiscoverTools(context.Context) ([]functions.Function, er
 }
 func (f *fakeAssistant) IsTool(n string) bool { return n == "install_model" }
 func (f *fakeAssistant) HasTools() bool       { return true }
-func (f *fakeAssistant) ExecuteTool(_ context.Context, name, args string) (string, error) {
+func (f *fakeAssistant) ExecuteTool(ctx context.Context, name, args string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	who := ""
+	if u := localaitools.UserFromContext(ctx); u != nil {
+		who = u.ID
+	}
+	f.users = append(f.users, who)
 	f.calls = append(f.calls, name+"|"+args)
 	return "installed", nil
 }
@@ -77,6 +84,20 @@ var _ = Describe("assistant", func() {
 		got, err := svc.Get(context.Background(), "root", rec.ID)
 		Expect(err).NotTo(HaveOccurred(), "Get = %+v, %v; the flag must persist", got, err)
 		Expect(got.Assistant).To(BeTrue(), "Get = %+v, %v; the flag must persist", got, err)
+	})
+
+	It("the assistant tools run as the owner of the chat", func() {
+		fa := &fakeAssistant{enabled: true}
+		svc, _ := newAssistantService(fa, func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Tool: "install_model", Args: `{}`}, {Say: "done"}}
+		})
+		rec, err := svc.Create(context.Background(), "root", studio.CreateInput{Model: "m", Assistant: true})
+		Expect(err).NotTo(HaveOccurred())
+		sent(svc, "root", rec.ID, "go")
+		idle(svc, "root", rec.ID)
+		fa.mu.Lock()
+		defer fa.mu.Unlock()
+		Expect(fa.users).To(Equal([]string{"root"}))
 	})
 
 	It("a plain chat never gets the assistant tools", func() {

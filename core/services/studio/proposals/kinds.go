@@ -1,6 +1,7 @@
 package proposals
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -29,6 +30,10 @@ type Kind struct {
 	// Sensitive kinds are never confirmed from a chat that is not Studio; the
 	// gate and the confirm lanes read it.
 	Sensitive bool
+	// Internal kinds are proposed by a tool of the host that has its own
+	// checks, never by a model through propose_change: the generic tool does
+	// not offer them and refuses their name.
+	Internal bool
 	// MaxBytes bounds the content; zero means contract.MaxChangeBytes.
 	MaxBytes int
 	// Path returns the file inside the home that the change writes. For a kind
@@ -45,12 +50,37 @@ type Kind struct {
 	// relative to the folder Path returned. Nil: the content is the one file
 	// Path returned.
 	Files func(content string) ([]FileWrite, error)
+	// Dest, when set, replaces the write to the home: Path then only names the
+	// target (for example a collection) and the change has no change set.
+	Dest *Destination
 }
 
 // FileWrite is one file of a change that writes several.
 type FileWrite struct {
 	Path    string // relative to the folder of the change
 	Content string
+}
+
+// ApplyInput is what Kind.Prepare, Apply and Undo get for a kind that writes
+// somewhere other than the owner's home.
+type ApplyInput struct {
+	Owner    string
+	Proposal contract.ChangeProposal
+}
+
+// Destination makes a kind write to a store of its own (a collection of the
+// Knowledge, say) instead of a file of the home. A kind with a Destination has
+// no change set: Apply writes, Undo takes the write back, and Prepare refuses
+// a proposal whose destination cannot take it now. The host still keeps the
+// proposal, the audit, the limits and the answer of the owner.
+type Destination struct {
+	// Prepare judges the destination when the proposal is made and again when
+	// the owner confirms. Nil: nothing to check.
+	Prepare func(ctx context.Context, in ApplyInput) error
+	// Apply writes the change after the owner confirmed.
+	Apply func(ctx context.Context, in ApplyInput) error
+	// Undo takes an applied change back.
+	Undo func(ctx context.Context, in ApplyInput) error
 }
 
 // CheckInput is what Kind.Check judges.

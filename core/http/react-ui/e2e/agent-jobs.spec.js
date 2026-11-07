@@ -182,6 +182,18 @@ test.describe('Trigger form', () => {
     await expect.poll(() => s.calls.find(c => c.method === 'POST')?.body).toMatchObject({ kind: 'file', folder: '/Contracts', quiet_seconds: 45, prompt: 'Read it.' })
   })
 
+  test('a file trigger says that an agent with No files cannot open the files that arrive', async ({ page }) => {
+    const { AGENTS } = await import('./agents-fixtures.js')
+    await installAgents(page, { agents: AGENTS.map(x => (x.id === 'a2' ? { ...x, builtins_off: ['files'] } : x)) })
+    await page.goto('/app/triggers/new')
+    await page.getByLabel('When', { exact: true }).selectOption('file')
+    await expect(page.getByTestId('aj-folder-nofiles')).toHaveCount(0)
+    await page.getByLabel('Agent', { exact: true }).selectOption('a2')
+    await expect(page.getByTestId('aj-folder-nofiles')).toContainText('cannot open it')
+    await page.getByLabel('Agent', { exact: true }).selectOption('a1')
+    await expect(page.getByTestId('aj-folder-nofiles')).toHaveCount(0)
+  })
+
   test('shows the reason of a schedule the server cannot read', async ({ page }) => {
     await installAgents(page)
     await page.goto('/app/triggers/new')

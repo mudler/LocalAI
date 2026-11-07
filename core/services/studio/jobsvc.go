@@ -206,7 +206,7 @@ func (j *Jobs) buildTask(ctx context.Context, owner string, in TaskInput) (jobs.
 		return jobs.Task{}, err
 	}
 	if t.AgentID != "" {
-		ag, err := j.svc.Agent(ctx, owner, t.AgentID)
+		ag, err := j.svc.ownAgent(ctx, owner, t.AgentID)
 		if err != nil {
 			return jobs.Task{}, err
 		}
@@ -546,7 +546,7 @@ func (j *Jobs) info(ctx context.Context, rec jobs.Job, taskName string) JobInfo 
 		if out.Error == "" {
 			out.Error = "the chat of the job was deleted"
 		}
-	case turn.Running:
+	case turn.Running || turn.WillResume:
 		out.Status = JobRunning
 	case turn.Last == "":
 		out.Status = JobPending

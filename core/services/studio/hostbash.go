@@ -367,8 +367,8 @@ func (s *Service) HostExecDecide(ctx context.Context, user, conv, id, decision s
 // web_fetch), for Settings > Tools and for other features to register theirs.
 func (s *Service) Builtins() *builtins.Registry { return s.builtins }
 
-// builtinsFor builds the built-in tools of a chat.
-func (s *Service) builtinsFor(ctx context.Context, a workspace.Actor, rec session.ChatRecord, subAgent bool) []builtins.Built {
+// builtinChat describes a chat to the built-in tools.
+func (s *Service) builtinChat(ctx context.Context, a workspace.Actor, rec session.ChatRecord, subAgent bool) builtins.Chat {
 	off, on := s.switchesOf(ctx, rec)
 	chat := builtins.Chat{Actor: a, Origin: rec.Origin, OriginID: rec.OriginID, Agent: rec.AgentID != "", AgentID: rec.AgentID, Model: rec.Model, SubAgent: subAgent,
 		Admin: s.isAdmin(ctx, a.Principal), GroupsOff: off, GroupsOn: on, Grants: s.chatGrants(ctx, rec), GoalActive: goalActive(rec) && !subAgent}
@@ -377,7 +377,12 @@ func (s *Service) builtinsFor(ctx context.Context, a workspace.Actor, rec sessio
 		// the tools that need a right ask what that sender holds.
 		chat.Allow, chat.Audit = s.turnAllow(a.ChatID)
 	}
-	return s.builtins.Build(ctx, chat)
+	return chat
+}
+
+// builtinsFor builds the built-in tools of a chat.
+func (s *Service) builtinsFor(ctx context.Context, a workspace.Actor, rec session.ChatRecord, subAgent bool) []builtins.Built {
+	return s.builtins.Build(ctx, s.builtinChat(ctx, a, rec, subAgent))
 }
 
 // applyBuiltins adds the built-in tools that no add-on serves. When the

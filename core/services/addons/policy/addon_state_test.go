@@ -136,7 +136,7 @@ var _ = Describe("Addon recovery state of the policy", func() {
 		Expect(again.revokedFloor().IsZero()).To(BeTrue())
 		err = again.mutate(func(d *document) error {
 			for i := 0; i < 8; i++ {
-				d.addRevocation(revocation{AddonID: "fixture", ResourceID: key.ResourceID, UserID: "u" + string(rune('a'+i)), Ceiling: RoleViewer, At: time.Now().UTC()})
+				d.addRevocation(revocation{Kind: "addon:fixture", ResourceID: key.ResourceID, UserID: "u" + string(rune('a'+i)), Ceiling: RoleViewer, At: time.Now().UTC()})
 			}
 			return nil
 		})
@@ -345,7 +345,7 @@ var _ = Describe("Addon recovery state of the policy: revocation history", func(
 		at := time.Now().UTC().Add(time.Minute)
 		Expect(f.store.mutate(func(d *document) error {
 			for i := 0; i < MaxRevocations; i++ {
-				d.Revoked = append(d.Revoked, revocation{AddonID: "other", ResourceID: "r", UserID: "u", Ceiling: RoleViewer, At: at.Add(time.Duration(i) * time.Second)})
+				d.Revoked = append(d.Revoked, revocation{Kind: "addon:other", ResourceID: "r", UserID: "u", Ceiling: RoleViewer, At: at.Add(time.Duration(i) * time.Second)})
 			}
 			return nil
 		})).To(Succeed())

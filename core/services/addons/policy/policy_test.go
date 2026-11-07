@@ -85,6 +85,7 @@ func open(mode Mode, dir string) *fixture {
 	f.store = store
 	f.opts = Options{
 		Revalidate:      f.accounts.check,
+		Account:         func(ctx context.Context, a contract.Actor, _ string) error { return f.accounts.check(ctx, a) },
 		CreateAuthority: func(context.Context, contract.Actor, string) error { return nil },
 		Proposals:       f.prop,
 		DrainTimeout:    2 * time.Second,

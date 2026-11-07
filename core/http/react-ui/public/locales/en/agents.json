@@ -112,16 +112,20 @@
   },
   "templates": {
     "researcher": {
-      "label": "Research assistant"
+      "label": "Research assistant",
+      "description": "Searches, reads sources and writes short briefs."
     },
     "reviewer": {
-      "label": "Code reviewer"
+      "label": "Code reviewer",
+      "description": "Reviews a change and lists what to fix first."
     },
     "digest": {
-      "label": "Daily digest"
+      "label": "Daily digest",
+      "description": "Collects what is new on a topic and summarises it."
     },
     "blank": {
-      "label": "Blank"
+      "label": "Blank",
+      "description": "Empty. Start from scratch."
     }
   },
   "agent": {
@@ -145,7 +149,18 @@
       "trigger": "Started by a trigger",
       "connector": "Started by a connector"
     },
-    "backToList": "Back to agents"
+    "backToList": "Back to agents",
+    "bindings": "Connections",
+    "bindingsAll": "All connections",
+    "noBindings": "No messaging app is connected to this agent.",
+    "noBindingsLink": "Add one in Add-ons.",
+    "bindingState": {
+      "ok": "Running",
+      "off": "Off",
+      "attention": "Needs attention"
+    },
+    "openSettings": "Open settings",
+    "openSettingsFor": "Open settings of {{name}}"
   },
   "create": {
     "titleCreate": "Create agent",
@@ -191,7 +206,10 @@
       "export": "Export",
       "Files": "Files",
       "Tools": "Tools",
-      "Notes": "Memory"
+      "Notes": "Memory",
+      "Connections": "Connections",
+      "Effective": "Effective view",
+      "Uses": "What it can use"
     },
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
@@ -213,7 +231,7 @@
     "manageSkills": "Write or manage skills",
     "addonsHelp": "The add-ons whose tools a chat with this agent may use.",
     "noAddons": "No add-on offers tools to a model.",
-    "mcpHelp": "The MCP servers of the fixed model and the MCP connectors a chat with this agent may use.",
+    "mcpHelp": "The MCP connectors you defined and the MCP servers of the fixed model. Switch on the ones a chat with this agent may use.",
     "mcpServers": "MCP servers",
     "mcpHint": "Server name",
     "mcpConnectors": "MCP connectors",
@@ -243,7 +261,7 @@
       "all": "All public sites"
     },
     "toolsSummary": "{{on}} of {{total}} on",
-    "toolsHelp": "Choose what a chat with this agent can use. These are the same switches as the Tools menu of a chat, with the options of a switch under it. A tool that is off is never offered to the model. With no option ticked, the agent keeps the defaults it had on its messaging connections; once you tick any, only the ticked ones work.",
+    "toolsHelp": "Choose what a chat with this agent can use, from three sources: tools LocalAI serves, add-ons and MCP servers. A tool that is off is never offered to the model. With no option ticked, the agent keeps the defaults it had on its messaging connections; once you tick any, only the ticked ones work.",
     "toolsHeading": "Tools of this agent",
     "skillsLater": "A chat with this agent reads only the skills that are on.",
     "skillsHeading": "Skills of this agent",
@@ -254,7 +272,305 @@
       "files_upload": "Receive files from messaging apps"
     },
     "memoryOffUser": "Memory is off in your settings, so this agent reads and saves no notes, whatever you set here.",
-    "memoryOffFix": "Settings, Memory"
+    "memoryOffFix": "Settings, Memory",
+    "nav": {
+      "label": "Sections",
+      "identity": "Identity",
+      "capabilities": "Capabilities",
+      "memory": "Memory and knowledge",
+      "advanced": "Advanced",
+      "connections": "Connections",
+      "effective": "Effective view"
+    },
+    "lead": {
+      "identity": "Who the agent is and how it behaves.",
+      "capabilities": "What the agent may use and reach.",
+      "memory": "What the agent remembers and what it can look up.",
+      "advanced": "Extra servers and export.",
+      "connections": "Which connections this agent may use.",
+      "effective": "What this agent can do right now."
+    },
+    "header": {
+      "unnamed": "Unnamed agent",
+      "modeEdit": "Edit agent",
+      "modeCreate": "New agent",
+      "summary": "Summary of this agent"
+    },
+    "status": {
+      "clean": "No unsaved changes",
+      "new": "Not created yet",
+      "unsaved": "Unsaved changes ({{count}})"
+    },
+    "preset": {
+      "label": "Tool level",
+      "loading": "Loading the tool list",
+      "current": "Level: {{name}}. Change a switch below and it becomes a custom mix.",
+      "custom": "Custom mix of switches. Pick a level to replace it.",
+      "applied": "Applied the {{name}} level",
+      "appliedBody": "The switches below changed. Nothing is saved until you save.",
+      "readonly": {
+        "title": "Look only",
+        "body": "Searches the web and your collections. No files, no commands, no triggers."
+      },
+      "assistant": {
+        "title": "Assistant",
+        "body": "Adds saved agents, triggers and suggested changes. No files, no commands."
+      },
+      "full": {
+        "title": "Full",
+        "body": "Every tool the server lists. Sensitive rights stay off."
+      }
+    },
+    "tpl": {
+      "applied": "Started from {{name}}",
+      "appliedBody": "The name, description, instructions and tools changed. Nothing is saved until you save.",
+      "tools": "Tools: {{level}}",
+      "noTools": "Tools: as they are"
+    },
+    "undo": "Undo",
+    "keep": "Keep",
+    "modelCaps": "What this model can do",
+    "modelChat": "Chat",
+    "connections": {
+      "addonsTitle": "Add-ons that use a connection",
+      "addonsNone": "No add-on needs a connection.",
+      "messagingTitle": "Where this agent is connected",
+      "messagingNone": "No messaging connection uses this agent yet. Save the agent, then add one.",
+      "messagingHelp": "Messaging connections are set on their own page.",
+      "allows_one": "allows {{count}} right",
+      "allows_other": "allows {{count}} rights",
+      "open": "Open",
+      "addonOff": "off",
+      "noneYet": "No connection yet.",
+      "add": "Add a connection",
+      "groupLabel": "Connections for {{name}}",
+      "chosenHelp": "Chats of this agent may use only the ticked connections.",
+      "perChat": "None ticked: each chat chooses its own.",
+      "summary_one": "{{count}} connection",
+      "summary_other": "{{count}} connections"
+    },
+    "more": "More actions",
+    "eff": {
+      "summaryOk": "Nothing is blocked.",
+      "summaryBlocked_one": "{{count}} thing is blocked.",
+      "summaryBlocked_other": "{{count}} things are blocked.",
+      "unsaved": "This list follows the form as it is now, including changes you have not saved.",
+      "unsavedConn": "Tools, memory and knowledge follow the form as it is now. Connection lines come from the saved agent and the saved connection.",
+      "state": {
+        "allowed": "Can",
+        "asks": "Asks first",
+        "off": "Off",
+        "blocked": "Blocked",
+        "info": "Note"
+      },
+      "more_one": "and {{count}} more",
+      "more_other": "and {{count}} more",
+      "fixHere": "Fix it here",
+      "fixOpen": "Open the page that fixes it",
+      "model": {
+        "fixed": "Runs on {{model}}.",
+        "any": "Uses the model picked in each chat."
+      },
+      "tools": {
+        "none": "No tools are on. It can only answer from what it knows.",
+        "some_one": "Can use {{count}} tool: {{names}}.",
+        "some_other": "Can use {{count}} tools: {{names}}.",
+        "blocked": "{{name}} is on but cannot work now. {{reason}}"
+      },
+      "skills": {
+        "some_one": "Can use {{count}} skill: {{names}}.",
+        "some_other": "Can use {{count}} skills: {{names}}.",
+        "withAddons_one": "Can use {{count}} skill that comes with an add-on: {{names}}.",
+        "withAddons_other": "Can use {{count}} skills that come with add-ons: {{names}}.",
+        "addonOff": "The skill {{name}} is on, but its add-on {{addon}} is off, so it does nothing. Switch the add-on on."
+      },
+      "files": {
+        "all": "Can reach all your files.",
+        "folders_one": "Can reach only the {{count}} folder you chose.",
+        "folders_other": "Can reach only the {{count}} folders you chose.",
+        "none": "Cannot reach any of your files."
+      },
+      "grants": {
+        "parentOff": "{{name}} is allowed, but it cannot work while {{parent}} is off. Turn {{parent}} on.",
+        "connection": "{{name}} is allowed for the agent, but not on this connection: {{connection}}",
+        "some_one": "Has {{count}} extra right: {{names}}.",
+        "some_other": "Has {{count}} extra rights: {{names}}.",
+        "unattended_one": "When nobody is watching, it may use {{count}} right on its own: {{names}}.",
+        "unattended_other": "When nobody is watching, it may use {{count}} rights on its own: {{names}}."
+      },
+      "memory": {
+        "userOff": "Memory is off in your Settings, so this agent reads and saves no notes, whatever it chooses here.",
+        "none": "Memory is off for this agent. It reads and saves no notes.",
+        "mine_and_own": "Reads your notes and its own, and saves to its own.",
+        "own": "Reads and saves only its own notes.",
+        "mine": "Reads your notes and saves to them.",
+        "asBefore": "Memory works as before: it reads notes when an add-on names Memory.",
+        "level": {
+          "auto": "Saves notes at once.",
+          "ask": "Saves notes (asks first): each note waits for you to confirm it.",
+          "always": "Saves notes, but every note waits for you, and nothing loosens that.",
+          "never": "Reads notes but saves none: your save level is Never.",
+          "agentAuto": "Saves notes at once and tells you, with an Undo. This is the agent's own choice."
+        },
+        "readsOnly": "Reads notes but cannot save.",
+        "connectionLimit": "Notes are not saved on these messaging connections: {{names}}."
+      },
+      "knowledge": {
+        "some_one": "Can search {{count}} collection: {{names}}.",
+        "some_other": "Can search {{count}} collections: {{names}}.",
+        "none": "No knowledge collections to search."
+      },
+      "connections": {
+        "unsaved": "Not used in messaging apps yet. Save the agent, then add a connection.",
+        "none": "Not used in any messaging app.",
+        "loading": "Checking {{name}}...",
+        "error": "Could not check {{name}}. Open it to see its permissions.",
+        "summary": "{{name}}: {{allowed}} allowed, {{blocked}} not allowed.",
+        "blocked": "{{name}} cannot use {{capability}}. {{message}}"
+      },
+      "addons": {
+        "noConnection": "{{name}} is on but cannot work now: you have no account for it. Add one.",
+        "stale": "{{name}} is on but cannot work now: the accounts saved for it are gone. Pick an account.",
+        "pick": "{{name}} is on but cannot work now: no account is chosen. A run with nobody there gets none of its tools.",
+        "resourcesNone": "{{name}} is on but cannot work now: no {{noun}} is ticked.",
+        "account": "{{name}} uses {{names}}.",
+        "resources": "{{name}} may use {{n}} {{plural}} and change {{w}}.",
+        "resourcesRead": "{{name}} may read {{n}} {{plural}} and change none."
+      },
+      "mcp": {
+        "ignored": "{{name}} is in the agent's MCP servers, but nothing by that name is defined, so it is ignored. Remove it."
+      }
+    },
+    "try": {
+      "open": "Try it",
+      "title": "Try this agent",
+      "desc": "Send a message to a test chat that uses the settings in this form. Nothing is saved.",
+      "noModel": "No chat model is installed. Install or pick a model first.",
+      "defaultModel": "No model is set, so the test uses {{model}}.",
+      "skipped": "The test does not use: {{what}}. Those belong to a saved agent.",
+      "skip": {
+        "grants": "permissions",
+        "memory": "memory",
+        "knowledge": "knowledge collections",
+        "folders": "shared folders"
+      },
+      "empty": "Send a message to start.",
+      "role": {
+        "user": "You",
+        "assistant": "Agent",
+        "tool": "Tool"
+      },
+      "toolRan": "Used a tool: {{name}}",
+      "working": "Working...",
+      "label": "Message to the agent",
+      "placeholder": "Ask something this agent should handle",
+      "send": "Send",
+      "stop": "Stop",
+      "deleted": "The test chat is deleted when you close this panel.",
+      "chatTitle": "Test of {{name}}",
+      "failed": "The test failed: {{message}}",
+      "slow": "The agent is still working. Stop it or close the panel."
+    },
+    "uses": {
+      "presetNote": "A level sets the built-in tools and permissions only. Add-ons, accounts, MCP servers and skills stay as they are.",
+      "needsSummary_one": "{{count}} add-on cannot work yet",
+      "needsSummary_other": "{{count}} add-ons cannot work yet",
+      "builtins": {
+        "title": "Built-in tools",
+        "lead": "Served by LocalAI. Options sit under their switch."
+      },
+      "addons": {
+        "title": "Add-ons",
+        "lead": "One row each: switch it on, pick the account it uses, see what it offers.",
+        "none": "No add-on is installed.",
+        "gone": "Granted, but not installed or not available to you. Switch it off to remove it."
+      },
+      "mcp": {
+        "title": "MCP servers",
+        "lead": "Servers outside LocalAI. Their tools may cost money or reach other systems.",
+        "search": "Search MCP servers",
+        "none": "No MCP connector is defined yet. Add one on the MCP connectors page.",
+        "connector": "An MCP connector you defined.",
+        "server": "An MCP server of the model.",
+        "unknown": "Not defined: nothing by this name exists, so the agent ignores it.",
+        "unverified": "The model is chosen in each chat, so this name is checked there.",
+        "remove": "Remove {{name}}",
+        "noMatch": "No MCP server matches “{{query}}”.",
+        "removeShort": "Remove"
+      },
+      "account": {
+        "label": "Account it uses",
+        "group": "Accounts for {{name}}",
+        "none": "No account yet.",
+        "add": "Add an account",
+        "kept": "Kept for later"
+      },
+      "meta": {
+        "account": "needs an account",
+        "resources": "limited to the {{plural}} you tick"
+      },
+      "tools_one": "{{count}} tool",
+      "tools_other": "{{count}} tools",
+      "toolsSplit_one": "{{count}} tool ({{read}} read, {{write}} change data)",
+      "toolsSplit_other": "{{count}} tools ({{read}} read, {{write}} change data)",
+      "writes": "changes data",
+      "now": {
+        "label": "Right now:",
+        "off": "Off. Nothing from it is offered.",
+        "offKept": "Off. Nothing from it is offered. Accounts kept for later: {{names}}.",
+        "noAccountNeeded": "On. Offered: {{tools}}. It needs no account.",
+        "only": "On. Offered: {{tools}}, using {{names}}, your only account.",
+        "using": "On. Offered: {{tools}}, using {{names}}.",
+        "usingMany": "On. Offered: {{tools}}, using {{names}}. The model names the account in each call.",
+        "pick": "On, but no account is chosen. A chat asks you to pick one before it gets any tool; a run with nobody there gets none. Tick the account to use, above.",
+        "noConnection": "On, but you have no account for it yet, so none of its tools are offered. Add an account, above.",
+        "stale": "On, but the accounts saved for it are gone, so none of its tools are offered. Tick an account, above.",
+        "resourcesNone": "On, but no {{noun}} is ticked, so it can use none. Tick one, above.",
+        "resourcesRead": "On. Offered: {{tools}}, on {{n}} ticked {{plural}}, read only. Tools that change data cannot run.",
+        "resources": "On. Offered: {{tools}}, on {{n}} ticked {{plural}}; it may change {{w}}."
+      },
+      "res": {
+        "heading": "Which <n>{{plural}}</n> it may use",
+        "headingPlain": "Which {{plural}} it may use",
+        "loading": "Loading the list.",
+        "error": "The list could not be read.",
+        "empty": "You have no <n>{{plural}}</n> to give yet.",
+        "truncated": "The list is cut short.",
+        "gone": "not available",
+        "access": "Access to {{name}}",
+        "read": "Read",
+        "write": "Read and change",
+        "none": "None ticked: it can use no <n>{{noun}}</n>.",
+        "some": "Only the ticked ones. You still need your own access to each."
+      },
+      "skills": {
+        "summaryOff_one": "{{count}} skill turns on with it",
+        "summaryOff_other": "{{count}} skills turn on with it",
+        "summaryOn": "{{on}} of {{total}} skills on"
+      },
+      "addonOn": {
+        "title": "{{name}} switched on",
+        "body_one": "{{count}} skill turned on with it: {{names}}. Nothing is saved until you save.",
+        "body_other": "{{count}} skills turned on with it: {{names}}. Nothing is saved until you save."
+      },
+      "skillAddonOff": "Its add-on is off, so this skill does nothing.",
+      "memorySkills": {
+        "title": "Memory skills",
+        "from": "from {{slot}}",
+        "on": "On while memory is on.",
+        "off": "Off while this agent's memory is off.",
+        "offUser": "Off, because memory is off in your Settings."
+      },
+      "slot": {
+        "memory": "Memory"
+      }
+    },
+    "memoryLevelApplied": {
+      "title": "Memory: {{name}}",
+      "off": "It reads and saves no notes, and the right to remember things is off. Nothing is saved until you save.",
+      "reads": "The right to remember things is off, so it reads notes but cannot save any. Nothing is saved until you save.",
+      "saves": "The right to remember things is on. Nothing is saved until you save."
+    }
   },
   "status": {
     "title": "Status",
@@ -487,7 +803,8 @@
       "loadingTask": "Loading trigger",
       "promptRequired": "Write what the trigger should do",
       "noAgent": "No agent",
-      "capHint": "The most chats this trigger may start in one day. Empty uses the default."
+      "capHint": "The most chats this trigger may start in one day. Empty uses the default.",
+      "watchNoFiles": "This agent has No files, so a run of this trigger is told that a file arrived but cannot open it. Give the agent file access in its editor, or choose another agent."
     },
     "actionFailed": "The action failed: {{message}}",
     "subtitle": "Start an agent on a schedule or when a file arrives. Every run is a chat you can open."
@@ -711,7 +1028,7 @@
   },
   "folder": {
     "all": "All my files",
-    "one": "Chosen folders",
+    "one": "Only these folders",
     "scopeLabel": "Files this agent can reach",
     "allHelp": "Chats with this agent can reach all your files, as a chat without an agent can.",
     "choose": "Choose folder",
@@ -752,6 +1069,138 @@
     "effectiveRead": "Inside a folder that can only be read, so this one can only be read.",
     "effectiveWrite": "Inside a folder that can be changed, so this one can be changed too.",
     "notMounted": "{{n}} shared folders do not fit the access limit of a chat and are not mounted.",
-    "exportNoteMany": "The file names {{n}} folders. Where you import it, the agent gets the folders with those paths that exist, and asks you to choose the others."
+    "exportNoteMany": "The file names {{n}} folders. Where you import it, the agent gets the folders with those paths that exist, and asks you to choose the others.",
+    "none": "No files",
+    "noneHelp": "This agent cannot reach any of your files. Files you attach to a chat stay in that chat. Watching a folder needs file access, so a trigger that watches a folder still starts for this agent but cannot open the files that arrive."
+  },
+  "wizard": {
+    "title": "New agent",
+    "supporting": "Four short steps. Only a name and instructions are required.",
+    "stepsLabel": "Steps",
+    "back": "Back",
+    "next": "Continue",
+    "defaultTools": "Default tools",
+    "step": {
+      "purpose": "Purpose",
+      "abilities": "Abilities",
+      "where": "Where it works",
+      "review": "Review"
+    },
+    "purpose": {
+      "title": "What is this agent for?",
+      "lead": "Start from a template or write your own. You can change everything later.",
+      "needs": "A name and instructions are needed to continue.",
+      "modelLine": "Model: the one you pick in each chat.",
+      "modelChoose": "Choose a fixed model",
+      "modelEach": "The one I pick in each chat"
+    },
+    "abilities": {
+      "title": "How much may it do on its own?",
+      "lead": "Not sure? Leave it: the agent starts with the default tools. Or pick a level, which replaces them.",
+      "defaultNote": "No level is picked. The agent starts with the default tools.",
+      "files": "Which of your files can it see?",
+      "fine": "Fine-tune individual tools",
+      "templateHint": "This template suggests the level {{level}}.",
+      "templateUse": "Use {{level}}"
+    },
+    "where": {
+      "title": "Where should it work?",
+      "lead": "Optional. Pick the places this agent should work. Nothing is connected yet.",
+      "chat": "Chat apps",
+      "chatLead": "Apps where people can talk to this agent.",
+      "tools": "Tools and services",
+      "toolsLead": "Add-ons that give it new abilities.",
+      "notInstalled": "Not installed",
+      "generic": "Finish setting up {{title}}",
+      "loading": "Looking for apps",
+      "empty": "No apps are available yet.",
+      "note": "Choosing an app does not connect it. After you create the agent, a short checklist walks you through the setup of each one.",
+      "find": "Find add-ons"
+    },
+    "review": {
+      "title": "Ready to create",
+      "lead": "Check the summary. You can change all of this later.",
+      "named": "Has a name and instructions",
+      "tools": "Tools: {{level}}",
+      "modelFixed": "Model: {{model}}",
+      "modelEach": "Model: the one you pick in each chat",
+      "apps": "Apps to finish setting up after creating: {{count}}",
+      "filesTitle": "It can see all your files.",
+      "filesBody": "Anything you can open in Files, this agent can read. You can limit it to folders.",
+      "limit": "Limit to folders",
+      "setupNext": "After you create the agent, its page lists the setup steps for the apps you chose."
+    },
+    "rail": {
+      "title": "Your agent",
+      "unnamed": "Unnamed",
+      "abilities": "Abilities",
+      "modelEach": "Chosen in each chat",
+      "files": "Files",
+      "folders": "Only chosen folders ({{count}})",
+      "works": "Works in",
+      "thisApp": "This app"
+    }
+  },
+  "setup": {
+    "title": "Finish setup",
+    "count": "{{done}} of {{total}} done",
+    "dismiss": "Hide",
+    "progress": "Setup progress",
+    "done": "Done",
+    "stays": "The list stays on this page until every app is done, or until you hide it.",
+    "connect": "New connection",
+    "account": "Choose account",
+    "turnOn": "Turn on",
+    "find": "View in add-ons",
+    "actionFor": "{{action}}: {{title}}"
+  },
+  "share": {
+    "action": "Share",
+    "intro": "People you add chat with this agent as themselves, with their own files, collections and connections.",
+    "roles": {
+      "use": "Can use",
+      "useHelp": "They chat with the agent in their own chats and see what it needs.",
+      "viewer": "Can view",
+      "viewerHelp": "They can also read its instructions and tools."
+    },
+    "kind": {
+      "addon": "Add-on",
+      "collection": "Collection",
+      "skill": "Skill",
+      "folder": "Folder",
+      "connection": "Connection",
+      "addon-resource": "Add-on resource",
+      "mcp": "MCP server",
+      "builtin": "Built-in grant",
+      "network": "Network",
+      "tool-group": "Tool group"
+    },
+    "ownAccess": "They need access of their own",
+    "refsApplied_one": "Also shared {{count}} thing it uses.",
+    "refsApplied_other": "Also shared {{count}} things it uses.",
+    "refsFailed": "Could not share: {{names}}.",
+    "refsSkipped": "Not shared with everyone: {{names}}. Share these with each person.",
+    "failed": "Sharing could not open. {{message}}"
+  },
+  "shared": {
+    "readOnly": "You can chat with this agent. Only its owner can change it."
+  },
+  "needs": {
+    "title": "What this agent needs",
+    "intro": "The agent runs as you, with your own access.",
+    "none": "This agent uses nothing beyond the chat.",
+    "loadError": "Could not check what this agent needs.",
+    "state": {
+      "ok": "You have it",
+      "missing": "Not shared with you",
+      "unavailable": "Not available to you",
+      "ask": "Starts off in your chat"
+    },
+    "noticeTitle_one": "This agent needs {{count}} thing you do not have:",
+    "noticeTitle_other": "This agent needs {{count}} things you do not have:",
+    "noticeLink": "See what it needs",
+    "asksTitle_one": "This agent asks for {{count}} thing your chat starts without:",
+    "asksTitle_other": "This agent asks for {{count}} things your chat starts without:",
+    "asksHelp": "It runs as you. Turn them on in the chat only if you trust the agent and the person who shared it."
   }
 }

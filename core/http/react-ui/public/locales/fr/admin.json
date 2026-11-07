@@ -182,13 +182,17 @@
       "bash": "Commandes (bash)",
       "web_search": "Recherche web",
       "web_fetch": "Lire des pages web",
-      "list_agents": "Agents enregistrés"
+      "list_agents": "Agents enregistrés",
+      "localai_client": "Outils client LocalAI",
+      "localai_admin": "Outils d'administration LocalAI"
     },
     "descriptions": {
       "bash": "Exécute des commandes et du code pour les chats directement sur cette machine quand aucun module ne fournit bash. Un module qui exécute des commandes isolées le remplace.",
       "web_search": "Recherche sur le web pour les chats sans clé (DuckDuckGo, puis Brave Search, puis Bing), ou avec votre instance SearXNG si elle est définie.",
       "web_fetch": "Lit pour les chats une page ou un fichier web public par son adresse. Les adresses de votre réseau sont refusées sauf si vous les autorisez.",
-      "list_agents": "Permet à un chat de lister les agents enregistrés de l'utilisateur et d'en lancer un comme sous-agent. Chaque chat l'active dans son menu Outils."
+      "list_agents": "Permet à un chat de lister les agents enregistrés de l'utilisateur et d'en lancer un comme sous-agent. Chaque chat l'active dans son menu Outils.",
+      "localai_client": "Permet aux chats d'exécuter les modèles installés ici pour les images, la voix, le son, la vidéo, les embeddings et la détection, dans les droits de chaque utilisateur.",
+      "localai_admin": "Permet aux chats des administrateurs de gérer ce serveur : modèles, backends, réglages et état. Chaque chat, ou agent enregistré, l'active."
     },
     "bash": {
       "switch": "Laisser les chats exécuter des commandes sur cette machine",

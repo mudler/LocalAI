@@ -107,6 +107,7 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 				Error:   "Failed to parse JSON: " + err.Error(),
 			})
 		}
+		config.MapRemovedRuntimeSettings(body, &settings)
 
 		// The ports and the SearXNG address of the chats' web tools.
 		if settings.ChatsWebPorts != nil {
@@ -202,6 +203,12 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
 				Success: false,
 				Error:   "Invalid chats_host_exec: use off, ask or on",
+			})
+		}
+		if settings.ChatsToolSearch != nil && !config.ValidToolSearch(strings.ToLower(strings.TrimSpace(*settings.ChatsToolSearch))) {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+				Success: false,
+				Error:   "Invalid chats_tool_search: use auto, on or off",
 			})
 		}
 		if settings.ChatsToolProviders != nil {

@@ -59,4 +59,5 @@ func registerCollectionsEndpoints(cg *echo.Group, app *application.Application) 
 	cg.POST("/:name/sources", localai.AddCollectionSourceEndpoint(app))
 	cg.DELETE("/:name/sources", localai.RemoveCollectionSourceEndpoint(app))
 	cg.GET("/:name/sources", localai.ListCollectionSourcesEndpoint(app))
+	cg.POST("/:name/share", localai.ShareCollectionEndpoint(app))
 }

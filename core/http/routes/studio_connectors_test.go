@@ -59,6 +59,7 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Entry("access preview", http.MethodPost, "/api/chats/connectors/c1/access/preview"),
 		Entry("pairing", http.MethodPost, "/api/chats/connectors/c1/pairing"),
 		Entry("unpair", http.MethodDelete, "/api/chats/connectors/c1/paired/42"),
+		Entry("share", http.MethodPost, "/api/chats/connectors/c1/share"),
 	)
 
 	It("is refused to a user without the chats feature", func() {
@@ -76,6 +77,21 @@ var _ = Describe("Chats connectors endpoints", func() {
 		}
 		return s.do(user, http.MethodPost, "/api/chats/connectors", body)
 	}
+
+	It("lists no shared binding and no sharing without the sharing policy, and lets only the owner ask to share", func() {
+		ag := agent("alice", "Support", "test-model")
+		id := decodeJSON(create("alice", map[string]any{"name": "B", "token": specToken, "agent_id": ag}))["id"].(string)
+		list := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/connectors", nil))
+		Expect(list).To(HaveKeyWithValue("shared", BeEmpty()))
+		Expect(list).To(HaveKeyWithValue("sharing", false))
+		Expect(list["connectors"].([]any)[0]).NotTo(HaveKey("share"))
+
+		rec := s.do("alice", http.MethodPost, "/api/chats/connectors/"+id+"/share", nil)
+		Expect(rec.Code).To(Equal(http.StatusConflict), rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring("sharing_disabled"))
+		Expect(s.do("bob", http.MethodPost, "/api/chats/connectors/"+id+"/share", nil).Code).To(Equal(http.StatusNotFound), "another person's binding is a missing one")
+		Expect(s.do("alice", http.MethodPost, "/api/chats/connectors/missing/share", nil).Code).To(Equal(http.StatusNotFound))
+	})
 
 	It("creates, reads, lists, switches, replaces and deletes a binding, and never returns the token", func() {
 		ag := agent("alice", "Support", "test-model")
@@ -404,6 +420,19 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Expect(blocked).To(And(HaveKeyWithValue("allowed", false), HaveKeyWithValue("code", "connection_permission_off"),
 			HaveKeyWithValue("blocked_by", "connection"), HaveKey("message"), HaveKey("reason"),
 			HaveKeyWithValue("fix", HaveKeyWithValue("kind", "open_connection")), HaveKeyWithValue("then_check", ContainElement("sender"))))
+		// The same refusal in the language of the request: the code and the
+		// English message stay, a localized_message is added by code.
+		rec = s.do("alice", http.MethodGet, "/api/chats/connectors/"+id+"/access?lang=it", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		it := decision(decodeJSON(rec), "listed", "triggers.propose")
+		Expect(it).To(And(HaveKeyWithValue("code", "connection_permission_off"), HaveKeyWithValue("message", blocked["message"]),
+			HaveKeyWithValue("localized_message", ContainSubstring("promemoria"))))
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("language", "it"))
+		Expect(blocked).NotTo(HaveKey("localized_message"))
+		rec = s.do("alice", http.MethodGet, "/api/chats/connectors/kinds?lang=de", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)["capabilities"]).To(ContainElement(And(HaveKeyWithValue("name", "memory.write"), HaveKeyWithValue("title", "Save to memory"),
+			HaveKeyWithValue("language", "de"), HaveKeyWithValue("localized_title", "Im Gedächtnis speichern"))))
 		rec = s.do("alice", http.MethodPost, preview, map[string]any{"caps": []string{"triggers.propose"}, "sender": "listed"})
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		v := decodeJSON(rec)

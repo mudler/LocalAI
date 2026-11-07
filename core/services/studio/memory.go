@@ -26,13 +26,19 @@ import (
 // propose_change; the grant memory.write and the rules of changemode.go decide
 // who may.
 //
-// The code that does this is behind MemoryProvider so that a later change can
-// let an add-on serve the same job. The built-in provider is the reference.
+// The code that does this is behind MemoryProvider. The built-in provider is
+// the reference. Memory is the first provider slot (providerslots.go): an
+// add-on that declares it provides the slot (capabilities.provides) can serve
+// the job in its place, and the person picks one provider in the settings. The
+// host keeps every gate for any provider.
 //
 // Until the add-on "memory" is retired its manifest still declares the same
 // index files and skills. The built-in wins: its declarations are ignored while
 // the host serves memory (see addonContextSources and addonSkillsFor), so
 // nothing loads twice. The add-on stays installed and harmless.
+
+// MemorySlot is the provider slot of the notes.
+const MemorySlot = "memory"
 
 // MemoryAddonID is the add-on that used to make notes reach the prompt.
 const MemoryAddonID = contract.LegacyMemoryAddonID
@@ -70,6 +76,102 @@ func (builtinMemory) Sources() []contextfiles.Source {
 
 func (builtinMemory) Skills() []string { return []string{"memory", "memory-check-own-files"} }
 
+// addonMemory is the provider an add-on gives when the person picked it: the
+// index files and the skills that the add-on declares. The host reads the files
+// as the person and applies the gates itself, as it does for the built-in
+// provider; the add-on's role tools reach the model as its other tools do,
+// only while it is the provider picked (providerGate).
+type addonMemory struct {
+	id      string
+	sources []contextfiles.Source
+	skills  []string
+}
+
+func (a addonMemory) ID() string                     { return a.id }
+func (a addonMemory) Sources() []contextfiles.Source { return slices.Clone(a.sources) }
+func (a addonMemory) Skills() []string               { return slices.Clone(a.skills) }
+
+// memoryProviderFor is what serves the notes for a person: the built-in
+// provider, or the adapter of the add-on they picked. When the slot is off the
+// built-in provider is returned, and the callers that read notes check the
+// state first.
+func (s *Service) memoryProviderFor(ctx context.Context, user string, legacy legacyMemory) MemoryProvider {
+	addon := s.memoryResolution(ctx, user, legacy).Addon()
+	if addon == "" {
+		return s.memory
+	}
+	out := addonMemory{id: addon}
+	for _, set := range s.addonContextSets(ctx, user) {
+		if set.AddonID == addon {
+			out.sources = set.sources()
+		}
+	}
+	if l, ok := s.d.AddonTools.(AddonSkillLister); ok {
+		if sets, err := l.AddonSkills(ctx, user); err == nil {
+			for _, set := range sets {
+				if set.AddonID == addon {
+					out.skills = set.Skills
+				}
+			}
+		}
+	}
+	return out
+}
+
+// memoryResolution is the choice of provider for the notes, with the older
+// switch of the person (the On or Off setting, or a disabled legacy add-on)
+// for one who never chose a provider.
+func (s *Service) memoryResolution(ctx context.Context, user string, legacy legacyMemory) SlotResolution {
+	return s.resolveSlot(ctx, user, MemorySlot, func() (string, bool) { return s.memoryLegacyChoice(ctx, user, legacy) })
+}
+
+// memoryLegacyChoice reads the switch that the provider choice replaced. A
+// store that cannot answer reads as off: a failure never reads notes the
+// person may have switched off.
+func (s *Service) memoryLegacyChoice(ctx context.Context, user string, legacy legacyMemory) (string, bool) {
+	if s.d.UserSetting != nil {
+		v, ok, err := s.d.UserSetting(ctx, principal(user), HostSettingsID, MemoryEnabledKey)
+		switch {
+		case err != nil:
+			s.log.Warn("studio: the memory switch could not be read, memory stays off for this turn", "error", err)
+			return contract.ProviderOff, true
+		case ok && v == MemoryOn:
+			return contract.ProviderBuiltin, true
+		case ok && v == MemoryOff:
+			return contract.ProviderOff, true
+		}
+	}
+	if legacy.Installed && !legacy.Running {
+		return contract.ProviderOff, true
+	}
+	return "", false
+}
+
+// registerMemorySlot wires the notes into the provider slots.
+func (s *Service) registerMemorySlot() {
+	s.slotWirings = map[string]slotWiring{MemorySlot: {
+		legacy: func(ctx context.Context, user string) (string, bool) {
+			return s.memoryLegacyChoice(ctx, user, legacyMemoryOf(s.addonContextSets(ctx, user)))
+		},
+		narrowed: func(ctx context.Context, rec session.ChatRecord) bool {
+			return !s.memoryState(ctx, rec, legacyMemoryOf(s.addonContextSets(ctx, rec.Principal))).On
+		},
+		onSelect: func(ctx context.Context, user, id string) {
+			// The On or Off switch of the notes follows the choice, so an older
+			// reader of the switch sees the same answer.
+			v := MemoryOn
+			if id == contract.ProviderOff {
+				v = MemoryOff
+			}
+			if s.d.SetUserSetting != nil {
+				if err := s.d.SetUserSetting(ctx, principal(user), HostSettingsID, MemoryEnabledKey, v); err != nil {
+					s.log.Warn("studio: the memory switch could not follow the provider", "error", err)
+				}
+			}
+		},
+	}}
+}
+
 // memorySkill reports whether sk is one of the built-in memory skills.
 func (s *Service) memorySkill(sk string) bool { return slices.Contains(s.memory.Skills(), sk) }
 
@@ -102,6 +204,10 @@ const (
 	MemoryOffAgent = "memory_off_agent"
 	// MemoryOffFiles: the files are off on this server, and notes are files.
 	MemoryOffFiles = "memory_off_files"
+	// MemoryOffProvider: the add-on that serves memory for the person is
+	// stopped, disabled or removed. Memory stays off until they pick again;
+	// the notes are never moved to another provider on their own.
+	MemoryOffProvider = "memory_provider_unavailable"
 )
 
 // MemoryState says whether memory works for a chat, and when it does not,
@@ -118,6 +224,9 @@ type MemoryState struct {
 	// level "agent": "memory" (the choice None) or "tools:memory" (the old
 	// switch of the group).
 	Field string
+	// Provider and ProviderTitle name the add-on the person picked, for the
+	// code MemoryOffProvider.
+	Provider, ProviderTitle string
 }
 
 func memoryOff(code, by string) MemoryState { return MemoryState{Code: code, By: by} }
@@ -142,7 +251,13 @@ func (s *Service) memoryState(ctx context.Context, rec session.ChatRecord, legac
 		st := memoryOff(MemoryOffAgent, "agent")
 		st.Field = "tools:" + builtins.GroupMemory
 		return st
-	case !s.memoryUserOn(ctx, rec.Principal, legacy):
+	case s.memoryResolution(ctx, rec.Principal, legacy).Off:
+		res := s.memoryResolution(ctx, rec.Principal, legacy)
+		if res.Code == ProviderUnavailable {
+			st := memoryOff(MemoryOffProvider, "provider")
+			st.Provider, st.ProviderTitle = res.AddonID, res.AddonTitle
+			return st
+		}
 		return memoryOff(MemoryOffUser, "user")
 	case !s.d.Files.Available():
 		return memoryOff(MemoryOffFiles, "server")
@@ -150,24 +265,13 @@ func (s *Service) memoryState(ctx context.Context, rec session.ChatRecord, legac
 	return MemoryState{On: true}
 }
 
-// memoryUserOn is the person's own switch. Without a stored answer memory is
-// on, but for a person who disabled the Memory add-on to stop it: the disabled
-// add-on keeps meaning "off" until they choose. A store that cannot answer
-// reads as off: a failure never reads notes the person may have switched off.
+// memoryUserOn is the person's own switch: the provider they picked is not
+// Off. Without a stored answer memory is on, but for a person who disabled the
+// Memory add-on to stop it: the disabled add-on keeps meaning "off" until they
+// choose. A store that cannot answer reads as off: a failure never reads notes
+// the person may have switched off. So does a picked add-on that cannot serve.
 func (s *Service) memoryUserOn(ctx context.Context, user string, legacy legacyMemory) bool {
-	if s.d.UserSetting != nil {
-		v, ok, err := s.d.UserSetting(ctx, principal(user), HostSettingsID, MemoryEnabledKey)
-		switch {
-		case err != nil:
-			s.log.Warn("studio: the memory switch could not be read, memory stays off for this turn", "error", err)
-			return false
-		case ok && v == MemoryOn:
-			return true
-		case ok && v == MemoryOff:
-			return false
-		}
-	}
-	return !legacy.Installed || legacy.Running
+	return !s.memoryResolution(ctx, user, legacy).Off
 }
 
 // The storage of the host settings of a person. They sit in the same store as
@@ -178,8 +282,11 @@ const (
 	HostSettingsID = "_host"
 	// MemoryEnabledKey holds MemoryOn or MemoryOff.
 	MemoryEnabledKey = "memory"
-	// MemorySaveKey holds the save level: ask, auto or never.
+	// MemorySaveKey holds the save level: ask, auto, always or never.
 	MemorySaveKey = "memory-save-mode"
+	// MemorySaveMessagingKey holds the messaging row: ask, paired_private or
+	// never.
+	MemorySaveMessagingKey = "memory-save-messaging"
 )
 
 // The values of MemoryEnabledKey.
@@ -199,6 +306,33 @@ func (s *Service) memoryReads(ctx context.Context, rec session.ChatRecord, sc *s
 	return sc == nil || sc.memory != "" || sc.addons[MemoryAddonID]
 }
 
+// personalNotesOpen says whether a chat may read the owner's personal notes
+// (the user and agent scopes of the notes). The agent profile is not one of
+// them: it holds the standing rules of the agent, like its instructions, and
+// every sender gets it. A chat
+// outside a messaging app always may. A messaging chat may only when the
+// sender is paired with the bot; an allowlisted sender who is not paired, a
+// sender let in through a channel, a turn with no known sender and a grant
+// that expired all read none. The notes of the conversation itself (the
+// channel scope) are not personal notes and are never held back here. This is
+// the read side of the rule that memoryChatScopes enforces on writes.
+func (s *Service) personalNotesOpen(rec session.ChatRecord) bool {
+	if rec.Origin != session.OriginConnector {
+		return true
+	}
+	_, paired := s.messagingFacts(rec.ID)
+	return paired
+}
+
+// withoutPersonalNotes drops the user and agent index files of the notes from
+// a list of sources, for the ids that serve the notes. The channel files and
+// the sources of other add-ons stay.
+func withoutPersonalNotes(sources []contextfiles.Source, ids ...string) []contextfiles.Source {
+	return slices.DeleteFunc(slices.Clone(sources), func(src contextfiles.Source) bool {
+		return src.Scope != contextfiles.ScopeChannel && slices.Contains(ids, src.ID)
+	})
+}
+
 // agentMemory is the choice of notes of a saved agent: one of the agents.Memory
 // values, or empty for a chat without an agent, an agent that cannot be read
 // and an agent saved before the choice ("as before").
@@ -206,11 +340,26 @@ func (s *Service) agentMemory(ctx context.Context, user, agentID string) string 
 	if agentID == "" || s.d.Agents == nil {
 		return ""
 	}
-	ag, err := s.d.Agents.Get(ctx, user, agentID)
+	ag, err := s.chatAgent(ctx, user, agentID)
 	if err != nil {
 		return ""
 	}
 	return ag.Memory
+}
+
+// agentMemorySave is the save rule of a saved agent (agents.MemorySaveAlways,
+// agents.MemorySaveNever), or empty for the person's setting and for a chat
+// without an agent. An agent that cannot be read fails closed: the rule is
+// always, because the stored rule may have been a stricter one.
+func (s *Service) agentMemorySave(ctx context.Context, user, agentID string) string {
+	if agentID == "" || s.d.Agents == nil {
+		return ""
+	}
+	ag, err := s.chatAgent(ctx, user, agentID)
+	if err != nil {
+		return agents.MemorySaveAlways
+	}
+	return ag.MemorySave
 }
 
 // memorySourcesFor narrows the index files of the notes to what a choice of
@@ -254,15 +403,75 @@ func (s *Service) memoryWriteScopes(ctx context.Context, c builtins.Chat) []stri
 	return nil
 }
 
+// memoryChatScopes are the scopes a chat may save a note to. A chat outside a
+// messaging app has what memoryWriteScopes says. A messaging chat saves to its
+// own conversation first, and may also save to the agent or the person only
+// when the sender is paired with the bot and the agent's choice allows that
+// scope (with no choice, "as before", the model may name either). An agent
+// with the choice None saves nowhere. It is never nil for a messaging chat.
+func (s *Service) memoryChatScopes(ctx context.Context, c builtins.Chat) []string {
+	fixed := s.memoryWriteScopes(ctx, c)
+	if c.Origin != session.OriginConnector {
+		return fixed
+	}
+	if fixed != nil && len(fixed) == 0 {
+		return fixed
+	}
+	out := []string{string(contract.ScopeChannel)}
+	if _, paired := s.messagingFacts(c.Actor.ChatID); !paired {
+		return out
+	}
+	if fixed == nil {
+		return append(out, string(contract.ScopeUser), string(contract.ScopeAgent))
+	}
+	return append(out, fixed...)
+}
+
 // memorySkillsOff adds the memory skills to the skills a chat has switched off
 // when the chat does not read the notes: a skill that says "read your notes"
-// has no use then, and the model must not look for them.
+// has no use then, and the model must not look for them. The skills of the
+// built-in provider are off whenever another provider serves.
+//
+// It also records, on the scope of a saved agent, the skills that the host
+// grants for this chat: the skills of the active memory provider, whenever the
+// chat reads the notes and may read the personal ones. A sender who is not
+// paired in a messaging chat gets no personal notes, so it gets no skills that
+// teach reading them. The scope is built for this call, so it is set here and
+// read by grantsSkill; a caller must call this before it resolves the skills.
 func (s *Service) memorySkillsOff(ctx context.Context, rec session.ChatRecord, sc *scope, off []string) []string {
 	legacy := legacyMemoryOf(s.addonContextSets(ctx, rec.Principal))
-	if s.memoryReads(ctx, rec, sc, legacy) {
+	prov := s.memoryProviderFor(ctx, rec.Principal, legacy)
+	builtin := prov.ID() == BuiltinMemoryID
+	reads := s.memoryReads(ctx, rec, sc, legacy) && s.personalNotesOpen(rec)
+	if reads && sc != nil {
+		sc.hostSkills = set(prov.Skills())
+		if !builtin {
+			sc.hostSkillAddon = prov.ID()
+		}
+	}
+	if builtin && reads {
 		return off
 	}
-	return append(slices.Clone(off), s.memory.Skills()...)
+	out := slices.Clone(off)
+	if !builtin || !reads {
+		out = append(out, s.memory.Skills()...)
+	}
+	if !builtin && !reads {
+		out = append(out, prov.Skills()...)
+	}
+	return out
+}
+
+// memoryProviderSkills returns the skills that the active memory provider of
+// the user ships, for the skill lists: the names, and the add-on that ships
+// them ("" for the built-in provider).
+func (s *Service) memoryProviderSkills(ctx context.Context, user string) ([]string, string) {
+	legacy := legacyMemoryOf(s.addonContextSets(ctx, user))
+	prov := s.memoryProviderFor(ctx, user, legacy)
+	if prov.ID() == BuiltinMemoryID {
+		return prov.Skills(), ""
+	}
+	return prov.Skills(), prov.ID()
 }
 
 // memoryWritable says whether a chat may propose a memory note: memory is on
@@ -274,6 +483,11 @@ func (s *Service) memoryWritable(ctx context.Context, c builtins.Chat) bool {
 		rec = got
 	}
 	legacy := legacyMemoryOf(s.addonContextSets(ctx, c.Actor.Principal))
+	// The memory kind of propose_change is the built-in provider's way to save.
+	// An add-on that serves the notes saves with its own write tools.
+	if s.memoryProviderFor(ctx, c.Actor.Principal, legacy).ID() != BuiltinMemoryID {
+		return false
+	}
 	return s.memoryState(ctx, rec, legacy).On && !slices.Contains(c.GroupsOff, builtins.GroupMemory)
 }
 
@@ -286,6 +500,8 @@ func memoryOffLine(st MemoryState) string {
 		where = "for this chat, which is private"
 	case "agent":
 		where = "for this agent"
+	case "provider":
+		where = "because the add-on that serves it is not available"
 	}
 	return "Memory is off " + where + ", so notes are neither read nor saved. If asked to remember something, say that memory is off and that the user can turn it on again; do not try to save it any other way."
 }
@@ -302,6 +518,10 @@ type MemoryReason struct {
 	Reason string `json:"reason,omitempty"`
 	// Fix says where to turn it on again.
 	Fix *Fix `json:"fix,omitempty"`
+	// Provider and ProviderTitle name the add-on whose absence turned memory
+	// off, with the code memory_provider_unavailable.
+	Provider      string `json:"provider,omitempty"`
+	ProviderTitle string `json:"provider_title,omitempty"`
 }
 
 // The fixes of a memory switch that is off.
@@ -324,6 +544,10 @@ func memoryReason(st MemoryState, rec session.ChatRecord) MemoryReason {
 		out.Fix = &Fix{Kind: FixOpenAgent, Target: rec.AgentID, Field: st.Field}
 	case MemoryOffUser:
 		out.Reason = "Memory is off in your settings."
+		out.Fix = &Fix{Kind: FixOpenMemorySettings, Target: "memory"}
+	case MemoryOffProvider:
+		out.Reason = "The add-on that serves memory is not available, so memory is off until you pick a provider."
+		out.Provider, out.ProviderTitle = st.Provider, st.ProviderTitle
 		out.Fix = &Fix{Kind: FixOpenMemorySettings, Target: "memory"}
 	case MemoryOffFiles:
 		out.Reason = "Memory needs files, and files are off on this server."

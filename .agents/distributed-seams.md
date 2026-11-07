@@ -55,6 +55,13 @@ only claims the turn and hands the message to the loop, so it is short; the
 turn runs in the background. Events and stop of the turn use the existing
 `chats.events.*` and `chats.control.*` subjects.
 
+A client whose chat event stream reconnects to a frontend that does not run
+the turn gets the missed events from the process that does, by request/reply on
+`chats.replay.<instance>` (`studio.NewReplayCarrier`). The turn records its
+instance on the chat (`store.Store.SetTurnOwner`). No answer in 2 s, or an
+answer of `resync`, means the client reads the transcript; nothing else acts on
+it.
+
 ## Control verbs
 
 Frontend half: `NodeCommandSender` sends the lifecycle verbs; `FileStager`

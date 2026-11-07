@@ -1,0 +1,86 @@
+#!/bin/sh
+# Start the Strata engine that matches this machine, passing all arguments on.
+#
+# The image holds one engine package per supported target in engines/<name>:
+#   cuda12, cuda13, sycl, metal  one package, always used
+#   hip-rx9070 hip-rx7900 hip-rx6000 hip-halo
+#                                one per AMD GPU family; chosen from the GPU the
+#                                kernel driver reports
+# STRATA_ENGINE_VARIANT=<name> forces one.
+#
+# strata-dsv41-engine runs this script for the DeepSeek V4.1 engine: the
+# packages are in engines-dsv41/<name>/ and the program is strata-dsv41.
+# STRATA_ENGINES_DIR and STRATA_ENGINE_BIN select them. Unsupported hardware stops here with
+# a one-line reason on stderr, which the backend shows in its load error.
+set -eu
+
+HERE=$(dirname "$(realpath "$0")")
+ENGINES="${STRATA_ENGINES_DIR:-$HERE/engines}"
+BIN="${STRATA_ENGINE_BIN:-strata}"
+
+die() {
+	echo "strata: $*" >&2
+	exit 1
+}
+
+[ -d "$ENGINES" ] || die "no engines directory in $HERE"
+
+# gfx name of every AMD GPU the amdgpu driver lists (gfx_target_version is
+# MMmmss, for example 120001 for gfx1201, 110501 for gfx1151).
+amd_gfx_list() {
+	for props in /sys/class/kfd/kfd/topology/nodes/*/properties; do
+		[ -r "$props" ] || continue
+		v=$(sed -n 's/^gfx_target_version[[:space:]]*//p' "$props")
+		case "$v" in '' | *[!0-9]*) continue ;; esac
+		[ "$v" -gt 0 ] || continue
+		printf 'gfx%d%x%x\n' $((v / 10000)) $((v / 100 % 100)) $((v % 100))
+	done
+}
+
+hip_variant_for() {
+	case "$1" in
+	gfx1200 | gfx1201) echo hip-rx9070 ;;
+	gfx1100 | gfx1101 | gfx1102) echo hip-rx7900 ;;
+	gfx1030 | gfx1031) echo hip-rx6000 ;;
+	gfx1151) echo hip-halo ;;
+	*) return 1 ;;
+	esac
+}
+
+choose() {
+	if [ -n "${STRATA_ENGINE_VARIANT:-}" ]; then
+		[ -d "$ENGINES/$STRATA_ENGINE_VARIANT" ] || die "STRATA_ENGINE_VARIANT=$STRATA_ENGINE_VARIANT is not in this image (have: $(ls "$ENGINES" | tr '\n' ' '))"
+		echo "$STRATA_ENGINE_VARIANT"
+		return
+	fi
+	count=$(ls "$ENGINES" | wc -l | tr -d ' ')
+	if [ "$count" = 1 ]; then
+		only=$(ls "$ENGINES")
+		case "$only" in
+		hip-*)
+			# One AMD package: it must still fit the card, or the engine fails with a
+			# message about missing kernels.
+			gfx=$(amd_gfx_list | head -n 20)
+			[ -n "$gfx" ] || die "no AMD GPU found (checked /sys/class/kfd)"
+			for g in $gfx; do
+				[ "$(hip_variant_for "$g" 2>/dev/null)" = "$only" ] && { echo "$only"; return; }
+			done
+			die "this engine has code for gfx1200 and gfx1201 only; this machine has: $(echo "$gfx" | tr "\n" " ")"
+			;;
+		esac
+		echo "$only"
+		return
+	fi
+	gfx=$(amd_gfx_list | head -n 20)
+	[ -n "$gfx" ] || die "no AMD GPU found (checked /sys/class/kfd); set STRATA_ENGINE_VARIANT to one of: $(ls "$ENGINES" | tr '\n' ' ')"
+	for g in $gfx; do
+		if v=$(hip_variant_for "$g") && [ -d "$ENGINES/$v" ]; then
+			echo "$v"
+			return
+		fi
+	done
+	die "Strata has no engine for this AMD GPU ($(echo "$gfx" | tr "\n" " ")); supported: gfx1200 gfx1201 gfx1100 gfx1101 gfx1102 gfx1030 gfx1031 gfx1151"
+}
+
+variant=$(choose)
+exec "$ENGINES/$variant/$BIN" "$@"

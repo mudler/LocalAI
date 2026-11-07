@@ -131,7 +131,9 @@ test.describe('Chats that no person started', () => {
     await mockOriginChats(page)
     await page.goto('/app/chats/b1')
     const banner = page.getByTestId('chat-origin-banner')
-    await expect(banner).toContainText('This conversation was started by Team assistant.')
+    // A connector chat has a header of its own: the connection, then where it lives.
+    await expect(banner.getByTestId('connector-name')).toHaveText('Team assistant')
+    await expect(banner.getByTestId('connector-kind')).toHaveText('Chat App')
     await expect(page.getByTestId('chat-origin-link')).toHaveAttribute('href', '/app/addons/chatapp/bot')
     await page.goto('/app/chats/f1')
     await expect(page.getByTestId('chat-origin-banner')).toContainText('started by something else')

@@ -68,7 +68,7 @@ var Consumers = []Consumer{
 		ID:          "localai-assistant",
 		Surface:     "the in-process admin MCP server of the LocalAI Assistant chat modality",
 		Files:       []string{"core/http/endpoints/mcp/localai_assistant.go", "core/application/application.go"},
-		Evidence:    []string{"pkg/mcp/localaitools/tools.go"},
+		Evidence:    []string{"core/services/localaitools/tools.go"},
 		Decision:    Reject,
 		Reason:      "one process-wide server answers every admin chat and holds no per-call principal; the admin catalog is a REST mirror, and add-on lifecycle and data tools are not part of it",
 		Enforcement: "the catalog has no add-on tool and no route of /api/addons; the consumer matrix test scans both",

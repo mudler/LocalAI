@@ -1,4 +1,6 @@
-// Package builtinskills holds writing-skills, localai-workspace and localai-apps.
+// Package builtinskills holds writing-skills, localai-workspace, localai-apps,
+// localai and the memory skills. The admin recipes (localai-admin-*) are added
+// by package adminskills from the prompts of localaitools.
 // The tree is embedded in the binary and synchronized into the built-in layer
 // when the server starts. Document authoring procedures belong to add-ons.
 package builtinskills

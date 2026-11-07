@@ -4,6 +4,7 @@ package tools_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
@@ -282,6 +283,60 @@ var _ = Describe("the write tools", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rc.State).To(Equal(contract.ReceiptCommitted))
 		Expect(repo.Issues[0].Comments).To(HaveLen(1))
+	})
+
+	// A write that GitHub refuses tells the host which status GitHub answered and
+	// what to change, in a fixed sentence: the token and the text of the answer
+	// are not in it.
+	DescribeTable("tells the host the status GitHub answered and the one thing to fix",
+		func(status int, tool string, args map[string]any, path string, hint ...string) {
+			args["repo"] = "acme/widgets"
+			env := envelope(tool, "acme/widgets", opID(), args)
+			p, err := rt.Preview(ctx, env)
+			Expect(err).NotTo(HaveOccurred())
+			srv.Fail(path, status)
+			_, err = rt.Apply(ctx, env, p.Revision)
+			Expect(err).To(MatchError(protocol.ErrBadRequest))
+			up, ok := contract.UpstreamOf(err)
+			Expect(ok).To(BeTrue(), "the refusal names the service behind the add-on")
+			Expect(up.Status).To(Equal(status))
+			for _, h := range hint {
+				Expect(up.Hint).To(ContainSubstring(h))
+			}
+			Expect(up.Hint).NotTo(ContainSubstring(token))
+			Expect(err.Error()).NotTo(ContainSubstring(token))
+			Expect(contract.CleanHint(up.Hint)).To(Equal(up.Hint), "the sentence survives the header as it is")
+		},
+		Entry("401: the token is not valid", 401, tools.ToolCreateIssue, map[string]any{"title": "T", "body": "b"}, "/repos/acme/widgets/issues",
+			"GitHub refused the token (401)", "Replace the token"),
+		Entry("403 on create-issue: the token cannot create issues", 403, tools.ToolCreateIssue, map[string]any{"title": "T", "body": "b"}, "/repos/acme/widgets/issues",
+			"GitHub refused: the token cannot create issues in this repository (403)", "Issues: write", "use another connection"),
+		Entry("403 on a pull request comment: names the pull request permission", 403, tools.ToolCommentPR, map[string]any{"number": 2, "body": "x"}, "/repos/acme/widgets/issues/2/comments",
+			"cannot comment on pull requests", "Pull requests: write"),
+		Entry("404: not found or not visible", 404, tools.ToolCommentIssue, map[string]any{"number": 1, "body": "x"}, "/repos/acme/widgets/issues/1/comments",
+			"could not find it (404)", "token has access"),
+		Entry("422: the values were not accepted", 422, tools.ToolCreateIssue, map[string]any{"title": "T", "body": "b"}, "/repos/acme/widgets/issues",
+			"did not accept the request (422)"),
+	)
+
+	It("also names the status when GitHub refuses a read", func() {
+		srv.Fail("/repos/acme/widgets/issues/1", 403)
+		raw, _ := json.Marshal(map[string]any{"tool": tools.ToolGetIssue, "repo": "acme/widgets", "number": 1})
+		_, err := rt.Read(ctx, contract.Envelope{Request: contract.Request{AddonID: "github", OperationID: "op-read", Arguments: raw, Credential: token, ResourceKey: "acme/widgets"}})
+		up, ok := contract.UpstreamOf(err)
+		Expect(ok).To(BeTrue())
+		Expect(up.Status).To(Equal(403))
+		Expect(up.Hint).To(ContainSubstring("cannot read this"))
+	})
+
+	It("keeps a rate limit a wait and not a refusal of the service", func() {
+		srv.LimitSecondary(30)
+		raw, _ := json.Marshal(map[string]any{"tool": tools.ToolGetIssue, "repo": "acme/widgets", "number": 1})
+		_, err := rt.Read(ctx, contract.Envelope{Request: contract.Request{AddonID: "github", OperationID: "op-read", Arguments: raw, Credential: token, ResourceKey: "acme/widgets"}})
+		var limited *contract.ErrRateLimited
+		Expect(errors.As(err, &limited)).To(BeTrue())
+		_, isUpstream := contract.UpstreamOf(err)
+		Expect(isUpstream).To(BeFalse())
 	})
 
 	It("never puts the token in an error", func() {

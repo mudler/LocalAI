@@ -114,6 +114,14 @@ var _ = Describe("Skill definitions in a manifest", func() {
 		}
 	})
 
+	It("protects the skills that teach the LocalAI tools, by name and by the admin prefix", func() {
+		for _, n := range []string{"localai", "localai-admin-install-chat-model", "localai-admin-anything"} {
+			Expect(ProtectedSkill(n)).To(BeTrue(), n)
+			Expect(ReplaceableSkill(n)).To(BeFalse(), n)
+		}
+		Expect(ProtectedSkill("localai-extra")).To(BeFalse(), "only the exact name and the admin prefix are reserved")
+	})
+
 	It("keeps the replaceable skills and tools apart, so one pin map holds both", func() {
 		for _, n := range ReplaceableSkills {
 			Expect(Replaceable(n)).To(BeFalse(), n)

@@ -58,6 +58,35 @@ func RunStoreSuite(newStore NewStore) {
 		Expect(got.Created.Equal(l.Created)).To(BeTrue(), "created = %v", got.Created)
 	})
 
+	It("keeps the state of a wait through Add, Get and Update", func() {
+		l := sample("w1", "u1", "c1", 0)
+		l.Watch = &loops.Watch{Tool: "list_downloads", Args: []byte(`{"a":1}`), Mode: loops.UntilMatch, Pattern: "done",
+			Deadline: base.Add(time.Hour), MaxErrors: 3, Then: "move it", Checks: 2, BaseHash: "h", BaseOut: "out"}
+		Expect(s.Add(ctx, l, loops.Limits{})).To(Succeed())
+		got, err := s.Get(ctx, "w1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Watch).NotTo(BeNil())
+		Expect(got.Watch.Tool).To(Equal("list_downloads"))
+		Expect(string(got.Watch.Args)).To(Equal(`{"a":1}`))
+		Expect(got.Watch.Pattern).To(Equal("done"))
+		Expect(got.Watch.Checks).To(Equal(2))
+		Expect(got.Watch.Deadline.Equal(base.Add(time.Hour))).To(BeTrue())
+		got, err = s.Update(ctx, "w1", func(c *loops.Loop) error {
+			w := c.Watch.Clone()
+			w.Checks, w.Wake = 3, "wake"
+			c.Watch = w
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Watch.Checks).To(Equal(3))
+		again, _ := s.Get(ctx, "w1")
+		Expect(again.Watch.Wake).To(Equal("wake"))
+		plain := sample("p1", "u1", "c1", 1)
+		Expect(s.Add(ctx, plain, loops.Limits{})).To(Succeed())
+		got, _ = s.Get(ctx, "p1")
+		Expect(got.Watch).To(BeNil())
+	})
+
 	It("returns ErrNotFound for an unknown loop", func() {
 		_, err := s.Get(ctx, "nope")
 		Expect(err).To(MatchError(loops.ErrNotFound))

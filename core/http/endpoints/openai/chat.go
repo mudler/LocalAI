@@ -322,18 +322,15 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		// per-model MCP servers in the same chat session by design).
 		assistantMode := mcpTools.LocalAIAssistantFromMetadata(input.Metadata)
 		if assistantMode {
-			if err := requireAssistantAccess(c, startupOptions.Auth.Enabled); err != nil {
+			if err := requireAssistantOn(c, startupOptions.Auth.Enabled, startupOptions.DisableChatsLocalAIAdmin); err != nil {
 				return err
-			}
-			// Read the disable flag live: an admin can flip it via /api/settings
-			// and the next request must see the change without a restart.
-			if startupOptions.DisableLocalAIAssistant {
-				return echo.NewHTTPError(http.StatusServiceUnavailable, "LocalAI Assistant is disabled on this server")
 			}
 			if assistantHolder == nil || !assistantHolder.HasTools() {
 				return echo.NewHTTPError(http.StatusServiceUnavailable, "LocalAI Assistant is not available on this server")
 			}
-			mcpExecutor = assistantHolder.Executor()
+			// The tools act as the person who asked: a request that the
+			// person may not make fails the same way as it does over the API.
+			mcpExecutor = mcpTools.AsUser(assistantHolder.Executor(), auth.GetUser(c))
 			mcpFuncs, discErr := mcpExecutor.DiscoverTools(c.Request().Context())
 			if discErr != nil {
 				xlog.Error("Failed to discover LocalAI Assistant tools", "error", discErr)

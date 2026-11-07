@@ -5,6 +5,9 @@ function serverReason(error) {
   return m && m !== error.kind ? m : ''
 }
 
+// The cause of a failed install or upgrade of an add-on that needs a newer LocalAI.
+const NEEDS_NEWER_HOST = 'needs_newer_host'
+
 const HOST_REFUSALS = new Set(['not_human_surface', 'locked_by_deployment', 'blocked_by_policy', 'revision_conflict', 'approval_stale', 'approval_required'])
 
 // One message per kind of answer, the same on every page. The server's words
@@ -15,6 +18,7 @@ export function describeError(error, t) {
   const kind = error && error.kind
   // The typed refusals of the host access routes have words of their own.
   if (error && error.type && HOST_REFUSALS.has(error.type)) return t(`hostAccess.errors.${error.type}`)
+  if (error && error.type === NEEDS_NEWER_HOST) return t('errors.needsNewerHost')
   switch (kind) {
     case 'auth': return t('errors.auth')
     case 'denied': return serverReason(error) || t('errors.denied')
@@ -29,6 +33,8 @@ export function describeError(error, t) {
 // The words for the outcome of an action the user started. `completed` has
 // none: the list on the page shows the new state.
 export function describeOutcome(outcome, t, error) {
+  // A failed install or upgrade of an add-on that needs a newer LocalAI says so.
+  if (error && error.type === NEEDS_NEWER_HOST) return describeError(error, t)
   switch (outcome) {
     case 'completed': return ''
     case 'failed': return t('actions.failed')

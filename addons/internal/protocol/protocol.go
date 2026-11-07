@@ -70,6 +70,16 @@ var (
 	ErrForbidden  = errors.New("forbidden")
 )
 
+// Upstream marks a refusal as coming from the service behind the add-on: status
+// is what the service answered and hint one fixed sentence for the person that
+// names the fix. The host shows both in the chat. cause is the usual refusal
+// (an ErrBadRequest with its reason), so a host that does not read the status
+// sees the same 400 as before. Neither value may hold a token or text the
+// service sent.
+func Upstream(status int, hint string, cause error) error {
+	return &contract.UpstreamError{Status: status, Hint: hint, Cause: cause}
+}
+
 // badRequestText is the body of a 400 answer: the reason a runtime put after
 // ErrBadRequest ("invalid request: <reason>"), or the plain class. The owner
 // keeps a short printable part of it, so a runtime writes a fixed sentence
@@ -199,6 +209,12 @@ func Handler(startup Startup, rt contract.Runtime) http.Handler {
 				w.Header().Set("Content-Type", "application/json")
 				_ = json.NewEncoder(w).Encode(v)
 			case errors.Is(err, ErrBadRequest):
+				if up, ok := contract.UpstreamOf(err); ok && contract.ValidUpstreamStatus(up.Status) {
+					w.Header().Set(contract.HeaderUpstreamStatus, strconv.Itoa(up.Status))
+					if hint := contract.CleanHint(up.Hint); hint != "" {
+						w.Header().Set(contract.HeaderUpstreamHint, hint)
+					}
+				}
 				http.Error(w, badRequestText(err), http.StatusBadRequest)
 			case errors.Is(err, contract.ErrRefused):
 				http.Error(w, ErrBadRequest.Error(), http.StatusBadRequest)

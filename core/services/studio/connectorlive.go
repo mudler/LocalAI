@@ -31,6 +31,16 @@ const (
 	maxToolsShown = 5
 	// editTimeout bounds one edit: a slow edit is skipped, not waited for.
 	editTimeout = 5 * time.Second
+	// answerTimeout bounds the sending of an answer. It is long, because the
+	// add-on waits for the wait a platform asks for before it gives up the
+	// edit of the preview.
+	answerTimeout = 2 * time.Minute
+	// maxEditFails is how many previews in a row may fail before the reply
+	// stops editing its working message. The message stays: the answer still
+	// replaces it, or deletes it.
+	maxEditFails = 3
+	// maxEditBackoff bounds the wait after a failed preview.
+	maxEditBackoff = 30 * time.Second
 )
 
 // liveReply is what a sender sees of one turn in one conversation: a working
@@ -41,9 +51,14 @@ type liveReply struct {
 	// v speaks the fixed words of the preview in the sender's language.
 	v hostmsg.Voice
 	// id is the working message. It is "" when the mode is off, while
-	// drafts show the preview, when the message could not be sent, or after
-	// an edit failed: the answer then goes as a new message.
+	// drafts show the preview, or when the message could not be sent. It
+	// stays set when an edit fails: the answer must replace that message, or
+	// delete it, so that no preview with a cursor stays in the conversation.
 	id string
+	// fails counts the previews that failed in a row; muted tells that the
+	// reply no longer edits id.
+	fails int
+	muted bool
 	// draft names the draft that shows the preview; 0 when there is none.
 	// A platform that refuses a draft gets a working message instead, for
 	// the rest of the turn.
@@ -53,13 +68,10 @@ type liveReply struct {
 	// shown is what the working message or the draft shows now.
 	shown string
 	tools []string
-	// answer is the text of the answer so far, and status the latest
-	// reasoning or tool line, for the stream mode.
+	// answer is the text of the answer so far, and status the latest tool
+	// line, for the stream mode. Reasoning is never shown to the sender.
 	answer strings.Builder
 	status string
-	// reasoning tells that status holds reasoning, which grows, rather than
-	// a tool line, which is replaced.
-	reasoning bool
 }
 
 // livePace is how a binding shows previews: how often, and whether its
@@ -97,23 +109,19 @@ func (l *liveReply) observe(ev session.Event) {
 		}
 		// The text before a tool call is a preamble; the answer comes after.
 		l.answer.Reset()
-		l.status, l.reasoning = l.v.T("live.using", "tool", ev.Tool.Name), false
+		l.status = l.v.T("live.using", "tool", ev.Tool.Name)
 	case session.KindText:
 		l.answer.WriteString(ev.Text)
-	case session.KindReasoning:
-		if !l.reasoning {
-			l.status, l.reasoning = "", true
-		}
-		// Reasoning grows while it goes on; only the end can be shown.
-		l.status = tailRunes(l.status+ev.Text, maxPreviewRunes)
 	}
+	// session.KindReasoning is not shown: the reasoning of the model is not
+	// the answer, and a sender must never read it.
 }
 
 // view is what the working message should show now.
 func (l *liveReply) view() string {
 	switch l.mode {
 	case connectors.ReplyStream:
-		// The answer once it starts; before it, the reasoning or the tool.
+		// The answer once it starts; before it, the tool.
 		t := strings.TrimSpace(l.answer.String())
 		if t == "" {
 			t = strings.TrimSpace(l.status)
@@ -255,10 +263,11 @@ func (c *Connectors) holdEdits(binding string, d time.Duration) {
 // flush shows the preview when it should show something new and the
 // binding's budget allows. A draft that shows nothing new is sent again after
 // the heartbeat, so the platform keeps it. A draft the platform refuses
-// becomes a working message. A failed edit gives up the working message, so
-// the answer goes as a new message; a rate-limited one only waits.
+// becomes a working message. A failed edit backs off and, after a few in a
+// row, stops the previews; the working message stays for the answer to
+// replace. A rate-limited edit only waits.
 func (c *Connectors) flush(b connectors.Binding, token string, m contract.ConnectorMessage, l *liveReply, pace livePace) {
-	if l.id == "" && l.draft == 0 {
+	if (l.id == "" || l.muted) && l.draft == 0 {
 		return
 	}
 	v := l.view()
@@ -278,19 +287,31 @@ func (c *Connectors) flush(b connectors.Binding, token string, m contract.Connec
 	var ce *contract.ConnectorError
 	switch {
 	case err == nil:
-		l.shown = v
+		l.shown, l.fails = v, 0
 	case errors.As(err, &ce) && ce.Code == contract.ConnectorRateLimited:
 		c.holdEdits(b.ID, time.Duration(max(ce.RetryAfter, 1))*time.Second)
 	default:
-		c.log.Debug("studio: a connector edit failed; the answer goes as a new message", "binding", b.ID, "kind", b.Kind, "error", err)
-		l.id = ""
+		// The working message stays: it is not given up on one failure, and
+		// the answer replaces it or deletes it. The preview backs off, and
+		// stops after a few failures in a row.
+		l.fails++
+		c.log.Debug("studio: a connector edit failed", "binding", b.ID, "kind", b.Kind, "failures", l.fails, "error", err)
+		if l.fails >= maxEditFails {
+			l.muted = true
+		} else {
+			c.holdEdits(b.ID, min(pace.every<<l.fails, maxEditBackoff))
+		}
 	}
 }
 
 // finish sends the answer of a turn. It replaces the working message, when
-// there is one, and returns the IDs of the messages that hold the answer.
+// there is one; when that cannot be done, the add-on deletes the working
+// message after it posts the answer. If the answer cannot be sent at all, the
+// working message becomes a short failure line, or is deleted, so that no
+// preview with a cursor stays. It returns the IDs of the messages that hold
+// the answer.
 func (c *Connectors) finish(b connectors.Binding, token string, m contract.ConnectorMessage, l *liveReply, answer string) []string {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), answerTimeout)
 	defer cancel()
 	req := contract.ConnectorRequest{Op: contract.ConnectorOpSend, Kind: b.Kind, Token: token, Chat: m.Chat, Thread: m.Thread, Text: answer, MessageID: l.id}
 	resp, err := c.o.Transport.Call(ctx, BindingConnectorScope(b), req)
@@ -299,6 +320,7 @@ func (c *Connectors) finish(b connectors.Binding, token string, m contract.Conne
 	}
 	if err != nil {
 		c.log.Warn("studio: could not send a connector answer", "binding", b.ID, "kind", b.Kind, "error", err)
+		c.dropPreview(b, token, m, l)
 		return nil
 	}
 	var ids []string
@@ -308,4 +330,22 @@ func (c *Connectors) finish(b connectors.Binding, token string, m contract.Conne
 		}
 	}
 	return ids
+}
+
+// dropPreview takes the preview out of the conversation when the answer could
+// not be sent: it shows a short failure line, and when even that fails it
+// deletes the message. A platform that can do neither leaves the message.
+func (c *Connectors) dropPreview(b connectors.Binding, token string, m contract.ConnectorMessage, l *liveReply) {
+	if l.id == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), editTimeout*2)
+	defer cancel()
+	err := c.send(ctx, b, contract.ConnectorRequest{Op: contract.ConnectorOpEdit, Token: token, Chat: m.Chat, Thread: m.Thread, MessageID: l.id, Text: l.v.T("failed")})
+	if err == nil {
+		return
+	}
+	if err := c.send(ctx, b, contract.ConnectorRequest{Op: contract.ConnectorOpDelete, Token: token, Chat: m.Chat, Thread: m.Thread, MessageID: l.id}); err != nil {
+		c.log.Debug("studio: could not remove a connector preview", "binding", b.ID, "kind", b.Kind, "error", err)
+	}
 }

@@ -3,7 +3,9 @@ import { startChat } from './journey-fixtures.js'
 
 // The skill switches of a chat name a skill by its id, and the pages of an
 // add-on say why they are missing when add-ons are off. Against the real test
-// server (add-ons off there), reading the API after each step.
+// server (add-ons off there), reading the API after each step. Skills the host
+// grants with the memory notes are locked rows: they show their state and take
+// no part in the switches or the bulk actions, so the spec leaves them out.
 
 test.describe.configure({ timeout: 90_000 })
 
@@ -11,12 +13,12 @@ const api = (request, path) => request.get(path).then(r => r.json())
 
 test('switching a skill off in a chat sends its id, and the chat lists it off', async ({ page }) => {
   const id = await startChat(page, 'skills please')
-  const skills = (await api(page.request, `/api/chats/skills?chat=${id}`)).skills.filter(s => !s.shadowed && !s.invalid)
+  const skills = (await api(page.request, `/api/chats/skills?chat=${id}`)).skills.filter(s => !s.shadowed && !s.invalid && !s.locked)
   const skill = skills[0]
   expect(skill.id).toBe(`${skill.layer}:${skill.name}`)
   await page.getByTestId('chat-skills-button').click()
   const menu = page.getByTestId('chat-skills-menu')
-  const enabled = async () => (await api(page.request, `/api/chats/skills?chat=${id}`)).skills.filter(s => !s.shadowed && !s.invalid)
+  const enabled = async () => (await api(page.request, `/api/chats/skills?chat=${id}`)).skills.filter(s => !s.shadowed && !s.invalid && !s.locked)
   const putOff = () => page.waitForRequest(r => r.method() === 'PUT' && r.url().endsWith(`/api/chats/${id}/skills`))
 
   // One switch per skill, named by the skill. Switching it sends its id.

@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/resourcesets"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 )
@@ -54,9 +55,19 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 	p := principal(user)
 	keepOff, keepOn, keepGrants := a.BuiltinsOff == nil, a.BuiltinsOn == nil, a.Builtins == nil
 	keepConnections := a.Connections == nil
+	// The resources are kept the same way: only a client that sends the field
+	// changes what the agent may use.
+	keepResources := a.Resources == nil
 	// A write without the memory choice keeps the stored one: a client that
 	// does not know the field cannot widen what the agent reads or saves.
 	keepMemory := a.Memory == ""
+	// The save rule of the agent is kept the same way, so an older client
+	// cannot drop a stricter rule. A client that knows it writes use_mine to
+	// clear it.
+	keepMemorySave := a.MemorySave == ""
+	if a.MemorySave == agents.MemorySaveUseMine {
+		a.MemorySave = ""
+	}
 	grants, err := cleanGrants(a.Builtins, false)
 	if err != nil {
 		return agents.Agent{}, fmt.Errorf("%w: %w", agents.ErrInvalid, err)
@@ -72,7 +83,11 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 	if err := agents.Validate(a); err != nil {
 		return agents.Agent{}, err
 	}
+	a.Resources = resourcesets.Normalize(a.Resources)
 	if err := s.checkConnections(ctx, p, a.Connections); err != nil {
+		return agents.Agent{}, err
+	}
+	if err := s.checkMCPServers(ctx, p, a); err != nil {
 		return agents.Agent{}, err
 	}
 	a.BuiltinsOff, a.BuiltinsOn = s.agentGroups(a.BuiltinsOff, false), s.agentGroups(a.BuiltinsOn, true)
@@ -89,7 +104,7 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 	} else {
 		old, err := s.d.Agents.Get(ctx, p, a.ID)
 		if err != nil {
-			return agents.Agent{}, err
+			return agents.Agent{}, s.ownerOnly(ctx, user, a.ID, err)
 		}
 		if folders == nil {
 			a.Folders, a.FolderID, a.FolderMode = old.Folders, old.FolderID, old.FolderMode
@@ -111,8 +126,14 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 		if keepConnections {
 			a.Connections = old.Connections
 		}
+		if keepResources {
+			a.Resources = old.Resources
+		}
 		if keepMemory {
 			a.Memory = old.Memory
+		}
+		if keepMemorySave {
+			a.MemorySave = old.MemorySave
 		}
 	}
 	// The grant saved_agents is the opt-in group of the same name: the chats of
@@ -152,7 +173,22 @@ func (s *Service) DeleteAgent(ctx context.Context, user, id string) error {
 	if s.d.Agents == nil {
 		return ErrAgentsOff
 	}
-	return s.d.Agents.Delete(ctx, principal(user), id)
+	ag, err := s.d.Agents.Get(ctx, principal(user), id)
+	if err != nil {
+		return s.ownerOnly(ctx, user, id, err)
+	}
+	if err := s.d.Agents.Delete(ctx, principal(user), id); err != nil {
+		return err
+	}
+	s.forgetAgentShares(ctx, principal(user), ag)
+	return nil
+}
+
+// OwnAgent returns a saved agent of the user for an action that is the
+// owner's alone, such as an export. An agent that is only shared with the
+// user is ErrAgentNotOwner.
+func (s *Service) OwnAgent(ctx context.Context, user, id string) (agents.Agent, error) {
+	return s.ownAgent(ctx, user, id)
 }
 
 // What happens to the notes of an agent that is deleted.
@@ -192,8 +228,9 @@ func (s *Service) DeleteAgentWithNotes(ctx context.Context, user, id, notes stri
 	if s.d.Agents == nil {
 		return nil, ErrAgentsOff
 	}
-	if _, err := s.d.Agents.Get(ctx, principal(user), id); err != nil {
-		return nil, err
+	ag, err := s.d.Agents.Get(ctx, principal(user), id)
+	if err != nil {
+		return nil, s.ownerOnly(ctx, user, id, err)
 	}
 	var zipped []byte
 	if notes == AgentNotesExport {
@@ -209,6 +246,7 @@ func (s *Service) DeleteAgentWithNotes(ctx context.Context, user, id, notes stri
 	if err := s.d.Agents.Delete(ctx, principal(user), id); err != nil {
 		return nil, err
 	}
+	s.forgetAgentShares(ctx, principal(user), ag)
 	if notes == AgentNotesExport || notes == AgentNotesDelete {
 		if err := s.d.Files.DeleteHome(ctx, principal(user), "Memory/agents/"+id); err != nil {
 			return zipped, fmt.Errorf("%w: %v", ErrAgentNotesKept, err)
@@ -342,8 +380,9 @@ const maxHistoryScan = 5000
 
 // AgentRuns returns the chats of the user that ran with the agent, newest
 // first, up to limit, and counts all that are in the newest maxHistoryScan.
+// For an agent shared with the user these are the user's own chats with it.
 func (s *Service) AgentRuns(ctx context.Context, user, id string, limit int) (AgentHistory, error) {
-	if _, err := s.Agent(ctx, user, id); err != nil {
+	if _, _, err := s.SharedAgent(ctx, user, id); err != nil {
 		return AgentHistory{}, err
 	}
 	p := principal(user)

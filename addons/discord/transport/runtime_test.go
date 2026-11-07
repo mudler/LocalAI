@@ -38,6 +38,7 @@ var _ = Describe("the connector route", func() {
 			Expect(out.Error).To(BeNil())
 			Expect(out.BotID).To(Equal(botID))
 			Expect(out.BotUsername).To(Equal("localai-bot"))
+			Expect(out.AccountID).To(Equal(botID), "the application names the account")
 		})
 
 		It("warns in the name when the Message Content intent is off", func() {
@@ -52,6 +53,7 @@ var _ = Describe("the connector route", func() {
 			out := call(rt, contract.ConnectorRequest{Op: "me"})
 			Expect(out.Error).To(BeNil())
 			Expect(out.BotUsername).To(Equal("localai-bot"))
+			Expect(out.AccountID).To(Equal(botID), "the bot user stands in for the application")
 		})
 
 		It("reports a refused token as unauthorized, without the token", func() {

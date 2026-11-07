@@ -41,6 +41,11 @@
       "readsLabel": "Lê",
       "writesLabel": "Escreve",
       "costLabel": "Custo",
+      "deliveryLabel": "Os resultados vão para",
+      "deliveryInbox": "Sua caixa de entrada",
+      "deliveryChat": "Este chat",
+      "deliveryThread": "Este tópico",
+      "deliveryChannel": "{{channel}}, no nível principal do canal",
       "stopLabel": "Para parar",
       "when": "{{schedule}}, {{zone}}. Primeira execução {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -266,7 +271,32 @@
   "connectorsPage": {
     "loadFailed": "Não foi possível carregar seus conectores.",
     "waitingTitle": "Aguardando o complemento",
-    "waitingText": "Estes vínculos são mantidos, mas só funcionam quando o complemento deles estiver instalado e ligado."
+    "waitingText": "Estes vínculos são mantidos, mas só funcionam quando o complemento deles estiver instalado e ligado.",
+    "duplicate": {
+      "text": "Este bot também está conectado como {{name}}. As duas conexões vão responder à mesma mensagem.",
+      "turnOff": "Desativar esta",
+      "open": "Abrir {{name}}"
+    },
+    "new": "Nova conexão",
+    "newMenu": "Escolha a plataforma da nova conexão",
+    "state": {
+      "running": "Em execução",
+      "off": "Desligada",
+      "attention": "Precisa de atenção"
+    },
+    "share": {
+      "label": "Compartilhar",
+      "button": "Compartilhar {{name}}",
+      "intro": "As pessoas que você adicionar podem usar esta conexão nos próprios chats e agentes. Elas veem o nome e o estado, nunca o token nem as configurações. As mensagens para o bot continuam chegando ao seu agente.",
+      "roleUse": "Pode usar",
+      "roleUseHelp": "Pode usá-la nos próprios chats e agentes. Não pode ver o token, alterá-la nem compartilhá-la."
+    },
+    "shared": {
+      "title": "Compartilhadas com você",
+      "text": "Outras pessoas deixam você usar estas conexões nos seus chats e agentes. Só o dono pode alterá-las.",
+      "on": "Ouvindo",
+      "off": "Desligada"
+    }
   },
   "tools": {
     "commands": {
@@ -330,9 +360,12 @@
       "subagents": "Subagentes",
       "changes": "Alterações sugeridas",
       "memory": "Memória",
-      "history": "Chats anteriores"
+      "history": "Chats anteriores",
+      "localai_client": "Cliente LocalAI",
+      "localai_admin": "Administração do LocalAI"
     },
     "builtinBy": "{{tools}} · integradas",
+    "onDemand": "Carregado sob demanda",
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",
     "servedBy": "Servido pelo complemento {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
@@ -354,7 +387,9 @@
       "triggers": "O modelo pode propor, listar, alterar e excluir gatilhos. Você confirma cada novo gatilho ou alteração.",
       "changes": "O modelo pode propor alterações nas suas notas, nas regras dele, em skills, páginas e no painel. Você confirma cada uma.",
       "memory": "O modelo pode ler suas notas antes de responder e salvar novas. Desative para tornar este um chat privado: nada é lido das suas notas nem salvo nelas. Seus outros chats não mudam.",
-      "history": "Permite que o modelo pesquise e leia seus chats anteriores."
+      "history": "Permite que o modelo pesquise e leia seus chats anteriores.",
+      "localai_client": "Permite que o modelo crie imagens, voz, som e vídeo, e transcreva, gere embeddings, reordene e detecte, com os modelos instalados aqui.",
+      "localai_admin": "Permite que o modelo gerencie este servidor: modelos, backends, configurações e o estado. Só para administradores; o modelo pergunta a você antes de mudar qualquer coisa."
     },
     "whenOff": {
       "shell": "O modelo pode escrever arquivos, mas não pode executar nada.",
@@ -367,7 +402,9 @@
       "triggers": "O modelo não pode propor nem gerenciar gatilhos.",
       "changes": "O modelo não pode propor alterações nas suas notas, nas regras dele, em skills, páginas ou no painel.",
       "memory": "Este é um chat privado. O modelo não lê nem salva suas notas.",
-      "history": "O modelo não pode ver seus chats anteriores."
+      "history": "O modelo não pode ver seus chats anteriores.",
+      "localai_client": "O modelo não pode executar esses modelos por conta própria.",
+      "localai_admin": "O modelo não pode gerenciar este servidor."
     },
     "addonDescribe_one": "Dá ao modelo {{count}} ferramenta deste add-on.",
     "addonDescribe_other": "Dá ao modelo {{count}} ferramentas deste add-on.",
@@ -422,6 +459,10 @@
       "dashboard_write": {
         "title": "Alterar o painel",
         "description": "O modelo pode propor um novo layout do seu painel inicial. Você confirma cada alteração."
+      },
+      "knowledge_write": {
+        "title": "Adicionar ao conhecimento",
+        "description": "Permite que o modelo proponha um texto para uma coleção do seu Conhecimento. Você confirma cada um; ele nunca é adicionado na hora."
       },
       "triggers_propose": {
         "title": "Propor também de aplicativos de mensagens",
@@ -625,6 +666,8 @@
       "writes": "Escreve",
       "widget": "Widget da Início",
       "estimated_tokens": "Tokens por execução",
+      "acts": "O que uma execução pode fazer",
+      "delivery": "Para onde vão as respostas",
       "agent": "Agente",
       "model": "Modelo"
     },
@@ -714,6 +757,64 @@
       "noChat": "Envie uma primeira mensagem e depois inicie um loop neste chat.",
       "stopped_one": "{{count}} loop parado.",
       "stopped_other": "{{count}} loops parados."
+    },
+    "wait": {
+      "name": "Aguardando",
+      "kind": "Espera",
+      "pending": "Aguarda o seu sim",
+      "paused": "Espera pausada",
+      "stop": "Parar espera",
+      "details": "Detalhes da espera",
+      "watching": "Vigia {{source}}",
+      "until": "Até {{condition}}",
+      "notChecked": "Ainda não verificado",
+      "checked_one": "Verificado {{count}} vez",
+      "checked_other": "Verificado {{count}} vezes",
+      "checkedAgo_one": "Verificado {{count}} vez, a última {{ago}}",
+      "checkedAgo_other": "Verificado {{count}} vezes, a última {{ago}}",
+      "outcome": {
+        "unchanged": "sem mudança",
+        "changed": "mudou",
+        "error": "falhou"
+      },
+      "ago": "há {{span}}",
+      "justNow": "agora mesmo",
+      "in": "em {{span}}",
+      "now": "agora",
+      "next": "Próxima verificação {{when}}",
+      "deadline": "Desiste às {{time}} ({{when}})",
+      "errorStreak": "A última verificação falhou ({{count}} de {{max}} seguidas)",
+      "errorStreakMsg": "A última verificação falhou ({{count}} de {{max}} seguidas): {{message}}",
+      "lastError": "Último erro: {{message}}",
+      "sources": {
+        "tool": "ferramenta {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "Concluída: a condição foi atendida",
+        "failing_one": "Parada: a fonte falhou {{count}} vez seguida",
+        "failing_other": "Parada: a fonte falhou {{count}} vezes seguidas",
+        "timedOut": "Tempo esgotado, a condição não foi atendida",
+        "stopped": "Espera parada"
+      },
+      "waking": {
+        "met": "A condição foi atendida. Perguntando ao modelo o que fazer.",
+        "failing": "A fonte falhou. Perguntando ao modelo o que fazer.",
+        "timedOut": "Tempo esgotado, a condição não foi atendida. Perguntando ao modelo o que fazer."
+      },
+      "phase": {
+        "waiting": "aguardando",
+        "waking": "acordando o modelo",
+        "paused": "em pausa",
+        "ended": "encerrada",
+        "pending": "aguarda o seu sim"
+      },
+      "endShort": {
+        "condition_met": "condição atendida",
+        "source_failing": "fonte falhou",
+        "timed_out": "tempo esgotado",
+        "stopped": "parada"
+      }
     }
   },
   "changes": {
@@ -725,7 +826,9 @@
       "profile": "Perfil",
       "skill": "Skill",
       "page": "Página",
-      "dashboard": "Painel"
+      "dashboard": "Painel",
+      "knowledge": "Conhecimento",
+      "voice_profile": "Perfil de voz"
     },
     "scope": {
       "user": "Todos os seus chats",
@@ -738,7 +841,8 @@
       "kind": "Tipo",
       "target": "Arquivo",
       "source": "De",
-      "expires": "Expira em"
+      "expires": "Expira em",
+      "collection": "Coleção"
     },
     "source": {
       "chat": "Um chat",
@@ -787,6 +891,32 @@
       "dismissed": "Alteração dispensada.",
       "undone": "Alteração desfeita.",
       "asked": "O assistente foi solicitado a propor de novo."
+    },
+    "knowledge": {
+      "label": "Texto a adicionar em {{collection}}",
+      "size": "{{size}} de no máximo {{max}}",
+      "note": "Nada é adicionado até você confirmar. Depois o texto é dividido em trechos e indexado, e qualquer chat que busque nesta coleção pode usá-lo.",
+      "editLabel": "Texto a adicionar em {{target}}",
+      "embed_one": "1 trecho será incorporado com {{model}}.",
+      "embed_other": "Cerca de {{count}} trechos serão incorporados com {{model}}.",
+      "serverModel": "o modelo de embeddings do servidor"
+    },
+    "warning": {
+      "title": "Confira este texto antes de confirmar.",
+      "secret": "Ele parece conter um segredo, como uma chave, um token ou uma senha. Depois de adicionado, qualquer chat que pesquise esta coleção pode lê-lo. Um chat de mensagens não pode confirmá-lo; só você, aqui.",
+      "other": "O servidor marcou este texto como arriscado. Um chat de mensagens não pode confirmá-lo; só você, aqui."
+    },
+    "voice": {
+      "label": "Voz a clonar",
+      "name": "Nome",
+      "file": "Gravação",
+      "clip": "Clipe fixado",
+      "language": "Idioma",
+      "transcript": "Transcrição",
+      "consentTitle": "Confirme apenas se a pessoa que fala concordou.",
+      "consent": "A gravação é salva como um perfil de voz com o qual seus chats podem falar. Você pode excluí-la na biblioteca de Voz.",
+      "consentAdmin": "Você é administrador, então esta voz fica disponível para todos os usuários deste servidor.",
+      "confirm": "A pessoa concordou: salvar a voz"
     }
   },
   "proposalsPage": {
@@ -841,6 +971,7 @@
       "mine": "Minhas",
       "deleted": "Agentes excluídos",
       "channels": "Conversas",
+      "channelsNote": "Notas salvas de chats em apps de mensagens. Abra uma nota para lê-la ou exclua-a. Uma nota de um remetente que não está verificado com você sempre aguarda seu OK.",
       "export": "Exportar estas notas",
       "clearAgent": "Excluir as notas deste agente",
       "clearDeleted": "Excluir estas notas"
@@ -889,13 +1020,36 @@
         "title": "Salvar e me avisar",
         "body": "Nos seus próprios chats a nota é salva na hora. O chat mostra \"Salvo na memória\" com Desfazer. Até 5 notas por resposta. Uma nota longa, ou que parece um segredo, ainda espera por você."
       },
+      "always": {
+        "title": "Sempre confirmar",
+        "body": "Como Perguntar antes, e nada pode afrouxá-lo. Desfazer e esquecer também esperam por você. Nenhuma configuração de agente ou de mensagens pode sobrepô-lo."
+      },
       "never": {
         "title": "Nunca",
         "body": "O assistente não pode salvar notas. Ele diz que salvar está desativado."
       }
     },
     "default": "Padrão",
-    "saveNote": "Chats de apps de mensagens sempre perguntam antes. Execuções em segundo plano e gatilhos nunca salvam uma nota. Um agente salvo pode perguntar mais, nunca menos, do que você escolheu aqui.",
+    "saveNote": "Execuções em segundo plano e gatilhos nunca salvam uma nota. Um agente salvo pode perguntar mais, nunca menos, do que você escolheu aqui.",
+    "messaging": {
+      "title": "Em apps de mensagens",
+      "lede": "O que acontece quando uma nota é proposta em um chat de app de mensagens, onde quem escreve pode não ser você.",
+      "ask": {
+        "title": "Perguntar antes",
+        "body": "O bot pergunta no chat: \"Responda sim para salvar.\" Um remetente da lista pode responder lá. Os outros esperam por você no app."
+      },
+      "paired_private": {
+        "title": "Salvar para uma pessoa verificada em chat privado",
+        "body": "Salva na hora só se o remetente for uma pessoa verificada e o chat for individual. A nota vai para essa conversa, com Desfazer. Uma nota que pareça um segredo continua aguardando."
+      },
+      "never": {
+        "title": "Nunca",
+        "body": "Nenhuma nota é salva a partir de apps de mensagens."
+      },
+      "limit": "Nunca mais frouxo que a configuração acima.",
+      "lockedAlways": "Sua configuração acima é Sempre confirmar, então esta linha não pode salvar uma nota na hora.",
+      "lockedNever": "Sua configuração acima é Nunca, então nenhuma nota é salva a partir de apps de mensagens."
+    },
     "saveFailed": "Não foi possível salvar sua escolha.",
     "loadError": "Não foi possível carregar suas configurações de memória.",
     "notesTitle": "Gerenciar suas notas",
@@ -908,7 +1062,8 @@
       "chat": "Este é um chat privado: nada é lido nem salvo. Suas notas não são tocadas. Ative no menu de ferramentas.",
       "user": "Nenhum chat ou agente lê ou salva notas, e suas notas não são tocadas.",
       "agent": "O agente deste chat desativou a memória.",
-      "files": "As notas são arquivos, e os arquivos estão desativados neste servidor."
+      "files": "As notas são arquivos, e os arquivos estão desativados neste servidor.",
+      "provider": "O complemento que fornece a memória não está disponível, então nada é lido nem salvo. Escolha um provedor em Configurações, Memória."
     },
     "chip": "Memória off",
     "chipPrivate": "Chat privado",
@@ -942,15 +1097,20 @@
       "title": "Como antes",
       "body": "Este agente foi salvo antes de existir esta escolha. Ele lê suas notas se a lista de complementos dele citar Memory, e o modelo escolhe onde salvar uma nota. Escolha uma das opções abaixo para mudar isso."
     },
-    "saveGrant": "Deixar salvar notas",
-    "saveGrantHelp": "Liga a permissão Lembrar coisas. Sem ela, o agente lê notas mas não consegue salvar nenhuma.",
     "copyNote": "Exportar um agente, ou importá-lo como novo, mantém esta escolha e nunca copia as notas dele.",
     "summary": {
       "mine_and_own": "Minhas e dele",
       "own": "Só dele",
       "mine": "Minhas",
       "none": "Nenhuma",
-      "asBefore": "Como antes"
+      "asBefore": "Como antes",
+      "withAuto": "{{choice}}, salva na hora",
+      "level": {
+        "off": "Desligada",
+        "reads": "Lê notas",
+        "saves": "Lê e salva notas"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "Excluir {{name}}?",
@@ -970,6 +1130,87 @@
         "title": "Excluir as notas também",
         "body": "Vão para a Lixeira e você pode restaurá-las em Arquivos."
       }
+    },
+    "rule": {
+      "title": "Quando quer salvar uma nota",
+      "use_mine": {
+        "title": "Usar minha configuração",
+        "body": "Sua configuração é <b>{{level}}</b>. <settings>Altere em Configurações > Memória.</settings>"
+      },
+      "auto": {
+        "title": "Salvar e me avisar",
+        "body": "Salva cada nota na hora e avisa você no chat, com Desfazer, mesmo que sua configuração seja Perguntar antes. Uma nota longa, ou que pareça um segredo, continua esperando."
+      },
+      "always": {
+        "title": "Sempre confirmar",
+        "body": "Mais rígido que minha configuração."
+      },
+      "never": {
+        "title": "Nunca",
+        "body": "Lê, nunca salva."
+      },
+      "hint": "Em um chat de mensagens, a nota vai primeiro para essa conversa e só chega às notas próprias deste agente vinda de uma pessoa verificada. Salvar na hora em um chat de mensagens vale só para uma pessoa verificada em um chat individual.",
+      "offReason": "O nível de salvamento não vale enquanto a memória está desligada.",
+      "readsReason": "O nível de salvamento não vale: este agente lê notas, mas não pode salvar nenhuma."
+    },
+    "level": {
+      "title": "O que faz com as notas",
+      "off": {
+        "title": "Desligada",
+        "body": "Não lê nem salva notas."
+      },
+      "reads": {
+        "title": "Lê notas",
+        "body": "Usa suas notas para responder. Nunca salva nenhuma."
+      },
+      "saves": {
+        "title": "Lê e salva notas",
+        "body": "Usa notas e salva novas, conforme o seu nível de salvamento."
+      }
+    },
+    "whose": "De quem são as notas",
+    "whoseOff": "A memória está desligada para este agente, então não há notas para escolher."
+  },
+  "providerPicker": {
+    "title": "Provedor",
+    "lede": "Só um provedor atende por vez. Seus dados existentes ficam onde estão quando você troca.",
+    "off": "Desativado",
+    "unavailable": "Indisponível",
+    "loadError": "Não foi possível carregar os provedores",
+    "saveFailed": "Não foi possível alterar o provedor",
+    "failedTitle": "{{name}} não está disponível",
+    "failedReason": "Isto continua desativado até você escolher um provedor. Nada foi movido para o provedor integrado, então nada é salvo onde você não escolheu.",
+    "useBuiltin": "Usar o provedor integrado",
+    "facts": {
+      "local": "Local",
+      "remote": "Remoto",
+      "undoHost": "Desfazer aqui",
+      "undoProvider": "Desfazer pelo serviço",
+      "undoNone": "Não pode ser desfeito"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Integrado",
+        "builtinBody": "Arquivos simples na sua pasta Memory. Nada sai desta máquina.",
+        "offBody": "Nada é lido, oferecido, salvo ou enviado. As notas existentes são mantidas."
+      }
+    },
+    "healthTitle": "O provedor está em pausa",
+    "forget": {
+      "lede": "Peça a {{name}} que esqueça as notas que guarda para você. Seus arquivos na pasta Memory não são tocados.",
+      "action": "Esquecer tudo deste provedor",
+      "confirmTitle": "Esquecer tudo de {{name}}?",
+      "confirmBody": "{{name}} será solicitado a esquecer cada nota que guarda para você. Ele pode reter a mudança até você confirmá-la na página de Add-ons.",
+      "confirmBodyFinal": "{{name}} será solicitado a esquecer cada nota que guarda para você. Isso não pode ser desfeito.",
+      "confirm": "Esquecer tudo",
+      "pending": "Esquecendo...",
+      "done": "{{name}} esqueceu suas notas",
+      "waiting": "A mudança aguarda sua confirmação na página de Add-ons",
+      "failed": "O provedor não conseguiu esquecer: {{message}}"
     }
+  },
+  "subAgents": {
+    "waiting": "Aguardando: {{what}}",
+    "looping": "Em loop"
   }
 }

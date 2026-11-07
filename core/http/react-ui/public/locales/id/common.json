@@ -129,5 +129,79 @@
     "updateAvailable": "Pembaruan tersedia",
     "ready": "Siap",
     "noRunsYet": "Belum ada eksekusi"
+  },
+  "share": {
+    "title": "Bagikan \"{{name}}\"",
+    "untitled": "Tanpa nama",
+    "intro": "Orang yang Anda tambahkan melihatnya di daftar mereka sendiri.",
+    "disabled": {
+      "title": "Berbagi tidak tersedia",
+      "text": "LocalAI ini berjalan untuk satu pemilik lokal, jadi tidak ada akun lain untuk diajak berbagi."
+    },
+    "add": "Tambah orang",
+    "search": "Cari orang berdasarkan nama",
+    "searchHint": "Ketik minimal tiga huruf nama.",
+    "newRole": "Peran untuk orang yang ditambahkan",
+    "searching": "Mencari",
+    "noResults": "Tidak ada yang cocok.",
+    "alreadyShared": "Semua yang cocok sudah punya akses.",
+    "results": "Orang yang ditemukan",
+    "addPerson": "Tambahkan {{name}} sebagai {{role}}",
+    "granted": "{{name}} sekarang punya akses.",
+    "changed": "{{name}} sekarang {{role}}.",
+    "everyone": "Semua orang",
+    "everyoneHelp": "Setiap akun di LocalAI ini, termasuk akun baru.",
+    "everyoneAdd": "Bagikan ke semua orang",
+    "people": "Orang dengan akses",
+    "loading": "Memuat siapa yang punya akses",
+    "none": "Hanya Anda yang punya akses.",
+    "unnamed": "Akun tanpa nama",
+    "roleOf": "Peran {{name}}",
+    "revoke": "Berhenti berbagi",
+    "revokeAria": "Berhenti berbagi dengan {{name}}",
+    "revokeConfirm": "Berhenti berbagi dengan {{name}}? Pekerjaan yang sedang berjalan akan berhenti.",
+    "revoked": "Berhenti berbagi dengan {{name}}.",
+    "refs": {
+      "title": "Sebelum berbagi",
+      "intro": "Ini memakai sumber daya lain. Pilih apa yang didapat orang yang Anda tambahkan untuk masing-masing.",
+      "label": "Akses ke {{name}}",
+      "choose": "Pilih",
+      "pending": "Pilih opsi untuk setiap item di atas untuk berbagi.",
+      "option": {
+        "view": "Bisa melihat",
+        "use": "Bisa memakai",
+        "none": "Jangan bagikan"
+      },
+      "own": "Mereka perlu akses sendiri"
+    },
+    "roles": {
+      "owner": "Pemilik",
+      "use": "Bisa memakai",
+      "manage": "Bisa mengelola",
+      "viewer": "Pembaca",
+      "editor": "Penyunting"
+    },
+    "roleHelp": {
+      "use": "Bisa membuka dan menjalankannya.",
+      "manage": "Juga bisa mengubahnya.",
+      "viewer": "Bisa membacanya.",
+      "editor": "Bisa membaca dan mengubahnya."
+    },
+    "line": {
+      "sharedBy": "Dibagikan oleh {{name}}",
+      "sharedEveryone": "Dibagikan ke semua orang oleh {{name}}",
+      "sharedWith": "Dibagikan dengan {{count}}",
+      "private": "Pribadi"
+    },
+    "error": {
+      "withdrawn": "Halaman ini ditutup.",
+      "auth": "Masuk lagi untuk berbagi.",
+      "denied": "Anda tidak bisa lagi membagikan ini. Mungkin sudah dihapus.",
+      "unknown": "Perubahan mungkin belum tersimpan. Coba lagi untuk memastikan.",
+      "invalid": "Server menolak perubahan ini.",
+      "network": "Server tidak dapat dijangkau.",
+      "unavailable": "Berbagi tidak menjawab. Coba lagi sebentar lagi.",
+      "generic": "Terjadi kesalahan."
+    }
   }
 }

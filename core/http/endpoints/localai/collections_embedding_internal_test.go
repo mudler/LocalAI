@@ -27,7 +27,7 @@ var _ = Describe("the embedding model of the collections", func() {
 		Expect(err).ToNot(HaveOccurred())
 		ctx, cancel := context.WithCancel(context.Background())
 		DeferCleanup(cancel)
-		app, err = application.New(config.WithContext(ctx), config.WithSystemState(st), config.WithDisableLocalAIAssistant(true), config.WithDisableStats(true))
+		app, err = application.New(config.WithContext(ctx), config.WithSystemState(st), config.WithDisableStats(true))
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -46,5 +46,17 @@ var _ = Describe("the embedding model of the collections", func() {
 	It("is installed when a model file of that name is in the models folder", func() {
 		Expect(os.WriteFile(filepath.Join(models, "plain.gguf"), []byte("x"), 0o644)).To(Succeed())
 		Expect(embeddingModelInstalled(app, "plain.gguf")).To(BeTrue())
+	})
+})
+
+var _ = Describe("the search mode of the collections", func() {
+	It("is semantic for the engines that compare embeddings only", func() {
+		Expect(collectionSearchMode("chromem")).To(Equal("semantic"))
+		Expect(collectionSearchMode("localai")).To(Equal("semantic"))
+		Expect(collectionSearchMode("")).To(Equal("semantic"))
+	})
+
+	It("is hybrid for the postgres engine, which also matches words", func() {
+		Expect(collectionSearchMode("postgres")).To(Equal("hybrid"))
 	})
 })

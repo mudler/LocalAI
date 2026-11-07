@@ -28,6 +28,15 @@ type scope struct {
 	skillNames   []string
 	addonNames   []string
 	collNames    []string
+	// hostSkills are the skills the host grants for this chat on top of the
+	// agent's skills: those of the active memory provider while the chat reads
+	// the notes (memorySkillsOff sets them). hostSkillAddon is the add-on that
+	// ships them when the provider is an add-on.
+	hostSkills     map[string]bool
+	hostSkillAddon string
+	// groupSkills are the built-in skills of the LocalAI tool groups that the
+	// chat has now (groupSkillsOff sets them): the skills that teach the tools.
+	groupSkills map[string]bool
 }
 
 func set(l []string) map[string]bool {
@@ -46,7 +55,7 @@ func (s *Service) scopeOf(ctx context.Context, rec session.ChatRecord) *scope {
 	if s.d.Agents == nil {
 		return &scope{deleted: true}
 	}
-	ag, err := s.d.Agents.Get(ctx, rec.Principal, rec.AgentID)
+	ag, err := s.chatAgent(ctx, rec.Principal, rec.AgentID)
 	if errors.Is(err, agents.ErrNotFound) {
 		return &scope{deleted: true}
 	}

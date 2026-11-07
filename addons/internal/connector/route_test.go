@@ -21,6 +21,7 @@ type script struct {
 	typed   int
 	ups     []contract.ConnectorMessage
 	err     error
+	account string
 	sendErr []error
 	editErr error
 }
@@ -53,7 +54,7 @@ func (s *script) Edit(_ context.Context, req contract.ConnectorRequest) error {
 }
 func (s *script) Typing(context.Context, contract.ConnectorRequest) error { s.typed++; return s.err }
 func (s *script) Me(context.Context, string) (connector.Bot, error) {
-	return connector.Bot{ID: "1", Username: "bot"}, s.err
+	return connector.Bot{ID: "1", Username: "bot", AccountID: s.account}, s.err
 }
 
 // shouting formats.
@@ -149,9 +150,19 @@ var _ = Describe("Serve", func() {
 		out, err := connector.Serve(ctx, s, req("me"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out.BotUsername).To(Equal("bot"))
+		Expect(out.AccountID).To(BeEmpty(), "a platform that cannot tell leaves it empty")
 		_, err = connector.Serve(ctx, s, req("typing"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(s.typed).To(Equal(1))
+	})
+
+	It("passes the account of the token, and drops one that is too long", func() {
+		out, err := connector.Serve(ctx, &script{account: "T1/U1"}, req("me"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.AccountID).To(Equal("T1/U1"))
+		out, err = connector.Serve(ctx, &script{account: strings.Repeat("x", contract.MaxAccountIDBytes+1)}, req("me"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.AccountID).To(BeEmpty())
 	})
 
 	DescribeTable("types the errors of a platform",
@@ -303,5 +314,80 @@ var _ = Describe("Serve", func() {
 			Expect(out.Error.Code).To(Equal(contract.ConnectorRateLimited))
 			Expect(s.got).To(HaveLen(1))
 		})
+	})
+})
+
+// deleting is a Platform that can delete a message.
+type deleting struct {
+	script
+	deleted []contract.ConnectorRequest
+	delErr  error
+}
+
+func (d *deleting) Delete(_ context.Context, req contract.ConnectorRequest) error {
+	d.deleted = append(d.deleted, req)
+	return d.delErr
+}
+
+var _ = Describe("deleting the preview of an answer", func() {
+	ctx := context.Background()
+	req := func(op string) contract.ConnectorRequest {
+		return contract.ConnectorRequest{Op: op, Kind: "chat", Token: "t", Chat: "c", Text: "alpha beta gamma"}
+	}
+
+	BeforeEach(func() {
+		old := connector.Sleep
+		connector.Sleep = func(context.Context, time.Duration) error { return nil }
+		DeferCleanup(func() { connector.Sleep = old })
+	})
+
+	It("deletes the message of the op delete, and refuses it without a message or a platform that can", func() {
+		d := &deleting{}
+		r := req("delete")
+		r.MessageID = "9"
+		out, err := connector.Serve(ctx, d, r)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.Error).To(BeNil())
+		Expect(d.deleted).To(HaveLen(1))
+		_, err = connector.Serve(ctx, d, req("delete"))
+		Expect(err).To(MatchError(contract.ErrRefused))
+		r.MessageID = "9"
+		_, err = connector.Serve(ctx, &script{}, r)
+		Expect(err).To(MatchError(contract.ErrRefused))
+	})
+
+	It("deletes the preview after it sends the answer in its place", func() {
+		d := &deleting{script: script{editErr: errors.New("message to edit not found")}}
+		r := req("send")
+		r.MessageID = "9"
+		out, err := connector.Serve(ctx, d, r)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.Error).To(BeNil())
+		Expect(d.sent).To(HaveLen(2))
+		Expect(d.deleted).To(HaveLen(1))
+		Expect(d.deleted[0].MessageID).To(Equal("9"))
+	})
+
+	It("tries an edit again after each wait, up to a bound, before it falls back", func() {
+		var waits []time.Duration
+		connector.Sleep = func(_ context.Context, d time.Duration) error { waits = append(waits, d); return nil }
+		d := &deleting{script: script{editErr: &connector.RetryAfter{Seconds: 2}}}
+		r := req("send")
+		r.MessageID = "9"
+		_, err := connector.Serve(ctx, d, r)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(d.edited).To(HaveLen(3))
+		Expect(waits).To(Equal([]time.Duration{2 * time.Second, 2 * time.Second}))
+		Expect(d.deleted).To(HaveLen(1))
+	})
+
+	It("keeps the answer when the platform cannot delete the preview", func() {
+		d := &deleting{script: script{editErr: errors.New("gone")}, delErr: errors.New("no")}
+		r := req("send")
+		r.MessageID = "9"
+		out, err := connector.Serve(ctx, d, r)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.Error).To(BeNil())
+		Expect(d.sent).To(HaveLen(2))
 	})
 })

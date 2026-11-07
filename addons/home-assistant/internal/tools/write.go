@@ -107,6 +107,8 @@ func (c *call) parseWrite(tool string, raw map[string]json.RawMessage) (write, e
 	if err := c.instance(a.Instance); err != nil {
 		return w, err
 	}
+	// The person sees the address of the connection, whatever the call named.
+	w.Instance = c.key
 	if !nameShape.MatchString(a.Domain) || !nameShape.MatchString(a.Service) {
 		return w, bad("domain and service are words like light and turn_on")
 	}

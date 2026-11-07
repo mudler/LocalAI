@@ -32,6 +32,17 @@ var _ = Describe("Health and readiness probes", func() {
 		Expect(get("/readyz").Code).To(Equal(http.StatusServiceUnavailable))
 	})
 
+	It("says the replica is draining, not starting, once shutdown has begun", func() {
+		var draining atomic.Bool
+		e2 := echo.New()
+		routes.HealthRoutes(e2, func() bool { return !draining.Load() }, draining.Load)
+		draining.Store(true)
+		rec := httptest.NewRecorder()
+		e2.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+		Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+		Expect(rec.Body.String()).To(ContainSubstring("draining"))
+	})
+
 	It("reports /readyz as available once startup completes", func() {
 		ready.Store(true)
 		Expect(get("/readyz").Code).To(Equal(http.StatusOK))

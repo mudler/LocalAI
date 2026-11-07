@@ -14,7 +14,8 @@
   },
   "sections": {
     "yourCollections": "Tus colecciones",
-    "otherUsersCollections": "Colecciones de otros usuarios"
+    "otherUsersCollections": "Colecciones de otros usuarios",
+    "sharedWithYou": "Compartidas contigo"
   },
   "empty": {
     "title": "Aún no hay colecciones",
@@ -42,7 +43,8 @@
   },
   "loadFailed": "No se pudieron cargar tus colecciones.",
   "sources": {
-    "loadFailed": "No se pudieron cargar las fuentes web."
+    "loadFailed": "No se pudieron cargar las fuentes web.",
+    "noneShared": "Sin fuentes web."
   },
   "entries": {
     "loadFailed": "No se pudieron cargar los archivos."
@@ -57,5 +59,29 @@
     "noneSet": "No hay ningún modelo de embeddings configurado para las colecciones (collections_embedding_model), así que añadir archivos y buscar fallan.",
     "install": "Buscarlo en Modelos",
     "askAdmin": "Pide a un administrador que lo instale."
+  },
+  "searchMode": {
+    "label": "Búsqueda: {{mode}}",
+    "semantic": "semántica",
+    "hybrid": "híbrida",
+    "semanticHint": "Encuentra pasajes por su significado, no por palabras o códigos exactos.",
+    "hybridHint": "Encuentra pasajes por su significado y por palabras exactas."
+  },
+  "pane": {
+    "addFile": "Añadir archivo"
+  },
+  "share": {
+    "label": "Compartir",
+    "button": "Compartir {{name}}",
+    "intro": "Las personas que añadas encuentran esta colección en su lista y sus agentes pueden buscar en ella por su nombre.",
+    "failed": "No se pudo compartir la colección: {{message}}",
+    "roles": {
+      "viewer": "Puede ver",
+      "viewerHelp": "Puede buscar en ella y leer sus archivos.",
+      "editor": "Puede editar",
+      "editorHelp": "También puede añadir y quitar archivos."
+    },
+    "noteViewer": "Puedes buscar en ella y leer sus archivos.",
+    "noteEditor": "Puedes buscar en ella y añadir o quitar archivos."
   }
 }

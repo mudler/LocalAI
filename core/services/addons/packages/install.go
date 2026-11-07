@@ -80,6 +80,11 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if r.Policy.IdentityRegex != "" || r.EntryKind() != catalog.KindAddon {
 		return out, ErrPackage
 	}
+	// The entry says what the package needs. A host that is too old refuses
+	// before it downloads anything; the manifest is checked again below.
+	if need := r.Requires.FeatureLevel; need > i.Host.EffectiveFeatureLevel() {
+		return out, &contract.FeatureLevelRefusal{Need: need, Host: i.Host.EffectiveFeatureLevel()}
+	}
 	if !r.Equal(trusted) || (r.Digest == "" && !r.Mutable) || r.OS != i.Host.OS || r.Arch != i.Host.Arch {
 		return out, ErrPackage
 	}

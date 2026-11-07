@@ -251,7 +251,8 @@ func (h *Triggers) live(chatID string) bool {
 		return false
 	}
 	info, err := h.svc.Turn(ctx, t.Owner, chatID)
-	return err == nil && info.Running
+	// A turn that the server will resume by itself still goes on.
+	return err == nil && (info.Running || info.WillResume)
 }
 
 // stopRun is Options.Stop: it stops the chat of a run. It works across the
@@ -606,6 +607,11 @@ func (h *Triggers) supervise(run triggers.Run, t triggers.Trigger, chatID string
 		h.finishRun(run, t, chatID, triggers.StatusFailed, "took longer than "+limitText(h.o.RunLimit), end.Tokens)
 	default:
 		status, reason := outcome(end.Info.Last, end.ErrText)
+		if missing, ok := h.svc.refusedActs.LoadAndDelete(chatID); ok && status == triggers.StatusDone && reason == "" {
+			// The run ended, but an action it tried was refused: the owner has
+			// to grant it before the run can do its job.
+			status, reason = triggers.StatusBlocked, "needs "+missing.(string)+", which this trigger does not have"
+		}
 		h.finishRun(run, t, chatID, status, reason, end.Tokens)
 	}
 }
@@ -668,8 +674,11 @@ func (h *Triggers) finishRun(run triggers.Run, t triggers.Trigger, chatID string
 		return
 	}
 	body := reason
-	if body == "" {
-		body = h.svc.finalText(ctx, chatID)
+	if body == "" || status == triggers.StatusBlocked {
+		// A blocked run's reason is for the record; the answer is what the run said.
+		if body = h.svc.finalText(ctx, chatID); body == "" {
+			body = reason
+		}
 	}
 	if !h.report(ctx, t, cur, body) {
 		h.tell(ctx, t, chatID, notify.KindRunEnded, notify.StatusOK, t.Name+" finished", body)
@@ -717,6 +726,8 @@ func (h *Triggers) reconcile(ctx context.Context) {
 			h.finish(run, t, run.ChatID, triggers.StatusFailed, "the chat was deleted")
 		case err != nil:
 			continue
+		case info.WillResume:
+			// The server resumes the turn; the run ends with it.
 		case !info.Running:
 			status, reason := outcome(info.Last, "")
 			h.finish(run, t, run.ChatID, status, reason)

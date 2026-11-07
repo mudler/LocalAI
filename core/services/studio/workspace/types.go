@@ -441,6 +441,23 @@ type GrantLister interface {
 	Grants(ctx context.Context, admin Actor, p string) ([]Grant, error)
 }
 
+// NodeGrant is a grant on one folder, with the folder's node and path.
+type NodeGrant struct {
+	NodeID int64
+	Path   string
+	Grant
+}
+
+// GrantTree is a Store that lists the grants inside a folder, so the owner of
+// a home can see which of its folders are shared. The stores of this package
+// implement it.
+type GrantTree interface {
+	// GrantsBelow returns the grants on the live folders strictly below the
+	// live folder p, sorted by path and principal. Only the admin may call it
+	// (ErrNotAdmin). A missing folder is ErrNotFound.
+	GrantsBelow(ctx context.Context, admin Actor, p string) ([]NodeGrant, error)
+}
+
 // Tx is an open change set. Use only its methods until Commit or Rollback.
 type Tx interface {
 	Put(ctx context.Context, p string, r io.Reader, o PutOptions) (Node, error)

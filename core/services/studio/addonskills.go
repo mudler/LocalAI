@@ -123,6 +123,7 @@ func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []stri
 		off[id] = true
 	}
 	gate, _ := s.d.AddonTools.(AddonGate)
+	providers := s.providerGateFor(ctx, p, nil)
 	for _, set := range sets {
 		if set.AddonID == MemoryAddonID {
 			// The host ships these skills itself (memory.go).
@@ -133,7 +134,11 @@ func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []stri
 			continue
 		}
 		out.known = append(out.known, set)
-		if !set.Running || off[set.AddonID] || (sc != nil && !sc.addons[set.AddonID]) {
+		if !providers.contributes(set.AddonID) {
+			// A provider the person did not pick ships no skill.
+			continue
+		}
+		if !set.Running || off[set.AddonID] || (sc != nil && !sc.addons[set.AddonID] && set.AddonID != sc.hostSkillAddon) {
 			continue
 		}
 		if gate != nil && gate.Unavailable(ctx, p, set.AddonID, s.d.Files.Available()) != "" {

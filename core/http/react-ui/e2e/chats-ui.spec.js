@@ -694,6 +694,31 @@ test.describe('Chat tools menu: built-in groups', () => {
     await expect.poll(() => calls.at(-1)).toEqual({ off: [], on: [] })
   })
 
+  test('lists the LocalAI client group on and the LocalAI admin group opt-in, and switches them like the others', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    const calls = []
+    const groups = (body) => [
+      { group: 'localai_client', tools: ['generate_image', 'speak'], off: (body?.off || []).includes('localai_client'), usable: true, provider: 'builtin', providers: {} },
+      { group: 'localai_admin', tools: ['install_model'], off: !(body?.on || []).includes('localai_admin'), opt_in: true, usable: true, provider: 'builtin', providers: {} },
+    ]
+    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [] } }))
+    await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: { addons: [], servers: [], connectors: [], off: [], builtins: groups() } }))
+    await page.route('**/api/chats/c1/builtins', route => {
+      const body = route.request().postDataJSON()
+      calls.push(body)
+      return route.fulfill({ json: { addons: [], servers: [], connectors: [], off: [], builtins: groups(body) } })
+    })
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByRole('switch', { name: 'LocalAI client' })).toBeChecked()
+    await expect(page.getByRole('switch', { name: 'LocalAI admin' })).not.toBeChecked()
+    await page.getByRole('switch', { name: 'LocalAI admin' }).check()
+    await expect.poll(() => calls.at(-1)).toEqual({ off: [], on: ['localai_admin'] })
+    await page.getByRole('switch', { name: 'LocalAI client' }).uncheck()
+    await expect.poll(() => calls.at(-1)).toEqual({ off: ['localai_client'], on: ['localai_admin'] })
+  })
+
   test('shows why the saved agents cannot be used', async ({ page }) => {
     const api = newChatsApi(page, { running: false, pending: [] })
     await api.install()

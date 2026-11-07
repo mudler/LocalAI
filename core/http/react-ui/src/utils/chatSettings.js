@@ -7,6 +7,17 @@
 
 export const REASONING_EFFORTS = ['', 'none', 'minimal', 'low', 'medium', 'high']
 
+// The ranges the server accepts (core/services/studio/chatsettings.go) and the
+// part of each a slider covers. min and max are the slider's ends; a typed value
+// may go past `max` where the server allows it (top_k has no upper limit).
+// `exclusiveMin` is set when the server needs a value above `min`, so the
+// slider starts at one step. step is also the precision of the number box.
+export const SETTING_RANGES = {
+  temperature: { min: 0, max: 2, step: 0.05, integer: false },
+  top_p: { min: 0, max: 1, step: 0.01, integer: false, exclusiveMin: true },
+  top_k: { min: 0, max: 200, step: 1, integer: true, unbounded: true },
+}
+
 const text = (v) => (v === undefined || v === null ? '' : String(v))
 
 // The form values of the settings the server returned (absent when none).
@@ -29,11 +40,11 @@ const num = (v) => (String(v).trim() === '' ? undefined : Number(v))
 export function settingsErrors(form) {
   const errors = {}
   const t = num(form.temperature)
-  if (t !== undefined && !(t >= 0 && t <= 2)) errors.temperature = 'temperature'
+  if (t !== undefined && !(t >= SETTING_RANGES.temperature.min && t <= SETTING_RANGES.temperature.max)) errors.temperature = 'temperature'
   const p = num(form.top_p)
-  if (p !== undefined && !(p > 0 && p <= 1)) errors.top_p = 'topP'
+  if (p !== undefined && !(p > SETTING_RANGES.top_p.min && p <= SETTING_RANGES.top_p.max)) errors.top_p = 'topP'
   const k = num(form.top_k)
-  if (k !== undefined && !(Number.isInteger(k) && k >= 0)) errors.top_k = 'topK'
+  if (k !== undefined && !(Number.isInteger(k) && k >= SETTING_RANGES.top_k.min)) errors.top_k = 'topK'
   const c = num(form.context_size)
   if (c !== undefined && !(Number.isInteger(c) && c >= 512 && c <= 4 << 20)) errors.context_size = 'contextSize'
   if (!REASONING_EFFORTS.includes(form.reasoning_effort || '')) errors.reasoning_effort = 'effort'
@@ -55,6 +66,13 @@ export function settingsBody(form) {
   }
   if (form.reasoning_effort) out.reasoning_effort = form.reasoning_effort
   return out
+}
+
+// The settings object to send when only the reasoning effort changes. The
+// server replaces the settings as a whole, so the other fields go along as
+// the chat has them. '' returns the effort to the model's own.
+export function settingsWithEffort(settings, effort) {
+  return settingsBody({ ...settingsForm(settings), reasoning_effort: effort || '' })
 }
 
 // True when the form differs from what the server keeps.

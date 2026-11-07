@@ -58,7 +58,7 @@ export default function ApproveUpgradeDialog({ addon, sourceId, api, actions, on
       )}
     >
       <p>{t('hostAccess.approve.body', { name: addon.title, current: addon.version })}</p>
-      {host.status === 'loading' && <p className="ad-quiet" role="status">{t('hostAccess.loading')}</p>}
+      {host.status === 'loading' && <p className="ad-quiet" role="status" data-testid="approve-loading">{t(host.slow ? 'hostAccess.loadingSlow' : 'hostAccess.loading')}</p>}
       {host.status === 'error' && (
         <Callout tone="error" role="alert" testId="approve-preview-error" actions={<Button size="sm" icon="refresh" onClick={host.retry}>{t('catalog.retry')}</Button>}>
           {describeError(host.error, t)}

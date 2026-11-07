@@ -64,16 +64,28 @@ const (
 
 var allowed = []entry{
 	{ui + "hooks/useToolGroups.js", "memory", "the switch group of the built-in memory"},
+	{ui + "utils/agentPresets.js", "'memory'", "the switch group of the built-in memory in the agent presets"},
+	{ui + "utils/agentEffective.js", "memory", "the effective view lines of the built-in memory in the agent editor"},
+	{ui + "utils/agentTryIt.js", "memory", "the list of what a test chat does not use, which includes the built-in memory"},
+	{locales + "en/agents.json", "create.try.skip.memory", "the name of the built-in memory in the list of what a test chat skips"},
 	{ui + "utils/memoryState.js", "memory", "the switch group of the built-in memory"},
 	// The memory choice of an agent and the notes list belong to the built-in.
 	{ui + "utils/memoryFiles.js", "memory", "the source of the built-in notes in the list of context files"},
+	{ui + "components/MemorySettings.jsx", "memory", "the provider slot of the built-in memory, drawn by the generic provider chooser"},
 	{ui + "pages/AgentCreate.jsx", "memory", "the memory choice of the agent form and the icon of its section: the built-in memory"},
 	{"core/http/endpoints/studio/agents.go", "memory", "the memory query of the agent delete: what to do with the notes of the built-in memory"},
+	// The word mail in plain text: an example of what a run reads and the
+	// envelope glyph of an empty list. Neither names the Mail add-on.
+	{"core/services/studio/triggertools.go", "Mail from the last 24 hours", "an example of what a scheduled run reads"},
+	{ui + "components/users/InvitesPanel.jsx", `name="mail"`, "the envelope glyph of the empty invitations list"},
+
 	// Memory is built into the host. The add-on of that name is the alias of
 	// the built-in: its index files and skills are the host's now, and the
 	// host ignores its copies.
 	{"core/services/studio/memory.go", `memory`, "the id the retired Memory add-on had; the host serves its index files and skills itself"},
+	{"core/services/studio/files/paths.go", `memory`, "the name of the managed Memory/ folder, which the host serves itself"},
 	{"core/services/studio/builtins/builtins.go", `memory`, "the switch group of the built-in memory"},
+	{"pkg/addons/providerconformance/conformance.go", `memory`, "the id of the notes slot, which the suite tests; it equals the id of the retired add-on"},
 	{"pkg/addons/contract/skills.go", `memory`, "the two memory skills are built in; the retired add-on may still declare them"},
 
 	// Third-party services: the login, the release source, the token issuer.
@@ -121,7 +133,6 @@ var allowed = []entry{
 	{locales + "de/pages.json", "Sie öffnen sich hier in einer Sandbox", "German for the isolated frame of a page: the ordinary noun"},
 	{"core/application/studio_service.go", `memory`, "the in-memory kind of the store"},
 	{"core/application/studio_store.go", `memory`, "the in-memory kind of the store"},
-	{"core/services/studio/nibharness/tools.go", `memory`, "the built-in memory tool of the agent engine"},
 	{"pkg/xsysinfo/gpu.go", `memory`, "a GPU memory counter"},
 	{"core/http/auth/usage.go", `web`, "usage source of a request from the web UI session"},
 	{"core/services/studio/builtins/builtins.go", `web`, "the id of the built-in Web tool group of chats"},

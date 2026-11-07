@@ -57,6 +57,11 @@ var ErrDenied = fmt.Errorf("addon denied the request: %w", contract.ErrDenied)
 type Refusal struct {
 	Status int
 	Reason string
+	// Upstream is the status that the service behind the add-on answered, when
+	// the add-on says its refusal comes from there (0 when it does not). Hint
+	// is the one sentence the add-on wrote for the person about it.
+	Upstream int
+	Hint     string
 }
 
 func (r *Refusal) Error() string {
@@ -292,7 +297,7 @@ func (s *Supervisor) start(ctx context.Context, pkg packages.PackageReceipt, gen
 func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, generation uint64) (*process, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.config.ReadyTimeout)
 	defer cancel()
-	host := contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH}
+	host := contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, FeatureLevel: contract.HostFeatureLevel, OS: goruntime.GOOS, Arch: goruntime.GOARCH}
 	if contract.ValidateManifest(pkg.Manifest, host) != nil || !filepath.IsAbs(pkg.Directory) {
 		return nil, ErrRuntime
 	}

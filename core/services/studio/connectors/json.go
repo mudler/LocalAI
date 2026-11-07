@@ -193,6 +193,21 @@ func (s *jsonStore) RecordSender(_ context.Context, binding, senderID, name stri
 	return s.save()
 }
 
+// NoteSender keeps the chat of the last message of a sender and the reason it
+// was ignored, on the entry that RecordSender made.
+func (s *jsonStore) NoteSender(_ context.Context, binding, senderID string, n SenderNote) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	list := s.d.Senders[binding]
+	for i := range list {
+		if list[i].ID == senderID {
+			list[i].Chat, list[i].ChatName, list[i].Reason = n.Chat, n.ChatName, n.Reason
+			return s.save()
+		}
+	}
+	return nil
+}
+
 func (s *jsonStore) Senders(_ context.Context, binding string, limit int) ([]Sender, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -304,6 +319,23 @@ func (s *jsonStore) SetCapsIfEmpty(_ context.Context, id string, caps []string) 
 		return false, err
 	}
 	return true, nil
+}
+
+func (s *jsonStore) SetAccountID(_ context.Context, id, accountID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	b, ok := s.d.Bindings[id]
+	if !ok || b.AccountID == accountID {
+		return nil
+	}
+	old := b
+	b.AccountID = accountID
+	s.d.Bindings[id] = b
+	if err := s.save(); err != nil {
+		s.d.Bindings[id] = old
+		return err
+	}
+	return nil
 }
 
 func (s *jsonStore) ClaimMigration(_ context.Context, name string, now time.Time, lease time.Duration) (bool, error) {

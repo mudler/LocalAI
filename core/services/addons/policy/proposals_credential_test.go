@@ -41,7 +41,10 @@ func (s *spyRuntime) Apply(ctx context.Context, e contract.Envelope, r contract.
 }
 
 // credentialTools declares an add-on with a credential slot and one write tool.
-type credentialTools struct{ approval string }
+type credentialTools struct {
+	approval    string
+	overridable bool
+}
 
 func (c credentialTools) DeclaredTools(context.Context, string, uint64) ([]string, error) {
 	return []string{"comment"}, nil
@@ -51,7 +54,7 @@ func (c credentialTools) DeclaredCapabilities(context.Context, string, uint64) (
 	return contract.Capabilities{
 		Tools:       []string{"comment"},
 		Credentials: []contract.CredentialSlot{{ID: "token", Title: "Token", Kind: contract.CredentialKindToken, ResourceArgument: "repo"}},
-		ToolDefinitions: []contract.ToolDefinition{{Name: "comment", Kind: contract.ToolKindWrite, Approval: c.approval,
+		ToolDefinitions: []contract.ToolDefinition{{Name: "comment", Kind: contract.ToolKindWrite, Approval: c.approval, ApprovalOverridable: c.overridable,
 			InputSchema: json.RawMessage(`{"type":"object","properties":{"repo":{"type":"string"},"body":{"type":"string"}},"required":["repo","body"],"additionalProperties":false}`)}},
 	}, nil
 }
@@ -62,6 +65,8 @@ type bindingSource struct {
 	mode  string
 	repos []string
 	token string
+	// hold stands for a binding shared with the caller: the call runs inside it.
+	hold func(context.Context, func(context.Context) error) error
 }
 
 func (b *bindingSource) set(mode string) { b.mu.Lock(); b.mode = mode; b.mu.Unlock() }
@@ -71,7 +76,7 @@ func (b *bindingSource) Credential(_ context.Context, _ contract.Actor, _ string
 	defer b.mu.Unlock()
 	for _, r := range b.repos {
 		if strings.EqualFold(r, key) {
-			return gateway.CredentialGrant{Credential: b.token, ResourceKey: r, ResourceID: "r-0123456789", WriteMode: b.mode}, nil
+			return gateway.CredentialGrant{Credential: b.token, ResourceKey: r, ResourceID: "r-0123456789", WriteMode: b.mode, Hold: b.hold}, nil
 		}
 	}
 	return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeResourceNotAllowed, Allowed: b.repos}
@@ -156,6 +161,46 @@ var _ = Describe("the write tools of an add-on with a credential", Label("propos
 			receipt, err := f.broker.Confirm(ctx, who, "op-1")
 			Expect(err).NotTo(HaveOccurred(), "the same proposal is still pending for the browser")
 			Expect(receipt.State).To(Equal(contract.ReceiptCommitted))
+		})
+		It("previews and applies the call of a shared binding inside its hold, and keeps the proposal pending when the hold refuses", func() {
+			var mu sync.Mutex
+			held, refuse := 0, false
+			binding.hold = func(ctx context.Context, run func(context.Context) error) error {
+				mu.Lock()
+				held++
+				no := refuse
+				mu.Unlock()
+				if no {
+					return ErrForbidden
+				}
+				return run(ctx)
+			}
+			_, err := f.broker.Propose(ctx, who, request("op-1", "acme/widgets"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(spy.previews).To(HaveLen(1))
+			mu.Lock()
+			Expect(held).To(Equal(1), "the preview ran inside the hold")
+			refuse = true
+			mu.Unlock()
+
+			// The share was revoked after the preview: nothing is sent.
+			_, err = f.broker.Confirm(ctx, session("owner"), "op-1")
+			Expect(err).To(MatchError(ErrForbidden))
+			Expect(spy.applies).To(BeEmpty())
+			p, err := f.broker.Get(ctx, who, "op-1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p.State).To(Equal(gateway.ProposalPending))
+
+			mu.Lock()
+			refuse = false
+			mu.Unlock()
+			receipt, err := f.broker.Confirm(ctx, session("owner"), "op-1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(receipt.State).To(Equal(contract.ReceiptCommitted))
+			Expect(spy.applies).To(HaveLen(1))
+			mu.Lock()
+			Expect(held).To(Equal(3), "the apply ran inside the hold")
+			mu.Unlock()
 		})
 		It("refuses a repository that is not on the list before the add-on is called", func() {
 			_, err := f.broker.Propose(ctx, who, request("op-1", "acme/secret"))
@@ -248,6 +293,137 @@ var _ = Describe("the write tools of an add-on with a credential", Label("propos
 			Expect(err).To(HaveOccurred())
 			Expect(spy.applies).To(BeEmpty())
 		})
+	})
+})
+
+// relaxation lets the person's own setting run an approval-always tool without
+// a confirmation. The host decides from the chat it binds; the broker only
+// asks and never relaxes on its own.
+var _ = Describe("the approval a person may relax", Label("proposals", "credentials", "approval"), func() {
+	ctx := context.Background()
+	who := named("owner")
+	type state struct {
+		f       *brokerFixture
+		spy     *spyRuntime
+		binding *bindingSource
+		allow   *bool
+		asked   *[]string
+		runs    *[]RelaxedRun
+	}
+	setup := func(overridable bool, mode string, allow bool) state {
+		var st state
+		st.binding = &bindingSource{mode: mode, repos: []string{"acme/widgets"}, token: "ghp_secretsecretsecretsecretsecretsecret12"}
+		rt := newFixtureRuntime()
+		st.spy = &spyRuntime{fixtureRuntime: rt}
+		a, asked, runs := allow, []string{}, []RelaxedRun{}
+		st.allow, st.asked, st.runs = &a, &asked, &runs
+		st.f = openBrokerFixture(ModeNamedUser, GinkgoT().TempDir(), rt, &fixtureInstances{gen: 1, rt: st.spy}, &clock{t: time.Now()}, &account{blocked: map[string]bool{}},
+			func(o *BrokerOptions) {
+				o.Tools = credentialTools{approval: contract.ApprovalAlways, overridable: overridable}
+				o.Credentials = st.binding
+				o.ConfirmCredential = func(a contract.Actor) bool {
+					return a.CredentialID == "chats" || strings.HasPrefix(a.CredentialID, "session:")
+				}
+				o.ConfirmPerson = func(a contract.Actor) bool { return strings.HasPrefix(a.CredentialID, "session:") }
+				o.RelaxApproval = func(_ context.Context, _ contract.Actor, addonID, tool string) bool {
+					asked = append(asked, addonID+"/"+tool)
+					return *st.allow
+				}
+				o.OnRelaxedRun = func(_ context.Context, r RelaxedRun) { runs = append(runs, r) }
+			})
+		DeferCleanup(func() { st.f.close() })
+		return st
+	}
+	request := func(op string) contract.Request {
+		return contract.Request{AddonID: "gh", OperationID: op, Generation: 1, Action: "write",
+			Arguments: json.RawMessage(`{"tool":"comment","repo":"acme/widgets","body":"typed text"}`)}
+	}
+
+	DescribeTable("decides whether a chat turn may apply what it stored",
+		func(overridable bool, mode string, allow, wantAwait bool) {
+			st := setup(overridable, mode, allow)
+			p, err := st.f.broker.Propose(ctx, who, request("op-1"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p.AwaitsPerson).To(Equal(wantAwait))
+			_, err = st.f.broker.Confirm(ctx, chat("owner"), "op-1")
+			if wantAwait {
+				Expect(err).To(MatchError(ErrForbidden))
+				Expect(st.spy.applies).To(BeEmpty())
+				Expect(*st.runs).To(BeEmpty())
+				return
+			}
+			Expect(err).NotTo(HaveOccurred())
+			Expect(st.spy.applies).To(HaveLen(1))
+		},
+		Entry("the person said skip, the tool allows it, mode propose: no confirmation", true, gateway.WritePropose, true, false),
+		Entry("the person said skip, the tool allows it, mode auto: no confirmation", true, gateway.WriteAuto, true, false),
+		Entry("the person said ask: confirmation, mode propose", true, gateway.WritePropose, false, true),
+		Entry("the person said ask: confirmation, mode auto", true, gateway.WriteAuto, false, true),
+		Entry("the tool does not allow it: confirmation whatever the setting says", false, gateway.WriteAuto, true, true),
+		Entry("the tool does not allow it, mode propose", false, gateway.WritePropose, true, true),
+	)
+
+	It("never relaxes a binding whose write mode is off", func() {
+		st := setup(true, gateway.WriteOff, true)
+		_, err := st.f.broker.Propose(ctx, who, request("op-1"))
+		var refusal *gateway.CredentialRefusal
+		Expect(errors.As(err, &refusal)).To(BeTrue())
+		Expect(refusal.Code).To(Equal(gateway.CodeWriteNotAllowed))
+	})
+
+	It("does not ask the setting for a tool that does not allow it", func() {
+		st := setup(false, gateway.WriteAuto, true)
+		_, err := st.f.broker.Propose(ctx, who, request("op-1"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(*st.asked).To(BeEmpty())
+	})
+
+	It("asks again at the apply: a setting switched back stops the chat turn, and a person can still confirm", func() {
+		st := setup(true, gateway.WritePropose, true)
+		p, err := st.f.broker.Propose(ctx, who, request("op-1"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.AwaitsPerson).To(BeFalse())
+		*st.allow = false
+		_, err = st.f.broker.Confirm(ctx, chat("owner"), "op-1")
+		Expect(err).To(MatchError(ErrForbidden))
+		Expect(st.spy.applies).To(BeEmpty())
+		receipt, err := st.f.broker.Confirm(ctx, session("owner"), "op-1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(receipt.State).To(Equal(contract.ReceiptCommitted))
+	})
+
+	It("stops a chat turn when the setting is switched back, even in auto mode", func() {
+		st := setup(true, gateway.WriteAuto, true)
+		_, err := st.f.broker.Propose(ctx, who, request("op-1"))
+		Expect(err).NotTo(HaveOccurred())
+		*st.allow = false
+		_, err = st.f.broker.Confirm(ctx, chat("owner"), "op-1")
+		Expect(err).To(MatchError(ErrForbidden))
+		Expect(st.spy.applies).To(BeEmpty())
+	})
+
+	It("reports every run without a confirmation with the tool and the connection and never the arguments", func() {
+		st := setup(true, gateway.WritePropose, true)
+		_, err := st.f.broker.Propose(ctx, who, request("op-1"))
+		Expect(err).NotTo(HaveOccurred())
+		_, err = st.f.broker.Confirm(ctx, chat("owner"), "op-1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(*st.runs).To(HaveLen(1))
+		run := (*st.runs)[0]
+		Expect(run.Tool).To(Equal("comment"))
+		Expect(run.AddonID).To(Equal("gh"))
+		Expect(run.Outcome).To(Equal("applied"))
+		out, _ := json.Marshal(run)
+		Expect(string(out)).NotTo(ContainSubstring("typed text"))
+	})
+
+	It("does not report a run that a person confirmed after a proposal that awaited them", func() {
+		st := setup(true, gateway.WritePropose, false)
+		_, err := st.f.broker.Propose(ctx, who, request("op-1"))
+		Expect(err).NotTo(HaveOccurred())
+		_, err = st.f.broker.Confirm(ctx, session("owner"), "op-1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(*st.runs).To(BeEmpty())
 	})
 })
 

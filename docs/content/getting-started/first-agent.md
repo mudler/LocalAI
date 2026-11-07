@@ -14,10 +14,13 @@ An agent that uses tools needs a model that can call them. Open **Models**, inst
 ## Make the agent
 
 1. Open **Agents** in the sidebar.
-2. Choose **New agent**. Give it a name and the instructions it should always follow, for example: `Answer in French. Cite the file you used.`
-3. Leave the lists empty for an agent that only talks. Add an MCP server of the model, an add-on, a collection or a skill to give it more. An empty list grants nothing: an agent never has more than you put in it.
-4. Optional: in **Files**, choose **Chosen folders** and pick a folder, for example `/Projects/Acme`, with **Can read** or **Can read and change**. You can add up to eight folders, each with its own access. Chats with the agent then see only those folders and their own chat folder, not the rest of your files. See [Folders of an agent](/features/chats-agents/#folders-of-an-agent).
-5. Save it.
+2. Choose **New agent**. A short wizard opens with four steps: **Purpose**, **Abilities**, **Where it works** and **Review**. The bar at the top takes you back to an earlier step, and the summary beside it shows what the agent will be.
+3. In **Purpose**, start from a template or write your own. Give it a name and the instructions it should always follow, for example: `Answer in French. Cite the file you used.` Only the name and the instructions are required. The model is the one you pick in each chat, unless you choose a fixed one.
+4. Optional: in **Abilities**, pick a level (Look only, Assistant or Full) or leave it: the agent then starts with the default tools. Under **Files**, choose **No files**, **All my files** (the default), or **Only these folders** and pick a folder, for example `/Projects/Acme`, with **Can read** or **Can read and change**. You can add up to eight folders, each with its own access. Chats with the agent then see only those folders and their own chat folder, not the rest of your files. See [Folders of an agent](/features/chats-agents/#folders-of-an-agent). **Fine-tune individual tools** holds every tool switch.
+5. Optional: in **Where it works**, mark the chat apps and the tools and services you want. The step lists what your add-ons declare, and the add-ons you can still install. Marking an app does not connect it.
+6. In **Review**, check the summary and choose **Create agent**. If you marked apps, the agent's page opens with a **Finish setup** card: one row for each app with what it needs and one button. A row is done when the server has the connection. **Hide** removes the card.
+
+If you skip every optional step, the agent is the same as one made with only a name and instructions. To edit a saved agent, open it and choose **Edit**: that page keeps the full editor.
 
 ## Talk to it
 

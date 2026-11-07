@@ -42,7 +42,7 @@ func editable(c echo.Context, l skills.Layer) bool {
 
 // ListSkills lists the skills.
 // @Summary List your skills.
-// @Description Skills from every layer: .skills folders of your files, your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. A chat with a saved agent also lists the skills of that agent (agent). The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.
+// @Description Skills from every layer: .skills folders of your files, your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. A chat with a saved agent also lists the skills of that agent (agent). The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied. A skill of the active memory provider says provider "memory" and locked: the host grants it to a chat that reads the notes, so an agent does not list it.
 // @Tags chats
 // @Param chat query string false "a chat id, to apply its switches"
 // @Param agents query bool false "true: add the skills of your saved agents (layer agent), for the Skills page; ignored with chat"
@@ -72,6 +72,7 @@ func (h *Handlers) ListSkills(c echo.Context) error {
 			Addon: sk.Addon, AddonTitle: sk.AddonTitle, Agent: sk.Agent, AgentName: sk.AgentName,
 			Removable: sk.Layer == skills.LayerAgent, ShadowedBy: sk.ShadowedBy, Fallback: sk.Fallback,
 			Enabled: !sk.Off, Shadowed: string(sk.Shadowed), Invalid: sk.Invalid, Editable: editable(c, sk.Layer),
+			Provider: sk.Provider, Locked: sk.Locked,
 		})
 	}
 	return c.JSON(http.StatusOK, out)

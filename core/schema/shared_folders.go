@@ -29,6 +29,13 @@ type SharedFolder struct {
 	Mode string `json:"mode,omitempty"`
 	// Members is who may use the folder. Only in the administrator's view.
 	Members []SharedFolderMember `json:"members,omitempty"`
+	// Owner is the display name of the person who shared a folder of their
+	// own home with you. Such a folder has no path: it would name the
+	// owner's account. Only in your own list.
+	Owner string `json:"owner,omitempty"`
+	// Everyone is true when you reach a folder of someone's home only
+	// through its grant to every account. Only in your own list.
+	Everyone bool `json:"everyone,omitempty"`
 }
 
 // SharedFolderList is a list of shared folders.
@@ -80,4 +87,64 @@ type SharedFolderEvent struct {
 // SharedFolderEventList is the newest lines of the audit, newest first.
 type SharedFolderEventList struct {
 	Events []SharedFolderEvent `json:"events"`
+}
+
+// FolderShare is a folder of your home and how many it is shared with.
+type FolderShare struct {
+	// ID is the folder's stable ID in the sharing routes.
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	// Path is the folder's path in your home, for example /Projects.
+	Path string `json:"path"`
+	// SharedWith counts the grants, the one to every account included.
+	SharedWith int `json:"sharedWith"`
+	// Everyone is true when the folder is shared with every account.
+	Everyone bool `json:"everyone"`
+}
+
+// FolderShareList is the list of the folders of your home that are shared.
+type FolderShareList struct {
+	// Sharing is false when folders cannot be shared on this server
+	// (local-owner mode, no accounts, files off).
+	Sharing bool          `json:"sharing"`
+	Folders []FolderShare `json:"folders"`
+}
+
+// FolderSharePathRequest names a folder of your home by its path.
+type FolderSharePathRequest struct {
+	Path string `json:"path"`
+}
+
+// FolderGrant is one grant on a folder of your home, in the shape of the
+// sharing routes: the account ID (or @everyone), its display name and the
+// role read or write.
+type FolderGrant struct {
+	UserID      string `json:"userId"`
+	DisplayName string `json:"displayName"`
+	Role        string `json:"role"`
+}
+
+// FolderGrantList is the grants on a folder of your home.
+type FolderGrantList struct {
+	ID     int64         `json:"id"`
+	Name   string        `json:"name"`
+	Path   string        `json:"path"`
+	Grants []FolderGrant `json:"grants"`
+}
+
+// FolderGrantRequest is the role of a grant: read or write.
+type FolderGrantRequest struct {
+	Role string `json:"role"`
+}
+
+// FolderShareUser is one result of the user picker: the account ID and the
+// display name, nothing else.
+type FolderShareUser struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"displayName"`
+}
+
+// FolderShareUserList is the answer of the user picker.
+type FolderShareUserList struct {
+	Users []FolderShareUser `json:"users"`
 }

@@ -68,15 +68,16 @@ func (s *Service) draftRecord(ctx context.Context, user, model, agentID string) 
 	if s.d.Agents == nil {
 		return rec, ErrAgentsOff
 	}
-	ag, err := s.d.Agents.Get(ctx, principal(user), agentID)
+	ag, err := s.chatAgent(ctx, principal(user), agentID)
 	if err != nil {
 		return rec, err
 	}
 	if ag.Model != "" {
 		rec.Model = ag.Model
 	}
-	// The opt-in groups the agent starts with are on in the draft.
-	rec.BuiltinsOn = mergeGroups(rec.BuiltinsOn, ag.BuiltinsOn)
+	// The opt-in groups the agent starts with are on in the draft, as in the
+	// chat CreateAs makes: none for an agent another person shared.
+	rec.BuiltinsOn = mergeGroups(rec.BuiltinsOn, grantedOn(ag, ag.Principal != principal(user)))
 	return rec, nil
 }
 

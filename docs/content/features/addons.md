@@ -37,6 +37,10 @@ Trust has three parts, and they are different:
 
 Every addon requires an executable; a UI bundle alone is not an addon.
 
+The owner's resource policy also serves the resource kinds that are not add-ons.
+[Sharing resources]({{%relref "features/sharing" %}}) describes their roles, the
+grant to `@everyone` and the `/api/shares` routes.
+
 ## Internal host policy store
 
 `core/services/addons/hostsettings` provides internal, host-owned durable policy
@@ -475,6 +479,9 @@ own record of the grants.
   must not be the name of a tool, an admin tool or a tool definition of the
   manifest; the host refuses such a manifest.
 - `list.items` is the key of the result array. It defaults to `resources`.
+- `agentScoped: true` (feature level 2) lets a saved agent name the resources it may
+  use. It needs a `list`, because the host builds the choices from it. See
+  [Resource listing for agents](#resource-listing-for-agents).
 - The manifest `api` range must reach 2. A manifest that declares a listing with
   `api.max` 1 is refused.
 - The tool is a read tool that takes exactly `{}`. The result lists at most 100
@@ -510,7 +517,7 @@ a call may reach. The model never sees or sets either.
   most 50 entries, each an external name (`owner/name` for a repository) with a
   host ID made from its hash. The person edits it where they edit the binding.
 - `resourceArgument` names a string argument that carries the external name. A
-  tool that declares it must require it. Before the add-on is called, the host
+  tool that declares it must require it, unless the slot sets `resourceOptional`. Before the add-on is called, the host
   matches the argument against the list of the one binding that the call
   names, without regard to case. A name that is not on that list is refused with
   the code `resource_not_allowed` and the names of that list; the add-on is not
@@ -530,6 +537,13 @@ a call may reach. The model never sees or sets either.
   behaves the same way.
 - `resourceLabel` is optional (at most 24 characters of plain text): the word for
   the resource in that line. Without it the host says "resource".
+- `resourceOptional` (default `false`) lets a call leave the resource argument out.
+  The tools then declare the argument and do not require it. The host uses the one
+  resource that the selected binding lists, so the connection is the only source
+  of the target and the model never has to write it. A binding that lists several
+  resources refuses the call with `resource_not_allowed` and names them. A call
+  that names a resource is held to the list as before. An add-on that does not set
+  it is not changed.
 - A call that passes the check carries `Request.Credential` (the secret),
   `Request.ResourceKey` (the name as the person wrote it) and `Request.ResourceID`
   (the host ID). The host drops these three fields from any request a client
@@ -538,6 +552,15 @@ a call may reach. The model never sees or sets either.
   declare read tools only: a change under a credential needs a write mode, which
   this version does not have. Tools of such an add-on name no `resourceId`.
 - A tool with `uiOnly: true` (see the `uiOnly` field of a tool definition) gets no credential and no resource, even in an add-on that declares a slot. It is for the add-on's own page, which has no chat to name a connection, so it works with no connection or with several. The Home Assistant add-on keeps the limits for all its connections this way.
+
+- The secret is an opaque string of at most 4096 bytes, and the host never reads
+  it. An add-on whose service needs more than a token (servers, a login and a
+  password) can seal a small versioned JSON record as the secret and keep only
+  the resource name in the list, as the Mail add-on does (see
+  [Mail](/features/chats-connectors/#mail-imap-and-smtp)). The host cannot show a
+  sealed record back, so the add-on's page asks for all of it again when a person
+  changes any part. A service that is not HTTP and is not reached through the
+  sandbox network check must apply the address guard of `pkg/web/safehttp` itself.
 - An add-on that is rate limited returns `contract.ErrRateLimited{RetryAfter}`.
   The runtime answers HTTP 429 with `Retry-After`; the model gets the code
   `rate_limited`, `retryAfter` in seconds and a note not to retry before then.
@@ -950,28 +973,86 @@ the apps list:
 still those of the running add-on until the new generation is published.
 
 A frontend that forwards a read to the owner waits at most eight seconds. When
-the owner does not answer in that time:
+the owner does not answer in that time, the route fails closed with the same
+typed `503` from every frontend, and never with an older list of its own:
 
-- The apps list answers `200` with `"stale": true`, `"staleReason"` (`owner_busy`
-  or `owner_unavailable`) and `"staleSince"`, and carries the last list this
-  frontend received for the same person. The copy lives for ten minutes and is
-  never used for a refused request.
-- Without such a copy the route answers `503` with the error type `owner_busy`
-  (the owner did not answer in time) or `owner_unavailable`. `GET /api/addons/pins`
-  does the same instead of returning pins without the add-ons it could not check.
+- `owner_busy`: the owner is up but did not answer in time.
+- `owner_unavailable`: the owner could not be reached at all.
 
-The Add-ons page keeps showing the last list, shows a notice such as "The
-add-on server is busy (upgrading Sandbox). Showing the last known state.", marks
-each changing add-on as upgrading with its phase, and asks again with a growing
-delay. It only says that no add-ons are installed when the owner answered with
-an empty list.
+A frontend keeps no copy of the apps list, because two frontends with different
+copies would give different answers for the same request. `GET /api/addons/pins`
+answers the same way instead of returning pins without the add-ons it could not
+check. When the owner is reachable and busy, it still answers from its snapshot,
+so the apps list is a normal `200` with the `operation` fields above.
+
+The Add-ons page keeps the last list it received in the browser (in memory and,
+for a page loaded during an upgrade, in the session storage of the tab). On a
+`503` it keeps showing that list, shows a notice such as "The add-on server is
+busy. Showing the last known state.", and asks again with a growing delay. It
+only says that no add-ons are installed when the owner answered with an empty
+list.
+
+## The Add-ons page
+
+**Installed** lists the add-ons you installed in groups: chat apps, tools and
+services, and media and models. The group comes from what the add-on gives
+LocalAI. An add-on that serves a messaging connection is a chat app. One that
+gives chat tools is a tool. One that has only a page is under media and models.
+Each row shows the icon, the name, one state, one line of what the add-on does
+and the one action that fits the state: **Open**, **Update** or **Set up**.
+**Pin**, **Details** and **Remove** are in the menu of the row.
+
+When something needs setup, one strip above the list says so. It names each
+add-on that failed to start and each add-on with a connection that cannot answer
+yet, for example because no token is saved. **Set up** opens the details of that
+add-on.
+
+The details open beside the list. They show what the add-on can do, its
+connections, who made it and how it was checked. **Remove** is the last item.
+The connections show the agent that answers and who it accepts, in words.
+
+**Find add-ons** shows the library as cards, with a search field and a category
+filter. Each card has one control: **Install**, **Installed** or **Update to**
+a version. The category comes from what the library says the add-on gives:
+tools, a page, or the id of a first-party add-on. The filter narrows the page
+of results that is on screen.
+
+### Add-on icons
+
+Every add-on has an icon. The page picks it in this order:
+
+1. **The icon file of the add-on.** Set `ui.icon` in the manifest to a path in
+   the package. The file is a PNG, WebP or JPEG of at most 256 KB, never an
+   SVG. Make it 256 by 256 pixels, a rounded tile with the mark drawn on it, so
+   that it reads on a light page and on a dark page. First-party add-ons commit
+   this file as `ui/icon.png`.
+2. **A generated tile.** An add-on built with the shared builder
+   (`addons/internal/uibuild`) and without an icon file gets a tile of its own
+   colour with a white line glyph. Pass `glyph` to the builder to choose one of
+   the glyphs in `addons/internal/uibuild/glyphs.mjs`.
+3. **A drawn tile in the page.** The host serves an icon file only for an
+   installed package. For an add-on that is not installed, or whose file does
+   not load, the page draws a tile with a glyph of its own icon set for the
+   first-party add-ons it knows, and the first letter of the name for any other.
+
+The page never loads an icon from another host.
+
+The first-party add-ons for services (Slack, Telegram, Discord, GitHub, Home
+Assistant and Jellyfin) use the logo mark of the service on their tile, taken
+from [Simple Icons](https://simpleicons.org) (CC0 data) and drawn in white on
+the add-on colour. The mark identifies the service the add-on connects to. The
+trademark stays with its owner, and the mark does not mean that the owner made
+or endorses the add-on. Record the source and version in `ui/ICON-SOURCE.md`
+next to the icon. When no mark is available, as for PiKVM, ship a generated
+tile with a generic glyph. For a third-party add-on, use a company mark only
+when you have the right to.
 
 ## The official library
 
 On the first start, when the owner has no `sources.json` in the `addons` folder yet,
 LocalAI registers one library with the ID `official`. It is a YAML index of the
 first-party add-ons (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Simple Office,
-Sandbox, Web and Short memory). The index has one entry for each enabled platform of each add-on, so an
+Sandbox and Web, plus the other first-party add-ons). The index has one entry for each enabled platform of each add-on, so an
 install on Linux (amd64 or arm64) and on macOS (Apple silicon or Intel) finds the add-ons for
 its own platform. The Sandbox add-on is Linux only. No add-on is built for Windows yet, so the
 official library lists nothing there.
@@ -1142,7 +1223,7 @@ and prints what it holds. `local-ai addons install <file>` checks it, uploads it
 to a running server and prints the link of the page that finishes the install:
 
 ```bash
-local-ai addons install dist/addons/memory-0.1.0-linux-amd64.zip \
+local-ai addons install dist/addons/web-0.1.0-linux-amd64.zip \
   --target http://localhost:8080 --api-key "$LOCALAI_API_KEY"
 ```
 
@@ -1215,21 +1296,21 @@ second build path: the zip holds the same files as the registry package.
 
 ```bash
 # One add-on, for the platform of this machine
-make addons-zip ADDON=memory
+make addons-zip ADDON=web
 
 # Every add-on, for the platform of this machine
 make addons-zip
 
 # Other platforms need the native executables
-make addons-zip ADDON=memory PLATFORMS=linux/amd64,darwin/arm64 \
+make addons-zip ADDON=web PLATFORMS=linux/amd64,darwin/arm64 \
   ADDON_EXECUTABLES=/path/to/executables
 ```
 
 The files go to `dist/addons` (`ADDONS_ZIP_DIR` changes it):
 
 ```text
-dist/addons/memory-0.1.0-linux-amd64.zip
-dist/addons/memory-0.1.0-linux-amd64.zip.sha256
+dist/addons/web-0.1.0-linux-amd64.zip
+dist/addons/web-0.1.0-linux-amd64.zip.sha256
 ```
 
 | Variable | Meaning |
@@ -1250,8 +1331,8 @@ zip bytes, so you can rebuild a file and compare the sha256.
 To build and install one add-on:
 
 ```bash
-make addons-zip ADDON=memory
-local-ai addons install dist/addons/memory-0.1.0-linux-amd64.zip
+make addons-zip ADDON=web
+local-ai addons install dist/addons/web-0.1.0-linux-amd64.zip
 ```
 
 ## Library sources
@@ -1575,6 +1656,39 @@ parent traversal, backslashes, percent escapes or URL schemes. These checks do
 not substitute for safe extraction, symlink checks, executable mode validation,
 or checking declared files exist, which belong to package installation.
 
+### Feature level
+
+The four compatibility ranges above are integers that every published add-on states
+(`host`, `api`, `protocol`, `dataFormat`). A new optional manifest field cannot use them
+without making every published add-on incompatible, so the host also has a **feature
+level**: one integer that counts the additive manifest features it understands.
+
+- The host declares its level (`contract.HostFeatureLevel`). This version has level 4.
+  A host that predates the levels is level 1.
+- A manifest may set `featureLevel` (a positive integer, default 1). It states the level
+  the add-on needs. A manifest that uses a field of a higher level must say so: the
+  parser refuses a manifest that uses `capabilities.resources.agentScoped`,
+  `capabilities.resources.nounPlural` or `i18n.<language>.resources` and does not declare
+  `featureLevel: 2`. `capabilities.ownerData` is level 3.
+  The setup text (`setup` on the manifest, `kinds[].setup` and the `setup` of a kind translation) is level 4.
+- A host with a lower level refuses the add-on with the plain reason **needs a newer
+  LocalAI**. The add-on is not installed and not upgraded. A failed install or upgrade has
+  the cause `needs_newer_host`, and an update check shows the add-on as incompatible with
+  the reason `feature-level`.
+  The Add-ons page and the install and upgrade dialogs show it as "This add-on needs a newer
+  LocalAI." in every language of the interface.
+- The library entry has the optional `requires.featureLevel`. The host reads it before it
+  downloads the package. If the entry says nothing, the manifest is checked when the
+  package is staged, with the same reason.
+
+An older host cannot read the new names. It refuses a manifest with an unknown field, and
+it also refuses a **library index** that has an unknown field, because the index reader is
+strict too. So one entry with `requires.featureLevel` makes the whole index unreadable
+for a host that predates the field. For that reason the `catalog` command of the packager
+writes the field only when it gets `--feature-level-in-index`, and the committed index
+does not have it. Without it an older host still lists the add-on and refuses it when it
+stages the package. Turn the flag on once no host without the field needs the library.
+
 Capabilities are independent: `service` is a boolean, `tools` is a unique list
 of namespace names, and optional `ui` contains required `entry` and `sdk` range,
 optional `css`, `pages`, `navigation`, and `chatActions` lists. Navigation names
@@ -1626,8 +1740,8 @@ It is an optional addition to `api` 2. Its shape is closed on purpose:
 | Rule | Value |
 |---|---|
 | Language tags | A BCP 47 subset: two or three letters and up to three subtags, such as `it`, `pt-BR`, `zh-CN`. At most 16 languages. A tag is unique whatever its case. `en` is refused: the English fields are the manifest. |
-| Fields | `kinds.<id>.title` and `kinds.<id>.description`. The kind must be declared in `capabilities.connector.kinds`, and a description can be translated only when the English kind has one. An unknown field fails the strict parser, as does a duplicate key. |
-| Text | Plain text, as for `ui.title`: no `<` or `>`, no control characters, no direction overrides, no leading or trailing space. A title has at most 80 characters and a description at most 280. All the translated text of one manifest has at most 12 000 characters. The whole manifest keeps its size limit. |
+| Fields | `kinds.<id>.title`, `kinds.<id>.description` and `kinds.<id>.setup`. The kind must be declared in `capabilities.connector.kinds`, and a description or a setup can be translated only when the English kind has one. An unknown field fails the strict parser, as does a duplicate key. |
+| Text | Plain text, as for `ui.title`: no `<` or `>`, no control characters, no direction overrides, no leading or trailing space. A title has at most 80 characters, a description at most 280 and a setup at most 120. All the translated text of one manifest has at most 12 000 characters. The whole manifest keeps its size limit. |
 | Fallback | A field that a language leaves out, and every language that the manifest does not list, shows the English text. Each field falls back on its own. |
 | Not translatable | Tool descriptions, input schemas and skills are written for the model and stay English. User setting keys and values are identifiers. The text of the add-on's own pages is part of the UI bundle and has its own strings. |
 
@@ -1652,6 +1766,40 @@ are honored); without both, English and no extra field. An unknown or malformed 
 English and the header is not read behind it. `title` and `description` never change, so an
 existing client sees the same answer as before. The UI reads the maps and picks the language of
 the user itself.
+
+### Setup text
+
+Some add-ons do nothing until the person gives them something: a bot token, an access
+token, an account on another service. The setup text says so in one short phrase, so the
+UI can show "Needs a bot token from @BotFather" before the person starts. It is plain
+text that completes the sentence "Needs ...". Write it without a capital letter, a final
+full stop or a verb of its own: `a bot token from @BotFather`, `an access token and the
+repositories it may use`.
+
+It has two places, and both are optional:
+
+- A **connector kind** declares `kinds[].setup` in `capabilities.connector`.
+- An **add-on that has no connector kind** (a tool add-on) declares the top-level
+  `setup`. It is one string or a map of language tag to string, like `ui.title`.
+
+```json
+"featureLevel": 4,
+"setup": { "en": "an access token", "it": "un token di accesso" }
+```
+
+| Rule | Value |
+|---|---|
+| Length | At most 120 characters, and not empty. |
+| Text | Plain text, as for `ui.title`: no `<` or `>`, no control characters (so no line break and no tab), no direction overrides, no leading or trailing space. It is not Markdown. |
+| Translation | For a kind, `i18n.<language>.kinds.<id>.setup`, only when the English kind has a setup. For the add-on, the language map of `setup`. A language that leaves it out, and every language that the manifest does not list, shows the English text. |
+| Feature level | Level 4. A manifest that uses it must declare `featureLevel: 4`. A host with a lower level refuses the add-on with "needs a newer LocalAI"; a host that predates feature levels refuses the unknown field. Do not add it to a package that older hosts must still install. |
+
+**What the host does with it.** `GET /api/chats/connectors/kinds` returns `setup` (English),
+`setups` (every translation, by language tag) and, when the request names a language that
+the kind translates, `localized_setup`. `GET /api/addons/apps` returns `setup`, `setups` and
+`localizedSetup` for an add-on in the same way. The fields are left out when the manifest
+declares no setup. The language is chosen as for the other texts: the `lang` query parameter,
+else `Accept-Language`. Each localized field falls back to English on its own.
 
 **Authoring.** Translate by hand, in the tone of the main locale of the language. Keep product
 names (GitHub, Slack, Telegram, Discord, Jellyfin, Home Assistant, LocalAI) as they are. Keep the
@@ -1813,7 +1961,8 @@ the components are the ones the core pages use, so an add-on page and a core pag
 draw the same thing.
 
 - `sdk.ui`: `Button`, `Text`, `Stack`, `Badge`, `Spinner`, `EmptyState`, and the
-  shared `PageHeader`, `ConfirmDialog`, `ErrorWithTraceLink`, `ModelSelector`,
+  shared `PageHeader`, `ConfirmDialog`, `SideSheet`, `SidePane`, `PaneLayout`,
+  `ActionMenu`, `ErrorWithTraceLink`, `ModelSelector`,
   `MediaInput`, `WaveformPlayer`, `DistributionBars`, `EmbeddingInspector`,
   `TabSwitch`, `LoadingSpinner`, `Modal`, `Lightbox` and `ModelPicker`. A `ref`
   reaches the host component, so `ModelPicker` keeps its handle (`open()` and
@@ -1826,6 +1975,10 @@ draw the same thing.
   `HomeModelPicker` and `ModelSelector` stay as names for the same picker.
 - `sdk.ui` also has the settings kit, for a settings section or any form: see
   [The settings kit](#the-settings-kit).
+- `sdk.ui` also has the Share dialog, `ShareDialog`, and the role and sharing line
+  of a list row, `RoleBadge` and `SharedByBadge`. `sdk.resources.shareClient(resourceId)`
+  is the dialog's client for one resource of the add-on. See
+  [The Share dialog]({{%relref "features/sharing#the-share-dialog" %}}).
 - `sdk.theme.tokens`: the host's design tokens as CSS values (`var(--dk-...)`), for the
   add-on's own scoped style sheet: `text`, `muted`, `surface`, `inset`, `edge`, `hover`,
   `accent`, `accentText`, `accentWash`, `onAccent`, `okText`, `okWash`, `warnText`,
@@ -1864,6 +2017,22 @@ that declares only `"max": 1` is refused by a version 2 host. Before you raise
 `max` to 2, check the add-on against the SDK 2 surface. A range that is
 malformed (for example `min` above `max`) keeps the generic `invalid or
 incompatible UI` error.
+
+### Panels: a sheet, a pane and a row menu
+
+`sdk.ui` also carries the three parts of a list with a detail and a form, the way the host's
+Add-ons and MCP connectors pages draw them. Use them instead of a panel of your own: Escape,
+focus, the scrim and the phone layout are the host's.
+
+| Component | Props | What it draws |
+|---|---|---|
+| `SideSheet` | `title`, `description`, `footer`, `headActions`, `onClose`, `wide`, `closeLabel`, `testId`, `labelId` | A create or edit form over the page: a head, one scrolling body and a footer for the buttons, with the primary action last. It is a dialog: focus moves in, Tab stays inside, Escape and a click on the scrim call `onClose`. Do not set a width on it; `wide` is the only other size. |
+| `SidePane` | `open`, `title`, `meta`, `actions`, `footer`, `onClose`, `wide`, `testId` | The details of one item beside a list. Put it in a `PaneLayout` next to the list. From 1280 px it docks and pushes the list; below that it overlays the page, and on a phone it is a bottom sheet. Escape closes it and focus returns to the control that opened it. |
+| `PaneLayout` | none | The row that holds the list column and a docked `SidePane`. |
+| `ActionMenu` | `items: [{key, label, icon, onClick, danger, disabled, hidden}]` (a `{divider: true}` item separates), `ariaLabel`, `compact` | The three-dot menu of a row. |
+
+The connector pages (`addons/internal/connector-ui`) are the reference: a row list, a docked
+pane and a sheet.
 
 ## Runtime wire version 1
 
@@ -1923,6 +2092,7 @@ your own: a class the host does not define has no style.
 | `Code` | `testId` | A monospace block for a raw error or a command, wrapped and scrolled. |
 | `Actions` | none | A row of buttons that wraps. |
 | `Table` | `caption`, `columns: [{key, label}]`, `rows`, `testId` | The host table. |
+| `Notice` | `severity` (`info`, `warn`, `error`), `title`, `reason`, `fixLabel` with `onFix`, `testId` | What is off or not available, why, and one action. Hosts older than this release do not have it: fall back to `Callout`. |
 | `ExternalLink` | `href` (https only), `testId` | A link out, in a new tab. |
 
 The Sandbox and Web sections are made of these components only (`addons/sandbox/ui/src/Settings.jsx`,
@@ -2587,16 +2757,20 @@ The manifest declares the capability. It needs no tool and no `service` flag:
 | `kinds` | 1 to 4 kinds. A kind is what a binding stores in `kind`, so it names the platform. |
 | `kinds[].id` | A lower-case identifier, unique in the manifest. A binding names the add-on too, so another add-on cannot take over the bindings of a kind. |
 | `kinds[].title`, `description`, `senderHint` | Plain text for people, with the bounds of the UI texts. |
+| `kinds[].setup` | Optional, feature level 4. What the person needs before a binding of this kind works, as a short phrase that completes the sentence "Needs ...", such as `a bot token from @BotFather`. See [Setup text](#setup-text). |
 | `kinds[].delivery` | `pull`: the host asks for updates (long polling). `push`: the add-on calls the host operation `connector.inbound`. |
 | `kinds[].page` | Optional. The add-on page that adds and edits bindings; it must be a declared page. The Connectors page links to it. |
 | `kinds[].agentOptional` | Optional, manifest `api` 2. `true` lets a binding of the kind have no agent. Such a binding is credentials only: it holds the token, the resource list and the write mode, and the host never delivers a message to it, polls for it, answers from it or authorizes a sender on it. The host refuses an empty agent together with listening, accepting senders, an allowlist, a notification chat, talk-back channels, permissions, pairing or trigger approval. Without the key every binding of the kind needs an agent. |
+| `kinds[].wildcardResources` | Optional. `true` lets a binding of the kind list `owner/*` (every resource of one owner) or `*` (every resource the credential reaches) in its resources. The host matches them before the add-on is called, without regard to case and on whole names; a star anywhere else is refused, `*` must be the only entry, and saving `*` needs the confirmation `confirm_any_resource` = `allow any resource`. Without the key every entry is an exact name. |
+| `kinds[].tokenGuards` | Optional list of `{prefix, option, allow}`. The host refuses a credential that starts with `prefix` unless the binding set the kind option `option` to `allow`, and asks for `confirm_wider_token` = `accept wider token` when the option is turned on. It is checked when the token is saved and again each time it is used. `option` and `allow` must exist in the kind's `options`. At most 4. |
+| `toolDefinitions[].enumerates` | Optional, on a read tool of an add-on with credentials. The tool lists what the credential reaches, names no resource, and runs only for a binding whose list is `*` (the kind needs `wildcardResources`). The request carries the resource key `*`. |
 | `kinds[].drafts` | Optional. `true` when the add-on serves the op `draft`. The host then shows the live answer of a direct conversation as a draft instead of a working message. |
 | `kinds[].previewMs` | Optional. The shortest time between two previews (edits or drafts) of one binding, 250 to 10000 ms. Without it the host waits one second. |
 | `kinds[].history` | Optional, manifest `api` 2. `{"thread": true, "maxMessages": N}`: the add-on serves the op `history` for threads, and returns at most `maxMessages` (1 to 200; without it the host asks for 30). A kind without it is never asked, so it keeps the behaviour of a platform that cannot give old messages. |
 | `kinds[].options` | Optional, manifest `api` 2, at most 4. A choice that each binding of the kind makes: `{"id", "title", "description", "values": [{"id", "title"}], "default"}` with 2 to 8 values and a default among them. The host shows the choice on the binding page, checks the owner's value against the declaration, stores it, and sends the value in effect to the add-on in `options` of every `poll`. What the option means is the add-on's own rule. |
 | `kinds[].files` | Optional. The files the kind can receive and send, with a limit for each. Needs manifest `api` 2. See [File abilities and limits](#file-abilities-and-limits). |
 | `kinds[].roles` | Optional, manifest `api` 2, at most 8. A role the kind can give to a sender: `{"id", "title", "description"}`, with an `id` in the same form as a kind `id`. The add-on owns the membership (for example, the admins of a workspace) and sends the role IDs of the sender in `roles` of each message, at most 8. The host drops a role the kind does not declare, and all roles for a kind that declares none. The owner of a binding maps each role to capabilities in the host. |
-| `kinds[].permissions` | Optional, manifest `api` 2, at most 12. The capabilities the kind can grant to a role, from the host's closed list: `proposals.confirm`, `memory.write`, `files.upload`, `triggers.propose`, `triggers.run`, `talkback.channels` and the sensitive `talkback.new_channel`, `profile.write`, `skills.write`, `pages.write`, `dashboard.write`. An unknown name is refused. A sensitive name may be listed, but it is never granted to a role: only a sender that the owner paired can use it. |
+| `kinds[].permissions` | Optional, manifest `api` 2, at most 13. The capabilities the kind can grant to a role, from the host's closed list: `proposals.confirm`, `memory.write`, `files.upload`, `triggers.propose`, `triggers.run`, `talkback.channels` and the sensitive `talkback.new_channel`, `profile.write`, `skills.write`, `pages.write`, `dashboard.write`, `knowledge.write`. An unknown name is refused. A sensitive name may be listed, but it is never granted to a role: only a sender that the owner paired can use it. |
 
 **Outbound: the connector route.** The host calls `POST /connector` on the add-on
 with the same bearer credential and incarnation header as every other route and a body
@@ -2607,8 +2781,17 @@ with the same bearer credential and incarnation header as every other route and 
 [Moving a file by handle](#moving-a-file-by-handle)), `me` (who the bot
 is, for the token check on save and the Test button), `media` (`media`: one
 reference of a message's `media`, and a `transfer` handle; the answer is
-`{"received": {"name", "mime"}}`) and, for a kind that declares `drafts`, `draft`
-(`chat`, `thread`, `draftId`, `text`).
+`{"received": {"name", "mime"}}`), `delete` (`chat`, `messageId`: remove a message of
+the bot) and, for a kind that declares `drafts`, `draft` (`chat`, `thread`, `draftId`,
+`text`).
+
+- **One message per answer.** A `send` with `messageId` replaces that message (the
+  preview) with the first part of the text. The shared route tries the edit again after
+  each wait the platform asks for (up to 3 tries, none over 30 s). If the edit still
+  cannot be made, it sends the part as a new message and then deletes the preview with the
+  same op as `delete`, so a preview with a cursor never stays beside the answer. A
+  platform that cannot delete leaves it. The host never sends the reasoning of the model
+  in a preview.
 
 - **Options.** A `poll` carries `options`, a map from each declared option id to the
   value in effect (the owner's choice, or the default). The host sends it with every
@@ -2750,7 +2933,9 @@ calls. The limits come from the platforms' own documents: see the table in
 
 **Inbound.** A pull add-on answers `poll` with normalized messages (`cursor`, `chat`,
 `thread`, `direct`, `mention`, `messageId`, `replyTo`, `senderId`, `senderName`,
-`senderUsername`, `text`, `unsupported`, `media`, `skip`) and the next offset.
+`senderUsername`, `chatName`, `link`, `text`, `unsupported`, `media`, `skip`) and the next
+offset. `chatName` (the channel or group name) and `link` (an https address of the message or
+its thread) are optional and are only shown to the owner in the header of the chat.
 `messageId` is the platform's ID of the message and `replyTo` the message it answers;
 the thread conversation mode uses them. Core keeps the offset with the binding, passes it
 to the next `poll` and stores the offset the answer names, so a new leader continues
@@ -2851,8 +3036,8 @@ Limits and safety:
 | Chat that runs a saved agent | refused until the owner grants the kind (see below) |
 
 A saved agent proposes a kind only when its `builtins` list holds the grant of
-that kind: `memory.write`, `profile.write`, `skills.write`, `pages.write` or
-`dashboard.write`. The tool exists in a chat when the agent holds the grant, the
+that kind: `memory.write`, `profile.write`, `skills.write`, `pages.write`,
+`dashboard.write` or `knowledge.write`. The tool exists in a chat when the agent holds the grant, the
 user may still use it and the chat did not switch the `changes` group off; its
 schema lists only the kinds the chat holds. A plain chat holds what its user
 may use. A run that started by itself never holds a grant. `GET
@@ -3100,6 +3285,199 @@ Rules:
   unattended run may do; a host rule that reads one says so (see
   [How a memory note is saved](#how-a-memory-note-is-saved)).
 
+## Provider slots
+
+A provider slot is a job the host does itself and lets an add-on do in its place. The
+host owns the slot, its gates and a built-in provider. An add-on says in its manifest
+that it can serve the slot, and each person picks one provider: the built-in one, an
+add-on that declares the slot, or Off. Memory (the notes the assistant reads and saves)
+is the first slot.
+
+The list of slots is data in the host (`pkg/addons/contract/provider-slots.json`) and it
+is closed. An add-on cannot invent a slot: a new slot comes with a host release, with
+one descriptor entry and its built-in provider. A descriptor gives the slot an ID, a
+version, a title and a description, the choice a person has (the default, whether Off
+is allowed and what Off means), the built-in provider, the **roles** a provider can
+fill, which declarations the slot activates, the facts a provider may declare about
+itself, and the ids of the host rules that apply to every provider.
+
+### Declare a slot in a manifest
+
+An add-on declares at most four slots under `capabilities.provides`. The manifest stays
+at `api` 2: `provides` is an optional key.
+
+```json
+{
+  "capabilities": {
+    "tools": ["recall", "remember"],
+    "toolDefinitions": [
+      {"name": "recall", "kind": "read", "description": "...", "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}}, "additionalProperties": false}},
+      {"name": "remember", "kind": "write", "description": "...", "inputSchema": {"type": "object", "properties": {"resourceId": {"type": "string"}, "text": {"type": "string"}}, "required": ["resourceId"], "additionalProperties": false}}
+    ],
+    "provides": [
+      {
+        "slot": "memory",
+        "slotVersion": 1,
+        "roles": {"read": "recall", "write": ["remember"]},
+        "properties": {"remote": true, "undo": "none"}
+      }
+    ]
+  }
+}
+```
+
+- `slot` is a slot of the host. An unknown slot refuses the manifest.
+- `slotVersion` is the version of the slot's contract that the add-on was written for.
+  The host accepts the range from the slot's `minVersion` to its current version.
+- `roles` map a role of the slot to tools of `capabilities.tools`, as one name or a
+  list. The host checks each tool against the role: it must be declared with a
+  definition, have an allowed kind, not be page-only, not shadow a built-in tool, and
+  serve one role only. A role takes at most the number of tools its descriptor allows.
+  A role the descriptor marks required must be present. A provider never brings an
+  `action` tool through a role.
+- `properties` are typed facts the descriptor asks for, such as `remote` (a boolean)
+  and `undo` (`host`, `provider` or `none`). `undo: "provider"` needs
+  `capabilities.undo`. The interface shows them to the person who picks the provider.
+- The title and the description in the list of providers are the add-on's `ui.title`
+  and `ui.description`.
+
+An add-on with no `roles` is valid. A provider that only ships index files and skills
+declares the slot and its `contextFiles` and `skillDefinitions`, and needs no tool.
+
+### What a pick changes
+
+A declaration does nothing until a person picks the add-on. While another provider
+serves, the add-on's context files, its skills and the tools of its roles are not
+offered in the chats of that person. Its other tools are not touched. When the person
+picks it, those contributions count, and the built-in provider stops serving: one
+provider serves a slot at a time. The host keeps every gate for any provider, so an
+add-on cannot loosen a save rule, a grant or Off. The `contextFiles` of a provider must
+lie in the scopes that the slot allows.
+
+### When the provider fails
+
+If the add-on a person picked stops, is disabled, is removed or cannot be listed, the
+slot is **off** for that person, with the reason `provider_unavailable`, and the person
+sees which add-on it is. It does not fall back to the built-in provider: a person who
+chose an external provider must not have their data written somewhere else without
+being asked. The choice stays stored, so the add-on serves again when it runs, and the
+person can pick the built-in provider at any time. A store that cannot be read, or an
+add-on list that cannot be read, also turns the slot off for that call.
+
+### What the host does itself with a provider
+
+The model reaches the tools of the `read` and `write` roles as ordinary tools. The host
+calls the other roles itself, and it keeps every gate while it does.
+
+| Role | When the host calls it | What the host does with the answer |
+|---|---|---|
+| `context` | At the start of each turn of a chat that reads the notes | Puts the text in front of the message, wrapped as data, for this turn only |
+| `export` | When the person downloads their notes | Writes the answer as a zip file |
+| `forget` | When the person asks the provider to forget notes | Reports the result, or the change that waits for a confirmation |
+| `write` | When the model calls the tool | Applies the save level of the person first (see below) |
+
+**Context.** The host calls the tool with the facts its schema declares, and no others:
+`query` (the message of the person, cut at 1 KiB), `scopes` (the scopes the chat may
+read), `budgetBytes`, `origin` (`studio` or `connector`) and the opaque references
+`userRef`, `agentRef` and `conversationRef`. A provider never gets a name, an instruction
+or a platform ID. The tool answers `{"text": "..."}` or a JSON string. The call has a
+time limit of 3 seconds, and the text is cut at 6 KiB. The host puts the text in front of
+the message inside the markers `<<<provider-data` and `provider-data>>>` with a header that
+says it is data and not instructions. A marker or a line that looks like a system note is
+defused inside the text. The text is not part of the system prompt, so a text that
+changes with each message does not restart the chat engine. A chat that has memory off,
+a private chat and an agent with no notes make no call at all.
+
+**Export and forget.** The export tool takes no argument and answers
+`{"files": [{"path": "a/notes.md", "content": "..."}]}`; any other JSON is kept as one
+file, `export.json`. A path must be relative and is made safe by the host. The forget
+tool is a `write` tool, so it names a resource like every write tool. The host offers the
+facts `group` (`user`, `agent` or `channel`), `key` and `resourceId` to the tools that
+declare them. A provider with no `export` or no `forget` role has none: the page says so,
+and the person uses the service itself. The built-in provider has no forget; its notes
+are files that the person deletes in Files. `GET /api/chats/memory/export` and
+`DELETE /api/chats/memory` route to the provider that serves.
+
+**Save path.** A write through a provider follows the same rules as a note of the
+built-in provider. The level of the person is the strictest of their setting, the rule of
+the saved agent and the messaging row. *Never* takes the write tools away. A saved agent
+needs the `memory.write` grant, and a sender in a messaging chat needs the capability.
+Only *Save it and tell me* applies a write at once, and only for a note of up to 4 KiB
+that does not look like a secret, within 5 writes in a turn, and from a provider that is
+local or declares `undo` as `host` or `provider`. Every other write is stored as a
+proposal and waits for the person; the model is told so and does not say it was saved.
+
+**When the provider fails.** The chat never fails because a provider does. A context call
+that times out or fails leaves the turn without notes, and the model hears one line
+saying so. After 3 failures in a row the host stops calling the provider for one minute (a
+circuit breaker), then tries one call. The slot shows a plain notice in `health` while it
+waits. The breaker is per server process: each frontend learns on its own.
+
+**Audit.** Every call of the host to a provider writes one log line,
+`studio: provider call`, with the slot, the role, the add-on, the tool, the person, the
+chat, the outcome (`ok`, `truncated`, `failed`, `timeout`, `bad_result` or `cool_down`),
+the time and the size. Every write adds `studio: provider write` with the level and
+whether it was held. No line has a note or any text of the provider.
+
+**A provider that sends notes away.** A provider that declares `remote: true` must also
+declare `capabilities.network`, so the person and the host see the network access before
+anything is sent. A manifest that does not is refused.
+
+### The retired Memory add-on
+
+The notes are built in, and the add-on `memory` that used to read them is an alias of the
+built-in provider. Its package is retired: it is no longer in the library or built by the
+package workflow, so it is not offered for a new install. A copy that is still installed keeps working: the host does not list it
+as a provider, a choice that names it means the built-in provider, and its index files
+and skills are ignored so the notes do not load twice. Nothing is deleted. A new
+provider must use another ID.
+
+### Write a provider
+
+1. Start from `pkg/addons/providerconformance/sample`: a manifest that declares every
+   role, and a small service behind it. The sample keeps the notes in a service outside
+   this machine, so it declares `remote: true` and the network.
+2. Give the tools the shapes above. A tool of the `context` role needs no resource. Do not
+   declare a property that the contract reserves, such as `scope`.
+3. Run the conformance test from a Go test of your add-on:
+
+```go
+func TestMyProviderConforms(t *testing.T) {
+    providerconformance.Run(t, providerconformance.Subject{Manifest: manifestJSON, Call: myHandler})
+}
+```
+
+It checks the manifest against the descriptor, then calls the role tools the way the host
+does: the context within its byte budget and with an empty message, the export with safe
+paths, the read and forget tools, and a tool that does not exist. A provider that passes
+it works with the time limit, the size cap and the wrapping of the host.
+
+### Routes
+
+| Route | Does |
+|---|---|
+| `GET /api/chats/providers` | every slot with its providers and the choice in force |
+| `GET /api/chats/providers/{slot}` | one slot; 404 for an unknown slot |
+| `PUT /api/chats/providers/{slot}` | pick a provider: `{"provider": "builtin" \| "off" \| "<add-on id>"}`; 400 for a provider the slot does not list, 409 for an add-on that cannot serve now |
+| `GET /api/chats/memory/export` | the notes as a zip file; the export of the provider when an add-on serves |
+| `DELETE /api/chats/memory` | ask the provider that serves to forget notes (`scope`, `key`, `resource`); 404 when it has none |
+
+`resolution.active` says what serves: `builtin`, an add-on ID or `off`. `health` is present
+while the host leaves a failing provider alone, with a plain `notice`. The choice is
+kept per person with the account, so every frontend of a cluster reads the same answer.
+It is a person's choice and needs no add-on call. The settings page draws the list from
+this answer, and **Settings** then **Memory** is the first place that uses it.
+
+### Test a provider add-on
+
+Test a provider with a fake add-on: declare the slot, serve a context file, list the
+add-on through the broker interface of the tests, then check that the add-on's files
+reach the prompt only after the person picks it, that the built-in notes do not load
+at the same time, and that a stopped or removed add-on turns the slot off instead of
+falling back. `core/services/studio/providerslots_internal_test.go` is the reference, and
+`core/services/studio/providercalls_internal_test.go` covers the host's own calls.
+`pkg/addons/contract/providerslots_test.go` covers the manifest rules.
+
 ## Owner forwarding and HTTP relays
 
 The embedding host can configure `AddonConfig.Transport` at startup. The configuration
@@ -3141,6 +3519,8 @@ Two more optional capability fields describe the UI-only resource management (se
 | `capabilities.undo` | Boolean. The add-on keeps a change set for the writes a chat makes at once and answers the host's undo calls (see [Undoing a change a chat made](#undoing-a-change-a-chat-made)). It changes no tool and offers nothing to a model. |
 | `capabilities.adminTools` | At most 4 tool names that only the host's own UI-only endpoints may run. An admin tool is never in `tools`, never has a tool definition, is never offered to a model and is refused by every model, proposal and typed-read path: the declared-tool rule of those paths reads `tools` only. |
 | `capabilities.connector` | Optional. 1 to 4 `kinds` of messaging binding the add-on serves, each with an `id`, a `title`, a `delivery` (`pull` or `push`) and optional texts and a `page`. See [Connector add-ons](#connector-add-ons). |
+| `featureLevel` | Optional positive integer, default 1. The feature level the add-on needs from the host. See [Feature level](#feature-level). |
+| `setup` | Optional, feature level 4. What the person needs before the add-on works, as a short phrase such as `an access token`. A string or a map of language tag to string, like `ui.title`. For an add-on that has no connector kind; a kind has its own `kinds[].setup`. See [Setup text](#setup-text). |
 | `capabilities.resources` | Maps the management operations to tools: `create` (a declared tool of kind `create`), `rename` (a declared tool of kind `schema`), `inspect` (a declared tool of kind `read` whose result is an object with a `name` and a `revision`), `delete` (the one admin tool) and a plain-text singular `noun`. Every field is optional. An admin tool must be the `delete` of the mapping, and a mapping must name tools that exist with the kind it needs. A mapping with `create` or `delete` must also declare the read tool `resource-exists` in `tools`, because the host settles interrupted creations and deletions only on its explicit answer. `list` asks the host for a listing tool; see [Resource listing](#resource-listing). |
 
 A tool definition names the resource it works on with a required `resourceId`
@@ -3160,6 +3540,171 @@ but never offers it to a model, a chat, an agent or a trigger, and a model that
 names it gets the unknown-tool answer. The Sandbox uses it for `set-backend` and
 `confirm-host`: they change a setting, and the add-on asks the host whether the
 caller is an administrator before it acts.
+
+### Add-ons that keep the owner's own data
+
+An add-on that keeps the data of one person and needs no credential and no resource list (the
+[Calendar](/features/calendar/) and [Contacts](/features/contacts/) add-ons) sets `capabilities.ownerData` to `true` and
+`featureLevel` to 3. Its tools name no resource: the add-on keys the data on the user in the
+authority of the call, never on an argument. Reads run at once for every sender a messaging
+bot lets in. A tool of another kind than `read` is held to `tools.write` in a messaging chat,
+like the writes of a credentialed add-on: the owner and the senders paired with the bot hold
+it without a tick on the bot, and every other sender (a listed person who is not paired, a
+channel, a bot that accepts anyone) can read but not change. To let everyone the bot lets in
+change the data, tick **Let people who are not verified change things with add-on tools**
+(`tools.write`) in the permissions of that bot. The tick covers every sender, including listed
+people and, for a bot that accepts anyone, any sender, and it applies to these add-ons only:
+for other add-ons `tools.write` still stops short of a sender who is only let in. A trigger or a job runs the writes
+only under the `act.addons` grant of the action policy, as for any action tool.
+
+### Resource listing for agents
+
+An add-on whose resources a person may want to hand out one by one can opt in to
+per-agent resources:
+
+```json
+{
+  "featureLevel": 2,
+  "capabilities": {
+    "resources": {
+      "noun": "database",
+      "nounPlural": "databases",
+      "agentScoped": true,
+      "list": {"tool": "databases-list", "items": "databases"}
+    }
+  },
+  "i18n": {"it": {"resources": {"noun": "database", "nounPlural": "database"}}}
+}
+```
+
+- `agentScoped`, `nounPlural` and `i18n.<language>.resources` need `featureLevel` 2
+  (see [Feature level](#feature-level)). `agentScoped` also needs a `list` mapping,
+  else the manifest is refused.
+- The host names the resources in the agent form with `noun` and `nounPlural`, or
+  their translation for the language of the page. `noun` is the singular fallback
+  when there is no plural. Main-app texts name no add-on and no noun.
+- The add-on is not told about the agent. The host checks the list of the agent
+  before it forwards a call that names a resource, and filters the listing and the
+  selection of a chat. See
+  [Resources of an agent](/features/chats-agents/#resources-of-an-agent).
+- A tool that writes in such an add-on needs `tools.write` in a messaging chat.
+
+### A confirmation the owner can relax
+
+A `write` tool with `"approval": "always"` always waits for a person. A tool can also
+declare `"approvalOverridable": true`, so that the owner can choose not to be asked for
+that one tool. It is the only way to relax `approval`, and it needs three things:
+
+- The add-on declares a credential. The choice belongs to the person who owns the
+  connection.
+- The manifest declares the [user setting](#user-settings) `approval-<tool>` with the
+  values `ask` and `skip`, the default `ask` and no `role`. A manifest with another
+  default, other values or no setting is refused at install.
+- The owner sets it to `skip` on the add-on's page. The write needs the owner's own
+  browser session, like every user setting, so no model, API key or tool call can do it.
+
+The host then runs the tool without a card only when the connection's write mode is
+**propose** or **auto** (never **off**) and the call comes from one of two places:
+
+- a chat that the owner has open themselves, or
+- a messaging chat in which every sender of the turn is paired with the bot.
+
+A sender who is only on the allowlist, a sender let in because the bot accepts anyone, a
+role, a trigger, an agent job, a page, a sub-agent, and any call with no chat still get a
+proposal that waits for a person. The setting is read again when the call is applied, so
+switching it back stops a call that was stored a moment earlier. A tool that is not
+marked `approvalOverridable` is never relaxed, whatever the setting holds. In a cluster
+the decision for a messaging chat needs the grant of the turn, which lives on the
+frontend that runs it; a call without it asks.
+
+Every call that runs without a card is logged with the add-on, the tool, the connection,
+the user and the outcome (`applied`, `rejected`, `unknown` or `not_run`), and never the
+arguments. The same line is added to the connection's latest decisions. The connection's
+access view and its access preview (`approvals` in the answer of
+`GET /api/chats/connectors/{id}/access` and of the preview route) list each relaxable tool
+with its setting and who it runs for without asking now.
+
+### What happened to a tool call
+
+Every call of an add-on tool from a chat writes one line to the host log when it ends,
+whatever the ending:
+
+```
+studio: addon tool addon=<id> tool=<name> kind=<read|write|schema|create|action|-> binding=<id|-> resource=<name|-> chat=<origin> sender=<kind> outcome=<ok|denied|held|error> reason=<code|-> status=<http status|-> ms=<n>
+```
+
+- `chat` is the origin of the chat: `studio` for the web UI, or `connector`, `trigger`,
+  `job` or `page`.
+- `sender` says who the call is for: `owner` in the web UI; `paired`, `listed`, `role`,
+  `channel`, `anyone` or `mixed` for a messaging turn (how the sender was let in);
+  `trigger` or `job` for an unattended run.
+- `outcome` is `ok`, `held` (a write that waits for a person), `denied` (a rule stopped it
+  before the service was called) or `error`. A write that waited in a messaging chat
+  later gets one more event in **Latest decisions**: `confirmed`, `cancelled` or
+  `expired` (see [Confirming a held write in the chat](#confirming-a-held-write-in-the-chat)).
+- `reason` is a stable code: a code of the permission chain (`sender_needs_pairing`,
+  `connection_permission_off`), `write_mode_off`, `write_mode_propose` or
+  `approval_always` for a write that waits (`waiting_in_chat` when the bot asked in the
+  chat), `chat_confirmed`, `chat_cancelled` or `hold_expired` for its end, `resource_not_allowed` or
+  `resource_not_in_agent_list`, `select_connection`, `act_read_only`, or
+  `upstream_<status>` when the service behind the add-on refused the call.
+- `status` is the HTTP status that service answered, when the add-on says so.
+
+The line holds names and codes. It never holds the arguments, the result, a token or the
+text of a note. An identical line is written once in 30 seconds; the next one says
+`repeated=<n>` for the ones it held back.
+
+The same event is kept in memory, at most 20 for each connection and each bot, and the
+connection page shows it under **Latest decisions** with the tool, the outcome, the reason
+in the language of the page and the time. `GET /api/chats/connectors/{id}/access` returns
+them as `tool_outcomes`. They reset when the server restarts.
+
+### Confirming a held write in the chat
+
+A write tool waits for a person when the write mode of its connection is **ask first**.
+In the web UI the owner confirms it on the Add-ons page. In a messaging chat the host
+now asks in the chat itself, when the bot has `proposals.confirm` enabled and at least one
+sender is paired with it.
+
+- **What is written.** The host writes one message in the chat and thread of the request:
+  the title of the tool in plain words, the resource, and the facts the tool definition
+  lists, then how to answer: `yes` or `no`, or `confirm CODE` or `cancel CODE` when
+  several wait. It never writes the words of the model, a token or a raw JSON dump, and
+  every fact is cut to 120 characters. A tool definition lists its facts with two optional
+  fields: `title` (at most 60 characters) and `summaryFields` (at most 6 keys of the
+  sample that the preview returns). A key that is not listed is never repeated in a chat.
+- **Who may answer.** Only a sender who is paired with the bot and holds
+  `proposals.confirm`. A sender on the allowlist who is not paired, a member of a listed
+  channel, and anyone on a bot that accepts anyone get one sentence and nothing runs. The
+  person who asked and the person who answers can differ; the audit line names both. The
+  owner can still confirm or cancel it in the web UI.
+- **What runs.** The call stored with the proposal, bound to its digest, exactly as
+  proposed. A code works once. The answer must come from the chat and thread where it was
+  asked. The result goes back as one short message: a link or number the tool returned
+  when it is safe to show (an https address without credentials), or the plain reason it
+  failed, such as a refusal of the service behind the add-on.
+- **Limits.** At most 5 writes wait in the chats of one bot, at most 10 are asked in an
+  hour, and a proposal expires after 24 hours. The records survive a restart. Above a
+  limit the write waits for the owner in the web UI and the model is told so.
+- **Not in the chat.** A tool that declares `approval: "always"` still waits for a person
+  at the web UI, whatever a chat says.
+- **The model.** The result of the tool says the write waits for confirmation in the chat,
+  with the code, so the model does not say it was done. The web chat shows status lines
+  for waiting, confirmed, cancelled, expired and failed.
+
+When the service behind an add-on refuses a call (a token without the permission, a name
+that does not exist, a value it does not accept), the add-on tells the host the status and
+one fixed sentence that names the fix. The model gets `code: upstream_refused`, the
+`upstream` status and that sentence as `message`, and tells the person plainly instead of
+reporting an outage. An add-on does this by returning `protocol.Upstream(status, hint,
+err)` from its runtime (the 400 answer carries the `X-Addon-Upstream-Status` and
+`X-Addon-Upstream-Hint` headers; a host that does not read them behaves as before). The
+sentence must hold no token and no text the service sent back.
+
+A write that waits for a person (the write mode of the connection is **propose**, or the
+tool always asks) says so in one sentence. In the web UI the user confirms or cancels it
+on the Add-ons page. In a messaging chat the model tells the sender that the change waits
+for the owner, who confirms it in the web UI: a chat turn never confirms a change.
 
 ### Tools that replace a built-in tool
 
@@ -3450,7 +3995,7 @@ Mutation MCP tools remain deliberately unavailable. The later MCP integration de
 safe listing/status tools for proposals; prompt text cannot authorize mutation and no tool
 confirms a proposal. For that reason `/api/addons/dispatch`, `/api/addons/relay` and the
 proposal routes are deliberately not mapped in the LocalAI Assistant tool catalog
-(`pkg/mcp/localaitools`) yet. The route map test only
+(`core/services/localaitools`) yet. The route map test only
 requires an entry for each registered tool, so no test is weakened. The routes are described
 in the generated Swagger document under the `Addons` tag.
 
@@ -4947,6 +5492,12 @@ when a language lacks a bundle, a bundle lacks a key of English or has an extra 
 from English, or a value is empty. There is no baseline: add a key to English and every language in the
 same change.
 
+The Voice, Face, Fine-tuning, Quantization and Memory pages read their words from the same kind of bundle
+(`addons/<id>/ui/src/i18n/<id>.<language>.json`, flat keys). A list of notes is stored as numbered keys
+(`voice.why.0`, `voice.stored.0.where`) and the page puts it back together, so each item is translated like any
+other text. A string that has no translation yet repeats the English text in that language's bundle, which
+satisfies the gate and shows English; replace it when a translation exists.
+
 Compile an add-on with classic JSX transformed to `React.createElement` over
 `sdk.React`, inside the `createAddon` factory. Do not import a JSX runtime. The fixture
 packages under `tests/addons/fixture/ui` are written in that form.
@@ -4997,8 +5548,10 @@ what the user may do.
 
 `sdk.core.fetch` is `fetch` with a fixed policy. It sends the cookies of the page
 (`credentials: 'same-origin'`), refuses other origins (`mode: 'same-origin'`),
-refuses redirects, and does not use the cache. It removes any `Authorization` and
-`Cookie` header that the add-on sets, and it stops when the add-on is withdrawn.
+refuses redirects, and does not use the cache. It removes any `Authorization`,
+`Cookie` and `X-LocalAI-Confirm` header that the add-on sets, and it stops when the
+add-on is withdrawn. `X-LocalAI-Confirm` marks a person's own action in their own tab,
+and add-on code is not the person.
 
 The path must be a same-origin path that starts with one `/`. These are refused with
 an `invalid_path` error before any request is made:
@@ -5008,6 +5561,13 @@ an `invalid_path` error before any request is made:
 - the add-on gateway (`/api/addons`) and the auth routes (`/api/auth`). The add-on
   gateway has its own typed calls, and the auth routes hold account credentials. The
   check uses the decoded path, so `/api/%61ddons/apps` is refused too;
+- the sharing routes: `/api/shares`, the folder sharing routes under
+  `/api/chats/files/shares`, and every API path whose last segment is `share`,
+  such as `/api/chats/agents/{id}/share`, `/api/collections/{name}/share` and
+  `/api/chats/connectors/{id}/share`. Only the person shares, in the host's Share
+  dialog: an add-on page renders `sdk.ui.ShareDialog` with
+  `sdk.resources.shareClient` for its own resources, or `sdk.ui.ConnectionShareDialog`
+  for a connector binding (see [Sharing resources]({{%relref "features/sharing#in-an-add-on" %}}));
 - an encoded `/` or `\` in the first two segments, because it can hide a segment
   boundary. In a later segment it is a normal identifier (`/api/voice-profiles/a%2Fb`).
 

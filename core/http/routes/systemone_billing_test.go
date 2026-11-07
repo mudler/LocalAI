@@ -34,7 +34,7 @@ func (b *nativeDecisionFixture) Score(context.Context, *pb.ScoreRequest, ...ggrp
 var _ = Describe("registered SystemOne billing", func() {
 	DescribeTable("records validated native responses exactly once", func(body string, code int, count int64) {
 		root := GinkgoT().TempDir()
-		app, err := application.New(config.WithDataPath(root), config.WithDisableLocalAIAssistant(true), config.WithDisableCSRF(true), config.WithSystemState(&system.SystemState{Model: system.Model{ModelsPath: root}, Backend: system.Backend{BackendsPath: root}}))
+		app, err := application.New(config.WithDataPath(root), config.WithDisableCSRF(true), config.WithSystemState(&system.SystemState{Model: system.Model{ModelsPath: root}, Backend: system.Backend{BackendsPath: root}}))
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 		cfg := config.ModelConfig{Name: "decision", Backend: "llama-cpp", KnownUsecases: config.GetUsecasesFromYAML([]string{"decisions"})}

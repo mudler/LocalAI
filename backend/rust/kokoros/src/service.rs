@@ -667,6 +667,13 @@ impl Backend for KokorosService {
         Err(Status::unimplemented("Not supported"))
     }
 
+    async fn forecast(
+        &self,
+        _: Request<backend::ForecastRequest>,
+    ) -> Result<Response<backend::ForecastResponse>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
     type ForwardStream = ReceiverStream<Result<backend::ForwardReply, Status>>;
 
     async fn forward(

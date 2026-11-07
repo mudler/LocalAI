@@ -19,10 +19,13 @@ import './catalog.css'
 //   renderEntry       (entry) => node, one list item body
 //   reloadToken       change it to search again with the same query
 //   orderEntries      optional (entries) => entries, the order of one page as drawn
+//   filterEntries     optional (entries) => entries, narrows one page before it is drawn
+//   toolbar           optional node drawn beside the search field (a category filter)
+//   listClassName     optional class of the list, for a grid of cards
 //   describeError     (error) => string for a failed search
 //
 // Every search is cancelled when the query changes or the view unmounts.
-export default function CatalogView({ adapter, query, onQueryChange, renderEntry, reloadToken = 0, orderEntries, describeError, emptyTitle, emptyText, searchLabel, pageSize = adapter.pageSize || PAGE_SIZE }) {
+export default function CatalogView({ adapter, query, onQueryChange, renderEntry, reloadToken = 0, orderEntries, filterEntries, toolbar, listClassName = '', describeError, emptyTitle, emptyText, searchLabel, pageSize = adapter.pageSize || PAGE_SIZE }) {
   const { t } = useTranslation('addons')
   const normalized = useMemo(() => normalizeQuery(query), [query])
   const key = queryKey(normalized)
@@ -63,6 +66,7 @@ export default function CatalogView({ adapter, query, onQueryChange, renderEntry
     return () => ctl.abort()
   }, [adapter, key, reloadToken, attempt])
 
+  const shown = filterEntries ? filterEntries(state.entries) : state.entries
   const pages = totalPages(state.total, pageSize)
   const filtered = Boolean(normalized.text || normalized.sourceId)
   const label = searchLabel || t('catalog.search')
@@ -71,6 +75,7 @@ export default function CatalogView({ adapter, query, onQueryChange, renderEntry
     <div className="cat-view">
       <div className="cat-bar">
         <CatalogSearchBox className="cat-search" value={draft} onChange={setDraft} label={label} />
+        {toolbar}
         {sources.length > 1 && (
           <div className="cat-chips" role="group" aria-label={t('catalog.libraries')}>
             <button type="button" className="dk-chip" aria-pressed={!normalized.sourceId} onClick={() => onQueryChange({ ...normalized, sourceId: '', page: 1 })}>
@@ -99,15 +104,15 @@ export default function CatalogView({ adapter, query, onQueryChange, renderEntry
         </div>
       ) : state.status === 'loading' && state.entries.length === 0 ? (
         <div className="op-loading" role="status" aria-label={t('catalog.loading')}><LoadingSpinner size="lg" /></div>
-      ) : state.entries.length === 0 ? (
+      ) : shown.length === 0 ? (
         <CatalogEmpty
-          icon={filtered ? 'filter' : 'store'}
+          icon={filtered || shown.length !== state.entries.length ? 'filter' : 'store'}
           title={emptyTitle || t('catalog.emptyTitle')}
-          text={filtered ? t('catalog.emptyFiltered') : (emptyText || t('catalog.emptyBody'))}
+          text={filtered || shown.length !== state.entries.length ? t('catalog.emptyFiltered') : (emptyText || t('catalog.emptyBody'))}
         />
       ) : (
-        <ul className="cat-list" aria-busy={state.status === 'loading'} aria-label={label}>
-          {(orderEntries ? orderEntries(state.entries) : state.entries).map(entry => (
+        <ul className={`cat-list ${listClassName}`.trim()} aria-busy={state.status === 'loading'} aria-label={label}>
+          {(orderEntries ? orderEntries(shown) : shown).map(entry => (
             <li key={entry.key} className="cat-item">{renderEntry(entry)}</li>
           ))}
         </ul>

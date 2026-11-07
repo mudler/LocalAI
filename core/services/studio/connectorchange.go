@@ -54,6 +54,8 @@ func kindWords(v hostmsg.Voice, k contract.ChangeKind) string {
 		return v.T("change.kind.page")
 	case contract.ChangeDashboard:
 		return v.T("change.kind.dashboard")
+	case contract.ChangeKnowledge:
+		return v.T("change.kind.knowledge")
 	}
 	return v.T("change.kind.other")
 }
@@ -110,6 +112,11 @@ func (h *Changes) proposalChatText(ctx context.Context, v hostmsg.Voice, p contr
 		switch p.Kind {
 		case contract.ChangePage:
 			shown = v.T("change.page_files")
+		case contract.ChangeKnowledge:
+			// The text is new to the collection: show its first lines.
+			if lines := addedLines("", p.Content); len(lines) > 0 {
+				shown = excerptOf(lines)
+			}
 		default:
 			if st, err := h.snapshot(ctx, p.Owner, kind, p.Target, p.Content); err == nil {
 				if add := addedLines(st.current, p.Content); len(add) > 0 {
@@ -121,7 +128,11 @@ func (h *Changes) proposalChatText(ctx context.Context, v hostmsg.Voice, p contr
 		}
 	}
 	var b strings.Builder
-	b.WriteString(v.T("change.propose", "kind", kindWords(v, p.Kind), "scope", scopeWords(v, p.Scope), "summary", p.Summary))
+	if p.Kind == contract.ChangeKnowledge {
+		b.WriteString(v.T("change.propose_knowledge", "collection", p.Target, "summary", p.Summary))
+	} else {
+		b.WriteString(v.T("change.propose", "kind", kindWords(v, p.Kind), "scope", scopeWords(v, p.Scope), "summary", p.Summary))
+	}
 	if shown != "" {
 		b.WriteString("\n" + shown)
 	}
@@ -153,14 +164,32 @@ func (h *Changes) sourceOf(c builtins.Chat) contract.ChangeSource {
 // confirm it. A change of a kind that changes what the agent may do needs a
 // paired sender, as the gate decides.
 func (h *Changes) senderMayConfirm(ctx context.Context, c builtins.Chat, p contract.ChangeProposal) bool {
-	if ok, _ := c.Holds(CapProposalsConfirm); !ok || p.Source.Sender == "" {
+	if ok, _ := c.Holds(CapProposalsConfirm); !ok || p.Source.Sender == "" || p.Warning != "" {
 		return false
 	}
 	if p.Kind == contract.ChangeMemory {
-		return true
+		// A note for the agent or the person, and any note under Always
+		// confirm, is confirmed by a paired sender only.
+		_, paired := h.s.messagingFacts(c.Actor.ChatID)
+		return paired || !h.pairedAnswerOnly(ctx, p)
 	}
 	return h.s.allowCap(ctx, CapabilityRequest{Capability: CapProposalsConfirm, Binding: c.OriginID, Owner: p.Owner, Agent: c.AgentID,
 		Sender: p.Source.Sender, Kind: string(p.Kind), Sensitive: true})
+}
+
+// pairedAnswerOnly says whether only a paired sender may confirm the memory
+// note p: a note that reaches the agent's own notes or the person's (not the
+// conversation's), or any note while the level in force is Always confirm.
+func (h *Changes) pairedAnswerOnly(ctx context.Context, p contract.ChangeProposal) bool {
+	return p.Kind == contract.ChangeMemory && (p.Scope != contract.ScopeChannel || h.alwaysConfirm(ctx, p))
+}
+
+// alwaysConfirm says whether the person's level or the agent's rule for the
+// proposal is Always confirm. The messaging row cannot loosen it.
+func (h *Changes) alwaysConfirm(ctx context.Context, p contract.ChangeProposal) bool {
+	in := SaveInputs{User: h.storedSaveMode(ctx, string(p.Owner)), Agent: h.s.agentMemorySave(ctx, string(p.Owner), p.Agent),
+		Messaging: MessagingAsk, Origin: session.OriginConnector}
+	return effectiveSaveLevel(in) == SaveAlways
 }
 
 // connectorProposed writes the proposal in the chat of the sender and words the
@@ -169,6 +198,12 @@ func (h *Changes) senderMayConfirm(ctx context.Context, c builtins.Chat, p contr
 func (h *Changes) connectorProposed(ctx context.Context, c builtins.Chat, p contract.ChangeProposal, autoNote string) string {
 	head := fmt.Sprintf("Proposal %s stored: %s (%s, %s). Nothing is saved yet.", p.ID, p.Summary, p.Kind, p.Scope)
 	conns := h.s.connectors
+	if p.Warning != "" {
+		// The host wrote nothing in the chat: a flagged text is never shown
+		// there to be answered, and the answer would not be taken.
+		return head + " The text looks like it holds a secret, so it cannot be confirmed from a chat: it waits for the owner in Studio, with a warning, and expires in 24 hours. " +
+			"Tell them it is not saved and that the owner decides. Do not repeat the secret and do not say it is saved." + autoNote
+	}
 	if !h.senderMayConfirm(ctx, c, p) {
 		return head + " The person cannot confirm changes from this chat, so it waits for the owner in Studio and expires in 24 hours. " +
 			"Tell them it is not saved and that the owner decides. Do not say it is saved." + autoNote
@@ -219,8 +254,11 @@ func (c *Connectors) hereChanges(ctx context.Context, b connectors.Binding, m co
 // proposal. A kind that changes what the agent may do is sensitive: only a
 // paired sender passes.
 func (c *Connectors) mayAnswerChange(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage, p contract.ChangeProposal) bool {
+	if c.svc.changes.pairedAnswerOnly(ctx, p) && !b.IsPaired(m.SenderID, c.o.Clock()) {
+		return false
+	}
 	return c.svc.allowCap(ctx, CapabilityRequest{Capability: CapProposalsConfirm, Binding: b.ID, Owner: b.Owner, Agent: b.AgentID,
-		Sender: m.SenderID, Username: m.SenderUsername, Roles: m.Roles, Kind: string(p.Kind), Sensitive: p.Kind != contract.ChangeMemory})
+		Sender: m.SenderID, Username: m.SenderUsername, Roles: m.Roles, Chat: m.Chat, Direct: m.Direct, Kind: string(p.Kind), Sensitive: p.Kind != contract.ChangeMemory})
 }
 
 // answerChange confirms or drops the waiting proposal p for the sender of m. A
@@ -239,9 +277,17 @@ func (c *Connectors) answerChange(ctx context.Context, b connectors.Binding, m c
 	}
 	// In a chat of two the other listed sender may answer; in a shared chat
 	// only the sender whose message made the proposal.
-	if !m.Direct && p.Source.Sender != "" && p.Source.Sender != m.SenderID {
+	// Under Always confirm the answer must come from the paired sender who
+	// asked, in a chat of two as well.
+	if p.Source.Sender != "" && p.Source.Sender != m.SenderID && (!m.Direct || ch.alwaysConfirm(ctx, p)) {
 		ch.audit(ctx, proposals.ActionRefuse, p, 0, "not the sender who asked; "+detail)
 		return v.T("change.not_you"), true
+	}
+	if verb != "cancel" && p.Warning != "" {
+		// A flagged text is confirmed in the web interface, where the owner
+		// sees the warning next to the text. Dropping it is always allowed.
+		ch.audit(ctx, proposals.ActionRefuse, p, 0, "flagged text; "+detail)
+		return v.T("change.flagged"), true
 	}
 	if verb == "cancel" {
 		if _, err := ch.Dismiss(ctx, b.Owner, p.ID); err != nil {
@@ -255,8 +301,11 @@ func (c *Connectors) answerChange(ctx context.Context, b connectors.Binding, m c
 		return v.T("proposal.failed", "error", changeErr(err)), true
 	}
 	key := "change.done"
-	if done.Kind == contract.ChangeMemory {
+	switch done.Kind {
+	case contract.ChangeMemory:
 		key = "change.saved"
+	case contract.ChangeKnowledge:
+		return v.T("change.knowledge_done", "collection", done.Target, "summary", done.Summary, "minutes", int(cancelWindow/time.Minute)), true
 	}
 	return v.T(key, "summary", done.Summary, "minutes", int(cancelWindow/time.Minute)), true
 }
@@ -281,7 +330,7 @@ func (c *Connectors) undoChange(ctx context.Context, b connectors.Binding, m con
 		ch.audit(ctx, proposals.ActionRefuse, p, 0, "undo not allowed; by text from sender "+m.SenderID)
 		return v.T("change.no_right"), true
 	}
-	if !m.Direct && p.Source.Sender != "" && p.Source.Sender != m.SenderID {
+	if p.Source.Sender != "" && p.Source.Sender != m.SenderID && (!m.Direct || ch.alwaysConfirm(ctx, p)) {
 		return v.T("change.not_you"), true
 	}
 	if _, err := ch.Revert(ctx, b.Owner, p.ID); err != nil {

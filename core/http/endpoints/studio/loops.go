@@ -1,7 +1,11 @@
 package studio
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 
@@ -37,7 +41,83 @@ func loopJSON(l loops.Loop) schema.ChatsLoop {
 	if l.Interval > 0 {
 		out.Interval = loops.ShortDuration(l.Interval)
 	}
+	if l.Watch != nil {
+		out.Kind = "wait"
+		out.Watch = waitJSON(l)
+	}
 	return out
+}
+
+// waitJSON is the state of a wait as the API gives it.
+func waitJSON(l loops.Loop) *schema.ChatsWait {
+	w := l.Watch
+	out := &schema.ChatsWait{Reason: w.Note, Mode: w.Mode, Condition: waitCondition(w), Checks: w.Checks,
+		LastCheck: utcPtr(w.LastCheck), Outcome: w.Outcome, LastError: redactURLs(w.LastErr),
+		Deadline: w.Deadline.UTC(), Errors: w.Errors, MaxErrors: w.MaxErrors}
+	if w.Tool != "" {
+		out.SourceKind, out.Source = "tool", w.Tool
+	} else {
+		out.SourceKind, out.Source = "url", urlLabel(w.URL)
+	}
+	switch {
+	case l.State == loops.StatePending:
+		out.Phase = "pending"
+	case l.State == loops.StatePaused:
+		out.Phase = "paused"
+	case l.State == loops.StateEnded:
+		out.Phase = "ended"
+		out.End = w.End
+		if out.End == "" {
+			out.End = loops.EndStopped
+		}
+	case w.Wake != "":
+		// The wait is settled and says how; the model has still to be asked.
+		out.Phase, out.End = "waking", w.End
+	default:
+		out.Phase = "waiting"
+		out.NextCheck = utcPtr(l.Next)
+	}
+	return out
+}
+
+// waitCondition says what a wait waits for, in words. The pattern and the
+// value are cut so a long one does not fill the line.
+func waitCondition(w *loops.Watch) string {
+	short := func(s string) string {
+		if r := []rune(s); len(r) > 80 {
+			return string(r[:79]) + "…"
+		}
+		return s
+	}
+	switch w.Mode {
+	case loops.UntilMatch:
+		return fmt.Sprintf("the output matches %q", short(w.Pattern))
+	case loops.UntilJSONEquals:
+		return fmt.Sprintf("the field %s equals %q", short(w.Field), short(w.Equals))
+	}
+	return "the output changes"
+}
+
+// urlLabel is the host and path of a URL: no scheme, user, query or fragment,
+// which can carry a secret.
+func urlLabel(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Host == "" {
+		return "a URL"
+	}
+	return u.Hostname() + strings.TrimRight(u.EscapedPath(), "/")
+}
+
+var urlInText = regexp.MustCompile(`https?://[^\s"'<>)]+`)
+
+// redactURLs cuts every URL in a message to host and path, and the message to
+// a short line.
+func redactURLs(s string) string {
+	s = urlInText.ReplaceAllStringFunc(s, urlLabel)
+	if r := []rune(s); len(r) > 160 {
+		s = string(r[:159]) + "…"
+	}
+	return s
 }
 
 func loopsJSON(list []loops.Loop) []schema.ChatsLoop {

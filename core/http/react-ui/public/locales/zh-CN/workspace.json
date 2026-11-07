@@ -369,7 +369,7 @@
     "adminTitle": "共享文件夹",
     "adminLede": "多人共用的文件夹。成员可以打开其中的页面，他们的聊天可以读取或编辑这些文件。",
     "userTitle": "与你共享",
-    "userLede": "管理员与你共享的文件夹。其页面在“页面”中，你的聊天可以使用这些文件。",
+    "userLede": "管理员或其他人与你共享的文件夹。你的聊天可以使用这些文件。",
     "new": "新建共享文件夹",
     "nameLabel": "文件夹名称",
     "nameHint": "最多 64 个字母、数字、空格、点、短横线或下划线，须以字母或数字开头。",
@@ -421,7 +421,7 @@
     "factChats": "成员的聊天可以看到文件夹中的文件",
     "factUndo": "移除文件夹可以撤销",
     "emptyUserTitle": "还没有与你共享的内容",
-    "emptyUserBody": "管理员与你共享文件夹后，它会显示在这里，其页面会显示在“页面”中。"
+    "emptyUserBody": "有人与你共享文件夹后，它会显示在这里。"
   },
   "preview": {
     "label": "预览",
@@ -460,7 +460,16 @@
     "marker": "由 LocalAI 管理",
     "about": {
       "localai": "LocalAI 读取的设置：角色、个人资料、快捷方式、主页、主题。",
-      "chats": "每个对话一个文件夹，存放该对话的文件。"
+      "chats": "每个对话一个文件夹，存放该对话的文件。",
+      "memory": "助手保存的关于你的笔记。",
+      "pages": "你工作区中的页面。",
+      "skills": "智能体使用的技能。",
+      "other": "由 LocalAI 创建并使用。"
+    },
+    "open": {
+      "memory": "打开记忆",
+      "pages": "打开页面",
+      "skills": "打开技能"
     },
     "confirm": {
       "deleteTitle": "将 {{name}} 移到回收站？",
@@ -536,7 +545,8 @@
     "moveMany_one": "将 {{count}} 项移动到…",
     "moveMany_other": "将 {{count}} 项移动到…",
     "deleteMany_one": "将 {{count}} 项移到回收站",
-    "deleteMany_other": "将 {{count}} 项移到回收站"
+    "deleteMany_other": "将 {{count}} 项移到回收站",
+    "share": "共享…"
   },
   "keys": {
     "delete": "Del"
@@ -677,5 +687,12 @@
     "read": "{{name}}（可读取）",
     "write": "{{name}}（可读取和修改）",
     "many": "{{count}} 个智能体"
+  },
+  "share": {
+    "intro": "你添加的人会在“共享”标签页中看到此文件夹，他们的聊天可以使用其中的文件。",
+    "readHelp": "他们可以打开和复制文件。",
+    "writeHelp": "他们还可以在这里添加、修改和删除文件。",
+    "failed": "无法打开共享：{{message}}",
+    "lost": "你无法再在这里共享此文件夹。"
   }
 }

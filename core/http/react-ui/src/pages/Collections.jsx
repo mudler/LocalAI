@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { agentCollectionsApi } from '../utils/api'
+import { agentCollectionsApi, sharesApi } from '../utils/api'
+// eslint-disable-next-line no-unused-vars
+import ShareDialog from '../components/share/ShareDialog'
+// eslint-disable-next-line no-unused-vars
+import { SharedByBadge } from '../components/share/ShareBadges'
+import { kindShareClient } from '../components/share/shareClients'
 import { useAuth } from '../context/AuthContext'
 import { useUserMap } from '../hooks/useUserMap'
 import { useLibraryFacts } from '../hooks/useLibraryFacts'
@@ -28,6 +33,8 @@ const STARTING_EVERY = 5000
 const STARTING_TRIES = 12
 
 const nameOf = c => (typeof c === 'string' ? c : c?.name)
+// The kind of a collection in the sharing API.
+const SHARE_KIND = 'collection'
 
 function when(ts) {
   try { return new Date(ts).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) } catch { return '' }
@@ -60,6 +67,16 @@ export default function Collections() {
   // The model that indexes and searches the collections, and whether this
   // server has it. Without it every upload and search fails.
   const [embedding, setEmbedding] = useState({ model: '', installed: true })
+  // How a search finds passages: 'semantic' or 'hybrid'. '' while unknown
+  // (an older server does not say).
+  const [searchMode, setSearchMode] = useState('')
+  // The collections that other people shared with the user ({ name, title,
+  // owner, role, everyone }), the shares of the user's own ones by name, and
+  // whether this server shares at all (not in local-owner mode).
+  const [shared, setShared] = useState([])
+  const [shares, setShares] = useState({})
+  const [sharing, setSharing] = useState(false)
+  const [share, setShare] = useState(null)
 
   const selectedUser = params.get('user_id') || undefined
 
@@ -74,6 +91,10 @@ export default function Collections() {
       setCollections((Array.isArray(data.collections) ? data.collections : []).map(nameOf).filter(Boolean))
       setUserGroups(data.user_groups || null)
       setEmbedding({ model: data.embedding_model || '', installed: data.embedding_model_installed !== false })
+      setSearchMode(data.search_mode === 'hybrid' || data.search_mode === 'semantic' ? data.search_mode : '')
+      setShared(Array.isArray(data.shared) ? data.shared.filter(x => x && typeof x.name === 'string') : [])
+      setShares(data.shares && typeof data.shares === 'object' ? data.shares : {})
+      setSharing(data.sharing === true)
       setLoadError(null)
     } catch (err) {
       // A failed read shows an error in place of the list, never the empty
@@ -202,9 +223,21 @@ export default function Collections() {
   // phone nothing opens until the person taps one.
   const selectedName = routeName || (wide && !selectedUser ? (visible[0] || '') : '')
   const selected = !selectedUser && selectedName ? selectedName : ''
+  // A collection shared with the user, when the selected name is one: the
+  // user's own collection of that name wins, as on the server.
+  const sharedEntry = selected && !collections.includes(selected) ? (shared.find(x => x.name === selected) || null) : null
+  const shareClient = useMemo(() => (share ? kindShareClient(sharesApi, SHARE_KIND, share.id) : null), [share])
+  const openShare = async (name) => {
+    try {
+      const r = shares[name]?.resource_id ? shares[name] : await agentCollectionsApi.share(name)
+      setShare({ id: r.resource_id, name })
+    } catch (err) {
+      addToast(t('collections:share.failed', { message: err.message }), 'error')
+    }
+  }
   const selectedOther = selectedUser && (userGroups?.[selectedUser]?.collections || []).map(nameOf).includes(selectedName) ? selectedName : ''
   const open = !!(selected || selectedOther)
-  const empty = !loading && !loadError && collections.length === 0 && !userGroups && !open
+  const empty = !loading && !loadError && collections.length === 0 && shared.length === 0 && !userGroups && !open
   // A list that could not be read replaces the list only; a collection named
   // in the address still opens in its pane.
   const listError = !loadError ? null : starting ? (
@@ -255,6 +288,13 @@ export default function Collections() {
           </Button>
           <Button variant="ghost" onClick={() => { setShowCreate(false); setNewName('') }}>{t('collections:actions.cancel')}</Button>
         </form>
+      )}
+
+      {!loading && !loadError && searchMode && (
+        <p className="lib-mode" data-testid="search-mode">
+          <strong>{t('collections:searchMode.label', { mode: t(`collections:searchMode.${searchMode}`) })}.</strong>{' '}
+          {t(`collections:searchMode.${searchMode}Hint`)}
+        </p>
       )}
 
       {!loading && !loadError && !embedding.installed && (
@@ -346,10 +386,36 @@ export default function Collections() {
                         <span className="dk-row-main">
                           <span className="dk-row-title">{c}</span>
                           <span className="dk-row-meta" data-testid={`collection-used-${c}`}>{usedByLine(t, usersOf.get(c), facts.status)}</span>
+                          {sharing && shares[c] && <SharedByBadge entry={{ role: 'owner', sharedWith: shares[c].shared_with }} hideRole testId={`collection-shared-with-${c}`} />}
                         </span>
                       </button>
                     ))}
                   </div>
+                )}
+
+                {sharing && shared.length > 0 && (
+                  <section className="lib-shared" aria-labelledby="collections-shared-h" data-testid="collections-shared">
+                    <h3 className="lib-section__title" id="collections-shared-h">{t('collections:sections.sharedWithYou')}</h3>
+                    <div className="dk-list lib-rows" role="list" aria-label={t('collections:sections.sharedWithYou')}>
+                      {shared.map(x => (
+                        <button
+                          key={x.name}
+                          type="button"
+                          role="listitem"
+                          className="dk-row"
+                          aria-selected={!selectedUser && selectedName === x.name}
+                          onClick={() => go(x.name)}
+                          data-testid={`collection-shared-row-${x.name}`}
+                        >
+                          <span className="dk-row-lead"><Icon name="users" /></span>
+                          <span className="dk-row-main">
+                            <span className="dk-row-title">{x.title || x.name}</span>
+                            <SharedByBadge entry={{ role: x.role, owner: x.owner, everyone: x.everyone }} roleLabel={t(`collections:share.roles.${x.role === 'editor' ? 'editor' : 'viewer'}`)} />
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
                 )}
 
                 {userGroups && (
@@ -388,8 +454,11 @@ export default function Collections() {
                 t={t}
                 name={selectedName}
                 userId={selectedUser}
-                users={selectedUser ? [] : collectionUsers(facts.agents, selectedName)}
-                status={selectedUser ? 'other' : facts.status}
+                users={selectedUser || sharedEntry ? [] : collectionUsers(facts.agents, selectedName)}
+                status={selectedUser || sharedEntry ? 'other' : facts.status}
+                shared={sharedEntry}
+                onShare={sharing && !selectedUser && !sharedEntry && collections.includes(selectedName) ? () => openShare(selectedName) : null}
+                shareLine={sharing && !sharedEntry ? shares[selectedName] : null}
                 agents={facts.agents.filter(a => a.config)}
                 busy={busy}
                 addToast={addToast}
@@ -419,6 +488,24 @@ export default function Collections() {
         seed={sim?.seed || null}
       />
 
+      {share && shareClient && (
+        <ShareDialog
+          client={shareClient}
+          resource={{ id: share.id, name: share.name }}
+          sharing={sharing}
+          roles={[
+            { id: 'viewer', label: t('collections:share.roles.viewer'), help: t('collections:share.roles.viewerHelp') },
+            { id: 'editor', label: t('collections:share.roles.editor'), help: t('collections:share.roles.editorHelp') },
+          ]}
+          allowEveryone
+          intro={t('collections:share.intro')}
+          onChanged={fetchCollections}
+          onLost={() => { setShare(null); fetchCollections() }}
+          close={() => setShare(null)}
+          testId="collection-share-dialog"
+        />
+      )}
+
       <ConfirmDialog
         open={!!confirmDialog}
         title={confirmDialog?.title}
@@ -441,8 +528,12 @@ const PATHS = [
 ]
 
 // eslint-disable-next-line no-unused-vars
-function CollectionPane({ t, name, userId, users, status, agents, busy, addToast, onBack, onReset, onAdd, onRemove, onTry, setConfirmDialog }) {
-  const own = !userId
+function CollectionPane({ t, name, userId, users, status, agents, busy, addToast, onBack, onReset, onAdd, onRemove, onTry, setConfirmDialog, shared, onShare, shareLine }) {
+  // A collection shared with the user is read only, except that an editor
+  // adds and removes files. Sources, reset and sharing stay the owner's.
+  const own = !userId && !shared
+  const canWrite = !shared || shared.role === 'editor'
+  const ownerOnly = !shared
   const [entries, setEntries] = useState([])
   const [sources, setSources] = useState([])
   const [loaded, setLoaded] = useState(false)
@@ -620,17 +711,28 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
 
       <div className="lib-pane__head">
         <div className="lib-pane__title">
-          <h2 data-testid="collection-title">{name}</h2>
+          <h2 data-testid="collection-title">{shared?.title || name}</h2>
           <p className="lib-pane__sub" data-testid="collection-counts">{sub}</p>
+          {shared && <SharedByBadge entry={{ role: shared.role, owner: shared.owner, everyone: shared.everyone }} roleLabel={t(`collections:share.roles.${shared.role === 'editor' ? 'editor' : 'viewer'}`)} testId="collection-shared-by" />}
+          {shareLine && <SharedByBadge entry={{ role: 'owner', sharedWith: shareLine.shared_with }} hideRole testId="collection-share-line" />}
         </div>
         <div className="lib-pane__acts">
           {failed > 0 && <StatusChip tone="error" testId="collection-failed-badge">{t('collections:pane.failed', { count: failed })}</StatusChip>}
-          <Button variant="primary" size="sm" icon="plus" aria-expanded={addOpen} onClick={() => setAddOpen(v => !v)} data-testid="add-source-toggle">
-            {t('collections:pane.addSource')}
-          </Button>
-          <Button variant="danger-ghost" size="sm" icon="eraser" onClick={onReset} title={t('collections:actions.resetCollection')}>
-            {t('collections:actions.reset')}
-          </Button>
+          {onShare && (
+            <Button size="sm" icon="share" onClick={onShare} aria-label={t('collections:share.button', { name })} data-testid="collection-share">
+              {t('collections:share.label')}
+            </Button>
+          )}
+          {canWrite && (
+            <Button variant="primary" size="sm" icon="plus" aria-expanded={addOpen} onClick={() => setAddOpen(v => !v)} data-testid="add-source-toggle">
+              {t(ownerOnly ? 'collections:pane.addSource' : 'collections:pane.addFile')}
+            </Button>
+          )}
+          {ownerOnly && (
+            <Button variant="danger-ghost" size="sm" icon="eraser" onClick={onReset} title={t('collections:actions.resetCollection')}>
+              {t('collections:actions.reset')}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -655,7 +757,13 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
         </>
       )}
 
-      {addOpen && (
+      {shared && (
+        <p className="lib-muted lib-fine" data-testid="collection-shared-note">
+          {t(canWrite ? 'collections:share.noteEditor' : 'collections:share.noteViewer')}
+        </p>
+      )}
+
+      {addOpen && canWrite && (
         <div className="lib-adding" data-testid="add-source-panel">
           <form className="lib-adding__row" onSubmit={handleUpload}>
             <div className="dk-field">
@@ -666,7 +774,7 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
               {t('collections:add.upload')}
             </Button>
           </form>
-          <form className="lib-adding__row" onSubmit={handleAddSource}>
+          {ownerOnly && <form className="lib-adding__row" onSubmit={handleAddSource}>
             <div className="dk-field">
               <label className="dk-label" htmlFor="source-url">{t('collections:add.url')}</label>
               <input id="source-url" className="dk-input" type="text" value={newSourceUrl} onChange={(e) => setNewSourceUrl(e.target.value)} placeholder="https://example.com/data" />
@@ -678,7 +786,7 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
             <Button type="submit" icon="plus" busy={addingSource} disabled={!newSourceUrl.trim()}>
               {t('collections:add.addUrl')}
             </Button>
-          </form>
+          </form>}
         </div>
       )}
 
@@ -765,7 +873,7 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
         ) : sourcesError ? (
           <LoadError title={t('collections:sources.loadFailed')} error={sourcesError} onRetry={fetchSources} />
         ) : sources.length === 0 ? (
-          <p className="lib-muted" data-testid="sources-none">{t('collections:sources.none')}</p>
+          <p className="lib-muted" data-testid="sources-none">{t(ownerOnly ? 'collections:sources.none' : 'collections:sources.noneShared')}</p>
         ) : (
           <ul className="lib-ledger" data-testid="sources-list">
             {sources.map(s => (
@@ -779,9 +887,11 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
                     {s.lastUpdate ? t('collections:sources.updated', { when: when(s.lastUpdate) }) : t('collections:sources.never')}
                   </span>
                 </span>
-                <span className="lib-line__acts">
-                  <Button variant="ghost" size="sm" icon="trash" onClick={() => removeSource(s.url)} aria-label={t('collections:sources.remove', { url: s.url })} title={t('collections:sources.removeTitle')} />
-                </span>
+                {ownerOnly && (
+                  <span className="lib-line__acts">
+                    <Button variant="ghost" size="sm" icon="trash" onClick={() => removeSource(s.url)} aria-label={t('collections:sources.remove', { url: s.url })} title={t('collections:sources.removeTitle')} />
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -806,7 +916,7 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
                   <span className="lib-line__main"><span className="lib-line__name" title={label}>{label}</span></span>
                   <span className="lib-line__acts">
                     <Button variant="ghost" size="sm" icon="eye" onClick={() => openEntry(entry)} aria-label={t('collections:entries.view', { name: label })} title={t('collections:entries.viewTitle')} />
-                    <Button variant="ghost" size="sm" icon="trash" onClick={() => deleteEntry(entry)} aria-label={t('collections:entries.delete', { name: label })} title={t('collections:entries.deleteTitle')} />
+                    {canWrite && <Button variant="ghost" size="sm" icon="trash" onClick={() => deleteEntry(entry)} aria-label={t('collections:entries.delete', { name: label })} title={t('collections:entries.deleteTitle')} />}
                   </span>
                 </li>
               )

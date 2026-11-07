@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/localaitools/inproc"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/media"
@@ -215,7 +216,8 @@ func newMediaService() (*media.Service, *provider.Provider) {
 	users := func(_ context.Context, id string) (*auth.User, error) {
 		return &auth.User{ID: id, Status: auth.StatusActive}, nil
 	}
-	return media.New(p, users, func(c media.Capability) string { return "any-model" }), p
+	return media.New(p, users, func(c media.Capability) string { return "any-model" }).
+		WithClient(func() media.Client { return &inproc.Client{Transport: p.Transport} }), p
 }
 
 var _ = Describe("files", func() {

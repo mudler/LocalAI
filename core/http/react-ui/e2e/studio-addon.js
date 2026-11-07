@@ -24,8 +24,9 @@ export async function buildAddonBundles(ids) {
 }
 
 // The add-ons the specs serve from their build output: Studio, Talk and Voice
-// through installStudioAddons, Face and Fine-tuning through their own routes.
-export async function buildStudioAddons(ids = ['studio', 'talk', 'voice', 'face', 'fine-tuning', 'telegram', 'slack', 'github', 'discord', 'home-assistant', 'jellyfin']) {
+// through installStudioAddons, Face, Fine-tuning and Memory through their own
+// routes.
+export async function buildStudioAddons(ids = ['studio', 'talk', 'voice', 'face', 'fine-tuning', 'telegram', 'slack', 'github', 'discord', 'home-assistant', 'jellyfin', 'mail', 'memory', 'pikvm']) {
   await buildAddonBundles(ids)
   process.env[BUILT] = '1'
 }
@@ -38,14 +39,20 @@ function build(id) {
   return built.get(id)
 }
 
+// The text of a manifest field: a plain string, or a language map. The apps
+// list sends the English text in title and description, and the whole map in
+// titles and descriptions.
+const english = v => (v && typeof v === 'object' ? v.en : v)
+const languages = v => (v && typeof v === 'object' ? v : undefined)
+
 export function packagedApp(id, over = {}) {
   const manifest = JSON.parse(fs.readFileSync(path.join(addons, id, 'manifest.json'), 'utf8'))
   const ui = manifest.capabilities.ui
   const base = `/api/addons/${id}/assets/${DIGEST}`
   return app({
-    id, name: id, title: ui.title, description: ui.description, icon: undefined, generation: 1, version: manifest.version,
+    id, name: id, title: english(ui.title), description: english(ui.description), titles: languages(ui.title), descriptions: languages(ui.description), icon: undefined, generation: 1, version: manifest.version,
     mainPage: `/app/addons/${id}/${ui.mainPage}`, tools: [], toolCount: 0,
-    ui: { entry: `${base}/${ui.entry}`, css: ui.css.map(c => `${base}/${c}`), sdk: ui.sdk, pages: ui.pages, navigation: ui.navigation, modelActions: ui.modelActions, homeCommands: ui.homeCommands?.map(c => ({ ...c, page: c.page || ui.mainPage, label: c.label || ui.title, icon: c.icon || 'puzzle' })) },
+    ui: { entry: `${base}/${ui.entry}`, css: ui.css.map(c => `${base}/${c}`), sdk: ui.sdk, pages: ui.pages, navigation: ui.navigation, modelActions: ui.modelActions, homeCommands: ui.homeCommands?.map(c => ({ ...c, page: c.page || ui.mainPage, label: c.label || english(ui.title), icon: c.icon || 'puzzle' })) },
     ...over,
   })
 }
@@ -55,7 +62,7 @@ export function packagedApp(id, over = {}) {
 export async function installStudioAddons(page, { ids = ['studio', 'talk'], ...options } = {}) {
   const dirs = await Promise.all(ids.map(build))
   await stubAddonRoutes(page)
-  await page.route(/\/api\/addons\/(studio|talk|voice|telegram|slack|github|discord|home-assistant|jellyfin)\/assets\//, route => {
+  await page.route(/\/api\/addons\/(studio|talk|voice|telegram|slack|github|discord|home-assistant|jellyfin|mail|pikvm)\/assets\//, route => {
     const parts = new URL(route.request().url()).pathname.split('/')
     const id = parts[3]
     const file = parts.slice(6).join('/')

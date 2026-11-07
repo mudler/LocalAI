@@ -173,7 +173,7 @@ func (r *Runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 		return r.setPolicy(ctx, env, args)
 	}
 	if env.Request.Credential == "" {
-		return contract.Result{}, bad("no token for this call")
+		return contract.Result{}, bad("the connection has no token: ask the person to add one")
 	}
 	c, err := r.newCall(ctx, env)
 	if err != nil {
@@ -215,10 +215,28 @@ func translate(err error) error {
 	case errors.Is(err, haapi.ErrUnavailable):
 		return err
 	}
-	for _, e := range []error{haapi.ErrBadAddress, haapi.ErrUnauthorized, haapi.ErrForbidden, haapi.ErrNotFound, haapi.ErrInvalid, haapi.ErrCertificate, haapi.ErrRedirect, haapi.ErrTooLarge, haapi.ErrUnreadable} {
+	// Home Assistant refused the connection's own login: the person fixes the
+	// connection, so the model gets the status and one fixed sentence.
+	for e, u := range upstreamRefusals {
+		if errors.Is(err, e) {
+			return protocol.Upstream(u.status, u.hint, bad("%s", haapi.Describe(err)))
+		}
+	}
+	for _, e := range []error{haapi.ErrBadAddress, haapi.ErrNotFound, haapi.ErrInvalid, haapi.ErrCertificate, haapi.ErrRedirect, haapi.ErrTooLarge, haapi.ErrUnreadable} {
 		if errors.Is(err, e) {
 			return bad("%s", haapi.Describe(err))
 		}
 	}
 	return err
+}
+
+// upstreamRefusals are the answers of Home Assistant that mean the login of
+// the connection is wrong. The hint is fixed text: it holds no token, address
+// or text that Home Assistant sent.
+var upstreamRefusals = map[error]struct {
+	status int
+	hint   string
+}{
+	haapi.ErrUnauthorized: {401, "Home Assistant refused the access token of this connection (401). Tell the person to replace the token in the connection settings. Do not retry, and do not ask for the token."},
+	haapi.ErrForbidden:    {403, "Home Assistant says the token of this connection has no permission for this (403). Tell the person to use a token of an administrator user in the connection settings."},
 }

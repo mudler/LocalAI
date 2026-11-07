@@ -18,11 +18,26 @@ import './switchlist.css'
 //   icon, label, title   the chip
 //   count                the number on the chip (nothing at 0)
 //   describedBy          the id of a note of the open menu, for the chip
+//   openRef              a ref that gets { open() }, for a slash command
+//   onOpen(menu)         called with the menu element once it is open
 //   children(close)      the menu content
-export function SwitchPopover({ icon, label, title, count, describedBy, testId, menuClassName = '', children }) {
+export function SwitchPopover({ icon, label, title, count, describedBy, testId, menuClassName = '', openRef, onOpen, children }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const buttonRef = useRef(null)
+  const menuRef = useRef(null)
+  const onOpenRef = useRef(onOpen)
+  onOpenRef.current = onOpen
+
+  useEffect(() => {
+    if (!openRef) return undefined
+    openRef.current = { open: () => setOpen(true) }
+    return () => { openRef.current = null }
+  }, [openRef])
+
+  useEffect(() => {
+    if (open && menuRef.current) onOpenRef.current?.(menuRef.current)
+  }, [open])
 
   useEffect(() => {
     if (!open) return undefined
@@ -57,8 +72,8 @@ export function SwitchPopover({ icon, label, title, count, describedBy, testId, 
         {count > 0 && <span className="chat-mcp-badge" data-testid={`${testId}-count`}>{count}</span>}
       </button>
       {open && (
-        <div className={`chat-mcp-dropdown-menu swl-menu ${menuClassName}`.trim()} role="group" aria-label={title} data-testid={`${testId}-menu`}>
-          {children}
+        <div ref={menuRef} className={`chat-mcp-dropdown-menu swl-menu ${menuClassName}`.trim()} role="group" aria-label={title} data-testid={`${testId}-menu`}>
+          {typeof children === 'function' ? children(() => { setOpen(false); buttonRef.current?.focus() }) : children}
         </div>
       )}
     </div>

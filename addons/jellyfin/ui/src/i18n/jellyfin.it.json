@@ -68,8 +68,8 @@
     "label": "Cosa può modificare l'agente su Jellyfin",
     "hint": "Controllo remoto dei player, segni di visto, preferiti e aggiunta alle playlist. Non elimina, non scansiona e non modifica mai la libreria.",
     "off": "Sola lettura",
-    "propose": "Chiede prima a te",
-    "auto": "Agisce senza chiedere",
+    "propose": "Chiede prima",
+    "auto": "Parte subito",
     "line": {
       "off": "Non può cambiare nulla.",
       "propose": "Ogni modifica aspetta il tuo OK.",
@@ -82,8 +82,8 @@
     },
     "row": {
       "off": "Sola lettura",
-      "propose": "Chiede prima a te",
-      "auto": "Agisce senza chiedere"
+      "propose": "Chiede prima",
+      "auto": "Parte subito"
     }
   },
   "approval": {

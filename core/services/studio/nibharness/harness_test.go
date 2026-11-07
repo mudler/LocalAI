@@ -1,6 +1,7 @@
 package nibharness_test
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"strings"
@@ -97,6 +98,8 @@ func send(hs session.HarnessSession, text string) {
 type callingLLM struct {
 	recordingLLM
 	call string
+	// args are the arguments of the call; empty means {}.
+	args string
 }
 
 func (c *callingLLM) CreateChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (cogito.LLMReply, cogito.LLMUsage, error) {
@@ -107,7 +110,7 @@ func (c *callingLLM) CreateChatCompletion(ctx context.Context, req openai.ChatCo
 	msg := openai.ChatCompletionMessage{Role: "assistant", Content: "all done"}
 	if first {
 		msg = openai.ChatCompletionMessage{Role: "assistant", ToolCalls: []openai.ToolCall{{ID: "call-1", Type: "function",
-			Function: openai.FunctionCall{Name: c.call, Arguments: "{}"}}}}
+			Function: openai.FunctionCall{Name: c.call, Arguments: cmp.Or(c.args, "{}")}}}}
 	}
 	return cogito.LLMReply{ChatCompletionResponse: openai.ChatCompletionResponse{Choices: []openai.ChatCompletionChoice{{Message: msg}}}},
 		cogito.LLMUsage{PromptTokens: 10, TotalTokens: 11}, nil
@@ -311,35 +314,134 @@ var _ = Describe("the nib harness", func() {
 		}
 	})
 
-	// A host tool named like a built-in tool of nib must not switch the built-in
-	// on: the model would be offered two tools of one name with different schemas,
-	// and the built-in would answer the call instead of the host tool. The model
-	// still sees, and calls, the host tool by its own name.
-	It("offers a host tool named like a nib tool once and runs it on the host", func() {
-		llm := &callingLLM{call: "spawn_agent"}
+	// A host tool named like an agent tool must keep its name: the model is
+	// offered one tool of that name, and the call reaches the host handler, not
+	// the agent tool under nib. This holds for the sub-agent tools too.
+	for _, called := range []string{"spawn_agent", "check_agent", "get_agent_result", "send_agent_message"} {
+		It("offers the host "+called+" once, by its own name, and runs it on the host", func() {
+			llm := &callingLLM{call: called}
+			var mu sync.Mutex
+			ran := map[string]int{}
+			mk := func(name string) session.Tool {
+				return session.Tool{Name: name, Description: "host " + name, Schema: json.RawMessage(`{"type":"object"}`),
+					Run: func(context.Context, json.RawMessage) (string, error) {
+						mu.Lock()
+						defer mu.Unlock()
+						ran[name]++
+						return "ok", nil
+					}}
+			}
+			var events []session.Event
+			hs := start(&llm.recordingLLM, session.HarnessEnv{
+				Tools: []session.Tool{mk("spawn_agent"), mk("check_agent"), mk("get_agent_result"), mk("send_agent_message"), mk("transcribe_audio"), mk("host_tool")},
+				Emit: func(e session.Event) {
+					mu.Lock()
+					defer mu.Unlock()
+					events = append(events, e)
+				},
+			}, func(m *nibharness.Model) { m.LLM = llm })
+			send(hs, "hello")
+
+			Expect(llm.tools).ToNot(BeEmpty(), "the model got no request")
+			seen := map[string]int{}
+			for _, n := range llm.tools[0] {
+				seen[n]++
+			}
+			for n, c := range seen {
+				Expect(c).To(Equal(1), "tool %q is offered %d times: %v", n, c, llm.tools[0])
+			}
+			for _, name := range []string{"spawn_agent", "check_agent", "get_agent_result", "send_agent_message", "transcribe_audio", "host_tool"} {
+				Expect(seen[name]).To(Equal(1), "the model is not offered %q exactly once: %v", name, llm.tools[0])
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			Expect(ran[called]).To(Equal(1), "the host's %s must run once: %v", called, ran)
+			named := false
+			for _, e := range events {
+				if e.Tool != nil && e.Tool.Name == called {
+					named = true
+				}
+			}
+			Expect(named).To(BeTrue(), "no tool event names %s: %+v", called, events)
+			// The history the model sees on the second request names the tool as the host does.
+			for _, m := range llm.messages[len(llm.messages)-1] {
+				for _, tc := range m.ToolCalls {
+					Expect(tc.Function.Name).To(Equal(called), "the history names the call %q", tc.Function.Name)
+				}
+			}
+		})
+	}
+
+	// wait_for and wait_agents are nib's own tools, answered by the host through
+	// callbacks. The model is offered each once, by its own name, and the call
+	// reaches the host's handler with the arguments of the model.
+	for _, tc := range []struct{ name, args, want string }{
+		{"wait_for", `{"tool":"list_downloads","until":"json_equals","field":"a.b","equals":"done","then":"tell me","interval_seconds":30,"timeout_seconds":600}`,
+			`"field":"a.b"`},
+		{"wait_for", `{"url":"https://example.org/x","then":"tell me"}`, `"url":"https://example.org/x"`},
+		{"wait_agents", `{"ids":["a"],"mode":"any_failed_or_all","timeout_seconds":20}`, `"timeout":"20s"`},
+	} {
+		It("runs the host "+tc.name+" through nib's tool: "+tc.want, func() {
+			llm := &callingLLM{call: tc.name, args: tc.args}
+			var mu sync.Mutex
+			var got []string
+			mk := func(name string) session.Tool {
+				return session.Tool{Name: name, Description: "host " + name, Schema: json.RawMessage(`{"type":"object"}`),
+					Run: func(_ context.Context, raw json.RawMessage) (string, error) {
+						mu.Lock()
+						defer mu.Unlock()
+						got = append(got, name+" "+string(raw))
+						return "armed", nil
+					}}
+			}
+			hs := start(&llm.recordingLLM, session.HarnessEnv{
+				Tools: []session.Tool{mk("wait_for"), mk("wait_agents"), mk("list_downloads")},
+				Emit:  func(session.Event) {},
+			}, func(m *nibharness.Model) { m.LLM = llm })
+			send(hs, "hello")
+
+			Expect(llm.tools).ToNot(BeEmpty(), "the model got no request")
+			seen := map[string]int{}
+			for _, n := range llm.tools[0] {
+				seen[n]++
+			}
+			for n, c := range seen {
+				Expect(c).To(Equal(1), "tool %q is offered %d times: %v", n, c, llm.tools[0])
+			}
+			for _, name := range []string{"wait_for", "wait_agents", "list_downloads"} {
+				Expect(seen[name]).To(Equal(1), "the model is not offered %q exactly once: %v", name, llm.tools[0])
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			Expect(got).To(HaveLen(1), "the host's handler must run once: %v", got)
+			Expect(got[0]).To(HavePrefix(tc.name + " "))
+			Expect(got[0]).To(ContainSubstring(tc.want))
+		})
+	}
+
+	// A host tool named like any built-in of nib replaces it: the model is offered
+	// one tool per name, and the call reaches the host.
+	It("offers each host tool named like a nib built-in exactly once", func() {
+		names := []string{"cron", "cron_list", "cron_delete", "memory", "todo_write", "schedule_wakeup", "ask_user",
+			"spawn_agent", "check_agent", "get_agent_result", "send_agent_message", "agent_logs", "index", "repo_map",
+			"read_image", "transcribe_audio", "read_video", "lsp", "tree", "wait_for", "wait_agents"}
+		llm := &callingLLM{call: "cron"}
 		var mu sync.Mutex
 		ran := map[string]int{}
-		mk := func(name string) session.Tool {
-			return session.Tool{Name: name, Description: "host " + name, Schema: json.RawMessage(`{"type":"object"}`),
+		var tools []session.Tool
+		for _, n := range names {
+			tools = append(tools, session.Tool{Name: n, Description: "host " + n, Schema: json.RawMessage(`{"type":"object"}`),
 				Run: func(context.Context, json.RawMessage) (string, error) {
 					mu.Lock()
 					defer mu.Unlock()
-					ran[name]++
+					ran[n]++
 					return "ok", nil
-				}}
+				}})
 		}
-		var events []session.Event
-		hs := start(&llm.recordingLLM, session.HarnessEnv{
-			Tools: []session.Tool{mk("spawn_agent"), mk("transcribe_audio"), mk("host_tool")},
-			Emit: func(e session.Event) {
-				mu.Lock()
-				defer mu.Unlock()
-				events = append(events, e)
-			},
-		}, func(m *nibharness.Model) { m.LLM = llm })
+		hs := start(&llm.recordingLLM, session.HarnessEnv{Tools: tools, Emit: func(session.Event) {}},
+			func(m *nibharness.Model) { m.LLM = llm })
 		send(hs, "hello")
-
-		Expect(llm.tools).ToNot(BeEmpty(), "the model got no request")
+		Expect(llm.tools).ToNot(BeEmpty())
 		seen := map[string]int{}
 		for _, n := range llm.tools[0] {
 			seen[n]++
@@ -347,31 +449,22 @@ var _ = Describe("the nib harness", func() {
 		for n, c := range seen {
 			Expect(c).To(Equal(1), "tool %q is offered %d times: %v", n, c, llm.tools[0])
 		}
-		for _, name := range []string{"spawn_agent", "transcribe_audio", "host_tool"} {
-			Expect(seen[name]).To(Equal(1), "the model is not offered %q exactly once: %v", name, llm.tools[0])
-		}
-		for _, native := range []string{"check_agent", "get_agent_result", "send_agent_message", "studio_spawn_agent"} {
-			Expect(seen[native]).To(BeZero(), "tool %q is offered: %v", native, llm.tools[0])
-		}
+		Expect(seen).To(HaveLen(len(names)), "the model is offered %v", llm.tools[0])
 		mu.Lock()
 		defer mu.Unlock()
-		Expect(ran["spawn_agent"]).To(Equal(1), "the host's spawn_agent must run once")
-		named := false
-		for _, e := range events {
-			if e.Tool != nil && e.Tool.Name == "spawn_agent" {
-				named = true
-			}
-			if e.Tool != nil {
-				Expect(e.Tool.Name).ToNot(HavePrefix("studio_"), "an event carries the alias %q", e.Tool.Name)
-			}
-		}
-		Expect(named).To(BeTrue(), "no tool event names spawn_agent: %+v", events)
-		// The history the model sees on the second request names the tool as the host does.
-		for _, m := range llm.messages[len(llm.messages)-1] {
-			for _, tc := range m.ToolCalls {
-				Expect(tc.Function.Name).To(Equal("spawn_agent"), "the history names the call %q", tc.Function.Name)
-			}
-		}
+		Expect(ran["cron"]).To(Equal(1), "the host's cron must run once")
+	})
+
+	It("offers no wait tool of nib when the host has none", func() {
+		llm := &callingLLM{call: "host_tool"}
+		hs := start(&llm.recordingLLM, session.HarnessEnv{
+			Tools: []session.Tool{{Name: "host_tool", Description: "x", Schema: json.RawMessage(`{"type":"object"}`),
+				Run: func(context.Context, json.RawMessage) (string, error) { return "ok", nil }}},
+			Emit: func(session.Event) {},
+		}, func(m *nibharness.Model) { m.LLM = llm })
+		send(hs, "hello")
+		Expect(llm.tools).ToNot(BeEmpty())
+		Expect(llm.tools[0]).To(ConsistOf("host_tool"))
 	})
 
 	// Stopping a turn, and deleting a running chat, must cancel the model request

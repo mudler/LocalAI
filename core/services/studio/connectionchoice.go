@@ -60,9 +60,11 @@ func (s *Service) checkConnections(ctx context.Context, user string, m connsets.
 
 // SetConnections sets the connections the chat may use for the tools of an
 // add-on that runs with a credential. An empty list clears the choice.
-// Choosing connections switches the add-on on for the chat. A chat whose agent
-// names a set for the add-on cannot change it: ErrConnectionByAgent. The chat
-// of another user is session.ErrNotFound.
+// Choosing connections switches the add-on on for the chat. A chat whose own
+// saved agent names a set for the add-on cannot change it:
+// ErrConnectionByAgent. The set of an agent another person shared names that
+// person's bindings and does not lock the chat. The chat of another user is
+// session.ErrNotFound.
 func (s *Service) SetConnections(ctx context.Context, user, conv, addonID string, bindingIDs []string) error {
 	if !addonIDShape.MatchString(addonID) {
 		return fmt.Errorf("%w: %q", ErrBadAddonID, addonID)
@@ -72,7 +74,7 @@ func (s *Service) SetConnections(ctx context.Context, user, conv, addonID string
 		return err
 	}
 	if rec.AgentID != "" {
-		if ag, err := s.Agent(ctx, user, rec.AgentID); err == nil && len(ag.Connections[addonID]) > 0 {
+		if ag, err := s.chatAgent(ctx, principal(user), rec.AgentID); err == nil && ag.Principal == principal(user) && len(ag.Connections[addonID]) > 0 {
 			return ErrConnectionByAgent
 		}
 	}

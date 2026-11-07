@@ -44,6 +44,7 @@ type scriptedBot struct {
 	sentTo   []int64
 	sentIDs  []int64    // the message ID of each sendMessage
 	edits    []botEdit  // editMessageText calls
+	deleted  []int64    // message IDs of deleteMessage calls
 	drafts   []botDraft // sendMessageDraft calls
 	modes    []string   // the parse_mode of each sendMessage
 	files    []botFile  // sendDocument and sendPhoto calls
@@ -104,10 +105,12 @@ func newScriptedBot() *scriptedBot {
 		defer b.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		if f := b.fail[method]; f != nil {
-			code, out := f()
-			w.WriteHeader(code)
-			_, _ = w.Write([]byte(out))
-			return
+			// A forced answer with code 0 lets the call through.
+			if code, out := f(); code != 0 {
+				w.WriteHeader(code)
+				_, _ = w.Write([]byte(out))
+				return
+			}
 		}
 		switch method {
 		case "getMe":
@@ -149,6 +152,9 @@ func newScriptedBot() *scriptedBot {
 		case "editMessageText":
 			mode, _ := body["parse_mode"].(string)
 			b.edits = append(b.edits, botEdit{ID: int64(body["message_id"].(float64)), Text: shown(body), Mode: mode, At: time.Now()})
+			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
+		case "deleteMessage":
+			b.deleted = append(b.deleted, int64(body["message_id"].(float64)))
 			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
 		case "sendMessageDraft":
 			b.drafts = append(b.drafts, botDraft{Chat: int64(body["chat_id"].(float64)), ID: int64(body["draft_id"].(float64)), Text: body["text"].(string), At: time.Now()})
@@ -314,7 +320,7 @@ func newConnRigOpts(sh *shared, store connectors.Store, tr *studiobot.BotTranspo
 	c, err := studio.NewConnectors(r.svc, o)
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(c.Close)
-	tr.UseAuthority(c) // as the application does: every call is authorized by the stored binding
+	tr.UseAuthority(c)     // as the application does: every call is authorized by the stored binding
 	r.svc.SetConnectors(c) // as the application does: the chats see their bindings
 	ctx, cancel := context.WithCancel(context.Background())
 	DeferCleanup(cancel)
@@ -350,6 +356,8 @@ func (c *connRig) bind(in studio.ConnectorInput) connectors.Binding {
 		in.AgentID = c.agent.ID
 	}
 	in.Enabled = true
+	// Many specs bind the same fake bot twice on purpose.
+	in.ConfirmDuplicate = studio.DuplicateConfirmation
 	if in.Reply == "" {
 		// The specs written before the reply modes read the answer as the
 		// one message the bot sends; the live modes have their own specs.

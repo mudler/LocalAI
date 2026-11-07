@@ -10,6 +10,7 @@ export const CHAT_SLASH_ACTIONS = [
   { id: 'chats', cmd: '/chats', icon: 'history', group: 'chat' },
   { id: 'assistant', cmd: '/assistant', icon: 'user-shield', group: 'chat', needs: 'assistant' },
   { id: 'find', cmd: '/find', icon: 'search', group: 'view', needs: 'thread' },
+  { id: 'effort', cmd: '/effort', icon: 'brain', group: 'chat' },
   { id: 'settings', cmd: '/settings', icon: 'sliders', group: 'view' },
   { id: 'export', cmd: '/export', icon: 'export', group: 'view', needs: 'thread' },
   { id: 'delete', cmd: '/delete', icon: 'trash', group: 'view', needs: 'chat' },

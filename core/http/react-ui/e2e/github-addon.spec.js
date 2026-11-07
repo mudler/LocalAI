@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi } from './connector-fixtures.js'
+import { connectorApi, openPane } from './connector-fixtures.js'
 
 // The page of the GitHub add-on (the real built bundle, inside the add-on
 // shell) with the core API stubbed: the token help, the repository list and
@@ -58,7 +58,7 @@ test.describe('GitHub add-on', () => {
     await page.getByLabel('Name', { exact: true }).fill('Mine')
     await page.getByLabel('Repositories the agent may use').fill('acme/tools')
     await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Mine')
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
+    await expect(page.getByTestId('connector-save')).toBeDisabled()
   })
 
   test('each write mode says what it does, and the default is read only', async ({ page }) => {
@@ -69,7 +69,7 @@ test.describe('GitHub add-on', () => {
     const group = page.getByRole('radiogroup', { name: 'What the agent may change on GitHub' })
     await expect(group.getByRole('radio', { name: /Read only/ })).toBeChecked()
     await expect(group).toContainText('Each change waits for your OK.')
-    await expect(group).toContainText('Acts without asking')
+    await expect(group).toContainText('Runs at once')
     await expect(group).not.toContainText('Allowed')
   })
 
@@ -81,14 +81,15 @@ test.describe('GitHub add-on', () => {
     })
     await api(page, [BINDING]).install()
     await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Test' }).click()
-    const row = page.getByTestId('connector-row')
+    await page.getByTestId('connector-test').click()
+    await openPane(page)
+    const row = page.getByTestId('connector-pane')
     await expect(row.getByTestId('github-checks')).toContainText('acme/widgets: reachable, read only.')
     await expect(row.getByTestId('github-checks')).toContainText('acme/docs: this token cannot reach it')
     await expect(row.locator('.gh-check--warn')).toHaveCount(1)
     await expect(row.locator('.gh-check--ok')).toHaveCount(1)
-    await expect(page.getByText('Connected as support_bot.')).toBeVisible()
-    await page.getByRole('button', { name: 'Test' }).click()
+    await expect(page.getByText('Connected as support_bot.').first()).toBeVisible()
+    await page.getByTestId('connector-test').click()
     await expect(row.getByTestId('github-checks')).toContainText('acme/widgets: reachable, and the token can write.')
   })
 })

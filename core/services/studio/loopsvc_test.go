@@ -38,13 +38,13 @@ type loopRig struct {
 	host *studio.Loops
 }
 
-func (sh *loopShared) rig(script func(workspace.Actor, string) []studiotest.ToolStep, o studio.LoopOptions) *loopRig {
-	svc, h := newToolService(script, func(d *studio.Deps) {
+func (sh *loopShared) rig(script func(workspace.Actor, string) []studiotest.ToolStep, o studio.LoopOptions, extra ...func(*studio.Deps)) *loopRig {
+	svc, h := newToolService(script, append([]func(*studio.Deps){func(d *studio.Deps) {
 		d.Store, d.Files = sh.chats, sh.files
 		if sh.users != nil {
 			d.Users = func(_ context.Context, id string) (*auth.User, error) { return &auth.User{ID: id}, sh.users(id) }
 		}
-	})
+	}}, extra...)...)
 	o.Store, o.Clock = sh.loops, sh.clock.Now
 	if o.Tick == 0 {
 		o.Tick = time.Hour // tests call Pass
@@ -56,14 +56,29 @@ func (sh *loopShared) rig(script func(workspace.Actor, string) []studiotest.Tool
 	return &loopRig{sh: sh, svc: svc, h: h, host: host}
 }
 
-func newLoopRig(script func(workspace.Actor, string) []studiotest.ToolStep, o studio.LoopOptions) *loopRig {
-	return newLoopShared().rig(script, o)
+func newLoopRig(script func(workspace.Actor, string) []studiotest.ToolStep, o studio.LoopOptions, extra ...func(*studio.Deps)) *loopRig {
+	return newLoopShared().rig(script, o, extra...)
 }
 
 // say answers every message with ok.
 func say(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} }
 
 func (r *loopRig) pass() { Expect(r.host.Pass(context.Background())).To(Succeed()) }
+
+// fire moves the clock on by d and passes until the host has taken the next
+// run of the loop, then waits for that run to end. A pass can skip a due loop
+// whose chat is not free at that moment, and the host tries again at the next
+// pass; a loop that is skipped looks the same as one whose run has ended, so a
+// test that expects a run waits for the run to start, not for a quiet loop.
+func (r *loopRig) fire(id string, d time.Duration) loops.Loop {
+	before := r.get(id).Runs
+	r.sh.clock.Advance(d)
+	until("the host to take a run of the loop", func() bool {
+		r.pass()
+		return r.get(id).Runs > before
+	})
+	return r.settled(id)
+}
 
 // start starts a loop and confirms it when it waits for a yes.
 func (r *loopRig) start(chat, interval, prompt string) loops.Loop {

@@ -9,6 +9,7 @@
   "api": {"min": 2, "max": 2},
   "protocol": { "min": 1, "max": 1 },
   "dataFormat": { "min": 1, "max": 1 },
+  "featureLevel": 4,
   "capabilities": {
     "hostOperations": {
       "optional": ["connector.file.get", "connector.file.put"]
@@ -19,6 +20,7 @@
           "id": "telegram",
           "title": "Telegram",
           "description": "Talk to one of your saved agents from a Telegram bot.",
+          "setup": "a bot token from @BotFather",
           "senderHint": "A chat ID, a user ID or an @username",
           "delivery": "pull",
           "files": {
@@ -63,13 +65,13 @@
     }
   },
   "i18n": {
-    "it": {"kinds": {"telegram": {"title": "Telegram", "description": "Parla con uno dei tuoi agenti salvati da un bot Telegram."}}},
-    "de": {"kinds": {"telegram": {"title": "Telegram", "description": "Sprechen Sie über einen Telegram-Bot mit einem Ihrer gespeicherten Agenten."}}},
-    "es": {"kinds": {"telegram": {"title": "Telegram", "description": "Habla con uno de tus agentes guardados desde un bot de Telegram."}}},
-    "fr": {"kinds": {"telegram": {"title": "Telegram", "description": "Parlez à l'un de vos agents enregistrés depuis un bot Telegram."}}},
-    "pt-BR": {"kinds": {"telegram": {"title": "Telegram", "description": "Converse com um dos seus agentes salvos por um bot do Telegram."}}},
-    "zh-CN": {"kinds": {"telegram": {"title": "Telegram", "description": "通过 Telegram 机器人与你保存的某个智能体对话。"}}},
-    "ko": {"kinds": {"telegram": {"title": "Telegram", "description": "Telegram 봇으로 저장한 에이전트 중 하나와 대화합니다."}}},
-    "id": {"kinds": {"telegram": {"title": "Telegram", "description": "Berbicara dengan salah satu agen tersimpan Anda dari bot Telegram."}}}
+    "it": {"kinds": {"telegram": {"title": "Telegram", "description": "Parla con uno dei tuoi agenti salvati da un bot Telegram.", "setup": "un token del bot da @BotFather"}}},
+    "de": {"kinds": {"telegram": {"title": "Telegram", "description": "Sprechen Sie über einen Telegram-Bot mit einem Ihrer gespeicherten Agenten.", "setup": "ein Bot-Token von @BotFather"}}},
+    "es": {"kinds": {"telegram": {"title": "Telegram", "description": "Habla con uno de tus agentes guardados desde un bot de Telegram.", "setup": "un token de bot de @BotFather"}}},
+    "fr": {"kinds": {"telegram": {"title": "Telegram", "description": "Parlez à l'un de vos agents enregistrés depuis un bot Telegram.", "setup": "un jeton de bot de @BotFather"}}},
+    "pt-BR": {"kinds": {"telegram": {"title": "Telegram", "description": "Converse com um dos seus agentes salvos por um bot do Telegram.", "setup": "um token de bot do @BotFather"}}},
+    "zh-CN": {"kinds": {"telegram": {"title": "Telegram", "description": "通过 Telegram 机器人与你保存的某个智能体对话。", "setup": "来自 @BotFather 的机器人令牌"}}},
+    "ko": {"kinds": {"telegram": {"title": "Telegram", "description": "Telegram 봇으로 저장한 에이전트 중 하나와 대화합니다.", "setup": "@BotFather에서 받은 봇 토큰"}}},
+    "id": {"kinds": {"telegram": {"title": "Telegram", "description": "Berbicara dengan salah satu agen tersimpan Anda dari bot Telegram.", "setup": "token bot dari @BotFather"}}}
   }
 }

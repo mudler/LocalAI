@@ -74,6 +74,7 @@ func (r *Runtime) Close() { r.Socket.Close() }
 type platform struct{ r *Runtime }
 
 var (
+	_ connector.Deleter       = platform{}
 	_ connector.Formatter     = platform{}
 	_ connector.Splitter      = platform{}
 	_ connector.HistoryReader = platform{}
@@ -120,6 +121,15 @@ func (p platform) Edit(ctx context.Context, req contract.ConnectorRequest) error
 		return err
 	}
 	return p.r.API.Update(ctx, b, req.Chat, req.MessageID, req.Text)
+}
+
+// Delete removes the preview that an answer could not replace.
+func (p platform) Delete(ctx context.Context, req contract.ConnectorRequest) error {
+	b, err := bot(req.Token)
+	if err != nil {
+		return err
+	}
+	return p.r.API.Delete(ctx, b, req.Chat, req.MessageID)
 }
 
 // Typing posts the "working" message of a conversation once. Slack has no
@@ -173,7 +183,13 @@ func (p platform) Me(ctx context.Context, token string) (connector.Bot, error) {
 	if id.Team != "" {
 		name += " (" + id.Team + ")"
 	}
-	return connector.Bot{ID: id.UserID, Username: name}, nil
+	// The bot user and the workspace together name the app: every token pair of
+	// the same app installed in the same workspace gives the same pair.
+	account := id.UserID
+	if id.TeamID != "" {
+		account = id.TeamID + "/" + id.UserID
+	}
+	return connector.Bot{ID: id.UserID, Username: name, AccountID: account}, nil
 }
 
 var fileID = regexp.MustCompile(`^F[A-Z0-9]{1,31}$`)
