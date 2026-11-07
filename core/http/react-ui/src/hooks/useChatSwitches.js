@@ -55,6 +55,10 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
   const [skillsRev, setSkillsRev] = useState(0)
   // Counts the setups loaded into the draft: the draft lists are read again.
   const [draftRev, setDraftRev] = useState(0)
+  // The revision each draft list was last answered for (an error counts as an
+  // answer), so a caller that loaded a setup knows when the lists show it.
+  const [answered, setAnswered] = useState({ tools: 0, addons: 0, skills: 0 })
+  const mark = (kind, rev) => setAnswered((a) => (a[kind] >= rev ? a : { ...a, [kind]: rev }))
   // Counts the changes after which what the chat can run changed: the network
   // controls of the chat (its egress view) are read again.
   const [commandsRev, setCommandsRev] = useState(0)
@@ -70,6 +74,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     setSkillsError('')
     if (!chatId && !draftOn) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setBuiltins([]); setFallbacks([]); setMemory(null); setSkills([]); setReplaced([]); return undefined }
     let live = true
+    const rev = draftRev
     const epoch = ++commandEpoch.current
     setCommands(noCommands)
     // A draft list keeps the choices made so far for the rows it still has.
@@ -77,6 +82,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     ;(draftOn ? chatAddonsApi.draft(draftModel, draftAgent, draftListSwitches(choicesRef.current, builtinsRef.current)) : chatAddonsApi.list(chatId))
       .then((res) => { if (live && epoch === commandEpoch.current) { setAddons(chosen({ addons: res.addons || [] }).addons); setCommands(commandsOf(res)) } })
       .catch(() => { if (live && epoch === commandEpoch.current) { setAddons([]); setCommands(noCommands) } })
+      .finally(() => { if (live) mark('addons', rev) })
     ;(draftOn ? chatToolsApi.draft(draftModel, draftAgent) : chatToolsApi.list(chatId))
       .then((res) => {
         if (!live) return
@@ -88,12 +94,14 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
         setMemory(res.memory || null)
       })
       .catch(() => { if (live) { setMcp(noMCP); setBuiltins([]); setFallbacks([]); setMemory(null) } })
+      .finally(() => { if (live) mark('tools', rev) })
     return () => { live = false }
   }, [chatId, filesOn, draftOn, draftModel, draftAgent, actorSession, draftRev])
 
   useEffect(() => {
-    if ((!chatId && !draftOn) || !filesOn) { setSkills([]); setReplaced([]); return undefined }
+    if ((!chatId && !draftOn) || !filesOn) { setSkills([]); setReplaced([]); mark('skills', skillsRev); return undefined }
     let live = true
+    const rev = skillsRev
     // Only the skill that wins has a switch: one that another overrides cannot
     // be used anyway. A built-in skill an add-on replaces is shown apart. The
     // list without a chat is the skills with their default switches.
@@ -105,6 +113,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
         setReplaced(picked.replaced)
       })
       .catch(() => { if (live) { setSkills([]); setReplaced([]) } })
+      .finally(() => { if (live) mark('skills', rev) })
     return () => { live = false }
   }, [chatId, filesOn, skillsRev, draftOn])
 
@@ -326,6 +335,8 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
 
   return {
     draftSwitches, resetDraft, applyDraftTools, draft: draftOn, commandsRev,
+    // The draft lists have answered the last applyDraftTools (see answered).
+    listsReady: answered.tools >= draftRev && answered.addons >= draftRev && answered.skills >= skillsRev,
     addons, builtins, fallbacks, memory, commands: commands.context === context ? commands : noCommands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
     counts: toolsCounts({ builtins, addons, servers: mcp.servers, connectors: mcp.connectors }),
     toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn, setAddonsOn, setBuiltinsOn, setMCPOn, setConnections,
