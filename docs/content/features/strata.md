@@ -40,6 +40,17 @@ those hosts `local-ai backends install strata` reports that no variant fits the 
 The images are large because each engine package carries its own GPU runtime libraries
 (CUDA, ROCm or oneAPI). The ROCm image carries four engines, one per GPU family.
 
+DeepSeek V4.1-Flash runs on a second engine, `strata-dsv41`, which Strata ships as a separate
+package. The images carry it next to the Qwen engine where Strata publishes one:
+
+| Image | DeepSeek V4.1 engine |
+|---|---|
+| `cuda13-strata`, `cuda13-nvidia-l4t-arm64-strata` | yes: x86_64 has code for RTX 30, 40 and 50 series cards (`sm_86`, `sm_89`, `sm_120`); arm64 only for the DGX Spark (`sm_121`) |
+| `rocm-strata` | yes, for the RX 9070 and Radeon AI PRO R9700 family only (`gfx1200`, `gfx1201`) |
+| `metal-strata` | yes, text only |
+| `cuda12-strata`, `intel-strata` | no: Strata publishes none, so a DeepSeek model fails to load there with a message |
+| RX 7000, RX 6000 and Strix Halo in `rocm-strata` | no: the image has no DeepSeek engine code for these cards |
+
 ## Licensing
 
 The engine and the Strata Python modules are MIT licensed. The engine packages published
@@ -117,11 +128,37 @@ before you offer a model to other people. The ISTA-DASLab model cards also carry
 tag; their text says the weights inherit the base model's licence, and the entries follow the
 text.
 
+**DeepSeek-V4.1-Flash-1017** (763B parameters, 384 experts per layer, MIT License). It runs on
+the `strata-dsv41` engine, with the model's own V4.1 chat template, its reasoning trace and its
+DSML tool calls (the same prompt bytes as DeepSeek's reference encoder). The quantization is
+ISTA-DAS's GSQ-RCO; the draft model for speculative decoding (DSpark) is Unsloth's. Text only:
+this backend does not send images to the DeepSeek engine. Each entry needs a GPU with 12 GB of
+VRAM or more, and Strata measured it with 46 to 64 GB of RAM; with less it runs slowly. The
+111 GB n-gram table stays on disk and is read for every token, so use an NVMe drive. The table
+and the 8 GB draft model are downloaded once into `strata/models/deepseek-v4.1-flash-shared`
+and used by every DeepSeek entry.
+
+| Gallery name | Source and format | Download | RAM, at the least |
+|---|---|---|---|
+| `deepseek-v4.1-flash-ista-iq1_m` | ISTA-DAS IQ1_M, 1.75 bpw, the smallest | 239 GB | about 34 GB |
+| `deepseek-v4.1-flash-ista-iq2_xxs` | ISTA-DAS IQ2_XXS, 2.00 bpw | 257 GB | about 40 GB |
+| `deepseek-v4.1-flash-ista-iq2_xs` | ISTA-DAS IQ2_XS, 2.25 bpw, the best quality | 274 GB | about 44 GB |
+| `deepseek-v4.1-flash-ista-coder-iq2_xxs` | ISTA-DAS Coder, half the experts, for code | 191 GB | about 24 GB |
+
+Strata measured the quality against the original model: the 2.25 set is 7% worse in perplexity,
+the 2.00 set 16% and the 1.75 set 21%; the Coder set is about 48% worse overall and is meant for
+code and agent work. Free disk space is the download plus about 1 GB. The default context is 8192
+tokens, the size Strata checked; the engine reads up to 1M, and the KV cache takes GPU memory
+from the experts, so raise `context_size` with care.
+
+The DeepSeek options of the backend are `family:deepseek41` (set by these entries), `dspark`
+(`auto`, the default, `on`, `off` or `none`), `experts` (`5` for faster answers, `6` for full
+quality; the engine decides when it is not set) and `mmap_experts`. See
+`backend/go/strata/README.md`. These entries were not run on a real engine: the pack build was
+run on the real file headers, and the prompts were compared with Strata's reference tokens.
+
 Not in the gallery:
 
-- DeepSeek V4.1-Flash (ISTA-DAS 1.75, 2.00 and 2.25 bpw sets and Coder). Strata runs it with a
-  separate engine package (`strata-dsv41`) and its own tokenizer and chat format, which this
-  backend does not carry or drive yet.
 - NVIDIA's retrained FP4 checkpoint (`NVFP4-QAD`). Strata converts NVIDIA's 102 GB of files on
   the user's machine with a tool that needs a heavy Python stack.
 - OrcaRouter's uncensored IQ3_XXS. Upstream documents it as a manual conversion.
@@ -130,17 +167,19 @@ You can still run these by building the pack with Strata and writing a model con
 (see `backend/go/strata/README.md`).
 
 The gallery entries are experimental. The backend has not yet been run against a real
-engine and model, and the pack build has not been run on a real model file.
+engine and model, and the pack build has not been run on a real model file. For DeepSeek, the
+pack tool was run on the real GGUF headers only.
 
 ## Limits
 
-No embeddings, no grammar, no video or audio input, one request at a time. See
+No embeddings, no grammar, no video or audio input, one request at a time. DeepSeek models take
+no images and no logprobs. See
 `backend/go/strata/README.md` for the full list, including images, logprobs, tool calls and
 reasoning, which the backend supports.
 
 ## Versions
 
-The Strata release and the SHA-256 of every engine package are pinned in
+The Strata release and the SHA-256 of every engine package, DeepSeek packages included, are pinned in
 `backend/go/strata/Makefile`. A nightly job (`bump-strata` in `.github/workflows/bump_deps.yaml`)
 opens a pull request when Strata publishes a release. The backend speaks an unversioned
 line protocol, so review each bump against `backend/go/strata/README.md`.

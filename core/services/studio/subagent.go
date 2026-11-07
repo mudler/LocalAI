@@ -126,7 +126,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// tools it has now: a chat with the file tools switched off hears of none.
 	canRead, canWrite := canReadFiles(tools, cmds), canWriteFiles(tools, cmds)
 	skillsOff := 0
-	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, s.memorySkillsOff(ctx, rec, sc, rec.SkillsOff), rec.AddonsOff, sc, cmds, execGate(cmds, &skillsOff))
+	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, s.skillsOffOf(ctx, rec, sc), rec.AddonsOff, sc, cmds, execGate(cmds, &skillsOff))
 	if err != nil {
 		return session.TurnTools{}, err
 	}
@@ -211,10 +211,15 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		// switched the saved agents on and its user may use them.
 		tools = append(tools, s.spawnTool(x, hasTool(tools, listAgentsName)), s.waitAgentsTool(a))
 	}
-	// The assistant tools are not part of hostTools, so a sub-agent never gets
-	// them, whatever its parent names.
-	aTools, aPrompt, aNote := s.assistantTurn(ctx, rec)
+	// The two LocalAI groups go through the registry like every built-in group:
+	// the setting, the chat's switches and the agent's ceiling apply. They are
+	// not part of hostTools, so the admin tools never reach a sub-agent,
+	// whatever its parent names (the group refuses a sub-agent as well).
+	aTools, aDeferred, aDeferredGroups, aPrompt, aNote := s.localaiTurn(ctx, a, x, rec, tools)
 	tools = append(tools, aTools...)
+	// The deferred tools are gated like the typed ones (the action policy of
+	// an unattended run), then hidden behind the three tool-search tools.
+	tools = append(tools, toolSearchTools(s.gateBuiltinActs(ctx, rec, aDeferred), aDeferredGroups)...)
 	// The tools of a self-paced loop, while the chat has one.
 	tools = append(tools, s.loopTools(ctx, a, rec)...)
 	if aPrompt != "" {

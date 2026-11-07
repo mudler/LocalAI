@@ -18,50 +18,74 @@
 
 .cn-muted { margin: 0; color: var(--color-text-muted); font-size: var(--fs-small); line-height: var(--lh-small); }
 
-.cn-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+/* The connections other people shared with the person, read only. */
+.cn-shared { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-section__title { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--font-weight-semibold); }
 
-.cn-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--dk-space-3);
-  padding: var(--dk-space-3);
-  border-bottom: 1px solid var(--color-border-subtle);
+/* The list of connections: rows like the MCP connectors page, a docked pane
+   beside them. The kit draws the switch, the chip, the menu, the pane and the
+   sheet; this sheet only lays the row out. */
+.cn-layout { align-items: flex-start; }
+.cn-listcol { display: flex; flex-direction: column; gap: var(--dk-space-3); min-width: 0; }
+.cn-conns { list-style: none; margin: 0; padding: 0; border: 1px solid var(--dk-edge); border-radius: var(--r-lg); background: var(--dk-card); overflow: hidden; }
+.cn-conns:empty { display: none; }
+.cn-conn { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--dk-space-3); min-width: 0; padding-right: var(--dk-space-4); }
+.cn-conn + .cn-conn { border-top: 1px solid var(--dk-edge); }
+.cn-conn:has(.cn-conn__open:hover) { background: color-mix(in oklab, var(--dk-hover) 45%, transparent); }
+.cn-conn[data-selected="true"] { background: var(--dk-accent-wash); }
+.cn-conn__open { min-width: 0; display: flex; gap: var(--dk-space-3); align-items: flex-start; padding: 14px 0 14px var(--dk-space-4); color: inherit; background: none; border: 0; text-align: start; font: inherit; cursor: pointer; }
+.cn-conn__open:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--dk-accent); border-radius: var(--r-md); }
+.cn-conn__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cn-conn__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); min-width: 0; }
+.cn-conn__name { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
+.cn-conn__facts, .cn-conn__line { font-size: var(--fs-small); line-height: var(--lh-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cn-conn__facts { color: var(--dk-muted); }
+.cn-conn__line { color: var(--dk-warn-text, var(--dk-text)); }
+.cn-conn[data-state="off"] .cn-tile { opacity: 0.6; }
+.cn-conn__side { display: flex; align-items: center; gap: var(--dk-space-2); }
+/* A connection other people shared with the person: the same row, read only,
+   with nothing to open or change. */
+.cn-conn__body { min-width: 0; display: flex; gap: var(--dk-space-3); align-items: flex-start; padding: 14px 0 14px var(--dk-space-4); }
+@media (max-width: 640px) {
+  .cn-conn { grid-template-columns: minmax(0, 1fr); padding-right: 0; }
+  .cn-conn__body { padding-right: var(--dk-space-4); }
+  .cn-conn__side { padding: 0 var(--dk-space-4) var(--dk-space-3) calc(var(--dk-space-4) + 36px + var(--dk-space-3)); }
+  .cn-conn__facts, .cn-conn__line { white-space: normal; }
 }
 
-/* The host's connectors page also defines .cn-row, as a grid with a leading icon
-   column. The add-on sheet is scoped with :where(), so the sheet that loads
-   later would win. Under .cn-page this row keeps its own layout in any order. */
-.cn-page .cn-row { display: flex; grid-template-columns: none; }
+/* The letter tile: the first letter on a hue taken from the id. */
+.cn-tile { flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: var(--r-md); font-size: var(--fs-body); font-weight: var(--font-weight-semibold); line-height: 1; --cn-h: 180; background: oklch(0.93 0.035 var(--cn-h)); color: oklch(0.42 0.08 var(--cn-h)); }
+:root[data-theme="dark"] .cn-tile { background: oklch(0.32 0.045 var(--cn-h)); color: oklch(0.88 0.06 var(--cn-h)); }
+.cn-tile[data-hue="0"] { --cn-h: 20; } .cn-tile[data-hue="1"] { --cn-h: 50; } .cn-tile[data-hue="2"] { --cn-h: 80; } .cn-tile[data-hue="3"] { --cn-h: 110; }
+.cn-tile[data-hue="4"] { --cn-h: 140; } .cn-tile[data-hue="5"] { --cn-h: 170; } .cn-tile[data-hue="6"] { --cn-h: 200; } .cn-tile[data-hue="7"] { --cn-h: 230; }
+.cn-tile[data-hue="8"] { --cn-h: 260; } .cn-tile[data-hue="9"] { --cn-h: 290; } .cn-tile[data-hue="10"] { --cn-h: 320; } .cn-tile[data-hue="11"] { --cn-h: 350; }
 
-.cn-row__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* The pane. */
+.cn-pane__body { display: flex; flex-direction: column; gap: var(--dk-space-5); min-width: 0; }
+.cn-pane__section { display: flex; flex-direction: column; gap: var(--dk-space-2); min-width: 0; }
+.cn-pane__title, .cn-sheet__label { margin: 0; font-size: var(--fs-meta); line-height: var(--lh-meta); font-weight: var(--font-weight-semibold); letter-spacing: .06em; text-transform: uppercase; color: var(--dk-muted); }
+.cn-pane__use { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); padding: var(--dk-space-3) var(--dk-space-4); border: 1px solid var(--dk-edge); border-radius: var(--r-md); }
+.cn-pane__foot { display: flex; align-items: center; gap: var(--dk-space-2); width: 100%; }
+.cn-pane__grow { flex: 1 1 auto; }
+.cn-pane__ok, .cn-pane__bad { display: flex; align-items: flex-start; gap: var(--dk-space-2); margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); overflow-wrap: anywhere; }
+.cn-pane__ok { color: var(--dk-ok-text); }
+.cn-pane__bad { color: var(--dk-error-text); }
+.cn-pane__info { display: flex; flex-direction: column; gap: var(--dk-space-1); font-size: var(--fs-small); }
+.cn-kv { display: flex; flex-direction: column; gap: var(--dk-space-2); margin: 0; }
+.cn-kv__row { display: grid; grid-template-columns: minmax(80px, 30%) minmax(0, 1fr); gap: var(--dk-space-3); }
+.cn-kv dt { color: var(--dk-muted); font-size: var(--fs-small); line-height: var(--lh-small); }
+.cn-kv dd { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); overflow-wrap: anywhere; }
 
-.cn-row__name { font-weight: var(--font-weight-semibold); }
-
-.cn-row__actions { display: flex; align-items: center; gap: var(--dk-space-2); flex: none; }
-
-/* Fields on the left, a sticky aside on the right from 1024 px. */
-.cn-formgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--dk-space-5); align-items: start; }
-
-.cn-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--dk-space-4);
-  max-width: 640px;
-  padding: var(--dk-space-5);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--r-lg);
-  background: var(--dk-card);
-}
-
-.cn-aside { display: flex; flex-direction: column; gap: var(--dk-space-2); }
-.cn-aside__title { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
-.cn-aside__steps { margin: 0 0 var(--dk-space-3); padding-left: var(--dk-space-5); display: flex; flex-direction: column; gap: var(--dk-space-1); color: var(--color-text-muted); font-size: var(--fs-small); line-height: var(--lh-small); }
-
-@media (min-width: 1024px) {
-  .cn-formgrid { grid-template-columns: minmax(0, 640px) minmax(240px, 320px); }
-  .cn-aside { position: sticky; top: var(--dk-space-4); padding-left: var(--dk-space-5); border-left: 1px solid var(--color-border-subtle); }
-}
+/* The sheet: one scrolling form with uppercase section labels. */
+.cn-sheet { display: flex; flex-direction: column; gap: var(--dk-space-6); min-width: 0; }
+.cn-sheet__section { display: flex; flex-direction: column; gap: var(--dk-space-4); min-width: 0; }
+.cn-sheet__section + .cn-sheet__section { padding-top: var(--dk-space-5); border-top: 1px solid var(--dk-edge); }
+.cn-sheet__fail { position: sticky; bottom: 0; z-index: 1; min-width: 0; background: var(--dk-card); }
+.cn-sheet__fail:focus-visible { outline: 2px solid var(--dk-accent, currentColor); outline-offset: 2px; border-radius: var(--r-md); }
+.cn-sheet__fail-reason { display: block; overflow-wrap: anywhere; }
+.cn-fixed { margin: 0; font-size: var(--fs-body); }
+.cn-card__words { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cn-card__desc { font-size: var(--fs-meta); line-height: var(--lh-meta); color: var(--dk-muted); }
 
 /* Sections of the form: a quiet heading and a hairline, not a bordered box. */
 fieldset.cn-group {
@@ -77,8 +101,8 @@ fieldset.cn-group {
 .cn-group legend { float: left; width: 100%; margin: 0; padding: 0; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
 .cn-group legend + * { clear: both; }
 
-.cn-actions { display: flex; gap: var(--dk-space-2); }
 
+.cn-row__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); }
 .cn-link { background: none; border: 0; padding: 0 var(--dk-space-1); color: inherit; cursor: pointer; font: inherit; }
 .ui-callout__text .cn-link { margin-left: var(--dk-space-2); }
 /* The link to the other connection of the same bot: it reads as a link, not as a dismiss mark. */
@@ -87,9 +111,6 @@ fieldset.cn-group {
 
 @media (max-width: 900px) {
   .cn-page { padding: var(--dk-space-4); }
-  .cn-row { flex-wrap: wrap; align-items: flex-start; }
-  .cn-row__actions { flex-wrap: wrap; }
-  .cn-form { padding: var(--dk-space-4); }
 }
 
 /* Help text: two lines, then a "More" control. */
@@ -127,6 +148,8 @@ fieldset.cn-group {
 .cn-card:hover { border-color: color-mix(in srgb, var(--dk-control-edge) 70%, var(--dk-text)); }
 .cn-card.is-on { border-color: var(--dk-accent); background: var(--dk-accent-wash); }
 .cn-card:has(:focus-visible) { outline: 2px solid var(--dk-accent); outline-offset: 2px; }
+.cn-cards--three { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; }
+@media (max-width: 640px) { .cn-cards--three { grid-template-columns: minmax(0, 1fr); } }
 
 /* A switch with its label and help. */
 .cn-switchrow { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); min-height: var(--ctl-h); font-size: var(--fs-body); }
@@ -232,6 +255,8 @@ fieldset.cn-group {
 .cn-fix { white-space: nowrap; text-decoration: none; }
 .cn-fix__text { max-width: 12rem; text-align: right; }
 .cn-ready__toggle { align-self: flex-start; }
+.cn-ready-quiet { display: flex; flex-direction: column; gap: var(--dk-space-2); align-items: flex-start; }
+.cn-ready-quiet > .cn-ready { align-self: stretch; }
 .cn-can__live:empty { display: none; }
 [data-jumped="true"] { outline: 2px solid var(--dk-accent); outline-offset: 3px; border-radius: var(--r-sm); }
 @media (max-width: 700px) {
@@ -242,7 +267,8 @@ fieldset.cn-group {
 
 /* The host kit writes " (optional)" in English after a label marked data-optional.
    The page puts the word of its language in the attribute, and this draws it. */
-.cn-page .dk-label[data-optional]::after { content: " (" attr(data-optional) ")"; }
+.cn-page .dk-label[data-optional]::after,
+.cn-scope .dk-label[data-optional]::after { content: " (" attr(data-optional) ")"; }
 
 /* The tools whose confirmation the owner can relax. */
 .cn-approvals { display: flex; flex-direction: column; gap: var(--dk-space-2); margin-top: var(--dk-space-3); }

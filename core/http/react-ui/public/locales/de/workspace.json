@@ -369,7 +369,7 @@
     "adminTitle": "Geteilte Ordner",
     "adminLede": "Ordner, die mehrere Personen nutzen. Mitglieder öffnen ihre Seiten, und ihre Chats können die Dateien lesen oder bearbeiten.",
     "userTitle": "Mit dir geteilt",
-    "userLede": "Ordner, die ein Administrator mit dir geteilt hat. Ihre Seiten sind unter Seiten, und deine Chats können die Dateien nutzen.",
+    "userLede": "Ordner, die eine Administratorin, ein Administrator oder eine andere Person mit dir geteilt hat. Deine Chats können die Dateien verwenden.",
     "new": "Neuer geteilter Ordner",
     "nameLabel": "Ordnername",
     "nameHint": "Bis zu 64 Buchstaben, Ziffern, Leerzeichen, Punkte, Bindestriche oder Unterstriche. Beginne mit einem Buchstaben oder einer Ziffer.",
@@ -421,7 +421,7 @@
     "factChats": "Die Chats der Mitglieder sehen die Dateien des Ordners",
     "factUndo": "Das Entfernen eines Ordners lässt sich rückgängig machen",
     "emptyUserTitle": "Noch nichts mit dir geteilt",
-    "emptyUserBody": "Wenn ein Administrator einen Ordner mit dir teilt, erscheint er hier und seine Seiten unter Seiten."
+    "emptyUserBody": "Wenn jemand einen Ordner mit dir teilt, erscheint er hier."
   },
   "preview": {
     "label": "Vorschau",
@@ -460,7 +460,16 @@
     "marker": "von LocalAI verwaltet",
     "about": {
       "localai": "Einstellungen, die LocalAI liest: Persona, Profil, Kurzbefehle, Home, Design.",
-      "chats": "Ein Ordner pro Chat, mit den Dateien des Chats."
+      "chats": "Ein Ordner pro Chat, mit den Dateien des Chats.",
+      "memory": "Die Notizen, die der Assistent über dich führt.",
+      "pages": "Die Seiten in deinem Arbeitsbereich.",
+      "skills": "Die Skills, die die Agenten nutzen.",
+      "other": "Von LocalAI angelegt und genutzt."
+    },
+    "open": {
+      "memory": "Memory öffnen",
+      "pages": "Seiten öffnen",
+      "skills": "Skills öffnen"
     },
     "confirm": {
       "deleteTitle": "{{name}} in den Papierkorb verschieben?",
@@ -536,7 +545,8 @@
     "moveMany_one": "{{count}} Element verschieben nach…",
     "moveMany_other": "{{count}} Elemente verschieben nach…",
     "deleteMany_one": "{{count}} Element in den Papierkorb legen",
-    "deleteMany_other": "{{count}} Elemente in den Papierkorb legen"
+    "deleteMany_other": "{{count}} Elemente in den Papierkorb legen",
+    "share": "Teilen…"
   },
   "keys": {
     "delete": "Entf"
@@ -677,5 +687,12 @@
     "read": "{{name}} (darf lesen)",
     "write": "{{name}} (darf lesen und ändern)",
     "many": "{{count}} Agenten"
+  },
+  "share": {
+    "intro": "Personen, die du hinzufügst, finden diesen Ordner in ihrem Tab „Geteilt“, und ihre Chats können seine Dateien verwenden.",
+    "readHelp": "Sie können die Dateien öffnen und kopieren.",
+    "writeHelp": "Sie können hier außerdem Dateien hinzufügen, ändern und löschen.",
+    "failed": "Freigabe konnte nicht geöffnet werden: {{message}}",
+    "lost": "Du kannst diesen Ordner hier nicht mehr teilen."
   }
 }

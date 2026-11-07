@@ -132,7 +132,7 @@ func (s *Service) agentNetwork(ctx context.Context, rec session.ChatRecord) egre
 	if rec.AgentID == "" || s.d.Agents == nil {
 		return egress.PresetOff
 	}
-	ag, err := s.d.Agents.Get(ctx, rec.Principal, rec.AgentID)
+	ag, err := s.chatAgent(ctx, rec.Principal, rec.AgentID)
 	if err != nil || !egress.Preset(ag.Network).Valid() {
 		return egress.PresetOff
 	}

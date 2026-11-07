@@ -13,7 +13,7 @@ const MODELS = [
 const WORK = { id: 'b1', name: 'Work account' }
 const HOME = { id: 'b2', name: 'Home account' }
 
-async function open(page, url = '/app/agents/new', { bindings = [] } = {}) {
+async function open(page, url = '/app/agents/a2/edit', { bindings = [] } = {}) {
   const s = await installAgents(page, { models: MODELS, bindings })
   await page.route('**/api/chats/draft/tools*', route => route.fulfill({
     json: {
@@ -61,31 +61,17 @@ test.describe('Tool levels', () => {
     await expect(page.getByTestId('agent-preset-state')).toContainText('Custom mix')
     await page.getByTestId('agent-preset-assistant').click()
     await page.getByLabel('Name', { exact: false }).first().fill('Helper')
-    await page.getByRole('button', { name: 'Create Agent' }).first().click()
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
-    const body = s.calls.find(c => c.method === 'POST').body
+    const body = s.calls.find(c => c.method === 'PUT').body
     expect(body.builtins_off).toContain('files')
     expect(body.builtins_off).not.toContain('web')
     expect(body.builtins_on).toContain('saved_agents')
-    expect(body.builtins).toEqual(expect.arrayContaining(['triggers.propose', 'memory.write']))
+    expect(body.builtins).toEqual(expect.arrayContaining(['triggers.propose', 'talkback.channels']))
   })
 })
 
-test.describe('Templates', () => {
-  test('a template fills the identity and starts at a level, and one click takes it back', async ({ page }) => {
-    await open(page)
-    const name = page.getByLabel('Name', { exact: false }).first()
-    await page.locator('[data-template="researcher"]').click()
-    await expect(name).toHaveValue('research-assistant')
-    await expect(page.locator('[data-template="researcher"]')).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByTestId('agent-template-applied')).toContainText('Started from Research assistant')
-    await expect(page.getByTestId('agent-preset-state')).toContainText('Level: Look only')
-    await page.getByTestId('agent-template-applied-undo').click()
-    await expect(name).toHaveValue('')
-    await expect(page.getByLabel('Instructions')).toHaveValue('')
-    await expect(page.getByTestId('agent-preset-state')).toContainText('Custom mix')
-  })
-})
+// The starting points belong to the new-agent wizard now (agents-wizard.spec.js).
 
 // The Connections card is gone: the account of an add-on is a row of "What
 // it can use", and the list of messaging connections of the agent sits under
@@ -116,7 +102,7 @@ test.describe('Accounts of an add-on and where the agent is connected', () => {
 
   test('with nothing to connect the section says so', async ({ page }) => {
     await installAgents(page, { models: MODELS })
-    await page.goto('/app/agents/new')
+    await page.goto('/app/agents/a2/edit')
     await expect(page.getByTestId('agent-connections-messaging-empty')).toBeVisible()
     await expect(page.getByTestId('agent-uses-addons').getByTestId('agent-addon-accounts')).toHaveCount(0)
     await expect(page.locator('#aed-sec-connections')).toHaveCount(0)
@@ -156,12 +142,6 @@ test.describe('Layout', () => {
     await expect(toggle).toHaveAttribute('aria-expanded', 'true')
     await expect(page.locator('#aed-sec-advanced').getByRole('button', { name: 'Export agent' })).toBeVisible()
     await expect(exportButton).toBeVisible()
-  })
-
-  test('a new agent has nothing to export, so Advanced is not shown', async ({ page }) => {
-    await open(page)
-    await expect(page.getByTestId('agent-nav-advanced')).toHaveCount(0)
-    await expect(page.locator('#aed-sec-advanced')).toHaveCount(0)
   })
 
   test('on a phone the section nav stays under the header while the page scrolls', async ({ page }) => {

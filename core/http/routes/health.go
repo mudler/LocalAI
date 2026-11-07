@@ -15,7 +15,10 @@ import (
 // ready fails open: an embedder that does not wire readiness keeps the
 // historical always-200 behaviour instead of being stuck out of rotation
 // forever.
-func HealthRoutes(app *echo.Echo, ready func() bool) {
+//
+// draining, when given, reports that shutdown has started. /readyz then says
+// so in its body instead of blaming the startup.
+func HealthRoutes(app *echo.Echo, ready func() bool, draining ...func() bool) {
 	// Liveness: "is this process alive?". Deliberately independent of
 	// readiness — a long startup preload must not read as a hung process, or
 	// an orchestrator restarts the pod mid-download and the preload can never
@@ -30,6 +33,14 @@ func HealthRoutes(app *echo.Echo, ready func() bool) {
 	// cannot serve it.
 	app.GET("/readyz", func(c echo.Context) error {
 		if ready != nil && !ready() {
+			for _, d := range draining {
+				if d != nil && d() {
+					return c.JSON(http.StatusServiceUnavailable, map[string]string{
+						"status": "draining",
+						"reason": "shutdown in progress",
+					})
+				}
+			}
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{
 				"status": "starting",
 				"reason": "startup preload in progress",

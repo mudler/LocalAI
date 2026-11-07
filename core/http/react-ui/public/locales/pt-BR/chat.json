@@ -33,7 +33,16 @@
     "agent": "Agente",
     "agentHelp": "Este chat usa o agente {{name}}: as instruções dele e só as ferramentas que ele concede.",
     "editAgent": "Editar agente",
-    "deleteHelp": "Apagar este chat e as mensagens dele para sempre."
+    "deleteHelp": "Apagar este chat e as mensagens dele para sempre.",
+    "sliderOf": "Controle deslizante de {{name}}",
+    "reset": "Usar o valor do modelo para {{name}}",
+    "hint": {
+      "temperature": "Valores maiores dão respostas mais variadas. De 0 a 2.",
+      "topP": "Escolhe entre as palavras mais prováveis que somam esta parcela. Acima de 0, até 1.",
+      "topK": "Escolhe entre este número das palavras mais prováveis. Um inteiro, 0 ou mais.",
+      "contextSize": "De 512 a 4194304 tokens.",
+      "effort": "Vale na hora, a partir do próximo turno."
+    }
   },
   "empty": {
     "manageTitle": "Gerencie o LocalAI conversando",
@@ -314,6 +323,10 @@
       "desc": "Defina um objetivo em que o chat continua trabalhando sozinho",
       "clearDesc": "Remover o objetivo",
       "resumeDesc": "Continuar com o objetivo"
+    },
+    "effort": {
+      "label": "Esforço de raciocínio",
+      "desc": "Escolha o quanto o modelo pensa"
     }
   },
   "shortcuts": {
@@ -422,7 +435,8 @@
       "upstream_unreachable": "Não foi possível alcançar o endereço do upstream.",
       "upstream": "O provedor por trás do modelo retornou um erro.",
       "timeout": "O modelo demorou demais para responder.",
-      "cancelled": "O turno foi cancelado antes de o modelo responder."
+      "cancelled": "O turno foi cancelado antes de o modelo responder.",
+      "interrupted": "O servidor reiniciou enquanto respondia."
     },
     "hint": {
       "model_backend_missing": "Escolha outro modelo ou peça a um administrador que instale o backend.",
@@ -437,7 +451,15 @@
       "timeout": "Tente de novo ou use um modelo menor ou mais rápido.",
       "cancelled": "Tente de novo quando quiser."
     },
-    "openBackends": "Abrir Backends"
+    "openBackends": "Abrir Backends",
+    "titleInterrupted": "A resposta foi interrompida",
+    "resume": {
+      "waiting": "Continuando em {{seconds}} segundos (tentativa {{attempt}} de {{max}}).",
+      "resuming": "Continuando de onde parou.",
+      "server": "O servidor continua de onde parou.",
+      "exhausted": "Não foi possível continuar após {{max}} tentativas. Tente de novo.",
+      "stop": "Parar de tentar"
+    }
   },
   "allChats": {
     "title": "Todos os chats",
@@ -747,5 +769,13 @@
       "other": "Nota",
       "why": "Por quê"
     }
+  },
+  "connection": {
+    "lost": "Conexão perdida. Reconectando."
+  },
+  "reasoning": {
+    "chip": "Esforço",
+    "title": "Esforço de raciocínio deste chat",
+    "note": "Vale a partir do próximo turno. Nenhum pede ao modelo que não pense."
   }
 }

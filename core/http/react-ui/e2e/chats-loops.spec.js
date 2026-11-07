@@ -358,6 +358,72 @@ for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone',
   })
 }
 
+// Many waits: from three that still wait, one chip says how many and opens to
+// the cards. The ones that woke the model or ended keep their own card.
+const waitsN = n => Array.from({ length: n }, (_, i) => wait({ source: `list_downloads_${i + 1}`, reason: `Download ${i + 1} has to finish first.`, deadline: secs(3540 + i * 600) }, { id: `m${i}` }))
+
+for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
+  test.describe(`many waits, ${name}`, () => {
+    test.use({ viewport: size })
+
+    for (const n of [1, 2]) {
+      test(`${n} wait${n > 1 ? 's' : ''} keep their own card${n > 1 ? 's' : ''}`, async ({ page }) => {
+        await open(page, { loops: waitsN(n) })
+        await expect(page.getByTestId('wait-group')).toHaveCount(0)
+        await expect(page.getByTestId('wait-chip')).toHaveCount(n)
+        await shot(page, `${name}-waits-${n}`)
+      })
+    }
+
+    test('6 waits fold into one chip that opens to the cards; Stop works from the list', async ({ page }) => {
+      const s = await open(page, { loops: waitsN(6) })
+      const group = page.getByTestId('wait-group')
+      await expect(group).toHaveCount(1)
+      await expect(page.getByTestId('wait-chip')).toHaveCount(0)
+      await expect(group.getByTestId('wait-group-title')).toHaveText('6 waiting')
+      await expect(group.getByTestId('wait-group-deadline')).toHaveText(/^Nearest deadline .+ \(in (58|59) min\)$/)
+      await expect(group.getByTestId('wait-group-toggle')).toHaveAttribute('aria-expanded', 'false')
+      await shot(page, `${name}-waits-6-collapsed`)
+      await group.getByTestId('wait-group-toggle').click()
+      await expect(group.getByTestId('wait-group-toggle')).toHaveAttribute('aria-expanded', 'true')
+      await expect(group.getByTestId('wait-chip')).toHaveCount(6)
+      await shot(page, `${name}-waits-6-expanded`)
+      await group.getByTestId('wait-chip').nth(1).getByTestId('wait-stop').click()
+      await expect(group.getByTestId('wait-chip')).toHaveCount(5)
+      expect(s.calls).toContain('DELETE m1')
+    })
+
+    test('Stop all ends the waits of the group and leaves a loop and a woken wait alone', async ({ page }) => {
+      const s = await open(page, { loops: [loop(), wait({ phase: 'waking', end: 'condition_met', outcome: 'changed', next_check: undefined }, { id: 'woke' }), ...waitsN(3)] })
+      await expect(page.getByTestId('wait-group')).toHaveCount(1)
+      await expect(page.getByTestId('wait-chip')).toHaveCount(1) // the woken one, outside the group
+      await expect(page.getByTestId('wait-chip')).toHaveAttribute('data-phase', 'waking')
+      await shot(page, `${name}-waits-mixed`)
+      await page.getByTestId('wait-group-stop-all').click()
+      await expect(page.getByTestId('wait-group')).toHaveCount(0)
+      await expect(page.getByTestId('loop-chip')).toHaveCount(1)
+      await expect(page.getByTestId('wait-chip')).toHaveCount(1)
+      expect(s.calls.filter(c => c.startsWith('DELETE')).sort()).toEqual(['DELETE m0', 'DELETE m1', 'DELETE m2'])
+    })
+  })
+}
+
+for (const theme of ['light', 'dark']) {
+  test.describe(`many waits, ${theme}`, () => {
+    test.use({ viewport: { width: 1440, height: 900 }, colorScheme: theme })
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript((t) => { try { localStorage.setItem('localai-theme', t) } catch { /* private mode */ } }, theme)
+    })
+    test('the group reads in this theme, closed and open', async ({ page }) => {
+      await open(page, { loops: waitsN(6) })
+      await shot(page, `desktop-waits-6-collapsed-${theme}`)
+      await page.getByTestId('wait-group-toggle').click()
+      await expect(page.getByTestId('wait-chip')).toHaveCount(6)
+      await shot(page, `desktop-waits-6-expanded-${theme}`)
+    })
+  })
+}
+
 for (const theme of ['light', 'dark']) {
   test.describe(`waits, ${theme}`, () => {
     test.use({ viewport: { width: 1440, height: 900 }, colorScheme: theme })

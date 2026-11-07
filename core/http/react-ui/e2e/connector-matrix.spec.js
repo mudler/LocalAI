@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi, previewFor, ROLES_KIND } from './connector-fixtures.js'
+import { connectorApi, previewFor, ROLES_KIND, openEdit, expandAll, openReadiness } from './connector-fixtures.js'
 
 // The matrix "Who can do what" on the shared connection page (drawn here by
 // the Slack add-on): the cells are what the preview of the host says, as an icon
@@ -35,7 +35,8 @@ for (const width of [1280, 375]) {
       const a = connectorApi(page, [BINDING], 'slack', [], undefined, { kindExtra: ROLES_KIND, preview: withExtras })
       await a.install()
       await page.goto(PAGE)
-      await page.getByRole('button', { name: 'Edit' }).click()
+      await openEdit(page)
+      await expandAll(page)
       const mx = page.getByTestId('connector-matrix')
       await expect(mx).toBeVisible()
       await expect(page.getByTestId('connector-matrix-note')).toContainText('worked out from your settings')
@@ -75,7 +76,8 @@ for (const width of [1280, 375]) {
       const a = connectorApi(page, [BINDING], 'slack', [], undefined, { kindExtra: ROLES_KIND, preview: withExtras })
       await a.install()
       await page.goto(PAGE)
-      await page.getByRole('button', { name: 'Edit' }).click()
+      await openEdit(page)
+      await expandAll(page)
       const mx = page.getByTestId('connector-matrix')
       await expect(mx.getByTestId('connector-matrix-detail')).toContainText('Choose a cell to read why')
       if (width < 640) await mx.getByTestId('connector-matrix-sender').selectOption('listed')
@@ -95,7 +97,8 @@ for (const width of [1280, 375]) {
       const a = connectorApi(page, [BINDING], 'slack', [], undefined, { kindExtra: ROLES_KIND })
       await a.install()
       await page.goto(PAGE)
-      await page.getByRole('button', { name: 'Edit' }).click()
+      await openEdit(page)
+      await expandAll(page)
       const mx = page.getByTestId('connector-matrix')
       await expect(mx.getByTestId('connector-cap-switch-files.upload')).toHaveAttribute('aria-checked', 'false')
       await mx.getByTestId('connector-cap-switch-files.upload').click()
@@ -118,7 +121,8 @@ for (const width of [1280, 375]) {
     test('a row opens a disclosure with its description, and the row for triggers holds the approval choices', async ({ page }) => {
       await connectorApi(page, [BINDING], 'slack', [], undefined, { kindExtra: ROLES_KIND }).install()
       await page.goto(PAGE)
-      await page.getByRole('button', { name: 'Edit' }).click()
+      await openEdit(page)
+      await expandAll(page)
       const mx = page.getByTestId('connector-matrix')
       await expect(mx.getByTestId('connector-approval')).toHaveCount(0)
       await mx.getByTestId('connector-matrix-more-memory.write').click()
@@ -138,7 +142,8 @@ for (const width of [1280, 375]) {
       const a = connectorApi(page, [BINDING], 'slack', [], undefined, { kindExtra: ROLES_KIND })
       await a.install()
       await page.goto(PAGE)
-      await page.getByRole('button', { name: 'Edit' }).click()
+      await openEdit(page)
+      await expandAll(page)
       await expect(page.getByTestId('connector-matrix')).toBeVisible()
       await expect.poll(() => a.s.previews.at(-1)?.body.channels).toEqual([{ id: 'C0777', label: 'alerts', approved: true }])
       expect(a.s.previews.at(-1).body.allow_trust).toEqual({ C0123: 'act' })
@@ -158,6 +163,10 @@ for (const width of [1280, 375]) {
       await a.install()
       await page.goto(PAGE)
       await page.getByRole('button', { name: 'New Slack app' }).click()
+      await expandAll(page)
+      // A new connection starts with one quiet line, not the list.
+      await expect(page.getByTestId('connector-readiness')).toHaveCount(0)
+      await openReadiness(page)
       const ready = page.getByTestId('connector-readiness')
       await expect(ready.getByTestId('connector-ready-summary')).toHaveText('Not ready yet.')
       await expect(ready.getByTestId('connector-ready-pill')).toHaveText(/^\d+ things? to fix$/)

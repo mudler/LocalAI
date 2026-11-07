@@ -11,7 +11,7 @@ import (
 
 var _ = Describe("change proposals", func() {
 	It("names every kind and status once", func() {
-		Expect(ChangeKinds()).To(ConsistOf(ChangeMemory, ChangeProfile, ChangeSkill, ChangePage, ChangeDashboard, ChangeKnowledge))
+		Expect(ChangeKinds()).To(ConsistOf(ChangeMemory, ChangeProfile, ChangeSkill, ChangePage, ChangeDashboard, ChangeKnowledge, ChangeVoiceProfile))
 		for _, k := range ChangeKinds() {
 			Expect(ValidChangeKind(string(k))).To(BeTrue(), "kind %s", k)
 		}

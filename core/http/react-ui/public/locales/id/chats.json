@@ -276,6 +276,26 @@
       "text": "Bot ini juga terhubung sebagai {{name}}. Kedua koneksi akan menjawab pesan yang sama.",
       "turnOff": "Matikan yang ini",
       "open": "Buka {{name}}"
+    },
+    "new": "Koneksi baru",
+    "newMenu": "Pilih platform untuk koneksi baru",
+    "state": {
+      "running": "Berjalan",
+      "off": "Mati",
+      "attention": "Perlu perhatian"
+    },
+    "share": {
+      "label": "Bagikan",
+      "button": "Bagikan {{name}}",
+      "intro": "Orang yang Anda tambahkan dapat memakai koneksi ini di obrolan dan agen mereka sendiri. Mereka melihat nama dan statusnya, tidak pernah tokennya atau pengaturannya. Pesan ke bot tetap sampai ke agen Anda.",
+      "roleUse": "Dapat memakai",
+      "roleUseHelp": "Dapat memakainya di obrolan dan agen mereka. Tidak dapat melihat token, mengubah, atau membagikannya."
+    },
+    "shared": {
+      "title": "Dibagikan kepada Anda",
+      "text": "Orang lain mengizinkan Anda memakai koneksi ini di obrolan dan agen Anda. Hanya pemiliknya yang dapat mengubahnya.",
+      "on": "Mendengarkan",
+      "off": "Mati"
     }
   },
   "tools": {
@@ -340,9 +360,12 @@
       "subagents": "Sub-agen",
       "changes": "Perubahan yang disarankan",
       "memory": "Memori",
-      "history": "Chat sebelumnya"
+      "history": "Chat sebelumnya",
+      "localai_client": "Klien LocalAI",
+      "localai_admin": "Admin LocalAI"
     },
     "builtinBy": "{{tools}} · bawaan",
+    "onDemand": "Dimuat sesuai kebutuhan",
     "builtinByAddon": "{{tools}} · dilayani oleh {{provider}}",
     "servedBy": "Dilayani oleh add-on {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
@@ -364,7 +387,9 @@
       "triggers": "Model dapat mengusulkan, mencantumkan, mengubah, dan menghapus pemicu. Anda mengonfirmasi setiap pemicu atau perubahan baru.",
       "changes": "Model dapat mengusulkan perubahan pada catatan Anda, aturannya, skill, halaman, dan dasbor. Anda mengonfirmasi setiap perubahan.",
       "memory": "Model dapat membaca catatan Anda sebelum menjawab dan menyimpan yang baru. Matikan untuk menjadikan ini obrolan pribadi: tidak ada yang dibaca dari catatan Anda atau disimpan ke dalamnya. Obrolan Anda yang lain tidak terpengaruh.",
-      "history": "Memungkinkan model mencari dan membaca chat Anda sebelumnya."
+      "history": "Memungkinkan model mencari dan membaca chat Anda sebelumnya.",
+      "localai_client": "Memungkinkan model membuat gambar, suara, bunyi, dan video, serta mentranskripsi, membuat embedding, mengurutkan ulang, dan mendeteksi, dengan model yang terpasang di sini.",
+      "localai_admin": "Memungkinkan model mengelola server ini: model, backend, pengaturan, dan statusnya. Hanya untuk administrator; model bertanya kepadamu sebelum mengubah apa pun."
     },
     "whenOff": {
       "shell": "Model dapat menulis berkas tetapi tidak dapat menjalankan apa pun.",
@@ -377,7 +402,9 @@
       "triggers": "Model tidak dapat mengusulkan atau mengelola pemicu.",
       "changes": "Model tidak dapat mengusulkan perubahan pada catatan Anda, aturannya, skill, halaman, atau dasbor.",
       "memory": "Ini obrolan pribadi. Model tidak membaca maupun menyimpan catatan Anda.",
-      "history": "Model tidak dapat melihat chat Anda sebelumnya."
+      "history": "Model tidak dapat melihat chat Anda sebelumnya.",
+      "localai_client": "Model tidak dapat menjalankan model-model ini sendiri.",
+      "localai_admin": "Model tidak dapat mengelola server ini."
     },
     "addonDescribe_one": "Memberi model {{count}} alat dari add-on ini.",
     "addonDescribe_other": "Memberi model {{count}} alat dari add-on ini.",
@@ -787,6 +814,17 @@
         "source_failing": "sumber gagal",
         "timed_out": "waktu habis",
         "stopped": "dihentikan"
+      },
+      "group": {
+        "collapse": "Sembunyikan penantian",
+        "deadline": "Batas waktu terdekat {{time}} ({{when}})",
+        "expand": "Tampilkan penantian",
+        "lastCheck": "Pemeriksaan terakhir {{ago}}",
+        "paused_one": "{{count}} dijeda",
+        "paused_other": "{{count}} dijeda",
+        "stopAll": "Hentikan semua",
+        "title_one": "{{count}} penantian",
+        "title_other": "{{count}} penantian"
       }
     }
   },
@@ -800,7 +838,8 @@
       "skill": "Skill",
       "page": "Halaman",
       "dashboard": "Dasbor",
-      "knowledge": "Pengetahuan"
+      "knowledge": "Pengetahuan",
+      "voice_profile": "Profil suara"
     },
     "scope": {
       "user": "Semua obrolan Anda",
@@ -877,6 +916,18 @@
       "title": "Periksa teks ini sebelum Anda mengonfirmasi.",
       "secret": "Teks ini tampak berisi rahasia, seperti kunci, token, atau kata sandi. Setelah ditambahkan, setiap obrolan yang mencari di koleksi ini dapat membacanya. Obrolan pesan tidak dapat mengonfirmasinya; hanya Anda, di sini.",
       "other": "Server menandai teks ini berisiko. Obrolan pesan tidak dapat mengonfirmasinya; hanya Anda, di sini."
+    },
+    "voice": {
+      "label": "Suara yang akan dikloning",
+      "name": "Nama",
+      "file": "Rekaman",
+      "clip": "Klip terkunci",
+      "language": "Bahasa",
+      "transcript": "Transkrip",
+      "consentTitle": "Konfirmasi hanya jika pembicara setuju.",
+      "consent": "Rekaman disimpan sebagai profil suara yang dapat dipakai chat Anda untuk berbicara. Anda dapat menghapusnya di pustaka Suara.",
+      "consentAdmin": "Anda administrator, jadi suara ini tersedia untuk semua pengguna server ini.",
+      "confirm": "Pembicara setuju: simpan suara"
     }
   },
   "proposalsPage": {

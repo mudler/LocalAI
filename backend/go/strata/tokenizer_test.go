@@ -19,7 +19,7 @@ var _ = Describe("helper tokenizer", func() {
 		if root == "" || pack == "" {
 			Skip("set STRATA_ROOT and STRATA_TEST_PACK to run")
 		}
-		tok, err := newHelperTokenizer("", root, pack, time.Minute)
+		tok, err := newHelperTokenizer("", root, pack, "", time.Minute)
 		Expect(err).ToNot(HaveOccurred())
 		defer func() { _ = tok.Close() }()
 		ids, err := tok.Encode("hi", true)
@@ -82,7 +82,7 @@ var _ = Describe("helper tokenizer", func() {
 			final == nil || final.Name != "get_weather" {
 			Fail(fmt.Sprintf("reasoning %q content %q args %q final %+v", reasoning, content, args, final))
 		}
-		if _, err := newHelperTokenizer("", root, GinkgoT().TempDir(), time.Minute); err == nil {
+		if _, err := newHelperTokenizer("", root, GinkgoT().TempDir(), "", time.Minute); err == nil {
 			Fail("a directory with no tokenizer must fail to load")
 		}
 	})

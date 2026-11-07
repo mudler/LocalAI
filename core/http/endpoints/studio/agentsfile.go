@@ -53,7 +53,7 @@ func agentFileVersion(folders int, hasSwitches bool) int {
 // @Success 200 {object} schema.ChatsAgentExport "The agent file"
 // @Router /api/chats/agents/{id}/export [get]
 func (h *Handlers) ExportAgent(c echo.Context) error {
-	a, err := h.svc.Agent(c.Request().Context(), userID(c), c.Param("id"))
+	a, err := h.svc.OwnAgent(c.Request().Context(), userID(c), c.Param("id"))
 	if err != nil {
 		return failFor(c, err)
 	}

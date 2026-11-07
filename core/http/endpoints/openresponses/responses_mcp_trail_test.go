@@ -132,7 +132,7 @@ func trailRequest(ctx context.Context, exec mcpTools.ToolExecutor, stream bool) 
 		}
 	}
 	input.Tools = funcs
-	messages, err := convertORInputToMessages(input.Input, &config.ModelConfig{})
+	messages, err := convertORInputToMessages(input.Input, &config.ModelConfig{}, "")
 	Expect(err).ToNot(HaveOccurred())
 	return input, &schema.OpenAIRequest{Context: ctx, Messages: messages}
 }

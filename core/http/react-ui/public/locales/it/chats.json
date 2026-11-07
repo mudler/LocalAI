@@ -276,6 +276,26 @@
       "text": "Questo bot è collegato anche come {{name}}. Entrambe le connessioni risponderanno allo stesso messaggio.",
       "turnOff": "Disattiva questa",
       "open": "Apri {{name}}"
+    },
+    "new": "Nuova connessione",
+    "newMenu": "Scegli la piattaforma della nuova connessione",
+    "state": {
+      "running": "Attiva",
+      "off": "Spenta",
+      "attention": "Richiede attenzione"
+    },
+    "share": {
+      "label": "Condividi",
+      "button": "Condividi {{name}}",
+      "intro": "Le persone che aggiungi possono usare questa connessione nelle proprie chat e nei propri agenti. Ne vedono il nome e lo stato, mai il token o le impostazioni. I messaggi al bot arrivano sempre al tuo agente.",
+      "roleUse": "Può usare",
+      "roleUseHelp": "Può usarla nelle sue chat e nei suoi agenti. Non può vedere il token, modificarla o condividerla."
+    },
+    "shared": {
+      "title": "Condivisi con te",
+      "text": "Altre persone ti permettono di usare queste connessioni nelle tue chat e nei tuoi agenti. Solo chi le possiede può modificarle.",
+      "on": "In ascolto",
+      "off": "Spenta"
     }
   },
   "tools": {
@@ -340,9 +360,12 @@
       "subagents": "Sotto-agenti",
       "changes": "Modifiche suggerite",
       "memory": "Memoria",
-      "history": "Chat precedenti"
+      "history": "Chat precedenti",
+      "localai_client": "Client LocalAI",
+      "localai_admin": "Amministrazione LocalAI"
     },
     "builtinBy": "{{tools}} · integrati",
+    "onDemand": "Caricato su richiesta",
     "builtinByAddon": "{{tools}} · servito da {{provider}}",
     "servedBy": "Servito dal componente aggiuntivo {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
@@ -364,7 +387,9 @@
       "triggers": "Il modello può proporre, elencare, modificare ed eliminare trigger. Confermi tu ogni nuovo trigger o modifica.",
       "changes": "Il modello può proporre modifiche alle tue note, alle sue regole, alle skill, alle pagine e alla dashboard. Confermi tu ognuna.",
       "memory": "Il modello può leggere le tue note prima di rispondere e salvarne di nuove. Disattivala per rendere questa una chat privata: non si legge nulla dalle tue note e non si salva nulla in esse. Le altre chat non cambiano.",
-      "history": "Permette al modello di cercare e leggere le tue chat precedenti."
+      "history": "Permette al modello di cercare e leggere le tue chat precedenti.",
+      "localai_client": "Permette al modello di creare immagini, voce, suoni e video, e di trascrivere, calcolare embedding, riordinare e rilevare, con i modelli installati qui.",
+      "localai_admin": "Permette al modello di gestire questo server: modelli, backend, impostazioni e stato. Solo per gli amministratori; il modello ti chiede prima di cambiare qualcosa."
     },
     "whenOff": {
       "shell": "Il modello può scrivere file ma non può eseguire nulla.",
@@ -377,7 +402,9 @@
       "triggers": "Il modello non può proporre né gestire trigger.",
       "changes": "Il modello non può proporre modifiche alle tue note, alle sue regole, alle skill, alle pagine o alla dashboard.",
       "memory": "È una chat privata. Il modello non legge né salva le tue note.",
-      "history": "Il modello non può vedere le tue chat precedenti."
+      "history": "Il modello non può vedere le tue chat precedenti.",
+      "localai_client": "Il modello non può eseguire questi modelli da solo.",
+      "localai_admin": "Il modello non può gestire questo server."
     },
     "addonDescribe_one": "Dà al modello {{count}} strumento di questo add-on.",
     "addonDescribe_other": "Dà al modello {{count}} strumenti di questo add-on.",
@@ -787,6 +814,17 @@
         "source_failing": "fonte fallita",
         "timed_out": "tempo scaduto",
         "stopped": "fermata"
+      },
+      "group": {
+        "collapse": "Nascondi le attese",
+        "deadline": "Prossima scadenza {{time}} ({{when}})",
+        "expand": "Mostra le attese",
+        "lastCheck": "Ultimo controllo {{ago}}",
+        "paused_one": "{{count}} in pausa",
+        "paused_other": "{{count}} in pausa",
+        "stopAll": "Ferma tutte",
+        "title_one": "{{count}} attesa",
+        "title_other": "{{count}} attese"
       }
     }
   },
@@ -800,7 +838,8 @@
       "skill": "Skill",
       "page": "Pagina",
       "dashboard": "Dashboard",
-      "knowledge": "Conoscenza"
+      "knowledge": "Conoscenza",
+      "voice_profile": "Profilo vocale"
     },
     "scope": {
       "user": "Tutte le tue chat",
@@ -877,6 +916,18 @@
       "title": "Controlla questo testo prima di confermare.",
       "secret": "Sembra contenere un segreto, come una chiave, un token o una password. Una volta aggiunto, ogni chat che cerca in questa raccolta può leggerlo. Una chat di messaggistica non può confermarlo; solo tu, qui.",
       "other": "Il server ha segnalato questo testo come rischioso. Una chat di messaggistica non può confermarlo; solo tu, qui."
+    },
+    "voice": {
+      "label": "Voce da clonare",
+      "name": "Nome",
+      "file": "Registrazione",
+      "clip": "Clip bloccato",
+      "language": "Lingua",
+      "transcript": "Trascrizione",
+      "consentTitle": "Conferma solo se chi parla ha dato il consenso.",
+      "consent": "La registrazione viene salvata come profilo vocale con cui le tue chat possono parlare. Puoi eliminarla nella libreria Voce.",
+      "consentAdmin": "Sei un amministratore: questa voce sarà disponibile a tutti gli utenti di questo server.",
+      "confirm": "Chi parla ha acconsentito: salva la voce"
     }
   },
   "proposalsPage": {

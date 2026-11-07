@@ -1,0 +1,11 @@
+#!/bin/sh
+# Start the Strata DeepSeek V4.1 engine that matches this machine. The same
+# choice as strata-engine, over the packages in engines-dsv41/.
+set -eu
+
+HERE=$(dirname "$(realpath "$0")")
+if [ ! -d "$HERE/engines-dsv41" ]; then
+	echo "strata: this image has no DeepSeek V4.1 engine for this accelerator" >&2
+	exit 1
+fi
+STRATA_ENGINES_DIR="$HERE/engines-dsv41" STRATA_ENGINE_BIN=strata-dsv41 exec "$HERE/strata-engine" "$@"

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -46,15 +47,15 @@ type Strata struct {
 	// Seams for tests.
 	startEngine  func(engineConfig) (*engine, error)
 	buildPack    func(packBuild) error
-	newTokenizer func(python, strataRoot, pack string, timeout time.Duration) (Tokenizer, error)
+	newTokenizer func(python, strataRoot, pack, family string, timeout time.Duration) (Tokenizer, error)
 }
 
 func NewStrata() *Strata {
 	return &Strata{
 		startEngine: startEngine,
 		buildPack:   runPackBuild,
-		newTokenizer: func(python, root, pack string, timeout time.Duration) (Tokenizer, error) {
-			return newHelperTokenizer(python, root, pack, timeout)
+		newTokenizer: func(python, root, pack, family string, timeout time.Duration) (Tokenizer, error) {
+			return newHelperTokenizer(python, root, pack, family, timeout)
 		},
 	}
 }
@@ -80,7 +81,7 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 		}
 	}
 
-	tok, err := s.newTokenizer(c.python, c.strataRoot, c.pack, c.readyTimeout)
+	tok, err := s.newTokenizer(c.python, c.strataRoot, c.pack, c.family, c.readyTimeout)
 	if err != nil {
 		return fmt.Errorf("strata: %w", err)
 	}
@@ -98,7 +99,17 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 	s.eng, s.tok, s.ctxLen, s.cfg = eng, tok, eng.ctxLen, c
 	s.eos = map[int]bool{}
 	eosIDs := c.eos
-	if eosIDs == nil {
+	switch {
+	case eosIDs != nil:
+	case c.family == familyDeepSeek41:
+		// The pack's tokenizer names the end id; the engine itself ends on --eos, which defaults to 1.
+		eosIDs = defaultDeepSeekEOS
+		if r, ok := tok.(interface{ EOSID() (int, bool) }); ok {
+			if id, found := r.EOSID(); found {
+				eosIDs = []int{id}
+			}
+		}
+	default:
 		eosIDs = defaultEOS(tok)
 	}
 	for _, id := range eosIDs {
@@ -132,6 +143,12 @@ func defaultEOS(tok Tokenizer) []int {
 		return defaultEOSIDs
 	}
 	return out
+}
+
+func (s *Strata) familyName() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.cfg.family
 }
 
 func (s *Strata) freeLocked() {
@@ -261,6 +278,12 @@ func (s *Strata) preparePrompt(tok Tokenizer, opts *pb.PredictOptions) (prepared
 		req, err := buildPromptRequest(opts, marker, tools, choice)
 		if err != nil {
 			return p, err
+		}
+		if raw := strings.TrimSpace(opts.GetTools()); raw != "" && s.cfg.family == familyDeepSeek41 {
+			// The V4.1 template writes each tool's schema with tojson, and its bytes
+			// are the model's prompt. A Go map would sort the keys; the request's own
+			// JSON keeps the order the client wrote, as DeepSeek's reference encoder does.
+			req.Tools = json.RawMessage(raw)
 		}
 		r, err := tok.Prompt(req)
 		if err != nil {
@@ -423,6 +446,9 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw
 	}
 	if len(opts.GetVideos()) > 0 || len(opts.GetAudios()) > 0 {
 		return res, errors.New("strata: video and audio input are not supported")
+	}
+	if len(opts.GetImages()) > 0 && s.familyName() == familyDeepSeek41 {
+		return res, errors.New("strata: images are not supported with the deepseek41 family")
 	}
 
 	p, err := s.preparePrompt(tok, opts)

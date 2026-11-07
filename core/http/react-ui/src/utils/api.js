@@ -1,6 +1,9 @@
 import { API_CONFIG } from './config'
 import { apiUrl } from './basePath'
 import { chatsListPath } from './chatsQuery'
+import { addonsApi } from './addonsClient'
+import { createSharesApi } from './sharesApi'
+import { createFolderSharesApi } from './folderSharesApi'
 
 const enc = encodeURIComponent
 const userQ = (userId) => userId ? `?user_id=${enc(userId)}` : ''
@@ -496,6 +499,11 @@ export const chatAgentsApi = {
   templates: () => fetchJSON('/api/chats/agents/templates'),
   fromTemplate: (id, name) => postJSON(`/api/chats/agents/templates/${enc2(id)}/create`, name ? { name } : {}),
   runs: (id, limit) => fetchJSON(`/api/chats/agents/${enc2(id)}/runs${q({ limit })}`),
+  // Sharing (kind agent): the ID of your agent in /api/shares, made on the
+  // first call; what your agent uses; what an agent you may use needs.
+  shareRef: (id) => postJSON(`/api/chats/agents/${enc2(id)}/share`, {}),
+  references: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}/references`),
+  needs: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}/needs`),
 }
 
 // The administrator's view of every user's agents, triggers and connectors.
@@ -537,6 +545,9 @@ export const chatConnectorsApi = {
   // What each kind of sender may do on a connection, for the state in the body
   // (agent_id, caps, allow...). Writes nothing; fields left out keep the saved value.
   accessPreview: (id, body) => postJSON(`/api/chats/connectors/${enc2(id)}/access/preview`, body || {}),
+  // Makes a binding of the caller shareable: { resource_id, shared_with }, the
+  // ID of the binding in /api/shares/connection (sharesApi).
+  share: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/share`, {}),
 }
 
 // Triggers: work that starts by itself, as the user, in a new chat.
@@ -906,6 +917,9 @@ export const agentCollectionsApi = {
     update_interval: interval === undefined ? undefined : Number(interval),
   }),
   removeSource: (name, url, userId) => fetchJSON(`/api/collections/${enc(name)}/sources${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ url }), headers: { 'Content-Type': 'application/json' } }),
+  // Makes a collection of the caller shareable: { resource_id, shared_with },
+  // the ID of the collection in /api/shares/collection (sharesApi).
+  share: (name) => postJSON(`/api/collections/${enc(name)}/share`, {}),
 }
 
 // Usage API
@@ -1126,3 +1140,10 @@ export const diarizationApi = {
     return handleResponse(await fetch(apiUrl('/v1/audio/diarization'), { method: 'POST', body }))
   },
 }
+
+// Sharing of the resource kinds that are not add-ons (/api/shares). It goes
+// through the add-on client, so its errors have the same kinds as an add-on
+// grant call and the share dialog reads both alike. Pair it with
+// kindShareClient (components/share/shareClients.js) for the dialog.
+export const sharesApi = createSharesApi(addonsApi)
+export const folderSharesApi = createFolderSharesApi(addonsApi)

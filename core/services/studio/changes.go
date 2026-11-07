@@ -647,7 +647,7 @@ func (c *Changes) grantsAKind(grant string) bool {
 func (c *Changes) kindsHeld(ch builtins.Chat) []contract.ChangeKind {
 	var out []contract.ChangeKind
 	for _, n := range c.kinds.Names() {
-		if k, ok := c.kinds.Lookup(string(n)); ok && (k.Grant == "" || ch.HoldsGrant(k.Grant)) {
+		if k, ok := c.kinds.Lookup(string(n)); ok && !k.Internal && (k.Grant == "" || ch.HoldsGrant(k.Grant)) {
 			out = append(out, n)
 		}
 	}

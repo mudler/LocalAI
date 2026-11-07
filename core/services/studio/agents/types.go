@@ -109,8 +109,13 @@ type Agent struct {
 	// first of Folders when it writes.
 	FolderID   int64
 	FolderMode string
-	Created    time.Time
-	Updated    time.Time
+	// ShareRef is the ID of the sharing record of the agent in the sharing
+	// policy (kind "agent"), empty until the owner first shares it. Only
+	// SetShareRef sets it: Put keeps the stored value whatever the caller
+	// sends, so an edit of the definition never drops the grants.
+	ShareRef string
+	Created  time.Time
+	Updated  time.Time
 }
 
 // The choices of Agent.Memory. Empty (not listed) is "as before".
@@ -216,6 +221,18 @@ type Store interface {
 	// ListAll returns the agents of every principal sorted by principal, then
 	// name. It is for the administrator's view and for migrations.
 	ListAll(ctx context.Context) ([]Agent, error)
+	// SetShareRef records the sharing reference of an agent of the principal
+	// when it has none and returns the one stored: the first wins, so two
+	// concurrent first shares agree on one record. ErrNotFound when the agent
+	// is not the principal's.
+	SetShareRef(ctx context.Context, principal, id, ref string) (string, error)
+	// GetShared returns an agent by ID whatever its principal, only when it
+	// has a sharing reference; any other agent is ErrNotFound. The caller
+	// must check the grant on the reference before it uses the agent.
+	GetShared(ctx context.Context, id string) (Agent, error)
+	// ListShared returns the agents whose sharing reference is in refs, in
+	// any order. A reference with no agent is skipped.
+	ListShared(ctx context.Context, refs []string) ([]Agent, error)
 }
 
 var addonIDShape = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)

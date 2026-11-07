@@ -1,6 +1,7 @@
 // Package media gives the chats their eyes and ears. Two tools, describe_image
-// and transcribe_audio, send a file of the user's workspace to a helper model
-// through LocalAI's own API as that user, so the helper's allowlist and quota
+// and transcribe_audio, are aliases of the LocalAI client tools of the same
+// name: they read a file of the chat's workspace, pick the helper model and
+// call the client as the chat's user, so the helper's allowlist and quota
 // apply like for any request. A voice note attached to a message is
 // transcribed on the way in. The helper models come from the instance
 // settings, or are the first installed model with the capability; a chat
@@ -11,21 +12,18 @@ package media
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"mime"
-	"mime/multipart"
 	"net/http"
-	"net/textproto"
 	"path"
 	"regexp"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/studio/extract"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
@@ -42,15 +40,8 @@ const (
 	Transcription Capability = "transcription"
 )
 
-// Limits of what the tools send to a model.
-const (
-	maxImageBytes = 20 << 20
-	maxAudioBytes = 100 << 20
-	maxVoiceNote  = 25 << 20 // a voice note larger than this is kept but not transcribed
-)
-
-// baseURL is a placeholder: the provider's transport answers every request.
-const baseURL = "http://studio.invalid/v1"
+// maxVoiceNote is the size over which a voice note is kept but not transcribed.
+const maxVoiceNote = 25 << 20
 
 // UserLookup returns the user a request is made for, or nil when authentication is off.
 type UserLookup func(ctx context.Context, principal string) (*auth.User, error)
@@ -65,17 +56,33 @@ type Resolver func(Capability) string
 // tries it and, when it refuses, tells the user what to do.
 type VisionChooser func(chatModel string) (model string, guess bool)
 
+// Client is the part of the LocalAI client that the media tools call. The
+// in-process client of the assistant implements it.
+type Client interface {
+	DescribeImage(ctx context.Context, req localaitools.DescribeImageRequest) (*localaitools.DescribeImageResult, error)
+	TranscribeAudio(ctx context.Context, req localaitools.TranscribeAudioRequest) (*localaitools.TranscriptResult, error)
+}
+
 // Service runs the media tools.
 type Service struct {
 	p       *provider.Provider
 	users   UserLookup
 	resolve Resolver
 	vision  VisionChooser
+	client  func() Client
 }
 
 // New returns a Service. users may be nil when authentication is off.
 func New(p *provider.Provider, users UserLookup, resolve Resolver) *Service {
 	return &Service{p: p, users: users, resolve: resolve}
+}
+
+// WithClient sets where the tools find the LocalAI client, looked up at each
+// call because the client starts after the chats. A lookup that returns nil
+// leaves the tools without inference.
+func (s *Service) WithClient(c func() Client) *Service {
+	s.client = c
+	return s
 }
 
 // WithVisionChooser makes describe_image choose its model with v, which knows
@@ -103,15 +110,23 @@ func (s *Service) visionChoice(chatModel string) (string, bool) {
 	return s.resolve(Vision), false
 }
 
-func (s *Service) client(ctx context.Context, principal string) (*http.Client, error) {
-	var u *auth.User
-	if s.users != nil && principal != "" {
-		var err error
-		if u, err = s.users(ctx, principal); err != nil {
-			return nil, fmt.Errorf("load the chat's user: %w", err)
-		}
+// call runs fn with the client as the chat's user, reading files from fs.
+func (s *Service) call(ctx context.Context, principal string, fs localaitools.FileStore, fn func(ctx context.Context, c Client) error) error {
+	var c Client
+	if s.client != nil {
+		c = s.client()
 	}
-	return s.p.Transport().Client(u), nil
+	if c == nil {
+		return errors.New("inference is not available on this server")
+	}
+	if s.users != nil && principal != "" {
+		u, err := s.users(ctx, principal)
+		if err != nil {
+			return fmt.Errorf("load the chat's user: %w", err)
+		}
+		ctx = localaitools.WithUser(ctx, u)
+	}
+	return fn(localaitools.WithFiles(ctx, fs), c)
 }
 
 func noModel(c Capability) error {
@@ -125,71 +140,56 @@ func noModel(c Capability) error {
 	return errors.New("No model that can transcribe audio is installed. Install one from the model gallery, or choose one in the settings under Chat transcription model.")
 }
 
-// post sends a request and returns the body of a successful answer.
-func (s *Service) post(ctx context.Context, principal, route, contentType string, body io.Reader, model string) ([]byte, error) {
-	cl, err := s.client(ctx, principal)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+route, body)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", contentType)
-	resp, err := cl.Do(req)
-	if err != nil {
-		if strings.Contains(err.Error(), session.MarkNotAllowed) {
-			return nil, fmt.Errorf("you are not allowed to use the model %s", model)
-		}
-		if strings.Contains(err.Error(), session.MarkQuota) {
-			return nil, errors.New("the model refused the request: your quota is used up or the server is busy")
-		}
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	data, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
-	switch {
-	case resp.StatusCode == http.StatusForbidden:
-		return nil, fmt.Errorf("you are not allowed to use the model %s", model)
-	case resp.StatusCode == http.StatusTooManyRequests:
-		return nil, errors.New("the model refused the request: your quota is used up or the server is busy")
-	case resp.StatusCode < 200 || resp.StatusCode > 299:
-		return nil, &statusError{model: model, code: resp.StatusCode, body: data}
-	}
-	return data, nil
+// reader is the file store of one call: it serves the file the tool already
+// found in the chat's place, or reads it there when the client asks. A
+// failure to read keeps its own text, which the client would only wrap.
+type reader struct {
+	read func(ctx context.Context, ref string, max int64) (localaitools.File, error)
+	err  error
+	name string // the file that was read, for the messages
 }
 
-// statusError is a model's error answer. Its text is safe to show: the body is
-// kept for the caller, which sanitises what it quotes.
-type statusError struct {
-	model string
-	code  int
-	body  []byte
+func (r *reader) Read(ctx context.Context, ref string, max int64) (localaitools.File, error) {
+	f, err := r.read(ctx, ref, max)
+	if err != nil {
+		r.err = err
+		return f, err
+	}
+	r.name = f.Name
+	return f, nil
 }
 
-func (e *statusError) Error() string {
-	return fmt.Sprintf("the model %s answered with an error (%d)", e.model, e.code)
+func (*reader) Write(context.Context, string, []byte, string) (string, error) {
+	return "", errors.New("the media tools do not write files")
 }
 
-// upstreamText returns the message of an error body, as one sanitised line.
-func (e *statusError) upstreamText() string {
-	var out struct {
-		Error json.RawMessage `json:"error"`
+// fail turns an error of the client into the text the chats always showed. The
+// error of reading the file, when there was one, wins.
+func fail(err error, r *reader, model string, guess bool) error {
+	if r.err != nil {
+		return r.err
 	}
-	text := string(e.body)
-	if json.Unmarshal(e.body, &out) == nil && len(out.Error) > 0 {
-		var obj struct {
-			Message string `json:"message"`
-		}
-		var str string
-		switch {
-		case json.Unmarshal(out.Error, &obj) == nil && obj.Message != "":
-			text = obj.Message
-		case json.Unmarshal(out.Error, &str) == nil && str != "":
-			text = str
+	var kind *localaitools.WrongKindError
+	if errors.As(err, &kind) {
+		return fmt.Errorf("%s is not %s", r.name, kind.Kind)
+	}
+	var se *localaitools.StatusError
+	if !errors.As(err, &se) {
+		return err
+	}
+	switch se.Status {
+	case http.StatusForbidden:
+		return fmt.Errorf("you are not allowed to use the model %s", model)
+	case http.StatusTooManyRequests:
+		return errors.New("the model refused the request: your quota is used up or the server is busy")
+	}
+	if guess {
+		detail := session.Sanitize(se.Detail)
+		if se.Status >= 400 && se.Status < 500 || se.Status >= 500 && imagesUnsupportedRe.MatchString(detail) {
+			return notAccepted(model, detail)
 		}
 	}
-	return session.Sanitize(text)
+	return fmt.Errorf("the model %s answered with an error (%d)", model, se.Status)
 }
 
 var imagesUnsupportedRe = regexp.MustCompile(`(?i)image|vision|multimodal|modalit|content.?type|unsupported`)
@@ -205,63 +205,48 @@ func notAccepted(model, detail string) error {
 	return errors.New(msg)
 }
 
-// guessFailure turns the failure of a best-effort call into notAccepted when
-// the model refused the request; other failures (not allowed, quota, network)
-// keep their own text.
-func guessFailure(model string, err error) error {
-	var se *statusError
-	if !errors.As(err, &se) {
-		return err
-	}
-	detail := se.upstreamText()
-	if se.code >= 400 && se.code < 500 || se.code >= 500 && imagesUnsupportedRe.MatchString(detail) {
-		return notAccepted(model, detail)
-	}
-	return err
-}
-
-// DescribeImage asks the vision model about an image.
-func (s *Service) DescribeImage(ctx context.Context, principal, name string, img []byte, question string) (string, error) {
-	return s.describeWith(ctx, s.resolve(Vision), false, principal, name, img, question)
-}
-
-func (s *Service) describeWith(ctx context.Context, model string, guess bool, principal, name string, img []byte, question string) (string, error) {
-	if model == "" {
-		return "", noModel(Vision)
-	}
-	ct := imageType(name, img)
-	if ct == "" {
-		return "", fmt.Errorf("%s is not an image", name)
-	}
-	if question == "" {
-		question = "Describe this image in detail. Transcribe any text that you can read in it."
-	}
-	payload := map[string]any{
-		"model": model,
-		"messages": []any{map[string]any{"role": "user", "content": []any{
-			map[string]any{"type": "text", "text": question},
-			map[string]any{"type": "image_url", "image_url": map[string]string{"url": "data:" + ct + ";base64," + base64.StdEncoding.EncodeToString(img)}},
-		}}},
-	}
-	raw, _ := json.Marshal(payload)
-	data, err := s.post(ctx, principal, "/chat/completions", "application/json", bytes.NewReader(raw), model)
-	if err != nil {
-		if guess {
-			err = guessFailure(model, err)
+// describe asks the vision model about the image the reader serves.
+func (s *Service) describe(ctx context.Context, principal, model string, guess bool, r *reader, ref, question string) (string, error) {
+	var text string
+	err := s.call(ctx, principal, r, func(ctx context.Context, c Client) error {
+		res, err := c.DescribeImage(ctx, localaitools.DescribeImageRequest{Image: ref, Question: question, Model: model})
+		if err != nil {
+			return err
 		}
-		return "", err
+		text = res.Description
+		return nil
+	})
+	if err != nil {
+		return "", fail(err, r, model, guess)
 	}
-	var out struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
+	return text, nil
+}
+
+// transcribe turns the recording the reader serves into text.
+func (s *Service) transcribe(ctx context.Context, principal, model string, r *reader, ref string) (string, error) {
+	var text string
+	err := s.call(ctx, principal, r, func(ctx context.Context, c Client) error {
+		res, err := c.TranscribeAudio(ctx, localaitools.TranscribeAudioRequest{Audio: ref, Model: model})
+		if err != nil {
+			return err
+		}
+		text = res.Text
+		return nil
+	})
+	if err != nil {
+		return "", fail(err, r, model, false)
 	}
-	if err := json.Unmarshal(data, &out); err != nil || len(out.Choices) == 0 {
-		return "", errors.New("the model gave no description")
-	}
-	return strings.TrimSpace(out.Choices[0].Message.Content), nil
+	return text, nil
+}
+
+// held serves one file that is already in memory.
+func held(name string, data []byte) *reader {
+	return &reader{name: path.Base(name), read: func(_ context.Context, _ string, max int64) (localaitools.File, error) {
+		if int64(len(data)) > max {
+			return localaitools.File{}, localaitools.ErrFileTooLarge
+		}
+		return localaitools.File{Name: path.Base(name), Data: data}, nil
+	}}
 }
 
 // Transcribe turns an audio file into text with the transcription model.
@@ -270,53 +255,16 @@ func (s *Service) Transcribe(ctx context.Context, principal, name string, audio 
 	if model == "" {
 		return "", noModel(Transcription)
 	}
-	var buf bytes.Buffer
-	mw := multipart.NewWriter(&buf)
-	if err := mw.WriteField("model", model); err != nil {
-		return "", err
-	}
-	h := textproto.MIMEHeader{}
-	h.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{"name": "file", "filename": path.Base(name)}))
-	h.Set("Content-Type", "application/octet-stream")
-	fw, err := mw.CreatePart(h)
+	data, err := io.ReadAll(audio)
 	if err != nil {
 		return "", err
 	}
-	if _, err := io.Copy(fw, audio); err != nil {
-		return "", err
-	}
-	if err := mw.Close(); err != nil {
-		return "", err
-	}
-	data, err := s.post(ctx, principal, "/audio/transcriptions", mw.FormDataContentType(), &buf, model)
-	if err != nil {
-		return "", err
-	}
-	var out struct {
-		Text string `json:"text"`
-	}
-	if err := json.Unmarshal(data, &out); err != nil {
-		return "", errors.New("the model gave no transcript")
-	}
-	return strings.TrimSpace(out.Text), nil
+	return s.transcribe(ctx, principal, model, held(name, data), name)
 }
-
-// imageType returns the media type of an image, or "" when the bytes are not one.
-func imageType(_ string, b []byte) string {
-	sniffed := http.DetectContentType(b)
-	if strings.HasPrefix(sniffed, "image/") {
-		return sniffed
-	}
-	return ""
-}
-
-var audioExts = map[string]bool{".wav": true, ".mp3": true, ".m4a": true, ".ogg": true, ".oga": true, ".opus": true, ".flac": true, ".webm": true, ".aac": true, ".weba": true}
-
-func isAudioName(name string) bool { return audioExts[strings.ToLower(path.Ext(name))] }
 
 // IsAudio tells whether a file is a recording by its name, as PrepareUploads
 // and transcribe_audio decide.
-func IsAudio(name string) bool { return isAudioName(name) }
+func IsAudio(name string) bool { return localaitools.IsAudioName(name) }
 
 // CanTranscribe tells whether a transcription model is set in the settings
 // or installed. It is false on a nil Service.
@@ -334,7 +282,7 @@ func (s *Service) PrepareUploads(ctx context.Context, principal, text string, up
 	var notes strings.Builder
 	for i, u := range up {
 		out[i] = u
-		if !isAudioName(u.Name) || u.Body == nil {
+		if !localaitools.IsAudioName(u.Name) || u.Body == nil {
 			continue
 		}
 		data, err := io.ReadAll(io.LimitReader(u.Body, maxVoiceNote+1))
@@ -386,6 +334,14 @@ func (s *Service) Tools(f *files.Service, x session.Access, chatModel string) []
 		b, err := io.ReadAll(r)
 		return n.Name, b, err
 	}
+	// scoped is the file store of the two aliases: the client reads the file
+	// from the chat's place, so an agent's folder fences it like the file tools.
+	scoped := func() *reader {
+		return &reader{read: func(ctx context.Context, rel string, max int64) (localaitools.File, error) {
+			name, b, err := read(ctx, rel, max)
+			return localaitools.File{Name: name, Data: b}, err
+		}}
+	}
 	pathProp := `"path":{"type":"string","description":"A path in the user's files: /workspace/home/... is their home folder (/ means the same)."}`
 	return []session.Tool{
 		{Name: "describe_image", Description: "Describe an image in the user's files, or answer a question about it. Use it for pictures and screenshots, including to read text in them.",
@@ -399,11 +355,7 @@ func (s *Service) Tools(f *files.Service, x session.Access, chatModel string) []
 				if model == "" {
 					return "", noModel(Vision)
 				}
-				name, img, err := read(ctx, in.Path, maxImageBytes)
-				if err != nil {
-					return "", err
-				}
-				return s.describeWith(ctx, model, guess, a.Principal, name, img, in.Question)
+				return s.describe(ctx, a.Principal, model, guess, scoped(), in.Path, in.Question)
 			}},
 		{Name: "read_document", Description: "Read the text of a PDF, Word, Excel, PowerPoint or EPUB file in the user's files. Long documents come in parts: pass offset to read on.",
 			Schema: json.RawMessage(`{"type":"object","properties":{` + pathProp + `,"offset":{"type":"integer","description":"Character to start at. 0 is the start."},"limit":{"type":"integer","description":"Most characters to return (default 20000)."}},"required":["path"]}`),
@@ -453,14 +405,7 @@ func (s *Service) Tools(f *files.Service, x session.Access, chatModel string) []
 				if s.resolve(Transcription) == "" {
 					return "", noModel(Transcription)
 				}
-				name, data, err := read(ctx, in.Path, maxAudioBytes)
-				if err != nil {
-					return "", err
-				}
-				if !isAudioName(name) && !strings.HasPrefix(http.DetectContentType(data), "audio/") {
-					return "", fmt.Errorf("%s is not audio", name)
-				}
-				return s.Transcribe(ctx, a.Principal, name, bytes.NewReader(data))
+				return s.transcribe(ctx, a.Principal, s.resolve(Transcription), scoped(), in.Path)
 			}},
 	}
 }

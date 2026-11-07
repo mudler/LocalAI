@@ -1692,6 +1692,430 @@
       template:
         use_tokenizer_template: true
 - kind: model
+  id: deepseek-v4.1-flash-ista-iq1_m
+  name: deepseek-v4.1-flash-ista-iq1_m
+  version: 0.0.0-gallery.b1e17d1926ca
+  description: |
+    DeepSeek-V4.1-Flash-1017, a 763B-parameter mixture-of-experts model (384 experts
+    per layer, 6 used per token), in ISTA-DAS's 1.75 bits per weight GSQ-RCO
+    quantization (IQ1_M), the smallest size of the three (about 239 GB to download).
+    It writes a reasoning trace before the answer, and the Strata backend splits it
+    from the reply and parses the model's DSML tool calls. Text only: images are not
+    supported by this backend.
+    Needs a GPU with 12 GB of VRAM or more and about 34 GB of RAM at the least
+    (Strata's figure; its measurements use 46 to 64 GB: an RTX 5070 with 64 GB
+    answered at about 5 tokens per second, an RTX 3060 with 46 GB at 8 to 10). Less
+    RAM still runs, slowly. Slightly lower quality than 2.00 bpw, and noticeably
+    weaker on plain English prose; ISTA-DASLab measured 98.7% of the base model on
+    its task average (AIME25, GPQA-Diamond, LiveCodeBench v6).
+    Needs about 240 GB of free disk, on a fast NVMe drive: the 111 GB n-gram table
+    (Engram) stays on disk and is read for every token. The Engram table and the 8
+    GB DSpark draft model are shared by all DeepSeek-V4.1 entries and downloaded
+    once into strata/models/deepseek-v4.1-flash-shared.
+    Runs only on the experimental strata backend, on NVIDIA CUDA 13 (x86_64 and
+    arm64), AMD Radeon RX 9070 and R9700 (ROCm) and Apple Silicon (Metal). Strata
+    ships no DeepSeek engine for CUDA 12, Intel or other AMD cards.
+    On the first load the strata backend builds the Strata pack from the GGUF files
+    (under a minute, a few MB of extra disk); loading the model afterwards takes a
+    few minutes. The default context is 8192 tokens, the size Strata checked; raise
+    context_size if the GPU has room.
+    Licensed under the MIT License (DeepSeek-V4.1-Flash-1017 and the quantized
+    files). The GGUF files are the GSQ-RCO quantization by ISTA-DAS (ISTA-DASLab);
+    the DSpark draft model is Unsloth's; Strata is by Niko1221.
+  license: mit
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF
+    - https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF
+  tags:
+    - llm
+    - chat
+    - reasoning
+    - function-calling
+    - moe
+    - deepseek
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - metal
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq1_m/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00001-of-00006.gguf
+        sha256: 3e8ddd11441edd4bc19bacaef5dbe38818af2cbdf0820fb70f1d2d851fcc192a
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00001-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq1_m/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00002-of-00006.gguf
+        sha256: be4ceb1caf1bed28e886860cf6a52adc8f5ca9eb0d2098ade39bb4179d48b323
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00002-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq1_m/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00003-of-00006.gguf
+        sha256: 758c66ba65236e8ce0820c21a7b6f9b2947681df8cc509f672a77722e8191b9a
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00003-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq1_m/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00004-of-00006.gguf
+        sha256: 04a5bea2b38eb576f49efc19c0a677768d6e2a8ea5772d72fb6cb79e1733a212
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00004-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq1_m/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00005-of-00006.gguf
+        sha256: 7c8dbee99890f05dbc420eba6f44393f5228d06248fe61e1ae8ed002449c7549
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00005-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq1_m/expert-profile.bin
+        sha256: 8db93e483b34b15dbf63a0826601f1db2107a8cfea73774e7d21d8559e0a9568
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/dsv41/profile-2.00.bin
+      - filename: strata/models/deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+        sha256: 3dac4c54893ad7aa89103c0028500eadc78e74112cef3a2930a97e67dc9fb4f3
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+      - filename: strata/models/deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+        sha256: 6ba6ac1b331c540691a209e7fc97dec2a24e295acb1e755c84c7d24a4373927a
+        uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/8a6ec9cf118e785a362ea94ee123c61c70553be6/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+      - filename: strata/models/deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf
+        sha256: cc15d470afcb030558bbc4d8e2ccd840182e2e95de1a95198138efe63a5fd99f
+        uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/8a6ec9cf118e785a362ea94ee123c61c70553be6/UD-Q8_K_XL/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf
+    overrides:
+      backend: strata
+      context_size: 8192
+      function:
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+      options:
+        - family:deepseek41
+        - ready_timeout:1h
+        - expert_profile:expert-profile.bin
+        - pack_gguf:DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00001-of-00006.gguf
+        - pack_args:--shards DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00001-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00002-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00003-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00004-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00005-of-00006.gguf --engram ../deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf --engram-meta ../deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf --dspark-gguf ../deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf --dspark-noise-token 128799 --dspark-markov-rank 256
+      parameters:
+        min_p: 0
+        model: strata/models/deepseek-v4.1-flash-ista-iq1_m
+        temperature: 1.0
+        top_p: 1.0
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: deepseek-v4.1-flash-ista-iq2_xxs
+  name: deepseek-v4.1-flash-ista-iq2_xxs
+  version: 0.0.0-gallery.aa4563847365
+  description: |
+    DeepSeek-V4.1-Flash-1017, a 763B-parameter mixture-of-experts model (384 experts
+    per layer, 6 used per token), in ISTA-DAS's 2.00 bits per weight GSQ-RCO
+    quantization (IQ2_XXS), the middle size of the three (about 257 GB to download).
+    It writes a reasoning trace before the answer, and the Strata backend splits it
+    from the reply and parses the model's DSML tool calls. Text only: images are not
+    supported by this backend.
+    Needs a GPU with 12 GB of VRAM or more and about 40 GB of RAM at the least
+    (Strata's figure; its measurements use 46 to 64 GB: an RTX 5070 with 64 GB
+    answered at about 5 tokens per second, an RTX 3060 with 46 GB at 8 to 10). Less
+    RAM still runs, slowly. Strata measured a perplexity 15.5% above the original
+    model on 4,995 positions (code 8.6%, agent work 5.3%).
+    Needs about 258 GB of free disk, on a fast NVMe drive: the 111 GB n-gram table
+    (Engram) stays on disk and is read for every token. The Engram table and the 8
+    GB DSpark draft model are shared by all DeepSeek-V4.1 entries and downloaded
+    once into strata/models/deepseek-v4.1-flash-shared.
+    Runs only on the experimental strata backend, on NVIDIA CUDA 13 (x86_64 and
+    arm64), AMD Radeon RX 9070 and R9700 (ROCm) and Apple Silicon (Metal). Strata
+    ships no DeepSeek engine for CUDA 12, Intel or other AMD cards.
+    On the first load the strata backend builds the Strata pack from the GGUF files
+    (under a minute, a few MB of extra disk); loading the model afterwards takes a
+    few minutes. The default context is 8192 tokens, the size Strata checked; raise
+    context_size if the GPU has room.
+    Licensed under the MIT License (DeepSeek-V4.1-Flash-1017 and the quantized
+    files). The GGUF files are the GSQ-RCO quantization by ISTA-DAS (ISTA-DASLab);
+    the DSpark draft model is Unsloth's; Strata is by Niko1221.
+  license: mit
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF
+    - https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF
+  tags:
+    - llm
+    - chat
+    - reasoning
+    - function-calling
+    - moe
+    - deepseek
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - metal
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00001-of-00006.gguf
+        sha256: f356f198561f56df36f7ab92d7238a926646d76de992c34f15bcb939a5f529b9
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00001-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00002-of-00006.gguf
+        sha256: 25af3785ccf925f54137e1ead4c481a8952315dc0b1af6519a99407f67bce8f3
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00002-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00003-of-00006.gguf
+        sha256: 8168d0998fc494def2e1952d83c131425a108660aae9d29190f5a8670ab62b48
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00003-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00004-of-00006.gguf
+        sha256: 9eb9b4de1968f150dfc207eb31c27be9cd9b5666a9a6246bde8a22b184b4bee0
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00004-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00005-of-00006.gguf
+        sha256: 7e35f6b4e6fc46f6c4b152b593d84d683c5ece695ae6ad734f556198c041bec1
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00005-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xxs/expert-profile.bin
+        sha256: 8db93e483b34b15dbf63a0826601f1db2107a8cfea73774e7d21d8559e0a9568
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/dsv41/profile-2.00.bin
+      - filename: strata/models/deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+        sha256: 3dac4c54893ad7aa89103c0028500eadc78e74112cef3a2930a97e67dc9fb4f3
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+      - filename: strata/models/deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+        sha256: 6ba6ac1b331c540691a209e7fc97dec2a24e295acb1e755c84c7d24a4373927a
+        uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/8a6ec9cf118e785a362ea94ee123c61c70553be6/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+      - filename: strata/models/deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf
+        sha256: cc15d470afcb030558bbc4d8e2ccd840182e2e95de1a95198138efe63a5fd99f
+        uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/8a6ec9cf118e785a362ea94ee123c61c70553be6/UD-Q8_K_XL/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf
+    overrides:
+      backend: strata
+      context_size: 8192
+      function:
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+      options:
+        - family:deepseek41
+        - ready_timeout:1h
+        - expert_profile:expert-profile.bin
+        - pack_gguf:DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00001-of-00006.gguf
+        - pack_args:--shards DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00001-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00002-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00003-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00004-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XXS-00005-of-00006.gguf --engram ../deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf --engram-meta ../deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf --dspark-gguf ../deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf --dspark-noise-token 128799 --dspark-markov-rank 256
+      parameters:
+        min_p: 0
+        model: strata/models/deepseek-v4.1-flash-ista-iq2_xxs
+        temperature: 1.0
+        top_p: 1.0
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: deepseek-v4.1-flash-ista-iq2_xs
+  name: deepseek-v4.1-flash-ista-iq2_xs
+  version: 0.0.0-gallery.c480523a5bee
+  description: |
+    DeepSeek-V4.1-Flash-1017, a 763B-parameter mixture-of-experts model (384 experts
+    per layer, 6 used per token), in ISTA-DAS's 2.25 bits per weight GSQ-RCO
+    quantization (IQ2_XS), the largest size of the three (about 274 GB to download).
+    It writes a reasoning trace before the answer, and the Strata backend splits it
+    from the reply and parses the model's DSML tool calls. Text only: images are not
+    supported by this backend.
+    Needs a GPU with 12 GB of VRAM or more and about 44 GB of RAM at the least
+    (Strata's figure; its measurements use 46 to 64 GB: an RTX 5070 with 64 GB
+    answered at about 5 tokens per second, an RTX 3060 with 46 GB at 8 to 10). Less
+    RAM still runs, slowly. Strata measured a perplexity 7.3% above the original
+    model on 4,995 positions (code 3.2%, agent work 2.2%).
+    Needs about 275 GB of free disk, on a fast NVMe drive: the 111 GB n-gram table
+    (Engram) stays on disk and is read for every token. The Engram table and the 8
+    GB DSpark draft model are shared by all DeepSeek-V4.1 entries and downloaded
+    once into strata/models/deepseek-v4.1-flash-shared.
+    Runs only on the experimental strata backend, on NVIDIA CUDA 13 (x86_64 and
+    arm64), AMD Radeon RX 9070 and R9700 (ROCm) and Apple Silicon (Metal). Strata
+    ships no DeepSeek engine for CUDA 12, Intel or other AMD cards.
+    On the first load the strata backend builds the Strata pack from the GGUF files
+    (under a minute, a few MB of extra disk); loading the model afterwards takes a
+    few minutes. The default context is 8192 tokens, the size Strata checked; raise
+    context_size if the GPU has room.
+    Licensed under the MIT License (DeepSeek-V4.1-Flash-1017 and the quantized
+    files). The GGUF files are the GSQ-RCO quantization by ISTA-DAS (ISTA-DASLab);
+    the DSpark draft model is Unsloth's; Strata is by Niko1221.
+  license: mit
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF
+    - https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF
+  tags:
+    - llm
+    - chat
+    - reasoning
+    - function-calling
+    - moe
+    - deepseek
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - metal
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00001-of-00006.gguf
+        sha256: 0182a2a1f42d319a0dbc6e34aa82a063880c069fe3aafbbea86018f386e64e5f
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00001-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00002-of-00006.gguf
+        sha256: 5c88039fa640460a9fc3465a6dfcd162a4083dd738d55e5b52e025be14555a08
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00002-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00003-of-00006.gguf
+        sha256: 0fddebfd05f0a36cfd107ba5dfd2547e64df61adbab39560a5a5f5521ca099a5
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00003-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00004-of-00006.gguf
+        sha256: c577a43c6e6e615838a1655a0b162541edeac6f36542f08c4a9593a70dcaf500
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00004-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00005-of-00006.gguf
+        sha256: 851d8605bf504962054d17ea8a0d9e2e0a228d085d396bd865a4de9f16d90fbd
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00005-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-iq2_xs/expert-profile.bin
+        sha256: c8de062c5f3c71725ecf5328bd4ee02c71dca88478bf7f6b0f2ec258567ac6b6
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/dsv41/profile-2.25.bin
+      - filename: strata/models/deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+        sha256: 3dac4c54893ad7aa89103c0028500eadc78e74112cef3a2930a97e67dc9fb4f3
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+      - filename: strata/models/deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+        sha256: 6ba6ac1b331c540691a209e7fc97dec2a24e295acb1e755c84c7d24a4373927a
+        uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/8a6ec9cf118e785a362ea94ee123c61c70553be6/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+      - filename: strata/models/deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf
+        sha256: cc15d470afcb030558bbc4d8e2ccd840182e2e95de1a95198138efe63a5fd99f
+        uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/8a6ec9cf118e785a362ea94ee123c61c70553be6/UD-Q8_K_XL/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf
+    overrides:
+      backend: strata
+      context_size: 8192
+      function:
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+      options:
+        - family:deepseek41
+        - ready_timeout:1h
+        - expert_profile:expert-profile.bin
+        - pack_gguf:DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00001-of-00006.gguf
+        - pack_args:--shards DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00001-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00002-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00003-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00004-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ2_XS-00005-of-00006.gguf --engram ../deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf --engram-meta ../deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-1017-UD-Q8_K_XL-00001-of-00009.gguf --dspark-gguf ../deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf --dspark-noise-token 128799 --dspark-markov-rank 256
+      parameters:
+        min_p: 0
+        model: strata/models/deepseek-v4.1-flash-ista-iq2_xs
+        temperature: 1.0
+        top_p: 1.0
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: deepseek-v4.1-flash-ista-coder-iq2_xxs
+  name: deepseek-v4.1-flash-ista-coder-iq2_xxs
+  version: 0.0.0-gallery.048f3fd2383b
+  description: |
+    ISTA-DAS's coding version of DeepSeek-V4.1-Flash-1017: in every layer 192 of the
+    384 routed experts are kept and the other 192 removed, stored in the 2.00 bpw
+    (IQ2_XXS) layout. It is the smallest DeepSeek-V4.1 set here (about 191 GB to
+    download).
+    It writes a reasoning trace before the answer, and the Strata backend splits it
+    from the reply and parses the model's DSML tool calls. Text only: images are not
+    supported by this backend.
+    Needs a GPU with 12 GB of VRAM or more and about 24 GB of RAM at the least
+    (Strata's figure; its measurements use 46 to 64 GB: an RTX 5070 with 64 GB
+    answered at about 5 tokens per second, an RTX 3060 with 46 GB at 8 to 10). Less
+    RAM still runs, slowly. Strata measured a perplexity 48% above the original
+    model on its test set (KL 0.40), so it is weaker than the full sets on prose and
+    general knowledge; it is meant for code and agent work.
+    Needs about 192 GB of free disk, on a fast NVMe drive: the 111 GB n-gram table
+    (Engram) stays on disk and is read for every token. The Engram table and the 8
+    GB DSpark draft model are shared by all DeepSeek-V4.1 entries and downloaded
+    once into strata/models/deepseek-v4.1-flash-shared.
+    Runs only on the experimental strata backend, on NVIDIA CUDA 13 (x86_64 and
+    arm64), AMD Radeon RX 9070 and R9700 (ROCm) and Apple Silicon (Metal). Strata
+    ships no DeepSeek engine for CUDA 12, Intel or other AMD cards.
+    On the first load the strata backend builds the Strata pack from the GGUF files
+    (under a minute, a few MB of extra disk); loading the model afterwards takes a
+    few minutes. The default context is 8192 tokens, the size Strata checked; raise
+    context_size if the GPU has room.
+    Licensed under the MIT License (DeepSeek-V4.1-Flash-1017 and the quantized
+    files). The GGUF files are the GSQ-RCO quantization by ISTA-DAS (ISTA-DASLab);
+    the DSpark draft model is Unsloth's; Strata is by Niko1221.
+  license: mit
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-GGUF
+    - https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - reasoning
+    - function-calling
+    - moe
+    - deepseek
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - metal
+    - experimental
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: strata/models/deepseek-v4.1-flash-ista-coder-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00001-of-00006.gguf
+        sha256: 108e63d27240da2d99846250727a7b282e05a7fdf2448435e81904b9a98d8a4a
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-GGUF/resolve/0b1d5da5734d76375bdad4e72af85a420fde7af7/IQ2_XXS/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00001-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-coder-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00002-of-00006.gguf
+        sha256: 75079999eb3a492ad695f3466fd6a068a1cf1920980eac1c7f51406363fadf7a
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-GGUF/resolve/0b1d5da5734d76375bdad4e72af85a420fde7af7/IQ2_XXS/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00002-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-coder-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00003-of-00006.gguf
+        sha256: ea964e525922f36d3b984299c1a5bb8d896f50b9c2942364cd221c37863331f2
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-GGUF/resolve/0b1d5da5734d76375bdad4e72af85a420fde7af7/IQ2_XXS/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00003-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-coder-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00004-of-00006.gguf
+        sha256: 2d95806d186597cb0ea32635c92f0b66a9a6afae1a399ff74b13aebaa4ac7a52
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-GGUF/resolve/0b1d5da5734d76375bdad4e72af85a420fde7af7/IQ2_XXS/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00004-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-coder-iq2_xxs/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00005-of-00006.gguf
+        sha256: 3665b48c3bd46330780caf286ee40a087ac11499e5b7df8c943b098d10f426d4
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-GGUF/resolve/0b1d5da5734d76375bdad4e72af85a420fde7af7/IQ2_XXS/DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00005-of-00006.gguf
+      - filename: strata/models/deepseek-v4.1-flash-ista-coder-iq2_xxs/expert-profile.bin
+        sha256: 92860ca14abbb3319a773aa237a4007898a8eb35edaff50d65073843b33c8904
+        uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/dsv41/profile-coder.bin
+      - filename: strata/models/deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+        sha256: 3dac4c54893ad7aa89103c0028500eadc78e74112cef3a2930a97e67dc9fb4f3
+        uri: https://huggingface.co/ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF/resolve/65d53bc8be65123e255ff02f3ded958b6dbf54fd/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf
+      - filename: strata/models/deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+        sha256: 6ba6ac1b331c540691a209e7fc97dec2a24e295acb1e755c84c7d24a4373927a
+        uri: https://huggingface.co/unsloth/DeepSeek-V4.1-Flash-1017-GGUF/resolve/8a6ec9cf118e785a362ea94ee123c61c70553be6/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf
+    overrides:
+      backend: strata
+      context_size: 8192
+      function:
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+      options:
+        - family:deepseek41
+        - ready_timeout:1h
+        - expert_profile:expert-profile.bin
+        - pack_gguf:DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00001-of-00006.gguf
+        - pack_args:--shards DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00001-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00002-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00003-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00004-of-00006.gguf DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00005-of-00006.gguf --engram ../deepseek-v4.1-flash-shared/DeepSeek-V4.1-Flash-Engram-IQ4_NL.gguf --engram-meta DeepSeek-V4.1-Flash-1017-GSQ-RCO-Coder-IQ2_XXS-00001-of-00006.gguf --dspark-gguf ../deepseek-v4.1-flash-shared/dspark-DeepSeek-V4.1-Flash-1017-Q8_0.gguf --dspark-noise-token 128799 --dspark-markov-rank 256
+      parameters:
+        min_p: 0
+        model: strata/models/deepseek-v4.1-flash-ista-coder-iq2_xxs
+        temperature: 1.0
+        top_p: 1.0
+      template:
+        use_tokenizer_template: true
+- kind: model
   id: qwen3.8-flash-next-nvfp4-gptq
   name: qwen3.8-flash-next-nvfp4-gptq
   version: 0.0.0-gallery.96123793bca6
@@ -6205,7 +6629,7 @@
     files:
       - filename: ds4flash.gguf
         uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-        sha256: 23fb9636d30d84d36ed10fbd42b311e55b2fe3f42ea13ee2fb650dd950091793
+        sha256: 3c405e5f08748517a530ecdbf00a10ed52798ce11ce5f734fe80742cddbd4151
     overrides:
       backend: ds4
       function:
@@ -13267,8 +13691,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/tiel-coder-35b-a3b-mtp/Tiel-Coder-35B-A3B-MTP-UD-Q5_K_XL.gguf
-        sha256: d48801f2b01fe34280cbdc27e6fdad2a12ca2b28b1ec0d5bd344bff77ac7440b
         uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/Tiel-Coder-35B-A3B-MTP-UD-Q5_K_XL.gguf
+        sha256: 83278fd1ea9923edb45cf6d373a8aa6475fb1f855795e085b9e6252bc53f24fa
       - filename: llama-cpp/mmproj/tiel-coder-35b-a3b-mtp/mmproj-BF16.gguf
         sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
         uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/mmproj-BF16.gguf
@@ -13326,8 +13750,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/tiel-coder-35b-a3b-mtp/Tiel-Coder-35B-A3B-MTP-UD-Q6_K_XL.gguf
-        sha256: ebf721ae2297242c254befdc6ac413240668c349f85b16c588d0b1ba2ecb085e
         uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/Tiel-Coder-35B-A3B-MTP-UD-Q6_K_XL.gguf
+        sha256: a13a71ecfd00779fa3e0071674da61afbdffd42050f22173f4142989975573ba
       - filename: llama-cpp/mmproj/tiel-coder-35b-a3b-mtp/mmproj-BF16.gguf
         sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
         uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/mmproj-BF16.gguf
@@ -13385,8 +13809,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/tiel-coder-35b-a3b-mtp/Tiel-Coder-35B-A3B-MTP-UD-Q8_K_XL.gguf
-        sha256: bc3006e14a0b44837beb4577afce13c7016de1e2d163b0bfdb181f93e981e34f
         uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/Tiel-Coder-35B-A3B-MTP-UD-Q8_K_XL.gguf
+        sha256: 8384abe448e6159b1d43249be9c51f68fe5771e962bb39e3ee89ad1215385310
       - filename: llama-cpp/mmproj/tiel-coder-35b-a3b-mtp/mmproj-BF16.gguf
         sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
         uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/mmproj-BF16.gguf
@@ -18720,7 +19144,7 @@
         uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V6-GGUF/resolve/main/Hermes3.6-35B-A3B-Uncensored-Genesis-V6-Q8_0.gguf
       - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V6-Q8_0/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
         uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V6-GGUF/resolve/main/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-        sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
+        sha256: ccab14fb79b1865b4014447f4aa559d28ec0780c429a0cf2b8e1d5d6cb785a60
     overrides:
       backend: llama-cpp
       function:
@@ -18885,7 +19309,7 @@
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX.gguf
       - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-        sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
+        sha256: ccab14fb79b1865b4014447f4aa559d28ec0780c429a0cf2b8e1d5d6cb785a60
     overrides:
       backend: llama-cpp
       function:
@@ -18946,7 +19370,7 @@
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX-Compact.gguf
       - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-        sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
+        sha256: ccab14fb79b1865b4014447f4aa559d28ec0780c429a0cf2b8e1d5d6cb785a60
     overrides:
       backend: llama-cpp
       function:
@@ -19003,7 +19427,7 @@
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX.gguf
       - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-        sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
+        sha256: ccab14fb79b1865b4014447f4aa559d28ec0780c429a0cf2b8e1d5d6cb785a60
     overrides:
       backend: llama-cpp
       function:
@@ -19063,7 +19487,7 @@
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX-Compact.gguf
       - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-        sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
+        sha256: ccab14fb79b1865b4014447f4aa559d28ec0780c429a0cf2b8e1d5d6cb785a60
     overrides:
       backend: llama-cpp
       function:
@@ -19122,7 +19546,7 @@
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-Q8_K_P.gguf
       - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-        sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
+        sha256: ccab14fb79b1865b4014447f4aa559d28ec0780c429a0cf2b8e1d5d6cb785a60
     overrides:
       backend: llama-cpp
       function:
@@ -25865,8 +26289,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: Lythri-7B-A4B-Q8_0.gguf
-        sha256: 782502990660f5b803c241051bd6e54ad4c3b93567253e75216bbbcff68248d3
         uri: https://huggingface.co/Lythri/Lythri-7B-A4B-GGUF/resolve/5db66fbe37add5806e13908a45c3d23759ebc788/Lythri-7B-A4B-Q8_0.gguf
+        sha256: 9a1ad7c7b99547431516140d3d57475024703a5070c9597449c0a4459c976aae
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -48866,8 +49290,8 @@
     url: github:mudler/LocalAI/gallery/qwen3.yaml@master
     files:
       - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q4_K_M.gguf
-        sha256: f18f594747e5317ab490cff9c06339c9cfb89acbe2f02ebc48a4e167bc23576d
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q4_K_M.gguf
+        sha256: 588c6c94c82f756b86dba35c42ed9ba9ec187d65824eb52f039c347df563e63d
       - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
         sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/mmproj-model-f16.gguf
@@ -48913,8 +49337,8 @@
     url: github:mudler/LocalAI/gallery/qwen3.yaml@master
     files:
       - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q5_K_M.gguf
-        sha256: 9e513c61e42e83a1aa271957eab2b06b15335f6f12756465c739da1ea3192bc5
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q5_K_M.gguf
+        sha256: ff7cf8926c8565b8d9e2ebfef8a5dd4cc8a2f34dc8b3c5b3eaa55fdc9e8b0a01
       - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
         sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/mmproj-model-f16.gguf
@@ -48956,8 +49380,8 @@
     url: github:mudler/LocalAI/gallery/qwen3.yaml@master
     files:
       - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q6_K.gguf
-        sha256: 495b1e7567d976e178f076cea3f774f9a6d6c60d606cedfbdc73cb392b4f08ce
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q6_K.gguf
+        sha256: ec9b0f9e041e7ca52a93cb2b7d98a439ac8bc70d0247cd33c03a9ae755e6a593
       - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
         sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/mmproj-model-f16.gguf
@@ -48999,8 +49423,8 @@
     url: github:mudler/LocalAI/gallery/qwen3.yaml@master
     files:
       - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q8_0.gguf
-        sha256: 32322779352e9c6e7b9748ecbf62c9b8a6570bb8630fa4dddb9d0394528ea7fa
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q8_0.gguf
+        sha256: 2b83d8dfcd664c4dd9b9cfbe8dbd160782f2c6c362ca773758edc2dbc31420d7
       - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
         sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/mmproj-model-f16.gguf
@@ -95475,10 +95899,10 @@
     files:
       - filename: llama-cpp/models/clef/Clef-Q4_K_M.gguf
         uri: https://huggingface.co/ggml-org/Clef-GGUF/resolve/63840a1a68cb7084c88610cffc328509356b04cb/Clef-Q4_K_M.gguf
-        sha256: 06a819954debafc9664ac6bf3898818185d21d7efe36d0f01009d9958bf6e1fd
+        sha256: bd9b8ae24c5752a2bb5e2733d5168340d5f04457e02b8bf0d1bc9285ec3d4f61
       - filename: llama-cpp/mmproj/clef/mmproj-Clef-Q8_0.gguf
-        sha256: 744ad2db24c336fc9120dd5ba06344c0601b9efd365fe96be01ce5c4e6ab64cf
         uri: https://huggingface.co/ggml-org/Clef-GGUF/resolve/63840a1a68cb7084c88610cffc328509356b04cb/mmproj-Clef-Q8_0.gguf
+        sha256: 0d901ea999ae122ba0afeb4a3f4c4ac9a90baa07f1d120df9c350082db1190a8
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -95517,10 +95941,10 @@
     files:
       - filename: llama-cpp/models/clef/Clef-Q8_0.gguf
         uri: https://huggingface.co/ggml-org/Clef-GGUF/resolve/63840a1a68cb7084c88610cffc328509356b04cb/Clef-Q8_0.gguf
-        sha256: 728801f58fcebb35e60bb2ac0cf63fc33e3137b07581da132c1f0f5c5e2149fe
+        sha256: 07c6410af7011e0e56873a3b0b3f4ad9e31fb176f0ca80d6fd1525fe6f036548
       - filename: llama-cpp/mmproj/clef/mmproj-Clef-Q8_0.gguf
-        sha256: 744ad2db24c336fc9120dd5ba06344c0601b9efd365fe96be01ce5c4e6ab64cf
         uri: https://huggingface.co/ggml-org/Clef-GGUF/resolve/63840a1a68cb7084c88610cffc328509356b04cb/mmproj-Clef-Q8_0.gguf
+        sha256: 0d901ea999ae122ba0afeb4a3f4c4ac9a90baa07f1d120df9c350082db1190a8
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -95551,8 +95975,8 @@
     size: 3.01GB
     files:
       - filename: lev-Q4_K_M.gguf
-        sha256: bff94af408cc9ea616dd2543abf77afacefeec27d32d635ebe0ed0eb7ccd7efe
         uri: https://huggingface.co/ggml-org/lev-GGUF/resolve/3e9286a79ae857b4e1de051c92fab6dc574581ce/lev-Q4_K_M.gguf
+        sha256: 3f61b27c00a098dbc79ed099cca3985cbe0b63d17ac7fedebf2dca1d84f7f3a8
     overrides:
       backend: llama-cpp
       context_size: 2048
@@ -95588,10 +96012,10 @@
     files:
       - filename: llama-cpp/models/clef-flash/Clef-Flash-Q4_K_M.gguf
         uri: https://huggingface.co/ggml-org/Clef-Flash-GGUF/resolve/4a192915ef971886004b5b13294f2b4c7a7fc39d/Clef-Flash-Q4_K_M.gguf
-        sha256: eef2968c238a80d49d340430f22410ea3db9934ad1c6fdb233a503cbf9a9b54e
+        sha256: fd3e90605e8103307dca37cb5a8cdb036267e2fe3cb2d908d80a8ceb9ec0638c
       - filename: llama-cpp/mmproj/clef-flash/mmproj-Clef-Flash-Q8_0.gguf
-        sha256: 9dd8bc279f57d33b0697d4d0fe900fe751a24c9e3d30ab90969d4714ffc0722d
         uri: https://huggingface.co/ggml-org/Clef-Flash-GGUF/resolve/4a192915ef971886004b5b13294f2b4c7a7fc39d/mmproj-Clef-Flash-Q8_0.gguf
+        sha256: 3fbc646617c56c35ba48e06f0fbe8693a83bde49eb31e2a3bf59ba0a308c9e25
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -95630,10 +96054,10 @@
     files:
       - filename: llama-cpp/models/clef-flash/Clef-Flash-Q8_0.gguf
         uri: https://huggingface.co/ggml-org/Clef-Flash-GGUF/resolve/4a192915ef971886004b5b13294f2b4c7a7fc39d/Clef-Flash-Q8_0.gguf
-        sha256: 25f801e2a27610b0ccc0cb1558d7eda3d7a304e34e2c4a04e3079357ff7d906e
+        sha256: d7c352faf1bdd9ea24d0b9347e8eb1eb4bbadeff6c02383bf750215a74f2f1f1
       - filename: llama-cpp/mmproj/clef-flash/mmproj-Clef-Flash-Q8_0.gguf
-        sha256: 9dd8bc279f57d33b0697d4d0fe900fe751a24c9e3d30ab90969d4714ffc0722d
         uri: https://huggingface.co/ggml-org/Clef-Flash-GGUF/resolve/4a192915ef971886004b5b13294f2b4c7a7fc39d/mmproj-Clef-Flash-Q8_0.gguf
+        sha256: 3fbc646617c56c35ba48e06f0fbe8693a83bde49eb31e2a3bf59ba0a308c9e25
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -95746,8 +96170,8 @@
     size: 19.61GB
     files:
       - filename: OpenJev-Q4_K_M.gguf
-        sha256: 43b8d9cb89851f27c9d6bed8f073f917327bec05471da462eea77cbf896aa891
         uri: https://huggingface.co/ggml-org/OpenJev-GGUF/resolve/10840f375658dea7afc5ff4711127bca8218b560/OpenJev-Q4_K_M.gguf
+        sha256: 38b512277edaeec6cd251d146bff6d97bc328fa9db19755401d6e9ab1ccbcba5
       - filename: mmproj-OpenJev-Q8_0.gguf
         sha256: e372cdbf59fdd6bd2504cb64c988b31c7a42ac406a8f711df4b7a7acd9216f1e
         uri: https://huggingface.co/ggml-org/OpenJev-GGUF/resolve/10840f375658dea7afc5ff4711127bca8218b560/mmproj-OpenJev-Q8_0.gguf
@@ -95911,8 +96335,8 @@
         sha256: 2ebba0ff1e63c1ac3fadd4e83efcea189f47f33ec72c91877af94de6ebe30590
         uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/Swift-1.5-Qwen3.8-27B-Q4_K_M.gguf
       - filename: mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
-        sha256: 10a24dc46eb801ad794886ef27ea1e43634d35388dfaf2e2374b7a8b67faf526
         uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
+        sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -96083,8 +96507,8 @@
         sha256: 0b3b4aa0e367c620756de4f9db77fc18f94fbeb256db208281cbb84c48e2a101
         uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/Swift-1.5-Qwen3.8-27B-Q8_0.gguf
       - filename: mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
-        sha256: 10a24dc46eb801ad794886ef27ea1e43634d35388dfaf2e2374b7a8b67faf526
         uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
+        sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -96136,8 +96560,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-IQ4_XS.gguf
-        sha256: e8f021ecce45785609a39fb7473c1efd7ec7d85d9953c9a829d30e5c27eaf40e
         uri: https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF/resolve/36fe18b06b8198bf93e5b5055c77b72e186e83db/LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-IQ4_XS.gguf
+        sha256: 9b8f0f2a602dd160cb841da273ee33ecb8ca5386d4bd46f59fbb20191d0303f7
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -96190,8 +96614,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q6_K.gguf
-        sha256: 6de8144b7b992edd8e18934442a18b3c3207a6886580026aa8d35d4ecb5827d4
         uri: https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF/resolve/36fe18b06b8198bf93e5b5055c77b72e186e83db/LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q6_K.gguf
+        sha256: f55f86ac8f456807834b5f97f8f25c9c057b59ae7741bc546be10c2068416bd6
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -96241,8 +96665,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q8_0.gguf
-        sha256: 063bdad0adcf2c76c33ef252564c97a8b47ab2ff6d004047d36b082f9fc768d7
         uri: https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF/resolve/36fe18b06b8198bf93e5b5055c77b72e186e83db/LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q8_0.gguf
+        sha256: 524dbaa84e79279977f62978a12f4d97c76e30a2c3976f7f21ed78e73e4b837e
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -97421,8 +97845,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q4_K_M.gguf
-        sha256: 0ce585403ce20cb0a77e2636cd4aeb9b1a48b88487c6b0dbce11e71ac12a6193
         uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/ba6d29fb2505241d7dae88df4fda9038999c3ca9/Qwen3.8-27B-Humanlike-Chat-Q4_K_M.gguf
+        sha256: 2dfc33220a03e3e1d6c688d0cce1ffe035a83175fdcb1811b626615e3081933a
     overrides:
       backend: llama-cpp
       chat_template_kwargs:
@@ -97474,8 +97898,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q8_0.gguf
-        sha256: 41226a5023819696db229d4ab99cb2bce3a56da6929a8250de5fbeaa6afa2fef
         uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/ba6d29fb2505241d7dae88df4fda9038999c3ca9/Qwen3.8-27B-Humanlike-Chat-Q8_0.gguf
+        sha256: 1bde57941aa20696c85198fda62948db97eb66a67d9360a7e57e421cba3ae264
     overrides:
       backend: llama-cpp
       chat_template_kwargs:
@@ -97523,8 +97947,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q5_K_M.gguf
-        sha256: 678d816f40ab723bb01bdcc95487ecd763e61098a91c012009203cf431f626dd
         uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/ba6d29fb2505241d7dae88df4fda9038999c3ca9/Qwen3.8-27B-Humanlike-Chat-Q5_K_M.gguf
+        sha256: c6aeee219c352ea6b66dcb0c2c6904ceb5b21464c8bec549fab0894555e73c99
     overrides:
       backend: llama-cpp
       chat_template_kwargs:
@@ -97572,8 +97996,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q6_K.gguf
-        sha256: f97e3d712613f0f2d97e7590511f524800ade57d70e5a5c8d6bc3452b2231183
         uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/ba6d29fb2505241d7dae88df4fda9038999c3ca9/Qwen3.8-27B-Humanlike-Chat-Q6_K.gguf
+        sha256: 4a7f4d1695f458e5e80425782e4c4e9958cc2007db94b670146f70a7f66e9807
     overrides:
       backend: llama-cpp
       chat_template_kwargs:
@@ -97915,8 +98339,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: Sharp-MiniCPM5-2B-Q4_K_S.gguf
-        sha256: 3b28cb65323bb877543b30eb5980af5876c56b4ab5982d07d21f0e037c8d7d7f
         uri: https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF/resolve/040713a6c4da5e58e7512e8e483d315caef41b73/Sharp-MiniCPM5-2B-Q4_K_S.gguf
+        sha256: f30598a08c4d7ee5b9397a5f97ec3b14846332a0b5d07471674505b464b9d1a9
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -97963,8 +98387,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: Sharp-MiniCPM5-2B-Q6_K_XL.gguf
-        sha256: 0722928b41fae86210ee2a78f1ba49c6eb682cd4d65ae5433d976e255ff336ca
         uri: https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF/resolve/040713a6c4da5e58e7512e8e483d315caef41b73/Sharp-MiniCPM5-2B-Q6_K_XL.gguf
+        sha256: f67c038e7f1fbfb54ffa4bc5e1197cd2748700580cd1d1fd076e5998ac923ef4
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -98008,8 +98432,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: Sharp-MiniCPM5-2B-Q8_K_M.gguf
-        sha256: 0eb54d5eef75449c19fa6831c048ca6da82f65bace7efee704453cbe87a73622
         uri: https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF/resolve/040713a6c4da5e58e7512e8e483d315caef41b73/Sharp-MiniCPM5-2B-Q8_K_M.gguf
+        sha256: d2e70bd38c72f6bd3c0277509150f18d8658f65e9b2a37cd977c311a914f7684
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -99170,8 +99594,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/twil-lm3-pro/TwIL-LM3-Pro-Q4_K_M.gguf
-        sha256: 8a7e0f48af1feea9a107e17e2c03e8ad8d0c397c47a5dae4a73b3d92e3533377
         uri: https://huggingface.co/webAI-Official/TwIL-LM3-Pro/resolve/4214aaa4020cd51ac418dc6c7243c076665a811d/TwIL-LM3-Pro-Q4_K_M.gguf
+        sha256: 7a3edb4edbcf960f8282faa2b5f71ccd26e2a6bdbf1b4889179ff173cd13e161
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -100060,8 +100484,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: humanizer-12b-Q4_K_M.gguf
-        sha256: 2229574dec5178629575ee4a153dfee7d9e924ab997d0ad9d2ac622b67e44834
         uri: https://huggingface.co/jialinyyzz/humanizer/resolve/4845f89d6750e5baac7baa644a7ffedc3a86b969/humanizer-12b-Q4_K_M.gguf
+        sha256: 5f0fd4bf39401e58c1d4b4a3eda3fc42f64cb9f28d7cd80bcfccca568b215a2f
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -100116,8 +100540,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: humanizer-12b-Q6_K.gguf
-        sha256: c98f03bb9e71456181f99b0e1d3391e07ce1afc357f9db4c33d6d379b8dd9f0d
         uri: https://huggingface.co/jialinyyzz/humanizer/resolve/4845f89d6750e5baac7baa644a7ffedc3a86b969/humanizer-12b-Q6_K.gguf
+        sha256: bc2259fabf2a03de6894bdca0c65092608e52fefe48ba6b624a51c82c1e522c5
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -100166,8 +100590,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: humanizer-12b-Q8_0.gguf
-        sha256: 8d7a457b56de6530eaaf0151ccfa7550a4b20dab979737e259da9c63e960e0b0
         uri: https://huggingface.co/jialinyyzz/humanizer/resolve/4845f89d6750e5baac7baa644a7ffedc3a86b969/humanizer-12b-Q8_0.gguf
+        sha256: 74d0e61d62c1c9d472002b9175cc71b9e725d5b5a4236383d89b04bdc29f05b9
     overrides:
       backend: llama-cpp
       context_size: 8192

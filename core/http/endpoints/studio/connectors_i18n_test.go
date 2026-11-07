@@ -2,6 +2,8 @@
 package studio
 
 import (
+	"encoding/json"
+
 	"github.com/mudler/LocalAI/core/schema"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -43,6 +45,49 @@ var _ = Describe("translated connector kinds", func() {
 		k := kind()
 		translateKind(&k, nil, "it", "it")
 		Expect(k).To(Equal(kind()))
+	})
+})
+
+var _ = Describe("translated connector kind setup text", func() {
+	kind := func() schema.ChatsConnectorKind {
+		return schema.ChatsConnectorKind{Addon: "telegram", Kind: "telegram", Title: "Telegram", Setup: "a bot token from @BotFather"}
+	}
+	tr := map[string]contract.KindText{
+		"it":    {Setup: "un token del bot da @BotFather"},
+		"pt-BR": {Title: "Telegram"},
+	}
+	It("keeps the English setup and resolves the requested language", func() {
+		k := kind()
+		translateKind(&k, tr, "it", "")
+		Expect(k.Setup).To(Equal("a bot token from @BotFather"))
+		Expect(k.Setups).To(Equal(map[string]string{"it": "un token del bot da @BotFather"}))
+		Expect(k.Language).To(Equal("it"))
+		Expect(k.LocalizedSetup).To(Equal("un token del bot da @BotFather"))
+	})
+	It("falls back to English for a language that does not translate it", func() {
+		k := kind()
+		translateKind(&k, tr, "", "pt-BR")
+		Expect(k.Language).To(Equal("pt-BR"))
+		Expect(k.LocalizedSetup).To(Equal("a bot token from @BotFather"))
+	})
+	It("adds no localized setup for a kind without a setup text", func() {
+		k := kind()
+		k.Setup = ""
+		translateKind(&k, map[string]contract.KindText{"it": {Title: "Telegram"}}, "it", "")
+		Expect(k.LocalizedSetup).To(BeEmpty())
+	})
+	It("has the JSON names setup, setups and localized_setup, and omits them when empty", func() {
+		k := kind()
+		translateKind(&k, tr, "it", "")
+		b, err := json.Marshal(k)
+		Expect(err).NotTo(HaveOccurred())
+		var got map[string]any
+		Expect(json.Unmarshal(b, &got)).To(Succeed())
+		Expect(got).To(HaveKeyWithValue("setup", "a bot token from @BotFather"))
+		Expect(got).To(HaveKeyWithValue("localized_setup", "un token del bot da @BotFather"))
+		Expect(got).To(HaveKeyWithValue("setups", map[string]any{"it": "un token del bot da @BotFather"}))
+		plain, _ := json.Marshal(schema.ChatsConnectorKind{Addon: "a", Kind: "a", Title: "A"})
+		Expect(string(plain)).NotTo(ContainSubstring("setup"))
 	})
 })
 
