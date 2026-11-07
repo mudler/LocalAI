@@ -17,6 +17,13 @@ if [[ -n "${CUDA_DOCKER_ARCH:-}" ]]; then
   rm -rf /LocalAI/backend/cpp/bonsai-*-build
 fi
 
+# The shared grpc-server CMakeLists links zlib and libjpeg when the fork ships
+# tools/server/server-decision.cpp (native decision support). Install the dev
+# packages here, not only in the base builder, so prebuilt bases get them too.
+# Runtime libraries are collected by backend/cpp/bonsai/package.sh.
+sh /LocalAI/.docker/apt-mirror.sh || true
+apt-get update -qq && apt-get install -y --no-install-recommends libjpeg-dev zlib1g-dev
+
 cd /LocalAI/backend/cpp/bonsai
 
 if [ -z "${BUILD_TYPE:-}" ]; then
