@@ -35,7 +35,16 @@
     "agent": "Agent",
     "agentHelp": "Ce chat utilise l'agent {{name}} : ses instructions et seulement les outils qu'il accorde.",
     "editAgent": "Modifier l'agent",
-    "deleteHelp": "Supprimer définitivement ce chat et ses messages."
+    "deleteHelp": "Supprimer définitivement ce chat et ses messages.",
+    "sliderOf": "Curseur {{name}}",
+    "reset": "Utiliser la valeur du modèle pour {{name}}",
+    "hint": {
+      "temperature": "Des valeurs plus hautes donnent des réponses plus variées. De 0 à 2.",
+      "topP": "Choisit parmi les mots les plus probables dont la somme atteint cette part. Supérieur à 0, jusqu'à 1.",
+      "topK": "Choisit parmi ce nombre de mots les plus probables. Un entier, 0 ou plus.",
+      "contextSize": "De 512 à 4194304 jetons.",
+      "effort": "S'applique tout de suite, dès le prochain tour."
+    }
   },
   "empty": {
     "manageTitle": "Gérez LocalAI par la conversation",
@@ -202,7 +211,8 @@
       "personal": "Personnelle",
       "shared": "Partagée",
       "folder": "Espace de travail",
-      "addon": "{{name}}"
+      "addon": "{{name}}",
+      "addonFrom": "de {{name}}"
     },
     "replacedBy": "Remplacée par {{name}}",
     "fallback_one": "{{skills}} intégrée utilisée : la compétence du module {{name}} est désactivée ou ne tourne pas ici.",
@@ -308,6 +318,10 @@
       "desc": "Fixer un objectif sur lequel le chat continue de travailler tout seul",
       "clearDesc": "Retirer l'objectif",
       "resumeDesc": "Continuer vers l'objectif"
+    },
+    "effort": {
+      "label": "Effort de raisonnement",
+      "desc": "Choisir à quel point le modèle réfléchit"
     }
   },
   "shortcuts": {
@@ -416,7 +430,8 @@
       "upstream_unreachable": "L'adresse de l'upstream est injoignable.",
       "upstream": "Le fournisseur derrière le modèle a renvoyé une erreur.",
       "timeout": "Le modèle a mis trop de temps à répondre.",
-      "cancelled": "Le tour a été annulé avant la réponse du modèle."
+      "cancelled": "Le tour a été annulé avant la réponse du modèle.",
+      "interrupted": "Le serveur a redémarré pendant qu'il répondait."
     },
     "hint": {
       "model_backend_missing": "Choisissez un autre modèle ou demandez à un administrateur d'installer le backend.",
@@ -431,7 +446,15 @@
       "timeout": "Réessayez, ou utilisez un modèle plus petit ou plus rapide.",
       "cancelled": "Réessayez quand vous voulez."
     },
-    "openBackends": "Ouvrir Backends"
+    "openBackends": "Ouvrir Backends",
+    "titleInterrupted": "La réponse a été interrompue",
+    "resume": {
+      "waiting": "Reprise dans {{seconds}} secondes (essai {{attempt}} sur {{max}}).",
+      "resuming": "Reprise là où elle s'était arrêtée.",
+      "server": "Le serveur reprend là où elle s'était arrêtée.",
+      "exhausted": "La reprise a échoué après {{max}} essais. Réessayez.",
+      "stop": "Arrêter les essais"
+    }
   },
   "allChats": {
     "title": "Toutes les conversations",
@@ -696,5 +719,58 @@
       "page": "une page",
       "other": "autre chose"
     }
+  },
+  "connector": {
+    "header": "Conversation de messagerie",
+    "unknownSender": "Expéditeur inconnu",
+    "people": "Personnes dans cette conversation",
+    "inThread": "Fil",
+    "openThread": "Ouvrir dans l'application de messagerie",
+    "where": {
+      "direct": "Message direct",
+      "channel": "Canal {{name}}",
+      "group": "Canal ou groupe"
+    },
+    "standing": {
+      "owner": "Propriétaire",
+      "verified": "A un rôle",
+      "listed": "Personne de la liste",
+      "channel": "Membre du canal",
+      "anyone": "N'importe qui"
+    },
+    "standingHelp": {
+      "owner": "Personne vérifiée : le propriétaire contrôle ce compte.",
+      "verified": "A un rôle auquel le propriétaire a donné des droits.",
+      "listed": "Sur la liste de cette connexion.",
+      "channel": "Admis parce que le canal ou le groupe est sur la liste.",
+      "anyone": "Admis parce que la connexion accepte tout le monde."
+    },
+    "threadEarlier": "Plus tôt dans le fil ({{count}} messages)",
+    "threadCut": "Les messages plus anciens du fil ne sont pas affichés.",
+    "note": {
+      "paired": "Vérifié avec ce bot",
+      "unsupported": "Message non lu",
+      "too_long": "Message trop long",
+      "no_upload": "Fichiers non acceptés",
+      "rate": "Trop de messages",
+      "held_back": "Certains outils n'ont pas été proposés à cet expéditeur",
+      "new_chat": "Nouveau chat démarré",
+      "refused": "Message refusé",
+      "hold_waiting": "En attente de la confirmation d’une personne vérifiée",
+      "hold_confirmed": "Confirmée dans le chat",
+      "hold_cancelled": "Annulée dans le chat",
+      "hold_expired": "Non confirmée à temps",
+      "hold_failed": "N'a pas pu être effectuée",
+      "other": "Note",
+      "why": "Pourquoi"
+    }
+  },
+  "connection": {
+    "lost": "Connexion perdue. Reconnexion en cours."
+  },
+  "reasoning": {
+    "chip": "Effort",
+    "title": "Effort de raisonnement de ce chat",
+    "note": "S'applique dès le prochain tour. Aucun demande au modèle de ne pas réfléchir."
   }
 }

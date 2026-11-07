@@ -12,8 +12,8 @@
   "tokenShape": "请使用细粒度 token：它以 github_pat_ 开头。",
   "tokenSpace": "token 不含空格。请重新复制，不要带前后的空格。",
   "repos": "智能体可以使用的仓库",
-  "reposHelp": "每行一个，格式为 owner/name。已列出 {{count}} 个。其他仓库一律拒绝。",
-  "reposShape": "“{{entry}}”的格式不是 owner/name，例如 mudler/LocalAI。",
+  "reposHelp": "每行一个：owner/name；owner/* 表示某个 owner 的所有仓库；* 表示令牌可访问的任意仓库。已列出 {{count}} 个。其他仓库会被拒绝。",
+  "reposShape": "“{{entry}}”的写法不是 owner/name（或 owner/*、*），例如 mudler/LocalAI。",
   "reposMany": "最多 50 个仓库。",
   "agent": "智能体",
   "agentNone": "选择智能体",
@@ -33,7 +33,10 @@
     "readOnly": "{{repo}}：可访问，只读。",
     "readWrite": "{{repo}}：可访问，且该 token 可以写入。",
     "refused": "{{repo}}：GitHub 拒绝了此 token。请检查它是否已过期，以及是否涵盖此仓库。",
-    "failed": "{{repo}}：检查未完成。请稍后再试。"
+    "failed": "{{repo}}：检查未完成。请稍后再试。",
+    "owner": "{{repo}}：此 owner 的所有仓库。令牌只能访问 GitHub 为它列出的仓库。",
+    "any": "任意仓库：令牌可访问 {{count}} 个仓库。",
+    "anyMore": "任意仓库：令牌至少可访问 {{count}} 个仓库。"
   },
   "save": "保存",
   "cancel": "取消",
@@ -77,8 +80,8 @@
     "label": "智能体可以在 GitHub 上更改什么",
     "hint": "评论、新建 issue、标签和关闭 issue。它绝不会合并、删除或推送代码。",
     "off": "只读",
-    "propose": "先问你",
-    "auto": "不经询问直接执行",
+    "propose": "先询问",
+    "auto": "立即执行",
     "line": {
       "off": "它不能在 GitHub 上更改任何内容。",
       "propose": "每项更改都等待你的确认。",
@@ -91,8 +94,8 @@
     },
     "row": {
       "off": "只读",
-      "propose": "先问你",
-      "auto": "不经询问直接执行"
+      "propose": "先询问",
+      "auto": "立即执行"
     }
   },
   "approval": {
@@ -127,5 +130,17 @@
     "not_planned": "不计划处理",
     "public": "公开：所有能看到 {{repo}} 的人都会看到这些内容。",
     "cut": "这里显示的文字已被截断。会发布完整的 {{bytes}} 字节文字。"
-  }
+  },
+  "tokenClassic": "这是经典令牌（ghp_）。请在下方允许经典令牌后再使用，或创建以 github_pat_ 开头的令牌。",
+  "classic": {
+    "allow": "在此连接上允许经典令牌（ghp_）",
+    "warning": "经典令牌不受你所列仓库的限制，其权限范围覆盖你的账户可访问的所有仓库。LocalAI 仍会拒绝不在列表中的仓库并遵守写入模式，但如果令牌泄露，GitHub 本身会允许它做更多事。细粒度令牌更安全。",
+    "confirm": "我明白经典令牌的范围比仓库列表更宽。"
+  },
+  "reposAnyAlone": "* 已涵盖所有仓库。请删除其他行。",
+  "any": {
+    "warning": "* 让智能体可以使用令牌可访问的所有仓库，包括之后创建的。下方的写入模式仍决定它能更改什么：只读时它不会更改任何内容。",
+    "confirm": "我希望智能体可以使用此令牌可访问的任意仓库。"
+  },
+  "anyRepos": "令牌可访问的任意仓库"
 }

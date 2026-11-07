@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
@@ -47,6 +49,11 @@ type scopedFolder struct {
 // the agent lists them. The first is the one the file tools call "home".
 type folderScope struct {
 	folders []scopedFolder
+	// chatOnly is the scope of an agent saved with No files: it has no
+	// folder, and its chats reach only their own folder and the skill layers.
+	// The home, the shared folders and every other file stay out of reach for
+	// each tool, not only for the file tools.
+	chatOnly bool
 }
 
 // primary is the first folder of the scope.
@@ -129,7 +136,11 @@ func (s *Service) chatAccess(ctx context.Context, rec session.ChatRecord) (sessi
 	// The view is the session's one view builder: the folder at home, the
 	// chat folder at chat, the shared folders read only.
 	work := scopes[len(scopes)-1]
-	x, err := s.mgr.ScopedAccessFolders(ctx, actor, work.primary().path, work.extraPaths(), chatDir.Path)
+	primary, extra := chatDir.Path, []string(nil)
+	if !work.chatOnly {
+		primary, extra = work.primary().path, work.extraPaths()
+	}
+	x, err := s.mgr.ScopedAccessFolders(ctx, actor, primary, extra, chatDir.Path)
 	if errors.Is(err, session.ErrNoHome) || errors.Is(err, workspace.ErrNotFound) {
 		// The folder went away since it was checked, or a sub-agent's folder
 		// is outside its parent's.
@@ -209,6 +220,14 @@ func (s *Service) scopedRoots(ctx context.Context, base workspace.Actor, scopes 
 			mandatory = append(mandatory, f.path)
 		}
 	}
+	if slices.ContainsFunc(scopes, func(sc *folderScope) bool { return sc.chatOnly }) {
+		// No files: the skill layers stay readable, nothing shared does.
+		roots, _ := s.skillRoots(ctx, base)
+		if _, err := fenceScopes(base, scopes, 0, roots); err != nil {
+			return nil, 0, err
+		}
+		return roots, 0, nil
+	}
 	roots, dropped, err := s.readOnlyRoots(ctx, base, reserve, mandatory)
 	if err != nil {
 		return nil, 0, err
@@ -236,19 +255,14 @@ func (s *Service) readOnlyRoots(ctx context.Context, base workspace.Actor, reser
 	owner := base
 	owner.ChatID = ""
 	ws := s.d.Files.Store()
-	var out []workspace.FenceRoot
-	var held []string // paths of the roots already in the layer
-	held = append(held, mandatory...)
 	stat := func(p string) (workspace.Node, bool) {
 		n, err := ws.Stat(ctx, owner, p)
 		return n, err == nil && n.Kind == workspace.KindDir
 	}
-	for _, p := range []string{files.SharedSkillsPath, files.BuiltinSkillsPath, files.AddonSkillsPath} {
-		if n, ok := stat(p); ok {
-			out = append(out, workspace.FenceRoot{Node: n.ID, Mode: workspace.ModeRead})
-			held = append(held, n.Path)
-		}
-	}
+	out, skillPaths := s.skillRoots(ctx, base)
+	var held []string // paths of the roots already in the layer
+	held = append(held, mandatory...)
+	held = append(held, skillPaths...)
 	if s.shared == nil {
 		return out, 0, nil
 	}
@@ -278,6 +292,21 @@ func (s *Service) readOnlyRoots(ctx context.Context, base workspace.Actor, reser
 		held = append(held, n.Path)
 	}
 	return out, dropped, nil
+}
+
+// skillRoots are the skill layers that exist, read only, and their paths.
+func (s *Service) skillRoots(ctx context.Context, base workspace.Actor) ([]workspace.FenceRoot, []string) {
+	owner := base
+	owner.ChatID = ""
+	var out []workspace.FenceRoot
+	var paths []string
+	for _, p := range []string{files.SharedSkillsPath, files.BuiltinSkillsPath, files.AddonSkillsPath} {
+		if n, err := s.d.Files.Store().Stat(ctx, owner, p); err == nil && n.Kind == workspace.KindDir {
+			out = append(out, workspace.FenceRoot{Node: n.ID, Mode: workspace.ModeRead})
+			paths = append(paths, n.Path)
+		}
+	}
+	return out, paths
 }
 
 // insideAny says whether p is one of roots or inside one.
@@ -366,7 +395,7 @@ func (s *Service) agentFolderScope(ctx context.Context, rec session.ChatRecord, 
 	var ag agents.Agent
 	err := agents.ErrNotFound
 	if s.d.Agents != nil {
-		ag, err = s.d.Agents.Get(ctx, rec.Principal, rec.AgentID)
+		ag, err = s.chatAgent(ctx, rec.Principal, rec.AgentID)
 	}
 	switch {
 	case errors.Is(err, agents.ErrNotFound):
@@ -380,10 +409,17 @@ func (s *Service) agentFolderScope(ctx context.Context, rec session.ChatRecord, 
 		// Without the agent nothing says whether it has a folder.
 		return nil, fmt.Errorf("studio: read the chat's agent: %w", err)
 	}
+	// An agent saved with No files (the files group off) is scoped to its
+	// chat's own folder, whatever folders it still holds: they are ignored,
+	// so a missing one cannot block the chat either.
+	noFiles := slices.Contains(ag.BuiltinsOff, builtins.GroupFiles)
 	if record {
-		if err := s.markScoped(ctx, rec, ag.HasFolder()); err != nil {
+		if err := s.markScoped(ctx, rec, ag.HasFolder() || noFiles); err != nil {
 			return nil, err
 		}
+	}
+	if noFiles {
+		return &folderScope{chatOnly: true}, nil
 	}
 	if !ag.HasFolder() {
 		return nil, nil

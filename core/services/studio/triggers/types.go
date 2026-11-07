@@ -25,19 +25,21 @@ const (
 type Status string
 
 // Run states. A run is queued when it waits for a free slot, running while the
-// host works on it, and done, failed or skipped at the end. A skipped run never
-// started; its Reason says why.
+// host works on it, and done, failed, blocked or skipped at the end. A skipped
+// run never started; its Reason says why. A blocked run ended, but an action it
+// tried was refused because nobody had granted it; its Reason names the grant.
 const (
 	StatusQueued  Status = "queued"
 	StatusRunning Status = "running"
 	StatusDone    Status = "done"
 	StatusFailed  Status = "failed"
 	StatusSkipped Status = "skipped"
+	StatusBlocked Status = "blocked"
 )
 
 // Final tells whether the status is an end state.
 func (s Status) Final() bool {
-	return s == StatusDone || s == StatusFailed || s == StatusSkipped
+	return s == StatusDone || s == StatusFailed || s == StatusSkipped || s == StatusBlocked
 }
 
 // Defaults and limits.

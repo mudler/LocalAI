@@ -400,3 +400,51 @@ var _ = Describe("triggertools: the Triggers switch group", func() {
 		}
 	})
 })
+
+var _ = Describe("triggertools: files a run cannot reach", func() {
+	It("tells the model in the tool descriptions where the files of a trigger must live", func() {
+		r := newTrigRig(proposeScript(goodProposal))
+		src := create(r.svc, alice)
+		sent(r.svc, alice, src, "list")
+		idle(r.svc, alice, src)
+		for _, tool := range []string{"propose_trigger", "update_trigger"} {
+			d := r.h.LastToolDescription(tool)
+			Expect(d).To(ContainSubstring("/workspace/home"), tool)
+			Expect(d).To(ContainSubstring("never under /workspace/chat"), tool)
+		}
+	})
+
+	It("warns in the result of a proposal whose prompt names a path in the chat folder", func() {
+		args := `{"name":"Report","prompt":"Run python3 /workspace/chat/work/report.py and say the result.","when":"daily 08:00","time_zone":"UTC"}`
+		r := newTrigRig(proposeScript(args))
+		src := create(r.svc, alice)
+		sent(r.svc, alice, src, "propose")
+		idle(r.svc, alice, src)
+		res := r.h.ResultsFor("propose_trigger")
+		Expect(res).To(HaveLen(1))
+		Expect(res[0].Err).To(BeNil(), "%+v", res[0])
+		Expect(res[0].Out).To(ContainSubstring("Warning"))
+		Expect(res[0].Out).To(ContainSubstring("/workspace/home"))
+	})
+
+	It("does not warn for a path under the home", func() {
+		args := `{"name":"Report","prompt":"Run python3 /workspace/home/jobs/report.py.","when":"daily 08:00","time_zone":"UTC"}`
+		r := newTrigRig(proposeScript(args))
+		src := create(r.svc, alice)
+		sent(r.svc, alice, src, "propose")
+		idle(r.svc, alice, src)
+		res := r.h.ResultsFor("propose_trigger")
+		Expect(res).To(HaveLen(1))
+		Expect(res[0].Out).NotTo(ContainSubstring("Warning"))
+	})
+
+	It("warns in the result of a change that names such a path in the plan", func() {
+		c := &callScript{}
+		r := newTrigRig(c.script)
+		tr := r.schedule(studio.TriggerInput{Name: "Nightly", Prompt: "p"})
+		chat := create(r.svc, alice)
+		res := c.call(r, chat, "update_trigger", `{"ref":"`+studio.TriggerRef(tr.ID)+`","writes":"state.json","prompt":"Read /workspace/chat/work/state.json."}`)
+		Expect(res.Err).To(BeNil(), "%+v", res)
+		Expect(res.Out).To(ContainSubstring("Warning"))
+	})
+})

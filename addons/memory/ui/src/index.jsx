@@ -8,36 +8,18 @@
 // userSettings, key save-mode); the add-on does not store it and the host
 // validates it. The rules that make it safe are the host's: this page only
 // states them.
+import { locales } from './i18n/index.js'
+
 export const NOTES_ADDRESS = '/app/account?tab=memory'
+// Memory is built in; the save level lives in Settings > Memory.
+export const SETTINGS_ADDRESS = '/app/account?tab=memory'
 export const SAVE_MODE_KEY = 'save-mode'
 export const SAVE_MODES = ['ask', 'auto', 'never']
 
 export function createAddon(sdk) {
   const { React } = sdk
   const h = React.createElement
-  sdk.locale.define('en', {
-    'memory.title': 'Short memory',
-    'memory.intro': 'Your chats keep short notes about you: where you live, what you like, how you want answers. Before a reply, the model reads the note that matches the question. You do not have to ask it to.',
-    'memory.rules.confirm': 'By default a new note is saved only after you confirm it. A proposal waits for one day, then it expires. You can change this below.',
-    'memory.rules.where': 'The notes are plain files in the Memory folder of your files. You can read, edit and delete them there, or on the Memory tab of your account.',
-    'memory.rules.scopes': 'There are three kinds of notes: yours for every chat, one for each saved agent, and one for each conversation that comes from a messaging app. A saved agent reads notes only when you allow this add-on for it.',
-    'memory.rules.limits': 'The model reads a short list, at most 40 lines for each kind, and opens a topic when it needs the details.',
-    'memory.open': 'Open my notes',
-    'memory.save.title': 'Saving a note',
-    'memory.save.legend': 'When the assistant wants to save something to my memory',
-    'memory.save.ask': 'Ask me first',
-    'memory.save.ask.desc': 'The assistant proposes the note and waits. You confirm it in the chat, or answer yes or no in a messaging app. This is the default.',
-    'memory.save.auto': 'Save it and tell me',
-    'memory.save.auto.desc': 'In your own chats the note is saved at once, and the chat shows "Saved to memory" with an Undo. A reply saves at most 5 notes. A long note, or one that looks like it holds a secret, still waits for you.',
-    'memory.save.never': 'Never',
-    'memory.save.never.desc': 'The assistant cannot propose a note. It says that saving is off if you ask it to remember something.',
-    'memory.save.exception': 'Chats that come from a messaging app always ask first, whatever you choose here, because the person who wrote the message is not always you. Scheduled and background runs cannot save notes. A saved agent cannot widen your choice: if you choose to be asked, it asks, even when you let it write to memory.',
-    'memory.save.loading': 'Reading your choice',
-    'memory.save.saving': 'Saving your choice',
-    'memory.save.saved': 'Your choice is saved.',
-    'memory.save.failed': 'Your choice could not be saved. The earlier choice is still in force. Try again.',
-    'memory.save.unreadable': 'Your choice could not be read. Reload the page to try again.',
-  })
+  for (const [language, bundle] of Object.entries(locales)) sdk.locale.define(language, bundle)
   const t = (key) => sdk.locale.t(key, key)
 
   // The picker. It shows the choice the host reports, never one it assumed, and
@@ -86,11 +68,22 @@ export function createAddon(sdk) {
       failed ? h(sdk.ui.Callout, { tone: 'warning', role: 'alert', testId: 'memory-save-failed' }, t('memory.save.failed')) : null)
   }
 
+  // Memory is part of the host now. Older hosts have no Notice; they get the
+  // Callout with the same words.
+  function BuiltinNotice() {
+    const open = () => sdk.navigation.openApp(SETTINGS_ADDRESS)
+    if (sdk.ui.Notice) {
+      return h(sdk.ui.Notice, { severity: 'info', title: t('memory.builtin.title'), reason: t('memory.builtin.reason'), fixLabel: t('memory.builtin.fix'), onFix: open, testId: 'memory-builtin-notice' })
+    }
+    return h(sdk.ui.Callout, { tone: 'info', title: t('memory.builtin.title'), testId: 'memory-builtin-notice' }, t('memory.builtin.reason'))
+  }
+
   function Component({ page }) {
     if (page !== 'memory') return null
     return (
       <section data-testid="memory-page" className="memory-page">
         <h1 className="page-title memory-page__title">{t('memory.title')}</h1>
+        <BuiltinNotice />
         <p>{t('memory.intro')}</p>
         <ul className="memory-page__rules">
           <li>{t('memory.rules.confirm')}</li>

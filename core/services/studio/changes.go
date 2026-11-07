@@ -126,6 +126,9 @@ func (c *Changes) sweep(ctx context.Context) {
 	}
 	for _, p := range done {
 		c.audit(ctx, proposals.ActionExpire, p, 0, "")
+		if p.Kind == addonHoldKind && c.s.connectors != nil {
+			c.s.connectors.holdLapsed(ctx, p)
+		}
 	}
 }
 
@@ -189,11 +192,17 @@ func (c *Changes) Propose(ctx context.Context, in ProposeInput) (contract.Change
 	case p.Summary == "":
 		return contract.ChangeProposal{}, fmt.Errorf("%w: give a short summary of the change", ErrBadChange)
 	}
-	snap, err := c.snapshot(ctx, p.Owner, kind, rel, in.Content)
-	if err != nil {
-		return contract.ChangeProposal{}, err
+	var snap snap
+	if kind.Dest == nil {
+		if snap, err = c.snapshot(ctx, p.Owner, kind, rel, in.Content); err != nil {
+			return contract.ChangeProposal{}, err
+		}
 	}
 	if err := c.check(ctx, p.Owner, kind, aim, rel, in.Content, snap); err != nil {
+		return contract.ChangeProposal{}, err
+	}
+	if err := c.prepare(ctx, kind, p); err != nil {
+		c.audit(ctx, proposals.ActionRefuse, p, 0, err.Error())
 		return contract.ChangeProposal{}, err
 	}
 	p.BaseHash = snap.hash
@@ -211,7 +220,35 @@ func (c *Changes) Propose(ctx context.Context, in ProposeInput) (contract.Change
 		return contract.ChangeProposal{}, err
 	}
 	c.audit(ctx, proposals.ActionPropose, p, 0, "")
-	return p, nil
+	return withWarning(p), nil
+}
+
+// fetch reads one proposal of the owner from the store, with its warning.
+func (c *Changes) fetch(ctx context.Context, owner, id string) (contract.ChangeProposal, error) {
+	p, err := c.store.Get(ctx, owner, id)
+	if err != nil {
+		return p, err
+	}
+	return withWarning(p), nil
+}
+
+// withWarning adds the warning of the threat scan to a proposal. It is worked
+// out at each read, so a change of the patterns reaches the proposals that wait.
+func withWarning(p contract.ChangeProposal) contract.ChangeProposal {
+	p.Warning = knowledgeWarning(p)
+	return p
+}
+
+// prepare asks the destination of a kind that has one whether it can take the
+// change now. A kind that writes to the home has nothing to ask.
+func (c *Changes) prepare(ctx context.Context, kind proposals.Kind, p contract.ChangeProposal) error {
+	if kind.Dest == nil || kind.Dest.Prepare == nil {
+		return nil
+	}
+	if err := kind.Dest.Prepare(ctx, proposals.ApplyInput{Owner: p.Owner, Proposal: p}); err != nil {
+		return fmt.Errorf("%w: %s", ErrBadChange, err)
+	}
+	return nil
 }
 
 // snap is the state of what a change would write, for the base hash.
@@ -301,7 +338,7 @@ func targetName(p contract.ChangeProposal) string {
 	switch p.Kind {
 	case contract.ChangeSkill:
 		t = strings.TrimSuffix(t, "/SKILL.md")
-	case contract.ChangeMemory, contract.ChangeProfile, contract.ChangeDashboard:
+	case contract.ChangeMemory, contract.ChangeProfile, contract.ChangeDashboard, contract.ChangeKnowledge:
 		return t
 	}
 	if i := strings.LastIndexByte(t, '/'); i >= 0 {
@@ -314,13 +351,27 @@ func targetName(p contract.ChangeProposal) string {
 // settled first.
 func (c *Changes) List(ctx context.Context, user string, statuses ...contract.ProposalStatus) ([]contract.ChangeProposal, error) {
 	c.sweep(ctx)
-	return c.store.List(ctx, principal(user), statuses...)
+	list, err := c.store.List(ctx, principal(user), statuses...)
+	// The held writes of add-ons share the store but are answered through
+	// the add-on, not here.
+	list = slices.DeleteFunc(list, func(p contract.ChangeProposal) bool { return p.Kind == addonHoldKind })
+	for i := range list {
+		list[i] = withWarning(list[i])
+	}
+	return list, err
 }
 
 // Get returns one proposal of the user.
 func (c *Changes) Get(ctx context.Context, user, id string) (contract.ChangeProposal, error) {
 	c.sweep(ctx)
-	return c.store.Get(ctx, principal(user), id)
+	p, err := c.store.Get(ctx, principal(user), id)
+	if err != nil {
+		return p, err
+	}
+	if p.Kind == addonHoldKind {
+		return contract.ChangeProposal{}, proposals.ErrNotFound
+	}
+	return withWarning(p), nil
 }
 
 // Events returns the audit of the user, newest first.
@@ -378,6 +429,9 @@ func (c *Changes) confirm(ctx context.Context, user, id string, edited *string) 
 		}
 		p.Content = *edited
 	}
+	if kind.Dest != nil {
+		return c.confirmExternal(ctx, owner, p, kind)
+	}
 	// The base hash covers the files the model proposed; an edit by the owner
 	// may change the files to write, not what the proposal was based on.
 	was, err := c.snapshot(ctx, owner, kind, p.Target, orig)
@@ -423,7 +477,36 @@ func (c *Changes) confirm(ctx context.Context, user, id string, edited *string) 
 	}
 	p.Status, p.Rev = contract.ProposalApplied, rev
 	c.audit(ctx, proposals.ActionConfirm, p, rev, "")
-	return c.store.Get(ctx, owner, id)
+	return c.fetch(ctx, owner, id)
+}
+
+// confirmExternal applies a proposal of a kind with a destination of its own.
+// It has no base hash and no change set: the destination is asked again, since
+// it may have changed since the proposal, and the write is claimed first so two
+// confirmations apply once.
+func (c *Changes) confirmExternal(ctx context.Context, owner string, p contract.ChangeProposal, kind proposals.Kind) (contract.ChangeProposal, error) {
+	if err := c.check(ctx, owner, kind, aimOf(p), p.Target, p.Content, snap{}); err != nil {
+		return contract.ChangeProposal{}, err
+	}
+	if err := c.prepare(ctx, kind, p); err != nil {
+		return contract.ChangeProposal{}, err
+	}
+	won, err := c.store.Settle(ctx, owner, p.ID, contract.ProposalPending, contract.ProposalApplied, c.s.now().UTC(), 0)
+	if err != nil {
+		return contract.ChangeProposal{}, err
+	}
+	if !won {
+		return contract.ChangeProposal{}, ErrChangeAnswered
+	}
+	if err := kind.Dest.Apply(ctx, proposals.ApplyInput{Owner: owner, Proposal: p}); err != nil {
+		if _, rerr := c.store.Settle(ctx, owner, p.ID, contract.ProposalApplied, contract.ProposalPending, time.Time{}, 0); rerr != nil {
+			c.s.log.Warn("studio: could not reopen a change that failed to apply", "proposal", p.ID, "error", rerr)
+		}
+		return contract.ChangeProposal{}, fmt.Errorf("studio: could not apply the change: %w", err)
+	}
+	p.Status = contract.ProposalApplied
+	c.audit(ctx, proposals.ActionConfirm, p, 0, "")
+	return c.fetch(ctx, owner, p.ID)
 }
 
 // write puts the files of a change into the home as one change set.
@@ -453,7 +536,7 @@ func (c *Changes) Dismiss(ctx context.Context, user, id string) (contract.Change
 		return contract.ChangeProposal{}, notPending(p)
 	}
 	c.audit(ctx, proposals.ActionDismiss, p, 0, "")
-	return c.store.Get(ctx, owner, id)
+	return c.fetch(ctx, owner, id)
 }
 
 // Revert undoes an applied change with the change set it wrote.
@@ -466,8 +549,12 @@ func (c *Changes) Revert(ctx context.Context, user, id string) (contract.ChangeP
 	if err != nil {
 		return contract.ChangeProposal{}, err
 	}
-	if p.Status != contract.ProposalApplied || p.Rev == 0 {
+	kind, _ := c.kinds.Lookup(string(p.Kind))
+	if p.Status != contract.ProposalApplied || (p.Rev == 0 && kind.Dest == nil) {
 		return contract.ChangeProposal{}, ErrNotApplied
+	}
+	if kind.Dest != nil {
+		return c.revertExternal(ctx, owner, p, kind)
 	}
 	now := c.s.now().UTC()
 	won, err := c.store.Settle(ctx, owner, id, contract.ProposalApplied, contract.ProposalReverted, now, 0)
@@ -492,18 +579,40 @@ func (c *Changes) Revert(ctx context.Context, user, id string) (contract.ChangeP
 		c.s.log.Warn("studio: could not record the change set of a revert", "proposal", id, "error", err)
 	}
 	c.audit(ctx, proposals.ActionRevert, p, cs.Rev, "")
-	return c.store.Get(ctx, owner, id)
+	return c.fetch(ctx, owner, id)
+}
+
+// revertExternal takes back a change of a kind with a destination of its own.
+func (c *Changes) revertExternal(ctx context.Context, owner string, p contract.ChangeProposal, kind proposals.Kind) (contract.ChangeProposal, error) {
+	now := c.s.now().UTC()
+	won, err := c.store.Settle(ctx, owner, p.ID, contract.ProposalApplied, contract.ProposalReverted, now, 0)
+	if err != nil {
+		return contract.ChangeProposal{}, err
+	}
+	if !won {
+		return contract.ChangeProposal{}, ErrNotApplied
+	}
+	if err := kind.Dest.Undo(ctx, proposals.ApplyInput{Owner: owner, Proposal: p}); err != nil {
+		if _, rerr := c.store.Settle(ctx, owner, p.ID, contract.ProposalReverted, contract.ProposalApplied, p.Answered, 0); rerr != nil {
+			c.s.log.Warn("studio: could not reopen a change that failed to revert", "proposal", p.ID, "error", rerr)
+		}
+		return contract.ChangeProposal{}, fmt.Errorf("studio: could not revert the change: %w", err)
+	}
+	c.audit(ctx, proposals.ActionRevert, p, 0, "")
+	return c.fetch(ctx, owner, p.ID)
 }
 
 // RevertLast reverts the change applied last for the user in the scope of
 // agent: the changes proposed in chats of that agent, or in plain chats when
 // agent is empty.
-func (c *Changes) RevertLast(ctx context.Context, user, agent string) (contract.ChangeProposal, error) {
+// The kinds in skip are left out: a chat that may not touch them does not undo
+// them either.
+func (c *Changes) RevertLast(ctx context.Context, user, agent string, skip ...contract.ChangeKind) (contract.ChangeProposal, error) {
 	applied, err := c.List(ctx, user, contract.ProposalApplied)
 	if err != nil {
 		return contract.ChangeProposal{}, err
 	}
-	applied = slices.DeleteFunc(applied, func(p contract.ChangeProposal) bool { return p.Agent != agent })
+	applied = slices.DeleteFunc(applied, func(p contract.ChangeProposal) bool { return p.Agent != agent || slices.Contains(skip, p.Kind) })
 	if len(applied) == 0 {
 		return contract.ChangeProposal{}, ErrNothingToRevert
 	}
@@ -538,7 +647,7 @@ func (c *Changes) grantsAKind(grant string) bool {
 func (c *Changes) kindsHeld(ch builtins.Chat) []contract.ChangeKind {
 	var out []contract.ChangeKind
 	for _, n := range c.kinds.Names() {
-		if k, ok := c.kinds.Lookup(string(n)); ok && (k.Grant == "" || ch.HoldsGrant(k.Grant)) {
+		if k, ok := c.kinds.Lookup(string(n)); ok && !k.Internal && (k.Grant == "" || ch.HoldsGrant(k.Grant)) {
 			out = append(out, n)
 		}
 	}

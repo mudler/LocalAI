@@ -91,6 +91,18 @@ var _ = Describe("changes made at once for a chat", func() {
 		Expect(f.confirmed).To(BeEmpty())
 	})
 
+	It("stores the proposal and applies nothing when the host holds the call for a person", func() {
+		f, _, chats := build()
+		res, err := chats.ExecuteChat(tools.HoldForPerson(ctx), member, tools.NewChatCall("bob", "conv1"), insert, rows)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(tools.HeldForPerson(tools.HoldForPerson(ctx))).To(BeTrue())
+		Expect(tools.HeldForPerson(ctx)).To(BeFalse())
+		Expect(res.Kind).To(Equal(tools.ResultProposal))
+		Expect(res.Applied).To(BeNil())
+		Expect(f.confirmed).To(BeEmpty())
+		Expect(f.cancelled).To(BeEmpty())
+	})
+
 	It("tells the model that writes are off when the host refuses the call for that reason", func() {
 		f, _, chats := build()
 		f.proposeErr = &gateway.CredentialRefusal{Code: gateway.CodeWriteNotAllowed}

@@ -87,6 +87,9 @@ func (a App) Localize(explicit, acceptLanguage string) App {
 	for tag := range a.Descriptions {
 		available[tag] = true
 	}
+	for tag := range a.Setups {
+		available[tag] = true
+	}
 	tags := make([]string, 0, len(available))
 	for tag := range available {
 		tags = append(tags, tag)
@@ -105,6 +108,10 @@ func (a App) Localize(explicit, acceptLanguage string) App {
 	a.Language = tag
 	a.LocalizedTitle = pick(a.Titles, a.Title)
 	a.LocalizedDescription = pick(a.Descriptions, a.Description)
+	if a.Setup != "" {
+		a.Setups = maps.Clone(a.Setups)
+		a.LocalizedSetup = pick(a.Setups, a.Setup)
+	}
 	return a
 }
 
@@ -144,6 +151,14 @@ type App struct {
 	Language             string `json:"language,omitempty" example:"it"`
 	LocalizedTitle       string `json:"localizedTitle,omitempty" example:"Appunti"`
 	LocalizedDescription string `json:"localizedDescription,omitempty" example:"Tieni degli appunti."`
+	// Setup says in one short phrase what the person needs before the add-on
+	// works, such as "an access token". It is English plain text, absent when
+	// the manifest declares none. Setups carries the translations by BCP 47
+	// tag and LocalizedSetup follows the rule of LocalizedTitle; it is absent
+	// when the add-on has no setup text.
+	Setup          string            `json:"setup,omitempty" example:"an access token"`
+	Setups         map[string]string `json:"setups,omitempty"`
+	LocalizedSetup string            `json:"localizedSetup,omitempty" example:"un token di accesso"`
 	// Icon is a same-origin URL of the verified immutable icon of this
 	// generation. It is absent when the manifest declares none.
 	Icon    string `json:"icon,omitempty" example:"/api/addons/apps/notes/icon?generation=3"`
@@ -200,6 +215,10 @@ type App struct {
 	// The addresses of the login are not here: an administrator reads them
 	// with the OAuth client.
 	OAuth *OAuthView `json:"oauth,omitempty"`
+	// OwnerData is true when the manifest says the tools keep the owner's own
+	// data (capabilities.ownerData). Its writes need tools.write in a
+	// connector chat, like the writes of a credentialed add-on.
+	OwnerData bool `json:"ownerData,omitempty"`
 	// ResourceArgument and ResourceLabel come from the credential slot: the
 	// argument that names the resource of a call, and the word for it in the
 	// lines that say which connection acted. They are not part of the apps API.
@@ -208,6 +227,9 @@ type App struct {
 	// Resources is the resource mapping of the manifest, with the listing
 	// declaration the host acts on. It is not part of the apps API.
 	Resources *contract.ResourceTools `json:"-"`
+	// ResourceTexts are the translated nouns of the resources, by language
+	// tag (the i18n field of the manifest). Not part of the apps API.
+	ResourceTexts map[string]contract.ResourceText `json:"-"`
 	// Skills are the skills the package ships, from the verified manifest.
 	// The owner copies their files into the chats' skill layer.
 	Skills []contract.SkillDefinition `json:"skills,omitempty"`
@@ -217,6 +239,10 @@ type App struct {
 	// the prompt of a chat, from the verified manifest. The host reads them as
 	// the person; the add-on is not called.
 	ContextFiles []contract.ContextFile `json:"contextFiles,omitempty"`
+	// Provides are the provider slots the add-on declares, from the verified
+	// manifest. The host lists them for the person who picks a provider. It
+	// is not part of the apps API.
+	Provides []contract.ProviderDeclaration `json:"-"`
 	// UserSettings are the per-person choices the add-on declares, from the
 	// verified manifest. The host keeps the answers; the add-on is not called.
 	UserSettings []contract.UserSetting `json:"userSettings,omitempty"`
@@ -373,6 +399,7 @@ func build(s Snapshot, admin bool) App {
 		a.ToolDefinitions = append(a.ToolDefinitions, d)
 	}
 	a.Credentialed = len(m.Capabilities.Credentials) > 0
+	a.OwnerData = m.Capabilities.OwnerData
 	if a.Credentialed {
 		slot := m.Capabilities.Credentials[0]
 		a.ResourceArgument, a.ResourceLabel = slot.ResourceArgument, slot.ResourceLabel
@@ -381,12 +408,17 @@ func build(s Snapshot, admin bool) App {
 		}
 	}
 	a.Resources = resourceTools(m)
+	a.ResourceTexts = resourceTexts(m)
 	a.Skills = slices.Clone(m.Capabilities.SkillDefinitions)
 	a.SkillShadows = contract.ShadowedSkills(m.Capabilities.SkillDefinitions)
 	a.ContextFiles = slices.Clone(m.Capabilities.ContextFiles)
+	a.Provides = slices.Clone(m.Capabilities.Provides)
 	for _, us := range m.Capabilities.UserSettings {
 		us.Values = slices.Clone(us.Values)
 		a.UserSettings = append(a.UserSettings, us)
+	}
+	if m.Setup != nil {
+		a.Setup, a.Setups = m.Setup.Default(), m.Setup.ByLanguage
 	}
 	if u := m.Capabilities.UI; u != nil {
 		a.HasUI = true
@@ -534,6 +566,21 @@ func contributions(u *contract.UI) ([]ChatActionView, []SlotView, []contract.Ren
 		slots = append(slots, SlotView{ID: s.ID, Slot: s.Slot, Component: s.Component, Extensions: slices.Clone(s.Extensions)})
 	}
 	return actions, slots, slices.Clone(u.Renderers)
+}
+
+// resourceTexts copies the translated resource nouns of the manifest.
+func resourceTexts(m contract.Manifest) map[string]contract.ResourceText {
+	var out map[string]contract.ResourceText
+	for tag, t := range m.I18n {
+		if t.Resources == nil {
+			continue
+		}
+		if out == nil {
+			out = map[string]contract.ResourceText{}
+		}
+		out[tag] = *t.Resources
+	}
+	return out
 }
 
 // resourceTools copies the resource mapping of the manifest.

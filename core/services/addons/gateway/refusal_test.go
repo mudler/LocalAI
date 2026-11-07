@@ -99,6 +99,35 @@ var _ = Describe("an add-on's invalid-request refusal", func() {
 	})
 })
 
+// reasonedRuntime refuses every read with a reason and an upstream refusal, the
+// way the runtime client reports a 400 of an add-on that says why.
+type reasonedRuntime struct{ contract.Runtime }
+
+func (reasonedRuntime) Read(context.Context, contract.Envelope) (contract.Result, error) {
+	return contract.Result{}, &addonruntime.Refusal{Status: 400, Reason: "home assistant refused the token", Upstream: 401, Hint: "The token of this connection was refused (401). Replace it."}
+}
+
+var _ = Describe("the reason of an add-on's refusal", func() {
+	actor := contract.Actor{UserID: "u", CredentialID: "key:k", Mode: "named-user"}
+	read := contract.Request{AddonID: "sample", Generation: 1, OperationID: "reasoned-read", Action: "read", Arguments: []byte(`{}`)}
+
+	It("reaches a forwarding frontend with its upstream status and hint", func() {
+		g := &Gateway{Revalidate: func(context.Context, contract.Actor) error { return nil }, Admission: &admitted{}, Resolver: resolved{}, Runtime: currentFixture{reasonedRuntime{}}}
+		_, cs := carrierFixture(func(c *Carrier) http.Handler {
+			h, e := c.OwnerHandler(g)
+			Expect(e).NotTo(HaveOccurred())
+			return h
+		})
+		_, e := cs["front-a"].Dispatch(context.Background(), actor, read)
+		Expect(errors.Is(e, ErrInvalidRequest)).To(BeTrue(), "%v", e)
+		var r *addonruntime.Refusal
+		Expect(errors.As(e, &r)).To(BeTrue(), "the reason was dropped: %v", e)
+		Expect(r.Reason).To(Equal("home assistant refused the token"))
+		Expect(r.Upstream).To(Equal(401))
+		Expect(r.Hint).To(ContainSubstring("Replace it"))
+	})
+})
+
 // denyingRuntime answers every read as the add-on's own denial of the person,
 // the way the runtime client reports the 403 "forbidden" of an add-on.
 type denyingRuntime struct{ contract.Runtime }

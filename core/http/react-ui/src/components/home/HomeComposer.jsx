@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { useTranslation, Trans } from 'react-i18next'
-import { availableActions, SLASH_GROUPS } from './homeActions'
+import { availableActions, commandNames, SLASH_GROUPS } from './homeActions'
 import { filterCommands, slashQuery } from '../../utils/slashCommands'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
@@ -101,7 +101,7 @@ export default function HomeComposer({
   const open = sq !== null && items.length > 0 && !dismissed
   // The row that starts selected: the first command whose name starts with
   // what was typed, before those that only match by their label.
-  const preferred = query ? Math.max(0, items.findIndex((a) => a.cmd?.slice(1).toLowerCase().startsWith(query))) : 0
+  const preferred = query ? Math.max(0, items.findIndex((a) => a.cmd && commandNames(a).some((n) => n.startsWith(query)))) : 0
   const safeActive = Math.min(active === null ? preferred : active, Math.max(0, items.length - 1))
 
   useEffect(() => { setActive(null); setDismissed(false) }, [message])

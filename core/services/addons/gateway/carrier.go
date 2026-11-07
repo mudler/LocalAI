@@ -191,7 +191,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 	if c.config.InstanceID != c.config.OwnerID || g == nil {
 		return nil, ErrForbidden
 	}
-	v, e := NewForwardVerifier(VerifierConfig{Keys: c.config.VerificationKeys, Revalidate: g.Revalidate})
+	v, e := NewForwardVerifier(VerifierConfig{Keys: c.config.VerificationKeys, Revalidate: g.Revalidate, Account: g.revalidateAccount})
 	if e != nil {
 		return nil, e
 	}
@@ -570,7 +570,7 @@ func typedError(w http.ResponseWriter, e error) {
 		// decodes the body back to the same typed error.
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(resourceWire{Type: wireInvalid})
+		_ = json.NewEncoder(w).Encode(resourceWire{Type: wireInvalid, refusalWire: refusalWireOf(e)})
 		return
 	}
 	var limited *contract.ErrRateLimited
@@ -658,7 +658,7 @@ func operationCause(e error) string {
 func IsOperationCause(code string) bool {
 	switch code {
 	case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage,
-		addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible:
+		addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible, addons.CauseNeedsNewerHost:
 		return true
 	}
 	return false
@@ -865,7 +865,7 @@ func (c *Carrier) sendCtx(ctx context.Context, a contract.Actor, wire wireReques
 				case wirePackage:
 					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, packages.ErrPackage)
 				case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage,
-					addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible:
+					addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible, addons.CauseNeedsNewerHost:
 					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, &addons.FailureCause{Code: b.Type})
 				case wireNotPermitted:
 					return nil, ErrNotPermitted
@@ -897,7 +897,7 @@ func (c *Carrier) sendCtx(ctx context.Context, a contract.Actor, wire wireReques
 			// was applied and the same call is refused again.
 			var b resourceWire
 			if decode(io.LimitReader(resp.Body, 32768), &b) == nil && b.Type == wireInvalid {
-				return nil, ErrInvalidRequest
+				return nil, b.refusalWire.err()
 			}
 		}
 		// Any other status, including a typed 503, leaves a mutation uncertain:
@@ -976,7 +976,9 @@ var readManagement = map[string]bool{"catalog-search": true, "catalog-details": 
 
 // resourceRead are the resource management calls that have no operation with
 // an outcome to report: the reads and the two idempotent selection calls.
-var resourceRead = map[string]bool{"resource-list": true, "resource-grants": true, "resource-users": true, "resource-status": true, "resource-selection-get": true, "resource-selection-resolve": true, "resource-selection-put": true, "resource-selection-clear": true}
+var resourceRead = map[string]bool{"resource-list": true, "resource-grants": true, "resource-users": true, "resource-status": true, "resource-selection-get": true, "resource-selection-resolve": true, "resource-selection-put": true, "resource-selection-clear": true,
+	"resource-share-list": true, "resource-share-grants": true, "resource-share-users": true,
+	"resource-share-views": true, "resource-share-watch": true, "resource-share-release": true}
 
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.

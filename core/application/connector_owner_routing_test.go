@@ -72,6 +72,11 @@ func (s *ownerConnectorSource) Connector(ctx context.Context, addon string, req 
 	block, callError, response, unavailable := s.block, s.callError, s.response, s.callUnavailable
 	entered, exited := s.entered, s.exited
 	s.mu.Unlock()
+	// The identity read of a binding (op me) is quick and answers at once. It
+	// is not the held call that a spec counts with entered and exited.
+	if req.Op == contract.ConnectorOpMe {
+		block, entered, exited = false, nil, nil
+	}
 	if exited != nil {
 		defer func() { exited <- struct{}{} }()
 	}
@@ -385,7 +390,7 @@ var _ = Describe("connector owner routing", func() {
 		b, e := bindings.GetBinding(ctx, original.ID)
 		Expect(e).NotTo(HaveOccurred())
 		scope := studio.BindingConnectorScope(b)
-		for _, op := range []string{contract.ConnectorOpSend, contract.ConnectorOpEdit, contract.ConnectorOpTyping, contract.ConnectorOpDraft, contract.ConnectorOpHistory} {
+		for _, op := range []string{contract.ConnectorOpSend, contract.ConnectorOpEdit, contract.ConnectorOpTyping, contract.ConnectorOpDraft, contract.ConnectorOpHistory, contract.ConnectorOpDelete} {
 			req := contract.ConnectorRequest{Op: op, Kind: "slack", Chat: "chat", Thread: "thread", Text: "private text", MessageID: "working", DraftID: 7, Media: "ref"}
 			before = len(source.requests())
 			_, e = tr.Call(ctx, scope, req)
@@ -445,7 +450,14 @@ var _ = Describe("connector owner routing", func() {
 			Eventually(exited, 5*time.Second).Should(Receive())
 		}
 		source.configure(func() { source.block = false; source.entered = nil; source.exited = nil })
-		Expect(source.requests()[before].Op).To(Equal(contract.ConnectorOpPoll))
+		// A binding without a stored account is first asked who the bot is (op
+		// me), then polled. Both reach the owner, and nothing else does.
+		var ops []string
+		for _, r := range source.requests()[before:] {
+			ops = append(ops, r.Op)
+		}
+		Expect(ops).To(ContainElement(contract.ConnectorOpPoll))
+		Expect(ops).To(HaveEach(Or(Equal(contract.ConnectorOpPoll), Equal(contract.ConnectorOpMe))))
 		input.Token = ""
 		input.NotifyChat = "C0123456"
 		_, e = client.UpdateConnector(ctx, "named", b.ID, input)

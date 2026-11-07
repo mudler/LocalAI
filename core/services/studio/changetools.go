@@ -34,10 +34,11 @@ const proposeChangeDescription = "Ask to change something that lasts: a note in 
 	"content is the full new text of the file, not a patch: read the current file first and keep what stays. " +
 	"kind is memory (a Markdown file under Memory/), profile (the agent's standing rules, at most 4 KiB, scope agent), " +
 	"skill (a full SKILL.md with name and description, target is the skill name, scope user or agent; a skill its owner locked cannot be changed), " +
-	"page (a small app: target is the page name, scope user, files is an object of path to text and must hold index.html) " +
-	"or dashboard (the full home.json, scope user; it must follow the schema of the localai-workspace skill). " +
+	"page (a small app: target is the page name, scope user, files is an object of path to text and must hold index.html), " +
+	"dashboard (the full home.json, scope user; it must follow the schema of the localai-workspace skill) " +
+	"or knowledge (a document or long text to look up later, not a short fact about the person: target is the name of a collection from list_collections, scope user, content is the text, at most 64 KiB; the owner always confirms it before it is indexed). " +
 	scopeSentence +
-	"target is the file name for memory, such as index.md or food.md, the name for a skill or a page; a profile and the dashboard have no target. " +
+	"target is the file name for memory, such as index.md or food.md, the name for a skill or a page, the collection for knowledge; a profile and the dashboard have no target. " +
 	"summary is one line that tells the owner what changes."
 
 // proposeChangeSchema is the schema of the tool for a chat that may propose
@@ -52,6 +53,7 @@ var kindScopes = map[contract.ChangeKind][]string{
 	contract.ChangeSkill:     {"user", "agent"},
 	contract.ChangePage:      {"user"},
 	contract.ChangeDashboard: {"user"},
+	contract.ChangeKnowledge: {"user"},
 }
 
 // proposeChangeSchemaFor is proposeChangeSchema for a chat whose agent has a
@@ -84,7 +86,7 @@ func proposeChangeSchemaFor(kinds []contract.ChangeKind, memory []string) string
 	return `{"type":"object","properties":{` +
 		`"kind":{"type":"string","enum":` + string(enum) + `},` +
 		`"scope":{"type":"string","enum":` + scopes + `},` +
-		`"target":{"type":"string","maxLength":64,"description":"File name for a memory change, such as index.md; the name of a skill or a page."},` +
+		`"target":{"type":"string","maxLength":64,"description":"File name for a memory change, such as index.md; the name of a skill or a page; the collection for a knowledge change."},` +
 		`"content":{"type":"string","description":"The full new text of the file. For a page use files instead."},` +
 		`"files":{"type":"object","additionalProperties":{"type":"string"},"description":"For a page: file paths inside the page folder and their text, such as index.html."},` +
 		`"summary":{"type":"string","minLength":1,"maxLength":160,"description":"One line for the owner."}},` +
@@ -153,6 +155,9 @@ func (s *Service) registerChangeTools() error {
 				if !s.memoryWritable(ctx, c) {
 					kinds = withoutMemory(kinds)
 				}
+				if !s.knowledgeOffered(ctx, c) {
+					kinds = withoutKind(kinds, contract.ChangeKnowledge)
+				}
 				if len(kinds) == 0 {
 					return session.Tool{}, false, "this agent was not given the right to change anything"
 				}
@@ -161,7 +166,7 @@ func (s *Service) registerChangeTools() error {
 					// The person can turn memory notes off: the model then does
 					// not see the memory kind and cannot propose one.
 					if s.changes.saveModeOf(ctx, c) == SaveNever {
-						kinds = withoutMemory(kinds)
+						kinds = withoutKind(withoutMemory(kinds), contract.ChangeKnowledge)
 						if len(kinds) == 0 {
 							return session.Tool{}, false, "saving to memory is turned off in the settings of the person"
 						}
@@ -201,7 +206,7 @@ func memoryScopeWords(scope string) string {
 // changeKindCaps are the capabilities that the kinds of change need in a
 // connector chat. The tool is offered when the sender holds one of them; the
 // call checks the one its kind needs.
-var changeKindCaps = []string{contract.CapMemoryWrite, contract.CapProfileWrite, contract.CapSkillsWrite, contract.CapPagesWrite, contract.CapDashboardWrite}
+var changeKindCaps = []string{contract.CapMemoryWrite, contract.CapProfileWrite, contract.CapSkillsWrite, contract.CapPagesWrite, contract.CapDashboardWrite, contract.CapKnowledgeWrite}
 
 // changeCapability is the capability that a change of a kind needs. A kind
 // that is not listed needs one that nobody holds.
@@ -215,6 +220,8 @@ func changeCapability(kind string) string {
 		return contract.CapPagesWrite
 	case "dashboard":
 		return contract.CapDashboardWrite
+	case "knowledge":
+		return contract.CapKnowledgeWrite
 	}
 	return contract.CapSkillsWrite
 }
@@ -240,8 +247,16 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return "", fmt.Errorf("bad arguments: %w", err)
 	}
+	if k, ok := h.kinds.Lookup(args.Kind); ok && k.Internal {
+		return "", fmt.Errorf("kind must be one of %v", h.kindsHeld(c))
+	}
 	if err := c.Require(changeCapability(args.Kind)); err != nil {
 		return "", err
+	}
+	if args.Kind == string(contract.ChangeKnowledge) {
+		if err := h.knowledgeGate(ctx, c, &args.Scope); err != nil {
+			return "", err
+		}
 	}
 	if memoryKindOf(args.Kind) && !h.s.memoryWritable(ctx, c) {
 		return "", errors.New("memory is off here, so nothing was proposed or saved. Do not try again; say so in plain words if they ask.")
@@ -311,6 +326,9 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 		// writes the question there and the person answers it there.
 		return h.connectorProposed(ctx, c, p, autoNote), nil
 	}
+	if p.Warning != "" {
+		autoNote += " The text looks like it holds a secret: the owner sees a warning next to it. Do not repeat the secret."
+	}
 	return fmt.Sprintf("Proposal %s stored: %s (%s, %s). Nothing is saved yet: the owner must confirm it in Studio, and it expires in 24 hours. Do not say it is saved.%s",
 		p.ID, p.Summary, p.Kind, p.Scope, autoNote), nil
 }
@@ -340,6 +358,39 @@ func (h *Changes) saveNow(ctx context.Context, in ProposeInput, turn *autoTurn) 
 	session.SetToolCard(ctx, session.ToolCard{Kind: ChangeProposalCardKind, ID: done.ID})
 	return fmt.Sprintf("Saved to memory: %s (%s, %s, id %s). The person chose to save notes at once, so no confirmation is needed, and the chat shows them an Undo. "+
 		"To undo it, call revert_change with this id.", done.Summary, done.Kind, done.Scope, done.ID), nil
+}
+
+// knowledgeGate is the check of the tool for a knowledge change, on top of the
+// grant and the capability. The level of the person for memory applies: Never
+// takes the kind away. Always confirm and Ask change nothing here, because a
+// knowledge change is never saved at once.
+func (h *Changes) knowledgeGate(ctx context.Context, c builtins.Chat, scope *string) error {
+	if h.saveModeOf(ctx, c) == SaveNever {
+		h.audit(ctx, proposals.ActionRefuse, contract.ChangeProposal{Owner: principal(c.Actor.Principal), Agent: c.AgentID, Kind: contract.ChangeKnowledge,
+			Scope: contract.ScopeUser, Source: h.sourceOf(c)}, 0, "the person turned saving off")
+		return errors.New("the person turned off saving, so nothing was proposed. Do not try again; say so in plain words if they ask.")
+	}
+	if !h.s.knowledgeOffered(ctx, c) {
+		return errors.New("adding to Knowledge is not available here, so nothing was proposed. Do not try again; say so in plain words if they ask.")
+	}
+	if *scope == "" {
+		*scope = string(contract.ScopeUser)
+	}
+	return nil
+}
+
+// knowledgeOffered says whether a chat may propose a knowledge change at all:
+// the server can add to collections, the Knowledge switch of the chat is on,
+// and an agent has at least one collection on its list.
+func (s *Service) knowledgeOffered(ctx context.Context, c builtins.Chat) bool {
+	if !s.knowledgeAvailable(ctx, c.Actor.Principal) || slices.Contains(c.GroupsOff, builtins.GroupCollections) {
+		return false
+	}
+	if c.AgentID == "" || s.d.Agents == nil {
+		return true
+	}
+	ag, err := s.chatAgent(ctx, principal(c.Actor.Principal), c.AgentID)
+	return err == nil && len(ag.Collections) > 0
 }
 
 func (h *Changes) revertTool(ctx context.Context, c builtins.Chat, raw json.RawMessage) (string, error) {
@@ -390,12 +441,21 @@ func (h *Changes) revertTool(ctx context.Context, c builtins.Chat, raw json.RawM
 	} else {
 		// The last change can be of any kind: the sender needs the right to
 		// make each.
+		// Knowledge is an optional kind: a sender without it can still undo
+		// the last change, which then skips the knowledge ones.
+		var skip []contract.ChangeKind
+		if held, _ := c.Holds(contract.CapKnowledgeWrite); !held {
+			skip = append(skip, contract.ChangeKnowledge)
+		}
 		for _, need := range changeKindCaps {
+			if need == contract.CapKnowledgeWrite && len(skip) > 0 {
+				continue
+			}
 			if err := c.Require(need); err != nil {
 				return "", fmt.Errorf("%w (to undo the last change without its id, every kind of change must be allowed)", err)
 			}
 		}
-		p, err = h.RevertLast(ctx, c.Actor.Principal, c.AgentID)
+		p, err = h.RevertLast(ctx, c.Actor.Principal, c.AgentID, skip...)
 	}
 	if err != nil {
 		return "", changeErr(err)

@@ -12,8 +12,8 @@
   "tokenShape": "Usa un token fine-grained: inizia con github_pat_.",
   "tokenSpace": "Il token non contiene spazi. Copialo di nuovo senza gli spazi attorno.",
   "repos": "Repository che l'agente può usare",
-  "reposHelp": "Uno per riga, nella forma proprietario/nome. {{count}} in elenco. Ogni altro repository viene rifiutato.",
-  "reposShape": "«{{entry}}» non è scritto nella forma proprietario/nome, per esempio mudler/LocalAI.",
+  "reposHelp": "Uno per riga: owner/nome, owner/* per tutti i repository di un owner, oppure * per qualsiasi repository raggiungibile dal token. {{count}} in elenco. Ogni altro repository viene rifiutato.",
+  "reposShape": "\"{{entry}}\" non è scritto owner/nome (o owner/*, o *), per esempio mudler/LocalAI.",
   "reposMany": "Al massimo 50 repository.",
   "agent": "Agente",
   "agentNone": "Scegli un agente",
@@ -33,7 +33,10 @@
     "readOnly": "{{repo}}: raggiungibile, sola lettura.",
     "readWrite": "{{repo}}: raggiungibile, e il token può scrivere.",
     "refused": "{{repo}}: GitHub ha rifiutato questo token. Controlla che non sia scaduto e che copra questo repository.",
-    "failed": "{{repo}}: la verifica non è terminata. Riprova tra un momento."
+    "failed": "{{repo}}: la verifica non è terminata. Riprova tra un momento.",
+    "owner": "{{repo}}: tutti i repository di questo owner. Il token raggiunge solo quelli che GitHub elenca per lui.",
+    "any": "Qualsiasi repository: il token raggiunge {{count}} repository.",
+    "anyMore": "Qualsiasi repository: il token raggiunge almeno {{count}} repository."
   },
   "save": "Salva",
   "cancel": "Annulla",
@@ -77,8 +80,8 @@
     "label": "Cosa può modificare l'agente su GitHub",
     "hint": "Commenti, nuove issue, etichette e chiusura di issue. Non fa mai merge, non elimina e non invia codice.",
     "off": "Sola lettura",
-    "propose": "Chiede prima a te",
-    "auto": "Agisce senza chiedere",
+    "propose": "Chiede prima",
+    "auto": "Parte subito",
     "line": {
       "off": "Non può cambiare nulla su GitHub.",
       "propose": "Ogni modifica aspetta il tuo OK.",
@@ -91,8 +94,8 @@
     },
     "row": {
       "off": "Sola lettura",
-      "propose": "Chiede prima a te",
-      "auto": "Agisce senza chiedere"
+      "propose": "Chiede prima",
+      "auto": "Parte subito"
     }
   },
   "approval": {
@@ -127,5 +130,17 @@
     "not_planned": "non pianificata",
     "public": "Pubblico: chiunque veda {{repo}} lo vedrà.",
     "cut": "Il testo mostrato qui è troncato. Viene pubblicato il testo completo, {{bytes}} byte."
-  }
+  },
+  "tokenClassic": "Questo è un token classic (ghp_). Consenti i token classic qui sotto per usarlo, oppure crea un token che inizia con github_pat_.",
+  "classic": {
+    "allow": "Consenti un token classic (ghp_) in questa connessione",
+    "warning": "Un token classic non è limitato ai repository che elenchi. I suoi permessi coprono ogni repository raggiungibile dal tuo account. LocalAI rifiuta comunque i repository che non sono nell'elenco e rispetta la modalità di scrittura, ma GitHub stesso lascerebbe fare di più a questo token se venisse rubato. Un token fine-grained è più sicuro.",
+    "confirm": "Capisco che un token classic è più ampio dell'elenco dei repository."
+  },
+  "reposAnyAlone": "* copre già ogni repository. Rimuovi le altre righe.",
+  "any": {
+    "warning": "* permette all'agente di usare ogni repository raggiungibile dal token, anche quelli creati in seguito. La modalità di scrittura qui sotto decide comunque cosa può cambiare: con Sola lettura non cambia nulla.",
+    "confirm": "Voglio che l'agente possa usare qualsiasi repository raggiungibile da questo token."
+  },
+  "anyRepos": "Qualsiasi repository raggiungibile dal token"
 }

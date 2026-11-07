@@ -10,6 +10,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // ResourceEntry is one external resource a binding lets its add-on reach. Key is
@@ -101,6 +103,80 @@ func (*NotAllowedError) Error() string { return "connectors: the resource is not
 // names none. The host never picks one for them.
 var ErrNoConnection = errors.New("connectors: no connection is selected")
 
+// AnyResource is the wildcard entry that lists every resource the credential
+// reaches. A kind must declare wildcardResources for the host to honor it.
+const AnyResource = contract.AnyResource
+
+// ownerWildcard returns the owner of an entry written owner/*: one owner, a
+// slash and a star, with no other star or slash.
+func ownerWildcard(entry string) (owner string, ok bool) {
+	owner, rest, found := strings.Cut(entry, "/")
+	if !found || rest != "*" || owner == "" || strings.ContainsAny(owner, "*/") {
+		return "", false
+	}
+	return owner, true
+}
+
+// IsWildcard reports an entry that stands for many resources: * or owner/*.
+func IsWildcard(entry string) bool {
+	_, ok := ownerWildcard(entry)
+	return ok || entry == AnyResource
+}
+
+// HasAnyResource reports a list that holds the entry *.
+func HasAnyResource(entries []ResourceEntry) bool {
+	return slices.ContainsFunc(entries, func(e ResourceEntry) bool { return e.Key == AnyResource })
+}
+
+// MatchResource reports whether key is covered by the entry. A plain entry
+// matches the same name without regard to case, as GitHub names do. owner/*
+// matches owner/name for the exact owner (so not other-owner/name, and not
+// owner-evil/name) and one name, never a deeper path. * matches any one key.
+// A key that holds a star is never covered by a wildcard: it is not a name.
+// Only the wildcard kinds of a binding call this; see Entry.
+func MatchResource(entry, key string) bool {
+	if key == "" {
+		return false
+	}
+	if strings.Contains(key, "*") {
+		return key == AnyResource && entry == AnyResource
+	}
+	if strings.EqualFold(entry, key) {
+		return true
+	}
+	if entry == AnyResource {
+		return true
+	}
+	owner, ok := ownerWildcard(entry)
+	if !ok {
+		return false
+	}
+	k, name, found := strings.Cut(key, "/")
+	return found && name != "" && !strings.Contains(name, "/") && strings.EqualFold(k, owner)
+}
+
+// ValidateWildcards checks the wildcards of a list for a kind. A kind without
+// wildcardResources takes every entry as an exact name, so nothing is
+// refused here. With it, a star may only stand alone (*) or after an owner
+// (owner/*), and * excludes every other entry because it already covers them.
+func ValidateWildcards(entries []ResourceEntry, wildcards bool) error {
+	if !wildcards {
+		return nil
+	}
+	bad := func(format string, a ...any) error {
+		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
+	}
+	for _, e := range entries {
+		if strings.Contains(e.Key, "*") && !IsWildcard(e.Key) {
+			return bad("%q: a star may only stand alone (*) or after an owner (owner/*)", e.Key)
+		}
+	}
+	if HasAnyResource(entries) && len(entries) > 1 {
+		return bad("the entry * covers every resource: remove the other entries")
+	}
+	return nil
+}
+
 // Entry returns the entry of the binding that the call names. It is the only
 // resource check: the host uses the one binding the person selected and holds
 // the call to its list. A call that names no resource (key is empty) gets no
@@ -110,13 +186,51 @@ var ErrNoConnection = errors.New("connectors: no connection is selected")
 // ErrNoCredential. A token binding is usable when it holds its token; an
 // OAuth binding is never usable from the binding alone, so its caller looks at
 // the grant and uses EntryWith.
-func Entry(b Binding, key string) (ResourceEntry, error) {
-	return EntryWith(b, !b.UsesOAuth() && len(b.Token) > 0, key)
-}
+func Entry(b Binding, key string) (ResourceEntry, error) { return EntryFor(b, key, false) }
 
 // EntryWith is Entry with the caller's answer to whether the binding holds a
 // usable credential of its kind.
 func EntryWith(b Binding, usable bool, key string) (ResourceEntry, error) {
+	return EntryUsable(b, usable, key, false)
+}
+
+// OnlyEntry returns the entry of a binding that lists exactly one resource. It
+// is the target of a call that names none: the connection is then the only
+// source of it. A binding without a usable credential is ErrNoCredential. One
+// that lists none or several gets a *NotAllowedError that lists them, so the
+// caller can name one.
+func OnlyEntry(b Binding) (ResourceEntry, error) {
+	return OnlyEntryWith(b, !b.UsesOAuth() && len(b.Token) > 0)
+}
+
+// OnlyEntryWith is OnlyEntry with the caller's answer to whether the binding
+// holds a usable credential of its kind.
+func OnlyEntryWith(b Binding, usable bool) (ResourceEntry, error) {
+	if !usable {
+		return ResourceEntry{}, ErrNoCredential
+	}
+	if len(b.Resources) == 1 && !IsWildcard(b.Resources[0].Key) {
+		return b.Resources[0], nil
+	}
+	allowed := ResourceKeys(b.Resources)
+	slices.Sort(allowed)
+	return ResourceEntry{}, &NotAllowedError{Allowed: allowed}
+}
+
+// EntryFor is Entry for a kind that may declare wildcardResources. With
+// wildcards the list may hold owner/* and *, and a key they cover gets an
+// entry made for that key: the key as sent and its own host ID, so the
+// add-on and the audit line see the real resource and never the wildcard.
+// The key * alone names no resource but the whole reach of the credential;
+// only the entry * covers it, for the tools that enumerate (see
+// contract.ToolDefinition.Enumerates).
+func EntryFor(b Binding, key string, wildcards bool) (ResourceEntry, error) {
+	return EntryUsable(b, !b.UsesOAuth() && len(b.Token) > 0, key, wildcards)
+}
+
+// EntryUsable is EntryFor with the caller's answer to whether the binding
+// holds a usable credential of its kind.
+func EntryUsable(b Binding, usable bool, key string, wildcards bool) (ResourceEntry, error) {
 	if !usable {
 		return ResourceEntry{}, ErrNoCredential
 	}
@@ -124,8 +238,14 @@ func EntryWith(b Binding, usable bool, key string) (ResourceEntry, error) {
 		return ResourceEntry{}, nil
 	}
 	for _, e := range b.Resources {
-		if strings.EqualFold(e.Key, key) {
+		// Without wildcards this is the old exact match. With them, a key that
+		// holds a star is the wildcard written out, not a name: only * itself
+		// may be asked for.
+		if strings.EqualFold(e.Key, key) && (!wildcards || key == AnyResource || !strings.Contains(key, "*")) {
 			return e, nil
+		}
+		if wildcards && IsWildcard(e.Key) && MatchResource(e.Key, key) {
+			return ResourceEntry{Key: key, ID: ResourceID(key)}, nil
 		}
 	}
 	allowed := ResourceKeys(b.Resources)

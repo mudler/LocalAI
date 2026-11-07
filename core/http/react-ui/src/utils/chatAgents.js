@@ -1,4 +1,5 @@
 // Helpers of the saved agents page. No React, so a node test drives them.
+import { resourcesPayload } from './agentUses.js'
 
 // builtins_off and builtins_on are the switches of the built-in tool groups
 // (see utils/agentTools.js); they are lists like the grants.
@@ -42,20 +43,23 @@ export function memoryChoiceOf(agent) {
 // Whether a choice saves notes somewhere (None does not).
 export const memorySaves = (choice) => choice === 'own' || choice === 'mine_and_own' || choice === 'mine'
 
-// The agent's own rule for saving a note, stricter than the person's setting:
-// 'always' (every note waits, nothing loosens it) or 'never'. An agent without
-// one uses the person's setting. 'auto' is not offered: an agent cannot be
-// looser than the person. The form holds '' (or absent) for "use my setting";
-// the person's explicit pick of it is 'use_mine', which the server reads as
-// clear the rule. A write without the field keeps the stored rule.
-export const MEMORY_SAVE_RULES = ['always', 'never']
+// The agent's own rule for saving a note: 'always' (every note waits, nothing
+// loosens it), 'never', or 'auto' (Save it and tell me: this agent saves at
+// once even when the person's level is Ask me first). An agent without a rule
+// uses the person's setting. The form holds '' (or absent) for "use my
+// setting"; the person's explicit pick of it is 'use_mine', which the server
+// reads as clear the rule. A write without the field keeps the stored rule.
+export const MEMORY_SAVE_RULES = ['auto', 'always', 'never']
 export const memorySaveOf = (agent) => (MEMORY_SAVE_RULES.includes(agent?.memory_save) ? agent.memory_save : '')
 
 // The levels of the person's setting, strictest last, and what the agent's rule
-// does to them: the stricter of the two wins. Used to say what is in force.
+// does to them: the stricter of the two wins, except an explicit 'auto', which
+// loosens ask for this agent. The person's always and never still hold. Used to
+// say what is in force.
 const LEVEL_RANK = { auto: 0, ask: 1, always: 2, never: 3 }
 export function stricterLevel(level, rule) {
   const base = level in LEVEL_RANK ? level : 'ask'
+  if (rule === 'auto') return LEVEL_RANK[base] >= LEVEL_RANK.always ? base : 'auto'
   return (LEVEL_RANK[rule] ?? -1) > LEVEL_RANK[base] ? rule : base
 }
 
@@ -68,13 +72,39 @@ export function newAgent() {
   return { ...emptyAgent(), memory: DEFAULT_MEMORY, builtins: [...CONNECTOR_GRANTS, MEMORY_GRANT] }
 }
 
-// The form with another choice of notes. A choice that saves notes also
-// switches the grant on, because the choice says where and the grant says
-// whether; None leaves the grants alone.
-export function withMemoryChoice(form, choice) {
-  const next = { ...form, memory: choice }
-  if (memorySaves(choice) && !(form.builtins || []).includes(MEMORY_GRANT)) next.builtins = setGrant(form.builtins, MEMORY_GRANT, true)
+// How much the agent does with notes, as one control. It is read from the two
+// saved fields that already exist and never stored on its own:
+//   off    the choice is None (the grant is not read)
+//   reads  a choice other than None, without the grant
+//   saves  a choice other than None, with the grant
+// An agent saved before the choice has none ('' = as before): its level comes
+// from the grant alone.
+export const MEMORY_LEVELS = ['off', 'reads', 'saves']
+// The choices of whose notes, shown once memory is not Off.
+export const MEMORY_WHOSE = MEMORY_CHOICES.filter(memorySaves)
+export function memoryLevelOf(form) {
+  if (form?.memory === 'none') return 'off'
+  return (form?.builtins || []).includes(MEMORY_GRANT) ? 'saves' : 'reads'
+}
+
+// The form at another level. Off sets the choice to None and takes the grant
+// away; Reads keeps the choice (None gives way to `restore`, the choice the
+// agent had before, or the default) and takes the grant away; Reads and saves
+// does the same and adds the grant. An agent as before ('') keeps no choice
+// unless it goes through Off.
+export function withMemoryLevel(form, level, restore = '') {
+  const grant = level === 'saves'
+  const next = { ...form, builtins: setGrant(form.builtins, MEMORY_GRANT, grant) }
+  if (level === 'off') next.memory = 'none'
+  else if (form.memory === 'none') next.memory = MEMORY_WHOSE.includes(restore) ? restore : DEFAULT_MEMORY
   return next
+}
+
+// The form with another choice of whose notes. It changes the choice only: the
+// level (and the grant) stays as it is. None is the level Off.
+export function withMemoryChoice(form, choice) {
+  if (choice === 'none') return withMemoryLevel(form, 'off')
+  return { ...form, memory: choice }
 }
 
 export function emptyAgent() {
@@ -108,7 +138,7 @@ export function agentPayload(form, opts) {
   // The choice of notes. An agent saved before it has none, and a write
   // without it keeps the stored one.
   if (MEMORY_CHOICES.includes(form.memory)) body.memory = form.memory
-  // The save rule: always or never, or use_mine to clear a stored one. A form
+  // The save rule: always, auto or never, or use_mine to clear a stored one. A form
   // that never touched it sends nothing, so the stored rule stays.
   if (MEMORY_SAVE_RULES.includes(form.memory_save) || form.memory_save === 'use_mine') body.memory_save = form.memory_save
   for (const k of LIST_KEYS) body[k] = (form[k] || []).map(x => x.trim()).filter((x, i, a) => x && a.indexOf(x) === i)
@@ -121,6 +151,10 @@ export function agentPayload(form, opts) {
       .map(([k, ids]) => [k, [].concat(ids || []).filter((id) => typeof id === 'string' && id.trim()).map((id) => id.trim()).filter((id, i, a) => a.indexOf(id) === i)])
       .filter(([, ids]) => ids.length))
   }
+  // The resources the agent may use for each add-on that scopes them per
+  // agent. Sent once the agent has the field or the person changed it ({}
+  // clears); a write without it keeps the stored list.
+  if (form.resources && typeof form.resources === 'object') body.resources = resourcesPayload(form.resources)
   if (opts && 'initialFolders' in opts) {
     const folders = foldersPayload(opts.initialFolders, form.folders)
     if (folders) body.folders = folders
@@ -195,6 +229,47 @@ export function effectiveModes(rows) {
     })
     return modeOf(outer >= 0 ? rows[outer] : r)
   })
+}
+
+// --- The Files choice of an agent ---
+//
+// One choice in three words, stored in fields every saved agent already has:
+//   none     the Files tool switch is off (builtins_off holds "files"); the
+//            server then gives the agent's chats no file access at all and
+//            ignores any folder still stored
+//   all      the switch is on and the folder list is empty
+//   folders  the switch is on and the list names the folders
+// An agent saved before the choice maps as it always behaved: Files on with
+// no folders is "all", Files off is "none", a folder list is "folders".
+
+export const FILES_GROUP = 'files'
+export const FILES_CHOICES = ['none', 'all', 'folders']
+
+const asList = (x) => (Array.isArray(x) ? x : [])
+
+// Whether the Files tool switch of an agent (or of the form) is off.
+export const filesOff = (agent) => asList(agent?.builtins_off).includes(FILES_GROUP)
+
+// The choice as the form or a saved agent holds it.
+export function filesChoiceOf(agent) {
+  if (filesOff(agent)) return 'none'
+  // A form holds `folders` (the rows being edited), and the singular `folder`
+  // of the server's reply may still sit next to it: the rows are the answer.
+  const rows = Array.isArray(agent?.folders) ? agent.folders : folderRows(agent)
+  return rows.length ? 'folders' : 'all'
+}
+
+// The form with another Files choice. No files switches the tool off and drops
+// the folder rows (a stored folder would still fence the agent and, if
+// missing, stop it); All my files switches it on with no rows; Only these
+// folders switches it on and keeps the rows, else brings back the saved ones,
+// else starts one row to fill in (the save waits until it has a folder).
+export function withFilesChoice(form, choice, savedRows) {
+  const rest = asList(form.builtins_off).filter((g) => g !== FILES_GROUP)
+  if (choice === 'none') return { ...form, builtins_off: [...rest, FILES_GROUP], folders: [] }
+  if (choice === 'all') return { ...form, builtins_off: rest, folders: [] }
+  const rows = asList(form.folders).length ? form.folders : asList(savedRows).length ? savedRows : [{ mode: 'read' }]
+  return { ...form, builtins_off: rest, folders: rows }
 }
 
 // The folders field of a create or replace request, or undefined when the

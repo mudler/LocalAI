@@ -12,23 +12,18 @@
   "agent": "Agen",
   "agentNone": "Pilih agen",
   "agentNoModel": "{{name}} (perlu model)",
-  "who": "Siapa yang boleh memakai",
-  "onlyListed": "Hanya orang dan kanal yang saya daftarkan",
-  "anyone": "Siapa saja yang dapat mengirim pesan ke bot, atau menyebutnya di kanal yang dapat dibacanya",
   "anyoneWarning": "Ini untuk kanal publik dan agen yang hanya membaca. Siapa saja yang dapat menjangkau bot dapat berbicara dengan agen ini: lewat pesan langsung jika berbagi server dengan bot, dan di setiap kanal tempat bot dapat membaca dan mereka menyebutnya. Orang yang tidak ada di daftar tidak memegang izin sendiri: agen tidak dapat menyimpan memori, mengusulkan pemicu, atau menerima file mereka, dan tindakan sensitif tetap tertutup. Alat agen lainnya tetap berfungsi untuk semua orang. Apa yang ditulis orang di kanal publik adalah teks yang tidak tepercaya, dan dapat mencoba mengarahkan agen (prompt injection). Berikan agen alat yang hanya membaca untuk koneksi ini, dan tidak ada yang mengirim pesan, membelanjakan uang, atau mengubah file.",
   "anyoneConfirm": "Saya mengerti bahwa siapa saja dapat memakai agen ini, dan alatnya sebaiknya hanya-baca",
-  "allowIds": "Orang dan kanal yang diizinkan",
   "allowIdsHint": "ID pengguna atau ID kanal (angka)",
   "rules": "Orang yang terdaftar dapat menulis lewat pesan langsung dan menyebut bot di kanal mana pun. Kanal yang terdaftar membuat semua orang di dalamnya boleh menyebut bot di sana, tetapi mereka tidak mendapat izin sendiri. Di server, bot hanya menjawab saat disebut atau dibalas, atau di dalam thread tempat ia disebut. Bot tidak pernah menjawab bot atau webhook, dan pesannya tidak pernah memanggil siapa pun. Gunakan ID kanal: ID server (guild) tidak cocok dengan apa pun. Hanya ID, bukan nama: di Discord aktifkan Developer Mode (Settings, Advanced), lalu klik kanan orang atau kanal dan pilih Copy ID.",
   "badIds": "Ini bukan ID Discord: {{list}}. Gunakan angka dari Copy ID (17 sampai 20 digit). Nama tidak diterima.",
-  "notifyChat": "Kirim notifikasi saya ke kanal atau orang ini",
   "notifyHelp": "Opsional. ID kanal, atau user: diikuti ID pengguna Anda untuk menerimanya sebagai pesan langsung.",
   "test": "Uji",
   "testOk": "Terhubung ke {{bot}}.",
   "checkFailed": "Tersimpan. Pemeriksaan token gagal: {{reason}}",
   "senders": "Pengirim",
   "noSenders": "Belum ada yang menulis ke bot ini.",
-  "allowButton": "Izinkan",
+  "allowButton": "Daftarkan orang ini",
   "ignored": "Diabaikan",
   "accepted": "Diterima",
   "save": "Simpan",
@@ -76,7 +71,6 @@
     },
     "never": "Jangan pernah memberi bot Administrator, Manage Messages, atau Mention Everyone. Bot tidak memerlukan satu pun."
   },
-  "back": "Kembali ke konektor",
   "answer": {
     "reply": {
       "off": "Hanya jawabannya (Discord tidak punya indikator mengetik di sini)"

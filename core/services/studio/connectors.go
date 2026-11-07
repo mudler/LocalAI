@@ -93,9 +93,9 @@ type ConnectorOptions struct {
 	// policy, in bytes. Nil or zero: contract.DefaultFileCeilingBytes.
 	FileCeiling func(ctx context.Context) (int64, error)
 	// OwnerLanguage returns the interface language of an owner (a tag such as
-	// "it" or "pt-BR"), or "" when the server does not know it. It is the
-	// fallback of a connection whose reply language is auto and whose sender
-	// has not yet written a message that shows a language. Nil: English.
+	// "it" or "pt-BR"), or "" when the server does not know it. It is asked
+	// for a connection whose reply language is auto and that holds no language
+	// of its own (Binding.UILanguage). Nil: not known.
 	OwnerLanguage func(ctx context.Context, owner string) string
 	// OutboxPoll is how often a queued message looks again for room under
 	// the limit of its binding; zero means one second.
@@ -109,7 +109,10 @@ type ConnectorOptions struct {
 	// InstanceID names this process in the lease of a grant. Empty: a
 	// random name.
 	InstanceID string
-	Logger     *slog.Logger
+	// Shares is the sharing policy of the bindings (see ConnectionShares).
+	// Nil: no binding is shared.
+	Shares ConnectionShares
+	Logger *slog.Logger
 }
 
 // Connectors runs the bindings of the chats. A message becomes a chat of the
@@ -133,6 +136,15 @@ type Connectors struct {
 	o   ConnectorOptions
 	log *slog.Logger
 
+	// afterSettle runs in the reply after each check whether to give the chat
+	// up, with the outcome. Only the specs set it.
+	afterSettle func(settled bool)
+
+	// beforeJoin runs in deliver after a message has joined a running reply
+	// and before it reaches the chat. Only the specs set it, to hold a
+	// message in that gap.
+	beforeJoin func()
+
 	sealMu sync.Mutex
 	sealer *connectors.Sealer
 
@@ -153,6 +165,9 @@ type Connectors struct {
 
 	smu     sync.Mutex
 	senders map[string]*senderState
+
+	amu2         sync.Mutex
+	accountTried map[string]time.Time // by binding: when this process last asked its add-on for its account
 
 	emu      sync.Mutex
 	nextEdit map[string]time.Time // by binding: when its next edit may go
@@ -185,6 +200,10 @@ type senderState struct {
 	// do: the intersection over the messages the turn took. Nil while no turn
 	// runs.
 	grant *turnGrant
+	// joining counts the messages that found a reply running and are on their
+	// way to the chat. The reply may not give the chat up while one is: the
+	// turn it starts would have no reply to carry its answer.
+	joining int
 }
 
 // NewConnectors returns the manager. It does nothing until Run or Sync is called.
@@ -220,7 +239,7 @@ func NewConnectors(svc *Service, o ConnectorOptions) (*Connectors, error) {
 		o.InstanceID = newID()
 	}
 	return &Connectors{svc: svc, o: o, log: o.Logger, instance: o.InstanceID, defaultToken: oauthtoken.New(), logins: map[string]loginWindow{}, loops: map[string]context.CancelFunc{}, senders: map[string]*senderState{}, nextEdit: map[string]time.Time{},
-		wake: make(chan struct{}, 1), done: make(chan struct{}), gates: []CapabilitySwitch{agentGrantSwitch(svc), toolsSwitch(svc)}}, nil
+		wake: make(chan struct{}, 1), done: make(chan struct{}), gates: []CapabilitySwitch{agentGrantSwitch(svc), toolsSwitch(svc), knowledgeSwitch(svc), resourcesSwitch(svc)}}, nil
 }
 
 // Notify asks Run to look at the bindings now.
@@ -387,6 +406,8 @@ poll:
 			c.disable(b, "its bot token cannot be read")
 			return
 		}
+		// A binding whose add-on told no account yet is asked again every so often.
+		b = c.learnAccount(ctx, b, token)
 		offset, _, err := c.o.Store.Offset(ctx, id)
 		if err != nil {
 			c.log.Warn("studio: could not read a connector offset", "binding", id, "error", err)
@@ -606,6 +627,13 @@ func (c *Connectors) Ingest(ctx context.Context, addonID string, in contract.Con
 		c.disable(b, "its bot token cannot be read")
 		return connectors.ErrForbidden
 	}
+	// A push platform has no loop that learns the account, so it is learned here.
+	b = c.learnAccount(ctx, b, token)
+	// Two connections of one bot get the same message: the oldest answers.
+	if older, twin := c.olderTwin(ctx, b, m); twin {
+		c.log.Info("studio: a connection stays silent because an older connection of the same bot answers", "binding", b.ID, "answering", older.ID, "kind", b.Kind, "message", m.MessageID)
+		return nil
+	}
 	c.handle(ctx, b, token, m)
 	return nil
 }
@@ -728,13 +756,35 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 	if err := c.o.Store.RecordSender(ctx, b.ID, senderID, name, allowed, c.o.Clock()); err != nil {
 		c.log.Warn("studio: could not record a sender", "binding", b.ID, "error", err)
 	}
+	if ns, ok := c.o.Store.(connectors.SenderNoter); ok {
+		note := connectors.SenderNote{Chat: m.Chat, ChatName: m.ChatName}
+		switch {
+		case allowed:
+		case !m.Direct && !m.Mention:
+			note.Reason = connectors.ReasonNotAddressed
+		default:
+			note.Reason = connectors.ReasonNotListed
+		}
+		if err := ns.NoteSender(ctx, b.ID, senderID, note); err != nil {
+			c.log.Warn("studio: could not note a sender", "binding", b.ID, "error", err)
+		}
+	}
 	if !allowed {
 		return // ignored: not answered, and in the sender log for the owner
 	}
 	c.noteLanguage(b, m)
 	v := c.voice(ctx, b, senderID, m.Chat)
 	say := func(text string) { c.say(b, token, m.Chat, m.Thread, text) }
-	tell := func(key string, args ...any) { say(v.T(key, args...)) }
+	// What the host says to the sender about a message is also noted in the
+	// chat of that conversation, when there is one, so the owner reads why a
+	// message went unanswered.
+	tell := func(key string, args ...any) {
+		text := v.T(key, args...)
+		say(text)
+		if code, ok := hostNoteCodes[key]; ok {
+			c.noteChat(ctx, b, m, code, text)
+		}
+	}
 	st := c.sender(b.ID, senderID)
 	switch ok, notice := c.allow(st); {
 	case !ok && notice:
@@ -794,7 +844,7 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 	var up []session.Upload
 	if len(m.Media) > 0 {
 		if d := c.Authorize(ctx, b, m, contract.CapFilesUpload); !d.Allowed {
-			tell("no_upload")
+			tell(refusalKey(b, m, d, "no_upload"))
 			return
 		}
 		var ok bool
@@ -825,14 +875,61 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 		return
 	}
 	c.rememberPlace(ctx, b, chatID, m)
+	c.rememberInfo(ctx, b, chatID, m)
 	// One reply goroutine serves a conversation; the rate limit stays the sender's.
 	// The earlier messages of a thread go to the first turn of a chat that
 	// the thread just started, once.
 	var earlier string
+	who := turnWho{Sender: c.senderFor(b, m)}
 	if created {
-		earlier = c.threadDirective(ctx, b, token, m)
+		var st threadStats
+		earlier, st = c.threadDirective(ctx, b, token, m)
+		if earlier != "" {
+			who.Thread, who.ThreadLines, who.ThreadCut = earlier, st.Lines, st.Truncated
+		}
 	}
+	ctx = withTurnWho(ctx, who)
 	c.deliver(ctx, b, token, m, c.sender(b.ID, "\x01"+key), chatID, up, earlier)
+}
+
+// refusalKey picks the sentence a sender reads for a refused capability, so
+// the reply says why in one plain sentence and not only "not allowed": the
+// channel is set to answer only, the sender is not on the list, the action
+// needs a pairing, or the owner has not turned it on. fallback is the sentence
+// of the feature, for a reason the sender cannot act on.
+func refusalKey(b connectors.Binding, m contract.ConnectorMessage, d Decision, fallback string) string {
+	switch d.Code {
+	case CodeChannelNotTrusted:
+		if !m.Direct && b.Allows(m.Chat, "") {
+			return "refuse.channel"
+		}
+		return "refuse.unlisted"
+	case CodeSenderNeedsPairing:
+		return "refuse.pairing"
+	case CodeConnectionPermissionOff, CodeAgentPermissionOff, CodeToolsSwitchOff:
+		return "refuse.off"
+	}
+	return fallback
+}
+
+// hostNoteCodes maps the sentence keys of the host's own messages to the
+// code of the note the chat keeps (session.RoleHostNote). A sentence that has
+// no code here is told to the sender and not noted.
+var hostNoteCodes = map[string]string{
+	"unsupported":  session.HostNoteUnsupported,
+	"too_long":     session.HostNoteTooLong,
+	"no_upload":    session.HostNoteNoUpload,
+	"rate":         session.HostNoteRate,
+	"pairing.done": session.HostNotePairing,
+	"no_folder":    session.HostNoteRefused,
+	"folder_limit": session.HostNoteRefused,
+	"no_files":     session.HostNoteRefused,
+	// The reasons a capability was refused (see refusalKey): the sender read
+	// one sentence, and so does the owner.
+	"refuse.channel":  session.HostNoteRefused,
+	"refuse.unlisted": session.HostNoteRefused,
+	"refuse.pairing":  session.HostNoteRefused,
+	"refuse.off":      session.HostNoteRefused,
 }
 
 // inputs turns the files of a message into what the turn gets: the uploads
@@ -1015,6 +1112,9 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 	c.smu.Lock()
 	was := st.active
 	st.active = true
+	if was {
+		st.joining++
+	}
 	if was && st.grant != nil {
 		grant = st.grant.merge(grant)
 	}
@@ -1022,6 +1122,9 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 	c.smu.Unlock()
 	c.svc.access.set(chatID, grant)
 	ctx = withTurnGrant(ctx, grant)
+	if was && c.beforeJoin != nil {
+		c.beforeJoin()
+	}
 	var events <-chan session.Event
 	var cancel func()
 	if !was {
@@ -1035,7 +1138,13 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 			return
 		}
 	}
-	if _, err := c.start(ctx, b, chatID, m.Text, up, earlier); err != nil {
+	_, err := c.start(ctx, b, chatID, m.Text, up, earlier)
+	if was {
+		c.smu.Lock()
+		st.joining--
+		c.smu.Unlock()
+	}
+	if err != nil {
 		if !was {
 			cancel()
 			c.smu.Lock()
@@ -1102,9 +1211,34 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 	var poll <-chan time.Time
 	errText := ""
 	l, since, turn := c.startLive(b, token, m, pace), time.Now(), 0
+	// settle gives the chat up when it is idle (see settled).
+	settle := func() bool {
+		ok := c.settled(b, st, chatID, events)
+		if c.afterSettle != nil {
+			c.afterSettle(ok)
+		}
+		return ok
+	}
+	// quiet is set when settle saw a turn on its way and none of its events
+	// has come yet. The claim that starts a turn from the waiting messages is
+	// also held for a moment when it finds none, so that sign can be false:
+	// recheck then ends the reply instead of waiting for a turn that never
+	// comes, which would leave the sender refused as busy.
+	quiet := false
+	recheck := time.NewTicker(time.Second)
+	defer recheck.Stop()
 	for {
 		ended := false
+		var again <-chan time.Time
+		if quiet {
+			again = recheck.C
+		}
 		select {
+		case <-again:
+			if settle() {
+				return
+			}
+			continue
 		case ev, ok := <-events:
 			if !ok {
 				events = nil
@@ -1113,6 +1247,7 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 				poll = p.C
 				continue
 			}
+			quiet = false
 			l.observe(ev)
 			switch ev.Kind {
 			case session.KindError:
@@ -1134,26 +1269,47 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 		if !ended {
 			continue
 		}
-		answer := c.answerOf(b, chatID, errText, c.voice(context.Background(), b, m.SenderID, m.Chat))
+		answer := c.answerOf(b, chatID, turn, errText, c.voice(context.Background(), b, m.SenderID, m.Chat))
 		ids := c.finish(b, token, m, l, answer)
 		c.remember(b, m, chatID, ids)
 		c.sendFiles(b, token, m, chatID, turn, since, answer)
 		errText = ""
-		c.smu.Lock()
-		tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
-		info, err := c.svc.Turn(tctx, b.Owner, chatID) // under smu on purpose: a message that arrives now must see either the running turn or the cleared flag
-		tcancel()
-		if err == nil && info.Running {
-			c.smu.Unlock()
-			// A waiting message started the next turn.
-			l, since, turn = c.startLive(b, token, m, pace), time.Now(), 0
-			continue
+		if settle() {
+			return
 		}
-		st.active, st.grant = false, nil
-		c.smu.Unlock()
-		c.svc.access.clear(chatID)
-		return
+		// A waiting message started the next turn.
+		l, since, turn, quiet = c.startLive(b, token, m, pace), time.Now(), 0, true
 	}
+}
+
+// settled gives the chat up when it is idle. It reports false when another turn
+// runs, when its events are queued, or when one is on its way. The check is
+// under smu on purpose: a message that arrives now must see either the running
+// turn or the cleared flag.
+func (c *Connectors) settled(b connectors.Binding, st *senderState, chatID string, events <-chan session.Event) bool {
+	c.smu.Lock()
+	tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
+	info, err := c.svc.Turn(tctx, b.Owner, chatID)
+	tcancel()
+	// A waiting message starts the next turn at once, and that turn may be
+	// over before this point; its events are then still queued.
+	if (err == nil && info.Running) || len(events) > 0 || st.joining > 0 {
+		c.smu.Unlock()
+		return false
+	}
+	// A turn that finished starts the next one from the waiting messages
+	// after it has announced its end, so for a moment the chat is idle with a
+	// message waiting. That turn needs this reply.
+	if err == nil && info.Last.Finished() {
+		if wait, perr := c.svc.Pending(context.Background(), b.Owner, chatID); perr == nil && len(wait) > 0 {
+			c.smu.Unlock()
+			return false
+		}
+	}
+	st.active, st.grant = false, nil
+	c.smu.Unlock()
+	c.svc.access.clear(chatID)
+	return true
 }
 
 // remember keeps the chat of the messages that hold an answer, in the thread
@@ -1170,7 +1326,7 @@ func (c *Connectors) remember(b connectors.Binding, m contract.ConnectorMessage,
 }
 
 // answerOf is what the sender reads for the turn that just ended.
-func (c *Connectors) answerOf(b connectors.Binding, chatID, errText string, v hostmsg.Voice) string {
+func (c *Connectors) answerOf(b connectors.Binding, chatID string, turn int, errText string, v hostmsg.Voice) string {
 	var info store.TurnInfo
 	// The event comes before the store records the outcome, so look again for
 	// up to five seconds. Close ends the wait at once.
@@ -1204,7 +1360,7 @@ wait:
 	}
 	fctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if t := strings.TrimSpace(c.svc.finalText(fctx, chatID)); t != "" {
+	if t := strings.TrimSpace(c.svc.finalTextOf(fctx, chatID, turn)); t != "" {
 		return t
 	}
 	return v.T("no_answer")

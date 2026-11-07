@@ -139,6 +139,15 @@ test('oauth: the Tools menu says which connection must be connected again and li
   // A connection the chat does not use does not warn on its own.
   const unused = row({ ...addon, connection_state: 'connected', enabled_connections: ['b2'] })
   assert.equal(unused.warn, undefined)
+  // A connection another person shared: its login is the owner's, so the row
+  // says the owner must connect it again and offers the person no login.
+  const sharedEnded = row({ ...addon, enabled_connections: ['b1'], connections: [{ id: 'b1', name: 'Team drive', shared: true, owner: 'Ana', connection_state: 'reconnect_needed' }] })
+  assert.equal(sharedEnded.warn, true)
+  assert.equal(sharedEnded.note, 'tools.connection.ownerReconnectNeeded:Team drive')
+  assert.notEqual(sharedEnded.pick.link?.label, 'tools.connection.reconnect')
+  const mixed = row({ ...addon, enabled_connections: ['b1', 'b2'], connections: [{ id: 'b1', name: 'Work', connection_state: 'reconnect_needed' }, { id: 'b2', name: 'Team drive', shared: true, connection_state: 'reconnect_needed' }] })
+  assert.equal(mixed.note, 'tools.connection.reconnectNeeded:Work tools.connection.ownerReconnectNeeded:Team drive')
+  assert.deepEqual(mixed.pick.link, { to: '/app/chats/connectors', label: 'tools.connection.reconnect' })
 })
 
 // The row of each state, rendered from the production component with the UI

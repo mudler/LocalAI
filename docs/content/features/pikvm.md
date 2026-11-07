@@ -5,7 +5,7 @@ weight = 24
 url = "/features/pikvm/"
 +++
 
-The PiKVM add-on lets your [chats](/features/chats/) and [saved agents](/features/chats-agents/) look at a [PiKVM](https://pikvm.org) (or another device that runs the kvmd API) and the machine it controls: is it on, what is the device, is the keyboard connected. If you allow it, they can also press the power buttons of that machine and type on its keyboard. A **person confirms every one of those actions**, and typing and forced power actions are off until an administrator switches them on.
+The PiKVM add-on lets your [chats](/features/chats/) and [saved agents](/features/chats-agents/) look at a [PiKVM](https://pikvm.org) (or another device that runs the kvmd API) and the machine it controls: is it on, what is the device, is the keyboard connected. If you allow it, they can also press the power buttons of that machine and type on its keyboard. A **person confirms those actions** unless you choose otherwise for power actions and key presses (see [Not asking for some actions](#not-asking-for-some-actions)), and typing and forced power actions are off until an administrator switches them on.
 
 A chat can answer questions such as:
 
@@ -58,9 +58,9 @@ The add-on then accepts that exact certificate for that exact address, and nothi
 | `get-info` | read | Model, board, platform, kvmd and streamer versions, kernel and CPU temperature. No serial number, host name or network details. |
 | `get-power-state` | read | Whether ATX control is enabled and busy, the power LED (on or off) and whether the disk LED shows activity. |
 | `get-keyboard-state` | read | Whether the keyboard of the device is connected to the target, and the Caps, Num and Scroll Lock LEDs. |
-| `power-action` | write, always confirmed | Press a power button: `on`, `off` or `reset`. The forced actions `off_hard`, `reset_hard` and `long_press` need a switch. |
+| `power-action` | write, confirmed (you can choose Don't ask) | Press a power button: `on`, `off` or `reset`. The forced actions `off_hard`, `reset_hard` and `long_press` need a switch. |
 | `type-text` | write, always confirmed, needs the typing switch | Type text on the target. |
-| `send-key` | write, always confirmed, needs the typing switch | Press keys from a short allowlist. |
+| `send-key` | write, confirmed (you can choose Don't ask), needs the typing switch | Press keys from a short allowlist. |
 
 Two more tools, `get-settings` and `set-settings`, belong to the add-on page. A model never sees them.
 
@@ -68,7 +68,18 @@ Everything the device returns is marked as untrusted data, and the add-on's skil
 
 ## Changes and confirmation
 
-All three write tools declare `approval: always` in the manifest. A person confirms **every call**, whatever the write mode of the connection is: the mode **Read only** refuses them all, and **Asks you first** stores each as a proposal. The write tools never act without a confirmation card. A proposal expires after 10 minutes (power) or 5 minutes (typing and keys).
+All three write tools declare `approval: always` in the manifest. By default a person confirms **every call**, whatever the write mode of the connection is: the mode **Read only** refuses them all, and **Asks you first** stores each as a proposal that waits for a confirmation card. `type-text` always asks. For `power-action` and `send-key` you can change that, as described next. A proposal expires after 10 minutes (power) or 5 minutes (typing and keys).
+
+### Not asking for some actions
+
+On the add-on page, the section **Ask before acting** has one choice for **Power actions** and one for **Key presses**: **Ask each time** (the default) or **Don't ask**. There is no choice for typed text, because it can enter a password or a command.
+
+- The choice is yours alone. It is saved from your own browser session, it applies to all your PiKVM connections, and no chat, agent or model can change it.
+- With **Don't ask**, a chat can switch the machine off or reset it at once, with no card, and unsaved work on it is lost. If an administrator allowed the hard power actions, those run without asking too. Read the warning on the page before you choose it.
+- It holds only for your own chats and for messaging senders you paired with the bot. Senders that are only on the allowlist, senders let in because the bot accepts anyone, roles, scheduled runs and sub-agents are still asked.
+- A connection set to **Read only** runs nothing, whatever you choose.
+- Every run without asking is written to the server log and to the latest decisions of the connection, with the tool, the connection and the result. The typed text and the keys are not written.
+- The row of each connection lists which tools run without asking now.
 
 The add-on notes an operation before it sends it and never sends one twice. The PiKVM API has no idempotency key. If the connection breaks after the request left, the result is "unknown", and you decide what to do. Read the power state to see what happened.
 

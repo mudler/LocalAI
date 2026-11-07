@@ -327,6 +327,24 @@ var _ = Describe("Addon tool adapter", func() {
 			Expect(res.Code).To(Equal("reconnect_needed"))
 			Expect(res.Note).To(Equal("The person's connection to this service has expired or was revoked, so nothing was sent. Tell them to reconnect on the Connectors page. Do not repeat the call and do not report an outage."))
 		})
+		It("tells the model that the owner of a shared connection must connect it again, never to log in", func() {
+			f.readErr = fmt.Errorf("call: %w", &gateway.CredentialRefusal{Code: gateway.CodeOwnerReconnectNeeded})
+			res, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(res.Kind).To(Equal(tools.ResultError))
+			Expect(res.Code).To(Equal("owner_reconnect_needed"))
+			Expect(res.Note).To(Equal(tools.OwnerReconnectNeededNote))
+			Expect(res.Note).NotTo(ContainSubstring("Connectors page"))
+		})
+		It("tells the model of a shared connection that the resource is not listed, without a list", func() {
+			f.readErr = &gateway.CredentialRefusal{Code: gateway.CodeResourceNotAllowed}
+			res, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(res.Code).To(Equal(tools.CodeResourceNotAllowed))
+			Expect(res.Allowed).To(BeEmpty())
+			Expect(res.Note).To(Equal(tools.ResourceNotListedNote))
+			Expect(res.Note).NotTo(ContainSubstring("in allowed"))
+		})
 		It("keeps an outage an error, never the refused result", func() {
 			f.readErr = gateway.ErrUnavailable
 			_, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))

@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi } from './connector-fixtures.js'
+import { connectorApi, openEdit, expandAll, rowMenu, openPane } from './connector-fixtures.js'
 
 // The page of the Slack add-on (the real built bundle, inside the add-on
 // shell) with the core API stubbed: both tokens go in as one secret and are
@@ -27,22 +27,24 @@ test.describe('Slack add-on', () => {
 
     await expect(page.getByText('No Slack apps yet.')).toBeVisible()
     await page.getByRole('button', { name: 'New Slack app' }).click()
+    await expandAll(page)
     await page.getByLabel('Name', { exact: true }).fill('Team app')
     await expect(page.getByTestId('connector-thread-context')).toHaveCount(0)
     await page.getByLabel('Bot token').fill('xoxb-secret-bot')
     await expect(page.getByTestId('token-problem')).toContainText('Type both tokens')
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
+    await expect(page.getByTestId('connector-save')).toBeDisabled()
     await page.getByLabel('App-level token').fill('xapp-secret-app')
     await expect(page.getByTestId('token-problem')).toHaveCount(0)
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
-    await page.getByRole('textbox', { name: 'Allowed people +' }).fill('U001')
-    await page.getByRole('textbox', { name: 'Allowed people +' }).press('Enter')
-    await page.getByRole('textbox', { name: 'Allowed channels +' }).fill('C001')
-    await page.getByRole('textbox', { name: 'Allowed channels +' }).press('Enter')
-    await expect(page.getByTestId('connector-allow')).toContainText('U001')
-    await expect(page.getByTestId('connector-allow')).not.toContainText('C001')
-    await expect(page.getByTestId('connector-allow-channels')).toContainText('C001')
-    await page.getByRole('button', { name: 'Save' }).click()
+    // One box takes a person and a channel: an ID of a channel (C or G) goes to the channels, anything else to the people.
+    await page.getByRole('textbox', { name: 'Add a person or channel' }).fill('U001')
+    await page.getByRole('textbox', { name: 'Add a person or channel' }).press('Enter')
+    await page.getByRole('textbox', { name: 'Add a person or channel' }).fill('C001')
+    await page.getByRole('textbox', { name: 'Add a person or channel' }).press('Enter')
+    await expect(page.getByTestId('connector-who-people')).toContainText('U001')
+    await expect(page.getByTestId('connector-who-people')).not.toContainText('C001')
+    await expect(page.getByTestId('connector-who-channels')).toContainText('C001')
+    await page.getByTestId('connector-save').click()
 
     await expect(page.getByTestId('connector-row')).toContainText('Team app')
     await expect(page.getByTestId('connector-row')).toContainText('Accepts: 2 listed entries')
@@ -60,12 +62,17 @@ test.describe('Slack add-on', () => {
     await page.route(/\/api\/chats\/connectors\/[^/?]+\/test$/, r => r.fulfill({ status: 502, json: { error: { message: 'the platform refused the bot token' } } }))
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New Slack app' }).click()
+    await expandAll(page)
     await page.getByLabel('Name', { exact: true }).fill('Team app')
     await page.getByLabel('Bot token').fill('xoxb-1')
     await page.getByLabel('App-level token').fill('xapp-2')
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
-    await page.getByRole('button', { name: 'Save' }).click()
-    await expect(page.getByRole('alert')).toContainText('Saved. The token check failed: the platform refused the bot token')
+    await page.getByTestId('connector-save').click()
+    // The sheet stays open with the reason, and says the connection is saved.
+    const failed = page.getByTestId('connector-test-failed')
+    await expect(failed).toContainText('The connection is saved, but the test failed.')
+    await expect(failed).toContainText('the platform refused the bot token')
+    await expect(page.getByTestId('connector-sheet')).toBeVisible()
     await expect(page.getByTestId('connector-row')).toHaveCount(1)
   })
 
@@ -73,16 +80,115 @@ test.describe('Slack add-on', () => {
     const a = api(page, [BINDING])
     await a.install()
     await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Edit' }).click()
+    await openEdit(page)
+    await expandAll(page)
     await expect(page.getByLabel('Bot token')).toHaveValue('')
     await expect(page.getByLabel('App-level token')).toHaveAttribute('placeholder', /Saved/)
-    await expect(page.getByTestId('connector-allow-channels')).toContainText('C001')
-    await page.getByRole('button', { name: 'C001 ×' }).click()
-    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByTestId('connector-who-channels')).toContainText('C001')
+    await page.getByRole('button', { name: 'Remove C001' }).click()
+    await page.getByTestId('connector-save').click()
     const put = a.s.calls.find(c => c.method === 'PUT')
     expect(put.url).toBe('/api/chats/connectors/b1')
     expect('token' in put.body).toBe(false)
     expect(put.body.allow).toEqual(['U001'])
+  })
+
+  // The host marks two enabled bindings of one bot with `duplicate`; the page shows it on both.
+  const TWIN = { ...BINDING, id: 'b2', name: 'Team app copy' }
+  const duplicate = (other) => ({ code: 'duplicate_connection', message: `This bot is also connected as ${other.name}. Both connections will answer the same message.`, others: [other] })
+  async function twins(page, a) {
+    const state = { items: [{ ...BINDING }, { ...TWIN }], disabled: [] }
+    const view = () => state.items.map(c => {
+      const other = state.items.find(o => o.id !== c.id)
+      return c.enabled && other?.enabled ? { ...c, duplicate: duplicate({ id: other.id, name: other.name }) } : c
+    })
+    await a.install()
+    await page.route(/\/api\/chats\/connectors\/[^/?]+\/disable$/, r => {
+      const id = new URL(r.request().url()).pathname.split('/').at(-2)
+      state.disabled.push(id)
+      state.items = state.items.map(c => (c.id === id ? { ...c, enabled: false } : c))
+      return r.fulfill({ json: state.items.find(c => c.id === id) })
+    })
+    await page.route(/\/api\/chats\/connectors(\?.*)?$/, r => {
+      if (r.request().method() !== 'GET') return r.fallback()
+      return r.fulfill({ json: { connectors: view() } })
+    })
+    return state
+  }
+
+  test('warns on both connections of the same bot, opens the other and turns this one off', async ({ page }) => {
+    const a = api(page)
+    const state = await twins(page, a)
+    await page.goto(PAGE)
+
+    const rows = page.getByTestId('connector-row')
+    await expect(rows).toHaveCount(2)
+    // Both rows need attention, say why, and offer the fix in place of Test.
+    const reasons = page.getByTestId('connector-attention')
+    await expect(reasons).toHaveCount(2)
+    await expect(reasons.first()).toHaveText('Answers the same bot as Team app copy.')
+    await expect(reasons.last()).toHaveText('Answers the same bot as Team app.')
+    await expect(rows.first().getByTestId('connector-state')).toHaveText('Needs attention')
+
+    // The pane says the same, and the settings of this connection show the full warning with a way to the other one.
+    await rows.first().getByTestId('connector-open').click()
+    await expect(page.getByTestId('connector-pane-attention')).toContainText('Answers the same bot as Team app copy.')
+    await page.getByTestId('connector-pane-edit').click()
+    const form = page.getByTestId('connector-form')
+    await expect(form.getByTestId('duplicate-warning')).toContainText('This bot is also connected as Team app copy. Both connections will answer the same message.')
+    await form.getByTestId('duplicate-open').click()
+    await expect(form.getByLabel('Name', { exact: true })).toHaveValue('Team app copy')
+    await expect(form.getByTestId('duplicate-warning')).toContainText('This bot is also connected as Team app.')
+    await page.getByTestId('connector-cancel').click()
+
+    // The page does not scroll sideways on a phone.
+    await page.setViewportSize({ width: 360, height: 800 })
+    await page.reload()
+    await expect(reasons).toHaveCount(2)
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    expect(overflow).toBeLessThanOrEqual(0)
+
+    await rows.last().getByRole('button', { name: 'Turn this one off' }).click()
+    await expect(reasons).toHaveCount(0)
+    expect(state.disabled).toEqual(['b2'])
+    await expect(rows.last().getByRole('switch', { name: 'Team app copy on' })).toHaveAttribute('aria-checked', 'false')
+  })
+
+  test('asks before it saves a connection that is the same bot as another, and saves it when confirmed', async ({ page }) => {
+    const a = api(page, [BINDING])
+    await a.install()
+    const bodies = []
+    await page.route(/\/api\/chats\/connectors(\?.*)?$/, r => {
+      const req = r.request()
+      if (req.method() !== 'POST') return r.fallback()
+      const body = req.postDataJSON()
+      bodies.push(body)
+      if (body.confirm_duplicate !== 'answer twice') {
+        return r.fulfill({ status: 409, json: { error: { type: 'duplicate_connection', code: 409, param: 'Team app', message: 'This bot is also connected as Team app. Both connections will answer the same message.' } } })
+      }
+      return r.fulfill({ status: 201, json: { ...TWIN, token: undefined, has_token: true } })
+    })
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'New Slack app' }).click()
+    await expandAll(page)
+    await page.getByLabel('Name', { exact: true }).fill('Team app copy')
+    await page.getByLabel('Bot token').fill('xoxb-second')
+    await page.getByLabel('App-level token').fill('xapp-second')
+    await page.getByLabel('Agent', { exact: true }).selectOption('a1')
+    await page.getByTestId('connector-save').click()
+
+    const ask = page.getByTestId('duplicate-confirm')
+    await expect(ask).toContainText('This bot is also connected as Team app. Both connections will answer the same message.')
+    await expect(page.getByTestId('connector-form')).toBeVisible()
+    expect(bodies).toHaveLength(1)
+    expect(bodies[0]).not.toHaveProperty('confirm_duplicate')
+
+    await ask.getByRole('button', { name: 'Go back' }).click()
+    await expect(ask).toHaveCount(0)
+    await page.getByTestId('connector-save').click()
+    await page.getByTestId('duplicate-save-anyway').click()
+    await expect(page.getByTestId('connector-form')).toHaveCount(0)
+    expect(bodies.at(-1)).toMatchObject({ name: 'Team app copy', confirm_duplicate: 'answer twice' })
   })
 
   test('shows how to make the Slack app, with its manifest', async ({ page }) => {
@@ -101,9 +207,9 @@ test.describe('Slack add-on', () => {
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Test' }).click()
     await expect(page.getByText('Connected to localai (Acme).')).toBeVisible()
-    await page.getByRole('button', { name: 'Senders' }).click()
+    await openPane(page)
     await expect(page.getByTestId('sender-log')).toContainText('Newcomer · 2 messages · U042')
-    await page.getByRole('button', { name: 'Allow', exact: true }).click()
+    await page.getByRole('button', { name: 'List this person', exact: true }).click()
     await expect(page.getByTestId('sender-log')).toContainText('Accepted')
     expect(a.s.calls.some(c => c.url === '/api/chats/connectors/b1/senders/U042/allow')).toBe(true)
   })
@@ -117,12 +223,13 @@ test.describe('Slack add-on', () => {
     })
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New Slack app' }).click()
+    await expandAll(page)
     await page.getByLabel('Name', { exact: true }).fill('Team app')
     await page.getByLabel('Bot token').fill('xoxb-1')
     await page.getByLabel('App-level token').fill('xapp-2')
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
     await page.getByTestId('connector-reply').selectOption('progress')
-    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByTestId('connector-save').click()
     await expect(page.getByRole('alert')).toContainText('the platform refused the bot token')
     await expect(page.getByRole('form')).toBeVisible()
     await expect(page.getByTestId('connector-row')).toHaveCount(0)
@@ -133,10 +240,11 @@ test.describe('Slack add-on', () => {
     const a = api(page, [{ ...BINDING, allow: ['C001'], caps: ['memory.write'] }])
     await a.install()
     await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Edit' }).click()
+    await openEdit(page)
+    await expandAll(page)
     const who = page.getByTestId('connector-ready-who')
     await expect(who).toContainText('Only channels are on the list')
-    await expect(page.getByTestId('connector-can-sender').locator('option')).toContainText(['A person on the allowed list', 'A member of an allowed channel'])
+    await expect(page.getByTestId('connector-matrix').locator('th[data-col="listed"], th[data-col="channel_member"]')).toHaveText(['Listed person', 'Channel: answer only'])
     await who.getByRole('button', { name: 'Add a person' }).click()
     await page.getByTestId('connector-allow').getByRole('textbox').fill('U001')
     await page.getByTestId('connector-allow').getByRole('textbox').press('Enter')

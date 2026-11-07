@@ -147,7 +147,7 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
                   {t(skillInstallNoticeKey(c), { skill: c.skill, name: c.name })}
                 </Callout>
               ))}
-              {host.status === 'loading' && <p className="ad-quiet" role="status" data-testid="hostaccess-loading">{t('hostAccess.loading')}</p>}
+              {host.status === 'loading' && <p className="ad-quiet" role="status" data-testid="hostaccess-loading">{t(host.slow ? 'hostAccess.loadingSlow' : 'hostAccess.loading')}</p>}
               {host.status === 'error' && (
                 <Callout tone="warn" testId="hostaccess-error" actions={<Button size="sm" icon="refresh" onClick={host.retry}>{t('catalog.retry')}</Button>}>
                   {t('hostAccess.previewFailed')}

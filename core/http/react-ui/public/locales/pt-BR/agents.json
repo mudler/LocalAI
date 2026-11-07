@@ -64,7 +64,18 @@
     },
     "noRunsText": "Press Chat to start a conversation with this agent. Chats that ran with it, and the ones its triggers start, are listed here.",
     "missingText": "It may have been deleted, or it belongs to another user.",
-    "backToList": "Voltar aos agentes"
+    "backToList": "Voltar aos agentes",
+    "bindings": "Conexões",
+    "bindingsAll": "Todas as conexões",
+    "noBindings": "Nenhum app de mensagens está conectado a este agente.",
+    "noBindingsLink": "Adicione um em Add-ons.",
+    "bindingState": {
+      "ok": "Ativa",
+      "off": "Desativada",
+      "attention": "Precisa de atenção"
+    },
+    "openSettings": "Abrir configurações",
+    "openSettingsFor": "Abrir as configurações de {{name}}"
   },
   "record": {
     "where": "A run is a chat that ran with the agent, including the ones its triggers and connectors started.",
@@ -82,7 +93,10 @@
       "export": "Export",
       "Files": "Arquivos",
       "Tools": "Ferramentas",
-      "Notes": "Memória"
+      "Notes": "Memória",
+      "Connections": "Conexões",
+      "Effective": "Visão efetiva",
+      "Uses": "O que pode usar"
     },
     "name": "Name",
     "description": "Description",
@@ -151,7 +165,305 @@
       "files_upload": "Receber arquivos de aplicativos de mensagens"
     },
     "memoryOffUser": "A memória está desativada nas suas configurações, então este agente não lê nem salva notas, não importa o que você defina aqui.",
-    "memoryOffFix": "Configurações, Memória"
+    "memoryOffFix": "Configurações, Memória",
+    "nav": {
+      "label": "Seções",
+      "identity": "Identidade",
+      "capabilities": "Capacidades",
+      "memory": "Memória e conhecimento",
+      "advanced": "Avançado",
+      "connections": "Conexões",
+      "effective": "Visão efetiva"
+    },
+    "lead": {
+      "identity": "Quem é o agente e como ele se comporta.",
+      "capabilities": "O que o agente pode usar e alcançar.",
+      "memory": "O que o agente lembra e o que ele pode consultar.",
+      "advanced": "Servidores extras e exportação.",
+      "connections": "Quais conexões este agente pode usar.",
+      "effective": "O que este agente pode fazer agora."
+    },
+    "header": {
+      "unnamed": "Agente sem nome",
+      "modeEdit": "Editar agente",
+      "modeCreate": "Novo agente",
+      "summary": "Resumo deste agente"
+    },
+    "status": {
+      "clean": "Nenhuma alteração não salva",
+      "new": "Ainda não criado",
+      "unsaved": "Alterações não salvas ({{count}})"
+    },
+    "preset": {
+      "label": "Nível de ferramentas",
+      "loading": "Carregando a lista de ferramentas",
+      "current": "Nível: {{name}}. Se você mudar uma chave abaixo, vira uma combinação própria.",
+      "custom": "Combinação própria de chaves. Escolha um nível para substituí-la.",
+      "applied": "Nível {{name}} aplicado",
+      "appliedBody": "As chaves abaixo mudaram. Nada é salvo até você salvar.",
+      "readonly": {
+        "title": "Só consulta",
+        "body": "Pesquisa na web e nas suas coleções. Sem arquivos, sem comandos, sem gatilhos."
+      },
+      "assistant": {
+        "title": "Assistente",
+        "body": "Adiciona agentes salvos, gatilhos e mudanças sugeridas. Sem arquivos, sem comandos."
+      },
+      "full": {
+        "title": "Completo",
+        "body": "Todas as ferramentas que o servidor lista. Os direitos sensíveis continuam desligados."
+      }
+    },
+    "tpl": {
+      "applied": "Iniciado a partir de {{name}}",
+      "appliedBody": "Nome, descrição, instruções e ferramentas mudaram. Nada é salvo até você salvar.",
+      "tools": "Ferramentas: {{level}}",
+      "noTools": "Ferramentas: como estão"
+    },
+    "undo": "Desfazer",
+    "keep": "Manter",
+    "modelCaps": "O que este modelo sabe fazer",
+    "modelChat": "Chat",
+    "connections": {
+      "addonsTitle": "Complementos que usam uma conexão",
+      "addonsNone": "Nenhum complemento precisa de uma conexão.",
+      "messagingTitle": "Onde este agente está conectado",
+      "messagingNone": "Nenhuma conexão de mensagens usa este agente ainda. Salve o agente e adicione uma.",
+      "messagingHelp": "As conexões de mensagens são definidas na página própria.",
+      "allows_one": "permite {{count}} direito",
+      "allows_other": "permite {{count}} direitos",
+      "open": "Abrir",
+      "addonOff": "desligado",
+      "noneYet": "Ainda não há conexão.",
+      "add": "Adicionar uma conexão",
+      "groupLabel": "Conexões para {{name}}",
+      "chosenHelp": "Os chats deste agente só podem usar as conexões marcadas.",
+      "perChat": "Nenhuma marcada: cada chat escolhe a sua.",
+      "summary_one": "{{count}} conexão",
+      "summary_other": "{{count}} conexões"
+    },
+    "more": "Mais ações",
+    "eff": {
+      "summaryOk": "Nada está bloqueado.",
+      "summaryBlocked_one": "{{count}} coisa está bloqueada.",
+      "summaryBlocked_other": "{{count}} coisas estão bloqueadas.",
+      "unsaved": "Esta lista segue o formulário como está agora, com as alterações não salvas.",
+      "unsavedConn": "Ferramentas, memória e conhecimento seguem o formulário como está agora. As linhas de conexões vêm do agente salvo e da conexão salva.",
+      "state": {
+        "allowed": "Pode",
+        "asks": "Pergunta antes",
+        "off": "Desligado",
+        "blocked": "Bloqueado",
+        "info": "Nota"
+      },
+      "more_one": "e mais {{count}}",
+      "more_other": "e mais {{count}}",
+      "fixHere": "Corrigir aqui",
+      "fixOpen": "Abrir a página que corrige",
+      "model": {
+        "fixed": "Roda com {{model}}.",
+        "any": "Usa o modelo escolhido em cada conversa."
+      },
+      "tools": {
+        "none": "Nenhuma ferramenta está ligada. Só pode responder com o que sabe.",
+        "some_one": "Pode usar {{count}} ferramenta: {{names}}.",
+        "some_other": "Pode usar {{count}} ferramentas: {{names}}.",
+        "blocked": "{{name}} está ligado, mas não pode funcionar agora. {{reason}}"
+      },
+      "skills": {
+        "some_one": "Pode usar {{count}} habilidade: {{names}}.",
+        "some_other": "Pode usar {{count}} habilidades: {{names}}.",
+        "withAddons_one": "Pode usar {{count}} skill que vem com um add-on: {{names}}.",
+        "withAddons_other": "Pode usar {{count}} skills que vêm com add-ons: {{names}}.",
+        "addonOff": "A skill {{name}} está ligada, mas o add-on dela, {{addon}}, está desligado, então ela não faz nada. Ligue o add-on."
+      },
+      "files": {
+        "all": "Pode acessar todos os seus arquivos.",
+        "folders_one": "Só pode acessar a {{count}} pasta escolhida.",
+        "folders_other": "Só pode acessar as {{count}} pastas escolhidas.",
+        "none": "Não alcança nenhum dos seus arquivos."
+      },
+      "grants": {
+        "parentOff": "{{name}} é permitido, mas não funciona enquanto {{parent}} estiver desligado. Ligue {{parent}}.",
+        "connection": "{{name}} é permitido para o agente, mas não nesta conexão: {{connection}}",
+        "some_one": "Tem {{count}} permissão extra: {{names}}.",
+        "some_other": "Tem {{count}} permissões extras: {{names}}.",
+        "unattended_one": "Quando ninguém está olhando, pode usar {{count}} permissão por conta própria: {{names}}.",
+        "unattended_other": "Quando ninguém está olhando, pode usar {{count}} permissões por conta própria: {{names}}."
+      },
+      "memory": {
+        "userOff": "A memória está desligada nas suas configurações, então este agente não lê nem salva notas, seja qual for a escolha aqui.",
+        "none": "A memória está desligada para este agente. Ele não lê nem salva notas.",
+        "mine_and_own": "Lê as suas notas e as próprias, e salva nas próprias.",
+        "own": "Lê e salva só as próprias notas.",
+        "mine": "Lê as suas notas e salva nelas.",
+        "asBefore": "A memória funciona como antes: lê notas quando um complemento cita Memory.",
+        "level": {
+          "auto": "Salva as notas na hora.",
+          "ask": "Salva notas (pergunta antes): cada nota espera a sua confirmação.",
+          "always": "Salva notas, mas cada nota espera por você e nada afrouxa isso.",
+          "never": "Lê notas, mas não salva nenhuma: o seu nível de salvamento é Nunca.",
+          "agentAuto": "Salva as notas na hora e avisa você, com Desfazer. É a escolha própria do agente."
+        },
+        "readsOnly": "Lê notas, mas não pode salvar.",
+        "connectionLimit": "Nestas conexões de mensagens as notas não são salvas: {{names}}."
+      },
+      "knowledge": {
+        "some_one": "Pode pesquisar {{count}} coleção: {{names}}.",
+        "some_other": "Pode pesquisar {{count}} coleções: {{names}}.",
+        "none": "Nenhuma coleção de conhecimento para pesquisar."
+      },
+      "connections": {
+        "unsaved": "Ainda não usado em apps de mensagens. Salve o agente e depois adicione uma conexão.",
+        "none": "Não usado em nenhum app de mensagens.",
+        "loading": "Verificando {{name}}...",
+        "error": "Não foi possível verificar {{name}}. Abra-a para ver as permissões.",
+        "summary": "{{name}}: {{allowed}} permitidos, {{blocked}} não permitidos.",
+        "blocked": "{{name}} não pode usar {{capability}}. {{message}}"
+      },
+      "addons": {
+        "noConnection": "{{name}} está ligado mas não pode funcionar agora: você não tem conta para ele. Adicione uma.",
+        "stale": "{{name}} está ligado mas não pode funcionar agora: as contas salvas não existem mais. Escolha uma conta.",
+        "pick": "{{name}} está ligado mas não pode funcionar agora: nenhuma conta foi escolhida. Uma execução sem ninguém presente não recebe nenhuma ferramenta dele.",
+        "resourcesNone": "{{name}} está ligado mas não pode funcionar agora: nenhum item ({{noun}}) está marcado.",
+        "account": "{{name}} usa {{names}}.",
+        "resources": "{{name}} pode usar {{n}} ({{plural}}) e alterar {{w}}.",
+        "resourcesRead": "{{name}} pode ler {{n}} ({{plural}}) e não alterar nenhum."
+      },
+      "mcp": {
+        "ignored": "{{name}} está nos servidores MCP do agente, mas nada existe com esse nome, então é ignorado. Remova-o."
+      }
+    },
+    "try": {
+      "open": "Testar",
+      "title": "Testar este agente",
+      "desc": "Envie uma mensagem a uma conversa de teste que usa as configurações deste formulário. Nada é salvo.",
+      "noModel": "Nenhum modelo de conversa instalado. Instale ou escolha um modelo primeiro.",
+      "defaultModel": "Nenhum modelo definido, então o teste usa {{model}}.",
+      "skipped": "O teste não usa: {{what}}. Isso pertence a um agente salvo.",
+      "skip": {
+        "grants": "permissões",
+        "memory": "memória",
+        "knowledge": "coleções de conhecimento",
+        "folders": "pastas compartilhadas"
+      },
+      "empty": "Envie uma mensagem para começar.",
+      "role": {
+        "user": "Você",
+        "assistant": "Agente",
+        "tool": "Ferramenta"
+      },
+      "toolRan": "Usou uma ferramenta: {{name}}",
+      "working": "Trabalhando...",
+      "label": "Mensagem para o agente",
+      "placeholder": "Pergunte algo que este agente deve resolver",
+      "send": "Enviar",
+      "stop": "Parar",
+      "deleted": "A conversa de teste é excluída quando você fecha este painel.",
+      "chatTitle": "Teste de {{name}}",
+      "failed": "O teste falhou: {{message}}",
+      "slow": "O agente ainda está trabalhando. Pare-o ou feche o painel."
+    },
+    "uses": {
+      "presetNote": "Um nível ajusta apenas as ferramentas integradas e as permissões. Add-ons, contas, servidores MCP e skills continuam como estão.",
+      "needsSummary_one": "{{count}} add-on ainda não pode funcionar",
+      "needsSummary_other": "{{count}} add-ons ainda não podem funcionar",
+      "builtins": {
+        "title": "Ferramentas integradas",
+        "lead": "Fornecidas pelo LocalAI. As opções ficam abaixo da chave."
+      },
+      "addons": {
+        "title": "Add-ons",
+        "lead": "Uma linha para cada: ligue, escolha a conta que usa e veja o que oferece.",
+        "none": "Nenhum add-on instalado.",
+        "gone": "Concedido, mas não instalado ou indisponível para você. Desligue para remover."
+      },
+      "mcp": {
+        "title": "Servidores MCP",
+        "lead": "Servidores fora do LocalAI. As ferramentas deles podem custar dinheiro ou alcançar outros sistemas.",
+        "search": "Buscar servidores MCP",
+        "none": "Nenhum conector MCP definido ainda. Adicione um na página de conectores MCP.",
+        "connector": "Um conector MCP que você definiu.",
+        "server": "Um servidor MCP do modelo.",
+        "unknown": "Não definido: nada existe com esse nome, então o agente o ignora.",
+        "unverified": "O modelo é escolhido em cada chat, então esse nome é verificado lá.",
+        "remove": "Remover {{name}}",
+        "noMatch": "Nenhum servidor MCP corresponde a “{{query}}”.",
+        "removeShort": "Remover"
+      },
+      "account": {
+        "label": "Conta que usa",
+        "group": "Contas para {{name}}",
+        "none": "Ainda não há conta.",
+        "add": "Adicionar uma conta",
+        "kept": "Guardado para depois"
+      },
+      "meta": {
+        "account": "precisa de uma conta",
+        "resources": "limitado a: {{plural}} marcados"
+      },
+      "tools_one": "{{count}} ferramenta",
+      "tools_other": "{{count}} ferramentas",
+      "toolsSplit_one": "{{count}} ferramenta ({{read}} de leitura, {{write}} alteram dados)",
+      "toolsSplit_other": "{{count}} ferramentas ({{read}} de leitura, {{write}} alteram dados)",
+      "writes": "altera dados",
+      "now": {
+        "label": "Agora:",
+        "off": "Desligado. Nada dele é oferecido.",
+        "offKept": "Desligado. Nada é oferecido. Contas guardadas para depois: {{names}}.",
+        "noAccountNeeded": "Ligado. Oferece: {{tools}}. Não precisa de conta.",
+        "only": "Ligado. Oferece: {{tools}}, com {{names}}, sua única conta.",
+        "using": "Ligado. Oferece: {{tools}}, com {{names}}.",
+        "usingMany": "Ligado. Oferece: {{tools}}, com {{names}}. O modelo indica a conta em cada chamada.",
+        "pick": "Ligado, mas nenhuma conta foi escolhida. Um chat pede que você escolha uma antes de receber ferramentas; uma execução sem ninguém presente não recebe nenhuma. Marque acima a conta a usar.",
+        "noConnection": "Ligado, mas você ainda não tem conta para ele, então nenhuma ferramenta é oferecida. Adicione uma conta, acima.",
+        "stale": "Ligado, mas as contas salvas não existem mais, então nenhuma ferramenta é oferecida. Escolha uma conta. Marque uma conta, acima.",
+        "resourcesNone": "Ligado, mas nenhum item ({{noun}}) está marcado, então ele não pode usar nenhum. Marque um, acima.",
+        "resourcesRead": "Ligado. Oferece: {{tools}}, em {{n}} marcados ({{plural}}), somente leitura. Ferramentas que alteram dados não podem rodar.",
+        "resources": "Ligado. Oferece: {{tools}}, em {{n}} marcados ({{plural}}); pode alterar {{w}}."
+      },
+      "res": {
+        "heading": "Quais <n>{{plural}}</n> pode usar",
+        "headingPlain": "Quais {{plural}} pode usar",
+        "loading": "Carregando a lista.",
+        "error": "Não foi possível ler a lista.",
+        "empty": "Você ainda não tem <n>{{plural}}</n> para dar.",
+        "truncated": "A lista foi cortada.",
+        "gone": "indisponível",
+        "access": "Acesso a {{name}}",
+        "read": "Leitura",
+        "write": "Ler e alterar",
+        "none": "Nenhum marcado: não pode usar nenhum item (<n>{{noun}}</n>).",
+        "some": "Somente os marcados. Você ainda precisa do seu próprio acesso a cada um."
+      },
+      "skills": {
+        "summaryOff_one": "{{count}} skill é ligada com ele",
+        "summaryOff_other": "{{count}} skills são ligadas com ele",
+        "summaryOn": "{{on}} de {{total}} skills ligadas"
+      },
+      "addonOn": {
+        "title": "{{name}} ligado",
+        "body_one": "{{count}} skill ligada com ele: {{names}}. Nada é salvo até você salvar.",
+        "body_other": "{{count}} skills ligadas com ele: {{names}}. Nada é salvo até você salvar."
+      },
+      "skillAddonOff": "O add-on dela está desligado, então esta skill não faz nada.",
+      "memorySkills": {
+        "title": "Skills da memória",
+        "from": "de {{slot}}",
+        "on": "Ligadas enquanto a memória está ligada.",
+        "off": "Desligadas enquanto a memória deste agente está desligada.",
+        "offUser": "Desligadas, porque a memória está desligada nas suas Configurações."
+      },
+      "slot": {
+        "memory": "Memória"
+      }
+    },
+    "memoryLevelApplied": {
+      "title": "Memória: {{name}}",
+      "off": "Não lê nem salva notas, e a permissão de lembrar coisas fica desligada. Nada é salvo até você salvar.",
+      "reads": "A permissão de lembrar coisas está desligada, então ele lê notas, mas não pode salvar nenhuma. Nada é salvo até você salvar.",
+      "saves": "A permissão de lembrar coisas está ligada. Nada é salvo até você salvar."
+    }
   },
   "run": {
     "workingLine": "Working"
@@ -268,7 +580,8 @@
       "noChanges": "Nothing differs from the saved trigger.",
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
-      "changed_other": "{{count}} changes"
+      "changed_other": "{{count}} changes",
+      "watchNoFiles": "Este agente está em \"Nenhum arquivo\": uma execução deste gatilho fica sabendo que chegou um arquivo, mas não consegue abri-lo. Dê acesso a arquivos no editor do agente ou escolha outro agente."
     },
     "subtitle": "Inicie um agente por agenda ou quando um arquivo chegar. Cada execução é um chat que você pode abrir."
   },
@@ -472,7 +785,7 @@
   },
   "folder": {
     "all": "Todos os meus arquivos",
-    "one": "Pastas escolhidas",
+    "one": "Somente estas pastas",
     "scopeLabel": "Arquivos que este agente pode alcançar",
     "allHelp": "Os chats com este agente alcançam todos os seus arquivos, como um chat sem agente.",
     "choose": "Escolher pasta",
@@ -513,6 +826,152 @@
     "effectiveRead": "Está dentro de uma pasta somente leitura, então esta só pode ser lida.",
     "effectiveWrite": "Está dentro de uma pasta que pode ser alterada, então esta também pode ser alterada.",
     "notMounted": "{{n}} pastas compartilhadas não cabem no limite de acesso de um chat e não são montadas.",
-    "exportNoteMany": "O arquivo cita {{n}} pastas. Onde você importar, o agente recebe as pastas com esses caminhos que existirem e pede que você escolha as outras."
+    "exportNoteMany": "O arquivo cita {{n}} pastas. Onde você importar, o agente recebe as pastas com esses caminhos que existirem e pede que você escolha as outras.",
+    "none": "Nenhum arquivo",
+    "noneHelp": "Este agente não alcança nenhum dos seus arquivos. Os arquivos que você anexa a um chat ficam nesse chat. Vigiar uma pasta exige acesso a arquivos: um gatilho que vigia uma pasta ainda inicia para este agente, mas não consegue abrir os arquivos que chegam."
+  },
+  "templates": {
+    "researcher": {
+      "description": "Pesquisa, lê fontes e escreve resumos curtos."
+    },
+    "reviewer": {
+      "description": "Revisa uma mudança e lista primeiro o que corrigir."
+    },
+    "digest": {
+      "description": "Reúne as novidades de um tema e as resume."
+    },
+    "blank": {
+      "description": "Vazio. Comece do zero."
+    }
+  },
+  "wizard": {
+    "title": "Novo agente",
+    "supporting": "Quatro passos curtos. Só nome e instruções são obrigatórios.",
+    "stepsLabel": "Passos",
+    "back": "Voltar",
+    "next": "Continuar",
+    "defaultTools": "Ferramentas padrão",
+    "step": {
+      "purpose": "Finalidade",
+      "abilities": "Capacidades",
+      "where": "Onde ele trabalha",
+      "review": "Revisão"
+    },
+    "purpose": {
+      "title": "Para que serve este agente?",
+      "lead": "Comece com um modelo ou escreva o seu. Você pode mudar tudo depois.",
+      "needs": "São necessários nome e instruções para continuar.",
+      "modelLine": "Modelo: o que você escolhe em cada chat.",
+      "modelChoose": "Escolher um modelo fixo",
+      "modelEach": "O que eu escolho em cada chat"
+    },
+    "abilities": {
+      "title": "Quanto ele pode fazer sozinho?",
+      "lead": "Não tem certeza? Deixe assim: o agente começa com as ferramentas padrão. Ou escolha um nível, que as substitui.",
+      "defaultNote": "Nenhum nível escolhido. O agente começa com as ferramentas padrão.",
+      "files": "Quais dos seus arquivos ele pode ver?",
+      "fine": "Ajustar ferramentas uma a uma",
+      "templateHint": "Este modelo sugere o nível {{level}}.",
+      "templateUse": "Usar {{level}}"
+    },
+    "where": {
+      "title": "Onde ele deve trabalhar?",
+      "lead": "Opcional. Escolha onde este agente deve trabalhar. Nada está conectado ainda.",
+      "chat": "Apps de chat",
+      "chatLead": "Apps em que as pessoas podem falar com este agente.",
+      "tools": "Ferramentas e serviços",
+      "toolsLead": "Add-ons que dão novas capacidades a ele.",
+      "notInstalled": "Não instalado",
+      "generic": "Termine de configurar {{title}}",
+      "loading": "Procurando apps",
+      "empty": "Ainda não há apps disponíveis.",
+      "note": "Escolher um app não o conecta. Depois de criar o agente, uma lista curta guia você na configuração de cada um.",
+      "find": "Encontrar add-ons"
+    },
+    "review": {
+      "title": "Pronto para criar",
+      "lead": "Confira o resumo. Você pode mudar tudo depois.",
+      "named": "Tem nome e instruções",
+      "tools": "Ferramentas: {{level}}",
+      "modelFixed": "Modelo: {{model}}",
+      "modelEach": "Modelo: o que você escolhe em cada chat",
+      "apps": "Apps para configurar depois de criar: {{count}}",
+      "filesTitle": "Ele pode ver todos os seus arquivos.",
+      "filesBody": "Tudo o que você pode abrir em Arquivos, este agente pode ler. Você pode limitá-lo a pastas.",
+      "limit": "Limitar a pastas",
+      "setupNext": "Depois de criar o agente, a página dele lista os passos de configuração dos apps escolhidos."
+    },
+    "rail": {
+      "title": "Seu agente",
+      "unnamed": "Sem nome",
+      "abilities": "Capacidades",
+      "modelEach": "Escolhido em cada chat",
+      "files": "Arquivos",
+      "folders": "Só pastas escolhidas ({{count}})",
+      "works": "Trabalha em",
+      "thisApp": "Este app"
+    }
+  },
+  "setup": {
+    "title": "Concluir a configuração",
+    "count": "{{done}} de {{total}} concluídos",
+    "dismiss": "Ocultar",
+    "progress": "Andamento da configuração",
+    "done": "Concluído",
+    "stays": "A lista fica nesta página até todos os apps estarem prontos, ou até você ocultá-la.",
+    "connect": "Nova conexão",
+    "account": "Escolher conta",
+    "turnOn": "Ativar",
+    "find": "Ver nos add-ons",
+    "actionFor": "{{action}}: {{title}}"
+  },
+  "share": {
+    "action": "Compartilhar",
+    "intro": "As pessoas que você adicionar usam este agente como elas mesmas, com os próprios arquivos, coleções e conexões.",
+    "roles": {
+      "use": "Pode usar",
+      "useHelp": "Conversam com o agente nos próprios chats e veem do que ele precisa.",
+      "viewer": "Pode ver",
+      "viewerHelp": "Também podem ler as instruções e as ferramentas."
+    },
+    "kind": {
+      "addon": "Complemento",
+      "collection": "Coleção",
+      "skill": "Habilidade",
+      "folder": "Pasta",
+      "connection": "Conexão",
+      "addon-resource": "Recurso de complemento",
+      "mcp": "Servidor MCP",
+      "builtin": "Permissão integrada",
+      "network": "Rede",
+      "tool-group": "Grupo de ferramentas"
+    },
+    "ownAccess": "Precisam de acesso próprio",
+    "refsApplied_one": "Também foi compartilhado {{count}} item que ele usa.",
+    "refsApplied_other": "Também foram compartilhados {{count}} itens que ele usa.",
+    "refsFailed": "Não foi possível compartilhar: {{names}}.",
+    "refsSkipped": "Não compartilhado com todos: {{names}}. Compartilhe com cada pessoa.",
+    "failed": "Não foi possível abrir o compartilhamento. {{message}}"
+  },
+  "shared": {
+    "readOnly": "Você pode conversar com este agente. Só o dono pode alterá-lo."
+  },
+  "needs": {
+    "title": "Do que este agente precisa",
+    "intro": "O agente funciona como você, com o seu próprio acesso.",
+    "none": "Este agente não usa nada além do chat.",
+    "loadError": "Não foi possível verificar do que este agente precisa.",
+    "state": {
+      "ok": "Você tem",
+      "missing": "Não compartilhado com você",
+      "unavailable": "Indisponível para você",
+      "ask": "Começa desligado no seu chat"
+    },
+    "noticeTitle_one": "Este agente precisa de {{count}} item que você não tem:",
+    "noticeTitle_other": "Este agente precisa de {{count}} itens que você não tem:",
+    "noticeLink": "Ver do que ele precisa",
+    "asksTitle_one": "Este agente pede {{count}} item com o qual seu chat não começa:",
+    "asksTitle_other": "Este agente pede {{count}} itens com os quais seu chat não começa:",
+    "asksHelp": "Ele roda como você. Ligue-os no chat só se você confiar no agente e na pessoa que o compartilhou."
   }
 }

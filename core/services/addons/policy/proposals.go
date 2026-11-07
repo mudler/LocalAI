@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/xlog"
 )
 
 // Proposal is the public view of a stored proposal.
@@ -124,6 +125,13 @@ type proposalRecord struct {
 	// confirm.
 	Credentialed bool `json:"credentialed,omitempty"`
 	Await        bool `json:"await,omitempty"`
+	// Hold says why Await is set: write_mode_propose or approval_always.
+	Hold string `json:"hold,omitempty"`
+	// Relaxed marks a proposal whose tool declares approval "always" but that
+	// the person's own setting let run without a confirmation (see
+	// BrokerOptions.RelaxApproval). The apply asks the setting again, and
+	// every such run leaves an audit line.
+	Relaxed bool `json:"relaxed,omitempty"`
 	// ConnectionID and ConnectionName are the connection the preview used. The
 	// apply uses the same one and is refused when it is gone.
 	ConnectionID   string `json:"connectionId,omitempty"`
@@ -386,6 +394,30 @@ type BrokerOptions struct {
 	// surface, as opposed to a chat turn. A proposal that awaits a person is
 	// confirmed only by such a credential. The default is ConfirmCredential.
 	ConfirmPerson func(contract.Actor) bool
+	// RelaxApproval says whether the person's own setting lets the call run
+	// without a confirmation, for a tool that declares approval "always" and
+	// approvalOverridable. The context belongs to the call: the host decides
+	// from the chat it binds (who owns it, who sent the message) and never
+	// from an argument. It is asked at the preview and again at the apply.
+	// Without it, or on any doubt, the answer is no and the proposal waits
+	// for a person.
+	RelaxApproval func(ctx context.Context, actor contract.Actor, addonID, tool string) bool
+	// OnRelaxedRun is called after a proposal that ran without a confirmation
+	// ended, with the outcome. It carries the names of the tool and of the
+	// connection and never the arguments, so a typed text or a key sequence is
+	// not in it. The broker writes its own audit line before it.
+	OnRelaxedRun func(ctx context.Context, run RelaxedRun)
+}
+
+// RelaxedRun describes one run of a tool without a confirmation.
+type RelaxedRun struct {
+	AddonID, Tool string
+	UserID        string
+	// ConnectionID and ConnectionName say which connection acted.
+	ConnectionID, ConnectionName string
+	// Outcome is "applied", "rejected", "unknown" (the add-on did not report)
+	// or "not_run" (the host stopped the call before the add-on saw it).
+	Outcome string
 }
 
 // Broker is the owner-held proposal state machine. A data or schema mutation
@@ -644,7 +676,7 @@ func effects(summary json.RawMessage) (gateway.ProposalEffects, error) {
 func (b *Broker) view(r proposalRecord) Proposal {
 	p := Proposal{ID: r.ID, OperationID: r.ID, AddonID: r.AddonID, ResourceID: r.ResourceID, Generation: r.Generation, Action: r.Action,
 		Arguments: r.Arguments, Revision: r.Revision, Digest: r.Digest, Effects: r.Effects, State: r.State, ExpiresAt: r.ExpiresAt,
-		CreatedAt: r.CreatedAt, Receipt: r.Receipt, Reason: r.Reason, Resolution: r.Resolution, AwaitsPerson: r.Await,
+		CreatedAt: r.CreatedAt, Receipt: r.Receipt, Reason: r.Reason, Resolution: r.Resolution, AwaitsPerson: r.Await, Hold: r.Hold,
 		ConnectionID: r.ConnectionID, ConnectionName: r.ConnectionName}
 	if r.State == gateway.ProposalPending {
 		p.Blocked = b.blockedBy(r.ResourceID, r.ID) != ""
@@ -797,10 +829,11 @@ func (b *Broker) credentialFor(ctx context.Context, actor contract.Actor, addonI
 		return gateway.CredentialGrant{}, ErrUnavailable
 	}
 	key, _, err := ct.slot.CredentialResource(ct.def, args)
-	if err != nil {
+	omitted := errors.Is(err, contract.ErrResourceOmitted)
+	if err != nil && !omitted {
 		return gateway.CredentialGrant{}, fmt.Errorf("%w: %w", gateway.ErrInvalidRequest, contract.ErrRefused)
 	}
-	grant, err := b.opts.Credentials.Credential(ctx, actor, addonID, key)
+	grant, err := gateway.CredentialFor(ctx, b.opts.Credentials, actor, addonID, key, omitted)
 	if err != nil {
 		var refusal *gateway.CredentialRefusal
 		if errors.As(err, &refusal) {
@@ -815,6 +848,19 @@ func (b *Broker) credentialFor(ctx context.Context, actor contract.Actor, addonI
 		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeWriteNotAllowed}
 	}
 	return grant, nil
+}
+
+// HoldWriteModePropose is the Hold of a proposal that waits only because the
+// write mode of its connection is the one that asks first.
+const HoldWriteModePropose = "write_mode_propose"
+
+// chatMayConfirm says whether the host took the confirmation of r from a
+// paired sender in a messaging chat, and the proposal is of a kind that such a
+// sender may confirm: one that waits because the connection asks first. A tool
+// that always asks (approval_always) waits for a person at a host surface
+// whatever a chat says.
+func chatMayConfirm(ctx context.Context, r proposalRecord) bool {
+	return gateway.ChatConfirmed(ctx) && r.Credentialed && r.Hold == HoldWriteModePropose
 }
 
 // confirmPerson says whether the credential stands for a person at a host
@@ -898,7 +944,11 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 	key := ResourceKey{AddonID: request.AddonID, ResourceID: request.ResourceID}
 	admit := func(run func(context.Context) error) error { return p.Admit(ctx, actor, key, action, run) }
 	if credentialed {
-		admit = func(run func(context.Context) error) error { return p.AdmitAddon(ctx, actor, request.AddonID, run) }
+		// A binding shared with the actor holds the preview as admitted work
+		// of its share (grant.Use), so a revocation cancels it.
+		admit = func(run func(context.Context) error) error {
+			return grant.Use(ctx, func(ctx context.Context) error { return p.AdmitAddon(ctx, actor, request.AddonID, run) })
+		}
 	} else {
 		if key, err = p.Resolve(ctx, actor, request); err != nil {
 			return Proposal{}, err
@@ -973,7 +1023,13 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 		if credentialed {
 			rec.Credentialed = true
 			rec.ConnectionID, rec.ConnectionName = grant.BindingID, grant.BindingName
-			rec.Await = grant.WriteMode != gateway.WriteAuto || ct.def.Approval == contract.ApprovalAlways
+			rec.Relaxed = b.relaxed(ctx, actor, request.AddonID, ct.def)
+			rec.Await = !rec.Relaxed && (grant.WriteMode != gateway.WriteAuto || ct.def.Approval == contract.ApprovalAlways)
+			if rec.Await && grant.WriteMode != gateway.WriteAuto {
+				rec.Hold = "write_mode_propose"
+			} else if rec.Await {
+				rec.Hold = "approval_always"
+			}
 		}
 		rec.Digest = digestOf(rec)
 		if rctx.Err() != nil {
@@ -996,6 +1052,38 @@ func credentialRefusal(err error) error {
 		return refusal
 	}
 	return nil
+}
+
+// relaxed says whether the person's setting lets this call run without a
+// confirmation. Only a tool that the manifest marks approvalOverridable can
+// be relaxed, and only down from "always"; the answer is no without the
+// option.
+func (b *Broker) relaxed(ctx context.Context, actor contract.Actor, addonID string, def contract.ToolDefinition) bool {
+	if b.opts.RelaxApproval == nil || !def.ApprovalOverridable || def.Approval != contract.ApprovalAlways {
+		return false
+	}
+	return b.opts.RelaxApproval(ctx, actor, addonID, def.Name)
+}
+
+// auditRelaxed writes the audit line of a run without a confirmation: which
+// tool, which connection and how it ended. The arguments are never in it.
+func (b *Broker) auditRelaxed(ctx context.Context, actor contract.Actor, r proposalRecord, receipt contract.Receipt, err error) {
+	tool, _ := gateway.NamedTool(r.Arguments)
+	var unknown *gateway.OutcomeUnknown
+	outcome := "not_run"
+	switch {
+	case err == nil && receipt.State == contract.ReceiptCommitted:
+		outcome = "applied"
+	case err == nil, errors.Is(err, ErrProposalConflict):
+		outcome = "rejected"
+	case errors.As(err, &unknown):
+		outcome = "unknown"
+	}
+	xlog.Info("addons: tool call without a confirmation", "addon", r.AddonID, "tool", tool, "connection", r.ConnectionName,
+		"connectionId", r.ConnectionID, "user", actor.UserID, "outcome", outcome)
+	if b.opts.OnRelaxedRun != nil {
+		b.opts.OnRelaxedRun(ctx, RelaxedRun{AddonID: r.AddonID, Tool: tool, UserID: actor.UserID, ConnectionID: r.ConnectionID, ConnectionName: r.ConnectionName, Outcome: outcome})
+	}
 }
 
 // previewRefusal types a failed preview that is the add-on's definite answer
@@ -1466,7 +1554,7 @@ func (b *Broker) ConfirmBound(ctx context.Context, actor contract.Actor, proposa
 	if err = b.authorizeTool(ctx, r.AddonID, r.Generation, r.Arguments); err != nil {
 		return contract.Receipt{}, err
 	}
-	if r.Await && !b.confirmPerson(p, actor) {
+	if r.Await && !b.confirmPerson(p, actor) && !chatMayConfirm(ctx, r) {
 		// Only a person at a host surface applies it: a chat turn or an agent
 		// that proposed it cannot.
 		return contract.Receipt{}, ErrForbidden
@@ -1476,6 +1564,9 @@ func (b *Broker) ConfirmBound(ctx context.Context, actor contract.Actor, proposa
 	var outcome error
 	run := func(rctx context.Context) error {
 		receipt, outcome = b.execute(rctx, actor, r.ID)
+		if r.Relaxed {
+			b.auditRelaxed(rctx, actor, r, receipt, outcome)
+		}
 		return outcome
 	}
 	if r.Credentialed {
@@ -1565,7 +1656,13 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		// A proposal that waits for a person is confirmed at a host surface,
 		// never from a chat turn: in local-owner mode the credential of a
 		// chat turn is the browser's, so the mark of the call decides.
-		if (r.Await || grant.WriteMode != gateway.WriteAuto) && (gateway.IsChatTurn(ctx) || !b.confirmPerson(b.policy, actor)) {
+		// A run without a confirmation is asked again: the person may have
+		// switched the setting back, or the chat may no longer qualify.
+		stillRelaxed := r.Relaxed && b.relaxed(ctx, actor, r.AddonID, ct.def)
+		if r.Relaxed && !stillRelaxed && (gateway.IsChatTurn(ctx) || !b.confirmPerson(b.policy, actor)) {
+			return contract.Receipt{}, ErrForbidden
+		}
+		if (r.Await || (grant.WriteMode != gateway.WriteAuto && !stillRelaxed)) && (gateway.IsChatTurn(ctx) || !b.confirmPerson(b.policy, actor)) && !chatMayConfirm(ctx, r) {
 			return contract.Receipt{}, ErrForbidden
 		}
 	}
@@ -1593,6 +1690,8 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 	}
 	wire := contract.Request{AddonID: r.AddonID, ResourceID: r.ResourceID, OperationID: r.wireOperation(), Generation: r.Generation, Action: r.wireAction(), Arguments: r.Arguments}
 	var receipt contract.Receipt
+	// applyCtx is the context of the hold of the grant while the apply runs.
+	applyCtx := ctx
 	apply := func(cg gateway.CredentialGrant) error {
 		w := wire
 		if r.Credentialed {
@@ -1603,14 +1702,34 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 			Authority: contract.Authority{Actor: actor, Scope: "apply", ExpiresAt: b.opts.Now().Add(b.opts.Limits.ApplyTimeout)},
 		}
 		var err error
-		receipt, err = instance.Client.Apply(ctx, env, r.Revision)
+		receipt, err = instance.Client.Apply(applyCtx, env, r.Revision)
 		return err
 	}
-	// The add-on answers credential_rejected only when the service refused
-	// the token and nothing changed, so the apply may run again with a
-	// renewed one. Without a credential the grant is the zero value, which
-	// WithRenewal never renews.
-	err = gateway.WithRenewal(ctx, b.opts.Credentials, actor, r.AddonID, grant, apply)
+	// The apply of a binding shared with the actor runs inside the hold of
+	// its share. A hold that refuses never called the add-on. The add-on
+	// answers credential_rejected only when the service refused the token and
+	// nothing changed, so the apply may run again with a renewed one. Without
+	// a credential the grant is the zero value, which WithRenewal never
+	// renews.
+	sent, lowered := false, false
+	held := grant.Use(ctx, func(hctx context.Context) error {
+		sent = true
+		applyCtx = hctx
+		err = gateway.WithRenewal(hctx, b.opts.Credentials, actor, r.AddonID, grant, apply)
+		lowered = hctx.Err() != nil && ctx.Err() == nil
+		return nil
+	})
+	if !sent {
+		_, _ = b.store.transition(id, []ProposalState{gateway.ProposalExecuting}, func(x *proposalRecord) {
+			x.State = gateway.ProposalPending
+			x.Reason = ""
+			x.UnknownSince = time.Time{}
+		})
+		if held == nil || errors.Is(held, ErrUnavailable) {
+			return contract.Receipt{}, ErrUnavailable
+		}
+		return contract.Receipt{}, ErrForbidden
+	}
 	if b.hooks.afterApply != nil {
 		b.hooks.afterApply(id)
 	}
@@ -1647,7 +1766,7 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		// withdrawn client, an envelope that failed validation) returns it to
 		// pending so the same confirmation can run again (R34, R29).
 		state, reason, answer := gateway.ProposalPending, "", err
-		if ctx.Err() != nil {
+		if ctx.Err() != nil || lowered {
 			state, reason, answer = gateway.ProposalCancelled, "authority lowered before dispatch", ErrForbidden
 		}
 		_, _ = b.store.transition(id, []ProposalState{gateway.ProposalExecuting}, func(x *proposalRecord) {

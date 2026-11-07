@@ -50,7 +50,13 @@ type catalogRelease struct {
 	// SkillShadows repeats catalog.Release.SkillShadows: the built-in skills
 	// the manifest's skill definitions replace.
 	SkillShadows []string `json:"skillShadows,omitempty"`
-	UI           struct {
+	// Requires repeats catalog.Release.Requires for the one field the
+	// generator writes: the feature level of a package that needs more than
+	// the base level.
+	Requires struct {
+		FeatureLevel uint64 `json:"featureLevel,omitempty"`
+	} `json:"requires,omitzero"`
+	UI struct {
 		Title        string            `json:"title"`
 		Description  string            `json:"description"`
 		Titles       map[string]string `json:"titles,omitempty"`
@@ -138,6 +144,19 @@ func translationFieldsYAML(ui *contract.UI, indent string) string {
 		}
 	}
 	return b.String()
+}
+
+// requiresFieldsYAML renders the requires block of a library entry: the
+// feature level of a manifest that needs more than the base level. A manifest
+// at the base level has no block. The index reader of a host that predates
+// the field refuses the whole index when one entry has it (the reader is
+// strict), so the catalog command writes it only with
+// --feature-level-in-index.
+func requiresFieldsYAML(m contract.Manifest, indent string) string {
+	if m.RequiredFeatureLevel() <= contract.BaseFeatureLevel {
+		return ""
+	}
+	return fmt.Sprintf("%srequires:\n%s  featureLevel: %d\n", indent, indent, m.RequiredFeatureLevel())
 }
 
 // cmdCatalogTools adds the toolCount and tools fields to the entries of an
@@ -231,6 +250,7 @@ func cmdCatalog(args []string) error {
 	out := fs.String("out", "", "output file")
 	root := fs.String("root", ".", "with --from-manifest: repository root that the manifest path of the platform matrix is relative to")
 	fromManifest := fs.Bool("from-manifest", false, "development channel only: render from the manifest and the enabled platforms, without a built package")
+	featureLevelInIndex := fs.Bool("feature-level-in-index", false, "write requires.featureLevel for an add-on that needs more than level 1. A host that predates the field refuses the whole index, so leave it off while such hosts are in use")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -297,6 +317,9 @@ func cmdCatalog(args []string) error {
 		// text lands inside it.
 		text = strings.TrimRight(text, "\n") + "\n" + translationFieldsYAML(ui, "  ") + toolFieldsYAML(manifest.Capabilities.Tools, "", contract.ShadowedTools(manifest.Capabilities.ToolDefinitions)...) +
 			skillFieldsYAML(contract.ShadowedSkills(manifest.Capabilities.SkillDefinitions), "")
+		if *featureLevelInIndex {
+			text += requiresFieldsYAML(*manifest, "")
+		}
 		if mutable {
 			text = strings.Replace(text, "digest: \"{{digest}}\"", "mutable: true", 1)
 		}

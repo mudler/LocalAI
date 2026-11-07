@@ -15,23 +15,16 @@
   "agent": "Agente",
   "agentNone": "Elige un agente",
   "agentNoModel": "{{name}} (necesita un modelo)",
-  "who": "Quién puede usarla",
-  "onlyListed": "Solo las personas y canales que yo añada a la lista",
-  "anyone": "Cualquiera del workspace que pueda escribir a la aplicación",
   "anyoneWarning": "Cualquiera que pueda escribir a esta aplicación o mencionarla puede usar las herramientas de este agente, como si fueras tú. Cada persona, y cada hilo, tiene su propia conversación.",
   "anyoneConfirm": "Lo entiendo",
-  "allowUsers": "Personas permitidas",
-  "allowUsersHint": "ID de usuario (U...) o @nombre",
-  "allowChannels": "Canales permitidos",
-  "allowChannelsHint": "ID de canal (C...): todos los que estén en él pueden mencionar la aplicación",
-  "notifyChat": "Enviar mis notificaciones a este ID de usuario o de canal",
+  "allowUsersHint": "ID de usuario (U...) o @usuario",
   "notifyHelp": "Opcional. Tu ID de usuario (U...) las envía como mensajes directos desde la aplicación.",
   "test": "Probar",
   "testOk": "Conectado a {{bot}}.",
   "checkFailed": "Guardado. Falló la comprobación del token: {{reason}}",
   "senders": "Remitentes",
   "noSenders": "Nadie ha escrito aún a esta aplicación.",
-  "allowButton": "Permitir",
+  "allowButton": "Añadir a la lista",
   "ignored": "Ignorado",
   "accepted": "Aceptado",
   "save": "Guardar",
@@ -65,5 +58,5 @@
     "copied": "Copiado",
     "manifest": "Manifiesto de la aplicación de Slack"
   },
-  "back": "Volver a los conectores"
+  "allowUsersHelp": "Un @usuario coincide con el nombre de usuario de Slack (el identificador), no con el nombre visible, y necesita el scope users:read. Un ID de usuario (U...) siempre coincide. Cuando se rechaza a una persona, el registro de acceso muestra su ID de usuario."
 }

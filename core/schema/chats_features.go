@@ -121,6 +121,9 @@ type ChatsSubAgent struct {
 	// turn ended: done, stopped, failed, interrupted or paused.
 	Running  bool   `json:"running"`
 	LastTurn string `json:"last_turn,omitempty"`
+	// Loop is the loop or wait that keeps the run going, when it has one. The
+	// run shows as running while it is set.
+	Loop *ChatsLoop `json:"loop,omitempty"`
 }
 
 // ChatsSubAgentList lists the sub-agent runs of a chat.

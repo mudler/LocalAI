@@ -60,7 +60,7 @@
     "hint": "Só os serviços da lista de permitidos abaixo, em entidades que não estejam excluídas.",
     "off": "Somente leitura",
     "propose": "Pergunta antes",
-    "auto": "Age sem perguntar",
+    "auto": "Age na hora",
     "line": {
       "off": "Ele não pode ligar nem desligar nada.",
       "propose": "Cada alteração espera o seu OK.",
@@ -74,7 +74,7 @@
     "row": {
       "off": "Somente leitura",
       "propose": "Pergunta antes",
-      "auto": "Age sem perguntar"
+      "auto": "Age na hora"
     }
   },
   "policy": {

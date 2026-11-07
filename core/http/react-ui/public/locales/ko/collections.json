@@ -14,7 +14,8 @@
   },
   "sections": {
     "yourCollections": "내 컬렉션",
-    "otherUsersCollections": "다른 사용자의 컬렉션"
+    "otherUsersCollections": "다른 사용자의 컬렉션",
+    "sharedWithYou": "나와 공유됨"
   },
   "empty": {
     "title": "아직 컬렉션이 없습니다",
@@ -42,7 +43,8 @@
   },
   "loadFailed": "컬렉션을 불러올 수 없습니다.",
   "sources": {
-    "loadFailed": "웹 소스를 불러올 수 없습니다."
+    "loadFailed": "웹 소스를 불러올 수 없습니다.",
+    "noneShared": "웹 소스가 없습니다."
   },
   "entries": {
     "loadFailed": "파일을 불러올 수 없습니다."
@@ -57,5 +59,29 @@
     "noneSet": "컬렉션에 임베딩 모델이 설정되어 있지 않아(collections_embedding_model) 파일 추가와 검색이 실패합니다.",
     "install": "모델에서 찾기",
     "askAdmin": "관리자에게 설치를 요청하세요."
+  },
+  "searchMode": {
+    "label": "검색: {{mode}}",
+    "semantic": "의미 기반",
+    "hybrid": "하이브리드",
+    "semanticHint": "정확한 단어나 코드가 아니라 의미로 구절을 찾습니다.",
+    "hybridHint": "의미와 정확한 단어로 구절을 찾습니다."
+  },
+  "pane": {
+    "addFile": "파일 추가"
+  },
+  "share": {
+    "label": "공유",
+    "button": "{{name}} 공유",
+    "intro": "추가한 사람은 자신의 목록에서 이 컬렉션을 찾을 수 있고, 그 사람의 에이전트는 이름으로 검색할 수 있습니다.",
+    "failed": "컬렉션을 공유할 수 없습니다: {{message}}",
+    "roles": {
+      "viewer": "보기 가능",
+      "viewerHelp": "검색하고 파일을 읽을 수 있습니다.",
+      "editor": "편집 가능",
+      "editorHelp": "파일을 추가하고 삭제할 수도 있습니다."
+    },
+    "noteViewer": "검색하고 파일을 읽을 수 있습니다.",
+    "noteEditor": "검색하고 파일을 추가하거나 삭제할 수 있습니다."
   }
 }

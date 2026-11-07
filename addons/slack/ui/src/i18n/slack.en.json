@@ -15,23 +15,16 @@
   "agent": "Agent",
   "agentNone": "Choose an agent",
   "agentNoModel": "{{name}} (needs a model)",
-  "who": "Who may use it",
-  "onlyListed": "Only the people and channels I list",
-  "anyone": "Anyone in the workspace who can message the app",
   "anyoneWarning": "Anyone who can message this app or mention it can use this agent's tools, as you. Each person, and each thread, gets a conversation of its own.",
   "anyoneConfirm": "I understand",
-  "allowUsers": "Allowed people",
-  "allowUsersHint": "User ID (U...) or @name",
-  "allowChannels": "Allowed channels",
-  "allowChannelsHint": "Channel ID (C...): everyone in it may mention the app",
-  "notifyChat": "Send my notifications to this user or channel ID",
+  "allowUsersHint": "User ID (U...) or @username",
   "notifyHelp": "Optional. Your user ID (U...) sends them as direct messages from the app.",
   "test": "Test",
   "testOk": "Connected to {{bot}}.",
   "checkFailed": "Saved. The token check failed: {{reason}}",
   "senders": "Senders",
   "noSenders": "Nobody has written to this app yet.",
-  "allowButton": "Allow",
+  "allowButton": "List this person",
   "ignored": "Ignored",
   "accepted": "Accepted",
   "save": "Save",
@@ -65,5 +58,5 @@
     "copied": "Copied",
     "manifest": "Slack app manifest"
   },
-  "back": "Back to connectors"
+  "allowUsersHelp": "An @username matches the Slack username (the handle), not the display name, and needs the users:read scope. A user ID (U...) always matches. When a person is refused, the access log names their user ID."
 }

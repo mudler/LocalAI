@@ -41,6 +41,11 @@
       "readsLabel": "Liest",
       "writesLabel": "Schreibt",
       "costLabel": "Kosten",
+      "deliveryLabel": "Ergebnisse gehen an",
+      "deliveryInbox": "Dein Posteingang",
+      "deliveryChat": "Dieser Chat",
+      "deliveryThread": "Dieser Thread",
+      "deliveryChannel": "{{channel}}, oben im Kanal",
       "stopLabel": "Zum Beenden",
       "when": "{{schedule}}, {{zone}}. Erster Lauf {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -334,6 +339,31 @@
         "empty": "Noch keine Verbindungen. Füge eine hinzu und verbinde dann dein Konto.",
         "manage": "Verbindungen bearbeiten"
       }
+    },
+    "duplicate": {
+      "text": "Dieser Bot ist auch als {{name}} verbunden. Beide Verbindungen beantworten dieselbe Nachricht.",
+      "turnOff": "Diese ausschalten",
+      "open": "{{name}} öffnen"
+    },
+    "new": "Neue Verbindung",
+    "newMenu": "Plattform der neuen Verbindung wählen",
+    "state": {
+      "running": "Läuft",
+      "off": "Aus",
+      "attention": "Braucht Aufmerksamkeit"
+    },
+    "share": {
+      "label": "Teilen",
+      "button": "{{name}} teilen",
+      "intro": "Personen, die du hinzufügst, können diese Verbindung in ihren eigenen Chats und Agenten nutzen. Sie sehen ihren Namen und Zustand, nie das Token oder die Einstellungen. Nachrichten an den Bot erreichen weiterhin deinen Agenten.",
+      "roleUse": "Darf nutzen",
+      "roleUseHelp": "Darf sie in eigenen Chats und Agenten nutzen. Kann das Token nicht sehen, sie nicht ändern und nicht teilen."
+    },
+    "shared": {
+      "title": "Mit dir geteilt",
+      "text": "Andere Personen lassen dich diese Verbindungen in deinen Chats und Agenten nutzen. Nur die Eigentümer können sie ändern.",
+      "on": "Hört zu",
+      "off": "Aus"
     }
   },
   "tools": {
@@ -398,9 +428,12 @@
       "subagents": "Sub-Agenten",
       "changes": "Vorgeschlagene Änderungen",
       "memory": "Gedächtnis",
-      "history": "Frühere Chats"
+      "history": "Frühere Chats",
+      "localai_client": "LocalAI-Client",
+      "localai_admin": "LocalAI-Admin"
     },
     "builtinBy": "{{tools}} · eingebaut",
+    "onDemand": "Bei Bedarf geladen",
     "builtinByAddon": "{{tools}} · bedient von {{provider}}",
     "servedBy": "Bedient vom Add-on {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
@@ -422,7 +455,9 @@
       "triggers": "Das Modell kann Trigger vorschlagen, auflisten, ändern und löschen. Du bestätigst jeden neuen Trigger und jede Änderung.",
       "changes": "Das Modell kann Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten und am Dashboard vorschlagen. Du bestätigst jede einzelne.",
       "memory": "Das Modell kann deine Notizen lesen, bevor es antwortet, und neue speichern. Schalte es aus, um den Chat privat zu machen: nichts wird aus deinen Notizen gelesen oder darin gespeichert. Deine anderen Chats bleiben unberührt.",
-      "history": "Erlaubt dem Modell, deine früheren Chats zu durchsuchen und zu lesen."
+      "history": "Erlaubt dem Modell, deine früheren Chats zu durchsuchen und zu lesen.",
+      "localai_client": "Erlaubt dem Modell, mit den hier installierten Modellen Bilder, Sprache, Klänge und Videos zu erzeugen sowie zu transkribieren, einzubetten, neu zu ordnen und zu erkennen.",
+      "localai_admin": "Erlaubt dem Modell, diesen Server zu verwalten: Modelle, Backends, Einstellungen und den Zustand. Nur für Administratoren; das Modell fragt dich, bevor es etwas ändert."
     },
     "whenOff": {
       "shell": "Das Modell kann Dateien schreiben, aber nichts ausführen.",
@@ -435,7 +470,9 @@
       "triggers": "Das Modell kann keine Trigger vorschlagen oder verwalten.",
       "changes": "Das Modell kann keine Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten oder am Dashboard vorschlagen.",
       "memory": "Das ist ein privater Chat. Das Modell liest und speichert deine Notizen nicht.",
-      "history": "Das Modell kann deine früheren Chats nicht sehen."
+      "history": "Das Modell kann deine früheren Chats nicht sehen.",
+      "localai_client": "Das Modell kann diese Modelle nicht selbst ausführen.",
+      "localai_admin": "Das Modell kann diesen Server nicht verwalten."
     },
     "addonDescribe_one": "Gibt dem Modell {{count}} Werkzeug dieses Add-ons.",
     "addonDescribe_other": "Gibt dem Modell {{count}} Werkzeuge dieses Add-ons.",
@@ -457,6 +494,7 @@
       "agentHelp": "Chats dieses Agenten dürfen nur diese Verbindungen nutzen und können sie nicht ändern.",
       "perChatHelp": "Keine gewählt: Jeder Chat wählt selbst.",
       "reconnectNeeded": "Erneut verbinden: {{names}}",
+      "ownerReconnectNeeded": "Der Eigentümer muss erneut verbinden: {{names}}",
       "reconnect": "Neu verbinden"
     },
     "optionNeeds": "Schalte „{{name}}“ ein, um dies zu nutzen.",
@@ -492,6 +530,10 @@
       "dashboard_write": {
         "title": "Dashboard ändern",
         "description": "Das Modell kann ein neues Layout für dein Home-Dashboard vorschlagen. Du bestätigst jede Änderung."
+      },
+      "knowledge_write": {
+        "title": "Zum Wissen hinzufügen",
+        "description": "Erlaubt dem Modell, einen Text für eine Sammlung deines Wissens vorzuschlagen. Du bestätigst jeden einzelnen; er wird nie sofort hinzugefügt."
       },
       "triggers_propose": {
         "title": "Auch aus Messaging-Apps vorschlagen",
@@ -695,6 +737,8 @@
       "writes": "Schreibt",
       "widget": "Home-Widget",
       "estimated_tokens": "Tokens pro Lauf",
+      "acts": "Was ein Lauf tun darf",
+      "delivery": "Wohin Antworten gehen",
       "agent": "Agent",
       "model": "Modell"
     },
@@ -784,6 +828,64 @@
       "noChat": "Sende zuerst eine Nachricht und starte dann eine Schleife in diesem Chat.",
       "stopped_one": "{{count}} Schleife gestoppt.",
       "stopped_other": "{{count}} Schleifen gestoppt."
+    },
+    "wait": {
+      "name": "Wartet auf",
+      "kind": "Warten",
+      "pending": "Wartet auf dein Ja",
+      "paused": "Warten pausiert",
+      "stop": "Warten beenden",
+      "details": "Details des Wartens",
+      "watching": "Überwacht {{source}}",
+      "until": "Bis {{condition}}",
+      "notChecked": "Noch nicht geprüft",
+      "checked_one": "{{count}} Mal geprüft",
+      "checked_other": "{{count}} Mal geprüft",
+      "checkedAgo_one": "{{count}} Mal geprüft, zuletzt {{ago}}",
+      "checkedAgo_other": "{{count}} Mal geprüft, zuletzt {{ago}}",
+      "outcome": {
+        "unchanged": "keine Änderung",
+        "changed": "geändert",
+        "error": "fehlgeschlagen"
+      },
+      "ago": "vor {{span}}",
+      "justNow": "gerade eben",
+      "in": "in {{span}}",
+      "now": "jetzt",
+      "next": "Nächste Prüfung {{when}}",
+      "deadline": "Gibt um {{time}} auf ({{when}})",
+      "errorStreak": "Letzte Prüfung fehlgeschlagen ({{count}} von {{max}} in Folge)",
+      "errorStreakMsg": "Letzte Prüfung fehlgeschlagen ({{count}} von {{max}} in Folge): {{message}}",
+      "lastError": "Letzter Fehler: {{message}}",
+      "sources": {
+        "tool": "Tool {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "Fertig: Die Bedingung ist erfüllt",
+        "failing_one": "Beendet: Die Quelle ist {{count}} Mal in Folge ausgefallen",
+        "failing_other": "Beendet: Die Quelle ist {{count}} Mal in Folge ausgefallen",
+        "timedOut": "Zeit abgelaufen, die Bedingung wurde nicht erfüllt",
+        "stopped": "Warten beendet"
+      },
+      "waking": {
+        "met": "Die Bedingung ist erfüllt. Das Modell wird gefragt, was zu tun ist.",
+        "failing": "Die Quelle ist ausgefallen. Das Modell wird gefragt, was zu tun ist.",
+        "timedOut": "Zeit abgelaufen, die Bedingung wurde nicht erfüllt. Das Modell wird gefragt, was zu tun ist."
+      },
+      "phase": {
+        "waiting": "wartet",
+        "waking": "weckt das Modell",
+        "paused": "pausiert",
+        "ended": "beendet",
+        "pending": "wartet auf dein Ja"
+      },
+      "endShort": {
+        "condition_met": "Bedingung erfüllt",
+        "source_failing": "Quelle ausgefallen",
+        "timed_out": "Zeit abgelaufen",
+        "stopped": "beendet"
+      }
     }
   },
   "changes": {
@@ -795,7 +897,9 @@
       "profile": "Profil",
       "skill": "Skill",
       "page": "Seite",
-      "dashboard": "Dashboard"
+      "dashboard": "Dashboard",
+      "knowledge": "Wissen",
+      "voice_profile": "Stimmprofil"
     },
     "scope": {
       "user": "Alle deine Chats",
@@ -808,7 +912,8 @@
       "kind": "Art",
       "target": "Datei",
       "source": "Von",
-      "expires": "Läuft ab in"
+      "expires": "Läuft ab in",
+      "collection": "Sammlung"
     },
     "source": {
       "chat": "Ein Chat",
@@ -857,6 +962,32 @@
       "dismissed": "Änderung abgelehnt.",
       "undone": "Änderung rückgängig gemacht.",
       "asked": "Der Assistent wurde gebeten, es erneut vorzuschlagen."
+    },
+    "knowledge": {
+      "label": "Text zum Hinzufügen zu {{collection}}",
+      "size": "{{size}} von höchstens {{max}}",
+      "note": "Nichts wird hinzugefügt, bevor du bestätigst. Der Text wird dann in Abschnitte geteilt und indexiert, und jeder Chat, der diese Sammlung durchsucht, kann ihn nutzen.",
+      "editLabel": "Text zum Hinzufügen zu {{target}}",
+      "embed_one": "1 Textstelle wird mit {{model}} eingebettet.",
+      "embed_other": "Etwa {{count}} Textstellen werden mit {{model}} eingebettet.",
+      "serverModel": "dem Einbettungsmodell des Servers"
+    },
+    "warning": {
+      "title": "Prüfe diesen Text, bevor du bestätigst.",
+      "secret": "Er enthält möglicherweise ein Geheimnis, etwa einen Schlüssel, ein Token oder ein Passwort. Nach dem Hinzufügen kann jeder Chat, der diese Sammlung durchsucht, es lesen. Ein Messaging-Chat kann ihn nicht bestätigen; nur du, hier.",
+      "other": "Der Server hat diesen Text als riskant markiert. Ein Messaging-Chat kann ihn nicht bestätigen; nur du, hier."
+    },
+    "voice": {
+      "label": "Zu klonende Stimme",
+      "name": "Name",
+      "file": "Aufnahme",
+      "clip": "Festgelegter Clip",
+      "language": "Sprache",
+      "transcript": "Transkript",
+      "consentTitle": "Bestätige nur, wenn die sprechende Person zugestimmt hat.",
+      "consent": "Die Aufnahme wird als Stimmprofil gespeichert, mit dem deine Chats sprechen können. Du kannst sie in der Stimmbibliothek löschen.",
+      "consentAdmin": "Du bist Administrator, daher steht diese Stimme allen Nutzern dieses Servers zur Verfügung.",
+      "confirm": "Die Person hat zugestimmt: Stimme speichern"
     }
   },
   "proposalsPage": {
@@ -911,6 +1042,7 @@
       "mine": "Meine",
       "deleted": "Gelöschte Agenten",
       "channels": "Unterhaltungen",
+      "channelsNote": "Notizen aus Chats in Messaging-Apps. Öffne eine Notiz, um sie zu lesen, oder lösche sie. Eine Notiz von einem Absender, der nicht mit dir verifiziert ist, wartet immer auf dein OK.",
       "export": "Diese Notizen exportieren",
       "clearAgent": "Die Notizen dieses Agenten löschen",
       "clearDeleted": "Diese Notizen löschen"
@@ -978,8 +1110,8 @@
         "body": "Der Bot fragt im Chat: „Antworte mit Ja zum Speichern.“ Ein gelisteter Absender kann dort antworten. Andere warten auf dich in der App."
       },
       "paired_private": {
-        "title": "Für einen gekoppelten Absender im privaten Chat speichern",
-        "body": "Wird nur sofort gespeichert, wenn der Absender gekoppelt ist und der Chat ein Einzelchat ist. Die Notiz geht in diese Unterhaltung, mit Rückgängig. Eine Notiz, die wie ein Geheimnis aussieht, wartet weiter."
+        "title": "Für eine verifizierte Person im privaten Chat speichern",
+        "body": "Wird nur sofort gespeichert, wenn der Absender eine verifizierte Person ist und der Chat ein Einzelchat ist. Die Notiz geht in diese Unterhaltung, mit Rückgängig. Eine Notiz, die wie ein Geheimnis aussieht, wartet weiter."
       },
       "never": {
         "title": "Nie",
@@ -1001,7 +1133,8 @@
       "chat": "Das ist ein privater Chat: nichts wird gelesen oder gespeichert. Deine Notizen bleiben unberührt. Schalte es im Werkzeugmenü an.",
       "user": "Kein Chat und kein Agent liest oder speichert Notizen, und deine Notizen bleiben unberührt.",
       "agent": "Beim Agenten dieses Chats ist das Gedächtnis ausgeschaltet.",
-      "files": "Notizen sind Dateien, und Dateien sind auf diesem Server aus."
+      "files": "Notizen sind Dateien, und Dateien sind auf diesem Server aus.",
+      "provider": "Das Add-on, das den Speicher bereitstellt, ist nicht verfügbar. Es wird nichts gelesen oder gespeichert. Wähle einen Anbieter unter Einstellungen, Speicher."
     },
     "chip": "Gedächtnis aus",
     "chipPrivate": "Privater Chat",
@@ -1035,15 +1168,20 @@
       "title": "Wie bisher",
       "body": "Dieser Agent wurde gespeichert, bevor es diese Auswahl gab. Er liest deine Notizen, wenn seine Add-on-Liste Memory nennt, und das Modell wählt, wohin eine Notiz gespeichert wird. Wähle unten eine der Optionen, um das zu ändern."
     },
-    "saveGrant": "Notizen speichern lassen",
-    "saveGrantHelp": "Schaltet die Berechtigung „Dinge merken“ ein. Ohne sie liest der Agent Notizen, kann aber keine speichern.",
     "copyNote": "Beim Exportieren eines Agenten oder beim Import als neuen Agenten bleibt diese Auswahl erhalten; seine Notizen werden nie kopiert.",
     "summary": {
       "mine_and_own": "Meine und eigene",
       "own": "Nur eigene",
       "mine": "Meine",
       "none": "Keine",
-      "asBefore": "Wie bisher"
+      "asBefore": "Wie bisher",
+      "withAuto": "{{choice}}, speichert sofort",
+      "level": {
+        "off": "Aus",
+        "reads": "Liest Notizen",
+        "saves": "Liest und speichert Notizen"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "{{name}} löschen?",
@@ -1068,7 +1206,11 @@
       "title": "Wenn er eine Notiz speichern will",
       "use_mine": {
         "title": "Meine Einstellung",
-        "body": "Aktuell: {{level}}."
+        "body": "Deine Einstellung ist <b>{{level}}</b>. <settings>Ändere sie unter Einstellungen > Gedächtnis.</settings>"
+      },
+      "auto": {
+        "title": "Speichern und Bescheid geben",
+        "body": "Speichert jede Notiz sofort und sagt dir im Chat Bescheid, mit Rückgängig, auch wenn deine Einstellung „Erst fragen“ ist. Eine lange Notiz oder eine, die wie ein Geheimnis aussieht, wartet trotzdem."
       },
       "always": {
         "title": "Immer bestätigen",
@@ -1078,7 +1220,68 @@
         "title": "Nie",
         "body": "Liest, speichert nie."
       },
-      "hint": "Ein Agent darf mehr fragen als deine Einstellung, aber nie weniger. „Speichern und Bescheid geben“ gibt es hier nicht. In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einem gekoppelten Absender."
+      "hint": "In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einer verifizierten Person. Sofortiges Speichern in einem Messaging-Chat gilt nur für eine verifizierte Person in einem Einzelchat.",
+      "offReason": "Die Speicherstufe gilt nicht, solange das Gedächtnis aus ist.",
+      "readsReason": "Die Speicherstufe gilt nicht: Dieser Agent liest Notizen, kann aber keine speichern."
+    },
+    "level": {
+      "title": "Wie viel er mit Notizen macht",
+      "off": {
+        "title": "Aus",
+        "body": "Liest und speichert keine Notizen."
+      },
+      "reads": {
+        "title": "Liest Notizen",
+        "body": "Nutzt deine Notizen für Antworten. Speichert nie welche."
+      },
+      "saves": {
+        "title": "Liest und speichert Notizen",
+        "body": "Nutzt Notizen und speichert neue, soweit deine Speicherstufe es erlaubt."
+      }
+    },
+    "whose": "Wessen Notizen",
+    "whoseOff": "Das Gedächtnis ist für diesen Agenten aus, es gibt also keine Notizen zur Auswahl."
+  },
+  "providerPicker": {
+    "title": "Anbieter",
+    "lede": "Es arbeitet immer nur ein Anbieter. Deine vorhandenen Daten bleiben beim Wechsel, wo sie sind.",
+    "off": "Aus",
+    "unavailable": "Nicht verfügbar",
+    "loadError": "Die Anbieter konnten nicht geladen werden",
+    "saveFailed": "Der Anbieter konnte nicht geändert werden",
+    "failedTitle": "{{name}} ist nicht verfügbar",
+    "failedReason": "Das bleibt aus, bis du einen Anbieter wählst. Nichts wurde zum integrierten Anbieter verschoben, es wird also nichts dort gespeichert, wo du es nicht gewählt hast.",
+    "useBuiltin": "Integrierten Anbieter verwenden",
+    "facts": {
+      "local": "Lokal",
+      "remote": "Extern",
+      "undoHost": "Hier rückgängig machen",
+      "undoProvider": "Rückgängig durch den Dienst",
+      "undoNone": "Nicht rückgängig zu machen"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Integriert",
+        "builtinBody": "Einfache Dateien in deinem Ordner „Memory“. Nichts verlässt diesen Rechner.",
+        "offBody": "Nichts wird gelesen, angeboten, gespeichert oder gesendet. Vorhandene Notizen bleiben erhalten."
+      }
+    },
+    "healthTitle": "Der Anbieter pausiert",
+    "forget": {
+      "lede": "Bitte {{name}}, die Notizen zu vergessen, die er für dich speichert. Deine Dateien im Ordner Memory bleiben unberührt.",
+      "action": "Alles dieses Anbieters vergessen",
+      "confirmTitle": "Alles von {{name}} vergessen?",
+      "confirmBody": "{{name}} wird gebeten, jede Notiz zu vergessen, die er für dich speichert. Er kann die Änderung zurückhalten, bis du sie auf der Seite Add-ons bestätigst.",
+      "confirmBodyFinal": "{{name}} wird gebeten, jede Notiz zu vergessen, die er für dich speichert. Das lässt sich nicht rückgängig machen.",
+      "confirm": "Alles vergessen",
+      "pending": "Wird vergessen...",
+      "done": "{{name}} hat seine Notizen vergessen",
+      "waiting": "Die Änderung wartet auf deine Bestätigung auf der Seite Add-ons",
+      "failed": "Der Anbieter konnte nicht vergessen: {{message}}"
     }
+  },
+  "subAgents": {
+    "waiting": "Wartet auf: {{what}}",
+    "looping": "In Schleife"
   }
 }

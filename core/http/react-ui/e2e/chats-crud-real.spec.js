@@ -55,7 +55,6 @@ test.describe('Skills, agents, triggers and connectors against the real server',
     await page.goto('/app/agents/new')
     await page.getByLabel('Name', { exact: false }).first().fill(name)
     await page.getByLabel('Description').fill('Reviews text')
-    await page.locator('[data-section="PromptsGoals"] .ag-fold__button').click()
     await page.getByLabel('Instructions').fill('Be brief.')
     await page.getByRole('button', { name: 'Create Agent' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)

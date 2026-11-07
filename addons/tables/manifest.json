@@ -18,6 +18,7 @@
     "min": 1,
     "max": 1
   },
+  "featureLevel": 2,
   "capabilities": {
     "tools": [
       "resource-exists",
@@ -569,6 +570,8 @@
     "undo": true,
     "resources": {
       "noun": "database",
+      "nounPlural": "databases",
+      "agentScoped": true,
       "create": "databases-create",
       "rename": "databases-rename",
       "inspect": "databases-inspect",
@@ -643,5 +646,15 @@
         "name": "tables-readonly"
       }
     ]
+  },
+  "i18n": {
+    "it": {"resources": {"noun": "database", "nounPlural": "database"}},
+    "de": {"resources": {"noun": "Datenbank", "nounPlural": "Datenbanken"}},
+    "es": {"resources": {"noun": "base de datos", "nounPlural": "bases de datos"}},
+    "fr": {"resources": {"noun": "base de données", "nounPlural": "bases de données"}},
+    "pt-BR": {"resources": {"noun": "banco de dados", "nounPlural": "bancos de dados"}},
+    "zh-CN": {"resources": {"noun": "数据库", "nounPlural": "数据库"}},
+    "ko": {"resources": {"noun": "데이터베이스", "nounPlural": "데이터베이스"}},
+    "id": {"resources": {"noun": "basis data", "nounPlural": "basis data"}}
   }
 }

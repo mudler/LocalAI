@@ -2,7 +2,9 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMemorySettings } from '../hooks/useMemorySettings'
+import { chatMemoryApi } from '../utils/api'
 import Icon from './Icon'
+import ProviderPicker from './ProviderPicker'
 import { Callout, LoadError, SkeletonRows, Switch } from './ui'
 import './memorysettings.css'
 
@@ -71,6 +73,11 @@ export default function MemorySettings({ addToast, children }) {
         </div>
       </section>
       {error && <Callout tone="error" role="alert" testId="memory-settings-save-error">{error.message}</Callout>}
+
+      {/* The providers come from the slot list: the built-in one, Off and every
+          add-on that says it can serve memory. The switch above and the Off
+          choice here are one answer, so each reads the other again. */}
+      <ProviderPicker slot="memory" version={`${settings.provider}:${on}`} onChange={reload} addToast={addToast} forget={() => chatMemoryApi.forget()} />
 
       <section className="ms-card" aria-labelledby={saveId} data-testid="memory-save-card">
         <h3 className="ms-h" id={saveId}>{t('memorySettings.saveTitle')}</h3>

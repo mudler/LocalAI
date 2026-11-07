@@ -85,7 +85,7 @@ const (
 	MaxNameRunes     = 80
 	MaxAllow         = 200
 	MaxAllowRunes    = 64
-	MaxPerUser       = 10
+	MaxPerUser       = 50
 	MaxSendersKept   = 200
 	MaxOptions       = 8
 	MaxOptionRunes   = 32
@@ -144,6 +144,14 @@ type Binding struct {
 	// Allow lists the chat IDs, user IDs or @usernames that are accepted. A
 	// chat ID accepts everyone who addresses the bot in that chat.
 	Allow []string
+	// AllowTrust says, for an entry of Allow that is a chat ID, what the people
+	// who write in that chat may do. An entry that is absent, or has the level
+	// TrustAnswer, only lets the chat talk to the bot: its members are not
+	// trusted one by one. TrustAct lets every member use the capabilities that
+	// are not sensitive, as a listed sender does. It is a separate map so the
+	// Allow list of strings, and every export or client that only knows it,
+	// keeps working.
+	AllowTrust map[string]string
 	// NotifyChat, when set, receives the owner's run notifications.
 	NotifyChat string
 	// Reply is a reply mode (ReplyOff, ReplyProgress, ReplyStream); empty
@@ -157,6 +165,11 @@ type Binding struct {
 	// people in the chat: hostmsg.Auto (or empty) follows the language of the
 	// sender's message, any other value is a language of the catalog.
 	ReplyLanguage string
+	// UILanguage is the interface language of the owner, as the owner's page
+	// last sent it (a tag such as "it" or "pt-BR"), or empty when the server
+	// has not been told. With the reply language on auto, the host speaks in it
+	// before it tries to detect the language of the sender.
+	UILanguage string
 	// FilesOff keeps the files a turn makes from going to the sender. The
 	// zero value sends them, so a binding stored before the option sends
 	// them too.
@@ -174,6 +187,13 @@ type Binding struct {
 	// contract.ConnectorCapabilityNames) that senders of the binding may ever
 	// use. Empty means none, which is today's behaviour.
 	Caps []string
+	// WriteTickRemoved says the owner had ticked tools.write and took the tick
+	// away. A binding that never had it lets the owner and paired senders use
+	// the write tools of the add-ons the agent is connected to without the
+	// tick (see AuthorizeConnected); this flag keeps the owner's choice to hold
+	// them. Ticking again clears it. An empty Caps cannot tell "never chosen"
+	// from "cleared", so only a removal of the tick sets it.
+	WriteTickRemoved bool
 	// Grants map the roles of the kind to capabilities, each within Caps.
 	// The kind of the binding decides which roles exist.
 	Grants []RoleGrant
@@ -201,6 +221,12 @@ type Binding struct {
 	// (or empty) for a token in Token, AuthOAuth2 for an OAuth login whose
 	// tokens are in the grant of the binding (see Grant).
 	AuthKind string
+	// AccountID is the stable name of the upstream account that the token of
+	// the binding belongs to, as its add-on told it (see
+	// contract.ConnectorResponse.AccountID). Empty until the host has learned
+	// it, and for an add-on that does not tell. Two enabled bindings of one
+	// owner and kind with the same AccountID are the same bot.
+	AccountID string
 	// Token is the bot token. In a Store it is sealed bytes; the Store returns
 	// what it was given. It is empty for an AuthOAuth2 binding.
 	Token   []byte
@@ -263,6 +289,28 @@ type Sender struct {
 	Count             int
 	First, Last       time.Time
 	Allowed           bool
+	// Chat and ChatName say where the last message came from, and Reason is why
+	// that message was ignored (a Reason* code). They are optional: a sender
+	// logged before they existed, or by a store that does not keep them, has none.
+	Chat, ChatName, Reason string
+}
+
+// The codes of the reason a message is ignored.
+const (
+	// ReasonNotListed: the sender is not on the list and the bot does not accept anyone.
+	ReasonNotListed = "not_listed"
+	// ReasonNotAddressed: a message in a group that does not name the bot.
+	ReasonNotAddressed = "not_addressed"
+)
+
+// SenderNote is what a message adds to the log entry of its sender.
+type SenderNote struct{ Chat, ChatName, Reason string }
+
+// SenderNoter is implemented by the stores that keep where a sender wrote and
+// why a message was ignored. The manager calls it after RecordSender, and a
+// store without it just keeps the log as it was.
+type SenderNoter interface {
+	NoteSender(ctx context.Context, binding, senderID string, n SenderNote) error
 }
 
 // Store keeps bindings and the state of their loops.
@@ -313,6 +361,11 @@ type Store interface {
 	// as one step, so it never overwrites a choice that an owner saved at the
 	// same time. It reports whether it wrote. A missing binding is false.
 	SetCapsIfEmpty(ctx context.Context, id string, caps []string) (bool, error)
+
+	// SetAccountID records the upstream account of a binding as one step, so it
+	// never overwrites a setting that an owner saved at the same time. A missing
+	// binding is not an error.
+	SetAccountID(ctx context.Context, id, accountID string) error
 
 	// ClaimMigration lets one caller, on any frontend, run the named one-time
 	// migration. It is true for the first caller, and for a later one only when
@@ -398,6 +451,16 @@ func ValidateKind(b Binding, agentOptional bool) error {
 	for _, a := range b.Allow {
 		if !allowShape.MatchString(a) {
 			return bad("%q is not a chat ID, user ID or @username", a)
+		}
+	}
+	for k, v := range b.AllowTrust {
+		switch {
+		case !slices.Contains(b.Allow, k):
+			return bad("%q has a trust level but is not on the allowlist", k)
+		case strings.HasPrefix(k, "@"):
+			return bad("a trust level is for a channel or group, not for the person %q", k)
+		case v != TrustAnswer && v != TrustAct:
+			return bad("the trust level of %q must be %s or %s", k, TrustAnswer, TrustAct)
 		}
 	}
 	if b.FileReceiveMax < 0 || b.FileReceiveMax > MaxFileLimit || b.FileSendMax < 0 || b.FileSendMax > MaxFileLimit {
@@ -530,6 +593,24 @@ func (b Binding) Writes() string {
 	return b.WriteMode
 }
 
+// The trust levels of a chat entry of the allowlist (see Binding.AllowTrust).
+const (
+	// TrustAnswer: the bot answers in the chat, but its members are not trusted.
+	TrustAnswer = "answer"
+	// TrustAct: every member of the chat is trusted for the capabilities that
+	// are not sensitive.
+	TrustAct = "act"
+)
+
+// ChatTrust is the level of an allowlist entry for a chat: TrustAnswer unless
+// the entry is on the list and the owner chose TrustAct.
+func (b Binding) ChatTrust(chat string) string {
+	if chat != "" && b.AllowTrust[chat] == TrustAct && slices.Contains(b.Allow, chat) {
+		return TrustAct
+	}
+	return TrustAnswer
+}
+
 // Allows tells whether a sender is on the allowlist. A match is by ID or, for an
 // @name entry, by username, ignoring case.
 func (b Binding) Allows(senderID, username string) bool {
@@ -543,6 +624,7 @@ func (b Binding) Allows(senderID, username string) bool {
 
 func (b Binding) clone() Binding {
 	b.Allow = append([]string(nil), b.Allow...)
+	b.AllowTrust = maps.Clone(b.AllowTrust)
 	b.Token = append([]byte(nil), b.Token...)
 	b.Options = maps.Clone(b.Options)
 	b.Caps = slices.Clone(b.Caps)

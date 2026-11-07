@@ -5,6 +5,8 @@ import { getSdk } from '../../../internal/host-compat/src/runtime.js'
 import { registerLocales } from '../../../internal/host-compat/src/i18n.js'
 import Icon from '../../../internal/host-compat/src/components/Icon'
 import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
+import ApprovalsView from '../../../internal/connector-ui/src/ApprovalsView'
+import { answerT } from '../../../internal/connector-ui/src/AnswerFields'
 import { connectorsApi } from '../../../internal/connector-ui/src/api'
 import { Field, Notice, RadioCards, TextInput } from '../../../internal/connector-ui/src/controls'
 import { pageLocale } from '../../../internal/connector-ui/src/connector'
@@ -18,6 +20,8 @@ import id from './i18n/pikvm.id.json'
 import ko from './i18n/pikvm.ko.json'
 import pt from './i18n/pikvm.pt-BR.json'
 import SettingsEditor from './SettingsEditor'
+import ApprovalSettings from './ApprovalSettings'
+import { approvalRevision, onApprovalsChanged } from './approval'
 import ProposalCard from './ProposalCard'
 import { addressProblem, checkFailure, checkItem, credentialProblem, extraBody, extraForm, extraValid, followName, needsPinHint, pikvmSecret, WRITE_MODES, writeModeOf } from './pikvm'
 import { finishTest, resultOf, startTest, subscribe } from './results'
@@ -136,7 +140,22 @@ function Checks({ c, t }) {
   )
 }
 
+// The effective view of a connection: which of its tools run without asking.
+// The host reports it; the choice is made in the settings below.
+function useApprovals(id, version) {
+  const [approvals, setApprovals] = useState([])
+  const [seen, setSeen] = useState(approvalRevision())
+  useEffect(() => onApprovalsChanged(() => setSeen(approvalRevision())), [])
+  useEffect(() => {
+    let live = true
+    connectorsApi.access(id).then((v) => { if (live) setApprovals(v?.approvals || []) }).catch(() => { if (live) setApprovals([]) })
+    return () => { live = false }
+  }, [id, version, seen])
+  return approvals
+}
+
 function RowInfo({ c, t }) {
+  const approvals = useApprovals(c.id, c.write_mode)
   const address = (c.resources || [])[0]
   const shown = Boolean(resultOf(c.id)) && Boolean(address)
   const mode = writeModeOf(c.write_mode)
@@ -144,6 +163,7 @@ function RowInfo({ c, t }) {
     <>
       {!shown && <span className="cn-muted" data-testid="pikvm-row-address">{address ? t('addressOf', { address: address.split('#')[0] }) : t('noAddress')}</span>}
       <span><span className={`pk-chip pk-chip--${mode}`} data-testid="pikvm-row-write">{t(`writeMode.row.${mode}`)}</span></span>
+      <ApprovalsView approvals={approvals} s={answerT(t)} testId="pikvm-row-approvals" />
       <Checks c={c} t={t} />
     </>
   )
@@ -181,6 +201,7 @@ export function createPikvm() {
         <ConnectorPage kind="pikvm" ns="pikvm" testId="pikvm-page" TokenFields={PikvmCredential} tokenOf={pikvmSecret} messaging={false}
           ExtraFields={PikvmFields} extraBody={extraBody} extraForm={extraForm} extraValid={extraValid} testExtra={testExtra}
           Help={Help} RowInfo={RowInfo} />
+        <ApprovalSettings />
         <SettingsEditor />
       </RouteProvider>
     )

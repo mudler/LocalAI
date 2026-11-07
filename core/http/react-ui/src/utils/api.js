@@ -1,6 +1,9 @@
 import { API_CONFIG } from './config'
 import { apiUrl } from './basePath'
 import { chatsListPath } from './chatsQuery'
+import { addonsApi } from './addonsClient'
+import { createSharesApi } from './sharesApi'
+import { createFolderSharesApi } from './folderSharesApi'
 
 const enc = encodeURIComponent
 const userQ = (userId) => userId ? `?user_id=${enc(userId)}` : ''
@@ -151,6 +154,10 @@ export const chatsApi = {
   // turn runs; settings apply from the next turn.
   update: (id, fields) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'PATCH', body: JSON.stringify(fields) }),
   // Regenerate and edit start a new turn; both answer 409 while one runs.
+  // Resume goes on from where a failed turn stopped; nothing is removed. It
+  // answers started: false when the chat is not at a failed turn (a second
+  // click, or another window resumed it).
+  resume: (id) => postJSON(`${API_CONFIG.endpoints.chat(id)}/resume`, {}),
   regenerate: (id) => postJSON(`${API_CONFIG.endpoints.chat(id)}/regenerate`, {}),
   editMessage: (id, seq, text) => postJSON(`${API_CONFIG.endpoints.chat(id)}/messages/${Number(seq)}/edit`, { text }),
   fork: (id, fromSeq, title) => postJSON(`${API_CONFIG.endpoints.chat(id)}/fork`, {
@@ -486,9 +493,17 @@ export const chatAgentsApi = {
   importFile: (data) => postJSON('/api/chats/agents/import', data),
   // The builtin grants an agent can hold: { grants: [{ name, title, description, sensitive }] }.
   builtinGrants: () => fetchJSON('/api/chats/agents/builtin-grants'),
+  // The resources of one add-on you may give an agent, with the add-on's own
+  // word for them: { addon_id, noun, noun_plural, language, items: [{ id, name, role }], truncated }.
+  addonResources: (addon) => fetchJSON(`/api/chats/agents/addons/${enc2(addon)}/resources`),
   templates: () => fetchJSON('/api/chats/agents/templates'),
   fromTemplate: (id, name) => postJSON(`/api/chats/agents/templates/${enc2(id)}/create`, name ? { name } : {}),
   runs: (id, limit) => fetchJSON(`/api/chats/agents/${enc2(id)}/runs${q({ limit })}`),
+  // Sharing (kind agent): the ID of your agent in /api/shares, made on the
+  // first call; what your agent uses; what an agent you may use needs.
+  shareRef: (id) => postJSON(`/api/chats/agents/${enc2(id)}/share`, {}),
+  references: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}/references`),
+  needs: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}/needs`),
 }
 
 // The administrator's view of every user's agents, triggers and connectors.
@@ -528,6 +543,12 @@ export const chatConnectorsApi = {
   create: (body) => postJSON('/api/chats/connectors', body),
   enable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/enable`, {}),
   disable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/disable`, {}),
+  // What each kind of sender may do on a connection, for the state in the body
+  // (agent_id, caps, allow...). Writes nothing; fields left out keep the saved value.
+  accessPreview: (id, body) => postJSON(`/api/chats/connectors/${enc2(id)}/access/preview`, body || {}),
+  // Makes a binding of the caller shareable: { resource_id, shared_with }, the
+  // ID of the binding in /api/shares/connection (sharesApi).
+  share: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/share`, {}),
   // The login of a binding that uses OAuth: start gives { authorize_url,
   // expires } to send the browser to; disconnect gives { revoked }, false when
   // the service did not confirm the revocation.
@@ -587,6 +608,17 @@ export const chatMemoryApi = {
   get: () => fetchJSON('/api/chats/memory'),
   set: (body) => fetchJSON('/api/chats/memory', { method: 'PUT', body: JSON.stringify(body) }),
   exportUrl: (scope, key) => apiUrl(`/api/chats/memory/export${q({ scope, key })}`),
+  // Asks the provider that serves to forget notes; with no scope it forgets
+  // everything the provider keeps. Answers { done, proposal }.
+  forget: (scope, key) => fetchJSON(`/api/chats/memory${q({ scope, key })}`, { method: 'DELETE' }),
+}
+
+// The provider slots: a job the host does itself and lets an add-on do in its
+// place. The slot is a path segment, so it is escaped.
+export const chatProvidersApi = {
+  list: () => fetchJSON('/api/chats/providers'),
+  get: (slot) => fetchJSON(`/api/chats/providers/${encodeURIComponent(slot)}`),
+  set: (slot, provider) => fetchJSON(`/api/chats/providers/${encodeURIComponent(slot)}`, { method: 'PUT', body: JSON.stringify({ provider }) }),
 }
 
 // The inbox: what ended while the user was elsewhere.
@@ -899,6 +931,9 @@ export const agentCollectionsApi = {
     update_interval: interval === undefined ? undefined : Number(interval),
   }),
   removeSource: (name, url, userId) => fetchJSON(`/api/collections/${enc(name)}/sources${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ url }), headers: { 'Content-Type': 'application/json' } }),
+  // Makes a collection of the caller shareable: { resource_id, shared_with },
+  // the ID of the collection in /api/shares/collection (sharesApi).
+  share: (name) => postJSON(`/api/collections/${enc(name)}/share`, {}),
 }
 
 // Usage API
@@ -1119,3 +1154,10 @@ export const diarizationApi = {
     return handleResponse(await fetch(apiUrl('/v1/audio/diarization'), { method: 'POST', body }))
   },
 }
+
+// Sharing of the resource kinds that are not add-ons (/api/shares). It goes
+// through the add-on client, so its errors have the same kinds as an add-on
+// grant call and the share dialog reads both alike. Pair it with
+// kindShareClient (components/share/shareClients.js) for the dialog.
+export const sharesApi = createSharesApi(addonsApi)
+export const folderSharesApi = createFolderSharesApi(addonsApi)

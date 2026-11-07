@@ -4,6 +4,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
@@ -103,6 +104,12 @@ var _ = Describe("the credential source with an OAuth connection", func() {
 		Expect(refusal(err)).To(Equal(gateway.CodeReconnectNeeded))
 		_, err = src.Credential(ctx, actor, "tracker", "acme/widgets")
 		Expect(refusal(err)).To(Equal(gateway.CodeReconnectNeeded))
+	})
+
+	It("tells a person the connection is shared with that its owner must reconnect, never to log in", func() {
+		_, err := src.answer("tracker", studio.CredentialGrant{}, fmt.Errorf("call: %w", studio.ErrOwnerReconnectNeeded))
+		Expect(refusal(err)).To(Equal(gateway.CodeOwnerReconnectNeeded))
+		Expect(gateway.CodeOwnerReconnectNeeded).NotTo(Equal(gateway.CodeReconnectNeeded))
 	})
 
 	It("reports a refused refresh as reconnect_needed, an outage as unavailable and a 429 as rate limited", func() {

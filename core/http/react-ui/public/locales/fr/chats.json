@@ -41,6 +41,11 @@
       "readsLabel": "Lit",
       "writesLabel": "Écrit",
       "costLabel": "Coût",
+      "deliveryLabel": "Les résultats vont dans",
+      "deliveryInbox": "Votre boîte de réception",
+      "deliveryChat": "Cette conversation",
+      "deliveryThread": "Ce fil",
+      "deliveryChannel": "{{channel}}, au premier niveau du canal",
       "stopLabel": "Pour l’arrêter",
       "when": "{{schedule}}, {{zone}}. Première exécution {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -334,6 +339,31 @@
         "empty": "Aucune connexion pour l'instant. Ajoutez-en une, puis connectez votre compte.",
         "manage": "Modifier les connexions"
       }
+    },
+    "duplicate": {
+      "text": "Ce bot est aussi connecté sous le nom {{name}}. Les deux connexions répondront au même message.",
+      "turnOff": "Désactiver celle-ci",
+      "open": "Ouvrir {{name}}"
+    },
+    "new": "Nouvelle connexion",
+    "newMenu": "Choisissez la plateforme de la nouvelle connexion",
+    "state": {
+      "running": "Active",
+      "off": "Désactivée",
+      "attention": "Demande votre attention"
+    },
+    "share": {
+      "label": "Partager",
+      "button": "Partager {{name}}",
+      "intro": "Les personnes que vous ajoutez peuvent utiliser cette connexion dans leurs propres conversations et agents. Elles voient son nom et son état, jamais son jeton ni ses réglages. Les messages adressés au bot arrivent toujours à votre agent.",
+      "roleUse": "Peut utiliser",
+      "roleUseHelp": "Peut l'utiliser dans ses conversations et ses agents. Ne peut ni voir le jeton, ni la modifier, ni la partager."
+    },
+    "shared": {
+      "title": "Partagées avec vous",
+      "text": "D'autres personnes vous permettent d'utiliser ces connexions dans vos conversations et vos agents. Seul leur propriétaire peut les modifier.",
+      "on": "À l'écoute",
+      "off": "Désactivée"
     }
   },
   "tools": {
@@ -398,9 +428,12 @@
       "subagents": "Sous-agents",
       "changes": "Modifications suggérées",
       "memory": "Mémoire",
-      "history": "Anciens chats"
+      "history": "Anciens chats",
+      "localai_client": "Client LocalAI",
+      "localai_admin": "Administration LocalAI"
     },
     "builtinBy": "{{tools}} · intégrés",
+    "onDemand": "Chargé à la demande",
     "builtinByAddon": "{{tools}} · fournis par {{provider}}",
     "servedBy": "Fourni par l'extension {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
@@ -422,7 +455,9 @@
       "triggers": "Le modèle peut proposer, lister, modifier et supprimer des déclencheurs. Vous confirmez chaque nouveau déclencheur ou changement.",
       "changes": "Le modèle peut proposer des modifications de vos notes, de ses règles, des skills, des pages et du tableau de bord. Vous confirmez chacune.",
       "memory": "Le modèle peut lire vos notes avant de répondre et en enregistrer de nouvelles. Désactivez-la pour rendre cette conversation privée : rien n'est lu dans vos notes ni enregistré dedans. Vos autres conversations ne changent pas.",
-      "history": "Permet au modèle de rechercher et de lire tes anciens chats."
+      "history": "Permet au modèle de rechercher et de lire tes anciens chats.",
+      "localai_client": "Permet au modèle de créer des images, de la voix, du son et des vidéos, et de transcrire, de calculer des embeddings, de reclasser et de détecter, avec les modèles installés ici.",
+      "localai_admin": "Permet au modèle de gérer ce serveur : modèles, backends, réglages et état. Réservé aux administrateurs ; le modèle te demande avant de changer quoi que ce soit."
     },
     "whenOff": {
       "shell": "Le modèle peut écrire des fichiers mais ne peut rien exécuter.",
@@ -435,7 +470,9 @@
       "triggers": "Le modèle ne peut ni proposer ni gérer de déclencheurs.",
       "changes": "Le modèle ne peut pas proposer de modifications de vos notes, de ses règles, des skills, des pages ou du tableau de bord.",
       "memory": "C'est une conversation privée. Le modèle ne lit ni n'enregistre vos notes.",
-      "history": "Le modèle ne peut pas voir tes anciens chats."
+      "history": "Le modèle ne peut pas voir tes anciens chats.",
+      "localai_client": "Le modèle ne peut pas exécuter ces modèles lui-même.",
+      "localai_admin": "Le modèle ne peut pas gérer ce serveur."
     },
     "addonDescribe_one": "Donne au modèle {{count}} outil de cet add-on.",
     "addonDescribe_other": "Donne au modèle {{count}} outils de cet add-on.",
@@ -457,6 +494,7 @@
       "agentHelp": "Les chats de cet agent ne peuvent utiliser que ces connexions et ne peuvent pas les changer.",
       "perChatHelp": "Aucune choisie : chaque chat choisit les siennes.",
       "reconnectNeeded": "À reconnecter : {{names}}",
+      "ownerReconnectNeeded": "Le propriétaire doit reconnecter : {{names}}",
       "reconnect": "Reconnecter"
     },
     "optionNeeds": "Activez « {{name}} » pour l'utiliser.",
@@ -492,6 +530,10 @@
       "dashboard_write": {
         "title": "Changer le tableau de bord",
         "description": "Le modèle peut proposer une nouvelle disposition de votre tableau de bord d'accueil. Vous confirmez chaque changement."
+      },
+      "knowledge_write": {
+        "title": "Ajouter à la connaissance",
+        "description": "Permet au modèle de proposer un texte pour une collection de votre Connaissance. Vous confirmez chaque texte ; il n'est jamais ajouté immédiatement."
       },
       "triggers_propose": {
         "title": "Proposer aussi depuis les applications de messagerie",
@@ -695,6 +737,8 @@
       "writes": "Écrit",
       "widget": "Widget d'accueil",
       "estimated_tokens": "Jetons par exécution",
+      "acts": "Ce qu'une exécution peut faire",
+      "delivery": "Où vont les réponses",
       "agent": "Agent",
       "model": "Modèle"
     },
@@ -784,6 +828,64 @@
       "noChat": "Envoyez un premier message, puis démarrez une boucle dans ce chat.",
       "stopped_one": "{{count}} boucle arrêtée.",
       "stopped_other": "{{count}} boucles arrêtées."
+    },
+    "wait": {
+      "name": "En attente de",
+      "kind": "Attente",
+      "pending": "Attend votre accord",
+      "paused": "Attente en pause",
+      "stop": "Arrêter l'attente",
+      "details": "Détails de l'attente",
+      "watching": "Surveille {{source}}",
+      "until": "Jusqu'à ce que {{condition}}",
+      "notChecked": "Pas encore vérifié",
+      "checked_one": "Vérifié {{count}} fois",
+      "checked_other": "Vérifié {{count}} fois",
+      "checkedAgo_one": "Vérifié {{count}} fois, dernière {{ago}}",
+      "checkedAgo_other": "Vérifié {{count}} fois, dernière {{ago}}",
+      "outcome": {
+        "unchanged": "aucun changement",
+        "changed": "changé",
+        "error": "échec"
+      },
+      "ago": "il y a {{span}}",
+      "justNow": "à l'instant",
+      "in": "dans {{span}}",
+      "now": "maintenant",
+      "next": "Prochaine vérification {{when}}",
+      "deadline": "Abandonne à {{time}} ({{when}})",
+      "errorStreak": "La dernière vérification a échoué ({{count}} sur {{max}} de suite)",
+      "errorStreakMsg": "La dernière vérification a échoué ({{count}} sur {{max}} de suite) : {{message}}",
+      "lastError": "Dernière erreur : {{message}}",
+      "sources": {
+        "tool": "outil {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "Terminé : la condition est remplie",
+        "failing_one": "Arrêtée : la source a échoué {{count}} fois de suite",
+        "failing_other": "Arrêtée : la source a échoué {{count}} fois de suite",
+        "timedOut": "Délai dépassé, la condition n'a pas été remplie",
+        "stopped": "Attente arrêtée"
+      },
+      "waking": {
+        "met": "La condition est remplie. Le modèle est sollicité pour la suite.",
+        "failing": "La source a échoué. Le modèle est sollicité pour la suite.",
+        "timedOut": "Délai dépassé, la condition n'a pas été remplie. Le modèle est sollicité pour la suite."
+      },
+      "phase": {
+        "waiting": "en attente",
+        "waking": "réveille le modèle",
+        "paused": "en pause",
+        "ended": "terminée",
+        "pending": "attend votre accord"
+      },
+      "endShort": {
+        "condition_met": "condition remplie",
+        "source_failing": "source en échec",
+        "timed_out": "délai dépassé",
+        "stopped": "arrêtée"
+      }
     }
   },
   "changes": {
@@ -795,7 +897,9 @@
       "profile": "Profil",
       "skill": "Skill",
       "page": "Page",
-      "dashboard": "Tableau de bord"
+      "dashboard": "Tableau de bord",
+      "knowledge": "Connaissance",
+      "voice_profile": "Profil vocal"
     },
     "scope": {
       "user": "Toutes vos conversations",
@@ -808,7 +912,8 @@
       "kind": "Type",
       "target": "Fichier",
       "source": "De",
-      "expires": "Expire dans"
+      "expires": "Expire dans",
+      "collection": "Collection"
     },
     "source": {
       "chat": "Une conversation",
@@ -857,6 +962,32 @@
       "dismissed": "Modification refusée.",
       "undone": "Modification annulée.",
       "asked": "L'assistant a été prié de la proposer à nouveau."
+    },
+    "knowledge": {
+      "label": "Texte à ajouter à {{collection}}",
+      "size": "{{size}} sur {{max}} au maximum",
+      "note": "Rien n'est ajouté tant que vous n'avez pas confirmé. Le texte est ensuite découpé en passages et indexé, et tout chat qui interroge cette collection peut l'utiliser.",
+      "editLabel": "Texte à ajouter à {{target}}",
+      "embed_one": "1 passage sera vectorisé avec {{model}}.",
+      "embed_other": "Environ {{count}} passages seront vectorisés avec {{model}}.",
+      "serverModel": "le modèle d'embeddings du serveur"
+    },
+    "warning": {
+      "title": "Vérifiez ce texte avant de confirmer.",
+      "secret": "Il semble contenir un secret, comme une clé, un jeton ou un mot de passe. Une fois ajouté, tout chat qui interroge cette collection peut le lire. Un chat de messagerie ne peut pas le confirmer ; vous seul le pouvez, ici.",
+      "other": "Le serveur a signalé ce texte comme risqué. Un chat de messagerie ne peut pas le confirmer ; vous seul le pouvez, ici."
+    },
+    "voice": {
+      "label": "Voix à cloner",
+      "name": "Nom",
+      "file": "Enregistrement",
+      "clip": "Clip verrouillé",
+      "language": "Langue",
+      "transcript": "Transcription",
+      "consentTitle": "Ne confirmez que si la personne qui parle a donné son accord.",
+      "consent": "L'enregistrement est conservé comme profil vocal avec lequel vos conversations peuvent parler. Vous pouvez le supprimer dans la bibliothèque Voix.",
+      "consentAdmin": "Vous êtes administrateur : cette voix sera disponible pour tous les utilisateurs de ce serveur.",
+      "confirm": "La personne a donné son accord : enregistrer la voix"
     }
   },
   "proposalsPage": {
@@ -911,6 +1042,7 @@
       "mine": "Les miennes",
       "deleted": "Agents supprimés",
       "channels": "Conversations",
+      "channelsNote": "Notes enregistrées à partir des chats des applications de messagerie. Ouvrez une note pour la lire, ou supprimez-la. Une note d’un expéditeur qui n’est pas vérifié auprès de vous attend toujours votre accord.",
       "export": "Exporter ces notes",
       "clearAgent": "Supprimer les notes de cet agent",
       "clearDeleted": "Supprimer ces notes"
@@ -978,8 +1110,8 @@
         "body": "Le bot demande dans la conversation : « Répondez oui pour l'enregistrer. » Un expéditeur de la liste peut y répondre. Les autres attendent votre réponse dans l'application."
       },
       "paired_private": {
-        "title": "Enregistrer pour un expéditeur associé dans une conversation privée",
-        "body": "Enregistrée tout de suite seulement si l'expéditeur est associé et la conversation en tête-à-tête. La note va dans cette conversation, avec Annuler. Une note qui ressemble à un secret attend toujours."
+        "title": "Enregistrer pour une personne vérifiée dans une conversation privée",
+        "body": "Enregistrée tout de suite seulement si l’expéditeur est une personne vérifiée et que la conversation est en tête-à-tête. La note va dans cette conversation, avec Annuler. Une note qui ressemble à un secret attend toujours."
       },
       "never": {
         "title": "Jamais",
@@ -1001,7 +1133,8 @@
       "chat": "C'est une conversation privée : rien n'est lu ni enregistré. Vos notes ne sont pas touchées. Activez-la dans le menu des outils.",
       "user": "Aucune conversation ni aucun agent ne lit ou n'enregistre de notes, et vos notes ne sont pas touchées.",
       "agent": "L'agent de cette conversation a désactivé la mémoire.",
-      "files": "Les notes sont des fichiers, et les fichiers sont désactivés sur ce serveur."
+      "files": "Les notes sont des fichiers, et les fichiers sont désactivés sur ce serveur.",
+      "provider": "Le module complémentaire qui fournit la mémoire n'est pas disponible : rien n'est lu ni enregistré. Choisissez un fournisseur dans Paramètres, Mémoire."
     },
     "chip": "Mémoire off",
     "chipPrivate": "Conversation privée",
@@ -1035,15 +1168,20 @@
       "title": "Comme avant",
       "body": "Cet agent a été enregistré avant que ce choix existe. Il lit vos notes si sa liste de modules nomme Memory, et le modèle choisit où une note est enregistrée. Choisissez une option ci-dessous pour changer cela."
     },
-    "saveGrant": "Autoriser l'enregistrement de notes",
-    "saveGrantHelp": "Active l'autorisation Retenir des choses. Sans elle, l'agent lit les notes mais ne peut pas en enregistrer.",
     "copyNote": "Exporter un agent, ou l'importer comme nouvel agent, garde ce choix et ne copie jamais ses notes.",
     "summary": {
       "mine_and_own": "Les miennes et les siennes",
       "own": "Les siennes seulement",
       "mine": "Les miennes",
       "none": "Aucune",
-      "asBefore": "Comme avant"
+      "asBefore": "Comme avant",
+      "withAuto": "{{choice}}, enregistre aussitôt",
+      "level": {
+        "off": "Désactivée",
+        "reads": "Lit les notes",
+        "saves": "Lit et enregistre les notes"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "Supprimer {{name}} ?",
@@ -1068,7 +1206,11 @@
       "title": "Quand il veut enregistrer une note",
       "use_mine": {
         "title": "Utiliser mon réglage",
-        "body": "Actuellement : {{level}}."
+        "body": "Votre réglage est <b>{{level}}</b>. <settings>Modifiez-le dans Réglages > Mémoire.</settings>"
+      },
+      "auto": {
+        "title": "Enregistrer et me prévenir",
+        "body": "Enregistre chaque note aussitôt et vous prévient dans la conversation, avec Annuler, même si votre réglage est Me demander d'abord. Une note longue, ou qui ressemble à un secret, attend toujours."
       },
       "always": {
         "title": "Toujours confirmer",
@@ -1078,7 +1220,68 @@
         "title": "Jamais",
         "body": "Il lit, n'enregistre jamais."
       },
-      "hint": "Un agent peut demander plus que votre réglage, jamais moins. « Enregistrer et me prévenir » n'est pas proposé ici. Dans une conversation de messagerie, la note va d'abord à cette conversation et n'atteint les notes propres de cet agent que depuis un expéditeur associé."
+      "hint": "Dans une conversation de messagerie, la note va d’abord à cette conversation et n’atteint les notes propres de cet agent que depuis une personne vérifiée. L’enregistrement immédiat dans une conversation de messagerie ne vaut que pour une personne vérifiée dans une conversation privée.",
+      "offReason": "Le niveau d'enregistrement ne s'applique pas tant que la mémoire est désactivée.",
+      "readsReason": "Le niveau d'enregistrement ne s'applique pas : cet agent lit les notes mais ne peut en enregistrer aucune."
+    },
+    "level": {
+      "title": "Ce qu'il fait des notes",
+      "off": {
+        "title": "Désactivée",
+        "body": "Ne lit ni n'enregistre de notes."
+      },
+      "reads": {
+        "title": "Lit les notes",
+        "body": "Utilise vos notes pour répondre. N'en enregistre jamais."
+      },
+      "saves": {
+        "title": "Lit et enregistre les notes",
+        "body": "Utilise les notes et en enregistre de nouvelles, selon votre niveau d'enregistrement."
+      }
+    },
+    "whose": "De qui sont les notes",
+    "whoseOff": "La mémoire est désactivée pour cet agent, il n'y a donc pas de notes à choisir."
+  },
+  "providerPicker": {
+    "title": "Fournisseur",
+    "lede": "Un seul fournisseur sert à la fois. Vos données existantes restent où elles sont quand vous changez.",
+    "off": "Désactivé",
+    "unavailable": "Indisponible",
+    "loadError": "Impossible de charger les fournisseurs",
+    "saveFailed": "Impossible de changer le fournisseur",
+    "failedTitle": "{{name}} n'est pas disponible",
+    "failedReason": "Cela reste désactivé jusqu'à ce que vous choisissiez un fournisseur. Rien n'a été déplacé vers le fournisseur intégré : rien n'est enregistré là où vous ne l'avez pas choisi.",
+    "useBuiltin": "Utiliser le fournisseur intégré",
+    "facts": {
+      "local": "Local",
+      "remote": "Distant",
+      "undoHost": "Annuler ici",
+      "undoProvider": "Annulation par le service",
+      "undoNone": "Impossible à annuler"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Intégré",
+        "builtinBody": "Des fichiers simples dans votre dossier Memory. Rien ne quitte cette machine.",
+        "offBody": "Rien n'est lu, proposé, enregistré ni envoyé. Les notes existantes sont conservées."
+      }
+    },
+    "healthTitle": "Le fournisseur est en pause",
+    "forget": {
+      "lede": "Demandez à {{name}} d'oublier les notes qu'il garde pour vous. Vos fichiers du dossier Memory ne sont pas touchés.",
+      "action": "Tout oublier chez ce fournisseur",
+      "confirmTitle": "Tout oublier chez {{name}} ?",
+      "confirmBody": "{{name}} devra oublier chaque note qu'il garde pour vous. Il peut retenir le changement jusqu'à ce que vous le confirmiez sur la page Add-ons.",
+      "confirmBodyFinal": "{{name}} devra oublier chaque note qu'il garde pour vous. Cette action est irréversible.",
+      "confirm": "Tout oublier",
+      "pending": "Oubli en cours...",
+      "done": "{{name}} a oublié ses notes",
+      "waiting": "Le changement attend votre confirmation sur la page Add-ons",
+      "failed": "Le fournisseur n'a pas pu oublier : {{message}}"
     }
+  },
+  "subAgents": {
+    "waiting": "En attente de : {{what}}",
+    "looping": "En boucle"
   }
 }

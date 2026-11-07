@@ -169,7 +169,7 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 	// A token is checked with the platform when it is saved, so a typo is
 	// refused at once instead of switching the binding off later.
 	opts := studio.ConnectorOptions{Store: a.studioConnStore, Transport: tr, Poll: contract.MaxPollSeconds, VerifyToken: studio.VerifyTokenWithMe(tr), FileCeiling: a.studioConnectorFilesCeiling,
-		OAuthDescriptor: a.addonOAuthDescriptor}
+		OAuthDescriptor: a.addonOAuthDescriptor, Shares: connectionShares{a}}
 	if a.Distributed() != nil && a.authDB != nil {
 		opts.Lead = a.studioLeader(advisorylock.KeyChatsConnectors, "Connectors")
 	}

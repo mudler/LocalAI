@@ -100,7 +100,14 @@
     "alias": "Alias",
     "kindLabel": "Kind",
     "installedOn": "{{name}} is installed and on.",
-    "installedChip": "Installiert"
+    "installedChip": "Installiert",
+    "category": {
+      "label": "Kategorie",
+      "all": "Alle",
+      "chat": "Chat-Apps",
+      "tools": "Werkzeuge",
+      "models": "Modelle"
+    }
   },
   "catalog": {
     "allLibraries": "Alle Bibliotheken",
@@ -146,7 +153,8 @@
     "network": "Der Server ist nicht erreichbar. Prüfe deine Verbindung.",
     "unavailable": "Add-ons sind gerade nicht verfügbar. Versuche es gleich noch einmal.",
     "unknownOutcome": "Das Ergebnis konnte nicht bestätigt werden. Prüfe den Status, bevor du es erneut versuchst.",
-    "busy": "Der Add-on-Server ist beschäftigt und hat nicht rechtzeitig geantwortet. Versuche es gleich noch einmal."
+    "busy": "Der Add-on-Server ist beschäftigt und hat nicht rechtzeitig geantwortet. Versuche es gleich noch einmal.",
+    "needsNewerHost": "Dieses Add-on braucht ein neueres LocalAI. Aktualisiere LocalAI und versuche es erneut. Es wurde nichts installiert."
   },
   "installed": {
     "disabled": "Aus",
@@ -359,7 +367,8 @@
     "starting": "Startet",
     "stopped": "Aus",
     "update-pending": "Update ausstehend",
-    "updateTo": "Update {{version}}"
+    "updateTo": "Update {{version}}",
+    "needsSetup": "Einrichtung nötig"
   },
   "supporting": "Software, die du installierst, um LocalAI neue Seiten und Chat-Werkzeuge zu geben. Jede läuft für sich und verlangt nur, was sie angibt.",
   "tabs": {
@@ -569,7 +578,8 @@
       "protocol-version": "Die Protokollversion passt nicht",
       "sdk-version": "Die SDK-Version der Oberfläche passt nicht",
       "data-format": "Das Datenformat passt nicht",
-      "digest-changed": "Der Digest dieser Version hat sich geändert"
+      "digest-changed": "Der Digest dieser Version hat sich geändert",
+      "feature-level": "Dieses Add-on braucht ein neueres LocalAI."
     },
     "class": {
       "source-unavailable": "Die Bibliothek ist nicht erreichbar.",
@@ -624,6 +634,7 @@
       "unpinned": "Die Bibliothek meldet ein Update, nennt aber keinen Build zum Installieren. Daher kann es hier nicht aktualisiert werden. Prüfen Sie später erneut."
     },
     "checkAll": "Nach Updates suchen",
+    "notCheckedYet": "Updates wurden noch nicht geprüft.",
     "checkingAll": "Prüfe...",
     "checkAllDone": "{{count}} Add-ons geprüft.",
     "checkAllFailed": "{{count}} konnten nicht geprüft werden.",
@@ -671,7 +682,12 @@
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
     "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
-    "removeNamed": "{{name}} entfernen…"
+    "removeNamed": "{{name}} entfernen…",
+    "setUp": "Einrichten",
+    "setUpNamed": "{{name}} einrichten",
+    "review": "Ansehen",
+    "reviewNamed": "{{name}} ansehen",
+    "updateTo": "Auf {{version}} aktualisieren"
   },
   "preview": {
     "screenshots": "Screenshots",
@@ -730,7 +746,11 @@
     "toolsOff_other": "Seine {{count}} Chat-Werkzeuge sind aus, bis es wieder läuft.",
     "pageOff": "Seine Seite ist nicht verfügbar, bis es wieder läuft.",
     "updateTitle": "{{name}} {{version}} ist verfügbar.",
-    "updateBody": "Du hast {{current}}. Du siehst, was sich ändert, und bestätigst, bevor etwas ersetzt wird."
+    "updateBody": "Du hast {{current}}. Du siehst, was sich ändert, und bestätigst, bevor etwas ersetzt wird.",
+    "title_one": "{{count}} Add-on braucht Einrichtung",
+    "title_other": "{{count}} Add-ons brauchen Einrichtung",
+    "connectionBody_one": "hat {{count}} Verbindung, die noch nicht antworten kann. {{reason}}",
+    "connectionBody_other": "hat {{count}} Verbindungen, die noch nicht antworten können. {{reason}}"
   },
   "meta": {
     "builtin": "Integriert",
@@ -864,6 +884,7 @@
     "keepOwnNamed": "Die pauschalen Freigaben von {{name}} als eigene behalten",
     "loadError": "Der Host-Zugriff wurde nicht geladen",
     "loading": "Lese, was dieses Add-on anfordert...",
+    "loadingSlow": "Läuft noch. Das Paket wird heruntergeladen und seine Signatur geprüft, bevor die Berechtigungen angezeigt werden können. Ein großes Add-on kann etwas dauern.",
     "loadingPage": "Host-Zugriff wird geladen",
     "locked": "Das Deployment hat Änderungen am Host-Zugriff abgeschaltet. Du kannst diese Seite lesen, aber nicht ändern.",
     "lockedNoAuth": "Die Anmeldung ist ausgeschaltet, daher könnte jeder, der diesen Server erreicht, dies ändern; der Administrator legt es in der Richtliniendatei fest.",
@@ -1012,6 +1033,30 @@
       "migrating": "Datenmigration",
       "starting": "Start",
       "working": "in Arbeit"
+    }
+  },
+  "groups": {
+    "chat": "Chat-Apps",
+    "tools": "Werkzeuge und Dienste",
+    "models": "Medien und Modelle",
+    "builtin": "Eingebaut"
+  },
+  "connection": {
+    "title": "Verbindungen",
+    "none": "Noch keine Verbindungen.",
+    "answersAs": "Antwortet als {{name}}",
+    "noAgent": "Kein Agent gewählt",
+    "manage": "Verbindungen verwalten",
+    "acceptsListed_one": "Akzeptiert {{count}} Person",
+    "acceptsListed_other": "Akzeptiert {{count}} Personen",
+    "accepts": {
+      "anyone": "Akzeptiert alle",
+      "nobody": "Akzeptiert noch niemanden"
+    },
+    "state": {
+      "running": "Läuft",
+      "off": "Aus",
+      "attention": "Einrichtung nötig"
     }
   }
 }

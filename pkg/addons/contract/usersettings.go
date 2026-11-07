@@ -144,3 +144,28 @@ func validateUserSettings(list []UserSetting) error {
 	}
 	return nil
 }
+
+// validateApprovalSettings checks that every tool which the person may relax
+// has its setting, with the values and the default the host expects: the
+// default must be to ask, so a manifest cannot start with the confirmation off.
+func validateApprovalSettings(defs []ToolDefinition, list []UserSetting, credentialed bool) error {
+	for _, d := range defs {
+		if !d.ApprovalOverridable {
+			continue
+		}
+		if !credentialed {
+			// Only a call under a connection of the person has an owner whose
+			// setting the host can read for it.
+			return fmt.Errorf("tool %s: approvalOverridable is for an add-on that declares a credential", d.Name)
+		}
+		key := ApprovalSettingKey(d.Name)
+		s, ok := UserSettingOf(list, key)
+		if !ok {
+			return fmt.Errorf("tool %s: approvalOverridable needs the user setting %q", d.Name, key)
+		}
+		if s.Default != ApprovalAsk || len(s.Values) != 2 || !s.Allows(ApprovalAsk) || !s.Allows(ApprovalSkip) || s.Role != "" {
+			return fmt.Errorf("tool %s: the user setting %q takes the values %q and %q, the default %q and no role", d.Name, key, ApprovalAsk, ApprovalSkip, ApprovalAsk)
+		}
+	}
+	return nil
+}

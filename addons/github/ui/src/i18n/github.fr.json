@@ -12,8 +12,8 @@
   "tokenShape": "Utilisez un jeton à granularité fine : il commence par github_pat_.",
   "tokenSpace": "Le jeton ne contient pas d’espace. Copiez-le de nouveau sans les espaces autour.",
   "repos": "Dépôts que l’agent peut utiliser",
-  "reposHelp": "Un par ligne, sous la forme owner/name. {{count}} dans la liste. Tout autre dépôt est refusé.",
-  "reposShape": "« {{entry}} » n’est pas écrit owner/name, par exemple mudler/LocalAI.",
+  "reposHelp": "Un par ligne : owner/nom, owner/* pour tous les dépôts d’un owner, ou * pour tout dépôt que le jeton atteint. {{count}} listé(s). Tout autre dépôt est refusé.",
+  "reposShape": "« {{entry}} » n’est pas écrit owner/nom (ou owner/*, ou *), par exemple mudler/LocalAI.",
   "reposMany": "50 dépôts au plus.",
   "agent": "Agent",
   "agentNone": "Choisir un agent",
@@ -33,7 +33,10 @@
     "readOnly": "{{repo}} : accessible, en lecture seule.",
     "readWrite": "{{repo}} : accessible, et le jeton peut écrire.",
     "refused": "{{repo}} : GitHub a refusé ce jeton. Vérifiez qu’il n’a pas expiré et qu’il couvre ce dépôt.",
-    "failed": "{{repo}} : la vérification ne s’est pas terminée. Réessayez dans un instant."
+    "failed": "{{repo}} : la vérification ne s’est pas terminée. Réessayez dans un instant.",
+    "owner": "{{repo}} : tous les dépôts de cet owner. Le jeton n’atteint que ceux que GitHub liste pour lui.",
+    "any": "Tout dépôt : le jeton atteint {{count}} dépôts.",
+    "anyMore": "Tout dépôt : le jeton atteint au moins {{count}} dépôts."
   },
   "save": "Enregistrer",
   "cancel": "Annuler",
@@ -77,8 +80,8 @@
     "label": "Ce que l’agent peut modifier sur GitHub",
     "hint": "Commentaires, nouvelles issues, étiquettes et fermeture d’issues. Il ne fusionne, ne supprime et ne pousse jamais de code.",
     "off": "Lecture seule",
-    "propose": "Vous demande d’abord",
-    "auto": "Agit sans demander",
+    "propose": "Demande d’abord",
+    "auto": "S’exécute tout de suite",
     "line": {
       "off": "Il ne peut rien modifier sur GitHub.",
       "propose": "Chaque modification attend votre accord.",
@@ -91,8 +94,8 @@
     },
     "row": {
       "off": "Lecture seule",
-      "propose": "Vous demande d’abord",
-      "auto": "Agit sans demander"
+      "propose": "Demande d’abord",
+      "auto": "S’exécute tout de suite"
     }
   },
   "approval": {
@@ -127,5 +130,17 @@
     "not_planned": "non planifiée",
     "public": "Public : toute personne pouvant voir {{repo}} verra ceci.",
     "cut": "Le texte affiché ici est tronqué. Le texte complet, {{bytes}} octets, sera publié."
-  }
+  },
+  "tokenClassic": "Ceci est un jeton classique (ghp_). Autorisez les jetons classiques ci-dessous pour l’utiliser, ou créez un jeton qui commence par github_pat_.",
+  "classic": {
+    "allow": "Autoriser un jeton classique (ghp_) sur cette connexion",
+    "warning": "Un jeton classique n’est pas limité aux dépôts de votre liste. Ses portées couvrent tous les dépôts que votre compte atteint. LocalAI refuse toujours un dépôt absent de votre liste et suit le mode d’écriture, mais GitHub lui-même laisserait ce jeton faire plus s’il fuitait. Un jeton à granularité fine est plus sûr.",
+    "confirm": "Je comprends qu’un jeton classique est plus large que la liste des dépôts."
+  },
+  "reposAnyAlone": "* couvre déjà tous les dépôts. Supprimez les autres lignes.",
+  "any": {
+    "warning": "* permet à l’agent d’utiliser tout dépôt que le jeton atteint, y compris ceux créés plus tard. Le mode d’écriture ci-dessous décide toujours de ce qu’il peut modifier : en Lecture seule, il ne modifie rien.",
+    "confirm": "Je veux que l’agent puisse utiliser tout dépôt que ce jeton atteint."
+  },
+  "anyRepos": "Tout dépôt que le jeton atteint"
 }

@@ -27,7 +27,7 @@ Before `power-action`, `type-text` or `send-key`:
 
 1. Ask the person, unless they have just told you to do exactly this. A general wish ("fix the server") is not a request to press a button.
 2. Say in one line what will happen, with the real effect: "Short press of the power button on the test box. It is on now, so the operating system will probably shut it down." For text, show the exact text. For keys, list them in order.
-3. Call the tool. A person then confirms in a card that shows the same facts. Every call is confirmed, whatever the connection's write mode is.
+3. Call the tool. A person then confirms in a card that shows the same facts. The connection's write mode does not change that. The one exception is an owner who chose "Don't ask" for `power-action` or `send-key` on the PiKVM page: if the result says the action was done, no card was shown, so say plainly what you did. `type-text` is always confirmed.
 
 Choose the gentlest action that does the job: `off` before `off_hard`, `reset` before `reset_hard`. The hard actions and `long_press` are refused unless an administrator switched them on for the device on the PiKVM page. If refused, tell the person; do not try another route to the same effect.
 

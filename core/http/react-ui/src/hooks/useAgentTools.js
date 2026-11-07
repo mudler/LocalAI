@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { chatConnectorsApi, chatSkillsApi, chatToolsApi } from '../utils/api'
+import { chatAgentsApi, chatConnectorsApi, chatSkillsApi, chatToolsApi } from '../utils/api'
 import { agentConnections } from '../utils/toolOptions'
 import { pickerSkills } from '../utils/chatSkills'
 import { useBuiltinGrants } from './useBuiltinGrants'
+import { grantedSkills, switchableSkills } from '../utils/agentUses'
 import { addonsAfter, agentAddons, agentGrants, grantsAfter, agentBuiltins, agentConnectors, agentSkills, builtinsAfter, connectionsAfter, connectorsAfter, savedAgentsGrantAfter, skillsAfter } from '../utils/agentTools'
 
 // The Tools list of the agent form. It reads what a new chat on the agent's
@@ -42,6 +43,23 @@ export function useAgentTools(form, update) {
     return () => { live = false }
   }, [])
 
+  // The resources an agent may be given, for each add-on that scopes them per
+  // agent, read once the add-on's row says so. A failed read is said in the
+  // row, never an empty list.
+  const [choices, setChoices] = useState({})
+  const scoped = useMemo(() => panel.addons.filter((a) => a.resources).map((a) => a.id).sort().join(','), [panel.addons])
+  useEffect(() => {
+    let live = true
+    const ids = scoped ? scoped.split(',') : []
+    setChoices(Object.fromEntries(ids.map((id) => [id, { status: 'loading', items: [] }])))
+    ids.forEach((id) => {
+      chatAgentsApi.addonResources(id)
+        .then((res) => { if (live) setChoices((c) => ({ ...c, [id]: { status: 'ready', items: res.items || [], truncated: !!res.truncated } })) })
+        .catch(() => { if (live) setChoices((c) => ({ ...c, [id]: { status: 'error', items: [] } })) })
+    })
+    return () => { live = false }
+  }, [scoped])
+
   // The messaging connections of a saved agent, read best effort: a server with
   // connectors off, or an agent not saved yet, has none.
   const agentId = form.id || ''
@@ -57,7 +75,10 @@ export function useAgentTools(form, update) {
   const builtins = useMemo(() => agentBuiltins(panel.builtins, form), [panel.builtins, form])
   const addons = useMemo(() => agentAddons(panel.addons, form), [panel.addons, form])
   const connectors = useMemo(() => agentConnectors(panel.connectors, form), [panel.connectors, form])
-  const skills = useMemo(() => agentSkills(skillList, form), [skillList, form])
+  // The skills the host grants (the memory provider's) are not switches of the
+  // agent: they are listed apart, once.
+  const skills = useMemo(() => switchableSkills(agentSkills(skillList, form)), [skillList, form])
+  const grantedSkillRows = useMemo(() => grantedSkills(skillList), [skillList])
   const catalog = useBuiltinGrants()
   const grantList = useMemo(() => agentGrants(catalog, form.builtins), [catalog, form.builtins])
 
@@ -78,7 +99,7 @@ export function useAgentTools(form, update) {
     // The grants are rows with their own switch each: no bulk setter, so a
     // click on Select all never grants a sensitive right.
     grants: grantList.length > 0 ? { list: grantList, editable: true, onToggle: (name, on) => setGrantsOn([name], on) } : null,
-    builtins, addons, servers: [], connectors, connections, skills, replacedSkills: replaced, error, skillsError: '',
+    builtins, addons, servers: [], connectors, connections, pickElsewhere: true, skills, skillRows: skillList, grantedSkills: grantedSkillRows, resourceChoices: choices, replacedSkills: replaced, error, skillsError: '',
     toggleBuiltin: (g, on) => setBuiltinsOn([g], on),
     toggleAddon: (id, on) => setAddonsOn([id], on),
     toggleMCP: (key, on) => setMCPOn([key], on),

@@ -18,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
+	"github.com/mudler/LocalAI/core/services/studio/resourcesets"
 )
 
 // Errors. An agent that does not exist, or belongs to another principal, is
@@ -70,10 +71,10 @@ type Agent struct {
 	// the choice existed: it reads the notes when its add-ons name Memory and
 	// the model picks the scope of a note. The host enforces any other value.
 	Memory string
-	// MemorySave is the agent's own rule for saving a note: MemorySaveAlways
-	// or MemorySaveNever. Empty uses the person's setting. It can only be
-	// stricter than the person's setting, so there is no value that saves at
-	// once: the host takes the stricter of the two.
+	// MemorySave is the agent's own rule for saving a note: MemorySaveAlways,
+	// MemorySaveAuto or MemorySaveNever. Empty uses the person's setting.
+	// Always and never can only be stricter than the person's setting; auto is
+	// the one explicit choice that loosens it, for this agent only.
 	MemorySave string
 	// Connections names the connections (connector binding IDs) the agent's
 	// chats may use for each add-on whose tools run with a credential, by
@@ -82,6 +83,13 @@ type Agent struct {
 	// chooses in the chat. The service checks that each binding is the
 	// owner's and belongs to the add-on.
 	Connections connsets.Sets
+	// Resources names, for each add-on whose resources are scoped per agent
+	// (the manifest opts in), the resources the agent may use and the mode of
+	// each, read or write, by add-on ID. An add-on of that kind with no entry
+	// gives the agent no resource. The field has no effect on an add-on that
+	// does not opt in. The host enforces it on every tool call that takes a
+	// resource, on top of what the owner of the chat may use.
+	Resources resourcesets.Sets
 	// Network is the network preset of the Sandbox commands of the agent's
 	// unattended runs (triggers, connectors): off, registries or all, capped
 	// by the administrator's ceiling. Empty is off. A run never asks a
@@ -101,8 +109,13 @@ type Agent struct {
 	// first of Folders when it writes.
 	FolderID   int64
 	FolderMode string
-	Created    time.Time
-	Updated    time.Time
+	// ShareRef is the ID of the sharing record of the agent in the sharing
+	// policy (kind "agent"), empty until the owner first shares it. Only
+	// SetShareRef sets it: Put keeps the stored value whatever the caller
+	// sends, so an edit of the definition never drops the grants.
+	ShareRef string
+	Created  time.Time
+	Updated  time.Time
 }
 
 // The choices of Agent.Memory. Empty (not listed) is "as before".
@@ -125,6 +138,12 @@ const (
 	MemorySaveAlways = "always"
 	// MemorySaveNever: the agent reads notes and never saves one.
 	MemorySaveNever = "never"
+	// MemorySaveAuto: the agent saves a note at once and tells the person in
+	// the chat, with an Undo, even when the person's own level is Ask me
+	// first. It is the one value that loosens, and only for this agent: the
+	// person's Always confirm and Never still hold, and so do the limits of an
+	// automatic save (see studio.effectiveSaveLevel).
+	MemorySaveAuto = "auto"
 	// MemorySaveUseMine is what a client writes to clear the override. It is
 	// never stored: the stored value is empty.
 	MemorySaveUseMine = "use_mine"
@@ -132,7 +151,7 @@ const (
 
 // ValidMemorySave reports whether v is a value of Agent.MemorySave, or empty.
 func ValidMemorySave(v string) bool {
-	return v == "" || v == MemorySaveAlways || v == MemorySaveNever
+	return v == "" || v == MemorySaveAlways || v == MemorySaveAuto || v == MemorySaveNever
 }
 
 // ValidMemory reports whether v is a choice of Agent.Memory, or empty.
@@ -202,6 +221,18 @@ type Store interface {
 	// ListAll returns the agents of every principal sorted by principal, then
 	// name. It is for the administrator's view and for migrations.
 	ListAll(ctx context.Context) ([]Agent, error)
+	// SetShareRef records the sharing reference of an agent of the principal
+	// when it has none and returns the one stored: the first wins, so two
+	// concurrent first shares agree on one record. ErrNotFound when the agent
+	// is not the principal's.
+	SetShareRef(ctx context.Context, principal, id, ref string) (string, error)
+	// GetShared returns an agent by ID whatever its principal, only when it
+	// has a sharing reference; any other agent is ErrNotFound. The caller
+	// must check the grant on the reference before it uses the agent.
+	GetShared(ctx context.Context, id string) (Agent, error)
+	// ListShared returns the agents whose sharing reference is in refs, in
+	// any order. A reference with no agent is skipped.
+	ListShared(ctx context.Context, refs []string) ([]Agent, error)
 }
 
 var addonIDShape = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
@@ -230,7 +261,7 @@ func Validate(a Agent) error {
 		return bad("memory must be own, mine_and_own, mine or none")
 	}
 	if !ValidMemorySave(a.MemorySave) {
-		return bad("memory_save must be always or never")
+		return bad("memory_save must be always, auto or never")
 	}
 	switch a.Network {
 	case "", "off", "registries", "all":
@@ -249,6 +280,9 @@ func Validate(a Agent) error {
 				return bad("a connection needs an add-on ID and a binding ID")
 			}
 		}
+	}
+	if err := resourcesets.Validate(a.Resources); err != nil {
+		return bad("%s", err)
 	}
 	if a.FolderMode == "" && a.FolderID != 0 && len(a.Folders) == 0 {
 		return bad("a folder needs a mode, read or write")
@@ -319,5 +353,6 @@ func (a Agent) clone() Agent {
 	a.BuiltinsOn = append([]string(nil), a.BuiltinsOn...)
 	a.Builtins = append([]string(nil), a.Builtins...)
 	a.Connections = connsets.Clone(a.Connections)
+	a.Resources = resourcesets.Clone(a.Resources)
 	return a.normalizeFolders()
 }

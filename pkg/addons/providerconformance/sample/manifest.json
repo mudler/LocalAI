@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-notes-service",
+  "version": "0.1.0",
+  "executable": "sample-notes-service",
+  "os": "linux",
+  "arch": "amd64",
+  "host": { "min": 1, "max": 2 },
+  "api": { "min": 2, "max": 2 },
+  "protocol": { "min": 1, "max": 1 },
+  "dataFormat": { "min": 1, "max": 1 },
+  "capabilities": {
+    "service": true,
+    "tools": ["notes-context", "notes-recall", "notes-remember", "notes-export", "notes-forget"],
+    "toolDefinitions": [
+      {
+        "name": "notes-context", "kind": "read",
+        "description": "Short text of what the service knows about the person, for the start of a turn. Answers {\"text\": \"...\"} and keeps within budgetBytes.",
+        "inputSchema": {"type": "object", "properties": {
+          "query": {"type": "string", "description": "The message of the person."},
+          "scopes": {"type": "array", "items": {"type": "string"}, "description": "The scopes the answer may draw on."},
+          "budgetBytes": {"type": "integer", "description": "The most bytes the text may have."},
+          "userRef": {"type": "string", "description": "Opaque reference of the person."}
+        }, "additionalProperties": false}
+      },
+      {
+        "name": "notes-recall", "kind": "read",
+        "description": "Search the saved notes for a topic.",
+        "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"], "additionalProperties": false}
+      },
+      {
+        "name": "notes-remember", "kind": "write",
+        "description": "Save one short note.",
+        "inputSchema": {"type": "object", "properties": {"resourceId": {"type": "string"}, "text": {"type": "string"}}, "required": ["resourceId", "text"], "additionalProperties": false}
+      },
+      {
+        "name": "notes-export", "kind": "read",
+        "description": "All the notes, as {\"files\": [{\"path\": \"...\", \"content\": \"...\"}]}.",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": false}
+      },
+      {
+        "name": "notes-forget", "kind": "write",
+        "description": "Forget the notes of a scope, or all of them.",
+        "inputSchema": {"type": "object", "properties": {"resourceId": {"type": "string"}, "group": {"type": "string"}, "key": {"type": "string"}}, "required": ["resourceId"], "additionalProperties": false}
+      }
+    ],
+    "provides": [
+      {
+        "slot": "memory",
+        "slotVersion": 1,
+        "roles": {
+          "context": "notes-context",
+          "read": ["notes-recall"],
+          "write": ["notes-remember"],
+          "export": "notes-export",
+          "forget": "notes-forget"
+        },
+        "properties": {"remote": true, "undo": "none"}
+      }
+    ],
+    "hostOperations": {"optional": ["egress.check"]},
+    "network": {"kind": "egress-check", "title": "Notes service"},
+    "ui": {
+      "entry": "ui/notes.js",
+      "sdk": {"min": 2, "max": 2},
+      "controls": ["network-policy"],
+      "title": "Sample notes service",
+      "description": "A sample provider for the notes of the assistant. It keeps the notes in a service outside this machine and is used to test providers."
+    }
+  }
+}

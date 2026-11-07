@@ -100,7 +100,14 @@
     "alias": "Alias",
     "kindLabel": "Kind",
     "installedOn": "{{name}} is installed and on.",
-    "installedChip": "已安装"
+    "installedChip": "已安装",
+    "category": {
+      "label": "类别",
+      "all": "全部",
+      "chat": "聊天应用",
+      "tools": "工具",
+      "models": "模型"
+    }
   },
   "catalog": {
     "allLibraries": "所有库",
@@ -146,7 +153,8 @@
     "network": "无法连接服务器,请检查网络。",
     "unavailable": "附加组件暂时不可用，请稍后重试。",
     "unknownOutcome": "无法确认结果。请先检查状态,再重试。",
-    "busy": "附加组件服务器正忙，未能及时响应。请稍后再试。"
+    "busy": "附加组件服务器正忙，未能及时响应。请稍后再试。",
+    "needsNewerHost": "此插件需要更新版本的 LocalAI。请更新 LocalAI 后重试。未安装任何内容。"
   },
   "installed": {
     "disabled": "已关闭",
@@ -359,7 +367,8 @@
     "starting": "启动中",
     "stopped": "已关闭",
     "update-pending": "等待更新",
-    "updateTo": "更新 {{version}}"
+    "updateTo": "更新 {{version}}",
+    "needsSetup": "需要设置"
   },
   "supporting": "你安装的软件,为 LocalAI 增加新页面和聊天工具。每个都独立运行,只请求它列出的权限。",
   "tabs": {
@@ -569,7 +578,8 @@
       "protocol-version": "协议版本不匹配",
       "sdk-version": "界面 SDK 版本不匹配",
       "data-format": "数据格式不匹配",
-      "digest-changed": "此版本的摘要已更改"
+      "digest-changed": "此版本的摘要已更改",
+      "feature-level": "此插件需要更新版本的 LocalAI。"
     },
     "class": {
       "source-unavailable": "无法连接到库。",
@@ -624,6 +634,7 @@
       "unpinned": "库报告有更新，但没有指明要安装的构建，因此无法在此升级。请稍后再检查。"
     },
     "checkAll": "检查更新",
+    "notCheckedYet": "尚未检查更新。",
     "checkingAll": "正在检查...",
     "checkAllDone": "已检查 {{count}} 个插件。",
     "checkAllFailed": "{{count}} 个无法检查。",
@@ -671,7 +682,12 @@
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
     "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
-    "removeNamed": "移除 {{name}}…"
+    "removeNamed": "移除 {{name}}…",
+    "setUp": "设置",
+    "setUpNamed": "设置 {{name}}",
+    "review": "查看",
+    "reviewNamed": "查看 {{name}}",
+    "updateTo": "更新到 {{version}}"
   },
   "preview": {
     "screenshots": "Screenshots",
@@ -730,7 +746,11 @@
     "toolsOff_other": "在它重新运行前,它的 {{count}} 个聊天工具不可用。",
     "pageOff": "在它重新运行前,它的页面不可用。",
     "updateTitle": "{{name}} {{version}} 已可用。",
-    "updateBody": "你当前是 {{current}}。替换前你会看到变更并进行确认。"
+    "updateBody": "你当前是 {{current}}。替换前你会看到变更并进行确认。",
+    "title_one": "{{count}} 个附加组件需要设置",
+    "title_other": "{{count}} 个附加组件需要设置",
+    "connectionBody_one": "有 {{count}} 个连接暂时无法回复。{{reason}}",
+    "connectionBody_other": "有 {{count}} 个连接暂时无法回复。{{reason}}"
   },
   "meta": {
     "builtin": "内置",
@@ -864,6 +884,7 @@
     "keepOwnNamed": "将 {{name}} 的统一授权保留为我的授权",
     "loadError": "主机访问未能加载",
     "loading": "正在读取此插件的请求...",
+    "loadingSlow": "仍在进行。正在下载软件包并检查其签名，然后才能显示权限。较大的插件可能需要一些时间。",
     "loadingPage": "正在加载主机访问",
     "locked": "部署已关闭对主机访问的修改。你可以查看此页面，但不能修改。",
     "lockedNoAuth": "登录已关闭，任何能访问此服务器的人都可能修改这些设置；它们由管理员在策略文件中设定。",
@@ -1012,6 +1033,30 @@
       "migrating": "迁移数据",
       "starting": "启动",
       "working": "处理中"
+    }
+  },
+  "groups": {
+    "chat": "聊天应用",
+    "tools": "工具与服务",
+    "models": "媒体与模型",
+    "builtin": "内置"
+  },
+  "connection": {
+    "title": "连接",
+    "none": "还没有连接。",
+    "answersAs": "以 {{name}} 身份回复",
+    "noAgent": "未选择智能体",
+    "manage": "管理连接",
+    "acceptsListed_one": "接受 {{count}} 人",
+    "acceptsListed_other": "接受 {{count}} 人",
+    "accepts": {
+      "anyone": "接受任何人",
+      "nobody": "暂不接受任何人"
+    },
+    "state": {
+      "running": "运行中",
+      "off": "已关闭",
+      "attention": "需要设置"
     }
   }
 }

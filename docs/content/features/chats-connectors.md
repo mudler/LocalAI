@@ -7,7 +7,7 @@ url = "/features/chats-connectors/"
 
 The Connectors page of the [chats](/features/chats/) (`/app/chats/connectors`, under **Agents** in the sidebar) lists the messaging bindings you made, and the MCP servers have a page of their own (**MCP connectors** in the sidebar, `/app/mcp-connectors`):
 
-- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram), the [Slack add-on](#slack) or the [Discord add-on](#discord) (the [GitHub add-on](#github), the [Google Drive add-on](#google-drive), the [Gmail add-on](#gmail) and the [Jellyfin add-on](#jellyfin) hold a token or a login for your agents instead of carrying messages). This is the first half of this page.
+- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram), the [Slack add-on](#slack) or the [Discord add-on](#discord) (the [GitHub add-on](#github), the [Google Drive add-on](#google-drive), the [Gmail add-on](#gmail), the [Jellyfin add-on](#jellyfin) and the [Mail add-on](#mail-imap-and-smtp) hold a token or a login for your agents instead of carrying messages). This is the first half of this page.
 - An **MCP server** gives your chats and agents more tools. See [MCP servers](#mcp-servers).
 
 ## Connector add-ons
@@ -20,9 +20,13 @@ platform's API is spoken by an add-on that declares the `connector` capability (
 from the add-on gallery, and its page adds and edits the bindings of its platform.
 
 The Connectors page groups your bindings by add-on and links each group to the
-add-on's own page. With no connector add-on installed, the page says so and links
+add-on's own page. Each row has a state chip (**Running**, **Off** or **Needs attention**), the
+agent and who may write to it, and a switch that applies at once. **New connection** lists the installed
+platforms and opens the add form of the one you pick. With no connector add-on installed, the page says so and links
 to the gallery. `GET /api/chats/connectors/kinds` lists the platforms that a running
-add-on serves.
+add-on serves. A kind whose add-on declares a setup text also has `setup`, a short phrase
+such as "a bot token from @BotFather" that says what the person needs before a connection
+works (see [Setup text]({{%relref "features/addons#setup-text" %}})).
 
 A binding names the add-on that serves it. A binding made before connectors became
 add-ons names none, and belongs to the add-on of its kind: a Telegram binding keeps
@@ -68,6 +72,16 @@ a transport failure, since the platform may already have received it.
 Telegram's legacy binding resolution remains compatible with existing bindings.
 It is not a fallback for discovering other connector kinds or for owner outages.
 
+### The page of a connector add-on
+
+The page of a connector add-on (Telegram, Slack, Discord, GitHub and the others) looks like the MCP connectors page:
+
+- A **row** for each connection has a letter tile, the name, a state chip, one line of facts (the service, the agent and who may write to it), a **Test** button, a switch that turns it on or off at once, and a menu with **Edit**, **Share** (with accounts, see [Sharing a connection](#sharing-a-connection)) and **Delete**. A row that **Needs attention** shows why (no token saved, the add-on is not running, the same bot as another connection, or a failed test) and, when the cause is the token, a **Fix token** button in place of **Test**.
+- A click on a row opens a **pane** beside the list with the facts, the last test (kept in this browser, so it says "Not tested in this browser yet" until you test), the recent refusals and the senders of the bot, and **Remove**, **Share** (with accounts), **Edit** and **Test connection** at the foot.
+- **New** and **Edit** open a **side sheet** with one form in three sections: **Connection** (the name, the token, the agent and the fields of the add-on), **Who can talk to it** and **What it may do**. **Save and test** saves the connection and tests it at once. Closing the sheet over a change asks first.
+- **What it may do** has three presets. **Answer only** ticks no permission: the bot replies and nothing else. **Standard** ticks the usual set that the agent holds (what **Reset to the usual set** ticks) and never a sensitive permission. **Custom** shows the whole matrix of who can do what. A preset never turns on a sensitive permission. The replies, the files and the places the bot may post are behind **Replies, files and places**, and the check of what the form will do is behind **Check what it will do**.
+- The address `?new=1&agent=<agent id>` opens the add form at once, with that agent chosen and shown as fixed text. `?binding=<id>` opens the settings of that connection with its permissions in view.
+
 ## Telegram
 
 The Telegram add-on binds a bot to one of your [saved agents](/features/chats-agents/).
@@ -75,6 +89,10 @@ A person who messages the bot talks to that agent, in a conversation of their
 own, and the answer comes back in Telegram. The conversation is a
 [chat](/features/chats/) of yours: it uses your quota and your model allowlist,
 and you can open it in LocalAI.
+
+### LocalAI tools in a messaging chat
+
+The [LocalAI client tools]({{% relref "features/localai-assistant#tool-groups" %}}) (images, speech, transcription and so on) work in a messaging chat by default, within the permissions and model allowlist of the agent's owner. An agent can switch the group off with `localai_client` in `builtins_off`. The admin group is never offered there, whatever the agent says: the person who writes to the bot may not be the owner. Three actions are refused in a messaging chat with a plain error, because they read or change data of the owner that the sender must not reach: `voice_profile` with `delete`, and `identify` of `voice` and `face` (they search the registry of known people). `voice_profile` with `create` is refused too, because the person who confirms that the speaker agreed does it in Studio, not in a messaging chat.
 
 ### Set up a binding
 
@@ -95,6 +113,14 @@ curl -X POST .../api/chats/connectors/<id>/test
 curl .../api/chats/connectors/<id>/senders
 curl -X POST .../api/chats/connectors/<id>/senders/<sender>/allow   # add a sender of the log to the allowlist
 ```
+
+Each sender of the log may carry `chat` (the ID of the chat of the last message), `chat_name`
+(its name, when the add-on knows it) and, for a message that was ignored, `reason`:
+`not_listed` (the sender is not on the list) or `not_addressed` (a group message that does not
+name the bot). All three are optional. Each recent decision of the access view may carry
+`sender_name`, `chat` and `chat_name` next to the sender IDs. The decision log is kept in
+memory only and is empty after the server restarts; the sender log is stored. The page shows
+the name beside the ID and falls back to the ID when it has none.
 
 ### What a person can send
 
@@ -131,7 +157,7 @@ gets one sentence (for example "I cannot listen to voice messages here: no
 speech-to-text model is set up") and no turn starts.
 
 `GET`, `PUT` and `DELETE /api/chats/connectors/{id}` read, replace and delete a
-binding. `POST .../enable` and `.../disable` switch it. You can have 10 bindings.
+binding. `POST .../enable` and `.../disable` switch it. You can have 50 bindings.
 A binding says `active: false` and gives a `reason` while its add-on does not run.
 
 ## GitHub
@@ -139,14 +165,39 @@ A binding says `active: false` and gives a `reason` while its add-on does not ru
 The GitHub add-on lets your [saved agents](/features/chats-agents/) read repositories: search code, read files and folders, and read issues, pull requests and their diffs. If you allow it, they can also write: comment on issues and pull requests, open issues, change a title or close an issue, add labels, and comment on a line of a pull request diff. It cannot merge, delete, push code, approve or request changes on a review.
 
 1. Install the **GitHub** add-on from the add-on gallery.
-2. On GitHub, make a **fine-grained personal access token** for only the repositories you want to share. The add-on page has a **Create a token on GitHub** button, and the steps and a table of the permissions are open there until you have a first connection. Give the token read access to Contents, Issues and Pull requests. To let the agent write, also give read and write access to Issues and Pull requests. Classic tokens are not accepted.
-3. On the add-on page, choose **New GitHub connection**. Paste the token and list the repositories, one `owner/name` per line or separated by commas (at most 50). The name of the connection defaults to the first repository; a line that is not `owner/name` is named under the list. Press **Test**: the row shows, for each listed repository, whether the token reaches it and whether it can write.
+2. On GitHub, make a **fine-grained personal access token** for only the repositories you want to share. The add-on page has a **Create a token on GitHub** button, and the steps and a table of the permissions are open there until you have a first connection. Give the token read access to Contents, Issues and Pull requests. To let the agent write, also give read and write access to Issues and Pull requests. Classic tokens (`ghp_`) are refused unless you allow them on the connection; see [Classic tokens](#classic-tokens).
+3. On the add-on page, choose **New GitHub connection**. Paste the token and list the repositories, one `owner/name` per line or separated by commas (at most 50). `owner/*` and `*` are also accepted; see [Any repository](#any-repository). The name of the connection defaults to the first repository; a line that is not `owner/name` is named under the list. Press **Test**: the row shows, for each listed repository, whether the token reaches it and whether it can write.
 
 This connection does not listen for `@mentions` on GitHub yet. An agent works on GitHub only when you ask it in a chat.
 
 The agent field is optional. A connection without an agent shows **Credentials only** in the list: it holds the token, the repository list and the write mode for your chats, and it never answers a message. It cannot be switched on, take an allowlist, send notifications or hold permissions; the server refuses those with a message that asks for an agent. This is the manifest key `agentOptional` of the kind (see [Connector add-ons](/features/addons/)), which the GitHub kind declares; Telegram and Slack bindings always need an agent. Over the API, `agent_id` may be empty for such a kind and the connection reports `credentials_only: true`.
 
-The list is checked by LocalAI before the add-on is called, so an agent is refused any repository that is not on it, even if the token could reach it. The token is kept sealed and is never shown again, and no tool result contains it. A call uses one of the connections that your chat enabled: with one connection it is enabled, with several you tick the ones the chat may use in the **Tools** menu of the chat (or the agent names a set), and until then the GitHub tools are not offered. With two or more enabled, the model names the connection in each call, and only an enabled one is accepted. LocalAI never picks one for you, and the list of the connection that was named is the only one that applies. See [The connections of an add-on](/features/chats/#the-connections-of-an-add-on).
+The list is checked by LocalAI before the add-on is called, so an agent is refused any repository that is not covered by it, even if the token could reach it. The token is kept sealed and is never shown again, and no tool result contains it. A call uses one of the connections that your chat enabled: with one connection it is enabled, with several you tick the ones the chat may use in the **Tools** menu of the chat (or the agent names a set), and until then the GitHub tools are not offered. With two or more enabled, the model names the connection in each call, and only an enabled one is accepted. LocalAI never picks one for you, and the list of the connection that was named is the only one that applies. See [The connections of an add-on](/features/chats/#the-connections-of-an-add-on).
+
+### Any repository
+
+A list entry can stand for many repositories. LocalAI matches the entry itself, before the add-on runs, as GitHub names compare: without regard to case, and only whole names.
+
+| Entry | Covers |
+|---|---|
+| `owner/name` | that repository |
+| `owner/*` | every repository of that owner or organization, one name deep. `other-owner/x` and `owner-evil/x` are not covered |
+| `*` | any repository the token can reach, now and later |
+
+A star works only as the whole entry `*` or as the whole name after an owner (`owner/*`). `acme/wid*` and `*/widgets` are refused, and `*` must be the only entry because it already covers the rest. The token still limits what GitHub shows: a fine-grained token reaches only the repositories you picked for it.
+
+`*` needs a confirmation. In the page, tick the box under the list. Over the API, send `confirm_any_resource` set to `allow any resource` in the request that adds `*` (create, or an update that did not have it). The write mode is separate: `*` with **Read only** can change nothing. With `*`, the agent can also list the repositories the token reaches (the `list-repos` tool); with any other list it asks you which repository to use. The Test button reports how many repositories the token reaches instead of testing each one.
+
+This is the manifest key `wildcardResources` of the connector kind (see [Connector add-ons](/features/addons/)). Only the GitHub kind declares it; for every other add-on, the Jellyfin and Home Assistant lists included, each entry stays an exact name. A tool that lists what a credential reaches declares `enumerates` and runs only for a connection whose list is `*`.
+
+### Classic tokens
+
+A classic token (`ghp_`) has scopes for the whole account, not for the repositories you list. By default LocalAI refuses one when you save it, and refuses to use a saved one. You can allow it per connection when a fine-grained token does not fit, for example for an organization that blocks them. Allowing it is a deliberate choice:
+
+- In the page, tick **Allow a classic token** and then the box that says you understand it is wider than the list.
+- Over the API, set the option `classicToken` to `allow` in `options`, and send `confirm_wider_token` set to `accept wider token` in the request that turns it on.
+
+The repository list and the write mode apply as before, and LocalAI still enforces them before the add-on runs. But GitHub would let a leaked classic token do more than the list, so prefer a fine-grained token. Switching the option off stops the stored classic token from being used at once; the token is not deleted. Fine-grained tokens work as they did and need none of this. This is the manifest key `tokenGuards` of the connector kind, which holds back any token that starts with a prefix until the connection chooses an option.
 
 What GitHub returns (issue text, comments, file content) is written by other people. Every result is marked as untrusted data for the model. Long files are cut at 96 KiB and long patches at 64 KiB; the result says what was cut and how to ask for the rest. When GitHub limits the rate of calls, the agent is told how long to wait.
 
@@ -315,6 +366,55 @@ The write mode of the connection works as for GitHub: **Read only** (the default
 
 The connection has a `write_mode` field over the API: `off`, `propose` or `auto`.
 
+## Mail (IMAP and SMTP)
+
+The Mail add-on lets your [saved agents](/features/chats-agents/) read a mailbox over IMAP and, if you allow it, write mail over SMTP. It works with any provider that offers both protocols. The provider is not part of the add-on: you give it the server names.
+
+What the agent can do:
+
+- **Read:** list the folders, search a folder (sender, recipient, subject, text anywhere, a date range, unread only, with an attachment), read one message, read the other messages of its conversation in the same folder, and read the text of a text attachment. Searches return 30 messages a page, up to 50, and a cursor for the next page. Reading does not mark mail as read.
+- **Write:** send a plain text email, or save one in the Drafts folder. Both are proposals: each one waits for your confirmation, in every write mode.
+- **Never:** delete, move, flag, forward or expunge mail. There is no tool for it.
+
+### Set up a connection
+
+1. Install the **Mail** add-on from the add-on gallery.
+2. Find the IMAP and SMTP server names of your provider, and, if it supports them, create an **app password** for LocalAI.
+3. On the add-on page choose **New mail connection**. Enter the mailbox address, the username (often the same address), the password, and for each server its name, port and protection:
+
+| Server | TLS (implicit) | STARTTLS |
+|---|---|---|
+| IMAP | port 993 | port 143 |
+| SMTP | port 465 | port 587 |
+
+   The port follows the protection you choose. Optional: a sender name, a list of the only folders the agent may use (one per line; the INBOX is matched without regard to case), and the name of the Drafts folder for a server that does not mark it.
+4. Choose **Read only** or **Asks you first**, and save. Saving logs in to both servers; a wrong password, an unreachable server or a refused certificate stops the save with a short message. **Test** logs in again and shows the IMAP result and the SMTP result on separate lines.
+
+Example settings. These are examples: check your provider's own pages, because servers and rules change.
+
+| Provider | IMAP | SMTP | Password |
+|---|---|---|---|
+| Gmail | `imap.gmail.com`, 993, TLS | `smtp.gmail.com`, 465, TLS (or 587, STARTTLS) | An app password |
+| Fastmail | `imap.fastmail.com`, 993, TLS | `smtp.fastmail.com`, 465, TLS (or 587, STARTTLS) | An app password |
+| Your own server (Dovecot, Postfix) | its public name, 993, TLS | its public name, 587, STARTTLS | The account password |
+
+**Gmail.** Gmail needs an app password; the normal password does not work with IMAP in this way. Google says app passwords only work on an account with 2-Step Verification turned on, and that the option may be missing if the account uses security keys only for 2-Step Verification, is a work, school or other organization account (an administrator of a Google Workspace may block it), or has Advanced Protection on. Create one on the Google account page for app passwords. Google can change these rules and the wording; read the current page, [Sign in with app passwords](https://support.google.com/accounts/answer/185833). The username is the full address.
+
+The saved servers, the username and the password are one sealed record. LocalAI keeps it and never shows it again, so to change any of them you tick **Change the server or login details** and enter all of them again. The mailbox address is kept in the list of the connection, and LocalAI refuses a tool call for any other mailbox.
+
+### Security
+
+- **The whole mailbox is reachable.** The agent can search and read every folder you allow, including mail with secrets. Use the folder list to narrow it, or connect a dedicated mailbox.
+- **TLS is required by default.** The add-on checks the server certificate against the system roots and the server name; there is no option to skip the check. With STARTTLS it refuses to log in if the server does not offer the upgrade. **None** (no protection) exists only for a server you trust on a network you trust: the page warns, asks for a confirmation, and the password and all mail then travel as plain text.
+- **Public servers only.** IMAP and SMTP are not HTTP, so the network check of the commands sandbox does not apply. The add-on applies the same address guard as the web fetch tool instead: ports 143, 993, 465 and 587 only (not 25), and no private, loopback, link-local, cloud metadata or LocalAI-server address. A mail server inside your own network is refused.
+- **Mail is untrusted text.** Every result says it is text written by other people and must be treated as data. HTML becomes plain text with no images, links, styles or scripts; hidden and direction-changing characters are removed; attachments are never opened except as text.
+- **Passwords are sealed.** They are in no result, log or proposal.
+- **Writes are proposals.** A value with a line break in a header field (a recipient or a subject) is refused, so mail it read cannot add a Bcc. A send that may have reached the server is never repeated: you decide.
+
+### Limits
+
+A call takes at most 30 seconds. A result is at most 128 KiB; a message body is cut at 48 KiB and an attachment at 96 KiB a page, and the result says how much is left and the offset to ask for next. A mail has at most 20 recipients and a 64 KiB body. The conversation of a message is found by its Message-ID, References and In-Reply-To headers in the same folder, so mail in Sent is not part of it. Attachments of binary types return only the name, type and size. Mail is sent as plain text only, with no attachments.
+
 ## Slack
 
 The Slack add-on binds a Slack app to one of your [saved agents](/features/chats-agents/).
@@ -395,7 +495,11 @@ The binding has two lists, kept as one allowlist:
 - **Allowed people**: Slack user IDs (`U...`, `W...`) or `@names`. A listed person may
   use the app in a direct message and by mentioning it anywhere.
 - **Allowed channels**: channel IDs (`C...`, `G...`). Everyone in a listed channel may
-  mention the app there. A direct message still needs the person on the list.
+  mention the app there. A direct message still needs the person on the list. Each
+  channel also has a trust level, see [Channels where the bot listens](#channels-where-the-bot-listens).
+  An `@name` entry matches the Slack username (the handle) of the sender, not the
+  display name, and only when the app has the scope `users:read`. When in doubt, use
+  the user ID (`U...`): the access log names the sender ID of every refusal.
 
 Copy an ID in Slack from the profile of a person or the details of a channel, or read
 it from the sender log after the person has written to the app. "Anyone in the
@@ -600,7 +704,10 @@ the mention makes a new chat, and gives them to the agent with the first message
   mentioned, nothing else: not the channel, not other threads, not files. For a file it
   sees the name and the count. A mention outside a thread reads nothing.
 - **Once.** The messages are read when the chat of the thread starts. Later turns of the
-  chat do not read them again, and they are not copied into the transcript.
+  chat do not read them again. The agent gets them with the first message only; the
+  chat keeps a copy for you to read (see
+  [Reading a messaging chat in the web UI](#reading-a-messaging-chat-in-the-web-ui)),
+  and that copy is never sent to the agent as a message.
 - **Bounded.** At most 30 messages and 8 KiB of text. If there are more, the newest are
   kept, oldest first, one line `Label: text` each. The add-on can lower the number of
   messages. A thread of more than 1,000 messages is not read at all.
@@ -627,11 +734,50 @@ There is no setting for this. The bot always reads the thread when it is mention
 one, on a platform whose add-on can give the earlier messages; on any other platform it
 reads nothing.
 
+### Reading a messaging chat in the web UI
+
+A chat that a messaging connection started shows in your chat list under the connection
+and opens like any chat. It also reads like the thread it came from. You see all of this
+in your own chats only; it has the same access and the same lifetime as the chat.
+
+- **Header.** The connection name and kind, whether the chat is a direct message or a
+  channel (with its name when the add-on gives one), a link that opens the thread in the
+  messaging app when the add-on can build one without an extra permission (Slack does,
+  from the workspace address; other kinds may leave it out, and then no link shows), and
+  the people who wrote in the chat.
+- **Sender of each message.** The name the platform gave (else the handle, else
+  "Unknown sender" with the platform id in small print), a badge and the time. The badge
+  says how the server saw the sender when the message came in: *Owner* (paired with the
+  bot), *Verified* (holds a role the owner gave rights to), *Listed* (on the allowlist
+  themselves), *Channel member* (let in because their channel or group is listed) or
+  *Anyone* (the connection accepts everyone). Messages of a chat made before this
+  feature, and a message that joined words of several people while a turn ran, show no
+  sender.
+- **Earlier in the thread.** Where the bot was first addressed, a shut block "Earlier in
+  the thread (N messages)" holds the lines the agent got with the first message, with the
+  same wording and the same cut as in [Earlier messages of a thread](#earlier-messages-of-a-thread).
+  It is stored once, when the chat starts, up to the 8 KiB limit. The server does not
+  read the platform again to show it. A chat made before this feature has no block.
+- **One answer.** An answer that the platform shows as a working message, an edit or
+  several messages (a long answer is split) is one answer in the chat.
+- **Notes of the server.** Small lines tell what the server did on its own: the tools it
+  did not offer to the sender and why, a message it could not read, a message that was too
+  long, files it did not accept, too many messages, a pairing that worked. Equal notes in a
+  row show once with a count. A note is kept only in a chat that already exists.
+
+The add-on may give two optional fields with an inbound message, `chatName` (the name of
+the channel or group) and `link` (an https address of the message or its thread). The
+server keeps the link only when it is https and short, and keeps nothing else of them.
+
 ## How the bot answers
 
-Each binding has four settings, under **How it answers** on the add-on page and in
-the API as `reply_mode`, `conversation` (with `window_minutes`), `send_files` and
-`reply_language`.
+Each binding has four settings, in the group **Where it posts and how it replies** on the
+add-on page and in the API as `reply_mode`, `conversation` (with `window_minutes`),
+`send_files` and `reply_language`. The group lists, in this order: the places the bot may post
+(see [Where it posts](#where-it-posts)), **Send my reminders and run results to**, **While the
+agent works**, **Conversations** and **Send the files the agent makes**. The two settings that
+people change least, the reply language and the file size limits, sit in a closed group named
+**File sizes and reply language**. It opens by itself when one of them is set.
 
 ### While the agent works (`reply_mode`)
 
@@ -642,7 +788,7 @@ that part.
 | Mode | What the sender sees |
 |---|---|
 | `progress` (default) | One message, "Working…", that lists the tools as the agent starts them. The answer replaces it. |
-| `stream` | A preview that shows the end of the answer as the model writes it, with a cursor (`▉`). Before the answer starts it shows the reasoning as it grows, or the tool the agent uses. In a private Telegram chat the preview is a draft, and the answer follows it as a new message. Anywhere else it is one working message that the answer replaces. |
+| `stream` | A preview that shows the end of the answer as the model writes it, with a cursor (`▉`). Before the answer starts it shows "Working…" or the tool the agent uses; the reasoning of the model is never sent to the platform. If the preview cannot be edited, it stays as it is until the answer comes, and the answer then replaces it; when it cannot replace it (the message is gone, or the platform refuses the edit), the answer is posted and the preview is deleted, so the conversation holds one message per answer. In a private Telegram chat the preview is a draft, and the answer follows it as a new message. Anywhere else it is one working message that the answer replaces. |
 | `off` | Typing only, then the answer as a new message. On Slack the add-on posts its own "_Working…_" message, which the answer replaces. |
 
 - The answer is converted from Markdown to the platform's markup: MarkdownV2 on
@@ -704,7 +850,7 @@ every connector, and with several frontends, because the link from a person to a
 in the shared store.
 
 Some add-ons add settings of their own to a binding (for example Slack's **Threads the
-bot follows**). They appear under **How it answers**, and in the API as `options`, a
+bot follows**). They appear under **Where it posts and how it replies**, and in the API as `options`, a
 map from the option id to a value. The add-on declares the allowed values, and an
 unknown option or value is a 400. An update without `options` keeps the stored values.
 
@@ -741,7 +887,7 @@ The server holds only one chunk of a file in memory, on both sides. Each transfe
 one audit line (direction, binding, size, result, layer, time), with no name and no
 content. The files of one message may add up to three times the limit.
 
-- **Per bot.** The **Files** section of a binding has one field for the largest file the
+- **Per bot.** The group **File sizes and reply language** of a binding has one field for the largest file the
   bot reads and one for the largest it sends, in MiB. Leave a field empty to use the
   limit of the add-on. A value can only lower that limit. The API takes
   `file_receive_max_bytes` and `file_send_max_bytes` (0 clears), and a value above
@@ -796,7 +942,7 @@ model answers in the language of the conversation, as it does without this setti
 
 | Value | Language |
 |---|---|
-| `auto` (default) | The language of the sender, see below. |
+| `auto` (default) | The interface language of the owner when the server knows it, else the language of the sender, see below. |
 | `en` | English |
 | `it` | Italian |
 | `de` | German |
@@ -804,11 +950,17 @@ model answers in the language of the conversation, as it does without this setti
 | `fr` | French |
 | `pt-BR` | Portuguese (Brazil) |
 
-With `auto`, LocalAI reads each message of the sender and scores it against the common
+With `auto`, the bot first uses the interface language of the owner, when the catalog has it.
+The page of the add-on sends that language with each save (`ui_language`, a tag such as `it`
+or `pt-BR`) and the binding keeps it, so every frontend of a cluster knows it. A save that
+sends none keeps the stored one, and a value that is not a language tag is ignored. When
+the owner's language is not known, or the six languages above lack it (Korean, for
+example), LocalAI reads each message of the sender and scores it against the common
 words of the six languages. It needs no model and sends the text nowhere. A message that
 does not show a language clearly (`ok`, `yes`, `thanks`, a number, an emoji) does not
 change anything. The last clear language of a sender is kept in memory for 24 hours, and
-a later short reply keeps it; a full sentence in another language moves it. A trigger
+a later short reply keeps it; a full sentence in another language moves it. The reading
+decides only when the owner's language is not known. A trigger
 that writes to a chat on its own uses the language last seen in that chat. When nothing
 is known, the host uses English. A fixed language ignores what the sender writes.
 
@@ -830,8 +982,8 @@ nobody. List chat IDs, user IDs or `@usernames`: numbers for Telegram, IDs such 
 addresses the bot in it.
 
 A message from anyone else is ignored: it is not answered, and the sender goes
-in the sender log with a count. Open **Senders** on the binding to see who tried,
-and use **Allow** to add a person to the allowlist.
+in the sender log with a count. Open the binding in the list: its pane shows **Senders**, who tried,
+and **Allow** adds a person to the allowlist.
 
 "Anyone who can message the bot" (`accept_any`) lets everyone use the agent. The
 server asks you to confirm it, because anyone who can find the bot can then use
@@ -857,7 +1009,7 @@ add-on.
 - **Capabilities** (`caps`). The ceiling you enable for a binding, from a closed list
   (`proposals.confirm`, `memory.write`, `files.upload`, `triggers.propose`,
   `triggers.run`, `talkback.channels`, `tools.write`, and the sensitive `talkback.new_channel`,
-  `profile.write`, `skills.write`, `pages.write`, `dashboard.write`). The default is
+  `profile.write`, `skills.write`, `pages.write`, `dashboard.write`, `knowledge.write`). The default is
   no: a binding with none enabled lets a sender talk to the agent, but the agent can
   not use any of these on the sender's behalf. A binding saved before permissions
   were enforced has none, so the first start after the upgrade gives it the usual set
@@ -896,21 +1048,114 @@ the capability is in `caps`, no switch is off, and:
 
 The allowlist can hold people and channels together. The host matches the sender of
 the message against the people entries (ID, and `@name` without regard to case). It
-matches the chat only to decide whether the bot answers, never to trust the sender.
-So a listed channel lets its members talk to the bot, but each of them gets
-capabilities only through a role, a pairing or an entry of their own. A binding with
-`accept_any` lists nobody. A sender who is let in but is not trusted still gets a
-role or a pairing as before.
+matches the chat to decide whether the bot answers, and to find the trust level of
+that channel (below). So a listed channel always lets its members talk to the bot, but
+each of them gets capabilities only through a role, a pairing, an entry of their own,
+or a channel that is set to let everyone act. A binding with `accept_any` lists
+nobody. A sender who is let in but is not trusted still gets a role or a pairing as
+before.
+
+#### Channels where the bot listens
+
+Every channel or group on the allowlist (a Slack `C...` or `G...`, a Telegram group, a
+Discord channel) has a trust level, `allow_trust` in the API, a map from the entry to
+`answer` or `act`:
+
+- `act` (the page says **Let everyone here ask for actions**): everyone who writes in
+  the channel, in a thread of it too, is treated like a listed person for the
+  capabilities that are not sensitive: sending files, proposing triggers, talk-back and
+  the like. The ticked permissions of the connection and the grants of the agent still
+  apply, so with an empty ceiling nothing is allowed. The add-on write tools still need
+  `tools.write` ticked on the connection (the paired rule is unchanged). Sensitive
+  capabilities, such as saving to the owner's notes or knowledge, still need a
+  pairing, and the personal notes are still read for paired senders only.
+- `answer` (**Answer only**): the bot answers there, but members who are not listed get
+  no capability. This is the level of an entry stored before the setting existed, so an
+  upgrade never widens trust. It is also the level of an entry that an API client adds
+  without `allow_trust`.
+
+On the settings page, **Who can talk to the bot** is one choice, **Only people I choose**
+(the default) or **Anyone who can message it** (`accept_any`, with its warning and
+confirmation). With the first choice the page shows a table of people and a table of
+channels, and one box that adds a name, an `@name` or an ID. Each kind of add-on says what
+an ID is: in Slack, an ID that starts with `C` or `G` is a channel and one that starts with
+`U` or `W` is a person; in Telegram, a negative ID is a group; Discord cannot tell a person
+from a channel by the ID, so it keeps one list, **People and channels**, with the level on
+every entry. A person shows as **Verified** or **Listed**, with **Verify** (which makes the
+pairing code) and **Remove**. A channel has a level, **Answer only** or **Let everyone here ask for
+actions**, and **Remove**. Under the box, the people who wrote to the bot recently and are not
+listed show as buttons that add them. None of this adds a field: the page saves `accept_any`,
+`allow`, `allow_trust` and the pairings as before.
+
+A channel that you add on the settings page starts as `act`: allowing a channel is
+what you expect to let its people use the bot, and the page shows one sentence under the table: people in a channel act only inside that channel, never in a direct message. The level counts only for messages
+written in that channel. A person who is not listed and writes to the bot in a direct
+message is not trusted by the channel entry. `accept_any` is unchanged: it accepts
+everyone and trusts nobody. The level applies to a group entry only; an `@name` or user
+entry has none.
+
+This list is not the list of channels the bot may post to. That list is **Where it may
+post** (`channels`, capability `talkback.channels`) and says nothing about whose
+messages the bot trusts.
+
+When something is still refused in a channel, the bot says why in one plain sentence:
+the channel is set to answer only, the person is not on the list, the action needs a
+pairing, or the owner has not turned it on. The access log line carries the sender ID,
+the code and the reason, for example that a sender was let in only through a channel set
+to Answer only, and the settings page lists the refusal under **Recent refusals** with
+**Allow <name>** (it lists the person) and **Let <channel> members act** (it sets the level of the
+channel to `act`, in the form, until you save).
 
 The access view and the log name the way a sender got a capability: `allowlist`,
-`paired` or `role:<id>`. If several people share one turn, the turn gets only what
+`paired`, `channel` (a member of a channel set to `act`), `agent-connection` (the write
+tools of an add-on the agent is connected to) or `role:<id>`. If several people share one turn, the turn gets only what
 all of them may do.
 
 A tool of an add-on that holds your credential and changes something outside
-LocalAI (a comment on an issue, for example) needs `tools.write`. The host reads
-this from the add-on's manifest, so it applies to every add-on of that shape. The
+LocalAI (a comment on an issue, for example) needs `tools.write`. So does a tool
+that changes a resource of an add-on whose manifest scopes its resources per agent
+(see [Resources of an agent](/features/chats-agents/#resources-of-an-agent)). The
+host reads this from the add-on's manifest, so it applies to every add-on of that
+shape. The
 sender needs the capability as above; the write mode of the connection and the
 confirmation of the change still apply on top of it.
+
+The tick of `tools.write` is named "Let people who are not paired change things with
+add-on tools", because that is who it is for. Connecting the agent to a connection
+of an add-on already says that the agent may use it, so the write tools of that
+add-on need no tick for you and for the people you paired with the bot. All of
+these must hold:
+
+- the sender is paired with the bot, and the bot lets that sender in today;
+- the agent lists the add-on and has a connection of that add-on selected in the
+  agent (a connection chosen in the chat, or the only one you have, does not
+  count);
+- that connection is not in write mode `off`;
+- you did not take the tick away after setting it (see below).
+
+The write mode (`propose` or `auto`) and the approval setting keep deciding whether
+a call runs at once or waits for a confirmation: this changes only whether the tool
+is offered. For every other sender the tick is still needed: a person on the
+allowlist who is not paired, a person let in through a channel entry, anyone when the
+bot accepts anyone (they never get write tools), a role, a trigger, a job and a
+sub-agent. Write tools of an add-on without a connection, such as a table of the
+agent, need the tick for paired people too.
+
+If you tick the permission and later take the tick away, that is your choice and it
+holds: paired people then have no write tools either. Ticking it again undoes this.
+A save that never had the tick changes nothing.
+
+The access view says it for each kind of sender. The paired sender shows the
+permission as allowed "because this person is paired and the agent is connected to
+the add-on" (the `agent-connection` way), and the other senders show the reason
+`connection_permission_off`. The table of the connection page has one sub-row for each
+add-on tool. It says that paired people can use the tools because the agent is
+connected to the named connection (with its write mode) and that the others need the
+tick. When the tools are held back, the model hears which tools and why, so the bot
+says "the owner has not allowed this bot to change things in other services" and not
+"I have no such tool", and the row says whether the cause is your removed tick, a
+connection in write mode `off`, or a missing connection. The same note appears when
+the agent names a connection of an add-on that no longer exists.
 
 The agent's grants narrow the result: see Builtin grants in
 [Agents](/features/chats-agents/). For `triggers.propose`, `triggers.run`,
@@ -933,23 +1178,40 @@ sender who may not send files get a short refusal and no turn.
 A binding that was stored before this check has no capabilities. Enable what you want
 with `caps`, and pair the accounts that need the sensitive ones.
 
-The settings page of every connector add-on edits all of this: a switch for each
-capability, with a description and a mark on the sensitive ones; the role matrix; the
-paired senders, with a button that shows a new code once; the approved channels for
-talk-back; and the access view with the latest decisions. A binding with no capability
-shows a notice that says why the features are off. The button "Allow the usual" turns
-on the everyday capabilities that stay inside LocalAI and are not sensitive. In the
-form, **Allow the usual set** ticks only the usual ones that the agent of the binding
-holds, and says what it did. **Same as the agent** copies, once, every capability that
-the agent holds and that has a binding capability, the sensitive ones too after a
-confirmation that lists them; it does not follow later changes to the agent. A
-capability the agent does not hold cannot be switched on. Both buttons only fill the form
-and are off, with the reason, when the binding has no agent or the permissions of the
-agent cannot be read. A link with `?binding=<id>` opens that binding at its permissions.
-The form states the rule: people on the allowlist can use the ticked capabilities, and a
-sensitive one also needs the person to be paired. It shows a notice when a sensitive
-capability is ticked and nobody is paired, with a way to pair, and when the allowlist holds
-only channels, whose members are not trusted one by one. A new binding still starts with no capability. The
+The settings page has one table, **Who can do what**, where you set what the bot may do. Its rows are the
+permissions and its columns are **On for this bot**, **Verified person**, **Listed person**,
+**Channel: everyone acts**, **Channel: answer only**, when the bot accepts anyone,
+**Anyone**, and one column for each role the kind declares. The switch of a row in **On for this bot**
+is the `caps` ceiling. In a role column, a box is a grant (`grants`): it shows only for a
+permission that the kind can give to a role, that is not sensitive, and a box is off until the
+switch of its row is on. Each other cell is an icon and a word: Yes, Asks first, No, Waiting for a person or Off. The
+page works nothing out for those cells: each one is what the host says in the answer of
+`POST /api/chats/connectors/{id}/access/preview`, which the page calls with the form as it is,
+including `allow_trust`, `channels` (the places the bot may post) and `approval_mode`. The answer
+carries `proposal_mode` (what the connection does with a proposed trigger). A cell that says
+No or Off, and in fact any cell, opens the message, the fix and the checks that were not made. The
+tools of the add-ons are sub-rows of the permission to change things in connected services. A row has a
+**Details** disclosure with the description of the permission and, for **Propose triggers**, the
+choices for how a proposal is approved. **Reset to the usual set** puts the switches back to what a new
+connection starts with, for the agent of the connection. On a phone the table shows one kind of sender
+at a time, chosen with a select.
+
+The settings page uses one set of words. In this document and in the API, a *paired*
+sender is shown on the page as a **Verified person**; the saved fields and keys (`paired`,
+`allow`, `channels`) do not change. A person on the allowlist is a **Listed person**. A
+chat that the bot listens in is a **Channel**. The `channels` list is the **Place the bot
+may post**. For triggers and add-on writes, **Asks first** means a person confirms each
+change, and **Runs at once** means it runs without asking. The switches of the
+capabilities are shown under **On for this bot**.
+
+The settings page of every connector add-on edits all of this: the table above (the switch of
+each permission, the role boxes and the cells); the paired senders, with a button that shows a new
+code once; the places it may post to (talk-back, **Place the bot may post**); and the section **Check it**,
+with **Try it**, **Recent refusals**, the add-on writes that wait for a person and the latest calls of
+add-on tools. A permission the agent does not hold cannot be switched on. A link with
+`?binding=<id>` opens that binding at its table. The table states the rule: people on the allowlist
+can use the ticked capabilities, and a sensitive one also needs the person to be paired; it says
+when nobody is paired. A new binding starts with the usual set. The
 kind list also returns `capabilities`, the closed list with a title, a description
 and the `sensitive` and `usual` flags of each, so a page needs no list of its own.
 
@@ -978,6 +1240,11 @@ a page can turn into a sentence and a link, in the first place the check failed:
 }
 ```
 
+Each kind of sender has one more entry, `notes.read`. It is not a permission that you can tick:
+the owner's personal notes (the user and agent notes) are read into a
+turn only for a paired sender, so a listed sender who is not paired, an `anyone` sender and a
+role sender get `sender_needs_pairing`. The notes of the conversation itself and the agent profile are read for all.
+
 An allowed capability has `allowed: true` and `via` (`paired`, `allowlist` or
 `role:<id>`) and none of the other fields. `reason` stays the English line for logs.
 
@@ -1004,10 +1271,12 @@ shapes the result and never blocks.
 | `connection_permission_off` | `connection` | The permission is not ticked. `fix.target` is `caps`. | `open_connection` |
 | `sender_not_listed` | `sender` | The sender is not let in. | `add_person` |
 | `sender_needs_pairing` | `sender` | A sensitive permission needs a pairing. | `pair_sender` |
-| `channel_not_trusted` | `sender` | The sender got in through a channel or because the bot accepts anyone. | `add_person` |
+| `channel_not_trusted` | `sender` | The sender got in through a channel set to answer only, or because the bot accepts anyone. Add the person, or set the channel to `act`. | `add_person` |
 | `role_not_granted` | `sender` | The role of the sender has no grant. `fix.target` is `grants`. | `open_connection` |
 | `kind_not_running` | `sender` | The app of the connection is not running, so roles are unknown. | none |
 | `context_rule` | `connection` | Held, but not in this place or thread. | none |
+| `knowledge_none` | `agent` | `knowledge.write` only: no collection is on the list of the agent. `fix.field` is `collections`. | `open_agent` |
+| `knowledge_no_embedding` | `server` | `knowledge.write` only: the embedding model for Knowledge is not installed. | none |
 | `unknown_capability` | `server` | Not a capability. | none |
 
 The server sends no URL. A page maps `fix.kind` and `fix.target` to its own links. The
@@ -1024,13 +1293,51 @@ sentence of every code, so `message` always reads as a whole sentence, for examp
 "People in a channel are not trusted one by one, so the bot cannot save notes to memory
 for them. Add the person to the allowed people."
 
+### Text in the language of the page
+
+The access view, the preview and the kinds call (which lists the capabilities) return
+English text and, beside it, the same text in the language of the request. The language
+is the `lang` query parameter (for example `it` or `pt-BR`), else the first language of
+`Accept-Language` that the host translates, else English. The host translates Italian,
+German, Spanish, French, Indonesian, Korean, Brazilian Portuguese and Simplified
+Chinese.
+
+- Each decision keeps `code` and `message` and gains `localized_message`, found by
+  `code`. The view gains `language`.
+- Each capability keeps `title` and `description` and gains `language`,
+  `localized_title` and `localized_description`.
+
+The `localized_*` fields are absent for English, for a language the host does not
+translate, and for a refusal that a rule of the feature wrote itself (it has no code).
+A page shows the localized field when it is there and the English one otherwise. The
+note for the model and the words a sender reads in the chat do not use these fields:
+the model reads English, and the sender reads the reply language of the connection.
+
+### Where it posts
+
+The `channels` list (capability `talkback.channels`) is a table of **Place the bot may post**: a
+name, an ID and one choice that maps to `approved`. **When any allowed person asks** is
+`approved: true`, and **Only when a verified person asks** is `approved: false`. The table
+shows only while the permission **Post to other channels** is on; otherwise the page says so and
+links to the switch. At most 10 places are kept, as before. Listening and posting stay two settings,
+but the page shows them together. **Add a place** offers the channels of the listening list that
+are not a place yet, and **Other: type an ID**. Each channel of the listening list says whether the
+bot may post there, with **Let the bot post here too** to make it a place set to **Only when a
+verified person asks**. Under each place a line says whether scheduled runs can post there: they
+can only when the place is set to **When any allowed person asks**, because nobody is there to
+verify at run time. A place the bot does not listen in is allowed, and the page says the bot will
+only post there. **Send my reminders and run results to**
+(`notify_chat`) is a choice among the people and channels the page already knows (the allowed
+people, the people and chats of the sender log, the places above), with a saved ID that the page
+does not know shown as it is and **Another ID...** for a new one. It saves the same ID as before.
+
 ### Preview before saving
 
 `POST /api/chats/connectors/<id>/access/preview` answers like the access view for a form
 that is not saved. The body has the fields that the check reads, with the names of the
 update call: `agent_id`, `accept_any`, `allow`, `caps` and `grants`. A field that is
 absent keeps the saved value; an empty list clears it. `sender` limits the answer to one
-kind of sender: `listed`, `paired`, `channel_member` (or `anyone`), or `role:<id>`;
+kind of sender: `listed`, `paired`, `channel_member` (or `anyone`), `channel_acts`, or `role:<id>`;
 an unknown value is a 400. Use the id `new` with a `kind` for a connection that is not
 saved yet. The reply has the shape of the access view, with `preview: true` and no recent
 decisions.
@@ -1047,10 +1354,22 @@ other connector routes, and the connection of another user is a 404.
 
 The page of a messaging connection (the Telegram and Slack add-ons) uses these calls in two places.
 
-- **Readiness** sits at the top of the form: Token, Agent, Who may use it, Permissions, Triggers, Files and Notifications. Each row has a state (OK, needs attention, off, after you save, not working), one sentence and at most one button. Only the rows that need attention show at first; "Show all" opens the rest. A row that works only once the form is saved says so and offers "Keep these changes", which is the Save button.
-- **What this bot can do** replaces the old list of what a sender may do. Choose the kind of sender (a listed person, a member of a listed channel, anyone when the bot accepts anyone, a paired person, or a role of the kind). Each permission shows as allowed or blocked. A blocked one shows the sentence of the host for the first blocker and one button. The page calls the preview with the values of the form as they are now, 400 ms after the last change, so it shows what a save will do, and it says so while the form has unsaved changes. A new connection is previewed under the id `new` with its kind.
+- **Status** sits at the top of the form: Token, Agent and Who may use it, with a state (OK, needs attention, off, after you save, not working), one sentence and at most one button, and a count of the things to fix. Only the rows that need attention show at first; "Show all" opens the rest. A row that works only once the form is saved says so and offers "Keep these changes", which is the Save button. What each kind of sender may do is in the table, not here.
+- **Check it** closes the page. **Try it** has three choices: who (a person, someone in a channel, anyone, or a
+  role), where (a direct message or a channel) and what they ask for (a permission of the table). It does not
+  call the host again: it reads the answer of the preview for the form as it is, picks the kind of sender
+  (`paired`, `listed`, `channel_acts`, `anyone` or `role:<id>`) and writes one sentence from the `message`, `fix`
+  and `then_check` of the decision, for example "Refused. Ada Example is a listed person, writing in a direct
+  message." followed by the sentence of the host and its button. Nothing is sent to the platform and nothing
+  is saved. **Recent refusals** lists what was refused since the server started, from the sender log (a
+  sender who is not listed, or a message that did not name the bot) and the access log (a permission that was
+  refused), one line each with the person, the chat, the action and the reason. Both logs are kept in memory,
+  so they are empty after a restart, and the page says so. The rows of add-on writes that wait for a person
+  (waiting, confirmed, cancelled, expired, with who asked and who answered) and the latest tool calls stay in
+  the same section.
+- **Who can do what** is the table described above. The page calls the preview with the values of the form as they are now, 400 ms after the last change, so it shows what a save will do, and it says so while the form has unsaved changes. A new connection is previewed under the id `new` with its kind. A blocked cell shows the sentence of the host for the first blocker and one button.
 
-The button follows `fix.kind`: `open_connection` jumps to that setting on the page, `open_agent` opens the agent in a new tab (so the form stays as it is), `open_server_setting` opens Settings for an administrator and says "Ask an administrator" for anyone else, `pair_sender` jumps to the pairing button, and `add_person` jumps to the allowed people. The latest decisions stay below the list.
+The button follows `fix.kind`: `open_connection` jumps to that setting on the page, `open_agent` opens the agent in a new tab (so the form stays as it is), `open_server_setting` opens Settings for an administrator and says "Ask an administrator" for anyone else, `pair_sender` jumps to the pairing button, and `add_person` jumps to the allowed people. Check it stays below the table.
 
 ## Confirming a change in the chat
 
@@ -1078,8 +1397,12 @@ question.
   [Reply language](#reply-language-reply_language)), alone, within 30 minutes of a save
   that was made from the chat, restores the earlier text (`Removed: ...`). Any other
   word does not undo.
-- **Several waiting.** A bare word answers only when exactly one proposal (a change or a
-  trigger) waits in that chat and thread. Otherwise the bot lists the codes and the
+- **Add-on writes.** A write of an add-on that waits because its connection asks first is
+  written in the chat the same way and answered with the same words, by a paired sender
+  who holds `proposals.confirm`. See [Confirming a held write in the
+  chat]({{% relref "features/addons" %}}#confirming-a-held-write-in-the-chat).
+- **Several waiting.** A bare word answers only when exactly one proposal (a change, an
+  add-on write or a trigger) waits in that chat and thread. Otherwise the bot lists the codes and the
   person writes `confirm CODE` or `cancel CODE`.
 - **Who may answer.** A sender who holds `proposals.confirm` on the binding (a sender on
   the allowlist by ID or name, a paired sender, or a role with the grant). A change of
@@ -1196,6 +1519,8 @@ the mode or a limit.
 
 On the settings page of the connector add-on, **Runs may act** is a switch under the approval mode of the permission **Propose triggers** (greyed while that permission is off). It is off by default. When it is on, four checkboxes name the acts in plain words: write files in the agent's folders, use the actions of the agent's add-ons, send messages beyond where it reports, and use paid or external tools and the network. All four are marked sensitive. A box is disabled with "The agent does not have this." when the agent lacks the matching grant; a box that is already ticked stays ticked and can be unticked. The line of the permission shows the choice, for example "Proposals: set up at once, runs may: write files, use add-ons". The page always sends the mode, the limits and `acts` together.
 
+After a save, the page says what changed, for example "Saved. Changed: permissions, trigger approval and acts." When the save removes an act that the connection allowed, it also lists each trigger that this connection made without asking and that holds that act, with the acts it loses. Those triggers keep running, without the act. A saved connection with an agent also has a link to that agent at the top of its form.
+
 The list is a ceiling, not a grant. The acts of a proposal are what the model asks for in
 `acts`, limited to this list, limited to what the agent holds:
 
@@ -1234,8 +1559,9 @@ tool `send_message`. The tool names no platform. The agent can use it to:
   channel that the owner listed for the binding (`channels` in the binding: `id`,
   `label` and `approved`, at most 10; an add-on settings page or the API sets them). A
   channel that is not listed is refused, and the error lists the ones that are. `thread`
-  answers in a thread of that channel.
-- **Write in a channel the owner has not approved.** A listed channel with `approved`
+  answers in a thread of that channel. The agent can name the channel by its label (case
+  does not matter and a leading `#` is fine) or by its ID.
+- **Write in a channel the owner has not enabled.** A listed channel with `approved`
   false needs the sensitive capability `talkback.new_channel` for each message, so only a
   paired sender can use it. A role never grants it. The owner approves a channel by
   setting `approved` to true.
@@ -1251,8 +1577,20 @@ and a SHA-256 hash of the text, never the text). `LOCALAI_DISABLE_CONNECTOR_TALK
 turns the tool and the reports to a channel off for every binding; owner notices
 continue.
 
-A trigger can report to an approved channel with `delivery.target` `channel`. The
-proposal is refused if the channel is not listed and approved. When a run ends, LocalAI
+A trigger can report to a channel under **Place the bot may post** with `delivery.target` `channel`. The
+agent can name the channel by its label or its ID. The description of `send_message` and
+of `propose_trigger` lists the approved channels (the first 10) as `label (id)`, so the
+agent does not guess an ID. The report is a new message at the top of the channel, never
+in the thread of the chat where the trigger was proposed; `delivery.target` `origin` writes
+in that thread. The proposal text in the chat and the card in Studio say where the results
+go, with the label of the channel. The proposal is refused if the channel is not listed
+and approved, and the error lists the approved ones. A channel set to **Only when a verified person
+asks** is named in the description as listed but not approved for scheduled runs, and the refusal says
+why, so the agent can tell the person that the owner must change that choice. When no channel is
+named, the one approved channel is used; with several, the error lists them. The name matches without
+case, or by a part of the label that only one approved channel has. `update_trigger` takes `delivery`
+and `acts` too, for a trigger that a messaging app proposed, with the same checks; the change waits
+for the person on its card. When a run ends, LocalAI
 checks again that the binding is on, the capability is on and the channel is still listed
 and approved; if not, the Inbox gets the notice.
 
@@ -1279,6 +1617,58 @@ holds no token on disk and in memory only for the call. The add-on only calls
 `https://api.telegram.org`. LocalAI reads updates by long polling through the add-on,
 so it needs no public address.
 
+## Sharing a connection
+
+With accounts, the owner of a binding can share it with other people. Open
+**Connectors** and choose **Share** on the binding, or on the page of the add-on
+choose **Share** in the menu of its row or at the foot of its pane. The
+[Share dialog]({{%relref "features/sharing" %}}) finds people by name. A binding has
+one role, **Can use**, and is never shared with everyone. A person can receive it
+only when their account may use connectors (the `connectors` feature).
+
+A person who holds **Can use**:
+
+- sees the binding under **Shared with you**, with its name, its platform, whether it
+  is on, and who shared it. Nothing else of the binding is shown.
+- can enable it for the tools of its add-on in a chat, or name it in the
+  connections of a saved agent. A call of those tools then uses the binding's
+  credential and its list of resources, as for the owner. A shared binding is never
+  picked by default: the rule "the only connection" counts the person's own bindings.
+  The one exception is a saved agent that the owner shared with the person and that
+  names the binding: see [Share an agent]({{%relref "features/chats-agents#share-an-agent" %}}).
+- never learns the list of resources. A call for a resource that is not on the list
+  is refused and the tool result says only that it is not listed; the owner, and the
+  owner's own calls, get the list so the model can pick from it.
+- never reads the token or any setting. Reading, changing, switching on or off,
+  testing, the sender log, pairing, deleting and sharing it again stay with the
+  owner. For the person, each of these answers `404`, as for a binding that does not
+  exist.
+
+The messages that reach the bot do not change. The owner's agent answers them, as
+the owner, in the owner's chats. A grantee only sends through the binding: their own
+chats and agents run its add-on tools.
+
+When the owner stops sharing, LocalAI cancels the calls of that person that are
+running through the binding and waits for them before it answers. The next call is
+refused like a call with a binding the person does not have. Deleting a binding
+first stops every share of it.
+
+| Method and path | Who may call it | Result |
+|---|---|---|
+| `GET /api/chats/connectors` | Anyone with the `connectors` feature | `connectors` are your bindings; one you shared carries `share` with `resource_id` and `shared_with`. `shared` are the bindings shared with you, each with `id`, `name`, `kind`, `addon`, `enabled`, `active`, `owner` (a display name) and `role` (`use`). `sharing` is `false` when this server cannot share bindings. |
+| `POST /api/chats/connectors/{id}/share` | The owner | `{"resource_id": "...", "shared_with": n}`: the ID of the binding in the sharing API. Another caller gets `404`; a server that cannot share answers `409` with type `sharing_disabled`. |
+
+The grants are then listed and changed with
+`/api/shares/connection/{resource_id}/grants`, see
+[Sharing resources]({{%relref "features/sharing" %}}).
+
+The shares live with the add-on owner. With several frontends, every frontend
+lists the shared bindings and the shares, and makes a binding shareable, by asking
+the owner. The calls through a shared binding always run on the owner, where the
+tokens are, so a frontend never holds a token of a binding it does not own. When a
+frontend cannot reach the owner, it lists no shared binding and no share; your own
+bindings are not affected.
+
 ## When a binding switches itself off
 
 A binding is switched off, and you get a notification, when Telegram refuses the
@@ -1286,6 +1676,35 @@ token, when another process keeps reading the updates of the same bot (Telegram
 allows one reader; a new leader in a cluster waits and retries for about a minute
 before it gives up), when the agent is deleted or has no model, or when the owner no longer
 exists. Fix the cause and switch it on.
+
+## One bot connected twice
+
+You can register the same bot twice with two token pairs, for example one Slack app
+with two sets of tokens. Both bindings then see every message, and both would
+answer it. The messaging add-ons (Slack, Telegram and Discord) tell the host which
+upstream account a token belongs to: the workspace and bot user for Slack, the bot
+for Telegram, the application for Discord. The host keeps it with the binding, and it
+learns it when you save a token and, for a binding that has none yet, when its add-on
+runs. An add-on that does not tell has no identity, and its bindings are never compared.
+
+When two enabled bindings of one owner and one kind share an identity:
+
+- Both connection pages and the list show "This bot is also connected as *name*. Both
+  connections will answer the same message.", a link to the other connection and a
+  "Turn this one off" button. The API shows it as `duplicate` on the binding, with the
+  code `duplicate_connection`.
+- Saving a binding that is enabled and a twin of another enabled binding asks first. The
+  API answers `409` with the type `duplicate_connection`, and `param` holds the name of the
+  other binding. Send `confirm_duplicate` set to `answer twice` to save it anyway. Nothing is
+  saved without it. Switching a binding on with the switch does not ask; the warning shows at
+  once.
+- At run time only the oldest enabled binding answers a message. The younger one logs one
+  line and stays silent, so you never get two replies, even if you ignore the warning. This
+  applies to a message that has a platform message ID, because that ID shows that the two
+  bindings were handed the same message. Switch the older one off and the younger one answers.
+
+The choice of the binding that answers is a function of the stored bindings (age, then ID),
+so every frontend makes the same one without a lock. See also "Multiple frontends" above.
 
 ## Connections that log in with OAuth
 
@@ -1325,6 +1744,25 @@ menu names the connection and links to the Connectors page.
 Deleting a connection that logs in also asks the service to revoke the login
 first, as **Disconnect** does. The connection is deleted even when the service
 does not answer.
+
+### Share a connection that logs in
+
+You can share a connection that logs in, like any other connection (see
+"Sharing a connection" on this page). The people you share it with use your login
+through the rules of the share and nothing more:
+
+- They use the connection in their own chats and agents, and the add-on acts
+  with your account at the service, inside the folders or resources you listed.
+  They never see or receive an access token, a refresh token, the client secret
+  or any other part of the login.
+- Only you can connect, reconnect or disconnect it. The page of a person it is
+  shared with shows no login controls for it. An administrator approves the
+  login of the add-on, as for every connection.
+- When your login ended, or you disconnected, their chats say that the owner of
+  the connection must connect it again, and the tools of the connection do not
+  run. They are not sent to the service to log in. Connect it again on the
+  Connectors page and their chats work again without any change on their side.
+- When you stop sharing, their use ends at once.
 
 ### Approve the login of an add-on (administrators)
 
@@ -1386,13 +1824,15 @@ restart). The JSON store is for one process.
 |---|---|---|
 | Bindings, offsets, sender log, sender chats, the key | Shared | Rows in the database. |
 | Which frontend reads the bot | Single runner | The frontend that holds the advisory lock (`KeyChatsConnectors`). When it stops, another takes the lock and continues from the stored offset. Add-ons run on the process that owns the add-ons, and the loops run only where the add-on answers. |
+| The upstream account of a binding, and which of two twin bindings answers | Shared | The account is stored with the binding. The oldest enabled binding of the same account answers; every frontend derives that from the stored bindings, so no claim is needed. A frontend remembers in memory only when it last asked an add-on for an account that the add-on did not tell, to ask again after 10 minutes. |
 | Where the next message is read from | Shared | The offset is stored with the binding. Core passes it to the add-on's poll call and stores the offset that the answer names. |
 | The reply being sent for a turn | Per instance | The frontend that took the message sends the answer, edits its working message or sends its draft, and sends its files. If it dies, the answer is lost; the message is not repeated. |
 | The preview budget of a binding | Per instance | The time of the next edit or draft is kept in memory by the frontend that sends the replies. Replies of one binding run on the leader, so one budget covers them. |
 | Draft IDs | Per instance | A counter in the process that sends the replies gives each turn a new draft ID. Two frontends could give the same ID, but a draft only lives in one chat for one turn. |
 | The chats of the answers (thread mode) | Shared | Each answer's message IDs are stored with the chat of each sender, so a reply finds its chat on any frontend. |
 | Slack Socket Mode links and their queues | Per instance | The Slack add-on process keeps one link per polled binding, acknowledges each event at once and queues it until the next poll. An event that is queued when the process stops is lost. The followed threads and the "Working…" messages are kept there too. |
-| The language of each sender | Per instance | With `reply_language` set to `auto`, the frontend that takes a message keeps the last clear language of the sender and of the chat in memory for 24 hours. A trigger that runs on another frontend does not know it and uses the interface language of the owner when the server has it, else English. A fixed language is stored with the binding and works everywhere. |
+| The language of each sender | Per instance | With `reply_language` set to `auto`, the frontend that takes a message keeps the last clear language of the sender and of the chat in memory for 24 hours. A trigger that runs on another frontend does not know it and uses English. The interface language of the owner is stored with the binding, so it is the same on every frontend. A fixed language is stored with the binding and works everywhere. |
+| Shares of a binding | Single runner | The grants are records in the policy store of the add-on owner, the one process that writes them, keyed by the binding ID; the binding itself is not copied. A call through a shared binding is admitted on the owner, which is also the only process that opens the sealed tokens, so a revocation cancels it there. Other frontends ask the owner for the listing, the record of a binding and its removal. |
 | Files marked by `attach_file` | Per instance | The marks live in the process that runs the turn and are sent by the process that sends the replies. A turn that ends on another frontend than the one that sends the answer loses its marks; the agent then sees no error, and the person asks again. |
 
 ### For add-on authors: sending files
@@ -1417,6 +1857,13 @@ chat files or add tools for this. When the platform refuses a file, return a
 `ConnectorError` with a short, plain `message` (for example the name of a missing
 permission): the host puts it after "I could not send <name>" in the message to the person.
 Keep the message free of tokens and internal addresses.
+
+### For add-on authors: the account of a token
+
+The op `me` may return `accountId`: a stable name of the upstream account, equal for every
+token of that account and at most 128 bytes (Slack returns the workspace and bot user, Telegram
+the bot ID, Discord the application ID). The host compares it within one kind. Leave it empty
+when the platform cannot tell. The SDK's `connector.Bot` has an `AccountID` field for it.
 
 ### Other connectors
 

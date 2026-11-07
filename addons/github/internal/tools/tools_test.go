@@ -32,7 +32,7 @@ var _ = Describe("the manifest", func() {
 		Expect(err).NotTo(HaveOccurred())
 		m, err := contract.ParseManifest(b)
 		Expect(err).NotTo(HaveOccurred())
-		h := contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 2, DataFormat: 1, OS: "linux", Arch: "amd64"}
+		h := contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 2, DataFormat: 1, FeatureLevel: contract.HostFeatureLevel, OS: "linux", Arch: "amd64"}
 		Expect(contract.ValidateManifest(m, h)).To(Succeed())
 		Expect(m.Capabilities.Tools).To(ConsistOf(tools.Declared()))
 		for _, d := range m.Capabilities.ToolDefinitions {
@@ -132,6 +132,37 @@ var _ = Describe("the read tools", func() {
 			_, err := rt.Read(context.Background(), contract.Envelope{Request: contract.Request{Arguments: raw, ResourceKey: "acme/widgets"}})
 			Expect(err).To(MatchError(protocol.ErrBadRequest))
 			_, err = run("merge-pr", "acme/widgets", nil)
+			Expect(err).To(MatchError(protocol.ErrBadRequest))
+		})
+	})
+
+	Describe("list-repos", func() {
+		It("asks GitHub which repositories the token reaches when the host allowed *", func() {
+			srv.AddRepo("acme/tools")
+			srv.AddRepo("zed/lib")
+			r, err := run("list-repos", "*", map[string]any{"perPage": 2})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(r.Untrusted).To(BeTrue())
+			items := r.Data["items"].([]any)
+			Expect(items).To(HaveLen(2))
+			Expect(items[0].(map[string]any)["fullName"]).To(Equal("acme/tools"))
+			Expect(r.Data["next"]).To(BeEquivalentTo(2))
+			r, err = run("list-repos", "*", map[string]any{"perPage": 2, "page": 2})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(r.Data["items"].([]any)).To(HaveLen(1))
+			Expect(r.Data).NotTo(HaveKey("next"))
+		})
+		It("is refused with any key but *, and the token never leaves in the path", func() {
+			for _, key := range []string{"", "acme/widgets", "acme/*"} {
+				_, err := run("list-repos", key, nil)
+				Expect(err).To(MatchError(protocol.ErrBadRequest), key)
+			}
+			Expect(srv.Calls()).To(BeEmpty())
+		})
+		It("reads a repository the host matched by a wildcard under the real name", func() {
+			_, err := run("read-file", "Acme/Widgets", map[string]any{"repo": "acme/widgets", "path": "README.md"})
+			Expect(err).NotTo(HaveOccurred())
+			_, err = run("read-file", "acme/widgets", map[string]any{"repo": "acme/other", "path": "README.md"})
 			Expect(err).To(MatchError(protocol.ErrBadRequest))
 		})
 	})

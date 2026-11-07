@@ -55,8 +55,8 @@ function overview(over = {}) {
 // The stand-in for the host-grants routes. `state.overview` and `state.preview`
 // are what the owner answers; every request is logged.
 async function mockHostGrants(page, appsState, options = {}) {
-  const state = { overview: options.overview || overview(), preview: options.preview || PREVIEW, log: [], affects: options.affects || [], failInstall: options.failInstall || null }
-  await page.route(/\/api\/addons\/host-grants(\/.*)?(\?.*)?$/, route => {
+  const state = { overview: options.overview || overview(), preview: options.preview || PREVIEW, log: [], affects: options.affects || [], failInstall: options.failInstall || null, previewDelayMs: options.previewDelayMs || 0 }
+  await page.route(/\/api\/addons\/host-grants(\/.*)?(\?.*)?$/, async route => {
     const req = route.request()
     const url = new URL(req.url())
     const path = url.pathname.replace('/api/addons/host-grants', '') || '/'
@@ -64,7 +64,11 @@ async function mockHostGrants(page, appsState, options = {}) {
     state.log.push({ method: req.method(), path, query: url.search, body, confirm: req.headers()['x-localai-confirm'] })
     const json = (payload, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(payload) })
     if (req.method() === 'GET' && path === '/') return json(state.overview)
-    if (path === '/preview') return json(state.preview)
+    if (path === '/preview') {
+      // A slow owner: it downloads and verifies the package before it answers.
+      if (state.previewDelayMs) await new Promise(r => setTimeout(r, state.previewDelayMs))
+      return json(state.preview)
+    }
     if (path === '/install') {
       if (state.failInstall) return json({ error: { type: state.failInstall, message: state.failInstall } }, 409)
       if (body.action === 'upgrade') {
@@ -150,6 +154,22 @@ test.describe('Host access: install dialog', () => {
     expect(sent.confirm).toBe(`notes@${PREVIEW.digest}`)
     // The plain install route was not used for this add-on.
     expect(state.log.dispatch.filter(d => d.action === 'install')).toHaveLength(0)
+  })
+
+  test('says what it waits for when the owner is slow, then shows the permissions, with no sideways scroll', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await open(page, { installed: [], releases: [release('notes', { name: 'Notes' })], hostgrants: { previewDelayMs: 4500 } })
+    await page.goto('/app/addons?tab=browse')
+    await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+    const dialog = page.getByTestId('install-dialog')
+    const loading = dialog.getByTestId('hostaccess-loading')
+    await expect(loading).toHaveText('Reading what this add-on asks for...')
+    // The install stays closed while the owner has not confirmed anything.
+    await expect(dialog.getByTestId('install-confirm')).toBeDisabled()
+    await expect(loading).toContainText('downloaded and its signature checked', { timeout: 6000 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false)
+    await expect(dialog.getByTestId('install-host-access')).toBeVisible({ timeout: 8000 })
+    await expect(loading).toHaveCount(0)
   })
 
   test('says so when the add-on comes from another library than the official one', async ({ page }) => {

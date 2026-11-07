@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import StatusChip from '../ui/StatusChip'
@@ -63,13 +64,15 @@ export function ApprovalChip() {
   )
 }
 
-// The identity tile of an add-on: its icon from the host's own icon route, or
-// its first letter on a colour of its own (a hue from its id), so two add-ons
-// in the sidebar or the list never look the same. Never a remote address: the
-// server sends only a same-origin path.
+// The identity tile of an add-on: its icon from the host's own icon route. When
+// the host has no file to serve (the add-on is not installed yet, or the file
+// does not load) the tile is drawn here: a colour from the id and the first
+// letter of the name. The same rounded tile either way, so a list never mixes shapes. Never
+// a remote address: the server sends only a same-origin path.
 export function AppIcon({ src, id, name, size = 36 }) {
-  if (src && src.startsWith('/')) {
-    return <img className="ad-icon" data-size={size} src={src} alt="" width={size} height={size} loading="lazy" decoding="async" />
+  const [failed, setFailed] = useState(false)
+  if (src && src.startsWith('/') && !failed) {
+    return <img className="ad-icon" data-size={size} src={src} alt="" width={size} height={size} loading="lazy" decoding="async" onError={() => setFailed(true)} />
   }
   return (
     <span className="ad-icon ad-icon--mark" data-size={size} data-hue={hueOf(id || name)} aria-hidden="true">

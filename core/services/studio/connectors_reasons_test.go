@@ -61,6 +61,22 @@ var _ = Describe("why a capability is blocked on a connection", func() {
 	}
 	const propose = contract.CapTriggersPropose
 
+	It("says that the owner's personal notes are read only for a paired sender, in the saved view and the preview", func() {
+		setup(contract.CapMemoryWrite)
+		for name, v := range map[string]studio.AccessView{"saved": saved(), "preview": preview(studio.AccessDraft{})} {
+			Expect(decision(v, "paired", studio.NotesReadCapability).Allowed).To(BeTrue(), name)
+			for _, kind := range []string{"listed", "anyone", "role:writer"} {
+				d := decision(v, kind, studio.NotesReadCapability)
+				Expect(d.Allowed).To(BeFalse(), name+" "+kind)
+				Expect(d.Code).To(Equal(studio.CodeSenderNeedsPairing), name+" "+kind)
+				Expect(d.BlockedBy).To(Equal(studio.BySender))
+				Expect(d.Fix).To(Equal(&studio.Fix{Kind: studio.FixPairSender, Target: "pairing"}))
+				Expect(d.Message).To(Equal("This person needs to be verified with this bot before the bot can read the owner's personal notes for them."))
+				Expect(d.Say()).To(Equal("You need to be verified with this bot by the owner before it can read the owner's personal notes for you."))
+			}
+		}
+	})
+
 	It("names the connection when the owner did not tick the permission", func() {
 		setup(contract.CapMemoryWrite)
 		d := decision(saved(), "listed", propose)
@@ -172,6 +188,24 @@ var _ = Describe("why a capability is blocked on a connection", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(after).To(Equal(before), "the binding is as it was, token included")
 			Expect(saved().Recent).To(BeEmpty(), "no decision is recorded")
+		})
+
+		It("takes the places the bot may post and the approval mode of the form, and writes neither", func() {
+			setup(contract.CapMemoryWrite, propose)
+			Expect(saved().ProposalMode).To(Equal(connectors.ApprovalAsk), "the default is to ask")
+			auto := connectors.ApprovalAuto
+			v := preview(studio.AccessDraft{ApprovalMode: &auto, Channels: []connectors.Channel{{ID: "C0123", Label: "ops", Approved: true}}})
+			Expect(v.ProposalMode).To(Equal(connectors.ApprovalAuto))
+			Expect(v.Preview).To(BeTrue())
+			// A draft with no mode keeps the saved one, and nothing was saved by looking.
+			Expect(preview(studio.AccessDraft{}).ProposalMode).To(Equal(connectors.ApprovalAsk))
+			after, err := r.store.GetBinding(ctx, b.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(after.Channels).To(BeEmpty())
+			Expect(after.Approval.Mode).NotTo(Equal(connectors.ApprovalAuto))
+			bad := "sometimes"
+			_, err = r.conns.AccessPreview(ctx, alice, b.ID, studio.AccessDraft{ApprovalMode: &bad})
+			Expect(err).To(MatchError(connectors.ErrInvalid))
 		})
 
 		It("limits the answer to one kind of sender, and refuses one that does not exist", func() {

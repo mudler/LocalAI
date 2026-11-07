@@ -20,12 +20,12 @@ An agent has:
 | `description` | A short note for you. |
 | `instructions` | Text added to the system prompt of every turn. At most 32 KiB. |
 | `model` | Optional. The chat uses this model. Chat-capable model aliases can also be selected; the agent saves the alias name, not its target name. Without it, the chat is created with the model you choose. |
-| `mcp_servers` | Names of servers in the model's MCP configuration, and your [MCP connectors](/features/chats-connectors/#mcp-servers) as `connector:<id>`. The form lists both. |
+| `mcp_servers` | Names of servers in the model's MCP configuration, and your [MCP connectors](/features/chats-connectors/#mcp-servers) as `connector:<id>`. The form lists both as a picker; it does not take free text. A save that adds a `connector:<id>` you have not defined, or, for an agent with a fixed model, a name that is not one of that model's MCP servers, is a `400` ("... is not one of your MCP connectors"). A name the agent already holds is kept, so an older agent still loads and saves; the form shows it as **Not defined** with a remove button, the Effective view says it is ignored, and the agent's chats skip it. |
 | `addons` | IDs of installed add-ons. |
 | `collections` | Names of your collections. |
 | `skills` | Names of skills. The index of skills and the `load_skill` tool of the chat offer only these. |
-| `builtins_off` | Groups of built-in tools the agent's chats never have: `shell`, `files`, `web`, `media`, `collections`, `subagents`, `triggers` and `changes`. It is a ceiling: a chat with the agent shows the group switched off and cannot switch it on. Empty (the default): the chat has every group it has by default. A group this server does not offer is dropped. |
-| `builtins_on` | Opt-in groups of built-in tools that chats with the agent start with: `saved_agents`. The chat can switch them off. |
+| `builtins_off` | Groups of built-in tools the agent's chats never have: `shell`, `files`, `web`, `media`, `collections`, `subagents`, `triggers`, `changes`, `localai_client` (the inference tools) and `localai_admin` (the server-management tools). It is a ceiling: a chat with the agent shows the group switched off and cannot switch it on. Empty (the default): the chat has every group it has by default. A group this server does not offer is dropped. |
+| `builtins_on` | Opt-in groups of built-in tools that chats with the agent start with: `saved_agents` and `localai_admin`. The chat can switch them off. `localai_admin` is for administrators and is never offered in a messaging chat or a run that starts by itself, whatever the agent says. |
 | `network` | The network of the [Sandbox]({{%relref "features/addons#network-access" %}}) commands of the agent's trigger and connector runs: `off` (the default), `registries` (the package registries) or `all` (every public host), capped by the administrator's `chats_egress_ceiling`. A run never shows a card: a host outside it is blocked, and the block is in the run's output. A chat you start with the agent starts with this preset too; you change it in the chat's Tools menu. The agent form sets it in the add-ons fold. |
 | `folders` | Optional. Up to 8 folders of your files that chats with the agent work in, each with its own mode: `read` or `write`. `folder` is the same with one entry. Without them the agent works on all your files. See [Folders of an agent](#folders-of-an-agent). |
 
@@ -105,7 +105,9 @@ curl -X POST .../api/chats -d '{"agent_id": "<id>", "model": "my-model"}'
 
 `GET`, `PUT` and `DELETE /api/chats/agents/{id}` read, replace and delete one.
 A `PUT` replaces every field except `folders` (see below), the tool switches `builtins_off` and `builtins_on` and the [connections](#connections-of-an-agent), which it keeps when the body does not name them (an empty list or object clears them). Chats that already run with the agent use the new
-definition from their next turn. Another user's agent is always `404`.
+definition from their next turn. Another user's agent is `404`, unless it is
+[shared with you](#share-an-agent): then you may read it and chat with it, and
+an edit, a delete or an export is `403`.
 
 Agents need the `agents` feature, which is off by default for a user (see
 [Chats permissions](/features/chats/#permissions)). They have no administration
@@ -115,22 +117,60 @@ tools, as they are your own settings.
 
 The optional field `memory` chooses the notes of an agent: `mine_and_own` (reads your notes
 and its own, saves to its own; the interface sets it for a new agent), `own`, `mine` or `none`.
+The form shows the level from this field and the grant `memory.write`: `none` is Off, any
+other choice without the grant is Reads notes, and any other choice with the grant is Reads
+and saves notes. Nothing else is stored.
 An agent without it is "as before": it reads notes when its add-ons name `memory`, and the
 model chooses where a note goes. The host enforces the choice. A `PUT` without `memory`
 keeps the stored one. `DELETE /api/chats/agents/{id}?memory=keep|export|delete` says what
-to do with the agent's own notes (default `keep`). The optional field `memory_save` (`always` or `never`) is the agent's own rule for saving a note: it can only be stricter than the person's setting, `auto` and `ask` are refused with a 400, a `PUT` without it keeps the stored rule, and `use_mine` clears it. See [Short memory](/features/short-memory/#memory-for-each-agent).
+to do with the agent's own notes (default `keep`). The optional field `memory_save` (`always`, `auto` or `never`) is the agent's own rule for saving a note: `always` and `never` can only be stricter than the person's setting, `auto` (Save it and tell me) lets this agent save at once even when the person's level is ask (the person's own always and never still hold), `ask` is refused with a 400, a `PUT` without it keeps the stored rule, and `use_mine` clears it. See [Short memory](/features/short-memory/#memory-for-each-agent).
+
+### What it can use
+
+The agent form has one section, **What it can use**, with three sources and the
+tool levels on top:
+
+- **Built-in tools**: the groups LocalAI serves itself, with their options.
+- **Add-ons**: one row for each add-on, with its switch, the account it uses,
+  a **Right now** sentence, the skills that come with it and its tools (the ones
+  that change data are marked).
+- **MCP servers**: a picker over your defined MCP connectors and the MCP servers
+  of the agent's model, one switch each, with a search field when there are
+  many. They write the same `mcp_servers` list as before; they no longer sit
+  under **Advanced**, and there is no free text.
+
+A level (Look only, Assistant, Full) sets the built-in tools and permissions only.
+It does not touch add-ons, accounts, MCP servers or skills.
+
+**Right now** says what a chat of the agent gets from the add-on, by the same rule
+the server uses to pick the account: an add-on that is off offers nothing; one
+that needs no account just works; the accounts the agent names are used; with
+none named, your only account is used; with two or more and none named, a chat
+asks you to pick one before it gets any tool and a run with nobody there (a
+trigger, a messaging chat) gets none. That last case, and an add-on with no
+account at all, are shown in amber and in the Effective view as blocked.
+
+Ticking an account switches the add-on on, as it does in a chat. Switching the
+add-on off keeps the accounts, shown as **Kept for later**. Switching an add-on
+on turns on the skills that come with it, with the same **Undo** and **Keep**
+notice as a level; switching it off turns off only those skills. Nothing new is
+stored for this: the skills that come with an add-on are read from the skill list.
+Skills of an add-on show in the **Skills** list as "from" the add-on's title. The
+skills that the memory provider ships are granted by the host with the notes;
+the **Memory** section shows them once, without switches.
 
 ### Connections of an agent
 
 An add-on whose tools run with the token of one of your
 [connections](/features/chats-connectors/#github) lets the agent name which
-connections its chats may use. In the agent form, the add-on's row in **Tools**
-has a **Connections for chats of this agent** list with a checkbox for each
-connection. A chat of the agent uses that set, shows it read only, and cannot
-change it. With two or more in the set, the model names the connection in each
-tool call (see [The connections of an add-on](/features/chats/#the-connections-of-an-add-on)).
-With none ticked (the default) each chat chooses its own; until a person
-chooses, the add-on's tools are not offered.
+accounts its chats may use. In the agent form, the add-on's row in **What it can
+use** has an **Account it uses** list with a checkbox for each connection. A chat
+of the agent uses that set, shows it read only, and cannot change it. With two or
+more in the set, the model names the connection in each tool call (see [The
+connections of an add-on](/features/chats/#the-connections-of-an-add-on)). With
+none ticked each chat chooses its own (with one connection, it is used); until a
+person chooses, the add-on's tools are not offered. The messaging connections that
+answer with the agent are listed under **Identity**, read only.
 
 Over the API an agent has `connections`, an object from add-on ID to a list of
 binding IDs (`{"<add-on id>": ["<binding id>", ...]}`). Every binding must be
@@ -139,6 +179,58 @@ list is read as a set of one. A `PUT` that does not name `connections` keeps
 them, and `{}` clears them. The export file never carries them: a binding ID
 belongs to one server, so the format and its version are unchanged, and an
 imported agent has no connections until you choose some.
+
+### Resources of an agent
+
+Some add-ons keep their data in resources that you own or were granted, such as the
+databases of Tables. An add-on can ask that each saved agent names the resources it
+may use. In the agent form, the add-on's row in **What it can use** then lists your
+resources under the add-on's own word for them ("Which databases it may use"), each
+with a checkbox and a mode: **Read** or **Read and change**. Nothing ticked means the
+agent can use none, and the row says so. The words come from the add-on's manifest
+(`noun`, `noun_plural` and their translation); the form names no add-on.
+
+Over the API an agent has `resources`, an object from add-on ID to a list of
+`{"id": "<resource id>", "mode": "read" | "write"}`. A `PUT` that does not name
+`resources` keeps the stored list, and `{}` clears it. A mode other than `read` or
+`write`, a repeated resource or an ID that is not a resource ID is a `400`. The field
+has no effect on an add-on that does not opt in. `GET
+/api/chats/agents/addons/{addon}/resources` lists what you can give an agent for one
+add-on (`items` with `id`, `name` and your own `role`, and the `noun` and `noun_plural`
+the add-on uses; `lang` or `Accept-Language` picks a translation the add-on has). The
+add-on rows of `GET /api/chats/draft/tools` and `GET /api/chats/{id}/tools` also carry
+`tool_list` (the tools of the add-on, each `read` or `write`) and `resources` (the
+words, set only for an add-on that opts in).
+
+The host applies the list on every tool call that takes a resource, as one more link
+after what you may use yourself (you own it, or it was shared with you):
+
+- a call on a resource that is not on the list is refused, and the add-on is not
+  called (code `resource_not_in_agent_list`);
+- a call that changes a resource listed as `read` is refused
+  (`resource_read_only_for_agent`);
+- a tool that names no resource, such as one that creates a new one, is not affected;
+- the list tool of the add-on shows the agent only the resources on the list, and a
+  `read` resource shows as `viewer`;
+- a chat of the agent cannot select a resource outside the list (`403`, type
+  `resource_not_in_agent_list`), and a selection made earlier is checked again at each
+  call;
+- the chats that triggers and jobs of the agent start, and the sub-agents of a chat,
+  use the same list. A sub-agent never reaches more than the agents above it;
+- the host reads the list from the stored agent at each call, so a change holds at
+  once.
+
+In a messaging chat the tools that change things need the `tools.write` permission of
+the connection, as for an add-on that holds a credential (see
+[Connectors](/features/chats-connectors/)); paired people have them without the tick
+only for an add-on the agent is connected to. The access view and its preview say when
+an agent whose add-ons only change resources has none to change
+(`agent_resources_none`) or only read ones (`agent_resources_read_only`), and point at
+the agent. The export file never carries `resources`: a resource ID belongs to one
+server. An import drops the field and says so under `warnings`.
+
+An add-on opts in with `capabilities.resources.agentScoped` in its manifest (feature
+level 2; see [the manifest](/features/addons/#feature-level)).
 
 ### Folders of an agent
 
@@ -244,8 +336,33 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folders": [
   [Triggers of an agent with a folder](#triggers-of-an-agent-with-a-folder) and
   the [connectors page](/features/chats-connectors/#what-a-message-gets).
 
-In the web interface, the **Files** section of the agent form sets the folder:
-**All my files**, or **Chosen folders**: one row for each folder, with **Choose folder**, which opens a folder
+In the web interface, the **Files** section of the agent form is one choice in
+three words:
+
+- **No files**: the agent cannot list, read, write or search any of your files,
+  with any tool. It is the Files tool switch (`builtins_off` holds `files`).
+  The server then fences the agent's chats to their own chat folder and the
+  read-only skill layers, so the image and audio helpers, a Sandbox command and
+  an add-on cannot reach your files either. Files you attach to a chat stay in
+  that chat. Any folder stored on the agent is ignored while Files is off, and
+  choosing **No files** in the form removes the folders from the agent. The
+  Look only and Assistant levels already mean **No files** and now select it.
+  Watching a folder needs file access: a trigger that watches a folder still
+  starts for such an agent but cannot open the files that arrive, and the
+  trigger editor says so.
+- **All my files**: the Files tool is on and the agent has no folder. A new
+  agent starts here, and an agent saved before this choice with Files on and no
+  folder reads the same.
+- **Only these folders**: the Files tool is on and the agent has a folder list.
+
+The folder rows, the picker and the access of each row show only for **Only
+these folders**. The choice shows in the agent's header and page, in the
+Effective view (**Cannot reach any of your files**, **Can reach all your files**
+or **Can reach only N folders**) and in the Try it list of what a test chat does
+not use. The API has no new field: send `builtins_off` with or without `files`
+and `folders`.
+
+For **Only these folders**, one row for each folder, with **Choose folder**, which opens a folder
 picker of your files (`LocalAI`, `Chats` and shared folders cannot be chosen),
 the access of that row, **Can read** or **Can read and change**, and a remove button. **Add folder** stops at eight. A row inside another row shows the mode it works at. The agents list and the
 agent's page show the folder and its access, with a lock for read only, or
@@ -280,7 +397,7 @@ empty by default, no template or import turns a grant on, and a chat of the
 agent holds only the grants you may use at that moment.
 `GET /api/chats/agents/builtin-grants` returns `{grants: [{name, title,
 description, sensitive}]}` for the editor. The names are `memory.write`,
-`profile.write`, `skills.write`, `pages.write`, `dashboard.write`,
+`profile.write`, `skills.write`, `pages.write`, `dashboard.write`, `knowledge.write`,
 `triggers.propose`, `triggers.run`, `talkback.channels`, `talkback.new_channel`,
 `files.upload`, `act.files`, `act.addons`, `act.send`, `act.spend`,
 `saved_agents` (the opt-in group of that name; granting it also switches the
@@ -291,11 +408,13 @@ watches, a messaging chat and a sub-agent never hold it; see
 [Past chats]({{%relref "features/chats#past-chats" %}})). A sensitive grant changes what the agent may do or reach later; the
 editor marks it. The five `*.write` grants let the agent propose a memory note,
 its profile, a skill, a page or a dashboard change with `propose_change`; you
-confirm every proposal, and you can undo it. The **Tools** list of the agent form
+confirm every proposal, and you can undo it. `knowledge.write` (**Add to
+knowledge**, sensitive) lets it propose a text for one of its collections; see
+[Adding to Knowledge]({{%relref "features/collections#let-an-agent-propose-a-text-for-a-collection" %}}). The **Tools** list of the agent form
 and of a chat show each grant once, as an option under the switch it refines:
 "Create and manage triggers" holds "Also propose from messaging apps" (`triggers.propose`)
 and "Let triggers start from messaging apps" (`triggers.run`); "Suggested
-changes" holds the five `*.write` grants; "Your files" holds `files.upload` and
+changes" holds the five `*.write` grants; "Knowledge" holds `knowledge.write`; "Your files" holds `files.upload` and
 `act.files`. An option is greyed, with the reason, while its switch is off, and keeps its
 stored value. `talkback.channels` and `talkback.new_channel` are in the section
 "Messaging apps", and `act.addons`, `act.send` and `act.spend` in "When nobody is
@@ -331,7 +450,7 @@ curl -X POST .../api/chats/agents/import -F file=@reviewer.json
 ```
 
 The file holds the definition only (kind `localai-agent`): no ID, owner or
-time. An agent with tool switches (`builtins_off`, `builtins_on`) is version 4, so that a server that does not know them refuses the file instead of giving the agent every tool. The `builtins` list, `memory` and `memory_save` are extra fields of any version; a server that does not know them ignores them, so the agent arrives without the grants, as before and without its own save rule (it then follows the setting of the person). An import makes a new agent: it has the exported `memory` choice and `memory_save` rule and none of the original's notes. An agent without a folder or tool switches is version 1. An agent with one folder is
+time. An agent with tool switches (`builtins_off`, `builtins_on`) is version 4, so that a server that does not know them refuses the file instead of giving the agent every tool. The `builtins` list, `memory` and `memory_save` are extra fields of any version; a server that does not know them ignores them, so the agent arrives without the grants, as before and without its own save rule (it then follows the setting of the person); a server that knows `memory_save` but only `always` and `never` refuses a file with `auto` (400). An import makes a new agent: it has the exported `memory` choice and `memory_save` rule and none of the original's notes. An agent without a folder or tool switches is version 1. An agent with one folder is
 version 2 and carries `folder` with the folder's path at export time and the
 mode, for example `{"path": "/Projects/Acme", "mode": "read"}` (the path is
 empty when the folder is missing, not chosen, or now outside your home).
@@ -361,6 +480,119 @@ newest first: the ones you had with it, the ones its triggers started
 (`origin: trigger`) and the ones its connectors started (`origin: connector`),
 each with `running` and `last_turn`. `total`, `failed` and `running` count every
 run among your newest 5,000 chats. Open a run with `GET /api/chats/{chat_id}`.
+For an agent shared with you, the runs are your own chats with it.
+
+### Share an agent
+
+You can share a saved agent with other people on the server, or with everyone.
+Use **Share** in the row menu of the agent or in the header of its page. The
+[Share dialog](/features/sharing/#the-share-dialog) finds people by name and
+gives each one a role:
+
+| Role | What the person can do |
+|------|------------------------|
+| `use` | Chat with the agent in their own chats. They see its name, its description and what it needs. |
+| `viewer` | The same, and they read the full definition: instructions, tools and the things it names. |
+
+Only you edit, delete, export or share the agent. The person can not make a
+trigger, a task or a connector with it, and your own triggers and connectors
+keep running as you.
+
+A person who chats with a shared agent runs it as themselves. The chat, the
+memory, the files, the folders, the add-ons, the collections and the connections
+are theirs, exactly as for their own agent. Only the definition comes from you.
+Your files are never used for them, and no answer to them carries a token, a
+secret or the ID of your connection.
+
+The agent never runs with more than the person's own chats start with. With the
+role `use` the person does not read your instructions, so what the agent asks for
+is narrowed to what their own new chat gets:
+
+- **Network.** Their chat starts with the narrower of the agent's network preset and
+  the instance default for a new chat, never with your preset above it. The person
+  can widen the network of the chat themselves, up to the instance limit.
+- **Opt-in tool groups.** The groups the agent turns on (its saved agents, the
+  earlier chats) start off in their chat. The person can turn them on in the chat.
+- **Built-in grants.** The agent holds a grant only when the person may use it, as
+  for their own agent.
+
+The connections the agent names are yours. A chat of the person uses one of them
+only while you share that connection with them (role `use`), and only when it is
+not a choice:
+
+- When the person has no connection of their own for the add-on and holds a
+  grant on exactly one of the agent's connections for it, the chat uses that one.
+- When the person has a connection of their own for the add-on, or holds grants
+  on several of the agent's connections for it, the chat uses none of yours by
+  itself. The person picks the connection in the chat, from their own and the
+  ones shared with them.
+- The agent's connections do not lock the person's chat, as they do in your
+  own chats: the person may always choose another one.
+
+Sharing the agent does not share what it uses. Before the dialog adds a person,
+it lists what the agent names and asks you, for each thing that can be shared,
+to choose one of the options the server offers for it, or **Not shared**. The
+options come from the roles the kind of the thing grants:
+
+| Thing | Options | Role of the grant |
+|-------|---------|-------------------|
+| Collection | **View** | `viewer`: search and read. To let the person add entries, give `editor` from the collection's own Share dialog. |
+| Connection | **Use** | `use` |
+| Add-on resource | **View**, and **Use** when the agent writes it | `viewer`, and `editor` for **Use** |
+
+A folder, a skill, an add-on, an MCP server and a built-in grant can not be
+shared this way: the person needs access of their own. The dialog applies each
+choice as a grant on that thing, for the same person.
+
+The agent page of a person tells them what they are missing: each thing the agent
+names is **ok**, **missing** (not shared with them) or **unavailable** (the server
+or their account does not offer it). A connection of yours is **ok** while you
+share it with them and **missing** otherwise. The list also shows the network
+preset and the opt-in tool groups the agent asks for: **ask** when their chat
+starts without it and they can turn it on, **unavailable** when the instance does
+not allow it. A chat with the agent shows the same notice before the first message.
+
+When you lower the role or remove the person, a run of the agent in one of their
+chats stops, and the chat takes no new message with the agent. Their past chats
+stay readable. When you delete the agent, every grant on it is removed.
+
+The API:
+
+| Method and path | What it does |
+|-----------------|--------------|
+| `GET /api/chats/agents` | Your agents, then the agents shared with you. `access.role` is `owner`, `use` or `viewer`; `access.owner` names the person who shared it; your own agents carry `access.sharedWith` and `access.share_id`. |
+| `POST /api/chats/agents/{id}/share` | The ID of your agent in the sharing API, made on the first call. Owner only. |
+| `GET /api/chats/agents/{id}/references` | What your agent uses, and how each thing can be shared: `share.kind`, `share.resource_id`, `share.options` and, for each option, the role it grants in `share.roles`. For a collection or a connection that you own, the call makes its record in the sharing API, as `POST /api/collections/{name}/share` and `POST /api/chats/connectors/{id}/share` do; nothing is granted. Owner only. |
+| `GET /api/chats/agents/{id}/needs` | What an agent you may use needs, and the state of each thing for you: `ok`, `missing`, `unavailable` or `ask`. Kind `network` is the agent's network preset and kind `tool-group` an opt-in group it turns on. |
+
+Share with the [sharing API](/features/sharing/#api), kind `agent`, the ID from
+`POST .../share`, roles `use` and `viewer`:
+
+```bash
+curl -X PUT -b session=... \
+  -H 'Content-Type: application/json' \
+  -H 'X-LocalAI-Confirm: r0123456789abcdef0123456789abcde' \
+  -H 'Sec-Fetch-Site: same-origin' -H 'Sec-Fetch-Mode: cors' -H 'Sec-Fetch-Dest: empty' \
+  -d '{"role":"use"}' \
+  http://localhost:8080/api/shares/agent/r0123456789abcdef0123456789abcde/grants/@everyone
+```
+
+Errors: `403` with `authorization_error` for an action that is the owner's
+alone; `404` for an agent that does not exist or is not shared with you (the two
+are one answer); `409` with `agent_not_shared` for a new message in a chat whose
+agent is no longer shared with you; `409` with `sharing_disabled` when the server
+does not share agents.
+
+Sharing needs named accounts. In local-owner mode, with no accounts, the agents
+show no sharing. The grants live in the sharing policy of the add-on owner (see
+[Sharing resources](/features/sharing/#distributed-mode)). The agent keeps only
+the ID of its sharing record, in the agents table, so every frontend reads the
+same one. A frontend that is not the add-on owner asks the owner for every
+sharing decision, so a shared agent works on every frontend, also when the
+add-on owner is a separate process (`--addons-role=owner`). When the owner
+cannot be reached, no shared agent is listed or run: the agents list shows your
+own only, a new message in a chat with a shared agent is refused, and a running
+turn of a shared agent stops. With add-ons off, no agent is shared.
 
 ## Connectors
 
@@ -496,7 +728,7 @@ agent, plus `act.files` for a plan that writes a file), `read_only` whether a ru
 can only read and `read_only_why` why: `no_acts` (it holds none), `agent` (its
 agent holds none of them), `declared` (the proposal said `read_only`) or `binding`
 (a connection in `auto_readonly` mode made it). A trigger that a connection made
-without asking also holds only the acts that its binding allows now. The Triggers page shows the same:
+without asking also holds only the acts that its binding allows now, and `binding` gives the ID of that connection (it is left out for other triggers). The Triggers page shows the same:
 a "Read only" mark on each row, and the reason on the trigger.
 
 A refused tool stays in the tool list and answers with one plain sentence instead

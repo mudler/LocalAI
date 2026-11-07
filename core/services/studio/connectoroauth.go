@@ -81,6 +81,11 @@ var (
 	// the host cannot renew it. Nothing was sent; the person must log in
 	// again. The gateway reports it as the reconnect_needed refusal.
 	ErrReconnectNeeded = errors.New("studio: the connection must be made again")
+	// ErrOwnerReconnectNeeded is ErrReconnectNeeded for a person who uses a
+	// connection that another person shared: only the owner can log in again,
+	// so the person is told that and is never offered a login. The gateway
+	// reports it as the owner_reconnect_needed refusal.
+	ErrOwnerReconnectNeeded = errors.New("studio: the owner of the shared connection must connect it again")
 	// ErrCredentialUnavailable means the token could not be renewed now (the
 	// service or the store did not answer, or another refresher holds the
 	// grant too long). The state of the grant did not change; a later call may
@@ -579,27 +584,35 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 // be renewed: ErrNoCredential.
 func (c *Connectors) RenewCredential(ctx context.Context, user, addonID, bindingID, key string, version int64, final bool) (CredentialGrant, error) {
 	b, err := c.o.Store.GetBinding(ctx, bindingID)
-	if err != nil || b.Owner != principal(user) || b.AddonID != addonID || !b.UsesOAuth() {
+	if err == nil && b.Owner != principal(user) {
+		// The renewal is the host's work on the login of the owner, not an act
+		// of the person: it is open to a person the binding is shared with,
+		// and to nobody else. The tokens stay on the host.
+		if _, _, ok := c.sharedBinding(ctx, user, bindingID); !ok {
+			err = connectors.ErrNoCredential
+		}
+	}
+	if err != nil || b.AddonID != addonID || !b.UsesOAuth() {
 		return CredentialGrant{}, connectors.ErrNoCredential
 	}
-	entry, err := connectors.EntryWith(b, true, key)
+	entry, err := connectors.EntryUsable(b, true, key, c.wildcardsOf(ctx, b))
 	if err != nil {
 		return CredentialGrant{}, err
 	}
 	if final {
 		g, err := c.readGrant(ctx, b)
 		if err != nil {
-			return CredentialGrant{}, err
+			return CredentialGrant{}, c.forGrantee(user, b, err)
 		}
 		if g.Version != version {
 			return CredentialGrant{}, ErrCredentialUnavailable
 		}
-		return CredentialGrant{}, c.endGrant(ctx, b, g, ReasonCredentialRejected)
+		return CredentialGrant{}, c.forGrantee(user, b, c.endGrant(ctx, b, g, ReasonCredentialRejected))
 	}
 	acc, err := c.refresh(ctx, b, version, true)
 	if err != nil {
-		return CredentialGrant{}, err
+		return CredentialGrant{}, c.forGrantee(user, b, err)
 	}
 	c.log.Info("studio: connector credential audit", "binding", b.ID, "kind", b.Kind, "addon", b.AddonID, "resource", entry.Key, "renewed", true)
-	return CredentialGrant{Secret: acc.secret, Scopes: acc.scopes, Version: acc.version, Resource: entry, WriteMode: b.Writes(), BindingID: b.ID, BindingName: b.Name}, nil
+	return CredentialGrant{Secret: acc.secret, Scopes: acc.scopes, Version: acc.version, Resource: entry, WriteMode: b.Writes(), BindingID: b.ID, BindingName: b.Name, Hold: c.holdFor(user, b)}, nil
 }

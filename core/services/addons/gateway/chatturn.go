@@ -19,3 +19,21 @@ func IsChatTurn(ctx context.Context) bool {
 	v, _ := ctx.Value(chatTurnKey{}).(bool)
 	return v
 }
+
+type chatConfirmedKey struct{}
+
+// WithChatConfirmed marks a context as the confirmation of a held change that
+// the host took from a person in a messaging chat. The host sets it only after
+// it checked that the sender holds the confirm capability and is paired with
+// the bot, and the model can neither set it nor read it. The owner honors it
+// for a proposal that waits only because the connection is set to ask (hold
+// write_mode_propose), never for a tool that always asks.
+func WithChatConfirmed(ctx context.Context) context.Context {
+	return context.WithValue(ctx, chatConfirmedKey{}, true)
+}
+
+// ChatConfirmed reports whether WithChatConfirmed marked ctx.
+func ChatConfirmed(ctx context.Context) bool {
+	v, _ := ctx.Value(chatConfirmedKey{}).(bool)
+	return v
+}

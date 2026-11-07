@@ -1,21 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { chatsApi, chatLoopsApi } from '../utils/api'
-import { eventPayload, retryDelay } from '../utils/streamRetry'
+import { eventPayload, retryDelay, resumeUrl } from '../utils/streamRetry'
 import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWanted, consentAsk } from '../utils/chatLive'
 import { notifyTurnEnd } from './useWorkspaceFeed'
 import { pushUsage } from '../utils/chatFoot'
+import { savedFailure } from '../utils/chatFailure'
 
 // Every event kind the server sends. EventSource needs one listener per name.
 const EVENT_KINDS = [
   'turn_start', 'text', 'reasoning', 'tool_start', 'tool_end', 'checkpoint',
   'turn_end', 'error', 'pending_delivered', 'sub_agent_started', 'sub_agent_done', 'compacted',
   'usage', 'trigger_proposed', 'files', 'host_exec_consent', 'egress_consent', 'egress_card',
-  'paused', 'loops', 'cleared', 'goal',
+  'paused', 'loops', 'cleared', 'goal', 'resync',
 ]
 
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
 const SETTLE_READS = 8
 const SETTLE_MS = 250
+const LOST_AFTER_MS = 2000 // a stream down this long shows as reconnecting
 
 // State of the chats the server keeps: the list, one open chat with its
 // transcript and waiting messages, and the live events of a running turn.
@@ -75,11 +77,17 @@ export function useServerChat({ seed = null } = {}) {
 
   const sourceRef = useRef(null)
   const reconnectRef = useRef(null)
+  // True while the event stream has been down for more than a moment. A short
+  // break (the browser reconnects at once) does not show.
+  const [reconnecting, setReconnecting] = useState(false)
+  const lostRef = useRef(null)
   const activeRef = useRef(seed?.id ?? null)
   const seedRef = useRef(seed)
   // Whether the last read of the open chat said a turn runs.
   const runningRef = useRef(false)
   const attemptRef = useRef(0)
+  // The id of the last event of the open chat's stream, {chat, id}: a reconnect asks for what follows it.
+  const lastEventRef = useRef(null)
   // Counts the turns started, so that the end of one turn does not clear the
   // live view of the next.
   const epochRef = useRef(0)
@@ -174,9 +182,10 @@ export function useServerChat({ seed = null } = {}) {
     }
   }, [])
 
-  const connect = useCallback((id) => {
+  const connect = useCallback((id, resume = false) => {
     closeStream()
-    const source = new EventSource(chatsApi.eventsUrl(id))
+    if (!resume) lastEventRef.current = null
+    const source = new EventSource(resumeUrl(chatsApi.eventsUrl(id), lastEventRef.current, id))
     sourceRef.current = source
 
     const on = {
@@ -206,6 +215,8 @@ export function useServerChat({ seed = null } = {}) {
           .then((card) => { if (activeRef.current === id) setLive(l => cardResult(l, seq, card)) })
       },
       pending_delivered: () => refreshChat(id),
+      // The server cannot give the events that were missed: read the record.
+      resync: () => refreshChat(id),
       // A compaction during a turn is the chat's own and shows as a note; one
       // the person asked for (/compact) runs with no turn and is a line of the
       // transcript. Either way the meter shows the smaller context.
@@ -268,25 +279,32 @@ export function useServerChat({ seed = null } = {}) {
     }
     for (const kind of EVENT_KINDS) {
       source.addEventListener(kind, (ev) => {
+        if (ev.lastEventId) lastEventRef.current = { chat: id, id: ev.lastEventId }
         // The browser fires its own "error" event when the connection breaks:
         // it has no data and is not the server's error event.
         const payload = eventPayload(ev)
         if (payload) on[kind]?.(payload)
       })
     }
-    source.onopen = () => { attemptRef.current = 0 }
+    source.onopen = () => {
+      attemptRef.current = 0
+      clearTimeout(lostRef.current)
+      lostRef.current = null
+      setReconnecting(false)
+    }
     source.onerror = () => {
-      // The stream carries only what happens after it connects, so a reconnect
-      // reads the transcript again to close the gap.
+      // A reconnect asks for the events after the last id (see resumeUrl) and
+      // reads the transcript again; a resync event says the ask was too old.
       source.close()
       if (sourceRef.current === source) sourceRef.current = null
       if (activeRef.current !== id) return
+      if (lostRef.current === null) lostRef.current = setTimeout(() => setReconnecting(true), LOST_AFTER_MS)
       reconnectRef.current = setTimeout(async () => {
         if (activeRef.current !== id) return
         // Read first: a chat deleted in another tab answers 404 and the stream stops.
         const state = await refreshChat(id)
         if (state === 'gone' || activeRef.current !== id) return
-        connect(id)
+        connect(id, true)
       }, retryDelay(attemptRef.current++, RECONNECT_MS))
     }
   }, [closeStream, refreshChat, refreshDetail, refreshList, setError, piece])
@@ -294,6 +312,9 @@ export function useServerChat({ seed = null } = {}) {
   const readPace = useCallback(() => ({ ...paceRef.current }), [])
 
   const select = useCallback(async (id) => {
+    clearTimeout(lostRef.current)
+    lostRef.current = null
+    setReconnecting(false)
     activeRef.current = id
     setActiveId(id)
     epochRef.current++
@@ -328,6 +349,7 @@ export function useServerChat({ seed = null } = {}) {
     }
     return () => {
       activeRef.current = null
+      clearTimeout(lostRef.current)
       closeStream()
     }
   }, [refreshList, closeStream, connect, refreshChat])
@@ -427,13 +449,39 @@ export function useServerChat({ seed = null } = {}) {
     setError('')
     try {
       const res = await call()
-      if (res?.started && activeRef.current === id) setDetail(d => (d ? { ...d, running: true } : d))
+      if (res?.started && activeRef.current === id) {
+        setDetail(d => (d ? { ...d, running: true } : d))
+        // An auto-resume can start a turn while the stream waits for its next
+        // reconnect: open it now, from the last id, so the new turn shows
+        // without the backoff wait. An open stream already carries the turn.
+        if (!sourceRef.current) connect(id, true)
+      }
     } catch (e) {
       if (activeRef.current === id) setError(e.message)
     }
     await refreshChat(id)
-  }, [refreshChat, setError])
+  }, [connect, refreshChat, setError])
   const regenerate = useCallback((id) => restart(id, () => chatsApi.regenerate(id)), [restart])
+
+  // Retry of a failed turn: the server goes on from where it stopped and
+  // removes nothing. The guard makes a double click one call; the server
+  // answers started: false to a second one anyway (another window).
+  const [resuming, setResuming] = useState(false)
+  const resumingRef = useRef(false)
+  const resume = useCallback(async (id) => {
+    if (resumingRef.current) return
+    resumingRef.current = true
+    setResuming(true)
+    try {
+      await restart(id, () => chatsApi.resume(id))
+    } finally {
+      resumingRef.current = false
+      setResuming(false)
+    }
+  }, [restart])
+  // Why the last turn failed, as the transcript keeps it (a reload has no
+  // live event).
+  const failureSaved = useMemo(() => savedFailure(messages), [messages])
   const editMessage = useCallback((id, seq, text) => restart(id, () => chatsApi.editMessage(id, seq, text)), [restart])
 
   // The context commands. They answer 409 while a turn runs; the caller
@@ -457,9 +505,13 @@ export function useServerChat({ seed = null } = {}) {
   }, [refreshList, select])
 
   return {
-    chats, persistent, imageModel, files, activeId, detail, messages, live, notes, error, failure, loading, usage, usageHistory, firstTokenMs, readPace, ticks, pausedSteps,
+    chats, persistent, imageModel, files, activeId, detail, messages, live, notes, error, failure, failureSaved, resuming, loading, usage, usageHistory, firstTokenMs, readPace, ticks, reconnecting, pausedSteps,
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
+    // The server resumes an interrupted turn by itself (see utils/turnResume.js).
+    willResume: Boolean(detail?.will_resume),
+    resumeAttempts: detail?.resume_attempts || 0,
+    refreshChat,
     pending: detail?.pending || [],
     goal: detail?.goal || null,
     // The loops of the chat, oldest first (pending, active, paused or ended).
@@ -467,7 +519,7 @@ export function useServerChat({ seed = null } = {}) {
     // The command that waits for a yes, as the server keeps it with the chat: a
     // reload shows the card again. Null when none waits.
     hostConsent: detail?.host_consent ? { chatId: detail.id, id: detail.host_consent.id, command: detail.host_consent.command || '' } : null,
-    select, createChat, send, editPending, cancelPending, stop, sendNow, startLoop, setLoopState, stopLoop, stopLoops, remove, rename, update, regenerate, editMessage, refreshList, compact, clear,
+    select, createChat, send, editPending, cancelPending, stop, sendNow, startLoop, setLoopState, stopLoop, stopLoops, remove, rename, update, regenerate, resume, editMessage, refreshList, compact, clear,
     setGoal, clearGoal, resumeGoal, pauseGoal,
     clearError: () => setError(''),
   }

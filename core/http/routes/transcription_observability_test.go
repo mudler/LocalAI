@@ -71,7 +71,7 @@ var _ = Describe("transcription observability", func() {
 		requestedModel = "speech-test"
 		root := GinkgoT().TempDir()
 		var err error
-		app, err = application.New(config.EnableTracing, config.WithDataPath(root), config.WithDisableLocalAIAssistant(true), config.WithDisableCSRF(true), config.WithSystemState(&system.SystemState{Model: system.Model{ModelsPath: root}, Backend: system.Backend{BackendsPath: root}}))
+		app, err = application.New(config.EnableTracing, config.WithDataPath(root), config.WithDisableCSRF(true), config.WithSystemState(&system.SystemState{Model: system.Model{ModelsPath: root}, Backend: system.Backend{BackendsPath: root}}))
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 		cfg := config.ModelConfig{Name: "speech-test", Backend: "whisper"}

@@ -27,7 +27,9 @@ export const SAVED_AGENTS = 'saved_agents'
 export const SHELL = 'shell'
 export const SUBAGENTS = 'subagents'
 export const MEMORY = 'memory'
-const BUILTIN_ORDER = [SHELL, 'files', 'web', 'media', 'collections', MEMORY, SUBAGENTS, SAVED_AGENTS, 'triggers', 'changes']
+export const LOCALAI_CLIENT = 'localai_client'
+export const LOCALAI_ADMIN = 'localai_admin'
+const BUILTIN_ORDER = [SHELL, 'files', 'web', 'media', LOCALAI_CLIENT, 'collections', MEMORY, SUBAGENTS, SAVED_AGENTS, 'triggers', 'changes', LOCALAI_ADMIN]
 export const builtinRank = (g) => {
   const i = BUILTIN_ORDER.indexOf(g)
   return i < 0 ? BUILTIN_ORDER.length : i
@@ -90,6 +92,8 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
     title: tc('tools.builtinBy', { tools: (b.tools || []).join(', ') }),
     on: !b.off, usable: b.usable, reason: b.reason, onToggle: (on) => switches.toggleBuiltin(b.group, on),
     ...(b.group === SHELL ? shellNote(b) : b.group === MEMORY ? memoryNote(b) : builtinNote(b)),
+    // The tools of the group are found with tool_search instead of being sent in full.
+    ...(b.deferred ? { chip: tc('tools.onDemand') } : {}),
   })
   // A built-in row with the options that refine it.
   const withOptions = (row) => {
@@ -149,13 +153,22 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
     const options = list.map((c) => ({ value: c.id, label: c.name }))
     // The only connection of the person is always enabled: there is nothing to choose.
     const sole = list.length === 1 && a.connection_by === 'only'
+    // The agent form draws this choice in its Connections section.
+    if (forAgent && switches.pickElsewhere) return {}
     // A connection that logs in with OAuth and whose login ended: the row
     // says which, and links to the Connectors page to connect it again.
     const stale = reconnectConnections(a).filter((c) => forAgent || chosen.includes(c.id) || a.connection_state === 'reconnect_needed')
-    const reconnect = stale.length
-      ? { warn: true, note: tc('tools.connection.reconnectNeeded', { names: stale.map((c) => c.name).join(', ') }) }
-      : {}
-    const connectorsLink = (fallback) => (stale.length
+    // The login of a connection that was shared with the person is its
+    // owner's: the row says that the owner must connect it again and offers
+    // no login to the person.
+    const mine = stale.filter((c) => !c.shared)
+    const theirs = stale.filter((c) => c.shared)
+    const staleNotes = [
+      mine.length ? tc('tools.connection.reconnectNeeded', { names: mine.map((c) => c.name).join(', ') }) : '',
+      theirs.length ? tc('tools.connection.ownerReconnectNeeded', { names: theirs.map((c) => c.name).join(', ') }) : '',
+    ].filter(Boolean)
+    const reconnect = stale.length ? { warn: true, note: staleNotes.join(' ') } : {}
+    const connectorsLink = (fallback) => (mine.length
       ? { to: '/app/chats/connectors', label: tc('tools.connection.reconnect') }
       : fallback)
     if (forAgent) {

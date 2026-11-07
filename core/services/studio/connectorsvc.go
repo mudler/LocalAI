@@ -31,8 +31,13 @@ type ConnectorInput struct {
 	AgentID string
 	// AcceptAny lets anyone who can message the bot use the agent. Without it
 	// only Allow is accepted.
-	AcceptAny  bool
-	Allow      []string
+	AcceptAny bool
+	Allow     []string
+	// AllowTrust is the trust level of the chat entries of Allow (see
+	// connectors.Binding.AllowTrust). Nil keeps the saved levels, as a client
+	// that only knows Allow sends it; an empty map sets every entry back to
+	// answer only. A level of an entry that leaves Allow is dropped.
+	AllowTrust map[string]string
 	NotifyChat string
 	Enabled    bool
 	// Reply, Conversation and WindowMinutes are the modes of the binding
@@ -44,6 +49,11 @@ type ConnectorInput struct {
 	// the chat: hostmsg.Auto or a language code. Nil means auto for a new
 	// binding and unchanged for an update.
 	ReplyLanguage *string
+	// UILanguage is the interface language of the owner, sent by the page that
+	// saves the binding. Nil or empty leaves the stored value; a value that is
+	// not a language tag is ignored, because it is a hint and never a reason to
+	// refuse a save.
+	UILanguage *string
 	// SendFiles sends the files a turn makes to the sender. Nil means on for
 	// a new binding and unchanged for an update.
 	SendFiles *bool
@@ -74,11 +84,30 @@ type ConnectorInput struct {
 	// Approval is the owner's choice for the triggers the agent proposes from
 	// a chat of the binding. Nil: new binding asks, update unchanged.
 	Approval *connectors.Approval
+	// ConfirmAnyResource must be AnyResourceConfirmation in the request that
+	// adds the entry * to the resource list. ConfirmWiderToken must be
+	// WiderTokenConfirmation in the request that chooses the option which
+	// allows a guarded token (see contract.TokenGuard). Neither is stored.
+	ConfirmAnyResource, ConfirmWiderToken string
+	// ConfirmDuplicate must be DuplicateConfirmation to save an enabled
+	// connection that is the same bot as another enabled one. Not stored.
+	ConfirmDuplicate string
 }
 
 // apply sets the fields of the input that an owner writes on a binding.
 func (in ConnectorInput) apply(b *connectors.Binding) {
 	b.Name, b.AgentID, b.AcceptAny, b.Allow, b.NotifyChat, b.Enabled = strings.TrimSpace(in.Name), in.AgentID, in.AcceptAny, in.Allow, in.NotifyChat, in.Enabled
+	if in.AllowTrust != nil {
+		b.AllowTrust = maps.Clone(in.AllowTrust)
+	}
+	for k := range b.AllowTrust {
+		if !slices.Contains(b.Allow, k) {
+			delete(b.AllowTrust, k)
+		}
+	}
+	if len(b.AllowTrust) == 0 {
+		b.AllowTrust = nil
+	}
 	b.Reply, b.Conversation, b.WindowMinutes = in.Reply, in.Conversation, in.WindowMinutes
 	if b.Conversation != connectors.ConversationWindow {
 		b.WindowMinutes = 0
@@ -87,6 +116,11 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 		b.ReplyLanguage = *in.ReplyLanguage
 		if b.ReplyLanguage == hostmsg.Auto {
 			b.ReplyLanguage = ""
+		}
+	}
+	if in.UILanguage != nil {
+		if tag := strings.TrimSpace(*in.UILanguage); tag != "" && contract.ValidLanguageTag(tag) {
+			b.UILanguage = tag
 		}
 	}
 	if in.SendFiles != nil {
@@ -102,6 +136,7 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 		b.FileSendMax = *in.FileSendMax
 	}
 	if in.Caps != nil {
+		b.WriteTickRemoved = writeTickRemoved(b.Caps, in.Caps, b.WriteTickRemoved)
 		b.Caps = slices.Clone(in.Caps)
 	}
 	if in.Grants != nil {
@@ -174,6 +209,13 @@ type ConnectorInfo struct {
 	// OAuth is the state of the login of an OAuth binding; nil for a token
 	// binding.
 	OAuth *OAuthView
+	// SameBotAs lists the other enabled connections of the owner that are the
+	// same bot as this one, oldest first. It is empty unless this binding is
+	// enabled too. Both then answer the same message.
+	SameBotAs []DuplicateRef
+	// Share is the share of the binding, for its owner, once the owner made
+	// it shareable. Nil otherwise.
+	Share *ShareState
 }
 
 func info(b connectors.Binding) ConnectorInfo {
@@ -400,6 +442,12 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if err := c.checkOwnerLimits(ctx, b, in); err != nil {
 		return ConnectorInfo{}, err
 	}
+	if err := c.checkWildcards(ctx, nil, b, in); err != nil {
+		return ConnectorInfo{}, err
+	}
+	if err := c.checkTokenGuards(ctx, nil, b, in); err != nil {
+		return ConnectorInfo{}, err
+	}
 	switch {
 	case b.UsesOAuth() && strings.TrimSpace(in.Token) != "":
 		return ConnectorInfo{}, connectorBad("a connection that uses a login takes no token")
@@ -413,6 +461,10 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if err := c.verifyToken(ctx, b, strings.TrimSpace(in.Token)); err != nil {
 		return ConnectorInfo{}, err
 	}
+	if !b.UsesOAuth() {
+		// An OAuth connection has no token yet; its login tells who it is.
+		b.AccountID = c.accountOf(ctx, b, strings.TrimSpace(in.Token))
+	}
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
 	mine, err := c.o.Store.ListBindings(ctx, owner)
@@ -423,6 +475,9 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 		return ConnectorInfo{}, connectorBad("you can have at most %d bindings", connectors.MaxPerUser)
 	}
 	if err := checkConnectionName(b, mine); err != nil {
+		return ConnectorInfo{}, err
+	}
+	if err := checkDuplicate(nil, b, mine, in); err != nil {
 		return ConnectorInfo{}, err
 	}
 	if !b.UsesOAuth() {
@@ -440,7 +495,7 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 		return ConnectorInfo{}, err
 	}
 	c.Notify()
-	return c.withState(ctx, info(b)), nil
+	return c.withDuplicates(ctx, c.withState(ctx, info(b))), nil
 }
 
 // checkConnectionName refuses a name that another credential-only binding of
@@ -470,6 +525,7 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 	// A new token is checked before the write lock: the check asks the
 	// platform. The kind, the auth kind and the add-on of a binding never
 	// change.
+	newAccount := ""
 	if t := strings.TrimSpace(in.Token); t != "" {
 		cur, err := c.owned(ctx, user, id)
 		if err != nil {
@@ -481,6 +537,7 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 		if err := c.verifyToken(ctx, cur, t); err != nil {
 			return ConnectorInfo{}, err
 		}
+		newAccount = c.accountOf(ctx, cur, t)
 	}
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
@@ -490,6 +547,10 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 	}
 	b := old
 	in.apply(&b)
+	if strings.TrimSpace(in.Token) != "" {
+		// A new token may belong to another account: the identity is the one just read.
+		b.AccountID = newAccount
+	}
 	if err := connectors.ValidateKind(b, c.agentOptional(ctx, b)); err != nil {
 		return ConnectorInfo{}, err
 	}
@@ -502,17 +563,26 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 	if err := c.checkOwnerLimits(ctx, b, in); err != nil {
 		return ConnectorInfo{}, err
 	}
+	if err := c.checkWildcards(ctx, &old, b, in); err != nil {
+		return ConnectorInfo{}, err
+	}
+	if err := c.checkTokenGuards(ctx, &old, b, in); err != nil {
+		return ConnectorInfo{}, err
+	}
 	if err := c.checkAgentIfAny(ctx, old.Owner, in.AgentID); err != nil {
 		return ConnectorInfo{}, err
 	}
+	mine, err := c.o.Store.ListBindings(ctx, old.Owner)
+	if err != nil {
+		return ConnectorInfo{}, err
+	}
 	if b.Name != old.Name {
-		mine, err := c.o.Store.ListBindings(ctx, old.Owner)
-		if err != nil {
-			return ConnectorInfo{}, err
-		}
 		if err := checkConnectionName(b, mine); err != nil {
 			return ConnectorInfo{}, err
 		}
+	}
+	if err := checkDuplicate(&old, b, mine, in); err != nil {
+		return ConnectorInfo{}, err
 	}
 	if strings.TrimSpace(in.Token) != "" {
 		sealer, err := c.sealerFor(ctx)
@@ -528,7 +598,7 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 		return ConnectorInfo{}, err
 	}
 	c.Notify()
-	return c.withState(ctx, info(b)), nil
+	return c.withDuplicates(ctx, c.withState(ctx, info(b))), nil
 }
 
 // SetConnectorEnabled switches a binding on or off.
@@ -547,7 +617,7 @@ func (c *Connectors) SetConnectorEnabled(ctx context.Context, user, id string, o
 		return ConnectorInfo{}, err
 	}
 	c.Notify()
-	return c.withState(ctx, info(b)), nil
+	return c.withDuplicates(ctx, c.withState(ctx, info(b))), nil
 }
 
 // GetConnector returns a binding of the user, without its token.
@@ -556,7 +626,18 @@ func (c *Connectors) GetConnector(ctx context.Context, user, id string) (Connect
 	if err != nil {
 		return ConnectorInfo{}, err
 	}
-	return c.withState(ctx, info(b)), nil
+	return c.withShare(ctx, c.withDuplicates(ctx, c.withState(ctx, info(b)))), nil
+}
+
+// withDuplicates fills SameBotAs of one binding. A store that fails leaves it empty.
+func (c *Connectors) withDuplicates(ctx context.Context, i ConnectorInfo) ConnectorInfo {
+	if i.AccountID == "" || !i.Enabled {
+		return i
+	}
+	if all, err := c.o.Store.ListBindings(ctx, i.Owner); err == nil {
+		i.SameBotAs = refsOf(duplicatesOf(all, i.Binding))
+	}
+	return i
 }
 
 // ListConnectors returns the user's bindings, without their tokens.
@@ -567,8 +648,9 @@ func (c *Connectors) ListConnectors(ctx context.Context, user string) ([]Connect
 	}
 	out := make([]ConnectorInfo, len(all))
 	for i, b := range all {
-		out[i] = c.withState(ctx, info(b))
+		out[i] = c.withShare(ctx, c.withState(ctx, info(b)))
 	}
+	markDuplicates(out, all)
 	return out, nil
 }
 
@@ -589,9 +671,13 @@ func (c *Connectors) DeleteConnector(ctx context.Context, user, id string) error
 	}
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
-	if _, err := c.owned(ctx, user, id); err != nil {
+	b, err = c.owned(ctx, user, id)
+	if err != nil {
 		return err
 	}
+	// The grantees stop before the binding goes, so no call of theirs runs
+	// with a token that is being deleted.
+	c.forgetShare(ctx, b.Owner, id)
 	if err := c.o.Store.DeleteBinding(ctx, id); err != nil {
 		return err
 	}
@@ -668,4 +754,17 @@ func (c *Connectors) AllowSender(ctx context.Context, user, id, senderID string)
 		return ConnectorInfo{}, err
 	}
 	return c.withState(ctx, info(b)), nil
+}
+
+// writeTickRemoved tells whether the owner holds the write tools back after a
+// save of the permissions: taking away a tick that was set sets the flag, a
+// tick clears it, and any other save keeps it.
+func writeTickRemoved(was, now []string, flag bool) bool {
+	switch {
+	case slices.Contains(now, contract.CapToolsWrite):
+		return false
+	case slices.Contains(was, contract.CapToolsWrite):
+		return true
+	}
+	return flag
 }

@@ -286,6 +286,8 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
     // The kind of the entry: addon when the library does not say.
     kind: release.kind || 'addon',
     alias: release.alias || '',
+    // A short text from the add-on: what it needs before it works.
+    setup: typeof release.setup === 'string' ? release.setup : '',
     channel: release.channel || '',
     digest: release.digest || '',
     platform: { os: release.os, arch: release.arch },

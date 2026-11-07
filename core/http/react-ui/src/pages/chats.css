@@ -538,5 +538,7 @@
 .cx-subagents__row:hover { background: var(--dk-hover); }
 .cx-subagents__title { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .cx-subagents__state { color: var(--dk-muted); font-family: var(--font-mono); font-size: 11.5px; }
+.cx-subagents__loop { display: flex; grid-column: 1 / -1; align-items: baseline; gap: 6px; min-width: 0; color: var(--color-text-secondary); font-size: var(--fs-small); }
+.cx-subagents__loop-icon { flex: none; align-self: center; color: var(--dk-ok); }
 .cx-subagents__acts { display: flex; gap: 10px; grid-row: span 2; align-items: center; }
 .cx-subagents__log { grid-column: 1 / -1; margin: 4px 0 0; padding: 8px 10px; max-height: 180px; overflow-y: auto; border-radius: var(--dk-radius-1); background: var(--dk-inset); font-size: 12.5px; white-space: pre-wrap; }

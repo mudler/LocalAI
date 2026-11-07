@@ -14,8 +14,8 @@
   "agentOf": "Agent: {{name}}",
   "inactive": "Läuft nicht: {{reason}}.",
   "title": "PiKVM",
-  "intro": "Lass deine Chats und Agenten einen PiKVM und den Rechner prüfen, den er steuert. Wenn du es erlaubst, können sie auch seine Power-Tasten drücken und seine Tastatur nutzen, und eine Person bestätigt jede dieser Aktionen.",
-  "limits": "Ein Agent, der an einem echten Rechner eine Power-Taste drücken oder tippen kann, kann Arbeit verlieren oder Befehle ausführen. Jede Aktion wartet auf deine Bestätigung. Tippen und die harten Power-Aktionen sind aus, bis ein Administrator sie unten einschaltet. Ein PiKVM kennt keine Nutzerrechte: Jeder Nutzer, den er kennt, kann alles, daher sind die Limits dieses Add-ons die einzigen.",
+  "intro": "Lass deine Chats und Agenten einen PiKVM und den Rechner prüfen, den er steuert. Wenn du es erlaubst, können sie auch seine Power-Tasten drücken und seine Tastatur nutzen, und eine Person bestätigt diese Aktionen, sofern du unten nichts anderes einstellst.",
+  "limits": "Ein Agent, der an einem echten Rechner eine Power-Taste drücken oder tippen kann, kann Arbeit verlieren oder Befehle ausführen. Standardmäßig wartet jede Aktion auf deine Bestätigung. Für Power-Aktionen und Tastendrücke kannst du das unten ausschalten, nie für getippten Text. Tippen und die harten Power-Aktionen sind aus, bis ein Administrator sie unten einschaltet. Ein PiKVM kennt keine Nutzerrechte: Jeder Nutzer, den er kennt, kann alles, daher sind die Limits dieses Add-ons die einzigen.",
   "new": "Neue PiKVM-Verbindung",
   "edit": "PiKVM-Verbindung bearbeiten",
   "user": "PiKVM-Benutzername",
@@ -67,16 +67,16 @@
   },
   "writeMode": {
     "label": "Was der Agent mit diesem Gerät tun darf",
-    "hint": "Den Zustand lesen ist immer erlaubt. Jede Aktion bestätigst du, egal was du wählst.",
+    "hint": "Den Zustand lesen ist immer erlaubt. Jede Aktion bestätigst du, sofern du im Abschnitt unten für ein Werkzeug nichts anderes einstellst.",
     "off": "Nur lesen",
     "propose": "Fragt dich zuerst",
     "line": {
       "off": "Er kann nur lesen.",
-      "propose": "Jede Aktion wartet auf dein OK."
+      "propose": "Jede Aktion wartet auf dein OK, sofern du das nicht ausschaltest."
     },
     "note": {
       "off": "Schreibzugriff ist aus: Diese Verbindung liest nur den Zustand.",
-      "propose": "Jede Power-Aktion, jeder Text und jeder Tastendruck wartet in deinen Freigaben, bis du ihn bestätigst. Tippen und harte Power-Aktionen brauchen zusätzlich den Schalter unten."
+      "propose": "Jede Power-Aktion, jeder Text und jeder Tastendruck wartet in deinen Freigaben, bis du ihn bestätigst, sofern du das für dieses Werkzeug nicht ausgeschaltet hast. Tippen und harte Power-Aktionen brauchen zusätzlich den Schalter unten."
     },
     "row": {
       "off": "Nur lesen",
@@ -90,17 +90,17 @@
     "saveFailed": "Die Schalter konnten nicht gespeichert werden.",
     "intro": "Diese Schalter gelten pro Gerät und für jeden Nutzer dieses Servers. Sie sind aus, bis ein Administrator sie ändert.",
     "physicalTitle": "Physische Wirkung.",
-    "physical": "Eine Power-Aktion kann ungespeicherte Arbeit verlieren. Tippen und Tastendrücke gehen an das, was auf dem Rechner den Fokus hat: eine Shell, ein BIOS-Menü, ein Anmeldebildschirm. Eine Person bestätigt jede Aktion und sieht den genauen Text oder die genauen Tasten.",
+    "physical": "Eine Power-Aktion kann ungespeicherte Arbeit verlieren. Tippen und Tastendrücke gehen an das, was auf dem Rechner den Fokus hat: eine Shell, ein BIOS-Menü, ein Anmeldebildschirm. Eine Person bestätigt jede Aktion und sieht den genauen Text oder die genauen Tasten, sofern du das für Power-Aktionen oder Tastendrücke nicht ausgeschaltet hast.",
     "readOnly": "Nur ein Administrator kann diese Schalter ändern.",
     "broken": "Die gespeicherten Schalter konnten nicht gelesen werden, daher gilt alles als aus. Speichere sie erneut, um sie zu reparieren.",
     "none": "Füge eine PiKVM-Verbindung hinzu, um ihre Schalter zu setzen.",
     "typing": "Tippen und Tastendrücke erlauben",
-    "typingHint": "Erlaubt einem Chat, darum zu bitten, Text zu tippen und Tasten zu drücken. Jede Anfrage wartet weiterhin auf deine Bestätigung.",
+    "typingHint": "Erlaubt einem Chat, darum zu bitten, Text zu tippen und Tasten zu drücken. Getippter Text wartet immer auf deine Bestätigung. Tastendrücke auch, sofern du das nicht ausgeschaltet hast.",
     "maxChars": "Längster Text",
     "maxCharsHint": "Zeichen in einem getippten Text. Standard {{default}}, höchstens 1000.",
     "maxCharsShape": "Gib eine ganze Zahl von 1 bis 1000 ein.",
     "hard": "Harte Power-Aktionen erlauben",
-    "hardHint": "Erlaubt einem Chat, ein erzwungenes Ausschalten, einen Hardware-Reset oder ein langes Drücken der Power-Taste anzufordern. Jede Anfrage wartet weiterhin auf deine Bestätigung.",
+    "hardHint": "Erlaubt einem Chat, ein erzwungenes Ausschalten, einen Hardware-Reset oder ein langes Drücken der Power-Taste anzufordern. Jede Anfrage wartet auf deine Bestätigung, sofern du das für Power-Aktionen nicht ausgeschaltet hast.",
     "save": "Schalter speichern",
     "saved": "Gespeichert. Der nächste Aufruf nutzt die neuen Schalter.",
     "neverTitle": "Nie verfügbar",
@@ -129,6 +129,31 @@
     "counts": "{{chars}} Zeichen, {{lines}} Zeile(n)",
     "typeEffect": "Der Text wird auf der Tastatur des Rechners getippt, in das, was gerade den Fokus hat. Ein Zeilenumbruch drückt Enter.",
     "keys": "Tasten, der Reihe nach",
-    "keysEffect": "Die Tasten werden in dieser Reihenfolge auf der Tastatur des Rechners gedrückt."
+    "keysEffect": "Die Tasten werden in dieser Reihenfolge auf der Tastatur des Rechners gedrückt.",
+    "title": "Ask before acting",
+    "intro": "By default a power action, a key press or a typed text waits for your confirmation. For the two kinds of action below you can choose not to be asked. The choice is yours alone, it applies to all your PiKVM connections, and only this page can change it.",
+    "tool": {
+      "power-action": "Power actions (on, off, reset)",
+      "send-key": "Key presses"
+    },
+    "ask": "Ask each time",
+    "skip": "Don't ask",
+    "line": {
+      "ask": "A card waits for your OK.",
+      "skip": "It runs at once."
+    },
+    "warnTitle": "Read this before you choose Don't ask.",
+    "warn": {
+      "power-action": "A chat can then switch this machine off or reset it at once, with no card to confirm, and unsaved work on it is lost. If an administrator allowed hard power actions, those run without asking too.",
+      "send-key": "A chat can then press keys such as Ctrl+Alt+Delete, Escape or Enter on this machine at once, with no card to confirm."
+    },
+    "textAlways": "Typed text always asks. It can enter a password or a command, so it has no Don't ask.",
+    "who": "Don't ask holds for your own chats and for messaging senders you paired with the bot. Everyone else is still asked: senders only on the allowlist, senders let in because the bot accepts anyone, scheduled runs and sub-agents.",
+    "needsWrite": "A connection set to Read only runs nothing, whatever you choose here.",
+    "audit": "Every run without asking is written to the log with the tool, the connection and the result. The typed text and the keys are not.",
+    "loading": "Reading your choice...",
+    "loadFailed": "Your choice could not be read. Reload the page to try again.",
+    "saveFailed": "Your choice could not be saved. The earlier choice is still in force.",
+    "saved": "Saved. The next call follows it."
   }
 }

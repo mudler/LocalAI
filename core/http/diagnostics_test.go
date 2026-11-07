@@ -60,7 +60,6 @@ var _ = Describe("Diagnostics public API isolation", Serial, func() {
 					}
 					app, err := application.New(config.WithContext(ctx), config.WithSystemState(state), config.WithDebug(debug), config.WithDataPath(filepath.Join(dir, "data")), config.DisableRuntimeSettings, config.DisableCollections, config.DisableMCP, config.DisableMetricsEndpoint, config.WithDisableStats(true), config.WithAPIAddress(publicListener.Addr().String()), func(c *config.ApplicationConfig) {
 						c.DiagnosticsRecorder = recorder
-						c.DisableLocalAIAssistant = true
 					})
 					Expect(err).NotTo(HaveOccurred())
 					defer func() { cancel(); Expect(app.Shutdown()).To(Succeed()) }()
@@ -125,7 +124,6 @@ var _ = Describe("Chat lazy fallback authentication", func() {
 		Expect(err).NotTo(HaveOccurred())
 		var events []diagnostics.Event
 		app, err := application.New(config.WithContext(ctx), config.WithSystemState(state), config.WithDataPath(filepath.Join(dir, "data")), config.DisableRuntimeSettings, config.DisableCollections, config.DisableMCP, config.DisableMetricsEndpoint, config.WithDisableStats(true), config.WithApiKeys([]string{"secret"}), func(c *config.ApplicationConfig) {
-			c.DisableLocalAIAssistant = true
 			c.DiagnosticsRecorder = diagnostics.NewRecorder(func(e diagnostics.Event) { events = append(events, e) })
 		})
 		Expect(err).NotTo(HaveOccurred())

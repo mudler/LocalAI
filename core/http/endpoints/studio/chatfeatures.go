@@ -101,6 +101,21 @@ func (h *Handlers) Regenerate(c echo.Context) error {
 	return c.JSON(http.StatusOK, schema.ChatsSendResponse{Started: res.Started, PendingID: res.PendingID})
 }
 
+// Resume goes on with the turn that failed.
+// @Summary Go on with the turn that failed.
+// @Description Starts a new turn that goes on from where the last one failed or was interrupted by a restart. The transcript stays as it is, with the messages, tool calls and results of the failed turn and the reason at its end; the model keeps its own state, so a tool call that has its result is not made again. Messages that wait for the chat go first. When the chat is not at a failed or interrupted turn, or a turn runs, nothing starts and started is false, so a second click is harmless.
+// @Tags chats
+// @Param id path string true "conversation id"
+// @Success 200 {object} schema.ChatsSendResponse "Whether a turn started"
+// @Router /api/chats/{id}/resume [post]
+func (h *Handlers) Resume(c echo.Context) error {
+	res, err := h.svc.Resume(c.Request().Context(), userID(c), c.Param("id"))
+	if err != nil {
+		return failFor(c, err)
+	}
+	return c.JSON(http.StatusOK, schema.ChatsSendResponse{Started: res.Started, PendingID: res.PendingID})
+}
+
 // EditMessage edits a sent message and runs it again.
 // @Summary Edit a message you sent and run the chat again from it.
 // @Description Replaces the text of your message with the given sequence number, removes everything after it, and starts a new turn. 409 while a turn runs; 400 when the line is not one of your messages.

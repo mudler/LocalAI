@@ -61,7 +61,11 @@ var _ = Describe("the switchable groups of built-in tools", func() {
 		for g, names := range groups {
 			Expect(svc.SetBuiltinsOff(context.Background(), alice, id, []string{g})).To(Succeed())
 			turnPrompt(svc, h, id)
-			Expect(h.ToolNames(id)).To(ConsistOf(without(all, names)), "group %s", g)
+			gone := names
+			if g == builtins.GroupSubAgents {
+				gone = append(slices.Clone(names), "wait_agents") // it follows the switch of spawn_agent
+			}
+			Expect(h.ToolNames(id)).To(ConsistOf(without(all, gone)), "group %s", g)
 		}
 		Expect(svc.SetBuiltinsOff(context.Background(), alice, id, nil)).To(Succeed())
 		turnPrompt(svc, h, id)
