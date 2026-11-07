@@ -7,6 +7,8 @@ import ActionMenu from '../components/ActionMenu'
 import ConfirmDialog from '../components/ConfirmDialog'
 import OAuthConnection from '../components/connectors/OAuthConnection'
 import AddOAuthConnection from '../components/connectors/AddOAuthConnection'
+import OAuthNotices from '../components/connectors/OAuthNotices'
+import ConnectionsTabs from '../components/connectors/ConnectionsTabs'
 import { AppIcon } from '../components/addons/AddonBits'
 import ShareDialog from '../components/share/ShareDialog'
 import { SharedByBadge } from '../components/share/ShareBadges'
@@ -17,6 +19,7 @@ import { useListedAddons } from '../addons/useAddonRegistry'
 import { chatAgentsApi, chatConnectorsApi, sharesApi } from '../utils/api'
 import { bindingAddress, connectionLine, duplicateOf, groupConnectors, rowState } from '../utils/chatConnectors'
 import { isOAuthBinding } from '../utils/connectorOAuth'
+import { forTab, tabOfKindParam } from '../utils/connectionsTabs'
 import { useAddonIcons } from '../hooks/useAddonIcons'
 import { useOAuthConnections } from '../hooks/useOAuthConnections'
 import '../components/addons/addons.css'
@@ -95,7 +98,11 @@ export default function ChatConnectors() {
     setError('')
     try { await fn(); await load() } catch (e) { fail(e) }
   }
-  const { groups, waiting } = groupConnectors(kinds, items)
+  // Accounts (kinds that need no agent) or Messaging (bots that answer as an
+  // agent). ?tab= picks one; an older ?kind=<kind> link opens the tab of its kind.
+  const tab = params.get('tab') === 'messaging' ? 'messaging' : (params.get('tab') ? 'accounts' : (tabOfKindParam(location.search, kinds) || 'accounts'))
+  const all = groupConnectors(kinds, items)
+  const { groups, waiting } = forTab(tab, all.groups, all.waiting, kinds)
   const loading = kinds === null && !off && !loadError
   const openShare = async (c) => {
     setError('')
@@ -170,10 +177,10 @@ export default function ChatConnectors() {
   }
 
   return (
-    <Page className="cn-page" data-testid="chat-connectors-page">
+    <Page className="cn-page" data-testid="chat-connectors-page" data-tab={tab}>
       <PageHeader
         title={t('connectorsPage.title')}
-        supporting={t('connectorsPage.intro')}
+        supporting={t(tab === 'accounts' ? 'connectorsPage.introAccounts' : 'connectorsPage.intro')}
         actions={groups.some((g) => g.newHref) && !off && !loadError ? (
           <>
             <Button variant="primary" icon="plus" iconEnd="chevron-down" aria-haspopup="menu" aria-expanded={Boolean(menuAt)} data-testid="connector-new"
@@ -186,6 +193,8 @@ export default function ChatConnectors() {
         ) : null}
       />
 
+      <ConnectionsTabs current={tab} />
+
       {error && (
         <Callout tone="error" role="alert" className="cn-gap"
           actions={<Button variant="ghost" size="sm" onClick={() => setError('')}>{t('errors.dismiss')}</Button>}>
@@ -193,28 +202,16 @@ export default function ChatConnectors() {
         </Callout>
       )}
 
-      {returned && (
-        <Callout tone={returned.outcome === 'ok' ? 'ok' : (returned.outcome === 'denied' ? 'info' : 'error')} role={returned.outcome === 'error' ? 'alert' : 'status'}
-          className="cn-gap" testId="oauth-returned" data-outcome={returned.outcome}
-          actions={<Button variant="ghost" size="sm" onClick={() => setReturned(null)}>{t('errors.dismiss')}</Button>}>
-          {returned.outcome === 'error' ? t(`connectorsPage.oauth.returned.error.${returned.classKey}`) : t(`connectorsPage.oauth.returned.${returned.outcome}`)}
-        </Callout>
-      )}
-      {notice && (
-        <Callout tone={notice.tone} role="status" className="cn-gap" testId="oauth-notice" data-tone={notice.tone}
-          actions={<Button variant="ghost" size="sm" onClick={() => setNotice(null)}>{t('errors.dismiss')}</Button>}>
-          {notice.text}
-        </Callout>
-      )}
+      <OAuthNotices returned={returned} setReturned={setReturned} notice={notice} setNotice={setNotice} />
 
       {loading && <SkeletonRows count={3} />}
       {loadError && <LoadError title={t('connectorsPage.loadFailed')} error={loadError} onRetry={load} />}
       {off && <EmptyState variant="unavailable" title={off} testId="connectors-off" />}
 
-      {kinds !== null && !off && !loadError && groups.length === 0 && (
+      {kinds !== null && !off && !loadError && groups.length === 0 && waiting.length === 0 && (
         <EmptyState
-          title={t('connectorsPage.noAddon')}
-          body={t('connectorsPage.noAddonHint')}
+          title={t(all.groups.length === 0 ? 'connectorsPage.noAddon' : tab === 'accounts' ? 'connectorsPage.noAddonAccounts' : 'connectorsPage.noAddonMessaging')}
+          body={t(all.groups.length === 0 ? 'connectorsPage.noAddonHint' : tab === 'accounts' ? 'connectorsPage.noAddonAccountsHint' : 'connectorsPage.noAddonMessagingHint')}
           actions={<Button variant="primary" icon="puzzle" to="/app/addons">{t('connectorsPage.gallery')}</Button>}
           testId="no-connector-addon"
         />
@@ -317,12 +314,6 @@ export default function ChatConnectors() {
         onConfirm={disconnect}
         onCancel={() => { if (!disconnecting) setLeaving(null) }}
       />
-
-      <nav className="cn-related" aria-label={t('mcpPage.related')}>
-        <span className="cn-eyebrow">{t('mcpPage.related')}</span>
-        <Link to="/app/mcp-connectors">{t('mcpPage.title')}</Link>
-        <Link to="/app/chats">{t('mcpPage.chats')}</Link>
-      </nav>
     </Page>
   )
 }

@@ -21,7 +21,7 @@ test.describe('Navigation', () => {
     await expect(models.locator('.nav-label')).toHaveText('Models')
   })
 
-  test('the sidebar has Files, Agents, MCP connectors, Knowledge, Skills, Models and Add-ons, then the recent chats; no Chats entry, no Settings and no Create tier', async ({ page }) => {
+  test('the sidebar has Files, Agents, Connections, Knowledge, Skills, Models and Add-ons, then the recent chats; no Chats entry, no Settings and no Create tier', async ({ page }) => {
     await stubAddonRoutes(page)
     await page.goto('/app')
     await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
@@ -29,9 +29,14 @@ test.describe('Navigation', () => {
     await expect(page.locator('.sidebar-nav a.nav-item[href="/app/chats"]')).toHaveCount(0)
     await expect(page.getByTestId('sidebar-chats')).toBeVisible()
     await expect(page.locator('.sidebar-nav a.nav-item[href="/app/chats/all"]')).toBeVisible()
-    for (const href of ['/app/files', '/app/agents', '/app/mcp-connectors', '/app/collections', '/app/skills', '/app/models', '/app/addons']) {
+    for (const href of ['/app/files', '/app/agents', '/app/chats/connectors', '/app/collections', '/app/skills', '/app/models', '/app/addons']) {
       await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`).first()).toBeVisible()
     }
+    // One item for accounts, messaging and MCP servers, right after Agents.
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/mcp-connectors"]')).toHaveCount(0)
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/chats/connectors"] .nav-label')).toHaveText('Connections')
+    const hrefs = await page.locator('.sidebar-nav a.nav-item').evaluateAll(els => els.map(e => e.getAttribute('href')))
+    expect(hrefs.indexOf('/app/chats/connectors')).toBe(hrefs.indexOf('/app/agents') + 1)
     // Settings lives under the Operate hub, not in the sidebar.
     await expect(page.locator('.sidebar-nav a.nav-item[href="/app/settings"]')).toHaveCount(0)
     await page.locator('.sidebar-nav a.nav-item', { hasText: 'Administration' }).click()
@@ -73,21 +78,26 @@ test.describe('Navigation', () => {
     await expect(page).toHaveURL(/\/app\/import-model$/)
   })
 
-  test('Agents, MCP connectors and Knowledge are sidebar items, and their pages light them up', async ({ page }) => {
+  test('Agents, Connections and Knowledge are sidebar items, and their pages light them up', async ({ page }) => {
     await page.goto('/app')
     const item = (href) => page.locator(`.sidebar-nav a.nav-item[href="${href}"]`)
     await item('/app/agents').click()
     await expect(page).toHaveURL(/\/app\/agents$/)
     await expect(item('/app/agents')).toHaveClass(/active/)
-    // Triggers and the messaging connectors belong to the agents.
-    for (const path of ['/app/triggers', '/app/chats/connectors']) {
+    // Triggers belong to the agents.
+    await page.goto('/app/triggers')
+    await expect(item('/app/agents')).toHaveClass(/active/)
+    await expect(item('/app/chats/all')).not.toHaveClass(/active/)
+    // Connections are lit on both of their routes, and Agents are not.
+    for (const path of ['/app/chats/connectors', '/app/chats/connectors?tab=messaging', '/app/mcp-connectors']) {
       await page.goto(path)
-      await expect(item('/app/agents')).toHaveClass(/active/)
+      await expect(item('/app/chats/connectors')).toHaveClass(/active/)
+      await expect(item('/app/agents')).not.toHaveClass(/active/)
       await expect(item('/app/chats/all')).not.toHaveClass(/active/)
     }
-    await item('/app/mcp-connectors').click()
-    await expect(page.getByTestId('mcp-connectors-page')).toBeVisible()
-    await expect(item('/app/mcp-connectors')).toHaveClass(/active/)
+    await item('/app/agents').click()
+    await item('/app/chats/connectors').click()
+    await expect(page.getByTestId('chat-connectors-page')).toBeVisible()
     await item('/app/collections').click()
     await expect(page).toHaveURL(/\/app\/collections$/)
     await expect(item('/app/collections')).toHaveClass(/active/)
@@ -101,6 +111,7 @@ test.describe('Navigation', () => {
     await expect(page.getByTestId('mcp-connectors-page')).toBeVisible()
     await page.goto('/app/chats/connectors')
     await expect(page.getByRole('tab', { name: 'MCP server' })).toHaveCount(0)
+    await expect(page.getByTestId('connections-tab-mcp')).toBeVisible()
   })
 
   test('Operate is a single entry that opens the Operate hub', async ({ page }) => {

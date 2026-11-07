@@ -68,7 +68,6 @@
   "mcpPage": {
     "title": "Konektor MCP",
     "supporting": "Hubungkan server MCP untuk memberi chat dan agen Anda lebih banyak alat, seperti pencarian atau API Anda sendiri.",
-    "family": "Bot untuk Telegram atau Slack adalah <go>konektor pesan</go>.",
     "related": "Terkait",
     "chats": "Chat",
     "add": "Tambah konektor",
@@ -338,6 +337,9 @@
         "added": "{{name}} ditambahkan. Pilih Hubungkan untuk masuk ke akun Anda.",
         "empty": "Belum ada koneksi. Tambahkan satu, lalu hubungkan akun Anda.",
         "manage": "Ubah koneksi"
+      },
+      "login": {
+        "hint": "Nama yang Anda kenali, seperti Kerja atau Pribadi. Setelah itu Anda menuju layanan untuk masuk."
       }
     },
     "duplicate": {
@@ -364,7 +366,13 @@
       "text": "Orang lain mengizinkan Anda memakai koneksi ini di obrolan dan agen Anda. Hanya pemiliknya yang dapat mengubahnya.",
       "on": "Mendengarkan",
       "off": "Mati"
-    }
+    },
+    "title": "Koneksi",
+    "introAccounts": "Akun yang Anda hubungkan sekali agar obrolan dan agen Anda dapat memakainya sebagai alat. Setiap akun berasal dari add-on.",
+    "noAddonAccounts": "Belum ada add-on akun yang terpasang.",
+    "noAddonAccountsHint": "Add-on akun menghubungkan sebuah layanan ke obrolan dan agen Anda. Pasang satu dari galeri add-on untuk menambahkan koneksi.",
+    "noAddonMessaging": "Belum ada add-on pesan yang terpasang.",
+    "noAddonMessagingHint": "Add-on pesan membawa pesan dari platform obrolan. Pasang satu dari galeri add-on untuk menambahkan tautan."
   },
   "tools": {
     "commands": {
@@ -1294,5 +1302,11 @@
   "subAgents": {
     "waiting": "Menunggu: {{what}}",
     "looping": "Berulang"
+  },
+  "connectionsTabs": {
+    "label": "Bagian koneksi",
+    "accounts": "Akun",
+    "messaging": "Pesan",
+    "mcp": "Server MCP"
   }
 }

@@ -311,7 +311,7 @@
     "proposalsBody": "A model proposed a change. Nothing is saved until you answer."
   },
   "connectorsPage": {
-    "title": "Connectors",
+    "title": "Connections",
     "empty": "No connectors yet.",
     "agentOf": "Agent: {{name}}",
     "accepts": "Accepts: {{who}}",
@@ -399,6 +399,9 @@
         "added": "{{name}} is added. Select Connect to log in to your account.",
         "empty": "No connections yet. Add one, then connect your account.",
         "manage": "Edit connections"
+      },
+      "login": {
+        "hint": "A name you recognize, such as Work or Personal. You go to the service to log in next."
       }
     },
     "duplicate": {
@@ -425,7 +428,12 @@
       "text": "Other people let you use these connections in your chats and agents. Only their owner can change them.",
       "on": "Listening",
       "off": "Off"
-    }
+    },
+    "introAccounts": "Accounts you connect once so your chats and agents can use them as tools. Each account comes from an add-on.",
+    "noAddonAccounts": "No account add-on is installed.",
+    "noAddonAccountsHint": "An account add-on connects a service to your chats and agents. Install one from the add-on gallery to add a connection.",
+    "noAddonMessaging": "No messaging add-on is installed.",
+    "noAddonMessagingHint": "A messaging add-on carries the messages of a chat platform. Install one from the add-on gallery to add a binding."
   },
   "conversionPage": {
     "title": "Converted from the old chat",
@@ -675,7 +683,6 @@
   "mcpPage": {
     "title": "MCP connectors",
     "supporting": "Connect MCP servers to give your chats and agents more tools, such as search or your own APIs.",
-    "family": "Bots for Telegram or Slack are <go>messaging connectors</go>.",
     "related": "Related",
     "chats": "Chats",
     "add": "Add connector",
@@ -1614,5 +1621,11 @@
       "waiting": "The change waits for your confirmation on the Add-ons page",
       "failed": "The provider could not forget: {{message}}"
     }
+  },
+  "connectionsTabs": {
+    "label": "Connections sections",
+    "accounts": "Accounts",
+    "messaging": "Messaging",
+    "mcp": "MCP servers"
   }
 }

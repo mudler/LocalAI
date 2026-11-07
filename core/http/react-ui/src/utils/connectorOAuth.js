@@ -176,3 +176,17 @@ export function formatWhen(value, language) {
 export function reconnectConnections(addon) {
   return (addon?.connections || []).filter((c) => c.connection_state === 'reconnect_needed')
 }
+
+// The connections of one kind that log in with OAuth, from a list of the
+// person's connections. The kind is { kind, addon }; a connection that names no
+// add-on (an older record) matches on the kind alone.
+export function loginBindings(bindings, kind) {
+  return (bindings || []).filter((b) => isOAuthBinding(b) && b.kind === kind?.kind && (!b.addon || !kind?.addon || b.addon === kind.addon))
+}
+
+// Whether the list shows that no administrator approved the add-on's client:
+// a connection without a login says so (has_client false). A person with no
+// connection yet cannot tell from the list; the start then answers needs_approval.
+export function clientMissing(oauthBindings) {
+  return (oauthBindings || []).some((b) => b?.oauth && b.oauth.has_client === false)
+}

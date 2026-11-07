@@ -640,7 +640,7 @@ even when the service grants more (incremental authorization). A login that
 lacks a required scope fails with `scopes_missing`.
 
 The apps list (`GET /api/addons/apps`) gives an add-on with an `oauth2` slot an
-`oauth` object with `requiredScopes` and `optionalScopes`, so the Connectors
+`oauth` object with `requiredScopes` and `optionalScopes`, so the Connections
 page can offer the optional scopes when a person connects, and the add-on's
 Settings tab shows the administrator the form that approves the login. For an
 administrator, its `admin` object also has `sourceId` and `official` (the
@@ -648,6 +648,14 @@ official library, with the signature checked); the form shows the
 untrusted-source warning above the approval when `official` is not true. The
 addresses of the login are not in the list; an administrator reads them with
 the OAuth client (see [the login routes](#the-login-routes)).
+
+The list does not say whether an administrator approved the client. A
+connection's `oauth.has_client` does, and a start with no approved client is a
+`409 needs_approval`. An add-on page that logs in (the Gmail and Google Drive
+pages) draws the host's login component, `sdk.ui.ConnectionLogin`: it adds the
+connection, starts the login with the page as `return_to`, shows the state of each
+connection, and offers an administrator a link to the add-on's Settings tab while
+there is no approved client.
 
 A request also carries `Request.GrantedScopes`, the scopes the host holds for
 the person's login. The host sets it; it is not a secret, and the host drops it
@@ -661,7 +669,7 @@ built on the Go protocol package of this repository returns
 `contract.ErrCredentialRejected` (wrapped or not) from a handler, and the
 package sends this answer. When the
 connection has expired or was revoked, the model gets the code
-`reconnect_needed` and a note to tell the person to reconnect on the Connectors
+`reconnect_needed` and a note to tell the person to reconnect on the Connections
 page. The model is told not to repeat the call and not to report an outage.
 
 #### Where the host keeps an OAuth login
@@ -1376,8 +1384,8 @@ Every add-on has an icon. The page picks it in this order:
 
 The page never loads an icon from another host.
 
-The first-party add-ons for services (Slack, Telegram, Discord, GitHub, Home
-Assistant and Jellyfin) use the logo mark of the service on their tile, taken
+The first-party add-ons for services (Slack, Telegram, Discord, GitHub, Gmail,
+Google Drive, Home Assistant and Jellyfin) use the logo mark of the service on their tile, taken
 from [Simple Icons](https://simpleicons.org) (CC0 data) and drawn in white on
 the add-on colour. The mark identifies the service the add-on connects to. The
 trademark stays with its owner, and the mark does not mean that the owner made
@@ -3107,7 +3115,7 @@ The manifest declares the capability. It needs no tool and no `service` flag:
 | `kinds[].title`, `description`, `senderHint` | Plain text for people, with the bounds of the UI texts. |
 | `kinds[].setup` | Optional, feature level 4. What the person needs before a binding of this kind works, as a short phrase that completes the sentence "Needs ...", such as `a bot token from @BotFather`. See [Setup text](#setup-text). |
 | `kinds[].delivery` | `pull`: the host asks for updates (long polling). `push`: the add-on calls the host operation `connector.inbound`. |
-| `kinds[].page` | Optional. The add-on page that adds and edits bindings; it must be a declared page. The Connectors page links to it. |
+| `kinds[].page` | Optional. The add-on page that adds and edits bindings; it must be a declared page. The Connections page links to it. A kind that logs in with OAuth also makes its connections on this page, with the host's login (see [OAuth 2.0 credentials](#oauth-20-credentials)). |
 | `kinds[].agentOptional` | Optional, manifest `api` 2. `true` lets a binding of the kind have no agent. Such a binding is credentials only: it holds the token, the resource list and the write mode, and the host never delivers a message to it, polls for it, answers from it or authorizes a sender on it. The host refuses an empty agent together with listening, accepting senders, an allowlist, a notification chat, talk-back channels, permissions, pairing or trigger approval. Without the key every binding of the kind needs an agent. |
 | `kinds[].toolOnly` | Optional, feature level 5. `true` marks a kind whose bindings only serve tools: one binding is used by many agents, each through its own set of connections. It implies `agentOptional`. A binding of the kind never has an agent, never listens and never accepts senders: the host clears the agent on every save and read, and refuses `enabled` and `acceptAny`. The connector list returns `used_by`, the number of the person's saved agents that hold the binding, and the kinds list returns `tool_only`. A manifest that uses it must declare `featureLevel: 5`. |
 | `kinds[].wildcardResources` | Optional. `true` lets a binding of the kind list `owner/*` (every resource of one owner) or `*` (every resource the credential reaches) in its resources. The host matches them before the add-on is called, without regard to case and on whole names; a star anywhere else is refused, `*` must be the only entry, and saving `*` needs the confirmation `confirm_any_resource` = `allow any resource`. Without the key every entry is an exact name. |

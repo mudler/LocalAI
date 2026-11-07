@@ -68,7 +68,6 @@
   "mcpPage": {
     "title": "MCP-Konnektoren",
     "supporting": "Verbinden Sie MCP-Server, um Ihren Chats und Agenten mehr Werkzeuge zu geben, etwa Suche oder Ihre eigenen APIs.",
-    "family": "Bots für Telegram oder Slack sind <go>Messaging-Konnektoren</go>.",
     "related": "Verwandt",
     "chats": "Chats",
     "add": "Konnektor hinzufügen",
@@ -338,6 +337,9 @@
         "added": "{{name}} wurde hinzugefügt. Wähle Verbinden, um dich bei deinem Konto anzumelden.",
         "empty": "Noch keine Verbindungen. Füge eine hinzu und verbinde dann dein Konto.",
         "manage": "Verbindungen bearbeiten"
+      },
+      "login": {
+        "hint": "Ein Name, den du wiedererkennst, etwa Arbeit oder Privat. Danach gehst du zum Dienst, um dich anzumelden."
       }
     },
     "duplicate": {
@@ -364,7 +366,13 @@
       "text": "Andere Personen lassen dich diese Verbindungen in deinen Chats und Agenten nutzen. Nur die Eigentümer können sie ändern.",
       "on": "Hört zu",
       "off": "Aus"
-    }
+    },
+    "title": "Verbindungen",
+    "introAccounts": "Konten, die du einmal verbindest, damit deine Chats und Agenten sie als Werkzeuge nutzen können. Jedes Konto kommt von einem Add-on.",
+    "noAddonAccounts": "Es ist kein Konto-Add-on installiert.",
+    "noAddonAccountsHint": "Ein Konto-Add-on verbindet einen Dienst mit deinen Chats und Agenten. Installiere eines aus der Add-on-Galerie, um eine Verbindung hinzuzufügen.",
+    "noAddonMessaging": "Es ist kein Messaging-Add-on installiert.",
+    "noAddonMessagingHint": "Ein Messaging-Add-on transportiert die Nachrichten einer Chat-Plattform. Installiere eines aus der Add-on-Galerie, um eine Bindung hinzuzufügen."
   },
   "tools": {
     "commands": {
@@ -1294,5 +1302,11 @@
   "subAgents": {
     "waiting": "Wartet auf: {{what}}",
     "looping": "In Schleife"
+  },
+  "connectionsTabs": {
+    "label": "Bereiche von Verbindungen",
+    "accounts": "Konten",
+    "messaging": "Messaging",
+    "mcp": "MCP-Server"
   }
 }

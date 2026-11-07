@@ -68,7 +68,6 @@
   "mcpPage": {
     "title": "MCP 连接器",
     "supporting": "连接 MCP 服务器，为你的对话和智能体提供更多工具，例如搜索或你自己的 API。",
-    "family": "Telegram 或 Slack 机器人属于<go>消息连接器</go>。",
     "related": "相关",
     "chats": "对话",
     "add": "添加连接器",
@@ -338,6 +337,9 @@
         "added": "已添加 {{name}}。选择“连接”登录你的账户。",
         "empty": "还没有连接。请添加一个，然后连接你的账户。",
         "manage": "编辑连接"
+      },
+      "login": {
+        "hint": "取一个你认得出的名字，例如“工作”或“个人”。接下来你会前往该服务登录。"
       }
     },
     "duplicate": {
@@ -364,7 +366,13 @@
       "text": "其他人允许你在自己的聊天和智能体中使用这些连接。只有所有者可以修改它们。",
       "on": "监听中",
       "off": "已关闭"
-    }
+    },
+    "title": "连接",
+    "introAccounts": "只需连接一次，聊天和智能体就能把这些账号当作工具使用。每个账号都来自一个插件。",
+    "noAddonAccounts": "尚未安装账号插件。",
+    "noAddonAccountsHint": "账号插件把一个服务连接到你的聊天和智能体。从插件库安装一个，即可添加连接。",
+    "noAddonMessaging": "尚未安装消息插件。",
+    "noAddonMessagingHint": "消息插件负责传递聊天平台的消息。从插件库安装一个，即可添加绑定。"
   },
   "tools": {
     "commands": {
@@ -1294,5 +1302,11 @@
   "subAgents": {
     "waiting": "正在等待：{{what}}",
     "looping": "循环中"
+  },
+  "connectionsTabs": {
+    "label": "连接的分区",
+    "accounts": "账号",
+    "messaging": "消息",
+    "mcp": "MCP 服务器"
   }
 }

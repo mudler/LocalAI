@@ -10,7 +10,7 @@ import React, { useState } from 'react'
 import { renderToString } from 'react-dom/server'
 import {
   canSaveClient, clientBody, clientStatus, formatWhen, isOAuthBinding, needsSecret, oauthErrorKey, oauthErrorText, oauthRowState,
-  readOAuthReturn, reasonKey, reconnectConnections, REASONS, RETURN_CLASSES, returnPath, scopeChoices, staleDigest, startBody, newConnectionBody, canAddConnection,
+  readOAuthReturn, reasonKey, loginBindings, clientMissing, reconnectConnections, REASONS, RETURN_CLASSES, returnPath, scopeChoices, staleDigest, startBody, newConnectionBody, canAddConnection,
 } from '../../src/utils/connectorOAuth.js'
 import { hasAddonSettings, hasOAuthLogin } from '../../src/addons/hostControls.js'
 
@@ -229,4 +229,20 @@ test('oauth: the return classes of the page are the error classes of the callbac
   const server = [...block.matchAll(/studiosvc\.(Login\w+):/g)].map((m) => valueOf(m[1]))
   assert.ok(server.length > 0 && server.every(Boolean), 'no error class found in the Go source')
   assert.deepEqual([...RETURN_CLASSES].sort(), server.sort())
+})
+
+test('oauth login on an add-on page: the connections of the kind that log in, and whether the client is missing', () => {
+  const kind = { kind: 'providera', addon: 'providera' }
+  const list = [
+    binding({ state: 'not_connected', has_client: true }),
+    { ...binding({ state: 'connected' }), id: 'b2', kind: 'other', addon: 'other' },
+    { id: 'b3', name: 'Token', kind: 'providera', addon: 'providera', has_token: true },
+    { ...binding({ state: 'connected' }), id: 'b4', addon: undefined },
+  ]
+  assert.deepEqual(loginBindings(list, kind).map((b) => b.id), ['b1', 'b4'])
+  assert.deepEqual(loginBindings(null, kind), [])
+  assert.equal(clientMissing(loginBindings(list, kind)), false)
+  assert.equal(clientMissing([binding({ state: 'needs_approval', has_client: false })]), true)
+  // No connection yet: the list cannot say, so the start answers needs_approval.
+  assert.equal(clientMissing([]), false)
 })

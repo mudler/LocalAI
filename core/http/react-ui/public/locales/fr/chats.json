@@ -68,7 +68,6 @@
   "mcpPage": {
     "title": "Connecteurs MCP",
     "supporting": "Connectez des serveurs MCP pour donner plus d'outils à vos chats et à vos agents, comme la recherche ou vos propres API.",
-    "family": "Les bots pour Telegram ou Slack sont des <go>connecteurs de messagerie</go>.",
     "related": "Voir aussi",
     "chats": "Chats",
     "add": "Ajouter un connecteur",
@@ -338,6 +337,9 @@
         "added": "{{name}} est ajoutée. Sélectionnez Connecter pour vous connecter à votre compte.",
         "empty": "Aucune connexion pour l'instant. Ajoutez-en une, puis connectez votre compte.",
         "manage": "Modifier les connexions"
+      },
+      "login": {
+        "hint": "Un nom que vous reconnaissez, comme Travail ou Perso. Vous irez ensuite sur le service pour vous connecter."
       }
     },
     "duplicate": {
@@ -364,7 +366,13 @@
       "text": "D'autres personnes vous permettent d'utiliser ces connexions dans vos conversations et vos agents. Seul leur propriétaire peut les modifier.",
       "on": "À l'écoute",
       "off": "Désactivée"
-    }
+    },
+    "title": "Connexions",
+    "introAccounts": "Des comptes que vous connectez une fois pour que vos chats et vos agents les utilisent comme outils. Chaque compte vient d’un module.",
+    "noAddonAccounts": "Aucun module de comptes n’est installé.",
+    "noAddonAccountsHint": "Un module de comptes relie un service à vos chats et à vos agents. Installez-en un depuis la galerie de modules pour ajouter une connexion.",
+    "noAddonMessaging": "Aucun module de messagerie n’est installé.",
+    "noAddonMessagingHint": "Un module de messagerie transporte les messages d’une plateforme de discussion. Installez-en un depuis la galerie de modules pour ajouter une liaison."
   },
   "tools": {
     "commands": {
@@ -1294,5 +1302,11 @@
   "subAgents": {
     "waiting": "En attente de : {{what}}",
     "looping": "En boucle"
+  },
+  "connectionsTabs": {
+    "label": "Sections des connexions",
+    "accounts": "Comptes",
+    "messaging": "Messagerie",
+    "mcp": "Serveurs MCP"
   }
 }

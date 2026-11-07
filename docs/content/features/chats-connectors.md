@@ -5,9 +5,15 @@ weight = 23
 url = "/features/chats-connectors/"
 +++
 
-The Connectors page of the [chats](/features/chats/) (`/app/chats/connectors`, under **Agents** in the sidebar) lists the messaging bindings you made, and the MCP servers have a page of their own (**MCP connectors** in the sidebar, `/app/mcp-connectors`):
+**Connections** is an item of its own in the sidebar, right after **Agents**. It has three tabs at the top of its pages:
 
-- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram), the [Slack add-on](#slack) or the [Discord add-on](#discord) (the [GitHub add-on](#github), the [Google Drive add-on](#google-drive), the [Gmail add-on](#gmail), the [Jellyfin add-on](#jellyfin) and the [Mail add-on](#mail-imap-and-smtp) hold a token or a login for your agents instead of carrying messages). This is the first half of this page.
+- **Accounts** (`/app/chats/connectors`, the tab it opens on) lists the accounts and tokens that your agents use as tools, such as the Google Drive, Gmail, GitHub, Jellyfin and Mail connections. These are the kinds that need no agent.
+- **Messaging** (`/app/chats/connectors?tab=messaging`) lists the bots that answer messages as one of your agents, such as Telegram, Slack and Discord. An older link with `?kind=<kind>` opens the tab that holds the kind.
+- **MCP servers** (`/app/mcp-connectors`) is the page of your [MCP servers](#mcp-servers).
+
+The sidebar item is lit on all three tabs. The addresses did not change, so old links keep working.
+
+- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram), the [Slack add-on](#slack) or the [Discord add-on](#discord) (the [GitHub add-on](#github), the [Google Drive add-on](#google-drive), the [Gmail add-on](#gmail), the [Jellyfin add-on](#jellyfin) and the [Mail add-on](#mail-imap-and-smtp) hold a token or a login for your agents instead of carrying messages). These are the first half of this page.
 - An **MCP server** gives your chats and agents more tools. See [MCP servers](#mcp-servers).
 
 ## Connector add-ons
@@ -19,7 +25,7 @@ platform's API is spoken by an add-on that declares the `connector` capability (
 [Connector add-ons]({{% relref "features/addons" %}}#connector-add-ons)). Install the add-on
 from the add-on gallery, and its page adds and edits the bindings of its platform.
 
-The Connectors page groups your bindings by add-on and links each group to the
+The Accounts and Messaging tabs group your bindings by add-on and links each group to the
 add-on's own page. Each row has a state chip (**Running**, **Off** or **Needs attention**), the
 agent and who may write to it, and a switch that applies at once. **New connection** lists the installed
 platforms and opens the add form of the one you pick. With no connector add-on installed, the page says so and links
@@ -100,7 +106,7 @@ The [LocalAI client tools]({{% relref "features/localai-assistant#tool-groups" %
 2. Make a bot with `@BotFather` in Telegram and copy its token.
 3. Make an agent that names a model. A connector has no model of its own, so
    an agent without a model cannot be bound.
-4. On the Connectors page open **Telegram**, and make a binding: a name, the token,
+4. On the **Messaging** tab open **Telegram**, and make a binding: a name, the token,
    the agent, and who may use it.
 5. Save. LocalAI asks Telegram, through the add-on, which bot the token belongs to.
    A token that Telegram refuses is not saved: the request is a `400` and the page
@@ -235,7 +241,7 @@ It logs in to Google with OAuth 2.0 (see [Connections that log in with OAuth](#c
 ### Connect an account
 
 1. Install the **Google Drive** add-on from the add-on gallery.
-2. On the **Connectors** page choose **Add a connection** in the Google Drive group, name it, and select **Connect**. Tick **Also allow** for the write access if the agent may change files. Without it the connection reads only, and a write tool answers with a message that names the missing access, so the model can ask you to reconnect.
+2. On the Google Drive page select **Connect with Google**, name the connection, and select **Connect with Google** again. Your browser goes to Google and returns to the Google Drive page. (The **Accounts** tab has the same **Add a connection** in the Google Drive group.) Tick **Also allow** for the write access if the agent may change files. Without it the connection reads only, and a write tool answers with a message that names the missing access, so the model can ask you to reconnect.
 3. Select **Edit connections**. On the add-on page paste the folders the agent may use, one folder ID or folder address per line (at most 50), and choose the write mode. The ID is the part of the address of a folder after `/folders/`; use `root` for the top of My Drive. The ID of a shared drive also works. IDs are case sensitive. Press **Test** to see the account the connection belongs to.
 
 The list is checked by LocalAI before the add-on is called, so an agent is refused any folder that is not on it. The add-on then checks that each file it reads or changes lies inside that folder, at any depth, and refuses a file outside it. A shortcut is not followed. A search can come back with fewer items than asked, because files outside the folder are left out of each page.
@@ -300,7 +306,7 @@ The add-on asks for no other scope. In particular it does not use `gmail.modify`
 ### Connect an account
 
 1. Install the **Gmail** add-on from the add-on gallery.
-2. On the **Connectors** page choose **Add a connection** in the Gmail group, name it, and select **Connect**. Tick **Also allow** for the write access if the agent may save and send drafts.
+2. On the Gmail page select **Connect with Google**, name the connection, and select **Connect with Google** again. Your browser goes to Google and returns to the Gmail page. (The **Accounts** tab has the same **Add a connection** in the Gmail group.) Tick **Also allow** for the write access if the agent may save and send drafts.
 3. Select **Edit connections**. On the add-on page list the labels the agent may use, one label per line (at most 50), and choose the write mode. A label is written by its name, for example `Work`, or by its ID, such as `Label_12`; system labels are `INBOX`, `STARRED` and so on. Write a name with spaces with dashes: `Private-notes`. The case does not matter. The word `ALL` gives the whole mailbox. An empty list gives nothing. Press **Test** to see the account the connection belongs to.
 
 The list is checked by LocalAI before the add-on is called, so an agent is refused any label that is not on it. The add-on then checks that each message it returns carries the label, and refuses one that does not; a thread shows only the messages with the label; a search is made inside the label. Spam and trash are never searched. A label that does not exist is refused, so a typo never widens the reach. With `ALL` there is no such check.
@@ -1728,19 +1734,30 @@ own account at the service, and LocalAI keeps the login and renews it.
 
 ### Connect an account
 
-On the **Connectors** page, the group of an add-on that logs in has **Add a
+On the **Accounts** tab, the group of an add-on that logs in has **Add a
 connection**. Give the connection a name you recognize, such as Work or
 Personal, and select **Add**. The new connection appears with **Connect**. A
 person can have several connections of one add-on, each with its own name
 and account. **Edit connections** opens the add-on's own page, where you
 choose the resources and the write mode of each connection.
 
+The add-on's own page can do the same. Its **Connect with Google** button (for
+the Gmail and Google Drive add-ons) asks for a name, adds the connection and
+sends your browser to the service at once. After you sign in, the service sends
+you back to the add-on's page, not to the Accounts tab. The page lists each
+connection with the same states as below (**Connect**, **Reconnect**,
+**Disconnect**). While no administrator has approved the add-on's login, the
+page shows no button: an administrator sees a link to the add-on's **Settings**
+tab, and other people see a note to ask an administrator. A login may return to
+any page of the web app that starts with `/app`: the `return_to` field of the
+start call (see [the login routes]({{% relref "features/addons" %}}#the-login-routes)).
+
 A binding that logs in shows one state under its name:
 
 - **Not connected yet.** Tick any extra access the add-on offers under **Also
   allow**, then select **Connect**. Your browser goes to the service, where you
-  sign in and agree. The service sends you back to the Connectors page, which
-  says whether it worked. If you decline at the service, nothing changes.
+  sign in and agree. The service sends you back to the page you started from
+  (the Accounts tab or the add-on's page), which says whether it worked. If you decline at the service, nothing changes.
 - **Connected as** *account*, with the access the service granted and when the
   current token expires. LocalAI renews the token before it expires. Select
   **Disconnect** to end the login: LocalAI asks the service to revoke it and
@@ -1753,7 +1770,7 @@ A binding that logs in shows one state under its name:
   **Review and approve** link to the form instead.
 
 When a chat uses a connection whose login stopped working, the chat's **Tools**
-menu names the connection and links to the Connectors page.
+menu names the connection and links to the Accounts tab.
 
 Deleting a connection that logs in also asks the service to revoke the login
 first, as **Disconnect** does. The connection is deleted even when the service
@@ -1775,7 +1792,7 @@ through the rules of the share and nothing more:
 - When your login ended, or you disconnected, their chats say that the owner of
   the connection must connect it again, and the tools of the connection do not
   run. They are not sent to the service to log in. Connect it again on the
-  Connectors page and their chats work again without any change on their side.
+  Accounts tab and their chats work again without any change on their side.
 - When you stop sharing, their use ends at once.
 
 ### Approve the login of an add-on (administrators)
@@ -1899,7 +1916,7 @@ when you save it.
 
 ### Add one
 
-On the **MCP connectors** page (`/app/mcp-connectors`) choose **Add connector**.
+On the **MCP servers** tab of **Connections** (`/app/mcp-connectors`) choose **Add connector**.
 A side sheet opens:
 
 1. Administrators choose the kind first: **Remote server** (an address over

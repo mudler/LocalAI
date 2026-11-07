@@ -243,6 +243,15 @@ function ServerSwitch({ name, to, children }) {
   return children
 }
 
+// The Connections item opens the connectors page. A person who holds chats but
+// not connectors has the MCP servers tab only, so the address leads there.
+function ConnectionsEntry() {
+  const { hasFeature, loading } = useAuth()
+  if (loading) return null
+  if (!hasFeature('connectors') && hasFeature('chats')) return <Navigate to="/app/mcp-connectors" replace />
+  return <Feature feature="connectors"><ChatConnectors /></Feature>
+}
+
 function Feature({ feature, disabled, children }) {
   return <RequireFeature feature={feature} disabled={disabled}>{children}</RequireFeature>
 }
@@ -254,7 +263,7 @@ const appChildren = [
   { path: 'chats/agents', element: <ChatsRedirect /> },
   { path: 'chats/skills', element: <ChatsRedirect /> },
   { path: 'chats/triggers', element: <ChatsRedirect /> },
-  { path: 'chats/connectors', element: <Feature feature="connectors"><ChatConnectors /></Feature> },
+  { path: 'chats/connectors', element: <ConnectionsEntry /> },
   { path: 'chats/conversion', element: <Feature feature="chats"><ChatConversion /></Feature> },
   { path: 'chats/proposals', element: <Feature feature="chats"><Proposals /></Feature> },
   // One route for a new chat and an open one, so the page stays mounted when a

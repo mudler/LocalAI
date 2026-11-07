@@ -156,3 +156,17 @@
   .cn-row { padding: var(--sp-3); }
   .cn-oauth { grid-column: 1 / -1; }
 }
+
+/* The tab strip of the Connections pages: links in the kit tab style. */
+.cn-tabs { margin-bottom: var(--dk-space-4); }
+.cn-tabs .dk-tab { text-decoration: none; }
+.cn-tabs .dk-tab[aria-current="page"] { color: var(--dk-text); }
+.cn-tabs .dk-tab[aria-current="page"]::after { transform: scaleX(1); }
+
+/* The login of an OAuth add-on on its own page (ConnectionLogin). */
+.cn-login { display: flex; flex-direction: column; gap: var(--dk-space-3); margin-bottom: var(--dk-space-4); }
+.cn-login__list { display: flex; flex-direction: column; gap: var(--dk-space-3); list-style: none; margin: 0; padding: 0; }
+.cn-login__item { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-login__name { font: var(--dk-weight-semibold) var(--dk-text-13) / 1.3 var(--dk-font-body); color: var(--dk-text); }
+/* The Connect button keeps its own width; the notices stretch. */
+.cn-login > :is(button, a) { align-self: flex-start; }

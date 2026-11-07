@@ -12,18 +12,21 @@ import { MAX_CONNECTION_NAME, canAddConnection, newConnectionBody } from '../../
 //   kind       the group of the kind ({ kind, title })
 //   create     posts the body; resolves with the new binding
 //   onAdded(binding)   called after the server made it
-export default function AddOAuthConnection({ kind, create, onAdded }) {
+//   openLabel, title, hint, submitLabel, initialName   optional words of the
+//       add-on's own page, which logs in at once ("Connect with ...");
+//       without them the Connectors page words apply
+export default function AddOAuthConnection({ kind, create, onAdded, openLabel, title, hint, submitLabel, initialName = '' }) {
   const { t } = useTranslation('chats')
   const ids = useId()
   const input = useRef(null)
   const [open, setOpen] = useState(false)
-  const [name, setName] = useState('')
+  const [name, setName] = useState(initialName)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => { if (open) input.current?.focus() }, [open])
 
-  const close = () => { setOpen(false); setName(''); setError('') }
+  const close = () => { setOpen(false); setName(initialName); setError('') }
   const submit = async (e) => {
     e.preventDefault()
     if (!canAddConnection(name) || saving) return
@@ -43,26 +46,26 @@ export default function AddOAuthConnection({ kind, create, onAdded }) {
 
   if (!open) {
     return (
-      <Button size="sm" variant="primary" icon="plus" onClick={() => setOpen(true)} data-testid="oauth-add-open">
-        {t('connectorsPage.oauth.add.open')}
+      <Button size="sm" variant="primary" icon={openLabel ? 'log-in' : 'plus'} onClick={() => setOpen(true)} data-testid="oauth-add-open">
+        {openLabel || t('connectorsPage.oauth.add.open')}
       </Button>
     )
   }
 
   return (
     <form className="cn-add" onSubmit={submit} data-testid="oauth-add-form" aria-labelledby={`${ids}-title`}>
-      <h3 className="cn-add__title" id={`${ids}-title`}>{t('connectorsPage.oauth.add.title', { name: kind.title })}</h3>
+      <h3 className="cn-add__title" id={`${ids}-title`}>{title || t('connectorsPage.oauth.add.title', { name: kind.title })}</h3>
       <div className="dk-field">
         <label className="dk-label" htmlFor={`${ids}-name`}>{t('connectorsPage.oauth.add.name')}</label>
         <input id={`${ids}-name`} ref={input} className="dk-input" type="text" autoComplete="off" maxLength={MAX_CONNECTION_NAME} value={name} disabled={saving}
           aria-describedby={`${ids}-hint`} onChange={(e) => { setName(e.target.value); setError('') }} data-testid="oauth-add-name" />
-        <p className="dk-hint" id={`${ids}-hint`}>{t('connectorsPage.oauth.add.hint')}</p>
+        <p className="dk-hint" id={`${ids}-hint`}>{hint || t('connectorsPage.oauth.add.hint')}</p>
       </div>
       {error && <Callout tone="error" role="alert" testId="oauth-add-error">{error}</Callout>}
       <div className="cn-add__actions">
         <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={close} data-testid="oauth-add-cancel">{t('connectorsPage.oauth.add.cancel')}</Button>
         <Button type="submit" variant="primary" size="sm" icon="plus" busy={saving} disabled={!canAddConnection(name)} data-testid="oauth-add-submit">
-          {t('connectorsPage.oauth.add.submit')}
+          {submitLabel || t('connectorsPage.oauth.add.submit')}
         </Button>
       </div>
     </form>

@@ -54,7 +54,7 @@ func (Platform) Edit(context.Context, contract.ConnectorRequest) error   { retur
 func (Platform) Typing(context.Context, contract.ConnectorRequest) error { return nil }
 
 // Me returns the account of the access token: its e-mail address names the
-// connection on the Connectors page.
+// connection on the Connections page.
 func (p Platform) Me(ctx context.Context, token string) (connector.Bot, error) {
 	var profile struct {
 		Email string `json:"emailAddress"`

@@ -56,8 +56,8 @@ function RowInfo({ c, t }) {
   )
 }
 
-// There is no token field: the login is made on the Connectors page, so this
-// page edits the connections that exist and has no New button.
+// There is no token field: the host logs the person in (the Connect with
+// Google button of the page), so the page has no New sheet for a token.
 const NoToken = () => null
 
 export function createGmail() {
@@ -65,7 +65,7 @@ export function createGmail() {
     if (page !== 'apps') return null
     return (
       <RouteProvider value={{ page, path: path || '', search: search || '' }}>
-        <ConnectorPage kind="gmail" ns="gmail" testId="gmail-page" TokenFields={NoToken} tokenOf={() => ''} messaging={false} canAdd={false}
+        <ConnectorPage kind="gmail" ns="gmail" testId="gmail-page" TokenFields={NoToken} tokenOf={() => ''} messaging={false} login
           ExtraFields={GmailFields} extraBody={extraBody} extraForm={extraForm} extraValid={extraValid} Help={Help} RowInfo={RowInfo} />
       </RouteProvider>
     )

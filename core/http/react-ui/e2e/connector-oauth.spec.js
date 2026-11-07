@@ -140,9 +140,14 @@ test.describe('Adding a connection that logs in with OAuth', () => {
 
   test('a kind whose add-on takes a token, or needs an agent, offers no form here', async ({ page }) => {
     await open(page, { kinds: [{ ...KIND, auth_kind: undefined }, { ...KIND, addon: 'agentful', kind: 'agentful', title: 'Agentful', agent_optional: false }] })
-    await expect(page.getByTestId('connector-group')).toHaveCount(2)
+    // The kind that holds a token is on Accounts, the one that needs an agent on Messaging.
+    await expect(page.getByTestId('connector-group')).toHaveCount(1)
     await expect(page.getByTestId('oauth-add-open')).toHaveCount(0)
     await expect(page.getByTestId('connector-group').first()).toContainText('No connectors yet.')
+    await page.getByTestId('connections-tab-messaging').click()
+    await expect(page.getByTestId('connector-group')).toHaveCount(1)
+    await expect(page.getByTestId('connector-group').first()).toContainText('Agentful')
+    await expect(page.getByTestId('oauth-add-open')).toHaveCount(0)
   })
 })
 

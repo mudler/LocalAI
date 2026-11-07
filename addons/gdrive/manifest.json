@@ -42,7 +42,7 @@
           "properties": {
             "folder": {
               "type": "string",
-              "description": "The ID of an allowed folder, from the list on the Connectors page. Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
+              "description": "The ID of an allowed folder, from the folder list of the connection (set on the Google Drive page). Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
               "maxLength": 128
             },
             "name": {
@@ -106,7 +106,7 @@
           "properties": {
             "folder": {
               "type": "string",
-              "description": "The ID of an allowed folder, from the list on the Connectors page. Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
+              "description": "The ID of an allowed folder, from the folder list of the connection (set on the Google Drive page). Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
               "maxLength": 128
             },
             "parent": {
@@ -141,7 +141,7 @@
           "properties": {
             "folder": {
               "type": "string",
-              "description": "The ID of an allowed folder, from the list on the Connectors page. Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
+              "description": "The ID of an allowed folder, from the folder list of the connection (set on the Google Drive page). Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
               "maxLength": 128
             },
             "fileId": {
@@ -166,7 +166,7 @@
           "properties": {
             "folder": {
               "type": "string",
-              "description": "The ID of an allowed folder, from the list on the Connectors page. Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
+              "description": "The ID of an allowed folder, from the folder list of the connection (set on the Google Drive page). Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
               "maxLength": 128
             },
             "fileId": {
@@ -196,7 +196,7 @@
           "properties": {
             "folder": {
               "type": "string",
-              "description": "The ID of an allowed folder, from the list on the Connectors page. Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
+              "description": "The ID of an allowed folder, from the folder list of the connection (set on the Google Drive page). Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
               "maxLength": 128
             },
             "parent": {
@@ -242,7 +242,7 @@
           "properties": {
             "folder": {
               "type": "string",
-              "description": "The ID of an allowed folder, from the list on the Connectors page. Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
+              "description": "The ID of an allowed folder, from the folder list of the connection (set on the Google Drive page). Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
               "maxLength": 128
             },
             "fileId": {
@@ -278,7 +278,7 @@
           "properties": {
             "folder": {
               "type": "string",
-              "description": "The ID of an allowed folder, from the list on the Connectors page. Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
+              "description": "The ID of an allowed folder, from the folder list of the connection (set on the Google Drive page). Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
               "maxLength": 128
             },
             "fileId": {
@@ -310,7 +310,7 @@
           "properties": {
             "folder": {
               "type": "string",
-              "description": "The ID of an allowed folder, from the list on the Connectors page. Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
+              "description": "The ID of an allowed folder, from the folder list of the connection (set on the Google Drive page). Use root for the top of My Drive if it is on the list. The tool works only on files inside this folder.",
               "maxLength": 128
             },
             "fileId": {

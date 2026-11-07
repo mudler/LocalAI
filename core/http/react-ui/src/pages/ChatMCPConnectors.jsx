@@ -1,8 +1,9 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
-import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import ConfirmDialog from '../components/ConfirmDialog'
+import ConnectionsTabs from '../components/connectors/ConnectionsTabs'
 import { Button, Callout, EmptyState, LoadError, PageHeader, PaneLayout, SearchField, Segmented, SkeletonRows } from '../components/ui'
 import ConnectorRow from '../components/mcp/ConnectorRow'
 import ConnectorDetails from '../components/mcp/ConnectorDetails'
@@ -56,7 +57,7 @@ function ImportBanner({ servers, busy, onImport, t }) {
 // saves, then tests, then turns the connector on.
 export default function ChatMCPConnectors() {
   const { t } = useTranslation('chats')
-  const { isAdmin, hasFeature } = useAuth()
+  const { isAdmin } = useAuth()
   const { addToast } = useOutletContext() || {}
   const [params, setParams] = useSearchParams()
   const [items, setItems] = useState(null)
@@ -240,19 +241,16 @@ export default function ChatMCPConnectors() {
   const empty = items !== null && items.length === 0 && !loadError
   const detail = (items || []).find(c => c.id === detailId) || null
   const header = (
+    <>
     <PageHeader
-      title={t('mcpPage.title')}
-      supporting={(
-        <>
-          {t('mcpPage.supporting')}
-          {/* Telegram and Slack bots were next to MCP servers once: say where they went. */}
-          {hasFeature('connectors') && <> <span className="ad-family"><Trans t={t} i18nKey="mcpPage.family" components={{ go: <Link to="/app/chats/connectors" /> }} /></span></>}
-        </>
-      )}
+      title={t('connectorsPage.title')}
+      supporting={t('mcpPage.supporting')}
       actions={!empty && !forbidden && !loadError ? (
         <Button variant="primary" icon="plus" disabled={loading} onClick={openAdd} data-testid="mcp-add">{t('mcpPage.add')}</Button>
       ) : null}
     />
+    <ConnectionsTabs current="mcp" />
+    </>
   )
 
   if (forbidden) {

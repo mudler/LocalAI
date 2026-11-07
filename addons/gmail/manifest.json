@@ -41,7 +41,7 @@
           "properties": {
             "label": {
               "type": "string",
-              "description": "The entry of the list on the Connectors page that this call works under: a label name (spaces written as dashes) or ID, or ALL for the whole mailbox. The tool reaches only mail with that label, unless the entry is ALL.",
+              "description": "The entry of the label list of the connection (set on the Gmail page) that this call works under: a label name (spaces written as dashes) or ID, or ALL for the whole mailbox. The tool reaches only mail with that label, unless the entry is ALL.",
               "maxLength": 128
             },
             "from": {
@@ -114,7 +114,7 @@
           "properties": {
             "label": {
               "type": "string",
-              "description": "The entry of the list on the Connectors page that this call works under: a label name (spaces written as dashes) or ID, or ALL for the whole mailbox. The tool reaches only mail with that label, unless the entry is ALL.",
+              "description": "The entry of the label list of the connection (set on the Gmail page) that this call works under: a label name (spaces written as dashes) or ID, or ALL for the whole mailbox. The tool reaches only mail with that label, unless the entry is ALL.",
               "maxLength": 128
             },
             "messageId": {
@@ -144,7 +144,7 @@
           "properties": {
             "label": {
               "type": "string",
-              "description": "The entry of the list on the Connectors page that this call works under: a label name (spaces written as dashes) or ID, or ALL for the whole mailbox. The tool reaches only mail with that label, unless the entry is ALL.",
+              "description": "The entry of the label list of the connection (set on the Gmail page) that this call works under: a label name (spaces written as dashes) or ID, or ALL for the whole mailbox. The tool reaches only mail with that label, unless the entry is ALL.",
               "maxLength": 128
             },
             "threadId": {
@@ -169,7 +169,7 @@
           "properties": {
             "label": {
               "type": "string",
-              "description": "The entry of the list on the Connectors page that this call works under: a label name (spaces written as dashes) or ID, or ALL for the whole mailbox. The tool reaches only mail with that label, unless the entry is ALL.",
+              "description": "The entry of the label list of the connection (set on the Gmail page) that this call works under: a label name (spaces written as dashes) or ID, or ALL for the whole mailbox. The tool reaches only mail with that label, unless the entry is ALL.",
               "maxLength": 128
             }
           },
@@ -188,7 +188,7 @@
           "properties": {
             "label": {
               "type": "string",
-              "description": "The entry of the list on the Connectors page that this call works under: a label name (spaces written as dashes) or ID, or ALL for the whole mailbox. The tool reaches only mail with that label, unless the entry is ALL.",
+              "description": "The entry of the label list of the connection (set on the Gmail page) that this call works under: a label name (spaces written as dashes) or ID, or ALL for the whole mailbox. The tool reaches only mail with that label, unless the entry is ALL.",
               "maxLength": 128
             },
             "messageId": {
@@ -224,7 +224,7 @@
           "properties": {
             "label": {
               "type": "string",
-              "description": "The entry of the list on the Connectors page that this call works under: a label name (spaces written as dashes) or ID, or ALL for the whole mailbox. The tool reaches only mail with that label, unless the entry is ALL.",
+              "description": "The entry of the label list of the connection (set on the Gmail page) that this call works under: a label name (spaces written as dashes) or ID, or ALL for the whole mailbox. The tool reaches only mail with that label, unless the entry is ALL.",
               "maxLength": 128
             },
             "to": {
@@ -279,7 +279,7 @@
           "properties": {
             "label": {
               "type": "string",
-              "description": "The entry of the list on the Connectors page that this call works under: a label name (spaces written as dashes) or ID, or ALL for the whole mailbox. The tool reaches only mail with that label, unless the entry is ALL.",
+              "description": "The entry of the label list of the connection (set on the Gmail page) that this call works under: a label name (spaces written as dashes) or ID, or ALL for the whole mailbox. The tool reaches only mail with that label, unless the entry is ALL.",
               "maxLength": 128
             },
             "draftId": {

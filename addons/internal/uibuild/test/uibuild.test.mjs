@@ -122,7 +122,7 @@ test('every add-on with a UI commits a 256 pixel PNG icon under the manifest bou
     assert.ok(statSync(icon).size < 256 * 1024, id)
   }
   assert.deepEqual(missing, [], 'these add-ons declare an icon but commit no ui/icon.png')
-  for (const id of ['slack', 'telegram', 'discord', 'github', 'home-assistant', 'jellyfin']) {
+  for (const id of ['slack', 'telegram', 'discord', 'github', 'gmail', 'gdrive', 'home-assistant', 'jellyfin']) {
     const note = readFileSync(join(root, id, 'ui/ICON-SOURCE.md'), 'utf8')
     assert.match(note, /Simple Icons/, id)
     assert.match(note, /CC0/, id)

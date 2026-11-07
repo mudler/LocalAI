@@ -68,7 +68,6 @@
   "mcpPage": {
     "title": "Connettori MCP",
     "supporting": "Collega server MCP per dare alle tue chat e ai tuoi agenti più strumenti, come la ricerca o le tue API.",
-    "family": "I bot per Telegram o Slack sono <go>connettori di messaggistica</go>.",
     "related": "Correlati",
     "chats": "Chat",
     "add": "Aggiungi connettore",
@@ -338,6 +337,9 @@
         "added": "{{name}} è stata aggiunta. Seleziona Connetti per accedere al tuo account.",
         "empty": "Nessuna connessione per ora. Aggiungine una, poi connetti il tuo account.",
         "manage": "Modifica connessioni"
+      },
+      "login": {
+        "hint": "Un nome che riconosci, come Lavoro o Personale. Poi andrai sul servizio per accedere."
       }
     },
     "duplicate": {
@@ -364,7 +366,13 @@
       "text": "Altre persone ti permettono di usare queste connessioni nelle tue chat e nei tuoi agenti. Solo chi le possiede può modificarle.",
       "on": "In ascolto",
       "off": "Spenta"
-    }
+    },
+    "title": "Connessioni",
+    "introAccounts": "Account che colleghi una volta sola perché le tue chat e i tuoi agenti li usino come strumenti. Ogni account arriva da un add-on.",
+    "noAddonAccounts": "Non è installato nessun add-on di account.",
+    "noAddonAccountsHint": "Un add-on di account collega un servizio alle tue chat e ai tuoi agenti. Installane uno dalla galleria degli add-on per aggiungere una connessione.",
+    "noAddonMessaging": "Non è installato nessun add-on di messaggistica.",
+    "noAddonMessagingHint": "Un add-on di messaggistica porta i messaggi di una piattaforma di chat. Installane uno dalla galleria degli add-on per aggiungere un collegamento."
   },
   "tools": {
     "commands": {
@@ -1294,5 +1302,11 @@
   "subAgents": {
     "waiting": "In attesa di: {{what}}",
     "looping": "In ciclo"
+  },
+  "connectionsTabs": {
+    "label": "Sezioni delle connessioni",
+    "accounts": "Account",
+    "messaging": "Messaggistica",
+    "mcp": "Server MCP"
   }
 }
