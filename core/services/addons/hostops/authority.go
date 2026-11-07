@@ -69,7 +69,8 @@ type staticAuthority struct{ prefixes map[string][]string }
 
 // NewStaticAuthority builds an Authority over a fixed map of add-on ID to
 // operation prefixes. It copies the map. An empty prefix is ignored and an
-// add-on that is not listed holds nothing.
+// add-on that is not listed holds nothing beyond the deployment-wide "*"
+// floor, the same convention the deny rules of the policy file use.
 func NewStaticAuthority(prefixes map[string][]string) Authority {
 	out := make(map[string][]string, len(prefixes))
 	for id, list := range prefixes {
@@ -87,15 +88,26 @@ func NewStaticAuthority(prefixes map[string][]string) Authority {
 	return staticAuthority{prefixes: out}
 }
 
+// floorOf returns the deployment-wide floor prefixes of the map: the entry
+// under the "*" key, which every add-on holds on top of its own.
+func (a staticAuthority) floorOf(addonID string) []string {
+	if addonID == "*" {
+		return nil
+	}
+	return a.prefixes["*"]
+}
+
 func (a staticAuthority) Allows(addonID, op string) (bool, Reason) {
-	if hasPrefix(a.prefixes[addonID], op) {
+	if hasPrefix(a.prefixes[addonID], op) || hasPrefix(a.floorOf(addonID), op) {
 		return true, ReasonNone
 	}
 	return false, ReasonNotGranted
 }
 
 func (a staticAuthority) Snapshot(addonID string) EffectiveSet {
-	return EffectiveSet{Prefixes: slices.Clone(a.prefixes[addonID])}
+	return EffectiveSet{Prefixes: slices.Concat(a.prefixes[addonID], a.floorOf(addonID))}
 }
 
-func (a staticAuthority) Entitled(addonID string) bool { return len(a.prefixes[addonID]) > 0 }
+func (a staticAuthority) Entitled(addonID string) bool {
+	return len(a.prefixes[addonID]) > 0 || len(a.floorOf(addonID)) > 0
+}

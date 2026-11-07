@@ -1,4 +1,10 @@
+//go:build linux || darwin
+
 // SPDX-License-Identifier: MIT
+
+// The supervisor and its specs are POSIX-only: the runtime ledger fails closed
+// on the other platforms, and the specs use process groups, `sleep` and
+// symlinked state roots.
 package runtime
 
 import (
@@ -16,7 +22,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
-	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
@@ -26,35 +31,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestRuntime(t *testing.T) {
-	if root := os.Getenv("ADDON_OWNER_HELPER"); root != "" {
-		b, e := os.ReadFile(os.Getenv("ADDON_HELPER_RECEIPT"))
-		if e != nil {
-			os.Exit(20)
-		}
-		var p packages.PackageReceipt
-		if json.Unmarshal(b, &p) != nil {
-			os.Exit(21)
-		}
-		c := Config{Limits: contract.DefaultLimits(), ReadyTimeout: time.Second, StableHealth: time.Second}
-		setStateRoot(&c, root)
-		s, e := NewSupervisor(c)
-		if e != nil {
-			os.Exit(22)
-		}
-		i, e := s.Start(context.Background(), p, 1)
-		if e != nil {
-			os.Exit(23)
-		}
-		if os.WriteFile(filepath.Join(root, "helper-pid"), []byte(strconv.Itoa(i.PID)), 0600) != nil {
-			os.Exit(24)
-		}
-		select {}
-	}
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Addon runtime")
-}
-
 // realTempDir is a temporary directory with no symlink in its path. The
 // supervisor refuses a symlinked state root or package directory, and the
 // temporary directory of macOS (/var) is one.
@@ -63,8 +39,6 @@ func realTempDir() string {
 	Expect(e).NotTo(HaveOccurred())
 	return d
 }
-
-func setStateRoot(c *Config, root string) { c.StateRoot = root }
 
 var binary string
 var _ = BeforeSuite(func() {

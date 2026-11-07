@@ -34,6 +34,7 @@
     nvidia-l4t-cuda-12: nvidia-l4t-arm64-llama-cpp
     nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-llama-cpp
     vulkan: vulkan-llama-cpp
+    windows: windows-llama-cpp
 - name: ik-llama-cpp
   alias: ik-llama-cpp
   license: mit
@@ -6168,6 +6169,44 @@
   uri: quay.io/go-skynet/local-ai-backends:master-cpu-ik-llama-cpp
   mirrors:
     - localai/localai-backends:master-cpu-ik-llama-cpp
+- name: windows-llama-cpp
+  alias: llama-cpp
+  license: mit
+  description: |
+    LLM inference in C/C++ for Windows
+  urls:
+    - https://github.com/ggerganov/llama.cpp
+  tags:
+    - text-to-text
+    - text-to-speech
+    - TTS
+    - LLM
+    - CPU
+    - GPU
+  capabilities:
+    default: cpu-llama-cpp
+  uri: quay.io/go-skynet/local-ai-backends:latest-windows-llama-cpp
+  mirrors:
+    - localai/localai-backends:latest-windows-llama-cpp
+- name: windows-llama-cpp-development
+  alias: llama-cpp
+  license: mit
+  description: |
+    LLM inference in C/C++ for Windows
+  urls:
+    - https://github.com/ggerganov/llama.cpp
+  tags:
+    - text-to-text
+    - text-to-speech
+    - TTS
+    - LLM
+    - CPU
+    - GPU
+  capabilities:
+    default: cpu-llama-cpp
+  uri: quay.io/go-skynet/local-ai-backends:master-windows-llama-cpp
+  mirrors:
+    - localai/localai-backends:master-windows-llama-cpp
 - name: cpu-turboquant
   alias: turboquant
   license: mit

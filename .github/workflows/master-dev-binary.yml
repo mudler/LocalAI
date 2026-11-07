@@ -105,11 +105,16 @@ jobs:
           jq -r '.[] | select(.type == "Binary" and .extra.ID == "local-ai") | [.goos, .goarch, .path] | @tsv' release/artifacts.json |
           while IFS="$(printf '\t')" read -r os arch path; do
             name="local-ai-master-${os}-${arch}"
+            [ "${os}" = "windows" ] && name="${name}.exe"
             cp "${path}" "upload/${name}"
             chmod +x "upload/${name}"
             (cd upload && sha256sum "${name}" > "${name}.sha256")
           done
-          test "$(ls upload | wc -l)" -eq 6
+          # Every built binary contributes the binary and its checksum file.
+          # The count follows the build matrix, which grows with every OS.
+          binaries=$(jq '[.[] | select(.type == "Binary" and .extra.ID == "local-ai")] | length' release/artifacts.json)
+          test "$binaries" -gt 0
+          test "$(ls upload | wc -l)" -eq "$((binaries * 2))"
           ls -l upload
       - uses: actions/upload-artifact@v7
         with:
@@ -139,7 +144,10 @@ jobs:
         working-directory: upload
         run: |
           set -euo pipefail
-          test "$(ls | wc -l)" -eq 6
+          # Each binary has exactly one checksum file and nothing else.
+          binaries=$(find . -maxdepth 1 -type f ! -name '*.sha256' | wc -l)
+          test "$binaries" -gt 0
+          test "$(ls | wc -l)" -eq "$((binaries * 2))"
           sha256sum --check --strict ./*.sha256
       - name: Move the tag and write the release notes
         run: |

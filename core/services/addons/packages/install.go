@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	goruntime "runtime"
 	"io"
 	"net"
 	"net/http"
@@ -107,7 +108,10 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		return out, e
 	}
 	info, e := os.Lstat(root)
-	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0077 != 0 {
+	// Windows carries no POSIX permission bits: a 0700 dir reports 0777, and
+	// the world-writable check would refuse every package (see
+	// gateway/loopback.go for the same guard).
+	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || (goruntime.GOOS != "windows" && info.Mode().Perm()&0077 != 0) {
 		return out, ErrPackage
 	}
 	dir, e := os.MkdirTemp(root, "stage-")
@@ -274,7 +278,9 @@ func (i *Installer) inspectStage(dir string) (contract.Manifest, *PackageIcon, [
 	}
 	for _, asset := range assets {
 		info, e := os.Lstat(filepath.Join(dir, filepath.FromSlash(asset)))
-		if e != nil || !info.Mode().IsRegular() || (asset == m.Executable && info.Mode()&0100 == 0) {
+		// Windows reports no POSIX bits, so the executable check would fail
+		// for every package; on Windows every file is executable.
+		if e != nil || !info.Mode().IsRegular() || (asset == m.Executable && goruntime.GOOS != "windows" && info.Mode()&0100 == 0) {
 			return contract.Manifest{}, nil, nil, ErrPackage
 		}
 	}

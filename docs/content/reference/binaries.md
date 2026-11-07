@@ -3,10 +3,10 @@ disableToc = false
 title = "LocalAI binaries"
 weight = 30
 description = "Release binaries of the local-ai server, their file names and how to download one by hand."
-keywords = ["binaries","download","macos","linux"]
+keywords = ["binaries","download","macos","linux","windows"]
 +++
 
-The `local-ai` server is one file per platform on the [releases page](https://github.com/mudler/LocalAI/releases). The [install script]({{% relref "/start/install#install-script" %}}) downloads the right one for you and checks it. Download by hand when you want to choose the file yourself. On Windows, use WSL2 or a [container]({{% relref "/start/install/containers" %}}).
+The `local-ai` server is one file per platform on the [releases page](https://github.com/mudler/LocalAI/releases). The [install script]({{% relref "/start/install#install-script" %}}) downloads the right one for you and checks it. Download by hand when you want to choose the file yourself. On Windows, download the Windows binary listed below or follow the [Windows guide]({{% relref "getting-started/windows" %}}); WSL2 and a [container]({{% relref "/start/install/containers" %}}) also work.
 
 ## Files
 
@@ -17,6 +17,8 @@ Each release has these files, with the release tag in the name:
 | Linux (amd64) | `local-ai-{{< version >}}-linux-amd64` |
 | Linux (arm64) | `local-ai-{{< version >}}-linux-arm64` |
 | macOS (Apple Silicon) | `local-ai-{{< version >}}-darwin-arm64` |
+| Windows (amd64) | `local-ai-{{< version >}}-windows-amd64.exe` |
+| Windows (arm64) | `local-ai-{{< version >}}-windows-arm64.exe` |
 
 There is no binary for Intel Macs. The checksums of the release are in `LocalAI-{{< version >}}-checksums.txt`. Download from `https://github.com/mudler/LocalAI/releases/download/{{< version >}}/`.
 
@@ -46,3 +48,5 @@ The two hashes must match.
 ## Backends
 
 A binary doesn't bundle backends. LocalAI downloads each backend as an OCI image the first time a model needs one. See [Backends]({{% relref "/models/backends" %}}).
+
+The llama-cpp backend also has a native Windows build, installed from a Windows backend image; see the [Windows guide]({{% relref "getting-started/windows" %}}).

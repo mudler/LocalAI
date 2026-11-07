@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -141,7 +142,11 @@ var _ = Describe("authenticated HTTP downloads", func() {
 		Expect(errors.Is(err, context.Canceled)).To(BeTrue())
 		info, statErr := os.Stat(target + ".partial")
 		Expect(statErr).NotTo(HaveOccurred())
-		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+		// POSIX permission bits are not enforceable on Windows, where the file
+		// is reported with the default 0666 mode regardless of chmod.
+		if runtime.GOOS != "windows" {
+			Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+		}
 	})
 
 	It("keeps the legacy total empty when the response length is unknown", func() {

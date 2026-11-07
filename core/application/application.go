@@ -1150,13 +1150,21 @@ func (a *Application) startAddons() error {
 		a.writeModelsProbe()
 		a.addonHostOps = a.newAddonHostOps(m, limits)
 		a.addonDataRoot = filepath.Join(c.Root, "data")
-		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), DataRoot: filepath.Join(c.Root, "data"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax, HostOps: a.addonHostOps})
-		if err != nil {
-			return err
-		}
-		if err = m.AttachRuntime(a.applicationConfig.Context, supervisor); err != nil {
-			_ = supervisor.Close(context.Background())
-			return err
+		// On Windows, the add-on runtime (supervisor) is not available: the
+		// add-on backends do not ship a Windows runtime image yet. Skip the
+		// supervisor and runtime attachment; everything else (gateway, policy,
+		// stores) keeps working.
+		if runtime.GOOS != "windows" {
+			supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), DataRoot: filepath.Join(c.Root, "data"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax, HostOps: a.addonHostOps})
+			if err != nil {
+				return err
+			}
+			if err = m.AttachRuntime(a.applicationConfig.Context, supervisor); err != nil {
+				_ = supervisor.Close(context.Background())
+				return err
+			}
+		} else {
+			xlog.Warn("Add-on runtime (supervisor) is not available on Windows; skipping supervisor and runtime attachment")
 		}
 	}
 	a.addonSources = cat.Sources

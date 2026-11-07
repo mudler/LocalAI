@@ -111,7 +111,14 @@ func place(tmp, final string) error {
 		return err
 	}
 	if err := os.Rename(tmp, final); err != nil {
-		if _, serr := os.Stat(final); serr == nil && errors.Is(err, os.ErrExist) {
+		// On Windows, renaming over an existing file can report
+		// "Access is denied" instead of "file exists". If the target
+		// is already in place, treat it as success: another writer or
+		// a previous attempt already published this blob.
+		if _, serr := os.Stat(final); serr == nil {
+			return os.Remove(tmp)
+		}
+		if errors.Is(err, os.ErrExist) {
 			return os.Remove(tmp)
 		}
 		return err

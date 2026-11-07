@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	goruntime "runtime"
 	"io"
 	"os"
 	"path"
@@ -292,7 +293,10 @@ func (i *Installer) StageFile(ctx context.Context, p, name string, progress func
 		return out, e
 	}
 	info, e := os.Lstat(root)
-	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0077 != 0 {
+	// Windows carries no POSIX permission bits: a 0700 dir reports 0777, and
+	// the world-writable check would refuse every package (see
+	// gateway/loopback.go for the same guard).
+	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || (goruntime.GOOS != "windows" && info.Mode().Perm()&0077 != 0) {
 		return out, ErrPackage
 	}
 	dir, e := os.MkdirTemp(root, "stage-")
