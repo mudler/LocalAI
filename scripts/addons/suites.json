@@ -1987,7 +1987,13 @@
           "still announces the end of the turn",
           "keeps a files_change card whose path has letters outside ASCII",
           "refuses a files_change card with a control character, bad UTF-8 or a path that is too long",
-          "still holds the other cards to 128 printable ASCII characters"
+          "still holds the other cards to 128 printable ASCII characters",
+          "finds an intent that has no result after it",
+          "matches each result to one intent of the same tool",
+          "looks only at the turns since the last message of the person, and since a clear",
+          "says nothing for a transcript with no intent, and a result of another tool resolves nothing",
+          "is internal: not a message, and not shown",
+          "lists the tools that only read, and nothing that writes"
         ]
       }
     ]
