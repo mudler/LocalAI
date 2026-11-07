@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestDriveAPI(t *testing.T) {
+func TestGmailAPI(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Gmail API client")
 }
@@ -104,7 +104,7 @@ var _ = Describe("the client", func() {
 		_, err := c.Do(context.Background(), "tok", gmailapi.Request{Path: "/x"}, 10)
 		Expect(err).To(MatchError(gmailapi.ErrTooLarge))
 		body = "not json"
-		Expect(get()).To(MatchError(gmailapi.ErrUnavailable))
+		Expect(get()).To(MatchError(gmailapi.ErrDecode))
 	})
 
 	It("reports a change whose answer cannot be read apart from one that failed", func() {

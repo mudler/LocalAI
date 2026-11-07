@@ -105,7 +105,7 @@ var _ = Describe("the client", func() {
 		_, err := c.Do(context.Background(), "tok", driveapi.Request{Path: "/x"}, 10)
 		Expect(err).To(MatchError(driveapi.ErrTooLarge))
 		body = "not json"
-		Expect(get()).To(MatchError(driveapi.ErrUnavailable))
+		Expect(get()).To(MatchError(driveapi.ErrDecode))
 	})
 
 	It("reports a change whose answer cannot be read apart from one that failed", func() {

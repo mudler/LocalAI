@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 )
@@ -253,6 +257,20 @@ func (e *ErrRateLimited) Seconds() int { return clampRetryAfter(e.RetryAfter) }
 // 1 and MaxRetryAfter.
 func RateLimitedAfter(n int) *ErrRateLimited {
 	return &ErrRateLimited{RetryAfter: clampRetryAfter(n)}
+}
+
+// ParseRetryAfter reads the value of a Retry-After header, which is a number
+// of seconds or an HTTP date, and keeps it between 1 and MaxRetryAfter. A
+// missing or unreadable value gives def.
+func ParseRetryAfter(value string, def int) int {
+	value = strings.TrimSpace(value)
+	if n, err := strconv.Atoi(value); err == nil {
+		return clampRetryAfter(n)
+	}
+	if t, err := http.ParseTime(value); err == nil {
+		return clampRetryAfter(int(time.Until(t).Seconds()) + 1)
+	}
+	return def
 }
 
 func clampRetryAfter(n int) int { return min(max(n, 1), MaxRetryAfter) }

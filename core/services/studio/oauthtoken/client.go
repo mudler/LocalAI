@@ -139,7 +139,7 @@ func (c *Client) Revoke(ctx context.Context, d contract.OAuthDescriptor, cred Cr
 	case resp.StatusCode == http.StatusOK:
 		return nil
 	case resp.StatusCode == http.StatusTooManyRequests:
-		return contract.RateLimitedAfter(retryAfter(resp.Header.Get("Retry-After")))
+		return contract.RateLimitedAfter(contract.ParseRetryAfter(resp.Header.Get("Retry-After"), defaultRetryAfter))
 	case resp.StatusCode >= 500:
 		return ErrUnavailable
 	}
@@ -207,7 +207,7 @@ func (c *Client) token(ctx context.Context, d contract.OAuthDescriptor, cred Cre
 	}
 	switch {
 	case resp.StatusCode == http.StatusTooManyRequests:
-		return Tokens{}, contract.RateLimitedAfter(retryAfter(resp.Header.Get("Retry-After")))
+		return Tokens{}, contract.RateLimitedAfter(contract.ParseRetryAfter(resp.Header.Get("Retry-After"), defaultRetryAfter))
 	case resp.StatusCode >= 500:
 		return Tokens{}, ErrUnavailable
 	case resp.StatusCode != http.StatusOK:
@@ -284,14 +284,4 @@ func headerSafe(s string) bool {
 		}
 	}
 	return true
-}
-
-func retryAfter(h string) int {
-	n := defaultRetryAfter
-	if v, err := strconv.Atoi(strings.TrimSpace(h)); err == nil {
-		n = v
-	} else if t, err := http.ParseTime(h); err == nil {
-		n = int(time.Until(t).Seconds()) + 1
-	}
-	return n
 }
