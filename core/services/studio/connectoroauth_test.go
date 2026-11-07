@@ -191,9 +191,9 @@ func (f *faultyStore) EnsureKey(ctx context.Context, generate func() ([]byte, er
 	return f.Store.EnsureKey(ctx, generate)
 }
 
-func (f *faultyStore) UpdateGrant(ctx context.Context, g connectors.Grant, version int64) (bool, error) {
+func (f *faultyStore) UpdateGrant(ctx context.Context, g connectors.Grant, version int64) (int64, error) {
 	if f.writesDown.Load() {
-		return false, errStoreDown
+		return 0, errStoreDown
 	}
 	return f.Store.UpdateGrant(ctx, g, version)
 }
@@ -339,6 +339,33 @@ var _ = Describe("OAuth connections", func() {
 					list, err := r.conns.Connections(ctx, alice, oauthAddon)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(list).To(HaveLen(1))
+				})
+
+				It("keeps only the scopes the descriptor names when a provider grants more", func() {
+					r.approve()
+					b := r.binding()
+					ls, state := r.start(b)
+					// include_granted_scopes: the answer lists scopes of earlier
+					// logins and of other products too.
+					r.srv.Set(func(s *oauthtokentest.Server) { s.Scope = "read write https://other.example.test/scope" })
+					res, err := r.conns.CompleteLogin(ctx, alice, ls.Nonce, state, oauthCode, "")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(res.Outcome).To(Equal(studio.LoginOK))
+					Expect(r.grant(b.ID).Scopes).To(Equal([]string{"read", "write"}), "optional scopes the person did not tick are still named by the descriptor")
+					grant, err := r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "acme/widgets")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(grant.Scopes).NotTo(ContainElement("https://other.example.test/scope"))
+				})
+
+				It("still fails a login that lacks a required scope among extra ones", func() {
+					r.approve()
+					b := r.binding()
+					ls, state := r.start(b)
+					r.srv.Set(func(s *oauthtokentest.Server) { s.Scope = "write https://other.example.test/scope" })
+					res, _ := r.conns.CompleteLogin(ctx, alice, ls.Nonce, state, oauthCode, "")
+					Expect(res.Outcome).To(Equal(studio.LoginScopesMissing))
+					_, err := r.st.GetGrant(ctx, b.ID)
+					Expect(err).To(MatchError(connectors.ErrNotFound))
 				})
 
 				It("works once, also when the exchange fails", func() {
@@ -580,7 +607,7 @@ var _ = Describe("OAuth connections", func() {
 					_, err = r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
 					Expect(err).To(MatchError(studio.ErrReconnectNeeded))
 					g := r.grant(b.ID)
-					Expect(g.Reason).To(Equal(studio.ReasonScopesMissing))
+					Expect(g.Reason).To(Equal(string(studio.ReasonScopesMissing)))
 					Expect(g.Sealed).To(BeEmpty())
 				})
 
@@ -590,7 +617,7 @@ var _ = Describe("OAuth connections", func() {
 					r.srv.Set(func(s *oauthtokentest.Server) { s.Scope = `read "x` })
 					_, err := r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
 					Expect(err).To(MatchError(studio.ErrReconnectNeeded))
-					Expect(r.grant(b.ID).Reason).To(Equal(studio.ReasonRefused))
+					Expect(r.grant(b.ID).Reason).To(Equal(string(studio.ReasonRefused)))
 				})
 
 				DescribeTable("ends the grant when the service refuses it for good, and wipes its secrets",
@@ -614,12 +641,12 @@ var _ = Describe("OAuth connections", func() {
 						Expect(st.State).To(Equal(connectors.GrantReconnectNeeded))
 						Expect(st.Reason).To(Equal(reason))
 					},
-					Entry("invalid_grant", func(s *oauthtokentest.Server) { s.Fail = "invalid_grant" }, studio.ReasonRevoked),
-					Entry("invalid_client", func(s *oauthtokentest.Server) { s.Fail, s.FailStatus = "invalid_client", 401 }, studio.ReasonClientRejected),
-					Entry("another refusal", func(s *oauthtokentest.Server) { s.Fail = "invalid_scope" }, studio.ReasonRefused),
+					Entry("invalid_grant", func(s *oauthtokentest.Server) { s.Fail = "invalid_grant" }, string(studio.ReasonRevoked)),
+					Entry("invalid_client", func(s *oauthtokentest.Server) { s.Fail, s.FailStatus = "invalid_client", 401 }, string(studio.ReasonClientRejected)),
+					Entry("another refusal", func(s *oauthtokentest.Server) { s.Fail = "invalid_scope" }, string(studio.ReasonRefused)),
 					Entry("an access token too large for a request", func(s *oauthtokentest.Server) {
 						s.Body = `{"access_token":"` + strings.Repeat("a", contract.MaxCredentialBytes+1) + `","token_type":"bearer"}`
-					}, studio.ReasonTokenTooLarge),
+					}, string(studio.ReasonTokenTooLarge)),
 				)
 
 				It("keeps the grant as it was when the service is unavailable or rate limits", func() {
@@ -703,7 +730,7 @@ var _ = Describe("OAuth connections", func() {
 					Expect(r.grant(b.ID).State).To(Equal(connectors.GrantConnected), "the write failed")
 					_, err = notBlocked(b)
 					Expect(err).To(MatchError(studio.ErrReconnectNeeded))
-					Expect(r.grant(b.ID).Reason).To(Equal(studio.ReasonRevoked))
+					Expect(r.grant(b.ID).Reason).To(Equal(string(studio.ReasonRevoked)))
 				})
 
 				It("keeps the lease when a rotated refresh token could not be written back", func() {
@@ -742,7 +769,7 @@ var _ = Describe("OAuth connections", func() {
 						if !keeps {
 							// The refresh token never goes to another token endpoint.
 							Expect(after.State).To(Equal(connectors.GrantReconnectNeeded))
-							Expect(after.Reason).To(Equal(studio.ReasonEndpointChanged))
+							Expect(after.Reason).To(Equal(string(studio.ReasonEndpointChanged)))
 							Expect(after.Sealed).To(BeEmpty())
 							_, err = r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
 							Expect(err).To(MatchError(studio.ErrReconnectNeeded))
@@ -788,7 +815,7 @@ var _ = Describe("OAuth connections", func() {
 					r.approve()
 					g := r.grant(b.ID)
 					Expect(g.State).To(Equal(connectors.GrantReconnectNeeded))
-					Expect(g.Reason).To(Equal(studio.ReasonScopesMissing))
+					Expect(g.Reason).To(Equal(string(studio.ReasonScopesMissing)))
 				})
 
 				It("ends a grant whose token ended when there is no refresh token", func() {
@@ -796,13 +823,13 @@ var _ = Describe("OAuth connections", func() {
 					g := r.grant(b.ID)
 					s, _ := connectors.NewSealer(mustKey(r.st))
 					g.Sealed, _ = s.SealGrant(connectors.GrantAAD(b.ID, b.Owner, b.AddonID), connectors.GrantSecrets{Access: "a", TokenType: "Bearer"})
-					ok, err := r.st.UpdateGrant(ctx, g, g.Version)
+					written, err := r.st.UpdateGrant(ctx, g, g.Version)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(ok).To(BeTrue())
+					Expect(written).To(Equal(g.Version + 1))
 					r.sh.clock.Advance(time.Hour)
 					_, err = r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
 					Expect(err).To(MatchError(studio.ErrReconnectNeeded))
-					Expect(r.grant(b.ID).Reason).To(Equal(studio.ReasonExpired))
+					Expect(r.grant(b.ID).Reason).To(Equal(string(studio.ReasonExpired)))
 				})
 			})
 
@@ -818,7 +845,7 @@ var _ = Describe("OAuth connections", func() {
 					Expect(r.srv.Tokens.Load()).To(BeEquivalentTo(2))
 					_, err = r.conns.RenewCredential(ctx, alice, oauthAddon, b.ID, "acme/widgets", renewed.Version, true)
 					Expect(err).To(MatchError(studio.ErrReconnectNeeded))
-					Expect(r.grant(b.ID).Reason).To(Equal(studio.ReasonCredentialRejected))
+					Expect(r.grant(b.ID).Reason).To(Equal(string(studio.ReasonCredentialRejected)))
 					Expect(r.srv.Tokens.Load()).To(BeEquivalentTo(2), "the second rejection does not refresh")
 				})
 

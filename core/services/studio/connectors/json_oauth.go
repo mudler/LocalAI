@@ -45,20 +45,20 @@ func (s *jsonStore) PutGrant(_ context.Context, g Grant) (int64, error) {
 	return g.Version, nil
 }
 
-func (s *jsonStore) UpdateGrant(_ context.Context, g Grant, version int64) (bool, error) {
+func (s *jsonStore) UpdateGrant(_ context.Context, g Grant, version int64) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	cur, ok := s.d.Grants[g.Binding]
 	if !ok || cur.Version != version {
-		return false, nil
+		return 0, nil
 	}
 	next := g.clone()
 	next.Owner, next.AddonID = cur.Owner, cur.AddonID
 	next.Version, next.LeaseOwner, next.LeaseUntil = version+1, "", time.Time{}
 	if err := s.mutate(func() { s.d.Grants[g.Binding] = next }); err != nil {
-		return false, err
+		return 0, err
 	}
-	return true, nil
+	return next.Version, nil
 }
 
 func (s *jsonStore) LeaseGrant(_ context.Context, binding string, version int64, owner string, now time.Time, ttl time.Duration) (bool, error) {

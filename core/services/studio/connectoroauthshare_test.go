@@ -161,7 +161,7 @@ var _ = Describe("an OAuth connection shared with another person", func() {
 			Expect(views).To(HaveLen(1))
 			Expect(views[0].Active).To(BeFalse())
 			Expect(views[0].Reason).To(ContainSubstring("owner"))
-			Expect(views[0].Reason).NotTo(ContainSubstring(studio.ReasonCredentialRejected), "no reason code of the login")
+			Expect(views[0].Reason).NotTo(ContainSubstring(string(studio.ReasonCredentialRejected)), "no reason code of the login")
 		})
 
 		It("tells the grantee the same when the owner disconnected", func() {

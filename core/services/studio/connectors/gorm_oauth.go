@@ -123,14 +123,17 @@ func (s *gormStore) PutGrant(ctx context.Context, g Grant) (int64, error) {
 	return version, err
 }
 
-func (s *gormStore) UpdateGrant(ctx context.Context, g Grant, version int64) (bool, error) {
+func (s *gormStore) UpdateGrant(ctx context.Context, g Grant, version int64) (int64, error) {
 	// A map writes the zero values too: an empty secret or a cleared reason.
 	res := s.db.WithContext(ctx).Model(&grantRow{}).Where("binding = ? AND version = ?", g.Binding, version).Updates(map[string]any{
 		"sealed": g.Sealed, "expires_at": g.ExpiresAt.UTC(), "scopes": encJSON(g.Scopes, len(g.Scopes) == 0), "account_label": g.AccountLabel,
 		"state": g.State, "reason": g.Reason, "descriptor_digest": g.DescriptorDigest, "token_url": g.TokenURL, "revoke_url": g.RevokeURL, "version": version + 1,
 		"lease_owner": "", "lease_until": time.Time{}, "updated": g.Updated.UTC(),
 	})
-	return res.RowsAffected == 1, res.Error
+	if res.Error != nil || res.RowsAffected != 1 {
+		return 0, res.Error
+	}
+	return version + 1, nil
 }
 
 func (s *gormStore) LeaseGrant(ctx context.Context, binding string, version int64, owner string, now time.Time, ttl time.Duration) (bool, error) {

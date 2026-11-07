@@ -170,20 +170,20 @@ var _ = Describe("the state of an OAuth connection in the lists", func() {
 		Expect(conns[0].State).To(Equal(studio.OAuthConnected))
 
 		g := r.grant(b.ID)
-		g.State, g.Reason = connectors.GrantReconnectNeeded, studio.ReasonRevoked
+		g.State, g.Reason = connectors.GrantReconnectNeeded, string(studio.ReasonRevoked)
 		_, err = r.st.UpdateGrant(ctx, g, g.Version)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(view(b.ID).State).To(Equal(studio.OAuthReconnectNeeded))
-		Expect(view(b.ID).Reason).To(Equal(studio.ReasonRevoked))
+		Expect(view(b.ID).Reason).To(Equal(string(studio.ReasonRevoked)))
 		conns, _ = r.conns.Connections(ctx, alice, oauthAddon)
 		Expect(conns[0].State).To(Equal(studio.OAuthReconnectNeeded))
 
 		g = r.grant(b.ID)
-		g.State, g.Reason = connectors.GrantNeedsApproval, studio.ReasonNeedsApproval
+		g.State, g.Reason = connectors.GrantNeedsApproval, string(studio.ReasonNeedsApproval)
 		_, err = r.st.UpdateGrant(ctx, g, g.Version)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(view(b.ID).State).To(Equal(studio.OAuthNeedsApproval))
-		Expect(view(b.ID).Reason).To(Equal(studio.ReasonNeedsApproval))
+		Expect(view(b.ID).Reason).To(Equal(string(studio.ReasonNeedsApproval)))
 		conns, _ = r.conns.Connections(ctx, alice, oauthAddon)
 		Expect(conns[0].State).To(Equal(studio.OAuthNeedsApproval), "a held login is no reconnect")
 	})

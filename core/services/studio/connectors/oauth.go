@@ -176,8 +176,10 @@ type OAuthStore interface {
 	PutGrant(ctx context.Context, g Grant) (int64, error)
 	// UpdateGrant writes g only while the stored grant has the given version,
 	// as one step. The version becomes version+1 and the lease ends. It
-	// reports whether it wrote. The binding, owner and add-on never change.
-	UpdateGrant(ctx context.Context, g Grant, version int64) (bool, error)
+	// returns the new version, or 0 when it wrote nothing because the stored
+	// grant has another version or none. The binding, owner and add-on never
+	// change.
+	UpdateGrant(ctx context.Context, g Grant, version int64) (int64, error)
 	// LeaseGrant gives the refresh of a grant to owner until now+ttl, as one
 	// step, only while the grant has the given version and no live lease. It
 	// reports whether owner holds the lease.

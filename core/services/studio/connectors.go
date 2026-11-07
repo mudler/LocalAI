@@ -59,6 +59,10 @@ type ConnectorOptions struct {
 	// Transport reaches the connector add-ons. Required.
 	Transport ConnectorTransport
 	Clock     func() time.Time
+	// LeaseWait pauses a caller that lost the refresh lease of an OAuth grant
+	// before it looks for the token the winner writes. Nil sleeps for real;
+	// a test passes a hook that does not.
+	LeaseWait func(ctx context.Context, d time.Duration) error
 	// Tick is how often the manager looks for bindings to start or stop; zero
 	// means 2 seconds.
 	Tick time.Duration
@@ -213,6 +217,9 @@ func NewConnectors(svc *Service, o ConnectorOptions) (*Connectors, error) {
 	}
 	if o.Clock == nil {
 		o.Clock = time.Now
+	}
+	if o.LeaseWait == nil {
+		o.LeaseWait = sleep
 	}
 	if o.Tick <= 0 {
 		o.Tick = 2 * time.Second
@@ -1396,5 +1403,17 @@ func (c *Connectors) Forward(ctx context.Context, n notify.Notification) {
 		if !c.spawn(func() { c.say(b, token, b.NotifyChat, "", text) }) {
 			return // closed meanwhile
 		}
+	}
+}
+
+// sleep waits for d or until ctx ends.
+func sleep(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-t.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }

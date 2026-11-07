@@ -40,39 +40,42 @@ const (
 	oauthWriteTries = 3
 )
 
-// Reasons of a grant that needs a reconnect. They are fixed codes: the UI
-// words them, and none carries text of the service.
+// GrantReason is the fixed code of why a grant needs a reconnect. The UI
+// words it, and none carries text of the service.
+type GrantReason string
+
+//nolint:gosec // G101: failure reasons, not credentials
 const (
 	// ReasonRevoked: the service answered invalid_grant.
-	ReasonRevoked = "revoked" // #nosec G101 -- a failure reason, not a credential
+	ReasonRevoked GrantReason = "revoked"
 	// ReasonClientRejected: the service refused the client of the add-on.
-	ReasonClientRejected = "client_rejected" // #nosec G101 -- a failure reason, not a credential
+	ReasonClientRejected GrantReason = "client_rejected"
 	// ReasonRefused: the service refused the refresh in another way, or gave
 	// an answer the host cannot use.
-	ReasonRefused = "refused" // #nosec G101 -- a failure reason, not a credential
+	ReasonRefused GrantReason = "refused"
 	// ReasonNeedsApproval: the descriptor of the add-on changed, or its
 	// client was removed, so an administrator must approve it again. The
 	// grant is held (connectors.GrantNeedsApproval) with its tokens.
-	ReasonNeedsApproval = "needs_approval" // #nosec G101 -- a failure reason, not a credential
+	ReasonNeedsApproval GrantReason = "needs_approval"
 	// ReasonCredentialRejected: the add-on rejected a fresh token too.
-	ReasonCredentialRejected = "credential_rejected" // #nosec G101 -- a failure reason, not a credential
+	ReasonCredentialRejected GrantReason = "credential_rejected"
 	// ReasonExpired: the access token ended and there is no refresh token.
-	ReasonExpired = "expired" // #nosec G101 -- a failure reason, not a credential
+	ReasonExpired GrantReason = "expired"
 	// ReasonWriteFailed: the service rotated the refresh token and the host
 	// could not store the new one.
-	ReasonWriteFailed = "write_failed" // #nosec G101 -- a failure reason, not a credential
+	ReasonWriteFailed GrantReason = "write_failed"
 	// ReasonUnreadable: the sealed tokens do not open.
-	ReasonUnreadable = "unreadable" // #nosec G101 -- a failure reason, not a credential
+	ReasonUnreadable GrantReason = "unreadable"
 	// ReasonScopesMissing: a refresh granted fewer than the required scopes,
 	// or a newly approved descriptor requires a scope the login lacks.
-	ReasonScopesMissing = "scopes_missing" // #nosec G101 -- a failure reason, not a credential
+	ReasonScopesMissing GrantReason = "scopes_missing"
 	// ReasonTokenTooLarge: a refresh gave an access token larger than a
 	// request carries.
-	ReasonTokenTooLarge = "token_too_large" // #nosec G101 -- a failure reason, not a credential
+	ReasonTokenTooLarge GrantReason = "token_too_large"
 	// ReasonEndpointChanged: the approved descriptor of the add-on sends the
 	// refresh token to another token or revocation endpoint than the one the
 	// login used. The token is never sent there.
-	ReasonEndpointChanged = "endpoint_changed" // #nosec G101 -- a failure reason, not a credential
+	ReasonEndpointChanged GrantReason = "endpoint_changed"
 )
 
 // Errors of the OAuth credentials.
@@ -298,7 +301,7 @@ func (c *Connectors) holdGrant(ctx context.Context, b connectors.Binding, g conn
 		return ErrReconnectNeeded
 	}
 	next := g
-	next.State, next.Reason, next.Updated = connectors.GrantNeedsApproval, ReasonNeedsApproval, c.o.Clock().UTC()
+	next.State, next.Reason, next.Updated = connectors.GrantNeedsApproval, string(ReasonNeedsApproval), c.o.Clock().UTC()
 	_, err := c.o.Store.UpdateGrant(ctx, next, g.Version)
 	c.log.Info("studio: an OAuth connection waits for an approval of its add-on", "binding", b.ID, "addon", b.AddonID, "stored", err == nil)
 	return ErrReconnectNeeded
@@ -322,22 +325,26 @@ func (c *Connectors) carryOver(ctx context.Context, b connectors.Binding, g conn
 	}
 	next := g
 	next.DescriptorDigest, next.State, next.Reason = digest, connectors.GrantConnected, ""
-	if next.Scopes != nil {
-		next.Scopes = slices.DeleteFunc(slices.Clone(g.Scopes), func(s string) bool {
-			return !slices.Contains(d.Scopes.Required, s) && !slices.Contains(d.Scopes.Optional, s)
-		})
-	}
-	wrote, err := c.o.Store.UpdateGrant(ctx, next, g.Version)
+	next.Scopes = inDescriptor(d, g.Scopes)
+	version, err := c.o.Store.UpdateGrant(ctx, next, g.Version)
 	if err != nil {
 		return g, c.unavailable(b, causeStore)
 	}
-	if !wrote {
+	if version == 0 {
 		// Another call wrote the grant first; the next call reads it.
 		return g, ErrCredentialUnavailable
 	}
 	c.log.Info("studio: an OAuth connection moved to the approved login of its add-on", "binding", b.ID, "addon", b.AddonID)
-	next.Version = g.Version + 1
+	next.Version = version
 	return next, nil
+}
+
+// inDescriptor keeps the scopes that the descriptor d names, required or
+// optional. A scope it does not name is not passed to the add-on.
+func inDescriptor(d contract.OAuthDescriptor, scopes []string) []string {
+	return slices.DeleteFunc(slices.Clone(scopes), func(s string) bool {
+		return !slices.Contains(d.Scopes.Required, s) && !slices.Contains(d.Scopes.Optional, s)
+	})
 }
 
 // approveGrants carries the held grants of an add-on over to its approved
@@ -387,9 +394,9 @@ func (c *Connectors) openGrant(ctx context.Context, b connectors.Binding, g conn
 // endGrant wipes the secrets of the grant and marks it reconnect_needed with
 // the reason. It returns ErrReconnectNeeded, which is the answer whether or
 // not the write went through: the grant cannot be used either way.
-func (c *Connectors) endGrant(ctx context.Context, b connectors.Binding, g connectors.Grant, reason string) error {
+func (c *Connectors) endGrant(ctx context.Context, b connectors.Binding, g connectors.Grant, reason GrantReason) error {
 	next := g
-	next.Sealed, next.State, next.Reason, next.Updated = nil, connectors.GrantReconnectNeeded, reason, c.o.Clock().UTC()
+	next.Sealed, next.State, next.Reason, next.Updated = nil, connectors.GrantReconnectNeeded, string(reason), c.o.Clock().UTC()
 	// A write that loses the compare-and-set leaves the newer grant alone:
 	// it is a refresh or a new login, and the next call reads it.
 	_, err := c.o.Store.UpdateGrant(ctx, next, g.Version)
@@ -426,10 +433,10 @@ func (c *Connectors) refresh(ctx context.Context, b connectors.Binding, seen int
 }
 
 func (c *Connectors) refreshShared(ctx context.Context, b connectors.Binding, seen int64, force bool) (oauthAccess, error) {
-	// The wait uses the wall clock and the lease uses c.o.Clock: the wait
-	// bounds how long this caller blocks in real time, and a test clock that
-	// does not move must not make it wait forever.
-	deadline := time.Now().Add(oauthLeaseWait)
+	// The wait is counted in polls, not read from a clock: the lease uses
+	// c.o.Clock, and a test clock that does not move must not make a caller
+	// wait forever.
+	var waited time.Duration
 	for {
 		g, err := c.readGrant(ctx, b)
 		if err != nil {
@@ -446,15 +453,14 @@ func (c *Connectors) refreshShared(ctx context.Context, b connectors.Binding, se
 		if won {
 			return c.refreshHeld(ctx, b, g)
 		}
-		if time.Now().After(deadline) {
+		if waited >= oauthLeaseWait {
 			return oauthAccess{}, ErrCredentialUnavailable
 		}
 		seen = g.Version
-		select {
-		case <-time.After(oauthLeasePoll):
-		case <-ctx.Done():
+		if err := c.o.LeaseWait(ctx, oauthLeasePoll); err != nil {
 			return oauthAccess{}, ErrCredentialUnavailable
 		}
+		waited += oauthLeasePoll
 	}
 }
 
@@ -492,29 +498,15 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 	if !a.ok {
 		return oauthAccess{}, c.holdGrant(ctx, b, g)
 	}
-	d := a.d
-	if g.DescriptorDigest != a.digest || g.TokenURL != d.TokenURL {
+	if g.DescriptorDigest != a.digest || g.TokenURL != a.d.TokenURL {
 		// The approval changed since the grant was read; the next call
 		// carries it over. The refresh token goes only to the endpoint of
 		// the grant.
 		return oauthAccess{}, ErrCredentialUnavailable
 	}
-	tok, err := c.tokenClient().Refresh(ctx, d, a.cred, sec.Refresh)
-	var limited *contract.ErrRateLimited
-	switch {
-	case err == nil:
-	case errors.As(err, &limited):
-		return oauthAccess{}, limited
-	case errors.Is(err, oauthtoken.ErrInvalidGrant):
-		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonRevoked)
-	case errors.Is(err, oauthtoken.ErrInvalidClient):
-		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonClientRejected)
-	case errors.Is(err, oauthtoken.ErrTokenTooLarge):
-		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonTokenTooLarge)
-	case errors.Is(err, oauthtoken.ErrRefused), errors.Is(err, oauthtoken.ErrBadResponse):
-		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonRefused)
-	default:
-		return oauthAccess{}, ErrCredentialUnavailable
+	tok, err := c.callRefresh(ctx, b, g, a, sec.Refresh)
+	if err != nil {
+		return oauthAccess{}, err
 	}
 	rotated := tok.Refresh != "" && tok.Refresh != sec.Refresh
 	// From here a failure loses the rotated refresh token.
@@ -525,21 +517,63 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 	if tok.ExpiresIn > 0 {
 		next.ExpiresAt = next.Updated.Add(tok.ExpiresIn)
 	}
-	if tok.ScopeSet {
-		// A refresh may narrow the login, never widen it: a scope the person
-		// did not grant at the login is not passed to the add-on. Without a
-		// required scope the add-on cannot work, so the person logs in again.
-		for _, req := range d.Scopes.Required {
-			if !slices.Contains(tok.Scopes, req) {
-				return oauthAccess{}, c.endGrant(ctx, b, g, ReasonScopesMissing)
-			}
-		}
-		next.Scopes = slices.DeleteFunc(slices.Clone(g.Scopes), func(s string) bool { return !slices.Contains(tok.Scopes, s) })
+	scopes, ok := narrowScopes(a.d, g.Scopes, tok)
+	if !ok {
+		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonScopesMissing)
 	}
+	next.Scopes = scopes
 	keep := connectors.GrantSecrets{Access: tok.Access, Refresh: sec.Refresh, TokenType: tok.TokenType}
 	if rotated {
 		keep.Refresh = tok.Refresh
 	}
+	return c.writeBack(ctx, b, g, next, keep, rotated)
+}
+
+// callRefresh trades the refresh token for a new access token and maps what
+// the token endpoint answers to the way the grant ends. The error it returns
+// is the one for the caller.
+func (c *Connectors) callRefresh(ctx context.Context, b connectors.Binding, g connectors.Grant, a oauthApproval, refresh string) (oauthtoken.Tokens, error) {
+	tok, err := c.tokenClient().Refresh(ctx, a.d, a.cred, refresh)
+	var limited *contract.ErrRateLimited
+	switch {
+	case err == nil:
+		return tok, nil
+	case errors.As(err, &limited):
+		return tok, limited
+	case errors.Is(err, oauthtoken.ErrInvalidGrant):
+		return tok, c.endGrant(ctx, b, g, ReasonRevoked)
+	case errors.Is(err, oauthtoken.ErrInvalidClient):
+		return tok, c.endGrant(ctx, b, g, ReasonClientRejected)
+	case errors.Is(err, oauthtoken.ErrTokenTooLarge):
+		return tok, c.endGrant(ctx, b, g, ReasonTokenTooLarge)
+	case errors.Is(err, oauthtoken.ErrRefused), errors.Is(err, oauthtoken.ErrBadResponse):
+		return tok, c.endGrant(ctx, b, g, ReasonRefused)
+	}
+	return tok, ErrCredentialUnavailable
+}
+
+// narrowScopes returns the scopes a login keeps after a refresh. A refresh
+// may narrow the login, never widen it: a scope the person did not grant at
+// the login is not passed to the add-on. It reports false when a required
+// scope is gone, because the add-on cannot work then and the person logs in
+// again.
+func narrowScopes(d contract.OAuthDescriptor, held []string, tok oauthtoken.Tokens) ([]string, bool) {
+	if !tok.ScopeSet {
+		return held, true
+	}
+	for _, req := range d.Scopes.Required {
+		if !slices.Contains(tok.Scopes, req) {
+			return nil, false
+		}
+	}
+	return slices.DeleteFunc(slices.Clone(held), func(s string) bool { return !slices.Contains(tok.Scopes, s) }), true
+}
+
+// writeBack seals the new secrets into next and stores it at the version of
+// g, trying again when the store fails. When the service rotated the refresh
+// token and nothing could be written, the grant ends: the old token may be
+// dead and the new one is lost.
+func (c *Connectors) writeBack(ctx context.Context, b connectors.Binding, g, next connectors.Grant, keep connectors.GrantSecrets, rotated bool) (oauthAccess, error) {
 	cause := causeSealer
 	s, err := c.sealerFor(ctx)
 	if err == nil {
@@ -548,10 +582,10 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 	if err == nil {
 		cause = causeStore
 		for range oauthWriteTries {
-			var wrote bool
-			wrote, err = c.o.Store.UpdateGrant(ctx, next, g.Version)
-			if err == nil && wrote {
-				return oauthAccess{secret: tok.Access, scopes: next.Scopes, version: g.Version + 1}, nil
+			var version int64
+			version, err = c.o.Store.UpdateGrant(ctx, next, g.Version)
+			if err == nil && version != 0 {
+				return oauthAccess{secret: keep.Access, scopes: next.Scopes, version: version}, nil
 			}
 			if err == nil {
 				// The grant moved under the lease: retrying cannot win.
@@ -560,7 +594,6 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 		}
 	}
 	if rotated {
-		// The old refresh token may be dead now and the new one is lost.
 		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonWriteFailed)
 	}
 	// err is nil when the grant moved under the lease; only an outage is

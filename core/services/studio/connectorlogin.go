@@ -288,7 +288,6 @@ func (c *Connectors) CompleteLogin(ctx context.Context, user, nonce, state, code
 	if !a.ok || a.digest != st.DescriptorDigest {
 		return fail(LoginExchangeFailed)
 	}
-	d := a.d
 	sealer, err := c.sealerFor(ctx)
 	if err != nil {
 		return fail(LoginUnavailable)
@@ -297,45 +296,27 @@ func (c *Connectors) CompleteLogin(ctx context.Context, user, nonce, state, code
 	if err != nil {
 		return fail(LoginInvalidState)
 	}
-	tok, err := c.tokenClient().Exchange(ctx, d, a.cred, code, string(verifier), st.RedirectURI)
-	var limited *contract.ErrRateLimited
-	switch {
-	case err == nil:
-	case errors.Is(err, oauthtoken.ErrUnavailable), errors.As(err, &limited):
-		return fail(LoginUnavailable)
-	case errors.Is(err, oauthtoken.ErrTokenTooLarge):
-		return fail(LoginTokenTooLarge)
-	default:
-		return fail(LoginExchangeFailed)
+	tok, outcome := c.exchange(ctx, a, st, string(verifier), code)
+	if outcome != "" {
+		return fail(outcome)
 	}
-	scopes := st.Scopes
-	if tok.ScopeSet {
-		scopes = tok.Scopes
-	}
-	for _, r := range d.Scopes.Required {
-		if !slices.Contains(scopes, r) {
-			return fail(LoginScopesMissing)
-		}
+	scopes, ok := checkScopes(a.d, st, tok)
+	if !ok {
+		return fail(LoginScopesMissing)
 	}
 	label, outcome := c.connectedAs(ctx, b, tok.Access)
 	if outcome != "" {
 		return fail(outcome)
 	}
-	now := c.o.Clock().UTC()
-	g := connectors.Grant{Binding: b.ID, Owner: b.Owner, AddonID: b.AddonID, Scopes: scopes, AccountLabel: label,
-		State: connectors.GrantConnected, DescriptorDigest: st.DescriptorDigest, TokenURL: d.TokenURL, RevokeURL: d.RevokeURL, Updated: now}
-	if tok.ExpiresIn > 0 {
-		g.ExpiresAt = now.Add(tok.ExpiresIn)
-	}
-	if g.Sealed, err = sealer.SealGrant(connectors.GrantAAD(b.ID, b.Owner, b.AddonID), connectors.GrantSecrets{Access: tok.Access, Refresh: tok.Refresh, TokenType: tok.TokenType}); err != nil {
+	switch err := c.storeGrant(ctx, b, st, a.d, sealer, tok, scopes, label); {
+	case err == nil:
+	case errors.Is(err, connectors.ErrNotFound):
+		// The binding was deleted while the code was traded. The tokens are
+		// dropped; nothing can reach or revoke them here.
+		return fail(LoginInvalidState)
+	case errors.Is(err, errSealGrant):
 		return fail(LoginUnavailable)
-	}
-	if _, err := c.o.Store.PutGrant(ctx, g); err != nil {
-		if errors.Is(err, connectors.ErrNotFound) {
-			// The binding was deleted while the code was traded. The
-			// tokens are dropped; nothing can reach or revoke them here.
-			return fail(LoginInvalidState)
-		}
+	default:
 		res.Outcome = LoginUnavailable
 		return res, err
 	}
@@ -344,15 +325,71 @@ func (c *Connectors) CompleteLogin(ctx context.Context, user, nonce, state, code
 	return res, nil
 }
 
+// exchange trades the code for tokens. It returns the outcome of a failed
+// trade, or "" for a trade that worked.
+func (c *Connectors) exchange(ctx context.Context, a oauthApproval, st connectors.LoginState, verifier, code string) (oauthtoken.Tokens, string) {
+	tok, err := c.tokenClient().Exchange(ctx, a.d, a.cred, code, verifier, st.RedirectURI)
+	var limited *contract.ErrRateLimited
+	switch {
+	case err == nil:
+		return tok, ""
+	case errors.Is(err, oauthtoken.ErrUnavailable), errors.As(err, &limited):
+		return tok, LoginUnavailable
+	case errors.Is(err, oauthtoken.ErrTokenTooLarge):
+		return tok, LoginTokenTooLarge
+	}
+	return tok, LoginExchangeFailed
+}
+
+// checkScopes returns the scopes the login keeps. A service that lists the
+// granted scopes decides, and one that does not leaves the requested ones. A
+// provider may grant more than was asked (incremental authorization), and
+// only the scopes the descriptor names are kept, as when a grant is carried
+// over to a new descriptor. It reports false when a required scope is
+// missing.
+func checkScopes(d contract.OAuthDescriptor, st connectors.LoginState, tok oauthtoken.Tokens) ([]string, bool) {
+	scopes := st.Scopes
+	if tok.ScopeSet {
+		scopes = tok.Scopes
+	}
+	scopes = inDescriptor(d, scopes)
+	for _, r := range d.Scopes.Required {
+		if !slices.Contains(scopes, r) {
+			return nil, false
+		}
+	}
+	return scopes, true
+}
+
+// errSealGrant marks a grant whose tokens could not be sealed.
+var errSealGrant = errors.New("studio: the tokens of the login could not be sealed")
+
+// storeGrant seals the tokens and stores the grant of the login.
+func (c *Connectors) storeGrant(ctx context.Context, b connectors.Binding, st connectors.LoginState, d contract.OAuthDescriptor, sealer *connectors.Sealer, tok oauthtoken.Tokens, scopes []string, label string) error {
+	now := c.o.Clock().UTC()
+	g := connectors.Grant{Binding: b.ID, Owner: b.Owner, AddonID: b.AddonID, Scopes: scopes, AccountLabel: label,
+		State: connectors.GrantConnected, DescriptorDigest: st.DescriptorDigest, TokenURL: d.TokenURL, RevokeURL: d.RevokeURL, Updated: now}
+	if tok.ExpiresIn > 0 {
+		g.ExpiresAt = now.Add(tok.ExpiresIn)
+	}
+	sealed, err := sealer.SealGrant(connectors.GrantAAD(b.ID, b.Owner, b.AddonID), connectors.GrantSecrets{Access: tok.Access, Refresh: tok.Refresh, TokenType: tok.TokenType})
+	if err != nil {
+		return errSealGrant
+	}
+	g.Sealed = sealed
+	_, err = c.o.Store.PutGrant(ctx, g)
+	return err
+}
+
 // connectedAs asks the add-on, with the new token, who the person is at the
 // service (the connector op "me"). An unauthorized answer fails the login;
 // an add-on that does not answer leaves the label empty, as a token check
 // does.
-func (c *Connectors) connectedAs(ctx context.Context, b connectors.Binding, access string) (string, string) {
+func (c *Connectors) connectedAs(ctx context.Context, b connectors.Binding, access string) (label, outcome string) {
 	if c.o.Transport == nil {
 		return "", ""
 	}
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, connectedAsTimeout)
 	defer cancel()
 	scope := BindingConnectorScope(b)
 	scope.Purpose = ConnectorPurposeVerifyToken
@@ -367,12 +404,15 @@ func (c *Connectors) connectedAs(ctx context.Context, b connectors.Binding, acce
 	case resp.Error != nil:
 		return "", ""
 	}
-	label := resp.BotUsername
+	label = resp.BotUsername
 	if label == "" {
 		label = resp.BotID
 	}
 	return cleanAccountLabel(label), ""
 }
+
+// connectedAsTimeout bounds the question to the add-on who the person is.
+const connectedAsTimeout = 20 * time.Second
 
 // MaxAccountLabelRunes bounds the account name of a login.
 const MaxAccountLabelRunes = 128
