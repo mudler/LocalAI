@@ -1,6 +1,7 @@
 package files
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -211,4 +212,65 @@ func yamlQuote(s string) string {
 		return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(s) + `"`
 	}
 	return s
+}
+
+// ErrSkillExists means a skill of that name is already there. An import never
+// replaces a skill.
+var ErrSkillExists = errors.New("files: a skill of that name exists already")
+
+// ImportSkills stores skills that skills.ReadPacks has checked, as one change
+// set (one Undo takes all of them back). The files are only stored: nothing in
+// a pack is run. For the shared layer principal must be AdminPrincipal.
+//
+// It refuses the whole import, before it writes anything, when one name is
+// taken in the layer, and when reserved says a name belongs to the product.
+func (s *Service) ImportSkills(ctx context.Context, principal string, layer skills.Layer, packs []skills.Pack, reserved func(string) bool) (int64, error) {
+	if !s.Available() {
+		return 0, ErrUnavailable
+	}
+	dirs := make([]string, len(packs))
+	var actor workspace.Actor
+	for i, p := range packs {
+		dir, a, err := s.skillDir(principal, layer, p.Name, true)
+		if err != nil {
+			return 0, err
+		}
+		if reserved != nil && reserved(p.Name) {
+			return 0, fmt.Errorf("%w: %q is the name of a skill that ships with LocalAI", ErrBadSkill, p.Name)
+		}
+		dirs[i], actor = dir, a
+	}
+	if layer == skills.LayerPersonal {
+		if err := s.EnsureHome(ctx, principal); err != nil {
+			return 0, err
+		}
+	}
+	for i, p := range packs {
+		if _, err := s.ws.Stat(ctx, actor, dirs[i]); err == nil {
+			return 0, fmt.Errorf("%w: %q", ErrSkillExists, p.Name)
+		} else if !errors.Is(err, workspace.ErrNotFound) {
+			return 0, err
+		}
+	}
+	title := "Import skill " + packs[0].Name
+	if len(packs) > 1 {
+		title = fmt.Sprintf("Import %d skills", len(packs))
+	}
+	tx, err := s.ws.Begin(ctx, actor, title)
+	if err != nil {
+		return 0, err
+	}
+	for i, p := range packs {
+		for _, f := range p.Files {
+			if _, err := tx.Put(ctx, dirs[i]+"/"+f.Path, bytes.NewReader(f.Data), workspace.PutOptions{MaxSize: int64(len(f.Data)) + 1, Title: title}); err != nil {
+				_ = tx.Rollback()
+				return 0, err
+			}
+		}
+	}
+	cs, err := tx.Commit()
+	if err != nil && !errors.Is(err, workspace.ErrCommitted) {
+		return 0, err
+	}
+	return cs.Rev, nil
 }

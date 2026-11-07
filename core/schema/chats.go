@@ -1139,6 +1139,25 @@ type ChatsSkillDetail struct {
 	Editable    bool   `json:"editable"`
 }
 
+// ChatsSkillImported is one skill stored by an import.
+type ChatsSkillImported struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Files       int    `json:"files"`
+	Bytes       int64  `json:"bytes"`
+	// Scripts counts the files below scripts/. They are stored, never run by
+	// the import.
+	Scripts int `json:"scripts"`
+}
+
+// ChatsSkillImportResult is the answer of a skill import.
+type ChatsSkillImportResult struct {
+	Layer  string               `json:"layer"`
+	Skills []ChatsSkillImported `json:"skills"`
+	// Rev is the revision of the change set; undo it from the file history.
+	Rev int64 `json:"rev"`
+}
+
 // ChatsSkillSwitches sets the skills a chat has switched off.
 type ChatsSkillSwitches struct {
 	Off []string `json:"off"`

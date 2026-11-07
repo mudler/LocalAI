@@ -1,7 +1,11 @@
 package studio
 
 import (
+	"bytes"
+	"errors"
+	"io"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 
@@ -10,6 +14,7 @@ import (
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // isAdmin reports whether the caller may change the shared skills. With
@@ -240,4 +245,77 @@ func (h *Handlers) SetChatSkills(c echo.Context) error {
 		off = []string{}
 	}
 	return c.JSON(http.StatusOK, schema.ChatsSkillSwitches{Off: off})
+}
+
+// maxSkillImportBody is the largest zip file an import reads. The archive may
+// unpack to more than this, up to skills.DefaultPackBytes.
+const maxSkillImportBody = 20 << 20
+
+// ImportSkills imports skills in the Agent Skills format from a zip archive.
+// @Summary Import skills from a zip archive.
+// @Description Send a zip file as the file field of a multipart form. It holds either one skill (SKILL.md at the top) or one folder per skill, each with a SKILL.md and optional scripts/, references/ and assets/, as the Agent Skills specification (agentskills.io) defines. The whole archive is checked first and nothing is stored when any part is not valid: the name and description rules of the specification, paths that leave the skill folder, absolute paths, links, duplicate or case-colliding names, and size limits (500 entries, 5 MiB a file, 20 MiB in all). A name that exists already in the layer is refused with 409; the import never replaces a skill. Files, scripts included, are only stored: the import runs nothing. The layer field is personal (default) or shared (administrator).
+// @Tags chats
+// @Accept mpfd
+// @Param file formData file true "the zip archive"
+// @Param layer formData string false "personal (default) or shared"
+// @Success 201 {object} schema.ChatsSkillImportResult "The stored skills"
+// @Failure 400 {object} schema.ErrorResponse "The archive is not a valid skill archive"
+// @Failure 409 {object} schema.ErrorResponse "A skill of that name exists already"
+// @Failure 413 {object} schema.ErrorResponse "The archive is over a size limit"
+// @Router /api/chats/skills/import [post]
+func (h *Handlers) ImportSkills(c echo.Context) error {
+	fc, ok := h.files(c)
+	if !ok {
+		return nil
+	}
+	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, maxSkillImportBody+(1<<20))
+	layerName := "personal"
+	if v := strings.TrimSpace(c.FormValue("layer")); v != "" {
+		layerName = v
+	}
+	layer, ok := parseLayer(layerName)
+	if !ok || !writable(layer) {
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "layer must be personal or shared")
+	}
+	fh, err := c.FormFile("file")
+	if err != nil {
+		var httpErr *echo.HTTPError
+		var tooBig *http.MaxBytesError
+		if errors.As(err, &tooBig) || (errors.As(err, &httpErr) && httpErr.Code == http.StatusRequestEntityTooLarge) {
+			return fail(c, http.StatusRequestEntityTooLarge, typeInvalid, "the zip file is larger than 20 MiB")
+		}
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "send the zip file as the file field")
+	}
+	f, err := fh.Open()
+	if err != nil {
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "the file could not be read")
+	}
+	defer func() { _ = f.Close() }()
+	raw, err := io.ReadAll(io.LimitReader(f, maxSkillImportBody+1))
+	if err != nil {
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "the file could not be read")
+	}
+	if len(raw) > maxSkillImportBody {
+		return fail(c, http.StatusRequestEntityTooLarge, typeInvalid, "the zip file is larger than 20 MiB")
+	}
+	packs, err := skills.ReadPacks(bytes.NewReader(raw), int64(len(raw)), skills.PackLimits{})
+	if err != nil {
+		return failFile(c, err)
+	}
+	reserved := func(n string) bool { return contract.ProtectedSkill(n) || contract.ReplaceableSkill(n) }
+	rev, err := fc.f.ImportSkills(c.Request().Context(), skillActor(c, fc, layer), layer, packs, reserved)
+	if err != nil {
+		return failFile(c, err)
+	}
+	out := schema.ChatsSkillImportResult{Layer: string(layer), Rev: rev, Skills: make([]schema.ChatsSkillImported, 0, len(packs))}
+	for _, p := range packs {
+		item := schema.ChatsSkillImported{Name: p.Name, Description: p.Description, Files: len(p.Files), Bytes: p.Bytes()}
+		for _, pf := range p.Files {
+			if strings.HasPrefix(pf.Path, "scripts/") {
+				item.Scripts++
+			}
+		}
+		out.Skills = append(out.Skills, item)
+	}
+	return c.JSON(http.StatusCreated, out)
 }
