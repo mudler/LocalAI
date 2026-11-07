@@ -4425,7 +4425,7 @@ const docTemplate = `{
                 "summary": "Start a chat.",
                 "parameters": [
                     {
-                        "description": "model and optional title, agent and switches",
+                        "description": "model and optional title, agent (one of yours or one shared with you) and switches",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -5015,7 +5015,7 @@ const docTemplate = `{
         },
         "/api/chats/admin/tools": {
             "get": {
-                "description": "The built-in tools of the chats (bash, web_search, web_fetch, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it (oldest install first, with their install times in installed_at), the default one that serves with no pin (default: the oldest running install) and the one pinned with chats_tool_providers, the titles of the candidates, the candidates that are installed but stopped (stopped), a note \"not running\" when an installed add-on replaces the tool but none serves, and for bash the mode of chats_host_exec and why this server cannot run it, if so. skills lists the built-in skills (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each now, the add-ons that replace it (the same order, default and installed_at) and the one pinned in the same chats_tool_providers map. Change them with POST /api/settings.",
+                "description": "The built-in tools of the chats (bash, web_search, web_fetch, list_agents and the two LocalAI groups localai_client and localai_admin, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it (oldest install first, with their install times in installed_at), the default one that serves with no pin (default: the oldest running install) and the one pinned with chats_tool_providers, the titles of the candidates, the candidates that are installed but stopped (stopped), a note \"not running\" when an installed add-on replaces the tool but none serves, and for bash the mode of chats_host_exec and why this server cannot run it, if so. skills lists the built-in skills (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each now, the add-ons that replace it (the same order, default and installed_at) and the one pinned in the same chats_tool_providers map. Change them with POST /api/settings.",
                 "tags": [
                     "chats"
                 ],
@@ -5197,13 +5197,14 @@ const docTemplate = `{
         },
         "/api/chats/agents": {
             "get": {
+                "description": "Your own agents come first, then the agents other people shared with you. access says which is which: role owner for yours (with sharedWith, the number of grants), use or viewer for a shared one (with owner, the name of the person who shared it). A shared agent carries its full definition only for viewer, and never the owner's connections, resources or folders: you run it with your own.",
                 "tags": [
                     "chats"
                 ],
-                "summary": "List your saved agents.",
+                "summary": "List your saved agents and the agents shared with you.",
                 "responses": {
                     "200": {
-                        "description": "Your agents, sorted by name",
+                        "description": "Your agents, sorted by name, then the shared ones",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsAgentList"
                         }
@@ -5388,10 +5389,11 @@ const docTemplate = `{
         },
         "/api/chats/agents/{id}": {
             "get": {
+                "description": "An agent shared with you carries its full definition only for the role viewer, and never the owner's connections, resources or folders.",
                 "tags": [
                     "chats"
                 ],
-                "summary": "Read a saved agent.",
+                "summary": "Read a saved agent of yours or one shared with you.",
                 "parameters": [
                     {
                         "type": "string",
@@ -5409,7 +5411,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "No such conversation, or it is another user's",
+                        "description": "No such agent, or it is another user's and not shared with you",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -5539,6 +5541,76 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/agents/{id}/needs": {
+            "get": {
+                "description": "For your agent or an agent shared with you: each thing the agent uses, by label, with its state for you. ok: you have it. missing: it is not shared with you (ask the owner, or use your own). unavailable: this server or your account does not offer it. ask: the agent asks for a network (kind network) or a group of built-in tools (kind tool-group) that your chat starts without; you may turn it on in the chat. Nothing else about a thing you cannot see is returned.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List what an agent needs and whether you have it.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the agent's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "What the agent needs",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentNeedList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such agent, or it is not shared with you",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/agents/{id}/references": {
+            "get": {
+                "description": "The add-ons, collections, skills, folders, connections, add-on resources, MCP servers and built-in grants the agent names, with a label each. share says how a reference can be shared with a person you share the agent with; without it the person needs access of their own. Only the owner may call it.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List what your agent uses.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the agent's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The references",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentReferenceList"
+                        }
+                    },
+                    "403": {
+                        "description": "The agent is shared with you, not yours",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/agents/{id}/runs": {
             "get": {
                 "description": "Lists your chats that ran with the agent, newest first: the ones you had, the ones its triggers started and the ones its connectors started, with how each ended. Open one with GET /api/chats/{chat_id}.",
@@ -5566,6 +5638,50 @@ const docTemplate = `{
                         "description": "The runs and the counts",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsAgentHistory"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/agents/{id}/share": {
+            "post": {
+                "description": "Makes the agent's record in the sharing API on the first call and returns it on every call. Share the agent with /api/shares/agent/{id}/grants/{principal}, roles use and viewer, or @everyone. Sharing the agent does not share what it uses: share each collection or connection by itself. Only the owner may call it.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Get the sharing ID of your agent.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the agent's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The sharing ID",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentShareRef"
+                        }
+                    },
+                    "403": {
+                        "description": "The agent is shared with you, not yours",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Agents cannot be shared on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -5779,7 +5895,7 @@ const docTemplate = `{
         },
         "/api/chats/connectors": {
             "get": {
-                "description": "A binding connects a bot of a messaging platform (served by a connector add-on, such as Telegram) to one of your saved agents. A person who messages the bot talks to that agent, in a conversation of their own, as you: your quota, your model allowlist and only the agent's grants apply.",
+                "description": "A binding connects a bot of a messaging platform (served by a connector add-on, such as Telegram) to one of your saved agents. A person who messages the bot talks to that agent, in a conversation of their own, as you: your quota, your model allowlist and only the agent's grants apply. shared lists the bindings that other people shared with you, with their name, state and owner only: you may use them in your chats and agents and nothing else. sharing is false when this server cannot share bindings (no named accounts). A binding you shared carries share, with its ID in /api/shares/connection.",
                 "tags": [
                     "chats"
                 ],
@@ -6190,6 +6306,44 @@ const docTemplate = `{
                         "description": "The binding",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConnector"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/{id}/share": {
+            "post": {
+                "description": "Returns the ID of the binding in the sharing API: the owner then lists, grants and revokes access with /api/shares/connection/{resource_id}/grants. The only role is use, and a binding is never shared with @everyone. A grantee may use the binding in their chats and agents, and never reads its token or its settings. Only the owner may call it: any other caller gets 404, as for a binding that does not exist. 409 sharing_disabled when this server cannot share bindings.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Make a connector binding shareable.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The share of the binding",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorShare"
+                        }
+                    },
+                    "404": {
+                        "description": "Not your binding",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Sharing is not available on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -6606,6 +6760,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
+                    },
+                    "409": {
+                        "description": "A shared folder, or a folder with a shared folder in it, would move into another home or into a folder that LocalAI manages (LocalAI, Chats, Memory, pages or a .skills folder). Stop sharing it first.",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -6706,6 +6866,271 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/files/shares": {
+            "get": {
+                "description": "sharing is false when folders cannot be shared on this server (local-owner mode, no accounts). Each folder has its path in your home, the number of grants and whether one of them is to every account. Read-only. No MCP tool maps to this route.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the folders of your home that you share.",
+                "responses": {
+                    "200": {
+                        "description": "Your shared folders, by path",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderShareList"
+                        }
+                    },
+                    "409": {
+                        "description": "Files are off on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Returns the folder's ID for the other sharing routes and how many it is shared with. A folder can be shared when it is inside your home, is not the home itself and is not LocalAI/ or Chats/ or inside them. Any other path gets 403, a missing one too. No MCP tool maps to this route.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Find a folder of your home to share it.",
+                "parameters": [
+                    {
+                        "description": "The folder's path in your home",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderSharePathRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderShare"
+                        }
+                    },
+                    "403": {
+                        "description": "A folder you cannot share, or no such folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled, or files are off",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/files/shares/{id}/grants": {
+            "get": {
+                "description": "Each grant has the account ID (or @everyone), the display name (empty for @everyone) and the role read or write. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP marker). A folder you cannot share and a missing one get the same 403. No MCP tool maps to this route.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List who a folder of your home is shared with (owner, UI only).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Folder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The grants",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderGrantList"
+                        }
+                    },
+                    "403": {
+                        "description": "Not your own browser session, a folder you cannot share, or no such folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/files/shares/{id}/grants/{principal}": {
+            "put": {
+                "description": "principal is the account ID that the user picker returned, an active named account, or @everyone for every account, the ones created later too. role is read or write; write lets them change and delete what is in the folder. Lowering write to read takes effect at their next file call on every frontend. Their running chats that hold the folder on the frontend that serves this call are stopped before the answer; the other frontends get the request on the chat bus and stop theirs within seconds. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP marker). Safe to repeat. No MCP tool maps to this route: sharing is never a tool.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Share a folder of your home, or change the role (owner, UI only).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Folder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Account ID, or @everyone",
+                        "name": "principal",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "The role",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderGrantRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The grants after the change",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderGrantList"
+                        }
+                    },
+                    "400": {
+                        "description": "A role that is not read or write, or a principal that is not an active account",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not your own browser session, a folder you cannot share, or no such folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled, or a limit",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes the grant of the principal, an account ID or @everyone. A person's own grant and the grant to everyone are separate. The grantee loses the folder at their next file call on every frontend. Their running chats that hold it on the frontend that serves this call are stopped before the answer; the other frontends get the request on the chat bus and stop theirs within seconds. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP marker). Safe to repeat. No MCP tool maps to this route.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Stop sharing a folder of your home (owner, UI only).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Folder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Account ID, or @everyone",
+                        "name": "principal",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The grants after the change",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderGrantList"
+                        }
+                    },
+                    "403": {
+                        "description": "Not your own browser session, a folder you cannot share, or no such folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/files/shares/{id}/users": {
+            "get": {
+                "description": "The same picker as the other kinds of sharing: active named accounts by a prefix of the display name, 3 to 64 characters, at most 20 results, never you. A prefix of an address finds nobody; an account without a display name is found by its whole address only and comes back with an empty display name. Each result is an account ID and a display name and nothing else. Each person may search 20 times at once and then once every 2 seconds; a search over that rate answers 429 rate_limited. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP marker). No MCP tool maps to this route.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Search the people you can share a folder of your home with (owner, UI only).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Folder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Display name prefix, or a whole address",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "At most this many results, up to 20",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Matching people",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderShareUserList"
+                        }
+                    },
+                    "400": {
+                        "description": "The search text is not 3 to 64 characters",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not your own browser session, a folder you cannot share, or no such folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Type rate_limited: too many searches",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9682,7 +10107,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/builtins": {
             "put": {
-                "description": "off replaces the earlier list of groups that are off. The groups are shell (bash, whether the Sandbox add-on or the built-in bash on this machine serves it), web (web_search and web_fetch), files (list_files, read_file, write_file, edit_file, move_file, delete_file, search_files and read_document), media (describe_image and transcribe_audio), collections (list_collections and search_collection), subagents (spawn_agent), triggers (propose_trigger, list_triggers, update_trigger and delete_trigger), memory (your notes: off makes the chat a private chat that neither reads nor saves memory) saved_agents and history (search_chats and read_chat). A sub-agent follows the switches of its parent chat. An opt-in group (opt_in in the list, such as saved_agents: list_agents and the agent argument of spawn_agent) is off until on names it; on replaces the earlier list of opt-in groups that are on, and an opt-in group in off is ignored. Omit on to keep it. A switch never adds what the administrator has off or the user may not use. The next turn of the chat gets the tools that are on.",
+                "description": "off replaces the earlier list of groups that are off. The groups are shell (bash, whether the Sandbox add-on or the built-in bash on this machine serves it), web (web_search and web_fetch), files (list_files, read_file, write_file, edit_file, move_file, delete_file, search_files and read_document), media (describe_image and transcribe_audio), collections (list_collections and search_collection), subagents (spawn_agent), triggers (propose_trigger, list_triggers, update_trigger and delete_trigger), memory (your notes: off makes the chat a private chat that neither reads nor saves memory) saved_agents and history (search_chats and read_chat), localai_client (the LocalAI client tools) and localai_admin (the LocalAI admin tools: opt-in, administrators only). A sub-agent follows the switches of its parent chat. An opt-in group (opt_in in the list, such as saved_agents: list_agents and the agent argument of spawn_agent) is off until on names it; on replaces the earlier list of opt-in groups that are on, and an opt-in group in off is ignored. Omit on to keep it. A switch never adds what the administrator has off or the user may not use. The next turn of the chat gets the tools that are on.",
                 "tags": [
                     "chats"
                 ],
@@ -10043,7 +10468,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/events": {
             "get": {
-                "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). Events are live only; read the transcript for what came before.",
+                "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). The events of a running turn carry an id (\"\u003crun\u003e.\u003cn\u003e\"). Send the last id back as the Last-Event-ID header or the after query parameter to get the events you missed, then the live ones. A \"resync\" event means the server cannot give them (the id is of another run, is too old, or the server that runs the turn is gone or does not answer): read the transcript, and go on from the id of the resync event. Without an id the stream starts from now; read the transcript for what came before.",
                 "produces": [
                     "text/event-stream"
                 ],
@@ -10058,6 +10483,18 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "resume after this event id",
+                        "name": "after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "resume after this event id (sent by a browser when it reconnects)",
+                        "name": "Last-Event-ID",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -10069,6 +10506,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "The user has 8 event streams open on this chat on this server",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -10949,7 +11392,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit)",
+                        "description": "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit), or the saved agent of another person is no longer shared with you (agent_not_shared)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -11122,7 +11565,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/resume": {
             "post": {
-                "description": "Starts a new turn that goes on from where the last one failed. The transcript stays as it is, with the messages, tool calls and results of the failed turn and the reason at its end; the model keeps its own state, so a tool call that has its result is not made again. Messages that wait for the chat go first. When the chat is not at a failed turn, or a turn runs, nothing starts and started is false, so a second click is harmless.",
+                "description": "Starts a new turn that goes on from where the last one failed or was interrupted by a restart. The transcript stays as it is, with the messages, tool calls and results of the failed turn and the reason at its end; the model keeps its own state, so a tool call that has its result is not made again. Messages that wait for the chat go first. When the chat is not at a failed or interrupted turn, or a turn runs, nothing starts and started is false, so a second click is harmless.",
                 "tags": [
                     "chats"
                 ],
@@ -11264,7 +11707,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/tools": {
             "get": {
-                "description": "The groups of built-in tools (shell, web, files, media, collections, subagents, triggers, memory, saved_agents and history; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants. memory says whether memory works in the chat and, when it does not, the level that turned it off (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.",
+                "description": "The groups of built-in tools (shell, web, files, media, collections, subagents, triggers, memory, saved_agents and history; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). deferred is true on a group whose tools the chat loads on demand behind tool_search, tool_describe and tool_call (the localai_client and localai_admin groups, see the setting chats_tool_search). A chat with a saved agent lists only what the agent grants. memory says whether memory works in the chat and, when it does not, the level that turned it off (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.",
                 "tags": [
                     "chats"
                 ],
@@ -11302,7 +11745,7 @@ const docTemplate = `{
         },
         "/api/collections": {
             "get": {
-                "description": "The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. search_mode says how a search finds passages: semantic (by meaning only) or hybrid (by meaning and by keyword). max_chunk_size and chunk_overlap are the chunking of a text in characters: a text of N characters becomes about N / (max_chunk_size - chunk_overlap) passages, and each passage is embedded once. Needs the collections feature.",
+                "description": "The knowledge-base collections of the caller. shared lists the collections other people shared with the caller: name is the name to use in the other calls (the collection's own name, or shared:\u003cid\u003e when the caller has a collection of that name or two people share one under it), title its own name, owner the display name of the person who shared it and role viewer (search and read) or editor (also add and remove entries). shares gives, for each of the caller's own collections that was made shareable, its resource_id in /api/shares/collection and shared_with, the number of grants. sharing is false when this server cannot share collections (no named accounts). An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. search_mode says how a search finds passages: semantic (by meaning only) or hybrid (by meaning and by keyword). max_chunk_size and chunk_overlap are the chunking of a text in characters: a text of N characters becomes about N / (max_chunk_size - chunk_overlap) passages, and each passage is embedded once. Needs the collections feature.",
                 "tags": [
                     "collections"
                 ],
@@ -11379,7 +11822,7 @@ const docTemplate = `{
         },
         "/api/collections/{name}/entries-raw/{entry}": {
             "get": {
-                "description": "Serves the file as it was uploaded.",
+                "description": "Serves the file as it was uploaded. For a collection shared with the caller the download runs under the share: a revocation or a lowering stops it.",
                 "tags": [
                     "collections"
                 ],
@@ -11582,8 +12025,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/collections/{name}/share": {
+            "post": {
+                "description": "Returns the ID of the collection in the sharing API: the owner then lists, grants and revokes access with /api/shares/collection/{resource_id}/grants. The roles are viewer (search and read the entries) and editor (also add and remove entries); a collection may be shared with @everyone. Only the owner may call it: another caller gets 404, as for a collection that does not exist. 409 sharing_disabled when this server cannot share collections (no named accounts).",
+                "tags": [
+                    "collections"
+                ],
+                "summary": "Make a collection shareable.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Collection name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The share of the collection",
+                        "schema": {
+                            "$ref": "#/definitions/schema.CollectionShare"
+                        }
+                    },
+                    "404": {
+                        "description": "Collection not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Sharing is not available on this server",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/collections/{name}/sources": {
             "get": {
+                "description": "Only the owner may list the sources: a source URL can carry a credential. A person the collection is shared with gets 403 whatever the role.",
                 "tags": [
                     "collections"
                 ],
@@ -11602,6 +12090,15 @@ const docTemplate = `{
                         "description": "The sources",
                         "schema": {
                             "$ref": "#/definitions/schema.CollectionSources"
+                        }
+                    },
+                    "403": {
+                        "description": "The collection is shared with the caller, who is not its owner",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
                     "404": {
@@ -13249,6 +13746,360 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/shares/{kind}": {
+            "get": {
+                "description": "Returns the resources of one kind that the caller owns (owned) and those shared with the caller (shared), at most 100 of each (truncated says more exist). Each one has the caller's own role, which is owner or a role the kind grants; for a shared one the owner's display name, and everyone true when the role comes from a grant to every account; for an owned one the number of grants (sharedWith). The answer also carries the roles the kind grants and whether it may be shared with every account. Resources of other people that are not shared with the caller are never listed, whatever the caller's installation role. An unknown kind gets the same denial as a resource the caller may not see. Local-owner mode has no sharing and answers 409 sharing_disabled. Needs a named account, not the addons feature; a kind may name a feature of its own. Read-only. API keys may call it. No MCP tool maps to this route.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sharing"
+                ],
+                "summary": "List the shared resources of a kind",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource kind, for example example:note",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Owned and shared resources of the kind",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ShareIndex"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "A feature the kind names is denied, or unknown kind",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The owner is unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/shares/{kind}/{resourceId}/grants": {
+            "get": {
+                "description": "Returns the grants of the whole resource: the immutable account ID, the display name and the role of each grantee. A grant to every account has the user ID @everyone and no display name. Only the owner of the resource may read it; installation administrators and grantees get the same denial as for an unknown resource or an unknown kind. Local-owner mode answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID, no API key, no tool, agent or MCP marker). No MCP tool maps to this route.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sharing"
+                ],
+                "summary": "List who a resource is shared with (owner, UI only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource kind",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "resourceId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Grants of the resource",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ShareList"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface, a feature the kind names denied, not the owner, unknown kind or unknown resource",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The owner is unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/shares/{kind}/{resourceId}/grants/{principal}": {
+            "put": {
+                "description": "Gives the principal one of the roles the kind grants (for example use or manage) on the whole resource. The principal is the immutable account ID the user picker returned, an active named account that the kind must accept as a grantee (it does not need the addons feature), or @everyone on a kind that allows it: every active named account, accounts created later included. The owner role cannot be granted. A user's own grant and the grant to everyone add up and are changed and revoked apart. Lowering a role stops the grantee's admitted work that the role no longer allows before it is acknowledged. Local-owner mode answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID, no API key, no tool, agent or MCP marker). Safe to repeat; after outcome_unknown repeat the same call. No MCP tool maps to this route: sharing is never a tool.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sharing"
+                ],
+                "summary": "Share a resource with a user or with everyone (owner, UI only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource kind",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "resourceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Account ID of the grantee, or @everyone",
+                        "name": "principal",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Role",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/gateway.SetShareRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Grants after the change",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ShareList"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body, or type invalid_request for a role the kind does not grant",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface, a feature the kind names denied, not the owner, unknown kind or resource, or a principal that cannot be granted",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, or type outcome_unknown (with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes the grant of the principal, an account ID or @everyone. The other grant a user may hold stays: revoking @everyone leaves the users' own grants, and revoking a user leaves what @everyone holds. It returns only after the admitted work that the removed grant alone allowed stopped; a drain that did not finish in the bound is a 503 and the revocation is already effective for new work. Local-owner mode answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID, no API key, no tool, agent or MCP marker). Safe to repeat. No MCP tool maps to this route.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sharing"
+                ],
+                "summary": "Stop sharing a resource with a user or with everyone (owner, UI only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource kind",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "resourceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Account ID of the grantee, or @everyone",
+                        "name": "principal",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional operation ID, returned with outcome_unknown",
+                        "name": "operationId",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Grants after the change",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ShareList"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface, a feature the kind names denied, not the owner, unknown kind or unknown resource",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, or type outcome_unknown (with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/shares/{kind}/{resourceId}/users": {
+            "get": {
+                "description": "Finds active named accounts by a prefix of the display name, 3 to 64 characters, at most 20 results, whether or not they may use add-ons, and keeps only those the kind accepts as grantees. A prefix of an address finds nobody; an account without a display name is found by its whole address only and comes back with an empty display name. Each result is an immutable account ID and a display name and nothing else. Each person may search 20 times at once and then once every 2 seconds; a search over that rate answers 429 rate_limited. Only the owner of the resource may search; the owner and the caller are left out. Local-owner mode answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID, no API key, no tool, agent or MCP marker). No MCP tool maps to this route.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sharing"
+                ],
+                "summary": "Search the people a resource can be shared with (owner, UI only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource kind",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "resourceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Display name prefix, or a whole address",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "At most this many results, up to 20",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Matching people",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.UserList"
+                        }
+                    },
+                    "400": {
+                        "description": "Query too short or too long",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface, a feature the kind names denied, not the owner, unknown kind or unknown resource",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Type rate_limited: too many searches",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The owner is unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/traces": {
             "get": {
                 "description": "Returns a bounded, newest-first page of captured API exchange traces. Request and response bodies plus headers are omitted unless full=true; fetch them per-trace from /api/traces/{id}. Paging metadata is returned in the X-Total-Count, X-Trace-Offset and X-Trace-Limit headers.",
@@ -13370,7 +14221,7 @@ const docTemplate = `{
         },
         "/api/voice-profiles": {
             "get": {
-                "description": "List saved voice-cloning references without exposing filesystem paths.",
+                "description": "List the saved voice-cloning references the caller may use (their own and the instance-wide ones; an administrator sees all), without exposing filesystem paths.",
                 "produces": [
                     "application/json"
                 ],
@@ -13395,7 +14246,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Save a consent-confirmed PCM WAV reference clip and exact transcript for voice cloning. Admin-only.",
+                "description": "Save a consent-confirmed PCM WAV reference clip and exact transcript for voice cloning. Needs the audio speech feature. The profile belongs to the caller (an administrator creates instance-wide profiles); a user who is not an administrator may own at most 20.",
                 "consumes": [
                     "multipart/form-data",
                     "application/json"
@@ -13463,6 +14314,18 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The per-user profile limit is reached",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
                     "413": {
                         "description": "Request Entity Too Large",
                         "schema": {
@@ -13474,7 +14337,7 @@ const docTemplate = `{
         },
         "/api/voice-profiles/{id}": {
             "delete": {
-                "description": "Permanently remove a saved voice-cloning profile. Admin-only.",
+                "description": "Permanently remove a saved voice-cloning profile. The owner or an administrator may delete it; an instance-wide profile only an administrator. The profile of another user answers 404.",
                 "tags": [
                     "audio",
                     "voice-profiles"
@@ -13492,6 +14355,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     },
                     "404": {
                         "description": "Not Found",
@@ -17105,7 +17974,8 @@ const docTemplate = `{
                 "skill",
                 "page",
                 "dashboard",
-                "knowledge"
+                "knowledge",
+                "voice_profile"
             ],
             "x-enum-varnames": [
                 "ChangeMemory",
@@ -17113,7 +17983,8 @@ const docTemplate = `{
                 "ChangeSkill",
                 "ChangePage",
                 "ChangeDashboard",
-                "ChangeKnowledge"
+                "ChangeKnowledge",
+                "ChangeVoiceProfile"
             ]
         },
         "contract.ChangeProposal": {
@@ -19343,6 +20214,124 @@ const docTemplate = `{
                 }
             }
         },
+        "gateway.SetShareRequest": {
+            "type": "object",
+            "properties": {
+                "operationId": {
+                    "description": "OperationID is optional. It is returned with outcome_unknown, and the\nchange is safe to repeat.",
+                    "type": "string",
+                    "example": "share-1"
+                },
+                "role": {
+                    "description": "Role is one of the roles the kind grants, for example use or manage.\nThe owner role cannot be granted.",
+                    "type": "string",
+                    "example": "use"
+                }
+            }
+        },
+        "gateway.ShareIndex": {
+            "type": "object",
+            "properties": {
+                "everyone": {
+                    "type": "boolean"
+                },
+                "kind": {
+                    "type": "string",
+                    "example": "example:note"
+                },
+                "owned": {
+                    "description": "Owned lists the resources the caller owns, at most 100.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.SharedResource"
+                    }
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "use",
+                        "manage"
+                    ]
+                },
+                "shared": {
+                    "description": "Shared lists the resources shared with the caller, at most 100.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.SharedResource"
+                    }
+                },
+                "truncated": {
+                    "description": "Truncated says that one of the lists has more than it shows.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "gateway.ShareList": {
+            "type": "object",
+            "properties": {
+                "everyone": {
+                    "description": "Everyone says whether the kind may be shared with every account.",
+                    "type": "boolean"
+                },
+                "grants": {
+                    "description": "Grants lists the grants. A grant to every account has the user ID\n@everyone and no display name.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.Grant"
+                    }
+                },
+                "kind": {
+                    "type": "string",
+                    "example": "example:note"
+                },
+                "resourceId": {
+                    "type": "string",
+                    "example": "r0123456789abcdef0123456789abcde"
+                },
+                "roles": {
+                    "description": "Roles are the roles the kind grants, in the order the kind declares.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "use",
+                        "manage"
+                    ]
+                }
+            }
+        },
+        "gateway.SharedResource": {
+            "type": "object",
+            "properties": {
+                "everyone": {
+                    "description": "Everyone says that the role comes from a grant to every account.",
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "r0123456789abcdef0123456789abcde"
+                },
+                "owner": {
+                    "description": "Owner is the display name of the owner. It is absent for the owner.",
+                    "type": "string",
+                    "example": "Alice"
+                },
+                "role": {
+                    "description": "Role is the caller's own role: owner or a role the kind grants.",
+                    "type": "string",
+                    "example": "use"
+                },
+                "sharedWith": {
+                    "description": "SharedWith is the number of grants, the grant to every account\nincluded. It is present for the owner only.",
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
         "gateway.UndoRequest": {
             "type": "object",
             "properties": {
@@ -21028,6 +22017,14 @@ const docTemplate = `{
                     "description": "SendFiles sends the files that a turn makes to the sender, after the\nanswer.",
                     "type": "boolean"
                 },
+                "share": {
+                    "description": "Share is the share of the binding, once its owner made it shareable.\nOnly the owner reads it.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorShare"
+                        }
+                    ]
+                },
                 "ui_language": {
                     "description": "UILanguage is the interface language the owner's page last sent, such as\nit or pt-BR. With reply_language auto, the bot speaks in it before it\nreads the language of the sender. Absent when the server was not told.",
                     "type": "string"
@@ -21183,6 +22180,14 @@ const docTemplate = `{
         "schema.ChatsAgent": {
             "type": "object",
             "properties": {
+                "access": {
+                    "description": "Access is how you hold the agent: your own, or shared with you and by\nwhom. It is absent when the server does not share agents.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAgentAccess"
+                        }
+                    ]
+                },
                 "addons": {
                     "type": "array",
                     "items": {
@@ -21314,6 +22319,43 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsAgentAccess": {
+            "type": "object",
+            "properties": {
+                "everyone": {
+                    "description": "Everyone says the agent is shared with every account.",
+                    "type": "boolean"
+                },
+                "owner": {
+                    "description": "Owner is the display name of the person who shared the agent with\nyou. Absent for your own agents.",
+                    "type": "string",
+                    "example": "Alice"
+                },
+                "role": {
+                    "description": "Role is owner for your own agent, use or viewer for an agent shared\nwith you. use runs it in your own chats; viewer also reads its full\ndefinition. Only the owner edits, deletes, exports or shares it.",
+                    "type": "string",
+                    "enum": [
+                        "owner",
+                        "use",
+                        "viewer"
+                    ],
+                    "example": "use"
+                },
+                "share_id": {
+                    "description": "ShareID is the ID of your own agent in the sharing API\n(/api/shares/agent/{ShareID}/...). Absent until it is first shared and\nfor agents shared with you.",
+                    "type": "string"
+                },
+                "sharedWith": {
+                    "description": "SharedWith is the number of grants of your own agent.",
+                    "type": "integer",
+                    "example": 2
+                },
+                "sharing": {
+                    "description": "Sharing says whether you can share the agent on this server.",
+                    "type": "boolean"
+                }
+            }
+        },
         "schema.ChatsAgentExport": {
             "type": "object",
             "properties": {
@@ -21424,6 +22466,117 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsAgentNeed": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "example": "collection"
+                },
+                "label": {
+                    "type": "string",
+                    "example": "docs"
+                },
+                "state": {
+                    "description": "State is ok (you have it), missing (it is not shared with you),\nunavailable (this server or your account does not offer it) or ask (the\nagent asks for a network or a tool group that your chat starts without;\nyou may turn it on in the chat). Kind network is the agent's network\npreset, kind tool-group an opt-in group of built-in tools it turns on.",
+                    "type": "string",
+                    "enum": [
+                        "ok",
+                        "missing",
+                        "unavailable",
+                        "ask"
+                    ],
+                    "example": "missing"
+                }
+            }
+        },
+        "schema.ChatsAgentNeedList": {
+            "type": "object",
+            "properties": {
+                "needs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgentNeed"
+                    }
+                }
+            }
+        },
+        "schema.ChatsAgentReference": {
+            "type": "object",
+            "properties": {
+                "addon_id": {
+                    "description": "AddonID is the add-on of a connection or an add-on resource.",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID names the thing for its kind.",
+                    "type": "string",
+                    "example": "docs"
+                },
+                "kind": {
+                    "description": "Kind is addon, collection, skill, folder, connection, addon-resource,\nmcp or builtin.",
+                    "type": "string",
+                    "example": "collection"
+                },
+                "label": {
+                    "type": "string",
+                    "example": "docs"
+                },
+                "mode": {
+                    "description": "Mode is read or write for a folder or an add-on resource.",
+                    "type": "string"
+                },
+                "share": {
+                    "description": "Share is how the thing can be shared with the same person, absent when\nthe person needs access of their own.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAgentReferenceShare"
+                        }
+                    ]
+                }
+            }
+        },
+        "schema.ChatsAgentReferenceList": {
+            "type": "object",
+            "properties": {
+                "references": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgentReference"
+                    }
+                }
+            }
+        },
+        "schema.ChatsAgentReferenceShare": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "description": "Kind is the share kind (collection, connection), or addon for an\nadd-on resource, which is shared through /api/addons/resources.",
+                    "type": "string",
+                    "example": "collection"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "view",
+                            "use"
+                        ]
+                    }
+                },
+                "resource_id": {
+                    "type": "string"
+                },
+                "roles": {
+                    "description": "Roles maps each option to the role the grant carries on the thing:\none of the roles its kind grants (viewer, editor or use).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "schema.ChatsAgentResourceChoice": {
             "type": "object",
             "properties": {
@@ -21503,6 +22656,20 @@ const docTemplate = `{
                 },
                 "updated": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsAgentShareRef": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID is the resource ID to use with /api/shares/agent/{id}/...",
+                    "type": "string",
+                    "example": "r0123456789abcdef0123456789abcde"
+                },
+                "kind": {
+                    "type": "string",
+                    "example": "agent"
                 }
             }
         },
@@ -21734,6 +22901,10 @@ const docTemplate = `{
         "schema.ChatsBuiltinGroup": {
             "type": "object",
             "properties": {
+                "deferred": {
+                    "description": "Deferred is true when the chat loads the tools of the group on demand:\nthe model sees tool_search, tool_describe and tool_call in their place\n(see the setting chats_tool_search).",
+                    "type": "boolean"
+                },
                 "description": {
                     "type": "string",
                     "example": "The model can search the web and read a public page by its address."
@@ -22271,6 +23442,14 @@ const docTemplate = `{
                 "send_files": {
                     "description": "SendFiles sends the files that a turn makes to the sender, after the\nanswer.",
                     "type": "boolean"
+                },
+                "share": {
+                    "description": "Share is the share of the binding, once its owner made it shareable.\nOnly the owner reads it.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorShare"
+                        }
+                    ]
                 },
                 "ui_language": {
                     "description": "UILanguage is the interface language the owner's page last sent, such as\nit or pt-BR. With reply_language auto, the bot speaks in it before it\nreads the language of the sender. Absent when the server was not told.",
@@ -22901,6 +24080,17 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsConnector"
                     }
+                },
+                "shared": {
+                    "description": "Shared are the bindings of other people shared with the caller, with\ntheir name and state only.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSharedConnector"
+                    }
+                },
+                "sharing": {
+                    "description": "Sharing says whether bindings can be shared on this server: false with\nno named accounts (local-owner mode) or when the sharing policy does not\nrun.",
+                    "type": "boolean"
                 }
             }
         },
@@ -23043,6 +24233,19 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsConnectorSender"
                     }
+                }
+            }
+        },
+        "schema.ChatsConnectorShare": {
+            "type": "object",
+            "properties": {
+                "resource_id": {
+                    "description": "ResourceID names the binding in /api/shares/connection.",
+                    "type": "string"
+                },
+                "shared_with": {
+                    "description": "SharedWith counts the grants, the one to everyone included.",
+                    "type": "integer"
                 }
             }
         },
@@ -23306,6 +24509,9 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "resume_attempts": {
+                    "type": "integer"
+                },
                 "running": {
                     "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed, interrupted, or paused (the tool loop\nreached its step limit; send a message to go on).",
                     "type": "boolean"
@@ -23323,6 +24529,10 @@ const docTemplate = `{
                 },
                 "updated": {
                     "type": "string"
+                },
+                "will_resume": {
+                    "description": "WillResume is true while the chat is at an interrupted turn that the\nserver resumes by itself (LOCALAI_CHATS_AUTO_RESUME): a client waits and\ndoes not resume it too. ResumeAttempts counts the tries made so far.",
+                    "type": "boolean"
                 }
             }
         },
@@ -23399,6 +24609,9 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "resume_attempts": {
+                    "type": "integer"
+                },
                 "running": {
                     "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed, interrupted, or paused (the tool loop\nreached its step limit; send a message to go on).",
                     "type": "boolean"
@@ -23416,6 +24629,10 @@ const docTemplate = `{
                 },
                 "updated": {
                     "type": "string"
+                },
+                "will_resume": {
+                    "description": "WillResume is true while the chat is at an interrupted turn that the\nserver resumes by itself (LOCALAI_CHATS_AUTO_RESUME): a client waits and\ndoes not resume it too. ResumeAttempts counts the tries made so far.",
+                    "type": "boolean"
                 }
             }
         },
@@ -25671,6 +26888,42 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsSharedConnector": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "description": "Active is false when the add-on that serves it does not run; Reason\nthen says so.",
+                    "type": "boolean"
+                },
+                "addon": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "description": "Enabled says whether the owner listens with it.",
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "owner": {
+                    "description": "Owner is the display name of the person who shared it.",
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "role": {
+                    "description": "Role is always use: a binding is never shared with everyone.",
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsSkill": {
             "type": "object",
             "properties": {
@@ -27043,6 +28296,24 @@ const docTemplate = `{
                     "description": "SearchMode is how a search finds passages: \"semantic\" (by meaning only)\nor \"hybrid\" (by meaning and by keyword).",
                     "type": "string"
                 },
+                "shared": {
+                    "description": "Shared are the collections of other people shared with the caller.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SharedCollection"
+                    }
+                },
+                "shares": {
+                    "description": "Shares are the shares of the caller's own collections, by name, for\nthose that were made shareable.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/schema.CollectionShare"
+                    }
+                },
+                "sharing": {
+                    "description": "Sharing is false when this server cannot share collections.",
+                    "type": "boolean"
+                },
                 "user_groups": {
                     "description": "UserGroups holds the collections of the other users. Only an administrator\nwho asks for all users gets it.",
                     "type": "object",
@@ -27075,6 +28346,19 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.CollectionHit"
                     }
+                }
+            }
+        },
+        "schema.CollectionShare": {
+            "type": "object",
+            "properties": {
+                "resource_id": {
+                    "description": "ResourceID names the collection in /api/shares/collection.",
+                    "type": "string"
+                },
+                "shared_with": {
+                    "description": "SharedWith counts the grants, the one to everyone included.",
+                    "type": "integer"
                 }
             }
         },
@@ -28012,6 +29296,117 @@ const docTemplate = `{
                 },
                 "y": {
                     "type": "number"
+                }
+            }
+        },
+        "schema.FolderGrant": {
+            "type": "object",
+            "properties": {
+                "displayName": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FolderGrantList": {
+            "type": "object",
+            "properties": {
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.FolderGrant"
+                    }
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FolderGrantRequest": {
+            "type": "object",
+            "properties": {
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FolderShare": {
+            "type": "object",
+            "properties": {
+                "everyone": {
+                    "description": "Everyone is true when the folder is shared with every account.",
+                    "type": "boolean"
+                },
+                "id": {
+                    "description": "ID is the folder's stable ID in the sharing routes.",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "description": "Path is the folder's path in your home, for example /Projects.",
+                    "type": "string"
+                },
+                "sharedWith": {
+                    "description": "SharedWith counts the grants, the one to every account included.",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.FolderShareList": {
+            "type": "object",
+            "properties": {
+                "folders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.FolderShare"
+                    }
+                },
+                "sharing": {
+                    "description": "Sharing is false when folders cannot be shared on this server\n(local-owner mode, no accounts, files off).",
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.FolderSharePathRequest": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FolderShareUser": {
+            "type": "object",
+            "properties": {
+                "displayName": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FolderShareUserList": {
+            "type": "object",
+            "properties": {
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.FolderShareUser"
+                    }
                 }
             }
         },
@@ -30440,9 +31835,38 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.SharedCollection": {
+            "type": "object",
+            "properties": {
+                "everyone": {
+                    "description": "Everyone says that the role comes from the grant to every account.",
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "Name is the name to use in the other calls: the collection's own name,\nor shared:\u003cid\u003e when that name is taken.",
+                    "type": "string"
+                },
+                "owner": {
+                    "description": "Owner is the display name of the person who shared it.",
+                    "type": "string"
+                },
+                "role": {
+                    "description": "Role is viewer (search and read) or editor (also add and remove entries).",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "Title is the collection's own name.",
+                    "type": "string"
+                }
+            }
+        },
         "schema.SharedFolder": {
             "type": "object",
             "properties": {
+                "everyone": {
+                    "description": "Everyone is true when you reach a folder of someone's home only\nthrough its grant to every account. Only in your own list.",
+                    "type": "boolean"
+                },
                 "id": {
                     "description": "ID is the folder's stable ID. The shared pages use it as folder_id.",
                     "type": "integer"
@@ -30459,6 +31883,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "owner": {
+                    "description": "Owner is the display name of the person who shared a folder of their\nown home with you. Such a folder has no path: it would name the\nowner's account. Only in your own list.",
                     "type": "string"
                 },
                 "pages": {
@@ -31845,6 +33273,10 @@ const docTemplate = `{
                 "sample_rate": {
                     "type": "integer"
                 },
+                "sha256": {
+                    "description": "SHA256 is set only by a check of a clip held in memory (the voice_profile\ntool before a person confirms); the store does not fill it.",
+                    "type": "string"
+                },
                 "size_bytes": {
                     "type": "integer"
                 }
@@ -31855,6 +33287,10 @@ const docTemplate = `{
             "properties": {
                 "audio": {
                     "$ref": "#/definitions/voiceprofile.AudioMetadata"
+                },
+                "can_delete": {
+                    "description": "CanDelete tells the caller whether it may delete the profile. It is\nworked out for each caller (see Viewer) and never stored.",
+                    "type": "boolean"
                 },
                 "consent_confirmed_at": {
                     "type": "string"
@@ -31872,6 +33308,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "owner_id": {
+                    "description": "OwnerID is the user who created the profile. Empty means the profile\nbelongs to the instance: every user may use it and only an\nadministrator may delete it. Profiles stored before ownership existed\nhave no owner, so they stay instance-wide.",
                     "type": "string"
                 },
                 "references": {

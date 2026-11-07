@@ -83,6 +83,7 @@ var allowed = []entry{
 	// the built-in: its index files and skills are the host's now, and the
 	// host ignores its copies.
 	{"core/services/studio/memory.go", `memory`, "the id the retired Memory add-on had; the host serves its index files and skills itself"},
+	{"core/services/studio/files/paths.go", `memory`, "the name of the managed Memory/ folder, which the host serves itself"},
 	{"core/services/studio/builtins/builtins.go", `memory`, "the switch group of the built-in memory"},
 	{"pkg/addons/providerconformance/conformance.go", `memory`, "the id of the notes slot, which the suite tests; it equals the id of the retired add-on"},
 	{"pkg/addons/contract/skills.go", `memory`, "the two memory skills are built in; the retired add-on may still declare them"},

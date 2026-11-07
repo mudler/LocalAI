@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
+	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 
 	"github.com/mudler/LocalAI/pkg/functions"
@@ -43,6 +44,10 @@ type MCPToolInfo struct {
 	Session    *mcp.ClientSession
 	// Meta is the _meta of the tool, where MCP Apps declare their view.
 	Meta map[string]any
+	// ActAsUser makes a call carry the user of its context to the server. Only
+	// the in-process LocalAI Assistant server sets it: a remote MCP server
+	// never learns who the user is.
+	ActAsUser bool
 }
 
 // MCPServerInfo describes an MCP server and its available tools, prompts, and resources.
@@ -520,10 +525,16 @@ func callMCPTool(ctx context.Context, tools []MCPToolInfo, server, toolName stri
 		}
 	}
 
-	result, err := toolInfo.Session.CallTool(ctx, &mcp.CallToolParams{
+	params := &mcp.CallToolParams{
 		Name:      toolName,
 		Arguments: args,
-	})
+	}
+	if toolInfo.ActAsUser {
+		meta, release := localaitools.ActingUserMeta(ctx)
+		defer release()
+		params.Meta = meta
+	}
+	result, err := toolInfo.Session.CallTool(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("MCP tool %q call failed: %w", toolName, err)
 	}

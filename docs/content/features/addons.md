@@ -37,6 +37,10 @@ Trust has three parts, and they are different:
 
 Every addon requires an executable; a UI bundle alone is not an addon.
 
+The owner's resource policy also serves the resource kinds that are not add-ons.
+[Sharing resources]({{%relref "features/sharing" %}}) describes their roles, the
+grant to `@everyone` and the `/api/shares` routes.
+
 ## Internal host policy store
 
 `core/services/addons/hostsettings` provides internal, host-owned durable policy
@@ -1033,13 +1037,15 @@ Every add-on has an icon. The page picks it in this order:
 
 The page never loads an icon from another host.
 
-Do not put the logo of a company or a product on an add-on icon unless you
-have the right to. Take the official mark from the company's own brand page,
-read its usage terms, and record the source URL and the terms in
-`ui/ICON-SOURCE.md` next to the icon. If the terms forbid the use or are not
-clear, ship a generated tile with a generic glyph. The first-party add-ons for
-services (Slack, Telegram, Discord, GitHub, Home Assistant, Jellyfin, PiKVM) use
-generated tiles for this reason.
+The first-party add-ons for services (Slack, Telegram, Discord, GitHub, Home
+Assistant and Jellyfin) use the logo mark of the service on their tile, taken
+from [Simple Icons](https://simpleicons.org) (CC0 data) and drawn in white on
+the add-on colour. The mark identifies the service the add-on connects to. The
+trademark stays with its owner, and the mark does not mean that the owner made
+or endorses the add-on. Record the source and version in `ui/ICON-SOURCE.md`
+next to the icon. When no mark is available, as for PiKVM, ship a generated
+tile with a generic glyph. For a third-party add-on, use a company mark only
+when you have the right to.
 
 ## The official library
 
@@ -1969,6 +1975,10 @@ draw the same thing.
   `HomeModelPicker` and `ModelSelector` stay as names for the same picker.
 - `sdk.ui` also has the settings kit, for a settings section or any form: see
   [The settings kit](#the-settings-kit).
+- `sdk.ui` also has the Share dialog, `ShareDialog`, and the role and sharing line
+  of a list row, `RoleBadge` and `SharedByBadge`. `sdk.resources.shareClient(resourceId)`
+  is the dialog's client for one resource of the add-on. See
+  [The Share dialog]({{%relref "features/sharing#the-share-dialog" %}}).
 - `sdk.theme.tokens`: the host's design tokens as CSS values (`var(--dk-...)`), for the
   add-on's own scoped style sheet: `text`, `muted`, `surface`, `inset`, `edge`, `hover`,
   `accent`, `accentText`, `accentWash`, `onAccent`, `okText`, `okWash`, `warnText`,
@@ -3985,7 +3995,7 @@ Mutation MCP tools remain deliberately unavailable. The later MCP integration de
 safe listing/status tools for proposals; prompt text cannot authorize mutation and no tool
 confirms a proposal. For that reason `/api/addons/dispatch`, `/api/addons/relay` and the
 proposal routes are deliberately not mapped in the LocalAI Assistant tool catalog
-(`pkg/mcp/localaitools`) yet. The route map test only
+(`core/services/localaitools`) yet. The route map test only
 requires an entry for each registered tool, so no test is weakened. The routes are described
 in the generated Swagger document under the `Addons` tag.
 
@@ -5538,8 +5548,10 @@ what the user may do.
 
 `sdk.core.fetch` is `fetch` with a fixed policy. It sends the cookies of the page
 (`credentials: 'same-origin'`), refuses other origins (`mode: 'same-origin'`),
-refuses redirects, and does not use the cache. It removes any `Authorization` and
-`Cookie` header that the add-on sets, and it stops when the add-on is withdrawn.
+refuses redirects, and does not use the cache. It removes any `Authorization`,
+`Cookie` and `X-LocalAI-Confirm` header that the add-on sets, and it stops when the
+add-on is withdrawn. `X-LocalAI-Confirm` marks a person's own action in their own tab,
+and add-on code is not the person.
 
 The path must be a same-origin path that starts with one `/`. These are refused with
 an `invalid_path` error before any request is made:
@@ -5549,6 +5561,13 @@ an `invalid_path` error before any request is made:
 - the add-on gateway (`/api/addons`) and the auth routes (`/api/auth`). The add-on
   gateway has its own typed calls, and the auth routes hold account credentials. The
   check uses the decoded path, so `/api/%61ddons/apps` is refused too;
+- the sharing routes: `/api/shares`, the folder sharing routes under
+  `/api/chats/files/shares`, and every API path whose last segment is `share`,
+  such as `/api/chats/agents/{id}/share`, `/api/collections/{name}/share` and
+  `/api/chats/connectors/{id}/share`. Only the person shares, in the host's Share
+  dialog: an add-on page renders `sdk.ui.ShareDialog` with
+  `sdk.resources.shareClient` for its own resources, or `sdk.ui.ConnectionShareDialog`
+  for a connector binding (see [Sharing resources]({{%relref "features/sharing#in-an-add-on" %}}));
 - an encoded `/` or `\` in the first two segments, because it can hide a segment
   boundary. In a later segment it is a normal identifier (`/api/voice-profiles/a%2Fb`).
 

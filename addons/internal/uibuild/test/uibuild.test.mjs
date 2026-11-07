@@ -105,7 +105,7 @@ test('compat mode runs the page: the page code reaches React through the stand-i
   assert.match(renderToString(React.createElement(addon.Component)), /<p class="fx">compat <!-- -->3<b>badge<\/b><\/p>/)
 })
 
-test('every add-on with a UI commits a 256 pixel PNG icon under the manifest bound, and services without a licensed mark say so', async () => {
+test('every add-on with a UI commits a 256 pixel PNG icon under the manifest bound, and services record where the icon came from', async () => {
   const { readdirSync, statSync } = await import('node:fs')
   const root = join(here, '../../..')
   const missing = []
@@ -122,7 +122,12 @@ test('every add-on with a UI commits a 256 pixel PNG icon under the manifest bou
     assert.ok(statSync(icon).size < 256 * 1024, id)
   }
   assert.deepEqual(missing, [], 'these add-ons declare an icon but commit no ui/icon.png')
-  for (const id of ['slack', 'telegram', 'discord', 'github', 'home-assistant', 'jellyfin', 'pikvm']) {
-    assert.match(readFileSync(join(root, id, 'ui/ICON-SOURCE.md'), 'utf8'), /Why no official mark/, id)
+  for (const id of ['slack', 'telegram', 'discord', 'github', 'home-assistant', 'jellyfin']) {
+    const note = readFileSync(join(root, id, 'ui/ICON-SOURCE.md'), 'utf8')
+    assert.match(note, /Simple Icons/, id)
+    assert.match(note, /CC0/, id)
+    assert.match(note, /trademarks of their owner/, id)
   }
+  // PiKVM has no mark in Simple Icons, so it keeps a generic glyph and says why.
+  assert.match(readFileSync(join(root, 'pikvm/ui/ICON-SOURCE.md'), 'utf8'), /Why no brand mark/)
 })

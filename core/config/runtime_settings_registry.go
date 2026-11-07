@@ -491,6 +491,31 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.ChatsWebFetch },
 		func(o *ApplicationConfig) bool { return !o.DisableChatsWebFetch },
 		func(o *ApplicationConfig, v bool) { o.DisableChatsWebFetch = !v }),
+	// The two built-in groups of LocalAI tools of the chats: read at each
+	// turn, so no restart. Stored as the negation, so both are on by default.
+	field("chats_localai_client",
+		func(s *RuntimeSettings) **bool { return &s.ChatsLocalAIClient },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsLocalAIClient },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsLocalAIClient = !v }),
+	field("chats_localai_admin",
+		func(s *RuntimeSettings) **bool { return &s.ChatsLocalAIAdmin },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsLocalAIAdmin },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsLocalAIAdmin = !v }),
+	// Load the large LocalAI tool groups on demand: read at each turn, so no
+	// restart. Empty is auto.
+	withApply(field("chats_tool_search",
+		func(s *RuntimeSettings) **string { return &s.ChatsToolSearch },
+		func(o *ApplicationConfig) string { return o.EffectiveChatsToolSearch() },
+		func(o *ApplicationConfig, v string) { o.ChatsToolSearch = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.ToLower(strings.TrimSpace(*s.ChatsToolSearch))
+			if !ValidToolSearch(v) {
+				xlog.Warn("invalid chats_tool_search in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsToolSearch = v
+			return true
+		}),
 	// The saved agents as sub-agents of a chat: read at each turn, so no
 	// restart. Stored as the negation, so it is on by default.
 	field("chats_saved_agents",
@@ -751,12 +776,6 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.ChatsSuggestions },
 		func(o *ApplicationConfig) bool { return !o.DisableChatSuggestions },
 		func(o *ApplicationConfig, v bool) { o.DisableChatSuggestions = !v }),
-
-	// LocalAI Assistant: stored as the negation for UI clarity.
-	field("localai_assistant_enabled",
-		func(s *RuntimeSettings) **bool { return &s.LocalAIAssistantEnabled },
-		func(o *ApplicationConfig) bool { return !o.DisableLocalAIAssistant },
-		func(o *ApplicationConfig, v bool) { o.DisableLocalAIAssistant = !v }),
 
 	// Pages of shared folders: stored as the negation, like the assistant.
 	field("shared_pages_enabled",

@@ -29,7 +29,7 @@ const (
 	SettingsDir = workfiles.SettingsDir
 	// MemoryDir is the folder of a home folder that holds the memory notes
 	// (Memory/index.md and the notes of agents and channels).
-	MemoryDir = "Memory"
+	MemoryDir = workfiles.MemoryDir
 	// GuestRoot is the working directory of every tool in the guest.
 	GuestRoot = "/workspace"
 	// GuestHome is the mount name of the home folder: /workspace/home.

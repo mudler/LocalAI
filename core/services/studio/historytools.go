@@ -196,7 +196,7 @@ func (s *Service) agentIsFenced(ctx context.Context, rec session.ChatRecord, c b
 	if s.d.Agents == nil {
 		return true
 	}
-	ag, err := s.d.Agents.Get(ctx, rec.Principal, rec.AgentID)
+	ag, err := s.chatAgent(ctx, rec.Principal, rec.AgentID)
 	if errors.Is(err, agents.ErrNotFound) {
 		return rec.ScopedAgent
 	}

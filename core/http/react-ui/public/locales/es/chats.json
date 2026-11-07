@@ -283,6 +283,19 @@
       "running": "En marcha",
       "off": "Apagada",
       "attention": "Requiere atención"
+    },
+    "share": {
+      "label": "Compartir",
+      "button": "Compartir {{name}}",
+      "intro": "Las personas que añadas pueden usar esta conexión en sus propios chats y agentes. Ven su nombre y su estado, nunca su token ni sus ajustes. Los mensajes al bot siguen llegando a tu agente.",
+      "roleUse": "Puede usar",
+      "roleUseHelp": "Puede usarla en sus chats y agentes. No puede ver el token, cambiarla ni compartirla."
+    },
+    "shared": {
+      "title": "Compartidas contigo",
+      "text": "Otras personas te dejan usar estas conexiones en tus chats y agentes. Solo su propietario puede cambiarlas.",
+      "on": "Escuchando",
+      "off": "Apagada"
     }
   },
   "tools": {
@@ -347,9 +360,12 @@
       "subagents": "Subagentes",
       "changes": "Cambios sugeridos",
       "memory": "Memoria",
-      "history": "Chats anteriores"
+      "history": "Chats anteriores",
+      "localai_client": "Cliente de LocalAI",
+      "localai_admin": "Administración de LocalAI"
     },
     "builtinBy": "{{tools}} · integradas",
+    "onDemand": "Se carga bajo demanda",
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",
     "servedBy": "Servido por el complemento {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
@@ -371,7 +387,9 @@
       "triggers": "El modelo puede proponer, listar, cambiar y borrar disparadores. Tú confirmas cada disparador nuevo o cambio.",
       "changes": "El modelo puede proponer cambios en tus notas, sus reglas, skills, páginas y el panel. Tú confirmas cada uno.",
       "memory": "El modelo puede leer tus notas antes de responder y guardar otras nuevas. Desactívala para hacer de este un chat privado: no se lee nada de tus notas ni se guarda nada en ellas. Tus otros chats no cambian.",
-      "history": "Permite que el modelo busque y lea tus chats anteriores."
+      "history": "Permite que el modelo busque y lea tus chats anteriores.",
+      "localai_client": "Permite al modelo crear imágenes, voz, sonido y vídeo, y transcribir, generar embeddings, reordenar y detectar, con los modelos instalados aquí.",
+      "localai_admin": "Permite al modelo gestionar este servidor: modelos, backends, ajustes y el estado. Solo para administradores; el modelo te pregunta antes de cambiar nada."
     },
     "whenOff": {
       "shell": "El modelo puede escribir archivos pero no puede ejecutar nada.",
@@ -384,7 +402,9 @@
       "triggers": "El modelo no puede proponer ni gestionar disparadores.",
       "changes": "El modelo no puede proponer cambios en tus notas, sus reglas, skills, páginas ni el panel.",
       "memory": "Es un chat privado. El modelo ni lee ni guarda tus notas.",
-      "history": "El modelo no puede ver tus chats anteriores."
+      "history": "El modelo no puede ver tus chats anteriores.",
+      "localai_client": "El modelo no puede ejecutar estos modelos por sí mismo.",
+      "localai_admin": "El modelo no puede gestionar este servidor."
     },
     "addonDescribe_one": "Da al modelo {{count}} herramienta de este add-on.",
     "addonDescribe_other": "Da al modelo {{count}} herramientas de este add-on.",
@@ -794,6 +814,17 @@
         "source_failing": "la fuente falló",
         "timed_out": "tiempo agotado",
         "stopped": "detenida"
+      },
+      "group": {
+        "collapse": "Ocultar las esperas",
+        "deadline": "Próximo plazo {{time}} ({{when}})",
+        "expand": "Mostrar las esperas",
+        "lastCheck": "Última comprobación {{ago}}",
+        "paused_one": "{{count}} en pausa",
+        "paused_other": "{{count}} en pausa",
+        "stopAll": "Detener todas",
+        "title_one": "{{count}} espera",
+        "title_other": "{{count}} esperas"
       }
     }
   },
@@ -807,7 +838,8 @@
       "skill": "Habilidad",
       "page": "Página",
       "dashboard": "Panel",
-      "knowledge": "Conocimiento"
+      "knowledge": "Conocimiento",
+      "voice_profile": "Perfil de voz"
     },
     "scope": {
       "user": "Todos tus chats",
@@ -884,6 +916,18 @@
       "title": "Revisa este texto antes de confirmar.",
       "secret": "Parece contener un secreto, como una clave, un token o una contraseña. Una vez añadido, cualquier chat que busque en esta colección podrá leerlo. Un chat de mensajería no puede confirmarlo; solo tú, aquí.",
       "other": "El servidor marcó este texto como arriesgado. Un chat de mensajería no puede confirmarlo; solo tú, aquí."
+    },
+    "voice": {
+      "label": "Voz a clonar",
+      "name": "Nombre",
+      "file": "Grabación",
+      "clip": "Clip fijado",
+      "language": "Idioma",
+      "transcript": "Transcripción",
+      "consentTitle": "Confirma solo si la persona que habla dio su consentimiento.",
+      "consent": "La grabación se guarda como un perfil de voz con el que tus chats pueden hablar. Puedes borrarla en la biblioteca de Voz.",
+      "consentAdmin": "Eres administrador, así que esta voz queda disponible para todos los usuarios de este servidor.",
+      "confirm": "La persona dio su consentimiento: guardar la voz"
     }
   },
   "proposalsPage": {

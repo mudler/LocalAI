@@ -2,11 +2,16 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"slices"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
+	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/mcpapps"
 	"github.com/mudler/xlog"
 )
 
@@ -129,4 +134,99 @@ func NewToolExecutor(ctx context.Context, agentControl AgentControl, modelName s
 		return &LocalToolExecutor{} // empty, HasTools() returns false
 	}
 	return NewLocalToolExecutor(ctx, sessions)
+}
+
+// AsUser returns an executor that runs every tool call with the rights of u:
+// the user travels in the context of the call to the LocalAI Assistant
+// server, whose inference tools then reach the API as that user. A nil user or
+// nil executor returns exec unchanged.
+func AsUser(exec ToolExecutor, u *auth.User) ToolExecutor {
+	if exec == nil || u == nil {
+		return exec
+	}
+	if ae, ok := exec.(AppExecutor); ok {
+		return userAppExecutor{AppExecutor: ae, user: u}
+	}
+	return userExecutor{ToolExecutor: exec, user: u}
+}
+
+type userExecutor struct {
+	ToolExecutor
+	user *auth.User
+}
+
+func (e userExecutor) ExecuteTool(ctx context.Context, name, args string) (string, error) {
+	return e.ToolExecutor.ExecuteTool(localaitools.WithUser(ctx, e.user), name, args)
+}
+
+type userAppExecutor struct {
+	AppExecutor
+	user *auth.User
+}
+
+func (e userAppExecutor) ExecuteTool(ctx context.Context, name, args string) (string, error) {
+	return e.AppExecutor.ExecuteTool(localaitools.WithUser(ctx, e.user), name, args)
+}
+
+func (e userAppExecutor) ExecuteAppTool(ctx context.Context, server, tool string, args json.RawMessage) (mcpapps.CallResult, error) {
+	return e.AppExecutor.ExecuteAppTool(localaitools.WithUser(ctx, e.user), server, tool, args)
+}
+
+// WithFiles returns an executor that runs every tool call with fs as the file
+// store of the LocalAI client tools: they then read and write files only
+// through fs. It is how a chat fences the client tools to the files the chat
+// itself may reach. A nil fs or exec returns exec unchanged.
+func WithFiles(exec ToolExecutor, fs localaitools.FileStore) ToolExecutor {
+	if exec == nil || fs == nil {
+		return exec
+	}
+	return filesExecutor{ToolExecutor: exec, fs: fs}
+}
+
+type filesExecutor struct {
+	ToolExecutor
+	fs localaitools.FileStore
+}
+
+func (e filesExecutor) ExecuteTool(ctx context.Context, name, args string) (string, error) {
+	return e.ToolExecutor.ExecuteTool(localaitools.WithFiles(ctx, e.fs), name, args)
+}
+
+// Only returns an executor that offers and runs the tools for which keep is
+// true. A call to another tool is refused, not passed on. It is how one MCP
+// server serves two groups of tools to different callers.
+func Only(exec ToolExecutor, keep func(name string) bool) ToolExecutor {
+	if exec == nil || keep == nil {
+		return exec
+	}
+	return filteredExecutor{ToolExecutor: exec, keep: keep}
+}
+
+type filteredExecutor struct {
+	ToolExecutor
+	keep func(name string) bool
+}
+
+func (e filteredExecutor) DiscoverTools(ctx context.Context) ([]functions.Function, error) {
+	fns, err := e.ToolExecutor.DiscoverTools(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return slices.DeleteFunc(slices.Clone(fns), func(f functions.Function) bool { return !e.keep(f.Name) }), nil
+}
+
+func (e filteredExecutor) IsTool(name string) bool {
+	return e.keep(name) && e.ToolExecutor.IsTool(name)
+}
+
+func (e filteredExecutor) ExecuteTool(ctx context.Context, name, args string) (string, error) {
+	if !e.keep(name) {
+		return "", fmt.Errorf("the tool %q is not offered here", name)
+	}
+	return e.ToolExecutor.ExecuteTool(ctx, name, args)
+}
+
+func (e filteredExecutor) HasTools() bool {
+	fns, err := e.DiscoverTools(context.Background())
+	return err == nil && len(fns) > 0
 }

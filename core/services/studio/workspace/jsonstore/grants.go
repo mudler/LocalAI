@@ -192,3 +192,43 @@ func (s *Store) Grants(ctx context.Context, admin workspace.Actor, p string) ([]
 	slices.SortFunc(out, func(a, b workspace.Grant) int { return strings.Compare(a.Principal, b.Principal) })
 	return out, nil
 }
+
+// GrantsBelow returns the grants on the live folders strictly below the live
+// folder p, sorted by path and principal.
+func (s *Store) GrantsBelow(ctx context.Context, admin workspace.Actor, p string) ([]workspace.NodeGrant, error) {
+	if !s.isAdmin(admin) {
+		return nil, workspace.ErrNotAdmin
+	}
+	var out []workspace.NodeGrant
+	err := s.readLocked(ctx, func(d *data) error {
+		top, err := d.lookupPath(p)
+		if err != nil {
+			return err
+		}
+		for k, m := range d.grants {
+			if k.Node == top.ID || m < workspace.ModeRead || !d.isLive(k.Node) {
+				continue
+			}
+			n, err := d.get(k.Node)
+			if err != nil || n.Kind != workspace.KindDir {
+				continue
+			}
+			np := d.pathOf(k.Node)
+			if !workspace.Within(np, d.pathOf(top.ID)) {
+				continue
+			}
+			out = append(out, workspace.NodeGrant{NodeID: k.Node, Path: np, Grant: workspace.Grant{Principal: k.Principal, Mode: m}})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	slices.SortFunc(out, func(a, b workspace.NodeGrant) int {
+		if c := strings.Compare(a.Path, b.Path); c != 0 {
+			return c
+		}
+		return strings.Compare(a.Principal, b.Principal)
+	})
+	return out, nil
+}

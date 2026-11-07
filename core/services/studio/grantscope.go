@@ -86,7 +86,7 @@ func (s *Service) AgentGrants(ctx context.Context, user, agentID string) []strin
 	if s.d.Agents == nil || agentID == "" {
 		return nil
 	}
-	ag, err := s.d.Agents.Get(ctx, principal(user), agentID)
+	ag, err := s.chatAgent(ctx, principal(user), agentID)
 	if err != nil {
 		return nil
 	}

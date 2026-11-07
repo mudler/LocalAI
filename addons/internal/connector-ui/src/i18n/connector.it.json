@@ -446,5 +446,15 @@
   "conn.preset.note": "Un'opzione predefinita non attiva mai un permesso sensibile. Usa Personalizzato per quelli. Le connessioni ai componenti aggiuntivi che l'agente possiede hanno regole proprie: le persone verificate possono comunque usare i loro strumenti di scrittura. Cambiale nell'agente, in \"Cosa può usare\".",
   "conn.discard.title": "Scartare le modifiche?",
   "conn.discard.message": "Hai modificato questa connessione e non l'hai salvata.",
-  "conn.discard.confirm": "Scarta le modifiche"
+  "conn.discard.confirm": "Scarta le modifiche",
+  "share.label": "Condividi",
+  "share.button": "Condividi {{name}}",
+  "share.intro": "Le persone che aggiungi possono usare questa connessione nelle proprie chat e nei propri agenti. Ne vedono il nome e lo stato, mai il token o le impostazioni. I messaggi al bot arrivano sempre al tuo agente.",
+  "share.roleUse": "Può usare",
+  "share.roleUseHelp": "Può usarla nelle sue chat e nei suoi agenti. Non può vedere il token, modificarla o condividerla.",
+  "shared.title": "Condivisi con te",
+  "shared.text": "Altre persone ti permettono di usare queste connessioni nelle tue chat e nei tuoi agenti. Solo chi le possiede può modificarle.",
+  "shared.on": "In ascolto",
+  "shared.off": "Spenta",
+  "shared.by": "Condivisa da {{name}}"
 }

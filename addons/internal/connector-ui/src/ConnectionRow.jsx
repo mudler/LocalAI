@@ -21,10 +21,12 @@ export function StateChip({ state, label, title }) {
   return <StatusChip tone={CHIP_TONE[state] || 'idle'} title={title} testId="connector-state">{label}</StatusChip>
 }
 
-export default function ConnectionRow({ c, state, attention, fix, facts, line, selected, testing, busy, messaging, t, s, onOpen, onToggle, onTest, onFix, onEdit, onDelete }) {
+export default function ConnectionRow({ c, state, attention, fix, facts, line, selected, testing, busy, messaging, t, s, onOpen, onToggle, onTest, onFix, onEdit, onDelete, onShare }) {
   const stateText = s(`conn.state.${state}`)
   const items = [
     { key: 'edit', icon: 'pencil', label: t('editButton'), onClick: (trigger) => onEdit(c, trigger) },
+    // Only where the host can share the binding (see share.js).
+    { key: 'share', icon: 'share', label: s('share.label'), onClick: () => onShare(c), hidden: !onShare },
     { divider: true, key: 'divider' },
     { key: 'delete', icon: 'trash', label: t('delete'), danger: true, onClick: () => onDelete(c) },
   ]

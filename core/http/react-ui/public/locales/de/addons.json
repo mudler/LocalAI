@@ -106,7 +106,6 @@
       "all": "Alle",
       "chat": "Chat-Apps",
       "tools": "Werkzeuge",
-      "home": "Zuhause",
       "models": "Modelle"
     }
   },
@@ -635,6 +634,7 @@
       "unpinned": "Die Bibliothek meldet ein Update, nennt aber keinen Build zum Installieren. Daher kann es hier nicht aktualisiert werden. Prüfen Sie später erneut."
     },
     "checkAll": "Nach Updates suchen",
+    "notCheckedYet": "Updates wurden noch nicht geprüft.",
     "checkingAll": "Prüfe...",
     "checkAllDone": "{{count}} Add-ons geprüft.",
     "checkAllFailed": "{{count}} konnten nicht geprüft werden.",

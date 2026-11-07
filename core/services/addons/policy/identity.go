@@ -23,10 +23,11 @@ const LocalOwnerID = "local-owner"
 func (m Mode) valid() bool { return m == ModeNamedUser || m == ModeLocalOwner }
 
 // synthetic reports IDs that name no person: the legacy shared API key, the
-// anonymous caller and the local-owner placeholder.
+// anonymous caller, the local-owner placeholder and the principal of a grant
+// to everyone.
 func synthetic(id string) bool {
 	l := strings.ToLower(id)
-	return l == "anonymous" || l == LocalOwnerID || strings.HasPrefix(l, "legacy")
+	return l == "anonymous" || l == LocalOwnerID || l == Everyone || strings.HasPrefix(l, "legacy")
 }
 
 // validUserID is the shape check for a principal ID that may own or receive a

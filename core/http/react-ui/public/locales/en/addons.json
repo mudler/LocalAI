@@ -106,7 +106,6 @@
       "all": "All",
       "chat": "Chat apps",
       "tools": "Tools",
-      "home": "Home",
       "models": "Models"
     }
   },
@@ -635,6 +634,7 @@
       "unpinned": "The library reports an update but names no build to install, so it cannot be upgraded from here. Check again later."
     },
     "checkAll": "Check for updates",
+    "notCheckedYet": "Updates have not been checked yet.",
     "checkingAll": "Checking...",
     "checkAllDone": "Checked {{count}} add-ons.",
     "checkAllFailed": "{{count}} could not be checked.",

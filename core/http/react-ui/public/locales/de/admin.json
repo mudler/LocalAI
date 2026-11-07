@@ -338,13 +338,17 @@
       "bash": "Befehle (bash)",
       "web_search": "Websuche",
       "web_fetch": "Webseiten lesen",
-      "list_agents": "Gespeicherte Agenten"
+      "list_agents": "Gespeicherte Agenten",
+      "localai_client": "LocalAI-Client-Tools",
+      "localai_admin": "LocalAI-Admin-Tools"
     },
     "descriptions": {
       "bash": "Führt Befehle und Code für die Chats direkt auf diesem Rechner aus, wenn kein Add-on bash bereitstellt. Ein Add-on, das Befehle isoliert ausführt, ersetzt es.",
       "web_search": "Durchsucht das Web für die Chats ohne Schlüssel (DuckDuckGo, dann Brave Search, dann Bing) oder mit Ihrer SearXNG-Instanz, wenn eine eingerichtet ist.",
       "web_fetch": "Liest für die Chats eine öffentliche Webseite oder Datei über ihre Adresse. Adressen in Ihrem Netzwerk werden abgelehnt, außer Sie erlauben sie.",
-      "list_agents": "Erlaubt einem Chat, die gespeicherten Agenten des Benutzers aufzulisten und einen als Sub-Agenten zu starten. Jeder Chat schaltet es in seinem Werkzeugmenü ein."
+      "list_agents": "Erlaubt einem Chat, die gespeicherten Agenten des Benutzers aufzulisten und einen als Sub-Agenten zu starten. Jeder Chat schaltet es in seinem Werkzeugmenü ein.",
+      "localai_client": "Erlaubt den Chats, die hier installierten Modelle für Bilder, Sprache, Klänge, Videos, Embeddings und Erkennung auszuführen, im Rahmen der Rechte jedes Nutzers.",
+      "localai_admin": "Erlaubt den Chats von Administratoren, diesen Server zu verwalten: Modelle, Backends, Einstellungen und den Zustand. Jeder Chat oder gespeicherte Agent schaltet sie ein."
     },
     "bash": {
       "switch": "Chats Befehle auf diesem Rechner ausführen lassen",

@@ -1779,8 +1779,11 @@ test-postgres:
 ## galleryop and nodes packages are left out: some of their specs start
 ## containers, and galleryop has a data race in a test (cancellable_phase_test.go
 ## reassigns the gate channel the worker reads).
+## The studio package runs about 2300 specs. Under the race detector on a small
+## runner it takes longer than the default 10 minutes of go test, so the limit
+## is set here: it only has to tell a hang from a slow run.
 test-distributed-fakebus:
-	$(GOCMD) test -race -count=1 -tags "$(COVERAGE_TAGS)" \
+	$(GOCMD) test -race -count=1 -timeout 25m -tags "$(COVERAGE_TAGS)" \
 		./core/services/testutil/... ./core/services/messaging/... ./core/services/studio/... \
 		./core/services/collections/... ./core/services/syncstate/... \
 		./core/services/modeladmin/... ./core/services/failover/...

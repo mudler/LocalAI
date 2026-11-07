@@ -30,23 +30,36 @@ function Prose({ html, className = '' }) {
 // that goes on from where the turn stopped (the lines before it stay) and,
 // apart, the cleaned technical detail.
 // failure says why (see utils/chatFailure.js); without it the card still shows
-// that the turn failed and offers the Retry.
-export function ErrorCard({ failure, isAdmin, kept, onRetry, canRetry }) {
+// that the turn failed and offers the Retry. For a turn a restart interrupted,
+// auto says what the page does by itself (see utils/turnResume.js): wait, then
+// resume; the person can stop it or give up and retry.
+export function ErrorCard({ failure, isAdmin, kept, onRetry, canRetry, auto, onStopTrying }) {
   const { t } = useTranslation('chat')
   const view = failureView(t, failure, { isAdmin })
   // The detail is shown only when it says more than the reason does.
   const detail = view.detail && view.detail !== view.reason ? view.detail : ''
+  const interrupted = failure?.code === 'interrupted'
+  const phase = interrupted ? auto?.phase || 'idle' : 'idle'
+  const progress = phase === 'waiting' || phase === 'resuming' || phase === 'server' || phase === 'exhausted'
+    ? t(`error.resume.${phase}`, { seconds: auto.seconds, attempt: auto.attempt, max: auto.max })
+    : ''
   return (
-    <div className="cx-error" role="alert" data-testid="chat-error" data-code={failure?.code || undefined}>
+    <div className="cx-error" role="alert" data-testid="chat-error" data-code={failure?.code || undefined} data-phase={interrupted ? phase : undefined}>
       <Icon name="alert-circle" className="cx-error__icon" />
       <div className="cx-error__main">
-        <h3>{t('error.title')}</h3>
+        <h3>{interrupted ? t('error.titleInterrupted') : t('error.title')}</h3>
         <p data-testid="chat-error-reason">{view.reason}{kept ? ` ${t('error.kept')}` : ''}</p>
         {view.hint && <p className="text-note" data-testid="chat-error-hint">{view.hint}</p>}
+        {progress && <p className="text-note" role="status" data-testid="chat-error-resume">{progress}</p>}
         <div className="cx-error__acts">
-          <button type="button" className="cx-btn cx-btn--primary" onClick={onRetry} disabled={!canRetry}>
+          <button type="button" className="cx-btn cx-btn--primary" onClick={onRetry} disabled={!canRetry || phase === 'resuming'}>
             {t('error.retry')}
           </button>
+          {phase === 'waiting' && (
+            <button type="button" className="cx-btn" onClick={onStopTrying} data-testid="chat-error-stop">
+              {t('error.resume.stop')}
+            </button>
+          )}
           {view.backendsLink && (
             <Link to="/app/backends" className="cx-btn" data-testid="chat-error-backends">
               {t('error.openBackends')}

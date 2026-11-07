@@ -27,7 +27,7 @@ async function signIn(page) {
 test.describe('Add-ons: notices', () => {
   test('a library card says what an installed add-on is not up to date on, in the notice', async ({ page }) => {
     await signIn(page)
-    await mockAddons(page, {
+    const host = await mockAddons(page, {
       releases: ['wiki', 'docs', 'slack', 'tables', 'mail'].map(id => release(id, { version: '1.0.0' })),
       installed: [
         rec('wiki', 'Wiki', { available: true, state: 'update-available', version: '1.3.0', digest: CANDIDATE, checkedAt: '2026-10-01T00:00:00Z' }),
@@ -46,8 +46,14 @@ test.describe('Add-ons: notices', () => {
     await expect(note('docs')).toContainText('cannot run on this host. It is not offered.')
     await expect(note('slack')).toHaveAttribute('role', 'status')
     await expect(note('slack')).toContainText('The update check failed, so it is not known whether an update exists.')
-    await expect(note('tables')).toHaveAttribute('role', 'note')
-    await expect(note('tables')).toContainText('The update status is not known. Check for updates to ask the library.')
+    // An add-on never checked says nothing on its card: one line above the grid says it once.
+    await expect(note('tables')).toHaveCount(0)
+    await expect(page.getByTestId('browse-unchecked')).toHaveCount(1)
+    await expect(page.getByTestId('browse-unchecked')).toContainText('Updates have not been checked yet.')
+    await expect(page.getByTestId('browse-check-all')).toHaveText('Check for updates')
+    await expect(page.getByText('The update status is not known.')).toHaveCount(0)
+    await page.getByTestId('browse-check-all').click()
+    await expect.poll(() => host.log.check.map(c => c.id)).toEqual(['tables'])
     // Up to date is not a problem: one quiet line, not a notice.
     await expect(note('mail')).toContainText('This add-on is up to date.')
     await expect(note('mail')).not.toHaveClass(/ui-notice/)
