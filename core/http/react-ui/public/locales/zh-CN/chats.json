@@ -1,68 +1,604 @@
 {
-  "proposal": {
-    "loading": "正在读取建议的触发器...",
-    "unread": "无法读取建议的触发器：{{message}}",
-    "removed": "此触发器已被删除。",
-    "retry": "重试",
-    "inactive": "建议的触发器。在你创建它之前不会运行任何内容。",
-    "name": "名称",
-    "schedule": "何时（例如 daily 08:00）",
-    "folder": "要监视的文件夹",
-    "saveEdit": "保存",
-    "cancelEdit": "取消",
-    "create": "创建触发器",
+  "title": "聊天",
+  "list": {
+    "new": "新建聊天",
+    "label": "你的聊天",
+    "empty": "还没有聊天。",
+    "untitled": "新建聊天",
+    "delete": "删除聊天",
+    "deleteNamed": "删除聊天 {{title}}",
+    "toggle": "聊天",
+    "working": "工作中",
+    "agentPicker": "智能体",
+    "noAgent": "不使用智能体",
+    "agents": "智能体",
+    "triggers": "触发器",
+    "library": "库",
+    "automation": "自动化",
+    "files": "文件",
+    "inbox": "收件箱",
+    "automatic": "由触发器启动",
+    "unread": "未读",
+    "connectors": "连接器"
+  },
+  "empty": {
+    "title": "开始对话",
+    "body": "选择模型后即可提问。模型工作时，你仍可继续输入。"
+  },
+  "model": "模型",
+  "transcript": "对话",
+  "composer": {
+    "label": "消息",
+    "placeholder": "消息。按 Enter 发送，Shift+Enter 换行。",
+    "send": "发送",
+    "stop": "停止",
+    "sendNow": "立即发送"
+  },
+  "pending": {
+    "header_one": "1 条消息等待中",
+    "header_other": "{{count}} 条消息等待中",
+    "note": "模型会在下一步按顺序一起收到这些消息。",
+    "afterStop": "你已停止本轮。这些消息正在等待你处理。",
+    "afterFailure": "本轮提前结束。这些消息正在等待你处理。",
     "edit": "编辑",
-    "dismiss": "拒绝",
-    "receipt": {
-      "scheduled": "已安排：",
-      "watching": "监视中：",
-      "next": "下次运行 {{when}}",
-      "view": "查看触发器",
-      "undo": "撤销",
-      "undone": "已撤销：",
-      "again": "重新安排",
-      "declined": "已拒绝：",
-      "expired": "已过期：",
-      "restore": "恢复",
-      "blocked": {
-        "ran": "它已经运行过一次；请在触发器页面中删除。",
-        "edited": "之后你编辑过它；请在触发器页面中修改或删除。"
+    "cancel": "取消",
+    "save": "保存",
+    "discard": "放弃"
+  },
+  "status": {
+    "working": "处理中…",
+    "stopped": "已停止",
+    "failed": "上一轮执行失败。",
+    "interrupted": "上一轮已中断。",
+    "done": "完成"
+  },
+  "tool": {
+    "running": "运行中",
+    "failed": "失败",
+    "applied": "已更改 {{addon}}：应用了 {{count}} 项更改。",
+    "appliedNone": "已更改 {{addon}}。",
+    "notUndoable": "此操作无法撤销。",
+    "notUndoableWhy": "此操作无法撤销：{{reason}}。",
+    "undo": "撤销",
+    "undoing": "正在撤销。",
+    "undoDone": "已撤销。",
+    "undoAlready": "已撤销。",
+    "undoStale": "未撤销。此更改之后数据发生了变化，撤销会覆盖后续工作。{{detail}}",
+    "undoNotFound": "未撤销。此更改的记录已不存在。",
+    "undoExpired": "未撤销。此更改已超出可撤销期限。",
+    "undoCannot": "未撤销。{{detail}}",
+    "undoDenied": "未撤销。你对这些数据的角色不允许此操作。",
+    "undoUnknown": "无法确定撤销是否成功。点击「撤销」检查；不会重复执行。",
+    "undoUnavailable": "未撤销。无法连接到附加组件。",
+    "waiting": "{{addon}} 将此更改留在等待状态；尚未应用。",
+    "refused": {
+      "anAddon": "附加组件",
+      "not_permitted": "你没有 {{addon}} 执行此操作所需的权限。未做任何更改。管理员可以授予该权限。",
+      "resource_unreachable": "{{addon}} 找不到该资源，或你无权访问。未做任何更改。",
+      "not_running": "{{addon}} 正在启动或已停止，因此未发送任何内容。请稍后重试。",
+      "invalid_request": "{{addon}} 拒绝了请求：",
+      "said": "返回信息：{{message}}"
+    }
+  },
+  "app": {
+    "title": "{{tool}} 的交互视图",
+    "loading": "正在加载视图",
+    "unavailable": "无法加载视图（{{reason}}）。以下是文本形式的结果。",
+    "notRead": "暂时无法读取结果；本轮结束时将重试加载页面",
+    "suggests": "应用建议发送此消息",
+    "send": "发送",
+    "dismiss": "关闭",
+    "wantsLink": "应用请求打开 {{host}}",
+    "open": "打开"
+  },
+  "reasoning": "思考",
+  "notes": {
+    "compacted": "为腾出空间，对话已压缩（从 {{before}} 个词元降至 {{after}} 个）。",
+    "subAgentDone": "子智能体已完成：{{title}}"
+  },
+  "errors": {
+    "send": "无法发送消息。",
+    "delete": "无法删除聊天。",
+    "dismiss": "关闭"
+  },
+  "confirmDelete": {
+    "title": "删除 {{name}}？",
+    "chat": "聊天及其消息将被永久删除。",
+    "agent": "使用此智能体的聊天会保留。使用它的触发器将无法运行。",
+    "trigger": "触发器将停止，其运行历史将被删除。",
+    "skill": "技能将被永久删除。",
+    "confirm": "删除",
+    "pending": "正在删除",
+    "mcp": "连接器及其保存的令牌、请求头和环境变量将被删除。引用它的已保存智能体将无法再使用它。",
+    "task": "任务将被删除，其作业会保留到保留期限结束。",
+    "connector": "连接器将停止，其设置将被删除。"
+  },
+  "memoryNotice": "聊天仅保存在内存中，服务器重启后将丢失。",
+  "attach": {
+    "button": "附加文件",
+    "busy": "文件需随启动一轮对话的消息发送。请等待本轮结束或将其停止。",
+    "list": "附件",
+    "remove": "移除 {{name}}",
+    "off": "此服务器已关闭文件功能。",
+    "queued": "此时发送的文件会与消息一起等待，直到模型在下一步接收它。"
+  },
+  "skills": {
+    "summary": "技能（已启用 {{on}}/{{total}}）",
+    "none": "尚无技能。",
+    "manage": "管理技能",
+    "off": "对此聊天关闭"
+  },
+  "addons": {
+    "summary": "附加组件（已启用 {{on}}/{{total}}）",
+    "tools": "{{count}} 个工具"
+  },
+  "skillsPage": {
+    "title": "技能",
+    "intro": "技能告诉模型如何执行某类任务。聊天会列出可用技能，任务匹配时模型会读取相应技能。同名技能中，距离最近的技能优先。",
+    "new": "新技能",
+    "edit": "编辑技能",
+    "editButton": "编辑",
+    "delete": "删除",
+    "save": "保存",
+    "cancel": "取消",
+    "layer": "位置",
+    "name": "名称",
+    "description": "描述",
+    "body": "指令",
+    "groups": {
+      "personal": "个人",
+      "folder": "你的文件夹中",
+      "shared": "共享",
+      "builtin": "内置"
+    },
+    "shadowed": "被 {{layer}} 覆盖",
+    "invalid": "已跳过：{{reason}}",
+    "empty": "您还没有任何技能。",
+    "back": "返回聊天列表"
+  },
+  "agentsPage": {
+    "title": "智能体",
+    "new": "新建智能体",
+    "edit": "编辑智能体",
+    "intro": "智能体是一组保存的指令和工具。与智能体的聊天只能使用其列表列出且你当时有权使用的内容。",
+    "name": "名称",
+    "description": "描述",
+    "instructions": "指令",
+    "model": "模型",
+    "grants": "与此智能体的聊天可使用的内容。空列表表示不授予任何权限。",
+    "addons": "附加组件",
+    "addonsHint": "附加组件 ID",
+    "mcp": "模型的 MCP 服务器",
+    "mcpHint": "模型 MCP 配置中的服务器名称",
+    "collections": "集合",
+    "collectionsHint": "集合名称",
+    "skills": "技能",
+    "skillsHint": "技能名称",
+    "save": "保存",
+    "cancel": "取消",
+    "editButton": "编辑",
+    "delete": "删除",
+    "chat": "聊天",
+    "empty": "尚无智能体。",
+    "noGrants": "不授予任何工具",
+    "fixModel": "始终使用同一个模型（否则每次聊天时自行选择模型）",
+    "mcpConnectors": "你的 MCP 连接器",
+    "connectorOff": "已关闭",
+    "connectorGone": "{{id}}（已删除）",
+    "noConnectors": "你尚无 MCP 连接器。",
+    "manageConnectors": "管理连接器"
+  },
+  "title_agent": "智能体：{{name}}",
+  "triggersPage": {
+    "title": "触发器",
+    "new": "新建触发器",
+    "edit": "编辑触发器",
+    "intro": "触发器会以你的身份，在指定时间或文件到达文件夹时自动发起聊天。每次运行都是可以打开和撤销操作的普通聊天。",
+    "name": "名称",
+    "when": "运行时间",
+    "time": "时间",
+    "dayOfMonth": "每月几号",
+    "date": "日期",
+    "minute": "每小时的第几分钟",
+    "everyHours": "间隔（小时）",
+    "everyMinutes": "间隔（分钟）",
+    "cron": "Cron（五个字段）",
+    "zone": "时区",
+    "days": "日期",
+    "folder": "你的文件中的文件夹",
+    "quiet": "静默期（秒）",
+    "prompt": "执行任务",
+    "agent": "智能体",
+    "dailyCap": "每日最多运行次数",
+    "on": "已打开",
+    "onFor": "{{name}} on",
+    "runNow": "立即运行",
+    "runs": "运行记录",
+    "noRuns": "尚无运行记录。",
+    "neverRan": "从未运行",
+    "openChat": "打开聊天",
+    "next": "下次 {{time}}",
+    "nextRuns": "下次：{{times}}",
+    "empty": "尚无触发器。",
+    "noAgentNote": "未选择智能体时，运行会使用创建它的聊天所用的模型和开关设置，且不使用会立即执行操作的工具。选择智能体可授予更多能力。",
+    "proposals": "聊天提出的建议",
+    "proposalsNote": "建议在你确认前不会执行任何操作。",
+    "confirm": "确认",
+    "dismiss": "关闭",
+    "status": {
+      "queued": "等待中",
+      "running": "运行中",
+      "done": "完成",
+      "failed": "失败",
+      "skipped": "已跳过"
+    },
+    "presets": {
+      "daily": "每天",
+      "weekdays": "每个工作日",
+      "weekly": "每周指定日期",
+      "monthly": "每月一次",
+      "hourly": "每小时",
+      "everyHours": "每隔几小时",
+      "everyMinutes": "每隔几分钟",
+      "once": "一次",
+      "cron": "高级（cron）",
+      "file": "文件到达时"
+    },
+    "day": {
+      "mon": "周一",
+      "tue": "周二",
+      "wed": "周三",
+      "thu": "周四",
+      "fri": "周五",
+      "sat": "周六",
+      "sun": "周日"
+    }
+  },
+  "inbox": {
+    "unread": "{{count}} 条未读",
+    "markAll": "全部标为已读",
+    "delete": "删除",
+    "pushOn": "开启浏览器通知",
+    "pushOff": "关闭浏览器通知",
+    "pushDenied": "此网站的浏览器通知已被阻止。",
+    "pushUnavailable": "此服务器无法保存推送订阅。",
+    "clearAll": "全部清除",
+    "clearRead": "清除已读",
+    "cancel": "取消",
+    "markRead": "标为已读",
+    "cleared_one": "已删除 {{count}} 条通知。",
+    "cleared_other": "已删除 {{count}} 条通知。",
+    "confirmAll_one": "删除全部 {{count}} 条通知？此操作无法撤销。",
+    "confirmAll_other": "删除全部 {{count}} 条通知？此操作无法撤销。",
+    "confirmRead_one": "删除 {{count}} 条已读通知？未读通知会保留。",
+    "confirmRead_other": "删除 {{count}} 条已读通知？未读通知会保留。",
+    "onlyRead": "仅 {{count}} 条已读",
+    "showing": "显示 {{shown}} / {{total}}",
+    "showMore": "显示更多",
+    "title": "通知",
+    "buttonUnread_one": "通知，{{count}} 条未读",
+    "buttonUnread_other": "通知，{{count}} 条未读",
+    "filterLabel": "显示通知",
+    "filterAll": "全部",
+    "filterUnread": "未读",
+    "filterFailed": "失败",
+    "more": "更多操作",
+    "close": "关闭",
+    "day": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "earlier": "更早"
+    },
+    "emptyTitle": "还没有通知",
+    "emptyBody": "触发器和连接器的结果会显示在这里，包括你不在时完成的工作。",
+    "caughtUp": "你已全部看完。",
+    "caughtUpTitle": "你已全部看完",
+    "caughtUpBody": "没有未读通知。",
+    "noFailedTitle": "没有失败的项目",
+    "noFailedBody": "失败的运行和连接器会显示在这里。",
+    "loadError": "无法加载你的通知。",
+    "source": {
+      "trigger": "触发器",
+      "connector": "连接器",
+      "system": "LocalAI"
+    },
+    "itemUnread": "{{title}}，未读",
+    "arrived": "新通知：{{title}}",
+    "arrivedMany_one": "{{count}} 条新通知",
+    "arrivedMany_other": "{{count}} 条新通知",
+    "proposalsWaiting_one": "{{count}} 项更改等待你处理",
+    "proposalsWaiting_other": "{{count}} 项更改等待你处理",
+    "proposalsBody": "模型提议了一项更改。在你回应之前不会保存任何内容。"
+  },
+  "connectorsPage": {
+    "title": "连接器",
+    "empty": "尚无连接器。",
+    "agentOf": "智能体：{{name}}",
+    "accepts": "接受：{{who}}",
+    "modes": {
+      "anyone": "任何人",
+      "nobody": "暂不接受任何人",
+      "listed_one": "1 个列出的发送者",
+      "listed_other": "{{count}} 个列出的发送者"
+    },
+    "on": "已打开",
+    "onFor": "{{name}} on",
+    "intro": "连接器将消息平台连接到你的聊天，让人们可以在该平台与你的智能体对话。每个平台由相应的连接器附加组件提供。",
+    "manage": "添加或更改绑定",
+    "noAddon": "尚未安装连接器附加组件。",
+    "noAddonHint": "连接器附加组件负责传递 Telegram 等平台的消息。从附加组件库安装一个，即可添加绑定。",
+    "gallery": "打开附加组件库",
+    "inactive": "未运行：{{reason}}。",
+    "bindingsOf": "{{name}} 的绑定",
+    "loadFailed": "无法加载你的连接器。",
+    "waitingTitle": "等待对应的插件",
+    "waitingText": "这些绑定会被保留，但要等对应插件安装并开启后才会运行。",
+    "duplicate": {
+      "text": "这个机器人也以 {{name}} 的名称连接。两个连接都会回复同一条消息。",
+      "turnOff": "关闭这个连接",
+      "open": "打开 {{name}}"
+    },
+    "new": "新建连接",
+    "newMenu": "选择新连接的平台",
+    "state": {
+      "running": "运行中",
+      "off": "已关闭",
+      "attention": "需要处理"
+    },
+    "share": {
+      "label": "共享",
+      "button": "共享 {{name}}",
+      "intro": "你添加的人可以在自己的聊天和智能体中使用此连接。他们能看到它的名称和状态，但永远看不到令牌或设置。发给机器人的消息仍由你的智能体接收。",
+      "roleUse": "可以使用",
+      "roleUseHelp": "可以在自己的聊天和智能体中使用。无法查看令牌、修改或再次共享。"
+    },
+    "shared": {
+      "title": "与你共享",
+      "text": "其他人允许你在自己的聊天和智能体中使用这些连接。只有所有者可以修改它们。",
+      "on": "监听中",
+      "off": "已关闭"
+    }
+  },
+  "conversionPage": {
+    "title": "从旧聊天转换",
+    "intro": "服务器启动时已转换旧聊天、智能体、任务和技能。触发器默认关闭，需由你手动开启。连接器不会转换：请在「连接器」页面重新添加机器人。聊天会保留对话内容，但不保留模型记忆。",
+    "notRun": "此服务器尚未执行过转换。",
+    "nothing": "你的内容无需转换。",
+    "allUsers": "所有用户：",
+    "count": {
+      "converted": "已转换 {{count}} 项",
+      "skipped": "已跳过 {{count}} 项",
+      "failed": "{{count}} 项失败",
+      "dropped": "已丢弃 {{count}} 项"
+    },
+    "kind": {
+      "agent": "智能体",
+      "trigger": "触发器",
+      "skill": "技能",
+      "chat": "聊天",
+      "connector": "连接器"
+    },
+    "status": {
+      "converted": "已转换",
+      "skipped": "已跳过",
+      "failed": "失败",
+      "dropped": "已丢弃"
+    },
+    "openTriggers": "触发器",
+    "openConnectors": "连接器"
+  },
+  "tools": {
+    "summary": "工具（已启用 {{on}}/{{total}}）",
+    "builtins": "内置工具",
+    "grants": "其他权限",
+    "grantSensitive": "敏感：这会改变智能体之后可以做或可以访问的内容。",
+    "builtin": {
+      "web": "网页",
+      "saved_agents": "已保存的智能体",
+      "triggers": "创建和管理触发器",
+      "shell": "运行命令",
+      "files": "你的文件",
+      "media": "图片和音频",
+      "collections": "知识库",
+      "subagents": "子代理",
+      "changes": "建议的更改",
+      "memory": "记忆",
+      "history": "以前的对话",
+      "localai_client": "LocalAI 客户端",
+      "localai_admin": "LocalAI 管理"
+    },
+    "builtinBy": "{{tools}} · 内置",
+    "onDemand": "按需加载",
+    "builtinByAddon": "{{tools}} · 由 {{provider}} 提供",
+    "servedBy": "由附加组件 {{provider}} 提供",
+    "servedByTool": "{{tool}}: {{provider}}",
+    "servedByBuiltin": "内置",
+    "fallbackBuiltin": "{{addon}} 替代了 {{tool}}，但现在无法为此聊天提供服务（已停止、在此关闭或未授权）：使用内置 {{tool}}。",
+    "fallbackNone": "{{addon}} 替代了 {{tool}}，但现在无法为此聊天提供服务，且内置 {{tool}} 已关闭：此聊天没有 {{tool}}。",
+    "addons": "附加组件",
+    "servers": "模型的 MCP 服务器",
+    "connectors": "你的连接器",
+    "manage": "管理连接器",
+    "tools": "{{count}} 个工具",
+    "commands": {
+      "title": "此处无法运行命令",
+      "none": "未安装可运行代码的插件，因此助手可以写入文件，但无法运行脚本或命令。",
+      "askFix": "请联系管理员修复。",
+      "hide": "隐藏",
+      "hideLabel": "隐藏此提示",
+      "chipTitle": "此对话无法运行代码或命令。选择以查看详情。",
+      "hostTitle": "命令在这台机器上运行",
+      "hostChipTitle": "此聊天中的命令在这台机器上运行，没有隔离。选择以查看详情。",
+      "providerHost": "命令在服务器上运行，未隔离。",
+      "unknown": "执行就绪状态或隔离状态未知。",
+      "unknownBy": {
+        "owner_unreachable": "执行就绪状态或隔离状态未知：无法联系插件的所有者。",
+        "not_reported": "执行就绪状态或隔离状态未知：插件尚未报告其执行状态。",
+        "stale": "执行就绪状态或隔离状态未知：状态与插件的当前版本不一致。",
+        "invalid_status": "执行就绪状态或隔离状态未知：插件发送了主机无法接受的状态。",
+        "not_selected": "执行就绪状态或隔离状态未知：该插件不是运行此聊天命令的插件。",
+        "no_answer": "执行就绪状态或隔离状态未知：插件未在规定时间内响应。",
+        "reported_unknown": "执行就绪状态或隔离状态未知：插件报告无法确定。"
+      },
+      "providerUnavailable": "所选执行提供程序不可用。",
+      "disabled": "此聊天已关闭命令执行。",
+      "hostOff": {
+        "reason": "服务器内置的 bash 已关闭，所以助手可以写文件，但不能运行脚本或命令。",
+        "whoAdmin": "你是管理员。在设置的工具中，打开“命令 (bash)”一行。“每次询问”是更安全的选择。之后命令会在服务器上无隔离地运行，并且可以读取服务器能读取的内容。",
+        "whoMember": "请让此服务器的管理员打开它。",
+        "fix": "打开设置",
+        "sandboxText": "如需隔离的命令，请改为安装能隔离运行命令的附加组件。",
+        "sandbox": "打开附加组件"
       }
     },
-    "announce": {
-      "accepted": "已安排 {{name}}。",
-      "undone": "已撤销 {{name}}。它未被安排。",
-      "declined": "已拒绝 {{name}}。",
-      "reopened": "{{name}} 再次等待你的答复。"
+    "consent": {
+      "title": "在这台机器上运行此命令？",
+      "body": "命令在这台机器上运行，没有隔离。它们可以读取 LocalAI 能读取的文件，并访问互联网和你的网络。",
+      "once": "运行一次",
+      "always": "在此实例上始终允许",
+      "deny": "不运行",
+      "alwaysHint": "“在此实例上始终允许”会让所有用户的聊天无需询问即可在此运行命令（设置 > 工具）。",
+      "askAdmin": "只有管理员可以允许在这台机器上运行命令。请询问管理员，或自己运行该命令。",
+      "expired": "未回应：提出请求的这一轮已结束，因此命令没有运行。"
     },
-    "plan": {
-      "whenLabel": "时间",
-      "runsAsLabel": "运行身份",
-      "readsLabel": "读取",
-      "writesLabel": "写入",
-      "costLabel": "成本",
-      "deliveryLabel": "结果发送到",
-      "deliveryInbox": "你的收件箱",
-      "deliveryChat": "此聊天",
-      "deliveryThread": "此线程",
-      "deliveryChannel": "{{channel}}，频道顶层",
-      "stopLabel": "如何停止",
-      "when": "{{schedule}}，{{zone}}。首次运行 {{when}}。",
-      "whenNoFirst": "{{schedule}}，{{zone}}。",
-      "whenFile": "当有文件进入 {{folder}} 时。",
-      "runsAs": "你",
-      "runsAsModel": "你，使用 {{model}}",
-      "writesWidget": "，显示在主页的“{{widget}}”小组件中",
-      "costLocal_other": "在本地模型上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
-      "costRemote_other": "在远程服务 {{model}} 上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
-      "costUnknown_other": "每次运行的 token 数在首次运行后可知。每天最多 {{count}} 次。",
-      "costLocal_one": "在本地模型上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
-      "costRemote_one": "在远程服务 {{model}} 上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
-      "costUnknown_one": "每次运行的 token 数在首次运行后可知。每天最多 {{count}} 次。",
-      "remoteNote": "{{model}} 是远程服务：运行读取的内容会离开此服务器。",
-      "stopWidget": "在小组件中暂停，或在触发器中删除",
-      "stop": "在触发器中关闭或删除",
-      "actsLabel": "权限"
+    "provider": {
+      "addon": "插件 {{name}}",
+      "host": "这台机器，未隔离",
+      "hostOnce": "这台机器，已允许一次",
+      "hostDenied": "未运行：已拒绝",
+      "hostTimeout": "未运行：无应答",
+      "hostAdmin": "未运行：需要管理员"
+    },
+    "shell": {
+      "machine": "本机",
+      "isolated": "命令在隔离环境中运行"
+    },
+    "describe": {
+      "shell": "模型可以运行 shell 命令和脚本。",
+      "files": "模型可以列出、读取、写入和搜索你的文件。",
+      "web": "模型可以搜索网页并读取公开页面。",
+      "media": "模型可以描述图片，并转写你文件中的录音。",
+      "collections": "模型可以搜索你的集合。",
+      "subagents": "模型可以为一项任务启动子智能体并获取其报告。",
+      "saved_agents": "模型可以把你已保存的智能体之一作为子智能体启动。",
+      "triggers": "模型可以提议、列出、修改和删除触发器。每个新触发器或修改都由你确认。",
+      "changes": "模型可以提议修改你的笔记、它自己的规则、技能、页面和仪表板。每一项都由你确认。",
+      "memory": "模型可以在回答前读取你的笔记并保存新的笔记。关闭后此聊天为私密聊天：不读取也不保存你的笔记。你的其他聊天不受影响。",
+      "history": "允许模型搜索并读取你以前的对话。",
+      "localai_client": "允许模型使用此处安装的模型生成图像、语音、声音和视频，并进行转写、嵌入、重排序和检测。",
+      "localai_admin": "允许模型管理此服务器：模型、后端、设置和状态。仅限管理员；模型在更改任何内容之前会先询问你。"
+    },
+    "whenOff": {
+      "shell": "模型可以写文件,但不能运行任何东西。",
+      "files": "模型看不到也无法更改你的文件。",
+      "web": "模型无法在线查询任何内容。",
+      "media": "模型无法自行读取图片或录音。",
+      "collections": "模型无法读取你的集合。",
+      "subagents": "模型独自工作。",
+      "saved_agents": "模型看不到也无法启动你保存的智能体。",
+      "triggers": "模型无法提议或管理触发器。",
+      "changes": "模型无法提议修改你的笔记、它自己的规则、技能、页面或仪表板。",
+      "memory": "这是私密聊天。模型不会读取或保存你的笔记。",
+      "history": "模型看不到你以前的对话。",
+      "localai_client": "模型无法自行运行这些模型。",
+      "localai_admin": "模型无法管理此服务器。"
+    },
+    "addonDescribe_one": "向模型提供此附加组件的 {{count}} 个工具。",
+    "addonDescribe_other": "向模型提供此附加组件的 {{count}} 个工具。",
+    "serverDescribe": "模型的一个 MCP 服务器:其工具会提供给模型。",
+    "connectorDescribe": "你的 MCP 连接器之一:其工具会提供给模型。",
+    "gone": "此处已不可用。关闭它即可移除。",
+    "connection": {
+      "label": "连接",
+      "help": "选择此聊天可以使用的连接。助手只能使用你勾选的连接。",
+      "helpMany": "助手会在每次操作中指明连接，并且只能指明已勾选的连接。",
+      "sole": "这是你唯一的连接，因此会使用它。",
+      "choose": "至少选择一个连接以使用这些工具",
+      "none": "还没有连接",
+      "create": "添加连接",
+      "byAgent": "此聊天的智能体决定连接。请在智能体上更改。",
+      "agentLabel": "此智能体的聊天可用的连接",
+      "agentHelp": "此智能体的聊天只能使用这些连接，且不能更改。",
+      "perChatHelp": "未选择：每个聊天自行选择。"
+    },
+    "optionNeeds": "打开“{{name}}”才能使用此项。",
+    "connectionMissing": "{{name}} 尚未允许此项。",
+    "connectionOpen": "打开其权限",
+    "section": {
+      "messaging": {
+        "title": "消息应用",
+        "intro": "适用于从消息应用开始的聊天。该连接必须在自己的权限页面允许同样的事。"
+      },
+      "unattended": {
+        "title": "无人看管时",
+        "intro": "适用于由触发器或消息应用启动的运行，这类运行中无人能确认某一步。"
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "记住事情",
+        "description": "模型可以提议一条笔记，存入你的记忆或智能体自己的记忆。每条笔记由你确认。"
+      },
+      "profile_write": {
+        "title": "修改自身规则",
+        "description": "模型可以提议修改智能体的长期规则。每次修改由你确认。"
+      },
+      "skills_write": {
+        "title": "编写技能",
+        "description": "模型可以提议新的或修改后的技能。每一项由你确认。"
+      },
+      "pages_write": {
+        "title": "创建页面",
+        "description": "模型可以提议一个在沙箱框架中打开的小应用。由你确认。"
+      },
+      "dashboard_write": {
+        "title": "修改仪表板",
+        "description": "模型可以提议你首页仪表板的新布局。每次修改由你确认。"
+      },
+      "knowledge_write": {
+        "title": "添加到知识库",
+        "description": "允许模型为你的知识库中的某个集合提出一段文本。每一条都由你确认，绝不会立即添加。"
+      },
+      "triggers_propose": {
+        "title": "也可从消息应用提议",
+        "description": "有人在消息应用中提出请求时，模型可以提议触发器。由你确认。"
+      },
+      "triggers_run": {
+        "title": "允许触发器从消息应用启动",
+        "description": "绑定到消息连接的触发器可以启动运行，并把结果送到那里。"
+      },
+      "talkback_channels": {
+        "title": "在已知频道回复",
+        "description": "模型可以向它已在其中交流的频道发送消息。"
+      },
+      "talkback_new_channel": {
+        "title": "开启新频道",
+        "description": "模型可以在它从未用过的频道上开始对话。"
+      },
+      "files_upload": {
+        "title": "从消息应用接收文件",
+        "description": "发送者可以附上文件供模型读取。模型不能向外发送文件。"
+      },
+      "act_files": {
+        "title": "自行写入文件",
+        "description": "无人看管的运行可以在智能体的文件夹中写入文件。"
+      },
+      "act_addons": {
+        "title": "自行使用插件动作",
+        "description": "无人看管的运行可以调用智能体插件的动作。"
+      },
+      "act_send": {
+        "title": "自行发送消息",
+        "description": "无人看管的运行可以在其投递目标之外发送消息。"
+      },
+      "act_spend": {
+        "title": "自行使用付费或外部工具",
+        "description": "无人看管的运行可以使用付费或外部工具以及网络。"
+      },
+      "history_read": {
+        "title": "读取你以前的对话",
+        "description": "允许模型搜索并读取你以前的对话。在某个文件夹中工作的智能体只能读取自己的对话。"
+      }
     }
   },
   "mcpPage": {
@@ -268,243 +804,87 @@
       "left": "未导入的服务器仍保留在此浏览器中。"
     }
   },
-  "connectorsPage": {
-    "loadFailed": "无法加载你的连接器。",
-    "waitingTitle": "等待对应的插件",
-    "waitingText": "这些绑定会被保留，但要等对应插件安装并开启后才会运行。",
-    "duplicate": {
-      "text": "这个机器人也以 {{name}} 的名称连接。两个连接都会回复同一条消息。",
-      "turnOff": "关闭这个连接",
-      "open": "打开 {{name}}"
+  "proposal": {
+    "loading": "正在读取建议的触发器...",
+    "unread": "无法读取建议的触发器：{{message}}",
+    "removed": "此触发器已被删除。",
+    "retry": "重试",
+    "inactive": "建议的触发器。在你创建它之前不会运行任何内容。",
+    "name": "名称",
+    "schedule": "何时（例如 daily 08:00）",
+    "folder": "要监视的文件夹",
+    "saveEdit": "保存",
+    "cancelEdit": "取消",
+    "create": "创建触发器",
+    "edit": "编辑",
+    "dismiss": "拒绝",
+    "receipt": {
+      "scheduled": "已安排：",
+      "watching": "监视中：",
+      "next": "下次运行 {{when}}",
+      "view": "查看触发器",
+      "undo": "撤销",
+      "undone": "已撤销：",
+      "again": "重新安排",
+      "declined": "已拒绝：",
+      "expired": "已过期：",
+      "restore": "恢复",
+      "blocked": {
+        "ran": "它已经运行过一次；请在触发器页面中删除。",
+        "edited": "之后你编辑过它；请在触发器页面中修改或删除。"
+      }
     },
-    "new": "新建连接",
-    "newMenu": "选择新连接的平台",
-    "state": {
-      "running": "运行中",
-      "off": "已关闭",
-      "attention": "需要处理"
+    "announce": {
+      "accepted": "已安排 {{name}}。",
+      "undone": "已撤销 {{name}}。它未被安排。",
+      "declined": "已拒绝 {{name}}。",
+      "reopened": "{{name}} 再次等待你的答复。"
     },
-    "share": {
-      "label": "共享",
-      "button": "共享 {{name}}",
-      "intro": "你添加的人可以在自己的聊天和智能体中使用此连接。他们能看到它的名称和状态，但永远看不到令牌或设置。发给机器人的消息仍由你的智能体接收。",
-      "roleUse": "可以使用",
-      "roleUseHelp": "可以在自己的聊天和智能体中使用。无法查看令牌、修改或再次共享。"
-    },
-    "shared": {
-      "title": "与你共享",
-      "text": "其他人允许你在自己的聊天和智能体中使用这些连接。只有所有者可以修改它们。",
-      "on": "监听中",
-      "off": "已关闭"
+    "plan": {
+      "whenLabel": "时间",
+      "runsAsLabel": "运行身份",
+      "readsLabel": "读取",
+      "writesLabel": "写入",
+      "costLabel": "成本",
+      "deliveryLabel": "结果发送到",
+      "deliveryInbox": "你的收件箱",
+      "deliveryChat": "此聊天",
+      "deliveryThread": "此线程",
+      "deliveryChannel": "{{channel}}，频道顶层",
+      "stopLabel": "如何停止",
+      "when": "{{schedule}}，{{zone}}。首次运行 {{when}}。",
+      "whenNoFirst": "{{schedule}}，{{zone}}。",
+      "whenFile": "当有文件进入 {{folder}} 时。",
+      "runsAs": "你",
+      "runsAsModel": "你，使用 {{model}}",
+      "writesWidget": "，显示在主页的“{{widget}}”小组件中",
+      "costLocal_one": "在本地模型上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
+      "costLocal_other": "在本地模型上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
+      "costRemote_one": "在远程服务 {{model}} 上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
+      "costRemote_other": "在远程服务 {{model}} 上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
+      "costUnknown_one": "每次运行的 token 数在首次运行后可知。每天最多 {{count}} 次。",
+      "costUnknown_other": "每次运行的 token 数在首次运行后可知。每天最多 {{count}} 次。",
+      "remoteNote": "{{model}} 是远程服务：运行读取的内容会离开此服务器。",
+      "stopWidget": "在小组件中暂停，或在触发器中删除",
+      "stop": "在触发器中关闭或删除",
+      "actsLabel": "权限"
     }
   },
-  "tools": {
-    "commands": {
-      "title": "此处无法运行命令",
-      "none": "未安装可运行代码的插件，因此助手可以写入文件，但无法运行脚本或命令。",
-      "askFix": "请联系管理员修复。",
-      "hide": "隐藏",
-      "hideLabel": "隐藏此提示",
-      "chipTitle": "此对话无法运行代码或命令。选择以查看详情。",
-      "hostTitle": "命令在这台机器上运行",
-      "hostChipTitle": "此聊天中的命令在这台机器上运行，没有隔离。选择以查看详情。",
-      "providerHost": "命令在服务器上运行，未隔离。",
-      "unknown": "执行就绪状态或隔离状态未知。",
-      "unknownBy": {
-        "owner_unreachable": "执行就绪状态或隔离状态未知：无法联系插件的所有者。",
-        "not_reported": "执行就绪状态或隔离状态未知：插件尚未报告其执行状态。",
-        "stale": "执行就绪状态或隔离状态未知：状态与插件的当前版本不一致。",
-        "invalid_status": "执行就绪状态或隔离状态未知：插件发送了主机无法接受的状态。",
-        "not_selected": "执行就绪状态或隔离状态未知：该插件不是运行此聊天命令的插件。",
-        "no_answer": "执行就绪状态或隔离状态未知：插件未在规定时间内响应。",
-        "reported_unknown": "执行就绪状态或隔离状态未知：插件报告无法确定。"
-      },
-      "providerUnavailable": "所选执行提供程序不可用。",
-      "disabled": "此聊天已关闭命令执行。",
-      "hostOff": {
-        "reason": "服务器内置的 bash 已关闭，所以助手可以写文件，但不能运行脚本或命令。",
-        "whoAdmin": "你是管理员。在设置的工具中，打开“命令 (bash)”一行。“每次询问”是更安全的选择。之后命令会在服务器上无隔离地运行，并且可以读取服务器能读取的内容。",
-        "whoMember": "请让此服务器的管理员打开它。",
-        "fix": "打开设置",
-        "sandboxText": "如需隔离的命令，请改为安装能隔离运行命令的附加组件。",
-        "sandbox": "打开附加组件"
-      }
-    },
-    "consent": {
-      "title": "在这台机器上运行此命令？",
-      "body": "命令在这台机器上运行，没有隔离。它们可以读取 LocalAI 能读取的文件，并访问互联网和你的网络。",
-      "once": "运行一次",
-      "always": "在此实例上始终允许",
-      "deny": "不运行",
-      "alwaysHint": "“在此实例上始终允许”会让所有用户的聊天无需询问即可在此运行命令（设置 > 工具）。",
-      "askAdmin": "只有管理员可以允许在这台机器上运行命令。请询问管理员，或自己运行该命令。",
-      "expired": "未回应：提出请求的这一轮已结束，因此命令没有运行。"
-    },
-    "provider": {
-      "addon": "插件 {{name}}",
-      "host": "这台机器，未隔离",
-      "hostOnce": "这台机器，已允许一次",
-      "hostDenied": "未运行：已拒绝",
-      "hostTimeout": "未运行：无应答",
-      "hostAdmin": "未运行：需要管理员"
-    },
-    "builtins": "内置工具",
-    "builtin": {
-      "web": "网页",
-      "saved_agents": "已保存的智能体",
-      "triggers": "创建和管理触发器",
-      "shell": "运行命令",
-      "files": "你的文件",
-      "media": "图片和音频",
-      "collections": "知识库",
-      "subagents": "子代理",
-      "changes": "建议的更改",
-      "memory": "记忆",
-      "history": "以前的对话",
-      "localai_client": "LocalAI 客户端",
-      "localai_admin": "LocalAI 管理"
-    },
-    "builtinBy": "{{tools}} · 内置",
-    "onDemand": "按需加载",
-    "builtinByAddon": "{{tools}} · 由 {{provider}} 提供",
-    "servedBy": "由附加组件 {{provider}} 提供",
-    "servedByTool": "{{tool}}: {{provider}}",
-    "servedByBuiltin": "内置",
-    "fallbackBuiltin": "{{addon}} 替代了 {{tool}}，但现在无法为此聊天提供服务（已停止、在此关闭或未授权）：使用内置 {{tool}}。",
-    "fallbackNone": "{{addon}} 替代了 {{tool}}，但现在无法为此聊天提供服务，且内置 {{tool}} 已关闭：此聊天没有 {{tool}}。",
-    "shell": {
-      "machine": "本机",
-      "isolated": "命令在隔离环境中运行"
-    },
-    "describe": {
-      "shell": "模型可以运行 shell 命令和脚本。",
-      "files": "模型可以列出、读取、写入和搜索你的文件。",
-      "web": "模型可以搜索网页并读取公开页面。",
-      "media": "模型可以描述图片，并转写你文件中的录音。",
-      "collections": "模型可以搜索你的集合。",
-      "subagents": "模型可以为一项任务启动子智能体并获取其报告。",
-      "saved_agents": "模型可以把你已保存的智能体之一作为子智能体启动。",
-      "triggers": "模型可以提议、列出、修改和删除触发器。每个新触发器或修改都由你确认。",
-      "changes": "模型可以提议修改你的笔记、它自己的规则、技能、页面和仪表板。每一项都由你确认。",
-      "memory": "模型可以在回答前读取你的笔记并保存新的笔记。关闭后此聊天为私密聊天：不读取也不保存你的笔记。你的其他聊天不受影响。",
-      "history": "允许模型搜索并读取你以前的对话。",
-      "localai_client": "允许模型使用此处安装的模型生成图像、语音、声音和视频，并进行转写、嵌入、重排序和检测。",
-      "localai_admin": "允许模型管理此服务器：模型、后端、设置和状态。仅限管理员；模型在更改任何内容之前会先询问你。"
-    },
-    "whenOff": {
-      "shell": "模型可以写文件,但不能运行任何东西。",
-      "files": "模型看不到也无法更改你的文件。",
-      "web": "模型无法在线查询任何内容。",
-      "media": "模型无法自行读取图片或录音。",
-      "collections": "模型无法读取你的集合。",
-      "subagents": "模型独自工作。",
-      "saved_agents": "模型看不到也无法启动你保存的智能体。",
-      "triggers": "模型无法提议或管理触发器。",
-      "changes": "模型无法提议修改你的笔记、它自己的规则、技能、页面或仪表板。",
-      "memory": "这是私密聊天。模型不会读取或保存你的笔记。",
-      "history": "模型看不到你以前的对话。",
-      "localai_client": "模型无法自行运行这些模型。",
-      "localai_admin": "模型无法管理此服务器。"
-    },
-    "addonDescribe_one": "向模型提供此附加组件的 {{count}} 个工具。",
-    "addonDescribe_other": "向模型提供此附加组件的 {{count}} 个工具。",
-    "serverDescribe": "模型的一个 MCP 服务器:其工具会提供给模型。",
-    "connectorDescribe": "你的 MCP 连接器之一:其工具会提供给模型。",
-    "gone": "此处已不可用。关闭它即可移除。",
-    "grants": "其他权限",
-    "grantSensitive": "敏感：这会改变智能体之后可以做或可以访问的内容。",
-    "connection": {
-      "label": "连接",
-      "help": "选择此聊天可以使用的连接。助手只能使用你勾选的连接。",
-      "helpMany": "助手会在每次操作中指明连接，并且只能指明已勾选的连接。",
-      "sole": "这是你唯一的连接，因此会使用它。",
-      "choose": "至少选择一个连接以使用这些工具",
-      "none": "还没有连接",
-      "create": "添加连接",
-      "byAgent": "此聊天的智能体决定连接。请在智能体上更改。",
-      "agentLabel": "此智能体的聊天可用的连接",
-      "agentHelp": "此智能体的聊天只能使用这些连接，且不能更改。",
-      "perChatHelp": "未选择：每个聊天自行选择。"
-    },
-    "optionNeeds": "打开“{{name}}”才能使用此项。",
-    "connectionMissing": "{{name}} 尚未允许此项。",
-    "connectionOpen": "打开其权限",
-    "section": {
-      "messaging": {
-        "title": "消息应用",
-        "intro": "适用于从消息应用开始的聊天。该连接必须在自己的权限页面允许同样的事。"
-      },
-      "unattended": {
-        "title": "无人看管时",
-        "intro": "适用于由触发器或消息应用启动的运行，这类运行中无人能确认某一步。"
-      }
-    },
-    "grant": {
-      "memory_write": {
-        "title": "记住事情",
-        "description": "模型可以提议一条笔记，存入你的记忆或智能体自己的记忆。每条笔记由你确认。"
-      },
-      "profile_write": {
-        "title": "修改自身规则",
-        "description": "模型可以提议修改智能体的长期规则。每次修改由你确认。"
-      },
-      "skills_write": {
-        "title": "编写技能",
-        "description": "模型可以提议新的或修改后的技能。每一项由你确认。"
-      },
-      "pages_write": {
-        "title": "创建页面",
-        "description": "模型可以提议一个在沙箱框架中打开的小应用。由你确认。"
-      },
-      "dashboard_write": {
-        "title": "修改仪表板",
-        "description": "模型可以提议你首页仪表板的新布局。每次修改由你确认。"
-      },
-      "knowledge_write": {
-        "title": "添加到知识库",
-        "description": "允许模型为你的知识库中的某个集合提出一段文本。每一条都由你确认，绝不会立即添加。"
-      },
-      "triggers_propose": {
-        "title": "也可从消息应用提议",
-        "description": "有人在消息应用中提出请求时，模型可以提议触发器。由你确认。"
-      },
-      "triggers_run": {
-        "title": "允许触发器从消息应用启动",
-        "description": "绑定到消息连接的触发器可以启动运行，并把结果送到那里。"
-      },
-      "talkback_channels": {
-        "title": "在已知频道回复",
-        "description": "模型可以向它已在其中交流的频道发送消息。"
-      },
-      "talkback_new_channel": {
-        "title": "开启新频道",
-        "description": "模型可以在它从未用过的频道上开始对话。"
-      },
-      "files_upload": {
-        "title": "从消息应用接收文件",
-        "description": "发送者可以附上文件供模型读取。模型不能向外发送文件。"
-      },
-      "act_files": {
-        "title": "自行写入文件",
-        "description": "无人看管的运行可以在智能体的文件夹中写入文件。"
-      },
-      "act_addons": {
-        "title": "自行使用插件动作",
-        "description": "无人看管的运行可以调用智能体插件的动作。"
-      },
-      "act_send": {
-        "title": "自行发送消息",
-        "description": "无人看管的运行可以在其投递目标之外发送消息。"
-      },
-      "act_spend": {
-        "title": "自行使用付费或外部工具",
-        "description": "无人看管的运行可以使用付费或外部工具以及网络。"
-      },
-      "history_read": {
-        "title": "读取你以前的对话",
-        "description": "允许模型搜索并读取你以前的对话。在某个文件夹中工作的智能体只能读取自己的对话。"
-      }
-    }
+  "subAgents": {
+    "label": "子代理",
+    "title": "此聊天启动的子智能体",
+    "heading": "{{running}} 个正在运行，后台最多 {{limit}} 个",
+    "running": "运行中",
+    "untitled": "子智能体",
+    "show": "显示",
+    "hide": "隐藏",
+    "stop": "停止",
+    "loading": "正在读取…",
+    "empty": "暂无内容。",
+    "task": "任务",
+    "answer": "回答",
+    "waiting": "正在等待：{{what}}",
+    "looping": "循环中"
   },
   "vision": {
     "describedBy": "此模型无法查看图片。请选择其他模型，否则图片将由 {{model}} 描述。",
@@ -572,62 +952,6 @@
     "asksAbove": "此对话请求“{{choice}}”；管理员的限制是“{{limit}}”。",
     "unverified": "尚未验证实际提供程序是否实施网络策略。这些设置目前不适用于其命令。",
     "configuredPolicy": "已配置的网络策略：{{preset}}（未实施）。"
-  },
-  "inbox": {
-    "unread": "{{count}} 条未读",
-    "markAll": "全部标为已读",
-    "delete": "删除",
-    "pushOn": "开启浏览器通知",
-    "pushOff": "关闭浏览器通知",
-    "pushDenied": "此网站的浏览器通知已被阻止。",
-    "pushUnavailable": "此服务器无法保存推送订阅。",
-    "clearAll": "全部清除",
-    "clearRead": "清除已读",
-    "cancel": "取消",
-    "markRead": "标为已读",
-    "cleared_other": "已删除 {{count}} 条通知。",
-    "confirmAll_other": "删除全部 {{count}} 条通知？此操作无法撤销。",
-    "confirmRead_other": "删除 {{count}} 条已读通知？未读通知会保留。",
-    "onlyRead": "仅 {{count}} 条已读",
-    "showing": "显示 {{shown}} / {{total}}",
-    "showMore": "显示更多",
-    "cleared_one": "已删除 {{count}} 条通知。",
-    "confirmAll_one": "删除全部 {{count}} 条通知？此操作无法撤销。",
-    "confirmRead_one": "删除 {{count}} 条已读通知？未读通知会保留。",
-    "title": "通知",
-    "buttonUnread_one": "通知，{{count}} 条未读",
-    "buttonUnread_other": "通知，{{count}} 条未读",
-    "filterLabel": "显示通知",
-    "filterAll": "全部",
-    "filterUnread": "未读",
-    "filterFailed": "失败",
-    "more": "更多操作",
-    "close": "关闭",
-    "day": {
-      "today": "今天",
-      "yesterday": "昨天",
-      "earlier": "更早"
-    },
-    "emptyTitle": "还没有通知",
-    "emptyBody": "触发器和连接器的结果会显示在这里，包括你不在时完成的工作。",
-    "caughtUp": "你已全部看完。",
-    "caughtUpTitle": "你已全部看完",
-    "caughtUpBody": "没有未读通知。",
-    "noFailedTitle": "没有失败的项目",
-    "noFailedBody": "失败的运行和连接器会显示在这里。",
-    "loadError": "无法加载你的通知。",
-    "source": {
-      "trigger": "触发器",
-      "connector": "连接器",
-      "system": "LocalAI"
-    },
-    "itemUnread": "{{title}}，未读",
-    "arrived": "新通知：{{title}}",
-    "arrivedMany_one": "{{count}} 条新通知",
-    "arrivedMany_other": "{{count}} 条新通知",
-    "proposalsWaiting_one": "{{count}} 项更改等待你处理",
-    "proposalsWaiting_other": "{{count}} 项更改等待你处理",
-    "proposalsBody": "模型提议了一项更改。在你回应之前不会保存任何内容。"
   },
   "change": {
     "loading": "正在读取触发器更改...",
@@ -1219,9 +1543,5 @@
       "waiting": "该更改正等待你在 Add-ons 页面确认",
       "failed": "提供方无法忘记：{{message}}"
     }
-  },
-  "subAgents": {
-    "waiting": "正在等待：{{what}}",
-    "looping": "循环中"
   }
 }

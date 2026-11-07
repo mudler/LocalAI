@@ -4,7 +4,10 @@
     "tool": "工具",
     "result": "结果",
     "toolResult": "{{name}} 的结果",
-    "thinking": "思考中..."
+    "thinking": "思考中...",
+    "toolCall": "工具调用",
+    "toolCalls_one": "{{count}} 次工具调用",
+    "toolCalls_other": "{{count}} 次工具调用"
   },
   "header": {
     "manageModeTooltip": "此聊天可以通过与 LocalAI 对话来安装模型、编辑配置和管理后端。",
@@ -12,7 +15,10 @@
     "chatSettings": "聊天设置",
     "modelInfoTitle": "模型信息：{{model}}",
     "editConfig": "编辑配置",
-    "close": "关闭"
+    "close": "关闭",
+    "chatName": "聊天名称",
+    "find": "在聊天中查找",
+    "more": "更多"
   },
   "modelInfo": {
     "backend": "后端",
@@ -28,12 +34,45 @@
   "settings": {
     "title": "聊天设置",
     "manageMode": "管理模式",
+    "focusMode": "专注模式",
+    "focusModeDesc": "对话进行时收起侧边栏并精简顶部栏。按 Esc 临时恢复；关闭此选项可保留完整布局。",
+    "behaviour": "行为",
+    "conversation": "当前对话",
     "serverKept": "服务器保存此对话。模型和智能体在开始时确定。",
     "manageModeOn": "此对话拥有 LocalAI 管理工具。使用 /assistant 开始新的对话。",
     "agent": "智能体",
     "agentHelp": "此对话使用智能体 {{name}}：它的指令以及它授予的工具。",
     "editAgent": "编辑智能体",
     "deleteHelp": "永久删除此对话及其消息。",
+    "answers": "回答",
+    "answersHelp": "这些设置从下一轮生效。字段留空时使用模型自身的值。",
+    "systemPrompt": "系统提示词",
+    "systemPromptPlaceholder": "添加到此聊天的指令中",
+    "temperature": "温度",
+    "topP": "Top P",
+    "topK": "Top K",
+    "contextSize": "上下文大小（词元数）",
+    "reasoningEffort": "推理强度",
+    "modelDefault": "模型默认值",
+    "effort": {
+      "default": "默认",
+      "none": "无",
+      "minimal": "最低",
+      "low": "低",
+      "medium": "中",
+      "high": "高"
+    },
+    "invalid": {
+      "temperature": "请输入 0 到 2 之间的数值。",
+      "topP": "请输入大于 0 且不超过 1 的数值。",
+      "topK": "请输入大于或等于 0 的整数。",
+      "contextSize": "请输入 512 到 4194304 之间的整数。",
+      "effort": "请选择列出的值之一。"
+    },
+    "save": "保存设置",
+    "saving": "保存中...",
+    "saved": "已保存。下一轮将使用这些设置。",
+    "saveFailed": "无法保存设置。",
     "sliderOf": "{{name}}滑块",
     "reset": "使用模型的默认{{name}}",
     "hint": {
@@ -47,9 +86,6 @@
   "empty": {
     "manageTitle": "通过聊天管理 LocalAI",
     "manageText": "可以请求安装模型、切换后端、编辑配置或检查状态。助手会总结操作并在更改任何内容前等待您确认。",
-    "startTitle": "开始对话",
-    "readyText": "准备与 {{model}} 聊天",
-    "selectModelText": "在上方选择一个模型以开始",
     "suggestionsManage": [
       "已经安装了什么？",
       "安装一个聊天模型",
@@ -62,10 +98,11 @@
       "总结一份文档",
       "头脑风暴"
     ],
-    "recent": "最近",
-    "hintEnter": "回车发送",
-    "hintShiftEnter": "Shift+回车换行",
-    "hintAttach": "附加文件"
+    "title": "我们来做些什么？",
+    "try": "试试",
+    "warmReady": "{{model}}已加载并就绪。",
+    "coldReady": "{{model}}尚未加载。首次回复时将加载模型。",
+    "hintKeys": "Enter 发送，Shift+Enter 换行。按 Ctrl K 查看所有聊天。"
   },
   "errors": {
     "viewTraces": "查看追踪以了解详情"
@@ -73,15 +110,26 @@
   "actions": {
     "copy": "复制",
     "regenerate": "重新生成",
-    "jumpToLatest": "Jump to latest",
-    "reuse": "编辑后重新发送"
+    "jumpToLatest": "跳至最新消息",
+    "reuse": "编辑后重新发送",
+    "editMessage": "编辑消息",
+    "editHelp": "发送编辑后的内容会移除此消息之后的所有内容，并重新执行聊天。",
+    "editSend": "发送编辑内容",
+    "editCancel": "取消",
+    "branch": "从这里分支"
   },
   "streaming": {
     "transferring": "正在传输模型...",
-    "transferringTo": "正在传输模型到 {{node}}..."
+    "transferringTo": "正在传输模型到 {{node}}...",
+    "waiting": "正在等待回复"
   },
   "input": {
+    "send": "发送消息",
     "stopGenerating": "停止生成",
+    "placeholderModel": "向 {{model}} 发送消息…",
+    "placeholderNoModel": "安装模型以开始聊天",
+    "selectModelFirst": "请先选择模型",
+    "placeholderPick": "选择模型以开始",
     "placeholderQueue": "模型正在工作。现在发送的消息会等待它的下一步。"
   },
   "deleteAllDialog": {
@@ -93,7 +141,13 @@
     "selectModel": "请选择一个模型",
     "copied": "已复制到剪贴板",
     "copyFailed": "无法复制到剪贴板",
-    "newChatForModel": "对话会保留其模型。已使用 {{model}} 开始新对话。"
+    "chatCopied": "聊天已复制到剪贴板",
+    "newChatForModel": "对话会保留其模型。已使用 {{model}} 开始新对话。",
+    "branched": "已分支为新聊天。",
+    "notAChat": "此文件不是聊天导出文件。",
+    "imported": "已导入「{{title}}」。",
+    "importFailed": "无法导入聊天：{{message}}",
+    "modelChanged": "下一轮将使用 {{model}}。"
   },
   "menu": {
     "trigger": "聊天",
@@ -103,11 +157,30 @@
     "noMatch": "没有对话匹配您的搜索",
     "noConversations": "暂无对话",
     "rename": "重命名",
+    "copyChat": "复制聊天",
     "exportMarkdown": "导出为 Markdown",
     "deleteChat": "删除聊天",
     "newChat": "新对话",
     "clearAll": "清除全部",
     "deleteAllTitle": "删除所有对话",
+    "title": "对话",
+    "noModel": "无模型",
+    "group": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "week": "本周早些时候",
+      "older": "更早"
+    },
+    "keys": {
+      "move": "移动",
+      "open": "打开",
+      "rename": "重命名",
+      "delete": "删除",
+      "clear": "清除"
+    },
+    "deleted": "已删除「{{title}}」",
+    "undo": "撤销",
+    "dismiss": "关闭",
     "untitled": "新对话",
     "origin": {
       "trigger": "由触发器启动",
@@ -116,15 +189,14 @@
       "page": "由页面发起",
       "other": "由其他来源发起"
     },
+    "exportJson": "导出为 JSON",
+    "importChat": "导入聊天",
     "originBadge": {
       "trigger": "触发器",
       "connector": "连接器",
       "job": "作业",
       "page": "页面",
       "other": "自动"
-    },
-    "keys": {
-      "clear": "清除"
     },
     "find": {
       "searching": "正在搜索…",
@@ -169,83 +241,95 @@
     }
   },
   "message": {
-    "you": "You",
+    "you": "你",
+    "assistant": "助手",
     "loopRun": "循环第 {{run}} 次"
   },
-  "tools": {
-    "label": "工具",
-    "title": "此对话可以使用的工具",
-    "heading": "此对话的工具",
-    "draftNote": "新聊天将按这些开关开始。关闭的工具不会提供给模型。",
-    "note": "在此关闭的工具不会在此对话中提供给模型。",
-    "count": "已开启 {{on}}/{{total}}",
-    "selectAll": "全部开启",
-    "disableAll": "全部关闭",
-    "groupOn": "全开",
-    "groupOff": "全关",
-    "groupOnLabel": "开启{{group}}中的全部",
-    "groupOffLabel": "关闭{{group}}中的全部",
-    "groupCount": "{{on}}/{{total}}",
-    "optIn": "需手动开启。“全部开启”不会开启它。",
-    "empty": "此对话中没有可切换的项。",
-    "failed": "无法保存。开关已恢复原状。",
-    "unavailable": "此对话中不可用",
-    "toolCount_one": "{{count}} 个工具",
-    "toolCount_other": "{{count}} 个工具",
-    "optionsOf": "{{name}}的选项"
-  },
-  "skills": {
-    "label": "技能",
-    "manage": "管理技能",
-    "title": "此对话可以使用的技能",
-    "heading": "此对话的技能",
-    "count": "已开启 {{on}} / {{total}}",
-    "selectAll": "全选",
-    "disableAll": "全部关闭",
-    "selectShown": "选择当前显示的",
-    "disableShown": "关闭当前显示的",
-    "search": "搜索技能",
-    "noMatch": "没有与“{{query}}”匹配的技能。",
-    "later": "之后添加的技能默认开启。",
-    "failed": "保存失败。未作任何更改。",
-    "source": {
-      "builtin": "内置",
-      "personal": "个人",
-      "shared": "共享",
-      "folder": "工作区",
-      "addon": "{{name}}",
-      "addonFrom": "来自 {{name}}"
+  "error": {
+    "title": "回复失败",
+    "kept": "到目前为止写下的内容保留在上方。",
+    "retry": "重试",
+    "detail": "技术详情",
+    "reason": {
+      "unknown": "智能体因错误而停止。请重试以再次运行该轮。",
+      "model_backend_missing": "无法启动模型“{{model}}”:其后端未安装。",
+      "model_backend_missing_anon": "无法启动模型:其后端未安装。",
+      "model_cooldown": "模型“{{model}}”刚才启动失败,正在冷却。",
+      "model_cooldown_anon": "模型刚才启动失败,正在冷却。",
+      "model_load_failed": "无法启动模型“{{model}}”。",
+      "model_load_failed_anon": "无法启动模型。",
+      "model_not_found": "找不到模型“{{model}}”。",
+      "model_not_found_anon": "找不到该模型。",
+      "upstream_key": "上游拒绝了该密钥。",
+      "upstream_path": "上游在该地址不接受此请求。",
+      "upstream_unreachable": "无法连接到上游地址。",
+      "upstream": "模型背后的提供方返回了错误。",
+      "timeout": "模型响应时间过长。",
+      "cancelled": "在模型回答之前,该轮已被取消。",
+      "interrupted": "服务器在回复时重新启动了。"
     },
-    "replacedBy": "已被 {{name}} 替换",
-    "fallback_one": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。",
-    "fallback_other": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。"
-  },
-  "agent": {
-    "label": "智能体",
-    "title": "此对话的已保存智能体",
-    "heading": "使用智能体开始",
-    "note": "智能体为对话提供其指令以及它授予的工具。",
-    "none": "不使用智能体",
-    "fixed": "此对话的智能体"
-  },
-  "assistant": {
-    "chatTitle": "LocalAI 助手"
+    "hint": {
+      "model_backend_missing": "请选择其他模型,或请管理员安装该后端。",
+      "model_backend_missing_admin": "请选择其他模型,或在“后端”页面安装该后端。",
+      "model_cooldown": "请在 {{seconds}} 秒后重试。",
+      "model_load_failed": "请检查模型的配置及其后端,然后重试。",
+      "model_not_found": "请选择其他模型,或在“模型”页面安装此模型。",
+      "upstream_key": "请检查模型设置中的 API 密钥。",
+      "upstream_path": "上游地址必须是完整的端点,例如 .../v1/chat/completions。",
+      "upstream_unreachable": "请检查模型设置中的地址。",
+      "upstream": "请稍后重试。如果持续失败,请检查提供方的地址和密钥。",
+      "timeout": "请重试,或使用更小或更快的模型。",
+      "cancelled": "准备好后请重试。"
+    },
+    "openBackends": "打开后端",
+    "titleInterrupted": "回复被中断",
+    "resume": {
+      "waiting": "{{seconds}} 秒后继续（第 {{attempt}} 次，共 {{max}} 次）。",
+      "resuming": "正在从中断处继续。",
+      "server": "服务器正在从中断处继续。",
+      "exhausted": "尝试 {{max}} 次后仍无法继续。请重试。",
+      "stop": "停止重试"
+    }
   },
   "slash": {
-    "delete": {
-      "label": "删除对话",
-      "desc": "删除此对话"
-    },
-    "assistant": {
-      "desc": "开始一个可以管理 LocalAI 的对话"
-    },
-    "settings": {
-      "desc": "专注模式、智能体和模型信息"
-    },
     "group": {
+      "chat": "聊天",
+      "view": "视图",
       "context": "上下文",
       "skills": "技能和智能体",
       "help": "帮助"
+    },
+    "model": {
+      "label": "切换模型",
+      "desc": "选择其他聊天模型"
+    },
+    "new": {
+      "label": "新建聊天",
+      "desc": "开始新对话"
+    },
+    "chats": {
+      "label": "对话",
+      "desc": "打开聊天列表"
+    },
+    "assistant": {
+      "label": "管理模式",
+      "desc": "开始一个可以管理 LocalAI 的对话"
+    },
+    "find": {
+      "label": "在聊天中查找",
+      "desc": "搜索此对话"
+    },
+    "settings": {
+      "label": "聊天设置",
+      "desc": "专注模式、智能体和模型信息"
+    },
+    "export": {
+      "label": "导出为 Markdown",
+      "desc": "下载此对话"
+    },
+    "delete": {
+      "label": "删除对话",
+      "desc": "删除此对话"
     },
     "models": {
       "label": "模型",
@@ -327,8 +411,123 @@
     }
   },
   "shortcuts": {
+    "title": "键盘快捷键",
+    "conversations": "打开对话列表",
+    "find": "搜索此聊天",
+    "actions": "操作",
+    "send": "发送",
+    "newline": "换行",
+    "editLast": "编辑你的最后一条消息",
+    "inEmptyBox": "在空输入框中",
+    "stop": "停止回复",
+    "moveMessages": "在消息之间移动",
     "onMessage": "在消息上：复制、编辑、重新生成",
-    "editLast": "编辑你的最后一条消息"
+    "close": "关闭"
+  },
+  "picker": {
+    "readyNow": "已就绪",
+    "fits": "{{amount}} GB 可用",
+    "spill": "{{amount}} GB 在 CPU 上运行",
+    "over": "超出本机内存 {{amount}} GB",
+    "memory": "内存",
+    "gpuMemory": "GPU 显存",
+    "memoryUsed": "已用 {{used}} / {{total}} {{unit}}"
+  },
+  "find": {
+    "placeholder": "搜索此聊天",
+    "count": "{{current}} / {{total}}",
+    "none": "无匹配项",
+    "previous": "上一处匹配",
+    "next": "下一处匹配",
+    "close": "关闭搜索"
+  },
+  "load": {
+    "title": "正在加载",
+    "bytes": "{{sent}} / {{total}}",
+    "queued": "你的消息已排队，模型就绪后会发送。点击停止可取消。",
+    "cold": "此模型尚未加载，因此首次回复需要更长时间。模型就绪后会立即发送你的消息。"
+  },
+  "noModel": {
+    "title": "聊天需要语言模型",
+    "body": "安装模型以开始聊天。安装期间会保留你的输入。",
+    "bodyMember": "此服务器尚未安装聊天模型。请联系管理员安装。",
+    "gallery": "浏览模型库",
+    "import": "导入模型"
+  },
+  "tools": {
+    "label": "工具",
+    "title": "此对话可以使用的工具",
+    "heading": "此对话的工具",
+    "draftNote": "新聊天将按这些开关开始。关闭的工具不会提供给模型。",
+    "note": "在此关闭的工具不会在此对话中提供给模型。",
+    "count": "已开启 {{on}}/{{total}}",
+    "selectAll": "全部开启",
+    "disableAll": "全部关闭",
+    "groupOn": "全开",
+    "groupOff": "全关",
+    "groupOnLabel": "开启{{group}}中的全部",
+    "groupOffLabel": "关闭{{group}}中的全部",
+    "groupCount": "{{on}}/{{total}}",
+    "optIn": "需手动开启。“全部开启”不会开启它。",
+    "empty": "此对话中没有可切换的项。",
+    "failed": "无法保存。开关已恢复原状。",
+    "unavailable": "此对话中不可用",
+    "toolCount_one": "{{count}} 个工具",
+    "toolCount_other": "{{count}} 个工具",
+    "optionsOf": "{{name}}的选项"
+  },
+  "skills": {
+    "label": "技能",
+    "manage": "管理技能",
+    "title": "此对话可以使用的技能",
+    "heading": "此对话的技能",
+    "count": "已开启 {{on}} / {{total}}",
+    "selectAll": "全选",
+    "disableAll": "全部关闭",
+    "selectShown": "选择当前显示的",
+    "disableShown": "关闭当前显示的",
+    "search": "搜索技能",
+    "noMatch": "没有与“{{query}}”匹配的技能。",
+    "later": "之后添加的技能默认开启。",
+    "failed": "保存失败。未作任何更改。",
+    "source": {
+      "builtin": "内置",
+      "personal": "个人",
+      "shared": "共享",
+      "folder": "工作区",
+      "addon": "{{name}}",
+      "addonFrom": "来自 {{name}}"
+    },
+    "replacedBy": "已被 {{name}} 替换",
+    "fallback_one": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。",
+    "fallback_other": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。"
+  },
+  "agent": {
+    "label": "智能体",
+    "title": "此对话的已保存智能体",
+    "heading": "使用智能体开始",
+    "note": "智能体为对话提供其指令以及它授予的工具。",
+    "none": "不使用智能体",
+    "fixed": "此对话的智能体"
+  },
+  "assistant": {
+    "chatTitle": "LocalAI 助手"
+  },
+  "browserImport": {
+    "found_one": "此浏览器仍保留着旧聊天页面中的 {{count}} 个聊天。",
+    "found_other": "此浏览器仍保留着旧聊天页面中的 {{count}} 个聊天。",
+    "import": "导入这些聊天",
+    "dismiss": "暂不导入",
+    "done": "已导入 {{imported}} 个，跳过 {{skipped}} 个，失败 {{failed}} 个。",
+    "failed": "无法导入旧聊天：{{message}}"
+  },
+  "meter": {
+    "usedOf": "{{used}} / {{limit}} 个 token（{{pct}}%）",
+    "used": "{{used}} 个 token",
+    "speed": "{{speed}} token/秒",
+    "title": "上一次模型请求使用的上下文",
+    "ofLimit": "{{used}} / {{limit}} 个 token",
+    "left": "剩余 {{left}}"
   },
   "files": {
     "title": "此对话中的文件",
@@ -414,52 +613,6 @@
     "savedWorking_one": "保存了 {{count}} 个工作文件",
     "savedWorking_other": "保存了 {{count}} 个工作文件",
     "workingTitle": "工作文件（脚本、日志或草稿）：打开 {{path}}"
-  },
-  "error": {
-    "title": "回复失败",
-    "kept": "到目前为止写下的内容保留在上方。",
-    "retry": "重试",
-    "detail": "技术详情",
-    "reason": {
-      "unknown": "智能体因错误而停止。请重试以再次运行该轮。",
-      "model_backend_missing": "无法启动模型“{{model}}”:其后端未安装。",
-      "model_backend_missing_anon": "无法启动模型:其后端未安装。",
-      "model_cooldown": "模型“{{model}}”刚才启动失败,正在冷却。",
-      "model_cooldown_anon": "模型刚才启动失败,正在冷却。",
-      "model_load_failed": "无法启动模型“{{model}}”。",
-      "model_load_failed_anon": "无法启动模型。",
-      "model_not_found": "找不到模型“{{model}}”。",
-      "model_not_found_anon": "找不到该模型。",
-      "upstream_key": "上游拒绝了该密钥。",
-      "upstream_path": "上游在该地址不接受此请求。",
-      "upstream_unreachable": "无法连接到上游地址。",
-      "upstream": "模型背后的提供方返回了错误。",
-      "timeout": "模型响应时间过长。",
-      "cancelled": "在模型回答之前,该轮已被取消。",
-      "interrupted": "服务器在回复时重新启动了。"
-    },
-    "hint": {
-      "model_backend_missing": "请选择其他模型,或请管理员安装该后端。",
-      "model_backend_missing_admin": "请选择其他模型,或在“后端”页面安装该后端。",
-      "model_cooldown": "请在 {{seconds}} 秒后重试。",
-      "model_load_failed": "请检查模型的配置及其后端,然后重试。",
-      "model_not_found": "请选择其他模型,或在“模型”页面安装此模型。",
-      "upstream_key": "请检查模型设置中的 API 密钥。",
-      "upstream_path": "上游地址必须是完整的端点,例如 .../v1/chat/completions。",
-      "upstream_unreachable": "请检查模型设置中的地址。",
-      "upstream": "请稍后重试。如果持续失败,请检查提供方的地址和密钥。",
-      "timeout": "请重试,或使用更小或更快的模型。",
-      "cancelled": "准备好后请重试。"
-    },
-    "openBackends": "打开后端",
-    "titleInterrupted": "回复被中断",
-    "resume": {
-      "waiting": "{{seconds}} 秒后继续（第 {{attempt}} 次，共 {{max}} 次）。",
-      "resuming": "正在从中断处继续。",
-      "server": "服务器正在从中断处继续。",
-      "exhausted": "尝试 {{max}} 次后仍无法继续。请重试。",
-      "stop": "停止重试"
-    }
   },
   "allChats": {
     "title": "全部对话",
@@ -590,14 +743,6 @@
       "label": "{{verb}} {{name}}，打开预览",
       "row": "本回答的文件"
     }
-  },
-  "meter": {
-    "usedOf": "{{used}} / {{limit}} 个 token（{{pct}}%）",
-    "used": "{{used}} 个 token",
-    "speed": "{{speed}} token/秒",
-    "title": "上一次模型请求使用的上下文",
-    "ofLimit": "{{used}} / {{limit}} 个 token",
-    "left": "剩余 {{left}}"
   },
   "goal": {
     "label": "目标",

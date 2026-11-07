@@ -12,9 +12,9 @@
     "progress": "进度",
     "stages": "阶段",
     "step": "步",
-    "of": "/",
+    "of": "共",
     "epoch": "轮次",
-    "tokens": "tokens/s",
+    "tokens": "词元/秒",
     "eta": "约剩 {{time}}",
     "etaSeconds": "约剩 {{seconds}} 秒"
   },

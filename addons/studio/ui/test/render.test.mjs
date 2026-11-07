@@ -15,6 +15,14 @@ async function load(overrides) {
   return { mod, ...host }
 }
 
+test('render: Studio reads Chinese workspace labels from its own bundle', async () => {
+  const { mod, sdk } = await load({ language: () => 'zh-CN' })
+  const addon = await mod.createAddon(sdk)
+  const html = renderToString(React.createElement(addon.Component, { page: 'studio', path: 'transform', search: '' }))
+  assert.match(html, /音频变换/)
+  assert.doesNotMatch(html, />Transform</)
+})
+
 test('render: createAddon returns a page component and dispose', async () => {
   const { mod, sdk, controller } = await load()
   const addon = await mod.createAddon(sdk)

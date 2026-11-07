@@ -16,8 +16,6 @@
     "selection": "选择",
     "selectAll": "全选",
     "selectNone": "全不选",
-    "selectedCount_one": "已选 {{count}} 项",
-    "selectedCount_other": "已选 {{count}} 项",
     "item": "升级 {{name}}",
     "versions": "{{from}} → {{to}}",
     "blocked": "无法开始",
@@ -30,7 +28,9 @@
     "runningNote": "关闭此窗口不会停止升级。",
     "progress": "正在升级 {{current}}/{{total}}",
     "summary": "已升级 {{done}} 个,失败 {{failed}} 个,跳过 {{skipped}} 个",
-    "empty": "没有可升级的项目。"
+    "empty": "没有可升级的项目。",
+    "selectedCount_one": "已选 {{count}} 项",
+    "selectedCount_other": "已选 {{count}} 项"
   },
   "item": {
     "queued": "排队中",

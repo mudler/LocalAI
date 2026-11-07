@@ -131,7 +131,7 @@
     "spectrum": "频谱 (FFT)",
     "waiting": "正在等待统计数据...",
     "peakFreq": "峰值频率",
-    "thd": "THD",
+    "thd": "总谐波失真",
     "rms": "RMS 电平",
     "sampleRate": "采样率",
     "packetsRecv": "已接收数据包",
