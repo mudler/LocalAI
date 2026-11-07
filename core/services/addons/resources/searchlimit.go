@@ -11,8 +11,11 @@ import (
 const maxSearchers = 4096
 
 // searchLimiter is a token bucket per person. It is per-instance state of
-// the add-on owner, the only process that answers the user picker, so the
-// limit holds for the whole cluster; a restart refills every bucket.
+// the process that holds the picker, and a restart refills every bucket. The
+// picker of the sharing routes of the kinds lives on the add-on owner, the
+// only process that answers it, so that limit holds for the whole cluster.
+// The picker of the folders of a home lives on every frontend
+// (studioFolderDirectory), so that limit holds per frontend.
 type searchLimiter struct {
 	mu      sync.Mutex
 	burst   float64
