@@ -1,6 +1,6 @@
 {
   "title": "Telegram",
-  "intro": "Vincule um bot do Telegram a um dos seus agentes salvos. Quem enviar mensagem ao bot conversa com esse agente, em uma conversa própria. Pode enviar texto, fotos, arquivos e mensagens de voz (a seção Arquivos mostra o tamanho máximo); a mensagem de voz é transcrita com o modelo de transcrição do chat definido nas configurações.",
+  "intro": "Vincule um bot do Telegram a um dos seus agentes salvos. Quem enviar mensagem ao bot conversa com esse agente, em uma conversa própria. Pode enviar texto, fotos, arquivos e mensagens de voz (Tamanho dos arquivos e idioma das respostas mostra o tamanho máximo); a mensagem de voz é transcrita com o modelo de transcrição do chat definido nas configurações.",
   "new": "Novo bot do Telegram",
   "edit": "Editar bot do Telegram",
   "name": "Nome",
@@ -10,14 +10,9 @@
   "agent": "Agente",
   "agentNone": "Escolha um agente",
   "agentNoModel": "{{name}} (precisa de um modelo)",
-  "who": "Quem pode usar",
-  "onlyListed": "Só os remetentes que eu listar",
-  "anyone": "Qualquer pessoa que possa enviar mensagem ao bot",
   "anyoneWarning": "Qualquer pessoa que possa enviar mensagem a este bot pode usar as ferramentas deste agente, como se fosse você. Cada pessoa tem uma conversa própria.",
   "anyoneConfirm": "Entendi",
-  "allow": "Pessoas listadas",
   "allowHint": "ID do chat, ID do usuário ou @username",
-  "notifyChat": "Enviar minhas notificações para este ID de chat",
   "notifyHelp": "Opcional. Um ID numérico de chat do Telegram.",
   "test": "Testar",
   "testOk": "Conectado a @{{bot}}.",
@@ -47,6 +42,5 @@
     "title": "Excluir {{name}}?",
     "message": "O bot deixa de responder, e o token do bot salvo com ele é excluído. Para configurar o bot de novo, você precisará informar o token outra vez.",
     "confirm": "Excluir"
-  },
-  "back": "Voltar aos conectores"
+  }
 }

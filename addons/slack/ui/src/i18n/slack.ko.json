@@ -15,16 +15,9 @@
   "agent": "에이전트",
   "agentNone": "에이전트 고르기",
   "agentNoModel": "{{name}}(모델 필요)",
-  "who": "사용할 수 있는 사람",
-  "onlyListed": "내가 나열한 사람과 채널만",
-  "anyone": "앱에 메시지를 보낼 수 있는 워크스페이스의 모든 사람",
   "anyoneWarning": "이 앱에 메시지를 보내거나 멘션할 수 있는 사람은 누구나 이 에이전트의 도구를 내 권한으로 사용할 수 있습니다. 사람마다, 스레드마다 별개의 대화가 생깁니다.",
   "anyoneConfirm": "이해했습니다",
-  "allowUsers": "목록에 있는 사람",
   "allowUsersHint": "사용자 ID(U...) 또는 @사용자이름",
-  "allowChannels": "목록에 있는 채널",
-  "allowChannelsHint": "채널 ID(C...): 멘션되면 봇이 채널의 모두에게 답합니다. 아래에서 요청할 수 있는 것을 고르세요",
-  "notifyChat": "내 알림을 이 사용자 또는 채널 ID로 보내기",
   "notifyHelp": "선택 사항입니다. 내 사용자 ID(U...)를 입력하면 앱이 다이렉트 메시지로 보냅니다.",
   "test": "테스트",
   "testOk": "{{bot}}에 연결되었습니다.",
@@ -65,6 +58,5 @@
     "copied": "복사됨",
     "manifest": "Slack 앱 매니페스트"
   },
-  "back": "커넥터로 돌아가기",
   "allowUsersHelp": "@사용자이름은 표시 이름이 아니라 Slack 사용자 이름(핸들)과 일치하며 users:read 범위가 필요합니다. 사용자 ID(U...)는 항상 일치합니다. 누군가 거부되면 접근 로그에 그 사용자 ID가 표시됩니다."
 }

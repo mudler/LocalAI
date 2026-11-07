@@ -35,7 +35,9 @@ func (e *SDKRefusal) Error() string {
 const (
 	MaxTitleChars       = 80
 	MaxDescriptionChars = 280
-	MaxLanguages        = 16
+	// MaxSetupChars bounds the setup text of an add-on or of a connector kind.
+	MaxSetupChars = 120
+	MaxLanguages  = 16
 	// MaxIconBytes bounds a packaged icon. Package validation enforces it
 	// against the real file.
 	MaxIconBytes = 256 << 10
@@ -75,7 +77,9 @@ func (r VersionRange) isHostAPI() bool {
 // the manifest, as it refuses any unknown field.
 //
 // Level 2: capabilities.resources.agentScoped.
-const HostFeatureLevel uint64 = 2
+// Level 3: capabilities.ownerData.
+// Level 4: the setup text (the top-level setup and connector kind setup).
+const HostFeatureLevel uint64 = 4
 
 // BaseFeatureLevel is the level of a manifest that sets no featureLevel.
 const BaseFeatureLevel uint64 = 1
@@ -109,6 +113,12 @@ func (m Manifest) RequiredFeatureLevel() uint64 {
 // usedFeatureLevel is the lowest level that holds every optional field the
 // manifest uses.
 func (m Manifest) usedFeatureLevel() uint64 {
+	if m.usesSetup() {
+		return 4
+	}
+	if m.Capabilities.OwnerData {
+		return 3
+	}
 	if r := m.Capabilities.Resources; r != nil && (r.AgentScoped || r.NounPlural != "") {
 		return 2
 	}
@@ -152,6 +162,12 @@ type Manifest struct {
 	// enabled. "on-demand" is reserved and rejected until it is implemented.
 	LaunchMode   string       `json:"launchMode,omitempty"`
 	Capabilities Capabilities `json:"capabilities"`
+	// Setup says in one short phrase what the person needs before the add-on
+	// works, such as "a bot token from @BotFather". It is plain text, one
+	// string or a map of language tag to string, at most MaxSetupChars
+	// characters (feature level 4). A connector kind has its own setup in
+	// ConnectorKind.Setup; this one is for an add-on that has no kind.
+	Setup *Localized `json:"setup,omitempty"`
 	// I18n translates the text that the host shows for the manifest, by
 	// language tag (see i18n.go). It is optional under api 2. A host that
 	// does not know the field refuses the manifest as it refuses any unknown
@@ -171,6 +187,12 @@ type Capabilities struct {
 	// no manifest that declares one without it, so reading the capabilities is
 	// enough to know that an add-on can change things without a confirmation.
 	Actions bool `json:"actions,omitempty"`
+	// OwnerData says that the tools keep the owner's own data in the add-on
+	// (a calendar, say) without a credential or a resource list. A tool of
+	// another kind than read then changes the owner's data on the word of
+	// whoever is talking, so a messaging chat holds it to the tools.write
+	// permission (see ToolPermission). Level 3.
+	OwnerData bool `json:"ownerData,omitempty"`
 	// AdminTools are tools that only the host's own UI-only resource
 	// management endpoints may run. They are never in Tools, never have a
 	// tool definition and never reach a model, a proposal, a typed dispatch
@@ -520,6 +542,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	}
 	if e := validateSkillDefinitions(m.ID, c.SkillDefinitions); e != nil {
 		return e
+	}
+	if m.Setup != nil && !m.Setup.valid(MaxSetupChars) {
+		return fmt.Errorf("invalid setup text")
 	}
 	if e := validateI18n(m); e != nil {
 		return e

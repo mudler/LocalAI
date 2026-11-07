@@ -18,50 +18,74 @@
 
 .cn-muted { margin: 0; color: var(--color-text-muted); font-size: var(--fs-small); line-height: var(--lh-small); }
 
-.cn-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+/* The connections other people shared with the person, read only. */
+.cn-shared { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-section__title { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--font-weight-semibold); }
 
-.cn-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--dk-space-3);
-  padding: var(--dk-space-3);
-  border-bottom: 1px solid var(--color-border-subtle);
+/* The list of connections: rows like the MCP connectors page, a docked pane
+   beside them. The kit draws the switch, the chip, the menu, the pane and the
+   sheet; this sheet only lays the row out. */
+.cn-layout { align-items: flex-start; }
+.cn-listcol { display: flex; flex-direction: column; gap: var(--dk-space-3); min-width: 0; }
+.cn-conns { list-style: none; margin: 0; padding: 0; border: 1px solid var(--dk-edge); border-radius: var(--r-lg); background: var(--dk-card); overflow: hidden; }
+.cn-conns:empty { display: none; }
+.cn-conn { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--dk-space-3); min-width: 0; padding-right: var(--dk-space-4); }
+.cn-conn + .cn-conn { border-top: 1px solid var(--dk-edge); }
+.cn-conn:has(.cn-conn__open:hover) { background: color-mix(in oklab, var(--dk-hover) 45%, transparent); }
+.cn-conn[data-selected="true"] { background: var(--dk-accent-wash); }
+.cn-conn__open { min-width: 0; display: flex; gap: var(--dk-space-3); align-items: flex-start; padding: 14px 0 14px var(--dk-space-4); color: inherit; background: none; border: 0; text-align: start; font: inherit; cursor: pointer; }
+.cn-conn__open:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--dk-accent); border-radius: var(--r-md); }
+.cn-conn__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cn-conn__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); min-width: 0; }
+.cn-conn__name { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
+.cn-conn__facts, .cn-conn__line { font-size: var(--fs-small); line-height: var(--lh-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cn-conn__facts { color: var(--dk-muted); }
+.cn-conn__line { color: var(--dk-warn-text, var(--dk-text)); }
+.cn-conn[data-state="off"] .cn-tile { opacity: 0.6; }
+.cn-conn__side { display: flex; align-items: center; gap: var(--dk-space-2); }
+/* A connection other people shared with the person: the same row, read only,
+   with nothing to open or change. */
+.cn-conn__body { min-width: 0; display: flex; gap: var(--dk-space-3); align-items: flex-start; padding: 14px 0 14px var(--dk-space-4); }
+@media (max-width: 640px) {
+  .cn-conn { grid-template-columns: minmax(0, 1fr); padding-right: 0; }
+  .cn-conn__body { padding-right: var(--dk-space-4); }
+  .cn-conn__side { padding: 0 var(--dk-space-4) var(--dk-space-3) calc(var(--dk-space-4) + 36px + var(--dk-space-3)); }
+  .cn-conn__facts, .cn-conn__line { white-space: normal; }
 }
 
-/* The host's connectors page also defines .cn-row, as a grid with a leading icon
-   column. The add-on sheet is scoped with :where(), so the sheet that loads
-   later would win. Under .cn-page this row keeps its own layout in any order. */
-.cn-page .cn-row { display: flex; grid-template-columns: none; }
+/* The letter tile: the first letter on a hue taken from the id. */
+.cn-tile { flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: var(--r-md); font-size: var(--fs-body); font-weight: var(--font-weight-semibold); line-height: 1; --cn-h: 180; background: oklch(0.93 0.035 var(--cn-h)); color: oklch(0.42 0.08 var(--cn-h)); }
+:root[data-theme="dark"] .cn-tile { background: oklch(0.32 0.045 var(--cn-h)); color: oklch(0.88 0.06 var(--cn-h)); }
+.cn-tile[data-hue="0"] { --cn-h: 20; } .cn-tile[data-hue="1"] { --cn-h: 50; } .cn-tile[data-hue="2"] { --cn-h: 80; } .cn-tile[data-hue="3"] { --cn-h: 110; }
+.cn-tile[data-hue="4"] { --cn-h: 140; } .cn-tile[data-hue="5"] { --cn-h: 170; } .cn-tile[data-hue="6"] { --cn-h: 200; } .cn-tile[data-hue="7"] { --cn-h: 230; }
+.cn-tile[data-hue="8"] { --cn-h: 260; } .cn-tile[data-hue="9"] { --cn-h: 290; } .cn-tile[data-hue="10"] { --cn-h: 320; } .cn-tile[data-hue="11"] { --cn-h: 350; }
 
-.cn-row__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* The pane. */
+.cn-pane__body { display: flex; flex-direction: column; gap: var(--dk-space-5); min-width: 0; }
+.cn-pane__section { display: flex; flex-direction: column; gap: var(--dk-space-2); min-width: 0; }
+.cn-pane__title, .cn-sheet__label { margin: 0; font-size: var(--fs-meta); line-height: var(--lh-meta); font-weight: var(--font-weight-semibold); letter-spacing: .06em; text-transform: uppercase; color: var(--dk-muted); }
+.cn-pane__use { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); padding: var(--dk-space-3) var(--dk-space-4); border: 1px solid var(--dk-edge); border-radius: var(--r-md); }
+.cn-pane__foot { display: flex; align-items: center; gap: var(--dk-space-2); width: 100%; }
+.cn-pane__grow { flex: 1 1 auto; }
+.cn-pane__ok, .cn-pane__bad { display: flex; align-items: flex-start; gap: var(--dk-space-2); margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); overflow-wrap: anywhere; }
+.cn-pane__ok { color: var(--dk-ok-text); }
+.cn-pane__bad { color: var(--dk-error-text); }
+.cn-pane__info { display: flex; flex-direction: column; gap: var(--dk-space-1); font-size: var(--fs-small); }
+.cn-kv { display: flex; flex-direction: column; gap: var(--dk-space-2); margin: 0; }
+.cn-kv__row { display: grid; grid-template-columns: minmax(80px, 30%) minmax(0, 1fr); gap: var(--dk-space-3); }
+.cn-kv dt { color: var(--dk-muted); font-size: var(--fs-small); line-height: var(--lh-small); }
+.cn-kv dd { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); overflow-wrap: anywhere; }
 
-.cn-row__name { font-weight: var(--font-weight-semibold); }
-
-.cn-row__actions { display: flex; align-items: center; gap: var(--dk-space-2); flex: none; }
-
-/* Fields on the left, a sticky aside on the right from 1024 px. */
-.cn-formgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--dk-space-5); align-items: start; }
-
-.cn-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--dk-space-4);
-  max-width: 640px;
-  padding: var(--dk-space-5);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--r-lg);
-  background: var(--dk-card);
-}
-
-.cn-aside { display: flex; flex-direction: column; gap: var(--dk-space-2); }
-.cn-aside__title { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
-.cn-aside__steps { margin: 0 0 var(--dk-space-3); padding-left: var(--dk-space-5); display: flex; flex-direction: column; gap: var(--dk-space-1); color: var(--color-text-muted); font-size: var(--fs-small); line-height: var(--lh-small); }
-
-@media (min-width: 1024px) {
-  .cn-formgrid { grid-template-columns: minmax(0, 640px) minmax(240px, 320px); }
-  .cn-aside { position: sticky; top: var(--dk-space-4); padding-left: var(--dk-space-5); border-left: 1px solid var(--color-border-subtle); }
-}
+/* The sheet: one scrolling form with uppercase section labels. */
+.cn-sheet { display: flex; flex-direction: column; gap: var(--dk-space-6); min-width: 0; }
+.cn-sheet__section { display: flex; flex-direction: column; gap: var(--dk-space-4); min-width: 0; }
+.cn-sheet__section + .cn-sheet__section { padding-top: var(--dk-space-5); border-top: 1px solid var(--dk-edge); }
+.cn-sheet__fail { position: sticky; bottom: 0; z-index: 1; min-width: 0; background: var(--dk-card); }
+.cn-sheet__fail:focus-visible { outline: 2px solid var(--dk-accent, currentColor); outline-offset: 2px; border-radius: var(--r-md); }
+.cn-sheet__fail-reason { display: block; overflow-wrap: anywhere; }
+.cn-fixed { margin: 0; font-size: var(--fs-body); }
+.cn-card__words { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cn-card__desc { font-size: var(--fs-meta); line-height: var(--lh-meta); color: var(--dk-muted); }
 
 /* Sections of the form: a quiet heading and a hairline, not a bordered box. */
 fieldset.cn-group {
@@ -77,8 +101,8 @@ fieldset.cn-group {
 .cn-group legend { float: left; width: 100%; margin: 0; padding: 0; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
 .cn-group legend + * { clear: both; }
 
-.cn-actions { display: flex; gap: var(--dk-space-2); }
 
+.cn-row__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); }
 .cn-link { background: none; border: 0; padding: 0 var(--dk-space-1); color: inherit; cursor: pointer; font: inherit; }
 .ui-callout__text .cn-link { margin-left: var(--dk-space-2); }
 /* The link to the other connection of the same bot: it reads as a link, not as a dismiss mark. */
@@ -87,9 +111,6 @@ fieldset.cn-group {
 
 @media (max-width: 900px) {
   .cn-page { padding: var(--dk-space-4); }
-  .cn-row { flex-wrap: wrap; align-items: flex-start; }
-  .cn-row__actions { flex-wrap: wrap; }
-  .cn-form { padding: var(--dk-space-4); }
 }
 
 /* Help text: two lines, then a "More" control. */
@@ -127,6 +148,8 @@ fieldset.cn-group {
 .cn-card:hover { border-color: color-mix(in srgb, var(--dk-control-edge) 70%, var(--dk-text)); }
 .cn-card.is-on { border-color: var(--dk-accent); background: var(--dk-accent-wash); }
 .cn-card:has(:focus-visible) { outline: 2px solid var(--dk-accent); outline-offset: 2px; }
+.cn-cards--three { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; }
+@media (max-width: 640px) { .cn-cards--three { grid-template-columns: minmax(0, 1fr); } }
 
 /* A switch with its label and help. */
 .cn-switchrow { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); min-height: var(--ctl-h); font-size: var(--fs-body); }
@@ -159,18 +182,11 @@ fieldset.cn-group {
 
 /* Permissions: one row per capability, a role matrix, channels, pairing and
    the read-only view of the access check. */
-.cn-caps__head { margin: var(--dk-space-3) 0 var(--dk-space-1); font-weight: 600; font-size: 0.875rem; }
-.cn-caps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.cn-cap { display: flex; flex-direction: column; gap: var(--dk-space-1); padding: var(--dk-space-2) 0; border-bottom: 1px solid var(--color-border-subtle); }
-.cn-cap:last-child { border-bottom: 0; }
 .cn-cap__title { font-weight: var(--font-weight-medium, 500); }
-.cn-cap .cn-switchrow > span:first-child { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); }
 
 .cn-badge { display: inline-block; padding: 0 var(--dk-space-2); border-radius: var(--r-sm); font-size: var(--fs-meta); background: var(--color-bg-secondary); color: var(--color-text-secondary); }
 .cn-badge--warn { color: var(--color-warning, var(--color-text-secondary)); border: 1px solid currentColor; }
 
-.cn-nocaps { align-items: flex-start; }
-.cn-nocaps .dk-btn { margin-top: var(--dk-space-1); }
 .ui-callout__text .cn-notice__title { margin: 0 0 var(--dk-space-1); font-weight: var(--font-weight-semibold); }
 
 .cn-sub { display: flex; flex-direction: column; gap: var(--dk-space-2); padding-top: var(--dk-space-3); border-top: 1px solid var(--color-border-subtle); }
@@ -181,37 +197,28 @@ fieldset.cn-group {
 .cn-matrix th, .cn-matrix td { padding: var(--dk-space-2); text-align: center; border-bottom: 1px solid var(--color-border-subtle); vertical-align: middle; }
 .cn-matrix thead th { color: var(--color-text-muted); font-weight: var(--font-weight-medium, 500); }
 .cn-matrix tbody th { text-align: left; font-weight: var(--font-weight-semibold); }
-.cn-matrix__desc { display: block; font-weight: normal; }
 .cn-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-.cn-trust { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--dk-space-3); }
-.cn-trust__row { display: flex; flex-direction: column; gap: var(--dk-space-2); min-width: 0; padding-bottom: var(--dk-space-3); border-bottom: 1px solid var(--color-border-subtle); }
-.cn-trust__id { font-family: var(--font-mono, monospace); overflow-wrap: anywhere; }
-.cn-trust__row .cn-cards { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
-.cn-trust__effect { margin: 0; color: var(--dk-text-muted, var(--color-text-secondary)); font-size: var(--dk-font-sm, 0.875rem); overflow-wrap: anywhere; }
 .cn-channels { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--dk-space-3); }
-.cn-channel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--dk-space-3); align-items: start; padding-bottom: var(--dk-space-3); border-bottom: 1px solid var(--color-border-subtle); }
-.cn-channel .cn-switchfield { grid-column: 1 / -1; }
-.cn-channel > .dk-btn { justify-self: start; }
-@media (max-width: 700px) { .cn-channel { grid-template-columns: minmax(0, 1fr); } }
+.cn-channel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 6.5rem; gap: var(--dk-space-2) var(--dk-space-3); align-items: end; padding: var(--dk-space-3) 0; border-top: 1px solid var(--color-border-subtle); }
+.cn-channel__cell { min-width: 0; }
+.cn-channel__cell::before { display: block; content: attr(data-label); font-size: var(--fs-meta); color: var(--color-text-muted); margin-bottom: 2px; }
+.cn-channel__cell--who { grid-column: 1 / -1; grid-row: 2; }
+.cn-channel__notes { grid-column: 1 / -1; grid-row: 3; display: flex; flex-direction: column; gap: 2px; }
+.cn-channel__notes .dk-hint { margin: 0; }
+@media (max-width: 700px) {
+  .cn-channel { grid-template-columns: minmax(0, 1fr); }
+  .cn-channel__cell--who { grid-row: auto; }
+  .cn-channel__notes { grid-row: auto; }
+  .cn-channel > .dk-btn { justify-self: start; }
+}
+.cn-more { border-top: 1px solid var(--color-border-subtle); padding-top: var(--dk-space-2); }
+.cn-more summary { cursor: pointer; font-size: var(--fs-small); color: var(--color-text-secondary); }
+.cn-more[open] summary { margin-bottom: var(--dk-space-3); }
+.cn-more__body { display: flex; flex-direction: column; gap: var(--dk-space-3); }
 
 .cn-mono { font-family: var(--font-mono, monospace); font-size: var(--fs-meta); }
 .cn-pairing__code { margin: var(--dk-space-1) 0; font-family: var(--font-mono, monospace); font-size: var(--fs-title); letter-spacing: 0.08em; user-select: all; }
-
-.cn-access { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--dk-space-3); font-size: var(--fs-small); }
-.cn-access__subject { display: flex; flex-direction: column; gap: var(--dk-space-1); }
-.cn-access__who { font-weight: var(--font-weight-semibold); }
-.cn-access__no summary { cursor: pointer; color: var(--color-text-muted); }
-.cn-access__no ul { margin: var(--dk-space-1) 0 0; padding-left: var(--dk-space-5); }
-.cn-row:has(.cn-nocaps) { align-items: flex-start; }
-
-/* The presets of the permissions: fill the form from the agent of the binding. */
-.cn-presets { display: flex; flex-direction: column; gap: var(--dk-space-2); margin-block: var(--dk-space-2); }
-.cn-presets__row { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); }
-.cn-presets__done { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-primary); }
-.cn-confirm__list { margin: 0; padding-left: var(--dk-space-5); font-size: var(--fs-small); line-height: var(--lh-small); }
-.cn-cap__lacks { margin: 2px 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-muted); }
-.cn-cap[data-lacks="true"] .cn-cap__title { color: var(--color-text-muted); }
 
 /* The approval of proposed triggers, nested under the permission Propose triggers. */
 .cn-cap__effect { margin: 2px 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-secondary); }
@@ -233,34 +240,35 @@ fieldset.cn-group {
    themes work; the state is also written in words, never colour alone. */
 .cn-ready { display: flex; flex-direction: column; gap: var(--dk-space-2); padding: var(--dk-space-3); border: 1px solid var(--color-border-subtle); border-radius: var(--r-md); background: var(--dk-inset, var(--color-bg-secondary)); }
 .cn-ready__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--dk-space-2); }
-.cn-ready__list, .cn-can__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.cn-ready__row, .cn-can__row { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr) auto; align-items: start; gap: var(--dk-space-3); padding: var(--dk-space-2) 0; border-top: 1px solid var(--color-border-subtle); font-size: var(--fs-small); line-height: var(--lh-small); }
-.cn-ready__row:first-child, .cn-can__row:first-child { border-top: 0; }
-.cn-ready__text, .cn-can__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.cn-ready__label, .cn-can__title { font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
-.cn-ready__sentence, .cn-can__why { color: var(--color-text-secondary); overflow-wrap: anywhere; }
-.cn-ready__state, .cn-can__state { display: inline-flex; align-items: center; gap: var(--dk-space-1); font-weight: var(--font-weight-medium, 500); color: var(--color-text-secondary); }
-.cn-ready__state--ok, .cn-can__state--yes { color: var(--color-success, var(--color-text-secondary)); }
+.cn-ready__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.cn-ready__row { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr) auto; align-items: start; gap: var(--dk-space-3); padding: var(--dk-space-2) 0; border-top: 1px solid var(--color-border-subtle); font-size: var(--fs-small); line-height: var(--lh-small); }
+.cn-ready__row:first-child { border-top: 0; }
+.cn-ready__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cn-ready__label { font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
+.cn-ready__sentence { color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.cn-ready__state { display: inline-flex; align-items: center; gap: var(--dk-space-1); font-weight: var(--font-weight-medium, 500); color: var(--color-text-secondary); }
+.cn-ready__state--ok { color: var(--color-success, var(--color-text-secondary)); }
 .cn-ready__state--attention, .cn-ready__state--after_save { color: var(--color-warning, var(--color-text-secondary)); }
-.cn-ready__state--broken, .cn-can__state--no { color: var(--color-error, var(--color-text-secondary)); }
+.cn-ready__state--broken { color: var(--color-error, var(--color-text-secondary)); }
 .cn-ready__state--off, .cn-ready__state--checking, .cn-ready__state--unknown { color: var(--color-text-muted); }
 .cn-ready__fix, .cn-can__fix { justify-self: end; }
 .cn-fix { white-space: nowrap; text-decoration: none; }
 .cn-fix__text { max-width: 12rem; text-align: right; }
 .cn-ready__toggle { align-self: flex-start; }
-.cn-can__list[data-dim="true"] { opacity: 0.6; }
+.cn-ready-quiet { display: flex; flex-direction: column; gap: var(--dk-space-2); align-items: flex-start; }
+.cn-ready-quiet > .cn-ready { align-self: stretch; }
 .cn-can__live:empty { display: none; }
-.cn-can .dk-select-wrap { max-width: 28rem; }
 [data-jumped="true"] { outline: 2px solid var(--dk-accent); outline-offset: 3px; border-radius: var(--r-sm); }
 @media (max-width: 700px) {
-  .cn-ready__row, .cn-can__row { grid-template-columns: minmax(0, 1fr); gap: var(--dk-space-1); }
+  .cn-ready__row { grid-template-columns: minmax(0, 1fr); gap: var(--dk-space-1); }
   .cn-ready__fix, .cn-can__fix { justify-self: start; }
   .cn-fix__text { text-align: left; max-width: none; }
 }
 
 /* The host kit writes " (optional)" in English after a label marked data-optional.
    The page puts the word of its language in the attribute, and this draws it. */
-.cn-page .dk-label[data-optional]::after { content: " (" attr(data-optional) ")"; }
+.cn-page .dk-label[data-optional]::after,
+.cn-scope .dk-label[data-optional]::after { content: " (" attr(data-optional) ")"; }
 
 /* The tools whose confirmation the owner can relax. */
 .cn-approvals { display: flex; flex-direction: column; gap: var(--dk-space-2); margin-top: var(--dk-space-3); }
@@ -275,15 +283,15 @@ fieldset.cn-group {
    shown at a time, chosen with the select above the table. */
 .cn-mx { display: flex; flex-direction: column; gap: var(--dk-space-2); }
 .cn-mx__table { table-layout: fixed; }
-.cn-mx__table th, .cn-mx__table td { text-align: left; vertical-align: top; overflow-wrap: break-word; padding: var(--dk-space-1); font-size: var(--fs-meta); }
-.cn-mx__table thead th { font-size: var(--fs-meta); }
-.cn-mx__table th:first-child { width: 20%; }
+.cn-mx__table th, .cn-mx__table td { text-align: center; vertical-align: top; overflow-wrap: anywhere; hyphens: auto; padding: var(--dk-space-1); font-size: var(--fs-meta); }
+.cn-mx__table thead th { font-size: 0.6875rem; padding-inline: 2px; }
+.cn-mx__table th:first-child, .cn-mx__table tbody th { width: 22%; text-align: left; }
 .cn-mx__title { font-weight: var(--font-weight-semibold); }
 .cn-mx__sub .cn-mx__title { font-weight: normal; padding-left: var(--dk-space-4); }
 .cn-mx__word > span { min-width: 0; overflow-wrap: anywhere; }
-.cn-mx__word { display: inline-flex; min-width: 0; max-width: 100%; align-items: flex-start; gap: var(--dk-space-1); font-weight: var(--font-weight-medium, 500); }
+.cn-mx__word { display: inline-flex; flex-direction: column; text-align: center; min-width: 0; max-width: 100%; align-items: center; gap: 2px; font-weight: var(--font-weight-medium, 500); }
 .cn-mx__why { display: block; padding: 0 var(--dk-space-1); color: var(--color-text-muted); font-size: var(--fs-meta); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
-.cn-mx__btn { display: block; width: 100%; text-align: left; background: none; color: inherit; font: inherit; cursor: pointer; padding: var(--dk-space-1); border: 1px dashed var(--color-border-subtle); border-radius: var(--radius-sm, 4px); }
+.cn-mx__btn { display: block; width: 100%; text-align: center; background: none; color: inherit; font: inherit; cursor: pointer; padding: var(--dk-space-1); border: 1px dashed var(--color-border-subtle); border-radius: var(--radius-sm, 4px); }
 .cn-mx__btn[aria-pressed="true"] { border-style: solid; border-color: var(--dk-accent, currentColor); background: var(--dk-hover); }
 .cn-mx__btn:focus-visible { outline: 2px solid var(--dk-accent, currentColor); outline-offset: 1px; }
 .cn-mx__static { display: block; padding: var(--dk-space-1); }
@@ -294,12 +302,57 @@ fieldset.cn-group {
 .cn-mx__pick { display: none; }
 @media (max-width: 640px) {
   .cn-mx__pick { display: flex; }
-  .cn-mx__table [data-col]:not([data-col="on"]) { display: none; }
-  .cn-mx__table[data-sel="paired"] [data-col="paired"],
-  .cn-mx__table[data-sel="listed"] [data-col="listed"],
-  .cn-mx__table[data-sel="channel_acts"] [data-col="channel_acts"],
-  .cn-mx__table[data-sel="channel_member"] [data-col="channel_member"],
-  .cn-mx__table[data-sel="anyone"] [data-col="anyone"] { display: table-cell; }
+  .cn-mx__table [data-col]:not([data-col="on"]):not([data-active="true"]) { display: none; }
+  .cn-mx__table th:first-child { width: 42%; }
+}
+.cn-mx__tools { display: flex; justify-content: flex-end; }
+.cn-mx__more { display: block; padding: 0; }
+.cn-mx__cell--on { vertical-align: middle; }
+.cn-mx__grant { margin: 0 0 var(--dk-space-1); }
+.cn-mx__disclosure > td { padding: var(--dk-space-2) var(--dk-space-3); background: var(--dk-inset, var(--color-bg-secondary)); }
+.cn-places { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+
+/* Who can talk to the bot: the people and the channels as rows of a name, a badge, a level and actions. */
+.cn-who__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.cn-who__row { display: grid; grid-template-columns: minmax(8rem, 1fr) auto auto auto; align-items: center; gap: var(--dk-space-2) var(--dk-space-3); padding: var(--dk-space-2) 0; border-top: 1px solid var(--color-border-subtle); min-width: 0; }
+.cn-who__row:first-child { border-top: 0; }
+.cn-who__row--mixed { grid-template-columns: minmax(9rem, 1fr) auto auto; }
+.cn-who__row--mixed .dk-select-wrap { grid-column: 1 / -1; grid-row: 2; }
+.cn-who__who { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.cn-who__name { font-weight: var(--font-weight-medium, 500); }
+.cn-who__id { color: var(--color-text-muted); }
+.cn-who__badges { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.cn-who__ends { font-size: var(--fs-meta); }
+.cn-who__post { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2) var(--dk-space-3); font-size: var(--fs-small); }
+.cn-who__actions { display: flex; flex-wrap: wrap; gap: var(--dk-space-1); justify-content: flex-end; }
+.cn-who__row .dk-select-wrap { min-width: 11rem; }
+.cn-badge--ok { color: var(--color-success, var(--color-text-secondary)); border: 1px solid currentColor; background: none; }
+.cn-who__verify { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2) var(--dk-space-3); }
+.cn-who__verify .dk-hint { margin: 0; flex: 1 1 14rem; }
+.cn-who__chip { cursor: pointer; display: inline-flex; align-items: center; gap: var(--dk-space-1); }
+.cn-who__recent { display: flex; flex-direction: column; gap: var(--dk-space-1); margin-top: var(--dk-space-2); }
+@media (max-width: 700px) {
+  .cn-who__row, .cn-who__row--mixed { grid-template-columns: minmax(0, 1fr); }
+  .cn-who__row--mixed .dk-select-wrap { grid-row: auto; }
+  .cn-who__row .dk-select-wrap, .cn-who__actions { grid-column: 1 / -1; min-width: 0; }
+  .cn-who__actions { justify-content: flex-start; }
+  .cn-who__badges { flex-direction: row; flex-wrap: wrap; align-items: center; }
 }
 
 .cn-pill { display: inline-flex; align-items: center; padding: 0 var(--dk-space-2); border: 1px solid currentColor; border-radius: 999px; font-size: var(--fs-meta); font-weight: var(--font-weight-semibold); white-space: nowrap; }
+
+/* Check it: Try it and Recent refusals. */
+.cn-try__selects { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--dk-space-3); }
+/* A native select cannot wrap its text. The columns grow before they shrink, and
+   these selects keep less room for the padding, and a phone gets a smaller font, so
+   that the longest options ("Only when a verified person asks", "Change things in
+   connected services") show whole. */
+.cn-try__selects .dk-select, .cn-channel .dk-select { padding-left: var(--dk-space-2); padding-right: 32px; }
+@media (max-width: 480px) { .cn-try__selects .dk-select, .cn-channel .dk-select { font-size: var(--dk-text-13); } }
+.cn-try__selects .dk-field { min-width: 0; }
+.cn-try__answer { border-left: 3px solid var(--color-border-subtle); padding-left: var(--dk-space-3); display: flex; flex-direction: column; gap: var(--dk-space-1); }
+.cn-try__answer p { margin: 0; }
+.cn-try__verdict--refused { color: var(--color-error, var(--color-text-primary)); }
+.cn-try__verdict--allowed, .cn-try__verdict--asks { color: var(--color-success, var(--color-text-primary)); }
+.cn-refusals li { overflow-wrap: anywhere; }
+.cn-refusals__reason { flex-basis: 100%; }

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { cellOf, matrixColumns, matrixRows, shortReason } from '../../../internal/connector-ui/src/matrix.js'
+import { cellOf, matrixColumns, matrixRows } from '../../../internal/connector-ui/src/matrix.js'
 import { previewBody } from '../../../internal/connector-ui/src/access.js'
 
 const CAPS = [
@@ -70,13 +70,6 @@ test('matrix: the rows follow the host list, the switch column follows the form,
   assert.equal(by['tools.write:tracker:create-issue'].parent, 'tools.write')
 })
 
-test('matrix: a short reason is the first sentence of the message of the host', () => {
-  assert.equal(shortReason('This person needs to be verified first. Then try again.'), 'This person needs to be verified first.')
-  assert.equal(shortReason(''), '')
-  assert.equal(shortReason(undefined), '')
-  assert.ok(shortReason('x'.repeat(200)).length <= 70)
-})
-
 test('matrix: the preview request carries the places the bot may post and the approval mode of the unsaved form', () => {
   const form = { id: '', agent_id: 'a1', allow: ['C1'], allow_trust: { C1: 'act' }, caps: [], grants: [], channels: [{ id: ' C9 ', label: ' ops ', approved: true }], approval: { mode: 'auto' } }
   const b = previewBody(form, 'slack')
@@ -85,4 +78,14 @@ test('matrix: the preview request carries the places the bot may post and the ap
   assert.deepEqual(b.allow_trust, { C1: 'act' })
   assert.deepEqual(previewBody({ ...form, channels: [] }, 'slack').channels, [], 'an empty list clears')
   assert.equal('approval_mode' in previewBody({ ...form, approval: {} }, 'slack'), false)
+})
+
+test('matrix: a kind with roles gets one column for each role the host sent, after the kinds of sender', () => {
+  const roles = [{ id: 'admin', title: 'Admin' }, { id: 'member', title: 'Member' }, { id: 'gone', title: 'Gone' }]
+  const view = { subjects: [{ id: 'listed' }, { id: 'role:admin' }, { id: 'role:member' }] }
+  const cols = matrixColumns({}, view, roles)
+  assert.deepEqual(cols.map((c) => c.id), ['on', 'listed', 'role:admin', 'role:member'], 'a role the host did not send is left out')
+  assert.equal(cols[2].role, 'admin')
+  assert.equal(cols[2].title, 'Admin')
+  assert.deepEqual(matrixColumns({}, view, []).map((c) => c.id), ['on', 'listed'], 'a kind without roles has no role column')
 })

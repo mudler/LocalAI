@@ -20,7 +20,7 @@ export function badEntries(form) {
 export const isChannelId = (x) => /^[0-9]+$/.test(x)
 
 export const DISCORD_LISTS = [
-  { key: 'ids', label: 'allowIds', hint: 'allowIdsHint', testId: 'connector-allow' },
+  { key: 'ids', hint: 'allowIdsHint', testId: 'connector-allow' },
 ]
 
 // What is wrong with the typed bot token, as a key of the page's words, or ''.

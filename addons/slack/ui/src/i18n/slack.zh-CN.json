@@ -15,16 +15,9 @@
   "agent": "智能体",
   "agentNone": "选择智能体",
   "agentNoModel": "{{name}}（需要模型）",
-  "who": "谁可以使用",
-  "onlyListed": "仅我列出的人员和频道",
-  "anyone": "工作区中任何能给应用发消息的人",
   "anyoneWarning": "任何能给此应用发消息或提及它的人，都可以以你的身份使用此智能体的工具。每个人和每个讨论串都有自己的对话。",
   "anyoneConfirm": "我已了解",
-  "allowUsers": "名单中的人员",
   "allowUsersHint": "用户 ID（U...）或 @用户名",
-  "allowChannels": "名单中的频道",
-  "allowChannelsHint": "频道 ID（C...）：被提及时机器人会回答其中的所有人。请在下方选择他们可以请求什么",
-  "notifyChat": "把我的通知发送到此用户或频道 ID",
   "notifyHelp": "可选。填你的用户 ID（U...），通知会以应用私信的形式发给你。",
   "test": "测试",
   "testOk": "已连接到 {{bot}}。",
@@ -65,6 +58,5 @@
     "copied": "已复制",
     "manifest": "Slack 应用 manifest"
   },
-  "back": "返回连接器",
   "allowUsersHelp": "@用户名匹配 Slack 用户名（账号名），而不是显示名称，并且需要 users:read 范围。用户 ID（U...）总是匹配。有人被拒绝时，访问日志会显示其用户 ID。"
 }

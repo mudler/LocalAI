@@ -2,6 +2,7 @@ package loops
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -27,6 +28,8 @@ type loopRow struct {
 	Created    time.Time
 	Updated    time.Time
 	LastRun    time.Time
+	// WatchJSON is the state of a wait (Loop.Watch); empty for a loop.
+	WatchJSON string `gorm:"type:text"`
 	// Rev is bumped by Update; the bump takes the row lock, so a second
 	// frontend's change waits for the first and then reads what it wrote.
 	Rev int64
@@ -74,6 +77,16 @@ func utc(t time.Time) time.Time {
 }
 
 func toRow(l Loop) loopRow {
+	r := toRowBase(l)
+	if l.Watch != nil {
+		if raw, err := json.Marshal(l.Watch); err == nil {
+			r.WatchJSON = string(raw)
+		}
+	}
+	return r
+}
+
+func toRowBase(l Loop) loopRow {
 	return loopRow{ID: l.ID, Owner: l.Owner, ChatID: l.ChatID, Prompt: l.Prompt, IntervalNs: int64(l.Interval),
 		State: string(l.State), Reason: l.Reason, Runs: l.Runs, Failures: l.Failures, Next: utc(l.Next),
 		Running: l.Running, Scheduled: l.Scheduled, Wait: l.Wait, Created: utc(l.Created), Updated: utc(l.Updated),
@@ -81,6 +94,17 @@ func toRow(l Loop) loopRow {
 }
 
 func (r loopRow) loop() Loop {
+	l := r.loopBase()
+	if r.WatchJSON != "" {
+		var w Watch
+		if json.Unmarshal([]byte(r.WatchJSON), &w) == nil {
+			l.Watch = &w
+		}
+	}
+	return l
+}
+
+func (r loopRow) loopBase() Loop {
 	return Loop{ID: r.ID, Owner: r.Owner, ChatID: r.ChatID, Prompt: r.Prompt, Interval: time.Duration(r.IntervalNs),
 		State: State(r.State), Reason: r.Reason, Runs: r.Runs, Failures: r.Failures, Next: utc(r.Next),
 		Running: r.Running, Scheduled: r.Scheduled, Wait: r.Wait, Created: utc(r.Created), Updated: utc(r.Updated),

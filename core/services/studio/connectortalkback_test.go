@@ -431,7 +431,8 @@ var _ = Describe("talk-back from a connector chat", func() {
 			args = toChannel(ops)
 			turn("propose")
 			err = r.h.ResultsFor("propose_trigger")[1].Err
-			Expect(err).To(MatchError(ContainSubstring("not a channel the owner approved")))
+			Expect(err).To(MatchError(ContainSubstring("only when a verified person asks")), "a listed channel that is not approved says why")
+			Expect(err).To(MatchError(ContainSubstring("any allowed person")))
 			Expect(err).NotTo(MatchError(ContainSubstring("Ops")), "an unapproved channel is not offered")
 			args = toChannel("Ops")
 			turn("propose")
@@ -444,7 +445,8 @@ var _ = Describe("talk-back from a connector chat", func() {
 			turn("hello")
 			d := r.h.LastToolDescription("propose_trigger")
 			Expect(d).To(ContainSubstring("General (" + general + ")"))
-			Expect(d).NotTo(ContainSubstring("Ops"))
+			Expect(d).NotTo(ContainSubstring("Ops ("), "an unapproved channel is not offered as a target")
+			Expect(d).To(ContainSubstring("Listed but not approved for scheduled runs: Ops."), "but the model is told why it is missing")
 			Expect(d).To(ContainSubstring("posts in the channel itself, at the top and not in a thread; origin posts in this thread"))
 		})
 

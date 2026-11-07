@@ -96,7 +96,7 @@ export function createDiscord() {
     return (
       <RouteProvider value={{ page, path: path || '', search: search || '' }}>
         <ConnectorPage kind="discord" ns="discord" testId="discord-page" TokenFields={DiscordToken} tokenOf={discordSecret}
-          lists={DISCORD_LISTS} isChannelEntry={isChannelId} Help={DiscordHelp} notifyMode="text"
+          lists={DISCORD_LISTS} isChannelEntry={isChannelId} mixedList Help={DiscordHelp} notifyMode="text"
           ExtraFields={DiscordRules} extraValid={(form) => badEntries(form).length === 0 && !tokenProblem(form)} />
       </RouteProvider>
     )

@@ -3,6 +3,7 @@ package contract
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"unicode"
 	"unicode/utf8"
@@ -49,6 +50,12 @@ type CredentialSlot struct {
 	// connection acted, such as "repository" in "as Work, repository
 	// acme/widgets". Without it the host says "resource".
 	ResourceLabel string `json:"resourceLabel,omitempty"`
+	// ResourceOptional lets a call leave the resource argument out. The host
+	// then uses the one resource that the person's binding lists, and a
+	// binding that lists several refuses the call and names them. A call that
+	// names a resource is held to the list as before. The tools declare the
+	// argument without requiring it.
+	ResourceOptional bool `json:"resourceOptional,omitempty"`
 }
 
 // validateCredentials checks the credentials of the manifest. The binding that
@@ -79,6 +86,9 @@ func validateCredentials(c Capabilities) error {
 		}
 		if s.ResourceLabel != "" && !plainText(s.ResourceLabel, MaxResourceLabelChars) {
 			return fmt.Errorf("invalid credential resource label")
+		}
+		if s.ResourceOptional && s.ResourceArgument == "" {
+			return fmt.Errorf("resourceOptional needs a resource argument")
 		}
 	}
 	slot := c.Credentials[0]
@@ -115,7 +125,13 @@ func validateCredentials(c Capabilities) error {
 		var p struct {
 			Type string `json:"type"`
 		}
-		if json.Unmarshal(prop, &p) != nil || p.Type != "string" || !requiredProperty(d, slot.ResourceArgument) {
+		if json.Unmarshal(prop, &p) != nil || p.Type != "string" {
+			return fmt.Errorf("tool %s: %s must be a string", d.Name, slot.ResourceArgument)
+		}
+		if requiredProperty(d, slot.ResourceArgument) == slot.ResourceOptional {
+			if slot.ResourceOptional {
+				return fmt.Errorf("tool %s: %s must not be required when the slot makes it optional", d.Name, slot.ResourceArgument)
+			}
 			return fmt.Errorf("tool %s: %s must be a required string", d.Name, slot.ResourceArgument)
 		}
 	}
@@ -161,6 +177,11 @@ func requiredProperty(d ToolDefinition, name string) bool {
 	return false
 }
 
+// ErrResourceOmitted is what CredentialResource returns for a call that leaves
+// out an optional resource argument. The host then asks for the one resource
+// of the binding.
+var ErrResourceOmitted = errors.New("the call names no resource")
+
 // CredentialResource returns the external resource key a call of the tool
 // carries, per the slot: the empty string for a tool that does not declare the
 // slot's resource argument. found tells whether the tool declares it.
@@ -174,6 +195,9 @@ func (s CredentialSlot) CredentialResource(d ToolDefinition, arguments json.RawM
 	var args map[string]json.RawMessage
 	if json.Unmarshal(arguments, &args) != nil {
 		return "", true, fmt.Errorf("invalid arguments")
+	}
+	if _, named := args[s.ResourceArgument]; !named && s.ResourceOptional {
+		return "", true, ErrResourceOmitted
 	}
 	if json.Unmarshal(args[s.ResourceArgument], &key) != nil || key == "" {
 		return "", true, fmt.Errorf("the %s argument is required", s.ResourceArgument)

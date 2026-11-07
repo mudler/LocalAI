@@ -42,4 +42,8 @@ const (
 	// KeyChatsLoops elects the one frontend that fires the loops of the
 	// chats. It is held for as long as the frontend lives.
 	KeyChatsLoops int64 = 116
+	// KeyOpenResponsesSweep elects the one frontend that ends the Open
+	// Responses runs whose owner stopped renewing their lease and deletes the
+	// expired ones.
+	KeyOpenResponsesSweep int64 = 117
 )

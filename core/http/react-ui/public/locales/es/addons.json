@@ -100,7 +100,14 @@
     "alias": "Alias",
     "kindLabel": "Kind",
     "installedOn": "{{name}} is installed and on.",
-    "installedChip": "Instalado"
+    "installedChip": "Instalado",
+    "category": {
+      "label": "Categoría",
+      "all": "Todos",
+      "chat": "Apps de chat",
+      "tools": "Herramientas",
+      "models": "Modelos"
+    }
   },
   "catalog": {
     "allLibraries": "Todas las bibliotecas",
@@ -360,7 +367,8 @@
     "starting": "Iniciando",
     "stopped": "Desactivado",
     "update-pending": "Actualización pendiente",
-    "updateTo": "Actualización {{version}}"
+    "updateTo": "Actualización {{version}}",
+    "needsSetup": "Falta configurarlo"
   },
   "supporting": "Software que instalas para dar a LocalAI nuevas páginas y herramientas de chat. Cada una se ejecuta por separado y solo pide lo que declara.",
   "tabs": {
@@ -626,6 +634,7 @@
       "unpinned": "La biblioteca indica una actualización pero no nombra ninguna compilación para instalar, así que no se puede actualizar desde aquí. Vuelve a comprobarlo más tarde."
     },
     "checkAll": "Buscar actualizaciones",
+    "notCheckedYet": "Aún no se han buscado actualizaciones.",
     "checkingAll": "Comprobando...",
     "checkAllDone": "{{count}} complementos comprobados.",
     "checkAllFailed": "No se pudieron comprobar {{count}}.",
@@ -673,7 +682,12 @@
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
     "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
-    "removeNamed": "Quitar {{name}}…"
+    "removeNamed": "Quitar {{name}}…",
+    "setUp": "Configurar",
+    "setUpNamed": "Configurar {{name}}",
+    "review": "Revisar",
+    "reviewNamed": "Revisar {{name}}",
+    "updateTo": "Actualizar a {{version}}"
   },
   "preview": {
     "screenshots": "Screenshots",
@@ -732,7 +746,11 @@
     "toolsOff_other": "Sus {{count}} herramientas de chat están apagadas hasta que vuelva a ejecutarse.",
     "pageOff": "Su página no está disponible hasta que vuelva a ejecutarse.",
     "updateTitle": "{{name}} {{version}} está disponible.",
-    "updateBody": "Tienes {{current}}. Verás qué cambia y confirmarás antes de reemplazar nada."
+    "updateBody": "Tienes {{current}}. Verás qué cambia y confirmarás antes de reemplazar nada.",
+    "title_one": "{{count}} complemento necesita configuración",
+    "title_other": "{{count}} complementos necesitan configuración",
+    "connectionBody_one": "tiene {{count}} conexión que aún no puede responder. {{reason}}",
+    "connectionBody_other": "tiene {{count}} conexiones que aún no pueden responder. {{reason}}"
   },
   "meta": {
     "builtin": "Integrado",
@@ -965,6 +983,30 @@
       "migrating": "migración de datos",
       "starting": "inicio",
       "working": "en curso"
+    }
+  },
+  "groups": {
+    "chat": "Apps de chat",
+    "tools": "Herramientas y servicios",
+    "models": "Medios y modelos",
+    "builtin": "Integrado"
+  },
+  "connection": {
+    "title": "Conexiones",
+    "none": "Aún no hay conexiones.",
+    "answersAs": "Responde como {{name}}",
+    "noAgent": "Sin agente elegido",
+    "manage": "Gestionar conexiones",
+    "acceptsListed_one": "Acepta a {{count}} persona",
+    "acceptsListed_other": "Acepta a {{count}} personas",
+    "accepts": {
+      "anyone": "Acepta a cualquiera",
+      "nobody": "Aún no acepta a nadie"
+    },
+    "state": {
+      "running": "En marcha",
+      "off": "Desactivada",
+      "attention": "Falta configurarla"
     }
   }
 }

@@ -80,7 +80,7 @@ for (const switchUser of [false, true]) test(`installed records reject late admi
   const h = hookHarness('../../src/components/addons/AppsView.jsx', 'AppsView', {
     ...Object.fromEntries([...names, ...defaults].filter(n => !n.startsWith('use')).map(n => [n, () => null])),
     useAuth: () => auth, useContext: () => null, useTranslation: () => ({ t: k => k, i18n: {} }),
-    useAddonActions: () => ({}), useAddonUpgrade: () => ({ checks: {}, records: [] }), useBulkUpgrade: () => ({}),
+    useAddonConnections: () => ({ byAddon: {}, addonIds: new Set(), agents: [], kinds: [] }), useAddonActions: () => ({}), useAddonUpgrade: () => ({ checks: {}, records: [] }), useBulkUpgrade: () => ({}),
     useOutletContext: () => ({}), useNavigation: () => ({ pins: [] }), useHubAuth: () => ({ features: {} }),
     useSearchParams: () => [new URLSearchParams(), () => {}],
     buildTiles: () => [], resolvePins: () => [], filterTiles: () => [], filterByState: () => [], sortByAttention: () => [],

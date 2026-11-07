@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { ASK, SKIP, TOOLS, declared, keyOf, valuesOf, approvalRevision, approvalsChanged, onApprovalsChanged } from '../src/approval.js'
-import { approvalState, runningUnasked } from '../../../internal/connector-ui/src/approvals.js'
+import { approvalState } from '../../../internal/connector-ui/src/approvals.js'
 import { readFileSync } from 'node:fs'
 
 const manifest = JSON.parse(readFileSync(new URL('../../manifest.json', import.meta.url), 'utf8'))
@@ -62,13 +62,4 @@ test('approvals view: only a paired sender skips the card; a listed sender, anyo
   assert.equal(approvalState(a, 'paired'), 'runs')
   for (const sender of ['listed', 'anyone', 'role:member', 'channel_member']) assert.equal(approvalState(a, sender), 'other', sender)
   assert.equal(approvalState({ tool: 'power-action', skip: false }, 'paired'), 'asks')
-})
-
-test('approvals view: the list of tools that run without asking keeps the host order', () => {
-  const list = [
-    { tool: 'power-action', skip: true, runs_without_asking: ['owner', 'paired'] },
-    { tool: 'send-key', skip: false },
-  ]
-  assert.deepEqual(runningUnasked(list), ['power-action'])
-  assert.deepEqual(runningUnasked(null), [])
 })

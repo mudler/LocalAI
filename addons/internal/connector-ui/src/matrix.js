@@ -18,13 +18,16 @@ export const MATRIX_COLUMNS = [
 
 // The columns shown for a form and a preview: the "Anyone" column only when
 // the bot accepts anyone, and a column whose subject the host did not send is
-// left out rather than guessed.
-export function matrixColumns(form, view) {
+// left out rather than guessed. A kind that declares roles gets one column for
+// each role; those are the only columns the page lets the owner edit (grants).
+export function matrixColumns(form, view, roles = []) {
   const has = (id) => (view?.subjects || []).some((s) => s.id === id)
-  return MATRIX_COLUMNS.filter((c) => {
+  const kinds = MATRIX_COLUMNS.filter((c) => {
     if (c.onlyWhenAny) return Boolean(form?.accept_any) && has(c.subject)
     return !c.subject || has(c.subject)
   })
+  const byRole = (roles || []).filter((r) => has(`role:${r.id}`)).map((r) => ({ id: `role:${r.id}`, subject: `role:${r.id}`, role: r.id, title: r.title }))
+  return [...kinds, ...byRole]
 }
 
 // The links before the sender: a capability refused there is switched off.
@@ -43,14 +46,6 @@ export function cellOf(decision, subject, view, cap) {
   if (!decision) return { state: 'unknown', decision: null }
   if (!decision.allowed) return { state: OFF_LINKS.has(decision.blocked_by) ? 'off' : 'no', decision }
   return { state: asksFirst(cap, subject, view) ? 'asks' : 'yes', decision }
-}
-
-// The first sentence of a message, for a cell that has little room.
-export function shortReason(text, max = 70) {
-  const t = String(text || '').trim()
-  if (!t) return ''
-  const first = t.split(/(?<=[.!?])\s/)[0]
-  return first.length > max ? `${first.slice(0, max - 1).trimEnd()}…` : first
 }
 
 // The sub-rows of the permission to change things with add-on tools: one for

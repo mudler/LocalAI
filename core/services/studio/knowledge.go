@@ -70,7 +70,7 @@ func (s *Service) knowledgeBlock(ctx context.Context, user, agentID string) (cod
 		return CodeKnowledgeNoEmbedding, "the embedding model is not installed"
 	}
 	if agentID != "" && s.d.Agents != nil {
-		ag, err := s.d.Agents.Get(ctx, principal(user), agentID)
+		ag, err := s.chatAgent(ctx, principal(user), agentID)
 		if err == nil && len(ag.Collections) == 0 {
 			return CodeKnowledgeNone, "no collection is on the list of the agent"
 		}
@@ -179,7 +179,7 @@ func (c *Changes) knowledgeKind() proposals.Kind {
 				if s.d.Agents == nil {
 					return errors.New("the agent cannot be read")
 				}
-				ag, err := s.d.Agents.Get(ctx, in.Owner, in.Proposal.Agent)
+				ag, err := s.chatAgent(ctx, in.Owner, in.Proposal.Agent)
 				switch {
 				case errors.Is(err, agents.ErrNotFound):
 					return errors.New("the agent no longer exists")

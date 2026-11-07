@@ -99,7 +99,6 @@ var _ = Describe("runtime settings registry", func() {
 		src.Collections.CollectionDBPath = "/tmp/c.db"
 		src.Collections.VectorEngine = "postgres"
 		src.Collections.DatabaseURL = "postgres://x"
-		src.DisableLocalAIAssistant = true
 		src.Distributed.DiskHeadroomDisabled = true
 		src.Branding = BrandingConfig{
 			InstanceName: "n", InstanceTagline: "t",

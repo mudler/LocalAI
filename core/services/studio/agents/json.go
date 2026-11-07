@@ -75,8 +75,9 @@ func (s *jsonStore) Put(_ context.Context, a Agent) error {
 			return ErrNameTaken
 		}
 	}
+	a.ShareRef = ""
 	if exists {
-		a.Created = old.Created
+		a.Created, a.ShareRef = old.Created, old.ShareRef
 	}
 	s.byID[a.ID] = a.clone()
 	if err := s.save(); err != nil {
@@ -151,4 +152,55 @@ func (s *jsonStore) Delete(_ context.Context, principal, id string) error {
 		return err
 	}
 	return nil
+}
+
+func (s *jsonStore) SetShareRef(_ context.Context, principal, id, ref string) (string, error) {
+	if ref == "" {
+		return "", fmt.Errorf("%w: an empty share reference", ErrInvalid)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a, ok := s.byID[id]
+	if !ok || a.Principal != principal {
+		return "", ErrNotFound
+	}
+	if a.ShareRef != "" {
+		return a.ShareRef, nil
+	}
+	old := a
+	a.ShareRef = ref
+	s.byID[id] = a
+	if err := s.save(); err != nil {
+		s.byID[id] = old
+		return "", err
+	}
+	return ref, nil
+}
+
+func (s *jsonStore) GetShared(_ context.Context, id string) (Agent, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a, ok := s.byID[id]
+	if !ok || a.ShareRef == "" {
+		return Agent{}, ErrNotFound
+	}
+	return a.clone(), nil
+}
+
+func (s *jsonStore) ListShared(_ context.Context, refs []string) ([]Agent, error) {
+	want := make(map[string]bool, len(refs))
+	for _, r := range refs {
+		if r != "" {
+			want[r] = true
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []Agent
+	for _, a := range s.byID {
+		if want[a.ShareRef] {
+			out = append(out, a.clone())
+		}
+	}
+	return out, nil
 }

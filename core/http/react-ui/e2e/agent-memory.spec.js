@@ -25,6 +25,10 @@ const GROUPS = [
   { source: 'memory', scope: 'agent', key: 'gone', deleted: true, max_bytes: 2048, max_lines: 40, files: [f('Memory/agents/gone/index.md', { index: true, lines: 1 })] },
 ]
 
+// An agent as the wizard creates it (the blank editor form of a new agent): it
+// reads yours and its own notes, saves to its own, and keeps the connector grants.
+const DEFAULT_AGENT = { ...AGENTS[1], memory: 'mine_and_own', builtins: ['triggers.propose', 'triggers.run', 'talkback.channels', 'files.upload', 'memory.write'] }
+
 async function serve(page, { enabled = true, agents = AGENTS, groups = GROUPS, save = 'ask' } = {}) {
   const s = await installAgents(page, { agents })
   await page.route('**/api/chats/agents/builtin-grants', route => route.fulfill({ json: { grants: GRANTS } }))
@@ -44,9 +48,9 @@ test.describe('Memory section of the agent form', () => {
   // The old "Let it save notes" checkbox (agent-memory-saves) and the None card
   // (agent-memory-none) are the level control now: Off, Reads notes, Reads and
   // saves notes (agent-memory-level-off / -reads / -saves).
-  test('a new agent starts at Reads and saves notes with Mine and its own, and sends them', async ({ page }) => {
-    const s = await serve(page)
-    await page.goto('/app/agents/new')
+  test('an agent with the default notes is at Reads and saves notes with Mine and its own, and sends them', async ({ page }) => {
+    const s = await serve(page, { agents: [DEFAULT_AGENT] })
+    await page.goto('/app/agents/a2/edit')
     const choice = page.getByTestId('agent-memory-choice')
     await expect(choice.getByTestId('agent-memory-level-saves').locator('input')).toBeChecked()
     await expect(choice.getByTestId('agent-memory-mine_and_own').locator('input')).toBeChecked()
@@ -55,9 +59,9 @@ test.describe('Memory section of the agent form', () => {
     await expect(fold(page, 'Notes')).toContainText('Reads and saves notes, Mine and its own')
     await shot(page, 'agent-memory-new', { fullPage: true })
     await page.getByLabel('Name', { exact: false }).first().fill('Helper')
-    await page.getByRole('button', { name: 'Create Agent' }).first().click()
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
-    const body = s.calls.find(c => c.method === 'POST').body
+    const body = s.calls.find(c => c.method === 'PUT').body
     expect(body.memory).toBe('mine_and_own')
     expect(body.builtins).toContain('memory.write')
   })

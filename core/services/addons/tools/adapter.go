@@ -129,6 +129,11 @@ type ToolDefinition struct {
 	// run with the token of a connection that the person selects. A chat
 	// offers them only after a connection is selected.
 	Credentialed bool `json:"credentialed,omitempty"`
+	// OwnerData is true when the add-on keeps the owner's own data (see
+	// contract.Capabilities.OwnerData). Its write tools carry Permission
+	// tools.write; the owner and paired senders of a messaging chat hold it
+	// without a tick, as for an add-on the agent is connected to.
+	OwnerData bool `json:"ownerData,omitempty"`
 	// ApprovalOverridable is true for a write tool that declares approval
 	// "always" and lets the person relax it with their own setting (see
 	// contract.ToolDefinition). The chat consumer shows it; the broker decides.
@@ -218,6 +223,11 @@ const CodeResourceNotAllowed = gateway.CodeResourceNotAllowed
 
 // ResourceNotAllowedNote is what the model is told for a resource that is not on the list.
 const ResourceNotAllowedNote = "That resource is not on the list the person allowed for this add-on, so nothing was sent to it. Use one of the resources in allowed, or tell the person to add it to the list on the add-on page. Do not repeat the call and do not report an outage."
+
+// ResourceNotListedNote is the Note of a ResultError for a resource that is
+// not on the list of a connection another person shared, whose list is not
+// shown to the caller.
+const ResourceNotListedNote = "That resource is not on the list of this connection, so nothing was sent to it. The connection was shared by another person, who keeps its list; tell the person to ask its owner to add the resource. Do not repeat the call and do not report an outage."
 
 // CodeNoCredential is the Code of a ResultError for an add-on that needs a
 // credential the person has not given.
@@ -799,7 +809,7 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	if json.Unmarshal(d.InputSchema, &params) != nil {
 		return ToolDefinition{}, false
 	}
-	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, Permission: contract.ToolPermission(a.Credentialed || (a.Resources != nil && a.Resources.AgentScoped), d), Credentialed: a.Credentialed, ApprovalOverridable: d.ApprovalOverridable && d.Approval == contract.ApprovalAlways,
+	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, OwnerData: a.OwnerData, Permission: contract.ToolPermission(a.Credentialed || a.OwnerData || (a.Resources != nil && a.Resources.AgentScoped), d), Credentialed: a.Credentialed, ApprovalOverridable: d.ApprovalOverridable && d.Approval == contract.ApprovalAlways,
 		ResourceArgument: a.ResourceArgument, ResourceLabel: a.ResourceLabel, ResourceScoped: a.Resources != nil && a.Resources.AgentScoped,
 		Title: d.Title, SummaryFields: slices.Clone(d.SummaryFields)}
 	// Checked again for the same reason as the schema: a manifest that names a
@@ -1122,6 +1132,9 @@ func refusedResult(name string, err error) (ToolResult, error) {
 	switch {
 	case errors.As(err, &limited):
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeRateLimited, Note: RateLimitedNote, RetryAfter: limited.Seconds()}, nil
+	case errors.As(err, &refusal) && refusal.Code == gateway.CodeResourceNotAllowed && len(refusal.Allowed) == 0:
+		// The host shows the list only to the owner of the connection.
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceNotAllowed, Note: ResourceNotListedNote}, nil
 	case errors.As(err, &refusal) && refusal.Code == gateway.CodeResourceNotAllowed:
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceNotAllowed, Note: ResourceNotAllowedNote, Allowed: refusal.Allowed}, nil
 	case errors.As(err, &refusal) && refusal.Code == gateway.CodeWriteNotAllowed:

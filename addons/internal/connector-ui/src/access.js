@@ -42,34 +42,41 @@ export function changedFields(form, saved) {
   return new Set(WATCHED.filter((k) => sorted(form, k) !== sorted(saved, k)))
 }
 
-// ---- The senders ---------------------------------------------------------
+// ---- What a save changed -------------------------------------------------
 
-// The kinds of sender the selector offers. "listed" is a person on the
-// allowlist, "channel_member" someone let in through a listed channel (only
-// when the kind has channels), "anyone" is offered when the bot accepts
-// anyone. Each role the kind declares follows.
-export function senderOptions(form, kindInfo, lists) {
-  const out = []
-  if (form.accept_any) {
-    out.push({ id: 'anyone', key: 'anyone' })
-  } else {
-    out.push({ id: 'listed', key: 'listed' })
-    if (Array.isArray(lists) && lists.length > 1) out.push({ id: 'channel_member', key: 'channel_member' })
-    if (Object.values(form.allow_trust || {}).includes('act')) out.push({ id: 'channel_acts', key: 'channel_acts' })
-  }
-  out.push({ id: 'paired', key: 'paired' })
-  for (const r of kindInfo?.roles || []) out.push({ id: `role:${r.id}`, key: 'role', title: r.title })
-  return out
+// The parts of the form that a person knows by name, for the notice after a
+// save. Several fields can belong to one part.
+const CHANGE_PART = {
+  name: 'name', agent_id: 'agent', accept_any: 'who', allow: 'who', allow_trust: 'who', caps: 'permissions', grants: 'permissions',
+  approval: 'approval', send_files: 'files', file_receive_mib: 'files', file_send_mib: 'files', notify_chat: 'notify',
 }
 
-// The id of the subject in the reply for a choice of the selector: a member
-// of a channel and "anyone" are one subject.
-export const subjectId = (option) => (option === 'channel_member' ? 'anyone' : option)
+// The parts that a save changed, in a fixed order, as keys of saved.part.*.
+// With no saved binding (a new connection) the list is empty.
+export function changedParts(form, saved) {
+  if (!saved) return []
+  const fields = changedFields(form, saved)
+  if ((form.name || '').trim() !== (saved.name || '')) fields.add('name')
+  const parts = new Set([...fields].map((f) => CHANGE_PART[f]).filter(Boolean))
+  return Object.values(CHANGE_PART).filter((p, i, all) => all.indexOf(p) === i && parts.has(p))
+}
 
-// The subject of the reply for the selected choice; the first when it is gone.
-export function pickSubject(view, option) {
-  const subjects = view?.subjects || []
-  return subjects.find((s) => s.id === subjectId(option)) || null
+// The acts that the approval of the saved binding allowed and the form no longer does.
+export function removedActs(saved, form) {
+  const now = form?.approval?.acts || []
+  return (saved?.approval?.acts || []).filter((n) => !now.includes(n))
+}
+
+// The triggers that a save leaves with fewer acts. A trigger made without
+// asking under a connection stays within the acts the connection allows (the
+// host decides this at each run), so a removed act that the trigger holds is
+// dropped from its runs. Gives [{ id, name, acts }] for the connection id.
+export function droppedActs(triggers, bindingId, removed) {
+  if (!bindingId || !removed?.length) return []
+  return (Array.isArray(triggers) ? triggers : [])
+    .filter((t) => t && t.binding === bindingId)
+    .map((t) => ({ id: t.id, name: t.name || t.id, acts: (t.acts || []).filter((n) => removed.includes(n)) }))
+    .filter((t) => t.acts.length > 0)
 }
 
 // ---- Fix routing ---------------------------------------------------------
@@ -85,27 +92,27 @@ export function connectionTargets(fix, lists = [], form = {}) {
   const field = fix.field || ''
   switch (fix.target) {
     case 'caps':
-      return field ? [sel(`connector-cap-switch-${field}`), sel(`connector-cap-${field}`)] : [sel('connector-permissions')]
+      return field ? [sel(`connector-cap-switch-${field}`), sel(`connector-cap-${field}`)] : [sel('connector-matrix')]
     case 'grants':
-      return [sel('connector-roles'), sel('connector-permissions')]
+      return [sel('connector-matrix')]
     case 'agent_id':
       return [sel('connector-agent')]
     case 'allow':
       return allowTargets(lists, form)
     case 'trust':
-      return [`${sel('connector-trust')} input`, sel('connector-trust'), sel('connector-who')]
+      return [sel('connector-trust-level'), sel('connector-who-channels'), sel('connector-who')]
     case 'token':
       return ['[data-testid="connector-form"] input[type="password"]', sel('connector-form')]
     case 'save':
       return [sel('connector-save')]
     case 'usual':
-      return [`${sel('connector-presets')} ${sel('connector-usual')}`, sel('connector-permissions')]
+      return [sel('connector-usual'), sel('connector-matrix')]
     case 'notify':
       return [sel('connector-notify')]
     case 'files':
       return [sel('connector-files')]
     case 'approval':
-      return [sel('connector-cap-switch-triggers.propose'), sel('connector-permissions')]
+      return [sel('connector-cap-switch-triggers.propose'), sel('connector-matrix')]
     default:
       return []
   }
@@ -229,8 +236,6 @@ export function unusable(cap, view, form, lists, paired, now) {
 }
 
 // ---- The readiness rows --------------------------------------------------
-
-export const ROW_STATES = ['ok', 'attention', 'off', 'after_save', 'broken', 'checking', 'unknown']
 
 // A row that needs the owner: shown even when the list is collapsed.
 export const isProblem = (state) => state === 'attention' || state === 'broken' || state === 'after_save' || state === 'unknown'
@@ -437,6 +442,12 @@ export function messageKey(d) {
   return ''
 }
 
+// The rows of the status line: the connection itself (token, agent) and who is
+// let in. The other rows say what a kind of sender may do, which the matrix
+// shows cell by cell.
+export const STATUS_ROW_IDS = ['token', 'agent', 'who']
+export const statusRows = (rows) => rows.filter((r) => STATUS_ROW_IDS.includes(r.id))
+
 // The rows to show, and how many are hidden, in collapsed mode: only the
 // rows that need the owner.
 export function visibleRows(rows, expanded) {
@@ -444,6 +455,15 @@ export function visibleRows(rows, expanded) {
   const shown = rows.filter((r) => isProblem(r.state))
   return { shown, hidden: rows.length - shown.length }
 }
+
+// The rows of a connection that is not saved yet. "Keep these changes" has no
+// meaning there, so a row loses its save fix. A row that only waits for the
+// save is not a thing to set, so it is not a problem here.
+export const forNewConnection = (rows) => rows.map((r) => (r.fix?.kind === 'save' ? { ...r, fix: undefined } : r))
+export const isThingToSet = (state) => isProblem(state) && state !== 'after_save'
+
+// How many things a new connection still needs from the person.
+export const thingsToSet = (rows) => rows.filter((r) => isThingToSet(r.state)).length
 
 // OUTCOME_TONES maps how an add-on tool call ended to the look of its badge:
 // a held call waits for a person, a refused or failed one needs a fix.

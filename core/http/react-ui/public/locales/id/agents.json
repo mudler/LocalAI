@@ -64,7 +64,18 @@
     },
     "noRunsText": "Press Chat to start a conversation with this agent. Chats that ran with it, and the ones its triggers start, are listed here.",
     "missingText": "It may have been deleted, or it belongs to another user.",
-    "backToList": "Kembali ke agen"
+    "backToList": "Kembali ke agen",
+    "bindings": "Koneksi",
+    "bindingsAll": "Semua koneksi",
+    "noBindings": "Tidak ada aplikasi pesan yang terhubung ke agen ini.",
+    "noBindingsLink": "Tambahkan di Add-on.",
+    "bindingState": {
+      "ok": "Berjalan",
+      "off": "Mati",
+      "attention": "Perlu perhatian"
+    },
+    "openSettings": "Buka pengaturan",
+    "openSettingsFor": "Buka pengaturan {{name}}"
   },
   "record": {
     "where": "A run is a chat that ran with the agent, including the ones its triggers and connectors started.",
@@ -832,5 +843,135 @@
     "blank": {
       "description": "Kosong. Mulai dari nol."
     }
+  },
+  "wizard": {
+    "title": "Agen baru",
+    "supporting": "Empat langkah singkat. Hanya nama dan instruksi yang wajib.",
+    "stepsLabel": "Langkah",
+    "back": "Kembali",
+    "next": "Lanjut",
+    "defaultTools": "Alat bawaan",
+    "step": {
+      "purpose": "Tujuan",
+      "abilities": "Kemampuan",
+      "where": "Tempat bekerja",
+      "review": "Tinjau"
+    },
+    "purpose": {
+      "title": "Untuk apa agen ini?",
+      "lead": "Mulai dari templat atau tulis sendiri. Semuanya bisa diubah nanti.",
+      "needs": "Nama dan instruksi diperlukan untuk lanjut.",
+      "modelLine": "Model: yang Anda pilih di setiap chat.",
+      "modelChoose": "Pilih model tetap",
+      "modelEach": "Yang saya pilih di setiap chat"
+    },
+    "abilities": {
+      "title": "Seberapa banyak yang boleh dilakukan sendiri?",
+      "lead": "Tidak yakin? Biarkan: agen mulai dengan alat bawaan. Atau pilih satu tingkat, yang menggantikannya.",
+      "defaultNote": "Belum ada tingkat dipilih. Agen mulai dengan alat bawaan.",
+      "files": "File Anda yang mana yang boleh dilihat?",
+      "fine": "Atur alat satu per satu",
+      "templateHint": "Templat ini menyarankan tingkat {{level}}.",
+      "templateUse": "Pakai {{level}}"
+    },
+    "where": {
+      "title": "Di mana agen ini bekerja?",
+      "lead": "Opsional. Pilih tempat agen ini bekerja. Belum ada yang terhubung.",
+      "chat": "Aplikasi chat",
+      "chatLead": "Aplikasi tempat orang dapat berbicara dengan agen ini.",
+      "tools": "Alat dan layanan",
+      "toolsLead": "Add-on yang memberinya kemampuan baru.",
+      "notInstalled": "Belum terpasang",
+      "generic": "Selesaikan penyiapan {{title}}",
+      "loading": "Mencari aplikasi",
+      "empty": "Belum ada aplikasi yang tersedia.",
+      "note": "Memilih aplikasi tidak menghubungkannya. Setelah agen dibuat, daftar singkat memandu Anda menyiapkan masing-masing.",
+      "find": "Cari add-on"
+    },
+    "review": {
+      "title": "Siap dibuat",
+      "lead": "Periksa ringkasan. Semuanya bisa diubah nanti.",
+      "named": "Punya nama dan instruksi",
+      "tools": "Alat: {{level}}",
+      "modelFixed": "Model: {{model}}",
+      "modelEach": "Model: yang Anda pilih di setiap chat",
+      "apps": "Aplikasi yang perlu disiapkan setelah dibuat: {{count}}",
+      "filesTitle": "Agen dapat melihat semua file Anda.",
+      "filesBody": "Semua yang bisa Anda buka di File dapat dibaca agen ini. Anda bisa membatasinya ke folder.",
+      "limit": "Batasi ke folder",
+      "setupNext": "Setelah agen dibuat, halamannya mencantumkan langkah penyiapan untuk aplikasi yang Anda pilih."
+    },
+    "rail": {
+      "title": "Agen Anda",
+      "unnamed": "Tanpa nama",
+      "abilities": "Kemampuan",
+      "modelEach": "Dipilih di setiap chat",
+      "files": "File",
+      "folders": "Hanya folder terpilih ({{count}})",
+      "works": "Bekerja di",
+      "thisApp": "Aplikasi ini"
+    }
+  },
+  "setup": {
+    "title": "Selesaikan penyiapan",
+    "count": "{{done}} dari {{total}} selesai",
+    "dismiss": "Sembunyikan",
+    "progress": "Kemajuan penyiapan",
+    "done": "Selesai",
+    "stays": "Daftar tetap di halaman ini sampai semua aplikasi selesai, atau sampai Anda menyembunyikannya.",
+    "connect": "Koneksi baru",
+    "account": "Pilih akun",
+    "turnOn": "Aktifkan",
+    "find": "Lihat di add-on",
+    "actionFor": "{{action}}: {{title}}"
+  },
+  "share": {
+    "action": "Bagikan",
+    "intro": "Orang yang Anda tambahkan memakai agen ini sebagai diri mereka sendiri, dengan file, koleksi, dan koneksi mereka sendiri.",
+    "roles": {
+      "use": "Dapat memakai",
+      "useHelp": "Mereka mengobrol dengan agen di obrolan mereka sendiri dan melihat apa yang dibutuhkannya.",
+      "viewer": "Dapat melihat",
+      "viewerHelp": "Mereka juga dapat membaca instruksi dan alatnya."
+    },
+    "kind": {
+      "addon": "Add-on",
+      "collection": "Koleksi",
+      "skill": "Keterampilan",
+      "folder": "Folder",
+      "connection": "Koneksi",
+      "addon-resource": "Sumber daya add-on",
+      "mcp": "Server MCP",
+      "builtin": "Izin bawaan",
+      "network": "Jaringan",
+      "tool-group": "Grup alat"
+    },
+    "ownAccess": "Mereka perlu akses sendiri",
+    "refsApplied_one": "Juga dibagikan {{count}} hal yang dipakainya.",
+    "refsApplied_other": "Juga dibagikan {{count}} hal yang dipakainya.",
+    "refsFailed": "Tidak dapat dibagikan: {{names}}.",
+    "refsSkipped": "Tidak dibagikan kepada semua orang: {{names}}. Bagikan kepada setiap orang.",
+    "failed": "Berbagi tidak dapat dibuka. {{message}}"
+  },
+  "shared": {
+    "readOnly": "Anda dapat mengobrol dengan agen ini. Hanya pemiliknya yang dapat mengubahnya."
+  },
+  "needs": {
+    "title": "Yang dibutuhkan agen ini",
+    "intro": "Agen berjalan sebagai Anda, dengan akses Anda sendiri.",
+    "none": "Agen ini tidak memakai apa pun selain obrolan.",
+    "loadError": "Tidak dapat memeriksa apa yang dibutuhkan agen ini.",
+    "state": {
+      "ok": "Anda punya",
+      "missing": "Tidak dibagikan kepada Anda",
+      "unavailable": "Tidak tersedia untuk Anda",
+      "ask": "Mati saat chat dimulai"
+    },
+    "noticeTitle_one": "Agen ini butuh {{count}} hal yang tidak Anda miliki:",
+    "noticeTitle_other": "Agen ini butuh {{count}} hal yang tidak Anda miliki:",
+    "noticeLink": "Lihat yang dibutuhkan",
+    "asksTitle_one": "Agen ini meminta {{count}} hal yang tidak ada saat chat Anda dimulai:",
+    "asksTitle_other": "Agen ini meminta {{count}} hal yang tidak ada saat chat Anda dimulai:",
+    "asksHelp": "Agen berjalan sebagai Anda. Nyalakan di chat hanya jika Anda memercayai agen dan orang yang membagikannya."
   }
 }

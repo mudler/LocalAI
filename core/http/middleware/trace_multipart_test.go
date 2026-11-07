@@ -19,7 +19,7 @@ import (
 var _ = Describe("multipart transcription traces", func() {
 	DescribeTable("leaves upload consumption to the handler", func(route string, enabled, expected bool) {
 		root := GinkgoT().TempDir()
-		app, err := application.New(config.WithDataPath(root), config.WithDisableStats(true), config.WithDisableLocalAIAssistant(true), config.WithSystemState(&system.SystemState{Model: system.Model{ModelsPath: root}, Backend: system.Backend{BackendsPath: root}}))
+		app, err := application.New(config.WithDataPath(root), config.WithDisableStats(true), config.WithSystemState(&system.SystemState{Model: system.Model{ModelsPath: root}, Backend: system.Backend{BackendsPath: root}}))
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 		app.ApplicationConfig().EnableTracing = enabled

@@ -86,6 +86,9 @@ func (a App) Localize(explicit, acceptLanguage string) App {
 	for tag := range a.Descriptions {
 		available[tag] = true
 	}
+	for tag := range a.Setups {
+		available[tag] = true
+	}
 	tags := make([]string, 0, len(available))
 	for tag := range available {
 		tags = append(tags, tag)
@@ -104,6 +107,10 @@ func (a App) Localize(explicit, acceptLanguage string) App {
 	a.Language = tag
 	a.LocalizedTitle = pick(a.Titles, a.Title)
 	a.LocalizedDescription = pick(a.Descriptions, a.Description)
+	if a.Setup != "" {
+		a.Setups = maps.Clone(a.Setups)
+		a.LocalizedSetup = pick(a.Setups, a.Setup)
+	}
 	return a
 }
 
@@ -143,6 +150,14 @@ type App struct {
 	Language             string `json:"language,omitempty" example:"it"`
 	LocalizedTitle       string `json:"localizedTitle,omitempty" example:"Appunti"`
 	LocalizedDescription string `json:"localizedDescription,omitempty" example:"Tieni degli appunti."`
+	// Setup says in one short phrase what the person needs before the add-on
+	// works, such as "an access token". It is English plain text, absent when
+	// the manifest declares none. Setups carries the translations by BCP 47
+	// tag and LocalizedSetup follows the rule of LocalizedTitle; it is absent
+	// when the add-on has no setup text.
+	Setup          string            `json:"setup,omitempty" example:"an access token"`
+	Setups         map[string]string `json:"setups,omitempty"`
+	LocalizedSetup string            `json:"localizedSetup,omitempty" example:"un token di accesso"`
 	// Icon is a same-origin URL of the verified immutable icon of this
 	// generation. It is absent when the manifest declares none.
 	Icon    string `json:"icon,omitempty" example:"/api/addons/apps/notes/icon?generation=3"`
@@ -192,6 +207,10 @@ type App struct {
 	// work with a secret that the person keeps in a connector binding. A
 	// connector chat holds its write tools to contract.ToolPermission.
 	Credentialed bool `json:"credentialed,omitempty"`
+	// OwnerData is true when the manifest says the tools keep the owner's own
+	// data (capabilities.ownerData). Its writes need tools.write in a
+	// connector chat, like the writes of a credentialed add-on.
+	OwnerData bool `json:"ownerData,omitempty"`
 	// ResourceArgument and ResourceLabel come from the credential slot: the
 	// argument that names the resource of a call, and the word for it in the
 	// lines that say which connection acted. They are not part of the apps API.
@@ -359,6 +378,7 @@ func build(s Snapshot, admin bool) App {
 		a.ToolDefinitions = append(a.ToolDefinitions, d)
 	}
 	a.Credentialed = len(m.Capabilities.Credentials) > 0
+	a.OwnerData = m.Capabilities.OwnerData
 	if a.Credentialed {
 		a.ResourceArgument, a.ResourceLabel = m.Capabilities.Credentials[0].ResourceArgument, m.Capabilities.Credentials[0].ResourceLabel
 	}
@@ -371,6 +391,9 @@ func build(s Snapshot, admin bool) App {
 	for _, us := range m.Capabilities.UserSettings {
 		us.Values = slices.Clone(us.Values)
 		a.UserSettings = append(a.UserSettings, us)
+	}
+	if m.Setup != nil {
+		a.Setup, a.Setups = m.Setup.Default(), m.Setup.ByLanguage
 	}
 	if u := m.Capabilities.UI; u != nil {
 		a.HasUI = true

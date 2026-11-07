@@ -54,13 +54,30 @@ type chatRow struct {
 	// chats made before as not scoped, so AutoMigrate is its migration.
 	ScopedAgent bool   `gorm:"not null;default:false"`
 	Settings    string `gorm:"type:text"` // JSON of session.ChatSettings
-	HostConsent string `gorm:"type:text"` // JSON of session.HostConsent while a card waits
-	Egress      string `gorm:"type:text"` // JSON of egress.ChatState
-	EgressRev   int64  // bumped by UpdateEgress and UpdateHostConsent; their row lock
+	// AllowedTools came after the table existed: it is a nullable text
+	// column, so AutoMigrate adds it and older rows read as no list.
+	AllowedTools string `gorm:"type:text"` // JSON list of the tool names of a sub-agent
+	HostConsent  string `gorm:"type:text"` // JSON of session.HostConsent while a card waits
+	Egress       string `gorm:"type:text"` // JSON of egress.ChatState
+	EgressRev    int64  // bumped by UpdateEgress and UpdateHostConsent; their row lock
 	// Goal and GoalRev came after the table existed: the defaults fill the
 	// rows of chats made before, so AutoMigrate is their migration.
 	Goal    string `gorm:"type:text;not null;default:''"` // JSON of session.Goal; empty: no goal
 	GoalRev int64  `gorm:"not null;default:0"`            // bumped by UpdateGoal; its row lock
+	// The resume fields came after the table existed: the defaults read the
+	// rows of chats made before as having no resume, so AutoMigrate is their
+	// migration. ResumeNotBefore is the zero time while no resume is scheduled.
+	ResumeAttempts  int       `gorm:"not null;default:0"`
+	ResumeNotBefore time.Time `gorm:"index"`
+	InterruptedAt   time.Time
+	// PartialText is the assistant text being written (session.PartialStore),
+	// and PartialTurn its turn. Empty while no message is streaming.
+	PartialText string `gorm:"type:text"`
+	PartialTurn int
+	// OwnerInstance came after the table existed: a nullable column, so
+	// AutoMigrate adds it and older rows read as an unknown owner. It names
+	// the process that ran the last turn (SetTurnOwner).
+	OwnerInstance string `gorm:"size:128"`
 }
 
 func (chatRow) TableName() string { return "studio_chats" }
@@ -266,6 +283,11 @@ func (r chatRow) record() (session.ChatRecord, error) {
 			return rec, err
 		}
 	}
+	if r.AllowedTools != "" {
+		if err := json.Unmarshal([]byte(r.AllowedTools), &rec.AllowedTools); err != nil {
+			return rec, err
+		}
+	}
 	if r.Settings != "" {
 		if err := json.Unmarshal([]byte(r.Settings), &rec.Settings); err != nil {
 			return rec, err
@@ -334,6 +356,13 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 			return err
 		}
 		*l.to = string(raw)
+	}
+	if len(rec.AllowedTools) > 0 {
+		raw, err := json.Marshal(rec.AllowedTools)
+		if err != nil {
+			return err
+		}
+		row.AllowedTools = string(raw)
 	}
 	if len(rec.Connections) > 0 {
 		raw, err := json.Marshal(rec.Connections)
@@ -697,9 +726,55 @@ func (s *gormStore) UpdateGoal(ctx context.Context, principal, id string, change
 	})
 }
 
+func (s *gormStore) SavePartial(ctx context.Context, id string, turn int, text string) error {
+	text = session.CapPartial(text)
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ?", id).
+		Updates(map[string]any{"partial_text": text, "partial_turn": turn})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return session.ErrNotFound
+	}
+	return nil
+}
+
+func (s *gormStore) TakePartial(ctx context.Context, id string) (int, string, error) {
+	var turn int
+	var text string
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var row chatRow
+		if err := tx.Select("partial_text", "partial_turn").Where("id = ?", id).Take(&row).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return session.ErrNotFound
+			}
+			return err
+		}
+		if row.PartialText == "" {
+			return nil
+		}
+		// Conditional on the text read, so a second caller that read the same
+		// text finds it gone and gets none.
+		res := tx.Model(&chatRow{}).Where("id = ? AND partial_text = ?", id, row.PartialText).
+			Updates(map[string]any{"partial_text": "", "partial_turn": 0})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 1 {
+			turn, text = row.PartialTurn, row.PartialText
+		}
+		return nil
+	})
+	return turn, text, err
+}
+
 func (s *gormStore) TruncateEntries(ctx context.Context, principal, id string, keep int64) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if _, err := lock(tx, principal, id, "next_entry"); err != nil {
+			return err
+		}
+		// The text of an answer that was cut belongs to the lines that are gone.
+		if err := tx.Model(&chatRow{}).Where("id = ?", id).Updates(map[string]any{"partial_text": "", "partial_turn": 0}).Error; err != nil {
 			return err
 		}
 		if err := tx.Where("chat_id = ? AND seq > ?", id, keep).Delete(&entryRow{}).Error; err != nil {
@@ -1063,7 +1138,9 @@ func (s *gormStore) ClaimTurn(ctx context.Context, principal, id, runID string) 
 	}
 	db := s.db.WithContext(ctx)
 	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND (run_id = ? OR run_id IS NULL)", id, principal, "").
-		Updates(map[string]any{"run_id": runID, "run_since": now, "run_beat": now})
+		Updates(map[string]any{"run_id": runID, "run_since": now, "run_beat": now,
+			// A new turn starts the count of resumes again.
+			"resume_attempts": 0, "resume_not_before": time.Time{}, "interrupted_at": time.Time{}})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -1076,10 +1153,113 @@ func (s *gormStore) ClaimTurn(ctx context.Context, principal, id, runID string) 
 	return ErrTurnRunning
 }
 
-func (s *gormStore) ReleaseTurn(ctx context.Context, principal, id, runID string, status TurnStatus) error {
+func (s *gormStore) ClaimResume(ctx context.Context, principal, id, runID string) error {
+	now, err := s.now(ctx)
+	if err != nil {
+		return err
+	}
+	db := s.db.WithContext(ctx)
+	// The conditions and the count are one statement, so two sweepers cannot
+	// both win and a lost race does not spend an attempt.
+	res := db.Model(&chatRow{}).
+		Where("id = ? AND principal = ? AND (run_id = ? OR run_id IS NULL) AND last_turn = ? AND resume_attempts < ? AND resume_not_before > ? AND resume_not_before <= ? AND interrupted_at >= ?",
+			id, principal, "", string(TurnInterrupted), MaxResumeAttempts, time.Time{}, now, now.Add(-ResumeWindow)).
+		Updates(map[string]any{"run_id": runID, "run_since": now, "run_beat": now,
+			"resume_attempts": gorm.Expr("resume_attempts + 1"), "resume_not_before": time.Time{}})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 1 {
+		return nil
+	}
+	if err := s.owns(db, principal, id); err != nil {
+		return err
+	}
+	var row chatRow
+	if err := db.Select("run_id").Where("id = ?", id).Take(&row).Error; err == nil && row.RunID != "" {
+		return ErrTurnRunning
+	}
+	return ErrNotResumable
+}
+
+func (s *gormStore) ListResumable(ctx context.Context) ([]ResumableTurn, error) {
+	now, err := s.now(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []chatRow
+	err = s.db.WithContext(ctx).
+		Select("id", "principal", "resume_attempts", "interrupted_at", "resume_not_before").
+		Where("(run_id = ? OR run_id IS NULL) AND last_turn = ? AND resume_attempts < ? AND resume_not_before > ? AND resume_not_before <= ? AND interrupted_at >= ?",
+			"", string(TurnInterrupted), MaxResumeAttempts, time.Time{}, now, now.Add(-ResumeWindow)).
+		Order("resume_not_before").Limit(200).Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ResumableTurn, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, ResumableTurn{Principal: r.Principal, ChatID: r.ID, Attempts: r.ResumeAttempts, InterruptedAt: zeroTime(r.InterruptedAt)})
+	}
+	return out, nil
+}
+
+func (s *gormStore) CancelResume(ctx context.Context, principal, id string) error {
+	db := s.db.WithContext(ctx)
+	res := db.Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).
+		Update("resume_not_before", time.Time{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 1 {
+		return nil
+	}
+	return s.owns(db, principal, id)
+}
+
+func (s *gormStore) MarkInterrupted(ctx context.Context, principal, id, runID string, delay time.Duration) error {
+	now, err := s.now(ctx)
+	if err != nil {
+		return err
+	}
 	db := s.db.WithContext(ctx)
 	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND run_id = ?", id, principal, runID).
-		Updates(map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{}, "last_turn": string(status)})
+		Updates(interruptedFields(now, delay))
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 1 {
+		return nil
+	}
+	if err := s.owns(db, principal, id); err != nil {
+		return err
+	}
+	return ErrNotClaimed
+}
+
+// interruptedFields is the update that ends a claim as interrupted at now and
+// schedules the resume after delay (none when delay is negative).
+func interruptedFields(now time.Time, delay time.Duration) map[string]any {
+	notBefore := time.Time{}
+	if delay >= 0 {
+		notBefore = now.Add(delay)
+	}
+	return map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{},
+		"last_turn": string(TurnInterrupted), "interrupted_at": now, "resume_not_before": notBefore}
+}
+
+func (s *gormStore) ReleaseTurn(ctx context.Context, principal, id, runID string, status TurnStatus) error {
+	if status == TurnInterrupted {
+		attempts := 0
+		var row chatRow
+		if err := s.db.WithContext(ctx).Select("resume_attempts").Where("id = ? AND principal = ?", id, principal).Take(&row).Error; err == nil {
+			attempts = row.ResumeAttempts
+		}
+		return s.MarkInterrupted(ctx, principal, id, runID, ResumeBackoff(attempts))
+	}
+	db := s.db.WithContext(ctx)
+	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND run_id = ?", id, principal, runID).
+		Updates(map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{}, "last_turn": string(status),
+			"resume_not_before": time.Time{}, "interrupted_at": time.Time{}})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -1101,7 +1281,43 @@ func (s *gormStore) Turn(ctx context.Context, principal, id string) (TurnInfo, e
 	if err != nil {
 		return TurnInfo{}, err
 	}
-	return TurnInfo{Running: row.RunID != "", RunID: row.RunID, Since: row.RunSince, Beat: row.RunBeat, Last: TurnStatus(row.LastTurn)}, nil
+	info := TurnInfo{Running: row.RunID != "", RunID: row.RunID, Since: zeroTime(row.RunSince), Beat: zeroTime(row.RunBeat), Last: TurnStatus(row.LastTurn),
+		ResumeAttempts: row.ResumeAttempts, InterruptedAt: zeroTime(row.InterruptedAt), ResumeNotBefore: zeroTime(row.ResumeNotBefore),
+		Owner: row.OwnerInstance}
+	if !info.Running && info.Last == TurnInterrupted {
+		now, err := s.now(ctx)
+		if err != nil {
+			return TurnInfo{}, err
+		}
+		info.WillResume, _ = resumeOpen(info.ResumeAttempts, info.InterruptedAt, info.ResumeNotBefore, now)
+	}
+	return info, nil
+}
+
+// zeroTime gives the zero time.Time for a zero instant. PostgreSQL reads the
+// zero time back in UTC, which IsZero accepts but is not the zero value the
+// JSON store gives, so the two stores would answer differently.
+func zeroTime(t time.Time) time.Time {
+	if t.IsZero() {
+		return time.Time{}
+	}
+	return t
+}
+
+func (s *gormStore) SetTurnOwner(ctx context.Context, principal, id, runID, instance string) error {
+	db := s.db.WithContext(ctx)
+	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND run_id = ?", id, principal, runID).
+		Update("owner_instance", instance)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 1 {
+		return nil
+	}
+	if err := s.owns(db, principal, id); err != nil {
+		return err
+	}
+	return ErrNotClaimed
 }
 
 func (s *gormStore) TouchTurn(ctx context.Context, principal, id, runID string) error {
@@ -1147,7 +1363,7 @@ func (s *gormStore) ReapTurns(ctx context.Context, idle time.Duration) ([]Reaped
 		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			res := tx.Model(&chatRow{}).
 				Where("id = ? AND run_id = ? AND run_beat < ?", r.ID, r.RunID, olderThan).
-				Updates(map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{}, "last_turn": string(TurnInterrupted)})
+				Updates(interruptedFields(now, ResumeBackoff(r.ResumeAttempts)))
 			if res.Error != nil {
 				return res.Error
 			}

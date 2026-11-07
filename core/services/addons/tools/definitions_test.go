@@ -299,6 +299,20 @@ var _ = Describe("The permission a tool declares to the chat", func() {
 			Expect(p).To(BeEmpty(), name)
 		}
 	})
+	It("is tools.write for the tools that change things, in an add-on that keeps the owner's own data", func() {
+		app := tablesApp(tablesManifest())
+		app.OwnerData = true
+		defs, err := tools.NewChatToolAdapter(&fake{list: apps.List{Apps: []apps.App{app}}}).Discover(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		got := map[string]string{}
+		for _, d := range defs {
+			got[d.Tool] = d.Permission
+			Expect(d.OwnerData).To(BeTrue(), d.Tool)
+		}
+		Expect(got["databases-inspect"]).To(BeEmpty(), "a read needs nothing")
+		Expect(got["rows-query"]).To(BeEmpty())
+		Expect(got["rows-insert"]).To(Equal(contract.CapToolsWrite))
+	})
 	It("is tools.write for the tools that change things, in an add-on whose resources are scoped per agent", func() {
 		got := discover(false, true)
 		Expect(got["databases-inspect"]).To(BeEmpty(), "a read needs nothing")

@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/addons/policy"
+	lagi "github.com/mudler/LocalAI/core/services/collections/backend"
 	"github.com/mudler/LocalAI/core/services/studio"
 )
 
@@ -38,12 +40,21 @@ func (c studioCollections) Allowed(ctx context.Context, user string) bool {
 	return err == nil && auth.HasFeatureAccess(c.a.authDB, u, auth.FeatureCollections)
 }
 
+// List names the user's own collections, then the collections shared with
+// the user under the name the user addresses each by (see WithCollection).
 func (c studioCollections) List(ctx context.Context, user string) ([]string, error) {
 	svc := c.a.CollectionsService()
 	if svc == nil || !c.Allowed(ctx, user) {
 		return nil, studio.ErrNoCollection
 	}
-	return svc.ListForUser(c.owner(user))
+	own, err := svc.ListForUser(c.owner(user))
+	if err != nil {
+		return own, err
+	}
+	for _, s := range c.a.SharedCollections(ctx, c.owner(user), own) {
+		own = append(own, s.Address)
+	}
+	return own, nil
 }
 
 func (c studioCollections) Search(ctx context.Context, user, collection, query string, limit int) ([]studio.CollectionHit, error) {
@@ -51,9 +62,14 @@ func (c studioCollections) Search(ctx context.Context, user, collection, query s
 	if svc == nil || !c.Allowed(ctx, user) {
 		return nil, studio.ErrNoCollection
 	}
-	res, err := svc.SearchForUser(ctx, c.owner(user), collection, query, limit)
+	var res []lagi.SearchResult
+	err := c.a.WithCollection(ctx, c.owner(user), collection, policy.ActionRead, func(ctx context.Context, owner, name string) error {
+		var err error
+		res, err = svc.SearchForUser(ctx, owner, name, query, limit)
+		return err
+	})
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		if strings.Contains(err.Error(), "not found") || errors.Is(err, ErrCollectionRole) {
 			return nil, studio.ErrNoCollection
 		}
 		return nil, err
@@ -79,8 +95,11 @@ func (c studioCollections) Add(ctx context.Context, user, collection, name, text
 	if svc == nil || !c.Allowed(ctx, user) {
 		return studio.ErrNoCollection
 	}
-	_, err := svc.UploadForUser(ctx, c.owner(user), collection, name, strings.NewReader(text))
-	if err != nil && strings.Contains(err.Error(), "not found") {
+	err := c.a.WithCollection(ctx, c.owner(user), collection, policy.ActionWrite, func(ctx context.Context, owner, coll string) error {
+		_, err := svc.UploadForUser(ctx, owner, coll, name, strings.NewReader(text))
+		return err
+	})
+	if err != nil && (strings.Contains(err.Error(), "not found") || errors.Is(err, ErrCollectionRole)) {
 		return studio.ErrNoCollection
 	}
 	return err
@@ -95,21 +114,24 @@ func (c studioCollections) Remove(ctx context.Context, user, collection, name st
 	if svc == nil || !c.Allowed(ctx, user) {
 		return studio.ErrNoCollection
 	}
-	entries, err := svc.ListEntriesForUser(c.owner(user), collection)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return studio.ErrNoCollection
+	err := c.a.WithCollection(ctx, c.owner(user), collection, policy.ActionWrite, func(_ context.Context, owner, coll string) error {
+		entries, err := svc.ListEntriesForUser(owner, coll)
+		if err != nil {
+			return err
 		}
-		return err
-	}
-	for _, e := range entries {
-		if path.Base(e) == name {
-			if _, err := svc.DeleteEntryForUser(c.owner(user), collection, e); err != nil {
-				return err
+		for _, e := range entries {
+			if path.Base(e) == name {
+				if _, err := svc.DeleteEntryForUser(owner, coll, e); err != nil {
+					return err
+				}
 			}
 		}
+		return nil
+	})
+	if err != nil && (strings.Contains(err.Error(), "not found") || errors.Is(err, ErrCollectionRole)) {
+		return studio.ErrNoCollection
 	}
-	return nil
+	return err
 }
 
 // EmbeddingModelInstalled reports whether the model that the collections embed

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/xlog"
@@ -22,8 +23,7 @@ type VoiceProfileListResponse struct {
 }
 
 // CreateVoiceProfileRequest is the JSON alternative to multipart creation.
-// It is primarily used by the LocalAI admin MCP client; the browser sends a
-// multipart audio field to avoid base64 overhead.
+// The browser sends a multipart audio field to avoid base64 overhead.
 type CreateVoiceProfileRequest struct {
 	Name             string                               `json:"name"`
 	Description      string                               `json:"description,omitempty"`
@@ -39,6 +39,17 @@ type CreateVoiceProfileReferenceRequest struct {
 	AudioBase64 string `json:"audio_base64"`
 }
 
+// VoiceViewer is the user a request acts for, for the ownership rules of the
+// voice profiles. Without accounts (no user in the context) the caller is the
+// administrator, so every profile stays instance-wide as it always was.
+func VoiceViewer(c echo.Context) voiceprofile.Viewer {
+	u := auth.GetUser(c)
+	if u == nil {
+		return voiceprofile.AdminViewer()
+	}
+	return voiceprofile.Viewer{UserID: u.ID, Admin: u.Role == auth.RoleAdmin}
+}
+
 func voiceProfileError(code int, message string) schema.ErrorResponse {
 	return schema.ErrorResponse{Error: &schema.APIError{
 		Code:    code,
@@ -51,6 +62,10 @@ func writeVoiceProfileError(c echo.Context, err error) error {
 	switch {
 	case errors.Is(err, voiceprofile.ErrNotFound):
 		return c.JSON(http.StatusNotFound, voiceProfileError(http.StatusNotFound, "voice profile not found"))
+	case errors.Is(err, voiceprofile.ErrForbidden):
+		return c.JSON(http.StatusForbidden, voiceProfileError(http.StatusForbidden, err.Error()))
+	case errors.Is(err, voiceprofile.ErrQuotaExceeded):
+		return c.JSON(http.StatusConflict, voiceProfileError(http.StatusConflict, err.Error()))
 	case errors.Is(err, voiceprofile.ErrAudioTooLarge):
 		return c.JSON(http.StatusRequestEntityTooLarge, voiceProfileError(http.StatusRequestEntityTooLarge, err.Error()))
 	case errors.Is(err, voiceprofile.ErrInvalidInput),
@@ -72,12 +87,12 @@ func isRequestBodyTooLarge(err error) bool {
 	return errors.As(err, &httpError) && errors.As(httpError.Internal, &maxBytesError)
 }
 
-// ListVoiceProfilesEndpoint lists reusable cloning references. The route is
-// available to users with the Audio Speech/TTS feature so they can select a
-// profile; profile mutation remains admin-only.
+// ListVoiceProfilesEndpoint lists the reusable cloning references the caller
+// may use: their own and the instance-wide ones; an administrator sees all.
+// The route is available to users with the Audio Speech/TTS feature.
 //
 // @Summary List voice profiles
-// @Description List saved voice-cloning references without exposing filesystem paths.
+// @Description List the saved voice-cloning references the caller may use (their own and the instance-wide ones; an administrator sees all), without exposing filesystem paths.
 // @Tags audio,voice-profiles
 // @Produce json
 // @Success 200 {object} VoiceProfileListResponse
@@ -88,7 +103,7 @@ func ListVoiceProfilesEndpoint(store *voiceprofile.Store) echo.HandlerFunc {
 		if store == nil {
 			return writeVoiceProfileError(c, errors.New("voice profile store is unavailable"))
 		}
-		profiles, err := store.List(c.Request().Context())
+		profiles, err := store.ListFor(c.Request().Context(), VoiceViewer(c))
 		if err != nil {
 			return writeVoiceProfileError(c, err)
 		}
@@ -98,10 +113,12 @@ func ListVoiceProfilesEndpoint(store *voiceprofile.Store) echo.HandlerFunc {
 
 // CreateVoiceProfileEndpoint validates and persists a reusable cloning
 // reference. It accepts multipart/form-data (audio field) or JSON with a
-// base64-encoded 16-bit PCM WAV. Admin-only.
+// base64-encoded 16-bit PCM WAV. The profile belongs to the caller, except
+// that an administrator creates instance-wide profiles. A user who is not an
+// administrator may own at most voiceprofile.MaxProfilesPerUser profiles.
 //
 // @Summary Create a voice profile
-// @Description Save a consent-confirmed PCM WAV reference clip and exact transcript for voice cloning. Admin-only.
+// @Description Save a consent-confirmed PCM WAV reference clip and exact transcript for voice cloning. Needs the audio speech feature. The profile belongs to the caller (an administrator creates instance-wide profiles); a user who is not an administrator may own at most 20.
 // @Tags audio,voice-profiles
 // @Accept multipart/form-data
 // @Accept json
@@ -114,6 +131,8 @@ func ListVoiceProfilesEndpoint(store *voiceprofile.Store) echo.HandlerFunc {
 // @Param audio formData file true "16-bit PCM WAV, preferably mono 24 kHz, 1-120 seconds, up to 50 MiB"
 // @Success 201 {object} voiceprofile.Profile
 // @Failure 400 {object} schema.ErrorResponse
+// @Failure 403 {object} schema.ErrorResponse
+// @Failure 409 {object} schema.ErrorResponse "The per-user profile limit is reached"
 // @Failure 413 {object} schema.ErrorResponse
 // @Router /api/voice-profiles [post]
 func CreateVoiceProfileEndpoint(store *voiceprofile.Store) echo.HandlerFunc {
@@ -151,7 +170,7 @@ func CreateVoiceProfileEndpoint(store *voiceprofile.Store) echo.HandlerFunc {
 			}
 
 			consent, _ := strconv.ParseBool(c.FormValue("consent_confirmed"))
-			profile, err := store.CreateWithReferences(c.Request().Context(), voiceprofile.CreateInput{
+			profile, err := store.CreateFor(c.Request().Context(), VoiceViewer(c), voiceprofile.CreateInput{
 				Name:             c.FormValue("name"),
 				Description:      c.FormValue("description"),
 				Language:         c.FormValue("language"),
@@ -185,7 +204,7 @@ func CreateVoiceProfileEndpoint(store *voiceprofile.Store) echo.HandlerFunc {
 			}
 			references = append(references, voiceprofile.ReferenceInput{Transcript: reference.Transcript, Audio: base64.NewDecoder(base64.StdEncoding, strings.NewReader(reference.AudioBase64))})
 		}
-		profile, err := store.CreateWithReferences(c.Request().Context(), voiceprofile.CreateInput{
+		profile, err := store.CreateFor(c.Request().Context(), VoiceViewer(c), voiceprofile.CreateInput{
 			Name:             request.Name,
 			Description:      request.Description,
 			Language:         request.Language,
@@ -215,7 +234,7 @@ func ServeVoiceProfileAudioEndpoint(store *voiceprofile.Store) echo.HandlerFunc 
 		if store == nil {
 			return writeVoiceProfileError(c, errors.New("voice profile store is unavailable"))
 		}
-		file, profile, err := store.OpenAudio(c.Request().Context(), c.Param("id"))
+		file, profile, err := store.OpenAudioFor(c.Request().Context(), VoiceViewer(c), c.Param("id"))
 		if err != nil {
 			return writeVoiceProfileError(c, err)
 		}
@@ -230,13 +249,16 @@ func ServeVoiceProfileAudioEndpoint(store *voiceprofile.Store) echo.HandlerFunc 
 	}
 }
 
-// DeleteVoiceProfileEndpoint permanently removes a profile. Admin-only.
+// DeleteVoiceProfileEndpoint permanently removes a profile. The owner and
+// administrators may delete it; an instance-wide profile only an administrator.
+// The profile of another user answers 404.
 //
 // @Summary Delete a voice profile
-// @Description Permanently remove a saved voice-cloning profile. Admin-only.
+// @Description Permanently remove a saved voice-cloning profile. The owner or an administrator may delete it; an instance-wide profile only an administrator. The profile of another user answers 404.
 // @Tags audio,voice-profiles
 // @Param id path string true "Voice profile UUID"
 // @Success 204
+// @Failure 403 {object} schema.ErrorResponse
 // @Failure 404 {object} schema.ErrorResponse
 // @Router /api/voice-profiles/{id} [delete]
 func DeleteVoiceProfileEndpoint(store *voiceprofile.Store) echo.HandlerFunc {
@@ -244,7 +266,7 @@ func DeleteVoiceProfileEndpoint(store *voiceprofile.Store) echo.HandlerFunc {
 		if store == nil {
 			return writeVoiceProfileError(c, errors.New("voice profile store is unavailable"))
 		}
-		if err := store.Delete(c.Request().Context(), c.Param("id")); err != nil {
+		if err := store.DeleteFor(c.Request().Context(), VoiceViewer(c), c.Param("id")); err != nil {
 			return writeVoiceProfileError(c, err)
 		}
 		return c.NoContent(http.StatusNoContent)

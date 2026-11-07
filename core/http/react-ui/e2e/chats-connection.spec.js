@@ -138,7 +138,7 @@ test.describe('The connections an agent names', () => {
         addons: [{ id: 'tracker', tools: 14, off: false, title: 'Tracker', credentialed: true, connections: [WORK, HOME, PLAY], enabled_connections: [], needs_connection: true }],
       },
     }))
-    await page.goto('/app/agents/new')
+    await page.goto('/app/agents/a2/edit')
     await page.getByLabel('Name', { exact: false }).first().fill('Reviewer')
     // The account sits in the row of the add-on (it was a Connections card).
     const row = page.getByTestId('agent-addon-box').filter({ hasText: 'Tracker' })
@@ -160,9 +160,9 @@ test.describe('The connections an agent names', () => {
     await expect(row.getByTestId('agent-addon-now')).toContainText('a run with nobody there gets none')
     await group.getByLabel('Home').check()
     await group.getByLabel('Play').check()
-    await page.getByRole('button', { name: 'Create Agent' }).first().click()
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
-    const body = s.calls.find(c => c.method === 'POST').body
+    const body = s.calls.find(c => c.method === 'PUT').body
     expect(body.connections).toEqual({ tracker: ['b2', 'b3'] })
     expect(body.addons).toEqual(['tracker'])
   })

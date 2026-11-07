@@ -101,7 +101,7 @@ async function chatSetup(page) {
 
 const PAGES = [
   { name: 'agent editor', url: '/app/agents/a1/edit', ready: '[data-testid=agent-edit]', setup: agentsSetup },
-  { name: 'new agent', url: '/app/agents/new', ready: '[data-testid=agent-edit]', setup: agentsSetup },
+  { name: 'new agent', url: '/app/agents/new', ready: '[data-testid=agent-wizard]', setup: agentsSetup },
   { name: 'agents list', url: '/app/agents', ready: '.ag-home, .page', setup: agentsSetup },
   { name: 'agent page', url: '/app/agents/a1', ready: '.page', setup: agentsSetup },
   { name: 'skills', url: '/app/skills', ready: '.page', setup: (page) => agentsSetup(page, { skills: Array.from({ length: 8 }, (_, i) => ({ ...SKILLS[0], name: `skill_${WORD}_${i}`, description: `${URL} ${'d'.repeat(120)}` })) }) },

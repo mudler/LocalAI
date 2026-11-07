@@ -110,8 +110,90 @@ type ChatsAgent struct {
 	// FolderNotice is set when shared folders do not fit the access limit of
 	// a chat of this agent and are left out.
 	FolderNotice *ChatsAgentFolderNotice `json:"folder_notice,omitempty"`
-	Created      time.Time               `json:"created"`
-	Updated      time.Time               `json:"updated"`
+	// Access is how you hold the agent: your own, or shared with you and by
+	// whom. It is absent when the server does not share agents.
+	Access  *ChatsAgentAccess `json:"access,omitempty"`
+	Created time.Time         `json:"created"`
+	Updated time.Time         `json:"updated"`
+}
+
+// ChatsAgentAccess is your access to a saved agent.
+type ChatsAgentAccess struct {
+	// Role is owner for your own agent, use or viewer for an agent shared
+	// with you. use runs it in your own chats; viewer also reads its full
+	// definition. Only the owner edits, deletes, exports or shares it.
+	Role string `json:"role" enums:"owner,use,viewer" example:"use"`
+	// Owner is the display name of the person who shared the agent with
+	// you. Absent for your own agents.
+	Owner string `json:"owner,omitempty" example:"Alice"`
+	// Everyone says the agent is shared with every account.
+	Everyone bool `json:"everyone,omitempty"`
+	// SharedWith is the number of grants of your own agent.
+	SharedWith *int `json:"sharedWith,omitempty" example:"2"`
+	// ShareID is the ID of your own agent in the sharing API
+	// (/api/shares/agent/{ShareID}/...). Absent until it is first shared and
+	// for agents shared with you.
+	ShareID string `json:"share_id,omitempty"`
+	// Sharing says whether you can share the agent on this server.
+	Sharing bool `json:"sharing"`
+}
+
+// ChatsAgentShareRef is the ID of an agent in the sharing API.
+type ChatsAgentShareRef struct {
+	Kind string `json:"kind" example:"agent"`
+	// ID is the resource ID to use with /api/shares/agent/{id}/...
+	ID string `json:"id" example:"r0123456789abcdef0123456789abcde"`
+}
+
+// ChatsAgentReference is one thing a saved agent uses, as its owner sees it.
+type ChatsAgentReference struct {
+	// Kind is addon, collection, skill, folder, connection, addon-resource,
+	// mcp or builtin.
+	Kind string `json:"kind" example:"collection"`
+	// ID names the thing for its kind.
+	ID    string `json:"id" example:"docs"`
+	Label string `json:"label" example:"docs"`
+	// AddonID is the add-on of a connection or an add-on resource.
+	AddonID string `json:"addon_id,omitempty"`
+	// Mode is read or write for a folder or an add-on resource.
+	Mode string `json:"mode,omitempty"`
+	// Share is how the thing can be shared with the same person, absent when
+	// the person needs access of their own.
+	Share *ChatsAgentReferenceShare `json:"share,omitempty"`
+}
+
+// ChatsAgentReferenceShare is the grant a reference can get.
+type ChatsAgentReferenceShare struct {
+	// Kind is the share kind (collection, connection), or addon for an
+	// add-on resource, which is shared through /api/addons/resources.
+	Kind       string   `json:"kind" example:"collection"`
+	ResourceID string   `json:"resource_id"`
+	Options    []string `json:"options" enums:"view,use"`
+	// Roles maps each option to the role the grant carries on the thing:
+	// one of the roles its kind grants (viewer, editor or use).
+	Roles map[string]string `json:"roles"`
+}
+
+// ChatsAgentReferenceList lists the references of an agent.
+type ChatsAgentReferenceList struct {
+	References []ChatsAgentReference `json:"references"`
+}
+
+// ChatsAgentNeed is one thing an agent needs, and its state for you.
+type ChatsAgentNeed struct {
+	Kind  string `json:"kind" example:"collection"`
+	Label string `json:"label" example:"docs"`
+	// State is ok (you have it), missing (it is not shared with you),
+	// unavailable (this server or your account does not offer it) or ask (the
+	// agent asks for a network or a tool group that your chat starts without;
+	// you may turn it on in the chat). Kind network is the agent's network
+	// preset, kind tool-group an opt-in group of built-in tools it turns on.
+	State string `json:"state" enums:"ok,missing,unavailable,ask" example:"missing"`
+}
+
+// ChatsAgentNeedList lists what an agent needs.
+type ChatsAgentNeedList struct {
+	Needs []ChatsAgentNeed `json:"needs"`
 }
 
 // ChatsAgentFolderNotice says how many shared folders a chat of the agent
@@ -237,6 +319,11 @@ type ChatsConversation struct {
 	// reached its step limit; send a message to go on).
 	Running  bool   `json:"running"`
 	LastTurn string `json:"last_turn,omitempty"`
+	// WillResume is true while the chat is at an interrupted turn that the
+	// server resumes by itself (LOCALAI_CHATS_AUTO_RESUME): a client waits and
+	// does not resume it too. ResumeAttempts counts the tries made so far.
+	WillResume     bool `json:"will_resume,omitempty"`
+	ResumeAttempts int  `json:"resume_attempts,omitempty"`
 	// Settings are the chat's own model settings, when it has any.
 	Settings *ChatsSettings `json:"settings,omitempty"`
 	// Goal is the chat's goal, when it has one.
@@ -332,9 +419,50 @@ type ChatsLoop struct {
 	// Running is true while a run of the loop goes on in the chat.
 	Running bool `json:"running"`
 	// Wait is what the model of a self-paced loop said it waits for.
-	Wait    string     `json:"wait,omitempty"`
+	Wait string `json:"wait,omitempty"`
+	// Kind is "wait" for a wait (the server checks a source and wakes the
+	// model once); empty for a loop.
+	Kind    string     `json:"kind,omitempty"`
 	Created time.Time  `json:"created"`
 	LastRun *time.Time `json:"last_run,omitempty"`
+	// Watch is set when Kind is "wait": what it watches and how the checks go.
+	Watch *ChatsWait `json:"watch,omitempty"`
+}
+
+// ChatsWait is the state of a wait, in fields a client can show as they are.
+// It never carries tool arguments or the query string of a URL.
+type ChatsWait struct {
+	// Phase is pending (waits for your yes), waiting (the server checks the
+	// source), waking (the condition is settled and the model is about to be
+	// asked, or is being asked), paused, or ended.
+	Phase string `json:"phase"`
+	// Reason is the line the model gave for the wait.
+	Reason string `json:"reason,omitempty"`
+	// SourceKind is "tool" or "url". Source is the name of the tool, or the
+	// host and path of the URL without the query.
+	SourceKind string `json:"source_kind"`
+	Source     string `json:"source"`
+	// Mode is change, match or json_equals; Condition says it in words.
+	Mode      string `json:"mode"`
+	Condition string `json:"condition"`
+	// Checks is how many checks were made. LastCheck is when the last one
+	// ended and Outcome what it found: unchanged, changed or error. LastError
+	// is a short message with the URLs cut to host and path; it is set while
+	// the source fails.
+	Checks    int        `json:"checks"`
+	LastCheck *time.Time `json:"last_check,omitempty"`
+	Outcome   string     `json:"outcome,omitempty"`
+	LastError string     `json:"last_error,omitempty"`
+	// NextCheck is when the next check is due; absent unless Phase is waiting.
+	NextCheck *time.Time `json:"next_check,omitempty"`
+	// Deadline is when the wait times out.
+	Deadline time.Time `json:"deadline"`
+	// Errors is the number of failed checks in a row; MaxErrors ends the wait.
+	Errors    int `json:"errors"`
+	MaxErrors int `json:"max_errors"`
+	// End says how the wait ended: condition_met, source_failing, timed_out or
+	// stopped. It is set when Phase is waking or ended, and absent before.
+	End string `json:"end,omitempty"`
 }
 
 // ChatsLoopRequest starts a loop in a chat.
@@ -705,7 +833,9 @@ type ChatsFile struct {
 	// caller asked for, and Path is where the new content went.
 	ConflictOf string `json:"conflict_of,omitempty"`
 	// Managed is set on a path LocalAI manages: "localai" for the LocalAI
-	// folder and the settings files in it, "chats" for the Chats folder.
+	// folder and the settings files in it, and for the folders LocalAI creates
+	// itself "chats" (Chats), "memory" (Memory), "pages" (pages) and "skills"
+	// (.skills). Other values may be added; a client treats any value as managed.
 	Managed string `json:"managed,omitempty"`
 	// Modified is when the entry last changed. A folder listing sets it.
 	Modified *time.Time `json:"modified,omitempty"`
@@ -1285,6 +1415,10 @@ type ChatsTrigger struct {
 	ActsHeld    []string `json:"acts_held,omitempty"`
 	ReadOnly    bool     `json:"read_only"`
 	ReadOnlyWhy string   `json:"read_only_why,omitempty"`
+	// Binding is the ID of the messaging connection that a trigger belongs to
+	// when it was made without asking under that connection's approval. Such a
+	// trigger stays within the acts the connection allows. Empty otherwise.
+	Binding string `json:"binding,omitempty"`
 	// Delivery says where the answer of each run goes.
 	Delivery ChatsTriggerDelivery `json:"delivery"`
 }
@@ -1401,7 +1535,8 @@ type ChatsTriggerList struct {
 }
 
 // ChatsTriggerRun is one start of a trigger. Status is queued, running, done,
-// failed or skipped; reason says why for the last two.
+// failed, blocked or skipped; reason says why for the last three. Blocked means
+// the run ended after an action it tried was refused for a missing grant.
 type ChatsTriggerRun struct {
 	ID      string     `json:"id"`
 	Status  string     `json:"status"`
@@ -1514,6 +1649,9 @@ type ChatsConnector struct {
 	// same bot (the add-on reported the same upstream account for both) and
 	// this one is enabled too: both then answer the same message.
 	Duplicate *ChatsConnectorDuplicate `json:"duplicate,omitempty"`
+	// Share is the share of the binding, once its owner made it shareable.
+	// Only the owner reads it.
+	Share *ChatsConnectorShare `json:"share,omitempty"`
 	// FileReceiveMaxBytes and FileSendMaxBytes are your limits for this bot;
 	// zero means you set none and the limit of the kind applies.
 	FileReceiveMaxBytes int64 `json:"file_receive_max_bytes"`
@@ -1856,7 +1994,15 @@ type ChatsConnectorKind struct {
 	Language             string `json:"language,omitempty"`
 	LocalizedTitle       string `json:"localized_title,omitempty"`
 	LocalizedDescription string `json:"localized_description,omitempty"`
-	SenderHint           string `json:"sender_hint,omitempty"`
+	// Setup says in one short phrase what a binding of this kind needs from
+	// the person before it works, such as "a bot token from @BotFather". It
+	// is English plain text and absent when the add-on declares none. Setups
+	// carries the translations by language tag; LocalizedSetup follows the
+	// rule of LocalizedTitle and is absent when the kind has no setup text.
+	Setup          string            `json:"setup,omitempty"`
+	Setups         map[string]string `json:"setups,omitempty"`
+	LocalizedSetup string            `json:"localized_setup,omitempty"`
+	SenderHint     string            `json:"sender_hint,omitempty"`
 	// Page is the add-on page that adds and edits bindings of this kind.
 	Page string `json:"page,omitempty"`
 	// AgentOptional is true when a binding of this kind may have no agent. It
@@ -2035,6 +2181,40 @@ type ChatsConnectorChannel struct {
 // ChatsConnectorList is the response of the connector list endpoint.
 type ChatsConnectorList struct {
 	Connectors []ChatsConnector `json:"connectors"`
+	// Shared are the bindings of other people shared with the caller, with
+	// their name and state only.
+	Shared []ChatsSharedConnector `json:"shared"`
+	// Sharing says whether bindings can be shared on this server: false with
+	// no named accounts (local-owner mode) or when the sharing policy does not
+	// run.
+	Sharing bool `json:"sharing"`
+}
+
+// ChatsConnectorShare is the share of a binding, for its owner.
+type ChatsConnectorShare struct {
+	// ResourceID names the binding in /api/shares/connection.
+	ResourceID string `json:"resource_id"`
+	// SharedWith counts the grants, the one to everyone included.
+	SharedWith int `json:"shared_with"`
+}
+
+// ChatsSharedConnector is a binding of another person shared with the caller.
+// It carries the name and the state only: never the token or another setting.
+type ChatsSharedConnector struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Kind  string `json:"kind"`
+	Addon string `json:"addon"`
+	// Enabled says whether the owner listens with it.
+	Enabled bool `json:"enabled"`
+	// Active is false when the add-on that serves it does not run; Reason
+	// then says so.
+	Active bool   `json:"active"`
+	Reason string `json:"reason,omitempty"`
+	// Owner is the display name of the person who shared it.
+	Owner string `json:"owner"`
+	// Role is always use: a binding is never shared with everyone.
+	Role string `json:"role"`
 }
 
 // ChatsConnectorTest is the bot that a token belongs to.
@@ -2203,6 +2383,10 @@ type ChatsBuiltinGroup struct {
 	Provider string `json:"provider" example:"builtin"`
 	// Providers says who serves each tool, by tool name.
 	Providers map[string]string `json:"providers" example:"web_search:builtin"`
+	// Deferred is true when the chat loads the tools of the group on demand:
+	// the model sees tool_search, tool_describe and tool_call in their place
+	// (see the setting chats_tool_search).
+	Deferred bool `json:"deferred,omitempty"`
 	// Title and Description say what the group is and what the model can do
 	// when its switch is on; WhenOff says what it cannot do when it is off.
 	// They are English; the interface may translate them by group.

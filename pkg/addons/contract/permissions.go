@@ -100,7 +100,7 @@ var capabilityText = map[string][2]string{
 	CapPagesWrite:       {"Write pages", "The agent may write or change pages."},
 	CapDashboardWrite:   {"Write the dashboard", "The agent may change the dashboard."},
 	CapKnowledgeWrite:   {"Add to knowledge", "The agent may propose a text for a collection of the Knowledge. The owner confirms each one."},
-	CapToolsWrite:       {"Let people who are not verified change things with add-on tools", "An add-on tool may change something outside LocalAI or in your own data. Verified people already use the write tools of the add-ons the agent is connected to; the write mode of the connection still applies. Turn this on to let listed people who are not verified use them too, and to let verified people use the write tools of add-ons that have no connection. People let in only through a channel, or by a bot that accepts anyone, do not get them, unless a role grants it."},
+	CapToolsWrite:       {"Let people who are not verified change things with add-on tools", "An add-on tool may change something outside LocalAI or in your own data. Verified people already use the write tools of the add-ons the agent is connected to; the write mode of the connection still applies. Turn this on to let listed people who are not verified use them too, and to let verified people use the write tools of add-ons that have no connection. People let in only through a channel, or by a bot that accepts anyone, do not get them, unless a role grants it. The one exception is an add-on that keeps your own data, such as Calendar or Contacts: with this on, everyone the bot lets in can change that data."},
 }
 
 // usualCapabilities are what an owner normally allows on a new binding: the
@@ -142,8 +142,9 @@ func ConnectorCapabilities() []CapabilityInfo {
 // writes, in an add-on that holds a credential for the person's binding,
 // changes something outside LocalAI with that person's token, and needs
 // CapToolsWrite. So does a tool that writes in an add-on whose resources are
-// scoped per agent: it changes the owner's data on a sender's word, and the
-// capability is sensitive, so only the owner and paired senders hold it.
+// scoped per agent, or in an add-on that declares ownerData: it changes the
+// owner's data on a sender's word, so a sender needs the capability, which
+// the owner and paired senders hold.
 // credentialed says that the manifest declares credentials or per-agent
 // resources.
 func ToolPermission(credentialed bool, d ToolDefinition) string {

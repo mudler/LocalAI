@@ -102,3 +102,16 @@ test('chat failure: the banner says what stays only when the failed turn produce
   assert.equal(keptAbove([{ role: 'user' }, { role: 'assistant' }, { role: 'tool' }, { role: 'failure' }]), true)
   assert.equal(keptAbove([{ role: 'assistant' }, { role: 'user' }, { role: 'failure' }]), false, 'only the last turn counts')
 })
+
+test('chat failure: an interrupted turn says the server restarted, in every language, with no hint of a cause', () => {
+  assert.equal(failureView(en, { code: 'interrupted' }).reason, 'The server restarted while it was answering.')
+  assert.equal(failureView(en, { code: 'interrupted' }).hint, '')
+  for (const lng of readdirSync(locales)) {
+    const t = translator(lng)
+    assert.ok(failureView(t, { code: 'interrupted' }).reason, lng)
+    for (const key of ['error.titleInterrupted', 'error.resume.waiting', 'error.resume.resuming', 'error.resume.exhausted', 'error.resume.stop', 'connection.lost']) {
+      assert.ok(t(key, { seconds: 3, attempt: 1, max: 3 }), `${lng} ${key}`)
+    }
+    if (lng !== 'en') assert.notEqual(t('error.resume.stop'), en('error.resume.stop'), `${lng} is translated`)
+  }
+})

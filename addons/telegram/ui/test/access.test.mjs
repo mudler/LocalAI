@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  toolOutcomeRows,  changedFields, fixAction, remainingChecks, sentenceCase, isProblem, pickSubject, previewBody, previewId, readinessRows, reachable, senderOptions, unusable, visibleRows,
+  toolOutcomeRows,  changedFields, fixAction, remainingChecks, sentenceCase, isProblem, previewBody, previewId, readinessRows, reachable, statusRows, unusable, visibleRows, forNewConnection, thingsToSet,
 } from '../../../internal/connector-ui/src/access.js'
 import { localizeAccess } from '../../../internal/connector-ui/src/connector.js'
 import { connectorForm, emptyConnector } from '../../../internal/connector-ui/src/connector.js'
@@ -28,20 +28,16 @@ test('access: the preview body holds the form values, no token, and the kind onl
   assert.deepEqual(saved.allow, [], 'anyone sends no list')
 })
 
-test('access: the sender selector offers channels only for a kind with channels, anyone only with accept_any, and each role', () => {
-  const ids = (f, lists) => senderOptions(f, { roles: [{ id: 'admin', title: 'Admin' }] }, lists).map((o) => o.id)
-  assert.deepEqual(ids({}, ONE), ['listed', 'paired', 'role:admin'])
-  assert.deepEqual(ids({}, TWO), ['listed', 'channel_member', 'paired', 'role:admin'])
-  assert.deepEqual(ids({ accept_any: true }, TWO), ['anyone', 'paired', 'role:admin'])
-  const v = view({ listed: [], anyone: [] })
-  assert.equal(pickSubject(v, 'channel_member').id, 'anyone')
-  assert.equal(pickSubject(v, 'paired'), null)
+test('access: the status line keeps the token, the agent and who is let in, and leaves the rest to the matrix', () => {
+  const rows = readinessRows(base({ agent_id: 'a1', allow: ['42'], caps: ['memory.write'] }))
+  assert.ok(rows.length > 3)
+  assert.deepEqual(statusRows(rows).map((r) => r.id), ['token', 'agent', 'who'])
 })
 
 test('access: fix routing maps each kind to a jump, a link, words or nothing', () => {
   const ctx = { agentId: 'a1', isAdmin: true, lists: TWO, form: {} }
   assert.deepEqual(fixAction({ kind: 'open_connection', target: 'caps', field: 'memory.write' }, ctx).selectors[0], '[data-testid="connector-cap-switch-memory.write"]')
-  assert.match(fixAction({ kind: 'open_connection', target: 'grants' }, ctx).selectors[0], /connector-roles/)
+  assert.match(fixAction({ kind: 'open_connection', target: 'grants' }, ctx).selectors[0], /connector-matrix/)
   assert.match(fixAction({ kind: 'open_connection', target: 'agent_id' }, ctx).selectors[0], /connector-agent/)
   assert.deepEqual(fixAction({ kind: 'open_agent', target: 'a 1' }, ctx), { type: 'link', to: '/app/agents/a%201/edit' })
   assert.deepEqual(fixAction({ kind: 'open_agent', target: '' }, ctx), { type: 'link', to: '/app/agents/a1/edit' })
@@ -182,6 +178,22 @@ test('access: collapsed mode keeps the rows that need the owner and counts the h
   assert.equal(shown.length + hidden, rows.length)
   assert.equal(visibleRows(rows, true).hidden, 0)
   assert.equal(visibleRows(rows, true).shown.length, rows.length)
+})
+
+test('access: a new connection has no save fix, and a row that only waits for the save is not a thing to set', () => {
+  // Nothing typed: the token, the agent and who is let in each need the person.
+  const empty = forNewConnection(statusRows(readinessRows(base({}))))
+  assert.equal(thingsToSet(empty), 3)
+  assert.ok(empty.every((r) => r.fix?.kind !== 'save'))
+  // A token and an agent chosen: both wait for the save, which is not something to set; only the list of people is left.
+  const typed = forNewConnection(statusRows(readinessRows(base({ agent_id: 'a1' }, { tokenTyped: true }))))
+  assert.equal(row(typed, 'token').state, 'after_save')
+  assert.equal(row(typed, 'agent').state, 'after_save')
+  assert.equal(thingsToSet(typed), 1)
+  assert.ok(typed.every((r) => r.fix?.kind !== 'save'), 'no Keep these changes on a connection that does not exist yet')
+  // A saved connection keeps the fix.
+  const saved = statusRows(readinessRows(base({ id: 'b1', agent_id: 'a2x' }, { tokenTyped: true })))
+  assert.equal(row(saved, 'token').fix?.kind, 'save')
 })
 
 test('access: changed fields compare the form with the saved binding', () => {

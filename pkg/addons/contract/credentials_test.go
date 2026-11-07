@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -257,5 +258,74 @@ var _ = Describe("The credential slot of an add-on", func() {
 			Expect((&ErrRateLimited{}).Seconds()).To(Equal(1))
 			Expect((&ErrRateLimited{RetryAfter: 1 << 30}).Seconds()).To(Equal(MaxRetryAfter))
 		})
+	})
+})
+
+var _ = Describe("An optional resource argument of a credential slot", func() {
+	const (
+		optionalSchema = `{"type":"object","properties":{"instance":{"type":"string"}},"additionalProperties":false}`
+		requiredSchema = `{"type":"object","properties":{"instance":{"type":"string"}},"required":["instance"],"additionalProperties":false}`
+	)
+	manifest := func(optional bool, schema string) Manifest {
+		m, err := ParseManifest(fixture())
+		Expect(err).NotTo(HaveOccurred())
+		m.API = VersionRange{Min: 2, Max: 2}
+		m.Capabilities = Capabilities{
+			Tools:           []string{"read-file"},
+			ToolDefinitions: []ToolDefinition{{Name: "read-file", Description: "Read a file.", Kind: ToolKindRead, InputSchema: json.RawMessage(schema)}},
+			Credentials:     []CredentialSlot{{ID: "token", Title: "Access token", Kind: CredentialKindToken, ResourceArgument: "instance", ResourceOptional: optional}},
+			Connector:       &ConnectorCapability{Kinds: []ConnectorKind{{ID: "sample", Title: "Sample", Delivery: DeliveryPull}}},
+		}
+		return m
+	}
+	host := func() HostCompatibility {
+		h := compatible()
+		h.SDK = 0
+		return h
+	}
+
+	It("is valid when the tool does not require the argument", func() {
+		Expect(ValidateManifest(manifest(true, optionalSchema), host())).To(Succeed())
+	})
+	It("is refused when the tool still requires it, and a required slot is refused without the requirement", func() {
+		Expect(ValidateManifest(manifest(true, requiredSchema), host())).NotTo(Succeed())
+		Expect(ValidateManifest(manifest(false, optionalSchema), host())).NotTo(Succeed())
+		Expect(ValidateManifest(manifest(false, requiredSchema), host())).To(Succeed())
+	})
+	It("needs a resource argument to be optional", func() {
+		m := manifest(true, optionalSchema)
+		m.Capabilities.Credentials[0].ResourceArgument = ""
+		Expect(ValidateManifest(m, host())).NotTo(Succeed())
+	})
+	It("reports an omitted argument, and still refuses a wrong one", func() {
+		def := ToolDefinition{Name: "read-file", Kind: ToolKindRead, InputSchema: json.RawMessage(optionalSchema)}
+		optional := CredentialSlot{ResourceArgument: "instance", ResourceOptional: true}
+		_, found, err := optional.CredentialResource(def, json.RawMessage(`{"tool":"read-file"}`))
+		Expect(found).To(BeTrue())
+		Expect(errors.Is(err, ErrResourceOmitted)).To(BeTrue())
+		k, _, err := optional.CredentialResource(def, json.RawMessage(`{"instance":"http://ha.local:8123"}`))
+		Expect([]any{k, err}).To(Equal([]any{"http://ha.local:8123", nil}))
+		for _, a := range []string{`{"instance":""}`, `{"instance":3}`} {
+			_, _, err = optional.CredentialResource(def, json.RawMessage(a))
+			Expect(err).To(HaveOccurred(), a)
+			Expect(errors.Is(err, ErrResourceOmitted)).To(BeFalse(), a)
+		}
+		// A slot that does not opt in refuses the omission, as before.
+		_, _, err = CredentialSlot{ResourceArgument: "instance"}.CredentialResource(def, json.RawMessage(`{}`))
+		Expect(err).To(HaveOccurred())
+		Expect(errors.Is(err, ErrResourceOmitted)).To(BeFalse())
+	})
+	It("is how the Home Assistant add-on declares its address", func() {
+		b, err := os.ReadFile("../../../addons/home-assistant/manifest.json")
+		Expect(err).NotTo(HaveOccurred())
+		m, err := ParseManifest(b)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(m.Capabilities.Credentials[0].ResourceOptional).To(BeTrue())
+		for _, d := range m.Capabilities.ToolDefinitions {
+			if d.UIOnly {
+				continue
+			}
+			Expect(requiredProperty(d, "instance")).To(BeFalse(), d.Name)
+		}
 	})
 })

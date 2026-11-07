@@ -38,8 +38,8 @@ test('recognition: the model of the path reaches the model selection', async () 
   assert.deepEqual(seen, ['speechbrain'])
 })
 
-test('recognition: a viewer who is not an administrator still gets the workbench and no Library tab', async () => {
-  const { mod, sdk } = await load({ viewer: { isAdmin: () => false, hasFeature: () => true } })
+test('recognition: a viewer without the speech feature still gets the workbench and no Library tab', async () => {
+  const { mod, sdk } = await load({ viewer: { isAdmin: () => false, hasFeature: (f) => f !== 'audio_speech' } })
   const addon = await mod.createAddon(sdk)
   const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'recognition' }))
   assert.match(html, /idn-bench/)

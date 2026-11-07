@@ -193,6 +193,17 @@ func impliedWrite(b connectors.Binding, s AccessSubject, now time.Time, off Bloc
 		s.Allowlisted && s.SenderID != "" && b.IsPaired(s.SenderID, now)
 }
 
+// everyoneWrite says whether the owner opened the write tools of the add-ons
+// that keep the owner's own data to every sender the bot lets in: tools.write
+// is in the ceiling, no switch is off, and the sender has an ID. Authorize
+// stops short of this for a sender who is only let in (a bot that accepts
+// anyone, a channel), and that stays so for every other tool; the data of
+// these add-ons is the owner's, so the owner's tick decides for the whole bot.
+func everyoneWrite(b connectors.Binding, s AccessSubject, off Block) bool {
+	return !b.CredentialsOnly() && !off.Off() && slices.Contains(b.Caps, contract.CapToolsWrite) &&
+		s.Allowlisted && s.SenderID != ""
+}
+
 // writeModeOn lists the connections whose write mode lets a call run or wait
 // for a confirmation. The mode and the approval still decide which of the two.
 func writeModeOn(conns []AgentConnection) []AgentConnection {
@@ -368,6 +379,12 @@ type turnGrant struct {
 	// list it (see impliedWrite). The tool builder still checks the connection.
 	// With several senders it holds only when it holds for each.
 	ImpliedWrite bool
+	// EveryoneWrite says the owner ticked tools.write for the bot and the
+	// sender was let in (listed, paired, a role, a channel or a bot that
+	// accepts anyone). Only the write tools of an add-on that keeps the owner's
+	// own data read it (see everyoneWrite); every other tool still follows
+	// Authorize. With several senders it holds only when it holds for each.
+	EveryoneWrite bool
 	// Sender says how the sender was let in: SenderPaired, SenderListed,
 	// SenderRolePrefix+id (shown as "role"), SenderChannelMember, SenderAnyone,
 	// or senderMixed for senders that differ. DeniedCodes holds the refusal
@@ -384,7 +401,7 @@ type turnGrant struct {
 const senderMixed = "mixed"
 
 func (g turnGrant) merge(o turnGrant) turnGrant {
-	out := turnGrant{Binding: g.Binding, Kind: g.Kind, Direct: g.Direct && o.Direct, Paired: g.Paired && o.Paired, ImpliedWrite: g.ImpliedWrite && o.ImpliedWrite, Sender: g.Sender, Where: g.Where}
+	out := turnGrant{Binding: g.Binding, Kind: g.Kind, Direct: g.Direct && o.Direct, Paired: g.Paired && o.Paired, ImpliedWrite: g.ImpliedWrite && o.ImpliedWrite, EveryoneWrite: g.EveryoneWrite && o.EveryoneWrite, Sender: g.Sender, Where: g.Where}
 	if g.Sender != o.Sender {
 		out.Sender = senderMixed
 	}
@@ -431,12 +448,12 @@ func unionOf(a, b []string) []string {
 }
 
 func grantOf(w *workerctl.ChatGrant) turnGrant {
-	return turnGrant{Binding: w.Binding, Kind: w.Kind, Senders: w.Senders, Roles: w.Roles, Caps: w.Caps, Denied: w.Denied, Direct: w.Direct, Paired: w.Paired, ImpliedWrite: w.ImpliedWrite,
+	return turnGrant{Binding: w.Binding, Kind: w.Kind, Senders: w.Senders, Roles: w.Roles, Caps: w.Caps, Denied: w.Denied, Direct: w.Direct, Paired: w.Paired, ImpliedWrite: w.ImpliedWrite, EveryoneWrite: w.EveryoneWrite,
 		Sender: w.Sender, DeniedCodes: w.DeniedCodes}
 }
 
 func (g turnGrant) wire() *workerctl.ChatGrant {
-	return &workerctl.ChatGrant{Binding: g.Binding, Kind: g.Kind, Senders: g.Senders, Roles: g.Roles, Caps: g.Caps, Denied: g.Denied, Direct: g.Direct, Paired: g.Paired, ImpliedWrite: g.ImpliedWrite,
+	return &workerctl.ChatGrant{Binding: g.Binding, Kind: g.Kind, Senders: g.Senders, Roles: g.Roles, Caps: g.Caps, Denied: g.Denied, Direct: g.Direct, Paired: g.Paired, ImpliedWrite: g.ImpliedWrite, EveryoneWrite: g.EveryoneWrite,
 		Sender: g.Sender, DeniedCodes: g.DeniedCodes}
 }
 
@@ -467,6 +484,7 @@ func (c *Connectors) grantFor(ctx context.Context, b connectors.Binding, m contr
 		Direct: m.Direct, Paired: m.SenderID != "" && b.IsPaired(m.SenderID, now)}
 	g.Where = whereOf(m)
 	g.ImpliedWrite = impliedWrite(b, c.subjectOf(b, m, true), now, c.offReason(ctx, b, contract.CapToolsWrite))
+	g.EveryoneWrite = everyoneWrite(b, c.subjectOf(b, m, true), c.offReason(ctx, b, contract.CapToolsWrite))
 	g.Sender = grantSenderKind(b, c.subjectOf(b, m, true), g.Paired, kind)
 	for _, name := range contract.ConnectorCapabilityNames() {
 		d := Authorize(b, kind, c.subjectOf(b, m, true), name, now, c.offReason(ctx, b, name))
@@ -986,7 +1004,7 @@ type AccessDraft struct {
 	// view as ProposalMode and decides nothing here.
 	ApprovalMode *string
 	Caps         []string
-	Grants     []connectors.RoleGrant
+	Grants       []connectors.RoleGrant
 	// Sender, when set, limits the answer to one kind of sender: "listed",
 	// "paired", "channel_member", "anyone" or "role:<id>".
 	Sender string

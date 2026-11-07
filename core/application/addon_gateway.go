@@ -352,7 +352,11 @@ func (a *Application) startAddonGateway() error {
 	if mode == auth.AddonModeLocalOwner {
 		xlog.Warn(localOwnerWarning)
 	}
-	g := &gateway.Gateway{Transfers: a.transfers(), Limits: c.Limits, Manager: a.addonManager, ConnectorAuthority: connectorAuthority{a}, Revalidate: auth.AddonRevalidate(a.authDB, mode)}
+	account := auth.AccountRevalidate(a.authDB, mode)
+	g := &gateway.Gateway{Transfers: a.transfers(), Limits: c.Limits, Manager: a.addonManager, ConnectorAuthority: connectorAuthority{a}, Revalidate: auth.AddonRevalidate(a.authDB, mode),
+		// The sharing calls of the kinds that are not add-ons check the
+		// account alone; the policy adds the feature the kind names.
+		RevalidateAccount: func(ctx context.Context, actor contract.Actor) error { return account(ctx, actor, "") }}
 	if cfg.InstanceID != cfg.OwnerID {
 		g.Forward = carrier
 		a.addonGateway = g
@@ -427,10 +431,19 @@ func (a *Application) startAddonGateway() error {
 	}
 	p := policy.New(store, policy.Options{
 		Revalidate:      g.Revalidate,
+		Account:         account,
 		CreateAuthority: addonCreateAuthority(a.addonManager, g.Revalidate),
 		Proposals:       broker,
 	})
 	broker.Attach(p)
+	// The services whose resources are shared through the policy register
+	// their kinds before anything is reconciled or served, so a pending
+	// record of a kind is settled by its own backing check at startup.
+	if e = a.registerShareKinds(p); e != nil {
+		_ = broker.Close()
+		_ = store.Close()
+		return e
+	}
 	// Recovery gets the owner's access state. A restore or a purge that a
 	// crash stopped is finished now, before anything is served; an add-on
 	// that needs recovery stays unavailable until an administrator acts.
@@ -469,6 +482,15 @@ func (a *Application) startAddonGateway() error {
 	if rep.Kept > 0 {
 		xlog.Warn("addons: pending resource registrations could not be settled yet and stay pending", "settled", rep.Settled, "kept", rep.Kept)
 	}
+	// Share records whose resource is gone (an agent deleted while the
+	// record could not be dropped) are dropped now, before anything is
+	// served, so they never hold quota for good. A failed check keeps the
+	// record for the next start.
+	if sweep, e := p.SweepOrphans(a.applicationConfig.Context); e != nil {
+		xlog.Warn("addons: the share records could not be checked", "error", e)
+	} else if sweep.Dropped > 0 || sweep.Kept > 0 {
+		xlog.Info("addons: share records of deleted resources dropped", "dropped", sweep.Dropped, "unchecked", sweep.Kept)
+	}
 	// The conversation selections and the UI-only resource management sit
 	// beside the policy store and are held only here.
 	selections, e = resources.OpenSelections(filepath.Join(cfg.Root, "selections"), resources.SelectionOptions{})
@@ -482,6 +504,10 @@ func (a *Application) startAddonGateway() error {
 	}
 	manage := resources.New(resourceOpts)
 	g.Resources = manage
+	g.Sharing = manage
+	// The services of the frontends look up, create and run the resources
+	// of their kinds through the leases of the owner.
+	g.ShareAuthority = policy.NewShareHost(a.applicationConfig.Context, p)
 	// The owner serves the library calls of the frontends. A node with no
 	// source store (no catalog) has nothing to serve.
 	if a.addonSources != nil {
@@ -949,7 +975,7 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 			continue
 		}
 		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead,
-			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt, Permission: d.Permission, Credentialed: d.Credentialed, ApprovalOverridable: d.ApprovalOverridable, Tool: d.Tool, ResourceScoped: d.ResourceScoped})
+			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt, Permission: d.Permission, Credentialed: d.Credentialed, OwnerData: d.OwnerData, ApprovalOverridable: d.ApprovalOverridable, Tool: d.Tool, ResourceScoped: d.ResourceScoped})
 	}
 	return filterByFeature(out, s.hostOps, s.has, actor), nil
 }
@@ -1286,6 +1312,22 @@ func (c connectorAuthority) AuthorizeConnector(ctx context.Context, scope studio
 type credentialSource struct{ a *Application }
 
 func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, addonID, key string) (gateway.CredentialGrant, error) {
+	return c.grant(ctx, actor, addonID, func(user, bindingID string) (studio.CredentialGrant, error) {
+		return c.a.studioConnectors.CredentialFor(ctx, user, addonID, bindingID, key)
+	})
+}
+
+// DefaultCredential serves a call that left out an optional resource argument:
+// the one resource of the connection the call uses.
+func (c credentialSource) DefaultCredential(ctx context.Context, actor contract.Actor, addonID string) (gateway.CredentialGrant, error) {
+	return c.grant(ctx, actor, addonID, func(user, bindingID string) (studio.CredentialGrant, error) {
+		return c.a.studioConnectors.DefaultCredentialFor(ctx, user, addonID, bindingID)
+	})
+}
+
+var _ gateway.DefaultCredentialSource = credentialSource{}
+
+func (c credentialSource) grant(ctx context.Context, actor contract.Actor, addonID string, open func(user, bindingID string) (studio.CredentialGrant, error)) (gateway.CredentialGrant, error) {
 	if c.a.studioConnectors == nil {
 		return gateway.CredentialGrant{}, gateway.ErrUnavailable
 	}
@@ -1298,12 +1340,12 @@ func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, 
 	if err != nil {
 		return gateway.CredentialGrant{}, err
 	}
-	grant, err := c.a.studioConnectors.CredentialFor(ctx, user, addonID, bindingID, key)
+	grant, err := open(user, bindingID)
 	var notAllowed *connectors.NotAllowedError
 	switch {
 	case err == nil:
 		return gateway.CredentialGrant{Credential: grant.Secret, ResourceKey: grant.Resource.Key, ResourceID: grant.Resource.ID, WriteMode: grant.WriteMode,
-			BindingID: grant.BindingID, BindingName: grant.BindingName}, nil
+			BindingID: grant.BindingID, BindingName: grant.BindingName, Hold: sharedHold(grant.Hold)}, nil
 	case errors.Is(err, connectors.ErrNoConnection):
 		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeSelectConnection}
 	case errors.Is(err, connectors.ErrNoCredential), errors.Is(err, studio.ErrTokenGuarded):
@@ -1314,6 +1356,22 @@ func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, 
 	// The cause may name a binding; it stays out of the error that travels.
 	xlog.Warn("addons: the credential of a binding could not be read", "addon", addonID)
 	return gateway.CredentialGrant{}, gateway.ErrUnavailable
+}
+
+// sharedHold turns the hold of a binding shared with the caller into the hold
+// of the gateway. A share that is gone gives the refusal of a binding the
+// person does not have, the answer of an unknown binding.
+func sharedHold(hold func(context.Context, func(context.Context) error) error) func(context.Context, func(context.Context) error) error {
+	if hold == nil {
+		return nil
+	}
+	return func(ctx context.Context, run func(context.Context) error) error {
+		err := hold(ctx, run)
+		if errors.Is(err, connectors.ErrNoCredential) {
+			return &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
+		}
+		return err
+	}
 }
 
 // connectionFor names the binding a credentialed call uses. The host never

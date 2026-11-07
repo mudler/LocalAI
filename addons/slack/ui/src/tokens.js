@@ -21,17 +21,14 @@ export function tokenProblem(form) {
   return ''
 }
 
-// A channel ID: a public (C) or private (G) channel, or a direct conversation (D).
-export const isChannel = (x) => /^[CGD][A-Z0-9]+$/.test(x)
-
 // A channel where people can be trusted by the setting of the channel: a public (C) or private (G) one. A direct conversation (D) is one person.
 export const isTrustChannel = (x) => /^[CG][A-Z0-9]+$/.test(x)
 
 // The two allowlists of the page: people, and channels where everyone may
 // mention the bot. Both are entries of the one allowlist of the binding.
 export const SLACK_LISTS = [
-  { key: 'users', label: 'allowUsers', hint: 'allowUsersHint', help: 'allowUsersHelp', testId: 'connector-allow', match: (x) => !isChannel(x) },
-  { key: 'channels', label: 'allowChannels', hint: 'allowChannelsHint', testId: 'connector-allow-channels', match: isChannel },
+  { key: 'users', hint: 'allowUsersHint', help: 'allowUsersHelp', testId: 'connector-allow', match: (x) => !isTrustChannel(x) },
+  { key: 'channels', testId: 'connector-allow-channels', match: isTrustChannel },
 ]
 
 // The manifest of a Slack app that this add-on serves: Socket Mode, the bot

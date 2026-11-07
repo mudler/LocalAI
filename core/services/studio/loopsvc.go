@@ -243,15 +243,32 @@ func (h *Loops) List(ctx context.Context, user, conv string) ([]loops.Loop, erro
 // Start starts a loop in a chat. The first loop of a chat waits for the
 // person's yes (StatePending); later ones are active at once and run now.
 func (h *Loops) Start(ctx context.Context, user, conv string, in LoopInput) (loops.Loop, error) {
+	return h.begin(ctx, user, conv, in, nil)
+}
+
+// modelStart says that the model started a loop with start_loop: the loop is
+// active at once, with no yes from the person, and its first run is due after
+// the wait, for the reason.
+type modelStart struct {
+	wait   time.Duration
+	reason string
+	// watch makes the loop a wait: wait is then its check interval, and the
+	// first check is due at once.
+	watch *loops.Watch
+}
+
+// begin is Start. A non-nil by makes it the start of a model.
+func (h *Loops) begin(ctx context.Context, user, conv string, in LoopInput, by *modelStart) (loops.Loop, error) {
 	p := principal(user)
 	rec, err := h.chatOf(ctx, user, conv)
 	if err != nil {
 		return loops.Loop{}, err
 	}
 	switch {
-	case rec.Kind == session.KindSubAgent:
+	case rec.Kind == session.KindSubAgent && by == nil:
+		// A person does not start loops in a sub-agent chat; its model may.
 		return loops.Loop{}, ErrSubAgentReadOnly
-	case rec.Origin != "":
+	case by == nil && rec.Origin != "", by != nil && !modelLoopOrigin(rec.Origin):
 		return loops.Loop{}, ErrLoopChat
 	}
 	lim := h.Limits()
@@ -274,7 +291,16 @@ func (h *Loops) Start(ctx context.Context, user, conv string, in LoopInput) (loo
 	now := h.o.Clock().UTC()
 	l := loops.Loop{ID: newID(), Owner: p, ChatID: conv, Prompt: prompt, Interval: interval,
 		State: loops.StatePending, Created: now, Updated: now}
-	if ok {
+	switch {
+	case by != nil:
+		l.State, l.Next, l.Scheduled, l.Wait = loops.StateActive, now.Add(by.wait), true, loops.Cut(by.reason)
+		if by.watch != nil {
+			l.Interval, l.Next, l.Watch = by.wait, now, by.watch
+			if l.Wait == "" {
+				l.Wait = loops.Cut("Waiting for " + by.watch.Describe())
+			}
+		}
+	case ok:
 		l.State, l.Next = loops.StateActive, now
 	}
 	if err := h.o.Store.Add(ctx, l, loops.Limits{PerChat: lim.PerChat, PerUser: lim.PerUser}); err != nil {
@@ -303,6 +329,10 @@ func (h *Loops) message(ctx context.Context, rec session.ChatRecord, l loops.Loo
 	msg := session.Message{Text: l.Prompt}
 	if l.ID != "" {
 		msg.Loop = &session.LoopMark{ID: l.ID, Run: l.Runs, SelfPaced: l.SelfPaced()}
+	}
+	if l.Watch != nil && l.Watch.Wake != "" {
+		msg.Text = l.Watch.Wake
+		return msg, nil
 	}
 	name, words, ok := loopSkill(l.Prompt)
 	if !ok {
@@ -384,6 +414,7 @@ func (h *Loops) Remove(ctx context.Context, user, conv, id string) error {
 		return err
 	}
 	h.publish(l.Owner, conv)
+	h.release(l.Owner, conv, store.TurnStopped)
 	return nil
 }
 
@@ -400,6 +431,7 @@ func (h *Loops) RemoveAll(ctx context.Context, user, conv string) (int, error) {
 	}
 	if len(list) > 0 {
 		h.publish(principal(user), conv)
+		h.release(principal(user), conv, store.TurnStopped)
 	}
 	return len(list), nil
 }
@@ -427,6 +459,7 @@ func (h *Loops) Pass(ctx context.Context) error {
 		return err
 	}
 	lim := h.Limits()
+	var checks []loops.Loop
 	for _, l := range list {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -436,33 +469,28 @@ func (h *Loops) Pass(ctx context.Context) error {
 		case l.Running:
 			h.reconcile(ctx, l, lim)
 		case l.State == loops.StateActive && !l.Next.IsZero() && !now.Before(l.Next):
+			if l.Watch != nil && l.Watch.Wake == "" {
+				checks = append(checks, l) // a check is code, not a run
+				continue
+			}
 			h.fire(ctx, l, now, lim)
 		}
 	}
+	h.checkWatches(ctx, checks, lim)
 	return nil
 }
 
 // fire starts the run of a due loop, or skips it when the chat is busy.
 func (h *Loops) fire(ctx context.Context, l loops.Loop, now time.Time, lim LoopLimits) {
-	if _, err := h.svc.d.Store.GetChat(ctx, l.Owner, l.ChatID); err != nil {
-		if errors.Is(err, session.ErrNotFound) {
-			h.drop(ctx, l, "the chat was deleted")
-		}
-		return
-	}
-	if why, gone := h.checkOwner(ctx, l.Owner); gone {
-		h.drop(ctx, l, why)
-		return
-	} else if why != "" {
-		h.pause(ctx, l, why)
+	if !h.ready(ctx, l) {
 		return
 	}
 	if h.busy(ctx, l) {
 		h.skipBusy(ctx, l, now)
 		return
 	}
-	if l.Runs >= lim.MaxRuns {
-		h.end(ctx, l.ID, fmt.Sprintf("Stopped after %d runs, the most a loop may make.", lim.MaxRuns))
+	if most := h.maxRunsFor(ctx, l.Owner, l.ChatID, lim); l.Runs >= most {
+		h.end(ctx, l.ID, fmt.Sprintf("Stopped after %d runs, the most a loop may make.", most))
 		return
 	}
 	claimed, err := h.o.Store.Update(ctx, l.ID, func(c *loops.Loop) error {
@@ -492,6 +520,25 @@ func (h *Loops) fire(ctx context.Context, l loops.Loop, now time.Time, lim LoopL
 		return
 	}
 	h.start(ctx, claimed, now)
+}
+
+// ready says whether the chat and the owner of a due loop can have a run or a
+// check now. It drops or pauses the loop when they never can.
+func (h *Loops) ready(ctx context.Context, l loops.Loop) bool {
+	if _, err := h.svc.d.Store.GetChat(ctx, l.Owner, l.ChatID); err != nil {
+		if errors.Is(err, session.ErrNotFound) {
+			h.drop(ctx, l, "the chat was deleted")
+		}
+		return false
+	}
+	if why, gone := h.checkOwner(ctx, l.Owner); gone {
+		h.drop(ctx, l, why)
+		return false
+	} else if why != "" {
+		h.pause(ctx, l, why)
+		return false
+	}
+	return true
 }
 
 // start sends the prompt of a claimed run to the chat and watches the turn.
@@ -572,7 +619,8 @@ func (h *Loops) busy(ctx context.Context, l loops.Loop) bool {
 // skipBusy moves an interval loop to its next slot: the runs a busy chat
 // missed do not pile up. A self-paced loop tries again at the next pass.
 func (h *Loops) skipBusy(ctx context.Context, l loops.Loop, now time.Time) {
-	if l.SelfPaced() {
+	if l.SelfPaced() || l.Watch != nil {
+		// A wait that ended keeps its wake-up until the chat is free.
 		return
 	}
 	_, err := h.o.Store.Update(ctx, l.ID, func(c *loops.Loop) error {
@@ -588,7 +636,7 @@ func (h *Loops) skipBusy(ctx context.Context, l loops.Loop, now time.Time) {
 }
 
 func (h *Loops) nextAfterBusy(c *loops.Loop, now time.Time) {
-	if c.SelfPaced() {
+	if c.SelfPaced() || c.Watch != nil {
 		c.Next = now
 		return
 	}
@@ -627,7 +675,9 @@ func turnFailed(last store.TurnStatus) bool {
 func (h *Loops) stopChat(l loops.Loop) {
 	ctx, cancel := context.WithTimeout(context.Background(), stopWait)
 	defer cancel()
-	if err := h.svc.Stop(ctx, l.Owner, l.ChatID); err != nil {
+	// Not Stop: that one ends the loops of a sub-agent chat, and a run that
+	// took too long is a failed run, which the loop survives.
+	if err := h.svc.stopTurn(ctx, l.Owner, l.ChatID); err != nil {
 		h.log.Warn("studio: could not stop the run of a loop", "chat", l.ChatID, "error", err)
 	}
 }
@@ -641,11 +691,13 @@ func (h *Loops) reconcile(ctx context.Context, l loops.Loop, _ LoopLimits) {
 	if mine {
 		return
 	}
-	info, err := h.svc.d.Store.Turn(ctx, l.Owner, l.ChatID)
+	info, err := h.svc.Turn(ctx, l.Owner, l.ChatID) // not the store: WillResume depends on the service's settings
 	switch {
 	case errors.Is(err, session.ErrNotFound):
 		h.drop(ctx, l, "the chat was deleted")
 	case err != nil:
+	case info.WillResume:
+		// The server resumes the turn; the run ends with it.
 	case !info.Running && h.o.Clock().Sub(l.LastRun) < loopStartGrace:
 		// Another frontend may have claimed the run and not yet the chat.
 	case !info.Running:
@@ -662,6 +714,14 @@ func (h *Loops) finish(id string, failed bool, why string) {
 	defer cancel()
 	now := h.o.Clock().UTC()
 	lim := h.Limits()
+	cur, err := h.o.Store.Get(ctx, id)
+	if err != nil {
+		if !errors.Is(err, loops.ErrNotFound) {
+			h.log.Warn("studio: could not read a loop to record the end of a run", "loop", id, "error", err)
+		}
+		return
+	}
+	most := h.maxRunsFor(ctx, cur.Owner, cur.ChatID, lim)
 	l, err := h.o.Store.Update(ctx, id, func(c *loops.Loop) error {
 		if !c.Running {
 			return errLoopSkip
@@ -683,9 +743,15 @@ func (h *Loops) finish(id string, failed bool, why string) {
 			if why != "" {
 				c.Reason = loops.Cut(c.Reason + " Last error: " + why)
 			}
-		case c.Runs >= lim.MaxRuns:
+		case c.Runs >= most:
 			c.State, c.Next = loops.StateEnded, time.Time{}
-			c.Reason = fmt.Sprintf("Stopped after %d runs, the most a loop may make.", lim.MaxRuns)
+			c.Reason = fmt.Sprintf("Stopped after %d runs, the most a loop may make.", most)
+		case c.Watch != nil && failed:
+			// The wake-up run failed: ask again, the wake-up text is kept.
+			c.Next = now.Add(lim.MinInterval)
+		case c.Watch != nil:
+			c.State, c.Next = loops.StateEnded, time.Time{}
+			c.Reason = loops.Cut("Done: the wait ended (" + c.Watch.Why + ") and the model was woken.")
 		case c.SelfPaced() && failed:
 			c.Next = now.Add(lim.MinInterval)
 		case c.SelfPaced() && !c.Scheduled:
@@ -709,6 +775,24 @@ func (h *Loops) finish(id string, failed bool, why string) {
 	}
 	h.publish(l.Owner, l.ChatID)
 	h.Notify()
+	// A sub-agent waits for its loop: a loop that ended or paused lets the
+	// parent hear of the end. A loop that goes on holds the report back.
+	st := store.TurnDone
+	if l.State == loops.StatePaused && failed {
+		st = store.TurnFailed
+	}
+	h.release(l.Owner, l.ChatID, st)
+}
+
+// release tells the parent of a sub-agent chat that the chat is done, when its
+// loop no longer holds the report back. For any other chat it does nothing.
+func (h *Loops) release(owner, chatID string, st store.TurnStatus) {
+	ctx, cancel := context.WithTimeout(context.Background(), finishTimeout)
+	defer cancel()
+	if h.svc.loopHolds(ctx, owner, chatID) {
+		return
+	}
+	h.svc.notifyWaiters(key(owner, chatID), st)
 }
 
 // end ends a loop with a reason.
@@ -722,6 +806,7 @@ func (h *Loops) end(ctx context.Context, id, reason string) {
 	}
 	h.pruneEnded(ctx, l.Owner, l.ChatID)
 	h.publish(l.Owner, l.ChatID)
+	h.release(l.Owner, l.ChatID, store.TurnDone)
 }
 
 // pause pauses a loop with a reason.
@@ -735,6 +820,7 @@ func (h *Loops) pause(ctx context.Context, l loops.Loop, reason string) {
 	})
 	if err == nil {
 		h.publish(l.Owner, l.ChatID)
+		h.release(l.Owner, l.ChatID, store.TurnFailed)
 	}
 }
 
@@ -745,6 +831,7 @@ func (h *Loops) drop(ctx context.Context, l loops.Loop, why string) {
 		return
 	}
 	h.log.Info("studio: removed a loop", "loop", l.ID, "chat", l.ChatID, "why", why)
+	h.release(l.Owner, l.ChatID, store.TurnStopped)
 }
 
 // pruneEnded keeps the newest loops.KeepEnded ended loops of a chat.
