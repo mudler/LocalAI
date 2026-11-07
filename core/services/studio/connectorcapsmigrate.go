@@ -116,3 +116,60 @@ func kindForMigration(kinds []ConnectorKind, b connectors.Binding) (ConnectorKin
 	}
 	return found[0], true
 }
+
+// LoopsWaitMigration is the name of the one-time migration that adds loops.wait
+// to the ceiling of the bindings saved before that capability existed. Waits
+// cost no model call, so they are on by default like the usual set. The record
+// in the store is the only marker, so an owner who switches loops.wait off
+// afterwards keeps it off.
+const LoopsWaitMigration = "binding-caps-loops-wait-v1"
+
+// MigrateLoopsWait adds loops.wait, once per store, to each binding that has a
+// non-empty ceiling without it. A binding with an empty ceiling is left alone:
+// the owner chose to allow nothing, or the usual-set migration still has to run
+// and will give it the usual set, which holds loops.wait. It needs no connector
+// kind. It is safe to call from several frontends at once, and when it fails it
+// releases the claim so the next start tries again. It logs one line for each
+// binding changed (ID and kind) and one summary.
+func MigrateLoopsWait(ctx context.Context, st connectors.Store, now time.Time, log *slog.Logger) (BindingCapsReport, error) {
+	var rep BindingCapsReport
+	if st == nil {
+		return rep, errors.New("studio: the loops.wait migration needs a store")
+	}
+	if log == nil {
+		log = slog.Default()
+	}
+	won, err := st.ClaimMigration(ctx, LoopsWaitMigration, now, bindingCapsLease)
+	if err != nil || !won {
+		return rep, err
+	}
+	rep.Ran = true
+	done := false
+	defer func() {
+		if !done {
+			_ = st.ReleaseMigration(context.WithoutCancel(ctx), LoopsWaitMigration)
+		}
+	}()
+	all, err := st.AllBindings(ctx)
+	if err != nil {
+		return rep, fmt.Errorf("list the connector bindings: %w", err)
+	}
+	for _, b := range all {
+		wrote, err := st.AddCapIfAbsent(ctx, b.ID, contract.CapLoopsWait)
+		if err != nil {
+			return rep, fmt.Errorf("add %s to binding %s: %w", contract.CapLoopsWait, b.ID, err)
+		}
+		if !wrote {
+			rep.Skipped++
+			continue
+		}
+		rep.Changed++
+		log.Info("studio: connector binding got loops.wait", "binding", b.ID, "kind", b.Kind)
+	}
+	if err := st.FinishMigration(ctx, LoopsWaitMigration, now); err != nil {
+		return rep, err
+	}
+	done = true
+	log.Info("studio: connector loops.wait migration finished", "changed", rep.Changed, "skipped", rep.Skipped)
+	return rep, nil
+}

@@ -112,14 +112,14 @@ var capabilityText = map[string][2]string{
 	CapKnowledgeWrite:   {"Add to knowledge", "The agent may propose a text for a collection of the Knowledge. The owner confirms each one."},
 	CapToolsWrite:       {"Let people who are not verified change things with add-on tools", "An add-on tool may change something outside LocalAI or in your own data. Verified people already use the write tools of the add-ons the agent is connected to; the write mode of the connection still applies. Turn this on to let listed people who are not verified use them too, and to let verified people use the write tools of add-ons that have no connection. People let in only through a channel, or by a bot that accepts anyone, do not get them, unless a role grants it. The one exception is an add-on that keeps your own data, such as Calendar or Contacts: with this on, everyone the bot lets in can change that data."},
 	CapLoopsWait:        {"Let the agent wait for a change", "The agent may wait for a source to change, or for its sub-agents to finish, and then answer in the same chat. A wait is checked by code and costs no model call until it ends."},
-	CapLoopsStart:       {"Let the agent run on a timer", "The agent may start a loop in the chat: it comes back by itself, as often as the server limits allow, and each run is a model call. Only a verified person can use it. A loop started this way ends sooner than the same loop in your own chat."},
+	CapLoopsStart:       {"Let the agent run on a timer", "The agent may start a loop in the chat: it comes back by itself, as often as the server limits allow, and each run is a model call. Only a verified person can use it. A loop started this way ends sooner than the same loop in your own chat. It is off until you turn it on."},
 }
 
 // usualCapabilities are what an owner normally allows on a new binding: the
 // everyday ones that stay inside LocalAI and the channels it may post to.
 var usualCapabilities = map[string]bool{
 	CapProposalsConfirm: true, CapMemoryWrite: true, CapFilesUpload: true,
-	CapTriggersPropose: true, CapTriggersRun: true, CapTalkbackChannels: true,
+	CapTriggersPropose: true, CapTriggersRun: true, CapTalkbackChannels: true, CapLoopsWait: true,
 }
 
 // UsualConnectorCapabilities returns what the "Allow the usual" preset of a

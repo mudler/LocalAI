@@ -88,7 +88,7 @@ what runs (`chats`, `agents`, `triggers`, `connectors`).
 | `LOCALAI_DISABLE_TRIGGERS` | `false` | Turns off the trigger runner. Trigger routes answer `409 triggers_off`. |
 | `LOCALAI_DISABLE_CONNECTORS` | `false` | Turns off the connector bots. Connector routes answer `409 connectors_off`. |
 | `LOCALAI_DISABLE_CONNECTOR_TALKBACK` | `false` | Turns off `send_message` and the reports of triggers to a channel for every connector binding. |
-| `LOCALAI_SKIP_BINDING_CAPS_MIGRATION` | `false` | Skips the one-time grant of the usual permissions to connector bindings that have none. |
+| `LOCALAI_SKIP_BINDING_CAPS_MIGRATION` | `false` | Skips the one-time grant of the usual permissions to connector bindings that have none, and the one-time add of `loops.wait` to existing bindings. |
 | `LOCALAI_DISABLE_AGENTS` | `false` | Deprecated. It kept the meaning it had in the old agent pool, which also held the knowledge base: it sets `LOCALAI_DISABLE_CHATS` and `LOCALAI_DISABLE_COLLECTIONS`, and logs a warning. |
 
 `LOCALAI_DISABLE_COLLECTIONS` stays separate and turns off only the
@@ -297,7 +297,8 @@ stop it. Type `/loop` in the message box, or use the API.
   the bot: `start_loop`, `schedule_next` and `loop_done` need the capability
   `loops.start` and a verified (paired) sender, and `wait_for` and
   `wait_agents` need the capability `loops.wait` and a listed or paired
-  sender. The owner enables both capabilities for the bot, as for any
+  sender. `loops.wait` is on by default for new bots and is added once to
+  existing bots; `loops.start` is off until the owner ticks it, as for any
   other capability (see [Chats: connectors](/features/chats-connectors/)).
   A bot that accepts anyone gives neither to a sender who is not paired. The
   server checks the capability again when the model calls the tool. A loop in
