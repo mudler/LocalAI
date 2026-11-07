@@ -1447,6 +1447,23 @@ button.cx-step__head:hover,
 @media (max-width: 640px) {
   .cx-wait__facts { flex-direction: column; }
 }
+/* Three or more waits that still wait fold into one chip that opens to the
+   cards. The head is a wait card with a toggle and Stop all side by side. */
+.cx-wait-group { display: flex; flex-direction: column; gap: var(--sp-1); }
+.cx-wait-group__head { flex-direction: row; align-items: center; gap: var(--sp-3); }
+.cx-wait-group__toggle {
+  display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-3); min-width: 0;
+  padding: 0; border: 0; background: none; color: var(--dk-text); font: inherit; text-align: left; cursor: pointer;
+}
+.cx-wait-group__toggle .cx-wait__icon { margin-top: 0; }
+.cx-wait-group__facts { flex: 1 1 auto; padding: 0; }
+.cx-wait-group__head .cx-link { flex: none; white-space: nowrap; }
+.cx-wait-group__chev { flex: none; margin-left: auto; color: var(--dk-muted); transition: transform var(--dur-fast, 120ms) ease; }
+.cx-wait-group[data-open] .cx-wait-group__chev { transform: rotate(90deg); }
+.cx-wait-group__body { display: flex; flex-direction: column; gap: var(--sp-1); padding-left: var(--sp-3); }
+@media (max-width: 640px) {
+  .cx-wait-group__facts { flex-direction: column; }
+}
 /* The answer to /loop list. */
 .cx-loop-list {
   margin: 0 0 var(--sp-2);

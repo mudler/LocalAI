@@ -885,6 +885,17 @@
         "source_failing": "소스 실패",
         "timed_out": "시간 초과",
         "stopped": "중지됨"
+      },
+      "group": {
+        "collapse": "대기 목록 숨기기",
+        "deadline": "가장 가까운 기한 {{time}} ({{when}})",
+        "expand": "대기 목록 보기",
+        "lastCheck": "마지막 확인 {{ago}}",
+        "paused_one": "{{count}}개 일시중지",
+        "paused_other": "{{count}}개 일시중지",
+        "stopAll": "모두 중지",
+        "title_one": "대기 {{count}}개",
+        "title_other": "대기 {{count}}개"
       }
     }
   },

@@ -885,6 +885,17 @@
         "source_failing": "fonte falhou",
         "timed_out": "tempo esgotado",
         "stopped": "parada"
+      },
+      "group": {
+        "collapse": "Ocultar as esperas",
+        "deadline": "Próximo prazo {{time}} ({{when}})",
+        "expand": "Mostrar as esperas",
+        "lastCheck": "Última verificação {{ago}}",
+        "paused_one": "{{count}} em pausa",
+        "paused_other": "{{count}} em pausa",
+        "stopAll": "Parar todas",
+        "title_one": "{{count}} espera",
+        "title_other": "{{count}} esperas"
       }
     }
   },
