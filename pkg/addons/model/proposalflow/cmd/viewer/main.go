@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	pf "github.com/mudler/LocalAI/pkg/addons/model/proposalflow"
+	"github.com/mudler/LocalAI/pkg/xslices"
 )
 
 //go:embed viewer.tmpl.html
@@ -67,14 +68,6 @@ type dataJSON struct {
 	Explore exploreJSON `json:"explore"`
 }
 
-// nonNil keeps empty lists as [] in the JSON, not null.
-func nonNil(l []string) []string {
-	if l == nil {
-		return []string{}
-	}
-	return l
-}
-
 func st(s pf.State) stateJSON {
 	d := strings.TrimPrefix(fmt.Sprintf("%+v", s), "{")
 	d = strings.TrimSuffix(d, "}")
@@ -90,7 +83,7 @@ func main() {
 	}
 	for _, tr := range pf.Traces() {
 		bad := tr.Verify()
-		t := traceJSON{Name: tr.Name, About: tr.About, Final: st(tr.Final), OK: len(bad) == 0, Bad: nonNil(bad)}
+		t := traceJSON{Name: tr.Name, About: tr.About, Final: st(tr.Final), OK: len(bad) == 0, Bad: xslices.NonNil(bad)}
 		for _, r := range pf.Run(pf.Unproposed{}, tr.Events()) {
 			rule, _ := pf.RuleByID(r.Rule)
 			t.Steps = append(t.Steps, stepJSON{
@@ -101,7 +94,7 @@ func main() {
 		data.Traces = append(data.Traces, t)
 	}
 	rep := pf.Explore()
-	data.Explore = exploreJSON{States: rep.States, Edges: rep.Edges, Terminals: len(rep.Terminals), DeadEnds: nonNil(rep.DeadEnds), Violations: nonNil(rep.Violations), ByName: rep.ByName}
+	data.Explore = exploreJSON{States: rep.States, Edges: rep.Edges, Terminals: len(rep.Terminals), DeadEnds: xslices.NonNil(rep.DeadEnds), Violations: xslices.NonNil(rep.Violations), ByName: rep.ByName}
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(true)

@@ -548,6 +548,7 @@ a call may reach. The model never sees or sets either.
   `Request.ResourceKey` (the name as the person wrote it) and `Request.ResourceID`
   (the host ID). The host drops these three fields from any request a client
   sends. A person with no binding gets the code `no_credential`.
+  `Request.GrantedScopes` is dropped the same way.
 - A manifest with `credentials` must accept `api` 2, declare a connector kind and
   declare read tools only: a change under a credential needs a write mode, which
   this version does not have. Tools of such an add-on name no `resourceId`.
@@ -564,6 +565,344 @@ a call may reach. The model never sees or sets either.
 - An add-on that is rate limited returns `contract.ErrRateLimited{RetryAfter}`.
   The runtime answers HTTP 429 with `Retry-After`; the model gets the code
   `rate_limited`, `retryAfter` in seconds and a note not to retry before then.
+
+### OAuth 2.0 credentials
+
+A credential slot of kind `oauth2` says that the host logs the person in to the
+service with the OAuth 2.0 authorization code flow. The slot carries an `oauth`
+descriptor, which is required for this kind and refused for kind `token`. The
+add-on never sees the client secret, the authorization code or a refresh token;
+it only gets a short-lived access token in `Request.Credential`, like any other
+credential.
+
+```json
+{
+  "id": "login",
+  "title": "Example login",
+  "kind": "oauth2",
+  "oauth": {
+    "authorizeUrl": "https://auth.example.test/authorize",
+    "tokenUrl": "https://auth.example.test/token",
+    "revokeUrl": "https://auth.example.test/revoke",
+    "hosts": ["auth.example.test", "*.example.test"],
+    "scopes": {"required": ["read"], "optional": ["write"]},
+    "pkce": "S256",
+    "authorizeParams": [{"name": "access_type", "value": "offline"}],
+    "clientAuth": "basic"
+  }
+}
+```
+
+- `authorizeUrl` and `tokenUrl` are required; `revokeUrl` is optional. Each URL
+  uses `https`, has no user info, query or fragment, uses no IP address and
+  uses port 443 or none.
+- `hosts` has one to four patterns. A pattern is an exact lower-case DNS name
+  of two or more labels, or `*.` followed by such a name; a wildcard matches
+  exactly one label. Every URL must match one pattern. A browser reads some
+  names as an address of this machine, so the host refuses them: a label that
+  is a number (`2130706433`, `127.1`, `0177.0.0.01`) or a hex number
+  (`0x7f000001`, `0x7f.0x0.0x0.0x1`), a top-level label that is not letters or
+  punycode (`xn--...`), `localhost` and any name under it, and a trailing dot.
+- `scopes.required` and `scopes.optional` have at most 16 scopes each, no scope
+  in both, and no repeat. A scope is an RFC 6749 scope token of at most 128
+  bytes.
+- `pkce` must be `S256`.
+- `clientAuth` is how the host authenticates at the token endpoint: `basic`,
+  `post`, or `none` for a public client that uses PKCE alone.
+- `authorizeParams` has at most four `{name, value}` pairs of extra authorize
+  parameters. The names come from a closed registry: `prompt`, `audience` and
+  `resource` (a value of 1 to 128 characters from `A-Z a-z 0-9 . _ : / -`),
+  `access_type` (only `offline`) and `include_granted_scopes` (only `true`).
+  Names that the host sets itself, such as `client_id`, `redirect_uri`,
+  `scope`, `state` and `code_challenge`, are always refused.
+- The manifest parser is strict: an unknown field is refused.
+
+The descriptor is data. It adds no route and makes no network call, and it
+carries no authority. The host works out a SHA-256 digest of its canonical form,
+which does not depend on field order, on the order of the host, scope and
+parameter lists, or on whitespace. An administrator approves the add-on for
+that digest, and a change of the descriptor, for example in an upgrade, voids
+the approval.
+
+An upgrade that changes the descriptor does not log people out. Their logins
+keep their tokens but are held: the host neither uses nor refreshes them, and
+the connections show `needs_approval`, until an administrator approves the new
+descriptor. The approval then moves each held login to the new descriptor when
+it sends the refresh token to the same `tokenUrl` and `revokeUrl` as before,
+and the login works again without a reconnect. When either endpoint changed,
+the host never sends the refresh token there: the login ends with the reason
+`endpoint_changed` and the person connects again. A login that lacks a scope
+the new descriptor requires ends with `scopes_missing`, and the scopes the new
+descriptor no longer names are dropped.
+
+A new login keeps only the scopes the descriptor names, required or optional,
+even when the service grants more (incremental authorization). A login that
+lacks a required scope fails with `scopes_missing`.
+
+The apps list (`GET /api/addons/apps`) gives an add-on with an `oauth2` slot an
+`oauth` object with `requiredScopes` and `optionalScopes`, so the Connectors
+page can offer the optional scopes when a person connects, and the add-on's
+Settings tab shows the administrator the form that approves the login. For an
+administrator, its `admin` object also has `sourceId` and `official` (the
+official library, with the signature checked); the form shows the
+untrusted-source warning above the approval when `official` is not true. The
+addresses of the login are not in the list; an administrator reads them with
+the OAuth client (see [the login routes](#the-login-routes)).
+
+A request also carries `Request.GrantedScopes`, the scopes the host holds for
+the person's login. The host sets it; it is not a secret, and the host drops it
+from any request a client sends.
+
+When the service refuses the access token, the add-on answers HTTP 401 with the
+reason `credential_rejected`. It does so only when the service refused the token
+and nothing changed. The host then decides whether to refresh the token or to
+ask the person to reconnect; a 401 with another reason is an outage. An add-on
+built on the Go protocol package of this repository returns
+`contract.ErrCredentialRejected` (wrapped or not) from a handler, and the
+package sends this answer. When the
+connection has expired or was revoked, the model gets the code
+`reconnect_needed` and a note to tell the person to reconnect on the Connectors
+page. The model is told not to repeat the call and not to report an outage.
+
+#### Where the host keeps an OAuth login
+
+A binding has an auth kind. An empty kind or `token` is a binding whose token
+the person gave; it works as before. A binding of kind `oauth2` holds no token
+of its own: its tokens are in its **grant**, and the binding is a usable
+credential only while it has one. The auth kind must match the add-on: an
+add-on whose credential slot is `oauth2` takes `oauth2` bindings only, and any
+other connector add-on token bindings only. The connector kinds
+(`GET /api/chats/connectors/kinds`) say `auth_kind: "oauth2"` for the first.
+
+The host keeps three records, in the same store as the bindings (the
+`studio_connector*` tables of the database, or `connectors.json` in the data
+folder of a single process):
+
+| Record | Table | Key | Sealed | Plain |
+|---|---|---|---|---|
+| Grant | `studio_connector_grants` | binding | access token, refresh token, token type | expiry, scopes, account label, state (`connected`, `needs_approval` or `reconnect_needed`), reason, descriptor digest, token and revocation endpoints, version, lease |
+| OAuth client | `studio_oauth_clients` | add-on ID | client secret | descriptor digest, client ID, who approved it and when |
+| Login state | `studio_oauth_states` | SHA-256 of the `state` parameter | PKCE verifier | binding, owner, add-on, descriptor digest, redirect URI, scopes, return path, nonce hash, expiry |
+
+- Sealed values use AES-256-GCM with the sealing key of the bindings. Each
+  record type has its own additional data (a grant's names its binding, owner
+  and add-on), so a sealed value copied to another row does not open.
+- The host never stores the `state` parameter itself. A login state lasts 10
+  minutes and works once: the callback removes it in the same step that reads
+  it, on whichever frontend serves the callback, even when the exchange that
+  follows fails.
+- The tables and the `auth_kind` column are added when the server starts.
+  Existing bindings have an empty kind and need no change.
+
+#### Login, refresh and disconnect
+
+An administrator saves the client ID and secret of an add-on for the descriptor
+digest they saw; the save is the approval, and the host refuses it when the
+descriptor changed in the meantime. A status read says whether a secret is
+stored and never returns it.
+
+A login starts only when the approval holds for the current descriptor. The
+host makes a 256-bit `state`, a PKCE verifier and a nonce for a cookie of the
+browser, and asks for the required scopes and the optional ones the person
+ticked. At the callback the state is used up first; then the person and the
+nonce must match the start, and the approval must still hold. The host trades
+the code at `tokenUrl`, checks that the required scopes were granted, and asks
+the add-on's connector op `me`, with the new token, who the person is. An
+`unauthorized` answer fails the login. The host removes control and format
+characters (such as bidirectional overrides) from the account name, folds white
+space and keeps at most 128 characters, so "Connected as" cannot show another
+account than the one linked. The outcome is one of `ok`, `denied`,
+`invalid_state`, `provider_error`, `exchange_failed`, `scopes_missing`,
+`token_too_large` (the access token is larger than the 4096 bytes a request
+carries) and `unavailable`; nothing the service wrote is copied into it.
+
+Every credentialed call reads the grant:
+
+- The access token is refreshed when less than two minutes of its life are
+  left, or less than half of it for a token that lives under four minutes. A
+  service that gives no `expires_in` is refreshed only after a
+  rejection. The proposal broker reads the credential at preview and again at
+  apply, so a confirmation hours later gets a fresh token.
+- When the add-on answers `credential_rejected` to a read, a preview or an
+  apply, the host refreshes once and retries the call once, unless the grant
+  changed since the call began; then it retries with the newer token. A second
+  rejection ends the grant, and the call is refused with `reconnect_needed`. A
+  rejected apply changed nothing, so its proposal stays pending.
+- The new access token, its expiry, the granted scopes and a rotated refresh
+  token are written in one compare-and-set step before the token is used. When
+  that write fails after the service rotated the refresh token, the host tries
+  three times and then ends the grant.
+
+| The service answers | Result | Grant |
+|---|---|---|
+| Network error, timeout or 5xx | the call fails as an outage and may be repeated | unchanged |
+| 429 | `rate_limited` with the `Retry-After` of the service | unchanged |
+| `invalid_grant`, `invalid_client`, another refusal | `reconnect_needed` | secrets wiped, state `reconnect_needed` |
+| an access token over 4096 bytes | `reconnect_needed`, reason `token_too_large` | secrets wiped |
+| a `scope` without a required scope | `reconnect_needed`, reason `scopes_missing` | secrets wiped |
+| a `scope` with other scopes | the token is used | the granted scopes become those of the login that the service still grants; a scope the login never had is not added |
+| (descriptor changed, not approved yet) | `reconnect_needed` to the call; the connection shows `needs_approval`, and no token is used or sent | secrets kept, state `needs_approval` |
+| (new descriptor approved, same `tokenUrl` and `revokeUrl`) | the login works again, without a reconnect | moved to the new descriptor |
+| (new descriptor approved, another `tokenUrl` or `revokeUrl`) | `reconnect_needed`, reason `endpoint_changed`; the refresh token is never sent to the new endpoint | secrets wiped |
+
+Disconnect revokes the refresh token (or the access token when there is no
+refresh token) at `revokeUrl` when the descriptor has one, with a 10 s limit,
+and then deletes the grant even when the revocation failed. The answer says
+whether the service was told. Deleting the connection revokes the same way
+first; a person's delete asks the add-on owner, so it works on any frontend,
+while an administrator's delete revokes only on a process that runs the
+add-ons. A login whose callback finishes after its connection was deleted
+stores nothing: the store writes a grant only while its binding exists, in the
+same step.
+
+The token client follows no redirect, reaches public addresses only, waits at
+most 30 s and reads at most 64 KiB. It accepts bearer tokens only, an access
+token must fit in 4096 bytes, and `expires_in` is clamped to one minute through
+one day. A granted `scope` must be RFC 6749 scope tokens of at most 128 bytes,
+the rule `Request.GrantedScopes` is checked with, so an answer with any other
+scope fails the login or the refresh instead of every later call. Its errors
+are fixed classes: no token, code, verifier, state, client secret or answer of
+the service goes into a log, an error or a tool result.
+
+Uninstalling an add-on does not touch its grants or its client yet: the
+add-on manager has no hook for it. The bindings stay, as they do for a token
+binding.
+
+#### The login routes
+
+| Route | Who | Body | Answer |
+|---|---|---|---|
+| `POST /api/chats/connectors/{id}/oauth/start` | the owner of the binding | `{"scopes": ["write"], "return_to": "/app/chats/connectors"}`, both optional | `{"authorize_url", "expires"}` and the nonce cookie |
+| `GET /api/chats/connectors/oauth/callback` | the browser that started the login | the query the service sends | `303` to the return page |
+| `POST /api/chats/connectors/{id}/oauth/disconnect` | the owner of the binding | none | `{"revoked": true}` or `false` |
+| `GET /api/chats/admin/oauth-clients/{addonId}` | an administrator | none | the client, without the secret |
+| `PUT /api/chats/admin/oauth-clients/{addonId}` | an administrator | `{"client_id", "client_secret", "descriptor_digest"}` | the client, without the secret |
+
+The person's routes need the `connectors` feature and, because a login is an
+add-on call, the `addons` feature. The client routes need the administrator
+role. None of these routes has an MCP tool: a client secret must not pass
+through a chat, and a login is a person's act in their own browser.
+
+**Test a connection.** `POST /api/chats/connectors/{id}/test` on an `oauth2`
+binding asks the add-on's `me` with the access token, renewed first when it
+ends soon. It answers with the types of the login routes: `409 not_connected`
+before the login, `409 reconnect_needed` when the login ended, `409
+needs_approval`, `429 rate_limited` with `Retry-After`, and `503 unavailable`
+when the login cannot be checked now. A frontend does not read the add-on's
+login, so a test there answers `503 unavailable`; test on the add-on owner, or
+in a combined process.
+
+**Limits of the start.** A binding can have at most 5 logins that wait for
+their callback, and a person at most 20; a login stops waiting when its
+callback comes or after 10 minutes. A person can start at most 10 logins a
+minute. Past a limit the start answers `429` with the type `too_many_logins`
+and stores nothing. The count of starts per minute is kept by the add-on
+owner, which serves every start; the waiting logins are counted in the shared
+store.
+
+**Register the callback with the service.** Every add-on uses one redirect
+URI: the base URL of the server followed by
+`/api/chats/connectors/oauth/callback`, for example
+`https://localai.example.test/api/chats/connectors/oauth/callback`. The client
+read returns it as `callback_url`. The host builds it, in this order, from
+`LOCALAI_BASE_URL`, from the forwarding headers of a trusted proxy (see
+[reverse proxy]({{% relref "advanced/reverse-proxy-tls" %}})), or from the
+request when the host is `localhost` or a loopback address. When none of them
+applies, the start is a `409` with the type `base_url_required`, because the
+service would otherwise send the code to an address that anyone can choose.
+The address must use `https`, so that the code, the state and the nonce cookie
+do not cross the network in clear text: a trusted proxy that forwards plain
+`http` for a host that is not loopback also gets `base_url_required`. An
+`http` address works only for a loopback host, or when an administrator sets it
+as `LOCALAI_BASE_URL`.
+The address of a login is stored with its state and sent again at the
+exchange.
+
+**Approve an add-on.** Read the client: `current_digest` is the digest of the
+login the add-on declares now, and `descriptor` shows it in plain fields
+(addresses, hosts, required and optional scopes, client authentication and
+authorize parameters). Register the callback address with the service, then
+save the client ID and secret with `descriptor_digest` set to the digest you
+read. The save is the approval. When the add-on's login changed in the
+meantime, nothing is saved and the answer is `409` with the type
+`approval_stale` and the new `current_digest`; read it again and review the
+change. `client_secret` is write-only: an absent secret keeps the stored one,
+and a public client (`clientAuth` `none`) has none. The read says
+`has_secret`, `approved` and who approved when.
+
+**Log in.** The start checks the binding, the approval and the optional
+scopes, and sets a nonce cookie for this login (`HttpOnly`, `SameSite=Lax`,
+`Secure` over HTTPS, ten minutes). Each login has its own cookie, named
+`localai_oauth_nonce_` and the first eight hex digits of the SHA-256 of its
+state, so two logins started in one browser do not break each other. The return page must be a
+page of the web app: a path under `/app` with an optional query and no
+fragment, as the add-on SDK accepts; anything else is a `400`. Open
+`authorize_url` in the same browser. The service sends the browser back to the
+callback, which:
+
+- needs the session of the person who started the login. The session cookie is
+  `SameSite=Lax`, so the browser sends it on that redirect. With
+  authentication off there is no session, and the nonce cookie alone binds the
+  login to the browser;
+- finds the nonce cookie of its login by the state in the query and clears
+  that cookie, whatever the outcome; the cookies of other logins stay;
+- always answers `303` to the return page, with `oauth=ok`, `oauth=denied`
+  (the person declined; a connection that worked keeps working) or
+  `oauth=error&class=<class>`, where the class is `invalid_state`,
+  `provider_error`, `exchange_failed`, `scopes_missing`, `token_too_large` or
+  `unavailable`. The
+  `error_description` of the service is never copied into the address, a page
+  or a log.
+
+**See the state.** The binding JSON (`GET /api/chats/connectors` and
+`GET /api/chats/connectors/{id}`) has `auth_kind: "oauth2"` and an `oauth`
+object: `state` (`connected`, `reconnect_needed`, `not_connected` or
+`needs_approval`), the fixed `reason` of a reconnect, `account_label`,
+`scopes`, `expires_at` and `has_client`. It never holds a token. The state is
+read from the shared store, so every frontend shows the same; a login whose
+descriptor changed in an upgrade shows `needs_approval` once a call or a
+refresh found it, and the result of the approval as soon as an administrator
+saves it. The add-on list of a chat (`GET /api/chats/{id}/addons`) gives each
+connection a `connection_state`, and the add-on a `connection_state` of
+`reconnect_needed` when a connection the chat may use must be connected again.
+
+#### OAuth with several frontends
+
+State mode: stateless per request, with a claim in the database. Every
+frontend reads the OAuth records from the shared database, and the sealing key
+is in the same database, so any process with the database can open them. No
+process keeps a copy. Two things keep one refresh at a time:
+
+- In one process, one refresh per grant and version runs, and the other callers
+  wait for its result.
+- Across processes, a refresher takes a lease in the grant row (a conditional
+  update on the version, 90 s: three times the 30 s limit of the token request,
+  so a slow service cannot outlive it). The other callers look at the row every
+  200 ms for up to 10 s and use the token the winner wrote. A service that
+  rotates its refresh tokens can revoke the whole login when one refresh token
+  is used twice, so this matters.
+- Each process compares the lease with its own clock. Keep the clocks of the
+  hosts in sync (NTP): a host whose clock is ahead sees the lease end early by
+  as much.
+
+In a split deployment the refresh runs on the add-on owner: the frontends
+forward credentialed tool calls to it, the owner adds the credential and calls
+the add-on, and when the add-on rejects the token the owner refreshes and
+retries before it answers. Only the final `reconnect_needed` refusal crosses
+back to the frontend.
+
+The OAuth descriptor comes from the manifest of the installed add-on, which
+only the owner reads. So the start, the callback, the disconnect and the
+client routes are owner dispatch, in a combined process and in a cluster
+alike: the frontend that gets the request forwards it over the carrier with
+the signed caller, and the owner serves it. The service can send the browser
+back to any frontend; that frontend forwards the query and the nonce cookie as
+fields of the call (never as headers), the owner trades the code, and the
+frontend answers the redirect. A frontend never serves these routes from a
+service of its own: when the owner cannot be reached, the person's routes
+answer `503` and the callback ends with the class `unavailable`. An owner
+that predates the calls answers `503` with the reason that it must be
+upgraded.
 
 ## Singleton owner and its limits
 
@@ -1052,7 +1391,7 @@ when you have the right to.
 On the first start, when the owner has no `sources.json` in the `addons` folder yet,
 LocalAI registers one library with the ID `official`. It is a YAML index of the
 first-party add-ons (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Simple Office,
-Sandbox and Web, plus the other first-party add-ons). The index has one entry for each enabled platform of each add-on, so an
+Sandbox and Web, plus the other first-party add-ons including Google Drive and Gmail). The index has one entry for each enabled platform of each add-on, so an
 install on Linux (amd64 or arm64) and on macOS (Apple silicon or Intel) finds the add-ons for
 its own platform. The Sandbox add-on is Linux only. No add-on is built for Windows yet, so the
 official library lists nothing there.
@@ -2067,7 +2406,9 @@ separately and must reject stale schema or data. Receipt is
 be reconciled before another mutation. Committed receipts require a nonzero
 schema revision. Result has optional `payload` and `outputs`; each output has
 opaque `handle`, safe basename `name`, MIME `mediaType`, and nonnegative `size`.
-Handles are not URLs or filesystem paths. OpenOutput returns an authenticated
+Handles are not URLs or filesystem paths. A read tool may return `payload` next to
+`outputs`: the host refuses a payload over 128 KiB and gives the model the payload as a
+short excerpt next to the handles. OpenOutput returns an authenticated
 stream; callers close it. DTOs do not create artifacts or authorize downloads.
 
 
@@ -2241,6 +2582,12 @@ is the full number. The add-on cards, the Find add-ons tab and the details panel
 "Adds N tools" from them before install. `addonpkg catalog` writes both fields, and
 `addonpkg catalog-tools` adds them to an existing index from the manifests in
 `addons/<id>/manifest.json`. They are a hint like `ui`, and only an add-on entry may carry them.
+
+Every release that the host lists also carries `official`. The host sets it when it reads
+the index, from the ID and the address of the library. It is `true` only for the official
+library at an address that LocalAI ships, so a library that an administrator named `official`
+at another address does not qualify. An index cannot set it: the host overwrites whatever
+the index says. The install dialog uses it to decide whether to warn about the source.
 
 Refresh accepts at most 1 MiB and 1,000 releases. Duplicate release identities
 within a source fail. Duplicate names across sources remain distinct. Search
@@ -5173,7 +5520,9 @@ uninstalled or disabled and not running, the request carries an explicit scope
 (`data`, `backups`, `recoveryCopies`) and the add-on ID typed as `confirm`. The purge is
 recorded before it starts and finished by the owner after a crash. It touches no other
 add-on and removes the owner's records of the add-on's resources only when `data` is in
-the scope. Purging the data clears `needs-recovery`.
+the scope. Purging the data also removes the OAuth client an administrator approved for
+the add-on. An uninstall keeps that client, so a reinstall needs no new approval.
+Purging the data clears `needs-recovery`.
 
 ### Routes and rules
 
@@ -6362,7 +6711,15 @@ When the manifest of an add-on declares host operations, the install dialog show
 - An operation that the deployment already allows says so and needs no choice.
 - An operation that this LocalAI does not support says "Not supported by this LocalAI".
 
-For add-ons of the official library the required operations are already on and you still click **Install and turn on**. For an add-on of another library the dialog also says which library it comes from. The list is read from the package that the owner verifies, not from the library listing, and the owner checks it again when it installs.
+For add-ons of the official library the required operations are already on and you still click **Install and turn on**. For an add-on of another library the warning below names the library it comes from. The list is read from the package that the owner verifies, not from the library listing, and the owner checks it again when it installs.
+
+### Add-ons from another library
+
+An add-on runs as trusted code on this server, whatever library it comes from. The first step of the install dialog therefore shows a warning for every add-on that is not from the official library, whether or not it asks for host operations:
+
+> This add-on comes from *library*, not the official library. It runs as trusted code on this server and can use the credentials it is given. Install it only if you trust its author.
+
+The same warning shows above the approval form of a held upgrade when the package is not from the official library. The dialog warns unless the library entry is marked `official` and the owner's preview agrees (the preview also checks the signature). A host that sends no answer gets the warning. The Host access step does not repeat it.
 
 An agent that installs an add-on through the dispatch route carries no approval. If the add-on needs a host operation that is not held, the owner answers `approval_required`.
 

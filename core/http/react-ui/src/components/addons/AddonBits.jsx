@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import StatusChip from '../ui/StatusChip'
 import Button from '../ui/Button'
+import Callout from '../ui/Callout'
 import { addedByEntry, hueOf, monogram, operationOf, stateChip, versionLabel } from './addonState'
 import { installSteps } from './installSteps'
 import './addons.css'
@@ -92,6 +93,13 @@ export function VersionText({ version }) {
   if (!v.text) return null
   if (v.dev) return <span className="ad-dev" title={v.text}>{t('meta.devBuild')}</span>
   return <span className="ad-version">{v.text}</span>
+}
+
+// The warning for an add-on that does not come from the official library.
+// See untrustedSource for when it shows.
+export function UntrustedNotice({ library, testId = 'untrusted-source' }) {
+  const { t } = useTranslation('addons')
+  return <Callout tone="warn" testId={testId}>{t('hostAccess.notOfficialWarning', { library })}</Callout>
 }
 
 // What a library entry adds, before it is installed: "Adds a page" when it has

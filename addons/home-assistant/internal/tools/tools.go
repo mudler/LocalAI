@@ -21,6 +21,7 @@ import (
 	"github.com/mudler/LocalAI/addons/home-assistant/internal/haapi"
 	"github.com/mudler/LocalAI/addons/home-assistant/internal/policy"
 	"github.com/mudler/LocalAI/addons/internal/idle"
+	"github.com/mudler/LocalAI/addons/internal/journal"
 	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -88,7 +89,7 @@ type Runtime struct {
 
 	applyMu sync.Mutex
 	jmu     sync.Mutex
-	jrnl    *journal
+	jrnl    *journal.Journal
 	dir     string
 }
 
@@ -109,11 +110,11 @@ func New(api *haapi.Client, pol *policy.Store) *Runtime {
 // WithDataDir keeps the journal of changes in dir.
 func (r *Runtime) WithDataDir(dir string) *Runtime { r.dir = dir; return r }
 
-func (r *Runtime) journal() *journal {
+func (r *Runtime) journal() *journal.Journal {
 	r.jmu.Lock()
 	defer r.jmu.Unlock()
 	if r.jrnl == nil {
-		r.jrnl = openJournal(r.dir)
+		r.jrnl = journal.Open(r.dir)
 	}
 	return r.jrnl
 }

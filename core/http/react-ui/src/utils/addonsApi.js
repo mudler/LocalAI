@@ -280,6 +280,9 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
     descriptions: release.ui?.descriptions || {},
     version: release.version,
     sourceId: release.sourceId,
+    // True only when the host stamped the entry as coming from the official
+    // library. A host that does not send it leaves the dialog warning.
+    official: release.official === true,
     // The kind of the entry: addon when the library does not say.
     kind: release.kind || 'addon',
     alias: release.alias || '',

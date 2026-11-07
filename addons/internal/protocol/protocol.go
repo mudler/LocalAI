@@ -223,6 +223,11 @@ func Handler(startup Startup, rt contract.Runtime) http.Handler {
 				// host reads the wait from Retry-After.
 				w.Header().Set("Retry-After", strconv.Itoa(rateLimited.Seconds()))
 				http.Error(w, "rate_limited", http.StatusTooManyRequests)
+			case errors.Is(err, contract.ErrCredentialRejected):
+				// The service refused the access token the host gave and
+				// nothing changed. The host renews the token once and calls
+				// again; any other answer would be an outage to it.
+				http.Error(w, "credential_rejected", http.StatusUnauthorized)
 			case errors.Is(err, ErrNotFound):
 				http.Error(w, "not found", http.StatusNotFound)
 			case errors.Is(err, ErrForbidden):

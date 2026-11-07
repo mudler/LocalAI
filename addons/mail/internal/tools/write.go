@@ -14,6 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/mudler/LocalAI/addons/internal/journal"
 	"github.com/mudler/LocalAI/addons/mail/internal/account"
 	"github.com/mudler/LocalAI/addons/mail/internal/compose"
 	"github.com/mudler/LocalAI/addons/mail/internal/dial"
@@ -155,7 +156,7 @@ func (r *Runtime) Preview(_ context.Context, env contract.Envelope) (contract.Pr
 // Receipt answers from the journal. An operation that was started and not
 // finished is unknown: the add-on cannot tell whether the server took it.
 func (r *Runtime) Receipt(_ context.Context, op string) (contract.Receipt, error) {
-	if rc, ok := r.journal().receipt(op); ok {
+	if rc, ok := r.journal().Receipt(op); ok {
 		return rc, nil
 	}
 	return contract.Receipt{OperationID: op, State: contract.ReceiptUnknown}, nil
@@ -172,7 +173,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	r.applyMu.Lock()
 	defer r.applyMu.Unlock()
 	j := r.journal()
-	if rc, ok := j.receipt(op); ok {
+	if rc, ok := j.Receipt(op); ok {
 		return rc, nil
 	}
 	w, err := r.prepare(env)
@@ -182,7 +183,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	if w.revision() != rev.Data {
 		rc := contract.Receipt{OperationID: op, State: contract.ReceiptRejected, Revision: rev,
 			Result: contract.Result{Payload: smallResult(map[string]any{"stale": true, "note": "The message changed after the preview. Nothing was sent."})}}
-		return rc, j.commit(rc)
+		return rc, j.Commit(rc)
 	}
 	ctx, cancel := context.WithTimeout(ctx, CallTimeout)
 	defer cancel()
@@ -190,21 +191,21 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	if err != nil {
 		return contract.Receipt{}, translate(err)
 	}
-	_, started := j.started(op)
+	_, started := j.Started(op)
 	if w.tool == ToolSendMessage {
 		return r.applySend(ctx, j, w, raw, rev, started)
 	}
 	return r.applyDraft(ctx, j, w, raw, rev, started)
 }
 
-func (r *Runtime) applySend(ctx context.Context, j *journal, w write, raw []byte, rev contract.Revision, started bool) (contract.Receipt, error) {
+func (r *Runtime) applySend(ctx context.Context, j *journal.Journal, w write, raw []byte, rev contract.Revision, started bool) (contract.Receipt, error) {
 	if started {
 		// An earlier attempt may have reached the server. Sending again could
 		// deliver the message twice.
 		return contract.Receipt{}, errUnknown
 	}
 	id := w.opID()
-	if err := j.begin(id, r.now()); err != nil {
+	if err := j.Begin(id, r.now()); err != nil {
 		return contract.Receipt{}, err
 	}
 	rcpts := append(append([]string{}, w.msg.To...), w.msg.Cc...)
@@ -212,16 +213,16 @@ func (r *Runtime) applySend(ctx context.Context, j *journal, w write, raw []byte
 	switch {
 	case err == nil:
 	case smtpc.Definite(err):
-		j.forget(id)
+		j.Forget(id)
 		return contract.Receipt{}, translateWrite(err)
 	default:
 		return contract.Receipt{}, errUnknown
 	}
 	rc := committed(id, rev, map[string]any{"sent": true, "messageId": w.msg.MessageID, "recipients": len(rcpts)})
-	return rc, j.commit(rc)
+	return rc, j.Commit(rc)
 }
 
-func (r *Runtime) applyDraft(ctx context.Context, j *journal, w write, raw []byte, rev contract.Revision, started bool) (contract.Receipt, error) {
+func (r *Runtime) applyDraft(ctx context.Context, j *journal.Journal, w write, raw []byte, rev contract.Revision, started bool) (contract.Receipt, error) {
 	id := w.opID()
 	s, err := imapc.Open(ctx, r.Dialer, w.acct)
 	if err != nil {
@@ -236,17 +237,17 @@ func (r *Runtime) applyDraft(ctx context.Context, j *journal, w write, raw []byt
 		// Look for the draft of the earlier attempt by its Message-ID.
 		if uid, ferr := s.FindByMessageID(ctx, folder, w.msg.MessageID); ferr == nil && uid != 0 {
 			rc := committed(id, rev, map[string]any{"saved": true, "folder": folder, "uid": uid})
-			return rc, j.commit(rc)
+			return rc, j.Commit(rc)
 		}
 	}
-	if err := j.begin(id, r.now()); err != nil {
+	if err := j.Begin(id, r.now()); err != nil {
 		return contract.Receipt{}, err
 	}
 	uid, err := s.AppendDraft(ctx, folder, raw)
 	switch {
 	case err == nil:
 	case errors.Is(err, imapc.ErrServer), errors.Is(err, imapc.ErrNoFolder), errors.Is(err, imapc.ErrNotAllowed):
-		j.forget(id)
+		j.Forget(id)
 		return contract.Receipt{}, translateWrite(err)
 	default:
 		return contract.Receipt{}, errUnknown
@@ -256,7 +257,7 @@ func (r *Runtime) applyDraft(ctx context.Context, j *journal, w write, raw []byt
 		out["uid"] = uid
 	}
 	rc := committed(id, rev, out)
-	return rc, j.commit(rc)
+	return rc, j.Commit(rc)
 }
 
 // opID is the journal key: the operation the host knows the change by.

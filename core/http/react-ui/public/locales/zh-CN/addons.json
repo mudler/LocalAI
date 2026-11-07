@@ -890,7 +890,7 @@
     "lockedNoAuth": "登录已关闭，任何能访问此服务器的人都可能修改这些设置；它们由管理员在策略文件中设定。",
     "newOptional": "新版本还请求 {{ops}}。这些是可选的，且未被允许。",
     "noLongerRequested": "此版本不再请求它。你可以将其关闭。",
-    "notOfficial": "此插件来自 {{library}}，不是官方库。",
+    "notOfficialWarning": "此插件来自 {{library}}，不是官方库。它在此服务器上作为受信任的代码运行，并可以使用交给它的凭据。只有在你信任其作者时才安装。",
     "op": {
       "alreadyAllowed": "已允许",
       "blocked": "被管理员策略禁止",
@@ -926,6 +926,56 @@
       "reviewNamed": "查看并批准 {{name}} 的主机访问",
       "title": "{{name}} {{version}} 等待你的批准"
     }
+  },
+  "oauthClient": {
+    "title": "账户登录",
+    "intro": "用户会把此插件连接到自己在某个服务上的账户。请在服务中登记下方的回调地址，填写服务给你的客户端，然后批准登录。在此之前任何人都无法连接。",
+    "status": {
+      "unconfigured": "尚未批准。任何人都无法连接。",
+      "changed": "此插件的登录在批准后已更改。在你重新批准之前，任何人都无法连接或续期登录。",
+      "approved": "于 {{when}} 批准。",
+      "approvedBy": "由 {{who}} 于 {{when}} 批准。"
+    },
+    "sentTo": "用户登录的位置",
+    "hosts": "允许的主机",
+    "required": "始终请求",
+    "optional": "用户可以添加",
+    "none": "无",
+    "tokens": "令牌来自",
+    "revoke": "断开时撤销的位置",
+    "noRevoke": "没有地址：断开只会在此处忘记登录",
+    "clientAuth": "客户端认证",
+    "auth": {
+      "basic": "客户端 ID 和密钥，放在请求头中发送",
+      "post": "客户端 ID 和密钥，放在请求正文中发送",
+      "none": "无密钥（公共客户端）",
+      "other": "其他"
+    },
+    "params": "额外的登录参数",
+    "callback": "回调地址",
+    "callbackHint": "在服务中将此地址登记为客户端的重定向地址。",
+    "copy": "复制",
+    "copied": "已复制",
+    "baseUrlRequired": "此服务器不知道自己的公开地址，因此没有回调地址，任何人都无法连接。请设置服务器的外部基础 URL，然后重新加载此页面。",
+    "clientId": "客户端 ID",
+    "clientSecret": "客户端密钥",
+    "secretHint": "只写：以密封方式保存，之后不会再显示。",
+    "secretSaved": "已保存一个密钥。留空即可保留它。",
+    "secretKeepPlaceholder": "已保存（隐藏）",
+    "noSecret": "此登录不使用客户端密钥。",
+    "approve": "批准并保存",
+    "saved": "已保存。登录已获批准。",
+    "stale": "在你检查期间，此插件的登录已更改。没有保存任何内容。",
+    "refresh": "显示新的登录",
+    "loadFailed": "无法读取此插件的登录",
+    "errors": {
+      "unavailable": "无法访问该插件。请稍后再试。",
+      "needsApproval": "该插件尚未批准。",
+      "baseUrlRequired": "此服务器不知道自己的公开地址。请设置服务器的外部基础 URL。",
+      "approvalStale": "此插件的登录已更改。请显示新的登录。",
+      "save": "无法保存客户端。"
+    },
+    "unknownLibrary": "未知的库"
   },
   "file": {
     "button": "从文件安装",

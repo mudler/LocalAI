@@ -43,7 +43,7 @@ func addonOut(c echo.Context, a studiosvc.AddonInfo) schema.ChatsAddon {
 		row.Enabled = nil
 	}
 	for _, x := range a.Connections {
-		row.Connections = append(row.Connections, schema.ChatsConnection{ID: x.ID, Name: x.Name, Handle: x.Handle})
+		row.Connections = append(row.Connections, schema.ChatsConnection{ID: x.ID, Name: x.Name, Handle: x.Handle, ConnectionState: x.State, Shared: x.Shared, Owner: x.Owner})
 	}
 	for _, t := range a.ToolList {
 		kind := "read"
@@ -56,7 +56,24 @@ func addonOut(c echo.Context, a studiosvc.AddonInfo) schema.ChatsAddon {
 		noun, plural, lang := resourceNouns(c, *a.Resources)
 		row.Resources = &schema.ChatsAddonResources{Noun: noun, NounPlural: plural, Language: lang}
 	}
+	row.ConnectionState = enabledConnectionState(a)
 	return row
+}
+
+// enabledConnectionState sums up the logins of the connections this chat may
+// use: reconnect_needed when one of them must be connected again, connected
+// when those that use a login work, empty when none uses a login.
+func enabledConnectionState(a studiosvc.AddonInfo) string {
+	state := ""
+	for _, x := range a.Enabled.Items {
+		switch x.State {
+		case studiosvc.OAuthReconnectNeeded:
+			return studiosvc.OAuthReconnectNeeded
+		case studiosvc.OAuthConnected:
+			state = studiosvc.OAuthConnected
+		}
+	}
+	return state
 }
 
 // resourceNouns resolves the word for the resources of an add-on in the

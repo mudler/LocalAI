@@ -582,7 +582,105 @@
           "a translation",
           "makes a level 3 host refuse the add-on with the plain reason",
           "is a field that a host without it refuses as unknown",
-          "keeps the field names on the wire and omits them when empty"
+          "keeps the field names on the wire and omits them when empty",
+          "carry the scopes the host holds and round-trip",
+          "are omitted when empty",
+          "are bounded in count, size and shape",
+          "is valid in a slot of kind oauth2",
+          "is required for kind oauth2 and refused for kind token",
+          "round-trips through the strict manifest parser and refuses unknown fields",
+          "empty authorize URL",
+          "empty token URL",
+          "http",
+          "user info",
+          "empty query mark",
+          "fragment",
+          "IPv4 literal",
+          "IPv6 literal",
+          "other port",
+          "upper-case host",
+          "host outside the patterns",
+          "space",
+          "space",
+          "accepts port 443",
+          "allows the revoke URL to be absent",
+          "none",
+          "five",
+          "upper case",
+          "wildcard of one label",
+          "bare wildcard",
+          "wildcard in the middle",
+          "wildcard without dot",
+          "port",
+          "IP address",
+          "empty label",
+          "leading hyphen",
+          "repeat",
+          "repeat",
+          "hex number",
+          "dotted hex",
+          "decimal number",
+          "short dotted form",
+          "dotted octal",
+          "localhost",
+          "localhost with a trailing dot",
+          "a name under localhost",
+          "a trailing dot",
+          "one label",
+          "a numeric label",
+          "a hex label",
+          "a numeric top-level label",
+          "a top-level label with digits",
+          "accepts registrable names, punycode top-level labels and labels that only start with digits",
+          "matches a wildcard against exactly one label before the suffix",
+          "17 required",
+          "17 optional",
+          "overlap",
+          "empty token",
+          "quote",
+          "non-ASCII",
+          "129 bytes",
+          "accepts 16 of each, 128 bytes and URL-like scopes",
+          "accepts no scope at all",
+          "accepts only S256 as the PKCE method",
+          "accepts the three client authentications and no other",
+          "accepts the names of the closed registry",
+          "an unknown name",
+          "client_id",
+          "client_secret",
+          "redirect_uri",
+          "response_type",
+          "scope",
+          "state",
+          "code",
+          "code_challenge",
+          "code_challenge_method",
+          "grant_type",
+          "access_type other than offline",
+          "include_granted_scopes other than true",
+          "a value with a space",
+          "a value with an ampersand",
+          "an empty value",
+          "a value of 129 bytes",
+          "a repeated name",
+          "five parameters",
+          "keeps every protocol name out of the registry",
+          "is stable across field order, whitespace and list order",
+          "changes with every field",
+          "does not move a scope from one list to the other unseen",
+          "treats a missing and an empty list alike",
+          "query",
+          "backslash",
+          "backslash",
+          "seconds",
+          "spaces around seconds",
+          "zero is raised to one",
+          "a negative number is raised to one",
+          "a long wait is cut",
+          "empty gives the default",
+          "text gives the default",
+          "reads an HTTP date",
+          "raises a date in the past to one second"
         ]
       },
       {
@@ -831,14 +929,26 @@
           "keeps the level of Tables out of the committed index shape, and writes it on request",
           "writes the level the manifest needs when asked to",
           "translates the title and the description of mail in every main language",
-          "gives every translated connector kind of mail the fields of its English kind, and no others"
+          "gives every translated connector kind of mail the fields of its English kind, and no others",
+          "audits actual host calls and strict package contract for gdrive",
+          "audits actual host calls and strict package contract for gmail",
+          "has consistent package files for gdrive",
+          "has consistent package files for gmail",
+          "translates the title and the description of gdrive in every main language",
+          "translates the title and the description of gmail in every main language",
+          "gives every translated connector kind of gdrive the fields of its English kind, and no others",
+          "gives every translated connector kind of gmail the fields of its English kind, and no others"
         ]
       },
       {
         "path": ".cache/addons/logs/contracts-architecture.json",
         "cases": [
           "keeps official addon identities out of generic CLI and config policy code",
-          "keeps provider and Home dispatch independent of official addon IDs"
+          "keeps provider and Home dispatch independent of official addon IDs",
+          "keeps official add-on IDs out of auth, connectors and egress presets",
+          "keeps service names and hosts, unreviewed authorize parameters and OAuth libraries out of the host",
+          "finds the OAuth files by pattern, the application wiring and the Connectors page included, and fails on a pattern that matches nothing",
+          "fails on a service named in code, a locale or the UI, an unreviewed parameter and an OAuth library"
         ]
       }
     ]
@@ -952,7 +1062,9 @@
       "finds an entry by its translated text as well as by the English text",
       "keeps a plain entry free of translation fields on the wire",
       "rejects translations that the manifest would refuse",
-      "reads the feature level an entry requires, and an entry without it needs none"
+      "reads the feature level an entry requires, and an entry without it needs none",
+      "is true only for the official ID at an address the shipped library has used",
+      "is false for an entry of another library, even when the index claims otherwise"
     ],
     "report": ".cache/addons/logs/catalog.json"
   },
@@ -1307,7 +1419,10 @@
           "not a number",
           "success",
           "keeps a refusal with no header as it was",
-          "bounds the hint to printable ASCII"
+          "bounds the hint to printable ASCII",
+          "types a 401 credential_rejected answer, never as an outage",
+          "keeps a 401 with another reason, or none, an outage",
+          "does not read the reason on another status as a rejection"
         ]
       },
       {
@@ -1346,7 +1461,8 @@
           "exits at once for a runtime with nothing to close",
           "answers 429 with the wait in Retry-After and a fixed body",
           "tells the owner which status the service behind the add-on answered, and what to do",
-          "sends no status header for a status that is not a refusal of a service"
+          "sends no status header for a status that is not a refusal of a service",
+          "answers 401 credential_rejected, the answer the host renews the credential for"
         ]
       }
     ]
@@ -1639,7 +1755,34 @@
           "refuses a resource that is not listed, names the listed ones and never calls the add-on",
           "names the listed resources when the connection lists several, so the model picks one",
           "refuses the omission when the source cannot serve it",
-          "does not change a slot that is not optional: the omission is refused"
+          "does not change a slot that is not optional: the omission is refused",
+          "needs no host change and no branch on the add-on ID",
+          "forwards the callback with its typed fields and the signed actor to the owner",
+          "carries a client secret to the owner and returns its typed refusal unchanged",
+          "answers unavailable when the owner has no OAuth service, and never from the frontend's own",
+          "serves the call on the owner itself when nothing forwards",
+          "refuses an actor the host does not accept before anything is sent",
+          "an unknown op",
+          "a start with no binding",
+          "a client call with no add-on",
+          "a field that is too long",
+          "too many scopes",
+          "prints and logs no secret of a call",
+          "keeps a lost answer to a write an unknown outcome and a lost read unavailable",
+          "drops granted scopes that the caller put in the request and sets the host's",
+          "names reconnect_needed on the wire",
+          "crosses the carrier from the owner to a forwarding frontend as the same refusal",
+          "is a plain denial for a caller that does not tell refusals apart",
+          "is renewed once and the call is retried with the new token",
+          "ends the login after a second rejection and refuses with reconnect_needed",
+          "stays a plain outage for a source that cannot renew",
+          "is renewed on the owner, so a forwarding frontend gets the result or the reconnect_needed refusal",
+          "crosses the carrier as rate limited when the token endpoint asks to wait",
+          "classifies the reads of every call family and fails closed for the rest",
+          "reports a lost answer to a change as an unknown outcome and to a read as unavailable",
+          "bounds a reply",
+          "needs exactly one of data and error in an OAuth reply",
+          "writes a decided refusal into the envelope and any other error as a typed error"
         ]
       },
       {
@@ -2260,7 +2403,10 @@
       "drops the record of a deleted resource so create, share and delete never fills the store",
       "never moves the floor of the add-on log for lowerings of other kinds",
       "moves the lowerings of other kinds out of a single log written before the split",
-      "refuses a store whose log of the other kinds holds an add-on lowering"
+      "refuses a store whose log of the other kinds holds an add-on lowering",
+      "renews it once at the preview and gives the add-on the scopes of the login",
+      "refuses the preview with reconnect_needed after a second rejection, and stores nothing",
+      "renews it once at the apply, and after a second rejection keeps the proposal pending"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -2541,7 +2687,10 @@
           "drops the record of a deleted resource so create, share and delete never fills the store",
           "never moves the floor of the add-on log for lowerings of other kinds",
           "moves the lowerings of other kinds out of a single log written before the split",
-          "refuses a store whose log of the other kinds holds an add-on lowering"
+          "refuses a store whose log of the other kinds holds an add-on lowering",
+          "renews it once at the preview and gives the add-on the scopes of the login",
+          "refuses the preview with reconnect_needed after a second rejection, and stores nothing",
+          "renews it once at the apply, and after a second rejection keeps the proposal pending"
         ]
       },
       {
@@ -3046,7 +3195,29 @@
           "refuses a resource that is not listed, names the listed ones and never calls the add-on",
           "names the listed resources when the connection lists several, so the model picks one",
           "refuses the omission when the source cannot serve it",
-          "does not change a slot that is not optional: the omission is refused"
+          "does not change a slot that is not optional: the omission is refused",
+          "drops granted scopes that the caller put in the request and sets the host's",
+          "names reconnect_needed on the wire",
+          "crosses the carrier from the owner to a forwarding frontend as the same refusal",
+          "is a plain denial for a caller that does not tell refusals apart",
+          "needs no host change and no branch on the add-on ID",
+          "is renewed once and the call is retried with the new token",
+          "ends the login after a second rejection and refuses with reconnect_needed",
+          "stays a plain outage for a source that cannot renew",
+          "is renewed on the owner, so a forwarding frontend gets the result or the reconnect_needed refusal",
+          "crosses the carrier as rate limited when the token endpoint asks to wait",
+          "forwards the callback with its typed fields and the signed actor to the owner",
+          "carries a client secret to the owner and returns its typed refusal unchanged",
+          "answers unavailable when the owner has no OAuth service, and never from the frontend's own",
+          "serves the call on the owner itself when nothing forwards",
+          "refuses an actor the host does not accept before anything is sent",
+          "an unknown op",
+          "a start with no binding",
+          "a client call with no add-on",
+          "a field that is too long",
+          "too many scopes",
+          "prints and logs no secret of a call",
+          "keeps a lost answer to a write an unknown outcome and a lost read unavailable"
         ]
       },
       {
@@ -3313,7 +3484,9 @@
           "negotiates the language from a setup-only translation",
           "reads the setup text of the manifest, for a tool add-on with no UI too",
           "writes no setup field for an add-on without one",
-          "writes the field names setup, setups and localizedSetup"
+          "writes the field names setup, setups and localizedSetup",
+          "names the scopes of an OAuth login, and nothing of a token slot",
+          "tells an administrator whether an add-on comes from the official library, and nobody else"
         ]
       },
       {
@@ -3529,7 +3702,10 @@
           "not a number",
           "success",
           "keeps a refusal with no header as it was",
-          "bounds the hint to printable ASCII"
+          "bounds the hint to printable ASCII",
+          "types a 401 credential_rejected answer, never as an outage",
+          "keeps a 401 with another reason, or none, an outage",
+          "does not read the reason on another status as a rejection"
         ]
       },
       {
@@ -3810,7 +3986,10 @@
       "library: the cards show the title and description in the user language, and English per field where a language has none",
       "library: English and an unlisted language keep the English text",
       "library: the install dialog names the add-on in the user language",
-      "installed list: tiles show the translated name and a search finds it by the translated or the English name"
+      "installed list: tiles show the translated name and a search finds it by the translated or the English name",
+      "unit: addons: the catalog entry carries the official flag only when the host sent true",
+      "unit: addons: the dialog warns about the source unless the entry is official and the preview agrees",
+      "unit: addons: every locale words the source warning with the library name and no markup"
     ]
   },
   "esm-ui": {
@@ -4634,7 +4813,12 @@
       "go: says nothing when the call carries no connection",
       "go: turns a missing selection into a note the model can relay",
       "go: is tools.write for the tools that change things, in an add-on that keeps the owner's own data",
-      "go: hands the host the held write with its digest and the facts the tool lets a chat repeat, never the arguments"
+      "go: hands the host the held write with its digest and the facts the tool lets a chat repeat, never the arguments",
+      "go: returns an excerpt next to the artifact references",
+      "go: keeps the wire shape of an artifact result without a payload",
+      "go: refuses an oversized payload even when handles come with it",
+      "go: tells the model a connection expired or was revoked, without an outage",
+      "go: renders the excerpt of an artifact result for the model"
     ]
   },
   "tables-admin": {
@@ -5218,7 +5402,17 @@
       "go: gives every translated connector kind of telegram the fields of its English kind, and no others",
       "go: gives every translated connector kind of voice the fields of its English kind, and no others",
       "go: gives every translated connector kind of web the fields of its English kind, and no others",
-      "go: lists every add-on directory that has a manifest"
+      "go: lists every add-on directory that has a manifest",
+      "go: audits actual host calls and strict package contract for gdrive",
+      "go: audits actual host calls and strict package contract for gmail",
+      "go: translates the title and the description of gdrive in every main language",
+      "go: translates the title and the description of gmail in every main language",
+      "go: translates the title and the description of memory in every main language",
+      "go: gives every translated connector kind of gdrive the fields of its English kind, and no others",
+      "go: gives every translated connector kind of gmail the fields of its English kind, and no others",
+      "go: gives every translated connector kind of memory the fields of its English kind, and no others",
+      "go: has consistent package files for gdrive",
+      "go: has consistent package files for gmail"
     ]
   },
   "updates": {
@@ -5579,5 +5773,44 @@
       "previews, sends and saves a draft only through the write path, once for each operation",
       "answers the connector check by logging in to both servers"
     ]
+  },
+  "oauth": {
+    "kind": "ginkgo",
+    "commands": [
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./tests/addons/oauth",
+        "-ginkgo.json-report=../../../.cache/addons/logs/oauth.json"
+      ]
+    ],
+    "cases": [
+      "login: provider-a (basic client authentication)",
+      "login: provider-b (post client authentication)",
+      "login: provider-c (none client authentication)",
+      "failures: provider-a (basic client authentication)",
+      "failures: provider-b (post client authentication)",
+      "failures: provider-c (none client authentication)",
+      "short token: provider-a (basic client authentication)",
+      "short token: provider-b (post client authentication)",
+      "short token: provider-c (none client authentication)",
+      "upgrade: provider-a (basic client authentication)",
+      "upgrade: provider-b (post client authentication)",
+      "upgrade: provider-c (none client authentication)",
+      "two frontends: provider-a (basic client authentication)",
+      "two frontends: provider-b (post client authentication)",
+      "two frontends: provider-c (none client authentication)",
+      "keeps the logins of the services apart",
+      "connects, reads inside the folder, writes only with approval, renews, and revokes",
+      "tells the model how long to wait when Drive limits the calls",
+      "connects, reads inside the label, writes only with approval, renews, and revokes",
+      "tells the model how long to wait when Gmail limits the calls"
+    ],
+    "report": ".cache/addons/logs/oauth.json"
   }
 }

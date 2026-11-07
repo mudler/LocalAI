@@ -123,6 +123,23 @@ func (c *Connectors) sharedBinding(ctx context.Context, user, id string) (connec
 	return b, share, true
 }
 
+// bindingFor returns the binding id when user may use it: it is the user's
+// own, or another person's and shared with the user now. Any other binding is
+// the answer of one that does not exist, so a caller learns nothing of it.
+func (c *Connectors) bindingFor(ctx context.Context, user, id string) (connectors.Binding, error) {
+	b, err := c.o.Store.GetBinding(ctx, id)
+	if err != nil {
+		return connectors.Binding{}, err
+	}
+	if b.Owner == principal(user) {
+		return b, nil
+	}
+	if _, _, ok := c.sharedBinding(ctx, user, id); ok {
+		return b, nil
+	}
+	return connectors.Binding{}, connectors.ErrNoCredential
+}
+
 // sharedTo says whether the binding id of another person is shared with user
 // now.
 func (c *Connectors) sharedTo(ctx context.Context, user, id string) bool {
@@ -141,6 +158,11 @@ func (c *Connectors) SharedConnectors(ctx context.Context, user string) ([]Share
 			continue
 		}
 		state := c.withState(ctx, info(b))
+		if st, ok, err := c.loginState(ctx, b); err == nil && b.UsesOAuth() && (!ok || st != OAuthConnected) {
+			// The login is the owner's. The person is told so, and gets no
+			// detail of it (no reason, no account).
+			state.Active, state.Reason = false, "the owner must connect this connection again"
+		}
 		out = append(out, SharedConnectorView{ID: b.ID, Name: b.Name, Kind: b.Kind, AddonID: b.AddonID, Enabled: b.Enabled,
 			Active: state.Active, Reason: state.Reason, OwnerName: share.OwnerName, Role: ShareRole})
 	}

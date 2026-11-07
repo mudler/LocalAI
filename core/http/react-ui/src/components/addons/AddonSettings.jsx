@@ -6,11 +6,15 @@ import AddonSlot from '../../addons/AddonSlot'
 import { usable } from '../../addons/registryState'
 import { declaresSlot } from '../../addons/slots'
 import HostControlsForm from '../hostcontrols/HostControlsForm'
+import OAuthClientSettings from '../hostcontrols/OAuthClientSettings'
+import { hasOAuthLogin } from '../../addons/hostControls'
 
 // The Settings tab of an add-on's details: the add-on's own settings section
 // (its settings.sections contribution, drawn here and nowhere else), then the
 // host controls the apps list draws for it (ui.controls), which the host
-// draws with its own components and binds to its own settings. Administrators
+// draws with its own components and binds to its own settings, and, for an
+// add-on that logs people in with OAuth, the form that approves its login.
+// Administrators
 // only: the server refuses every change to anyone else, and the tab is not
 // offered to them.
 export default function AddonSettings({ app, title }) {
@@ -23,6 +27,7 @@ export default function AddonSettings({ app, title }) {
         ? <AddonSlot slot="settings.sections" context={context} />
         : <Callout tone="info" testId="addon-settings-off">{t('settingsTab.off', { name: title })}</Callout>)}
       <HostControlsForm app={app} />
+      {hasOAuthLogin(app) && <OAuthClientSettings app={app} />}
     </div>
   )
 }

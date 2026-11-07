@@ -25,7 +25,25 @@ const (
 	// this call uses: the chat and its agent name none, and the person has
 	// several or none. The host picks no connection for them.
 	CodeSelectConnection = "select_connection"
+	// CodeReconnectNeeded means the person's connection to the service has
+	// expired or was revoked and the host cannot renew it. Nothing was sent.
+	// The person must connect again.
+	CodeReconnectNeeded = "reconnect_needed"
+	// CodeOwnerReconnectNeeded means the connection was shared with the person
+	// and its owner's login to the service has ended or was never made. Only
+	// the owner can connect it again. Nothing was sent.
+	CodeOwnerReconnectNeeded = "owner_reconnect_needed"
 )
+
+// refusalCode reports whether t is the code of a CredentialRefusal, as it
+// travels on the wire between the owner and a forwarding frontend.
+func refusalCode(t string) bool {
+	switch t {
+	case CodeResourceNotAllowed, CodeNoCredential, CodeWriteNotAllowed, CodeSelectConnection, CodeReconnectNeeded, CodeOwnerReconnectNeeded:
+		return true
+	}
+	return false
+}
 
 type connectionKey struct{}
 
@@ -60,6 +78,10 @@ type CredentialGrant struct {
 	// ResourceKey and ResourceID are the entry of the list that matched. Both
 	// are empty for a call that names no resource.
 	ResourceKey, ResourceID string
+	// GrantedScopes are the OAuth scopes the binding holds. They go in
+	// Request.GrantedScopes; they are not secret and are empty for a binding
+	// that is not an OAuth login.
+	GrantedScopes []string
 	// WriteMode is the write mode of the binding the credential comes from:
 	// WriteOff, WritePropose or WriteAuto. Empty means WriteOff. It decides
 	// whether a write tool runs and whether a person must confirm it.
@@ -67,6 +89,10 @@ type CredentialGrant struct {
 	// BindingID and BindingName say which connection the credential comes
 	// from. The proposal, the result of the call and the audit line carry them.
 	BindingID, BindingName string
+	// Version is the version of the OAuth login the credential comes from,
+	// for CredentialRenewer. Zero means a credential that cannot be renewed,
+	// such as a token the person gave. It never reaches the add-on.
+	Version int64
 	// Hold, when set, runs the call that uses the credential as admitted work
 	// of its source: the binding is another person's, shared with the caller,
 	// and a lowering or a revocation of that share cancels the context it gives
@@ -84,14 +110,73 @@ func (g CredentialGrant) Use(ctx context.Context, run func(context.Context) erro
 	return g.Hold(ctx, run)
 }
 
+// SetOn puts the credential, the resource key and the granted scopes of g on
+// r. The resource ID is left to the caller: it decides the resource of the
+// call, which the caller checks or sets once.
+func (g CredentialGrant) SetOn(r *contract.Request) {
+	r.Credential, r.ResourceKey, r.GrantedScopes = g.Credential, g.ResourceKey, g.GrantedScopes
+}
+
 // CredentialSource finds the credential and the allowed resource for a call.
-// It is the owner's: the sealed secrets are not on a frontend. An error it
-// returns that is not a *CredentialRefusal is an outage.
+// It is wired on the owner, where the add-on runs: a frontend forwards the
+// call and never adds a credential itself. An error it returns that is not a
+// *CredentialRefusal or a *contract.ErrRateLimited is an outage.
 type CredentialSource interface {
 	// Credential returns the grant for actor and add-on. A non-empty key must
 	// be on the list of a binding of the person (compared without regard to
 	// case). The host calls it before the add-on is called.
 	Credential(ctx context.Context, actor contract.Actor, addonID, key string) (CredentialGrant, error)
+}
+
+// CredentialRenewer is a CredentialSource that can renew a credential the
+// add-on rejected (contract.ErrCredentialRejected). It is the owner's, like the
+// source: the retry runs where the add-on runs, so only its final answer
+// crosses the carrier.
+type CredentialRenewer interface {
+	// RenewCredential renews the rejected grant, or returns the newer one
+	// when the login changed since the call began. With final the add-on
+	// rejected a renewed grant too: the source ends the login and returns the
+	// reconnect_needed refusal.
+	RenewCredential(ctx context.Context, actor contract.Actor, addonID string, rejected CredentialGrant, final bool) (CredentialGrant, error)
+}
+
+// WithRenewal runs call with grant. When the add-on rejects the credential and
+// src can renew it, the host renews it once and runs call once more with the
+// new grant. A second rejection ends the login, and the answer is the
+// reconnect_needed refusal. A grant of version zero is never renewed: the
+// rejection is returned as it is.
+func WithRenewal(ctx context.Context, src CredentialSource, a contract.Actor, addonID string, grant CredentialGrant, call func(CredentialGrant) error) error {
+	err := call(grant)
+	rn, ok := src.(CredentialRenewer)
+	if !errors.Is(err, contract.ErrCredentialRejected) || !ok || grant.Version == 0 {
+		return err
+	}
+	next, rerr := rn.RenewCredential(ctx, a, addonID, grant, false)
+	if rerr != nil {
+		return credentialError(rerr)
+	}
+	if err = call(next); !errors.Is(err, contract.ErrCredentialRejected) {
+		return err
+	}
+	_, rerr = rn.RenewCredential(ctx, a, addonID, next, true)
+	if rerr == nil {
+		return ErrUnavailable
+	}
+	return credentialError(rerr)
+}
+
+// credentialError keeps the typed answers of a credential source, a refusal
+// or the service's request to wait, and makes anything else a check result.
+func credentialError(err error) error {
+	var refusal *CredentialRefusal
+	if errors.As(err, &refusal) {
+		return refusal
+	}
+	var limited *contract.ErrRateLimited
+	if errors.As(err, &limited) {
+		return limited
+	}
+	return ClassifyCheck(err)
 }
 
 // DefaultCredentialSource is a CredentialSource that can also serve a call
@@ -137,7 +222,7 @@ func (r *CredentialRefusal) Unwrap() error { return ErrForbidden }
 // scrub drops the fields of a request that only the host sets. A client can
 // send any JSON in a request, so every door that takes one calls it first.
 func scrub(r *contract.Request) {
-	r.Credential, r.ResourceKey = "", ""
+	r.Credential, r.ResourceKey, r.GrantedScopes = "", "", nil
 }
 
 // credentialize adds the credential and the allowlisted resource to r when
@@ -202,13 +287,9 @@ func (g *Gateway) credentialize(ctx context.Context, a contract.Actor, r *contra
 	}
 	grant, err := CredentialFor(ctx, g.Credentials, a, r.AddonID, key, omitted)
 	if err != nil {
-		var refusal *CredentialRefusal
-		if errors.As(err, &refusal) {
-			return CredentialGrant{}, refusal
-		}
-		return CredentialGrant{}, ClassifyCheck(err)
+		return CredentialGrant{}, credentialError(err)
 	}
-	r.Credential, r.ResourceKey = grant.Credential, grant.ResourceKey
+	grant.SetOn(r)
 	if grant.ResourceID != "" {
 		r.ResourceID = grant.ResourceID
 	}

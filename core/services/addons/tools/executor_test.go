@@ -68,6 +68,29 @@ var _ = Describe("Add-on tools in the chat executors", func() {
 		Expect(e).To(MatchError(tools.ErrUnknownTool))
 	})
 
+	It("renders the excerpt of an artifact result for the model", func() {
+		f.read = contract.Result{
+			Payload: json.RawMessage(`{"excerpt":"first lines"}`),
+			Outputs: []contract.OutputDescription{{Handle: "art-1", Name: "rows.csv", MediaType: "text/csv", Size: 12}},
+		}
+		exec, e := mcpTools.NewAddonToolExecutor(context.Background(), tools.NewToolAdapter(f), member)
+		Expect(e).NotTo(HaveOccurred())
+		out, e := exec.ExecuteTool(context.Background(), "addon__tables__rows-query", `{"resourceId":"db-one","table":"t"}`)
+		Expect(e).NotTo(HaveOccurred())
+		var doc struct {
+			Kind      string          `json:"kind"`
+			Result    json.RawMessage `json:"result"`
+			Artifacts []struct {
+				ID string `json:"id"`
+			} `json:"artifacts"`
+		}
+		Expect(json.Unmarshal([]byte(out), &doc)).To(Succeed())
+		Expect(doc.Kind).To(Equal("artifact"))
+		Expect(doc.Artifacts).To(HaveLen(1))
+		Expect(doc.Artifacts[0].ID).To(Equal("art-1"))
+		Expect(string(doc.Result)).To(MatchJSON(`{"excerpt":"first lines"}`))
+	})
+
 	It("refuses to bind an executor when the owner denies the actor", func() {
 		f.appsErr = gateway.ErrForbidden
 		_, e := mcpTools.NewAddonToolExecutor(context.Background(), tools.NewToolAdapter(f), member)

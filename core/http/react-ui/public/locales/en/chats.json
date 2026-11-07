@@ -333,6 +333,74 @@
     "loadFailed": "Could not load your connectors.",
     "waitingTitle": "Waiting for their add-on",
     "waitingText": "These bindings are kept, but they do not run until their add-on is installed and turned on.",
+    "oauth": {
+      "connected": "Connected",
+      "connectedAs": "Connected as {{account}}",
+      "access": "Access: {{scopes}}",
+      "expires": "Expires {{time}}",
+      "disconnect": "Disconnect",
+      "disconnecting": "Disconnecting…",
+      "disconnectTitle": "Disconnect {{name}}?",
+      "disconnectText": "LocalAI asks the service to revoke this login and then forgets it. Tools that use this connection stop working until you connect again.",
+      "disconnected": "{{name}} is disconnected. The service revoked the login.",
+      "disconnectedNotTold": "{{name}} is disconnected here, but the service did not confirm that it revoked the login. Remove the access in your account at the service too.",
+      "notConnected": "Not connected yet.",
+      "connect": "Connect",
+      "alsoAllow": "Also allow:",
+      "reconnectTitle": "Connect again.",
+      "reconnect": "Reconnect",
+      "reason": {
+        "revoked": "The service ended the login, or the access was revoked.",
+        "client_rejected": "The service no longer accepts the client of this server. An administrator may need to update it.",
+        "refused": "The service refused to renew the login.",
+        "needs_approval": "The login of this add-on changed and must be approved again.",
+        "credential_rejected": "The service refused the access, even after a renewal.",
+        "expired": "The login expired and cannot be renewed.",
+        "write_failed": "The renewed login could not be saved.",
+        "unreadable": "The saved login could not be read.",
+        "unknown": "The login no longer works.",
+        "scopes_missing": "The service no longer grants all the access this add-on needs. Connect again and allow it.",
+        "endpoint_changed": "The add-on now sends logins to another address of the service, so this login cannot move with it. Connect again.",
+        "token_too_large": "The service renewed the login with an access token larger than LocalAI can use (4096 bytes)."
+      },
+      "approvalUser": "An administrator must approve this add-on first.",
+      "approvalUserChanged": "The login of this add-on changed. An administrator must approve it again.",
+      "approvalAdmin": "Nobody can connect until you approve the login of this add-on.",
+      "approvalAdminChanged": "The login of this add-on changed since it was approved. Review it and approve it again.",
+      "review": "Review and approve",
+      "returned": {
+        "ok": "Connected. The connection works now.",
+        "denied": "You declined at the service. Nothing changed.",
+        "error": {
+          "invalid_state": "The login could not be finished: it expired, or another login started in this browser. Connect again.",
+          "provider_error": "The service reported an error. Try again later.",
+          "exchange_failed": "The service did not complete the login. Connect again.",
+          "scopes_missing": "The service did not grant all the access this add-on needs. Connect again and allow it.",
+          "unavailable": "The add-on could not be reached. Try again later.",
+          "unknown": "The login could not be finished. Connect again.",
+          "token_too_large": "The service issued an access token larger than LocalAI can use (4096 bytes), so the login was not saved. An administrator may need to change how the service issues tokens for this client."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "This server does not know its public address, so it cannot send you to the service. Ask an administrator to set the external base URL of the server.",
+        "needsApproval": "An administrator must approve this add-on first.",
+        "approvalStale": "The login of this add-on changed. Reload the page.",
+        "unavailable": "The add-on could not be reached. Try again later.",
+        "tooManyLogins": "Too many logins were started. Finish the one in the other tab, or wait a few minutes and try again."
+      },
+      "add": {
+        "open": "Add a connection",
+        "title": "New {{name}} connection",
+        "name": "Name",
+        "hint": "A name you recognize, such as Work or Personal. After you add the connection, select Connect to log in to your account.",
+        "cancel": "Cancel",
+        "submit": "Add",
+        "failed": "The connection could not be added. Try again.",
+        "added": "{{name}} is added. Select Connect to log in to your account.",
+        "empty": "No connections yet. Add one, then connect your account.",
+        "manage": "Edit connections"
+      }
+    },
     "duplicate": {
       "text": "This bot is also connected as {{name}}. Both connections will answer the same message.",
       "turnOff": "Turn this one off",
@@ -519,7 +587,10 @@
       "byAgent": "The agent of this chat sets the connections. Change them on the agent.",
       "agentLabel": "Connections for chats of this agent",
       "agentHelp": "Chats of this agent may use only these connections and cannot change them.",
-      "perChatHelp": "None chosen: each chat chooses its own."
+      "perChatHelp": "None chosen: each chat chooses its own.",
+      "reconnectNeeded": "Connect again: {{names}}",
+      "ownerReconnectNeeded": "The owner must connect again: {{names}}",
+      "reconnect": "Reconnect"
     },
     "optionNeeds": "Turn on “{{name}}” to use this.",
     "connectionMissing": "{{name}} does not allow this yet.",

@@ -890,7 +890,7 @@
     "lockedNoAuth": "Sign-in is off, so anyone who can reach this server could change these; they are set by the administrator in the policy file.",
     "newOptional": "The new version also asks for {{ops}}. These are optional and not allowed.",
     "noLongerRequested": "This version no longer asks for it. You can turn it off.",
-    "notOfficial": "This add-on comes from {{library}}, not the official library.",
+    "notOfficialWarning": "This add-on comes from {{library}}, not the official library. It runs as trusted code on this server and can use the credentials it is given. Install it only if you trust its author.",
     "op": {
       "alreadyAllowed": "Already allowed",
       "blocked": "Blocked by the administrator policy",
@@ -926,6 +926,56 @@
       "reviewNamed": "Review and approve the host access of {{name}}",
       "title": "{{name}} {{version}} waits for your approval"
     }
+  },
+  "oauthClient": {
+    "title": "Account login",
+    "intro": "People connect this add-on to their own account at a service. Register the callback address below with the service, enter the client it gives you, and approve the login. Nobody can connect before that.",
+    "status": {
+      "unconfigured": "Not approved yet. Nobody can connect.",
+      "changed": "The login of this add-on changed since it was approved. Nobody can connect or renew a login until you approve it again.",
+      "approved": "Approved on {{when}}.",
+      "approvedBy": "Approved by {{who}} on {{when}}."
+    },
+    "sentTo": "People sign in at",
+    "hosts": "Allowed hosts",
+    "required": "Always requested",
+    "optional": "People may add",
+    "none": "None",
+    "tokens": "Tokens come from",
+    "revoke": "Disconnect revokes at",
+    "noRevoke": "No address: a disconnect only forgets the login here",
+    "clientAuth": "Client authentication",
+    "auth": {
+      "basic": "Client ID and secret, sent in the request header",
+      "post": "Client ID and secret, sent in the request body",
+      "none": "No secret (a public client)",
+      "other": "Other"
+    },
+    "params": "Extra sign-in parameters",
+    "callback": "Callback address",
+    "callbackHint": "Register this address with the service as the redirect address of the client.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "baseUrlRequired": "This server does not know its public address, so there is no callback address and nobody can connect. Set the external base URL of the server, then reload this page.",
+    "clientId": "Client ID",
+    "clientSecret": "Client secret",
+    "secretHint": "Write-only: it is stored sealed and never shown again.",
+    "secretSaved": "A secret is saved. Leave the field empty to keep it.",
+    "secretKeepPlaceholder": "Saved (hidden)",
+    "noSecret": "This login uses no client secret.",
+    "approve": "Approve and save",
+    "saved": "Saved. The login is approved.",
+    "stale": "The login of this add-on changed while you reviewed it. Nothing was saved.",
+    "refresh": "Show the new login",
+    "loadFailed": "The login of this add-on could not be read",
+    "errors": {
+      "unavailable": "The add-on could not be reached. Try again later.",
+      "needsApproval": "The add-on is not approved.",
+      "baseUrlRequired": "This server does not know its public address. Set the external base URL of the server.",
+      "approvalStale": "The login of this add-on changed. Show the new login.",
+      "save": "The client could not be saved."
+    },
+    "unknownLibrary": "an unknown library"
   },
   "file": {
     "button": "Install from file",

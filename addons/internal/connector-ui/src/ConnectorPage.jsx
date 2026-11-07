@@ -189,9 +189,11 @@ function ShareConnection({ share, s, onChanged, close }) {
  * @param {Function} [props.extraValid] whether they allow saving: (form) => boolean
  * @param {Function} [props.testExtra] more checks after the Test button: async (binding, t) => string
  * @param {Function} [props.RowInfo]   a line under a binding in the list ({ c, t })
+ * @param {boolean} [props.canAdd]     false for a kind whose connections are made elsewhere (a login on the
+ *                                     Connectors page): the page then edits the saved ones and has no New button
  */
 export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleToken, tokenOf = (f) => f.token || '', lists = ONE_LIST, Help, notifyMode = 'text',
-  messaging: messagingProp = true, isChannelEntry: channelPredicate, mixedList = false, ExtraFields, extraBody, extraForm, extraValid, testExtra, RowInfo }) {
+  messaging: messagingProp = true, isChannelEntry: channelPredicate, mixedList = false, ExtraFields, extraBody, extraForm, extraValid, testExtra, RowInfo, canAdd = true }) {
   const { t, i18n } = useTranslation([ns, 'connector'])
   const uiLanguage = i18n?.resolvedLanguage || i18n?.language || ''
   setApiLanguage(uiLanguage)
@@ -354,7 +356,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   useEffect(() => {
     if (linked.current || !kindsReady) return
     const q = new URLSearchParams(window.location.search)
-    if (q.get('new') === '1') {
+    // A kind whose connections are made elsewhere (canAdd false) has no add sheet.
+    if (canAdd && q.get('new') === '1') {
       if (!agentsReady) return
       linked.current = true
       openNew(q.get('agent') || '')
@@ -586,9 +589,11 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     <div className="cn-page" data-testid={testId}>
       <header className="cn-head">
         <h1 className="cn-title">{t('title')}</h1>
-        <button type="button" className="dk-btn dk-btn--primary" data-testid="connector-new" disabled={!kindsReady} onClick={() => openNew()}>
-          <Icon name="plus" /> {t('new')}
-        </button>
+        {canAdd && (
+          <button type="button" className="dk-btn dk-btn--primary" data-testid="connector-new" disabled={!kindsReady} onClick={() => openNew()}>
+            <Icon name="plus" /> {t('new')}
+          </button>
+        )}
       </header>
       <p className="cn-muted">{t('intro')}</p>
       {Help && <Help t={t} />}
