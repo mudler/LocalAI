@@ -124,7 +124,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
     # can rewrite it. Darwin therefore follows vllm-metal and can lag the Linux
     # vllm pin (requirements-cublas13-after.txt, bumped independently against
     # vllm/vllm) until vllm-metal supports a newer vLLM.
-    VLLM_METAL_VERSION="v0.32.0"
+    VLLM_METAL_VERSION="v0.33.0"
 
     # The coupled vLLM source version is whatever this vllm-metal release builds
     # against. Derive it from the PINNED tag rather than hardcoding a second value
@@ -145,17 +145,21 @@ if [ "$(uname -s)" = "Darwin" ]; then
     _vllm_src=$(mktemp -d)
     trap 'rm -rf "${_vllm_src}"' EXIT
     pushd "${_vllm_src}"
-        # 1) Build vLLM ${VLLM_VERSION} from the release source tarball against
-        #    the CPU requirements. vllm-metal layers its MLX platform plugin on
-        #    top of this exact build.
+        # 1) Build vLLM ${VLLM_VERSION} from the tag source archive against
+        #    the CPU requirements. Not every tag has a release asset, so use the
+        #    tag archive. vllm-metal layers its MLX platform plugin on top of
+        #    this exact build.
         curl -fsSL -o "vllm-${VLLM_VERSION}.tar.gz" \
-            "https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}.tar.gz"
+            "https://github.com/vllm-project/vllm/archive/refs/tags/v${VLLM_VERSION}.tar.gz"
         tar -xzf "vllm-${VLLM_VERSION}.tar.gz"
         pushd "vllm-${VLLM_VERSION}"
             uv pip install -r requirements/cpu.txt --index-strategy unsafe-best-match
             # -Wno-parentheses: clang on macOS treats one of vLLM's C++ warnings
             # as an error without it (matches the upstream installer's CXXFLAGS).
-            CXXFLAGS="-Wno-parentheses" uv pip install .
+            # The tag archive has no git metadata and no PKG-INFO, so
+            # setuptools-scm cannot detect the version. Pin it to the tag.
+            SETUPTOOLS_SCM_PRETEND_VERSION="${VLLM_VERSION}" \
+                CXXFLAGS="-Wno-parentheses" uv pip install .
         popd
     popd
 
