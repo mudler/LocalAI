@@ -4,7 +4,7 @@ import { connectorRef, toolsCounts } from '../utils/chatMCP'
 import { offWith, withOn } from '../utils/chatSwitchRows'
 import { changedIds, offList, pickerSkills, revertSkills, skillKey, withSkillsSet } from '../utils/chatSkills'
 import { commandsState, noticeIdentity } from '../utils/chatCommands'
-import { applyChoices, choicesFromTools, draftListSwitches, draftSwitches as switchesOf, emptyChoices, withChoice } from '../utils/chatDraftSwitches'
+import { addonRowsCurrent, applyChoices, choicesFromTools, draftListSwitches, draftSwitches as switchesOf, emptyChoices, withChoice } from '../utils/chatDraftSwitches'
 
 const noMCP = { servers: [], connectors: [], off: [] }
 const mcpOf = (res) => ({ servers: res.servers || [], connectors: res.connectors || [], off: res.off || [] })
@@ -86,12 +86,17 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     ;(draftOn ? chatAddonsApi.draft(draftModel, draftAgent, draftListSwitches(choicesRef.current, builtinsRef.current)) : chatAddonsApi.list(chatId))
       .then((res) => {
         if (!live) return
-        // The add-on rows count even when a later switch asked for the commands
-        // state again (which makes this answer's commands state old).
-        setAddons(chosen({ addons: res.addons || [] }).addons)
+        // A draft shows these rows even when a later switch asked for the
+        // commands state again; an existing chat keeps the rows of its own
+        // switch (see addonRowsCurrent).
+        if (addonRowsCurrent({ draft: draftOn, epoch, current: commandEpoch.current })) setAddons(chosen({ addons: res.addons || [] }).addons)
         if (epoch === commandEpoch.current) setCommands(commandsOf(res))
       })
-      .catch(() => { if (live) { setAddons([]); if (epoch === commandEpoch.current) setCommands(noCommands) } })
+      .catch(() => {
+        if (!live) return
+        if (addonRowsCurrent({ draft: draftOn, epoch, current: commandEpoch.current })) setAddons([])
+        if (epoch === commandEpoch.current) setCommands(noCommands)
+      })
       .finally(() => { if (live) mark('addons', rev) })
     ;(draftOn ? chatToolsApi.draft(draftModel, draftAgent) : chatToolsApi.list(chatId))
       .then((res) => {

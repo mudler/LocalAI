@@ -98,3 +98,13 @@ export function choicesFromTools(tools) {
   for (const k of t.skills_off || []) c = withChoice(c, 'skills', k, false)
   return c
 }
+
+// Whether the answer of the add-ons list may replace the rows on screen.
+// An existing chat's switch bumps the epoch, shows its rows at once and takes
+// the confirmed rows from its own response, so an older list answer (epoch
+// changed since it started) must not overwrite them. A draft has no response
+// of its own to take rows from: its rows come from the list again and the
+// choices are applied to them, so a late answer is the right one to show.
+export function addonRowsCurrent({ draft, epoch, current }) {
+  return draft || epoch === current
+}
