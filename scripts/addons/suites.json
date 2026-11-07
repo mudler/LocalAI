@@ -668,7 +668,19 @@
           "is stable across field order, whitespace and list order",
           "changes with every field",
           "does not move a scope from one list to the other unseen",
-          "treats a missing and an empty list alike"
+          "treats a missing and an empty list alike",
+          "query",
+          "backslash",
+          "backslash",
+          "seconds",
+          "spaces around seconds",
+          "zero is raised to one",
+          "a negative number is raised to one",
+          "a long wait is cut",
+          "empty gives the default",
+          "text gives the default",
+          "reads an HTTP date",
+          "raises a date in the past to one second"
         ]
       },
       {
@@ -1765,7 +1777,12 @@
           "ends the login after a second rejection and refuses with reconnect_needed",
           "stays a plain outage for a source that cannot renew",
           "is renewed on the owner, so a forwarding frontend gets the result or the reconnect_needed refusal",
-          "crosses the carrier as rate limited when the token endpoint asks to wait"
+          "crosses the carrier as rate limited when the token endpoint asks to wait",
+          "classifies the reads of every call family and fails closed for the rest",
+          "reports a lost answer to a change as an unknown outcome and to a read as unavailable",
+          "bounds a reply",
+          "needs exactly one of data and error in an OAuth reply",
+          "writes a decided refusal into the envelope and any other error as a typed error"
         ]
       },
       {

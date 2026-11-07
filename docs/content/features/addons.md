@@ -635,6 +635,10 @@ the host never sends the refresh token there: the login ends with the reason
 the new descriptor requires ends with `scopes_missing`, and the scopes the new
 descriptor no longer names are dropped.
 
+A new login keeps only the scopes the descriptor names, required or optional,
+even when the service grants more (incremental authorization). A login that
+lacks a required scope fails with `scopes_missing`.
+
 The apps list (`GET /api/addons/apps`) gives an add-on with an `oauth2` slot an
 `oauth` object with `requiredScopes` and `optionalScopes`, so the Connectors
 page can offer the optional scopes when a person connects, and the add-on's
@@ -5514,7 +5518,9 @@ uninstalled or disabled and not running, the request carries an explicit scope
 (`data`, `backups`, `recoveryCopies`) and the add-on ID typed as `confirm`. The purge is
 recorded before it starts and finished by the owner after a crash. It touches no other
 add-on and removes the owner's records of the add-on's resources only when `data` is in
-the scope. Purging the data clears `needs-recovery`.
+the scope. Purging the data also removes the OAuth client an administrator approved for
+the add-on. An uninstall keeps that client, so a reinstall needs no new approval.
+Purging the data clears `needs-recovery`.
 
 ### Routes and rules
 

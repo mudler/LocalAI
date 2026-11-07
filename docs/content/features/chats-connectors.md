@@ -249,7 +249,7 @@ The list is checked by LocalAI before the add-on is called, so an agent is refus
 | `get-metadata` | read | Gives the name, type, size, change time, parent and link of a file. |
 | `read-file` | read | Reads the text of a file, by byte offset. Binary files that cannot be exported give the details only. |
 | `create-file` | write | Creates a text file (plain text, Markdown, CSV or JSON, up to 64 KiB). |
-| `update-file` | write | Renames a file or replaces its text. Only plain text files can have their text replaced. |
+| `update-file` | write | Renames a file or replaces its text, or both. Only plain text files can have their text replaced. When a call does both, the text is replaced first; if the rename is then refused, the answer says that the text was updated and the rename was refused, and a new call with the new name only retries the rename. |
 | `move-file` | write | Moves a file or folder to another folder inside the allowed folder. |
 | `trash-file` | write | Moves a file, not a folder, to the trash, where you can restore it. |
 
