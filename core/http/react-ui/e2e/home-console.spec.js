@@ -224,8 +224,12 @@ test.describe('Home slash menu', () => {
 })
 
 test.describe('Home model chip', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, request }) => {
     await mockHome(page)
+    // The server of the run is shared: a send in an earlier spec saves the
+    // first setup, and the default setup would start Home on its model instead
+    // of the one remembered here. Start these tests with no setups.
+    await request.put('/api/chats/wellknown/setups', { data: { values: { setups: [], default: '' }, replace: true } }).catch(() => {})
   })
 
   test('shows warm and cold models and picks with the keyboard', async ({ page }) => {
