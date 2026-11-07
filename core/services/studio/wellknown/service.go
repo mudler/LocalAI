@@ -95,7 +95,14 @@ func (s *Service) path(principal string, n Name, rel string) (abs, home string, 
 	if err != nil {
 		return "", "", fmt.Errorf("%w: %w", ErrBadPath, err)
 	}
-	return abs, s.f.Rel(principal, abs), nil
+	home = s.f.Rel(principal, abs)
+	// Widget data is validated as widget data, so a write that lands on a
+	// settings file would skip that file's own schema. The settings folder is
+	// for the fixed kinds only.
+	if n == WidgetData && (home == Dir || strings.HasPrefix(home, Dir+"/")) {
+		return "", "", ErrBadPath
+	}
+	return abs, home, nil
 }
 
 // Read returns the file n of the user (rel names the file for WidgetData). A
@@ -241,6 +248,14 @@ func (s *Service) Write(ctx context.Context, principal string, w WriteRequest) (
 		exists, node = false, workspace.Node{}
 	}
 	if err := s.put(ctx, principal, abs, home, data, exists, node, w.Base != nil && !legacy); err != nil {
+		// A writer that won the race after the check leaves the conflict with
+		// no file in it; the client re-bases on the newer one, so give it.
+		var conflict *ConflictError
+		if errors.As(err, &conflict) && conflict.Current.Name == "" {
+			if doc, rerr := s.read(ctx, principal, w.Name, abs, home); rerr == nil {
+				conflict.Current = doc
+			}
+		}
 		return Doc{}, err
 	}
 	return s.read(ctx, principal, w.Name, abs, home)
@@ -272,9 +287,7 @@ func (s *Service) Revert(ctx context.Context, principal string, n Name, rel stri
 	if err != nil {
 		return Doc{}, err
 	}
-	if File(n) != "" {
-		s.adopt(ctx, principal, n)
-	}
+	s.adopt(ctx, principal, n)
 	cur, node, err := s.open(ctx, principal, abs)
 	exists := err == nil
 	if err != nil && !errors.Is(err, workspace.ErrNotFound) && !errors.Is(err, ErrTooLarge) {
@@ -322,9 +335,7 @@ func (s *Service) Versions(ctx context.Context, principal string, n Name, rel st
 	if err != nil {
 		return nil, err
 	}
-	if File(n) != "" {
-		s.adopt(ctx, principal, n)
-	}
+	s.adopt(ctx, principal, n)
 	if limit <= 0 || limit > historyDepth {
 		limit = historyDepth
 	}
@@ -352,9 +363,7 @@ func (s *Service) RevertTo(ctx context.Context, principal string, n Name, rel st
 	if err != nil {
 		return Doc{}, err
 	}
-	if File(n) != "" {
-		s.adopt(ctx, principal, n)
-	}
+	s.adopt(ctx, principal, n)
 	var good map[string]any
 	err = s.f.Versions(ctx, principal, abs, historyDepth, MaxSize, func(v files.FileVersion) bool {
 		if v.Rev != rev {

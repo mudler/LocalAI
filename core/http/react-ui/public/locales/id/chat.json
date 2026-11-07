@@ -50,7 +50,16 @@
     "topP": "Top P",
     "topK": "Top K",
     "contextSize": "Ukuran Konteks",
-    "modelDefault": "model bawaan"
+    "modelDefault": "model bawaan",
+    "sliderOf": "Penggeser {{name}}",
+    "reset": "Pakai nilai bawaan model untuk {{name}}",
+    "hint": {
+      "temperature": "Nilai lebih tinggi memberi jawaban yang lebih beragam. Dari 0 sampai 2.",
+      "topP": "Memilih dari kata paling mungkin yang jumlahnya mencapai porsi ini. Di atas 0, sampai 1.",
+      "topK": "Memilih dari sebanyak ini kata paling mungkin. Bilangan bulat, 0 atau lebih.",
+      "contextSize": "Dari 512 sampai 4194304 token.",
+      "effort": "Berlaku langsung, mulai giliran berikutnya."
+    }
   },
   "empty": {
     "manageTitle": "Kelola LocalAI dengan obrolan",
@@ -383,6 +392,10 @@
     "export": {
       "label": "Ekspor sebagai Markdown",
       "desc": "Unduh percakapan ini"
+    },
+    "effort": {
+      "label": "Upaya penalaran",
+      "desc": "Pilih seberapa keras model berpikir"
     }
   },
   "shortcuts": {
@@ -418,6 +431,9 @@
     "changedTag": "Diedit",
     "changedTitle": "Asisten mengubah file ini",
     "download": "Unduh {{name}}",
+    "downloadAll": "Unduh semua file sebagai ZIP",
+    "zipName": "file-obrolan.zip",
+    "zipError": "File tidak dapat diunduh sebagai ZIP.",
     "error": "File obrolan ini tidak dapat dibaca.",
     "workingNote": "Skrip, data, dan log yang dibuat asisten selama bekerja. Semuanya disimpan di folder kerja chat ini."
   },
@@ -501,7 +517,8 @@
       "upstream_unreachable": "Alamat upstream tidak dapat dijangkau.",
       "upstream": "Penyedia di balik model mengembalikan kesalahan.",
       "timeout": "Model terlalu lama menjawab.",
-      "cancelled": "Giliran dibatalkan sebelum model menjawab."
+      "cancelled": "Giliran dibatalkan sebelum model menjawab.",
+      "interrupted": "Server dimulai ulang saat sedang menjawab."
     },
     "hint": {
       "model_backend_missing": "Pilih model lain, atau minta administrator memasang backend.",
@@ -516,7 +533,15 @@
       "timeout": "Coba lagi, atau gunakan model yang lebih kecil atau lebih cepat.",
       "cancelled": "Coba lagi saat Anda siap."
     },
-    "openBackends": "Buka Backend"
+    "openBackends": "Buka Backend",
+    "titleInterrupted": "Balasan terputus",
+    "resume": {
+      "waiting": "Dilanjutkan dalam {{seconds}} detik (percobaan {{attempt}} dari {{max}}).",
+      "resuming": "Dilanjutkan dari bagian yang terhenti.",
+      "server": "Server melanjutkan dari bagian yang terhenti.",
+      "exhausted": "Tidak bisa dilanjutkan setelah {{max}} percobaan. Coba lagi.",
+      "stop": "Berhenti mencoba"
+    }
   },
   "allChats": {
     "title": "Semua obrolan",
@@ -856,5 +881,58 @@
       "other": "Catatan",
       "why": "Mengapa"
     }
+  },
+  "connection": {
+    "lost": "Koneksi terputus. Menyambung kembali."
+  },
+  "reasoning": {
+    "chip": "Upaya",
+    "title": "Upaya penalaran untuk obrolan ini",
+    "note": "Berlaku mulai giliran berikutnya. Tidak ada meminta model untuk tidak berpikir."
+  },
+  "setup": {
+    "chip": "Setup",
+    "title": "Start new chats from a saved setup",
+    "edited": "edited",
+    "menuTitle": "Setups",
+    "empty": "No setups yet. Save the model, tools and effort you use as a setup.",
+    "active": "In use",
+    "noneOff": "Default tools",
+    "toolsOff_one": "{{count}} switch off",
+    "toolsOff_other": "{{count}} switches off",
+    "effort": "Effort {{level}}",
+    "saveAs": "Save current setup as…",
+    "manage": "Manage setups",
+    "agentReason": "A saved agent decides the model and tools of this chat.",
+    "modelMissing": "The model “{{model}}” of this setup is not installed. The current model stays.",
+    "line": {
+      "noTools": "No tools",
+      "toolCount_one": "{{count}} tool",
+      "toolCount_other": "{{count}} tools"
+    },
+    "update": "Update “{{name}}”",
+    "saveNew": "Save as new…",
+    "reset": "Reset",
+    "nameLabel": "Setup name",
+    "namePlaceholder": "Name this setup",
+    "save": "Save",
+    "cancel": "Cancel",
+    "limit": "You can have up to 50 setups.",
+    "defaultName": "My default",
+    "savedToast": "Saved this chat setup as “{{name}}”. New chats start from it.",
+    "rename": "Rename",
+    "manageTitle": "Manage setups",
+    "manageNote": "The default setup is the one new chats start from. It follows the setup you sent your last message with.",
+    "manageEmpty": "No setups yet.",
+    "done": "Done",
+    "default": "Default",
+    "makeDefault": "Make default",
+    "moveUp": "Move {{name}} up",
+    "moveDown": "Move {{name}} down",
+    "renameLabel": "Name of the setup",
+    "remove": "Delete",
+    "removeConfirm": "Delete “{{name}}”?",
+    "removeYes": "Delete",
+    "noModel": "No model"
   }
 }

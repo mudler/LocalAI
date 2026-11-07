@@ -14,6 +14,7 @@ A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/L
 | `LocalAI/persona.json` | `name`, `system_prompt`: your name and instructions in every chat of this user. They reach you at the next message. |
 | `LocalAI/user.json` | `name`, `bio`, `language`, `timezone`: a short "About the user" block in every chat. `seen` records hints (below). |
 | `LocalAI/shortcuts.json` | `{"shortcuts": [{label, prompt, icon?, send?}]}`: the prompts above the composer. Without it the chat shows its default starters. |
+| `LocalAI/setups.json` | `{"default"?, "setups": [{id, name, model?, effort?, tools}]}`: named starting points for a new chat, at most 50. `id` is lowercase letters, digits and dashes (at most 40). `effort` is `""`, `none`, `minimal`, `low`, `medium` or `high`. `tools` holds lists of names that are switched off or on: `builtins_off`, `builtins_on`, `addons_off`, `mcp_off`, `skills_off`. `default` is the `id` a new chat starts with. It stores no prompt and no files. |
 | `LocalAI/home.json` | `{"widgets": [{id, type, title, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `type` is `list`, `metric`, `chats` or `page`. `trigger` is set by LocalAI when the user confirms the trigger that feeds the widget. A `page` widget names a page (`page`, its folder name; `folder` only for a page of a shared folder) and may leave out `title`; at most 3 page widgets. |
 | `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `defaultModel`. |
 

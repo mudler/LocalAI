@@ -3,7 +3,6 @@
   "agent": "Agent",
   "agentNone": "Choose an agent",
   "agentCredentialsOnly": "No agent (credentials only)",
-  "agentOptionalHint": "Optional. Without an agent this connection only holds the token, the address and the write mode for your chats. It answers no messages and listens for nothing.",
   "credentialsOnly": "Credentials only",
   "agentNoModel": "{{name}} (needs a model)",
   "test": "Test",

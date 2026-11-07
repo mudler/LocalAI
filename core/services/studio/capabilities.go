@@ -288,9 +288,7 @@ func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRec
 	defer closeScope()
 	a := s.chatActorFor(ctx, rec)
 	if rec.Kind == session.KindSubAgent && rec.AgentID == "" {
-		s.mu.Lock()
-		tools := s.allowed[key(p, conv)]
-		s.mu.Unlock()
+		tools := s.childAllowed(ctx, rec, nil)
 		return s.commandsOf(ctx, p, tools, rec.AddonsOff, nil), nil
 	}
 	sc := s.scopeOf(ctx, rec)
@@ -550,9 +548,7 @@ func (s *Service) addonCommandDescriptorForActor(ctx context.Context, a workspac
 	// Only ad-hoc children inherit a pruned tool set. Saved-agent children
 	// resolve current grants through their scope, just like their turn tools.
 	if rec.Kind == session.KindSubAgent && rec.AgentID == "" {
-		s.mu.Lock()
-		tools = slices.Clone(s.allowed[key(p, rec.ID)])
-		s.mu.Unlock()
+		tools = slices.Clone(s.childAllowed(ctx, rec, nil))
 	} else {
 		var err error
 		tools, _, err = s.addonTools(ctx, a, rec, sc)

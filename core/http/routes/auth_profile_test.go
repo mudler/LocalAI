@@ -184,7 +184,7 @@ func TestUIAliasCapabilityAllowlist(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			appAt, err := application.New(config.WithContext(context.Background()), config.WithSystemState(st), config.WithDataPath(root), config.WithDisableLocalAIAssistant(true), config.WithAuthEnabled(true), config.WithAuthDatabaseURL(":memory:"), config.WithAuthAPIKeyHMACSecret("alias-test-secret"))
+			appAt, err := application.New(config.WithContext(context.Background()), config.WithSystemState(st), config.WithDataPath(root), config.WithAuthEnabled(true), config.WithAuthDatabaseURL(":memory:"), config.WithAuthAPIKeyHMACSecret("alias-test-secret"))
 			if err != nil {
 				t.Fatal(err)
 			}

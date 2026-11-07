@@ -24,8 +24,8 @@ An agent has:
 | `addons` | IDs of installed add-ons. |
 | `collections` | Names of your collections. |
 | `skills` | Names of skills. The index of skills and the `load_skill` tool of the chat offer only these. |
-| `builtins_off` | Groups of built-in tools the agent's chats never have: `shell`, `files`, `web`, `media`, `collections`, `subagents`, `triggers` and `changes`. It is a ceiling: a chat with the agent shows the group switched off and cannot switch it on. Empty (the default): the chat has every group it has by default. A group this server does not offer is dropped. |
-| `builtins_on` | Opt-in groups of built-in tools that chats with the agent start with: `saved_agents`. The chat can switch them off. |
+| `builtins_off` | Groups of built-in tools the agent's chats never have: `shell`, `files`, `web`, `media`, `collections`, `subagents`, `triggers`, `changes`, `localai_client` (the inference tools) and `localai_admin` (the server-management tools). It is a ceiling: a chat with the agent shows the group switched off and cannot switch it on. Empty (the default): the chat has every group it has by default. A group this server does not offer is dropped. |
+| `builtins_on` | Opt-in groups of built-in tools that chats with the agent start with: `saved_agents` and `localai_admin`. The chat can switch them off. `localai_admin` is for administrators and is never offered in a messaging chat or a run that starts by itself, whatever the agent says. |
 | `network` | The network of the [Sandbox]({{%relref "features/addons#network-access" %}}) commands of the agent's trigger and connector runs: `off` (the default), `registries` (the package registries) or `all` (every public host), capped by the administrator's `chats_egress_ceiling`. A run never shows a card: a host outside it is blocked, and the block is in the run's output. A chat you start with the agent starts with this preset too; you change it in the chat's Tools menu. The agent form sets it in the add-ons fold. |
 | `folders` | Optional. Up to 8 folders of your files that chats with the agent work in, each with its own mode: `read` or `write`. `folder` is the same with one entry. Without them the agent works on all your files. See [Folders of an agent](#folders-of-an-agent). |
 
@@ -105,7 +105,9 @@ curl -X POST .../api/chats -d '{"agent_id": "<id>", "model": "my-model"}'
 
 `GET`, `PUT` and `DELETE /api/chats/agents/{id}` read, replace and delete one.
 A `PUT` replaces every field except `folders` (see below), the tool switches `builtins_off` and `builtins_on` and the [connections](#connections-of-an-agent), which it keeps when the body does not name them (an empty list or object clears them). Chats that already run with the agent use the new
-definition from their next turn. Another user's agent is always `404`.
+definition from their next turn. Another user's agent is `404`, unless it is
+[shared with you](#share-an-agent): then you may read it and chat with it, and
+an edit, a delete or an export is `403`.
 
 Agents need the `agents` feature, which is off by default for a user (see
 [Chats permissions](/features/chats/#permissions)). They have no administration
@@ -167,7 +169,7 @@ of the agent uses that set, shows it read only, and cannot change it. With two o
 more in the set, the model names the connection in each tool call (see [The
 connections of an add-on](/features/chats/#the-connections-of-an-add-on)). With
 none ticked each chat chooses its own (with one connection, it is used); until a
-person chooses, the add-on's tools are not offered. The messaging connections that
+person chooses, the add-on's tools are not offered. Many agents can use the same connection; the connection's row on its add-on page says how many do. The messaging connections that
 answer with the agent are listed under **Identity**, read only.
 
 Over the API an agent has `connections`, an object from add-on ID to a list of
@@ -478,6 +480,119 @@ newest first: the ones you had with it, the ones its triggers started
 (`origin: trigger`) and the ones its connectors started (`origin: connector`),
 each with `running` and `last_turn`. `total`, `failed` and `running` count every
 run among your newest 5,000 chats. Open a run with `GET /api/chats/{chat_id}`.
+For an agent shared with you, the runs are your own chats with it.
+
+### Share an agent
+
+You can share a saved agent with other people on the server, or with everyone.
+Use **Share** in the row menu of the agent or in the header of its page. The
+[Share dialog](/features/sharing/#the-share-dialog) finds people by name and
+gives each one a role:
+
+| Role | What the person can do |
+|------|------------------------|
+| `use` | Chat with the agent in their own chats. They see its name, its description and what it needs. |
+| `viewer` | The same, and they read the full definition: instructions, tools and the things it names. |
+
+Only you edit, delete, export or share the agent. The person can not make a
+trigger, a task or a connector with it, and your own triggers and connectors
+keep running as you.
+
+A person who chats with a shared agent runs it as themselves. The chat, the
+memory, the files, the folders, the add-ons, the collections and the connections
+are theirs, exactly as for their own agent. Only the definition comes from you.
+Your files are never used for them, and no answer to them carries a token, a
+secret or the ID of your connection.
+
+The agent never runs with more than the person's own chats start with. With the
+role `use` the person does not read your instructions, so what the agent asks for
+is narrowed to what their own new chat gets:
+
+- **Network.** Their chat starts with the narrower of the agent's network preset and
+  the instance default for a new chat, never with your preset above it. The person
+  can widen the network of the chat themselves, up to the instance limit.
+- **Opt-in tool groups.** The groups the agent turns on (its saved agents, the
+  earlier chats) start off in their chat. The person can turn them on in the chat.
+- **Built-in grants.** The agent holds a grant only when the person may use it, as
+  for their own agent.
+
+The connections the agent names are yours. A chat of the person uses one of them
+only while you share that connection with them (role `use`), and only when it is
+not a choice:
+
+- When the person has no connection of their own for the add-on and holds a
+  grant on exactly one of the agent's connections for it, the chat uses that one.
+- When the person has a connection of their own for the add-on, or holds grants
+  on several of the agent's connections for it, the chat uses none of yours by
+  itself. The person picks the connection in the chat, from their own and the
+  ones shared with them.
+- The agent's connections do not lock the person's chat, as they do in your
+  own chats: the person may always choose another one.
+
+Sharing the agent does not share what it uses. Before the dialog adds a person,
+it lists what the agent names and asks you, for each thing that can be shared,
+to choose one of the options the server offers for it, or **Not shared**. The
+options come from the roles the kind of the thing grants:
+
+| Thing | Options | Role of the grant |
+|-------|---------|-------------------|
+| Collection | **View** | `viewer`: search and read. To let the person add entries, give `editor` from the collection's own Share dialog. |
+| Connection | **Use** | `use` |
+| Add-on resource | **View**, and **Use** when the agent writes it | `viewer`, and `editor` for **Use** |
+
+A folder, a skill, an add-on, an MCP server and a built-in grant can not be
+shared this way: the person needs access of their own. The dialog applies each
+choice as a grant on that thing, for the same person.
+
+The agent page of a person tells them what they are missing: each thing the agent
+names is **ok**, **missing** (not shared with them) or **unavailable** (the server
+or their account does not offer it). A connection of yours is **ok** while you
+share it with them and **missing** otherwise. The list also shows the network
+preset and the opt-in tool groups the agent asks for: **ask** when their chat
+starts without it and they can turn it on, **unavailable** when the instance does
+not allow it. A chat with the agent shows the same notice before the first message.
+
+When you lower the role or remove the person, a run of the agent in one of their
+chats stops, and the chat takes no new message with the agent. Their past chats
+stay readable. When you delete the agent, every grant on it is removed.
+
+The API:
+
+| Method and path | What it does |
+|-----------------|--------------|
+| `GET /api/chats/agents` | Your agents, then the agents shared with you. `access.role` is `owner`, `use` or `viewer`; `access.owner` names the person who shared it; your own agents carry `access.sharedWith` and `access.share_id`. |
+| `POST /api/chats/agents/{id}/share` | The ID of your agent in the sharing API, made on the first call. Owner only. |
+| `GET /api/chats/agents/{id}/references` | What your agent uses, and how each thing can be shared: `share.kind`, `share.resource_id`, `share.options` and, for each option, the role it grants in `share.roles`. For a collection or a connection that you own, the call makes its record in the sharing API, as `POST /api/collections/{name}/share` and `POST /api/chats/connectors/{id}/share` do; nothing is granted. Owner only. |
+| `GET /api/chats/agents/{id}/needs` | What an agent you may use needs, and the state of each thing for you: `ok`, `missing`, `unavailable` or `ask`. Kind `network` is the agent's network preset and kind `tool-group` an opt-in group it turns on. |
+
+Share with the [sharing API](/features/sharing/#api), kind `agent`, the ID from
+`POST .../share`, roles `use` and `viewer`:
+
+```bash
+curl -X PUT -b session=... \
+  -H 'Content-Type: application/json' \
+  -H 'X-LocalAI-Confirm: r0123456789abcdef0123456789abcde' \
+  -H 'Sec-Fetch-Site: same-origin' -H 'Sec-Fetch-Mode: cors' -H 'Sec-Fetch-Dest: empty' \
+  -d '{"role":"use"}' \
+  http://localhost:8080/api/shares/agent/r0123456789abcdef0123456789abcde/grants/@everyone
+```
+
+Errors: `403` with `authorization_error` for an action that is the owner's
+alone; `404` for an agent that does not exist or is not shared with you (the two
+are one answer); `409` with `agent_not_shared` for a new message in a chat whose
+agent is no longer shared with you; `409` with `sharing_disabled` when the server
+does not share agents.
+
+Sharing needs named accounts. In local-owner mode, with no accounts, the agents
+show no sharing. The grants live in the sharing policy of the add-on owner (see
+[Sharing resources](/features/sharing/#distributed-mode)). The agent keeps only
+the ID of its sharing record, in the agents table, so every frontend reads the
+same one. A frontend that is not the add-on owner asks the owner for every
+sharing decision, so a shared agent works on every frontend, also when the
+add-on owner is a separate process (`--addons-role=owner`). When the owner
+cannot be reached, no shared agent is listed or run: the agents list shows your
+own only, a new message in a chat with a shared agent is refused, and a running
+turn of a shared agent stops. With add-ons off, no agent is shared.
 
 ## Connectors
 
@@ -613,7 +728,7 @@ agent, plus `act.files` for a plan that writes a file), `read_only` whether a ru
 can only read and `read_only_why` why: `no_acts` (it holds none), `agent` (its
 agent holds none of them), `declared` (the proposal said `read_only`) or `binding`
 (a connection in `auto_readonly` mode made it). A trigger that a connection made
-without asking also holds only the acts that its binding allows now. The Triggers page shows the same:
+without asking also holds only the acts that its binding allows now, and `binding` gives the ID of that connection (it is left out for other triggers). The Triggers page shows the same:
 a "Read only" mark on each row, and the reason on the trigger.
 
 A refused tool stays in the tool list and answers with one plain sentence instead

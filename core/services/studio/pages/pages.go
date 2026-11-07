@@ -227,14 +227,24 @@ type loc struct {
 	shared bool
 }
 
-// own returns the location of a page of the user's home.
-func (s *Service) own(principal, name string) (loc, error) {
+// own returns the location of a page of the user's home. A page that another
+// person may write (files.Service.OthersWrite) is not the user's page: it
+// would run as the user's own page, with no consent and labelled as theirs,
+// so it does not exist here.
+func (s *Service) own(ctx context.Context, principal, name string) (loc, error) {
 	if !ValidName(name) {
 		return loc{}, ErrBadName
 	}
 	folder, err := s.f.Abs(principal, "/"+Dir+"/"+name)
 	if err != nil {
 		return loc{}, err
+	}
+	others, err := s.f.OthersWrite(ctx, principal)
+	if err != nil {
+		return loc{}, err
+	}
+	if others.Covers(folder) {
+		return loc{}, ErrNotFound
 	}
 	return loc{a: s.actor(principal), folder: folder, name: name, key: principal + "/" + name}, nil
 }
@@ -262,7 +272,7 @@ func (s *Service) List(ctx context.Context, principal string) ([]Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.listIn(ctx, s.actor(principal), dir, func(name string) (loc, error) { return s.own(principal, name) }, func(p *Page) {
+	return s.listIn(ctx, s.actor(principal), dir, func(name string) (loc, error) { return s.own(ctx, principal, name) }, func(p *Page) {
 		p.Path = "/" + Dir + "/" + p.Name
 	})
 }
@@ -317,7 +327,7 @@ func (s *Service) existsAt(ctx context.Context, l loc) error {
 
 // Get returns one page.
 func (s *Service) Get(ctx context.Context, principal, name string) (Page, error) {
-	l, err := s.own(principal, name)
+	l, err := s.own(ctx, principal, name)
 	if err != nil {
 		return Page{}, err
 	}
@@ -471,7 +481,7 @@ func (s *Service) Source(ctx context.Context, principal, name string) (Page, str
 
 // Read returns a text file of the page's folder.
 func (s *Service) Read(ctx context.Context, principal, name, rel string) (Content, error) {
-	l, err := s.own(principal, name)
+	l, err := s.own(ctx, principal, name)
 	if err != nil {
 		return Content{}, err
 	}
@@ -545,7 +555,7 @@ type Image struct {
 // extensions of ImageType are read; anything else is ErrNotImage, so this is
 // no way to read an arbitrary binary file.
 func (s *Service) ReadImage(ctx context.Context, principal, name, rel string) (Image, error) {
-	l, err := s.own(principal, name)
+	l, err := s.own(ctx, principal, name)
 	if err != nil {
 		return Image{}, err
 	}
@@ -578,7 +588,7 @@ func (s *Service) Write(ctx context.Context, principal, name, rel string, body [
 	if _, err := CleanPath(rel); err != nil {
 		return File{}, err
 	}
-	l, err := s.own(principal, name)
+	l, err := s.own(ctx, principal, name)
 	if err != nil {
 		return File{}, ErrBadPath
 	}
@@ -633,7 +643,7 @@ func (l loc) file(n workspace.Node) File {
 
 // ListFiles lists a folder of the page; dir "" is the page's folder.
 func (s *Service) ListFiles(ctx context.Context, principal, name, dir string) ([]File, error) {
-	l, err := s.own(principal, name)
+	l, err := s.own(ctx, principal, name)
 	if err != nil {
 		return nil, err
 	}

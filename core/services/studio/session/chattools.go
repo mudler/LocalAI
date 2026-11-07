@@ -301,7 +301,7 @@ func (c *Chat) applyChatTools(ctx context.Context, message string) (note string,
 	defs := make([]Tool, len(tools))
 	for i, t := range tools {
 		cur[t.Name] = t
-		defs[i] = Tool{Name: t.Name, Description: t.Description, Schema: t.Schema}
+		defs[i] = Tool{Name: t.Name, Description: t.Description, Schema: t.Schema, ReadOnly: t.ReadOnly}
 	}
 	c.hostMu.Lock()
 	prev := c.host.fp
@@ -398,7 +398,9 @@ func (s *cardSlot) get() *ToolCard {
 // entry of that call. It does nothing outside a host tool's Run, and the card
 // is used only when Run returns no error. A card whose Kind is not 1 to 32
 // characters of [a-z0-9_], or whose ID is not 1 to 128 printable ASCII
-// characters, is dropped and logged. The card is for the product's interface:
+// characters, is dropped and logged. A files_change card is the exception: its
+// ID ends in a file path, so it may hold any UTF-8 text without control
+// characters, up to 1048 bytes. The card is for the product's interface:
 // the model never sees it and the tool text does not change.
 func SetToolCard(ctx context.Context, c ToolCard) {
 	if s, ok := ctx.Value(cardSlotKey{}).(*cardSlot); ok {
@@ -439,11 +441,35 @@ func validCard(c ToolCard) bool {
 			return false
 		}
 	}
+	if c.Kind == ChangeCardKind {
+		return validChangeID(c.ID)
+	}
 	if n := len(c.ID); n < 1 || n > 128 {
 		return false
 	}
 	for i := 0; i < len(c.ID); i++ {
 		if b := c.ID[i]; b < 0x20 || b > 0x7e {
+			return false
+		}
+	}
+	return true
+}
+
+// maxChangeID bounds the ID of a files_change card: a revision, a colon and a
+// path of at most maxToolFilePath bytes.
+const maxChangeID = 24 + maxToolFilePath
+
+// validChangeID checks the ID of a files_change card, "<rev>:<path>". It ends
+// in the path of a file, which may hold any letter (an accent, a Chinese
+// character) and be longer than the 128 ASCII characters other cards allow;
+// with that limit such a change lost its Undo note. The ID stays valid UTF-8
+// with no control character.
+func validChangeID(id string) bool {
+	if len(id) < 1 || len(id) > maxChangeID || !utf8.ValidString(id) {
+		return false
+	}
+	for _, r := range id {
+		if r < 0x20 || r == 0x7f {
 			return false
 		}
 	}
@@ -628,7 +654,7 @@ func (c *Chat) primeChatTools(ctx context.Context) error {
 	defs := make([]Tool, len(tools))
 	for i, t := range tools {
 		cur[t.Name] = t
-		defs[i] = Tool{Name: t.Name, Description: t.Description, Schema: t.Schema}
+		defs[i] = Tool{Name: t.Name, Description: t.Description, Schema: t.Schema, ReadOnly: t.ReadOnly}
 	}
 	c.hostMu.Lock()
 	c.host.cur, c.host.defs, c.host.prompt, c.host.fp = cur, defs, prompt, fingerprint(tools, prompt)

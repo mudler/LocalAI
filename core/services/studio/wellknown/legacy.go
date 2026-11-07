@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"sync"
 
@@ -19,8 +20,12 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
-// fixedNames are the settings files that have a fixed path.
+// fixedNames are the settings files that sat at the top of the home before
+// LocalAI/. A kind added later (setups) never did and is never adopted: a
+// top-level file of that name belongs to the user.
 var fixedNames = []Name{Persona, User, Shortcuts, Home, UI}
+
+func hadLegacyFile(n Name) bool { return slices.Contains(fixedNames, n) }
 
 // legacyFile is where the settings file n was before LocalAI/.
 func legacyFile(n Name) string { return "/" + string(n) + ".json" }
@@ -46,6 +51,9 @@ func (s *Service) AdoptTopLevelFiles(ctx context.Context, principal string) {
 // workspace path to read instead of the new file when the move failed and only
 // the old file exists, else "".
 func (s *Service) adopt(ctx context.Context, principal string, n Name) string {
+	if !hadLegacyFile(n) {
+		return ""
+	}
 	oldAbs, err := s.f.Abs(principal, legacyFile(n))
 	if err != nil {
 		return ""
@@ -165,9 +173,6 @@ func (s *Service) pickUp(ctx context.Context, a workspace.Actor, oldAbs, newAbs 
 // legacyRead is the path to use for n: the new one, or the old one while the
 // move failed (see adopt). home is the path inside the home.
 func (s *Service) legacyRead(ctx context.Context, principal string, n Name, abs, home string) (string, string) {
-	if File(n) == "" {
-		return abs, home
-	}
 	if old := s.adopt(ctx, principal, n); old != "" {
 		return old, strings.TrimSuffix(s.f.Rel(principal, old), "/")
 	}

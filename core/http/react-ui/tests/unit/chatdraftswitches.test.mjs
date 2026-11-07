@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { applyChoices, draftListSwitches, draftSwitches, emptyChoices, withChoice } from '../../src/utils/chatDraftSwitches.js'
+import { addonRowsCurrent, applyChoices, draftListSwitches, draftSwitches, emptyChoices, withChoice } from '../../src/utils/chatDraftSwitches.js'
 
 const ref = (id) => `connector:${id}`
 
@@ -100,4 +100,10 @@ test('draft switches: a connection set rides in the draft list query and is appl
   assert.equal(got[1].enabled_connections, undefined, 'a choice for connections the row does not list is ignored')
   const agent = applyChoices({ addons: [{ id: 'tracker', credentialed: true, enabled_connections: ['b1'], connection_by: 'agent', connections: [{ id: 'b1' }, { id: 'b2' }] }] }, choices, ref).addons
   assert.deepEqual(agent[0].enabled_connections, ['b1'], 'the set of the agent is not changed from the composer')
+})
+
+test('add-on rows: an existing chat ignores a list older than its own switch, a draft takes it', () => {
+  assert.equal(addonRowsCurrent({ draft: false, epoch: 3, current: 3 }), true)
+  assert.equal(addonRowsCurrent({ draft: false, epoch: 3, current: 4 }), false)
+  assert.equal(addonRowsCurrent({ draft: true, epoch: 3, current: 4 }), true)
 })

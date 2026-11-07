@@ -18,7 +18,7 @@ var _ = Describe("optional startup services", func() {
 		DeferCleanup(cancel)
 		state, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()), system.WithBackendPath(GinkgoT().TempDir()))
 		Expect(err).NotTo(HaveOccurred())
-		app, err := New(config.WithContext(ctx), config.WithSystemState(state), config.DisableMetricsEndpoint, config.WithDisableLocalAIAssistant(true), config.WithDisableStats(true), config.WithRouterDecisionLog(enabled))
+		app, err := New(config.WithContext(ctx), config.WithSystemState(state), config.DisableMetricsEndpoint, config.WithDisableStats(true), config.WithRouterDecisionLog(enabled))
 		if app != nil {
 			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 		}

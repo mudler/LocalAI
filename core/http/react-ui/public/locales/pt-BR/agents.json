@@ -64,7 +64,18 @@
     },
     "noRunsText": "Press Chat to start a conversation with this agent. Chats that ran with it, and the ones its triggers start, are listed here.",
     "missingText": "It may have been deleted, or it belongs to another user.",
-    "backToList": "Voltar aos agentes"
+    "backToList": "Voltar aos agentes",
+    "bindings": "Conexões",
+    "bindingsAll": "Todas as conexões",
+    "noBindings": "Nenhum app de mensagens está conectado a este agente.",
+    "noBindingsLink": "Adicione um em Add-ons.",
+    "bindingState": {
+      "ok": "Ativa",
+      "off": "Desativada",
+      "attention": "Precisa de atenção"
+    },
+    "openSettings": "Abrir configurações",
+    "openSettingsFor": "Abrir as configurações de {{name}}"
   },
   "record": {
     "where": "A run is a chat that ran with the agent, including the ones its triggers and connectors started.",
@@ -832,5 +843,135 @@
     "blank": {
       "description": "Vazio. Comece do zero."
     }
+  },
+  "wizard": {
+    "title": "Novo agente",
+    "supporting": "Quatro passos curtos. Só nome e instruções são obrigatórios.",
+    "stepsLabel": "Passos",
+    "back": "Voltar",
+    "next": "Continuar",
+    "defaultTools": "Ferramentas padrão",
+    "step": {
+      "purpose": "Finalidade",
+      "abilities": "Capacidades",
+      "where": "Onde ele trabalha",
+      "review": "Revisão"
+    },
+    "purpose": {
+      "title": "Para que serve este agente?",
+      "lead": "Comece com um modelo ou escreva o seu. Você pode mudar tudo depois.",
+      "needs": "São necessários nome e instruções para continuar.",
+      "modelLine": "Modelo: o que você escolhe em cada chat.",
+      "modelChoose": "Escolher um modelo fixo",
+      "modelEach": "O que eu escolho em cada chat"
+    },
+    "abilities": {
+      "title": "Quanto ele pode fazer sozinho?",
+      "lead": "Não tem certeza? Deixe assim: o agente começa com as ferramentas padrão. Ou escolha um nível, que as substitui.",
+      "defaultNote": "Nenhum nível escolhido. O agente começa com as ferramentas padrão.",
+      "files": "Quais dos seus arquivos ele pode ver?",
+      "fine": "Ajustar ferramentas uma a uma",
+      "templateHint": "Este modelo sugere o nível {{level}}.",
+      "templateUse": "Usar {{level}}"
+    },
+    "where": {
+      "title": "Onde ele deve trabalhar?",
+      "lead": "Opcional. Escolha onde este agente deve trabalhar. Nada está conectado ainda.",
+      "chat": "Apps de chat",
+      "chatLead": "Apps em que as pessoas podem falar com este agente.",
+      "tools": "Ferramentas e serviços",
+      "toolsLead": "Add-ons que dão novas capacidades a ele.",
+      "notInstalled": "Não instalado",
+      "generic": "Termine de configurar {{title}}",
+      "loading": "Procurando apps",
+      "empty": "Ainda não há apps disponíveis.",
+      "note": "Escolher um app não o conecta. Depois de criar o agente, uma lista curta guia você na configuração de cada um.",
+      "find": "Encontrar add-ons"
+    },
+    "review": {
+      "title": "Pronto para criar",
+      "lead": "Confira o resumo. Você pode mudar tudo depois.",
+      "named": "Tem nome e instruções",
+      "tools": "Ferramentas: {{level}}",
+      "modelFixed": "Modelo: {{model}}",
+      "modelEach": "Modelo: o que você escolhe em cada chat",
+      "apps": "Apps para configurar depois de criar: {{count}}",
+      "filesTitle": "Ele pode ver todos os seus arquivos.",
+      "filesBody": "Tudo o que você pode abrir em Arquivos, este agente pode ler. Você pode limitá-lo a pastas.",
+      "limit": "Limitar a pastas",
+      "setupNext": "Depois de criar o agente, a página dele lista os passos de configuração dos apps escolhidos."
+    },
+    "rail": {
+      "title": "Seu agente",
+      "unnamed": "Sem nome",
+      "abilities": "Capacidades",
+      "modelEach": "Escolhido em cada chat",
+      "files": "Arquivos",
+      "folders": "Só pastas escolhidas ({{count}})",
+      "works": "Trabalha em",
+      "thisApp": "Este app"
+    }
+  },
+  "setup": {
+    "title": "Concluir a configuração",
+    "count": "{{done}} de {{total}} concluídos",
+    "dismiss": "Ocultar",
+    "progress": "Andamento da configuração",
+    "done": "Concluído",
+    "stays": "A lista fica nesta página até todos os apps estarem prontos, ou até você ocultá-la.",
+    "connect": "Nova conexão",
+    "account": "Escolher conta",
+    "turnOn": "Ativar",
+    "find": "Ver nos add-ons",
+    "actionFor": "{{action}}: {{title}}"
+  },
+  "share": {
+    "action": "Compartilhar",
+    "intro": "As pessoas que você adicionar usam este agente como elas mesmas, com os próprios arquivos, coleções e conexões.",
+    "roles": {
+      "use": "Pode usar",
+      "useHelp": "Conversam com o agente nos próprios chats e veem do que ele precisa.",
+      "viewer": "Pode ver",
+      "viewerHelp": "Também podem ler as instruções e as ferramentas."
+    },
+    "kind": {
+      "addon": "Complemento",
+      "collection": "Coleção",
+      "skill": "Habilidade",
+      "folder": "Pasta",
+      "connection": "Conexão",
+      "addon-resource": "Recurso de complemento",
+      "mcp": "Servidor MCP",
+      "builtin": "Permissão integrada",
+      "network": "Rede",
+      "tool-group": "Grupo de ferramentas"
+    },
+    "ownAccess": "Precisam de acesso próprio",
+    "refsApplied_one": "Também foi compartilhado {{count}} item que ele usa.",
+    "refsApplied_other": "Também foram compartilhados {{count}} itens que ele usa.",
+    "refsFailed": "Não foi possível compartilhar: {{names}}.",
+    "refsSkipped": "Não compartilhado com todos: {{names}}. Compartilhe com cada pessoa.",
+    "failed": "Não foi possível abrir o compartilhamento. {{message}}"
+  },
+  "shared": {
+    "readOnly": "Você pode conversar com este agente. Só o dono pode alterá-lo."
+  },
+  "needs": {
+    "title": "Do que este agente precisa",
+    "intro": "O agente funciona como você, com o seu próprio acesso.",
+    "none": "Este agente não usa nada além do chat.",
+    "loadError": "Não foi possível verificar do que este agente precisa.",
+    "state": {
+      "ok": "Você tem",
+      "missing": "Não compartilhado com você",
+      "unavailable": "Indisponível para você",
+      "ask": "Começa desligado no seu chat"
+    },
+    "noticeTitle_one": "Este agente precisa de {{count}} item que você não tem:",
+    "noticeTitle_other": "Este agente precisa de {{count}} itens que você não tem:",
+    "noticeLink": "Ver do que ele precisa",
+    "asksTitle_one": "Este agente pede {{count}} item com o qual seu chat não começa:",
+    "asksTitle_other": "Este agente pede {{count}} itens com os quais seu chat não começa:",
+    "asksHelp": "Ele roda como você. Ligue-os no chat só se você confiar no agente e na pessoa que o compartilhou."
   }
 }

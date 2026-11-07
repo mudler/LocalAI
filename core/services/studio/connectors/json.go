@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -313,6 +314,23 @@ func (s *jsonStore) SetCapsIfEmpty(_ context.Context, id string, caps []string) 
 	}
 	old := b
 	b.Caps = append([]string(nil), caps...)
+	s.d.Bindings[id] = b
+	if err := s.save(); err != nil {
+		s.d.Bindings[id] = old
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *jsonStore) AddCapIfAbsent(_ context.Context, id, capability string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	b, ok := s.d.Bindings[id]
+	if !ok || len(b.Caps) == 0 || slices.Contains(b.Caps, capability) {
+		return false, nil
+	}
+	old := b
+	b.Caps = append(slices.Clone(b.Caps), capability)
 	s.d.Bindings[id] = b
 	if err := s.save(); err != nil {
 		s.d.Bindings[id] = old

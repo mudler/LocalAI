@@ -1,0 +1,128 @@
+{
+  "title": "Email",
+  "intro": "Biarkan agen Anda membaca kotak surat lewat IMAP dan, jika Anda mengizinkan, menulis email lewat SMTP. Berfungsi dengan penyedia mana pun yang menawarkan IMAP dan SMTP.",
+  "limits": "Koneksi ini tidak membalas email masuk dengan sendirinya. Agen hanya mengerjakan email Anda saat Anda memintanya di chat. Seluruh kotak surat dapat dijangkau, jadi hubungkan hanya kotak surat yang boleh dibaca agen.",
+  "new": "Koneksi email baru",
+  "edit": "Ubah koneksi email",
+  "name": "Nama",
+  "agent": "Agen",
+  "agentNone": "Pilih agen",
+  "agentCredentialsOnly": "Tanpa agen (hanya kredensial)",
+  "credentialsOnly": "Hanya kredensial",
+  "agentNoModel": "{{name}} (perlu model)",
+  "test": "Uji",
+  "testOk": "Terhubung sebagai {{bot}}.",
+  "checkFailed": "Tersimpan. Pemeriksaan login gagal: {{reason}}",
+  "checkSeveral": "Pemeriksaan login berjalan saat Anda hanya punya satu koneksi email, karena dari halaman ini tidak bisa diketahui koneksi mana yang Anda maksud. Di chat, aktifkan koneksi di menu Alat.",
+  "check": {
+    "title": "Pemeriksaan {{name}}",
+    "running": "Memeriksa kedua login...",
+    "at": "Diperiksa pukul {{time}}",
+    "imapOk": "Membaca email (IMAP): login berfungsi.",
+    "smtpOk": "Mengirim email (SMTP): login berfungsi.",
+    "imapFailed": "Membaca email (IMAP) gagal. {{reason}}",
+    "smtpFailed": "Mengirim email (SMTP) gagal. {{reason}}"
+  },
+  "save": "Simpan",
+  "cancel": "Batal",
+  "editButton": "Ubah",
+  "delete": "Hapus",
+  "empty": "Belum ada koneksi email.",
+  "noAddress": "Tanpa alamat",
+  "agentOf": "Agen: {{name}}",
+  "inactive": "Tidak berjalan: {{reason}}.",
+  "confirmDelete": {
+    "title": "Hapus {{name}}?",
+    "message": "Agen tidak lagi dapat menjangkau kotak surat ini, dan kata sandi yang tersimpan bersamanya dihapus. Untuk mengaturnya lagi, Anda harus memasukkan semuanya lagi.",
+    "confirm": "Hapus"
+  },
+  "replace": "Ubah detail server atau login",
+  "savedAs": "Tersimpan untuk {{address}}. Server dan kata sandi disimpan terenkripsi dan tidak dapat ditampilkan. Untuk mengubah salah satunya, masukkan semuanya lagi.",
+  "address": "Alamat kotak surat",
+  "addressHelp": "Alamat kotak surat. Ini juga menjadi alamat pengirim email yang dikirim agen.",
+  "addressShape": "Tulis satu alamat biasa, misalnya nama@example.com.",
+  "display": "Nama pengirim",
+  "displayHelp": "Ditampilkan di samping alamat pada email yang dikirim agen.",
+  "displayShape": "Gunakan hingga 100 karakter dalam satu baris.",
+  "username": "Nama pengguna",
+  "usernameHelp": "Login untuk kedua server. Sering kali alamat lengkap.",
+  "userShape": "Masukkan nama pengguna kotak surat.",
+  "password": "Kata sandi",
+  "passwordHelp": "Banyak penyedia meminta kata sandi aplikasi di sini, bukan kata sandi biasa. Kata sandi disimpan terenkripsi dan tidak pernah ditampilkan lagi.",
+  "passMissing": "Masukkan kata sandi.",
+  "passShape": "Kata sandi paling banyak 512 karakter, tanpa baris baru.",
+  "host": "Server",
+  "port": "Port",
+  "imap": {
+    "title": "Membaca email (IMAP)",
+    "hostExample": "imap.example.com"
+  },
+  "smtp": {
+    "title": "Mengirim email (SMTP)",
+    "hostExample": "smtp.example.com"
+  },
+  "imapHostShape": "Tulis hanya nama server IMAP, seperti imap.example.com: tanpa https://, port, atau path.",
+  "smtpHostShape": "Tulis hanya nama server SMTP, seperti smtp.example.com: tanpa https://, port, atau path.",
+  "imapPortShape": "Port IMAP adalah 993 atau 143.",
+  "smtpPortShape": "Port SMTP adalah 465 atau 587.",
+  "imapPortSecurityMismatch": "Port 993 memakai TLS; port 143 memakai STARTTLS. Samakan port dengan perlindungannya.",
+  "smtpPortSecurityMismatch": "Port 465 memakai TLS; port 587 memakai STARTTLS. Samakan port dengan perlindungannya.",
+  "plainNotConfirmed": "Konfirmasi bahwa Anda menerima pengiriman kata sandi tanpa perlindungan, atau pilih TLS atau STARTTLS.",
+  "security": {
+    "label": "Perlindungan",
+    "tls": "TLS",
+    "starttls": "STARTTLS",
+    "none": "Tidak ada (tidak aman)",
+    "plainWarning": "Tanpa perlindungan, kata sandi dan semua email dikirim sebagai teks biasa. Siapa pun di jalur jaringan dapat membacanya. Gunakan hanya di jaringan yang Anda percaya.",
+    "plainConfirm": "Saya menerima bahwa kata sandi dan email dikirim tanpa perlindungan."
+  },
+  "folders": "Folder yang boleh dipakai agen",
+  "foldersHelp": "Satu per baris. Biarkan kosong untuk mengizinkan semua folder. Folder yang tidak ada di daftar ditolak, dan INBOX dicocokkan tanpa membedakan huruf besar dan kecil.",
+  "foldersMany": "Paling banyak 20 folder.",
+  "foldersShape": "Nama folder paling banyak 200 karakter dalam satu baris.",
+  "drafts": "Folder draf",
+  "draftsHelp": "Hanya diperlukan saat server tidak menandai folder drafnya. Draf masuk lebih dulu ke folder yang ditandai server sebagai draf.",
+  "tooLong": "Koneksi terlalu panjang untuk disimpan. Persingkat daftar folder.",
+  "setup": {
+    "title": "Cara menghubungkan kotak surat",
+    "step1": "Cari nama server IMAP dan SMTP penyedia Anda di halaman bantuannya. Keduanya memakai TLS atau STARTTLS.",
+    "step2": "Jika penyedia mendukungnya, buat kata sandi aplikasi untuk LocalAI dan pakai sebagai kata sandi. Kata sandi biasa sering tidak berfungsi dengan IMAP.",
+    "step3": "Masukkan alamat, nama pengguna, kata sandi, dan kedua server, lalu simpan. Saat menyimpan, sistem login ke kedua server.",
+    "step4": "Pilih apakah agen juga boleh mengirim email dan menyimpan draf. Setiap pengiriman dan setiap draf menunggu konfirmasi Anda, di kedua mode.",
+    "private": "Server email harus berada di internet publik: alamat di dalam jaringan pribadi ditolak."
+  },
+  "writeMode": {
+    "label": "Apa yang boleh dilakukan agen dengan email",
+    "hint": "Mengirim dan menyimpan draf. Agen tidak pernah menghapus, memindahkan, menandai, atau meneruskan email.",
+    "off": "Hanya baca",
+    "propose": "Bertanya dulu",
+    "line": {
+      "off": "Hanya bisa membaca.",
+      "propose": "Setiap pengiriman dan setiap draf menunggu persetujuan Anda."
+    },
+    "note": {
+      "off": "Akses tulis nonaktif: koneksi ini hanya membaca.",
+      "propose": "Setiap pengiriman dan setiap draf menunggu di persetujuan Anda sampai Anda mengonfirmasinya. Email yang terkirim tidak dapat ditarik kembali, dan semua orang di Kepada dan Cc akan membacanya."
+    },
+    "row": {
+      "off": "Hanya baca",
+      "propose": "Bertanya dulu"
+    }
+  },
+  "approval": {
+    "action": {
+      "send-message": "Kirim email",
+      "save-draft": "Simpan draf email"
+    },
+    "from": "Dari",
+    "to": "Kepada",
+    "cc": "Cc",
+    "subject": "Subjek",
+    "reply": "Balasan",
+    "replyYes": "Bagian dari percakapan yang ada",
+    "text": "Teks email",
+    "cut": "Teks yang ditampilkan di sini dipotong. Teks lengkap, {{bytes}} byte, yang dipakai.",
+    "noteSend": "Pengiriman tidak dapat dibatalkan. Semua orang di Kepada dan Cc akan membaca ini dari alamat Anda.",
+    "noteDraft": "Ini disimpan di folder draf Anda. Tidak ada yang dikirim."
+  }
+}

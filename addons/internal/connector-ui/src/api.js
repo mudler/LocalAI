@@ -43,6 +43,9 @@ const send = (method, path, body, signal) => call(path, { method, body: body ===
 
 export const agentsApi = { list: () => call('/api/chats/agents') }
 
+// The triggers of the signed-in person, to say which ones a save of a connection changes.
+export const triggersApi = { list: () => call('/api/chats/triggers') }
+
 export const connectorsApi = {
   list: () => call('/api/chats/connectors'),
   kinds: () => call(localized('/api/chats/connectors/kinds')).then((r) => (r ? { ...r, capabilities: localizeCapabilities(r.capabilities) } : r)),

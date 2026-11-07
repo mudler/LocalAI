@@ -206,6 +206,13 @@ type ConnectorInfo struct {
 	// same bot as this one, oldest first. It is empty unless this binding is
 	// enabled too. Both then answer the same message.
 	SameBotAs []DuplicateRef
+	// Share is the share of the binding, for its owner, once the owner made
+	// it shareable. Nil otherwise.
+	Share *ShareState
+	// UsedBy is how many of the owner's saved agents hold this connection in
+	// their set of connections. It is set only for a binding of a tool-only
+	// kind, and only while the agents can be read.
+	UsedBy *int
 }
 
 func info(b connectors.Binding) ConnectorInfo {
@@ -221,11 +228,71 @@ func (c *Connectors) withState(ctx context.Context, i ConnectorInfo) ConnectorIn
 	if err != nil {
 		return i
 	}
-	if _, ok := kindFor(kinds, i.Binding); ok {
+	if k, ok := kindFor(kinds, i.Binding); ok {
+		if k.ToolOnly {
+			i.Binding = toolOnlyView(i.Binding)
+		}
 		return i
 	}
 	i.Active, i.Reason = false, "install the "+i.AddonID+" add-on"
 	return i
+}
+
+// toolOnlyView is a binding of a tool-only kind as the host treats it: no
+// agent, not listening, not accepting anyone. A row saved before the kind was
+// tool-only may still hold them; the stored row is left alone and every reader
+// goes through here, so no migration is needed.
+func toolOnlyView(b connectors.Binding) connectors.Binding {
+	b.AgentID, b.Enabled, b.AcceptAny = "", false, false
+	return b
+}
+
+// toolOnly says whether the running kind of the binding is tool-only.
+func (c *Connectors) toolOnly(ctx context.Context, b connectors.Binding) bool {
+	k := c.kindOf(ctx, b)
+	return k != nil && k.ToolOnly
+}
+
+// usageOf counts, for each binding ID, the agents of the owner whose set of
+// connections names it. The second result is false when the agents cannot be
+// read.
+func (c *Connectors) usageOf(ctx context.Context, owner string) (map[string]int, bool) {
+	list, err := c.svc.Agents(ctx, owner)
+	if err != nil {
+		return nil, false
+	}
+	n := map[string]int{}
+	for _, ag := range list {
+		seen := map[string]bool{}
+		for _, ids := range ag.Connections {
+			for _, id := range ids {
+				if !seen[id] {
+					seen[id] = true
+					n[id]++
+				}
+			}
+		}
+	}
+	return n, true
+}
+
+// withUsage sets UsedBy on the tool-only bindings of items.
+func (c *Connectors) withUsage(ctx context.Context, owner string, items ...*ConnectorInfo) {
+	var n map[string]int
+	var read, tried bool
+	for _, i := range items {
+		if !c.toolOnly(ctx, i.Binding) {
+			continue
+		}
+		if !tried {
+			n, read = c.usageOf(ctx, owner)
+			tried = true
+		}
+		if read {
+			v := n[i.ID]
+			i.UsedBy = &v
+		}
+	}
 }
 
 // kindTitle is the name of the platform of a binding, for people.
@@ -376,7 +443,7 @@ func (c *Connectors) checkAgentIfAny(ctx context.Context, owner, agentID string)
 // agent. A kind whose add-on does not run cannot say, so it needs an agent.
 func (c *Connectors) agentOptional(ctx context.Context, b connectors.Binding) bool {
 	k := c.kindOf(ctx, b)
-	return k != nil && k.AgentOptional
+	return k != nil && k.NoAgentAllowed()
 }
 
 func (c *Connectors) owned(ctx context.Context, user, id string) (connectors.Binding, error) {
@@ -400,6 +467,13 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	}
 	b := connectors.Binding{ID: newID(), Owner: owner, Kind: kind, AddonID: addon}
 	in.apply(&b)
+	if c.toolOnly(ctx, b) {
+		if err := connectors.ValidateToolOnly(b); err != nil {
+			return ConnectorInfo{}, err
+		}
+		// Agents choose the connection through their own sets: the binding has none.
+		b.AgentID, in.AgentID = "", ""
+	}
 	if err := connectors.ValidateKind(b, c.agentOptional(ctx, b)); err != nil {
 		return ConnectorInfo{}, err
 	}
@@ -457,7 +531,7 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 		return ConnectorInfo{}, err
 	}
 	c.Notify()
-	return c.withDuplicates(ctx, c.withState(ctx, info(b))), nil
+	return c.viewOf(ctx, b), nil
 }
 
 // checkConnectionName refuses a name that another credential-only binding of
@@ -509,6 +583,12 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 		// A new token may belong to another account: the identity is the one just read.
 		b.AccountID = newAccount
 	}
+	if c.toolOnly(ctx, b) {
+		if err := connectors.ValidateToolOnly(b); err != nil {
+			return ConnectorInfo{}, err
+		}
+		b.AgentID, in.AgentID = "", ""
+	}
 	if err := connectors.ValidateKind(b, c.agentOptional(ctx, b)); err != nil {
 		return ConnectorInfo{}, err
 	}
@@ -556,7 +636,7 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 		return ConnectorInfo{}, err
 	}
 	c.Notify()
-	return c.withDuplicates(ctx, c.withState(ctx, info(b))), nil
+	return c.viewOf(ctx, b), nil
 }
 
 // SetConnectorEnabled switches a binding on or off.
@@ -567,6 +647,9 @@ func (c *Connectors) SetConnectorEnabled(ctx context.Context, user, id string, o
 	if err != nil {
 		return ConnectorInfo{}, err
 	}
+	if on && c.toolOnly(ctx, b) {
+		return ConnectorInfo{}, connectorBad("a tool-only connection does not listen: agents use it through their own connections")
+	}
 	if on && b.CredentialsOnly() {
 		return ConnectorInfo{}, connectorBad("listening needs an agent: a connection without an agent only holds credentials")
 	}
@@ -575,7 +658,7 @@ func (c *Connectors) SetConnectorEnabled(ctx context.Context, user, id string, o
 		return ConnectorInfo{}, err
 	}
 	c.Notify()
-	return c.withDuplicates(ctx, c.withState(ctx, info(b))), nil
+	return c.viewOf(ctx, b), nil
 }
 
 // GetConnector returns a binding of the user, without its token.
@@ -584,7 +667,15 @@ func (c *Connectors) GetConnector(ctx context.Context, user, id string) (Connect
 	if err != nil {
 		return ConnectorInfo{}, err
 	}
-	return c.withDuplicates(ctx, c.withState(ctx, info(b))), nil
+	return c.withShare(ctx, c.viewOf(ctx, b)), nil
+}
+
+// viewOf is the view of one stored binding for its owner: state, duplicates
+// and, for a tool-only kind, how many agents use it.
+func (c *Connectors) viewOf(ctx context.Context, b connectors.Binding) ConnectorInfo {
+	i := c.withDuplicates(ctx, c.withState(ctx, info(b)))
+	c.withUsage(ctx, b.Owner, &i)
+	return i
 }
 
 // withDuplicates fills SameBotAs of one binding. A store that fails leaves it empty.
@@ -605,10 +696,13 @@ func (c *Connectors) ListConnectors(ctx context.Context, user string) ([]Connect
 		return nil, err
 	}
 	out := make([]ConnectorInfo, len(all))
+	ptrs := make([]*ConnectorInfo, len(all))
 	for i, b := range all {
-		out[i] = c.withState(ctx, info(b))
+		out[i] = c.withShare(ctx, c.withState(ctx, info(b)))
+		ptrs[i] = &out[i]
 	}
 	markDuplicates(out, all)
+	c.withUsage(ctx, principal(user), ptrs...)
 	return out, nil
 }
 
@@ -617,9 +711,13 @@ func (c *Connectors) ListConnectors(ctx context.Context, user string) ([]Connect
 func (c *Connectors) DeleteConnector(ctx context.Context, user, id string) error {
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
-	if _, err := c.owned(ctx, user, id); err != nil {
+	b, err := c.owned(ctx, user, id)
+	if err != nil {
 		return err
 	}
+	// The grantees stop before the binding goes, so no call of theirs runs
+	// with a token that is being deleted.
+	c.forgetShare(ctx, b.Owner, id)
 	if err := c.o.Store.DeleteBinding(ctx, id); err != nil {
 		return err
 	}

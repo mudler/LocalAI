@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/qdrant-store backends/cloud-proxy backends/localai-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/mlx-video backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/supertonic backends/depth-anything-cpp backends/timestral-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/qdrant-store backends/cloud-proxy backends/localai-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/mlx-video backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/supertonic backends/depth-anything-cpp backends/timestral-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin backends/strata
 .NOTPARALLEL: backends/whisper-medusa
 .NOTPARALLEL: backends/funasr
 
@@ -702,6 +702,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/go/gemxcpp
 	$(MAKE) -C backend/go/valkey-store
 	$(MAKE) -C backend/go/qdrant-store
+	$(MAKE) -C backend/go/strata
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
@@ -743,6 +744,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/go/gemxcpp test
 	$(MAKE) -C backend/go/valkey-store test
 	$(MAKE) -C backend/go/qdrant-store test
+	$(MAKE) -C backend/go/strata test
 
 ##
 ## End-to-end gRPC tests that exercise a built backend container image.
@@ -780,8 +782,10 @@ BACKEND_TEST_TIMEOUT?=30m
 ## Generic target — runs the suite against whatever BACKEND_IMAGE points at.
 ## Depends on protogen-go so pkg/grpc/proto is generated before `go test`.
 test-extra-backend: protogen-go
-	@test -n "$$BACKEND_IMAGE" || { echo "BACKEND_IMAGE must be set" >&2; exit 1; }
+	@test -n "$$BACKEND_IMAGE" || test -n "$$BACKEND_BINARY" || { echo "BACKEND_IMAGE or BACKEND_BINARY must be set" >&2; exit 1; }
 	BACKEND_IMAGE="$$BACKEND_IMAGE" \
+	BACKEND_BINARY="$$BACKEND_BINARY" \
+	BACKEND_TEST_CTX_SIZE="$$BACKEND_TEST_CTX_SIZE" \
 	BACKEND_TEST_MODEL_URL="$${BACKEND_TEST_MODEL_URL:-$(BACKEND_TEST_MODEL_URL)}" \
 	BACKEND_TEST_MODEL_FILE="$$BACKEND_TEST_MODEL_FILE" \
 	BACKEND_TEST_MODEL_NAME="$$BACKEND_TEST_MODEL_NAME" \
@@ -807,6 +811,22 @@ test-extra-backend: protogen-go
 	go test -v -timeout $(BACKEND_TEST_TIMEOUT) ./tests/e2e-backends/...
 
 ## Convenience wrappers: build the image, then exercise it.
+## strata runs against a STUB engine, not the real one. `package-stub` builds
+## the real backend binary and run.sh, and a stand-in engine (a Python script)
+## and a synthetic tokenizer pack replace the engine package and the model. So
+## this checks the gRPC surface, the tokenizer helper, the chat template, the
+## tool-call and reasoning parsers and the context checks, and says nothing
+## about the real engine or its output. Needs Python 3 with regex and jinja2.
+## The context is 4096 tokens because the pack has one token per byte, so the
+## long_prefill prompt is about 2750 tokens.
+test-extra-backend-strata:
+	$(MAKE) -C backend/go/strata package-stub
+	BACKEND_BINARY=$(abspath backend/go/strata/package-stub/run.sh) \
+	BACKEND_TEST_MODEL_FILE=$(abspath backend/go/strata/package-stub/pack) \
+	BACKEND_TEST_CTX_SIZE=4096 \
+	BACKEND_TEST_CAPS=health,load,predict,stream,tools,logprobs,logit_bias,tokenize,long_prefill,context_overflow \
+	$(MAKE) test-extra-backend
+
 test-extra-backend-llama-cpp: docker-build-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:llama-cpp \
 	BACKEND_TEST_CAPS=health,load,predict,stream,logprobs,logit_bias,context_overflow \
@@ -1426,6 +1446,7 @@ BACKEND_PIPER = piper|golang|.|false|true
 BACKEND_LOCAL_STORE = local-store|golang|.|false|true
 BACKEND_VALKEY_STORE = valkey-store|golang|.|false|true
 BACKEND_QDRANT_STORE = qdrant-store|golang|.|false|true
+BACKEND_STRATA = strata|golang|.|false|true
 BACKEND_CLOUD_PROXY = cloud-proxy|golang|.|false|true
 BACKEND_LOCALAI_PROXY = localai-proxy|golang|.|false|true
 BACKEND_HUGGINGFACE = huggingface|golang|.|false|true
@@ -1535,6 +1556,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_PIPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCAL_STORE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VALKEY_STORE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_QDRANT_STORE)))
+$(eval $(call generate-docker-build-target,$(BACKEND_STRATA)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CLOUD_PROXY)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCALAI_PROXY)))
 $(eval $(call generate-docker-build-target,$(BACKEND_HUGGINGFACE)))
@@ -1620,7 +1642,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SUPERTONIC)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-bonsai docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-longcat-video docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-moss-tts-cpp docker-build-magpie-tts-cpp docker-build-vllm-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-localai-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-moss-transcribe-cpp docker-build-nemo-speech-cpp docker-build-privacy-filter docker-build-trellis2cpp docker-build-valkey-store docker-build-qdrant-store docker-build-audio-cpp docker-build-timestral-cpp
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-bonsai docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-longcat-video docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-moss-tts-cpp docker-build-magpie-tts-cpp docker-build-vllm-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-localai-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-moss-transcribe-cpp docker-build-nemo-speech-cpp docker-build-privacy-filter docker-build-trellis2cpp docker-build-valkey-store docker-build-qdrant-store docker-build-audio-cpp docker-build-timestral-cpp docker-build-strata
 docker-build-backends: docker-build-whisper-medusa
 docker-build-backends: docker-build-funasr
 
@@ -1711,12 +1733,13 @@ test-ui-coverage-check: test-ui-coverage
 	sh $(CURDIR)/scripts/ui-coverage-check.sh core/http/react-ui/coverage/coverage-summary.json core/http/react-ui/coverage-baseline.txt
 
 ## Node-only UI checks that need no server and no browser: eslint (errors
-## only, warnings are tracked by the editor), the inline-style ratchet, the
-## host UI unit tests, the UI unit tests of every add-on and the locale
-## completeness ratchet. Run `npm ci` in core/http/react-ui first.
+## only, warnings are tracked by the editor), the inline-style ratchet, the UI
+## kit ratchet, the host UI unit tests, the UI unit tests of every add-on and
+## the locale completeness ratchet. Run `npm ci` in core/http/react-ui first.
 test-ui-unit: test-i18n
 	cd core/http/react-ui && npm run lint -- --quiet
 	cd core/http/react-ui && npm run lint:inline-styles
+	cd core/http/react-ui && npm run lint:ui-kit
 	cd core/http/react-ui && npm run test:unit
 	@set -e; for dir in addons/*/ui; do \
 		[ -f "$$dir/test/run.mjs" ] || continue; \
@@ -1756,8 +1779,11 @@ test-postgres:
 ## galleryop and nodes packages are left out: some of their specs start
 ## containers, and galleryop has a data race in a test (cancellable_phase_test.go
 ## reassigns the gate channel the worker reads).
+## The studio package runs about 2300 specs. Under the race detector on a small
+## runner it takes longer than the default 10 minutes of go test, so the limit
+## is set here: it only has to tell a hang from a slow run.
 test-distributed-fakebus:
-	$(GOCMD) test -race -count=1 -tags "$(COVERAGE_TAGS)" \
+	$(GOCMD) test -race -count=1 -timeout 25m -tags "$(COVERAGE_TAGS)" \
 		./core/services/testutil/... ./core/services/messaging/... ./core/services/studio/... \
 		./core/services/collections/... ./core/services/syncstate/... \
 		./core/services/modeladmin/... ./core/services/failover/...

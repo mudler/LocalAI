@@ -1,0 +1,128 @@
+{
+  "title": "邮件",
+  "intro": "让你的智能体通过 IMAP 读取邮箱，并在你允许时通过 SMTP 写邮件。适用于任何提供 IMAP 和 SMTP 的邮件服务商。",
+  "limits": "此连接不会自行回复收到的邮件。只有在你于聊天中提出要求时，智能体才会处理你的邮件。整个邮箱都可被访问，因此只连接你愿意让智能体读取的邮箱。",
+  "new": "新建邮件连接",
+  "edit": "编辑邮件连接",
+  "name": "名称",
+  "agent": "智能体",
+  "agentNone": "选择智能体",
+  "agentCredentialsOnly": "无智能体（仅凭据）",
+  "credentialsOnly": "仅凭据",
+  "agentNoModel": "{{name}}（需要模型）",
+  "test": "测试",
+  "testOk": "已作为 {{bot}} 连接。",
+  "checkFailed": "已保存。登录检查失败：{{reason}}",
+  "checkSeveral": "只有一个邮件连接时才会运行登录检查，因为从此页面无法判断你指的是哪一个。在聊天中，请在“工具”菜单里启用连接。",
+  "check": {
+    "title": "{{name}} 的检查",
+    "running": "正在检查两个登录……",
+    "at": "检查时间：{{time}}",
+    "imapOk": "读取邮件（IMAP）：登录正常。",
+    "smtpOk": "发送邮件（SMTP）：登录正常。",
+    "imapFailed": "读取邮件（IMAP）失败。{{reason}}",
+    "smtpFailed": "发送邮件（SMTP）失败。{{reason}}"
+  },
+  "save": "保存",
+  "cancel": "取消",
+  "editButton": "编辑",
+  "delete": "删除",
+  "empty": "还没有邮件连接。",
+  "noAddress": "无地址",
+  "agentOf": "智能体：{{name}}",
+  "inactive": "未运行：{{reason}}。",
+  "confirmDelete": {
+    "title": "删除 {{name}}？",
+    "message": "智能体将无法再访问此邮箱，随之保存的密码也会被删除。要再次设置，你必须重新输入所有内容。",
+    "confirm": "删除"
+  },
+  "replace": "更改服务器或登录信息",
+  "savedAs": "已为 {{address}} 保存。服务器和密码以加密方式保存，无法显示。要更改其中任何一项，请重新输入全部内容。",
+  "address": "邮箱地址",
+  "addressHelp": "邮箱的地址。它也是智能体所发邮件的发件人地址。",
+  "addressShape": "请填写一个普通地址，例如 name@example.com。",
+  "display": "发件人名称",
+  "displayHelp": "显示在智能体所发邮件的地址旁边。",
+  "displayShape": "请在一行内使用最多 100 个字符。",
+  "username": "用户名",
+  "usernameHelp": "两个服务器共用的登录名。通常是完整地址。",
+  "userShape": "请输入邮箱的用户名。",
+  "password": "密码",
+  "passwordHelp": "许多服务商在这里要求使用应用专用密码，而不是普通密码。它以加密方式保存，不会再次显示。",
+  "passMissing": "请输入密码。",
+  "passShape": "密码最多 512 个字符，且不能换行。",
+  "host": "服务器",
+  "port": "端口",
+  "imap": {
+    "title": "读取邮件（IMAP）",
+    "hostExample": "imap.example.com"
+  },
+  "smtp": {
+    "title": "发送邮件（SMTP）",
+    "hostExample": "smtp.example.com"
+  },
+  "imapHostShape": "只填写 IMAP 服务器名称，例如 imap.example.com：不要加 https://、端口或路径。",
+  "smtpHostShape": "只填写 SMTP 服务器名称，例如 smtp.example.com：不要加 https://、端口或路径。",
+  "imapPortShape": "IMAP 端口是 993 或 143。",
+  "smtpPortShape": "SMTP 端口是 465 或 587。",
+  "imapPortSecurityMismatch": "端口 993 使用 TLS；端口 143 使用 STARTTLS。请让端口与保护方式一致。",
+  "smtpPortSecurityMismatch": "端口 465 使用 TLS；端口 587 使用 STARTTLS。请让端口与保护方式一致。",
+  "plainNotConfirmed": "请确认你接受不受保护地发送密码，或选择 TLS 或 STARTTLS。",
+  "security": {
+    "label": "保护方式",
+    "tls": "TLS",
+    "starttls": "STARTTLS",
+    "none": "无（不安全）",
+    "plainWarning": "没有保护时，密码和所有邮件都以明文传输。网络路径上的任何人都能读取。只在你信任的网络中使用。",
+    "plainConfirm": "我接受密码和邮件不受保护地发送。"
+  },
+  "folders": "智能体可使用的文件夹",
+  "foldersHelp": "每行一个。留空表示允许所有文件夹。不在列表中的文件夹会被拒绝，INBOX 的比较不区分大小写。",
+  "foldersMany": "最多 20 个文件夹。",
+  "foldersShape": "文件夹名称在一行内最多 200 个字符。",
+  "drafts": "草稿文件夹",
+  "draftsHelp": "仅在服务器没有标记其草稿文件夹时需要。草稿会先放入服务器标记为草稿的文件夹。",
+  "tooLong": "连接过长，无法保存。请缩短文件夹列表。",
+  "setup": {
+    "title": "如何连接邮箱",
+    "step1": "在服务商的帮助页面中查找其 IMAP 和 SMTP 服务器名称。两者都使用 TLS 或 STARTTLS。",
+    "step2": "如果服务商支持，请为 LocalAI 创建应用专用密码并用作密码。普通密码通常无法用于 IMAP。",
+    "step3": "输入地址、用户名、密码和两个服务器，然后保存。保存时会登录这两个服务器。",
+    "step4": "选择智能体是否也可以发送邮件和保存草稿。无论哪种模式，每次发送和每份草稿都要等待你的确认。",
+    "private": "邮件服务器必须在公共互联网上：私有网络内的地址会被拒绝。"
+  },
+  "writeMode": {
+    "label": "智能体可以对邮件做什么",
+    "hint": "发送和保存草稿。它绝不会删除、移动、标记或转发邮件。",
+    "off": "只读",
+    "propose": "先询问你",
+    "line": {
+      "off": "只能读取。",
+      "propose": "每次发送和每份草稿都等待你的同意。"
+    },
+    "note": {
+      "off": "写入权限已关闭：此连接只读取。",
+      "propose": "每次发送和每份草稿都会留在你的审批列表中，直到你确认。已发送的邮件无法收回，收件人和抄送中的所有人都会读到。"
+    },
+    "row": {
+      "off": "只读",
+      "propose": "先询问你"
+    }
+  },
+  "approval": {
+    "action": {
+      "send-message": "发送电子邮件",
+      "save-draft": "保存电子邮件草稿"
+    },
+    "from": "发件人",
+    "to": "收件人",
+    "cc": "抄送",
+    "subject": "主题",
+    "reply": "回复",
+    "replyYes": "属于已有的对话",
+    "text": "邮件正文",
+    "cut": "此处显示的正文已被截断。将使用完整正文，共 {{bytes}} 字节。",
+    "noteSend": "发送后无法撤回。收件人和抄送中的所有人都会读到这封来自你地址的邮件。",
+    "noteDraft": "这会保存到你的草稿文件夹。不会发送任何内容。"
+  }
+}

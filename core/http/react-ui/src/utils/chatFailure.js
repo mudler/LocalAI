@@ -18,6 +18,9 @@ const REASON = {
   upstream: 'error.reason.upstream',
   timeout: 'error.reason.timeout',
   cancelled: 'error.reason.cancelled',
+  // Not an error code of the server: the page uses it for a turn that a restart
+  // interrupted (the chat's last turn says so).
+  interrupted: 'error.reason.interrupted',
 }
 
 const ABOUT_MODEL = new Set(['model_backend_missing', 'model_cooldown', 'model_load_failed', 'model_not_found'])
@@ -54,7 +57,7 @@ export function failureView(t, failure, { isAdmin = false } = {}) {
   let hintKey = HINT[code]
   // An administrator can install the backend; the others must ask.
   if (code === 'model_backend_missing' && isAdmin) hintKey += '_admin'
-  const hint = t(hintKey, vars)
+  const hint = hintKey ? t(hintKey, vars) : ''
   return { reason, hint, detail: detail || '', backendsLink: code === 'model_backend_missing' && isAdmin }
 }
 

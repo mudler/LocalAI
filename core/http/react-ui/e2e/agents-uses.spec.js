@@ -18,7 +18,7 @@ async function shot(page, name) {
   }
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'))
 }
-const open = async (page, url = '/app/agents/new', opts) => {
+const open = async (page, url = '/app/agents/a2/edit', opts) => {
   const s = await installUses(page, opts)
   await page.goto(url)
   await expect(page.getByTestId('agent-edit')).toBeVisible()
@@ -98,8 +98,8 @@ test.describe('Accounts and the Right now sentence', () => {
     await expect(now(tracker)).toContainText('Accounts kept for later: Work account')
     await page.getByLabel('Name', { exact: false }).first().fill('Triage')
     await save(page)
-    await expect.poll(() => s.calls.find(c => c.method === 'POST')?.body.connections).toEqual({ tracker: ['b1'] })
-    expect(s.calls.find(c => c.method === 'POST').body.addons).not.toContain('tracker')
+    await expect.poll(() => s.calls.find(c => c.method === 'PUT')?.body.connections).toEqual({ tracker: ['b1'] })
+    expect(s.calls.find(c => c.method === 'PUT').body.addons).not.toContain('tracker')
   })
 
   test('the tools are listed, and the ones that change data are marked', async ({ page }) => {
@@ -177,7 +177,7 @@ test.describe('Resources it may use', () => {
     await list.getByRole('checkbox', { name: 'Ledger' }).uncheck()
     await page.getByLabel('Name', { exact: false }).first().fill('Analyst')
     await save(page)
-    await expect.poll(() => s.calls.find(c => c.method === 'POST')?.body.resources).toEqual({ tables: [{ id: 'db-sales', mode: 'read' }, { id: 'db-people', mode: 'write' }] })
+    await expect.poll(() => s.calls.find(c => c.method === 'PUT')?.body.resources).toEqual({ tables: [{ id: 'db-sales', mode: 'read' }, { id: 'db-people', mode: 'write' }] })
   })
 
   test('switching it on ticks all of them to read, so it works at once; unticking all makes it amber with the fix said', async ({ page }) => {
@@ -212,7 +212,7 @@ test.describe('Resources it may use', () => {
   })
 
   test('a list that cannot be read is an error in the row, not an empty list', async ({ page }) => {
-    await open(page, '/app/agents/new', { resourcesStatus: 500 })
+    await open(page, '/app/agents/a2/edit', { resourcesStatus: 500 })
     await expect(row(page, 'Tables').getByTestId('agent-addon-resources-error')).toContainText('could not be read')
   })
 })

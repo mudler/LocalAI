@@ -32,9 +32,9 @@
   },
   "input": {
     "placeholder": "消息...",
-    "attachImage": "附加图片",
-    "attachAudio": "附加音频",
     "attachFile": "附加文件",
+    "dropFiles": "松开以附加文件",
+    "dropFilesNote": "松开鼠标，将文件附加到消息。",
     "enterToSend": "按回车发送",
     "selectModelFirst": "请先选择一个模型",
     "sendMessage": "发送消息",

@@ -8,7 +8,7 @@
 import { useState } from 'react'
 import Icon from '../../host-compat/src/components/Icon'
 import { Check, Field, Notice, RadioCards, Select } from './controls'
-import { trustAfter, trustOf } from './connector'
+import { placeFor, trustAfter, trustOf, withPlace } from './connector'
 import { nameOf } from './people'
 import { usePeople } from './Person'
 import { PairingNotices, time, usePairing } from './pairing'
@@ -29,6 +29,28 @@ function LevelSelect({ entry, level, onChange, t, testId = 'connector-trust-leve
       <option value="answer">{t('trust.answer')}</option>
       <option value="act">{t('trust.act')}</option>
     </Select>
+  )
+}
+
+// Whether the bot may post in a listening channel: the choice of its place as
+// text with a way to it, or a button that makes the channel a place with the
+// safe default (a verified person must ask). Listening and posting stay two
+// settings; this only shows them side by side.
+function PostStatus({ form, id, name, s, onAdd, onShow }) {
+  const place = placeFor(form, id)
+  if (!place) {
+    return (
+      <span className="cn-who__post" data-testid="connector-post-status" data-post="none">
+        <span className="cn-muted">{s('who.post.none')}</span>
+        <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="connector-post-add" aria-label={s('who.post.addFor', { name })} onClick={onAdd}>{s('who.post.add')}</button>
+      </span>
+    )
+  }
+  return (
+    <span className="cn-who__post" data-testid="connector-post-status" data-post={place.approved ? 'any' : 'verified'}>
+      <span className="cn-muted">{place.approved ? s('who.post.any') : s('who.post.verified')}</span>
+      <button type="button" className="cn-link cn-link--text" data-testid="connector-post-show" aria-label={s('who.post.showFor', { name })} onClick={onShow}>{s('who.post.show')}</button>
+    </span>
   )
 }
 
@@ -71,6 +93,13 @@ export default function WhoFields({ form, setForm, t, s, confirmed, setConfirmed
   const remove = (id) => {
     setAllow(allow.filter((x) => x !== id))
     if (verified.has(id)) pairing.remove(id)
+  }
+  const canPost = (form.caps || []).includes('talkback.channels')
+  // Jumps to the row of the place of a channel and puts the focus on its choice.
+  const showPlace = (id) => {
+    const row = document.getElementById(`cn-place-${id}`)
+    row?.scrollIntoView?.({ block: 'center' })
+    row?.querySelector('select')?.focus()
   }
   const setLevel = (entry, level) => setForm({ ...form, allow_trust: { ...(form.allow_trust || {}), [entry]: level } })
   const verifyDisabled = pairing.busy || pairing.full || !pairing.saved
@@ -135,6 +164,8 @@ export default function WhoFields({ form, setForm, t, s, confirmed, setConfirmed
                   <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm"
                     aria-label={s('who.removeChannel', { name: chatNames.get(id) || id })} onClick={() => setAllow(allow.filter((x) => x !== id))}>{s('who.remove')}</button>
                 </span>
+                {canPost && <PostStatus form={form} id={id} name={chatNames.get(id) || id} s={s}
+                  onAdd={() => setForm(withPlace(form, id, chatNames.get(id) || ''))} onShow={() => showPlace(id)} />}
               </li>
             ))}
           </ul>

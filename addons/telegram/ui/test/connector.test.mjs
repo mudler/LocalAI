@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { DUPLICATE_CONFIRMATION, duplicateOther, duplicateRefusalName, isDuplicateRefusal, localizeAccess, localizeCapabilities, approvalForm, approvalPayload, approvalProblem, bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, REPLY_LANGUAGES, fileDirection, fileLimitProblem, formatBytes, mibToBytes, previewLimit, senderLine } from '../../../internal/connector-ui/src/connector.js'
+import { DUPLICATE_CONFIRMATION, duplicateOther, duplicateRefusalName, isDuplicateRefusal, localizeAccess, localizeCapabilities, approvalForm, approvalPayload, approvalProblem, bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, REPLY_LANGUAGES, fileDirection, fileLimitProblem, formatBytes, mibToBytes, previewLimit, senderLine, listeningChannels, offeredPlaces, placeFor, withPlace } from '../../../internal/connector-ui/src/connector.js'
+import { changedParts, droppedActs, removedActs } from '../../../internal/connector-ui/src/access.js'
 
 test('chat connectors: the token goes only when it was typed', () => {
   const create = connectorPayload({ ...emptyConnector(), name: ' Bot ', token: ' 1:abc ', agent_id: 'a1', allow: ['11', ' 11', '@ada_l', ''] }, 'telegram')
@@ -246,4 +247,49 @@ test('chat connectors: the confirmation of a twin is the text the host expects, 
   const body = connectorPayload({ ...emptyConnector(), name: 'B', agent_id: 'a', token: '1:x' }, 'telegram', '1:x', { confirm_duplicate: DUPLICATE_CONFIRMATION })
   assert.equal(body.confirm_duplicate, 'answer twice')
   assert.equal('confirm_duplicate' in connectorPayload({ ...emptyConnector(), name: 'B', agent_id: 'a', token: '1:x' }, 'telegram', '1:x', {}), false)
+})
+
+test('chat connectors: the listening channels are the channel entries of the list, none for anyone or a mixed list', () => {
+  const isChannel = (x) => x.startsWith('C')
+  const form = { allow: ['U1', 'C1', 'C2'], accept_any: false }
+  assert.deepEqual(listeningChannels(form, isChannel, false), ['C1', 'C2'])
+  assert.deepEqual(listeningChannels({ ...form, accept_any: true }, isChannel, false), [])
+  assert.deepEqual(listeningChannels(form, isChannel, true), [])
+  assert.deepEqual(listeningChannels({}, isChannel, false), [])
+})
+
+test('chat connectors: a channel that is a place is not offered again, and a new place is verified-only', () => {
+  const form = { allow: ['C1', 'C2'], channels: [{ id: 'C1', label: 'ops', approved: true }] }
+  assert.deepEqual(offeredPlaces(form, ['C1', 'C2']), ['C2'])
+  assert.equal(placeFor(form, 'C1').label, 'ops')
+  assert.equal(placeFor(form, 'C2'), null)
+  const next = withPlace(form, 'C2', 'alerts')
+  assert.deepEqual(next.channels, [{ id: 'C1', label: 'ops', approved: true }, { id: 'C2', label: 'alerts', approved: false }])
+  assert.equal(withPlace(next, 'C1', 'x'), next, 'a place that exists stays as it is')
+  assert.equal(withPlace(form, '', ''), form)
+  assert.deepEqual(form.channels, [{ id: 'C1', label: 'ops', approved: true }], 'the form is not changed')
+})
+
+test('chat connectors: a save names the parts that changed, in a fixed order', () => {
+  const saved = connectorForm({ id: 'b', name: 'Bot', agent_id: 'a1', allow: ['1'], caps: ['memory.write'], approval: { mode: 'ask' } })
+  assert.deepEqual(changedParts(saved, saved), [])
+  assert.deepEqual(changedParts({ ...saved, caps: ['memory.write', 'files.upload'], name: ' Bot 2 ', allow: ['1', '2'] }, saved), ['name', 'who', 'permissions'])
+  assert.deepEqual(changedParts({ ...saved, approval: { ...saved.approval, acts: ['act.files'] } }, saved), ['approval'])
+  assert.deepEqual(changedParts(saved, null), [], 'a new connection has no earlier state to compare')
+})
+
+test('chat connectors: the acts a save removes, and the triggers that lose them', () => {
+  const saved = connectorForm({ id: 'b', approval: { mode: 'auto', acts: ['act.files', 'act.addons'] } })
+  const form = { ...saved, approval: { ...saved.approval, acts: ['act.files', 'act.send'] } }
+  assert.deepEqual(removedActs(saved, form), ['act.addons'])
+  assert.deepEqual(removedActs(null, form), [])
+  const triggers = [
+    { id: 't1', name: 'Digest', binding: 'b', acts: ['act.files', 'act.addons'] },
+    { id: 't2', name: 'Sweep', binding: 'b', acts: ['act.files'] },
+    { id: 't3', name: 'Elsewhere', binding: 'c', acts: ['act.addons'] },
+    { id: 't4', acts: ['act.addons'] },
+  ]
+  assert.deepEqual(droppedActs(triggers, 'b', ['act.addons']), [{ id: 't1', name: 'Digest', acts: ['act.addons'] }])
+  assert.deepEqual(droppedActs(triggers, 'b', []), [])
+  assert.deepEqual(droppedActs(null, 'b', ['act.addons']), [])
 })

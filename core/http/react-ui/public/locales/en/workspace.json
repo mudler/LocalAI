@@ -440,7 +440,7 @@
     "adminTitle": "Shared folders",
     "adminLede": "Folders that several people use. Members open their pages, and their chats can read or edit the files.",
     "userTitle": "Shared with you",
-    "userLede": "Folders an administrator shared with you. Their pages are in Pages, and your chats can use the files.",
+    "userLede": "Folders that an administrator or another person shared with you. Your chats can use the files.",
     "new": "New shared folder",
     "nameLabel": "Folder name",
     "nameHint": "Up to 64 letters, digits, spaces, dots, dashes or underscores. Start with a letter or a digit.",
@@ -492,14 +492,23 @@
     "factChats": "Members' chats see the folder's files",
     "factUndo": "Removing a folder can be undone",
     "emptyUserTitle": "Nothing is shared with you yet",
-    "emptyUserBody": "When an administrator shares a folder with you, it shows here and its pages show in Pages."
+    "emptyUserBody": "When someone shares a folder with you, it shows here."
   },
   "managed": {
     "group": "Managed by LocalAI",
     "marker": "managed by LocalAI",
     "about": {
       "localai": "Settings LocalAI reads: persona, profile, shortcuts, Home, theme.",
-      "chats": "One folder per chat, with the files of the chat."
+      "chats": "One folder per chat, with the files of the chat.",
+      "memory": "The notes the assistant keeps about you.",
+      "pages": "The pages in your workspace.",
+      "skills": "The skills the agents use.",
+      "other": "Created and used by LocalAI."
+    },
+    "open": {
+      "memory": "Open Memory",
+      "pages": "Open Pages",
+      "skills": "Open Skills"
     },
     "confirm": {
       "deleteTitle": "Move {{name}} to the Trash?",
@@ -575,7 +584,9 @@
     "moveMany_one": "Move {{count}} item to…",
     "moveMany_other": "Move {{count}} items to…",
     "deleteMany_one": "Move {{count}} item to Trash",
-    "deleteMany_other": "Move {{count}} items to Trash"
+    "deleteMany_other": "Move {{count}} items to Trash",
+    "share": "Share…",
+    "extract": "Extract here"
   },
   "keys": {
     "delete": "Del"
@@ -599,7 +610,14 @@
     "movedOne": "{{name}} moved to {{folder}}.",
     "moved_one": "{{count}} item moved to {{folder}}.",
     "moved_other": "{{count}} items moved to {{folder}}.",
-    "moveUndone": "Moved back."
+    "moveUndone": "Moved back.",
+    "extracted_one": "Extracted {{count}} file into {{folder}}.",
+    "extracted_other": "Extracted {{count}} files into {{folder}}.",
+    "extractSkipped_one": "{{count}} entry was skipped (links, devices or bad names).",
+    "extractSkipped_other": "{{count}} entries were skipped (links, devices or bad names).",
+    "extractConflicts_one": "{{count}} name was taken: the new file is saved as a copy.",
+    "extractConflicts_other": "{{count}} names were taken: the new files are saved as copies.",
+    "extractUndone": "Extraction undone."
   },
   "emptyHome": {
     "title": "Your files live here"
@@ -698,5 +716,12 @@
     "read": "{{name}} (can read)",
     "write": "{{name}} (can read and change)",
     "many": "{{count}} agents"
+  },
+  "share": {
+    "intro": "People you add find this folder in their Shared tab, and their chats can use its files.",
+    "readHelp": "They can open and copy the files.",
+    "writeHelp": "They can also add, change and delete files here.",
+    "failed": "Could not open sharing: {{message}}",
+    "lost": "You can no longer share this folder here."
   }
 }

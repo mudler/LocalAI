@@ -77,7 +77,7 @@ LABEL org.opencontainers.image.source="https://github.com/mudler/LocalAI" \
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends bash ca-certificates curl file git jq poppler-utils python3 python3-pip \
-      python3-pypdf python3-pandas python3-pil ripgrep sqlite3 tree unzip zip; \
+      python3-pypdf python3-pandas python3-numpy python3-packaging python3-dateutil python3-pil ripgrep sqlite3 tree unzip zip; \
     rm -rf /var/lib/apt/lists/*; \
     groupadd --gid 1000 agent; \
     useradd --uid 1000 --gid 1000 --create-home --home-dir /home/agent --shell /bin/bash agent; \
@@ -101,6 +101,10 @@ RUN set -eux; \
     python3 /tmp/guest-python/check-python.py; \
     sh /tmp/guest-python/check-tools.sh; \
     rm -rf /tmp/guest-python
+# Charts: matplotlib draws without a display (the Agg backend, which writes PNG
+# and SVG) and keeps its font cache in /tmp, because the user's home may not be
+# writable. The wheel carries the DejaVu fonts, so no system font is needed.
+ENV MPLBACKEND=Agg MPLCONFIGDIR=/tmp/matplotlib
 # Helpers belong to the guest, not the documentation-only skill package.
 COPY addons/sandbox/images/guest/document-skills/ /usr/local/lib/localai/document-skills/
 COPY addons/sandbox/images/guest/check-document-skills.py /usr/local/lib/localai/document-skills/check-document-skills.py

@@ -152,6 +152,7 @@ settings bypasses this automatic default.
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--address` | `:8080` | Bind address for the API server | `$LOCALAI_ADDRESS`, `$ADDRESS` |
+| `--shutdown-timeout` | `20s` | On `SIGTERM` or `SIGINT`, stop accepting requests, make `/readyz` answer `503` and wait this long for in-flight requests (chat streams included) to finish. Then the process closes the remaining connections, closes the chats and exits. The whole stop takes up to this value plus 21 seconds; keep that below the termination grace period of your platform. See [Restarts and long chats]({{%relref "getting-started/troubleshooting#restarts-and-long-chats" %}}) for the steps and their limits. `0` exits without waiting. A second signal exits at once | `$LOCALAI_SHUTDOWN_TIMEOUT` |
 | `--max-concurrent-backend-requests` | `1024` | Process-wide ceiling for concurrent backend inference operations. Excess inference receives HTTP 429 with `Retry-After`; UI and administrative endpoints remain available | `$LOCALAI_MAX_CONCURRENT_BACKEND_REQUESTS`, `$MAX_CONCURRENT_BACKEND_REQUESTS` |
 | `--cors` | `false` | Enable CORS (Cross-Origin Resource Sharing) | `$LOCALAI_CORS`, `$CORS` |
 | `--cors-allow-origins` | | Comma-separated list of allowed CORS origins | `$LOCALAI_CORS_ALLOW_ORIGINS`, `$CORS_ALLOW_ORIGINS` |
@@ -185,7 +186,6 @@ The collections service is the knowledge base that the chats search. The old
 | `--collections-max-chunking-size` | `400` | Maximum chunking size for documents | `$LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE` |
 | `--collections-chunk-overlap` | `0` | Chunk overlap for documents | `$LOCALAI_COLLECTIONS_CHUNK_OVERLAP` |
 | `--collections-db-path` | | Where the vector engine keeps its data | `$LOCALAI_COLLECTIONS_DB_PATH` |
-| `--disable-local-ai-assistant` | `false` | Turn the LocalAI Assistant chat modality off | `$LOCALAI_DISABLE_ASSISTANT` |
 
 `LOCALAI_DISABLE_AGENTS` is now a name for `LOCALAI_DISABLE_COLLECTIONS`; nothing
 switches the chats themselves off except the `chats` permission of each user.
@@ -224,15 +224,17 @@ See [Authentication & Authorization]({{%relref "features/authentication" %}}) fo
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--disable-chats` | `false` | Turn off the chats: the `/api/chats` API, saved agents, triggers, connectors and the agent tasks and jobs. Nothing of them starts | `$LOCALAI_DISABLE_CHATS` |
+| `--chats-auto-resume` | `false` | Go on by itself with a chat turn that a restart interrupted: up to 3 tries, after 15 seconds, 1 minute and 5 minutes, within 30 minutes of the interruption. Off: a person, or the page, resumes it. See [If a frontend dies]({{% relref "features/chats#clusters" %}}) | `$LOCALAI_CHATS_AUTO_RESUME` |
 | `--disable-triggers` | `false` | Turn off the trigger runner and the triggers API; the rest of the chats stays on | `$LOCALAI_DISABLE_TRIGGERS` |
 | `--disable-connectors` | `false` | Turn off the connector bots (Telegram, Slack) and the connectors API; the rest of the chats stays on | `$LOCALAI_DISABLE_CONNECTORS` |
 | `--disable-connector-talkback` | `false` | Turn off the tool with which an agent writes to a chat of its connection, and the reports of triggers to a channel (the rest of the connectors stays on) | `$LOCALAI_DISABLE_CONNECTOR_TALKBACK` |
-| `--skip-binding-caps-migration` | `false` | Do not give the usual permissions, once, to connector bindings saved before permissions were enforced (they stay with none until the owner chooses) | `$LOCALAI_SKIP_BINDING_CAPS_MIGRATION` |
+| `--skip-binding-caps-migration` | `false` | Do not give the usual permissions, once, to connector bindings saved before permissions were enforced (they stay with none until the owner chooses); also skip the one-time add of loops.wait to existing bindings | `$LOCALAI_SKIP_BINDING_CAPS_MIGRATION` |
 | `--agent-job-retention-days` | `30` | Days to keep ended agent jobs | `$LOCALAI_AGENT_JOB_RETENTION_DAYS`, `$AGENT_JOB_RETENTION_DAYS` |
 | `--trigger-run-keep` | `200` | Finished runs kept for each trigger, beyond the runs of the last two days. `-1` keeps all | `$LOCALAI_TRIGGER_RUN_KEEP` |
 | `--trigger-run-retention-days` | `30` | Days to keep finished trigger runs. `-1` keeps them forever | `$LOCALAI_TRIGGER_RUN_RETENTION_DAYS` |
 | `--mcp-ci-job-timeout` | `10m` | Longest an agent job may run | `$LOCALAI_MCP_CI_JOB_TIMEOUT` |
 | `--disable-agents` | `false` | Deprecated. Sets `--disable-chats` and `--disable-collections`, as the old agent pool switch did | `$LOCALAI_DISABLE_AGENTS` |
+| `--disable-local-ai-assistant` | `false` | Deprecated. A true value is mapped to `chats_localai_admin=false` (the admin tools off), with one warning at start. The flag wins over a stored `chats_localai_admin=true`, also after a settings change. Use `chats_localai_admin` in Settings > Tools | `$LOCALAI_DISABLE_ASSISTANT` |
 | `--distributed-chat-workers` | `false` | Distributed mode: send the turns of triggers, agent jobs and connector messages to chat workers. With no chat worker listening, the turn runs on the frontend | `$LOCALAI_DISTRIBUTED_CHAT_WORKERS` |
 | `--chat-worker` | `false` | Distributed mode: run this instance as a chat worker, which runs the turns that frontends send it and starts no triggers, connectors or jobs | `$LOCALAI_CHAT_WORKER` |
 | `--chat-worker-max-turns` | `32` | Distributed mode: on a chat worker, the most turns it runs at once. A start beyond it is refused and its run fails. `0` means no limit | `$LOCALAI_CHAT_WORKER_MAX_TURNS` |
@@ -357,7 +359,7 @@ LocalAI supports several subcommands beyond `run`:
 - `local-ai tts` - Convert text to speech
 - `local-ai sound-generation` - Generate audio files from text or audio
 - `local-ai transcript` - Convert audio to text
-- `local-ai mcp-server` - Run the LocalAI admin tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP)
+- `local-ai mcp-server` - Run the LocalAI admin and client tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP). `--files-dir` (`LOCALAI_MCP_FILES_DIR`) is the folder where the client tools read and write files; it has no default, and without it the client tools that read or write files are not registered. `--read-only` also leaves out the client tools that write files or make content (`generate_*`, `speak`, `embed`, `voice_profile` create and delete)
 - `local-ai worker` - Start a worker for distributed mode (generic, backend-agnostic)
 - `local-ai p2p-worker` - Run workers to distribute workload via p2p (llama.cpp-only)
 - `local-ai agent-worker` - Start a worker for distributed mode (serves MCP tool calls via NATS)

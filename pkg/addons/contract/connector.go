@@ -118,6 +118,10 @@ type ConnectorKind struct {
 	Description string `json:"description,omitempty"`
 	// SenderHint says what an allowlist entry looks like on this platform.
 	SenderHint string `json:"senderHint,omitempty"`
+	// Setup says in one short phrase what the person needs before a binding
+	// of this kind works, such as "a bot token from @BotFather". Plain text of
+	// at most MaxSetupChars characters, on one line (feature level 4).
+	Setup string `json:"setup,omitempty"`
 	// Delivery is DeliveryPull or DeliveryPush.
 	Delivery string `json:"delivery"`
 	// Page is the add-on page that adds and edits bindings of this kind. It
@@ -128,6 +132,13 @@ type ConnectorKind struct {
 	// mode for the tools of a chat, and the host never delivers a message to it
 	// or answers one from it. A kind without it needs an agent on every binding.
 	AgentOptional bool `json:"agentOptional,omitempty"`
+	// ToolOnly marks a kind whose bindings serve the tools of chats and agents
+	// and nothing else (feature level 5). One binding can be used by many
+	// agents, each through its own set of connections, so a binding of this
+	// kind never has an agent of its own, never listens and never accepts
+	// senders. The host forces that on every save and every read. It implies
+	// AgentOptional, so a manifest need not set both.
+	ToolOnly bool `json:"toolOnly,omitempty"`
 	// Drafts tells that the add-on serves the op draft. The host then shows
 	// a live answer in a direct conversation as a draft, not as a working
 	// message that it edits.
@@ -267,6 +278,10 @@ type ConnectorHistory struct {
 	MaxMessages int `json:"maxMessages,omitempty"`
 }
 
+// NoAgentAllowed reports whether a binding of the kind may have no agent:
+// AgentOptional, or ToolOnly, which implies it.
+func (k ConnectorKind) NoAgentAllowed() bool { return k.AgentOptional || k.ToolOnly }
+
 // ServesThreadHistory reports whether the kind answers the op history for threads.
 func (k ConnectorKind) ServesThreadHistory() bool { return k.History != nil && k.History.Thread }
 
@@ -302,6 +317,9 @@ func validateConnector(c *ConnectorCapability, ui *UI) error {
 		seen[k.ID] = true
 		if !plainText(k.Title, MaxTitleChars) || (k.Description != "" && !plainText(k.Description, MaxDescriptionChars)) || (k.SenderHint != "" && !plainText(k.SenderHint, MaxDescriptionChars)) {
 			return fmt.Errorf("invalid connector kind text")
+		}
+		if k.Setup != "" && !plainText(k.Setup, MaxSetupChars) {
+			return fmt.Errorf("invalid connector kind setup text")
 		}
 		if k.Delivery != DeliveryPull && k.Delivery != DeliveryPush {
 			return fmt.Errorf("connector delivery must be %s or %s", DeliveryPull, DeliveryPush)

@@ -17,7 +17,6 @@
   "agent": "에이전트",
   "agentNone": "에이전트 고르기",
   "agentCredentialsOnly": "에이전트 없음(자격 증명만)",
-  "agentOptionalHint": "선택 사항입니다. 에이전트가 없으면 이 연결은 토큰, 주소, 내 채팅의 쓰기 모드만 보관합니다. 메시지에 답변하지 않고 아무것도 수신하지 않습니다.",
   "credentialsOnly": "자격 증명만",
   "agentNoModel": "{{name}}(모델 필요)",
   "test": "테스트",

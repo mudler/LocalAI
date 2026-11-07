@@ -463,11 +463,60 @@ regardless of which replica the load balancer picks:
 - `POST /v1/responses/{id}/cancel` is delegated over NATS to the replica that is
   actually generating, so generation really stops. If that replica is gone, the
   response is reported as `cancelled` without blocking.
-- **Streaming resume (`?stream=true`) is served only by the replica that created
-  the response.** The event buffer lives in that process's memory and is not
-  replicated. A resume request that reaches another replica returns HTTP 409
-  naming the owning replica instead of silently returning a truncated stream.
-  Poll the response instead, or route resume requests with session affinity.
+- **Streaming resume (`?stream=true&starting_after=N`) works on any replica**,
+  because the event buffer is read from the database (see Durable Storage
+  below). Without a database (it always exists in distributed mode, so this only
+  concerns a build that cannot reach it) the buffer is in the memory of the
+  replica that generates, and a resume that reaches another replica returns
+  HTTP 409 naming the owning replica.
+
+State mode (see the distributed-state rules): the response metadata is
+**shared** state, a `SyncedMap` with a database `Store`. The table is the source
+of truth, a replica that starts later loads the newest rows (up to 10000), and
+changes reach the other replicas as deltas over NATS. The events are not sent
+over NATS: every replica reads them from the table. The generation itself, and
+its cancel function, live on one replica, the owner of the response; a cancel
+reaches it over NATS and through the `cancel_requested` flag.
+
+#### Durable Storage
+
+When LocalAI has a database (authentication enabled, or distributed mode),
+stored responses and the events of a background run are kept in two tables,
+`open_responses` and `open_response_events`. Without a database the store stays
+in memory, as before, and ends with the process.
+
+With the tables:
+
+- A response and its event buffer outlive a restart. `GET /v1/responses/{id}`,
+  `previous_response_id` chaining and `?stream=true&starting_after=N` read the
+  tables, so any replica serves them and they work after a restart.
+- The owner writes events in batches: at once for any event that is not a
+  `.delta` event, and for deltas every 250 ms or 64 events. If the process dies,
+  the deltas of the last 250 ms are lost.
+- The buffer keeps the same caps as the memory store (8192 events and 64 MiB per
+  response, oldest first). A resume below the oldest kept event returns HTTP 409
+  (`ErrOffsetLost`).
+- Every read still checks the owner of the response: a caller who did not create
+  it gets 404. An `item_reference` finds only an item of a response the caller
+  created; the item of another user's response is "not found".
+- Rows expire after `OPEN_RESPONSES_STORE_TTL`. With the TTL at 0 a database
+  store applies a default of 7 days, because a table does not end with the
+  process.
+
+A running background response holds a lease in its row, which its owner renews
+every 15 seconds (the lease lasts 45 seconds). When the owner dies, for example
+because the pod is replaced, the lease runs out and the response is ended as
+`failed` with the error code `server_restarted`. A final `response.failed` event
+is added, so a client that resumes the stream gets every kept event and then
+the end. LocalAI does not run the request again: a generation cannot continue
+from a cut point, and tools may have had effects. Send the request again, with
+`previous_response_id` to keep the context. A standalone server ends the runs a
+previous process left when it starts. In distributed mode one frontend at a time
+runs the sweep.
+
+`POST /v1/responses/{id}/cancel` sets a `cancel_requested` flag in the row. The
+owner checks it on every lease renewal, so a cancel works even if the bus message
+is lost. If the owner died before it could stop, the response ends as `cancelled`.
 
 #### Tool Calling
 

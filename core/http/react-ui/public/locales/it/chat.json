@@ -33,7 +33,16 @@
     "agent": "Agente",
     "agentHelp": "Questa chat usa l'agente {{name}}: le sue istruzioni e solo gli strumenti che concede.",
     "editAgent": "Modifica agente",
-    "deleteHelp": "Elimina questa chat e i suoi messaggi in modo definitivo."
+    "deleteHelp": "Elimina questa chat e i suoi messaggi in modo definitivo.",
+    "sliderOf": "Cursore {{name}}",
+    "reset": "Usa il valore del modello per {{name}}",
+    "hint": {
+      "temperature": "Valori più alti danno risposte più varie. Da 0 a 2.",
+      "topP": "Sceglie tra le parole più probabili che insieme raggiungono questa quota. Sopra 0, fino a 1.",
+      "topK": "Sceglie tra questo numero di parole più probabili. Un intero, 0 o più.",
+      "contextSize": "Da 512 a 4194304 token.",
+      "effort": "Si applica subito, dal prossimo turno."
+    }
   },
   "empty": {
     "manageTitle": "Gestisci LocalAI chattando",
@@ -311,6 +320,10 @@
       "desc": "Imposta un obiettivo su cui la chat continua a lavorare da sola",
       "clearDesc": "Rimuovi l'obiettivo",
       "resumeDesc": "Continua verso l'obiettivo"
+    },
+    "effort": {
+      "label": "Impegno di ragionamento",
+      "desc": "Scegli quanto ragiona il modello"
     }
   },
   "shortcuts": {
@@ -336,6 +349,9 @@
     "changedTag": "Modificato",
     "changedTitle": "L'assistente ha modificato questo file",
     "download": "Scarica {{name}}",
+    "downloadAll": "Scarica tutti i file come ZIP",
+    "zipName": "file-della-chat.zip",
+    "zipError": "Non è stato possibile scaricare i file come ZIP.",
     "error": "Impossibile leggere i file di questa chat.",
     "workingNote": "Script, dati e log che l'assistente ha creato lungo il percorso. Stanno nella cartella di lavoro di questa chat."
   },
@@ -419,7 +435,8 @@
       "upstream_unreachable": "L'indirizzo dell'upstream non è raggiungibile.",
       "upstream": "Il provider dietro il modello ha restituito un errore.",
       "timeout": "Il modello ha impiegato troppo tempo a rispondere.",
-      "cancelled": "Il turno è stato annullato prima della risposta del modello."
+      "cancelled": "Il turno è stato annullato prima della risposta del modello.",
+      "interrupted": "Il server si è riavviato mentre rispondeva."
     },
     "hint": {
       "model_backend_missing": "Scegli un altro modello oppure chiedi a un amministratore di installare il backend.",
@@ -434,7 +451,15 @@
       "timeout": "Riprova, oppure usa un modello più piccolo o più veloce.",
       "cancelled": "Riprova quando vuoi."
     },
-    "openBackends": "Apri Backend"
+    "openBackends": "Apri Backend",
+    "titleInterrupted": "La risposta è stata interrotta",
+    "resume": {
+      "waiting": "Riprendo tra {{seconds}} secondi (tentativo {{attempt}} di {{max}}).",
+      "resuming": "Riprendo da dove si era fermata.",
+      "server": "Il server riprende da dove si era fermata.",
+      "exhausted": "Non è riuscita a riprendere dopo {{max}} tentativi. Riprova.",
+      "stop": "Smetti di riprovare"
+    }
   },
   "allChats": {
     "title": "Tutte le chat",
@@ -744,5 +769,58 @@
       "other": "Nota",
       "why": "Perché"
     }
+  },
+  "connection": {
+    "lost": "Connessione persa. Riconnessione in corso."
+  },
+  "reasoning": {
+    "chip": "Impegno",
+    "title": "Impegno di ragionamento di questa chat",
+    "note": "Si applica dal prossimo turno. Nessuno chiede al modello di non pensare."
+  },
+  "setup": {
+    "chip": "Setup",
+    "title": "Start new chats from a saved setup",
+    "edited": "edited",
+    "menuTitle": "Setups",
+    "empty": "No setups yet. Save the model, tools and effort you use as a setup.",
+    "active": "In use",
+    "noneOff": "Default tools",
+    "toolsOff_one": "{{count}} switch off",
+    "toolsOff_other": "{{count}} switches off",
+    "effort": "Effort {{level}}",
+    "saveAs": "Save current setup as…",
+    "manage": "Manage setups",
+    "agentReason": "A saved agent decides the model and tools of this chat.",
+    "modelMissing": "The model “{{model}}” of this setup is not installed. The current model stays.",
+    "line": {
+      "noTools": "No tools",
+      "toolCount_one": "{{count}} tool",
+      "toolCount_other": "{{count}} tools"
+    },
+    "update": "Update “{{name}}”",
+    "saveNew": "Save as new…",
+    "reset": "Reset",
+    "nameLabel": "Setup name",
+    "namePlaceholder": "Name this setup",
+    "save": "Save",
+    "cancel": "Cancel",
+    "limit": "You can have up to 50 setups.",
+    "defaultName": "My default",
+    "savedToast": "Saved this chat setup as “{{name}}”. New chats start from it.",
+    "rename": "Rename",
+    "manageTitle": "Manage setups",
+    "manageNote": "The default setup is the one new chats start from. It follows the setup you sent your last message with.",
+    "manageEmpty": "No setups yet.",
+    "done": "Done",
+    "default": "Default",
+    "makeDefault": "Make default",
+    "moveUp": "Move {{name}} up",
+    "moveDown": "Move {{name}} down",
+    "renameLabel": "Name of the setup",
+    "remove": "Delete",
+    "removeConfirm": "Delete “{{name}}”?",
+    "removeYes": "Delete",
+    "noModel": "No model"
   }
 }

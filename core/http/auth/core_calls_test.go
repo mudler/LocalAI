@@ -42,7 +42,10 @@ var _ = Describe("core routes called from an add-on page", func() {
 		e.Use(auth.RequireRouteFeature(db))
 		e.Use(auth.CSRFMiddleware())
 		e.POST("/v1/face/verify", ok)
-		e.POST("/api/voice-profiles", ok, auth.RequireAdmin())
+		e.POST("/api/voice-profiles", ok)
+		e.DELETE("/api/voice-profiles/:id", ok)
+		e.GET("/api/voice-profiles", ok)
+		e.POST("/api/admin-only", ok, auth.RequireAdmin())
 		e.POST("/api/fine-tuning/jobs", ok)
 		e.POST("/api/quantization/jobs", ok)
 		member = createTestUser(db, "member@example.com", auth.RoleUser, auth.ProviderLocal)
@@ -69,10 +72,23 @@ var _ = Describe("core routes called from an add-on page", func() {
 	})
 
 	It("answers 403 from an administrator-only route for a user without the role", func() {
-		Expect(call(http.MethodPost, "/api/voice-profiles", member)).To(Equal(http.StatusForbidden))
+		Expect(call(http.MethodPost, "/api/admin-only", member)).To(Equal(http.StatusForbidden))
 	})
 
 	It("keeps an administrator route open to an administrator", func() {
+		Expect(call(http.MethodPost, "/api/admin-only", admin)).To(Equal(http.StatusOK))
+	})
+
+	It("lets a user with the audio speech feature create and delete voice profiles", func() {
+		Expect(call(http.MethodPost, "/api/voice-profiles", member)).To(Equal(http.StatusOK))
+		Expect(call(http.MethodDelete, "/api/voice-profiles/some-id", member)).To(Equal(http.StatusOK))
+	})
+
+	It("answers 403 on every voice profile route for a user whose audio speech feature is off", func() {
+		Expect(auth.UpdateUserPermissions(db, member.ID, auth.PermissionMap{auth.FeatureAudioSpeech: false})).To(Succeed())
+		Expect(call(http.MethodPost, "/api/voice-profiles", member)).To(Equal(http.StatusForbidden))
+		Expect(call(http.MethodDelete, "/api/voice-profiles/some-id", member)).To(Equal(http.StatusForbidden))
+		Expect(call(http.MethodGet, "/api/voice-profiles", member)).To(Equal(http.StatusForbidden))
 		Expect(call(http.MethodPost, "/api/voice-profiles", admin)).To(Equal(http.StatusOK))
 	})
 

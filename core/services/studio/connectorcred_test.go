@@ -129,3 +129,44 @@ var _ = Describe("connector credentials for tool calls", func() {
 		Expect(err).To(MatchError(connectors.ErrInvalid))
 	})
 })
+
+// A call that names no resource gets the one resource of the connection: the
+// connection is the only source of the target and of the login.
+var _ = Describe("the default resource of a connection", func() {
+	ctx := context.Background()
+
+	It("gives the token and the only listed resource to a call that names none", func() {
+		r := newConnRig(newShared(), connStore(), newScriptedBot(), connSay("x"), nil)
+		b := r.bind(studio.ConnectorInput{Name: "Home", Token: "token-home", Resources: []string{"http://ha.local:8123"}})
+		grant, err := r.conns.DefaultCredentialFor(ctx, alice, "telegram", b.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(grant.Secret).To(Equal("token-home"))
+		Expect(grant.Resource.Key).To(Equal("http://ha.local:8123"))
+		Expect(grant.Resource.ID).To(Equal(connectors.ResourceID("http://ha.local:8123")))
+		Expect(grant.BindingID).To(Equal(b.ID))
+	})
+
+	It("names the listed resources when the connection lists several or none", func() {
+		r := newConnRig(newShared(), connStore(), newScriptedBot(), connSay("x"), nil)
+		many := r.bind(studio.ConnectorInput{Name: "Many", Token: "t", Resources: []string{"http://b.local:8123", "http://a.local:8123"}})
+		_, err := r.conns.DefaultCredentialFor(ctx, alice, "telegram", many.ID)
+		var na *connectors.NotAllowedError
+		Expect(errors.As(err, &na)).To(BeTrue())
+		Expect(na.Allowed).To(Equal([]string{"http://a.local:8123", "http://b.local:8123"}))
+		none := r.bind(studio.ConnectorInput{Name: "None", Token: "t"})
+		_, err = r.conns.DefaultCredentialFor(ctx, alice, "telegram", none.ID)
+		Expect(errors.As(err, &na)).To(BeTrue())
+		Expect(na.Allowed).To(BeEmpty())
+	})
+
+	It("keeps the other checks: no selection, another user, a binding without a token", func() {
+		r := newConnRig(newShared(), connStore(), newScriptedBot(), connSay("x"), nil)
+		b := r.bind(studio.ConnectorInput{Token: "t", Resources: []string{"http://ha.local:8123"}})
+		_, err := r.conns.DefaultCredentialFor(ctx, alice, "telegram", "")
+		Expect(err).To(MatchError(connectors.ErrNoConnection))
+		_, err = r.conns.DefaultCredentialFor(ctx, "mallory", "telegram", b.ID)
+		Expect(err).To(MatchError(connectors.ErrNoCredential))
+		_, err = connectors.OnlyEntry(connectors.Binding{Resources: connectors.NewResources([]string{"http://ha.local:8123"})})
+		Expect(err).To(MatchError(connectors.ErrNoCredential))
+	})
+})

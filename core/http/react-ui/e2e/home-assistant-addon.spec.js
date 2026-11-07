@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi } from './connector-fixtures.js'
+import { connectorApi, openPane } from './connector-fixtures.js'
 
 // The page of the Home Assistant add-on (the real built bundle, inside the
 // add-on shell) with the core API and the add-on's tools stubbed: the token
@@ -10,7 +10,7 @@ import { connectorApi } from './connector-fixtures.js'
 
 const PAGE = '/app/addons/home-assistant/apps'
 const BINDING = { id: 'b1', name: 'Home', kind: 'home-assistant', agent_id: '', credentials_only: true, enabled: false, accept_any: false, allow: [], resources: ['https://ha.example.org:8123'], write_mode: 'propose', has_token: true }
-const KIND = { capabilities: [], kindExtra: { title: 'Home Assistant', files: undefined, agent_optional: true } }
+const KIND = { capabilities: [], kindExtra: { title: 'Home Assistant', files: undefined, agent_optional: true, tool_only: true } }
 const api = (page, initial = []) => connectorApi(page, initial, 'home-assistant', [], undefined, KIND)
 
 const POLICY = { allow: ['light.turn_on', 'light.turn_off', 'climate.set_temperature', 'script.turn_on'], excludeDomains: ['lock', 'camera'], excludeAreas: [], excludePatterns: [], excludeLabel: 'sensitive', maxTargets: 5, pins: [] }
@@ -54,7 +54,8 @@ test.describe('Home Assistant add-on', () => {
     await install(page)
     await api(page, [BINDING]).install()
     await page.goto(PAGE)
-    const row = page.getByTestId('connector-row')
+    await openPane(page)
+    const row = page.getByTestId('connector-pane')
     await expect(row).toContainText('Home')
     await expect(row.getByTestId('home-assistant-row-address')).toContainText('https://ha.example.org:8123')
     await expect(row.getByTestId('home-assistant-row-write')).toHaveText('Asks first')
@@ -74,7 +75,7 @@ test.describe('Home Assistant add-on', () => {
     await page.getByLabel('Address of your Home Assistant').fill('https://Ha.Example.org:8123/')
     await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Home Assistant: ha.example.org:8123')
     await page.getByLabel('Long-lived access token').fill('x'.repeat(40))
-    await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled()
+    await expect(page.getByTestId('connector-save')).toBeEnabled()
   })
 
   test('each write mode says what it does, the default is read only, and auto still asks for physical effects', async ({ page }) => {
@@ -92,8 +93,9 @@ test.describe('Home Assistant add-on', () => {
     await install(page)
     await api(page, [BINDING]).install()
     await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Test' }).click()
-    const row = page.getByTestId('connector-row')
+    await page.getByTestId('connector-test').click()
+    await openPane(page)
+    const row = page.getByTestId('connector-pane')
     await expect(row.getByTestId('home-assistant-checks')).toContainText('Reachable. Home Assistant 2026.11.0, 12 integrations.')
     await expect(row.locator('.ha-check--ok')).toHaveCount(1)
   })
@@ -102,8 +104,9 @@ test.describe('Home Assistant add-on', () => {
     await install(page, tools({ config: { failed: 'the certificate of home assistant is not trusted: pin its fingerprint' } }))
     await api(page, [BINDING]).install()
     await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Test' }).click()
-    await expect(page.getByTestId('connector-row').getByTestId('home-assistant-checks')).toContainText('pin its fingerprint below')
+    await page.getByTestId('connector-test').click()
+    await openPane(page)
+    await expect(page.getByTestId('connector-pane').getByTestId('home-assistant-checks')).toContainText('pin its fingerprint below')
   })
 
   test('the policy editor warns about physical effects and marks the services that always ask', async ({ page }) => {

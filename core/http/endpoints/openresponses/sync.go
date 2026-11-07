@@ -75,11 +75,11 @@ type responseCancelEvent struct {
 //   - a wildcard subscription on the response-cancel subject, so a cancel that
 //     lands on the wrong replica still reaches the context.CancelFunc.
 //
-// The SyncedMap has no durable Store: responses are ephemeral, TTL-bounded
-// state that today does not survive a process restart either, so peers converge
-// through deltas alone. A replica that joins later does not learn about
-// responses created before it started; that is the same visibility a client had
-// before this change and strictly better than the 404 it got from every peer.
+// Without a table the SyncedMap has no Store: peers converge through deltas
+// alone, and a replica that joins later does not learn about responses created
+// before it started. With a table (EnableDurable called first) the map has a
+// Store backed by it, a late replica loads the newest rows, and the resume
+// buffer is read from the table rather than refused (ErrResponseNotLocal).
 func (s *ResponseStore) EnableDistributed(ctx context.Context, nats messaging.Broadcaster, replicaID string) error {
 	if nats == nil {
 		return nil
@@ -90,11 +90,25 @@ func (s *ResponseStore) EnableDistributed(ctx context.Context, nats messaging.Br
 	// cancels.
 	lifeCtx, lifeCancel := context.WithCancel(context.Background()) //#nosec G118 -- cancelled in Close()
 
-	synced := syncstate.New(syncstate.Config[string, *syncedResponse]{
+	// With a table the map is mode 1 (shared) with a Store: the table is the
+	// source of truth, and a replica that starts later loads the rows instead
+	// of starting empty. Without one, deltas alone carry the metadata.
+	cfg := syncstate.Config[string, *syncedResponse]{
 		Name: syncStateName,
 		Key:  func(v *syncedResponse) string { return v.ID },
 		Nats: nats,
-	})
+	}
+	hasStore := false
+	if d := s.durable(); d != nil {
+		if replicaID != "" {
+			// The row names its owner by this ID, and the lease is renewed
+			// under it, so the two must be the same string.
+			d.token = replicaID
+		}
+		cfg.Store = &syncStore{d: d}
+		hasStore = true
+	}
+	synced := syncstate.New(cfg)
 	if err := synced.Start(ctx); err != nil {
 		lifeCancel()
 		return fmt.Errorf("starting response metadata sync: %w", err)
@@ -107,6 +121,7 @@ func (s *ResponseStore) EnableDistributed(ctx context.Context, nats messaging.Br
 	s.nats = nats
 	s.lifeCtx, s.lifeCancel = lifeCtx, lifeCancel
 	s.synced = synced
+	s.syncedHasStore = hasStore
 	s.mu.Unlock()
 
 	sub, err := messaging.SubscribeJSON(nats, messaging.SubjectResponseCancelWildcard, s.applyRemoteCancel)
@@ -134,12 +149,16 @@ func (s *ResponseStore) Close() error {
 	s.cancelSub = nil
 	synced := s.synced
 	s.synced = nil
+	s.syncedHasStore = false
 	cancel := s.lifeCancel
 	s.lifeCancel = nil
 	s.mu.Unlock()
 
 	if cancel != nil {
 		cancel()
+	}
+	if s.durable() != nil {
+		s.flushAll()
 	}
 	if sub != nil {
 		if err := sub.Unsubscribe(); err != nil {
@@ -191,12 +210,23 @@ func (s *ResponseStore) mirror(responseID string, stored *StoredResponse) {
 	}
 
 	stored.mu.RLock()
+	// A copy, since the Store encodes it after this lock is released and the
+	// owner goes on changing the response.
+	var resp *schema.ORResponseResource
+	if stored.Response != nil {
+		cp := *stored.Response
+		resp = &cp
+	}
+	if stored.fenced {
+		stored.mu.RUnlock()
+		return
+	}
 	v := &syncedResponse{
 		ID:            responseID,
 		OwnerReplica:  replicaID,
 		Owner:         stored.Owner,
 		Request:       stored.Request,
-		Response:      stored.Response,
+		Response:      resp,
 		StoredAt:      stored.StoredAt,
 		ExpiresAt:     stored.ExpiresAt,
 		StreamEnabled: stored.StreamEnabled,
@@ -204,6 +234,11 @@ func (s *ResponseStore) mirror(responseID string, stored *StoredResponse) {
 	}
 	stored.mu.RUnlock()
 
+	if s.metadataViaSync() && resp != nil && !isNonTerminal(resp.Status) {
+		// The events come first: a reader that sees the end state must find
+		// every event.
+		s.flushEvents(responseID, stored)
+	}
 	if err := m.Set(ctx, v); err != nil {
 		xlog.Warn("failed to replicate Open Responses metadata", "response_id", responseID, "error", err)
 	}
@@ -342,3 +377,74 @@ func (s *ResponseStore) applyRemoteCancel(evt responseCancelEvent) {
 	}
 	xlog.Debug("Applied delegated Open Responses cancel", "response_id", evt.ResponseID, "origin", evt.Origin)
 }
+
+// metadataViaSync reports whether the replicated metadata map writes the
+// table itself, so a direct write would only repeat it.
+func (s *ResponseStore) metadataViaSync() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.synced != nil && s.syncedHasStore
+}
+
+// syncStore is the table behind the replicated metadata map
+// (syncstate.Store). Writes replace only the metadata columns of a row, so the
+// lease, the cancel flag and the event counters stay with their writers.
+type syncStore struct{ d *durableBackend }
+
+// maxHydrate bounds how many rows a replica loads into its map at start. Reads
+// that miss the map go to the table, so the map is a cache of the newest rows.
+const maxHydrate = 10000
+
+func (st *syncStore) List(ctx context.Context) ([]*syncedResponse, error) {
+	var rows []responseRow
+	if err := st.d.db.WithContext(ctx).Where("expires_at = 0 OR expires_at > ?", nowMs()).
+		Order("created_at DESC").Limit(maxHydrate).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*syncedResponse, 0, len(rows))
+	for i := range rows {
+		stored, err := rowToStored(&rows[i])
+		if err != nil {
+			xlog.Warn("open responses: skipping a row that cannot be decoded", "response_id", rows[i].ID, "error", err)
+			continue
+		}
+		out = append(out, &syncedResponse{
+			ID:            rows[i].ID,
+			OwnerReplica:  rows[i].OwnerInstance,
+			Owner:         rows[i].Owner,
+			Request:       stored.Request,
+			Response:      stored.Response,
+			StoredAt:      stored.StoredAt,
+			ExpiresAt:     stored.ExpiresAt,
+			StreamEnabled: rows[i].Stream,
+			IsBackground:  rows[i].Background,
+		})
+	}
+	return out, nil
+}
+
+func (st *syncStore) Upsert(ctx context.Context, v *syncedResponse) error {
+	stored := &StoredResponse{
+		Request:       v.Request,
+		Response:      v.Response,
+		StoredAt:      v.StoredAt,
+		ExpiresAt:     v.ExpiresAt,
+		Owner:         v.Owner,
+		StreamEnabled: v.StreamEnabled,
+		IsBackground:  v.IsBackground,
+	}
+	row, err := st.d.rowFor(v.ID, stored)
+	if err != nil {
+		return err
+	}
+	// The row names the replica that generates, which is not always this one:
+	// a delegated cancel writes the state of a peer's response.
+	row.OwnerInstance = v.OwnerReplica
+	return st.d.upsertMeta(ctx, row)
+}
+
+func (st *syncStore) Delete(ctx context.Context, id string) error {
+	return st.d.deleteResponse(ctx, id)
+}
+
+var _ syncstate.Store[string, *syncedResponse] = (*syncStore)(nil)

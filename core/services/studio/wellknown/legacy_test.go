@@ -3,6 +3,7 @@ package wellknown_test
 import (
 	"context"
 	"errors"
+	"io"
 	"path/filepath"
 	"sync"
 
@@ -39,6 +40,21 @@ func (noMoveTx) Move(context.Context, string, string) (workspace.Node, error) {
 	return workspace.Node{}, errNoMove
 }
 
+// racing is a store whose Put loses the race once it is armed: the store keeps
+// the content as a copy of the file and says so in ConflictOf, as it does when
+// another writer wins between the version check and the commit.
+type racing struct {
+	workspace.Store
+	armed *bool
+}
+
+func (r racing) Put(ctx context.Context, a workspace.Actor, p string, rd io.Reader, o workspace.PutOptions) (workspace.Node, error) {
+	if *r.armed {
+		return workspace.Node{ConflictOf: p}, nil
+	}
+	return r.Store.Put(ctx, a, p, rd, o)
+}
+
 func exists(f *files.Service, who, rel string) bool {
 	abs, err := f.Abs(who, rel)
 	Expect(err).NotTo(HaveOccurred())
@@ -52,6 +68,16 @@ func exists(f *files.Service, who, rel string) bool {
 
 var _ = Describe("the settings files in LocalAI/", func() {
 	ctx := context.Background()
+
+	It("leaves a top-level setups.json alone: setups never lived there", func() {
+		s, f := newService()
+		raw(f, alice, "/setups.json", `{"my":"own camera setups"}`)
+		doc, err := s.Read(ctx, alice, wellknown.Setups, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(doc.Exists).To(BeFalse())
+		Expect(exists(f, alice, "/setups.json")).To(BeTrue(), "the top-level file was moved")
+		Expect(exists(f, alice, "/LocalAI/setups.json")).To(BeFalse())
+	})
 
 	It("keeps every settings file in LocalAI/, and widget data where it is", func() {
 		for _, n := range []wellknown.Name{wellknown.Persona, wellknown.User, wellknown.Shortcuts, wellknown.Home, wellknown.UI} {

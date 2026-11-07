@@ -131,6 +131,50 @@ test.describe('Agent page', () => {
     await expect(page).toHaveURL(/\/app\/chats\/c1$/)
   })
 
+  test('lists the connections of the agent from any add-on and opens the settings of one', async ({ page }) => {
+    const bindings = [
+      { id: 'b1', name: 'General', kind: 'chat-a', addon: 'chat-a', agent_id: 'a1', enabled: true, active: true },
+      { id: 'b2', name: 'Ops', kind: 'room', addon: 'chat-b', agent_id: 'a1', enabled: true, active: false, reason: 'the token was refused' },
+      { id: 'b3', name: 'Elsewhere', kind: 'chat-a', addon: 'chat-a', agent_id: 'a2', enabled: true, active: true },
+    ]
+    await installAgents(page, { bindings })
+    await page.route(/\/api\/chats\/connectors\/kinds$/, route => route.fulfill({
+      json: { kinds: [{ kind: 'chat-a', addon: 'chat-a', title: 'Chat A', page: 'bots' }, { kind: 'room', addon: 'chat-b', title: 'Room B', page: 'rooms' }], capabilities: [] },
+    }))
+    await page.goto('/app/agents/a1')
+
+    const section = page.getByTestId('agent-bindings')
+    await expect(section.getByRole('heading', { name: 'Connections' })).toBeVisible()
+    await expect(section.locator('[data-binding]')).toHaveCount(2)
+    const general = section.locator('[data-binding="b1"]')
+    await expect(general).toContainText('General')
+    await expect(general).toContainText('Chat A')
+    await expect(general).toContainText('Running')
+    const ops = section.locator('[data-binding="b2"]')
+    await expect(ops).toContainText('Room B')
+    await expect(ops).toContainText('Needs attention')
+    await expect(ops).toContainText('the token was refused')
+    await expect(section).not.toContainText('Elsewhere')
+    await expect(general.getByRole('link', { name: 'Open settings of General' })).toHaveAttribute('href', '/app/addons/chat-a/bots?binding=b1')
+    await expect(ops.getByRole('link', { name: 'Open settings of Ops' })).toHaveAttribute('href', '/app/addons/chat-b/rooms?binding=b2')
+  })
+
+  test('an agent with no connections says so and links to the Add-ons page', async ({ page }) => {
+    await installAgents(page, { bindings: [{ id: 'b3', name: 'Elsewhere', kind: 'chat-a', addon: 'chat-a', agent_id: 'a2', enabled: true }] })
+    await page.goto('/app/agents/a1')
+    const empty = page.getByTestId('agent-bindings-empty')
+    await expect(empty).toContainText('No messaging app is connected to this agent.')
+    await expect(empty.getByRole('link', { name: 'Add one in Add-ons.' })).toHaveAttribute('href', '/app/addons')
+  })
+
+  test('the connections section is left out when the server has connectors off', async ({ page }) => {
+    await installAgents(page)
+    await page.route(/\/api\/chats\/connectors$/, route => route.fulfill({ status: 409, json: { error: { message: 'off', type: 'connectors_off', code: 409 } } }))
+    await page.goto('/app/agents/a1')
+    await expect(page.getByTestId('agent-page')).toBeVisible()
+    await expect(page.getByTestId('agent-bindings')).toHaveCount(0)
+  })
+
   test('the old address by name finds the agent, and the old status page redirects', async ({ page }) => {
     await installAgents(page)
     await page.goto('/app/agents/code-reviewer')

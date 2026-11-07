@@ -8,6 +8,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/pages"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
@@ -21,6 +22,35 @@ var _ = Describe("working files", func() {
 		Expect(workfiles.ChatsDir).To(Equal(session.ChatsDir))
 		Expect(workfiles.SettingsDir).To(Equal(session.SettingsDir))
 		Expect(workfiles.PagesDir).To(Equal(pages.Dir))
+		Expect(workfiles.UsersRoot).To(Equal(session.UsersRoot))
+		Expect(workfiles.SkillsDir).To(Equal(skills.SkillsDir))
+	})
+
+	It("names the folders of a home that nobody else may get a grant on", func() {
+		for p, want := range map[string]bool{
+			"/LocalAI": true, "/LocalAI/agents/a": true, "/Chats/x": true, "/Memory": true, "/memory/notes": true,
+			"/pages": true, "/pages/home": true, "/.skills": true, "/Work/.skills/report": true, "/Work/.SKILLS": true,
+			"/": false, "/Projects": false, "/Projects/pages": false, "/Projects/Memory": false, "/Work/skills": false,
+		} {
+			Expect(workfiles.Managed(p)).To(Equal(want), p)
+		}
+	})
+
+	It("lets a grant move inside one home only, and never into a managed folder", func() {
+		for _, c := range []struct {
+			from, to string
+			want     bool
+		}{
+			{"/users/a/X", "/users/a/Archive/X", true},
+			{"/shared/x/A", "/shared/y/A", true},
+			{"/users/a/X", "/users/b/X", false},
+			{"/users/a/X", "/shared/X", false},
+			{"/shared/X", "/users/a/X", false},
+			{"/users/a/X", "/users/a/LocalAI/X", false},
+			{"/users/a/X", "/users/a/Projects/.skills", false},
+		} {
+			Expect(workfiles.GrantsMayMove(c.from, c.to)).To(Equal(c.want), c.from+" -> "+c.to)
+		}
 	})
 
 	DescribeTable("tells a working file from a deliverable by its path",
@@ -116,6 +146,22 @@ var _ = Describe("working files", func() {
 		Entry("the chat folder itself", "/workspace/chat", workfiles.Deliverable, false),
 		Entry("a folder named chat in the home is no chat folder", "/workspace/home/chat/work/a.docx", workfiles.Deliverable, false),
 	)
+
+	It("never moves a file out of a hidden folder", func() {
+		Expect(workfiles.Stray("/workspace/home/.state/run.sh")).To(BeFalse())
+		Expect(workfiles.Stray("/workspace/home/jobs/.cache/run.py")).To(BeFalse())
+		Expect(workfiles.Stray("/workspace/home/run.py")).To(BeTrue())
+	})
+
+	It("tells a scoped chat that a file a trigger uses must stay in the home", func() {
+		n := workfiles.Nudge(workfiles.ChatGuestFolder, "/workspace/home/run.py")
+		Expect(n).To(ContainSubstring("Consider moving it"))
+		Expect(n).To(ContainSubstring("/workspace/home"))
+		Expect(n).To(ContainSubstring("trigger"))
+		Expect(n).To(ContainSubstring("never under /workspace/chat"))
+		// An unscoped chat's work folder is inside the home: nothing to warn about.
+		Expect(workfiles.Nudge("/workspace/home/Chats/x/work/", "/workspace/home/run.py")).NotTo(ContainSubstring("trigger"))
+	})
 
 	It("steers a scoped chat to its own work folder", func() {
 		Expect(workfiles.ChatGuestFolder).To(Equal("/workspace/chat/work/"))

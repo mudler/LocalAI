@@ -175,7 +175,7 @@ func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (tr
 	// The agent comes first: a scoped agent's folder bounds a file trigger.
 	var scope *folderScope
 	if t.AgentID != "" {
-		ag, err := h.svc.Agent(ctx, owner, t.AgentID)
+		ag, err := h.svc.ownAgent(ctx, owner, t.AgentID)
 		if err != nil {
 			return t, err
 		}
