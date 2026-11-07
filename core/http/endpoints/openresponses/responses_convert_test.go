@@ -19,7 +19,7 @@ var _ = Describe("convertORInputToMessages", func() {
 	cfg := &config.ModelConfig{}
 
 	It("populates both Content and StringContent for plain string input", func() {
-		msgs, err := convertORInputToMessages("Hello", cfg)
+		msgs, err := convertORInputToMessages("Hello", cfg, "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(msgs).To(HaveLen(1))
 		Expect(msgs[0].Role).To(Equal("user"))
@@ -33,7 +33,7 @@ var _ = Describe("convertORInputToMessages", func() {
 		input := []any{
 			map[string]any{"role": "user", "content": "Hi there"},
 		}
-		msgs, err := convertORInputToMessages(input, cfg)
+		msgs, err := convertORInputToMessages(input, cfg, "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(msgs).To(HaveLen(1))
 		Expect(msgs[0].Role).To(Equal("user"))
@@ -45,7 +45,7 @@ var _ = Describe("convertORInputToMessages", func() {
 		input := []any{
 			map[string]any{"type": "message", "role": "user", "content": "Typed"},
 		}
-		msgs, err := convertORInputToMessages(input, cfg)
+		msgs, err := convertORInputToMessages(input, cfg, "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(msgs).To(HaveLen(1))
 		Expect(msgs[0].StringContent).To(Equal("Typed"))
@@ -67,7 +67,7 @@ var _ = Describe("convertORInputToMessages", func() {
 			Expect(err).NotTo(HaveOccurred())
 			var request schema.OpenResponsesRequest
 			Expect(json.Unmarshal(data, &request)).To(Succeed())
-			msgs, err := convertORInputToMessages(request.Input, cfg)
+			msgs, err := convertORInputToMessages(request.Input, cfg, "")
 			Expect(err).NotTo(HaveOccurred())
 			return msgs
 		}
@@ -118,7 +118,7 @@ var _ = Describe("convertORInputToMessages", func() {
 		input := []any{
 			map[string]any{"role": "user"},
 		}
-		msgs, err := convertORInputToMessages(input, cfg)
+		msgs, err := convertORInputToMessages(input, cfg, "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(msgs).To(BeEmpty())
 	})

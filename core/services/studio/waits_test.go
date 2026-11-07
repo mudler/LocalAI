@@ -334,6 +334,22 @@ var _ = Describe("wait_for", func() {
 		})
 	})
 
+	It("answers a second wait on the same source and condition with the first one", func() {
+		src := &source{out: "10%"}
+		r, chat, _ := armed(poll, src)
+		sent(r.svc, alice, chat, "arm")
+		idle(r.svc, alice, chat)
+		res := r.h.ResultsFor("wait_for")
+		Expect(res).To(HaveLen(2))
+		Expect(res[1].Err).To(BeNil(), "%v", res[1].Err)
+		Expect(res[1].Out).To(ContainSubstring("The wait is armed for"))
+		Expect(res[1].Out).To(ContainSubstring("already exists"))
+		Expect(res[1].Out).To(ContainSubstring("wakes you once"))
+		list, err := r.host.List(ctx, alice, chat)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1), "a repeated wait_for made a second loop")
+	})
+
 	It("keeps the interval at the minimum the server allows", func() {
 		src := &source{out: "x"}
 		r, _, l := armed(`{"tool":"list_downloads","every":"5s",`+waitThen+`}`, src)

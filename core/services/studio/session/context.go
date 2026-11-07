@@ -33,11 +33,13 @@ func ModelRole(role string) bool {
 	return role == RoleUser || role == RoleAssistant || role == RoleTool
 }
 
-// DisplayOnly says that a transcript line of this role is for the owner's eyes
-// only: a thread block or a note of the host about a connector message. It
-// is not a message, so a fork, an export and a compaction leave it out and the
-// model never gets it.
-func DisplayOnly(role string) bool { return role == RoleThread || role == RoleHostNote }
+// DisplayOnly says that a transcript line of this role is not a message: a
+// thread block or a note of the host about a connector message (for the owner's
+// eyes only), or the record of a tool call that was about to run (internal). A
+// fork, an export and a compaction leave it out and the model never gets it.
+func DisplayOnly(role string) bool {
+	return role == RoleThread || role == RoleHostNote || role == RoleToolIntent
+}
 
 // SinceCleared returns the entries after the last RoleCleared entry: the part
 // of the transcript the model may see. Without such an entry it is entries.

@@ -944,7 +944,11 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 	key := ResourceKey{AddonID: request.AddonID, ResourceID: request.ResourceID}
 	admit := func(run func(context.Context) error) error { return p.Admit(ctx, actor, key, action, run) }
 	if credentialed {
-		admit = func(run func(context.Context) error) error { return p.AdmitAddon(ctx, actor, request.AddonID, run) }
+		// A binding shared with the actor holds the preview as admitted work
+		// of its share (grant.Use), so a revocation cancels it.
+		admit = func(run func(context.Context) error) error {
+			return grant.Use(ctx, func(ctx context.Context) error { return p.AdmitAddon(ctx, actor, request.AddonID, run) })
+		}
 	} else {
 		if key, err = p.Resolve(ctx, actor, request); err != nil {
 			return Proposal{}, err
@@ -1670,7 +1674,27 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		Request:   wire,
 		Authority: contract.Authority{Actor: actor, Scope: "apply", ExpiresAt: b.opts.Now().Add(b.opts.Limits.ApplyTimeout)},
 	}
-	receipt, err := instance.Client.Apply(ctx, env, r.Revision)
+	// The apply of a binding shared with the actor runs inside the hold of
+	// its share. A hold that refuses never called the add-on.
+	var receipt contract.Receipt
+	sent, lowered := false, false
+	held := grant.Use(ctx, func(hctx context.Context) error {
+		sent = true
+		receipt, err = instance.Client.Apply(hctx, env, r.Revision)
+		lowered = hctx.Err() != nil && ctx.Err() == nil
+		return nil
+	})
+	if !sent {
+		_, _ = b.store.transition(id, []ProposalState{gateway.ProposalExecuting}, func(x *proposalRecord) {
+			x.State = gateway.ProposalPending
+			x.Reason = ""
+			x.UnknownSince = time.Time{}
+		})
+		if held == nil || errors.Is(held, ErrUnavailable) {
+			return contract.Receipt{}, ErrUnavailable
+		}
+		return contract.Receipt{}, ErrForbidden
+	}
 	if b.hooks.afterApply != nil {
 		b.hooks.afterApply(id)
 	}
@@ -1694,7 +1718,7 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		// withdrawn client, an envelope that failed validation) returns it to
 		// pending so the same confirmation can run again (R34, R29).
 		state, reason, answer := gateway.ProposalPending, "", err
-		if ctx.Err() != nil {
+		if ctx.Err() != nil || lowered {
 			state, reason, answer = gateway.ProposalCancelled, "authority lowered before dispatch", ErrForbidden
 		}
 		_, _ = b.store.transition(id, []ProposalState{gateway.ProposalExecuting}, func(x *proposalRecord) {

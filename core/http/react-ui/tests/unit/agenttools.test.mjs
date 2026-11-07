@@ -177,3 +177,39 @@ test('agent payload: the connections are sent once the agent has them or the per
   assert.deepEqual(agentPayload({ ...emptyAgent(), connections: { tracker: [' b1 ', 'b1', 'b2'], ledger: [''], older: 'b3' } }).connections, { tracker: ['b1', 'b2'], older: ['b3'] })
   assert.deepEqual(agentPayload({ ...emptyAgent(), connections: {} }).connections, {}, 'an empty object clears')
 })
+
+test('the LocalAI client and admin groups are rows of the built-in list like any group, the admin one opt-in and last', async () => {
+  const harness = await toolGroupsHarness()
+  const toggled = []
+  const mk = (group, off, extra = {}) => ({ group, off, usable: true, tools: [], title: `server ${group}`, description: `d ${group}`, when_off: `w ${group}`, ...extra })
+  const base = {
+    builtins: [mk('localai_admin', true, { opt_in: true, usable: false, reason: 'Administrators only' }), mk('changes', false), mk('localai_client', false, { tools: ['generate_image', 'speak'] }), mk('files', false)],
+    addons: [], servers: [], connectors: [], commands: {}, setBuiltinsOn() {}, setAddonsOn() {}, setMCPOn() {}, toggleBuiltin: (g, on) => toggled.push([g, on]),
+  }
+  const rows = harness.render(base, {}).find((x) => x.key === 'builtins').rows
+  assert.deepEqual(rows.map((r) => r.id), ['files', 'localai_client', 'changes', 'localai_admin'])
+  const [client, admin] = [rows[1], rows[3]]
+  assert.equal(client.optIn, false)
+  assert.equal(client.on, true)
+  assert.equal(client.label, 'server localai_client', 'the words of the server show when a locale has none')
+  assert.equal(admin.optIn, true)
+  assert.equal(admin.on, false)
+  assert.equal(admin.usable, false)
+  assert.equal(admin.reason, 'Administrators only')
+  client.onToggle(false)
+  assert.deepEqual(toggled, [['localai_client', false]])
+})
+
+test('every locale words the two LocalAI groups of the Tools menu and Settings > Tools', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs')
+  const root = new URL('../../public/locales/', import.meta.url)
+  for (const loc of readdirSync(root)) {
+    const chats = JSON.parse(readFileSync(new URL(`${loc}/chats.json`, root), 'utf8'))
+    const admin = JSON.parse(readFileSync(new URL(`${loc}/admin.json`, root), 'utf8'))
+    for (const g of ['localai_client', 'localai_admin']) {
+      for (const part of ['builtin', 'describe', 'whenOff']) assert.ok(chats.tools[part][g], `${loc}: chats tools.${part}.${g}`)
+      assert.ok(admin.settingsTools.labels[g], `${loc}: admin settingsTools.labels.${g}`)
+      assert.ok(admin.settingsTools.descriptions[g], `${loc}: admin settingsTools.descriptions.${g}`)
+    }
+  }
+})

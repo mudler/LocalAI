@@ -176,7 +176,7 @@
 .ad-icon[data-size="56"] { width: 56px; height: 56px; }
 .ad-icon--glyph { display: inline-grid; place-items: center; color: var(--dk-muted); }
 .ad-icon--glyph .lai-icon { width: 18px; height: 18px; }
-/* The drawn tile: a colour of its own with a white glyph or letter, like the
+/* The drawn tile: a colour of its own with a white letter, like the
    icon files of the add-ons, so both kinds sit side by side. */
 .ad-icon--mark {
   --ad-h: 180;
@@ -188,7 +188,6 @@
   font-weight: 600;
   line-height: 1;
 }
-.ad-icon--mark .lai-icon { width: 52%; height: 52%; }
 .ad-icon--mark[data-size="32"] { font-size: var(--fs-small); }
 .ad-icon--mark[data-size="44"],
 .ad-icon--mark[data-size="48"] { font-size: var(--fs-lead); }

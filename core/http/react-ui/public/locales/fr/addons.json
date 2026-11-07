@@ -108,7 +108,6 @@
       "all": "Tous",
       "chat": "Messagerie",
       "tools": "Outils",
-      "home": "Maison",
       "models": "Modèles"
     }
   },
@@ -639,6 +638,7 @@
       "unpinned": "La bibliothèque signale une mise à jour mais n'indique aucun build à installer, elle ne peut donc pas être appliquée d'ici. Vérifiez à nouveau plus tard."
     },
     "checkAll": "Rechercher des mises à jour",
+    "notCheckedYet": "Les mises à jour n'ont pas encore été vérifiées.",
     "checkingAll": "Vérification...",
     "checkAllDone": "{{count}} modules vérifiés.",
     "checkAllFailed": "{{count}} n’ont pas pu être vérifiés.",

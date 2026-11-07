@@ -356,3 +356,15 @@ func ListUnresolvedProposals(g *gateway.Gateway, db *gorm.DB, opts ...Option) ec
 		return c.JSON(200, list)
 	}
 }
+
+// HumanSession reports whether a request comes from a named person's own
+// browser session, by the rules of the confirmation surface above, with the
+// confirmation header equal to id. Host routes outside the add-ons that must
+// never be reached by a key, an agent, a tool or an MCP client use it.
+func HumanSession(c echo.Context, id string) bool {
+	a, err := auth.AddonActor(c)
+	if err != nil {
+		return false
+	}
+	return humanSurface(c, settings{mode: auth.AddonModeNamedUser}, a, id)
+}

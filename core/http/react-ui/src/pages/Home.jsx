@@ -17,6 +17,9 @@ import { parseInvocation } from '../utils/slashCommands'
 import { ReadyLine } from '../components/chat/EmptyChat'
 // eslint-disable-next-line no-unused-vars
 import ShortcutsRow from '../components/wellknown/ShortcutsRow'
+// eslint-disable-next-line no-unused-vars
+import ReasoningChips from '../components/chat/ReasoningChips'
+import { settingsWithEffort } from '../utils/chatSettings'
 import { useChatComposer } from '../hooks/useChatComposer'
 import { useComposerDeparture } from '../hooks/useComposerTransition'
 // eslint-disable-next-line no-unused-vars
@@ -97,6 +100,9 @@ export default function Home() {
   })
   const { drafts, effectiveModel: selectedModel, draftModel, agentId, switches } = composer
   const { text: message, setText: setMessage, files } = drafts
+  // The reasoning effort picked before the chat exists; the new chat gets it
+  // as a setting before the first message goes.
+  const [draftEffort, setDraftEffort] = useState('')
   const [sending, setSending] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [distributedMode, setDistributedMode] = useState(false)
@@ -266,6 +272,15 @@ export default function Home() {
     try {
       const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined)
       id = chat.id
+      if (draftEffort) {
+        const settings = settingsWithEffort(null, draftEffort)
+        try {
+          await chatsApi.update(id, { settings })
+          chat.settings = settings
+        } catch (e) {
+          addToast(e.message || tch('settings.saveFailed'), 'error')
+        }
+      }
       const res = await chatsApi.send(id, text, attached, command)
       // The chat page draws the message from what is known here, so it opens
       // with the message in it. The draft goes when Home closes: emptied
@@ -281,7 +296,7 @@ export default function Home() {
       addToast(err.message || tc('errors.send'), 'error')
       setSending(false)
     }
-  }, [message, files, sending, selectedModel, draftModel, agentId, switches, composer.agents, drafts, addToast, navigate, t, tc, tch, beginSend, failSend, handOff])
+  }, [message, files, sending, selectedModel, draftModel, agentId, draftEffort, switches, composer.agents, drafts, addToast, navigate, t, tc, tch, beginSend, failSend, handOff])
 
   // An empty new chat on the chosen model. The state marks it as a hand-off:
   // /app/chats opened as a bare address comes back here.
@@ -529,6 +544,7 @@ export default function Home() {
             loadedIds={loadedIds}
             imageModel={chatServer.imageModel}
             pickerRef={pickerRef}
+            chips={<ReasoningChips effort={draftEffort} onEffort={setDraftEffort} />}
             pickerDisabled={firstRun}
             pickerPlaceholder={firstRun ? t('picker.noneSelected') : undefined}
             onDictateError={(m) => addToast(m, 'error')}

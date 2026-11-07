@@ -6,6 +6,7 @@ import Icon from '../Icon'
 import ActionMenu from '../ActionMenu'
 import { Button, EmptyState, LoadError, PaneLayout, SidePane, SkeletonRows, StatusChip, useLoad } from '../ui'
 import { useAuth } from '../../context/AuthContext'
+import { SharedByBadge } from '../share/ShareBadges'
 import { adminUsersApi, sharedFoldersApi } from '../../utils/api'
 import { refreshSharedPages } from '../../hooks/useSharedPages'
 import './sharedFolders.css'
@@ -91,9 +92,15 @@ function FolderRow({ folder, admin, onMembers, onRename, onRemove, t }) {
           <span className="sf-row__title sf-row__title--static">{folder.name}</span>
         )}
         <span className="sf-row__meta">
-          <code className="sf-row__path">{folderLabel(folder.path)}</code>
-          <span aria-hidden="true">·</span>
-          <PagesLink folder={folder} t={t} />
+          {folder.owner ? (
+            <SharedByBadge entry={{ role: folder.mode, owner: folder.owner, everyone: folder.everyone === true }} hideRole testId="sf-shared-by" />
+          ) : (
+            <>
+              <code className="sf-row__path">{folderLabel(folder.path)}</code>
+              <span aria-hidden="true">·</span>
+              <PagesLink folder={folder} t={t} />
+            </>
+          )}
           {admin && (
             <>
               <span aria-hidden="true">·</span>
@@ -346,9 +353,14 @@ function AdminFolders({ t }) {
   )
 }
 
-function MyFolders({ t }) {
+// The folders shared with the caller. `people` keeps only the folders other
+// people shared from their homes and draws nothing without one: the
+// administrator's screen lists its own shared folders above.
+function MyFolders({ t, people = false }) {
   const folders = useLoad(() => sharedFoldersApi.mine(), [])
-  const list = folders.data?.folders || []
+  const all = folders.data?.folders || []
+  const list = people ? all.filter(f => f.owner) : all
+  if (people && (folders.status !== 'ready' || list.length === 0)) return null
   let body
   if (folders.status === 'loading') body = <SkeletonRows count={2} />
   else if (folders.status === 'error') body = <LoadError title={t('shared.loadFailed')} error={folders.error} onRetry={folders.retry} />
@@ -360,11 +372,12 @@ function MyFolders({ t }) {
       </ul>
     )
   }
+  const titleId = people ? 'sf-people-title' : 'sf-title'
   return (
-    <section className="sf" aria-labelledby="sf-title" data-testid="sf-mine">
+    <section className="sf" aria-labelledby={titleId} data-testid={people ? 'sf-people' : 'sf-mine'}>
       <header className="sf-head">
         <div className="sf-head__text">
-          <h2 className="sf-title" id="sf-title">{t('shared.userTitle')}{list.length > 0 && <span className="sf-count">{list.length}</span>}</h2>
+          <h2 className="sf-title" id={titleId}>{t('shared.userTitle')}{list.length > 0 && <span className="sf-count">{list.length}</span>}</h2>
           <p className="sf-lede">{t('shared.userLede')}</p>
         </div>
       </header>
@@ -376,5 +389,5 @@ function MyFolders({ t }) {
 export default function SharedFolders() {
   const { t } = useTranslation('workspace')
   const { isAdmin } = useAuth()
-  return isAdmin ? <AdminFolders t={t} /> : <MyFolders t={t} />
+  return isAdmin ? <><AdminFolders t={t} /><MyFolders t={t} people /></> : <MyFolders t={t} />
 }
