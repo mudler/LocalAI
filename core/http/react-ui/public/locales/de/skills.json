@@ -8,7 +8,9 @@
     "newSkill": "Neue Fähigkeit",
     "createSkill": "Fähigkeit erstellen",
     "edit": "Bearbeiten",
-    "delete": "Löschen"
+    "delete": "Löschen",
+    "import": "Importieren",
+    "export": "Exportieren"
   },
   "search": {
     "placeholder": "Fähigkeiten suchen..."
@@ -27,7 +29,11 @@
     "notActive": "Nicht aktiv: der integrierte Skill wird verwendet",
     "notActiveBy": "Nicht aktiv: {{name}} stellt ihn bereit",
     "fallback": "Aktiv, weil der eigene Skill des Add-ons {{name}} aus ist oder nicht läuft",
-    "proposedBy": "Von {{name}} vorgeschlagen und von dir bestätigt. Nur dieser Agent nutzt es."
+    "proposedBy": "Von {{name}} vorgeschlagen und von dir bestätigt. Nur dieser Agent nutzt es.",
+    "new": "Neu",
+    "newTitle": "Importiert und noch nicht benutzt",
+    "newLong": "Importiert und noch nicht benutzt. Lesen Sie den Inhalt, bevor Sie ihn einem Agenten geben. Die erste Nutzung in einem Chat entfernt diese Markierung.",
+    "exportTitle": "Diesen Skill als ZIP-Datei herunterladen"
   },
   "empty": {
     "title": "Keine Fähigkeiten gefunden",
@@ -39,7 +45,8 @@
   "toasts": {
     "loadFailed": "Laden der Fähigkeiten fehlgeschlagen",
     "deleted": "Fähigkeit \"{{name}}\" gelöscht",
-    "deleteFailed": "Löschen der Fähigkeit fehlgeschlagen"
+    "deleteFailed": "Löschen der Fähigkeit fehlgeschlagen",
+    "exportFailed": "Export fehlgeschlagen: {{message}}"
   },
   "layers": {
     "label": "Layer",
@@ -81,5 +88,14 @@
   },
   "load": {
     "title": "Ihre Skills konnten nicht geladen werden."
+  },
+  "import": {
+    "failedTitle": "Die Skills konnten nicht importiert werden",
+    "failed": "Der Import ist fehlgeschlagen.",
+    "dismiss": "Schließen",
+    "done_one": "{{count}} Skill importiert",
+    "done_other": "{{count}} Skills importiert",
+    "scriptsStored": "Skripte und andere Dateien werden unverändert gespeichert. Skripte werden nur gespeichert, der Import führt sie nie aus.",
+    "newNote": "Er ist als Neu markiert, bis ein Chat ihn benutzt."
   }
 }

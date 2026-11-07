@@ -8,7 +8,9 @@
     "newSkill": "Skill baru",
     "createSkill": "Buat skill",
     "edit": "Edit",
-    "delete": "Hapus"
+    "delete": "Hapus",
+    "import": "Impor",
+    "export": "Ekspor"
   },
   "search": {
     "placeholder": "Cari skill..."
@@ -27,7 +29,11 @@
     "notActive": "Tidak aktif: skill bawaan yang dipakai",
     "notActiveBy": "Tidak aktif: disediakan oleh {{name}}",
     "fallback": "Dipakai karena skill add-on {{name}} mati atau tidak berjalan",
-    "proposedBy": "Diusulkan oleh {{name}} dan dikonfirmasi oleh Anda. Hanya agen itu yang memakainya."
+    "proposedBy": "Diusulkan oleh {{name}} dan dikonfirmasi oleh Anda. Hanya agen itu yang memakainya.",
+    "new": "Baru",
+    "newTitle": "Diimpor dan belum digunakan",
+    "newLong": "Diimpor dan belum digunakan. Baca isinya sebelum menambahkannya ke agen. Penggunaan pertama dalam obrolan menghapus tanda ini.",
+    "exportTitle": "Unduh skill ini sebagai berkas zip"
   },
   "empty": {
     "title": "Tidak ada skill yang ditemukan",
@@ -39,7 +45,8 @@
   "toasts": {
     "loadFailed": "Gagal memuat skill",
     "deleted": "Skill \"{{name}}\" berhasil dihapus",
-    "deleteFailed": "Gagal menghapus skill"
+    "deleteFailed": "Gagal menghapus skill",
+    "exportFailed": "Ekspor gagal: {{message}}"
   },
   "layers": {
     "label": "Layer",
@@ -81,5 +88,14 @@
   },
   "load": {
     "title": "Keterampilan Anda tidak dapat dimuat."
+  },
+  "import": {
+    "failedTitle": "Skill tidak dapat diimpor",
+    "failed": "Impor gagal.",
+    "dismiss": "Tutup",
+    "done_one": "{{count}} skill diimpor",
+    "done_other": "{{count}} skill diimpor",
+    "scriptsStored": "Skrip dan berkas lain disimpan apa adanya. Skrip hanya disimpan, tidak pernah dijalankan oleh impor.",
+    "newNote": "Ditandai Baru sampai sebuah obrolan menggunakannya."
   }
 }

@@ -8,7 +8,9 @@
     "newSkill": "新技能",
     "createSkill": "创建技能",
     "edit": "编辑",
-    "delete": "删除"
+    "delete": "删除",
+    "import": "导入",
+    "export": "导出"
   },
   "search": {
     "placeholder": "搜索技能..."
@@ -27,7 +29,11 @@
     "notActive": "未生效：使用内置技能",
     "notActiveBy": "未生效：由 {{name}} 提供",
     "fallback": "因 {{name}} 插件的技能已关闭或未运行而使用",
-    "proposedBy": "由 {{name}} 提出并经你确认。仅该智能体使用。"
+    "proposedBy": "由 {{name}} 提出并经你确认。仅该智能体使用。",
+    "new": "新",
+    "newTitle": "已导入，尚未使用",
+    "newLong": "已导入，尚未使用。添加到智能体之前请先阅读内容。聊天首次使用后，此标记会消失。",
+    "exportTitle": "将此技能下载为 zip 文件"
   },
   "empty": {
     "title": "未找到技能",
@@ -39,7 +45,8 @@
   "toasts": {
     "loadFailed": "加载技能失败",
     "deleted": "技能 \"{{name}}\" 已删除",
-    "deleteFailed": "删除技能失败"
+    "deleteFailed": "删除技能失败",
+    "exportFailed": "导出失败：{{message}}"
   },
   "layers": {
     "label": "Layer",
@@ -81,5 +88,14 @@
   },
   "load": {
     "title": "无法加载你的技能。"
+  },
+  "import": {
+    "failedTitle": "无法导入技能",
+    "failed": "导入失败。",
+    "dismiss": "关闭",
+    "done_one": "已导入 {{count}} 个技能",
+    "done_other": "已导入 {{count}} 个技能",
+    "scriptsStored": "脚本和其他文件按原样保存。脚本只保存，导入时绝不会运行。",
+    "newNote": "在聊天使用它之前，它会标记为新。"
   }
 }
