@@ -70,6 +70,91 @@ var _ = Describe("well-known files", func() {
 		Expect(err).To(MatchError(wellknown.ErrUnknown))
 	})
 
+	Describe("setups", func() {
+		setup := func(id, name string) map[string]any {
+			return map[string]any{"id": id, "name": name}
+		}
+		doc := func(setups ...any) map[string]any { return map[string]any{"setups": setups} }
+		bad := func(v any) []string {
+			data, err := json.Marshal(v)
+			Expect(err).NotTo(HaveOccurred())
+			obj, errs := wellknown.Validate(wellknown.Setups, data)
+			Expect(obj).To(BeNil())
+			return errs
+		}
+
+		It("is a kind with a fixed path", func() {
+			n, err := wellknown.Parse("setups")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(Equal(wellknown.Setups))
+			Expect(wellknown.File(wellknown.Setups)).To(Equal("/LocalAI/setups.json"))
+		})
+
+		It("accepts a document with two setups", func() {
+			ok := map[string]any{
+				"default": "coding",
+				"setups": []any{
+					map[string]any{"id": "coding", "name": "Coding", "model": "m1", "effort": "high",
+						"tools": map[string]any{"builtins_off": []any{"web_search"}, "builtins_on": []any{"x"}, "addons_off": []any{"a"}, "mcp_off": []any{"b"}, "skills_off": []any{"c"}}},
+					map[string]any{"id": "quick-2", "name": "Quick", "effort": "", "tools": map[string]any{}},
+				},
+			}
+			data, err := json.Marshal(ok)
+			Expect(err).NotTo(HaveOccurred())
+			obj, errs := wellknown.Validate(wellknown.Setups, data)
+			Expect(errs).To(BeEmpty())
+			Expect(obj).To(HaveKey("setups"))
+		})
+
+		It("refuses 51 setups", func() {
+			many := make([]any, 51)
+			for i := range many {
+				many[i] = setup(fmt.Sprintf("s%d", i), "S")
+			}
+			Expect(bad(doc(many...))).NotTo(BeEmpty())
+		})
+
+		It("refuses a name of 61 characters and accepts one of 60", func() {
+			Expect(bad(doc(setup("a", strings.Repeat("n", 61))))).NotTo(BeEmpty())
+			_, errs := wellknown.Validate(wellknown.Setups, []byte(`{"setups":[{"id":"a","name":"`+strings.Repeat("n", 60)+`"}]}`))
+			Expect(errs).To(BeEmpty())
+		})
+
+		It("refuses an unknown key at the top and inside a setup and inside tools", func() {
+			top := doc(setup("a", "A"))
+			top["extra"] = 1
+			Expect(bad(top)).NotTo(BeEmpty())
+			inner := setup("a", "A")
+			inner["extra"] = 1
+			Expect(bad(doc(inner))).NotTo(BeEmpty())
+			withTools := setup("a", "A")
+			withTools["tools"] = map[string]any{"nope": []any{"x"}}
+			Expect(bad(doc(withTools))).NotTo(BeEmpty())
+		})
+
+		It("refuses an id with an uppercase letter, an empty id and a long id", func() {
+			Expect(bad(doc(setup("Coding", "A")))).NotTo(BeEmpty())
+			Expect(bad(doc(setup("", "A")))).NotTo(BeEmpty())
+			Expect(bad(doc(setup(strings.Repeat("a", 41), "A")))).NotTo(BeEmpty())
+		})
+
+		It("refuses an effort that is not in the list", func() {
+			s := setup("a", "A")
+			s["effort"] = "extreme"
+			Expect(bad(doc(s))).NotTo(BeEmpty())
+		})
+
+		It("refuses more than 200 names in a tool list", func() {
+			s := setup("a", "A")
+			names := make([]any, 201)
+			for i := range names {
+				names[i] = "t"
+			}
+			s["tools"] = map[string]any{"mcp_off": names}
+			Expect(bad(doc(s))).NotTo(BeEmpty())
+		})
+	})
+
 	It("reads a missing file as empty, not as an error", func() {
 		s, _ := newService()
 		doc, err := s.Read(ctx, alice, wellknown.Persona, "")

@@ -1,6 +1,6 @@
 // Package wellknown reads and writes the files in a user's home that change how
 // LocalAI looks and behaves for that user: persona.json, user.json,
-// shortcuts.json, home.json and ui.json in the LocalAI/ folder, and the data
+// shortcuts.json, setups.json, home.json and ui.json in the LocalAI/ folder, and the data
 // files that Home widgets read. Each has a JSON Schema. The schemas live in the built-in skill
 // localai-workspace, so the server validates with the same text that the
 // assistant reads.
@@ -30,6 +30,7 @@ const (
 	Persona    Name = "persona"
 	User       Name = "user"
 	Shortcuts  Name = "shortcuts"
+	Setups     Name = "setups"
 	Home       Name = "home"
 	UI         Name = "ui"
 	WidgetData Name = "widget-data" // a data file a Home widget reads; it has no fixed path
@@ -44,7 +45,7 @@ const MaxSize = 64 << 10
 // ErrUnknown means the name is not a well-known file.
 var ErrUnknown = errors.New("wellknown: not a well-known file")
 
-var names = []Name{Persona, User, Shortcuts, Home, UI, WidgetData}
+var names = []Name{Persona, User, Shortcuts, Setups, Home, UI, WidgetData}
 
 // Names lists the kinds of well-known files.
 func Names() []Name { return append([]Name(nil), names...) }

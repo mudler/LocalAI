@@ -83,6 +83,25 @@ var _ = Describe("Chats well-known files endpoints", func() {
 		Expect(s.do("alice", http.MethodGet, "/api/chats/wellknown/home", nil).Body.String()).To(ContainSubstring(`"exists":false`))
 	})
 
+	It("writes and reads the setups of a user and refuses a name that is too long", func() {
+		good := map[string]any{"values": map[string]any{
+			"default": "coding",
+			"setups":  []any{map[string]any{"id": "coding", "name": "Coding", "model": "m1", "effort": "low"}},
+		}, "replace": true}
+		rec := put("alice", "setups", "", good)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(rec.Header().Get("ETag")).NotTo(BeEmpty())
+		Expect(decodeJSON(rec)["data"].(map[string]any)["setups"]).To(HaveLen(1))
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/wellknown/setups", nil))).To(HaveKeyWithValue("path", "/LocalAI/setups.json"))
+
+		long := map[string]any{"values": map[string]any{
+			"setups": []any{map[string]any{"id": "x", "name": strings.Repeat("n", 61)}},
+		}, "replace": true}
+		rec = put("alice", "setups", "", long)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+		Expect(decodeJSON(rec)["errors"]).NotTo(BeEmpty())
+	})
+
 	It("shows a broken file's last good version and reverts to it", func() {
 		Expect(put("alice", "shortcuts", "", map[string]any{"values": map[string]any{"shortcuts": []any{map[string]any{"label": "Plan", "prompt": "Plan my day"}}}}).Code).To(Equal(http.StatusOK))
 		up := s.do("alice", http.MethodPut, "/api/chats/files/content?path=/LocalAI/shortcuts.json&overwrite=1", `{"shortcuts": "oops"}`)
@@ -143,7 +162,7 @@ var _ = Describe("Chats well-known files endpoints", func() {
 	})
 
 	It("serves the schema of each file and 404 for an unknown one", func() {
-		for _, n := range []string{"persona", "user", "shortcuts", "home", "ui", "widget-data"} {
+		for _, n := range []string{"persona", "user", "shortcuts", "setups", "home", "ui", "widget-data"} {
 			rec := s.do("alice", http.MethodGet, "/api/chats/wellknown/"+n+"/schema", nil)
 			Expect(rec.Code).To(Equal(http.StatusOK), n)
 			Expect(rec.Header().Get("Content-Type")).To(HavePrefix("application/schema+json"))

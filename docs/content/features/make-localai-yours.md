@@ -23,6 +23,7 @@ The files need the chats and files of the server (see [Chats](/features/chats/))
 | Standing rules of one saved agent | "Always answer this agent's users in French" | `LocalAI/agents/<agent>/profile.md` |
 | What the assistant knows about you | "Call me Marta. I am a designer in Milan" | `LocalAI/user.json` |
 | Shortcuts in the message box | "Make this a shortcut" | `LocalAI/shortcuts.json` |
+| Saved setups of a new chat | "Save this as a setup called Coding" | `LocalAI/setups.json` |
 | The widgets on Home | "Show my open tasks on Home" | `LocalAI/home.json` and a data file |
 | The look | "Use the light theme and a compact layout" | `LocalAI/ui.json` |
 | A small tool of your own | "Make me a task board" | `pages/<name>/` |
@@ -146,6 +147,38 @@ empty list hides them.
 
 Edit them with **Edit shortcuts** over the message box, in the Account page, or
 by asking the assistant.
+
+## Setups
+
+`LocalAI/setups.json` is a per-user file. It keeps the named setups you save
+from a new chat:
+
+```json
+{
+  "default": "coding",
+  "setups": [
+    {
+      "id": "coding",
+      "name": "Coding",
+      "model": "my-coder",
+      "effort": "high",
+      "tools": { "builtins_off": ["web_search"], "mcp_off": ["calendar"] }
+    }
+  ]
+}
+```
+
+A setup stores the model, the tool switches and the reasoning effort. The
+tool switches are lists of names that are switched off or on:
+`builtins_off`, `builtins_on`, `addons_off`, `mcp_off` and `skills_off`.
+`effort` is empty, `none`, `minimal`, `low`, `medium` or `high`. `default` is
+the `id` of the setup a new chat starts with.
+
+A setup does not store a prompt, a persona, files or the text of a chat. Use
+[shortcuts](#shortcuts) for prompts and the persona for standing
+instructions. You can keep at most 50 setups; an `id` has lowercase letters,
+digits and dashes, and a name has at most 60 characters. Without the file a new
+chat starts from the defaults.
 
 ## Home
 
@@ -410,7 +443,7 @@ a chat in the **Skills** menu.
 
 | Method | Path | What it does |
 |---|---|---|
-| GET | `/api/chats/wellknown/{name}` | Reads a file: `persona`, `user`, `shortcuts`, `home`, `ui`, or `widget-data` with `?path=` |
+| GET | `/api/chats/wellknown/{name}` | Reads a file: `persona`, `user`, `shortcuts`, `setups`, `home`, `ui`, or `widget-data` with `?path=` |
 | PUT | `/api/chats/wellknown/{name}` | Changes a file: `{"values": {...}, "replace": false}` |
 | POST | `/api/chats/wellknown/{name}/revert` | Writes the previous valid version back, or the version `{"rev": N}` |
 | GET | `/api/chats/wellknown/{name}/versions` | The versions of the file, newest first: `rev`, `at`, `kind` (`user` or `agent`), `chat` and `chat_title`, and `data` when valid |

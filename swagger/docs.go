@@ -9641,7 +9641,7 @@ const docTemplate = `{
         },
         "/api/chats/wellknown/{name}": {
             "get": {
-                "description": "name is persona, user, shortcuts, home, ui or widget-data. The file is validated against its JSON Schema. When it is not valid, data holds its last valid version from the history and errors says what is wrong. A missing file is an empty object with exists false. widget-data needs path, the data file of a Home widget.",
+                "description": "name is persona, user, shortcuts, setups, home, ui or widget-data. The file is validated against its JSON Schema. When it is not valid, data holds its last valid version from the history and errors says what is wrong. A missing file is an empty object with exists false. widget-data needs path, the data file of a Home widget.",
                 "tags": [
                     "chats"
                 ],
@@ -9649,7 +9649,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "persona, user, shortcuts, home, ui or widget-data",
+                        "description": "persona, user, shortcuts, setups, home, ui or widget-data",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -9691,7 +9691,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "persona, user, shortcuts, home, ui or widget-data",
+                        "description": "persona, user, shortcuts, setups, home, ui or widget-data",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -9756,7 +9756,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "persona, user, shortcuts, home, ui or widget-data",
+                        "description": "persona, user, shortcuts, setups, home, ui or widget-data",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -9805,7 +9805,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "persona, user, shortcuts, home, ui or widget-data",
+                        "description": "persona, user, shortcuts, setups, home, ui or widget-data",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -9838,7 +9838,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "persona, user, shortcuts, home, ui or widget-data",
+                        "description": "persona, user, shortcuts, setups, home, ui or widget-data",
                         "name": "name",
                         "in": "path",
                         "required": true
