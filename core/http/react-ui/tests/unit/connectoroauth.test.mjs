@@ -10,7 +10,7 @@ import React, { useState } from 'react'
 import { renderToString } from 'react-dom/server'
 import {
   canSaveClient, clientBody, clientStatus, formatWhen, isOAuthBinding, needsSecret, oauthErrorKey, oauthErrorText, oauthRowState,
-  readOAuthReturn, reasonKey, reconnectConnections, returnPath, scopeChoices, staleDigest, startBody, newConnectionBody, canAddConnection,
+  readOAuthReturn, reasonKey, reconnectConnections, REASONS, RETURN_CLASSES, returnPath, scopeChoices, staleDigest, startBody, newConnectionBody, canAddConnection,
 } from '../../src/utils/connectorOAuth.js'
 import { hasAddonSettings, hasOAuthLogin } from '../../src/addons/hostControls.js'
 
@@ -208,4 +208,25 @@ test('oauth: the body that adds a connection that logs in, and when it can be se
   assert.equal(canAddConnection('Work'), true)
   assert.equal(canAddConnection('é'.repeat(80)), true)
   assert.equal(canAddConnection('x'.repeat(81)), false, 'the server takes 80 characters')
+})
+
+// The fixed codes come from the server. The page words each one by a key, so a
+// code the server adds and the page lacks would read as "unknown". This reads
+// the Go sources and fails when the two lists differ.
+const goSource = (path) => readFileSync(new URL(`../../../../../${path}`, import.meta.url), 'utf8')
+
+test('oauth: the reconnect reasons of the page are the grant reasons of the server', () => {
+  const server = [...goSource('core/services/studio/connectoroauth.go').matchAll(/\tReason\w+\s+GrantReason = "([a-z_]+)"/g)].map((m) => m[1])
+  assert.ok(server.length > 0, 'no grant reason found in the Go source')
+  assert.deepEqual([...REASONS].sort(), server.sort())
+})
+
+test('oauth: the return classes of the page are the error classes of the callback', () => {
+  const login = goSource('core/services/studio/connectorlogin.go')
+  const valueOf = (name) => new RegExp(`\\b${name}\\s*=\\s*"([a-z_]+)"`).exec(login)?.[1]
+  const endpoint = goSource('core/http/endpoints/studio/connectoroauth.go')
+  const block = /var oauthErrorClasses = map\[string\]bool\{([^}]*)\}/.exec(endpoint)?.[1] || ''
+  const server = [...block.matchAll(/studiosvc\.(Login\w+):/g)].map((m) => valueOf(m[1]))
+  assert.ok(server.length > 0 && server.every(Boolean), 'no error class found in the Go source')
+  assert.deepEqual([...RETURN_CLASSES].sort(), server.sort())
 })

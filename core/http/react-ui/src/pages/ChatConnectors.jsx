@@ -16,8 +16,9 @@ import { useAuth } from '../context/AuthContext'
 import { useListedAddons } from '../addons/useAddonRegistry'
 import { chatAgentsApi, chatConnectorsApi, sharesApi } from '../utils/api'
 import { bindingAddress, connectionLine, duplicateOf, groupConnectors, rowState } from '../utils/chatConnectors'
-import { isOAuthBinding, oauthErrorText, readOAuthReturn, returnPath, startBody } from '../utils/connectorOAuth'
+import { isOAuthBinding } from '../utils/connectorOAuth'
 import { useAddonIcons } from '../hooks/useAddonIcons'
+import { useOAuthConnections } from '../hooks/useOAuthConnections'
 import '../components/addons/addons.css'
 import './connectors.css'
 
@@ -44,13 +45,6 @@ export default function ChatConnectors() {
   const { isAdmin } = useAuth()
   const apps = useListedAddons()
   const logins = useMemo(() => Object.fromEntries(apps.filter((a) => a.oauth).map((a) => [a.id, a.oauth])), [apps])
-  // The result of a login the service sent the browser back with, read once:
-  // the query is stripped right away, so a reload does not say it again.
-  const [returned, setReturned] = useState(() => readOAuthReturn(location.search))
-  const [starting, setStarting] = useState('')
-  const [leaving, setLeaving] = useState(null)
-  const [disconnecting, setDisconnecting] = useState(false)
-  const [notice, setNotice] = useState(null)
   const [menuAt, setMenuAt] = useState(null)
   const [kinds, setKinds] = useState(null)
   const [items, setItems] = useState([])
@@ -85,10 +79,10 @@ export default function ChatConnectors() {
     }
   }, [fail])
 
+  const { returned, setReturned, starting, leaving, setLeaving, disconnecting, notice, setNotice, connect, disconnect } =
+    useOAuthConnections({ t, location, setParams, setError, fail, load })
+
   useEffect(() => { load() }, [load])
-  useEffect(() => {
-    if (returned) setParams(new URLSearchParams(returned.search), { replace: true })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- once, on the page the login came back to
   useEffect(() => { chatAgentsApi.list().then((r) => setAgents(r.agents || [])).catch(() => {}) }, [])
 
   const shareClient = useMemo(() => (share ? kindShareClient(sharesApi, SHARE_KIND, share.id) : null), [share])
@@ -109,42 +103,6 @@ export default function ChatConnectors() {
       const r = c.share?.resource_id ? c.share : await chatConnectorsApi.share(c.id)
       setShare({ id: r.resource_id, name: c.name })
     } catch (e) { fail(e) }
-  }
-
-  const oauthFail = (e) => {
-    const text = oauthErrorText(t, e, 'connectorsPage.oauth.errors')
-    if (text) setError(text)
-    else fail(e)
-  }
-  // The browser leaves for the service; the button keeps spinning until it does.
-  const connect = async (c, scopes) => {
-    setError('')
-    setNotice(null)
-    setReturned(null)
-    setStarting(c.id)
-    try {
-      const r = await chatConnectorsApi.oauthStart(c.id, startBody(scopes, returnPath(location.pathname, location.search)))
-      window.location.assign(r.authorize_url)
-    } catch (e) {
-      setStarting('')
-      oauthFail(e)
-    }
-  }
-  const disconnect = async () => {
-    const c = leaving
-    setDisconnecting(true)
-    setError('')
-    setReturned(null)
-    try {
-      const r = await chatConnectorsApi.oauthDisconnect(c.id)
-      setNotice({ tone: r?.revoked ? 'ok' : 'warn', text: t(r?.revoked ? 'connectorsPage.oauth.disconnected' : 'connectorsPage.oauth.disconnectedNotTold', { name: c.name }) })
-      await load()
-    } catch (e) {
-      oauthFail(e)
-    } finally {
-      setDisconnecting(false)
-      setLeaving(null)
-    }
   }
 
   const STATE_CHIP = { running: { status: 'running' }, off: { tone: 'idle' }, attention: { tone: 'warn' } }

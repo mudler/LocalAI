@@ -1,23 +1,11 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { RouteProvider } from 'react-router-dom'
-import { registerLocales } from '../../../internal/host-compat/src/i18n.js'
 import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
-import { Field, Notice, RadioCards } from '../../../internal/connector-ui/src/controls'
-import en from './i18n/gdrive.en.json'
-import it from './i18n/gdrive.it.json'
-import es from './i18n/gdrive.es.json'
-import de from './i18n/gdrive.de.json'
-import fr from './i18n/gdrive.fr.json'
-import zh from './i18n/gdrive.zh-CN.json'
-import id from './i18n/gdrive.id.json'
-import ko from './i18n/gdrive.ko.json'
-import pt from './i18n/gdrive.pt-BR.json'
+import { Field, Notice } from '../../../internal/connector-ui/src/controls'
+import { WriteModeChip, WriteModeField } from '../../../internal/connector-ui/src/addonparts'
+import './i18n'
 import ProposalCard from './ProposalCard'
 import { extraBody, extraForm, extraValid, foldersIssue, parseFolders, OFFERED_MODES, writeModeOf } from './folders'
-import './gdrive.css'
-
-// The words of the page, in every language of the web UI; a key a language lacks reads in English.
-registerLocales({ gdrive: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
 
 // The folders the agent may use. The host refuses any other one before the
 // add-on is called, and the add-on refuses a file outside the folder.
@@ -32,33 +20,14 @@ function GdriveFields({ form, setForm, t }) {
             placeholder="1AbCdEfG..." onChange={(e) => setForm({ ...form, folders_text: e.target.value })} />
         )}
       </Field>
-      <WriteMode form={form} setForm={setForm} t={t} />
+      <WriteModeField ns="gdrive" form={form} setForm={setForm} t={t} modes={OFFERED_MODES} modeOf={writeModeOf} />
     </>
-  )
-}
-
-// The write mode: the host enforces it for every write tool of this add-on.
-function WriteMode({ form, setForm, t }) {
-  const mode = writeModeOf(form.write_mode)
-  return (
-    <div data-testid="gdrive-write-mode" className="gd-mode-block">
-      <Field label={t('writeMode.label')} hint={t('writeMode.hint')}>
-        {() => (
-          <RadioCards name="write-mode" legend={t('writeMode.label')} value={mode} onChange={(m) => setForm({ ...form, write_mode: m })}
-            options={OFFERED_MODES.map((m) => ({
-              value: m,
-              label: (<span className="gd-modecard"><span className="gd-modecard__title">{t(`writeMode.${m}`)}</span><span className="gd-modecard__line">{t(`writeMode.line.${m}`)}</span></span>),
-            }))} />
-        )}
-      </Field>
-      <Notice tone={mode === 'off' ? 'info' : 'warn'} role="note" testId="gdrive-write-note" className="gd-note">{t(`writeMode.note.${mode}`)}</Notice>
-    </div>
   )
 }
 
 function Help({ t }) {
   return (
-    <div className="gd-help">
+    <div className="cn-addon-help">
       <p className="cn-muted" data-testid="gdrive-limits">{t('limits')}</p>
       <details className="cn-help" data-testid="gdrive-setup">
         <summary>{t('setup.title')}</summary>
@@ -78,7 +47,7 @@ function RowInfo({ c, t }) {
   return (
     <>
       <span className="cn-muted" data-testid="gdrive-row-folders">{folders.length === 0 ? t('noFolders') : t('foldersOf', { count: folders.length, list: folders.join(', ') })}</span>
-      <span><span className={`gd-chip gd-chip--${mode}`} data-testid="gdrive-row-write">{t(`writeMode.row.${mode}`)}</span></span>
+      <span><WriteModeChip ns="gdrive" mode={mode} t={t} /></span>
     </>
   )
 }

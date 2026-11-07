@@ -5,10 +5,10 @@
 
 // The fixed reasons of a reconnect. An unknown one (a newer server) gets the
 // generic text.
-const REASONS = new Set(['revoked', 'client_rejected', 'refused', 'needs_approval', 'credential_rejected', 'expired', 'write_failed', 'unreadable', 'scopes_missing', 'endpoint_changed', 'token_too_large'])
+export const REASONS = new Set(['revoked', 'client_rejected', 'refused', 'needs_approval', 'credential_rejected', 'expired', 'write_failed', 'unreadable', 'scopes_missing', 'endpoint_changed', 'token_too_large'])
 
 // The classes of oauth=error&class=<c> on the page the login returns to.
-const RETURN_CLASSES = new Set(['invalid_state', 'provider_error', 'exchange_failed', 'scopes_missing', 'unavailable', 'token_too_large'])
+export const RETURN_CLASSES = new Set(['invalid_state', 'provider_error', 'exchange_failed', 'scopes_missing', 'unavailable', 'token_too_large'])
 
 // Whether a binding logs in with OAuth. A token binding has no auth_kind.
 export function isOAuthBinding(c) {
