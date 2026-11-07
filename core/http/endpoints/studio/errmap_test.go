@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -18,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // answer runs a mapper on err and decodes the one JSON document it writes.
@@ -30,6 +32,18 @@ func answer(mapper func(echo.Context, error) error, err error) (int, schema.APIE
 	Expect(body.Error).NotTo(BeNil())
 	return rec.Code, *body.Error
 }
+
+var _ = Describe("the rate limit of a connector call", func() {
+	It("sends the clamped wait in Retry-After", func() {
+		for in, want := range map[int]string{0: "1", -5: "1", 30: "30", contract.MaxRetryAfter + 500: strconv.Itoa(contract.MaxRetryAfter)} {
+			rec := httptest.NewRecorder()
+			c := echo.New().NewContext(httptest.NewRequest(http.MethodGet, "/api/chats/x", nil), rec)
+			Expect(failConnector(c, &contract.ErrRateLimited{RetryAfter: in})).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusTooManyRequests))
+			Expect(rec.Header().Get("Retry-After")).To(Equal(want), "raw wait %d", in)
+		}
+	})
+})
 
 var _ = Describe("the studio endpoint helpers", func() {
 	It("gives the status, type and text of each row of the error tables", func() {

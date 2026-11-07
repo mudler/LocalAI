@@ -213,7 +213,7 @@ func failConnector(c echo.Context, err error) error {
 	return mapErr(c, err, connectorRules, func(c echo.Context, err error) error {
 		var limited *contract.ErrRateLimited
 		if errors.As(err, &limited) {
-			c.Response().Header().Set("Retry-After", strconv.Itoa(limited.RetryAfter))
+			c.Response().Header().Set("Retry-After", strconv.Itoa(limited.Seconds()))
 			return fail(c, http.StatusTooManyRequests, "rate_limited", "the service asked to wait before the login is renewed; try again later")
 		}
 		var ce *contract.ConnectorError
