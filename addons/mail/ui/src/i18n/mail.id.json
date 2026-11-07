@@ -8,7 +8,6 @@
   "agent": "Agen",
   "agentNone": "Pilih agen",
   "agentCredentialsOnly": "Tanpa agen (hanya kredensial)",
-  "agentOptionalHint": "Opsional. Tanpa agen, koneksi ini hanya menyimpan login kotak surat dan mode tulis untuk chat Anda. Koneksi ini tidak membalas pesan dan tidak mendengarkan apa pun.",
   "credentialsOnly": "Hanya kredensial",
   "agentNoModel": "{{name}} (perlu model)",
   "test": "Uji",

@@ -58,7 +58,7 @@ function Permissions({ p }) {
 }
 
 export default function ConnectionSheet({ p }) {
-  const { t, s, form, setForm, messaging, capabilities, kindInfo, agents, agentOptional, TokenFields, ExtraFields, savedItem, busy, error, fixedAgent } = p
+  const { t, s, form, setForm, messaging, capabilities, kindInfo, agents, agentOptional, toolOnly, TokenFields, ExtraFields, savedItem, busy, error, fixedAgent } = p
   const editing = Boolean(form.id)
   const agent = agents.find((a) => a.id === form.agent_id)
   const bodyRef = useRef(null)
@@ -102,7 +102,7 @@ export default function ConnectionSheet({ p }) {
       <AddonScope>
         <form id="cn-sheet-form" ref={bodyRef} className="cn-sheet" onSubmit={p.onSubmit} aria-label={editing ? t('edit') : t('new')} data-testid="connector-form">
           {error && <Notice tone="error" role="alert" testId="connector-sheet-error">{error}</Notice>}
-          {savedItem?.agent_id && (
+          {!toolOnly && savedItem?.agent_id && (
             <p className="cn-muted cn-agentlink">
               <a href={p.agentHref} target={p.dirty ? '_blank' : undefined} rel={p.dirty ? 'noopener noreferrer' : undefined} data-testid="connector-agent-link">
                 {s('agentLink', { name: p.agentName(savedItem.agent_id) })}
@@ -117,7 +117,7 @@ export default function ConnectionSheet({ p }) {
               {(f) => <TextInput {...f} value={form.name} required maxLength={80} onChange={(e) => setForm({ ...form, name: e.target.value })} />}
             </Field>
             <TokenFields form={form} setForm={setForm} t={t} />
-            {fixedAgent ? (
+            {toolOnly ? null : fixedAgent ? (
               <div className="dk-field" data-testid="connector-agent-fixed">
                 <span className="dk-label">{t('agent')}</span>
                 <p className="cn-fixed">{s('conn.sheet.agentFixed', { name: p.agentName(form.agent_id) })}</p>

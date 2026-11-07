@@ -8,7 +8,6 @@
   "agent": "Agent",
   "agentNone": "Choisir un agent",
   "agentCredentialsOnly": "Aucun agent (identifiants seulement)",
-  "agentOptionalHint": "Facultatif. Sans agent, cette connexion ne conserve que l'identifiant de la boîte et le mode d'écriture pour vos chats. Elle ne répond à aucun message et n'écoute rien.",
   "credentialsOnly": "Identifiants seulement",
   "agentNoModel": "{{name}} (a besoin d'un modèle)",
   "test": "Tester",

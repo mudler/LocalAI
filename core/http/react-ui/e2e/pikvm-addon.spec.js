@@ -12,7 +12,7 @@ import { connectorApi, openPane } from './connector-fixtures.js'
 const PAGE = '/app/addons/pikvm/apps'
 const SHOTS = process.env.UI_SHOTS_DIR
 const BINDING = { id: 'b1', name: 'PiKVM: pikvm.local', kind: 'pikvm', agent_id: '', credentials_only: true, enabled: false, accept_any: false, allow: [], resources: ['https://pikvm.local'], write_mode: 'propose', has_token: true }
-const KIND = { capabilities: [], kindExtra: { title: 'PiKVM', files: undefined, agent_optional: true } }
+const KIND = { capabilities: [], kindExtra: { title: 'PiKVM', files: undefined, agent_optional: true, tool_only: true } }
 const api = (page, initial = []) => connectorApi(page, initial, 'pikvm', [], undefined, KIND)
 
 const DECLARED = ['power-action', 'send-key'].map(tool => ({ key: `approval-${tool}`, values: ['ask', 'skip'], default: 'ask' }))

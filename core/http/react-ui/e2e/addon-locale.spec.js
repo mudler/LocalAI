@@ -163,8 +163,8 @@ test.describe('Add-on pages follow the language', () => {
 })
 
 // The Jellyfin and Home Assistant pages, with the core API and the add-on tools stubbed.
-const ADDRESS_ONLY = { files: undefined, agent_optional: true }
-const CREDENTIALS = (kind, resource) => ({ id: 'b1', name: kind === 'jellyfin' ? 'Salotto' : 'Casa', kind, agent_id: '', credentials_only: true, enabled: false, accept_any: false, allow: [], resources: [resource], write_mode: 'propose', has_token: true })
+const ADDRESS_ONLY = { files: undefined, agent_optional: true, tool_only: true }
+const CREDENTIALS = (kind, resource) => ({ id: 'b1', name: kind === 'jellyfin' ? 'Salotto' : 'Casa', kind, agent_id: '', credentials_only: true, used_by: 0, enabled: false, accept_any: false, allow: [], resources: [resource], write_mode: 'propose', has_token: true })
 const POLICY = { allow: ['light.turn_on', 'light.turn_off', 'climate.set_temperature', 'script.turn_on'], excludeDomains: ['lock', 'camera'], excludeAreas: [], excludePatterns: [], excludeLabel: 'sensitive', maxTargets: 5, pins: [] }
 const HARD = { domains: ['lock', 'alarm_control_panel', 'siren'], serviceNames: ['restart', 'stop'], servicePrefixes: ['reload'], coverClasses: ['blind'] }
 const dispatch = (body) => {
@@ -186,7 +186,7 @@ test.describe('Jellyfin and Home Assistant in Italian', () => {
     await connectorApi(page, [CREDENTIALS('jellyfin', 'http://192.168.1.10:8096')], 'jellyfin', [], undefined, { capabilities: [], kindExtra: { title: 'Jellyfin', ...ADDRESS_ONLY } }).install()
     await page.goto('/app/addons/jellyfin/jellyfin')
     await expect(page.getByRole('button', { name: 'Nuova connessione Jellyfin' })).toBeVisible()
-    await expect(page.getByTestId('connector-row')).toContainText('Solo credenziali')
+    await expect(page.getByTestId('connector-row')).toContainText('Non usata da nessun agente')
     await expect(page.locator('.cn-page')).toContainText('Come creare la chiave')
     await shots(page, 'it-jellyfin', page.locator('.cn-page'))
     await rowMenu(page, 'Modifica')

@@ -3,7 +3,6 @@
   "agent": "智能体",
   "agentNone": "选择智能体",
   "agentCredentialsOnly": "没有智能体（仅凭据）",
-  "agentOptionalHint": "可选。没有智能体时，此连接只保存 token、地址和用于你的聊天的写入模式。它不回答任何消息，也不监听任何内容。",
   "credentialsOnly": "仅凭据",
   "agentNoModel": "{{name}}（需要模型）",
   "test": "测试",
