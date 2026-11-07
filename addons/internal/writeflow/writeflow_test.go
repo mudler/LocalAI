@@ -112,6 +112,24 @@ var _ = Describe("Runtime", func() {
 		Expect(f.sent).To(BeZero())
 	})
 
+	It("keeps a receipt of a part that was made when the rest is known not to be", func() {
+		f := &fake{rev: 7, send: &writeflow.Partial{Out: map[string]any{"partial": true}, Err: googleapi.ErrForbidden}}
+		rc, err := apply("op-partial", f)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rc.State).To(Equal(contract.ReceiptCommitted))
+		Expect(string(rc.Result.Payload)).To(ContainSubstring(`"partial":true`))
+		again, _ := rt.Receipt(context.Background(), "op-partial")
+		Expect(again.State).To(Equal(contract.ReceiptCommitted))
+	})
+
+	It("leaves the outcome unknown when the failure after a part proves nothing", func() {
+		f := &fake{rev: 7, send: &writeflow.Partial{Out: map[string]any{}, Err: googleapi.ErrUnavailable}}
+		_, err := apply("op-partial2", f)
+		Expect(err).To(HaveOccurred())
+		rc, _ := rt.Receipt(context.Background(), "op-partial2")
+		Expect(rc.State).To(Equal(contract.ReceiptUnknown))
+	})
+
 	It("stops when the session refuses to resume", func() {
 		boom := errors.New("maybe sent")
 		f := &fake{rev: 7, resumeErr: boom}

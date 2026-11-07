@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/mudler/LocalAI/addons/gdrive/gdrivetest"
@@ -150,6 +151,65 @@ var _ = Describe("the write tools", func() {
 		f := w.srv.File("mine")
 		Expect(f.Name).To(Equal("renamed.txt"))
 		Expect(string(f.Content)).To(Equal("new text"))
+	})
+
+	Describe("update-file with a new content and a new name", func() {
+		args := map[string]any{"folder": "proj", "fileId": "mine", "name": "renamed.txt", "content": "new text"}
+
+		// withRenameRefused previews, then makes the rename (a PATCH of the
+		// metadata, not of the upload) answer with status.
+		withRenameRefused := func(op string, status int, reason string) (contract.Receipt, error) {
+			e := wenv(op, "update-file", args, bothScopes...)
+			p, err := w.rt.Preview(ctx, e)
+			Expect(err).NotTo(HaveOccurred())
+			w.srv.InjectMethod(http.MethodPatch, "/drive/v3/files/mine", status, reason, 1)
+			return w.rt.Apply(ctx, e, p.Revision)
+		}
+
+		It("records a partial receipt when the content is replaced and the rename is refused", func() {
+			rc, err := withRenameRefused("op-part", http.StatusForbidden, "forbidden")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rc.State).To(Equal(contract.ReceiptCommitted))
+			var out struct {
+				Data map[string]any `json:"data"`
+			}
+			Expect(json.Unmarshal(rc.Result.Payload, &out)).To(Succeed())
+			Expect(out.Data).To(HaveKeyWithValue("partial", true))
+			Expect(out.Data).To(HaveKeyWithValue("contentUpdated", true))
+			Expect(out.Data).To(HaveKeyWithValue("renameRefused", true))
+			Expect(out.Data["note"]).To(And(ContainSubstring("content was updated"), ContainSubstring("rename was refused"), ContainSubstring("new name only")))
+			f := w.srv.File("mine")
+			Expect(string(f.Content)).To(Equal("new text"))
+			Expect(f.Name).To(Equal("mine.txt"))
+
+			again, err := w.rt.Receipt(ctx, "op-part")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(again.State).To(Equal(contract.ReceiptCommitted), "the journal keeps the partial receipt")
+		})
+
+		It("retries the rename alone with the new name only", func() {
+			_, err := withRenameRefused("op-part2", http.StatusForbidden, "forbidden")
+			Expect(err).NotTo(HaveOccurred())
+			before := len(w.srv.Calls())
+			rc, err := apply("op-retry", "update-file", map[string]any{"folder": "proj", "fileId": "mine", "name": "renamed.txt"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rc.State).To(Equal(contract.ReceiptCommitted))
+			Expect(w.srv.File("mine").Name).To(Equal("renamed.txt"))
+			for _, c := range w.srv.Calls()[before:] {
+				Expect(c.Path).NotTo(HavePrefix("/upload/"), "the content was not sent again")
+			}
+		})
+
+		It("leaves the outcome unknown, with no receipt, when the rename fails in a way that does not prove anything", func() {
+			e := wenv("op-unknown", "update-file", args, bothScopes...)
+			p, err := w.rt.Preview(ctx, e)
+			Expect(err).NotTo(HaveOccurred())
+			w.srv.DropWrites(true)
+			_, err = w.rt.Apply(ctx, e, p.Revision)
+			Expect(err).To(HaveOccurred())
+			rc, _ := w.rt.Receipt(ctx, "op-unknown")
+			Expect(rc.State).To(Equal(contract.ReceiptUnknown))
+		})
 	})
 
 	It("says what the narrow scope cannot do when a file was not created by the add-on", func() {

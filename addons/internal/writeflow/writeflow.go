@@ -197,6 +197,18 @@ func (NoRecovery) InspectFailed(bool, error) (map[string]any, bool) { return nil
 // Resume settles nothing and lets the attempt go on.
 func (NoRecovery) Resume(bool) (map[string]any, bool, error) { return nil, false, nil }
 
+// Partial is the error of a Send that did part of the change and then failed
+// for a reason that proves the rest was not made. Out says what was done and
+// what was refused, in words for the person. Apply stores it as the receipt
+// of the operation, since the first part cannot be taken back by retrying.
+type Partial struct {
+	Out map[string]any
+	Err error
+}
+
+func (p *Partial) Error() string { return "part of the change was made: " + p.Err.Error() }
+func (p *Partial) Unwrap() error { return p.Err }
+
 // Apply makes the change once. The journal notes an attempt before the
 // request leaves and a receipt after it, and the host asks for the receipt of
 // an attempt whose outcome is not known. prepare checks the request and
@@ -237,8 +249,13 @@ func (r *Runtime) Apply(op string, rev contract.Revision, prepare func() (Sessio
 		return contract.Receipt{}, err
 	}
 	out, err = s.Send()
+	var partial *Partial
 	switch {
 	case err == nil:
+	case errors.As(err, &partial) && definite(partial.Err):
+		// The first part is done and the rest is known not to be. Keep a
+		// receipt that says so; a retry then asks for the rest only.
+		out = partial.Out
 	case errors.Is(err, googleapi.ErrUnreadable):
 		out = map[string]any{"note": r.cfg.UnreadableNote}
 	case definite(err):

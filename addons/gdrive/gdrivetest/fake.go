@@ -80,6 +80,7 @@ type injected struct {
 	retryAfter string
 	times      int // 0: always
 	pathPrefix string
+	method     string // empty: any
 }
 
 // Server is a fake API.
@@ -247,6 +248,14 @@ func (s *Server) Inject(pathPrefix string, status int, reason, retryAfter string
 	s.inject = append(s.inject, &injected{status: status, reason: reason, retryAfter: retryAfter, times: times, pathPrefix: pathPrefix})
 }
 
+// InjectMethod is Inject for the calls with one HTTP method only, so a test
+// can refuse a change and let the reads before it through.
+func (s *Server) InjectMethod(method, pathPrefix string, status int, reason string, times int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.inject = append(s.inject, &injected{status: status, reason: reason, times: times, pathPrefix: pathPrefix, method: method})
+}
+
 // ClearInjected removes every injected answer.
 func (s *Server) ClearInjected() {
 	s.mu.Lock()
@@ -283,7 +292,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	s.record(r, token)
 	for i, in := range s.inject {
-		if !strings.HasPrefix(r.URL.Path, in.pathPrefix) {
+		if !strings.HasPrefix(r.URL.Path, in.pathPrefix) || (in.method != "" && in.method != r.Method) {
 			continue
 		}
 		if in.times > 0 {

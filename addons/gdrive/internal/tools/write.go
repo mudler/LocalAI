@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"mime/multipart"
+	"net/http"
 	"net/textproto"
 	"net/url"
 	"slices"
@@ -467,33 +468,56 @@ func (c *call) send(w write, t target, op string) (map[string]any, error) {
 			return nil, driveapi.ErrInvalid
 		}
 		q.Set("uploadType", "multipart")
-		if err := api.SendRaw(c.ctx, "POST", c.token, "/upload/drive/v3/files", q, ctype, body, &cr); err != nil {
+		if err := api.SendRaw(c.ctx, http.MethodPost, c.token, "/upload/drive/v3/files", q, ctype, body, &cr); err != nil {
 			return nil, err
 		}
 	case ToolUpdateFile:
 		if w.Content != nil {
 			mq := url.Values{"supportsAllDrives": {"true"}, "uploadType": {"media"}, "fields": {"id,name,webViewLink"}}
-			if err := api.SendRaw(c.ctx, "PATCH", c.token, "/upload/drive/v3/files/"+argutil.IDPath(t.file.ID), mq, t.file.MimeType, []byte(*w.Content), &cr); err != nil {
+			if err := api.SendRaw(c.ctx, http.MethodPatch, c.token, "/upload/drive/v3/files/"+argutil.IDPath(t.file.ID), mq, t.file.MimeType, []byte(*w.Content), &cr); err != nil {
 				return nil, err
 			}
 		}
 		if w.Name != "" {
-			if err := api.SendJSON(c.ctx, "PATCH", c.token, "/drive/v3/files/"+argutil.IDPath(t.file.ID), q, map[string]any{"name": w.Name}, &cr); err != nil {
+			if err := api.SendJSON(c.ctx, http.MethodPatch, c.token, "/drive/v3/files/"+argutil.IDPath(t.file.ID), q, map[string]any{"name": w.Name}, &cr); err != nil {
+				if w.Content != nil {
+					// The content is replaced and the new name was refused.
+					// Say exactly that: a retry needs the rename only.
+					return nil, &writeflow.Partial{Out: partialRename(t.file.ID, err), Err: err}
+				}
 				return nil, err
 			}
 		}
 	case ToolMoveFile:
 		q.Set("addParents", t.parent.ID)
 		q.Set("removeParents", strings.Join(t.file.Parents, ","))
-		if err := api.SendJSON(c.ctx, "PATCH", c.token, "/drive/v3/files/"+argutil.IDPath(t.file.ID), q, map[string]any{}, &cr); err != nil {
+		if err := api.SendJSON(c.ctx, http.MethodPatch, c.token, "/drive/v3/files/"+argutil.IDPath(t.file.ID), q, map[string]any{}, &cr); err != nil {
 			return nil, err
 		}
 	case ToolTrashFile:
-		if err := api.SendJSON(c.ctx, "PATCH", c.token, "/drive/v3/files/"+argutil.IDPath(t.file.ID), q, map[string]any{"trashed": true}, &cr); err != nil {
+		if err := api.SendJSON(c.ctx, http.MethodPatch, c.token, "/drive/v3/files/"+argutil.IDPath(t.file.ID), q, map[string]any{"trashed": true}, &cr); err != nil {
 			return nil, err
 		}
 	}
 	return outOf(cr), nil
+}
+
+// partialRename is what a receipt says when update-file replaced the content
+// and the rename was refused. It holds a fixed sentence and no text of the
+// file.
+func partialRename(fileID string, err error) map[string]any {
+	reason := driveapi.Describe(err)
+	var limited *contract.ErrRateLimited
+	if errors.As(err, &limited) {
+		reason = "Drive is limiting calls"
+	}
+	return map[string]any{
+		"fileId":         fileID,
+		"partial":        true,
+		"contentUpdated": true,
+		"renameRefused":  true,
+		"note":           "The content was updated. The rename was refused: " + reason + ". Nothing else changed. To retry, call update-file again with the new name only.",
+	}
 }
 
 // find looks in Drive for a file made by an earlier attempt of the operation.
