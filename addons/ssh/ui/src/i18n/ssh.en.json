@@ -1,0 +1,123 @@
+{
+  "name": "Name",
+  "agent": "Agent",
+  "agentNone": "Choose an agent",
+  "agentCredentialsOnly": "No agent (credentials only)",
+  "credentialsOnly": "Credentials only",
+  "agentNoModel": "{{name}} (needs a model)",
+  "test": "Test",
+  "save": "Save",
+  "cancel": "Cancel",
+  "editButton": "Edit",
+  "delete": "Delete",
+  "agentOf": "Agent: {{name}}",
+  "inactive": "Not running: {{reason}}.",
+  "title": "SSH",
+  "intro": "Let your chats and agents run commands on a remote machine over SSH. By default you confirm each command and see the host and the exact text first.",
+  "limits": "A command can change or delete anything the login user may touch. Use a dedicated user with only the rights the task needs. In the mode \"Runs at once\" no one confirms a command before it runs. The add-on opens one command at a time, with no terminal and no input.",
+  "new": "New SSH connection",
+  "edit": "Edit SSH connection",
+  "host": "Host",
+  "hostHelp": "The name or address of the machine, with a port if it is not 22: server.example.com or 10.0.0.5:2222. One connection is one host. Any other host is refused.",
+  "hostShape": "This is not a host. Write a name or an address, with an optional port.",
+  "user": "User name on the host",
+  "userHelp": "The user the commands run as. A dedicated user lets you remove its access later without touching your own.",
+  "userShape": "A user name has letters, digits and . _ - only.",
+  "login": {
+    "label": "Log in with",
+    "hint": "The secret is kept sealed and never shown again.",
+    "password": "Password",
+    "key": "Private key"
+  },
+  "passwd": "Password",
+  "passwdHelp": "The password of that user. It is saved together with the user name as user:password.",
+  "key": "Private key",
+  "keyHelp": "Paste a key made only for LocalAI, in PEM or OpenSSH format, without a passphrase. Add its public half to authorized_keys on the host.",
+  "credSaved": "Saved. Type to replace.",
+  "secretAgain": "You changed the user or the host. Type the secret again.",
+  "userMissing": "Type the user name first.",
+  "keyShape": "This is not a private key. It starts with -----BEGIN.",
+  "keyPassphrase": "A key with a passphrase is not supported. Use a key without one.",
+  "credControl": "The password has no control characters.",
+  "credLong": "The secret is too long.",
+  "hostKey": {
+    "label": "Host key",
+    "hint": "The first time, the add-on reads the key the host presents. Compare its fingerprint with the one the machine shows, then trust it. Later, a different key is refused.",
+    "check": "Check host key",
+    "checking": "Checking...",
+    "trust": "I compared this fingerprint and trust this host.",
+    "needed": "Check the host key before you save.",
+    "unreachable": "The host could not be reached.",
+    "failed": "The host key could not be read."
+  },
+  "testOk": "The login is saved.",
+  "checkFailed": "Saved. The login check failed: {{reason}}",
+  "checkSeveral": "The check runs when you have one SSH connection, because a check from this page cannot tell which one you mean. In a chat, enable the connections in the Tools menu.",
+  "empty": "No SSH connections yet.",
+  "noHost": "No host: this connection reaches nothing.",
+  "hostOf": "Host: {{host}}",
+  "confirmDelete": {
+    "title": "Delete {{name}}?",
+    "message": "Your chats can no longer reach this host, and the secret saved with it is deleted. To set it up again you must enter it again.",
+    "confirm": "Delete"
+  },
+  "check": {
+    "title": "Check of {{name}}",
+    "running": "Checking the host...",
+    "at": "Checked at {{time}}",
+    "ok": "Connected as {{user}}. {{system}}.",
+    "refused": "The host refused the login. Check the user, the password or the key.",
+    "changed": "The host key changed. Nothing was sent. Edit the connection to check and trust the new key.",
+    "nopin": "No host key is pinned. Edit the connection and check the host key.",
+    "unreachable": "The host could not be reached. Check the host and the port.",
+    "busy": "Another command is still running on this connection.",
+    "failed": "The check did not finish. Try again in a moment."
+  },
+  "setup": {
+    "title": "How to set it up",
+    "step1": "Make a user on the host just for LocalAI, with only the rights the task needs.",
+    "step2": "Make a key pair for it, or choose a password. Add the public key to the authorized_keys of that user.",
+    "step3": "Write the host and the user here, press Check host key and compare the fingerprint.",
+    "step4": "Leave the mode on Asks you first until you have read the limits on this page.",
+    "fingerprint": "The fingerprint of the host shows with: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub"
+  },
+  "writeMode": {
+    "label": "What the agent may do on this host",
+    "hint": "Checking the connection is always allowed. Running a command needs a mode other than Off.",
+    "off": "Off",
+    "propose": "Asks you first",
+    "auto": "Runs at once",
+    "line": {
+      "off": "No command runs.",
+      "propose": "Each command waits for your OK.",
+      "auto": "Commands run with no OK."
+    },
+    "note": {
+      "off": "Commands are off: this connection only checks the login.",
+      "propose": "Each command waits in your approvals with the host and the exact text until you confirm it.",
+      "auto": "Commands run at once with no confirmation. Choose this only for a host and a user where a wrong command does no harm."
+    },
+    "row": {
+      "off": "Off",
+      "propose": "Asks you first",
+      "auto": "Runs at once"
+    }
+  },
+  "approval": {
+    "title": "Run a command on {{host}}",
+    "physical": "This runs on a real machine as soon as you confirm.",
+    "host": "Host",
+    "user": "User",
+    "command": "Command",
+    "lines": "{{count}} line(s)",
+    "timeout": "Time limit",
+    "seconds": "{{count}} seconds",
+    "hostKey": "Host key",
+    "as": "As",
+    "asOne": "The connection {{name}}",
+    "asFirst": "The first connection that lists this host",
+    "asUnknown": "An SSH connection for this host",
+    "what": "What happens",
+    "effect": "The exact command above runs once, with no terminal and no input. Its output goes back to the chat."
+  }
+}

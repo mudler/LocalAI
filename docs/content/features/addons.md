@@ -429,7 +429,7 @@ The generic binary selects no policy automatically.
 | Web | None | `workspace.admin` |
 | Home Assistant | None | `workspace.admin` |
 | PiKVM | None | `workspace.admin` |
-| Face, Slack, Studio, Tables, Talk, Telegram, Voice | None; omit `hostOperations` | None |
+| Face, Slack, SSH, Studio, Tables, Talk, Telegram, Voice | None; omit `hostOperations` | None |
 
 Fine-tuning and Quantization include operation names passed through mutation and undo wrappers.
 They do not request the host's unused progress operations.
@@ -3980,6 +3980,20 @@ arguments. The same line is added to the connection's latest decisions. The conn
 access view and its access preview (`approvals` in the answer of
 `GET /api/chats/connectors/{id}/access` and of the preview route) list each relaxable tool
 with its setting and who it runs for without asking now.
+
+### A write the connection's mode decides
+
+A `write` tool that declares no `approval` follows the write mode of its connection:
+**off** refuses it, **propose** holds it for a person to confirm in a card, and **auto**
+applies it at once. The mode belongs to the person, who sets it on the add-on page with
+their own session; a model cannot change it, and a new connection made on the page starts
+on **propose**. The SSH add-on works this way: its `run` tool declares no `approval` and
+no `approvalOverridable`, so the connection is the one place where the person chooses
+between confirming each command and running it at once. The card of a held command shows the
+host and the exact command (see [SSH](/features/ssh/)).
+
+The host limits a write call to the apply timeout (60 seconds), so a write tool that runs a
+command must stay below it.
 
 ### What happened to a tool call
 

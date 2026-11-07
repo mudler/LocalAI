@@ -2870,6 +2870,170 @@
       "ko": "저장한 에이전트 중 하나에 Slack 앱을 연결하여 사람들이 Slack에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um app do Slack a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Slack."
       "zh-CN": "将 Slack 应用绑定到你保存的某个智能体，让大家可以在 Slack 中与它对话。"
+- id: "ssh"
+  name: SSH
+  description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:ssh-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "SSH"
+    description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+    mainPage: "ssh"
+    icon: "ui/icon.png"
+    titles:
+      "de": "SSH"
+      "es": "SSH"
+      "fr": "SSH"
+      "id": "SSH"
+      "it": "SSH"
+      "ko": "SSH"
+      "pt-BR": "SSH"
+      "zh-CN": "SSH"
+    descriptions:
+      "de": "Lassen Sie Ihre Chats und Agenten per SSH Befehle auf einem entfernten Rechner ausführen, mit einer Bestätigung für jeden, sofern Sie nichts anderes festlegen."
+      "es": "Permite que tus chats y agentes ejecuten comandos en una máquina remota por SSH, pidiendo confirmación para cada uno, salvo que decidas otra cosa."
+      "fr": "Laissez vos conversations et vos agents exécuter des commandes sur une machine distante par SSH, en demandant une confirmation pour chacune, sauf si vous en décidez autrement."
+      "id": "Izinkan obrolan dan agen Anda menjalankan perintah di mesin jarak jauh lewat SSH, dengan meminta konfirmasi untuk setiap perintah kecuali Anda menentukan lain."
+      "it": "Lascia che le tue chat e i tuoi agenti eseguano comandi su una macchina remota via SSH, chiedendo conferma per ciascuno, salvo che tu decida diversamente."
+      "ko": "채팅과 에이전트가 SSH로 원격 컴퓨터에서 명령을 실행하게 합니다. 별도로 설정하지 않으면 매번 확인을 거칩니다."
+      "pt-BR": "Deixe seus chats e agentes executarem comandos em uma máquina remota por SSH, pedindo confirmação para cada um, a menos que você decida o contrário."
+      "zh-CN": "让你的聊天和智能体通过 SSH 在远程机器上运行命令，每条都需要你确认，除非你另行设置。"
+  toolCount: 3
+  tools:
+    - "get-info"
+    - "run"
+    - "scan-host-key"
+- id: "ssh"
+  name: SSH
+  description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:ssh-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "SSH"
+    description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+    mainPage: "ssh"
+    icon: "ui/icon.png"
+    titles:
+      "de": "SSH"
+      "es": "SSH"
+      "fr": "SSH"
+      "id": "SSH"
+      "it": "SSH"
+      "ko": "SSH"
+      "pt-BR": "SSH"
+      "zh-CN": "SSH"
+    descriptions:
+      "de": "Lassen Sie Ihre Chats und Agenten per SSH Befehle auf einem entfernten Rechner ausführen, mit einer Bestätigung für jeden, sofern Sie nichts anderes festlegen."
+      "es": "Permite que tus chats y agentes ejecuten comandos en una máquina remota por SSH, pidiendo confirmación para cada uno, salvo que decidas otra cosa."
+      "fr": "Laissez vos conversations et vos agents exécuter des commandes sur une machine distante par SSH, en demandant une confirmation pour chacune, sauf si vous en décidez autrement."
+      "id": "Izinkan obrolan dan agen Anda menjalankan perintah di mesin jarak jauh lewat SSH, dengan meminta konfirmasi untuk setiap perintah kecuali Anda menentukan lain."
+      "it": "Lascia che le tue chat e i tuoi agenti eseguano comandi su una macchina remota via SSH, chiedendo conferma per ciascuno, salvo che tu decida diversamente."
+      "ko": "채팅과 에이전트가 SSH로 원격 컴퓨터에서 명령을 실행하게 합니다. 별도로 설정하지 않으면 매번 확인을 거칩니다."
+      "pt-BR": "Deixe seus chats e agentes executarem comandos em uma máquina remota por SSH, pedindo confirmação para cada um, a menos que você decida o contrário."
+      "zh-CN": "让你的聊天和智能体通过 SSH 在远程机器上运行命令，每条都需要你确认，除非你另行设置。"
+  toolCount: 3
+  tools:
+    - "get-info"
+    - "run"
+    - "scan-host-key"
+- id: "ssh"
+  name: SSH
+  description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:ssh-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "SSH"
+    description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+    mainPage: "ssh"
+    icon: "ui/icon.png"
+    titles:
+      "de": "SSH"
+      "es": "SSH"
+      "fr": "SSH"
+      "id": "SSH"
+      "it": "SSH"
+      "ko": "SSH"
+      "pt-BR": "SSH"
+      "zh-CN": "SSH"
+    descriptions:
+      "de": "Lassen Sie Ihre Chats und Agenten per SSH Befehle auf einem entfernten Rechner ausführen, mit einer Bestätigung für jeden, sofern Sie nichts anderes festlegen."
+      "es": "Permite que tus chats y agentes ejecuten comandos en una máquina remota por SSH, pidiendo confirmación para cada uno, salvo que decidas otra cosa."
+      "fr": "Laissez vos conversations et vos agents exécuter des commandes sur une machine distante par SSH, en demandant une confirmation pour chacune, sauf si vous en décidez autrement."
+      "id": "Izinkan obrolan dan agen Anda menjalankan perintah di mesin jarak jauh lewat SSH, dengan meminta konfirmasi untuk setiap perintah kecuali Anda menentukan lain."
+      "it": "Lascia che le tue chat e i tuoi agenti eseguano comandi su una macchina remota via SSH, chiedendo conferma per ciascuno, salvo che tu decida diversamente."
+      "ko": "채팅과 에이전트가 SSH로 원격 컴퓨터에서 명령을 실행하게 합니다. 별도로 설정하지 않으면 매번 확인을 거칩니다."
+      "pt-BR": "Deixe seus chats e agentes executarem comandos em uma máquina remota por SSH, pedindo confirmação para cada um, a menos que você decida o contrário."
+      "zh-CN": "让你的聊天和智能体通过 SSH 在远程机器上运行命令，每条都需要你确认，除非你另行设置。"
+  toolCount: 3
+  tools:
+    - "get-info"
+    - "run"
+    - "scan-host-key"
+- id: "ssh"
+  name: SSH
+  description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:ssh-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "SSH"
+    description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+    mainPage: "ssh"
+    icon: "ui/icon.png"
+    titles:
+      "de": "SSH"
+      "es": "SSH"
+      "fr": "SSH"
+      "id": "SSH"
+      "it": "SSH"
+      "ko": "SSH"
+      "pt-BR": "SSH"
+      "zh-CN": "SSH"
+    descriptions:
+      "de": "Lassen Sie Ihre Chats und Agenten per SSH Befehle auf einem entfernten Rechner ausführen, mit einer Bestätigung für jeden, sofern Sie nichts anderes festlegen."
+      "es": "Permite que tus chats y agentes ejecuten comandos en una máquina remota por SSH, pidiendo confirmación para cada uno, salvo que decidas otra cosa."
+      "fr": "Laissez vos conversations et vos agents exécuter des commandes sur une machine distante par SSH, en demandant une confirmation pour chacune, sauf si vous en décidez autrement."
+      "id": "Izinkan obrolan dan agen Anda menjalankan perintah di mesin jarak jauh lewat SSH, dengan meminta konfirmasi untuk setiap perintah kecuali Anda menentukan lain."
+      "it": "Lascia che le tue chat e i tuoi agenti eseguano comandi su una macchina remota via SSH, chiedendo conferma per ciascuno, salvo che tu decida diversamente."
+      "ko": "채팅과 에이전트가 SSH로 원격 컴퓨터에서 명령을 실행하게 합니다. 별도로 설정하지 않으면 매번 확인을 거칩니다."
+      "pt-BR": "Deixe seus chats e agentes executarem comandos em uma máquina remota por SSH, pedindo confirmação para cada um, a menos que você decida o contrário."
+      "zh-CN": "让你的聊天和智能体通过 SSH 在远程机器上运行命令，每条都需要你确认，除非你另行设置。"
+  toolCount: 3
+  tools:
+    - "get-info"
+    - "run"
+    - "scan-host-key"
 - id: "studio"
   name: Studio
   description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
