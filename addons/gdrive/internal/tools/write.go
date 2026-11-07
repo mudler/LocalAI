@@ -356,7 +356,7 @@ func (r *Runtime) Preview(ctx context.Context, env contract.Envelope) (contract.
 // Receipt answers from the journal. An operation that was started and not
 // finished is unknown: the add-on cannot tell whether Google Drive got it.
 func (r *Runtime) Receipt(_ context.Context, op string) (contract.Receipt, error) {
-	if rc, ok := r.journal().receipt(op); ok {
+	if rc, ok := r.journal().Receipt(op); ok {
 		return rc, nil
 	}
 	return contract.Receipt{OperationID: op, State: contract.ReceiptUnknown}, nil
@@ -371,7 +371,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	r.applyMu.Lock()
 	defer r.applyMu.Unlock()
 	j := r.journal()
-	if rc, ok := j.receipt(op); ok {
+	if rc, ok := j.Receipt(op); ok {
 		return rc, nil
 	}
 	w, c, err := r.prepare(ctx, env)
@@ -386,15 +386,15 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	if now != rev.Data {
 		rc := contract.Receipt{OperationID: op, State: contract.ReceiptRejected, Revision: rev,
 			Result: contract.Result{Payload: smallResult(map[string]any{"stale": true, "note": "The file changed after the preview. Nothing was sent."})}}
-		return rc, j.commit(rc)
+		return rc, j.Commit(rc)
 	}
-	if _, started := j.started(op); started && w.tool == ToolCreateFile {
+	if _, started := j.Started(op); started && w.tool == ToolCreateFile {
 		if found, ok := c.find(op); ok {
 			rc := committed(op, rev, found)
-			return rc, j.commit(rc)
+			return rc, j.Commit(rc)
 		}
 	}
-	if err := j.begin(op, r.now()); err != nil {
+	if err := j.Begin(op, r.now()); err != nil {
 		return contract.Receipt{}, err
 	}
 	out, err := c.send(w, t, op)
@@ -403,7 +403,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	case errors.Is(err, driveapi.ErrUnreadable):
 		out = map[string]any{"note": "sent; the answer of Google Drive was not readable"}
 	case definite(err):
-		j.forget(op)
+		j.Forget(op)
 		return contract.Receipt{}, translateWrite(err, true)
 	default:
 		// The request may or may not have arrived. The host will ask for the
@@ -411,7 +411,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 		return contract.Receipt{}, err
 	}
 	rc := committed(op, rev, out)
-	return rc, j.commit(rc)
+	return rc, j.Commit(rc)
 }
 
 func committed(op string, rev contract.Revision, out map[string]any) contract.Receipt {

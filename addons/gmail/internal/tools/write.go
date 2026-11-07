@@ -348,7 +348,7 @@ func (r *Runtime) Preview(ctx context.Context, env contract.Envelope) (contract.
 // Receipt answers from the journal. An operation that was started and not
 // finished is unknown: the add-on cannot tell whether Gmail got it.
 func (r *Runtime) Receipt(_ context.Context, op string) (contract.Receipt, error) {
-	if rc, ok := r.journal().receipt(op); ok {
+	if rc, ok := r.journal().Receipt(op); ok {
 		return rc, nil
 	}
 	return contract.Receipt{OperationID: op, State: contract.ReceiptUnknown}, nil
@@ -370,19 +370,19 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	r.applyMu.Lock()
 	defer r.applyMu.Unlock()
 	j := r.journal()
-	if rc, ok := j.receipt(op); ok {
+	if rc, ok := j.Receipt(op); ok {
 		return rc, nil
 	}
 	w, c, err := r.prepare(ctx, env)
 	if err != nil {
 		return contract.Receipt{}, err
 	}
-	_, started := j.started(op)
+	_, started := j.Started(op)
 	t, now, err := c.inspect(w)
 	if err != nil {
 		if started && w.tool == ToolSendDraft && errors.Is(err, gmailapi.ErrNotFound) {
 			rc := committed(op, rev, map[string]any{"note": "The draft is gone, so an earlier attempt sent it."})
-			return rc, j.commit(rc)
+			return rc, j.Commit(rc)
 		}
 		// Nothing was sent yet, so a limit is a refusal here, not an unknown.
 		return contract.Receipt{}, translateWrite(err, false)
@@ -390,12 +390,12 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	if now != rev.Data {
 		rc := contract.Receipt{OperationID: op, State: contract.ReceiptRejected, Revision: rev,
 			Result: contract.Result{Payload: smallResult(map[string]any{"stale": true, "note": "The mail changed after the preview. Nothing was sent."})}}
-		return rc, j.commit(rc)
+		return rc, j.Commit(rc)
 	}
 	if started {
 		return contract.Receipt{}, errMaybeSent
 	}
-	if err := j.begin(op, r.now()); err != nil {
+	if err := j.Begin(op, r.now()); err != nil {
 		return contract.Receipt{}, err
 	}
 	out, err := c.send(w, t)
@@ -404,7 +404,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	case errors.Is(err, gmailapi.ErrUnreadable):
 		out = map[string]any{"note": "done; the answer of Gmail was not readable"}
 	case definite(err):
-		j.forget(op)
+		j.Forget(op)
 		return contract.Receipt{}, translateWrite(err, true)
 	default:
 		// The request may or may not have arrived. The host will ask for the
@@ -412,7 +412,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 		return contract.Receipt{}, err
 	}
 	rc := committed(op, rev, out)
-	return rc, j.commit(rc)
+	return rc, j.Commit(rc)
 }
 
 func committed(op string, rev contract.Revision, out map[string]any) contract.Receipt {

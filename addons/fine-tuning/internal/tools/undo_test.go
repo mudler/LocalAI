@@ -115,9 +115,9 @@ var _ = Describe("undo of a job start", func() {
 		rt2, eng2 := started()
 		eng2.result["finetune.get"] = map[string]any{"status": "training"}
 		r := rt2.(*runtime)
-		j, _ := r.j.job("res1")
+		j, _ := r.j.Job("res1")
 		j.StartedNS = 1
-		Expect(r.j.commit("res1", &j, contract.Receipt{OperationID: "bump-1", State: contract.ReceiptCommitted})).To(Succeed())
+		Expect(r.j.CommitJob(contract.Receipt{OperationID: "bump-1", State: contract.ReceiptCommitted}, "res1", &j)).To(Succeed())
 		Expect(changeOf(rt2, "res1", "create-res1").State).To(Equal(contract.ChangeExpired))
 	})
 

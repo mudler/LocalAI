@@ -268,7 +268,7 @@ func (r *Runtime) Preview(ctx context.Context, env contract.Envelope) (contract.
 // Receipt answers from the journal. An operation that was started and not
 // finished is unknown: the add-on cannot tell whether the device got it.
 func (r *Runtime) Receipt(_ context.Context, op string) (contract.Receipt, error) {
-	if rc, ok := r.journal().receipt(op); ok {
+	if rc, ok := r.journal().Receipt(op); ok {
 		return rc, nil
 	}
 	return contract.Receipt{OperationID: op, State: contract.ReceiptUnknown}, nil
@@ -282,10 +282,10 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	r.applyMu.Lock()
 	defer r.applyMu.Unlock()
 	j := r.journal()
-	if rc, ok := j.receipt(op); ok {
+	if rc, ok := j.Receipt(op); ok {
 		return rc, nil
 	}
-	if _, started := j.started(op); started {
+	if _, started := j.Started(op); started {
 		return contract.Receipt{OperationID: op, State: contract.ReceiptUnknown, Revision: rev}, nil
 	}
 	p, err := r.prepare(ctx, env)
@@ -295,9 +295,9 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	if p.rev != rev.Data {
 		rc := contract.Receipt{OperationID: op, State: contract.ReceiptRejected, Revision: rev,
 			Result: contract.Result{Payload: smallResult(map[string]any{"stale": true, "note": "The device or its settings changed after the preview. Nothing was sent."})}}
-		return rc, j.commit(rc)
+		return rc, j.Commit(rc)
 	}
-	if err := j.begin(op, r.now()); err != nil {
+	if err := j.Begin(op, r.now()); err != nil {
 		return contract.Receipt{}, err
 	}
 	tool, args, _ := splitArgs(env)
@@ -311,7 +311,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	for _, req := range p.reqs {
 		if _, err := c.r.API.Do(ctx, c.dev, c.cred, req); err != nil {
 			if sent == 0 && definite(err) {
-				j.forget(op)
+				j.Forget(op)
 				return contract.Receipt{}, translateWrite(err)
 			}
 			// The request may or may not have arrived, or only some keys were
@@ -334,7 +334,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 		out["keys"] = p.sample["keys"]
 	}
 	rc := contract.Receipt{OperationID: op, State: contract.ReceiptCommitted, Revision: rev, Result: contract.Result{Payload: smallResult(out)}}
-	return rc, j.commit(rc)
+	return rc, j.Commit(rc)
 }
 
 func smallResult(data map[string]any) json.RawMessage {
