@@ -4,7 +4,7 @@ import test from 'node:test'
 
 import i18next from 'i18next'
 
-import { chipLoops, isWait, loopSummary, spanText, waitView } from '../../src/utils/chatLoops.js'
+import { barItems, chipLoops, groupView, isLiveWait, isWait, loopSummary, spanText, waitView } from '../../src/utils/chatLoops.js'
 
 // The real English strings, so a missing key or a changed sentence fails here.
 const en = JSON.parse(readFileSync(new URL('../../public/locales/en/chats.json', import.meta.url), 'utf8'))
@@ -169,4 +169,49 @@ test('every locale has every key of the wait strings', () => {
     assert.deepEqual(flat(other.loops.wait).sort(), want, lng)
     assert.ok(other.subAgents.waiting && other.subAgents.looping, lng)
   }
+})
+
+// --- Many waits fold into one chip ------------------------------------------
+
+const many = (n) => Array.from({ length: n }, (_, i) => wait({ deadline: at(1000 + i * 100), last_check: at(-10 - i) }, { id: `w${i}` }))
+const kinds = (items) => items.map(i => i.kind)
+
+test('one or two live waits keep their own chips', () => {
+  assert.deepEqual(kinds(barItems(many(1))), ['wait'])
+  assert.deepEqual(kinds(barItems(many(2))), ['wait', 'wait'])
+})
+
+test('three live waits fold into one group that keeps every wait', () => {
+  const items = barItems(many(3))
+  assert.deepEqual(kinds(items), ['group'])
+  assert.deepEqual(items[0].waits.map(w => w.id), ['w0', 'w1', 'w2'])
+})
+
+test('a wait that woke the model or ended stays outside the group, and does not count towards it', () => {
+  const woke = wait({ phase: 'waking', end: 'condition_met' }, { id: 'woke' })
+  const done = wait({ phase: 'ended', end: 'timed_out' }, { id: 'done', state: 'ended' })
+  assert.ok(!isLiveWait(woke) && !isLiveWait(done))
+  assert.deepEqual(kinds(barItems([...many(2), woke, done])), ['wait', 'wait', 'wait', 'wait'])
+  const items = barItems([...many(3), woke, done])
+  assert.deepEqual(kinds(items), ['group', 'wait', 'wait'])
+  assert.deepEqual(items.slice(1).map(i => i.loop.id), ['woke', 'done'])
+})
+
+test('a paused wait counts as live; a loop that is not a wait is never grouped', () => {
+  const paused = wait({ phase: 'paused' }, { id: 'p', state: 'paused' })
+  const plain = { id: 'l1', prompt: 'x', state: 'active', interval_seconds: 300, runs: 1 }
+  const items = barItems([plain, ...many(2), paused])
+  assert.deepEqual(kinds(items), ['loop', 'group'])
+  assert.equal(items[1].waits.length, 3)
+})
+
+test('the group line counts the waits and names the nearest deadline and the latest check', () => {
+  const v = groupView(t, many(6), NOW)
+  assert.equal(v.count, 6)
+  assert.match(v.facts.find(f => f.key === 'deadline').text, /^Nearest deadline .+ \(in 17 min\)$/)
+  assert.equal(v.facts.find(f => f.key === 'checked').text, 'Last check 10 s ago')
+  assert.equal(v.facts.find(f => f.key === 'paused'), undefined)
+  assert.equal(t('loops.wait.group.title', { count: 6 }), '6 waiting')
+  const p = groupView(t, [...many(2), wait({ phase: 'paused' }, { id: 'p', state: 'paused' })], NOW)
+  assert.equal(p.facts[0].text, '1 paused')
 })

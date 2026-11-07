@@ -1138,6 +1138,17 @@
         "source_failing": "source failed",
         "timed_out": "timed out",
         "stopped": "stopped"
+      },
+      "group": {
+        "collapse": "Hide the waits",
+        "deadline": "Nearest deadline {{time}} ({{when}})",
+        "expand": "Show the waits",
+        "lastCheck": "Last check {{ago}}",
+        "paused_one": "{{count}} paused",
+        "paused_other": "{{count}} paused",
+        "stopAll": "Stop all",
+        "title_one": "{{count}} waiting",
+        "title_other": "{{count}} waiting"
       }
     }
   },

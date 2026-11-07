@@ -814,6 +814,17 @@
         "source_failing": "source en échec",
         "timed_out": "délai dépassé",
         "stopped": "arrêtée"
+      },
+      "group": {
+        "collapse": "Masquer les attentes",
+        "deadline": "Prochaine échéance {{time}} ({{when}})",
+        "expand": "Afficher les attentes",
+        "lastCheck": "Dernière vérification {{ago}}",
+        "paused_one": "{{count}} en pause",
+        "paused_other": "{{count}} en pause",
+        "stopAll": "Tout arrêter",
+        "title_one": "{{count}} attente",
+        "title_other": "{{count}} attentes"
       }
     }
   },

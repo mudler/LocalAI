@@ -814,6 +814,17 @@
         "source_failing": "Quelle ausgefallen",
         "timed_out": "Zeit abgelaufen",
         "stopped": "beendet"
+      },
+      "group": {
+        "collapse": "Wartevorgänge ausblenden",
+        "deadline": "Nächste Frist {{time}} ({{when}})",
+        "expand": "Wartevorgänge anzeigen",
+        "lastCheck": "Zuletzt geprüft {{ago}}",
+        "paused_one": "{{count}} pausiert",
+        "paused_other": "{{count}} pausiert",
+        "stopAll": "Alle beenden",
+        "title_one": "{{count}} Wartevorgang",
+        "title_other": "{{count}} Wartevorgänge"
       }
     }
   },

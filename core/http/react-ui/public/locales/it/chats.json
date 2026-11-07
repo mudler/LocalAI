@@ -814,6 +814,17 @@
         "source_failing": "fonte fallita",
         "timed_out": "tempo scaduto",
         "stopped": "fermata"
+      },
+      "group": {
+        "collapse": "Nascondi le attese",
+        "deadline": "Prossima scadenza {{time}} ({{when}})",
+        "expand": "Mostra le attese",
+        "lastCheck": "Ultimo controllo {{ago}}",
+        "paused_one": "{{count}} in pausa",
+        "paused_other": "{{count}} in pausa",
+        "stopAll": "Ferma tutte",
+        "title_one": "{{count}} attesa",
+        "title_other": "{{count}} attese"
       }
     }
   },

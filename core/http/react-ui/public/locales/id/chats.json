@@ -814,6 +814,17 @@
         "source_failing": "sumber gagal",
         "timed_out": "waktu habis",
         "stopped": "dihentikan"
+      },
+      "group": {
+        "collapse": "Sembunyikan penantian",
+        "deadline": "Batas waktu terdekat {{time}} ({{when}})",
+        "expand": "Tampilkan penantian",
+        "lastCheck": "Pemeriksaan terakhir {{ago}}",
+        "paused_one": "{{count}} dijeda",
+        "paused_other": "{{count}} dijeda",
+        "stopAll": "Hentikan semua",
+        "title_one": "{{count}} penantian",
+        "title_other": "{{count}} penantian"
       }
     }
   },

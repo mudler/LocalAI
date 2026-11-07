@@ -814,6 +814,17 @@
         "source_failing": "数据源失败",
         "timed_out": "已超时",
         "stopped": "已停止"
+      },
+      "group": {
+        "collapse": "隐藏等待",
+        "deadline": "最近的截止时间 {{time}}（{{when}}）",
+        "expand": "显示等待",
+        "lastCheck": "上次检查 {{ago}}",
+        "paused_one": "{{count}} 个已暂停",
+        "paused_other": "{{count}} 个已暂停",
+        "stopAll": "全部停止",
+        "title_one": "{{count}} 个等待",
+        "title_other": "{{count}} 个等待"
       }
     }
   },
