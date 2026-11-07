@@ -26,21 +26,21 @@ export function createVoiceHub(ctx, api, identity, sections) {
     const segments = String(path || '').split('/').filter(Boolean)
     const tab = TABS.includes(segments[0]) ? segments[0] : DEFAULT_TAB
     const rest = segments.slice(tab === segments[0] ? 1 : 0).join('/')
-    const isAdmin = ctx.viewer.isAdmin()
+    const canLibrary = ctx.viewer.isAdmin() || ctx.viewer.hasFeature('audio_speech')
 
     // The counts on the tabs. The people this browser knows come from the
-    // recognition tab; the saved voices are read once for an administrator and
+    // recognition tab; the saved voices are read once for a viewer who may use speech and
     // then follow the library tab.
     const [speakers, setSpeakers] = useState(() => identity.loadList('localai_voice_enrollments').length)
     const [library, setLibrary] = useState({ loading: true, count: 0 })
     useEffect(() => {
-      if (!isAdmin) return undefined
+      if (!canLibrary) return undefined
       let live = true
       api.voiceProfiles.list()
         .then((body) => { if (live) setLibrary({ loading: false, count: (body?.data || []).length }) })
         .catch(() => { if (live) setLibrary({ loading: false, count: 0 }) })
       return () => { live = false }
-    }, [isAdmin])
+    }, [canLibrary])
     const onLibraryCount = useMemo(() => (count) => setLibrary({ loading: false, count }), [])
 
     const label = {
@@ -49,7 +49,7 @@ export function createVoiceHub(ctx, api, identity, sections) {
       speech: t('voices.tab.speech'),
       recording: t('voices.tab.recording'),
     }
-    const shown = TABS.filter((key) => key !== 'library' || isAdmin)
+    const shown = TABS.filter((key) => key !== 'library' || canLibrary)
     const tabs = (
       <nav className="dk-tabs idn-tabs vc-tabs" role="tablist" aria-label={t('voices.tabs')} data-testid="voice-tabs">
         {shown.map((key) => (

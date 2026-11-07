@@ -371,7 +371,7 @@ test.describe('Agent form: the memory switch of the person', () => {
   test('says, read only, that memory is off in the settings of the person', async ({ page }) => {
     await installAgents(page)
     await memory(page, false)
-    await page.goto('/app/agents/new')
+    await page.goto('/app/agents/a2/edit')
     const line = page.getByTestId('agent-memory-off')
     await expect(line).toContainText('Memory is off in your settings')
     await expect(line.getByRole('link', { name: 'Settings, Memory' })).toHaveAttribute('href', /\/app\/account\?tab=memory/)
@@ -381,7 +381,7 @@ test.describe('Agent form: the memory switch of the person', () => {
   test('says nothing while memory is on', async ({ page }) => {
     await installAgents(page)
     await memory(page, true)
-    await page.goto('/app/agents/new')
+    await page.goto('/app/agents/a2/edit')
     await expect(page.getByTestId('agent-tools-panel')).toBeVisible()
     await expect(page.getByTestId('agent-memory-off')).toHaveCount(0)
   })

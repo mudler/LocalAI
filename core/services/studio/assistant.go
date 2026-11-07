@@ -13,8 +13,9 @@ import (
 
 // Errors of the assistant chats.
 var (
-	// ErrAssistantOff means the LocalAI assistant is switched off, or this
-	// server has none.
+	// ErrAssistantOff means the admin tools are switched off for the whole
+	// instance (chats_localai_admin in Settings > Tools), or this server has
+	// none.
 	ErrAssistantOff = errors.New("studio: the LocalAI assistant is not available on this server")
 	// ErrAssistantForbidden means only an administrator may start an assistant chat.
 	ErrAssistantForbidden = errors.New("studio: the LocalAI assistant needs an administrator")
@@ -26,8 +27,9 @@ var (
 // this instance (install models and backends, change settings) and the system
 // prompt that teaches the model to use them safely.
 type Assistant interface {
-	// Enabled says whether the assistant may be used now. It is read on every
-	// turn, so switching the setting off takes effect at once.
+	// Enabled says whether the assistant tools exist on this server (the
+	// holder is built and has tools). It is not a setting: the instance switch
+	// is the chats_localai_admin setting (Deps.LocalAIAdminOn).
 	Enabled() bool
 	// Executor runs the assistant tools.
 	Executor() mcpendpoint.ToolExecutor
@@ -35,11 +37,15 @@ type Assistant interface {
 	SystemPrompt() string
 }
 
-// assistantAllowed says whether user may use the assistant now: it is on and
-// the user is an administrator. Without a user lookup, authentication is off
+// assistantAllowed says whether user may use the assistant now: the tools exist,
+// the instance switch of the admin group (chats_localai_admin, Deps.LocalAIAdminOn)
+// is on and the user is an administrator. Without a user lookup, authentication is off
 // and everyone is the administrator.
 func (s *Service) assistantAllowed(ctx context.Context, user string) error {
 	if s.d.Assistant == nil || !s.d.Assistant.Enabled() {
+		return ErrAssistantOff
+	}
+	if s.d.LocalAIAdminOn != nil && !s.d.LocalAIAdminOn() {
 		return ErrAssistantOff
 	}
 	if s.d.Users == nil {
@@ -50,29 +56,6 @@ func (s *Service) assistantAllowed(ctx context.Context, user string) error {
 		return ErrAssistantForbidden
 	}
 	return nil
-}
-
-// assistantTurn returns the tools and the prompt an assistant chat has this
-// turn, and a note for the model when it cannot have them. Another chat gets
-// nothing. The check is made every turn, not only when the chat starts: the
-// setting can be switched off and the user can lose the role.
-func (s *Service) assistantTurn(ctx context.Context, rec session.ChatRecord) (tools []session.Tool, prompt, note string) {
-	if !rec.Assistant || rec.Kind == session.KindSubAgent {
-		return nil, "", ""
-	}
-	if err := s.assistantAllowed(ctx, rec.Principal); err != nil {
-		return nil, "", "unavailable this turn: the LocalAI assistant"
-	}
-	exec := s.d.Assistant.Executor()
-	if exec == nil || !exec.HasTools() {
-		return nil, "", "unavailable this turn: the LocalAI assistant"
-	}
-	tools, err := s.toolsOf(ctx, rec.ID, exec)
-	if err != nil {
-		s.log.Warn("studio: assistant tools unavailable", "chat", rec.ID, "error", err)
-		return nil, "", "unavailable this turn: the LocalAI assistant"
-	}
-	return tools, s.d.Assistant.SystemPrompt(), ""
 }
 
 // toolsOf turns the tools of an executor into chat tools. A tool in the add-on

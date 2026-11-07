@@ -1,24 +1,22 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 // eslint-disable-next-line no-unused-vars
-import { Link, useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { agentCollectionsApi, chatAgentsApi, modelMCPServersApi } from '../utils/api'
+import { agentCollectionsApi, chatAgentsApi } from '../utils/api'
 import { useAgentTools } from '../hooks/useAgentTools'
 import { useModels } from '../hooks/useModels'
 import { useToolGroups } from '../hooks/useToolGroups'
 import { useMemorySettings } from '../hooks/useMemorySettings'
 import { useAgentAccess } from '../hooks/useAgentAccess'
 import { effectiveLines, flatRows, blockedCount } from '../utils/agentEffective'
-import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
-import { agentPayload, effectiveModes, emptyAgent, filesChoiceOf, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, withFilesChoice, memoryChoiceOf, memoryLevelOf, memorySaveOf, missingConnectorGrants, newAgent, setGrant, withMemoryChoice, withMemoryLevel } from '../utils/chatAgents'
-import { activePreset, PRESET_KEYS, presetPatch, snapshot, TEMPLATE_TEXT_KEYS } from '../utils/agentPresets'
-import { accountsAfter, addonNow, addonSkillState, addonSwitch, mcpRows, mcpUnknown, memorySkillsState, resourcesAfter } from '../utils/agentUses'
-import { skillKey } from '../utils/chatSkills'
+import { diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
+import { agentPayload, emptyAgent, filesChoiceOf, folderRows, folderState, foldersUnchosen, memoryChoiceOf, memoryLevelOf, memorySaveOf, missingConnectorGrants, newAgent, setGrant, withMemoryChoice, withMemoryLevel } from '../utils/chatAgents'
+import { snapshot } from '../utils/agentPresets'
+import { addonNow, memorySkillsState } from '../utils/agentUses'
 import { modelCaps } from '../utils/modelCaps'
-import { seesImages } from '../utils/chatVision'
+import { describeChatModel } from '../utils/describeModel'
 import { downloadAgentFile } from '../utils/agentFiles'
-import { joinAgentMCP, splitAgentMCP } from '../utils/chatMCP'
 import './agents.css'
 import './library.css'
 import '../components/home/composer.css'
@@ -44,13 +42,14 @@ import { SkillsPanel } from '../components/chat/SkillsMenu'
 // eslint-disable-next-line no-unused-vars
 import AgentPresets, { AppliedNotice } from '../components/agents/AgentPresets'
 // eslint-disable-next-line no-unused-vars
-import AgentTemplates from '../components/agents/AgentTemplates'
-// eslint-disable-next-line no-unused-vars
 import AgentConnected from '../components/agents/AgentConnected'
 // eslint-disable-next-line no-unused-vars
-import AgentMcpPicker from '../components/agents/AgentMcpPicker'
+import AgentUsesPanel from '../components/agents/AgentUsesPanel'
 // eslint-disable-next-line no-unused-vars
-import AgentUses from '../components/agents/AgentUses'
+import AgentFiles from '../components/agents/AgentFiles'
+// eslint-disable-next-line no-unused-vars
+import AgentWizard from './AgentWizard'
+import { useAgentAbilities } from '../hooks/useAgentAbilities'
 // eslint-disable-next-line no-unused-vars
 import AgentMemorySkills, { memorySkillFrom } from '../components/agents/AgentMemorySkills'
 // eslint-disable-next-line no-unused-vars
@@ -89,14 +88,22 @@ const SUMMARY_FIELDS = {
 
 // --- Main component ---
 
+// The new-agent route is the wizard. A saved agent, and an agent read from a
+// file (it arrives with its fields in the router state), keep the full editor.
 export default function AgentCreate() {
+  const { id } = useParams()
+  const location = useLocation()
+  if (!id && !location.state?.importedConfig) return <AgentWizard />
+  return <AgentEditor />
+}
+
+// eslint-disable-next-line no-unused-vars
+function AgentEditor() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
   const { addToast } = useOutletContext()
   const { t } = useTranslation(['agents', 'library', 'chats', 'home'])
-  const [searchParams] = useSearchParams()
-  const templateId = searchParams.get('template') || ''
   const isEdit = !!id
   const imported = location.state?.importedConfig || null
 
@@ -111,16 +118,11 @@ export default function AgentCreate() {
   const [tryOpen, setTryOpen] = useState(false)
   const [previewTab, setPreviewTab] = useState('config')
   const [form, setForm] = useState(emptyAgent())
-  // null, a row index, or 'new' for a row being added
-  const [choosingFolder, setChoosingFolder] = useState(null)
   // Snapshot of the form as first loaded, for the unsaved-changes guard.
   const initialFormRef = useRef(null)
   const [collectionNames, setCollectionNames] = useState([])
-  const [modelServers, setModelServers] = useState([])
   // The chat models, for the picker and for the capabilities line under it.
   const { models: chatModels, loading: modelsLoading } = useModels(CAP_CHAT, { keepBroken: true })
-  // What a level or a template just filled in, with the values to go back to.
-  const [applied, setApplied] = useState(null)
   const [collapsed, setCollapsed] = useState(() => new Set())
   const formRef = useRef(null)
   // The choice of whose notes the agent last had, for coming back from Off.
@@ -133,15 +135,6 @@ export default function AgentCreate() {
       .then(data => setCollectionNames((Array.isArray(data?.collections) ? data.collections : []).map(c => (typeof c === 'string' ? c : c?.name)).filter(Boolean)))
       .catch(() => {})
   }, [])
-
-  // The servers of the fixed model are suggestions; with no fixed model the field is free text.
-  const fixedModel = form.model || ''
-  useEffect(() => {
-    if (!fixedModel) { setModelServers([]); return undefined }
-    let live = true
-    modelMCPServersApi.list(fixedModel).then(r => { if (live) setModelServers((r.servers || []).map(s => s.name).filter(Boolean)) }).catch(() => { if (live) setModelServers([]) })
-    return () => { live = false }
-  }, [fixedModel])
 
   useEffect(() => {
     const init = async () => {
@@ -156,10 +149,6 @@ export default function AgentCreate() {
           setSavedConfig(agent)
         } else if (imported) {
           initialForm = { ...emptyAgent(), ...imported.agent, memory: memoryChoiceOf(imported.agent), memory_save: memorySaveOf(imported.agent), folders: folderRows(imported.agent) }
-        } else if (templateId) {
-          // A starting point fills the form; nothing is saved until the person saves.
-          const tpl = AGENT_TEMPLATES.find(x => x.id === templateId)
-          if (tpl) initialForm = { ...initialForm, name: tpl.name, description: tpl.description, instructions: tpl.instructions }
         }
         initialFormRef.current = initialForm
         setForm(initialForm)
@@ -172,7 +161,7 @@ export default function AgentCreate() {
       }
     }
     init()
-  }, [id, isEdit, imported, templateId, attempt])
+  }, [id, isEdit, imported, attempt])
 
   const updateField = useCallback((name, value) => setForm(prev => ({ ...prev, [name]: value })), [])
 
@@ -190,6 +179,8 @@ export default function AgentCreate() {
   // The folders as saved: a save sends `folders` only when the form changed
   // them, so untouched folders are kept, also a missing one.
   const initialFolders = useMemo(() => (isEdit ? folderRows(savedConfig) : []), [isEdit, savedConfig])
+  const ab = useAgentAbilities({ form, setForm, updateField, tools, initialFolders })
+  const { applied, setApplied, undoApplied, filesChoice } = ab
   const payload = useMemo(() => agentPayload(form, { initialFolders }), [form, initialFolders])
   // A folder row was added or changed and has no folder chosen.
   // With No files the rows do not count: the server ignores them.
@@ -278,10 +269,13 @@ export default function AgentCreate() {
     return () => ro.disconnect()
   }, [loading, loadError])
 
-  const mcp = splitAgentMCP(form.mcp_servers)
-  // The MCP servers: what the host defines, and what the agent holds that it does not.
-  const mcpList = mcpRows({ connectors: tools.connectors, servers: modelServers, stored: mcp.servers, checkable: !!form.model && modelServers.length > 0 })
-  const unknownMcp = mcpUnknown(mcpList)
+  // An address with #aed-sec-<card> (the Finish setup card sends one) opens on that card.
+  const hashTarget = location.hash.startsWith('#aed-sec-') ? location.hash.slice('#aed-sec-'.length) : ''
+  useEffect(() => {
+    if (!hashTarget || loading || loadError) return
+    document.getElementById(secDomId(hashTarget))?.scrollIntoView({ block: 'start' })
+  }, [hashTarget, loading, loadError])
+
   if (loading || loadError) {
     return (
       <Page className="ag-page" data-testid="agent-edit">
@@ -312,14 +306,14 @@ export default function AgentCreate() {
     skills: (tools.skills || []).filter(s => s.enabled && !s.gone && s.layer !== 'addon').map(s => ({ on: true, id: s.name, label: s.name })),
     addons: tools.addons,
     skillRows: tools.skills,
-    mcpUnknown: unknownMcp,
+    mcpUnknown: ab.unknownMcp,
     memory: memoryUser.settings,
     access,
     isEdit,
   })
   // The add-ons that are on and cannot work: the section says so, and so does
   // the card on the nav.
-  const stuckAddons = tools.addons.filter(a => !a.gone && !a.off && addonNow(a).tone === 'warn').length + unknownMcp.length
+  const stuckAddons = tools.addons.filter(a => !a.gone && !a.off && addonNow(a).tone === 'warn').length + ab.unknownMcp.length
   const countOf = (n, key) => (n ? t(key, { count: n }) : t('create.noneYet'))
 
   const foldInfo = (s) => {
@@ -380,30 +374,11 @@ export default function AgentCreate() {
   }
   function shownPath(path) { return path === '/' ? t('folder.home') : path }
 
-  // The Files choice: No files, All my files or Only these folders. It sets
-  // the Files tool switch and the folder rows together (see withFilesChoice).
-  const filesChoice = filesChoiceOf(form)
-  const setScope = (choice) => setForm(prev => withFilesChoice(prev, choice, initialFolders))
-  // A level or template that leaves the Files tool off is No files: the folder
-  // rows go with it, so the choice reads the same everywhere. One that leaves
-  // it on keeps the rows (Full never wipes them).
-  const withPresetFiles = (next) => (filesChoiceOf(next) === 'none' ? { ...next, folders: [] } : next)
-  const setRow = (i, patch) => updateField('folders', form.folders.map((r, j) => (j === i ? { ...r, ...patch } : r)))
-  const removeRow = (i) => updateField('folders', form.folders.filter((_, j) => j !== i))
-  const addRow = () => { updateField('folders', [...form.folders, { mode: 'read' }]); setChoosingFolder('new') }
-
-  // The level of the tool switches, and a level or template applied by hand.
-  // Both stay in the form until Save and can be undone.
-  const toolGroupsList = tools.builtins
-  const grantCatalog = tools.grants?.list || []
-  const levelReady = toolGroupsList.length > 0
-  const level = activePreset(form, toolGroupsList, grantCatalog)
-  const applyLevel = (pid) => {
-    const patch = presetPatch(pid, form, toolGroupsList, grantCatalog)
-    if (!patch) return
-    setApplied({ kind: 'preset', id: pid, name: t(`create.preset.${pid}.title`), before: snapshot(form, [...PRESET_KEYS, 'folders']) })
-    setForm(prev => withPresetFiles({ ...prev, ...patch }))
-  }
+  // The level of the tool switches and a template applied by hand are in
+  // useAgentAbilities; both stay in the form until Save and can be undone.
+  const levelReady = ab.levelReady
+  const level = ab.level
+  const applyLevel = ab.applyLevel
   // The memory level: it sets the choice and the grant together (see
   // withMemoryLevel), with the same way back as a level. The choice of whose
   // notes the agent had is kept for when it comes back from Off.
@@ -412,58 +387,6 @@ export default function AgentCreate() {
     setApplied({ kind: 'level', id: lv, name: t(`chats:agentMemory.level.${lv}.title`), before: snapshot(form, ['memory', 'builtins']) })
     setForm(prev => withMemoryLevel(prev, lv, lastWhose.current))
   }
-  const applyTemplate = (tpl) => {
-    const patch = tpl.preset ? presetPatch(tpl.preset, form, toolGroupsList, grantCatalog) : null
-    const keys = patch ? [...TEMPLATE_TEXT_KEYS, ...PRESET_KEYS, 'folders'] : TEMPLATE_TEXT_KEYS
-    setApplied({ kind: 'template', id: tpl.id, name: t(`templates.${tpl.id}.label`), before: snapshot(form, keys) })
-    setForm(prev => withPresetFiles({ ...prev, name: tpl.name, description: tpl.description, instructions: tpl.instructions, ...(patch || {}) }))
-  }
-  const undoApplied = () => {
-    if (!applied) return
-    setForm(prev => ({ ...prev, ...applied.before }))
-    setApplied(null)
-  }
-  // An add-on switched on turns on the skills that come with it, with the same
-  // way back as a level. Switching it off turns off only those.
-  const titleOfAddon = (id) => tools.addons.find(a => a.id === id)?.title || id
-  const noteAddonOn = (id, turned, before) => {
-    if (!turned.length) return
-    setApplied({ kind: 'addon', id, name: titleOfAddon(id), count: turned.length, names: turned.join(', '), before: snapshot(before, ['addons', 'skills']) })
-  }
-  const switchAddon = (id, on) => {
-    const r = addonSwitch(form, id, on, tools.skillRows)
-    // Out of the box an add-on that scopes its resources per agent starts with
-    // all of yours ticked, to read: an empty list means none, and a row that is
-    // on and can do nothing is a trap. The ticks are in the row to untick.
-    const choice = tools.resourceChoices[id]
-    const fresh = on && tools.addons.find(a => a.id === id)?.resources && !(form.resources?.[id] || []).length && choice?.status === 'ready' && choice.items.length > 0
-    setForm(prev => ({
-      ...prev, addons: r.addons, skills: r.skills,
-      ...(fresh ? { resources: { ...(prev.resources || {}), [id]: choice.items.map(x => ({ id: x.id, mode: 'read' })) } } : {}),
-    }))
-    if (on) noteAddonOn(id, r.turned, form)
-    else if (applied?.kind === 'addon' && applied.id === id) setApplied(null)
-  }
-  // Ticking an account switches the add-on on, as the chat does.
-  const pickAccounts = (id, ids) => {
-    const r = accountsAfter(form, id, ids, tools.skillRows)
-    setForm(prev => ({ ...prev, connections: r.connections, ...(r.switchedOn ? { addons: r.addons, skills: r.skills } : {}) }))
-    if (r.switchedOn) noteAddonOn(id, r.turned, form)
-  }
-  const pickResource = (id, resId, mode) => {
-    const wasOff = !(form.addons || []).includes(id)
-    const resources = resourcesAfter(form, id, resId, mode)
-    if (mode && wasOff) {
-      const r = addonSwitch(form, id, true, tools.skillRows)
-      setForm(prev => ({ ...prev, resources, addons: r.addons, skills: r.skills }))
-      noteAddonOn(id, r.turned, form)
-    } else {
-      setForm(prev => ({ ...prev, resources }))
-    }
-  }
-  const appliedFor = (id) => (applied?.kind === 'addon' && applied.id === id
-    ? <AppliedNotice applied={applied} onUndo={undoApplied} onKeep={() => setApplied(null)} testId="agent-addon-applied" />
-    : null)
   // The skills with an "its add-on is off" line, and the add-on's title as the source.
   const skillRowsShown = tools.skills.map(sk => (sk.layer === 'addon' && !sk.gone && !(form.addons || []).includes(sk.addon)
     ? { ...sk, unavailable: t('create.uses.skillAddonOff') } : sk))
@@ -475,16 +398,8 @@ export default function AgentCreate() {
     sourceLabel: memorySkillFrom(t, sk.provider), unavailable: t(`create.uses.memorySkills.${memSkillState}`),
   }))
   const allSkillRowsShown = [...skillRowsShown, ...grantedRowsShown]
-  const setMcp = (r, on) => {
-    if (r.ref.startsWith('connector:')) { tools.toggleMCP(r.ref, on); return }
-    const rest = mcp.servers.filter(x => x !== r.id)
-    updateField('mcp_servers', joinAgentMCP(on ? [...rest, r.id] : rest, mcp.connectors))
-  }
   const chosenModel = chatModels.find(m => m.id === form.model)
-  const describeModel = (name) => {
-    const m = chatModels.find(x => x.id === name)
-    return { vision: seesImages(m), caps: modelCaps(m).filter(c => c !== 'vision').map(c => t(`home:picker.cap.${c}`, { defaultValue: c })) }
-  }
+  const describeModel = (name) => describeChatModel(chatModels, name, c => t(`home:picker.cap.${c}`, { defaultValue: c }))
 
   const renderSection = (sid) => {
     switch (sid) {
@@ -590,129 +505,34 @@ export default function AgentCreate() {
         return <AgentConnected bindings={tools.connections} />
       case 'Uses':
         return (
-          <>
-            <AgentUses
-              presets={<AgentPresets active={level} ready={levelReady} onPick={applyLevel} />}
-              presetNote={t('create.uses.presetNote')}
-              notices={(
-                <>
-                  <AppliedNotice applied={applied?.kind === 'preset' ? applied : null} onUndo={undoApplied} onKeep={() => setApplied(null)} testId="agent-preset-applied" />
-                  <p className="ag-note">{t('create.toolsHelp')}</p>
-                  {memoryUser.settings && memoryUser.settings.enabled === false && (
-                    <Callout tone="info" icon="eye-off" testId="agent-memory-off">
-                      {t('create.memoryOffUser')}{' '}<Link className="cs-link" to="/app/account?tab=memory">{t('create.memoryOffFix')}</Link>
-                    </Callout>
-                  )}
-                  {missingGrants.length > 0 && (
-                    <Callout
-                      tone="warn" testId="agent-grants-notice"
-                      title={t('create.grantsNoticeTitle')}
-                      actions={<Button size="sm" onClick={() => updateField('builtins', missingGrants.reduce((l, g) => setGrant(l, g, true), form.builtins || []))} data-testid="agent-grants-add-missing">{t('create.grantsAddMissing')}</Button>}
-                    >
-                      {t('create.grantsNotice', { grants: missingGrants.map(g => t(`create.grantNames.${g.replace(/\./g, '_')}`, { defaultValue: g })).join(', ') })}
-                    </Callout>
-                  )}
-                </>
-              )}
-              builtinGroups={toolGroups.filter(g => !['addons', 'servers', 'connectors'].includes(g.key))}
-              error={tools.error}
-              network={(
-                <div className="form-group">
-                  <label className="form-label" htmlFor="ag-network">{t('create.network')}</label>
-                  <select id="ag-network" className="input" value={form.network || 'off'} onChange={(e) => updateField('network', e.target.value)} data-testid="agent-network">
-                    {['off', 'registries', 'all'].map(p => <option key={p} value={p}>{t(`create.networkPresets.${p}`)}</option>)}
-                  </select>
-                  <p className="ag-note">{t('create.networkHelp')}</p>
-                </div>
-              )}
-              mcpNode={(
-                <>
-                  <p className="ag-note">{t('create.mcpHelp')}</p>
-                  <AgentMcpPicker rows={mcpList} onSet={setMcp} />
-                </>
-              )}
-              footer={<Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/mcp-connectors" data-testid="agent-tools-manage">{t('create.manageConnectors')}</Button>}
-              addons={tools.addons}
-              skillRows={tools.skills}
-              choices={tools.resourceChoices}
-              appliedFor={appliedFor}
-              onAddon={switchAddon}
-              onAccounts={pickAccounts}
-              onSkill={(sk, on) => tools.setSkillsOn(new Set([skillKey(sk)]), on)}
-              onResource={pickResource}
-            />
-          </>
-        )
-      case 'Files': {
-        const rows = form.folders || []
-        const effective = effectiveModes(rows)
-        return (
-          <>
-            <Segmented
-              label={t('folder.scopeLabel')} testId="agent-folder-scope" itemTestId="agent-folder-scope-"
-              value={filesChoice === 'folders' ? 'one' : filesChoice} onChange={(c) => setScope(c === 'one' ? 'folders' : c)}
-              options={[{ id: 'none', label: t('folder.none') }, { id: 'all', label: t('folder.all') }, { id: 'one', label: t('folder.one') }]}
-            />
-            {filesChoice === 'none' && <p className="ag-note ag-note--gap" data-testid="agent-folder-none-help">{t('folder.noneHelp')}</p>}
-            {filesChoice === 'folders' && (
-              <div className="ag-folder" data-testid="agent-folder">
-                {rows.map((f, i) => {
-                  const st = f.path ? 'ok' : folderState({ folder: f })
-                  const forced = f.path && effective[i] !== (f.mode === 'write' ? 'write' : 'read')
-                  return (
-                    <div className="ag-folder__item" key={i} data-testid="agent-folder-row">
-                      {f.path ? (
-                        <div className="ag-folder__row">
-                          <span className="ag-folder__path" data-testid="agent-folder-path"><Icon name="folder" />{shownPath(f.path)}</span>
-                          <Button size="sm" onClick={() => setChoosingFolder(i)} data-testid="agent-folder-change">{t('folder.change')}</Button>
-                          <Button size="sm" variant="ghost" icon="close" onClick={() => removeRow(i)} aria-label={t('folder.remove', { path: shownPath(f.path) })} data-testid="agent-folder-remove" />
-                        </div>
-                      ) : st === 'missing' || st === 'unset' ? (
-                        <Callout
-                          tone="error" role="alert" testId="agent-folder-missing"
-                          actions={(
-                            <>
-                              <Button size="sm" icon="folder" onClick={() => setChoosingFolder(i)}>{t('folder.chooseOther')}</Button>
-                              <Button size="sm" variant="ghost" onClick={() => removeRow(i)} data-testid="agent-folder-remove">{t('folder.removeRow')}</Button>
-                            </>
-                          )}
-                        >
-                          {t(st === 'missing' ? 'folder.missing' : 'folder.unset')}
-                        </Callout>
-                      ) : (
-                        <div className="ag-folder__row">
-                          <Button size="sm" icon="folder" onClick={() => setChoosingFolder(i)} data-testid="agent-folder-choose">{t('folder.choose')}</Button>
-                          <Button size="sm" variant="ghost" icon="close" onClick={() => removeRow(i)} aria-label={t('folder.removeRow')} data-testid="agent-folder-remove" />
-                        </div>
-                      )}
-                      <div className="form-group">
-                        <span className="form-label">{t('folder.modeLabel')}</span>
-                        <Segmented
-                          label={t('folder.modeLabel')} testId={`agent-folder-mode-${i}`} itemTestId={`agent-folder-mode-${i}-`}
-                          value={f.mode === 'write' ? 'write' : 'read'} onChange={(mode) => setRow(i, { mode })}
-                          options={[{ id: 'read', label: t('folder.read') }, { id: 'write', label: t('folder.write') }]}
-                        />
-                        {forced && <p className="ag-note" data-testid="agent-folder-effective">{t(effective[i] === 'write' ? 'folder.effectiveWrite' : 'folder.effectiveRead')}</p>}
-                      </div>
-                    </div>
-                  )
-                })}
-                <div className="ag-folder__row">
-                  <Button size="sm" icon="plus" onClick={addRow} disabled={rows.length >= MAX_FOLDERS} data-testid="agent-folder-add">{t('folder.add')}</Button>
-                  <span className="ag-note" data-testid="agent-folder-count">{t('folder.count', { n: rows.length, max: MAX_FOLDERS })}</span>
-                </div>
-                {savedConfig?.folder_notice?.not_mounted > 0 && (
-                  <p className="ag-note" data-testid="agent-folder-notice">{t('folder.notMounted', { n: savedConfig.folder_notice.not_mounted })}</p>
+          <AgentUsesPanel
+            abilities={ab} tools={tools} toolGroups={toolGroups} form={form} updateField={updateField}
+            presets={<AgentPresets active={level} ready={levelReady} onPick={applyLevel} />}
+            presetNote={t('create.uses.presetNote')}
+            notices={(
+              <>
+                <AppliedNotice applied={applied?.kind === 'preset' ? applied : null} onUndo={undoApplied} onKeep={() => setApplied(null)} testId="agent-preset-applied" />
+                <p className="ag-note">{t('create.toolsHelp')}</p>
+                {memoryUser.settings && memoryUser.settings.enabled === false && (
+                  <Callout tone="info" icon="eye-off" testId="agent-memory-off">
+                    {t('create.memoryOffUser')}{' '}<Link className="cs-link" to="/app/account?tab=memory">{t('create.memoryOffFix')}</Link>
+                  </Callout>
                 )}
-                <p className="ag-note">{t('folder.help')}</p>
-                <p className="ag-note">{t('folder.commands')}</p>
-                {isEdit && <p className="ag-note">{t('folder.nextMessage')}</p>}
-              </div>
+                {missingGrants.length > 0 && (
+                  <Callout
+                    tone="warn" testId="agent-grants-notice"
+                    title={t('create.grantsNoticeTitle')}
+                    actions={<Button size="sm" onClick={() => updateField('builtins', missingGrants.reduce((l, g) => setGrant(l, g, true), form.builtins || []))} data-testid="agent-grants-add-missing">{t('create.grantsAddMissing')}</Button>}
+                  >
+                    {t('create.grantsNotice', { grants: missingGrants.map(g => t(`create.grantNames.${g.replace(/\./g, '_')}`, { defaultValue: g })).join(', ') })}
+                  </Callout>
+                )}
+              </>
             )}
-            {filesChoice === 'all' && <p className="ag-note ag-note--gap">{t('folder.allHelp')}</p>}
-          </>
+          />
         )
-      }
+      case 'Files':
+        return <AgentFiles form={form} updateField={updateField} abilities={ab} savedConfig={savedConfig} isEdit={isEdit} />
       case 'export':
         return (
           <>
@@ -817,14 +637,6 @@ export default function AgentCreate() {
               </div>
             )}
 
-            {!isEdit && !imported && (
-              <section className="ag-start" aria-labelledby="ag-start-h" data-testid="agent-start">
-                <h2 id="ag-start-h" className="ag-h3">{t('create.startFrom')}</h2>
-                <AgentTemplates templates={AGENT_TEMPLATES} picked={applied?.kind === 'template' ? applied.id : ''} onPick={applyTemplate} />
-                <AppliedNotice applied={applied?.kind === 'template' ? applied : null} onUndo={undoApplied} onKeep={() => setApplied(null)} testId="agent-template-applied" />
-              </section>
-            )}
-
             {visibleGroups.map(g => {
               // What the card says about itself: the first part that needs the
               // person, and how many of its fields differ from the saved agent.
@@ -871,22 +683,6 @@ export default function AgentCreate() {
           </div>
         </div>
       </form>
-
-      {choosingFolder !== null && (
-        <AgentFolderDialog
-          start={(form.folders || [])[choosingFolder === 'new' ? form.folders.length - 1 : choosingFolder]?.path || '/'}
-          onCancel={() => {
-            // A row that was just added and never chosen goes away again.
-            if (choosingFolder === 'new') removeRow(form.folders.length - 1)
-            setChoosingFolder(null)
-          }}
-          onChoose={(path) => {
-            const at = choosingFolder === 'new' ? form.folders.length - 1 : choosingFolder
-            setChoosingFolder(null)
-            setRow(at, { path, state: 'ok' })
-          }}
-        />
-      )}
 
       {tryOpen && <AgentTryIt form={form} tools={tools} models={chatModels} onClose={() => setTryOpen(false)} />}
 

@@ -55,8 +55,10 @@ type agentRow struct {
 	// Resources is the JSON object of the resources the agent may use for each
 	// add-on with per-agent resources; empty for the agents made before.
 	Resources string
-	Created   time.Time
-	Updated   time.Time
+	// ShareRef is the sharing record of the agent, empty until it is shared.
+	ShareRef string `gorm:"size:64;index"`
+	Created  time.Time
+	Updated  time.Time
 }
 
 func (agentRow) TableName() string { return "studio_agents" }
@@ -146,7 +148,7 @@ func listFromJSON(s string) ([]string, error) {
 
 func (r agentRow) agent(folders []folderRow) (Agent, error) {
 	a := Agent{ID: r.ID, Principal: r.Principal, Name: r.Name, Description: r.Description,
-		Instructions: r.Instructions, Model: r.Model, Network: r.Network, Memory: r.Memory, MemorySave: r.MemorySave, FolderID: r.FolderID, FolderMode: r.FolderMode, Created: r.Created, Updated: r.Updated}
+		Instructions: r.Instructions, Model: r.Model, Network: r.Network, Memory: r.Memory, MemorySave: r.MemorySave, FolderID: r.FolderID, FolderMode: r.FolderMode, ShareRef: r.ShareRef, Created: r.Created, Updated: r.Updated}
 	for _, f := range folders {
 		a.Folders = append(a.Folders, AgentFolder{Node: f.Node, Mode: f.Mode})
 	}
@@ -240,7 +242,7 @@ func (s *gormStore) Put(ctx context.Context, a Agent) error {
 			Connections: connectionsJSON(a.Connections), Resources: resourcesJSON(a.Resources),
 			Created: a.Created, Updated: a.Updated}
 		if exists {
-			row.Created = old.Created
+			row.Created, row.ShareRef = old.Created, old.ShareRef
 			err = tx.Save(&row).Error
 		} else {
 			err = tx.Create(&row).Error
@@ -311,4 +313,63 @@ func (s *gormStore) Delete(ctx context.Context, principal, id string) error {
 		}
 		return tx.Where("agent_id = ?", id).Delete(&folderRow{}).Error
 	})
+}
+
+func (s *gormStore) SetShareRef(ctx context.Context, principal, id, ref string) (string, error) {
+	if ref == "" {
+		return "", fmt.Errorf("%w: an empty share reference", ErrInvalid)
+	}
+	var out string
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// The conditional update is the race guard: of two first shares only
+		// one row update matches share_ref = ''.
+		res := tx.Model(&agentRow{}).Where("id = ? AND principal = ? AND share_ref = ''", id, principal).Update("share_ref", ref)
+		if res.Error != nil {
+			return res.Error
+		}
+		var r agentRow
+		if err := tx.Where("id = ? AND principal = ?", id, principal).Take(&r).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrNotFound
+			}
+			return err
+		}
+		out = r.ShareRef
+		return nil
+	})
+	return out, err
+}
+
+func (s *gormStore) GetShared(ctx context.Context, id string) (Agent, error) {
+	var r agentRow
+	err := s.db.WithContext(ctx).Where("id = ? AND share_ref <> ''", id).Take(&r).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return Agent{}, ErrNotFound
+	}
+	if err != nil {
+		return Agent{}, err
+	}
+	fs, err := foldersOf(s.db.WithContext(ctx), []string{r.ID})
+	if err != nil {
+		return Agent{}, err
+	}
+	return r.agent(fs[r.ID])
+}
+
+func (s *gormStore) ListShared(ctx context.Context, refs []string) ([]Agent, error) {
+	var out []Agent
+	for len(refs) > 0 {
+		n := min(len(refs), 500)
+		var rows []agentRow
+		if err := s.db.WithContext(ctx).Where("share_ref IN ? AND share_ref <> ''", refs[:n]).Find(&rows).Error; err != nil {
+			return nil, err
+		}
+		list, err := s.agentsOf(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, list...)
+		refs = refs[n:]
+	}
+	return out, nil
 }

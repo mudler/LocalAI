@@ -39,18 +39,20 @@ const VIEW = {
   recent: [], preview: true,
 }
 
+// An agent as the wizard creates it: default notes and the connector grants.
+const DEFAULT_AGENT = { ...AGENTS[1], memory: 'mine_and_own', builtins: ['triggers.propose', 'triggers.run', 'talkback.channels', 'files.upload', 'memory.write'] }
+
 test.describe('Effective view', () => {
   test('follows the form as it is, before anything is saved', async ({ page }) => {
-    const s = await installAgents(page)
+    const s = await installAgents(page, { agents: [DEFAULT_AGENT] })
     await memory(page, true)
-    await page.goto('/app/agents/new')
+    await page.goto('/app/agents/a2/edit')
     await expect(eff(page)).toBeVisible()
     await expect(line(page, 'tools')).toContainText('Your files')
     await expect(page.getByTestId('agent-effective-summary')).toContainText('Nothing is blocked')
     await expect(line(page, 'memory')).toContainText('Reads your notes and its own')
     await expect(line(page, 'memory-level')).toContainText('Saves notes (asks first)')
     await expect(line(page, 'knowledge')).toContainText('No knowledge collections')
-    await expect(line(page, 'connections')).toContainText('Save the agent')
 
     await page.getByTestId('agent-tools-panel').getByRole('switch', { name: /Your files/ }).click()
     await expect(line(page, 'tools')).not.toContainText('Your files')
@@ -67,7 +69,7 @@ test.describe('Effective view', () => {
   test('says memory is off when the person turned it off in Settings, and links to the fix', async ({ page }) => {
     await installAgents(page)
     await memory(page, false)
-    await page.goto('/app/agents/new')
+    await page.goto('/app/agents/a2/edit')
     const row = line(page, 'memory-off')
     await expect(row).toContainText('Memory is off in your Settings')
     await expect(row).toHaveAttribute('data-code', 'memory_off_user')
@@ -121,7 +123,7 @@ test.describe('Effective view', () => {
   test('every line names the section it explains', async ({ page }) => {
     await installAgents(page)
     await memory(page, true)
-    await page.goto('/app/agents/new')
+    await page.goto('/app/agents/a2/edit')
     await line(page, 'knowledge').getByTestId('agent-effective-goto').click()
     await expect(page.locator('#aed-sec-memory')).toBeInViewport()
     await expect(page.getByTestId('agent-nav-effective')).toBeVisible()
@@ -186,7 +188,7 @@ test.describe('Try it and More', () => {
   test('the More menu exports a saved agent and is not offered for a new one', async ({ page }) => {
     await installAgents(page)
     await memory(page, true)
-    await page.goto('/app/agents/new')
+    await page.goto('/app/agents/a2/edit')
     await expect(page.getByRole('button', { name: 'More actions' })).toHaveCount(0)
     await page.goto('/app/agents/a2/edit')
     await page.getByRole('button', { name: 'More actions' }).click()

@@ -1,0 +1,45 @@
+/* The Share dialog and the sharing line of a list row. Tokens only. */
+
+.share-dlg { display: flex; flex-direction: column; gap: var(--sp-4); }
+.share-dlg__section { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.share-dlg__section + .share-dlg__section { padding-top: var(--sp-4); border-top: 1px solid var(--dk-edge); }
+.share-dlg__head { margin: 0; font-size: var(--fs-small); font-weight: var(--dk-weight-semibold); color: var(--dk-text); }
+.share-dlg__note { margin: 0; font-size: var(--fs-meta); line-height: 1.45; color: var(--dk-muted); }
+.share-dlg__note--warn { color: var(--dk-warn-text); }
+.share-dlg__status { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-small); color: var(--dk-muted); }
+
+.share-dlg__add { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.share-dlg__search { flex: 1 1 auto; }
+
+.share-dlg__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.share-dlg__row {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3); min-height: var(--ctl-h); padding: var(--sp-2) 0;
+}
+.share-dlg__list > .share-dlg__row + .share-dlg__row { border-top: 1px solid var(--dk-edge); }
+.share-dlg__who { display: flex; align-items: center; gap: var(--sp-2); flex: 1 1 10rem; min-width: 0; }
+.share-dlg__words { display: flex; flex-direction: column; min-width: 0; }
+.share-dlg__name { overflow: hidden; font-size: var(--fs-small); font-weight: 500; color: var(--dk-text); text-overflow: ellipsis; white-space: nowrap; }
+.share-dlg__meta { font-size: var(--fs-meta); color: var(--dk-muted); }
+.share-dlg__icon { flex: none; color: var(--dk-muted); }
+.share-dlg__controls { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+.share-dlg__confirm { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); flex: 1 1 14rem; min-width: 0; text-align: right; }
+
+.share-dlg__role { flex: none; width: auto; }
+.share-dlg__role > .dk-select { width: auto; min-width: 7.5rem; height: var(--ctl-h-sm); font-size: var(--fs-small); }
+.share-dlg__add > .share-dlg__role > .dk-select { height: var(--ctl-h); }
+
+.share-dlg__own { flex: 0 1 auto; font-size: var(--fs-meta); color: var(--dk-muted); text-align: right; }
+.share-dlg__everyone { padding: var(--sp-2) var(--sp-3); border: 1px dashed var(--dk-edge); border-radius: var(--r-md); }
+
+/* A phone: the role and the remove button go under the name. */
+@media (max-width: 480px) {
+  .share-dlg__add { flex-wrap: wrap; }
+  .share-dlg__add > .share-dlg__role { flex: 1 1 100%; }
+  .share-dlg__add > .share-dlg__role > .dk-select { width: 100%; }
+  .share-dlg__confirm { align-items: stretch; text-align: left; }
+}
+
+.share-role { display: inline-flex; }
+.share-badge { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); min-width: 0; }
+.share-badge__line { font-size: var(--fs-meta); color: var(--dk-muted); }

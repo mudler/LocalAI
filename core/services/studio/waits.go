@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -30,6 +31,11 @@ import (
 // memory, so the host keeps the state in the loop (loops.Watch), where the next
 // leader of a cluster finds it, and uses watch.Compare for the comparison.
 
+// waitForName and waitAgentsName are the names of tools of nib. The harness
+// (nibharness) does not offer the tools below to the model: it switches on the
+// built-in of that name and answers its callbacks with their Run. The model
+// sees nib's schema; the Description and Schema of these tools are the
+// reference for what Run accepts.
 const waitForName = "wait_for"
 
 const waitForDescription = "Wait for something to happen without spending a model call on each check: the server checks for you and wakes you once. " +
@@ -446,6 +452,14 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 	w.Deadline = now.Add(timeout)
 	w.Note = loops.Cut(args.Reason)
 
+	// The same wait twice is one wait: answer as for a start, and say so.
+	if old, err := h.sameWait(ctx, a, w); err != nil {
+		return "", fmt.Errorf("no wait was started: %w", err)
+	} else if old != nil {
+		return h.waitStarted(old.Watch, old.Interval, old.Watch.Deadline.Sub(old.Created), args.Every, lim,
+			" This wait already exists, so no second one was made. It wakes you once."), nil
+	}
+
 	_, err := h.begin(ctx, a.Principal, a.ChatID, LoopInput{Prompt: "Wait for " + loops.Cut(w.Describe())}, &modelStart{wait: every, reason: w.Note, watch: w})
 	switch {
 	case errors.Is(err, loops.ErrTooManyInChat):
@@ -455,14 +469,51 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 	case err != nil:
 		return "", fmt.Errorf("no wait was started: %w", err)
 	}
+	return h.waitStarted(w, every, timeout, args.Every, lim, ""), nil
+}
+
+// waitStarted is the answer of wait_for for a wait that runs: new, or one that
+// the same call had made before (note says so).
+func (h *Loops) waitStarted(w *loops.Watch, every, timeout time.Duration, asked string, lim LoopLimits, note string) string {
 	out := fmt.Sprintf("The wait is armed for %s. The server checks every %s, for at most %s, and the first check sets the baseline. "+
 		"You are woken once: when the condition holds, when the source fails %d checks in a row, or at the timeout, and the wake-up says so when the condition was not met. "+
 		"Tell the person in one short sentence what you wait for; they can stop the wait.",
 		w.Describe(), loops.ShortDuration(every), loops.ShortDuration(timeout), w.MaxErrors)
-	if d, err := time.ParseDuration(strings.TrimSpace(args.Every)); err == nil && d != every {
+	if d, err := time.ParseDuration(strings.TrimSpace(asked)); err == nil && d != every {
 		out += fmt.Sprintf(" The interval was set to %s: it must be from %s to 24h.", loops.ShortDuration(every), loops.ShortDuration(lim.MinInterval))
 	}
-	return out, nil
+	return out + note
+}
+
+// sameWait returns the wait of the chat, if any, that checks the same
+// source for the same condition and has not ended its checks. Arming it twice
+// would show the person one card per copy and wake the model once per copy, so
+// wait_for answers with the wait that exists. A
+// wait that already has its wake-up is not counted: the model that it woke may
+// arm the next one.
+func (h *Loops) sameWait(ctx context.Context, a workspace.Actor, w *loops.Watch) (*loops.Loop, error) {
+	list, err := h.o.Store.ListChat(ctx, principal(a.Principal), a.ChatID)
+	if err != nil {
+		return nil, err
+	}
+	same := func(x, y json.RawMessage) bool {
+		var xv, yv any
+		if json.Unmarshal(x, &xv) != nil || json.Unmarshal(y, &yv) != nil {
+			return string(x) == string(y)
+		}
+		return reflect.DeepEqual(xv, yv)
+	}
+	for _, l := range list {
+		o := l.Watch
+		if o == nil || !l.State.Live() || o.Wake != "" {
+			continue
+		}
+		if o.Tool == w.Tool && o.URL == w.URL && o.Mode == w.Mode && o.Pattern == w.Pattern &&
+			o.Field == w.Field && o.Equals == w.Equals && same(o.Args, w.Args) {
+			return &l, nil
+		}
+	}
+	return nil, nil
 }
 
 // --- The checks of the loop host --------------------------------------------

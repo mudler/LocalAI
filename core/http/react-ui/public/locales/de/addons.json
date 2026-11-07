@@ -100,7 +100,14 @@
     "alias": "Alias",
     "kindLabel": "Kind",
     "installedOn": "{{name}} is installed and on.",
-    "installedChip": "Installiert"
+    "installedChip": "Installiert",
+    "category": {
+      "label": "Kategorie",
+      "all": "Alle",
+      "chat": "Chat-Apps",
+      "tools": "Werkzeuge",
+      "models": "Modelle"
+    }
   },
   "catalog": {
     "allLibraries": "Alle Bibliotheken",
@@ -360,7 +367,8 @@
     "starting": "Startet",
     "stopped": "Aus",
     "update-pending": "Update ausstehend",
-    "updateTo": "Update {{version}}"
+    "updateTo": "Update {{version}}",
+    "needsSetup": "Einrichtung nötig"
   },
   "supporting": "Software, die du installierst, um LocalAI neue Seiten und Chat-Werkzeuge zu geben. Jede läuft für sich und verlangt nur, was sie angibt.",
   "tabs": {
@@ -626,6 +634,7 @@
       "unpinned": "Die Bibliothek meldet ein Update, nennt aber keinen Build zum Installieren. Daher kann es hier nicht aktualisiert werden. Prüfen Sie später erneut."
     },
     "checkAll": "Nach Updates suchen",
+    "notCheckedYet": "Updates wurden noch nicht geprüft.",
     "checkingAll": "Prüfe...",
     "checkAllDone": "{{count}} Add-ons geprüft.",
     "checkAllFailed": "{{count}} konnten nicht geprüft werden.",
@@ -673,7 +682,12 @@
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
     "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
-    "removeNamed": "{{name}} entfernen…"
+    "removeNamed": "{{name}} entfernen…",
+    "setUp": "Einrichten",
+    "setUpNamed": "{{name}} einrichten",
+    "review": "Ansehen",
+    "reviewNamed": "{{name}} ansehen",
+    "updateTo": "Auf {{version}} aktualisieren"
   },
   "preview": {
     "screenshots": "Screenshots",
@@ -732,7 +746,11 @@
     "toolsOff_other": "Seine {{count}} Chat-Werkzeuge sind aus, bis es wieder läuft.",
     "pageOff": "Seine Seite ist nicht verfügbar, bis es wieder läuft.",
     "updateTitle": "{{name}} {{version}} ist verfügbar.",
-    "updateBody": "Du hast {{current}}. Du siehst, was sich ändert, und bestätigst, bevor etwas ersetzt wird."
+    "updateBody": "Du hast {{current}}. Du siehst, was sich ändert, und bestätigst, bevor etwas ersetzt wird.",
+    "title_one": "{{count}} Add-on braucht Einrichtung",
+    "title_other": "{{count}} Add-ons brauchen Einrichtung",
+    "connectionBody_one": "hat {{count}} Verbindung, die noch nicht antworten kann. {{reason}}",
+    "connectionBody_other": "hat {{count}} Verbindungen, die noch nicht antworten können. {{reason}}"
   },
   "meta": {
     "builtin": "Integriert",
@@ -965,6 +983,30 @@
       "migrating": "Datenmigration",
       "starting": "Start",
       "working": "in Arbeit"
+    }
+  },
+  "groups": {
+    "chat": "Chat-Apps",
+    "tools": "Werkzeuge und Dienste",
+    "models": "Medien und Modelle",
+    "builtin": "Eingebaut"
+  },
+  "connection": {
+    "title": "Verbindungen",
+    "none": "Noch keine Verbindungen.",
+    "answersAs": "Antwortet als {{name}}",
+    "noAgent": "Kein Agent gewählt",
+    "manage": "Verbindungen verwalten",
+    "acceptsListed_one": "Akzeptiert {{count}} Person",
+    "acceptsListed_other": "Akzeptiert {{count}} Personen",
+    "accepts": {
+      "anyone": "Akzeptiert alle",
+      "nobody": "Akzeptiert noch niemanden"
+    },
+    "state": {
+      "running": "Läuft",
+      "off": "Aus",
+      "attention": "Einrichtung nötig"
     }
   }
 }

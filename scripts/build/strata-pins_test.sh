@@ -11,6 +11,9 @@
 #      with no package would build an image that cannot start.
 #   3. A target Strata does not support (cpu, vulkan, Jetson) is refused with a
 #      message, not built into an empty image.
+#   4. The DeepSeek V4.1 engine is a separate package that upstream ships for
+#      fewer targets (CUDA 13, the RX 9070 family, Apple Silicon). Each one has
+#      a pin, and a target without one builds the Qwen engine alone.
 set -euo pipefail
 
 REPO_ROOT=$(dirname "$(dirname "$(dirname "$(realpath "$0")")")")
@@ -44,6 +47,33 @@ expect "linux_x86_64_cuda_cuda13" cublas 13 x86_64
 expect "linux_aarch64_cuda_cuda13" cublas 13 aarch64
 expect "linux_x86_64_hip_rx9070 linux_x86_64_hip_rx7900 linux_x86_64_hip_rx6000 linux_x86_64_hip_halo" hipblas "" x86_64
 expect "linux_x86_64_sycl" intel "" x86_64
+# The DeepSeek V4.1 engine: CUDA 13 on x86_64 and arm64, the RX 9070 / R9700
+# family and Apple Silicon. None for CUDA 12, SYCL or the other AMD families.
+dsv41_packages_for() {
+    make -C "$DIR" -s print-dsv41-packages BUILD_TYPE="$1" CUDA_MAJOR_VERSION="$2" UNAME_M="$3" UNAME_S="${4:-Linux}"
+}
+expect_dsv41() {
+    local want="$1" got
+    shift
+    got=$(dsv41_packages_for "$@")
+    [ "$got" = "$want" ] || fail "DeepSeek engine, BUILD_TYPE=$1 CUDA=$2 arch=$3 ${4:-Linux}: want '$want', got '$got'"
+}
+expect_dsv41 "linux_x86_64_cuda_cuda13" cublas 13 x86_64
+expect_dsv41 "linux_aarch64_cuda_cuda13" cublas 13 aarch64
+expect_dsv41 "linux_x86_64_hip_rx9070" hipblas "" x86_64
+expect_dsv41 "macos_arm64_metal" "" "" arm64 Darwin
+expect_dsv41 "" cublas 12 x86_64
+expect_dsv41 "" intel "" x86_64
+expect_dsv41 "" "" "" x86_64
+for pkg in linux_x86_64_cuda_cuda13 linux_aarch64_cuda_cuda13 linux_x86_64_hip_rx9070 macos_arm64_metal; do
+    got=$(make -C "$DIR" -s print-dsv41-asset PKG="$pkg")
+    case "$got" in
+    strata-dsv41-*.tar.gz) ;;
+    *) fail "DeepSeek package $pkg maps to '$got', want strata-dsv41-<version>-...tar.gz" ;;
+    esac
+    make -C "$DIR" -s print-dsv41-sha256 PKG="$pkg" | grep -Eq '^[0-9a-f]{64}$' || fail "no SHA-256 pin for the DeepSeek package $pkg"
+done
+
 # Not supported by Strata: no package, so `make engine` must refuse.
 expect "" "" "" x86_64
 expect "" vulkan "" x86_64

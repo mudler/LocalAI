@@ -40,6 +40,7 @@ test('the stand-ins sit at the paths the page code imports', () => {
   // by the same relative path. These are the ones the pages use.
   for (const file of [
     'components/Icon.jsx', 'components/ModelSelector.jsx', 'components/PageHeader.jsx', 'components/ConfirmDialog.jsx',
+    'components/SideSheet.jsx', 'components/ActionMenu.jsx', 'components/ui/SidePane.jsx', 'components/ui/StatusChip.jsx',
     'components/LoadingSpinner.jsx', 'components/Modal.jsx', 'components/Lightbox.jsx', 'components/audio/WaveformPlayer.jsx',
     'components/biometrics/MediaInput.jsx', 'components/home/HomeModelPicker.jsx', 'context/AuthContext.jsx',
     'hooks/useModels.js', 'hooks/useResources.js', 'hooks/useObjectUrl.js', 'hooks/useVoiceProfiles.js',

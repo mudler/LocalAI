@@ -52,7 +52,7 @@ var _ = Describe("the studio collections adapter on the real collections service
 		state, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()), system.WithBackendPath(GinkgoT().TempDir()))
 		Expect(err).NotTo(HaveOccurred())
 		app, err = New(config.WithContext(appCtx), config.WithSystemState(state), config.DisableMetricsEndpoint,
-			config.WithDisableLocalAIAssistant(true), config.WithDisableStats(true))
+			config.WithDisableStats(true))
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 

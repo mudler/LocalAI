@@ -6,11 +6,18 @@ token ids and the rendered prompt match what the Strata server would produce:
   * tools/strata_tokenizer.py  (byte-level BPE, the reference implementation)
   * serve/frontend.py          (ChatTemplate: the model's Jinja template)
 
-Usage: python3 -c <this script> <strata_root> <pack_dir>
+Usage: python3 -c <this script> <strata_root> <pack_dir> [family]
+
+family is "deepseek41" for DeepSeek V4.1-Flash, anything else (or none) for the Qwen models. For DeepSeek the
+helper switches Strata's frontend to that family the way Strata's own server does (serve.frontend.use_family: the
+reasoning-effort words, 1..100 included), renders the model's V4.1 chat template (serve.dsml.pick_template: the
+pack's own template, the same bytes as DeepSeek's encoding.py, unless the pack carries the older spelling of the
+tool-call block), writes a forced tool call in DSML, and reads the model's DSML tool calls with
+serve.dsml.DsmlOutputParser. The tokenizer is the one the pack names (pre-tokenizer "deepseek3").
 
 Requests (one JSON object per line) and replies:
 
-  {"op": "info"}                                  -> {"ok": true, "special_ids": {...}, "has_template": bool}
+  {"op": "info"}                                  -> {"ok": true, "special_ids": {...}, "has_template": bool, "family": s}
   {"op": "vocab"}                                 -> {"ok": true, "tokens": [base64 bytes, ...]}
   {"op": "encode", "text": s, "parse_special": b} -> {"ok": true, "ids": [...]}
   {"op": "template", "messages": [...], "tools": [...]|null, "kwargs": {...}}
@@ -41,6 +48,7 @@ import sys
 
 
 PARSERS = {}
+FAMILY = ""
 
 
 def event_json(ev):
@@ -61,6 +69,10 @@ def build_prompt(tk, template, req):
     if kind == "none":
         tools = None
     force = frontend.forced_call(choice, tools) if tools else None
+    if force and FAMILY == "deepseek41":
+        from serve import dsml  # noqa: E402
+
+        force = dsml.to_dsml_force(force)
     if force:
         # The engine has no grammar. A forced call is written into the prompt, which only works without thinking.
         kwargs["enable_thinking"] = False
@@ -78,7 +90,7 @@ def build_prompt(tk, template, req):
             "tools": tools}
 
 
-def load(strata_root, pack):
+def load(strata_root, pack, family=""):
     root = pathlib.Path(strata_root)
     sys.path.insert(0, str(root))
     sys.path.insert(0, str(root / "tools"))
@@ -100,6 +112,15 @@ def load(strata_root, pack):
 
     template = None
     tpl = tdir / "chat_template.jinja"
+    if family == "deepseek41":
+        from serve import dsml, frontend  # noqa: E402
+
+        frontend.use_family(family)
+        # A pack whose template spells the call block the V4-Flash way gets the V4.1 one: the model would
+        # read one spelling in the prompt and write another.
+        tpl, swapped = dsml.pick_template(tpl)
+        if swapped:
+            print("strata helper: the pack's chat template is not the V4.1 one; using the V4.1 template", file=sys.stderr, flush=True)
     if tpl.exists():
         from serve import frontend  # noqa: E402
 
@@ -111,8 +132,10 @@ def main():
     if len(sys.argv) < 3:
         print(json.dumps({"ok": False, "error": "usage: <strata_root> <pack_dir>"}), flush=True)
         return 2
+    global FAMILY
+    FAMILY = sys.argv[3] if len(sys.argv) > 3 else ""
     try:
-        tk, cfg, template = load(sys.argv[1], sys.argv[2])
+        tk, cfg, template = load(sys.argv[1], sys.argv[2], FAMILY)
     except Exception as exc:  # noqa: BLE001 - reported to the caller as the load error
         print(json.dumps({"ok": False, "error": "load: %s: %s" % (type(exc).__name__, exc)}), flush=True)
         return 1
@@ -126,7 +149,7 @@ def main():
             req = json.loads(line)
             op = req.get("op")
             if op == "info":
-                out = {"special_ids": cfg.get("special_ids") or {}, "has_template": template is not None}
+                out = {"special_ids": cfg.get("special_ids") or {}, "has_template": template is not None, "family": FAMILY}
             elif op == "vocab":
                 out = {"tokens": [base64.b64encode(tk.token_bytes(i)).decode("ascii") for i in range(len(tk.tokens))]}
             elif op == "encode":
@@ -138,7 +161,12 @@ def main():
             elif op == "parser_new":
                 from serve import frontend  # noqa: E402
 
-                parser = frontend.OutputParser(thinking=bool(req.get("thinking", True)), tools=req.get("tools") or None,
+                parser_cls = frontend.OutputParser
+                if FAMILY == "deepseek41":
+                    from serve import dsml  # noqa: E402
+
+                    parser_cls = dsml.DsmlOutputParser
+                parser = parser_cls(thinking=bool(req.get("thinking", True)), tools=req.get("tools") or None,
                                                stream_tools=True, recover=True)
                 PARSERS[req["id"]] = parser
                 opening = req.get("opening") or ""

@@ -44,45 +44,58 @@ set -e
 # Work out the new engine version and the new sums into a temporary list first,
 # so a half-finished run never leaves a half-rewritten Makefile.
 NEW_ENGINE_VERSION=""
+NEW_DSV41_VERSION=""
 PINS=$(mktemp)
-for var in $(grep -oE '^STRATA_SHA256_[a-z0-9_]+' "$FILE"); do
-    key="${var#STRATA_SHA256_}"
-    # linux_x86_64_cuda_cuda12 -> linux-x86_64-cuda-cuda12
-    suffix=$(echo "$key" | sed -e 's/x86_64/X8664/' -e 's/_/-/g' -e 's/X8664/x86_64/')
-    line=$(echo "$SUMS" | grep -E "  strata-engine-[0-9.]+-${suffix}\.tar\.gz\$" || true)
-    if [ "$(echo "$line" | grep -c .)" != "1" ]; then
-        echo "Refusing to bump: $TAG has no single engine package for $suffix" >&2
-        exit 1
-    fi
-    sum=$(echo "$line" | cut -d' ' -f1)
-    name=$(echo "$line" | awk '{print $2}')
-    ver=$(echo "$name" | sed -E 's/^strata-engine-([0-9.]+)-.*/\1/')
-    if [ -n "$NEW_ENGINE_VERSION" ] && [ "$NEW_ENGINE_VERSION" != "$ver" ]; then
-        echo "Refusing to bump: engine packages of $TAG disagree on the version ($NEW_ENGINE_VERSION, $ver)" >&2
-        exit 1
-    fi
-    NEW_ENGINE_VERSION="$ver"
-    # GitHub's own digest for the uploaded asset must agree with SHA256SUMS.txt.
-    digest=$(echo "$RELEASE" | python3 -c "
+
+# pin_packages <variable prefix> <asset prefix> <version variable name>
+# Reads the Makefile variables <prefix><key>, finds the matching asset in the
+# release and appends "<variable> <sha256>" to $PINS. The version found in the
+# asset names goes to the variable named by the third argument.
+pin_packages() {
+    local prefix=$1 asset=$2 verref=$3 var key suffix line sum name ver digest
+    for var in $(grep -oE "^${prefix}[a-z0-9_]+" "$FILE"); do
+        key="${var#"$prefix"}"
+        # linux_x86_64_cuda_cuda12 -> linux-x86_64-cuda-cuda12
+        suffix=$(echo "$key" | sed -e 's/x86_64/X8664/' -e 's/_/-/g' -e 's/X8664/x86_64/')
+        line=$(echo "$SUMS" | grep -E "  ${asset}-[0-9.]+-${suffix}\.tar\.gz\$" || true)
+        if [ "$(echo "$line" | grep -c .)" != "1" ]; then
+            echo "Refusing to bump: $TAG has no single ${asset} package for $suffix" >&2
+            exit 1
+        fi
+        sum=$(echo "$line" | cut -d' ' -f1)
+        name=$(echo "$line" | awk '{print $2}')
+        ver=$(echo "$name" | sed -E "s/^${asset}-([0-9.]+)-.*/\1/")
+        if [ -n "${!verref}" ] && [ "${!verref}" != "$ver" ]; then
+            echo "Refusing to bump: ${asset} packages of $TAG disagree on the version (${!verref}, $ver)" >&2
+            exit 1
+        fi
+        printf -v "$verref" '%s' "$ver"
+        # GitHub's own digest for the uploaded asset must agree with SHA256SUMS.txt.
+        digest=$(echo "$RELEASE" | python3 -c "
 import json, sys
 name = sys.argv[1]
 for a in json.load(sys.stdin)['assets']:
     if a['name'] == name:
         print((a.get('digest') or '').removeprefix('sha256:'))
 " "$name")
-    if [ "$digest" != "$sum" ]; then
-        echo "Refusing to bump: SHA256SUMS.txt and the GitHub asset digest disagree for $name ($sum vs '$digest')" >&2
-        exit 1
-    fi
-    echo "$var $sum" >> "$PINS"
-done
+        if [ "$digest" != "$sum" ]; then
+            echo "Refusing to bump: SHA256SUMS.txt and the GitHub asset digest disagree for $name ($sum vs '$digest')" >&2
+            exit 1
+        fi
+        echo "$var $sum" >> "$PINS"
+    done
+}
+
+pin_packages STRATA_SHA256_ strata-engine NEW_ENGINE_VERSION
+pin_packages STRATA_DSV41_SHA256_ strata-dsv41 NEW_DSV41_VERSION
 
 # Every value is checked; now rewrite them all. A no-op rewrite is safe:
 # peter-evans/create-pull-request opens no PR when the tree is clean.
 sed -i "$FILE" \
     -e "s/^STRATA_VERSION?=.*/STRATA_VERSION?=$TAG/" \
     -e "s/^STRATA_COMMIT?=.*/STRATA_COMMIT?=$COMMIT/" \
-    -e "s/^STRATA_ENGINE_VERSION?=.*/STRATA_ENGINE_VERSION?=$NEW_ENGINE_VERSION/"
+    -e "s/^STRATA_ENGINE_VERSION?=.*/STRATA_ENGINE_VERSION?=$NEW_ENGINE_VERSION/" \
+    -e "s/^STRATA_DSV41_ENGINE_VERSION?=.*/STRATA_DSV41_ENGINE_VERSION?=$NEW_DSV41_VERSION/"
 while read -r var sum; do
     sed -i "$FILE" -e "s/^$var?=.*/$var?=$sum/"
 done < "$PINS"

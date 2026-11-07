@@ -18,6 +18,18 @@ import (
 // backend drops them from the output. Override with the eos_ids option.
 var defaultEOSIDs = []int{248044, 248046}
 
+// Model families. The Qwen engine and the DeepSeek V4.1 engine speak the same
+// line protocol but take different flags, a different tokenizer and a
+// different pack, so the model config names the family.
+const (
+	familyQwen       = "qwen"
+	familyDeepSeek41 = "deepseek41"
+)
+
+// defaultDeepSeekEOS is the end-of-sentence id of the DeepSeek V4.1 tokenizer,
+// which is also the engine's own --eos default.
+var defaultDeepSeekEOS = []int{1}
+
 // loadConfig is the parsed form of ModelOptions.
 type loadConfig struct {
 	enginePath   string
@@ -41,6 +53,14 @@ type loadConfig struct {
 	// build is set when the pack does not exist yet and must be made from the
 	// GGUF files before the engine starts (the pack_gguf option).
 	build *packBuild
+	// family is familyQwen or familyDeepSeek41.
+	family string
+	// experts and dspark are the DeepSeek engine's --experts and --dspark
+	// values; empty experts leaves the engine's own choice.
+	experts     string
+	dspark      string
+	mmapExperts string
+
 	// noPackFlag leaves --pack off the engine command line: the engine path
 	// of this model reads the GGUF as it is and takes only the tokenizer.
 	noPackFlag bool
@@ -61,6 +81,9 @@ var fileOptions = []struct{ option, flag string }{
 // engineArgs is the command line before --serve. User arguments come last so
 // they can override what the options chose.
 func (c loadConfig) engineArgs() []string {
+	if c.family == familyDeepSeek41 {
+		return c.deepSeekArgs()
+	}
 	var args []string
 	if !c.noPackFlag {
 		args = append(args, "--pack", c.pack)
@@ -76,6 +99,31 @@ func (c loadConfig) engineArgs() []string {
 	}
 	if c.vision != nil {
 		args = append(args, "--vision")
+	}
+	return append(args, c.extraArgs...)
+}
+
+// deepSeekArgs is the command line of the DeepSeek V4.1 engine before --serve.
+// The engine reads the pack and, through the pack, the GGUF files; the Qwen
+// file flags do not exist on it. Pictures are off: this backend does not send
+// them, and the engine would keep its vision tower in memory for nothing.
+func (c loadConfig) deepSeekArgs() []string {
+	args := []string{"--pack", c.pack}
+	for _, f := range c.files {
+		args = append(args, f.flag, f.path)
+	}
+	if c.ctxSize > 0 {
+		args = append(args, "--max-context", strconv.Itoa(c.ctxSize))
+	}
+	if c.mainGPU != "" {
+		args = append(args, "--gpus", c.mainGPU)
+	}
+	args = append(args, "--vision", "off", "--dspark", c.dspark)
+	if c.experts != "" {
+		args = append(args, "--experts", c.experts)
+	}
+	if c.mmapExperts != "" {
+		args = append(args, "--mmap-experts", c.mmapExperts)
 	}
 	return append(args, c.extraArgs...)
 }
@@ -137,12 +185,21 @@ func planPack(c *loadConfig, opts *pb.ModelOptions, kv map[string]string) (strin
 		return "", nil, errors.New("strata: pack_gguf builds the pack in the model directory; do not set the pack option with it")
 	}
 	tool := kv["pack_tool"]
+	if c.family == familyDeepSeek41 {
+		if tool != "" && tool != packToolDSV41 {
+			return "", nil, fmt.Errorf("strata: pack_tool %q is for the Qwen engine; a deepseek41 model uses %s", tool, packToolDSV41)
+		}
+		tool = packToolDSV41
+	}
 	switch tool {
 	case "":
 		tool = packToolIQ
-	case packToolIQ, packToolTokenizer:
+	case packToolIQ, packToolTokenizer, packToolDSV41:
+		if tool == packToolDSV41 && c.family != familyDeepSeek41 {
+			return "", nil, fmt.Errorf("strata: pack_tool %s needs the option family:%s", packToolDSV41, familyDeepSeek41)
+		}
 	default:
-		return "", nil, fmt.Errorf("strata: pack_tool %q must be %s or %s", tool, packToolIQ, packToolTokenizer)
+		return "", nil, fmt.Errorf("strata: pack_tool %q must be %s, %s or %s", tool, packToolIQ, packToolTokenizer, packToolDSV41)
 	}
 	c.noPackFlag = tool == packToolTokenizer
 
@@ -195,12 +252,29 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 	for k, v := range opts.GetEnvVars() {
 		c.env = append(c.env, k+"="+v)
 	}
+	c.family = familyQwen
+	switch f := kv["family"]; f {
+	case "", familyQwen:
+	case familyDeepSeek41:
+		c.family = f
+		if err := parseDeepSeek(&c, kv); err != nil {
+			return c, err
+		}
+	default:
+		return c, fmt.Errorf("strata: family %q must be %s or %s", f, familyQwen, familyDeepSeek41)
+	}
+	envName := "STRATA_ENGINE_PATH"
+	if c.family == familyDeepSeek41 {
+		// The DeepSeek engine is a separate program. STRATA_ENGINE_PATH names
+		// the Qwen engine and must not be picked up for it.
+		envName = "STRATA_DSV41_ENGINE_PATH"
+	}
 	c.enginePath = kv["engine_path"]
 	if c.enginePath == "" {
-		c.enginePath = os.Getenv("STRATA_ENGINE_PATH")
+		c.enginePath = os.Getenv(envName)
 	}
 	if c.enginePath == "" {
-		return c, errors.New("strata: no engine executable configured; set the engine_path option (or STRATA_ENGINE_PATH)")
+		return c, fmt.Errorf("strata: no engine executable configured; set the engine_path option (or %s)", envName)
 	}
 	enginePath, err := cleanExecutable(c.enginePath)
 	if err != nil {
@@ -226,6 +300,9 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 	}
 	for _, fo := range fileOptions {
 		if v := kv[fo.option]; v != "" {
+			if c.family == familyDeepSeek41 && fo.option != "expert_profile" {
+				return c, fmt.Errorf("strata: the %s option is for the Qwen engine; a deepseek41 pack holds the file list", fo.option)
+			}
 			p, err := resolve(v, dirs...)
 			if err != nil {
 				return c, fmt.Errorf("strata: %s option: %w", fo.option, err)
@@ -233,11 +310,17 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 			c.files = append(c.files, engineFile{fo.flag, p})
 		}
 	}
-	if v := kv["ple_io"]; v != "" {
-		c.extraArgs = append([]string{"--ple-io", v}, c.extraArgs...)
-	}
-	if kv["mmap_experts"] == "true" {
-		c.extraArgs = append([]string{"--mmap-experts"}, c.extraArgs...)
+	if c.family == familyDeepSeek41 {
+		if kv["ple_io"] != "" {
+			return c, errors.New("strata: the ple_io option is for the Qwen engine")
+		}
+	} else {
+		if v := kv["ple_io"]; v != "" {
+			c.extraArgs = append([]string{"--ple-io", v}, c.extraArgs...)
+		}
+		if kv["mmap_experts"] == "true" {
+			c.extraArgs = append([]string{"--mmap-experts"}, c.extraArgs...)
+		}
 	}
 
 	c.readyTimeout = 15 * time.Minute
@@ -267,10 +350,50 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 		}
 	}
 
+	if c.family == familyDeepSeek41 {
+		// The engine has its own picture path (raw RGB in the GENI file). This
+		// backend does not implement it, so a config that asks for the Qwen
+		// vision tower is wrong, not just unused.
+		if kv["mmproj"] != "" || opts.GetMMProj() != "" || kv["vision_exe"] != "" {
+			return c, errors.New("strata: images are not supported with family:deepseek41; remove mmproj and vision_exe")
+		}
+		return c, nil
+	}
 	if err := parseVision(&c, kv, opts, dirs); err != nil {
 		return c, err
 	}
 	return c, nil
+}
+
+// parseDeepSeek reads the options only the DeepSeek V4.1 engine has.
+func parseDeepSeek(c *loadConfig, kv map[string]string) error {
+	c.dspark = "auto"
+	if v := kv["dspark"]; v != "" {
+		switch v {
+		case "auto", "on", "off", "none":
+			c.dspark = v
+		default:
+			return fmt.Errorf("strata: dspark %q must be auto, on, off or none", v)
+		}
+	}
+	if v := kv["experts"]; v != "" {
+		if n, err := strconv.Atoi(v); v != "auto" && (err != nil || (n != 5 && n != 6)) {
+			return fmt.Errorf("strata: experts %q must be auto, 5 or 6", v)
+		}
+		c.experts = v
+	}
+	switch v := kv["mmap_experts"]; v {
+	case "":
+	case "true", "on":
+		c.mmapExperts = "on"
+	case "false", "off":
+		c.mmapExperts = "off"
+	case "auto":
+		c.mmapExperts = "auto"
+	default:
+		return fmt.Errorf("strata: mmap_experts %q must be true, false or auto", v)
+	}
+	return nil
 }
 
 // parseVision enables images when the model has an mmproj file and the

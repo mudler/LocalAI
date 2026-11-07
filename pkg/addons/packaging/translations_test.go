@@ -85,6 +85,7 @@ var _ = Describe("first-party add-on translations", func() {
 					got := tr.Kinds[k.ID]
 					Expect(got.Title != "").To(BeTrue(), "%s %s kind %s: title missing", id, tag, k.ID)
 					Expect(got.Description != "").To(Equal(k.Description != ""), "%s %s kind %s: description must exist exactly when the English one does", id, tag, k.ID)
+					Expect(got.Setup != "").To(Equal(k.Setup != ""), "%s %s kind %s: setup must exist exactly when the English one does", id, tag, k.ID)
 				}
 			}
 			// The strict parser already refuses unknown fields; this pins the
@@ -103,7 +104,7 @@ var _ = Describe("first-party add-on translations", func() {
 				}
 				for kid, fields := range kindFields {
 					for f := range fields {
-						Expect(f).To(BeElementOf("title", "description"), "%s %s %s: %s is not translatable", id, tag, kid, f)
+						Expect(f).To(BeElementOf("title", "description", "setup"), "%s %s %s: %s is not translatable", id, tag, kid, f)
 					}
 				}
 				var resFields map[string]json.RawMessage

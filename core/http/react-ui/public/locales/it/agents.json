@@ -843,5 +843,135 @@
     "blank": {
       "description": "Vuoto. Parti da zero."
     }
+  },
+  "wizard": {
+    "title": "Nuovo agente",
+    "supporting": "Quattro passaggi brevi. Servono solo un nome e le istruzioni.",
+    "stepsLabel": "Passaggi",
+    "back": "Indietro",
+    "next": "Continua",
+    "defaultTools": "Strumenti predefiniti",
+    "step": {
+      "purpose": "Scopo",
+      "abilities": "Capacità",
+      "where": "Dove lavora",
+      "review": "Riepilogo"
+    },
+    "purpose": {
+      "title": "A cosa serve questo agente?",
+      "lead": "Parti da un modello o scrivi il tuo. Potrai cambiare tutto più tardi.",
+      "needs": "Servono un nome e le istruzioni per continuare.",
+      "modelLine": "Modello: quello che scegli in ogni chat.",
+      "modelChoose": "Scegli un modello fisso",
+      "modelEach": "Quello che scelgo in ogni chat"
+    },
+    "abilities": {
+      "title": "Quanto può fare da solo?",
+      "lead": "Non sai? Lascia così: l'agente parte con gli strumenti predefiniti. Oppure scegli un livello, che li sostituisce.",
+      "defaultNote": "Nessun livello scelto. L'agente parte con gli strumenti predefiniti.",
+      "files": "Quali dei tuoi file può vedere?",
+      "fine": "Regola i singoli strumenti",
+      "templateHint": "Questo modello suggerisce il livello {{level}}.",
+      "templateUse": "Usa {{level}}"
+    },
+    "where": {
+      "title": "Dove deve lavorare?",
+      "lead": "Facoltativo. Scegli i posti in cui questo agente deve lavorare. Per ora non è collegato nulla.",
+      "chat": "App di chat",
+      "chatLead": "App in cui le persone possono parlare con questo agente.",
+      "tools": "Strumenti e servizi",
+      "toolsLead": "Add-on che gli danno nuove capacità.",
+      "notInstalled": "Non installato",
+      "generic": "Completa la configurazione di {{title}}",
+      "loading": "Cerco le app",
+      "empty": "Non ci sono ancora app disponibili.",
+      "note": "Scegliere un'app non la collega. Dopo aver creato l'agente, una breve lista ti guida nella configurazione di ognuna.",
+      "find": "Trova add-on"
+    },
+    "review": {
+      "title": "Pronto da creare",
+      "lead": "Controlla il riepilogo. Potrai cambiare tutto più tardi.",
+      "named": "Ha un nome e le istruzioni",
+      "tools": "Strumenti: {{level}}",
+      "modelFixed": "Modello: {{model}}",
+      "modelEach": "Modello: quello che scegli in ogni chat",
+      "apps": "App da configurare dopo la creazione: {{count}}",
+      "filesTitle": "Può vedere tutti i tuoi file.",
+      "filesBody": "Tutto ciò che puoi aprire in File, questo agente può leggerlo. Puoi limitarlo a delle cartelle.",
+      "limit": "Limita alle cartelle",
+      "setupNext": "Dopo aver creato l'agente, la sua pagina elenca i passaggi di configurazione per le app scelte."
+    },
+    "rail": {
+      "title": "Il tuo agente",
+      "unnamed": "Senza nome",
+      "abilities": "Capacità",
+      "modelEach": "Scelto in ogni chat",
+      "files": "File",
+      "folders": "Solo cartelle scelte ({{count}})",
+      "works": "Lavora in",
+      "thisApp": "Questa app"
+    }
+  },
+  "setup": {
+    "title": "Completa la configurazione",
+    "count": "{{done}} di {{total}} completati",
+    "dismiss": "Nascondi",
+    "progress": "Avanzamento della configurazione",
+    "done": "Fatto",
+    "stays": "La lista resta in questa pagina finché ogni app è a posto, o finché non la nascondi.",
+    "connect": "Nuova connessione",
+    "account": "Scegli l'account",
+    "turnOn": "Attiva",
+    "find": "Vedi negli add-on",
+    "actionFor": "{{action}}: {{title}}"
+  },
+  "share": {
+    "action": "Condividi",
+    "intro": "Le persone che aggiungi usano questo agente come se stesse, con i propri file, raccolte e connessioni.",
+    "roles": {
+      "use": "Può usare",
+      "useHelp": "Usa l'agente nelle proprie chat e vede di cosa ha bisogno.",
+      "viewer": "Può vedere",
+      "viewerHelp": "Può anche leggere le istruzioni e gli strumenti."
+    },
+    "kind": {
+      "addon": "Componente aggiuntivo",
+      "collection": "Raccolta",
+      "skill": "Abilità",
+      "folder": "Cartella",
+      "connection": "Connessione",
+      "addon-resource": "Risorsa di un componente",
+      "mcp": "Server MCP",
+      "builtin": "Permesso integrato",
+      "network": "Rete",
+      "tool-group": "Gruppo di strumenti"
+    },
+    "ownAccess": "Serve un accesso proprio",
+    "refsApplied_one": "Condivisa anche {{count}} cosa che usa.",
+    "refsApplied_other": "Condivise anche {{count}} cose che usa.",
+    "refsFailed": "Impossibile condividere: {{names}}.",
+    "refsSkipped": "Non condivisi con tutti: {{names}}. Condividili con ogni persona.",
+    "failed": "Impossibile aprire la condivisione. {{message}}"
+  },
+  "shared": {
+    "readOnly": "Puoi usare questo agente in chat. Solo il proprietario può modificarlo."
+  },
+  "needs": {
+    "title": "Di cosa ha bisogno questo agente",
+    "intro": "L'agente lavora come te, con i tuoi accessi.",
+    "none": "Questo agente non usa nulla oltre alla chat.",
+    "loadError": "Impossibile verificare di cosa ha bisogno questo agente.",
+    "state": {
+      "ok": "Ce l'hai",
+      "missing": "Non condiviso con te",
+      "unavailable": "Non disponibile per te",
+      "ask": "Spento all’avvio della chat"
+    },
+    "noticeTitle_one": "Questo agente ha bisogno di {{count}} cosa che non hai:",
+    "noticeTitle_other": "Questo agente ha bisogno di {{count}} cose che non hai:",
+    "noticeLink": "Vedi di cosa ha bisogno",
+    "asksTitle_one": "Questo agente chiede {{count}} cosa che la tua chat non ha all’avvio:",
+    "asksTitle_other": "Questo agente chiede {{count}} cose che la tua chat non ha all’avvio:",
+    "asksHelp": "Funziona come te. Attivale nella chat solo se ti fidi dell’agente e della persona che lo ha condiviso."
   }
 }

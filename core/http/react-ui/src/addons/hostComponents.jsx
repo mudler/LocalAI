@@ -245,6 +245,13 @@ export function ExternalLink({ href, children, testId }) {
 // add-on page draw the same thing.
 export { default as PageHeader } from '../components/PageHeader'
 export { default as ConfirmDialog } from '../components/ConfirmDialog'
+// The side sheet (a create or edit form), the docked pane (a detail beside a
+// list, with PaneLayout as the row that holds both) and the row menu. They are
+// the very components of the core pages: Escape, focus and the phone layout
+// are the host's, so an add-on draws no panel of its own.
+export { default as SideSheet } from '../components/SideSheet'
+export { default as SidePane, PaneLayout } from '../components/ui/SidePane'
+export { default as ActionMenu } from '../components/ActionMenu'
 export { default as ErrorWithTraceLink } from '../components/ErrorWithTraceLink'
 export { default as ModelSelector } from '../components/ModelSelector'
 export { default as ModelPicker } from '../components/ModelPicker'
@@ -253,3 +260,11 @@ export { default as WaveformPlayer } from '../components/audio/WaveformPlayer'
 export { default as DistributionBars } from '../components/biometrics/DistributionBars'
 export { default as EmbeddingInspector } from '../components/biometrics/EmbeddingInspector'
 export { default as TabSwitch } from '../components/biometrics/TabSwitch'
+// The Share dialog and the sharing line of a list row. An add-on passes the
+// client of sdk.resources.shareClient(resourceId); see sharing.md.
+export { default as ShareDialog } from '../components/share/ShareDialog'
+// The Share dialog of one connector binding of the person. The host makes the
+// binding shareable and calls the sharing routes; the add-on passes the
+// binding ID only (sdk.core.fetch refuses the sharing routes).
+export { default as ConnectionShareDialog } from '../components/share/ConnectionShareDialog'
+export { RoleBadge, SharedByBadge } from '../components/share/ShareBadges'

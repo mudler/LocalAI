@@ -74,9 +74,12 @@ type Message struct {
 
 // ResumePrompt is what the model gets when a failed turn goes on. The model
 // has the transcript of the failed turn, with the failure noted at its end.
-const ResumePrompt = "(System note: your last request stopped on an error before it finished. " +
-	"Go on from where you stopped. Keep what you already did and do not repeat a tool call that has a result. " +
+const ResumePrompt = resumeHead +
 	"If the last step did not finish, do that step again, then finish the request.)"
+
+// resumeHead starts every note that makes a failed or interrupted turn go on.
+const resumeHead = "(System note: your last request stopped on an error before it finished. " +
+	"Go on from where you stopped. Keep what you already did and do not repeat a tool call that has a result. "
 
 // withDirective puts the directive of a message before the text the model gets.
 func withDirective(directive, text string) string {
@@ -143,6 +146,11 @@ type Chat struct {
 	injectMu sync.RWMutex
 	turn     int
 	text     strings.Builder // assistant text of the turn, not yet stored
+	// The text is saved while it streams (see partial.go): when it was last
+	// saved, how long it was then, and whether the store holds a copy now.
+	partialAt    time.Time
+	partialLen   int
+	partialSaved bool
 	// The reasoning of the current step, not yet stored. It stops growing at
 	// MaxReasoningBytes (reasonCut). reasonFirst is the time of its first
 	// delta.
@@ -212,6 +220,14 @@ func (c *Chat) access() (actor, user workspace.Actor, view workspace.View) {
 	c.accMu.RLock()
 	defer c.accMu.RUnlock()
 	return c.acc.Actor(), c.acc.Owner(), c.acc.View()
+}
+
+// TurnView is the view the chat holds now: the folders its turn and its
+// tools were given. The host compares it with the grants after an owner took
+// access away, to stop a turn that still holds a folder it lost.
+func (c *Chat) TurnView() workspace.View {
+	_, _, v := c.access()
+	return v
 }
 
 // place is the place of the chat's access: how its tools name its files.
@@ -474,7 +490,11 @@ func (c *Chat) onHarnessEvent(e Event) {
 		c.flushReasoning(ctx, turn)
 		c.mu.Lock()
 		c.text.WriteString(e.Text)
+		save, partial := c.partialDueLocked(time.Now())
 		c.mu.Unlock()
+		if save {
+			c.savePartial(ctx, turn, partial)
+		}
 	case KindToolStart:
 		e.Tool = capTool(e.Tool)
 		c.flushReasoning(ctx, turn)
@@ -660,6 +680,7 @@ func (c *Chat) flushText(ctx context.Context, turn int) {
 	if strings.TrimSpace(t) != "" {
 		c.appendEntry(ctx, Entry{Turn: turn, Role: RoleAssistant, Text: t})
 	}
+	c.clearPartial(ctx)
 }
 
 // History returns the whole transcript.
@@ -790,12 +811,15 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	// The transcript keeps the words and the files apart; the model gets
 	// them together, as it always has.
 	entry.Attachments = append(slices.Clip(entry.Attachments), saved...)
+	// The text that a death cut off goes into the transcript first, before the
+	// message of this turn (or, for a resume, before the model goes on).
+	cut, history := c.settleCut(ctx, msg.Resume)
 	parts := append(carried, withDirective(msg.Directive, c.modelText(entry)))
 	if msg.Resume {
 		if text == "" && msg.Note == "" && len(msg.Attachments) == 0 && len(saved) == 0 {
 			parts = carried // no words of the person; only the note below
 		}
-		parts = append(parts, ResumePrompt)
+		parts = append(parts, resumeText(UnresolvedIntents(history), cut))
 	}
 	if msg.HostNote != "" {
 		if text == "" && msg.Note == "" && len(msg.Attachments) == 0 && len(saved) == 0 {
@@ -1052,7 +1076,7 @@ func (c *Chat) checkpoint(n int, text string) ChangeEvent {
 		return ChangeEvent{}
 	}
 	first := strings.SplitN(text, "\n", 2)[0]
-	if strings.HasPrefix(text, ResumePrompt) {
+	if strings.HasPrefix(text, resumeHead) {
 		first = "go on after an error"
 	}
 	title := fmt.Sprintf("Turn %d: %s", n, CapText(first, 60))
@@ -1462,7 +1486,7 @@ func (c *Chat) guardTools(tools []Tool) []Tool {
 	out := make([]Tool, len(tools))
 	for i, tool := range tools {
 		run := tool.Run
-		name := tool.Name
+		name, readOnly := tool.Name, tool.ReadOnly || ReadOnlyTool(tool.Name)
 		tool.Run = func(ctx context.Context, args json.RawMessage) (res string, err error) {
 			defer func() {
 				if r := recover(); r != nil {
@@ -1485,6 +1509,11 @@ func (c *Chat) guardTools(tools []Tool) []Tool {
 			rctx, cancel := context.WithCancel(turnValues{Context: ctx, turn: tctx})
 			defer cancel()
 			defer context.AfterFunc(tctx, cancel)()
+			if !readOnly {
+				// Before the call: a restart that cuts it leaves this line without a
+				// result, and the resume says the outcome is not known.
+				c.noteIntent(rctx, name, args)
+			}
 			return run(rctx, args)
 		}
 		out[i] = tool

@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi } from './connector-fixtures.js'
+import { connectorApi, openEdit, openPane } from './connector-fixtures.js'
 
 // The page of the Mail add-on (the real built bundle, inside the add-on shell)
 // with the core API stubbed: the setup help, the connection fields and their
@@ -44,7 +44,8 @@ test.describe('Mail add-on', () => {
     await install(page)
     await api(page, [BINDING]).install()
     await page.goto(PAGE)
-    const row = page.getByTestId('connector-row')
+    await openPane(page)
+    const row = page.getByTestId('connector-pane')
     await expect(row).toContainText('Mail: ann@example.com')
     await expect(row.getByTestId('mail-row-address')).toHaveText('ann@example.com')
     await expect(row.getByTestId('mail-row-write')).toHaveText('Asks you first')
@@ -70,7 +71,7 @@ test.describe('Mail add-on', () => {
     await page.getByLabel('Name', { exact: true }).fill('Mine')
     await page.getByLabel('Mailbox address').fill('bob@example.com')
     await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Mine')
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
+    await expect(page.getByTestId('connector-save')).toBeDisabled()
   })
 
   test('no protection warns and needs a confirmation before it can be saved', async ({ page }) => {
@@ -79,13 +80,13 @@ test.describe('Mail add-on', () => {
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New mail connection' }).click()
     await fill(page)
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
+    await expect(page.getByTestId('connector-save')).toBeEnabled()
     await page.getByTestId('mail-imap-security').selectOption('none')
     await expect(page.getByTestId('mail-imap-port')).toHaveValue('143')
     await expect(page.getByTestId('mail-imap-plain')).toContainText('plain text')
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
+    await expect(page.getByTestId('connector-save')).toBeDisabled()
     await page.getByTestId('mail-plain-ok').check()
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
+    await expect(page.getByTestId('connector-save')).toBeEnabled()
   })
 
   test('each write mode says what it does, and the default is read only', async ({ page }) => {
@@ -108,7 +109,7 @@ test.describe('Mail add-on', () => {
     await fill(page)
     await page.getByLabel('Folders the agent may use').fill('INBOX\nArchive')
     await page.getByRole('radio', { name: /Asks you first/ }).check()
-    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByTestId('connector-save').click()
     await expect(page.getByTestId('connector-row')).toContainText('Mail: ann@example.com')
     const post = a.s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/connectors')
     expect(post.body.kind).toBe('mail')
@@ -123,11 +124,11 @@ test.describe('Mail add-on', () => {
     const a = api(page, [BINDING])
     await a.install()
     await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Edit' }).click()
+    await openEdit(page)
     await expect(page.getByTestId('mail-saved')).toContainText('ann@example.com')
     await expect(page.getByTestId('mail-imap')).toHaveCount(0)
     await page.getByRole('radio', { name: /Read only/ }).check()
-    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByTestId('connector-save').click()
     const put = a.s.calls.find(c => c.method === 'PUT' || (c.method === 'PATCH'))
     expect(put.body.token).toBeUndefined()
     expect(put.body.write_mode).toBe('off')
@@ -138,8 +139,9 @@ test.describe('Mail add-on', () => {
     await install(page, () => ({ imap: { ok: true }, smtp: { ok: false, error: 'The mail server refused the username or password for sending.' } }))
     await api(page, [BINDING]).install()
     await page.goto(PAGE)
-    await page.getByRole('button', { name: 'Test' }).click()
-    const row = page.getByTestId('connector-row')
+    await page.getByTestId('connector-test').click()
+    await openPane(page)
+    const row = page.getByTestId('connector-pane')
     await expect(row.getByTestId('mail-check-imap')).toContainText('the login works')
     await expect(row.getByTestId('mail-check-smtp')).toContainText('Sending mail (SMTP) failed. The mail server refused the username or password')
     await expect(row.locator('.ml-check--warn')).toHaveCount(1)

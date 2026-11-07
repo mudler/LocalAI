@@ -178,17 +178,19 @@ var _ = Describe("Tool consumer matrix", func() {
 	})
 
 	It("has no add-on tool and no add-on route in the admin assistant catalog", func() {
-		files := sourceFiles(root, func(path, _ string) bool { return strings.HasPrefix(path, "pkg/mcp/localaitools/") })
+		files := sourceFiles(root, func(path, _ string) bool { return strings.HasPrefix(path, "core/services/localaitools/") })
 		Expect(files).NotTo(BeEmpty())
 		for _, path := range files {
 			b, err := os.ReadFile(filepath.Join(root, path))
 			Expect(err).NotTo(HaveOccurred())
 			text := strings.ToLower(string(b))
 			Expect(text).NotTo(ContainSubstring("/api/addons"), path)
+			// Sharing of the other resource kinds is never a tool either.
+			Expect(text).NotTo(ContainSubstring("/api/shares"), path)
 			Expect(text).NotTo(ContainSubstring("addon__"), path)
 		}
 		// Tool constants hold no add-on lifecycle or approval name.
-		b, err := os.ReadFile(filepath.Join(root, "pkg/mcp/localaitools/tools.go"))
+		b, err := os.ReadFile(filepath.Join(root, "core/services/localaitools/tools.go"))
 		Expect(err).NotTo(HaveOccurred())
 		constant := regexp.MustCompile(`Tool\w+\s*=\s*"([a-z_]+)"`)
 		for _, m := range constant.FindAllStringSubmatch(string(b), -1) {

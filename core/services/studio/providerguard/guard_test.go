@@ -83,6 +83,7 @@ var allowed = []entry{
 	// the built-in: its index files and skills are the host's now, and the
 	// host ignores its copies.
 	{"core/services/studio/memory.go", `memory`, "the id the retired Memory add-on had; the host serves its index files and skills itself"},
+	{"core/services/studio/files/paths.go", `memory`, "the name of the managed Memory/ folder, which the host serves itself"},
 	{"core/services/studio/builtins/builtins.go", `memory`, "the switch group of the built-in memory"},
 	{"pkg/addons/providerconformance/conformance.go", `memory`, "the id of the notes slot, which the suite tests; it equals the id of the retired add-on"},
 	{"pkg/addons/contract/skills.go", `memory`, "the two memory skills are built in; the retired add-on may still declare them"},
@@ -132,7 +133,6 @@ var allowed = []entry{
 	{locales + "de/pages.json", "Sie öffnen sich hier in einer Sandbox", "German for the isolated frame of a page: the ordinary noun"},
 	{"core/application/studio_service.go", `memory`, "the in-memory kind of the store"},
 	{"core/application/studio_store.go", `memory`, "the in-memory kind of the store"},
-	{"core/services/studio/nibharness/tools.go", `memory`, "the built-in memory tool of the agent engine"},
 	{"pkg/xsysinfo/gpu.go", `memory`, "a GPU memory counter"},
 	{"core/http/auth/usage.go", `web`, "usage source of a request from the web UI session"},
 	{"core/services/studio/builtins/builtins.go", `web`, "the id of the built-in Web tool group of chats"},

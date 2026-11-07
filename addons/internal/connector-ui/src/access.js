@@ -456,6 +456,15 @@ export function visibleRows(rows, expanded) {
   return { shown, hidden: rows.length - shown.length }
 }
 
+// The rows of a connection that is not saved yet. "Keep these changes" has no
+// meaning there, so a row loses its save fix. A row that only waits for the
+// save is not a thing to set, so it is not a problem here.
+export const forNewConnection = (rows) => rows.map((r) => (r.fix?.kind === 'save' ? { ...r, fix: undefined } : r))
+export const isThingToSet = (state) => isProblem(state) && state !== 'after_save'
+
+// How many things a new connection still needs from the person.
+export const thingsToSet = (rows) => rows.filter((r) => isThingToSet(r.state)).length
+
 // OUTCOME_TONES maps how an add-on tool call ended to the look of its badge:
 // a held call waits for a person, a refused or failed one needs a fix.
 const OUTCOME_TONES = { ok: 'done', held: 'skipped', denied: 'failed', error: 'failed', confirmed: 'done', cancelled: 'skipped', expired: 'skipped' }

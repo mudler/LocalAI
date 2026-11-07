@@ -395,7 +395,7 @@ func (s *Service) agentFolderScope(ctx context.Context, rec session.ChatRecord, 
 	var ag agents.Agent
 	err := agents.ErrNotFound
 	if s.d.Agents != nil {
-		ag, err = s.d.Agents.Get(ctx, rec.Principal, rec.AgentID)
+		ag, err = s.chatAgent(ctx, rec.Principal, rec.AgentID)
 	}
 	switch {
 	case errors.Is(err, agents.ErrNotFound):
