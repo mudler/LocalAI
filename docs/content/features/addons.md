@@ -6178,7 +6178,9 @@ The guest image, `runsc` and the KVM programs are not part of the add-on's sourc
 
 The guest image carries exactly these programs and libraries for the model to use (the model is told this list in the prompt of each chat that has the Sandbox):
 
-python3 (pandas, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl
+python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl
+
+matplotlib draws charts without a display: it writes PNG and SVG files, and the model can save them in the user's files. Its font cache is kept in `/tmp`.
 
 It does not have Node.js or npm, ImageMagick, ffmpeg or OCR. The command line runs as an unprivileged user and `apt` is blocked by the proxy, so nothing can be installed from inside the guest with a system package manager. `pip` can install Python packages within the chat's network setting (see [Network access](#network-access)). Adding a program means a new guest image. The build of the image fails when one of these programs is missing or does not start (`addons/sandbox/images/guest/check-tools.sh`).
 
