@@ -180,6 +180,23 @@ instructions. You can keep at most 50 setups; an `id` has lowercase letters,
 digits and dashes, and a name has at most 60 characters. Without the file a new
 chat starts from the defaults.
 
+### Starting a chat from a setup
+
+On Home, the Setup chip is the first chip of the message box. Its menu lists
+your setups with the model and a short summary of each one. Pick one to load
+its model, tool switches and effort into the new chat. A line under the box
+shows what is loaded. When you change the model, a switch or the effort, the
+chip says "edited" and the line offers `Update "name"`, `Save as new…` and
+`Reset`. "Save current setup as…" and "Manage setups" are at the bottom of the
+menu. Manage lets you rename, reorder and delete setups and choose the default.
+
+A new chat starts from the default setup. The default follows the setup of
+your last sent message. The first time you send a message with no setups, LocalAI
+saves the box as "My default" and offers a Rename action. If the model of a
+setup is not installed, the chat keeps the model it has and the line says so;
+the setup is not changed. A saved agent decides the model and tools of its
+chat, so the chip is off while you have one chosen.
+
 ## Home
 
 `LocalAI/home.json` and the data files of its widgets. **Edit layout** on Home adds,
