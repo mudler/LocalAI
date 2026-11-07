@@ -4,13 +4,15 @@ package catalog
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"os"
+	"runtime"
+	"sync"
+
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/credentials"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"net/http"
-	"os"
-	"sync"
 )
 
 var _ = Describe("source configuration", func() {
@@ -28,7 +30,11 @@ var _ = Describe("source configuration", func() {
 		save(s, "one", "https://example.org")
 		info, e := os.Stat(s.path)
 		Expect(e).NotTo(HaveOccurred())
-		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0600)))
+		// POSIX permission bits are not enforceable on Windows, where the file
+		// is reported with the default 0666 mode regardless of chmod.
+		if runtime.GOOS != "windows" {
+			Expect(info.Mode().Perm()).To(Equal(os.FileMode(0600)))
+		}
 		loaded, e := NewSources(s.path, checker, CredentialResolver{})
 		Expect(e).NotTo(HaveOccurred())
 		Expect(loaded.sources).To(HaveKey("one"))

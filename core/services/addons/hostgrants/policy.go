@@ -87,9 +87,14 @@ func (f Floor) Denied(doc Snapshot, addonID, op string) (bool, Reason) {
 }
 
 func (f Floor) floorGrants(addonID, op string) bool {
-	for _, p := range f.Grants[addonID] {
-		if strings.HasPrefix(op, p) {
-			return true
+	// The "*" key is the deployment-wide floor (e.g. the Windows default
+	// policy), the same convention matchDeny uses for deny rules: an add-on
+	// holds it on top of its own entry.
+	for _, key := range [...]string{addonID, "*"} {
+		for _, p := range f.Grants[key] {
+			if strings.HasPrefix(op, p) {
+				return true
+			}
 		}
 	}
 	return false
@@ -156,7 +161,7 @@ func (f Floor) Effective(doc Snapshot, c Context, addonID string, candidates []s
 // entry. A narrower deny cannot make this false for a prefix grant, because
 // part of the prefix may stay callable; the per-call check is Decide.
 func (f Floor) Entitled(doc Snapshot, c Context, addonID string) bool {
-	if len(f.Grants[addonID]) > 0 && !denyAll(f.Deny, addonID) && !denyAll(doc.Deny, addonID) {
+	if (len(f.Grants[addonID]) > 0 || len(f.Grants["*"]) > 0) && !denyAll(f.Deny, addonID) && !denyAll(doc.Deny, addonID) {
 		return true
 	}
 	for _, op := range doc.Grants[addonID].Ops {

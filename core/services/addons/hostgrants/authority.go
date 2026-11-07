@@ -58,7 +58,7 @@ func (a *authority) Entitled(addonID string) bool {
 
 func (a *authority) Snapshot(addonID string) hostops.EffectiveSet {
 	doc, c := a.view(addonID)
-	set := hostops.EffectiveSet{Revision: doc.Revision, Prefixes: slices.Clone(a.floor.Grants[addonID])}
+	set := hostops.EffectiveSet{Revision: doc.Revision, Prefixes: slices.Concat(a.floor.Grants[addonID], a.floor.Grants["*"])}
 	for _, g := range doc.Grants[addonID].Ops {
 		if d := a.floor.Decide(doc, c, addonID, g.Name); d.Allowed && d.Source != SourceDeployment {
 			set.Operations = append(set.Operations, g.Name)

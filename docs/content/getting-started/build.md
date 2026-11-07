@@ -56,6 +56,17 @@ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f1
 ```
 
 {{% /tab %}}
+{{% tab title="Windows" %}}
+
+The `make` recipes are POSIX shell. Git for Windows bundles the POSIX tools they need (`sh`, `uname`, `unzip`, `grep`, `awk`, `sed`) — but **not** `make` itself — so install a GNU make for Windows as well:
+
+```powershell
+winget install ezwinports.make
+```
+
+The Makefile locates Git for Windows' `sh` on its own and runs every recipe through it, downloads `protoc` and installs the Go protobuf plugins itself — so no PATH edits or extra toolchain are needed. `make build` also compiles the React UI, so install [Node.js](https://nodejs.org) (with npm) as well.
+
+{{% /tab %}}
 {{% tab title="From source" %}}
 
 ```bash
@@ -76,6 +87,8 @@ make build
 
 This should produce the binary `local-ai`
 
+On Windows, `make build` produces `local-ai.exe` instead.
+
 #### Container image
 
 Requirements:
@@ -91,7 +104,7 @@ docker run localai
 
 ### Example: Build on mac
 
-Building on Mac (M1, M2 or M3) works, but you may need to install some prerequisites using `brew`. 
+Building on Mac (M1, M2 or M3) works, but you may need to install some prerequisites using `brew`.
 
 The below has been tested by one mac user and found to work. Note that this doesn't use Docker to run the server:
 
@@ -119,7 +132,7 @@ curl http://localhost:8080/v1/models
 curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
      "model": "phi-2.Q2_K",
      "messages": [{"role": "user", "content": "How are you?"}],
-     "temperature": 0.9 
+     "temperature": 0.9
    }'
 ```
 
@@ -146,6 +159,27 @@ make clean
 
 make build
 ```
+
+### Example: Build on Windows
+
+Building the server binary on Windows needs no C toolchain: the release config compiles with `CGO_ENABLED=0`. The `make` recipes are POSIX shell, so you need Git for Windows (which bundles `sh` and the POSIX tools) plus a GNU make for Windows — Git for Windows does not ship `make`. The Makefile finds `sh` on its own, so no PATH edits are required.
+
+```powershell
+# Install Go (https://go.dev/dl), Git for Windows (https://git-scm.com/downloads),
+# Node.js for the React UI build (https://nodejs.org), then a GNU make for
+# Windows, e.g.:
+winget install ezwinports.make
+
+# Build with CGO disabled like the release config.
+$env:CGO_ENABLED = '0'
+
+git clone https://github.com/mudler/LocalAI.git
+cd LocalAI
+
+make build
+```
+
+This produces the binary `local-ai.exe`. The `llama-cpp` backend is also distributed natively for Windows — see [Building the Windows backend]({{% relref "getting-started/windows" %}}#building-from-source) for the MSYS2 UCRT64 requirements and the `make backends/llama-cpp-windows` target. Other backends are still built as Linux container images and are not distributed for Windows.
 
 ## Build backends
 
@@ -178,7 +212,7 @@ make docker-build-<backend-name>
 Note that `make` is only by convenience, in reality it just runs a simple `docker` command as:
 
 ```bash
-docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:<backend-name> -f LocalAI/backend/Dockerfile.golang --build-arg BACKEND=<backend-name> .               
+docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:<backend-name> -f LocalAI/backend/Dockerfile.golang --build-arg BACKEND=<backend-name> .
 ```
 
 Note:

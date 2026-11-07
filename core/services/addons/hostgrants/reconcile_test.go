@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 )
 
@@ -146,19 +147,27 @@ func TestAuditAppendsFsyncedLines(t *testing.T) {
 	if !reflect.DeepEqual(events, []string{AuditGrant, AuditBlanketGrant, AuditRevoke}) {
 		t.Fatalf("%v", events)
 	}
-	if info, _ := os.Stat(path); info.Mode().Perm() != 0600 {
-		t.Fatalf("mode %v", info.Mode())
+	// POSIX permission bits are not enforceable on Windows, where the file
+	// is reported with the default 0666 mode regardless of chmod.
+	if runtime.GOOS != "windows" {
+		if info, _ := os.Stat(path); info.Mode().Perm() != 0600 {
+			t.Fatalf("mode %v", info.Mode())
+		}
 	}
 	var none *Audit
 	if none.Append(AuditEntry{Event: AuditGrant}) != nil || none.Close() != nil {
 		t.Error("a nil audit is a no-op")
 	}
-	link := filepath.Join(t.TempDir(), "link")
-	if err := os.Symlink(path, link); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := OpenAudit(link); err == nil {
-		t.Error("a symlink must be refused")
+	// A symlink to the audit file is refused. Creating symlinks on Windows
+	// needs privileges or Developer Mode, so the setup itself errors first.
+	if runtime.GOOS != "windows" {
+		link := filepath.Join(t.TempDir(), "link")
+		if err := os.Symlink(path, link); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := OpenAudit(link); err == nil {
+			t.Error("a symlink must be refused")
+		}
 	}
 }
 

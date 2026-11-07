@@ -3,6 +3,7 @@ package cli
 
 import (
 	"os"
+	"runtime"
 
 	"github.com/alecthomas/kong"
 	"github.com/mudler/LocalAI/core/config"
@@ -40,6 +41,19 @@ func (r *RunCMD) resolveAddonHostOps() (config.AddonHostOpsResolution, error) {
 		policy = &r.AddonHostPolicy
 	} else if value, present := os.LookupEnv("LOCALAI_ADDON_HOST_POLICY"); present {
 		policy = &value
+	}
+	// On Windows, the addon runtime supervisor is unavailable, so host
+	// operations cannot be used anyway. Default to granting all host
+	// operations so end users who just download and run don't hit
+	// permission errors. Empty means no host operations, which breaks
+	// add-on installs on first run.
+	if flag == nil && environment == nil && policy == nil && runtime.GOOS == "windows" {
+		return config.AddonHostOpsResolution{
+			Grants: map[string][]string{
+				"*": {"*"},
+			},
+			Source: "windows-default",
+		}, nil
 	}
 	var deny *string
 	if r.AddonHostDeny != "" {

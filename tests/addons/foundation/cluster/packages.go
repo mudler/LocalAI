@@ -1,3 +1,5 @@
+//go:build !windows
+
 // SPDX-License-Identifier: MIT
 package cluster
 
@@ -40,3 +42,4 @@ func ToolPackage(version string, fixture map[string]any) Package {
 func ServicePackage(version string, fixture map[string]any) Package {
 	return Package{ID: "found-svc", Version: version, Effects: "yes", Fixture: fixture, Capabilities: map[string]any{"service": true}}
 }
+
