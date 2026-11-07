@@ -359,6 +359,9 @@ definitions:
       localizedDescription:
         example: Tieni degli appunti.
         type: string
+      localizedSetup:
+        example: un token di accesso
+        type: string
       localizedTitle:
         example: Appunti
         type: string
@@ -386,6 +389,25 @@ definitions:
           upgrade, say). It is absent when none runs. The observation is
           separate from State: the process can run on while the owner stages
           the next generation.
+      ownerData:
+        description: |-
+          OwnerData is true when the manifest says the tools keep the owner's own
+          data (capabilities.ownerData). Its writes need tools.write in a
+          connector chat, like the writes of a credentialed add-on.
+        type: boolean
+      setup:
+        description: |-
+          Setup says in one short phrase what the person needs before the add-on
+          works, such as "an access token". It is English plain text, absent when
+          the manifest declares none. Setups carries the translations by BCP 47
+          tag and LocalizedSetup follows the rule of LocalizedTitle; it is absent
+          when the add-on has no setup text.
+        example: an access token
+        type: string
+      setups:
+        additionalProperties:
+          type: string
+        type: object
       shadows:
         description: Shadows lists the built-in chat tools the add-on replaces (bash,
           say).
@@ -887,6 +909,7 @@ definitions:
     - page
     - dashboard
     - knowledge
+    - voice_profile
     type: string
     x-enum-varnames:
     - ChangeMemory
@@ -895,6 +918,7 @@ definitions:
     - ChangePage
     - ChangeDashboard
     - ChangeKnowledge
+    - ChangeVoiceProfile
   contract.ChangeProposal:
     properties:
       agent:
@@ -2631,6 +2655,100 @@ definitions:
         example: viewer
         type: string
     type: object
+  gateway.SetShareRequest:
+    properties:
+      operationId:
+        description: |-
+          OperationID is optional. It is returned with outcome_unknown, and the
+          change is safe to repeat.
+        example: share-1
+        type: string
+      role:
+        description: |-
+          Role is one of the roles the kind grants, for example use or manage.
+          The owner role cannot be granted.
+        example: use
+        type: string
+    type: object
+  gateway.ShareIndex:
+    properties:
+      everyone:
+        type: boolean
+      kind:
+        example: example:note
+        type: string
+      owned:
+        description: Owned lists the resources the caller owns, at most 100.
+        items:
+          $ref: '#/definitions/gateway.SharedResource'
+        type: array
+      roles:
+        example:
+        - use
+        - manage
+        items:
+          type: string
+        type: array
+      shared:
+        description: Shared lists the resources shared with the caller, at most 100.
+        items:
+          $ref: '#/definitions/gateway.SharedResource'
+        type: array
+      truncated:
+        description: Truncated says that one of the lists has more than it shows.
+        type: boolean
+    type: object
+  gateway.ShareList:
+    properties:
+      everyone:
+        description: Everyone says whether the kind may be shared with every account.
+        type: boolean
+      grants:
+        description: |-
+          Grants lists the grants. A grant to every account has the user ID
+          @everyone and no display name.
+        items:
+          $ref: '#/definitions/gateway.Grant'
+        type: array
+      kind:
+        example: example:note
+        type: string
+      resourceId:
+        example: r0123456789abcdef0123456789abcde
+        type: string
+      roles:
+        description: Roles are the roles the kind grants, in the order the kind declares.
+        example:
+        - use
+        - manage
+        items:
+          type: string
+        type: array
+    type: object
+  gateway.SharedResource:
+    properties:
+      everyone:
+        description: Everyone says that the role comes from a grant to every account.
+        type: boolean
+      id:
+        example: r0123456789abcdef0123456789abcde
+        type: string
+      owner:
+        description: Owner is the display name of the owner. It is absent for the
+          owner.
+        example: Alice
+        type: string
+      role:
+        description: 'Role is the caller''s own role: owner or a role the kind grants.'
+        example: use
+        type: string
+      sharedWith:
+        description: |-
+          SharedWith is the number of grants, the grant to every account
+          included. It is present for the owner only.
+        example: 2
+        type: integer
+    type: object
   gateway.UndoRequest:
     properties:
       generation:
@@ -3899,12 +4017,23 @@ definitions:
           SendFiles sends the files that a turn makes to the sender, after the
           answer.
         type: boolean
+      share:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorShare'
+        description: |-
+          Share is the share of the binding, once its owner made it shareable.
+          Only the owner reads it.
       ui_language:
         description: |-
           UILanguage is the interface language the owner's page last sent, such as
           it or pt-BR. With reply_language auto, the bot speaks in it before it
           reads the language of the sender. Absent when the server was not told.
         type: string
+      used_by:
+        description: |-
+          UsedBy is how many of your saved agents have this connection in their
+          connections. Present only for a binding of a tool_only kind.
+        type: integer
       window_minutes:
         type: integer
       write_mode:
@@ -3947,6 +4076,12 @@ definitions:
           type: string
         type: array
       agent_id:
+        type: string
+      binding:
+        description: |-
+          Binding is the ID of the messaging connection that a trigger belongs to
+          when it was made without asking under that connection's approval. Such a
+          trigger stays within the acts the connection allows. Empty otherwise.
         type: string
       cost:
         $ref: '#/definitions/schema.ChatsTriggerCost'
@@ -4019,6 +4154,12 @@ definitions:
     type: object
   schema.ChatsAgent:
     properties:
+      access:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsAgentAccess'
+        description: |-
+          Access is how you hold the agent: your own, or shared with you and by
+          whom. It is absent when the server does not share agents.
       addons:
         items:
           type: string
@@ -4148,6 +4289,42 @@ definitions:
       updated:
         type: string
     type: object
+  schema.ChatsAgentAccess:
+    properties:
+      everyone:
+        description: Everyone says the agent is shared with every account.
+        type: boolean
+      owner:
+        description: |-
+          Owner is the display name of the person who shared the agent with
+          you. Absent for your own agents.
+        example: Alice
+        type: string
+      role:
+        description: |-
+          Role is owner for your own agent, use or viewer for an agent shared
+          with you. use runs it in your own chats; viewer also reads its full
+          definition. Only the owner edits, deletes, exports or shares it.
+        enum:
+        - owner
+        - use
+        - viewer
+        example: use
+        type: string
+      share_id:
+        description: |-
+          ShareID is the ID of your own agent in the sharing API
+          (/api/shares/agent/{ShareID}/...). Absent until it is first shared and
+          for agents shared with you.
+        type: string
+      sharedWith:
+        description: SharedWith is the number of grants of your own agent.
+        example: 2
+        type: integer
+      sharing:
+        description: Sharing says whether you can share the agent on this server.
+        type: boolean
+    type: object
   schema.ChatsAgentExport:
     properties:
       agent:
@@ -4244,6 +4421,96 @@ definitions:
           $ref: '#/definitions/schema.ChatsAgent'
         type: array
     type: object
+  schema.ChatsAgentNeed:
+    properties:
+      kind:
+        example: collection
+        type: string
+      label:
+        example: docs
+        type: string
+      state:
+        description: |-
+          State is ok (you have it), missing (it is not shared with you),
+          unavailable (this server or your account does not offer it) or ask (the
+          agent asks for a network or a tool group that your chat starts without;
+          you may turn it on in the chat). Kind network is the agent's network
+          preset, kind tool-group an opt-in group of built-in tools it turns on.
+        enum:
+        - ok
+        - missing
+        - unavailable
+        - ask
+        example: missing
+        type: string
+    type: object
+  schema.ChatsAgentNeedList:
+    properties:
+      needs:
+        items:
+          $ref: '#/definitions/schema.ChatsAgentNeed'
+        type: array
+    type: object
+  schema.ChatsAgentReference:
+    properties:
+      addon_id:
+        description: AddonID is the add-on of a connection or an add-on resource.
+        type: string
+      id:
+        description: ID names the thing for its kind.
+        example: docs
+        type: string
+      kind:
+        description: |-
+          Kind is addon, collection, skill, folder, connection, addon-resource,
+          mcp or builtin.
+        example: collection
+        type: string
+      label:
+        example: docs
+        type: string
+      mode:
+        description: Mode is read or write for a folder or an add-on resource.
+        type: string
+      share:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsAgentReferenceShare'
+        description: |-
+          Share is how the thing can be shared with the same person, absent when
+          the person needs access of their own.
+    type: object
+  schema.ChatsAgentReferenceList:
+    properties:
+      references:
+        items:
+          $ref: '#/definitions/schema.ChatsAgentReference'
+        type: array
+    type: object
+  schema.ChatsAgentReferenceShare:
+    properties:
+      kind:
+        description: |-
+          Kind is the share kind (collection, connection), or addon for an
+          add-on resource, which is shared through /api/addons/resources.
+        example: collection
+        type: string
+      options:
+        items:
+          enum:
+          - view
+          - use
+          type: string
+        type: array
+      resource_id:
+        type: string
+      roles:
+        additionalProperties:
+          type: string
+        description: |-
+          Roles maps each option to the role the grant carries on the thing:
+          one of the roles its kind grants (viewer, editor or use).
+        type: object
+    type: object
   schema.ChatsAgentResourceChoice:
     properties:
       id:
@@ -4304,6 +4571,16 @@ definitions:
       title:
         type: string
       updated:
+        type: string
+    type: object
+  schema.ChatsAgentShareRef:
+    properties:
+      id:
+        description: ID is the resource ID to use with /api/shares/agent/{id}/...
+        example: r0123456789abcdef0123456789abcde
+        type: string
+      kind:
+        example: agent
         type: string
     type: object
   schema.ChatsAgentTemplate:
@@ -4498,6 +4775,12 @@ definitions:
     type: object
   schema.ChatsBuiltinGroup:
     properties:
+      deferred:
+        description: |-
+          Deferred is true when the chat loads the tools of the group on demand:
+          the model sees tool_search, tool_describe and tool_call in their place
+          (see the setting chats_tool_search).
+        type: boolean
       description:
         example: The model can search the web and read a public page by its address.
         type: string
@@ -4974,12 +5257,23 @@ definitions:
           SendFiles sends the files that a turn makes to the sender, after the
           answer.
         type: boolean
+      share:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorShare'
+        description: |-
+          Share is the share of the binding, once its owner made it shareable.
+          Only the owner reads it.
       ui_language:
         description: |-
           UILanguage is the interface language the owner's page last sent, such as
           it or pt-BR. With reply_language auto, the bot speaks in it before it
           reads the language of the sender. Absent when the server was not told.
         type: string
+      used_by:
+        description: |-
+          UsedBy is how many of your saved agents have this connection in their
+          connections. Present only for a binding of a tool_only kind.
+        type: integer
       window_minutes:
         type: integer
       write_mode:
@@ -5438,6 +5732,8 @@ definitions:
         type: string
       localized_description:
         type: string
+      localized_setup:
+        type: string
       localized_title:
         type: string
       options:
@@ -5464,6 +5760,18 @@ definitions:
         type: array
       sender_hint:
         type: string
+      setup:
+        description: |-
+          Setup says in one short phrase what a binding of this kind needs from
+          the person before it works, such as "a bot token from @BotFather". It
+          is English plain text and absent when the add-on declares none. Setups
+          carries the translations by language tag; LocalizedSetup follows the
+          rule of LocalizedTitle and is absent when the kind has no setup text.
+        type: string
+      setups:
+        additionalProperties:
+          type: string
+        type: object
       thread_history:
         description: |-
           ThreadHistory is true when the platform can give the earlier messages
@@ -5486,6 +5794,13 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsConnectorTokenGuard'
         type: array
+      tool_only:
+        description: |-
+          ToolOnly is true for a kind whose bindings only serve tools. A binding
+          has no agent, never listens and never accepts senders; the server clears
+          agent_id, enabled and accept_any. Many agents can use one binding
+          through their connections. It implies agent_optional.
+        type: boolean
       wildcard_resources:
         description: |-
           WildcardResources is true when a binding of this kind may list owner/*
@@ -5512,6 +5827,19 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsConnector'
         type: array
+      shared:
+        description: |-
+          Shared are the bindings of other people shared with the caller, with
+          their name and state only.
+        items:
+          $ref: '#/definitions/schema.ChatsSharedConnector'
+        type: array
+      sharing:
+        description: |-
+          Sharing says whether bindings can be shared on this server: false with
+          no named accounts (local-owner mode) or when the sharing policy does not
+          run.
+        type: boolean
     type: object
   schema.ChatsConnectorOption:
     properties:
@@ -5607,6 +5935,15 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsConnectorSender'
         type: array
+    type: object
+  schema.ChatsConnectorShare:
+    properties:
+      resource_id:
+        description: ResourceID names the binding in /api/shares/connection.
+        type: string
+      shared_with:
+        description: SharedWith counts the grants, the one to everyone included.
+        type: integer
     type: object
   schema.ChatsConnectorTest:
     properties:
@@ -5852,6 +6189,8 @@ definitions:
         description: |-
           Place is set on a chat that a messaging connection started, when the
           connection kept where it lives.
+      resume_attempts:
+        type: integer
       running:
         description: |-
           Running is true while a turn runs. LastTurn is how the last finished turn
@@ -5866,6 +6205,12 @@ definitions:
         type: string
       updated:
         type: string
+      will_resume:
+        description: |-
+          WillResume is true while the chat is at an interrupted turn that the
+          server resumes by itself (LOCALAI_CHATS_AUTO_RESUME): a client waits and
+          does not resume it too. ResumeAttempts counts the tries made so far.
+        type: boolean
     type: object
   schema.ChatsConversationDetail:
     properties:
@@ -5921,6 +6266,8 @@ definitions:
         description: |-
           Place is set on a chat that a messaging connection started, when the
           connection kept where it lives.
+      resume_attempts:
+        type: integer
       running:
         description: |-
           Running is true while a turn runs. LastTurn is how the last finished turn
@@ -5935,6 +6282,12 @@ definitions:
         type: string
       updated:
         type: string
+      will_resume:
+        description: |-
+          WillResume is true while the chat is at an interrupted turn that the
+          server resumes by itself (LOCALAI_CHATS_AUTO_RESUME): a client waits and
+          does not resume it too. ResumeAttempts counts the tries made so far.
+        type: boolean
     type: object
   schema.ChatsConversationList:
     properties:
@@ -6370,6 +6723,66 @@ definitions:
       text:
         type: string
     type: object
+  schema.ChatsExtractConflict:
+    properties:
+      kept:
+        description: Kept is where the new content went; empty when it was dropped.
+        type: string
+      path:
+        type: string
+      reason:
+        type: string
+    type: object
+  schema.ChatsExtractRequest:
+    properties:
+      dest:
+        description: |-
+          Dest is the folder to extract into. Empty: a new folder next to the
+          archive, named like it without the extension.
+        type: string
+      path:
+        description: Path is the archive, inside your home.
+        type: string
+    type: object
+  schema.ChatsExtractResponse:
+    properties:
+      bytes:
+        type: integer
+      conflicts:
+        items:
+          $ref: '#/definitions/schema.ChatsExtractConflict'
+        type: array
+      dest:
+        description: Dest is the folder that holds the files.
+        type: string
+      files:
+        type: integer
+      folders:
+        type: integer
+      rev:
+        description: Rev is the change set; POST /api/chats/files/undo with it takes
+          it all back.
+        type: integer
+      skipped:
+        description: |-
+          Skipped lists up to 200 entries that were not extracted;
+          skipped_count counts all of them.
+        items:
+          $ref: '#/definitions/schema.ChatsExtractSkipped'
+        type: array
+      skipped_count:
+        type: integer
+    type: object
+  schema.ChatsExtractSkipped:
+    properties:
+      path:
+        type: string
+      reason:
+        description: |-
+          Reason is symlink, hard_link, special, bad_name, not_utf8, too_deep,
+          too_large, duplicate, encrypted, managed or unreadable.
+        type: string
+    type: object
   schema.ChatsFailure:
     properties:
       code:
@@ -6399,7 +6812,9 @@ definitions:
       managed:
         description: |-
           Managed is set on a path LocalAI manages: "localai" for the LocalAI
-          folder and the settings files in it, "chats" for the Chats folder.
+          folder and the settings files in it, and for the folders LocalAI creates
+          itself "chats" (Chats), "memory" (Memory), "pages" (pages) and "skills"
+          (.skills). Other values may be added; a client treats any value as managed.
         type: string
       modified:
         description: Modified is when the entry last changed. A folder listing sets
@@ -6693,6 +7108,11 @@ definitions:
       interval_seconds:
         description: IntervalSeconds is Interval in seconds; 0 for a self-paced loop.
         type: integer
+      kind:
+        description: |-
+          Kind is "wait" for a wait (the server checks a source and wakes the
+          model once); empty for a loop.
+        type: string
       last_run:
         type: string
       next:
@@ -6716,6 +7136,11 @@ definitions:
       wait:
         description: Wait is what the model of a self-paced loop said it waits for.
         type: string
+      watch:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsWait'
+        description: 'Watch is set when Kind is "wait": what it watches and how the
+          checks go.'
     type: object
   schema.ChatsLoopList:
     properties:
@@ -7607,6 +8032,33 @@ definitions:
         description: TopP is above 0 and at most 1.
         type: number
     type: object
+  schema.ChatsSharedConnector:
+    properties:
+      active:
+        description: |-
+          Active is false when the add-on that serves it does not run; Reason
+          then says so.
+        type: boolean
+      addon:
+        type: string
+      enabled:
+        description: Enabled says whether the owner listens with it.
+        type: boolean
+      id:
+        type: string
+      kind:
+        type: string
+      name:
+        type: string
+      owner:
+        description: Owner is the display name of the person who shared it.
+        type: string
+      reason:
+        type: string
+      role:
+        description: 'Role is always use: a binding is never shared with everyone.'
+        type: string
+    type: object
   schema.ChatsSkill:
     properties:
       addon:
@@ -7740,6 +8192,12 @@ definitions:
         type: string
       last_turn:
         type: string
+      loop:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsLoop'
+        description: |-
+          Loop is the loop or wait that keeps the run going, when it has one. The
+          run shows as running while it is set.
       running:
         description: |-
           Running is true while the run's turn is going. LastTurn is how its last
@@ -8021,6 +8479,12 @@ definitions:
           type: string
         type: array
       agent_id:
+        type: string
+      binding:
+        description: |-
+          Binding is the ID of the messaging connection that a trigger belongs to
+          when it was made without asking under that connection's approval. Such a
+          trigger stays within the acts the connection allows. Empty otherwise.
         type: string
       cost:
         $ref: '#/definitions/schema.ChatsTriggerCost'
@@ -8327,6 +8791,61 @@ definitions:
         description: Used is the number of tokens in the context the request sent.
         type: integer
     type: object
+  schema.ChatsWait:
+    properties:
+      checks:
+        description: |-
+          Checks is how many checks were made. LastCheck is when the last one
+          ended and Outcome what it found: unchanged, changed or error. LastError
+          is a short message with the URLs cut to host and path; it is set while
+          the source fails.
+        type: integer
+      condition:
+        type: string
+      deadline:
+        description: Deadline is when the wait times out.
+        type: string
+      end:
+        description: |-
+          End says how the wait ended: condition_met, source_failing, timed_out or
+          stopped. It is set when Phase is waking or ended, and absent before.
+        type: string
+      errors:
+        description: Errors is the number of failed checks in a row; MaxErrors ends
+          the wait.
+        type: integer
+      last_check:
+        type: string
+      last_error:
+        type: string
+      max_errors:
+        type: integer
+      mode:
+        description: Mode is change, match or json_equals; Condition says it in words.
+        type: string
+      next_check:
+        description: NextCheck is when the next check is due; absent unless Phase
+          is waiting.
+        type: string
+      outcome:
+        type: string
+      phase:
+        description: |-
+          Phase is pending (waits for your yes), waiting (the server checks the
+          source), waking (the condition is settled and the model is about to be
+          asked, or is being asked), paused, or ended.
+        type: string
+      reason:
+        description: Reason is the line the model gave for the wait.
+        type: string
+      source:
+        type: string
+      source_kind:
+        description: |-
+          SourceKind is "tool" or "url". Source is the name of the tool, or the
+          host and path of the URL without the query.
+        type: string
+    type: object
   schema.ChatsWebProviderTest:
     properties:
       host:
@@ -8583,6 +9102,21 @@ definitions:
           SearchMode is how a search finds passages: "semantic" (by meaning only)
           or "hybrid" (by meaning and by keyword).
         type: string
+      shared:
+        description: Shared are the collections of other people shared with the caller.
+        items:
+          $ref: '#/definitions/schema.SharedCollection'
+        type: array
+      shares:
+        additionalProperties:
+          $ref: '#/definitions/schema.CollectionShare'
+        description: |-
+          Shares are the shares of the caller's own collections, by name, for
+          those that were made shareable.
+        type: object
+      sharing:
+        description: Sharing is false when this server cannot share collections.
+        type: boolean
       user_groups:
         additionalProperties:
           $ref: '#/definitions/schema.CollectionGroup'
@@ -8609,6 +9143,15 @@ definitions:
         items:
           $ref: '#/definitions/schema.CollectionHit'
         type: array
+    type: object
+  schema.CollectionShare:
+    properties:
+      resource_id:
+        description: ResourceID names the collection in /api/shares/collection.
+        type: string
+      shared_with:
+        description: SharedWith counts the grants, the one to everyone included.
+        type: integer
     type: object
   schema.CollectionSource:
     properties:
@@ -9253,6 +9796,81 @@ definitions:
         type: number
       "y":
         type: number
+    type: object
+  schema.FolderGrant:
+    properties:
+      displayName:
+        type: string
+      role:
+        type: string
+      userId:
+        type: string
+    type: object
+  schema.FolderGrantList:
+    properties:
+      grants:
+        items:
+          $ref: '#/definitions/schema.FolderGrant'
+        type: array
+      id:
+        type: integer
+      name:
+        type: string
+      path:
+        type: string
+    type: object
+  schema.FolderGrantRequest:
+    properties:
+      role:
+        type: string
+    type: object
+  schema.FolderShare:
+    properties:
+      everyone:
+        description: Everyone is true when the folder is shared with every account.
+        type: boolean
+      id:
+        description: ID is the folder's stable ID in the sharing routes.
+        type: integer
+      name:
+        type: string
+      path:
+        description: Path is the folder's path in your home, for example /Projects.
+        type: string
+      sharedWith:
+        description: SharedWith counts the grants, the one to every account included.
+        type: integer
+    type: object
+  schema.FolderShareList:
+    properties:
+      folders:
+        items:
+          $ref: '#/definitions/schema.FolderShare'
+        type: array
+      sharing:
+        description: |-
+          Sharing is false when folders cannot be shared on this server
+          (local-owner mode, no accounts, files off).
+        type: boolean
+    type: object
+  schema.FolderSharePathRequest:
+    properties:
+      path:
+        type: string
+    type: object
+  schema.FolderShareUser:
+    properties:
+      displayName:
+        type: string
+      id:
+        type: string
+    type: object
+  schema.FolderShareUserList:
+    properties:
+      users:
+        items:
+          $ref: '#/definitions/schema.FolderShareUser'
+        type: array
     type: object
   schema.ForecastRequest:
     properties:
@@ -11027,8 +11645,34 @@ definitions:
           classifier-side confidence signal).
         type: number
     type: object
+  schema.SharedCollection:
+    properties:
+      everyone:
+        description: Everyone says that the role comes from the grant to every account.
+        type: boolean
+      name:
+        description: |-
+          Name is the name to use in the other calls: the collection's own name,
+          or shared:<id> when that name is taken.
+        type: string
+      owner:
+        description: Owner is the display name of the person who shared it.
+        type: string
+      role:
+        description: Role is viewer (search and read) or editor (also add and remove
+          entries).
+        type: string
+      title:
+        description: Title is the collection's own name.
+        type: string
+    type: object
   schema.SharedFolder:
     properties:
+      everyone:
+        description: |-
+          Everyone is true when you reach a folder of someone's home only
+          through its grant to every account. Only in your own list.
+        type: boolean
       id:
         description: ID is the folder's stable ID. The shared pages use it as folder_id.
         type: integer
@@ -11044,6 +11688,12 @@ definitions:
           own list.
         type: string
       name:
+        type: string
+      owner:
+        description: |-
+          Owner is the display name of the person who shared a folder of their
+          own home with you. Such a folder has no path: it would name the
+          owner's account. Only in your own list.
         type: string
       pages:
         description: Pages is how many pages (pages/<name>/index.html) the folder
@@ -12043,6 +12693,11 @@ definitions:
         type: string
       sample_rate:
         type: integer
+      sha256:
+        description: |-
+          SHA256 is set only by a check of a clip held in memory (the voice_profile
+          tool before a person confirms); the store does not fill it.
+        type: string
       size_bytes:
         type: integer
     type: object
@@ -12050,6 +12705,11 @@ definitions:
     properties:
       audio:
         $ref: '#/definitions/voiceprofile.AudioMetadata'
+      can_delete:
+        description: |-
+          CanDelete tells the caller whether it may delete the profile. It is
+          worked out for each caller (see Viewer) and never stored.
+        type: boolean
       consent_confirmed_at:
         type: string
       created_at:
@@ -12061,6 +12721,13 @@ definitions:
       language:
         type: string
       name:
+        type: string
+      owner_id:
+        description: |-
+          OwnerID is the user who created the profile. Empty means the profile
+          belongs to the instance: every user may use it and only an
+          administrator may delete it. Profiles stored before ownership existed
+          have no owner, so they stay instance-wide.
         type: string
       references:
         items:
@@ -12842,7 +13509,9 @@ paths:
         language maps) is returned in all languages in titles and descriptions. When
         the request names a language, each app that translates it also carries language,
         localizedTitle and localizedDescription, resolved per field with English as
-        the fallback; title and description never change.
+        the fallback; title and description never change. An add-on that declares
+        a setup text (what the person needs before it works) has setup, setups by
+        language and, with a language, localizedSetup.
       parameters:
       - description: Language tag to resolve the text for, such as it or pt-BR. Wins
           over Accept-Language. An unknown language gives the English text.
@@ -15594,7 +16263,8 @@ paths:
         GET /api/chats/skills list them for a chat that does not exist yet. A bad
         switch refuses the request and no chat is created.
       parameters:
-      - description: model and optional title, agent and switches
+      - description: model and optional title, agent (one of yours or one shared with
+          you) and switches
         in: body
         name: request
         required: true
@@ -15837,13 +16507,14 @@ paths:
         and search_collection), subagents (spawn_agent), triggers (propose_trigger,
         list_triggers, update_trigger and delete_trigger), memory (your notes: off
         makes the chat a private chat that neither reads nor saves memory) saved_agents
-        and history (search_chats and read_chat). A sub-agent follows the switches
-        of its parent chat. An opt-in group (opt_in in the list, such as saved_agents:
-        list_agents and the agent argument of spawn_agent) is off until on names it;
-        on replaces the earlier list of opt-in groups that are on, and an opt-in group
-        in off is ignored. Omit on to keep it. A switch never adds what the administrator
-        has off or the user may not use. The next turn of the chat gets the tools
-        that are on.'
+        and history (search_chats and read_chat), localai_client (the LocalAI client
+        tools) and localai_admin (the LocalAI admin tools: opt-in, administrators
+        only). A sub-agent follows the switches of its parent chat. An opt-in group
+        (opt_in in the list, such as saved_agents: list_agents and the agent argument
+        of spawn_agent) is off until on names it; on replaces the earlier list of
+        opt-in groups that are on, and an opt-in group in off is ignored. Omit on
+        to keep it. A switch never adds what the administrator has off or the user
+        may not use. The next turn of the chat gets the tools that are on.'
       parameters:
       - description: conversation id
         in: path
@@ -16129,13 +16800,26 @@ paths:
         paused (the tool loop reached its step limit, chats_max_iterations; steps
         is the limit), goal (the chat''s goal changed; text is its state, empty when
         cleared: read the chat again), files and loops (the loops of the chat changed;
-        read GET /api/chats/{id}/loops). Events are live only; read the transcript
-        for what came before.'
+        read GET /api/chats/{id}/loops). The events of a running turn carry an id
+        ("<run>.<n>"). Send the last id back as the Last-Event-ID header or the after
+        query parameter to get the events you missed, then the live ones. A "resync"
+        event means the server cannot give them (the id is of another run, is too
+        old, or the server that runs the turn is gone or does not answer): read the
+        transcript, and go on from the id of the resync event. Without an id the stream
+        starts from now; read the transcript for what came before.'
       parameters:
       - description: conversation id
         in: path
         name: id
         required: true
+        type: string
+      - description: resume after this event id
+        in: query
+        name: after
+        type: string
+      - description: resume after this event id (sent by a browser when it reconnects)
+        in: header
+        name: Last-Event-ID
         type: string
       produces:
       - text/event-stream
@@ -16146,6 +16830,10 @@ paths:
             $ref: '#/definitions/schema.ChatsEvent'
         "404":
           description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "429":
+          description: The user has 8 event streams open on this chat on this server
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Stream a chat's events.
@@ -16797,7 +17485,8 @@ paths:
         "409":
           description: A turn is running for a command, or the saved agent's folder
             is missing (agent_folder_missing), or its complete file access exceeds
-            the folder limit (agent_folder_limit)
+            the folder limit (agent_folder_limit), or the saved agent of another person
+            is no longer shared with you (agent_not_shared)
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Send a message to a chat.
@@ -16917,12 +17606,13 @@ paths:
       - chats
   /api/chats/{id}/resume:
     post:
-      description: Starts a new turn that goes on from where the last one failed.
-        The transcript stays as it is, with the messages, tool calls and results of
-        the failed turn and the reason at its end; the model keeps its own state,
-        so a tool call that has its result is not made again. Messages that wait for
-        the chat go first. When the chat is not at a failed turn, or a turn runs,
-        nothing starts and started is false, so a second click is harmless.
+      description: Starts a new turn that goes on from where the last one failed or
+        was interrupted by a restart. The transcript stays as it is, with the messages,
+        tool calls and results of the failed turn and the reason at its end; the model
+        keeps its own state, so a tool call that has its result is not made again.
+        Messages that wait for the chat go first. When the chat is not at a failed
+        or interrupted turn, or a turn runs, nothing starts and started is false,
+        so a second click is harmless.
       parameters:
       - description: conversation id
         in: path
@@ -17025,12 +17715,15 @@ paths:
         does not offer is absent, and shell is listed even when nothing can run commands,
         not usable with the reason), add-ons, the MCP servers of the chat's model
         and your MCP connectors, each with the chat's switch and whether it can be
-        used now (with the reason when not). A chat with a saved agent lists only
-        what the agent grants. memory says whether memory works in the chat and, when
-        it does not, the level that turned it off (code, blocked_by) and where to
-        turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch)
-        that an installed add-on replaces but that no add-on serves in this chat now,
-        with the add-on and whether the built-in serves instead.
+        used now (with the reason when not). deferred is true on a group whose tools
+        the chat loads on demand behind tool_search, tool_describe and tool_call (the
+        localai_client and localai_admin groups, see the setting chats_tool_search).
+        A chat with a saved agent lists only what the agent grants. memory says whether
+        memory works in the chat and, when it does not, the level that turned it off
+        (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in
+        tools (bash, web_search, web_fetch) that an installed add-on replaces but
+        that no add-on serves in this chat now, with the add-on and whether the built-in
+        serves instead.
       parameters:
       - description: conversation id
         in: path
@@ -17437,7 +18130,8 @@ paths:
   /api/chats/admin/tools:
     get:
       description: 'The built-in tools of the chats (bash, web_search, web_fetch,
-        as this server registers them): label, the per-chat switch group, the runtime
+        list_agents and the two LocalAI groups localai_client and localai_admin, as
+        this server registers them): label, the per-chat switch group, the runtime
         setting that switches each off and the ones that configure it, whether it
         is on, whether it only reads and whether an add-on may replace it, who serves
         it now (builtin, an add-on''s ID, or empty), the add-ons that replace it (oldest
@@ -17574,12 +18268,18 @@ paths:
       - chats
   /api/chats/agents:
     get:
+      description: 'Your own agents come first, then the agents other people shared
+        with you. access says which is which: role owner for yours (with sharedWith,
+        the number of grants), use or viewer for a shared one (with owner, the name
+        of the person who shared it). A shared agent carries its full definition only
+        for viewer, and never the owner''s connections, resources or folders: you
+        run it with your own.'
       responses:
         "200":
-          description: Your agents, sorted by name
+          description: Your agents, sorted by name, then the shared ones
           schema:
             $ref: '#/definitions/schema.ChatsAgentList'
-      summary: List your saved agents.
+      summary: List your saved agents and the agents shared with you.
       tags:
       - chats
     post:
@@ -17652,6 +18352,8 @@ paths:
       tags:
       - chats
     get:
+      description: An agent shared with you carries its full definition only for the
+        role viewer, and never the owner's connections, resources or folders.
       parameters:
       - description: the agent's id
         in: path
@@ -17664,10 +18366,11 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsAgent'
         "404":
-          description: No such conversation, or it is another user's
+          description: No such agent, or it is another user's and not shared with
+            you
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
-      summary: Read a saved agent.
+      summary: Read a saved agent of yours or one shared with you.
       tags:
       - chats
     put:
@@ -17732,6 +18435,62 @@ paths:
       summary: Export a saved agent.
       tags:
       - chats
+  /api/chats/agents/{id}/needs:
+    get:
+      description: 'For your agent or an agent shared with you: each thing the agent
+        uses, by label, with its state for you. ok: you have it. missing: it is not
+        shared with you (ask the owner, or use your own). unavailable: this server
+        or your account does not offer it. ask: the agent asks for a network (kind
+        network) or a group of built-in tools (kind tool-group) that your chat starts
+        without; you may turn it on in the chat. Nothing else about a thing you cannot
+        see is returned.'
+      parameters:
+      - description: the agent's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: What the agent needs
+          schema:
+            $ref: '#/definitions/schema.ChatsAgentNeedList'
+        "404":
+          description: No such agent, or it is not shared with you
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List what an agent needs and whether you have it.
+      tags:
+      - chats
+  /api/chats/agents/{id}/references:
+    get:
+      description: The add-ons, collections, skills, folders, connections, add-on
+        resources, MCP servers and built-in grants the agent names, with a label each.
+        share says how a reference can be shared with a person you share the agent
+        with; without it the person needs access of their own. Only the owner may
+        call it.
+      parameters:
+      - description: the agent's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The references
+          schema:
+            $ref: '#/definitions/schema.ChatsAgentReferenceList'
+        "403":
+          description: The agent is shared with you, not yours
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such agent
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List what your agent uses.
+      tags:
+      - chats
   /api/chats/agents/{id}/runs:
     get:
       description: 'Lists your chats that ran with the agent, newest first: the ones
@@ -17753,6 +18512,39 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsAgentHistory'
       summary: Show what an agent has run.
+      tags:
+      - chats
+  /api/chats/agents/{id}/share:
+    post:
+      description: 'Makes the agent''s record in the sharing API on the first call
+        and returns it on every call. Share the agent with /api/shares/agent/{id}/grants/{principal},
+        roles use and viewer, or @everyone. Sharing the agent does not share what
+        it uses: share each collection or connection by itself. Only the owner may
+        call it.'
+      parameters:
+      - description: the agent's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The sharing ID
+          schema:
+            $ref: '#/definitions/schema.ChatsAgentShareRef'
+        "403":
+          description: The agent is shared with you, not yours
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such agent
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Agents cannot be shared on this server
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get the sharing ID of your agent.
       tags:
       - chats
   /api/chats/agents/addons/{addon}/resources:
@@ -18015,7 +18807,11 @@ paths:
       description: 'A binding connects a bot of a messaging platform (served by a
         connector add-on, such as Telegram) to one of your saved agents. A person
         who messages the bot talks to that agent, in a conversation of their own,
-        as you: your quota, your model allowlist and only the agent''s grants apply.'
+        as you: your quota, your model allowlist and only the agent''s grants apply.
+        shared lists the bindings that other people shared with you, with their name,
+        state and owner only: you may use them in your chats and agents and nothing
+        else. sharing is false when this server cannot share bindings (no named accounts).
+        A binding you shared carries share, with its ID in /api/shares/connection.'
       responses:
         "200":
           description: Your bindings, sorted by name
@@ -18316,6 +19112,37 @@ paths:
       summary: Allow a sender of a connector binding.
       tags:
       - chats
+  /api/chats/connectors/{id}/share:
+    post:
+      description: 'Returns the ID of the binding in the sharing API: the owner then
+        lists, grants and revokes access with /api/shares/connection/{resource_id}/grants.
+        The only role is use, and a binding is never shared with @everyone. A grantee
+        may use the binding in their chats and agents, and never reads its token or
+        its settings. Only the owner may call it: any other caller gets 404, as for
+        a binding that does not exist. 409 sharing_disabled when this server cannot
+        share bindings.'
+      parameters:
+      - description: the binding's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The share of the binding
+          schema:
+            $ref: '#/definitions/schema.ChatsConnectorShare'
+        "404":
+          description: Not your binding
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Sharing is not available on this server
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Make a connector binding shareable.
+      tags:
+      - chats
   /api/chats/connectors/{id}/test:
     post:
       description: Asks the platform, through its add-on, for the bot of the stored
@@ -18341,8 +19168,10 @@ paths:
         with the add-on page that adds and edits their bindings. Empty when no connector
         add-on is installed. A kind whose manifest translates its text carries titles
         and descriptions by language and, when the request names a language it translates
-        (lang, else Accept-Language), language, localized_title and localized_description
-        with English as the fallback for each field; title and description stay English.
+        (lang, else Accept-Language), language, localized_title, localized_description
+        and localized_setup with English as the fallback for each field; title, description
+        and setup stay English. A kind that declares a setup text (what the person
+        needs before a binding works) also has setup, and setups by language.
       parameters:
       - description: Language tag to resolve the kind text and the capability text
           for, such as it or pt-BR. Wins over Accept-Language. An unknown language
@@ -18575,6 +19404,51 @@ paths:
       summary: Upload a file.
       tags:
       - chats
+  /api/chats/files/extract:
+    post:
+      description: 'Reads a zip, tar (also tar.gz, tar.bz2, tar.xz, tar.zst and others)
+        or, when an administrator allows it, 7z or RAR archive from your files and
+        writes its files into a folder, as one change set that undo takes back whole.
+        Without dest the folder is new, next to the archive, named like it without
+        the extension ("name 2" when taken). A name that is taken in dest keeps the
+        existing file; the new content is saved next to it as a copy and listed in
+        conflicts. Symbolic links, hard links and devices are skipped and listed.
+        Nested archives are written as plain files. The limits (bytes, entries, size
+        of one file, time) are counted on what is really read, and an archive over
+        a limit writes nothing: 413, or 408 for the time limit. A path that leaves
+        the destination refuses the archive (400).'
+      parameters:
+      - description: the archive and, optionally, the folder
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsExtractRequest'
+      responses:
+        "200":
+          description: The folder, the change set and what was skipped
+          schema:
+            $ref: '#/definitions/schema.ChatsExtractResponse'
+        "400":
+          description: The request is not valid, or the archive is damaged or not
+            supported
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "408":
+          description: The extraction ran past its time limit
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: dest is a file, or files are off
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: The archive expands past a limit
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Extract an archive into a folder of your files.
+      tags:
+      - chats
   /api/chats/files/folders:
     post:
       parameters:
@@ -18631,6 +19505,12 @@ paths:
             $ref: '#/definitions/schema.ChatsFile'
         "400":
           description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: A shared folder, or a folder with a shared folder in it, would
+            move into another home or into a folder that LocalAI manages (LocalAI,
+            Chats, Memory, pages or a .skills folder). Stop sharing it first.
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Move or rename a file or folder.
@@ -18712,6 +19592,222 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Search your files.
+      tags:
+      - chats
+  /api/chats/files/shares:
+    get:
+      description: sharing is false when folders cannot be shared on this server (local-owner
+        mode, no accounts). Each folder has its path in your home, the number of grants
+        and whether one of them is to every account. Read-only. No MCP tool maps to
+        this route.
+      responses:
+        "200":
+          description: Your shared folders, by path
+          schema:
+            $ref: '#/definitions/schema.FolderShareList'
+        "409":
+          description: Files are off on this server
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the folders of your home that you share.
+      tags:
+      - chats
+    post:
+      description: Returns the folder's ID for the other sharing routes and how many
+        it is shared with. A folder can be shared when it is inside your home, is
+        not the home itself and is not LocalAI/ or Chats/ or inside them. Any other
+        path gets 403, a missing one too. No MCP tool maps to this route.
+      parameters:
+      - description: The folder's path in your home
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FolderSharePathRequest'
+      responses:
+        "200":
+          description: The folder
+          schema:
+            $ref: '#/definitions/schema.FolderShare'
+        "403":
+          description: A folder you cannot share, or no such folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Type sharing_disabled, or files are off
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Find a folder of your home to share it.
+      tags:
+      - chats
+  /api/chats/files/shares/{id}/grants:
+    get:
+      description: Each grant has the account ID (or @everyone), the display name
+        (empty for @everyone) and the role read or write. Accepted only from your
+        own browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder
+        ID, no API key, no tool, agent or MCP marker). A folder you cannot share and
+        a missing one get the same 403. No MCP tool maps to this route.
+      parameters:
+      - description: Folder ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: The grants
+          schema:
+            $ref: '#/definitions/schema.FolderGrantList'
+        "403":
+          description: Not your own browser session, a folder you cannot share, or
+            no such folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Type sharing_disabled
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List who a folder of your home is shared with (owner, UI only).
+      tags:
+      - chats
+  /api/chats/files/shares/{id}/grants/{principal}:
+    delete:
+      description: Removes the grant of the principal, an account ID or @everyone.
+        A person's own grant and the grant to everyone are separate. The grantee loses
+        the folder at their next file call on every frontend. Their running chats
+        that hold it on the frontend that serves this call are stopped before the
+        answer; the other frontends get the request on the chat bus and stop theirs
+        within seconds. Accepted only from your own browser session (same-origin fetch,
+        X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP
+        marker). Safe to repeat. No MCP tool maps to this route.
+      parameters:
+      - description: Folder ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Account ID, or @everyone
+        in: path
+        name: principal
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The grants after the change
+          schema:
+            $ref: '#/definitions/schema.FolderGrantList'
+        "403":
+          description: Not your own browser session, a folder you cannot share, or
+            no such folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Type sharing_disabled
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Stop sharing a folder of your home (owner, UI only).
+      tags:
+      - chats
+    put:
+      description: 'principal is the account ID that the user picker returned, an
+        active named account, or @everyone for every account, the ones created later
+        too. role is read or write; write lets them change and delete what is in the
+        folder. Lowering write to read takes effect at their next file call on every
+        frontend. Their running chats that hold the folder on the frontend that serves
+        this call are stopped before the answer; the other frontends get the request
+        on the chat bus and stop theirs within seconds. Accepted only from your own
+        browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder
+        ID, no API key, no tool, agent or MCP marker). Safe to repeat. No MCP tool
+        maps to this route: sharing is never a tool.'
+      parameters:
+      - description: Folder ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Account ID, or @everyone
+        in: path
+        name: principal
+        required: true
+        type: string
+      - description: The role
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FolderGrantRequest'
+      responses:
+        "200":
+          description: The grants after the change
+          schema:
+            $ref: '#/definitions/schema.FolderGrantList'
+        "400":
+          description: A role that is not read or write, or a principal that is not
+            an active account
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Not your own browser session, a folder you cannot share, or
+            no such folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Type sharing_disabled, or a limit
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Share a folder of your home, or change the role (owner, UI only).
+      tags:
+      - chats
+  /api/chats/files/shares/{id}/users:
+    get:
+      description: 'The same picker as the other kinds of sharing: active named accounts
+        by a prefix of the display name, 3 to 64 characters, at most 20 results, never
+        you. A prefix of an address finds nobody; an account without a display name
+        is found by its whole address only and comes back with an empty display name.
+        Each result is an account ID and a display name and nothing else. Each person
+        may search 20 times at once and then once every 2 seconds; a search over that
+        rate answers 429 rate_limited. Accepted only from your own browser session
+        (same-origin fetch, X-LocalAI-Confirm equal to the folder ID, no API key,
+        no tool, agent or MCP marker). No MCP tool maps to this route.'
+      parameters:
+      - description: Folder ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Display name prefix, or a whole address
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: At most this many results, up to 20
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: Matching people
+          schema:
+            $ref: '#/definitions/schema.FolderShareUserList'
+        "400":
+          description: The search text is not 3 to 64 characters
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Not your own browser session, a folder you cannot share, or
+            no such folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Type sharing_disabled
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "429":
+          description: 'Type rate_limited: too many searches'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Search the people you can share a folder of your home with (owner,
+        UI only).
       tags:
       - chats
   /api/chats/files/trash:
@@ -20506,13 +21602,13 @@ paths:
       - chats
   /api/chats/wellknown/{name}:
     get:
-      description: name is persona, user, shortcuts, home, ui or widget-data. The
-        file is validated against its JSON Schema. When it is not valid, data holds
-        its last valid version from the history and errors says what is wrong. A missing
-        file is an empty object with exists false. widget-data needs path, the data
-        file of a Home widget.
+      description: name is persona, user, shortcuts, setups, home, ui or widget-data.
+        The file is validated against its JSON Schema. When it is not valid, data
+        holds its last valid version from the history and errors says what is wrong.
+        A missing file is an empty object with exists false. widget-data needs path,
+        the data file of a Home widget.
       parameters:
-      - description: persona, user, shortcuts, home, ui or widget-data
+      - description: persona, user, shortcuts, setups, home, ui or widget-data
         in: path
         name: name
         required: true
@@ -20545,7 +21641,7 @@ paths:
         not exist): when the file changed since, the answer is 409 with what it holds
         now. Without If-Match the write is not checked.'
       parameters:
-      - description: persona, user, shortcuts, home, ui or widget-data
+      - description: persona, user, shortcuts, setups, home, ui or widget-data
         in: path
         name: name
         required: true
@@ -20591,7 +21687,7 @@ paths:
         GET .../versions. Either way it is a new change: the revert itself can be
         undone, and the newer version stays in the list.'
       parameters:
-      - description: persona, user, shortcuts, home, ui or widget-data
+      - description: persona, user, shortcuts, setups, home, ui or widget-data
         in: path
         name: name
         required: true
@@ -20623,7 +21719,7 @@ paths:
         the assistant reads. Properties may carry x-ui hints for the settings pages
         (widget, hidden).
       parameters:
-      - description: persona, user, shortcuts, home, ui or widget-data
+      - description: persona, user, shortcuts, setups, home, ui or widget-data
         in: path
         name: name
         required: true
@@ -20649,7 +21745,7 @@ paths:
         user or agent, and the chat that wrote it), and the content when it matches
         the schema. POST .../revert {rev} writes one back.'
       parameters:
-      - description: persona, user, shortcuts, home, ui or widget-data
+      - description: persona, user, shortcuts, setups, home, ui or widget-data
         in: path
         name: name
         required: true
@@ -20676,7 +21772,15 @@ paths:
       - chats
   /api/collections:
     get:
-      description: 'The knowledge-base collections of the caller. An administrator
+      description: 'The knowledge-base collections of the caller. shared lists the
+        collections other people shared with the caller: name is the name to use in
+        the other calls (the collection''s own name, or shared:<id> when the caller
+        has a collection of that name or two people share one under it), title its
+        own name, owner the display name of the person who shared it and role viewer
+        (search and read) or editor (also add and remove entries). shares gives, for
+        each of the caller''s own collections that was made shareable, its resource_id
+        in /api/shares/collection and shared_with, the number of grants. sharing is
+        false when this server cannot share collections (no named accounts). An administrator
         can add all_users=true to also get the other users'' collections in user_groups.
         embedding_model names the model that indexes and searches the collections
         (collections_embedding_model), and embedding_model_installed says whether
@@ -20735,7 +21839,9 @@ paths:
       - collections
   /api/collections/{name}/entries-raw/{entry}:
     get:
-      description: Serves the file as it was uploaded.
+      description: 'Serves the file as it was uploaded. For a collection shared with
+        the caller the download runs under the share: a revocation or a lowering stops
+        it.'
       parameters:
       - description: Collection name
         in: path
@@ -20871,6 +21977,40 @@ paths:
       summary: Search a collection.
       tags:
       - collections
+  /api/collections/{name}/share:
+    post:
+      description: 'Returns the ID of the collection in the sharing API: the owner
+        then lists, grants and revokes access with /api/shares/collection/{resource_id}/grants.
+        The roles are viewer (search and read the entries) and editor (also add and
+        remove entries); a collection may be shared with @everyone. Only the owner
+        may call it: another caller gets 404, as for a collection that does not exist.
+        409 sharing_disabled when this server cannot share collections (no named accounts).'
+      parameters:
+      - description: Collection name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The share of the collection
+          schema:
+            $ref: '#/definitions/schema.CollectionShare'
+        "404":
+          description: Collection not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Sharing is not available on this server
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Make a collection shareable.
+      tags:
+      - collections
   /api/collections/{name}/sources:
     delete:
       parameters:
@@ -20900,6 +22040,8 @@ paths:
       tags:
       - collections
     get:
+      description: 'Only the owner may list the sources: a source URL can carry a
+        credential. A person the collection is shared with gets 403 whatever the role.'
       parameters:
       - description: Collection name
         in: path
@@ -20911,6 +22053,12 @@ paths:
           description: The sources
           schema:
             $ref: '#/definitions/schema.CollectionSources'
+        "403":
+          description: The collection is shared with the caller, who is not its owner
+          schema:
+            additionalProperties:
+              type: string
+            type: object
         "404":
           description: Collection not found
           schema:
@@ -22027,6 +23175,296 @@ paths:
       summary: Classify a prompt against a router model's policies (decision oracle)
       tags:
       - router
+  /api/shares/{kind}:
+    get:
+      description: Returns the resources of one kind that the caller owns (owned)
+        and those shared with the caller (shared), at most 100 of each (truncated
+        says more exist). Each one has the caller's own role, which is owner or a
+        role the kind grants; for a shared one the owner's display name, and everyone
+        true when the role comes from a grant to every account; for an owned one the
+        number of grants (sharedWith). The answer also carries the roles the kind
+        grants and whether it may be shared with every account. Resources of other
+        people that are not shared with the caller are never listed, whatever the
+        caller's installation role. An unknown kind gets the same denial as a resource
+        the caller may not see. Local-owner mode has no sharing and answers 409 sharing_disabled.
+        Needs a named account, not the addons feature; a kind may name a feature of
+        its own. Read-only. API keys may call it. No MCP tool maps to this route.
+      parameters:
+      - description: Resource kind, for example example:note
+        in: path
+        name: kind
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Owned and shared resources of the kind
+          schema:
+            $ref: '#/definitions/gateway.ShareIndex'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: A feature the kind names is denied, or unknown kind
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: Type sharing_disabled
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: The owner is unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: List the shared resources of a kind
+      tags:
+      - Sharing
+  /api/shares/{kind}/{resourceId}/grants:
+    get:
+      description: 'Returns the grants of the whole resource: the immutable account
+        ID, the display name and the role of each grantee. A grant to every account
+        has the user ID @everyone and no display name. Only the owner of the resource
+        may read it; installation administrators and grantees get the same denial
+        as for an unknown resource or an unknown kind. Local-owner mode answers 409
+        sharing_disabled. Accepted only from the owner''s own browser session (same-origin
+        fetch, X-LocalAI-Confirm equal to the resource ID, no API key, no tool, agent
+        or MCP marker). No MCP tool maps to this route.'
+      parameters:
+      - description: Resource kind
+        in: path
+        name: kind
+        required: true
+        type: string
+      - description: Resource ID
+        in: path
+        name: resourceId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Grants of the resource
+          schema:
+            $ref: '#/definitions/gateway.ShareList'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface, a feature the kind names denied, not the
+            owner, unknown kind or unknown resource
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: Type sharing_disabled
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: The owner is unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: List who a resource is shared with (owner, UI only)
+      tags:
+      - Sharing
+  /api/shares/{kind}/{resourceId}/grants/{principal}:
+    delete:
+      description: 'Removes the grant of the principal, an account ID or @everyone.
+        The other grant a user may hold stays: revoking @everyone leaves the users''
+        own grants, and revoking a user leaves what @everyone holds. It returns only
+        after the admitted work that the removed grant alone allowed stopped; a drain
+        that did not finish in the bound is a 503 and the revocation is already effective
+        for new work. Local-owner mode answers 409 sharing_disabled. Accepted only
+        from the owner''s own browser session (same-origin fetch, X-LocalAI-Confirm
+        equal to the resource ID, no API key, no tool, agent or MCP marker). Safe
+        to repeat. No MCP tool maps to this route.'
+      parameters:
+      - description: Resource kind
+        in: path
+        name: kind
+        required: true
+        type: string
+      - description: Resource ID
+        in: path
+        name: resourceId
+        required: true
+        type: string
+      - description: Account ID of the grantee, or @everyone
+        in: path
+        name: principal
+        required: true
+        type: string
+      - description: Optional operation ID, returned with outcome_unknown
+        in: query
+        name: operationId
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Grants after the change
+          schema:
+            $ref: '#/definitions/gateway.ShareList'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface, a feature the kind names denied, not the
+            owner, unknown kind or unknown resource
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: Type sharing_disabled
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Unavailable, or type outcome_unknown (with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Stop sharing a resource with a user or with everyone (owner, UI only)
+      tags:
+      - Sharing
+    put:
+      consumes:
+      - application/json
+      description: 'Gives the principal one of the roles the kind grants (for example
+        use or manage) on the whole resource. The principal is the immutable account
+        ID the user picker returned, an active named account that the kind must accept
+        as a grantee (it does not need the addons feature), or @everyone on a kind
+        that allows it: every active named account, accounts created later included.
+        The owner role cannot be granted. A user''s own grant and the grant to everyone
+        add up and are changed and revoked apart. Lowering a role stops the grantee''s
+        admitted work that the role no longer allows before it is acknowledged. Local-owner
+        mode answers 409 sharing_disabled. Accepted only from the owner''s own browser
+        session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID, no
+        API key, no tool, agent or MCP marker). Safe to repeat; after outcome_unknown
+        repeat the same call. No MCP tool maps to this route: sharing is never a tool.'
+      parameters:
+      - description: Resource kind
+        in: path
+        name: kind
+        required: true
+        type: string
+      - description: Resource ID
+        in: path
+        name: resourceId
+        required: true
+        type: string
+      - description: Account ID of the grantee, or @everyone
+        in: path
+        name: principal
+        required: true
+        type: string
+      - description: Role
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.SetShareRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Grants after the change
+          schema:
+            $ref: '#/definitions/gateway.ShareList'
+        "400":
+          description: Malformed body, or type invalid_request for a role the kind
+            does not grant
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface, a feature the kind names denied, not the
+            owner, unknown kind or resource, or a principal that cannot be granted
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: Type sharing_disabled
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Unavailable, or type outcome_unknown (with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Share a resource with a user or with everyone (owner, UI only)
+      tags:
+      - Sharing
+  /api/shares/{kind}/{resourceId}/users:
+    get:
+      description: Finds active named accounts by a prefix of the display name, 3
+        to 64 characters, at most 20 results, whether or not they may use add-ons,
+        and keeps only those the kind accepts as grantees. A prefix of an address
+        finds nobody; an account without a display name is found by its whole address
+        only and comes back with an empty display name. Each result is an immutable
+        account ID and a display name and nothing else. Each person may search 20
+        times at once and then once every 2 seconds; a search over that rate answers
+        429 rate_limited. Only the owner of the resource may search; the owner and
+        the caller are left out. Local-owner mode answers 409 sharing_disabled. Accepted
+        only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm
+        equal to the resource ID, no API key, no tool, agent or MCP marker). No MCP
+        tool maps to this route.
+      parameters:
+      - description: Resource kind
+        in: path
+        name: kind
+        required: true
+        type: string
+      - description: Resource ID
+        in: path
+        name: resourceId
+        required: true
+        type: string
+      - description: Display name prefix, or a whole address
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: At most this many results, up to 20
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Matching people
+          schema:
+            $ref: '#/definitions/gateway.UserList'
+        "400":
+          description: Query too short or too long
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface, a feature the kind names denied, not the
+            owner, unknown kind or unknown resource
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: Type sharing_disabled
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "429":
+          description: 'Type rate_limited: too many searches'
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: The owner is unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Search the people a resource can be shared with (owner, UI only)
+      tags:
+      - Sharing
   /api/traces:
     get:
       description: Returns a bounded, newest-first page of captured API exchange traces.
@@ -22113,8 +23551,9 @@ paths:
       - monitoring
   /api/voice-profiles:
     get:
-      description: List saved voice-cloning references without exposing filesystem
-        paths.
+      description: List the saved voice-cloning references the caller may use (their
+        own and the instance-wide ones; an administrator sees all), without exposing
+        filesystem paths.
       produces:
       - application/json
       responses:
@@ -22135,7 +23574,9 @@ paths:
       - multipart/form-data
       - application/json
       description: Save a consent-confirmed PCM WAV reference clip and exact transcript
-        for voice cloning. Admin-only.
+        for voice cloning. Needs the audio speech feature. The profile belongs to
+        the caller (an administrator creates instance-wide profiles); a user who is
+        not an administrator may own at most 20.
       parameters:
       - description: Display name
         in: formData
@@ -22177,6 +23618,14 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The per-user profile limit is reached
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "413":
           description: Request Entity Too Large
           schema:
@@ -22187,7 +23636,9 @@ paths:
       - voice-profiles
   /api/voice-profiles/{id}:
     delete:
-      description: Permanently remove a saved voice-cloning profile. Admin-only.
+      description: Permanently remove a saved voice-cloning profile. The owner or
+        an administrator may delete it; an instance-wide profile only an administrator.
+        The profile of another user answers 404.
       parameters:
       - description: Voice profile UUID
         in: path
@@ -22197,6 +23648,10 @@ paths:
       responses:
         "204":
           description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: Not Found
           schema:

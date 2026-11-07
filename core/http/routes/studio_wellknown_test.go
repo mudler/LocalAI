@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/wellknown"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -83,6 +84,25 @@ var _ = Describe("Chats well-known files endpoints", func() {
 		Expect(s.do("alice", http.MethodGet, "/api/chats/wellknown/home", nil).Body.String()).To(ContainSubstring(`"exists":false`))
 	})
 
+	It("writes and reads the setups of a user and refuses a name that is too long", func() {
+		good := map[string]any{"values": map[string]any{
+			"default": "coding",
+			"setups":  []any{map[string]any{"id": "coding", "name": "Coding", "model": "m1", "effort": "low"}},
+		}, "replace": true}
+		rec := put("alice", "setups", "", good)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(rec.Header().Get("ETag")).NotTo(BeEmpty())
+		Expect(decodeJSON(rec)["data"].(map[string]any)["setups"]).To(HaveLen(1))
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/wellknown/setups", nil))).To(HaveKeyWithValue("path", "/LocalAI/setups.json"))
+
+		long := map[string]any{"values": map[string]any{
+			"setups": []any{map[string]any{"id": "x", "name": strings.Repeat("n", 61)}},
+		}, "replace": true}
+		rec = put("alice", "setups", "", long)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+		Expect(decodeJSON(rec)["errors"]).NotTo(BeEmpty())
+	})
+
 	It("shows a broken file's last good version and reverts to it", func() {
 		Expect(put("alice", "shortcuts", "", map[string]any{"values": map[string]any{"shortcuts": []any{map[string]any{"label": "Plan", "prompt": "Plan my day"}}}}).Code).To(Equal(http.StatusOK))
 		up := s.do("alice", http.MethodPut, "/api/chats/files/content?path=/LocalAI/shortcuts.json&overwrite=1", `{"shortcuts": "oops"}`)
@@ -142,8 +162,24 @@ var _ = Describe("Chats well-known files endpoints", func() {
 		Expect(s.do("alice", http.MethodGet, "/api/chats/wellknown/widget-data", nil).Code).To(Equal(http.StatusBadRequest))
 	})
 
+	It("does not let widget data overwrite a settings file", func() {
+		rec := put("alice", "widget-data?path=/LocalAI/setups.json", "", map[string]any{"values": map[string]any{"items": []any{}}})
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+		Expect(s.do("alice", http.MethodGet, "/api/chats/wellknown/setups", nil).Body.String()).To(ContainSubstring(`"exists":false`))
+	})
+
+	It("answers a setups file with two setups of one id, in words", func() {
+		dup := map[string]any{"replace": true, "values": map[string]any{"setups": []any{
+			map[string]any{"id": "a", "name": "A"}, map[string]any{"id": "a", "name": "B"},
+		}}}
+		rec := put("alice", "setups", "", dup)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring("own id"))
+	})
+
 	It("serves the schema of each file and 404 for an unknown one", func() {
-		for _, n := range []string{"persona", "user", "shortcuts", "home", "ui", "widget-data"} {
+		for _, name := range wellknown.Names() {
+			n := string(name)
 			rec := s.do("alice", http.MethodGet, "/api/chats/wellknown/"+n+"/schema", nil)
 			Expect(rec.Code).To(Equal(http.StatusOK), n)
 			Expect(rec.Header().Get("Content-Type")).To(HavePrefix("application/schema+json"))

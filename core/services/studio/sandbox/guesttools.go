@@ -5,7 +5,7 @@ package sandbox
 // check fails when a program is missing. The Commands block of the prompt and
 // the Sandbox documentation name this list, so change it in all three places
 // together; the tests keep them equal.
-const GuestTools = "python3 (pandas, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl"
+const GuestTools = "python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl"
 
 // GuestToolsNote is the sentence of the Commands block (the prompt, not the
 // 400-character turn note) that tells the model which programs the sandbox

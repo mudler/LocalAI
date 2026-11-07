@@ -7,7 +7,7 @@ url = "/features/chats-connectors/"
 
 The Connectors page of the [chats](/features/chats/) (`/app/chats/connectors`, under **Agents** in the sidebar) lists the messaging bindings you made, and the MCP servers have a page of their own (**MCP connectors** in the sidebar, `/app/mcp-connectors`):
 
-- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram), the [Slack add-on](#slack) or the [Discord add-on](#discord) (the [GitHub add-on](#github) and the [Jellyfin add-on](#jellyfin) hold a token for your agents instead of carrying messages). This is the first half of this page.
+- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram), the [Slack add-on](#slack) or the [Discord add-on](#discord) (the [GitHub add-on](#github) and the [Jellyfin add-on](#jellyfin) and the [Mail add-on](#mail-imap-and-smtp) hold a token for your agents instead of carrying messages). This is the first half of this page.
 - An **MCP server** gives your chats and agents more tools. See [MCP servers](#mcp-servers).
 
 ## Connector add-ons
@@ -20,9 +20,13 @@ platform's API is spoken by an add-on that declares the `connector` capability (
 from the add-on gallery, and its page adds and edits the bindings of its platform.
 
 The Connectors page groups your bindings by add-on and links each group to the
-add-on's own page. With no connector add-on installed, the page says so and links
+add-on's own page. Each row has a state chip (**Running**, **Off** or **Needs attention**), the
+agent and who may write to it, and a switch that applies at once. **New connection** lists the installed
+platforms and opens the add form of the one you pick. With no connector add-on installed, the page says so and links
 to the gallery. `GET /api/chats/connectors/kinds` lists the platforms that a running
-add-on serves.
+add-on serves. A kind whose add-on declares a setup text also has `setup`, a short phrase
+such as "a bot token from @BotFather" that says what the person needs before a connection
+works (see [Setup text]({{%relref "features/addons#setup-text" %}})).
 
 A binding names the add-on that serves it. A binding made before connectors became
 add-ons names none, and belongs to the add-on of its kind: a Telegram binding keeps
@@ -68,6 +72,16 @@ a transport failure, since the platform may already have received it.
 Telegram's legacy binding resolution remains compatible with existing bindings.
 It is not a fallback for discovering other connector kinds or for owner outages.
 
+### The page of a connector add-on
+
+The page of a connector add-on (Telegram, Slack, Discord, GitHub and the others) looks like the MCP connectors page:
+
+- A **row** for each connection has a letter tile, the name, a state chip, one line of facts (the service, the agent and who may write to it), a **Test** button, a switch that turns it on or off at once, and a menu with **Edit**, **Share** (with accounts, see [Sharing a connection](#sharing-a-connection)) and **Delete**. A row that **Needs attention** shows why (no token saved, the add-on is not running, the same bot as another connection, or a failed test) and, when the cause is the token, a **Fix token** button in place of **Test**.
+- A click on a row opens a **pane** beside the list with the facts, the last test (kept in this browser, so it says "Not tested in this browser yet" until you test), the recent refusals and the senders of the bot, and **Remove**, **Share** (with accounts), **Edit** and **Test connection** at the foot.
+- **New** and **Edit** open a **side sheet** with one form in three sections: **Connection** (the name, the token, the agent and the fields of the add-on), **Who can talk to it** and **What it may do**. **Save and test** saves the connection and tests it at once. Closing the sheet over a change asks first.
+- **What it may do** has three presets. **Answer only** ticks no permission: the bot replies and nothing else. **Standard** ticks the usual set that the agent holds (what **Reset to the usual set** ticks) and never a sensitive permission. **Custom** shows the whole matrix of who can do what. A preset never turns on a sensitive permission. The replies, the files and the places the bot may post are behind **Replies, files and places**, and the check of what the form will do is behind **Check what it will do**.
+- The address `?new=1&agent=<agent id>` opens the add form at once, with that agent chosen and shown as fixed text. `?binding=<id>` opens the settings of that connection with its permissions in view.
+
 ## Telegram
 
 The Telegram add-on binds a bot to one of your [saved agents](/features/chats-agents/).
@@ -75,6 +89,10 @@ A person who messages the bot talks to that agent, in a conversation of their
 own, and the answer comes back in Telegram. The conversation is a
 [chat](/features/chats/) of yours: it uses your quota and your model allowlist,
 and you can open it in LocalAI.
+
+### LocalAI tools in a messaging chat
+
+The [LocalAI client tools]({{% relref "features/localai-assistant#tool-groups" %}}) (images, speech, transcription and so on) work in a messaging chat by default, within the permissions and model allowlist of the agent's owner. An agent can switch the group off with `localai_client` in `builtins_off`. The admin group is never offered there, whatever the agent says: the person who writes to the bot may not be the owner. Three actions are refused in a messaging chat with a plain error, because they read or change data of the owner that the sender must not reach: `voice_profile` with `delete`, and `identify` of `voice` and `face` (they search the registry of known people). `voice_profile` with `create` is refused too, because the person who confirms that the speaker agreed does it in Studio, not in a messaging chat.
 
 ### Set up a binding
 
@@ -152,7 +170,7 @@ The GitHub add-on lets your [saved agents](/features/chats-agents/) read reposit
 
 This connection does not listen for `@mentions` on GitHub yet. An agent works on GitHub only when you ask it in a chat.
 
-The agent field is optional. A connection without an agent shows **Credentials only** in the list: it holds the token, the repository list and the write mode for your chats, and it never answers a message. It cannot be switched on, take an allowlist, send notifications or hold permissions; the server refuses those with a message that asks for an agent. This is the manifest key `agentOptional` of the kind (see [Connector add-ons](/features/addons/)), which the GitHub kind declares; Telegram and Slack bindings always need an agent. Over the API, `agent_id` may be empty for such a kind and the connection reports `credentials_only: true`.
+A tool-only connection has no agent. The GitHub kind is tool-only, like the Home Assistant, Jellyfin, Mail and PiKVM kinds: the form has no Agent field, and a connection answers no message. Many agents can use one connection. Each agent chooses it in its own **Account it uses** list (see [Agents](/features/chats-agents/)), and the connection says **Used by N agents** in the list and in its pane, or **Not used by any agent**. The count is of your own saved agents. The server clears `agent_id` on every save and on every read, so an older connection that still held an agent shows none. It cannot be switched on, accept anyone, take an allowlist, send notifications or hold permissions, and the server refuses `enabled` and `accept_any` with a message. This is the manifest key `toolOnly` of the kind (see [Connector add-ons](/features/addons/)). Telegram and Slack bindings always need an agent. Over the API the connection reports `agent_id: ""`, `credentials_only: true` and `used_by`, the number of your saved agents that hold the connection; the kind reports `tool_only: true` and `agent_optional: true`.
 
 The list is checked by LocalAI before the add-on is called, so an agent is refused any repository that is not covered by it, even if the token could reach it. The token is kept sealed and is never shown again, and no tool result contains it. A call uses one of the connections that your chat enabled: with one connection it is enabled, with several you tick the ones the chat may use in the **Tools** menu of the chat (or the agent names a set), and until then the GitHub tools are not offered. With two or more enabled, the model names the connection in each call, and only an enabled one is accepted. LocalAI never picks one for you, and the list of the connection that was named is the only one that applies. See [The connections of an add-on](/features/chats/#the-connections-of-an-add-on).
 
@@ -222,6 +240,55 @@ Results are short and bounded: at most 50 items a page with a `next` index, over
 The write mode of the connection works as for GitHub: **Read only** (the default), **Asks you first** and **Acts without asking**, stored with the connection and enforced by LocalAI before the add-on is called. With **Asks you first** each change is a proposal with a card that names the player, its user and what it plays now (for playback), or the item, the user or the playlist, and you confirm it in the approvals. A proposal expires after five minutes. The add-on reads the target again when you confirm: if another item plays on that player now, or the playlist changed, nothing is sent and the card says so. **Acts without asking** lets a chat of yours act at once, which includes pausing or stopping a screen other people are watching; a run without you present still leaves a proposal. The write tools are `control-playback`, `mark-played`, `set-favorite` and `add-to-playlist`.
 
 The connection has a `write_mode` field over the API: `off`, `propose` or `auto`.
+
+## Mail (IMAP and SMTP)
+
+The Mail add-on lets your [saved agents](/features/chats-agents/) read a mailbox over IMAP and, if you allow it, write mail over SMTP. It works with any provider that offers both protocols. The provider is not part of the add-on: you give it the server names.
+
+What the agent can do:
+
+- **Read:** list the folders, search a folder (sender, recipient, subject, text anywhere, a date range, unread only, with an attachment), read one message, read the other messages of its conversation in the same folder, and read the text of a text attachment. Searches return 30 messages a page, up to 50, and a cursor for the next page. Reading does not mark mail as read.
+- **Write:** send a plain text email, or save one in the Drafts folder. Both are proposals: each one waits for your confirmation, in every write mode.
+- **Never:** delete, move, flag, forward or expunge mail. There is no tool for it.
+
+### Set up a connection
+
+1. Install the **Mail** add-on from the add-on gallery.
+2. Find the IMAP and SMTP server names of your provider, and, if it supports them, create an **app password** for LocalAI.
+3. On the add-on page choose **New mail connection**. Enter the mailbox address, the username (often the same address), the password, and for each server its name, port and protection:
+
+| Server | TLS (implicit) | STARTTLS |
+|---|---|---|
+| IMAP | port 993 | port 143 |
+| SMTP | port 465 | port 587 |
+
+   The port follows the protection you choose. Optional: a sender name, a list of the only folders the agent may use (one per line; the INBOX is matched without regard to case), and the name of the Drafts folder for a server that does not mark it.
+4. Choose **Read only** or **Asks you first**, and save. Saving logs in to both servers; a wrong password, an unreachable server or a refused certificate stops the save with a short message. **Test** logs in again and shows the IMAP result and the SMTP result on separate lines.
+
+Example settings. These are examples: check your provider's own pages, because servers and rules change.
+
+| Provider | IMAP | SMTP | Password |
+|---|---|---|---|
+| Gmail | `imap.gmail.com`, 993, TLS | `smtp.gmail.com`, 465, TLS (or 587, STARTTLS) | An app password |
+| Fastmail | `imap.fastmail.com`, 993, TLS | `smtp.fastmail.com`, 465, TLS (or 587, STARTTLS) | An app password |
+| Your own server (Dovecot, Postfix) | its public name, 993, TLS | its public name, 587, STARTTLS | The account password |
+
+**Gmail.** Gmail needs an app password; the normal password does not work with IMAP in this way. Google says app passwords only work on an account with 2-Step Verification turned on, and that the option may be missing if the account uses security keys only for 2-Step Verification, is a work, school or other organization account (an administrator of a Google Workspace may block it), or has Advanced Protection on. Create one on the Google account page for app passwords. Google can change these rules and the wording; read the current page, [Sign in with app passwords](https://support.google.com/accounts/answer/185833). The username is the full address.
+
+The saved servers, the username and the password are one sealed record. LocalAI keeps it and never shows it again, so to change any of them you tick **Change the server or login details** and enter all of them again. The mailbox address is kept in the list of the connection, and LocalAI refuses a tool call for any other mailbox.
+
+### Security
+
+- **The whole mailbox is reachable.** The agent can search and read every folder you allow, including mail with secrets. Use the folder list to narrow it, or connect a dedicated mailbox.
+- **TLS is required by default.** The add-on checks the server certificate against the system roots and the server name; there is no option to skip the check. With STARTTLS it refuses to log in if the server does not offer the upgrade. **None** (no protection) exists only for a server you trust on a network you trust: the page warns, asks for a confirmation, and the password and all mail then travel as plain text.
+- **Public servers only.** IMAP and SMTP are not HTTP, so the network check of the commands sandbox does not apply. The add-on applies the same address guard as the web fetch tool instead: ports 143, 993, 465 and 587 only (not 25), and no private, loopback, link-local, cloud metadata or LocalAI-server address. A mail server inside your own network is refused.
+- **Mail is untrusted text.** Every result says it is text written by other people and must be treated as data. HTML becomes plain text with no images, links, styles or scripts; hidden and direction-changing characters are removed; attachments are never opened except as text.
+- **Passwords are sealed.** They are in no result, log or proposal.
+- **Writes are proposals.** A value with a line break in a header field (a recipient or a subject) is refused, so mail it read cannot add a Bcc. A send that may have reached the server is never repeated: you decide.
+
+### Limits
+
+A call takes at most 30 seconds. A result is at most 128 KiB; a message body is cut at 48 KiB and an attachment at 96 KiB a page, and the result says how much is left and the offset to ask for next. A mail has at most 20 recipients and a 64 KiB body. The conversation of a message is found by its Message-ID, References and In-Reply-To headers in the same folder, so mail in Sent is not part of it. Attachments of binary types return only the name, type and size. Mail is sent as plain text only, with no attachments.
 
 ## Slack
 
@@ -790,8 +857,8 @@ nobody. List chat IDs, user IDs or `@usernames`: numbers for Telegram, IDs such 
 addresses the bot in it.
 
 A message from anyone else is ignored: it is not answered, and the sender goes
-in the sender log with a count. Open **Senders** on the binding to see who tried,
-and use **Allow** to add a person to the allowlist.
+in the sender log with a count. Open the binding in the list: its pane shows **Senders**, who tried,
+and **Allow** adds a person to the allowlist.
 
 "Anyone who can message the bot" (`accept_any`) lets everyone use the agent. The
 server asks you to confirm it, because anyone who can find the bot can then use
@@ -816,19 +883,33 @@ add-on.
 
 - **Capabilities** (`caps`). The ceiling you enable for a binding, from a closed list
   (`proposals.confirm`, `memory.write`, `files.upload`, `triggers.propose`,
-  `triggers.run`, `talkback.channels`, `tools.write`, and the sensitive `talkback.new_channel`,
-  `profile.write`, `skills.write`, `pages.write`, `dashboard.write`, `knowledge.write`). The default is
+  `triggers.run`, `talkback.channels`, `tools.write`, `loops.wait`, and the sensitive `talkback.new_channel`,
+  `profile.write`, `skills.write`, `pages.write`, `dashboard.write`, `knowledge.write`, `loops.start`). The default is
   no: a binding with none enabled lets a sender talk to the agent, but the agent can
   not use any of these on the sender's behalf. A binding saved before permissions
   were enforced has none, so the first start after the upgrade gives it the usual set
-  once, the same six that **Allow the usual** turns on (`proposals.confirm`,
+  once, the same seven that **Allow the usual** turns on (`proposals.confirm`,
   `memory.write`, `files.upload`, `triggers.propose`, `triggers.run`,
-  `talkback.channels`; never a sensitive one). It only touches a binding with no
+  `talkback.channels`, `loops.wait`; never a sensitive one). It only touches a binding with no
   capability whose kind lists permissions, and it logs one line for each binding it
   changes. It runs once for the whole store, also with several frontends, and never
   again, so a binding you clear later stays cleared. A binding you cleared before that
   start cannot be told from one never set and gets the set too. To keep the strict
   state, set `LOCALAI_SKIP_BINDING_CAPS_MIGRATION=true` before the first start.
+  A second one-time migration adds `loops.wait` to each binding that already has some
+  capability and lacks it, so a bot that existed before `loops.wait` can use waits
+  without a change by you. A binding with no capability stays with none. You can switch
+  `loops.wait` off afterwards and it stays off. The same variable skips it.
+- **Loops and waits.** `loops.wait` lets the model wait for a change (`wait_for`,
+  `wait_agents`). A wait is checked by code and costs no model call until it ends, so
+  the capability is not sensitive: a listed or paired sender holds it, and it is on by
+  default (in the usual set, and added to existing bindings once). `loops.start`
+  lets the model start a loop (`start_loop`, then `schedule_next` and `loop_done`).
+  Each run of a loop is a model call that nobody asked for at that moment, so the
+  capability is sensitive: only a paired sender holds it, and a bot that accepts
+  anyone never gives it to an unpaired sender. `loops.start` is off by default and never part of a
+  preset: the owner ticks it. A loop that a connector chat started ends after a fifth of
+  the run limit, as a loop of a trigger does. See [Loops](/features/chats/#loops-repeat-a-prompt-in-a-chat).
 - **Roles and grants** (`grants`). An add-on can declare roles, such as the admins of
   a workspace, and report the roles of each sender. You map a role to capabilities
   with `grants: [{"role", "caps"}]`. A grant is within `caps`, within what the kind
@@ -980,7 +1061,7 @@ owner paired with this bot"). The model is told to relay it and not to say that 
 no such tool. Today this gates the
 agent's change proposals (`memory.write` for a memory note, `profile.write` for a
 profile), files sent to the bot (`files.upload`), the trigger tools
-(`triggers.propose`), and the confirm phrase (`proposals.confirm`), which answers trigger proposals and change proposals alike. Messages from a
+(`triggers.propose`), the loop tools (`loops.start` for `start_loop`, `schedule_next` and `loop_done`; `loops.wait` for `wait_for` and `wait_agents`), and the confirm phrase (`proposals.confirm`), which answers trigger proposals and change proposals alike. Messages from a
 sender who may not send files get a short refusal and no turn.
 
 A binding that was stored before this check has no capabilities. Enable what you want
@@ -1127,7 +1208,14 @@ The `channels` list (capability `talkback.channels`) is a table of **Place the b
 name, an ID and one choice that maps to `approved`. **When any allowed person asks** is
 `approved: true`, and **Only when a verified person asks** is `approved: false`. The table
 shows only while the permission **Post to other channels** is on; otherwise the page says so and
-links to the switch. At most 10 places are kept, as before. **Send my reminders and run results to**
+links to the switch. At most 10 places are kept, as before. Listening and posting stay two settings,
+but the page shows them together. **Add a place** offers the channels of the listening list that
+are not a place yet, and **Other: type an ID**. Each channel of the listening list says whether the
+bot may post there, with **Let the bot post here too** to make it a place set to **Only when a
+verified person asks**. Under each place a line says whether scheduled runs can post there: they
+can only when the place is set to **When any allowed person asks**, because nobody is there to
+verify at run time. A place the bot does not listen in is allowed, and the page says the bot will
+only post there. **Send my reminders and run results to**
 (`notify_chat`) is a choice among the people and channels the page already knows (the allowed
 people, the people and chats of the sender log, the places above), with a saved ID that the page
 does not know shown as it is and **Another ID...** for a new one. It saves the same ID as before.
@@ -1320,6 +1408,8 @@ the mode or a limit.
 
 On the settings page of the connector add-on, **Runs may act** is a switch under the approval mode of the permission **Propose triggers** (greyed while that permission is off). It is off by default. When it is on, four checkboxes name the acts in plain words: write files in the agent's folders, use the actions of the agent's add-ons, send messages beyond where it reports, and use paid or external tools and the network. All four are marked sensitive. A box is disabled with "The agent does not have this." when the agent lacks the matching grant; a box that is already ticked stays ticked and can be unticked. The line of the permission shows the choice, for example "Proposals: set up at once, runs may: write files, use add-ons". The page always sends the mode, the limits and `acts` together.
 
+After a save, the page says what changed, for example "Saved. Changed: permissions, trigger approval and acts." When the save removes an act that the connection allowed, it also lists each trigger that this connection made without asking and that holds that act, with the acts it loses. Those triggers keep running, without the act. A saved connection with an agent also has a link to that agent at the top of its form.
+
 The list is a ceiling, not a grant. The acts of a proposal are what the model asks for in
 `acts`, limited to this list, limited to what the agent holds:
 
@@ -1383,7 +1473,13 @@ agent does not guess an ID. The report is a new message at the top of the channe
 in the thread of the chat where the trigger was proposed; `delivery.target` `origin` writes
 in that thread. The proposal text in the chat and the card in Studio say where the results
 go, with the label of the channel. The proposal is refused if the channel is not listed
-and approved, and the error lists the approved ones. When a run ends, LocalAI
+and approved, and the error lists the approved ones. A channel set to **Only when a verified person
+asks** is named in the description as listed but not approved for scheduled runs, and the refusal says
+why, so the agent can tell the person that the owner must change that choice. When no channel is
+named, the one approved channel is used; with several, the error lists them. The name matches without
+case, or by a part of the label that only one approved channel has. `update_trigger` takes `delivery`
+and `acts` too, for a trigger that a messaging app proposed, with the same checks; the change waits
+for the person on its card. When a run ends, LocalAI
 checks again that the binding is on, the capability is on and the channel is still listed
 and approved; if not, the Inbox gets the notice.
 
@@ -1409,6 +1505,58 @@ LocalAI passes the token to the add-on with each call and the add-on keeps none:
 holds no token on disk and in memory only for the call. The add-on only calls
 `https://api.telegram.org`. LocalAI reads updates by long polling through the add-on,
 so it needs no public address.
+
+## Sharing a connection
+
+With accounts, the owner of a binding can share it with other people. Open
+**Connectors** and choose **Share** on the binding, or on the page of the add-on
+choose **Share** in the menu of its row or at the foot of its pane. The
+[Share dialog]({{%relref "features/sharing" %}}) finds people by name. A binding has
+one role, **Can use**, and is never shared with everyone. A person can receive it
+only when their account may use connectors (the `connectors` feature).
+
+A person who holds **Can use**:
+
+- sees the binding under **Shared with you**, with its name, its platform, whether it
+  is on, and who shared it. Nothing else of the binding is shown.
+- can enable it for the tools of its add-on in a chat, or name it in the
+  connections of a saved agent. A call of those tools then uses the binding's
+  credential and its list of resources, as for the owner. A shared binding is never
+  picked by default: the rule "the only connection" counts the person's own bindings.
+  The one exception is a saved agent that the owner shared with the person and that
+  names the binding: see [Share an agent]({{%relref "features/chats-agents#share-an-agent" %}}).
+- never learns the list of resources. A call for a resource that is not on the list
+  is refused and the tool result says only that it is not listed; the owner, and the
+  owner's own calls, get the list so the model can pick from it.
+- never reads the token or any setting. Reading, changing, switching on or off,
+  testing, the sender log, pairing, deleting and sharing it again stay with the
+  owner. For the person, each of these answers `404`, as for a binding that does not
+  exist.
+
+The messages that reach the bot do not change. The owner's agent answers them, as
+the owner, in the owner's chats. A grantee only sends through the binding: their own
+chats and agents run its add-on tools.
+
+When the owner stops sharing, LocalAI cancels the calls of that person that are
+running through the binding and waits for them before it answers. The next call is
+refused like a call with a binding the person does not have. Deleting a binding
+first stops every share of it.
+
+| Method and path | Who may call it | Result |
+|---|---|---|
+| `GET /api/chats/connectors` | Anyone with the `connectors` feature | `connectors` are your bindings; one of a tool-only kind carries `used_by`, the number of your saved agents that use it; one you shared carries `share` with `resource_id` and `shared_with`. `shared` are the bindings shared with you, each with `id`, `name`, `kind`, `addon`, `enabled`, `active`, `owner` (a display name) and `role` (`use`). `sharing` is `false` when this server cannot share bindings. |
+| `POST /api/chats/connectors/{id}/share` | The owner | `{"resource_id": "...", "shared_with": n}`: the ID of the binding in the sharing API. Another caller gets `404`; a server that cannot share answers `409` with type `sharing_disabled`. |
+
+The grants are then listed and changed with
+`/api/shares/connection/{resource_id}/grants`, see
+[Sharing resources]({{%relref "features/sharing" %}}).
+
+The shares live with the add-on owner. With several frontends, every frontend
+lists the shared bindings and the shares, and makes a binding shareable, by asking
+the owner. The calls through a shared binding always run on the owner, where the
+tokens are, so a frontend never holds a token of a binding it does not own. When a
+frontend cannot reach the owner, it lists no shared binding and no share; your own
+bindings are not affected.
 
 ## When a binding switches itself off
 
@@ -1466,6 +1614,7 @@ restart). The JSON store is for one process.
 | The chats of the answers (thread mode) | Shared | Each answer's message IDs are stored with the chat of each sender, so a reply finds its chat on any frontend. |
 | Slack Socket Mode links and their queues | Per instance | The Slack add-on process keeps one link per polled binding, acknowledges each event at once and queues it until the next poll. An event that is queued when the process stops is lost. The followed threads and the "Working…" messages are kept there too. |
 | The language of each sender | Per instance | With `reply_language` set to `auto`, the frontend that takes a message keeps the last clear language of the sender and of the chat in memory for 24 hours. A trigger that runs on another frontend does not know it and uses English. The interface language of the owner is stored with the binding, so it is the same on every frontend. A fixed language is stored with the binding and works everywhere. |
+| Shares of a binding | Single runner | The grants are records in the policy store of the add-on owner, the one process that writes them, keyed by the binding ID; the binding itself is not copied. A call through a shared binding is admitted on the owner, which is also the only process that opens the sealed tokens, so a revocation cancels it there. Other frontends ask the owner for the listing, the record of a binding and its removal. |
 | Files marked by `attach_file` | Per instance | The marks live in the process that runs the turn and are sent by the process that sends the replies. A turn that ends on another frontend than the one that sends the answer loses its marks; the agent then sees no error, and the person asks again. |
 
 ### For add-on authors: sending files

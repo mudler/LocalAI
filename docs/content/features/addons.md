@@ -37,6 +37,10 @@ Trust has three parts, and they are different:
 
 Every addon requires an executable; a UI bundle alone is not an addon.
 
+The owner's resource policy also serves the resource kinds that are not add-ons.
+[Sharing resources]({{%relref "features/sharing" %}}) describes their roles, the
+grant to `@everyone` and the `/api/shares` routes.
+
 ## Internal host policy store
 
 `core/services/addons/hostsettings` provides internal, host-owned durable policy
@@ -513,7 +517,7 @@ a call may reach. The model never sees or sets either.
   most 50 entries, each an external name (`owner/name` for a repository) with a
   host ID made from its hash. The person edits it where they edit the binding.
 - `resourceArgument` names a string argument that carries the external name. A
-  tool that declares it must require it. Before the add-on is called, the host
+  tool that declares it must require it, unless the slot sets `resourceOptional`. Before the add-on is called, the host
   matches the argument against the list of the one binding that the call
   names, without regard to case. A name that is not on that list is refused with
   the code `resource_not_allowed` and the names of that list; the add-on is not
@@ -533,6 +537,13 @@ a call may reach. The model never sees or sets either.
   behaves the same way.
 - `resourceLabel` is optional (at most 24 characters of plain text): the word for
   the resource in that line. Without it the host says "resource".
+- `resourceOptional` (default `false`) lets a call leave the resource argument out.
+  The tools then declare the argument and do not require it. The host uses the one
+  resource that the selected binding lists, so the connection is the only source
+  of the target and the model never has to write it. A binding that lists several
+  resources refuses the call with `resource_not_allowed` and names them. A call
+  that names a resource is held to the list as before. An add-on that does not set
+  it is not changed.
 - A call that passes the check carries `Request.Credential` (the secret),
   `Request.ResourceKey` (the name as the person wrote it) and `Request.ResourceID`
   (the host ID). The host drops these three fields from any request a client
@@ -541,6 +552,15 @@ a call may reach. The model never sees or sets either.
   declare read tools only: a change under a credential needs a write mode, which
   this version does not have. Tools of such an add-on name no `resourceId`.
 - A tool with `uiOnly: true` (see the `uiOnly` field of a tool definition) gets no credential and no resource, even in an add-on that declares a slot. It is for the add-on's own page, which has no chat to name a connection, so it works with no connection or with several. The Home Assistant add-on keeps the limits for all its connections this way.
+
+- The secret is an opaque string of at most 4096 bytes, and the host never reads
+  it. An add-on whose service needs more than a token (servers, a login and a
+  password) can seal a small versioned JSON record as the secret and keep only
+  the resource name in the list, as the Mail add-on does (see
+  [Mail](/features/chats-connectors/#mail-imap-and-smtp)). The host cannot show a
+  sealed record back, so the add-on's page asks for all of it again when a person
+  changes any part. A service that is not HTTP and is not reached through the
+  sandbox network check must apply the address guard of `pkg/web/safehttp` itself.
 - An add-on that is rate limited returns `contract.ErrRateLimited{RetryAfter}`.
   The runtime answers HTTP 429 with `Retry-After`; the model gets the code
   `rate_limited`, `retryAfter` in seconds and a note not to retry before then.
@@ -971,6 +991,61 @@ for a page loaded during an upgrade, in the session storage of the tab). On a
 busy. Showing the last known state.", and asks again with a growing delay. It
 only says that no add-ons are installed when the owner answered with an empty
 list.
+
+## The Add-ons page
+
+**Installed** lists the add-ons you installed in groups: chat apps, tools and
+services, and media and models. The group comes from what the add-on gives
+LocalAI. An add-on that serves a messaging connection is a chat app. One that
+gives chat tools is a tool. One that has only a page is under media and models.
+Each row shows the icon, the name, one state, one line of what the add-on does
+and the one action that fits the state: **Open**, **Update** or **Set up**.
+**Pin**, **Details** and **Remove** are in the menu of the row.
+
+When something needs setup, one strip above the list says so. It names each
+add-on that failed to start and each add-on with a connection that cannot answer
+yet, for example because no token is saved. **Set up** opens the details of that
+add-on.
+
+The details open beside the list. They show what the add-on can do, its
+connections, who made it and how it was checked. **Remove** is the last item.
+The connections show the agent that answers and who it accepts, in words.
+
+**Find add-ons** shows the library as cards, with a search field and a category
+filter. Each card has one control: **Install**, **Installed** or **Update to**
+a version. The category comes from what the library says the add-on gives:
+tools, a page, or the id of a first-party add-on. The filter narrows the page
+of results that is on screen.
+
+### Add-on icons
+
+Every add-on has an icon. The page picks it in this order:
+
+1. **The icon file of the add-on.** Set `ui.icon` in the manifest to a path in
+   the package. The file is a PNG, WebP or JPEG of at most 256 KB, never an
+   SVG. Make it 256 by 256 pixels, a rounded tile with the mark drawn on it, so
+   that it reads on a light page and on a dark page. First-party add-ons commit
+   this file as `ui/icon.png`.
+2. **A generated tile.** An add-on built with the shared builder
+   (`addons/internal/uibuild`) and without an icon file gets a tile of its own
+   colour with a white line glyph. Pass `glyph` to the builder to choose one of
+   the glyphs in `addons/internal/uibuild/glyphs.mjs`.
+3. **A drawn tile in the page.** The host serves an icon file only for an
+   installed package. For an add-on that is not installed, or whose file does
+   not load, the page draws a tile with a glyph of its own icon set for the
+   first-party add-ons it knows, and the first letter of the name for any other.
+
+The page never loads an icon from another host.
+
+The first-party add-ons for services (Slack, Telegram, Discord, GitHub, Home
+Assistant and Jellyfin) use the logo mark of the service on their tile, taken
+from [Simple Icons](https://simpleicons.org) (CC0 data) and drawn in white on
+the add-on colour. The mark identifies the service the add-on connects to. The
+trademark stays with its owner, and the mark does not mean that the owner made
+or endorses the add-on. Record the source and version in `ui/ICON-SOURCE.md`
+next to the icon. When no mark is available, as for PiKVM, ship a generated
+tile with a generic glyph. For a third-party add-on, use a company mark only
+when you have the right to.
 
 ## The official library
 
@@ -1588,13 +1663,15 @@ The four compatibility ranges above are integers that every published add-on sta
 without making every published add-on incompatible, so the host also has a **feature
 level**: one integer that counts the additive manifest features it understands.
 
-- The host declares its level (`contract.HostFeatureLevel`). This version has level 3.
+- The host declares its level (`contract.HostFeatureLevel`). This version has level 5.
   A host that predates the levels is level 1.
 - A manifest may set `featureLevel` (a positive integer, default 1). It states the level
   the add-on needs. A manifest that uses a field of a higher level must say so: the
   parser refuses a manifest that uses `capabilities.resources.agentScoped`,
   `capabilities.resources.nounPlural` or `i18n.<language>.resources` and does not declare
   `featureLevel: 2`. `capabilities.ownerData` is level 3.
+  The setup text (`setup` on the manifest, `kinds[].setup` and the `setup` of a kind translation) is level 4.
+  `kinds[].toolOnly` is level 5.
 - A host with a lower level refuses the add-on with the plain reason **needs a newer
   LocalAI**. The add-on is not installed and not upgraded. A failed install or upgrade has
   the cause `needs_newer_host`, and an update check shows the add-on as incompatible with
@@ -1664,8 +1741,8 @@ It is an optional addition to `api` 2. Its shape is closed on purpose:
 | Rule | Value |
 |---|---|
 | Language tags | A BCP 47 subset: two or three letters and up to three subtags, such as `it`, `pt-BR`, `zh-CN`. At most 16 languages. A tag is unique whatever its case. `en` is refused: the English fields are the manifest. |
-| Fields | `kinds.<id>.title` and `kinds.<id>.description`. The kind must be declared in `capabilities.connector.kinds`, and a description can be translated only when the English kind has one. An unknown field fails the strict parser, as does a duplicate key. |
-| Text | Plain text, as for `ui.title`: no `<` or `>`, no control characters, no direction overrides, no leading or trailing space. A title has at most 80 characters and a description at most 280. All the translated text of one manifest has at most 12 000 characters. The whole manifest keeps its size limit. |
+| Fields | `kinds.<id>.title`, `kinds.<id>.description` and `kinds.<id>.setup`. The kind must be declared in `capabilities.connector.kinds`, and a description or a setup can be translated only when the English kind has one. An unknown field fails the strict parser, as does a duplicate key. |
+| Text | Plain text, as for `ui.title`: no `<` or `>`, no control characters, no direction overrides, no leading or trailing space. A title has at most 80 characters, a description at most 280 and a setup at most 120. All the translated text of one manifest has at most 12 000 characters. The whole manifest keeps its size limit. |
 | Fallback | A field that a language leaves out, and every language that the manifest does not list, shows the English text. Each field falls back on its own. |
 | Not translatable | Tool descriptions, input schemas and skills are written for the model and stay English. User setting keys and values are identifiers. The text of the add-on's own pages is part of the UI bundle and has its own strings. |
 
@@ -1690,6 +1767,40 @@ are honored); without both, English and no extra field. An unknown or malformed 
 English and the header is not read behind it. `title` and `description` never change, so an
 existing client sees the same answer as before. The UI reads the maps and picks the language of
 the user itself.
+
+### Setup text
+
+Some add-ons do nothing until the person gives them something: a bot token, an access
+token, an account on another service. The setup text says so in one short phrase, so the
+UI can show "Needs a bot token from @BotFather" before the person starts. It is plain
+text that completes the sentence "Needs ...". Write it without a capital letter, a final
+full stop or a verb of its own: `a bot token from @BotFather`, `an access token and the
+repositories it may use`.
+
+It has two places, and both are optional:
+
+- A **connector kind** declares `kinds[].setup` in `capabilities.connector`.
+- An **add-on that has no connector kind** (a tool add-on) declares the top-level
+  `setup`. It is one string or a map of language tag to string, like `ui.title`.
+
+```json
+"featureLevel": 4,
+"setup": { "en": "an access token", "it": "un token di accesso" }
+```
+
+| Rule | Value |
+|---|---|
+| Length | At most 120 characters, and not empty. |
+| Text | Plain text, as for `ui.title`: no `<` or `>`, no control characters (so no line break and no tab), no direction overrides, no leading or trailing space. It is not Markdown. |
+| Translation | For a kind, `i18n.<language>.kinds.<id>.setup`, only when the English kind has a setup. For the add-on, the language map of `setup`. A language that leaves it out, and every language that the manifest does not list, shows the English text. |
+| Feature level | Level 4. A manifest that uses it must declare `featureLevel: 4`. A host with a lower level refuses the add-on with "needs a newer LocalAI"; a host that predates feature levels refuses the unknown field. Do not add it to a package that older hosts must still install. |
+
+**What the host does with it.** `GET /api/chats/connectors/kinds` returns `setup` (English),
+`setups` (every translation, by language tag) and, when the request names a language that
+the kind translates, `localized_setup`. `GET /api/addons/apps` returns `setup`, `setups` and
+`localizedSetup` for an add-on in the same way. The fields are left out when the manifest
+declares no setup. The language is chosen as for the other texts: the `lang` query parameter,
+else `Accept-Language`. Each localized field falls back to English on its own.
 
 **Authoring.** Translate by hand, in the tone of the main locale of the language. Keep product
 names (GitHub, Slack, Telegram, Discord, Jellyfin, Home Assistant, LocalAI) as they are. Keep the
@@ -1851,7 +1962,8 @@ the components are the ones the core pages use, so an add-on page and a core pag
 draw the same thing.
 
 - `sdk.ui`: `Button`, `Text`, `Stack`, `Badge`, `Spinner`, `EmptyState`, and the
-  shared `PageHeader`, `ConfirmDialog`, `ErrorWithTraceLink`, `ModelSelector`,
+  shared `PageHeader`, `ConfirmDialog`, `SideSheet`, `SidePane`, `PaneLayout`,
+  `ActionMenu`, `ErrorWithTraceLink`, `ModelSelector`,
   `MediaInput`, `WaveformPlayer`, `DistributionBars`, `EmbeddingInspector`,
   `TabSwitch`, `LoadingSpinner`, `Modal`, `Lightbox` and `ModelPicker`. A `ref`
   reaches the host component, so `ModelPicker` keeps its handle (`open()` and
@@ -1864,6 +1976,10 @@ draw the same thing.
   `HomeModelPicker` and `ModelSelector` stay as names for the same picker.
 - `sdk.ui` also has the settings kit, for a settings section or any form: see
   [The settings kit](#the-settings-kit).
+- `sdk.ui` also has the Share dialog, `ShareDialog`, and the role and sharing line
+  of a list row, `RoleBadge` and `SharedByBadge`. `sdk.resources.shareClient(resourceId)`
+  is the dialog's client for one resource of the add-on. See
+  [The Share dialog]({{%relref "features/sharing#the-share-dialog" %}}).
 - `sdk.theme.tokens`: the host's design tokens as CSS values (`var(--dk-...)`), for the
   add-on's own scoped style sheet: `text`, `muted`, `surface`, `inset`, `edge`, `hover`,
   `accent`, `accentText`, `accentWash`, `onAccent`, `okText`, `okWash`, `warnText`,
@@ -1902,6 +2018,22 @@ that declares only `"max": 1` is refused by a version 2 host. Before you raise
 `max` to 2, check the add-on against the SDK 2 surface. A range that is
 malformed (for example `min` above `max`) keeps the generic `invalid or
 incompatible UI` error.
+
+### Panels: a sheet, a pane and a row menu
+
+`sdk.ui` also carries the three parts of a list with a detail and a form, the way the host's
+Add-ons and MCP connectors pages draw them. Use them instead of a panel of your own: Escape,
+focus, the scrim and the phone layout are the host's.
+
+| Component | Props | What it draws |
+|---|---|---|
+| `SideSheet` | `title`, `description`, `footer`, `headActions`, `onClose`, `wide`, `closeLabel`, `testId`, `labelId` | A create or edit form over the page: a head, one scrolling body and a footer for the buttons, with the primary action last. It is a dialog: focus moves in, Tab stays inside, Escape and a click on the scrim call `onClose`. Do not set a width on it; `wide` is the only other size. |
+| `SidePane` | `open`, `title`, `meta`, `actions`, `footer`, `onClose`, `wide`, `testId` | The details of one item beside a list. Put it in a `PaneLayout` next to the list. From 1280 px it docks and pushes the list; below that it overlays the page, and on a phone it is a bottom sheet. Escape closes it and focus returns to the control that opened it. |
+| `PaneLayout` | none | The row that holds the list column and a docked `SidePane`. |
+| `ActionMenu` | `items: [{key, label, icon, onClick, danger, disabled, hidden}]` (a `{divider: true}` item separates), `ariaLabel`, `compact` | The three-dot menu of a row. |
+
+The connector pages (`addons/internal/connector-ui`) are the reference: a row list, a docked
+pane and a sheet.
 
 ## Runtime wire version 1
 
@@ -2626,9 +2758,11 @@ The manifest declares the capability. It needs no tool and no `service` flag:
 | `kinds` | 1 to 4 kinds. A kind is what a binding stores in `kind`, so it names the platform. |
 | `kinds[].id` | A lower-case identifier, unique in the manifest. A binding names the add-on too, so another add-on cannot take over the bindings of a kind. |
 | `kinds[].title`, `description`, `senderHint` | Plain text for people, with the bounds of the UI texts. |
+| `kinds[].setup` | Optional, feature level 4. What the person needs before a binding of this kind works, as a short phrase that completes the sentence "Needs ...", such as `a bot token from @BotFather`. See [Setup text](#setup-text). |
 | `kinds[].delivery` | `pull`: the host asks for updates (long polling). `push`: the add-on calls the host operation `connector.inbound`. |
 | `kinds[].page` | Optional. The add-on page that adds and edits bindings; it must be a declared page. The Connectors page links to it. |
 | `kinds[].agentOptional` | Optional, manifest `api` 2. `true` lets a binding of the kind have no agent. Such a binding is credentials only: it holds the token, the resource list and the write mode, and the host never delivers a message to it, polls for it, answers from it or authorizes a sender on it. The host refuses an empty agent together with listening, accepting senders, an allowlist, a notification chat, talk-back channels, permissions, pairing or trigger approval. Without the key every binding of the kind needs an agent. |
+| `kinds[].toolOnly` | Optional, feature level 5. `true` marks a kind whose bindings only serve tools: one binding is used by many agents, each through its own set of connections. It implies `agentOptional`. A binding of the kind never has an agent, never listens and never accepts senders: the host clears the agent on every save and read, and refuses `enabled` and `acceptAny`. The connector list returns `used_by`, the number of the person's saved agents that hold the binding, and the kinds list returns `tool_only`. A manifest that uses it must declare `featureLevel: 5`. |
 | `kinds[].wildcardResources` | Optional. `true` lets a binding of the kind list `owner/*` (every resource of one owner) or `*` (every resource the credential reaches) in its resources. The host matches them before the add-on is called, without regard to case and on whole names; a star anywhere else is refused, `*` must be the only entry, and saving `*` needs the confirmation `confirm_any_resource` = `allow any resource`. Without the key every entry is an exact name. |
 | `kinds[].tokenGuards` | Optional list of `{prefix, option, allow}`. The host refuses a credential that starts with `prefix` unless the binding set the kind option `option` to `allow`, and asks for `confirm_wider_token` = `accept wider token` when the option is turned on. It is checked when the token is saved and again each time it is used. `option` and `allow` must exist in the kind's `options`. At most 4. |
 | `toolDefinitions[].enumerates` | Optional, on a read tool of an add-on with credentials. The tool lists what the credential reaches, names no resource, and runs only for a binding whose list is `*` (the kind needs `wildcardResources`). The request carries the resource key `*`. |
@@ -2638,7 +2772,7 @@ The manifest declares the capability. It needs no tool and no `service` flag:
 | `kinds[].options` | Optional, manifest `api` 2, at most 4. A choice that each binding of the kind makes: `{"id", "title", "description", "values": [{"id", "title"}], "default"}` with 2 to 8 values and a default among them. The host shows the choice on the binding page, checks the owner's value against the declaration, stores it, and sends the value in effect to the add-on in `options` of every `poll`. What the option means is the add-on's own rule. |
 | `kinds[].files` | Optional. The files the kind can receive and send, with a limit for each. Needs manifest `api` 2. See [File abilities and limits](#file-abilities-and-limits). |
 | `kinds[].roles` | Optional, manifest `api` 2, at most 8. A role the kind can give to a sender: `{"id", "title", "description"}`, with an `id` in the same form as a kind `id`. The add-on owns the membership (for example, the admins of a workspace) and sends the role IDs of the sender in `roles` of each message, at most 8. The host drops a role the kind does not declare, and all roles for a kind that declares none. The owner of a binding maps each role to capabilities in the host. |
-| `kinds[].permissions` | Optional, manifest `api` 2, at most 13. The capabilities the kind can grant to a role, from the host's closed list: `proposals.confirm`, `memory.write`, `files.upload`, `triggers.propose`, `triggers.run`, `talkback.channels` and the sensitive `talkback.new_channel`, `profile.write`, `skills.write`, `pages.write`, `dashboard.write`, `knowledge.write`. An unknown name is refused. A sensitive name may be listed, but it is never granted to a role: only a sender that the owner paired can use it. |
+| `kinds[].permissions` | Optional, manifest `api` 2, at most 15. The capabilities the kind can grant to a role, from the host's closed list: `proposals.confirm`, `memory.write`, `files.upload`, `triggers.propose`, `triggers.run`, `talkback.channels`, `loops.wait` and the sensitive `talkback.new_channel`, `profile.write`, `skills.write`, `pages.write`, `dashboard.write`, `knowledge.write`, `loops.start`. An unknown name is refused. A sensitive name may be listed, but it is never granted to a role: only a sender that the owner paired can use it. |
 
 **Outbound: the connector route.** The host calls `POST /connector` on the add-on
 with the same bearer credential and incarnation header as every other route and a body
@@ -3388,6 +3522,7 @@ Two more optional capability fields describe the UI-only resource management (se
 | `capabilities.adminTools` | At most 4 tool names that only the host's own UI-only endpoints may run. An admin tool is never in `tools`, never has a tool definition, is never offered to a model and is refused by every model, proposal and typed-read path: the declared-tool rule of those paths reads `tools` only. |
 | `capabilities.connector` | Optional. 1 to 4 `kinds` of messaging binding the add-on serves, each with an `id`, a `title`, a `delivery` (`pull` or `push`) and optional texts and a `page`. See [Connector add-ons](#connector-add-ons). |
 | `featureLevel` | Optional positive integer, default 1. The feature level the add-on needs from the host. See [Feature level](#feature-level). |
+| `setup` | Optional, feature level 4. What the person needs before the add-on works, as a short phrase such as `an access token`. A string or a map of language tag to string, like `ui.title`. For an add-on that has no connector kind; a kind has its own `kinds[].setup`. See [Setup text](#setup-text). |
 | `capabilities.resources` | Maps the management operations to tools: `create` (a declared tool of kind `create`), `rename` (a declared tool of kind `schema`), `inspect` (a declared tool of kind `read` whose result is an object with a `name` and a `revision`), `delete` (the one admin tool) and a plain-text singular `noun`. Every field is optional. An admin tool must be the `delete` of the mapping, and a mapping must name tools that exist with the kind it needs. A mapping with `create` or `delete` must also declare the read tool `resource-exists` in `tools`, because the host settles interrupted creations and deletions only on its explicit answer. `list` asks the host for a listing tool; see [Resource listing](#resource-listing). |
 
 A tool definition names the resource it works on with a required `resourceId`
@@ -3862,7 +3997,7 @@ Mutation MCP tools remain deliberately unavailable. The later MCP integration de
 safe listing/status tools for proposals; prompt text cannot authorize mutation and no tool
 confirms a proposal. For that reason `/api/addons/dispatch`, `/api/addons/relay` and the
 proposal routes are deliberately not mapped in the LocalAI Assistant tool catalog
-(`pkg/mcp/localaitools`) yet. The route map test only
+(`core/services/localaitools`) yet. The route map test only
 requires an entry for each registered tool, so no test is weakened. The routes are described
 in the generated Swagger document under the `Addons` tag.
 
@@ -5415,8 +5550,10 @@ what the user may do.
 
 `sdk.core.fetch` is `fetch` with a fixed policy. It sends the cookies of the page
 (`credentials: 'same-origin'`), refuses other origins (`mode: 'same-origin'`),
-refuses redirects, and does not use the cache. It removes any `Authorization` and
-`Cookie` header that the add-on sets, and it stops when the add-on is withdrawn.
+refuses redirects, and does not use the cache. It removes any `Authorization`,
+`Cookie` and `X-LocalAI-Confirm` header that the add-on sets, and it stops when the
+add-on is withdrawn. `X-LocalAI-Confirm` marks a person's own action in their own tab,
+and add-on code is not the person.
 
 The path must be a same-origin path that starts with one `/`. These are refused with
 an `invalid_path` error before any request is made:
@@ -5426,6 +5563,13 @@ an `invalid_path` error before any request is made:
 - the add-on gateway (`/api/addons`) and the auth routes (`/api/auth`). The add-on
   gateway has its own typed calls, and the auth routes hold account credentials. The
   check uses the decoded path, so `/api/%61ddons/apps` is refused too;
+- the sharing routes: `/api/shares`, the folder sharing routes under
+  `/api/chats/files/shares`, and every API path whose last segment is `share`,
+  such as `/api/chats/agents/{id}/share`, `/api/collections/{name}/share` and
+  `/api/chats/connectors/{id}/share`. Only the person shares, in the host's Share
+  dialog: an add-on page renders `sdk.ui.ShareDialog` with
+  `sdk.resources.shareClient` for its own resources, or `sdk.ui.ConnectionShareDialog`
+  for a connector binding (see [Sharing resources]({{%relref "features/sharing#in-an-add-on" %}}));
 - an encoded `/` or `\` in the first two segments, because it can hide a segment
   boundary. In a later segment it is a normal identifier (`/api/voice-profiles/a%2Fb`).
 
@@ -6036,7 +6180,9 @@ The guest image, `runsc` and the KVM programs are not part of the add-on's sourc
 
 The guest image carries exactly these programs and libraries for the model to use (the model is told this list in the prompt of each chat that has the Sandbox):
 
-python3 (pandas, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl
+python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl
+
+matplotlib draws charts without a display: it writes PNG and SVG files, and the model can save them in the user's files. Its font cache is kept in `/tmp`.
 
 It does not have Node.js or npm, ImageMagick, ffmpeg or OCR. The command line runs as an unprivileged user and `apt` is blocked by the proxy, so nothing can be installed from inside the guest with a system package manager. `pip` can install Python packages within the chat's network setting (see [Network access](#network-access)). Adding a program means a new guest image. The build of the image fails when one of these programs is missing or does not start (`addons/sandbox/images/guest/check-tools.sh`).
 

@@ -339,10 +339,6 @@ type ApplicationConfig struct {
 	// observability and load-balancer attribution.
 	ExposeNodeHeader bool
 
-	// LocalAI Assistant chat modality. Hard-disable the in-process admin MCP
-	// server with this flag; runtime-toggleable via /api/settings.
-	DisableLocalAIAssistant bool
-
 	// DisableSharedPages turns off the pages of shared folders: they are not
 	// listed as runnable, do not open and their bridge refuses every call.
 	// Runtime-toggleable via /api/settings (shared_pages_enabled).
@@ -353,6 +349,9 @@ type ApplicationConfig struct {
 	// for each command) or on. Empty: off with accounts, ask without.
 	// Runtime-toggleable via /api/settings (chats_host_exec).
 	ChatsHostExec string
+	// ChatsAutoResume makes the server go on by itself with a chat turn that
+	// a restart interrupted (LOCALAI_CHATS_AUTO_RESUME). Read at startup.
+	ChatsAutoResume bool
 	// ChatsToolProviders pins, for a built-in chat tool or skill that several
 	// add-ons replace, the add-on that serves it (tool or skill name -> add-on
 	// ID). Tool and skill names never overlap.
@@ -468,6 +467,25 @@ type ApplicationConfig struct {
 	// each chat still has to switch it on. Read at each turn.
 	DisableChatsSavedAgents bool
 
+	// DisableChatsLocalAIClient and DisableChatsLocalAIAdmin switch off, for
+	// every chat, the two built-in groups of LocalAI tools: the client tools
+	// (inference) and the admin tools (the LocalAI Assistant's management
+	// tools). Stored as the negation (chats_localai_client,
+	// chats_localai_admin), so both are on by default. Read at each turn.
+	DisableChatsLocalAIClient bool
+	DisableChatsLocalAIAdmin  bool
+
+	// AdminOffByDeprecatedOption is true when the admin group was switched
+	// off by the deprecated --disable-local-ai-assistant option or its
+	// variable. This is an operator choice: a stored chats_localai_admin=true,
+	// at startup or in a later runtime settings change, does not override it.
+	AdminOffByDeprecatedOption bool
+
+	// ChatsToolSearch is the setting chats_tool_search: whether the large
+	// LocalAI tool groups are replaced by the three tool-search tools. One of
+	// the ToolSearch* values; empty means auto. Read at each turn.
+	ChatsToolSearch string
+
 	// DisableChatsWorkFolder stops the steering of the chats' working files:
 	// the prompt no longer names the chat's work folder (Chats/<chat>/work)
 	// for scripts, logs and drafts, and a helper file saved elsewhere gets no
@@ -483,6 +501,15 @@ type ApplicationConfig struct {
 	// pass of the indexer, so no restart.
 	DisableChatsIndexFiles bool
 	ChatsIndexMaxTextBytes int
+
+	// ChatsExtractMaxBytes and ChatsExtractMaxEntries are the limits of
+	// "Extract here" on the Files page (chats_extract_max_bytes and
+	// chats_extract_max_entries; 0: the defaults). ChatsExtractSevenZipRar
+	// turns on 7z and RAR archives (chats_extract_7z_rar; off by default).
+	// All three are read at each request.
+	ChatsExtractMaxBytes    int64
+	ChatsExtractMaxEntries  int
+	ChatsExtractSevenZipRar bool
 
 	// DisableChatSuggestions stops the assistant from offering things (to
 	// remember a name, to make a shortcut, to update a widget on a schedule)
@@ -1432,6 +1459,12 @@ var (
 	DisableChats      = func(o *ApplicationConfig) { o.DisableChats = true }
 	DisableTriggers   = func(o *ApplicationConfig) { o.DisableTriggers = true }
 	DisableConnectors = func(o *ApplicationConfig) { o.DisableConnectors = true }
+	// DisableLocalAIAdminByDeprecatedOption is the option of the deprecated
+	// LOCALAI_DISABLE_ASSISTANT: it maps to chats_localai_admin=false.
+	DisableLocalAIAdminByDeprecatedOption = func(o *ApplicationConfig) {
+		o.DisableChatsLocalAIAdmin = true
+		o.AdminOffByDeprecatedOption = true
+	}
 	// DisableConnectorTalkback is the option of LOCALAI_DISABLE_CONNECTOR_TALKBACK.
 	DisableConnectorTalkback = func(o *ApplicationConfig) { o.DisableConnectorTalkback = true }
 	// SkipBindingCapsMigration is the option of LOCALAI_SKIP_BINDING_CAPS_MIGRATION.
@@ -1460,6 +1493,12 @@ const (
 	DefaultMCPCIJobTimeout       = 10 * time.Minute
 )
 
+// WithChatsAutoResume sets whether the server resumes interrupted chat turns
+// by itself.
+func WithChatsAutoResume(on bool) AppOption {
+	return func(o *ApplicationConfig) { o.ChatsAutoResume = on }
+}
+
 // WithChatsHostExec sets who gets the chats' built-in bash: off, ask or on.
 func WithChatsHostExec(mode string) AppOption {
 	return func(o *ApplicationConfig) {
@@ -1471,15 +1510,6 @@ func WithChatsHostExec(mode string) AppOption {
 func WithDisableSharedPages(disabled bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.DisableSharedPages = disabled
-	}
-}
-
-// WithDisableLocalAIAssistant hard-disables the in-process admin MCP server.
-// When set, the chat-handler branch for metadata.localai_assistant=true
-// returns a "feature unavailable" error.
-func WithDisableLocalAIAssistant(disabled bool) AppOption {
-	return func(o *ApplicationConfig) {
-		o.DisableLocalAIAssistant = disabled
 	}
 }
 
@@ -1532,6 +1562,7 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	if settings == nil {
 		return false
 	}
+	defer o.keepAdminOffByOperator()
 	for _, f := range runtimeSettingsFields {
 		if f.snapshotOnly || !f.isSet(settings) {
 			continue
@@ -1580,6 +1611,16 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 // 		o.Metrics = meter
 // 	}
 // }
+
+// keepAdminOffByOperator puts the admin tool group back off when the operator
+// switched it off with the deprecated flag or variable. An explicit disable
+// must not fail open because a stored or posted chats_localai_admin=true says
+// otherwise.
+func (o *ApplicationConfig) keepAdminOffByOperator() {
+	if o.AdminOffByDeprecatedOption {
+		o.DisableChatsLocalAIAdmin = true
+	}
+}
 
 // WithRouterDecisionLog retains routing decisions independently of billing stats.
 func WithRouterDecisionLog(enabled bool) AppOption {
@@ -1674,6 +1715,35 @@ func (o *ApplicationConfig) EffectiveChatsIndexMaxTextBytes() int {
 		return n
 	}
 	return DefaultChatsIndexMaxTextBytes
+}
+
+// Bounds and defaults of the limits of "Extract here".
+const (
+	MinChatsExtractMaxBytes     int64 = 1 << 20
+	MaxChatsExtractMaxBytes     int64 = 64 << 30
+	DefaultChatsExtractMaxBytes int64 = 1 << 30
+
+	MinChatsExtractMaxEntries     = 1
+	MaxChatsExtractMaxEntries     = 1000000
+	DefaultChatsExtractMaxEntries = 20000
+)
+
+// EffectiveChatsExtractMaxBytes is the most bytes one archive may expand to:
+// the setting, or the default when it is unset or out of range.
+func (o *ApplicationConfig) EffectiveChatsExtractMaxBytes() int64 {
+	if n := o.ChatsExtractMaxBytes; n >= MinChatsExtractMaxBytes && n <= MaxChatsExtractMaxBytes {
+		return n
+	}
+	return DefaultChatsExtractMaxBytes
+}
+
+// EffectiveChatsExtractMaxEntries is the most entries one archive may have:
+// the setting, or the default when it is unset or out of range.
+func (o *ApplicationConfig) EffectiveChatsExtractMaxEntries() int {
+	if n := o.ChatsExtractMaxEntries; n >= MinChatsExtractMaxEntries && n <= MaxChatsExtractMaxEntries {
+		return n
+	}
+	return DefaultChatsExtractMaxEntries
 }
 
 // DefaultChatsEgressAuditDays is how long the Sandbox network audit keeps a

@@ -33,7 +33,16 @@
     "agent": "Agent",
     "agentHelp": "Dieser Chat läuft mit dem Agenten {{name}}: mit seinen Anweisungen und nur den Werkzeugen, die er erlaubt.",
     "editAgent": "Agent bearbeiten",
-    "deleteHelp": "Diesen Chat und seine Nachrichten endgültig löschen."
+    "deleteHelp": "Diesen Chat und seine Nachrichten endgültig löschen.",
+    "sliderOf": "{{name}}-Regler",
+    "reset": "Standardwert des Modells für {{name}} verwenden",
+    "hint": {
+      "temperature": "Höhere Werte geben abwechslungsreichere Antworten. Von 0 bis 2.",
+      "topP": "Wählt aus den wahrscheinlichsten Wörtern, die zusammen diesen Anteil ergeben. Über 0, bis 1.",
+      "topK": "Wählt aus so vielen der wahrscheinlichsten Wörter. Eine ganze Zahl, 0 oder mehr.",
+      "contextSize": "Von 512 bis 4194304 Token.",
+      "effort": "Gilt sofort, ab dem nächsten Beitrag."
+    }
   },
   "empty": {
     "manageTitle": "LocalAI per Chat verwalten",
@@ -311,6 +320,10 @@
       "desc": "Ein Ziel setzen, an dem der Chat selbstständig weiterarbeitet",
       "clearDesc": "Das Ziel entfernen",
       "resumeDesc": "Mit dem Ziel weitermachen"
+    },
+    "effort": {
+      "label": "Denkaufwand",
+      "desc": "Wie intensiv das Modell nachdenkt"
     }
   },
   "shortcuts": {
@@ -336,6 +349,9 @@
     "changedTag": "Bearbeitet",
     "changedTitle": "Der Assistent hat diese Datei geändert",
     "download": "{{name}} herunterladen",
+    "downloadAll": "Alle Dateien als ZIP herunterladen",
+    "zipName": "chat-dateien.zip",
+    "zipError": "Die Dateien konnten nicht als ZIP heruntergeladen werden.",
     "error": "Die Dateien dieses Chats konnten nicht gelesen werden.",
     "workingNote": "Skripte, Daten und Protokolle, die der Assistent unterwegs erstellt hat. Sie liegen im Arbeitsordner dieses Chats."
   },
@@ -419,7 +435,8 @@
       "upstream_unreachable": "Die Upstream-Adresse ist nicht erreichbar.",
       "upstream": "Der Anbieter hinter dem Modell hat einen Fehler zurückgegeben.",
       "timeout": "Das Modell hat zu lange für die Antwort gebraucht.",
-      "cancelled": "Der Zug wurde abgebrochen, bevor das Modell geantwortet hat."
+      "cancelled": "Der Zug wurde abgebrochen, bevor das Modell geantwortet hat.",
+      "interrupted": "Der Server wurde neu gestartet, während er antwortete."
     },
     "hint": {
       "model_backend_missing": "Wähle ein anderes Modell oder bitte eine Administratorin bzw. einen Administrator, das Backend zu installieren.",
@@ -434,7 +451,15 @@
       "timeout": "Versuche es erneut oder nutze ein kleineres oder schnelleres Modell.",
       "cancelled": "Versuche es erneut, wenn du bereit bist."
     },
-    "openBackends": "Backends öffnen"
+    "openBackends": "Backends öffnen",
+    "titleInterrupted": "Die Antwort wurde unterbrochen",
+    "resume": {
+      "waiting": "Weiter in {{seconds}} Sekunden (Versuch {{attempt}} von {{max}}).",
+      "resuming": "Es geht dort weiter, wo es aufgehört hat.",
+      "server": "Der Server macht dort weiter, wo es aufgehört hat.",
+      "exhausted": "Nach {{max}} Versuchen ging es nicht weiter. Versuchen Sie es erneut.",
+      "stop": "Nicht mehr versuchen"
+    }
   },
   "allChats": {
     "title": "Alle Chats",
@@ -744,5 +769,58 @@
       "other": "Hinweis",
       "why": "Warum"
     }
+  },
+  "connection": {
+    "lost": "Verbindung verloren. Verbindung wird neu aufgebaut."
+  },
+  "reasoning": {
+    "chip": "Aufwand",
+    "title": "Denkaufwand für diesen Chat",
+    "note": "Gilt ab dem nächsten Beitrag. „Kein“ bittet das Modell, nicht zu denken."
+  },
+  "setup": {
+    "chip": "Setup",
+    "title": "Start new chats from a saved setup",
+    "edited": "edited",
+    "menuTitle": "Setups",
+    "empty": "No setups yet. Save the model, tools and effort you use as a setup.",
+    "active": "In use",
+    "noneOff": "Default tools",
+    "toolsOff_one": "{{count}} switch off",
+    "toolsOff_other": "{{count}} switches off",
+    "effort": "Effort {{level}}",
+    "saveAs": "Save current setup as…",
+    "manage": "Manage setups",
+    "agentReason": "A saved agent decides the model and tools of this chat.",
+    "modelMissing": "The model “{{model}}” of this setup is not installed. The current model stays.",
+    "line": {
+      "noTools": "No tools",
+      "toolCount_one": "{{count}} tool",
+      "toolCount_other": "{{count}} tools"
+    },
+    "update": "Update “{{name}}”",
+    "saveNew": "Save as new…",
+    "reset": "Reset",
+    "nameLabel": "Setup name",
+    "namePlaceholder": "Name this setup",
+    "save": "Save",
+    "cancel": "Cancel",
+    "limit": "You can have up to 50 setups.",
+    "defaultName": "My default",
+    "savedToast": "Saved this chat setup as “{{name}}”. New chats start from it.",
+    "rename": "Rename",
+    "manageTitle": "Manage setups",
+    "manageNote": "The default setup is the one new chats start from. It follows the setup you sent your last message with.",
+    "manageEmpty": "No setups yet.",
+    "done": "Done",
+    "default": "Default",
+    "makeDefault": "Make default",
+    "moveUp": "Move {{name}} up",
+    "moveDown": "Move {{name}} down",
+    "renameLabel": "Name of the setup",
+    "remove": "Delete",
+    "removeConfirm": "Delete “{{name}}”?",
+    "removeYes": "Delete",
+    "noModel": "No model"
   }
 }

@@ -72,7 +72,10 @@
     "groupType": "按类型分组",
     "groupLabel": "标签：{{key}}",
     "stale": "无法刷新节点列表，当前显示最近一次读数。",
-    "retry": "重试"
+    "retry": "重试",
+    "sort": "节点排序",
+    "sortBy": "排序：{{by}}",
+    "sortDirection": "反转排序顺序"
   },
   "first": {
     "title": "尚未注册工作节点",
@@ -604,5 +607,55 @@
     "replicaN": "副本 {{n}}",
     "allMerged": "全部合并",
     "mergedTitle": "所有副本的交错时间线，便于并排比较"
+  },
+  "hero": {
+    "allClear": "所有节点均正常",
+    "attention_one": "{{count}} 个节点需要关注",
+    "attention_other": "{{count}} 个节点需要关注",
+    "healthy": "{{healthy}} / {{total}}",
+    "healthyLabel_one": "个节点正常",
+    "healthyLabel_other": "个节点正常",
+    "label": "集群健康状况",
+    "models": "运行中的模型",
+    "ram": "内存",
+    "ringAria": "{{total}} 个节点中有 {{healthy}} 个正常",
+    "vram": "显存"
+  },
+  "inspector": {
+    "close": "关闭详情",
+    "cores_one": "{{count}} 个核心忙碌",
+    "cores_other": "{{count}} 个核心忙碌",
+    "cpu": "CPU",
+    "details": "详情",
+    "empty": "选择一个节点以查看详情。",
+    "gpu": "GPU",
+    "heartbeat": "上次心跳",
+    "inFlight_one": "{{count}} 个请求",
+    "inFlight_other": "{{count}} 个请求",
+    "kicker": "节点",
+    "label": "所选节点",
+    "labels": "标签",
+    "logs": "日志",
+    "models": "运行中的模型",
+    "noModels": "未加载模型。",
+    "open": "打开完整页面",
+    "ram": "内存",
+    "version": "版本",
+    "vram": "显存"
+  },
+  "row": {
+    "agent": "智能体工作节点",
+    "cpuNode": "CPU · {{ram}} 内存",
+    "groupAttention_one": "{{count}} 个节点需要关注",
+    "groupAttention_other": "{{count}} 个节点需要关注",
+    "groupNodes_one": "{{count}} 个节点",
+    "groupNodes_other": "{{count}} 个节点",
+    "groupSelected": "已选择 {{count}} 个",
+    "idle": "未加载模型",
+    "noHeartbeat": "无心跳",
+    "ram": "内存 {{percent}}%",
+    "selectAll": "选择本页全部节点",
+    "sparkAria": "最近 {{count}} 次采样的负载，当前为百分之 {{percent}}",
+    "vram": "显存 {{percent}}%"
   }
 }

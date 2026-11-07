@@ -73,6 +73,7 @@ export const API_CONFIG = {
     filesFolders: '/api/chats/files/folders',
     filesMove: '/api/chats/files/move',
     filesTrash: '/api/chats/files/trash',
+    filesExtract: '/api/chats/files/extract',
     filesUndo: '/api/chats/files/undo',
     filesHistory: '/api/chats/files/history',
     filesSearch: '/api/chats/files/search',

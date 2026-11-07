@@ -105,6 +105,10 @@ type RuntimeSettings struct {
 	ChatsWebSearchProviders *string `json:"chats_web_search_providers,omitempty"`
 	ChatsWebAllowPrivate    *bool   `json:"chats_web_allow_private,omitempty"` // let web_fetch reach private network addresses (default: false)
 	ChatsWebPorts           *string `json:"chats_web_ports,omitempty"`         // ports web_fetch may use, comma separated (default: 80,443)
+	// The two built-in groups of LocalAI tools of the chats. Read at each turn.
+	ChatsLocalAIClient *bool   `json:"chats_localai_client,omitempty"` // offer the LocalAI client (inference) tools (default: true)
+	ChatsLocalAIAdmin  *bool   `json:"chats_localai_admin,omitempty"`  // offer the LocalAI admin tools to administrators (default: true)
+	ChatsToolSearch    *string `json:"chats_tool_search,omitempty"`    // load the large LocalAI tool groups on demand: auto, on or off (default: auto)
 	// The network of the commands the chats run in the Sandbox. Read at each
 	// check of the host proxy, so a change applies at once (a cached allow
 	// lives at most 30 seconds).
@@ -145,13 +149,16 @@ type RuntimeSettings struct {
 	ChatsIndexFiles        *bool `json:"chats_index_files,omitempty"`
 	ChatsIndexMaxTextBytes *int  `json:"chats_index_max_text_bytes,omitempty"`
 
+	// Limits of "Extract here" on the Files page: the most bytes (default:
+	// 1 GiB) and entries (default: 20000) one archive may expand to, and
+	// whether 7z and RAR archives are read at all (default: false).
+	ChatsExtractMaxBytes    *int64 `json:"chats_extract_max_bytes,omitempty"`
+	ChatsExtractMaxEntries  *int   `json:"chats_extract_max_entries,omitempty"`
+	ChatsExtractSevenZipRar *bool  `json:"chats_extract_7z_rar,omitempty"`
+
 	// Offers from the assistant in the chats, for users who did not choose.
 	// Read at each turn, so a change applies at once.
 	ChatsSuggestions *bool `json:"chats_suggestions,omitempty"` // negation of DisableChatSuggestions (default: true)
-
-	// LocalAI Assistant settings — read live by the chat handler at request
-	// entry, so flipping the toggle takes effect on the next request.
-	LocalAIAssistantEnabled *bool `json:"localai_assistant_enabled,omitempty"` // negation of DisableLocalAIAssistant for UI clarity
 
 	// Pages of shared folders — read live by the pages handlers on every
 	// request, so switching them off stops open pages at their next call.

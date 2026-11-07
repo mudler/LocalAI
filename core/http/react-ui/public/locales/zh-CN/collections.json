@@ -15,7 +15,8 @@
   },
   "sections": {
     "yourCollections": "您的集合",
-    "otherUsersCollections": "其他用户的集合"
+    "otherUsersCollections": "其他用户的集合",
+    "sharedWithYou": "与你共享"
   },
   "empty": {
     "title": "暂无集合",
@@ -70,7 +71,8 @@
     "pick": "选择集合以搜索、添加内容或查看使用情况。",
     "counts": "{{files}} 个文件，{{sources}} 个网页来源",
     "failed": "{{count}} 项失败",
-    "addSource": "添加来源"
+    "addSource": "添加来源",
+    "addFile": "添加文件"
   },
   "add": {
     "file": "文件",
@@ -100,7 +102,8 @@
     "never": "尚未抓取",
     "remove": "移除 {{url}}",
     "removeTitle": "移除来源",
-    "loadFailed": "无法加载网页来源。"
+    "loadFailed": "无法加载网页来源。",
+    "noneShared": "没有网页来源。"
   },
   "entries": {
     "title": "文件",
@@ -153,5 +156,19 @@
     "hybrid": "混合",
     "semanticHint": "按含义查找段落，不按精确的词或代码匹配。",
     "hybridHint": "按含义和精确的词查找段落。"
+  },
+  "share": {
+    "label": "共享",
+    "button": "共享 {{name}}",
+    "intro": "你添加的人会在自己的列表中看到此集合，他们的智能体可以按名称搜索它。",
+    "failed": "无法共享该集合：{{message}}",
+    "roles": {
+      "viewer": "可以查看",
+      "viewerHelp": "可以搜索并阅读其中的文件。",
+      "editor": "可以编辑",
+      "editorHelp": "还可以添加和删除文件。"
+    },
+    "noteViewer": "你可以搜索并阅读其中的文件。",
+    "noteEditor": "你可以搜索并添加或删除文件。"
   }
 }

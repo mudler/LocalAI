@@ -1,0 +1,128 @@
+{
+  "title": "Courrier",
+  "intro": "Laissez vos agents lire une boîte aux lettres en IMAP et, si vous l'autorisez, écrire des courriels en SMTP. Cela fonctionne avec tout fournisseur qui propose IMAP et SMTP.",
+  "limits": "Cette connexion ne répond pas d'elle-même au courrier entrant. Un agent ne travaille sur votre courrier que lorsque vous le lui demandez dans un chat. Toute la boîte est accessible : ne connectez qu'une boîte que l'agent peut lire.",
+  "new": "Nouvelle connexion de courrier",
+  "edit": "Modifier la connexion de courrier",
+  "name": "Nom",
+  "agent": "Agent",
+  "agentNone": "Choisir un agent",
+  "agentCredentialsOnly": "Aucun agent (identifiants seulement)",
+  "credentialsOnly": "Identifiants seulement",
+  "agentNoModel": "{{name}} (a besoin d'un modèle)",
+  "test": "Tester",
+  "testOk": "Connecté en tant que {{bot}}.",
+  "checkFailed": "Enregistré. La vérification de la connexion a échoué : {{reason}}",
+  "checkSeveral": "Les vérifications de connexion fonctionnent quand vous avez une seule connexion de courrier, car depuis cette page on ne peut pas savoir laquelle vous voulez. Dans un chat, activez les connexions dans le menu Outils.",
+  "check": {
+    "title": "Vérification de {{name}}",
+    "running": "Vérification des deux connexions...",
+    "at": "Vérifié à {{time}}",
+    "imapOk": "Lecture du courrier (IMAP) : la connexion fonctionne.",
+    "smtpOk": "Envoi du courrier (SMTP) : la connexion fonctionne.",
+    "imapFailed": "La lecture du courrier (IMAP) a échoué. {{reason}}",
+    "smtpFailed": "L'envoi du courrier (SMTP) a échoué. {{reason}}"
+  },
+  "save": "Enregistrer",
+  "cancel": "Annuler",
+  "editButton": "Modifier",
+  "delete": "Supprimer",
+  "empty": "Aucune connexion de courrier pour l'instant.",
+  "noAddress": "Aucune adresse",
+  "agentOf": "Agent : {{name}}",
+  "inactive": "Ne fonctionne pas : {{reason}}.",
+  "confirmDelete": {
+    "title": "Supprimer {{name}} ?",
+    "message": "L'agent ne peut plus accéder à cette boîte et le mot de passe enregistré avec elle est supprimé. Pour la configurer de nouveau, vous devrez tout saisir à nouveau.",
+    "confirm": "Supprimer"
+  },
+  "replace": "Modifier les serveurs ou les identifiants",
+  "savedAs": "Enregistré pour {{address}}. Les serveurs et le mot de passe sont conservés chiffrés et ne peuvent pas être affichés. Pour en modifier un, saisissez-les tous à nouveau.",
+  "address": "Adresse de la boîte",
+  "addressHelp": "L'adresse de la boîte. C'est aussi l'adresse d'expéditeur des courriels que l'agent envoie.",
+  "addressShape": "Écrivez une seule adresse simple, par exemple nom@example.com.",
+  "display": "Nom de l'expéditeur",
+  "displayHelp": "Affiché à côté de l'adresse sur les courriels que l'agent envoie.",
+  "displayShape": "Utilisez jusqu'à 100 caractères sur une seule ligne.",
+  "username": "Nom d'utilisateur",
+  "usernameHelp": "L'identifiant des deux serveurs. Souvent l'adresse complète.",
+  "userShape": "Saisissez le nom d'utilisateur de la boîte.",
+  "password": "Mot de passe",
+  "passwordHelp": "Beaucoup de fournisseurs demandent ici un mot de passe d'application, pas le mot de passe habituel. Il est conservé chiffré et n'est plus jamais affiché.",
+  "passMissing": "Saisissez le mot de passe.",
+  "passShape": "Le mot de passe fait au plus 512 caractères, sans saut de ligne.",
+  "host": "Serveur",
+  "port": "Port",
+  "imap": {
+    "title": "Lecture du courrier (IMAP)",
+    "hostExample": "imap.example.com"
+  },
+  "smtp": {
+    "title": "Envoi du courrier (SMTP)",
+    "hostExample": "smtp.example.com"
+  },
+  "imapHostShape": "Écrivez seulement le nom du serveur IMAP, comme imap.example.com : sans https://, port ni chemin.",
+  "smtpHostShape": "Écrivez seulement le nom du serveur SMTP, comme smtp.example.com : sans https://, port ni chemin.",
+  "imapPortShape": "Le port IMAP est 993 ou 143.",
+  "smtpPortShape": "Le port SMTP est 465 ou 587.",
+  "imapPortSecurityMismatch": "Le port 993 utilise TLS ; le port 143 utilise STARTTLS. Faites correspondre le port et la protection.",
+  "smtpPortSecurityMismatch": "Le port 465 utilise TLS ; le port 587 utilise STARTTLS. Faites correspondre le port et la protection.",
+  "plainNotConfirmed": "Confirmez que vous acceptez d'envoyer le mot de passe sans protection, ou choisissez TLS ou STARTTLS.",
+  "security": {
+    "label": "Protection",
+    "tls": "TLS",
+    "starttls": "STARTTLS",
+    "none": "Aucune (non sûr)",
+    "plainWarning": "Sans protection, le mot de passe et tout le courrier circulent en clair. Toute personne sur le chemin du réseau peut les lire. Ne l'utilisez que sur un réseau de confiance.",
+    "plainConfirm": "J'accepte que le mot de passe et le courrier soient envoyés sans protection."
+  },
+  "folders": "Dossiers que l'agent peut utiliser",
+  "foldersHelp": "Un par ligne. Laissez vide pour autoriser tous les dossiers. Un dossier absent de la liste est refusé, et INBOX est comparé sans tenir compte de la casse.",
+  "foldersMany": "Au plus 20 dossiers.",
+  "foldersShape": "Un nom de dossier fait au plus 200 caractères sur une seule ligne.",
+  "drafts": "Dossier des brouillons",
+  "draftsHelp": "Nécessaire seulement si le serveur n'indique pas son dossier de brouillons. Les brouillons vont d'abord dans le dossier que le serveur indique comme brouillons.",
+  "tooLong": "La connexion est trop longue pour être enregistrée. Raccourcissez la liste des dossiers.",
+  "setup": {
+    "title": "Comment connecter une boîte",
+    "step1": "Trouvez les noms des serveurs IMAP et SMTP de votre fournisseur dans ses pages d'aide. Les deux utilisent TLS ou STARTTLS.",
+    "step2": "Si le fournisseur le permet, créez un mot de passe d'application pour LocalAI et utilisez-le comme mot de passe. Un mot de passe normal ne fonctionne souvent pas avec IMAP.",
+    "step3": "Saisissez l'adresse, le nom d'utilisateur, le mot de passe et les deux serveurs, puis enregistrez. L'enregistrement se connecte aux deux serveurs.",
+    "step4": "Choisissez si l'agent peut aussi envoyer des courriels et enregistrer des brouillons. Chaque envoi et chaque brouillon attend votre confirmation, dans les deux modes.",
+    "private": "Les serveurs de courrier doivent être sur l'internet public : les adresses d'un réseau privé sont refusées."
+  },
+  "writeMode": {
+    "label": "Ce que l'agent peut faire du courrier",
+    "hint": "Envoyer et enregistrer des brouillons. Il ne supprime, ne déplace, ne marque ni ne transfère jamais de courrier.",
+    "off": "Lecture seule",
+    "propose": "Vous demande d'abord",
+    "line": {
+      "off": "Il peut seulement lire.",
+      "propose": "Chaque envoi et chaque brouillon attend votre accord."
+    },
+    "note": {
+      "off": "L'accès en écriture est désactivé : cette connexion ne fait que lire.",
+      "propose": "Chaque envoi et chaque brouillon attend dans vos approbations que vous le confirmiez. Un courriel envoyé ne peut pas être rappelé, et tous les destinataires de À et Cc le liront."
+    },
+    "row": {
+      "off": "Lecture seule",
+      "propose": "Vous demande d'abord"
+    }
+  },
+  "approval": {
+    "action": {
+      "send-message": "Envoyer un courriel",
+      "save-draft": "Enregistrer un brouillon de courriel"
+    },
+    "from": "De",
+    "to": "À",
+    "cc": "Cc",
+    "subject": "Objet",
+    "reply": "Réponse",
+    "replyYes": "Fait partie d'une conversation existante",
+    "text": "Texte du courriel",
+    "cut": "Le texte affiché ici est coupé. Le texte complet, {{bytes}} octets, est utilisé.",
+    "noteSend": "L'envoi ne peut pas être annulé. Tous les destinataires de À et Cc liront ceci depuis votre adresse.",
+    "noteDraft": "Ceci est enregistré dans votre dossier de brouillons. Rien n'est envoyé."
+  }
+}

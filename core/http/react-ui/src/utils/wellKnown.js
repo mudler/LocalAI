@@ -1,6 +1,6 @@
 // The well-known files of the user's home (persona.json, user.json,
-// shortcuts.json, home.json and ui.json in LocalAI/, and the data files of
-// Home widgets):
+// shortcuts.json, setups.json, home.json and ui.json in LocalAI/, and the data
+// files of Home widgets):
 // the client of /api/chats/wellknown and the pure helpers the editors share.
 // No browser globals at import time, so the node unit tests load it.
 
@@ -16,6 +16,7 @@ export const WELL_KNOWN_FILES = {
   shortcuts: `${SETTINGS_DIR}/shortcuts.json`,
   home: `${SETTINGS_DIR}/home.json`,
   ui: `${SETTINGS_DIR}/ui.json`,
+  setups: `${SETTINGS_DIR}/setups.json`,
 }
 
 export class WellKnownError extends Error {

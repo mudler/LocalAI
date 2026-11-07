@@ -104,6 +104,14 @@ type Deps struct {
 	MCPConnectors *mcpconns.Service
 	// Agents holds the saved agents. Nil: a chat cannot name an agent.
 	Agents agents.Store
+	// AgentShares is the sharing policy of saved agents (share kind
+	// "agent"). Nil, or not Available: agents are not shared, and a chat
+	// names only its owner's agents.
+	AgentShares AgentShares
+	// ReferenceShares maps the collections and connections an agent names
+	// to their IDs in the sharing API, so the owner can share them with the
+	// agent. Nil: they cannot be shared from the agent's Share dialog.
+	ReferenceShares ReferenceShareResolver
 	// Notify stores and delivers notifications. Nil: there is no inbox.
 	Notify *notify.Service
 	// Push sends notifications to browsers. Nil: browser push is off.
@@ -138,9 +146,25 @@ type Deps struct {
 	// more is refused with ErrWorkerFull; a start for a chat whose turn runs
 	// is taken, because its message only waits. Zero: no cap.
 	MaxWorkerTurns int
+	// AutoResume makes the server go on by itself with a turn that a restart
+	// interrupted (see resume.go). Off: the person, or the page, resumes it.
+	AutoResume bool
+	// CloseTimeout bounds Close: how long it waits for the running turns to
+	// stop and be stored. Past it, every turn that still runs is marked
+	// interrupted in the store, so that it can resume, and Close returns
+	// ErrCloseTimedOut. Zero means 25 seconds, under the usual 30 seconds that a
+	// platform gives a process to stop. Negative: no bound.
+	CloseTimeout time.Duration
 	// HeartbeatEvery is how often a running turn tells the store it is alive.
 	// Zero means 15 seconds.
 	HeartbeatEvery time.Duration
+	// Instance names this process among the frontends and workers of a
+	// cluster. A turn records it as its owner, so a client that reconnects to
+	// another frontend can be given the events it missed (eventremote.go).
+	// Empty: no owner is recorded and no replay is asked of another process.
+	Instance string
+	// Replay carries those asks between processes. Nil in one process.
+	Replay ReplayCarrier
 	// Files is the workspace of the chats. Nil or disabled: the chats have no
 	// files, and everything else works.
 	Files *files.Service
@@ -164,6 +188,9 @@ type Deps struct {
 	// whatever their status, for the members of a shared folder. Nil: Users
 	// looks members up by ID, and with no Users any principal is a member.
 	FindUser func(ctx context.Context, ref string) (*auth.User, error)
+	// FolderDirectory is the account directory people pick from when they
+	// share a folder of their own home. Nil (no accounts): they cannot.
+	FolderDirectory sharedfolders.Directory
 	// Builtins is the registry of the built-in chat tools an add-on may
 	// replace. Nil: the service makes one. The service registers bash in it
 	// when HostExec is set.
@@ -177,6 +204,22 @@ type Deps struct {
 	// switched it on may call the user's saved agents as sub-agents. Read at
 	// each turn. Nil: on.
 	SavedAgentsOn func() bool
+	// LocalAIClientOn and LocalAIAdminOn are the settings chats_localai_client
+	// and chats_localai_admin: whether the chats may offer the LocalAI client
+	// tools and the LocalAI admin tools. Read at each turn. Nil: on.
+	LocalAIClientOn, LocalAIAdminOn func() bool
+	// ToolSearchMode is the setting chats_tool_search: auto, on or off. It
+	// decides whether the LocalAI tool groups are sent to the model as typed
+	// tools or hidden behind tool_search, tool_describe and tool_call. Read
+	// at each turn. Nil: auto.
+	ToolSearchMode func() string
+	// ExtractLimits gives the limits of the Extract action of the Files page
+	// (the settings chats_extract_max_bytes, chats_extract_max_entries and
+	// chats_extract_7z_rar). Read at each request. Nil: the defaults.
+	ExtractLimits func() files.ExtractLimits
+	// ClientTools serves the LocalAI client tools. Nil: the client group is
+	// not registered.
+	ClientTools ClientAssistant
 	// WorkFolderOn is the setting chats_work_folder: whether the prompt of a
 	// chat names its work folder for scripts and other working files, and a
 	// helper file saved elsewhere gets a nudge. Read at each turn. Nil: on.
@@ -333,13 +376,27 @@ type Service struct {
 	// outcomes limits the log lines of the add-on tool outcomes (see
 	// addonoutcome.go).
 	outcomes outcomeLimiter
-	bus    Bus
-	log    *slog.Logger
+	bus      Bus
+	log      *slog.Logger
+	// stopFolderWatch ends the listener of folderAccessKey.
+	stopFolderWatch func()
+	// beforeNext runs before the next turn is started from the waiting
+	// messages, after the end of the last one is announced. Only the specs set
+	// it.
+	beforeNext func()
 
 	mu    sync.Mutex
 	runs  map[string]*run                 // the turn this process runs, by conversation
 	pumps map[string]<-chan session.Event // the event channel read for each conversation
-	locks map[string]*keyLock
+	// rings holds the live tail of the chats this process runs a turn for (see
+	// eventRing). Per instance on purpose: it is a cache of the tail, and the
+	// transcript is the record.
+	rings map[string]*eventRing
+	// streams counts the open event streams of each chat (see openStream).
+	streams map[string]int
+	// stopServing ends the answers to replay asks (Deps.Replay); nil without.
+	stopServing func()
+	locks       map[string]*keyLock
 
 	// heldNotes is the last held-back line this process noted in each connector
 	// chat (see noteHeldBack). State mode: per-instance on purpose. It only
@@ -347,6 +404,9 @@ type Service struct {
 	// process that serves the chat may note it once more, and the interface
 	// folds equal neighbours.
 	heldNotes sync.Map
+	// guardRuns holds, per chat, the run id of the turn that the promise guard
+	// started, so that the turn is not guarded again (see promiseguard.go).
+	guardRuns sync.Map
 
 	// admit makes the check of MaxWorkerTurns and the start it admits one step,
 	// so two starts cannot both take the last place.
@@ -384,6 +444,9 @@ type Service struct {
 	admin workspace.Actor
 
 	nudged nudges // the turns whose results said where helper files go
+	// refusedActs holds, for each chat of an unattended run, the first grant a
+	// refused action lacked, until the run ends and its status is set.
+	refusedActs sync.Map
 
 	shared *sharedfolders.Service // the folders an administrator shares
 
@@ -402,6 +465,9 @@ type run struct {
 	// steps counts the model requests of the turn (see inputs), for the
 	// chat's goal.
 	steps int
+	// final is the text the model wrote since its last tool call (see
+	// noteFinalText).
+	final string
 	// chat is the chat the turn runs on. Stop goes through it and never opens
 	// the chat again: a turn that ended has closed it, and a chat left open by
 	// a late Stop would hold stale state while another frontend runs the next turn.
@@ -434,7 +500,7 @@ func New(d Deps) (*Service, error) {
 	if bus == nil {
 		bus = NewLocalBus()
 	}
-	s := &Service{d: d, bus: bus, log: log, runs: map[string]*run{}, pumps: map[string]<-chan session.Event{}, locks: map[string]*keyLock{},
+	s := &Service{d: d, bus: bus, log: log, runs: map[string]*run{}, pumps: map[string]<-chan session.Event{}, rings: map[string]*eventRing{}, streams: map[string]int{}, locks: map[string]*keyLock{},
 		videos: map[string][]string{}, children: map[string]map[string]*child{}, allowed: map[string][]session.Tool{}, waiters: map[string][]chan store.TurnStatus{}, closed: make(chan struct{})}
 	s.egressAuditStore = d.EgressAudit
 	if s.egressAuditStore == nil {
@@ -452,6 +518,9 @@ func New(d Deps) (*Service, error) {
 		return nil, err
 	}
 	if err := s.registerSavedAgents(); err != nil {
+		return nil, err
+	}
+	if err := s.registerLocalAIGroups(); err != nil {
 		return nil, err
 	}
 	if err := s.registerHistoryTools(); err != nil {
@@ -499,7 +568,9 @@ func New(d Deps) (*Service, error) {
 	s.providerHealth, s.providerTimings = newProviderHealth(), defaultProviderTimings()
 	s.registerMemorySlot()
 	s.ctxfiles = contextfiles.NewLoader(contextfiles.NewRegistry(), homeReader{f: d.Files}, log)
-	s.shared = sharedfolders.New(sharedfolders.Options{Files: d.Files, Consents: d.PageConsents, Audit: d.SharedFolderAudit, Users: s.folderUsers()})
+	s.shared = sharedfolders.New(sharedfolders.Options{Files: d.Files, Consents: d.PageConsents, Audit: d.SharedFolderAudit, Users: s.folderUsers(),
+		Directory: d.FolderDirectory, AccessLost: s.folderAccessLost})
+	s.stopFolderWatch = s.bus.OnControl(folderAccessKey, s.onFolderAccess)
 	// A chat mounts the shared folders of its owner at /workspace/shared-<name>.
 	mgr, err := session.New(session.Options{Store: d.Store, Workspace: d.Files.Store(), Harness: h, StateDir: d.StateDir, Inputs: s.inputs, ChatTools: s.chatTools,
 		Shared: s.shared.Roots, Resolve: s.resolveAccess, ProductScope: s.productScope, Logger: log})
@@ -510,6 +581,9 @@ func New(d Deps) (*Service, error) {
 	s.admin = workspace.Actor{Principal: files.AdminPrincipal}
 	if d.Files.Available() {
 		s.feed = wsfeed.New(wsfeed.Options{Store: d.Files.Store(), Admin: s.admin, Logger: log})
+	}
+	if err := s.serveReplay(); err != nil {
+		return nil, err
 	}
 	return s, nil
 }
@@ -556,7 +630,20 @@ func (s *Service) isClosed() bool {
 	}
 }
 
-// Close stops every chat. A turn that it cuts short is recorded as interrupted.
+// defaultCloseTimeout is Deps.CloseTimeout when it is zero.
+const defaultCloseTimeout = 25 * time.Second
+
+// ErrCloseTimedOut means Close did not finish in Deps.CloseTimeout. The turns
+// that still ran were marked interrupted in the store, as far as the store
+// answered.
+var ErrCloseTimedOut = errors.New("studio: closing took longer than the limit; the running turns were marked interrupted")
+
+// Close stops every chat. A turn that it cuts short is recorded as interrupted,
+// and resumes after the restart when the server resumes by itself (see
+// Deps.AutoResume). It returns within Deps.CloseTimeout: a turn that does not
+// stop in time (a tool that ignores its context, a slow store) is marked
+// interrupted by Close itself, and the stuck work is left behind for the
+// process to exit.
 func (s *Service) Close(ctx context.Context) error {
 	select {
 	case <-s.closed:
@@ -566,7 +653,64 @@ func (s *Service) Close(ctx context.Context) error {
 	if s.feed != nil {
 		s.feed.Close()
 	}
-	return s.mgr.Close(ctx)
+	if s.stopFolderWatch != nil {
+		s.stopFolderWatch()
+	}
+	if s.stopServing != nil {
+		s.stopServing()
+	}
+	limit := s.d.CloseTimeout
+	if limit < 0 {
+		return s.mgr.Close(ctx)
+	}
+	if limit == 0 {
+		limit = defaultCloseTimeout
+	}
+	bounded, cancel := context.WithTimeout(ctx, limit)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- s.mgr.Close(bounded) }()
+	select {
+	case err := <-done:
+		return err
+	case <-bounded.Done():
+	}
+	n := s.markCutTurns(context.WithoutCancel(ctx))
+	s.log.Warn("studio: closing took longer than the limit", "limit", limit, "turns_marked_interrupted", n)
+	return ErrCloseTimedOut
+}
+
+// markCutTurns records as interrupted, in the store, each turn that this
+// process still runs, with the resume scheduled as a death would have it. It
+// returns how many it marked. The turn that is stuck may still end later; its
+// release then finds the claim gone and only logs.
+func (s *Service) markCutTurns(ctx context.Context) int {
+	type cut struct{ p, conv, runID string }
+	s.mu.Lock()
+	var cuts []cut
+	for k, r := range s.runs {
+		if p, conv, ok := strings.Cut(k, "\x00"); ok {
+			cuts = append(cuts, cut{p, conv, r.id})
+		}
+	}
+	s.mu.Unlock()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	n := 0
+	for _, c := range cuts {
+		err := s.d.Store.ReleaseTurn(ctx, c.p, c.conv, c.runID, store.TurnInterrupted)
+		if err != nil {
+			if !errors.Is(err, store.ErrNotClaimed) {
+				s.log.Warn("studio: could not mark a turn interrupted at close", "chat", c.conv, "error", err)
+			}
+			continue
+		}
+		n++
+		if !s.keepResume(ctx, c.p, c.conv) {
+			s.pauseGoal(ctx, c.p, c.conv, session.GoalPausedByInterrupted)
+		}
+	}
+	return n
 }
 
 // List returns the user's conversations, newest first. Sub-agent runs are
@@ -653,10 +797,14 @@ func (s *Service) Create(ctx context.Context, user string, in CreateInput) (sess
 
 // CreateAs creates a conversation of user that was started by origin: a person
 // (the zero Origin), a trigger or a connector. The agent, when named, must be
-// the user's own.
+// the user's own, or, for a chat a person starts, an agent shared with them:
+// the chat then runs as the user with the agent's definition. A trigger or a
+// connector runs only its owner's agents.
 func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, origin Origin) (session.ChatRecord, error) {
 	model := in.Model
 	scoped := false
+	// shared says the agent is another person's, shared with user.
+	shared := false
 	var agentOn []string
 	if in.Assistant {
 		if in.AgentID != "" {
@@ -673,14 +821,21 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		if s.d.Agents == nil {
 			return session.ChatRecord{}, ErrAgentsOff
 		}
-		ag, err := s.d.Agents.Get(ctx, principal(user), in.AgentID)
+		var ag agents.Agent
+		var err error
+		if origin.Kind == "" {
+			ag, err = s.chatAgent(ctx, principal(user), in.AgentID)
+		} else {
+			ag, err = s.ownAgent(ctx, user, in.AgentID)
+		}
 		if err != nil {
 			return session.ChatRecord{}, err
 		}
 		if ag.Model != "" {
 			model = ag.Model
 		}
-		agentOn = ag.BuiltinsOn
+		shared = ag.Principal != principal(user)
+		agentOn = grantedOn(ag, shared)
 		if ag.HasFolder() {
 			// A chat never starts on the whole home in place of a folder
 			// that is missing or not chosen.
@@ -720,6 +875,8 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		// A chat a person starts gets the instance default, or the network
 		// of its saved agent when the agent sets one, under the ceiling. An
 		// unattended run follows its agent's network field at each check.
+		// An agent of another person never widens the person's own default:
+		// its owner's choice runs with the person's authority.
 		set, err := s.egressSettings(ctx)
 		if err != nil {
 			return session.ChatRecord{}, err
@@ -727,7 +884,7 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		rec.Egress = egress.ChatState{Preset: set.DefaultPreset()}
 		if in.AgentID != "" {
 			if n := s.agentNetwork(ctx, rec); n != egress.PresetOff {
-				rec.Egress.Preset = egress.Min(n, set.Ceiling)
+				rec.Egress.Preset = egress.Min(n, startLimit(set, shared))
 			}
 		}
 	}
@@ -735,6 +892,26 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		return session.ChatRecord{}, err
 	}
 	return rec, nil
+}
+
+// startLimit is the widest network a chat a person starts may get from its
+// saved agent: the ceiling for the person's own agent, the person's own
+// default for an agent shared with them.
+func startLimit(set egress.Settings, shared bool) egress.Preset {
+	if shared {
+		return set.DefaultPreset()
+	}
+	return set.Ceiling
+}
+
+// grantedOn are the opt-in groups of built-in tools that a new chat of the
+// agent starts with. A chat of the person's own starts with none of them, so
+// an agent shared with the person turns none on: the person turns them on.
+func grantedOn(ag agents.Agent, shared bool) []string {
+	if shared {
+		return nil
+	}
+	return ag.BuiltinsOn
 }
 
 // Get returns a conversation the user owns.
@@ -747,12 +924,51 @@ func (s *Service) Messages(ctx context.Context, user, conv string, after int64, 
 	if _, err := s.Get(ctx, user, conv); err != nil {
 		return nil, err
 	}
-	return s.d.Store.Entries(ctx, conv, after, limit)
+	return s.visibleEntries(ctx, conv, after, limit)
+}
+
+// visibleEntries is Store.Entries without the lines that are for the server
+// only (RoleToolIntent). A page still holds limit lines when the transcript has
+// them, so that a client that reads page by page does not stop early.
+func (s *Service) visibleEntries(ctx context.Context, conv string, after int64, limit int) ([]session.Entry, error) {
+	var out []session.Entry
+	for {
+		want := limit
+		if limit > 0 {
+			want = limit - len(out)
+		}
+		page, err := s.d.Store.Entries(ctx, conv, after, want)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range page {
+			if e.Role != session.RoleToolIntent {
+				out = append(out, e)
+			}
+		}
+		if len(page) > 0 {
+			after = page[len(page)-1].Seq
+		}
+		if limit <= 0 || len(out) >= limit || len(page) < want {
+			return out, nil
+		}
+	}
 }
 
 // Turn returns the turn state of a conversation.
+//
+// WillResume is true only when this server resumes the turn by itself, that
+// is when Deps.AutoResume is on and the chat may resume (see resume.go).
 func (s *Service) Turn(ctx context.Context, user, conv string) (store.TurnInfo, error) {
-	return s.d.Store.Turn(ctx, principal(user), conv)
+	p := principal(user)
+	info, err := s.d.Store.Turn(ctx, p, conv)
+	if err != nil || !info.WillResume {
+		return info, err
+	}
+	if rec, gerr := s.d.Store.GetChat(ctx, p, conv); gerr != nil || !s.resumeEligible(rec) {
+		info.WillResume = false
+	}
+	return info, nil
 }
 
 // Principal returns the owner ID the service uses for a user: the user's ID,
@@ -761,6 +977,14 @@ func (s *Service) Principal(user string) string { return principal(user) }
 
 // Files returns the workspace of the chats. It is never nil.
 func (s *Service) Files() *files.Service { return s.d.Files }
+
+// ExtractLimits returns the limits of the next extraction.
+func (s *Service) ExtractLimits() files.ExtractLimits {
+	if s.d.ExtractLimits == nil {
+		return files.ExtractLimits{}
+	}
+	return s.d.ExtractLimits()
+}
 
 // PageConsents returns the store of the consents to shared pages, or nil.
 func (s *Service) PageConsents() pages.ConsentStore { return s.d.PageConsents }
@@ -1080,6 +1304,21 @@ func (s *Service) SendNow(ctx context.Context, user, conv string) error {
 // frontend, which then hears the request over the bus.
 func (s *Service) Stop(ctx context.Context, user, conv string) error {
 	p := principal(user)
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil {
+		return err
+	}
+	if rec.Kind == session.KindSubAgent {
+		// A sub-agent that waits for its loop is stopped for good: its loop
+		// ends, and the parent hears that the run was stopped.
+		s.endChildLoops(ctx, p, conv)
+	}
+	return s.stopTurn(ctx, user, conv)
+}
+
+// stopTurn is Stop without the end of the loops of a sub-agent chat.
+func (s *Service) stopTurn(ctx context.Context, user, conv string) error {
+	p := principal(user)
 	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
 		return err
 	}
@@ -1162,8 +1401,16 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 
 // startTurn runs msg as a turn the claim runID already covers.
 func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg session.Message) error {
+	// A chat with an agent shared with its owner runs as admitted work of
+	// the agent's sharing record: a lowering or a revocation stops it.
+	release, recheck, err := s.admitAgentTurn(ctx, p, conv)
+	if err != nil {
+		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
+		return err
+	}
 	chat, err := s.chat(ctx, p, conv)
 	if err != nil {
+		release()
 		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
 		return err
 	}
@@ -1179,17 +1426,21 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg sess
 			}
 		}
 	})
-	end := func() { stopBeat(); stopListening() }
+	end := func() { stopBeat(); stopListening(); release() }
 	// The cards still pending in the record belong to an earlier turn, whose
 	// frontend may have died: nobody waits on them any more.
 	s.expireConsents(ctx, p, conv, "")
 	s.mu.Lock()
 	s.runs[k] = &run{id: runID, started: time.Now(), end: end, chat: chat}
+	s.rings[k] = newEventRing(runID, ringMaxEvents, ringMaxBytes)
 	s.mu.Unlock()
+	recheck()
+	s.recordOwner(ctx, p, conv, runID)
 	msg.Media = s.keepVideos(k, msg.Media)
 	if err := chat.Send(context.WithoutCancel(ctx), msg); err != nil {
 		s.mu.Lock()
 		delete(s.runs, k)
+		delete(s.rings, k)
 		s.mu.Unlock()
 		end()
 		// s.chat opened the chat; with no turn running nothing else will close it.
@@ -1247,8 +1498,15 @@ func (s *Service) ReapStale(ctx context.Context, olderThan time.Duration) (int, 
 		s.expireConsents(ctx, r.Principal, r.ChatID, r.RunID)
 		s.bus.Publish(k, session.Event{Kind: session.KindError, Text: "The turn was interrupted."})
 		s.bus.Publish(k, session.Event{Kind: session.KindTurnEnd})
+		if s.keepResume(ctx, r.Principal, r.ChatID) {
+			// The sweep goes on with the turn: what waits for its end (a run
+			// record, a goal, a parent) waits for the end of the whole chain.
+			continue
+		}
 		// A parent waits for a sub-agent whose turn ended this way too.
-		s.notifyWaiters(k, store.TurnInterrupted)
+		if !s.loopHolds(ctx, r.Principal, r.ChatID) {
+			s.notifyWaiters(k, store.TurnInterrupted)
+		}
 		// The goal of a turn that died does not go on by itself: the frontend
 		// that would have continued it is gone, and the person resumes it.
 		s.pauseGoal(ctx, r.Principal, r.ChatID, session.GoalPausedByInterrupted)
@@ -1309,11 +1567,20 @@ func (s *Service) pump(chat *session.Chat, evs <-chan session.Event, p, conv str
 			// The end is recorded before it is announced: a client that reads
 			// the chat when it sees turn_end must not find it still running.
 			next := s.finishTurn(chat, p, conv)
-			s.bus.Publish(k, ev)
+			s.bus.Publish(k, s.stamp(k, ev))
+			s.expireRing(k)
 			next()
 			continue
 		}
+		ev = s.stamp(k, ev)
 		s.bus.Publish(k, ev)
+		if ev.Kind == session.KindText || ev.Kind == session.KindToolStart {
+			s.mu.Lock()
+			if r := s.runs[k]; r != nil {
+				r.noteFinalText(ev)
+			}
+			s.mu.Unlock()
+		}
 		switch ev.Kind {
 		case session.KindError:
 			// Only the error that ended the turn fails it. A failed save or a
@@ -1384,9 +1651,25 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 		// this one only cleans up after itself and reports a terminal status.
 		status = store.TurnInterrupted
 	}
-	s.settleGoal(ctx, p, conv, status, r.steps)
+	final, guarded := r.final, false
+	if v, ok := s.guardRuns.Load(k); ok && v == r.id {
+		// This turn answered the note of the guard: it is not guarded again.
+		s.guardRuns.Delete(k)
+		guarded = true
+	}
+	// A turn that Close cut short may be resumed by the server after the
+	// restart. Then the goal, a parent and the run record wait for the end of
+	// the chain, not for this turn.
+	resumes := status == store.TurnInterrupted && s.keepResume(ctx, p, conv)
+	if resumes {
+		s.settleGoal(ctx, p, conv, store.TurnDone, r.steps) // counts the steps, pauses nothing
+	} else {
+		s.settleGoal(ctx, p, conv, status, r.steps)
+	}
 	s.observeTurn(ctx, p, conv, r.started, outcomeOf(r.stopped, r.failed || status == store.TurnInterrupted))
-	s.notifyWaiters(k, status)
+	if !resumes && !s.holdForLoop(ctx, p, conv, status) {
+		s.notifyWaiters(k, status)
+	}
 	if !status.Finished() {
 		// A stopped or failed turn takes its running sub-agents with it, and the
 		// waiting messages stay for the user to decide.
@@ -1397,6 +1680,9 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 	// that the new turn will produce.
 	return func() {
 		go func() {
+			if s.beforeNext != nil {
+				s.beforeNext()
+			}
 			unlock := s.lock(k)
 			defer unlock()
 			// The person's waiting messages go first; with none, an active
@@ -1404,6 +1690,9 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 			started, err := s.startFromPending(ctx, p, conv)
 			if err == nil && !started {
 				started, err = s.continueGoal(ctx, p, conv, goalContinue)
+			}
+			if err == nil && !started && !guarded {
+				started, err = s.promiseGuard(ctx, p, conv, final)
 			}
 			if err != nil {
 				s.log.Warn("studio: could not start the next turn", "chat", conv, "error", err)

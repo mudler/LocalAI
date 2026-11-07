@@ -95,12 +95,13 @@ func (s *Service) Regenerate(ctx context.Context, user, conv string) (SendResult
 	})
 }
 
-// Resume goes on with a turn that failed, from where it stopped. The
+// Resume goes on with a turn that failed or was interrupted (a restart ended
+// it), from where it stopped. The
 // transcript stays as it is, with the steps the failed turn finished and the
 // reason at its end; the model keeps its own state, so a tool call that has
 // its result is not made again and a summary of the context stays. Messages
 // that wait for the chat go first, as in any new turn. It does nothing, and
-// says so with Started false, when the chat is not at a failed turn: another
+// says so with Started false, when the chat is not at a failed or interrupted turn: another
 // click or another window may have resumed it already, and a second run would
 // answer the same failure twice.
 func (s *Service) Resume(ctx context.Context, user, conv string) (SendResult, error) {
@@ -118,7 +119,7 @@ func (s *Service) Resume(ctx context.Context, user, conv string) (SendResult, er
 	if err != nil {
 		return SendResult{}, err
 	}
-	if info.Running || info.Last != store.TurnFailed {
+	if info.Running || (info.Last != store.TurnFailed && info.Last != store.TurnInterrupted) {
 		return SendResult{}, nil
 	}
 	runID := newID()

@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 // Actor returns the actor that acts for a user. Every user is in the
@@ -59,18 +60,36 @@ func (s *Service) Rel(principal, abs string) string {
 const (
 	ManagedSettings = "localai" // LocalAI/ and the settings files in it
 	ManagedChats    = "chats"   // Chats/, one folder per chat
+	ManagedMemory   = "memory"  // Memory/, the memory notes
+	ManagedPages    = "pages"   // pages/, one folder per page
+	ManagedSkills   = "skills"  // .skills/, one folder per personal skill
 )
 
 // Managed says whether LocalAI manages a path inside the home: ManagedSettings
-// for LocalAI/ and what is in it, ManagedChats for the Chats folder itself,
-// and "" for the user's own files. The Files page marks these paths and asks
-// before they are deleted or moved.
+// for LocalAI/ and what is in it, and for the folders Chats/, Memory/, pages/
+// and .skills/ themselves (not what is in them) ManagedChats, ManagedMemory,
+// ManagedPages and ManagedSkills. It says "" for the user's own files. The
+// Files page marks these paths and asks before the settings are deleted or
+// moved. It only describes: it never refuses an operation.
+//
+// workfiles.Managed is the one list of these folders, and the rules of
+// sharing and moving use it. Managed only gives a label to a path of that list,
+// so the Files page cannot mark a folder that sharing treats as the user's own.
 func Managed(rel string) string {
+	if !workfiles.Managed(rel) {
+		return ""
+	}
 	switch {
-	case rel == "/"+session.SettingsDir || strings.HasPrefix(rel, "/"+session.SettingsDir+"/"):
+	case rel == "/"+workfiles.SettingsDir || strings.HasPrefix(rel, "/"+workfiles.SettingsDir+"/"):
 		return ManagedSettings
-	case rel == "/"+session.ChatsDir:
+	case rel == "/"+workfiles.ChatsDir:
 		return ManagedChats
+	case rel == "/"+workfiles.MemoryDir:
+		return ManagedMemory
+	case rel == "/"+workfiles.PagesDir:
+		return ManagedPages
+	case rel == "/"+workfiles.SkillsDir:
+		return ManagedSkills
 	}
 	return ""
 }

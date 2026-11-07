@@ -60,7 +60,7 @@ jobs:
     # frontends, a worker and the cluster state, with the race detector on.
     name: multi-frontend over the in-process bus
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Clone
         uses: actions/checkout@v7

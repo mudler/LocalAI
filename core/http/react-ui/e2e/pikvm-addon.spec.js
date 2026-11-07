@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi } from './connector-fixtures.js'
+import { connectorApi, openPane } from './connector-fixtures.js'
 
 // The page of the PiKVM add-on (the real built bundle, inside the add-on
 // shell): the choice of what is still asked before a power action or a key
@@ -12,7 +12,7 @@ import { connectorApi } from './connector-fixtures.js'
 const PAGE = '/app/addons/pikvm/apps'
 const SHOTS = process.env.UI_SHOTS_DIR
 const BINDING = { id: 'b1', name: 'PiKVM: pikvm.local', kind: 'pikvm', agent_id: '', credentials_only: true, enabled: false, accept_any: false, allow: [], resources: ['https://pikvm.local'], write_mode: 'propose', has_token: true }
-const KIND = { capabilities: [], kindExtra: { title: 'PiKVM', files: undefined, agent_optional: true } }
+const KIND = { capabilities: [], kindExtra: { title: 'PiKVM', files: undefined, agent_optional: true, tool_only: true } }
 const api = (page, initial = []) => connectorApi(page, initial, 'pikvm', [], undefined, KIND)
 
 const DECLARED = ['power-action', 'send-key'].map(tool => ({ key: `approval-${tool}`, values: ['ask', 'skip'], default: 'ask' }))
@@ -100,7 +100,8 @@ test.describe('PiKVM add-on approvals', () => {
     await api(page, [BINDING]).install()
     const h = await host(page)
     await page.goto(PAGE)
-    const row = page.getByTestId('connector-row')
+    await openPane(page)
+    const row = page.getByTestId('connector-pane')
     await expect(row.getByTestId('connector-approval-power-action')).toHaveAttribute('data-state', 'asks')
     await shot(page, 'pikvm-1-default')
     await page.getByTestId('pikvm-approval-power-action').getByRole('radio', { name: /Don't ask/ }).click()
@@ -126,7 +127,8 @@ test.describe('PiKVM add-on approvals', () => {
     await page.goto(PAGE)
     await expect(page.getByTestId('pikvm-approval-send-key').getByRole('radio', { name: /Don't ask/ })).toBeChecked()
     await expect(page.getByTestId('pikvm-approval-power-action').getByRole('radio', { name: /Ask each time/ })).toBeChecked()
-    await expect(page.getByTestId('connector-row').getByTestId('connector-approval-send-key')).toHaveAttribute('data-state', 'runs')
+    await openPane(page)
+    await expect(page.getByTestId('connector-pane').getByTestId('connector-approval-send-key')).toHaveAttribute('data-state', 'runs')
   })
 
   test('a connection that is read only says that the choice does nothing', async ({ page }) => {
@@ -134,7 +136,8 @@ test.describe('PiKVM add-on approvals', () => {
     await api(page, [{ ...BINDING, write_mode: 'off' }]).install()
     await host(page, { values: { 'approval-power-action': 'skip' }, writeMode: 'off' })
     await page.goto(PAGE)
-    const row = page.getByTestId('connector-row').getByTestId('connector-approval-power-action')
+    await openPane(page)
+    const row = page.getByTestId('connector-pane').getByTestId('connector-approval-power-action')
     await expect(row).toHaveAttribute('data-state', 'idle')
     await expect(row).toContainText('Read only')
   })
@@ -148,7 +151,8 @@ test.describe('PiKVM add-on approvals', () => {
     await expect(page.getByTestId('pikvm-approval-failed')).toContainText('The earlier choice is still in force')
     expect(h.puts).toHaveLength(1)
     await expect(page.getByTestId('pikvm-approval-power-action').getByRole('radio', { name: /Ask each time/ })).toBeChecked()
-    await expect(page.getByTestId('connector-row').getByTestId('connector-approval-power-action')).toHaveAttribute('data-state', 'asks')
+    await openPane(page)
+    await expect(page.getByTestId('connector-pane').getByTestId('connector-approval-power-action')).toHaveAttribute('data-state', 'asks')
   })
 
   test('a package that declares no approval setting shows nothing about it', async ({ page }) => {

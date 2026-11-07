@@ -3,7 +3,6 @@
   "agent": "Agent",
   "agentNone": "Agent wählen",
   "agentCredentialsOnly": "Kein Agent (nur Zugangsdaten)",
-  "agentOptionalHint": "Optional. Ohne Agent hält diese Verbindung nur das Token, die Adresse und den Schreibmodus für deine Chats. Sie beantwortet keine Nachrichten und hört auf nichts.",
   "credentialsOnly": "Nur Zugangsdaten",
   "agentNoModel": "{{name}} (braucht ein Modell)",
   "test": "Test",

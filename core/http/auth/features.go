@@ -54,8 +54,15 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/chats/files/trash", FeatureChats},
 	{"DELETE", "/api/chats/files/trash", FeatureChats},
 	{"DELETE", "/api/chats/files/trash/:rev", FeatureChats},
+	{"POST", "/api/chats/files/extract", FeatureChats},
 	{"POST", "/api/chats/files/undo", FeatureChats},
 	{"GET", "/api/chats/files/history", FeatureChats},
+	{"GET", "/api/chats/files/shares", FeatureChats},
+	{"POST", "/api/chats/files/shares", FeatureChats},
+	{"GET", "/api/chats/files/shares/:id/grants", FeatureChats},
+	{"PUT", "/api/chats/files/shares/:id/grants/:principal", FeatureChats},
+	{"DELETE", "/api/chats/files/shares/:id/grants/:principal", FeatureChats},
+	{"GET", "/api/chats/files/shares/:id/users", FeatureChats},
 	{"GET", "/api/chats/files/search", FeatureChats},
 	{"GET", "/api/workspace/events", FeatureChats},
 	{"GET", "/api/chats/wellknown/:name", FeatureChats},
@@ -151,6 +158,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/chats/connectors/:id", FeatureConnectors},
 	{"PUT", "/api/chats/connectors/:id", FeatureConnectors},
 	{"DELETE", "/api/chats/connectors/:id", FeatureConnectors},
+	{"POST", "/api/chats/connectors/:id/share", FeatureConnectors},
 	{"POST", "/api/chats/connectors/:id/enable", FeatureConnectors},
 	{"POST", "/api/chats/connectors/:id/disable", FeatureConnectors},
 	{"POST", "/api/chats/connectors/:id/test", FeatureConnectors},
@@ -185,6 +193,9 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/api/chats/agents/import", FeatureAgents},
 	{"GET", "/api/chats/agents/:id/export", FeatureAgents},
 	{"GET", "/api/chats/agents/:id/runs", FeatureAgents},
+	{"POST", "/api/chats/agents/:id/share", FeatureAgents},
+	{"GET", "/api/chats/agents/:id/references", FeatureAgents},
+	{"GET", "/api/chats/agents/:id/needs", FeatureAgents},
 	{"GET", "/api/chats/agents/:id", FeatureAgents},
 	{"PUT", "/api/chats/agents/:id", FeatureAgents},
 	{"DELETE", "/api/chats/agents/:id", FeatureAgents},
@@ -256,6 +267,8 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"PUT", "/api/addons/host-grants/deny", FeatureAddons},
 	{"PUT", "/api/addons/host-grants/:addonId", FeatureAddons},
 	{"DELETE", "/api/addons/host-grants/:addonId", FeatureAddons},
+	// The sharing routes (/api/shares) have no row: a kind names the feature
+	// its resources need, and the owner's policy checks it on every call.
 	// Chat / Completions
 	{"POST", "/v1/chat/completions", FeatureChat},
 	{"POST", "/chat/completions", FeatureChat},
@@ -309,6 +322,8 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/v1/text-to-speech/:voice-id", FeatureAudioSpeech},
 	{"GET", "/api/voice-profiles", FeatureAudioSpeech},
 	{"GET", "/api/voice-profiles/:id/audio", FeatureAudioSpeech},
+	{"POST", "/api/voice-profiles", FeatureAudioSpeech},
+	{"DELETE", "/api/voice-profiles/:id", FeatureAudioSpeech},
 
 	// VAD
 	{"POST", "/vad", FeatureVAD},

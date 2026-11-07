@@ -64,7 +64,18 @@
     },
     "noRunsText": "Press Chat to start a conversation with this agent. Chats that ran with it, and the ones its triggers start, are listed here.",
     "missingText": "It may have been deleted, or it belongs to another user.",
-    "backToList": "Retour aux agents"
+    "backToList": "Retour aux agents",
+    "bindings": "Connexions",
+    "bindingsAll": "Toutes les connexions",
+    "noBindings": "Aucune application de messagerie n'est connectée à cet agent.",
+    "noBindingsLink": "Ajoutez-en une dans Add-ons.",
+    "bindingState": {
+      "ok": "Active",
+      "off": "Désactivée",
+      "attention": "À vérifier"
+    },
+    "openSettings": "Ouvrir les réglages",
+    "openSettingsFor": "Ouvrir les réglages de {{name}}"
   },
   "record": {
     "where": "A run is a chat that ran with the agent, including the ones its triggers and connectors started.",
@@ -832,5 +843,135 @@
     "blank": {
       "description": "Vide. Partez de zéro."
     }
+  },
+  "wizard": {
+    "title": "Nouvel agent",
+    "supporting": "Quatre étapes courtes. Seuls un nom et des instructions sont requis.",
+    "stepsLabel": "Étapes",
+    "back": "Retour",
+    "next": "Continuer",
+    "defaultTools": "Outils par défaut",
+    "step": {
+      "purpose": "Objet",
+      "abilities": "Capacités",
+      "where": "Où il travaille",
+      "review": "Vérification"
+    },
+    "purpose": {
+      "title": "À quoi sert cet agent ?",
+      "lead": "Partez d'un modèle ou écrivez le vôtre. Vous pourrez tout changer plus tard.",
+      "needs": "Il faut un nom et des instructions pour continuer.",
+      "modelLine": "Modèle : celui que vous choisissez dans chaque conversation.",
+      "modelChoose": "Choisir un modèle fixe",
+      "modelEach": "Celui que je choisis dans chaque conversation"
+    },
+    "abilities": {
+      "title": "Que peut-il faire seul ?",
+      "lead": "Pas sûr ? Laissez tel quel : l'agent démarre avec les outils par défaut. Ou choisissez un niveau, qui les remplace.",
+      "defaultNote": "Aucun niveau choisi. L'agent démarre avec les outils par défaut.",
+      "files": "Quels fichiers peut-il voir ?",
+      "fine": "Régler les outils un par un",
+      "templateHint": "Ce modèle suggère le niveau {{level}}.",
+      "templateUse": "Utiliser {{level}}"
+    },
+    "where": {
+      "title": "Où doit-il travailler ?",
+      "lead": "Facultatif. Choisissez les endroits où cet agent doit travailler. Rien n'est encore connecté.",
+      "chat": "Applications de discussion",
+      "chatLead": "Applications où l'on peut parler à cet agent.",
+      "tools": "Outils et services",
+      "toolsLead": "Add-ons qui lui donnent de nouvelles capacités.",
+      "notInstalled": "Non installé",
+      "generic": "Terminer la configuration de {{title}}",
+      "loading": "Recherche d'applications",
+      "empty": "Aucune application n'est encore disponible.",
+      "note": "Choisir une application ne la connecte pas. Après la création de l'agent, une courte liste vous guide dans la configuration de chacune.",
+      "find": "Trouver des add-ons"
+    },
+    "review": {
+      "title": "Prêt à créer",
+      "lead": "Vérifiez le résumé. Vous pourrez tout changer plus tard.",
+      "named": "A un nom et des instructions",
+      "tools": "Outils : {{level}}",
+      "modelFixed": "Modèle : {{model}}",
+      "modelEach": "Modèle : celui que vous choisissez dans chaque conversation",
+      "apps": "Applications à configurer après la création : {{count}}",
+      "filesTitle": "Il peut voir tous vos fichiers.",
+      "filesBody": "Tout ce que vous pouvez ouvrir dans Fichiers, cet agent peut le lire. Vous pouvez le limiter à des dossiers.",
+      "limit": "Limiter à des dossiers",
+      "setupNext": "Après la création, la page de l'agent liste les étapes de configuration des applications choisies."
+    },
+    "rail": {
+      "title": "Votre agent",
+      "unnamed": "Sans nom",
+      "abilities": "Capacités",
+      "modelEach": "Choisi dans chaque conversation",
+      "files": "Fichiers",
+      "folders": "Seulement les dossiers choisis ({{count}})",
+      "works": "Travaille dans",
+      "thisApp": "Cette application"
+    }
+  },
+  "setup": {
+    "title": "Terminer la configuration",
+    "count": "{{done}} sur {{total}} terminés",
+    "dismiss": "Masquer",
+    "progress": "Avancement de la configuration",
+    "done": "Terminé",
+    "stays": "La liste reste sur cette page jusqu'à ce que toutes les applications soient prêtes, ou que vous la masquiez.",
+    "connect": "Nouvelle connexion",
+    "account": "Choisir un compte",
+    "turnOn": "Activer",
+    "find": "Voir dans les add-ons",
+    "actionFor": "{{action}} : {{title}}"
+  },
+  "share": {
+    "action": "Partager",
+    "intro": "Les personnes que vous ajoutez utilisent cet agent en leur nom, avec leurs propres fichiers, collections et connexions.",
+    "roles": {
+      "use": "Peut utiliser",
+      "useHelp": "Elles discutent avec l'agent dans leurs propres conversations et voient ce dont il a besoin.",
+      "viewer": "Peut voir",
+      "viewerHelp": "Elles peuvent aussi lire ses instructions et ses outils."
+    },
+    "kind": {
+      "addon": "Module",
+      "collection": "Collection",
+      "skill": "Compétence",
+      "folder": "Dossier",
+      "connection": "Connexion",
+      "addon-resource": "Ressource de module",
+      "mcp": "Serveur MCP",
+      "builtin": "Autorisation intégrée",
+      "network": "Réseau",
+      "tool-group": "Groupe d'outils"
+    },
+    "ownAccess": "Ils ont besoin de leur propre accès",
+    "refsApplied_one": "{{count}} élément qu'il utilise a aussi été partagé.",
+    "refsApplied_other": "{{count}} éléments qu'il utilise ont aussi été partagés.",
+    "refsFailed": "Partage impossible : {{names}}.",
+    "refsSkipped": "Non partagé avec tout le monde : {{names}}. Partagez-les avec chaque personne.",
+    "failed": "Impossible d'ouvrir le partage. {{message}}"
+  },
+  "shared": {
+    "readOnly": "Vous pouvez discuter avec cet agent. Seul son propriétaire peut le modifier."
+  },
+  "needs": {
+    "title": "Ce dont cet agent a besoin",
+    "intro": "L'agent fonctionne en votre nom, avec votre propre accès.",
+    "none": "Cet agent n'utilise rien d'autre que la conversation.",
+    "loadError": "Impossible de vérifier ce dont cet agent a besoin.",
+    "state": {
+      "ok": "Vous l'avez",
+      "missing": "Non partagé avec vous",
+      "unavailable": "Non disponible pour vous",
+      "ask": "Désactivé au départ dans votre chat"
+    },
+    "noticeTitle_one": "Cet agent a besoin de {{count}} élément que vous n'avez pas :",
+    "noticeTitle_other": "Cet agent a besoin de {{count}} éléments que vous n'avez pas :",
+    "noticeLink": "Voir ce dont il a besoin",
+    "asksTitle_one": "Cet agent demande {{count}} élément que votre chat n'a pas au départ :",
+    "asksTitle_other": "Cet agent demande {{count}} éléments que votre chat n'a pas au départ :",
+    "asksHelp": "Il s'exécute en votre nom. Activez-les dans le chat seulement si vous faites confiance à l'agent et à la personne qui l'a partagé."
   }
 }

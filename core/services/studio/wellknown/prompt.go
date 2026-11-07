@@ -42,6 +42,16 @@ func (s *Service) data(ctx context.Context, principal string, n Name) map[string
 	if err != nil || len(doc.Data) == 0 {
 		return nil
 	}
+	// The persona and the profile are the user's own words: a file that
+	// another person may write does not reach the prompt.
+	abs, err := s.f.Abs(principal, doc.Path)
+	if err != nil {
+		return nil
+	}
+	others, err := s.f.OthersWrite(ctx, principal)
+	if err != nil || others.Covers(abs) {
+		return nil
+	}
 	return doc.Data
 }
 

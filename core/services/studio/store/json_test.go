@@ -47,6 +47,29 @@ var _ = Describe("the JSON store", func() {
 
 	// A store reopened on the same directory sees what the first one wrote: this
 	// is what makes the JSON store a real persistence mode and not only a cache.
+	It("keeps the text of an answer being written and the resume schedule across a reopen", func() {
+		dir := GinkgoT().TempDir()
+		ctx := context.Background()
+		first, err := store.NewJSON(dir)
+		Expect(err).NotTo(HaveOccurred())
+		newChat(first, "c1")
+		Expect(first.SavePartial(ctx, "c1", 2, "half an answer")).To(Succeed())
+		Expect(first.ClaimTurn(ctx, "alice", "c1", "r1")).To(Succeed())
+
+		// The process dies with the turn claimed.
+		second, err := store.NewJSON(dir)
+		Expect(err).NotTo(HaveOccurred())
+		turn, text, err := second.TakePartial(ctx, "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(turn).To(Equal(2))
+		Expect(text).To(Equal("half an answer"))
+		info, err := second.Turn(ctx, "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(info.Last).To(Equal(store.TurnInterrupted))
+		Expect(info.WillResume).To(BeTrue(), "a restart schedules the resume of the turn it cut")
+		Expect(info.ResumeNotBefore).To(BeTemporally("~", time.Now().Add(store.ResumeBackoff(0)), 5*time.Second))
+	})
+
 	It("survives a reopen", func() {
 		dir := GinkgoT().TempDir()
 		first, err := store.NewJSON(dir)

@@ -19,3 +19,12 @@ func (c *Connectors) RepliesActiveForTest() bool {
 // reply, after the reply has been told and before the message reaches the
 // chat. It sets the hook before any message comes in.
 func (c *Connectors) HoldJoiningMessagesForTest(f func()) { c.beforeJoin = f }
+
+// HoldNextTurnForTest runs f in the step that starts the next turn from the
+// waiting messages, before it takes the chat. It sets the hook before any
+// message comes in.
+func (s *Service) HoldNextTurnForTest(f func()) { s.beforeNext = f }
+
+// OnSettleForTest runs f after each check whether a reply may give its chat
+// up, with the outcome. It sets the hook before any message comes in.
+func (c *Connectors) OnSettleForTest(f func(settled bool)) { c.afterSettle = f }

@@ -90,8 +90,16 @@ type Folder struct {
 	Name    string
 	Path    string
 	Pages   int
-	Members []Member       // the administrator's view only
+	Members []Member       // the administrator's and the owner's view only
 	Mode    workspace.Mode // the viewer's view only: read or write
+	// Owner is the display name of the person whose home holds a folder
+	// shared with the viewer; empty for an administrator's folder. Such a
+	// folder has no Path in the viewer's view: it would name the owner's
+	// account.
+	Owner string
+	// Everyone says that the viewer reaches a folder of a home only through
+	// the grant to Everyone.
+	Everyone bool
 }
 
 // Event is one line of the audit.
@@ -139,7 +147,14 @@ type Options struct {
 	Consents pages.ConsentStore // nil: no consent is kept, so none is dropped
 	Audit    AuditStore         // nil: an audit in memory
 	Users    Users
-	Now      func() time.Time
+	// Directory is the account directory people pick grantees from when they
+	// share a folder of their own home. Nil: they cannot.
+	Directory Directory
+	// AccessLost is called when an owner revoked or lowered a grant, before
+	// the call returns, with the principal that lost access (Everyone for
+	// every account). The host stops the work that still holds the folder.
+	AccessLost func(ctx context.Context, principal string)
+	Now        func() time.Time
 }
 
 // Service manages the shared folders.
@@ -588,9 +603,32 @@ func (s *Service) ForUser(ctx context.Context, principal string) ([]Folder, erro
 		if f.Writable {
 			mode = workspace.ModeWrite
 		}
-		out = append(out, Folder{ID: f.ID, Name: path.Base(f.Path), Path: f.Path, Pages: count[f.ID], Mode: mode})
+		folder := Folder{ID: f.ID, Name: path.Base(f.Path), Path: f.Path, Pages: count[f.ID], Mode: mode}
+		if owner := homeOwner(f.Path); owner != "" {
+			folder.Path, folder.Owner = "", s.memberName(ctx, owner)
+			folder.Everyone = s.onlyEveryone(ctx, principal, f.Path)
+		}
+		out = append(out, folder)
 	}
 	return out, nil
+}
+
+// onlyEveryone says whether principal has no grant of their own on the folder
+// p, so that it reaches it through the grant to Everyone.
+func (s *Service) onlyEveryone(ctx context.Context, principal, p string) bool {
+	st, err := s.store()
+	if err != nil {
+		return false
+	}
+	gl, ok := st.(workspace.GrantLister)
+	if !ok {
+		return false
+	}
+	grants, err := gl.Grants(ctx, s.admin, p)
+	if err != nil {
+		return false
+	}
+	return !slices.ContainsFunc(grants, func(g workspace.Grant) bool { return g.Principal == principal })
 }
 
 // GetForUser returns one shared folder of a user. A folder that the user has

@@ -60,7 +60,7 @@ var _ = Describe("animation request traces", func() {
 	before := func() {
 		root := GinkgoT().TempDir()
 		var err error
-		app, err = application.New(config.EnableTracing, config.WithDataPath(root), config.WithGeneratedContentDir(filepath.Join(root, "generated")), config.WithDisableLocalAIAssistant(true), config.WithDisableStats(true), config.WithDisableCSRF(true), config.WithSystemState(&system.SystemState{Model: system.Model{ModelsPath: root}, Backend: system.Backend{BackendsPath: root}}))
+		app, err = application.New(config.EnableTracing, config.WithDataPath(root), config.WithGeneratedContentDir(filepath.Join(root, "generated")), config.WithDisableStats(true), config.WithDisableCSRF(true), config.WithSystemState(&system.SystemState{Model: system.Model{ModelsPath: root}, Backend: system.Backend{BackendsPath: root}}))
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 		cfg := config.ModelConfig{Name: "motion", Backend: "kimodocpp"}

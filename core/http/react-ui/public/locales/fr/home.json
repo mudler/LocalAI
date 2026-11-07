@@ -32,9 +32,9 @@
   },
   "input": {
     "placeholder": "Message...",
-    "attachImage": "Joindre une image",
-    "attachAudio": "Joindre un audio",
     "attachFile": "Joindre un fichier",
+    "dropFiles": "Déposez les fichiers pour les joindre",
+    "dropFilesNote": "Relâchez les fichiers pour les joindre au message.",
     "enterToSend": "Entrée pour envoyer",
     "selectModelFirst": "Sélectionnez d'abord un modèle",
     "sendMessage": "Envoyer le message",

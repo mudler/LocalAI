@@ -40,7 +40,12 @@ type SkillDefinition struct {
 // ship under their name: they describe LocalAI itself. A test derives the
 // built-in names from the embedded tree and fails when one is neither here
 // nor a reserved document slot.
-var protectedSkills = []string{"localai-workspace", "localai-apps", "writing-skills", "memory", "memory-check-own-files"}
+var protectedSkills = []string{"localai-workspace", "localai-apps", "localai", "writing-skills", "memory", "memory-check-own-files"}
+
+// AdminSkillPrefix starts the name of every skill that teaches the LocalAI
+// admin tools (localaitools.SkillPrefix). They are protected like the other
+// core skills: the host lists them only to chats that have the admin tools.
+const AdminSkillPrefix = "localai-admin-"
 
 // LegacyMemoryAddonID is the add-on that used to ship the two memory skills.
 // They are built into the host now; the package keeps declaring them so an
@@ -57,7 +62,7 @@ func LegacyMemorySkill(addonID, name string) bool {
 // ProtectedSkill reports whether name is a built-in skill that an add-on may
 // not replace.
 func ProtectedSkill(name string) bool {
-	return slices.Contains(protectedSkills, name)
+	return slices.Contains(protectedSkills, name) || strings.HasPrefix(name, AdminSkillPrefix)
 }
 
 // DocumentSkill reports whether name is a default document slot (slots.json).

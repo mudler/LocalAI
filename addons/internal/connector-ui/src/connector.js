@@ -108,8 +108,8 @@ export function usualCaps(capabilities) {
 
 // The binding capabilities that are also grants of a saved agent. A sender can
 // only use one of them when the agent holds the grant too, so the presets only
-// tick what the agent holds. proposals.confirm and tools.write are not grants:
-// they belong to the binding alone.
+// tick what the agent holds. proposals.confirm, tools.write, loops.wait and
+// loops.start are not grants: they belong to the binding alone.
 export const AGENT_GRANT_CAPS = [
   'memory.write', 'profile.write', 'skills.write', 'pages.write', 'dashboard.write', 'knowledge.write',
   'files.upload', 'triggers.propose', 'triggers.run', 'talkback.channels', 'talkback.new_channel',
@@ -391,4 +391,29 @@ export function listEntries(allow, lists, index) {
     return first === -1 ? index === lists.length - 1 : first === index
   }
   return (allow || []).filter(own)
+}
+
+// The listening list and the places the bot may post are two settings. These
+// helpers put them side by side on the page without changing what is saved
+// (channels[] with approved).
+
+// The channels of the listening list, as IDs. A list that mixes people and
+// channels (a kind that cannot tell them apart) and "anyone" give none: the
+// page cannot tell which entries are channels.
+export function listeningChannels(form, isChannel, mixed) {
+  if (mixed || form.accept_any) return []
+  return (form.allow || []).filter((x) => isChannel(x))
+}
+
+// The place of a channel ID, or null.
+export const placeFor = (form, id) => (form.channels || []).find((c) => c.id === id) || null
+
+// The listening channels that are not a place yet.
+export const offeredPlaces = (form, listening) => listening.filter((id) => !placeFor(form, id))
+
+// The form with the channel as a place, with the safe default: only a verified
+// person can make the bot post there. A channel that is a place already stays.
+export function withPlace(form, id, label = '') {
+  if (!id || placeFor(form, id)) return form
+  return { ...form, channels: [...(form.channels || []), { id, label, approved: false }] }
 }

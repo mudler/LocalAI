@@ -1,0 +1,33 @@
+/* Setups: the chip of the composer, its status line and the Manage sheet.
+   The chip, the menu rows and every control come from the kit and the Tools
+   menu; this file only places them. */
+.setup-chip__name { min-width: 0; max-width: 12rem; overflow: hidden; text-overflow: ellipsis; }
+.setup-chip__edited { flex: none; color: var(--color-text-muted); font-weight: 400; }
+.setup-chip__caret { margin-left: -2px; }
+
+.setup-row { width: 100%; border: 0; background: none; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.setup-row .swl-row__name { color: var(--color-text-primary); }
+.setup-row__desc { font-family: var(--font-mono); }
+.setup-row__check { flex: none; align-self: center; color: var(--color-accent, var(--dk-accent)); }
+.setup-empty { margin: 0; padding: var(--sp-4) var(--sp-3); font-size: var(--fs-small); color: var(--color-text-secondary); }
+
+.setup-line { flex-wrap: wrap; row-gap: var(--sp-1); }
+.setup-line__what { display: inline-flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; }
+.setup-line__what .home-dot { flex: none; }
+.setup-line__text { min-width: 0; flex: 0 1 auto; overflow-wrap: anywhere; }
+.setup-line__name { color: var(--color-text-primary); font-weight: 500; }
+.setup-line__actions { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1); }
+.setup-line__form { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.setup-line__form .dk-input { width: 14rem; max-width: 100%; }
+.setup-warning { margin-top: var(--sp-2); }
+
+.setup-manage { display: flex; flex-direction: column; gap: var(--sp-2); }
+.setup-manage__note { margin: 0 0 var(--sp-2); font-size: var(--fs-small); color: var(--color-text-secondary); }
+.setup-manage__row { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) 0; border-top: 1px solid var(--color-border-divider); flex-wrap: wrap; }
+.setup-manage__row:first-of-type { border-top: 0; }
+.setup-manage__main { flex: 1 1 10rem; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.setup-manage__main .dk-input { width: 100%; }
+.setup-manage__meta { font-size: var(--fs-meta); color: var(--color-text-muted); overflow-wrap: anywhere; }
+.setup-manage__tools { display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--sp-1); flex: none; min-width: 15rem; }
+.setup-manage__confirm { display: inline-flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap; font-size: var(--fs-small); }
+.setup-reason { align-items: flex-start; }

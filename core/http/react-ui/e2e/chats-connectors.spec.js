@@ -36,8 +36,8 @@ test.describe('Chat connectors', () => {
     await expect(group.getByRole('heading', { name: 'Telegram' })).toBeVisible()
     await expect(group.getByRole('link', { name: 'Add or change bindings' })).toHaveAttribute('href', '/app/addons/telegram/bots')
     await expect(group.getByTestId('connector-row')).toContainText('Support bot')
-    await expect(group.getByTestId('connector-row')).toContainText('Agent: Support')
-    await expect(group.getByTestId('connector-row')).toContainText('Accepts: 1 listed sender')
+    await expect(group.getByTestId('connector-row')).toContainText('Answers as Support')
+    await expect(group.getByTestId('connector-row')).toContainText('Accepts 1 person')
   })
 
   test('has no form, no kind switch and no Telegram fields', async ({ page }) => {
@@ -45,8 +45,8 @@ test.describe('Chat connectors', () => {
     await page.goto('/app/chats/connectors')
     await expect(page.getByTestId('connector-row')).toBeVisible()
     await expect(page.getByRole('tablist')).toHaveCount(0)
-    // The page has no New button; the sidebar's New chat (recent chats) is not part of it.
-    await expect(page.getByRole('main').getByRole('button', { name: /New/ })).toHaveCount(0)
+    // The one New button is a menu of platforms; the form itself is on the page of the add-on.
+    await expect(page.getByRole('main').getByRole('button', { name: /New/ })).toHaveCount(1)
     await expect(page.getByLabel('Bot token')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Edit' })).toHaveCount(0)
   })
@@ -66,11 +66,37 @@ test.describe('Chat connectors', () => {
     await expect(page.getByTestId('connector-inactive')).toHaveText('Not running: install the Telegram add-on.')
   })
 
-  test('switches a binding off', async ({ page }) => {
+  test('each row has a state chip and a switch that applies at once', async ({ page }) => {
     const s = await api(page)
     await page.goto('/app/chats/connectors')
-    await page.getByRole('checkbox', { name: 'Support bot on' }).uncheck()
+    await expect(page.getByTestId('connector-state')).toHaveText('Running')
+    await expect(page.getByRole('checkbox')).toHaveCount(0)
+    await page.getByRole('switch', { name: 'Support bot on' }).click()
     await expect.poll(() => s.calls.includes('disable')).toBe(true)
+    await expect(page.getByTestId('connector-state')).toHaveText('Off')
+  })
+
+  test('a binding with no token needs attention', async ({ page }) => {
+    await api(page, { items: [{ ...BINDING, has_token: false }] })
+    await page.goto('/app/chats/connectors')
+    await expect(page.getByTestId('connector-state')).toHaveText('Needs attention')
+  })
+
+  test('New connection lists the installed platforms and opens the add form of the one you pick', async ({ page }) => {
+    await api(page, { kinds: [KIND, { addon: 'slack', kind: 'slack', title: 'Slack', page: 'apps' }, { addon: 'github', kind: 'github', title: 'GitHub' }] })
+    await page.goto('/app/chats/connectors')
+    await page.getByTestId('connector-new').click()
+    const menu = page.getByRole('menu', { name: 'Choose the platform of the new connection' })
+    // A kind with no declared page is not offered.
+    await expect(menu.getByRole('menuitem')).toHaveText(['Telegram', 'Slack'])
+    await menu.getByRole('menuitem', { name: 'Slack' }).click()
+    await expect(page).toHaveURL(/\/app\/addons\/slack\/apps\?new=1$/)
+  })
+
+  test('with no platform that has a page there is no New connection menu', async ({ page }) => {
+    await api(page, { kinds: [{ addon: 'github', kind: 'github', title: 'GitHub' }], items: [] })
+    await page.goto('/app/chats/connectors')
+    await expect(page.getByTestId('connector-new')).toHaveCount(0)
   })
 
   test('warns on a binding that is the same bot as another, links to it and turns it off', async ({ page }) => {

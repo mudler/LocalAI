@@ -1,6 +1,6 @@
 {
-  "voice.adminOnly.title": "仅限管理员",
-  "voice.adminOnly.text": "此服务器的管理员可管理已保存的音色。如需添加或移除音色，请联系管理员。",
+  "voice.noSpeech.title": "Speech is not available",
+  "voice.noSpeech.text": "Your account cannot use speech, so it cannot manage saved voices. Ask an administrator to turn it on.",
   "speech.title": "朗读文本",
   "speech.lede": "使用此服务器的语音模型将文本转换为语音。",
   "speech.model": "模型",
@@ -226,7 +226,7 @@
   "voiceCreate.sections.reference.title": "参考音频",
   "voiceCreate.sections.reference.body": "在浏览器中录制或上传已有片段。语音应清晰自然，且仅包含一位说话人。",
   "voiceCreate.sections.details.title": "身份与转录文本",
-  "voiceCreate.sections.details.body": "设置便于管理员识别的名称，并准确转录片段，包括语气词和标点。",
+  "voiceCreate.sections.details.body": "为这个声音起一个容易辨认的名字，并逐字转写音频，包括语气词和标点。",
   "voiceCreate.sections.consent.title": "授权",
   "voiceCreate.sections.consent.body": "声音克隆可能涉及敏感信息。保存参考音频前请确认授权。",
   "voiceCreate.audio.label": "声音参考",

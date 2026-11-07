@@ -114,3 +114,51 @@ When converting a page, prefer naming the shapes it actually has
 (`.p2p-diagram`, `.usage-tile`) over adding more utilities, and check whether an
 existing block already covers it: the Nodes page reuses the P2P setup shapes,
 and Model Editor reuses the Settings section rail.
+
+## React UI controls
+
+The shared controls live in `core/http/react-ui/src/components/ui/` (read its
+`README.md`), with the form classes of the vendored kit (`dk-input`,
+`dk-select`, `dk-check`) and `src/components/SideSheet.jsx`. Every screen uses
+them. `/app/ui-catalog` shows each one with an example.
+
+- Use the kit for every button (`Button`), text input (`dk-input`), select
+  (`dk-select`), switch (`Switch`), checkbox (`<input type="checkbox"
+  className="dk-check">`), segmented control (`Segmented`), pill
+  (`StatusChip`), callout (`Callout`), pane (`SidePane`) and sheet
+  (`SideSheet`). Do not write a new one. Do not restyle one with a page class:
+  no size, colour, radius or width override.
+- A switch applies at once. A checkbox applies when the person presses Save.
+  Do not pair a switch with a Save button.
+- One `primary` button per region: the page, an open pane and an open sheet
+  each have at most one. Buttons, inputs and selects share one height
+  (`--ctl-h`); use the `sm` size on all of a row, not on one of them.
+- A warning or an explanation uses `Callout`. A state uses `StatusChip`. Do not
+  colour a `span` to look like either.
+- A detail beside a list is a `SidePane` (360 px, `wide` 400 px). A create or
+  edit form is a `SideSheet` (480 px, `wide` 720 px). Never write `dk-sheet`
+  markup in a page. Never set a width on a sheet or a pane.
+- A form with more than about eight fields becomes steps or a disclosure.
+  Required fields come first.
+- `src/components/Toggle.jsx` is legacy. Do not import it in new code. Use
+  `Switch` (applies at once) or a checkbox (applies on Save).
+- Button wording follows the product. "New X" starts making a new thing, "Add
+  X" attaches an existing one, and the primary button of the form says "Save"
+  or "Save and test". Do not write "Create X".
+
+A ratchet enforces the parts it can see:
+
+```sh
+cd core/http/react-ui
+npm run lint:ui-kit          # fails on a new violation, or on a baseline line that is gone
+npm run lint:ui-kit:report   # counts per rule
+npm run lint:ui-kit:write    # refresh ui-kit-baseline.txt after you fixed some
+```
+
+It flags a checkbox without `dk-check`, an import of `Toggle`, `dk-sheet` in
+JSX, a CSS width on a sheet or pane, and the legacy `btn` class. Existing
+violations sit in `ui-kit-baseline.txt` and may only go down. Do not add a
+line to it to make a check pass.
+
+Before you finish UI work, run `npm run lint:ui-kit` and attach screenshots at
+1280 px and 390 px wide, in light and dark.

@@ -14,7 +14,8 @@
   },
   "sections": {
     "yourCollections": "Koleksi Anda",
-    "otherUsersCollections": "Koleksi Pengguna Lain"
+    "otherUsersCollections": "Koleksi Pengguna Lain",
+    "sharedWithYou": "Dibagikan kepada Anda"
   },
   "empty": {
     "title": "Belum ada koleksi",
@@ -42,7 +43,8 @@
   },
   "loadFailed": "Koleksi Anda tidak dapat dimuat.",
   "sources": {
-    "loadFailed": "Sumber web tidak dapat dimuat."
+    "loadFailed": "Sumber web tidak dapat dimuat.",
+    "noneShared": "Tidak ada sumber web."
   },
   "entries": {
     "loadFailed": "File tidak dapat dimuat."
@@ -64,5 +66,22 @@
     "hybrid": "hibrida",
     "semanticHint": "Pencarian menemukan bagian teks berdasarkan makna, bukan kata atau kode yang persis.",
     "hybridHint": "Pencarian menemukan bagian teks berdasarkan makna dan kata yang persis."
+  },
+  "pane": {
+    "addFile": "Tambah file"
+  },
+  "share": {
+    "label": "Bagikan",
+    "button": "Bagikan {{name}}",
+    "intro": "Orang yang Anda tambahkan menemukan koleksi ini di daftar mereka, dan agen mereka dapat mencarinya berdasarkan nama.",
+    "failed": "Koleksi tidak dapat dibagikan: {{message}}",
+    "roles": {
+      "viewer": "Dapat melihat",
+      "viewerHelp": "Dapat mencarinya dan membaca filenya.",
+      "editor": "Dapat mengedit",
+      "editorHelp": "Juga dapat menambah dan menghapus file."
+    },
+    "noteViewer": "Anda dapat mencarinya dan membaca filenya.",
+    "noteEditor": "Anda dapat mencarinya dan menambah atau menghapus file."
   }
 }

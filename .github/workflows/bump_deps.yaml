@@ -289,3 +289,43 @@ jobs:
           branch: "bump/VLLM_METAL_VERSION"
           body: ${{ steps.bump.outputs.message }}
           signoff: true
+
+  bump-strata:
+    # The strata backend ships the engine packages Strata publishes with each
+    # release, so a bump moves the release tag, its commit, the engine version
+    # and every package SHA-256 together (see backend/go/strata/Makefile).
+    # bump_deps.sh handles one commit variable only. Releases, not main: the
+    # prebuilt engine and the Python modules must come from the same release.
+    # If a release changes Strata's Python requirements, regenerate
+    # backend/go/strata/requirements.txt by hand in the bump PR.
+    if: github.repository == 'mudler/LocalAI'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Bump Strata release pins 🔧
+        id: bump
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash .github/bump_strata.sh Niko1221/Strata backend/go/strata/Makefile STRATA_VERSION
+          {
+            echo 'message<<EOF'
+            cat "STRATA_VERSION_message.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo 'commit<<EOF'
+            cat "STRATA_VERSION_commit.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          rm -rfv STRATA_VERSION_message.txt STRATA_VERSION_commit.txt
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.UPDATE_BOT_TOKEN }}
+          push-to-fork: ci-forks/LocalAI
+          commit-message: ':arrow_up: Update Niko1221/Strata'
+          title: 'chore: :arrow_up: Update Niko1221/Strata to `${{ steps.bump.outputs.commit }}`'
+          branch: "bump/STRATA_VERSION"
+          body: ${{ steps.bump.outputs.message }}
+          signoff: true

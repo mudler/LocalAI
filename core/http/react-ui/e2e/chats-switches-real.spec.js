@@ -6,6 +6,9 @@ import { startChat } from './journey-fixtures.js'
 // server (add-ons off there), reading the API after each step. Skills the host
 // grants with the memory notes are locked rows: they show their state and take
 // no part in the switches or the bulk actions, so the spec leaves them out.
+// Skills of a tool group the chat does not have (the admin recipes while the
+// admin group is off) are listed as off, and the picker stores them off with
+// every change, so the spec reads them as part of the list that is sent.
 
 test.describe.configure({ timeout: 90_000 })
 
@@ -14,11 +17,15 @@ const api = (request, path) => request.get(path).then(r => r.json())
 test('switching a skill off in a chat sends its id, and the chat lists it off', async ({ page }) => {
   const id = await startChat(page, 'skills please')
   const skills = (await api(page.request, `/api/chats/skills?chat=${id}`)).skills.filter(s => !s.shadowed && !s.invalid && !s.locked)
-  const skill = skills[0]
+  // The skills the person can switch are the ones that are on; the others are
+  // off because their tool group is, and stay off whatever the switches say.
+  const switchable = skills.filter(s => s.enabled)
+  const alreadyOff = skills.filter(s => !s.enabled).map(s => s.id)
+  const skill = switchable[0]
   expect(skill.id).toBe(`${skill.layer}:${skill.name}`)
   await page.getByTestId('chat-skills-button').click()
   const menu = page.getByTestId('chat-skills-menu')
-  const enabled = async () => (await api(page.request, `/api/chats/skills?chat=${id}`)).skills.filter(s => !s.shadowed && !s.invalid && !s.locked)
+  const enabled = async () => (await api(page.request, `/api/chats/skills?chat=${id}`)).skills.filter(s => !s.shadowed && !s.invalid && !s.locked && switchable.some(w => w.id === s.id))
   const putOff = () => page.waitForRequest(r => r.method() === 'PUT' && r.url().endsWith(`/api/chats/${id}/skills`))
 
   // One switch per skill, named by the skill. Switching it sends its id.
@@ -26,7 +33,7 @@ test('switching a skill off in a chat sends its id, and the chat lists it off', 
   await expect(one).toHaveAttribute('aria-checked', 'true')
   let put = putOff()
   await one.click()
-  expect(JSON.parse((await put).postData()).off).toEqual([skill.id])
+  expect(JSON.parse((await put).postData()).off).toEqual([...alreadyOff, skill.id].sort())
   await expect(one).toHaveAttribute('aria-checked', 'false')
   await expect.poll(async () => (await enabled()).find(s => s.id === skill.id).enabled).toBe(false)
 

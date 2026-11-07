@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  toolOutcomeRows,  changedFields, fixAction, remainingChecks, sentenceCase, isProblem, previewBody, previewId, readinessRows, reachable, statusRows, unusable, visibleRows,
+  toolOutcomeRows,  changedFields, fixAction, remainingChecks, sentenceCase, isProblem, previewBody, previewId, readinessRows, reachable, statusRows, unusable, visibleRows, forNewConnection, thingsToSet,
 } from '../../../internal/connector-ui/src/access.js'
 import { localizeAccess } from '../../../internal/connector-ui/src/connector.js'
 import { connectorForm, emptyConnector } from '../../../internal/connector-ui/src/connector.js'
@@ -71,6 +71,8 @@ test('access: the agent row names a missing agent, one without a model, and a re
   const a = (f, o) => row(readinessRows(base(f, o)), 'agent')
   assert.equal(a({}).state, 'attention')
   assert.equal(a({}, { agentOptional: true }).state, 'off')
+  assert.equal(a({}, { toolOnly: true }), undefined, 'a tool-only kind has no agent row')
+  assert.equal(a({ agent_id: 'zz' }, { toolOnly: true }), undefined)
   assert.equal(a({ agent_id: 'zz' }).state, 'attention')
   assert.equal(a({ agent_id: 'a2' }).state, 'broken')
   assert.deepEqual(a({ agent_id: 'a2' }).fix, { kind: 'open_agent', target: 'a2' })
@@ -178,6 +180,22 @@ test('access: collapsed mode keeps the rows that need the owner and counts the h
   assert.equal(shown.length + hidden, rows.length)
   assert.equal(visibleRows(rows, true).hidden, 0)
   assert.equal(visibleRows(rows, true).shown.length, rows.length)
+})
+
+test('access: a new connection has no save fix, and a row that only waits for the save is not a thing to set', () => {
+  // Nothing typed: the token, the agent and who is let in each need the person.
+  const empty = forNewConnection(statusRows(readinessRows(base({}))))
+  assert.equal(thingsToSet(empty), 3)
+  assert.ok(empty.every((r) => r.fix?.kind !== 'save'))
+  // A token and an agent chosen: both wait for the save, which is not something to set; only the list of people is left.
+  const typed = forNewConnection(statusRows(readinessRows(base({ agent_id: 'a1' }, { tokenTyped: true }))))
+  assert.equal(row(typed, 'token').state, 'after_save')
+  assert.equal(row(typed, 'agent').state, 'after_save')
+  assert.equal(thingsToSet(typed), 1)
+  assert.ok(typed.every((r) => r.fix?.kind !== 'save'), 'no Keep these changes on a connection that does not exist yet')
+  // A saved connection keeps the fix.
+  const saved = statusRows(readinessRows(base({ id: 'b1', agent_id: 'a2x' }, { tokenTyped: true })))
+  assert.equal(row(saved, 'token').fix?.kind, 'save')
 })
 
 test('access: changed fields compare the form with the saved binding', () => {

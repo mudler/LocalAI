@@ -18,7 +18,6 @@
   "agent": "Agent",
   "agentNone": "Choisir un agent",
   "agentCredentialsOnly": "Aucun agent (identifiants uniquement)",
-  "agentOptionalHint": "Facultatif. Sans agent, cette connexion ne garde que le jeton, la liste des dépôts et le mode d’écriture pour vos chats. Elle ne répond à aucun message et n’écoute rien.",
   "credentialsOnly": "Identifiants uniquement",
   "agentNoModel": "{{name}} (a besoin d’un modèle)",
   "test": "Tester",

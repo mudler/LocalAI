@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // maxBackgroundChildren is how many sub-agents one conversation may run in the
@@ -64,9 +65,11 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	}
 	sub := rec.Kind == session.KindSubAgent
 	if sub && rec.AgentID == "" {
-		s.mu.Lock()
-		tools := s.allowed[key(a.Principal, a.ChatID)]
-		s.mu.Unlock()
+		px, err := x.ForChat(rec.ParentID)
+		if err != nil {
+			return session.TurnTools{}, err
+		}
+		tools := s.childAllowed(ctx, rec, &px)
 		var prompt, work string
 		cmds := s.withHostBash(s.commandsOf(ctx, a.Principal, tools, nil, nil), tools)
 		if cmds.State != CommandsAvailable {
@@ -75,7 +78,10 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		if canWriteFiles(tools, cmds) {
 			work = s.subWorkBlock(ctx, rec, x)
 		}
-		prompt = joinBlocks(prompt, webBlock(tools), work)
+		prompt = joinBlocks(prompt, webBlock(tools), work, droppedToolsNote(rec.AllowedTools, tools))
+		// The loop tools come last: a sub-agent may arm a loop of its own and
+		// wait, whatever tools its parent gave it.
+		tools = append(slices.Clone(tools), s.loopTools(ctx, a, rec)...)
 		return session.TurnTools{Tools: tools, Prompt: prompt}, nil
 	}
 	tools, missing, heldAddons, err := s.scopedHostTools(ctx, a)
@@ -121,7 +127,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// tools it has now: a chat with the file tools switched off hears of none.
 	canRead, canWrite := canReadFiles(tools, cmds), canWriteFiles(tools, cmds)
 	skillsOff := 0
-	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, s.memorySkillsOff(ctx, rec, sc, rec.SkillsOff), rec.AddonsOff, sc, cmds, execGate(cmds, &skillsOff))
+	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, s.skillsOffOf(ctx, rec, sc), rec.AddonsOff, sc, cmds, execGate(cmds, &skillsOff))
 	if err != nil {
 		return session.TurnTools{}, err
 	}
@@ -205,11 +211,21 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		// The agent argument is offered only when list_agents is: the chat
 		// switched the saved agents on and its user may use them.
 		tools = append(tools, s.spawnTool(x, hasTool(tools, listAgentsName)))
+		// In a connector chat the wait needs the loops.wait capability of the
+		// sender, as wait_for does.
+		if s.loopAllowed(rec, contract.CapLoopsWait) {
+			tools = append(tools, s.waitAgentsTool(a))
+		}
 	}
-	// The assistant tools are not part of hostTools, so a sub-agent never gets
-	// them, whatever its parent names.
-	aTools, aPrompt, aNote := s.assistantTurn(ctx, rec)
+	// The two LocalAI groups go through the registry like every built-in group:
+	// the setting, the chat's switches and the agent's ceiling apply. They are
+	// not part of hostTools, so the admin tools never reach a sub-agent,
+	// whatever its parent names (the group refuses a sub-agent as well).
+	aTools, aDeferred, aDeferredGroups, aPrompt, aNote := s.localaiTurn(ctx, a, x, rec, tools)
 	tools = append(tools, aTools...)
+	// The deferred tools are gated like the typed ones (the action policy of
+	// an unattended run), then hidden behind the three tool-search tools.
+	tools = append(tools, toolSearchTools(s.gateBuiltinActs(ctx, rec, aDeferred), aDeferredGroups)...)
 	// The tools of a self-paced loop, while the chat has one.
 	tools = append(tools, s.loopTools(ctx, a, rec)...)
 	if aPrompt != "" {
@@ -412,6 +428,15 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		// The child is refused, never given the whole home, when the folder
 		// it works in can no longer be found (chatScopes).
 		ScopedAgent: parent.ScopedAgent || agent.HasFolder()}
+	if agent.ID == "" {
+		// The names the parent granted live with the chat, so the tools can be
+		// rebuilt after a restart or on another frontend (childAllowed).
+		granted := s.fitLoadSkill(a, subset)
+		rec.AllowedTools = make([]string, 0, len(granted))
+		for _, t := range granted {
+			rec.AllowedTools = append(rec.AllowedTools, t.Name)
+		}
+	}
 	if err := s.d.Store.CreateChat(ctx, rec); err != nil {
 		s.forgetChild(parentKey, childID)
 		return "", err
@@ -439,15 +464,25 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		go s.reportBack(a, childID, title, done) // #nosec G118 -- a background sub-agent reports after the request ended
 		return fmt.Sprintf("Started sub-agent %s in the background. Its result will arrive as a message.", childID), nil
 	}
-	select {
-	case st := <-done:
-		s.forgetChild(parentKey, childID)
-		return s.childResult(ctx, a, childID, st)
-	case <-ctx.Done():
+	st, err := s.waitChild(ctx, a.Principal, childID, done, foregroundLoopWait.get())
+	if errors.Is(err, errChildHeld) {
+		// The sub-agent armed a loop or a wait and waits for it. Do not hold
+		// this call open: it goes on as a background sub-agent.
+		s.mu.Lock()
+		if c := s.children[parentKey][childID]; c != nil {
+			c.background = true
+		}
+		s.mu.Unlock()
+		go s.reportBack(a, childID, title, done) // #nosec G118 -- the sub-agent reports after the request ended
+		return fmt.Sprintf("The sub-agent %s keeps running: it waits for a loop or a wait it armed. It continues in the background and its result will arrive as a message.", childID), nil
+	}
+	if err != nil {
 		_ = s.Stop(context.WithoutCancel(ctx), a.Principal, childID)
 		s.forgetChild(parentKey, childID)
-		return "", ctx.Err()
+		return "", err
 	}
+	s.forgetChild(parentKey, childID)
+	return s.childResult(ctx, a, childID, st)
 }
 
 // agentFitsChat checks that a saved agent may run as a sub-agent of the
@@ -486,12 +521,11 @@ func (s *Service) agentFitsScope(ctx context.Context, p string, outer *folderSco
 	return true
 }
 
-// subset picks the tools a sub-agent gets from the parent's host tools and
-// file tools, built from x, the parent's access for this turn. Nil asks for
-// all of them but the named-only ones; a name the parent does not have is an
-// error.
-func (s *Service) subset(ctx context.Context, x session.Access, names *[]string) ([]session.Tool, error) {
-	a := x.Actor()
+// parentTools builds the tools a chat can hand to a sub-agent, as the chat has
+// them now: its host tools and, when x is given, its file tools. Without x the
+// file tools are left out, for a caller that only needs the host tools and
+// must not resolve session access. a is the actor of the chat.
+func (s *Service) parentTools(ctx context.Context, a workspace.Actor, x *session.Access) ([]session.Tool, error) {
 	have, err := s.hostTools(ctx, a)
 	if err != nil {
 		return nil, fmt.Errorf("could not list your tools: %w", err)
@@ -499,18 +533,32 @@ func (s *Service) subset(ctx context.Context, x session.Access, names *[]string)
 	// The built-in file tools act for the parent chat: what a sub-agent changes
 	// is an agent change of the parent, and the parent's Files pane refreshes.
 	parent, perr := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
-	fileTools := s.d.Files.Tools(x)
-	if perr == nil {
-		// A sub-agent never gets a tool its parent switched off.
-		fileTools = dropHidden(fileTools, s.hiddenFor(ctx, parent))
+	if x != nil {
+		fileTools := s.d.Files.Tools(*x)
+		if perr == nil {
+			// A sub-agent never gets a tool its parent switched off.
+			fileTools = dropHidden(fileTools, s.hiddenFor(ctx, parent))
+		}
+		have = append(have, s.fileNudgeTools(*x, s.announceFileChanges(a, s.skillHintTools(a, fileTools)))...)
 	}
-	have = append(have, s.fileNudgeTools(x, s.announceFileChanges(a, s.skillHintTools(a, fileTools)))...)
 	if perr == nil {
 		// Built for a sub-agent: bash on this machine only when no card is
 		// needed, since nobody watches the sub-agent's chat.
 		have = s.applyBuiltins(have, s.builtinsFor(ctx, a, parent, true))
 		// A sub-agent of a run that nobody watches has the rights of that run.
 		have = s.gateBuiltinActs(ctx, parent, have)
+	}
+	return have, nil
+}
+
+// subset picks the tools a sub-agent gets from the parent's host tools and
+// file tools, built from x, the parent's access for this turn. Nil asks for
+// all of them but the named-only ones; a name the parent does not have is an
+// error.
+func (s *Service) subset(ctx context.Context, x session.Access, names *[]string) ([]session.Tool, error) {
+	have, err := s.parentTools(ctx, x.Actor(), &x)
+	if err != nil {
+		return nil, err
 	}
 	if names == nil {
 		kept := have[:0:0]
@@ -573,7 +621,8 @@ func (s *Service) registerChild(ctx context.Context, p, conv string, c *child) e
 }
 
 // runningChildren returns the sub-agent chats of a conversation whose turn
-// runs now, on any frontend.
+// runs now, on any frontend, and those that wait for their loop: a sub-agent
+// that is not done counts as running, and a Stop reaches it.
 func (s *Service) runningChildren(ctx context.Context, p, conv string) ([]session.ChatRecord, error) {
 	kids, err := s.d.Store.ListChildren(ctx, p, conv)
 	if err != nil {
@@ -588,11 +637,75 @@ func (s *Service) runningChildren(ctx context.Context, p, conv string) ([]sessio
 			}
 			return nil, err
 		}
-		if info.Running {
+		if info.Running || s.loopHolds(ctx, p, k.ID) {
 			out = append(out, k)
 		}
 	}
 	return out, nil
+}
+
+// childAllowed returns the tools of an ad-hoc sub-agent (one that is not a
+// saved agent). While the process that started it runs, they are the list in
+// memory. Otherwise (after a restart, or on another frontend) they are rebuilt
+// from the names stored with the chat, and only the ones the parent chat may
+// give out now: a grant that shrank since removes the tool, and a stored name
+// that no longer exists is dropped. The child never gains a tool it did not
+// have. px is the access of the parent chat; nil leaves out the file tools,
+// for a caller that cannot resolve session access.
+func (s *Service) childAllowed(ctx context.Context, rec session.ChatRecord, px *session.Access) []session.Tool {
+	s.mu.Lock()
+	tools, ok := s.allowed[key(rec.Principal, rec.ID)]
+	s.mu.Unlock()
+	if ok {
+		return tools
+	}
+	if len(rec.AllowedTools) == 0 {
+		return nil
+	}
+	parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
+	if err != nil {
+		s.log.Warn("studio: could not read the parent of a sub-agent; it has no tools", "chat", rec.ID, "error", err)
+		return nil
+	}
+	var a workspace.Actor
+	if px != nil {
+		a = px.Actor()
+	} else {
+		a = s.chatActorFor(ctx, parent)
+	}
+	have, err := s.parentTools(ctx, a, px)
+	if err != nil {
+		s.log.Warn("studio: could not list the tools of the parent of a sub-agent; it has no tools", "chat", rec.ID, "error", err)
+		return nil
+	}
+	byName := make(map[string]session.Tool, len(have))
+	for _, t := range have {
+		if !namedOnlyTools[t.Name] || slices.Contains(rec.AllowedTools, t.Name) {
+			byName[t.Name] = t
+		}
+	}
+	out := make([]session.Tool, 0, len(rec.AllowedTools))
+	for _, n := range rec.AllowedTools {
+		if t, ok := byName[n]; ok {
+			out = append(out, t)
+		}
+	}
+	return s.fitLoadSkill(a, out)
+}
+
+// droppedToolsNote tells the model which granted tools it lost since the
+// sub-agent started. It is empty when it lost none.
+func droppedToolsNote(granted []string, have []session.Tool) string {
+	var gone []string
+	for _, n := range granted {
+		if !slices.ContainsFunc(have, func(t session.Tool) bool { return t.Name == n }) {
+			gone = append(gone, n)
+		}
+	}
+	if len(gone) == 0 {
+		return ""
+	}
+	return "These tools are no longer available to you and were removed: " + strings.Join(gone, ", ") + "."
 }
 
 func (s *Service) forgetChild(parentKey, id string) {
@@ -700,13 +813,11 @@ func pick(ofTurn, latest string) string {
 // one reaches the parent as a message, which starts a turn when the parent is
 // idle. One that was stopped or failed only raises the event.
 func (s *Service) reportBack(a workspace.Actor, childID, title string, done <-chan store.TurnStatus) {
-	var st store.TurnStatus
-	select {
-	case st = <-done:
-	case <-s.closed:
+	ctx := context.Background()
+	st, err := s.waitChild(ctx, a.Principal, childID, done, 0)
+	if err != nil {
 		return
 	}
-	ctx := context.Background()
 	parentKey := key(a.Principal, a.ChatID)
 	s.forgetChild(parentKey, childID)
 	s.bus.Publish(parentKey, session.Event{Kind: session.KindSubAgentDone, IDs: []string{childID}, Text: title})

@@ -42,6 +42,8 @@ import ChatHeader from '../components/chat/ChatHeader'
 import ShortcutsDialog from '../components/chat/ShortcutsDialog'
 // eslint-disable-next-line no-unused-vars
 import ChatSettingsSheet from '../components/chat/ChatSettingsSheet'
+import ReasoningChips from '../components/chat/ReasoningChips'
+import { settingsWithEffort } from '../utils/chatSettings'
 // eslint-disable-next-line no-unused-vars
 import FindBar from '../components/chat/FindBar'
 // eslint-disable-next-line no-unused-vars
@@ -55,8 +57,12 @@ import SubAgentsMenu from '../components/chat/SubAgentsMenu'
 // eslint-disable-next-line no-unused-vars
 import { EmptyHead, EmptyUnder } from '../components/chat/EmptyChat'
 // eslint-disable-next-line no-unused-vars
+import { AgentNeedsNotice } from '../components/agents/AgentShare'
+import { isSharedWithMe } from '../utils/agentShare'
+// eslint-disable-next-line no-unused-vars
 import ShortcutsRow from '../components/wellknown/ShortcutsRow'
 import { isStaleFailure, keptAbove } from '../utils/chatFailure'
+import { useAutoResume } from '../hooks/useAutoResume'
 import { isFolderMissingError } from '../utils/chatAgents'
 // eslint-disable-next-line no-unused-vars
 import CommandsConsentCard from '../components/chat/CommandsConsentCard'
@@ -99,6 +105,8 @@ const FOCUS_MODE_KEY = 'localai_chat_focus_mode'
 // address and goes to Home (see ChatsRoute in router.jsx); the page keeps a
 // state so that clearing a hand-off (a start message, a draft) does not.
 const NEW_CHAT = Object.freeze({ newChat: true })
+// The failure card of a turn that a restart interrupted (utils/chatFailure.js).
+const INTERRUPTED = Object.freeze({ code: 'interrupted', model: '', retry: 0, detail: '', text: '' })
 
 function browserStorage() {
   try { return window.localStorage } catch { return null }
@@ -196,6 +204,10 @@ function ChatPage() {
   const [scrolledUp, setScrolledUp] = useState(false)
   const chatsMenuRef = useRef(null)
   const pickerRef = useRef(null)
+  const effortRef = useRef(null)
+  // The reasoning effort picked before the chat exists. It is written to the
+  // chat's settings right after the chat is created.
+  const [draftEffort, setDraftEffort] = useState('')
 
   // The address names the open chat. Opening one by id selects it, unless it is
   // already open (creating a chat selects it before the address changes).
@@ -561,7 +573,7 @@ function ChatPage() {
       if (!target) {
         setBusy(true)
         // The chat is created with the switches drafted in its menus.
-        target = await chat.createChat(draftModel, agentId, switches.draftSwitches())
+        target = await createWithDraft()
         switches.resetDraft()
         await select(target)
         navigate(`/app/chats/${target}`)
@@ -872,6 +884,11 @@ function ChatPage() {
   const stepFind = (delta) => setFind(f => (f.count === 0 ? f : { ...f, index: (f.index + delta + f.count) % f.count }))
 
   const isEmpty = !activeId || (messages.length === 0 && !chat.running && !chat.loading)
+  // An agent shared with you runs with your own access: before the first
+  // message the chat says what of it you lack.
+  const emptyAgentId = isEmpty ? ((activeId ? activeChat?.agent_id : agentId) || '') : ''
+  const emptyAgent = emptyAgentId ? (composer.agents || []).find(a => a.id === emptyAgentId) : null
+  const needsAgent = emptyAgent && isSharedWithMe(emptyAgent) ? emptyAgent.id : ''
   const noModel = !activeId && !chatModelsLoading && chatModels.length === 0 && !pickedAgent?.model
   const conversations = isEmpty ? resumeItems(chat.chats.filter(c => c.id !== activeId && c.id !== pendingDelete?.id)).slice(0, 8) : []
   const manage = Boolean(activeChat?.assistant)
@@ -879,8 +896,29 @@ function ChatPage() {
   // The sub-agents of a chat: a chip after Skills.
   const subAgents = activeId && <SubAgentsMenu chatId={activeId} tick={chat.ticks.subAgents} />
 
+  // Creates the chat with the drafted switches, then gives it the reasoning
+  // effort picked before it existed.
+  const createWithDraft = async () => {
+    const id = await chat.createChat(draftModel, agentId, switches.draftSwitches())
+    if (draftEffort) {
+      try { await chat.update(id, { settings: settingsWithEffort(null, draftEffort) }) } catch (e) { addToast(e.message || t('settings.saveFailed'), 'error') }
+      setDraftEffort('')
+    }
+    return id
+  }
+  const effortNow = activeId ? (activeChat?.settings?.reasoning_effort || '') : draftEffort
+  const setEffort = async (value) => {
+    if (!activeId) { setDraftEffort(value); return }
+    try {
+      await chat.update(activeId, { settings: settingsWithEffort(activeChat?.settings, value) })
+    } catch (e) {
+      addToast(e.message || t('settings.saveFailed'), 'error')
+    }
+  }
+
   const composerChips = (
     <>
+      {activeChat?.kind !== 'subagent' && <ReasoningChips effort={effortNow} onEffort={setEffort} openRef={effortRef} />}
       {activeId && chat.files.on && (
         <button
           type="button"
@@ -947,7 +985,7 @@ function ChatPage() {
       if (!target) {
         if (!effectiveModel) { addToast(t('toasts.selectModel'), 'warning'); return }
         setBusy(true)
-        target = await chat.createChat(draftModel, agentId, switches.draftSwitches())
+        target = await createWithDraft()
         switches.resetDraft()
         await select(target)
         navigate(`/app/chats/${target}`)
@@ -1029,6 +1067,7 @@ function ChatPage() {
       case 'chats': chatsMenuRef.current?.open(); break
       case 'assistant': openAssistant(); break
       case 'settings': setShowSettings(true); break
+      case 'effort': effortRef.current?.open(); break
       case 'find': openFind(); break
       case 'skills': navigate('/app/skills'); break
       case 'export': if (activeId) exportChat(activeId); break
@@ -1047,7 +1086,19 @@ function ChatPage() {
   // page was reloaded) fades after a day, so an old failure does not look new.
   const showFailure = Boolean(activeId) && !chat.running && chat.lastTurn === 'failed'
     && (Boolean(chat.failure) || !isStaleFailure(chat.detail?.updated))
-  const failureShown = chat.failure || chat.failureSaved
+  // A turn a restart interrupted shows the same card. The page resumes it by
+  // itself a few times; the person can stop that or retry at once.
+  const showInterrupted = Boolean(activeId) && !chat.running && chat.lastTurn === 'interrupted'
+    && !isStaleFailure(chat.detail?.updated)
+  const autoResume = useAutoResume({
+    id: activeId, lastTurn: chat.lastTurn, running: chat.running, resuming: chat.resuming,
+    updated: chat.detail?.updated, resume: chat.resume,
+    willResume: chat.willResume, resumeAttempts: chat.resumeAttempts, refresh: chat.refreshChat,
+  })
+  // Once the page has given up resuming, the card says what to do; the notice
+  // that the stream reconnects would only repeat a problem the card covers.
+  const gaveUp = showInterrupted && autoResume.phase === 'exhausted'
+  const failureShown = showInterrupted ? INTERRUPTED : (chat.failure || chat.failureSaved)
   // The one state of the status line, and whether the keyboard hint shows:
   // only while the composer has focus, is empty and the chat is idle.
   const footState = chatFootState({
@@ -1135,6 +1186,7 @@ function ChatPage() {
         <div className="cx-stage">
           <div className="cx-body" ref={messagesRef}>
             {isEmpty && <EmptyHead name={activeId ? title : (pickedAgent?.name || '')} manage={manage} />}
+            {needsAgent && <div className="cx-agent-needs"><AgentNeedsNotice agentId={needsAgent} /></div>}
             <div className="cx-thread" data-testid="chat-thread" role="region" aria-label={tc('transcript')} hidden={isEmpty}>
               <EgressCardsContext.Provider value={egressCards}>
               <ChatSendContext.Provider value={sendLive}>
@@ -1188,13 +1240,15 @@ function ChatPage() {
               )}
               {waitingCards.map(c => <NetworkConsentCard key={c.id} card={c} chatId={activeId} egress={egress} />)}
 
-              {showFailure && (
+              {(showFailure || showInterrupted) && (
                 <ErrorCard
                   failure={failureShown}
                   isAdmin={isAdmin}
                   kept={keptAbove(messages)}
                   canRetry={!chat.resuming}
-                  onRetry={handleRetry}
+                  onRetry={() => { autoResume.reset(); handleRetry() }}
+                  auto={autoResume}
+                  onStopTrying={autoResume.stop}
                 />
               )}
 
@@ -1269,6 +1323,11 @@ function ChatPage() {
             )}
             {activeId && loopListFor === activeId && <LoopList loops={chat.loops} onClose={() => setLoopListFor('')} />}
             <LoopBar loops={chat.loops} chatId={activeId} chat={chat} />
+            {activeId && chat.reconnecting && !gaveUp && (
+              <p className="cx-reconnect" role="status" data-testid="chat-reconnecting">
+                <Icon name="alert-circle" /> {t('connection.lost')}
+              </p>
+            )}
             {!noModel && (
               <ShortcutsRow
                 starters={manage ? t('empty.suggestionsManage', { returnObjects: true }) : undefined}
@@ -1351,6 +1410,7 @@ function ChatPage() {
           blocks={pane.blocks}
           onClose={pane.close}
           onDropFiles={(list) => composer.attach('file', list)}
+          addToast={addToast}
         />
       )}
       <p className="sr-only" role="status" data-testid="chat-preview-status">
@@ -1368,6 +1428,7 @@ function ChatPage() {
           onEditAgent={() => navigate(`/app/agents/${encodeURIComponent(pickedAgent.id)}/edit`)}
           onDelete={activeId ? () => { setShowSettings(false); promptDelete() } : undefined}
           onSaveSettings={activeId && activeChat?.kind !== 'subagent' ? (settings) => chat.update(activeId, { settings }) : undefined}
+          onEffort={activeId && activeChat?.kind !== 'subagent' ? setEffort : undefined}
           onClose={() => setShowSettings(false)}
         />
       )}

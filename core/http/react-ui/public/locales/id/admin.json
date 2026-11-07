@@ -361,13 +361,17 @@
       "bash": "Perintah (bash)",
       "web_search": "Pencarian web",
       "web_fetch": "Baca halaman web",
-      "list_agents": "Agen tersimpan"
+      "list_agents": "Agen tersimpan",
+      "localai_client": "Alat klien LocalAI",
+      "localai_admin": "Alat admin LocalAI"
     },
     "descriptions": {
       "bash": "Menjalankan perintah dan kode untuk chat langsung di mesin ini saat tidak ada add-on yang melayani bash. Add-on yang menjalankan perintah terisolasi menggantinya.",
       "web_search": "Mencari di web untuk chat tanpa kunci (DuckDuckGo, lalu Brave Search, lalu Bing), atau dengan instans SearXNG Anda jika sudah diatur.",
       "web_fetch": "Membaca halaman atau file web publik berdasarkan alamatnya untuk chat. Alamat di dalam jaringan Anda ditolak kecuali Anda mengizinkannya.",
-      "list_agents": "Memungkinkan chat menampilkan agen tersimpan milik pengguna dan memulai salah satunya sebagai sub-agen. Setiap chat mengaktifkannya di menu Alat."
+      "list_agents": "Memungkinkan chat menampilkan agen tersimpan milik pengguna dan memulai salah satunya sebagai sub-agen. Setiap chat mengaktifkannya di menu Alat.",
+      "localai_client": "Memungkinkan chat menjalankan model yang terpasang di sini untuk gambar, suara, bunyi, video, embedding, dan deteksi, sesuai izin setiap pengguna.",
+      "localai_admin": "Memungkinkan chat administrator mengelola server ini: model, backend, pengaturan, dan statusnya. Setiap chat atau agen tersimpan mengaktifkannya."
     },
     "bash": {
       "switch": "Izinkan chat menjalankan perintah di mesin ini",

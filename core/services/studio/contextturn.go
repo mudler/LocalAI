@@ -17,7 +17,8 @@ import (
 
 // homeReader reads the files of a user's home as the user, outside the fence
 // of any chat. The loader names the path, never the model, so a scoped chat
-// reads its own notes without gaining any access to the files.
+// reads its own notes without gaining any access to the files. A file that
+// another person may write (files.Service.OthersWrite) does not exist for it.
 type homeReader struct{ f *files.Service }
 
 func (h homeReader) ReadFile(ctx context.Context, principal, rel string, limit int64) ([]byte, error) {
@@ -27,6 +28,15 @@ func (h homeReader) ReadFile(ctx context.Context, principal, rel string, limit i
 	abs, err := h.f.Abs(principal, rel)
 	if err != nil {
 		return nil, err
+	}
+	// A note in a folder that another person may write is theirs, not the
+	// user's: it is not read into the user's prompt.
+	others, err := h.f.OthersWrite(ctx, principal)
+	if err != nil {
+		return nil, err
+	}
+	if others.Covers(abs) {
+		return nil, contextfiles.ErrNotExist
 	}
 	r, node, err := h.f.Store().Open(ctx, h.f.Actor(principal), abs)
 	if errors.Is(err, workspace.ErrNotFound) {

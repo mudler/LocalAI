@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -138,6 +139,9 @@ func (s *Service) gateAct(rec session.ChatRecord, pol builtins.ActPolicy, t sess
 				"tool", req.Name, "allowed", v.Allowed, "reason", v.Reason, "missing", v.Missing)
 		}
 		if !v.Allowed {
+			if v.Reason == "not_granted" {
+				s.refusedActs.LoadOrStore(rec.ID, v.Missing)
+			}
 			addontools.OutcomeFrom(ctx).Deny("act_" + v.Reason)
 			return v.Sentence, nil
 		}
@@ -168,6 +172,30 @@ func (s *Service) gateExternalAct(ctx context.Context, rec session.ChatRecord, t
 	return out
 }
 
+// gateVoiceProfile applies the policy to voice_profile by action. list only
+// reads the library, so act.spend does not gate it. delete removes a voice and
+// no person watches the run, so it is refused whatever the run holds. create
+// keeps the act.spend gate; its own guard refuses it when nobody can confirm.
+func (s *Service) gateVoiceProfile(rec session.ChatRecord, pol builtins.ActPolicy, t session.Tool) session.Tool {
+	spend := s.gateAct(rec, pol, t, builtins.ActTool{Name: t.Name, Class: builtins.ClassSpend})
+	run, gated := t.Run, spend.Run
+	t.Run = func(ctx context.Context, args json.RawMessage) (string, error) {
+		var in localaitools.VoiceProfileToolInput
+		_ = json.Unmarshal(args, &in)
+		switch in.Action {
+		case localaitools.ActionList:
+			return run(ctx, args)
+		case localaitools.ActionDelete:
+			s.log.Info("studio: unattended action", "chat", rec.ID, "origin", rec.Origin, "origin_id", rec.OriginID,
+				"tool", t.Name, "allowed", false, "reason", "voice_delete_unattended")
+			addontools.OutcomeFrom(ctx).Deny("act_voice_delete_unattended")
+			return "Not deleted: this run started by itself and nobody watches it, so it may not delete a voice profile. Do not try again; say that a person must delete it in the Voice library or in a chat they watch.", nil
+		}
+		return gated(ctx, args)
+	}
+	return t
+}
+
 // gateBuiltinActs applies the policy to the built-in tools that change files
 // or run commands. The other built-in tools read, or have their own grant.
 func (s *Service) gateBuiltinActs(ctx context.Context, rec session.ChatRecord, tools []session.Tool) []session.Tool {
@@ -179,6 +207,11 @@ func (s *Service) gateBuiltinActs(ctx context.Context, rec session.ChatRecord, t
 	for i, t := range tools {
 		out[i] = t
 		switch {
+		case t.Name == localaitools.ToolVoiceProfile:
+			out[i] = s.gateVoiceProfile(rec, pol, t)
+		case clientToolNames[t.Name]:
+			// The LocalAI client tools run models: they spend compute.
+			out[i] = s.gateAct(rec, pol, t, builtins.ActTool{Name: t.Name, Class: builtins.ClassSpend})
 		case fileWriteTools[t.Name]:
 			out[i] = s.gateAct(rec, pol, t, builtins.ActTool{Name: t.Name, Class: builtins.ClassFiles})
 		case t.Name == commandTool && t.Provider == BuiltinProvider:

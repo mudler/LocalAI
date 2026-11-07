@@ -42,6 +42,43 @@ export function changedFields(form, saved) {
   return new Set(WATCHED.filter((k) => sorted(form, k) !== sorted(saved, k)))
 }
 
+// ---- What a save changed -------------------------------------------------
+
+// The parts of the form that a person knows by name, for the notice after a
+// save. Several fields can belong to one part.
+const CHANGE_PART = {
+  name: 'name', agent_id: 'agent', accept_any: 'who', allow: 'who', allow_trust: 'who', caps: 'permissions', grants: 'permissions',
+  approval: 'approval', send_files: 'files', file_receive_mib: 'files', file_send_mib: 'files', notify_chat: 'notify',
+}
+
+// The parts that a save changed, in a fixed order, as keys of saved.part.*.
+// With no saved binding (a new connection) the list is empty.
+export function changedParts(form, saved) {
+  if (!saved) return []
+  const fields = changedFields(form, saved)
+  if ((form.name || '').trim() !== (saved.name || '')) fields.add('name')
+  const parts = new Set([...fields].map((f) => CHANGE_PART[f]).filter(Boolean))
+  return Object.values(CHANGE_PART).filter((p, i, all) => all.indexOf(p) === i && parts.has(p))
+}
+
+// The acts that the approval of the saved binding allowed and the form no longer does.
+export function removedActs(saved, form) {
+  const now = form?.approval?.acts || []
+  return (saved?.approval?.acts || []).filter((n) => !now.includes(n))
+}
+
+// The triggers that a save leaves with fewer acts. A trigger made without
+// asking under a connection stays within the acts the connection allows (the
+// host decides this at each run), so a removed act that the trigger holds is
+// dropped from its runs. Gives [{ id, name, acts }] for the connection id.
+export function droppedActs(triggers, bindingId, removed) {
+  if (!bindingId || !removed?.length) return []
+  return (Array.isArray(triggers) ? triggers : [])
+    .filter((t) => t && t.binding === bindingId)
+    .map((t) => ({ id: t.id, name: t.name || t.id, acts: (t.acts || []).filter((n) => removed.includes(n)) }))
+    .filter((t) => t.acts.length > 0)
+}
+
 // ---- Fix routing ---------------------------------------------------------
 
 // What a person sees of the Tools of an agent: the editor of the agent.
@@ -208,12 +245,12 @@ const jump = (target, field, label) => ({ kind: 'open_connection', target, field
 // The rows of the readiness list for the form as it is now.
 //   form, saved (the form of the saved binding, or null), kindInfo,
 //   capabilities, agents, lists, tokenTyped, token ({ ok, reason } | null),
-//   preview ({ status: 'loading'|'ready'|'error', view }), paired, agentOptional,
+//   preview ({ status: 'loading'|'ready'|'error', view }), paired, agentOptional, toolOnly,
 //   now
 // Every row is { id, state, key, params, fix } with the sentence as a key of
 // the page's words. A row that works only after the form is saved says so.
 export function readinessRows(ctx) {
-  const { form, saved, kindInfo, agents = [], lists = [], tokenTyped, token, preview = {}, paired, agentOptional = false, now = Date.now(), capabilities = [], isChannel = () => false } = ctx
+  const { form, saved, kindInfo, agents = [], lists = [], tokenTyped, token, preview = {}, paired, agentOptional = false, toolOnly = false, now = Date.now(), capabilities = [], isChannel = () => false } = ctx
   const changed = changedFields(form, saved)
   const caps = form.caps || []
   const on = (n) => caps.includes(n)
@@ -238,9 +275,11 @@ export function readinessRows(ctx) {
     rows.push({ id: 'token', state: 'ok', key: 'ready.token.saved' })
   }
 
-  // Agent
+  // Agent. A tool-only kind has none: agents choose the connection, not the other way round.
   const agent = agents.find((a) => a.id === form.agent_id)
-  if (!form.agent_id) {
+  if (toolOnly) {
+    // no row
+  } else if (!form.agent_id) {
     rows.push(agentOptional
       ? { id: 'agent', state: 'off', key: 'ready.agent.credentialsOnly' }
       : { id: 'agent', state: 'attention', key: 'ready.agent.none', fix: jump('agent_id', '', 'fix.agent') })
@@ -418,6 +457,15 @@ export function visibleRows(rows, expanded) {
   const shown = rows.filter((r) => isProblem(r.state))
   return { shown, hidden: rows.length - shown.length }
 }
+
+// The rows of a connection that is not saved yet. "Keep these changes" has no
+// meaning there, so a row loses its save fix. A row that only waits for the
+// save is not a thing to set, so it is not a problem here.
+export const forNewConnection = (rows) => rows.map((r) => (r.fix?.kind === 'save' ? { ...r, fix: undefined } : r))
+export const isThingToSet = (state) => isProblem(state) && state !== 'after_save'
+
+// How many things a new connection still needs from the person.
+export const thingsToSet = (rows) => rows.filter((r) => isThingToSet(r.state)).length
 
 // OUTCOME_TONES maps how an add-on tool call ended to the look of its badge:
 // a held call waits for a person, a refused or failed one needs a fix.

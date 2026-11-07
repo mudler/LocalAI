@@ -135,7 +135,7 @@ var _ = Describe("the advertised surface of the resource management routes", fun
 		Expect(string(tables)).To(ContainSubstring("databases-delete"))
 		Expect(strings.Count(string(tables), "not tools")).To(BeNumerically(">=", 1))
 		// The admin assistant catalog names none of it.
-		for _, file := range []string{"../../../pkg/mcp/localaitools/tools.go"} {
+		for _, file := range []string{"../../../core/services/localaitools/tools.go"} {
 			b, err := os.ReadFile(file)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(strings.ToLower(string(b))).NotTo(ContainSubstring("/api/addons"))

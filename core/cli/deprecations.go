@@ -45,6 +45,23 @@ type RemovedAgentOptions struct {
 	AgentHubURL                    string `env:"LOCALAI_AGENT_HUB_URL" hidden:"" help:"Removed; ignored"`
 }
 
+// RemovedAssistantOptions are the flag and environment variable that used to
+// switch the LocalAI Assistant off. They are deprecated: a true value is mapped
+// to chats_localai_admin=false (the admin tool group off), with a warning. The
+// option is an operator choice: it wins over a stored chats_localai_admin=true.
+type RemovedAssistantOptions struct {
+	DisableLocalAIAssistant bool `name:"disable-local-ai-assistant" env:"LOCALAI_DISABLE_ASSISTANT" hidden:"" help:"Deprecated: maps to chats_localai_admin=false (Settings > Tools)"`
+}
+
+func (o RemovedAssistantOptions) set() []string { return setOptions(o) }
+
+func (o RemovedAssistantOptions) warn() {
+	if set := o.set(); len(set) > 0 {
+		xlog.Warn("The option to disable the LocalAI Assistant is deprecated; it was mapped to chats_localai_admin=false. Set chats_localai_admin in Settings > Tools instead",
+			"options", strings.Join(set, ", "))
+	}
+}
+
 // RemovedAgentWorkerOptions are the flags and environment variables of the old
 // agent worker, which ran agents and jobs and called the HTTP API. They do
 // nothing now and are accepted so a deployment that sets them keeps starting.

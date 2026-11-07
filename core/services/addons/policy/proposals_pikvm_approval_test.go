@@ -91,7 +91,7 @@ var _ = Describe("the confirmation of the PiKVM write tools", Label("proposals",
 	)
 
 	It("declares the setting of each relaxable tool with the default ask, and none for type-text", func() {
-		Expect(contract.ValidateManifest(manifest, contract.HostCompatibility{Host: 1, API: 2, Protocol: 1, SDK: 2, DataFormat: 1, OS: "linux", Arch: "amd64"})).To(Succeed())
+		Expect(contract.ValidateManifest(manifest, contract.HostCompatibility{Host: 1, API: 2, Protocol: 1, SDK: 2, DataFormat: 1, FeatureLevel: contract.HostFeatureLevel, OS: "linux", Arch: "amd64"})).To(Succeed())
 		for _, d := range manifest.Capabilities.ToolDefinitions {
 			_, has := contract.UserSettingOf(manifest.Capabilities.UserSettings, contract.ApprovalSettingKey(d.Name))
 			switch d.Name {

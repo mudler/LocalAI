@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { splitEntries, isSettingsFolder, guardOf } from '../../src/utils/managedFiles.js'
+import { splitEntries, isSettingsFolder, guardOf, pageOf } from '../../src/utils/managedFiles.js'
 
 const dir = (name, managed) => ({ path: `/${name}`, name, kind: 'dir', ...(managed ? { managed } : {}) })
 const file = (path, managed) => ({ path, name: path.split('/').pop(), kind: 'file', ...(managed ? { managed } : {}) })
@@ -36,4 +36,27 @@ test('managed files: a delete or rename of a managed folder or settings file ask
   assert.equal(guardOf(file('/persona.json')), null, 'the user\'s own file of the same name')
   assert.equal(guardOf(dir('Notes')), null)
   assert.equal(guardOf(null), null)
+})
+
+test('managed files: the folders LocalAI creates go last in a fixed order, and a value nobody heard of is grouped by the marker', () => {
+  const entries = [dir('.skills', 'skills'), dir('Zed', 'future'), dir('pages', 'pages'), dir('Chats', 'chats'), dir('Memory', 'memory'), dir('LocalAI', 'localai'), dir('Notes'), dir('Alpha', 'other-future')]
+  const { own, managed } = splitEntries(entries, '/')
+  assert.deepEqual(own.map(e => e.name), ['Notes'])
+  assert.deepEqual(managed.map(e => e.name), ['LocalAI', 'Chats', 'Memory', 'pages', '.skills', 'Zed', 'Alpha'], 'unknown values last, in the server order')
+})
+
+test('managed files: a folder is never managed by its name, only by the marker of the listing', () => {
+  const entries = [dir('Memory'), dir('pages'), dir('.skills')]
+  assert.deepEqual(splitEntries(entries, '/'), { own: entries, managed: [] })
+})
+
+test('managed files: the folders with a page of their own say which, and the others do not', () => {
+  assert.deepEqual(pageOf(dir('Memory', 'memory')), { to: '/app/account?tab=memory', features: ['chats'] })
+  assert.equal(pageOf(dir('pages', 'pages')).to, '/app/pages')
+  assert.equal(pageOf(dir('.skills', 'skills')).to, '/app/skills')
+  assert.equal(pageOf(dir('Chats', 'chats')), null)
+  assert.equal(pageOf(dir('LocalAI', 'localai')), null)
+  assert.equal(pageOf(dir('Zed', 'future')), null)
+  assert.equal(pageOf(file('/Memory/index.md', 'memory')), null, 'a file')
+  assert.equal(pageOf(dir('Memory')), null, 'unmarked')
 })

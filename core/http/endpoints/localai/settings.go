@@ -107,6 +107,7 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 				Error:   "Failed to parse JSON: " + err.Error(),
 			})
 		}
+		config.MapRemovedRuntimeSettings(body, &settings)
 
 		// The ports and the SearXNG address of the chats' web tools.
 		if settings.ChatsWebPorts != nil {
@@ -202,6 +203,12 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
 				Success: false,
 				Error:   "Invalid chats_host_exec: use off, ask or on",
+			})
+		}
+		if settings.ChatsToolSearch != nil && !config.ValidToolSearch(strings.ToLower(strings.TrimSpace(*settings.ChatsToolSearch))) {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+				Success: false,
+				Error:   "Invalid chats_tool_search: use auto, on or off",
 			})
 		}
 		if settings.ChatsToolProviders != nil {
@@ -493,6 +500,12 @@ func validateEgressSettings(s config.RuntimeSettings, body []byte, privateOn boo
 	}
 	if s.ChatsIndexMaxTextBytes != nil && (*s.ChatsIndexMaxTextBytes < config.MinChatsIndexMaxTextBytes || *s.ChatsIndexMaxTextBytes > config.MaxChatsIndexMaxTextBytes) {
 		return fmt.Sprintf("Invalid chats_index_max_text_bytes: use %d to %d", config.MinChatsIndexMaxTextBytes, config.MaxChatsIndexMaxTextBytes)
+	}
+	if s.ChatsExtractMaxBytes != nil && (*s.ChatsExtractMaxBytes < config.MinChatsExtractMaxBytes || *s.ChatsExtractMaxBytes > config.MaxChatsExtractMaxBytes) {
+		return fmt.Sprintf("Invalid chats_extract_max_bytes: use %d to %d", config.MinChatsExtractMaxBytes, config.MaxChatsExtractMaxBytes)
+	}
+	if s.ChatsExtractMaxEntries != nil && (*s.ChatsExtractMaxEntries < config.MinChatsExtractMaxEntries || *s.ChatsExtractMaxEntries > config.MaxChatsExtractMaxEntries) {
+		return fmt.Sprintf("Invalid chats_extract_max_entries: use %d to %d", config.MinChatsExtractMaxEntries, config.MaxChatsExtractMaxEntries)
 	}
 	if s.ChatsMaxIterations != nil && (*s.ChatsMaxIterations < 1 || *s.ChatsMaxIterations > config.MaxChatsMaxIterations) {
 		return fmt.Sprintf("Invalid chats_max_iterations: use 1 to %d", config.MaxChatsMaxIterations)

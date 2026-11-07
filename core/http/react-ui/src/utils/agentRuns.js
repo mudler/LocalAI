@@ -124,7 +124,7 @@ export function runOfChat(chat) {
   }
 }
 
-const RUN_STATUS = { queued: 'running', running: 'running', done: 'done', failed: 'failed', skipped: 'stopped' }
+const RUN_STATUS = { queued: 'running', running: 'running', done: 'done', failed: 'failed', skipped: 'stopped', blocked: 'stopped' }
 
 // One start of a trigger (GET /api/chats/triggers/:id/runs) as a run. `reason`
 // says why a run failed or was skipped.

@@ -11,6 +11,7 @@ import { wellKnownTag } from '../../utils/changeNotes'
 import { DOCS_MAKE_YOURS } from '../../utils/discovery'
 import { useArrivals } from '../../hooks/useArrivals'
 import { copyToClipboard } from '../../utils/clipboard'
+import { makeZip, zipNames } from '../../utils/zip'
 import { TEXT_VIEWS, extensionForLanguage, viewOf } from '../../utils/previewPane'
 // The rows of the list are the Files page's rows.
 import '../../pages/workspace.css'
@@ -149,7 +150,7 @@ function SelectedPreview({ item, file, focusToken, t }) {
 // { block, n, by } for a code block of a reply (an item of blocks). A new n
 // asks again. by 'user' (a chip or a button) moves the focus to the preview;
 // 'auto' (the turn produced it) never moves the focus.
-export default function ChatFilesPane({ state, chatId = '', focus, blocks = [], onClose, onDropFiles }) {
+export default function ChatFilesPane({ state, chatId = '', focus, blocks = [], onClose, onDropFiles, addToast }) {
   const { t } = useTranslation('chat')
   const { t: tw } = useTranslation('workspace')
   const [selected, setSelected] = useState(null)
@@ -157,6 +158,7 @@ export default function ChatFilesPane({ state, chatId = '', focus, blocks = [], 
   const bodyRef = useRef(null)
   const [focusToken, setFocusToken] = useState(0)
   const [showWorking, setShowWorking] = useState(false)
+  const [zipping, setZipping] = useState(false)
   const groups = groupChatFiles(state.files)
   const sections = [
     { key: 'created', files: [...groups.created, ...groups.changed] },
@@ -198,6 +200,37 @@ export default function ChatFilesPane({ state, chatId = '', focus, blocks = [], 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusPath, focusBlock, focusN, state.files.length > 0, blocks.length > 0])
 
+  // Every file of the list in one zip, built here from the files the row
+  // links download, so it needs no route of its own.
+  const downloadAll = async () => {
+    if (zipping || state.files.length === 0) return
+    setZipping(true)
+    try {
+      const files = state.files
+      const names = zipNames(files.map(f => f.path))
+      const entries = new Array(files.length)
+      let next = 0
+      const worker = async () => {
+        while (next < files.length) {
+          const i = next++
+          const res = await fetch(filesApi.contentUrl(files[i].path))
+          if (!res.ok) throw new Error(`${files[i].name}: HTTP ${res.status}`)
+          entries[i] = { name: names[i], data: new Uint8Array(await res.arrayBuffer()) }
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(4, files.length) }, worker))
+      const url = URL.createObjectURL(makeZip(entries))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = t('files.zipName')
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 0)
+    } catch {
+      addToast?.(t('files.zipError'), 'error')
+    } finally {
+      setZipping(false)
+    }
+  }
   const select = (file) => setSelected(file ? { type: 'file', path: file.path } : null)
   const onDrop = (e) => {
     e.preventDefault()
@@ -222,6 +255,10 @@ export default function ChatFilesPane({ state, chatId = '', focus, blocks = [], 
           {t('files.title')}
           {state.files.length > 0 && <span className="cx-files__count">{state.files.length}</span>}
         </h2>
+        <Button
+          variant="ghost" size="sm" icon="download" onClick={downloadAll} busy={zipping} disabled={state.files.length === 0}
+          title={t('files.downloadAll')} aria-label={t('files.downloadAll')} data-testid="chat-files-download-all"
+        />
         <Button variant="ghost" size="sm" icon="close" onClick={onClose} title={t('files.close')} aria-label={t('files.close')} data-testid="chat-files-close" />
       </div>
       <div className="cx-files__body" ref={bodyRef}>

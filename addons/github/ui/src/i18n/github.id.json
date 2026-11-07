@@ -18,7 +18,6 @@
   "agent": "Agen",
   "agentNone": "Pilih agen",
   "agentCredentialsOnly": "Tanpa agen (hanya kredensial)",
-  "agentOptionalHint": "Opsional. Tanpa agen, koneksi ini hanya menyimpan token, daftar repositori, dan mode tulis untuk chat Anda. Koneksi tidak menjawab pesan dan tidak mendengarkan apa pun.",
   "credentialsOnly": "Hanya kredensial",
   "agentNoModel": "{{name}} (perlu model)",
   "test": "Uji",

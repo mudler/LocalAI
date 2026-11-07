@@ -154,11 +154,51 @@ export function connectorApi(page, initial = [], kind = 'telegram', senders = [N
   }
 }
 
-// Opens the group "File sizes and reply language" of the form, when it is closed.
-export async function openAnswerMore(page) {
-  const more = page.getByTestId('connector-answer-more')
-  if ((await more.getAttribute('open')) === null) await more.locator('summary').click()
+// Opens a disclosure of the sheet when it is closed.
+async function openDetails(page, testId) {
+  const d = page.getByTestId(testId)
+  if ((await d.getAttribute('open')) === null) await d.locator('> summary').click()
 }
+
+// Opens "Replies, files and places" of the sheet, where the answer settings are.
+export const openReplies = (page) => openDetails(page, 'connector-replies-more')
+
+// Opens "Check what it will do" of the sheet (Try it, refusals, tool calls).
+export const openCheck = (page) => openDetails(page, 'connector-check-more')
+
+// Opens the group "File sizes and reply language", inside "Replies, files and places", when it is closed.
+export async function openAnswerMore(page) {
+  await openReplies(page)
+  await openDetails(page, 'connector-answer-more')
+}
+
+// Picks the Custom preset, which shows the whole matrix of who can do what.
+export async function openMatrix(page) {
+  const matrix = page.getByTestId('connector-matrix')
+  if (await matrix.count() === 0) await page.getByTestId('connector-preset-custom').check()
+  return matrix
+}
+
+// The menu of a row (Edit, Delete): a row by name, or the only row.
+export async function rowMenu(page, item, name) {
+  const row = name ? page.getByTestId('connector-row').filter({ hasText: name }) : page.getByTestId('connector-row')
+  await row.locator('.action-menu__trigger').click()
+  await page.getByRole('menuitem', { name: item, exact: true }).click()
+}
+
+// Opens the edit sheet of a saved connection from the menu of its row.
+export async function openEdit(page, name) {
+  const row = name ? page.getByTestId('connector-row').filter({ hasText: name }) : page.getByTestId('connector-row')
+  await row.locator('.action-menu__trigger').click()
+  // Edit is the first item of the menu, whatever the language.
+  await page.getByRole('menuitem').first().click()
+}
+
+// Opens the pane of a connection by a click on its row.
+export const openPane = (page, name) => (name ? page.getByTestId('connector-row').filter({ hasText: name }) : page.getByTestId('connector-row')).getByTestId('connector-open').click()
+
+// Saves the open sheet: the primary button, which also tests the connection.
+export const saveSheet = (page) => page.getByTestId('connector-save').click()
 
 // Measures a select the way a reader sees it. A native select shows the text
 // of the selected option only, and it has no scrollWidth to read, so each
@@ -185,4 +225,20 @@ export async function clippedOptions(select, { all = true } = {}) {
     el.selectedIndex = kept
     return { scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, out }
   }, all)
+}
+
+// Opens everything the sheet keeps folded: the Custom preset (the matrix), the
+// replies and the check. Only what the open sheet has is touched.
+// A new connection starts with the status as one quiet line; this opens the list.
+export async function openReadiness(page) {
+  const quiet = page.getByTestId('connector-ready-quiet')
+  if (await quiet.count() > 0 && (await quiet.getAttribute('aria-expanded')) !== 'true') await quiet.click()
+}
+
+export async function expandAll(page) {
+  const custom = page.getByTestId('connector-preset-custom')
+  if (await custom.count() > 0) await custom.check()
+  for (const id of ['connector-replies-more', 'connector-check-more']) {
+    if (await page.getByTestId(id).count() > 0) await openDetails(page, id)
+  }
 }

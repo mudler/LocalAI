@@ -276,6 +276,26 @@
       "text": "Ce bot est aussi connecté sous le nom {{name}}. Les deux connexions répondront au même message.",
       "turnOff": "Désactiver celle-ci",
       "open": "Ouvrir {{name}}"
+    },
+    "new": "Nouvelle connexion",
+    "newMenu": "Choisissez la plateforme de la nouvelle connexion",
+    "state": {
+      "running": "Active",
+      "off": "Désactivée",
+      "attention": "Demande votre attention"
+    },
+    "share": {
+      "label": "Partager",
+      "button": "Partager {{name}}",
+      "intro": "Les personnes que vous ajoutez peuvent utiliser cette connexion dans leurs propres conversations et agents. Elles voient son nom et son état, jamais son jeton ni ses réglages. Les messages adressés au bot arrivent toujours à votre agent.",
+      "roleUse": "Peut utiliser",
+      "roleUseHelp": "Peut l'utiliser dans ses conversations et ses agents. Ne peut ni voir le jeton, ni la modifier, ni la partager."
+    },
+    "shared": {
+      "title": "Partagées avec vous",
+      "text": "D'autres personnes vous permettent d'utiliser ces connexions dans vos conversations et vos agents. Seul leur propriétaire peut les modifier.",
+      "on": "À l'écoute",
+      "off": "Désactivée"
     }
   },
   "tools": {
@@ -340,9 +360,12 @@
       "subagents": "Sous-agents",
       "changes": "Modifications suggérées",
       "memory": "Mémoire",
-      "history": "Anciens chats"
+      "history": "Anciens chats",
+      "localai_client": "Client LocalAI",
+      "localai_admin": "Administration LocalAI"
     },
     "builtinBy": "{{tools}} · intégrés",
+    "onDemand": "Chargé à la demande",
     "builtinByAddon": "{{tools}} · fournis par {{provider}}",
     "servedBy": "Fourni par l'extension {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
@@ -364,7 +387,9 @@
       "triggers": "Le modèle peut proposer, lister, modifier et supprimer des déclencheurs. Vous confirmez chaque nouveau déclencheur ou changement.",
       "changes": "Le modèle peut proposer des modifications de vos notes, de ses règles, des skills, des pages et du tableau de bord. Vous confirmez chacune.",
       "memory": "Le modèle peut lire vos notes avant de répondre et en enregistrer de nouvelles. Désactivez-la pour rendre cette conversation privée : rien n'est lu dans vos notes ni enregistré dedans. Vos autres conversations ne changent pas.",
-      "history": "Permet au modèle de rechercher et de lire tes anciens chats."
+      "history": "Permet au modèle de rechercher et de lire tes anciens chats.",
+      "localai_client": "Permet au modèle de créer des images, de la voix, du son et des vidéos, et de transcrire, de calculer des embeddings, de reclasser et de détecter, avec les modèles installés ici.",
+      "localai_admin": "Permet au modèle de gérer ce serveur : modèles, backends, réglages et état. Réservé aux administrateurs ; le modèle te demande avant de changer quoi que ce soit."
     },
     "whenOff": {
       "shell": "Le modèle peut écrire des fichiers mais ne peut rien exécuter.",
@@ -377,7 +402,9 @@
       "triggers": "Le modèle ne peut ni proposer ni gérer de déclencheurs.",
       "changes": "Le modèle ne peut pas proposer de modifications de vos notes, de ses règles, des skills, des pages ou du tableau de bord.",
       "memory": "C'est une conversation privée. Le modèle ne lit ni n'enregistre vos notes.",
-      "history": "Le modèle ne peut pas voir tes anciens chats."
+      "history": "Le modèle ne peut pas voir tes anciens chats.",
+      "localai_client": "Le modèle ne peut pas exécuter ces modèles lui-même.",
+      "localai_admin": "Le modèle ne peut pas gérer ce serveur."
     },
     "addonDescribe_one": "Donne au modèle {{count}} outil de cet add-on.",
     "addonDescribe_other": "Donne au modèle {{count}} outils de cet add-on.",
@@ -639,6 +666,8 @@
       "writes": "Écrit",
       "widget": "Widget d'accueil",
       "estimated_tokens": "Jetons par exécution",
+      "acts": "Ce qu'une exécution peut faire",
+      "delivery": "Où vont les réponses",
       "agent": "Agent",
       "model": "Modèle"
     },
@@ -728,6 +757,75 @@
       "noChat": "Envoyez un premier message, puis démarrez une boucle dans ce chat.",
       "stopped_one": "{{count}} boucle arrêtée.",
       "stopped_other": "{{count}} boucles arrêtées."
+    },
+    "wait": {
+      "name": "En attente de",
+      "kind": "Attente",
+      "pending": "Attend votre accord",
+      "paused": "Attente en pause",
+      "stop": "Arrêter l'attente",
+      "details": "Détails de l'attente",
+      "watching": "Surveille {{source}}",
+      "until": "Jusqu'à ce que {{condition}}",
+      "notChecked": "Pas encore vérifié",
+      "checked_one": "Vérifié {{count}} fois",
+      "checked_other": "Vérifié {{count}} fois",
+      "checkedAgo_one": "Vérifié {{count}} fois, dernière {{ago}}",
+      "checkedAgo_other": "Vérifié {{count}} fois, dernière {{ago}}",
+      "outcome": {
+        "unchanged": "aucun changement",
+        "changed": "changé",
+        "error": "échec"
+      },
+      "ago": "il y a {{span}}",
+      "justNow": "à l'instant",
+      "in": "dans {{span}}",
+      "now": "maintenant",
+      "next": "Prochaine vérification {{when}}",
+      "deadline": "Abandonne à {{time}} ({{when}})",
+      "errorStreak": "La dernière vérification a échoué ({{count}} sur {{max}} de suite)",
+      "errorStreakMsg": "La dernière vérification a échoué ({{count}} sur {{max}} de suite) : {{message}}",
+      "lastError": "Dernière erreur : {{message}}",
+      "sources": {
+        "tool": "outil {{name}}",
+        "url": "{{name}}"
+      },
+      "end": {
+        "met": "Terminé : la condition est remplie",
+        "failing_one": "Arrêtée : la source a échoué {{count}} fois de suite",
+        "failing_other": "Arrêtée : la source a échoué {{count}} fois de suite",
+        "timedOut": "Délai dépassé, la condition n'a pas été remplie",
+        "stopped": "Attente arrêtée"
+      },
+      "waking": {
+        "met": "La condition est remplie. Le modèle est sollicité pour la suite.",
+        "failing": "La source a échoué. Le modèle est sollicité pour la suite.",
+        "timedOut": "Délai dépassé, la condition n'a pas été remplie. Le modèle est sollicité pour la suite."
+      },
+      "phase": {
+        "waiting": "en attente",
+        "waking": "réveille le modèle",
+        "paused": "en pause",
+        "ended": "terminée",
+        "pending": "attend votre accord"
+      },
+      "endShort": {
+        "condition_met": "condition remplie",
+        "source_failing": "source en échec",
+        "timed_out": "délai dépassé",
+        "stopped": "arrêtée"
+      },
+      "group": {
+        "collapse": "Masquer les attentes",
+        "deadline": "Prochaine échéance {{time}} ({{when}})",
+        "expand": "Afficher les attentes",
+        "lastCheck": "Dernière vérification {{ago}}",
+        "paused_one": "{{count}} en pause",
+        "paused_other": "{{count}} en pause",
+        "stopAll": "Tout arrêter",
+        "title_one": "{{count}} attente",
+        "title_other": "{{count}} attentes"
+      }
     }
   },
   "changes": {
@@ -740,7 +838,8 @@
       "skill": "Skill",
       "page": "Page",
       "dashboard": "Tableau de bord",
-      "knowledge": "Connaissance"
+      "knowledge": "Connaissance",
+      "voice_profile": "Profil vocal"
     },
     "scope": {
       "user": "Toutes vos conversations",
@@ -817,6 +916,18 @@
       "title": "Vérifiez ce texte avant de confirmer.",
       "secret": "Il semble contenir un secret, comme une clé, un jeton ou un mot de passe. Une fois ajouté, tout chat qui interroge cette collection peut le lire. Un chat de messagerie ne peut pas le confirmer ; vous seul le pouvez, ici.",
       "other": "Le serveur a signalé ce texte comme risqué. Un chat de messagerie ne peut pas le confirmer ; vous seul le pouvez, ici."
+    },
+    "voice": {
+      "label": "Voix à cloner",
+      "name": "Nom",
+      "file": "Enregistrement",
+      "clip": "Clip verrouillé",
+      "language": "Langue",
+      "transcript": "Transcription",
+      "consentTitle": "Ne confirmez que si la personne qui parle a donné son accord.",
+      "consent": "L'enregistrement est conservé comme profil vocal avec lequel vos conversations peuvent parler. Vous pouvez le supprimer dans la bibliothèque Voix.",
+      "consentAdmin": "Vous êtes administrateur : cette voix sera disponible pour tous les utilisateurs de ce serveur.",
+      "confirm": "La personne a donné son accord : enregistrer la voix"
     }
   },
   "proposalsPage": {
@@ -1108,5 +1219,9 @@
       "waiting": "Le changement attend votre confirmation sur la page Add-ons",
       "failed": "Le fournisseur n'a pas pu oublier : {{message}}"
     }
+  },
+  "subAgents": {
+    "waiting": "En attente de : {{what}}",
+    "looping": "En boucle"
   }
 }

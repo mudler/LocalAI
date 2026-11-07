@@ -340,7 +340,7 @@ func (s *Service) agentMemory(ctx context.Context, user, agentID string) string 
 	if agentID == "" || s.d.Agents == nil {
 		return ""
 	}
-	ag, err := s.d.Agents.Get(ctx, user, agentID)
+	ag, err := s.chatAgent(ctx, user, agentID)
 	if err != nil {
 		return ""
 	}
@@ -355,7 +355,7 @@ func (s *Service) agentMemorySave(ctx context.Context, user, agentID string) str
 	if agentID == "" || s.d.Agents == nil {
 		return ""
 	}
-	ag, err := s.d.Agents.Get(ctx, user, agentID)
+	ag, err := s.chatAgent(ctx, user, agentID)
 	if err != nil {
 		return agents.MemorySaveAlways
 	}

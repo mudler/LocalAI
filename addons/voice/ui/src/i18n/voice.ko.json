@@ -1,6 +1,6 @@
 {
-  "voice.adminOnly.title": "Administrators only",
-  "voice.adminOnly.text": "Saved voices can be managed by an administrator of this server. Ask one if you need a voice added or removed.",
+  "voice.noSpeech.title": "Speech is not available",
+  "voice.noSpeech.text": "Your account cannot use speech, so it cannot manage saved voices. Ask an administrator to turn it on.",
   "speech.title": "Speak text",
   "speech.lede": "Turn text into speech with a voice model of this server.",
   "speech.model": "Model",
@@ -226,7 +226,7 @@
   "voiceCreate.sections.reference.title": "Reference audio",
   "voiceCreate.sections.reference.body": "Record in the browser or upload an existing clip. Speech should be clean, natural, and from one speaker.",
   "voiceCreate.sections.details.title": "Identity and transcript",
-  "voiceCreate.sections.details.body": "Give admins a recognizable name and transcribe the clip exactly, including fillers and punctuation.",
+  "voiceCreate.sections.details.body": "음성에 알아보기 쉬운 이름을 지정하고, 군더더기 말과 문장 부호까지 클립을 정확히 받아 적으세요.",
   "voiceCreate.sections.consent.title": "Authorization",
   "voiceCreate.sections.consent.body": "Voice cloning can be sensitive. Confirm permission before this reference is saved.",
   "voiceCreate.audio.label": "Voice reference",

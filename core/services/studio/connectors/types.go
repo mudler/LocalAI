@@ -358,6 +358,13 @@ type Store interface {
 	// same time. It reports whether it wrote. A missing binding is false.
 	SetCapsIfEmpty(ctx context.Context, id string, caps []string) (bool, error)
 
+	// AddCapIfAbsent adds one capability to the ceiling of a binding that
+	// already has a non-empty ceiling and lacks it, as one step, so it never
+	// overwrites a choice that an owner saved at the same time. A binding with
+	// an empty ceiling is left alone: empty is the owner's choice. It reports
+	// whether it wrote. A missing binding is false.
+	AddCapIfAbsent(ctx context.Context, id, capability string) (bool, error)
+
 	// SetAccountID records the upstream account of a binding as one step, so it
 	// never overwrites a setting that an owner saved at the same time. A missing
 	// binding is not an error.
@@ -411,6 +418,20 @@ func needsAgent(b Binding) string {
 		return "trigger approval"
 	}
 	return ""
+}
+
+// ValidateToolOnly refuses the settings that a binding of a tool-only kind
+// (contract.ConnectorKind.ToolOnly) can never have: it does not listen and
+// does not accept senders. The agent is not checked here: the host clears it,
+// because one binding serves many agents through their connection sets.
+func ValidateToolOnly(b Binding) error {
+	switch {
+	case b.Enabled:
+		return fmt.Errorf("%w: a tool-only connection does not listen: agents use it through their own connections", ErrInvalid)
+	case b.AcceptAny:
+		return fmt.Errorf("%w: a tool-only connection answers no sender, so it cannot accept anyone", ErrInvalid)
+	}
+	return nil
 }
 
 // Validate checks a binding of a kind that needs an agent. The error wraps

@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi, ROLES_KIND } from './connector-fixtures.js'
+import { connectorApi, ROLES_KIND, openEdit, expandAll, openPane } from './connector-fixtures.js'
 
 // "Who can talk to the bot" on the shared connection page: a two-way choice, a
 // table of people, a table of channels with a level, one box that adds either,
@@ -37,6 +37,7 @@ for (const width of [1280, 375]) {
       await connectorApi(page, [], 'slack', [], undefined, { kindExtra: ROLES_KIND }).install()
       await page.goto(SLACK)
       await page.getByRole('button', { name: 'New Slack app' }).click()
+      await expandAll(page)
       const who = page.getByTestId('connector-who')
       await expect(who.getByRole('radio')).toHaveCount(2)
       await expect(who.getByRole('radio', { name: 'Only people I choose' })).toBeChecked()
@@ -54,7 +55,8 @@ for (const width of [1280, 375]) {
       const a = connectorApi(page, [base('slack')], 'slack', SENDERS, undefined, { kindExtra: ROLES_KIND })
       await a.install()
       await page.goto(SLACK)
-      await page.getByRole('button', { name: 'Edit' }).click()
+      await openEdit(page)
+      await expandAll(page)
       const box = page.getByRole('textbox', { name: 'Add a person or channel' })
       for (const id of ['U9001', 'W9002', '@grace', 'C9003', 'G9004']) { await box.fill(id); await box.press('Enter') }
       const people = page.getByTestId('connector-who-people')
@@ -67,7 +69,7 @@ for (const width of [1280, 375]) {
       await expect(channels.getByTestId('connector-trust-level').first()).toHaveValue('act')
       await channels.getByTestId('connector-trust-level').first().selectOption('answer')
       await channels.getByRole('button', { name: 'Remove G9004' }).click()
-      await page.getByRole('button', { name: 'Save' }).click()
+      await page.getByTestId('connector-save').click()
       await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.allow).toEqual(['U9001', 'W9002', '@grace', 'C9003'])
       expect(a.s.calls.find(c => c.method === 'PUT').body).toMatchObject({ accept_any: false, allow_trust: { C9003: 'answer' } })
       if (SHOTS) await page.getByTestId('connector-who').screenshot({ path: `${SHOTS}/who-slack-${width}.png` })
@@ -77,7 +79,8 @@ for (const width of [1280, 375]) {
       await installStudioAddons(page, { ids: ['telegram'] })
       await connectorApi(page, [base('telegram')], 'telegram', []).install()
       await page.goto(TELEGRAM)
-      await page.getByRole('button', { name: 'Edit' }).click()
+      await openEdit(page)
+      await expandAll(page)
       const box = page.getByRole('textbox', { name: 'Add a person or channel' })
       for (const id of ['42', '-100123']) { await box.fill(id); await box.press('Enter') }
       await expect(page.getByTestId('connector-who-people')).toContainText('42')
@@ -89,7 +92,8 @@ for (const width of [1280, 375]) {
       await installStudioAddons(page, { ids: ['discord'] })
       await connectorApi(page, [base('discord')], 'discord', []).install()
       await page.goto(DISCORD)
-      await page.getByRole('button', { name: 'Edit' }).click()
+      await openEdit(page)
+      await expandAll(page)
       const box = page.getByRole('textbox', { name: 'Add a person or channel' })
       for (const id of [USER, CHANNEL]) { await box.fill(id); await box.press('Enter') }
       const who = page.getByTestId('connector-who')
@@ -106,14 +110,15 @@ for (const width of [1280, 375]) {
       const a = connectorApi(page, [base('slack', { allow: ['U001'] })], 'slack', SENDERS, undefined, { kindExtra: ROLES_KIND })
       await a.install()
       await page.goto(SLACK)
-      await page.getByRole('button', { name: 'Edit' }).click()
+      await openEdit(page)
+      await expandAll(page)
       const chips = page.getByTestId('connector-recent-chip')
       // Newest first, with the name; a person who is on the list is not offered.
       await expect(chips).toHaveText(['Cleo Demo · U003', 'Dan Sample · U004'])
       await chips.first().click()
       await expect(page.getByTestId('connector-who-people')).toContainText('Cleo Demo')
       await expect(chips).toHaveText(['Dan Sample · U004'])
-      await page.getByRole('button', { name: 'Save' }).click()
+      await page.getByTestId('connector-save').click()
       await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.allow).toEqual(['U001', 'U003'])
     })
 
@@ -121,11 +126,13 @@ for (const width of [1280, 375]) {
       await installStudioAddons(page, { ids: ['slack'] })
       await connectorApi(page, [base('slack', { allow: ['U001', 'C0123'] })], 'slack', SENDERS, undefined, { kindExtra: ROLES_KIND }).install()
       await page.goto(SLACK)
-      await page.getByRole('button', { name: 'Edit' }).click()
+      await openEdit(page)
+      await expandAll(page)
       await expect(page.getByTestId('connector-who-channels')).toContainText('ops')
       await expect(page.getByTestId('connector-who-channels')).toContainText('C0123')
       await page.getByRole('button', { name: 'Cancel' }).click()
       await page.getByRole('button', { name: 'New Slack app' }).click()
+      await expandAll(page)
       await expect(page.getByTestId('connector-pair-start')).toBeDisabled()
       await expect(page.getByTestId('connector-pairing')).toContainText('Save this bot first')
     })
@@ -135,7 +142,8 @@ for (const width of [1280, 375]) {
       const a = connectorApi(page, [base('slack', { allow: ['U001'] })], 'slack', SENDERS, undefined, { kindExtra: ROLES_KIND })
       await a.install()
       await page.goto(SLACK)
-      await page.getByRole('button', { name: 'Edit' }).click()
+      await openEdit(page)
+      await expandAll(page)
       const row = page.getByTestId('connector-person-row')
       await expect(row.getByTestId('connector-person-badge')).toHaveText('Listed')
       await row.getByRole('button', { name: 'Verify Ada Example' }).click()
@@ -179,7 +187,8 @@ for (const width of [1280, 375]) {
 
     test('the table of people and the refusals show the name next to the ID, and the ID alone when no name is known', async ({ page }) => {
       await page.goto(NAMES_PAGE)
-      await page.getByRole('button', { name: 'Edit' }).click()
+      await openEdit(page)
+      await expandAll(page)
       // The table of people: the name big and the ID small, and the ID alone when no name is known.
       const row = (id) => page.getByTestId('connector-person-row').and(page.locator(`[data-id="${id}"]`))
       await expect(row('U001')).toContainText('Ada Example')
@@ -213,7 +222,7 @@ for (const width of [1280, 375]) {
 
     test('the sender log shows the chat, and a reason for each ignored message', async ({ page }) => {
       await page.goto(NAMES_PAGE)
-      await page.getByRole('button', { name: 'Senders' }).click()
+      await openPane(page)
       const log = page.getByTestId('sender-log')
       await expect(log.getByRole('listitem')).toHaveCount(4)
       await expect(log.getByRole('listitem').nth(0)).toContainText('Ada Example')

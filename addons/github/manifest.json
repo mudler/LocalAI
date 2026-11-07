@@ -18,6 +18,7 @@
     "min": 1,
     "max": 1
   },
+  "featureLevel": 5,
   "capabilities": {
     "tools": [
       "search-code",
@@ -613,9 +614,10 @@
           "id": "github",
           "title": "GitHub",
           "description": "Let your agents read the repositories you choose, and comment on issues and pull requests if you allow it, with a fine-grained access token.",
+          "setup": "a fine-grained access token for your repositories",
           "senderHint": "Not used yet: this connection does not listen for mentions",
           "delivery": "pull",
-          "agentOptional": true,
+          "toolOnly": true,
           "wildcardResources": true,
           "options": [
             {
@@ -698,13 +700,13 @@
     }
   },
   "i18n": {
-    "it": {"kinds": {"github": {"title": "GitHub", "description": "Lascia che i tuoi agenti leggano i repository che scegli e commentino issue e pull request se lo permetti, con un token di accesso granulare."}}},
-    "de": {"kinds": {"github": {"title": "GitHub", "description": "Lassen Sie Ihre Agenten die von Ihnen gewählten Repositorys lesen und, wenn Sie es erlauben, Issues und Pull Requests kommentieren, mit einem fein abgestuften Zugriffstoken."}}},
-    "es": {"kinds": {"github": {"title": "GitHub", "description": "Permite que tus agentes lean los repositorios que elijas y comenten en issues y pull requests si lo autorizas, con un token de acceso de permisos específicos."}}},
-    "fr": {"kinds": {"github": {"title": "GitHub", "description": "Laissez vos agents lire les dépôts que vous choisissez et commenter les issues et les pull requests si vous l'autorisez, avec un jeton d'accès à granularité fine."}}},
-    "pt-BR": {"kinds": {"github": {"title": "GitHub", "description": "Deixe seus agentes lerem os repositórios que você escolher e comentarem em issues e pull requests se você permitir, com um token de acesso refinado."}}},
-    "zh-CN": {"kinds": {"github": {"title": "GitHub", "description": "让你的智能体读取你所选的仓库，并在你允许时评论 Issue 和 Pull Request，使用细粒度访问令牌。"}}},
-    "ko": {"kinds": {"github": {"title": "GitHub", "description": "에이전트가 선택한 저장소를 읽고, 허용하면 이슈와 풀 리퀘스트에 댓글을 달 수 있게 합니다. 세분화된 액세스 토큰을 사용합니다."}}},
-    "id": {"kinds": {"github": {"title": "GitHub", "description": "Izinkan agen Anda membaca repositori yang Anda pilih, dan mengomentari isu serta pull request jika Anda mengizinkan, dengan token akses terperinci."}}}
+    "it": {"kinds": {"github": {"title": "GitHub", "description": "Lascia che i tuoi agenti leggano i repository che scegli e commentino issue e pull request se lo permetti, con un token di accesso granulare.", "setup": "un token di accesso granulare per i tuoi repository"}}},
+    "de": {"kinds": {"github": {"title": "GitHub", "description": "Lassen Sie Ihre Agenten die von Ihnen gewählten Repositorys lesen und, wenn Sie es erlauben, Issues und Pull Requests kommentieren, mit einem fein abgestuften Zugriffstoken.", "setup": "ein fein abgestuftes Zugriffstoken für Ihre Repositorys"}}},
+    "es": {"kinds": {"github": {"title": "GitHub", "description": "Permite que tus agentes lean los repositorios que elijas y comenten en issues y pull requests si lo autorizas, con un token de acceso de permisos específicos.", "setup": "un token de acceso detallado para tus repositorios"}}},
+    "fr": {"kinds": {"github": {"title": "GitHub", "description": "Laissez vos agents lire les dépôts que vous choisissez et commenter les issues et les pull requests si vous l'autorisez, avec un jeton d'accès à granularité fine.", "setup": "un jeton d'accès à granularité fine pour vos dépôts"}}},
+    "pt-BR": {"kinds": {"github": {"title": "GitHub", "description": "Deixe seus agentes lerem os repositórios que você escolher e comentarem em issues e pull requests se você permitir, com um token de acesso refinado.", "setup": "um token de acesso refinado para os seus repositórios"}}},
+    "zh-CN": {"kinds": {"github": {"title": "GitHub", "description": "让你的智能体读取你所选的仓库，并在你允许时评论 Issue 和 Pull Request，使用细粒度访问令牌。", "setup": "一个用于你的仓库的细粒度访问令牌"}}},
+    "ko": {"kinds": {"github": {"title": "GitHub", "description": "에이전트가 선택한 저장소를 읽고, 허용하면 이슈와 풀 리퀘스트에 댓글을 달 수 있게 합니다. 세분화된 액세스 토큰을 사용합니다.", "setup": "저장소용 세분화된 액세스 토큰"}}},
+    "id": {"kinds": {"github": {"title": "GitHub", "description": "Izinkan agen Anda membaca repositori yang Anda pilih, dan mengomentari isu serta pull request jika Anda mengizinkan, dengan token akses terperinci.", "setup": "token akses terperinci untuk repositori Anda"}}}
   }
 }
