@@ -36,6 +36,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/signals"
 )
 
 // legacyAPIKeyUserID is the synthetic user the auth middleware gives a request
@@ -96,9 +97,15 @@ func (a *Application) initStudioService() {
 	}
 	var bus studio.Bus
 	var fan notify.Fanout
+	var replay studio.ReplayCarrier
+	instance := ""
 	if d := a.Distributed(); d != nil && d.Nats != nil {
 		bus = studio.NewBroadcastBus(d.Nats, nil)
 		fan = notify.NewBroadcastFanout(d.Nats, nil)
+		// A client whose event stream reconnects to another frontend gets the
+		// events it missed from the process that runs the turn.
+		replay = studio.NewReplayCarrier(d.Nats, nil)
+		instance = a.applicationConfig.Distributed.InstanceID
 	}
 	inbox := notify.NewService(notify.Options{Store: a.studioNotify, Fanout: fan})
 	a.studioInbox = inbox
@@ -120,11 +127,15 @@ func (a *Application) initStudioService() {
 	a.initStudioMCPConnectors()
 	a.studioWeb = newStudioWeb(a.applicationConfig, a.serverSelf())
 	deps := studio.Deps{
-		Bus:      bus,
-		Store:    a.studioStore,
-		Provider: a.studioProvider,
-		Users:    a.studioUsers(),
-		Allowed:  a.studioFeatureAllowed,
+		AutoResume:   a.applicationConfig.ChatsAutoResume,
+		CloseTimeout: studioCloseTimeout,
+		Bus:          bus,
+		Replay:       replay,
+		Instance:     instance,
+		Store:        a.studioStore,
+		Provider:     a.studioProvider,
+		Users:        a.studioUsers(),
+		Allowed:      a.studioFeatureAllowed,
 		// Read at each turn, so the runtime setting applies at once.
 		SuggestionsDefault: func() bool { return !a.applicationConfig.DisableChatSuggestions },
 		StateDir:           stateDir,
@@ -262,6 +273,14 @@ func (a *Application) ownsAddonsOnly() bool {
 // service is up. No chat turn runs then, so it is not expected.
 var errStudioStarting = errors.New("chats: the service is starting")
 
+// studioCloseTimeout bounds studio.Service.Close in this process. The
+// termination hooks, Close among them, are cut off after
+// signals.DefaultHookTimeout, so a bound of the service's own default (25
+// seconds) would never fire here: the process would exit first and leave its
+// turns claimed until the reaper finds them. Marking them interrupted needs a
+// few seconds of the budget as well.
+const studioCloseTimeout = signals.DefaultHookTimeout - 5*time.Second
+
 // A turn beats every 15 seconds; one that has not beaten for this long belongs
 // to a frontend that died.
 const (
@@ -285,16 +304,37 @@ func (a *Application) startStudioReaper(svc *studio.Service) {
 			xlog.Info("Chats: ended turns whose frontend stopped", "turns", n)
 		}
 	}
+	// The same tick resumes the interrupted turns that are due (see
+	// studio.Service.SweepResumes). The store's claim keeps two sweeps from
+	// starting one turn twice, and the lock keeps the work on one frontend.
+	sweep := func() {
+		n, err := svc.SweepResumes(ctx)
+		if err != nil {
+			xlog.Warn("Chats: could not resume interrupted turns", "error", err)
+		} else if n > 0 {
+			xlog.Info("Chats: resumed interrupted turns", "turns", n)
+		}
+	}
 	if a.authDB == nil {
-		// The JSON store settles its own claims when it loads.
+		// The JSON store settles its own claims when it loads, so nothing is
+		// left to reap; the turns it interrupted may still resume.
+		if a.applicationConfig.ChatsAutoResume {
+			a.everyStudioTick(ctx, sweep)
+		}
 		return
 	}
+	step := func() { reap(); sweep() }
 	if a.Distributed() != nil {
-		go advisorylock.RunLeaderLoop(ctx, a.authDB, advisorylock.KeyChatsReaper, studioReapEvery, reap)
+		go advisorylock.RunLeaderLoop(ctx, a.authDB, advisorylock.KeyChatsReaper, studioReapEvery, step)
 		return
 	}
 	// The conditional update of a reap is safe to race with another process.
-	reap()
+	step()
+	a.everyStudioTick(ctx, step)
+}
+
+// everyStudioTick runs f every studioReapEvery until ctx ends.
+func (a *Application) everyStudioTick(ctx context.Context, f func()) {
 	go func() {
 		tick := time.NewTicker(studioReapEvery)
 		defer tick.Stop()
@@ -303,7 +343,7 @@ func (a *Application) startStudioReaper(svc *studio.Service) {
 			case <-ctx.Done():
 				return
 			case <-tick.C:
-				reap()
+				f()
 			}
 		}
 	}()

@@ -113,6 +113,7 @@ var chatRules = []errRule{
 	fixed(http.StatusConflict, typeConflict, "the message was already delivered to the model", store.ErrDelivered),
 	fixed(http.StatusNotFound, typeNotFound, "agent template not found", studiosvc.ErrNoTemplate),
 	fixed(http.StatusConflict, typeConflict, "a turn is running; stop it first", studiosvc.ErrChatBusy),
+	fixed(http.StatusTooManyRequests, "rate_limit_error", "too many open event streams on this chat; close one first", studiosvc.ErrTooManyStreams),
 	fixed(http.StatusConflict, "agent_folder_limit", "This agent cannot start because its file access exceeds the folder limit. Ask an administrator to reduce the shared folders available to you, then try again.", studiosvc.ErrAgentFolderLimit),
 	fixed(http.StatusConflict, "agent_folder_missing", "The folder of this agent is missing. Choose a folder in the agent's settings.", studiosvc.ErrAgentFolderMissing),
 	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", studiosvc.ErrNothingToRegenerate, studiosvc.ErrNotUserMessage,
@@ -186,6 +187,7 @@ func conversation(rec session.ChatRecord, info store.TurnInfo) schema.ChatsConve
 		ID: rec.ID, Title: rec.Title, Model: rec.Model, Kind: rec.Kind, ParentID: rec.ParentID,
 		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID, Assistant: rec.Assistant,
 		Created: rec.Created, Updated: rec.Updated, Running: info.Running, LastTurn: string(info.Last),
+		WillResume: info.WillResume, ResumeAttempts: info.ResumeAttempts,
 		Settings: settingsJSON(rec.Settings),
 	}
 }
@@ -611,21 +613,32 @@ func (h *Handlers) Stop(c echo.Context) error {
 
 // Events streams the conversation's live events.
 // @Summary Stream a chat's events.
-// @Description Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). Events are live only; read the transcript for what came before.
+// @Description Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). The events of a running turn carry an id ("<run>.<n>"). Send the last id back as the Last-Event-ID header or the after query parameter to get the events you missed, then the live ones. A "resync" event means the server cannot give them (the id is of another run, is too old, or the server that runs the turn is gone or does not answer): read the transcript, and go on from the id of the resync event. Without an id the stream starts from now; read the transcript for what came before.
 // @Tags chats
 // @Param id path string true "conversation id"
+// @Param after query string false "resume after this event id"
+// @Param Last-Event-ID header string false "resume after this event id (sent by a browser when it reconnects)"
 // @Produce text/event-stream
 // @Success 200 {object} schema.ChatsEvent "An event stream"
 // @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
+// @Failure 429 {object} schema.ErrorResponse "The user has 8 event streams open on this chat on this server"
 // @Router /api/chats/{id}/events [get]
 func (h *Handlers) Events(c echo.Context) error {
-	events, cancel, err := h.svc.Events(c.Request().Context(), userID(c), c.Param("id"))
+	// The header is what a browser sends when it reconnects by itself; the
+	// query is for a client that opens a new stream, as the interface does.
+	after := c.Request().Header.Get("Last-Event-ID")
+	if after == "" {
+		after = c.QueryParam("after")
+	}
+	events, cancel, err := h.svc.EventsAfter(c.Request().Context(), userID(c), c.Param("id"), after)
 	if err != nil {
 		return failFor(c, err)
 	}
 	defer cancel()
 
-	return streamSSE(c, events, func(ev session.Event) (string, any) { return string(ev.Kind), eventJSON(ev) })
+	return streamSSEWithIDs(c, events, heartbeat, func(ev session.Event) (string, string, any) {
+		return ev.ID, string(ev.Kind), eventJSON(ev)
+	})
 }
 
 func eventJSON(ev session.Event) schema.ChatsEvent {

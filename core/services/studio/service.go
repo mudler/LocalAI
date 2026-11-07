@@ -146,9 +146,25 @@ type Deps struct {
 	// more is refused with ErrWorkerFull; a start for a chat whose turn runs
 	// is taken, because its message only waits. Zero: no cap.
 	MaxWorkerTurns int
+	// AutoResume makes the server go on by itself with a turn that a restart
+	// interrupted (see resume.go). Off: the person, or the page, resumes it.
+	AutoResume bool
+	// CloseTimeout bounds Close: how long it waits for the running turns to
+	// stop and be stored. Past it, every turn that still runs is marked
+	// interrupted in the store, so that it can resume, and Close returns
+	// ErrCloseTimedOut. Zero means 25 seconds, under the usual 30 seconds that a
+	// platform gives a process to stop. Negative: no bound.
+	CloseTimeout time.Duration
 	// HeartbeatEvery is how often a running turn tells the store it is alive.
 	// Zero means 15 seconds.
 	HeartbeatEvery time.Duration
+	// Instance names this process among the frontends and workers of a
+	// cluster. A turn records it as its owner, so a client that reconnects to
+	// another frontend can be given the events it missed (eventremote.go).
+	// Empty: no owner is recorded and no replay is asked of another process.
+	Instance string
+	// Replay carries those asks between processes. Nil in one process.
+	Replay ReplayCarrier
 	// Files is the workspace of the chats. Nil or disabled: the chats have no
 	// files, and everything else works.
 	Files *files.Service
@@ -368,7 +384,15 @@ type Service struct {
 	mu    sync.Mutex
 	runs  map[string]*run                 // the turn this process runs, by conversation
 	pumps map[string]<-chan session.Event // the event channel read for each conversation
-	locks map[string]*keyLock
+	// rings holds the live tail of the chats this process runs a turn for (see
+	// eventRing). Per instance on purpose: it is a cache of the tail, and the
+	// transcript is the record.
+	rings map[string]*eventRing
+	// streams counts the open event streams of each chat (see openStream).
+	streams map[string]int
+	// stopServing ends the answers to replay asks (Deps.Replay); nil without.
+	stopServing func()
+	locks       map[string]*keyLock
 
 	// heldNotes is the last held-back line this process noted in each connector
 	// chat (see noteHeldBack). State mode: per-instance on purpose. It only
@@ -472,7 +496,7 @@ func New(d Deps) (*Service, error) {
 	if bus == nil {
 		bus = NewLocalBus()
 	}
-	s := &Service{d: d, bus: bus, log: log, runs: map[string]*run{}, pumps: map[string]<-chan session.Event{}, locks: map[string]*keyLock{},
+	s := &Service{d: d, bus: bus, log: log, runs: map[string]*run{}, pumps: map[string]<-chan session.Event{}, rings: map[string]*eventRing{}, streams: map[string]int{}, locks: map[string]*keyLock{},
 		videos: map[string][]string{}, children: map[string]map[string]*child{}, allowed: map[string][]session.Tool{}, waiters: map[string][]chan store.TurnStatus{}, closed: make(chan struct{})}
 	s.egressAuditStore = d.EgressAudit
 	if s.egressAuditStore == nil {
@@ -554,6 +578,9 @@ func New(d Deps) (*Service, error) {
 	if d.Files.Available() {
 		s.feed = wsfeed.New(wsfeed.Options{Store: d.Files.Store(), Admin: s.admin, Logger: log})
 	}
+	if err := s.serveReplay(); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
@@ -599,7 +626,20 @@ func (s *Service) isClosed() bool {
 	}
 }
 
-// Close stops every chat. A turn that it cuts short is recorded as interrupted.
+// defaultCloseTimeout is Deps.CloseTimeout when it is zero.
+const defaultCloseTimeout = 25 * time.Second
+
+// ErrCloseTimedOut means Close did not finish in Deps.CloseTimeout. The turns
+// that still ran were marked interrupted in the store, as far as the store
+// answered.
+var ErrCloseTimedOut = errors.New("studio: closing took longer than the limit; the running turns were marked interrupted")
+
+// Close stops every chat. A turn that it cuts short is recorded as interrupted,
+// and resumes after the restart when the server resumes by itself (see
+// Deps.AutoResume). It returns within Deps.CloseTimeout: a turn that does not
+// stop in time (a tool that ignores its context, a slow store) is marked
+// interrupted by Close itself, and the stuck work is left behind for the
+// process to exit.
 func (s *Service) Close(ctx context.Context) error {
 	select {
 	case <-s.closed:
@@ -612,7 +652,61 @@ func (s *Service) Close(ctx context.Context) error {
 	if s.stopFolderWatch != nil {
 		s.stopFolderWatch()
 	}
-	return s.mgr.Close(ctx)
+	if s.stopServing != nil {
+		s.stopServing()
+	}
+	limit := s.d.CloseTimeout
+	if limit < 0 {
+		return s.mgr.Close(ctx)
+	}
+	if limit == 0 {
+		limit = defaultCloseTimeout
+	}
+	bounded, cancel := context.WithTimeout(ctx, limit)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- s.mgr.Close(bounded) }()
+	select {
+	case err := <-done:
+		return err
+	case <-bounded.Done():
+	}
+	n := s.markCutTurns(context.WithoutCancel(ctx))
+	s.log.Warn("studio: closing took longer than the limit", "limit", limit, "turns_marked_interrupted", n)
+	return ErrCloseTimedOut
+}
+
+// markCutTurns records as interrupted, in the store, each turn that this
+// process still runs, with the resume scheduled as a death would have it. It
+// returns how many it marked. The turn that is stuck may still end later; its
+// release then finds the claim gone and only logs.
+func (s *Service) markCutTurns(ctx context.Context) int {
+	type cut struct{ p, conv, runID string }
+	s.mu.Lock()
+	var cuts []cut
+	for k, r := range s.runs {
+		if p, conv, ok := strings.Cut(k, "\x00"); ok {
+			cuts = append(cuts, cut{p, conv, r.id})
+		}
+	}
+	s.mu.Unlock()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	n := 0
+	for _, c := range cuts {
+		err := s.d.Store.ReleaseTurn(ctx, c.p, c.conv, c.runID, store.TurnInterrupted)
+		if err != nil {
+			if !errors.Is(err, store.ErrNotClaimed) {
+				s.log.Warn("studio: could not mark a turn interrupted at close", "chat", c.conv, "error", err)
+			}
+			continue
+		}
+		n++
+		if !s.keepResume(ctx, c.p, c.conv) {
+			s.pauseGoal(ctx, c.p, c.conv, session.GoalPausedByInterrupted)
+		}
+	}
+	return n
 }
 
 // List returns the user's conversations, newest first. Sub-agent runs are
@@ -826,12 +920,51 @@ func (s *Service) Messages(ctx context.Context, user, conv string, after int64, 
 	if _, err := s.Get(ctx, user, conv); err != nil {
 		return nil, err
 	}
-	return s.d.Store.Entries(ctx, conv, after, limit)
+	return s.visibleEntries(ctx, conv, after, limit)
+}
+
+// visibleEntries is Store.Entries without the lines that are for the server
+// only (RoleToolIntent). A page still holds limit lines when the transcript has
+// them, so that a client that reads page by page does not stop early.
+func (s *Service) visibleEntries(ctx context.Context, conv string, after int64, limit int) ([]session.Entry, error) {
+	var out []session.Entry
+	for {
+		want := limit
+		if limit > 0 {
+			want = limit - len(out)
+		}
+		page, err := s.d.Store.Entries(ctx, conv, after, want)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range page {
+			if e.Role != session.RoleToolIntent {
+				out = append(out, e)
+			}
+		}
+		if len(page) > 0 {
+			after = page[len(page)-1].Seq
+		}
+		if limit <= 0 || len(out) >= limit || len(page) < want {
+			return out, nil
+		}
+	}
 }
 
 // Turn returns the turn state of a conversation.
+//
+// WillResume is true only when this server resumes the turn by itself, that
+// is when Deps.AutoResume is on and the chat may resume (see resume.go).
 func (s *Service) Turn(ctx context.Context, user, conv string) (store.TurnInfo, error) {
-	return s.d.Store.Turn(ctx, principal(user), conv)
+	p := principal(user)
+	info, err := s.d.Store.Turn(ctx, p, conv)
+	if err != nil || !info.WillResume {
+		return info, err
+	}
+	if rec, gerr := s.d.Store.GetChat(ctx, p, conv); gerr != nil || !s.resumeEligible(rec) {
+		info.WillResume = false
+	}
+	return info, nil
 }
 
 // Principal returns the owner ID the service uses for a user: the user's ID,
@@ -1287,12 +1420,15 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg sess
 	s.expireConsents(ctx, p, conv, "")
 	s.mu.Lock()
 	s.runs[k] = &run{id: runID, started: time.Now(), end: end, chat: chat}
+	s.rings[k] = newEventRing(runID, ringMaxEvents, ringMaxBytes)
 	s.mu.Unlock()
 	recheck()
+	s.recordOwner(ctx, p, conv, runID)
 	msg.Media = s.keepVideos(k, msg.Media)
 	if err := chat.Send(context.WithoutCancel(ctx), msg); err != nil {
 		s.mu.Lock()
 		delete(s.runs, k)
+		delete(s.rings, k)
 		s.mu.Unlock()
 		end()
 		// s.chat opened the chat; with no turn running nothing else will close it.
@@ -1350,6 +1486,11 @@ func (s *Service) ReapStale(ctx context.Context, olderThan time.Duration) (int, 
 		s.expireConsents(ctx, r.Principal, r.ChatID, r.RunID)
 		s.bus.Publish(k, session.Event{Kind: session.KindError, Text: "The turn was interrupted."})
 		s.bus.Publish(k, session.Event{Kind: session.KindTurnEnd})
+		if s.keepResume(ctx, r.Principal, r.ChatID) {
+			// The sweep goes on with the turn: what waits for its end (a run
+			// record, a goal, a parent) waits for the end of the whole chain.
+			continue
+		}
 		// A parent waits for a sub-agent whose turn ended this way too.
 		if !s.loopHolds(ctx, r.Principal, r.ChatID) {
 			s.notifyWaiters(k, store.TurnInterrupted)
@@ -1414,10 +1555,12 @@ func (s *Service) pump(chat *session.Chat, evs <-chan session.Event, p, conv str
 			// The end is recorded before it is announced: a client that reads
 			// the chat when it sees turn_end must not find it still running.
 			next := s.finishTurn(chat, p, conv)
-			s.bus.Publish(k, ev)
+			s.bus.Publish(k, s.stamp(k, ev))
+			s.expireRing(k)
 			next()
 			continue
 		}
+		ev = s.stamp(k, ev)
 		s.bus.Publish(k, ev)
 		if ev.Kind == session.KindText || ev.Kind == session.KindToolStart {
 			s.mu.Lock()
@@ -1502,9 +1645,17 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 		s.guardRuns.Delete(k)
 		guarded = true
 	}
-	s.settleGoal(ctx, p, conv, status, r.steps)
+	// A turn that Close cut short may be resumed by the server after the
+	// restart. Then the goal, a parent and the run record wait for the end of
+	// the chain, not for this turn.
+	resumes := status == store.TurnInterrupted && s.keepResume(ctx, p, conv)
+	if resumes {
+		s.settleGoal(ctx, p, conv, store.TurnDone, r.steps) // counts the steps, pauses nothing
+	} else {
+		s.settleGoal(ctx, p, conv, status, r.steps)
+	}
 	s.observeTurn(ctx, p, conv, r.started, outcomeOf(r.stopped, r.failed || status == store.TurnInterrupted))
-	if !s.holdForLoop(ctx, p, conv, status) {
+	if !resumes && !s.holdForLoop(ctx, p, conv, status) {
 		s.notifyWaiters(k, status)
 	}
 	if !status.Finished() {

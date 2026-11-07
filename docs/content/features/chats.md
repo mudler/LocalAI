@@ -124,7 +124,38 @@ curl -N localhost:8080/api/chats/3f1c.../events
 # The transcript, in order. Read it first, then open the event stream: the
 # stream carries only what happens after you connect.
 curl -s 'localhost:8080/api/chats/3f1c.../messages?after=0'
+
+# After a dropped connection, send the id of the last event you got.
+curl -N 'localhost:8080/api/chats/3f1c.../events?after=9d2e41.57'
 ```
+
+The events of a running turn have an id, `<run>.<n>`, sent as the SSE `id` field.
+A client that lost its connection sends the last id back in the `after` query
+parameter, or in the `Last-Event-ID` header (a browser sends that header when it
+reconnects by itself; the header wins). The server first sends the events it
+missed, then the live ones. Deltas of text and reasoning that came one after the
+other are not sent again, and the ones the client had are cut off. The server
+keeps the last 2048 events or 4 MiB of each running chat, and the ring stays
+for 30 seconds after the turn ends, so a client that reconnects at once also
+gets `turn_end`. Events that do not come from the turn itself (`files`, `goal`,
+`loops`, `cleared` and the cards) have no id and are not replayed: they tell
+the client to read the record again.
+
+When the server cannot give what was missed, the stream starts with a `resync`
+event. This happens when the id is of another turn, is older than the ring
+holds, or is not an id of this server, and in a cluster when the server that
+runs the turn is gone or does not answer in 2 seconds. Read the transcript, then
+go on: the `resync` event carries the id of the newest event known, when there
+is one, and the live events follow it. A gap in the numbers of the live events
+is filled from the ring in the same way.
+
+A user can have 8 event streams open on one chat on one server; one more gets
+HTTP 429 until one closes. The counter `localai_chat_event_resyncs_total` counts
+the reconnects that got a `resync`, by `reason`: `local` (the ring of this server
+did not have the events), `owner` (the ring of the server that runs the turn did
+not have them), `unreachable` (that server did not answer) and `no_owner` (no
+other server is known to run the turn). A steady rate of `local` or `owner`
+says that the ring is too small for your clients' gaps.
 
 The transcript lists messages, tool lines and one checkpoint line per turn.
 Undo works per tool call, not per turn: each `write_file`, `edit_file` or
@@ -2043,7 +2074,7 @@ The JSON files are for one LocalAI process. A cluster needs PostgreSQL, as
 
 In [distributed mode]({{% relref "features/distributed-mode" %}}) any frontend can serve any request about any chat.
 
-**State mode: shared.** Chats, their messages, the waiting messages and the claim that lets one turn run at a time live in PostgreSQL. Live events travel over the message bus, so a client connected to one frontend sees a turn that another frontend runs. Events are delivered at most once: a client that missed some reads the transcript.
+**State mode: shared.** Chats, their messages, the waiting messages and the claim that lets one turn run at a time live in PostgreSQL. Live events travel over the message bus, so a client connected to one frontend sees a turn that another frontend runs. Events are delivered at most once. The ring of recent events that serves a reconnect is per instance, on purpose: it is a cache of the live tail on the frontend or chat worker that runs the turn, and the transcript is the record. The process that runs a turn records its instance id (`LOCALAI_INSTANCE_ID`) on the chat. A reconnect that reaches another frontend asks that process for the missed events over the message bus (request and reply on `chats.replay.<instance>`), in replies of at most 512 KiB. When that process is gone, does not answer in 2 seconds, or no longer has the events, the client gets a `resync` and reads the transcript. The cap of 8 event streams per chat and user is per frontend.
 
 **Sub-agents.** The runs are chats in the shared store, linked to their parent. The background limit, the list of runs and "stopping a chat stops its sub-agents" all read the store, so they hold when the turns of one chat run on different frontends. A stop reaches a run on another frontend over the bus. The tool subset of a running sub-agent is kept in the memory of the frontend that runs it, which is where it runs. A sub-agent started from a saved agent keeps nothing in memory (stateless): the agent is named on its chat record, and its tools are read from the store at each turn, as for any chat with an agent. The chat's saved agents switch is stored with the chat, and the permission is checked again at each call, so every frontend gives the same answer.
 
@@ -2055,7 +2086,15 @@ In [distributed mode]({{% relref "features/distributed-mode" %}}) any frontend c
 
 **From any frontend** you can send a message, edit or cancel a waiting message, read the transcript, stop the turn and stream events. A stop travels over the bus to the frontend that runs the turn.
 
-**If a frontend dies.** A running turn records a heartbeat every 15 seconds. One frontend, chosen by a PostgreSQL advisory lock, ends turns that have not beaten for a minute. Such a turn ends as `interrupted`, its waiting messages stay, and `send-now` starts them. A standalone process with a database does the same once at startup, for turns its previous run left behind.
+**If a frontend dies.** A running turn records a heartbeat every 15 seconds. One frontend, chosen by a PostgreSQL advisory lock, ends turns that have not beaten for a minute. Such a turn ends as `interrupted`, its waiting messages stay, and `send-now` starts them. A standalone process with a database does the same once at startup, for turns its previous run left behind. On a normal stop the server marks the turns it cuts short as interrupted itself, and it does not wait for them for good: closing the chats is bounded (15 seconds), and a turn that does not stop in time is marked interrupted in the database before the process exits, with its resume scheduled like a turn that died.
+
+**Resuming by itself.** With `--chats-auto-resume` (`LOCALAI_CHATS_AUTO_RESUME`, off by default) the server goes on with an interrupted turn without anyone pressing Retry. The state lives in the chat's row, so it survives a restart of any process: a count of tries, the time of the interruption and the time of the next try. The same frontend that ends stale turns checks for due resumes at each tick (30 seconds), and a chat worker takes the start when workers are on. The claim on the chat decides when two frontends race, or when a person presses Retry at the same moment: one turn starts. A turn is resumed at most 3 times, after 15 seconds, 1 minute and 5 minutes, and only within 30 minutes of the interruption. A new message from you starts a normal turn and the count begins again. While a resume is scheduled the chat reads `will_resume: true` (with `resume_attempts`) and the page waits instead of resuming too. A run of a trigger, a job or a loop stays running until the resumed turn ends, a goal stays active, and a failed run is reported only when the last try is spent. A chat that a messaging connection started is not resumed by the server: its reply is sent by the process that died, so the sender is told the turn was interrupted. A sub-agent chat is not resumed either; its parent decides.
+
+**Calls that a restart cut in two.** The transcript is the checkpoint: each finished message and tool result is a line of its own. A call in flight has no result line, and running it again could do its work twice. So a call of a tool that may change something leaves an internal line before it runs (`tool_intent`: the tool name and the start of its arguments; the API never returns it). If the turn is resumed and an intent has no result after it, the model is told that those calls started, that it is not known whether they took effect, and to check the state before it repeats one. Only tools that only read skip the line: the add-on tools of kind read, the built-in tools declared read only, and a fixed list (the file, search, collection and web tools). A tool that nobody classified, such as an MCP tool, counts as one that may change something. A result is matched to an intent by the tool name, so two parallel calls of one tool can hide one unknown outcome. The effects that the host sends itself (the webhooks of a job, the notification of a run, the report of a trigger) do not repeat: each is sent when the run ends, behind its own once-only record, and the run ends only after the last try.
+
+**The answer that was being written.** A message is stored as a line when it ends, so a process that is killed in the middle of a long answer would lose it. While a message streams, the server saves its text so far into the chat record every 2 seconds, or when 4 KiB of new text have come (not more than four times a second), and clears it when the line is stored. A message that ends in under 2 seconds writes nothing. When the next turn starts (a resume, or a new message of yours) a text that is still there becomes an assistant line, kept as it was when last saved, up to 128 KiB. A resume also tells the model where its message stopped, so that it goes on from there. A graceful stop does not need this: the turn that Close cuts short stores its text as it ends.
+
+In terms of the [distributed state rule]({{% relref "features/distributed-mode" %}}): the resume state is shared (it is in the chat row), and the sweep is single-runner (the advisory lock of the reaper).
 
 The JSON files are not supported in a cluster, as the Storage table says.
 
@@ -2248,7 +2287,7 @@ When a turn fails, the thread shows one banner: "The reply failed", the reason i
 | The provider behind the model returned an error | The provider or a proxy answered with a server error several times in a row. | Retry in a moment, then check the provider. |
 | The model took too long to answer / The turn was cancelled | A timeout, or the turn was stopped. | Retry, or use a smaller or faster model. |
 
-The banner stands after the messages, tool calls and results that the turn produced before it failed: nothing of them is removed. **Retry** goes on from where the turn stopped (`POST /api/chats/{id}/resume`). The model keeps its own state, so a tool call that already has a result is not made again, a step that did not finish is done again, the messages you sent while the turn ran stay, and a summary made by a compaction stays as it is. A second click, or a click in another window, starts nothing. To answer your last message again from the start, use **Regenerate** on the message.
+The banner stands after the messages, tool calls and results that the turn produced before it failed: nothing of them is removed. **Retry** goes on from where the turn stopped (`POST /api/chats/{id}/resume`). The model keeps its own state, so a tool call that already has a result is not made again, a step that did not finish is done again, the messages you sent while the turn ran stay, and a summary made by a compaction stays as it is. A turn that a restart of the server interrupted can be resumed the same way. With `--chats-auto-resume` the server does it, and the card says that the server is going on by itself while it waits. The chat shows such a turn as **The reply was interrupted**, keeps everything written so far, and resumes it by itself after a short wait: up to 3 tries, with a wait that doubles from 3 seconds up to 30 seconds. **Stop trying** cancels the wait, and **Retry** resumes at once and starts the count again. Only an interrupted turn is resumed this way; a turn that failed (a model error, a refused key) waits for you, and so does an interruption older than 10 minutes. When the connection to the server is lost for more than two seconds, the chat says "Connection lost. Reconnecting." until it is back. A second click, or a click in another window, starts nothing. To answer your last message again from the start, use **Regenerate** on the message.
 
 The reason is stored with the chat, so a reload shows the same banner as the live page, for a day after the turn. A new turn clears the banner.
 

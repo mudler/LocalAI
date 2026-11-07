@@ -319,6 +319,11 @@ type ChatsConversation struct {
 	// reached its step limit; send a message to go on).
 	Running  bool   `json:"running"`
 	LastTurn string `json:"last_turn,omitempty"`
+	// WillResume is true while the chat is at an interrupted turn that the
+	// server resumes by itself (LOCALAI_CHATS_AUTO_RESUME): a client waits and
+	// does not resume it too. ResumeAttempts counts the tries made so far.
+	WillResume     bool `json:"will_resume,omitempty"`
+	ResumeAttempts int  `json:"resume_attempts,omitempty"`
 	// Settings are the chat's own model settings, when it has any.
 	Settings *ChatsSettings `json:"settings,omitempty"`
 	// Goal is the chat's goal, when it has one.

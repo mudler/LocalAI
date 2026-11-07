@@ -477,6 +477,9 @@ func buildTool(ctx context.Context, t Tool, c Chat, off, on map[string]bool) Bui
 	tool, ok, reason := t.Build(ctx, c)
 	if ok {
 		tool.Name, tool.Provider = t.ID, BuiltinProvider
+		// What the registry declares read only needs no intent line before a
+		// call (see session.Tool.ReadOnly).
+		tool.ReadOnly = tool.ReadOnly || t.ReadOnly
 		tool = gateCall(tool, t, c)
 	}
 	return Built{ID: t.ID, Tool: tool, OK: ok, Reason: reason}

@@ -17,6 +17,18 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 	re *middleware.RequestExtractor,
 	application *application.Application) {
 
+	// Keep responses, their events and their leases in the database when there
+	// is one, so a restart does not lose a background run and any replica can
+	// serve a resume. Without a database the store stays in memory.
+	if db := application.AuthDB(); db != nil {
+		store := openresponses.GetGlobalStore()
+		if err := store.EnableDurable(db, openresponses.DurableOptions{Token: application.InstanceID()}); err != nil {
+			xlog.Error("Failed to enable the durable Open Responses store; keeping it in memory", "error", err)
+		} else {
+			store.StartMaintenance(application.ApplicationConfig().Context, application.Distributed() != nil)
+		}
+	}
+
 	// Agent control for distributed MCP tool routing (nil when not in distributed mode)
 	var agentControl mcpTools.AgentControl
 	if d := application.Distributed(); d != nil {

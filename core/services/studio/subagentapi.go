@@ -65,7 +65,7 @@ func (s *Service) SubAgentMessages(ctx context.Context, user, parent, child stri
 	if _, err := s.subAgent(ctx, p, parent, child); err != nil {
 		return nil, err
 	}
-	return s.d.Store.Entries(ctx, child, after, limit)
+	return s.visibleEntries(ctx, child, after, limit)
 }
 
 // StopSubAgent ends the running turn of a sub-agent run. The parent goes on;

@@ -278,6 +278,9 @@ type Application struct {
 	// seconds /api/collections answers 503; /readyz waits for them.
 	collectionsPending atomic.Bool
 
+	// draining is set when shutdown starts; see BeginDrain.
+	draining atomic.Bool
+
 	shutdownOnce sync.Once
 }
 
@@ -291,8 +294,16 @@ func (a *Application) WebSocketTickets() *auth.WebSocketTickets {
 // traffic. It backs the /readyz probe and is safe to call from any goroutine,
 // including while startup is still running.
 func (a *Application) Ready() bool {
-	return a.startupComplete.Load() && !a.collectionsPending.Load()
+	return a.startupComplete.Load() && !a.collectionsPending.Load() && !a.draining.Load()
 }
+
+// BeginDrain makes Ready report false for good. The process calls it when
+// shutdown starts, so /readyz tells a load balancer to stop sending new
+// requests while in-flight ones finish.
+func (a *Application) BeginDrain() { a.draining.Store(true) }
+
+// Draining reports whether shutdown has started.
+func (a *Application) Draining() bool { return a.draining.Load() }
 
 // AwaitCollections makes Ready wait until StartCollections has returned,
 // whether it started the service or failed. The process calls it before the

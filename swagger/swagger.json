@@ -10465,7 +10465,7 @@
         },
         "/api/chats/{id}/events": {
             "get": {
-                "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). Events are live only; read the transcript for what came before.",
+                "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). The events of a running turn carry an id (\"\u003crun\u003e.\u003cn\u003e\"). Send the last id back as the Last-Event-ID header or the after query parameter to get the events you missed, then the live ones. A \"resync\" event means the server cannot give them (the id is of another run, is too old, or the server that runs the turn is gone or does not answer): read the transcript, and go on from the id of the resync event. Without an id the stream starts from now; read the transcript for what came before.",
                 "produces": [
                     "text/event-stream"
                 ],
@@ -10480,6 +10480,18 @@
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "resume after this event id",
+                        "name": "after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "resume after this event id (sent by a browser when it reconnects)",
+                        "name": "Last-Event-ID",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -10491,6 +10503,12 @@
                     },
                     "404": {
                         "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "The user has 8 event streams open on this chat on this server",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -11544,7 +11562,7 @@
         },
         "/api/chats/{id}/resume": {
             "post": {
-                "description": "Starts a new turn that goes on from where the last one failed. The transcript stays as it is, with the messages, tool calls and results of the failed turn and the reason at its end; the model keeps its own state, so a tool call that has its result is not made again. Messages that wait for the chat go first. When the chat is not at a failed turn, or a turn runs, nothing starts and started is false, so a second click is harmless.",
+                "description": "Starts a new turn that goes on from where the last one failed or was interrupted by a restart. The transcript stays as it is, with the messages, tool calls and results of the failed turn and the reason at its end; the model keeps its own state, so a tool call that has its result is not made again. Messages that wait for the chat go first. When the chat is not at a failed or interrupted turn, or a turn runs, nothing starts and started is false, so a second click is harmless.",
                 "tags": [
                     "chats"
                 ],
@@ -24488,6 +24506,9 @@
                         }
                     ]
                 },
+                "resume_attempts": {
+                    "type": "integer"
+                },
                 "running": {
                     "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed, interrupted, or paused (the tool loop\nreached its step limit; send a message to go on).",
                     "type": "boolean"
@@ -24505,6 +24526,10 @@
                 },
                 "updated": {
                     "type": "string"
+                },
+                "will_resume": {
+                    "description": "WillResume is true while the chat is at an interrupted turn that the\nserver resumes by itself (LOCALAI_CHATS_AUTO_RESUME): a client waits and\ndoes not resume it too. ResumeAttempts counts the tries made so far.",
+                    "type": "boolean"
                 }
             }
         },
@@ -24581,6 +24606,9 @@
                         }
                     ]
                 },
+                "resume_attempts": {
+                    "type": "integer"
+                },
                 "running": {
                     "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed, interrupted, or paused (the tool loop\nreached its step limit; send a message to go on).",
                     "type": "boolean"
@@ -24598,6 +24626,10 @@
                 },
                 "updated": {
                     "type": "string"
+                },
+                "will_resume": {
+                    "description": "WillResume is true while the chat is at an interrupted turn that the\nserver resumes by itself (LOCALAI_CHATS_AUTO_RESUME): a client waits and\ndoes not resume it too. ResumeAttempts counts the tries made so far.",
+                    "type": "boolean"
                 }
             }
         },

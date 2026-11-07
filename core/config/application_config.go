@@ -349,6 +349,9 @@ type ApplicationConfig struct {
 	// for each command) or on. Empty: off with accounts, ask without.
 	// Runtime-toggleable via /api/settings (chats_host_exec).
 	ChatsHostExec string
+	// ChatsAutoResume makes the server go on by itself with a chat turn that
+	// a restart interrupted (LOCALAI_CHATS_AUTO_RESUME). Read at startup.
+	ChatsAutoResume bool
 	// ChatsToolProviders pins, for a built-in chat tool or skill that several
 	// add-ons replace, the add-on that serves it (tool or skill name -> add-on
 	// ID). Tool and skill names never overlap.
@@ -1480,6 +1483,12 @@ const (
 	DefaultAgentJobRetentionDays = 30
 	DefaultMCPCIJobTimeout       = 10 * time.Minute
 )
+
+// WithChatsAutoResume sets whether the server resumes interrupted chat turns
+// by itself.
+func WithChatsAutoResume(on bool) AppOption {
+	return func(o *ApplicationConfig) { o.ChatsAutoResume = on }
+}
 
 // WithChatsHostExec sets who gets the chats' built-in bash: off, ask or on.
 func WithChatsHostExec(mode string) AppOption {

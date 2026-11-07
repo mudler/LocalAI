@@ -86,3 +86,25 @@ func (s *Service) observeTurn(ctx context.Context, p, conv string, started time.
 	}
 	recordTurn(agent, origin, outcome, time.Since(started).Seconds())
 }
+
+// localai_chat_event_resyncs_total counts the reconnects of a chat's event
+// stream that could not be given the events they missed and got a resync
+// instead, by reason (local, owner, unreachable, no_owner; see eventremote.go).
+// A rising rate says the ring is too small or the owners do not answer.
+var (
+	resyncMetricOnce sync.Once
+	resyncCounter    metric.Int64Counter
+)
+
+func recordResync(reason string) {
+	resyncMetricOnce.Do(func() {
+		meter := otel.Meter("github.com/mudler/LocalAI")
+		if c, err := meter.Int64Counter("localai_chat_event_resyncs_total",
+			metric.WithDescription("Chat event stream reconnects answered with a resync, labeled by reason (local|owner|unreachable|no_owner)")); err == nil {
+			resyncCounter = c
+		}
+	})
+	if resyncCounter != nil {
+		resyncCounter.Add(context.Background(), 1, metric.WithAttributes(attribute.String("reason", reason)))
+	}
+}

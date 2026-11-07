@@ -6172,6 +6172,8 @@ definitions:
         description: |-
           Place is set on a chat that a messaging connection started, when the
           connection kept where it lives.
+      resume_attempts:
+        type: integer
       running:
         description: |-
           Running is true while a turn runs. LastTurn is how the last finished turn
@@ -6186,6 +6188,12 @@ definitions:
         type: string
       updated:
         type: string
+      will_resume:
+        description: |-
+          WillResume is true while the chat is at an interrupted turn that the
+          server resumes by itself (LOCALAI_CHATS_AUTO_RESUME): a client waits and
+          does not resume it too. ResumeAttempts counts the tries made so far.
+        type: boolean
     type: object
   schema.ChatsConversationDetail:
     properties:
@@ -6241,6 +6249,8 @@ definitions:
         description: |-
           Place is set on a chat that a messaging connection started, when the
           connection kept where it lives.
+      resume_attempts:
+        type: integer
       running:
         description: |-
           Running is true while a turn runs. LastTurn is how the last finished turn
@@ -6255,6 +6265,12 @@ definitions:
         type: string
       updated:
         type: string
+      will_resume:
+        description: |-
+          WillResume is true while the chat is at an interrupted turn that the
+          server resumes by itself (LOCALAI_CHATS_AUTO_RESUME): a client waits and
+          does not resume it too. ResumeAttempts counts the tries made so far.
+        type: boolean
     type: object
   schema.ChatsConversationList:
     properties:
@@ -16707,13 +16723,26 @@ paths:
         paused (the tool loop reached its step limit, chats_max_iterations; steps
         is the limit), goal (the chat''s goal changed; text is its state, empty when
         cleared: read the chat again), files and loops (the loops of the chat changed;
-        read GET /api/chats/{id}/loops). Events are live only; read the transcript
-        for what came before.'
+        read GET /api/chats/{id}/loops). The events of a running turn carry an id
+        ("<run>.<n>"). Send the last id back as the Last-Event-ID header or the after
+        query parameter to get the events you missed, then the live ones. A "resync"
+        event means the server cannot give them (the id is of another run, is too
+        old, or the server that runs the turn is gone or does not answer): read the
+        transcript, and go on from the id of the resync event. Without an id the stream
+        starts from now; read the transcript for what came before.'
       parameters:
       - description: conversation id
         in: path
         name: id
         required: true
+        type: string
+      - description: resume after this event id
+        in: query
+        name: after
+        type: string
+      - description: resume after this event id (sent by a browser when it reconnects)
+        in: header
+        name: Last-Event-ID
         type: string
       produces:
       - text/event-stream
@@ -16724,6 +16753,10 @@ paths:
             $ref: '#/definitions/schema.ChatsEvent'
         "404":
           description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "429":
+          description: The user has 8 event streams open on this chat on this server
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Stream a chat's events.
@@ -17496,12 +17529,13 @@ paths:
       - chats
   /api/chats/{id}/resume:
     post:
-      description: Starts a new turn that goes on from where the last one failed.
-        The transcript stays as it is, with the messages, tool calls and results of
-        the failed turn and the reason at its end; the model keeps its own state,
-        so a tool call that has its result is not made again. Messages that wait for
-        the chat go first. When the chat is not at a failed turn, or a turn runs,
-        nothing starts and started is false, so a second click is harmless.
+      description: Starts a new turn that goes on from where the last one failed or
+        was interrupted by a restart. The transcript stays as it is, with the messages,
+        tool calls and results of the failed turn and the reason at its end; the model
+        keeps its own state, so a tool call that has its result is not made again.
+        Messages that wait for the chat go first. When the chat is not at a failed
+        or interrupted turn, or a turn runs, nothing starts and started is false,
+        so a second click is harmless.
       parameters:
       - description: conversation id
         in: path
@@ -19352,10 +19386,9 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
-          description: A shared folder, or a folder with a shared folder in it,
-            would move into another home or into a folder that LocalAI manages
-            (LocalAI, Chats, Memory, pages or a .skills folder). Stop sharing it
-            first.
+          description: A shared folder, or a folder with a shared folder in it, would
+            move into another home or into a folder that LocalAI manages (LocalAI,
+            Chats, Memory, pages or a .skills folder). Stop sharing it first.
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Move or rename a file or folder.
@@ -19519,12 +19552,12 @@ paths:
     delete:
       description: Removes the grant of the principal, an account ID or @everyone.
         A person's own grant and the grant to everyone are separate. The grantee loses
-        the folder at their next file call on every frontend. Their running chats that
-        hold it on the frontend that serves this call are stopped before the answer;
-        the other frontends get the request on the chat bus and stop theirs within
-        seconds. Accepted only from your own browser session (same-origin
-        fetch, X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent
-        or MCP marker). Safe to repeat. No MCP tool maps to this route.
+        the folder at their next file call on every frontend. Their running chats
+        that hold it on the frontend that serves this call are stopped before the
+        answer; the other frontends get the request on the chat bus and stop theirs
+        within seconds. Accepted only from your own browser session (same-origin fetch,
+        X-LocalAI-Confirm equal to the folder ID, no API key, no tool, agent or MCP
+        marker). Safe to repeat. No MCP tool maps to this route.
       parameters:
       - description: Folder ID
         in: path
@@ -19560,10 +19593,10 @@ paths:
         folder. Lowering write to read takes effect at their next file call on every
         frontend. Their running chats that hold the folder on the frontend that serves
         this call are stopped before the answer; the other frontends get the request
-        on the chat bus and stop theirs within seconds. Accepted
-        only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal
-        to the folder ID, no API key, no tool, agent or MCP marker). Safe to repeat.
-        No MCP tool maps to this route: sharing is never a tool.'
+        on the chat bus and stop theirs within seconds. Accepted only from your own
+        browser session (same-origin fetch, X-LocalAI-Confirm equal to the folder
+        ID, no API key, no tool, agent or MCP marker). Safe to repeat. No MCP tool
+        maps to this route: sharing is never a tool.'
       parameters:
       - description: Folder ID
         in: path

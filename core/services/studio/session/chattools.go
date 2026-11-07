@@ -301,7 +301,7 @@ func (c *Chat) applyChatTools(ctx context.Context, message string) (note string,
 	defs := make([]Tool, len(tools))
 	for i, t := range tools {
 		cur[t.Name] = t
-		defs[i] = Tool{Name: t.Name, Description: t.Description, Schema: t.Schema}
+		defs[i] = Tool{Name: t.Name, Description: t.Description, Schema: t.Schema, ReadOnly: t.ReadOnly}
 	}
 	c.hostMu.Lock()
 	prev := c.host.fp
@@ -654,7 +654,7 @@ func (c *Chat) primeChatTools(ctx context.Context) error {
 	defs := make([]Tool, len(tools))
 	for i, t := range tools {
 		cur[t.Name] = t
-		defs[i] = Tool{Name: t.Name, Description: t.Description, Schema: t.Schema}
+		defs[i] = Tool{Name: t.Name, Description: t.Description, Schema: t.Schema, ReadOnly: t.ReadOnly}
 	}
 	c.hostMu.Lock()
 	c.host.cur, c.host.defs, c.host.prompt, c.host.fp = cur, defs, prompt, fingerprint(tools, prompt)

@@ -569,6 +569,22 @@ button.cx-step__head:hover,
 }
 .cx-editor__row { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; }
 
+/* ---- The event stream is down -------------------------------------------------- */
+/* A transient state that fixes itself: the warning tone, not the error one. */
+.cx-reconnect {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-warn-wash);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-warn) 40%, transparent);
+}
+.cx-reconnect > svg { color: var(--dk-warn-text); }
+
 /* ---- Error in the thread ---------------------------------------------------- */
 .cx-error {
   display: grid;
