@@ -137,13 +137,10 @@ const start = async (page) => {
 }
 
 test.describe('Live', () => {
-  test('Live is offered in an open chat and not on Home', async ({ page }) => {
+  test('Live is offered in an open chat', async ({ page }) => {
     await open(page)
     await expect(page.getByTestId('live-button')).toBeEnabled()
     await expect(page.getByTestId('live-button')).toHaveAccessibleName('Live')
-    await page.goto('/app')
-    await expect(page.getByTestId('home-composer')).toBeVisible()
-    await expect(page.getByTestId('live-button')).toHaveCount(0)
   })
 
   // The setup sheet: the models Live needs, installed from the sheet. The

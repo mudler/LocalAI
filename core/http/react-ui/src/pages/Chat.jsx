@@ -170,10 +170,10 @@ function ChatPage() {
   const { text: input, setText: setInput, files } = drafts
 
   // Live: hands-free voice with the open chat. It needs a chat that has an id,
-  // so a new chat and Home do not offer it. useLive ends Live when the chat
-  // changes.
-  const { models: sttModels, refetch: refetchStt } = useModels(CAP_TRANSCRIPT)
-  const { models: ttsModels, refetch: refetchTts } = useModels(CAP_TTS)
+  // so a new chat does not offer it; Home creates the chat first and opens it
+  // with state.live (below). useLive ends Live when the chat changes.
+  const { models: sttModels, loading: sttLoading, refetch: refetchStt } = useModels(CAP_TRANSCRIPT)
+  const { models: ttsModels, loading: ttsLoading, refetch: refetchTts } = useModels(CAP_TTS)
   const refetchLiveModels = useCallback(() => { refetchStt(); refetchTts() }, [refetchStt, refetchTts])
   const liveModel = useMemo(() => pickLiveModels({ stt: sttModels, tts: ttsModels }), [sttModels, ttsModels])
   const liveVoice = useLive({
@@ -188,6 +188,24 @@ function ChatPage() {
   // The setup sheet opens when the Live button finds a model missing.
   const [liveSetupOpen, setLiveSetupOpen] = useState(false)
   const openLiveSetup = useCallback(() => setLiveSetupOpen(true), [])
+  // Home's Live button opens this chat with state.live. The state is cleared
+  // first, so Back and a reload do not start Live again. Once the speech
+  // models are known, Live starts, or the setup sheet opens when one is
+  // missing. The browser lets the voice play because the click on Home and
+  // this navigation are one page session.
+  const [liveWanted, setLiveWanted] = useState(false)
+  const liveIntent = !!location.state?.live
+  useEffect(() => {
+    if (!liveIntent || !activeId || activeId !== routeId) return
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+    setLiveWanted(true)
+  }, [liveIntent, activeId, routeId, navigate, location.pathname, location.search])
+  useEffect(() => {
+    if (!liveWanted || sttLoading || ttsLoading) return
+    setLiveWanted(false)
+    if (liveModel.stt && liveModel.tts) liveVoice.start()
+    else openLiveSetup()
+  }, [liveWanted, sttLoading, ttsLoading, liveModel, liveVoice, openLiveSetup])
   // After Live ends, focus goes back: Type instead to the message box (back in
   // place), End Live to the Live button.
   const liveButtonRef = useRef(null)

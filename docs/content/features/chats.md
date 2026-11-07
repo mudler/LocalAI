@@ -280,6 +280,12 @@ who is not an administrator sees the names of the models and must ask an
 administrator to install them. When both models are installed, press **Start
 Live**.
 
+You can also press **Live** on the message box of Home. LocalAI creates a chat
+with the model, agent and settings you picked on Home, opens it, and starts
+Live there. If a model is missing, the chat opens with the setup sheet. The text
+you typed on Home stays on Home. If you end Live before you say anything, the
+empty chat stays in your chat list.
+
 Your audio is sent to your LocalAI server. The server turns your speech into
 text and makes the voice. Your audio stays on the LocalAI instance, and the
 browser does not use a cloud speech service. The text of the chat goes to the

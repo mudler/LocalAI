@@ -6,6 +6,16 @@ import { createSpeaker } from '../lib/liveSpeaker'
 import { createLiveMachine } from '../lib/liveMachine'
 import { createTurnTracker } from '../lib/liveTurn'
 
+// Why this page cannot open a microphone: 'insecure' (the browser gives one
+// only over HTTPS or localhost), 'no-mic' (none is offered), or '' when it can.
+// Home asks the same question before it creates a chat for Live.
+export function liveBlockedReason() {
+  const secure = typeof window === 'undefined' || window.isSecureContext !== false
+  if (!secure) return 'insecure'
+  if (!micAvailable()) return 'no-mic'
+  return ''
+}
+
 // Hands-free voice conversation with the open chat. The loop itself lives in
 // lib/liveMachine.js; this hook wires the real microphone, speaker, speech
 // calls and chat to it and reports the end of a turn.
@@ -52,12 +62,7 @@ export function useLive({ chatId, running, failure = null, send, stop, model }) 
 
   const state = useSyncExternalStore(machine.subscribe, () => machine.state)
 
-  const secure = typeof window === 'undefined' || window.isSecureContext !== false
-  let unavailableReason = ''
-  if (!secure) unavailableReason = 'insecure'
-  else if (!micAvailable()) unavailableReason = 'no-mic'
-  else if (!model?.stt) unavailableReason = 'no-stt'
-  else if (!model?.tts) unavailableReason = 'no-tts'
+  const unavailableReason = liveBlockedReason() || (!model?.stt ? 'no-stt' : !model?.tts ? 'no-tts' : '')
 
   // The chat's flags drive the machine: while the chat runs no utterance is
   // accepted, and the tracker reports the start and end of the voice turn.
