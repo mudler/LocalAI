@@ -156,7 +156,10 @@ if [ "$(uname -s)" = "Darwin" ]; then
             uv pip install -r requirements/cpu.txt --index-strategy unsafe-best-match
             # -Wno-parentheses: clang on macOS treats one of vLLM's C++ warnings
             # as an error without it (matches the upstream installer's CXXFLAGS).
-            CXXFLAGS="-Wno-parentheses" uv pip install .
+            # The tag archive has no git metadata and no PKG-INFO, so
+            # setuptools-scm cannot detect the version. Pin it to the tag.
+            SETUPTOOLS_SCM_PRETEND_VERSION="${VLLM_VERSION}" \
+                CXXFLAGS="-Wno-parentheses" uv pip install .
         popd
     popd
 
