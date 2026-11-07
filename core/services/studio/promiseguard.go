@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // The promise guard. A model that ends its turn with "I will check in a
@@ -82,15 +83,23 @@ func guardNote(sentence string, tools []string) string {
 }
 
 // guardTools names the tools that the chat really has for keeping a promise.
-// A connector chat has none: its messages can come from strangers, so its
-// model may not arm anything.
+// A connector chat has only the loop tools that its sender holds the
+// capability for, and no sub-agent: its messages can come from strangers.
 func (s *Service) guardTools(ctx context.Context, rec session.ChatRecord) []string {
-	if !modelLoopOrigin(rec.Origin) {
+	if !s.loopOriginKnown(rec.Origin) {
 		return nil
 	}
 	var out []string
 	if s.loops != nil {
-		out = append(out, startLoopName+" (a check that needs your judgement each time)", waitForName+" (watch a tool or a URL with no model call until it changes)")
+		if s.loopAllowed(rec, contract.CapLoopsStart) {
+			out = append(out, startLoopName+" (a check that needs your judgement each time)")
+		}
+		if s.loopAllowed(rec, contract.CapLoopsWait) {
+			out = append(out, waitForName+" (watch a tool or a URL with no model call until it changes)")
+		}
+	}
+	if rec.Origin == session.OriginConnector {
+		return out
 	}
 	if !s.hiddenFor(ctx, rec)[spawnAgentName] {
 		out = append(out, spawnAgentName+" with wait=false (work that runs on its own)")

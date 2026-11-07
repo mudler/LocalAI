@@ -108,8 +108,8 @@ export function usualCaps(capabilities) {
 
 // The binding capabilities that are also grants of a saved agent. A sender can
 // only use one of them when the agent holds the grant too, so the presets only
-// tick what the agent holds. proposals.confirm and tools.write are not grants:
-// they belong to the binding alone.
+// tick what the agent holds. proposals.confirm, tools.write, loops.wait and
+// loops.start are not grants: they belong to the binding alone.
 export const AGENT_GRANT_CAPS = [
   'memory.write', 'profile.write', 'skills.write', 'pages.write', 'dashboard.write', 'knowledge.write',
   'files.upload', 'triggers.propose', 'triggers.run', 'talkback.channels', 'talkback.new_channel',

@@ -291,10 +291,19 @@ stop it. Type `/loop` in the message box, or use the API.
   The limits below apply: the minimum wait, the loops per chat and per user,
   and the run limit. The tool is offered in your chats, in chats of a saved
   agent (whatever tools the agent allows), in sub-agent chats, and in chats
-  that a trigger, a job or a page started. It is not offered in chats that a
-  connector started, because the sender can be someone from outside, or when
-  loops are off. A loop in a chat that a trigger, a job or a page started ends
-  after a fifth of the run limit (20 runs by default).
+  that a trigger, a job or a page started. It is not offered when loops are
+  off. In a chat that a connector started (Telegram, Slack and so on), the
+  sender can be someone from outside, so the tools follow the access model of
+  the bot: `start_loop`, `schedule_next` and `loop_done` need the capability
+  `loops.start` and a verified (paired) sender, and `wait_for` and
+  `wait_agents` need the capability `loops.wait` and a listed or paired
+  sender. The owner enables both capabilities for the bot, as for any
+  other capability (see [Chats: connectors](/features/chats-connectors/)).
+  A bot that accepts anyone gives neither to a sender who is not paired. The
+  server checks the capability again when the model calls the tool. A loop in
+  a chat that a trigger, a job, a page or a connector started ends after a fifth
+  of the run limit (20 runs by default). The runs of a loop have no sender, so
+  a connector chat keeps `schedule_next` and `loop_done` while its loop runs.
 - **Sub-agents.** A sub-agent can start a loop, end its turn and wait. The
   parent is not told that the sub-agent finished until its loop ends: by
   `loop_done`, the run limit, a pause after failed runs, or a stop. Then the
@@ -341,8 +350,9 @@ stop it. Type `/loop` in the message box, or use the API.
   sub-agent, no queued message), the server adds one short note for the model
   and the model gets one more turn: arm a loop, a wait or a background
   sub-agent now, or tell you plainly that it cannot watch. It happens at most
-  once per turn. In a chat that a connector started, where the model cannot
-  arm anything, the note only asks it to say so plainly. Sub-agent reports are
+  once per turn. In a chat that a connector started, the note names only the tools that the
+  sender may use (see above); with none, it only asks the model to say so
+  plainly. Sub-agent reports are
   not checked. The matcher reads English, Italian, Spanish, French and German
   and ignores questions, offers and promises that wait for you.
 - **The prompt** is plain text, or a skill: `/<skill-name>` (or

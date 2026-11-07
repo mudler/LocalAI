@@ -30,6 +30,9 @@ var (
 	ErrLoopsOff = errors.New("loops are turned off on this server")
 	// ErrLoopCommand refuses a loop prompt that is a command other than a skill.
 	ErrLoopCommand = errors.New("a loop repeats plain text or a skill (/skill-name and its words); other commands cannot repeat")
+	// ErrLoopSender refuses a loop or a wait that the model of a connector
+	// chat starts for a sender who does not hold the capability.
+	ErrLoopSender = errors.New("the sender of this chat may not start this: the owner has to enable it for the bot, and a loop needs a verified sender")
 	// ErrLoopChat refuses a loop in a chat that a person did not start.
 	ErrLoopChat = errors.New("a loop can run only in a chat that you started")
 	// ErrLoopState refuses a change of state that a loop cannot make.
@@ -268,8 +271,12 @@ func (h *Loops) begin(ctx context.Context, user, conv string, in LoopInput, by *
 	case rec.Kind == session.KindSubAgent && by == nil:
 		// A person does not start loops in a sub-agent chat; its model may.
 		return loops.Loop{}, ErrSubAgentReadOnly
-	case by == nil && rec.Origin != "", by != nil && !modelLoopOrigin(rec.Origin):
+	case by == nil && rec.Origin != "", by != nil && !h.svc.loopOriginKnown(rec.Origin):
 		return loops.Loop{}, ErrLoopChat
+	case by != nil && !h.svc.loopAllowed(rec, loopCapability(by)):
+		// The tool is not offered to a sender without the capability, and this
+		// check stops a call that names it anyway.
+		return loops.Loop{}, ErrLoopSender
 	}
 	lim := h.Limits()
 	prompt := strings.TrimSpace(in.Prompt)

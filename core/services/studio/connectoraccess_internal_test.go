@@ -386,3 +386,58 @@ var _ = Describe("Authorize with the trust level of a channel", func() {
 		Expect(connectors.Validate(b)).NotTo(Succeed())
 	})
 })
+
+var _ = Describe("Authorize for the loop capabilities", func() {
+	now := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
+	binding := connectors.Binding{
+		ID: "b1", Kind: "chat", AgentID: "a1",
+		Caps:   []string{contract.CapLoopsWait, contract.CapLoopsStart},
+		Allow:  []string{"U1"},
+		Paired: []connectors.PairedSender{{SenderID: "P", At: now.Add(-time.Hour)}},
+	}
+	allowed := func(b connectors.Binding, s AccessSubject, name string) bool {
+		return Authorize(b, nil, s, name, now, Block{}).Allowed
+	}
+
+	It("marks loops.start as sensitive and loops.wait as not", func() {
+		Expect(contract.KnownCapability(contract.CapLoopsStart)).To(BeTrue())
+		Expect(contract.SensitiveCapability(contract.CapLoopsStart)).To(BeTrue())
+		Expect(contract.KnownCapability(contract.CapLoopsWait)).To(BeTrue())
+		Expect(contract.SensitiveCapability(contract.CapLoopsWait)).To(BeFalse())
+	})
+	It("gives a paired sender both", func() {
+		s := AccessSubject{SenderID: "P", Allowlisted: true}
+		Expect(allowed(binding, s, contract.CapLoopsWait)).To(BeTrue())
+		Expect(allowed(binding, s, contract.CapLoopsStart)).To(BeTrue())
+	})
+	It("gives a listed sender the wait but not the loop, and asks for a pairing", func() {
+		s := AccessSubject{SenderID: "U1", Allowlisted: true, Listed: true}
+		Expect(allowed(binding, s, contract.CapLoopsWait)).To(BeTrue())
+		d := Authorize(binding, nil, s, contract.CapLoopsStart, now, Block{})
+		Expect(d.Allowed).To(BeFalse())
+		Expect(d.Code).To(Equal(CodeSenderNeedsPairing))
+	})
+	It("gives a sender of a bot that accepts anyone neither", func() {
+		b := binding
+		b.AcceptAny = true
+		s := AccessSubject{SenderID: "X", Allowlisted: true}
+		Expect(allowed(b, s, contract.CapLoopsWait)).To(BeFalse())
+		Expect(allowed(b, s, contract.CapLoopsStart)).To(BeFalse())
+	})
+	It("never gives the loop to a role, even when the kind lists it and the owner grants it", func() {
+		kind := contract.ConnectorKind{ID: "chat", Roles: []contract.ConnectorRole{{ID: "admin", Title: "Admin"}},
+			Permissions: []string{contract.CapLoopsWait, contract.CapLoopsStart}}
+		b := binding
+		b.Grants = []connectors.RoleGrant{{Role: "admin", Caps: []string{contract.CapLoopsWait, contract.CapLoopsStart}}}
+		s := AccessSubject{SenderID: "R", Allowlisted: true, Roles: []string{"admin"}}
+		Expect(Authorize(b, &kind, s, contract.CapLoopsWait, now, Block{}).Allowed).To(BeTrue())
+		Expect(Authorize(b, &kind, s, contract.CapLoopsStart, now, Block{}).Allowed).To(BeFalse())
+	})
+	It("keeps the ceiling: a capability the owner did not enable is denied to a paired sender", func() {
+		b := binding
+		b.Caps = []string{contract.CapLoopsWait}
+		s := AccessSubject{SenderID: "P", Allowlisted: true}
+		Expect(allowed(b, s, contract.CapLoopsStart)).To(BeFalse())
+		Expect(allowed(b, s, contract.CapLoopsWait)).To(BeTrue())
+	})
+})
