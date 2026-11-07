@@ -1410,6 +1410,7 @@ function ChatPage() {
           blocks={pane.blocks}
           onClose={pane.close}
           onDropFiles={(list) => composer.attach('file', list)}
+          addToast={addToast}
         />
       )}
       <p className="sr-only" role="status" data-testid="chat-preview-status">

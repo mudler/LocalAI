@@ -863,7 +863,9 @@ In the chat:
 - **The Files pane** lists what the chat made for you first. The working
   files are in a group of their own under it, **Working files · N**, folded
   and quieter; open it to see and preview them. The files you attached are
-  listed as before.
+  listed as before. **Download all files as ZIP**, at the top of the pane,
+  saves every file of the list, working files included, in one ZIP with the
+  folder layout kept. It is off when the list is empty.
 - **The preview** that opens by itself after a turn shows the newest file
   that is not a working file. A working file never opens it by itself.
 - **The chips under the answer** name only what the chat made for you.

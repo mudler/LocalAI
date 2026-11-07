@@ -349,6 +349,9 @@
     "changedTag": "Editado",
     "changedTitle": "El asistente cambió este archivo",
     "download": "Descargar {{name}}",
+    "downloadAll": "Descargar todos los archivos como ZIP",
+    "zipName": "archivos-del-chat.zip",
+    "zipError": "No se pudieron descargar los archivos como ZIP.",
     "error": "No se pudieron leer los archivos de este chat.",
     "workingNote": "Scripts, datos y registros que el asistente creó por el camino. Se guardan en la carpeta de trabajo de este chat."
   },

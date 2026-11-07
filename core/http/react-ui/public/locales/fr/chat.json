@@ -347,6 +347,9 @@
     "changedTag": "Modifié",
     "changedTitle": "L'assistant a modifié ce fichier",
     "download": "Télécharger {{name}}",
+    "downloadAll": "Tout télécharger en ZIP",
+    "zipName": "fichiers-du-chat.zip",
+    "zipError": "Les fichiers n'ont pas pu être téléchargés en ZIP.",
     "error": "Impossible de lire les fichiers de cette conversation.",
     "workingNote": "Scripts, données et journaux créés en cours de route par l'assistant. Ils sont rangés dans le dossier de travail de cette discussion."
   },

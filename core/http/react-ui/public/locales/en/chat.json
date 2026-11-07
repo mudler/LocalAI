@@ -548,6 +548,9 @@
     "changedTag": "Edited",
     "changedTitle": "The assistant changed this file",
     "download": "Download {{name}}",
+    "downloadAll": "Download all files as ZIP",
+    "zipName": "chat-files.zip",
+    "zipError": "The files could not be downloaded as a ZIP.",
     "error": "The files of this chat could not be read.",
     "workingNote": "Scripts, data and logs the assistant made on the way. They are kept in this chat's work folder."
   },

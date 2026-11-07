@@ -349,6 +349,9 @@
     "changedTag": "已编辑",
     "changedTitle": "助手修改了此文件",
     "download": "下载 {{name}}",
+    "downloadAll": "将所有文件下载为 ZIP",
+    "zipName": "chat-files.zip",
+    "zipError": "无法将文件下载为 ZIP。",
     "error": "无法读取此对话的文件。",
     "workingNote": "助手在处理过程中生成的脚本、数据和日志，保存在此对话的工作文件夹中。"
   },
