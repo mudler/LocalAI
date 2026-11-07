@@ -84,6 +84,23 @@ test('coreRequestUrl refuses what is not a plain core API path', () => {
   }
 })
 
+test('coreRequestUrl refuses the sharing routes: an add-on shares through the host dialog only', () => {
+  for (const bad of [
+    '/api/shares', '/api/shares/connection', '/api/shares/connection/r1/grants', '/api/shares/connection/r1/grants/u1',
+    '/api/shares/collection/r1/users?q=bob', '/API/SHARES/agent/r1/grants', '/api/%73hares/agent/r1/grants', '/api/shares%2Fagent',
+    '/api/chats/agents/a1/share', '/api/collections/docs/share', '/api/agents/collections/docs/share',
+    '/api/chats/connectors/c1/share', '/api/chats/connectors/c1/share/', '/api/chats/connectors/c1/%73hare', '/api/chats/connectors/c1/SHARE?x=1',
+    '/api/chats/files/shares', '/api/chats/files/shares/42/grants', '/api/chats/files/shares/42/grants/@everyone',
+    '/api/chats/files/shares/42/users?q=bob', '/API/CHATS/FILES/SHARES/42/grants', '/api/chats/files/%73hares/42/grants',
+  ]) {
+    assert.equal(coreRequestUrl(bad), null, bad)
+  }
+  // Paths that only look alike stay reachable.
+  for (const ok of ['/api/chats/connectors', '/api/chats/shared-pages', '/api/chats/shared-folders', '/api/chats/files', '/api/chats/files/sharesx', '/api/collections/share/entries', '/api/collections', '/api/sharesx']) {
+    assert.equal(coreRequestUrl(ok), ok, ok)
+  }
+})
+
 function withFetch() {
   const calls = []
   const { sdk, controller } = make({ basePath: '', fetch: async (url, init) => { calls.push([url, init]); return { ok: true } } })
@@ -101,6 +118,16 @@ test('sdk.core.fetch calls with the browser session and no credential of its own
   assert.equal(init.headers.has('authorization'), false)
   assert.equal(init.headers.has('cookie'), false)
   assert.equal(init.headers.get('content-type'), 'application/json')
+})
+
+test('sdk.core.fetch never sends the confirmation header of a person\'s own action', async () => {
+  const { sdk, calls } = withFetch()
+  await sdk.core.fetch('/api/collections', { headers: { 'X-LocalAI-Confirm': 'r1', 'x-localai-confirm': 'r2', Accept: 'application/json' } })
+  const [, init] = calls[0]
+  assert.equal(init.headers.has('x-localai-confirm'), false)
+  assert.equal(init.headers.get('accept'), 'application/json')
+  await assert.rejects(() => sdk.core.fetch('/api/shares/connection/r1/grants', { headers: { 'X-LocalAI-Confirm': 'r1' } }), (e) => e.code === 'invalid_path')
+  assert.equal(calls.length, 1)
 })
 
 test('sdk.core.fetch refuses a bad path without calling the network', async () => {

@@ -33,7 +33,7 @@ func (s *Store) resourcesOf(addonID string) []string {
 	defer s.mu.Unlock()
 	var ids []string
 	for id, r := range s.doc.Resources {
-		if r.AddonID == addonID {
+		if r.Kind == addonKind(addonID) {
 			ids = append(ids, id)
 		}
 	}
@@ -119,7 +119,7 @@ func (s *Store) exportAddon(addonID string, now func() time.Time) addonSnapshot 
 	defer s.mu.Unlock()
 	out := addonSnapshot{Version: 1, AddonID: addonID, Mode: s.mode, Created: now(), Resources: map[string]snapshotResource{}}
 	for id, r := range s.doc.Resources {
-		if r.AddonID != addonID || r.State != stateActive {
+		if addonID == "" || r.Kind != addonKind(addonID) || r.State != stateActive {
 			continue
 		}
 		g := make(map[string]Role, len(r.Grants))
@@ -178,7 +178,7 @@ func (s *Store) restoreAddon(ctx context.Context, snap addonSnapshot, o recovery
 		truncated := !d.RevokedFloor.IsZero() && since.Before(d.RevokedFloor)
 		rep.HistoryTruncated = truncated
 		for id, r := range d.Resources {
-			if r.AddonID == snap.AddonID {
+			if r.Kind == addonKind(snap.AddonID) {
 				delete(d.Resources, id)
 			}
 		}
@@ -189,7 +189,7 @@ func (s *Store) restoreAddon(ctx context.Context, snap addonSnapshot, o recovery
 		sort.Strings(ids)
 		for _, id := range ids {
 			sr := snap.Resources[id]
-			if other, taken := d.Resources[id]; taken && other.AddonID != snap.AddonID {
+			if other, taken := d.Resources[id]; taken && other.Kind != addonKind(snap.AddonID) {
 				rep.ResourcesSkipped = append(rep.ResourcesSkipped, id)
 				continue
 			}
@@ -226,7 +226,7 @@ func (s *Store) restoreAddon(ctx context.Context, snap addonSnapshot, o recovery
 					// a removal: the strictest one stands.
 					drop := false
 					for _, v := range d.Revoked {
-						if v.AddonID != snap.AddonID || v.ResourceID != id || v.UserID != target || v.At.Before(since) {
+						if v.Kind != addonKind(snap.AddonID) || v.ResourceID != id || v.UserID != target || v.At.Before(since) {
 							continue
 						}
 						if v.Ceiling == "" {
@@ -247,7 +247,7 @@ func (s *Store) restoreAddon(ctx context.Context, snap addonSnapshot, o recovery
 					rep.GrantsRestored++
 				}
 			}
-			d.Resources[id] = &record{AddonID: snap.AddonID, Owner: owner, State: stateActive, Grants: grants}
+			d.Resources[id] = &record{Kind: addonKind(snap.AddonID), AddonID: snap.AddonID, Owner: owner, State: stateActive, Grants: grants}
 			rep.ResourcesRestored++
 		}
 		return nil
@@ -262,19 +262,19 @@ func (s *Store) forgetAddon(addonID string) (int, error) {
 	err := s.mutate(func(d *document) error {
 		n = 0
 		for id, r := range d.Resources {
-			if r.AddonID == addonID {
+			if r.Kind == addonKind(addonID) {
 				delete(d.Resources, id)
 				n++
 			}
 		}
 		for id, t := range d.Deleted {
-			if t.AddonID == addonID {
+			if t.Kind == addonKind(addonID) {
 				delete(d.Deleted, id)
 			}
 		}
 		kept := d.Revoked[:0:0]
 		for _, v := range d.Revoked {
-			if v.AddonID != addonID {
+			if v.Kind != addonKind(addonID) {
 				kept = append(kept, v)
 			}
 		}
@@ -395,6 +395,9 @@ func (r *RecoveryPort) Hold(ctx context.Context, addonID string) (func(), error)
 
 // Export returns the access state and the proposals of the add-on.
 func (r *RecoveryPort) Export(_ context.Context, addonID string) (recovery.PolicyExport, error) {
+	if addonID == "" {
+		return recovery.PolicyExport{}, errors.New("addon policy: export needs an add-on ID")
+	}
 	pol, err := json.Marshal(r.Policy.store.exportAddon(addonID, r.now))
 	if err != nil {
 		return recovery.PolicyExport{}, err

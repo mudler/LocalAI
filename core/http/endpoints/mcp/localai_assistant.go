@@ -8,7 +8,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/mudler/xlog"
 
-	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
+	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 )
 
 // LocalAIAssistantHolder owns the process-wide in-memory MCP server that
@@ -23,8 +23,7 @@ import (
 //     no NATS, no subprocesses, no synthetic admin credential.
 //
 // The holder is initialised once during Application bootstrap and is safe for
-// concurrent use thereafter. If Initialize fails (or DisableLocalAIAssistant is
-// true), Executor() returns an empty LocalToolExecutor and HasTools() is false,
+// concurrent use thereafter. If Initialize fails, Executor() returns an empty LocalToolExecutor and HasTools() is false,
 // which the chat handler treats as "feature unavailable".
 type LocalAIAssistantHolder struct {
 	once    sync.Once
@@ -72,6 +71,10 @@ func (h *LocalAIAssistantHolder) Initialize(ctx context.Context, client localait
 			h.initErr = fmt.Errorf("discover localai-assistant tools: %w", err)
 			return
 		}
+		// The server is ours, so it may be told who is calling.
+		for i := range tools {
+			tools[i].ActAsUser = true
+		}
 		h.tools = tools
 		h.opts = opts
 
@@ -83,14 +86,33 @@ func (h *LocalAIAssistantHolder) Initialize(ctx context.Context, client localait
 	return h.initErr
 }
 
-// Executor returns a tool executor backed by the holder's cached tools.
-// When the holder failed to initialise (or was never initialised), the
-// returned executor is empty — HasTools() is false.
+// Executor returns a tool executor backed by the holder's cached manage
+// tools: the admin group, which is what an administrator opts in to. The
+// client (inference) tools are not in it; see ClientExecutor. When the holder
+// failed to initialise (or was never initialised), the returned executor is
+// empty — HasTools() is false.
 func (h *LocalAIAssistantHolder) Executor() ToolExecutor {
+	return h.executorOf(localaitools.GroupManage)
+}
+
+// ClientExecutor returns the executor of the client tools: inference that any
+// user may run within their own permissions. It is empty like Executor when
+// the holder is not available.
+func (h *LocalAIAssistantHolder) ClientExecutor() ToolExecutor {
+	return h.executorOf(localaitools.GroupClient)
+}
+
+func (h *LocalAIAssistantHolder) executorOf(group localaitools.ToolGroup) ToolExecutor {
 	if h == nil || h.initErr != nil {
 		return &LocalToolExecutor{}
 	}
-	return &LocalToolExecutor{tools: h.tools}
+	var tools []MCPToolInfo
+	for _, t := range h.tools {
+		if localaitools.ToolGroupOf(t.Function.Name) == group {
+			tools = append(tools, t)
+		}
+	}
+	return &LocalToolExecutor{tools: tools}
 }
 
 // SystemPrompt returns the assembled embedded system prompt, freshly
@@ -103,9 +125,18 @@ func (h *LocalAIAssistantHolder) SystemPrompt() string {
 	return localaitools.SystemPrompt(h.opts)
 }
 
+// CompactSystemPrompt is the short prompt for the chats, which load the admin
+// recipes as skills: the role, the safety rules and the recipe names.
+func (h *LocalAIAssistantHolder) CompactSystemPrompt() string {
+	if h == nil || h.initErr != nil {
+		return ""
+	}
+	return localaitools.CompactSystemPrompt(h.opts)
+}
+
 // HasTools reports whether the holder is initialised and has tools available.
 func (h *LocalAIAssistantHolder) HasTools() bool {
-	return h != nil && h.initErr == nil && len(h.tools) > 0
+	return h != nil && h.initErr == nil && h.Executor().HasTools()
 }
 
 // Close tears down the in-memory transport pair. Safe to call multiple times.

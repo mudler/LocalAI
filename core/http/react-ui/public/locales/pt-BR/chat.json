@@ -435,7 +435,8 @@
       "upstream_unreachable": "Não foi possível alcançar o endereço do upstream.",
       "upstream": "O provedor por trás do modelo retornou um erro.",
       "timeout": "O modelo demorou demais para responder.",
-      "cancelled": "O turno foi cancelado antes de o modelo responder."
+      "cancelled": "O turno foi cancelado antes de o modelo responder.",
+      "interrupted": "O servidor reiniciou enquanto respondia."
     },
     "hint": {
       "model_backend_missing": "Escolha outro modelo ou peça a um administrador que instale o backend.",
@@ -450,7 +451,15 @@
       "timeout": "Tente de novo ou use um modelo menor ou mais rápido.",
       "cancelled": "Tente de novo quando quiser."
     },
-    "openBackends": "Abrir Backends"
+    "openBackends": "Abrir Backends",
+    "titleInterrupted": "A resposta foi interrompida",
+    "resume": {
+      "waiting": "Continuando em {{seconds}} segundos (tentativa {{attempt}} de {{max}}).",
+      "resuming": "Continuando de onde parou.",
+      "server": "O servidor continua de onde parou.",
+      "exhausted": "Não foi possível continuar após {{max}} tentativas. Tente de novo.",
+      "stop": "Parar de tentar"
+    }
   },
   "allChats": {
     "title": "Todos os chats",
@@ -760,6 +769,9 @@
       "other": "Nota",
       "why": "Por quê"
     }
+  },
+  "connection": {
+    "lost": "Conexão perdida. Reconectando."
   },
   "reasoning": {
     "chip": "Esforço",

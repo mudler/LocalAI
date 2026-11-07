@@ -103,7 +103,7 @@ func (h *Handlers) Regenerate(c echo.Context) error {
 
 // Resume goes on with the turn that failed.
 // @Summary Go on with the turn that failed.
-// @Description Starts a new turn that goes on from where the last one failed. The transcript stays as it is, with the messages, tool calls and results of the failed turn and the reason at its end; the model keeps its own state, so a tool call that has its result is not made again. Messages that wait for the chat go first. When the chat is not at a failed turn, or a turn runs, nothing starts and started is false, so a second click is harmless.
+// @Description Starts a new turn that goes on from where the last one failed or was interrupted by a restart. The transcript stays as it is, with the messages, tool calls and results of the failed turn and the reason at its end; the model keeps its own state, so a tool call that has its result is not made again. Messages that wait for the chat go first. When the chat is not at a failed or interrupted turn, or a turn runs, nothing starts and started is false, so a second click is harmless.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} schema.ChatsSendResponse "Whether a turn started"

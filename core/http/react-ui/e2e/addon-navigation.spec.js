@@ -715,7 +715,7 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expectOneVoiceTitle(page, 'Voices')
   })
 
-  test('a viewer who is not an administrator gets no Library tab', async ({ page }) => {
+  test('a viewer without the speech feature gets no Library tab', async ({ page }) => {
     await setup(page, { apps: [voiceApp()] })
     await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons: true, voice_recognition: true }) }))
     await serveVoice(page)
@@ -726,7 +726,7 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expect(tabs.getByRole('tab', { name: /^Text to speech$/ })).toBeVisible()
     await expect(tabs.getByRole('tab', { name: /^Library/ })).toHaveCount(0)
     await page.goto('/app/addons/voice/voice/library')
-    await expect(page.getByTestId('voice-admin-only')).toBeVisible()
+    await expect(page.getByTestId('voice-no-speech')).toBeVisible()
     await expect(page.getByTestId('voice-library')).toHaveCount(0)
   })
 

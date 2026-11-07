@@ -13,7 +13,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { useWorkspace, joinPath, parentOf } from '../hooks/useWorkspace'
 import { uploads, useUploads } from '../hooks/useUploads'
-import { chatAgentsApi, filesApi } from '../utils/api'
+import { chatAgentsApi, filesApi, folderSharesApi } from '../utils/api'
 import { agentFolderMarks } from '../utils/chatAgents'
 import { fileSize } from '../utils/fileInfo'
 import { splitEntries, isSettingsFolder, guardOf, pageOf } from '../utils/managedFiles'
@@ -27,9 +27,15 @@ import UploadTray from '../components/files/UploadTray'
 import ConflictDialog from '../components/files/ConflictDialog'
 import MoveDialog from '../components/files/MoveDialog'
 import SharedFolders from '../components/files/SharedFolders'
+import ShareDialog from '../components/share/ShareDialog'
+import { folderShareClient } from '../components/share/shareClients'
 import './workspace.css'
 
 const noop = () => {}
+
+// The folders LocalAI manages in the home, and everything in them: they
+// cannot be shared.
+const MANAGED_PATH = /^\/(LocalAI|Chats)(\/|$)/
 
 // After a menu closes it gives the focus back to its trigger on the next
 // frame; a rename field opened from the menu must take the focus after that.
@@ -234,7 +240,7 @@ function SearchHits({ hits, indexing, limited, query, onOpenHit, onClear, t }) {
 export default function Workspace() {
   const { t, i18n } = useTranslation('workspace')
   const { addToast = noop } = useOutletContext() || {}
-  const { user, hasFeature } = useAuth()
+  const { user, authEnabled, hasFeature } = useAuth()
   const navigate = useNavigate()
   // ?path= opens a folder, for example from "Show its files" of a page.
   const [params, setParams] = useSearchParams()
@@ -243,6 +249,23 @@ export default function Workspace() {
   const upState = useUploads()
   const [tab, setTab] = useState(params.get('tab') === 'shared' ? 'shared' : 'files')
   const [prefs, setPrefs] = useViewPrefs(user?.id || 'local')
+  // The folders of the home that are shared, by path, and whether folders
+  // can be shared here at all. Without accounts nothing is shown.
+  const [owned, setOwned] = useState({ sharing: false, byPath: new Map() })
+  const [sharing, setSharing] = useState(null)
+  const loadOwned = useCallback(async () => {
+    if (!authEnabled) return
+    try {
+      const d = await folderSharesApi.list()
+      setOwned({ sharing: d?.sharing === true, byPath: new Map((d?.folders || []).map(f => [f.path, f])) })
+    } catch { /* the Share action stays hidden; the Files page works without it */ }
+  }, [authEnabled])
+  useEffect(() => { loadOwned() }, [loadOwned])
+  const shareClient = useMemo(() => (sharing ? folderShareClient(folderSharesApi, sharing.id) : null), [sharing])
+  const shareRoles = useMemo(() => [
+    { id: 'read', label: t('shared.mode.read'), help: t('share.readHelp') },
+    { id: 'write', label: t('shared.mode.write'), help: t('share.writeHelp') },
+  ], [t])
   const [query, setQuery] = useState('')
   const [searched, setSearched] = useState('')
   const [selected, setSelected] = useState(() => new Set())
@@ -531,10 +554,21 @@ export default function Workspace() {
     else await ws.purge(p.entry.rev)
   }
 
+  const openShare = async (entry) => {
+    try {
+      const f = await folderSharesApi.find(entry.path)
+      setSharing({ id: f.id, name: f.name })
+    } catch (e) {
+      addToast(t('share.failed', { message: e?.message || String(e) }), 'error')
+    }
+  }
+  const shareMark = (p) => owned.byPath.get(p) || null
+
   const menuItems = (entry) => {
     const isDir = entry.kind === 'dir'
     const many = selected.has(entry.path) && selected.size > 1
     const list = many ? picked : [entry]
+    const shareable = isDir && authEnabled && owned.sharing && !MANAGED_PATH.test(entry.path)
     // A folder LocalAI manages may have its own page; offer it when the
     // person has the features for it.
     const own = pageOf(entry)
@@ -546,6 +580,7 @@ export default function Workspace() {
       { key: 'download', icon: 'download', label: many ? t('menu.downloadMany', { count: list.filter(e => e.kind === 'file').length }) : t('download'), onClick: () => download(list), hidden: !list.some(e => e.kind === 'file') },
       { key: 'rename', icon: 'pencil', label: t('rename'), shortcut: 'F2', onClick: () => { setCreating(null); afterMenu(() => setRenaming(entry.path)) }, hidden: many },
       { key: 'move', icon: 'arrow-right', label: many ? t('menu.moveMany', { count: list.length }) : t('moveTo'), onClick: () => setMoving(list) },
+      { key: 'share', icon: 'users', label: t('menu.share'), onClick: () => openShare(entry), hidden: many || !shareable },
       { divider: true },
       { key: 'delete', icon: 'trash', label: many ? t('menu.deleteMany', { count: list.length }) : t('delete'), shortcut: t('keys.delete'), danger: true, onClick: () => remove(list) },
     ]
@@ -556,7 +591,7 @@ export default function Workspace() {
   const paths = order.map(e => e.path)
   const selectOnly = (p) => { setSelected(new Set([p])); setAnchor(p); setCursor(p) }
   const ctx = {
-    t, locale: i18n.language, now, taken, touch, menuItems, agentMark,
+    t, locale: i18n.language, now, taken, touch, menuItems, agentMark, shareMark,
     onOpen: openEntry,
     onRowClick: (entry, e) => {
       if (e.target.closest('button, a, input')) return
@@ -870,6 +905,15 @@ export default function Workspace() {
         <ActionMenu
           key={`${menu.at.x}:${menu.at.y}`} at={menu.at} onClose={() => setMenu(null)}
           items={menuItems(menu.entry)} ariaLabel={t('menu.label', { name: menu.entry.name })}
+        />
+      )}
+      {sharing && shareClient && (
+        <ShareDialog
+          client={shareClient} roles={shareRoles} allowEveryone resource={sharing} sharing={owned.sharing}
+          intro={t('share.intro')} testId="ws-share-dialog"
+          onChanged={loadOwned}
+          onLost={() => { setSharing(null); addToast(t('share.lost'), 'error'); loadOwned() }}
+          close={() => setSharing(null)}
         />
       )}
       {moving && <MoveDialog items={moving} start={ws.path} onMove={(dest) => moveTo(moving, dest)} onCancel={() => setMoving(null)} />}

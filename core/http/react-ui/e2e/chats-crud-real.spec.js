@@ -52,19 +52,27 @@ test.describe('Skills, agents, triggers and connectors against the real server',
   test('an agent is created, edited, used to start a chat, and deleted', async ({ page }) => {
     const name = unique('agent')
     await offerMockModel(page)
+    // The new-agent wizard asks for a name and instructions, then the optional
+    // steps; the description is part of the editor, so it is set there.
     await page.goto('/app/agents/new')
     await page.getByLabel('Name', { exact: false }).first().fill(name)
-    await page.getByLabel('Description').fill('Reviews text')
-    await page.getByLabel('Instructions').fill('Be brief.')
-    await page.getByRole('button', { name: 'Create Agent' }).first().click()
-    await expect(page).toHaveURL(/\/app\/agents$/)
-    const row = page.locator(`[data-agent="${name}"]`)
-    await expect(row).toBeVisible()
-    await expect(row).toContainText('Reviews text')
+    await page.getByLabel('Instructions', { exact: false }).first().fill('Be brief.')
+    for (let i = 0; i < 3; i++) await page.getByTestId('wizard-next').click()
+    await page.getByTestId('wizard-create').click()
+    await expect(page).toHaveURL(/\/app\/agents\/[^/]+$/)
 
     const saved = (await json(page, '/api/chats/agents')).agents.find(a => a.name === name)
     expect(saved.instructions).toBe('Be brief.')
     expect(saved.addons).toEqual([])
+
+    await page.goto(`/app/agents/${saved.id}/edit`)
+    await page.getByLabel('Description').fill('Reviews text')
+    await page.getByRole('button', { name: 'Save Changes' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    const row = page.locator(`[data-agent="${name}"]`)
+    await expect(row).toBeVisible()
+    await expect(row).toContainText('Reviews text')
+    expect((await json(page, `/api/chats/agents/${saved.id}`)).description).toBe('Reviews text')
 
     await page.goto(`/app/agents/${saved.id}/edit`)
     await page.getByLabel('Description').fill('Reviews text, briefly')

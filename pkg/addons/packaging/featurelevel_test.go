@@ -29,18 +29,22 @@ var _ = Describe("feature level in the library index", func() {
 		Expect(entries).NotTo(BeEmpty())
 		return entries
 	}
+	// "web" declares no featureLevel of its own, so it stands for a manifest at
+	// the base level and needsTwo adds the only featureLevel key. An add-on that
+	// already declares a level would get the key twice, which the strict manifest
+	// reader rejects as a duplicate.
 	needsTwo := func(s string) string {
 		return strings.Replace(s, `"schemaVersion": 1,`, `"schemaVersion": 1, "featureLevel": 2,`, 1)
 	}
 	It("writes nothing for a manifest at the base level, with or without the flag", func() {
 		for _, extra := range [][]string{nil, {"--feature-level-in-index"}} {
-			for _, e := range render("telegram", func(s string) string { return s }, extra...) {
+			for _, e := range render("web", func(s string) string { return s }, extra...) {
 				Expect(e.Requires.FeatureLevel).To(BeZero())
 			}
 		}
 	})
 	It("keeps the level out of the index by default, so a host that predates the field still reads it", func() {
-		for _, e := range render("telegram", needsTwo) {
+		for _, e := range render("web", needsTwo) {
 			Expect(e.Requires.FeatureLevel).To(BeZero())
 		}
 	})
@@ -54,7 +58,7 @@ var _ = Describe("feature level in the library index", func() {
 		}
 	})
 	It("writes the level the manifest needs when asked to", func() {
-		for _, e := range render("telegram", needsTwo, "--feature-level-in-index") {
+		for _, e := range render("web", needsTwo, "--feature-level-in-index") {
 			Expect(e.Requires.FeatureLevel).To(Equal(uint64(2)))
 		}
 	})

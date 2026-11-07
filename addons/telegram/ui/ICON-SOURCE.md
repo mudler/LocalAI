@@ -1,5 +1,7 @@
 # Icon source
 
-Not an official logo. `icon.png` is a generated tile: a paper plane glyph from the add-on icon set (`addons/internal/uibuild/glyphs.mjs`) on the add-on colour.
+`icon.png` is the Telegram logo mark from Simple Icons (https://simpleicons.org), version 16.35.0, file `icons/telegram.svg` (https://www.npmjs.com/package/simple-icons/v/16.35.0). The Simple Icons data is CC0 1.0.
 
-Why no official mark: https://telegram.org/press lets people use the logos for illustrations and buttons if they do not suggest they represent Telegram, but the bot platform terms (https://core.telegram.org/api/terms, rule 2.4) say an app must not use the official logo. Which rule covers a bot add-on is unclear, so the project owner decides.
+The Telegram name and logo are trademarks of their owner. The mark is used only to identify the service this add-on connects to. It does not say that Telegram made, endorses or supports the add-on.
+
+How the tile was made: a 256 by 256 PNG with the same rounded tile (corner radius 56) as the other add-on icons, filled with the add-on colour #2278aa. The mark is a single white shape, 132 pixels wide, centred on the tile. The mark was not changed except for colour and size.

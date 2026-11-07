@@ -83,7 +83,13 @@ func (s *Service) ServeStart(ctx context.Context, req workerctl.ChatStartRequest
 	if req.Sender != nil {
 		ctx = withTurnWho(ctx, turnWho{Sender: senderOf(req.Sender)})
 	}
-	res, err := s.SendWithFiles(ctx, req.Principal, req.ChatID, req.Text, nil)
+	var res SendResult
+	var err error
+	if req.Resume {
+		res, err = s.ResumeInterrupted(ctx, req.Principal, req.ChatID)
+	} else {
+		res, err = s.SendWithFiles(ctx, req.Principal, req.ChatID, req.Text, nil)
+	}
 	if err != nil {
 		return workerctl.ChatStartReply{Error: err.Error()}
 	}

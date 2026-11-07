@@ -97,7 +97,10 @@ type ConnectorOptions struct {
 	// OutboxPoll is how often a queued message looks again for room under
 	// the limit of its binding; zero means one second.
 	OutboxPoll time.Duration
-	Logger     *slog.Logger
+	// Shares is the sharing policy of the bindings (see ConnectionShares).
+	// Nil: no binding is shared.
+	Shares ConnectionShares
+	Logger *slog.Logger
 }
 
 // Connectors runs the bindings of the chats. A message becomes a chat of the

@@ -23,8 +23,10 @@ async function shoot(page, name) {
 }
 
 const tab = (page, name) => page.getByRole('tab', { name })
-// The start, stop and tool controls of an add-on live in the detail sheet of the drawer.
-const detail = (page, id) => page.getByTestId('addon-detail').locator(`[data-app="${id}"]`)
+// The start, stop and tool controls of an add-on live in its detail pane, the state
+// chip in the header of the pane. Both the title and the body of the pane carry
+// data-app, so the pane is found by the add-on it shows, not by that attribute.
+const detail = (page, id) => page.getByTestId('addon-detail').filter({ has: page.locator(`[data-app="${id}"]`) })
 
 test.describe('Add-ons: apps', () => {
   test('apps: lists enabled apps with state chips, the icon route and Open only for a main page', async ({ page }) => {
@@ -737,7 +739,7 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await page.addInitScript(() => localStorage.setItem('localai-theme', 'light'))
     await page.goto('/app/addons')
     await page.goto('/app/addons?detail=notes')
-    const read = () => page.locator('.ad-pane').first().evaluate(el => {
+    const read = () => page.getByTestId('addon-detail').evaluate(el => {
       const css = getComputedStyle(el)
       const chip = getComputedStyle(el.querySelector('.ad-state .ui-chip'))
       return { card: css.backgroundColor, chip: chip.color, chipBg: chip.backgroundColor }

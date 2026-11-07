@@ -338,13 +338,17 @@
       "bash": "Comandi (bash)",
       "web_search": "Ricerca web",
       "web_fetch": "Leggi pagine web",
-      "list_agents": "Agenti salvati"
+      "list_agents": "Agenti salvati",
+      "localai_client": "Strumenti client di LocalAI",
+      "localai_admin": "Strumenti di amministrazione di LocalAI"
     },
     "descriptions": {
       "bash": "Esegue comandi e codice per le chat direttamente su questa macchina quando nessun componente fornisce bash. Un componente che esegue comandi isolati lo sostituisce.",
       "web_search": "Cerca sul web per le chat senza chiave (DuckDuckGo, poi Brave Search, poi Bing), oppure con la tua istanza SearXNG se è impostata.",
       "web_fetch": "Legge per le chat una pagina o un file web pubblico dal suo indirizzo. Gli indirizzi della tua rete sono rifiutati se non li consenti.",
-      "list_agents": "Permette a una chat di elencare gli agenti salvati dell'utente e di avviarne uno come sotto-agente. Ogni chat lo attiva dal suo menu Strumenti."
+      "list_agents": "Permette a una chat di elencare gli agenti salvati dell'utente e di avviarne uno come sotto-agente. Ogni chat lo attiva dal suo menu Strumenti.",
+      "localai_client": "Permette alle chat di eseguire i modelli installati qui per immagini, voce, suoni, video, embedding e rilevamento, entro i permessi di ogni utente.",
+      "localai_admin": "Permette alle chat degli amministratori di gestire questo server: modelli, backend, impostazioni e stato. Ogni chat, o agente salvato, lo attiva."
     },
     "bash": {
       "switch": "Consenti alle chat di eseguire comandi su questa macchina",

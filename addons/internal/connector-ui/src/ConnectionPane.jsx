@@ -54,7 +54,7 @@ function RecentRefusals({ id, s }) {
   )
 }
 
-export default function ConnectionPane({ c, state, attention, check, testing, busy, messaging, facts, Senders, RowInfo, t, s, onClose, onToggle, onTest, onFix, fix, onEdit, onDelete }) {
+export default function ConnectionPane({ c, state, attention, check, testing, busy, messaging, facts, Senders, RowInfo, t, s, onClose, onToggle, onTest, onFix, fix, onEdit, onDelete, onShare }) {
   const stateText = s(`conn.state.${state}`)
   const reasonText = attention
     ? attention.cause === 'inactive' ? t('inactive', { reason: attention.reason })
@@ -68,6 +68,10 @@ export default function ConnectionPane({ c, state, attention, check, testing, bu
         <div className="cn-pane__foot">
           <button type="button" className="dk-btn dk-btn--danger-ghost dk-btn--sm" data-testid="connector-pane-delete" onClick={() => onDelete(c)}>{s('conn.pane.remove')}</button>
           <span className="cn-pane__grow" />
+          {onShare && (
+            <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" data-testid="connector-share" aria-label={s('share.button', { name: c.name })}
+              onClick={() => onShare(c)}>{s('share.label')}</button>
+          )}
           <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" data-testid="connector-pane-edit" onClick={() => onEdit(c)}>{t('editButton')}</button>
           <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" aria-busy={testing ? 'true' : undefined} disabled={testing} data-testid="connector-pane-test" onClick={() => onTest(c)}>
             {testing ? s('conn.pane.testing') : s('conn.pane.test')}

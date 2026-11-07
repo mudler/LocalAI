@@ -344,6 +344,19 @@
       "running": "Running",
       "off": "Off",
       "attention": "Needs attention"
+    },
+    "share": {
+      "label": "Share",
+      "button": "Share {{name}}",
+      "intro": "People you add can use this connection in their own chats and agents. They see its name and state, never its token or its settings. Messages to the bot still reach your agent.",
+      "roleUse": "Can use",
+      "roleUseHelp": "Can use it in their chats and agents. Cannot see the token, change it or share it."
+    },
+    "shared": {
+      "title": "Shared with you",
+      "text": "Other people let you use these connections in your chats and agents. Only their owner can change them.",
+      "on": "Listening",
+      "off": "Off"
     }
   },
   "conversionPage": {
@@ -390,9 +403,12 @@
       "subagents": "Sub-agents",
       "changes": "Suggested changes",
       "memory": "Memory",
-      "history": "Past chats"
+      "history": "Past chats",
+      "localai_client": "LocalAI client",
+      "localai_admin": "LocalAI admin"
     },
     "builtinBy": "{{tools}} · built-in",
+    "onDemand": "Loaded on demand",
     "builtinByAddon": "{{tools}} · served by {{provider}}",
     "servedBy": "Served by add-on {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
@@ -468,7 +484,9 @@
       "triggers": "Lets the model propose, list, change and delete triggers. You confirm each new trigger or change.",
       "changes": "Lets the model propose edits to your notes, its rules, skills, pages and dashboard. You confirm each one.",
       "memory": "The model can read your notes before it answers and save new ones. Turn it off to make this a private chat: nothing is read from your notes or saved to them. Your other chats are not affected.",
-      "history": "Lets the model search and read your earlier chats."
+      "history": "Lets the model search and read your earlier chats.",
+      "localai_client": "Lets the model make images, speech, sound and video, and transcribe, embed, rerank and detect, with the models installed here.",
+      "localai_admin": "Lets the model manage this server: models, backends, settings and the state. For administrators; it asks you before it changes anything."
     },
     "whenOff": {
       "shell": "The model can write files but cannot run anything.",
@@ -481,7 +499,9 @@
       "triggers": "The model cannot propose or manage triggers.",
       "changes": "The model cannot propose edits to your notes, its rules, skills, pages or dashboard.",
       "memory": "This is a private chat. The model neither reads nor saves your notes.",
-      "history": "The model cannot see your earlier chats."
+      "history": "The model cannot see your earlier chats.",
+      "localai_client": "The model cannot run these models itself.",
+      "localai_admin": "The model cannot manage this server."
     },
     "addonDescribe_one": "Gives the model {{count}} tool from this add-on.",
     "addonDescribe_other": "Gives the model {{count}} tools from this add-on.",
@@ -1118,6 +1138,17 @@
         "source_failing": "source failed",
         "timed_out": "timed out",
         "stopped": "stopped"
+      },
+      "group": {
+        "collapse": "Hide the waits",
+        "deadline": "Nearest deadline {{time}} ({{when}})",
+        "expand": "Show the waits",
+        "lastCheck": "Last check {{ago}}",
+        "paused_one": "{{count}} paused",
+        "paused_other": "{{count}} paused",
+        "stopAll": "Stop all",
+        "title_one": "{{count}} waiting",
+        "title_other": "{{count}} waiting"
       }
     }
   },
@@ -1131,7 +1162,8 @@
       "skill": "Skill",
       "page": "Page",
       "dashboard": "Dashboard",
-      "knowledge": "Knowledge"
+      "knowledge": "Knowledge",
+      "voice_profile": "Voice profile"
     },
     "scope": {
       "user": "All your chats",
@@ -1208,6 +1240,18 @@
       "title": "Check this text before you confirm.",
       "secret": "It looks like it holds a secret, such as a key, a token or a password. Once it is added, every chat that searches this collection can read it. A messaging chat cannot confirm it; only you can, here.",
       "other": "The server flagged this text as risky. A messaging chat cannot confirm it; only you can, here."
+    },
+    "voice": {
+      "label": "Voice to clone",
+      "name": "Name",
+      "file": "Recording",
+      "clip": "Pinned clip",
+      "language": "Language",
+      "transcript": "Transcript",
+      "consentTitle": "Confirm only if the speaker agreed.",
+      "consent": "The recording is saved as a voice profile that your chats can speak with. You can delete it in the Voice library.",
+      "consentAdmin": "You are an administrator, so this voice becomes available to all users of this server.",
+      "confirm": "The speaker agreed: save the voice"
     }
   },
   "proposalsPage": {

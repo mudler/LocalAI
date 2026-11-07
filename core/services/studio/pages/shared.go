@@ -45,6 +45,12 @@ func skipShared(p, home string) bool {
 	return false
 }
 
+// pageFolder says whether the pages of a shared folder are shared pages. The
+// pages of a folder that a person shared from their own home are not: a page
+// runs in the viewer's browser with the viewer's rights, and only a folder an
+// administrator made may put one there.
+func pageFolder(p string) bool { return !workspace.Within(p, session.UsersRoot) }
+
 // SharedFolders returns the shared folders of the viewer, by path.
 func (s *Service) SharedFolders(ctx context.Context, principal string) ([]SharedFolder, error) {
 	if !validPrincipal(principal) {
@@ -94,7 +100,7 @@ func (s *Service) sharedLoc(ctx context.Context, principal string, folderID int6
 		return loc{}, SharedFolder{}, err
 	}
 	for _, f := range folders {
-		if f.ID == folderID {
+		if f.ID == folderID && pageFolder(f.Path) {
 			return loc{a: s.actor(principal), folder: f.Path + "/" + Dir + "/" + name, name: name,
 				key: principal + "/shared/" + f.Path + "/" + name, shared: true}, f, nil
 		}
@@ -117,6 +123,9 @@ func (s *Service) ListShared(ctx context.Context, principal string) ([]Page, err
 	a := s.actor(principal)
 	out := []Page{}
 	for _, f := range folders {
+		if !pageFolder(f.Path) {
+			continue
+		}
 		list, err := s.listIn(ctx, a, f.Path+"/"+Dir, func(name string) (loc, error) {
 			return loc{a: a, folder: f.Path + "/" + Dir + "/" + name, name: name, shared: true}, nil
 		}, func(p *Page) { sharedPage(p, f) })

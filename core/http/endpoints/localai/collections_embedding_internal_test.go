@@ -27,7 +27,7 @@ var _ = Describe("the embedding model of the collections", func() {
 		Expect(err).ToNot(HaveOccurred())
 		ctx, cancel := context.WithCancel(context.Background())
 		DeferCleanup(cancel)
-		app, err = application.New(config.WithContext(ctx), config.WithSystemState(st), config.WithDisableLocalAIAssistant(true), config.WithDisableStats(true))
+		app, err = application.New(config.WithContext(ctx), config.WithSystemState(st), config.WithDisableStats(true))
 		Expect(err).ToNot(HaveOccurred())
 	})
 

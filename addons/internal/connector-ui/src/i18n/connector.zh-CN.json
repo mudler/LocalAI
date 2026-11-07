@@ -446,5 +446,15 @@
   "conn.preset.note": "预设绝不会开启敏感权限。如需开启，请使用自定义。智能体所持有的插件连接有各自的规则：已验证的人仍可使用其写入工具。请在智能体的“可使用的内容”中更改。",
   "conn.discard.title": "放弃更改？",
   "conn.discard.message": "你修改了此连接但尚未保存。",
-  "conn.discard.confirm": "放弃更改"
+  "conn.discard.confirm": "放弃更改",
+  "share.label": "共享",
+  "share.button": "共享 {{name}}",
+  "share.intro": "你添加的人可以在自己的聊天和智能体中使用此连接。他们能看到它的名称和状态，但永远看不到令牌或设置。发给机器人的消息仍由你的智能体接收。",
+  "share.roleUse": "可以使用",
+  "share.roleUseHelp": "可以在自己的聊天和智能体中使用。无法查看令牌、修改或再次共享。",
+  "shared.title": "与你共享",
+  "shared.text": "其他人允许你在自己的聊天和智能体中使用这些连接。只有所有者可以修改它们。",
+  "shared.on": "监听中",
+  "shared.off": "已关闭",
+  "shared.by": "由 {{name}} 共享"
 }

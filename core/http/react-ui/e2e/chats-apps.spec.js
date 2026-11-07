@@ -153,11 +153,17 @@ test.describe('Chat MCP apps', () => {
       const call = { jsonrpc: '2.0', id: 99, method: 'tools/call', params: { name: 'refresh', arguments: {} } }
       // From the page itself, and from a second sandboxed frame.
       window.postMessage(call, '*')
+      // Out of the flow and without a size: a 150px frame appended to the body
+      // makes the window scroll, the thread follows with a smooth scroll, and a
+      // click on the app's button lands on the place it has just left.
       const other = document.createElement('iframe')
       other.setAttribute('sandbox', 'allow-scripts')
+      other.setAttribute('style', 'position:fixed;width:0;height:0;border:0')
       other.srcdoc = `<script>parent.postMessage(${JSON.stringify(call)}, '*')<\/script>`
       document.body.appendChild(other)
+      return new Promise(resolve => other.addEventListener('load', resolve, { once: true }))
     })
+    // Nothing happens when a message is ignored, so the test can only wait a while.
     await page.waitForTimeout(500)
     expect(calls).toEqual([])
     // The frame's own messages still work.
