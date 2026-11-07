@@ -680,7 +680,8 @@
           "empty gives the default",
           "text gives the default",
           "reads an HTTP date",
-          "raises a date in the past to one second"
+          "raises a date in the past to one second",
+          "accepts toolOnly at feature level 5, implies agentOptional and keeps it through a JSON round trip"
         ]
       },
       {
@@ -3217,7 +3218,12 @@
           "a field that is too long",
           "too many scopes",
           "prints and logs no secret of a call",
-          "keeps a lost answer to a write an unknown outcome and a lost read unavailable"
+          "keeps a lost answer to a write an unknown outcome and a lost read unavailable",
+          "classifies the reads of every call family and fails closed for the rest",
+          "reports a lost answer to a change as an unknown outcome and to a read as unavailable",
+          "bounds a reply",
+          "needs exactly one of data and error in an OAuth reply",
+          "writes a decided refusal into the envelope and any other error as a typed error"
         ]
       },
       {
@@ -4818,6 +4824,8 @@
       "go: keeps the wire shape of an artifact result without a payload",
       "go: refuses an oversized payload even when handles come with it",
       "go: tells the model a connection expired or was revoked, without an outage",
+      "go: tells the model that the owner of a shared connection must connect it again, never to log in",
+      "go: tells the model of a shared connection that the resource is not listed, without a list",
       "go: renders the excerpt of an artifact result for the model"
     ]
   },
