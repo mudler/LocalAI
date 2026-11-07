@@ -548,6 +548,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	mcpMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCP)
 	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpMw)
+	// Studio history persistence: the store is nil when the WebUI is disabled
+	// or auth is off, and the list then only answers enabled: false.
+	routes.RegisterStudioHistoryRoutes(e, application.StudioHistoryStore(), auth.RequireFeature(application.AuthDB(), auth.FeatureStudioHistory))
 	routes.RegisterCollectionsRoutes(e, application, collectionsMw)
 	if addonsOn {
 		// Fine-tuning routes

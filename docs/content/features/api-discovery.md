@@ -142,6 +142,7 @@ Returns a compact list of instruction areas:
 | `middleware-admin` | Inspect and configure the routing-module middleware (PII filter and routing) |
 | `failover` | Model failover chains: target health, pinning and switch events |
 | `intelligent-routing` | Per-model `router:` configuration that classifies requests and rewrites the served model |
+| `studio-history` | Server-side persistence of the Studio's generation history, with tombstones for deletions (auth only) |
 
 ### Get an instruction guide
 
