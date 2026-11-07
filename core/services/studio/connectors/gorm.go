@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"gorm.io/gorm"
@@ -383,6 +384,38 @@ func (s *gormStore) SetCapsIfEmpty(ctx context.Context, id string, caps []string
 		Where("id = ? AND (caps IS NULL OR caps = '' OR caps = '[]' OR caps = 'null')", id).
 		Update("caps", string(raw))
 	return res.RowsAffected == 1, res.Error
+}
+
+// AddCapIfAbsent reads the ceiling and writes it back only while the stored
+// text is still the one it read, so a save of the owner between the two steps
+// wins and the add is tried again on the new text.
+func (s *gormStore) AddCapIfAbsent(ctx context.Context, id, capability string) (bool, error) {
+	for range 5 {
+		var row bindingRow
+		err := s.db.WithContext(ctx).Where("id = ?", id).Take(&row).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		var caps []string
+		if row.Caps != "" {
+			_ = json.Unmarshal([]byte(row.Caps), &caps)
+		}
+		if len(caps) == 0 || slices.Contains(caps, capability) {
+			return false, nil
+		}
+		raw, _ := json.Marshal(append(caps, capability))
+		res := s.db.WithContext(ctx).Model(&bindingRow{}).Where("id = ? AND caps = ?", id, row.Caps).Update("caps", string(raw))
+		if res.Error != nil {
+			return false, res.Error
+		}
+		if res.RowsAffected == 1 {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *gormStore) SetAccountID(ctx context.Context, id, accountID string) error {

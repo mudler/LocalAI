@@ -49,7 +49,7 @@
         "execution": {
           "class": "commands",
           "title": "Sandbox",
-          "note": "The sandbox has: python3 (pandas, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl. It has no Node, ImageMagick, ffmpeg or OCR, and apt cannot install anything.",
+          "note": "The sandbox has: python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl. It has no Node, ImageMagick, ffmpeg or OCR, and apt cannot install anything.",
           "skills": {
             "providesRuntimeFor": [
               "documents"

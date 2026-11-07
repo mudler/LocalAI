@@ -32,9 +32,9 @@
   },
   "input": {
     "placeholder": "메시지...",
-    "attachImage": "이미지 첨부",
-    "attachAudio": "오디오 첨부",
     "attachFile": "파일 첨부",
+    "dropFiles": "파일을 놓아 첨부하세요",
+    "dropFilesNote": "파일을 놓으면 메시지에 첨부됩니다.",
     "enterToSend": "Enter로 전송",
     "selectModelFirst": "먼저 모델을 선택하세요",
     "sendMessage": "메시지 보내기",

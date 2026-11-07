@@ -231,13 +231,17 @@ const (
 	bindingCapsRetryFor   = 10 * time.Minute
 )
 
-// migrateBindingCaps gives the usual permissions, once, to the connector
+// migrateBindingCaps adds loops.wait and gives the usual permissions, once, to the connector
 // bindings saved before permissions were enforced. The store decides who runs
 // it, so any number of processes on one store may call this at start. It needs
 // the kinds that add-ons serve, to leave out a binding whose kind declares no
 // permissions, so it waits for them. With none (add-ons off, or none installed)
 // it does nothing and tries again at the next start.
 func (a *Application) migrateBindingCaps(ctx context.Context, tr studio.ConnectorTransport) {
+	// loops.wait needs no kind, so it goes first and does not wait for add-ons.
+	if _, err := studio.MigrateLoopsWait(ctx, a.studioConnStore, time.Now(), nil); err != nil {
+		xlog.Warn("Connectors: could not add loops.wait to old bindings; it is tried again at the next start", "error", err)
+	}
 	deadline := time.Now().Add(bindingCapsRetryFor)
 	for {
 		kinds, err := tr.Kinds(ctx)

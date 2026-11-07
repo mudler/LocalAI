@@ -1008,19 +1008,33 @@ add-on.
 
 - **Capabilities** (`caps`). The ceiling you enable for a binding, from a closed list
   (`proposals.confirm`, `memory.write`, `files.upload`, `triggers.propose`,
-  `triggers.run`, `talkback.channels`, `tools.write`, and the sensitive `talkback.new_channel`,
-  `profile.write`, `skills.write`, `pages.write`, `dashboard.write`, `knowledge.write`). The default is
+  `triggers.run`, `talkback.channels`, `tools.write`, `loops.wait`, and the sensitive `talkback.new_channel`,
+  `profile.write`, `skills.write`, `pages.write`, `dashboard.write`, `knowledge.write`, `loops.start`). The default is
   no: a binding with none enabled lets a sender talk to the agent, but the agent can
   not use any of these on the sender's behalf. A binding saved before permissions
   were enforced has none, so the first start after the upgrade gives it the usual set
-  once, the same six that **Allow the usual** turns on (`proposals.confirm`,
+  once, the same seven that **Allow the usual** turns on (`proposals.confirm`,
   `memory.write`, `files.upload`, `triggers.propose`, `triggers.run`,
-  `talkback.channels`; never a sensitive one). It only touches a binding with no
+  `talkback.channels`, `loops.wait`; never a sensitive one). It only touches a binding with no
   capability whose kind lists permissions, and it logs one line for each binding it
   changes. It runs once for the whole store, also with several frontends, and never
   again, so a binding you clear later stays cleared. A binding you cleared before that
   start cannot be told from one never set and gets the set too. To keep the strict
   state, set `LOCALAI_SKIP_BINDING_CAPS_MIGRATION=true` before the first start.
+  A second one-time migration adds `loops.wait` to each binding that already has some
+  capability and lacks it, so a bot that existed before `loops.wait` can use waits
+  without a change by you. A binding with no capability stays with none. You can switch
+  `loops.wait` off afterwards and it stays off. The same variable skips it.
+- **Loops and waits.** `loops.wait` lets the model wait for a change (`wait_for`,
+  `wait_agents`). A wait is checked by code and costs no model call until it ends, so
+  the capability is not sensitive: a listed or paired sender holds it, and it is on by
+  default (in the usual set, and added to existing bindings once). `loops.start`
+  lets the model start a loop (`start_loop`, then `schedule_next` and `loop_done`).
+  Each run of a loop is a model call that nobody asked for at that moment, so the
+  capability is sensitive: only a paired sender holds it, and a bot that accepts
+  anyone never gives it to an unpaired sender. `loops.start` is off by default and never part of a
+  preset: the owner ticks it. A loop that a connector chat started ends after a fifth of
+  the run limit, as a loop of a trigger does. See [Loops](/features/chats/#loops-repeat-a-prompt-in-a-chat).
 - **Roles and grants** (`grants`). An add-on can declare roles, such as the admins of
   a workspace, and report the roles of each sender. You map a role to capabilities
   with `grants: [{"role", "caps"}]`. A grant is within `caps`, within what the kind
@@ -1172,7 +1186,7 @@ owner paired with this bot"). The model is told to relay it and not to say that 
 no such tool. Today this gates the
 agent's change proposals (`memory.write` for a memory note, `profile.write` for a
 profile), files sent to the bot (`files.upload`), the trigger tools
-(`triggers.propose`), and the confirm phrase (`proposals.confirm`), which answers trigger proposals and change proposals alike. Messages from a
+(`triggers.propose`), the loop tools (`loops.start` for `start_loop`, `schedule_next` and `loop_done`; `loops.wait` for `wait_for` and `wait_agents`), and the confirm phrase (`proposals.confirm`), which answers trigger proposals and change proposals alike. Messages from a
 sender who may not send files get a short refusal and no turn.
 
 A binding that was stored before this check has no capabilities. Enable what you want

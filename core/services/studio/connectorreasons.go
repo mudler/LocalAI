@@ -219,6 +219,8 @@ var capabilityWords = map[string]capabilityPhrase{
 	contract.CapDashboardWrite:   {"change the dashboard", "changing the dashboard"},
 	contract.CapKnowledgeWrite:   {"write to knowledge", "writing to knowledge"},
 	contract.CapToolsWrite:       {"change things in other services with add-on tools", "changes made by add-on tools"},
+	contract.CapLoopsWait:        {"wait for a change", "waiting for a change"},
+	contract.CapLoopsStart:       {"run on a timer", "running on a timer"},
 }
 
 // actionOf is the verb phrase of a capability, "do this" for a name that is

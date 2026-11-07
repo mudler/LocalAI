@@ -32,9 +32,9 @@
   },
   "input": {
     "placeholder": "Pesan...",
-    "attachImage": "Lampirkan gambar",
-    "attachAudio": "Lampirkan audio",
     "attachFile": "Lampirkan file",
+    "dropFiles": "Lepas file untuk dilampirkan",
+    "dropFilesNote": "Lepas file untuk melampirkannya ke pesan.",
     "enterToSend": "Enter untuk mengirim",
     "selectModelFirst": "Pilih model terlebih dahulu",
     "sendMessage": "Kirim pesan",

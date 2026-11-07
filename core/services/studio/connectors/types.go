@@ -362,6 +362,13 @@ type Store interface {
 	// same time. It reports whether it wrote. A missing binding is false.
 	SetCapsIfEmpty(ctx context.Context, id string, caps []string) (bool, error)
 
+	// AddCapIfAbsent adds one capability to the ceiling of a binding that
+	// already has a non-empty ceiling and lacks it, as one step, so it never
+	// overwrites a choice that an owner saved at the same time. A binding with
+	// an empty ceiling is left alone: empty is the owner's choice. It reports
+	// whether it wrote. A missing binding is false.
+	AddCapIfAbsent(ctx context.Context, id, capability string) (bool, error)
+
 	// SetAccountID records the upstream account of a binding as one step, so it
 	// never overwrites a setting that an owner saved at the same time. A missing
 	// binding is not an error.

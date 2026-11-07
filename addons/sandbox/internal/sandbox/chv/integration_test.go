@@ -89,7 +89,7 @@ var _ = Describe("Cloud Hypervisor backend", func() {
 	It("has the Python packages and PDF tools in the guest image", func() {
 		b := testBackend()
 		sb, _ := fixture(b, "")
-		sh(sb, `python3 -c "import docx, openpyxl, pptx, pypdf, pandas, PIL, reportlab, pdfplumber, pdf2image"`)
+		sh(sb, `python3 -c "import docx, openpyxl, pptx, pypdf, pandas, matplotlib, PIL, reportlab, pdfplumber, pdf2image"`)
 		sh(sb, `pdftoppm -v`)
 	})
 

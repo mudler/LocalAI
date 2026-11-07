@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // maxBackgroundChildren is how many sub-agents one conversation may run in the
@@ -209,7 +210,12 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	if !sub && !hidden[spawnAgentName] {
 		// The agent argument is offered only when list_agents is: the chat
 		// switched the saved agents on and its user may use them.
-		tools = append(tools, s.spawnTool(x, hasTool(tools, listAgentsName)), s.waitAgentsTool(a))
+		tools = append(tools, s.spawnTool(x, hasTool(tools, listAgentsName)))
+		// In a connector chat the wait needs the loops.wait capability of the
+		// sender, as wait_for does.
+		if s.loopAllowed(rec, contract.CapLoopsWait) {
+			tools = append(tools, s.waitAgentsTool(a))
+		}
 	}
 	// The two LocalAI groups go through the registry like every built-in group:
 	// the setting, the chat's switches and the agent's ceiling apply. They are

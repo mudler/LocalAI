@@ -33,9 +33,9 @@
   },
   "input": {
     "placeholder": "Message...",
-    "attachImage": "Attach image",
-    "attachAudio": "Attach audio",
     "attachFile": "Attach file",
+    "dropFiles": "Drop files to attach",
+    "dropFilesNote": "Drop the files to attach them to the message.",
     "enterToSend": "Enter to send",
     "selectModelFirst": "Select a model first",
     "sendMessage": "Send message",
