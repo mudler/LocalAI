@@ -190,10 +190,12 @@ chip says "edited" and the line offers `Update "name"`, `Save as new…` and
 `Reset`. "Save current setup as…" and "Manage setups" are at the bottom of the
 menu. Manage lets you rename, reorder and delete setups and choose the default.
 
-A new chat starts from the default setup. The default follows the setup of
-your last sent message. The first time you send a message with no setups, LocalAI
-saves the box as "My default" and offers a Rename action. If the model of a
-setup is not installed, the chat keeps the model it has and the line says so;
+A new chat starts from the default setup. The default is the saved setup that
+was in use when you sent your last message. Sending with no setup in use
+changes nothing. Sending an edited setup makes the saved, unedited version the
+default; use Update to keep your edits. The first time you send a message with
+no setups, LocalAI saves the box as "My default" and offers a Rename action. If
+the model of a setup is not installed, the chat keeps the model it has and the line says so;
 the setup is not changed. A saved agent decides the model and tools of its
 chat, so the chip is off while you have one chosen.
 

@@ -14,7 +14,7 @@ const WRITING = { id: 'writing', name: 'Writing', model: 'qwen3-32b-instruct', e
 const wk = (data, version) => ({ name: 'setups', path: '/LocalAI/setups.json', exists: !!version, version, data, valid: true, errors: [] })
 
 // The chat and tools stubs of home-composer.spec.js, and the setups file.
-async function server(page, { setups = null, agents = [], missingApi = false } = {}) {
+async function server(page, { setups = null, agents = [], missingApi = false, servers = [], failSend = false } = {}) {
   const seen = { created: [], puts: [] }
   let doc = setups ? wk(setups, 3) : wk({}, 0)
   await page.route('**/api/chats/wellknown/setups', async route => {
@@ -35,9 +35,12 @@ async function server(page, { setups = null, agents = [], missingApi = false } =
     }
     return route.fulfill({ json: { conversations: [], persistent: true, files: true } })
   })
-  await page.route(/\/api\/chats\/n1\/messages(\?.*)?$/, route => (route.request().method() === 'POST'
-    ? route.fulfill({ json: { started: true } })
-    : route.fulfill({ json: { messages: [] } })))
+  await page.route(/\/api\/chats\/n1\/messages(\?.*)?$/, route => {
+    if (route.request().method() !== 'POST') return route.fulfill({ json: { messages: [] } })
+    return failSend
+      ? route.fulfill({ status: 413, json: { error: { message: 'the file is too large' } } })
+      : route.fulfill({ json: { started: true } })
+  })
   await page.route('**/api/chats/n1/events', route => route.abort())
   await page.route('**/api/chats/n1', route => route.fulfill({ json: { ...CONV, pending: [] } }))
   await page.route(/\/api\/chats\/draft\/tools(\?.*)?$/, route => route.fulfill({ json: {
@@ -45,7 +48,7 @@ async function server(page, { setups = null, agents = [], missingApi = false } =
       { group: 'web', tools: ['web_search'], off: false, usable: true, provider: 'builtin', providers: {} },
       { group: 'files', tools: ['read_file'], off: false, usable: true, provider: 'builtin', providers: {} },
     ],
-    addons: [{ id: 'office', tools: 4, off: false }], servers: [], connectors: [], off: [],
+    addons: [{ id: 'office', tools: 4, off: false }], servers, connectors: [], off: [],
   } }))
   await page.route(/\/api\/chats\/draft\/addons(\?.*)?$/, route => route.fulfill({ json: { addons: [{ id: 'office', tools: 4, off: false }], commands: 'none' } }))
   await page.route(/\/api\/chats\/skills(\?.*)?$/, route => route.fulfill({ json: { skills: [] } }))
@@ -73,8 +76,17 @@ async function toolSwitch(page, name) {
 }
 
 test.describe('Home setups', () => {
+  let problems
   test.beforeEach(async ({ page }) => {
+    // React says so in the console when markup is nested wrongly.
+    problems = []
+    page.on('console', (m) => {
+      if (['error', 'warning'].includes(m.type()) && /validateDOMNesting|cannot be a descendant|cannot contain|hydrat|unique "key"/i.test(m.text())) problems.push(m.text())
+    })
     await mockHome(page)
+  })
+  test.afterEach(() => {
+    expect(problems).toEqual([])
   })
 
   test('first message creates My default and offers Rename', async ({ page }) => {
@@ -101,7 +113,7 @@ test.describe('Home setups', () => {
     await open(page)
     await expect(chipName(page)).toHaveText('Coding')
     await expect(page.getByTestId('home-model-chip')).toContainText('gemma-4-e4b-it-qat-q4_0')
-    await expect(line(page)).toContainText('Coding · gemma-4-e4b-it-qat-q4_0 · Your files · Effort High')
+    await expect(line(page)).toContainText('Coding · gemma-4-e4b-it-qat-q4_0 · Your files, office · Effort High')
     await expect(page.getByTestId('setup-chip-edited')).toHaveCount(0)
     await expect(await toolSwitch(page, 'Look things up online')).toBeVisible()
   })
@@ -197,7 +209,9 @@ test.describe('Home setups', () => {
     await expect(page.getByTestId('home-model-chip')).toContainText('qwen3-32b-instruct')
     const chip = page.getByTestId('setup-chip-button')
     await expect(chip).toBeDisabled()
-    await expect(chip).toHaveAttribute('title', /saved agent/)
+    await expect(page.getByTestId('setup-reason')).toBeVisible()
+    await expect(page.getByTestId('setup-reason')).toContainText('A saved agent decides')
+    await expect(chip).toHaveAttribute('aria-describedby', 'setup-chip-reason')
     // The status line falls back to the ready line.
     await expect(line(page)).toHaveCount(0)
     await expect(page.getByTestId('chat-ready')).toBeVisible()
@@ -206,8 +220,12 @@ test.describe('Home setups', () => {
   test('a missing well-known API hides the chip', async ({ page }) => {
     await server(page, { missingApi: true })
     await open(page)
-    await expect(page.getByTestId('chat-ready')).toBeVisible()
+    await expect(page.getByTestId('chat-ready')).toContainText('qwen3-8b-instruct')
     await expect(page.getByTestId('setup-chip')).toHaveCount(0)
+    await expect(page.getByTestId('setup-line')).toHaveCount(0)
+    // The row is as it was: the model chip first, then Tools.
+    const top = page.locator('.home-cmd__top')
+    await expect(top.locator(':scope > *').first()).toHaveClass(/home-pick/)
     await expect(page.getByTestId('chat-tools-button')).toBeVisible()
   })
 
@@ -255,5 +273,111 @@ test.describe('Home setups', () => {
     await expect(await toolSwitch(page, 'Look things up online')).toHaveAttribute('aria-checked', 'false')
     await page.keyboard.press('Escape')
     await expect(page.getByTestId('setup-chip-edited')).toHaveCount(0)
+  })
+
+  test('the tools summary of the line agrees with the Tools badge', async ({ page }) => {
+    await server(page, {
+      servers: [{ name: 'crm', off: false, usable: true }],
+      setups: { default: 'addon', setups: [
+        { id: 'addon', name: 'Addon only', model: 'qwen3-8b-instruct', effort: '', tools: { builtins_off: ['web', 'files'], mcp_off: ['crm'] } },
+        { id: 'mcp', name: 'Server only', model: 'qwen3-8b-instruct', effort: '', tools: { builtins_off: ['web', 'files'], addons_off: ['office'] } },
+        { id: 'all', name: 'Everything', model: 'qwen3-8b-instruct', effort: '' },
+      ] },
+    })
+    await open(page)
+    const text = page.getByTestId('setup-line-text')
+    await expect(chipName(page)).toHaveText('Addon only')
+    await expect(text).toContainText('· office ·')
+    await expect(page.getByTestId('chat-tools-count')).toHaveText('1')
+    await pick(page, 'mcp')
+    await expect(text).toContainText('· crm ·')
+    await expect(page.getByTestId('chat-tools-count')).toHaveText('1')
+    await pick(page, 'all')
+    await expect(text).toContainText('· 4 tools ·')
+    await expect(page.getByTestId('chat-tools-count')).toHaveText('4')
+    await expect(text).not.toContainText('No tools')
+  })
+
+  test('a switch changed right after a setup is applied still shows edited', async ({ page }) => {
+    await server(page, { setups: { default: 'coding', setups: [CODING, WRITING] } })
+    await open(page)
+    await pick(page, 'writing')
+    // No wait for the lists: the change goes in as soon as the menu allows.
+    const files = await toolSwitch(page, 'Your files')
+    await files.click()
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('setup-chip-edited')).toBeVisible()
+    await page.waitForTimeout(500)
+    await expect(page.getByTestId('setup-chip-edited')).toBeVisible()
+  })
+
+  test('Manage: an empty name goes back, the end buttons are disabled and focus is handed on', async ({ page }) => {
+    const seen = await server(page, { setups: { default: 'coding', setups: [CODING, WRITING] } })
+    await open(page)
+    await page.getByTestId('setup-chip-button').click()
+    await page.getByTestId('setup-manage').click()
+    const name = page.getByTestId('setup-manage-name-coding')
+    await name.fill('   ')
+    await name.press('Enter')
+    await expect(name).toHaveValue('Coding')
+    expect(seen.puts).toHaveLength(0)
+
+    await expect(page.getByTestId('setup-manage-up-coding')).toBeDisabled()
+    await expect(page.getByTestId('setup-manage-down-writing')).toBeDisabled()
+    // Moving to the end disables the pressed button: the focus goes to the name.
+    await page.getByTestId('setup-manage-down-coding').click()
+    await expect(page.getByTestId('setup-manage-down-coding')).toBeDisabled()
+    await expect(page.getByTestId('setup-manage-name-coding')).toBeFocused()
+    // Deleting a row hands the focus to its neighbour.
+    await page.getByTestId('setup-manage-remove-coding').click()
+    await page.getByTestId('setup-manage-remove-yes-coding').click()
+    await expect(page.getByTestId('setup-manage-row-coding')).toHaveCount(0)
+    await expect(page.getByTestId('setup-manage-name-writing')).toBeFocused()
+  })
+
+  test('the 51st setup is refused with a plain message and nothing is saved', async ({ page }) => {
+    const many = Array.from({ length: 50 }, (_, i) => ({ id: `s${i}`, name: `Setup ${i}`, model: 'qwen3-8b-instruct', effort: '' }))
+    const seen = await server(page, { setups: { default: 's0', setups: many } })
+    await open(page)
+    await page.getByTestId('chat-effort-button').click()
+    await page.getByTestId('chat-effort-low').click()
+    await page.getByTestId('setup-save-new').click()
+    await page.getByTestId('setup-name-input').fill('One too many')
+    await page.getByTestId('setup-name-save').click()
+    await expect(page.getByText('You can have up to 50 setups.')).toBeVisible()
+    expect(seen.puts).toHaveLength(0)
+  })
+
+  test('a failed send creates no setup', async ({ page }) => {
+    const seen = await server(page, { failSend: true })
+    await open(page)
+    await page.getByTestId('home-input').fill('hello')
+    await page.getByTestId('home-send').click()
+    await expect(page.getByText('the file is too large')).toBeVisible()
+    await page.waitForTimeout(500)
+    expect(seen.puts).toHaveLength(0)
+    await expect(page).not.toHaveURL(/\/app\/chats\/n1$/)
+  })
+
+  test('sending with another setup in use makes it the default', async ({ page }) => {
+    const seen = await server(page, { setups: { default: 'coding', setups: [CODING, WRITING] } })
+    await open(page)
+    await pick(page, 'writing')
+    await page.getByTestId('home-input').fill('hello')
+    await page.getByTestId('home-send').click()
+    await expect(page).toHaveURL(/\/app\/chats\/n1$/)
+    await expect.poll(() => seen.puts.length).toBe(1)
+    expect(seen.puts[0]).toEqual({ default: 'writing', setups: [CODING, WRITING] })
+  })
+
+  test('the missing-model warning goes once another model is picked', async ({ page }) => {
+    await server(page, { setups: { default: 'ghost', setups: [{ id: 'ghost', name: 'Ghost', model: 'gone-model-7b', effort: '' }] } })
+    await open(page)
+    await expect(page.getByTestId('setup-warning')).toBeVisible()
+    await page.getByTestId('home-model-chip').click()
+    await page.getByRole('option', { name: /gemma-4-e4b/ }).click()
+    await expect(page.getByTestId('home-model-chip')).toContainText('gemma-4-e4b')
+    await expect(page.getByTestId('setup-warning')).toHaveCount(0)
+    await expect(page.getByTestId('setup-chip-edited')).toBeVisible()
   })
 })
