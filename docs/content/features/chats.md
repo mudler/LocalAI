@@ -1651,7 +1651,7 @@ An add-on can also replace a built-in skill of the same name, for example the Of
 
 In the **Skills** menu over the message box each skill says where it comes from: **Built-in**, the add-on's title, **Personal**, **Shared** or **Workspace**. A built-in skill that an add-on replaces is listed under the others, dimmed, with "Replaced by <add-on>" and no switch. When a built-in skill serves because the add-on's own skill is off or not running, one line under the title says so. The **Skills** page lists add-on skills under the **Add-on** layer, with the add-on's title as the badge, and says which skill replaces which. See [Skills of an add-on]({{%relref "features/addons#skills" %}}) for how an add-on ships them.
 
-The format is the same as the skills LocalAI already used, so an existing skill carries over by copying its folder into one of the places above. Git sources and zip import and export are not part of chats.
+The format is the same as the skills LocalAI already used, so an existing skill carries over by copying its folder into one of the places above. Skills in the public [Agent Skills](https://agentskills.io/specification) format can also be imported from a zip file and exported as one (see [Import and export skills](#import-and-export-skills)). Git sources are not part of chats.
 
 ```bash
 curl -X POST .../api/chats/skills -d '{"layer": "personal", "name": "review", "description": "Check a change before it ships", "body": "Read the diff.\nSay what you find."}'
@@ -1671,6 +1671,30 @@ An administrator's chat that has the **LocalAI admin** group also lists one skil
 `localai-workspace` describes changes to your persona, profile, shortcuts, Home widgets, and theme;
 see [Make LocalAI yours](/features/make-localai-yours/).
 `localai-apps` describes how to build an app, tracker, or tool as a [Page]({{%relref "features/pages" %}}).
+
+### Import and export skills
+
+LocalAI reads skills in the public [Agent Skills](https://agentskills.io/specification) format: a folder with a `SKILL.md` (frontmatter with `name` and `description`, and the optional `license`, `compatibility`, `metadata` and `allowed-tools`) and, optionally, `scripts/`, `references/` and `assets/`. On the **Skills** page, **Import** takes a zip file and **Export** (on one of your personal skills) gives one back. Imported skills go to your personal layer, as with `POST /api/chats/skills/import`.
+
+The zip holds either one skill (`SKILL.md` at the top) or one folder per skill. The server checks the whole archive first and stores nothing when any part is not valid:
+
+- `name` has 1 to 64 lowercase letters, digits and single hyphens, with no hyphen at the start or the end, and equals the folder name. `description` has 1 to 1024 characters. `compatibility` has at most 500 characters. `metadata` maps text to text. LocalAI reads the names as ASCII only, which is stricter than the specification.
+- A path with `..`, a leading `/`, a backslash or a drive letter, a link, a device, an encrypted entry, two names that differ only in case, and a file and a folder with one name are refused.
+- At most 500 entries, 5 MiB for a file and 20 MiB in all, counted on the bytes that are really unpacked.
+- The `SKILL.md` is at most 64 KiB, as for every skill. Fields that the specification does not name are kept in the file and ignored.
+
+A name that you already use is refused with `409`; an import never replaces a skill, so delete or rename the old one first. The name of a skill that ships with LocalAI (a built-in skill, a document skill such as `xlsx`) is refused with `400`, so an imported file cannot take its place.
+
+**Scripts are stored, not run.** The import writes every file, `scripts/` included, as a plain file and runs nothing. A script is only read or run later, when a chat that has the tools for it chooses to, under the rules of that tool (see [Running commands](#running-commands)). Skill text is data from the person who wrote it: read an imported skill before you give it to an agent.
+
+An imported skill is listed with `new: true` and a **New** badge until a chat loads it with `load_skill` for the first time. Use the mark to find skills you have not read yet. Editing a skill in the page writes only the name, the description and the text, so the other frontmatter fields of an imported skill are dropped; edit the file in Files to keep them.
+
+```bash
+curl -X POST .../api/chats/skills/import -F file=@pdf-tools.zip      # 201 with the stored skills
+curl -o pdf-tools.zip .../api/chats/skills/personal/pdf-tools/export  # one folder, same layout
+```
+
+An export of a skill imports again to the same files.
 
 ### Document skills
 

@@ -9128,6 +9128,88 @@
                 }
             }
         },
+        "/api/chats/skills/import": {
+            "post": {
+                "description": "Send a zip file as the file field of a multipart form. It holds either one skill (SKILL.md at the top) or one folder per skill, each with a SKILL.md and optional scripts/, references/ and assets/, as the Agent Skills specification (agentskills.io) defines. The skills go to your personal layer. The whole archive is checked first and nothing is stored when any part is not valid: the name and description rules of the specification, paths that leave the skill folder, absolute paths, links, duplicate or case-colliding names, and size limits (500 entries, 5 MiB a file, 20 MiB in all). A name that exists already in your skills is refused with 409, and so is the name of a skill that ships with LocalAI; the import never replaces a skill. Files, scripts included, are only stored: the import runs nothing. An imported skill is listed with new set until a chat uses it for the first time.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Import skills from a zip archive.",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "the zip archive",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The stored skills",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSkillImportResult"
+                        }
+                    },
+                    "400": {
+                        "description": "The archive is not a valid skill archive",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "A skill of that name exists already",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "The archive is over a size limit",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/skills/personal/{name}/export": {
+            "get": {
+                "description": "The archive follows the Agent Skills layout: one folder named after the skill, with SKILL.md and the files below it (scripts/, references/, assets/). Importing it again gives the same skill. Only skills of your personal layer can be exported.",
+                "produces": [
+                    "application/zip"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Export a skill as a zip archive.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the skill's name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The zip archive",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "404": {
+                        "description": "No such skill",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/skills/{layer}/{name}": {
             "get": {
                 "tags": [
@@ -27637,6 +27719,10 @@
                 "name": {
                     "type": "string"
                 },
+                "new": {
+                    "description": "New is true for a personal skill that was imported and that no chat has\nused yet. The first use clears it.",
+                    "type": "boolean"
+                },
                 "path": {
                     "description": "Path is the path of its SKILL.md as the model sees it.",
                     "type": "string"
@@ -27676,6 +27762,42 @@
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSkillImportResult": {
+            "type": "object",
+            "properties": {
+                "rev": {
+                    "description": "Rev is the revision of the change set; undo it from the file history.",
+                    "type": "integer"
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSkillImported"
+                    }
+                }
+            }
+        },
+        "schema.ChatsSkillImported": {
+            "type": "object",
+            "properties": {
+                "bytes": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "files": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "scripts": {
+                    "description": "Scripts counts the files below scripts/. They are stored, never run by\nthe import.",
+                    "type": "integer"
                 }
             }
         },

@@ -1,6 +1,8 @@
 package studio
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"strings"
@@ -73,6 +75,28 @@ var _ = Describe("load_skill", func() {
 		rec, err := svc.Create(ctx, "alice", CreateInput{Model: "m"})
 		Expect(err).NotTo(HaveOccurred())
 		conv = rec.ID
+	})
+
+	It("clears the new mark of an imported skill on its first use and does not list the mark as a file", func() {
+		packs, err := skills.ReadPacks(bytes.NewReader(zipBytes(map[string]string{
+			"imp/SKILL.md":           string(skillMD("imp", "Imported skill.", "Imported body.")),
+			"imp/references/more.md": "More.",
+		})), int64(len(zipBytes(map[string]string{
+			"imp/SKILL.md":           string(skillMD("imp", "Imported skill.", "Imported body.")),
+			"imp/references/more.md": "More.",
+		}))), skills.PackLimits{})
+		Expect(err).NotTo(HaveOccurred())
+		_, err = f.ImportSkills(ctx, "alice", packs, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.SkillIsNew(ctx, "alice", "imp")).To(BeTrue())
+
+		got, err := load("imp", full)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(ContainSubstring("references/more.md"))
+		Expect(got).NotTo(ContainSubstring(skills.NewMarker))
+		Expect(f.SkillIsNew(ctx, "alice", "imp")).To(BeFalse())
+		_, err = load("imp", full)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("returns the instructions of a built-in, an add-on, a personal and a shared skill, without the frontmatter", func() {
@@ -225,3 +249,17 @@ var _ = Describe("load_skill", func() {
 		Expect(found).To(BeTrue(), "load_skill is registered")
 	})
 })
+
+// zipBytes makes a zip file of the given paths and contents.
+func zipBytes(entries map[string]string) []byte {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, body := range entries {
+		w, err := zw.Create(name)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = w.Write([]byte(body))
+		Expect(err).NotTo(HaveOccurred())
+	}
+	Expect(zw.Close()).To(Succeed())
+	return buf.Bytes()
+}

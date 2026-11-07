@@ -72,6 +72,8 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/chats/wellknown/:name/versions", FeatureChats},
 	{"GET", "/api/chats/skills", FeatureChats},
 	{"POST", "/api/chats/skills", FeatureChats},
+	{"POST", "/api/chats/skills/import", FeatureChats},
+	{"GET", "/api/chats/skills/personal/:name/export", FeatureChats},
 	{"GET", "/api/chats/skills/:layer/:name", FeatureChats},
 	{"PUT", "/api/chats/skills/:layer/:name", FeatureChats},
 	{"DELETE", "/api/chats/skills/:layer/:name", FeatureChats},

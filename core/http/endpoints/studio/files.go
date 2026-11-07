@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/studio/extract"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
@@ -58,6 +59,9 @@ var fileRules = []errRule{
 	fixed(http.StatusBadRequest, typeInvalid, "that cannot be done to this path", workspace.ErrInvalid),
 	fixed(http.StatusConflict, typeConflict, "later changes conflict with this undo", workspace.ErrConflict),
 	fixed(http.StatusConflict, "folder_shared", "this folder or a folder in it is shared; stop sharing it before you move it there", workspace.ErrSharedMove),
+	verbatim(http.StatusConflict, typeConflict, "files: ", files.ErrSkillExists),
+	sentinelText(http.StatusRequestEntityTooLarge, typeInvalid, skills.ErrPackLimit),
+	sentinelText(http.StatusBadRequest, typeInvalid, skills.ErrPackBad),
 	sentinelText(http.StatusRequestEntityTooLarge, typeInvalid, files.ErrArchiveLimit),
 	sentinelText(http.StatusBadRequest, typeInvalid, files.ErrArchiveBad),
 	sentinelText(http.StatusBadRequest, typeInvalid, files.ErrArchiveUnsupported),

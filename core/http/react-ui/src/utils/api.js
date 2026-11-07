@@ -408,6 +408,14 @@ export const chatSkillsApi = {
   // agent layer ({ agent }): see skillRef in utils/chatSkills.js.
   get: (layer, name, ref = {}) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${refQuery(ref)}`),
   create: (body) => postJSON('/api/chats/skills', body),
+  // Skills in the Agent Skills format, from a zip file: { skills: [{ name, description, files, bytes, scripts }], rev }.
+  importZip: async (file) => {
+    const form = new FormData()
+    form.append('file', file, file.name)
+    return handleResponse(await fetch(apiUrl('/api/chats/skills/import'), { method: 'POST', body: form }))
+  },
+  // The skill as a zip file in the Agent Skills layout, as a Blob.
+  exportZip: async (name) => (await handleResponse(await fetch(apiUrl(`/api/chats/skills/personal/${enc2(name)}/export`)))).blob(),
   update: (layer, name, body) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}`, { method: 'PUT', body: JSON.stringify(body) }),
   remove: (layer, name, ref = {}) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${refQuery(ref)}`, { method: 'DELETE' }),
   setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/skills`, { method: 'PUT', body: JSON.stringify({ off }) }),

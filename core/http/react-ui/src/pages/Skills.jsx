@@ -1,12 +1,13 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { chatSkillsApi } from '../utils/api'
 import { skillRef } from '../utils/chatSkills'
+import { saveBlob } from '../utils/download'
 import { useLibraryFacts } from '../hooks/useLibraryFacts'
 import { useWideLayout } from '../hooks/useWideLayout'
 // eslint-disable-next-line no-unused-vars
-import { Button, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
 // eslint-disable-next-line no-unused-vars
@@ -61,6 +62,10 @@ export default function Skills() {
   const [toDelete, setToDelete] = useState(null)
   const [undo, setUndo] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [imported, setImported] = useState(null) // the answer of the last import
+  const [importError, setImportError] = useState('')
+  const zipInput = useRef(null)
 
   const select = useCallback((key) => setParams(key ? { skill: key } : {}), [setParams])
 
@@ -121,6 +126,40 @@ export default function Skills() {
     }
   }
 
+  // ---- Import ------------------------------------------------------------
+  // A zip file in the Agent Skills format. The server checks all of it and
+  // stores nothing when any part is not valid; scripts are stored, not run.
+  const importZip = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setImporting(true)
+    setImported(null)
+    setImportError('')
+    try {
+      const res = await chatSkillsApi.importZip(file)
+      setImported(res)
+      fetchSkills()
+    } catch (err) {
+      setImportError(err.message || t('import.failed'))
+    } finally {
+      setImporting(false)
+    }
+  }
+  const exportSkill = async (skill) => {
+    try {
+      saveBlob(`${skill.name}.zip`, await chatSkillsApi.exportZip(skill.name))
+    } catch (err) {
+      addToast(t('toasts.exportFailed', { message: err.message }), 'error')
+    }
+  }
+  const importButton = (
+    <>
+      <Button variant="secondary" icon="upload" busy={importing} onClick={() => zipInput.current?.click()} data-testid="skills-import">{t('actions.import')}</Button>
+      <input ref={zipInput} type="file" accept=".zip,application/zip" hidden onChange={importZip} data-testid="skills-import-input" />
+    </>
+  )
+
   // ---- Attach and detach -------------------------------------------------
   const configOf = (agent) => facts.agents.find(a => a.name === agent)?.config || null
 
@@ -175,10 +214,27 @@ export default function Skills() {
       <PageHeader
         title={t('title')}
         supporting={t('subtitle')}
-        actions={!empty && !error && (
-          <Button variant="primary" icon="plus" onClick={() => navigate('/app/skills/new')}>{t('actions.newSkill')}</Button>
+        actions={!error && (
+          <>
+            {importButton}
+            {!empty && <Button variant="primary" icon="plus" onClick={() => navigate('/app/skills/new')}>{t('actions.newSkill')}</Button>}
+          </>
         )}
       />
+
+      {importError && (
+        <Callout tone="error" role="alert" title={t('import.failedTitle')} testId="skills-import-error"
+          actions={<Button size="sm" variant="ghost" onClick={() => setImportError('')}>{t('import.dismiss')}</Button>}>
+          {importError}
+        </Callout>
+      )}
+      {imported && (
+        <Callout tone="ok" title={t('import.done', { count: imported.skills.length })} testId="skills-import-done"
+          actions={<Button size="sm" variant="ghost" onClick={() => setImported(null)}>{t('import.dismiss')}</Button>}>
+          ({imported.skills.map(k => k.name).join(', ')}).
+          {` ${t('import.scriptsStored')} ${t('import.newNote')}`}
+        </Callout>
+      )}
 
       {notes.map(n => <p key={n} className="lib-note lib-note--warn" role="note">{n}</p>)}
 
@@ -262,7 +318,10 @@ export default function Skills() {
                         {statusOf(t, s, addonTitles) || (s.fallback ? t('card.fallback', { name: s.fallback }) : usedByLine(t, usersOf.get(s.name), facts.status))}
                       </span>
                     </span>
-                    <span className="dk-row-end"><span className="dk-badge" data-testid={`skill-badge-${s.name}`}>{badgeOf(t, s)}</span></span>
+                    <span className="dk-row-end">
+                      {s.new && <span className="dk-badge" data-testid={`skill-new-${s.name}`} title={t('card.newTitle')}>{t('card.new')}</span>}
+                      <span className="dk-badge" data-testid={`skill-badge-${s.name}`}>{badgeOf(t, s)}</span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -283,6 +342,7 @@ export default function Skills() {
                 onBack={() => select('')}
                 onEdit={(s) => navigate(`/app/skills/edit/${encodeURIComponent(s.layer)}/${encodeURIComponent(s.name)}`)}
                 onDelete={setToDelete}
+                onExport={exportSkill}
                 onAdd={(agent) => addToAgent(selected, agent)}
                 onRemove={(agent) => removeFromAgent(selected, agent)}
               />
@@ -313,7 +373,7 @@ export default function Skills() {
 }
 
 // eslint-disable-next-line no-unused-vars
-function SkillPane({ t, skill, titles, users, status, agents, busy, onBack, onEdit, onDelete, onAdd, onRemove }) {
+function SkillPane({ t, skill, titles, users, status, agents, busy, onBack, onEdit, onDelete, onExport, onAdd, onRemove }) {
   const [tab, setTab] = useState('overview')
   const [detail, setDetail] = useState({ phase: 'loading', data: null })
   const unused = status === 'ready' && users.length === 0
@@ -343,6 +403,9 @@ function SkillPane({ t, skill, titles, users, status, agents, busy, onBack, onEd
           <p className="lib-pane__sub">{skill.description || t('card.noDescription')}</p>
         </div>
         <div className="lib-pane__acts">
+          {skill.layer === 'personal' && !skill.invalid && (
+            <Button size="sm" icon="download" onClick={() => onExport(skill)} title={t('card.exportTitle')} data-testid="skill-export">{t('actions.export')}</Button>
+          )}
           {skill.editable && (
             <Button size="sm" icon="edit" onClick={() => onEdit(skill)} title={t('card.editTitle')}>{t('actions.edit')}</Button>
           )}
@@ -359,6 +422,8 @@ function SkillPane({ t, skill, titles, users, status, agents, busy, onBack, onEd
         {skill.fallback && <li className="lib-fact" data-testid="skill-fallback">{t('card.fallback', { name: skill.fallback })}</li>}
         {detail.phase === 'ready' && <li className="lib-fact" data-testid="skill-tokens" title={t('pane.tokensTitle')}>{t('pane.tokens', { count: tokens })}</li>}
       </ul>
+
+      {skill.new && <p className="lib-note lib-note--warn" role="note" data-testid="skill-new">{t('card.newLong')}</p>}
 
       {skill.invalid && <p className="lib-note lib-note--error" role="alert" data-testid="skill-invalid">{t('card.invalidWhy', { reason: skill.invalid })}</p>}
 
