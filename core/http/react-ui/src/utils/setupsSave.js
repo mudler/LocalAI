@@ -7,10 +7,11 @@ const copy = (v) => JSON.parse(JSON.stringify(v ?? null))
 // with replace. On a conflict (another tab wrote first) it applies change once
 // more to the newer data of the answer and saves on top of the newer version;
 // a second conflict, or any other error, is thrown. It resolves to the data
-// that was saved. save is the save of useWellKnown.
-export async function saveWithRetry(save, current, change) {
+// that was saved. save is the save of useWellKnown. version is the version
+// current was read at: the first save sends it, so a base that is out of date
+// meets a conflict and takes the retry, instead of overwriting a newer file.
+export async function saveWithRetry(save, current, change, version) {
   let base = current
-  let version
   for (let attempt = 0; ; attempt++) {
     const next = change(copy(base))
     try {

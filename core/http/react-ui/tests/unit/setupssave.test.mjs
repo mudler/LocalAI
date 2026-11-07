@@ -54,3 +54,21 @@ test('saveWithRetry gives change a fresh copy each time', async () => {
   assert.notEqual(seen[0], seen[1])
   assert.equal(seen[1].setups.length, 1)
 })
+
+test('saveWithRetry sends the version of the base on the first save', async () => {
+  const calls = []
+  await saveWithRetry(async (v, o) => { calls.push(o) }, { setups: [] }, add({ id: 'a' }), 3)
+  assert.deepEqual(calls, [{ replace: true, version: 3 }])
+})
+
+test('saveWithRetry keeps the other change when the base is stale', async () => {
+  // the file is at version 2 with "first"; the caller still holds version 1
+  let stored = { setups: [{ id: 'first' }] }
+  let version = 2
+  const save = async (v, o) => {
+    if (o.version !== version) throw conflict(stored, version)
+    stored = v; version++
+  }
+  await saveWithRetry(save, { setups: [] }, add({ id: 'second' }), 1)
+  assert.deepEqual(stored.setups.map((s) => s.id), ['first', 'second'])
+})
