@@ -106,52 +106,88 @@ var _ = Describe("well-known files", func() {
 			Expect(obj).To(HaveKey("setups"))
 		})
 
-		It("refuses 51 setups", func() {
+		It("refuses 51 setups and accepts 50", func() {
 			many := make([]any, 51)
 			for i := range many {
 				many[i] = setup(fmt.Sprintf("s%d", i), "S")
 			}
-			Expect(bad(doc(many...))).NotTo(BeEmpty())
+			Expect(bad(doc(many...))).To(ContainElement(ContainSubstring("setups")))
+			data, err := json.Marshal(doc(many[:50]...))
+			Expect(err).NotTo(HaveOccurred())
+			_, errs := wellknown.Validate(wellknown.Setups, data)
+			Expect(errs).To(BeEmpty())
 		})
 
 		It("refuses a name of 61 characters and accepts one of 60", func() {
-			Expect(bad(doc(setup("a", strings.Repeat("n", 61))))).NotTo(BeEmpty())
+			Expect(bad(doc(setup("a", strings.Repeat("n", 61))))).To(ContainElement(ContainSubstring("name")))
 			_, errs := wellknown.Validate(wellknown.Setups, []byte(`{"setups":[{"id":"a","name":"`+strings.Repeat("n", 60)+`"}]}`))
 			Expect(errs).To(BeEmpty())
 		})
 
-		It("refuses an unknown key at the top and inside a setup and inside tools", func() {
-			top := doc(setup("a", "A"))
-			top["extra"] = 1
-			Expect(bad(top)).NotTo(BeEmpty())
-			inner := setup("a", "A")
-			inner["extra"] = 1
-			Expect(bad(doc(inner))).NotTo(BeEmpty())
-			withTools := setup("a", "A")
-			withTools["tools"] = map[string]any{"nope": []any{"x"}}
-			Expect(bad(doc(withTools))).NotTo(BeEmpty())
+		It("accepts an id of 40 characters and refuses one of 41", func() {
+			data, err := json.Marshal(doc(setup(strings.Repeat("a", 40), "A")))
+			Expect(err).NotTo(HaveOccurred())
+			_, errs := wellknown.Validate(wellknown.Setups, data)
+			Expect(errs).To(BeEmpty())
+			Expect(bad(doc(setup(strings.Repeat("a", 41), "A")))).To(ContainElement(ContainSubstring("id")))
 		})
 
-		It("refuses an id with an uppercase letter, an empty id and a long id", func() {
-			Expect(bad(doc(setup("Coding", "A")))).NotTo(BeEmpty())
-			Expect(bad(doc(setup("", "A")))).NotTo(BeEmpty())
-			Expect(bad(doc(setup(strings.Repeat("a", 41), "A")))).NotTo(BeEmpty())
+		DescribeTable("refuses, naming what is wrong",
+			func(mutate func(m map[string]any) map[string]any, want string) {
+				Expect(bad(mutate(doc(setup("a", "A"))))).To(ContainElement(ContainSubstring(want)))
+			},
+			Entry("an unknown key at the top", func(m map[string]any) map[string]any { m["extra"] = 1; return m }, "extra"),
+			Entry("an unknown key in a setup", func(m map[string]any) map[string]any {
+				m["setups"].([]any)[0].(map[string]any)["extra"] = 1
+				return m
+			}, "extra"),
+			Entry("an unknown key in tools", func(m map[string]any) map[string]any {
+				m["setups"].([]any)[0].(map[string]any)["tools"] = map[string]any{"nope": []any{"x"}}
+				return m
+			}, "nope"),
+			Entry("an id with an uppercase letter", func(m map[string]any) map[string]any {
+				m["setups"].([]any)[0].(map[string]any)["id"] = "Coding"
+				return m
+			}, "id"),
+			Entry("an empty id", func(m map[string]any) map[string]any {
+				m["setups"].([]any)[0].(map[string]any)["id"] = ""
+				return m
+			}, "id"),
+			Entry("an effort that is not in the list", func(m map[string]any) map[string]any {
+				m["setups"].([]any)[0].(map[string]any)["effort"] = "extreme"
+				return m
+			}, "effort"),
+			Entry("more than 200 names in a tool list", func(m map[string]any) map[string]any {
+				names := make([]any, 201)
+				for i := range names {
+					names[i] = "t"
+				}
+				m["setups"].([]any)[0].(map[string]any)["tools"] = map[string]any{"mcp_off": names}
+				return m
+			}, "mcp_off"),
+		)
+
+		It("refuses two setups with the same id, in words", func() {
+			Expect(bad(doc(setup("a", "A"), setup("b", "B"), setup("a", "Again")))).To(ContainElement(
+				And(ContainSubstring("setups[2]"), ContainSubstring(`"a"`), ContainSubstring("setups[0]"), ContainSubstring("own id"))))
 		})
 
-		It("refuses an effort that is not in the list", func() {
-			s := setup("a", "A")
-			s["effort"] = "extreme"
-			Expect(bad(doc(s))).NotTo(BeEmpty())
-		})
-
-		It("refuses more than 200 names in a tool list", func() {
-			s := setup("a", "A")
-			names := make([]any, 201)
-			for i := range names {
-				names[i] = "t"
+		It("refuses a default that names no setup, in words, and accepts none or an empty one", func() {
+			m := doc(setup("a", "A"))
+			m["default"] = "gone"
+			Expect(bad(m)).To(ContainElement(And(ContainSubstring("default"), ContainSubstring(`"gone"`), ContainSubstring("leave default out"))))
+			for _, d := range []any{"", "a"} {
+				m["default"] = d
+				data, err := json.Marshal(m)
+				Expect(err).NotTo(HaveOccurred())
+				_, errs := wellknown.Validate(wellknown.Setups, data)
+				Expect(errs).To(BeEmpty(), "default %v", d)
 			}
-			s["tools"] = map[string]any{"mcp_off": names}
-			Expect(bad(doc(s))).NotTo(BeEmpty())
+			delete(m, "default")
+			data, err := json.Marshal(m)
+			Expect(err).NotTo(HaveOccurred())
+			_, errs := wellknown.Validate(wellknown.Setups, data)
+			Expect(errs).To(BeEmpty())
 		})
 	})
 
@@ -255,6 +291,27 @@ var _ = Describe("well-known files", func() {
 		Expect(errors.As(err, &cf)).To(BeTrue(), "base 0 means the file must not exist")
 	})
 
+	It("answers a conflict from the commit race with the newer file too, so a client can re-base", func() {
+		blobs, err := blob.NewFS(filepath.Join(GinkgoT().TempDir(), "blobs"))
+		Expect(err).NotTo(HaveOccurred())
+		ws, err := jsonstore.New(filepath.Join(GinkgoT().TempDir(), "workspace"), blobs, jsonstore.Options{Admin: files.AdminPrincipal})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = ws.Close() })
+		armed := false
+		f := files.New(racing{Store: ws, armed: &armed}, files.WithBlobs(blobs))
+		Expect(f.EnsureHome(ctx, alice)).To(Succeed())
+		s := wellknown.New(f)
+		first, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.Persona, Values: map[string]any{"name": "Ada"}, Base: base(0)})
+		Expect(err).NotTo(HaveOccurred())
+		armed = true
+		_, err = s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.Persona, Values: map[string]any{"name": "Mine"}, Base: base(first.Version)})
+		var cf *wellknown.ConflictError
+		Expect(errors.As(err, &cf)).To(BeTrue(), "%v", err)
+		Expect(cf.Current.Exists).To(BeTrue())
+		Expect(cf.Current.Version).To(Equal(first.Version))
+		Expect(cf.Current.Data).To(HaveKeyWithValue("name", "Ada"))
+	})
+
 	It("lists the versions of a file, newest first, and reverts to any valid one as a new change", func() {
 		s, f := newService()
 		raw(f, alice, "/LocalAI/persona.json", `{"name":"Ada"}`)
@@ -319,6 +376,20 @@ var _ = Describe("well-known files", func() {
 
 		_, err = wellknown.New(f).Revert(ctx, "bob", wellknown.Persona, "")
 		Expect(err).To(MatchError(wellknown.ErrNoPrevious))
+	})
+
+	It("keeps widget data out of the settings folder, so it cannot overwrite a settings file", func() {
+		s, f := newService()
+		for _, p := range []string{"/LocalAI/setups.json", "LocalAI/persona.json", "/LocalAI/data/x.json"} {
+			_, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.WidgetData, Path: p, Values: map[string]any{"items": []any{}}})
+			Expect(err).To(MatchError(wellknown.ErrBadPath), p)
+			_, err = s.Read(ctx, alice, wellknown.WidgetData, p)
+			Expect(err).To(MatchError(wellknown.ErrBadPath), p)
+		}
+		Expect(exists(f, alice, "/LocalAI/setups.json")).To(BeFalse())
+		// A data folder of the same name elsewhere is fine.
+		_, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.WidgetData, Path: "/data/LocalAI.json", Values: map[string]any{"items": []any{}}})
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("reads widget data from a path in the home and nowhere else", func() {

@@ -1,6 +1,6 @@
 // The well-known files of the user's home (persona.json, user.json,
-// shortcuts.json, home.json and ui.json in LocalAI/, and the data files of
-// Home widgets):
+// shortcuts.json, setups.json, home.json and ui.json in LocalAI/, and the data
+// files of Home widgets):
 // the client of /api/chats/wellknown and the pure helpers the editors share.
 // No browser globals at import time, so the node unit tests load it.
 

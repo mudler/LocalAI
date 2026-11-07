@@ -1,9 +1,9 @@
 // Package wellknown reads and writes the files in a user's home that change how
 // LocalAI looks and behaves for that user: persona.json, user.json,
-// shortcuts.json, setups.json, home.json and ui.json in the LocalAI/ folder, and the data
-// files that Home widgets read. Each has a JSON Schema. The schemas live in the built-in skill
-// localai-workspace, so the server validates with the same text that the
-// assistant reads.
+// shortcuts.json, setups.json, home.json and ui.json in the LocalAI/ folder,
+// and the data files that Home widgets read. Each has a JSON Schema. The
+// schemas live in the built-in skill localai-workspace, so the server
+// validates with the same text that the assistant reads.
 package wellknown
 
 import (
@@ -158,6 +158,10 @@ func Validate(n Name, data []byte) (map[string]any, []string) {
 		// say what to change. They are checked even when the schema passes.
 		errs = append(errs, pageWidgetErrors(obj)...)
 	}
+	if n == Setups {
+		// JSON Schema cannot say that ids are unique or that default names one.
+		errs = append(errs, setupErrors(obj)...)
+	}
 	if len(errs) > 0 {
 		if n == WidgetData {
 			errs = append(errs, itemURLErrors(obj)...)
@@ -166,6 +170,33 @@ func Validate(n Name, data []byte) (map[string]any, []string) {
 		return nil, errs
 	}
 	return obj, nil
+}
+
+// setupErrors says, in words, what the schema cannot: two setups with one id,
+// and a default that is not the id of a setup. The UI picks a setup by id, so
+// either one would make its choice ambiguous or empty.
+func setupErrors(obj map[string]any) []string {
+	list, _ := obj["setups"].([]any)
+	seen := make(map[string]int, len(list))
+	var out []string
+	for i, it := range list {
+		m, _ := it.(map[string]any)
+		id, _ := m["id"].(string)
+		if id == "" {
+			continue
+		}
+		if j, dup := seen[id]; dup {
+			out = append(out, fmt.Sprintf("setups[%d].id: %q is already the id of setups[%d]; give each setup its own id", i, id, j))
+			continue
+		}
+		seen[id] = i
+	}
+	if d, _ := obj["default"].(string); d != "" {
+		if _, ok := seen[d]; !ok {
+			out = append(out, fmt.Sprintf("default: %q is not the id of a setup; use one of the ids in setups, or leave default out", clip(d, 80)))
+		}
+	}
+	return out
 }
 
 // MaxPageWidgets bounds the page widgets of home.json: each one runs its page
@@ -256,7 +287,8 @@ func clip(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
-	return s[:n] + "..."
+	// Cut on a rune boundary: the text goes into a JSON error string.
+	return strings.ToValidUTF8(s[:n], "") + "..."
 }
 
 // check validates obj, and when it fails, each top-level property on its own,
