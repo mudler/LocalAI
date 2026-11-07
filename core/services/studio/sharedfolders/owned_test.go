@@ -321,6 +321,142 @@ var _ = Describe("folders an owner shares from their home", func() {
 		Expect(mine).To(ConsistOf(HaveField("Pages", 0)))
 	})
 
+	It("refuses to share the folders that LocalAI reads as the owner's own words", func() {
+		for _, p := range []string{".skills", "Work/.skills", "Work/.skills/report", "Memory", "Memory/agents", "pages", "pages/home"} {
+			id := mkdir("u-marta", "/users/u-marta/"+p)
+			for _, m := range []workspace.Mode{workspace.ModeRead, workspace.ModeWrite} {
+				_, err := svc.OwnSetMember(ctx, marta, id, "u-sara", m)
+				Expect(err).To(MatchError(sharedfolders.ErrNotShareable), p)
+				_, err = svc.OwnSetMember(ctx, marta, id, sharedfolders.Everyone, m)
+				Expect(err).To(MatchError(sharedfolders.ErrNotShareable), p)
+			}
+			_, err := svc.OwnGrants(ctx, marta, id)
+			Expect(err).To(MatchError(sharedfolders.ErrNotShareable), p)
+			_, err = svc.SearchAccounts(ctx, marta, id, "Sar", 0)
+			Expect(err).To(MatchError(sharedfolders.ErrNotShareable), p)
+		}
+		Expect(put("u-sara", "/users/u-marta/.skills/x/SKILL.md", "x")).To(MatchError(workspace.ErrNotFound), "nothing was shared")
+		id := mkdir("u-marta", "/users/u-marta/Work/skills-notes")
+		_, err := svc.OwnSetMember(ctx, marta, id, "u-sara", workspace.ModeWrite)
+		Expect(err).NotTo(HaveOccurred(), "a name that only looks alike is a plain folder")
+	})
+
+	It("does not let a grant that a grantee moves in outlive the grantee's revoke", func() {
+		projects := mkdir("u-marta", "/users/u-marta/Projects")
+		_, err := svc.OwnSetMember(ctx, marta, projects, "u-sara", workspace.ModeWrite)
+		Expect(err).NotTo(HaveOccurred())
+		y := mkdir("u-sara", "/users/u-sara/Y")
+		_, err = svc.OwnSetMember(ctx, files.UserActor("u-sara"), y, "u-root", workspace.ModeWrite)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = f.Store().Move(ctx, f.Actor("u-sara"), "/users/u-sara/Y", "/users/u-marta/Projects/Y")
+		Expect(err).To(MatchError(workspace.ErrSharedMove), "the share cannot follow Y into Marta's home")
+		_, err = svc.OwnRemoveMember(ctx, marta, projects, "u-sara")
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(put("u-root", "/users/u-marta/Projects/Y/note.txt", "x")).To(MatchError(workspace.ErrNotFound), "Root has nothing in Marta's home")
+		Expect(put("u-sara", "/users/u-marta/Projects/a.txt", "x")).To(MatchError(workspace.ErrNotFound), "the revoke holds")
+		Expect(put("u-root", "/users/u-sara/Y/note.txt", "x")).To(Succeed(), "Sara's own share is unchanged")
+		owned, err := svc.Owned(ctx, marta)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(owned).To(BeEmpty())
+	})
+
+	It("lists and revokes every grant inside the owner's home, whoever made it, managed folders included", func() {
+		admin := workspace.Actor{Principal: files.AdminPrincipal}
+		y := mkdir("u-marta", "/users/u-marta/Projects/Y")
+		old := mkdir("u-marta", "/users/u-marta/LocalAI/Old")
+		chats, err := f.Store().Stat(ctx, marta, "/users/u-marta/Chats")
+		Expect(err).NotTo(HaveOccurred())
+		skillsDir := mkdir("u-marta", "/users/u-marta/.skills")
+		// Grants that the rules no longer let anyone make: moved in before
+		// them, or made by an administrator.
+		Expect(f.Store().Grant(ctx, admin, "u-root", "/users/u-marta/Projects/Y", workspace.ModeWrite)).To(Succeed())
+		Expect(f.Store().Grant(ctx, admin, "u-sara", "/users/u-marta/LocalAI/Old", workspace.ModeWrite)).To(Succeed())
+		Expect(f.Store().Grant(ctx, admin, "u-sara", "/users/u-marta/Chats", workspace.ModeRead)).To(Succeed())
+		Expect(f.Store().Grant(ctx, admin, sharedfolders.Everyone, "/users/u-marta/.skills", workspace.ModeWrite)).To(Succeed())
+
+		owned, err := svc.Owned(ctx, marta)
+		Expect(err).NotTo(HaveOccurred())
+		paths := map[string]int64{}
+		for _, o := range owned {
+			paths[o.Path] = o.ID
+		}
+		Expect(paths).To(Equal(map[string]int64{"/.skills": skillsDir, "/Chats": chats.ID, "/LocalAI/Old": old, "/Projects/Y": y}))
+
+		got, err := svc.OwnGrants(ctx, marta, old)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Members).To(Equal([]sharedfolders.Member{{Principal: "u-sara", Name: "Sara", Mode: workspace.ModeWrite}}))
+		_, err = svc.OwnSetMember(ctx, marta, old, "u-sara", workspace.ModeRead)
+		Expect(err).To(MatchError(sharedfolders.ErrNotShareable), "a managed folder keeps no grant: it can only be revoked")
+		_, err = svc.OwnSetMember(ctx, marta, old, "u-root", workspace.ModeRead)
+		Expect(err).To(MatchError(sharedfolders.ErrNotShareable))
+
+		for _, r := range []struct {
+			id        int64
+			principal string
+		}{{y, "u-root"}, {old, "u-sara"}, {chats.ID, "u-sara"}, {skillsDir, sharedfolders.Everyone}} {
+			_, err := svc.OwnRemoveMember(ctx, marta, r.id, r.principal)
+			Expect(err).NotTo(HaveOccurred(), r.principal)
+		}
+		Expect(put("u-root", "/users/u-marta/Projects/Y/a.txt", "x")).To(MatchError(workspace.ErrNotFound))
+		Expect(put("u-sara", "/users/u-marta/LocalAI/Old/a.txt", "x")).To(MatchError(workspace.ErrNotFound))
+		Expect(read("u-sara", "/users/u-marta/Chats")).To(MatchError(workspace.ErrNotFound))
+		owned, err = svc.Owned(ctx, marta)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(owned).To(BeEmpty())
+		_, err = svc.OwnGrants(ctx, marta, old)
+		Expect(err).To(MatchError(sharedfolders.ErrNotShareable), "without members a managed folder is not shareable again")
+		Expect(gone.list()).To(ConsistOf("u-root", "u-sara", "u-sara", sharedfolders.Everyone))
+	})
+
+	It("refuses to move a shared folder into LocalAI/ or Chats/, so the grant never leaves the owner's reach", func() {
+		id := mkdir("u-marta", "/users/u-marta/Projects")
+		_, err := svc.OwnSetMember(ctx, marta, id, "u-sara", workspace.ModeWrite)
+		Expect(err).NotTo(HaveOccurred())
+		for _, to := range []string{"/users/u-marta/LocalAI/Projects", "/users/u-marta/Chats/Projects"} {
+			_, err := f.Store().Move(ctx, f.Actor("u-marta"), "/users/u-marta/Projects", to)
+			Expect(err).To(MatchError(workspace.ErrSharedMove), to)
+		}
+		owned, err := svc.Owned(ctx, marta)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(owned).To(ConsistOf(HaveField("Path", "/Projects")))
+		_, err = svc.OwnRemoveMember(ctx, marta, id, "u-sara")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = f.Store().Move(ctx, f.Actor("u-marta"), "/users/u-marta/Projects", "/users/u-marta/LocalAI/Projects")
+		Expect(err).NotTo(HaveOccurred(), "once it is not shared, it moves")
+	})
+
+	It("does not run a page that a grantee wrote as the owner's own page", func() {
+		admin := workspace.Actor{Principal: files.AdminPrincipal}
+		Expect(put("u-marta", "/users/u-marta/pages/mine/index.html", "<p>mine</p>")).To(Succeed())
+		Expect(put("u-marta", "/users/u-marta/pages/notes/index.html", "<p>notes</p>")).To(Succeed())
+		mkdir("u-marta", "/users/u-marta/pages/evil")
+		// pages/ cannot be shared any more; a grant from before must still
+		// not make a grantee's page the owner's.
+		Expect(f.Store().Grant(ctx, admin, "u-sara", "/users/u-marta/pages/evil", workspace.ModeWrite)).To(Succeed())
+		Expect(f.Store().Grant(ctx, admin, "u-sara", "/users/u-marta/pages/notes", workspace.ModeRead)).To(Succeed())
+		Expect(put("u-sara", "/users/u-marta/pages/evil/index.html", "<script>/* grantee code */</script>")).To(Succeed())
+
+		ps := pages.New(f)
+		list, err := ps.List(ctx, "u-marta")
+		Expect(err).NotTo(HaveOccurred())
+		var names []string
+		for _, p := range list {
+			names = append(names, p.Name)
+		}
+		Expect(names).To(Equal([]string{"mine", "notes"}), "a read grant keeps the owner's page")
+		_, err = ps.Get(ctx, "u-marta", "evil")
+		Expect(err).To(MatchError(pages.ErrNotFound))
+		_, _, err = ps.Source(ctx, "u-marta", "evil")
+		Expect(err).To(MatchError(pages.ErrNotFound))
+		_, err = ps.Read(ctx, "u-marta", "evil", "index.html")
+		Expect(err).To(MatchError(pages.ErrNotFound))
+		p, err := ps.Get(ctx, "u-marta", "mine")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.Author).To(Equal(pages.AuthorYou))
+	})
+
 	It("says sharing is off without an account directory", func() {
 		audit, err := sharedfolders.NewGORMAudit(db)
 		Expect(err).NotTo(HaveOccurred())

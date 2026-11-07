@@ -11,6 +11,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 // A person can share a folder of their own home: read or write, with another
@@ -23,8 +24,14 @@ import (
 // Only the person who owns the home shares, and only from outside any chat:
 // a chat, an agent or a tool acts with a chat ID or a fence and is refused.
 // The folder must be inside the home, not the home itself and not a folder
-// LocalAI manages there (LocalAI/, Chats/). A folder that is not one is
-// ErrNotShareable, whatever the reason, so a caller cannot learn what exists.
+// LocalAI manages there or reads with the owner's authority (LocalAI/, Chats/,
+// Memory/, pages/ or any .skills folder: workfiles.Managed). A folder that is
+// not one is ErrNotShareable, whatever the reason, so a caller cannot learn
+// what exists.
+//
+// The owner sees and may revoke every grant on a folder of the home, whoever
+// made it and wherever it is, a managed folder included: a grant made before
+// these rules, or by an administrator, is never out of the owner's reach.
 
 // Errors of owner sharing.
 var (
@@ -76,15 +83,11 @@ func isPerson(a workspace.Actor) bool {
 }
 
 // homeRel returns the path of p inside the home of principal, and false for a
-// path that is not strictly inside it or that LocalAI manages.
+// path that is not strictly inside it.
 func homeRel(principal, p string) (string, bool) {
 	home := session.HomePath(principal)
 	rel, ok := strings.CutPrefix(p, home+"/")
 	if !ok || rel == "" {
-		return "", false
-	}
-	first, _, _ := strings.Cut(rel, "/")
-	if first == session.SettingsDir || first == session.ChatsDir {
 		return "", false
 	}
 	return "/" + rel, true
@@ -92,6 +95,26 @@ func homeRel(principal, p string) (string, bool) {
 
 // shareable returns the folder id when the person a may share it.
 func (s *Service) shareable(ctx context.Context, st workspace.Store, a workspace.Actor, id int64) (workspace.Node, error) {
+	n, err := s.ownFolder(ctx, st, a, id)
+	if err != nil {
+		return workspace.Node{}, err
+	}
+	if rel, _ := homeRel(a.Principal, n.Path); workfiles.Managed(rel) {
+		return workspace.Node{}, ErrNotShareable
+	}
+	// The owner gives at most what the owner has: write, which the home
+	// grant gives. A folder the owner holds read only is not shared.
+	v, err := st.View(ctx, a, []workspace.MountRequest{{Path: n.Path, At: "x", Mode: workspace.ModeWrite}})
+	if err != nil || len(v.Mounts) != 1 || v.Mounts[0].Mode != workspace.ModeWrite {
+		return workspace.Node{}, ErrNotShareable
+	}
+	return n, nil
+}
+
+// ownFolder returns the folder id when it is strictly inside the home of the
+// person a, managed or not: the folders whose grants the owner sees and
+// revokes.
+func (s *Service) ownFolder(ctx context.Context, st workspace.Store, a workspace.Actor, id int64) (workspace.Node, error) {
 	if !isPerson(a) || id <= 0 {
 		return workspace.Node{}, ErrNotShareable
 	}
@@ -106,12 +129,6 @@ func (s *Service) shareable(ctx context.Context, st workspace.Store, a workspace
 		return workspace.Node{}, ErrNotShareable
 	}
 	if _, ok := homeRel(a.Principal, n.Path); !ok {
-		return workspace.Node{}, ErrNotShareable
-	}
-	// The owner gives at most what the owner has: write, which the home
-	// grant gives. A folder the owner holds read only is not shared.
-	v, err := st.View(ctx, a, []workspace.MountRequest{{Path: n.Path, At: "x", Mode: workspace.ModeWrite}})
-	if err != nil || len(v.Mounts) != 1 || v.Mounts[0].Mode != workspace.ModeWrite {
 		return workspace.Node{}, ErrNotShareable
 	}
 	return n, nil
@@ -166,7 +183,8 @@ func (s *Service) describeOwned(ctx context.Context, st workspace.Store, owner s
 }
 
 // Owned returns the folders of the person's home that are shared, with their
-// members, by path.
+// members, by path: every grant on a folder strictly inside the home, whoever
+// made it, managed folders included.
 func (s *Service) Owned(ctx context.Context, a workspace.Actor) ([]Folder, error) {
 	st, err := s.ownerStore()
 	if err != nil {
@@ -207,17 +225,42 @@ func (s *Service) Owned(ctx context.Context, a workspace.Actor) ([]Folder, error
 	return out, nil
 }
 
-// OwnGrants returns one folder of the person's home with its members.
+// OwnGrants returns one folder of the person's home with its members: a
+// folder the person may share, or another folder of the home that still has
+// members, so that the person can revoke them.
 func (s *Service) OwnGrants(ctx context.Context, a workspace.Actor, id int64) (Folder, error) {
 	st, err := s.ownerStore()
 	if err != nil {
 		return Folder{}, err
 	}
-	n, err := s.shareable(ctx, st, a, id)
+	n, err := s.revocable(ctx, st, a, id)
 	if err != nil {
 		return Folder{}, err
 	}
 	return s.describeOwned(ctx, st, a.Principal, n)
+}
+
+// revocable returns the folder id when the person a may share it, or when it
+// is another folder of their home that still has members (a managed folder
+// that got a grant before these rules, or a grant an administrator made), so
+// that the person sees and revokes them. Any other folder is ErrNotShareable.
+func (s *Service) revocable(ctx context.Context, st workspace.Store, a workspace.Actor, id int64) (workspace.Node, error) {
+	n, err := s.shareable(ctx, st, a, id)
+	if !errors.Is(err, ErrNotShareable) {
+		return n, err
+	}
+	n, err = s.ownFolder(ctx, st, a, id)
+	if err != nil {
+		return workspace.Node{}, err
+	}
+	f, err := s.describeOwned(ctx, st, a.Principal, n)
+	if err != nil {
+		return workspace.Node{}, err
+	}
+	if len(f.Members) == 0 {
+		return workspace.Node{}, ErrNotShareable
+	}
+	return n, nil
 }
 
 // grantee checks the principal an owner shares with: Everyone, or an active
@@ -294,14 +337,15 @@ func (s *Service) OwnSetMember(ctx context.Context, a workspace.Actor, id int64,
 }
 
 // OwnRemoveMember takes away the grant of principal on a folder of the
-// person's home. A member who has no grant is not an error. The lost access
-// is reported before it returns.
+// person's home: one the person may share, or another one that still has
+// members (see revocable). A member who has no grant is not an error. The lost
+// access is reported before it returns.
 func (s *Service) OwnRemoveMember(ctx context.Context, a workspace.Actor, id int64, principal string) (Folder, error) {
 	st, err := s.ownerStore()
 	if err != nil {
 		return Folder{}, err
 	}
-	n, err := s.shareable(ctx, st, a, id)
+	n, err := s.revocable(ctx, st, a, id)
 	if err != nil {
 		return Folder{}, err
 	}

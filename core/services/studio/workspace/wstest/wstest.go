@@ -39,6 +39,7 @@ func RunStoreSuite(newStore NewStore) {
 	describeReadablePrefixes(newStore)
 	describeGrants(newStore)
 	describeMoves(newStore)
+	describeGrantMoves(newStore)
 	describeHistory(newStore)
 	describeProperty(newStore)
 	describeConcurrency(newStore)

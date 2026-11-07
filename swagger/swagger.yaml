@@ -19208,6 +19208,13 @@ paths:
           description: The request is not valid
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: A shared folder, or a folder with a shared folder in it,
+            would move into another home or into a folder that LocalAI manages
+            (LocalAI, Chats, Memory, pages or a .skills folder). Stop sharing it
+            first.
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Move or rename a file or folder.
       tags:
       - chats

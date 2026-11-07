@@ -186,6 +186,23 @@ var _ = Describe("Chats folder sharing endpoints", func() {
 		Expect(admin["members"]).To(HaveLen(2), "the administrator's folder is unchanged")
 	})
 
+	It("refuses the folders LocalAI reads as the owner's own, and a move that takes a share into one", func() {
+		mkdir("alice", "/users/alice/Projects")
+		for _, p := range []string{"/.skills", "/Memory", "/pages", "/Projects/.skills"} {
+			mkdir("alice", "/users/alice"+p)
+			rec := s.do("alice", http.MethodPost, base, map[string]any{"path": p})
+			Expect(rec.Code).To(Equal(http.StatusForbidden), p)
+		}
+		id := find("alice", "/Projects")
+		Expect(human("alice", http.MethodPut, base+"/"+id+"/grants/bob", id, map[string]any{"role": "write"}).Code).To(Equal(http.StatusOK))
+
+		rec := s.do("alice", http.MethodPost, "/api/chats/files/move", map[string]string{"from": "/Projects", "to": "/LocalAI/Projects"})
+		Expect(rec.Code).To(Equal(http.StatusConflict), rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring("folder_shared"))
+		rec = s.do("alice", http.MethodPost, "/api/chats/files/move", map[string]string{"from": "/Projects", "to": "/Archive/Projects"})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+	})
+
 	It("says sharing is off on a server without accounts, and lists nothing", func() {
 		off := newStudioServerWith(newTestFiles(), nil)
 		list := decodeJSON(off.do("alice", http.MethodGet, base, nil))

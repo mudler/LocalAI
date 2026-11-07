@@ -82,7 +82,7 @@ func (s *Service) CopyStarter(ctx context.Context, principal, id string) (Page, 
 		if len(name) > 64 {
 			break
 		}
-		l, err := s.own(principal, name)
+		l, err := s.own(ctx, principal, name)
 		if err != nil {
 			return Page{}, err
 		}

@@ -271,6 +271,26 @@ call. The user picker of a folder is the picker described in [API](#api), with t
 same rules and limits, but it answers on the frontend that serves the call, so its
 count of searches is kept per frontend.
 
+LocalAI reads some folders of a home with the owner's own authority: the skills
+(the `.skills` folder at the top of the home and every `.skills` folder below it),
+the notes in `Memory/` and the context files of add-ons, the agent profiles and
+the persona in `LocalAI/`, and the pages in `pages/`. Two rules keep a grantee
+from writing the owner's instructions:
+
+- A person cannot share `LocalAI/`, `Chats/`, `Memory/`, `pages/` or a `.skills`
+  folder, or a folder inside one. A folder that holds a grant, on itself or on a
+  folder below it, cannot move into another home, out of a home, or into one of
+  these folders: the move is refused with type `folder_shared`, also in an undo.
+  A grant therefore never reaches another home, where its giver could not take
+  it back. An administrator is not held by this rule.
+- When LocalAI loads that content, it leaves out every file in a folder on which
+  another principal than the owner, `@everyone` included, holds write access
+  through the folder or a folder above it. A read grant does not hide anything.
+
+The owner's list of shared folders shows every grant on a folder strictly inside
+the home, whoever made it, managed folders included, and the owner can revoke
+each one.
+
 ## The Share dialog
 
 The web UI has one Share dialog for every resource that can be shared. It shows
