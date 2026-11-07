@@ -394,15 +394,6 @@ func (r *Runtime) translateWrite(err error, sent bool) error {
 	return r.Translate(err)
 }
 
-func driveLink(u string) string {
-	if strings.HasPrefix(u, "https://drive.google.com/") || strings.HasPrefix(u, "https://docs.google.com/") {
-		if len(u) <= 300 {
-			return u
-		}
-	}
-	return ""
-}
-
 type created struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -414,7 +405,7 @@ func outOf(cr created) map[string]any {
 	if cr.ID != "" {
 		out["fileId"] = cr.ID
 	}
-	if u := driveLink(cr.WebViewLink); u != "" {
+	if u := link(cr.WebViewLink); u != "" {
 		out["url"] = u
 	}
 	return out
@@ -530,8 +521,9 @@ func (c *call) find(op string) (map[string]any, bool) {
 	if err != nil {
 		return nil, false
 	}
-	for _, f := range page.Files {
-		return outOf(created{ID: f.ID, Name: f.Name, WebViewLink: f.WebViewLink}), true
+	if len(page.Files) == 0 {
+		return nil, false
 	}
-	return nil, false
+	f := page.Files[0]
+	return outOf(created{ID: f.ID, Name: f.Name, WebViewLink: f.WebViewLink}), true
 }

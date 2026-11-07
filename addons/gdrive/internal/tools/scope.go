@@ -172,6 +172,7 @@ type item struct {
 	Link     string `json:"link,omitempty"`
 }
 
+// link keeps a Google address of reasonable length and drops any other.
 func link(u string) string {
 	if (strings.HasPrefix(u, "https://drive.google.com/") || strings.HasPrefix(u, "https://docs.google.com/")) && len(u) <= 300 {
 		return u
