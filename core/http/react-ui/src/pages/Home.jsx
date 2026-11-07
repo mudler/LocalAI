@@ -182,6 +182,33 @@ export default function Home() {
   const setupModel = keptMissing ? missingModel.model : selectedModel
   const setupEdited = !!activeSetup && !settling
     && isEdited({ ...activeSetup, tools: baseTools ? baseTools.tools : activeSetup.tools }, { model: setupModel, tools: switches.draftSwitches(), effort: draftEffort })
+  // A saved agent decides the tools and the effort of its chat: the switches
+  // and the effort a setup put in the draft must not go with it. Edits the
+  // person made themselves stay. When the agent is dropped the setup comes back.
+  const wasEdited = useRef(false)
+  if (!agentPicked) wasEdited.current = setupEdited
+  const agentReset = useRef(false)
+  const agentBefore = useRef(false)
+  useEffect(() => {
+    const before = agentBefore.current
+    agentBefore.current = agentPicked
+    if (agentPicked === before) return
+    const own = setups.list.find((x) => x.id === activeSetupId)
+    if (agentPicked) {
+      // wasEdited is the last value from before the agent: the render of the
+      // agent pick does not touch it.
+      agentReset.current = !!own && !wasEdited.current
+      if (agentReset.current) {
+        switches.applyDraftTools(null)
+        setDraftEffort('')
+      }
+    } else if (agentReset.current && own) {
+      agentReset.current = false
+      applySetup(own)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only a pick or a drop of the agent runs it
+  }, [agentPicked])
+
   const captureNow = (name) => captureSetup({ name, model: setupModel, tools: switches.draftSwitches(), effort: draftEffort })
   // What the Tools badge counts: built-ins, add-ons, servers and connectors
   // that are on and usable, named as the Tools menu names them.
@@ -199,11 +226,12 @@ export default function Home() {
   }
   const saveSetupAs = async (name) => {
     const saved = await setups.add(captureNow(name))
-    if (!saved) return
+    if (!saved) return false
     setNaming(false)
     setMissingModel(null)
     setBaseTools({ tools: switches.draftSwitches() })
     setActiveSetupId(saved.id)
+    return true
   }
   // After a message went: the first one saves the composer as "My default";
   // later ones make the setup in use the default.
@@ -211,10 +239,12 @@ export default function Home() {
   const rememberSetup = async () => {
     const s = setupsRef.current
     if (!s.available || agentPicked) return
-    if (s.list.length === 0) {
-      const saved = await s.add(captureNow(tch('setup.defaultName')))
+    if (!s.exists) {
+      // Only while there is no file: a person who deleted every setup, or an
+      // invalid file, is left as it is. The check is made again on the file the
+      // write goes on, so a second tab does not add a second one.
+      const saved = await s.addFirst(captureNow(tch('setup.defaultName')))
       if (!saved) return
-      await s.setDefault(saved.id)
       addToast(tch('setup.savedToast', { name: saved.name }), 'success', undefined, {
         action: { label: tch('setup.rename'), onClick: () => navigate('/app', { state: { manageSetups: true } }) },
       })
@@ -734,7 +764,11 @@ export default function Home() {
               defaultId={setups.defaultId}
               onClose={() => setManageOpen(false)}
               onRename={setups.rename}
-              onRemove={async (id) => { await setups.remove(id); if (id === activeSetupId) setActiveSetupId('') }}
+              onRemove={async (id) => {
+                const res = await setups.remove(id)
+                if (res && id === activeSetupId) setActiveSetupId('')
+                return res
+              }}
               onMove={setups.move}
               onSetDefault={setups.setDefault}
             />

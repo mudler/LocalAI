@@ -26,7 +26,8 @@ export function useSetups({ enabled = true } = {}) {
     setError('')
     try {
       const doc = wellKnownStore.snapshot('setups').doc
-      return await saveWithRetry(save, setupsData(doc), (d) => change(setupsData({ data: d })), doc?.version ?? 0)
+      // A file that was never read counts as existing: nothing is created over it.
+      return await saveWithRetry(save, setupsData(doc), (d, meta) => change(setupsData({ data: d }), meta), doc?.version ?? 0, doc ? !!doc.exists : true)
     } catch (e) {
       setError(e instanceof RangeError ? 'limit' : (e?.message || 'failed'))
       return null
@@ -44,6 +45,17 @@ export function useSetups({ enabled = true } = {}) {
 
   const add = useCallback(async (setup) => {
     const saved = await apply((d) => withAdded(d, { ...setup, name: cleanName(setup?.name) }))
+    return saved ? saved.setups[saved.setups.length - 1] : null
+  }, [apply])
+  // The first setup of a person: only while the file does not exist, decided
+  // on the file the write goes on (so a retry after another tab wrote, a
+  // deleted list and an invalid file all do nothing). It is also the default.
+  const addFirst = useCallback(async (setup) => {
+    const saved = await apply((d, { exists }) => {
+      if (exists) return null
+      const added = withAdded(d, { ...setup, name: cleanName(setup?.name) })
+      return withDefault(added, added.setups[added.setups.length - 1].id)
+    })
     return saved ? saved.setups[saved.setups.length - 1] : null
   }, [apply])
   const update = useCallback((id, capture) => apply((d) => withReplaced(d, id, {
@@ -65,7 +77,8 @@ export function useSetups({ enabled = true } = {}) {
     available: ready && !loadError && !!doc,
     list: data.setups,
     defaultId: data.default,
-    add, update, rename, remove, move, setDefault,
+    exists: ready && !!doc?.exists,
+    add, addFirst, update, rename, remove, move, setDefault,
     error,
   }
 }

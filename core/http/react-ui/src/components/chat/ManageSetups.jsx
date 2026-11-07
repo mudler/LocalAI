@@ -14,6 +14,8 @@ function Row({ setup, index, count, isDefault, onRename, onRemove, onMove, onSet
   const [name, setName] = useState(setup.name)
   const [confirming, setConfirming] = useState(false)
   useEffect(() => { setName(setup.name) }, [setup.name])
+  // A refused rename leaves the typed name in the field (the toast says why),
+  // so it can be tried again.
   const commit = () => {
     const next = name.trim()
     if (!next || next === setup.name) { setName(setup.name); return }

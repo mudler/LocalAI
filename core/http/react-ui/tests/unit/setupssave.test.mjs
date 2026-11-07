@@ -72,3 +72,20 @@ test('saveWithRetry keeps the other change when the base is stale', async () => 
   await saveWithRetry(save, { setups: [] }, add({ id: 'second' }), 1)
   assert.deepEqual(stored.setups.map((s) => s.id), ['first', 'second'])
 })
+
+test('saveWithRetry tells change whether the file exists, and again after a conflict', async () => {
+  const seen = []
+  let n = 0
+  await saveWithRetry(async () => { if (n++ === 0) throw { conflict: true, current: { data: { setups: [{ id: 'o' }] }, version: 2, exists: true } } }, { setups: [] }, (d, meta) => {
+    seen.push(meta.exists)
+    return d
+  }, 0, false)
+  assert.deepEqual(seen, [false, true])
+})
+
+test('saveWithRetry saves nothing when change answers null', async () => {
+  let saved = 0
+  const out = await saveWithRetry(async () => { saved++ }, { setups: [] }, () => null, 0, true)
+  assert.equal(out, null)
+  assert.equal(saved, 0)
+})

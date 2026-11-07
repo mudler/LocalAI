@@ -16,7 +16,8 @@ import './setups.css'
 //   model, toolLabels, effort, warm   what the composer holds now
 //   warning       text of a problem with the setup (its model is missing)
 //   naming        the name field is open
-//   onUpdate(), onStartNaming(), onCancelNaming(), onSaveAs(name), onReset()
+//   onUpdate(), onStartNaming(), onCancelNaming(), onReset(); onSaveAs(name)
+//   answers true when it was saved (the name field keeps the text otherwise)
 export default function SetupStatusLine({
   active, edited, model, toolLabels, effort, warm, warning, naming, busy = false,
   onUpdate, onStartNaming, onCancelNaming, onSaveAs, onReset,
@@ -28,11 +29,16 @@ export default function SetupStatusLine({
   // the Tools badge counts something: both read the same list.
   const tools = toolLabels.length === 0 ? t('setup.line.noTools')
     : toolLabels.length <= 3 ? toolLabels.join(', ') : t('setup.line.toolCount', { count: toolLabels.length })
-  const submit = (e) => {
+  const [saving, setSaving] = useState(false)
+  // The name stays in the field until the save worked, so a refusal (the limit,
+  // a server error) does not lose it.
+  const submit = async (e) => {
     e.preventDefault()
-    if (!name.trim()) return
-    onSaveAs(name)
-    setName('')
+    if (!name.trim() || saving) return
+    setSaving(true)
+    const ok = await onSaveAs(name)
+    setSaving(false)
+    if (ok) setName('')
   }
   return (
     <>
@@ -59,7 +65,7 @@ export default function SetupStatusLine({
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setName(''); onCancelNaming() } }}
             />
-            <Button size="sm" variant="primary" type="submit" busy={busy} disabled={!name.trim()} data-testid="setup-name-save">{t('setup.save')}</Button>
+            <Button size="sm" variant="primary" type="submit" busy={busy || saving} disabled={!name.trim()} data-testid="setup-name-save">{t('setup.save')}</Button>
             <Button size="sm" variant="ghost" onClick={() => { setName(''); onCancelNaming() }} data-testid="setup-name-cancel">{t('setup.cancel')}</Button>
           </form>
         ) : (active && edited && (

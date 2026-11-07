@@ -62,7 +62,7 @@ export default function SetupChip({ list, activeId, edited, inactiveReason = '',
           </div>
           <div className="swl-foot">
             <Button size="sm" variant="ghost" icon="plus" data-testid="setup-save-as" onClick={() => { close(); onSaveAs() }}>{t('setup.saveAs')}</Button>
-            <Button size="sm" variant="ghost" icon="settings" data-testid="setup-manage" onClick={() => { close(); onManage() }}>{t('setup.manage')}</Button>
+            {list.length > 0 && <Button size="sm" variant="ghost" icon="settings" data-testid="setup-manage" onClick={() => { close(); onManage() }}>{t('setup.manage')}</Button>}
           </div>
         </>
       )}

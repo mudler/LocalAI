@@ -14,12 +14,21 @@ const WRITING = { id: 'writing', name: 'Writing', model: 'qwen3-32b-instruct', e
 const wk = (data, version) => ({ name: 'setups', path: '/LocalAI/setups.json', exists: !!version, version, data, valid: true, errors: [] })
 
 // The chat and tools stubs of home-composer.spec.js, and the setups file.
-async function server(page, { hold = {}, setups = null, agents = [], missingApi = false, servers = [], failSend = false } = {}) {
-  const seen = { created: [], puts: [] }
+async function server(page, { hold = {}, ctl = {}, setups = null, agents = [], missingApi = false, servers = [], failSend = false } = {}) {
+  const seen = { created: [], puts: [], updates: [], conflicts: 0 }
   let doc = setups ? wk(setups, 3) : wk({}, 0)
   await page.route('**/api/chats/wellknown/setups', async route => {
-    if (missingApi) return route.fulfill({ status: 404, json: { error: { message: 'unknown well-known file' } } })
+    if (missingApi) return route.fulfill({ status: missingApi === true ? 404 : missingApi, json: { error: { message: 'unknown well-known file' } } })
     if (route.request().method() === 'PUT') {
+      if (ctl.failPut) return route.fulfill({ status: 500, json: { error: { message: 'the file is read only' } } })
+      if (ctl.race) {
+        // Another tab wrote first: the newer file has a setup already.
+        seen.conflicts++
+        const current = wk({ default: 'other', setups: [{ id: 'other', name: 'Other', model: 'qwen3-8b-instruct', effort: '' }] }, 5)
+        ctl.race = false
+        doc = current
+        return route.fulfill({ status: 409, json: { error: { message: 'the file changed' }, current } })
+      }
       const body = route.request().postDataJSON()
       seen.puts.push(body.values)
       doc = wk(body.values, doc.version + 1)
@@ -42,7 +51,10 @@ async function server(page, { hold = {}, setups = null, agents = [], missingApi 
       : route.fulfill({ json: { started: true } })
   })
   await page.route('**/api/chats/n1/events', route => route.abort())
-  await page.route('**/api/chats/n1', route => route.fulfill({ json: { ...CONV, pending: [] } }))
+  await page.route('**/api/chats/n1', route => {
+    if (route.request().method() !== 'GET') seen.updates.push(route.request().postDataJSON())
+    return route.fulfill({ json: { ...CONV, pending: [] } })
+  })
   await page.route(/\/api\/chats\/draft\/tools(\?.*)?$/, async route => { if (hold.p) await hold.p; return route.fulfill({ json: {
     builtins: [
       { group: 'web', tools: ['web_search'], off: false, usable: true, provider: 'builtin', providers: {} },
@@ -97,10 +109,10 @@ test.describe('Home setups', () => {
     await page.getByTestId('home-input').fill('hello')
     await page.getByTestId('home-send').click()
     await expect(page).toHaveURL(/\/app\/chats\/n1$/)
-    await expect.poll(() => seen.puts.length).toBe(2)
+    await expect.poll(() => seen.puts.length).toBe(1)
     expect(seen.puts[0].setups).toHaveLength(1)
     expect(seen.puts[0].setups[0]).toMatchObject({ id: 'my-default', name: 'My default', model: 'qwen3-8b-instruct' })
-    expect(seen.puts[1].default).toBe('my-default')
+    expect(seen.puts[0].default).toBe('my-default')
     const rename = page.getByRole('button', { name: 'Rename' })
     await expect(rename).toBeVisible()
     await rename.click()
@@ -179,6 +191,7 @@ test.describe('Home setups', () => {
     await open(page)
     await page.getByTestId('setup-chip-button').click()
     await expect(page.getByTestId('setup-chip-menu')).toContainText('No setups yet')
+    await expect(page.getByTestId('setup-manage')).toHaveCount(0)
     await page.getByTestId('setup-save-as').click()
     await page.getByTestId('setup-name-input').fill('Plain')
     await page.keyboard.press('Enter')
@@ -198,7 +211,7 @@ test.describe('Home setups', () => {
   })
 
   test('a picked saved agent makes the chip inactive and the agent model wins', async ({ page }) => {
-    await server(page, {
+    const seen = await server(page, {
       setups: { default: 'coding', setups: [CODING] },
       agents: [{ id: 'a1', name: 'Reviewer', model: 'qwen3-32b-instruct' }],
     })
@@ -207,6 +220,24 @@ test.describe('Home setups', () => {
     await page.getByTestId('chat-agent-picker').getByRole('button').click()
     await page.getByRole('radio', { name: 'Reviewer' }).click()
     await expect(page.getByTestId('home-model-chip')).toContainText('qwen3-32b-instruct')
+    await page.getByTestId('home-input').fill('Review this')
+    await page.getByTestId('home-send').click()
+    await expect(page).toHaveURL(/\/app\/chats\/n1$/)
+    // The setup's tool switches and effort do not go with the agent chat.
+    expect(seen.created[0].agent_id).toBe('a1')
+    expect(seen.created[0]).not.toHaveProperty('switches')
+    expect(seen.updates).toEqual([])
+  })
+
+  test('a picked saved agent shows the chip off; dropping the agent brings the setup back', async ({ page }) => {
+    await server(page, {
+      setups: { default: 'coding', setups: [CODING] },
+      agents: [{ id: 'a1', name: 'Reviewer', model: 'qwen3-32b-instruct' }],
+    })
+    await open(page)
+    await expect(chipName(page)).toHaveText('Coding')
+    await page.getByTestId('chat-agent-picker').getByRole('button').click()
+    await page.getByRole('radio', { name: 'Reviewer' }).click()
     const chip = page.getByTestId('setup-chip-button')
     await expect(chip).toBeDisabled()
     await expect(page.getByTestId('setup-reason')).toBeVisible()
@@ -215,6 +246,14 @@ test.describe('Home setups', () => {
     // The status line falls back to the ready line.
     await expect(line(page)).toHaveCount(0)
     await expect(page.getByTestId('chat-ready')).toBeVisible()
+    // The agent comes off: the setup's effort and switches are back.
+    await page.getByTestId('chat-agent-picker').getByRole('button').click()
+    await page.getByRole('radio', { name: 'No agent' }).click()
+    await expect(chip).toBeEnabled()
+    await expect(chipName(page)).toHaveText('Coding')
+    await expect(page.getByTestId('chat-effort-button')).toContainText('High')
+    await expect(await toolSwitch(page, 'Look things up online')).toHaveAttribute('aria-checked', 'false')
+    await expect(page.getByTestId('setup-chip-edited')).toHaveCount(0)
   })
 
   test('a missing well-known API hides the chip', async ({ page }) => {
@@ -228,6 +267,15 @@ test.describe('Home setups', () => {
     await expect(top.locator(':scope > *').first()).toHaveClass(/home-pick/)
     await expect(page.getByTestId('chat-tools-button')).toBeVisible()
   })
+
+  for (const status of [403, 500]) {
+    test(`a ${status} from the setups API hides the chip as well`, async ({ page }) => {
+      await server(page, { missingApi: status })
+      await open(page)
+      await expect(page.getByTestId('chat-ready')).toContainText('qwen3-8b-instruct')
+      await expect(page.getByTestId('setup-chip')).toHaveCount(0)
+    })
+  }
 
   test('Manage renames, reorders, deletes and sets the default', async ({ page }) => {
     const seen = await server(page, { setups: { default: 'coding', setups: [CODING, WRITING] } })
@@ -416,5 +464,84 @@ test.describe('Home setups', () => {
     await page.getByTestId('setup-manage-remove-yes-coding').click()
     await expect(page.getByTestId('setup-manage-row-coding')).toHaveCount(0)
     await expect(page.getByTestId('setup-manage-done')).toBeFocused()
+  })
+
+  test('deleting every setup and then sending creates nothing', async ({ page }) => {
+    const seen = await server(page, { setups: { default: 'coding', setups: [CODING] } })
+    await open(page)
+    await page.getByTestId('setup-chip-button').click()
+    await page.getByTestId('setup-manage').click()
+    await page.getByTestId('setup-manage-remove-coding').click()
+    await page.getByTestId('setup-manage-remove-yes-coding').click()
+    await expect(page.getByTestId('setup-manage-row-coding')).toHaveCount(0)
+    await page.getByTestId('setup-manage-done').click()
+    await page.getByTestId('home-input').fill('hello')
+    await page.getByTestId('home-send').click()
+    await expect(page).toHaveURL(/\/app\/chats\/n1$/)
+    await page.waitForTimeout(500)
+    expect(seen.puts).toHaveLength(1)
+    expect(seen.puts[0].setups).toEqual([])
+    await expect(page.getByRole('button', { name: 'Rename' })).toHaveCount(0)
+  })
+
+  test('a second tab that already saved a setup is not given a second one', async ({ page }) => {
+    const ctl = { race: true }
+    const seen = await server(page, { ctl })
+    await open(page)
+    await page.getByTestId('home-input').fill('hello')
+    await page.getByTestId('home-send').click()
+    await expect(page).toHaveURL(/\/app\/chats\/n1$/)
+    await expect.poll(() => seen.conflicts).toBe(1)
+    await page.waitForTimeout(500)
+    // The retry saw the newer file and stood down: nothing was written.
+    expect(seen.puts).toHaveLength(0)
+    await expect(page.getByRole('button', { name: 'Rename' })).toHaveCount(0)
+  })
+
+  test('an invalid file with no history is not replaced by My default', async ({ page }) => {
+    const seen = await server(page, { setups: null })
+    // The file exists and is invalid: the server reads it as empty data.
+    await page.route('**/api/chats/wellknown/setups', route => {
+      if (route.request().method() === 'PUT') { seen.puts.push('invalid-overwrite'); return route.fulfill({ status: 500, json: {} }) }
+      return route.fulfill({ json: { name: 'setups', path: '/LocalAI/setups.json', exists: true, version: 4, data: {}, valid: false, errors: ['setups: wrong type'] } })
+    })
+    await open(page)
+    await page.getByTestId('home-input').fill('hello')
+    await page.getByTestId('home-send').click()
+    await expect(page).toHaveURL(/\/app\/chats\/n1$/)
+    await page.waitForTimeout(500)
+    expect(seen.puts).toEqual([])
+  })
+
+  test('a refused save keeps the typed name', async ({ page }) => {
+    const ctl = {}
+    await server(page, { ctl, setups: { default: 'coding', setups: [CODING] } })
+    await open(page)
+    await page.getByTestId('chat-effort-button').click()
+    await page.getByTestId('chat-effort-low').click()
+    await page.getByTestId('setup-save-new').click()
+    await page.getByTestId('setup-name-input').fill('Keep me')
+    ctl.failPut = true
+    await page.getByTestId('setup-name-save').click()
+    await expect(page.getByText('the file is read only')).toBeVisible()
+    await expect(page.getByTestId('setup-name-input')).toHaveValue('Keep me')
+    // Tried again once the file takes writes.
+    ctl.failPut = false
+    await page.getByTestId('setup-name-save').click()
+    await expect(chipName(page)).toHaveText('Keep me')
+  })
+
+  test('a refused rename in Manage keeps the typed name for another try', async ({ page }) => {
+    const ctl = {}
+    await server(page, { ctl, setups: { default: 'coding', setups: [CODING] } })
+    await open(page)
+    await page.getByTestId('setup-chip-button').click()
+    await page.getByTestId('setup-manage').click()
+    ctl.failPut = true
+    const name = page.getByTestId('setup-manage-name-coding')
+    await name.fill('Renamed')
+    await name.press('Enter')
+    await expect(page.getByText('the file is read only')).toBeVisible()
+    await expect(name).toHaveValue('Renamed')
   })
 })
