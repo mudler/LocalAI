@@ -8,7 +8,6 @@
   "agent": "Agente",
   "agentNone": "Elige un agente",
   "agentCredentialsOnly": "Sin agente (solo credenciales)",
-  "agentOptionalHint": "Opcional. Sin agente, esta conexión solo guarda el inicio de sesión del buzón y el modo de escritura para tus chats. No responde mensajes y no escucha nada.",
   "credentialsOnly": "Solo credenciales",
   "agentNoModel": "{{name}} (necesita un modelo)",
   "test": "Probar",

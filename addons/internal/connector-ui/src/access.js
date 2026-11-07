@@ -245,12 +245,12 @@ const jump = (target, field, label) => ({ kind: 'open_connection', target, field
 // The rows of the readiness list for the form as it is now.
 //   form, saved (the form of the saved binding, or null), kindInfo,
 //   capabilities, agents, lists, tokenTyped, token ({ ok, reason } | null),
-//   preview ({ status: 'loading'|'ready'|'error', view }), paired, agentOptional,
+//   preview ({ status: 'loading'|'ready'|'error', view }), paired, agentOptional, toolOnly,
 //   now
 // Every row is { id, state, key, params, fix } with the sentence as a key of
 // the page's words. A row that works only after the form is saved says so.
 export function readinessRows(ctx) {
-  const { form, saved, kindInfo, agents = [], lists = [], tokenTyped, token, preview = {}, paired, agentOptional = false, now = Date.now(), capabilities = [], isChannel = () => false } = ctx
+  const { form, saved, kindInfo, agents = [], lists = [], tokenTyped, token, preview = {}, paired, agentOptional = false, toolOnly = false, now = Date.now(), capabilities = [], isChannel = () => false } = ctx
   const changed = changedFields(form, saved)
   const caps = form.caps || []
   const on = (n) => caps.includes(n)
@@ -275,9 +275,11 @@ export function readinessRows(ctx) {
     rows.push({ id: 'token', state: 'ok', key: 'ready.token.saved' })
   }
 
-  // Agent
+  // Agent. A tool-only kind has none: agents choose the connection, not the other way round.
   const agent = agents.find((a) => a.id === form.agent_id)
-  if (!form.agent_id) {
+  if (toolOnly) {
+    // no row
+  } else if (!form.agent_id) {
     rows.push(agentOptional
       ? { id: 'agent', state: 'off', key: 'ready.agent.credentialsOnly' }
       : { id: 'agent', state: 'attention', key: 'ready.agent.none', fix: jump('agent_id', '', 'fix.agent') })

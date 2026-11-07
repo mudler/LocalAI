@@ -502,6 +502,15 @@ type ApplicationConfig struct {
 	DisableChatsIndexFiles bool
 	ChatsIndexMaxTextBytes int
 
+	// ChatsExtractMaxBytes and ChatsExtractMaxEntries are the limits of
+	// "Extract here" on the Files page (chats_extract_max_bytes and
+	// chats_extract_max_entries; 0: the defaults). ChatsExtractSevenZipRar
+	// turns on 7z and RAR archives (chats_extract_7z_rar; off by default).
+	// All three are read at each request.
+	ChatsExtractMaxBytes    int64
+	ChatsExtractMaxEntries  int
+	ChatsExtractSevenZipRar bool
+
 	// DisableChatSuggestions stops the assistant from offering things (to
 	// remember a name, to make a shortcut, to update a widget on a schedule)
 	// to users who did not choose for themselves. Runtime-toggleable via
@@ -1706,6 +1715,35 @@ func (o *ApplicationConfig) EffectiveChatsIndexMaxTextBytes() int {
 		return n
 	}
 	return DefaultChatsIndexMaxTextBytes
+}
+
+// Bounds and defaults of the limits of "Extract here".
+const (
+	MinChatsExtractMaxBytes     int64 = 1 << 20
+	MaxChatsExtractMaxBytes     int64 = 64 << 30
+	DefaultChatsExtractMaxBytes int64 = 1 << 30
+
+	MinChatsExtractMaxEntries     = 1
+	MaxChatsExtractMaxEntries     = 1000000
+	DefaultChatsExtractMaxEntries = 20000
+)
+
+// EffectiveChatsExtractMaxBytes is the most bytes one archive may expand to:
+// the setting, or the default when it is unset or out of range.
+func (o *ApplicationConfig) EffectiveChatsExtractMaxBytes() int64 {
+	if n := o.ChatsExtractMaxBytes; n >= MinChatsExtractMaxBytes && n <= MaxChatsExtractMaxBytes {
+		return n
+	}
+	return DefaultChatsExtractMaxBytes
+}
+
+// EffectiveChatsExtractMaxEntries is the most entries one archive may have:
+// the setting, or the default when it is unset or out of range.
+func (o *ApplicationConfig) EffectiveChatsExtractMaxEntries() int {
+	if n := o.ChatsExtractMaxEntries; n >= MinChatsExtractMaxEntries && n <= MaxChatsExtractMaxEntries {
+		return n
+	}
+	return DefaultChatsExtractMaxEntries
 }
 
 // DefaultChatsEgressAuditDays is how long the Sandbox network audit keeps a

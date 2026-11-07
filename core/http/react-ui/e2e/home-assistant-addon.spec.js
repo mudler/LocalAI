@@ -10,7 +10,7 @@ import { connectorApi, openPane } from './connector-fixtures.js'
 
 const PAGE = '/app/addons/home-assistant/apps'
 const BINDING = { id: 'b1', name: 'Home', kind: 'home-assistant', agent_id: '', credentials_only: true, enabled: false, accept_any: false, allow: [], resources: ['https://ha.example.org:8123'], write_mode: 'propose', has_token: true }
-const KIND = { capabilities: [], kindExtra: { title: 'Home Assistant', files: undefined, agent_optional: true } }
+const KIND = { capabilities: [], kindExtra: { title: 'Home Assistant', files: undefined, agent_optional: true, tool_only: true } }
 const api = (page, initial = []) => connectorApi(page, initial, 'home-assistant', [], undefined, KIND)
 
 const POLICY = { allow: ['light.turn_on', 'light.turn_off', 'climate.set_temperature', 'script.turn_on'], excludeDomains: ['lock', 'camera'], excludeAreas: [], excludePatterns: [], excludeLabel: 'sensitive', maxTargets: 5, pins: [] }

@@ -8,7 +8,6 @@
   "agent": "Agent",
   "agentNone": "Agent wählen",
   "agentCredentialsOnly": "Kein Agent (nur Zugangsdaten)",
-  "agentOptionalHint": "Optional. Ohne Agent speichert diese Verbindung nur die Postfach-Anmeldung und den Schreibmodus für deine Chats. Sie beantwortet keine Nachrichten und hört auf nichts.",
   "credentialsOnly": "Nur Zugangsdaten",
   "agentNoModel": "{{name}} (braucht ein Modell)",
   "test": "Testen",

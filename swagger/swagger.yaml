@@ -4087,6 +4087,11 @@ definitions:
           it or pt-BR. With reply_language auto, the bot speaks in it before it
           reads the language of the sender. Absent when the server was not told.
         type: string
+      used_by:
+        description: |-
+          UsedBy is how many of your saved agents have this connection in their
+          connections. Present only for a binding of a tool_only kind.
+        type: integer
       window_minutes:
         type: integer
       write_mode:
@@ -5352,6 +5357,11 @@ definitions:
           it or pt-BR. With reply_language auto, the bot speaks in it before it
           reads the language of the sender. Absent when the server was not told.
         type: string
+      used_by:
+        description: |-
+          UsedBy is how many of your saved agents have this connection in their
+          connections. Present only for a binding of a tool_only kind.
+        type: integer
       window_minutes:
         type: integer
       write_mode:
@@ -5878,6 +5888,13 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsConnectorTokenGuard'
         type: array
+      tool_only:
+        description: |-
+          ToolOnly is true for a kind whose bindings only serve tools. A binding
+          has no agent, never listens and never accepts senders; the server clears
+          agent_id, enabled and accept_any. Many agents can use one binding
+          through their connections. It implies agent_optional.
+        type: boolean
       wildcard_resources:
         description: |-
           WildcardResources is true when a binding of this kind may list owner/*
@@ -6879,6 +6896,66 @@ definitions:
       role:
         type: string
       text:
+        type: string
+    type: object
+  schema.ChatsExtractConflict:
+    properties:
+      kept:
+        description: Kept is where the new content went; empty when it was dropped.
+        type: string
+      path:
+        type: string
+      reason:
+        type: string
+    type: object
+  schema.ChatsExtractRequest:
+    properties:
+      dest:
+        description: |-
+          Dest is the folder to extract into. Empty: a new folder next to the
+          archive, named like it without the extension.
+        type: string
+      path:
+        description: Path is the archive, inside your home.
+        type: string
+    type: object
+  schema.ChatsExtractResponse:
+    properties:
+      bytes:
+        type: integer
+      conflicts:
+        items:
+          $ref: '#/definitions/schema.ChatsExtractConflict'
+        type: array
+      dest:
+        description: Dest is the folder that holds the files.
+        type: string
+      files:
+        type: integer
+      folders:
+        type: integer
+      rev:
+        description: Rev is the change set; POST /api/chats/files/undo with it takes
+          it all back.
+        type: integer
+      skipped:
+        description: |-
+          Skipped lists up to 200 entries that were not extracted;
+          skipped_count counts all of them.
+        items:
+          $ref: '#/definitions/schema.ChatsExtractSkipped'
+        type: array
+      skipped_count:
+        type: integer
+    type: object
+  schema.ChatsExtractSkipped:
+    properties:
+      path:
+        type: string
+      reason:
+        description: |-
+          Reason is symlink, hard_link, special, bad_name, not_utf8, too_deep,
+          too_large, duplicate, encrypted, managed or unreadable.
         type: string
     type: object
   schema.ChatsFailure:
@@ -19775,6 +19852,51 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Upload a file.
+      tags:
+      - chats
+  /api/chats/files/extract:
+    post:
+      description: 'Reads a zip, tar (also tar.gz, tar.bz2, tar.xz, tar.zst and others)
+        or, when an administrator allows it, 7z or RAR archive from your files and
+        writes its files into a folder, as one change set that undo takes back whole.
+        Without dest the folder is new, next to the archive, named like it without
+        the extension ("name 2" when taken). A name that is taken in dest keeps the
+        existing file; the new content is saved next to it as a copy and listed in
+        conflicts. Symbolic links, hard links and devices are skipped and listed.
+        Nested archives are written as plain files. The limits (bytes, entries, size
+        of one file, time) are counted on what is really read, and an archive over
+        a limit writes nothing: 413, or 408 for the time limit. A path that leaves
+        the destination refuses the archive (400).'
+      parameters:
+      - description: the archive and, optionally, the folder
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsExtractRequest'
+      responses:
+        "200":
+          description: The folder, the change set and what was skipped
+          schema:
+            $ref: '#/definitions/schema.ChatsExtractResponse'
+        "400":
+          description: The request is not valid, or the archive is damaged or not
+            supported
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "408":
+          description: The extraction ran past its time limit
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: dest is a file, or files are off
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: The archive expands past a limit
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Extract an archive into a folder of your files.
       tags:
       - chats
   /api/chats/files/folders:

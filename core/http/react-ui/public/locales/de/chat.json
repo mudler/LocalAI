@@ -349,6 +349,9 @@
     "changedTag": "Bearbeitet",
     "changedTitle": "Der Assistent hat diese Datei geändert",
     "download": "{{name}} herunterladen",
+    "downloadAll": "Alle Dateien als ZIP herunterladen",
+    "zipName": "chat-dateien.zip",
+    "zipError": "Die Dateien konnten nicht als ZIP heruntergeladen werden.",
     "error": "Die Dateien dieses Chats konnten nicht gelesen werden.",
     "workingNote": "Skripte, Daten und Protokolle, die der Assistent unterwegs erstellt hat. Sie liegen im Arbeitsordner dieses Chats."
   },

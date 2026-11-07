@@ -10,7 +10,7 @@ import { connectorApi, openEdit, openPane } from './connector-fixtures.js'
 
 const PAGE = '/app/addons/mail/apps'
 const BINDING = { id: 'b1', name: 'Mail: ann@example.com', kind: 'mail', agent_id: '', enabled: false, accept_any: false, allow: [], resources: ['ann@example.com'], write_mode: 'propose', has_token: true }
-const KIND = { capabilities: [], kindExtra: { title: 'Mail', files: undefined, agent_optional: true } }
+const KIND = { capabilities: [], kindExtra: { title: 'Mail', files: undefined, agent_optional: true, tool_only: true } }
 const api = (page, initial = []) => connectorApi(page, initial, 'mail', [], undefined, KIND)
 
 // The check tool answers through the add-on gateway of the page.

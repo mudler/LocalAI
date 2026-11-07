@@ -79,7 +79,8 @@ func (r VersionRange) isHostAPI() bool {
 // Level 2: capabilities.resources.agentScoped.
 // Level 3: capabilities.ownerData.
 // Level 4: the setup text (the top-level setup and connector kind setup).
-const HostFeatureLevel uint64 = 4
+// Level 5: capabilities.connector.kinds[].toolOnly.
+const HostFeatureLevel uint64 = 5
 
 // BaseFeatureLevel is the level of a manifest that sets no featureLevel.
 const BaseFeatureLevel uint64 = 1
@@ -113,6 +114,9 @@ func (m Manifest) RequiredFeatureLevel() uint64 {
 // usedFeatureLevel is the lowest level that holds every optional field the
 // manifest uses.
 func (m Manifest) usedFeatureLevel() uint64 {
+	if m.usesToolOnly() {
+		return 5
+	}
 	if m.usesSetup() {
 		return 4
 	}
@@ -128,6 +132,18 @@ func (m Manifest) usedFeatureLevel() uint64 {
 		}
 	}
 	return BaseFeatureLevel
+}
+
+// usesToolOnly reports whether a connector kind declares toolOnly.
+func (m Manifest) usesToolOnly() bool {
+	if c := m.Capabilities.Connector; c != nil {
+		for _, k := range c.Kinds {
+			if k.ToolOnly {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 type HostCompatibility struct {

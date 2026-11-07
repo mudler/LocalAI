@@ -215,6 +215,10 @@ type Deps struct {
 	// tools or hidden behind tool_search, tool_describe and tool_call. Read
 	// at each turn. Nil: auto.
 	ToolSearchMode func() string
+	// ExtractLimits gives the limits of the Extract action of the Files page
+	// (the settings chats_extract_max_bytes, chats_extract_max_entries and
+	// chats_extract_7z_rar). Read at each request. Nil: the defaults.
+	ExtractLimits func() files.ExtractLimits
 	// ClientTools serves the LocalAI client tools. Nil: the client group is
 	// not registered.
 	ClientTools ClientAssistant
@@ -975,6 +979,14 @@ func (s *Service) Principal(user string) string { return principal(user) }
 
 // Files returns the workspace of the chats. It is never nil.
 func (s *Service) Files() *files.Service { return s.d.Files }
+
+// ExtractLimits returns the limits of the next extraction.
+func (s *Service) ExtractLimits() files.ExtractLimits {
+	if s.d.ExtractLimits == nil {
+		return files.ExtractLimits{}
+	}
+	return s.d.ExtractLimits()
+}
 
 // PageConsents returns the store of the consents to shared pages, or nil.
 func (s *Service) PageConsents() pages.ConsentStore { return s.d.PageConsents }

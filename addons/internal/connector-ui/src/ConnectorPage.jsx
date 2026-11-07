@@ -193,7 +193,7 @@ function ShareConnection({ share, s, onChanged, close }) {
  *                                     Connectors page): the page then edits the saved ones and has no New button
  */
 export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleToken, tokenOf = (f) => f.token || '', lists = ONE_LIST, Help, notifyMode = 'text',
-  messaging = true, isChannelEntry: channelPredicate, mixedList = false, ExtraFields, extraBody, extraForm, extraValid, testExtra, RowInfo, canAdd = true }) {
+  messaging: messagingProp = true, isChannelEntry: channelPredicate, mixedList = false, ExtraFields, extraBody, extraForm, extraValid, testExtra, RowInfo, canAdd = true }) {
   const { t, i18n } = useTranslation([ns, 'connector'])
   const uiLanguage = i18n?.resolvedLanguage || i18n?.language || ''
   setApiLanguage(uiLanguage)
@@ -252,6 +252,10 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const kindFiles = kindInfo?.files || null
   // A kind that declares agent_optional lets a binding hold credentials only.
   const agentOptional = Boolean(kindInfo?.agent_optional)
+  // A tool-only kind (tool_only) has no agent: many agents use one connection through their own sets, so the form
+  // shows no agent and the rows say how many agents use it. It never carries messages, whatever the add-on passes.
+  const toolOnly = Boolean(kindInfo?.tool_only)
+  const messaging = messagingProp && !toolOnly
   const s = answerT(t)
   // Which entries of the allowlist name a channel or group, where people are trusted by the setting of the channel. Without a rule of the kind, the last of several lists holds the channels.
   const isChannelEntry = channelPredicate || ((x) => lists.length > 1 && listEntries([x], lists, lists.length - 1).length === 1)
@@ -305,6 +309,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   // A new connection starts with the usual permissions for its agent. While the
   // preset is Standard, choosing another agent ticks the usual set of that agent.
   const withAgent = (f, agentId) => {
+    if (toolOnly) return f
     const standard = presetChoice ? presetChoice === 'standard' : presetOf(f, capabilities, agentOf(f.agent_id)) === 'standard'
     const next = { ...f, agent_id: agentId }
     return standard && capabilities.length > 0 ? applyPreset(next, 'standard', capabilities, agentOf(agentId)) : next
@@ -330,8 +335,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     setFocusToken(opts.focusToken ? Date.now() : 0)
   }
   const openNew = (agentId = '') => {
-    const picked = agentId ? agents.find((a) => a.id === agentId && a.model) : null
-    const held = agentHeld(picked || (agents.length === 1 ? agents[0] : null))
+    const picked = agentId && !toolOnly ? agents.find((a) => a.id === agentId && a.model) : null
+    const held = agentHeld(picked || (!toolOnly && agents.length === 1 ? agents[0] : null))
     const f = { ...emptyConnector(capabilities, held), ...(extraForm ? extraForm({}) : {}) }
     openForm(picked ? { ...f, agent_id: picked.id } : f, { fixedAgent: Boolean(picked) })
   }
@@ -512,7 +517,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const people = form ? (lists.length > 1 ? listEntries(form.allow, lists, 0).length : (form.allow || []).length) : 0
   const fixCtx = { agentId: form?.agent_id || '', isAdmin, lists, form: form || {}, people }
   const tokenCheck = form?.id && checks[form.id] ? { ok: checks[form.id].ok, bot: checks[form.id].text, reason: checks[form.id].reason } : null
-  const readyInput = form && { form, saved: savedForm, kindInfo, capabilities, agents, lists, tokenTyped, token: tokenCheck, preview, paired: pairedList || form.paired || [], agentOptional, messaging, isChannel: isChannelEntry }
+  const readyInput = form && { form, saved: savedForm, kindInfo, capabilities, agents, lists, tokenTyped, token: tokenCheck, preview, paired: pairedList || form.paired || [], agentOptional, toolOnly, messaging, isChannel: isChannelEntry }
   const preset = form ? presetChoice || presetOf(form, capabilities, agentOf(form.agent_id)) : 'answer'
 
   if (off) {
@@ -527,8 +532,10 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   // ---- The rows --------------------------------------------------------------
   const kindTitle = kindInfo?.title || kind
   const whoText = (c) => (c.accept_any ? t('modes.anyone') : (c.allow || []).length === 0 ? t('modes.nobody') : t('modes.listed', { count: c.allow.length }))
-  const agentText = (c) => (c.credentials_only ? s('credentialsOnly') : t('agentOf', { name: agentName(c.agent_id) }))
-  const factsOf = (c) => [kindTitle, agentText(c), ...(messaging && !c.credentials_only ? [t('accepts', { who: whoText(c) })] : [])].join(' · ')
+  const usedByText = (c) => (c.used_by > 0 ? s('usedBy.count', { count: c.used_by }) : s('usedBy.none'))
+  // Without a count (the agents could not be read) a tool-only row says nothing about agents.
+  const agentText = (c) => (toolOnly ? (typeof c.used_by === 'number' ? usedByText(c) : '') : c.credentials_only ? s('credentialsOnly') : t('agentOf', { name: agentName(c.agent_id) }))
+  const factsOf = (c) => [kindTitle, agentText(c), ...(messaging && !c.credentials_only ? [t('accepts', { who: whoText(c) })] : [])].filter(Boolean).join(' · ')
   const reasonOf = (a) => {
     if (!a) return ''
     if (a.cause === 'inactive') return t('inactive', { reason: a.reason })
@@ -545,7 +552,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const detail = items.find((x) => x.id === detailId) || null
   const paneFacts = (c) => [
     [s('conn.kv.service'), kindTitle],
-    [t('agent'), c.credentials_only ? s('credentialsOnly') : agentName(c.agent_id)],
+    ...(toolOnly ? (typeof c.used_by === 'number' ? [[s('conn.kv.agents'), <span key="u" data-testid="connector-used-by">{usedByText(c)}</span>]] : [])
+      : [[t('agent'), c.credentials_only ? s('credentialsOnly') : agentName(c.agent_id)]]),
     ...(messaging && !c.credentials_only ? [
       [s('conn.kv.accepts'), whoText(c)],
       [s('conn.kv.replies'), <span key="r" data-testid="connector-answer-summary">{answerSummary(c, t)}</span>],
@@ -565,10 +573,10 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   )
 
   const sheetProps = form && {
-    t, s, form, setForm, messaging, capabilities, kindInfo, kindFiles, agents, agentOptional, TokenFields, ExtraFields, savedItem, busy, error: formError, fixedAgent,
+    t, s, form, setForm, messaging, capabilities, kindInfo, kindFiles, agents, agentOptional, toolOnly, TokenFields, ExtraFields, savedItem, busy, error: formError, fixedAgent,
     testStep, testFail, onTestAgain: testAgain,
     onSubmit: save, onClose: closeSheet, canSubmit: canSave(form, confirmed, tokenTyped, kindFiles, agentOptional) && !(extraValid && !extraValid(form)),
-    agentName, agentHref: savedItem ? `${basePath}/app/agents/${encodeURIComponent(savedItem.agent_id)}` : '', dirty,
+    agentName, toolOnly, agentHref: savedItem && !toolOnly ? `${basePath}/app/agents/${encodeURIComponent(savedItem.agent_id)}` : '', dirty,
     sameBot: messaging && form.id && savedItem ? <SameBotNotice c={savedItem} s={s} busy={busy} onOff={() => { setForm(null); act(() => connectorsApi.disable(form.id)) }} onOpen={openById} /> : null,
     fixCtx, readyInput, withAgent, preset, setPreset: setPresetChoice, confirmed, setConfirmed, isChannelEntry, mixedList, pairedChanged, pairedList,
     senderLog, lists, preview, accessVersion, notifyMode, onAllowed: (sender) => { setForm((f) => (f && !(f.allow || []).includes(sender) ? { ...f, allow: [...(f.allow || []), sender] } : f)); setAccessVersion((v) => v + 1); load() },

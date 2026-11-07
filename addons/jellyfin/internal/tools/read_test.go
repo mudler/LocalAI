@@ -22,7 +22,7 @@ var _ = Describe("the manifest", func() {
 		Expect(err).NotTo(HaveOccurred())
 		m, err := contract.ParseManifest(b)
 		Expect(err).NotTo(HaveOccurred())
-		h := contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 2, DataFormat: 1, OS: "linux", Arch: "amd64"}
+		h := contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 2, DataFormat: 1, FeatureLevel: contract.HostFeatureLevel, OS: "linux", Arch: "amd64"}
 		Expect(contract.ValidateManifest(m, h)).To(Succeed())
 		Expect(m.Capabilities.Tools).To(ConsistOf(tools.Declared()))
 		Expect(m.Capabilities.Credentials).To(HaveLen(1))

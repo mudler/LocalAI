@@ -431,6 +431,9 @@
     "changedTag": "Diedit",
     "changedTitle": "Asisten mengubah file ini",
     "download": "Unduh {{name}}",
+    "downloadAll": "Unduh semua file sebagai ZIP",
+    "zipName": "file-obrolan.zip",
+    "zipError": "File tidak dapat diunduh sebagai ZIP.",
     "error": "File obrolan ini tidak dapat dibaca.",
     "workingNote": "Skrip, data, dan log yang dibuat asisten selama bekerja. Semuanya disimpan di folder kerja chat ini."
   },

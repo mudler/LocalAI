@@ -923,6 +923,47 @@ type ChatsMoveRequest struct {
 	To   string `json:"to"`
 }
 
+// ChatsExtractRequest extracts an archive of your files.
+type ChatsExtractRequest struct {
+	// Path is the archive, inside your home.
+	Path string `json:"path"`
+	// Dest is the folder to extract into. Empty: a new folder next to the
+	// archive, named like it without the extension.
+	Dest string `json:"dest,omitempty"`
+}
+
+// ChatsExtractSkipped is an archive entry that was not extracted.
+type ChatsExtractSkipped struct {
+	Path string `json:"path"`
+	// Reason is symlink, hard_link, special, bad_name, not_utf8, too_deep,
+	// too_large, duplicate, encrypted, managed or unreadable.
+	Reason string `json:"reason"`
+}
+
+// ChatsExtractConflict is a file whose name was taken in the destination.
+type ChatsExtractConflict struct {
+	Path   string `json:"path"`
+	Reason string `json:"reason"`
+	// Kept is where the new content went; empty when it was dropped.
+	Kept string `json:"kept,omitempty"`
+}
+
+// ChatsExtractResponse says what an extraction did.
+type ChatsExtractResponse struct {
+	// Dest is the folder that holds the files.
+	Dest string `json:"dest"`
+	// Rev is the change set; POST /api/chats/files/undo with it takes it all back.
+	Rev     int64 `json:"rev"`
+	Files   int   `json:"files"`
+	Folders int   `json:"folders"`
+	Bytes   int64 `json:"bytes"`
+	// Skipped lists up to 200 entries that were not extracted;
+	// skipped_count counts all of them.
+	Skipped      []ChatsExtractSkipped  `json:"skipped,omitempty"`
+	SkippedCount int                    `json:"skipped_count"`
+	Conflicts    []ChatsExtractConflict `json:"conflicts,omitempty"`
+}
+
 // ChatsUndoRequest undoes one change set.
 type ChatsUndoRequest struct {
 	Rev           int64 `json:"rev"`
@@ -1671,6 +1712,9 @@ type ChatsConnector struct {
 	// Share is the share of the binding, once its owner made it shareable.
 	// Only the owner reads it.
 	Share *ChatsConnectorShare `json:"share,omitempty"`
+	// UsedBy is how many of your saved agents have this connection in their
+	// connections. Present only for a binding of a tool_only kind.
+	UsedBy *int `json:"used_by,omitempty"`
 	// FileReceiveMaxBytes and FileSendMaxBytes are your limits for this bot;
 	// zero means you set none and the limit of the kind applies.
 	FileReceiveMaxBytes int64 `json:"file_receive_max_bytes"`
@@ -2031,6 +2075,11 @@ type ChatsConnectorKind struct {
 	// its bindings with auth_kind oauth2 and no token. Absent for a kind
 	// whose bindings hold a token.
 	AuthKind string `json:"auth_kind,omitempty"`
+	// ToolOnly is true for a kind whose bindings only serve tools. A binding
+	// has no agent, never listens and never accepts senders; the server clears
+	// agent_id, enabled and accept_any. Many agents can use one binding
+	// through their connections. It implies agent_optional.
+	ToolOnly bool `json:"tool_only,omitempty"`
 	// WildcardResources is true when a binding of this kind may list owner/*
 	// or * as resources; * needs confirm_any_resource.
 	WildcardResources bool `json:"wildcard_resources,omitempty"`

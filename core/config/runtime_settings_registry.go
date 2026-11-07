@@ -547,6 +547,34 @@ var runtimeSettingsFields = []fieldSpec{
 			o.ChatsIndexMaxTextBytes = *s.ChatsIndexMaxTextBytes
 			return true
 		}),
+	withApply(field("chats_extract_max_bytes",
+		func(s *RuntimeSettings) **int64 { return &s.ChatsExtractMaxBytes },
+		func(o *ApplicationConfig) int64 { return o.EffectiveChatsExtractMaxBytes() },
+		func(o *ApplicationConfig, v int64) { o.ChatsExtractMaxBytes = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.ChatsExtractMaxBytes; v < MinChatsExtractMaxBytes || v > MaxChatsExtractMaxBytes {
+				xlog.Warn("invalid chats_extract_max_bytes in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsExtractMaxBytes = *s.ChatsExtractMaxBytes
+			return true
+		}),
+	withApply(field("chats_extract_max_entries",
+		func(s *RuntimeSettings) **int { return &s.ChatsExtractMaxEntries },
+		func(o *ApplicationConfig) int { return o.EffectiveChatsExtractMaxEntries() },
+		func(o *ApplicationConfig, v int) { o.ChatsExtractMaxEntries = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.ChatsExtractMaxEntries; v < MinChatsExtractMaxEntries || v > MaxChatsExtractMaxEntries {
+				xlog.Warn("invalid chats_extract_max_entries in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsExtractMaxEntries = *s.ChatsExtractMaxEntries
+			return true
+		}),
+	field("chats_extract_7z_rar",
+		func(s *RuntimeSettings) **bool { return &s.ChatsExtractSevenZipRar },
+		func(o *ApplicationConfig) bool { return o.ChatsExtractSevenZipRar },
+		func(o *ApplicationConfig, v bool) { o.ChatsExtractSevenZipRar = v }),
 	field("chats_web_searxng_url",
 		func(s *RuntimeSettings) **string { return &s.ChatsWebSearXNGURL },
 		func(o *ApplicationConfig) string { return o.ChatsWebSearXNGURL },

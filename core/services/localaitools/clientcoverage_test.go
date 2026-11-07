@@ -48,6 +48,7 @@ var clientCoveredFeatures = []string{
 // backlog: a tool is wanted but does not exist. Any other reason is a
 // decision. A route listed here must not be wrapped by a tool too.
 var clientToolExemptions = map[string]string{
+	"POST /api/chats/files/extract": "a person's action on the Files page for large archives; the model unpacks small ones in its sandbox, and a tool would cost tokens on every turn",
 	"POST /chat/completions":              "chat is the chat itself: the agent already runs on it, a tool would only recurse",
 	"POST /v1/completions":                "chat is the chat itself: the agent already runs on it, a tool would only recurse",
 	"POST /completions":                   "chat is the chat itself: the agent already runs on it, a tool would only recurse",

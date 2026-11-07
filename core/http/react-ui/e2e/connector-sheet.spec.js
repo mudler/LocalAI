@@ -373,3 +373,56 @@ test.describe('Connector rows, pane and sheet', () => {
     await expect(page.getByTestId('connector-state')).toHaveText('Needs attention')
   })
 })
+
+// A tool-only kind (the kind says tool_only) has no agent: many agents use one
+// connection through their own sets. The same page, drawn for a kind that is
+// tool-only, hides everything that talks of one agent.
+test.describe('A connection of a tool-only kind', () => {
+  const KIND = { kindExtra: { agent_optional: true, tool_only: true }, capabilities: [] }
+  const TOOLS = { ...OFF, id: 'b9', name: 'Work tools', agent_id: '', credentials_only: true, enabled: false, caps: [], used_by: 2 }
+  const UNUSED = { ...TOOLS, id: 'b8', name: 'Spare tools', used_by: 0 }
+  const ONE = { ...TOOLS, id: 'b7', name: 'Solo tools', used_by: 1 }
+
+  test.beforeEach(async ({ page }) => {
+    await mockChat(page)
+    await installStudioAddons(page, { ids: ['telegram'] })
+  })
+
+  test('the row and the pane say how many agents use it, not which agent answers', async ({ page }) => {
+    await connectorApi(page, [TOOLS, UNUSED, ONE], 'telegram', [], undefined, KIND).install()
+    await page.goto(PAGE)
+    const rows = page.getByTestId('connector-row')
+    await expect(rows.nth(0).getByTestId('connector-facts')).toHaveText('telegram · Used by 2 agents')
+    await expect(rows.nth(1).getByTestId('connector-facts')).toHaveText('telegram · Not used by any agent')
+    await expect(rows.nth(2).getByTestId('connector-facts')).toHaveText('telegram · Used by 1 agent')
+    await expect(rows.nth(0)).not.toContainText(/Agent:|answers/i)
+    await expect(rows.nth(0).getByTestId('connector-switch')).toHaveCount(0)
+    await openPane(page, 'Work tools')
+    await expect(page.getByTestId('connector-used-by')).toHaveText('Used by 2 agents')
+  })
+
+  test('the sheet has no agent field and saves no agent, even when the page is opened for one', async ({ page }) => {
+    const a = connectorApi(page, [], 'telegram', [], undefined, KIND)
+    await a.install()
+    await page.goto(`${PAGE}?new=1&agent=a1`)
+    const sheet = page.getByTestId('connector-sheet')
+    await expect(sheet).toBeVisible()
+    await expect(sheet.getByTestId('connector-agent')).toHaveCount(0)
+    await expect(sheet.getByTestId('connector-agent-fixed')).toHaveCount(0)
+    await expect(sheet.getByTestId('connector-agent-link')).toHaveCount(0)
+    await expect(sheet).not.toContainText(/without an agent|answers no message/i)
+    await sheet.getByLabel('Name', { exact: true }).fill('Work tools')
+    await sheet.getByLabel('Bot token').fill('1:x')
+    await saveSheet(page)
+    await expect.poll(() => a.s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/connectors')?.body.agent_id).toBe('')
+  })
+
+  test('editing a saved connection shows no agent either', async ({ page }) => {
+    await connectorApi(page, [TOOLS], 'telegram', [], undefined, KIND).install()
+    await page.goto(PAGE)
+    await openEdit(page)
+    const sheet = page.getByTestId('connector-sheet')
+    await expect(sheet.getByTestId('connector-agent')).toHaveCount(0)
+    await expect(sheet.getByTestId('connector-readiness')).toHaveCount(0)
+  })
+})

@@ -169,7 +169,7 @@ of the agent uses that set, shows it read only, and cannot change it. With two o
 more in the set, the model names the connection in each tool call (see [The
 connections of an add-on](/features/chats/#the-connections-of-an-add-on)). With
 none ticked each chat chooses its own (with one connection, it is used); until a
-person chooses, the add-on's tools are not offered. The messaging connections that
+person chooses, the add-on's tools are not offered. Many agents can use the same connection; the connection's row on its add-on page says how many do. The messaging connections that
 answer with the agent are listed under **Identity**, read only.
 
 Over the API an agent has `connections`, an object from add-on ID to a list of
