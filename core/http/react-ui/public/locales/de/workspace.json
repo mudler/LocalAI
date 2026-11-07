@@ -546,7 +546,8 @@
     "moveMany_other": "{{count}} Elemente verschieben nach…",
     "deleteMany_one": "{{count}} Element in den Papierkorb legen",
     "deleteMany_other": "{{count}} Elemente in den Papierkorb legen",
-    "share": "Teilen…"
+    "share": "Teilen…",
+    "extract": "Hier entpacken"
   },
   "keys": {
     "delete": "Entf"
@@ -570,7 +571,14 @@
     "movedOne": "{{name}} wurde nach {{folder}} verschoben.",
     "moved_one": "{{count}} Element wurde nach {{folder}} verschoben.",
     "moved_other": "{{count}} Elemente wurden nach {{folder}} verschoben.",
-    "moveUndone": "Zurückverschoben."
+    "moveUndone": "Zurückverschoben.",
+    "extractSkipped_one": "{{count}} Eintrag wurde übersprungen (Links, Geräte oder ungültige Namen).",
+    "extractSkipped_other": "{{count}} Einträge wurden übersprungen (Links, Geräte oder ungültige Namen).",
+    "extractConflicts_one": "{{count}} Name war schon vergeben: Die neue Datei wird als Kopie gespeichert.",
+    "extractConflicts_other": "{{count}} Namen waren schon vergeben: Die neuen Dateien werden als Kopien gespeichert.",
+    "extractUndone": "Entpacken rückgängig gemacht.",
+    "extracted_one": "{{count}} Datei nach {{folder}} entpackt.",
+    "extracted_other": "{{count}} Dateien nach {{folder}} entpackt."
   },
   "search": {
     "placeholder": "Diesen Ordner filtern",
