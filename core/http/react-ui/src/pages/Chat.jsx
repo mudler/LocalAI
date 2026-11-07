@@ -6,6 +6,10 @@ import { useServerChat } from '../hooks/useServerChat'
 import { useChatComposer } from '../hooks/useChatComposer'
 import { useComposerArrival } from '../hooks/useComposerTransition'
 import { useChatEgress } from '../hooks/useChatEgress'
+import { useLive } from '../hooks/useLive'
+import { useModels } from '../hooks/useModels'
+import { CAP_TRANSCRIPT, CAP_TTS } from '../utils/capabilities'
+import { pickLiveModels } from '../utils/liveModels'
 import { cardsByTool } from '../utils/chatEgress'
 import { useInbox } from '../hooks/useInbox'
 import { useOriginContext } from '../hooks/useOriginContext'
@@ -30,6 +34,12 @@ import { chatsApi, modelsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 // eslint-disable-next-line no-unused-vars
 import ChatComposer from '../components/chat/ChatComposer'
+// eslint-disable-next-line no-unused-vars -- used only inside JSX
+import LiveButton from '../components/chat/LiveButton'
+// eslint-disable-next-line no-unused-vars -- used only inside JSX
+import LiveSetupSheet from '../components/chat/LiveSetupSheet'
+// eslint-disable-next-line no-unused-vars -- used only inside JSX
+import LiveDock from '../components/chat/LiveDock'
 import { OPEN_CHAT_FILE_EVENT } from '../components/chat/chatActions'
 import { contextSinceClear, parseGoalCommand, parseInvocation } from '../utils/slashCommands'
 import { findLoop, parseLoopCommand } from '../utils/chatLoops'
@@ -158,6 +168,47 @@ function ChatPage() {
   const { drafts, draftModel, agentId, pickedAgent, effectiveModel, switches } = composer
   const { models: chatModels, modelsLoading: chatModelsLoading } = composer
   const { text: input, setText: setInput, files } = drafts
+
+  // Live: hands-free voice with the open chat. It needs a chat that has an id,
+  // so a new chat and Home do not offer it. useLive ends Live when the chat
+  // changes.
+  const { models: sttModels, refetch: refetchStt } = useModels(CAP_TRANSCRIPT)
+  const { models: ttsModels, refetch: refetchTts } = useModels(CAP_TTS)
+  const refetchLiveModels = useCallback(() => { refetchStt(); refetchTts() }, [refetchStt, refetchTts])
+  const liveModel = useMemo(() => pickLiveModels({ stt: sttModels, tts: ttsModels }), [sttModels, ttsModels])
+  const liveVoice = useLive({
+    chatId: activeId,
+    running: chat.running,
+    failure: chat.failure,
+    send: (text) => chat.send(activeId, text),
+    stop: () => chat.stop(activeId),
+    model: liveModel,
+  })
+  const liveOn = liveVoice.state.name !== 'off'
+  // The setup sheet opens when the Live button finds a model missing.
+  const [liveSetupOpen, setLiveSetupOpen] = useState(false)
+  const openLiveSetup = useCallback(() => setLiveSetupOpen(true), [])
+  // After Live ends, focus goes back: Type instead to the message box (back in
+  // place), End Live to the Live button.
+  const liveButtonRef = useRef(null)
+  const [focusAfterLive, setFocusAfterLive] = useState(null)
+  useEffect(() => {
+    if (!focusAfterLive || liveOn) return
+    setFocusAfterLive(null)
+    if (focusAfterLive === 'input') textareaRef.current?.focus()
+    else liveButtonRef.current?.focus()
+  }, [focusAfterLive, liveOn])
+  const typeInsteadOfLive = useCallback(() => {
+    liveVoice.end()
+    setFocusAfterLive('input')
+  }, [liveVoice])
+  const endLive = useCallback(() => {
+    liveVoice.end()
+    setFocusAfterLive('button')
+  }, [liveVoice])
+  // Stop and Esc during a voice turn go through Live, so the cut-off partial
+  // reply is not spoken. Any other turn is stopped as before.
+  const stopTurn = () => (liveVoice.state.name === 'thinking' ? liveVoice.stopVoice() : chat.stop(activeId))
   const [busy, setBusy] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [modelInfo, setModelInfo] = useState(null)
@@ -378,7 +429,7 @@ function ChatPage() {
   // the preview pane; it also exits focus mode. None of that fires while a menu or
   // dialog is open: those take their own Esc first.
   const escapeRef = useRef({})
-  escapeRef.current = { running: chat.running, stop: () => chat.stop(activeId), findOpen: find.open, paneOpen: pane.open, closePane: pane.close }
+  escapeRef.current = { running: chat.running, stop: stopTurn, findOpen: find.open, paneOpen: pane.open, closePane: pane.close }
   useEffect(() => {
     const onKey = (e) => {
       const isMod = e.metaKey || e.ctrlKey
@@ -1350,6 +1401,8 @@ function ChatPage() {
               chips={composerChips}
               slotContext={composerSlotContext}
               onDictateError={(m) => addToast(m, 'error')}
+              live={activeId && !liveOn ? <LiveButton live={liveVoice} onNeedSetup={openLiveSetup} buttonRef={liveButtonRef} /> : null}
+              dock={activeId && liveOn ? <LiveDock live={liveVoice} waiting={chat.running} onTypeInstead={typeInsteadOfLive} onEnd={endLive} /> : null}
               onSubmit={handleSend}
               canSend={!!effectiveModel && !(!activeId && busy) && (input.trim().length > 0 || files.length > 0)}
               sending={busy}
@@ -1362,7 +1415,7 @@ function ChatPage() {
               onRunAction={runSlash}
               streaming={chat.running}
               queueWhileStreaming
-              onStop={() => chat.stop(activeId)}
+              onStop={stopTurn}
               stopTitle={t('input.stopGenerating')}
               onKeyDownExtra={onComposerKey}
               rows={1}
@@ -1416,6 +1469,14 @@ function ChatPage() {
       <p className="sr-only" role="status" data-testid="chat-preview-status">
         {pane.announcement ? t('preview.opened', { name: pane.announcement }) : ''}
       </p>
+      {liveSetupOpen && activeId && (
+        <LiveSetupSheet
+          models={liveModel}
+          onClose={() => setLiveSetupOpen(false)}
+          onInstalled={refetchLiveModels}
+          onStart={() => { setLiveSetupOpen(false); liveVoice.start() }}
+        />
+      )}
       {showSettings && (
         <ChatSettingsSheet
           chat={activeChat ? { ...activeChat, model } : { model }}

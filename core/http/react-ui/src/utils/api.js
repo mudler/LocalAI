@@ -816,11 +816,12 @@ async function parseAudioBlobResponse(response) {
   return { blob, serverUrl, inputUrl, referenceUrl }
 }
 
-async function postAudioBlob(endpoint, body) {
+async function postAudioBlob(endpoint, body, signal) {
   const response = await fetch(apiUrl(endpoint), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    ...(signal ? { signal } : {}),
   })
   return parseAudioBlobResponse(response)
 }
@@ -834,6 +835,15 @@ async function postMultipartAudioBlob(endpoint, formData) {
 export const ttsApi = {
   generate: (body) => postAudioBlob(API_CONFIG.endpoints.tts, body),
   generateV1: (body) => postAudioBlob(API_CONFIG.endpoints.audioSpeech, body),
+}
+
+// Live voice mode: one reply chunk as a WAV blob.
+export const liveApi = {
+  speak: (model, text, signal) => postAudioBlob(
+    API_CONFIG.endpoints.audioSpeech,
+    { model, input: text, response_format: 'wav', stream: false },
+    signal,
+  ).then(({ blob }) => blob),
 }
 
 // Reusable voice-cloning profiles. The browser uploads multipart PCM-WAV;
@@ -878,10 +888,11 @@ export const audioTransformApi = {
 
 // Audio transcription
 export const audioApi = {
-  transcribe: async (formData) => {
+  transcribe: async (formData, signal) => {
     const response = await fetch(apiUrl(API_CONFIG.endpoints.audioTranscriptions), {
       method: 'POST',
       body: formData,
+      signal,
     })
     return handleResponse(response)
   },

@@ -259,6 +259,50 @@ curl -X POST .../api/chats/3f1c.../stop       # end the running turn
 curl -X POST .../api/chats/3f1c.../send-now   # start a turn from the waiting messages
 ```
 
+## Talk to a chat (Live)
+
+Live lets you talk to an open chat with your voice. You speak, the chat
+answers, and a voice reads the answer aloud. Then Live listens again. You do
+not press a key.
+
+What you need:
+
+- A microphone, and a page opened over HTTPS or from `localhost`. A browser
+  gives microphone access only to those pages. On any other address the
+  **Live** button is off and says why.
+- One model for speech to text (for example `whisper-base`) and one model for
+  the voice (for example `kokoro-multi-lang-v1.0-sherpa`).
+
+Start Live with the **Live** button next to the message box of a chat. If a
+model is missing, the button opens a sheet that shows the missing parts. An
+administrator can install a small model for each part with one click. A user
+who is not an administrator sees the names of the models and must ask an
+administrator to install them. When both models are installed, press **Start
+Live**.
+
+Your audio is sent to your LocalAI server. The server turns your speech into
+text and makes the voice. Your audio stays on the LocalAI instance, and the
+browser does not use a cloud speech service. The text of the chat goes to the
+chat model as in a typed chat, so it goes where that model runs.
+
+The dock shows a **Standard** chip. In this mode Live does not listen while the
+voice speaks. You cannot interrupt the voice, and the voice cannot hear itself.
+To cut the voice short, press **Stop**. Live then listens again. Live is
+half-duplex per browser tab, so use Live in one tab per chat.
+
+Live uses the same chat, not a separate one. Your words appear in the thread as
+normal messages. Tools, history, files and the settings of the chat work as in
+a typed chat. A turn that fails is not read aloud, and Live listens again.
+**Esc** and the **Stop** button of the message bar stop a running turn and keep
+Live on. When the turn is one you started by voice, the part of the reply that
+was already written is not read aloud, and Live listens again.
+
+Other controls: **Mute** and **Unmute** the microphone, **Type instead**
+(ends Live and puts the cursor in the message box) and **End Live**. Live
+pauses while the browser tab is hidden. If the browser blocks the audio (some
+browsers allow sound only after a click), the dock shows a **Play** button.
+Press it to hear the answer.
+
 ## Loops: repeat a prompt in a chat
 
 A loop sends a prompt to its chat again and again, as a new message, until you

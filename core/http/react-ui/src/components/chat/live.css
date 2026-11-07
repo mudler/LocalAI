@@ -1,0 +1,123 @@
+/* Live: the button in the attach row and the dock that replaces the message box. */
+
+.live-reason {
+  max-width: 14em;
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+  line-height: var(--lh-body);
+}
+
+.live-dock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-1) var(--sp-2);
+  min-height: 88px;
+}
+.live-dock:focus { outline: none; }
+.live-dock__detail {
+  display: block;
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+}
+.live-dock__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+.live-dock__status { flex: 1; min-width: 0; }
+.live-dock__state {
+  margin: 0;
+  color: var(--dk-text);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+.live-dock__sub {
+  display: block;
+  color: var(--dk-muted);
+  font-size: var(--fs-small);
+}
+.live-dock__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+/* The orb says the state by its colour and ring; the words say it too. */
+.live-orb {
+  flex: none;
+  width: var(--sp-4);
+  height: var(--sp-4);
+  margin: var(--sp-1);
+  border-radius: var(--r-xl);
+  background: var(--dk-muted);
+  box-shadow: 0 0 0 var(--sp-1) color-mix(in srgb, var(--dk-muted) 18%, transparent);
+  transition: background var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+}
+.live-orb[data-state="listening"],
+.live-orb[data-state="hearing"] {
+  background: var(--dk-accent);
+  box-shadow: 0 0 0 var(--sp-1) color-mix(in srgb, var(--dk-accent) 22%, transparent);
+}
+.live-orb[data-state="hearing"] {
+  box-shadow: 0 0 0 var(--sp-2) color-mix(in srgb, var(--dk-accent) 30%, transparent);
+}
+.live-orb[data-state="speaking"] {
+  background: var(--dk-accent-text);
+  box-shadow: 0 0 0 var(--sp-2) color-mix(in srgb, var(--dk-accent-text) 22%, transparent);
+}
+.live-orb[data-state="error"] {
+  background: var(--dk-error-text);
+  box-shadow: 0 0 0 var(--sp-1) var(--dk-error-wash);
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-orb { transition: none; }
+}
+
+/* The Live setup sheet. */
+.live-setup__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-3);
+  padding: 0;
+  list-style: none;
+}
+.live-setup__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--dk-border);
+  border-radius: var(--radius-md);
+  background: var(--dk-surface);
+}
+.live-setup__line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.live-setup__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+  flex: 1;
+}
+.live-setup__part { color: var(--dk-text); }
+.live-setup__name { overflow-wrap: anywhere; color: var(--dk-text); }
+.live-setup__hint { color: var(--dk-muted); font-size: var(--fs-small); }
+.live-setup__done {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--dk-ok);
+  font-size: var(--fs-small);
+}
+.live-setup__bar { width: 100%; height: var(--sp-2); }
+.live-setup__error { overflow-wrap: anywhere; }
+.live-setup__status { margin: 0; min-height: 1em; color: var(--dk-muted); font-size: var(--fs-small); }

@@ -934,5 +934,78 @@
     "removeConfirm": "Hapus “{{name}}”?",
     "removeYes": "Hapus",
     "noModel": "Tanpa model"
+  },
+  "live": {
+    "button": "Live",
+    "title": "Bicara dengan chat ini tanpa mengetik",
+    "mode": "Standar",
+    "waiting": "Menunggu balasan",
+    "reason": {
+      "insecure": {
+        "short": "Perlu HTTPS atau localhost",
+        "detail": "Peramban Anda hanya memberi akses mikrofon lewat HTTPS, localhost, atau 127.0.0.1. Buka halaman ini dari salah satu alamat tersebut untuk memakai Live."
+      },
+      "no-mic": {
+        "short": "Mikrofon tidak tersedia",
+        "detail": "Peramban ini tidak menyediakan mikrofon untuk halaman ini. Coba peramban lain untuk memakai Live."
+      }
+    },
+    "state": {
+      "off": "Mati",
+      "starting": "Menunggu izin peramban",
+      "listening": "Mendengarkan",
+      "hearing": "Mendengar Anda",
+      "transcribing": "Mentranskripsi",
+      "thinking": "Berpikir",
+      "speaking": "Berbicara",
+      "blocked": "Suara menunggu Anda",
+      "paused": "Dijeda",
+      "error": "Live butuh perhatian"
+    },
+    "mute": "Bisukan",
+    "unmute": "Suarakan",
+    "stop": "Berhenti",
+    "typeInstead": "Ketik saja",
+    "end": "Akhiri Live",
+    "retry": "Coba lagi",
+    "play": "Putar",
+    "blocked": "Peramban Anda memblokir suara. Tekan Putar untuk mendengar balasan.",
+    "hidden": "Live dijeda selama tab ini berada di latar belakang. Live berlanjut saat Anda kembali.",
+    "error": {
+      "denied": "Akses mikrofon diblokir. Izinkan mikrofon untuk situs ini di peramban Anda, lalu tekan Coba lagi. Anda juga bisa mengetik saja.",
+      "unavailable": "Mikrofon tidak bisa dibuka. Pastikan mikrofon terhubung dan tidak dipakai aplikasi lain, lalu tekan Coba lagi.",
+      "transcribe": "Ucapan Anda tidak bisa diubah menjadi teks. Periksa model transkripsi, lalu tekan Coba lagi.",
+      "send": "Pesan Anda tidak bisa dikirim ke chat. Tekan Coba lagi untuk mendengarkan lagi.",
+      "turn": "Balasan chat tidak bisa dibaca, jadi tidak diucapkan. Tekan Coba lagi untuk mendengarkan lagi.",
+      "speech": "Suara balasan tidak bisa diputar. Periksa model suara, lalu tekan Coba lagi.",
+      "generic": "Live tidak bisa dilanjutkan."
+    },
+    "setup": {
+      "title": "Siapkan Live",
+      "description": "Live membutuhkan satu model untuk mengubah ucapan Anda menjadi teks dan satu model untuk berbicara. Keduanya berjalan di instance LocalAI ini.",
+      "part": {
+        "stt": "Ucapan ke teks",
+        "tts": "Suara"
+      },
+      "hint": {
+        "stt": "Mengubah ucapan Anda menjadi teks.",
+        "tts": "Membacakan balasan dengan suara."
+      },
+      "install": "Pasang",
+      "installing": "Memasang",
+      "installLabel": "Pasang {{model}}",
+      "retryLabel": "Coba lagi pemasangan {{model}}",
+      "installed": "Terpasang",
+      "progress": "Progres pemasangan {{model}}",
+      "failed": "Pemasangan {{model}} gagal.",
+      "failedGeneric": "Pemasangan tidak bisa dimulai.",
+      "adminTitle": "Administrator harus memasang model ini.",
+      "adminNote": "Minta administrator instance ini untuk memasang model di atas. Live berfungsi setelah keduanya terpasang.",
+      "working": "Memasang {{models}}",
+      "ready": "Kedua model sudah terpasang. Live siap.",
+      "start": "Mulai Live",
+      "close": "Tutup",
+      "notShown": "Terpasang, tetapi modelnya tidak muncul. Coba lagi atau muat ulang."
+    }
   }
 }

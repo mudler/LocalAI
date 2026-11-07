@@ -822,5 +822,78 @@
     "removeConfirm": "Supprimer « {{name}} » ?",
     "removeYes": "Supprimer",
     "noModel": "Aucun modèle"
+  },
+  "live": {
+    "button": "Live",
+    "title": "Parlez à ce chat sans les mains",
+    "mode": "Standard",
+    "waiting": "En attente de la réponse",
+    "reason": {
+      "insecure": {
+        "short": "Nécessite HTTPS ou localhost",
+        "detail": "Votre navigateur n'autorise l'accès au microphone que via HTTPS, localhost ou 127.0.0.1. Ouvrez cette page depuis l'une de ces adresses pour utiliser Live."
+      },
+      "no-mic": {
+        "short": "Aucun microphone disponible",
+        "detail": "Ce navigateur ne propose pas de microphone à cette page. Essayez un autre navigateur pour utiliser Live."
+      }
+    },
+    "state": {
+      "off": "Désactivé",
+      "starting": "En attente de l'autorisation du navigateur",
+      "listening": "À l'écoute",
+      "hearing": "Vous entend",
+      "transcribing": "Transcription",
+      "thinking": "Réflexion",
+      "speaking": "Parle",
+      "blocked": "La voix vous attend",
+      "paused": "En pause",
+      "error": "Live a besoin de votre attention"
+    },
+    "mute": "Couper le micro",
+    "unmute": "Réactiver le micro",
+    "stop": "Arrêter",
+    "typeInstead": "Écrire plutôt",
+    "end": "Terminer Live",
+    "retry": "Réessayer",
+    "play": "Lire",
+    "blocked": "Votre navigateur a bloqué la voix. Appuyez sur Lire pour entendre la réponse.",
+    "hidden": "Live est en pause tant que cet onglet reste en arrière-plan. Il reprend à votre retour.",
+    "error": {
+      "denied": "L'accès au microphone a été bloqué. Autorisez le microphone pour ce site dans votre navigateur, puis appuyez sur Réessayer. Vous pouvez aussi écrire plutôt.",
+      "unavailable": "Impossible d'ouvrir le microphone. Vérifiez qu'il est branché et qu'aucune autre application ne l'utilise, puis appuyez sur Réessayer.",
+      "transcribe": "Votre voix n'a pas pu être convertie en texte. Vérifiez le modèle de transcription, puis appuyez sur Réessayer.",
+      "send": "Votre message n'a pas pu être envoyé au chat. Appuyez sur Réessayer pour écouter à nouveau.",
+      "turn": "La réponse du chat n'a pas pu être lue, elle n'a donc pas été prononcée. Appuyez sur Réessayer pour écouter à nouveau.",
+      "speech": "La voix de la réponse n'a pas pu être lue. Vérifiez le modèle vocal, puis appuyez sur Réessayer.",
+      "generic": "Live n'a pas pu continuer."
+    },
+    "setup": {
+      "title": "Configurer Live",
+      "description": "Live a besoin d'un modèle qui transforme votre voix en texte et d'un autre qui parle. Les deux s'exécutent sur cette instance LocalAI.",
+      "part": {
+        "stt": "Voix vers texte",
+        "tts": "Voix"
+      },
+      "hint": {
+        "stt": "Transforme ce que vous dites en texte.",
+        "tts": "Lit la réponse à voix haute."
+      },
+      "install": "Installer",
+      "installing": "Installation",
+      "installLabel": "Installer {{model}}",
+      "retryLabel": "Relancer l'installation de {{model}}",
+      "installed": "Installé",
+      "progress": "Progression de l'installation de {{model}}",
+      "failed": "L'installation de {{model}} a échoué.",
+      "failedGeneric": "L'installation n'a pas pu démarrer.",
+      "adminTitle": "Un administrateur doit installer ces modèles.",
+      "adminNote": "Demandez à un administrateur de cette instance d'installer les modèles ci-dessus. Live fonctionne dès que les deux sont installés.",
+      "working": "Installation de {{models}}",
+      "ready": "Les deux modèles sont installés. Live est prêt.",
+      "start": "Démarrer Live",
+      "close": "Fermer",
+      "notShown": "Installé, mais le modèle n'est pas apparu. Réessayez ou rechargez la page."
+    }
   }
 }

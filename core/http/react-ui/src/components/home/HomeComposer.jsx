@@ -58,19 +58,25 @@ function Marked({ text, upto }) {
 //                the render where the recording started gets it),
 //   testIds and class names for the pieces tests and the thread reach for
 //   extras       a node drawn after the attach buttons (the add-on slot)
+//   live         a node drawn after the dictate button (the Live button). It is
+//                hidden while dictation records or transcribes.
+//   dock         a node that takes the place of the message box (the Live
+//                dock); dictation is hidden while it shows. message and
+//                onSubmit stay as they are.
 export default function HomeComposer({
   message, onMessage, onSubmit, canSend, sending, sendTitle, textareaRef,
   lead, picker, mcp, chips, files = [], onRemoveFile, onAttach,
   placeholder, slashContext, onRunAction, slash,
   streaming = false, onStop, stopTitle, onPaste, onKeyDownExtra,
   rows = 3, strictEnter = false, testId = 'home-composer',
-  textareaTestId, textareaClass = '', sendId, sendTestId, hint, onDictateError, extras,
+  textareaTestId, textareaClass = '', sendId, sendTestId, hint, onDictateError, extras, live, dock,
   attachDisabled = false, attachTitle, fileTestId, queueWhileStreaming = false, onDictate, onClearFiles,
 }) {
   const { t } = useTranslation('home')
   const fileRef = useRef(null)
   const [active, setActive] = useState(null)
   const [dismissed, setDismissed] = useState(false)
+  const [dictation, setDictation] = useState('idle')
 
   // The menu: the commands of the registry (utils/slashCommands.js) that the
   // page passes in slash, or Home's own list when it passes none. "/cmd " of
@@ -101,7 +107,7 @@ export default function HomeComposer({
     return args.id === argCmd.id && args.query === argQuery ? args.items : []
   }, [sq, actions, labelOf, groupList, args, argCmd, argQuery])
   const query = sq?.mode === 'commands' ? sq.query : null
-  const open = sq !== null && items.length > 0 && !dismissed
+  const open = sq !== null && items.length > 0 && !dismissed && !dock
   // The row that starts selected: the first command whose name starts with
   // what was typed, before those that only match by their label.
   const preferred = query ? Math.max(0, items.findIndex((a) => a.cmd && commandNames(a).some((n) => n.startsWith(query)))) : 0
@@ -233,7 +239,8 @@ export default function HomeComposer({
       )}
 
       <div className="home-well">
-        <textarea
+        {dock}
+        {!dock && <textarea
           ref={textareaRef}
           className={`home-textarea${textareaClass ? ` ${textareaClass}` : ''}`}
           data-testid={textareaTestId}
@@ -250,7 +257,7 @@ export default function HomeComposer({
           aria-controls="home-slash"
           aria-autocomplete="list"
           aria-activedescendant={activeId}
-        />
+        />}
         {open && (
           <div className="dk-cmdlist home-slash" id="home-slash" role="listbox" aria-label={t('slash.label')}>
             <div className="home-slash__scroll">
@@ -304,13 +311,17 @@ export default function HomeComposer({
           {onAttach && (
             <Button variant="ghost" size="sm" icon="file" className="home-attach-btn" disabled={attachDisabled} onClick={openFiles} title={attachTitle || t('input.attachFile')} aria-label={t('input.attachFile')} />
           )}
-          <DictateButton
-            onText={onDictate || ((text) => onMessage(message.trim() ? `${message.trimEnd()} ${text}` : text))}
-            onError={onDictateError}
-          />
+          {!dock && (
+            <DictateButton
+              onText={onDictate || ((text) => onMessage(message.trim() ? `${message.trimEnd()} ${text}` : text))}
+              onError={onDictateError}
+              onStateChange={setDictation}
+            />
+          )}
+          {dictation === 'idle' ? live : null}
           {extras}
         </div>
-        <span className="home-input-hint">{hint || t('input.enterHint')}</span>
+        <span className="home-input-hint">{dock ? '' : hint || t('input.enterHint')}</span>
         {streaming && (
           <button
             type="button"
@@ -335,7 +346,7 @@ export default function HomeComposer({
             data-testid={sendTestId}
             data-empty={message.trim() || files.length > 0 ? undefined : 'true'}
             data-loading={sending ? 'true' : undefined}
-            disabled={!canSend}
+            disabled={!canSend || !!dock}
             title={sendTitle}
           >
             <span className="home-send-btn__label">{t('input.send')}</span>

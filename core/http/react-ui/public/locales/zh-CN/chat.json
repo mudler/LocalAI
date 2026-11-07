@@ -822,5 +822,78 @@
     "removeConfirm": "删除“{{name}}”？",
     "removeYes": "删除",
     "noModel": "无模型"
+  },
+  "live": {
+    "button": "Live",
+    "title": "免提与此聊天对话",
+    "mode": "标准",
+    "waiting": "正在等待回复",
+    "reason": {
+      "insecure": {
+        "short": "需要 HTTPS 或 localhost",
+        "detail": "浏览器仅在 HTTPS、localhost 或 127.0.0.1 下开放麦克风权限。请通过这些地址之一打开此页面以使用 Live。"
+      },
+      "no-mic": {
+        "short": "没有可用的麦克风",
+        "detail": "此浏览器未向本页面提供麦克风。请换一个浏览器来使用 Live。"
+      }
+    },
+    "state": {
+      "off": "已关闭",
+      "starting": "正在等待浏览器授权",
+      "listening": "正在聆听",
+      "hearing": "正在听你说话",
+      "transcribing": "正在转写",
+      "thinking": "正在思考",
+      "speaking": "正在说话",
+      "blocked": "语音正在等你",
+      "paused": "已暂停",
+      "error": "Live 需要处理"
+    },
+    "mute": "静音",
+    "unmute": "取消静音",
+    "stop": "停止",
+    "typeInstead": "改用键盘输入",
+    "end": "结束 Live",
+    "retry": "重试",
+    "play": "播放",
+    "blocked": "浏览器阻止了语音。点击“播放”即可听取回复。",
+    "hidden": "此标签页在后台时，Live 会暂停，回到该页面后会继续。",
+    "error": {
+      "denied": "麦克风权限被阻止。请在浏览器中允许此网站使用麦克风，然后点击“重试”。你也可以改用键盘输入。",
+      "unavailable": "无法打开麦克风。请检查麦克风是否已连接、是否被其他应用占用，然后点击“重试”。",
+      "transcribe": "无法把你的语音转成文字。请检查转写模型，然后点击“重试”。",
+      "send": "无法把你的消息发送到聊天。点击“重试”重新开始聆听。",
+      "turn": "无法读取聊天的回复，因此没有朗读。点击“重试”重新开始聆听。",
+      "speech": "无法播放回复的语音。请检查语音模型，然后点击“重试”。",
+      "generic": "Live 无法继续。"
+    },
+    "setup": {
+      "title": "设置 Live",
+      "description": "Live 需要一个把语音转成文字的模型和一个朗读的模型，两者都在此 LocalAI 实例上运行。",
+      "part": {
+        "stt": "语音转文字",
+        "tts": "语音"
+      },
+      "hint": {
+        "stt": "把你说的话转成文字。",
+        "tts": "朗读回复内容。"
+      },
+      "install": "安装",
+      "installing": "正在安装",
+      "installLabel": "安装 {{model}}",
+      "retryLabel": "重试安装 {{model}}",
+      "installed": "已安装",
+      "progress": "{{model}} 的安装进度",
+      "failed": "{{model}} 安装失败。",
+      "failedGeneric": "无法开始安装。",
+      "adminTitle": "需要管理员来安装这些模型。",
+      "adminNote": "请让此实例的管理员安装上面的模型。两个模型都安装后，Live 即可使用。",
+      "working": "正在安装 {{models}}",
+      "ready": "两个模型都已安装，Live 已就绪。",
+      "start": "启动 Live",
+      "close": "关闭",
+      "notShown": "已安装，但未找到该模型。请重试或刷新页面。"
+    }
   }
 }

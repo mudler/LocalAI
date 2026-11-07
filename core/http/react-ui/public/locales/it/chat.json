@@ -824,5 +824,78 @@
     "removeConfirm": "Eliminare “{{name}}”?",
     "removeYes": "Elimina",
     "noModel": "Nessun modello"
+  },
+  "live": {
+    "button": "Live",
+    "title": "Parla con questa chat senza mani",
+    "mode": "Standard",
+    "waiting": "In attesa della risposta",
+    "reason": {
+      "insecure": {
+        "short": "Richiede HTTPS o localhost",
+        "detail": "Il browser concede l'accesso al microfono solo tramite HTTPS, localhost o 127.0.0.1. Apri questa pagina da uno di questi indirizzi per usare Live."
+      },
+      "no-mic": {
+        "short": "Nessun microfono disponibile",
+        "detail": "Questo browser non offre un microfono a questa pagina. Prova un altro browser per usare Live."
+      }
+    },
+    "state": {
+      "off": "Disattivato",
+      "starting": "In attesa del permesso del browser",
+      "listening": "In ascolto",
+      "hearing": "Ti sta sentendo",
+      "transcribing": "Trascrizione",
+      "thinking": "Sta pensando",
+      "speaking": "Sta parlando",
+      "blocked": "La voce aspetta te",
+      "paused": "In pausa",
+      "error": "Live ha bisogno di attenzione"
+    },
+    "mute": "Disattiva microfono",
+    "unmute": "Riattiva microfono",
+    "stop": "Ferma",
+    "typeInstead": "Scrivi invece",
+    "end": "Termina Live",
+    "retry": "Riprova",
+    "play": "Riproduci",
+    "blocked": "Il browser ha bloccato la voce. Premi Riproduci per sentire la risposta.",
+    "hidden": "Live resta in pausa mentre questa scheda è in secondo piano. Riprende quando torni.",
+    "error": {
+      "denied": "L'accesso al microfono è stato bloccato. Consenti il microfono per questo sito nel browser, poi premi Riprova. Puoi anche scrivere invece.",
+      "unavailable": "Impossibile aprire il microfono. Controlla che sia collegato e non usato da un'altra app, poi premi Riprova.",
+      "transcribe": "Non è stato possibile trasformare la tua voce in testo. Controlla il modello di trascrizione, poi premi Riprova.",
+      "send": "Non è stato possibile inviare il messaggio alla chat. Premi Riprova per ascoltare di nuovo.",
+      "turn": "Non è stato possibile leggere la risposta della chat, quindi non è stata pronunciata. Premi Riprova per ascoltare di nuovo.",
+      "speech": "Non è stato possibile riprodurre la voce della risposta. Controlla il modello vocale, poi premi Riprova.",
+      "generic": "Live non può continuare."
+    },
+    "setup": {
+      "title": "Configura Live",
+      "description": "Live ha bisogno di un modello che trasformi la tua voce in testo e di uno che parli. Entrambi girano su questa istanza di LocalAI.",
+      "part": {
+        "stt": "Voce in testo",
+        "tts": "Voce"
+      },
+      "hint": {
+        "stt": "Trasforma in testo quello che dici.",
+        "tts": "Legge la risposta ad alta voce."
+      },
+      "install": "Installa",
+      "installing": "Installazione in corso",
+      "installLabel": "Installa {{model}}",
+      "retryLabel": "Riprova l'installazione di {{model}}",
+      "installed": "Installato",
+      "progress": "Avanzamento dell'installazione di {{model}}",
+      "failed": "L'installazione di {{model}} non è riuscita.",
+      "failedGeneric": "Non è stato possibile avviare l'installazione.",
+      "adminTitle": "Un amministratore deve installare questi modelli.",
+      "adminNote": "Chiedi a un amministratore di questa istanza di installare i modelli qui sopra. Live funziona quando sono installati entrambi.",
+      "working": "Installazione di {{models}}",
+      "ready": "Entrambi i modelli sono installati. Live è pronto.",
+      "start": "Avvia Live",
+      "close": "Chiudi",
+      "notShown": "Installato, ma il modello non è comparso. Riprova o ricarica la pagina."
+    }
   }
 }
