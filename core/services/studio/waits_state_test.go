@@ -2,6 +2,7 @@ package studio
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -49,6 +50,87 @@ var _ = Describe("the state a wait keeps for the person", func() {
 		Expect(v.Done).To(BeTrue())
 		Expect(w.Outcome).To(Equal(loops.OutcomeChanged))
 		Expect(w.End).To(Equal(loops.EndMet))
+	})
+
+	Describe("a json_equals wait on a field that may not exist yet", func() {
+		newJSON := func() *loops.Watch {
+			w := newWatch(loops.UntilJSONEquals)
+			w.Field, w.Equals = "downloads.0.status", "completed"
+			return w
+		}
+
+		It("keeps polling while the list is empty, then is met when the item appears", func() {
+			w := newJSON()
+			for range 5 {
+				v, _ := step(w, watch.Result{Output: `{"downloads":[]}`}, now)
+				Expect(v.Done).To(BeFalse())
+				Expect(w.Errors).To(Equal(0))
+				Expect(w.Outcome).To(Equal(loops.OutcomeUnchanged))
+			}
+			v, _ := step(w, watch.Result{Output: `{"downloads":[{"status":"completed"}]}`}, now)
+			Expect(v.Done).To(BeTrue())
+			Expect(w.End).To(Equal(loops.EndMet))
+		})
+
+		It("does not match an empty target against an absent field", func() {
+			w := newJSON()
+			w.Equals = ""
+			v, _ := step(w, watch.Result{Output: `{"downloads":[]}`}, now)
+			Expect(v.Done).To(BeFalse())
+		})
+
+		It("times out at the deadline when the field never appears, and says so", func() {
+			w := newJSON()
+			for range 5 {
+				step(w, watch.Result{Output: `{"downloads":[]}`}, now)
+			}
+			v, _ := step(w, watch.Result{Output: `{"downloads":[]}`}, now.Add(2*time.Hour))
+			Expect(v.Done).To(BeTrue())
+			Expect(w.End).To(Equal(loops.EndTimedOut))
+			Expect(v.Detail).To(ContainSubstring("the field downloads.0.status was never present"))
+			Expect(v.Detail).To(ContainSubstring("last output"))
+		})
+
+		It("is source failing when a field that was seen is absent for max_errors checks", func() {
+			w := newJSON()
+			step(w, watch.Result{Output: `{"downloads":[{"status":"running"}]}`}, now)
+			Expect(w.FieldSeen).To(BeTrue())
+			for range 2 {
+				v, _ := step(w, watch.Result{Output: `{"downloads":[]}`}, now)
+				Expect(v.Done).To(BeFalse())
+				Expect(w.Outcome).To(Equal(loops.OutcomeError))
+			}
+			v, _ := step(w, watch.Result{Output: `{"downloads":[]}`}, now)
+			Expect(v.Done).To(BeTrue())
+			Expect(w.End).To(Equal(loops.EndSourceFailing))
+		})
+
+		It("is source failing on output that is not JSON, even if the field was never seen", func() {
+			w := newJSON()
+			for range 2 {
+				v, _ := step(w, watch.Result{Output: "<html>"}, now)
+				Expect(v.Done).To(BeFalse())
+			}
+			v, _ := step(w, watch.Result{Output: "<html>"}, now)
+			Expect(v.Done).To(BeTrue())
+			Expect(w.FieldSeen).To(BeFalse())
+			Expect(w.End).To(Equal(loops.EndSourceFailing))
+		})
+
+		It("loads a stored wait that has no field_seen as not seen", func() {
+			old := `{"tool":"list_downloads","mode":"json_equals","field":"a.0","equals":"x","deadline":"2026-11-06T11:00:00Z","max_errors":3,"checks":2,"errors":0}`
+			var w loops.Watch
+			Expect(json.Unmarshal([]byte(old), &w)).To(Succeed())
+			Expect(w.FieldSeen).To(BeFalse())
+			v, _ := step(&w, watch.Result{Output: `{"a":[]}`}, now)
+			Expect(v.Done).To(BeFalse())
+			raw, err := json.Marshal(&w)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(raw)).NotTo(ContainSubstring("field_seen"))
+			w.FieldSeen = true
+			raw, _ = json.Marshal(&w)
+			Expect(string(raw)).To(ContainSubstring(`"field_seen":true`))
+		})
 	})
 
 	It("ends as timed out at the deadline, without calling it a change", func() {

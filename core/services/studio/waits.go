@@ -239,6 +239,17 @@ func (h *Loops) probe(ctx context.Context, l loops.Loop) watch.Result {
 	return watch.Result{Output: out, Hash: watch.Hash(out)}
 }
 
+// fieldAbsentError says that the output is JSON but has no such field or list
+// item. It is not a parse error: a field that does not exist yet may appear
+// later, so judge treats the two differently.
+type fieldAbsentError struct{ msg string }
+
+func (e *fieldAbsentError) Error() string { return e.msg }
+
+func absentf(format string, a ...any) error {
+	return &fieldAbsentError{msg: fmt.Sprintf(format, a...)}
+}
+
 // jsonField reads the field at path (dots for depth, numbers for list items)
 // from a JSON text and returns it as text.
 func jsonField(text, path string) (string, error) {
@@ -253,17 +264,17 @@ func jsonField(text, path string) (string, error) {
 		case map[string]any:
 			next, ok := c[part]
 			if !ok {
-				return "", fmt.Errorf("the output has no field %q", path)
+				return "", absentf("the output has no field %q", path)
 			}
 			v = next
 		case []any:
 			i, err := strconv.Atoi(part)
 			if err != nil || i < 0 || i >= len(c) {
-				return "", fmt.Errorf("the output has no item %q in %q", part, path)
+				return "", absentf("the output has no item %q in %q", part, path)
 			}
 			v = c[i]
 		default:
-			return "", fmt.Errorf("the output has no field %q", path)
+			return "", absentf("the output has no field %q", path)
 		}
 	}
 	switch c := v.(type) {
@@ -313,11 +324,21 @@ func step(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, strin
 func judge(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, string) {
 	w.Checks++
 	var got string
+	// notYet is a field that is absent and has never been seen: not a failure
+	// and not a match, the wait keeps polling.
+	notYet := false
 	if res.Err == nil && w.Mode == loops.UntilJSONEquals {
-		// A field that cannot be read is a failed check, so a source that
-		// never yields it ends the wait at max_errors instead of at the deadline.
+		// Output that is not JSON is a failed check. So is a field that was
+		// read before and is now gone (the source changed shape). A field that
+		// has never been there may still appear, so it is not a failure.
 		var err error
-		if got, err = jsonField(res.Output, w.Field); err != nil {
+		var absent *fieldAbsentError
+		switch got, err = jsonField(res.Output, w.Field); {
+		case err == nil:
+			w.FieldSeen = true
+		case errors.As(err, &absent) && !w.FieldSeen:
+			notYet = true
+		default:
 			res.Err = err
 		}
 	}
@@ -340,7 +361,7 @@ func judge(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, stri
 				}
 			}
 		case loops.UntilJSONEquals:
-			if got == w.Equals {
+			if !notYet && got == w.Equals {
 				return watch.Verdict{Done: true, Reason: watch.ReasonChanged,
 					Detail: fmt.Sprintf("the field %s equals %q", w.Field, got)}, "the field has the value"
 			}
@@ -366,6 +387,9 @@ func judge(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, stri
 			d += "; last error: " + w.LastErr
 		} else if res.Output != "" {
 			d += "; last output: " + watch.Cap(strings.Join(strings.Fields(res.Output), " "), 200)
+		}
+		if w.Mode == loops.UntilJSONEquals && !w.FieldSeen {
+			d += fmt.Sprintf("; the field %s was never present", w.Field)
 		}
 		return watch.Verdict{Done: true, Reason: watch.ReasonTimedOut, Detail: d}, "timed out"
 	}
