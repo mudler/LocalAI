@@ -59,6 +59,12 @@ type Store interface {
 	// ReleaseReport drops the lease so the report is due at once. An unknown
 	// report is not an error.
 	ReleaseReport(ctx context.Context, childID string) error
+	// GetReport returns one report, done or not, or ErrNotFound.
+	GetReport(ctx context.Context, childID string) (Report, error)
+	// PendingReports counts the reports to deliver into the chat parentChat
+	// that are not done, claimed or not. A helper that has such a report
+	// coming is not finished yet: its own report waits.
+	PendingReports(ctx context.Context, parentChat string) (int, error)
 	// PruneReports drops the reports that are done and the ones created
 	// before before, and returns how many.
 	PruneReports(ctx context.Context, before time.Time) (int, error)

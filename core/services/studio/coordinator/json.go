@@ -432,3 +432,25 @@ func (s *jsonStore) pruneReports(before time.Time) (int, error) {
 	}
 	return n, s.saveReports()
 }
+
+func (s *jsonStore) GetReport(_ context.Context, childID string) (Report, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.reports[childID]
+	if !ok {
+		return Report{}, ErrNotFound
+	}
+	return r, nil
+}
+
+func (s *jsonStore) PendingReports(_ context.Context, parentChat string) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, r := range s.reports {
+		if r.ParentChat == parentChat && r.Done.IsZero() {
+			n++
+		}
+	}
+	return n, nil
+}

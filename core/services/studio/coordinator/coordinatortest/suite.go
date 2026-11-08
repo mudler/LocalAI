@@ -491,4 +491,27 @@ func Run(newStore NewStore) {
 		Expect(s.Delete(ctx, "a1")).To(Succeed())
 		Expect(due(s, t0.Add(time.Hour))).To(Equal([]string{"c2"}))
 	})
+
+	It("GetReportAndPendingReports", func() {
+		s := newStore()
+		_, err := s.GetReport(ctx, "c1")
+		Expect(err).To(MatchError(coordinator.ErrNotFound))
+		Expect(s.AddReport(ctx, report("c1", t0))).To(Succeed())
+		second := report("c2", t0)
+		second.ParentChat = "c1"
+		Expect(s.AddReport(ctx, second)).To(Succeed())
+		got, err := s.GetReport(ctx, "c2")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ParentChat).To(Equal("c1"))
+		Expect(s.PendingReports(ctx, "c1")).To(Equal(1), "c2 reports to the chat of c1")
+		Expect(s.PendingReports(ctx, "chat-1")).To(Equal(1))
+		ok, _ := s.ClaimReport(ctx, "c2", t0, t0.Add(time.Minute))
+		Expect(ok).To(BeTrue())
+		Expect(s.PendingReports(ctx, "c1")).To(Equal(1), "a claimed report is still pending")
+		Expect(s.FinishReport(ctx, "c2", t0)).To(Succeed())
+		Expect(s.PendingReports(ctx, "c1")).To(Equal(0))
+		done, err := s.GetReport(ctx, "c2")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(done.Done).To(Equal(t0))
+	})
 }

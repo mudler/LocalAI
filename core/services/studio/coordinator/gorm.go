@@ -330,7 +330,7 @@ func (s *gormStore) Prune(ctx context.Context, before time.Time) (int, error) {
 // that are not finished, oldest first.
 type reportRow struct {
 	ChildID       string `gorm:"primaryKey;size:64"`
-	ParentChat    string `gorm:"size:64"`
+	ParentChat    string `gorm:"size:64;index"`
 	CoordinatorID string `gorm:"size:64;index"`
 	Principal     string `gorm:"size:255"`
 	Title         string `gorm:"size:255"`
@@ -397,4 +397,23 @@ func (s *gormStore) ReleaseReport(ctx context.Context, childID string) error {
 func (s *gormStore) PruneReports(ctx context.Context, before time.Time) (int, error) {
 	res := s.db.WithContext(ctx).Where("finished = ? OR created < ?", true, before.UTC()).Delete(&reportRow{})
 	return int(res.RowsAffected), res.Error
+}
+
+func (s *gormStore) GetReport(ctx context.Context, childID string) (Report, error) {
+	var r reportRow
+	err := s.db.WithContext(ctx).Where("child_id = ?", childID).Take(&r).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return Report{}, ErrNotFound
+	}
+	if err != nil {
+		return Report{}, err
+	}
+	return r.report(), nil
+}
+
+func (s *gormStore) PendingReports(ctx context.Context, parentChat string) (int, error) {
+	var n int64
+	err := s.db.WithContext(ctx).Model(&reportRow{}).
+		Where("parent_chat = ? AND finished = ?", parentChat, false).Count(&n).Error
+	return int(n), err
 }
