@@ -1223,7 +1223,7 @@ func (c *Chat) ensureFolder(ctx context.Context) (string, error) {
 }
 
 // reserveFolder gives the chat the name of its folder, without making the
-// folder, and returns it: the work folder that the prompt names lives in it,
+// folder, and returns it: the work folder that the note of a turn names lives in it,
 // and is made when something is saved there. A name that a folder or another
 // recent chat of the user has is taken.
 func (c *Chat) reserveFolder(ctx context.Context) (string, error) {
@@ -1318,38 +1318,41 @@ func EnsureWorkFolder(ctx context.Context, ws workspace.Store, a workspace.Actor
 	return mkdirOnce(ctx, ws, a, HomePath(principal)+workfiles.Folder(chatFolder))
 }
 
-// workFolderBlock names the work folder of the chat for the prompt. It is ""
-// when the chat has no files, or its folder cannot be named this turn, or it
-// has no folder name and reserve is false.
-func (c *Chat) workFolderBlock(ctx context.Context, reserve bool) string {
+// workFolderBlock is the prompt block about the work folder of the chat, and
+// the line of the turn's note that names the folder. Both are "" when the chat
+// has no files, or its folder cannot be named this turn, or it has no folder
+// name and reserve is false.
+func (c *Chat) workFolderBlock(ctx context.Context, reserve bool) (block, note string) {
 	if c.m.o.Workspace == nil {
-		return ""
+		return "", ""
 	}
 	if !reserve {
 		c.mu.Lock()
 		name := c.rec.Folder
 		c.mu.Unlock()
 		if name == "" {
-			return ""
+			return "", ""
 		}
 		return c.workPrompt(name)
 	}
 	name, err := c.reserveFolder(ctx)
 	if err != nil {
 		c.m.log.Warn("session: no work folder this turn", "chat", c.id, "error", err)
-		return ""
+		return "", ""
 	}
 	return c.workPrompt(name)
 }
 
 // workPrompt names the work folder by the chat's view: in a scoped chat the
-// chat folder is its own mount, at /workspace/chat.
-func (c *Chat) workPrompt(name string) string {
+// chat folder is its own mount, at /workspace/chat, and the block names it.
+// Otherwise the folder carries the chat's title, so the note names it and the
+// block stays the same for every chat.
+func (c *Chat) workPrompt(name string) (block, note string) {
 	_, _, view := c.access()
 	if p := NewPlace(view); p.Scoped() {
-		return workfiles.ScopedPrompt(p.PrimaryWritable())
+		return workfiles.ScopedPrompt(p.PrimaryWritable()), ""
 	}
-	return workfiles.Prompt(workfiles.GuestFolder(name))
+	return workfiles.Prompt, workfiles.Note(workfiles.GuestFolder(name))
 }
 
 // SetTitle renames the chat and, when the chat folder exists, the folder. It

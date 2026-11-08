@@ -45,7 +45,7 @@ var _ = Describe("the work folder of a chat", func() {
 		return cf.Folder
 	}
 
-	It("names the folder in the prompt, makes it before a command and marks the files of the card", func() {
+	It("names the folder in the note, makes it before a command and marks the files of the card", func() {
 		f := newFiles()
 		svc, h := newToolService(script, sandbox(f, map[string]string{"/summary.docx": "PK", "/scripts/build.py": "x"}))
 		id := create(svc, alice)
@@ -53,10 +53,12 @@ var _ = Describe("the work folder of a chat", func() {
 		idle(svc, alice, id)
 
 		p := h.TurnPrompt(id)
-		Expect(p).To(ContainSubstring("Working files:"))
-		Expect(p).To(MatchRegexp(`/workspace/home/Chats/[^/]+/work/`))
+		Expect(p).To(ContainSubstring(workfiles.Prompt))
+		Expect(p).NotTo(ContainSubstring("/workspace/home/Chats/"), "the prompt must be the same for every chat")
+		note := strings.Join(h.SentRaw(id), "\n")
+		Expect(note).To(MatchRegexp(`work folder is "/workspace/home/Chats/[^/]+/work/"`))
 		Expect(folderOf(svc, alice, id)).NotTo(BeEmpty(), "the command did not make the chat folder")
-		guest := strings.TrimPrefix(regexpFind(p, `/workspace/home/Chats/[^/]+/work/`), "/workspace/home")
+		guest := strings.TrimPrefix(regexpFind(note, `/workspace/home/Chats/[^/]+/work/`), "/workspace/home")
 		n, err := f.Store().Stat(context.Background(), files.UserActor(alice), session.HomePath(alice)+strings.TrimSuffix(guest, "/"))
 		Expect(err).NotTo(HaveOccurred(), "the work folder was not made")
 		Expect(n.Kind).To(Equal(workspace.KindDir))
@@ -122,6 +124,7 @@ var _ = Describe("the work folder of a chat", func() {
 		sent(svc, alice, id, "write")
 		idle(svc, alice, id)
 		Expect(h.TurnPrompt(id)).NotTo(ContainSubstring("Working files:"))
+		Expect(strings.Join(h.SentRaw(id), "\n")).NotTo(ContainSubstring("work folder"))
 		for _, r := range h.ResultsFor("write_file") {
 			Expect(r.Out).NotTo(ContainSubstring("helper file"))
 		}

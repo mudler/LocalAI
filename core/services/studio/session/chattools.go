@@ -42,9 +42,11 @@ type TurnTools struct {
 	// returned an empty key keeps the previous key. The first turn of a chat
 	// that was opened again never refreshes.
 	RefreshKey string
-	// WorkFolder asks the chat to name its work folder in the prompt
-	// (workfiles.Prompt): the chat takes the name of its chat folder for it
-	// when it has none yet. The folders are made when something is saved
+	// WorkFolder asks the chat to steer the model to its work folder: the
+	// prompt gets workfiles.Prompt, the same for every chat, and the note of
+	// each turn names the folder (workfiles.Note); a scoped chat's prompt gets
+	// workfiles.ScopedPrompt. The chat takes the name of its chat folder for
+	// it when it has none yet. The folders are made when something is saved
 	// there, so a chat that saves nothing leaves no folder behind.
 	WorkFolder bool
 	// Context is text for this turn only. The model reads it in front of the
@@ -126,19 +128,20 @@ func capPrompt(s string, log *slog.Logger, chat string) string {
 }
 
 // turnPrompt is the prompt block of tt, capped, with the block that names the
-// work folder last when tt asks for it. reserve takes a folder name for a
-// chat that has none; without it such a chat gets no block (opening a chat
-// must not name its folder: only a turn does).
-func (c *Chat) turnPrompt(ctx context.Context, tt TurnTools, reserve bool) string {
+// work folder last when tt asks for it, and the line of the note that names
+// the folder. reserve takes a folder name for a chat that has none; without
+// it such a chat gets no block (opening a chat must not name its folder: only
+// a turn does).
+func (c *Chat) turnPrompt(ctx context.Context, tt TurnTools, reserve bool) (prompt, workNote string) {
 	if !tt.WorkFolder {
-		return capPrompt(tt.Prompt, c.m.log, c.id)
+		return capPrompt(tt.Prompt, c.m.log, c.id), ""
 	}
-	block := c.workFolderBlock(ctx, reserve)
+	block, workNote := c.workFolderBlock(ctx, reserve)
 	if block == "" {
-		return capPrompt(tt.Prompt, c.m.log, c.id)
+		return capPrompt(tt.Prompt, c.m.log, c.id), ""
 	}
 	// The block goes last and is never the part that is cut.
-	return strings.TrimSpace(capPromptAt(tt.Prompt, maxPromptLen-len(block)-2, c.m.log, c.id) + "\n\n" + block)
+	return strings.TrimSpace(capPromptAt(tt.Prompt, maxPromptLen-len(block)-2, c.m.log, c.id) + "\n\n" + block), workNote
 }
 
 // capPromptAt is capPrompt with a limit of n bytes.
@@ -294,7 +297,14 @@ func (c *Chat) applyChatTools(ctx context.Context, message string) (note string,
 		note = noteChatToolsFailed
 	} else {
 		tools = acceptHostTools(tt.Tools, c.m.log, c.id, c.m.o.Sandbox != nil)
-		prompt = c.turnPrompt(ctx, tt, true)
+		var workNote string
+		prompt, workNote = c.turnPrompt(ctx, tt, true)
+		if workNote != "" {
+			// The work folder is named here, not in the prompt, so that the
+			// prompt of every chat is the same. It goes first and is not
+			// counted against the product's note, so no cut loses it.
+			note = strings.TrimSpace(workNote + " " + note)
+		}
 	}
 	fp := fingerprint(tools, prompt)
 	cur := make(map[string]Tool, len(tools))
@@ -649,7 +659,7 @@ func (c *Chat) primeChatTools(ctx context.Context) error {
 		return nil
 	}
 	tools := acceptHostTools(tt.Tools, c.m.log, c.id, c.m.o.Sandbox != nil)
-	prompt := c.turnPrompt(ctx, tt, false)
+	prompt, _ := c.turnPrompt(ctx, tt, false)
 	cur := make(map[string]Tool, len(tools))
 	defs := make([]Tool, len(tools))
 	for i, t := range tools {
