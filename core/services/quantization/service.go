@@ -39,6 +39,10 @@ type QuantizationService struct {
 	// the subsequent Set atomic with respect to readers.
 	mu sync.Mutex
 
+	// launchImport runs the import body in the background. Tests replace it so
+	// a claimed import does not need real files; nil means a goroutine.
+	launchImport func(run func())
+
 	// jobs is the cross-replica job store: an in-memory map kept consistent across
 	// replicas via NATS, optionally read-through to PostgreSQL in distributed mode.
 	jobs *syncstate.SyncedMap[string, *schema.QuantizationJob]
@@ -636,6 +640,14 @@ func inferenceBackendFor(quantBackend string) string {
 	return strings.TrimSuffix(config.NormalizeBackendName(quantBackend), "-quantization")
 }
 
+func (s *QuantizationService) launchImportFn(run func()) {
+	if s.launchImport != nil {
+		s.launchImport(run)
+		return
+	}
+	go run()
+}
+
 // ImportModel imports a quantized model into LocalAI asynchronously.
 func (s *QuantizationService) ImportModel(ctx context.Context, userID, jobID string, req schema.QuantizationImportRequest) (string, error) {
 	s.mu.Lock()
@@ -660,7 +672,21 @@ func (s *QuantizationService) ImportModel(ctx context.Context, userID, jobID str
 		s.mu.Unlock()
 		return "", fmt.Errorf("no output file for job %s", jobID)
 	}
+	// Claim the import in the same critical section as the check, so two
+	// concurrent calls cannot both pass it. Every error path below gives the
+	// claim back.
+	prevImportStatus := job.ImportStatus
+	job.ImportStatus = "importing"
 	s.mu.Unlock()
+
+	claimed := true
+	defer func() {
+		if claimed {
+			s.mu.Lock()
+			job.ImportStatus = prevImportStatus
+			s.mu.Unlock()
+		}
+	}()
 
 	// Compute model name
 	modelName := req.Name
@@ -705,9 +731,10 @@ func (s *QuantizationService) ImportModel(ctx context.Context, userID, jobID str
 	}
 	s.saveJobState(job)
 	s.mu.Unlock()
+	claimed = false
 
 	// Launch the import in a background goroutine
-	go func() {
+	s.launchImportFn(func() {
 		s.setImportMessage(job, "Copying quantized model...")
 
 		// Copy the output file to the models directory
@@ -780,7 +807,7 @@ func (s *QuantizationService) ImportModel(ctx context.Context, userID, jobID str
 		}
 		s.saveJobState(job)
 		s.mu.Unlock()
-	}()
+	})
 
 	return modelName, nil
 }
