@@ -83,8 +83,8 @@ func (h *Coordinators) runLimit() time.Duration {
 }
 
 // Tick is the work of a leader pass: it wakes the coordinators that are due,
-// starts the messages that wait for a coordinator that may run now, and prunes
-// the audit log. It runs on the frontend that holds the lock of the reaper, so
+// starts the messages that wait for a coordinator that may run now, delivers the
+// reports of helpers that ended (see DeliverReport) and prunes the audit log. It runs on the frontend that holds the lock of the reaper, so
 // one frontend does it; every step is also safe when two run at once (the wake
 // is a conditional claim in the store). A failure with one coordinator does not
 // stop the others; the first one is returned.
@@ -113,6 +113,11 @@ func (h *Coordinators) Tick(ctx context.Context) error {
 				keep(err)
 			}
 		}
+	}
+	// Reports of helpers: the expired ones go first, then the due ones are told.
+	keep(h.pruneReports(ctx, now))
+	if _, err := h.DeliverDue(ctx); err != nil {
+		keep(err)
 	}
 	keep(h.pruneAudit(ctx, now))
 	return first
@@ -211,6 +216,13 @@ func (h *Coordinators) supervise(cfg coordinator.Config, chatID string, events <
 func (h *Coordinators) auditWake(ctx context.Context, cfg coordinator.Config, outcome, reason string) {
 	h.record(ctx, coordinator.AuditEntry{At: h.now(), CoordinatorID: cfg.AgentID, Principal: cfg.Principal,
 		Kind: coordinator.KindWake, Outcome: outcome, Reason: reason, Actor: "coordinator", Via: string(WakeSchedule)})
+}
+
+// pruneReports drops the helper reports that are done or older than their
+// expiry.
+func (h *Coordinators) pruneReports(ctx context.Context, now time.Time) error {
+	_, err := h.o.Store.PruneReports(ctx, now.Add(-coordinator.ReportExpiry))
+	return err
 }
 
 // pruneAudit drops the audit rows and counters older than the audit days. It

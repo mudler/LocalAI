@@ -218,7 +218,7 @@ schedule. A wake posts one message into the one chat of the coordinator:
 state and stop). A new coordinator is due at once, so its first wake comes at
 the next pass.
 
-One pass (every 30 seconds) does three things:
+One pass (every 30 seconds) does four things:
 
 1. For each coordinator that is due, it claims the wake in the store and sets
    the next one `WakeEvery` from now. A coordinator that was missed for many
@@ -231,6 +231,9 @@ One pass (every 30 seconds) does three things:
 3. It starts the messages that wait for a coordinator that may run now: a reply
    that was held for the run budget starts when the budget allows it (the day
    turns at UTC midnight), with no one pressing anything.
+
+4. It delivers the reports of helpers that ended and were not reported yet
+   (see Recovery), and drops the reports that are done or older than 7 days.
 
 A wake turn is followed. When it runs longer than the trigger run limit
 (Settings, Tools), it is stopped and one audit row (kind `wake`, reason
@@ -245,3 +248,53 @@ worker or a dedicated add-on owner does not take the lock, so it cannot hold the
 wake-ups back. The wake claim is also a conditional update in the shared store,
 so a pass that runs twice at once (a lock that changed hands) wakes a
 coordinator once. Without a database the one process is the leader.
+
+## Recovery
+
+The coordinator is told how each of its helpers ended, also when the process
+that started the helper is gone.
+
+When a coordinator starts a helper in the background, the server writes a
+report row in the store. The row stays until the end of the helper was told to
+its parent. The parent of a helper is the coordinator chat, or the chat of the
+helper that started it. The message the parent reads depends on how the helper
+ended:
+
+- Finished: `[Sub-agent finished: <title>]` and what the helper answered. This
+  is the same message every chat gets from a helper.
+- Stopped, failed or interrupted: `[Sub-agent <status>: <title>]`, what the
+  helper wrote before it ended (or "no output") and the line "Its work may be
+  incomplete." The coordinator can then start the helper again or change its
+  plan. A helper that was cut by a restart is `interrupted`. A helper is not
+  resumed by the server: its parent decides.
+
+A report is due when the turn of the helper has ended, the helper has no helper
+of its own that runs or whose report is on the way, no loop or wait holds it
+and no message waits for it. A helper that started a helper of its own and ended
+its first turn is not reported until its own helper ended and its parent read
+that report and answered: the end that counts is its last turn. A helper in a
+tree of depth 2 is reported to its parent, and its parent is reported to the
+coordinator, each at the end of its turn.
+
+The report is a message with the source "helper". It is held when the
+coordinator is paused, and it counts for the run budget and the concurrency
+limit like any message that wakes a coordinator. While the coordinator is
+paused no report is sent, so a pause does not fill the chat with notices.
+The reports of the helpers that the pause cut are sent after the resume as
+"stopped". A report waits at most 7 days; then it is dropped. A report whose
+parent chat was deleted is closed without a message, and the next wake makes
+the chat again.
+
+**State mode.** Shared and single-runner. The report rows are in the store, so
+every frontend sees them. Two paths deliver a report: the process that started
+the helper right when it ends, and the sweeper in the leader pass (the lock of
+the chat reaper) for every report that is still open. Both claim the row with a
+lease of 2 minutes before they send and mark it done after. A second caller
+finds the lease or the done row and sends nothing, so the coordinator gets one
+message. A frontend that dies after the claim leaves a lease that runs out; the
+next pass of the leader sends the report then. The only case that can send a
+report twice is a store that fails right after the message was sent, and it is
+logged as an error. The sweeper runs every 30 seconds, so a report that no
+process was there to send waits at most one pass plus the lease. With no
+database (one process, JSON files) the reports are kept in a file next to the
+coordinators and survive a restart.

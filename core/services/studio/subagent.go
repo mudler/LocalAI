@@ -472,7 +472,13 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		s.mu.Unlock()
 	}
 	done := s.waitFor(childKey)
+	// A background helper of a coordinator gets its report row before it runs,
+	// so no end of it can be missed.
+	tracked := !wait && s.trackHelper(ctx, parent, childID, title)
 	if _, err := s.send(context.WithoutCancel(ctx), a.Principal, childID, session.Message{Text: task}); err != nil {
+		if tracked {
+			s.untrackHelper(context.WithoutCancel(ctx), childID)
+		}
 		// The child never ran: drop what was set up for it, or the waiter and
 		// an empty sub-agent conversation would stay behind.
 		s.forgetWaiter(childKey, done)
@@ -484,7 +490,7 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 	}
 
 	if !wait {
-		go s.reportBack(a, childID, title, done) // #nosec G118 -- a background sub-agent reports after the request ended
+		go s.reportBack(a, childID, title, done, tracked) // #nosec G118 -- a background sub-agent reports after the request ended
 		return fmt.Sprintf("Started sub-agent %s in the background. Its result will arrive as a message.", childID), nil
 	}
 	st, err := s.waitChild(ctx, a.Principal, childID, done, foregroundLoopWait.get())
@@ -496,7 +502,8 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 			c.background = true
 		}
 		s.mu.Unlock()
-		go s.reportBack(a, childID, title, done) // #nosec G118 -- the sub-agent reports after the request ended
+		tracked := s.trackHelper(ctx, parent, childID, title)
+		go s.reportBack(a, childID, title, done, tracked) // #nosec G118 -- the sub-agent reports after the request ended
 		return fmt.Sprintf("The sub-agent %s keeps running: it waits for a loop or a wait it armed. It continues in the background and its result will arrive as a message.", childID), nil
 	}
 	if err != nil {
@@ -854,7 +861,13 @@ func pick(ofTurn, latest string) string {
 // reportBack waits for a background sub-agent and tells the parent. A finished
 // one reaches the parent as a message, which starts a turn when the parent is
 // idle. One that was stopped or failed only raises the event.
-func (s *Service) reportBack(a workspace.Actor, childID, title string, done <-chan store.TurnStatus) {
+//
+// For a helper in the tree of a coordinator (tracked) the report is a row in
+// the store and every end is told to the coordinator, with its status; the
+// delivery is Coordinators.DeliverReport, which the sweeper of the leader tick
+// calls as well, so a helper that ends after this process died, or while its
+// parent waits for other helpers, is still reported.
+func (s *Service) reportBack(a workspace.Actor, childID, title string, done <-chan store.TurnStatus, tracked bool) {
 	ctx := context.Background()
 	st, err := s.waitChild(ctx, a.Principal, childID, done, 0)
 	if err != nil {
@@ -863,6 +876,12 @@ func (s *Service) reportBack(a workspace.Actor, childID, title string, done <-ch
 	parentKey := key(a.Principal, a.ChatID)
 	s.forgetChild(parentKey, childID)
 	s.bus.Publish(parentKey, session.Event{Kind: session.KindSubAgentDone, IDs: []string{childID}, Text: title})
+	if tracked && s.coordinators != nil {
+		if _, err := s.coordinators.DeliverReport(ctx, childID); err != nil {
+			s.log.Warn("studio: could not tell the parent that a sub-agent ended; the sweeper will retry", "chat", a.ChatID, "error", err)
+		}
+		return
+	}
 	if !st.Finished() {
 		return
 	}
