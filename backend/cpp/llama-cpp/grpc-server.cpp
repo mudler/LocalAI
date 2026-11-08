@@ -1420,7 +1420,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // LocalAI keeps mmap, mlock and direct-I/O as three independent settings,
     // while upstream now carries a single load mode. Fold them with the
     // precedence the separate booleans used to give: direct I/O bypasses the
-    // page cache entirely, mlock implies mmap, and everything off is a plain
+    // page cache entirely, mlock goes with mmap unless mmap is off, and everything off is a plain
     // buffered read. Forks that branched before ggml-org/llama.cpp#20834 still
     // expose the booleans; prepare.sh probes the checkout and sets
     // LOCALAI_LEGACY_LOAD_MODE in the generated llama_compat.h accordingly.
@@ -1432,7 +1432,10 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     if (want_direct_io) {
         params.load_mode = LLAMA_LOAD_MODE_DIRECT_IO;
     } else if (request->mlock()) {
-        params.load_mode = LLAMA_LOAD_MODE_MLOCK;
+        // Upstream's MLOCK alone reads the model into locked memory without
+        // mmap (llama-model-loader.cpp maps only MMAP, MMAP_MLOCK and AUTO).
+        // Keep mmap with mlock unless mmap is switched off on purpose.
+        params.load_mode = request->mmap() ? LLAMA_LOAD_MODE_MMAP_MLOCK : LLAMA_LOAD_MODE_MLOCK;
     } else if (request->mmap()) {
         params.load_mode = LLAMA_LOAD_MODE_MMAP;
     } else {

@@ -277,7 +277,7 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `mmap` | bool | `true` | Use memory mapping for model loading (faster, less RAM) |
-| `mmlock` | bool | `false` | Lock model in memory (prevents swapping) |
+| `mmlock` | bool | `false` | Lock model in memory (prevents swapping). With `llama-cpp`, `mmlock` together with `mmap` (the default) maps the file and locks it (`mmap+mlock`); with `mmap: false` the model is read into locked memory instead. |
 | `low_vram` | bool | `false` | Use minimal VRAM mode |
 | `no_kv_offloading` | bool | `false` | Disable KV cache offloading |
 
