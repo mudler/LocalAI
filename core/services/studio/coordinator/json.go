@@ -161,6 +161,17 @@ func (s *jsonStore) SetChat(_ context.Context, agentID, chatID string) (string, 
 	return c.ChatID, err
 }
 
+func (s *jsonStore) ReplaceChat(_ context.Context, agentID, oldID, newID string) (string, error) {
+	c, _, err := s.mutate(agentID, func(c *Config) bool {
+		if c.ChatID != oldID {
+			return false
+		}
+		c.ChatID = newID
+		return true
+	})
+	return c.ChatID, err
+}
+
 func (s *jsonStore) SetPaused(_ context.Context, agentID string, paused bool, by string, at time.Time) (Config, bool, error) {
 	return s.mutate(agentID, func(c *Config) bool {
 		if c.Paused == paused {

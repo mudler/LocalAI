@@ -415,14 +415,15 @@ type Service struct {
 	admit sync.Mutex
 
 	// Sub-agents; see subagent.go.
-	changes    *Changes       // the change proposals
-	triggers   *Triggers      // set once by SetTriggers
-	loops      *Loops         // set once by SetLoops
-	jobs       *Jobs          // set once by SetJobs
-	connectors *Connectors    // set once by SetConnectors
-	capGate    CapabilityGate // set once by SetCapabilityGate; nil denies
-	ctxfiles   *contextfiles.Loader
-	memory     MemoryProvider // the notes of the chats; see memory.go
+	changes      *Changes       // the change proposals
+	triggers     *Triggers      // set once by SetTriggers
+	loops        *Loops         // set once by SetLoops
+	coordinators *Coordinators  // set once by SetCoordinators
+	jobs         *Jobs          // set once by SetJobs
+	connectors   *Connectors    // set once by SetConnectors
+	capGate      CapabilityGate // set once by SetCapabilityGate; nil denies
+	ctxfiles     *contextfiles.Loader
+	memory       MemoryProvider // the notes of the chats; see memory.go
 	// slotWirings is what each provider slot brings to providerslots.go.
 	slotWirings map[string]slotWiring
 	// providerHealth is the circuit breaker of the providers and

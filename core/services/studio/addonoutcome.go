@@ -101,6 +101,8 @@ func (s *Service) senderKind(rec session.ChatRecord, chat string) (kind string, 
 		return "trigger", turnGrant{}, false
 	case session.OriginJob:
 		return "job", turnGrant{}, false
+	case session.OriginCoordinator:
+		return "coordinator", turnGrant{}, false
 	case session.OriginConnector:
 		g, held = s.access.get(chat)
 		if !held || g.Sender == "" {

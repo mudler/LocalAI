@@ -178,7 +178,7 @@ The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tool
   - `chats_trigger_run_limit` (a duration from `1m` to `24h`, default `15m`): the longest one trigger run may take. A longer run is stopped and fails. A change applies to the runs that start after it.
   - `chats_trigger_max_per_user` (1 to 1000, default 50): how many triggers a user may have. A user who has more keeps them but cannot add another.
   - `chats_trigger_max_daily_cap` (1 to 1000, default 1000): the highest daily limit one trigger may have. A trigger with a higher limit runs at this one.
-- **Coordinators of the chats** (apply at once):
+- **Coordinators of the chats** (apply at once; see [Coordinators]({{%relref "features/chats-coordinators" %}})):
   - `chats_coordinator_helpers_ceiling` (1 to 64, default 16) and `chats_coordinator_depth_ceiling` (1 to 4, default 3): the highest helper count and helper depth a coordinator may be set to. Lowering them never stops a running helper.
   - `chats_coordinator_runs_per_day` (1 to 1000, default 48): the runs one coordinator may start on its own in a UTC day (wake-ups, replies, helper reports). The messages of its owner do not count.
   - `chats_coordinator_max_running` (1 to 32, default 2): how many coordinator chats may run a turn at once, over the whole cluster.

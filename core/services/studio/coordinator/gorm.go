@@ -170,6 +170,16 @@ func (s *gormStore) SetChat(ctx context.Context, agentID, chatID string) (string
 	return c.ChatID, err
 }
 
+func (s *gormStore) ReplaceChat(ctx context.Context, agentID, oldID, newID string) (string, error) {
+	res := s.db.WithContext(ctx).Model(&configRow{}).
+		Where("agent_id = ? AND chat_id = ?", agentID, oldID).Update("chat_id", newID)
+	if res.Error != nil {
+		return "", res.Error
+	}
+	c, err := s.Get(ctx, agentID)
+	return c.ChatID, err
+}
+
 func (s *gormStore) SetPaused(ctx context.Context, agentID string, paused bool, by string, at time.Time) (Config, bool, error) {
 	upd := map[string]any{"paused": paused, "paused_by": "", "paused_at": time.Time{}}
 	if paused {

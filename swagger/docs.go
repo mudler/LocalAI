@@ -8622,7 +8622,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "only chats of one origin: person, automated, trigger, connector, job or page",
+                        "description": "only chats of one origin: person, automated, trigger, connector, job, page or coordinator",
                         "name": "origin",
                         "in": "query"
                     },

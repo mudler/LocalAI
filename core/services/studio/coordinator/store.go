@@ -19,6 +19,10 @@ type Store interface {
 	// SetChat stores the chat of the coordinator if none is stored and
 	// returns the stored one: the first call wins.
 	SetChat(ctx context.Context, agentID, chatID string) (string, error)
+	// ReplaceChat stores newID as the chat of the coordinator only if the
+	// stored chat is oldID (a chat that was deleted), and returns the stored
+	// chat: the first caller wins, the others get its chat.
+	ReplaceChat(ctx context.Context, agentID, oldID, newID string) (string, error)
 	// SetPaused sets the pause. changed is false when the state was already
 	// the asked one. A resume clears PausedBy and PausedAt.
 	SetPaused(ctx context.Context, agentID string, paused bool, by string, at time.Time) (cfg Config, changed bool, err error)

@@ -103,6 +103,23 @@ func Run(newStore NewStore) {
 		Expect(err).To(MatchError(coordinator.ErrNotFound))
 	})
 
+	It("ReplaceChatOnlyReplacesTheExpectedOne", func() {
+		s := newStore()
+		Expect(s.Put(ctx, Sample("a1", "u1"))).To(Succeed())
+		_, _ = s.SetChat(ctx, "a1", "old")
+		got, err := s.ReplaceChat(ctx, "a1", "other", "new")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal("old"), "the stored chat is not the expected one: nothing changes")
+		got, err = s.ReplaceChat(ctx, "a1", "old", "new")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal("new"))
+		got, err = s.ReplaceChat(ctx, "a1", "old", "again")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal("new"), "a second caller that saw the same dead chat loses")
+		_, err = s.ReplaceChat(ctx, "missing", "a", "b")
+		Expect(err).To(MatchError(coordinator.ErrNotFound))
+	})
+
 	It("SetPausedReportsChange", func() {
 		s := newStore()
 		Expect(s.Put(ctx, Sample("a1", "u1"))).To(Succeed())

@@ -36,7 +36,11 @@ func (s *Service) AdminDeleteAgent(ctx context.Context, id string) error {
 	if i < 0 {
 		return agents.ErrNotFound
 	}
-	return s.d.Agents.Delete(ctx, all[i].Principal, id)
+	if err := s.d.Agents.Delete(ctx, all[i].Principal, id); err != nil {
+		return err
+	}
+	s.forgetCoordinator(ctx, id)
+	return nil
 }
 
 // AdminTriggers lists the triggers of every user, proposals left out.

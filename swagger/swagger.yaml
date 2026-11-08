@@ -21347,7 +21347,7 @@ paths:
         name: agent
         type: string
       - description: 'only chats of one origin: person, automated, trigger, connector,
-          job or page'
+          job, page or coordinator'
         in: query
         name: origin
         type: string

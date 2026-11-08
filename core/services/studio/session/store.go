@@ -191,6 +191,10 @@ const (
 	// tool that acts at once and cannot create triggers: its first message was
 	// written by a page, not typed by the person.
 	OriginPage = "page"
+	// OriginCoordinator marks the one long-lived chat of a coordinator agent;
+	// OriginID is the agent. It is unattended: its rights are the act.* grants
+	// of its agent.
+	OriginCoordinator = "coordinator"
 )
 
 // Chat kinds.

@@ -174,7 +174,7 @@ func (h *Handlers) Fork(c echo.Context) error {
 // searchRoles and searchOrigins are what the search filters accept.
 var (
 	searchRoles   = []string{session.RoleUser, session.RoleAssistant}
-	searchOrigins = []string{chatsearch.OriginPerson, chatsearch.OriginAutomated, session.OriginTrigger, session.OriginConnector, session.OriginJob, session.OriginPage}
+	searchOrigins = []string{chatsearch.OriginPerson, chatsearch.OriginAutomated, session.OriginTrigger, session.OriginConnector, session.OriginJob, session.OriginPage, session.OriginCoordinator}
 )
 
 // searchTime reads a date (YYYY-MM-DD, UTC) or a time (RFC 3339). A date given
@@ -196,7 +196,7 @@ func searchTime(v string, endOfDay bool) (time.Time, error) {
 // @Param q query string true "text to find: words that must all be in the message"
 // @Param limit query int false "most hits to return (default 50, at most 200)"
 // @Param agent query string false "only chats of this saved agent"
-// @Param origin query string false "only chats of one origin: person, automated, trigger, connector, job or page"
+// @Param origin query string false "only chats of one origin: person, automated, trigger, connector, job, page or coordinator"
 // @Param role query string false "only lines written by user or assistant"
 // @Param since query string false "only lines at or after this date (YYYY-MM-DD) or time (RFC 3339)"
 // @Param until query string false "only lines before this time, or on or before this date (YYYY-MM-DD)"
@@ -215,7 +215,7 @@ func (h *Handlers) Search(c echo.Context) error {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "role must be user or assistant")
 	}
 	if o.Origin != "" && !slices.Contains(searchOrigins, o.Origin) {
-		return fail(c, http.StatusBadRequest, "invalid_request_error", "origin must be person, automated, trigger, connector, job or page")
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "origin must be person, automated, trigger, connector, job, page or coordinator")
 	}
 	switch c.QueryParam("group") {
 	case "", "chat":

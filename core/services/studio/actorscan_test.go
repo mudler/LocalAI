@@ -45,6 +45,7 @@ var actorAllowlist = map[string]string{
 	"contextlist.go:listNames":                                          "the owner's own Memory page lists the notes of their home; a person's action, never the model's",
 	"changes.go:Changes.Revert":                                         "undoes the change set that the owner confirmed; a person's own action, never the model's",
 	"contextturn.go:homeReader.ReadFile":                                "the host reads the user's notes at paths the loader builds from the chat record, never from the model; the chat's fence is not widened",
+	"coordinatorpreset.go:Coordinators.ensurePage":                      "writes the starter page of a coordinator in the creator's own home when the creator makes it; a person's action, never the model's",
 	"service.go:New":                                                    "the administrator of the change feed and the trigger watcher",
 	"../../application/studio_files.go:Application.initStudioTextIndex": "the administrator of the text index",
 }

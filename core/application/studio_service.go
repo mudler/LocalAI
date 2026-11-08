@@ -265,6 +265,7 @@ func (a *Application) initStudioService() {
 	} else {
 		a.startStudioTriggers(svc)
 		a.startStudioLoops(svc)
+		a.startStudioCoordinators(svc)
 		a.startStudioJobs(svc)
 	}
 	a.prepareStudioConversion(svc)
