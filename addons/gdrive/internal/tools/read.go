@@ -52,6 +52,11 @@ func (c *call) list(q, cursor string, size int, order string) (fileList, error) 
 		"supportsAllDrives":         {"true"},
 		"includeItemsFromAllDrives": {"true"},
 	}
+	if c.all() {
+		// The default corpus leaves out the shared drives the person has not
+		// opened. All folders means every drive the login can see.
+		v.Set("corpora", "allDrives")
+	}
 	if order != "" {
 		v.Set("orderBy", order)
 	}
@@ -167,6 +172,9 @@ func (c *call) search(raw map[string]json.RawMessage) (any, error) {
 
 // insideResult is within for a file that a list gave, whose parents are known.
 func (c *call) insideResult(m *fileMeta) (bool, error) {
+	if c.all() {
+		return true, nil
+	}
 	root, err := c.root()
 	if err != nil {
 		return false, err

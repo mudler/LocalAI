@@ -8,6 +8,13 @@
   "foldersHelp": "Eine Ordner-ID oder Ordneradresse pro Zeile. {{count}} aufgeführt. Ein Ordner umfasst alles darin. Jede andere Datei wird abgelehnt.",
   "foldersShape": "„{{entry}}“ ist keine Ordner-ID. Kopiere sie aus der Adresse des Ordners in deinem Browser, nach /folders/.",
   "foldersMany": "Höchstens 50 Ordner.",
+  "allFolders": {
+    "label": "Alle Ordner (Meine Ablage und geteilte Ablagen)",
+    "hint": "Der Agent kann jede Datei lesen, die dein Google-Login sehen kann, in Meine Ablage und in geteilten Ablagen. Ist die Option aus, nutzt er nur die Ordner der Liste.",
+    "warning": "Damit kann der Agent jede Datei lesen, die dein Google-Login erreicht, nicht nur die Dateien in einem Ordner. Der Schreibmodus unten gilt weiter, und jede Änderung wartet weiter auf dein OK.",
+    "confirm": "Verstanden: alle Ordner erlauben",
+    "row": "Alle Ordner (Meine Ablage und geteilte Ablagen)"
+  },
   "agent": "Agent",
   "agentNone": "Agent wählen",
   "agentCredentialsOnly": "Kein Agent (nur Zugangsdaten)",

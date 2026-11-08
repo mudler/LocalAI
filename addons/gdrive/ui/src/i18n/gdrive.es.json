@@ -8,6 +8,13 @@
   "foldersHelp": "Un ID o una dirección de carpeta por línea. {{count}} indicadas. Una carpeta incluye todo lo que contiene. Cualquier otro archivo se rechaza.",
   "foldersShape": "«{{entry}}» no es un ID de carpeta. Cópialo de la dirección de la carpeta en tu navegador, después de /folders/.",
   "foldersMany": "Como máximo 50 carpetas.",
+  "allFolders": {
+    "label": "Todas las carpetas (Mi unidad y unidades compartidas)",
+    "hint": "El agente puede leer todos los archivos que tu acceso de Google puede ver, en Mi unidad y en las unidades compartidas. Si lo desactivas, solo usa las carpetas de la lista.",
+    "warning": "Esto permite al agente leer todos los archivos a los que llega tu acceso de Google, no solo los de una carpeta. El modo de escritura de abajo sigue vigente y cada cambio sigue esperando tu confirmación.",
+    "confirm": "Lo entiendo: permitir todas las carpetas",
+    "row": "Todas las carpetas (Mi unidad y unidades compartidas)"
+  },
   "agent": "Agente",
   "agentNone": "Elige un agente",
   "agentCredentialsOnly": "Sin agente (solo credenciales)",

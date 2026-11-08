@@ -8,6 +8,13 @@
   "foldersHelp": "Um ID ou endereço de pasta por linha. {{count}} listadas. Uma pasta inclui tudo que há dentro dela. Qualquer outro arquivo é recusado.",
   "foldersShape": "\"{{entry}}\" não é um ID de pasta. Copie do endereço da pasta no navegador, depois de /folders/.",
   "foldersMany": "No máximo 50 pastas.",
+  "allFolders": {
+    "label": "Todas as pastas (Meu Drive e drives compartilhados)",
+    "hint": "O agente pode ler todos os arquivos que o seu login do Google enxerga, no Meu Drive e nos drives compartilhados. Desligado, ele usa só as pastas da lista.",
+    "warning": "Isso deixa o agente ler todos os arquivos que o seu login do Google alcança, não só os de uma pasta. O modo de escrita abaixo continua valendo e cada alteração continua esperando o seu OK.",
+    "confirm": "Entendi: permitir todas as pastas",
+    "row": "Todas as pastas (Meu Drive e drives compartilhados)"
+  },
   "agent": "Agente",
   "agentNone": "Escolha um agente",
   "agentCredentialsOnly": "Sem agente (só credenciais)",

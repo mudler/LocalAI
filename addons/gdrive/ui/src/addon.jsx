@@ -1,25 +1,39 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { RouteProvider } from 'react-router-dom'
 import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
-import { Field, Notice } from '../../../internal/connector-ui/src/controls'
+import { Check, Field, Hint, Notice } from '../../../internal/connector-ui/src/controls'
 import { WriteModeChip, WriteModeField } from '../../../internal/connector-ui/src/addonparts'
 import './i18n'
 import ProposalCard from './ProposalCard'
-import { extraBody, extraForm, extraValid, foldersIssue, parseFolders, OFFERED_MODES, writeModeOf } from './folders'
+import { ALL_FOLDERS, extraBody, extraForm, extraValid, foldersIssue, parseFolders, OFFERED_MODES, writeModeOf } from './folders'
 
 // The folders the agent may use. The host refuses any other one before the
-// add-on is called, and the add-on refuses a file outside the folder.
+// add-on is called, and the add-on refuses a file outside the folder. All
+// folders is the list *: the host still holds the connection to its list, and
+// an empty list still means no access.
 function GdriveFields({ form, setForm, t }) {
-  const issue = foldersIssue(form.folders_text)
+  const all = Boolean(form.all_folders)
+  const issue = all ? null : foldersIssue(form.folders_text)
   const count = parseFolders(form.folders_text).length
   return (
     <>
-      <Field label={t('folders')} hint={t('foldersHelp', { count })} error={issue ? t(issue.key, { entry: issue.entry }) : undefined}>
-        {(p) => (
-          <textarea {...p} className="cn-input cn-input--mono" rows={5} data-testid="gdrive-folders" value={form.folders_text || ''}
-            placeholder="1AbCdEfG..." onChange={(e) => setForm({ ...form, folders_text: e.target.value })} />
-        )}
-      </Field>
+      <div className="dk-field" data-testid="gdrive-all">
+        <Check checked={all} testId="gdrive-all-folders" onChange={(on) => setForm({ ...form, all_folders: on, all_ack: false })}>{t('allFolders.label')}</Check>
+        <Hint>{t('allFolders.hint')}</Hint>
+      </div>
+      {all ? (
+        <Notice tone="warn" role="alert" testId="gdrive-all-warning">
+          <p className="cn-notice__text">{t('allFolders.warning')}</p>
+          {!form.all_was && <Check checked={Boolean(form.all_ack)} testId="gdrive-all-ack" onChange={(on) => setForm({ ...form, all_ack: on })}>{t('allFolders.confirm')}</Check>}
+        </Notice>
+      ) : (
+        <Field label={t('folders')} hint={t('foldersHelp', { count })} error={issue ? t(issue.key, { entry: issue.entry }) : undefined}>
+          {(p) => (
+            <textarea {...p} className="cn-input cn-input--mono" rows={5} data-testid="gdrive-folders" value={form.folders_text || ''}
+              placeholder="1AbCdEfG..." onChange={(e) => setForm({ ...form, folders_text: e.target.value })} />
+          )}
+        </Field>
+      )}
       <WriteModeField ns="gdrive" form={form} setForm={setForm} t={t} modes={OFFERED_MODES} modeOf={writeModeOf} />
     </>
   )
@@ -43,10 +57,11 @@ function Help({ t }) {
 
 function RowInfo({ c, t }) {
   const folders = c.resources || []
+  const all = folders.includes(ALL_FOLDERS)
   const mode = writeModeOf(c.write_mode)
   return (
     <>
-      <span className="cn-muted" data-testid="gdrive-row-folders">{folders.length === 0 ? t('noFolders') : t('foldersOf', { count: folders.length, list: folders.join(', ') })}</span>
+      <span className="cn-muted" data-testid="gdrive-row-folders">{all ? t('allFolders.row') : folders.length === 0 ? t('noFolders') : t('foldersOf', { count: folders.length, list: folders.join(', ') })}</span>
       <span><WriteModeChip ns="gdrive" mode={mode} t={t} /></span>
     </>
   )

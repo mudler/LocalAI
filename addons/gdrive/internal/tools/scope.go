@@ -45,11 +45,24 @@ func (m *fileMeta) bytes() int64 {
 	return n
 }
 
-// checkFolder checks the folder argument: it has the shape of an ID and is the
-// key the host allowed for this call.
+// AllFolders is the resource key of a connection that allows every folder: the
+// entry * of its list, which the host honors for this kind (wildcardResources).
+// The agent names it as the folder argument.
+const AllFolders = "*"
+
+// all reports a call that the host allowed for every folder. The files it
+// touches are not held to one folder: the person's login and the host's list
+// are the limit.
+func (c *call) all() bool { return c.key == AllFolders }
+
+// checkFolder checks the folder argument: it has the shape of an ID, or is *
+// for a connection that allows all folders, and is the key the host allowed
+// for this call.
 func (c *call) checkFolder(folder string) error {
-	if err := checkID("folder", folder); err != nil {
-		return err
+	if !(folder == AllFolders && c.all()) {
+		if err := checkID("folder", folder); err != nil {
+			return err
+		}
 	}
 	if c.key == "" || !strings.EqualFold(c.key, folder) {
 		return bad("folder is not the one the host allowed")
@@ -59,11 +72,14 @@ func (c *call) checkFolder(folder string) error {
 
 // root returns the real ID of the allowed folder. The word root names the
 // top of My Drive, which the service knows by another ID.
+//
+// With all folders there is no allowed folder: the top of My Drive stands in
+// for it as the default place of a list or a new file.
 func (c *call) root() (string, error) {
 	if c.rootID != "" {
 		return c.rootID, nil
 	}
-	if !strings.EqualFold(c.key, "root") {
+	if !strings.EqualFold(c.key, "root") && !c.all() {
 		c.rootID = c.key
 		return c.rootID, nil
 	}
@@ -107,6 +123,9 @@ func (c *call) fileMeta(id string) (*fileMeta, error) {
 // is it). A chain that ends elsewhere, that the token cannot see or that is
 // deeper than maxDepth is outside: the check fails closed.
 func (c *call) within(id string) (bool, error) {
+	if c.all() {
+		return true, nil
+	}
 	root, err := c.root()
 	if err != nil {
 		return false, err
