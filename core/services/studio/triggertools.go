@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
@@ -72,6 +73,7 @@ const proposeTriggerSchema = `{"type":"object","properties":{` +
 	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]}]},` +
 	`"time_zone":{"type":"string","description":"An IANA time zone name such as Europe/Rome; when absent, the person's own zone is used when they confirm."},` +
 	`"daily_cap":{"type":"integer","minimum":0,"maximum":1000,"description":"The most runs in one day; 0 is the default limit."},` +
+	`"run_limit":{"type":"string","description":"The longest one run may take, as a duration such as 30m or 2h, from 1m to 24h. Leave it out for the default. The administrator sets a ceiling: a longer limit is cut to it."},` +
 	`"reads":{"type":"string","maxLength":200,"description":"What a run reads, in a few words: Mail from the last 24 hours."},` +
 	`"writes":{"type":"string","maxLength":256,"description":"The file in the user's home that a run rewrites, such as data/inbox.json."},` +
 	`"widget":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,39}$","description":"The id of the Home widget in home.json that shows the file."},` +
@@ -92,6 +94,7 @@ const proposeTriggerConnectorSchema = `{"type":"object","properties":{` +
 	`"time_zone":{"type":"string","description":"An IANA time zone name such as Europe/Rome; when absent, UTC is used. Needed for a time of day."},` +
 	`"access":{"type":"string","enum":["read_only","read_write"],"description":"read_only only when the runs just read and report: they write no file, run no command and message nobody else. Otherwise read_write (the default)."},` +
 	`"daily_cap":{"type":"integer","minimum":0,"maximum":1000,"description":"The most runs in one day; 0 is the default limit."},` +
+	`"run_limit":{"type":"string","description":"The longest one run may take, as a duration such as 30m or 2h, from 1m to 24h. Leave it out for the default. The administrator sets a ceiling: a longer limit is cut to it."},` +
 	`"reads":{"type":"string","maxLength":200,"description":"What a run reads, in a few words."},` +
 	`"writes":{"type":"string","maxLength":256,"description":"The file in the user's home that a run rewrites."},` +
 	`"widget":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,39}$","description":"The id of the Home widget that shows the file."},` +
@@ -140,6 +143,7 @@ const updateTriggerSchema = `{"type":"object","properties":{` +
 	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]}]},` +
 	`"time_zone":{"type":"string","description":"An IANA time zone name such as Europe/Rome."},` +
 	`"daily_cap":{"type":"integer","minimum":0,"maximum":1000,"description":"The most runs in one day; 0 is the default limit."},` +
+	`"run_limit":{"type":"string","description":"The longest one run may take, as a duration such as 30m or 2h, from 1m to 24h. Leave it out for the default. The administrator sets a ceiling: a longer limit is cut to it."},` +
 	`"enabled":{"type":"boolean","description":"false pauses the trigger, true resumes it."},` +
 	`"reads":{"type":"string","maxLength":200},` +
 	`"writes":{"type":"string","maxLength":256,"description":"The file in the user's home that a run rewrites."},` +
@@ -341,6 +345,7 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 		When     json.RawMessage `json:"when"`
 		TimeZone string          `json:"time_zone"`
 		DailyCap int             `json:"daily_cap"`
+		RunLimit string          `json:"run_limit"`
 		Reads    string          `json:"reads"`
 		Writes   string          `json:"writes"`
 		Widget   string          `json:"widget"`
@@ -356,7 +361,11 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return "", fmt.Errorf("bad arguments: %w", err)
 	}
-	in := TriggerInput{Name: args.Name, Prompt: args.Prompt, DailyCap: args.DailyCap, TZ: args.TimeZone,
+	runLimit, rlErr := ParseRunLimit(args.RunLimit)
+	if rlErr != nil {
+		return "", rlErr
+	}
+	in := TriggerInput{Name: args.Name, Prompt: args.Prompt, DailyCap: args.DailyCap, RunLimit: runLimit, TZ: args.TimeZone,
 		SourceChatID: a.ChatID, AgentID: agentID, Model: model,
 		Reads: args.Reads, Writes: args.Writes, Widget: args.Widget, EstTokens: args.Tokens}
 	var text string
@@ -469,6 +478,7 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID stri
 		TimeZone  string `json:"time_zone,omitempty"`
 		Folder    string `json:"folder,omitempty"`
 		DailyCap  int    `json:"daily_cap"`
+		RunLimit  string `json:"run_limit,omitempty"`
 		Reads     string `json:"reads,omitempty"`
 		Writes    string `json:"writes,omitempty"`
 		Widget    string `json:"widget,omitempty"`
@@ -525,7 +535,7 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID stri
 			}
 		}
 		if args.IncludePrompt {
-			r.Detail = &detail{Prompt: t.Prompt, Schedule: t.Schedule, TimeZone: t.TZ, Folder: h.RelFolder(t), DailyCap: t.DailyCap,
+			r.Detail = &detail{Prompt: t.Prompt, Schedule: t.Schedule, TimeZone: t.TZ, Folder: h.RelFolder(t), DailyCap: t.DailyCap, RunLimit: runLimitText(t.RunLimit),
 				Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens, Acts: t.Acts}
 		}
 		rows = append(rows, r)
@@ -552,6 +562,7 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, c builtins
 		When     json.RawMessage `json:"when"`
 		TimeZone *string         `json:"time_zone"`
 		DailyCap *int            `json:"daily_cap"`
+		RunLimit *string         `json:"run_limit"`
 		Enabled  *bool           `json:"enabled"`
 		Reads    *string         `json:"reads"`
 		Writes   *string         `json:"writes"`
@@ -575,7 +586,15 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, c builtins
 	if err != nil {
 		return "", toolErr(err)
 	}
-	p := TriggerPatch{Name: args.Name, Prompt: args.Prompt, TZ: args.TimeZone, DailyCap: args.DailyCap, Enabled: args.Enabled,
+	var runLimit *time.Duration
+	if args.RunLimit != nil {
+		d, err := ParseRunLimit(*args.RunLimit)
+		if err != nil {
+			return "", err
+		}
+		runLimit = &d
+	}
+	p := TriggerPatch{Name: args.Name, Prompt: args.Prompt, TZ: args.TimeZone, DailyCap: args.DailyCap, RunLimit: runLimit, Enabled: args.Enabled,
 		Reads: args.Reads, Writes: args.Writes, Widget: args.Widget, EstTokens: args.Tokens}
 	if args.Acts != nil {
 		acts, err := h.checkChangedActs(ctx, target, *args.Acts)
@@ -786,4 +805,28 @@ func actsResultNote(t triggers.Trigger, dr DroppedActs, may []string) string {
 		note += " This chat allows no acts: leave acts out."
 	}
 	return note
+}
+
+// ParseRunLimit reads the run_limit of a trigger: a duration text such as 30m.
+// Empty and 0 mean the default and give zero. The bounds are checked when the
+// trigger is validated.
+func ParseRunLimit(text string) (time.Duration, error) {
+	text = strings.TrimSpace(text)
+	if text == "" || text == "0" {
+		return 0, nil
+	}
+	d, err := time.ParseDuration(text)
+	if err != nil {
+		return 0, fmt.Errorf("run_limit must be a duration such as 30m or 2h, or empty for the default")
+	}
+	return d, nil
+}
+
+// runLimitText is a run limit as the text a person or a model reads back; zero
+// gives the empty text.
+func runLimitText(d time.Duration) string {
+	if d <= 0 {
+		return ""
+	}
+	return limitText(d)
 }

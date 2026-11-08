@@ -438,6 +438,68 @@ var _ = Describe("triggersvc", func() {
 		Expect(run.Reason).To(Equal("took longer than 150ms"), "run = %+v", run)
 	})
 
+	It("holds a run to the least of its own time limit and the operator's", func() {
+		for _, c := range []struct {
+			name          string
+			own, ceiling  time.Duration
+			want          string
+			wantEffective time.Duration
+		}{
+			{"own below the ceiling", 150 * time.Millisecond, time.Hour, "took longer than 150ms", 150 * time.Millisecond},
+			{"own above the ceiling", time.Hour, 150 * time.Millisecond, "took longer than 150ms", 150 * time.Millisecond},
+		} {
+			block := make(chan struct{})
+			var ceiling atomic.Int64
+			ceiling.Store(int64(c.ceiling))
+			sh := newShared()
+			r := sh.rig(func(workspace.Actor, string) []studiotest.ToolStep {
+				return []studiotest.ToolStep{{Block: block}}
+			}, studio.TriggerOptions{Limits: func() studio.TriggerLimits {
+				return studio.TriggerLimits{RunLimit: time.Duration(ceiling.Load())}
+			}})
+			tr := r.schedule(studio.TriggerInput{})
+			// The API refuses less than a minute; the store holds what it is given,
+			// which keeps the spec short.
+			tr.RunLimit = c.own
+			Expect(sh.trg.PutTrigger(context.Background(), tr)).To(Succeed())
+			Expect(r.host.RunLimitOf(tr)).To(Equal(c.wantEffective), c.name)
+			r.due()
+			run := r.waitEnded(tr.ID)
+			close(block)
+			Expect(run.Status).To(Equal(triggers.StatusFailed), "%s: run = %+v", c.name, run)
+			Expect(run.Reason).To(Equal(c.want), c.name)
+		}
+	})
+
+	It("follows a lowered ceiling at once for a trigger with a longer limit of its own", func() {
+		var ceiling atomic.Int64
+		ceiling.Store(int64(time.Hour))
+		r := newShared().rig(saySummary, studio.TriggerOptions{Limits: func() studio.TriggerLimits {
+			return studio.TriggerLimits{RunLimit: time.Duration(ceiling.Load())}
+		}})
+		tr := r.schedule(studio.TriggerInput{RunLimit: 30 * time.Minute})
+		Expect(r.host.RunLimitOf(tr)).To(Equal(30 * time.Minute))
+		ceiling.Store(int64(10 * time.Minute))
+		Expect(r.host.RunLimitOf(tr)).To(Equal(10 * time.Minute))
+		Expect(tr.RunLimit).To(Equal(30*time.Minute), "stored as set")
+	})
+
+	It("refuses a time limit outside 1m to 24h and keeps one above the ceiling", func() {
+		r := newTrigRig(saySummary)
+		in := studio.TriggerInput{Name: "T", Prompt: "p", Kind: triggers.KindSchedule, Schedule: "daily 08:00", TZ: "UTC", Model: "m", Enabled: true}
+		for _, d := range []time.Duration{time.Second, -time.Minute, 25 * time.Hour} {
+			in.RunLimit = d
+			_, err := r.host.CreateTrigger(context.Background(), alice, in)
+			Expect(err).To(MatchError(studio.ErrBadTrigger), "%s", d)
+			Expect(err.Error()).To(ContainSubstring("time limit must be empty or"))
+		}
+		in.RunLimit = 20 * time.Hour // above the default ceiling of 15m
+		tr, err := r.host.CreateTrigger(context.Background(), alice, in)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(tr.RunLimit).To(Equal(20 * time.Hour))
+		Expect(r.host.RunLimitOf(tr)).To(Equal(studio.DefaultRunLimit))
+	})
+
 	It("takes the default limits when the operator sets none", func() {
 		r := newTrigRig(saySummary)
 		Expect(r.host.Limits()).To(Equal(studio.TriggerLimits{

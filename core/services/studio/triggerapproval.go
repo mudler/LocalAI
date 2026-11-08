@@ -282,6 +282,11 @@ func (h *Triggers) autoCreate(ctx context.Context, ap connectors.Approval, p tri
 	now := h.o.Clock().UTC()
 	t, err := h.confirm(ctx, p.Owner, p.ID, "", func(t *triggers.Trigger) {
 		*t = capped(*t, lim)
+		// The owner's approval has no time limit of its own, so only the
+		// administrator's ceiling applies to a run limit.
+		if ceiling := h.RunLimit(); t.RunLimit > ceiling {
+			t.RunLimit = ceiling
+		}
 		t.Route.Auto = true
 		if !t.OneOff() {
 			t.Route.Until = now.Add(time.Duration(lim.MaxLifetimeDays) * 24 * time.Hour)

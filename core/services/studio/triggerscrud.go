@@ -46,6 +46,9 @@ type TriggerInput struct {
 	Folder   string
 	Quiet    time.Duration
 	DailyCap int
+	// RunLimit is the longest a run may take; zero means the administrator's
+	// run limit. A value above it is kept and runs clamped to it.
+	RunLimit time.Duration
 	// AgentID is optional. Model is needed unless the agent or the source chat
 	// names one. SourceChatID is the chat the trigger was made from.
 	AgentID, Model, SourceChatID string
@@ -158,7 +161,7 @@ func countLive(ts []triggers.Trigger) int {
 // be checked now. It does not set Since.
 func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (triggers.Trigger, error) {
 	t := triggers.Trigger{Owner: owner, Name: strings.TrimSpace(in.Name), Prompt: in.Prompt, Enabled: in.Enabled, Kind: in.Kind,
-		TZ: in.TZ, Quiet: in.Quiet, DailyCap: in.DailyCap, AgentID: in.AgentID, Model: in.Model, SourceChatID: in.SourceChatID,
+		TZ: in.TZ, Quiet: in.Quiet, DailyCap: in.DailyCap, RunLimit: in.RunLimit, AgentID: in.AgentID, Model: in.Model, SourceChatID: in.SourceChatID,
 		MinGap: in.MinGap, Reads: strings.TrimSpace(in.Reads), Widget: in.Widget, EstTokens: in.EstTokens, Route: in.Route}
 	acts, err := cleanActs(in.Acts)
 	if err != nil {

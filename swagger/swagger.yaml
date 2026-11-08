@@ -4290,6 +4290,8 @@ definitions:
         allOf:
         - $ref: '#/definitions/schema.ChatsTriggerDelivery'
         description: Delivery says where the answer of each run goes.
+      effective_run_limit:
+        type: string
       enabled:
         type: boolean
       folder:
@@ -4331,6 +4333,12 @@ definitions:
       read_only:
         type: boolean
       read_only_why:
+        type: string
+      run_limit:
+        description: |-
+          RunLimit is the longest one run may take, as a duration such as 30m;
+          empty means the administrator's run limit. EffectiveRunLimit is what
+          applies now: the least of RunLimit and the administrator's limit.
         type: string
       schedule:
         type: string
@@ -8948,6 +8956,8 @@ definitions:
         allOf:
         - $ref: '#/definitions/schema.ChatsTriggerDelivery'
         description: Delivery says where the answer of each run goes.
+      effective_run_limit:
+        type: string
       enabled:
         type: boolean
       folder:
@@ -8987,6 +8997,12 @@ definitions:
       read_only:
         type: boolean
       read_only_why:
+        type: string
+      run_limit:
+        description: |-
+          RunLimit is the longest one run may take, as a duration such as 30m;
+          empty means the administrator's run limit. EffectiveRunLimit is what
+          applies now: the least of RunLimit and the administrator's limit.
         type: string
       schedule:
         type: string
@@ -9180,6 +9196,12 @@ definitions:
         type: string
       quiet_seconds:
         type: integer
+      run_limit:
+        description: |-
+          RunLimit is the longest one run may take, a duration from 1m to 24h such
+          as 30m. Empty or 0 means the administrator's run limit, which is also
+          the ceiling: a longer value is accepted and runs cut to it.
+        type: string
       schedule:
         type: string
       source_chat_id:
