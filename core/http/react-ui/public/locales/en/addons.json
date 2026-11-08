@@ -644,7 +644,8 @@
       "justNow": "Checked just now."
     },
     "waitingService": "The add-on service is starting. LocalAI asks about the upgrade again in {{seconds}} s.",
-    "checkAgain": "Check now"
+    "checkAgain": "Check now",
+    "open": "Open Updates"
   },
   "install": {
     "stepsLabel": "Install steps",

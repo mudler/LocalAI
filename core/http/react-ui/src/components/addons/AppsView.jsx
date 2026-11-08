@@ -1,9 +1,9 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { useOutletContext, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button, Callout, EmptyState, LoadError, Notice, PaneLayout, SearchField, Segmented, SkeletonRows } from '../ui'
-import { newOperationId, pollDelay } from '../catalog/catalogState'
+import { pollDelay } from '../catalog/catalogState'
 import { RegistryContext } from '../../addons/registryContext'
 import { navigationItems } from '../../addons/registryState'
 import { hasAddonSettings } from '../../addons/hostControls'
@@ -23,14 +23,11 @@ import { useAddonConnections } from '../../hooks/useAddonConnections'
 import { rowState } from '../../utils/chatConnectors'
 import { AppIcon, UnknownNotice } from './AddonBits'
 import { OperatorFacts } from './OperatorFacts'
-import { AddonUpgradeAction, UpgradeConfirm, reasonText } from './UpgradeControls'
+import { AddonUpgradeAction, UpgradeConfirm } from './UpgradeControls'
 import { useAddonUpgrade } from './useAddonUpgrade'
-import { BulkUpgradeTrigger, BulkUpgradeDialog } from '../upgrade/BulkUpgradeDialog'
-import { useBulkUpgrade } from '../../hooks/useBulkUpgrade'
 import { updateView, upgradeAvailability } from './updateState'
-import { upgradeFailureWords } from './updateReview'
 import FirstRun from './FirstRun'
-import { addedByAddon, attentionOf, filterByState, groupTiles, listState, loadLastKnown, localizedText, localizeRecord, saveLastKnown, sortByAttention, staleKind, STATE_FILTERS, upgradingTitles } from './addonState'
+import { attentionOf, filterByState, groupTiles, listState, loadLastKnown, localizeRecord, saveLastKnown, sortByAttention, staleKind, STATE_FILTERS, upgradingTitles } from './addonState'
 import { describeError, describeOutcome } from './errors'
 import ApproveUpgradeDialog, { WaitingBanner } from './ApproveUpgradeDialog'
 import { pendingApprovals } from './hostGrantsState'
@@ -167,41 +164,7 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
     reloadRef.current()
     setInstalledReload(n => n + 1)
   }, [endedCount])
-  const aborter = useRef(null)
-  useEffect(() => {
-    aborter.current = new AbortController()
-    return () => aborter.current.abort()
-  }, [])
-
-  const outlet = useOutletContext()
-  const addToast = outlet?.addToast
   const installedList = useMemo(() => Object.values(installedInfo), [installedInfo])
-
-  // Reads the library of every installed add-on again. Only reads: it never
-  // applies anything, and one add-on that cannot be checked does not stop the
-  // rest.
-  const [checkingActor, setCheckingActor] = useState(null)
-  const checkingAll = checkingActor === actor
-  const checkAll = useCallback(async () => {
-    const current = () => scope.current === actor
-    if (!current()) return
-    const signal = aborter.current.signal
-    setCheckingActor(actor)
-    let failed = 0
-    for (const addon of installedList) {
-      if (!current()) return
-      try {
-        await api.updates.check(addon.id, { operationId: newOperationId() }, signal)
-      } catch (error) {
-        if (error && error.name === 'AbortError') return
-        failed += 1
-      }
-    }
-    if (!current()) return
-    setCheckingActor(null)
-    setInstalledReload(n => n + 1)
-    addToast?.(failed > 0 ? t('updates.checkAllFailed', { count: failed }) : t('updates.checkAllDone', { count: installedList.length }), failed > 0 ? 'error' : 'info')
-  }, [api, installedList, addToast, t, actor])
 
   const nav = useNavigation()
   // Under the legacy switch the Build hub row draws the app.nav slot instead.
@@ -245,26 +208,6 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
       .catch(() => { /* the pane says the source is not known */ })
     return () => ctl.abort()
   }, [api, isAdmin, canList, appsKey, installedReload, actor])
-
-  // Everything that has an update notice, for "Upgrade all": the owner's
-  // record when the administrator can read it, with the reason when the
-  // upgrade cannot start. The upgrade of each is the single-add-on path.
-  const upgradeItems = useMemo(() => {
-    if (!isAdmin) return []
-    return state.apps.filter(a => a.update === 'update-pending' || updateView(installedInfo[a.id]?.update).state === 'update-available').map(a => {
-      const rec = installedInfo[a.id]
-      const av = upgradeAvailability(rec, { isAdmin, pending: true })
-      return { id: a.id, name: localizedText(a, 'title', i18n.language) || a.id, from: rec ? rec.version : a.version, to: rec ? updateView(rec.update).version : '', startable: av.startable, reason: reasonText(av, t), addon: rec }
-    })
-  }, [state.apps, installedInfo, isAdmin, t, i18n.language])
-  const bulk = useBulkUpgrade({
-    items: upgradeItems,
-    runOne: async (item) => {
-      if (!item.addon) return { ok: false, message: upgradeFailureWords('stale_installed', t) }
-      const out = await upgrade.upgrade(item.addon)
-      return out?.ok ? { ok: true } : { ok: false, message: upgradeFailureWords(out?.message, t) }
-    },
-  })
 
   const firstRunNow = state.status === 'ready' && !state.stale && listState({ apps: state.apps, shownCount: tiles.length, query: '', isAdmin, canList }) === 'first-run'
   useEffect(() => {
@@ -392,11 +335,8 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
                 label={t('filter.label')}
               />
               {isAdmin && installedList.length > 0 && (
-                <Button size="sm" variant="ghost" icon="refresh" busy={checkingAll} disabled={checkingAll} onClick={checkAll} data-testid="addons-check-all">
-                  {checkingAll ? t('updates.checkingAll') : t('updates.checkAll')}
-                </Button>
+                <Button size="sm" variant="ghost" icon="arrow-up" to="/app/updates" data-testid="addons-open-updates">{t('updates.open')}</Button>
               )}
-              {isAdmin && <BulkUpgradeTrigger bulk={bulk} className="dk-btn dk-btn--sm" />}
             </div>
           )}
           {view === 'first-run' ? (
@@ -523,7 +463,6 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
           onDone={() => { setApproving(null); grants?.reload(); reloadRef.current() }}
         />
       )}
-      <BulkUpgradeDialog bulk={bulk} />
       {limit && (
         <SideSheet title={t('drawer.limitTitle')} onClose={() => setLimit(false)} closeLabel={t('drawer.close')} testId="pin-limit">
           <p>{t('drawer.limitBody')}</p>

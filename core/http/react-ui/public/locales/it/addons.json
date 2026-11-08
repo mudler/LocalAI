@@ -644,7 +644,8 @@
       "justNow": "Controllato adesso."
     },
     "waitingService": "Il servizio dei componenti aggiuntivi si sta avviando. LocalAI chiede di nuovo dell'aggiornamento tra {{seconds}} s.",
-    "checkAgain": "Controlla ora"
+    "checkAgain": "Controlla ora",
+    "open": "Apri Aggiornamenti"
   },
   "install": {
     "stepsLabel": "Install steps",

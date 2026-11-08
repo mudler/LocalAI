@@ -644,7 +644,8 @@
       "justNow": "刚刚检查过。"
     },
     "waitingService": "插件服务正在启动。LocalAI 将在 {{seconds}} 秒后再次查询升级状态。",
-    "checkAgain": "立即检查"
+    "checkAgain": "立即检查",
+    "open": "打开更新"
   },
   "install": {
     "stepsLabel": "Install steps",

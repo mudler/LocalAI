@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { ADMIN, MEMBER, app, installedAddon, sessionFor, mockAddons, fail } from './addons-fixtures.js'
+import { ADMIN, MEMBER, app, installedAddon, sessionFor, mockAddons } from './addons-fixtures.js'
 
 // The upgrade action where the "update available" notice is seen: the list.
 // The routes are stand-ins (addons-fixtures.js); the owner's own decisions are
@@ -41,7 +41,7 @@ test.describe('Add-ons: upgrade from the list', () => {
     await tile(page, 'notes').getByTestId('update-upgrade-card').click()
     await expect(page.getByTestId('upgrade-confirm')).toContainText('1.3.0')
     expect(state.log.upgrade).toHaveLength(0)
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Upgrade' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Update' }).click()
     await expect.poll(() => state.log.upgrade.length).toBe(1)
     expect(state.log.upgrade[0]).toMatchObject({ id: 'notes', candidateDigest: CANDIDATE })
   })
@@ -90,56 +90,21 @@ test.describe('Add-ons: upgrade from the list', () => {
     await page.goto('/app/addons?tab=browse')
     await expect(page.getByTestId('entry-upgrade').getByTestId('update-upgrade-card')).toBeVisible()
     await page.getByTestId('entry-upgrade').getByTestId('update-upgrade-card').click()
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Upgrade' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Update' }).click()
     await expect.poll(() => state.log.upgrade.length).toBe(1)
   })
 })
 
-test.describe('Add-ons: upgrade all', () => {
-  const ids = ['alpha', 'bravo', 'charlie', 'delta']
-  const setup = async (page, upgrade) => {
+test.describe('Add-ons: the Apps page leaves the bulk update to the Updates page', () => {
+  test('an administrator sees a link to the Updates page, and no bulk button or check of its own', async ({ page }) => {
     await signIn(page, ADMIN)
-    return mockAddons(page, {
-      apps: [...ids.map(id => pending(id, id[0].toUpperCase() + id.slice(1))), pending('echo', 'Echo')],
-      installed: [...ids.map(id => rec(id, id[0].toUpperCase() + id.slice(1), avail())), rec('echo', 'Echo', { available: true, state: 'update-available', version: '9.0.0' })],
-      upgrade,
-    })
-  }
-
-  test('runs the selected add-ons one after another, keeps going after a failure and retries the failed one', async ({ page }) => {
-    let bravo = 0
-    const state = await setup(page, ({ id }) => {
-      if (id !== 'bravo') return null
-      bravo += 1
-      return bravo === 1 ? fail(409, 'candidate_changed') : null
-    })
+    const state = await mockAddons(page, { apps: [pending('notes', 'Notes'), pending('wiki', 'Wiki')], installed: [rec('notes', 'Notes', avail()), rec('wiki', 'Wiki', avail())] })
     await page.goto('/app/addons')
-    await expect(page.getByTestId('bulk-upgrade-open')).toContainText('Upgrade all (4)')
-    await page.getByTestId('bulk-upgrade-open').click()
-    const dialog = page.getByTestId('bulk-upgrade-dialog')
-    await expect(dialog.getByTestId('bulk-upgrade-item')).toHaveCount(5)
-    // The add-on that cannot start is listed with its reason and cannot be picked.
-    const echo = dialog.locator('[data-item="echo"]')
-    await expect(echo.getByRole('checkbox')).toBeDisabled()
-    await expect(echo.getByTestId('bulk-upgrade-why')).toContainText('not confirmed')
-    await dialog.getByTestId('bulk-upgrade-none').click()
-    await expect(dialog.getByTestId('bulk-upgrade-start')).toBeDisabled()
-    await dialog.getByTestId('bulk-upgrade-all').click()
-    await dialog.locator('[data-item="delta"]').getByRole('checkbox').uncheck()
-    await shoot(page, 'bulk-select')
-    await dialog.getByTestId('bulk-upgrade-start').click()
-    await expect(dialog.locator('[data-item="bravo"]')).toHaveAttribute('data-phase', 'failed')
-    await expect(dialog.locator('[data-item="charlie"]')).toHaveAttribute('data-phase', 'done')
-    await expect(dialog.getByTestId('bulk-upgrade-progress')).toContainText('2 upgraded, 1 failed, 0 skipped')
-    expect(state.log.upgrade.map(u => u.id)).toEqual(['alpha', 'bravo', 'charlie'])
-    expect(new Set(state.log.upgrade.map(u => u.operationId)).size).toBe(3)
-    await expect(dialog.getByTestId('bulk-upgrade-error')).toHaveCount(1)
-    await shoot(page, 'bulk-result')
-    await dialog.getByTestId('bulk-upgrade-retry').click()
-    await expect(dialog.getByTestId('bulk-upgrade-progress')).toContainText('1 upgraded, 0 failed')
-    expect(state.log.upgrade.map(u => u.id)).toEqual(['alpha', 'bravo', 'charlie', 'bravo'])
-    expect(state.log.upgrade[3].operationId).not.toBe(state.log.upgrade[1].operationId)
-    await dialog.getByTestId('bulk-upgrade-close').click()
-    await expect(page.getByTestId('bulk-upgrade-summary')).toContainText('1 upgraded')
+    await expect(page.getByTestId('bulk-upgrade-open')).toHaveCount(0)
+    await expect(page.getByTestId('addons-check-all')).toHaveCount(0)
+    await page.getByTestId('addons-open-updates').click()
+    await expect(page).toHaveURL(/\/app\/updates$/)
+    expect(state.log.upgrade).toHaveLength(0)
+    expect(state.log.check).toHaveLength(0)
   })
 })
