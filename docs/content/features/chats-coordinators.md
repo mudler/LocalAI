@@ -323,6 +323,62 @@ process was there to send waits at most one pass plus the lease. With no
 database (one process, JSON files) the reports are kept in a file next to the
 coordinators and survive a restart.
 
+## In the interface
+
+A coordinator has its own page. It is a separate page from the agent editor: a
+coordinator has a schedule, contacts and limits that an ordinary agent does not.
+
+**Where it is.** On **Agents**, press **New coordinator** next to **New agent**.
+A coordinator also appears in the agent list with a **Coordinator** mark, and
+**Edit** on its row opens the coordinator page, not the agent form.
+
+**The form.** It has these parts, in order:
+
+- **Name and model.** Choose a model. Nobody picks one in the chat, so every
+  wake runs on the model you set here.
+- **Instructions and rules.** The text starts as the built-in starter. Change it
+  as you like. What the coordinator talks about and what it must never do is
+  your decision: LocalAI has no built-in list of topics or banned subjects. The
+  **Page name** is the folder under `pages/` where it keeps its status page, its
+  notes and a topics file. It can write only there.
+- **Contacts.** The only people it can write to. **Add contact** opens a sheet.
+  A *LocalAI user* contact takes the user ID and gets the message in the inbox;
+  this kind is one-way. A *messaging chat* contact takes one of your messaging
+  connections, the chat to write in and, if replies come from a different
+  sender, the sender. The connection list shows your own connections, and the
+  chat field suggests the chats the connection already allows. A connection must
+  group replies by sender or by chat. The sheet checks the contact ID, the
+  repeated ID and the missing fields before you save.
+- **Wake-ups.** Only when something happens, or every 15 minutes, hour, 6 hours
+  or day, with a note added to every scheduled wake.
+- **Limits.** Messages per minute and per day, helpers at once and helper depth.
+  An empty field uses the default. The page shows the default and the highest
+  value of each field. The operator can set lower ceilings for helpers and depth,
+  and a higher value is refused with the highest one allowed. On a saved
+  coordinator the page also shows the operator's limit of runs that start on
+  their own each day.
+- **Tools and skills.** The same switches as an agent.
+
+When the server refuses a save, the reason is shown at the top of the form and
+nothing you typed is lost.
+
+**The state card.** A saved coordinator shows a card with its state (Scheduled,
+Idle or Paused), its next and last wake, its schedule, and how many runs and
+messages it used today. **Pause** stops it at once. **Resume** starts it again
+and delivers what waited. The card also links to its chat.
+
+**The audit log.** Under the form, with filters for the kind, the outcome and
+the dates. It shows newest first; **Show older entries** loads more. It lists
+sent messages, blocked attempts and the reason, wakes, pauses and helper events.
+It never shows message text, only the length.
+
+**For administrators.** **Administration > Chats of all users** has a
+**Coordinators** section with every user's coordinators: owner, state, next
+wake and usage today. **Pause** asks for confirmation first, because it stops
+everything and holds what arrives. **Resume** acts at once. **Show audit log**
+loads the log of all coordinators on demand, with a coordinator filter. The
+section is left out when the server has no coordinators.
+
 ## API
 
 The routes are under `/api/chats`, in the swagger group `chats`. The six routes
