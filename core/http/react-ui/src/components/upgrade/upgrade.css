@@ -21,4 +21,4 @@
 .up-row__state { display: inline-flex; align-items: center; gap: 6px; font-size: var(--dk-text-12, 0.75rem); color: var(--dk-muted); white-space: nowrap; }
 .up-row__state[data-phase='done'] { color: var(--dk-ok-text); }
 .up-row__state[data-phase='failed'] { color: var(--dk-error-text); }
-.up-row__state[data-phase='upgrading'] { color: var(--dk-warn-text); }
+.up-row__state[data-phase='upgrading'] { color: var(--dk-accent-text); }
