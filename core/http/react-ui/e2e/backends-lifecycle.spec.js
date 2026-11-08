@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { mockReadModel } from './operate-fixtures.js'
 
 const catalogBackends = [
   {
@@ -65,7 +66,7 @@ const upgrades = {
 }
 
 async function mockBackendLifecycle(page) {
-  await page.route('**/api/backends/upgrades', route => route.fulfill({ json: upgrades }))
+  await mockReadModel(page, upgrades)
   await page.route('**/api/backends?*', route => route.fulfill({
     json: { backends: catalogBackends },
   }))
@@ -150,7 +151,7 @@ test.describe('Backends lifecycle page', () => {
     await page.goto('/app/backends?view=installed&backend=llama-cpp')
 
     // Update is the row's action (the open row no longer repeats it).
-    await expect(backendRow(page, 'llama-cpp').getByRole('button', { name: 'Update llama-cpp' })).toBeVisible()
+    await expect(backendRow(page, 'llama-cpp').getByRole('link', { name: 'Review the update of llama-cpp' })).toBeVisible()
     await page.getByRole('button', { name: 'Actions for llama-cpp', exact: true }).click()
     const reinstall = page.getByRole('menuitem', { name: 'Reinstall backend' })
     await expect(reinstall).toBeVisible()
@@ -163,7 +164,7 @@ test.describe('Backends lifecycle page', () => {
 
     // The same row actions as in Installed: Update in the row, Reinstall and
     // Delete in its menu.
-    await expect(backendRow(page, 'llama-cpp').getByRole('button', { name: 'Update llama-cpp' })).toBeVisible()
+    await expect(backendRow(page, 'llama-cpp').getByRole('link', { name: 'Review the update of llama-cpp' })).toBeVisible()
     await page.getByRole('button', { name: 'Actions for llama-cpp', exact: true }).click()
     await expect(page.getByRole('menuitem', { name: 'Reinstall backend' })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Delete backend' })).toBeVisible()
@@ -181,48 +182,6 @@ test.describe('Backends lifecycle page', () => {
 
     const detail = page.locator('[data-testid="backends-installed-pane"]')
     await expect(detail.getByRole('alert')).toContainText('registry unavailable')
-  })
-
-  test('shows Upgrade All failures in the rendered global inline error', async ({ page }) => {
-    await page.route('**/api/backends/upgrade/llama-cpp', route => route.fulfill({
-      status: 500,
-      json: { error: 'upgrade registry unavailable' },
-    }))
-    await page.goto('/app/backends?view=installed')
-
-    await page.getByTestId('backends-updates').getByRole('button', { name: 'Review' }).click()
-    await page.getByTestId('bulk-upgrade-start').click()
-
-    await expect(page.getByRole('alert')).toContainText('upgrade registry unavailable')
-  })
-
-  test('continues Upgrade All after an earlier backend fails', async ({ page }) => {
-    let laterUpgradeRequests = 0
-    await page.route('**/api/backends/upgrades', route => route.fulfill({
-      json: {
-        ...upgrades,
-        'llama-cpp-cuda12': {
-          backend_name: 'llama-cpp-cuda12',
-          installed_version: '1.0.0',
-          available_version: '1.1.0',
-        },
-      },
-    }))
-    await page.route('**/api/backends/upgrade/llama-cpp', route => route.fulfill({
-      status: 500,
-      json: { error: 'first registry unavailable' },
-    }))
-    await page.route('**/api/backends/upgrade/llama-cpp-cuda12', route => {
-      laterUpgradeRequests += 1
-      return route.fulfill({ json: { status: 'ok' } })
-    })
-    await page.goto('/app/backends?view=installed')
-
-    await page.getByTestId('backends-updates').getByRole('button', { name: 'Review' }).click()
-    await page.getByTestId('bulk-upgrade-start').click()
-
-    await expect(page.getByRole('alert')).toContainText('first registry unavailable')
-    await expect.poll(() => laterUpgradeRequests).toBe(1)
   })
 
   test('refetches term-sensitive Catalog results after Installed changes and browser history', async ({ page }) => {
@@ -308,7 +267,7 @@ test.describe('Backends lifecycle page', () => {
     const backend = backendRow(page, 'llama-cpp')
     await expect(backend).toBeVisible()
     // The row is a card: name, state and the action, no sideways scroll.
-    await expect(backend.getByRole('button', { name: 'Update llama-cpp' })).toBeVisible()
+    await expect(backend.getByRole('link', { name: 'Review the update of llama-cpp' })).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(1)
 

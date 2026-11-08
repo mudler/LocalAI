@@ -356,11 +356,6 @@ test.describe('Swarm nodes: bulk actions', () => {
     ]
     await mockNodes(page, nodes)
     const upgrades = { 'llama-cpp': { backend_name: 'llama-cpp', installed_version: '0.9.4', available_version: '0.9.7', node_drift: [{ node_id: 'a' }, { node_id: 'b' }, { node_id: 'c' }] } }
-    await page.route('**/api/backends/upgrades', route => route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(upgrades),
-    }))
     await mockReadModel(page, upgrades)
     const posts = []
     await page.route('**/api/nodes/*/backends/upgrade', route => {

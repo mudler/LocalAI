@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { ADMIN, release, sessionFor, mockAddons } from './addons-fixtures.js'
+import { mockReadModel } from './operate-fixtures.js'
 
 // Backends in the library: an entry has a kind, the add-on Browse tab lists
 // add-ons only, and backends are handled on the Backends page. The server is the authority, so these specs drive the page
@@ -85,7 +86,7 @@ const NEWER = 'sha256:' + 'b2'.repeat(32)
 async function mockBackendsPage(page, { updates = true, phases = ['resolving', 'verifying', 'size', 'fetching', 'writing'] } = {}) {
   const state = { digest: PINNED, updates: updates ? [{ name: 'cpu-local-store', sourceId: 'official-backends', installedVersion: '0.0.0-latest.0a1056fd8633', installedDigest: PINNED, version: '0.0.0-latest.0b2', digest: NEWER, signed: true }] : [], installs: [], reads: 0 }
   await page.route('**/api/backends?*', route => route.fulfill({ json: { backends: [] } }))
-  await page.route('**/api/backends/upgrades', route => route.fulfill({ json: { 'llama-cpp': { backend_name: 'llama-cpp', installed_version: '1', available_version: '2' } } }))
+  await mockReadModel(page, { 'llama-cpp': { backend_name: 'llama-cpp', installed_version: '1', available_version: '2' } })
   await page.route(/\/backends$/, route => route.fulfill({
     json: [
       { Name: 'cpu-local-store', Metadata: { name: 'cpu-local-store', library: 'official-backends', digest: state.digest, version: '0.0.0-latest.0a1056fd8633' } },
@@ -154,7 +155,7 @@ test.describe('Backends page and libraries', () => {
     // The gallery backend keeps the gallery upgrade state and button.
     const gallery = page.locator('[data-entity="llama-cpp"]')
     await expect(gallery).toContainText('Update')
-    await expect(gallery.getByRole('button', { name: 'Update llama-cpp' })).toBeVisible()
+    await expect(gallery.getByRole('link', { name: 'Review the update of llama-cpp' })).toBeVisible()
     expect(state.installs).toHaveLength(0)
   })
 })

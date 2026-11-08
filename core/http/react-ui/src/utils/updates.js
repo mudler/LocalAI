@@ -214,6 +214,21 @@ export function normalizeFilter(value) {
   return FILTERS.includes(value) ? value : 'all'
 }
 
+// The gallery backends that have a newer build, by name, in the shape the
+// Backends page, the Operate overview and the Nodes page read: the versions and
+// the nodes that differ from the others. One place, so a page never keeps a
+// poll of the same fact.
+export function galleryUpdateMap(rows) {
+  return Object.fromEntries((rows || [])
+    .filter(r => r.kind === 'gallery' && (r.state === 'ready' || r.state === 'blocked'))
+    .map(r => [r.name, {
+      backend_name: r.name,
+      installed_version: r.installedVersion || r.from,
+      available_version: r.availableVersion || r.to,
+      node_drift: (r.nodes || []).filter(n => n.drift).map(n => ({ node_id: n.nodeId, node_name: n.nodeName, version: n.version })),
+    }]))
+}
+
 // The number on the tab and on the Operate item: what needs a person. A ready
 // update that an automatic setting will apply is not in it. A failed or held
 // update is, whatever the setting says. An update that this server refuses by

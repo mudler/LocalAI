@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
   addonRows, addonSource, ageParts, applyLocal, backendRows, badgeOf, breakdownOf, bulkItemsOf, currentBackendRows,
-  filterCounts, filterRows, groupOf, groupRows, headlineOf, normalizeFilter, sourceViews, trackJob, verdictOf, addonStillListed,
+  filterCounts, filterRows, galleryUpdateMap, groupOf, groupRows, headlineOf, normalizeFilter, sourceViews, trackJob, verdictOf, addonStillListed,
 } from '../../src/utils/updates.js'
 
 const okSource = (extra = {}) => ({ state: 'ok', checkedAt: '2026-11-08T10:00:00Z', lastSuccessAt: '2026-11-08T10:00:00Z', ...extra })
@@ -65,6 +65,25 @@ test('updates: when installs are off every backend is blocked and none can start
 test('updates: the automatic switch marks backend rows as covered', () => {
   assert.equal(backendRows(snapshot([gallery('a')]), { auto: true })[0].covered, true)
   assert.equal(backendRows(snapshot([gallery('a')]), { auto: false })[0].covered, false)
+})
+
+test('updates: the pages that show a badge read the gallery backends with an update from the same rows', () => {
+  const rows = backendRows(snapshot([
+    gallery('a', { nodes: [{ nodeId: 'n1', nodeName: 'one', drift: true, version: '0.9' }, { nodeId: 'n2', drift: false }] }),
+    gallery('b'),
+    library('piper'),
+    gallery('c', { state: 'current' }),
+  ]), { operations: [{ name: 'c', jobID: 'j', isDeletion: false, error: 'x' }] })
+  const map = galleryUpdateMap(rows)
+  // The library backend is not a gallery one, and a failed row is not "ready".
+  assert.deepEqual(Object.keys(map), ['a', 'b'])
+  assert.deepEqual(map.a, {
+    backend_name: 'a', installed_version: '1.0.0', available_version: '1.1.0',
+    node_drift: [{ node_id: 'n1', node_name: 'one', version: '0.9' }],
+  })
+  assert.deepEqual(galleryUpdateMap(null), {})
+  // Blocked rows (installs off) still show: the page says why it cannot start.
+  assert.deepEqual(Object.keys(galleryUpdateMap(backendRows(snapshot([gallery('a')], { installsDisabled: true })))), ['a'])
 })
 
 test('updates: a source that failed keeps its list and marks the rows old', () => {

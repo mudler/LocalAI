@@ -94,12 +94,11 @@ const json = body => ({ status: 200, contentType: 'application/json', body: JSON
 //   rules      placement rules
 //   features   the /api/features answer
 //   nodeModels / nodeBackends   per node id
-//   upgrades   GET /api/backends/upgrades
 //   chains     failover chains
 //   log        an array that receives { method, path, body } for every write
 export async function mockSwarm(page, {
   nodes = clusterNodes(), replicas = clusterReplicas(), rules = clusterRules(), features = { distributed: true },
-  nodeModels = {}, nodeBackends = {}, upgrades = {}, chains = CHAINS, aliases = [], p2p = null, log = [], onNodes,
+  nodeModels = {}, nodeBackends = {}, chains = CHAINS, aliases = [], p2p = null, log = [], onNodes,
 } = {}) {
   // The rules behave like the server's: a save adds or replaces, a delete removes.
   let current = [...rules]
@@ -167,7 +166,6 @@ export async function mockSwarm(page, {
       if (rest?.startsWith('labels') || rest === 'max-replicas-per-model' || rest === 'vram-budget') { record(); return route.fulfill(json({})) }
     }
 
-    if (path === '/api/backends/upgrades') return route.fulfill(json(upgrades))
     if (path === '/api/aliases') return route.fulfill(json(aliases))
     if (path === '/api/models/capabilities') {
       return route.fulfill(json({ object: 'list', data: [...new Set((replicas || []).map(r => r.model_name))].map(id => ({ id })) }))

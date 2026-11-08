@@ -129,8 +129,6 @@ export const backendsApi = {
   installExternal: (body) => postJSON(API_CONFIG.endpoints.installExternalBackend, body),
   getJob: (uid) => fetchJSON(API_CONFIG.endpoints.backendJob(uid)),
   deleteInstalled: (name) => postJSON(API_CONFIG.endpoints.deleteInstalledBackend(name), {}),
-  checkUpgrades: () => fetchJSON(API_CONFIG.endpoints.backendsUpgrades),
-  forceCheckUpgrades: () => postJSON(API_CONFIG.endpoints.backendsUpgradesCheck, {}),
   upgrade: (name) => postJSON(API_CONFIG.endpoints.upgradeBackend(name), {}),
   // The read model of the Updates page. checkUpdates answers from the cache;
   // checkUpdatesNow runs a real check and waits for it (at most 45 s).
