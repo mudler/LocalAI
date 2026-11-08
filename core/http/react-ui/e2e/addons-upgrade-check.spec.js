@@ -38,7 +38,7 @@ test.describe('Add-ons: Check again on the card', () => {
     const result = card.getByTestId('upgrade-check-result')
     await expect(result).toHaveText('Checked just now.')
     // The same answer again is explained, not sent back to another check.
-    await expect(card.getByTestId('upgrade-reason')).toContainText('The library reports an update but names no build to install, so it cannot be upgraded from here.')
+    await expect(card.getByTestId('upgrade-reason')).toContainText('The library reports an update but names no build to install, so it cannot be updated from here.')
     await expect(card.getByTestId('upgrade-reason')).not.toContainText('not confirmed yet')
     await expect(card.getByTestId('update-upgrade-card')).toHaveCount(0)
     await expect(card.getByTestId('upgrade-reason-check')).toBeEnabled()
@@ -101,7 +101,7 @@ test.describe('Add-ons: Check again on the card', () => {
     const card = tile(page, 'talk')
     await card.getByTestId('upgrade-reason-check').click()
     const result = card.getByTestId('upgrade-check-result')
-    await expect(result).toHaveText('The check did not complete. The library could not be read, so the upgrade was not started. Nothing was changed.')
+    await expect(result).toHaveText('The check did not complete. The library could not be read, so the update was not started. Nothing was changed.')
     await expect(result).toHaveAttribute('data-tone', 'error')
     await expect(card.getByTestId('upgrade-reason-check')).toBeEnabled()
     await card.getByTestId('upgrade-reason-check').click()

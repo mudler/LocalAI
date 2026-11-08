@@ -114,7 +114,7 @@ test.describe('Add-on updates: after the confirmation', () => {
     await page.evaluate(() => { window.history.pushState({}, '', '/app/activity'); window.dispatchEvent(new PopStateEvent('popstate')) })
 
     const card = page.locator('.operation-card').filter({ hasText: 'Wiki' })
-    await expect(card).toContainText("Couldn't upgrade add-on")
+    await expect(card).toContainText("Couldn't update add-on")
     await expect(card).toContainText('installed version is kept')
     await card.getByRole('button', { name: /retry/i }).click()
     await expect.poll(() => state.log.upgrade.length).toBe(2)

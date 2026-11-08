@@ -74,7 +74,7 @@ test.describe('Add-ons: the owner is busy', () => {
     await page.reload()
     const banner = page.getByTestId('addons-stale')
     await expect(banner).toBeVisible()
-    await expect(banner).toContainText('The add-on server is busy (upgrading Notes, Sandbox)')
+    await expect(banner).toContainText('The add-on server is busy (updating Notes, Sandbox)')
     await expect(banner).toContainText('Showing the last known state.')
     await expect(tile(page, 'tables')).toBeVisible()
     await expect(tile(page, 'notes').getByTestId('operation-chip')).toContainText('Updating… · downloading and checking')

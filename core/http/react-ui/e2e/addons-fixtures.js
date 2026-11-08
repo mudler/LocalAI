@@ -65,6 +65,9 @@ export async function stubAddonRoutes(page) {
   })
   await page.context().route('**/api/addons/builtin', route => route.fulfill({ json: { builtin: [] } }))
   await page.context().route('**/api/addons/pins', route => route.fulfill({ json: [] }))
+  // The shell reads the host-access overview for the Updates badge; with no
+  // owner behind the test server it would answer 503 on every page.
+  await page.context().route('**/api/addons/host-grants', route => route.fulfill({ json: { revision: 1, addons: [] } }))
 }
 
 // The owner's host settings policy (core/services/addons/hostsettings.Policy),

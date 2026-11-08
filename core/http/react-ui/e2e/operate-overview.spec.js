@@ -136,7 +136,7 @@ test.describe('Administration overview', () => {
 
   test('does not poll the summary away from Operate', async ({ page }) => {
     let summaryCalls = 0
-    await page.route('**/api/resources', route => {
+    await page.route('**/api/traces/summary', route => {
       summaryCalls += 1
       route.fulfill({ json: {} })
     })
