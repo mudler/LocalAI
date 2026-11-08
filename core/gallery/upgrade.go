@@ -31,6 +31,30 @@ type UpgradeInfo struct {
 	// the cluster majority. Non-empty means the cluster has diverged and an
 	// upgrade will realign it. Empty in single-node mode.
 	NodeDrift []NodeDriftInfo `json:"node_drift,omitempty"`
+	// Nodes lists every node that reports this backend, with the version it
+	// has, so a view of one backend can show the nodes that are current too.
+	// Empty in single-node mode.
+	Nodes []NodeVersionInfo `json:"nodes,omitempty"`
+}
+
+// NodeVersionInfo is the version a node reports for one backend.
+type NodeVersionInfo struct {
+	NodeID     string `json:"node_id"`
+	NodeName   string `json:"node_name"`
+	NodeStatus string `json:"node_status,omitempty"`
+	Version    string `json:"version,omitempty"`
+	Digest     string `json:"digest,omitempty"`
+}
+
+func nodeVersions(refs []NodeBackendRef) []NodeVersionInfo {
+	if len(refs) == 0 {
+		return nil
+	}
+	out := make([]NodeVersionInfo, 0, len(refs))
+	for _, n := range refs {
+		out = append(out, NodeVersionInfo{NodeID: n.NodeID, NodeName: n.NodeName, NodeStatus: n.NodeStatus, Version: n.Version, Digest: n.Digest})
+	}
+	return out
 }
 
 // NodeDriftInfo describes one node that disagrees with the cluster majority
@@ -142,6 +166,7 @@ func CheckUpgradesAgainst(ctx context.Context, galleries []config.Gallery, syste
 				AvailableVersion: galleryVersion,
 				InstalledDigest:  installedDigest,
 				Reason:           reason,
+				Nodes:            nodeVersions(installed.Nodes),
 			}
 			continue
 		}
@@ -158,6 +183,7 @@ func CheckUpgradesAgainst(ctx context.Context, galleries []config.Gallery, syste
 
 		makeInfo := func(info UpgradeInfo) UpgradeInfo {
 			info.NodeDrift = drift
+			info.Nodes = nodeVersions(installed.Nodes)
 			return info
 		}
 
