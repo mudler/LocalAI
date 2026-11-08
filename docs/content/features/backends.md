@@ -131,6 +131,59 @@ Each open row displays:
 - The models that use the backend, a link to its logs, and, in a cluster, the
   per-node controls
 
+## The Updates page
+
+**Operate → Updates** (`/app/updates`) is the one place that answers "what is
+out of date, and what is changing". It is for administrators. It lists three
+kinds of things: backends of the gallery, backends of a library, and add-ons.
+
+At the top, one sentence says how many updates there are and how many are ready,
+updating or need you. Under it a line for each source (the backend gallery, the
+backend library and the add-ons) says when it was last checked or why the check
+failed, and the two settings **Update backends automatically** and **Update
+add-ons automatically** are shown as facts, with a link to Settings. The page
+never says "Everything is up to date" while a source failed or was never
+checked. A failed source gets a red notice that says what may be missing, and
+the list keeps the last good result and marks its rows as from an earlier check.
+
+The rows are in four groups, in this order:
+
+| Group | What is in it |
+|---|---|
+| **Needs you** | An update that failed (**Retry**), an add-on upgrade that is held until you approve the access it asks for (**Review**), and an update that cannot start, with the reason (an add-on that cannot run on this host, or backend installs turned off on this server). |
+| **Updating** | An update in progress, with its phase and progress. **Cancel** shows where the operation can be cancelled. |
+| **Ready to update** | An update that you can start. An add-on asks for your confirmation first, in this browser. |
+| **Up to date** | One collapsed line. A backend is listed here only when its source answered. |
+
+**Check now** runs a real check of every source and waits for the answer. It
+asks the registries (at most 45 seconds), reads each add-on library with your own
+browser session, and shows the result under the sentence. The button waits 15
+seconds before the next check, as the server answers a check within that time
+from the last one.
+
+An update is **done** only when two things hold: the operation ended without an
+error, and a new check no longer lists the item. If the operation ended and the
+item is still listed, the row says "The update ended but the version did not
+change". A throttled check answer, which is seconds old, is asked again before
+the page decides.
+
+**Update N ready** runs the checked rows one after another. Rows that are held
+or blocked never take part, a failure does not stop the others, and **Retry
+failed** runs only the failed ones. The summary ("2 updated, 1 failed") counts a
+row as updated only when it is done by the rule above. Closing the page does not
+stop the run: the operations are the server's, and the page reads them again when
+you return. The per-node view of a backend in a cluster is not on this page yet.
+
+### The count on the Updates tab and on Operate
+
+A number on the **Updates** tab and on the **Operate** item of the sidebar (on
+every page, for administrators) counts what needs a person: ready updates that
+no automatic setting covers, plus updates that failed, are held for approval, or
+are blocked by something other than the server setting for backend installs. An
+update that an automatic setting will apply is listed on the page but not
+counted. The number is red when an update failed. One poll reads the numbers
+once a minute while the browser tab is visible, and again when an operation ends.
+
 ## Checking for backend updates
 
 `GET /backends/updates` (the UI uses the alias `GET /api/backends/updates`)
