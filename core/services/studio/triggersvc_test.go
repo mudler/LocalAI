@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -415,6 +416,72 @@ var _ = Describe("triggersvc", func() {
 		Expect(run.Status).To(Equal(triggers.StatusFailed), "run = %+v", run)
 		Expect(run.Reason).To(Equal("took longer than 200ms"), "run = %+v", run)
 		until("the chat to stop", func() bool { return !turn(r.svc, alice, run.ChatID).Running })
+	})
+
+	It("reads the run limit of the operator when a run starts", func() {
+		block := make(chan struct{})
+		DeferCleanup(func() { close(block) })
+		var limit atomic.Int64
+		limit.Store(int64(time.Hour))
+		sh := newShared()
+		r := sh.rig(func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Block: block}}
+		}, studio.TriggerOptions{Limits: func() studio.TriggerLimits {
+			return studio.TriggerLimits{RunLimit: time.Duration(limit.Load())}
+		}})
+		Expect(r.host.Limits().RunLimit).To(Equal(time.Hour))
+		limit.Store(int64(150 * time.Millisecond)) // changed after the host started
+		tr := r.schedule(studio.TriggerInput{})
+		r.due()
+		run := r.waitEnded(tr.ID)
+		Expect(run.Status).To(Equal(triggers.StatusFailed), "run = %+v", run)
+		Expect(run.Reason).To(Equal("took longer than 150ms"), "run = %+v", run)
+	})
+
+	It("takes the default limits when the operator sets none", func() {
+		r := newTrigRig(saySummary)
+		Expect(r.host.Limits()).To(Equal(studio.TriggerLimits{
+			RunLimit: studio.DefaultRunLimit, MaxPerUser: studio.DefaultMaxTriggersPerUser, MaxDailyCap: triggers.MaxDailyCap,
+		}))
+	})
+
+	It("reads the most triggers of a user at each use and names it in the refusal", func() {
+		var most atomic.Int64
+		most.Store(2)
+		r := newShared().rig(saySummary, studio.TriggerOptions{Limits: func() studio.TriggerLimits {
+			return studio.TriggerLimits{MaxPerUser: int(most.Load())}
+		}})
+		in := studio.TriggerInput{Name: "T", Prompt: "p", Kind: triggers.KindSchedule, Schedule: "daily 08:00", TZ: "UTC", Model: "m", Enabled: true}
+		for range 2 {
+			_, err := r.host.CreateTrigger(context.Background(), alice, in)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		_, err := r.host.CreateTrigger(context.Background(), alice, in)
+		Expect(err).To(MatchError(studio.ErrTooManyTriggers))
+		Expect(err.Error()).To(ContainSubstring("at most 2 triggers"))
+		most.Store(3)
+		_, err = r.host.CreateTrigger(context.Background(), alice, in)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = r.host.CreateTrigger(context.Background(), alice, in)
+		Expect(err.Error()).To(ContainSubstring("at most 3 triggers"))
+	})
+
+	It("refuses a daily limit above the highest one of the operator, and holds an older trigger to it", func() {
+		var top atomic.Int64
+		top.Store(1000)
+		r := newShared().rig(saySummary, studio.TriggerOptions{Limits: func() studio.TriggerLimits {
+			return studio.TriggerLimits{MaxDailyCap: int(top.Load())}
+		}})
+		in := studio.TriggerInput{Name: "T", Prompt: "p", Kind: triggers.KindSchedule, Schedule: "daily 08:00", TZ: "UTC", Model: "m", Enabled: true, DailyCap: 500}
+		tr, err := r.host.CreateTrigger(context.Background(), alice, in)
+		Expect(err).NotTo(HaveOccurred())
+		top.Store(10)
+		_, err = r.host.CreateTrigger(context.Background(), alice, in)
+		Expect(err).To(MatchError(ContainSubstring("daily limit must be 0 to 10")))
+		in.DailyCap = 10
+		_, err = r.host.CreateTrigger(context.Background(), alice, in)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(tr.DailyCap).To(Equal(500)) // stored as set; the runner holds it to 10
 	})
 
 	It("the owner can stop a run without a browser open", func() {

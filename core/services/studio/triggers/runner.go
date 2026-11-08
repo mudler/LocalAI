@@ -100,7 +100,10 @@ type Options struct {
 	// Retention bounds the finished runs kept for each trigger. The zero value
 	// keeps DefaultKeepRuns runs and DefaultRunMaxAge.
 	Retention RunRetention
-	Logf      func(format string, args ...any)
+	// MaxDailyCap, when set, gives the highest daily limit that applies now:
+	// a trigger with a higher limit is held to it. Read at each use.
+	MaxDailyCap func() int
+	Logf        func(format string, args ...any)
 }
 
 // Runner starts the runs of the triggers in a Store.
@@ -356,7 +359,13 @@ func (r *Runner) admit(ctx context.Context, t Trigger, run *Run, now time.Time, 
 	if err != nil {
 		return err
 	}
-	if cap := t.CapOrDefault(); n >= cap {
+	cap := t.CapOrDefault()
+	if r.o.MaxDailyCap != nil {
+		if m := r.o.MaxDailyCap(); m > 0 && cap > m {
+			cap = m
+		}
+	}
+	if n >= cap {
 		run.Status, run.Reason, run.Ended = StatusSkipped, fmt.Sprintf("daily limit of %d runs reached", cap), now.UTC()
 	}
 	return nil

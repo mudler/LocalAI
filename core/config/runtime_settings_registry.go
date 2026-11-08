@@ -798,6 +798,46 @@ var runtimeSettingsFields = []fieldSpec{
 			o.chatsLimitsMu.Unlock()
 		}),
 
+	// The triggers of the chats: read at each use, so no restart.
+	withApply(fieldEq("chats_trigger_run_limit",
+		func(s *RuntimeSettings) **string { return &s.ChatsTriggerRunLimit },
+		func(o *ApplicationConfig) string { return o.EffectiveChatsTriggerRunLimit().String() },
+		func(o *ApplicationConfig, v string) {
+			if d, err := time.ParseDuration(v); err == nil {
+				o.chatsLimitsMu.Lock()
+				o.ChatsTriggerRunLimit = d
+				o.chatsLimitsMu.Unlock()
+			}
+		},
+		func(a, b string) bool { return a == b }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			d, err := time.ParseDuration(strings.TrimSpace(*s.ChatsTriggerRunLimit))
+			if err != nil || d < MinChatsTriggerRunLimit || d > MaxChatsTriggerRunLimit {
+				xlog.Warn("invalid chats_trigger_run_limit in runtime settings", "value", *s.ChatsTriggerRunLimit)
+				return false
+			}
+			o.chatsLimitsMu.Lock()
+			o.ChatsTriggerRunLimit = d
+			o.chatsLimitsMu.Unlock()
+			return true
+		}),
+	loopIntField("chats_trigger_max_per_user", MaxChatsTriggerMaxPerUser,
+		func(s *RuntimeSettings) **int { return &s.ChatsTriggerMaxPerUser },
+		(*ApplicationConfig).EffectiveChatsTriggerMaxPerUser,
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsTriggerMaxPerUser = v
+			o.chatsLimitsMu.Unlock()
+		}),
+	loopIntField("chats_trigger_max_daily_cap", MaxChatsTriggerMaxDailyCap,
+		func(s *RuntimeSettings) **int { return &s.ChatsTriggerMaxDailyCap },
+		(*ApplicationConfig).EffectiveChatsTriggerMaxDailyCap,
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsTriggerMaxDailyCap = v
+			o.chatsLimitsMu.Unlock()
+		}),
+
 	// Offers from the assistant: stored as the negation for UI clarity. Read
 	// at each turn, so no restart.
 	field("chats_suggestions",

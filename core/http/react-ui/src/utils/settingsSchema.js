@@ -310,6 +310,17 @@ export const FIELDS = [
   { key: 'chats_loop_daily_runs', group: 'tools', was: 'chats', kind: 'int', label: 'Loop runs per day',
     desc: 'How many loop runs one user may start in a day (UTC), over all their loops. After that the loops wait for the next day.',
     placeholder: '200', default: 200, min: 1, max: 100000, apply: 'live' },
+  // The triggers of the chats (core/config/runtime_settings_registry.go; read
+  // at each use, so live).
+  { key: 'chats_trigger_run_limit', group: 'tools', was: 'chats', kind: 'duration', label: 'Trigger run time limit',
+    desc: 'The longest one run of a trigger may take, for example 15m. A run that takes longer is stopped and fails. From 1m to 24h.',
+    placeholder: '15m', default: '15m', apply: 'live' },
+  { key: 'chats_trigger_max_per_user', group: 'tools', was: 'chats', kind: 'int', label: 'Triggers per user',
+    desc: 'How many triggers one user may have at once (1 to 1000). A user who has more already keeps them but cannot add another.',
+    placeholder: '50', default: 50, min: 1, max: 1000, apply: 'live' },
+  { key: 'chats_trigger_max_daily_cap', group: 'tools', was: 'chats', kind: 'int', label: 'Highest daily limit of a trigger',
+    desc: 'The most runs a day that one trigger may be set to (1 to 1000). A trigger set higher runs at this limit.',
+    placeholder: '1000', default: 1000, min: 1, max: 1000, apply: 'live' },
   { key: 'chats_egress_audit_days', group: 'tools', was: 'chats', kind: 'int', label: 'Command audit retention',
     desc: 'How many days the audit of the network requests of isolated commands and the audit of the commands run on this machine keep a line, from 1 to 365.',
     default: 30, fallback: 30, emptyIsDefault: true, min: 1, max: 365, unit: 'days', apply: 'live' },

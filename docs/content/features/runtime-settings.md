@@ -174,6 +174,10 @@ The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tool
   - `chats_loop_max_runs` (1 to 10000, default 100): the runs after which a loop ends.
   - `chats_loop_max_per_chat` (1 to 20, default 3) and `chats_loop_max_per_user` (1 to 200, default 10): how many loops that are not ended one chat and one user may have.
   - `chats_loop_daily_runs` (1 to 100000, default 200): how many loop runs one user may start in a UTC day, over all their loops. After that the loops wait for the next day.
+- **Triggers of the chats** (apply at once; see [Triggers]({{%relref "features/chats" %}})):
+  - `chats_trigger_run_limit` (a duration from `1m` to `24h`, default `15m`): the longest one trigger run may take. A longer run is stopped and fails. A change applies to the runs that start after it.
+  - `chats_trigger_max_per_user` (1 to 1000, default 50): how many triggers a user may have. A user who has more keeps them but cannot add another.
+  - `chats_trigger_max_daily_cap` (1 to 1000, default 1000): the highest daily limit one trigger may have. A trigger with a higher limit runs at this one.
 - **Add-ons that replace a built-in tool** (`chats_tool_providers`, a map such as `{"bash": "sandbox", "xlsx": "office"}`, applies at once): when several add-ons replace one tool, the one that serves it. The keys are the replaceable tools (`bash`, `web_search`, `web_fetch`) and the replaceable built-in skills (`xlsx`, `docx`, `pptx`, `pdf`). A chosen add-on that cannot serve a chat (stopped, off for the chat) leaves the name to the built-in, not to another add-on. With none chosen, the add-on installed first serves (ties go by add-on ID), and the tab marks it as the default and says that you should choose. See [Tools that replace a built-in tool]({{%relref "features/addons#tools-that-replace-a-built-in-tool" %}}).
 
 > **Note:** Most collection settings require a restart to take effect. The settings of the removed agent pool, agent jobs and agent hub (`agent_job_retention_days`, `agent_pool_enable_logs`, `agent_pool_agent_hub_url` and the like) are ignored when found in `runtime_settings.json`.

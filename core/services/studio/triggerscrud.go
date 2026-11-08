@@ -23,7 +23,8 @@ var (
 	// ErrBadTrigger wraps the reason a trigger is refused, written for a person.
 	ErrBadTrigger = errors.New("studio: invalid trigger")
 	// ErrTooManyTriggers means the user has the most triggers they may have.
-	ErrTooManyTriggers = fmt.Errorf("studio: a user can have at most %d triggers", maxTriggersPerUser)
+	// The host returns it with the limit that applied, in its text.
+	ErrTooManyTriggers = errors.New("studio: too many triggers")
 	// ErrProposalAnswered means the proposal is not waiting: it was accepted,
 	// declined or undone already, maybe from another tab.
 	ErrProposalAnswered = errors.New("studio: this proposal was already answered")
@@ -219,6 +220,9 @@ func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (tr
 	if err := t.Validate(); err != nil {
 		return t, bad("%v", err)
 	}
+	if max := h.Limits().MaxDailyCap; t.DailyCap > max {
+		return t, bad("daily limit must be 0 to %d", max)
+	}
 	return t, nil
 }
 
@@ -267,8 +271,8 @@ func (h *Triggers) CreateTrigger(ctx context.Context, user string, in TriggerInp
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
-	if countLive(mine) >= maxTriggersPerUser {
-		return triggers.Trigger{}, ErrTooManyTriggers
+	if countLive(mine) >= h.Limits().MaxPerUser {
+		return triggers.Trigger{}, h.errTooMany()
 	}
 	t.ID = newID()
 	t = triggers.Arm(nil, t, h.o.Clock())
@@ -419,8 +423,8 @@ func (h *Triggers) propose(ctx context.Context, user string, in TriggerInput) (t
 	switch {
 	case pending >= maxProposals:
 		return triggers.Trigger{}, false, ErrTooManyProposals
-	case countLive(mine) >= maxTriggersPerUser:
-		return triggers.Trigger{}, false, ErrTooManyTriggers
+	case countLive(mine) >= h.Limits().MaxPerUser:
+		return triggers.Trigger{}, false, h.errTooMany()
 	}
 	if t.Route.FromConnector() {
 		if proposalsInHour(mine, t.Route.Binding, now) >= MaxProposalsPerHour {

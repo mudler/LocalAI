@@ -653,9 +653,12 @@ message as rules for the run. Treat it as text from whoever can write there.
   agent. Nobody watches a run, so no card asks: a blocked host stays blocked.
   A sub-agent follows the network of the chat that started it, its rules
   included, and never shows a card either.
-- **Limits.** A run has 15 minutes. At most 2 runs go at once, one per trigger,
-  and a trigger has a daily limit (`daily_cap`, default 24). A run that is skipped
-  or fails shows its reason on the trigger.
+- **Limits.** A run has 15 minutes by default (`chats_trigger_run_limit`, 1m to
+  24h). At most 2 runs go at once, one per trigger, and a trigger has a daily
+  limit (`daily_cap`, default 24, at most 1000 or `chats_trigger_max_daily_cap`
+  when an administrator sets it lower). A run that is skipped or fails shows its
+  reason on the trigger. An administrator sets the limits of the triggers in the
+  [runtime settings]({{%relref "features/runtime-settings" %}}).
 - **Cost.** A run is a chat turn on the trigger's model, so it uses tokens. A run
   records the prompt and completion tokens of its model requests (`tokens` on the
   run), and a trigger reports the average of its last runs, the most runs one day
@@ -800,7 +803,7 @@ proposal: the tool line of `propose_trigger` has a `card` of kind
 and in the transcript, so it shows again after a reload, and a
 `trigger_proposed` event announces it to a client that is watching. If a proposal was made in a chat that
 has an agent, the trigger keeps that agent. At most 10 proposals wait at a time,
-and you can have 50 triggers.
+and you can have 50 triggers (`chats_trigger_max_per_user`).
 
 The card sits below the text of the message it belongs to. When you answer it,
 it does not go away: it turns into a receipt, and the answer is kept on the

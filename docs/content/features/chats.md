@@ -429,8 +429,8 @@ stop it. Type `/loop` in the message box, or use the API.
   count). A loop ends after 100 runs (`chats_loop_max_runs`). One user starts
   at most 200 loop runs a day, over all loops (`chats_loop_daily_runs`, UTC
   days); after that the loops wait for the next day. A loop pauses itself
-  after 3 failed runs in a row; **Resume** starts it again. A run has the same
-  time limit as a trigger run (15 minutes).
+  after 3 failed runs in a row; **Resume** starts it again. A run has a time
+  limit of 15 minutes.
 - **Stop** removes a loop. It does not stop a run that goes on; the chat's
   stop button does that. Deleting a chat removes its loops.
 

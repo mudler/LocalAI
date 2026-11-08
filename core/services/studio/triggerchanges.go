@@ -525,7 +525,7 @@ func (h *Triggers) changeUndoBlock(ctx context.Context, rec, live triggers.Trigg
 		if has {
 			return UndoEdited // a trigger with its ID is back
 		}
-		if mine, err := h.o.Store.ListTriggers(ctx, rec.Owner); err != nil || countLive(mine) >= maxTriggersPerUser {
+		if mine, err := h.o.Store.ListTriggers(ctx, rec.Owner); err != nil || countLive(mine) >= h.Limits().MaxPerUser {
 			return UndoFull
 		}
 		return ""
@@ -706,7 +706,7 @@ func (h *Triggers) UndoChange(ctx context.Context, user, id string) (triggers.Tr
 	}
 	if block := h.changeUndoBlock(ctx, rec, live, lerr == nil); block != "" {
 		if block == UndoFull {
-			return triggers.Trigger{}, ErrTooManyTriggers
+			return triggers.Trigger{}, h.errTooMany()
 		}
 		return triggers.Trigger{}, fmt.Errorf("%w: %s", ErrCannotUndo, changeUndoText[block])
 	}

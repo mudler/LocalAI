@@ -277,6 +277,24 @@ var _ = Describe("Runner", func() {
 		Expect(next.Status).To(Equal(triggers.StatusRunning), "the next day: %+v", next)
 	})
 
+	It("holds a trigger to the highest daily cap that applies now", func() {
+		top := 1
+		r := newRig(func(o *triggers.Options) { o.MaxDailyCap = func() int { return top } })
+		tr := schedule("t1", "*/10 * * * *")
+		tr.DailyCap = 5
+		tr.Since = t0
+		r.put(tr)
+		for range 3 {
+			r.after(10 * time.Minute)
+			if run := r.latest("t1"); run.Status == triggers.StatusRunning {
+				r.finish(run, triggers.StatusDone, "")
+			}
+		}
+		got := statuses(r.runs("t1"))
+		Expect(got).To(Equal("skipped,skipped,done"), "statuses %s", got)
+		Expect(r.latest("t1").Reason).To(Equal("daily limit of 1 runs reached"))
+	})
+
 	It("the daily cap counts the day of the triggers time zone", func() {
 		// Auckland is UTC+13 in October: its day 23 starts at 11:00 UTC on the 22nd.
 		start := time.Date(2026, 10, 22, 10, 0, 0, 0, time.UTC)

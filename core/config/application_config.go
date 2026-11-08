@@ -461,6 +461,13 @@ type ApplicationConfig struct {
 	ChatsLoopMaxPerUser  int
 	ChatsLoopDailyRuns   int
 
+	// The limits of the triggers of the chats. Zero means the default.
+	// Runtime-settable via /api/settings (chats_trigger_run_limit,
+	// chats_trigger_max_per_user, chats_trigger_max_daily_cap); read at each use.
+	ChatsTriggerRunLimit    time.Duration
+	ChatsTriggerMaxPerUser  int
+	ChatsTriggerMaxDailyCap int
+
 	// DisableChatsSavedAgents switches off, for every chat, the saved agents
 	// as sub-agents (list_agents and the agent argument of spawn_agent).
 	// Stored as the negation (chats_saved_agents), so it is on by default;
@@ -1699,6 +1706,43 @@ func (o *ApplicationConfig) EffectiveChatsLoopDailyRuns() int {
 	o.chatsLimitsMu.RLock()
 	defer o.chatsLimitsMu.RUnlock()
 	return inRange(o.ChatsLoopDailyRuns, MaxChatsLoopDailyRuns, DefaultChatsLoopDailyRuns)
+}
+
+// Bounds and defaults of the trigger settings of the chats.
+const (
+	MinChatsTriggerRunLimit        = time.Minute
+	MaxChatsTriggerRunLimit        = 24 * time.Hour
+	DefaultChatsTriggerRunLimit    = 15 * time.Minute
+	DefaultChatsTriggerMaxPerUser  = 50
+	MaxChatsTriggerMaxPerUser      = 1000
+	DefaultChatsTriggerMaxDailyCap = 1000
+	MaxChatsTriggerMaxDailyCap     = 1000
+)
+
+// EffectiveChatsTriggerRunLimit is chats_trigger_run_limit as it applies now:
+// the longest one run of a trigger may take.
+func (o *ApplicationConfig) EffectiveChatsTriggerRunLimit() time.Duration {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
+	if d := o.ChatsTriggerRunLimit; d >= MinChatsTriggerRunLimit && d <= MaxChatsTriggerRunLimit {
+		return d
+	}
+	return DefaultChatsTriggerRunLimit
+}
+
+// EffectiveChatsTriggerMaxPerUser is chats_trigger_max_per_user as it applies now.
+func (o *ApplicationConfig) EffectiveChatsTriggerMaxPerUser() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
+	return inRange(o.ChatsTriggerMaxPerUser, MaxChatsTriggerMaxPerUser, DefaultChatsTriggerMaxPerUser)
+}
+
+// EffectiveChatsTriggerMaxDailyCap is chats_trigger_max_daily_cap as it
+// applies now: the most runs a day that one trigger may be set to.
+func (o *ApplicationConfig) EffectiveChatsTriggerMaxDailyCap() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
+	return inRange(o.ChatsTriggerMaxDailyCap, MaxChatsTriggerMaxDailyCap, DefaultChatsTriggerMaxDailyCap)
 }
 
 // Bounds of chats_index_max_text_bytes.

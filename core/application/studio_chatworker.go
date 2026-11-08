@@ -13,7 +13,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
-	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/internal"
 )
@@ -172,7 +171,7 @@ func (a *Application) studioWorkerRunLimit(origin string) time.Duration {
 		}
 		return limit + chatWorkerGrace
 	case session.OriginTrigger:
-		return studio.DefaultRunLimit + chatWorkerGrace
+		return a.applicationConfig.EffectiveChatsTriggerRunLimit() + chatWorkerGrace
 	}
 	return 0
 }
