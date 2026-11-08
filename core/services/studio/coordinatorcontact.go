@@ -213,7 +213,29 @@ func (h *Coordinators) toInbox(ctx context.Context, chat builtins.Chat, cfg coor
 	return ""
 }
 
-// toConnector is replaced by the connector branch of the next change.
-func (h *Coordinators) toConnector(context.Context, coordinator.Config, coordinator.Contact, string) string {
+// toConnector writes the message to an external contact through its binding.
+// The list of the creator is the authority, so no capability of a sender is
+// checked. The message never waits in the queue of the binding: the queue is
+// in memory, so it could not be held across a pause or a restart. A binding
+// at its limit answers busy and the coordinator tries later.
+func (h *Coordinators) toConnector(ctx context.Context, cfg coordinator.Config, ct coordinator.Contact, text string) string {
+	conns := h.svc.connectors
+	if conns == nil {
+		return coordinator.ReasonDeliveryFailed
+	}
+	b, err := conns.o.Store.GetBinding(ctx, ct.Binding)
+	if err != nil || b.Owner != cfg.Principal {
+		return coordinator.ReasonDeliveryFailed
+	}
+	_, err = conns.Send(ctx, Outgoing{Binding: b.ID, Chat: ct.Chat, Text: text, Kind: SendCoordinator, NoQueue: true})
+	switch {
+	case err == nil:
+		return ""
+	case errors.Is(err, ErrBindingOff):
+		return coordinator.ReasonBindingOff
+	case errors.Is(err, ErrOutboxBusy), errors.Is(err, ErrOutboxFull):
+		return coordinator.ReasonBindingBusy
+	}
+	h.log.Warn("studio: could not write a message of a coordinator to a connector", "coordinator", cfg.AgentID, "binding", b.ID, "error", err)
 	return coordinator.ReasonDeliveryFailed
 }

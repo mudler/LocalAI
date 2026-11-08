@@ -147,3 +147,34 @@ text, never the text. The text is in the transcript of the chat.
 **State mode.** The caps are atomic counters in the shared store, so two
 frontends together never pass the limit. The pause check reads the store at
 every call.
+
+## Messaging apps: contacts and replies
+
+An external contact names a binding, a chat of the messaging app to write in,
+and the sender whose replies count (empty: the chat itself). The binding must
+belong to the owner of the coordinator, keep one conversation for each sender
+or for each chat, and accept that sender. A team is an external contact whose
+chat is a group chat.
+
+`contact` writes to such a contact through the binding, with the connector
+send kind `coordinator`. The creator's contact list is the authority, so no
+capability of a sender is checked. A message never waits in the queue of the
+binding: the queue is in memory on one frontend, so it could not be held across
+a pause or a restart. When the binding is at its limit of 20 messages a minute,
+the call answers "busy" (audit reason `binding_busy`) and the coordinator tries
+later. A switched-off binding is audit reason `binding_off`.
+
+A reply goes the other way. When a message arrives on a binding, the host first
+checks whether its sender (or chat) is an external contact of a coordinator of
+the binding's owner. If it is, the message goes to the chat of that
+coordinator, as text that starts with `[Reply from <name>]`, and the answer of
+the turn goes back to that contact. The reply counts as a wake from a
+contact: it is charged to the run budget, and while the coordinator is paused
+it waits as a stored message, with no message to the sender, until resume. A
+sender who is not a listed contact never reaches the coordinator: the message
+follows the normal path of the binding. If two coordinators list the same
+contact, the older one gets the reply.
+
+**State mode.** The routing reads the coordinator store, so every frontend
+routes the same way. The queue of the binding stays per frontend, and the
+coordinator never uses it.

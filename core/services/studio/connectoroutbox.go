@@ -28,11 +28,18 @@ var (
 	ErrBindingOff = errors.New("studio: the connector binding is not on")
 	// ErrOutboxFull means a binding has the most messages it may have waiting.
 	ErrOutboxFull = errors.New("studio: too many connector messages are waiting to be sent")
+	// ErrOutboxBusy means a message that must not wait (Post.NoQueue) would
+	// have to: the binding is at its limit or has messages waiting.
+	ErrOutboxBusy = errors.New("studio: the connector binding is busy, so the message was not queued")
 )
 
 // Post is one message the host writes to a chat of a binding.
 type Post struct {
 	Binding, Chat, Thread, Text string
+	// NoQueue makes Post return ErrOutboxBusy instead of queueing the message.
+	// The queue is in memory, on one frontend: a sender that must not lose a
+	// message across a pause or a restart does not queue.
+	NoQueue bool
 	// OnFail is called, from another goroutine, when a message that waited in
 	// the queue could not be sent. A message that goes at once reports its
 	// error as the result of Connectors.Post.
@@ -99,6 +106,10 @@ func (c *Connectors) Post(ctx context.Context, p Post) (queued bool, err error) 
 		q.sent = append(q.sent, c.o.Clock())
 		o.mu.Unlock()
 		return false, c.sendPost(ctx, b, it)
+	}
+	if p.NoQueue {
+		o.mu.Unlock()
+		return false, ErrOutboxBusy
 	}
 	if len(q.queue) >= outboxMaxQueue {
 		o.mu.Unlock()
