@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { profileApi, usageApi } from '../utils/api'
 import { totalsOf, groupUsage, compactCount } from '../utils/traffic'
 import { timeUntil, initialOf } from '../utils/access'
-import { Button, Callout, EmptyState, LoadError, PageHeader, SkeletonRows, useLoad } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, useLoad } from '../components/ui'
 import ApiKeysPanel from '../components/users/ApiKeysPanel'
 import { AboutYouTab, AppearanceTab } from '../components/wellknown/SettingsTabs'
 import MemoryTab from '../components/MemoryTab'
@@ -257,9 +257,9 @@ export default function Account() {
 
   if (tabs.length === 0) {
     return (
-      <div className="page page--content ac-page">
+      <Page className="ac-page">
         <EmptyState variant="unavailable" icon="user-settings" title={t('account.unavailable')} body={t('account.unavailableText')} />
-      </div>
+      </Page>
     )
   }
 
@@ -276,7 +276,7 @@ export default function Account() {
   }
 
   return (
-    <div className={`page page--content ac-page${WIDE_TABS.has(tab) ? ' ac-page--wide' : ''}`} data-testid="account-page">
+    <Page className={`ac-page${WIDE_TABS.has(tab) ? ' ac-page--wide' : ''}`} data-testid="account-page">
       <PageHeader
         title={t('account.title')}
         supporting={t(authEnabled ? 'account.subtitle' : 'account.subtitleLocal')}
@@ -304,6 +304,6 @@ export default function Account() {
         {tab === 'memory' && <MemorySettings addToast={addToast}><MemoryTab addToast={addToast} embedded /></MemorySettings>}
         {tab === 'appearance' && <AppearanceTab />}
       </div>
-    </div>
+    </Page>
   )
 }
