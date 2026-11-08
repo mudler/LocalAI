@@ -122,7 +122,6 @@
 .ak-row__meta { display: flex; flex-wrap: wrap; gap: 0 var(--dk-space-3); font-size: var(--dk-text-12); color: var(--dk-muted); }
 .ak-row__undo { margin-top: var(--dk-space-1); font-size: var(--dk-text-13); color: var(--dk-error-text); }
 .ak-row__acts { display: flex; flex: none; align-items: center; gap: var(--dk-space-1); }
-.ak-revoke { color: var(--dk-error-text); }
 .ak-badge { display: inline-flex; padding: 0 var(--dk-space-2); border-radius: var(--dk-radius-1); background: var(--dk-inset); color: var(--dk-muted); font: var(--dk-weight-semibold) var(--dk-text-12) / 20px var(--dk-font-body); }
 .ak-badge[data-tone="warn"] { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
 .ak-badge[data-tone="error"] { background: var(--dk-error-wash); color: var(--dk-error-text); }

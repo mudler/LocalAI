@@ -82,7 +82,7 @@ function ProfileTab({ addToast }) {
         </span>
       </div>
       <div className="ac-actions">
-        <Button type="submit" variant="primary" icon="save" busy={saving} disabled={!name.trim() || !hasChanges}>
+        <Button type="submit" variant="primary" busy={saving} disabled={!name.trim() || !hasChanges}>
           {saving ? t('account.profile.saving') : t('account.profile.save')}
         </Button>
       </div>

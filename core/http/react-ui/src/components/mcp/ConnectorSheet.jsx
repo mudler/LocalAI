@@ -109,7 +109,7 @@ export default function ConnectorSheet({ initial, isAdmin, items, focus, onSave,
     footer = (
       <>
         <Button variant="ghost" onClick={close}>{t('mcpPage.sheet.cancel')}</Button>
-        <Button type="submit" form="mcp-sheet-form" variant="primary" icon="plug" busy={saving} data-testid="mcp-save">
+        <Button type="submit" form="mcp-sheet-form" variant="primary" busy={saving} data-testid="mcp-save">
           {saving ? t('mcpPage.sheet.saving') : t('mcpPage.sheet.saveAndTest')}
         </Button>
       </>
