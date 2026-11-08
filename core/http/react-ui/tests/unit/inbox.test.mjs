@@ -26,6 +26,12 @@ test('inbox: the source comes from the server, else from the kind', () => {
   assert.equal(sourceOf(note({ source: 'other', kind: 'run_ended' })), 'trigger')
 })
 
+test('inbox: a coordinator is its own source with the robot icon', () => {
+  assert.equal(sourceOf(note({ source: 'coordinator', kind: 'needs_attention' })), 'coordinator')
+  assert.equal(iconOf(note({ source: 'coordinator', kind: 'needs_attention' })), 'robot')
+  assert.equal(toneOf(note({ source: 'coordinator', kind: 'needs_attention' })), 'accent')
+})
+
 test('inbox: a failure is an error tile, a finished run ok, news accent', () => {
   assert.equal(toneOf(note({ status: 'failed', kind: 'run_failed' })), 'error')
   assert.equal(toneOf(note({ status: 'failed', kind: 'needs_attention' })), 'error')
@@ -147,6 +153,15 @@ test('inbox: a failed check names the sources', async () => {
   assert.match(out.body, /Could not check: backend gallery, backend library\./)
 })
 
+test('inbox: a coordinator message is titled with its name and keeps the message as body', async () => {
+  const t = await translator('en')
+  const n = note({ source: 'coordinator', kind: 'needs_attention', code: 'coordinator_message', title: 'Message from ops', body: 'Disk is at 91%.', params: { coordinator: 'ops' } })
+  assert.deepEqual(textOf(n, t), { title: 'Message from ops', body: 'Disk is at 91%.' })
+  const stored = { title: 'stored title', body: 'stored body' }
+  assert.deepEqual(textOf({ ...n, title: 'stored title', body: 'stored body', params: { coordinator: '' } }, t), stored)
+  assert.deepEqual(textOf({ ...n, title: 'stored title', body: 'stored body', params: {} }, t), stored)
+})
+
 test('inbox: an unknown code, missing params or nonsense params show the stored text', async () => {
   const t = await translator('en')
   const stored = { title: 'stored title', body: 'stored body' }
@@ -168,6 +183,7 @@ test('inbox: every language words every code with no key or placeholder left ove
     result({ updated: 2, failed: 1, held: 1, updatedItems: ['a'], failedItems: ['b (x)'], heldItems: ['c'] }),
     result({ family: 'addons', updated: 1, updatedItems: ['Tables 2.4.0'] }),
     note({ code: 'updates.checkFailed', params: { sources: ['gallery', 'library', 'addons'] } }),
+    note({ code: 'coordinator_message', title: 'T', body: 'hello', params: { coordinator: 'ops' } }),
   ]
   for (const lng of LOCALES) {
     const t = await translator(lng)

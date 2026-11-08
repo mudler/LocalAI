@@ -440,7 +440,8 @@
       "memory": "메모리",
       "history": "이전 대화",
       "localai_client": "LocalAI 클라이언트",
-      "localai_admin": "LocalAI 관리"
+      "localai_admin": "LocalAI 관리",
+      "coordinator": "코디네이터"
     },
     "builtinBy": "{{tools}} · 기본 제공",
     "onDemand": "필요할 때 불러옴",
@@ -700,7 +701,8 @@
     "source": {
       "trigger": "트리거",
       "connector": "커넥터",
-      "system": "LocalAI"
+      "system": "LocalAI",
+      "coordinator": "코디네이터"
     },
     "itemUnread": "{{title}}, 읽지 않음",
     "arrived": "새 알림: {{title}}",
@@ -741,6 +743,9 @@
           "library": "백엔드 라이브러리",
           "addons": "애드온"
         }
+      },
+      "coordinatorMessage": {
+        "title": "{{coordinator}}의 메시지"
       }
     }
   },
