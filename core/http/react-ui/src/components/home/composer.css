@@ -47,8 +47,12 @@
   cursor: pointer;
   transition: background var(--dur-instant) var(--ease-out), transform var(--dur-instant) var(--ease-out);
 }
-.home-chip:hover:not(:disabled),
-.home-cmd__top .chat-mcp-dropdown > .btn:hover { background: var(--dk-hover); }
+.home-chip:hover:not(:disabled) { background: var(--dk-hover); }
+/* The Tools and Skills triggers are the shared .btn, and with a count they
+   also carry .btn-primary, whose hover sets the label to the on-accent colour.
+   Set the whole hover state here, as the model chip has it, so the label never
+   keeps the colour of the accent fill it no longer sits on. */
+.home-cmd__top .chat-mcp-dropdown > .btn:hover { background: var(--dk-hover); color: var(--dk-text); }
 .home-chip:active:not(:disabled),
 .home-cmd__top .chat-mcp-dropdown > .btn:active { transform: scale(0.98); }
 .home-chip:disabled { cursor: default; color: var(--dk-muted); }
