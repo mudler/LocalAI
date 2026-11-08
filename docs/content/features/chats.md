@@ -871,8 +871,8 @@ every chat has a work folder: `/Chats/<date> <title>/work/` in your files
 (`/workspace/home/Chats/<date> <title>/work/` for the model), next to the
 chat's attachments. It is a normal, visible folder.
 
-- **What the model is told.** At every turn the prompt names the chat's work
-  folder and says: scripts, helper code, intermediate data, logs, drafts and
+- **What the model is told.** At every turn the note in front of your message
+  names the chat's work folder, and the prompt says: scripts, helper code, intermediate data, logs, drafts and
   anything else you did not ask for go there; the file you asked for (the
   document, the spreadsheet, the image) goes where you said, or at the top of
   your home, and nowhere else; no new top-level folders for scripts; a command
@@ -880,6 +880,10 @@ chat's attachments. It is a normal, visible folder.
   `bash` and `write_file` and the Sandbox document skills say the same. The built-in
   `localai-apps` and `localai-workspace` skills also give this guidance. Pages
   (`pages/<name>/`) and the `LocalAI/` settings folder are not working files.
+  The folder is named in the note and not in the prompt because its name
+  carries the chat's title: the prompt stays the same for every chat, so a
+  backend with a prompt cache (llama.cpp) reuses it, with the tool
+  definitions after it, instead of reading it again for each new chat.
 - **When the folder is made.** The chat takes the name of its folder at its
   first turn, but makes the folder only when it is used: before a `bash`
   command runs, or when a file is saved there. A chat that saves nothing

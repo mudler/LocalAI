@@ -115,20 +115,25 @@ var _ = Describe("working files", func() {
 		Expect(workfiles.GuestFolder("")).To(BeEmpty())
 	})
 
-	It("steers the model with the path of the folder", func() {
-		p := workfiles.Prompt("/workspace/home/Chats/2026-10-31 Report/work/")
+	It("steers the model to the folder with a prompt that names no chat's folder", func() {
+		p := workfiles.Prompt
 		for _, want := range []string{
-			"/workspace/home/Chats/2026-10-31 Report/work/", "scripts", "intermediate data", "logs", "drafts",
+			"scripts", "intermediate data", "logs", "drafts", "note",
 			"deliverable", "Never create new top-level folders", "python3 -c", "heredoc", "mkdir -p",
 			"/workspace/home/pages/", "/workspace/home/LocalAI/",
 		} {
 			Expect(p).To(ContainSubstring(want))
 		}
+		Expect(p).NotTo(ContainSubstring("/workspace/home/Chats"), "a chat's folder in the prompt breaks the prompt cache")
+		guest := workfiles.GuestFolder("2026-10-31 Report")
+		Expect(workfiles.Note(guest)).To(ContainSubstring(`"/workspace/home/Chats/2026-10-31 Report/work/"`))
+		Expect(workfiles.Note(guest)).To(ContainSubstring("work folder"))
 		n := workfiles.Nudge("/workspace/home/Chats/x/work/", "/workspace/home/build.py")
 		Expect(n).To(ContainSubstring("/workspace/home/Chats/x/work/"))
 		Expect(n).To(ContainSubstring("/workspace/home/build.py"))
 		Expect(n).To(ContainSubstring("Consider moving it"))
 		Expect(workfiles.ToolHint).To(ContainSubstring("work folder"))
+		Expect(workfiles.ToolHint).To(ContainSubstring("note"))
 	})
 
 	DescribeTable("treats /workspace/chat/work as the work folder",

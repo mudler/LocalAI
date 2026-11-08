@@ -76,6 +76,31 @@ test.describe('Home composer', () => {
     await expect(card.locator(':focus-visible')).toHaveCSS('outline-style', 'solid')
   })
 
+  test('the Tools and Skills chips keep a readable label on hover, as the model chip does', async ({ page }) => {
+    await server(page)
+    await ready(page)
+    // The hover state is the theme's hover surface with the primary text, the
+    // same the model chip has; resolve both tokens to rgb so the check holds in
+    // either theme and reads no transition mid-way.
+    const token = (name, prop) => page.evaluate(([n, p]) => {
+      const el = document.createElement('i')
+      el.style[p] = `var(${n})`
+      document.body.appendChild(el)
+      const v = getComputedStyle(el)[p]
+      el.remove()
+      return v
+    }, [name, prop])
+    const surface = await token('--dk-hover', 'backgroundColor')
+    const text = await token('--dk-text', 'color')
+    for (const id of ['chat-tools-button', 'chat-skills-button']) {
+      const chip = page.getByTestId(id)
+      await expect(chip).toHaveClass(/btn-primary/)
+      await chip.hover()
+      await expect(chip).toHaveCSS('background-color', surface)
+      await expect(chip).toHaveCSS('color', text)
+    }
+  })
+
   test('a file attached on Home arrives with the first message of the new chat', async ({ page }) => {
     const seen = await server(page)
     await ready(page)

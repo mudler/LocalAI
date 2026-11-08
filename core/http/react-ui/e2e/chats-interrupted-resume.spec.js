@@ -61,6 +61,23 @@ async function shot(page, name) {
 }
 const card = page => page.getByTestId('chat-error')
 
+// The clock installed in beforeEach runs by itself. Once the card shows, stop
+// it: from here only fastForward moves the page clock, so a slow machine (a
+// busy runner, or the screenshots of shot()) cannot let the wait end before the
+// test acts on it.
+// pauseAt refuses a time that has already passed, and a slow machine can pass
+// it while the call is on its way, so it asks again with a wider margin.
+async function freezeClock(page) {
+  for (let margin = 250; ; margin *= 2) {
+    try {
+      await page.clock.pauseAt((await page.evaluate(() => Date.now())) + margin)
+      return
+    } catch (err) {
+      if (margin > 1000 || !/past/.test(String(err.message))) throw err
+    }
+  }
+}
+
 test.describe('Interrupted turn', () => {
   test.beforeEach(async ({ page }) => {
     await mockChat(page)
@@ -74,6 +91,7 @@ test.describe('Interrupted turn', () => {
     await expect(page.getByText('I will read the three source files first.')).toBeVisible()
     await expect(card(page)).toHaveAttribute('data-code', 'interrupted')
     await expect(card(page)).toHaveAttribute('data-phase', 'waiting')
+    await freezeClock(page)
     await expect(card(page).getByRole('heading')).toHaveText('The reply was interrupted')
     await expect(page.getByTestId('chat-error-reason')).toContainText('The server restarted while it was answering.')
     await expect(page.getByTestId('chat-error-resume')).toHaveText('Going on in 3 seconds (try 1 of 3).')
@@ -96,6 +114,7 @@ test.describe('Interrupted turn', () => {
     await api.install()
     await page.goto('/app/chats/c1')
     await expect(card(page)).toHaveAttribute('data-phase', 'waiting')
+    await freezeClock(page)
     await page.clock.fastForward(3500)
     await expect(page.getByText(FINISHED)).toBeVisible()
     await expect(page.getByText('I will read the three source files first.')).toHaveCount(1)
@@ -108,6 +127,7 @@ test.describe('Interrupted turn', () => {
     await api.install()
     await page.goto('/app/chats/c1')
     await expect(card(page)).toHaveAttribute('data-phase', 'waiting')
+    await freezeClock(page)
     await page.clock.fastForward(3500)
     await expect(page.getByTestId('chat-error-resume')).toHaveText('Going on in 6 seconds (try 2 of 3).')
     await page.clock.fastForward(6500)
