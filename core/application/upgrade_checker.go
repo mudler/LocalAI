@@ -1,9 +1,11 @@
 package application
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/updatenotify"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
@@ -97,7 +100,31 @@ type UpgradeChecker struct {
 
 	// flight coalesces concurrent CheckNow calls into one check.
 	flight singleflight.Group
+
+	// announcer writes the inbox items of the update center. nil: none.
+	announcer updateAnnouncer
+	// failStreak counts, for each source, the automatic passes in a row that
+	// ended with a failed check. It lives in this process: a new leader starts
+	// again at zero, which only delays the notice.
+	failStreak map[string]int
 }
+
+// checkFailedAfter is how many automatic passes in a row must fail the check of
+// a source before the inbox says so. One failure is a network blip; the pass
+// runs every six hours, so two in a row is more than half a day.
+const checkFailedAfter = 2
+
+// updateAnnouncer writes the inbox items of the update center. Only the
+// process that runs the automatic pass may call it (see announce).
+type updateAnnouncer interface {
+	Digest(ctx context.Context, snap backendupdates.Snapshot) error
+	CheckFailed(ctx context.Context, sources []string) error
+	Result(ctx context.Context, r updatenotify.Result) error
+}
+
+// SetAnnouncer sets the writer of the inbox items. The pass that installs
+// updates calls it at its end.
+func (uc *UpgradeChecker) SetAnnouncer(a updateAnnouncer) { uc.announcer = a }
 
 // NewUpgradeChecker creates a new UpgradeChecker service.
 // Pass db=nil for standalone mode, or a *gorm.DB for distributed mode
@@ -240,7 +267,7 @@ func (uc *UpgradeChecker) SetLibraryBackends(fn func() libraryUpgrader) { uc.lib
 // the library lists; with it off nothing is installed and the Update button on
 // the Backends page stays the only way. The switch is read on every check, so
 // a change in the runtime settings applies at the next one.
-func (uc *UpgradeChecker) upgradeLibraryBackends(ctx context.Context) {
+func (uc *UpgradeChecker) upgradeLibraryBackends(ctx context.Context, pass *upgradePass) {
 	if !uc.appConfig.AutoUpgradeBackends || uc.libraryFn == nil {
 		return
 	}
@@ -256,9 +283,15 @@ func (uc *UpgradeChecker) upgradeLibraryBackends(ctx context.Context) {
 	for _, u := range updates {
 		xlog.Info("Auto-upgrading library backend", "backend", u.Name, "library", u.SourceID,
 			"from", u.InstalledVersion, "to", u.Version)
+		target := cmp.Or(u.Version, u.Digest)
+		o := updatenotify.Outcome{ID: backendupdates.KindLibrary + ":" + u.SourceID + "/" + u.Name + "@" + target, Name: u.Name, From: u.InstalledVersion, To: u.Version}
 		if err := lib.Install(ctx, u.SourceID, u.Name, u.Version, backendlib.Progress{}); err != nil {
 			xlog.Error("Failed to auto-upgrade library backend", "backend", u.Name, "error", err)
+			o.Kind, o.Err = updatenotify.OutcomeFailed, err.Error()
+		} else {
+			o.Kind = updatenotify.OutcomeUpdated
 		}
+		pass.outcomes = append(pass.outcomes, o)
 	}
 }
 
@@ -356,6 +389,12 @@ func (uc *UpgradeChecker) UpdatesSnapshot(ctx context.Context) backendupdates.Sn
 }
 
 func (uc *UpgradeChecker) snapshot(ctx context.Context, throttled bool) backendupdates.Snapshot {
+	return uc.snapshotWith(ctx, throttled, true)
+}
+
+// snapshotWith is snapshot, with or without the lookup of the loaded models,
+// which only the node view of the page needs.
+func (uc *UpgradeChecker) snapshotWith(ctx context.Context, throttled, withModels bool) backendupdates.Snapshot {
 	if uc == nil {
 		const why = "backend updates are not checked on this server: installs are disabled or no backend gallery is configured"
 		return backendupdates.Build(backendupdates.Input{
@@ -391,7 +430,7 @@ func (uc *UpgradeChecker) snapshot(ctx context.Context, throttled bool) backendu
 	if uc.library() == nil {
 		in.LibraryStatus = backendupdates.SourceStatus{Disabled: true, Reason: "the add-on backend library is not enabled on this instance"}
 	}
-	if uc.loadedModelsFn != nil && len(in.Gallery) > 0 {
+	if withModels && uc.loadedModelsFn != nil && len(in.Gallery) > 0 {
 		if loaded, err := uc.loadedModelsFn(ctx); err == nil {
 			in.Loaded = loaded
 		} else {
@@ -493,22 +532,27 @@ func (uc *UpgradeChecker) LastCheckError() error {
 // runLeaderPass is the periodic pass: it detects and installs. In distributed
 // mode only the advisory lock holder calls it.
 func (uc *UpgradeChecker) runLeaderPass(ctx context.Context) {
-	uc.runCheck(ctx, true)
+	uc.announce(ctx, uc.runCheck(ctx, true))
 }
 
 // runOnDemand serves the first check and the triggers, which run on every
 // frontend. Standalone there is one process, so it may install like the
 // periodic pass. In distributed mode it only refreshes this frontend's cache.
 func (uc *UpgradeChecker) runOnDemand(ctx context.Context) {
-	uc.runCheck(ctx, uc.db == nil)
+	auto := uc.db == nil
+	pass := uc.runCheck(ctx, auto)
+	if auto {
+		uc.announce(ctx, pass)
+	}
 }
 
 // runCheck detects upgrades and fills the cache. With autoUpgrade it also
 // installs them when the setting is on.
-func (uc *UpgradeChecker) runCheck(ctx context.Context, autoUpgrade bool) {
+func (uc *UpgradeChecker) runCheck(ctx context.Context, autoUpgrade bool) *upgradePass {
+	pass := &upgradePass{}
 	if autoUpgrade {
 		defer func() {
-			uc.upgradeLibraryBackends(ctx)
+			uc.upgradeLibraryBackends(ctx, pass)
 			// The pass may have installed library updates.
 			uc.detectLibrary(ctx, false)
 		}()
@@ -517,12 +561,12 @@ func (uc *UpgradeChecker) runCheck(ctx context.Context, autoUpgrade bool) {
 	uc.detectLibrary(ctx, false)
 	if err != nil {
 		xlog.Debug("Backend upgrade check failed", "error", err)
-		return
+		return pass
 	}
 
 	if len(upgrades) == 0 {
 		xlog.Debug("All backends up to date")
-		return
+		return pass
 	}
 
 	// Log available upgrades
@@ -563,13 +607,18 @@ func (uc *UpgradeChecker) runCheck(ctx context.Context, autoUpgrade bool) {
 				err = gallery.UpgradeBackend(ctx, uc.systemState, uc.modelLoader,
 					uc.galleries, name, nil, uc.appConfig.RequireBackendIntegrity)
 			}
+			o := updatenotify.Outcome{ID: backendupdates.KindGallery + ":" + name + "@" + cmp.Or(info.AvailableVersion, info.AvailableDigest),
+				Name: name, From: info.InstalledVersion, To: info.AvailableVersion}
 			if err != nil {
 				xlog.Error("Failed to auto-upgrade backend",
 					"backend", name, "error", err)
+				o.Kind, o.Err = updatenotify.OutcomeFailed, err.Error()
 			} else {
 				xlog.Info("Backend upgraded successfully", "backend", name,
 					"version", info.AvailableVersion)
+				o.Kind = updatenotify.OutcomeUpdated
 			}
+			pass.outcomes = append(pass.outcomes, o)
 		}
 		// Re-check to update cache after upgrades. Route through the same
 		// BackendManager so distributed mode reflects the worker view.
@@ -586,4 +635,61 @@ func (uc *UpgradeChecker) runCheck(ctx context.Context, autoUpgrade bool) {
 			uc.mu.Unlock()
 		}
 	}
+	return pass
+}
+
+// upgradePass is what one automatic pass did, for the inbox.
+type upgradePass struct {
+	outcomes []updatenotify.Outcome
+}
+
+// announce writes the inbox items at the end of a pass that may install: the
+// result of what it installed, the notice of a check that keeps failing, and
+// the digest of the updates that need a person.
+//
+// It is called only where the automatic update runs: the leader pass in a
+// cluster, and every installing pass of a standalone process. That is the
+// single runner of the mode (.agents/distributed-state.md), the holder of
+// KeyBackendUpgradeCheck, so no new lock key is needed. It is not called from
+// TriggerCheck, from the first check of a frontend or from CheckNow.
+func (uc *UpgradeChecker) announce(ctx context.Context, pass *upgradePass) {
+	if uc.announcer == nil || ctx.Err() != nil {
+		return
+	}
+	if len(pass.outcomes) > 0 {
+		if err := uc.announcer.Result(ctx, updatenotify.Result{Family: updatenotify.FamilyBackends, Outcomes: pass.outcomes}); err != nil {
+			xlog.Warn("Could not write the result of the backend update pass to the inbox", "error", err)
+		}
+	}
+	// No models lookup: the digest needs names and versions only.
+	snap := uc.snapshotWith(ctx, false, false)
+	if err := uc.announcer.CheckFailed(ctx, uc.failingSources(snap)); err != nil {
+		xlog.Warn("Could not write the failed update check to the inbox", "error", err)
+	}
+	if err := uc.announcer.Digest(ctx, snap); err != nil {
+		xlog.Warn("Could not write the update digest to the inbox", "error", err)
+	}
+}
+
+// failingSources updates the failure streaks with the sources of snap and
+// returns the sources that failed checkFailedAfter passes in a row.
+func (uc *UpgradeChecker) failingSources(snap backendupdates.Snapshot) []string {
+	uc.mu.Lock()
+	defer uc.mu.Unlock()
+	if uc.failStreak == nil {
+		uc.failStreak = map[string]int{}
+	}
+	var out []string
+	for name, src := range snap.Sources {
+		if src.State == backendupdates.StateFailed {
+			uc.failStreak[name]++
+		} else {
+			uc.failStreak[name] = 0
+		}
+		if uc.failStreak[name] >= checkFailedAfter {
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return out
 }

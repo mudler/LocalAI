@@ -256,3 +256,37 @@ func uniqueSorted(in []string) []string {
 	sort.Strings(in)
 	return slices.Compact(in)
 }
+
+// PendingUpdates is the list of updates that need a person, with the same rule as the
+// badge of the Updates page (badgeOf in utils/updates.js): every listed item
+// counts, unless the automatic update will apply it, or this server refuses
+// installs so nobody can act on it. The ids name an item and the version or
+// digest it would move to, so a newer release of the same backend is a new id.
+//
+// complete is false when a source that could be checked has not answered (it
+// failed, or it was never checked). The list is then missing items of that
+// source, and a caller that removes or shrinks something because an id is
+// absent must not do it.
+func PendingUpdates(s Snapshot) (items []Item, ids []string, complete bool) {
+	complete = true
+	for _, src := range s.Sources {
+		if src.State == StateFailed || src.State == StateNever {
+			complete = false
+		}
+	}
+	if s.AutoUpdate.Backends || s.InstallsDisabled {
+		return nil, nil, complete
+	}
+	for _, it := range s.Items {
+		target := it.AvailableVersion
+		if target == "" {
+			target = it.AvailableDigest
+		}
+		if target == "" {
+			target = it.State
+		}
+		items = append(items, it)
+		ids = append(ids, it.ID+"@"+target)
+	}
+	return items, ids, complete
+}

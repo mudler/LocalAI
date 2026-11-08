@@ -27,7 +27,7 @@ var _ = Describe("upgrading library backends", func() {
 			lib := &fakeLibrary{updates: []backendlib.Update{{Name: "whisper", SourceID: "official-backends", Version: "1.2.0"}}}
 			uc := &UpgradeChecker{appConfig: &config.ApplicationConfig{AutoUpgradeBackends: on}}
 			uc.SetLibraryBackends(func() libraryUpgrader { return lib })
-			uc.upgradeLibraryBackends(context.Background())
+			uc.upgradeLibraryBackends(context.Background(), &upgradePass{})
 			if on {
 				Expect(lib.installed).To(Equal([]string{"official-backends/whisper@1.2.0"}), "switch on: want one upgrade")
 			} else {
@@ -39,6 +39,6 @@ var _ = Describe("upgrading library backends", func() {
 	It("does nothing without a library", func() {
 		uc := &UpgradeChecker{appConfig: &config.ApplicationConfig{AutoUpgradeBackends: true}}
 		uc.SetLibraryBackends(func() libraryUpgrader { return nil })
-		uc.upgradeLibraryBackends(context.Background())
+		uc.upgradeLibraryBackends(context.Background(), &upgradePass{})
 	})
 })

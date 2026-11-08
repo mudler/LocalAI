@@ -500,6 +500,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		if gs := application.GalleryService(); gs != nil {
 			gs.OnBackendOpCompleted = uc.TriggerCheck
 		}
+		uc.SetAnnouncer(application.updateEmitter())
 		go uc.Run(options.Context)
 	}
 
