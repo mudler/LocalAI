@@ -440,3 +440,20 @@ func (s *Service) forgetCoordinator(ctx context.Context, agentID string) {
 		s.log.Warn("studio: could not drop the coordinator config of a deleted agent", "agent", agentID, "error", err)
 	}
 }
+
+// IDs returns the agent IDs of every coordinator, for a list that marks them.
+// A nil host has none.
+func (h *Coordinators) IDs(ctx context.Context) (map[string]bool, error) {
+	out := map[string]bool{}
+	if h == nil {
+		return out, nil
+	}
+	cfgs, err := h.o.Store.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range cfgs {
+		out[c.AgentID] = true
+	}
+	return out, nil
+}

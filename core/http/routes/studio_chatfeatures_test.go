@@ -694,9 +694,10 @@ func swaggerPaths() map[string]bool {
 // automation parts have their own, off by default; the rest is chats.
 func featureOfChatsRoute(path string) string {
 	for prefix, feature := range map[string]string{
-		"/api/chats/agents":     auth.FeatureAgents,
-		"/api/chats/triggers":   auth.FeatureTriggers,
-		"/api/chats/connectors": auth.FeatureConnectors,
+		"/api/chats/agents":       auth.FeatureAgents,
+		"/api/chats/coordinators": auth.FeatureAgents,
+		"/api/chats/triggers":     auth.FeatureTriggers,
+		"/api/chats/connectors":   auth.FeatureConnectors,
 	} {
 		if path == prefix || strings.HasPrefix(path, prefix+"/") {
 			return feature

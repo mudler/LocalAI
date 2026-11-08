@@ -322,3 +322,55 @@ logged as an error. The sweeper runs every 30 seconds, so a report that no
 process was there to send waits at most one pass plus the lease. With no
 database (one process, JSON files) the reports are kept in a file next to the
 coordinators and survive a restart.
+
+## API
+
+The routes are under `/api/chats`, in the swagger group `chats`. The six routes
+of an owner need the same feature as the saved agents (`agents`, off by default
+for a user); the administrator routes need the administrator role. Every route
+needs a login. A server without coordinators answers 404 with the type
+`coordinators_off`.
+
+| Route | Who | What |
+|---|---|---|
+| `POST /coordinators` | agents feature | Make a coordinator: the agent, its config and its chat. 201 with the coordinator. |
+| `GET /coordinators` | agents feature | List your coordinators. |
+| `GET /coordinators/{id}` | agents feature | Read one (`id` is the agent ID). |
+| `PUT /coordinators/{id}` | agents feature | Replace the agent and the config. The chat, the pause state and the wake times stay. |
+| `POST /coordinators/{id}/pause` | owner or administrator | The pause switch. |
+| `POST /coordinators/{id}/resume` | owner or administrator | Lift the pause. |
+| `GET /coordinators/{id}/audit` | owner or administrator | The audit log of one coordinator. |
+| `GET /admin/coordinators` | administrator | Every user's coordinators, without instructions and contacts. |
+| `POST /admin/coordinators/{id}/pause` | administrator | Pause any coordinator. |
+| `POST /admin/coordinators/{id}/resume` | administrator | Resume any coordinator. |
+| `GET /admin/coordinators/audit` | administrator | The audit log of all coordinators, or one with `?coordinator=<id>`. |
+
+The body of a create or replace has the fields of a saved agent (name,
+description, instructions, model, MCP servers, add-ons, collections, skills,
+network, memory and builtin lists) and these:
+
+- `page`: the page folder name. Empty: no page.
+- `contacts`: a list of `{id, name, description, kind, user | binding, chat, sender}`.
+  Kind `user` names a LocalAI user, kind `external` a chat of one of your
+  connector bindings.
+- `wake_every`: the schedule in seconds, `0` for events only, else 300 to 86400.
+- `wake_note`: text added to each scheduled wake message.
+- `send_per_minute`, `send_per_day`, `max_helpers`, `max_depth`: `0` takes the
+  default. A value above the schema limit, or above the operator ceiling for
+  helpers and depth, is a 400 that says why.
+
+A read returns the same fields with the defaults filled in, and also `chat_id`,
+`paused`, `paused_by`, `paused_at`, `next_wake`, `last_wake` and `usage`
+(`runs_today`, `sent_today`, `runs_limit`, `send_limit`, counted in UTC days).
+The agent list (`GET /agents`) carries `coordinator: true` for a coordinator.
+
+Errors: 400 `invalid_request_error` with the reason for a bad body, contact or
+limit; 404 `not_found` for a coordinator that does not exist, is another user's,
+or is a saved agent that is not a coordinator (all look the same). Pause and
+resume answer with the state of the coordinator (no instructions), also on the
+owner routes, because an administrator may press them there.
+
+The audit routes take `kind`, `outcome`, `since` and `until` (RFC 3339), `limit`
+(default 50, at most 500) and `before`. The answer is `{entries, next_before}`,
+newest first; pass `next_before` as `before` for the next page. It is absent on
+the last page. A non-administrator only ever sees rows of their own coordinators.

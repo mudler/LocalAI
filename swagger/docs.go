@@ -4595,6 +4595,189 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/admin/coordinators": {
+            "get": {
+                "description": "With the owner, the pause state, the next wake and what each used today. The instructions and contacts are not returned.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the coordinators of every user (administrators).",
+                "responses": {
+                    "200": {
+                        "description": "Every user's coordinators, by owner and name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAdminCoordinatorList"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/coordinators/audit": {
+            "get": {
+                "description": "Newest first, for all users, or for one coordinator with the coordinator filter. Rows never hold the text of a message.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the audit log of every coordinator (administrators).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "only this coordinator's agent id",
+                        "name": "coordinator",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "contact",
+                            "wake",
+                            "pause",
+                            "resume",
+                            "helper"
+                        ],
+                        "type": "string",
+                        "description": "only this kind",
+                        "name": "kind",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "sent",
+                            "denied",
+                            "info"
+                        ],
+                        "type": "string",
+                        "description": "only this outcome",
+                        "name": "outcome",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "from this time on (RFC 3339, inclusive)",
+                        "name": "since",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "before this time (RFC 3339)",
+                        "name": "until",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "the next_before of the previous page",
+                        "name": "before",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "page size, default 50, at most 500",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of the log",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsCoordinatorAuditList"
+                        }
+                    },
+                    "400": {
+                        "description": "A filter is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/coordinators/{id}/pause": {
+            "post": {
+                "description": "Same as the owner's pause: all outbound stops, the run and helpers are cancelled, messages are held until resume.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Pause the coordinator of any user (administrators).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the coordinator's agent id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The coordinator, paused",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAdminCoordinator"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such coordinator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/coordinators/{id}/resume": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Resume the coordinator of any user (administrators).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the coordinator's agent id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The coordinator, running",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAdminCoordinator"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such coordinator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/admin/egress": {
             "get": {
                 "description": "The chats_egress_* settings in force (ceiling, default, allow_private, ports, extra_registries, allowed_hosts, audit_days), the package registries with the extra hosts, the add-on that runs commands and how (isolated or host; the settings do not apply to commands on this machine), and the allowed and blocked requests of the last 24 hours. Change the settings with POST /api/settings.",
@@ -6617,6 +6800,292 @@ const docTemplate = `{
                         "description": "The report",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConversion"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/coordinators": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List your coordinators.",
+                "responses": {
+                    "200": {
+                        "description": "Your coordinators, by name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsCoordinatorList"
+                        }
+                    },
+                    "404": {
+                        "description": "Coordinators are off on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "A coordinator is a saved agent with one long-lived chat that wakes on a schedule and on events (a reply, a finished helper), starts helpers and contacts only the people listed in contacts. The server enforces the limits: send caps per minute and day, a daily budget of wake-started runs, a ceiling on helpers, one switch to pause everything, and an audit log. The agent gets the act.files grant so it can write its page. Errors: 400 with the reason for a bad contact, schedule or a value above the operator ceiling; 404 coordinators_off when this server has no coordinators.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Create a coordinator.",
+                "parameters": [
+                    {
+                        "description": "the coordinator",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsCoordinatorWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The coordinator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsCoordinator"
+                        }
+                    },
+                    "400": {
+                        "description": "The definition, a contact or a limit is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Coordinators are off on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/coordinators/{id}": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read one of your coordinators.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the coordinator's agent id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The coordinator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsCoordinator"
+                        }
+                    },
+                    "404": {
+                        "description": "No such coordinator, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "The body replaces the agent and the settings. Its chat, its pause state and its wake times stay as they are. A builtins_on and builtins_off the body does not send keep the stored ones.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Replace one of your coordinators.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the coordinator's agent id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the coordinator",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsCoordinatorWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The coordinator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsCoordinator"
+                        }
+                    },
+                    "400": {
+                        "description": "The definition, a contact or a limit is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such coordinator, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/coordinators/{id}/audit": {
+            "get": {
+                "description": "Every message it sent, every attempt that was denied or blocked, wakes, pauses and helper events, newest first. Rows never hold the text of a message, only its length and hash. Kept 90 days by default (an operator setting). An administrator may read any coordinator's log.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the audit log of one of your coordinators.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the coordinator's agent id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "contact",
+                            "wake",
+                            "pause",
+                            "resume",
+                            "helper"
+                        ],
+                        "type": "string",
+                        "description": "only this kind",
+                        "name": "kind",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "sent",
+                            "denied",
+                            "info"
+                        ],
+                        "type": "string",
+                        "description": "only this outcome",
+                        "name": "outcome",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "from this time on (RFC 3339, inclusive)",
+                        "name": "since",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "before this time (RFC 3339)",
+                        "name": "until",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "the next_before of the previous page",
+                        "name": "before",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "page size, default 50, at most 500",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of the log",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsCoordinatorAuditList"
+                        }
+                    },
+                    "400": {
+                        "description": "A filter is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such coordinator, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/coordinators/{id}/pause": {
+            "post": {
+                "description": "The one switch: it stops all outbound messages at once, cancels the coordinator's run and helpers, and holds every message to its chat until resume. The owner or an administrator may press it; another user gets 404. Pressing it again on a paused coordinator repeats the stop and changes nothing else.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Pause a coordinator.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the coordinator's agent id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The coordinator, paused",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAdminCoordinator"
+                        }
+                    },
+                    "404": {
+                        "description": "No such coordinator, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/coordinators/{id}/resume": {
+            "post": {
+                "description": "Lifts the pause and starts the messages held meanwhile, as one turn. The owner or an administrator may press it; another user gets 404.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Resume a coordinator.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the coordinator's agent id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The coordinator, running",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAdminCoordinator"
+                        }
+                    },
+                    "404": {
+                        "description": "No such coordinator, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -22680,6 +23149,70 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsAdminCoordinator": {
+            "type": "object",
+            "properties": {
+                "chat_id": {
+                    "type": "string"
+                },
+                "contacts": {
+                    "type": "integer"
+                },
+                "created": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_wake": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "next_wake": {
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "paused": {
+                    "type": "boolean"
+                },
+                "paused_at": {
+                    "type": "string"
+                },
+                "paused_by": {
+                    "type": "string"
+                },
+                "updated": {
+                    "type": "string"
+                },
+                "usage": {
+                    "$ref": "#/definitions/schema.ChatsCoordinatorUsage"
+                },
+                "wake_every": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsAdminCoordinatorList": {
+            "type": "object",
+            "properties": {
+                "coordinators": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAdminCoordinator"
+                    }
+                }
+            }
+        },
         "schema.ChatsAdminTrigger": {
             "type": "object",
             "properties": {
@@ -22860,6 +23393,10 @@ const docTemplate = `{
                             "$ref": "#/definitions/connsets.Sets"
                         }
                     ]
+                },
+                "coordinator": {
+                    "description": "Coordinator says the agent is a coordinator (see ChatsCoordinator). Edit\nit with /api/chats/coordinators/{id}, not with the agent routes.",
+                    "type": "boolean"
                 },
                 "created": {
                     "type": "string"
@@ -25482,6 +26019,453 @@ const docTemplate = `{
                 },
                 "skipped": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsCoordinator": {
+            "type": "object",
+            "properties": {
+                "access": {
+                    "description": "Access is how you hold the agent: your own, or shared with you and by\nwhom. It is absent when the server does not share agents.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAgentAccess"
+                        }
+                    ]
+                },
+                "addons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "builtins": {
+                    "description": "Builtins are the builtin capabilities granted to the agent, by the names\nthat GET /api/chats/agents/builtin-grants lists (memory.write,\nskills.write and so on). Empty grants none. A chat of the agent holds\nthe grants you may use at that moment.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "builtins_off": {
+                    "description": "BuiltinsOff are the groups of built-in tools (web, files, triggers...)\nthe agent's chats never have, and BuiltinsOn the opt-in groups (saved\nagents) they start with. The names are the ones GET /api/chats/{id}/tools\nlists. Empty for an agent that has every group a chat has by default.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "builtins_on": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "chat_id": {
+                    "description": "ChatID is its one long-lived chat.",
+                    "type": "string"
+                },
+                "collections": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "connections": {
+                    "description": "Connections names, for each add-on whose tools run with a credential\n(by add-on ID), the connections (binding IDs) the agent's chats may use.\nA chat of the agent cannot change the set. An add-on with no entry gets\nnone from the agent: the person chooses in the chat.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/connsets.Sets"
+                        }
+                    ]
+                },
+                "contacts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsCoordinatorContact"
+                    }
+                },
+                "coordinator": {
+                    "description": "Coordinator says the agent is a coordinator (see ChatsCoordinator). Edit\nit with /api/chats/coordinators/{id}, not with the agent routes.",
+                    "type": "boolean"
+                },
+                "created": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "folder": {
+                    "description": "Folder is the one folder that chats with the agent work in. It is\nabsent for an agent that works on all your files.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAgentFolder"
+                        }
+                    ]
+                },
+                "folder_notice": {
+                    "description": "FolderNotice is set when shared folders do not fit the access limit of\na chat of this agent and are left out.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAgentFolderNotice"
+                        }
+                    ]
+                },
+                "folders": {
+                    "description": "Folders are all the folders of the agent (at most 8), in order; Folder\nis the first of them. Absent for an agent that works on all your files.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgentFolder"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "last_wake": {
+                    "type": "string"
+                },
+                "max_depth": {
+                    "type": "integer"
+                },
+                "max_helpers": {
+                    "type": "integer"
+                },
+                "mcp_servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "memory": {
+                    "description": "Memory is the choice of notes for this agent: own (its own notes only),\nmine_and_own (reads your notes and its own, saves to its own; the\ndefault of a new agent in the interface), mine (your notes only) or\nnone. The host enforces it: it decides which notes go in the prompt of\na chat and where a note is saved. Absent is \"as before\", an agent saved\nbefore the choice existed: it reads notes when its add-ons name Memory\nand the model picks the scope of a note.",
+                    "type": "string",
+                    "enum": [
+                        "own",
+                        "mine_and_own",
+                        "mine",
+                        "none"
+                    ],
+                    "example": "mine_and_own"
+                },
+                "memory_save": {
+                    "description": "MemorySave is the agent's own rule for saving a note: always (every note\nwaits for the person, and the model cannot undo or forget by itself),\nauto (Save it and tell me: this agent saves a note at once and tells the\nperson, with an Undo, even when the person's level is Ask me first) or\nnever (it reads notes and saves none). Absent uses the person's setting\n(Account \u003e Memory). Always and never are never looser than that setting.\nauto loosens ask and auto for this agent only: the person's Always\nconfirm and Never still hold, and so do the limits of an automatic save.",
+                    "type": "string",
+                    "enum": [
+                        "always",
+                        "auto",
+                        "never"
+                    ],
+                    "example": "always"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "network": {
+                    "description": "Network is the network preset of the Sandbox commands of the agent's\nunattended runs: off (the default), registries or all, capped by the\nadministrator's ceiling.",
+                    "type": "string"
+                },
+                "next_wake": {
+                    "type": "string"
+                },
+                "page": {
+                    "type": "string"
+                },
+                "paused": {
+                    "type": "boolean"
+                },
+                "paused_at": {
+                    "type": "string"
+                },
+                "paused_by": {
+                    "type": "string"
+                },
+                "resources": {
+                    "description": "Resources names, for each add-on whose manifest scopes its resources per\nagent (by add-on ID), the resources the agent may use and the mode of\neach, read or write. An add-on of that kind with no entry gives the\nagent no resource; the field has no effect on any other add-on. The host\nchecks it on every tool call that takes a resource, on top of what you\nmay use yourself, and the resource list and the selection of a chat show\nthe agent nothing outside it.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/resourcesets.Sets"
+                        }
+                    ]
+                },
+                "send_per_day": {
+                    "type": "integer"
+                },
+                "send_per_minute": {
+                    "type": "integer"
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "updated": {
+                    "type": "string"
+                },
+                "usage": {
+                    "$ref": "#/definitions/schema.ChatsCoordinatorUsage"
+                },
+                "wake_every": {
+                    "type": "integer"
+                },
+                "wake_note": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsCoordinatorAuditEntry": {
+            "type": "object",
+            "properties": {
+                "actor": {
+                    "description": "Actor is the user who acted, or coordinator; Target the contact or helper.",
+                    "type": "string"
+                },
+                "at": {
+                    "type": "string"
+                },
+                "coordinator_id": {
+                    "type": "string"
+                },
+                "hash": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "contact",
+                        "wake",
+                        "pause",
+                        "resume",
+                        "helper"
+                    ]
+                },
+                "length": {
+                    "type": "integer"
+                },
+                "outcome": {
+                    "type": "string",
+                    "enum": [
+                        "sent",
+                        "denied",
+                        "info"
+                    ]
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason says why: ok, or what blocked it (paused, not_a_contact,\nminute_cap, day_cap, binding_off, binding_busy, budget, concurrency...).",
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                },
+                "via": {
+                    "type": "string",
+                    "enum": [
+                        "inbox",
+                        "connector"
+                    ]
+                }
+            }
+        },
+        "schema.ChatsCoordinatorAuditList": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsCoordinatorAuditEntry"
+                    }
+                },
+                "next_before": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsCoordinatorContact": {
+            "type": "object",
+            "properties": {
+                "binding": {
+                    "description": "Binding is the ID of your connector binding, Chat the chat to write in\nand Sender the sender that replies come from; an empty sender means the\nsame as chat (kind external).",
+                    "type": "string"
+                },
+                "chat": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID names the contact in the contact tool: lowercase letters, digits and\ndashes, up to 40 characters, unique in the coordinator.",
+                    "type": "string",
+                    "example": "ops-team"
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "user",
+                        "external"
+                    ]
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sender": {
+                    "type": "string"
+                },
+                "user": {
+                    "description": "User is the ID of the LocalAI user (kind user).",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsCoordinatorList": {
+            "type": "object",
+            "properties": {
+                "coordinators": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsCoordinator"
+                    }
+                }
+            }
+        },
+        "schema.ChatsCoordinatorUsage": {
+            "type": "object",
+            "properties": {
+                "runs_limit": {
+                    "type": "integer"
+                },
+                "runs_today": {
+                    "type": "integer"
+                },
+                "send_limit": {
+                    "type": "integer"
+                },
+                "sent_today": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsCoordinatorWrite": {
+            "type": "object",
+            "properties": {
+                "addons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "builtins": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "builtins_off": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "builtins_on": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "collections": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "contacts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsCoordinatorContact"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "max_depth": {
+                    "type": "integer"
+                },
+                "max_helpers": {
+                    "description": "MaxHelpers and MaxDepth bound its helpers; 0 is the default (8 and 2).",
+                    "type": "integer"
+                },
+                "mcp_servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "memory": {
+                    "type": "string",
+                    "enum": [
+                        "own",
+                        "mine_and_own",
+                        "mine",
+                        "none"
+                    ]
+                },
+                "memory_save": {
+                    "type": "string",
+                    "enum": [
+                        "always",
+                        "auto",
+                        "never",
+                        "use_mine"
+                    ]
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "network": {
+                    "type": "string"
+                },
+                "page": {
+                    "description": "Page is the name of the page folder (pages/\u003cname\u003e) the coordinator keeps\nits state in: lowercase letters, digits and dashes. Empty: no page, and\nthe coordinator works on all your files.",
+                    "type": "string",
+                    "example": "daily-ops"
+                },
+                "send_per_day": {
+                    "type": "integer"
+                },
+                "send_per_minute": {
+                    "description": "SendPerMinute (up to 60) and SendPerDay (up to 5000) cap the messages the\ncoordinator sends; 0 is the default (10 and 100).",
+                    "type": "integer"
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "wake_every": {
+                    "description": "WakeEvery is the schedule in seconds: 0 wakes on events only, else\n300 (5 minutes) to 86400 (24 hours).",
+                    "type": "integer",
+                    "example": 3600
+                },
+                "wake_note": {
+                    "description": "WakeNote is added to every scheduled wake message (up to 4000 bytes).",
+                    "type": "string"
                 }
             }
         },

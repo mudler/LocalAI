@@ -33,6 +33,14 @@ func (h *Coordinators) authorize(ctx context.Context, by CoordinatorActor, agent
 	return cfg, nil
 }
 
+// Authorize says whether the actor may act on the coordinator: the owner or an
+// administrator. Another user's coordinator is ErrNotACoordinator, like a
+// missing one.
+func (h *Coordinators) Authorize(ctx context.Context, by CoordinatorActor, agentID string) error {
+	_, err := h.authorize(ctx, by, agentID)
+	return err
+}
+
 // viewOf is the view of a config for an actor who may be an administrator
 // and not the owner.
 func (h *Coordinators) viewOf(ctx context.Context, cfg coordinator.Config) (CoordinatorView, error) {
