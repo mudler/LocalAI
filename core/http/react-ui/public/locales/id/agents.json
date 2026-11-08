@@ -8,7 +8,8 @@
     "chat": "Obrolan",
     "export": "Ekspor",
     "delete": "Hapus",
-    "newAgent": "Agen baru"
+    "newAgent": "Agen baru",
+    "newCoordinator": "Koordinator baru"
   },
   "table": {
     "name": "Nama",
@@ -617,7 +618,8 @@
     "addons_other": "{{count}} add-on"
   },
   "chips": {
-    "lastFailed": "Jalan terakhir gagal"
+    "lastFailed": "Jalan terakhir gagal",
+    "coordinator": "Koordinator"
   },
   "tasks": {
     "title": "Tugas agen",
@@ -977,5 +979,232 @@
     "asksTitle_one": "Agen ini meminta {{count}} hal yang tidak ada saat chat Anda dimulai:",
     "asksTitle_other": "Agen ini meminta {{count}} hal yang tidak ada saat chat Anda dimulai:",
     "asksHelp": "Agen berjalan sebagai Anda. Nyalakan di chat hanya jika Anda memercayai agen dan orang yang membagikannya."
+  },
+  "coordinator": {
+    "optional": "(opsional)",
+    "cancel": "Batal",
+    "titleNew": "Koordinator baru",
+    "titleEdit": "Ubah koordinator",
+    "supportingNew": "Koordinator adalah agen yang bekerja sendiri dalam waktu lama. Ia bangun sesuai jadwal dan saat seseorang membalas, dan hanya bisa menulis ke kontak yang Anda daftarkan.",
+    "supportingEdit": "Bangun sesuai jadwal dan saat ada balasan, dan hanya menulis ke kontaknya.",
+    "loadFailed": "Koordinator ini tidak dapat dimuat.",
+    "notSaved": "Belum tersimpan.",
+    "created": "Koordinator \"{{name}}\" dibuat",
+    "updated": "Koordinator \"{{name}}\" disimpan",
+    "paused": "\"{{name}}\" dijeda",
+    "resumed": "\"{{name}}\" berjalan lagi",
+    "actionFailed": "Tidak berhasil: {{message}}",
+    "save": "Simpan",
+    "discard": "Buang",
+    "state": {
+      "paused": "Dijeda",
+      "scheduled": "Terjadwal",
+      "idle": "Diam"
+    },
+    "wake": {
+      "opt": {
+        "events": "Hanya saat ada kejadian",
+        "15m": "Setiap 15 menit",
+        "1h": "Setiap jam",
+        "6h": "Setiap 6 jam",
+        "24h": "Setiap hari"
+      },
+      "custom": "Setiap {{minutes}} menit",
+      "title": "Waktu bangun",
+      "lead": "Koordinator juga bangun saat kontak membalas dan saat pembantu yang ia mulai selesai.",
+      "every": "Bangun sesuai jadwal",
+      "everyHelp": "Interval terpendek adalah 15 menit. Waktu bangun yang jatuh saat dijeda akan menunggu.",
+      "note": "Catatan untuk setiap bangun terjadwal",
+      "noteHelp": "Ditambahkan ke pesan bangun. Pakai untuk pengingat tetap, misalnya apa yang diperiksa lebih dulu."
+    },
+    "usage": {
+      "runs": "{{used}} dari {{limit}} eksekusi",
+      "sent": "{{used}} dari {{limit}} pesan"
+    },
+    "pause": {
+      "title": "Jeda \"{{name}}\"?",
+      "body": "Ini menghentikan semua yang dikerjakan koordinator ini, sekarang.",
+      "adminBody": "Ini menghentikan semua yang dikerjakan koordinator ini, sekarang, juga untuk pemiliknya.",
+      "stopsSending": "Ia tidak bisa mengirim pesan apa pun.",
+      "stopsRuns": "Chat yang sedang berjalan dan para pembantunya dihentikan.",
+      "holds": "Pesan dan balasan yang masuk menunggu dan tidak hilang.",
+      "resume": "Lanjutkan menjalankannya lagi dan mengirimkan yang menunggu.",
+      "confirm": "Jeda"
+    },
+    "card": {
+      "title": "Status",
+      "openChat": "Buka chat-nya",
+      "pause": "Jeda",
+      "resume": "Lanjutkan",
+      "pausedBy": "Dijeda oleh {{who}}. Tidak ada yang dikirim dan tidak ada yang berjalan sampai dilanjutkan.",
+      "pausedNote": "Dijeda. Tidak ada yang dikirim dan tidak ada yang berjalan sampai dilanjutkan.",
+      "nextWake": "Bangun berikutnya",
+      "notWhilePaused": "Tidak saat dijeda",
+      "lastWake": "Bangun terakhir",
+      "schedule": "Jadwal",
+      "runsToday": "Eksekusi hari ini",
+      "sentToday": "Terkirim hari ini"
+    },
+    "identity": {
+      "title": "Nama dan model",
+      "name": "Nama",
+      "needsName": "Beri nama pada koordinator.",
+      "description": "Deskripsi",
+      "model": "Model",
+      "modelHelp": "Model yang menjalankan setiap kali bangun. Tidak ada yang memilih model di chat, jadi pilih satu."
+    },
+    "rules": {
+      "title": "Instruksi dan aturan",
+      "policy": "Apa yang dibahas koordinator ini dan apa yang tidak boleh ia lakukan adalah keputusan Anda. LocalAI tidak punya daftar topik atau larangan bawaan dan tidak menambahkannya.",
+      "instructions": "Instruksi",
+      "instructionsHelp": "Aturan dan topik tetap, ditulis seperti yang Anda ingin ia ikuti. Teks ini milik Anda dan bisa diubah. Batas di bawah ditegakkan oleh server, bukan oleh teks ini.",
+      "page": "Nama halaman",
+      "pageHelp": "Folder di bawah pages/ untuk halaman status, catatan, dan berkas topiknya. Ia hanya bisa menulis di sana. Gunakan huruf kecil, angka, dan tanda hubung. Kosongkan agar ia tidak punya folder sendiri."
+    },
+    "contacts": {
+      "title": "Kontak",
+      "lead": "Satu-satunya orang yang bisa ia tulisi, hingga {{max}}. Ia tidak bisa menjangkau siapa pun yang tidak terdaftar.",
+      "none": "Belum ada kontak. Tanpa kontak, koordinator tidak bisa mengirim pesan.",
+      "add": "Tambah kontak",
+      "edit": "Ubah",
+      "remove": "Hapus",
+      "editFor": "Ubah {{name}}",
+      "removeFor": "Hapus {{name}}",
+      "userTarget": "Pengguna LocalAI {{user}}",
+      "externalTarget": "{{binding}}, chat {{chat}}",
+      "kind": {
+        "user": "Pengguna LocalAI",
+        "external": "Chat pesan"
+      },
+      "newTitle": "Tambah kontak",
+      "editTitle": "Ubah kontak",
+      "sheetDesc": "Orang atau tim yang boleh ditulisi koordinator.",
+      "done": "Simpan kontak",
+      "kindLabel": "Jenis",
+      "kindUserHelp": "Pengguna LocalAI menerima pesan di kotak masuk. Jenis ini searah: balasan tidak bisa kembali ke koordinator.",
+      "kindExternalHelp": "Orang atau grup di chat salah satu koneksi pesan Anda. Balasan mereka membangunkan koordinator.",
+      "id": "ID kontak",
+      "idHelp": "Nama pendek yang dipakai koordinator. Huruf kecil, angka, dan tanda hubung, hingga 40 karakter.",
+      "name": "Nama",
+      "description": "Siapa dia",
+      "descriptionHelp": "Satu baris yang dibaca koordinator, misalnya peran orang tersebut.",
+      "user": "ID pengguna LocalAI",
+      "userHelp": "ID pengguna, seperti yang dilihat administrator di Pengguna.",
+      "me": "Pakai akun saya",
+      "binding": "Koneksi pesan",
+      "pickBinding": "Pilih koneksi",
+      "bindingHelp": "Koneksi yang membawa pesan. Koneksi itu harus mengelompokkan balasan menurut pengirim atau menurut chat.",
+      "bindingsFailed": "Koneksi Anda tidak dapat dibaca. Coba lagi nanti.",
+      "noBindings": "Anda belum punya koneksi pesan. Tambahkan dulu di Koneksi.",
+      "off": "mati",
+      "modeWarn": "Koneksi ini membuat chat baru untuk setiap \"{{mode}}\". Balasan tidak dapat dicocokkan ke koordinator. Pilih koneksi yang mengelompokkan menurut pengirim atau menurut chat.",
+      "chat": "Chat",
+      "chatHelp": "Chat, grup, atau kanal di platform tujuan pesan. Chat yang sudah diizinkan koneksi disarankan.",
+      "sender": "Pengirim",
+      "senderHelp": "Dari siapa balasan datang. Kosong berarti sama dengan chat.",
+      "errors": {
+        "id": "Gunakan huruf kecil, angka, dan tanda hubung, hingga 40 karakter, diawali huruf atau angka.",
+        "idTwice": "Kontak lain sudah memakai ID ini.",
+        "name": "Nama lebih dari 80 karakter.",
+        "description": "Deskripsi lebih dari 200 karakter.",
+        "user": "Masukkan ID pengguna LocalAI.",
+        "binding": "Pilih koneksi pesan.",
+        "chat": "Masukkan chat tujuan.",
+        "kind": "Pilih jenis kontak ini.",
+        "tooMany": "Kontak terlalu banyak."
+      }
+    },
+    "limits": {
+      "title": "Batas",
+      "lead": "Server menegakkan batas ini apa pun isi instruksinya. Kosongkan kolom untuk memakai nilai bawaan.",
+      "perMinute": "Pesan per menit",
+      "perDay": "Pesan per hari",
+      "helpers": "Pembantu sekaligus",
+      "depth": "Kedalaman pembantu",
+      "help": "Bawaan {{def}}, maksimal {{max}}.",
+      "range": "Gunakan bilangan bulat dari 1 sampai {{max}}.",
+      "runs": "Eksekusi yang mulai sendiri dibatasi operator hingga {{limit}} per hari. Pesan Anda sendiri tidak dihitung.",
+      "runsNew": "Operator juga membatasi berapa eksekusi yang dimulai koordinator sendiri setiap hari.",
+      "ceilings": "Operator dapat menetapkan batas atas yang lebih rendah untuk pembantu dan kedalaman. Nilai di atasnya ditolak dengan menyebut nilai tertinggi yang diizinkan."
+    },
+    "tools": {
+      "title": "Alat dan keterampilan",
+      "lead": "Apa yang boleh dipakai koordinator dan para pembantunya. Mengirim ke kontak selalu tersedia dan selalu melewati batas di atas."
+    },
+    "audit": {
+      "title": "Log audit",
+      "lead": "Setiap pesan terkirim, setiap percobaan yang diblokir, waktu bangun, jeda, dan kejadian pembantu. Yang disimpan panjang dan hash tiap pesan, bukan teksnya.",
+      "filters": "Saring log audit",
+      "any": "Semua",
+      "coordinator": "Koordinator",
+      "kind": "Jenis",
+      "outcome": "Hasil",
+      "since": "Dari",
+      "until": "Sampai",
+      "clear": "Hapus filter",
+      "loadFailed": "Log audit tidak dapat dimuat.",
+      "moreFailed": "Entri yang lebih lama tidak dapat dimuat.",
+      "none": "Belum ada isi log.",
+      "noneBody": "Pesan, percobaan yang diblokir, waktu bangun, dan jeda muncul di sini.",
+      "noMatch": "Tidak ada entri yang cocok dengan filter ini.",
+      "when": "Kapan",
+      "reasonCol": "Alasan",
+      "who": "Siapa",
+      "older": "Tampilkan entri lebih lama",
+      "chars": "{{count}} karakter",
+      "kinds": {
+        "contact": "Pesan",
+        "wake": "Bangun",
+        "pause": "Jeda",
+        "resume": "Lanjut",
+        "helper": "Pembantu"
+      },
+      "outcomes": {
+        "sent": "Terkirim",
+        "denied": "Ditolak",
+        "info": "Catatan"
+      },
+      "via": {
+        "inbox": "kotak masuk",
+        "connector": "chat pesan"
+      },
+      "reason": {
+        "ok": "Terkirim",
+        "paused": "Dijeda",
+        "not_a_contact": "Bukan kontak terdaftar",
+        "bad_text": "Teks tidak valid",
+        "minute_cap": "Batas per menit tercapai",
+        "day_cap": "Batas harian tercapai",
+        "binding_off": "Koneksi mati",
+        "binding_busy": "Koneksi sedang sibuk",
+        "inbox_off": "Kotak masuk mati",
+        "delivery_failed": "Pengiriman gagal",
+        "budget": "Anggaran eksekusi harian habis",
+        "concurrency": "Terlalu banyak koordinator berjalan",
+        "timeout": "Terlalu lama",
+        "helper_limit": "Batas pembantu tercapai",
+        "depth_limit": "Batas kedalaman pembantu tercapai"
+      }
+    }
+  },
+  "admin": {
+    "coordinators": {
+      "title": "Koordinator ({{count}})",
+      "lead": "Agen yang bekerja sendiri dan menulis ke kontak. Anda bisa menjeda yang mana pun. Jeda menghentikan semuanya dan menahan yang masuk sampai koordinator dilanjutkan.",
+      "loadFailed": "Koordinator tidak dapat dibaca.",
+      "none": "Belum ada pengguna yang punya koordinator.",
+      "nextWake": "Bangun berikutnya",
+      "usage": "Hari ini",
+      "contacts": "Kontak: {{count}}",
+      "pausedBy": "oleh {{who}}",
+      "paused": "\"{{name}}\" dijeda",
+      "resumed": "\"{{name}}\" berjalan lagi",
+      "pause": "Jeda",
+      "resume": "Lanjutkan",
+      "pauseFor": "Jeda {{name}}",
+      "resumeFor": "Lanjutkan {{name}}",
+      "showAudit": "Tampilkan log audit",
+      "hideAudit": "Sembunyikan log audit"
+    }
   }
 }

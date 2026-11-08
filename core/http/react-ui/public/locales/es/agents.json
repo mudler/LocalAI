@@ -8,7 +8,8 @@
     "chat": "Chat",
     "export": "Exportar",
     "delete": "Eliminar",
-    "newAgent": "Nuevo agente"
+    "newAgent": "Nuevo agente",
+    "newCoordinator": "Nuevo coordinador"
   },
   "table": {
     "name": "Nombre",
@@ -617,7 +618,8 @@
     "addons_other": "{{count}} complementos"
   },
   "chips": {
-    "lastFailed": "La última ejecución falló"
+    "lastFailed": "La última ejecución falló",
+    "coordinator": "Coordinador"
   },
   "tasks": {
     "title": "Tareas de agentes",
@@ -977,5 +979,232 @@
     "asksTitle_one": "Este agente pide {{count}} cosa con la que tu chat no empieza:",
     "asksTitle_other": "Este agente pide {{count}} cosas con las que tu chat no empieza:",
     "asksHelp": "Se ejecuta como tú. Actívalas en el chat solo si confías en el agente y en la persona que lo compartió."
+  },
+  "coordinator": {
+    "optional": "(opcional)",
+    "cancel": "Cancelar",
+    "titleNew": "Nuevo coordinador",
+    "titleEdit": "Editar coordinador",
+    "supportingNew": "Un coordinador es un agente que trabaja solo durante mucho tiempo. Se despierta según un horario y cuando alguien responde, y solo puede escribir a los contactos que indiques.",
+    "supportingEdit": "Se despierta según un horario y con las respuestas, y solo escribe a sus contactos.",
+    "loadFailed": "No se pudo cargar este coordinador.",
+    "notSaved": "No se guardó.",
+    "created": "Coordinador «{{name}}» creado",
+    "updated": "Coordinador «{{name}}» guardado",
+    "paused": "«{{name}}» está en pausa",
+    "resumed": "«{{name}}» vuelve a funcionar",
+    "actionFailed": "No funcionó: {{message}}",
+    "save": "Guardar",
+    "discard": "Descartar",
+    "state": {
+      "paused": "En pausa",
+      "scheduled": "Programado",
+      "idle": "En reposo"
+    },
+    "wake": {
+      "opt": {
+        "events": "Solo cuando ocurre algo",
+        "15m": "Cada 15 minutos",
+        "1h": "Cada hora",
+        "6h": "Cada 6 horas",
+        "24h": "Cada día"
+      },
+      "custom": "Cada {{minutes}} minutos",
+      "title": "Despertares",
+      "lead": "Un coordinador también se despierta cuando un contacto responde y cuando termina un ayudante que inició.",
+      "every": "Despertar según un horario",
+      "everyHelp": "El intervalo más corto es de 15 minutos. Un despertar que toque durante la pausa espera.",
+      "note": "Nota para cada despertar programado",
+      "noteHelp": "Se añade al mensaje de despertar. Úsala para un recordatorio fijo, por ejemplo qué revisar primero."
+    },
+    "usage": {
+      "runs": "{{used}} de {{limit}} ejecuciones",
+      "sent": "{{used}} de {{limit}} mensajes"
+    },
+    "pause": {
+      "title": "¿Pausar «{{name}}»?",
+      "body": "Esto detiene ahora todo lo que hace este coordinador.",
+      "adminBody": "Esto detiene ahora todo lo que hace este coordinador, también para su propietario.",
+      "stopsSending": "No puede enviar ningún mensaje.",
+      "stopsRuns": "Su chat en ejecución y sus ayudantes se detienen.",
+      "holds": "Los mensajes y respuestas que lleguen esperan y no se pierden.",
+      "resume": "Reanudar lo pone en marcha otra vez y entrega lo que esperaba.",
+      "confirm": "Pausar"
+    },
+    "card": {
+      "title": "Estado",
+      "openChat": "Abrir su chat",
+      "pause": "Pausar",
+      "resume": "Reanudar",
+      "pausedBy": "Pausado por {{who}}. No se envía nada y no se ejecuta nada hasta que se reanude.",
+      "pausedNote": "En pausa. No se envía nada y no se ejecuta nada hasta que se reanude.",
+      "nextWake": "Próximo despertar",
+      "notWhilePaused": "No durante la pausa",
+      "lastWake": "Último despertar",
+      "schedule": "Horario",
+      "runsToday": "Ejecuciones hoy",
+      "sentToday": "Enviados hoy"
+    },
+    "identity": {
+      "title": "Nombre y modelo",
+      "name": "Nombre",
+      "needsName": "Dale un nombre al coordinador.",
+      "description": "Descripción",
+      "model": "Modelo",
+      "modelHelp": "El modelo que ejecuta cada despertar. Nadie elige uno en el chat, así que elige uno."
+    },
+    "rules": {
+      "title": "Instrucciones y reglas",
+      "policy": "De qué habla este coordinador y qué nunca debe hacer es decisión tuya. LocalAI no tiene una lista integrada de temas ni de asuntos prohibidos y no añade ninguna.",
+      "instructions": "Instrucciones",
+      "instructionsHelp": "Las reglas y los temas permanentes, escritos como quieres que se sigan. El texto es tuyo y puedes cambiarlo. Los límites de abajo los aplica el servidor, no este texto.",
+      "page": "Nombre de la página",
+      "pageHelp": "Una carpeta dentro de pages/ para su página de estado, sus notas y un archivo de temas. Solo puede escribir ahí. Usa minúsculas, dígitos y guiones. Déjalo vacío para no darle una carpeta propia."
+    },
+    "contacts": {
+      "title": "Contactos",
+      "lead": "Las únicas personas a las que puede escribir, hasta {{max}}. No puede llegar a nadie que no figure en la lista.",
+      "none": "Aún no hay contactos. Sin un contacto el coordinador no puede enviar mensajes.",
+      "add": "Añadir contacto",
+      "edit": "Editar",
+      "remove": "Quitar",
+      "editFor": "Editar {{name}}",
+      "removeFor": "Quitar {{name}}",
+      "userTarget": "Usuario de LocalAI {{user}}",
+      "externalTarget": "{{binding}}, chat {{chat}}",
+      "kind": {
+        "user": "Usuario de LocalAI",
+        "external": "Chat de mensajería"
+      },
+      "newTitle": "Añadir contacto",
+      "editTitle": "Editar contacto",
+      "sheetDesc": "Una persona o un equipo al que el coordinador puede escribir.",
+      "done": "Guardar contacto",
+      "kindLabel": "Tipo",
+      "kindUserHelp": "Un usuario de LocalAI recibe el mensaje en la bandeja de entrada. Este tipo es de una sola vía: una respuesta no puede volver al coordinador.",
+      "kindExternalHelp": "Una persona o un grupo en un chat de una de tus conexiones de mensajería. Sus respuestas despiertan al coordinador.",
+      "id": "ID del contacto",
+      "idHelp": "El nombre corto que usa el coordinador. Minúsculas, dígitos y guiones, hasta 40 caracteres.",
+      "name": "Nombre",
+      "description": "Quién es",
+      "descriptionHelp": "Una línea que lee el coordinador, por ejemplo el cargo de la persona.",
+      "user": "ID del usuario de LocalAI",
+      "userHelp": "El ID del usuario, tal como lo ve el administrador en Usuarios.",
+      "me": "Usar mi cuenta",
+      "binding": "Conexión de mensajería",
+      "pickBinding": "Elige una conexión",
+      "bindingHelp": "La conexión que lleva el mensaje. Debe agrupar las respuestas por remitente o por chat.",
+      "bindingsFailed": "No se pudieron leer tus conexiones. Inténtalo más tarde.",
+      "noBindings": "Aún no tienes ninguna conexión de mensajería. Añade una antes en Conexiones.",
+      "off": "desactivada",
+      "modeWarn": "Esta conexión abre un chat nuevo por cada «{{mode}}». Las respuestas no se pueden asociar al coordinador. Elige una conexión que agrupe por remitente o por chat.",
+      "chat": "Chat",
+      "chatHelp": "El chat, grupo o canal de la plataforma al que va el mensaje. Se sugieren los chats que la conexión ya permite.",
+      "sender": "Remitente",
+      "senderHelp": "De quién vienen las respuestas. Vacío significa lo mismo que el chat.",
+      "errors": {
+        "id": "Usa minúsculas, dígitos y guiones, hasta 40 caracteres, empezando por una letra o un dígito.",
+        "idTwice": "Otro contacto ya tiene este ID.",
+        "name": "El nombre tiene más de 80 caracteres.",
+        "description": "La descripción tiene más de 200 caracteres.",
+        "user": "Escribe el ID de un usuario de LocalAI.",
+        "binding": "Elige una conexión de mensajería.",
+        "chat": "Escribe el chat donde se enviará.",
+        "kind": "Elige qué tipo de contacto es.",
+        "tooMany": "Hay demasiados contactos."
+      }
+    },
+    "limits": {
+      "title": "Límites",
+      "lead": "El servidor aplica estos límites digan lo que digan las instrucciones. Deja un campo vacío para usar el valor por defecto.",
+      "perMinute": "Mensajes por minuto",
+      "perDay": "Mensajes por día",
+      "helpers": "Ayudantes a la vez",
+      "depth": "Profundidad de ayudantes",
+      "help": "Por defecto {{def}}, hasta {{max}}.",
+      "range": "Usa un número entero de 1 a {{max}}.",
+      "runs": "El operador limita a {{limit}} al día las ejecuciones que empiezan solas. Tus propios mensajes no cuentan.",
+      "runsNew": "El operador también limita cuántas ejecuciones empieza un coordinador por su cuenta cada día.",
+      "ceilings": "El operador puede fijar techos más bajos para ayudantes y profundidad. Un valor superior se rechaza indicando el más alto permitido."
+    },
+    "tools": {
+      "title": "Herramientas y habilidades",
+      "lead": "Lo que pueden usar el coordinador y sus ayudantes. Enviar a un contacto está siempre disponible y siempre pasa por los límites de arriba."
+    },
+    "audit": {
+      "title": "Registro de auditoría",
+      "lead": "Cada mensaje enviado, cada intento bloqueado, despertares, pausas y eventos de ayudantes. Guarda la longitud y un hash de cada mensaje, nunca el texto.",
+      "filters": "Filtrar el registro de auditoría",
+      "any": "Cualquiera",
+      "coordinator": "Coordinador",
+      "kind": "Tipo",
+      "outcome": "Resultado",
+      "since": "Desde",
+      "until": "Hasta",
+      "clear": "Quitar filtros",
+      "loadFailed": "No se pudo cargar el registro de auditoría.",
+      "moreFailed": "No se pudieron cargar las entradas anteriores.",
+      "none": "Aún no hay nada en el registro.",
+      "noneBody": "Aquí aparecen los mensajes, los intentos bloqueados, los despertares y las pausas.",
+      "noMatch": "Ninguna entrada coincide con estos filtros.",
+      "when": "Cuándo",
+      "reasonCol": "Motivo",
+      "who": "Quién",
+      "older": "Mostrar entradas anteriores",
+      "chars": "{{count}} caracteres",
+      "kinds": {
+        "contact": "Mensaje",
+        "wake": "Despertar",
+        "pause": "Pausa",
+        "resume": "Reanudar",
+        "helper": "Ayudante"
+      },
+      "outcomes": {
+        "sent": "Enviado",
+        "denied": "Denegado",
+        "info": "Nota"
+      },
+      "via": {
+        "inbox": "bandeja de entrada",
+        "connector": "chat de mensajería"
+      },
+      "reason": {
+        "ok": "Entregado",
+        "paused": "En pausa",
+        "not_a_contact": "No es un contacto de la lista",
+        "bad_text": "El texto no era válido",
+        "minute_cap": "Límite por minuto alcanzado",
+        "day_cap": "Límite diario alcanzado",
+        "binding_off": "La conexión está desactivada",
+        "binding_busy": "La conexión estaba ocupada",
+        "inbox_off": "La bandeja de entrada está desactivada",
+        "delivery_failed": "Falló la entrega",
+        "budget": "Presupuesto diario de ejecuciones agotado",
+        "concurrency": "Hay demasiados coordinadores en ejecución",
+        "timeout": "Tardó demasiado",
+        "helper_limit": "Límite de ayudantes alcanzado",
+        "depth_limit": "Límite de profundidad de ayudantes alcanzado"
+      }
+    }
+  },
+  "admin": {
+    "coordinators": {
+      "title": "Coordinadores ({{count}})",
+      "lead": "Agentes que trabajan solos y escriben a contactos. Puedes pausar cualquiera. Una pausa lo detiene todo y retiene lo que llega hasta que se reanude el coordinador.",
+      "loadFailed": "No se pudieron leer los coordinadores.",
+      "none": "Ningún usuario tiene un coordinador.",
+      "nextWake": "Próximo despertar",
+      "usage": "Hoy",
+      "contacts": "Contactos: {{count}}",
+      "pausedBy": "por {{who}}",
+      "paused": "«{{name}}» está en pausa",
+      "resumed": "«{{name}}» vuelve a funcionar",
+      "pause": "Pausar",
+      "resume": "Reanudar",
+      "pauseFor": "Pausar {{name}}",
+      "resumeFor": "Reanudar {{name}}",
+      "showAudit": "Mostrar registro de auditoría",
+      "hideAudit": "Ocultar registro de auditoría"
+    }
   }
 }

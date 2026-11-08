@@ -8,7 +8,8 @@
     "chat": "Conversar",
     "export": "Exportar",
     "delete": "Excluir",
-    "newAgent": "Novo agente"
+    "newAgent": "Novo agente",
+    "newCoordinator": "Novo coordenador"
   },
   "table": {
     "name": "Nome",
@@ -617,7 +618,8 @@
     "addons_other": "{{count}} complementos"
   },
   "chips": {
-    "lastFailed": "A última execução falhou"
+    "lastFailed": "A última execução falhou",
+    "coordinator": "Coordenador"
   },
   "tasks": {
     "title": "Tarefas de agentes",
@@ -977,5 +979,232 @@
     "asksTitle_one": "Este agente pede {{count}} item com o qual seu chat não começa:",
     "asksTitle_other": "Este agente pede {{count}} itens com os quais seu chat não começa:",
     "asksHelp": "Ele roda como você. Ligue-os no chat só se você confiar no agente e na pessoa que o compartilhou."
+  },
+  "coordinator": {
+    "optional": "(opcional)",
+    "cancel": "Cancelar",
+    "titleNew": "Novo coordenador",
+    "titleEdit": "Editar coordenador",
+    "supportingNew": "Um coordenador é um agente que trabalha sozinho por muito tempo. Ele acorda em um horário e quando alguém responde, e só pode escrever para os contatos que você listar.",
+    "supportingEdit": "Acorda em um horário e nas respostas, e só escreve para os seus contatos.",
+    "loadFailed": "Não foi possível carregar este coordenador.",
+    "notSaved": "Não salvo.",
+    "created": "Coordenador \"{{name}}\" criado",
+    "updated": "Coordenador \"{{name}}\" salvo",
+    "paused": "\"{{name}}\" está em pausa",
+    "resumed": "\"{{name}}\" voltou a funcionar",
+    "actionFailed": "Não funcionou: {{message}}",
+    "save": "Salvar",
+    "discard": "Descartar",
+    "state": {
+      "paused": "Em pausa",
+      "scheduled": "Agendado",
+      "idle": "Ocioso"
+    },
+    "wake": {
+      "opt": {
+        "events": "Só quando algo acontece",
+        "15m": "A cada 15 minutos",
+        "1h": "A cada hora",
+        "6h": "A cada 6 horas",
+        "24h": "Todo dia"
+      },
+      "custom": "A cada {{minutes}} minutos",
+      "title": "Despertares",
+      "lead": "Um coordenador também acorda quando um contato responde e quando um ajudante que ele iniciou termina.",
+      "every": "Acordar em um horário",
+      "everyHelp": "O menor intervalo é de 15 minutos. Um despertar que cair durante a pausa espera.",
+      "note": "Nota para cada despertar agendado",
+      "noteHelp": "Adicionada à mensagem de despertar. Use para um lembrete fixo, por exemplo o que verificar primeiro."
+    },
+    "usage": {
+      "runs": "{{used}} de {{limit}} execuções",
+      "sent": "{{used}} de {{limit}} mensagens"
+    },
+    "pause": {
+      "title": "Pausar \"{{name}}\"?",
+      "body": "Isso para agora tudo o que este coordenador faz.",
+      "adminBody": "Isso para agora tudo o que este coordenador faz, inclusive para o seu dono.",
+      "stopsSending": "Ele não pode enviar nenhuma mensagem.",
+      "stopsRuns": "O chat em execução e os ajudantes são parados.",
+      "holds": "As mensagens e respostas que chegarem esperam e não se perdem.",
+      "resume": "Retomar o inicia de novo e entrega o que estava esperando.",
+      "confirm": "Pausar"
+    },
+    "card": {
+      "title": "Estado",
+      "openChat": "Abrir o chat dele",
+      "pause": "Pausar",
+      "resume": "Retomar",
+      "pausedBy": "Pausado por {{who}}. Nada é enviado e nada executa até ser retomado.",
+      "pausedNote": "Em pausa. Nada é enviado e nada executa até ser retomado.",
+      "nextWake": "Próximo despertar",
+      "notWhilePaused": "Não durante a pausa",
+      "lastWake": "Último despertar",
+      "schedule": "Agenda",
+      "runsToday": "Execuções hoje",
+      "sentToday": "Enviadas hoje"
+    },
+    "identity": {
+      "title": "Nome e modelo",
+      "name": "Nome",
+      "needsName": "Dê um nome ao coordenador.",
+      "description": "Descrição",
+      "model": "Modelo",
+      "modelHelp": "O modelo que executa cada despertar. Ninguém escolhe um no chat, então escolha um."
+    },
+    "rules": {
+      "title": "Instruções e regras",
+      "policy": "Sobre o que este coordenador fala e o que ele nunca deve fazer é decisão sua. O LocalAI não tem uma lista embutida de assuntos ou temas proibidos e não adiciona nenhuma.",
+      "instructions": "Instruções",
+      "instructionsHelp": "As regras e os assuntos permanentes, escritos como você quer que sejam seguidos. O texto é seu e pode ser alterado. Os limites abaixo são aplicados pelo servidor, não por este texto.",
+      "page": "Nome da página",
+      "pageHelp": "Uma pasta dentro de pages/ para a página de status, as notas e um arquivo de assuntos. Ele só pode escrever ali. Use letras minúsculas, dígitos e hifens. Deixe vazio para não dar uma pasta própria."
+    },
+    "contacts": {
+      "title": "Contatos",
+      "lead": "As únicas pessoas para quem ele pode escrever, até {{max}}. Ele não alcança ninguém que não esteja na lista.",
+      "none": "Nenhum contato ainda. Sem contato o coordenador não pode enviar mensagens.",
+      "add": "Adicionar contato",
+      "edit": "Editar",
+      "remove": "Remover",
+      "editFor": "Editar {{name}}",
+      "removeFor": "Remover {{name}}",
+      "userTarget": "Usuário do LocalAI {{user}}",
+      "externalTarget": "{{binding}}, chat {{chat}}",
+      "kind": {
+        "user": "Usuário do LocalAI",
+        "external": "Chat de mensagens"
+      },
+      "newTitle": "Adicionar contato",
+      "editTitle": "Editar contato",
+      "sheetDesc": "Uma pessoa ou equipe para quem o coordenador pode escrever.",
+      "done": "Salvar contato",
+      "kindLabel": "Tipo",
+      "kindUserHelp": "Um usuário do LocalAI recebe a mensagem na caixa de entrada. Este tipo é de mão única: uma resposta não pode voltar ao coordenador.",
+      "kindExternalHelp": "Uma pessoa ou grupo em um chat de uma das suas conexões de mensagens. As respostas dela acordam o coordenador.",
+      "id": "ID do contato",
+      "idHelp": "O nome curto que o coordenador usa. Letras minúsculas, dígitos e hifens, até 40 caracteres.",
+      "name": "Nome",
+      "description": "Quem é",
+      "descriptionHelp": "Uma linha que o coordenador lê, por exemplo o papel da pessoa.",
+      "user": "ID do usuário do LocalAI",
+      "userHelp": "O ID do usuário, como o administrador o vê em Usuários.",
+      "me": "Usar minha conta",
+      "binding": "Conexão de mensagens",
+      "pickBinding": "Escolha uma conexão",
+      "bindingHelp": "A conexão que leva a mensagem. Ela deve agrupar as respostas por remetente ou por chat.",
+      "bindingsFailed": "Não foi possível ler suas conexões. Tente de novo mais tarde.",
+      "noBindings": "Você ainda não tem conexão de mensagens. Adicione uma antes em Conexões.",
+      "off": "desligada",
+      "modeWarn": "Esta conexão abre um novo chat para cada \"{{mode}}\". As respostas não podem ser associadas ao coordenador. Escolha uma conexão que agrupe por remetente ou por chat.",
+      "chat": "Chat",
+      "chatHelp": "O chat, grupo ou canal da plataforma para onde vai a mensagem. Os chats que a conexão já permite são sugeridos.",
+      "sender": "Remetente",
+      "senderHelp": "De quem vêm as respostas. Vazio significa o mesmo que o chat.",
+      "errors": {
+        "id": "Use letras minúsculas, dígitos e hifens, até 40 caracteres, começando por letra ou dígito.",
+        "idTwice": "Outro contato já tem este ID.",
+        "name": "O nome tem mais de 80 caracteres.",
+        "description": "A descrição tem mais de 200 caracteres.",
+        "user": "Informe o ID de um usuário do LocalAI.",
+        "binding": "Escolha uma conexão de mensagens.",
+        "chat": "Informe o chat onde escrever.",
+        "kind": "Escolha que tipo de contato é.",
+        "tooMany": "Há contatos demais."
+      }
+    },
+    "limits": {
+      "title": "Limites",
+      "lead": "O servidor aplica estes limites, não importa o que as instruções digam. Deixe um campo vazio para usar o padrão.",
+      "perMinute": "Mensagens por minuto",
+      "perDay": "Mensagens por dia",
+      "helpers": "Ajudantes ao mesmo tempo",
+      "depth": "Profundidade dos ajudantes",
+      "help": "Padrão {{def}}, até {{max}}.",
+      "range": "Use um número inteiro de 1 a {{max}}.",
+      "runs": "As execuções que começam sozinhas são limitadas pelo operador a {{limit}} por dia. Suas próprias mensagens não contam.",
+      "runsNew": "O operador também limita quantas execuções um coordenador começa sozinho por dia.",
+      "ceilings": "O operador pode definir tetos mais baixos para ajudantes e profundidade. Um valor acima é recusado informando o maior permitido."
+    },
+    "tools": {
+      "title": "Ferramentas e habilidades",
+      "lead": "O que o coordenador e seus ajudantes podem usar. Enviar a um contato está sempre disponível e sempre passa pelos limites acima."
+    },
+    "audit": {
+      "title": "Registro de auditoria",
+      "lead": "Cada mensagem enviada, cada tentativa bloqueada, despertares, pausas e eventos de ajudantes. Guarda o tamanho e um hash de cada mensagem, nunca o texto.",
+      "filters": "Filtrar o registro de auditoria",
+      "any": "Qualquer",
+      "coordinator": "Coordenador",
+      "kind": "Tipo",
+      "outcome": "Resultado",
+      "since": "De",
+      "until": "Até",
+      "clear": "Limpar filtros",
+      "loadFailed": "Não foi possível carregar o registro de auditoria.",
+      "moreFailed": "Não foi possível carregar as entradas mais antigas.",
+      "none": "Nada no registro ainda.",
+      "noneBody": "Mensagens, tentativas bloqueadas, despertares e pausas aparecem aqui.",
+      "noMatch": "Nenhuma entrada corresponde a estes filtros.",
+      "when": "Quando",
+      "reasonCol": "Motivo",
+      "who": "Quem",
+      "older": "Mostrar entradas mais antigas",
+      "chars": "{{count}} caracteres",
+      "kinds": {
+        "contact": "Mensagem",
+        "wake": "Despertar",
+        "pause": "Pausa",
+        "resume": "Retomada",
+        "helper": "Ajudante"
+      },
+      "outcomes": {
+        "sent": "Enviada",
+        "denied": "Negada",
+        "info": "Nota"
+      },
+      "via": {
+        "inbox": "caixa de entrada",
+        "connector": "chat de mensagens"
+      },
+      "reason": {
+        "ok": "Entregue",
+        "paused": "Em pausa",
+        "not_a_contact": "Não é um contato da lista",
+        "bad_text": "O texto não era válido",
+        "minute_cap": "Limite por minuto atingido",
+        "day_cap": "Limite diário atingido",
+        "binding_off": "A conexão está desligada",
+        "binding_busy": "A conexão estava ocupada",
+        "inbox_off": "A caixa de entrada está desligada",
+        "delivery_failed": "Falha na entrega",
+        "budget": "Orçamento diário de execuções esgotado",
+        "concurrency": "Coordenadores demais em execução",
+        "timeout": "Demorou demais",
+        "helper_limit": "Limite de ajudantes atingido",
+        "depth_limit": "Limite de profundidade dos ajudantes atingido"
+      }
+    }
+  },
+  "admin": {
+    "coordinators": {
+      "title": "Coordenadores ({{count}})",
+      "lead": "Agentes que trabalham sozinhos e escrevem para contatos. Você pode pausar qualquer um. Uma pausa para tudo e retém o que chega até o coordenador ser retomado.",
+      "loadFailed": "Não foi possível ler os coordenadores.",
+      "none": "Nenhum usuário tem um coordenador.",
+      "nextWake": "Próximo despertar",
+      "usage": "Hoje",
+      "contacts": "Contatos: {{count}}",
+      "pausedBy": "por {{who}}",
+      "paused": "\"{{name}}\" está em pausa",
+      "resumed": "\"{{name}}\" voltou a funcionar",
+      "pause": "Pausar",
+      "resume": "Retomar",
+      "pauseFor": "Pausar {{name}}",
+      "resumeFor": "Retomar {{name}}",
+      "showAudit": "Mostrar registro de auditoria",
+      "hideAudit": "Ocultar registro de auditoria"
+    }
   }
 }

@@ -149,7 +149,7 @@ export default function AgentPage() {
               <Button variant="primary" icon="chat" onClick={() => navigate('/app/chats', { state: { agentId: agent.id } })} data-testid="agent-chat">
                 {t('actions.chat')}
               </Button>
-              {!guest && <Button icon="edit" to={agentPath(agent.id, '/edit')}>{t('actions.edit')}</Button>}
+              {!guest && <Button icon="edit" to={agentPath(agent.id, agent.coordinator ? '/coordinator' : '/edit')}>{t('actions.edit')}</Button>}
               {canShareAgent(agent) && <Button icon="share" onClick={() => setSharing(true)} data-testid="agent-share">{t('share.action')}</Button>}
               {!guest && (
                 <ActionMenu

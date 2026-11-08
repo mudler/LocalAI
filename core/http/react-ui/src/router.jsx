@@ -92,6 +92,7 @@ const Pages = page('pages', () => import('./pages/Pages'))
 const PageView = page(null, () => import('./pages/PageView'))
 const SharedPageView = page(null, () => import('./pages/SharedPageView'))
 const Agents = page('agents', () => import('./pages/Agents'))
+const CoordinatorPage = page('coordinator', () => import('./pages/CoordinatorPage'))
 const AgentCreate = page(null, () => import('./pages/AgentCreate'))
 const AgentPage = page(null, () => import('./pages/AgentPage'))
 const Skills = page('skills', () => import('./pages/Skills'))
@@ -278,6 +279,8 @@ const appChildren = [
   { path: 'pages/shared/:folder/:name', element: <Feature feature="chats"><Feature feature="pages"><SharedPageView /></Feature></Feature> },
   { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
   { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
+  { path: 'agents/new-coordinator', element: <Feature feature="agents"><CoordinatorPage /></Feature> },
+  { path: 'agents/:id/coordinator', element: <Feature feature="agents"><CoordinatorPage /></Feature> },
   { path: 'agents/:id/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },
   { path: 'agents/:id', element: <Feature feature="agents"><AgentPage /></Feature> },
   { path: 'agents/:id/*', element: <AgentRedirect /> },

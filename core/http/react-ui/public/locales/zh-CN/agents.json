@@ -8,7 +8,8 @@
     "chat": "聊天",
     "export": "导出",
     "delete": "删除",
-    "newAgent": "新建智能体"
+    "newAgent": "新建智能体",
+    "newCoordinator": "新建协调器"
   },
   "table": {
     "name": "名称",
@@ -617,7 +618,8 @@
     "addons_other": "{{count}} 个插件"
   },
   "chips": {
-    "lastFailed": "上次运行失败"
+    "lastFailed": "上次运行失败",
+    "coordinator": "协调器"
   },
   "tasks": {
     "title": "智能体任务",
@@ -977,5 +979,232 @@
     "asksTitle_one": "此智能体请求 {{count}} 项你的聊天开始时没有的内容：",
     "asksTitle_other": "此智能体请求 {{count}} 项你的聊天开始时没有的内容：",
     "asksHelp": "它以你的身份运行。只有在你信任此智能体和分享它的人时，才在聊天中打开它们。"
+  },
+  "coordinator": {
+    "optional": "（可选）",
+    "cancel": "取消",
+    "titleNew": "新建协调器",
+    "titleEdit": "编辑协调器",
+    "supportingNew": "协调器是一种长时间自行工作的智能体。它按计划唤醒，也会在有人回复时唤醒，并且只能给你列出的联系人发消息。",
+    "supportingEdit": "按计划和回复唤醒，只给它的联系人发消息。",
+    "loadFailed": "无法加载此协调器。",
+    "notSaved": "未保存。",
+    "created": "已创建协调器“{{name}}”",
+    "updated": "已保存协调器“{{name}}”",
+    "paused": "“{{name}}”已暂停",
+    "resumed": "“{{name}}”已恢复运行",
+    "actionFailed": "操作失败：{{message}}",
+    "save": "保存",
+    "discard": "放弃",
+    "state": {
+      "paused": "已暂停",
+      "scheduled": "已计划",
+      "idle": "空闲"
+    },
+    "wake": {
+      "opt": {
+        "events": "仅在有事件时",
+        "15m": "每 15 分钟",
+        "1h": "每小时",
+        "6h": "每 6 小时",
+        "24h": "每天"
+      },
+      "custom": "每 {{minutes}} 分钟",
+      "title": "唤醒",
+      "lead": "联系人回复时，以及它启动的助手完成时，协调器也会被唤醒。",
+      "every": "按计划唤醒",
+      "everyHelp": "最短间隔为 15 分钟。暂停期间到点的唤醒会等待。",
+      "note": "每次计划唤醒的备注",
+      "noteHelp": "会附加到唤醒消息上。可用于固定提醒，例如先检查什么。"
+    },
+    "usage": {
+      "runs": "运行 {{used}}/{{limit}} 次",
+      "sent": "消息 {{used}}/{{limit}} 条"
+    },
+    "pause": {
+      "title": "暂停“{{name}}”？",
+      "body": "这会立即停止此协调器所做的一切。",
+      "adminBody": "这会立即停止此协调器所做的一切，对其所有者同样生效。",
+      "stopsSending": "它不能发送任何消息。",
+      "stopsRuns": "它正在运行的聊天和它的助手会被停止。",
+      "holds": "到达的消息和回复会等待，不会丢失。",
+      "resume": "恢复后它会重新启动，并处理等待的内容。",
+      "confirm": "暂停"
+    },
+    "card": {
+      "title": "状态",
+      "openChat": "打开它的聊天",
+      "pause": "暂停",
+      "resume": "恢复",
+      "pausedBy": "由 {{who}} 暂停。恢复之前不会发送任何消息，也不会运行任何内容。",
+      "pausedNote": "已暂停。恢复之前不会发送任何消息，也不会运行任何内容。",
+      "nextWake": "下次唤醒",
+      "notWhilePaused": "暂停期间无",
+      "lastWake": "上次唤醒",
+      "schedule": "计划",
+      "runsToday": "今日运行",
+      "sentToday": "今日已发送"
+    },
+    "identity": {
+      "title": "名称和模型",
+      "name": "名称",
+      "needsName": "请给协调器起个名字。",
+      "description": "描述",
+      "model": "模型",
+      "modelHelp": "每次唤醒时运行的模型。聊天里没有人来选择，所以请选一个。"
+    },
+    "rules": {
+      "title": "指令和规则",
+      "policy": "此协调器谈论什么、绝不能做什么，由你决定。LocalAI 没有内置的话题或禁止事项清单，也不会添加。",
+      "instructions": "指令",
+      "instructionsHelp": "长期规则和话题，按你希望它遵守的方式来写。文本由你修改。下面的限制由服务器执行，而不是由这段文本执行。",
+      "page": "页面名称",
+      "pageHelp": "pages/ 下的一个文件夹，用于它的状态页、笔记和话题文件。它只能写入这里。请使用小写字母、数字和连字符。留空则不给它专属文件夹。"
+    },
+    "contacts": {
+      "title": "联系人",
+      "lead": "它只能给这些人发消息，最多 {{max}} 个。名单之外的人它联系不到。",
+      "none": "还没有联系人。没有联系人，协调器无法发送消息。",
+      "add": "添加联系人",
+      "edit": "编辑",
+      "remove": "移除",
+      "editFor": "编辑 {{name}}",
+      "removeFor": "移除 {{name}}",
+      "userTarget": "LocalAI 用户 {{user}}",
+      "externalTarget": "{{binding}}，聊天 {{chat}}",
+      "kind": {
+        "user": "LocalAI 用户",
+        "external": "消息聊天"
+      },
+      "newTitle": "添加联系人",
+      "editTitle": "编辑联系人",
+      "sheetDesc": "协调器可以给其发消息的个人或团队。",
+      "done": "保存联系人",
+      "kindLabel": "类型",
+      "kindUserHelp": "LocalAI 用户在收件箱中收到消息。这种类型是单向的：回复无法回到协调器。",
+      "kindExternalHelp": "你的某个消息连接中的聊天里的个人或群组。他们的回复会唤醒协调器。",
+      "id": "联系人 ID",
+      "idHelp": "协调器使用的简短名称。小写字母、数字和连字符，最多 40 个字符。",
+      "name": "名称",
+      "description": "这是谁",
+      "descriptionHelp": "协调器会读到的一行文字，例如此人的角色。",
+      "user": "LocalAI 用户 ID",
+      "userHelp": "用户的 ID，管理员可在“用户”中看到。",
+      "me": "使用我的账户",
+      "binding": "消息连接",
+      "pickBinding": "选择连接",
+      "bindingHelp": "传递消息的连接。它必须按发送者或按聊天对回复分组。",
+      "bindingsFailed": "无法读取你的连接。请稍后再试。",
+      "noBindings": "你还没有消息连接。请先在“连接”中添加。",
+      "off": "已关闭",
+      "modeWarn": "此连接为每个“{{mode}}”开启一个新聊天。回复无法对应到协调器。请选择按发送者或按聊天分组的连接。",
+      "chat": "聊天",
+      "chatHelp": "消息要发往的平台聊天、群组或频道。会建议该连接已允许的聊天。",
+      "sender": "发送者",
+      "senderHelp": "回复来自谁。留空表示与聊天相同。",
+      "errors": {
+        "id": "请使用小写字母、数字和连字符，最多 40 个字符，并以字母或数字开头。",
+        "idTwice": "另一个联系人已使用此 ID。",
+        "name": "名称超过 80 个字符。",
+        "description": "描述超过 200 个字符。",
+        "user": "请输入 LocalAI 用户的 ID。",
+        "binding": "请选择消息连接。",
+        "chat": "请输入要发送到的聊天。",
+        "kind": "请选择联系人类型。",
+        "tooMany": "联系人太多。"
+      }
+    },
+    "limits": {
+      "title": "限制",
+      "lead": "无论指令怎么写，服务器都会执行这些限制。字段留空则使用默认值。",
+      "perMinute": "每分钟消息数",
+      "perDay": "每天消息数",
+      "helpers": "同时运行的助手数",
+      "depth": "助手层级",
+      "help": "默认 {{def}}，最多 {{max}}。",
+      "range": "请输入 1 到 {{max}} 之间的整数。",
+      "runs": "自行启动的运行被运营方限制为每天 {{limit}} 次。你自己的消息不计入。",
+      "runsNew": "运营方还限制协调器每天自行启动的运行次数。",
+      "ceilings": "运营方可以为助手数和层级设置更低的上限。超过上限的值会被拒绝，并告知允许的最大值。"
+    },
+    "tools": {
+      "title": "工具和技能",
+      "lead": "协调器及其助手可以使用的内容。向联系人发送始终可用，并且始终受上述限制约束。"
+    },
+    "audit": {
+      "title": "审计日志",
+      "lead": "每条已发送的消息、每次被拦截的尝试、唤醒、暂停和助手事件。只保存每条消息的长度和哈希，不保存正文。",
+      "filters": "筛选审计日志",
+      "any": "全部",
+      "coordinator": "协调器",
+      "kind": "类型",
+      "outcome": "结果",
+      "since": "起始",
+      "until": "截止",
+      "clear": "清除筛选",
+      "loadFailed": "无法加载审计日志。",
+      "moreFailed": "无法加载更早的条目。",
+      "none": "日志中还没有内容。",
+      "noneBody": "消息、被拦截的尝试、唤醒和暂停会显示在这里。",
+      "noMatch": "没有符合这些筛选条件的条目。",
+      "when": "时间",
+      "reasonCol": "原因",
+      "who": "对象",
+      "older": "显示更早的条目",
+      "chars": "{{count}} 个字符",
+      "kinds": {
+        "contact": "消息",
+        "wake": "唤醒",
+        "pause": "暂停",
+        "resume": "恢复",
+        "helper": "助手"
+      },
+      "outcomes": {
+        "sent": "已发送",
+        "denied": "已拒绝",
+        "info": "备注"
+      },
+      "via": {
+        "inbox": "收件箱",
+        "connector": "消息聊天"
+      },
+      "reason": {
+        "ok": "已送达",
+        "paused": "已暂停",
+        "not_a_contact": "不是名单中的联系人",
+        "bad_text": "文本无效",
+        "minute_cap": "已达每分钟上限",
+        "day_cap": "已达每日上限",
+        "binding_off": "连接已关闭",
+        "binding_busy": "连接繁忙",
+        "inbox_off": "收件箱已关闭",
+        "delivery_failed": "送达失败",
+        "budget": "每日运行额度已用完",
+        "concurrency": "运行中的协调器过多",
+        "timeout": "耗时过长",
+        "helper_limit": "已达助手数上限",
+        "depth_limit": "已达助手层级上限"
+      }
+    }
+  },
+  "admin": {
+    "coordinators": {
+      "title": "协调器（{{count}}）",
+      "lead": "自行工作并给联系人发消息的智能体。你可以暂停其中任何一个。暂停会停止一切，并保留到达的内容，直到协调器恢复。",
+      "loadFailed": "无法读取协调器。",
+      "none": "没有用户拥有协调器。",
+      "nextWake": "下次唤醒",
+      "usage": "今日",
+      "contacts": "联系人：{{count}}",
+      "pausedBy": "由 {{who}} 暂停",
+      "paused": "“{{name}}”已暂停",
+      "resumed": "“{{name}}”已恢复运行",
+      "pause": "暂停",
+      "resume": "恢复",
+      "pauseFor": "暂停 {{name}}",
+      "resumeFor": "恢复 {{name}}",
+      "showAudit": "显示审计日志",
+      "hideAudit": "隐藏审计日志"
+    }
   }
 }

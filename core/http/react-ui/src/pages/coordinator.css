@@ -1,0 +1,85 @@
+/* The coordinator page, its card, its contacts and the audit table. Everything
+   is named crd-*; controls come from the kit (dk-field, dk-input, dk-table).
+   Colours, radii and type come from the tokens, so light and dark both follow. */
+
+.crd-page { display: flex; flex-direction: column; gap: var(--sp-6); min-width: 0; }
+.crd-page > .page-header { margin-bottom: 0; }
+.crd-form { display: flex; flex-direction: column; gap: var(--sp-6); min-width: 0; max-width: 880px; }
+.crd-sec {
+  display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0;
+  padding: var(--sp-5); border: 1px solid var(--dk-edge); border-radius: var(--r-lg); background: var(--dk-card);
+}
+.crd-sec--audit { max-width: 880px; }
+.crd-sec__title { margin: 0; font: 600 var(--fs-section)/var(--lh-section) var(--font-sans); color: var(--dk-text); }
+.crd-sec > .ag-note { margin: 0; max-width: 64ch; }
+.crd-optional { font-weight: 400; color: var(--dk-muted); }
+.crd-narrow { max-width: 280px; }
+.crd-instructions { font-family: var(--font-mono); font-size: var(--fs-small); line-height: var(--lh-body); min-height: 220px; resize: vertical; }
+.crd-foot { display: flex; justify-content: flex-end; gap: var(--sp-3); flex-wrap: wrap; }
+
+/* The state card of a saved coordinator. */
+.crd-card {
+  display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; max-width: 880px;
+  padding: var(--sp-5); border: 1px solid var(--dk-edge); border-radius: var(--r-lg); background: var(--dk-card);
+}
+.crd-card[data-paused] { border-color: color-mix(in srgb, var(--dk-warn) 45%, var(--dk-edge)); }
+.crd-card__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.crd-card__acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.crd-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp-4); margin: 0; }
+.crd-facts > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.crd-facts dt { font-size: var(--fs-meta); letter-spacing: .06em; text-transform: uppercase; color: var(--dk-muted); }
+.crd-facts dd { margin: 0; font-size: var(--fs-body); color: var(--dk-text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+/* Limits. */
+.crd-caps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
+.crd-cap { min-width: 0; }
+
+/* Contacts. */
+.crd-contacts { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.crd-contacts > .ag-note { margin: 0; }
+.crd-contact-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--dk-edge); border-radius: var(--r-md); }
+.crd-contact { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); min-width: 0; flex-wrap: wrap; }
+.crd-contact + .crd-contact { border-top: 1px solid var(--dk-edge); }
+.crd-contact[data-invalid] { background: var(--dk-error-wash); }
+.crd-contact__main { display: flex; flex-direction: column; gap: 2px; flex: 1 1 220px; min-width: 0; }
+.crd-contact__name { font-weight: 600; color: var(--dk-text); overflow-wrap: anywhere; }
+.crd-contact__id { font-family: var(--font-mono); font-size: var(--fs-small); color: var(--dk-muted); }
+.crd-contact__target { font-size: var(--fs-small); color: var(--dk-muted); overflow-wrap: anywhere; }
+.crd-contact__acts { display: flex; gap: var(--sp-1); margin-left: auto; }
+.crd-sheet { display: flex; flex-direction: column; gap: var(--sp-4); }
+.crd-inline { display: flex; gap: var(--sp-2); align-items: center; }
+.crd-inline .dk-input { flex: 1 1 auto; min-width: 0; }
+
+/* The pause confirm. */
+.crd-pause-list { margin: 0; padding-left: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--fs-body); line-height: var(--lh-body); }
+
+/* The audit log. */
+.crd-audit { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.crd-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-3); }
+.crd-filter { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 130px; flex: 0 1 170px; }
+.crd-filter .dk-input, .crd-filter .dk-select { width: 100%; }
+.crd-table td { vertical-align: top; }
+.crd-when { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.crd-sub { display: block; margin-top: 2px; font-size: var(--fs-small); color: var(--dk-muted); }
+.crd-more { display: flex; justify-content: center; }
+
+/* The administrator's section. */
+.crd-admin { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.crd-admin__audit { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-3); margin-top: var(--sp-3); min-width: 0; max-width: 100%; }
+.crd-admin__audit-body { display: flex; flex-direction: column; gap: var(--sp-3); width: 100%; min-width: 0; }
+
+.crd-narrow-only { display: none; }
+.crd-admin .aj-name { overflow-wrap: normal; }
+
+@media (max-width: 640px) {
+  /* The next wake and usage columns fold into the name cell, so Pause stays in view. */
+  .crd-admin .aj-table th:nth-child(1), .crd-admin .aj-table td:nth-child(1),
+  .crd-admin .aj-table th:nth-child(4), .crd-admin .aj-table td:nth-child(4),
+  .crd-admin .aj-table th:nth-child(5), .crd-admin .aj-table td:nth-child(5) { display: none; }
+  .crd-narrow-only { display: block; }
+  .crd-caps { grid-template-columns: minmax(0, 1fr); }
+  .crd-sec, .crd-card { padding: var(--sp-4); }
+  .crd-contact__acts { margin-left: 0; }
+  .crd-filter { flex: 1 1 100%; }
+  .crd-foot > * { flex: 1 1 auto; }
+}
