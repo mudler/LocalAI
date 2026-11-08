@@ -74,6 +74,7 @@
 #include "slot_cache.h"
 #include "message_content.h"
 #include "moe_cache_option.h"
+#include "option_parse.h"
 #include "passthrough_options.h"
 #include "stream_peer.h"
 #include "realtime_session.h"
@@ -651,6 +652,11 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // enum (ggml-org/llama.cpp#20834), so the three independent LocalAI settings
     // can only be reduced to one value once all of them have been read, held
     // here until the mmap/mlock fields arrive further down.
+    // reasoning_budget:0 has always switched thinking off. Keep that unless
+    // enable_reasoning is given, whichever comes first in the options.
+    bool enable_reasoning_explicit = false;
+    bool legacy_budget_zero_disables = false;
+
     bool want_direct_io = false;
 
     auto add_device_options = [&](const std::string & devices) {
@@ -976,11 +982,39 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             }
 
         // --- reasoning budget (upstream --reasoning-budget) ---
-        // -1 unlimited, 0 disabled, >0 token budget for thinking blocks.
+        // reasoning_budget is the token cap of the thinking block
+        // (common_params::sampling.reasoning_budget_tokens): -1 unlimited,
+        // 0 end thinking at once, N > 0 cap. enable_reasoning is the on/off
+        // switch of thinking (common_params::enable_reasoning): -1 auto, 0 off,
+        // 1 on. Both used to write enable_reasoning, so `reasoning_budget:0`
+        // is kept as "thinking off" (unless enable_reasoning is set explicitly),
+        // and a number above 1 given to enable_reasoning still means "on".
         // Distinct from per-request `enable_thinking` (chat_template_kwargs).
-        } else if (!strcmp(optname, "enable_reasoning") || !strcmp(optname, "reasoning_budget")) {
+        } else if (!strcmp(optname, "enable_reasoning")) {
             if (optval != NULL) {
-                try { params.enable_reasoning = std::stoi(optval_str); } catch (...) {}
+                bool capped = false;
+                const auto v = llama_grpc::parse_enable_reasoning(optval_str, capped);
+                if (!v) {
+                    SRV_WRN("enable_reasoning: ignoring invalid value '%s' (expected on, off, auto, 1, 0 or -1)\n", optval_str.c_str());
+                } else {
+                    if (capped) {
+                        SRV_WRN("enable_reasoning: '%s' only turns thinking on; use reasoning_budget for a token cap\n", optval_str.c_str());
+                    }
+                    params.enable_reasoning = *v;
+                    enable_reasoning_explicit = true;
+                }
+            }
+        } else if (!strcmp(optname, "reasoning_budget")) {
+            if (optval != NULL) {
+                const auto v = llama_grpc::parse_reasoning_budget_tokens(optval_str);
+                if (!v) {
+                    SRV_WRN("reasoning_budget: ignoring invalid value '%s' (expected -1, 0 or a token count)\n", optval_str.c_str());
+                } else {
+                    params.sampling.reasoning_budget_tokens = *v;
+                    if (*v == 0) {
+                        legacy_budget_zero_disables = true;
+                    }
+                }
             }
 
         // --- prefill assistant turn (upstream --no-prefill-assistant) ---
@@ -1423,6 +1457,10 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // page cache entirely, mlock goes with mmap unless mmap is off, and everything off is a plain
     // buffered read. Forks that branched before ggml-org/llama.cpp#20834 still
     // expose the booleans; prepare.sh probes the checkout and sets
+    if (legacy_budget_zero_disables && !enable_reasoning_explicit) {
+        params.enable_reasoning = 0;
+    }
+
     // LOCALAI_LEGACY_LOAD_MODE in the generated llama_compat.h accordingly.
 #if LOCALAI_LEGACY_LOAD_MODE
     params.use_mlock     = request->mlock();

@@ -75,6 +75,9 @@ cp -r parallel_params.h llama.cpp/tools/grpc-server/
 cp -r parallel_params_test.cpp llama.cpp/tools/grpc-server/
 # moe_cache_mib option parsing and its standalone regression test.
 cp -r moe_cache_option.h llama.cpp/tools/grpc-server/
+# Value parsers for the reasoning, n_cpu_ffn and speculative draft options, and their test.
+cp -r option_parse.h llama.cpp/tools/grpc-server/
+cp -r option_parse_test.cpp llama.cpp/tools/grpc-server/
 cp -r moe_cache_option_test.cpp llama.cpp/tools/grpc-server/
 # Parent-death watcher (included by grpc-server.cpp) and its standalone unit
 # test (run via backend/cpp/run-unit-tests.sh; also buildable under ctest).

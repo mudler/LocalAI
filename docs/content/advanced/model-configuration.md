@@ -701,7 +701,8 @@ These load-time options control how the backend parses `<think>` reasoning block
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `reasoning_format` | string | `deepseek` | Parser for reasoning/thinking blocks. One of `none`, `auto`, `deepseek`, `deepseek-legacy` (alias `deepseek_legacy`). |
-| `enable_reasoning` / `reasoning_budget` | int | `-1` | Reasoning budget in tokens: `-1` unlimited, `0` disabled, `>0` token cap for the thinking section. |
+| `enable_reasoning` | `-1`, `0`, `1`, `auto`, `off`, `on` | `-1` (auto) | On/off switch of thinking for the chat template (upstream `--reasoning`). `auto` follows the template, `0` or `off` turns thinking off, `1` or `on` turns it on. A number above `1` is still read as `on`, as in older versions, and logs a warning: it is not a token cap, use `reasoning_budget` for that. |
+| `reasoning_budget` | int | `-1` | Token cap for the thinking section (upstream `--reasoning-budget`): `-1` unlimited, `0` end thinking at once, `N` > 0 allows at most `N` thinking tokens, then the end-of-thinking tag is forced. Values below `-1` are ignored with a warning. For compatibility, `reasoning_budget:0` also turns thinking off (`enable_reasoning:0`) unless `enable_reasoning` is set too. |
 | `prefill_assistant` | bool | `true` | When `false`, the trailing assistant message is not pre-filled by the chat template. |
 
 {{% notice note %}}
@@ -713,6 +714,8 @@ This is the load-time reasoning configuration. The orthogonal per-request `enabl
 
 The `/v1/responses` endpoint accepts the same effort levels through `reasoning.effort`.
 It also forwards request `metadata` to the backend, including `enable_thinking` overrides.
+
+Before this change both names wrote the on/off switch, so `reasoning_budget:N` with `N` > 1 only turned thinking on and never capped it. It now sets the real token cap. `reasoning_budget:0` and `enable_reasoning:0` keep switching thinking off; `reasoning_budget:1` is now a one-token cap, not "on".
 
 ```json
 {
