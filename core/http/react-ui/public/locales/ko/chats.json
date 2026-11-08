@@ -1345,5 +1345,8 @@
     "accounts": "계정",
     "messaging": "메시징",
     "mcp": "MCP 서버"
+  },
+  "triggersPage": {
+    "runLimit": "실행 한 번의 시간 제한"
   }
 }
