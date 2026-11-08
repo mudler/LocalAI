@@ -129,7 +129,7 @@ export default function NodeUpdateDialog({ entries, onClose, onSettled }) {
         {phase === 'confirm' && <p className="nu-total" data-testid="node-update-total">{stopLine} {t('node.sequence')}</p>}
         {phase === 'running' && (
           <p className="nu-total" role="status" data-testid="node-update-progress">
-            {t('bulk.running', { current: Math.min(summary.done + summary.failed + summary.skipped + 1, summary.total), total: summary.total })} {t('node.runningNote')}
+            {t('bulk.running', { current: Math.min(summary.done + summary.failed + summary.skipped + 1, summary.total), total: summary.total })}. {t('node.runningNote')}
           </p>
         )}
         {phase === 'finished' && <p className="nu-total" role="status" data-testid="node-update-summary" data-tone={summary.failed > 0 ? 'error' : 'ok'}>{t('bulk.summary', summary)}</p>}

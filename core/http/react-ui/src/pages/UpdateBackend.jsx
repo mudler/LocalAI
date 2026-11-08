@@ -148,7 +148,7 @@ function Body({ updates, onPlan }) {
                   {st.chip}
                   {st.text && <span className="nu-why">{st.text}</span>}
                 </td>
-                <td>
+                <td className={canUpdate ? undefined : 'nu-act--none'}>
                   <div className="nu-cell-acts">
                     {canUpdate && (
                       <Button size="sm" disabled={busy} onClick={() => onPlan([e])} aria-label={t(st.failed ? 'row.retryNamed' : 'node.updateNamed', { name: e.nodeName })} data-testid="node-update">

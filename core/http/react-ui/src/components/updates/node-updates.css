@@ -28,3 +28,6 @@
 .nu-why { display: block; margin-top: 2px; font-size: var(--text-xs); color: var(--dk-error-text); overflow-wrap: anywhere; }
 .nu-page .ui-callout { margin-bottom: var(--sp-4); }
 .nu-cell-acts { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+
+/* A card with no action has no "Action" label with nothing under it. */
+@media (max-width: 640px) { .nu-page .nu-act--none { display: none; } }
