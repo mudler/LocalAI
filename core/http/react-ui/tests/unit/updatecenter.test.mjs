@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   addonRows, addonSource, ageParts, applyLocal, backendRows, badgeOf, breakdownOf, bulkItemsOf, currentBackendRows,
   filterCounts, filterRows, groupOf, groupRows, headlineOf, normalizeFilter, sourceViews, trackJob, verdictOf, addonStillListed,
@@ -295,4 +296,15 @@ test('age: the largest fitting unit, and nothing for a bad time', () => {
   assert.deepEqual(ageParts('2026-11-04T12:00:00Z', now), { value: 4, unit: 'day' })
   assert.equal(ageParts('', now), null)
   assert.equal(ageParts('not a time', now), null)
+})
+
+// The server counts the digest of the inbox with backendupdates.PendingUpdates.
+// Both read the same cases, so the badge and the digest cannot drift apart.
+test('updates: the badge counts the backend items like the server digest', () => {
+  const fixture = JSON.parse(readFileSync(new URL('../../../../services/backendupdates/testdata/badge-parity.json', import.meta.url), 'utf8'))
+  assert.ok(fixture.cases.length > 0)
+  for (const c of fixture.cases) {
+    const rows = backendRows(c.snapshot, { auto: c.auto })
+    assert.equal(badgeOf(rows).count, c.count, c.name)
+  }
 })
