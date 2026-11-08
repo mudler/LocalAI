@@ -21,6 +21,12 @@ const (
 	OutcomeInfo   = "info"
 )
 
+// AuditEntry.Via values: how a contact message travelled.
+const (
+	ViaInbox     = "inbox"
+	ViaConnector = "connector"
+)
+
 // AuditEntry.Reason values.
 const (
 	ReasonPaused         = "paused"

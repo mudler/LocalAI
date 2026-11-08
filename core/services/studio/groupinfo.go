@@ -64,6 +64,11 @@ func (s *Service) describeGroups() {
 			Description: "The model can read your notes before it answers and save new ones. Turn it off to make this a private chat: nothing is read from your notes or saved to them. Your other chats are not affected.",
 			WhenOff:     "This is a private chat. The model neither reads nor saves your notes.",
 		},
+		builtins.GroupCoordinator: {
+			Title:       "Contacts",
+			Description: "The model can list the people the creator of this coordinator named and write to them. It cannot write to anyone else.",
+			WhenOff:     "The coordinator cannot write to anyone.",
+		},
 		builtins.GroupChanges: {
 			Title: "Suggested changes",
 			Description: "The model can propose an edit to your notes, its standing rules, skills, pages and dashboard, and undo an edit you confirmed. " +

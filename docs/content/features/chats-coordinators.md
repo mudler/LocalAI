@@ -115,3 +115,35 @@ frontend takes effect on all of them at the next check. The stop for a turn
 that runs on another frontend travels over the message bus, as the stop button
 does. If a stop is lost, the flag still holds every new message and denies
 every send, and pressing pause again repeats the stop.
+
+## Contacts and caps
+
+A coordinator writes to people only with the `contact` tool. The tool is
+offered to the chat of a coordinator and to no other chat: not to an ordinary
+chat, and not to a helper of the coordinator. It has two actions.
+
+- `list` shows the contacts the creator named, with the id, the name, the
+  description and the kind. It never shows an account, a binding, a chat or a
+  sender.
+- `send` writes a text (1 to 4000 characters) to the contact in `to`.
+
+A user contact gets an item in their inbox (source `coordinator`), with the
+first 320 characters of the text. Only the owner gets a link to the chat. The
+creator lists the contacts: the model cannot add one, and an id that is not
+listed is refused.
+
+Every `send` is checked in this order, against the shared store, at each call:
+pause, the contact list, the text, the cap for the minute, the cap for the day.
+A refused send is an answer to the model that says why, not an error, and the
+model is told not to try to get round it. The caps are per coordinator:
+`SendPerMinute` (default 10, at most 60) and `SendPerDay` (default 100, at most
+5000), counted in UTC. A slot is not given back when the delivery fails.
+
+Every attempt, sent or refused, is one audit row with the reason (`paused`,
+`not_a_contact`, `bad_text`, `minute_cap`, `day_cap`, `inbox_off`,
+`delivery_failed`, `ok`). The row keeps the length and a SHA-256 hash of the
+text, never the text. The text is in the transcript of the chat.
+
+**State mode.** The caps are atomic counters in the shared store, so two
+frontends together never pass the limit. The pause check reads the store at
+every call.
