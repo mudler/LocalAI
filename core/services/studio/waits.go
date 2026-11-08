@@ -63,6 +63,11 @@ const waitForSchema = `{"type":"object","properties":{` +
 // waitProbeTimeout bounds one check of a wait.
 const waitProbeTimeout = watch.DefaultTimeout
 
+// maxWaitRead bounds the output of one check that is read at all. A check is
+// judged on the whole output up to this size; only what is stored and shown
+// is cut to loops.MaxWatchOutput.
+const maxWaitRead = 4 << 20
+
 // maxWaitErrors bounds max_errors.
 const maxWaitErrors = 10
 
@@ -201,7 +206,11 @@ func (h *Loops) probe(ctx context.Context, l loops.Loop) watch.Result {
 	if err != nil {
 		return watch.Result{Err: err}
 	}
-	out = watch.Cap(out, loops.MaxWatchOutput)
+	if len(out) > maxWaitRead {
+		return watch.Result{Err: fmt.Errorf("the output is larger than %d MiB, more than a wait reads, so it cannot be judged", maxWaitRead>>20)}
+	}
+	// The check is judged on the whole output and the hash comes from it. The
+	// caller cuts the text that it stores or shows (see judge).
 	return watch.Result{Output: out, Hash: watch.Hash(out)}
 }
 
@@ -273,8 +282,20 @@ func step(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, strin
 }
 
 // judge counts one check and says whether it ends the wait.
+//
+// res.Output is the whole output of the check. judge cuts what it keeps to
+// loops.MaxWatchOutput; the condition is judged on the whole text.
 func judge(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, string) {
 	w.Checks++
+	var got string
+	if res.Err == nil && w.Mode == loops.UntilJSONEquals {
+		// A field that cannot be read is a failed check, so a source that
+		// never yields it ends the wait at max_errors instead of at the deadline.
+		var err error
+		if got, err = jsonField(res.Output, w.Field); err != nil {
+			res.Err = err
+		}
+	}
 	if res.Err != nil {
 		w.Errors++
 		w.LastErr = loops.Cut(res.Err.Error())
@@ -294,18 +315,15 @@ func judge(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, stri
 				}
 			}
 		case loops.UntilJSONEquals:
-			got, err := jsonField(res.Output, w.Field)
-			switch {
-			case err != nil:
-				// The output has not the field now. That is not a change and
-				// not a failure of the source; the last output is kept.
-				w.LastErr = loops.Cut(err.Error())
-			case got == w.Equals:
+			if got == w.Equals {
 				return watch.Verdict{Done: true, Reason: watch.ReasonChanged,
 					Detail: fmt.Sprintf("the field %s equals %q", w.Field, got)}, "the field has the value"
 			}
 		default:
-			out := watch.Compare(watch.Snapshot{Hash: w.BaseHash, Output: w.BaseOut}, res, 2000)
+			// The hash is that of the whole output; the text kept is cut.
+			kept := res
+			kept.Output = watch.Cap(res.Output, loops.MaxWatchOutput)
+			out := watch.Compare(watch.Snapshot{Hash: w.BaseHash, Output: w.BaseOut}, kept, 2000)
 			// The new baseline is stored before the model is woken.
 			w.BaseHash, w.BaseOut = out.Snapshot.Hash, out.Snapshot.Output
 			if out.Kind == watch.Changed {

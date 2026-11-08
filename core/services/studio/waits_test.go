@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -168,6 +170,99 @@ var _ = Describe("wait_for", func() {
 		tick(r, time.Second)
 		r.settled(l.ID)
 		Expect(r.h.Sent(chat)[1]).To(ContainSubstring(`equals "done"`))
+	})
+
+	// bigDownloads is the output of a list_downloads-shaped tool: many items
+	// with long URLs and error texts, so the JSON is well over the 8000
+	// characters that a wait stores.
+	bigDownloads := func(first string) string {
+		items := make([]map[string]string, 0, 60)
+		for i := range 60 {
+			st := "running"
+			if i == 0 {
+				st = first
+			}
+			items = append(items, map[string]string{
+				"id": "dl-" + strconv.Itoa(i), "status": st,
+				"url":   "https://example.org/models/" + strings.Repeat("path-segment/", 12) + "file-" + strconv.Itoa(i) + ".gguf",
+				"error": strings.Repeat("retrying after a temporary network error; ", 4),
+			})
+		}
+		raw, err := json.Marshal(map[string]any{"items": items})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(raw)).To(BeNumerically(">", loops.MaxWatchOutput))
+		return string(raw)
+	}
+
+	It("judges a JSON field on the whole output, even when it is longer than the stored text", func() {
+		src := &source{out: bigDownloads("running")}
+		r, chat, l := armed(`{"tool":"list_downloads","until":"json_equals","field":"items.0.status","equals":"completed","every":"1m",`+waitThen+`}`, src)
+		r.pass()
+		tick(r, time.Minute)
+		got := r.get(l.ID)
+		Expect(got.Watch.Errors).To(Equal(0), "the long output was judged as an error: %s", got.Watch.LastErr)
+		Expect(r.h.Sent(chat)).To(HaveLen(1))
+		src.set(bigDownloads("completed"), nil)
+		tick(r, time.Minute)
+		tick(r, time.Second)
+		r.settled(l.ID)
+		Expect(r.h.Sent(chat)[1]).To(ContainSubstring(`equals "completed"`))
+		Expect(r.get(l.ID).Watch.End).To(Equal(loops.EndMet))
+	})
+
+	It("stores at most the cap of a long output but still sees a change beyond it", func() {
+		src := &source{out: bigDownloads("running")}
+		r, chat, l := armed(poll, src)
+		r.pass()
+		Expect(len(r.get(l.ID).Watch.BaseOut)).To(BeNumerically("<=", loops.MaxWatchOutput))
+		// Only the last item differs, far beyond the stored text.
+		long := bigDownloads("running")
+		i := strings.LastIndex(long, "running")
+		src.set(long[:i]+"completed"+long[i+len("running"):], nil)
+		tick(r, time.Minute)
+		tick(r, time.Second)
+		r.settled(l.ID)
+		Expect(r.h.Sent(chat)[1]).To(ContainSubstring("(changed)"))
+		Expect(len(r.get(l.ID).Watch.BaseOut)).To(BeNumerically("<=", loops.MaxWatchOutput))
+	})
+
+	It("matches a pattern that lies beyond the stored text", func() {
+		src := &source{out: strings.Repeat("x", 2*loops.MaxWatchOutput)}
+		r, chat, l := armed(`{"tool":"list_downloads","until":"match","pattern":"all done$","every":"1m",`+waitThen+`}`, src)
+		r.pass()
+		src.set(strings.Repeat("x", 2*loops.MaxWatchOutput)+"all done", nil)
+		tick(r, time.Minute)
+		tick(r, time.Second)
+		r.settled(l.ID)
+		Expect(r.h.Sent(chat)[1]).To(ContainSubstring("(matched)"))
+	})
+
+	It("ends a json_equals wait early when the output is never JSON", func() {
+		src := &source{out: "not json at all"}
+		r, chat, l := armed(`{"tool":"list_downloads","until":"json_equals","field":"items.0.status","equals":"done","every":"1m","timeout":"1h","max_errors":3,`+waitThen+`}`, src)
+		r.pass()
+		tick(r, time.Minute)
+		Expect(r.get(l.ID).Watch.Errors).To(Equal(2))
+		Expect(r.get(l.ID).State).To(Equal(loops.StateActive))
+		tick(r, time.Minute)
+		tick(r, time.Second)
+		r.settled(l.ID)
+		got := r.get(l.ID)
+		Expect(got.Watch.End).To(Equal(loops.EndSourceFailing))
+		text := r.h.Sent(chat)[1]
+		Expect(text).To(ContainSubstring("the source failed. The condition was NOT met"))
+		Expect(text).To(ContainSubstring("3 checks in a row failed"))
+		Expect(text).To(ContainSubstring("not JSON"))
+	})
+
+	It("reports an output over the read limit as its own error", func() {
+		src := &source{out: strings.Repeat("x", 4<<20+1)}
+		r, _, l := armed(`{"tool":"list_downloads","until":"json_equals","field":"a","equals":"b","every":"1m",`+waitThen+`}`, src)
+		r.pass()
+		got := r.get(l.ID)
+		Expect(got.Watch.Errors).To(Equal(1))
+		Expect(got.Watch.LastErr).To(ContainSubstring("larger than 4 MiB"))
+		Expect(got.Watch.LastErr).NotTo(ContainSubstring("unexpected EOF"))
 	})
 
 	It("does not count an error as a change", func() {
