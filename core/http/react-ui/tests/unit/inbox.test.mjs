@@ -1,8 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync, readdirSync } from 'node:fs'
+import i18next from 'i18next'
 import {
   badgeText, sourceOf, toneOf, iconOf, targetOf, reasonText, dayOf, groupByDay, filterItems,
-  hasUnreadFailure, entryVisible, inboxOff, streamWanted,
+  hasUnreadFailure, entryVisible, inboxOff, streamWanted, textOf,
 } from '../../src/utils/inbox.js'
 
 const note = (extra = {}) => ({ id: 1, kind: 'run_ended', status: 'ok', title: 'T', body: '', link: '', read: false, created: '', ...extra })
@@ -105,4 +107,81 @@ test('inbox: the stream is open only for an enabled hook on a visible tab', () =
   assert.equal(streamWanted({ enabled: false, visible: true, off: false }), false)
   assert.equal(streamWanted({ enabled: true, visible: false, off: false }), false)
   assert.equal(streamWanted({ enabled: true, visible: true, off: true }), false)
+})
+
+// ---- Items worded by the UI ---------------------------------------------------
+
+const LOCALES = readdirSync(new URL('../../public/locales', import.meta.url)).sort()
+async function translator(lng) {
+  const resources = {}
+  for (const l of ['en', lng]) resources[l] = { chats: JSON.parse(readFileSync(new URL(`../../public/locales/${l}/chats.json`, import.meta.url), 'utf8')) }
+  const i = i18next.createInstance()
+  await i.init({ lng, fallbackLng: 'en', resources, defaultNS: 'chats', ns: ['chats'], interpolation: { escapeValue: false }, initAsync: false })
+  return i.t.bind(i)
+}
+
+const digest = (extra = {}) => note({ code: 'updates.digest', title: 'stored title', body: 'stored body', params: { family: 'backends', count: 3, names: ['llama-cpp', 'whisper', 'piper'] }, ...extra })
+const result = (p) => note({ code: 'updates.result', title: 'stored title', body: 'stored body', params: { family: 'backends', ...p } })
+
+test('inbox: the digest is worded from its params, with a plural title and the names', async () => {
+  const t = await translator('en')
+  assert.deepEqual(textOf(digest(), t), { title: '3 backend updates available', body: 'llama-cpp, whisper, piper' })
+  assert.equal(textOf(digest({ params: { family: 'backends', count: 1, names: ['whisper'] } }), t).title, '1 backend update available')
+  assert.equal(textOf(digest({ params: { family: 'backends', count: 5, names: ['a', 'b', 'c'] } }), t).body, 'a, b, c and 2 more')
+})
+
+test('inbox: a result names the family, the counts and what happened to which backend', async () => {
+  const t = await translator('en')
+  const out = textOf(result({ updated: 2, failed: 1, updatedItems: ['llama-cpp 0.9.4 to 0.9.7', 'piper'], failedItems: ['whisper (download interrupted)'] }), t)
+  assert.equal(out.title, 'Backends: 2 updated automatically, 1 failed')
+  assert.equal(out.body, 'Updated: llama-cpp 0.9.4 to 0.9.7, piper. Failed: whisper (download interrupted).')
+  const held = textOf(note({ code: 'updates.result', params: { family: 'addons', held: 1, heldItems: ['Tables 2.4.0'] } }), t)
+  assert.equal(held.title, 'Add-ons: 1 waiting for approval')
+  assert.equal(held.body, 'Waiting for your approval: Tables 2.4.0.')
+})
+
+test('inbox: a failed check names the sources', async () => {
+  const t = await translator('en')
+  const out = textOf(note({ code: 'updates.checkFailed', params: { sources: ['gallery', 'library'] } }), t)
+  assert.equal(out.title, 'The update check failed')
+  assert.match(out.body, /Could not check: backend gallery, backend library\./)
+})
+
+test('inbox: an unknown code, missing params or nonsense params show the stored text', async () => {
+  const t = await translator('en')
+  const stored = { title: 'stored title', body: 'stored body' }
+  assert.deepEqual(textOf(digest({ code: 'future.thing' }), t), stored)
+  assert.deepEqual(textOf(digest({ params: undefined }), t), stored)
+  assert.deepEqual(textOf(digest({ params: { family: 'backends', count: 'many' } }), t), stored)
+  assert.deepEqual(textOf(result({ updated: 0, failed: 0, held: 0 }), t), stored)
+  assert.deepEqual(textOf(result({ family: 'models', updated: 1 }), t), stored)
+  assert.deepEqual(textOf(note({ code: 'updates.checkFailed', title: 'stored title', body: 'stored body', params: { sources: ['x'] } }), t), stored)
+  // An item without a code is untouched.
+  assert.deepEqual(textOf(note({ title: 'Run 1', body: 'b', params: { count: 3 } }), t), { title: 'Run 1', body: 'b' })
+})
+
+test('inbox: every language words every code with no key or placeholder left over', async () => {
+  const cases = [
+    digest(),
+    digest({ params: { family: 'backends', count: 1, names: ['whisper'] } }),
+    digest({ params: { family: 'backends', count: 6, names: ['a', 'b', 'c'] } }),
+    result({ updated: 2, failed: 1, held: 1, updatedItems: ['a'], failedItems: ['b (x)'], heldItems: ['c'] }),
+    result({ family: 'addons', updated: 1, updatedItems: ['Tables 2.4.0'] }),
+    note({ code: 'updates.checkFailed', params: { sources: ['gallery', 'library', 'addons'] } }),
+  ]
+  for (const lng of LOCALES) {
+    const t = await translator(lng)
+    for (const c of cases) {
+      const { title, body } = textOf(c, t)
+      for (const text of [title, body]) {
+        assert.ok(text && !/\{\{|inbox\.codes/.test(text), `${lng}: ${c.code}: ${JSON.stringify(text)}`)
+      }
+    }
+  }
+})
+
+test('inbox: an update item has the arrow icon, whatever its source', () => {
+  assert.equal(iconOf(digest()), 'arrow-up')
+  assert.equal(iconOf(note({ code: 'updates.result', status: 'failed' })), 'arrow-up')
+  assert.equal(iconOf(note({ source: 'trigger' })), 'bolt')
 })

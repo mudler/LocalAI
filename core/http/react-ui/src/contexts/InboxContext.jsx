@@ -68,7 +68,9 @@ export function InboxProvider({ features, children }) {
   useEffect(() => {
     const list = inbox.arrived || []
     if (list.length === 0) return
-    setAnnounce(list.length === 1
+    // An item with a code is worded by the panel, in a language file that is
+    // not loaded yet; its stored title is English, so it is announced by count.
+    setAnnounce(list.length === 1 && !list[0].code
       ? t('inboxArrived', { title: list[0].title })
       : t('inboxArrivedMany', { count: list.length }))
   }, [inbox.arrived, t])

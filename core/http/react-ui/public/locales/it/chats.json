@@ -706,7 +706,41 @@
     "arrivedMany_other": "{{count}} nuove notifiche",
     "proposalsWaiting_one": "{{count}} modifica attende te",
     "proposalsWaiting_other": "{{count}} modifiche attendono te",
-    "proposalsBody": "Un modello ha proposto una modifica. Non viene salvato nulla finché non rispondi."
+    "proposalsBody": "Un modello ha proposto una modifica. Non viene salvato nulla finché non rispondi.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} aggiornamento di backend disponibile",
+        "title_other": "{{count}} aggiornamenti di backend disponibili",
+        "more": "{{items}} e altri {{count}}"
+      },
+      "result": {
+        "family": {
+          "backends": "Backend",
+          "addons": "Componenti aggiuntivi"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} aggiornato automaticamente",
+        "updated_other": "{{count}} aggiornati automaticamente",
+        "failed_one": "{{count}} non riuscito",
+        "failed_other": "{{count}} non riusciti",
+        "held_one": "{{count}} attende l'approvazione",
+        "held_other": "{{count}} attendono l'approvazione",
+        "bodyUpdated": "Aggiornati: {{items}}.",
+        "bodyFailed": "Non riusciti: {{items}}.",
+        "bodyHeld": "In attesa della tua approvazione: {{items}}.",
+        "more": "{{items}} e altri {{count}}"
+      },
+      "checkFailed": {
+        "title": "Il controllo degli aggiornamenti non è riuscito",
+        "body": "Controllo impossibile: {{sources}}. Gli ultimi due controlli automatici non sono riusciti, quindi nell'elenco potrebbero mancare aggiornamenti.",
+        "source": {
+          "gallery": "galleria dei backend",
+          "library": "libreria dei backend",
+          "addons": "componenti aggiuntivi"
+        }
+      }
+    }
   },
   "change": {
     "loading": "Lettura della modifica del trigger...",

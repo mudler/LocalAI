@@ -6,7 +6,7 @@ import { usePendingChanges } from '../../hooks/usePendingChanges'
 import { disablePush, enablePush, pushState } from '../../utils/chatPush'
 import { relativeDate } from '../../utils/fileBrowser'
 import {
-  failed, filterItems, groupByDay, iconOf, reasonText, sourceOf, targetOf, toneOf,
+  failed, filterItems, groupByDay, iconOf, reasonText, sourceOf, targetOf, textOf, toneOf,
 } from '../../utils/inbox'
 import ActionMenu from '../ActionMenu'
 import Icon from '../Icon'
@@ -68,8 +68,9 @@ function InboxItem({ n, day, t, locale, fresh, busy, onOpen, onRead, onDelete })
   const isFailed = failed(n)
   const target = targetOf(n)
   const source = sourceOf(n)
-  const body = isFailed ? reasonText(n.body) : n.body
-  const name = n.read ? n.title : t('inbox.itemUnread', { title: n.title })
+  const text = textOf(n, t)
+  const body = isFailed ? reasonText(text.body) : text.body
+  const name = n.read ? text.title : t('inbox.itemUnread', { title: text.title })
   const cls = ['nx-item', !n.read && 'is-unread', isFailed && 'is-failed', fresh && 'is-fresh'].filter(Boolean).join(' ')
   return (
     <li className={cls} data-testid="inbox-item" data-id={n.id} data-read={n.read ? 'true' : 'false'}>
@@ -83,7 +84,7 @@ function InboxItem({ n, day, t, locale, fresh, busy, onOpen, onRead, onDelete })
       >
         <span className={`nx-tile nx-tile--${toneOf(n)}`} aria-hidden="true"><Icon name={iconOf(n)} /></span>
         <span className="nx-item__text">
-          <span className="nx-item__title">{n.title}</span>
+          <span className="nx-item__title">{text.title}</span>
           {body && (
             <span id={`${id}-body`} className={isFailed ? 'nx-item__reason' : 'nx-item__body'}>
               {isFailed && <Icon name="alert-circle" className="nx-item__reason-icon" />}

@@ -706,7 +706,41 @@
     "arrivedMany_other": "{{count}} notifikasi baru",
     "proposalsWaiting_one": "{{count}} perubahan menunggu Anda",
     "proposalsWaiting_other": "{{count}} perubahan menunggu Anda",
-    "proposalsBody": "Model mengusulkan perubahan. Tidak ada yang disimpan sampai Anda menjawab."
+    "proposalsBody": "Model mengusulkan perubahan. Tidak ada yang disimpan sampai Anda menjawab.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} pembaruan backend tersedia",
+        "title_other": "{{count}} pembaruan backend tersedia",
+        "more": "{{items}} dan {{count}} lainnya"
+      },
+      "result": {
+        "family": {
+          "backends": "Backend",
+          "addons": "Add-on"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} diperbarui otomatis",
+        "updated_other": "{{count}} diperbarui otomatis",
+        "failed_one": "{{count}} gagal",
+        "failed_other": "{{count}} gagal",
+        "held_one": "{{count}} menunggu persetujuan",
+        "held_other": "{{count}} menunggu persetujuan",
+        "bodyUpdated": "Diperbarui: {{items}}.",
+        "bodyFailed": "Gagal: {{items}}.",
+        "bodyHeld": "Menunggu persetujuan Anda: {{items}}.",
+        "more": "{{items}} dan {{count}} lainnya"
+      },
+      "checkFailed": {
+        "title": "Pemeriksaan pembaruan gagal",
+        "body": "Tidak dapat memeriksa: {{sources}}. Dua pemeriksaan otomatis terakhir gagal, jadi daftar mungkin tidak memuat semua pembaruan.",
+        "source": {
+          "gallery": "galeri backend",
+          "library": "pustaka backend",
+          "addons": "add-on"
+        }
+      }
+    }
   },
   "change": {
     "loading": "Membaca perubahan pemicu...",

@@ -706,7 +706,41 @@
     "arrivedMany_other": "{{count}} notificaciones nuevas",
     "proposalsWaiting_one": "{{count}} cambio te espera",
     "proposalsWaiting_other": "{{count}} cambios te esperan",
-    "proposalsBody": "Un modelo propuso un cambio. No se guarda nada hasta que respondas."
+    "proposalsBody": "Un modelo propuso un cambio. No se guarda nada hasta que respondas.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} actualización de backend disponible",
+        "title_other": "{{count}} actualizaciones de backend disponibles",
+        "more": "{{items}} y {{count}} más"
+      },
+      "result": {
+        "family": {
+          "backends": "Backends",
+          "addons": "Complementos"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} actualizado automáticamente",
+        "updated_other": "{{count}} actualizados automáticamente",
+        "failed_one": "{{count}} falló",
+        "failed_other": "{{count}} fallaron",
+        "held_one": "{{count}} espera aprobación",
+        "held_other": "{{count}} esperan aprobación",
+        "bodyUpdated": "Actualizados: {{items}}.",
+        "bodyFailed": "Fallaron: {{items}}.",
+        "bodyHeld": "Esperan su aprobación: {{items}}.",
+        "more": "{{items}} y {{count}} más"
+      },
+      "checkFailed": {
+        "title": "Falló la comprobación de actualizaciones",
+        "body": "No se pudo comprobar: {{sources}}. Fallaron las dos últimas comprobaciones automáticas, así que puede faltar alguna actualización en la lista.",
+        "source": {
+          "gallery": "galería de backends",
+          "library": "biblioteca de backends",
+          "addons": "complementos"
+        }
+      }
+    }
   },
   "change": {
     "loading": "Leyendo el cambio del disparador...",

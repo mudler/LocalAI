@@ -31,6 +31,7 @@ export function toneOf(n) {
 const SOURCE_ICON = { trigger: 'bolt', connector: 'plug', system: 'info' }
 
 export function iconOf(n) {
+  if (typeof n?.code === 'string' && n.code.startsWith('updates.')) return 'arrow-up'
   const source = sourceOf(n)
   if (source === 'connector' && failed(n)) return 'plug-off'
   return SOURCE_ICON[source]
@@ -44,6 +45,74 @@ export function targetOf(n) {
   if (link.startsWith('/app/')) return link
   if (sourceOf(n) === 'connector') return '/app/chats/connectors'
   return ''
+}
+
+// ---- Items that the UI words itself -----------------------------------------
+//
+// An item can carry a code and params (updates.digest, updates.result,
+// updates.checkFailed). The words come from the chats namespace, key group
+// inbox.codes, in the language of the person; the title and body the server
+// stored are English and stay the fallback for a code this build does not
+// know, or params it cannot read. `t` is the translator of the chats namespace.
+
+const strings = (v) => (Array.isArray(v) ? v.filter(x => typeof x === 'string' && x) : [])
+const count = (v) => (Number.isInteger(v) && v > 0 ? v : 0)
+
+// "a, b and 2 more": the first names, then how many were left out.
+function listWithMore(t, key, names, total) {
+  const items = names.join(', ')
+  const more = total - names.length
+  return more > 0 ? t(`${key}.more`, { items, count: more }) : items
+}
+
+function resultText(t, p, n) {
+  const family = p.family === 'addons' || p.family === 'backends' ? p.family : ''
+  const updated = count(p.updated)
+  const failedCount = count(p.failed)
+  const held = count(p.held)
+  if (!family || updated + failedCount + held === 0) return null
+  const parts = []
+  if (updated) parts.push(t('inbox.codes.result.updated', { count: updated }))
+  if (failedCount) parts.push(t('inbox.codes.result.failed', { count: failedCount }))
+  if (held) parts.push(t('inbox.codes.result.held', { count: held }))
+  const body = []
+  const add = (key, total, names) => {
+    if (total && names.length) body.push(t(`inbox.codes.result.${key}`, { items: listWithMore(t, 'inbox.codes.result', names, total) }))
+  }
+  add('bodyUpdated', updated, strings(p.updatedItems))
+  add('bodyFailed', failedCount, strings(p.failedItems))
+  add('bodyHeld', held, strings(p.heldItems))
+  return {
+    title: t('inbox.codes.result.title', { family: t(`inbox.codes.result.family.${family}`), parts: parts.join(t('inbox.codes.result.join')) }),
+    body: body.length ? body.join(' ') : n.body,
+  }
+}
+
+// The title and body of a notification as the list shows them. Items without a
+// code, and codes or params that are not understood, show what the server stored.
+export function textOf(n, t) {
+  const stored = { title: n?.title || '', body: n?.body || '' }
+  const p = n?.params
+  if (!n?.code || !p || typeof p !== 'object') return stored
+  let out = null
+  if (n.code === 'updates.digest' && p.family === 'backends' && count(p.count)) {
+    const names = strings(p.names)
+    out = {
+      title: t('inbox.codes.digest.title', { count: p.count }),
+      body: names.length ? listWithMore(t, 'inbox.codes.digest', names, p.count) : n.body,
+    }
+  } else if (n.code === 'updates.result') {
+    out = resultText(t, p, n)
+  } else if (n.code === 'updates.checkFailed') {
+    const sources = strings(p.sources).filter(x => ['gallery', 'library', 'addons'].includes(x))
+    if (sources.length) {
+      out = {
+        title: t('inbox.codes.checkFailed.title'),
+        body: t('inbox.codes.checkFailed.body', { sources: sources.map(x => t(`inbox.codes.checkFailed.source.${x}`)).join(t('inbox.codes.result.join')) }),
+      }
+    }
+  }
+  return out || stored
 }
 
 // The body of a failure is the reason as the server wrote it ("took longer
