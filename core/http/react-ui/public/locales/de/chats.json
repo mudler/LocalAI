@@ -62,7 +62,9 @@
       "remoteNote": "{{model}} ist ein entfernter Dienst: Was ein Lauf liest, verlässt diesen Server.",
       "stopWidget": "Pausiere ihn im Widget oder lösche ihn unter Trigger",
       "stop": "Schalte ihn aus oder lösche ihn unter Trigger",
-      "actsLabel": "Berechtigungen"
+      "actsLabel": "Berechtigungen",
+      "limitLabel": "Zeitlimit",
+      "limitClamped": "{{limit}}, vom Administrator auf {{ceiling}} gekürzt"
     }
   },
   "mcpPage": {
@@ -782,7 +784,8 @@
       "acts": "Was ein Lauf tun darf",
       "delivery": "Wohin Antworten gehen",
       "agent": "Agent",
-      "model": "Modell"
+      "model": "Modell",
+      "run_limit": "Zeitlimit"
     },
     "receipt": {
       "update": "Geändert:",

@@ -62,7 +62,9 @@
       "remoteNote": "{{model}}은(는) 원격 서비스입니다. 실행이 읽는 내용이 이 서버 밖으로 나갑니다.",
       "stopWidget": "위젯에서 일시 중지하거나 트리거에서 삭제하세요",
       "stop": "트리거에서 끄거나 삭제하세요",
-      "actsLabel": "권한"
+      "actsLabel": "권한",
+      "limitLabel": "시간 제한",
+      "limitClamped": "{{limit}}, 관리자가 {{ceiling}}(으)로 제한"
     }
   },
   "mcpPage": {
@@ -782,7 +784,8 @@
       "acts": "실행이 할 수 있는 일",
       "delivery": "답변이 가는 곳",
       "agent": "에이전트",
-      "model": "모델"
+      "model": "모델",
+      "run_limit": "시간 제한"
     },
     "receipt": {
       "update": "변경됨:",

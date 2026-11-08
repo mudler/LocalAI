@@ -535,7 +535,8 @@
       "noRuns": "This trigger has not run yet.",
       "runMeta": "took {{time}}",
       "prompt": "What to do",
-      "acts": "权限"
+      "acts": "权限",
+      "runLimit": "Time limit"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -562,7 +563,8 @@
         "cap": "Up to {{count}} runs a day",
         "capDefault": "Default limit",
         "acts_one": "可使用 {{count}} 类操作",
-        "acts_other": "可使用 {{count}} 类操作"
+        "acts_other": "可使用 {{count}} 类操作",
+        "runLimit": "{{limit}} a run at most"
       },
       "name": "Name",
       "namePlaceholder": "daily-digest",
@@ -581,7 +583,9 @@
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
       "changed_other": "{{count}} changes",
-      "watchNoFiles": "此智能体设置为“无文件”，此触发器的运行只会得知有文件到达，却无法打开。请在其编辑器中授予文件访问权限，或选择其他智能体。"
+      "watchNoFiles": "此智能体设置为“无文件”，此触发器的运行只会得知有文件到达，却无法打开。请在其编辑器中授予文件访问权限，或选择其他智能体。",
+      "runLimitHint": "The longest one run may take, such as 30m or 2h (1 minute to 24 hours). Empty uses the default. The administrator's limit is the ceiling: a longer value is cut to it.",
+      "runLimitPlaceholder": "default"
     },
     "subtitle": "按计划或在文件到达时启动智能体。每次运行都是一个可以打开的聊天。"
   },

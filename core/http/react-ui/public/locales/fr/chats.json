@@ -62,7 +62,9 @@
       "remoteNote": "{{model}} est un service distant : ce que lit une exécution quitte ce serveur.",
       "stopWidget": "Mettez-le en pause depuis le widget, ou supprimez-le dans Déclencheurs",
       "stop": "Désactivez-le ou supprimez-le dans Déclencheurs",
-      "actsLabel": "Permissions"
+      "actsLabel": "Permissions",
+      "limitLabel": "Durée maximale",
+      "limitClamped": "{{limit}}, ramené à {{ceiling}} par l'administrateur"
     }
   },
   "mcpPage": {
@@ -782,7 +784,8 @@
       "acts": "Ce qu'une exécution peut faire",
       "delivery": "Où vont les réponses",
       "agent": "Agent",
-      "model": "Modèle"
+      "model": "Modèle",
+      "run_limit": "Durée maximale"
     },
     "receipt": {
       "update": "Modifié :",

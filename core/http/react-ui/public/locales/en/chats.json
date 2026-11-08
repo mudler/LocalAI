@@ -252,7 +252,8 @@
       "fri": "Fri",
       "sat": "Sat",
       "sun": "Sun"
-    }
+    },
+    "runLimit": "Time limit of a run"
   },
   "inbox": {
     "unread": "{{count}} unread",
@@ -979,7 +980,9 @@
       "remoteNote": "{{model}} is a remote service: what a run reads leaves this server.",
       "stopWidget": "Pause it from the widget, or delete it in Triggers",
       "stop": "Switch it off or delete it in Triggers",
-      "actsLabel": "Permissions"
+      "actsLabel": "Permissions",
+      "limitLabel": "Time limit",
+      "limitClamped": "{{limit}}, cut to {{ceiling}} by the administrator"
     }
   },
   "subAgents": {
@@ -1105,7 +1108,8 @@
       "acts": "What a run may do",
       "delivery": "Where answers go",
       "agent": "Agent",
-      "model": "Model"
+      "model": "Model",
+      "run_limit": "Time limit"
     },
     "receipt": {
       "update": "Changed:",

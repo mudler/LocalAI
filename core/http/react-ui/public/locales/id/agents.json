@@ -535,7 +535,8 @@
       "noRuns": "This trigger has not run yet.",
       "runMeta": "took {{time}}",
       "prompt": "What to do",
-      "acts": "Izin"
+      "acts": "Izin",
+      "runLimit": "Time limit"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -562,7 +563,8 @@
         "cap": "Up to {{count}} runs a day",
         "capDefault": "Default limit",
         "acts_one": "Boleh memakai {{count}} jenis tindakan",
-        "acts_other": "Boleh memakai {{count}} jenis tindakan"
+        "acts_other": "Boleh memakai {{count}} jenis tindakan",
+        "runLimit": "{{limit}} a run at most"
       },
       "name": "Name",
       "namePlaceholder": "daily-digest",
@@ -581,7 +583,9 @@
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
       "changed_other": "{{count}} changes",
-      "watchNoFiles": "Agen ini diatur \"Tanpa file\": satu eksekusi pemicu ini diberi tahu bahwa ada file masuk, tetapi tidak dapat membukanya. Beri agen akses file di editornya, atau pilih agen lain."
+      "watchNoFiles": "Agen ini diatur \"Tanpa file\": satu eksekusi pemicu ini diberi tahu bahwa ada file masuk, tetapi tidak dapat membukanya. Beri agen akses file di editornya, atau pilih agen lain.",
+      "runLimitHint": "The longest one run may take, such as 30m or 2h (1 minute to 24 hours). Empty uses the default. The administrator's limit is the ceiling: a longer value is cut to it.",
+      "runLimitPlaceholder": "default"
     },
     "subtitle": "Jalankan agen sesuai jadwal atau saat sebuah file tiba. Setiap jalan adalah chat yang bisa Anda buka."
   },

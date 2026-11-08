@@ -535,7 +535,8 @@
       "noRuns": "This trigger has not run yet.",
       "runMeta": "took {{time}}",
       "prompt": "What to do",
-      "acts": "권한"
+      "acts": "권한",
+      "runLimit": "Time limit"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -562,7 +563,8 @@
         "cap": "Up to {{count}} runs a day",
         "capDefault": "Default limit",
         "acts_one": "{{count}}가지 종류의 동작 사용 가능",
-        "acts_other": "{{count}}가지 종류의 동작 사용 가능"
+        "acts_other": "{{count}}가지 종류의 동작 사용 가능",
+        "runLimit": "{{limit}} a run at most"
       },
       "name": "Name",
       "namePlaceholder": "daily-digest",
@@ -581,7 +583,9 @@
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
       "changed_other": "{{count}} changes",
-      "watchNoFiles": "이 에이전트는 \"파일 없음\"이라서, 이 트리거의 실행은 파일이 도착했다는 것만 알 뿐 열 수 없습니다. 에디터에서 파일 접근을 허용하거나 다른 에이전트를 선택하세요."
+      "watchNoFiles": "이 에이전트는 \"파일 없음\"이라서, 이 트리거의 실행은 파일이 도착했다는 것만 알 뿐 열 수 없습니다. 에디터에서 파일 접근을 허용하거나 다른 에이전트를 선택하세요.",
+      "runLimitHint": "The longest one run may take, such as 30m or 2h (1 minute to 24 hours). Empty uses the default. The administrator's limit is the ceiling: a longer value is cut to it.",
+      "runLimitPlaceholder": "default"
     },
     "subtitle": "일정에 따라 또는 파일이 도착하면 에이전트를 시작합니다. 각 실행은 열어 볼 수 있는 채팅입니다."
   },

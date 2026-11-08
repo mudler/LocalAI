@@ -112,7 +112,7 @@ test.describe('Settings: defaults and hints', () => {
     const retries = row(page, 'lru_eviction_max_retries')
     await expect(retries.locator('.st-tag', { hasText: 'Changed' })).toBeVisible()
     await expect(retries).toContainText('default 30')
-    // The idle timeout equals its default in another spelling (15m0s and 15m).
+    // The idle timeout equals its default in another spelling (15m and 15m).
     await expect(row(page, 'watchdog_idle_timeout').locator('.st-tag', { hasText: 'Changed' })).toHaveCount(0)
     // The memory threshold is 90% against 95%.
     await expect(row(page, 'memory_reclaimer_threshold')).toContainText('default 95%')

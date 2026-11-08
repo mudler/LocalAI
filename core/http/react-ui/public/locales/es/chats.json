@@ -62,7 +62,9 @@
       "remoteNote": "{{model}} es un servicio remoto: lo que lee una ejecución sale de este servidor.",
       "stopWidget": "Páusalo desde el widget o elimínalo en Disparadores",
       "stop": "Apágalo o elimínalo en Disparadores",
-      "actsLabel": "Permisos"
+      "actsLabel": "Permisos",
+      "limitLabel": "Límite de tiempo",
+      "limitClamped": "{{limit}}, reducido a {{ceiling}} por el administrador"
     }
   },
   "mcpPage": {
@@ -782,7 +784,8 @@
       "acts": "Lo que puede hacer una ejecución",
       "delivery": "Adónde van las respuestas",
       "agent": "Agente",
-      "model": "Modelo"
+      "model": "Modelo",
+      "run_limit": "Límite de tiempo"
     },
     "receipt": {
       "update": "Cambiado:",

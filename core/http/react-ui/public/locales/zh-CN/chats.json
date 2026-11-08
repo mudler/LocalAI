@@ -62,7 +62,9 @@
       "remoteNote": "{{model}} 是远程服务：运行读取的内容会离开此服务器。",
       "stopWidget": "在小组件中暂停，或在触发器中删除",
       "stop": "在触发器中关闭或删除",
-      "actsLabel": "权限"
+      "actsLabel": "权限",
+      "limitLabel": "时间限制",
+      "limitClamped": "{{limit}}，管理员限制为 {{ceiling}}"
     }
   },
   "mcpPage": {
@@ -782,7 +784,8 @@
       "acts": "运行可以做的事",
       "delivery": "回复发送到哪里",
       "agent": "智能体",
-      "model": "模型"
+      "model": "模型",
+      "run_limit": "时间限制"
     },
     "receipt": {
       "update": "已更改：",

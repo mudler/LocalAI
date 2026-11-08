@@ -21,12 +21,13 @@ const history = (tool, id) => [
 ]
 
 // The server, in memory: one change and what each call does to it.
-async function serve(page, { op = 'update', state = 'pending', stale = false } = {}) {
+async function serve(page, { op = 'update', state = 'pending', stale = false, limit = false } = {}) {
   const s = { state, calls: [] }
   const view = () => {
     let before = trigger()
     let after = op === 'delete' ? undefined : renamed
     let fields = ['name', 'when']
+    if (limit) { after = trigger({ run_limit: '30m' }); fields = ['run_limit'] }
     if (op === 'pause') { after = trigger({ enabled: false }); fields = ['enabled'] }
     if (s.state === 'undone' && after) [before, after] = [after, before]
     return {
@@ -101,6 +102,14 @@ test('an edit shows the fields before and after, applies, and Undo takes it back
   await expect(card(page)).toHaveAttribute('data-state', 'undone')
   await expect(card(page)).toContainText('Undone:')
   expect(s.calls).toEqual(expect.arrayContaining(['POST apply', 'POST undo']))
+})
+
+test('an edit of the time limit shows it before and after', async ({ page }) => {
+  await open(page, { limit: true })
+  const row = card(page).locator('[data-row="run_limit"]')
+  await expect(row).toContainText('Time limit')
+  await expect(row.getByTestId('change-after')).toHaveText('30m')
+  await shoot(page, 'run-limit-pending')
 })
 
 test('a dismissed edit leaves a quiet line', async ({ page }) => {

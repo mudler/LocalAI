@@ -49,7 +49,7 @@ test('chat triggers: a stored file trigger is the file preset', () => {
 test('chat triggers: the request body of a schedule and of a file trigger', () => {
   const base = { name: ' Digest ', prompt: 'Go.', enabled: true, dailyCap: '', agentId: '', model: 'm', sourceChatId: '', zone: 'Europe/Rome', folder: '', quiet: '' }
   assert.deepEqual(triggerPayload({ ...base, schedule: form({ preset: 'weekdays', time: '09:00' }) }), {
-    name: 'Digest', prompt: 'Go.', kind: 'schedule', enabled: true, daily_cap: 0, acts: [], agent_id: undefined, model: 'm', source_chat_id: undefined,
+    name: 'Digest', prompt: 'Go.', kind: 'schedule', enabled: true, daily_cap: 0, run_limit: '', acts: [], agent_id: undefined, model: 'm', source_chat_id: undefined,
     schedule: 'weekdays 09:00', time_zone: 'Europe/Rome',
   })
   const file = triggerPayload({ ...base, schedule: form({ preset: 'file' }), folder: ' /Contracts ', quiet: '45', dailyCap: '5', agentId: 'a1' })
@@ -57,6 +57,8 @@ test('chat triggers: the request body of a schedule and of a file trigger', () =
   assert.equal(file.folder, '/Contracts')
   assert.equal(file.quiet_seconds, 45)
   assert.equal(file.daily_cap, 5)
+  assert.equal(file.run_limit, '')
+  assert.equal(triggerPayload({ ...base, schedule: form({ preset: 'daily', time: '09:00' }), runLimit: ' 30m ' }).run_limit, '30m', 'trimmed, and the server checks the bounds')
   assert.equal(file.agent_id, 'a1')
   assert.equal('schedule' in file, false)
 })
@@ -84,6 +86,9 @@ test('chat triggers: a stored trigger fills the form and the form writes it back
   assert.equal(f.schedule.preset, 'weekdays')
   assert.equal(f.zone, 'Europe/Rome')
   assert.equal(f.dailyCap, '3')
+  assert.equal(f.runLimit, '')
+  assert.equal(triggerForm({ ...stored, run_limit: '45m' }).runLimit, '45m')
+  assert.equal(emptyTrigger().runLimit, '')
   const body = triggerPayload(f)
   assert.equal(body.schedule, 'weekdays 09:00')
   assert.equal(body.enabled, false)
