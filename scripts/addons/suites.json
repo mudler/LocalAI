@@ -2017,8 +2017,8 @@
           "another home",
           "a relative path",
           "refuses an empty request and a missing store",
-          "names the work folder in the prompt and makes it only when it is used",
-          "names the work folder in the prompt and makes it only when it is used",
+          "names the work folder in the note and makes it only when it is used",
+          "names the work folder in the note and makes it only when it is used",
           "gives two chats with the same title two folders before either is made",
           "gives two chats with the same title two folders before either is made",
           "renames a folder name that has no folder yet",
@@ -2141,7 +2141,11 @@
           "looks only at the turns since the last message of the person, and since a clear",
           "says nothing for a transcript with no intent, and a result of another tool resolves nothing",
           "is internal: not a message, and not shown",
-          "lists the tools that only read, and nothing that writes"
+          "lists the tools that only read, and nothing that writes",
+          "gives chats with different titles the same prompt and names each folder in its note",
+          "gives chats with different titles the same prompt and names each folder in its note",
+          "keeps the folder in the note when the product's note is at its limit",
+          "keeps the folder in the note when the product's note is at its limit"
         ]
       }
     ]
