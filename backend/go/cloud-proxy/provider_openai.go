@@ -62,10 +62,71 @@ type openAIFunctionCall struct {
 	Arguments string `json:"arguments,omitempty"`
 }
 
+// openAIContent is the content of a response message or a streaming
+// delta. OpenAI sends a string, but some OpenAI-compatible APIs also send
+// an array of typed parts: Mistral's reasoning models return
+// [{"type":"thinking","thinking":[{"type":"text","text":"..."}]},
+// {"type":"text","text":"..."}], and their stream switches between the
+// array and the string within one response. Decoding into a plain string
+// fails the whole request, so both shapes are accepted: text parts become
+// the answer, thinking parts the reasoning. Other part types carry nothing
+// a Reply can hold and are ignored.
+type openAIContent struct {
+	Text      string
+	Reasoning string
+}
+
+type openAIContentPart struct {
+	Type     string          `json:"type"`
+	Text     string          `json:"text"`
+	Thinking json.RawMessage `json:"thinking"`
+}
+
+func (c *openAIContent) UnmarshalJSON(data []byte) error {
+	*c = openAIContent{}
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
+		return nil
+	}
+	if trimmed[0] == '"' {
+		return json.Unmarshal(trimmed, &c.Text)
+	}
+	var parts []openAIContentPart
+	if err := json.Unmarshal(trimmed, &parts); err != nil {
+		return err
+	}
+	var text, reasoning strings.Builder
+	for _, p := range parts {
+		switch p.Type {
+		case "text":
+			text.WriteString(p.Text)
+		case "thinking":
+			// Mistral documents thinking as an array of text parts; the
+			// same decoder also takes a plain string there.
+			var inner openAIContent
+			if err := inner.UnmarshalJSON(p.Thinking); err != nil {
+				return err
+			}
+			reasoning.WriteString(inner.Text)
+		}
+	}
+	c.Text, c.Reasoning = text.String(), reasoning.String()
+	return nil
+}
+
+// openAIResponseMessage is the assistant message of a non-streaming
+// response. It is separate from openAIMessage because requests always
+// send content as a string.
+type openAIResponseMessage struct {
+	Role      string           `json:"role"`
+	Content   openAIContent    `json:"content"`
+	ToolCalls []openAIToolCall `json:"tool_calls,omitempty"`
+}
+
 type openAIChoice struct {
-	Index        int           `json:"index"`
-	Message      openAIMessage `json:"message"`
-	FinishReason string        `json:"finish_reason"`
+	Index        int                   `json:"index"`
+	Message      openAIResponseMessage `json:"message"`
+	FinishReason string                `json:"finish_reason"`
 }
 
 type openAIResponse struct {
@@ -77,7 +138,7 @@ type openAIResponse struct {
 type openAIStreamChoice struct {
 	Index int `json:"index"`
 	Delta struct {
-		Content   string           `json:"content,omitempty"`
+		Content   openAIContent    `json:"content"`
 		Role      string           `json:"role,omitempty"`
 		ToolCalls []openAIToolCall `json:"tool_calls,omitempty"`
 	} `json:"delta"`
@@ -220,18 +281,22 @@ func (c *CloudProxy) predictOpenAIRich(ctx context.Context, cfg *proxyConfig, op
 	}
 
 	choice := parsed.Choices[0]
+	content := choice.Message.Content
 	reply := &pb.Reply{
-		Message: []byte(choice.Message.Content),
+		Message: []byte(content.Text),
 	}
 	if parsed.Usage != nil {
 		reply.PromptTokens = int32(parsed.Usage.PromptTokens)
 		reply.Tokens = int32(parsed.Usage.CompletionTokens)
 	}
-	if len(choice.Message.ToolCalls) > 0 {
+	if len(choice.Message.ToolCalls) > 0 || content.Reasoning != "" {
 		// Non-streaming: a single ChatDelta carries the full tool-call
-		// set. Index/Name/Arguments are populated together; downstream
-		// consumers don't need to assemble streaming deltas.
-		delta := &pb.ChatDelta{}
+		// set and the reasoning. Index/Name/Arguments are populated
+		// together; downstream consumers don't need to assemble
+		// streaming deltas. A consumer that finds a ChatDelta takes the
+		// answer from it rather than from Message, so the text goes in
+		// as well.
+		delta := &pb.ChatDelta{Content: content.Text, ReasoningContent: content.Reasoning}
 		for _, tc := range choice.Message.ToolCalls {
 			delta.ToolCalls = append(delta.ToolCalls,
 				newToolCallDelta(tc.Index, tc.ID, tc.Function.Name, tc.Function.Arguments))
@@ -291,9 +356,11 @@ func (c *CloudProxy) predictOpenAIStreamRich(ctx context.Context, cfg *proxyConf
 		}
 		for _, ch := range chunk.Choices {
 			reply := &pb.Reply{}
-			if ch.Delta.Content != "" {
-				reply.Message = []byte(ch.Delta.Content)
-				reply.ChatDeltas = []*pb.ChatDelta{{Content: ch.Delta.Content}}
+			if text, reasoning := ch.Delta.Content.Text, ch.Delta.Content.Reasoning; text != "" || reasoning != "" {
+				if text != "" {
+					reply.Message = []byte(text)
+				}
+				reply.ChatDeltas = []*pb.ChatDelta{{Content: text, ReasoningContent: reasoning}}
 			}
 			if len(ch.Delta.ToolCalls) > 0 {
 				if len(reply.ChatDeltas) == 0 {

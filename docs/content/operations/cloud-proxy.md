@@ -293,6 +293,24 @@ the upstream's full feature set.
 
 In translate mode, an Anthropic response with `stop_reason: "refusal"` is returned to the client as an error instead of an empty successful reply, for both non-streaming and streaming requests. A streamed response may already have delivered partial content when the refusal arrives. Responses that end normally (`end_turn`) are unaffected, even when their content is empty.
 
+With `provider: openai`, the response content may be a string (OpenAI) or an
+array of typed parts, as sent by Mistral's reasoning models and other
+OpenAI-compatible APIs. Text parts become the answer and `thinking` parts
+become the reasoning (the `reasoning` field of the chat response), in
+both non-streaming and streaming responses. Parts of other types are ignored.
+
+```yaml
+name: mistral-large
+backend: cloud-proxy
+
+proxy:
+  mode: translate
+  provider: openai
+  upstream_url: https://api.mistral.ai/v1/chat/completions
+  api_key_env: MISTRAL_API_KEY
+  upstream_model: mistral-large-latest
+```
+
 #### Anthropic prompt caching
 
 `proxy.cache_prompt: true` makes the translator add Anthropic
