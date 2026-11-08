@@ -172,7 +172,15 @@ or blocked never take part, a failure does not stop the others, and **Retry
 failed** runs only the failed ones. The summary ("2 updated, 1 failed") counts a
 row as updated only when it is done by the rule above. Closing the page does not
 stop the run: the operations are the server's, and the page reads them again when
-you return. The per-node view of a backend in a cluster is not on this page yet.
+you return.
+
+In a cluster, a backend that more than one node has shows a **Nodes** action.
+It opens `/app/updates/backend/<name>`, which lists each node with its version,
+the models that use the backend there, and its state, and updates one node or
+every node that needs it. **Update** on such a row opens the same confirmation.
+Every update that touches a node asks first, because a worker stops the models
+that use the backend: see [the Nodes page]({{% relref "features/distributed-mode" %}}).
+On a single machine there is no **Nodes** action and **Update** starts at once.
 
 ### The count on the Updates tab and on Operate
 
@@ -183,6 +191,11 @@ are blocked by something other than the server setting for backend installs. An
 update that an automatic setting will apply is listed on the page but not
 counted. The number is red when an update failed. One poll reads the numbers
 once a minute while the browser tab is visible, and again when an operation ends.
+
+The badge on the **Operate** item has one number at a time, so it follows an
+order: failed operations first (red, counting the failed operations), then the
+count above, then the number of operations that are running. The tab always
+shows the count above, so the two numbers differ while an operation has failed.
 
 ## Checking for backend updates
 

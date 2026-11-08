@@ -618,13 +618,17 @@ When the SmartRouter needs to free capacity, it can unload models with zero in-f
 
 With distributed mode on, **Operate → Swarm** holds the cluster: **Nodes**, **Placement rules**, **Failover** and **P2P**. A single-node install shows **This machine** instead and never draws these pages.
 
-**Nodes** lists every worker in a sortable table: name, role, state in words, GPU or system memory, loaded models, last heartbeat and version. Switch between comfortable and compact rows, between **List**, **Map** and **Running models**, and filter to **Needs attention** (waiting for approval, not answering, or low GPU memory, system memory or models disk). The **Map** draws this instance, the message bus and database, and each worker; a dashed line is a worker that gets no traffic. It is not drawn on a phone. When a backend has a newer version, an **Update** button on the page sends the upgrade to the nodes that differ from the rest of the cluster, or to the nodes you selected.
+**Nodes** lists every worker in a sortable table: name, role, state in words, GPU or system memory, loaded models, last heartbeat and version. Switch between comfortable and compact rows, between **List**, **Map** and **Running models**, and filter to **Needs attention** (waiting for approval, not answering, or low GPU memory, system memory or models disk). The **Map** draws this instance, the message bus and database, and each worker; a dashed line is a worker that gets no traffic. It is not drawn on a phone. When a backend has a newer version, an **Update** button on the page asks first, then sends the update to the nodes that differ from the rest of the cluster, or to the nodes you selected.
+
+A worker stops the running processes of a backend before it installs the new version, so every update that touches a node shows a confirmation. It lists each node, the versions, and the models that stop on it. The model list comes from the backend each model was loaded with, as the registry recorded it. It can be empty or name another backend, so an empty list for a node reads "No loaded model recorded", not "none stop". A model starts again when a request needs it. The nodes update one after another, and the dialog shows each result when it ends. A node is updated only when its operation ended without an error and a new check shows the node on the new version. A node that fails does not stop the others, and **Retry** runs only the failed ones. **Stop after this node** keeps the nodes that have not started from starting.
+
+The same confirmation opens from the **Nodes** action of a backend on the **Updates** tab (`/app/updates/backend/<name>`). That page lists every node that has the backend, with its version, the models that use it and its state. A node that differs from the rest of the cluster is shown as "Differs from the cluster", not as behind, because it can be newer. The page is for administrators and is only offered when more than one node has the backend.
 
 The **Running models** view groups replicas by model. Its **View logs…** action opens logs directly when there is one placement. When a model has several, it opens the row so you can choose the logs of one replica.
 
 **Add a node** (`/app/nodes/add`) explains how a machine joins: a registered worker, a peer instance, or a memory shard. It prints the command to run on the new machine with a **Copy** button, and updates the page when the machine appears. On a single-node install it starts with the command that turns distributed mode on.
 
-Open a node for node-scoped work. The page shows its state, VRAM, RAM, models disk, CPU and in-flight requests, and has tabs for **Models** (replica logs, unload), **Backends** (upgrade, delete), **Logs**, and **Capacity and labels** (replica capacity, labels). **Drain…** shows what the drain would change before it does anything; **Remove…** asks for the node's name. A node that stopped answering says so and shows the last figures it reported.
+Open a node for node-scoped work. The page shows its state, VRAM, RAM, models disk, CPU and in-flight requests, and has tabs for **Models** (replica logs, unload), **Backends** (update, delete), **Logs**, and **Capacity and labels** (replica capacity, labels). **Drain…** shows what the drain would change before it does anything; **Remove…** asks for the node's name. **Update** in the **Backends** tab is offered only for a backend that has a newer version on this node, and asks first like the bulk button. A node that stopped answering says so and shows the last figures it reported.
 
 The "what happens if I drain this node" list is a preview worked out in the browser from the node list, the loaded replicas and the placement rules. The server does not compute it, and the scheduler also weighs free memory and disk when it loads a model, so the preview never claims a model will fit.
 
@@ -658,7 +662,7 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `POST` | `/api/nodes/:id/drain` | Admin-drain a worker |
 | `POST` | `/api/nodes/:id/approve` | Approve a pending worker node |
 | `POST` | `/api/nodes/:id/backends/install` | Install a backend on a worker |
-| `POST` | `/api/nodes/:id/backends/upgrade` | Upgrade (force-reinstall) a backend on a worker |
+| `POST` | `/api/nodes/:id/backends/upgrade` | Update (force-reinstall) a backend on a worker. Answers 202 with a job ID; the worker stops the running processes of the backend first |
 | `POST` | `/api/nodes/:id/backends/delete` | Delete a backend from a worker |
 | `POST` | `/api/nodes/:id/models/unload` | Unload a model from a worker. Cancels a load of that model on the worker first. |
 | `POST` | `/api/models/:id/load-cancel` | Cancel one load attempt (`{"job_id": "..."}`) |
