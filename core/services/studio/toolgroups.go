@@ -79,7 +79,7 @@ func (s *Service) registerToolGroups() error {
 	defs = append(defs, def{[]string{spawnAgentName}, builtins.GroupSubAgents, "Sub-agents",
 		"Start a sub-agent that works on a task and reports back.",
 		func(_ context.Context, c builtins.Chat) (bool, string) {
-			if c.SubAgent {
+			if c.SubAgent && !c.CanDelegate {
 				return false, ErrSubAgentDepth.Error()
 			}
 			return true, ""
@@ -109,7 +109,9 @@ func (s *Service) registerToolGroups() error {
 // agent of its parent.
 func (s *Service) switchesOf(ctx context.Context, rec session.ChatRecord) (off, on []string) {
 	if rec.Kind == session.KindSubAgent && rec.ParentID != "" {
-		parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
+		// The root of the tree of helpers, so a helper of a helper has the
+		// switches of the chat at the top, not those of a helper.
+		_, parent, err := s.chatDepth(ctx, rec)
 		if err == nil {
 			return mergeGroups(slices.Clone(parent.BuiltinsOff), s.agentOff(ctx, parent)), parent.BuiltinsOn
 		}

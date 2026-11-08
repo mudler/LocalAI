@@ -102,6 +102,9 @@ type Chat struct {
 	AgentID, Model string
 	// SubAgent is true for a sub-agent's conversation.
 	SubAgent bool
+	// CanDelegate is true for a sub-agent that may start sub-agents of its
+	// own: the tree of a coordinator is deeper than one level.
+	CanDelegate bool
 	// Admin is true when the user is an administrator (always without
 	// accounts).
 	Admin bool

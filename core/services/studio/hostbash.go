@@ -372,6 +372,7 @@ func (s *Service) builtinChat(ctx context.Context, a workspace.Actor, rec sessio
 	off, on := s.switchesOf(ctx, rec)
 	chat := builtins.Chat{Actor: a, Origin: rec.Origin, OriginID: rec.OriginID, Agent: rec.AgentID != "", AgentID: rec.AgentID, Model: rec.Model, SubAgent: subAgent,
 		Admin: s.isAdmin(ctx, a.Principal), GroupsOff: off, GroupsOn: on, Grants: s.chatGrants(ctx, rec), GoalActive: goalActive(rec) && !subAgent}
+	chat.CanDelegate = subAgent && s.mayDelegate(ctx, rec)
 	if rec.Origin == session.OriginConnector {
 		// A connector chat acts for the sender of the turn, not for its owner:
 		// the tools that need a right ask what that sender holds.

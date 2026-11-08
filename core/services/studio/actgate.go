@@ -3,6 +3,7 @@ package studio
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"slices"
 	"strings"
@@ -43,6 +44,18 @@ func unattended(origin string) bool {
 //     grants of its agent, and nothing without one. A coordinator chat is the
 //     same: its rights are the grants of its agent.
 func (s *Service) actPolicy(ctx context.Context, rec session.ChatRecord) (builtins.ActPolicy, bool) {
+	if rec.Kind == session.KindSubAgent {
+		// A helper has the rights of the run it belongs to, at any depth.
+		_, root, err := s.chatDepth(ctx, rec)
+		switch {
+		case errors.Is(err, session.ErrNotFound):
+			// An orphan: its run is gone and it keeps what it had.
+		case err != nil:
+			return builtins.ActPolicy{ReadOnly: true}, true
+		case rec.Origin == "":
+			rec = root
+		}
+	}
 	if !unattended(rec.Origin) {
 		return builtins.ActPolicy{}, false
 	}

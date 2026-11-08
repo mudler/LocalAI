@@ -178,3 +178,33 @@ contact, the older one gets the reply.
 **State mode.** The routing reads the coordinator store, so every frontend
 routes the same way. The queue of the binding stays per frontend, and the
 coordinator never uses it.
+
+## Helper limits
+
+A chat that is not a coordinator keeps its limits: at most 4 helpers run in the
+background at once in a conversation, and a helper starts no helper (depth 1).
+
+A coordinator has its own limits, set by its creator and capped by the operator
+(Settings, Tools: the helper ceiling and the depth ceiling):
+
+- `MaxHelpers` (default 8, at most 64) is the most helpers that run in the
+  background under the coordinator at once. It counts the whole tree, so a
+  helper of a helper counts. The operator ceiling (default 16) lowers the
+  effective value without changing what is stored.
+- `MaxDepth` (default 2, at most 4) is how many levels of helpers there may be.
+  The operator ceiling is 3 by default.
+
+A helper is offered `spawn_agent` and `wait_agents` only while it is above the
+depth limit, and its description tells it to wait for its own helpers before
+it answers. A helper never has the `contact` tool. A helper has the switches
+and the rights of the coordinator at the top of its tree, at any depth. Saved
+agents are still refused as helpers of a coordinator. `wait_agents` still
+waits at most 10 minutes.
+
+Lowering a limit never stops a helper that runs: it only blocks new ones.
+A helper that is refused is one audit row (kind `helper`, reason `helper_limit`
+or `depth_limit`).
+
+**State mode.** The count reads the shared chat store, so a helper that runs on
+another frontend counts. As for any cap that is read and then used, two
+frontends that start a helper at the same moment can pass the limit by one.

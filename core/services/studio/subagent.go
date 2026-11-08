@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
+	"github.com/mudler/LocalAI/core/services/studio/coordinator"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -82,6 +83,14 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		// The loop tools come last: a sub-agent may arm a loop of its own and
 		// wait, whatever tools its parent gave it.
 		tools = append(slices.Clone(tools), s.loopTools(ctx, a, rec)...)
+		// A helper of a coordinator may start helpers while the tree is
+		// shallower than its depth limit. Ordinary helpers never do.
+		if !s.hiddenFor(ctx, rec)[spawnAgentName] && s.mayDelegate(ctx, rec) {
+			tools = append(tools, s.spawnTool(x, false, true))
+			if s.loopAllowed(rec, contract.CapLoopsWait) {
+				tools = append(tools, s.waitAgentsTool(a))
+			}
+		}
 		return session.TurnTools{Tools: tools, Prompt: prompt, Note: workNote}, nil
 	}
 	tools, missing, heldAddons, err := s.scopedHostTools(ctx, a)
@@ -210,7 +219,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	if !sub && !hidden[spawnAgentName] {
 		// The agent argument is offered only when list_agents is: the chat
 		// switched the saved agents on and its user may use them.
-		tools = append(tools, s.spawnTool(x, hasTool(tools, listAgentsName)))
+		tools = append(tools, s.spawnTool(x, hasTool(tools, listAgentsName), false))
 		// In a connector chat the wait needs the loops.wait capability of the
 		// sender, as wait_for does.
 		if s.loopAllowed(rec, contract.CapLoopsWait) {
@@ -319,9 +328,12 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 
 // spawnTool is spawn_agent for the chat of x: a generic sub-agent gets
 // tools built from x, so it reaches what the parent's turn reaches.
-func (s *Service) spawnTool(x session.Access, savedAgents bool) session.Tool {
+func (s *Service) spawnTool(x session.Access, savedAgents, helper bool) session.Tool {
 	desc := "Start a sub-agent that works on a task and reports back. Use it for a self-contained piece of work. " +
 		"By default you wait for its answer. With wait=false it runs in the background and its result arrives later as a message."
+	if helper {
+		desc += " Wait for your own sub-agents with " + waitAgentsName + " before you answer."
+	}
 	agent := ""
 	if savedAgents {
 		desc += " With agent, the sub-agent is one of the user's saved agents (see " + listAgentsName + "): it works with that agent's instructions, model and tools."
@@ -360,7 +372,12 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 	if err != nil {
 		return "", err
 	}
-	if parent.Kind == session.KindSubAgent {
+	depth, root, err := s.chatDepth(ctx, parent)
+	if err != nil {
+		return "", err
+	}
+	if depth+1 > s.helperLimitsOf(ctx, root).Depth {
+		s.auditHelperDenied(ctx, root, coordinator.ReasonDepthLimit)
 		return "", ErrSubAgentDepth
 	}
 	if s.hiddenFor(ctx, parent)[spawnAgentName] {
@@ -381,7 +398,7 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		if err := s.savedAgentsAllowed(ctx, parent); err != nil {
 			return "", err
 		}
-		if unattended(parent.Origin) {
+		if unattended(parent.Origin) || unattended(root.Origin) {
 			// The chat of a saved agent has no origin, so it would not carry the
 			// rights of this run.
 			return "", ErrSavedAgentUnattended
@@ -419,7 +436,10 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 			model = agent.Model
 		}
 	}
-	if err := s.registerChild(ctx, a.Principal, a.ChatID, &child{id: childID, title: title, background: !wait}); err != nil {
+	if err := s.registerChild(ctx, a.Principal, parent, root, &child{id: childID, title: title, background: !wait}); err != nil {
+		if errors.Is(err, ErrSubAgentLimit) {
+			s.auditHelperDenied(ctx, root, coordinator.ReasonHelperLimit)
+		}
 		return "", err
 	}
 	now := parent.Updated
@@ -591,36 +611,55 @@ func (s *Service) subset(ctx context.Context, x session.Access, names *[]string)
 // the limit. The limit counts the parent's running sub-agents in the store, so
 // it holds across frontends: a sub-agent that a turn on another frontend
 // started still counts. Children registered here but not yet running count too.
-func (s *Service) registerChild(ctx context.Context, p, conv string, c *child) error {
-	parentKey := key(p, conv)
+// For the helpers of a coordinator the limit is for the whole tree under its
+// chat: a helper of a helper counts.
+func (s *Service) registerChild(ctx context.Context, p string, parent, root session.ChatRecord, c *child) error {
+	parentKey := key(p, parent.ID)
+	lim := s.helperLimitsOf(ctx, root)
 	running := map[string]bool{}
+	// The chats whose registered children count: the parent, or the whole tree.
+	scope := map[string]bool{parent.ID: true}
 	if c.background {
-		kids, err := s.runningChildren(ctx, p, conv)
+		var err error
+		if lim.Tree {
+			running, scope, err = s.treeState(ctx, p, root)
+		} else {
+			var kids []session.ChatRecord
+			if kids, err = s.runningChildren(ctx, p, parent.ID); err == nil {
+				for _, k := range kids {
+					running[k.ID] = true
+				}
+			}
+		}
 		if err != nil {
 			return err
-		}
-		for _, k := range kids {
-			running[k.ID] = true
 		}
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if c.background {
 		n := len(running)
-		for id, k := range s.children[parentKey] {
-			if k.background && !running[id] {
-				n++
+		for id := range scope {
+			for kid, k := range s.children[key(p, id)] {
+				if k.background && !running[kid] {
+					n++
+				}
 			}
 		}
-		if n >= maxBackgroundChildren {
+		if n >= lim.Background {
 			return ErrSubAgentLimit
 		}
 	}
+	s.addChild(parentKey, c)
+	return nil
+}
+
+// addChild records c under its parent. The caller holds s.mu.
+func (s *Service) addChild(parentKey string, c *child) {
 	if s.children[parentKey] == nil {
 		s.children[parentKey] = map[string]*child{}
 	}
 	s.children[parentKey][c.id] = c
-	return nil
 }
 
 // runningChildren returns the sub-agent chats of a conversation whose turn
