@@ -374,3 +374,8 @@ The audit routes take `kind`, `outcome`, `since` and `until` (RFC 3339), `limit`
 (default 50, at most 500) and `before`. The answer is `{entries, next_before}`,
 newest first; pass `next_before` as `before` for the next page. It is absent on
 the last page. A non-administrator only ever sees rows of their own coordinators.
+
+An administrator can also pause, resume and read the audit through the
+[LocalAI assistant]({{%relref "features/localai-assistant" %}}) tools
+`list_coordinators`, `pause_coordinator`, `resume_coordinator` and
+`list_coordinator_audit`. Making a coordinator is a user act and has no tool.

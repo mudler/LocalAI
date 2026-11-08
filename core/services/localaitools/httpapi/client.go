@@ -1021,6 +1021,61 @@ func (c *Client) ListHostExecEvents(ctx context.Context, limit int) ([]localaito
 	return out.Events, nil
 }
 
+func (c *Client) ListCoordinators(ctx context.Context) ([]localaitools.Coordinator, error) {
+	var out schema.ChatsAdminCoordinatorList
+	if err := c.do(ctx, http.MethodGet, routeCoordinators, nil, &out); err != nil {
+		return nil, err
+	}
+	list := make([]localaitools.Coordinator, 0, len(out.Coordinators))
+	for _, v := range out.Coordinators {
+		list = append(list, coordinatorOf(v))
+	}
+	return list, nil
+}
+
+func coordinatorOf(v schema.ChatsAdminCoordinator) localaitools.Coordinator {
+	return localaitools.Coordinator{ID: v.ID, Owner: v.Owner, Name: v.Name, Paused: v.Paused, PausedBy: v.PausedBy,
+		NextWake: v.NextWake, RunsToday: v.Usage.RunsToday, SentToday: v.Usage.SentToday}
+}
+
+func (c *Client) setCoordinatorPause(ctx context.Context, id, action string) (*localaitools.Coordinator, error) {
+	var out schema.ChatsAdminCoordinator
+	if err := c.do(ctx, http.MethodPost, routeCoordinatorState(id, action), nil, &out); err != nil {
+		return nil, err
+	}
+	v := coordinatorOf(out)
+	return &v, nil
+}
+
+func (c *Client) PauseCoordinator(ctx context.Context, id string) (*localaitools.Coordinator, error) {
+	return c.setCoordinatorPause(ctx, id, "pause")
+}
+
+func (c *Client) ResumeCoordinator(ctx context.Context, id string) (*localaitools.Coordinator, error) {
+	return c.setCoordinatorPause(ctx, id, "resume")
+}
+
+func (c *Client) ListCoordinatorAudit(ctx context.Context, q localaitools.CoordinatorAuditQuery) ([]localaitools.CoordinatorAuditEntry, error) {
+	v := url.Values{}
+	for k, s := range map[string]string{"coordinator": q.Coordinator, "kind": q.Kind, "outcome": q.Outcome} {
+		if s != "" {
+			v.Set(k, s)
+		}
+	}
+	if q.Limit > 0 {
+		v.Set("limit", strconv.Itoa(q.Limit))
+	}
+	path := routeCoordinatorAudit
+	if len(v) > 0 {
+		path += "?" + v.Encode()
+	}
+	var out schema.ChatsCoordinatorAuditList
+	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Entries, nil
+}
+
 func (c *Client) GetChatEgress(ctx context.Context) (*localaitools.ChatEgress, error) {
 	var out localaitools.ChatEgress
 	if err := c.do(ctx, http.MethodGet, routeChatEgress, nil, &out); err != nil {

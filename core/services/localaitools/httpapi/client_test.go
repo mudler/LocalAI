@@ -629,6 +629,49 @@ var _ = Describe("Shared folders", func() {
 		Expect(evs[0].Command).To(Equal("ls"))
 	})
 
+	It("calls the coordinator admin routes with the right method, path and query", func() {
+		var seen []string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer GinkgoRecover()
+			seen = append(seen, r.Method+" "+r.URL.Path)
+			switch r.URL.Path {
+			case "/api/chats/admin/coordinators":
+				_, _ = w.Write([]byte(`{"coordinators":[{"id":"a1","owner":"alice","name":"Ops","paused":true,"paused_by":"root","next_wake":"2026-11-08T10:00:00Z","usage":{"runs_today":2,"sent_today":3}}]}`))
+			case "/api/chats/admin/coordinators/a1/pause":
+				_, _ = w.Write([]byte(`{"id":"a1","owner":"alice","name":"Ops","paused":true,"paused_by":"root","usage":{}}`))
+			case "/api/chats/admin/coordinators/a1/resume":
+				_, _ = w.Write([]byte(`{"id":"a1","owner":"alice","name":"Ops","paused":false,"usage":{}}`))
+			case "/api/chats/admin/coordinators/audit":
+				Expect(r.URL.Query().Get("coordinator")).To(Equal("a1"))
+				Expect(r.URL.Query().Get("kind")).To(Equal("contact"))
+				Expect(r.URL.Query().Get("limit")).To(Equal("5"))
+				_, _ = w.Write([]byte(`{"entries":[{"id":7,"at":"2026-11-08T09:00:00Z","coordinator_id":"a1","owner":"alice","kind":"contact","outcome":"denied","reason":"paused"}]}`))
+			default:
+				Fail("unexpected path " + r.URL.Path)
+			}
+		}))
+		DeferCleanup(srv.Close)
+		c := New(srv.URL, "")
+		list, err := c.ListCoordinators(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1))
+		Expect(list[0].Paused).To(BeTrue())
+		Expect(list[0].RunsToday).To(Equal(2))
+		Expect(list[0].NextWake).NotTo(BeNil())
+		p, err := c.PauseCoordinator(ctx, "a1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.PausedBy).To(Equal("root"))
+		r, err := c.ResumeCoordinator(ctx, "a1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(r.Paused).To(BeFalse())
+		rows, err := c.ListCoordinatorAudit(ctx, localaitools.CoordinatorAuditQuery{Coordinator: "a1", Kind: "contact", Limit: 5})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rows).To(HaveLen(1))
+		Expect(rows[0].Reason).To(Equal("paused"))
+		Expect(seen).To(Equal([]string{"GET /api/chats/admin/coordinators", "POST /api/chats/admin/coordinators/a1/pause",
+			"POST /api/chats/admin/coordinators/a1/resume", "GET /api/chats/admin/coordinators/audit"}))
+	})
+
 	It("reads the Sandbox network settings and audit, and sets the ceiling through the settings", func() {
 		var posted map[string]any
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

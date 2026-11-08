@@ -131,6 +131,19 @@ type LocalAIClient interface {
 	// bash ran on this machine, newest first.
 	ListHostExecEvents(ctx context.Context, limit int) ([]HostExecEvent, error)
 
+	// ---- Coordinators ----
+
+	// ListCoordinators lists the coordinators of every user with their pause
+	// state, next wake and use today.
+	ListCoordinators(ctx context.Context) ([]Coordinator, error)
+	// PauseCoordinator pauses a coordinator of any user: all outbound stops, its
+	// run and helpers are cancelled and its messages are held until resume.
+	PauseCoordinator(ctx context.Context, id string) (*Coordinator, error)
+	// ResumeCoordinator lifts the pause and starts the held messages.
+	ResumeCoordinator(ctx context.Context, id string) (*Coordinator, error)
+	// ListCoordinatorAudit reads the audit log of the coordinators, newest first.
+	ListCoordinatorAudit(ctx context.Context, q CoordinatorAuditQuery) ([]CoordinatorAuditEntry, error)
+
 	// ---- Sandbox network ----
 
 	// GetChatEgress returns the settings of the network of the chats' Sandbox

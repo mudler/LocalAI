@@ -53,6 +53,8 @@ var toolToHTTPRoute = map[string]string{
 	ToolListHostExecEvents:        "GET /api/chats/admin/host-exec/events",
 	ToolGetChatEgress:             "GET /api/chats/admin/egress",
 	ToolListEgressEvents:          "GET /api/chats/admin/egress/events",
+	ToolListCoordinators:          "GET /api/chats/admin/coordinators",
+	ToolListCoordinatorAudit:      "GET /api/chats/admin/coordinators/audit",
 	ToolListFailoverChains:        "GET /api/failover",
 
 	// Mutating tools.
@@ -86,6 +88,8 @@ var toolToHTTPRoute = map[string]string{
 	// chats_egress_allow_private is deliberately not a tool (uiOnly): see
 	// adminRoutesWithoutTool.
 	ToolSetChatEgressCeiling: "POST /api/settings (chats_egress_ceiling)",
+	ToolPauseCoordinator:     "POST /api/chats/admin/coordinators/:id/pause",
+	ToolResumeCoordinator:    "POST /api/chats/admin/coordinators/:id/resume",
 	// DELETE /api/chats/files/trash and DELETE /api/chats/files/trash/:rev are
 	// deliberately not tools. They delete a user's own files for good and
 	// touch only that user's Trash, so they are the user's act, not
