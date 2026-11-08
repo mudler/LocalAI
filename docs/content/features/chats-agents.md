@@ -948,9 +948,15 @@ sources existed), a short title and text, and a link to the chat it is about.
 A chat that a run started is unread until you open it: opening the chat marks
 its notifications read.
 
-In the chat page, the **Notifications** button in the header shows the unread
-count (99+ above 99) and opens the panel (a sheet over the bottom of the
-screen on a phone):
+The **Notifications** entry is in the app on every page, not only in the chat
+page. On a wide screen it sits in the sidebar, above **Administration**; on a
+narrow screen it is an icon of the rail; on a phone it is a bell in the header
+(and an entry in the menu). It shows the unread count (99+ above 99), in red
+when an unread item is a failure, and opens one panel (a sheet over the bottom
+of the screen on a phone). An administrator always sees the entry. Anyone else
+sees it once they have items. Nobody sees it when the chats are off or the
+account lacks the `chats` feature. A change that waits for you is listed in the
+panel but is not in the count. In the panel:
 
 - **All**, **Unread** and **Failed** filter the list. **Failed** shows every
   failed run and every trigger or connector that was switched off.
