@@ -57,6 +57,30 @@ store, so every frontend of a cluster sees the same state. A standalone server
 without a database keeps them in files under the data path. The wake-ups run on
 one frontend at a time, the one that holds the reaper lock.
 
+## Its page
+
+A coordinator keeps its state in its page folder, `pages/<name>/` (the `page`
+field). It writes the page with its own file tools, for example `write_file`
+on `index.html`. The write is direct: it is not a proposal, nothing waits for
+your confirmation, and `propose_change` is not offered to the chat. The page
+stays sandboxed like any page, and only you and the members you shared the
+agent with can see it.
+
+The write is a file action of a chat that nobody watches, so it needs the grant
+`act.files` on the agent. A new coordinator gets the grant from the preset. If
+you remove it, the file tools refuse every write with the sentence that
+unattended chats always get, and the model reads that it needs `act.files`; no
+proposal is made instead. That is your choice to make, and the server does not
+force it.
+
+The folder is a fence. When `page` is set, a write can reach only that folder:
+an absolute path is read inside it, and a path that climbs out of it is
+refused. A helper writes the page only with a file tool. A helper started with
+a list of tools that does not name `write_file` has none. A helper that has the
+default tools has the file tools of the coordinator and the same rights, which
+are the rights of the coordinator at the top of its tree at any depth, so a
+coordinator without `act.files` has helpers that cannot write either.
+
 ## Pause, budget and held messages
 
 These limits are enforced in the server, never only in the prompt. A message
