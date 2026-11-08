@@ -8517,3 +8517,7 @@ button.lane:hover {
 
 /* Pinned apps under the Apps entry: their labels line up with the labels above them. */
 .sidebar-nav .nav-item.nav-item--sub { padding-inline-start: 36px; }
+
+/* The app's stand-in while the server cannot say who is signed in. */
+.auth-unreachable { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: var(--sp-4); }
+.auth-unreachable > * { max-width: 32rem; }
