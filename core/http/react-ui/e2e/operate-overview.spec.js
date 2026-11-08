@@ -23,8 +23,6 @@ const ONE_UPGRADE = {
 
 // A quiet installation: nothing running, nothing stale, every node healthy.
 async function mockQuiet(page, { upgrades = NO_UPGRADES, operations = [] } = {}) {
-  await page.route('**/api/backends/upgrades', route =>
-    route.fulfill({ json: upgrades }))
   // The shell reads the update read model; the Status page names its items.
   await mockReadModel(page, upgrades)
   await page.route('**/api/operations', route =>
@@ -52,14 +50,21 @@ test.describe('Administration overview', () => {
     await expect(page.locator(ITEM)).toHaveCount(0)
   })
 
-  test('a stale backend becomes an attention item naming the version jump', async ({ page }) => {
-    await mockQuiet(page, { upgrades: ONE_UPGRADE })
+  test('the backends with an update are one attention item that opens the Updates page', async ({ page }) => {
+    await mockQuiet(page, { upgrades: { ...ONE_UPGRADE, whisper: { backend_name: 'whisper', installed_version: '1.7.2', available_version: '1.8.0' } } })
+    let started = 0
+    await page.route('**/api/backends/upgrade/*', route => { started += 1; return route.fulfill({ json: {} }) })
     await page.goto('/app/operate')
-    const item = page.locator(ITEM, { hasText: 'llama-cpp' })
-    await expect(item).toBeVisible()
-    await expect(item).toContainText('0.9.4')
-    await expect(item).toContainText('0.9.7')
+    const items = page.locator(ITEM)
+    await expect(items).toHaveCount(1)
+    const item = items.first()
+    await expect(item).toContainText('2 updates available')
+    await expect(item).toContainText('llama-cpp, whisper')
     await expect(page.locator(CLEAR)).toHaveCount(0)
+    // It is a link: nothing starts here.
+    await item.getByTestId('operate-review-updates').click()
+    await expect(page).toHaveURL(/\/app\/updates\?filter=ready/)
+    expect(started).toBe(0)
   })
 
   test('a failed operation becomes an attention item', async ({ page }) => {
@@ -130,10 +135,10 @@ test.describe('Administration overview', () => {
   })
 
   test('does not poll the summary away from Operate', async ({ page }) => {
-    let upgradeCalls = 0
-    await page.route('**/api/backends/upgrades', route => {
-      upgradeCalls += 1
-      route.fulfill({ json: NO_UPGRADES })
+    let summaryCalls = 0
+    await page.route('**/api/resources', route => {
+      summaryCalls += 1
+      route.fulfill({ json: {} })
     })
     await page.route('**/api/operations', route => route.fulfill({ json: [] }))
     await page.goto('/app/chats')
@@ -141,7 +146,7 @@ test.describe('Administration overview', () => {
     await page.waitForTimeout(1500)
     // Nobody asked for this data outside Operate; a dashboard-shaped poll on
     // every page is exactly what OperationsContext exists to avoid.
-    expect(upgradeCalls).toBe(0)
+    expect(summaryCalls).toBe(0)
   })
 })
 

@@ -4,6 +4,7 @@ import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
 import { useUpdates } from './UpdatesContext'
 import { useDistributedMode } from '../hooks/useDistributedMode'
+import { galleryUpdateMap } from '../utils/updates'
 import { appendSample, capacityOf } from '../utils/operateStatus'
 
 // The state of the installation, assembled once for everything in the Operate
@@ -59,16 +60,9 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
   // used to poll /api/backends/upgrades itself every 15 s for the same fact.
   const updates = useUpdates()
   const updateRows = updates && updates.rows
-  // The shape the attention list and the Nodes page already read: the gallery
-  // backends that have a newer build, by name, with the nodes that differ.
-  const upgrades = useMemo(() => Object.fromEntries((updateRows || [])
-    .filter(r => r.kind === 'gallery' && (r.state === 'ready' || r.state === 'blocked'))
-    .map(r => [r.name, {
-      backend_name: r.name,
-      installed_version: r.installedVersion || r.from,
-      available_version: r.availableVersion || r.to,
-      node_drift: (r.nodes || []).filter(n => n.drift).map(n => ({ node_id: n.nodeId, node_name: n.nodeName, version: n.version })),
-    }])), [updateRows])
+  // The gallery backends that have a newer build, by name, with the nodes
+  // that differ.
+  const upgrades = useMemo(() => galleryUpdateMap(updateRows), [updateRows])
   // The cluster API answers 503 when distributed mode is off, so asking for it
   // on a single-node install is a guaranteed miss on every tick. The rail gates
   // the Nodes entry the same way.
@@ -113,13 +107,12 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
     // problem, so a running install belongs in the rail's activity count and
     // not in here.
     const attention = [
-      ...upgradeList.map(u => ({
-        id: `upgrade:${u.backend_name}`,
+      ...(upgradeList.length > 0 ? [{
+        id: 'updates',
         kind: 'backend-update',
-        name: u.backend_name,
-        from: u.installed_version,
-        to: u.available_version,
-      })),
+        count: upgradeList.length,
+        names: upgradeList.map(u => u.backend_name),
+      }] : []),
       ...failedOps.map(op => ({
         id: `op:${op.id || op.uid || op.name}`,
         kind: 'operation-failed',
