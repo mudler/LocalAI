@@ -77,7 +77,7 @@ test.describe('Add-ons: notices', () => {
     await expect(notice).toHaveClass(/ui-notice/)
     await expect(notice).toContainText('1.3.0')
     await shoot(page, 'pane-update')
-    await notice.getByRole('button', { name: /^Upgrade/ }).click()
+    await notice.getByRole('button', { name: /^Update/ }).click()
     await expect(page.getByTestId('upgrade-confirm')).toContainText('1.3.0')
   })
 
@@ -98,7 +98,7 @@ test.describe('Add-ons: notices', () => {
     // The plain update notice steps aside: one Upgrade, on the failure.
     await expect(page.getByTestId('pane-update')).toHaveCount(0)
     await shoot(page, 'enable-incompatible')
-    await notice.getByRole('button', { name: /^Upgrade/ }).click()
+    await notice.getByRole('button', { name: /^Update/ }).click()
     await expect(page.getByTestId('upgrade-confirm')).toContainText('1.5.0')
   })
 

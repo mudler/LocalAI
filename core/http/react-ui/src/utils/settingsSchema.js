@@ -26,7 +26,7 @@
 export const GROUPS = [
   { id: 'memory', label: 'Models in memory', hint: 'When models stop, what gets evicted, GPU budget', icon: 'memory' },
   { id: 'speed', label: 'Speed and defaults', hint: 'Threads, context window, downloads', icon: 'gauge' },
-  { id: 'backends', label: 'Backends and galleries', hint: 'Upgrades, gallery sources, start-up loading', icon: 'boxes' },
+  { id: 'backends', label: 'Backends and galleries', hint: 'Updates, gallery sources, start-up loading', icon: 'boxes' },
   { id: 'access', label: 'Access and security', hint: 'Cross-origin rules, CSRF, legacy API keys', icon: 'shield' },
   { id: 'debug', label: 'Debugging and traces', hint: 'Verbose logs, request traces, backend output', icon: 'bug' },
   { id: 'agents', label: 'Chats and collections', hint: 'Chat media models, collections, stored responses', icon: 'robot' },
@@ -113,7 +113,7 @@ export const FIELDS = [
   { key: 'artifact_download_concurrency', group: 'speed', was: 'performance', kind: 'int', label: 'Artifact Download Concurrency',
     desc: 'Maximum artifact files downloaded at once. 1 downloads one after the other.', default: 1, min: 1 },
   { key: 'max_concurrent_backend_operations', group: 'backends', was: 'backends', kind: 'int', label: 'Concurrent backend operations',
-    desc: 'Backend installs, upgrades and deletes that run at once. 1 runs them one after the other. Operations on the same backend never overlap.', default: 1, min: 1 },
+    desc: 'Backend installs, updates and deletes that run at once. 1 runs them one after the other. Operations on the same backend never overlap.', default: 1, min: 1 },
   { key: 'f16', group: 'speed', was: 'performance', kind: 'bool', label: 'F16 precision',
     desc: 'Use 16-bit floating point for reduced memory use.', default: false },
 

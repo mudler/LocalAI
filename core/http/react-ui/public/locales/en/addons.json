@@ -68,7 +68,7 @@
       "paused": "Add-on pages and tools are paused until it is back."
     },
     "busy": {
-      "upgrading": "The add-on server is busy (upgrading {{names}})",
+      "upgrading": "The add-on server is busy (updating {{names}})",
       "generic": "The add-on server is busy",
       "unreachable": "The add-on server cannot be reached",
       "reason": "Showing the last known state. This page asks again by itself.",
@@ -489,7 +489,7 @@
     },
     "state": {
       "ready": "Ready",
-      "upgrading": "Upgrading",
+      "upgrading": "Updating",
       "restoring": "Restoring",
       "needs-recovery": "Needs recovery",
       "purging": "Purging"
@@ -593,44 +593,44 @@
     "installed": "Installed",
     "candidate": "Available",
     "reasons": "Why it does not fit",
-    "upgrade": "Upgrade",
+    "upgrade": "Update",
     "confirm": {
-      "title": "Upgrade {{name}} to {{version}}?",
+      "title": "Update {{name}} to {{version}}?",
       "body": "The add-on stops while its data is backed up and migrated, then the new version starts. If the new version does not start, the current version keeps running.",
       "data": "Its data is backed up before anything changes.",
-      "action": "Upgrade",
+      "action": "Update",
       "library": "Library",
       "channel": "Channel",
       "from": "From",
       "to": "To"
     },
-    "progress": "Upgrading {{name}}. Its data is backed up first.",
-    "done": "Upgraded to version {{version}}.",
+    "progress": "Updating {{name}}. Its data is backed up first.",
+    "done": "Updated to version {{version}}.",
     "errors": {
       "stale_installed": "The installed version changed since it was checked. Check for updates again.",
       "candidate_changed": "The library no longer offers the version you checked. Check for updates again.",
-      "upgrade_conflict": "This upgrade is already recorded under another operation. It was not applied twice.",
+      "upgrade_conflict": "This update is already recorded under another operation. It was not applied twice.",
       "incompatible": "The new version is not compatible with this host. Nothing was changed.",
       "integrity_error": "The library lists the installed version with different contents. Nothing was changed.",
-      "upgrade_failed": "The upgrade did not complete and the installed version is kept. You can try again.",
+      "upgrade_failed": "The update did not complete and the installed version is kept. You can try again.",
       "operation_conflict": "The operation does not fit the current state. Nothing was applied.",
-      "check_failed": "The library could not be read, so the upgrade was not started. Nothing was changed.",
-      "unknownOutcome": "The result of the upgrade is not known. Read its status again; do not start another.",
+      "check_failed": "The library could not be read, so the update was not started. Nothing was changed.",
+      "unknownOutcome": "The result of the update is not known. Read its status again; do not start another.",
       "auth": "Sign in again to continue.",
       "denied": "Only an administrator can do this from their own browser session.",
       "network": "The network is not reachable.",
       "unavailable": "The add-on service is not available. Try again."
     },
-    "upgradeNamed": "Upgrade {{name}}",
+    "upgradeNamed": "Update {{name}}",
     "why": {
-      "role": "An update is available. Only an administrator can upgrade it.",
+      "role": "An update is available. Only an administrator can update it.",
       "needs-check": "An update is reported, but its details are not confirmed yet. Check again to confirm it.",
       "check-failed": "The last check failed, so the update cannot be confirmed. Check again.",
       "incompatible": "An update exists but cannot run here:",
       "integrity": "The library lists this version with different contents. It is not offered as an update.",
-      "recovery": "The data of this add-on needs recovery first. Restore a backup in Details, then upgrade.",
+      "recovery": "The data of this add-on needs recovery first. Restore a backup in Details, then update.",
       "current": "The latest check found no update. The notice may be out of date. Check again.",
-      "unpinned": "The library reports an update but names no build to install, so it cannot be upgraded from here. Check again later."
+      "unpinned": "The library reports an update but names no build to install, so it cannot be updated from here. Check again later."
     },
     "checkAll": "Check for updates",
     "notCheckedYet": "Updates have not been checked yet.",
@@ -640,7 +640,7 @@
       "failed": "The check did not complete.",
       "justNow": "Checked just now."
     },
-    "waitingService": "The add-on service is starting. LocalAI asks about the upgrade again in {{seconds}} s.",
+    "waitingService": "The add-on service is starting. LocalAI asks about the update again in {{seconds}} s.",
     "checkAgain": "Check now",
     "open": "Open Updates"
   },
@@ -782,9 +782,9 @@
   "hostAccess": {
     "addonsTitle": "Add-ons",
     "approve": {
-      "action": "Approve and upgrade",
+      "action": "Approve and update",
       "body": "Version {{current}} of {{name}} keeps running. If you approve, the new version can run these actions. New ones are marked.",
-      "done": "{{name}} was upgraded.",
+      "done": "{{name}} was updated.",
       "title": "Approve host access for {{name}} {{version}}"
     },
     "asksNothing": "This add-on asks for no host access.",
@@ -1016,7 +1016,7 @@
   "operation": {
     "kind": {
       "install": "Installing…",
-      "upgrade": "Upgrading…",
+      "upgrade": "Updating…",
       "uninstall": "Removing…",
       "enable": "Starting…",
       "disable": "Stopping…",

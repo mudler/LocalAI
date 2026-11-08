@@ -489,7 +489,7 @@
     },
     "state": {
       "ready": "Bereit",
-      "upgrading": "Upgrade läuft",
+      "upgrading": "Update läuft",
       "restoring": "Wiederherstellung läuft",
       "needs-recovery": "Wiederherstellung nötig",
       "purging": "Bereinigung läuft"
@@ -640,7 +640,7 @@
       "failed": "Die Prüfung wurde nicht abgeschlossen.",
       "justNow": "Gerade eben geprüft."
     },
-    "waitingService": "Der Add-on-Dienst startet. LocalAI fragt in {{seconds}} s erneut nach dem Upgrade.",
+    "waitingService": "Der Add-on-Dienst startet. LocalAI fragt in {{seconds}} s erneut nach der Aktualisierung.",
     "checkAgain": "Jetzt prüfen",
     "open": "Aktualisierungen öffnen"
   },

@@ -62,7 +62,7 @@ test.describe('Add-ons: Check again on the card', () => {
     await expect(card.getByTestId('update-upgrade-card')).toBeVisible({ timeout: 15_000 })
     await card.getByTestId('update-upgrade-card').click()
     await expect(page.getByTestId('upgrade-confirm')).toContainText('0.0.0-development.bbbbbbbbbbbb')
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Upgrade' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Update' }).click()
     await expect.poll(() => state.log.upgrade.length).toBe(1)
     expect(state.log.upgrade[0]).toMatchObject({ id: 'talk', candidateDigest: CANDIDATE, expectedDigest: 'sha256:' + 'a'.repeat(64) })
   })
