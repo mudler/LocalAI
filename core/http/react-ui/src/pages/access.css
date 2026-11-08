@@ -12,7 +12,9 @@
 .us-page, .ac-page { --dk-font-display: var(--font-sans); --dk-font-body: var(--font-sans); display: flex; flex-direction: column; gap: var(--dk-space-4); min-width: 0; }
 /* Account: the page frame (PageHeader) gives the 24 px under the header. */
 .ac-page { gap: 0; }
-.ac-page > .dk-tabs { margin-bottom: var(--sp-5); }
+/* The Connections pages leave the same 24 px under their tab strip. */
+.ac-page > .dk-tabs { margin-bottom: var(--sp-6); }
+.ac-page > .dk-tabpanel { padding-top: 0; }
 
 /* ---- Heads ---------------------------------------------------------------- */
 .us-head, .ac-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--dk-space-3); padding-top: var(--dk-space-3); }
@@ -110,8 +112,10 @@
 .ak-reveal__key { flex: 1 1 260px; min-width: 0; padding: var(--dk-space-2) var(--dk-space-3); border-radius: var(--dk-radius-1); background: var(--dk-inset); font: var(--dk-text-13) / 1.5 var(--dk-font-mono); overflow-wrap: anywhere; user-select: all; }
 .ak-reveal__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--dk-space-3); font-size: var(--dk-text-13); color: var(--dk-muted); }
 
-.ak-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--dk-edge); }
-.ak-item { padding: var(--dk-space-3) 0; border-bottom: 1px solid var(--dk-edge); }
+/* The same bordered card as the rows of the Connections lists (.cn-list). */
+.ak-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--dk-edge); border-radius: var(--r-lg); background: var(--dk-card); overflow: hidden; }
+.ak-item { padding: var(--sp-3) var(--sp-4); }
+.ak-item + .ak-item { border-top: 1px solid var(--dk-edge); }
 .ak-item[data-revoking] .ak-row__main > :not(.ak-row__undo) { opacity: .6; }
 .ak-row { display: flex; align-items: center; gap: var(--dk-space-3); min-width: 0; }
 .ak-row__icon { flex: none; font-size: 18px; color: var(--dk-muted); }
