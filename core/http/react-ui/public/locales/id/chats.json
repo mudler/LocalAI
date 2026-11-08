@@ -72,7 +72,7 @@
     "supporting": "Hubungkan server MCP untuk memberi chat dan agen Anda lebih banyak alat, seperti pencarian atau API Anda sendiri.",
     "related": "Terkait",
     "chats": "Chat",
-    "add": "Tambah konektor",
+    "add": "Konektor baru",
     "learn": "Cara kerja MCP",
     "loading": "Memuat konektor Anda",
     "loadFailed": "Tidak dapat memuat konektor Anda.",
@@ -170,7 +170,7 @@
       "encrypted": "Disimpan terenkripsi di server. Tidak pernah ditampilkan lagi."
     },
     "sheet": {
-      "addTitle": "Tambah konektor",
+      "addTitle": "Konektor baru",
       "editTitle": "Ubah {{name}}",
       "addDesc": "Hubungkan server MCP. Anda mengujinya sebelum chat memakainya.",
       "editDesc": "Rahasia yang tersimpan tetap ada kecuali Anda mengganti atau menghapusnya.",
@@ -329,7 +329,7 @@
         "tooManyLogins": "Terlalu banyak login yang dimulai. Selesaikan login di tab lain, atau tunggu beberapa menit lalu coba lagi."
       },
       "add": {
-        "open": "Tambah koneksi",
+        "open": "Koneksi baru",
         "title": "Koneksi {{name}} baru",
         "name": "Nama",
         "hint": "Nama yang mudah Anda kenali, misalnya Kerja atau Pribadi. Setelah koneksi ditambahkan, pilih Hubungkan untuk masuk ke akun Anda.",
@@ -498,7 +498,7 @@
       "sole": "Ini satu-satunya koneksi Anda, jadi dipakai.",
       "choose": "Pilih setidaknya satu koneksi untuk memakai alat ini",
       "none": "Belum ada koneksi",
-      "create": "Tambah koneksi",
+      "create": "Koneksi baru",
       "byAgent": "Agen chat ini menetapkan koneksi. Ubah di agen.",
       "agentLabel": "Koneksi untuk chat agen ini",
       "agentHelp": "Chat agen ini hanya boleh memakai koneksi ini dan tidak bisa mengubahnya.",

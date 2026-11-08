@@ -156,8 +156,27 @@ func (g *GalleryService) DeleteBackend(name string) error {
 	return mgr.DeleteBackend(name)
 }
 
+// opWriteRejected reports whether next must not replace prev. A processed
+// operation is terminal and absorbing: a handler error or a late progress tick
+// that lands after a cancel (or after completion) would otherwise drop the
+// Cancelled flag and persist "failed" or reopen the operation. The one write
+// let through is a Processed+Cancelled update to an already cancelled
+// operation, because the handler reports its own cancellation that way and
+// the result is the same terminal state.
+func opWriteRejected(prev, next *OpStatus) bool {
+	if prev == nil || next == nil || !prev.Processed {
+		return false
+	}
+	return !(prev.Cancelled && next.Cancelled && next.Processed)
+}
+
 func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 	g.Lock()
+	if opWriteRejected(g.statuses[s], op) {
+		g.Unlock()
+		xlog.Debug("Ignoring status update on a finished gallery operation", "op_id", s)
+		return
+	}
 	// Preserve any per-node entries already accumulated by UpdateNodeProgress:
 	// the legacy progressCb path (used by the Phase 2 install bridge) calls
 	// UpdateStatus with a fresh *OpStatus on every tick, which would otherwise
@@ -276,6 +295,9 @@ func (g *GalleryService) mergeStatus(opID string, op *OpStatus) {
 	}
 	g.Lock()
 	defer g.Unlock()
+	if opWriteRejected(g.statuses[opID], op) {
+		return
+	}
 	if len(op.Nodes) == 0 {
 		if prev := g.statuses[opID]; prev != nil && len(prev.Nodes) > 0 {
 			op.Nodes = prev.Nodes
@@ -301,6 +323,9 @@ func (g *GalleryService) UpdateNodeProgress(opID, nodeID string, np NodeProgress
 	if status == nil {
 		status = &OpStatus{}
 		g.statuses[opID] = status
+	}
+	if status.Processed {
+		return
 	}
 	merged := false
 	for i := range status.Nodes {

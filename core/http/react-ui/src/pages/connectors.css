@@ -158,7 +158,7 @@
 }
 
 /* The tab strip of the Connections pages: links in the kit tab style. */
-.cn-tabs { margin-bottom: var(--dk-space-4); }
+.cn-tabs { margin-bottom: var(--sp-6); }
 .cn-tabs .dk-tab { text-decoration: none; }
 .cn-tabs .dk-tab[aria-current="page"] { color: var(--dk-text); }
 .cn-tabs .dk-tab[aria-current="page"]::after { transform: scaleX(1); }

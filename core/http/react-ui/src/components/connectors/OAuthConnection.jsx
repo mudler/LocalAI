@@ -69,7 +69,7 @@ export default function OAuthConnection({ binding, login, isAdmin, starting = fa
     return (
       <div className="cn-oauth cn-oauth--callout" data-testid="oauth-connection" data-state="reconnect_needed">
         <Callout tone="warn" title={t('connectorsPage.oauth.reconnectTitle')} testId="oauth-reconnect" data-reason={state.reasonKey}
-          actions={<Button size="sm" variant="primary" icon="refresh" busy={starting} disabled={disabled} onClick={connect} data-testid="oauth-connect">{t('connectorsPage.oauth.reconnect')}</Button>}>
+          actions={<Button size="sm" icon="refresh" busy={starting} disabled={disabled} onClick={connect} data-testid="oauth-connect">{t('connectorsPage.oauth.reconnect')}</Button>}>
           {t(`connectorsPage.oauth.reason.${state.reasonKey}`)}
         </Callout>
         {ticks}
@@ -99,7 +99,7 @@ export default function OAuthConnection({ binding, login, isAdmin, starting = fa
         <span className="cn-oauth__status cn-oauth__muted">{t('connectorsPage.oauth.notConnected')}</span>
         {ticks}
       </div>
-      <Button size="sm" variant="primary" icon="log-in" busy={starting} disabled={disabled} onClick={connect} data-testid="oauth-connect">
+      <Button size="sm" icon="log-in" busy={starting} disabled={disabled} onClick={connect} data-testid="oauth-connect">
         {t('connectorsPage.oauth.connect')}
       </Button>
     </div>

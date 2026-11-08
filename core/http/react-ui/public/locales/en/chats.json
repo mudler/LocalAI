@@ -424,7 +424,7 @@
         "tooManyLogins": "Too many logins were started. Finish the one in the other tab, or wait a few minutes and try again."
       },
       "add": {
-        "open": "Add a connection",
+        "open": "New connection",
         "title": "New {{name}} connection",
         "name": "Name",
         "hint": "A name you recognize, such as Work or Personal. After you add the connection, select Connect to log in to your account.",
@@ -626,7 +626,7 @@
       "sole": "This is your only connection, so it is used.",
       "choose": "Choose at least one connection to use these tools",
       "none": "No connection yet",
-      "create": "Add a connection",
+      "create": "New connection",
       "byAgent": "The agent of this chat sets the connections. Change them on the agent.",
       "agentLabel": "Connections for chats of this agent",
       "agentHelp": "Chats of this agent may use only these connections and cannot change them.",
@@ -720,7 +720,7 @@
     "supporting": "Connect MCP servers to give your chats and agents more tools, such as search or your own APIs.",
     "related": "Related",
     "chats": "Chats",
-    "add": "Add connector",
+    "add": "New connector",
     "learn": "How MCP works",
     "loading": "Loading your connectors",
     "loadFailed": "Could not load your connectors.",
@@ -818,7 +818,7 @@
       "encrypted": "Stored encrypted on the server. Never shown again."
     },
     "sheet": {
-      "addTitle": "Add connector",
+      "addTitle": "New connector",
       "editTitle": "Edit {{name}}",
       "addDesc": "Connect an MCP server. You test it before chats use it.",
       "editDesc": "Saved secrets stay unless you replace or remove them.",

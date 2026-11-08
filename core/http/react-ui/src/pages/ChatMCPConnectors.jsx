@@ -32,7 +32,7 @@ function ImportBanner({ servers, busy, onImport, t }) {
       role="note"
       icon="import"
       actions={(
-        <Button variant="primary" size="sm" icon="import" busy={busy} onClick={onImport}>
+        <Button size="sm" icon="import" busy={busy} onClick={onImport}>
           {busy ? t('mcpPage.import.busy') : servers.length === 1 ? t('mcpPage.import.buttonOne') : t('mcpPage.import.button', { count: servers.length })}
         </Button>
       )}

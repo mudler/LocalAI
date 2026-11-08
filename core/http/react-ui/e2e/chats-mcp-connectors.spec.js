@@ -101,7 +101,7 @@ test.describe('Chat MCP connectors', () => {
     await page.goto('/app/mcp-connectors')
     await page.getByTestId('mcp-add').click()
     const sheet = page.getByTestId('mcp-sheet')
-    await expect(sheet.getByRole('heading', { name: 'Add connector' })).toBeVisible()
+    await expect(sheet.getByRole('heading', { name: 'New connector' })).toBeVisible()
     await expect(sheet).toContainText('stored encrypted on the server')
     await sheet.getByLabel('Name', { exact: true }).fill('Docs')
     await sheet.getByLabel('Address').fill('https://mcp.example/mcp')
