@@ -72,7 +72,7 @@
     "supporting": "Verbinden Sie MCP-Server, um Ihren Chats und Agenten mehr Werkzeuge zu geben, etwa Suche oder Ihre eigenen APIs.",
     "related": "Verwandt",
     "chats": "Chats",
-    "add": "Konnektor hinzufügen",
+    "add": "Neuer Konnektor",
     "learn": "So funktioniert MCP",
     "loading": "Ihre Konnektoren werden geladen",
     "loadFailed": "Ihre Konnektoren konnten nicht geladen werden.",
@@ -170,7 +170,7 @@
       "encrypted": "Verschlüsselt auf dem Server gespeichert. Wird nie wieder angezeigt."
     },
     "sheet": {
-      "addTitle": "Konnektor hinzufügen",
+      "addTitle": "Neuer Konnektor",
       "editTitle": "{{name}} bearbeiten",
       "addDesc": "Verbinden Sie einen MCP-Server. Sie testen ihn, bevor Chats ihn verwenden.",
       "editDesc": "Gespeicherte Geheimnisse bleiben, außer Sie ersetzen oder entfernen sie.",
@@ -329,7 +329,7 @@
         "tooManyLogins": "Es wurden zu viele Anmeldungen gestartet. Schließe die im anderen Tab ab oder warte ein paar Minuten und versuche es erneut."
       },
       "add": {
-        "open": "Verbindung hinzufügen",
+        "open": "Neue Verbindung",
         "title": "Neue Verbindung zu {{name}}",
         "name": "Name",
         "hint": "Ein Name, den du wiedererkennst, etwa Arbeit oder Privat. Wähle nach dem Hinzufügen Verbinden, um dich bei deinem Konto anzumelden.",
@@ -498,7 +498,7 @@
       "sole": "Das ist deine einzige Verbindung, daher wird sie verwendet.",
       "choose": "Wähle mindestens eine Verbindung, um diese Werkzeuge zu nutzen",
       "none": "Noch keine Verbindung",
-      "create": "Verbindung hinzufügen",
+      "create": "Neue Verbindung",
       "byAgent": "Der Agent dieses Chats legt die Verbindungen fest. Ändere sie beim Agenten.",
       "agentLabel": "Verbindungen für Chats dieses Agenten",
       "agentHelp": "Chats dieses Agenten dürfen nur diese Verbindungen nutzen und können sie nicht ändern.",

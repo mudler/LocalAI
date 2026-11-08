@@ -72,7 +72,7 @@
     "supporting": "Connectez des serveurs MCP pour donner plus d'outils à vos chats et à vos agents, comme la recherche ou vos propres API.",
     "related": "Voir aussi",
     "chats": "Chats",
-    "add": "Ajouter un connecteur",
+    "add": "Nouveau connecteur",
     "learn": "Comment fonctionne MCP",
     "loading": "Chargement de vos connecteurs",
     "loadFailed": "Impossible de charger vos connecteurs.",
@@ -170,7 +170,7 @@
       "encrypted": "Enregistré chiffré sur le serveur. Jamais réaffiché."
     },
     "sheet": {
-      "addTitle": "Ajouter un connecteur",
+      "addTitle": "Nouveau connecteur",
       "editTitle": "Modifier {{name}}",
       "addDesc": "Connectez un serveur MCP. Vous le testez avant que les chats l'utilisent.",
       "editDesc": "Les secrets enregistrés restent, sauf si vous les remplacez ou les supprimez.",
@@ -329,7 +329,7 @@
         "tooManyLogins": "Trop de connexions ont été lancées. Terminez celle de l'autre onglet, ou attendez quelques minutes et réessayez."
       },
       "add": {
-        "open": "Ajouter une connexion",
+        "open": "Nouvelle connexion",
         "title": "Nouvelle connexion {{name}}",
         "name": "Nom",
         "hint": "Un nom que vous reconnaissez, comme Travail ou Personnel. Après l'ajout, sélectionnez Connecter pour vous connecter à votre compte.",
@@ -498,7 +498,7 @@
       "sole": "C'est votre seule connexion, elle est donc utilisée.",
       "choose": "Choisissez au moins une connexion pour utiliser ces outils",
       "none": "Pas encore de connexion",
-      "create": "Ajouter une connexion",
+      "create": "Nouvelle connexion",
       "byAgent": "L'agent de ce chat fixe les connexions. Modifiez-les sur l'agent.",
       "agentLabel": "Connexions pour les chats de cet agent",
       "agentHelp": "Les chats de cet agent ne peuvent utiliser que ces connexions et ne peuvent pas les changer.",

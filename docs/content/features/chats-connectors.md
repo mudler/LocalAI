@@ -241,7 +241,7 @@ It logs in to Google with OAuth 2.0 (see [Connections that log in with OAuth](#c
 ### Connect an account
 
 1. Install the **Google Drive** add-on from the add-on gallery.
-2. On the Google Drive page select **Connect with Google**, name the connection, and select **Connect with Google** again. Your browser goes to Google and returns to the Google Drive page. (The **Accounts** tab has the same **Add a connection** in the Google Drive group.) Tick **Also allow** for the write access if the agent may change files. Without it the connection reads only, and a write tool answers with a message that names the missing access, so the model can ask you to reconnect.
+2. On the Google Drive page select **Connect with Google**, name the connection, and select **Connect with Google** again. Your browser goes to Google and returns to the Google Drive page. (The **Accounts** tab has the same **New connection** in the Google Drive group.) Tick **Also allow** for the write access if the agent may change files. Without it the connection reads only, and a write tool answers with a message that names the missing access, so the model can ask you to reconnect.
 3. Select **Edit connections**. On the add-on page paste the folders the agent may use, one folder ID or folder address per line (at most 50), and choose the write mode. The ID is the part of the address of a folder after `/folders/`; use `root` for the top of My Drive. The ID of a shared drive also works. IDs are case sensitive. Press **Test** to see the account the connection belongs to.
 
 The list is checked by LocalAI before the add-on is called, so an agent is refused any folder that is not on it. The add-on then checks that each file it reads or changes lies inside that folder, at any depth, and refuses a file outside it. A shortcut is not followed. A search can come back with fewer items than asked, because files outside the folder are left out of each page.
@@ -306,7 +306,7 @@ The add-on asks for no other scope. In particular it does not use `gmail.modify`
 ### Connect an account
 
 1. Install the **Gmail** add-on from the add-on gallery.
-2. On the Gmail page select **Connect with Google**, name the connection, and select **Connect with Google** again. Your browser goes to Google and returns to the Gmail page. (The **Accounts** tab has the same **Add a connection** in the Gmail group.) Tick **Also allow** for the write access if the agent may save and send drafts.
+2. On the Gmail page select **Connect with Google**, name the connection, and select **Connect with Google** again. Your browser goes to Google and returns to the Gmail page. (The **Accounts** tab has the same **New connection** in the Gmail group.) Tick **Also allow** for the write access if the agent may save and send drafts.
 3. Select **Edit connections**. On the add-on page list the labels the agent may use, one label per line (at most 50), and choose the write mode. A label is written by its name, for example `Work`, or by its ID, such as `Label_12`; system labels are `INBOX`, `STARRED` and so on. Write a name with spaces with dashes: `Private-notes`. The case does not matter. The word `ALL` gives the whole mailbox. An empty list gives nothing. Press **Test** to see the account the connection belongs to.
 
 The list is checked by LocalAI before the add-on is called, so an agent is refused any label that is not on it. The add-on then checks that each message it returns carries the label, and refuses one that does not; a thread shows only the messages with the label; a search is made inside the label. Spam and trash are never searched. A label that does not exist is refused, so a typo never widens the reach. With `ALL` there is no such check.
@@ -1916,7 +1916,7 @@ when you save it.
 
 ### Add one
 
-On the **MCP servers** tab of **Connections** (`/app/mcp-connectors`) choose **Add connector**.
+On the **MCP servers** tab of **Connections** (`/app/mcp-connectors`) choose **New connector**.
 A side sheet opens:
 
 1. Administrators choose the kind first: **Remote server** (an address over

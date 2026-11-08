@@ -72,7 +72,7 @@
     "supporting": "Collega server MCP per dare alle tue chat e ai tuoi agenti più strumenti, come la ricerca o le tue API.",
     "related": "Correlati",
     "chats": "Chat",
-    "add": "Aggiungi connettore",
+    "add": "Nuovo connettore",
     "learn": "Come funziona MCP",
     "loading": "Caricamento dei tuoi connettori",
     "loadFailed": "Impossibile caricare i tuoi connettori.",
@@ -170,7 +170,7 @@
       "encrypted": "Salvato cifrato sul server. Non viene più mostrato."
     },
     "sheet": {
-      "addTitle": "Aggiungi connettore",
+      "addTitle": "Nuovo connettore",
       "editTitle": "Modifica {{name}}",
       "addDesc": "Collega un server MCP. Lo provi prima che le chat lo usino.",
       "editDesc": "I segreti salvati restano, a meno che tu non li sostituisca o li rimuova.",
@@ -329,7 +329,7 @@
         "tooManyLogins": "Sono stati avviati troppi accessi. Completa quello nell'altra scheda, oppure attendi qualche minuto e riprova."
       },
       "add": {
-        "open": "Aggiungi una connessione",
+        "open": "Nuova connessione",
         "title": "Nuova connessione a {{name}}",
         "name": "Nome",
         "hint": "Un nome che riconosci, ad esempio Lavoro o Personale. Dopo averla aggiunta, seleziona Connetti per accedere al tuo account.",
@@ -498,7 +498,7 @@
       "sole": "È la tua unica connessione, quindi viene usata.",
       "choose": "Scegli almeno una connessione per usare questi strumenti",
       "none": "Nessuna connessione per ora",
-      "create": "Aggiungi una connessione",
+      "create": "Nuova connessione",
       "byAgent": "L'agente di questa chat imposta le connessioni. Cambiale sull'agente.",
       "agentLabel": "Connessioni per le chat di questo agente",
       "agentHelp": "Le chat di questo agente possono usare solo queste connessioni e non possono cambiarle.",
