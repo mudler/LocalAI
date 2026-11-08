@@ -22718,6 +22718,9 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "effective_run_limit": {
+                    "type": "string"
+                },
                 "enabled": {
                     "type": "boolean"
                 },
@@ -22775,6 +22778,10 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "read_only_why": {
+                    "type": "string"
+                },
+                "run_limit": {
+                    "description": "RunLimit is the longest one run may take, as a duration such as 30m;\nempty means the administrator's run limit. EffectiveRunLimit is what\napplies now: the least of RunLimit and the administrator's limit.",
                     "type": "string"
                 },
                 "schedule": {
@@ -28485,6 +28492,9 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "effective_run_limit": {
+                    "type": "string"
+                },
                 "enabled": {
                     "type": "boolean"
                 },
@@ -28539,6 +28549,10 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "read_only_why": {
+                    "type": "string"
+                },
+                "run_limit": {
+                    "description": "RunLimit is the longest one run may take, as a duration such as 30m;\nempty means the administrator's run limit. EffectiveRunLimit is what\napplies now: the least of RunLimit and the administrator's limit.",
                     "type": "string"
                 },
                 "schedule": {
@@ -28804,6 +28818,10 @@ const docTemplate = `{
                 },
                 "quiet_seconds": {
                     "type": "integer"
+                },
+                "run_limit": {
+                    "description": "RunLimit is the longest one run may take, a duration from 1m to 24h such\nas 30m. Empty or 0 means the administrator's run limit, which is also\nthe ceiling: a longer value is accepted and runs cut to it.",
+                    "type": "string"
                 },
                 "schedule": {
                     "type": "string"

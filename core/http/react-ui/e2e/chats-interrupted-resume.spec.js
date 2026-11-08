@@ -1,5 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
+import { freezeClock } from './clock-fixtures.js'
 
 // A restart of the server interrupts a turn. The page shows the turn as
 // incomplete, resumes it by itself a few times and, when that does not work,
@@ -60,23 +61,6 @@ async function shot(page, name) {
   }
 }
 const card = page => page.getByTestId('chat-error')
-
-// The clock installed in beforeEach runs by itself. Once the card shows, stop
-// it: from here only fastForward moves the page clock, so a slow machine (a
-// busy runner, or the screenshots of shot()) cannot let the wait end before the
-// test acts on it.
-// pauseAt refuses a time that has already passed, and a slow machine can pass
-// it while the call is on its way, so it asks again with a wider margin.
-async function freezeClock(page) {
-  for (let margin = 250; ; margin *= 2) {
-    try {
-      await page.clock.pauseAt((await page.evaluate(() => Date.now())) + margin)
-      return
-    } catch (err) {
-      if (margin > 1000 || !/past/.test(String(err.message))) throw err
-    }
-  }
-}
 
 test.describe('Interrupted turn', () => {
   test.beforeEach(async ({ page }) => {

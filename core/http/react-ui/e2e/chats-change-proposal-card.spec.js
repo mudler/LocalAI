@@ -90,9 +90,13 @@ test('a pending change shows its kind, target, source, expiry and a line diff, a
   await expect(diff.locator('[data-op="add"]')).toHaveCount(2)
   await expect(diff.locator('[data-op="add"]').first()).toHaveText(/Added:\s*- home: Milan/)
   // The card sits below the text of its message.
-  const text = await page.locator('[data-testid="chat-message"][data-role="assistant"] .cx-prose, [data-testid="chat-message"][data-role="assistant"] .prose').first().boundingBox()
-  const box = await card(page).boundingBox()
-  expect(box.y).toBeGreaterThanOrEqual(text.y + text.height - 1)
+  // Both boxes are read in one step: the chat scrolls to its end as it fills,
+  // and two reads apart can see two scroll positions.
+  await expect.poll(() => page.evaluate(() => {
+    const text = document.querySelector('[data-testid="chat-message"][data-role="assistant"] .cx-prose, [data-testid="chat-message"][data-role="assistant"] .prose').getBoundingClientRect()
+    const box = document.querySelector('[data-testid="change-proposal"]').getBoundingClientRect()
+    return box.y - (text.y + text.height)
+  })).toBeGreaterThanOrEqual(-1)
   expect(s.calls).toEqual(['GET'])
   await shoot(page, 'pending')
 })

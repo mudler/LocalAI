@@ -207,6 +207,36 @@ var _ = Describe("trigger changes from a chat", func() {
 		Expect(res.Err).To(BeNil(), "%+v", res)
 	})
 
+	It("a time limit is part of the change: the diff lists it and a bad text is refused", func() {
+		res := c.call(r, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"run_limit":"30m"}`, ref))
+		Expect(res.Err).To(BeNil(), "%+v", res)
+		card := lastCard(r, chat)
+		Expect(card).NotTo(BeNil())
+		v, err := r.host.ChangeStatus(ctx, alice, card.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.Fields).To(Equal([]string{"run_limit"}))
+		Expect(v.Before.RunLimit).To(BeZero())
+		Expect(v.After.RunLimit).To(Equal(30 * time.Minute))
+
+		res = c.call(r, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"run_limit":"soon"}`, ref))
+		Expect(res.Err).To(MatchError(ContainSubstring("run_limit must be a duration")))
+		res = c.call(r, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"run_limit":"30s"}`, ref))
+		Expect(res.Err).To(MatchError(ContainSubstring("time limit must be empty or")))
+	})
+
+	It("a proposal carries the time limit of the model, and an empty one is the default", func() {
+		res := c.call(r, chat, "propose_trigger", `{"name":"Slow","prompt":"p","when":"daily 08:00","time_zone":"UTC","run_limit":"2h"}`)
+		Expect(res.Err).To(BeNil(), "%+v", res)
+		props, err := r.host.Proposals(ctx, alice)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(props).To(HaveLen(1))
+		Expect(props[0].RunLimit).To(Equal(2 * time.Hour))
+		res = c.call(r, chat, "propose_trigger", `{"name":"Plain","prompt":"p","when":"daily 09:00","time_zone":"UTC","run_limit":""}`)
+		Expect(res.Err).To(BeNil(), "%+v", res)
+		res = c.call(r, chat, "propose_trigger", `{"name":"Wrong","prompt":"p","when":"daily 10:00","time_zone":"UTC","run_limit":"48h"}`)
+		Expect(res.Err).To(MatchError(ContainSubstring("time limit must be empty or")))
+	})
+
 	It("a pause applies at once with a receipt, and Undo resumes", func() {
 		res := c.call(r, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"enabled":false}`, ref))
 		Expect(res.Err).To(BeNil(), "%+v", res)

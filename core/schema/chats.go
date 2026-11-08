@@ -1465,10 +1465,15 @@ type ChatsTrigger struct {
 	Folder       string `json:"folder,omitempty"`
 	QuietSeconds int    `json:"quiet_seconds,omitempty"`
 	DailyCap     int    `json:"daily_cap"`
-	Enabled      bool   `json:"enabled"`
-	AgentID      string `json:"agent_id,omitempty"`
-	Model        string `json:"model,omitempty"`
-	SourceChatID string `json:"source_chat_id,omitempty"`
+	// RunLimit is the longest one run may take, as a duration such as 30m;
+	// empty means the administrator's run limit. EffectiveRunLimit is what
+	// applies now: the least of RunLimit and the administrator's limit.
+	RunLimit          string `json:"run_limit,omitempty"`
+	EffectiveRunLimit string `json:"effective_run_limit"`
+	Enabled           bool   `json:"enabled"`
+	AgentID           string `json:"agent_id,omitempty"`
+	Model             string `json:"model,omitempty"`
+	SourceChatID      string `json:"source_chat_id,omitempty"`
 	// Summary says when it runs in plain words. NextRun is set for a schedule
 	// trigger that is on.
 	Summary string     `json:"summary"`
@@ -1589,7 +1594,11 @@ type ChatsTriggerWrite struct {
 	Folder       string `json:"folder,omitempty"`
 	QuietSeconds int    `json:"quiet_seconds,omitempty"`
 	DailyCap     int    `json:"daily_cap,omitempty"`
-	Enabled      bool   `json:"enabled"`
+	// RunLimit is the longest one run may take, a duration from 1m to 24h such
+	// as 30m. Empty or 0 means the administrator's run limit, which is also
+	// the ceiling: a longer value is accepted and runs cut to it.
+	RunLimit string `json:"run_limit,omitempty"`
+	Enabled  bool   `json:"enabled"`
 	// AgentID is optional. Model is needed when neither the agent nor the source
 	// chat names one.
 	AgentID      string `json:"agent_id,omitempty"`

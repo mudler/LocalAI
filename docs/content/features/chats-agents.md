@@ -654,7 +654,14 @@ message as rules for the run. Treat it as text from whoever can write there.
   A sub-agent follows the network of the chat that started it, its rules
   included, and never shows a card either.
 - **Limits.** A run has 15 minutes by default (`chats_trigger_run_limit`, 1m to
-  24h). At most 2 runs go at once, one per trigger, and a trigger has a daily
+  24h). A trigger can set a shorter or longer time limit of its own with
+  `run_limit`, a duration such as `30m` or `2h` from `1m` to `24h`; empty or `0`
+  means the administrator's limit. That setting is the ceiling: a trigger whose
+  `run_limit` is longer is saved as written but each run is stopped at the
+  ceiling, and a lowered ceiling applies to the next run and to the check of a
+  run that is found running after a restart. The API shows `run_limit` and `effective_run_limit`, the one
+  that applies now. A proposal from a messaging app is held to the same
+  ceiling when the trigger is set up by itself. At most 2 runs go at once, one per trigger, and a trigger has a daily
   limit (`daily_cap`, default 24, at most 1000 or `chats_trigger_max_daily_cap`
   when an administrator sets it lower). A run that is skipped or fails shows its
   reason on the trigger. An administrator sets the limits of the triggers in the
@@ -839,9 +846,12 @@ On the Triggers page you can still choose a shorter schedule yourself.
 A proposal also carries a plan, so you see what it does before you create it:
 what a run reads (`reads`), the file in your home it rewrites (`writes`), the
 Home widget that shows that file (`widget`, the widget's `id` in `LocalAI/home.json`)
-and about how many tokens one run uses (`estimated_tokens`). The card lists
-them with when it runs and its first run, that it runs as you with the chat's
-model, the cost (and whether the tokens leave the server) and how to stop it.
+and about how many tokens one run uses (`estimated_tokens`). A proposal can
+also ask for a time limit for each run (`run_limit`, for example `30m`). The
+card lists them with when it runs and its first run, that it runs as you with
+the chat's model, the cost (and whether the tokens leave the server), the time
+limit when there is one (and the lower limit that applies if the administrator
+set one) and how to stop it.
 When you create a trigger whose plan names a widget, LocalAI writes the
 trigger's id into that widget as `trigger`, so the widget can show when it runs.
 A form that edits a trigger and does not send the plan keeps it.
@@ -856,7 +866,7 @@ prompt and the other settings of one trigger, the model passes its `ref` with
 exist, is an error for the model. The model can also name a trigger by its
 exact name when only one trigger has that name.
 
-- `update_trigger {ref, name, prompt, when, time_zone, daily_cap, enabled, reads, writes, widget, estimated_tokens}`
+- `update_trigger {ref, name, prompt, when, time_zone, daily_cap, run_limit, enabled, reads, writes, widget, estimated_tokens}`
   changes the fields it names and keeps the others. The same rules as for a
   proposal apply: a schedule that changes runs at most once an hour, the
   folder and the `writes` file must be in your files. A change of anything

@@ -1,5 +1,5 @@
 // Fixtures for the Settings page: one settings object in the shape of
-// GET /api/settings (with the Go duration form, "15m0s"), and one function that
+// GET /api/settings (with the Go duration form, "15m"), and one function that
 // answers the calls the page makes and records what it is sent.
 //
 // Pure of Playwright imports so a script that is not a test can use it too.
@@ -7,7 +7,7 @@
 export function settingsFixture(overrides = {}) {
   return {
     watchdog_enabled: true, watchdog_idle_enabled: true, watchdog_busy_enabled: false,
-    watchdog_idle_timeout: '15m0s', watchdog_busy_timeout: '5m0s', watchdog_interval: '500ms',
+    watchdog_idle_timeout: '15m', watchdog_busy_timeout: '5m0s', watchdog_interval: '500ms',
     max_active_backends: 0, max_concurrent_backend_operations: 1, official_libraries: true, auto_upgrade_backends: false, auto_upgrade_addons: false, prefer_development_backends: false,
     memory_reclaimer_enabled: true, memory_reclaimer_threshold: 0.9,
     force_eviction_when_busy: false, size_aware_eviction: false,

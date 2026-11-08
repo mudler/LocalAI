@@ -3,6 +3,7 @@ import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
 import { connectorApi, previewFor, CAPABILITIES, ROLES_KIND, openAnswerMore, clippedOptions, openEdit, expandAll, rowMenu } from './connector-fixtures.js'
 import { ADMIN, MEMBER, sessionFor } from './addons-fixtures.js'
+import { freezeClock } from './clock-fixtures.js'
 
 // The permissions of a binding on the shared connector page (drawn here by the
 // Slack add-on, whose kind declares roles): the matrix of who can do what (the
@@ -599,10 +600,15 @@ test.describe('Connector permissions', () => {
   test('the preview is asked for the form as it is now, debounced, with no token, and says so', async ({ page }) => {
     const a = api(page, [{ ...LEGACY, agent_id: 'a1', caps: [] }])
     await a.install()
+    // The form waits 400 ms after its last change before it asks. A slow machine
+    // can take longer than that between two clicks, so the page clock is frozen
+    // once the first answer is in: the debounce ends when fastForward says so.
+    await page.clock.install()
     await page.goto(PAGE)
     await openEdit(page)
     await expandAll(page)
     await expect.poll(() => a.s.previews.length).toBe(1)
+    await freezeClock(page)
     expect(a.s.previews[0].id).toBe('b1')
     expect(a.s.previews[0].body).toMatchObject({ agent_id: 'a1', accept_any: false, allow: ['U001'], caps: [], grants: [] })
     expect('kind' in a.s.previews[0].body).toBe(false)
@@ -610,8 +616,11 @@ test.describe('Connector permissions', () => {
     await page.getByLabel('Bot token').fill('xoxb-secret')
     for (const n of ['memory.write', 'files.upload', 'triggers.propose']) await page.getByTestId(`connector-cap-switch-${n}`).click()
     await expect(page.getByTestId('connector-can-dirty')).toContainText('Computed from the form as it is now')
+    // Four changes, one question: nothing was sent while the clock stood still.
+    expect(a.s.previews.length).toBe(1)
+    await page.clock.fastForward(500)
     await expect.poll(() => a.s.previews.at(-1).body.caps.sort()).toEqual(['files.upload', 'memory.write', 'triggers.propose'])
-    expect(a.s.previews.length).toBeLessThanOrEqual(2)
+    expect(a.s.previews.length).toBe(2)
     expect(JSON.stringify(a.s.previews)).not.toContain('xoxb-secret')
     await expect(page.getByTestId('connector-matrix-cell-memory.write-listed')).toHaveAttribute('data-state', 'yes')
     // Nothing was saved by looking.

@@ -175,7 +175,7 @@ The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tool
   - `chats_loop_max_per_chat` (1 to 20, default 3) and `chats_loop_max_per_user` (1 to 200, default 10): how many loops that are not ended one chat and one user may have.
   - `chats_loop_daily_runs` (1 to 100000, default 200): how many loop runs one user may start in a UTC day, over all their loops. After that the loops wait for the next day.
 - **Triggers of the chats** (apply at once; see [Triggers]({{%relref "features/chats" %}})):
-  - `chats_trigger_run_limit` (a duration from `1m` to `24h`, default `15m`): the longest one trigger run may take. A longer run is stopped and fails. A change applies to the runs that start after it.
+  - `chats_trigger_run_limit` (a duration from `1m` to `24h`, default `15m`): the longest one trigger run may take. A longer run is stopped and fails. A trigger can set a shorter time limit of its own (`run_limit`); this setting is the ceiling, so a trigger that asks for more runs at this one. A change applies to the runs that start after it and to the check of a run that is found running after a restart.
   - `chats_trigger_max_per_user` (1 to 1000, default 50): how many triggers a user may have. A user who has more keeps them but cannot add another.
   - `chats_trigger_max_daily_cap` (1 to 1000, default 1000): the highest daily limit one trigger may have. A trigger with a higher limit runs at this one.
 - **Coordinators of the chats** (apply at once; see [Coordinators]({{%relref "features/chats-coordinators" %}})):

@@ -62,7 +62,9 @@
       "remoteNote": "{{model}} adalah layanan jarak jauh: apa yang dibaca sebuah jalan meninggalkan server ini.",
       "stopWidget": "Jeda dari widget, atau hapus di Pemicu",
       "stop": "Matikan atau hapus di Pemicu",
-      "actsLabel": "Izin"
+      "actsLabel": "Izin",
+      "limitLabel": "Batas waktu",
+      "limitClamped": "{{limit}}, dibatasi menjadi {{ceiling}} oleh administrator"
     }
   },
   "mcpPage": {
@@ -782,7 +784,8 @@
       "acts": "Yang boleh dilakukan satu jalan",
       "delivery": "Ke mana jawaban dikirim",
       "agent": "Agen",
-      "model": "Model"
+      "model": "Model",
+      "run_limit": "Batas waktu"
     },
     "receipt": {
       "update": "Diubah:",

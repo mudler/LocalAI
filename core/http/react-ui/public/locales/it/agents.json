@@ -535,7 +535,8 @@
       "noRuns": "This trigger has not run yet.",
       "runMeta": "took {{time}}",
       "prompt": "What to do",
-      "acts": "Permessi"
+      "acts": "Permessi",
+      "runLimit": "Time limit"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -562,7 +563,8 @@
         "cap": "Up to {{count}} runs a day",
         "capDefault": "Default limit",
         "acts_one": "Può usare {{count}} tipo di azione",
-        "acts_other": "Può usare {{count}} tipi di azione"
+        "acts_other": "Può usare {{count}} tipi di azione",
+        "runLimit": "{{limit}} a run at most"
       },
       "name": "Name",
       "namePlaceholder": "daily-digest",
@@ -581,7 +583,9 @@
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
       "changed_other": "{{count}} changes",
-      "watchNoFiles": "Questo agente ha «Nessun file»: un’esecuzione di questo trigger sa che è arrivato un file, ma non può aprirlo. Dagli l’accesso ai file nel suo editor o scegli un altro agente."
+      "watchNoFiles": "Questo agente ha «Nessun file»: un’esecuzione di questo trigger sa che è arrivato un file, ma non può aprirlo. Dagli l’accesso ai file nel suo editor o scegli un altro agente.",
+      "runLimitHint": "The longest one run may take, such as 30m or 2h (1 minute to 24 hours). Empty uses the default. The administrator's limit is the ceiling: a longer value is cut to it.",
+      "runLimitPlaceholder": "default"
     },
     "subtitle": "Avvia un agente secondo un orario o quando arriva un file. Ogni esecuzione è una chat che puoi aprire."
   },

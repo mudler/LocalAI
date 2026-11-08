@@ -32,7 +32,7 @@ var base = time.Date(2026, 10, 22, 8, 0, 0, 0, time.UTC)
 func sample(id, owner, name string) triggers.Trigger {
 	return triggers.Trigger{
 		ID: id, Owner: owner, Name: name, Prompt: "Summarise the new file.", Enabled: true,
-		Kind: triggers.KindSchedule, Schedule: "daily 08:00", TZ: "Europe/Rome", DailyCap: 5,
+		Kind: triggers.KindSchedule, Schedule: "daily 08:00", TZ: "Europe/Rome", DailyCap: 5, RunLimit: 30 * time.Minute,
 		Since: base, AgentID: "agent-1", SourceChatID: "chat-1", Model: "model-1",
 	}
 }
@@ -52,7 +52,7 @@ func run(id, trigger, key string, status triggers.Status) triggers.Run {
 func same(a, b triggers.Trigger) bool {
 	return a.ID == b.ID && a.Owner == b.Owner && a.Name == b.Name && a.Prompt == b.Prompt &&
 		a.Enabled == b.Enabled && a.Kind == b.Kind && a.Schedule == b.Schedule && a.TZ == b.TZ &&
-		a.Folder == b.Folder && a.Quiet == b.Quiet && a.DailyCap == b.DailyCap && a.Since.Equal(b.Since) &&
+		a.Folder == b.Folder && a.Quiet == b.Quiet && a.DailyCap == b.DailyCap && a.RunLimit == b.RunLimit && a.Since.Equal(b.Since) &&
 		a.AgentID == b.AgentID && a.SourceChatID == b.SourceChatID && a.Model == b.Model && a.Proposed == b.Proposed &&
 		a.Outcome == b.Outcome && a.OutcomeAt.Equal(b.OutcomeAt) && a.Touched == b.Touched && a.Change == b.Change && sameRoute(a.Route, b.Route)
 }

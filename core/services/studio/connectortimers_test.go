@@ -394,6 +394,17 @@ var _ = Describe("timers and approval modes in a connector chat", func() {
 			waitFor("the notice", func() bool { return strings.Contains(last(), "end of its lifetime") })
 		})
 
+		It("holds the time limit of an automatic trigger to the ceiling of the administrator", func() {
+			setup(connectors.Approval{Mode: connectors.ApprovalAuto, MaxLifetimeDays: 7})
+			ask(`{"name":"Long","prompt":"RUN","when":"daily 08:00","time_zone":"UTC","run_limit":"2h"}`)
+			ask(`{"name":"Short","prompt":"RUN","when":"daily 09:00","time_zone":"UTC","run_limit":"5m"}`)
+			got := map[string]time.Duration{}
+			for _, t := range live() {
+				got[t.Name] = t.RunLimit
+			}
+			Expect(got).To(Equal(map[string]time.Duration{"Long": studio.DefaultRunLimit, "Short": 5 * time.Minute}))
+		})
+
 		It("asks for a recurring trigger that runs more often than the owner allows", func() {
 			setup(connectors.Approval{Mode: connectors.ApprovalAuto, MinGapMinutes: 180})
 			ask(`{"name":"Hourly","prompt":"RUN","when":"0 * * * *","time_zone":"UTC"}`)
