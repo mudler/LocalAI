@@ -7,6 +7,9 @@ import { capacityReading, nodeLifecycleAction } from '../utils/nodeFleet'
 import { isDown, leavePreview } from '../utils/swarm'
 import { cssVars } from '../utils/modelLedger'
 import { usePolling } from '../hooks/usePolling'
+import { useUpdates } from '../contexts/UpdatesContext'
+import { entryOf } from '../utils/nodeUpdates'
+import NodeUpdateDialog from '../components/updates/NodeUpdateDialog'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ActionMenu from '../components/ActionMenu'
@@ -52,6 +55,9 @@ export default function NodeDetail() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
   const { t } = useTranslation('swarm')
+  const { t: tu } = useTranslation('updates')
+  const updates = useUpdates()
+  const [updatePlan, setUpdatePlan] = useState(null)
   const [params, setParams] = useSearchParams()
   const [node, setNode] = useState(null)
   const [models, setModels] = useState([])
@@ -176,14 +182,15 @@ export default function NodeDetail() {
     if (ok) navigate('/app/nodes')
   }
   const unload = async name => { if (await run(() => nodesApi.unloadModel(id, name), t('toast.unloaded', { name }))) refresh({ quiet: true }) }
-  // The upgrade runs through the gallery job queue (202 + jobID); the global
-  // Operations panel tracks it, so the toast only reports the dispatch.
-  const upgradeBackend = async name => {
-    try {
-      await nodesApi.upgradeBackend(id, name)
-      addToast(t('toast.upgrading', { name }), 'info')
-      setTimeout(() => refresh({ quiet: true }), 1200)
-    } catch (e) { addToast(e.message, 'error') }
+  // An update is offered only when the read model says this node is behind or
+  // differs for that backend, and it asks first: the worker stops the running
+  // models of the backend. The dialog runs it and shows the result.
+  const updateEntryOf = name => {
+    const item = updates && updates.snapshot ? (updates.snapshot.items || []).find(i => i.kind === 'gallery' && i.name === name) : null
+    const nodeRef = item ? (item.nodes || []).find(n => n.nodeId === id) : null
+    if (!item || !nodeRef) return null
+    const entry = entryOf(item, nodeRef)
+    return entry.state === 'behind' || entry.state === 'differs' ? { ...entry, nodeName: node?.name || entry.nodeName } : null
   }
   const deleteBackend = async name => { if (await run(() => nodesApi.deleteBackend(id, name), t('toast.backendDeleted', { name }))) refresh({ quiet: true }) }
   const addLabel = async (k, v) => { try { await nodesApi.mergeLabels(id, { [k]: v }); refresh({ quiet: true }) } catch (e) { addToast(e.message, 'error') } }
@@ -396,8 +403,10 @@ export default function NodeDetail() {
                         <td className="dk-table-actions">
                           {!backend.is_system && (
                             <ActionMenu compact ariaLabel={`${backend.name} backend actions`} triggerLabel={`Actions for backend ${backend.name}`} items={[
-                              { key: 'upgrade', icon: 'arrow-up', label: t('detail.upgradeBackend'), onClick: () => upgradeBackend(backend.name) },
-                              { divider: true },
+                              ...(updateEntryOf(backend.name) ? [
+                                { key: 'upgrade', icon: 'arrow-up', label: tu('row.update'), onClick: () => setUpdatePlan([updateEntryOf(backend.name)]) },
+                                { divider: true },
+                              ] : []),
                               { key: 'delete', icon: 'trash', label: t('detail.deleteBackend'), danger: true, onClick: () => setConfirmDeleteBackend({ backend: backend.name }) },
                             ]} />
                           )}
@@ -525,6 +534,14 @@ export default function NodeDetail() {
         onConfirm={() => { if (confirmUnload) unload(confirmUnload.modelName); setConfirmUnload(null) }}
         onCancel={() => setConfirmUnload(null)}
       />
+
+      {updatePlan && (
+        <NodeUpdateDialog
+          entries={updatePlan}
+          onClose={() => setUpdatePlan(null)}
+          onSettled={() => refresh({ quiet: true })}
+        />
+      )}
 
       <ConfirmDialog
         open={!!confirmDeleteBackend}
