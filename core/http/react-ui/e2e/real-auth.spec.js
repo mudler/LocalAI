@@ -91,7 +91,7 @@ test('an API key made on the account page works for the API and stops working wh
   const panel = page.getByTestId('api-keys-panel')
   await expect(panel).toBeVisible()
   await panel.getByPlaceholder('Key name (e.g. my-app)').fill('spec key')
-  await panel.getByRole('button', { name: 'Create', exact: true }).click()
+  await panel.getByRole('button', { name: 'New API key', exact: true }).click()
   const secret = (await panel.locator('code').first().innerText()).trim()
   const auth = { Authorization: `Bearer ${secret}` }
   const ok = await request.get(`${server.url}/api/chats`, { headers: auth })

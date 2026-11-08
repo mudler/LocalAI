@@ -260,9 +260,9 @@ test.describe('Users and keys: API keys', () => {
   })
 
   test('creating a key shows its secret once, with the lifetime sent', async ({ page }) => {
-    await page.getByLabel('Create API key').fill('ci-runner')
+    await page.getByLabel('New API key').fill('ci-runner')
     await page.getByLabel('Expires').selectOption('90d')
-    await page.getByTestId('api-keys-panel').getByRole('button', { name: 'Create' }).click()
+    await page.getByTestId('api-keys-panel').getByRole('button', { name: 'New API key' }).click()
     const reveal = page.getByTestId('api-key-reveal')
     await expect(page.getByTestId('api-key-secret')).toHaveText('lai-9d41f0c27be84a0c92aa5d6b')
     await expect(reveal).toContainText('shown once')
@@ -272,8 +272,8 @@ test.describe('Users and keys: API keys', () => {
   })
 
   test('without a chosen lifetime the server default applies', async ({ page }) => {
-    await page.getByLabel('Create API key').fill('plain')
-    await page.getByTestId('api-keys-panel').getByRole('button', { name: 'Create' }).click()
+    await page.getByLabel('New API key').fill('plain')
+    await page.getByTestId('api-keys-panel').getByRole('button', { name: 'New API key' }).click()
     await expect(page.getByTestId('api-key-reveal')).toBeVisible()
     expect(state.writes[0].body).toEqual({ name: 'plain' })
   })
