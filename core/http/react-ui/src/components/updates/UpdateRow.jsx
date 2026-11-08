@@ -5,6 +5,7 @@ import Icon from '../Icon'
 import { cssVars } from '../../utils/modelLedger'
 import { upgradeFailureWords } from '../addons/updateReview'
 import { reasonText } from '../addons/UpgradeControls'
+import { hasNodeView } from '../../utils/nodeUpdates'
 
 const TILE_ICON = { gallery: 'server', library: 'server', addon: 'puzzle' }
 const STATE_ICON = { failed: 'alert-circle', held: 'lock', blocked: 'warning' }
@@ -55,7 +56,8 @@ function useDetail(row) {
 // One thing that can be updated. The same markup for a backend, a library
 // backend and an add-on: the kind only changes the tag, the origin and the
 // words under the name. The row is one list item with one chip and at most one
-// button, so a row never asks two things at once.
+// button to act on it. A backend on several nodes adds a link to its
+// per-node page, which is a place to look, not a second question.
 export default function UpdateRow({ row, selected, onToggle, onUpdate, onRetry, onReview, onCancel, onCheck, checking = false, locked = false }) {
   const { t } = useTranslation('updates')
   const origin = useOrigin(row)
@@ -121,6 +123,9 @@ export default function UpdateRow({ row, selected, onToggle, onUpdate, onRetry, 
         {chip && <StatusChip status={chip} testId="update-row-chip" />}
       </div>
       <div className="uc-row__acts">
+        {hasNodeView(row) && (row.state === 'ready' || row.state === 'failed') && (
+          <Button size="sm" variant="ghost" to={`/app/updates/backend/${encodeURIComponent(row.name)}`} aria-label={t('row.nodesNamed', { name: row.name })} data-testid="update-row-nodes">{t('row.nodesAction')}</Button>
+        )}
         {row.state === 'ready' && row.startable && (
           <Button size="sm" disabled={locked} onClick={() => onUpdate(row)} aria-label={t('row.updateNamed', { name: row.name })}>{t('row.update')}</Button>
         )}

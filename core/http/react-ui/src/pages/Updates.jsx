@@ -7,12 +7,14 @@ import PageHeader from '../components/PageHeader'
 import UpdateRow from '../components/updates/UpdateRow'
 import UpdateStrip, { UpdateSources } from '../components/updates/UpdateStrip'
 import { BulkUpgradeDialog } from '../components/upgrade/BulkUpgradeDialog'
+import NodeUpdateDialog from '../components/updates/NodeUpdateDialog'
 import { UpgradeConfirm } from '../components/addons/UpgradeControls'
 import ApproveUpgradeDialog from '../components/addons/ApproveUpgradeDialog'
 import Icon from '../components/Icon'
 import { useUpdates, CHECK_COOLDOWN_MS } from '../contexts/UpdatesContext'
 import { useUpdateActions } from '../hooks/useUpdateActions'
 import { backendsApi } from '../utils/api'
+import { nodeView } from '../utils/nodeUpdates'
 import { addonsApi } from '../utils/addonsClient'
 import {
   breakdownOf, currentBackendRows, filterCounts, filterRows, groupRows, headlineOf, normalizeFilter,
@@ -61,6 +63,7 @@ function UpdatesPage({ updates }) {
   const [installedBackends, setInstalledBackends] = useState(null)
   const [showCurrent, setShowCurrent] = useState(false)
   const [now, setNow] = useState(Date.now())
+  const [nodePlan, setNodePlan] = useState(null)
   const narrow = useNarrow()
   const actions = useUpdateActions({ updates })
   const { bulk } = actions
@@ -98,6 +101,19 @@ function UpdatesPage({ updates }) {
   const breakdown = useMemo(() => breakdownOf(rows), [rows])
   const headline = headlineOf({ rows, sources: updates.sources, loading: updates.loading, loadError: updates.loadError })
   const lastChecked = updates.snapshot ? updates.snapshot.checkedAt : ''
+
+  // A backend that nodes report is updated node by node, after a confirmation
+  // that names the models that stop. A backend with no node to update (or a
+  // single machine) keeps the plain update.
+  const { update: updateRow } = actions
+  const onUpdate = useCallback((row) => {
+    if (row.kind === 'gallery' && Array.isArray(row.nodes) && row.nodes.length > 0) {
+      const item = updates.snapshot && (updates.snapshot.items || []).find(i => i.id === row.id)
+      const todo = item ? nodeView(item).todo : []
+      if (todo.length > 0) { setNodePlan(todo); return }
+    }
+    updateRow(row)
+  }, [updates.snapshot, updateRow])
 
   const setFilter = useCallback((next) => {
     setParams((prev) => {
@@ -164,7 +180,7 @@ function UpdatesPage({ updates }) {
       row={row}
       selected={bulk.selected.has(row.id)}
       onToggle={bulk.toggle}
-      onUpdate={actions.update}
+      onUpdate={onUpdate}
       onRetry={actions.retry}
       onReview={(r) => actions.setReview(r.grant)}
       onCancel={actions.cancel}
@@ -283,6 +299,7 @@ function UpdatesPage({ updates }) {
       )}
       {body()}
       {narrow && primary && <div className="uc-sticky" data-testid="updates-sticky">{primary}</div>}
+      {nodePlan && <NodeUpdateDialog entries={nodePlan} onClose={() => setNodePlan(null)} />}
       <UpgradeConfirm upgrade={actions.confirmApi} />
       {actions.review && (
         <ApproveUpgradeDialog

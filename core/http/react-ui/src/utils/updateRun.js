@@ -13,6 +13,7 @@
 // Everything with a clock or a network call is injected, so the node unit
 // tests run it with fakes.
 import { trackJob, verdictOf, addonStillListed } from './updates.js'
+import { nodeConfirmed } from './nodeUpdates.js'
 
 const defaultSleep = (ms, signal) => new Promise((resolve, reject) => {
   const timer = setTimeout(resolve, ms)
@@ -104,4 +105,39 @@ export async function runAddonRow({ row, upgrade, reread }) {
   const now = (records || []).find(r => r.id === row.addonId)
   if (addonStillListed(now, row)) return { ok: false, code: 'unchanged' }
   return { ok: true }
+}
+
+// Asks for fresh checks until the answer decides for one node. A throttled
+// answer that still shows the node behind may predate the update, so it is
+// asked again after `retryMs`.
+export async function confirmNodeUpdated({ entry, recheck, sleep = defaultSleep, signal, retryMs = 5000, maxTries = 4 }) {
+  for (let tries = 0; ; tries += 1) {
+    let snapshot = null
+    try { snapshot = await recheck() } catch { /* an unanswered check cannot confirm */ }
+    const verdict = nodeConfirmed(entry, snapshot)
+    if (verdict === 'unchanged' && snapshot.throttled && tries < maxTries) {
+      await sleep(retryMs, signal)
+      continue
+    }
+    return verdict
+  }
+}
+
+// Updates one backend on one node. `start(entry)` posts the node's update and
+// resolves the job id (the answer is 202: the node has not changed yet). It
+// is done when the operation ended without an error and a fresh check shows
+// the node on the new build. Resolves { ok: true } or { ok: false, code,
+// error } with the codes of runGalleryRow.
+export async function runNodeRow({ entry, start, getOperations, recheck, sleep, now, signal, retryMs, maxTries }) {
+  let jobID
+  try {
+    jobID = await start(entry)
+  } catch (e) {
+    return { ok: false, code: 'start', error: e && e.message ? String(e.message) : '' }
+  }
+  const end = await followJob({ jobID, getOperations, sleep, now, signal })
+  if (end.verdict === 'failed') return { ok: false, code: 'failed', error: end.error || '' }
+  const verdict = await confirmNodeUpdated({ entry, recheck, sleep, signal, retryMs, maxTries })
+  if (verdict === 'done') return { ok: true }
+  return { ok: false, code: verdict }
 }
