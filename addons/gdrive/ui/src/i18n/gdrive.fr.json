@@ -8,6 +8,13 @@
   "foldersHelp": "Un identifiant ou une adresse de dossier par ligne. {{count}} indiqué(s). Un dossier comprend tout ce qu’il contient. Tout autre fichier est refusé.",
   "foldersShape": "« {{entry}} » n’est pas un identifiant de dossier. Copiez-le depuis l’adresse du dossier dans votre navigateur, après /folders/.",
   "foldersMany": "50 dossiers au plus.",
+  "allFolders": {
+    "label": "Tous les dossiers (Mon Drive et les Drive partagés)",
+    "hint": "L'agent peut lire tous les fichiers que votre connexion Google peut voir, dans Mon Drive et dans les Drive partagés. Désactivé, il n'utilise que les dossiers de la liste.",
+    "warning": "L'agent peut ainsi lire tous les fichiers que votre connexion Google atteint, pas seulement ceux d'un dossier. Le mode d'écriture ci-dessous reste en vigueur et chaque modification attend toujours votre accord.",
+    "confirm": "J'ai compris : autoriser tous les dossiers",
+    "row": "Tous les dossiers (Mon Drive et les Drive partagés)"
+  },
   "agent": "Agent",
   "agentNone": "Choisir un agent",
   "agentCredentialsOnly": "Aucun agent (identifiants uniquement)",

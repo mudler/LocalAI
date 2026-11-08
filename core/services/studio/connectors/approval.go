@@ -3,6 +3,7 @@ package connectors
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 )
@@ -67,6 +68,18 @@ type Approval struct {
 func (a Approval) IsZero() bool {
 	return a.Mode == "" && a.MaxPending == 0 && a.MinGapMinutes == 0 && a.MaxRunsPerDay == 0 &&
 		a.MaxLifetimeDays == 0 && len(a.Acts) == 0
+}
+
+// IsDefault says whether the approval asks the person and changes no limit
+// and no act, with the mode written out or left empty. A form sends the
+// default mode on every save, so it must not count as a choice that needs an
+// agent. It differs from IsZero only by that written mode.
+func (a Approval) IsDefault() bool {
+	a.Mode = strings.TrimSpace(a.Mode)
+	if a.Mode == ApprovalAsk {
+		a.Mode = ""
+	}
+	return a.IsZero()
 }
 
 // AllowsAct says whether a trigger proposed from this binding may carry the act.

@@ -8,6 +8,13 @@
   "foldersHelp": "One folder ID or folder address per line. {{count}} listed. A folder includes everything inside it. Any other file is refused.",
   "foldersShape": "\"{{entry}}\" is not a folder ID. Copy it from the address of the folder in your browser, after /folders/.",
   "foldersMany": "At most 50 folders.",
+  "allFolders": {
+    "label": "All folders (My Drive and shared drives)",
+    "hint": "The agent can read every file your Google login can see, in My Drive and in shared drives. With this off, it uses only the folders you list.",
+    "warning": "This lets the agent read every file that your Google login can reach, not only the files in a folder. The write mode below still applies, and every change still waits for your OK.",
+    "confirm": "I understand: allow all folders",
+    "row": "All folders (My Drive and shared drives)"
+  },
   "agent": "Agent",
   "agentNone": "Choose an agent",
   "agentCredentialsOnly": "No agent (credentials only)",

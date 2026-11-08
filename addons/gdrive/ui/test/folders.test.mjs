@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { OFFERED_MODES, extraBody, extraForm, extraValid, folderId, foldersIssue, foldersProblem, parseFolders, WRITE_MODES, writeModeOf } from '../src/folders.js'
+import { ALL_FOLDERS, ALL_FOLDERS_CONFIRM, OFFERED_MODES, extraBody, extraForm, extraValid, folderId, foldersIssue, foldersProblem, parseFolders, WRITE_MODES, writeModeOf } from '../src/folders.js'
 import { canSave, connectorPayload, emptyConnector } from '../../../internal/connector-ui/src/connector.js'
 import en from '../src/i18n/gdrive.en.json' with { type: 'json' }
 import manifest from '../../manifest.json' with { type: 'json' }
@@ -62,4 +62,48 @@ test('gdrive: the page is declared for the connector kind', () => {
   assert.deepEqual(ui.pages, ['apps'])
   assert.equal(ui.mainPage, 'apps')
   assert.equal(manifest.capabilities.connector.kinds[0].page, 'apps')
+})
+
+test('gdrive: All folders is the list * and needs the confirmation of a new choice', () => {
+  assert.equal(ALL_FOLDERS, '*')
+  assert.equal(ALL_FOLDERS_CONFIRM, 'allow any resource')
+  const saved = { id: 'b1', name: 'Work', resources: ['*'], write_mode: 'off' }
+  const form = { ...emptyConnector(), id: 'b1', ...extraForm(saved) }
+  assert.equal(form.all_folders, true)
+  assert.equal(form.all_was, true)
+  assert.equal(form.folders_text, '', 'the * is not a line of the folder list')
+  assert.deepEqual(extraBody(form).resources, ['*'])
+  assert.equal(extraBody(form).confirm_any_resource, undefined, 'a choice that was already saved is not confirmed again')
+  assert.equal(extraValid(form), true)
+  // A new choice: the list is *, whatever the box still holds, and it waits for the tick.
+  const fresh = { ...emptyConnector(), ...extraForm({}), all_folders: true, folders_text: 'abc' }
+  assert.deepEqual(extraBody(fresh).resources, ['*'])
+  assert.equal(extraValid(fresh), false)
+  const ticked = { ...fresh, all_ack: true }
+  assert.equal(extraValid(ticked), true)
+  assert.equal(extraBody(ticked).confirm_any_resource, 'allow any resource')
+})
+
+test('gdrive: turning All folders off gives back the typed list, and an empty list still means no access', () => {
+  const form = { ...extraForm({ resources: ['abc'] }), all_folders: false, folders_text: 'abc' }
+  assert.deepEqual(extraBody(form).resources, ['abc'])
+  assert.deepEqual(extraBody({ ...extraForm({}) }).resources, [])
+  assert.equal(extraForm({ resources: ['abc'] }).all_folders, false)
+  assert.equal(extraValid({ ...extraForm({}), all_folders: true, all_ack: true, folders_text: 'not a folder' }), true, 'the box is ignored while All folders is on')
+  assert.equal(extraValid({ ...extraForm({}), all_folders: false, folders_text: 'not a folder' }), false)
+})
+
+test('gdrive: a connection with no agent and no trigger saves, and its approval is the default', () => {
+  const form = { ...emptyConnector(), id: 'b1', name: 'Work', ...extraForm({}) }
+  assert.equal(canSave(form, false, false, null, true), true)
+  const body = connectorPayload(form, 'gdrive', '', { enabled: false, accept_any: false, ...extraBody(form) })
+  assert.equal(body.agent_id, '')
+  assert.equal(body.enabled, false)
+  assert.deepEqual(body.approval, { mode: 'ask', acts: [], max_pending: 0, min_gap_minutes: 0, max_runs_per_day: 0, max_lifetime_days: 0 })
+  assert.deepEqual(body.caps, [])
+})
+
+test('gdrive: the manifest lets the host honor * and the words for All folders exist', () => {
+  assert.equal(manifest.capabilities.connector.kinds[0].wildcardResources, true)
+  for (const k of ['label', 'hint', 'warning', 'confirm', 'row']) assert.ok(en.allFolders[k], k)
 })

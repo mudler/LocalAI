@@ -8,6 +8,13 @@
   "foldersHelp": "Un ID o un indirizzo di cartella per riga. {{count}} indicate. Una cartella include tutto ciò che contiene. Ogni altro file viene rifiutato.",
   "foldersShape": "\"{{entry}}\" non è un ID di cartella. Copialo dall'indirizzo della cartella nel browser, dopo /folders/.",
   "foldersMany": "Al massimo 50 cartelle.",
+  "allFolders": {
+    "label": "Tutte le cartelle (Il mio Drive e Drive condivisi)",
+    "hint": "L'agente può leggere ogni file che il tuo accesso Google riesce a vedere, nel tuo Drive e nei Drive condivisi. Se è disattivato, usa solo le cartelle dell'elenco.",
+    "warning": "Così l'agente può leggere ogni file raggiungibile con il tuo accesso Google, non solo quelli di una cartella. La modalità di scrittura qui sotto resta valida e ogni modifica attende comunque il tuo consenso.",
+    "confirm": "Ho capito: consenti tutte le cartelle",
+    "row": "Tutte le cartelle (Il mio Drive e Drive condivisi)"
+  },
   "agent": "Agente",
   "agentNone": "Scegli un agente",
   "agentCredentialsOnly": "Nessun agente (solo credenziali)",

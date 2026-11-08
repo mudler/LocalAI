@@ -8,6 +8,13 @@
   "foldersHelp": "Satu ID atau alamat folder per baris. {{count}} terdaftar. Folder mencakup semua isinya. File lain ditolak.",
   "foldersShape": "\"{{entry}}\" bukan ID folder. Salin dari alamat folder di browser Anda, setelah /folders/.",
   "foldersMany": "Paling banyak 50 folder.",
+  "allFolders": {
+    "label": "Semua folder (Drive Saya dan drive bersama)",
+    "hint": "Agen dapat membaca setiap berkas yang terlihat oleh login Google Anda, di Drive Saya dan di drive bersama. Jika dimatikan, agen hanya memakai folder dalam daftar.",
+    "warning": "Ini membuat agen dapat membaca setiap berkas yang dijangkau login Google Anda, tidak hanya berkas dalam satu folder. Mode tulis di bawah tetap berlaku dan setiap perubahan tetap menunggu persetujuan Anda.",
+    "confirm": "Saya mengerti: izinkan semua folder",
+    "row": "Semua folder (Drive Saya dan drive bersama)"
+  },
   "agent": "Agen",
   "agentNone": "Pilih agen",
   "agentCredentialsOnly": "Tanpa agen (hanya kredensial)",
