@@ -535,7 +535,7 @@ test.describe('Add-ons: installed', () => {
     await expect(page.locator('[data-testid="addon-tile"][data-app="notes"]').getByTestId('update-chip')).toHaveText('Update 1.3.0')
     await expect(page.locator('[data-testid="addon-tile"][data-app="plain"]').getByTestId('update-chip')).toHaveCount(0)
     await page.goto('/app/addons?manage=notes')
-    await page.getByTestId('addon-manage').getByRole('button', { name: 'Update' }).click()
+    await page.getByTestId('addon-manage').getByTestId('update-upgrade').click()
     // The confirmation names the version and digest the owner resolved and
     // nothing is sent until it is confirmed.
     const dialog = page.getByTestId('upgrade-confirm')
@@ -551,11 +551,11 @@ test.describe('Add-ons: installed', () => {
     expect(sent.operationId).toMatch(UUID)
     expect(sent.confirm).toBe(sent.operationId)
     expect(state.log.dispatch.filter(d => d.action === 'upgrade')).toHaveLength(0)
-    // An add-on without the field says the status is unknown and has no Upgrade.
+    // An add-on without the field says the status is unknown and has no Update button.
     await page.goto('/app/addons?manage=plain')
     const sheet = page.getByTestId('addon-manage')
     await expect(sheet.getByText('The update status is not known')).toBeVisible()
-    await expect(sheet.getByRole('button', { name: 'Update' })).toHaveCount(0)
+    await expect(sheet.getByTestId('update-upgrade')).toHaveCount(0)
   })
 
   test('installed: removing warns that data is kept before anything is submitted', async ({ page }) => {
