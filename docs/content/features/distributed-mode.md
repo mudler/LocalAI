@@ -343,8 +343,11 @@ frontends never start the same update at once.
 Every frontend still checks for updates on its own, once after start and again
 after each backend operation, to fill its own list of available updates. That
 list is kept in the memory of the frontend, so two frontends can show a
-different list for a short time. A check you start from the UI refreshes only
-the frontend that answers it, and it installs nothing. A standalone server has
+different list for a short time. A check you start from the UI, or with
+`POST /backends/updates/check`, refreshes only the frontend that answers it,
+on any frontend whether or not it holds the lock, and it installs nothing.
+`GET /backends/updates` answers from that frontend's own list and shows when it
+was checked (see [Checking for backend updates]({{% relref "features/backends#checking-for-backend-updates" %}})). A standalone server has
 no lock and installs after any check.
 
 ### Watching Backend Installs

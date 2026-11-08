@@ -131,6 +131,62 @@ Each open row displays:
 - The models that use the backend, a link to its logs, and, in a cluster, the
   per-node controls
 
+## Checking for backend updates
+
+`GET /backends/updates` (the UI uses the alias `GET /api/backends/updates`)
+lists the gallery and library backends that have a newer build. Both routes
+need an administrator. The answer comes from the cache of the instance that
+serves the request and contacts no registry. It has:
+
+- `items`: one entry per backend with an update. `kind` is `gallery` or
+  `library`. Each has `installedVersion`, `availableVersion`, the digests when
+  there are any, and a `state`: `update` (a newer version or digest), `stale`
+  (a request showed that the backend is older than the server; `reason` says
+  how) or `drift` (the nodes of a cluster do not agree on the build). A library
+  item also has `sourceId` and `signed`. In a cluster an item has `nodes`, with
+  the version of every node that has the backend and `drift` on the ones that
+  differ from the majority.
+- `sources.gallery` and `sources.library`: the freshness of each source. `state`
+  is `ok`, `failed`, `never` (not checked since the server started) or
+  `disabled` (with a `reason`). A source also has `checkedAt`, `lastSuccessAt`
+  and `error`. When the last check failed, `stale` is true and `items` still
+  lists what the last good check found. A client must not say "no updates"
+  while a source is `failed` or `never`.
+- `autoUpdate.backends`: the value of **Update backends automatically**
+  (`auto_upgrade_backends`). It covers gallery and library backends.
+- `checkedAt`: the latest check of any source.
+
+`POST /backends/updates/check` (alias `POST /api/backends/updates/check`) checks
+now. It refreshes the library index, asks the registries, waits for the check
+(at most 45 seconds) and answers with the same body, with fresh times. A check
+that fails or times out is an `error` in the state of its source, and the
+previous list stays. Callers that arrive during a check share it. A call within
+15 seconds of the last check is answered from it, with `throttled` set. A check
+installs nothing. The older `POST /backends/upgrades/check` still only starts a
+check and returns the cache at once.
+
+Limits:
+
+- **Library backends are those of the host.** The library comparison reads the
+  backends installed on the host that answers. On a cluster frontend that holds
+  no backends, library backends installed on workers are not listed, and the
+  `library` source says so in its `note`.
+- **Models that would stop.** A node entry lists the loaded models whose
+  recorded backend has the name of the item. The node registry records the
+  backend a model was loaded with; it can be empty, or name a meta backend
+  instead of the installed build. An empty `models` list does not prove that no
+  model would stop.
+- **Without a checker** (backend installs are disabled, or no backend gallery is
+  configured) both sources are `disabled` and `items` is empty.
+
+In [distributed mode]({{% relref "features/distributed-mode#automatic-backend-updates" %}})
+the cache is per frontend. The frontend that gets a check request updates its
+own cache only, whether or not it holds the lock that runs automatic updates.
+`checkedAt` says how old each answer is.
+
+The LocalAI Assistant reads the same data with the `backend_updates` tool
+(`action` `list` or `check`).
+
 ## Backend Galleries
 
 Backend galleries are repositories that contain backend definitions. They work similarly to model galleries but are specifically for backends.
