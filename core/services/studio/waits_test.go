@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,7 +18,42 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/web/safehttp"
+	"github.com/mudler/LocalAI/pkg/web/webtools"
 )
+
+// pageFetcher serves one page to the real web_fetch, so a wait reads it
+// through the same wrapper a model would see.
+type pageFetcher struct {
+	mu   sync.Mutex
+	ct   string
+	body string
+	cut  bool
+}
+
+func (f *pageFetcher) set(ct, body string, cut bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.ct, f.body, f.cut = ct, body, cut
+}
+
+func (f *pageFetcher) Get(_ context.Context, raw string, _ []string) (*safehttp.Response, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	u, _ := url.Parse(raw)
+	return &safehttp.Response{FinalURL: u, ContentType: f.ct, Body: []byte(f.body), Truncated: f.cut}, nil
+}
+
+// realWeb is web_fetch of the real webtools package over a fake fetcher.
+type realWeb struct {
+	*fakeWeb
+	tools webtools.Tools
+}
+
+func (w *realWeb) Fetch(ctx context.Context, args json.RawMessage) (string, error) {
+	_, _ = w.fakeWeb.Fetch(ctx, args) // record the call
+	return w.tools.WebFetch(ctx, args)
+}
 
 // source is a read-only tool whose output a test controls.
 type source struct {
@@ -426,6 +462,88 @@ var _ = Describe("wait_for", func() {
 			idle(r.svc, alice, chat)
 			Expect(r.h.ResultsFor("wait_for")[0].Err).To(MatchError(ContainSubstring("http or https")))
 			Expect(w2.fetches).To(BeEmpty())
+		})
+	})
+
+	Describe("a URL source", func() {
+		const jsonWait = `{"url":"https://status.example.com/job.json","until":"json_equals","field":"job.done","equals":"true","every":"1m","timeout":"1h","max_errors":3,` + waitThen + `}`
+		bigJSON := func(done bool) string {
+			return `{"log":"` + strings.Repeat("x", 3*loops.MaxWatchOutput) + `","job":{"done":` + strconv.FormatBool(done) + `}}`
+		}
+		rig := func(args string, f *pageFetcher) (*loopRig, string, loops.Loop, *realWeb) {
+			w := &realWeb{fakeWeb: &fakeWeb{fetch: true}, tools: webtools.Tools{Fetch: f}}
+			r, chat, l := armed(args, &source{}, withWeb(w))
+			return r, chat, l, w
+		}
+
+		It("matches text that lies beyond the first 8000 characters", func() {
+			f := &pageFetcher{}
+			f.set("text/plain", strings.Repeat("x", 3*loops.MaxWatchOutput), false)
+			r, chat, l, w := rig(`{"url":"https://status.example.com/p","until":"match","pattern":"all done$","every":"1m",`+waitThen+`}`, f)
+			r.pass()
+			Expect(w.fetches[0]).To(ContainSubstring(strconv.Itoa(webtools.HardMaxChars)))
+			f.set("text/plain", strings.Repeat("x", 3*loops.MaxWatchOutput)+" all done", false)
+			tick(r, time.Minute)
+			tick(r, time.Second)
+			r.settled(l.ID)
+			Expect(r.h.Sent(chat)[1]).To(ContainSubstring("(matched)"))
+		})
+
+		It("sees a change beyond the first 8000 characters and stores only the cap", func() {
+			f := &pageFetcher{}
+			f.set("text/plain", strings.Repeat("x", 3*loops.MaxWatchOutput)+" a", false)
+			r, chat, l, _ := rig(`{"url":"https://status.example.com/p","every":"1m",`+waitThen+`}`, f)
+			r.pass()
+			Expect(len(r.get(l.ID).Watch.BaseOut)).To(BeNumerically("<=", loops.MaxWatchOutput))
+			f.set("text/plain", strings.Repeat("x", 3*loops.MaxWatchOutput)+" b", false)
+			tick(r, time.Minute)
+			tick(r, time.Second)
+			r.settled(l.ID)
+			Expect(r.h.Sent(chat)[1]).To(ContainSubstring("(changed)"))
+		})
+
+		It("judges a JSON body over 8000 characters, served as application/json", func() {
+			f := &pageFetcher{}
+			f.set("application/json", bigJSON(false), false)
+			r, chat, l, _ := rig(jsonWait, f)
+			r.pass()
+			Expect(r.get(l.ID).Watch.Errors).To(Equal(0), "%s", r.get(l.ID).Watch.LastErr)
+			f.set("application/json", bigJSON(true), false)
+			tick(r, time.Minute)
+			tick(r, time.Second)
+			r.settled(l.ID)
+			Expect(r.h.Sent(chat)[1]).To(ContainSubstring(`equals "true"`))
+			Expect(r.get(l.ID).Watch.End).To(Equal(loops.EndMet))
+		})
+
+		It("reports a cut download as its own error in json_equals mode", func() {
+			f := &pageFetcher{}
+			f.set("application/json", bigJSON(true)[:20000], true)
+			r, _, l, _ := rig(jsonWait, f)
+			r.pass()
+			got := r.get(l.ID)
+			Expect(got.Watch.Errors).To(Equal(1))
+			Expect(got.Watch.LastErr).To(ContainSubstring("cut"))
+			Expect(got.Watch.LastErr).NotTo(ContainSubstring("unexpected EOF"))
+		})
+
+		It("reports a body cut at the character limit as its own error in json_equals mode", func() {
+			f := &pageFetcher{}
+			f.set("application/json", `{"log":"`+strings.Repeat("x", webtools.HardMaxChars+10)+`","job":{"done":true}}`, false)
+			r, _, l, _ := rig(jsonWait, f)
+			r.pass()
+			got := r.get(l.ID)
+			Expect(got.Watch.LastErr).To(ContainSubstring("cut"))
+			Expect(got.Watch.LastErr).NotTo(ContainSubstring("unexpected EOF"))
+		})
+
+		It("accepts a cut page in match mode", func() {
+			f := &pageFetcher{}
+			f.set("text/plain", "start "+strings.Repeat("x", 100), true)
+			r, _, l, _ := rig(`{"url":"https://status.example.com/p","until":"match","pattern":"start","every":"1m",`+waitThen+`}`, f)
+			r.pass()
+			Expect(r.get(l.ID).Watch.Errors).To(Equal(0))
+			Expect(r.get(l.ID).Watch.Checks).To(Equal(1))
 		})
 	})
 

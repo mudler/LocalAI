@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/web/webtools"
 )
 
 // A wait is a loop whose check is code. The model arms it with wait_for and
@@ -162,8 +163,16 @@ func (s *Service) pollTool(ctx context.Context, p, chat, name string) (session.T
 }
 
 // pollURL reads a URL as web_fetch does: through the same guarded client, so
-// the same egress checks apply.
-func (s *Service) pollURL(ctx context.Context, p, chat, raw string) (string, error) {
+// the same egress checks apply. It asks for the most text web_fetch gives and
+// takes off the label that web_fetch wraps around the page, so that the wait
+// judges the page itself: a JSON endpoint parses, and the hash does not depend
+// on the wrapper. Only what is stored or shown is cut later (see judge).
+//
+// A page that was cut (by the size limit of the download or by the character
+// limit) is judged as far as it goes for match and change, but a JSON field
+// cannot be read from half a document: with strictJSON that is an error that
+// says so.
+func (s *Service) pollURL(ctx context.Context, p, chat, raw string, strictJSON bool) (string, error) {
 	w := s.d.Web
 	if w == nil || !w.Enabled(webFetchName) {
 		return "", errors.New("web_fetch is switched off on this server")
@@ -175,11 +184,27 @@ func (s *Service) pollURL(ctx context.Context, p, chat, raw string) (string, err
 	if s.hiddenFor(ctx, rec)[webFetchName] {
 		return "", errors.New("web_fetch is switched off in this chat")
 	}
-	args, err := json.Marshal(map[string]any{"url": raw, "format": "text", "max_chars": loops.MaxWatchOutput})
+	args, err := json.Marshal(map[string]any{"url": raw, "format": "text", "max_chars": webtools.HardMaxChars})
 	if err != nil {
 		return "", err
 	}
-	return w.Fetch(ctx, args)
+	out, err := w.Fetch(ctx, args)
+	if err != nil {
+		return "", err
+	}
+	page, ok := webtools.Unwrap(out)
+	if !ok {
+		return out, nil
+	}
+	if page.Cut {
+		if strictJSON {
+			return "", fmt.Errorf("the page is longer than a wait reads (it was cut at %d characters or at the download limit), so its JSON cannot be judged", webtools.HardMaxChars)
+		}
+		if page.Note != "" {
+			return page.Body + "\n\n" + page.Note, nil
+		}
+	}
+	return page.Body, nil
 }
 
 // probe makes one check of a wait.
@@ -192,7 +217,7 @@ func (h *Loops) probe(ctx context.Context, l loops.Loop) watch.Result {
 		err error
 	)
 	if w.URL != "" {
-		out, err = h.svc.pollURL(ctx, l.Owner, l.ChatID, w.URL)
+		out, err = h.svc.pollURL(ctx, l.Owner, l.ChatID, w.URL, w.Mode == loops.UntilJSONEquals)
 	} else {
 		var t session.Tool
 		if t, err = h.svc.pollTool(ctx, l.Owner, l.ChatID, w.Tool); err == nil {
