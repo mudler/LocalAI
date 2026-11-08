@@ -26,9 +26,12 @@ const (
 // UpgradeChecker periodically checks for backend upgrades and optionally
 // auto-upgrades them. It caches the last check results for API queries.
 //
-// In standalone mode it runs a simple ticker loop.
-// In distributed mode it uses a PostgreSQL advisory lock so that only one
-// frontend instance performs periodic checks and auto-upgrades at a time.
+// In standalone mode it runs a simple ticker loop; every check may
+// auto-upgrade.
+// In distributed mode every frontend detects upgrades to fill its own cache
+// (first check, on-demand triggers), but only the holder of a PostgreSQL
+// advisory lock auto-upgrades, once per interval. Several frontends starting
+// the same install would race on the same workers.
 type UpgradeChecker struct {
 	appConfig   *config.ApplicationConfig
 	modelLoader *model.ModelLoader
@@ -47,6 +50,7 @@ type UpgradeChecker struct {
 	// after the checker is built.
 	libraryFn func() libraryUpgrader
 
+	initialDelay  time.Duration
 	checkInterval time.Duration
 	stop          chan struct{}
 	done          chan struct{}
@@ -71,6 +75,7 @@ func NewUpgradeChecker(appConfig *config.ApplicationConfig, ml *model.ModelLoade
 		systemState:      appConfig.SystemState,
 		db:               db,
 		backendManagerFn: backendManagerFn,
+		initialDelay:     upgradeInitialDelay,
 		checkInterval:    upgradeCheckInterval,
 		stop:             make(chan struct{}),
 		done:             make(chan struct{}),
@@ -79,19 +84,20 @@ func NewUpgradeChecker(appConfig *config.ApplicationConfig, ml *model.ModelLoade
 	}
 }
 
-// Run starts the upgrade checker loop. It waits 30 seconds after startup,
-// performs an initial check, then re-checks every 6 hours.
+// Run starts the upgrade checker loop. It waits upgradeInitialDelay after
+// startup, performs an initial check, then re-checks every 6 hours.
 //
-// In distributed mode, periodic checks are guarded by a PostgreSQL advisory
-// lock so only one frontend instance runs them. On-demand triggers (TriggerCheck)
-// and the initial check always run locally for fast API response cache warming.
+// In distributed mode, the periodic pass is guarded by a PostgreSQL advisory
+// lock so only one frontend instance runs it, and only that pass installs
+// upgrades. On-demand triggers (TriggerCheck) and the initial check run on
+// every instance to warm its cache, and never install.
 func (uc *UpgradeChecker) Run(ctx context.Context) {
 	defer close(uc.done)
 
 	// Initial delay: don't slow down startup. Short enough that operators
 	// don't stare at an empty upgrade banner for long; long enough that
 	// workers have registered and reported their installed backends.
-	initialDelay := upgradeInitialDelay
+	initialDelay := uc.initialDelay
 	select {
 	case <-ctx.Done():
 		return
@@ -101,13 +107,13 @@ func (uc *UpgradeChecker) Run(ctx context.Context) {
 	}
 
 	// First check always runs locally (to warm the cache on this instance)
-	uc.runCheck(ctx)
+	uc.runOnDemand(ctx)
 
 	if uc.db != nil {
 		// Distributed mode: use advisory lock for periodic checks.
 		// RunLeaderLoop ticks every checkInterval; only the lock holder executes.
 		go advisorylock.RunLeaderLoop(ctx, uc.db, advisorylock.KeyBackendUpgradeCheck, uc.checkInterval, func() {
-			uc.runCheck(ctx)
+			uc.runLeaderPass(ctx)
 		})
 
 		// Still listen for on-demand triggers (from API / settings change)
@@ -119,7 +125,7 @@ func (uc *UpgradeChecker) Run(ctx context.Context) {
 			case <-uc.stop:
 				return
 			case <-uc.triggerCh:
-				uc.runCheck(ctx)
+				uc.runOnDemand(ctx)
 			}
 		}
 	} else {
@@ -134,9 +140,9 @@ func (uc *UpgradeChecker) Run(ctx context.Context) {
 			case <-uc.stop:
 				return
 			case <-ticker.C:
-				uc.runCheck(ctx)
+				uc.runLeaderPass(ctx)
 			case <-uc.triggerCh:
-				uc.runCheck(ctx)
+				uc.runOnDemand(ctx)
 			}
 		}
 	}
@@ -218,8 +224,25 @@ func (uc *UpgradeChecker) upgradeLibraryBackends(ctx context.Context) {
 	}
 }
 
-func (uc *UpgradeChecker) runCheck(ctx context.Context) {
-	defer uc.upgradeLibraryBackends(ctx)
+// runLeaderPass is the periodic pass: it detects and installs. In distributed
+// mode only the advisory lock holder calls it.
+func (uc *UpgradeChecker) runLeaderPass(ctx context.Context) {
+	uc.runCheck(ctx, true)
+}
+
+// runOnDemand serves the first check and the triggers, which run on every
+// frontend. Standalone there is one process, so it may install like the
+// periodic pass. In distributed mode it only refreshes this frontend's cache.
+func (uc *UpgradeChecker) runOnDemand(ctx context.Context) {
+	uc.runCheck(ctx, uc.db == nil)
+}
+
+// runCheck detects upgrades and fills the cache. With autoUpgrade it also
+// installs them when the setting is on.
+func (uc *UpgradeChecker) runCheck(ctx context.Context, autoUpgrade bool) {
+	if autoUpgrade {
+		defer uc.upgradeLibraryBackends(ctx)
+	}
 	var (
 		upgrades map[string]gallery.UpgradeInfo
 		err      error
@@ -266,7 +289,7 @@ func (uc *UpgradeChecker) runCheck(ctx context.Context) {
 	// gallery.UpgradeBackend directly would look up the backend on the
 	// frontend filesystem, which is empty in distributed mode and produces
 	// "backend not found" while the cluster still reports an upgrade.
-	if uc.appConfig.AutoUpgradeBackends {
+	if autoUpgrade && uc.appConfig.AutoUpgradeBackends {
 		var bm galleryop.BackendManager
 		if uc.backendManagerFn != nil {
 			bm = uc.backendManagerFn()
