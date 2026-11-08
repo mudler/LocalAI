@@ -123,13 +123,6 @@ func (s *Service) treeState(ctx context.Context, p string, root session.ChatReco
 	return running, chats, nil
 }
 
-// runningTree counts the helpers under root that run now: the number the cap
-// of a coordinator is compared with.
-func (s *Service) runningTree(ctx context.Context, p string, root session.ChatRecord) (int, error) {
-	running, _, err := s.treeState(ctx, p, root)
-	return len(running), err
-}
-
 // auditHelperDenied records that a coordinator's helper was refused: the model
 // asked for one past a limit.
 func (s *Service) auditHelperDenied(ctx context.Context, root session.ChatRecord, reason string) {
