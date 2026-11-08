@@ -166,9 +166,6 @@
     "backends": "Buka Backend",
     "addons": "Buka Aplikasi"
   },
-  "trigger": {
-    "all": "Perbarui semua ({{count}})"
-  },
   "dialog": {
     "title": "Perbarui yang siap",
     "intro": "Pilih apa yang diperbarui. Masing-masing diperbarui sendiri, satu per satu, dan dianggap selesai hanya jika pemeriksaan baru tidak lagi mencantumkannya. Satu kegagalan tidak menghentikan yang lain.",

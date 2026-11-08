@@ -606,7 +606,6 @@
     },
     "progress": "Upgrading {{name}}. Its data is backed up first.",
     "done": "Upgraded to version {{version}}.",
-    "browseUpdate": "Update {{version}} is available. Manage it in Installed.",
     "errors": {
       "stale_installed": "The installed version changed since it was checked. Check for updates again.",
       "candidate_changed": "The library no longer offers the version you checked. Check for updates again.",
@@ -636,8 +635,6 @@
     "checkAll": "Check for updates",
     "notCheckedYet": "Updates have not been checked yet.",
     "checkingAll": "Checking...",
-    "checkAllDone": "Checked {{count}} add-ons.",
-    "checkAllFailed": "{{count}} could not be checked.",
     "checkResult": {
       "done": "Checked.",
       "failed": "The check did not complete.",

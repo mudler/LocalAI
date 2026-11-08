@@ -166,9 +166,6 @@
     "backends": "Open Backends",
     "addons": "Open Apps"
   },
-  "trigger": {
-    "all": "Update all ({{count}})"
-  },
   "dialog": {
     "title": "Update ready",
     "intro": "Choose what to update. Each one is updated on its own, one after another, and counts as done only when a new check no longer lists it. A failure does not stop the others.",

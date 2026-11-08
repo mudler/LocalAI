@@ -332,7 +332,7 @@ function UpdatesPage({ updates }) {
           onDone={() => { actions.setReview(null); updates.readAddons() }}
         />
       )}
-      <BulkUpgradeDialog bulk={bulk} ns="updates" labels={{ title: t('dialog.title'), intro: t('dialog.intro'), action: t('dialog.start') }} />
+      <BulkUpgradeDialog bulk={bulk} />
     </div>
   )
 }

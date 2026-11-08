@@ -166,9 +166,6 @@
     "backends": "Ouvrir les backends",
     "addons": "Ouvrir les apps"
   },
-  "trigger": {
-    "all": "Tout mettre à jour ({{count}})"
-  },
   "dialog": {
     "title": "Mettre à jour les prêtes",
     "intro": "Choisissez ce qu'il faut mettre à jour. Chaque élément est mis à jour séparément, l'un après l'autre, et compte comme terminé seulement quand une nouvelle vérification ne le liste plus. Un échec n'arrête pas les autres.",

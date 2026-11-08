@@ -606,7 +606,6 @@
     },
     "progress": "Aggiornamento di {{name}} in corso. Prima si salvano i suoi dati.",
     "done": "Aggiornato alla versione {{version}}.",
-    "browseUpdate": "L'aggiornamento {{version}} è disponibile. Gestiscilo in Installati.",
     "errors": {
       "stale_installed": "La versione installata è cambiata dopo il controllo. Cerca di nuovo gli aggiornamenti.",
       "candidate_changed": "La libreria non offre più la versione controllata. Cerca di nuovo gli aggiornamenti.",
@@ -636,8 +635,6 @@
     "checkAll": "Cerca aggiornamenti",
     "notCheckedYet": "Gli aggiornamenti non sono ancora stati controllati.",
     "checkingAll": "Controllo...",
-    "checkAllDone": "Controllati {{count}} componenti.",
-    "checkAllFailed": "{{count}} non controllabili.",
     "checkResult": {
       "done": "Controllato.",
       "failed": "Il controllo non è stato completato.",

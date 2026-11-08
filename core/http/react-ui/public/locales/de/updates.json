@@ -166,9 +166,6 @@
     "backends": "Backends öffnen",
     "addons": "Apps öffnen"
   },
-  "trigger": {
-    "all": "Alle aktualisieren ({{count}})"
-  },
   "dialog": {
     "title": "Bereite aktualisieren",
     "intro": "Wählen Sie, was aktualisiert wird. Jedes wird einzeln nacheinander aktualisiert und gilt erst als fertig, wenn eine neue Prüfung es nicht mehr auflistet. Ein Fehler stoppt die anderen nicht.",

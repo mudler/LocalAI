@@ -610,7 +610,6 @@
     },
     "progress": "Mise à niveau de {{name}}. Ses données sont d'abord sauvegardées.",
     "done": "Mis à niveau vers la version {{version}}.",
-    "browseUpdate": "La mise à jour {{version}} est disponible. Gérez-la dans Installés.",
     "errors": {
       "stale_installed": "La version installée a changé depuis la vérification. Recherchez à nouveau des mises à jour.",
       "candidate_changed": "La bibliothèque ne propose plus la version que vous avez vérifiée. Recherchez à nouveau des mises à jour.",
@@ -640,8 +639,6 @@
     "checkAll": "Rechercher des mises à jour",
     "notCheckedYet": "Les mises à jour n'ont pas encore été vérifiées.",
     "checkingAll": "Vérification...",
-    "checkAllDone": "{{count}} modules vérifiés.",
-    "checkAllFailed": "{{count}} n’ont pas pu être vérifiés.",
     "checkResult": {
       "done": "Vérifié.",
       "failed": "La vérification n'a pas abouti.",

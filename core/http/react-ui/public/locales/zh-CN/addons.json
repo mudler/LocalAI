@@ -606,7 +606,6 @@
     },
     "progress": "正在升级 {{name}}。先备份其数据。",
     "done": "已升级到版本 {{version}}。",
-    "browseUpdate": "更新 {{version}} 可用。请在“已安装”中管理。",
     "errors": {
       "stale_installed": "检查之后已安装的版本发生了变化。请再次检查更新。",
       "candidate_changed": "库不再提供您检查过的版本。请再次检查更新。",
@@ -636,8 +635,6 @@
     "checkAll": "检查更新",
     "notCheckedYet": "尚未检查更新。",
     "checkingAll": "正在检查...",
-    "checkAllDone": "已检查 {{count}} 个插件。",
-    "checkAllFailed": "{{count}} 个无法检查。",
     "checkResult": {
       "done": "已检查。",
       "failed": "检查未完成。",

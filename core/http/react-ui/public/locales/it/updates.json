@@ -166,9 +166,6 @@
     "backends": "Apri i backend",
     "addons": "Apri le app"
   },
-  "trigger": {
-    "all": "Aggiorna tutto ({{count}})"
-  },
   "dialog": {
     "title": "Aggiorna i pronti",
     "intro": "Scegli cosa aggiornare. Ognuno viene aggiornato per conto suo, uno dopo l'altro, e conta come finito solo quando un nuovo controllo non lo elenca più. Un errore non ferma gli altri.",

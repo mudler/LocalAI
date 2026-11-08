@@ -1,12 +1,8 @@
 {
   "backends": {
     "filterLabel": "Filtra i backend",
-    "check": "Cerca aggiornamenti",
     "reinstallBackend": "Reinstalla il backend",
     "deleteBackend": "Elimina il backend",
-    "updateAllTitle": "Aggiorna tutti i backend",
-    "updateAllIntro": "Scegli quali backend aggiornare. Ognuno viene aggiornato da solo, uno dopo l'altro. Un errore non ferma gli altri.",
-    "updateSelected": "Aggiorna selezione",
     "loadFailedTitle": "Impossibile caricare il catalogo dei backend.",
     "filtersButton": "Filtri",
     "filtersDone": "Fatto",
@@ -27,7 +23,6 @@
     "countOf": "{{shown}} di {{total}} backend",
     "activeFilters": "Filtri attivi",
     "removeFilter": "Rimuovi filtro: {{name}}",
-    "checking": "Ricerca aggiornamenti…",
     "updatesAvailable_one": "{{count}} aggiornamento disponibile",
     "updatesAvailable_other": "{{count}} aggiornamenti disponibili",
     "reviewUpdates": "Rivedi",

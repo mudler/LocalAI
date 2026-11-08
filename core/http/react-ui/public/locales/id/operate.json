@@ -1,12 +1,8 @@
 {
   "backends": {
     "filterLabel": "Saring backend",
-    "check": "Periksa pembaruan",
     "reinstallBackend": "Pasang ulang backend",
     "deleteBackend": "Hapus backend",
-    "updateAllTitle": "Perbarui semua backend",
-    "updateAllIntro": "Pilih backend yang akan diperbarui. Masing-masing diperbarui sendiri, satu per satu. Kegagalan tidak menghentikan yang lain.",
-    "updateSelected": "Perbarui yang dipilih",
     "loadFailedTitle": "Katalog backend tidak dapat dimuat.",
     "filtersButton": "Filter",
     "filtersDone": "Selesai",
@@ -27,7 +23,6 @@
     "countOf": "{{shown}} dari {{total}} backend",
     "activeFilters": "Filter aktif",
     "removeFilter": "Hapus filter: {{name}}",
-    "checking": "Memeriksa pembaruan…",
     "updatesAvailable_one": "{{count}} pembaruan tersedia",
     "updatesAvailable_other": "{{count}} pembaruan tersedia",
     "reviewUpdates": "Tinjau",

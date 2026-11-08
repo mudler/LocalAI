@@ -606,7 +606,6 @@
     },
     "progress": "{{name}} wird aktualisiert. Zuerst werden die Daten gesichert.",
     "done": "Auf Version {{version}} aktualisiert.",
-    "browseUpdate": "Update {{version}} ist verfügbar. Verwaltung unter Installiert.",
     "errors": {
       "stale_installed": "Die installierte Version hat sich seit der Prüfung geändert. Bitte erneut nach Updates suchen.",
       "candidate_changed": "Die Bibliothek bietet die geprüfte Version nicht mehr an. Bitte erneut nach Updates suchen.",
@@ -636,8 +635,6 @@
     "checkAll": "Nach Updates suchen",
     "notCheckedYet": "Updates wurden noch nicht geprüft.",
     "checkingAll": "Prüfe...",
-    "checkAllDone": "{{count}} Add-ons geprüft.",
-    "checkAllFailed": "{{count}} konnten nicht geprüft werden.",
     "checkResult": {
       "done": "Geprüft.",
       "failed": "Die Prüfung wurde nicht abgeschlossen.",

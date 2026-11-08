@@ -606,7 +606,6 @@
     },
     "progress": "Memperbarui {{name}}. Datanya dicadangkan lebih dulu.",
     "done": "Diperbarui ke versi {{version}}.",
-    "browseUpdate": "Pembaruan {{version}} tersedia. Kelola di Terpasang.",
     "errors": {
       "stale_installed": "Versi terpasang berubah sejak diperiksa. Periksa pembaruan lagi.",
       "candidate_changed": "Pustaka tidak lagi menawarkan versi yang diperiksa. Periksa pembaruan lagi.",
@@ -636,8 +635,6 @@
     "checkAll": "Periksa pembaruan",
     "notCheckedYet": "Pembaruan belum diperiksa.",
     "checkingAll": "Memeriksa...",
-    "checkAllDone": "{{count}} add-on diperiksa.",
-    "checkAllFailed": "{{count}} tidak dapat diperiksa.",
     "checkResult": {
       "done": "Sudah diperiksa.",
       "failed": "Pemeriksaan tidak selesai.",

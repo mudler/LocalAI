@@ -606,7 +606,6 @@
     },
     "progress": "Actualizando {{name}}. Primero se respaldan sus datos.",
     "done": "Actualizado a la versión {{version}}.",
-    "browseUpdate": "La actualización {{version}} está disponible. Adminístrala en Instalados.",
     "errors": {
       "stale_installed": "La versión instalada cambió desde la comprobación. Busca actualizaciones de nuevo.",
       "candidate_changed": "La biblioteca ya no ofrece la versión comprobada. Busca actualizaciones de nuevo.",
@@ -636,8 +635,6 @@
     "checkAll": "Buscar actualizaciones",
     "notCheckedYet": "Aún no se han buscado actualizaciones.",
     "checkingAll": "Comprobando...",
-    "checkAllDone": "{{count}} complementos comprobados.",
-    "checkAllFailed": "No se pudieron comprobar {{count}}.",
     "checkResult": {
       "done": "Comprobado.",
       "failed": "La comprobación no se completó.",

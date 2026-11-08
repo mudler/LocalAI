@@ -166,9 +166,6 @@
     "backends": "Abrir Backends",
     "addons": "Abrir Apps"
   },
-  "trigger": {
-    "all": "Actualizar todo ({{count}})"
-  },
   "dialog": {
     "title": "Actualizar las listas",
     "intro": "Elige qué actualizar. Cada una se actualiza por separado, una tras otra, y cuenta como terminada solo cuando una nueva comprobación ya no la lista. Un fallo no detiene las demás.",
