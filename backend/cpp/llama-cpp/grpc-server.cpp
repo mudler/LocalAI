@@ -1140,7 +1140,8 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         } else if (!strcmp(optname, "draft_ctx_size")) {
             // The draft context size is no longer a separate field upstream: the draft
             // shares the target context size. Accept the option for backward
-            // compatibility but silently ignore it.
+            // compatibility, but say that it does nothing.
+            SRV_WRN("%s", "draft_ctx_size: ignored, the draft context uses the context size of the target model\n");
 
         // --- ngram_mod family (upstream --spec-ngram-mod-*) ---
         } else if (!strcmp(optname, "spec_ngram_mod_n_min")) {
@@ -1191,9 +1192,9 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             params.speculative.ngram_cache.lookup_cache_dynamic = optval_str;
 
         // --- draft model KV cache types (upstream --spec-draft-type-k / -v) ---
-        } else if (!strcmp(optname, "draft_cache_type_k") || !strcmp(optname, "spec_draft_cache_type_k")) {
+        } else if (!strcmp(optname, "draft_cache_type_k") || !strcmp(optname, "spec_draft_cache_type_k") || !strcmp(optname, "spec_draft_type_k")) {
             params.speculative.draft.cache_type_k = kv_cache_type_from_str(optval_str);
-        } else if (!strcmp(optname, "draft_cache_type_v") || !strcmp(optname, "spec_draft_cache_type_v")) {
+        } else if (!strcmp(optname, "draft_cache_type_v") || !strcmp(optname, "spec_draft_cache_type_v") || !strcmp(optname, "spec_draft_type_v")) {
             params.speculative.draft.cache_type_v = kv_cache_type_from_str(optval_str);
 
         // --- draft model thread counts (upstream --spec-draft-threads / -batch) ---
@@ -1314,6 +1315,90 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                             {buft_overrides_main.back().c_str(), ggml_backend_cpu_buffer_type()});
                     }
 #endif
+        // --- dense FFN weights on CPU (upstream --n-cpu-ffn): the dense-model
+        //     twin of n_cpu_moe, for the first N layers ---
+        } else if (!strcmp(optname, "n_cpu_ffn")) {
+            if (optval != NULL) {
+                const auto n = llama_grpc::parse_non_negative_int(optval_str);
+                if (!n) {
+                    SRV_WRN("n_cpu_ffn: ignoring invalid value '%s' (expected a non-negative integer)\n", optval_str.c_str());
+                } else {
+#if LOCALAI_HAS_N_CPU_FFN_DENSE
+                    llm_add_n_cpu_ffn_overrides(*n, LLM_FFN_DENSE_REGEX, params.tensor_buft_overrides);
+#else
+                    SRV_WRN("%s", "n_cpu_ffn: this llama.cpp build has no --n-cpu-ffn, ignoring\n");
+#endif
+                }
+            }
+
+        // --- context limit per parallel slot (upstream --kv-unified-per-slot) ---
+        // Sizes the shared KV pool to parallel * N when context_size is unset.
+        } else if (!strcmp(optname, "kv_unified_per_slot")) {
+            if (optval != NULL) {
+                const auto n = llama_grpc::parse_non_negative_int(optval_str);
+                if (!n) {
+                    SRV_WRN("kv_unified_per_slot: ignoring invalid value '%s' (expected a non-negative integer)\n", optval_str.c_str());
+                } else {
+#if LOCALAI_HAS_KV_UNIFIED_PER_SLOT
+                    params.kv_unified_per_slot = *n;
+#else
+                    SRV_WRN("%s", "kv_unified_per_slot: this llama.cpp build has no --kv-unified-per-slot, ignoring\n");
+#endif
+                }
+            }
+
+        // --- YaRN original context size (upstream --yarn-orig-ctx); 0 = model value ---
+        } else if (!strcmp(optname, "yarn_orig_ctx")) {
+            if (optval != NULL) {
+                const auto n = llama_grpc::parse_non_negative_int(optval_str);
+                if (!n) {
+                    SRV_WRN("yarn_orig_ctx: ignoring invalid value '%s' (expected a non-negative integer)\n", optval_str.c_str());
+                } else {
+                    params.yarn_orig_ctx = *n;
+                }
+            }
+
+        // --- draft context micro-batch (upstream --spec-draft-n-ubatch); 0 = same as the target ---
+        } else if (!strcmp(optname, "spec_draft_n_ubatch")) {
+            if (optval != NULL) {
+                const auto n = llama_grpc::parse_non_negative_int(optval_str);
+                if (!n) {
+                    SRV_WRN("spec_draft_n_ubatch: ignoring invalid value '%s' (expected a non-negative integer)\n", optval_str.c_str());
+                } else {
+#if LOCALAI_HAS_SPEC_DRAFT_N_UBATCH
+                    params.speculative.draft.n_ubatch = *n;
+#else
+                    SRV_WRN("%s", "spec_draft_n_ubatch: this llama.cpp build has no --spec-draft-n-ubatch, ignoring\n");
+#endif
+                }
+            }
+
+        // --- draft sampling (upstream --spec-draft-sampling): greedy | probabilistic ---
+        } else if (!strcmp(optname, "spec_draft_sampling")) {
+            if (optval != NULL) {
+                const auto v = llama_grpc::parse_draft_sampling(optval_str);
+                if (!v) {
+                    SRV_WRN("spec_draft_sampling: ignoring invalid value '%s' (expected greedy or probabilistic)\n", optval_str.c_str());
+                } else {
+#if LOCALAI_HAS_SPEC_DRAFT_SAMPLING
+                    params.speculative.draft.probabilistic = (*v == llama_grpc::draft_sampling::probabilistic);
+#else
+                    SRV_WRN("%s", "spec_draft_sampling: this llama.cpp build has no --spec-draft-sampling, ignoring\n");
+#endif
+                }
+            }
+
+        // --- devices of the draft model (upstream --spec-draft-device): handed to
+        //     upstream's own device-list parser like the `device` option ---
+        } else if (!strcmp(optname, "spec_draft_device") || !strcmp(optname, "draft_device")) {
+            if (optval != NULL) {
+#if LOCALAI_HAS_SPEC_DRAFT_DEVICE
+                extra_flags.push_back({"--spec-draft-device", optval_str});
+#else
+                SRV_WRN("%s", "spec_draft_device: this llama.cpp build has no --spec-draft-device, ignoring\n");
+#endif
+            }
+
                 } catch (...) {}
             }
 

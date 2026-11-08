@@ -485,6 +485,8 @@ YARN (Yet Another RoPE extensioN) settings for context extension:
 | `yarn_beta_fast` | float32 | YARN beta fast parameter |
 | `yarn_beta_slow` | float32 | YARN beta slow parameter |
 
+The original context size that YaRN scales from is an `options:` entry, `yarn_orig_ctx:N` (upstream `--yarn-orig-ctx`; `0`, the default, uses the model's training context size).
+
 ### Speculative Decoding
 
 Speculative decoding speeds up text generation by predicting multiple tokens ahead and verifying them in a single forward pass. The output is identical to normal decoding - only faster. This feature is only available with the `llama-cpp` backend.
@@ -542,12 +544,17 @@ These are set via the `options:` array in the model configuration (format: `key:
 | `draft_gpu_layers` | int | -1 | GPU layers for the draft model (-1 = use default) |
 | `draft_threads` / `spec_draft_threads` | int | same as main | Threads used by the draft model (`<= 0` = hardware concurrency) |
 | `draft_threads_batch` / `spec_draft_threads_batch` | int | same as `draft_threads` | Threads used by the draft model during batch / prompt processing |
-| `draft_cache_type_k` / `spec_draft_cache_type_k` | string | `f16` | KV cache K data type for the draft model (same values as `cache_type_k`) |
-| `draft_cache_type_v` / `spec_draft_cache_type_v` | string | `f16` | KV cache V data type for the draft model |
+| `draft_cache_type_k` / `spec_draft_cache_type_k` / `spec_draft_type_k` | string | `f16` | KV cache K data type for the draft model (same values as `cache_type_k`). `spec_draft_type_k` is the current upstream name (`--spec-draft-type-k`). |
+| `draft_cache_type_v` / `spec_draft_cache_type_v` / `spec_draft_type_v` | string | `f16` | KV cache V data type for the draft model (upstream `--spec-draft-type-v`) |
+| `spec_draft_n_ubatch` | int | `0` (same as `n_ubatch`) | Physical batch size of the draft context. Use a smaller value to spare VRAM (upstream `--spec-draft-n-ubatch`). |
+| `spec_draft_sampling` | string | `greedy` | How the draft is sampled: `greedy` takes the argmax, `probabilistic` samples it and the target verifies by rejection sampling (upstream `--spec-draft-sampling`). |
+| `spec_draft_device` / `draft_device` | string | follows `device` | Comma-separated devices for the draft model; `none` keeps it off the GPU (upstream `--spec-draft-device`). |
 | `draft_cpu_moe` / `spec_draft_cpu_moe` | bool | false | Keep all MoE expert weights of the draft model on CPU |
 | `draft_n_cpu_moe` / `spec_draft_n_cpu_moe` | int | 0 | Keep MoE expert weights of the first N draft-model layers on CPU |
 | `draft_override_tensor` / `spec_draft_override_tensor` | string | "" | Comma-separated `<tensor regex>=<buffer type>` overrides for the draft model |
-| `draft_ctx_size` | int | (ignored) | Deprecated upstream: the draft now shares the target context size. Accepted for backward compatibility but has no effect. |
+| `draft_ctx_size` | int | (ignored) | Deprecated upstream: the draft now shares the target context size. Accepted for backward compatibility but **has no effect**; the backend logs a warning. |
+
+The names `spec_n_max`, `spec_n_min` and `spec_p_min` map to upstream's `--spec-draft-n-max`, `--spec-draft-n-min` and `--spec-draft-p-min`. The older `--draft-max` style flags were removed upstream: passed as raw flags they are rejected.
 
 **`ngram_simple` options** (used when `spec_type` includes `ngram_simple`)
 
@@ -598,6 +605,8 @@ The canonical names match upstream llama.cpp (dash-separated). For backward comp
 | `draft-simple` | `draft`, `draft_simple` | Draft model-based speculation (auto-set when `draft_model` is configured) |
 | `draft-eagle3` | `eagle3`, `draft_eagle3` | EAGLE3 draft model architecture |
 | `draft-mtp` | `draft_mtp` | Multi-Token Prediction. Reuses the target model's embedded MTP head; no separate draft GGUF required (`draft_model` can be omitted). |
+| `draft-dflash` | `draft_dflash` | DFlash speculation with a draft model set in `draft_model`. |
+| `draft-dspark` | `draft_dspark` | DSpark speculation (the draft model carries a Markov head), draft set in `draft_model`. |
 | `ngram-simple` | `ngram_simple` | Simple self-speculative using token history |
 | `ngram-map-k` | `ngram_map_k` | N-gram with key-only map |
 | `ngram-map-k4v` | `ngram_map_k4v` | N-gram with keys and 4 m-gram values |
@@ -818,6 +827,9 @@ These llama.cpp options are passed through the `options:` array.
 | `override_tensor` / `tensor_buft_overrides` | string | "" | Per-tensor buffer-type overrides for the main model. Format: `<tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...`. Mirrors the existing `draft_override_tensor` syntax for the draft model. |
 | `cpu_moe` | bool | false | Keep all MoE expert weights of the main model on CPU (upstream `--cpu-moe`). Frees VRAM on large MoE models (DeepSeek, Qwen3 `*-A3B`). |
 | `n_cpu_moe` | int | 0 | Keep MoE expert weights of the first N main-model layers on CPU (upstream `--n-cpu-moe`). |
+| `n_cpu_ffn` | int | 0 | Keep the dense FFN weights of the first N main-model layers on CPU (upstream `--n-cpu-ffn`). The counterpart of `n_cpu_moe` for dense models. A negative or non-numeric value is ignored with a warning. |
+| `kv_unified_per_slot` | int | 0 (unset) | Context limit per parallel slot (upstream `--kv-unified-per-slot`). Without `context_size`, the shared KV cache is sized to `parallel` times this value. |
+| `yarn_orig_ctx` | int | 0 (model value) | Original context size of the model for YaRN scaling (upstream `--yarn-orig-ctx`). |
 
 #### Generic option passthrough
 
