@@ -9,6 +9,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `list_galleries` — List configured model galleries.
 - `list_backends` — List installed backends.
 - `list_backend_library_updates` — List installed library backends that have a newer build in their library. Read-only. To take one, confirm, then call `install_library_backend` with the listed `sourceId`, `name` and `version`.
+- `backend_updates` — Gallery and library backends that have a newer build, with when each source was last checked and whether it failed. `action` is `list` (cached, default) or `check` (contacts the registries and waits). Never say there are no updates while a source failed or was never checked. To take one, confirm, then call `upgrade_backend` or `install_library_backend`.
 - `list_known_backends` — List backends available to install from configured backend galleries.
 - `get_job_status` — Poll the status of an install/delete/upgrade job by id.
 - `get_model_config` — Read the YAML/JSON config of an installed model.

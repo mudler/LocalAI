@@ -684,3 +684,31 @@ var _ = Describe("Shared folders", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
+
+var _ = Describe("Backend updates", func() {
+	It("reads the read model and checks now through the REST routes", func() {
+		var seen []string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			seen = append(seen, r.Method+" "+r.URL.Path)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"checkedAt":  "2026-11-08T10:41:00Z",
+				"sources":    map[string]any{"gallery": map[string]any{"state": "ok"}, "library": map[string]any{"state": "failed", "error": "library not reachable"}},
+				"autoUpdate": map[string]any{"backends": true},
+				"items":      []map[string]any{{"id": "gallery:llama-cpp", "kind": "gallery", "name": "llama-cpp", "state": "update", "installedVersion": "1", "availableVersion": "2"}},
+			})
+		}))
+		DeferCleanup(srv.Close)
+
+		c := New(srv.URL, "")
+		got, err := c.BackendUpdates(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got.Items).To(HaveLen(1))
+		Expect(got.Sources["library"].Error).To(Equal("library not reachable"))
+		Expect(got.AutoUpdate.Backends).To(BeTrue())
+
+		got, err = c.CheckBackendUpdates(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got.Items[0].Name).To(Equal("llama-cpp"))
+		Expect(seen).To(Equal([]string{"GET /backends/updates", "POST /backends/updates/check"}))
+	})
+})
