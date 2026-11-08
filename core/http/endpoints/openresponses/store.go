@@ -504,6 +504,16 @@ func (s *ResponseStore) StoreBackgroundOwned(responseID string, request *schema.
 	xlog.Debug("Stored background Open Responses response", "response_id", responseID, "stream_enabled", streamEnabled)
 }
 
+// isTerminalStatus reports whether a response has finished and must not
+// change status again.
+func isTerminalStatus(status string) bool {
+	switch status {
+	case schema.ORStatusCompleted, schema.ORStatusFailed, schema.ORStatusIncomplete, schema.ORStatusCancelled:
+		return true
+	}
+	return false
+}
+
 // UpdateStatus updates the status of a stored response
 func (s *ResponseStore) UpdateStatus(responseID string, status string, completedAt *int64) error {
 	s.mu.RLock()
@@ -515,6 +525,14 @@ func (s *ResponseStore) UpdateStatus(responseID string, status string, completed
 	}
 
 	stored.mu.Lock()
+	// Terminal states are absorbing: a late write from the background
+	// goroutine must not undo a cancellation or reopen a finished response.
+	if isTerminalStatus(stored.Response.Status) {
+		current := stored.Response.Status
+		stored.mu.Unlock()
+		xlog.Debug("Ignoring status update on terminal response", "response_id", responseID, "status", current, "requested", status)
+		return nil
+	}
 	stored.Response.Status = status
 	stored.Response.CompletedAt = completedAt
 	stored.mu.Unlock()
@@ -539,6 +557,14 @@ func (s *ResponseStore) UpdateResponse(responseID string, response *schema.ORRes
 	}
 
 	stored.mu.Lock()
+
+	// Terminal states are absorbing (see UpdateStatus).
+	if isTerminalStatus(stored.Response.Status) {
+		current := stored.Response.Status
+		stored.mu.Unlock()
+		xlog.Debug("Ignoring response update on terminal response", "response_id", responseID, "status", current, "requested", response.Status)
+		return nil
+	}
 
 	// Rebuild item index
 	items := make(map[string]*schema.ORItemField)
@@ -793,8 +819,7 @@ func (s *ResponseStore) cancelLocal(responseID string, stored *StoredResponse) (
 
 	// If already in a terminal state, just return the response (idempotent)
 	status := stored.Response.Status
-	if status == schema.ORStatusCompleted || status == schema.ORStatusFailed ||
-		status == schema.ORStatusIncomplete || status == schema.ORStatusCancelled {
+	if isTerminalStatus(status) {
 		xlog.Debug("Response already in terminal state", "response_id", responseID, "status", status)
 		return stored.Response, nil
 	}
