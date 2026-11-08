@@ -148,8 +148,12 @@ func (uc *UpgradeChecker) Shutdown() {
 	<-uc.done
 }
 
-// TriggerCheck forces an immediate upgrade check on this instance.
+// TriggerCheck forces an immediate upgrade check on this instance. It does
+// nothing on a nil checker.
 func (uc *UpgradeChecker) TriggerCheck() {
+	if uc == nil {
+		return
+	}
 	select {
 	case uc.triggerCh <- struct{}{}:
 	default:
@@ -157,8 +161,14 @@ func (uc *UpgradeChecker) TriggerCheck() {
 	}
 }
 
-// GetAvailableUpgrades returns the cached upgrade check results.
+// GetAvailableUpgrades returns the cached upgrade check results. A nil
+// checker (none is built without backend galleries or with installs disabled)
+// has no results: the methods are nil-safe because Application.UpgradeChecker
+// is handed to code that takes an interface, where a nil pointer is not nil.
 func (uc *UpgradeChecker) GetAvailableUpgrades() map[string]gallery.UpgradeInfo {
+	if uc == nil {
+		return map[string]gallery.UpgradeInfo{}
+	}
 	uc.mu.RLock()
 	defer uc.mu.RUnlock()
 
